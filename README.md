@@ -68,8 +68,8 @@ against a fresh database. See `docs/testing.md` for the test layers and
 - `Mockups/` contains the approved product mockups and the product
   specification PDF. Reference only.
 - `docs/` holds working conventions (`conventions.md`, `migrations.md`,
-  `testing.md`, `seeds.md`, `database-access.md`) and durable architectural
-  decision records (`docs/decisions/`).
+  `testing.md`, `seeds.md`, `database-access.md`, `authentication.md`) and
+  durable architectural decision records (`docs/decisions/`).
 - `PRODUCT.md` and `DESIGN.md` describe product and design intent;
   `ROADMAP.md` and `TODO.md` govern what gets built and in what order.
 

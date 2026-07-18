@@ -60,9 +60,9 @@ Forces:
    opens it.
 
 6. **Landmarks and skip nav.** `<header role=banner>`, `<nav
-   aria-label=Primary>`, `<nav aria-label=Breadcrumb>`, `<aside
-   aria-label=Application navigation>`, `<main id=app-shell-main
-   tabIndex=-1>` and an optional `<aside aria-label=Inspector>`. A
+aria-label=Primary>`, `<nav aria-label=Breadcrumb>`, `<aside
+aria-label=Application navigation>`, `<main id=app-shell-main
+tabIndex=-1>` and an optional `<aside aria-label=Inspector>`. A
    skip-link targets `#app-shell-main`. The last breadcrumb carries
    `aria-current="page"`; the active nav item carries `aria-current="page"`.
 

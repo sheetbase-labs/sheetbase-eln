@@ -252,13 +252,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** UI-003.
 
-- [ ] Implement a compact record header with type, status, identifier, owner, dates, contributors and actions.
-- [ ] Allow fields to disappear cleanly when a record type does not provide them.
-- [ ] Implement reusable inspector sections with tabs, property lists, linked records, files, checks, activity and comments.
-- [ ] Keep the selected record or row reflected in the URL where deep linking is useful.
-- [ ] Make inspector content scroll independently without hiding its identity and close controls.
-- [ ] Include skeleton, no-selection, unavailable-record and permission-denied states.
-- [ ] Test long identifiers, long units, many tags and translated or user-provided text.
+- [x] Implement a compact record header with type, status, identifier, owner, dates, contributors and actions.
+- [x] Allow fields to disappear cleanly when a record type does not provide them.
+- [x] Implement reusable inspector sections with tabs, property lists, linked records, files, checks, activity and comments.
+- [x] Keep the selected record or row reflected in the URL where deep linking is useful.
+- [x] Make inspector content scroll independently without hiding its identity and close controls.
+- [x] Include skeleton, no-selection, unavailable-record and permission-denied states.
+- [x] Test long identifiers, long units, many tags and translated or user-provided text.
 
 ### UI-005 — Productionise scientific status and relationship components
 

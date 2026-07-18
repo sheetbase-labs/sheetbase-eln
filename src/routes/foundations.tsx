@@ -16,6 +16,17 @@ import {
 
 import { useTheme } from '#/components/theme-provider'
 import {
+  RecordHeader,
+  Inspector,
+  PropertyList,
+  Property,
+  LinkedRecordList,
+  FileList,
+  CheckList,
+  ActivityFeed,
+  CommentList,
+} from '#/components/record'
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -330,6 +341,14 @@ function FoundationsPage() {
         </Section>
 
         <Section
+          id="record"
+          title="Record header & inspector"
+          description="The compact record header and contextual inspector (UI-004). Every header field is optional; the inspector has skeleton, no-selection, unavailable and permission-denied states."
+        >
+          <RecordPreview />
+        </Section>
+
+        <Section
           id="contrast"
           title="Contrast checks (WCAG 2.2 AA)"
           description="The common token combinations a scientist reads: body on background, muted on background, primary on primary-foreground, destructive on its foreground."
@@ -473,6 +492,212 @@ const COLOUR_TOKENS: TokenSwatchProps[] = [
   { name: 'Card', value: 'oklch(1 0 0)', varName: '--card' },
   { name: 'Sidebar', value: 'oklch(0.982 0.004 260)', varName: '--sidebar' },
 ]
+
+/**
+ * Live showcase of the record header and contextual inspector (UI-004).
+ * Demonstrates a fully-populated record header and a tabbed inspector with
+ * properties, linked records, files, checks, activity and comments.
+ */
+function RecordPreview() {
+  return (
+    <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
+      <div className="space-y-4 rounded-lg border bg-card p-4">
+        <RecordHeader
+          recordType="Experiment"
+          title="Lentivector stability — 4°C hold"
+          identifier="EXP-2025-0014"
+          status={
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+              In progress
+            </span>
+          }
+          phase={
+            <span className="rounded-full border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+              Phase 2
+            </span>
+          }
+          owner={{ name: 'Gareth Price', initials: 'GP' }}
+          updatedAt="2h ago"
+          contributors={Array.from({ length: 4 }, (_, i) => ({
+            name: `Member ${i + 1}`,
+          }))}
+          tags={
+            <>
+              <span className="rounded-full bg-muted px-2 py-0.5 text-[11px]">
+                stability
+              </span>
+              <span className="rounded-full bg-muted px-2 py-0.5 text-[11px]">
+                lentivirus
+              </span>
+              <span className="rounded-full bg-muted px-2 py-0.5 text-[11px]">
+                gcPCR
+              </span>
+            </>
+          }
+          actions={
+            <Button variant="outline" size="sm">
+              Share
+            </Button>
+          }
+        />
+      </div>
+      <div className="h-[28rem] overflow-hidden rounded-lg border bg-card">
+        <Inspector
+          recordType="Experiment"
+          title="4°C hold"
+          tabs={[
+            {
+              id: 'properties',
+              label: 'Properties',
+              content: (
+                <PropertyList>
+                  <Property label="Project ID" mono>
+                    EXP-2025-0014
+                  </Property>
+                  <Property label="Status">In progress</Property>
+                  <Property label="Phase">Phase 2</Property>
+                  <Property label="Created">14 Jul 2025, 09:12</Property>
+                  <Property label="Owner">Gareth Price</Property>
+                  <Property label="Review status">Needs review</Property>
+                </PropertyList>
+              ),
+            },
+            {
+              id: 'links',
+              label: 'Links',
+              badge: 3,
+              content: (
+                <LinkedRecordList
+                  items={[
+                    {
+                      id: '1',
+                      type: 'Sample',
+                      title: 'Sample 28',
+                      meta: 'Cell line',
+                      icon: FlaskConical,
+                    },
+                    {
+                      id: '2',
+                      type: 'Protocol',
+                      title: 'Stability assay SOP',
+                      meta: 'v3',
+                      icon: Folder,
+                    },
+                    {
+                      id: '3',
+                      type: 'Dataset',
+                      title: 'Raw qPCR',
+                      meta: '12 wells',
+                      icon: Table2,
+                    },
+                  ]}
+                />
+              ),
+            },
+            {
+              id: 'files',
+              label: 'Files',
+              content: (
+                <FileList
+                  items={[
+                    {
+                      id: '1',
+                      name: 'Stability_Assay_Protocol.pdf',
+                      meta: '120 KB',
+                    },
+                    {
+                      id: '2',
+                      name: 'Lentivirus_Handling_SOP.pdf',
+                      meta: '88 KB',
+                    },
+                  ]}
+                />
+              ),
+            },
+            {
+              id: 'checks',
+              label: 'Checks',
+              content: (
+                <CheckList
+                  items={[
+                    {
+                      id: '1',
+                      label: 'Data integrity',
+                      state: 'pass' as const,
+                    },
+                    {
+                      id: '2',
+                      label: 'Instrument calibration',
+                      state: 'pass' as const,
+                    },
+                    {
+                      id: '3',
+                      label: 'Reagent expiry',
+                      state: 'warning' as const,
+                      detail: 'Due in 10d',
+                    },
+                    {
+                      id: '4',
+                      label: 'Training records',
+                      state: 'pending' as const,
+                    },
+                  ]}
+                />
+              ),
+            },
+            {
+              id: 'activity',
+              label: 'Activity',
+              content: (
+                <ActivityFeed
+                  items={[
+                    {
+                      id: '1',
+                      actor: { name: 'Gareth Price', initials: 'GP' },
+                      action: 'updated',
+                      target: 'Protocol 4',
+                      at: '2h ago',
+                    },
+                    {
+                      id: '2',
+                      actor: { name: 'Mia Chen', initials: 'MC' },
+                      action: 'commented on',
+                      target: 'Run 12',
+                      at: '5h ago',
+                    },
+                  ]}
+                />
+              ),
+            },
+            {
+              id: 'comments',
+              label: 'Comments',
+              badge: 2,
+              content: (
+                <CommentList
+                  items={[
+                    {
+                      id: '1',
+                      author: { name: 'Mia Chen', initials: 'MC' },
+                      body: 'Looks good — approve after the repeat.',
+                      at: '1h ago',
+                    },
+                    {
+                      id: '2',
+                      author: { name: 'Gareth Price', initials: 'GP' },
+                      body: 'Repeating run 12 today.',
+                      at: '30m ago',
+                    },
+                  ]}
+                />
+              ),
+            },
+          ]}
+        />
+      </div>
+    </div>
+  )
+}
 
 /**
  * Live showcase of the core primitives (UI-002). Every interactive element

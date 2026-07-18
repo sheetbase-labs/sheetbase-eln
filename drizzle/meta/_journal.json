@@ -15,6 +15,13 @@
       "when": 1784401594779,
       "tag": "0001_sweet_bishop",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784404264252,
+      "tag": "0002_claim_probe",
+      "breakpoints": true
     }
   ]
 }

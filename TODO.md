@@ -238,15 +238,15 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** UI-002, AUTH-002.
 
-- [ ] Implement the left workspace and project-navigation plane shown in the mockups.
-- [ ] Implement the compact top bar with breadcrumbs, search affordance, primary action area and account access.
-- [ ] Reserve the centre for the active work and the right edge for an optional contextual inspector.
-- [ ] Keep left navigation and inspector widths stable on desktop while allowing the centre to grow.
-- [ ] Make navigation collapsible without losing the active project and record context.
-- [ ] Convert the inspector to a modal sheet on narrower screens.
-- [ ] Preserve browser navigation, deep links and route-level loading behaviour.
-- [ ] Add skip navigation and sensible landmark semantics.
-- [ ] Test keyboard navigation, zoom, long project names and narrow desktop widths.
+- [x] Implement the left workspace and project-navigation plane shown in the mockups.
+- [x] Implement the compact top bar with breadcrumbs, search affordance, primary action area and account access.
+- [x] Reserve the centre for the active work and the right edge for an optional contextual inspector.
+- [x] Keep left navigation and inspector widths stable on desktop while allowing the centre to grow.
+- [x] Make navigation collapsible without losing the active project and record context.
+- [x] Convert the inspector to a modal sheet on narrower screens.
+- [x] Preserve browser navigation, deep links and route-level loading behaviour.
+- [x] Add skip navigation and sensible landmark semantics.
+- [x] Test keyboard navigation, zoom, long project names and narrow desktop widths.
 
 ### UI-004 — Build reusable record headers and inspectors
 

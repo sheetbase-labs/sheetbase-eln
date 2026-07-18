@@ -2,6 +2,8 @@ import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { useState } from 'react'
 
+import { AppShell } from '#/components/app-shell'
+
 export const Route = createFileRoute('/')({
   beforeLoad: async () => {
     const context = await getCurrentContextFn()
@@ -45,17 +47,42 @@ const retryBootstrapFn = createServerFn({ method: 'POST' }).handler(
 function Home() {
   const { context } = Route.useRouteContext()
 
+  if (!context.workspace) {
+    return (
+      <AppShell
+        context={{
+          workspace: null,
+          user: { name: context.user.name, email: context.user.email },
+        }}
+        breadcrumbs={[{ label: 'Home' }]}
+      >
+        <BootstrapRecovery userName={context.user.name} />
+      </AppShell>
+    )
+  }
+
   return (
-    <main className="grid min-h-svh place-items-center p-8">
-      <div className="w-full max-w-lg space-y-4">
-        <p className="text-sm font-medium text-muted-foreground">Sheetbase</p>
-        {context.workspace ? (
-          <WorkspaceSummary context={context} />
-        ) : (
-          <BootstrapRecovery userName={context.user.name} />
-        )}
-      </div>
-    </main>
+    <AppShell
+      context={{
+        workspace: { name: context.workspace.name },
+        user: {
+          name: context.user.name,
+          email: context.user.email,
+          role: context.workspace.role,
+        },
+      }}
+      breadcrumbs={[{ label: 'Home' }]}
+      primaryAction={
+        <a
+          href="/projects"
+          className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground no-underline"
+        >
+          + New
+        </a>
+      }
+    >
+      <WorkspaceSummary context={context} />
+    </AppShell>
   )
 }
 
@@ -69,10 +96,13 @@ export function WorkspaceSummary({
 }) {
   const workspace = context.workspace!
   return (
-    <div className="space-y-3">
+    <div className="space-y-6">
       <h1 className="text-2xl font-semibold tracking-tight">
         {workspace.name}
       </h1>
+      <p className="text-sm text-muted-foreground">
+        Welcome back. Your workspace is ready.
+      </p>
       <dl className="space-y-1 text-sm">
         <div className="flex gap-2">
           <dt className="w-28 text-muted-foreground">Signed in as</dt>

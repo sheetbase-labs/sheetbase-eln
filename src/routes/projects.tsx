@@ -5,6 +5,8 @@ import { useState } from 'react'
 
 import { createDataClient, DataClientError } from '#/lib/data-client'
 
+import { AppShell } from '#/components/app-shell'
+
 /**
  * API-004: the first authenticated project vertical slice. Reads projects
  * through the same-origin /api/db boundary using TanStack Query, and creates
@@ -144,29 +146,37 @@ function ProjectsRoute() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl space-y-6 p-8">
-      <header className="space-y-1">
-        <p className="text-sm font-medium text-muted-foreground">
-          {context.workspace?.name ?? 'Sheetbase'}
-        </p>
-        <h1 className="text-2xl font-semibold tracking-tight">Projects</h1>
-      </header>
+    <AppShell
+      context={{
+        workspace: context.workspace ? { name: context.workspace.name } : null,
+        user: { name: context.user.name, email: context.user.email },
+      }}
+      breadcrumbs={[{ label: 'Home', to: '/' }, { label: 'Projects' }]}
+    >
+      <div className="max-w-2xl space-y-6">
+        <header className="space-y-1">
+          <p className="text-sm font-medium text-muted-foreground">
+            {context.workspace?.name ?? 'Sheetbase'}
+          </p>
+          <h1 className="text-2xl font-semibold tracking-tight">Projects</h1>
+        </header>
 
-      <CreateProjectForm
-        title={title}
-        onTitleChange={setTitle}
-        onSubmit={handleSubmit}
-        isPending={isPendingCreate}
-        validationError={validationError}
-      />
+        <CreateProjectForm
+          title={title}
+          onTitleChange={setTitle}
+          onSubmit={handleSubmit}
+          isPending={isPendingCreate}
+          validationError={validationError}
+        />
 
-      <ProjectList
-        projects={projects}
-        isLoading={isLoading}
-        error={query.error}
-        onRetry={() => query.refetch()}
-      />
-    </main>
+        <ProjectList
+          projects={projects}
+          isLoading={isLoading}
+          error={query.error}
+          onRetry={() => query.refetch()}
+        />
+      </div>
+    </AppShell>
   )
 }
 

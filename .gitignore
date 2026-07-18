@@ -13,3 +13,4 @@ __unconfig*
 coverage
 tmp
 storybook-static
+.amp/

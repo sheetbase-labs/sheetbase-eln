@@ -6,6 +6,7 @@ import {
   FlaskConical,
   Folder,
   Moon,
+  Plus,
   Search,
   ShieldCheck,
   Sun,
@@ -14,6 +15,38 @@ import {
 } from 'lucide-react'
 
 import { useTheme } from '#/components/theme-provider'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+  Badge,
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+  Input,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  Textarea,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '#/components/ui'
 import { contrastRatio, oklchToSrgb } from '#/lib/contrast'
 import type { Oklch } from '#/lib/contrast'
 import { cn } from '#/lib/utils'
@@ -289,6 +322,14 @@ function FoundationsPage() {
         </Section>
 
         <Section
+          id="primitives"
+          title="Core primitives"
+          description="The shadcn primitives the next tickets build on. Consistent sizes, visible focus, disabled state, destructive confirmation, keyboard-operable overlays, and programmatic label/description/error wiring."
+        >
+          <PrimitivesGrid />
+        </Section>
+
+        <Section
           id="contrast"
           title="Contrast checks (WCAG 2.2 AA)"
           description="The common token combinations a scientist reads: body on background, muted on background, primary on primary-foreground, destructive on its foreground."
@@ -432,6 +473,145 @@ const COLOUR_TOKENS: TokenSwatchProps[] = [
   { name: 'Card', value: 'oklch(1 0 0)', varName: '--card' },
   { name: 'Sidebar', value: 'oklch(0.982 0.004 260)', varName: '--sidebar' },
 ]
+
+/**
+ * Live showcase of the core primitives (UI-002). Every interactive element
+ * here is real, not a screenshot — focus rings, disabled state, keyboard
+ * behaviour and overlay semantics all work as they will in product screens.
+ */
+function PrimitivesGrid() {
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <Preview title="Buttons — variants, sizes, disabled">
+        <div className="flex flex-wrap items-center gap-3">
+          <Button>Primary</Button>
+          <Button variant="secondary">Secondary</Button>
+          <Button variant="outline">Outline</Button>
+          <Button variant="ghost">Ghost</Button>
+          <Button variant="subtle">Subtle</Button>
+          <Button variant="destructive">Destructive</Button>
+          <Button disabled>Disabled</Button>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <Button size="sm">Small</Button>
+          <Button size="default">Default</Button>
+          <Button size="lg">Large</Button>
+          <Button size="icon" aria-label="Add">
+            <Plus className="size-4" />
+          </Button>
+        </div>
+      </Preview>
+
+      <Preview title="Badges — semantic statuses">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge>Default</Badge>
+          <Badge variant="secondary">Secondary</Badge>
+          <Badge variant="outline">Archived</Badge>
+          <Badge variant="success">In progress</Badge>
+          <Badge variant="info">Needs review</Badge>
+          <Badge variant="warning">Expiring</Badge>
+          <Badge variant="danger">Failed</Badge>
+          <Badge variant="violet">Custom</Badge>
+        </div>
+      </Preview>
+
+      <Preview title="Field — label, description, error">
+        <Field>
+          <FieldLabel htmlFor="sample-title">Experiment title</FieldLabel>
+          <Input
+            id="sample-title"
+            aria-describedby="sample-title-help sample-title-err"
+            aria-invalid="true"
+            defaultValue="Virus Stability"
+          />
+          <FieldDescription id="sample-title-help">
+            Shown in the project notebook list.
+          </FieldDescription>
+          <FieldError id="sample-title-err">
+            A notebook with this title already exists in this project.
+          </FieldError>
+        </Field>
+        <div className="mt-4">
+          <FieldLabel htmlFor="sample-notes">Notes</FieldLabel>
+          <Textarea id="sample-notes" placeholder="Free-text observations…" />
+        </div>
+      </Preview>
+
+      <Preview title="Tabs — keyboard navigation">
+        <Tabs defaultValue="properties">
+          <TabsList>
+            <TabsTrigger value="properties">Properties</TabsTrigger>
+            <TabsTrigger value="activity">Activity</TabsTrigger>
+            <TabsTrigger value="files">Files</TabsTrigger>
+          </TabsList>
+          <TabsContent value="properties">
+            <p className="text-sm text-muted-foreground">
+              Property list placeholder.
+            </p>
+          </TabsContent>
+          <TabsContent value="activity">
+            <p className="text-sm text-muted-foreground">
+              Audit trail placeholder.
+            </p>
+          </TabsContent>
+          <TabsContent value="files">
+            <p className="text-sm text-muted-foreground">
+              Attachments placeholder.
+            </p>
+          </TabsContent>
+        </Tabs>
+      </Preview>
+
+      <Preview title="Tooltip">
+        <TooltipProvider delayDuration={100}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="outline">Hover me</Button>
+            </TooltipTrigger>
+            <TooltipContent>Used inline in data tables.</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </Preview>
+
+      <Preview title="Dropdown menu">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline">Actions</Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem>Rename…</DropdownMenuItem>
+            <DropdownMenuItem>Duplicate</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem>Archive</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </Preview>
+
+      <Preview title="Destructive confirmation (AlertDialog)">
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="destructive">Delete notebook</Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Permanently delete notebook?</AlertDialogTitle>
+              <AlertDialogDescription>
+                All blocks, links and audit history will be removed. This cannot
+                be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </Preview>
+    </div>
+  )
+}
 
 // OKLCH token values mirrored from src/styles.css. The contrast test in
 // src/lib/contrast.test.ts is the authoritative check; the runtime ratios

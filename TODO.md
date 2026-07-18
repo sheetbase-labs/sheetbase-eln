@@ -226,13 +226,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** UI-001.
 
-- [ ] Bring over only the primitives needed by the next tickets, using the source-owned shadcn convention.
-- [ ] Reconcile concept variants for buttons, badges, fields, dialogs, sheets, menus, tabs, tables, tooltips and command surfaces.
-- [ ] Provide consistent sizes, focus treatment, disabled state, destructive confirmation and icon labelling.
-- [ ] Ensure overlays trap and restore focus correctly and close through expected keyboard controls.
-- [ ] Ensure form controls expose labels, descriptions and validation errors programmatically.
-- [ ] Add component tests for keyboard interaction and the most important variants.
-- [ ] Avoid screen-specific variants until at least two real consumers justify them.
+- [x] Bring over only the primitives needed by the next tickets, using the source-owned shadcn convention.
+- [x] Reconcile concept variants for buttons, badges, fields, dialogs, sheets, menus, tabs, tables, tooltips and command surfaces.
+- [x] Provide consistent sizes, focus treatment, disabled state, destructive confirmation and icon labelling.
+- [x] Ensure overlays trap and restore focus correctly and close through expected keyboard controls.
+- [x] Ensure form controls expose labels, descriptions and validation errors programmatically.
+- [x] Add component tests for keyboard interaction and the most important variants.
+- [x] Avoid screen-specific variants until at least two real consumers justify them.
 
 ### UI-003 — Build the stable application shell
 

@@ -13,6 +13,8 @@ export const env = createEnv({
     // Server-only upstream for the data proxy. The browser only ever talks
     // to the same-origin /api/db boundary.
     POSTGREST_URL: z.string().url().default('http://localhost:3001'),
+    // PostgREST admin server (live/ready healthchecks). Server-only.
+    POSTGREST_ADMIN_URL: z.string().url().default('http://localhost:3002'),
     PGRST_JWT_SECRET: z.string().min(32),
   },
   runtimeEnv: process.env,

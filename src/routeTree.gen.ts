@@ -14,6 +14,8 @@ import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiDbSplatRouteImport } from './routes/api/db/$'
+import { Route as ApiHealthLiveRouteImport } from './routes/api/health/live'
+import { Route as ApiHealthReadyRouteImport } from './routes/api/health/ready'
 import { Route as ApiTokenIndexRouteImport } from './routes/api/token/index'
 
 const IndexRoute = IndexRouteImport.update({
@@ -41,6 +43,16 @@ const ApiDbSplatRoute = ApiDbSplatRouteImport.update({
   path: '/api/db/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiHealthLiveRoute = ApiHealthLiveRouteImport.update({
+  id: '/api/health/live',
+  path: '/api/health/live',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiHealthReadyRoute = ApiHealthReadyRouteImport.update({
+  id: '/api/health/ready',
+  path: '/api/health/ready',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiTokenIndexRoute = ApiTokenIndexRouteImport.update({
   id: '/api/token/',
   path: '/api/token/',
@@ -53,6 +65,8 @@ export interface FileRoutesByFullPath {
   '/sign-in': typeof SignInRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/db/$': typeof ApiDbSplatRoute
+  '/api/health/live': typeof ApiHealthLiveRoute
+  '/api/health/ready': typeof ApiHealthReadyRoute
   '/api/token/': typeof ApiTokenIndexRoute
 }
 export interface FileRoutesByTo {
@@ -61,6 +75,8 @@ export interface FileRoutesByTo {
   '/sign-in': typeof SignInRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/db/$': typeof ApiDbSplatRoute
+  '/api/health/live': typeof ApiHealthLiveRoute
+  '/api/health/ready': typeof ApiHealthReadyRoute
   '/api/token': typeof ApiTokenIndexRoute
 }
 export interface FileRoutesById {
@@ -70,15 +86,31 @@ export interface FileRoutesById {
   '/sign-in': typeof SignInRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/db/$': typeof ApiDbSplatRoute
+  '/api/health/live': typeof ApiHealthLiveRoute
+  '/api/health/ready': typeof ApiHealthReadyRoute
   '/api/token/': typeof ApiTokenIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/projects' | '/sign-in' | '/api/auth/$' | '/api/db/$' | '/api/token/'
+    | '/'
+    | '/projects'
+    | '/sign-in'
+    | '/api/auth/$'
+    | '/api/db/$'
+    | '/api/health/live'
+    | '/api/health/ready'
+    | '/api/token/'
   fileRoutesByTo: FileRoutesByTo
   to:
-    '/' | '/projects' | '/sign-in' | '/api/auth/$' | '/api/db/$' | '/api/token'
+    | '/'
+    | '/projects'
+    | '/sign-in'
+    | '/api/auth/$'
+    | '/api/db/$'
+    | '/api/health/live'
+    | '/api/health/ready'
+    | '/api/token'
   id:
     | '__root__'
     | '/'
@@ -86,6 +118,8 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/api/auth/$'
     | '/api/db/$'
+    | '/api/health/live'
+    | '/api/health/ready'
     | '/api/token/'
   fileRoutesById: FileRoutesById
 }
@@ -95,6 +129,8 @@ export interface RootRouteChildren {
   SignInRoute: typeof SignInRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiDbSplatRoute: typeof ApiDbSplatRoute
+  ApiHealthLiveRoute: typeof ApiHealthLiveRoute
+  ApiHealthReadyRoute: typeof ApiHealthReadyRoute
   ApiTokenIndexRoute: typeof ApiTokenIndexRoute
 }
 
@@ -135,6 +171,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDbSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/health/live': {
+      id: '/api/health/live'
+      path: '/api/health/live'
+      fullPath: '/api/health/live'
+      preLoaderRoute: typeof ApiHealthLiveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/health/ready': {
+      id: '/api/health/ready'
+      path: '/api/health/ready'
+      fullPath: '/api/health/ready'
+      preLoaderRoute: typeof ApiHealthReadyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/token/': {
       id: '/api/token/'
       path: '/api/token'
@@ -151,6 +201,8 @@ const rootRouteChildren: RootRouteChildren = {
   SignInRoute: SignInRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiDbSplatRoute: ApiDbSplatRoute,
+  ApiHealthLiveRoute: ApiHealthLiveRoute,
+  ApiHealthReadyRoute: ApiHealthReadyRoute,
   ApiTokenIndexRoute: ApiTokenIndexRoute,
 }
 export const routeTree = rootRouteImport

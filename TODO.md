@@ -185,13 +185,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** API-004.
 
-- [ ] Provide liveness and readiness checks that distinguish application health from database and PostgREST readiness.
-- [ ] Define a request or correlation identifier propagated through the application, PostgREST boundary and logs.
-- [ ] Map database validation, permission, conflict and unavailable-service failures to stable public error categories.
-- [ ] Keep secrets, tokens, cookies, formula contents and sensitive scientific payloads out of logs by default.
-- [ ] Add structured server logging with useful request context and documented severity conventions.
-- [ ] Test that expected user errors do not appear as unclassified server failures.
-- [ ] Add a short troubleshooting section for common local startup and authentication failures.
+- [x] Provide liveness and readiness checks that distinguish application health from database and PostgREST readiness.
+- [x] Define a request or correlation identifier propagated through the application, PostgREST boundary and logs.
+- [x] Map database validation, permission, conflict and unavailable-service failures to stable public error categories.
+- [x] Keep secrets, tokens, cookies, formula contents and sensitive scientific payloads out of logs by default.
+- [x] Add structured server logging with useful request context and documented severity conventions.
+- [x] Test that expected user errors do not appear as unclassified server failures.
+- [x] Add a short troubleshooting section for common local startup and authentication failures.
 
 ### API-007 — Automate the Phase 1 fresh-environment proof
 

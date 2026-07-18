@@ -20,8 +20,8 @@
     "db:pull": "drizzle-kit pull",
     "db:studio": "drizzle-kit studio",
     "lint": "eslint src vite.config.ts vitest.config.ts drizzle.config.ts",
-    "format": "prettier --write src package.json components.json tsconfig.json tsr.config.json vite.config.ts vitest.config.ts drizzle.config.ts eslint.config.js prettier.config.js pnpm-workspace.yaml compose.yaml README.md && eslint --fix src vite.config.ts vitest.config.ts drizzle.config.ts",
-    "check": "prettier --check src package.json components.json tsconfig.json tsr.config.json vite.config.ts vitest.config.ts drizzle.config.ts eslint.config.js prettier.config.js pnpm-workspace.yaml compose.yaml README.md"
+    "format": "prettier --write src docs package.json components.json tsconfig.json tsr.config.json vite.config.ts vitest.config.ts drizzle.config.ts eslint.config.js prettier.config.js pnpm-workspace.yaml compose.yaml README.md && eslint --fix src vite.config.ts vitest.config.ts drizzle.config.ts",
+    "check": "prettier --check src docs package.json components.json tsconfig.json tsr.config.json vite.config.ts vitest.config.ts drizzle.config.ts eslint.config.js prettier.config.js pnpm-workspace.yaml compose.yaml README.md"
   },
   "dependencies": {
     "@t3-oss/env-core": "^0.13.11",

@@ -27,13 +27,43 @@ pnpm db:migrate
 pnpm dev
 ```
 
-The app runs at `http://localhost:3000`. Run `pnpm validate` for the full local quality gate.
+The app runs at `http://localhost:3000`.
+
+## Commands
+
+Everything a new developer needs, without reading source:
+
+| Task                                                 | Command                |
+| ---------------------------------------------------- | ---------------------- |
+| Start local services (PostgreSQL)                    | `docker compose up -d` |
+| Stop local services                                  | `docker compose down`  |
+| Start the app (dev)                                  | `pnpm dev`             |
+| Run all tests                                        | `pnpm test`            |
+| Generate a migration after schema edits              | `pnpm db:generate`     |
+| Apply migrations                                     | `pnpm db:migrate`      |
+| Format code                                          | `pnpm format`          |
+| Full quality gate (check, lint, types, tests, build) | `pnpm validate`        |
+
+See `docs/migrations.md` before changing schema, including how to verify
+against a fresh database. See `docs/testing.md` for the test layers.
 
 ## Repository boundaries
 
-- `src/` is the production application.
-- `Concepts/sheetbase-ui-system-v2/` is the current UI-system study, not a production dependency.
-- `Mockups/` contains product mockups and the product specification.
-- `PRODUCT.md` and `DESIGN.md` describe product and design intent.
+- `src/` is the production application — the only code that ships.
+- `Concepts/sheetbase-ui-system-v2/` is the current UI-system study. It is
+  reference material: read it, port reviewed pieces from it, never import or
+  depend on it from `src/`.
+- `Mockups/` contains the approved product mockups and the product
+  specification PDF. Reference only.
+- `docs/` holds working conventions (`conventions.md`, `migrations.md`,
+  `testing.md`) and durable architectural decision records
+  (`docs/decisions/`).
+- `PRODUCT.md` and `DESIGN.md` describe product and design intent;
+  `ROADMAP.md` and `TODO.md` govern what gets built and in what order.
 
-Product components should be added through shadcn's source-owned pattern and then reconciled with the concept system. Copying the concept catalogue wholesale would preserve decisions that are still under review.
+Product components should be added through shadcn's source-owned pattern and
+then reconciled with the concept system. Copying the concept catalogue
+wholesale would preserve decisions that are still under review. Naming rules
+for database objects, REST resources, domain identifiers and event types —
+plus when to use TanStack Table vs Handsontable — are in
+`docs/conventions.md`.

@@ -45,6 +45,7 @@ Everything a new developer needs, without reading source:
 | Recreate services from scratch                       | `pnpm services:recreate` |
 | Start the app (dev)                                  | `pnpm dev`               |
 | Run all tests                                        | `pnpm test`              |
+| Run database integration tests                       | `pnpm test:db`           |
 | Generate a migration after schema edits              | `pnpm db:generate`       |
 | Apply migrations                                     | `pnpm db:migrate`        |
 | Seed minimal fixtures                                | `pnpm db:seed`           |
@@ -67,8 +68,8 @@ against a fresh database. See `docs/testing.md` for the test layers and
 - `Mockups/` contains the approved product mockups and the product
   specification PDF. Reference only.
 - `docs/` holds working conventions (`conventions.md`, `migrations.md`,
-  `testing.md`) and durable architectural decision records
-  (`docs/decisions/`).
+  `testing.md`, `seeds.md`, `database-access.md`) and durable architectural
+  decision records (`docs/decisions/`).
 - `PRODUCT.md` and `DESIGN.md` describe product and design intent;
   `ROADMAP.md` and `TODO.md` govern what gets built and in what order.
 

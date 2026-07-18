@@ -1,7 +1,15 @@
-import { defineConfig } from 'vitest/config'
+import { configDefaults, defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
     environment: 'jsdom',
+    exclude: [
+      ...configDefaults.exclude,
+      // Database, API and browser layers need the local service stack and
+      // their own configs; see docs/testing.md.
+      'tests/db/**',
+      'tests/api/**',
+      'tests/browser/**',
+    ],
   },
 })

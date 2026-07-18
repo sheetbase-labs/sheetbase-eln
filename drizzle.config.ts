@@ -3,10 +3,13 @@ import { defineConfig } from 'drizzle-kit'
 
 config({ path: ['.env.local', '.env'] })
 
-const databaseUrl = process.env.DATABASE_URL
+const databaseUrl =
+  process.env.MIGRATION_DATABASE_URL ?? process.env.DATABASE_URL
 
 if (!databaseUrl) {
-  throw new Error('DATABASE_URL is required. Copy .env.example to .env.local.')
+  throw new Error(
+    'MIGRATION_DATABASE_URL (or DATABASE_URL) is required. Copy .env.example to .env.local.',
+  )
 }
 
 export default defineConfig({

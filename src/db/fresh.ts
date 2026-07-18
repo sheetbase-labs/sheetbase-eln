@@ -12,7 +12,7 @@ import { execFileSync } from 'node:child_process'
 config({ path: ['.env.local', '.env'] })
 
 const hasMigrations = existsSync(
-  new URL('../drizzle/meta/_journal.json', import.meta.url),
+  new URL('../../drizzle/meta/_journal.json', import.meta.url),
 )
 
 execFileSync('pnpm', ['exec', 'tsx', 'src/db/reset.ts'], { stdio: 'inherit' })

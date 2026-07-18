@@ -28,7 +28,11 @@ async function main() {
     await client.query(
       `DROP DATABASE IF EXISTS ${quoteIdent(databaseName)} WITH (FORCE)`,
     )
-    await client.query(`CREATE DATABASE ${quoteIdent(databaseName)}`)
+    // Recreate owned by migrator, matching docker/db/init/00-roles.sh, so the
+    // reset database has the same ownership as a freshly initialised volume.
+    await client.query(
+      `CREATE DATABASE ${quoteIdent(databaseName)} OWNER ${quoteIdent('migrator')}`,
+    )
   } finally {
     await client.end()
   }

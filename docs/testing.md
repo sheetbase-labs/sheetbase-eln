@@ -12,10 +12,11 @@ done names the layers it must touch; not every ticket needs all five.
 | Browser workflow     | Does the whole user journey work in a real browser?                                                 | Playwright                                              | `tests/browser/`                          | `pnpm test:browser` |
 
 Status today: unit and component layers are wired (`pnpm test`,
-jsdom environment). Database, API and browser layers are defined here so their
-conventions exist before Phase 1 adds them; the `test:db`, `test:api` and
-`test:browser` scripts arrive with the tickets that introduce those layers
-(API-002, API-004 and the first browser acceptance proof respectively).
+jsdom environment). The database integration layer is wired
+(`pnpm test:db`, node environment, fresh migrated `sheetbase_test` per run —
+requires `pnpm services:up`). The API and browser layers are defined here so
+their conventions exist before the tickets that introduce them (API-004 and
+the first browser acceptance proof respectively).
 
 ## Rules that apply at every layer
 

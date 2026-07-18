@@ -69,3 +69,32 @@ the first browser acceptance proof respectively).
   few journeys where a component test cannot demonstrate the outcome
   (multi-tab liveness, real navigation, focus across the shell).
 - Keep them few, deterministic and independent of execution order.
+
+## Phase 1 fresh-environment proof (API-007)
+
+`pnpm test:phase1` runs the Phase 1 exit gate from `ROADMAP.md` in one
+target. It lives at `tests/db/phase1-proof.test.ts` and proves, against a
+freshly dropped/recreated/migrated `sheetbase_test`:
+
+- every migration applies cleanly to an empty database and the expected
+  workspace-owned tables exist;
+- an authenticated browser-session claim can create and read a project
+  through the same `api.create_project` RPC the UI uses;
+- a scoped external credential can read the same project through the
+  `api_client` role + RLS, after the proxy verifies the token, re-checks
+  revocation at use time and enforces scope;
+- anonymous access with missing or malformed claims returns no data and
+  rejects inserts;
+- a second workspace cannot read or mutate the first workspace's project,
+  through either the browser path or an external credential;
+- an external token whose `workspace_id` claim was tampered to another
+  workspace is rejected;
+- no resources are left outside the proof's two workspaces.
+
+Failures in this target identify the broken boundary directly: a migration
+failure fails in `prepareTestDatabase`, an RLS failure fails in the
+isolation cases, a scope failure fails in the external-credential case.
+
+Run the full DB suite (`pnpm test:db`) to also cover AUTH-003 claim
+contracts, AUTH-004 RLS, API-004 RPC, API-005 credential exchange and the
+API-005 follow-up external-path integration.

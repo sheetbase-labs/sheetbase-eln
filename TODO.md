@@ -197,13 +197,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** AUTH-004, API-005, API-006.
 
-- [ ] Add one repeatable command or test target that starts from an empty test database, applies migrations and creates fixtures.
-- [ ] Prove anonymous project access fails.
-- [ ] Prove a browser-session-equivalent claim can create and read a project.
-- [ ] Prove a scoped external credential can read the same project.
-- [ ] Prove a second workspace cannot read or mutate it.
-- [ ] Ensure the proof cleans up only resources it created.
-- [ ] Document the expected output and make failures identify the broken boundary.
+- [x] Add one repeatable command or test target that starts from an empty test database, applies migrations and creates fixtures.
+- [x] Prove anonymous project access fails.
+- [x] Prove a browser-session-equivalent claim can create and read a project.
+- [x] Prove a scoped external credential can read the same project.
+- [x] Prove a second workspace cannot read or mutate it.
+- [x] Ensure the proof cleans up only resources it created.
+- [x] Document the expected output and make failures identify the broken boundary.
 
 ---
 

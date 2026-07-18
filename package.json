@@ -13,6 +13,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:db": "vitest run --config vitest.db.config.ts",
+    "test:phase1": "vitest run --config vitest.db.config.ts phase1-proof",
     "typecheck": "tsc --noEmit",
     "validate": "pnpm check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "db:generate": "drizzle-kit generate",

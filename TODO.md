@@ -172,14 +172,14 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** API-004.
 
-- [ ] Define API credential records with workspace ownership, a display prefix, hashed secret material, scopes, creation time, last-used time and revocation time.
-- [ ] Show the full credential only once at creation and never store or log it in recoverable plaintext.
-- [ ] Exchange a valid credential for short-lived PostgREST claims with narrower capabilities than the credential's scopes.
-- [ ] Support revocation and make revoked credentials fail immediately.
-- [ ] Add an initial read/write projects scope to prove scope enforcement without inventing the entire future vocabulary.
-- [ ] Rate-limit or otherwise protect credential exchange from unbounded guessing.
-- [ ] Add tests for creation, successful use, wrong secret, wrong scope, expiry and revocation.
-- [ ] Document a command-line example that reads the same project visible in the UI.
+- [x] Define API credential records with workspace ownership, a display prefix, hashed secret material, scopes, creation time, last-used time and revocation time.
+- [x] Show the full credential only once at creation and never store or log it in recoverable plaintext.
+- [x] Exchange a valid credential for short-lived PostgREST claims with narrower capabilities than the credential's scopes.
+- [x] Support revocation and make revoked credentials fail immediately.
+- [x] Add an initial read/write projects scope to prove scope enforcement without inventing the entire future vocabulary.
+- [x] Rate-limit or otherwise protect credential exchange from unbounded guessing.
+- [x] Add tests for creation, successful use, wrong secret, wrong scope, expiry and revocation.
+- [x] Document a command-line example that reads the same project visible in the UI.
 
 ### API-006 — Add service health, errors and request diagnostics
 

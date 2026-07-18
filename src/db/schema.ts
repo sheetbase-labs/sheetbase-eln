@@ -130,6 +130,42 @@ export const verification = internal.table('verification', {
 })
 
 // ---------------------------------------------------------------------------
+// internal — API-005 scoped external API credentials. Never exposed to
+// PostgREST's api schema. Secrets are hashed (SHA-256, salted with the
+// credential id); the full secret is shown to the user only once at
+// creation. Exchange happens server-side (src/lib/api-credentials.ts).
+// ---------------------------------------------------------------------------
+
+export const apiCredentials = internal.table(
+  'api_credentials',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    displayPrefix: text('display_prefix').notNull().unique(),
+    secretHash: text('secret_hash').notNull(),
+    name: text('name').notNull(),
+    scopes: text('scopes')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true, mode: 'date' }),
+    revokedAt: timestamp('revoked_at', { withTimezone: true, mode: 'date' }),
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    index('idx_api_credentials_workspace_id').on(table.workspaceId),
+    index('idx_api_credentials_secret_hash').on(table.secretHash),
+  ],
+)
+
+// ---------------------------------------------------------------------------
 // api — PostgREST-exposed domain tables.
 // ---------------------------------------------------------------------------
 

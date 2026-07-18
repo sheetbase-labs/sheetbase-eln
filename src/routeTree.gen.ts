@@ -14,6 +14,7 @@ import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiDbSplatRouteImport } from './routes/api/db/$'
+import { Route as ApiTokenIndexRouteImport } from './routes/api/token/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -40,6 +41,11 @@ const ApiDbSplatRoute = ApiDbSplatRouteImport.update({
   path: '/api/db/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiTokenIndexRoute = ApiTokenIndexRouteImport.update({
+  id: '/api/token/',
+  path: '/api/token/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/sign-in': typeof SignInRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/db/$': typeof ApiDbSplatRoute
+  '/api/token/': typeof ApiTokenIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/sign-in': typeof SignInRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/db/$': typeof ApiDbSplatRoute
+  '/api/token': typeof ApiTokenIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,13 +70,23 @@ export interface FileRoutesById {
   '/sign-in': typeof SignInRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/db/$': typeof ApiDbSplatRoute
+  '/api/token/': typeof ApiTokenIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/projects' | '/sign-in' | '/api/auth/$' | '/api/db/$'
+  fullPaths:
+    '/' | '/projects' | '/sign-in' | '/api/auth/$' | '/api/db/$' | '/api/token/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/projects' | '/sign-in' | '/api/auth/$' | '/api/db/$'
-  id: '__root__' | '/' | '/projects' | '/sign-in' | '/api/auth/$' | '/api/db/$'
+  to:
+    '/' | '/projects' | '/sign-in' | '/api/auth/$' | '/api/db/$' | '/api/token'
+  id:
+    | '__root__'
+    | '/'
+    | '/projects'
+    | '/sign-in'
+    | '/api/auth/$'
+    | '/api/db/$'
+    | '/api/token/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -77,6 +95,7 @@ export interface RootRouteChildren {
   SignInRoute: typeof SignInRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiDbSplatRoute: typeof ApiDbSplatRoute
+  ApiTokenIndexRoute: typeof ApiTokenIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -116,6 +135,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDbSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/token/': {
+      id: '/api/token/'
+      path: '/api/token'
+      fullPath: '/api/token/'
+      preLoaderRoute: typeof ApiTokenIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -125,6 +151,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignInRoute: SignInRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiDbSplatRoute: ApiDbSplatRoute,
+  ApiTokenIndexRoute: ApiTokenIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

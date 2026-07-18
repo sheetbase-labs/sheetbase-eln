@@ -146,14 +146,14 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** AUTH-003, API-003.
 
-- [ ] Enable row-level security on every workspace-owned table.
-- [ ] Add policies for reading and writing only records belonging to the active membership and workspace claim.
-- [ ] Ensure inserts cannot choose a different workspace than the authenticated context.
-- [ ] Ensure updates cannot move records between workspaces.
-- [ ] Define owner-only operations separately from ordinary member operations.
-- [ ] Force row-level security where table ownership could otherwise bypass it in normal API use.
-- [ ] Test reads, inserts, updates and deletes using two workspaces and multiple roles.
-- [ ] Test that missing or malformed claims return no private data.
+- [x] Enable row-level security on every workspace-owned table.
+- [x] Add policies for reading and writing only records belonging to the active membership and workspace claim.
+- [x] Ensure inserts cannot choose a different workspace than the authenticated context.
+- [x] Ensure updates cannot move records between workspaces.
+- [x] Define owner-only operations separately from ordinary member operations.
+- [x] Force row-level security where table ownership could otherwise bypass it in normal API use.
+- [x] Test reads, inserts, updates and deletes using two workspaces and multiple roles.
+- [x] Test that missing or malformed claims return no private data.
 
 ### API-004 — Deliver the first authenticated project vertical slice
 

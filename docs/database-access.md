@@ -61,9 +61,45 @@ current_setting('request.jwt.claims', true)::jsonb ->> 'workspace_id'
 The `role` claim chooses the PostgreSQL role PostgREST switches to (`anon`
 or `authenticated`); any other claim (`sub`, `workspace_id`, session id) is
 readable the same way inside RLS policies. AUTH-003 defines the exact claim
-set and AUTH-004 writes the policies that consume them; nothing may be
-trusted until both exist.
+set; AUTH-004 writes the policies that consume them.
 
-Designated helpers (added with AUTH-004) will read claims defensively:
-missing or malformed claims must yield "no workspace context", and RLS must
-then return zero rows — never an error that leaks structure.
+## Row-level security (AUTH-004)
+
+Every workspace-owned table (`api.workspaces`, `api.workspace_memberships`,
+`api.projects`) has RLS enabled. The request roles (`anon`, `authenticated`)
+are not the table owner, so RLS is authoritative for every API path without
+`FORCE`. The owner (`migrator`) bypasses RLS for migrations, seed and
+bootstrap; the production bootstrap path runs as the `DATABASE_URL`
+superuser. See decision record 0006.
+
+Claim-reader helpers live in `api` (where `authenticated` has `USAGE`),
+not `internal` — decision record 0002 closes `internal` to request roles,
+and these helpers read only GUCs and `api.workspace_memberships`, never
+`internal` data. They reuse `api.claim_probe` (AUTH-003) and are defensive:
+missing, empty or malformed `request.jwt.claims` yield `NULL`, so every
+policy comparison fails closed — zero rows, never an error that leaks
+structure.
+
+- `api.current_user_id()` → the `sub` claim, or `NULL`.
+- `api.current_workspace_id()` → the `workspace_id` claim as uuid, or `NULL`.
+- `api.is_workspace_member(workspace_id, role?)` → whether the caller is a
+  member (or member with a given role) of the workspace. `SECURITY DEFINER`
+  so it can read `api.workspace_memberships` without recursing through that
+  table's RLS.
+
+Policy model (per table):
+
+| Table                   | SELECT | INSERT                      | UPDATE                         | DELETE         |
+| ----------------------- | ------ | --------------------------- | ------------------------------ | -------------- |
+| `workspaces`            | member | — (service op)              | owner                          | — (service op) |
+| `workspace_memberships` | member | owner (own workspace only)  | owner (cannot move workspace)  | owner          |
+| `projects`              | member | member (own workspace only) | member (cannot move workspace) | owner          |
+
+Every `INSERT` and `UPDATE` `WITH CHECK` pins `workspace_id` (or `id` for
+`workspaces`) to `api.current_workspace_id()`, so inserts cannot choose
+another workspace and updates cannot move records between workspaces.
+`anon` has no policies and no table grants, so it sees nothing.
+
+`tests/db/workspace-rls.test.ts` proves read isolation, the insert/update/
+delete boundaries, owner-only operations and the missing-claim and anon
+failure paths using two workspaces and three users.

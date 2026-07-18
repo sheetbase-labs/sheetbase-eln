@@ -159,14 +159,14 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** AUTH-004.
 
-- [ ] Expose projects through PostgREST with stable field names and predictable filtering.
-- [ ] Add any controlled project mutation RPCs that cannot safely be represented as direct CRUD.
-- [ ] Build a minimal project list and create-project interaction in the authenticated application.
-- [ ] Fetch and mutate through TanStack Query using the same-origin authenticated API boundary.
-- [ ] Show useful loading, empty, validation and permission states.
-- [ ] Add optimistic creation only if rollback and duplicate prevention are reliable.
-- [ ] Prove that a project created through REST appears in the application and vice versa.
-- [ ] Add API contract, RLS isolation and component interaction tests.
+- [x] Expose projects through PostgREST with stable field names and predictable filtering.
+- [x] Add any controlled project mutation RPCs that cannot safely be represented as direct CRUD.
+- [x] Build a minimal project list and create-project interaction in the authenticated application.
+- [x] Fetch and mutate through TanStack Query using the same-origin authenticated API boundary.
+- [x] Show useful loading, empty, validation and permission states.
+- [x] Add optimistic creation only if rollback and duplicate prevention are reliable.
+- [x] Prove that a project created through REST appears in the application and vice versa.
+- [x] Add API contract, RLS isolation and component interaction tests.
 
 ### API-005 — Add scoped external API credentials
 

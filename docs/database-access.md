@@ -103,3 +103,22 @@ another workspace and updates cannot move records between workspaces.
 `tests/db/workspace-rls.test.ts` proves read isolation, the insert/update/
 delete boundaries, owner-only operations and the missing-claim and anon
 failure paths using two workspaces and three users.
+
+## First vertical slice (API-004)
+
+The `api.projects` table is the first PostgREST-exposed resource the
+application uses:
+
+- **Read:** `GET /api/db/projects?order=created_at.desc` — list ordered by
+  recency. RLS scopes rows to the caller's workspace.
+- **Create:** `POST /api/db/rpc/create_project` with `{ p_title }` — the
+  server generates a stable per-workspace `key` (slugified title, with a
+  numeric suffix on collision) and returns the created row. Direct INSERT
+  is also permitted by RLS, but the RPC guarantees unique, well-formed keys
+  without a client round-trip.
+- **Update/delete:** direct CRUD through `/api/db/projects`, gated by the
+  `projects_update` (member) and `projects_delete` (owner) RLS policies.
+
+The browser reaches all of these through the same-origin `/api/db` boundary
+via `src/lib/data-client.ts`; it never talks to PostgREST directly.
+`tests/db/create-project-rpc.test.ts` is the contract proof.

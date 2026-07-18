@@ -4,6 +4,7 @@ import { defineConfig } from 'vitest/config'
 // full migration history applied to a disposable database. Requires
 // `pnpm services:up`. See docs/testing.md.
 export default defineConfig({
+  resolve: { tsconfigPaths: true },
   test: {
     environment: 'node',
     include: ['tests/db/**/*.test.ts'],

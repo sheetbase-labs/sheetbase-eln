@@ -13,6 +13,14 @@ import { config } from 'dotenv'
 import { drizzle } from 'drizzle-orm/node-postgres'
 
 import * as schema from '../schema'
+import {
+  FIXTURE_PROJECT_ID,
+  FIXTURE_PROJECT_KEY,
+  FIXTURE_USER_EMAIL,
+  FIXTURE_USER_ID,
+  FIXTURE_WORKSPACE_ID,
+  FIXTURE_WORKSPACE_SLUG,
+} from './identities'
 
 config({ path: ['.env.local', '.env'] })
 
@@ -32,9 +40,75 @@ function createDb(databaseUrl: string) {
  * than mutating fixture rows.
  */
 export const fixtureSteps: Array<SeedStep> = [
-  // API-003: upsert fixture user, workspace, owner membership and project
-  // using the FIXTURE_* identities. Keep steps idempotent (ON CONFLICT on the
-  // stable key).
+  {
+    name: 'fixture user',
+    run: async (db) => {
+      await db
+        .insert(schema.user)
+        .values({
+          id: FIXTURE_USER_ID,
+          name: 'Fixture Owner',
+          email: FIXTURE_USER_EMAIL,
+          emailVerified: true,
+        })
+        .onConflictDoUpdate({
+          target: schema.user.id,
+          set: { name: 'Fixture Owner', email: FIXTURE_USER_EMAIL },
+        })
+    },
+  },
+  {
+    name: 'fixture workspace',
+    run: async (db) => {
+      await db
+        .insert(schema.workspaces)
+        .values({
+          id: FIXTURE_WORKSPACE_ID,
+          slug: FIXTURE_WORKSPACE_SLUG,
+          name: 'Fixture Workspace',
+        })
+        .onConflictDoUpdate({
+          target: schema.workspaces.id,
+          set: { slug: FIXTURE_WORKSPACE_SLUG, name: 'Fixture Workspace' },
+        })
+    },
+  },
+  {
+    name: 'fixture owner membership',
+    run: async (db) => {
+      await db
+        .insert(schema.workspaceMemberships)
+        .values({
+          workspaceId: FIXTURE_WORKSPACE_ID,
+          userId: FIXTURE_USER_ID,
+          role: 'owner',
+        })
+        .onConflictDoUpdate({
+          target: [
+            schema.workspaceMemberships.workspaceId,
+            schema.workspaceMemberships.userId,
+          ],
+          set: { role: 'owner' },
+        })
+    },
+  },
+  {
+    name: 'fixture project',
+    run: async (db) => {
+      await db
+        .insert(schema.projects)
+        .values({
+          id: FIXTURE_PROJECT_ID,
+          workspaceId: FIXTURE_WORKSPACE_ID,
+          key: FIXTURE_PROJECT_KEY,
+          title: 'Fixture Project',
+        })
+        .onConflictDoUpdate({
+          target: [schema.projects.workspaceId, schema.projects.key],
+          set: { title: 'Fixture Project' },
+        })
+    },
+  },
 ]
 
 /**
@@ -58,9 +132,13 @@ async function main() {
   const steps = withDemo ? [...fixtureSteps, ...demoSteps] : fixtureSteps
 
   const db = createDb(databaseUrl)
-  for (const step of steps) {
-    await step.run(db)
-    console.log(`seed: ${step.name}`)
+  try {
+    for (const step of steps) {
+      await step.run(db)
+      console.log(`seed: ${step.name}`)
+    }
+  } finally {
+    await db.$client.end()
   }
 
   console.log(

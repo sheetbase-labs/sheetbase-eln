@@ -38,6 +38,10 @@ concepts contain decisions still under review.
   (`projects_select_member_policy`).
 - Schemas: `api` for the PostgREST-exposed surface, `internal` for everything
   PostgREST must never see. Nothing user-owned lives in `public`.
+- Exception: Better Auth core tables in `internal` keep Better Auth's quoted
+  camelCase column names, because those tables implement Better Auth's
+  contract, not Sheetbase domain naming (see decision record 0003). The
+  exception never spreads to domain tables.
 
 ## REST resource naming
 

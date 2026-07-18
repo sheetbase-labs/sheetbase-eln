@@ -8,6 +8,13 @@
       "when": 1784400734953,
       "tag": "0000_roles_and_schemas",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1784401594779,
+      "tag": "0001_sweet_bishop",
+      "breakpoints": true
     }
   ]
 }

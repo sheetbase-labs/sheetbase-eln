@@ -1,0 +1,39 @@
+# Sheetbase
+
+Sheetbase is a document-first electronic laboratory notebook for scientific work. This repository currently contains the product foundation and the source material that will guide the application UI.
+
+## Stack
+
+- TanStack Start and React 19 for the full-stack application.
+- TanStack Query for server-state fetching and caching.
+- TanStack DB with query-backed collections for optimistic, live client views.
+- TanStack Table for headless tables and data grids.
+- PostgreSQL with Drizzle ORM and migrations.
+- Tailwind CSS 4 and shadcn/ui's source-owned component convention.
+- Vitest, Testing Library, ESLint, Prettier, and strict TypeScript.
+
+TanStack DB makes queries reactive when their collections change; PostgreSQL changes do not reach the browser by themselves. The initial collection adapter can use TanStack Query and API invalidation, while a push or sync transport should be selected when real-time collaboration requirements are implemented.
+
+## Local development
+
+Requirements: Node.js 22.12 or newer, pnpm 11, and Docker.
+
+```bash
+cp .env.example .env.local
+docker compose up -d
+pnpm install
+pnpm db:generate
+pnpm db:migrate
+pnpm dev
+```
+
+The app runs at `http://localhost:3000`. Run `pnpm validate` for the full local quality gate.
+
+## Repository boundaries
+
+- `src/` is the production application.
+- `Concepts/sheetbase-ui-system-v2/` is the current UI-system study, not a production dependency.
+- `Mockups/` contains product mockups and the product specification.
+- `PRODUCT.md` and `DESIGN.md` describe product and design intent.
+
+Product components should be added through shadcn's source-owned pattern and then reconciled with the concept system. Copying the concept catalogue wholesale would preserve decisions that are still under review.

@@ -213,14 +213,14 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** FND-001.
 
-- [ ] Compare production tokens with `DESIGN.md`, the brand guide mockup and the concept system.
-- [ ] Add Instrument Sans for headings and Inter for body, controls and data with reliable local or hosted loading behaviour.
-- [ ] Preserve the approved blue, scientific neutrals, semantic statuses and ordered chart palette.
-- [ ] Define compact and comfortable density tokens without shrinking text below the design baseline.
-- [ ] Confirm light and dark themes maintain equivalent hierarchy and readable contrast.
-- [ ] Add tabular-number and scientific-value typography utilities.
-- [ ] Add a visual review page showing colours, typography, spacing, radii and focus rings.
-- [ ] Check common token combinations against WCAG 2.2 AA contrast expectations.
+- [x] Compare production tokens with `DESIGN.md`, the brand guide mockup and the concept system.
+- [x] Add Instrument Sans for headings and Inter for body, controls and data with reliable local or hosted loading behaviour.
+- [x] Preserve the approved blue, scientific neutrals, semantic statuses and ordered chart palette.
+- [x] Define compact and comfortable density tokens without shrinking text below the design baseline.
+- [x] Confirm light and dark themes maintain equivalent hierarchy and readable contrast.
+- [x] Add tabular-number and scientific-value typography utilities.
+- [x] Add a visual review page showing colours, typography, spacing, radii and focus rings.
+- [x] Check common token combinations against WCAG 2.2 AA contrast expectations.
 
 ### UI-002 — Harden core shadcn primitives
 

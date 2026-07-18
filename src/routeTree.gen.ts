@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as FoundationsRouteImport } from './routes/foundations'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -21,6 +22,11 @@ import { Route as ApiTokenIndexRouteImport } from './routes/api/token/index'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FoundationsRoute = FoundationsRouteImport.update({
+  id: '/foundations',
+  path: '/foundations',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProjectsRoute = ProjectsRouteImport.update({
@@ -61,6 +67,7 @@ const ApiTokenIndexRoute = ApiTokenIndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/foundations': typeof FoundationsRoute
   '/projects': typeof ProjectsRoute
   '/sign-in': typeof SignInRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -71,6 +78,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/foundations': typeof FoundationsRoute
   '/projects': typeof ProjectsRoute
   '/sign-in': typeof SignInRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -82,6 +90,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/foundations': typeof FoundationsRoute
   '/projects': typeof ProjectsRoute
   '/sign-in': typeof SignInRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -94,6 +103,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/foundations'
     | '/projects'
     | '/sign-in'
     | '/api/auth/$'
@@ -104,6 +114,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/foundations'
     | '/projects'
     | '/sign-in'
     | '/api/auth/$'
@@ -114,6 +125,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/foundations'
     | '/projects'
     | '/sign-in'
     | '/api/auth/$'
@@ -125,6 +137,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  FoundationsRoute: typeof FoundationsRoute
   ProjectsRoute: typeof ProjectsRoute
   SignInRoute: typeof SignInRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -141,6 +154,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/foundations': {
+      id: '/foundations'
+      path: '/foundations'
+      fullPath: '/foundations'
+      preLoaderRoute: typeof FoundationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/projects': {
@@ -197,6 +217,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  FoundationsRoute: FoundationsRoute,
   ProjectsRoute: ProjectsRoute,
   SignInRoute: SignInRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

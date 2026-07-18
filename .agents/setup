@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+# .agents/setup — runs once when a fresh orb is created, before Amp starts work.
+# Installs everything needed to build, test, and run the Sheetbase project.
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$REPO_ROOT"
+
+echo "==> Installing Node.js 22 (project requires >=22.12)"
+# The orb ships Node 20; replace it with Node 22 via `n`.
+if ! node -v 2>/dev/null | grep -qE '^v(2[2-9]|[3-9])\.'; then
+  if ! command -v n >/dev/null 2>&1; then
+    sudo npm install -g n
+  fi
+  sudo n 22
+fi
+echo "node: $(node -v)"
+
+echo "==> Activating pnpm@11.9.0 via corepack"
+# The orb ships a global pnpm that is incompatible with Node 22; let corepack
+# manage it based on the packageManager pin in package.json.
+sudo corepack enable
+corepack prepare pnpm@11.9.0 --activate
+echo "pnpm: $(pnpm -v)"
+
+echo "==> Starting PostgreSQL 18 (preinstalled via PGDG)"
+PG_CONF=/etc/postgresql/18/main/postgresql.conf
+# Tune for speed over durability: this is an ephemeral dev/test orb.
+sudo sed -i 's/^#\?\s*fsync\s*=.*/fsync = off/' "$PG_CONF"
+sudo sed -i 's/^#\?\s*synchronous_commit\s*=.*/synchronous_commit = off/' "$PG_CONF"
+# The orb lacks the snakeoil SSL certs the Debian config expects; disable SSL
+# for the local-only dev/test cluster.
+sudo sed -i 's/^#\?\s*ssl\s*=.*/ssl = off/' "$PG_CONF"
+if ! pg_lsclusters --no-header 2>/dev/null | awk '$1=="18"&&$2=="main"&&$4=="online"{f=1}END{exit !f}'; then
+  sudo pg_ctlcluster 18 main start
+fi
+# Wait for it to accept connections.
+for _ in $(seq 1 30); do
+  if sudo -u postgres pg_isready -q; then break; fi
+  sleep 1
+done
+sudo -u postgres pg_isready
+
+echo "==> Preparing .env.local"
+[ -f .env.local ] || cp -- .env.example .env.local
+set -a
+# shellcheck disable=SC1091
+. ./.env.local
+set +a
+
+echo "==> Creating database roles and database (idempotent)"
+# Mirrors docker/db/init/00-roles.sh but safe to rerun. Passwords come from
+# .env.local. Grants and per-object privileges live in migrations.
+sudo -u postgres psql -v ON_ERROR_STOP=1 \
+  -v auth_pass="$POSTGREST_AUTHENTICATOR_PASSWORD" \
+  -v migrator_pass="$MIGRATOR_PASSWORD" \
+  -v db_name="$POSTGRES_DB" \
+  -v app_user="$POSTGRES_USER" \
+  -v app_pass="$POSTGRES_PASSWORD" <<'SQL'
+-- Application/superuser role the compose image creates from POSTGRES_USER.
+-- The app and test helpers connect with it via DATABASE_URL; in compose it is
+-- a superuser, so mirror that for the local orb.
+SELECT format('CREATE ROLE %I LOGIN SUPERUSER PASSWORD %L', :'app_user', :'app_pass')
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'app_user')\gexec
+ALTER ROLE :"app_user" WITH LOGIN SUPERUSER PASSWORD :'app_pass';
+
+-- PostgREST request roles (switched to by authenticator per request).
+SELECT 'CREATE ROLE anon NOLOGIN NOINHERIT'
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='anon')\gexec
+SELECT 'CREATE ROLE authenticated NOLOGIN NOINHERIT'
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='authenticated')\gexec
+
+-- PostgREST connection role: the only credential PostgREST holds.
+SELECT format('CREATE ROLE authenticator LOGIN NOINHERIT PASSWORD %L', :'auth_pass')
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='authenticator')\gexec
+GRANT anon, authenticated TO authenticator;
+
+-- Migration role: owns schemas and tables so DDL never runs as superuser.
+SELECT format('CREATE ROLE migrator LOGIN NOINHERIT PASSWORD %L', :'migrator_pass')
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='migrator')\gexec
+
+-- Narrowly controlled service operations (AUTH-003 token exchange, workers).
+SELECT 'CREATE ROLE service_role NOLOGIN NOINHERIT'
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='service_role')\gexec
+
+-- Keep passwords in sync with .env.local on reruns.
+ALTER ROLE authenticator PASSWORD :'auth_pass';
+ALTER ROLE migrator PASSWORD :'migrator_pass';
+
+-- migrator owns the database, matching 00-roles.sh.
+SELECT format('CREATE DATABASE %I OWNER migrator', :'db_name')
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'db_name')\gexec
+ALTER DATABASE :"db_name" OWNER TO migrator;
+
+-- The exposed surface PostgREST loads at startup. Migrations own its contents;
+-- this only lets PostgREST boot before the first migration.
+CREATE SCHEMA IF NOT EXISTS api AUTHORIZATION migrator;
+GRANT USAGE ON SCHEMA api TO anon, authenticated;
+SQL
+
+echo "==> Installing dependencies (frozen lockfile)"
+pnpm install --frozen-lockfile
+
+echo "==> Generating TanStack Router route tree"
+# tsc does not run the vite router plugin, so regenerate the committed
+# routeTree.gen.ts before typecheck/build rely on it.
+pnpm generate-routes
+
+echo "==> Applying database migrations"
+pnpm db:migrate
+
+echo "==> Setup complete."
+echo "node $(node -v) | pnpm $(pnpm -v) | postgres $(sudo -u postgres psql -tAc 'show server_version')"

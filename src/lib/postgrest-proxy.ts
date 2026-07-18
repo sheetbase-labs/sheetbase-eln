@@ -81,11 +81,7 @@ export async function handleProxyRequest(
   })
 
   const url = new URL(request.url)
-  const upstream = buildUpstreamUrl(
-    deps.upstreamBaseUrl,
-    path,
-    url.search,
-  )
+  const upstream = buildUpstreamUrl(deps.upstreamBaseUrl, path, url.search)
 
   const headers = new Headers()
   headers.set('authorization', `Bearer ${token}`)

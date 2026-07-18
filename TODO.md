@@ -133,14 +133,14 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** AUTH-002, API-002.
 
-- [ ] Define the minimal JWT claim set: subject, workspace context, database role, session identity and expiry.
-- [ ] Keep the signing secret and token creation on the server.
-- [ ] Exchange a valid application session for a short-lived PostgREST token only inside the server-side API boundary.
-- [ ] Forward authenticated browser CRUD requests through a same-origin internal proxy rather than exposing the application session to PostgREST directly.
-- [ ] Reject missing, expired or workspace-mismatched sessions before forwarding.
-- [ ] Preserve safe query parameters and HTTP semantics while preventing arbitrary upstream targeting.
-- [ ] Return a consistent, non-sensitive error envelope for authentication and upstream failures.
-- [ ] Add contract tests proving claims reach PostgreSQL session settings correctly.
+- [x] Define the minimal JWT claim set: subject, workspace context, database role, session identity and expiry.
+- [x] Keep the signing secret and token creation on the server.
+- [x] Exchange a valid application session for a short-lived PostgREST token only inside the server-side API boundary.
+- [x] Forward authenticated browser CRUD requests through a same-origin internal proxy rather than exposing the application session to PostgREST directly.
+- [x] Reject missing, expired or workspace-mismatched sessions before forwarding.
+- [x] Preserve safe query parameters and HTTP semantics while preventing arbitrary upstream targeting.
+- [x] Return a consistent, non-sensitive error envelope for authentication and upstream failures.
+- [x] Add contract tests proving claims reach PostgreSQL session settings correctly.
 
 ### AUTH-004 — Enforce workspace isolation with row-level security
 

@@ -11,7 +11,13 @@ import { handleProxyRequest } from '#/lib/postgrest-proxy'
 // Same-origin data boundary: /api/db/projects → PostgREST /projects.
 // The application session is verified here and exchanged for a short-lived
 // PostgREST JWT; Better Auth cookies never reach PostgREST.
-const handler = ({ request, params }: { request: Request; params: { _splat?: string } }) =>
+const handler = ({
+  request,
+  params,
+}: {
+  request: Request
+  params: { _splat?: string }
+}) =>
   handleProxyRequest(request, params._splat ?? '', {
     getSession: (headers) => auth.api.getSession({ headers }),
     getWorkspaceForUser: async (userId) => {

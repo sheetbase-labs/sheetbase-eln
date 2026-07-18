@@ -89,7 +89,10 @@ describe('handleProxyRequest', () => {
     const response = await handleProxyRequest(
       req('projects?select=id&bad[key]=1', {
         method: 'POST',
-        headers: { 'content-type': 'application/json', prefer: 'return=representation' },
+        headers: {
+          'content-type': 'application/json',
+          prefer: 'return=representation',
+        },
         body: JSON.stringify({ title: 'New project' }),
       }),
       'projects',

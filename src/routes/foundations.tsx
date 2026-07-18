@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 
 import { useTheme } from '#/components/theme-provider'
+import { StatusBadge } from '#/components/scientific'
 import {
   RecordHeader,
   Inspector,
@@ -506,11 +507,7 @@ function RecordPreview() {
           recordType="Experiment"
           title="Lentivector stability — 4°C hold"
           identifier="EXP-2025-0014"
-          status={
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
-              In progress
-            </span>
-          }
+          status={<StatusBadge domain="experiment" status="in-progress" />}
           phase={
             <span className="rounded-full border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
               Phase 2
@@ -558,7 +555,9 @@ function RecordPreview() {
                   <Property label="Phase">Phase 2</Property>
                   <Property label="Created">14 Jul 2025, 09:12</Property>
                   <Property label="Owner">Gareth Price</Property>
-                  <Property label="Review status">Needs review</Property>
+                  <Property label="Review status">
+                    <StatusBadge domain="review" status="pending" />
+                  </Property>
                 </PropertyList>
               ),
             },

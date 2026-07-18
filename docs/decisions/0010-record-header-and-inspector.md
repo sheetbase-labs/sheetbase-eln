@@ -53,7 +53,7 @@ Forces:
    it stays visible while content moves.
 
 5. **Four honest states.** `state: 'skeleton' | 'no-selection' |
-   'unavailable' | 'permission-denied' | 'loaded'`. Non-loaded states
+'unavailable' | 'permission-denied' | 'loaded'`. Non-loaded states
    replace the tab region with a centred message (and a shimmer for
    skeleton) and never show stale content.
 

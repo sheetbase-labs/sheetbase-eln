@@ -264,13 +264,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** UI-002.
 
-- [ ] Replace hard-coded demonstration data in `StatusBadge`, `PropertyList` and `RecordLink` with explicit reusable inputs.
-- [ ] Define status vocabulary by domain rather than assuming every record uses the same state machine.
-- [ ] Ensure status is communicated by text and shape or icon as well as colour.
-- [ ] Make record links work as actual links while preserving auxiliary actions and keyboard use.
-- [ ] Support missing, deleted and permission-restricted linked records honestly.
-- [ ] Add compact and comfortable variants only where the mockups demonstrate a need.
-- [ ] Add tests for accessible names, focus and status rendering.
+- [x] Replace hard-coded demonstration data in `StatusBadge`, `PropertyList` and `RecordLink` with explicit reusable inputs.
+- [x] Define status vocabulary by domain rather than assuming every record uses the same state machine.
+- [x] Ensure status is communicated by text and shape or icon as well as colour.
+- [x] Make record links work as actual links while preserving auxiliary actions and keyboard use.
+- [x] Support missing, deleted and permission-restricted linked records honestly.
+- [x] Add compact and comfortable variants only where the mockups demonstrate a need.
+- [x] Add tests for accessible names, focus and status rendering.
 
 ### UI-006 — Productionise notebook and visualisation frames
 

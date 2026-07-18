@@ -1,0 +1,4 @@
+import { FileCheck2, FlaskConical, Upload, UserCheck } from 'lucide-react'
+
+const events=[{icon:FlaskConical,title:'Experiment created',meta:'Gareth Price · 09:12'},{icon:Upload,title:'Dataset attached',meta:'Stability_Raw_Data.csv · 10:41'},{icon:FileCheck2,title:'Review requested',meta:'Version 2 · 11:42'},{icon:UserCheck,title:'Scientific review started',meta:'Emma Liu · 11:49'}]
+export function AuditTrail(){return <div className='space-y-0'>{events.map((event,i)=><div key={event.title} className='relative flex gap-3 pb-4 last:pb-0'>{i<events.length-1&&<span className='absolute left-4 top-8 h-[calc(100%-1.25rem)] w-px bg-border'/>}<div className='relative z-10 flex size-8 shrink-0 items-center justify-center rounded-full border bg-background text-muted-foreground'><event.icon className='size-3.5'/></div><div className='pt-1'><p className='text-sm font-medium'>{event.title}</p><p className='text-xs text-muted-foreground'>{event.meta}</p></div></div>)}</div>}

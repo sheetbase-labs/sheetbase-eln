@@ -7,13 +7,15 @@ import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { drizzle } from 'drizzle-orm/node-postgres'
 
+import * as schema from '#/db/schema'
 import { account, session, user, verification } from '#/db/schema'
 import { env } from '#/env.server'
+import { bootstrapWorkspaceForUser } from '#/lib/bootstrap'
 
 const authSchema = { user, session, account, verification }
 
 export function createAuth(databaseUrl: string) {
-  const db = drizzle(databaseUrl)
+  const db = drizzle(databaseUrl, { schema })
 
   const socialProviders =
     env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET
@@ -30,6 +32,21 @@ export function createAuth(databaseUrl: string) {
     secret: env.BETTER_AUTH_SECRET,
     database: drizzleAdapter(db, { provider: 'pg', schema: authSchema }),
     socialProviders,
+    databaseHooks: {
+      user: {
+        create: {
+          // First successful sign-up bootstraps the personal workspace.
+          // Failure must not orphan the user: if this throws, Better Auth
+          // rolls the user creation back inside its own transaction.
+          after: async (createdUser) => {
+            await bootstrapWorkspaceForUser(db, {
+              id: createdUser.id,
+              name: createdUser.name,
+            })
+          },
+        },
+      },
+    },
     advanced: {
       // Secure cookies only where HTTPS exists; SameSite=Lax allows the
       // OAuth callback round-trip while blocking cross-site POSTs.

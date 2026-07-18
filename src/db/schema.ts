@@ -8,7 +8,7 @@
  *   projects). Grants and RLS are managed in migrations; RLS arrives with
  *   AUTH-004.
  */
-import { sql } from 'drizzle-orm'
+import { relations, sql } from 'drizzle-orm'
 import {
   boolean,
   check,
@@ -201,4 +201,23 @@ export const projects = api.table(
     ),
     index('idx_projects_workspace_id').on(table.workspaceId),
   ],
+)
+
+// ---------------------------------------------------------------------------
+// Relations for drizzle query API (no migration impact).
+// ---------------------------------------------------------------------------
+
+export const workspacesRelations = relations(workspaces, ({ many }) => ({
+  memberships: many(workspaceMemberships),
+  projects: many(projects),
+}))
+
+export const workspaceMembershipsRelations = relations(
+  workspaceMemberships,
+  ({ one }) => ({
+    workspace: one(workspaces, {
+      fields: [workspaceMemberships.workspaceId],
+      references: [workspaces.id],
+    }),
+  }),
 )

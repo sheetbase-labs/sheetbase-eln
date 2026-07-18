@@ -1,21 +1,59 @@
 name: sheetbase
 
+# All credentials and secrets come from .env.local (copy .env.example first).
+# The pnpm services:* scripts pass --env-file .env.local automatically.
+# Running docker compose directly requires --env-file .env.local.
+
 services:
   postgres:
     image: postgres:18-alpine
     environment:
-      POSTGRES_DB: sheetbase
-      POSTGRES_USER: sheetbase
-      POSTGRES_PASSWORD: sheetbase
+      POSTGRES_DB: ${POSTGRES_DB:-sheetbase}
+      POSTGRES_USER: ${POSTGRES_USER:-sheetbase}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.local}
+      # Consumed by docker/db/init/00-roles.sh on first volume initialisation.
+      POSTGREST_AUTHENTICATOR_PASSWORD: ${POSTGREST_AUTHENTICATOR_PASSWORD:?Set POSTGREST_AUTHENTICATOR_PASSWORD in .env.local}
+    # Localhost only: the database is not reachable from other machines.
     ports:
-      - '5432:5432'
+      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
     volumes:
       - postgres-data:/var/lib/postgresql
+      - ./docker/db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U sheetbase -d sheetbase']
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
       interval: 5s
       timeout: 5s
       retries: 10
+
+  postgrest:
+    build:
+      context: ./docker/postgrest
+      args:
+        POSTGREST_VERSION: v14.5
+    image: sheetbase/postgrest:v14.5
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # authenticator is a NOINHERIT login role that can only switch to the
+      # NOLOGIN request roles. Privileged database credentials never leave
+      # the server side; nothing here is shipped to the browser.
+      PGRST_DB_URI: ${PGRST_DB_URI:?Set PGRST_DB_URI in .env.local (host must be "postgres", the compose service name)}
+      PGRST_DB_SCHEMAS: api
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${PGRST_JWT_SECRET:?Set PGRST_JWT_SECRET in .env.local (32+ characters)}
+      PGRST_SERVER_PORT: '3000'
+      PGRST_ADMIN_SERVER_PORT: '3001'
+    # 3001: REST API. 3002: admin server (live/ready), health checks only.
+    ports:
+      - '127.0.0.1:${POSTGREST_PORT:-3001}:3000'
+      - '127.0.0.1:${POSTGREST_ADMIN_PORT:-3002}:3001'
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://localhost:3001/ready']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
 
 volumes:
   postgres-data:

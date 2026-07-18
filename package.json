@@ -20,6 +20,12 @@
     "db:seed:demo": "tsx src/db/seed/run.ts --demo",
     "db:reset": "tsx src/db/reset.ts",
     "db:fresh": "tsx src/db/fresh.ts",
+    "services:up": "docker compose --env-file .env.local up -d --build",
+    "services:down": "docker compose --env-file .env.local down",
+    "services:ps": "docker compose --env-file .env.local ps",
+    "services:logs": "docker compose --env-file .env.local logs -f",
+    "services:recreate": "docker compose --env-file .env.local up -d --build --force-recreate",
+    "services:purge": "docker compose --env-file .env.local down -v",
     "db:push": "drizzle-kit push",
     "db:pull": "drizzle-kit pull",
     "db:studio": "drizzle-kit studio",
@@ -64,15 +70,16 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^6.0.3",
-    "drizzle-kit": "^0.31.10",
     "dotenv": "^17.3.1",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^10.7.0",
     "jsdom": "^28.1.0",
     "prettier": "^3.8.1",
     "tsx": "^4.23.1",
     "typescript": "^6.0.2",
     "vite": "^8.0.0",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "yaml": "^2.9.0"
   },
   "engines": {
     "node": ">=22.12.0"

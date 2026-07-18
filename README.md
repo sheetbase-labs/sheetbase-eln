@@ -20,33 +20,39 @@ Requirements: Node.js 22.12 or newer, pnpm 11, and Docker.
 
 ```bash
 cp .env.example .env.local
-docker compose up -d
+pnpm services:up
 pnpm install
 pnpm db:generate
 pnpm db:migrate
 pnpm dev
 ```
 
-The app runs at `http://localhost:3000`.
+The app runs at `http://localhost:3000`. The PostgREST API runs at
+`http://localhost:3001` (admin/health on 3002). Service credentials and
+secrets live in `.env.local`; privileged database credentials never reach the
+browser.
 
 ## Commands
 
 Everything a new developer needs, without reading source:
 
-| Task                                                 | Command                |
-| ---------------------------------------------------- | ---------------------- |
-| Start local services (PostgreSQL)                    | `docker compose up -d` |
-| Stop local services                                  | `docker compose down`  |
-| Start the app (dev)                                  | `pnpm dev`             |
-| Run all tests                                        | `pnpm test`            |
-| Generate a migration after schema edits              | `pnpm db:generate`     |
-| Apply migrations                                     | `pnpm db:migrate`      |
-| Seed minimal fixtures                                | `pnpm db:seed`         |
-| Seed fixtures + demonstration data                   | `pnpm db:seed:demo`    |
-| Reset the local database (guarded)                   | `pnpm db:reset`        |
-| Fresh database: reset + migrate + seed               | `pnpm db:fresh`        |
-| Format code                                          | `pnpm format`          |
-| Full quality gate (check, lint, types, tests, build) | `pnpm validate`        |
+| Task                                                 | Command                  |
+| ---------------------------------------------------- | ------------------------ |
+| Start local services (PostgreSQL + PostgREST)        | `pnpm services:up`       |
+| Stop local services                                  | `pnpm services:down`     |
+| Inspect service status                               | `pnpm services:ps`       |
+| Follow service logs                                  | `pnpm services:logs`     |
+| Recreate services from scratch                       | `pnpm services:recreate` |
+| Start the app (dev)                                  | `pnpm dev`               |
+| Run all tests                                        | `pnpm test`              |
+| Generate a migration after schema edits              | `pnpm db:generate`       |
+| Apply migrations                                     | `pnpm db:migrate`        |
+| Seed minimal fixtures                                | `pnpm db:seed`           |
+| Seed fixtures + demonstration data                   | `pnpm db:seed:demo`      |
+| Reset the local database (guarded)                   | `pnpm db:reset`          |
+| Fresh database: reset + migrate + seed               | `pnpm db:fresh`          |
+| Format code                                          | `pnpm format`            |
+| Full quality gate (check, lint, types, tests, build) | `pnpm validate`          |
 
 See `docs/migrations.md` before changing schema, including how to verify
 against a fresh database. See `docs/testing.md` for the test layers and

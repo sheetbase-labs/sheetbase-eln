@@ -64,7 +64,7 @@ your local `DATABASE_URL`; nothing else on the server is dropped.
 One documented flow proves an empty database becomes usable:
 
 ```bash
-docker compose up -d
+pnpm services:up
 pnpm db:fresh
 ```
 

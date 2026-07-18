@@ -43,9 +43,9 @@ A migration is only proven when it applies to an empty database:
 
 ```bash
 # Destroy and recreate the local data volume (local only — see
-# docs/conventions.md reset notes before doing this with data you care about)
-docker compose down -v
-docker compose up -d
+# docs/seeds.md reset notes before doing this with data you care about)
+pnpm services:purge
+pnpm services:up
 
 # Apply the full migration history from scratch
 pnpm db:migrate

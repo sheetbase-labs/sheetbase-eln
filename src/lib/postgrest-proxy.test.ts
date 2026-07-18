@@ -223,3 +223,104 @@ describe('handleProxyRequest', () => {
     expect(await response.json()).toEqual([{ id: 'p1', title: 'A' }])
   })
 })
+
+describe('handleProxyRequest — external bearer token path', () => {
+  it('forwards the bearer token untouched when the resolver succeeds', async () => {
+    let seenAuth: string | null = null
+    const response = await handleProxyRequest(
+      req('projects', {
+        headers: { authorization: 'Bearer external-jwt' },
+      }),
+      'projects',
+      makeDeps({
+        resolveExternalToken: async () => ({ workspaceId: 'workspace-1' }),
+        fetchFn: async (_url, init) => {
+          seenAuth = new Headers(init?.headers).get('authorization')
+          return new Response('[]', {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          })
+        },
+      }),
+    )
+    expect(response.status).toBe(200)
+    expect(seenAuth).toBe('Bearer external-jwt')
+  })
+
+  it('returns unauthenticated when the resolver rejects with invalid_token', async () => {
+    const response = await handleProxyRequest(
+      req('projects', { headers: { authorization: 'Bearer bad' } }),
+      'projects',
+      makeDeps({
+        resolveExternalToken: async () => {
+          const err = new (class extends Error {
+            code = 'invalid_token' as const
+          })()
+          throw err
+        },
+      }),
+    )
+    // ExternalTokenError mapping lives in external-token.ts; the proxy's
+    // fallback for a non-ExternalTokenError is the unauthenticated envelope.
+    expect(response.status).toBe(401)
+    expect((await response.json()).error.category).toBe('unauthenticated')
+  })
+
+  it('returns permission_denied when the resolver rejects with insufficient_scope', async () => {
+    const { ExternalTokenError } = await import('./external-token')
+    const response = await handleProxyRequest(
+      req('projects', {
+        method: 'POST',
+        headers: { authorization: 'Bearer external-jwt' },
+      }),
+      'projects',
+      makeDeps({
+        resolveExternalToken: async () => {
+          throw new ExternalTokenError(
+            'insufficient_scope',
+            'Credential lacks scope: projects:write',
+          )
+        },
+      }),
+    )
+    expect(response.status).toBe(403)
+    const body = await response.json()
+    expect(body.error.category).toBe('permission_denied')
+    expect(body.error.message).toContain('projects:write')
+    expect(JSON.stringify(body)).not.toContain('Bearer')
+  })
+
+  it('returns permission_denied when the resolver rejects with revoked', async () => {
+    const { ExternalTokenError } = await import('./external-token')
+    const response = await handleProxyRequest(
+      req('projects', { headers: { authorization: 'Bearer external-jwt' } }),
+      'projects',
+      makeDeps({
+        resolveExternalToken: async () => {
+          throw new ExternalTokenError(
+            'revoked',
+            'Credential has been revoked.',
+          )
+        },
+      }),
+    )
+    expect(response.status).toBe(403)
+    expect((await response.json()).error.category).toBe('permission_denied')
+  })
+
+  it('falls back to the browser session when no bearer header is present', async () => {
+    let resolverCalled = false
+    const response = await handleProxyRequest(
+      req('projects'),
+      'projects',
+      makeDeps({
+        resolveExternalToken: async () => {
+          resolverCalled = true
+          return { workspaceId: 'workspace-1' }
+        },
+      }),
+    )
+    expect(response.status).toBe(200)
+    expect(resolverCalled).toBe(false)
+  })
+})

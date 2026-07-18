@@ -55,6 +55,30 @@ Revoking a credential sets `revoked_at`; subsequent exchanges fail
 immediately with `revoked`. Revocation is permanent — re-enable by creating
 a new credential.
 
+Revocation is also enforced **at use time**, not only at exchange time: a
+still-valid bearer token minted before revocation is rejected on the next
+`/api/db/*` request with `permission_denied` (`revoked`). There is no window
+in which a revoked credential can still read or write data.
+
+## Enforcement layers
+
+An external request passes through three checks before any data moves:
+
+1. **Exchange** (`POST /api/token`) — verifies the credential secret,
+   revocation and requested scope, rate-limits guesses, and mints a
+   short-lived `api_client` JWT scoped to the credential's workspace.
+2. **Proxy** (`/api/db/*`) — verifies the bearer token's signature and
+   shape, re-checks revocation against the live credential row, and
+   enforces `projects:read` / `projects:write` against the HTTP method
+   and resource (GET/HEAD → `projects:read`; POST/PATCH/DELETE on tables
+   and any RPC → `projects:write`).
+3. **Row-level security** (PostgreSQL `api_client` policies) — pins every
+   read and write to the `workspace_id` claim on the token, so a leaked or
+   tampered token cannot cross workspaces even if the proxy were bypassed.
+
+`api_client` has no DELETE privilege on projects in Phase 1: external
+credentials cannot destroy projects, regardless of scope.
+
 ## CLI example
 
 With a local dev server running (`pnpm dev`):
@@ -71,3 +95,8 @@ The script exchanges the credential for a token and reads projects through
 `tests/db/api-credentials.test.ts` proves creation, successful exchange,
 wrong secret, wrong scope, revocation (including cross-workspace revocation
 failure) and rate-limiting.
+
+`tests/db/external-api.test.ts` proves the full external path end to end:
+`api_client` RLS workspace isolation, scope enforcement at the proxy,
+revocation-at-use with a still-valid token, and a tampered workspace_id
+claim being rejected.

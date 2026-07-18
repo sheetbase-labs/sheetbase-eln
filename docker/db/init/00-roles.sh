@@ -12,10 +12,13 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
 -- PostgREST request roles (switched to by authenticator per request).
 CREATE ROLE anon NOLOGIN NOINHERIT;
 CREATE ROLE authenticated NOLOGIN NOINHERIT;
+-- External API credentials (API-005) authenticate as this role; RLS grants
+-- it only the workspace-scoped access the credential's scopes allow.
+CREATE ROLE api_client NOLOGIN NOINHERIT;
 
 -- PostgREST connection role: the only credential PostgREST holds.
 CREATE ROLE authenticator LOGIN NOINHERIT PASSWORD :'auth_pass';
-GRANT anon, authenticated TO authenticator;
+GRANT anon, authenticated, api_client TO authenticator;
 
 -- Migration role: owns schemas and tables so DDL never runs as a superuser
 -- in normal development.
@@ -31,5 +34,5 @@ ALTER DATABASE :db_name OWNER TO migrator;
 -- The exposed surface PostgREST loads at startup. Migrations own its
 -- contents; this only lets PostgREST boot before the first migration.
 CREATE SCHEMA IF NOT EXISTS api AUTHORIZATION migrator;
-GRANT USAGE ON SCHEMA api TO anon, authenticated;
+GRANT USAGE ON SCHEMA api TO anon, authenticated, api_client;
 SQL

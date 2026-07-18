@@ -24,6 +24,7 @@ import {
   resolveRequestId,
   stampRequestId,
 } from './request-id'
+import { ExternalTokenError, readBearerToken } from './external-token'
 
 export interface ProxyDeps {
   getSession: (headers: Headers) => Promise<{
@@ -36,6 +37,17 @@ export interface ProxyDeps {
     workspaceId: string
     sessionId: string
   }) => Promise<string>
+  /**
+   * Verifies an external bearer token, checks revocation at use time and
+   * enforces scope. Returns the workspace id the token is scoped to. Throws
+   * ExternalTokenError on any failure. Optional: only the /api/db route
+   * wires it; tests may omit it.
+   */
+  resolveExternalToken?: (
+    token: string,
+    method: string,
+    path: ProxyPath,
+  ) => Promise<{ workspaceId: string }>
   upstreamBaseUrl: string
   fetchFn?: typeof fetch
 }
@@ -43,6 +55,38 @@ export interface ProxyDeps {
 function proxyErrorResponse(code: ProxyErrorCode, requestId: string): Response {
   const categorised = categoriseProxyError(code)
   return stampRequestId(errorEnvelope({ ...categorised, requestId }), requestId)
+}
+
+/**
+ * Maps an external-token verification failure to the public envelope.
+ * All three codes surface as a 401/403 with a stable category; the message
+ * is non-sensitive and never echoes the token.
+ */
+function externalTokenErrorResponse(
+  error: unknown,
+  requestId: string,
+): Response {
+  if (error instanceof ExternalTokenError) {
+    const status =
+      error.code === 'insufficient_scope' || error.code === 'revoked'
+        ? 403
+        : 401
+    return stampRequestId(
+      errorEnvelope({
+        category:
+          error.code === 'insufficient_scope'
+            ? 'permission_denied'
+            : error.code === 'revoked'
+              ? 'permission_denied'
+              : 'unauthenticated',
+        status,
+        message: error.message,
+        requestId,
+      }),
+      requestId,
+    )
+  }
+  return proxyErrorResponse('unauthenticated', requestId)
 }
 
 export async function handleProxyRequest(
@@ -56,26 +100,40 @@ export async function handleProxyRequest(
     return proxyErrorResponse('invalid_path', requestId)
   }
 
-  const session = await deps.getSession(request.headers)
-  if (!session) {
-    return proxyErrorResponse('unauthenticated', requestId)
+  // Two auth paths share this boundary:
+  //   1. External bearer token (Authorization: Bearer <api_client jwt>) —
+  //      verified, revocation-checked and scope-enforced by the resolver.
+  //   2. Browser session — Better Auth cookies exchanged for an
+  //      authenticated PostgREST JWT (AUTH-003).
+  // An external token wins when present; otherwise the browser path runs.
+  const bearer = readBearerToken(request.headers)
+  let token: string
+  if (bearer && deps.resolveExternalToken) {
+    try {
+      await deps.resolveExternalToken(bearer, request.method, path)
+      token = bearer
+    } catch (error) {
+      return externalTokenErrorResponse(error, requestId)
+    }
+  } else {
+    const session = await deps.getSession(request.headers)
+    if (!session) {
+      return proxyErrorResponse('unauthenticated', requestId)
+    }
+    const workspace = await deps.getWorkspaceForUser(session.user.id)
+    if (!workspace) {
+      return proxyErrorResponse('no_workspace', requestId)
+    }
+    const requestedWorkspace = request.headers.get('x-sheetbase-workspace')
+    if (requestedWorkspace && requestedWorkspace !== workspace.id) {
+      return proxyErrorResponse('workspace_mismatch', requestId)
+    }
+    token = await deps.mintToken({
+      userId: session.user.id,
+      workspaceId: workspace.id,
+      sessionId: session.session.id,
+    })
   }
-
-  const workspace = await deps.getWorkspaceForUser(session.user.id)
-  if (!workspace) {
-    return proxyErrorResponse('no_workspace', requestId)
-  }
-
-  const requestedWorkspace = request.headers.get('x-sheetbase-workspace')
-  if (requestedWorkspace && requestedWorkspace !== workspace.id) {
-    return proxyErrorResponse('workspace_mismatch', requestId)
-  }
-
-  const token = await deps.mintToken({
-    userId: session.user.id,
-    workspaceId: workspace.id,
-    sessionId: session.session.id,
-  })
 
   const url = new URL(request.url)
   const upstream = buildUpstreamUrl(deps.upstreamBaseUrl, path, url.search)

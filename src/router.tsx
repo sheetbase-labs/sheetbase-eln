@@ -12,7 +12,11 @@ export function getRouter() {
     context,
     scrollRestoration: true,
     defaultPreload: 'intent',
-    defaultPreloadStaleTime: 0,
+    // Reuse hover-preloaded data for the actual navigation. The
+    // previous value of 0 marked every preload as instantly stale, so
+    // navigating to a preloaded route refetched immediately — doubling
+    // the requests and making navigation feel sluggish.
+    defaultPreloadStaleTime: 30_000,
   })
 
   setupRouterSsrQueryIntegration({ router, queryClient: context.queryClient })

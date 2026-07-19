@@ -80,7 +80,7 @@ const themeNoFlash = `(function(){try{var t=localStorage.getItem('sheetbase-them
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
         <script dangerouslySetInnerHTML={{ __html: themeNoFlash }} />

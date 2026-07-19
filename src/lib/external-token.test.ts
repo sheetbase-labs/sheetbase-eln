@@ -85,6 +85,12 @@ describe('requiredScopes', () => {
     expect(
       requiredScopes('POST', {
         kind: 'rpc',
+        resource: 'apply_scientific_row_changes',
+      }),
+    ).toEqual(['scientific:read', 'scientific:write'])
+    expect(
+      requiredScopes('POST', {
+        kind: 'rpc',
         resource: 'add_scientific_column',
       }),
     ).toEqual(['scientific:schema'])

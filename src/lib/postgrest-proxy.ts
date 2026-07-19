@@ -242,6 +242,7 @@ export async function handleProxyRequest(
 }
 
 const SCHEMA_READINESS_RPCS = new Set([
+  'insert_sheet_block',
   'create_scientific_table',
   'add_scientific_column',
   'convert_scientific_column',

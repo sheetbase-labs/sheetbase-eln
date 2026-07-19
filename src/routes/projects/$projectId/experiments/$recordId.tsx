@@ -39,6 +39,7 @@ import {
   deleteBlock,
   duplicateBlock,
   insertBlock,
+  insertSheetBlock,
   moveBlock,
   updateBlockPayload,
 } from '#/lib/notebook-mutations'
@@ -491,6 +492,13 @@ function EditableNotebook({
       type: string
       afterBlockId?: string
     }) => {
+      if (type === 'sheet') {
+        return insertSheetBlock(client, {
+          recordId: record.id,
+          afterBlockId,
+          expectedStructureVersion: record.structureVersion,
+        })
+      }
       const payload = defaultPayloadFor(type)
       return insertBlock(client, {
         recordId: record.id,

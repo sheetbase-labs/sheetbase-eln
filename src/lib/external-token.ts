@@ -135,7 +135,10 @@ export function requiredScopes(method: string, path: ProxyPath): Scope[] {
     if (path.resource === 'scientific_table_metadata') {
       return ['scientific:read']
     }
-    if (path.resource === 'apply_scientific_row_edits') {
+    if (
+      path.resource === 'apply_scientific_row_edits' ||
+      path.resource === 'apply_scientific_row_changes'
+    ) {
       return ['scientific:read', 'scientific:write']
     }
     if (SCIENTIFIC_SCHEMA_RPCS.has(path.resource)) {

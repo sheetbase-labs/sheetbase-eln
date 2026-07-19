@@ -20,6 +20,7 @@ import { BlockPreview } from './block-preview'
 import { BlockEditor } from './block-editor'
 import type { AutosaveStatus, SaveResult } from './block-editor'
 import { BlockPicker } from './block-picker'
+import { ScientificSheetBlock } from '#/components/sheet/scientific-sheet-block'
 
 export type { AutosaveStatus, SaveResult }
 
@@ -576,21 +577,31 @@ export function NotebookDocument({
                               },
                             ]
                           : []),
-                        {
-                          id: 'duplicate',
-                          label: 'Duplicate',
-                          onSelect: () => handleDuplicate(block),
-                        },
-                        {
-                          id: 'delete',
-                          label: 'Delete',
-                          onSelect: () => setConfirmDelete(block),
-                          separatorAfter: true,
-                        },
+                        ...(block.type === 'sheet'
+                          ? []
+                          : [
+                              {
+                                id: 'duplicate',
+                                label: 'Duplicate',
+                                onSelect: () => handleDuplicate(block),
+                              },
+                            ]),
+                        ...(block.type === 'sheet'
+                          ? []
+                          : [
+                              {
+                                id: 'delete',
+                                label: 'Delete',
+                                onSelect: () => setConfirmDelete(block),
+                                separatorAfter: true,
+                              },
+                            ]),
                       ]
                 }
               >
-                {editable ? (
+                {block.type === 'sheet' ? (
+                  <ScientificSheetBlock block={block} readOnly={isReadOnly} />
+                ) : editable ? (
                   <BlockEditor
                     block={block}
                     save={(payload) => onSaveBlock(block, payload)}
@@ -698,6 +709,7 @@ function blockLabel(type: string): string {
     callout: 'Callout',
     linked_record: 'Linked record',
     table: 'Table',
+    sheet: 'Sheet',
     chart: 'Chart',
     plate_map: 'Plate map',
     file: 'File',

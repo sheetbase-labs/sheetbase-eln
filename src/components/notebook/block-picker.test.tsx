@@ -12,19 +12,21 @@ import { BlockPicker, BLOCK_PICKER_OPTIONS } from './block-picker'
 afterEach(() => cleanup())
 
 describe('BlockPicker', () => {
-  it('exposes the four editable block types with familiar labels', () => {
+  it('exposes the editable block types with familiar labels', () => {
     const types = BLOCK_PICKER_OPTIONS.map((o) => o.type)
     expect(types).toEqual([
       'heading',
       'rich_text',
       'checklist',
       'linked_record',
+      'sheet',
     ])
     expect(BLOCK_PICKER_OPTIONS.map((o) => o.label)).toEqual([
       'Heading',
       'Text',
       'Checklist',
       'Linked record',
+      'Sheet',
     ])
   })
 

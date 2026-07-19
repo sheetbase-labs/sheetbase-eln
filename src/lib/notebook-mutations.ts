@@ -74,6 +74,29 @@ export async function insertBlock(
   }
 }
 
+export async function insertSheetBlock(
+  client: DataClient,
+  args: Pick<
+    InsertBlockArgs,
+    'recordId' | 'afterBlockId' | 'expectedStructureVersion'
+  >,
+): Promise<InsertBlockResult & { tableId: string }> {
+  const res = await client.rpc<{
+    block: BlockWire
+    table: { id: string }
+    structure_version: number
+  }>('insert_sheet_block', {
+    p_record_id: args.recordId,
+    p_after_block_id: args.afterBlockId ?? null,
+    p_expected_structure_version: args.expectedStructureVersion ?? null,
+  })
+  return {
+    block: toBlock(res.block),
+    tableId: res.table.id,
+    structureVersion: res.structure_version,
+  }
+}
+
 export interface DuplicateBlockArgs {
   block: NotebookBlock
   expectedStructureVersion: number
@@ -88,6 +111,11 @@ export async function duplicateBlock(
   client: DataClient,
   args: DuplicateBlockArgs,
 ): Promise<InsertBlockResult> {
+  if (args.block.type === 'sheet') {
+    throw new Error(
+      'Sheet blocks cannot be duplicated without copying their table.',
+    )
+  }
   return insertBlock(client, {
     recordId: args.block.recordId,
     type: args.block.type,

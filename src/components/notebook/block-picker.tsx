@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { CheckSquare, Link2, Heading, Pilcrow } from 'lucide-react'
+import { CheckSquare, Link2, Heading, Pilcrow, Sheet } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 import { cn } from '#/lib/utils'
@@ -55,6 +55,12 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     label: 'Linked record',
     description: 'A reference to another record.',
     icon: Link2,
+  },
+  {
+    type: 'sheet',
+    label: 'Sheet',
+    description: 'A PostgreSQL-backed scientific table.',
+    icon: Sheet,
   },
 ]
 

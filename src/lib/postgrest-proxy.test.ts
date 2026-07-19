@@ -285,6 +285,49 @@ describe('handleProxyRequest', () => {
     expect(calls).toBe(3)
   })
 
+  it('polls insert_sheet_block readiness and returns its committed result once the resource appears', async () => {
+    const resourceName = `sheet_${'d'.repeat(26)}`
+    let calls = 0
+    const response = await handleProxyRequest(
+      req('rpc/insert_sheet_block', { method: 'POST', body: '{}' }),
+      'rpc/insert_sheet_block',
+      makeDeps({
+        fetchFn: async () => {
+          calls += 1
+          if (calls === 1) return Response.json({ resourceName })
+          return Response.json({
+            definitions: calls === 2 ? {} : { [resourceName]: {} },
+          })
+        },
+      }),
+    )
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ resourceName })
+    expect(calls).toBe(3)
+  })
+
+  it('reports insert_sheet_block as committed but not ready when OpenAPI never publishes it', async () => {
+    const resourceName = `sheet_${'e'.repeat(26)}`
+    let calls = 0
+    const response = await handleProxyRequest(
+      req('rpc/insert_sheet_block', { method: 'POST', body: '{}' }),
+      'rpc/insert_sheet_block',
+      makeDeps({
+        fetchFn: async () => {
+          calls += 1
+          return calls === 1
+            ? Response.json({ resourceName })
+            : Response.json({ definitions: {} })
+        },
+      }),
+    )
+    expect(response.status).toBe(503)
+    expect((await response.json()).error.message).toContain(
+      'schema change committed',
+    )
+    expect(calls).toBe(7)
+  })
+
   it('forwards the x-sheetbase-client-id header to the token minter (LIVE-003)', async () => {
     let minted: { clientId?: string | null } | null = null
     const response = await handleProxyRequest(

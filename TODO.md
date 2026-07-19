@@ -503,14 +503,14 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** SHEET-001, ELN-005.
 
-- [ ] Add a typed sheet block that points to scientific-table metadata rather than embedding all data in its block payload.
-- [ ] Load columns and paged rows through the authenticated API boundary.
-- [ ] Map scientific column types, units and validation to suitable Handsontable editors and renderers.
-- [ ] Persist cell edits with stable row and column identities.
-- [ ] Batch paste and fill operations so they are atomic enough to avoid half-applied scientific edits.
-- [ ] Reconcile optimistic edits with live events and report conflicts at the affected cells or rows.
-- [ ] Support read-only and locked-record modes without relying on visual styling alone.
-- [ ] Add tests for text, number, category, date, null, validation failure, paste and conflict.
+- [x] Add a typed sheet block that points to scientific-table metadata rather than embedding all data in its block payload.
+- [x] Load columns and paged rows through the authenticated API boundary.
+- [x] Map scientific column types, units and validation to suitable Handsontable editors and renderers.
+- [x] Persist cell edits with stable row and column identities.
+- [x] Batch paste and fill operations so they are atomic enough to avoid half-applied scientific edits.
+- [x] Reconcile optimistic edits with live events and report conflicts at the affected cells or rows.
+- [x] Support read-only and locked-record modes without relying on visual styling alone.
+- [x] Add tests for text, number, category, date, null, validation failure, paste and conflict.
 
 ### SHEET-003 — Add table configuration and schema evolution UI
 

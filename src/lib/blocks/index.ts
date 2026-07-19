@@ -22,6 +22,7 @@ export type BlockType =
   | 'list'
   | 'callout'
   | 'table'
+  | 'sheet'
   | 'chart'
   | 'plate_map'
   | 'file'
@@ -44,6 +45,7 @@ export const KNOWN_BLOCK_TYPES: readonly BlockType[] = [
   'list',
   'callout',
   'table',
+  'sheet',
   'chart',
   'plate_map',
   'file',
@@ -108,6 +110,46 @@ function isInteger(v: unknown): v is number {
 
 function isNonEmptyString(v: unknown): v is string {
   return isString(v) && v.trim().length > 0
+}
+
+function validateSheet(payload: unknown): FieldErrors {
+  if (!isObject(payload))
+    return [
+      { code: 'invalid_payload_shape', message: 'payload must be an object' },
+    ]
+  const keys = Object.keys(payload)
+  if (keys.some((key) => !['tableId', 'presentation'].includes(key))) {
+    return [
+      {
+        code: 'invalid_field_value',
+        message: 'sheet payload may only contain tableId and presentation',
+      },
+    ]
+  }
+  if (
+    typeof payload.tableId !== 'string' ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      payload.tableId,
+    )
+  ) {
+    return [
+      {
+        code: 'invalid_field_value',
+        field: 'tableId',
+        message: 'tableId must be a UUID',
+      },
+    ]
+  }
+  if (payload.presentation !== undefined && !isObject(payload.presentation)) {
+    return [
+      {
+        code: 'invalid_field_value',
+        field: 'presentation',
+        message: 'presentation must be an object',
+      },
+    ]
+  }
+  return []
 }
 
 // ---------------------------------------------------------------------------
@@ -485,6 +527,7 @@ const validators: Record<BlockType, (payload: unknown) => FieldErrors> = {
   list: validateList,
   callout: validateCallout,
   table: validateTable,
+  sheet: validateSheet,
   chart: validateChart,
   plate_map: validatePlateMap,
   file: validateFile,

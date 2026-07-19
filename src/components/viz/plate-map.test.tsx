@@ -44,13 +44,15 @@ describe('PlateMap', () => {
 
   it('marks the selected well with aria-selected', () => {
     render(<PlateMap wells={wells} selectedIndex={1} />)
-    const buttons = screen.getAllByRole('button')
-    const selected = buttons.find(
-      (b) => b.getAttribute('aria-selected') === 'true',
+    const cells = screen.getAllByRole('gridcell')
+    const selected = cells.find(
+      (c) => c.getAttribute('aria-selected') === 'true',
     )
     expect(selected).toBeTruthy()
-    // The selected button should be the A2 well (index 1).
-    expect(selected?.getAttribute('aria-label')).toBe('A2')
+    // The selected gridcell's button should be the A2 well (index 1).
+    expect(selected?.querySelector('button')?.getAttribute('aria-label')).toBe(
+      'A2',
+    )
   })
 
   it('renders a legend from the bands', () => {

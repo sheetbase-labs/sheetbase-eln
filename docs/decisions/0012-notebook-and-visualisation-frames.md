@@ -29,11 +29,11 @@ Forces:
 
 2. **NotebookBlock is a stateless frame.** It takes a `state` of
    `default | selected | editing | dragging | invalid | locked | loading |
-   read-only`, renders the corresponding ring/overlay/skeleton, and never
+read-only`, renders the corresponding ring/overlay/skeleton, and never
    owns content or order. The drag handle is a focusable `draggable` button
    that appears on hover/focus (not mouse-only). The action menu is a
    `DropdownMenu` whose items are disabled under read-only/locked. `data-
-   state` is set for tests and audits.
+state` is set for tests and audits.
 
 3. **ChartFrame is a figure with chrome.** It renders a `<figure>` with
    `aria-labelledby` (title) and `aria-describedby` (alt), a Live/Snapshot

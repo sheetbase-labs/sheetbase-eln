@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 import {
   Activity,
   Box,
@@ -15,7 +15,12 @@ import {
 } from 'lucide-react'
 
 import { useTheme } from '#/components/theme-provider'
-import { StatusBadge } from '#/components/scientific'
+import {
+  RecordLink,
+  StatusBadge,
+  statusVocabularies,
+} from '#/components/scientific'
+import type { StatusDomain } from '#/components/scientific'
 import { NotebookBlock } from '#/components/notebook'
 import { ChartFrame, PlateMap } from '#/components/viz'
 import type { PlateWell } from '#/components/viz'
@@ -78,7 +83,17 @@ import { cn } from '#/lib/utils'
  * reviewer can load it before sign-in is configured; it must not expose any
  * business data.
  */
+/**
+ * The catalogue is development-only (UI-008). In production builds the route
+ * redirects to `/` so no review surface ships to end users. It carries no
+ * business data either way.
+ */
 export const Route = createFileRoute('/foundations')({
+  beforeLoad: () => {
+    if (import.meta.env.PROD) {
+      throw redirect({ to: '/' })
+    }
+  },
   component: FoundationsPage,
 })
 
@@ -371,11 +386,43 @@ function FoundationsPage() {
         </Section>
 
         <Section
+          id="scientific"
+          title="Scientific status & relationships"
+          description="StatusBadge and RecordLink (UI-005). Per-domain vocabularies (experiment, review, sample, dataset) communicate by text, icon and colour; RecordLink is a real link when reachable and an honest non-interactive row for missing, deleted and permission-restricted targets."
+        >
+          <ScientificPreview />
+        </Section>
+
+        <Section
+          id="shell"
+          title="Application shell"
+          description="AppShell (UI-003). Fixed/collapsible desktop navigation, mobile Sheet navigation, top breadcrumbs/search/action bar, optional inspector, command palette, theme/density/sign-out. The live shell wraps /projects; this is a framed taster, not a full re-render."
+        >
+          <AppShellPreview />
+        </Section>
+
+        <Section
+          id="states"
+          title="Component states matrix"
+          description="The states a scientist can meet across the product (UI-008): default, loading, empty, error, disabled, locked and permission-restricted, on representative components. Toggle dark and compact above to see dense/dark variants of the same states."
+        >
+          <StatesMatrixPreview />
+        </Section>
+
+        <Section
           id="contrast"
           title="Contrast checks (WCAG 2.2 AA)"
           description="The common token combinations a scientist reads: body on background, muted on background, primary on primary-foreground, destructive on its foreground."
         >
           <ContrastGrid />
+        </Section>
+
+        <Section
+          id="review"
+          title="How to review against mockups and concepts"
+          description="This catalogue is the canonical visual review gate. Every composition here is a production component with typed, review-only data - no business data, no Storybook required."
+        >
+          <ReviewGuide />
         </Section>
 
         <footer className="mt-12 border-t pt-6 text-xs text-muted-foreground">
@@ -1146,6 +1193,264 @@ function AuditApprovalPreview() {
           }}
         />
       </div>
+    </div>
+  )
+}
+
+const SCIENTIFIC_DOMAINS: StatusDomain[] = [
+  'experiment',
+  'review',
+  'sample',
+  'dataset',
+]
+
+function ScientificPreview() {
+  return (
+    <div className="space-y-6">
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold">Status badges by domain</h3>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {SCIENTIFIC_DOMAINS.map((domain) => (
+            <div key={domain} className="rounded-lg border bg-card p-4">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {domain}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(statusVocabularies[domain]).map(([key]) => (
+                  <StatusBadge key={key} domain={domain} status={key} />
+                ))}
+              </div>
+              <p className="mt-3 text-[11px] text-muted-foreground">
+                {Object.keys(statusVocabularies[domain]).length} states · text,
+                icon and colour all carry the status
+              </p>
+            </div>
+          ))}
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          Unknown status falls back to a neutral pill with the raw text, so the
+          UI never hides an unrecognised value.
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold">Record links</h3>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <RecordLink
+            to="/projects"
+            type="Sample"
+            title="EXP-2174-A1 bulk drug substance"
+            meta="Lot A-2025-07-14 · 1,284,506 cells/mL"
+          />
+          <RecordLink
+            type="Protocol"
+            title="Stability-indicating gcPCR assay v3"
+            meta="PR-118 · archived target"
+            state="missing"
+          />
+          <RecordLink
+            type="Dataset"
+            title="Stability_Raw_Data_2025-07-14_final.csv"
+            meta="DS-4082 · 4.2 MB"
+            state="deleted"
+          />
+          <RecordLink
+            type="Report"
+            title="Q3 vector genome copy number report"
+            meta="RP-0091 · restricted to QA"
+            state="permission-restricted"
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AppShellPreview() {
+  return (
+    <div className="space-y-4">
+      <div className="overflow-hidden rounded-lg border bg-card">
+        <div className="grid grid-cols-[180px_1fr]">
+          <nav className="border-r bg-muted/30 p-3 text-xs">
+            <p className="mb-2 font-semibold text-muted-foreground">
+              Sheetbase
+            </p>
+            <ul className="space-y-1">
+              <li className="rounded-md bg-primary/10 px-2 py-1 font-medium text-primary">
+                Projects
+              </li>
+              <li className="px-2 py-1 text-muted-foreground">Notebooks</li>
+              <li className="px-2 py-1 text-muted-foreground">Samples</li>
+              <li className="px-2 py-1 text-muted-foreground">Protocols</li>
+              <li className="px-2 py-1 text-muted-foreground">Reports</li>
+            </ul>
+          </nav>
+          <div className="p-3">
+            <div className="mb-3 flex items-center gap-2 border-b pb-2 text-xs text-muted-foreground">
+              <span>Home</span>
+              <span aria-hidden="true">/</span>
+              <span>Projects</span>
+              <span aria-hidden="true">/</span>
+              <span className="text-foreground">EXP-2174</span>
+              <span className="ml-auto inline-flex items-center gap-1 rounded-md border px-2 py-0.5">
+                <Search className="size-3" /> Search
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              The live shell wraps{' '}
+              <code className="text-foreground">/projects</code> with a
+              fixed/collapsible sidebar, mobile Sheet navigation, command
+              palette, theme/density/sign-out and an optional inspector pane.
+            </p>
+          </div>
+        </div>
+      </div>
+      <p className="text-[11px] text-muted-foreground">
+        Visit <code>/projects</code> for the full interactive shell. Sidebar
+        state persists to localStorage; the command palette opens with Ctrl+K.
+      </p>
+    </div>
+  )
+}
+
+function StatesMatrixPreview() {
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 lg:grid-cols-2">
+        <StateCard title="Default">
+          <div className="space-y-2">
+            <Button size="sm">Run assay</Button>
+            <p className="text-sm">Vector genome copy number: 3.20E+08 TU/mL</p>
+          </div>
+        </StateCard>
+        <StateCard title="Loading">
+          <AuditTrail events={[]} loading />
+        </StateCard>
+        <StateCard title="Empty">
+          <AuditTrail events={[]} />
+        </StateCard>
+        <StateCard title="Error">
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-destructive">
+              Failed to load experiment EXP-2174
+            </p>
+            <p className="text-xs text-muted-foreground">
+              The dataset Stability_Raw_Data.csv could not be parsed: 2 rows
+              reference missing samples.
+            </p>
+            <Button variant="outline" size="sm">
+              Retry
+            </Button>
+          </div>
+        </StateCard>
+        <StateCard title="Disabled">
+          <div className="space-y-2">
+            <Button size="sm" disabled>
+              Run assay
+            </Button>
+            <Input placeholder="Search samples" disabled />
+          </div>
+        </StateCard>
+        <StateCard title="Locked">
+          <div className="space-y-2">
+            <StatusBadge domain="experiment" status="locked" />
+            <NotebookBlock label="H2" state="locked" title="Methods">
+              <p className="text-sm text-muted-foreground">
+                Samples were held at 4 degrees C and sampled at days 0, 7, 14
+                and 28 for gcPCR quantification.
+              </p>
+            </NotebookBlock>
+          </div>
+        </StateCard>
+        <StateCard title="Permission-restricted">
+          <RecordLink
+            type="Report"
+            title="Q3 vector genome copy number report"
+            meta="RP-0091 · restricted to QA"
+            state="permission-restricted"
+          />
+        </StateCard>
+        <StateCard title="Read-only">
+          <NotebookBlock label="Chart" state="read-only" title="Assay trend">
+            <p className="text-sm text-muted-foreground">
+              Read-only notebook block: the frame renders content but disables
+              the drag handle and action menu.
+            </p>
+          </NotebookBlock>
+        </StateCard>
+      </div>
+      <p className="text-[11px] text-muted-foreground">
+        Toggle <strong>Dark</strong> and <strong>Compact</strong> in the header
+        to see dense/dark variants of every state above. Realistic scientific
+        values are used throughout: identifiers (EXP-2174, PR-118, RP-0091),
+        units (TU/mL, cells/mL), large counts (1,284,506) and long compound
+        names.
+      </p>
+    </div>
+  )
+}
+
+function StateCard({
+  title,
+  children,
+}: {
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="overflow-hidden rounded-lg border bg-card">
+      <div className="border-b bg-muted/25 px-3 py-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {title}
+        </h3>
+      </div>
+      <div className="p-4">{children}</div>
+    </div>
+  )
+}
+
+function ReviewGuide() {
+  return (
+    <div className="space-y-4 text-sm leading-6 text-muted-foreground">
+      <ol className="list-decimal space-y-2 pl-5">
+        <li>
+          Open this page in dev at <code>/foundations</code>. In production it
+          redirects to <code>/</code> and ships no review surface.
+        </li>
+        <li>
+          Compare each section against the matching mockups in{' '}
+          <code>Mockups/</code> and the concept components in{' '}
+          <code>Concepts/sheetbase-ui-system-v2/src/components/sheetbase/</code>
+          .
+        </li>
+        <li>
+          Toggle <strong>Light/Dark</strong> and{' '}
+          <strong>Comfortable/Compact</strong> in the header to verify both
+          themes and both densities. Preferences persist to localStorage.
+        </li>
+        <li>
+          Run <code>pnpm test</code> for component-level tests and the catalogue
+          accessibility checks (axe-core) in{' '}
+          <code>src/routes/foundations.a11y.test.tsx</code>.
+        </li>
+        <li>
+          For stable screenshots of the highest-value compositions, run the
+          optional Playwright script: <code>pnpm screenshot:gallery</code>{' '}
+          (writes PNGs to <code>.amp/in/artifacts/gallery/</code>). See{' '}
+          <code>
+            docs/decisions/0014-component-gallery-and-visual-review-gate.md
+          </code>{' '}
+          for the full procedure.
+        </li>
+        <li>
+          When a production component changes, update the relevant section here
+          so the catalogue stays the canonical visual review gate.
+        </li>
+      </ol>
+      <p>
+        The catalogue uses only production components with typed, review-only
+        data. No business data, no Storybook, no fixture server required.
+      </p>
     </div>
   )
 }

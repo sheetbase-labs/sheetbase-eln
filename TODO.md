@@ -300,13 +300,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** UI-003, UI-004, UI-005, UI-006, UI-007.
 
-- [ ] Create a development-only catalogue route or component environment that uses production components.
-- [ ] Show default, dense, dark, loading, empty, error, disabled, locked and permission states.
-- [ ] Include realistic scientific values, long names, units, identifiers and large counts.
-- [ ] Add automated accessibility checks for the catalogue where practical.
-- [ ] Add stable screenshots for the highest-value component compositions.
-- [ ] Document how reviewers compare changes with the mockups and concept system.
-- [ ] Confirm the catalogue is excluded or access-controlled appropriately in production.
+- [x] Create a development-only catalogue route or component environment that uses production components.
+- [x] Show default, dense, dark, loading, empty, error, disabled, locked and permission states.
+- [x] Include realistic scientific values, long names, units, identifiers and large counts.
+- [x] Add automated accessibility checks for the catalogue where practical.
+- [x] Add stable screenshots for the highest-value component compositions.
+- [x] Document how reviewers compare changes with the mockups and concept system.
+- [x] Confirm the catalogue is excluded or access-controlled appropriately in production.
 
 ---
 

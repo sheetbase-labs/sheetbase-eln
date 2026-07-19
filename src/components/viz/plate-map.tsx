@@ -156,11 +156,15 @@ export function PlateMap({
                 well?.label ??
                 `${rowLabel(r)}${c + 1}${missing ? ' (empty)' : ''}`
               return (
-                <span role="gridcell" key={c} className="flex-1">
+                <span
+                  role="gridcell"
+                  key={c}
+                  className="flex-1"
+                  aria-selected={selected}
+                >
                   <button
                     type="button"
                     aria-label={title}
-                    aria-selected={selected}
                     onClick={() => index !== undefined && onSelect?.(index)}
                     className={cn(
                       'aspect-square rounded-[3px] border border-white/60 transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 dark:border-black/20',

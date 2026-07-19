@@ -377,12 +377,12 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** ELN-005.
 
-- [ ] Add pointer drag-and-drop with a clear insertion indicator and scrolling behaviour.
-- [ ] Provide keyboard commands or menu actions that achieve the same moves.
-- [ ] Persist a move atomically and reject moves based on stale notebook structure.
-- [ ] Roll back optimistic movement clearly if the server rejects it.
-- [ ] Preserve focus and selection after a move.
-- [ ] Test moving first, middle and last blocks and concurrent conflicting moves.
+- [x] Add pointer drag-and-drop with a clear insertion indicator and scrolling behaviour.
+- [x] Provide keyboard commands or menu actions that achieve the same moves.
+- [x] Persist a move atomically and reject moves based on stale notebook structure.
+- [x] Roll back optimistic movement clearly if the server rejects it.
+- [x] Preserve focus and selection after a move.
+- [x] Test moving first, middle and last blocks and concurrent conflicting moves.
 
 ### LIVE-001 — Create durable workspace change events
 

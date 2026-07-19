@@ -4,7 +4,7 @@
  * undo, and read-only behaviour for archived notebooks. Mutation callbacks
  * are stubbed so no RPC or QueryClient context is required.
  */
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -191,5 +191,540 @@ describe('NotebookDocument — read-only', () => {
     )
     expect(screen.queryByRole('button', { name: /Add block/ })).toBeNull()
     expect(screen.queryByRole('button', { name: /Block actions/ })).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ELN-006 — block ordering and keyboard movement.
+// ---------------------------------------------------------------------------
+
+function threeBlocks() {
+  return [
+    headingBlock('b1', 'A'),
+    headingBlock('b2', 'B'),
+    headingBlock('b3', 'C'),
+  ]
+}
+
+/** Read the visible block order by walking #block-<id> anchors in DOM order. */
+function blockIdOrder(container: HTMLElement): string[] {
+  return Array.from(container.querySelectorAll('[id^="block-"]')).map((el) =>
+    el.id.replace(/^block-/, ''),
+  )
+}
+
+function moveMenuItems(): HTMLElement[] {
+  return screen.getAllByRole('menuitem', { name: /^Move (up|down)$/ })
+}
+
+describe('NotebookDocument — movement via menu', () => {
+  it('moves the first block down via the Move down menu item', async () => {
+    const user = userEvent.setup()
+    const onMoveBlock = vi.fn().mockResolvedValue(undefined)
+    const { container } = render(
+      <NotebookDocument
+        record={record}
+        blocks={threeBlocks()}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+        onMoveBlock={onMoveBlock}
+      />,
+    )
+    expect(blockIdOrder(container)).toEqual(['b1', 'b2', 'b3'])
+    // Open the first block's action menu and choose Move down.
+    await user.click(
+      screen.getAllByRole('button', { name: /Block actions/ })[0],
+    )
+    // First block's Move up is disabled; only Move down is enabled.
+    const moves = moveMenuItems()
+    expect(moves.length).toBeGreaterThanOrEqual(1)
+    await user.click(screen.getByRole('menuitem', { name: 'Move down' }))
+    expect(onMoveBlock).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'b1' }),
+      // Moving b1 from index 0 to index 1 → after=b2, before=b3.
+      expect.objectContaining({ afterBlockId: 'b2', beforeBlockId: 'b3' }),
+    )
+  })
+
+  it('moves the last block up via the Move up menu item', async () => {
+    const user = userEvent.setup()
+    const onMoveBlock = vi.fn().mockResolvedValue(undefined)
+    render(
+      <NotebookDocument
+        record={record}
+        blocks={threeBlocks()}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+        onMoveBlock={onMoveBlock}
+      />,
+    )
+    await user.click(
+      screen.getAllByRole('button', { name: /Block actions/ })[2],
+    )
+    await user.click(screen.getByRole('menuitem', { name: 'Move up' }))
+    expect(onMoveBlock).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'b3' }),
+      // Moving b3 from index 2 to index 1 → after=b1, before=b2.
+      expect.objectContaining({ afterBlockId: 'b1', beforeBlockId: 'b2' }),
+    )
+  })
+
+  it('moves a middle block up and then down via the menu', async () => {
+    const user = userEvent.setup()
+    const onMoveBlock = vi.fn().mockResolvedValue(undefined)
+    render(
+      <NotebookDocument
+        record={record}
+        blocks={threeBlocks()}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+        onMoveBlock={onMoveBlock}
+      />,
+    )
+    // Middle block (b2) Move up → after=null, before=b1.
+    await user.click(
+      screen.getAllByRole('button', { name: /Block actions/ })[1],
+    )
+    await user.click(screen.getByRole('menuitem', { name: 'Move up' }))
+    expect(onMoveBlock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ id: 'b2' }),
+      expect.objectContaining({ afterBlockId: null, beforeBlockId: 'b1' }),
+    )
+  })
+
+  it('disables Move up on the first block and Move down on the last', async () => {
+    const user = userEvent.setup()
+    render(
+      <NotebookDocument
+        record={record}
+        blocks={threeBlocks()}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+        onMoveBlock={vi.fn().mockResolvedValue(undefined)}
+      />,
+    )
+    await user.click(
+      screen.getAllByRole('button', { name: /Block actions/ })[0],
+    )
+    const up = screen.getByRole('menuitem', {
+      name: 'Move up',
+    })
+    expect(
+      up.getAttribute('aria-disabled') === 'true' ||
+        up.hasAttribute('disabled'),
+    ).toBe(true)
+  })
+})
+
+describe('NotebookDocument — movement via keyboard', () => {
+  it('Alt+ArrowDown moves the focused block down with the same destination as the menu', () => {
+    const onMoveBlock = vi.fn().mockResolvedValue(undefined)
+    const { container } = render(
+      <NotebookDocument
+        record={record}
+        blocks={threeBlocks()}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+        onMoveBlock={onMoveBlock}
+      />,
+    )
+    const row = container.querySelector('#block-b1') as HTMLElement
+    expect(row).toBeTruthy()
+    fireEvent.keyDown(row, { key: 'ArrowDown', altKey: true })
+    expect(onMoveBlock).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'b1' }),
+      expect.objectContaining({ afterBlockId: 'b2', beforeBlockId: 'b3' }),
+    )
+  })
+
+  it('Alt+ArrowUp moves the focused block up', () => {
+    const onMoveBlock = vi.fn().mockResolvedValue(undefined)
+    const { container } = render(
+      <NotebookDocument
+        record={record}
+        blocks={threeBlocks()}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+        onMoveBlock={onMoveBlock}
+      />,
+    )
+    const row = container.querySelector('#block-b3') as HTMLElement
+    fireEvent.keyDown(row, { key: 'ArrowUp', altKey: true })
+    expect(onMoveBlock).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'b3' }),
+      expect.objectContaining({ afterBlockId: 'b1', beforeBlockId: 'b2' }),
+    )
+  })
+
+  it('does nothing at the top/bottom edges', () => {
+    const onMoveBlock = vi.fn().mockResolvedValue(undefined)
+    const { container } = render(
+      <NotebookDocument
+        record={record}
+        blocks={threeBlocks()}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+        onMoveBlock={onMoveBlock}
+      />,
+    )
+    fireEvent.keyDown(container.querySelector('#block-b1') as HTMLElement, {
+      key: 'ArrowUp',
+      altKey: true,
+    })
+    expect(onMoveBlock).not.toHaveBeenCalled()
+    fireEvent.keyDown(container.querySelector('#block-b3') as HTMLElement, {
+      key: 'ArrowDown',
+      altKey: true,
+    })
+    expect(onMoveBlock).not.toHaveBeenCalled()
+  })
+})
+
+describe('NotebookDocument — optimistic reorder and rollback', () => {
+  it('applies the optimistic order immediately and clears it on success', async () => {
+    const user = userEvent.setup()
+    let resolveMove: () => void = () => {}
+    const onMoveBlock = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveMove = resolve
+        }),
+    )
+    const { container } = render(
+      <NotebookDocument
+        record={record}
+        blocks={threeBlocks()}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+        onMoveBlock={onMoveBlock}
+      />,
+    )
+    expect(blockIdOrder(container)).toEqual(['b1', 'b2', 'b3'])
+    await user.click(
+      screen.getAllByRole('button', { name: /Block actions/ })[0],
+    )
+    await user.click(screen.getByRole('menuitem', { name: 'Move down' }))
+    // Optimistic: b1 should now appear second in DOM order while the RPC
+    // is in flight.
+    expect(blockIdOrder(container)).toEqual(['b2', 'b1', 'b3'])
+    resolveMove()
+    await new Promise((r) => setTimeout(r, 0))
+    // After success the optimistic override is cleared; the canonical
+    // blocks prop order (b1, b2, b3) is restored until the route updates
+    // its cache with the canonical RPC result.
+    expect(blockIdOrder(container)).toEqual(['b1', 'b2', 'b3'])
+  })
+
+  it('rolls back to the exact pre-move order when the server rejects the move', async () => {
+    const user = userEvent.setup()
+    const onMoveBlock = vi
+      .fn()
+      .mockRejectedValue(new Error('stale version: structure changed'))
+    const { container } = render(
+      <NotebookDocument
+        record={record}
+        blocks={threeBlocks()}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+        onMoveBlock={onMoveBlock}
+      />,
+    )
+    expect(blockIdOrder(container)).toEqual(['b1', 'b2', 'b3'])
+    await user.click(
+      screen.getAllByRole('button', { name: /Block actions/ })[0],
+    )
+    await user.click(screen.getByRole('menuitem', { name: 'Move down' }))
+    // After rejection the order returns to the pre-move baseline.
+    await new Promise((r) => setTimeout(r, 0))
+    expect(blockIdOrder(container)).toEqual(['b1', 'b2', 'b3'])
+    // And a stale error is surfaced on the moved block.
+    expect(screen.getByText(/notebook changed elsewhere/i)).toBeTruthy()
+    expect(container.querySelector('[data-move-error="stale"]')).toBeTruthy()
+  })
+
+  it('shows a generic move error for non-stale failures', async () => {
+    const user = userEvent.setup()
+    const onMoveBlock = vi.fn().mockRejectedValue(new Error('network down'))
+    const { container } = render(
+      <NotebookDocument
+        record={record}
+        blocks={threeBlocks()}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+        onMoveBlock={onMoveBlock}
+      />,
+    )
+    await user.click(
+      screen.getAllByRole('button', { name: /Block actions/ })[0],
+    )
+    await user.click(screen.getByRole('menuitem', { name: 'Move down' }))
+    await new Promise((r) => setTimeout(r, 0))
+    expect(container.querySelector('[data-move-error="generic"]')).toBeTruthy()
+    expect(screen.getByText('network down')).toBeTruthy()
+  })
+})
+
+describe('NotebookDocument — drag and drop', () => {
+  /** Minimal DataTransfer stub jsdom does not provide. */
+  function makeDataTransfer() {
+    const store = new Map<string, string>()
+    return {
+      effectAllowed: 'uninitialized',
+      dropEffect: 'none',
+      setData: (t: string, v: string) => store.set(t, v),
+      getData: (t: string) => store.get(t) ?? '',
+      types: Array.from(store.keys()),
+    }
+  }
+
+  /** Build a drag-event MouseEvent with a clientY and dataTransfer. jsdom
+   * lacks a DragEvent constructor and fireEvent.dragOver does not propagate
+   * clientY, so we create a MouseEvent and pass it through fireEvent. */
+  function dragEvent(type: 'dragover' | 'drop' | 'dragenter', clientY: number) {
+    const evt = new MouseEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      clientY,
+    })
+    Object.defineProperty(evt, 'dataTransfer', { value: makeDataTransfer() })
+    return evt
+  }
+
+  function mockRect(el: HTMLElement, top: number, height: number) {
+    vi.spyOn(el, 'getBoundingClientRect').mockReturnValue({
+      top,
+      height,
+      bottom: top + height,
+      left: 0,
+      right: 0,
+      width: 0,
+      x: 0,
+      y: top,
+      toJSON: () => '',
+    })
+  }
+
+  it('renders a drag handle on each editable block', () => {
+    render(
+      <NotebookDocument
+        record={record}
+        blocks={threeBlocks()}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+        onMoveBlock={vi.fn().mockResolvedValue(undefined)}
+      />,
+    )
+    const handles = screen.getAllByRole('button', { name: 'Drag block' })
+    expect(handles).toHaveLength(3)
+    expect(handles[0].getAttribute('draggable')).toBe('true')
+  })
+
+  it('shows an insertion indicator above the target on drag-over and moves on drop', () => {
+    const onMoveBlock = vi.fn().mockResolvedValue(undefined)
+    const { container } = render(
+      <NotebookDocument
+        record={record}
+        blocks={threeBlocks()}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+        onMoveBlock={onMoveBlock}
+      />,
+    )
+    const handleB1 = screen.getAllByRole('button', { name: 'Drag block' })[0]
+    const rowB3 = container.querySelector('#block-b3') as HTMLElement
+    mockRect(rowB3, 100, 50) // midpoint at y=125
+    const dt1 = makeDataTransfer()
+    fireEvent.dragStart(handleB1, { dataTransfer: dt1 })
+    // Pointer at y=110 (top half of b3) → drop above b3 → after=b2, before=b3.
+    fireEvent(rowB3, dragEvent('dragenter', 110))
+    fireEvent(rowB3, dragEvent('dragover', 110))
+    const indicator = container.querySelector('[data-drop-indicator="above"]')
+    expect(indicator).toBeTruthy()
+    fireEvent(rowB3, dragEvent('drop', 110))
+    expect(onMoveBlock).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'b1' }),
+      expect.objectContaining({ afterBlockId: 'b2', beforeBlockId: 'b3' }),
+    )
+  })
+
+  it('drops below the target when the pointer is in the bottom half', () => {
+    const onMoveBlock = vi.fn().mockResolvedValue(undefined)
+    const { container } = render(
+      <NotebookDocument
+        record={record}
+        blocks={threeBlocks()}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+        onMoveBlock={onMoveBlock}
+      />,
+    )
+    const handleB1 = screen.getAllByRole('button', { name: 'Drag block' })[0]
+    const rowB2 = container.querySelector('#block-b2') as HTMLElement
+    mockRect(rowB2, 100, 50) // midpoint at y=125
+    fireEvent.dragStart(handleB1, { dataTransfer: makeDataTransfer() })
+    // Pointer at y=140 (bottom half of b2) → drop below b2 → after=b2, before=b3.
+    fireEvent(rowB2, dragEvent('dragover', 140))
+    fireEvent(rowB2, dragEvent('drop', 140))
+    expect(onMoveBlock).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'b1' }),
+      expect.objectContaining({ afterBlockId: 'b2', beforeBlockId: 'b3' }),
+    )
+  })
+
+  it('shows a below indicator when dropping at the end of the list', () => {
+    const onMoveBlock = vi.fn().mockResolvedValue(undefined)
+    const { container } = render(
+      <NotebookDocument
+        record={record}
+        blocks={threeBlocks()}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+        onMoveBlock={onMoveBlock}
+      />,
+    )
+    const handleB1 = screen.getAllByRole('button', { name: 'Drag block' })[0]
+    const rowB3 = container.querySelector('#block-b3') as HTMLElement
+    mockRect(rowB3, 100, 50)
+    fireEvent.dragStart(handleB1, { dataTransfer: makeDataTransfer() })
+    // Pointer at y=140 (bottom half of b3, the last block) → after=b3, before=null → end.
+    fireEvent(rowB3, dragEvent('dragover', 140))
+    const below = container.querySelector('[data-drop-indicator="below"]')
+    expect(below).toBeTruthy()
+    fireEvent(rowB3, dragEvent('drop', 140))
+    expect(onMoveBlock).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'b1' }),
+      expect.objectContaining({ afterBlockId: 'b3', beforeBlockId: null }),
+    )
+  })
+
+  it('ignores drops when no drag is in flight', () => {
+    const onMoveBlock = vi.fn().mockResolvedValue(undefined)
+    const { container } = render(
+      <NotebookDocument
+        record={record}
+        blocks={threeBlocks()}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+        onMoveBlock={onMoveBlock}
+      />,
+    )
+    const rowB2 = container.querySelector('#block-b2') as HTMLElement
+    fireEvent(rowB2, dragEvent('drop', 0))
+    expect(onMoveBlock).not.toHaveBeenCalled()
+  })
+})
+
+describe('NotebookDocument — movement read-only', () => {
+  it('does not render drag handles or move menu items for archived records', () => {
+    render(
+      <NotebookDocument
+        record={archivedRecord}
+        blocks={threeBlocks()}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+        onMoveBlock={vi.fn().mockResolvedValue(undefined)}
+        readOnly
+      />,
+    )
+    expect(screen.queryAllByRole('button', { name: 'Drag block' })).toEqual([])
+    expect(
+      screen.queryAllByRole('menuitem', { name: /^Move (up|down)$/ }),
+    ).toEqual([])
+  })
+
+  it('does not render move affordances when onMoveBlock is omitted', () => {
+    render(
+      <NotebookDocument
+        record={record}
+        blocks={threeBlocks()}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+      />,
+    )
+    expect(screen.queryAllByRole('button', { name: 'Drag block' })).toEqual([])
+    expect(
+      screen.queryAllByRole('menuitem', { name: /^Move (up|down)$/ }),
+    ).toEqual([])
+  })
+})
+
+describe('NotebookDocument — focus and selection after a move', () => {
+  it('keeps selection and refocuses the moved block after a successful move', async () => {
+    const onMoveBlock = vi.fn().mockResolvedValue(undefined)
+    const { container } = render(
+      <NotebookDocument
+        record={record}
+        blocks={threeBlocks()}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+        onMoveBlock={onMoveBlock}
+      />,
+    )
+    const row = container.querySelector('#block-b1') as HTMLElement
+    fireEvent.keyDown(row, { key: 'ArrowDown', altKey: true })
+    // Wait for the optimistic move + requestAnimationFrame focus to settle.
+    await new Promise((r) => setTimeout(r, 50))
+    // The block-b1 anchor should still be the active element after the move.
+    const b1Anchor = container.querySelector('#block-b1') as HTMLElement
+    expect(document.activeElement).toBe(b1Anchor)
+  })
+
+  it('refocuses the moved block after a rollback', async () => {
+    const onMoveBlock = vi.fn().mockRejectedValue(new Error('stale version'))
+    const { container } = render(
+      <NotebookDocument
+        record={record}
+        blocks={threeBlocks()}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+        onMoveBlock={onMoveBlock}
+      />,
+    )
+    const row = container.querySelector('#block-b1') as HTMLElement
+    fireEvent.keyDown(row, { key: 'ArrowDown', altKey: true })
+    // Wait for the rollback + requestAnimationFrame focus to settle.
+    await new Promise((r) => setTimeout(r, 50))
+    const b1Anchor = container.querySelector('#block-b1') as HTMLElement
+    // The anchor should exist and be focused (tabIndex=0 makes it focusable).
+    expect(b1Anchor).toBeTruthy()
+    expect(document.activeElement).toBe(b1Anchor)
   })
 })

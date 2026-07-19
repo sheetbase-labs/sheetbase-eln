@@ -11,6 +11,7 @@ import {
   deleteBlock,
   duplicateBlock,
   insertBlock,
+  moveBlock,
   updateBlockPayload,
 } from './notebook-mutations'
 import type { NotebookBlock } from './notebook-data'
@@ -158,6 +159,92 @@ describe('deleteBlock', () => {
     })
     expect(res.structureVersion).toBe(4)
     expect(res.order).toEqual([{ id: 'b2', order: 2 }])
+  })
+})
+
+describe('moveBlock', () => {
+  it('passes snake_case args with null neighbours and maps the result', async () => {
+    const client = makeClient(() => ({
+      block: blockWire,
+      structure_version: 6,
+      rebalanced: false,
+      order: [
+        { id: 'b2', order: 1 },
+        { id: 'b1', order: 2 },
+      ],
+    }))
+    const res = await moveBlock(client, {
+      blockId: 'b1',
+      afterBlockId: null,
+      beforeBlockId: null,
+      expectedStructureVersion: 5,
+    })
+    expect(client.rpc).toHaveBeenCalledWith('move_block', {
+      p_block_id: 'b1',
+      p_after_block_id: null,
+      p_before_block_id: null,
+      p_expected_structure_version: 5,
+    })
+    expect(res.structureVersion).toBe(6)
+    expect(res.rebalanced).toBe(false)
+    expect(res.order).toEqual([
+      { id: 'b2', order: 1 },
+      { id: 'b1', order: 2 },
+    ])
+    expect(res.block.id).toBe('b1')
+  })
+
+  it('passes both neighbours through when supplied', async () => {
+    const client = makeClient(() => ({
+      block: blockWire,
+      structure_version: 2,
+      rebalanced: false,
+      order: [],
+    }))
+    await moveBlock(client, {
+      blockId: 'b1',
+      afterBlockId: 'b2',
+      beforeBlockId: 'b3',
+      expectedStructureVersion: 1,
+    })
+    expect(client.rpc).toHaveBeenCalledWith('move_block', {
+      p_block_id: 'b1',
+      p_after_block_id: 'b2',
+      p_before_block_id: 'b3',
+      p_expected_structure_version: 1,
+    })
+  })
+
+  it('defaults omitted neighbours and version to null', async () => {
+    const client = makeClient(() => ({
+      block: blockWire,
+      structure_version: 1,
+      rebalanced: true,
+      order: [],
+    }))
+    await moveBlock(client, { blockId: 'b1' })
+    expect(client.rpc).toHaveBeenCalledWith('move_block', {
+      p_block_id: 'b1',
+      p_after_block_id: null,
+      p_before_block_id: null,
+      p_expected_structure_version: null,
+    })
+  })
+
+  it('preserves rebalanced=true from the RPC', async () => {
+    const client = makeClient(() => ({
+      block: blockWire,
+      structure_version: 9,
+      rebalanced: true,
+      order: [{ id: 'b1', order: 1 }],
+    }))
+    const res = await moveBlock(client, {
+      blockId: 'b1',
+      afterBlockId: null,
+      beforeBlockId: null,
+      expectedStructureVersion: 8,
+    })
+    expect(res.rebalanced).toBe(true)
   })
 })
 

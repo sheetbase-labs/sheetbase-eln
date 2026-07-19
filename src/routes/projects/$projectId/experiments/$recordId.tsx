@@ -31,6 +31,7 @@ import {
   deleteBlock,
   duplicateBlock,
   insertBlock,
+  moveBlock,
   updateBlockPayload,
 } from '#/lib/notebook-mutations'
 import { validateBlock } from '#/lib/blocks'
@@ -424,6 +425,28 @@ function EditableNotebook({
     )
   }
 
+  /**
+   * Reconcile the canonical (id, order) list returned by move_block /
+   * delete_block into the blocks cache: keep the known block objects but
+   * drop any ids no longer present, apply the new order values, and sort.
+   * Unknown ids (rare; only on a concurrent external insert we have not yet
+   * fetched) are filtered out — the subsequent invalidation refetches them.
+   */
+  function reorderBlocks(order: Array<{ id: string; order: number }>) {
+    queryClient.setQueryData<NotebookBlockDomain[]>(blocksKey, (prev) => {
+      if (!prev) return prev
+      const byId = new Map(prev.map((b) => [b.id, b]))
+      const next: NotebookBlockDomain[] = []
+      for (const entry of order) {
+        const block = byId.get(entry.id)
+        if (!block) continue
+        next.push({ ...block, order: entry.order })
+      }
+      next.sort((a, b) => a.order - b.order)
+      return next
+    })
+  }
+
   // --- Save (update payload) ---------------------------------------------
   const saveMutation = useMutation({
     mutationFn: async ({
@@ -563,6 +586,44 @@ function EditableNotebook({
     },
   })
 
+  // --- Move (ELN-006) ----------------------------------------------------
+  // Atomically reorder a block via fractional indexing. The current
+  // structure_version is read from the record cache (not the stale `record`
+  // prop) so back-to-back moves send the latest version. On success the
+  // canonical (id, order) list returned by the RPC replaces the blocks
+  // cache and the structure_version bumps. On a stale-version rejection we
+  // refetch both caches so the next move targets the right baseline; the
+  // thrown error propagates to NotebookDocument, which rolls back the
+  // optimistic ordering it applied.
+  const moveMutation = useMutation({
+    mutationFn: async ({
+      block,
+      destination,
+    }: {
+      block: NotebookBlockDomain
+      destination: { afterBlockId: string | null; beforeBlockId: string | null }
+    }) => {
+      const current = queryClient.getQueryData<NotebookRecord | null>(recordKey)
+      return moveBlock(client, {
+        blockId: block.id,
+        afterBlockId: destination.afterBlockId,
+        beforeBlockId: destination.beforeBlockId,
+        expectedStructureVersion:
+          current?.structureVersion ?? record.structureVersion,
+      })
+    },
+    onSuccess: (res) => {
+      reorderBlocks(res.order)
+      setRecordStructureVersion(res.structureVersion)
+    },
+    onError: (error) => {
+      if (error instanceof DataClientError && error.code === 'stale_version') {
+        void queryClient.invalidateQueries({ queryKey: blocksKey })
+        void queryClient.invalidateQueries({ queryKey: recordKey })
+      }
+    },
+  })
+
   async function handleSave(
     block: NotebookBlockDomain,
     payload: Record<string, unknown>,
@@ -589,6 +650,13 @@ function EditableNotebook({
     await undoDeleteMutation.mutateAsync({ type, payload })
   }
 
+  async function handleMove(
+    block: NotebookBlockDomain,
+    destination: { afterBlockId: string | null; beforeBlockId: string | null },
+  ) {
+    await moveMutation.mutateAsync({ block, destination })
+  }
+
   return (
     <NotebookDocument
       record={record}
@@ -598,6 +666,7 @@ function EditableNotebook({
       onDuplicateBlock={handleDuplicate}
       onDeleteBlock={handleDelete}
       onUndoDelete={handleUndoDelete}
+      onMoveBlock={handleMove}
     />
   )
 }

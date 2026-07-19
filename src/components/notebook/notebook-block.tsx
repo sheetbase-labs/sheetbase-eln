@@ -42,7 +42,15 @@ export interface NotebookBlockProps {
   state?: NotebookBlockState
   /** Drag handle affordance. Focusable; aria-label customisable. */
   draggable?: boolean
-  onDragStart?: () => void
+  /**
+   * Native drag event forwarded from the handle so the owning document can
+   * set dataTransfer and a drag image (ELN-006). Older `() => void` callers
+   * still work — the event is an extra argument they can ignore.
+   */
+  onDragStart?: (event: React.DragEvent<HTMLButtonElement>) => void
+  /** Fired when the OS drag ends (including cancelled drops) so the owner
+   * can clear drag/drop-target state. */
+  onDragEnd?: (event: React.DragEvent<HTMLButtonElement>) => void
   /** Action buttons rendered in the header (e.g. "Edit", "Insert below"). */
   actions?: React.ReactNode
   /** Overflow menu items (rendered as a DropdownMenu). */
@@ -76,6 +84,7 @@ export function NotebookBlock({
   state = 'default',
   draggable = false,
   onDragStart,
+  onDragEnd,
   actions,
   menuItems,
   className,
@@ -104,6 +113,7 @@ export function NotebookBlock({
             aria-label="Drag block"
             draggable
             onDragStart={onDragStart}
+            onDragEnd={onDragEnd}
             className="cursor-grab rounded p-1 text-muted-foreground opacity-0 outline-none transition-opacity focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100 active:cursor-grabbing"
           >
             <GripVertical className="size-4" />

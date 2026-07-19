@@ -120,6 +120,51 @@ export async function deleteBlock(
   }
 }
 
+export interface MoveBlockArgs {
+  blockId: string
+  /** Block that should immediately precede the moved block after the move. */
+  afterBlockId?: string | null
+  /** Block that should immediately follow the moved block after the move. */
+  beforeBlockId?: string | null
+  expectedStructureVersion?: number
+}
+
+export interface MoveBlockResult {
+  block: NotebookBlock
+  structureVersion: number
+  rebalanced: boolean
+  order: Array<{ id: string; order: number }>
+}
+
+/**
+ * Atomically reorder a block via fractional indexing (ELN-006). Either
+ * neighbour may be null: (null, B) → start; (A, null) → end; (A, B) →
+ * between A and B; (null, null) → end. The caller supplies the record
+ * structure_version it last saw; a mismatch raises stale_version.
+ */
+export async function moveBlock(
+  client: DataClient,
+  args: MoveBlockArgs,
+): Promise<MoveBlockResult> {
+  const res = await client.rpc<{
+    block: BlockWire
+    structure_version: number
+    rebalanced: boolean
+    order: Array<{ id: string; order: number }>
+  }>('move_block', {
+    p_block_id: args.blockId,
+    p_after_block_id: args.afterBlockId ?? null,
+    p_before_block_id: args.beforeBlockId ?? null,
+    p_expected_structure_version: args.expectedStructureVersion ?? null,
+  })
+  return {
+    block: toBlock(res.block),
+    structureVersion: res.structure_version,
+    rebalanced: res.rebalanced,
+    order: res.order,
+  }
+}
+
 /**
  * Default payloads for the four editable block types (ELN-005). Each starts
  * minimal and valid so the new block enters editing focus immediately

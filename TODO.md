@@ -276,13 +276,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** UI-002.
 
-- [ ] Turn `NotebookBlock` into a composable visual frame without embedding notebook persistence inside it.
-- [ ] Support selected, editing, dragging, invalid, locked, loading and read-only states.
-- [ ] Keep drag handles and action menus discoverable to mouse and keyboard users.
-- [ ] Turn `ChartFrame` into a reusable frame with title, subtitle, provenance, live/snapshot state, legend, accessible alternative and actions.
-- [ ] Turn `PlateMap` into a semantic grid with row and column labels, legend, missing-value treatment and keyboard selection.
-- [ ] Ensure all three components work in full-width canvases and narrower notebook columns.
-- [ ] Add interaction and accessibility tests without tying the components to sample data.
+- [x] Turn `NotebookBlock` into a composable visual frame without embedding notebook persistence inside it.
+- [x] Support selected, editing, dragging, invalid, locked, loading and read-only states.
+- [x] Keep drag handles and action menus discoverable to mouse and keyboard users.
+- [x] Turn `ChartFrame` into a reusable frame with title, subtitle, provenance, live/snapshot state, legend, accessible alternative and actions.
+- [x] Turn `PlateMap` into a semantic grid with row and column labels, legend, missing-value treatment and keyboard selection.
+- [x] Ensure all three components work in full-width canvases and narrower notebook columns.
+- [x] Add interaction and accessibility tests without tying the components to sample data.
 
 ### UI-007 — Productionise audit and approval components
 

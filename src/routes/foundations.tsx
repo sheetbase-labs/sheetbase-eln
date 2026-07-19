@@ -16,6 +16,9 @@ import {
 
 import { useTheme } from '#/components/theme-provider'
 import { StatusBadge } from '#/components/scientific'
+import { NotebookBlock } from '#/components/notebook'
+import { ChartFrame, PlateMap } from '#/components/viz'
+import type { PlateWell } from '#/components/viz'
 import {
   RecordHeader,
   Inspector,
@@ -347,6 +350,14 @@ function FoundationsPage() {
           description="The compact record header and contextual inspector (UI-004). Every header field is optional; the inspector has skeleton, no-selection, unavailable and permission-denied states."
         >
           <RecordPreview />
+        </Section>
+
+        <Section
+          id="notebook"
+          title="Notebook & visualisation frames"
+          description="NotebookBlock, ChartFrame and PlateMap (UI-006) — presentational frames with selected/editing/invalid/locked/loading states, live/snapshot charts, provenance, legend and keyboard-operable plate wells."
+        >
+          <NotebookVizPreview />
         </Section>
 
         <Section
@@ -693,6 +704,80 @@ function RecordPreview() {
             },
           ]}
         />
+      </div>
+    </div>
+  )
+}
+
+function NotebookVizPreview() {
+  const plateWells: PlateWell[] = Array.from({ length: 96 }, (_, i) => ({
+    row: Math.floor(i / 12),
+    col: i % 12,
+    value: ((i * 7 + (i % 5)) % 10) / 10,
+  }))
+  return (
+    <div className="grid gap-6 lg:grid-cols-2">
+      <div className="space-y-4">
+        <NotebookBlock
+          label="H2"
+          title="Methods"
+          state="selected"
+          draggable
+          actions={
+            <Button variant="ghost" size="sm">
+              Edit
+            </Button>
+          }
+          menuItems={[
+            { id: 'insert', label: 'Insert below', separatorAfter: true },
+            { id: 'duplicate', label: 'Duplicate' },
+            { id: 'delete', label: 'Delete block' },
+          ]}
+        >
+          <p className="text-sm leading-6 text-muted-foreground">
+            Samples were held at 4 degrees C and sampled at days 0, 7, 14 and 28
+            for gcPCR quantification.
+          </p>
+        </NotebookBlock>
+        <NotebookBlock label="Chart" state="loading">
+          chart
+        </NotebookBlock>
+        <NotebookBlock label="Table" state="invalid">
+          <p className="text-sm text-destructive">
+            Two rows reference missing samples.
+          </p>
+        </NotebookBlock>
+      </div>
+      <div className="space-y-4">
+        <ChartFrame
+          title="Assay trend"
+          subtitle="Vector genome copy number"
+          mode="live"
+          provenance="Source: Stability assay - 2025-07-14"
+          alt="Line chart of vector genome copy number over 14 days for two lots; lot A rises from 1e6 to 1e8, lot B plateaus at 1e7."
+          legend={
+            <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
+              <span className="inline-flex items-center gap-1">
+                <span className="inline-block size-2.5 rounded-[2px] bg-blue-500" />
+                Lot LWV-250601
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <span className="inline-block size-2.5 rounded-[2px] bg-emerald-500" />
+                Lot LWV-250602
+              </span>
+            </div>
+          }
+        >
+          <div className="flex h-40 items-end justify-center rounded-md border bg-muted/30 text-xs text-muted-foreground">
+            chart canvas
+          </div>
+        </ChartFrame>
+        <ChartFrame title="Snapshot" mode="snapshot" loading>
+          chart
+        </ChartFrame>
+        <div className="rounded-lg border bg-card p-4">
+          <PlateMap wells={plateWells} ariaLabel="96-well plate" compact />
+        </div>
       </div>
     </div>
   )

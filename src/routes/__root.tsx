@@ -1,12 +1,12 @@
 import {
   HeadContent,
+  Outlet,
   Scripts,
   createRootRouteWithContext,
 } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 
-import type { ReactNode } from 'react'
 import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
 import { LiveEventProvider } from '../components/live'
 
@@ -56,12 +56,19 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 
 /**
  * LIVE-003: wraps every route in the live-event coordinator so the
- * SSE stream to `/api/events` lives for the whole session. The router
- * passes `children` (the matched route's element) at render time; the
- * loose prop type keeps TanStack Router's `RouteComponent` contract.
+ * SSE stream to `/api/events` lives for the whole session.
+ *
+ * TanStack Router renders nested matches through `<Outlet />` — route
+ * components are called with no props, so `children` would be `undefined`
+ * and the matched route would never appear. The `<Outlet />` surfaces the
+ * active child route (e.g. `/sign-in`) inside the provider.
  */
-function RootRouteComponent({ children }: { children?: ReactNode }) {
-  return <LiveEventProvider>{children}</LiveEventProvider>
+function RootRouteComponent() {
+  return (
+    <LiveEventProvider>
+      <Outlet />
+    </LiveEventProvider>
+  )
 }
 
 /**

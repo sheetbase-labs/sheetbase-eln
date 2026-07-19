@@ -261,3 +261,48 @@ archive and restore operations, the `insert_block` and `delete_block` RPCs
 anchor rejection, surviving order list), plus the `stale_version`,
 `missing_link` and cross-workspace permission-denial paths, against a freshly
 migrated `sheetbase_test` with real `authenticated` claim GUCs.
+
+## Durable change events (LIVE-001)
+
+Every durable mutation to `projects`, `folders`, `records`, `blocks` and
+`record_links` — whether through the RPCs above or direct PostgREST CRUD —
+appends a row to `api.change_events`, workspace-scoped and ordered by a
+per-workspace gapless `sequence`. The pair `(workspace_id, sequence)` is the
+stable replay cursor. Events are written by `SECURITY DEFINER` AFTER
+triggers; request roles can read events only for their own workspace and can
+neither write nor forge them. See decision record 0016.
+
+### Event shape
+
+| field                       | meaning                                                                             |
+| --------------------------- | ----------------------------------------------------------------------------------- |
+| `workspace_id` / `sequence` | replay cursor                                                                       |
+| `entity_type`               | `project` / `folder` / `record` / `block` / `record_link`                           |
+| `entity_uuid`               | the changed entity's id                                                             |
+| `operation`                 | `create` / `update` / `move` / `delete` / `archive` / `restore` / `link` / `unlink` |
+| `record_id`                 | record identity for block/link events; null otherwise                               |
+| `project_id`                | project context (equals `entity_uuid` for project events)                           |
+| `actor_user_id`             | the acting user (from JWT `sub`); null on bootstrap paths                           |
+| `client_id`                 | the acting client identity (from JWT `client_id`); null until LIVE-003              |
+| `payload`                   | lightweight summary (changed fields, new order, bumped version)                     |
+| `created_at`                | event timestamp                                                                     |
+
+### Reading the event stream
+
+```bash
+# Authenticated browser session: events for the caller's workspace, in order.
+curl -sS -b cookie.txt \
+  '/api/db/change_events?order=sequence.asc&select=sequence,entity_type,entity_uuid,operation,record_id,project_id,actor_user_id,client_id,payload,created_at'
+```
+
+A reconnecting client requests `?sequence=gt.<last-seen>` to fetch only what
+it missed. LIVE-002 wraps this in an authenticated SSE endpoint.
+
+### Forgery prevention
+
+`change_events` has no `INSERT`/`UPDATE`/`DELETE` grants to any request role
+and RLS restricts reads to the caller's workspace. The `internal.emit_change_event`
+writer lives in the `internal` schema (not exposed to PostgREST) and has no
+`EXECUTE` grant for request roles. The contract tests in
+`tests/db/change-events.test.ts` prove direct writes by an authenticated
+caller are denied.

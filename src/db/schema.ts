@@ -10,6 +10,7 @@
  */
 import { relations, sql } from 'drizzle-orm'
 import {
+  bigint,
   boolean,
   check,
   index,
@@ -493,6 +494,121 @@ export const revisions = api.table(
     ),
     index('idx_revisions_record_id').on(table.recordId),
     index('idx_revisions_created_at').on(table.createdAt),
+  ],
+)
+
+// ---------------------------------------------------------------------------
+// api — durable workspace change events (LIVE-001). Append-only,
+// workspace-scoped history of every durable mutation to the notebook and
+// project domain. Populated exclusively by SECURITY DEFINER triggers on the
+// domain tables (internal schema), so every mutation — RPC or direct
+// PostgREST CRUD — emits transactionally, and request roles can neither
+// write nor forge events directly (no INSERT/UPDATE/DELETE grants; RLS
+// members-read-only). Decision record 0016.
+//
+// `sequence` is a per-workspace, gapless, monotonic bigint assigned from
+// api.workspace_change_seq. The pair (workspace_id, sequence) is the stable
+// replay cursor for LIVE-002 SSE reconnection. `payload` is a lightweight
+// summary (changed fields, new order, bumped version) — never the full
+// source of truth; clients refetch the entity after seeing an event.
+// ---------------------------------------------------------------------------
+
+/**
+ * Per-workspace monotonic counter backing change_events.sequence. Written
+ * only by the SECURITY DEFINER emit helper under a row lock; no request-role
+ * grants. One row per workspace, created on first mutation.
+ */
+export const workspaceChangeSeq = api.table(
+  'workspace_change_seq',
+  {
+    workspaceId: uuid('workspace_id')
+      .primaryKey()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    // Per-workspace monotonic counter, incremented under a row lock by the
+    // SECURITY DEFINER emit helper. Not a global serial — one independent
+    // counter per workspace.
+    lastSeq: bigint('last_seq', { mode: 'bigint' })
+      .notNull()
+      .default(sql`0`),
+    ...timestamps,
+  },
+  (table) => [
+    index('idx_workspace_change_seq_workspace_id').on(table.workspaceId),
+  ],
+)
+
+/**
+ * Append-only durable change event. RLS: workspace members can read; no
+ * request role can write. `operation` is the semantic operation
+ * (create|update|move|delete|archive|restore|link|unlink), derived from
+ * OLD/NEW comparison in the trigger. `record_id` and `project_id` are
+ * nullable scoping hints so LIVE-003 can invalidate only the affected
+ * collections. `client_id` lets a client reconcile its own echoed events.
+ */
+export const changeEvents = api.table(
+  'change_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    // Per-workspace gapless sequence. (workspace_id, sequence) is unique and
+    // is the SSE replay cursor.
+    sequence: bigint('sequence', { mode: 'bigint' }).notNull(),
+    // project | folder | record | block | record_link
+    entityType: text('entity_type').notNull(),
+    entityUuid: uuid('entity_uuid').notNull(),
+    // create | update | move | delete | archive | restore | link | unlink
+    operation: text('operation').notNull(),
+    // Record identity when the event is about a block or link; null for
+    // project/folder events. Lets LIVE-003 invalidate record-scoped caches.
+    recordId: uuid('record_id'),
+    // Project context for record/block/link/folder events; for project
+    // events this equals entity_uuid.
+    projectId: uuid('project_id'),
+    // Actor attribution (Better Auth user id). Nullable for bootstrap paths
+    // that run without request claims; LIVE-001 emits only when an actor is
+    // present, so seed/migration events are skipped.
+    actorUserId: text('actor_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    // Stable client identity for self-reconciliation (LIVE-003). Populated
+    // from the `client_id` JWT claim; null until the client sends one.
+    clientId: text('client_id'),
+    // Lightweight summary (e.g. {blockId, type, order, structureVersion}).
+    // Never the full source of truth; clients refetch after seeing an event.
+    payload: jsonb('payload')
+      .notNull()
+      .default(sql`'{}'`),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('uq_change_events_workspace_sequence').on(
+      table.workspaceId,
+      table.sequence,
+    ),
+    check(
+      'chk_change_events_entity_type',
+      sql`${table.entityType} IN ('project', 'folder', 'record', 'block', 'record_link')`,
+    ),
+    check(
+      'chk_change_events_operation',
+      sql`${table.operation} IN ('create', 'update', 'move', 'delete', 'archive', 'restore', 'link', 'unlink')`,
+    ),
+    // Hot replay path: WHERE workspace_id = $1 AND sequence > $2 ORDER BY sequence.
+    index('idx_change_events_workspace_sequence').on(
+      table.workspaceId,
+      table.sequence,
+    ),
+    // Record-scoped invalidation: WHERE workspace_id = $1 AND record_id = $2.
+    index('idx_change_events_workspace_record').on(
+      table.workspaceId,
+      table.recordId,
+    ),
+    // Retention/cleanup boundary.
+    index('idx_change_events_created_at').on(table.createdAt),
   ],
 )
 

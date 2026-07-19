@@ -388,13 +388,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** ELN-003.
 
-- [ ] Add an append-only change table with workspace, sequence, entity, operation, record identity, actor, client identity and timestamp.
-- [ ] Generate events transactionally with durable notebook and project mutations.
-- [ ] Publish lightweight PostgreSQL notifications that point to durable events rather than containing the full source of truth.
-- [ ] Make event ordering and replay boundaries explicit.
-- [ ] Prevent clients from writing or forging audit/change events directly.
-- [ ] Add retention and cleanup placeholders without deleting data needed by active replay clients.
-- [ ] Test transaction rollback, ordering and workspace isolation.
+- [x] Add an append-only change table with workspace, sequence, entity, operation, record identity, actor, client identity and timestamp.
+- [x] Generate events transactionally with durable notebook and project mutations.
+- [x] Publish lightweight PostgreSQL notifications that point to durable events rather than containing the full source of truth.
+- [x] Make event ordering and replay boundaries explicit.
+- [x] Prevent clients from writing or forging audit/change events directly.
+- [x] Add retention and cleanup placeholders without deleting data needed by active replay clients.
+- [x] Test transaction rollback, ordering and workspace isolation.
 
 ### LIVE-002 — Deliver replayable server-sent events
 

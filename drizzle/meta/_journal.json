@@ -85,6 +85,13 @@
       "when": 1784450300000,
       "tag": "0011_eln_block_insert_delete_rpcs",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1784459680433,
+      "tag": "0012_live_change_events",
+      "breakpoints": true
     }
   ]
 }

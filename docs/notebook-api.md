@@ -306,3 +306,51 @@ writer lives in the `internal` schema (not exposed to PostgREST) and has no
 `EXECUTE` grant for request roles. The contract tests in
 `tests/db/change-events.test.ts` prove direct writes by an authenticated
 caller are denied.
+
+## Live change events stream (LIVE-002)
+
+`GET /api/events` is an authenticated, workspace-scoped Server-Sent Events
+stream that delivers durable change events as they happen. Open it with the
+browser's native `EventSource`:
+
+```js
+const es = new EventSource('/api/events')
+es.addEventListener('change', (ev) => {
+  const event = JSON.parse(ev.data)
+  // event: { id, workspaceId, sequence, entityType, entityUuid, operation,
+  //          recordId, projectId, actorUserId, clientId, payload, createdAt }
+})
+es.addEventListener('reset', (ev) => {
+  const { reason, resumeFrom } = JSON.parse(ev.data)
+  // Reconnect; the browser's EventSource resends Last-Event-ID automatically.
+})
+```
+
+### Reconnect and replay
+
+Each `change` event carries `id: <sequence>`. On reconnect, `EventSource`
+sends `Last-Event-ID: <last sequence>` automatically; the server replays
+durable events with `sequence > last-seen` (bounded to a single batch)
+before switching to live notifications. No client-side cursor state is
+required.
+
+### Reset
+
+If the requested history is unavailable (the cursor points into cleaned-up
+retention) or the replay batch hits the bound, the server emits a `reset`
+control event with `{ reason: 'history_unavailable' | 'replay_bound',
+resumeFrom }` and closes the connection. The client refetches the current
+state of the affected collections and reconnects from `resumeFrom`.
+
+### Heartbeats and session expiry
+
+The server sends `:heartbeat` comment lines to keep the connection alive
+and periodically re-checks the Better Auth session; an expired session
+produces a `bye` event with `{ reason: 'session_expired' }` and closes the
+stream.
+
+### Workspace isolation
+
+The subscription filters notifications by `workspace_id`; a caller never
+sees event metadata from another workspace. The contract is proven in
+`tests/db/sse-events.test.ts`.

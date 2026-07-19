@@ -400,13 +400,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** LIVE-001, AUTH-003.
 
-- [ ] Add an authenticated SSE endpoint scoped to the active workspace.
-- [ ] Support reconnection from a last-seen event identifier.
-- [ ] Replay missed durable events before switching to live notifications.
-- [ ] Send heartbeats and close connections whose sessions are no longer valid.
-- [ ] Bound replay requests and return a recoverable reset instruction if the requested history is unavailable.
-- [ ] Avoid leaking event metadata from other workspaces.
-- [ ] Add tests for initial connection, replay, reconnect, expiry and isolation.
+- [x] Add an authenticated SSE endpoint scoped to the active workspace.
+- [x] Support reconnection from a last-seen event identifier.
+- [x] Replay missed durable events before switching to live notifications.
+- [x] Send heartbeats and close connections whose sessions are no longer valid.
+- [x] Bound replay requests and return a recoverable reset instruction if the requested history is unavailable.
+- [x] Avoid leaking event metadata from other workspaces.
+- [x] Add tests for initial connection, replay, reconnect, expiry and isolation.
 
 ### LIVE-003 — Connect TanStack Query and TanStack DB to live events
 

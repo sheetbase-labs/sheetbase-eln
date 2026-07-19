@@ -418,7 +418,7 @@ describe('DATA-002 scientific tables', () => {
     ).not.toBeNull()
   })
 
-  it('denies metadata, rows and management RPCs to api_client until DATA-003', async () => {
+  it('denies metadata, rows and management RPCs without scientific scopes', async () => {
     await expect(
       apiClient.query(`SELECT * FROM api.scientific_tables`),
     ).rejects.toMatchObject({ code: '42501' })

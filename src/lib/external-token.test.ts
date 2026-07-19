@@ -7,7 +7,7 @@ import {
   ExternalTokenError,
   hasScope,
   readBearerToken,
-  requiredScope,
+  requiredScopes,
   verifyApiClientToken,
 } from './external-token'
 import type { ProxyPath } from './postgrest-path'
@@ -45,17 +45,55 @@ describe('readBearerToken', () => {
   })
 })
 
-describe('requiredScope', () => {
+describe('requiredScopes', () => {
   it('requires projects:read for GET on a table', () => {
-    expect(requiredScope('GET', tablePath)).toBe('projects:read')
+    expect(requiredScopes('GET', tablePath)).toEqual(['projects:read'])
   })
 
   it('requires projects:write for POST on a table', () => {
-    expect(requiredScope('POST', tablePath)).toBe('projects:write')
+    expect(requiredScopes('POST', tablePath)).toEqual(['projects:write'])
   })
 
   it('requires projects:write for an RPC (create_project is a write)', () => {
-    expect(requiredScope('POST', rpcPath)).toBe('projects:write')
+    expect(requiredScopes('POST', rpcPath)).toEqual(['projects:write'])
+  })
+
+  it('classifies scientific metadata, rows, bulk edits and schema RPCs', () => {
+    const resource = `sheet_${'a'.repeat(26)}`
+    expect(requiredScopes('GET', { kind: 'table', resource })).toEqual([
+      'scientific:read',
+    ])
+    expect(requiredScopes('POST', { kind: 'table', resource })).toEqual([
+      'scientific:write',
+    ])
+    expect(requiredScopes('PATCH', { kind: 'table', resource })).toEqual([
+      'scientific:read',
+      'scientific:write',
+    ])
+    expect(
+      requiredScopes('POST', {
+        kind: 'rpc',
+        resource: 'scientific_table_metadata',
+      }),
+    ).toEqual(['scientific:read'])
+    expect(
+      requiredScopes('POST', {
+        kind: 'rpc',
+        resource: 'apply_scientific_row_edits',
+      }),
+    ).toEqual(['scientific:read', 'scientific:write'])
+    expect(
+      requiredScopes('POST', {
+        kind: 'rpc',
+        resource: 'add_scientific_column',
+      }),
+    ).toEqual(['scientific:schema'])
+  })
+
+  it('fails closed for unknown external resources', () => {
+    expect(() =>
+      requiredScopes('GET', { kind: 'table', resource: 'change_events' }),
+    ).toThrow(ExternalTokenError)
   })
 })
 

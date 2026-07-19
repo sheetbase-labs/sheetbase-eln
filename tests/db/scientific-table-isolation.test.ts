@@ -331,7 +331,7 @@ describe('DATA-002 scientific table workspace isolation', () => {
     ).not.toBeNull()
   })
 
-  it('denies api_client metadata, generated rows, and management RPCs until DATA-003', async () => {
+  it('denies api_client metadata, rows, and management RPCs without scientific scopes', async () => {
     for (const table of [
       'scientific_tables',
       'scientific_columns',

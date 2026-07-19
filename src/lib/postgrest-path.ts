@@ -31,20 +31,46 @@ export function parseProxyPath(raw: string): ProxyPath | null {
 }
 
 /**
- * Filters the incoming query string to safe PostgREST parameters: simple
- * identifier keys and bounded values. Anything else is dropped silently —
- * a dropped filter fails the request closed, never open.
+ * Accepts safe PostgREST parameters: simple identifier keys and bounded
+ * values. The whole request is rejected when any parameter is unsafe; silently
+ * dropping a mutation filter would turn a narrow write into a broad one.
  */
 export function sanitizeQuery(search: string): string {
   const incoming = new URLSearchParams(search)
   const safe = new URLSearchParams()
   for (const [key, value] of incoming) {
-    if (QUERY_KEY.test(key) && value.length <= MAX_QUERY_VALUE_LENGTH) {
-      safe.append(key, value)
+    if (!QUERY_KEY.test(key) || value.length > MAX_QUERY_VALUE_LENGTH) {
+      throw new InvalidPostgrestQueryError()
     }
+    safe.append(key, value)
   }
   const out = safe.toString()
   return out ? `?${out}` : ''
+}
+
+export class InvalidPostgrestQueryError extends Error {
+  constructor() {
+    super('Invalid PostgREST query parameter.')
+    this.name = 'InvalidPostgrestQueryError'
+  }
+}
+
+const UUID_FILTER =
+  /^eq\.[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const VERSION_FILTER = /^eq\.[1-9][0-9]*$/
+
+/** DATA-003 row mutations require one stable identity and expected version. */
+export function isValidScientificMutationQuery(search: string): boolean {
+  const query = new URLSearchParams(search)
+  const ids = query.getAll('id')
+  const versions = query.getAll('version')
+  return (
+    [...query.keys()].every((key) => key === 'id' || key === 'version') &&
+    ids.length === 1 &&
+    versions.length === 1 &&
+    UUID_FILTER.test(ids[0]) &&
+    VERSION_FILTER.test(versions[0])
+  )
 }
 
 /** Builds the upstream URL from validated pieces only. */

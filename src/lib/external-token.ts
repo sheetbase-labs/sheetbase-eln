@@ -7,8 +7,8 @@
  *
  * This module verifies the token, checks the credential has not been revoked
  * since it was minted (revocation takes effect immediately, not at the next
- * exchange), and enforces the projects:read / projects:write scopes against
- * the HTTP method and resource. The proxy calls `resolveExternalToken` and
+ * exchange), and enforces exact resource capabilities against the HTTP
+ * method. The proxy calls `resolveExternalToken` and
  * forwards to PostgREST only when it returns a workspace id; PostgREST then
  * applies the api_client RLS policies for workspace isolation.
  */
@@ -89,16 +89,83 @@ export async function verifyApiClientToken(
   }
 }
 
+const GENERATED_SHEET = /^sheet_[a-z2-7]{26}$/
+const SCIENTIFIC_METADATA = new Set([
+  'scientific_tables',
+  'scientific_columns',
+  'scientific_category_options',
+])
+const SCIENTIFIC_SCHEMA_RPCS = new Set([
+  'create_scientific_table',
+  'add_scientific_column',
+  'update_scientific_column_display',
+  'retire_scientific_column',
+  'convert_scientific_column',
+])
+const PROJECT_DOMAIN_RESOURCES = new Set([
+  'projects',
+  'folders',
+  'records',
+  'blocks',
+  'record_links',
+  'revisions',
+])
+const PROJECT_DOMAIN_RPCS = new Set([
+  'create_project',
+  'create_record',
+  'create_record_with_blocks',
+  'update_block_payload',
+  'move_block',
+  'archive_record',
+  'restore_record',
+  'create_record_link',
+  'insert_block',
+  'delete_block',
+])
+
 /**
- * Maps an HTTP method and resource to the scope required to perform it.
- * GET/HEAD on any resource, or any method on an RPC, needs projects:read for
- * read-style operations; mutating methods on tables need projects:write.
- * create_project is a write operation regardless of method.
+ * Maps an operation to every capability it needs. Unknown resources fail
+ * closed: adding a PostgREST relation never silently exposes it to existing
+ * credentials. Canonical row mutations need read as well as write because
+ * PostgREST applies SELECT RLS while filtering and returning changed rows.
  */
-export function requiredScope(method: string, path: ProxyPath): Scope {
-  if (path.kind === 'rpc') return 'projects:write'
-  if (method === 'GET' || method === 'HEAD') return 'projects:read'
-  return 'projects:write'
+export function requiredScopes(method: string, path: ProxyPath): Scope[] {
+  if (path.kind === 'rpc') {
+    if (PROJECT_DOMAIN_RPCS.has(path.resource)) return ['projects:write']
+    if (path.resource === 'scientific_table_metadata') {
+      return ['scientific:read']
+    }
+    if (path.resource === 'apply_scientific_row_edits') {
+      return ['scientific:read', 'scientific:write']
+    }
+    if (SCIENTIFIC_SCHEMA_RPCS.has(path.resource)) {
+      return ['scientific:schema']
+    }
+    throw new ExternalTokenError(
+      'insufficient_scope',
+      'External credentials cannot access this resource.',
+    )
+  }
+
+  if (PROJECT_DOMAIN_RESOURCES.has(path.resource)) {
+    return [
+      method === 'GET' || method === 'HEAD'
+        ? 'projects:read'
+        : 'projects:write',
+    ]
+  }
+  if (
+    SCIENTIFIC_METADATA.has(path.resource) ||
+    GENERATED_SHEET.test(path.resource)
+  ) {
+    if (method === 'GET' || method === 'HEAD') return ['scientific:read']
+    if (method === 'POST') return ['scientific:write']
+    return ['scientific:read', 'scientific:write']
+  }
+  throw new ExternalTokenError(
+    'insufficient_scope',
+    'External credentials cannot access this resource.',
+  )
 }
 
 /** True if the credential's scopes cover the required scope. */
@@ -136,12 +203,14 @@ export async function resolveExternalToken(
     throw new ExternalTokenError('invalid_token', 'Invalid bearer token.')
   }
 
-  const required = requiredScope(method, path)
-  if (!hasScope(claims.scopes, required)) {
-    throw new ExternalTokenError(
-      'insufficient_scope',
-      `Credential lacks scope: ${required}`,
-    )
+  const required = requiredScopes(method, path)
+  for (const scope of required) {
+    if (!hasScope(claims.scopes, scope)) {
+      throw new ExternalTokenError(
+        'insufficient_scope',
+        `Credential lacks scope: ${scope}`,
+      )
+    }
   }
 
   return { workspaceId: claims.workspace_id }

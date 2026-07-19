@@ -56,6 +56,32 @@ describe('handleProxyRequest', () => {
     expect(JSON.stringify(body)).not.toContain('cookie')
   })
 
+  it('never falls back to a browser session for a malformed bearer header', async () => {
+    let sessionChecked = false
+    const malformed = await handleProxyRequest(
+      req('projects', { headers: { authorization: 'Bearer ' } }),
+      'projects',
+      makeDeps({
+        getSession: async () => {
+          sessionChecked = true
+          return {
+            user: { id: 'user-1' },
+            session: { id: 'session-1' },
+          }
+        },
+      }),
+    )
+    expect(malformed.status).toBe(401)
+    expect(sessionChecked).toBe(false)
+
+    const missingResolver = await handleProxyRequest(
+      req('projects', { headers: { authorization: 'Bearer external-jwt' } }),
+      'projects',
+      makeDeps({ resolveExternalToken: undefined }),
+    )
+    expect(missingResolver.status).toBe(401)
+  })
+
   it('rejects users without a workspace as permission_denied', async () => {
     const response = await handleProxyRequest(
       req('projects'),
@@ -83,10 +109,10 @@ describe('handleProxyRequest', () => {
     expect(forwarded).toBe(false)
   })
 
-  it('forwards with the minted token, method, body and sanitized query', async () => {
+  it('forwards with the minted token, method, body and safe query', async () => {
     let seen: { url: string; init: RequestInit } | null = null
     const response = await handleProxyRequest(
-      req('projects?select=id&bad[key]=1', {
+      req('projects?select=id', {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
@@ -117,6 +143,146 @@ describe('handleProxyRequest', () => {
       'return=representation',
     )
     expect(seen!.init.body).toBe(JSON.stringify({ title: 'New project' }))
+  })
+
+  it('rejects an unsafe query instead of dropping a filter', async () => {
+    let forwarded = false
+    const response = await handleProxyRequest(
+      req('projects?bad[key]=1'),
+      'projects',
+      makeDeps({
+        fetchFn: async () => {
+          forwarded = true
+          return new Response('[]')
+        },
+      }),
+    )
+    expect(response.status).toBe(400)
+    expect(forwarded).toBe(false)
+  })
+
+  it('requires id/version for a generated PATCH and controls its Prefer header', async () => {
+    const resource = `sheet_${'a'.repeat(26)}`
+    const id = '10000000-0000-4000-8000-000000000001'
+    const missingVersion = await handleProxyRequest(
+      req(`${resource}?id=eq.${id}`, {
+        method: 'PATCH',
+        body: '{}',
+      }),
+      resource,
+      makeDeps(),
+    )
+    expect(missingVersion.status).toBe(400)
+
+    let prefer: string | null = null
+    const success = await handleProxyRequest(
+      req(`${resource}?id=eq.${id}&version=eq.1`, {
+        method: 'PATCH',
+        headers: {
+          prefer: 'return=minimal',
+          'content-type': 'application/json',
+        },
+        body: '{}',
+      }),
+      resource,
+      makeDeps({
+        fetchFn: async (_url, init) => {
+          prefer = new Headers(init?.headers).get('prefer')
+          return Response.json([{ id, version: 2 }])
+        },
+      }),
+    )
+    expect(success.status).toBe(200)
+    expect(prefer).toBe('handling=strict,max-affected=1,return=representation')
+  })
+
+  it('rejects caller-controlled filters and response shaping on mutations', async () => {
+    const resource = `sheet_${'a'.repeat(26)}`
+    const id = '10000000-0000-4000-8000-000000000001'
+    for (const extra of ['select=id', 'limit=0', 'col_value=eq.hidden']) {
+      let forwarded = false
+      const response = await handleProxyRequest(
+        req(`${resource}?id=eq.${id}&version=eq.1&${extra}`, {
+          method: 'PATCH',
+          body: '{}',
+        }),
+        resource,
+        makeDeps({
+          fetchFn: async () => {
+            forwarded = true
+            return Response.json([])
+          },
+        }),
+      )
+      expect(response.status, extra).toBe(400)
+      expect(forwarded, extra).toBe(false)
+    }
+  })
+
+  it('maps an empty generated mutation result to stale_version', async () => {
+    const resource = `sheet_${'a'.repeat(26)}`
+    const id = '10000000-0000-4000-8000-000000000001'
+    const response = await handleProxyRequest(
+      req(`${resource}?id=eq.${id}&version=eq.1`, {
+        method: 'DELETE',
+      }),
+      resource,
+      makeDeps({ fetchFn: async () => Response.json([]) }),
+    )
+    expect(response.status).toBe(409)
+    expect((await response.json()).error.category).toBe('stale_version')
+  })
+
+  it('forwards range pagination headers in both directions', async () => {
+    const response = await handleProxyRequest(
+      req('projects', { headers: { range: '0-9', 'range-unit': 'items' } }),
+      'projects',
+      makeDeps({
+        fetchFn: async (_url, init) => {
+          expect(new Headers(init?.headers).get('range')).toBe('0-9')
+          return new Response('[]', {
+            headers: {
+              'content-type': 'application/json',
+              'content-range': '0-9/25',
+              'range-unit': 'items',
+            },
+          })
+        },
+      }),
+    )
+    expect(response.headers.get('content-range')).toBe('0-9/25')
+    expect(response.headers.get('range-unit')).toBe('items')
+  })
+
+  it('waits for a schema RPC resource and field to enter the OpenAPI cache', async () => {
+    const resourceName = `sheet_${'b'.repeat(26)}`
+    const fieldName = `col_${'c'.repeat(26)}`
+    let calls = 0
+    const response = await handleProxyRequest(
+      req('rpc/add_scientific_column', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{}',
+      }),
+      'rpc/add_scientific_column',
+      makeDeps({
+        fetchFn: async () => {
+          calls += 1
+          if (calls === 1) {
+            return Response.json({ resourceName, fieldName })
+          }
+          return Response.json({
+            definitions: {
+              [resourceName]: {
+                properties: calls > 2 ? { [fieldName]: {} } : {},
+              },
+            },
+          })
+        },
+      }),
+    )
+    expect(response.status).toBe(200)
+    expect(calls).toBe(3)
   })
 
   it('forwards the x-sheetbase-client-id header to the token minter (LIVE-003)', async () => {

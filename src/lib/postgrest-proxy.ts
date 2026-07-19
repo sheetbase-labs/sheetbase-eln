@@ -17,7 +17,12 @@ import {
 } from './errors'
 import type { ProxyErrorCode } from './errors'
 import { logger } from './logger'
-import { buildUpstreamUrl, parseProxyPath } from './postgrest-path'
+import {
+  buildUpstreamUrl,
+  InvalidPostgrestQueryError,
+  isValidScientificMutationQuery,
+  parseProxyPath,
+} from './postgrest-path'
 import type { ProxyPath } from './postgrest-path'
 import {
   REQUEST_ID_HEADER,
@@ -101,15 +106,28 @@ export async function handleProxyRequest(
     return proxyErrorResponse('invalid_path', requestId)
   }
 
+  const requestUrl = new URL(request.url)
+  const generatedMutation =
+    path.kind === 'table' &&
+    /^sheet_[a-z2-7]{26}$/.test(path.resource) &&
+    (request.method === 'PATCH' || request.method === 'DELETE')
+  if (generatedMutation && !isValidScientificMutationQuery(requestUrl.search)) {
+    return proxyErrorResponse('invalid_path', requestId)
+  }
+
   // Two auth paths share this boundary:
   //   1. External bearer token (Authorization: Bearer <api_client jwt>) —
   //      verified, revocation-checked and scope-enforced by the resolver.
   //   2. Browser session — Better Auth cookies exchanged for an
   //      authenticated PostgREST JWT (AUTH-003).
   // An external token wins when present; otherwise the browser path runs.
+  const authorization = request.headers.get('authorization')
   const bearer = readBearerToken(request.headers)
   let token: string
-  if (bearer && deps.resolveExternalToken) {
+  if (authorization !== null) {
+    if (!bearer || !deps.resolveExternalToken) {
+      return proxyErrorResponse('unauthenticated', requestId)
+    }
     try {
       await deps.resolveExternalToken(bearer, request.method, path)
       token = bearer
@@ -139,8 +157,15 @@ export async function handleProxyRequest(
     })
   }
 
-  const url = new URL(request.url)
-  const upstream = buildUpstreamUrl(deps.upstreamBaseUrl, path, url.search)
+  let upstream: string
+  try {
+    upstream = buildUpstreamUrl(deps.upstreamBaseUrl, path, requestUrl.search)
+  } catch (error) {
+    if (error instanceof InvalidPostgrestQueryError) {
+      return proxyErrorResponse('invalid_path', requestId)
+    }
+    throw error
+  }
 
   const headers = new Headers()
   headers.set('authorization', `Bearer ${token}`)
@@ -149,7 +174,16 @@ export async function handleProxyRequest(
   const contentType = request.headers.get('content-type')
   if (contentType) headers.set('content-type', contentType)
   const prefer = request.headers.get('prefer')
-  if (prefer) headers.set('prefer', prefer)
+  if (generatedMutation) {
+    headers.set(
+      'prefer',
+      'handling=strict,max-affected=1,return=representation',
+    )
+  } else if (prefer) headers.set('prefer', prefer)
+  const range = request.headers.get('range')
+  if (range) headers.set('range', range)
+  const rangeUnit = request.headers.get('range-unit')
+  if (rangeUnit) headers.set('range-unit', rangeUnit)
 
   const startedAt = Date.now()
   let response: Response
@@ -163,6 +197,28 @@ export async function handleProxyRequest(
           ? undefined
           : await request.text(),
     })
+    if (
+      response.ok &&
+      path.kind === 'rpc' &&
+      SCHEMA_READINESS_RPCS.has(path.resource) &&
+      !(await waitForScientificSchema(
+        response,
+        deps.upstreamBaseUrl,
+        headers,
+        fetchFn,
+      ))
+    ) {
+      return stampRequestId(
+        errorEnvelope({
+          category: 'service_unavailable',
+          status: 503,
+          message:
+            'The schema change committed, but its REST resource is not ready yet. Retry shortly.',
+          requestId,
+        }),
+        requestId,
+      )
+    }
   } catch (error) {
     logger.error('postgrest proxy upstream fetch failed', {
       request_id: requestId,
@@ -178,10 +234,72 @@ export async function handleProxyRequest(
     response,
     path,
     request.method,
+    generatedMutation,
     requestId,
     startedAt,
   )
   return stampRequestId(finalResponse, requestId)
+}
+
+const SCHEMA_READINESS_RPCS = new Set([
+  'create_scientific_table',
+  'add_scientific_column',
+  'convert_scientific_column',
+])
+
+/**
+ * DDL commits before PostgREST receives the transaction's schema-reload
+ * notification. Poll its OpenAPI cache for the generated resource/field so a
+ * successful management response means the published REST shape is usable.
+ */
+async function waitForScientificSchema(
+  managementResponse: Response,
+  upstreamBaseUrl: string,
+  requestHeaders: Headers,
+  fetchFn: typeof fetch,
+): Promise<boolean> {
+  let result: unknown
+  try {
+    result = await managementResponse.clone().json()
+  } catch {
+    return false
+  }
+  if (Array.isArray(result) && result.length === 1) result = result[0]
+  if (!result || typeof result !== 'object') return false
+  const value = result as Record<string, unknown>
+  const resource = value.resourceName
+  const field = value.fieldName
+  if (
+    typeof resource !== 'string' ||
+    !/^sheet_[a-z2-7]{26}$/.test(resource) ||
+    (field !== undefined &&
+      (typeof field !== 'string' || !/^col_[a-z2-7]{26}$/.test(field)))
+  ) {
+    return false
+  }
+
+  const headers = new Headers(requestHeaders)
+  headers.set('accept', 'application/openapi+json')
+  headers.delete('content-type')
+  headers.delete('prefer')
+  for (const delay of [0, 20, 40, 80, 160, 320]) {
+    if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay))
+    try {
+      const response = await fetchFn(`${upstreamBaseUrl}/`, {
+        method: 'GET',
+        headers,
+      })
+      if (!response.ok) continue
+      const document = (await response.json()) as {
+        definitions?: Record<string, { properties?: Record<string, unknown> }>
+      }
+      const definition = document.definitions?.[resource]
+      if (definition && (!field || definition.properties?.[field])) return true
+    } catch {
+      // Keep polling within the bound; the committed DDL is not rolled back.
+    }
+  }
+  return false
 }
 
 /**
@@ -196,12 +314,32 @@ async function normaliseUpstreamResponse(
   response: Response,
   path: ProxyPath,
   method: string,
+  generatedMutation: boolean,
   requestId: string,
   startedAt: number,
 ): Promise<Response> {
   const durationMs = Date.now() - startedAt
 
   if (response.status < 400) {
+    let successfulBody: BodyInit | null = response.body
+    if (generatedMutation) {
+      const text = await response.text()
+      let rows: unknown
+      try {
+        rows = JSON.parse(text)
+      } catch {
+        rows = null
+      }
+      if (Array.isArray(rows) && rows.length === 0) {
+        return errorEnvelope({
+          category: 'stale_version',
+          status: 409,
+          message: 'The scientific row changed or no longer exists.',
+          requestId,
+        })
+      }
+      successfulBody = text
+    }
     logger.info('postgrest proxy request complete', {
       request_id: requestId,
       method,
@@ -214,7 +352,11 @@ async function normaliseUpstreamResponse(
     if (upstreamContentType) {
       passthroughHeaders.set('content-type', upstreamContentType)
     }
-    return new Response(response.body, {
+    for (const name of ['content-range', 'range-unit', 'preference-applied']) {
+      const value = response.headers.get(name)
+      if (value) passthroughHeaders.set(name, value)
+    }
+    return new Response(successfulBody, {
       status: response.status,
       headers: passthroughHeaders,
     })

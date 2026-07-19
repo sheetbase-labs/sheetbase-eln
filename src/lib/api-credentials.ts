@@ -20,8 +20,17 @@ import { apiCredentials, workspaceMemberships } from '#/db/schema'
 
 export type Db = NodePgDatabase<typeof schema>
 
-/** The initial scope vocabulary (API-005). Future tickets extend this. */
-export const VALID_SCOPES = ['projects:read', 'projects:write'] as const
+/**
+ * External credential capabilities. Scientific schema management is kept
+ * separate from row writes because its RPCs execute managed DDL.
+ */
+export const VALID_SCOPES = [
+  'projects:read',
+  'projects:write',
+  'scientific:read',
+  'scientific:write',
+  'scientific:schema',
+] as const
 export type Scope = (typeof VALID_SCOPES)[number]
 
 /**

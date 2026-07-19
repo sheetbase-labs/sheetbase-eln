@@ -56,7 +56,12 @@ export function categorisePostgrestError(
       : inferFromStatus(status)
   return {
     category,
-    status,
+    status:
+      category === 'stale_version'
+        ? 409
+        : category === 'missing_link'
+          ? 422
+          : status,
     message: body?.message ?? 'Request failed.',
   }
 }

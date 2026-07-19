@@ -46,7 +46,7 @@ describe('categorisePostgrestError', () => {
   })
 
   it('maps the Sheetbase stale_version SQLSTATE to stale_version', () => {
-    const out = categorisePostgrestError(409, {
+    const out = categorisePostgrestError(400, {
       code: 'SB001',
       message: 'stale',
     })
@@ -58,11 +58,11 @@ describe('categorisePostgrestError', () => {
   })
 
   it('maps the Sheetbase missing_link SQLSTATE to missing_link', () => {
-    const out = categorisePostgrestError(422, {
+    const out = categorisePostgrestError(400, {
       code: 'SB002',
       message: 'no target',
     })
-    expect(out.category).toBe('missing_link')
+    expect(out).toMatchObject({ category: 'missing_link', status: 422 })
   })
 
   it('maps the Sheetbase invalid-payload SQLSTATE to validation_error', () => {

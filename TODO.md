@@ -479,13 +479,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** DATA-002, API-005.
 
-- [ ] Make newly created tables discoverable through a stable Sheetbase metadata endpoint.
-- [ ] Expose permitted row CRUD through PostgREST without requiring a custom endpoint per table.
-- [ ] Apply scope and row-level-security rules consistently to browser and external clients.
-- [ ] Return column type, unit, validation and relationship metadata separately from raw rows.
-- [ ] Support pagination, filtering, ordering and safe bulk operations.
-- [ ] Define optimistic-concurrency behaviour using stable row identities and update timestamps or versions.
-- [ ] Add command-line examples and contract tests for create, read, update, delete, filter and conflict.
+- [x] Make newly created tables discoverable through a stable Sheetbase metadata endpoint.
+- [x] Expose permitted row CRUD through PostgREST without requiring a custom endpoint per table.
+- [x] Apply scope and row-level-security rules consistently to browser and external clients.
+- [x] Return column type, unit, validation and relationship metadata separately from raw rows.
+- [x] Support pagination, filtering, ordering and safe bulk operations.
+- [x] Define optimistic-concurrency behaviour using stable row identities and update timestamps or versions.
+- [x] Add command-line examples and contract tests for create, read, update, delete, filter and conflict.
 
 ### SHEET-001 — Add the Handsontable dependency and licence boundary
 

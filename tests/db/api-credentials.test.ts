@@ -92,6 +92,20 @@ describe('createCredential', () => {
       }),
     ).rejects.toMatchObject({ code: 'invalid_scope' })
   })
+
+  it('accepts the independent scientific scope vocabulary', async () => {
+    const created = await createCredential(db, {
+      workspaceId: WS,
+      createdByUserId: OWNER,
+      name: 'scientific integration',
+      scopes: ['scientific:read', 'scientific:write', 'scientific:schema'],
+    })
+    expect(created.scopes).toEqual([
+      'scientific:read',
+      'scientific:write',
+      'scientific:schema',
+    ])
+  })
 })
 
 describe('exchangeCredential', () => {

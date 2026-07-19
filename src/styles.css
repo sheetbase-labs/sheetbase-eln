@@ -1,5 +1,7 @@
 @import '@fontsource-variable/instrument-sans';
 @import '@fontsource-variable/inter';
+@import 'handsontable/styles/handsontable.css';
+@import 'handsontable/styles/ht-theme-main.css';
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 @import 'tw-animate-css';
@@ -177,6 +179,36 @@
 .scientific-nums {
   font-variant-numeric: tabular-nums lining-nums;
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01';
+}
+
+/* Handsontable is always mounted through SheetbaseGrid. These overrides keep
+   the vendor grid on the same compact, scientific-data visual language as the
+   rest of the application while preserving Handsontable's interaction CSS. */
+.sheetbase-grid.ht-theme-main {
+  --ht-font-family: var(--font-sans);
+  --ht-font-size: 13px;
+  --ht-font-size-small: 12px;
+  --ht-line-height: 18px;
+  --ht-line-height-small: 16px;
+  --ht-border-color: var(--border);
+  --ht-accent-color: var(--primary);
+  --ht-foreground-color: var(--foreground);
+  --ht-foreground-secondary-color: var(--muted-foreground);
+  --ht-background-color: var(--card);
+  --ht-background-secondary-color: var(--muted);
+  --ht-cell-selection-background-color: color-mix(
+    in oklab,
+    var(--primary) 16%,
+    transparent
+  );
+  --ht-cell-read-only-background-color: var(--muted);
+  --ht-header-font-weight: 600;
+  --ht-border-radius: var(--radius-sm);
+
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-variant-numeric: tabular-nums lining-nums;
 }
 
 @keyframes accordion-down {

@@ -491,13 +491,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** UI-006, DATA-003.
 
-- [ ] Add Handsontable through the package manager using the approved commercial licence.
-- [ ] Keep licence configuration outside committed secrets while making local setup explicit.
-- [ ] Load the grid only on the client and avoid server-rendering assumptions that break TanStack Start.
-- [ ] Establish a wrapper component that owns Sheetbase styling, accessibility notes and integration conventions.
-- [ ] Match grid typography, borders, selection and controls to the concept system rather than accepting default vendor styling.
-- [ ] Provide a clear failure state when licence or client initialisation fails.
-- [ ] Add a small isolated rendering test and document any browser-test-only behaviour.
+- [x] Add Handsontable through the package manager using the approved non-commercial/evaluation licence mode.
+- [x] Keep licence configuration outside committed secrets while making local setup explicit.
+- [x] Load the grid only on the client and avoid server-rendering assumptions that break TanStack Start.
+- [x] Establish a wrapper component that owns Sheetbase styling, accessibility notes and integration conventions.
+- [x] Match grid typography, borders, selection and controls to the concept system rather than accepting default vendor styling.
+- [x] Provide a clear failure state when licence or client initialisation fails.
+- [x] Add a small isolated rendering test and document any browser-test-only behaviour.
 
 ### SHEET-002 — Build a read/write PostgreSQL-backed sheet block
 

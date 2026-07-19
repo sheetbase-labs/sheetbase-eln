@@ -57,7 +57,9 @@ Everything a new developer needs, without reading source:
 
 See `docs/migrations.md` before changing schema, including how to verify
 against a fresh database. See `docs/testing.md` for the test layers and
-`docs/seeds.md` for fixture and seed conventions.
+`docs/seeds.md` for fixture and seed conventions. Handsontable's required
+commercial licence setup and client-only integration boundary are documented
+in `docs/handsontable.md`.
 
 ## Repository boundaries
 

@@ -316,13 +316,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** API-007, UI-008.
 
-- [ ] Write a short domain decision describing workspaces, projects, folders, notebooks, experiments, records, sections, blocks and links.
-- [ ] Decide whether an experiment owns a notebook or is one kind of notebook-backed record, and use that language consistently.
-- [ ] Define which objects have stable public identifiers in addition to database primary keys.
-- [ ] Define block types, shared block metadata and type-specific payload ownership.
-- [ ] Define soft deletion, archival and restoration semantics.
-- [ ] Define revision boundaries for metadata, block structure and block content.
-- [ ] Review the model against the Experiment Notebook, Protocol Template and Report Builder mockups.
+- [x] Write a short domain decision describing workspaces, projects, folders, notebooks, experiments, records, sections, blocks and links.
+- [x] Decide whether an experiment owns a notebook or is one kind of notebook-backed record, and use that language consistently.
+- [x] Define which objects have stable public identifiers in addition to database primary keys.
+- [x] Define block types, shared block metadata and type-specific payload ownership.
+- [x] Define soft deletion, archival and restoration semantics.
+- [x] Define revision boundaries for metadata, block structure and block content.
+- [x] Review the model against the Experiment Notebook, Protocol Template and Report Builder mockups.
 
 ### ELN-002 — Create the notebook persistence schema
 

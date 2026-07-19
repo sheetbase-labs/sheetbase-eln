@@ -119,6 +119,39 @@ describe('handleProxyRequest', () => {
     expect(seen!.init.body).toBe(JSON.stringify({ title: 'New project' }))
   })
 
+  it('forwards the x-sheetbase-client-id header to the token minter (LIVE-003)', async () => {
+    let minted: { clientId?: string | null } | null = null
+    const response = await handleProxyRequest(
+      req('projects', {
+        headers: { 'x-sheetbase-client-id': 'tab-123' },
+      }),
+      'projects',
+      makeDeps({
+        mintToken: async (input) => {
+          minted = input
+          return 'minted-jwt'
+        },
+      }),
+    )
+    expect(response.status).toBe(200)
+    expect(minted).toMatchObject({ clientId: 'tab-123' })
+  })
+
+  it('passes null clientId when the browser did not send the header', async () => {
+    let minted: { clientId?: string | null } | null = null
+    await handleProxyRequest(
+      req('projects'),
+      'projects',
+      makeDeps({
+        mintToken: async (input) => {
+          minted = input
+          return 'minted-jwt'
+        },
+      }),
+    )
+    expect(minted).toMatchObject({ clientId: null })
+  })
+
   it('maps upstream connection failure to a non-sensitive service_unavailable', async () => {
     const response = await handleProxyRequest(
       req('projects'),

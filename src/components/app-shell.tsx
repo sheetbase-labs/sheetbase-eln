@@ -27,6 +27,7 @@ import type { LucideIcon } from 'lucide-react'
 import { authClient } from '#/lib/auth-client'
 import { cn } from '#/lib/utils'
 import { useTheme } from '#/components/theme-provider'
+import { ConnectionStatus, useLiveStatus } from '#/components/live'
 import {
   Badge,
   Button,
@@ -196,6 +197,11 @@ export function AppShell({
   const router = useRouter()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const { theme, setTheme, density, setDensity } = useTheme()
+
+  // LIVE-003: quiet connection-status indicator in the top bar. The
+  // coordinator is mounted at the root; this just subscribes to its
+  // status snapshot.
+  const liveStatus = useLiveStatus()
 
   const [collapsed, setCollapsed] = React.useState(false)
   const [mobileOpen, setMobileOpen] = React.useState(false)
@@ -486,6 +492,10 @@ export function AppShell({
             </nav>
 
             <div className="ml-auto flex items-center gap-1.5">
+              <ConnectionStatus
+                status={liveStatus.status}
+                lastAppliedSeq={liveStatus.lastAppliedSeq}
+              />
               <button
                 type="button"
                 onClick={() => setCommandOpen(true)}

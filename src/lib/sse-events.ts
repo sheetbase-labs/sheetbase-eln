@@ -232,6 +232,17 @@ export async function handleSseRequest(
   }
 
   const lastSeen = parseLastEventId(request.headers)
+  // LIVE-003: the client may pass `?after=<seq>` on a manual reconnect
+  // after a `reset` (history_unavailable), to override Last-Event-ID when
+  // the browser's tracked cursor still points into cleaned-up history.
+  // A well-formed non-negative integer wins; anything else falls back to
+  // the header so the native EventSource auto-reconnect path is unchanged.
+  const url = new URL(request.url)
+  const afterParam = url.searchParams.get('after')
+  const afterSeq =
+    afterParam !== null && /^\d+$/.test(afterParam)
+      ? Number.parseInt(afterParam, 10)
+      : lastSeen
   const encoder = new TextEncoder()
   const controller = new ReadableStreamDefaultControllerHolder()
 
@@ -284,7 +295,7 @@ export async function handleSseRequest(
       send(
         formatControlEvent('hello', {
           workspaceId: workspace.id,
-          resumeFrom: lastSeen,
+          resumeFrom: afterSeq,
         }),
       )
 
@@ -297,7 +308,7 @@ export async function handleSseRequest(
       // notifications that overlap replay (race between the LISTEN
       // connection and the replay read) so a client never sees the same
       // event id twice.
-      let lastDeliveredSeq = lastSeen
+      let lastDeliveredSeq = afterSeq
       unsub = await deps.subscribe(workspace.id, (event) => {
         if (!replayDone) {
           liveBuffer.push(event)
@@ -310,7 +321,7 @@ export async function handleSseRequest(
       // Replay.
       let replay: ReplayResult
       try {
-        replay = await deps.readEvents(workspace.id, lastSeen, replayBound)
+        replay = await deps.readEvents(workspace.id, afterSeq, replayBound)
       } catch (err) {
         send(
           formatControlEvent('bye', {
@@ -321,7 +332,7 @@ export async function handleSseRequest(
         close(new Error('replay_failed'))
         return
       }
-      const decision = decideReplay(lastSeen, replay)
+      const decision = decideReplay(afterSeq, replay)
       for (const event of decision.events) {
         send(formatSseEvent(event))
       }

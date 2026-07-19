@@ -99,17 +99,18 @@ describe('createDataClient.rpc', () => {
     )
 
     expect(row).toEqual({ id: 'p1', key: 'virus-stability', title: 'Virus' })
-    expect(fetchImpl).toHaveBeenCalledWith(
-      '/api/db/rpc/create_project',
-      expect.objectContaining({
-        method: 'POST',
-        headers: expect.objectContaining({
-          'content-type': 'application/json',
-          prefer: 'return=representation',
-        }),
-        body: JSON.stringify({ p_title: 'Virus' }),
-      }),
-    )
+    // LIVE-003: data-client now stamps headers via a Headers instance
+    // (so x-sheetbase-client-id is added); assert against the call args
+    // directly rather than objectContaining, which can't see Headers entries.
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    const [path, init] = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock
+      .calls[0] as [string, RequestInit]
+    expect(path).toBe('/api/db/rpc/create_project')
+    expect(init.method).toBe('POST')
+    expect(init.body).toBe(JSON.stringify({ p_title: 'Virus' }))
+    const headers = new Headers(init.headers)
+    expect(headers.get('content-type')).toBe('application/json')
+    expect(headers.get('prefer')).toBe('return=representation')
   })
 })
 

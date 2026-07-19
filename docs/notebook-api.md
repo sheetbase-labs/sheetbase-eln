@@ -334,6 +334,12 @@ durable events with `sequence > last-seen` (bounded to a single batch)
 before switching to live notifications. No client-side cursor state is
 required.
 
+The server also accepts `?after=<seq>` as a resume-cursor override. This is
+used by the LIVE-003 client after a `reset` whose `resumeFrom` is below the
+browser's tracked `Last-Event-ID` (the `history_unavailable` case): a
+fresh `EventSource('/api/events?after=<resumeFrom>')` avoids the
+infinite-reset loop that native `Last-Event-ID` would otherwise cause.
+
 ### Reset
 
 If the requested history is unavailable (the cursor points into cleaned-up

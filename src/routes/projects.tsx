@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { createDataClient, DataClientError } from '#/lib/data-client'
 
 import { AppShell } from '#/components/app-shell'
+import { notebookQueryKeys } from '#/lib/notebook-data'
 
 /**
  * API-004: the first authenticated project vertical slice. Reads projects
@@ -67,7 +68,7 @@ export const Route = createFileRoute('/projects')({
 
 const dataClient = createDataClient()
 
-const PROJECTS_KEY = ['projects'] as const
+const PROJECTS_KEY = notebookQueryKeys.projectsList()
 
 function ProjectsRoute() {
   const { context } = Route.useRouteContext()

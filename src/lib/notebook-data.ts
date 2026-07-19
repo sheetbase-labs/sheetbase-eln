@@ -227,6 +227,10 @@ export function fetchLinksForRecord(client: DataClient, recordId: string) {
 // Query keys are scoped by id so navigating between notebooks always refetches
 // rather than serving a stale sibling's data.
 export const notebookQueryKeys = {
+  // LIVE-003: the projects list is a workspace-scoped collection too;
+  // centralising its key here lets the live-event coordinator invalidate
+  // it alongside the notebook-scoped keys when a project event arrives.
+  projectsList: () => ['projects'] as const,
   project: (projectId: string) => ['notebook', 'project', projectId] as const,
   records: (projectId: string) => ['notebook', 'records', projectId] as const,
   record: (recordId: string) => ['notebook', 'record', recordId] as const,

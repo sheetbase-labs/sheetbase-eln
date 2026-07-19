@@ -36,6 +36,7 @@ export interface ProxyDeps {
     userId: string
     workspaceId: string
     sessionId: string
+    clientId?: string | null
   }) => Promise<string>
   /**
    * Verifies an external bearer token, checks revocation at use time and
@@ -132,6 +133,9 @@ export async function handleProxyRequest(
       userId: session.user.id,
       workspaceId: workspace.id,
       sessionId: session.session.id,
+      // LIVE-003: forward the tab-scoped client id so the JWT carries it
+      // and the durable change-event trigger records the actor's tab.
+      clientId: request.headers.get('x-sheetbase-client-id') ?? null,
     })
   }
 

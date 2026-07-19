@@ -6,7 +6,9 @@ import {
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 
+import type { ReactNode } from 'react'
 import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
+import { LiveEventProvider } from '../components/live'
 
 import appCss from '../styles.css?url'
 
@@ -43,8 +45,24 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       },
     ],
   }),
+  // LIVE-003: mount the live-event coordinator once for the whole
+  // session. The coordinator opens `/api/events` in the browser (after
+  // hydration) and reconciles durable change events into the shared
+  // QueryClient. It degrades to `offline` on public routes where the
+  // stream returns 401; no false `live` state.
+  component: RootRouteComponent,
   shellComponent: RootDocument,
 })
+
+/**
+ * LIVE-003: wraps every route in the live-event coordinator so the
+ * SSE stream to `/api/events` lives for the whole session. The router
+ * passes `children` (the matched route's element) at render time; the
+ * loose prop type keeps TanStack Router's `RouteComponent` contract.
+ */
+function RootRouteComponent({ children }: { children?: ReactNode }) {
+  return <LiveEventProvider>{children}</LiveEventProvider>
+}
 
 /**
  * Inline no-flash script: applies the saved theme and density to <html>

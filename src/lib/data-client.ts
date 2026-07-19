@@ -8,6 +8,8 @@
  * with the raw wire shape. Domain mappers belong at the call site, not here.
  */
 
+import { CLIENT_ID_HEADER, getOrCreateClientId } from './client-identity'
+
 export interface DataError {
   code: string
   message: string
@@ -78,7 +80,16 @@ export interface DataClient {
 
 export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
   async function request(path: string, init: RequestInit): Promise<Response> {
-    const response = await fetchImpl(`${API_BASE}${path}`, init)
+    const headers = new Headers(init.headers)
+    // LIVE-003: stamp the tab-scoped client id on every data request so
+    // the proxy mints it into the JWT and durable change events record
+    // the actor's client. Missing on SSR / blocked storage → omitted.
+    const clientId = getOrCreateClientId()
+    if (clientId) headers.set(CLIENT_ID_HEADER, clientId)
+    const response = await fetchImpl(`${API_BASE}${path}`, {
+      ...init,
+      headers,
+    })
     if (!response.ok) {
       throw await parseError(response)
     }

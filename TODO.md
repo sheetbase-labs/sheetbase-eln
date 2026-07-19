@@ -412,13 +412,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** LIVE-002, ELN-005.
 
-- [ ] Define query-backed collections for projects, records, blocks and links where they improve reactive composition.
-- [ ] Include a stable client identity on mutations so the client can reconcile its own echoed events.
-- [ ] Invalidate or patch only the collections affected by each event type.
-- [ ] Preserve optimistic changes until confirmed and roll them back on conflict or rejection.
-- [ ] Avoid duplicate application when an event is replayed or received twice.
-- [ ] Expose connection and stale-data status without distracting from normal notebook work.
-- [ ] Test two-tab editing, reconnect after missed events and duplicate delivery.
+- [x] Define query-backed collections for projects, records, blocks and links where they improve reactive composition.
+- [x] Include a stable client identity on mutations so the client can reconcile its own echoed events.
+- [x] Invalidate or patch only the collections affected by each event type.
+- [x] Preserve optimistic changes until confirmed and roll them back on conflict or rejection.
+- [x] Avoid duplicate application when an event is replayed or received twice.
+- [x] Expose connection and stale-data status without distracting from normal notebook work.
+- [x] Test two-tab editing, reconnect after missed events and duplicate delivery.
 
 ### ELN-007 — Add autosave and conflict handling
 

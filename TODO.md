@@ -437,14 +437,14 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** ELN-006, ELN-007.
 
-- [ ] Create an experiment notebook through the UI.
-- [ ] Add, edit, reorder and link the initial block types.
-- [ ] Reload and confirm content, order and identifiers are stable.
-- [ ] Open a second tab and confirm saved changes arrive without a full-page reload.
-- [ ] Trigger a controlled conflict and confirm neither version is silently lost.
-- [ ] Read the same notebook and blocks through an external API credential.
-- [ ] Confirm audit/change attribution identifies the acting user and client.
-- [ ] Automate the stable portions of this workflow as browser and API tests.
+- [x] Create an experiment notebook through the UI.
+- [x] Add, edit, reorder and link the initial block types.
+- [x] Reload and confirm content, order and identifiers are stable.
+- [x] Open a second tab and confirm saved changes arrive without a full-page reload.
+- [x] Trigger a controlled conflict and confirm neither version is silently lost.
+- [x] Read the same notebook and blocks through an external API credential.
+- [x] Confirm audit/change attribution identifies the acting user and client.
+- [x] Automate the stable portions of this workflow as browser and API tests.
 
 ---
 

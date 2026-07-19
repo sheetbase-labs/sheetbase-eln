@@ -71,6 +71,13 @@
       "when": 1784450100000,
       "tag": "0009_eln_notebook_domain",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1784450200000,
+      "tag": "0010_eln_notebook_rpcs",
+      "breakpoints": true
     }
   ]
 }

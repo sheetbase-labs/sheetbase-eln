@@ -130,13 +130,13 @@ The notebook domain extends the workspace-owned surface with five tables
 for RLS, grants, triggers, integrity guards and the `create_record` RPC).
 Decision record 0015 fixes the vocabulary.
 
-| Table          | workspace_id | SELECT | INSERT                      | UPDATE                         | DELETE         |
-| -------------- | ------------ | ------ | --------------------------- | ------------------------------ | -------------- |
-| `folders`      | on row       | member | member (own workspace)      | member (cannot move workspace) | owner          |
-| `records`      | on row       | member | member (own workspace)      | member (cannot move workspace) | owner          |
-| `blocks`       | via record   | member | member (record not deleted) | member (record not deleted)    | member         |
-| `record_links` | via source   | member | member (record not deleted) | member (record not deleted)    | member         |
-| `revisions`    | via record   | member | member (record not deleted) | — (immutable)                  | — (immutable)  |
+| Table          | workspace_id | SELECT | INSERT                      | UPDATE                         | DELETE        |
+| -------------- | ------------ | ------ | --------------------------- | ------------------------------ | ------------- |
+| `folders`      | on row       | member | member (own workspace)      | member (cannot move workspace) | owner         |
+| `records`      | on row       | member | member (own workspace)      | member (cannot move workspace) | owner         |
+| `blocks`       | via record   | member | member (record not deleted) | member (record not deleted)    | member        |
+| `record_links` | via source   | member | member (record not deleted) | member (record not deleted)    | member        |
+| `revisions`    | via record   | member | member (record not deleted) | — (immutable)                  | — (immutable) |
 
 `blocks`, `record_links` and `revisions` do not carry `workspace_id`; they
 inherit it through their parent `record`, so the workspace root stays

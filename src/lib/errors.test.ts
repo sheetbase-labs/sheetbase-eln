@@ -44,6 +44,34 @@ describe('categorisePostgrestError', () => {
     const out = categorisePostgrestError(500, { code: '42P01' })
     expect(out.category).toBe('service_unavailable')
   })
+
+  it('maps the Sheetbase stale_version SQLSTATE to stale_version', () => {
+    const out = categorisePostgrestError(409, {
+      code: 'SB001',
+      message: 'stale',
+    })
+    expect(out).toEqual({
+      category: 'stale_version',
+      status: 409,
+      message: 'stale',
+    })
+  })
+
+  it('maps the Sheetbase missing_link SQLSTATE to missing_link', () => {
+    const out = categorisePostgrestError(422, {
+      code: 'SB002',
+      message: 'no target',
+    })
+    expect(out.category).toBe('missing_link')
+  })
+
+  it('maps the Sheetbase invalid-payload SQLSTATE to validation_error', () => {
+    const out = categorisePostgrestError(400, {
+      code: 'SB003',
+      message: 'bad payload',
+    })
+    expect(out.category).toBe('validation_error')
+  })
 })
 
 describe('categoriseProxyError', () => {

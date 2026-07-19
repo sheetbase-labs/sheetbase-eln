@@ -341,13 +341,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** ELN-002.
 
-- [ ] Expose safe reads and straightforward writes through PostgREST.
-- [ ] Add controlled RPCs for multi-row operations such as creating a record with initial blocks or moving a block atomically.
-- [ ] Require expected-version values for mutations where silent overwrites would lose work.
-- [ ] Return enough information for the client to reconcile created identifiers, order and versions.
-- [ ] Define stable error categories for invalid payload, stale version, missing link and permission denial.
-- [ ] Add contract tests for create, load, edit, reorder, link, archive and restore operations.
-- [ ] Include command-line examples that make the notebook-to-API mapping obvious.
+- [x] Expose safe reads and straightforward writes through PostgREST.
+- [x] Add controlled RPCs for multi-row operations such as creating a record with initial blocks or moving a block atomically.
+- [x] Require expected-version values for mutations where silent overwrites would lose work.
+- [x] Return enough information for the client to reconcile created identifiers, order and versions.
+- [x] Define stable error categories for invalid payload, stale version, missing link and permission denial.
+- [x] Add contract tests for create, load, edit, reorder, link, archive and restore operations.
+- [x] Include command-line examples that make the notebook-to-API mapping obvious.
 
 ### ELN-004 — Build the experiment notebook route and record header
 

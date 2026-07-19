@@ -13,6 +13,8 @@ export type ErrorCategory =
   | 'not_found' // 404
   | 'permission_denied' // 403 — RLS or scope
   | 'conflict' // 409 — unique violation, stale version
+  | 'stale_version' // 409 — optimistic-concurrency mismatch
+  | 'missing_link' // 422 — record_link target unresolved in workspace
   | 'unauthenticated' // 401
   | 'rate_limited' // 429
   | 'service_unavailable' // 502/503 — upstream down
@@ -34,6 +36,12 @@ const PG_CODE_TO_CATEGORY: Record<string, ErrorCategory> = {
   '42P01': 'service_unavailable', // undefined_table — schema not loaded
   '40001': 'conflict', // serialization_failure
   '40P01': 'conflict', // deadlock_detected
+  // Sheetbase-specific SQLSTATE codes (class SB) raised by notebook RPCs
+  // (ELN-003) so clients can branch on the exact failure without parsing
+  // messages. See docs/notebook-api.md.
+  SB001: 'stale_version', // expected_version did not match
+  SB002: 'missing_link', // record_link target unresolved in workspace
+  SB003: 'validation_error', // invalid block payload shape
 }
 
 /** Maps a PostgREST error body to a stable category. */
@@ -58,6 +66,7 @@ function inferFromStatus(status: number): ErrorCategory {
   if (status === 403) return 'permission_denied'
   if (status === 404) return 'not_found'
   if (status === 409) return 'conflict'
+  if (status === 422) return 'missing_link'
   if (status === 429) return 'rate_limited'
   if (status === 400) return 'validation_error'
   if (status >= 500) return 'service_unavailable'

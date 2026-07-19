@@ -424,14 +424,14 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** LIVE-003.
 
-- [ ] Autosave edited block content after a short, visible debounce without saving every keystroke separately.
-- [ ] Show saving, saved, offline/stale and failed states truthfully.
-- [ ] Include the expected server version and client identity with each save.
-- [ ] When versions conflict, preserve both the local draft and server value and offer a comprehensible resolution path.
-- [ ] Do not silently overwrite a newer remote edit.
-- [ ] Retry transient failures with bounds and leave permanent validation failures attached to the affected block.
-- [ ] Warn before navigation only when unsaved work genuinely remains at risk.
-- [ ] Test rapid edits, slow responses, transient failure, stale version and tab closure.
+- [x] Autosave edited block content after a short, visible debounce without saving every keystroke separately.
+- [x] Show saving, saved, offline/stale and failed states truthfully.
+- [x] Include the expected server version and client identity with each save.
+- [x] When versions conflict, preserve both the local draft and server value and offer a comprehensible resolution path.
+- [x] Do not silently overwrite a newer remote edit.
+- [x] Retry transient failures with bounds and leave permanent validation failures attached to the affected block.
+- [x] Warn before navigation only when unsaved work genuinely remains at risk.
+- [x] Test rapid edits, slow responses, transient failure, stale version and tab closure.
 
 ### ELN-008 — Complete the first live-notebook acceptance proof
 

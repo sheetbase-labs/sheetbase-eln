@@ -18,7 +18,10 @@ import {
 import { NotebookBlock } from './notebook-block'
 import { BlockPreview } from './block-preview'
 import { BlockEditor } from './block-editor'
+import type { AutosaveStatus, SaveResult } from './block-editor'
 import { BlockPicker } from './block-picker'
+
+export type { AutosaveStatus, SaveResult }
 
 /**
  * The editable notebook document (ELN-005). Owns the per-block editing,
@@ -40,11 +43,24 @@ import { BlockPicker } from './block-picker'
 export interface NotebookDocumentProps {
   record: NotebookRecord
   blocks: NotebookBlockData[]
-  /** Persist a validated payload for a block. Resolve on success, reject on error. */
+  /**
+   * Persist a validated payload for a block (ELN-007). Returns a structured
+   * result so each editor's autosave state machine can branch on conflict /
+   * validation / transient. The route reads the latest expected version and
+   * the client identity is attached automatically by `createDataClient`.
+   */
   onSaveBlock: (
     block: NotebookBlockData,
     payload: Record<string, unknown>,
-  ) => Promise<void>
+  ) => Promise<SaveResult<Record<string, unknown>>>
+  /** Live-event stream offline? Holds autosaves while true. */
+  offline?: boolean
+  /**
+   * Notified whenever the document-level "unsaved work at risk" signal
+   * changes (any block dirty / saving / retrying / offline / failed /
+   * conflict). Callers wire `beforeunload` and router blockers to it.
+   */
+  onUnsavedWorkChange?: (hasUnsavedWork: boolean) => void
   /** Insert a new block of `type`, optionally after `afterBlockId`. */
   onInsertBlock: (type: string, afterBlockId?: string) => Promise<void>
   /** Duplicate an existing block (same type/payload, inserted after it). */
@@ -86,6 +102,8 @@ export function NotebookDocument({
   record,
   blocks,
   onSaveBlock,
+  offline,
+  onUnsavedWorkChange,
   onInsertBlock,
   onDuplicateBlock,
   onDeleteBlock,
@@ -94,9 +112,10 @@ export function NotebookDocument({
   readOnly,
   className,
 }: NotebookDocumentProps) {
-  const [savingId, setSavingId] = React.useState<string | null>(null)
-  const [errorById, setErrorById] = React.useState<Record<string, string>>({})
   const [selectedId, setSelectedId] = React.useState<string | null>(null)
+  // Per-block error messages for insert / duplicate / delete (ELN-005).
+  // Save errors are owned per-editor by `useAutosave` (ELN-007).
+  const [errorById, setErrorById] = React.useState<Record<string, string>>({})
   const [confirmDelete, setConfirmDelete] =
     React.useState<NotebookBlockData | null>(null)
   const [pendingDelete, setPendingDelete] = React.useState(false)
@@ -129,6 +148,53 @@ export function NotebookDocument({
     stale: boolean
   } | null>(null)
 
+  // --- Autosave status aggregation (ELN-007) ---------------------------
+  // Each editable editor reports its autosave status; the document
+  // aggregates a set of block ids whose status is not `clean` to drive the
+  // navigation guard. Save errors and saving state are owned per-editor by
+  // `useAutosave`, so the document no longer tracks `savingId`/`errorById`.
+  const [unsavedBlockIds, setUnsavedBlockIds] = React.useState<Set<string>>(
+    new Set(),
+  )
+
+  const statusByIdRef = React.useRef<Map<string, AutosaveStatus>>(new Map())
+  const handleStatusChange = React.useCallback(
+    (blockId: string, status: AutosaveStatus) => {
+      const map = statusByIdRef.current
+      if (status === 'clean') {
+        map.delete(blockId)
+      } else {
+        map.set(blockId, status)
+      }
+      const next = new Set(map.keys())
+      setUnsavedBlockIds((prev) => {
+        if (prev.size === next.size && [...prev].every((id) => next.has(id))) {
+          return prev
+        }
+        return next
+      })
+    },
+    [],
+  )
+
+  const hasUnsavedWork = unsavedBlockIds.size > 0
+  React.useEffect(() => {
+    onUnsavedWorkChange?.(hasUnsavedWork)
+  }, [hasUnsavedWork, onUnsavedWorkChange])
+
+  // Warn before tab close only when unsaved work genuinely remains at risk
+  // (ELN-007). We cannot reliably finish async saves during unload, so the
+  // native browser prompt is the truthful signal.
+  React.useEffect(() => {
+    if (!hasUnsavedWork) return
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [hasUnsavedWork])
+
   // Scroll to the block named in the URL hash on mount (deep link to a block).
   React.useEffect(() => {
     const hash = window.location.hash.replace('#', '')
@@ -147,27 +213,6 @@ export function NotebookDocument({
       window.history.replaceState(null, '', `#block-${block.id}`)
     } catch {
       /* jsdom/SSR: ignore */
-    }
-  }
-
-  async function handleSave(
-    block: NotebookBlockData,
-    payload: Record<string, unknown>,
-  ) {
-    setSavingId(block.id)
-    setErrorById((prev) => {
-      const next = { ...prev }
-      delete next[block.id]
-      return next
-    })
-    try {
-      await onSaveBlock(block, payload)
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Could not save the block.'
-      setErrorById((prev) => ({ ...prev, [block.id]: message }))
-    } finally {
-      setSavingId(null)
     }
   }
 
@@ -548,9 +593,11 @@ export function NotebookDocument({
                 {editable ? (
                   <BlockEditor
                     block={block}
-                    onSave={(payload) => void handleSave(block, payload)}
-                    saving={savingId === block.id}
-                    serverError={errorById[block.id] ?? null}
+                    save={(payload) => onSaveBlock(block, payload)}
+                    offline={offline}
+                    onStatusChange={(status) =>
+                      handleStatusChange(block.id, status)
+                    }
                     readOnly={isReadOnly}
                     autoFocus={isSelected}
                   />

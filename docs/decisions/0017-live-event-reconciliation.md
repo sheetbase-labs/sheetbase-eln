@@ -68,8 +68,9 @@ A single `LiveEventProvider` mounts at the root route and owns one
    quiet but explains what will or will not sync).
 
 The coordinator is a pure function of injectable deps (EventSource factory
-+ QueryClient), so the full two-tab / reconnect / duplicate / reset matrix
-is unit-tested without a database or network.
+
+- QueryClient), so the full two-tab / reconnect / duplicate / reset matrix
+  is unit-tested without a database or network.
 
 ## Consequences
 

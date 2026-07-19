@@ -1,11 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { QueryClient } from '@tanstack/react-query'
-import { createFileRoute, Link, redirect } from '@tanstack/react-router'
+import {
+  createFileRoute,
+  Link,
+  redirect,
+  useBlocker,
+} from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { Archive, FileWarning, Lock } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 
 import { AppShell } from '#/components/app-shell'
 import { NotebookDocument } from '#/components/notebook'
+import type { SaveResult } from '#/components/notebook'
+import { useLiveStatus } from '#/components/live/live-event-provider'
 import {
   Inspector,
   InspectorSection,
@@ -363,7 +371,7 @@ export function NotebookCanvas({
         record={record}
         blocks={blocks}
         readOnly
-        onSaveBlock={async () => undefined}
+        onSaveBlock={async () => ({ ok: true })}
         onInsertBlock={async () => undefined}
         onDuplicateBlock={async () => undefined}
         onDeleteBlock={async () => undefined}
@@ -402,6 +410,32 @@ function EditableNotebook({
 }) {
   const blocksKey = notebookQueryKeys.blocks(record.id)
   const recordKey = notebookQueryKeys.record(record.id)
+  const liveStatus = useLiveStatus()
+  const offline = liveStatus.status === 'offline'
+
+  // ELN-007 — block in-app navigation only when unsaved work genuinely
+  // remains at risk. The document reports the aggregate signal via
+  // `onUnsavedWorkChange`; `beforeunload` (tab close) is handled inside
+  // the document. The router blocker uses `withResolver` so we can show
+  // a comprehensible confirmation rather than blocking silently.
+  const [hasUnsavedWork, setHasUnsavedWork] = useState(false)
+  const blocker = useBlocker({
+    shouldBlockFn: () => hasUnsavedWork,
+    enableBeforeUnload: false,
+    withResolver: true,
+  })
+
+  const proceedRef = useRef<(() => void) | null>(null)
+  const resetRef = useRef<(() => void) | null>(null)
+  useEffect(() => {
+    if (blocker.status === 'blocked') {
+      proceedRef.current = blocker.proceed
+      resetRef.current = blocker.reset
+    } else {
+      proceedRef.current = null
+      resetRef.current = null
+    }
+  }, [blocker])
 
   function setRecordStructureVersion(next: number) {
     queryClient.setQueryData<NotebookRecord | null>(recordKey, (prev) =>
@@ -448,50 +482,6 @@ function EditableNotebook({
   }
 
   // --- Save (update payload) ---------------------------------------------
-  const saveMutation = useMutation({
-    mutationFn: async ({
-      block,
-      payload,
-    }: {
-      block: NotebookBlockDomain
-      payload: Record<string, unknown>
-    }) => {
-      const result = validateBlock({
-        type: block.type,
-        payload,
-        payloadSchemaVersion: block.payloadSchemaVersion,
-      })
-      if (!result.ok) {
-        // Defensive: the editor should not call onSave with an invalid
-        // payload, but reject explicitly rather than persisting it.
-        throw new DataClientError(
-          'validation_error',
-          result.errors.map((e) => e.message).join('; '),
-          400,
-        )
-      }
-      return updateBlockPayload(client, {
-        blockId: block.id,
-        payload,
-        expectedVersion: block.version,
-        payloadSchemaVersion: block.payloadSchemaVersion,
-      })
-    },
-    onSuccess: (updated, vars) => {
-      // The block's version bumps; order and id are unchanged.
-      upsertBlock({ ...vars.block, ...updated })
-    },
-    onError: (error) => {
-      // Stale version: refetch the canonical list so the next save targets
-      // the right version. The inline error is surfaced via the callback's
-      // thrown message, which NotebookDocument displays per-block.
-      if (error instanceof DataClientError && error.code === 'stale_version') {
-        void queryClient.invalidateQueries({ queryKey: blocksKey })
-        void queryClient.invalidateQueries({ queryKey: recordKey })
-      }
-    },
-  })
-
   // --- Insert ------------------------------------------------------------
   const insertMutation = useMutation({
     mutationFn: async ({
@@ -627,8 +617,61 @@ function EditableNotebook({
   async function handleSave(
     block: NotebookBlockDomain,
     payload: Record<string, unknown>,
-  ) {
-    await saveMutation.mutateAsync({ block, payload })
+  ): Promise<SaveResult<Record<string, unknown>>> {
+    // ELN-007 — read the latest block version from the cache at call time
+    // so an autosave firing after a live-event version bump targets the
+    // right version. The client identity is attached automatically by
+    // `createDataClient` (LIVE-003); no explicit argument is needed here.
+    const cached =
+      queryClient.getQueryData<NotebookBlockDomain[]>(blocksKey) ?? blocks
+    const current = cached.find((b) => b.id === block.id) ?? block
+    const result = validateBlock({
+      type: current.type,
+      payload,
+      payloadSchemaVersion: current.payloadSchemaVersion,
+    })
+    if (!result.ok) {
+      return {
+        ok: false,
+        kind: 'validation',
+        message: result.errors.map((e) => e.message).join('; '),
+      }
+    }
+    try {
+      const updated = await updateBlockPayload(client, {
+        blockId: current.id,
+        payload,
+        expectedVersion: current.version,
+        payloadSchemaVersion: current.payloadSchemaVersion,
+      })
+      upsertBlock({ ...current, ...updated })
+      return { ok: true }
+    } catch (err) {
+      if (err instanceof DataClientError && err.code === 'stale_version') {
+        // Refetch the canonical block so we can offer the server value as
+        // the conflict alternative; never silently overwrite the draft.
+        await queryClient.refetchQueries({ queryKey: blocksKey })
+        const refreshed =
+          queryClient.getQueryData<NotebookBlockDomain[]>(blocksKey) ?? []
+        const serverBlock = refreshed.find((b) => b.id === block.id)
+        return {
+          ok: false,
+          kind: 'conflict',
+          message:
+            'This block was changed elsewhere. Your edits are preserved below.',
+          serverValue: serverBlock?.payload ?? block.payload,
+        }
+      }
+      if (err instanceof DataClientError && err.code === 'validation_error') {
+        return { ok: false, kind: 'validation', message: err.message }
+      }
+      return {
+        ok: false,
+        kind: 'transient',
+        message:
+          err instanceof Error ? err.message : 'Could not save the block.',
+      }
+    }
   }
 
   async function handleInsert(type: string, afterBlockId?: string) {
@@ -662,6 +705,8 @@ function EditableNotebook({
       record={record}
       blocks={blocks}
       onSaveBlock={handleSave}
+      offline={offline}
+      onUnsavedWorkChange={setHasUnsavedWork}
       onInsertBlock={handleInsert}
       onDuplicateBlock={handleDuplicate}
       onDeleteBlock={handleDelete}

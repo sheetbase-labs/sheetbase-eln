@@ -1,178 +1,203 @@
-import * as React from 'react'
-
-import { cn } from '#/lib/utils'
-import { validateBlock } from '#/lib/blocks'
-import type { BlockValidationResult } from '#/lib/blocks'
-import type { NotebookBlock } from '#/lib/notebook-data'
-import { Button } from '#/components/ui'
-
 /**
  * Editable block content for the four initial block types (ELN-005):
  * heading, rich_text, checklist, linked_record.
  *
- * Editing model — draft state is local component state, never stored as
- * scientific content. A save fires on blur (commit) or an explicit Save
- * action. Validation runs against `src/lib/blocks` before the save callback
- * fires; invalid drafts surface inline errors and never call onSave. The
- * parent owns the mutation (RPC call, optimistic version, invalidation).
+ * ELN-007 — autosave + conflict handling. Each typed editor drives a
+ * `useAutosave` state machine: edits are debounced, saves carry the
+ * expected server version (read at call time by the route) and the
+ * stable client identity (attached automatically by `createDataClient`),
+ * transient failures retry with bounded backoff, validation failures stay
+ * attached to the block, and a server version conflict preserves both the
+ * local draft and the canonical server value behind an explicit resolution
+ * banner — never silently overwriting either side.
  *
  * `readOnly` disables editing (archived notebooks, etc.).
  */
+import * as React from 'react'
+
+import { cn } from '#/lib/utils'
+import { validateBlock } from '#/lib/blocks'
+import type { NotebookBlock } from '#/lib/notebook-data'
+import { Button } from '#/components/ui'
+import { useAutosave } from './use-autosave'
+import type { AutosaveStatus, SaveResult } from './use-autosave'
+import { SaveStatus } from './save-status'
+import { ConflictBanner } from './conflict-banner'
+
+export type { AutosaveStatus, SaveResult }
 
 export interface BlockEditorProps {
   block: NotebookBlock
-  /** Commit the (validated) payload. Parent performs the RPC. */
-  onSave: (payload: Record<string, unknown>) => void
-  /** True while the parent's mutation is in flight. */
-  saving?: boolean
-  /** Server-side error message to surface (e.g. stale_version). */
-  serverError?: string | null
+  /**
+   * Persist a validated payload. Returns a structured result so the
+   * editor's autosave state machine can branch on conflict / validation /
+   * transient. The route reads the latest expected version from the query
+   * cache at call time; the editor does not pass a version.
+   */
+  save: (
+    payload: Record<string, unknown>,
+  ) => Promise<SaveResult<Record<string, unknown>>>
+  /** When true, holds saves (live-event stream offline). */
+  offline?: boolean
+  /** Called whenever the block's autosave status changes. */
+  onStatusChange?: (status: AutosaveStatus) => void
   readOnly?: boolean
-  /** Autofocus the primary field on mount (used for newly-inserted blocks). */
   autoFocus?: boolean
   className?: string
 }
 
-export function BlockEditor({
-  block,
-  onSave,
-  saving,
-  serverError,
-  readOnly,
-  autoFocus,
-  className,
-}: BlockEditorProps) {
-  switch (block.type) {
+export function BlockEditor(props: BlockEditorProps) {
+  switch (props.block.type) {
     case 'heading':
-      return (
-        <HeadingEditor
-          block={block}
-          onSave={onSave}
-          saving={saving}
-          serverError={serverError}
-          readOnly={readOnly}
-          autoFocus={autoFocus}
-          className={className}
-        />
-      )
+      return <HeadingEditor {...props} />
     case 'rich_text':
-      return (
-        <RichTextEditor
-          block={block}
-          onSave={onSave}
-          saving={saving}
-          serverError={serverError}
-          readOnly={readOnly}
-          autoFocus={autoFocus}
-          className={className}
-        />
-      )
+      return <RichTextEditor {...props} />
     case 'checklist':
-      return (
-        <ChecklistEditor
-          block={block}
-          onSave={onSave}
-          saving={saving}
-          serverError={serverError}
-          readOnly={readOnly}
-          autoFocus={autoFocus}
-          className={className}
-        />
-      )
+      return <ChecklistEditor {...props} />
     case 'linked_record':
-      return (
-        <LinkedRecordEditor
-          block={block}
-          onSave={onSave}
-          saving={saving}
-          serverError={serverError}
-          readOnly={readOnly}
-          autoFocus={autoFocus}
-          className={className}
-        />
-      )
+      return <LinkedRecordEditor {...props} />
     default:
       return (
-        <UnsupportedEditor
-          block={block}
-          serverError={serverError}
-          className={className}
-        />
+        <UnsupportedEditor block={props.block} className={props.className} />
       )
   }
 }
 
 // ---------------------------------------------------------------------------
-// Shared validation + draft helpers.
+// Shared autosave draft hook. Wraps `useAutosave` with the block's typed
+// payload shape and the block validator, so each editor only deals with its
+// own draft fields.
 // ---------------------------------------------------------------------------
 
-function useDraft<T>(initial: T) {
-  const [draft, setDraft] = React.useState<T>(initial)
+function useBlockAutosave<T>(
+  block: NotebookBlock,
+  initialDraft: T,
+  save: BlockEditorProps['save'],
+  offline: boolean | undefined,
+  onStatusChange: BlockEditorProps['onStatusChange'],
+) {
+  const validate = React.useCallback(
+    (value: T) => {
+      const r = validateBlock({
+        type: block.type,
+        payload: value,
+        payloadSchemaVersion: block.payloadSchemaVersion,
+      })
+      return r.ok ? [] : r.errors.map((e) => e.message)
+    },
+    [block.type, block.payloadSchemaVersion],
+  )
+
+  const saveAdapter = React.useCallback(
+    async (value: T): Promise<SaveResult<T>> => {
+      const r = await save(value as unknown as Record<string, unknown>)
+      return r as unknown as SaveResult<T>
+    },
+    [save],
+  )
+
   const [touched, setTouched] = React.useState(false)
-  // `initial` is constructed inline at each render, so its identity changes
-  // every render. Reset the draft only when the serialised value actually
-  // changes (e.g. the server returns a new payload), not on every render,
-  // otherwise the effect loops forever.
-  const serialized = JSON.stringify(initial)
-  const lastSerialized = React.useRef(serialized)
+  const autosave = useAutosave<T>({
+    initialValue: initialDraft,
+    validate,
+    save: saveAdapter,
+    offline: offline ?? false,
+    touched,
+  })
+
   React.useEffect(() => {
-    if (lastSerialized.current !== serialized) {
-      lastSerialized.current = serialized
-      setDraft(initial)
-    }
-  }, [serialized, initial])
-  return { draft, setDraft, touched, setTouched }
+    onStatusChange?.(autosave.status)
+  }, [autosave.status, onStatusChange])
+
+  return { ...autosave, setTouched }
 }
 
-function ValidationError({
-  result,
-  serverError,
-}: {
-  result: BlockValidationResult
-  serverError?: string | null
-}) {
-  const errors = result.errors
-  if (errors.length === 0 && !serverError) return null
+/**
+ * Readable one-line preview of a payload, used in the conflict banner so
+ * the user can comprehend the server version without switching tabs.
+ */
+function summarizePayload(
+  type: string,
+  payload: Record<string, unknown>,
+): string {
+  switch (type) {
+    case 'heading':
+      return `H${payload.level ?? 2} — ${payload.text ?? '(empty)'}`
+    case 'rich_text':
+      return String(payload.body ?? '(empty)')
+    case 'checklist': {
+      const items = Array.isArray(payload.items) ? payload.items : []
+      if (items.length === 0) return '(no items)'
+      return items
+        .map(
+          (i) =>
+            `[${(i as { checked?: boolean }).checked ? 'x' : ' '}] ${
+              (i as { text?: string }).text ?? ''
+            }`,
+        )
+        .join('\n')
+    }
+    case 'linked_record':
+      return `${payload.linkType ?? 'general'}: ${payload.targetKind ?? ''} ${
+        payload.targetIdentifier ?? ''
+      }${payload.label ? ` — ${payload.label}` : ''}`
+    default:
+      return JSON.stringify(payload, null, 2)
+  }
+}
+
+function ValidationErrors({ errors }: { errors: string[] }) {
+  if (errors.length === 0) return null
   return (
     <ul
-      role="alert"
       className="mt-2 space-y-1 rounded-md border border-destructive/40 bg-destructive/5 p-2 text-xs text-destructive"
+      role="alert"
     >
-      {serverError ? <li className="font-medium">{serverError}</li> : null}
       {errors.map((e, i) => (
-        <li key={i}>
-          {e.field ? <span className="font-mono">{e.field}: </span> : null}
-          {e.message}
-        </li>
+        <li key={i}>{e}</li>
       ))}
     </ul>
   )
 }
 
-function SaveBar({
-  saving,
-  onSave,
-  onCancel,
-  canSave,
+/**
+ * Status + conflict UI rendered below an editor when the block is being
+ * edited. Stays unobtrusive while clean; surfaces every other state
+ * truthfully (ELN-007).
+ */
+function AutosaveFooter({
+  status,
+  error,
+  validationErrors,
+  serverPreview,
+  onUseServer,
+  onKeepLocal,
+  retrying,
 }: {
-  saving?: boolean
-  onSave: () => void
-  onCancel: () => void
-  canSave: boolean
+  status: AutosaveStatus
+  error: string | null
+  validationErrors: string[]
+  serverPreview: string
+  onUseServer: () => void
+  onKeepLocal: () => void
+  retrying: boolean
 }) {
+  if (status === 'clean') return null
   return (
-    <div className="mt-2 flex items-center gap-2">
-      <Button
-        type="button"
-        size="sm"
-        onClick={onSave}
-        disabled={!canSave || saving}
-      >
-        {saving ? 'Saving…' : 'Save'}
-      </Button>
-      <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
-        Cancel
-      </Button>
+    <div className="mt-2 space-y-1">
+      <SaveStatus status={status} message={error} />
+      {status === 'conflict' ? (
+        <ConflictBanner
+          message={error ?? 'The block changed elsewhere.'}
+          serverPreview={serverPreview}
+          onUseServer={onUseServer}
+          onKeepLocal={onKeepLocal}
+          retrying={retrying}
+        />
+      ) : null}
+      {status === 'failed' && validationErrors.length > 0 ? (
+        <ValidationErrors errors={validationErrors} />
+      ) : null}
     </div>
   )
 }
@@ -181,33 +206,32 @@ function SaveBar({
 // Heading.
 // ---------------------------------------------------------------------------
 
+interface HeadingDraft {
+  level: number
+  text: string
+}
+
 function HeadingEditor({
   block,
-  onSave,
-  saving,
-  serverError,
+  save,
+  offline,
+  onStatusChange,
   readOnly,
   autoFocus,
   className,
 }: BlockEditorProps) {
   const initial = block.payload as { level?: number; text?: string }
-  const { draft, setDraft, touched, setTouched } = useDraft({
+  const initialDraft: HeadingDraft = {
     level: typeof initial.level === 'number' ? initial.level : 2,
     text: typeof initial.text === 'string' ? initial.text : '',
-  })
-
-  const result = validateBlock({
-    type: block.type,
-    payload: draft,
-    payloadSchemaVersion: block.payloadSchemaVersion,
-  })
-  const showErrors = touched && !result.ok
+  }
+  const a = useBlockAutosave(block, initialDraft, save, offline, onStatusChange)
 
   if (readOnly) {
     return (
       <div className={className}>
         <p className="font-display text-lg font-semibold text-foreground">
-          {draft.text || 'Untitled heading'}
+          {a.draft.text || 'Untitled heading'}
         </p>
       </div>
     )
@@ -221,11 +245,11 @@ function HeadingEditor({
         </label>
         <select
           id={`heading-level-${block.id}`}
-          value={draft.level}
-          onChange={(e) =>
-            setDraft({ ...draft, level: Number(e.target.value) })
-          }
-          disabled={saving}
+          value={a.draft.level}
+          onChange={(e) => {
+            a.setTouched(true)
+            a.setDraft({ ...a.draft, level: Number(e.target.value) })
+          }}
           className="h-9 rounded-md border border-input bg-background px-2 text-sm"
         >
           {[1, 2, 3, 4, 5, 6].map((lvl) => (
@@ -240,22 +264,29 @@ function HeadingEditor({
         <input
           id={`heading-text-${block.id}`}
           type="text"
-          value={draft.text}
+          value={a.draft.text}
           autoFocus={autoFocus}
-          onChange={(e) => setDraft({ ...draft, text: e.target.value })}
-          onBlur={() => {
-            setTouched(true)
-            if (result.ok) onSave(draft)
+          onChange={(e) => {
+            a.setTouched(true)
+            a.setDraft({ ...a.draft, text: e.target.value })
           }}
-          disabled={saving}
+          onBlur={() => a.flush()}
           placeholder="Heading text"
           className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm"
-          aria-invalid={showErrors}
         />
       </div>
-      {showErrors || serverError ? (
-        <ValidationError result={result} serverError={serverError} />
-      ) : null}
+      <AutosaveFooter
+        status={a.status}
+        error={a.error}
+        validationErrors={a.validationErrors}
+        serverPreview={summarizePayload(
+          block.type,
+          (a.serverValue ?? {}) as Record<string, unknown>,
+        )}
+        onUseServer={() => a.discardDraft()}
+        onKeepLocal={() => a.retry()}
+        retrying={a.status === 'saving'}
+      />
     </div>
   )
 }
@@ -264,31 +295,30 @@ function HeadingEditor({
 // Rich text.
 // ---------------------------------------------------------------------------
 
+interface RichTextDraft {
+  body: string
+}
+
 function RichTextEditor({
   block,
-  onSave,
-  saving,
-  serverError,
+  save,
+  offline,
+  onStatusChange,
   readOnly,
   autoFocus,
   className,
 }: BlockEditorProps) {
   const initial = block.payload as { body?: string }
-  const { draft, setDraft, touched, setTouched } = useDraft({
+  const initialDraft: RichTextDraft = {
     body: typeof initial.body === 'string' ? initial.body : '',
-  })
-  const result = validateBlock({
-    type: block.type,
-    payload: draft,
-    payloadSchemaVersion: block.payloadSchemaVersion,
-  })
-  const showErrors = touched && !result.ok
+  }
+  const a = useBlockAutosave(block, initialDraft, save, offline, onStatusChange)
 
   if (readOnly) {
     return (
       <div className={className}>
         <p className="whitespace-pre-wrap text-foreground">
-          {draft.body || 'Empty text block'}
+          {a.draft.body || 'Empty text block'}
         </p>
       </div>
     )
@@ -301,22 +331,29 @@ function RichTextEditor({
       </label>
       <textarea
         id={`richtext-${block.id}`}
-        value={draft.body}
+        value={a.draft.body}
         autoFocus={autoFocus}
-        onChange={(e) => setDraft({ ...draft, body: e.target.value })}
-        onBlur={() => {
-          setTouched(true)
-          if (result.ok) onSave(draft)
+        onChange={(e) => {
+          a.setTouched(true)
+          a.setDraft({ ...a.draft, body: e.target.value })
         }}
-        disabled={saving}
+        onBlur={() => a.flush()}
         rows={4}
         placeholder="Write the paragraph…"
         className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm leading-6"
-        aria-invalid={showErrors}
       />
-      {showErrors || serverError ? (
-        <ValidationError result={result} serverError={serverError} />
-      ) : null}
+      <AutosaveFooter
+        status={a.status}
+        error={a.error}
+        validationErrors={a.validationErrors}
+        serverPreview={summarizePayload(
+          block.type,
+          (a.serverValue ?? {}) as Record<string, unknown>,
+        )}
+        onUseServer={() => a.discardDraft()}
+        onKeepLocal={() => a.retry()}
+        retrying={a.status === 'saving'}
+      />
     </div>
   )
 }
@@ -329,64 +366,49 @@ interface ChecklistItem {
   text: string
   checked: boolean
 }
+interface ChecklistDraft {
+  items: ChecklistItem[]
+}
 
 function ChecklistEditor({
   block,
-  onSave,
-  saving,
-  serverError,
+  save,
+  offline,
+  onStatusChange,
   readOnly,
   autoFocus,
   className,
 }: BlockEditorProps) {
   const initial = block.payload as { items?: ChecklistItem[] }
-  const { draft, setDraft, touched, setTouched } = useDraft<{
-    items: ChecklistItem[]
-  }>({
+  const initialDraft: ChecklistDraft = {
     items: Array.isArray(initial.items) ? initial.items : [],
-  })
-
-  const result = validateBlock({
-    type: block.type,
-    payload: draft,
-    payloadSchemaVersion: block.payloadSchemaVersion,
-  })
-  const showErrors = touched && !result.ok
+  }
+  const a = useBlockAutosave(block, initialDraft, save, offline, onStatusChange)
 
   function update(i: number, patch: Partial<ChecklistItem>) {
-    setDraft({
-      items: draft.items.map((item, idx) =>
+    a.setTouched(true)
+    a.setDraft({
+      items: a.draft.items.map((item, idx) =>
         idx === i ? { ...item, ...patch } : item,
       ),
     })
   }
   function remove(i: number) {
-    setDraft({ items: draft.items.filter((_, idx) => idx !== i) })
+    a.setTouched(true)
+    a.setDraft({ items: a.draft.items.filter((_, idx) => idx !== i) })
   }
   function add() {
-    setDraft({ items: [...draft.items, { text: '', checked: false }] })
-  }
-  /**
-   * Commit a specific draft immediately (used by checkbox toggles, which
-   * do not go through a blur event). Validates first; invalid drafts are
-   * not persisted.
-   */
-  function commit(next: { items: ChecklistItem[] }) {
-    const r = validateBlock({
-      type: block.type,
-      payload: next,
-      payloadSchemaVersion: block.payloadSchemaVersion,
-    })
-    if (r.ok) onSave(next)
+    a.setTouched(true)
+    a.setDraft({ items: [...a.draft.items, { text: '', checked: false }] })
   }
 
   if (readOnly) {
     return (
       <ul className={cn('space-y-1.5', className)}>
-        {draft.items.length === 0 ? (
+        {a.draft.items.length === 0 ? (
           <li className="text-sm text-muted-foreground">No checklist items</li>
         ) : null}
-        {draft.items.map((item, i) => (
+        {a.draft.items.map((item, i) => (
           <li key={i} className="flex items-start gap-2 text-sm">
             <span
               aria-hidden="true"
@@ -415,7 +437,7 @@ function ChecklistEditor({
   return (
     <div className={cn('space-y-2', className)}>
       <ul className="space-y-1.5">
-        {draft.items.map((item, i) => (
+        {a.draft.items.map((item, i) => (
           <li key={i} className="flex items-start gap-2">
             <label className="sr-only" htmlFor={`check-${block.id}-${i}`}>
               Item {i + 1} checked
@@ -425,15 +447,13 @@ function ChecklistEditor({
               type="checkbox"
               checked={item.checked}
               onChange={(e) => {
-                const next = {
-                  items: draft.items.map((it, idx) =>
+                a.setTouched(true)
+                a.setDraft({
+                  items: a.draft.items.map((it, idx) =>
                     idx === i ? { ...it, checked: e.target.checked } : it,
                   ),
-                }
-                setDraft(next)
-                commit(next)
+                })
               }}
-              disabled={saving}
               className="mt-1 size-4"
             />
             <label className="sr-only" htmlFor={`check-text-${block.id}-${i}`}>
@@ -443,13 +463,9 @@ function ChecklistEditor({
               id={`check-text-${block.id}-${i}`}
               type="text"
               value={item.text}
-              autoFocus={autoFocus && i === draft.items.length - 1}
+              autoFocus={autoFocus && i === a.draft.items.length - 1}
               onChange={(e) => update(i, { text: e.target.value })}
-              onBlur={() => {
-                setTouched(true)
-                if (result.ok) onSave(draft)
-              }}
-              disabled={saving}
+              onBlur={() => a.flush()}
               placeholder={`Item ${i + 1}`}
               className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm"
             />
@@ -459,25 +475,27 @@ function ChecklistEditor({
               size="icon-sm"
               aria-label={`Remove item ${i + 1}`}
               onClick={() => remove(i)}
-              disabled={saving}
             >
               ×
             </Button>
           </li>
         ))}
       </ul>
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        onClick={add}
-        disabled={saving}
-      >
+      <Button type="button" variant="ghost" size="sm" onClick={add}>
         + Add item
       </Button>
-      {showErrors || serverError ? (
-        <ValidationError result={result} serverError={serverError} />
-      ) : null}
+      <AutosaveFooter
+        status={a.status}
+        error={a.error}
+        validationErrors={a.validationErrors}
+        serverPreview={summarizePayload(
+          block.type,
+          (a.serverValue ?? {}) as Record<string, unknown>,
+        )}
+        onUseServer={() => a.discardDraft()}
+        onKeepLocal={() => a.retry()}
+        retrying={a.status === 'saving'}
+      />
     </div>
   )
 }
@@ -498,11 +516,18 @@ const LINK_TYPES = [
 
 const TARGET_KINDS = ['experiment', 'protocol_template', 'report'] as const
 
+interface LinkedRecordDraft {
+  targetKind: string
+  targetIdentifier: string
+  linkType: string
+  label: string
+}
+
 function LinkedRecordEditor({
   block,
-  onSave,
-  saving,
-  serverError,
+  save,
+  offline,
+  onStatusChange,
   readOnly,
   autoFocus,
   className,
@@ -513,18 +538,13 @@ function LinkedRecordEditor({
     linkType?: string
     label?: string
   }
-  const { draft, setDraft, touched, setTouched } = useDraft({
+  const initialDraft: LinkedRecordDraft = {
     targetKind: initial.targetKind ?? 'experiment',
     targetIdentifier: initial.targetIdentifier ?? '',
     linkType: initial.linkType ?? 'general',
     label: initial.label ?? '',
-  })
-  const result = validateBlock({
-    type: block.type,
-    payload: draft,
-    payloadSchemaVersion: block.payloadSchemaVersion,
-  })
-  const showErrors = touched && !result.ok
+  }
+  const a = useBlockAutosave(block, initialDraft, save, offline, onStatusChange)
 
   if (readOnly) {
     return (
@@ -535,13 +555,13 @@ function LinkedRecordEditor({
         )}
       >
         <span className="font-semibold uppercase tracking-wide text-muted-foreground">
-          {draft.linkType}
+          {a.draft.linkType}
         </span>
         <span className="font-medium text-foreground">
-          {draft.targetKind} {draft.targetIdentifier || '—'}
+          {a.draft.targetKind} {a.draft.targetIdentifier || '—'}
         </span>
-        {draft.label ? (
-          <span className="text-muted-foreground">— {draft.label}</span>
+        {a.draft.label ? (
+          <span className="text-muted-foreground">— {a.draft.label}</span>
         ) : null}
       </div>
     )
@@ -553,9 +573,11 @@ function LinkedRecordEditor({
         <Field label="Target kind" htmlFor={`lr-kind-${block.id}`}>
           <select
             id={`lr-kind-${block.id}`}
-            value={draft.targetKind}
-            onChange={(e) => setDraft({ ...draft, targetKind: e.target.value })}
-            disabled={saving}
+            value={a.draft.targetKind}
+            onChange={(e) => {
+              a.setTouched(true)
+              a.setDraft({ ...a.draft, targetKind: e.target.value })
+            }}
             className="h-9 rounded-md border border-input bg-background px-2 text-sm"
           >
             {TARGET_KINDS.map((k) => (
@@ -569,12 +591,13 @@ function LinkedRecordEditor({
           <input
             id={`lr-id-${block.id}`}
             type="text"
-            value={draft.targetIdentifier}
+            value={a.draft.targetIdentifier}
             autoFocus={autoFocus}
-            onChange={(e) =>
-              setDraft({ ...draft, targetIdentifier: e.target.value })
-            }
-            disabled={saving}
+            onChange={(e) => {
+              a.setTouched(true)
+              a.setDraft({ ...a.draft, targetIdentifier: e.target.value })
+            }}
+            onBlur={() => a.flush()}
             placeholder="EXP-2025-0001"
             className="h-9 w-full rounded-md border border-input bg-background px-3 font-mono text-sm"
           />
@@ -582,9 +605,11 @@ function LinkedRecordEditor({
         <Field label="Link type" htmlFor={`lr-link-${block.id}`}>
           <select
             id={`lr-link-${block.id}`}
-            value={draft.linkType}
-            onChange={(e) => setDraft({ ...draft, linkType: e.target.value })}
-            disabled={saving}
+            value={a.draft.linkType}
+            onChange={(e) => {
+              a.setTouched(true)
+              a.setDraft({ ...a.draft, linkType: e.target.value })
+            }}
             className="h-9 rounded-md border border-input bg-background px-2 text-sm"
           >
             {LINK_TYPES.map((t) => (
@@ -598,34 +623,29 @@ function LinkedRecordEditor({
           <input
             id={`lr-label-${block.id}`}
             type="text"
-            value={draft.label}
-            onChange={(e) => setDraft({ ...draft, label: e.target.value })}
-            disabled={saving}
+            value={a.draft.label}
+            onChange={(e) => {
+              a.setTouched(true)
+              a.setDraft({ ...a.draft, label: e.target.value })
+            }}
+            onBlur={() => a.flush()}
             placeholder="Optional"
             className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
           />
         </Field>
       </div>
-      <SaveBar
-        saving={saving}
-        canSave={result.ok}
-        onSave={() => {
-          setTouched(true)
-          if (result.ok) onSave(draft)
-        }}
-        onCancel={() => {
-          setTouched(false)
-          setDraft({
-            targetKind: initial.targetKind ?? 'experiment',
-            targetIdentifier: initial.targetIdentifier ?? '',
-            linkType: initial.linkType ?? 'general',
-            label: initial.label ?? '',
-          })
-        }}
+      <AutosaveFooter
+        status={a.status}
+        error={a.error}
+        validationErrors={a.validationErrors}
+        serverPreview={summarizePayload(
+          block.type,
+          (a.serverValue ?? {}) as Record<string, unknown>,
+        )}
+        onUseServer={() => a.discardDraft()}
+        onKeepLocal={() => a.retry()}
+        retrying={a.status === 'saving'}
       />
-      {showErrors || serverError ? (
-        <ValidationError result={result} serverError={serverError} />
-      ) : null}
     </div>
   )
 }
@@ -659,11 +679,9 @@ function Field({
 
 function UnsupportedEditor({
   block,
-  serverError,
   className,
 }: {
   block: NotebookBlock
-  serverError?: string | null
   className?: string
 }) {
   return (
@@ -680,11 +698,6 @@ function UnsupportedEditor({
           {JSON.stringify(block.payload, null, 2)}
         </pre>
       </div>
-      {serverError ? (
-        <p role="alert" className="text-xs text-destructive">
-          {serverError}
-        </p>
-      ) : null}
     </div>
   )
 }

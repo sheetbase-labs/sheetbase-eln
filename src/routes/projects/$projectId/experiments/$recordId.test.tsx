@@ -26,6 +26,7 @@ vi.mock('@tanstack/react-router', () => ({
     useParams: () => ({ projectId: 'p1', recordId: 'r1' }),
   }),
   redirect: (opts: unknown) => opts,
+  useBlocker: () => ({ status: 'idle' }),
   Link: ({
     to,
     params,

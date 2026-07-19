@@ -454,13 +454,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** ELN-008.
 
-- [ ] Decide how user-configured tables map to PostgreSQL schemas and PostgREST resource names.
-- [ ] Define stable table, column and row identities independently from mutable display names.
-- [ ] Define supported column types, nullability, defaults, units, validation and categorical constraints.
-- [ ] Define safe schema evolution for adding, renaming, reordering, converting and retiring columns.
-- [ ] Define which changes use direct CRUD and which require transactional RPCs.
-- [ ] Define how formulas relate to literal source columns and calculated outputs.
-- [ ] Review the contract against Dataset Explorer, notebook sheets and the `db-api` precedent.
+- [x] Decide how user-configured tables map to PostgreSQL schemas and PostgREST resource names.
+- [x] Define stable table, column and row identities independently from mutable display names.
+- [x] Define supported column types, nullability, defaults, units, validation and categorical constraints.
+- [x] Define safe schema evolution for adding, renaming, reordering, converting and retiring columns.
+- [x] Define which changes use direct CRUD and which require transactional RPCs.
+- [x] Define how formulas relate to literal source columns and calculated outputs.
+- [x] Review the contract against Dataset Explorer, notebook sheets and the `db-api` precedent.
 
 ### DATA-002 — Create metadata and generated-table management
 

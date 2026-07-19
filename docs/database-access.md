@@ -164,3 +164,39 @@ collide, pick poor identifiers, or guess another project's identifiers.
 
 `tests/db/notebook-schema.test.ts` is the schema/RPC contract proof;
 `tests/db/notebook-rls.test.ts` is the RLS isolation proof.
+
+## Scientific tables (DATA-002)
+
+`scientific_tables`, `scientific_columns`, and
+`scientific_category_options` are read-only metadata resources. Controlled
+`create_scientific_table`, `add_scientific_column`,
+`update_scientific_column_display`, `convert_scientific_column`, and
+`retire_scientific_column` RPCs own all physical DDL. Generated relations are
+normal `api` resources with workspace-bound checks and RLS; request roles get
+row reads/deletes and column-level writes only for managed literal fields.
+Machine names are immutable database-generated `sheet_…` and `col_…` names;
+labels never become SQL identifiers. Schema and row changes emit lightweight
+events without scientific values. DATA-002 grants metadata, generated rows,
+and management RPCs only to authenticated workspace members. `api_client`
+scientific access and its explicit scopes are intentionally deferred to
+DATA-003; the shared event transport already carries credential attribution for
+future verified direct paths.
+
+`api.add_scientific_column(uuid, integer, text, text, boolean, jsonb, jsonb,
+jsonb, jsonb)` takes table id, expected schema version, label, logical type,
+nullable, default, unit, validation, and ordered category options. Options are
+strict `{ "id"?: uuid, "label": string }` objects and are rejected for every
+non-category type. A required category added to a populated relation must have
+both an explicit option UUID and a default selecting one of the supplied
+options; option metadata, physical DDL, and backfill are one transaction.
+
+Display/reorder, retirement, and conversion serialize on the owning table and
+then column metadata row and reject stale schema versions after those locks.
+Reorder addresses active columns only and emits all shifted stable column IDs.
+Retirement and conversion are confirmation RPCs: an omitted confirmation hash
+returns locked evidence (including literal/cast and formula-marker counts), and
+execution requires the exact hash against freshly recomputed evidence.
+Retirement revokes writes without dropping physical data. Conversion rejects
+formula-owned columns, preserves generated-row identity/version/timestamps,
+and currently supports integer to decimal plus unvalidated/default-free text
+to integer, decimal, boolean, date, or timestamp.

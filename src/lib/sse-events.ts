@@ -41,6 +41,7 @@ export interface ChangeEventWire {
   recordId: string | null
   projectId: string | null
   actorUserId: string | null
+  actorCredentialId: string | null
   clientId: string | null
   payload: Record<string, unknown>
   createdAt: string

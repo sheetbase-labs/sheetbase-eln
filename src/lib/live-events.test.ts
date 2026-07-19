@@ -95,6 +95,7 @@ function changeEvent(
     recordId: 'rec-1',
     projectId: 'proj-1',
     actorUserId: 'user-1',
+    actorCredentialId: null,
     clientId: 'other-tab',
     payload: {},
     createdAt: new Date().toISOString(),
@@ -216,6 +217,63 @@ describe('createLiveEventCoordinator', () => {
     keys = spy.mock.calls.map((c) => c[0]!.queryKey)
     expect(keys).toContainEqual(notebookQueryKeys.links('rec-1'))
     expect(keys).toHaveLength(1)
+  })
+
+  it('invalidates only targeted scientific table, row, formula and calculation keys', () => {
+    const { coordinator, qc, sources } = makeDeps()
+    const spy = vi.spyOn(qc, 'invalidateQueries')
+    coordinator.connect()
+    sources[0].dispatch('hello', { workspaceId: 'ws-1', resumeFrom: 0 })
+    let sequence = 0
+    const keysFor = (overrides: Parameters<typeof changeEvent>[1]) => {
+      spy.mockClear()
+      sources[0].dispatch('change', changeEvent(++sequence, overrides))
+      return spy.mock.calls.map((call) => call[0]!.queryKey)
+    }
+    expect(
+      keysFor({
+        entityType: 'scientific_table',
+        entityUuid: 'table-1',
+        payload: { operation: 'create' },
+      }),
+    ).toEqual([
+      ['scientific-table', 'table-1'],
+      ['scientific-tables', 'rec-1'],
+    ])
+    expect(
+      keysFor({
+        entityType: 'scientific_table',
+        entityUuid: 'table-1',
+        payload: { operation: 'display' },
+      }),
+    ).toHaveLength(2)
+    for (const operation of ['add_column', 'convert_column', 'retire_column']) {
+      expect(
+        keysFor({
+          entityType: 'scientific_table',
+          entityUuid: 'table-1',
+          payload: { operation },
+        }),
+      ).toContainEqual(['scientific-rows', 'table-1'])
+    }
+    expect(
+      keysFor({
+        entityType: 'scientific_row',
+        payload: { tableId: 'table-1' },
+      }),
+    ).toEqual([['scientific-rows', 'table-1']])
+    expect(
+      keysFor({ entityType: 'formula', payload: { tableId: 'table-1' } }),
+    ).toEqual([
+      ['formula', 'table-1'],
+      ['calculation', 'table-1'],
+    ])
+    expect(
+      keysFor({ entityType: 'calculation', payload: { tableId: 'table-1' } }),
+    ).toEqual([['calculation', 'table-1']])
+    expect(
+      spy.mock.calls.some((call) => call[0]!.queryKey?.[0] === 'notebook'),
+    ).toBe(false)
   })
 
   it('on reset, invalidates all workspace collections and reconnects with ?after=', () => {

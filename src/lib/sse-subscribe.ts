@@ -20,7 +20,7 @@ import type {
   Unsubscribe,
 } from '#/lib/sse-events'
 
-interface ChangeEventRow {
+export interface ChangeEventRow {
   id: string
   workspace_id: string
   sequence: string
@@ -30,12 +30,13 @@ interface ChangeEventRow {
   record_id: string | null
   project_id: string | null
   actor_user_id: string | null
+  actor_credential_id: string | null
   client_id: string | null
   payload: Record<string, unknown>
   created_at: string
 }
 
-function toWire(row: ChangeEventRow): ChangeEventWire {
+export function mapChangeEventRow(row: ChangeEventRow): ChangeEventWire {
   return {
     id: row.id,
     workspaceId: row.workspace_id,
@@ -46,6 +47,7 @@ function toWire(row: ChangeEventRow): ChangeEventWire {
     recordId: row.record_id,
     projectId: row.project_id,
     actorUserId: row.actor_user_id,
+    actorCredentialId: row.actor_credential_id,
     clientId: row.client_id,
     payload: row.payload,
     createdAt: row.created_at,
@@ -81,7 +83,7 @@ export async function readChangeEvents(
     const earliestAvailableSeq = minSeq.rows[0].min
       ? Number(minSeq.rows[0].min)
       : 0
-    const events = rows.rows.map(toWire)
+    const events = rows.rows.map(mapChangeEventRow)
     // hasMore when we filled the limit and there is at least one more.
     const hasMore = events.length === limit
     return { events, hasMore, earliestAvailableSeq }
@@ -124,7 +126,7 @@ export async function subscribeToChangeEvents(
       [payload.id],
     )
     if (rows[0]) {
-      onEvent(toWire(rows[0]))
+      onEvent(mapChangeEventRow(rows[0]))
     }
   }
 

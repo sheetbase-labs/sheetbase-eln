@@ -9,6 +9,7 @@ import {
   parseLastEventId,
 } from './sse-events'
 import type { ChangeEventWire, SseDeps } from './sse-events'
+import { mapChangeEventRow } from './sse-subscribe'
 
 function event(seq: number, workspaceId = 'ws-1'): ChangeEventWire {
   return {
@@ -21,11 +22,32 @@ function event(seq: number, workspaceId = 'ws-1'): ChangeEventWire {
     recordId: `rec-${seq}`,
     projectId: 'proj-1',
     actorUserId: 'user-1',
+    actorCredentialId: null,
     clientId: null,
     payload: {},
     createdAt: new Date().toISOString(),
   }
 }
+
+it('maps database actor_credential_id to actorCredentialId', () => {
+  expect(
+    mapChangeEventRow({
+      id: 'evt-1',
+      workspace_id: 'ws-1',
+      sequence: '7',
+      entity_type: 'scientific_row',
+      entity_uuid: 'row-1',
+      operation: 'update',
+      record_id: null,
+      project_id: null,
+      actor_user_id: null,
+      actor_credential_id: 'credential-1',
+      client_id: null,
+      payload: {},
+      created_at: '2026-01-01T00:00:00Z',
+    }),
+  ).toMatchObject({ sequence: 7, actorCredentialId: 'credential-1' })
+})
 
 function makeDeps(overrides: Partial<SseDeps> = {}): SseDeps {
   return {

@@ -92,6 +92,13 @@
       "when": 1784459680433,
       "tag": "0012_live_change_events",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1784489681814,
+      "tag": "0013_data_002_scientific_tables",
+      "breakpoints": true
     }
   ]
 }

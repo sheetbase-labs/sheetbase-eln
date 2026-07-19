@@ -466,14 +466,14 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** DATA-001.
 
-- [ ] Add metadata for scientific tables, columns, display order, types, units, validation and owning notebook block.
-- [ ] Add controlled database functions for creating and evolving physical data tables safely.
-- [ ] Quote and validate generated identifiers so user-facing names cannot become SQL injection surfaces.
-- [ ] Keep generated resources inside explicitly managed schemas and grants.
-- [ ] Apply workspace isolation to generated rows and prevent cross-workspace joins through exposed resources.
-- [ ] Make metadata and physical-schema changes transactional wherever PostgreSQL permits.
-- [ ] Record schema-change events and actor attribution.
-- [ ] Add tests for creation, common alterations, invalid identifiers, partial failure and isolation.
+- [x] Add metadata for scientific tables, columns, display order, types, units, validation and owning notebook block.
+- [x] Add controlled database functions for creating and evolving physical data tables safely.
+- [x] Quote and validate generated identifiers so user-facing names cannot become SQL injection surfaces.
+- [x] Keep generated resources inside explicitly managed schemas and grants.
+- [x] Apply workspace isolation to generated rows and prevent cross-workspace joins through exposed resources.
+- [x] Make metadata and physical-schema changes transactional wherever PostgreSQL permits.
+- [x] Record schema-change events and actor attribution.
+- [x] Add tests for creation, common alterations, invalid identifiers, partial failure and isolation.
 
 ### DATA-003 — Expose scientific tables through authenticated REST
 

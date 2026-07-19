@@ -402,7 +402,7 @@ export const blocks = api.table(
   (table) => [
     check(
       'chk_blocks_type',
-      sql`${table.type} IN ('heading', 'rich_text', 'checklist', 'linked_record', 'list', 'callout', 'table', 'chart', 'plate_map', 'file', 'metric', 'procedure_step')`,
+      sql`${table.type} IN ('heading', 'rich_text', 'checklist', 'linked_record', 'list', 'callout', 'table', 'sheet', 'chart', 'plate_map', 'file', 'metric', 'procedure_step')`,
     ),
     index('idx_blocks_record_id').on(table.recordId),
     // (record_id, order) is the hot loading path for notebook render.
@@ -497,6 +497,149 @@ export const revisions = api.table(
   ],
 )
 
+export const scientificTables = api.table(
+  'scientific_tables',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    recordId: uuid('record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'restrict' }),
+    blockId: uuid('block_id')
+      .notNull()
+      .unique()
+      .references(() => blocks.id, { onDelete: 'restrict' }),
+    resourceName: text('resource_name').notNull().unique(),
+    name: text('name').notNull(),
+    description: text('description'),
+    displaySettings: jsonb('display_settings')
+      .notNull()
+      .default(sql`'{}'`),
+    lifecycle: text('lifecycle').notNull().default('active'),
+    schemaVersion: integer('schema_version').notNull().default(1),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    createdByCredentialId: uuid('created_by_credential_id').references(
+      () => apiCredentials.id,
+      { onDelete: 'set null' },
+    ),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    updatedByCredentialId: uuid('updated_by_credential_id').references(
+      () => apiCredentials.id,
+      { onDelete: 'set null' },
+    ),
+  },
+  (table) => [
+    check(
+      'chk_scientific_tables_resource_name',
+      sql`${table.resourceName} ~ '^sheet_[a-z2-7]{26}$'`,
+    ),
+    check(
+      'chk_scientific_tables_lifecycle',
+      sql`${table.lifecycle} IN ('active', 'retired')`,
+    ),
+    check(
+      'chk_scientific_tables_schema_version',
+      sql`${table.schemaVersion} > 0`,
+    ),
+    index('idx_scientific_tables_workspace').on(table.workspaceId),
+    index('idx_scientific_tables_record').on(table.recordId),
+  ],
+)
+
+export const scientificColumns = api.table(
+  'scientific_columns',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tableId: uuid('table_id')
+      .notNull()
+      .references(() => scientificTables.id, { onDelete: 'cascade' }),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    fieldName: text('field_name').notNull(),
+    label: text('label').notNull(),
+    description: text('description'),
+    displayOrder: integer('display_order').notNull(),
+    logicalType: text('logical_type').notNull(),
+    nullable: boolean('nullable').notNull().default(true),
+    defaultValue: jsonb('default_value'),
+    unit: jsonb('unit'),
+    validation: jsonb('validation')
+      .notNull()
+      .default(sql`'{}'`),
+    width: integer('width'),
+    lifecycle: text('lifecycle').notNull().default('active'),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    createdByCredentialId: uuid('created_by_credential_id').references(
+      () => apiCredentials.id,
+      { onDelete: 'set null' },
+    ),
+  },
+  (table) => [
+    unique('uq_scientific_columns_table_field').on(
+      table.tableId,
+      table.fieldName,
+    ),
+    unique('uq_scientific_columns_table_order').on(
+      table.tableId,
+      table.displayOrder,
+    ),
+    check(
+      'chk_scientific_columns_field_name',
+      sql`${table.fieldName} ~ '^col_[a-z2-7]{26}$'`,
+    ),
+    check(
+      'chk_scientific_columns_type',
+      sql`${table.logicalType} IN ('text','integer','decimal','boolean','date','timestamp','category')`,
+    ),
+    check(
+      'chk_scientific_columns_lifecycle',
+      sql`${table.lifecycle} IN ('active', 'retired')`,
+    ),
+    index('idx_scientific_columns_table').on(table.tableId),
+    index('idx_scientific_columns_workspace').on(table.workspaceId),
+  ],
+)
+
+export const scientificCategoryOptions = api.table(
+  'scientific_category_options',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    columnId: uuid('column_id')
+      .notNull()
+      .references(() => scientificColumns.id, { onDelete: 'cascade' }),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    label: text('label').notNull(),
+    displayOrder: integer('display_order').notNull(),
+    lifecycle: text('lifecycle').notNull().default('active'),
+    ...timestamps,
+  },
+  (table) => [
+    unique('uq_scientific_category_options_order').on(
+      table.columnId,
+      table.displayOrder,
+    ),
+    check(
+      'chk_scientific_category_options_lifecycle',
+      sql`${table.lifecycle} IN ('active', 'retired')`,
+    ),
+    index('idx_scientific_category_options_column').on(table.columnId),
+    index('idx_scientific_category_options_workspace').on(table.workspaceId),
+  ],
+)
+
 // ---------------------------------------------------------------------------
 // api — durable workspace change events (LIVE-001). Append-only,
 // workspace-scoped history of every durable mutation to the notebook and
@@ -572,6 +715,10 @@ export const changeEvents = api.table(
     actorUserId: text('actor_user_id').references(() => user.id, {
       onDelete: 'set null',
     }),
+    actorCredentialId: uuid('actor_credential_id').references(
+      () => apiCredentials.id,
+      { onDelete: 'set null' },
+    ),
     // Stable client identity for self-reconciliation (LIVE-003). Populated
     // from the `client_id` JWT claim; null until the client sends one.
     clientId: text('client_id'),
@@ -591,7 +738,7 @@ export const changeEvents = api.table(
     ),
     check(
       'chk_change_events_entity_type',
-      sql`${table.entityType} IN ('project', 'folder', 'record', 'block', 'record_link')`,
+      sql`${table.entityType} IN ('project', 'folder', 'record', 'block', 'record_link', 'scientific_table', 'scientific_row', 'formula', 'calculation')`,
     ),
     check(
       'chk_change_events_operation',
@@ -671,6 +818,46 @@ export const blocksRelations = relations(blocks, ({ one }) => ({
     references: [records.id],
   }),
 }))
+
+export const scientificTablesRelations = relations(
+  scientificTables,
+  ({ one, many }) => ({
+    workspace: one(workspaces, {
+      fields: [scientificTables.workspaceId],
+      references: [workspaces.id],
+    }),
+    record: one(records, {
+      fields: [scientificTables.recordId],
+      references: [records.id],
+    }),
+    block: one(blocks, {
+      fields: [scientificTables.blockId],
+      references: [blocks.id],
+    }),
+    columns: many(scientificColumns),
+  }),
+)
+
+export const scientificColumnsRelations = relations(
+  scientificColumns,
+  ({ one, many }) => ({
+    table: one(scientificTables, {
+      fields: [scientificColumns.tableId],
+      references: [scientificTables.id],
+    }),
+    options: many(scientificCategoryOptions),
+  }),
+)
+
+export const scientificCategoryOptionsRelations = relations(
+  scientificCategoryOptions,
+  ({ one }) => ({
+    column: one(scientificColumns, {
+      fields: [scientificCategoryOptions.columnId],
+      references: [scientificColumns.id],
+    }),
+  }),
+)
 
 export const recordLinksRelations = relations(recordLinks, ({ one }) => ({
   source: one(records, {

@@ -62,6 +62,7 @@ export interface ChangeEventWire {
   recordId: string | null
   projectId: string | null
   actorUserId: string | null
+  actorCredentialId: string | null
   clientId: string | null
   payload: Record<string, unknown>
   createdAt: string
@@ -227,6 +228,48 @@ export function createLiveEventCoordinator(
           void qc.invalidateQueries({
             queryKey: keys.links(event.recordId),
           })
+        }
+        break
+      }
+      case 'scientific_table': {
+        void qc.invalidateQueries({
+          queryKey: ['scientific-table', event.entityUuid],
+        })
+        if (event.recordId) {
+          void qc.invalidateQueries({
+            queryKey: ['scientific-tables', event.recordId],
+          })
+        }
+        if (
+          event.payload.operation === 'add_column' ||
+          event.payload.operation === 'convert_column' ||
+          event.payload.operation === 'retire_column'
+        ) {
+          void qc.invalidateQueries({
+            queryKey: ['scientific-rows', event.entityUuid],
+          })
+        }
+        break
+      }
+      case 'scientific_row': {
+        const tableId = event.payload.tableId
+        if (typeof tableId === 'string') {
+          void qc.invalidateQueries({ queryKey: ['scientific-rows', tableId] })
+        }
+        break
+      }
+      case 'formula': {
+        const tableId = event.payload.tableId
+        if (typeof tableId === 'string') {
+          void qc.invalidateQueries({ queryKey: ['formula', tableId] })
+          void qc.invalidateQueries({ queryKey: ['calculation', tableId] })
+        }
+        break
+      }
+      case 'calculation': {
+        const tableId = event.payload.tableId
+        if (typeof tableId === 'string') {
+          void qc.invalidateQueries({ queryKey: ['calculation', tableId] })
         }
         break
       }

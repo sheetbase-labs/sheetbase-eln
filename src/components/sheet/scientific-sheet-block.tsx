@@ -5,17 +5,25 @@ import type { NotebookBlock } from '#/lib/notebook-data'
 import { DataClientError } from '#/lib/data-client'
 import { SheetbaseGrid } from './sheetbase-grid'
 import {
+  addScientificColumn,
   applyScientificRowChanges,
   decodeScientificValue,
   fetchScientificRows,
   fetchScientificTable,
+  preflightScientificConversion,
+  preflightScientificRetirement,
+  renameScientificTable,
   SCIENTIFIC_PAGE_SIZE,
   scientificDataClient,
   scientificQueryKeys,
+  updateScientificColumnDisplay,
 } from '#/lib/scientific-sheet-data'
 import type {
   ScientificColumnWire,
+  ScientificLogicalType,
   ScientificRowWire,
+  ScientificSchemaEvidence,
+  ScientificTableWire,
 } from '#/lib/scientific-sheet-data'
 
 interface PendingCell {
@@ -33,6 +41,497 @@ interface ChangeBatch {
 
 interface DraftCell extends PendingCell {
   generation: number
+}
+
+const LOGICAL_TYPES: ScientificLogicalType[] = [
+  'text',
+  'integer',
+  'decimal',
+  'boolean',
+  'date',
+  'timestamp',
+  'category',
+]
+
+type Confirmation =
+  | {
+      kind: 'convert'
+      column: ScientificColumnWire
+      evidence: ScientificSchemaEvidence
+    }
+  | {
+      kind: 'retire'
+      column: ScientificColumnWire
+      evidence: ScientificSchemaEvidence
+    }
+
+function parseJsonObject(value: string, label: string) {
+  if (!value.trim()) return {}
+  const parsed: unknown = JSON.parse(value)
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+    throw new Error(`${label} must be a JSON object.`)
+  return parsed as Record<string, unknown>
+}
+
+function typedDefault(type: ScientificLogicalType, value: string) {
+  if (type === 'text' || type === 'date' || type === 'timestamp') return value
+  if (type === 'boolean') {
+    if (value !== 'true' && value !== 'false')
+      throw new Error('Boolean default must be true or false.')
+    return value === 'true'
+  }
+  const number = Number(value)
+  if (
+    !Number.isFinite(number) ||
+    (type === 'integer' && !Number.isSafeInteger(number)) ||
+    (type === 'decimal' && value.replace(/[^0-9]/g, '').length > 15)
+  )
+    throw new Error(`Default must be a valid ${type}.`)
+  return number
+}
+
+function SchemaConfigurator({
+  table,
+  tableId,
+  readOnly,
+  draftColumnIds,
+  rowMutationPending,
+  onSuccess,
+}: {
+  table: ScientificTableWire
+  tableId: string
+  readOnly: boolean
+  draftColumnIds: Set<string>
+  rowMutationPending: boolean
+  onSuccess: () => Promise<void>
+}) {
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState(table.name)
+  const [label, setLabel] = useState('')
+  const [type, setType] = useState<ScientificLogicalType>('text')
+  const [nullable, setNullable] = useState(true)
+  const [hasDefault, setHasDefault] = useState(false)
+  const [defaultText, setDefaultText] = useState('')
+  const [unit, setUnit] = useState('')
+  const [validation, setValidation] = useState('')
+  const [options, setOptions] = useState('')
+  const [confirmation, setConfirmation] = useState<Confirmation | null>(null)
+  const [status, setStatus] = useState('')
+  const version = useRef(table.schema_version)
+  version.current = Math.max(version.current, table.schema_version)
+
+  const schemaMutation = useMutation({
+    scope: { id: `scientific-table:${tableId}` },
+    mutationFn: async (run: (schemaVersion: number) => Promise<unknown>) => {
+      setStatus('Migration in progress…')
+      return run(version.current)
+    },
+    onSuccess: async () => {
+      version.current += 1
+      setConfirmation(null)
+      await onSuccess()
+      setStatus('Schema updated successfully.')
+    },
+    onError: async (error) => {
+      setStatus(
+        `Could not update schema. ${error instanceof Error ? error.message : 'Please retry.'}`,
+      )
+      if (
+        error instanceof DataClientError &&
+        (error.code === 'service_unavailable' || error.code === 'stale_version')
+      )
+        await onSuccess()
+    },
+  })
+  const disabled = readOnly || schemaMutation.isPending
+
+  const addColumn = () => {
+    try {
+      if (!label.trim()) throw new Error('Column label is required.')
+      const optionValues =
+        type === 'category'
+          ? options
+              .split('\n')
+              .map((value) => value.trim())
+              .filter(Boolean)
+              .map((optionLabel) => ({
+                id: crypto.randomUUID(),
+                label: optionLabel,
+              }))
+          : undefined
+      if (
+        optionValues &&
+        new Set(optionValues.map((option) => option.label)).size !==
+          optionValues.length
+      )
+        throw new Error('Category option labels must be unique.')
+      let defaultValue: unknown
+      if (hasDefault) {
+        defaultValue =
+          type === 'category'
+            ? optionValues?.find((option) => option.label === defaultText)?.id
+            : typedDefault(type, defaultText)
+        if (defaultValue === undefined)
+          throw new Error(
+            'Category default must exactly match an option label.',
+          )
+        if (defaultValue === null && !nullable)
+          throw new Error('A required column cannot use a null default.')
+      }
+      const parsedUnit = unit.trim() ? parseJsonObject(unit, 'Unit') : undefined
+      const parsedValidation = parseJsonObject(validation, 'Validation')
+      schemaMutation.mutate((schemaVersion) =>
+        addScientificColumn(scientificDataClient, tableId, schemaVersion, {
+          label: label.trim(),
+          logicalType: type,
+          nullable,
+          ...(hasDefault ? { defaultValue } : {}),
+          unit: parsedUnit,
+          validation: parsedValidation,
+          options: optionValues,
+        }),
+      )
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Invalid column.')
+    }
+  }
+
+  return (
+    <section className="mb-2 rounded-md border bg-muted/20 p-2 text-xs">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <strong>{table.name}</strong>
+          <div className="font-mono text-[10px] text-muted-foreground">
+            API resource {table.resource_name} · table UUID {table.id}
+          </div>
+        </div>
+        {!readOnly ? (
+          <button type="button" onClick={() => setOpen((value) => !value)}>
+            {open ? 'Close configuration' : 'Configure table'}
+          </button>
+        ) : null}
+      </div>
+      <p className="mt-1 text-[10px] text-muted-foreground">
+        Labels are editable display text. UUIDs and generated API names are
+        stable identities and never come from labels.
+      </p>
+      {open ? (
+        <div className="mt-2 space-y-3 border-t pt-2">
+          <div className="flex flex-wrap items-end gap-2">
+            <label>
+              Sheet name
+              <input
+                aria-label="Sheet name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </label>
+            <button
+              type="button"
+              disabled={disabled || !name.trim() || name === table.name}
+              onClick={() =>
+                schemaMutation.mutate((v) =>
+                  renameScientificTable(
+                    scientificDataClient,
+                    tableId,
+                    v,
+                    name.trim(),
+                  ),
+                )
+              }
+            >
+              Save name
+            </button>
+          </div>
+          <fieldset className="flex flex-wrap items-end gap-2">
+            <legend className="font-medium">Add column</legend>
+            <label>
+              Label{' '}
+              <input
+                aria-label="New column label"
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+              />
+            </label>
+            <label>
+              Type{' '}
+              <select
+                aria-label="New column type"
+                value={type}
+                onChange={(e) =>
+                  setType(e.target.value as ScientificLogicalType)
+                }
+              >
+                {LOGICAL_TYPES.map((value) => (
+                  <option key={value}>{value}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={!nullable}
+                onChange={(e) => setNullable(!e.target.checked)}
+              />{' '}
+              Required
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={hasDefault}
+                onChange={(e) => setHasDefault(e.target.checked)}
+              />{' '}
+              Set default
+            </label>
+            {hasDefault ? (
+              <label>
+                Typed default{' '}
+                <input
+                  aria-label="Typed default"
+                  value={defaultText}
+                  onChange={(e) => setDefaultText(e.target.value)}
+                />
+              </label>
+            ) : null}
+            <label>
+              Unit JSON{' '}
+              <input
+                aria-label="Unit JSON"
+                placeholder='{"code":"mg","symbol":"mg"}'
+                value={unit}
+                onChange={(e) => setUnit(e.target.value)}
+              />
+            </label>
+            <label>
+              Validation JSON{' '}
+              <input
+                aria-label="Validation JSON"
+                placeholder='{"min":0}'
+                value={validation}
+                onChange={(e) => setValidation(e.target.value)}
+              />
+            </label>
+            {type === 'category' ? (
+              <label>
+                Category options (one per line)
+                <textarea
+                  aria-label="Category options"
+                  value={options}
+                  onChange={(e) => setOptions(e.target.value)}
+                />
+              </label>
+            ) : null}
+            <button type="button" disabled={disabled} onClick={addColumn}>
+              Add column
+            </button>
+          </fieldset>
+          <ol className="space-y-1" aria-label="Columns">
+            {table.columns.map((column, index) => (
+              <li
+                key={column.id}
+                className="flex flex-wrap items-center gap-2 rounded border p-1"
+              >
+                <input
+                  aria-label={`Label for ${column.label}`}
+                  defaultValue={column.label}
+                  onBlur={(e) => {
+                    if (e.target.value !== column.label)
+                      schemaMutation.mutate((v) =>
+                        updateScientificColumnDisplay(
+                          scientificDataClient,
+                          column.id,
+                          v,
+                          e.target.value,
+                          null,
+                        ),
+                      )
+                  }}
+                />
+                <span>
+                  {column.logical_type}
+                  {column.nullable ? ' · nullable' : ' · required'}
+                </span>
+                <code title="Stable column UUID">{column.id}</code>
+                <code title="Stable API field">{column.field_name}</code>
+                <button
+                  type="button"
+                  disabled={disabled || index === 0}
+                  onClick={() =>
+                    schemaMutation.mutate((v) =>
+                      updateScientificColumnDisplay(
+                        scientificDataClient,
+                        column.id,
+                        v,
+                        null,
+                        index,
+                      ),
+                    )
+                  }
+                >
+                  Move left
+                </button>
+                <button
+                  type="button"
+                  disabled={disabled || index === table.columns.length - 1}
+                  onClick={() =>
+                    schemaMutation.mutate((v) =>
+                      updateScientificColumnDisplay(
+                        scientificDataClient,
+                        column.id,
+                        v,
+                        null,
+                        index + 2,
+                      ),
+                    )
+                  }
+                >
+                  Move right
+                </button>
+                <select
+                  aria-label={`Convert ${column.label}`}
+                  defaultValue=""
+                  disabled={
+                    disabled ||
+                    rowMutationPending ||
+                    draftColumnIds.has(column.id)
+                  }
+                  onChange={async (e) => {
+                    const next = e.target.value
+                    e.target.value = ''
+                    if (!next) return
+                    try {
+                      setStatus('Checking conversion consequences…')
+                      const evidence = await preflightScientificConversion(
+                        scientificDataClient,
+                        column.id,
+                        version.current,
+                        next as ScientificLogicalType,
+                      )
+                      setConfirmation({
+                        kind: 'convert',
+                        column,
+                        evidence: evidence as ScientificSchemaEvidence,
+                      })
+                      setStatus('Review and confirm the conversion.')
+                    } catch (error) {
+                      setStatus(
+                        `Conversion rejected. ${error instanceof Error ? error.message : ''}`,
+                      )
+                    }
+                  }}
+                >
+                  <option value="">Convert…</option>
+                  {LOGICAL_TYPES.filter(
+                    (value) => value !== column.logical_type,
+                  ).map((value) => (
+                    <option key={value}>{value}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  disabled={
+                    disabled ||
+                    rowMutationPending ||
+                    draftColumnIds.has(column.id)
+                  }
+                  onClick={async () => {
+                    try {
+                      setStatus('Checking retirement consequences…')
+                      const evidence = await preflightScientificRetirement(
+                        scientificDataClient,
+                        column.id,
+                        version.current,
+                      )
+                      setConfirmation({
+                        kind: 'retire',
+                        column,
+                        evidence: evidence as ScientificSchemaEvidence,
+                      })
+                      setStatus('Review and confirm retirement.')
+                    } catch (error) {
+                      setStatus(
+                        `Retirement check failed. ${error instanceof Error ? error.message : ''}`,
+                      )
+                    }
+                  }}
+                >
+                  Retire
+                </button>
+              </li>
+            ))}
+          </ol>
+          {rowMutationPending || draftColumnIds.size > 0 ? (
+            <p role="status">
+              Save or discard pending row changes before converting or retiring
+              columns.
+            </p>
+          ) : null}
+          {confirmation ? (
+            <div
+              role="alertdialog"
+              aria-label="Confirm schema change"
+              className="rounded border border-destructive p-2"
+            >
+              <strong>
+                Confirm {confirmation.kind} of {confirmation.column.label}
+              </strong>
+              <p>
+                Non-null rows: {confirmation.evidence.nonNullRows ?? 'n/a'} ·
+                Invalid rows: {confirmation.evidence.invalidRows ?? 'n/a'} ·
+                Formula markers: {confirmation.evidence.formulaMarkers}
+              </p>
+              <p>
+                This can affect formulas and API clients. The stable field
+                remains {confirmation.column.field_name}.
+              </p>
+              <button
+                type="button"
+                disabled={
+                  disabled ||
+                  rowMutationPending ||
+                  draftColumnIds.has(confirmation.column.id) ||
+                  (confirmation.kind === 'convert' &&
+                    ((confirmation.evidence.invalidRows ?? 0) > 0 ||
+                      confirmation.evidence.formulaMarkers > 0))
+                }
+                onClick={() =>
+                  schemaMutation.mutate(() =>
+                    confirmation.kind === 'convert'
+                      ? preflightScientificConversion(
+                          scientificDataClient,
+                          confirmation.column.id,
+                          confirmation.evidence.schemaVersion,
+                          confirmation.evidence.targetType!,
+                          confirmation.evidence.hash,
+                        )
+                      : preflightScientificRetirement(
+                          scientificDataClient,
+                          confirmation.column.id,
+                          confirmation.evidence.schemaVersion,
+                          confirmation.evidence.hash,
+                        ),
+                  )
+                }
+              >
+                Confirm change
+              </button>
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => {
+                  setConfirmation(null)
+                  setStatus('Schema change cancelled.')
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : null}
+          {status ? <p role="status">{status}</p> : null}
+        </div>
+      ) : null}
+    </section>
+  )
 }
 
 function columnSettings(column: ScientificColumnWire): ColumnSettings {
@@ -191,6 +690,9 @@ export function ScientificSheetBlock({
         const next = { ...current }
         for (const cell of batch.cells) {
           const key = `${cell.rowId ?? `new:${cell.rowIndex}`}:${cell.columnId}`
+          // The draft may have been discarded or replaced while this request
+          // was in flight; keep the optional lookup intentionally.
+          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
           if (next[key]?.generation === batch.generation) delete next[key]
         }
         return next
@@ -273,6 +775,21 @@ export function ScientificSheetBlock({
     return <p role="alert">Scientific sheet not found.</p>
   return (
     <div>
+      <SchemaConfigurator
+        table={table}
+        tableId={tableId}
+        readOnly={readOnly}
+        draftColumnIds={
+          new Set(Object.values(drafts).map((draft) => draft.columnId))
+        }
+        rowMutationPending={mutation.isPending}
+        onSuccess={async () => {
+          await tableQuery.refetch()
+          await queryClient.invalidateQueries({
+            queryKey: ['scientific-rows', tableId],
+          })
+        }}
+      />
       {issues.length ? (
         <ul role="alert" className="mb-2 text-xs text-destructive">
           {issues.map((issue) => (

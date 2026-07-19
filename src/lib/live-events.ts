@@ -240,15 +240,12 @@ export function createLiveEventCoordinator(
             queryKey: ['scientific-tables', event.recordId],
           })
         }
-        if (
-          event.payload.operation === 'add_column' ||
-          event.payload.operation === 'convert_column' ||
-          event.payload.operation === 'retire_column'
-        ) {
-          void qc.invalidateQueries({
-            queryKey: ['scientific-rows', event.entityUuid],
-          })
-        }
+        // Use the same metadata and row prefixes for every table event. This
+        // intentionally includes display/reorder changes: a future operation
+        // must not need a client release to avoid a stale grid shape.
+        void qc.invalidateQueries({
+          queryKey: ['scientific-rows', event.entityUuid],
+        })
         break
       }
       case 'scientific_row': {
@@ -310,6 +307,14 @@ export function createLiveEventCoordinator(
     // has lost contiguous history and must refetch current state.
     void qc.invalidateQueries({ queryKey: ['notebook'] })
     void qc.invalidateQueries({ queryKey: keys.projectsList() })
+    for (const prefix of [
+      'scientific-table',
+      'scientific-tables',
+      'scientific-rows',
+      'formula',
+      'calculation',
+    ])
+      void qc.invalidateQueries({ queryKey: [prefix] })
   }
 
   function scheduleReconnect(delayMs: number): void {
@@ -500,4 +505,12 @@ export function invalidateWorkspaceCollections(
 ): void {
   void qc.invalidateQueries({ queryKey: ['notebook'] })
   void qc.invalidateQueries({ queryKey: keys.projectsList() })
+  for (const prefix of [
+    'scientific-table',
+    'scientific-tables',
+    'scientific-rows',
+    'formula',
+    'calculation',
+  ])
+    void qc.invalidateQueries({ queryKey: [prefix] })
 }

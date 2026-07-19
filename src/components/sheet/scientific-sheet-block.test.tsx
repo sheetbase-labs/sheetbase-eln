@@ -9,20 +9,31 @@ import {
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { DataClientError } from '#/lib/data-client'
+import type * as ScientificSheetData from '#/lib/scientific-sheet-data'
 import { ScientificSheetBlock } from './scientific-sheet-block'
 
 const mocks = vi.hoisted(() => ({
   table: vi.fn(),
   rows: vi.fn(),
   apply: vi.fn(),
+  add: vi.fn(),
+  renameTable: vi.fn(),
+  display: vi.fn(),
+  convert: vi.fn(),
+  retire: vi.fn(),
   settings: null as Record<string, any> | null,
 }))
 vi.mock('#/lib/scientific-sheet-data', async (load) => ({
-  ...(await load<typeof import('#/lib/scientific-sheet-data')>()),
+  ...(await load<typeof ScientificSheetData>()),
   scientificDataClient: {},
   fetchScientificTable: mocks.table,
   fetchScientificRows: mocks.rows,
   applyScientificRowChanges: mocks.apply,
+  addScientificColumn: mocks.add,
+  renameScientificTable: mocks.renameTable,
+  updateScientificColumnDisplay: mocks.display,
+  preflightScientificConversion: mocks.convert,
+  preflightScientificRetirement: mocks.retire,
 }))
 vi.mock('./sheetbase-grid', () => ({
   SheetbaseGrid: ({ settings }: { settings: Record<string, any> }) => {
@@ -253,6 +264,229 @@ describe('ScientificSheetBlock', () => {
     })
     settings.afterChange([[0, 'col_text', null, 'x']], 'edit')
     expect(mocks.apply).not.toHaveBeenCalled()
+    expect(screen.queryByRole('button', { name: 'Configure table' })).toBeNull()
+  })
+
+  it('adds a fully typed category column with stable option UUIDs', async () => {
+    mocks.table.mockResolvedValue(table)
+    mocks.rows.mockResolvedValue([])
+    mocks.add.mockResolvedValue({})
+    mount()
+    await ready()
+    fireEvent.click(screen.getByRole('button', { name: 'Configure table' }))
+    fireEvent.change(screen.getByLabelText('New column label'), {
+      target: { value: 'Condition' },
+    })
+    fireEvent.change(screen.getByLabelText('New column type'), {
+      target: { value: 'category' },
+    })
+    fireEvent.change(screen.getByLabelText('Category options'), {
+      target: { value: 'Control\nTreated' },
+    })
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Set default' }))
+    fireEvent.change(screen.getByLabelText('Typed default'), {
+      target: { value: 'Control' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Add column' }))
+    await waitFor(() => expect(mocks.add).toHaveBeenCalled())
+    const input = mocks.add.mock.calls[0][3]
+    expect(input.options).toHaveLength(2)
+    expect(input.options[0].id).toMatch(/^[0-9a-f-]{36}$/)
+    expect(input.defaultValue).toBe(input.options[0].id)
+  })
+
+  it('renames and reorders display metadata without changing stable identities', async () => {
+    mocks.table.mockResolvedValue(table)
+    mocks.rows.mockResolvedValue([])
+    mocks.renameTable.mockResolvedValue({})
+    mocks.display.mockResolvedValue({})
+    mount()
+    await ready()
+    fireEvent.click(screen.getByRole('button', { name: 'Configure table' }))
+    expect(screen.getByText(new RegExp(table.resource_name))).toBeTruthy()
+    expect(screen.getByText('col_text')).toBeTruthy()
+    fireEvent.change(screen.getByLabelText('Sheet name'), {
+      target: { value: 'Renamed results' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save name' }))
+    await waitFor(() =>
+      expect(mocks.renameTable).toHaveBeenCalledWith(
+        {},
+        'table-1',
+        2,
+        'Renamed results',
+      ),
+    )
+    await screen.findByText('Schema updated successfully.')
+    fireEvent.click(screen.getAllByRole('button', { name: 'Move right' })[0])
+    await waitFor(() =>
+      expect(mocks.display).toHaveBeenCalledWith({}, 'text', 3, null, 2),
+    )
+  })
+
+  it('shows recoverable schema errors without refetching rows', async () => {
+    mocks.table.mockResolvedValue(table)
+    mocks.rows.mockResolvedValue([])
+    mocks.add.mockRejectedValue(new Error('schema cache is not ready'))
+    mount()
+    await ready()
+    fireEvent.click(screen.getByRole('button', { name: 'Configure table' }))
+    fireEvent.change(screen.getByLabelText('New column label'), {
+      target: { value: 'Failed column' },
+    })
+    const tableFetches = mocks.table.mock.calls.length
+    const rowFetches = mocks.rows.mock.calls.length
+    fireEvent.click(screen.getByRole('button', { name: 'Add column' }))
+    expect((await screen.findByRole('status')).textContent).toContain(
+      'schema cache is not ready',
+    )
+    expect(mocks.table).toHaveBeenCalledTimes(tableFetches)
+    expect(mocks.rows).toHaveBeenCalledTimes(rowFetches)
+  })
+
+  it.each(['service_unavailable', 'stale_version'])(
+    'reconciles metadata and rows after ambiguous %s schema failures',
+    async (code) => {
+      mocks.table.mockResolvedValue(table)
+      mocks.rows.mockResolvedValue([])
+      mocks.add.mockRejectedValue(new DataClientError(code, 'retry', 503))
+      mount()
+      await ready()
+      fireEvent.click(screen.getByRole('button', { name: 'Configure table' }))
+      fireEvent.change(screen.getByLabelText('New column label'), {
+        target: { value: 'Maybe committed' },
+      })
+      const tableFetches = mocks.table.mock.calls.length
+      const rowFetches = mocks.rows.mock.calls.length
+      fireEvent.click(screen.getByRole('button', { name: 'Add column' }))
+      await waitFor(() =>
+        expect(mocks.table.mock.calls.length).toBeGreaterThan(tableFetches),
+      )
+      await waitFor(() =>
+        expect(mocks.rows.mock.calls.length).toBeGreaterThan(rowFetches),
+      )
+      expect(screen.getByRole('status').textContent).toContain(
+        'Could not update schema',
+      )
+    },
+  )
+
+  it('preserves text null and rejects unsafe integers and duplicate category labels', async () => {
+    mocks.table.mockResolvedValue(table)
+    mocks.rows.mockResolvedValue([])
+    mocks.add.mockResolvedValue({})
+    mount()
+    await ready()
+    fireEvent.click(screen.getByRole('button', { name: 'Configure table' }))
+    fireEvent.change(screen.getByLabelText('New column label'), {
+      target: { value: 'Literal' },
+    })
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Set default' }))
+    fireEvent.change(screen.getByLabelText('Typed default'), {
+      target: { value: 'null' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Add column' }))
+    await waitFor(() => expect(mocks.add).toHaveBeenCalled())
+    expect(mocks.add.mock.calls[0][3].defaultValue).toBe('null')
+
+    fireEvent.change(screen.getByLabelText('New column type'), {
+      target: { value: 'integer' },
+    })
+    fireEvent.change(screen.getByLabelText('Typed default'), {
+      target: { value: '9007199254740992' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Add column' }))
+    expect(screen.getByRole('status').textContent).toContain('valid integer')
+    fireEvent.change(screen.getByLabelText('Typed default'), {
+      target: { value: 'null' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Add column' }))
+    expect(screen.getByRole('status').textContent).toContain('valid integer')
+
+    fireEvent.change(screen.getByLabelText('New column type'), {
+      target: { value: 'category' },
+    })
+    fireEvent.change(screen.getByLabelText('Category options'), {
+      target: { value: 'Same\nSame' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Add column' }))
+    expect(screen.getByRole('status').textContent).toContain('must be unique')
+  })
+
+  it('blocks destructive schema checks while drafts or row writes are pending', async () => {
+    mocks.table.mockResolvedValue(table)
+    mocks.rows.mockResolvedValue([{ id: 'r1', version: 1 }])
+    mocks.apply.mockImplementation(() => new Promise(() => {}))
+    mount()
+    const settings = await ready()
+    settings.afterChange([[0, 'col_text', null, 'draft']], 'edit')
+    fireEvent.click(screen.getByRole('button', { name: 'Configure table' }))
+    await screen.findByText(/Save or discard pending row changes/)
+    expect(screen.getByLabelText('Convert Name').hasAttribute('disabled')).toBe(
+      true,
+    )
+    expect(
+      screen
+        .getAllByRole('button', { name: 'Retire' })[0]
+        .hasAttribute('disabled'),
+    ).toBe(true)
+    expect(mocks.convert).not.toHaveBeenCalled()
+    expect(mocks.retire).not.toHaveBeenCalled()
+  })
+
+  it('preflights conversion, blocks incompatible evidence, and supports cancellation', async () => {
+    mocks.table.mockResolvedValue(table)
+    mocks.rows.mockResolvedValue([])
+    mocks.convert.mockResolvedValue({
+      schemaVersion: 2,
+      targetType: 'integer',
+      invalidRows: 2,
+      formulaMarkers: 0,
+      hash: 'evidence',
+    })
+    mount()
+    await ready()
+    fireEvent.click(screen.getByRole('button', { name: 'Configure table' }))
+    fireEvent.change(screen.getByLabelText('Convert Name'), {
+      target: { value: 'integer' },
+    })
+    const dialog = await screen.findByRole('alertdialog')
+    expect(dialog.textContent).toContain('Invalid rows: 2')
+    expect(
+      screen
+        .getByRole('button', { name: 'Confirm change' })
+        .hasAttribute('disabled'),
+    ).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(mocks.convert).toHaveBeenCalledWith({}, 'text', 2, 'integer')
+  })
+
+  it('preflights and confirms retirement with the exact evidence hash', async () => {
+    mocks.table.mockResolvedValue(table)
+    mocks.rows.mockResolvedValue([])
+    mocks.retire
+      .mockResolvedValueOnce({
+        schemaVersion: 2,
+        nonNullRows: 3,
+        formulaMarkers: 1,
+        hash: 'current',
+      })
+      .mockResolvedValueOnce({ retired: true })
+    mount()
+    await ready()
+    fireEvent.click(screen.getByRole('button', { name: 'Configure table' }))
+    fireEvent.click(screen.getAllByRole('button', { name: 'Retire' })[0])
+    expect((await screen.findByRole('alertdialog')).textContent).toContain(
+      'Non-null rows: 3',
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm change' }))
+    await waitFor(() =>
+      expect(mocks.retire).toHaveBeenLastCalledWith({}, 'text', 2, 'current'),
+    )
+    expect(screen.getByRole('status').textContent).toMatch(
+      /progress|successfully/,
+    )
   })
 
   it('pages and only provides a spare row on the terminal page', async () => {

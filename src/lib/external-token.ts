@@ -97,6 +97,7 @@ const SCIENTIFIC_METADATA = new Set([
 ])
 const SCIENTIFIC_SCHEMA_RPCS = new Set([
   'create_scientific_table',
+  'update_scientific_table_display',
   'add_scientific_column',
   'update_scientific_column_display',
   'retire_scientific_column',

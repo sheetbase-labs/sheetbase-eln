@@ -94,6 +94,12 @@ describe('requiredScopes', () => {
         resource: 'add_scientific_column',
       }),
     ).toEqual(['scientific:schema'])
+    expect(
+      requiredScopes('POST', {
+        kind: 'rpc',
+        resource: 'update_scientific_table_display',
+      }),
+    ).toEqual(['scientific:schema'])
   })
 
   it('fails closed for unknown external resources', () => {

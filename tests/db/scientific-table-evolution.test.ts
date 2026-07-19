@@ -89,6 +89,44 @@ async function tableEvents(tableId: string): Promise<any[]> {
 }
 
 describe('scientific table migration evolution', () => {
+  it('renames only table display metadata with versioning and attribution', async () => {
+    const sheet = await createSheet([{ label: 'Stable', logical_type: 'text' }])
+    const beforeResource = sheet.table.resource_name
+    const result = (
+      await auth.query(
+        `SELECT api.update_scientific_table_display($1,1,'Renamed fixture') result`,
+        [sheet.table.id],
+      )
+    ).rows[0].result
+    expect(result).toMatchObject({
+      name: 'Renamed fixture',
+      resourceName: beforeResource,
+      schemaVersion: 2,
+    })
+    const stored = (
+      await migrator.query(
+        `SELECT name,resource_name,schema_version,updated_by_user_id
+           FROM api.scientific_tables WHERE id=$1`,
+        [sheet.table.id],
+      )
+    ).rows[0]
+    expect(stored).toMatchObject({
+      name: 'Renamed fixture',
+      resource_name: beforeResource,
+      schema_version: 2,
+      updated_by_user_id: USER,
+    })
+    await expect(
+      auth.query(`SELECT api.update_scientific_table_display($1,1,'Stale')`, [
+        sheet.table.id,
+      ]),
+    ).rejects.toMatchObject({ code: 'SB001' })
+    expect((await tableEvents(sheet.table.id)).at(-1).payload).toMatchObject({
+      operation: 'display',
+      schemaVersion: 2,
+    })
+  })
+
   it('adds a required category with exact-column options and backfills its default', async () => {
     const sheet = await createSheet([{ label: 'Seed', logical_type: 'text' }])
     await auth.query(
@@ -619,5 +657,121 @@ describe('scientific table migration evolution', () => {
         )
       ).rows[0],
     ).toEqual({ record_id: RECORD, block_id: block })
+  })
+
+  it('rejects every schema write for an archived owning record without side effects', async () => {
+    const sheet = await createSheet([
+      { label: 'One', logical_type: 'text' },
+      { label: 'Two', logical_type: 'text' },
+    ])
+    const convertEvidence = (
+      await auth.query(
+        `SELECT api.convert_scientific_column($1,1,'integer') result`,
+        [sheet.columns[0].id],
+      )
+    ).rows[0].result
+    const retireEvidence = (
+      await auth.query(`SELECT api.retire_scientific_column($1,1) result`, [
+        sheet.columns[1].id,
+      ])
+    ).rows[0].result
+    const unownedBlock = '31000000-0000-4000-8000-000000009999'
+    await migrator.query(
+      `INSERT INTO api.blocks(id,record_id,type,payload,"order",created_by_user_id) VALUES ($1,$2,'sheet','{}',999,$3)`,
+      [unownedBlock, RECORD, USER],
+    )
+    const before = (
+      await migrator.query(
+        `SELECT t.schema_version,t.name,
+          (SELECT jsonb_agg(to_jsonb(c) ORDER BY c.id) FROM api.scientific_columns c WHERE c.table_id=t.id) columns,
+          (SELECT jsonb_agg(a.attname ORDER BY a.attnum) FROM pg_attribute a WHERE a.attrelid=format('api.%I',t.resource_name)::regclass AND a.attnum>0 AND NOT a.attisdropped) shape,
+          (SELECT count(*)::int FROM api.change_events e WHERE e.entity_type='scientific_table' AND e.entity_uuid=t.id) events
+         FROM api.scientific_tables t WHERE t.id=$1`,
+        [sheet.table.id],
+      )
+    ).rows[0]
+    await migrator.query(
+      `UPDATE api.records SET archived_at=now() WHERE id=$1`,
+      [RECORD],
+    )
+    try {
+      const writes: Array<[string, unknown[]]> = [
+        [
+          `SELECT api.update_scientific_table_display($1,1,'No')`,
+          [sheet.table.id],
+        ],
+        [
+          `SELECT api.add_scientific_column($1,1,'No','text')`,
+          [sheet.table.id],
+        ],
+        [
+          `SELECT api.update_scientific_column_display($1,1,'No',2)`,
+          [sheet.columns[0].id],
+        ],
+        [
+          `SELECT api.convert_scientific_column($1,1,'integer',$2)`,
+          [sheet.columns[0].id, convertEvidence.hash],
+        ],
+        [
+          `SELECT api.retire_scientific_column($1,1,$2)`,
+          [sheet.columns[1].id, retireEvidence.hash],
+        ],
+        [
+          `SELECT api.create_scientific_table($1,'No','[]'::jsonb)`,
+          [unownedBlock],
+        ],
+      ]
+      for (const [sql, args] of writes)
+        await expect(auth.query(sql, args)).rejects.toMatchObject({
+          code: '42501',
+        })
+
+      // The same database guard applies to an external API actor, independent
+      // of browser membership checks.
+      await auth.query('RESET ROLE')
+      await auth.query('SET ROLE api_client')
+      await auth.query(`SELECT set_config('request.jwt.claims',$1,false)`, [
+        JSON.stringify({
+          role: 'api_client',
+          workspace_id: WS,
+          credential_id: '31000000-0000-4000-8000-000000009998',
+          scopes: ['scientific:schema'],
+        }),
+      ])
+      await expect(
+        auth.query(`SELECT api.add_scientific_column($1,1,'API no','text')`, [
+          sheet.table.id,
+        ]),
+      ).rejects.toMatchObject({ code: '42501' })
+    } finally {
+      await auth.query('RESET ROLE')
+      await auth.query('SET ROLE authenticated')
+      await auth.query(`SELECT set_config('request.jwt.claims',$1,false)`, [
+        JSON.stringify({ role: 'authenticated', sub: USER, workspace_id: WS }),
+      ])
+      await migrator.query(
+        `UPDATE api.records SET archived_at=NULL WHERE id=$1`,
+        [RECORD],
+      )
+    }
+    const after = (
+      await migrator.query(
+        `SELECT t.schema_version,t.name,
+          (SELECT jsonb_agg(to_jsonb(c) ORDER BY c.id) FROM api.scientific_columns c WHERE c.table_id=t.id) columns,
+          (SELECT jsonb_agg(a.attname ORDER BY a.attnum) FROM pg_attribute a WHERE a.attrelid=format('api.%I',t.resource_name)::regclass AND a.attnum>0 AND NOT a.attisdropped) shape,
+          (SELECT count(*)::int FROM api.change_events e WHERE e.entity_type='scientific_table' AND e.entity_uuid=t.id) events
+         FROM api.scientific_tables t WHERE t.id=$1`,
+        [sheet.table.id],
+      )
+    ).rows[0]
+    expect(after).toEqual(before)
+    expect(
+      (
+        await migrator.query(
+          `SELECT count(*)::int count FROM api.scientific_tables WHERE block_id=$1`,
+          [unownedBlock],
+        )
+      ).rows[0].count,
+    ).toBe(0)
   })
 })

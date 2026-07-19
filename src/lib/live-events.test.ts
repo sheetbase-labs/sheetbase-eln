@@ -239,6 +239,7 @@ describe('createLiveEventCoordinator', () => {
     ).toEqual([
       ['scientific-table', 'table-1'],
       ['scientific-tables', 'rec-1'],
+      ['scientific-rows', 'table-1'],
     ])
     expect(
       keysFor({
@@ -246,7 +247,7 @@ describe('createLiveEventCoordinator', () => {
         entityUuid: 'table-1',
         payload: { operation: 'display' },
       }),
-    ).toHaveLength(2)
+    ).toContainEqual(['scientific-rows', 'table-1'])
     for (const operation of ['add_column', 'convert_column', 'retire_column']) {
       expect(
         keysFor({
@@ -295,6 +296,14 @@ describe('createLiveEventCoordinator', () => {
     const keys = spy.mock.calls.map((c) => c[0]!.queryKey)
     expect(keys).toContainEqual(['notebook'])
     expect(keys).toContainEqual(notebookQueryKeys.projectsList())
+    for (const prefix of [
+      'scientific-table',
+      'scientific-tables',
+      'scientific-rows',
+      'formula',
+      'calculation',
+    ])
+      expect(keys).toContainEqual([prefix])
     expect(sources[0].closed).toBe(true)
 
     // scheduleReconnect(0) → reconnect after 500ms.

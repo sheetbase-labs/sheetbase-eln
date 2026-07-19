@@ -15,6 +15,7 @@ export interface ScientificColumnWire {
   display_order: number
   logical_type: ScientificLogicalType
   nullable: boolean
+  default_value?: unknown
   unit: unknown
   validation: Record<string, unknown>
   width: number | null
@@ -57,6 +58,28 @@ export const scientificQueryKeys = {
 }
 export const scientificDataClient = createDataClient()
 
+export interface ScientificColumnInput {
+  label: string
+  logicalType: ScientificLogicalType
+  nullable: boolean
+  defaultValue?: unknown
+  unit?: Record<string, unknown>
+  validation: Record<string, unknown>
+  options?: Array<{ id: string; label: string }>
+}
+
+export interface ScientificSchemaEvidence {
+  tableId: string
+  columnId: string
+  schemaVersion: number
+  requiresConfirmation: true
+  hash: string
+  invalidRows?: number
+  nonNullRows?: number
+  formulaMarkers: number
+  targetType?: ScientificLogicalType
+}
+
 export async function fetchScientificTable(
   client: DataClient,
   tableId: string,
@@ -94,6 +117,92 @@ export function applyScientificRowChanges(
   })
 }
 
+export function renameScientificTable(
+  client: DataClient,
+  tableId: string,
+  schemaVersion: number,
+  name: string,
+) {
+  return client.rpc('update_scientific_table_display', {
+    p_table_id: tableId,
+    p_expected_schema_version: schemaVersion,
+    p_name: name,
+  })
+}
+
+export function addScientificColumn(
+  client: DataClient,
+  tableId: string,
+  schemaVersion: number,
+  input: ScientificColumnInput,
+) {
+  const args: Record<string, unknown> = {
+    p_table_id: tableId,
+    p_expected_schema_version: schemaVersion,
+    p_label: input.label,
+    p_logical_type: input.logicalType,
+    p_nullable: input.nullable,
+    p_unit: input.unit ?? null,
+    p_validation: input.validation,
+    p_options: input.options ?? null,
+  }
+  // Undefined means no default. The SQL contract deliberately also treats
+  // JSON null as omitted; required defaults therefore cannot be null.
+  args.p_default = Object.hasOwn(input, 'defaultValue')
+    ? input.defaultValue
+    : null
+  return client.rpc('add_scientific_column', args)
+}
+
+export function updateScientificColumnDisplay(
+  client: DataClient,
+  columnId: string,
+  schemaVersion: number,
+  label: string | null,
+  displayOrder: number | null,
+) {
+  return client.rpc('update_scientific_column_display', {
+    p_column_id: columnId,
+    p_expected_schema_version: schemaVersion,
+    p_label: label,
+    p_display_order: displayOrder,
+  })
+}
+
+export function preflightScientificConversion(
+  client: DataClient,
+  columnId: string,
+  schemaVersion: number,
+  type: ScientificLogicalType,
+  hash: string | null = null,
+) {
+  return client.rpc<ScientificSchemaEvidence | { converted: true }>(
+    'convert_scientific_column',
+    {
+      p_column_id: columnId,
+      p_expected_schema_version: schemaVersion,
+      p_new_logical_type: type,
+      p_confirmation_hash: hash,
+    },
+  )
+}
+
+export function preflightScientificRetirement(
+  client: DataClient,
+  columnId: string,
+  schemaVersion: number,
+  hash: string | null = null,
+) {
+  return client.rpc<ScientificSchemaEvidence | { retired: true }>(
+    'retire_scientific_column',
+    {
+      p_column_id: columnId,
+      p_expected_schema_version: schemaVersion,
+      p_confirmation_hash: hash,
+    },
+  )
+}
+
 export interface CellValidationError {
   row: number
   columnId: string
@@ -121,7 +230,7 @@ export function decodeScientificValue(
       break
     case 'decimal':
       value = typeof input === 'number' ? input : Number(text)
-      if (!Number.isFinite(value as number))
+      if (!Number.isFinite(value))
         throw new Error(`${column.label} must be a finite number.`)
       break
     case 'boolean':
@@ -163,7 +272,7 @@ export function decodeScientificValue(
     default:
       value = text
   }
-  const v = column.validation ?? {}
+  const v = column.validation
   const n = typeof value === 'number' ? value : null
   const s = typeof value === 'string' ? value : null
   if (n !== null && typeof v.min === 'number' && n < v.min)

@@ -516,13 +516,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** SHEET-002.
 
-- [ ] Let a user name a sheet and configure columns with label, type, unit, required state, default and validation.
-- [ ] Preview destructive consequences before converting or retiring populated columns.
-- [ ] Keep display-name changes separate from stable API identifiers and explain the difference.
-- [ ] Require explicit confirmation for changes that can invalidate formulas or API clients.
-- [ ] Show migration progress and recoverable failures without leaving metadata out of sync with PostgreSQL.
-- [ ] Update the grid and API metadata live after successful schema changes.
-- [ ] Add tests for adding, renaming, reordering and safely rejecting incompatible conversion.
+- [x] Let a user name a sheet and configure columns with label, type, unit, required state, default and validation.
+- [x] Preview destructive consequences before converting or retiring populated columns.
+- [x] Keep display-name changes separate from stable API identifiers and explain the difference.
+- [x] Require explicit confirmation for changes that can invalidate formulas or API clients.
+- [x] Show migration progress and recoverable failures without leaving metadata out of sync with PostgreSQL.
+- [x] Update the grid and API metadata live after successful schema changes.
+- [x] Add tests for adding, renaming, reordering and safely rejecting incompatible conversion.
 
 ### CALC-001 — Lock the HyperFormula trust and persistence model
 

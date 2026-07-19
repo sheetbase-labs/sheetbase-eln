@@ -288,13 +288,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** UI-002.
 
-- [ ] Make `AuditTrail` accept real typed events, actors, timestamps, targets and pagination or continuation.
-- [ ] Make `ApprovalStepper` accept a workflow definition and current immutable review state.
-- [ ] Distinguish pending, active, completed, rejected, returned and unavailable steps.
-- [ ] Provide complete text for screen readers rather than relying on connector graphics.
-- [ ] Handle long histories and many approval steps without making inspectors unusable.
-- [ ] Keep display components separate from the commands that mutate review state.
-- [ ] Add tests for ordering, state labels and missing actor data.
+- [x] Make `AuditTrail` accept real typed events, actors, timestamps, targets and pagination or continuation.
+- [x] Make `ApprovalStepper` accept a workflow definition and current immutable review state.
+- [x] Distinguish pending, active, completed, rejected, returned and unavailable steps.
+- [x] Provide complete text for screen readers rather than relying on connector graphics.
+- [x] Handle long histories and many approval steps without making inspectors unusable.
+- [x] Keep display components separate from the commands that mutate review state.
+- [x] Add tests for ordering, state labels and missing actor data.
 
 ### UI-008 — Establish the component gallery and visual review gate
 

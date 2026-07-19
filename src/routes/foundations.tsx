@@ -19,6 +19,8 @@ import { StatusBadge } from '#/components/scientific'
 import { NotebookBlock } from '#/components/notebook'
 import { ChartFrame, PlateMap } from '#/components/viz'
 import type { PlateWell } from '#/components/viz'
+import { AuditTrail, ApprovalStepper } from '#/components/audit'
+import type { AuditEvent, ApprovalStepDef } from '#/components/audit'
 import {
   RecordHeader,
   Inspector,
@@ -358,6 +360,14 @@ function FoundationsPage() {
           description="NotebookBlock, ChartFrame and PlateMap (UI-006) — presentational frames with selected/editing/invalid/locked/loading states, live/snapshot charts, provenance, legend and keyboard-operable plate wells."
         >
           <NotebookVizPreview />
+        </Section>
+
+        <Section
+          id="audit"
+          title="Audit trail & approval workflow"
+          description="AuditTrail and ApprovalStepper (UI-007) - presentational, display-only components. Typed events and immutable review state; pending, active, completed, rejected, returned and unavailable steps; long histories stay scrollable; screen readers get complete sentences rather than connector graphics."
+        >
+          <AuditApprovalPreview />
         </Section>
 
         <Section
@@ -1010,6 +1020,132 @@ function ContrastGrid() {
           </div>
         )
       })}
+    </div>
+  )
+}
+
+const auditEvents: AuditEvent[] = [
+  {
+    id: '1',
+    type: 'created',
+    title: 'Experiment created',
+    actor: { name: 'Gareth Price' },
+    timestamp: '2025-07-14 09:12',
+  },
+  {
+    id: '2',
+    type: 'uploaded',
+    title: 'Dataset attached',
+    actor: { name: 'Mia Chen' },
+    timestamp: '2025-07-14 10:41',
+    target: 'Stability_Raw_Data.csv',
+  },
+  {
+    id: '3',
+    type: 'review-requested',
+    title: 'Review requested',
+    actor: { name: 'Gareth Price' },
+    timestamp: '2025-07-14 11:42',
+    target: 'Protocol EXP-2174',
+  },
+  {
+    id: '4',
+    type: 'review-started',
+    title: 'Scientific review started',
+    actor: { name: 'Emma Liu' },
+    timestamp: '2025-07-15 08:03',
+  },
+  {
+    id: '5',
+    type: 'review-started',
+    title: 'Review returned for revision',
+    actor: { name: 'Emma Liu' },
+    timestamp: '2025-07-15 15:20',
+  },
+  {
+    id: '6',
+    type: 'created',
+    title: 'Unknown user re-opened the experiment',
+    actor: { name: 'Deleted user', unknown: true },
+    timestamp: '2025-07-16 09:55',
+  },
+]
+
+const approvalSteps: ApprovalStepDef[] = [
+  { id: 'draft', title: 'Draft', role: 'Author' },
+  { id: 'sci', title: 'Scientific review', role: 'Emma Liu' },
+  { id: 'qa', title: 'QA review', role: 'QA team' },
+  { id: 'sign', title: 'Sign-off', role: 'PI - R. Okafor' },
+  { id: 'lock', title: 'Approved & locked' },
+]
+
+function AuditApprovalPreview() {
+  return (
+    <div className="grid gap-6 lg:grid-cols-2">
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold">Audit trail</h3>
+        <AuditTrail
+          events={auditEvents}
+          totalCount={84}
+          onLoadMore={() => {}}
+        />
+        <h3 className="pt-2 text-sm font-semibold">Loading state</h3>
+        <AuditTrail events={[]} loading />
+        <h3 className="pt-2 text-sm font-semibold">Empty state</h3>
+        <AuditTrail events={[]} />
+      </div>
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold">Approval workflow</h3>
+        <ApprovalStepper
+          steps={approvalSteps}
+          reviewState={{
+            draft: {
+              state: 'completed',
+              actor: { name: 'Gareth Price' },
+              at: '2025-07-14 09:12',
+            },
+            sci: {
+              state: 'returned',
+              actor: { name: 'Emma Liu' },
+              at: '2025-07-15 15:20',
+            },
+            qa: { state: 'unavailable' },
+            sign: { state: 'unavailable' },
+            lock: { state: 'unavailable' },
+          }}
+        />
+        <h3 className="pt-2 text-sm font-semibold">Active review</h3>
+        <ApprovalStepper
+          steps={approvalSteps}
+          reviewState={{
+            draft: {
+              state: 'completed',
+              actor: { name: 'Gareth Price' },
+              at: '2025-07-14 09:12',
+            },
+            sci: { state: 'active', at: '2025-07-15 08:03' },
+          }}
+        />
+        <h3 className="pt-2 text-sm font-semibold">Rejected at QA</h3>
+        <ApprovalStepper
+          steps={approvalSteps}
+          reviewState={{
+            draft: { state: 'completed' },
+            sci: {
+              state: 'completed',
+              actor: { name: 'Emma Liu' },
+              at: '2025-07-16 10:00',
+            },
+            qa: {
+              state: 'rejected',
+              actor: { name: 'QA team' },
+              at: '2025-07-16 14:22',
+            },
+            sign: { state: 'unavailable' },
+            lock: { state: 'unavailable' },
+          }}
+        />
+      </div>
     </div>
   )
 }

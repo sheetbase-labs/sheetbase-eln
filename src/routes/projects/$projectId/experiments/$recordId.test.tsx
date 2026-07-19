@@ -1,7 +1,9 @@
 import { cleanup, render, screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { DataClientError } from '#/lib/data-client'
+import type { DataClient } from '#/lib/data-client'
 
 import {
   ArchivedBanner,
@@ -301,5 +303,41 @@ describe('NotebookInspector', () => {
       />,
     )
     expect(screen.getByText('Loading links…')).toBeTruthy()
+  })
+})
+
+describe('NotebookCanvas — editable path', () => {
+  it('renders the block picker when a client and queryClient are supplied', () => {
+    const queryClient = new QueryClient()
+    const fakeClient = {
+      list: () => Promise.resolve([]),
+      insert: () => Promise.resolve({}),
+      rpc: () => Promise.resolve({}),
+    } as unknown as DataClient
+    render(
+      <QueryClientProvider client={queryClient}>
+        <NotebookCanvas
+          record={record}
+          blocks={[
+            {
+              id: 'b1',
+              recordId: 'r1',
+              type: 'heading',
+              payload: { level: 2, text: 'Editable' },
+              payloadSchemaVersion: 1,
+              order: 1,
+              version: 1,
+            },
+          ]}
+          isLoading={false}
+          error={null}
+          onRetry={() => {}}
+          client={fakeClient}
+          queryClient={queryClient}
+        />
+      </QueryClientProvider>,
+    )
+    expect(screen.getByRole('button', { name: /Add block/ })).toBeTruthy()
+    expect(screen.getByDisplayValue('Editable')).toBeTruthy()
   })
 })

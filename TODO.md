@@ -365,13 +365,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** ELN-004, UI-006.
 
-- [ ] Implement read and edit behaviour for heading, rich text, checklist and linked-record blocks.
-- [ ] Add an insertion control and keyboard-accessible block picker using familiar labels.
-- [ ] Validate block payloads before mutation and preserve unsupported future block types as readable placeholders.
-- [ ] Give every block a stable selection target and URL or anchor where comments and review can refer to it later.
-- [ ] Support block duplication and deletion with appropriate confirmation and undo where safe.
-- [ ] Avoid storing transient editor state as scientific content.
-- [ ] Add component and API integration tests for each initial block type.
+- [x] Implement read and edit behaviour for heading, rich text, checklist and linked-record blocks.
+- [x] Add an insertion control and keyboard-accessible block picker using familiar labels.
+- [x] Validate block payloads before mutation and preserve unsupported future block types as readable placeholders.
+- [x] Give every block a stable selection target and URL or anchor where comments and review can refer to it later.
+- [x] Support block duplication and deletion with appropriate confirmation and undo where safe.
+- [x] Avoid storing transient editor state as scientific content.
+- [x] Add component and API integration tests for each initial block type.
 
 ### ELN-006 — Implement block ordering and keyboard movement
 

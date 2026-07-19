@@ -78,6 +78,13 @@
       "when": 1784450200000,
       "tag": "0010_eln_notebook_rpcs",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1784450300000,
+      "tag": "0011_eln_block_insert_delete_rpcs",
+      "breakpoints": true
     }
   ]
 }

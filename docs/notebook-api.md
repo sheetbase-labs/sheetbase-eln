@@ -137,6 +137,52 @@ does not exist.
 }
 ```
 
+### `insert_block`
+
+Appends a block at the end of the record, or inserts it immediately after a
+given anchor block via fractional indexing. The caller supplies the record
+`structure_version` it last saw; a stale version is rejected with
+`stale_version` (SQLSTATE `SB001`) before any write. Payload shape validation
+stays at the application boundary (`src/lib/blocks`); the RPC trusts the
+caller's payload once the type is a known block type.
+
+```jsonc
+// POST /api/db/rpc/insert_block
+{
+  "p_record_id": "00000000-0000-4000-8000-000000000101",
+  "p_type": "heading",
+  "p_payload": { "level": 2, "text": "Methods" },
+  "p_payload_schema_version": 1,
+  "p_after_block_id": null,
+  "p_expected_structure_version": 3,
+}
+```
+
+Returns `{ block, structure_version }` so the client reconciles the new id,
+order and the bumped structure version in one round-trip. When
+`p_after_block_id` is omitted the block is appended; otherwise it is placed
+between the anchor and the block that currently follows it. An anchor that
+belongs to a different record is rejected with SQLSTATE `23503`.
+
+### `delete_block`
+
+Removes a block and bumps the record `structure_version`. As with
+`insert_block`, an optional `p_expected_structure_version` guards against
+clobbering a concurrent edit (SQLSTATE `SB001` on mismatch).
+
+```jsonc
+// POST /api/db/rpc/delete_block
+{
+  "p_block_id": "00000000-0000-4000-8000-00000000011c",
+  "p_expected_structure_version": 4,
+}
+```
+
+Returns `{ structure_version, order }` where `order` is the surviving
+`(id, order)` list for the record so the client can confirm what remains.
+`order` values are unchanged on delete (no renumber); the list simply omits
+the deleted block.
+
 ## Stable error categories
 
 The proxy re-wraps PostgREST errors into a public envelope
@@ -195,11 +241,23 @@ curl -sS -b cookie.txt -H 'content-type: application/json' \
 curl -sS -b cookie.txt -H 'content-type: application/json' \
   -d '{"p_source_record_id":"<exp-id>","p_target_kind":"protocol_template","p_target_identifier":"PRT-2025-0001","p_link_type":"protocol","p_target_record_id":"<proto-id>"}' \
   /api/db/rpc/create_record_link
+
+# Insert a heading block after a given anchor
+curl -sS -b cookie.txt -H 'content-type: application/json' \
+  -d '{"p_record_id":"<record-id>","p_type":"heading","p_payload":{"level":2,"text":"Methods"},"p_payload_schema_version":1,"p_after_block_id":"<anchor-id>","p_expected_structure_version":3}' \
+  /api/db/rpc/insert_block
+
+# Delete a block
+curl -sS -b cookie.txt -H 'content-type: application/json' \
+  -d '{"p_block_id":"<block-id>","p_expected_structure_version":4}' \
+  /api/db/rpc/delete_block
 ```
 
 ## Contract tests
 
 `tests/db/notebook-rpcs.test.ts` proves create, load, edit, reorder, link,
-archive and restore operations, plus the `stale_version`, `missing_link` and
-cross-workspace permission-denial paths, against a freshly migrated
-`sheetbase_test` with real `authenticated` claim GUCs.
+archive and restore operations, the `insert_block` and `delete_block` RPCs
+(append, after-anchor fractional indexing, stale-version guard, cross-record
+anchor rejection, surviving order list), plus the `stale_version`,
+`missing_link` and cross-workspace permission-denial paths, against a freshly
+migrated `sheetbase_test` with real `authenticated` claim GUCs.

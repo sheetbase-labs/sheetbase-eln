@@ -1,10 +1,11 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { QueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { Archive, FileWarning, Lock } from 'lucide-react'
 
 import { AppShell } from '#/components/app-shell'
-import { NotebookBlock, BlockPreview } from '#/components/notebook'
+import { NotebookDocument } from '#/components/notebook'
 import {
   Inspector,
   InspectorSection,
@@ -15,6 +16,7 @@ import {
 } from '#/components/record'
 import { StatusBadge } from '#/components/scientific'
 import { DataClientError } from '#/lib/data-client'
+import type { DataClient } from '#/lib/data-client'
 import {
   fetchBlocksForRecord,
   fetchLinksForRecord,
@@ -24,6 +26,14 @@ import {
   notebookQueryKeys,
   recordKindLabel,
 } from '#/lib/notebook-data'
+import {
+  defaultPayloadFor,
+  deleteBlock,
+  duplicateBlock,
+  insertBlock,
+  updateBlockPayload,
+} from '#/lib/notebook-mutations'
+import { validateBlock } from '#/lib/blocks'
 import type {
   NotebookBlock as NotebookBlockDomain,
   NotebookLink,
@@ -63,6 +73,8 @@ export const Route = createFileRoute(
 function ExperimentNotebookRoute() {
   const { context } = Route.useRouteContext()
   const { projectId, recordId } = Route.useParams()
+
+  const queryClient = useQueryClient()
 
   const projectQuery = useQuery({
     queryKey: notebookQueryKeys.project(projectId),
@@ -182,6 +194,8 @@ function ExperimentNotebookRoute() {
           isLoading={blocksQuery.isLoading}
           error={blocksQuery.error}
           onRetry={() => blocksQuery.refetch()}
+          client={notebookDataClient}
+          queryClient={queryClient}
         />
       </div>
     </AppShell>
@@ -292,12 +306,21 @@ export function NotebookCanvas({
   isLoading,
   error,
   onRetry,
+  client,
+  queryClient,
 }: {
   record: NotebookRecord
   blocks: NotebookBlockDomain[]
   isLoading: boolean
   error: unknown
   onRetry: () => void
+  /**
+   * Required for the editable path. Omit (or pass undefined) to render the
+   * notebook read-only — used by presentational tests that do not mount a
+   * QueryClient provider and by any caller that only needs the frame.
+   */
+  client?: DataClient
+  queryClient?: QueryClient
 }) {
   if (isLoading) {
     return (
@@ -330,39 +353,253 @@ export function NotebookCanvas({
   if (blocks.length === 0) {
     return <EmptyNotebook record={record} />
   }
+  if (record.archivedAt || !client || !queryClient) {
+    // Archived notebooks and provider-less callers render read-only through
+    // the same document component so the visual frame and anchors match the
+    // editable state.
+    return (
+      <NotebookDocument
+        record={record}
+        blocks={blocks}
+        readOnly
+        onSaveBlock={async () => undefined}
+        onInsertBlock={async () => undefined}
+        onDuplicateBlock={async () => undefined}
+        onDeleteBlock={async () => undefined}
+      />
+    )
+  }
   return (
-    <div className="space-y-3">
-      {blocks.map((block) => (
-        <div key={block.id} id={`block-${block.id}`} className="scroll-mt-28">
-          <NotebookBlock
-            label={blockLabel(block.type)}
-            state={record.archivedAt ? 'read-only' : 'default'}
-            ariaLabel={`${block.type} block`}
-          >
-            <BlockPreview block={block} />
-          </NotebookBlock>
-        </div>
-      ))}
-    </div>
+    <EditableNotebook
+      record={record}
+      blocks={blocks}
+      client={client}
+      queryClient={queryClient}
+    />
   )
 }
 
-function blockLabel(type: string): string {
-  const map: Record<string, string> = {
-    heading: 'Heading',
-    rich_text: 'Text',
-    checklist: 'Checklist',
-    list: 'List',
-    callout: 'Callout',
-    linked_record: 'Linked record',
-    table: 'Table',
-    chart: 'Chart',
-    plate_map: 'Plate map',
-    file: 'File',
-    metric: 'Metric',
-    procedure_step: 'Procedure step',
+// ---------------------------------------------------------------------------
+// Editable notebook — wires the NotebookDocument callbacks to TanStack Query
+// mutations. Each mutation performs its RPC, reconciles the canonical
+// (id, order, version) shape returned by the RPC into the blocks query cache,
+// and surfaces stale_version as an inline error so the user can retry. The
+// record's structure_version is updated in the record query cache so the next
+// mutation sends the right expected version.
+// ---------------------------------------------------------------------------
+
+function EditableNotebook({
+  record,
+  blocks,
+  client,
+  queryClient,
+}: {
+  record: NotebookRecord
+  blocks: NotebookBlockDomain[]
+  client: DataClient
+  queryClient: QueryClient
+}) {
+  const blocksKey = notebookQueryKeys.blocks(record.id)
+  const recordKey = notebookQueryKeys.record(record.id)
+
+  function setRecordStructureVersion(next: number) {
+    queryClient.setQueryData<NotebookRecord | null>(recordKey, (prev) =>
+      prev ? { ...prev, structureVersion: next } : prev,
+    )
   }
-  return map[type] ?? type
+
+  function upsertBlock(block: NotebookBlockDomain) {
+    queryClient.setQueryData<NotebookBlockDomain[]>(blocksKey, (prev) => {
+      if (!prev) return [block]
+      const without = prev.filter((b) => b.id !== block.id)
+      const next = [...without, block]
+      next.sort((a, b) => a.order - b.order)
+      return next
+    })
+  }
+
+  function removeBlock(blockId: string) {
+    queryClient.setQueryData<NotebookBlockDomain[]>(blocksKey, (prev) =>
+      prev ? prev.filter((b) => b.id !== blockId) : prev,
+    )
+  }
+
+  // --- Save (update payload) ---------------------------------------------
+  const saveMutation = useMutation({
+    mutationFn: async ({
+      block,
+      payload,
+    }: {
+      block: NotebookBlockDomain
+      payload: Record<string, unknown>
+    }) => {
+      const result = validateBlock({
+        type: block.type,
+        payload,
+        payloadSchemaVersion: block.payloadSchemaVersion,
+      })
+      if (!result.ok) {
+        // Defensive: the editor should not call onSave with an invalid
+        // payload, but reject explicitly rather than persisting it.
+        throw new DataClientError(
+          'validation_error',
+          result.errors.map((e) => e.message).join('; '),
+          400,
+        )
+      }
+      return updateBlockPayload(client, {
+        blockId: block.id,
+        payload,
+        expectedVersion: block.version,
+        payloadSchemaVersion: block.payloadSchemaVersion,
+      })
+    },
+    onSuccess: (updated, vars) => {
+      // The block's version bumps; order and id are unchanged.
+      upsertBlock({ ...vars.block, ...updated })
+    },
+    onError: (error) => {
+      // Stale version: refetch the canonical list so the next save targets
+      // the right version. The inline error is surfaced via the callback's
+      // thrown message, which NotebookDocument displays per-block.
+      if (error instanceof DataClientError && error.code === 'stale_version') {
+        void queryClient.invalidateQueries({ queryKey: blocksKey })
+        void queryClient.invalidateQueries({ queryKey: recordKey })
+      }
+    },
+  })
+
+  // --- Insert ------------------------------------------------------------
+  const insertMutation = useMutation({
+    mutationFn: async ({
+      type,
+      afterBlockId,
+    }: {
+      type: string
+      afterBlockId?: string
+    }) => {
+      const payload = defaultPayloadFor(type)
+      return insertBlock(client, {
+        recordId: record.id,
+        type,
+        payload,
+        afterBlockId,
+        expectedStructureVersion: record.structureVersion,
+      })
+    },
+    onSuccess: (res) => {
+      upsertBlock(res.block)
+      setRecordStructureVersion(res.structureVersion)
+    },
+    onError: (error) => {
+      if (error instanceof DataClientError && error.code === 'stale_version') {
+        void queryClient.invalidateQueries({ queryKey: blocksKey })
+        void queryClient.invalidateQueries({ queryKey: recordKey })
+      }
+    },
+  })
+
+  // --- Duplicate ---------------------------------------------------------
+  const duplicateMutation = useMutation({
+    mutationFn: async (block: NotebookBlockDomain) =>
+      duplicateBlock(client, {
+        block,
+        expectedStructureVersion: record.structureVersion,
+      }),
+    onSuccess: (res) => {
+      upsertBlock(res.block)
+      setRecordStructureVersion(res.structureVersion)
+    },
+    onError: (error) => {
+      if (error instanceof DataClientError && error.code === 'stale_version') {
+        void queryClient.invalidateQueries({ queryKey: blocksKey })
+        void queryClient.invalidateQueries({ queryKey: recordKey })
+      }
+    },
+  })
+
+  // --- Delete ------------------------------------------------------------
+  const deleteMutation = useMutation({
+    mutationFn: async (block: NotebookBlockDomain) =>
+      deleteBlock(client, {
+        blockId: block.id,
+        expectedStructureVersion: record.structureVersion,
+      }),
+    onSuccess: (res, vars) => {
+      removeBlock(vars.id)
+      setRecordStructureVersion(res.structureVersion)
+    },
+    onError: (error) => {
+      if (error instanceof DataClientError && error.code === 'stale_version') {
+        void queryClient.invalidateQueries({ queryKey: blocksKey })
+        void queryClient.invalidateQueries({ queryKey: recordKey })
+      }
+    },
+  })
+
+  // Undo delete = re-insert the same payload at the end (safe default; the
+  // original position is preserved only loosely). Uses the current
+  // structure_version from the record cache.
+  const undoDeleteMutation = useMutation({
+    mutationFn: async ({
+      type,
+      payload,
+    }: {
+      type: string
+      payload: Record<string, unknown>
+    }) => {
+      const current = queryClient.getQueryData<NotebookRecord | null>(recordKey)
+      return insertBlock(client, {
+        recordId: record.id,
+        type,
+        payload,
+        expectedStructureVersion:
+          current?.structureVersion ?? record.structureVersion,
+      })
+    },
+    onSuccess: (res) => {
+      upsertBlock(res.block)
+      setRecordStructureVersion(res.structureVersion)
+    },
+  })
+
+  async function handleSave(
+    block: NotebookBlockDomain,
+    payload: Record<string, unknown>,
+  ) {
+    await saveMutation.mutateAsync({ block, payload })
+  }
+
+  async function handleInsert(type: string, afterBlockId?: string) {
+    await insertMutation.mutateAsync({ type, afterBlockId })
+  }
+
+  async function handleDuplicate(block: NotebookBlockDomain) {
+    await duplicateMutation.mutateAsync(block)
+  }
+
+  async function handleDelete(block: NotebookBlockDomain) {
+    await deleteMutation.mutateAsync(block)
+  }
+
+  async function handleUndoDelete(
+    type: string,
+    payload: Record<string, unknown>,
+  ) {
+    await undoDeleteMutation.mutateAsync({ type, payload })
+  }
+
+  return (
+    <NotebookDocument
+      record={record}
+      blocks={blocks}
+      onSaveBlock={handleSave}
+      onInsertBlock={handleInsert}
+      onDuplicateBlock={handleDuplicate}
+      onDeleteBlock={handleDelete}
+      onUndoDelete={handleUndoDelete}
+    />
+  )
 }
 
 export function EmptyNotebook({ record }: { record: NotebookRecord }) {

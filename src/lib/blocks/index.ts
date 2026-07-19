@@ -231,11 +231,17 @@ function validateLinkedRecord(payload: unknown): FieldErrors {
       message: 'linkType is required',
     })
   }
-  if (isString(payload.label) && payload.label.trim().length === 0) {
+  // label is optional. Empty string is treated as "no label"; only a
+  // whitespace-only label (present but blank) is rejected.
+  if (
+    isString(payload.label) &&
+    payload.label.length > 0 &&
+    payload.label.trim().length === 0
+  ) {
     errors.push({
       code: 'invalid_field_value',
       field: 'label',
-      message: 'label must be non-empty when present',
+      message: 'label must not be blank when present',
     })
   }
   return errors

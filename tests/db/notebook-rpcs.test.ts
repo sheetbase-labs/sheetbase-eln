@@ -396,3 +396,178 @@ describe('safe reads through PostgREST tables', () => {
     expect(rows[0].n).toBe(0)
   })
 })
+
+describe('insert_block', () => {
+  async function seedEmpty(client: Client): Promise<{ recordId: string }> {
+    const created = await rpcByName<{ record: { id: string } }>(
+      client,
+      `create_record_with_blocks(
+        '${PROJ}'::uuid, 'experiment', 'Insert Target',
+        'draft', ARRAY[]::text[], '[]'::jsonb)`,
+    )
+    return { recordId: created.record.id }
+  }
+
+  it('appends a block at the end and bumps structure_version', async () => {
+    const owner = await asAuthenticated(OWNER, WS)
+    const { recordId } = await seedEmpty(owner)
+    const res = await rpcByName<{
+      block: { id: string; type: string; order: number; payload: { text: string } }
+      structure_version: number
+    }>(
+      owner,
+      `insert_block(
+        '${recordId}'::uuid, 'heading',
+        '{"level":2,"text":"Appended"}'::jsonb, 1, NULL, 1)`,
+    )
+    expect(res.block.type).toBe('heading')
+    expect(res.block.payload.text).toBe('Appended')
+    expect(res.block.order).toBe(1)
+    expect(res.structure_version).toBe(2)
+  })
+
+  it('inserts after an anchor via fractional indexing', async () => {
+    const owner = await asAuthenticated(OWNER, WS)
+    const { recordId } = await seedEmpty(owner)
+    const first = await rpcByName<{
+      block: { id: string; order: number }
+      structure_version: number
+    }>(
+      owner,
+      `insert_block(
+        '${recordId}'::uuid, 'heading',
+        '{"level":2,"text":"A"}'::jsonb, 1, NULL, 1)`,
+    )
+    const second = await rpcByName<{
+      block: { id: string; order: number }
+      structure_version: number
+    }>(
+      owner,
+      `insert_block(
+        '${recordId}'::uuid, 'heading',
+        '{"level":2,"text":"B"}'::jsonb, 1, NULL, ${first.structure_version})`,
+    )
+    // Insert between A (order 1) and B (order 2).
+    const mid = await rpcByName<{
+      block: { id: string; order: number }
+      structure_version: number
+    }>(
+      owner,
+      `insert_block(
+        '${recordId}'::uuid, 'rich_text',
+        '{"body":"mid"}'::jsonb, 1, '${first.block.id}'::uuid, ${second.structure_version})`,
+    )
+    expect(mid.block.order).toBeGreaterThan(first.block.order)
+    expect(mid.block.order).toBeLessThan(second.block.order)
+
+    const { rows } = await owner.query(
+      `SELECT id, "order" FROM api.blocks WHERE record_id = '${recordId}' ORDER BY "order" ASC`,
+    )
+    expect(rows.map((r: { id: string }) => r.id)).toEqual([
+      first.block.id,
+      mid.block.id,
+      second.block.id,
+    ])
+  })
+
+  it('rejects a stale structure_version with SB001', async () => {
+    const owner = await asAuthenticated(OWNER, WS)
+    const { recordId } = await seedEmpty(owner)
+    await expect(
+      owner.query(
+        `SELECT * FROM api.insert_block(
+          '${recordId}'::uuid, 'heading',
+          '{"level":2,"text":"x"}'::jsonb, 1, NULL, 999)`,
+      ),
+    ).rejects.toMatchObject({ code: STALE })
+  })
+
+  it('rejects an anchor from a different record', async () => {
+    const owner = await asAuthenticated(OWNER, WS)
+    const { recordId } = await seedEmpty(owner)
+    const other = await seedEmpty(owner)
+    const foreign = await rpcByName<{ block: { id: string } }>(
+      owner,
+      `insert_block(
+        '${other.recordId}'::uuid, 'heading',
+        '{"level":2,"text":"foreign"}'::jsonb, 1, NULL, 1)`,
+    )
+    // after_block_id points into a different record: FK-style rejection.
+    await expect(
+      owner.query(
+        `SELECT * FROM api.insert_block(
+          '${recordId}'::uuid, 'heading',
+          '{"level":2,"text":"x"}'::jsonb, 1, '${foreign.block.id}'::uuid, 1)`,
+      ),
+    ).rejects.toMatchObject({ code: '23503' })
+  })
+
+  it('rejects a caller from another workspace', async () => {
+    const owner = await asAuthenticated(OWNER, WS)
+    const { recordId } = await seedEmpty(owner)
+    const ownerB = await asAuthenticated(OWNER_B, WS_B)
+    await expect(
+      ownerB.query(
+        `SELECT * FROM api.insert_block(
+          '${recordId}'::uuid, 'heading',
+          '{"level":2,"text":"x"}'::jsonb, 1, NULL, 1)`,
+      ),
+    ).rejects.toMatchObject({ code: DENIED })
+  })
+})
+
+describe('delete_block', () => {
+  async function seedTwo(
+    client: Client,
+  ): Promise<{ recordId: string; a: string; b: string; sv: number }> {
+    const created = await rpcByName<{
+      record: { id: string }
+      blocks: Array<{ id: string }>
+    }>(
+      client,
+      `create_record_with_blocks(
+        '${PROJ}'::uuid, 'experiment', 'Delete Target',
+        'draft', ARRAY[]::text[],
+        '[{"type":"heading","payload":{"level":2,"text":"A"},"order":1},
+            {"type":"heading","payload":{"level":2,"text":"B"},"order":2}]'::jsonb)`,
+    )
+    return {
+      recordId: created.record.id,
+      a: created.blocks[0].id,
+      b: created.blocks[1].id,
+      sv: 1,
+    }
+  }
+
+  it('deletes a block and bumps structure_version, returning surviving order', async () => {
+    const owner = await asAuthenticated(OWNER, WS)
+    const { a, b, sv } = await seedTwo(owner)
+    const res = await rpcByName<{
+      structure_version: number
+      order: Array<{ id: string; order: number }>
+    }>(owner, `delete_block('${a}'::uuid, ${sv})`)
+    expect(res.structure_version).toBe(sv + 1)
+    expect(res.order.map((o) => o.id)).toEqual([b])
+    const { rows } = await owner.query(
+      `SELECT count(*)::int AS n FROM api.blocks WHERE id = '${a}'`,
+    )
+    expect(rows[0].n).toBe(0)
+  })
+
+  it('rejects a stale structure_version with SB001', async () => {
+    const owner = await asAuthenticated(OWNER, WS)
+    const { a } = await seedTwo(owner)
+    await expect(
+      owner.query(`SELECT * FROM api.delete_block('${a}'::uuid, 999)`),
+    ).rejects.toMatchObject({ code: STALE })
+  })
+
+  it('rejects a caller from another workspace', async () => {
+    const owner = await asAuthenticated(OWNER, WS)
+    const { a } = await seedTwo(owner)
+    const ownerB = await asAuthenticated(OWNER_B, WS_B)
+    await expect(
+      ownerB.query(`SELECT * FROM api.delete_block('${a}'::uuid, 1)`),
+    ).rejects.toMatchObject({ code: DENIED })
+  })
+})

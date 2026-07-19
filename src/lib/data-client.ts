@@ -14,7 +14,7 @@ export interface DataError {
 }
 
 interface ErrorEnvelope {
-  error: DataError
+  error: DataError & { category?: string }
 }
 
 const API_BASE = '/api/db'
@@ -45,12 +45,11 @@ async function parseError(response: Response): Promise<DataClientError> {
 
   if (body && typeof body === 'object' && 'error' in body) {
     const envelope = body as ErrorEnvelope
-    if (envelope.error.code && envelope.error.message) {
-      return new DataClientError(
-        envelope.error.code,
-        envelope.error.message,
-        response.status,
-      )
+    // The public envelope uses `category` (see src/lib/errors.ts); accept
+    // `code` as well so older test mocks and any legacy callers still work.
+    const code = envelope.error.category ?? envelope.error.code
+    if (code && envelope.error.message) {
+      return new DataClientError(code, envelope.error.message, response.status)
     }
   }
 

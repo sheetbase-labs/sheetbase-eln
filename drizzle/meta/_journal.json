@@ -57,6 +57,20 @@
       "when": 1784405200000,
       "tag": "0007_api_client_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1784450036336,
+      "tag": "0008_powerful_celestials",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1784450100000,
+      "tag": "0009_eln_notebook_domain",
+      "breakpoints": true
     }
   ]
 }

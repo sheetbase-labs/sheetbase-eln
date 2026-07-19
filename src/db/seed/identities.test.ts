@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  DEMO_BLOCK_IDS,
   DEMO_VIRUS_STABILITY_PROJECT_ID,
+  DEMO_VIRUS_STABILITY_PROTOCOL_RECORD_ID,
+  DEMO_VIRUS_STABILITY_RECORD_ID,
   FIXTURE_PROJECT_ID,
   FIXTURE_USER_ID,
   FIXTURE_WORKSPACE_ID,
@@ -17,6 +20,9 @@ describe('seed identities', () => {
       FIXTURE_WORKSPACE_ID,
       FIXTURE_PROJECT_ID,
       DEMO_VIRUS_STABILITY_PROJECT_ID,
+      DEMO_VIRUS_STABILITY_RECORD_ID,
+      DEMO_VIRUS_STABILITY_PROTOCOL_RECORD_ID,
+      ...Object.values(DEMO_BLOCK_IDS),
     ]) {
       expect(id).toMatch(uuidPattern)
     }
@@ -28,6 +34,9 @@ describe('seed identities', () => {
       FIXTURE_WORKSPACE_ID,
       FIXTURE_PROJECT_ID,
       DEMO_VIRUS_STABILITY_PROJECT_ID,
+      DEMO_VIRUS_STABILITY_RECORD_ID,
+      DEMO_VIRUS_STABILITY_PROTOCOL_RECORD_ID,
+      ...Object.values(DEMO_BLOCK_IDS),
     ]) {
       expect(id.startsWith('00000000-')).toBe(true)
     }
@@ -41,5 +50,12 @@ describe('seed identities', () => {
     ]
     expect(fixtureIds).not.toContain(DEMO_VIRUS_STABILITY_PROJECT_ID)
     expect(new Set(fixtureIds).size).toBe(fixtureIds.length)
+  })
+
+  it('keeps demo block ids distinct from each other and from record ids', () => {
+    const blockIds = Object.values(DEMO_BLOCK_IDS)
+    expect(new Set(blockIds).size).toBe(blockIds.length)
+    expect(blockIds).not.toContain(DEMO_VIRUS_STABILITY_RECORD_ID)
+    expect(blockIds).not.toContain(DEMO_VIRUS_STABILITY_PROTOCOL_RECORD_ID)
   })
 })

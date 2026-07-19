@@ -328,14 +328,14 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** ELN-001.
 
-- [ ] Add folders, notebook-backed records, blocks, block ordering and record-link tables.
-- [ ] Add workspace ownership, stable identifiers, timestamps, actor attribution and optimistic-concurrency versions.
-- [ ] Store typed block payloads with a schema version and validate them at the application boundary.
-- [ ] Use constraints to prevent duplicate ordering positions, dangling links and cross-workspace relationships.
-- [ ] Define an ordering strategy that supports insertion and reordering without rewriting every block on routine edits.
-- [ ] Add indexes for project navigation, notebook loading, block ordering and linked-record lookup.
-- [ ] Apply row-level security and test isolation for every new table.
-- [ ] Add representative notebook fixtures using the Virus Stability example.
+- [x] Add folders, notebook-backed records, blocks, block ordering and record-link tables.
+- [x] Add workspace ownership, stable identifiers, timestamps, actor attribution and optimistic-concurrency versions.
+- [x] Store typed block payloads with a schema version and validate them at the application boundary.
+- [x] Use constraints to prevent duplicate ordering positions, dangling links and cross-workspace relationships.
+- [x] Define an ordering strategy that supports insertion and reordering without rewriting every block on routine edits.
+- [x] Add indexes for project navigation, notebook loading, block ordering and linked-record lookup.
+- [x] Apply row-level security and test isolation for every new table.
+- [x] Add representative notebook fixtures using the Virus Stability example.
 
 ### ELN-003 — Expose notebook records and blocks through REST
 

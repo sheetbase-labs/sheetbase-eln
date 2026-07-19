@@ -1,0 +1,398 @@
+/**
+ * ELN-002 integration proof: notebook domain schema constraints, optimistic
+ * concurrency, the create_record RPC identifier sequence, and the
+ * cross-workspace record_link guard. Runs against a freshly migrated
+ * sheetbase_test database.
+ */
+import { eq } from 'drizzle-orm'
+import { drizzle } from 'drizzle-orm/node-postgres'
+import type { Client } from 'pg'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+
+import * as schema from '#/db/schema'
+import { validateBlock } from '#/lib/blocks'
+import {
+  DEMO_VIRUS_STABILITY_PROJECT_ID,
+  DEMO_VIRUS_STABILITY_RECORD_ID,
+} from '#/db/seed/identities'
+import { demoSteps, fixtureSteps } from '#/db/seed/run'
+import { migratorUrl, prepareTestDatabase } from './helpers'
+
+const UNIQUE_VIOLATION = '23505'
+const CHECK_VIOLATION = '23514'
+
+const WS = '00000000-0000-4000-8000-00000000060a'
+const PROJ = '00000000-0000-4000-8000-00000000060b'
+const OWNER = 'eln-schema-owner'
+
+let migrator: Client
+let db: ReturnType<typeof drizzle<typeof schema>>
+const clients: Array<Client> = []
+
+function claims(userId: string, workspaceId: string): string {
+  return JSON.stringify({
+    sub: userId,
+    workspace_id: workspaceId,
+    role: 'authenticated',
+  })
+}
+
+let asRole: (role: 'authenticator') => Promise<Client>
+
+beforeAll(async () => {
+  ;({ migrator, asRole } = await prepareTestDatabase())
+  db = drizzle(migratorUrl(), { schema })
+
+  await db.insert(schema.user).values({
+    id: OWNER,
+    name: 'ELN Owner',
+    email: 'eln-schema@sheetbase.test',
+    emailVerified: true,
+  })
+  await db.insert(schema.workspaces).values({ id: WS, slug: 'eln-ws', name: 'ELN WS' })
+  await db.insert(schema.workspaceMemberships).values({
+    workspaceId: WS,
+    userId: OWNER,
+    role: 'owner',
+  })
+  await db.insert(schema.projects).values({
+    id: PROJ,
+    workspaceId: WS,
+    key: 'eln-proj',
+    title: 'ELN Project',
+  })
+})
+
+afterAll(async () => {
+  await db.$client.end()
+  await migrator.end()
+  for (const client of clients) await client.end()
+})
+
+async function asAuthenticated(
+  userId: string,
+  workspaceId: string,
+): Promise<Client> {
+  const client = await asRole('authenticator')
+  clients.push(client)
+  await client.query('SET ROLE authenticated')
+  await client.query("SELECT set_config('request.jwt.claims', $1, false)", [
+    claims(userId, workspaceId),
+  ])
+  return client
+}
+
+async function createRecord(
+  kind: 'experiment' | 'protocol_template' | 'report',
+  identifier: string,
+  title = identifier,
+): Promise<string> {
+  const [row] = await db
+    .insert(schema.records)
+    .values({
+      workspaceId: WS,
+      projectId: PROJ,
+      kind,
+      identifier,
+      title,
+      createdByUserId: OWNER,
+    })
+    .returning({ id: schema.records.id })
+  return row!.id
+}
+
+describe('notebook domain schema', () => {
+  it('rejects records with an unknown kind', async () => {
+    await expect(
+      db.insert(schema.records).values({
+        workspaceId: WS,
+        projectId: PROJ,
+        kind: 'assay',
+        identifier: 'BAD-2025-0001',
+        title: 'Bad kind',
+        createdByUserId: OWNER,
+      }),
+    ).rejects.toMatchObject({ cause: { code: CHECK_VIOLATION } })
+  })
+
+  it('rejects duplicate identifiers within the same project', async () => {
+    await createRecord('experiment', 'EXP-2025-0001')
+    await expect(
+      db.insert(schema.records).values({
+        workspaceId: WS,
+        projectId: PROJ,
+        kind: 'experiment',
+        identifier: 'EXP-2025-0001',
+        title: 'Duplicate',
+        createdByUserId: OWNER,
+      }),
+    ).rejects.toMatchObject({ cause: { code: UNIQUE_VIOLATION } })
+  })
+
+  it('allows the same identifier under different projects (project-scoped)', async () => {
+    const PROJ2 = '00000000-0000-4000-8000-00000000060c'
+    await db.insert(schema.projects).values({
+      id: PROJ2,
+      workspaceId: WS,
+      key: 'eln-proj-2',
+      title: 'ELN Project 2',
+    })
+    await createRecord('experiment', 'EXP-2025-0099')
+    await db
+      .insert(schema.records)
+      .values({
+        workspaceId: WS,
+        projectId: PROJ2,
+        kind: 'experiment',
+        identifier: 'EXP-2025-0099',
+        title: 'Same id, different project',
+        createdByUserId: OWNER,
+      })
+      .returning({ id: schema.records.id })
+    // No throw => pass.
+    expect(true).toBe(true)
+  })
+
+  it('rejects blocks with an unknown type', async () => {
+    const recordId = await createRecord('experiment', 'EXP-2025-0100')
+    await expect(
+      db.insert(schema.blocks).values({
+        recordId,
+        type: 'ai_summary',
+        payload: { text: 'x' },
+        order: 1,
+        createdByUserId: OWNER,
+      }),
+    ).rejects.toMatchObject({ cause: { code: CHECK_VIOLATION } })
+  })
+
+  it('rejects duplicate block order within a record', async () => {
+    const recordId = await createRecord('experiment', 'EXP-2025-0101')
+    await db.insert(schema.blocks).values({
+      recordId,
+      type: 'heading',
+      payload: { level: 2, text: 'A' },
+      order: 1,
+      createdByUserId: OWNER,
+    })
+    await expect(
+      db.insert(schema.blocks).values({
+        recordId,
+        type: 'heading',
+        payload: { level: 2, text: 'B' },
+        order: 1,
+        createdByUserId: OWNER,
+      }),
+    ).rejects.toMatchObject({ cause: { code: UNIQUE_VIOLATION } })
+  })
+
+  it('allows fractional order between existing blocks (insert without rewrite)', async () => {
+    const recordId = await createRecord('experiment', 'EXP-2025-0102')
+    await db.insert(schema.blocks).values({
+      recordId,
+      type: 'heading',
+      payload: { level: 2, text: 'first' },
+      order: 1,
+      createdByUserId: OWNER,
+    })
+    await db.insert(schema.blocks).values({
+      recordId,
+      type: 'heading',
+      payload: { level: 2, text: 'third' },
+      order: 2,
+      createdByUserId: OWNER,
+    })
+    // Insert between them at order 1.5 — no rewrite of existing rows.
+    await db.insert(schema.blocks).values({
+      recordId,
+      type: 'rich_text',
+      payload: { body: 'between' },
+      order: 1.5,
+      createdByUserId: OWNER,
+    })
+    const { rows } = await migrator.query(
+      `SELECT payload->>'text' AS t, payload->>'body' AS b, "order" FROM api.blocks
+       WHERE record_id = '${recordId}' ORDER BY "order"`,
+    )
+    expect(rows.map((r: { t: string | null; b: string | null }) => r.t ?? r.b)).toEqual([
+      'first',
+      'between',
+      'third',
+    ])
+  })
+
+  it('rejects a record_link with an unknown link_type', async () => {
+    const recordId = await createRecord('experiment', 'EXP-2025-0103')
+    await expect(
+      db.insert(schema.recordLinks).values({
+        sourceRecordId: recordId,
+        targetKind: 'sample',
+        targetIdentifier: 'SMP-2025-0001',
+        linkType: 'mystery',
+        createdByUserId: OWNER,
+      }),
+    ).rejects.toMatchObject({ cause: { code: CHECK_VIOLATION } })
+  })
+
+  it('rejects a record_link to a record in a different workspace', async () => {
+    const WS2 = '00000000-0000-4000-8000-00000000060d'
+    const PROJ_B = '00000000-0000-4000-8000-00000000060e'
+    await db.insert(schema.workspaces).values({ id: WS2, slug: 'eln-ws-2', name: 'ELN WS 2' })
+    await db.insert(schema.projects).values({
+      id: PROJ_B,
+      workspaceId: WS2,
+      key: 'eln-proj-b',
+      title: 'ELN Project B',
+    })
+    const sourceId = await createRecord('experiment', 'EXP-2025-0104')
+    const [crossTarget] = await db
+      .insert(schema.records)
+      .values({
+        workspaceId: WS2,
+        projectId: PROJ_B,
+        kind: 'experiment',
+        identifier: 'EXP-2025-0001',
+        title: 'Cross-ws target',
+        createdByUserId: OWNER,
+      })
+      .returning({ id: schema.records.id })
+    await expect(
+      db.insert(schema.recordLinks).values({
+        sourceRecordId: sourceId,
+        targetRecordId: crossTarget!.id,
+        targetKind: 'experiment',
+        targetIdentifier: 'EXP-2025-0001',
+        linkType: 'general',
+        createdByUserId: OWNER,
+      }),
+    ).rejects.toMatchObject({ cause: { code: CHECK_VIOLATION } })
+  })
+
+  it('rejects a revision with an unknown reason', async () => {
+    const recordId = await createRecord('experiment', 'EXP-2025-0105')
+    await expect(
+      db.insert(schema.revisions).values({
+        recordId,
+        structureVersion: 1,
+        metadataVersion: 1,
+        metadataSnapshot: { title: 'x' },
+        blockSnapshot: [],
+        reason: 'snapshot',
+        createdByUserId: OWNER,
+      }),
+    ).rejects.toMatchObject({ cause: { code: CHECK_VIOLATION } })
+  })
+
+  it('cascades block deletion when a record is deleted', async () => {
+    const recordId = await createRecord('experiment', 'EXP-2025-0106')
+    await db.insert(schema.blocks).values({
+      recordId,
+      type: 'heading',
+      payload: { level: 2, text: 'to be deleted' },
+      order: 1,
+      createdByUserId: OWNER,
+    })
+    await db.delete(schema.records).where(eq(schema.records.id, recordId))
+    const { rows } = await migrator.query(
+      `SELECT count(*)::int AS n FROM api.blocks WHERE record_id = '${recordId}'`,
+    )
+    expect(rows[0].n).toBe(0)
+  })
+})
+
+describe('create_record RPC identifier sequence', () => {
+  it('assigns EXP- prefixed, year-numbered, project-scoped identifiers', async () => {
+    const owner = await asAuthenticated(OWNER, WS)
+    const a = await owner.query(
+      `SELECT * FROM api.create_record('${PROJ}', 'experiment', 'First experiment', 'draft', ARRAY['stability'])`,
+    )
+    const b = await owner.query(
+      `SELECT * FROM api.create_record('${PROJ}', 'experiment', 'Second experiment')`,
+    )
+    const c = await owner.query(
+      `SELECT * FROM api.create_record('${PROJ}', 'protocol_template', 'Titration template')`,
+    )
+    expect(a.rows[0].identifier).toMatch(/^EXP-\d{4}-\d{4}$/)
+    expect(b.rows[0].identifier).toMatch(/^EXP-\d{4}-\d{4}$/)
+    expect(c.rows[0].identifier).toMatch(/^PRT-\d{4}-\d{4}$/)
+    // Sequence is per (project, prefix, year), so the two EXP ids differ by
+    // one and the PRT starts at its own 0001.
+    const aSeq = Number(a.rows[0].identifier.split('-')[2])
+    const bSeq = Number(b.rows[0].identifier.split('-')[2])
+    expect(bSeq).toBe(aSeq + 1)
+    const cSeq = Number(c.rows[0].identifier.split('-')[2])
+    expect(cSeq).toBe(1)
+  })
+
+  it('rejects an unsupported kind', async () => {
+    const owner = await asAuthenticated(OWNER, WS)
+    await expect(
+      owner.query(`SELECT * FROM api.create_record('${PROJ}', 'assay', 'Bad')`),
+    ).rejects.toMatchObject({ code: CHECK_VIOLATION })
+  })
+})
+
+describe('Virus Stability demo fixtures', () => {
+  it('applies demo seeds idempotently without bypassing constraints', async () => {
+    // Demo steps depend on the minimal fixture user/workspace/membership.
+    for (const step of fixtureSteps) await step.run(db)
+    for (const step of demoSteps) await step.run(db)
+    for (const step of demoSteps) await step.run(db)
+
+    const { rows } = await migrator.query<{ n: string }>(
+      `SELECT count(*)::text AS n FROM api.blocks
+       WHERE record_id = '${DEMO_VIRUS_STABILITY_RECORD_ID}'`,
+    )
+    // 13 representative blocks and no duplicates after two runs.
+    expect(Number(rows[0]?.n)).toBe(13)
+
+    const { rows: links } = await migrator.query<{ n: string }>(
+      `SELECT count(*)::text AS n FROM api.record_links
+       WHERE source_record_id = '${DEMO_VIRUS_STABILITY_RECORD_ID}'`,
+    )
+    expect(Number(links[0]?.n)).toBe(1)
+
+    const { rows: demoRec } = await migrator.query<{ title: string }>(
+      `SELECT title FROM api.records WHERE id = '${DEMO_VIRUS_STABILITY_RECORD_ID}'`,
+    )
+    expect(demoRec[0]?.title).toBe('Virus Stability at 4C')
+
+    const { rows: proj } = await migrator.query<{ n: string }>(
+      `SELECT count(*)::text AS n FROM api.projects
+       WHERE id = '${DEMO_VIRUS_STABILITY_PROJECT_ID}'`,
+    )
+    expect(Number(proj[0]?.n)).toBe(1)
+  })
+
+  it('seeded blocks cover every initial block type that the demo exercises', async () => {
+    const { rows } = await migrator.query<{ type: string }>(
+      `SELECT DISTINCT type FROM api.blocks
+       WHERE record_id = '${DEMO_VIRUS_STABILITY_RECORD_ID}'
+       ORDER BY type`,
+    )
+    expect(rows.map((r) => r.type)).toEqual(
+      expect.arrayContaining([
+        'heading',
+        'rich_text',
+        'list',
+        'table',
+        'chart',
+        'metric',
+        'checklist',
+        'callout',
+        'linked_record',
+      ]),
+    )
+  })
+
+  it('demo block payloads validate at the application boundary', async () => {
+    const { rows } = await migrator.query<{ type: string; payload: unknown }>(
+      `SELECT type, payload FROM api.blocks
+       WHERE record_id = '${DEMO_VIRUS_STABILITY_RECORD_ID}'`,
+    )
+    for (const row of rows) {
+      const result = validateBlock({ type: row.type, payload: row.payload })
+      expect(result.ok, `${row.type} should validate`).toBe(true)
+    }
+  })
+})

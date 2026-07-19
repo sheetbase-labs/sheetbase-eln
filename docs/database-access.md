@@ -122,3 +122,45 @@ application uses:
 The browser reaches all of these through the same-origin `/api/db` boundary
 via `src/lib/data-client.ts`; it never talks to PostgREST directly.
 `tests/db/create-project-rpc.test.ts` is the contract proof.
+
+## Notebook domain (ELN-002)
+
+The notebook domain extends the workspace-owned surface with five tables
+(migration `0008_powerful_celestials` for the schema, `0009_eln_notebook_domain`
+for RLS, grants, triggers, integrity guards and the `create_record` RPC).
+Decision record 0015 fixes the vocabulary.
+
+| Table          | workspace_id | SELECT | INSERT                      | UPDATE                         | DELETE         |
+| -------------- | ------------ | ------ | --------------------------- | ------------------------------ | -------------- |
+| `folders`      | on row       | member | member (own workspace)      | member (cannot move workspace) | owner          |
+| `records`      | on row       | member | member (own workspace)      | member (cannot move workspace) | owner          |
+| `blocks`       | via record   | member | member (record not deleted) | member (record not deleted)    | member         |
+| `record_links` | via source   | member | member (record not deleted) | member (record not deleted)    | member         |
+| `revisions`    | via record   | member | member (record not deleted) | — (immutable)                  | — (immutable)  |
+
+`blocks`, `record_links` and `revisions` do not carry `workspace_id`; they
+inherit it through their parent `record`, so the workspace root stays
+authoritative without duplicating the column on every descendant row.
+
+Integrity guards that RLS alone cannot express:
+
+- `uq_blocks_record_order` — unique `(record_id, order)` prevents duplicate
+  ordering positions at the DB. `order` is `real` so fractional indexing
+  supports insert/move without rewriting every block; move/insert RPCs
+  (ELN-003) rebalance when precision runs out.
+- `assert_record_link_same_workspace` trigger — a `record_links` row whose
+  `target_record_id` is set may not point at a record in a different
+  workspace. RLS already prevents reading across workspaces; this prevents
+  a writer from forging a link to an invisible target.
+- `revisions` are append-only history: grants give `authenticated` and
+  `api_client` `SELECT`/`INSERT` only, so UPDATE and DELETE fail closed at
+  the privilege layer.
+
+`api.create_record(p_project_id, p_kind, p_title, p_status, p_tags)` assigns
+a stable, type-prefixed, project-scoped identifier (`EXP-`/`PRT-`/`RPT-`
+`YYYY-NNNN`) server-side. It runs as `SECURITY INVOKER`; the `INSERT` inside
+is still subject to `records_insert` RLS (defence in depth). Clients cannot
+collide, pick poor identifiers, or guess another project's identifiers.
+
+`tests/db/notebook-schema.test.ts` is the schema/RPC contract proof;
+`tests/db/notebook-rls.test.ts` is the RLS isolation proof.

@@ -1,0 +1,550 @@
+import { useQuery } from '@tanstack/react-query'
+import { createFileRoute, Link, redirect } from '@tanstack/react-router'
+import { createServerFn } from '@tanstack/react-start'
+import { Archive, FileWarning, Lock } from 'lucide-react'
+
+import { AppShell } from '#/components/app-shell'
+import { NotebookBlock, BlockPreview } from '#/components/notebook'
+import {
+  Inspector,
+  InspectorSection,
+  PropertyList,
+  Property,
+  LinkedRecordList,
+  EmptyHint,
+} from '#/components/record'
+import { StatusBadge } from '#/components/scientific'
+import { DataClientError } from '#/lib/data-client'
+import {
+  fetchBlocksForRecord,
+  fetchLinksForRecord,
+  fetchProject,
+  fetchRecord,
+  notebookDataClient,
+  notebookQueryKeys,
+  recordKindLabel,
+} from '#/lib/notebook-data'
+import type {
+  NotebookBlock as NotebookBlockDomain,
+  NotebookLink,
+  NotebookRecord,
+} from '#/lib/notebook-data'
+
+/**
+ * ELN-004: the deep-linkable experiment notebook route. Loads the record,
+ * its ordered blocks and its outgoing links through route-aware queries,
+ * renders the compact record header and a continuous central document
+ * canvas, and pins the project context, status and ownership while the
+ * document scrolls. Missing, archived and permission-restricted notebooks
+ * each get an honest state. ELN-005 adds editing/insertion on this canvas.
+ */
+
+const getNotebookContext = createServerFn({ method: 'GET' }).handler(
+  async () => {
+    const { getRequestHeaders } = await import('@tanstack/react-start/server')
+    const { getCurrentContext } = await import('#/lib/current-user')
+    return getCurrentContext(getRequestHeaders())
+  },
+)
+
+export const Route = createFileRoute(
+  '/projects/$projectId/experiments/$recordId',
+)({
+  beforeLoad: async () => {
+    const context = await getNotebookContext()
+    if (!context) {
+      throw redirect({ to: '/sign-in' })
+    }
+    return { context }
+  },
+  component: ExperimentNotebookRoute,
+})
+
+function ExperimentNotebookRoute() {
+  const { context } = Route.useRouteContext()
+  const { projectId, recordId } = Route.useParams()
+
+  const projectQuery = useQuery({
+    queryKey: notebookQueryKeys.project(projectId),
+    queryFn: () => fetchProject(notebookDataClient, projectId),
+  })
+  const recordQuery = useQuery({
+    queryKey: notebookQueryKeys.record(recordId),
+    queryFn: () => fetchRecord(notebookDataClient, recordId),
+  })
+  const blocksQuery = useQuery({
+    queryKey: notebookQueryKeys.blocks(recordId),
+    queryFn: () => fetchBlocksForRecord(notebookDataClient, recordId),
+    // Blocks are meaningless without the record; gate on its presence.
+    enabled: !!recordQuery.data,
+  })
+  const linksQuery = useQuery({
+    queryKey: notebookQueryKeys.links(recordId),
+    queryFn: () => fetchLinksForRecord(notebookDataClient, recordId),
+    enabled: !!recordQuery.data,
+  })
+
+  const project = projectQuery.data ?? null
+  const record = recordQuery.data ?? null
+  const blocks = blocksQuery.data ?? []
+  const links = linksQuery.data ?? []
+
+  const shellContext = {
+    workspace: context.workspace ? { name: context.workspace.name } : null,
+    user: { name: context.user.name, email: context.user.email },
+  }
+
+  // Loading — record is the authoritative gate; project loads in parallel.
+  if (recordQuery.isLoading) {
+    return (
+      <AppShell
+        context={shellContext}
+        breadcrumbs={loadingBreadcrumbs(project, projectId)}
+        inspector={
+          <Inspector
+            recordType="Experiment"
+            title="Loading…"
+            tabs={[]}
+            state="skeleton"
+          />
+        }
+      >
+        <NotebookSkeleton />
+      </AppShell>
+    )
+  }
+
+  // Error from the proxy (e.g. permission_denied) — distinct from a hidden row.
+  if (recordQuery.error) {
+    return (
+      <AppShell
+        context={shellContext}
+        breadcrumbs={[
+          { label: 'Home', to: '/' },
+          { label: 'Projects', to: '/projects' },
+          { label: 'Error' },
+        ]}
+      >
+        <NotebookErrorState
+          error={recordQuery.error}
+          onRetry={() => recordQuery.refetch()}
+        />
+      </AppShell>
+    )
+  }
+
+  // RLS hid the row (missing or permission-restricted). One honest state.
+  if (!record) {
+    return (
+      <AppShell
+        context={shellContext}
+        breadcrumbs={[
+          { label: 'Home', to: '/' },
+          { label: 'Projects', to: '/projects' },
+          { label: 'Notebook unavailable' },
+        ]}
+      >
+        <NotebookUnavailableState projectId={projectId} />
+      </AppShell>
+    )
+  }
+
+  const isArchived = record.archivedAt !== null
+
+  return (
+    <AppShell
+      context={shellContext}
+      breadcrumbs={[
+        { label: 'Home', to: '/' },
+        { label: 'Projects', to: '/projects' },
+        ...(project
+          ? [{ label: project.title, to: `/projects/${projectId}` }]
+          : []),
+        { label: record.identifier },
+      ]}
+      inspector={
+        <NotebookInspector
+          record={record}
+          links={links}
+          linksLoading={linksQuery.isLoading}
+        />
+      }
+    >
+      <div className="space-y-4">
+        <StickyRecordHeader
+          record={record}
+          projectName={project?.title ?? null}
+        />
+        {isArchived ? <ArchivedBanner /> : null}
+        <NotebookCanvas
+          record={record}
+          blocks={blocks}
+          isLoading={blocksQuery.isLoading}
+          error={blocksQuery.error}
+          onRetry={() => blocksQuery.refetch()}
+        />
+      </div>
+    </AppShell>
+  )
+}
+
+function loadingBreadcrumbs(
+  project: { title: string } | null,
+  projectId: string,
+) {
+  return [
+    { label: 'Home', to: '/' },
+    { label: 'Projects', to: '/projects' },
+    ...(project
+      ? [
+          {
+            label: project.title,
+            to: `/projects/${projectId}`,
+          },
+        ]
+      : []),
+    { label: 'Loading…' },
+  ]
+}
+
+// ---------------------------------------------------------------------------
+// Sticky record header. Stays visible while the document scrolls so the
+// active project, status and ownership are always present.
+// ---------------------------------------------------------------------------
+
+export function StickyRecordHeader({
+  record,
+  projectName,
+}: {
+  record: NotebookRecord
+  projectName: string | null
+}) {
+  return (
+    <div className="sticky top-14 z-20 -mx-4 mb-2 border-b bg-background/92 px-4 py-3 backdrop-blur md:-mx-8 md:px-8">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+        <span className="font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          {recordKindLabel(record.kind)}
+        </span>
+        <span className="font-mono tabular-nums text-muted-foreground">
+          {record.identifier}
+        </span>
+        <StatusBadge domain="experiment" status={record.status} />
+        {projectName ? (
+          <span className="text-muted-foreground">
+            in <span className="text-foreground">{projectName}</span>
+          </span>
+        ) : null}
+      </div>
+      <h1 className="mt-1 truncate text-xl font-semibold tracking-tight text-foreground">
+        {record.title}
+      </h1>
+      <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        <span>
+          Created{' '}
+          <span className="text-foreground">
+            {new Date(record.createdAt).toLocaleDateString()}
+          </span>
+        </span>
+        <span>
+          Updated{' '}
+          <span className="text-foreground">
+            {new Date(record.updatedAt).toLocaleDateString()}
+          </span>
+        </span>
+        {record.tags.length > 0 ? (
+          <span className="inline-flex flex-wrap gap-1">
+            {record.tags.map((tag) => (
+              <span
+                key={tag}
+                className="rounded-full bg-muted px-2 py-0.5 text-[11px]"
+              >
+                {tag}
+              </span>
+            ))}
+          </span>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+export function ArchivedBanner() {
+  return (
+    <div
+      role="status"
+      className="flex items-center gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs"
+    >
+      <Archive className="size-3.5 text-warning" aria-hidden="true" />
+      <span className="text-foreground">
+        This notebook is archived. It is read-only until restored.
+      </span>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Central document canvas.
+// ---------------------------------------------------------------------------
+
+export function NotebookCanvas({
+  record,
+  blocks,
+  isLoading,
+  error,
+  onRetry,
+}: {
+  record: NotebookRecord
+  blocks: NotebookBlockDomain[]
+  isLoading: boolean
+  error: unknown
+  onRetry: () => void
+}) {
+  if (isLoading) {
+    return (
+      <div className="space-y-3" aria-busy="true">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div
+            key={i}
+            className="h-24 animate-pulse rounded-lg border bg-card"
+          />
+        ))}
+      </div>
+    )
+  }
+  if (error) {
+    return (
+      <div className="space-y-2 rounded-lg border border-destructive/40 bg-destructive/5 p-4">
+        <p role="alert" className="text-sm text-destructive">
+          Could not load the notebook document.
+        </p>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="inline-flex h-8 items-center rounded-md border border-input bg-background px-3 text-sm font-medium"
+        >
+          Try again
+        </button>
+      </div>
+    )
+  }
+  if (blocks.length === 0) {
+    return <EmptyNotebook record={record} />
+  }
+  return (
+    <div className="space-y-3">
+      {blocks.map((block) => (
+        <div key={block.id} id={`block-${block.id}`} className="scroll-mt-28">
+          <NotebookBlock
+            label={blockLabel(block.type)}
+            state={record.archivedAt ? 'read-only' : 'default'}
+            ariaLabel={`${block.type} block`}
+          >
+            <BlockPreview block={block} />
+          </NotebookBlock>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function blockLabel(type: string): string {
+  const map: Record<string, string> = {
+    heading: 'Heading',
+    rich_text: 'Text',
+    checklist: 'Checklist',
+    list: 'List',
+    callout: 'Callout',
+    linked_record: 'Linked record',
+    table: 'Table',
+    chart: 'Chart',
+    plate_map: 'Plate map',
+    file: 'File',
+    metric: 'Metric',
+    procedure_step: 'Procedure step',
+  }
+  return map[type] ?? type
+}
+
+export function EmptyNotebook({ record }: { record: NotebookRecord }) {
+  return (
+    <div className="rounded-lg border border-dashed bg-muted/20 p-8 text-center">
+      <h2 className="text-base font-semibold text-foreground">
+        This notebook is ready for its first block
+      </h2>
+      <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+        {recordKindLabel(record.kind)}{' '}
+        <span className="font-mono">{record.identifier}</span> has no content
+        yet. Start with a heading and an objective — every experiment notebook
+        begins with the same skeleton so the team can read it the same way.
+      </p>
+      <p className="mt-3 text-xs text-muted-foreground">
+        Block insertion arrives in the next ticket (ELN-005). The notebook is
+        deep-linkable and shareable today.
+      </p>
+    </div>
+  )
+}
+
+export function NotebookSkeleton() {
+  return (
+    <div className="space-y-3" aria-busy="true">
+      <div className="h-16 animate-pulse rounded-lg border bg-card" />
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} className="h-24 animate-pulse rounded-lg border bg-card" />
+      ))}
+    </div>
+  )
+}
+
+export function NotebookErrorState({
+  error,
+  onRetry,
+}: {
+  error: unknown
+  onRetry: () => void
+}) {
+  const message =
+    error instanceof DataClientError && error.code === 'permission_denied'
+      ? 'You do not have access to this notebook.'
+      : 'Could not load the notebook.'
+  return (
+    <div className="space-y-2">
+      <p role="alert" className="text-sm text-destructive">
+        {message}
+      </p>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="inline-flex h-8 items-center rounded-md border border-input px-3 text-sm font-medium"
+      >
+        Try again
+      </button>
+    </div>
+  )
+}
+
+export function NotebookUnavailableState({ projectId }: { projectId: string }) {
+  return (
+    <div className="max-w-md space-y-3 rounded-md border border-border bg-muted/30 p-6">
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <FileWarning className="size-4" aria-hidden="true" />
+        <h2 className="text-base font-semibold text-foreground">
+          Notebook unavailable
+        </h2>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        The notebook may have been deleted, or you may not have access to it. If
+        you reached it from a link, ask the record owner to confirm your
+        workspace membership.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <Link
+          to="/projects/$projectId"
+          params={{ projectId }}
+          className="inline-flex h-8 items-center rounded-md border border-input px-3 text-sm font-medium no-underline"
+        >
+          Back to project
+        </Link>
+        <Link
+          to="/projects"
+          className="inline-flex h-8 items-center rounded-md border border-input px-3 text-sm font-medium no-underline"
+        >
+          All projects
+        </Link>
+      </div>
+    </div>
+  )
+}
+
+export function PermissionRestrictedState() {
+  return (
+    <div className="max-w-md space-y-3 rounded-md border border-border bg-muted/30 p-6">
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <Lock className="size-4" aria-hidden="true" />
+        <h2 className="text-base font-semibold text-foreground">
+          Permission restricted
+        </h2>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        You do not have access to view this notebook.
+      </p>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Inspector. Route-owned so it composes against the live record/links data.
+// ---------------------------------------------------------------------------
+
+export function NotebookInspector({
+  record,
+  links,
+  linksLoading,
+  defaultTab,
+}: {
+  record: NotebookRecord
+  links: NotebookLink[]
+  linksLoading: boolean
+  /** Initial active tab id. Defaults to the first tab (Overview). */
+  defaultTab?: string
+}) {
+  return (
+    <Inspector
+      recordType={recordKindLabel(record.kind)}
+      title={record.title}
+      defaultTab={defaultTab}
+      tabs={[
+        {
+          id: 'overview',
+          label: 'Overview',
+          content: (
+            <PropertyList>
+              <Property label="Identifier" mono>
+                {record.identifier}
+              </Property>
+              <Property label="Kind">{recordKindLabel(record.kind)}</Property>
+              <Property label="Status">
+                <StatusBadge domain="experiment" status={record.status} />
+              </Property>
+              <Property label="Structure v">{record.structureVersion}</Property>
+              <Property label="Metadata v">{record.metadataVersion}</Property>
+              <Property label="Created">
+                {new Date(record.createdAt).toLocaleString()}
+              </Property>
+              <Property label="Updated">
+                {new Date(record.updatedAt).toLocaleString()}
+              </Property>
+              {record.archivedAt ? (
+                <Property label="Archived">
+                  {new Date(record.archivedAt).toLocaleString()}
+                </Property>
+              ) : null}
+              {record.tags.length > 0 ? (
+                <Property label="Tags">{record.tags.join(', ')}</Property>
+              ) : null}
+            </PropertyList>
+          ),
+        },
+        {
+          id: 'links',
+          label: 'Links',
+          badge: links.length,
+          content: linksLoading ? (
+            <EmptyHint>Loading links…</EmptyHint>
+          ) : (
+            <InspectorSection title="Outgoing links">
+              <LinkedRecordList
+                items={links.map((link) => ({
+                  id: link.id,
+                  type: recordKindLabel(link.targetKind),
+                  title: link.targetIdentifier,
+                  meta: link.linkType,
+                }))}
+              />
+            </InspectorSection>
+          ),
+        },
+      ]}
+    />
+  )
+}

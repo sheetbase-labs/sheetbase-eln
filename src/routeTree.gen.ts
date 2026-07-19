@@ -13,11 +13,13 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as FoundationsRouteImport } from './routes/foundations'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as SignInRouteImport } from './routes/sign-in'
+import { Route as ProjectsProjectIdRouteImport } from './routes/projects/$projectId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiDbSplatRouteImport } from './routes/api/db/$'
 import { Route as ApiHealthLiveRouteImport } from './routes/api/health/live'
 import { Route as ApiHealthReadyRouteImport } from './routes/api/health/ready'
 import { Route as ApiTokenIndexRouteImport } from './routes/api/token/index'
+import { Route as ProjectsProjectIdExperimentsRecordIdRouteImport } from './routes/projects/$projectId/experiments/$recordId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -38,6 +40,11 @@ const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
+  id: '/$projectId',
+  path: '/$projectId',
+  getParentRoute: () => ProjectsRoute,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
@@ -64,40 +71,52 @@ const ApiTokenIndexRoute = ApiTokenIndexRouteImport.update({
   path: '/api/token/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProjectsProjectIdExperimentsRecordIdRoute =
+  ProjectsProjectIdExperimentsRecordIdRouteImport.update({
+    id: '/experiments/$recordId',
+    path: '/experiments/$recordId',
+    getParentRoute: () => ProjectsProjectIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/foundations': typeof FoundationsRoute
-  '/projects': typeof ProjectsRoute
+  '/projects': typeof ProjectsRouteWithChildren
   '/sign-in': typeof SignInRoute
+  '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/db/$': typeof ApiDbSplatRoute
   '/api/health/live': typeof ApiHealthLiveRoute
   '/api/health/ready': typeof ApiHealthReadyRoute
   '/api/token/': typeof ApiTokenIndexRoute
+  '/projects/$projectId/experiments/$recordId': typeof ProjectsProjectIdExperimentsRecordIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/foundations': typeof FoundationsRoute
-  '/projects': typeof ProjectsRoute
+  '/projects': typeof ProjectsRouteWithChildren
   '/sign-in': typeof SignInRoute
+  '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/db/$': typeof ApiDbSplatRoute
   '/api/health/live': typeof ApiHealthLiveRoute
   '/api/health/ready': typeof ApiHealthReadyRoute
   '/api/token': typeof ApiTokenIndexRoute
+  '/projects/$projectId/experiments/$recordId': typeof ProjectsProjectIdExperimentsRecordIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/foundations': typeof FoundationsRoute
-  '/projects': typeof ProjectsRoute
+  '/projects': typeof ProjectsRouteWithChildren
   '/sign-in': typeof SignInRoute
+  '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/db/$': typeof ApiDbSplatRoute
   '/api/health/live': typeof ApiHealthLiveRoute
   '/api/health/ready': typeof ApiHealthReadyRoute
   '/api/token/': typeof ApiTokenIndexRoute
+  '/projects/$projectId/experiments/$recordId': typeof ProjectsProjectIdExperimentsRecordIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -106,39 +125,45 @@ export interface FileRouteTypes {
     | '/foundations'
     | '/projects'
     | '/sign-in'
+    | '/projects/$projectId'
     | '/api/auth/$'
     | '/api/db/$'
     | '/api/health/live'
     | '/api/health/ready'
     | '/api/token/'
+    | '/projects/$projectId/experiments/$recordId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/foundations'
     | '/projects'
     | '/sign-in'
+    | '/projects/$projectId'
     | '/api/auth/$'
     | '/api/db/$'
     | '/api/health/live'
     | '/api/health/ready'
     | '/api/token'
+    | '/projects/$projectId/experiments/$recordId'
   id:
     | '__root__'
     | '/'
     | '/foundations'
     | '/projects'
     | '/sign-in'
+    | '/projects/$projectId'
     | '/api/auth/$'
     | '/api/db/$'
     | '/api/health/live'
     | '/api/health/ready'
     | '/api/token/'
+    | '/projects/$projectId/experiments/$recordId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   FoundationsRoute: typeof FoundationsRoute
-  ProjectsRoute: typeof ProjectsRoute
+  ProjectsRoute: typeof ProjectsRouteWithChildren
   SignInRoute: typeof SignInRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiDbSplatRoute: typeof ApiDbSplatRoute
@@ -177,6 +202,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignInRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/projects/$projectId': {
+      id: '/projects/$projectId'
+      path: '/$projectId'
+      fullPath: '/projects/$projectId'
+      preLoaderRoute: typeof ProjectsProjectIdRouteImport
+      parentRoute: typeof ProjectsRoute
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -212,13 +244,44 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTokenIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/projects/$projectId/experiments/$recordId': {
+      id: '/projects/$projectId/experiments/$recordId'
+      path: '/experiments/$recordId'
+      fullPath: '/projects/$projectId/experiments/$recordId'
+      preLoaderRoute: typeof ProjectsProjectIdExperimentsRecordIdRouteImport
+      parentRoute: typeof ProjectsProjectIdRoute
+    }
   }
 }
+
+interface ProjectsProjectIdRouteChildren {
+  ProjectsProjectIdExperimentsRecordIdRoute: typeof ProjectsProjectIdExperimentsRecordIdRoute
+}
+
+const ProjectsProjectIdRouteChildren: ProjectsProjectIdRouteChildren = {
+  ProjectsProjectIdExperimentsRecordIdRoute:
+    ProjectsProjectIdExperimentsRecordIdRoute,
+}
+
+const ProjectsProjectIdRouteWithChildren =
+  ProjectsProjectIdRoute._addFileChildren(ProjectsProjectIdRouteChildren)
+
+interface ProjectsRouteChildren {
+  ProjectsProjectIdRoute: typeof ProjectsProjectIdRouteWithChildren
+}
+
+const ProjectsRouteChildren: ProjectsRouteChildren = {
+  ProjectsProjectIdRoute: ProjectsProjectIdRouteWithChildren,
+}
+
+const ProjectsRouteWithChildren = ProjectsRoute._addFileChildren(
+  ProjectsRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   FoundationsRoute: FoundationsRoute,
-  ProjectsRoute: ProjectsRoute,
+  ProjectsRoute: ProjectsRouteWithChildren,
   SignInRoute: SignInRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiDbSplatRoute: ApiDbSplatRoute,

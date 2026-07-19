@@ -353,13 +353,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** ELN-003, UI-004.
 
-- [ ] Add a deep-linkable project and experiment notebook route.
-- [ ] Load record metadata, blocks and inspector context through route-aware query patterns.
-- [ ] Render the approved compact record header and continuous central document canvas.
-- [ ] Keep the active project, record status and ownership visible while scrolling.
-- [ ] Handle missing, archived and permission-restricted notebooks.
-- [ ] Provide a useful first-run empty notebook rather than a blank white page.
-- [ ] Add route, loading and error-boundary tests.
+- [x] Add a deep-linkable project and experiment notebook route.
+- [x] Load record metadata, blocks and inspector context through route-aware query patterns.
+- [x] Render the approved compact record header and continuous central document canvas.
+- [x] Keep the active project, record status and ownership visible while scrolling.
+- [x] Handle missing, archived and permission-restricted notebooks.
+- [x] Provide a useful first-run empty notebook rather than a blank white page.
+- [x] Add route, loading and error-boundary tests.
 
 ### ELN-005 — Implement basic typed block rendering and insertion
 

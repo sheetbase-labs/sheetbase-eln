@@ -528,20 +528,20 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** DATA-001.
 
-- [ ] Define one HyperFormula workbook per notebook and one calculation sheet per sheet block.
-- [ ] Define durable formula syntax, locale, function allow-list and version compatibility policy.
-- [ ] Decide which values are literals, formula definitions, calculated results and persisted result caches.
-- [ ] Define recalculation triggers for UI edits, REST edits, schema changes and notebook loading.
-- [ ] Define cross-sheet reference semantics using stable identities despite renamed display labels.
-- [ ] Define circular references, errors, volatile functions and unsupported functions as explicit user-visible states.
-- [ ] Define whether server-side recalculation is required before results can be trusted outside the browser.
-- [ ] Record the decision before implementing formula persistence.
+- [x] Define one HyperFormula workbook per notebook and one calculation sheet per sheet block.
+- [x] Define durable formula syntax, locale, function allow-list and version compatibility policy.
+- [x] Decide which values are literals, formula definitions, calculated results and persisted result caches.
+- [x] Define recalculation triggers for UI edits, REST edits, schema changes and notebook loading.
+- [x] Define cross-sheet reference semantics using stable identities despite renamed display labels.
+- [x] Define circular references, errors, volatile functions and unsupported functions as explicit user-visible states.
+- [x] Define whether server-side recalculation is required before results can be trusted outside the browser.
+- [x] Record the decision before implementing formula persistence.
 
 ### CALC-002 — Integrate HyperFormula into the sheet block
 
 **Blocked by:** CALC-001, SHEET-002.
 
-- [ ] Add HyperFormula using the approved commercial licence and documented licence configuration.
+- [ ] Add HyperFormula 3.3.0 using the approved GPLv3 demo configuration; block commercial distribution pending a licensing decision.
 - [ ] Build the notebook workbook from persisted sheet metadata, literals and formula definitions.
 - [ ] Keep Handsontable display coordinates translated to stable row, column and sheet identities.
 - [ ] Persist formula definitions separately from displayed calculated values.

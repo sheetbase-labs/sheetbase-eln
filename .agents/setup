@@ -69,11 +69,13 @@ SELECT 'CREATE ROLE anon NOLOGIN NOINHERIT'
 WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='anon')\gexec
 SELECT 'CREATE ROLE authenticated NOLOGIN NOINHERIT'
 WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='authenticated')\gexec
+SELECT 'CREATE ROLE api_client NOLOGIN NOINHERIT'
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='api_client')\gexec
 
 -- PostgREST connection role: the only credential PostgREST holds.
 SELECT format('CREATE ROLE authenticator LOGIN NOINHERIT PASSWORD %L', :'auth_pass')
 WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='authenticator')\gexec
-GRANT anon, authenticated TO authenticator;
+GRANT anon, authenticated, api_client TO authenticator;
 
 -- Migration role: owns schemas and tables so DDL never runs as superuser.
 SELECT format('CREATE ROLE migrator LOGIN NOINHERIT PASSWORD %L', :'migrator_pass')
@@ -95,7 +97,7 @@ ALTER DATABASE :"db_name" OWNER TO migrator;
 -- The exposed surface PostgREST loads at startup. Migrations own its contents;
 -- this only lets PostgREST boot before the first migration.
 CREATE SCHEMA IF NOT EXISTS api AUTHORIZATION migrator;
-GRANT USAGE ON SCHEMA api TO anon, authenticated;
+GRANT USAGE ON SCHEMA api TO anon, authenticated, api_client;
 SQL
 
 echo "==> Installing dependencies (frozen lockfile)"

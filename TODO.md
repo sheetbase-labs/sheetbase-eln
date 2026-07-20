@@ -591,14 +591,14 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** SHEET-003.
 
-- [ ] Import CSV with encoding, delimiter, header and type-detection preview before writing data.
-- [ ] Let the user map incoming columns to existing or new schema fields.
-- [ ] Report row-level validation failures without silently discarding data.
-- [ ] Make imports transactional or explicitly resumable, with duplicate handling chosen by the user.
-- [ ] Export current data and metadata with stable scientific notation and units.
-- [ ] Decide the first supported XLSX scope and document unsupported workbook features honestly.
-- [ ] Record import/export provenance and actor attribution.
-- [ ] Add fixture-based tests for valid, malformed, large, duplicate and partially invalid files.
+- [x] Import CSV with encoding, delimiter, header and type-detection preview before writing data.
+- [x] Let the user map incoming columns to existing or new schema fields.
+- [x] Report row-level validation failures without silently discarding data.
+- [x] Make imports transactional or explicitly resumable, with duplicate handling chosen by the user.
+- [x] Export current data and metadata with stable scientific notation and units.
+- [x] Decide the first supported XLSX scope and document unsupported workbook features honestly.
+- [x] Record import/export provenance and actor attribution.
+- [x] Add fixture-based tests for valid, malformed, large, duplicate and partially invalid files.
 
 ### DATA-006 — Complete the sheet-and-formula acceptance proof
 

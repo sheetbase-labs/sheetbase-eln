@@ -5,6 +5,7 @@ import type { NotebookBlock } from '#/lib/notebook-data'
 import { DataClientError } from '#/lib/data-client'
 import { SheetbaseGrid } from './sheetbase-grid'
 import { ScientificApiInspector } from './scientific-api-inspector'
+import { ScientificTransferPanel } from './scientific-transfer-panel'
 import {
   addScientificColumn,
   applyScientificRowChanges,
@@ -1152,6 +1153,22 @@ export function ScientificSheetBlock({
           {calculationProblem}
         </p>
       ) : null}
+      <ScientificTransferPanel
+        table={table}
+        rows={allRowsQuery.data ?? []}
+        readOnly={readOnly}
+        onImported={async () => {
+          await Promise.all([
+            tableQuery.refetch(),
+            queryClient.invalidateQueries({
+              queryKey: ['scientific-rows', tableId],
+            }),
+            queryClient.invalidateQueries({
+              queryKey: scientificQueryKeys.allRows(tableId),
+            }),
+          ])
+        }}
+      />
       <section
         className="mb-2 flex flex-wrap items-center gap-2 rounded border p-2 text-xs"
         aria-label="Formula bar"

@@ -94,6 +94,7 @@ const SCIENTIFIC_METADATA = new Set([
   'scientific_tables',
   'scientific_columns',
   'scientific_category_options',
+  'scientific_transfers',
   'formula_definitions',
   'formula_dependencies',
   'formula_results',
@@ -141,10 +142,12 @@ export function requiredScopes(method: string, path: ProxyPath): Scope[] {
     }
     if (
       path.resource === 'apply_scientific_row_edits' ||
-      path.resource === 'apply_scientific_row_changes'
+      path.resource === 'apply_scientific_row_changes' ||
+      path.resource === 'import_scientific_rows'
     ) {
       return ['scientific:read', 'scientific:write']
     }
+    if (path.resource === 'record_scientific_export') return ['scientific:read']
     if (SCIENTIFIC_SCHEMA_RPCS.has(path.resource)) {
       return ['scientific:schema']
     }

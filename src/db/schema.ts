@@ -651,6 +651,50 @@ export const scientificCategoryOptions = api.table(
   ],
 )
 
+export const scientificTransfers = api.table(
+  'scientific_transfers',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    recordId: uuid('record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'cascade' }),
+    tableId: uuid('table_id')
+      .notNull()
+      .references(() => scientificTables.id, { onDelete: 'cascade' }),
+    operation: text('operation').notNull(),
+    format: text('format').notNull(),
+    fileName: text('file_name'),
+    fileSize: bigint('file_size', { mode: 'number' }),
+    fileSha256: text('file_sha256'),
+    rowCount: integer('row_count').notNull(),
+    duplicateStrategy: text('duplicate_strategy'),
+    details: jsonb('details')
+      .notNull()
+      .default(sql`'{}'`),
+    actorUserId: text('actor_user_id').references(() => user.id),
+    actorCredentialId: uuid('actor_credential_id').references(
+      () => apiCredentials.id,
+    ),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'scientific_transfer_operation_check',
+      sql`${table.operation} IN ('import','export')`,
+    ),
+    check(
+      'scientific_transfer_format_check',
+      sql`${table.format} IN ('csv','csv+metadata')`,
+    ),
+    index('idx_scientific_transfers_table').on(table.tableId, table.createdAt),
+  ],
+)
+
 export const formulaDefinitions = api.table(
   'formula_definitions',
   {

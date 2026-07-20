@@ -303,6 +303,55 @@ export function applyScientificRowChanges(
   })
 }
 
+export interface ScientificImportInput {
+  tableId: string
+  schemaVersion: number
+  file: {
+    name: string
+    size: number
+    sha256: string
+    encoding: string
+    delimiter: string
+    header: boolean
+  }
+  mappings: Array<Record<string, unknown>>
+  rows: Array<Record<string, unknown>>
+  duplicateStrategy: 'allow' | 'reject_file' | 'skip_file'
+}
+
+export function importScientificRows(
+  client: DataClient,
+  input: ScientificImportInput,
+) {
+  return client.rpc<
+    ScientificEditResult & {
+      transferId: string
+      importedRows: number
+      skippedDuplicates: number
+      schemaVersion: number
+    }
+  >('import_scientific_rows', {
+    p_table_id: input.tableId,
+    p_expected_schema_version: input.schemaVersion,
+    p_file: input.file,
+    p_mappings: input.mappings,
+    p_rows: input.rows,
+    p_duplicate_strategy: input.duplicateStrategy,
+  })
+}
+
+export function recordScientificExport(
+  client: DataClient,
+  tableId: string,
+  rowCount: number,
+) {
+  return client.rpc('record_scientific_export', {
+    p_table_id: tableId,
+    p_row_count: rowCount,
+    p_format: 'csv+metadata',
+  })
+}
+
 export function renameScientificTable(
   client: DataClient,
   tableId: string,

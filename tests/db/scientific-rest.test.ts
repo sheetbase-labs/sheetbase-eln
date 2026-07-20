@@ -465,4 +465,114 @@ describe('DATA-003 scientific REST database boundary', () => {
       ).rows,
     ).toEqual([])
   })
+
+  it('imports mapped CSV rows atomically with duplicate choice and durable provenance', async () => {
+    const file = {
+      name: 'measurements.csv',
+      size: 42,
+      sha256: 'a'.repeat(64),
+      encoding: 'utf-8',
+      delimiter: ',',
+      header: true,
+    }
+    const mappings = [
+      { source: 'Sample', columnId: columns[0].id },
+      {
+        source: 'Imported value',
+        newColumn: {
+          label: 'Imported value',
+          logicalType: 'decimal',
+          nullable: true,
+          validation: {},
+        },
+      },
+    ]
+    const result = (
+      await browser.query(
+        `SELECT api.import_scientific_rows($1,$2,$3::jsonb,$4::jsonb,$5::jsonb,'skip_file') result`,
+        [
+          table.id,
+          table.schema_version,
+          JSON.stringify(file),
+          JSON.stringify(mappings),
+          JSON.stringify([
+            { Sample: 'import-a', 'Imported value': 1.5 },
+            { Sample: 'import-a', 'Imported value': 1.5 },
+            { Sample: 'import-b', 'Imported value': 2.5 },
+          ]),
+        ],
+      )
+    ).rows[0].result
+    expect(result).toMatchObject({ importedRows: 2, skippedDuplicates: 1 })
+    expect(
+      (
+        await browser.query(
+          `SELECT operation,row_count,duplicate_strategy,actor_user_id,details
+             FROM api.scientific_transfers WHERE id=$1`,
+          [result.transferId],
+        )
+      ).rows[0],
+    ).toMatchObject({
+      operation: 'import',
+      row_count: 2,
+      duplicate_strategy: 'skip_file',
+      actor_user_id: OWNER,
+      details: { skippedDuplicates: 1 },
+    })
+    const columnsBefore = Number(
+      (
+        await migrator.query(
+          `SELECT count(*) count FROM api.scientific_columns WHERE table_id=$1`,
+          [table.id],
+        )
+      ).rows[0].count,
+    )
+    await expect(
+      browser.query(
+        `SELECT api.import_scientific_rows($1,$2,$3::jsonb,$4::jsonb,$5::jsonb,'allow')`,
+        [
+          table.id,
+          result.schemaVersion,
+          JSON.stringify(file),
+          JSON.stringify([
+            {
+              source: 'Bad',
+              newColumn: {
+                label: 'Rolled back',
+                logicalType: 'integer',
+                nullable: true,
+                validation: {},
+              },
+            },
+            { source: 'Result', columnId: columns[1].id },
+          ]),
+          JSON.stringify([{ Bad: 1, Result: 999 }]),
+        ],
+      ),
+    ).rejects.toBeDefined()
+    expect(
+      Number(
+        (
+          await migrator.query(
+            `SELECT count(*) count FROM api.scientific_columns WHERE table_id=$1`,
+            [table.id],
+          )
+        ).rows[0].count,
+      ),
+    ).toBe(columnsBefore)
+    const exported = (
+      await browser.query(
+        `SELECT api.record_scientific_export($1,2,'csv+metadata') result`,
+        [table.id],
+      )
+    ).rows[0].result
+    expect(
+      (
+        await browser.query(
+          `SELECT operation,row_count,actor_user_id FROM api.scientific_transfers WHERE id=$1`,
+          [exported.transferId],
+        )
+      ).rows[0],
+    ).toEqual({ operation: 'export', row_count: 2, actor_user_id: OWNER })
+  })
 })

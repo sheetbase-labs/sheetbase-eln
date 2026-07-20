@@ -30,6 +30,8 @@ let resource: string
 let tableId: string
 let textField: string
 let numberField: string
+let textColumnId: string
+let numberColumnId: string
 let schemaVersion: number
 
 async function cleanFixture(): Promise<void> {
@@ -178,6 +180,8 @@ beforeAll(async () => {
   schemaVersion = created.table.schema_version
   textField = created.columns[0].field_name
   numberField = created.columns[1].field_name
+  textColumnId = created.columns[0].id
+  numberColumnId = created.columns[1].id
 })
 
 afterAll(async () => {
@@ -387,5 +391,66 @@ describe('DATA-003 real PostgREST contract', () => {
     )
     expect(updated.status).toBe(200)
     expect(await updated.json()).toHaveLength(1)
+  })
+
+  it('imports rows and reads transfer provenance through the real API boundary', async () => {
+    const imported = await proxy(
+      request('rpc/import_scientific_rows', rowToken, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          p_table_id: tableId,
+          p_expected_schema_version: schemaVersion,
+          p_file: {
+            name: 'api.csv',
+            size: 12,
+            sha256: 'b'.repeat(64),
+            encoding: 'utf-8',
+            delimiter: ',',
+            header: true,
+          },
+          p_mappings: [
+            { source: 'Sample', columnId: textColumnId },
+            { source: 'Result', columnId: numberColumnId },
+          ],
+          p_rows: [
+            { Sample: 'api-import', Result: 4 },
+            { Sample: 'api-import', Result: 4 },
+          ],
+          p_duplicate_strategy: 'skip_file',
+        }),
+      }),
+      'rpc/import_scientific_rows',
+    )
+    expect(imported.status).toBe(200)
+    expect(await imported.json()).toMatchObject({
+      importedRows: 1,
+      skippedDuplicates: 1,
+    })
+    const transfers = await proxy(
+      request(`scientific_transfers?table_id=eq.${tableId}`, readToken),
+      'scientific_transfers',
+    )
+    expect(transfers.status).toBe(200)
+    expect(await transfers.json()).toMatchObject([
+      {
+        operation: 'import',
+        row_count: 1,
+        actor_credential_id: CREDENTIAL,
+      },
+    ])
+    const recordedExport = await proxy(
+      request('rpc/record_scientific_export', readToken, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          p_table_id: tableId,
+          p_row_count: 1,
+          p_format: 'csv+metadata',
+        }),
+      }),
+      'rpc/record_scientific_export',
+    )
+    expect(recordedExport.status).toBe(200)
   })
 })

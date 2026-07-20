@@ -1301,7 +1301,7 @@ export function ScientificSheetBlock({
                 (dependency) => {
                   const identity = `${dependency.tableId}/${dependency.rowId}/${dependency.columnId}`
                   try {
-                    const description = workbook.describe(dependency)
+                    const description = tableWorkbook.describe(dependency)
                     return (
                       <li key={identity} title={identity}>
                         {description.tableName} · row {description.rowNumber} ·{' '}

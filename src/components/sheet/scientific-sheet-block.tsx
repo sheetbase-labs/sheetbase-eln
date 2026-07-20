@@ -751,6 +751,7 @@ export function ScientificSheetBlock({
     }
   }, [allRowsQuery.data, formulaByCell, formulasQuery.data, table])
   const workbook = useNotebookScientificWorkbook(block.id, workbookTable)
+  const tableWorkbook = workbook?.hasTable(tableId) ? workbook : null
   const calculationProblem =
     (allRowsQuery.data?.length ?? 0) > 10_000
       ? 'Calculation is unavailable because this sheet exceeds 10,000 rows.'
@@ -769,7 +770,8 @@ export function ScientificSheetBlock({
           result.target_column_id === selected.columnId,
       )
     : undefined
-  const selectedResult = selected && workbook ? workbook.get(selected) : null
+  const selectedResult =
+    selected && tableWorkbook ? tableWorkbook.get(selected) : null
   useEffect(() => {
     setFormulaSource(selectedFormula?.source_expression ?? '')
     setFormulaStatus('')
@@ -824,17 +826,21 @@ export function ScientificSheetBlock({
       detached[rowIndex] ??= {}
       detached[rowIndex][draft.fieldName] = draft.raw
     }
-    if (workbook)
+    if (tableWorkbook)
       for (const row of detached) {
         if (typeof row.id !== 'string') continue
         for (const column of table?.columns ?? [])
           if (formulaByCell.has(`${row.id}/${column.id}`))
             row[column.field_name] = displayResult(
-              workbook.get({ tableId, rowId: row.id, columnId: column.id }),
+              tableWorkbook.get({
+                tableId,
+                rowId: row.id,
+                columnId: column.id,
+              }),
             )
       }
     return detached
-  }, [drafts, formulaByCell, rowsQuery.data, table, tableId, workbook])
+  }, [drafts, formulaByCell, rowsQuery.data, table, tableId, tableWorkbook])
   const terminal = (rowsQuery.data?.length ?? 0) < SCIENTIFIC_PAGE_SIZE
 
   const mutation = useMutation({
@@ -1284,7 +1290,7 @@ export function ScientificSheetBlock({
         >
           Recalculate trusted results
         </button>
-        {selectedFormula && workbook ? (
+        {selectedFormula && tableWorkbook ? (
           <details>
             <summary>
               Inspect {persistedFormula(selectedFormula).dependencies.length}{' '}

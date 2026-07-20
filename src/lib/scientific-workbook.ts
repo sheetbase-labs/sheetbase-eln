@@ -181,6 +181,9 @@ export class ScientificWorkbook {
       logicalType: table.columns[column].logicalType,
     }
   }
+  hasTable(tableId: string) {
+    return this.tables.has(tableId)
+  }
   get(address: WorkbookCellAddress): WorkbookResult {
     const location = this.locate(address),
       hfAddress = {

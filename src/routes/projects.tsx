@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createFileRoute,
+  Link,
   Outlet,
   redirect,
   useRouterState,
@@ -287,16 +288,24 @@ export function ProjectList({
   return (
     <ul className="divide-y divide-border rounded-md border border-border">
       {projects.map((project) => (
-        <li key={project.id} className="flex items-center gap-3 p-3">
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{project.title}</p>
-            <p className="truncate text-xs text-muted-foreground">
-              {project.key}
-            </p>
-          </div>
-          <span className="text-xs text-muted-foreground">
-            {new Date(project.createdAt).toLocaleDateString()}
-          </span>
+        <li key={project.id}>
+          <Link
+            to="/projects/$projectId"
+            params={{ projectId: project.id }}
+            className="flex items-center gap-3 p-3 no-underline transition-colors hover:bg-muted/40"
+          >
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-foreground">
+                {project.title}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">
+                {project.key}
+              </p>
+            </div>
+            <span className="text-xs text-muted-foreground">
+              {new Date(project.createdAt).toLocaleDateString()}
+            </span>
+          </Link>
         </li>
       ))}
     </ul>

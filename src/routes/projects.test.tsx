@@ -3,6 +3,32 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { CreateProjectForm, ProjectList } from './projects'
 
+vi.mock('@tanstack/react-router', () => ({
+  createFileRoute: () => () => ({ useRouteContext: () => ({}) }),
+  redirect: (options: unknown) => options,
+  Outlet: () => null,
+  useRouterState: () => '/projects',
+  Link: ({
+    to,
+    params,
+    children,
+    ...props
+  }: {
+    to: string
+    params?: Record<string, string>
+    children: React.ReactNode
+  } & Record<string, unknown>) => {
+    let href = to
+    for (const [key, value] of Object.entries(params ?? {}))
+      href = href.replace(`$${key}`, encodeURIComponent(value))
+    return (
+      <a href={href} {...props}>
+        {children}
+      </a>
+    )
+  },
+}))
+
 afterEach(() => {
   cleanup()
 })
@@ -177,5 +203,10 @@ describe('ProjectList', () => {
     expect(screen.getByText('Virus Stability')).toBeTruthy()
     expect(screen.getByText('virus-stability')).toBeTruthy()
     expect(screen.getByText('Titration Assay')).toBeTruthy()
+    expect(
+      screen
+        .getByRole('link', { name: /Virus Stability/ })
+        .getAttribute('href'),
+    ).toBe('/projects/p1')
   })
 })

@@ -2,7 +2,11 @@ import * as React from 'react'
 
 import { cn } from '#/lib/utils'
 import type { NotebookBlock } from '#/lib/notebook-data'
-import { KNOWN_BLOCK_TYPES } from '#/lib/blocks'
+import {
+  KNOWN_BLOCK_TYPES,
+  RichTextContent,
+  isRichTextPayload,
+} from '#/lib/blocks'
 
 /**
  * Read-only preview of a block's typed payload (ELN-004). Renders the
@@ -102,10 +106,9 @@ function headingTag(level: number | null) {
 }
 
 function renderRichText(payload: unknown): React.ReactNode {
-  const obj = asObject(payload)
-  if (!obj) return null
-  const body = asString(obj.body) ?? ''
-  return <p className="whitespace-pre-wrap text-foreground">{body}</p>
+  return isRichTextPayload(payload) ? (
+    <RichTextContent payload={payload} />
+  ) : null
 }
 
 function renderChecklist(payload: unknown): React.ReactNode {

@@ -170,7 +170,17 @@ describe('NotebookCanvas', () => {
         id: 'b2',
         recordId: 'r1',
         type: 'rich_text',
-        payload: { body: 'Objective text.' },
+        payload: {
+          doc: {
+            type: 'doc',
+            content: [
+              {
+                type: 'paragraph',
+                content: [{ type: 'text', text: 'Objective text.' }],
+              },
+            ],
+          },
+        },
         payloadSchemaVersion: 1,
         order: 2,
         version: 1,

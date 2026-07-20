@@ -98,7 +98,17 @@ describe('insertBlock', () => {
     await insertBlock(client, {
       recordId: 'r1',
       type: 'rich_text',
-      payload: { body: 'x' },
+      payload: {
+        doc: {
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [{ type: 'text', text: 'x' }],
+            },
+          ],
+        },
+      },
       afterBlockId: 'anchor',
     })
     expect(client.rpc).toHaveBeenCalledWith(
@@ -254,7 +264,9 @@ describe('defaultPayloadFor', () => {
       level: 2,
       text: 'New heading',
     })
-    expect(defaultPayloadFor('rich_text')).toEqual({ body: '' })
+    expect(defaultPayloadFor('rich_text')).toEqual({
+      doc: { type: 'doc', content: [{ type: 'paragraph' }] },
+    })
     expect(defaultPayloadFor('checklist')).toEqual({
       items: [{ text: '', checked: false }],
     })

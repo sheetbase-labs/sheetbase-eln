@@ -49,7 +49,9 @@ beforeAll(async () => {
     email: 'eln-schema@sheetbase.test',
     emailVerified: true,
   })
-  await db.insert(schema.workspaces).values({ id: WS, slug: 'eln-ws', name: 'ELN WS' })
+  await db
+    .insert(schema.workspaces)
+    .values({ id: WS, slug: 'eln-ws', name: 'ELN WS' })
   await db.insert(schema.workspaceMemberships).values({
     workspaceId: WS,
     userId: OWNER,
@@ -206,19 +208,27 @@ describe('notebook domain schema', () => {
     await db.insert(schema.blocks).values({
       recordId,
       type: 'rich_text',
-      payload: { body: 'between' },
+      payload: {
+        doc: {
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [{ type: 'text', text: 'between' }],
+            },
+          ],
+        },
+      },
       order: 1.5,
       createdByUserId: OWNER,
     })
     const { rows } = await migrator.query(
-      `SELECT payload->>'text' AS t, payload->>'body' AS b, "order" FROM api.blocks
+      `SELECT payload->>'text' AS t, payload#>>'{doc,content,0,content,0,text}' AS b, "order" FROM api.blocks
        WHERE record_id = '${recordId}' ORDER BY "order"`,
     )
-    expect(rows.map((r: { t: string | null; b: string | null }) => r.t ?? r.b)).toEqual([
-      'first',
-      'between',
-      'third',
-    ])
+    expect(
+      rows.map((r: { t: string | null; b: string | null }) => r.t ?? r.b),
+    ).toEqual(['first', 'between', 'third'])
   })
 
   it('rejects a record_link with an unknown link_type', async () => {
@@ -237,7 +247,9 @@ describe('notebook domain schema', () => {
   it('rejects a record_link to a record in a different workspace', async () => {
     const WS2 = '00000000-0000-4000-8000-00000000060d'
     const PROJ_B = '00000000-0000-4000-8000-00000000060e'
-    await db.insert(schema.workspaces).values({ id: WS2, slug: 'eln-ws-2', name: 'ELN WS 2' })
+    await db
+      .insert(schema.workspaces)
+      .values({ id: WS2, slug: 'eln-ws-2', name: 'ELN WS 2' })
     await db.insert(schema.projects).values({
       id: PROJ_B,
       workspaceId: WS2,

@@ -99,7 +99,7 @@ beforeAll(async () => {
   await migrator.query(
     `INSERT INTO api.blocks(id,record_id,type,payload,"order",created_by_user_id) VALUES
       ($1,$2,'sheet','{}',1,$3),($4,$5,'sheet','{}',1,$6),
-      ($7,$2,'rich_text','{}',2,$3)`,
+      ($7,$2,'rich_text','{"doc":{"type":"doc","content":[{"type":"paragraph"}]}}',2,$3)`,
     [A.block, A.record, A.user, B.block, B.record, B.user, NON_SHEET],
   )
   clientA = await authenticated(prepared, A.user, A.workspace)

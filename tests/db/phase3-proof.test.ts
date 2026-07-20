@@ -22,10 +22,7 @@ import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import * as schema from '#/db/schema'
-import {
-  createCredential,
-  mintApiClientToken,
-} from '#/lib/api-credentials'
+import { createCredential, mintApiClientToken } from '#/lib/api-credentials'
 import { resolveExternalToken } from '#/lib/external-token'
 import type { ProxyPath } from '#/lib/postgrest-path'
 import { migratorUrl, prepareTestDatabase } from './helpers'
@@ -201,7 +198,7 @@ describe('ELN-008 Phase 3 acceptance proof', () => {
         '${PROJ}'::uuid, 'experiment', 'Virus Stability at 4C',
         'in-progress', ARRAY['stability','qPCR']::text[],
         '[{"type":"heading","payload":{"level":1,"text":"Virus Stability at 4C"},"order":1},
-            {"type":"rich_text","payload":{"body":"Objective: determine half-life."},"order":2}]'::jsonb
+            {"type":"rich_text","payload":{"doc":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Objective: determine half-life."}]}]}},"order":2}]'::jsonb
       )`,
     )
     recordId = result.record.id
@@ -217,7 +214,12 @@ describe('ELN-008 Phase 3 acceptance proof', () => {
 
   it('adds a checklist block through insert_block', async () => {
     const res = await rpc<{
-      block: { id: string; type: string; order: number; payload: Record<string, unknown> }
+      block: {
+        id: string
+        type: string
+        order: number
+        payload: Record<string, unknown>
+      }
       structure_version: number
     }>(
       ownerA,
@@ -236,16 +238,18 @@ describe('ELN-008 Phase 3 acceptance proof', () => {
     const updated = await rpc<{
       id: string
       version: number
-      payload: { body: string }
+      payload: { doc: { content: Array<{ content: Array<{ text: string }> }> } }
     }>(
       ownerA,
       `update_block_payload(
         '${textBlockId}'::uuid,
-        '{"body":"Objective: determine the half-life of infectious virus at 4C."}'::jsonb,
+        '{"doc":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Objective: determine the half-life of infectious virus at 4C."}]}]}}'::jsonb,
         1)`,
     )
     expect(updated.version).toBe(2)
-    expect(updated.payload.body).toContain('half-life of infectious virus')
+    expect(updated.payload.doc.content[0].content[0].text).toContain(
+      'half-life of infectious virus',
+    )
   })
 
   it('reorders the checklist before the rich text via move_block', async () => {
@@ -306,10 +310,12 @@ describe('ELN-008 Phase 3 acceptance proof', () => {
       textBlockId,
     ])
     // Content survived the reload.
-    const text = blocks.find(
-      (b: { id: string }) => b.id === textBlockId,
-    ) as { payload: { body: string } }
-    expect(text.payload.body).toContain('half-life of infectious virus')
+    const text = blocks.find((b: { id: string }) => b.id === textBlockId) as {
+      payload: { doc: { content: Array<{ content: Array<{ text: string }> }> } }
+    }
+    expect(text.payload.doc.content[0].content[0].text).toContain(
+      'half-life of infectious virus',
+    )
   })
 
   it('simulates a second tab and confirms changes arrive as durable events', async () => {

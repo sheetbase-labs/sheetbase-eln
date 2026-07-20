@@ -216,7 +216,20 @@ export const demoSteps: Array<SeedStep> = [
           id: DEMO_BLOCK_IDS.objectiveBody,
           type: 'rich_text',
           payload: {
-            body: 'Evaluate LVV-CAR-T vector stability at 4 °C across a 28-day window with durable formulas and calculation provenance.',
+            doc: {
+              type: 'doc',
+              content: [
+                {
+                  type: 'paragraph',
+                  content: [
+                    {
+                      type: 'text',
+                      text: 'Evaluate LVV-CAR-T vector stability at 4 °C across a 28-day window with durable formulas and calculation provenance.',
+                    },
+                  ],
+                },
+              ],
+            },
           },
           order: 3,
         },

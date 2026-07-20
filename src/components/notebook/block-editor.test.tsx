@@ -9,12 +9,22 @@
  * The default 800 ms debounce is too slow for tests, so we drive saves
  * through blur (tab) which calls `flush()` synchronously.
  */
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { renderToString } from 'react-dom/server'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { BlockEditor } from './block-editor'
 import type { NotebookBlock } from '#/lib/notebook-data'
+import type { RichTextPayload } from '#/lib/blocks'
+
+beforeAll(() => {
+  // ProseMirror asks the browser for caret geometry. jsdom intentionally
+  // omits these layout APIs, so provide inert rectangles for interactions.
+  document.elementFromPoint = () => null
+  Range.prototype.getClientRects = () => [] as unknown as DOMRectList
+  Range.prototype.getBoundingClientRect = () => new DOMRect()
+})
 
 afterEach(() => cleanup())
 
@@ -33,6 +43,20 @@ function block(
 }
 
 const okSave = vi.fn(async () => ({ ok: true }))
+
+function richText(text: string): RichTextPayload {
+  return {
+    doc: {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: text ? [{ type: 'text', text }] : undefined,
+        },
+      ],
+    },
+  }
+}
 
 describe('BlockEditor — heading', () => {
   it('renders the existing text and level', () => {
@@ -89,20 +113,107 @@ describe('BlockEditor — heading', () => {
 })
 
 describe('BlockEditor — rich_text', () => {
-  it('saves a valid body on blur', async () => {
+  it('saves canonical structured JSON on blur', async () => {
     const user = userEvent.setup()
     const save = vi.fn(async () => ({ ok: true }))
     render(
       <BlockEditor
-        block={block({ type: 'rich_text', payload: { body: 'old' } })}
+        block={block({ type: 'rich_text', payload: richText('old') })}
         save={save}
       />,
     )
-    const textarea = screen.getByDisplayValue('old')
-    await user.clear(textarea)
-    await user.type(textarea, 'new body')
+    const editor = await screen.findByRole('textbox', { name: 'Text content' })
+    editor.focus()
+    await user.keyboard('{Control>}a{/Control}{Backspace}')
+    await user.paste('new body')
     await user.tab()
-    expect(save).toHaveBeenCalledWith({ body: 'new body' })
+    expect(save).toHaveBeenCalledWith(richText('new body'))
+  })
+
+  it('applies inline formatting and exposes the restrained toolbar', async () => {
+    const user = userEvent.setup()
+    const save = vi.fn(async () => ({ ok: true }))
+    render(
+      <BlockEditor
+        block={block({ type: 'rich_text', payload: richText('') })}
+        save={save}
+      />,
+    )
+    const editor = await screen.findByRole('textbox', { name: 'Text content' })
+    for (const name of [
+      'Bold',
+      'Italic',
+      'Link',
+      'Subscript',
+      'Superscript',
+      'Inline code',
+      'Bullet list',
+      'Ordered list',
+      'Undo',
+      'Redo',
+    ]) {
+      expect(screen.getByRole('button', { name })).toBeTruthy()
+    }
+    editor.focus()
+    await user.paste('result')
+    await user.keyboard('{Control>}a{/Control}')
+    await user.click(screen.getByRole('button', { name: 'Bold' }))
+    await user.tab()
+    expect(save).toHaveBeenCalledWith({
+      doc: {
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [
+              { type: 'text', marks: [{ type: 'bold' }], text: 'result' },
+            ],
+          },
+        ],
+      },
+    })
+  })
+
+  it('server-renders stable structured content without starting Tiptap', () => {
+    const html = renderToString(
+      <BlockEditor
+        block={block({ type: 'rich_text', payload: richText('SSR objective') })}
+        save={okSave}
+      />,
+    )
+    expect(html).toContain('SSR objective')
+    expect(html).not.toContain('contenteditable')
+  })
+
+  it('reconciles clean server state without emitting a save loop', async () => {
+    const save = vi.fn(async () => ({ ok: true }))
+    const { rerender } = render(
+      <BlockEditor
+        block={block({ type: 'rich_text', payload: richText('first') })}
+        save={save}
+      />,
+    )
+    expect(
+      (await screen.findByRole('textbox', { name: 'Text content' }))
+        .textContent,
+    ).toBe('first')
+
+    rerender(
+      <BlockEditor
+        block={block({
+          type: 'rich_text',
+          payload: richText('server update'),
+          version: 2,
+        })}
+        save={save}
+      />,
+    )
+    await waitFor(() =>
+      expect(
+        screen.getByRole('textbox', { name: 'Text content' }).textContent,
+      ).toBe('server update'),
+    )
+    expect(save).not.toHaveBeenCalled()
   })
 })
 
@@ -241,6 +352,45 @@ describe('BlockEditor — read-only mode', () => {
     expect(screen.getByText('Locked')).toBeTruthy()
     expect(screen.queryByRole('textbox')).toBeNull()
   })
+
+  it('safely renders formatted rich text from the structured payload', () => {
+    render(
+      <BlockEditor
+        block={block({
+          type: 'rich_text',
+          payload: {
+            doc: {
+              type: 'doc',
+              content: [
+                {
+                  type: 'paragraph',
+                  content: [
+                    {
+                      type: 'text',
+                      text: 'assay',
+                      marks: [
+                        { type: 'bold' },
+                        {
+                          type: 'link',
+                          attrs: { href: 'https://example.test/result' },
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        })}
+        save={okSave}
+        readOnly
+      />,
+    )
+    const link = screen.getByRole('link', { name: 'assay' })
+    expect(link.getAttribute('href')).toBe('https://example.test/result')
+    expect(link.querySelector('strong')).toBeTruthy()
+    expect(screen.queryByRole('textbox')).toBeNull()
+  })
 })
 
 describe('BlockEditor — failed save surface', () => {
@@ -299,5 +449,36 @@ describe('BlockEditor — conflict surface', () => {
     // The server preview should be comprehensible — the banner shows a
     // formatted preview of the server value (H2 — server version).
     expect(screen.getByText('H2 — server version')).toBeTruthy()
+  })
+
+  it('preserves a rich-text draft and adopts structured server content explicitly', async () => {
+    const user = userEvent.setup()
+    const serverValue = richText('server objective')
+    const save = vi.fn(async () => ({
+      ok: false,
+      kind: 'conflict' as const,
+      message: 'This block was changed elsewhere.',
+      serverValue,
+    }))
+    render(
+      <BlockEditor
+        block={block({
+          type: 'rich_text',
+          payload: richText('local objective'),
+        })}
+        save={save}
+      />,
+    )
+    const editor = await screen.findByRole('textbox', { name: 'Text content' })
+    editor.focus()
+    await user.keyboard('{Control>}a{/Control}{Backspace}')
+    await user.paste('my changed objective')
+    await user.tab()
+
+    expect(await screen.findByText('server objective')).toBeTruthy()
+    expect(editor.textContent).toBe('my changed objective')
+    await user.click(screen.getByRole('button', { name: /Use server version/ }))
+    await waitFor(() => expect(editor.textContent).toBe('server objective'))
+    expect(save).toHaveBeenCalledTimes(1)
   })
 })

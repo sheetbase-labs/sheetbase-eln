@@ -13,7 +13,7 @@
 import type { DataClient } from '#/lib/data-client'
 import { toBlock } from '#/lib/notebook-data'
 import type { BlockWire, NotebookBlock } from '#/lib/notebook-data'
-import { PAYLOAD_SCHEMA_VERSION } from '#/lib/blocks'
+import { EMPTY_RICH_TEXT_PAYLOAD, PAYLOAD_SCHEMA_VERSION } from '#/lib/blocks'
 
 export interface UpdateBlockArgs {
   blockId: string
@@ -203,7 +203,7 @@ export function defaultPayloadFor(type: string): Record<string, unknown> {
     case 'heading':
       return { level: 2, text: 'New heading' }
     case 'rich_text':
-      return { body: '' }
+      return { ...EMPTY_RICH_TEXT_PAYLOAD }
     case 'checklist':
       return { items: [{ text: '', checked: false }] }
     case 'linked_record':

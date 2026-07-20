@@ -151,7 +151,7 @@ async function createRecord(
       '${PROJ}'::uuid, 'experiment', '${title}',
       'draft', ARRAY[]::text[],
       '[{"type":"heading","payload":{"level":2,"text":"H"},"order":1},
-        {"type":"rich_text","payload":{"body":"B"},"order":2}]'::jsonb)`,
+        {"type":"rich_text","payload":{"doc":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"B"}]}]}},"order":2}]'::jsonb)`,
   )
 }
 

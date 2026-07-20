@@ -14,6 +14,20 @@
  * renders them.
  */
 
+import { isRichTextPayload } from './rich-text'
+
+export {
+  EMPTY_RICH_TEXT_PAYLOAD,
+  RichTextContent,
+  isRichTextPayload,
+  richTextToPlainText,
+} from './rich-text'
+export type {
+  RichTextDocument,
+  RichTextMark,
+  RichTextPayload,
+} from './rich-text'
+
 export type BlockType =
   | 'heading'
   | 'rich_text'
@@ -187,20 +201,16 @@ function validateHeading(payload: unknown): FieldErrors {
 }
 
 function validateRichText(payload: unknown): FieldErrors {
-  const errors: FieldErrors = []
-  if (!isObject(payload))
-    return [
-      { code: 'invalid_payload_shape', message: 'payload must be an object' },
-    ]
-  const body = payload.body
-  if (!isNonEmptyString(body)) {
-    errors.push({
-      code: 'missing_required_field',
-      field: 'body',
-      message: 'body is required and must be a non-empty string',
-    })
-  }
-  return errors
+  return isRichTextPayload(payload)
+    ? []
+    : [
+        {
+          code: 'invalid_payload_shape',
+          field: 'doc',
+          message:
+            'doc must be a supported rich-text v1 document (paragraphs, lists, and approved inline marks)',
+        },
+      ]
 }
 
 function validateChecklist(payload: unknown): FieldErrors {

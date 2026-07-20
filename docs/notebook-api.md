@@ -47,7 +47,17 @@ Creates a record and its initial blocks in one transaction. Reuses
     },
     {
       "type": "rich_text",
-      "payload": { "body": "Objective text." },
+      "payload": {
+        "doc": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [{ "type": "text", "text": "Objective text." }],
+            },
+          ],
+        },
+      },
       "order": 2,
     },
   ],
@@ -68,7 +78,17 @@ it last saw; a stale version is rejected with `stale_version` (SQLSTATE
 // POST /api/db/rpc/update_block_payload
 {
   "p_block_id": "00000000-0000-4000-8000-000000000110",
-  "p_payload": { "body": "edited text" },
+  "p_payload": {
+    "doc": {
+      "type": "doc",
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [{ "type": "text", "text": "edited text" }],
+        },
+      ],
+    },
+  },
   "p_expected_version": 1,
   "p_payload_schema_version": 1,
 }
@@ -216,12 +236,12 @@ curl -sS -b cookie.txt '/api/db/blocks?record_id=eq.<record-id>&order=order.asc'
 
 # Create a record with two initial blocks
 curl -sS -b cookie.txt -H 'content-type: application/json' \
-  -d '{"p_project_id":"<proj-id>","p_kind":"experiment","p_title":"Virus Stability","p_blocks":[{"type":"heading","payload":{"level":1,"text":"Virus Stability"},"order":1},{"type":"rich_text","payload":{"body":"Objective."},"order":2}]}' \
+  -d '{"p_project_id":"<proj-id>","p_kind":"experiment","p_title":"Virus Stability","p_blocks":[{"type":"heading","payload":{"level":1,"text":"Virus Stability"},"order":1},{"type":"rich_text","payload":{"doc":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Objective."}]}]}},"order":2}]}' \
   /api/db/rpc/create_record_with_blocks
 
 # Edit a block's payload (optimistic concurrency)
 curl -sS -b cookie.txt -H 'content-type: application/json' \
-  -d '{"p_block_id":"<block-id>","p_payload":{"body":"edited"},"p_expected_version":1}' \
+  -d '{"p_block_id":"<block-id>","p_payload":{"doc":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"edited"}]}]}},"p_expected_version":1}' \
   /api/db/rpc/update_block_payload
 
 # Move a block between two neighbours

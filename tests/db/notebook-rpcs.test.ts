@@ -97,7 +97,12 @@ describe('create_record_with_blocks', () => {
     const owner = await asAuthenticated(OWNER, WS)
     const result = await rpcByName<{
       record: { identifier: string; title: string; kind: string }
-      blocks: Array<{ id: string; type: string; order: number; version: number }>
+      blocks: Array<{
+        id: string
+        type: string
+        order: number
+        version: number
+      }>
     }>(
       owner,
       `create_record_with_blocks(
@@ -107,7 +112,7 @@ describe('create_record_with_blocks', () => {
         'draft',
         ARRAY['stability']::text[],
         '[{"type":"heading","payload":{"level":1,"text":"Virus Stability"},"order":1},
-            {"type":"rich_text","payload":{"body":"Objective text."},"order":2}]'::jsonb
+            {"type":"rich_text","payload":{"doc":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Objective text."}]}]}},"order":2}]'::jsonb
       )`,
     )
     expect(result.record.identifier).toMatch(/^EXP-\d{4}-\d{4}$/)
@@ -127,7 +132,7 @@ describe('create_record_with_blocks', () => {
         '${PROJ}'::uuid, 'experiment', 'No order blocks',
         'draft', ARRAY[]::text[],
         '[{"type":"heading","payload":{"level":2,"text":"A"}},
-            {"type":"rich_text","payload":{"body":"B"}}]'::jsonb
+            {"type":"rich_text","payload":{"doc":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"B"}]}]}}}]'::jsonb
       )`,
     )
     expect(result.blocks.map((b) => b.order)).toEqual([1, 2])
@@ -164,22 +169,22 @@ describe('update_block_payload', () => {
       `create_record_with_blocks(
         '${PROJ}'::uuid, 'experiment', 'Edit me',
         'draft', ARRAY[]::text[],
-        '[{"type":"rich_text","payload":{"body":"before"},"order":1}]'::jsonb)`,
+        '[{"type":"rich_text","payload":{"doc":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"before"}]}]}},"order":1}]'::jsonb)`,
     )
     const block = created.blocks[0]
     const updated = await rpcByName<{
       id: string
       version: number
-      payload: { body: string }
+      payload: { doc: { content: Array<{ content: Array<{ text: string }> }> } }
     }>(
       owner,
       `update_block_payload(
         '${block.id}'::uuid,
-        '{"body":"after"}'::jsonb,
+        '{"doc":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"after"}]}]}}'::jsonb,
         1)`,
     )
     expect(updated.version).toBe(2)
-    expect(updated.payload.body).toBe('after')
+    expect(updated.payload.doc.content[0].content[0].text).toBe('after')
   })
 
   it('rejects a stale block version with SB001', async () => {
@@ -191,7 +196,7 @@ describe('update_block_payload', () => {
       `create_record_with_blocks(
         '${PROJ}'::uuid, 'experiment', 'Stale edit',
         'draft', ARRAY[]::text[],
-        '[{"type":"rich_text","payload":{"body":"x"},"order":1}]'::jsonb)`,
+        '[{"type":"rich_text","payload":{"doc":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"x"}]}]}},"order":1}]'::jsonb)`,
     )
     const block = created.blocks[0]
     await expect(
@@ -249,10 +254,7 @@ describe('move_block', () => {
     const result = await rpcByName<{
       structure_version: number
       order: Array<{ id: string; order: number }>
-    }>(
-      owner,
-      `move_block('${a}'::uuid, ${sv}, NULL, NULL)`,
-    )
+    }>(owner, `move_block('${a}'::uuid, ${sv}, NULL, NULL)`)
     // Only block a moved (to end); structure_version bumped.
     expect(result.structure_version).toBe(sv + 1)
     const order = result.order.map((o) => o.id)
@@ -287,7 +289,11 @@ describe('archive and restore', () => {
   it('archives a record and restores it, bumping metadata_version', async () => {
     const owner = await asAuthenticated(OWNER, WS)
     const created = await rpcByName<{
-      record: { id: string; metadata_version: number; archived_at: string | null }
+      record: {
+        id: string
+        metadata_version: number
+        archived_at: string | null
+      }
     }>(
       owner,
       `create_record_with_blocks(
@@ -298,14 +304,20 @@ describe('archive and restore', () => {
     const archived = await rpcByName<{
       metadata_version: number
       archived_at: string | null
-    }>(owner, `archive_record('${record.id}'::uuid, ${record.metadata_version})`)
+    }>(
+      owner,
+      `archive_record('${record.id}'::uuid, ${record.metadata_version})`,
+    )
     expect(archived.archived_at).not.toBeNull()
     expect(archived.metadata_version).toBe(record.metadata_version + 1)
 
     const restored = await rpcByName<{
       metadata_version: number
       archived_at: string | null
-    }>(owner, `restore_record('${record.id}'::uuid, ${archived.metadata_version})`)
+    }>(
+      owner,
+      `restore_record('${record.id}'::uuid, ${archived.metadata_version})`,
+    )
     expect(restored.archived_at).toBeNull()
     expect(restored.metadata_version).toBe(archived.metadata_version + 1)
   })
@@ -334,7 +346,9 @@ describe('create_record_link', () => {
       `create_record_with_blocks(
         '${PROJ}'::uuid, 'experiment', 'Linker', 'draft', ARRAY[]::text[], '[]'::jsonb)`,
     )
-    const proto = await rpcByName<{ record: { id: string; identifier: string } }>(
+    const proto = await rpcByName<{
+      record: { id: string; identifier: string }
+    }>(
       owner,
       `create_record_with_blocks(
         '${PROJ}'::uuid, 'protocol_template', 'Proto', 'draft', ARRAY[]::text[], '[]'::jsonb)`,
@@ -412,7 +426,12 @@ describe('insert_block', () => {
     const owner = await asAuthenticated(OWNER, WS)
     const { recordId } = await seedEmpty(owner)
     const res = await rpcByName<{
-      block: { id: string; type: string; order: number; payload: { text: string } }
+      block: {
+        id: string
+        type: string
+        order: number
+        payload: { text: string }
+      }
       structure_version: number
     }>(
       owner,
@@ -455,7 +474,7 @@ describe('insert_block', () => {
       owner,
       `insert_block(
         '${recordId}'::uuid, 'rich_text',
-        '{"body":"mid"}'::jsonb, 1, '${first.block.id}'::uuid, ${second.structure_version})`,
+        '{"doc":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"mid"}]}]}}'::jsonb, 1, '${first.block.id}'::uuid, ${second.structure_version})`,
     )
     expect(mid.block.order).toBeGreaterThan(first.block.order)
     expect(mid.block.order).toBeLessThan(second.block.order)

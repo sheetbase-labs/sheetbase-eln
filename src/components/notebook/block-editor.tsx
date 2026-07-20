@@ -16,13 +16,20 @@
 import * as React from 'react'
 
 import { cn } from '#/lib/utils'
-import { validateBlock } from '#/lib/blocks'
+import {
+  RichTextContent,
+  isRichTextPayload,
+  richTextToPlainText,
+  validateBlock,
+} from '#/lib/blocks'
+import type { RichTextPayload } from '#/lib/blocks'
 import type { NotebookBlock } from '#/lib/notebook-data'
 import { Button } from '#/components/ui'
 import { useAutosave } from './use-autosave'
 import type { AutosaveStatus, SaveResult } from './use-autosave'
 import { SaveStatus } from './save-status'
 import { ConflictBanner } from './conflict-banner'
+import { RichTextEditor as TiptapRichTextEditor } from './rich-text-editor'
 
 export type { AutosaveStatus, SaveResult }
 
@@ -47,6 +54,12 @@ export interface BlockEditorProps {
 }
 
 export function BlockEditor(props: BlockEditorProps) {
+  if (
+    props.block.type === 'rich_text' &&
+    !isRichTextPayload(props.block.payload)
+  ) {
+    return <UnsupportedEditor block={props.block} className={props.className} />
+  }
   switch (props.block.type) {
     case 'heading':
       return <HeadingEditor {...props} />
@@ -124,7 +137,9 @@ function summarizePayload(
     case 'heading':
       return `H${payload.level ?? 2} — ${payload.text ?? '(empty)'}`
     case 'rich_text':
-      return String(payload.body ?? '(empty)')
+      return isRichTextPayload(payload)
+        ? richTextToPlainText(payload) || '(empty)'
+        : '(empty)'
     case 'checklist': {
       const items = Array.isArray(payload.items) ? payload.items : []
       if (items.length === 0) return '(no items)'
@@ -295,10 +310,6 @@ function HeadingEditor({
 // Rich text.
 // ---------------------------------------------------------------------------
 
-interface RichTextDraft {
-  body: string
-}
-
 function RichTextEditor({
   block,
   save,
@@ -308,48 +319,29 @@ function RichTextEditor({
   autoFocus,
   className,
 }: BlockEditorProps) {
-  const initial = block.payload as { body?: string }
-  const initialDraft: RichTextDraft = {
-    body: typeof initial.body === 'string' ? initial.body : '',
-  }
+  const initialDraft = block.payload as unknown as RichTextPayload
   const a = useBlockAutosave(block, initialDraft, save, offline, onStatusChange)
 
   if (readOnly) {
-    return (
-      <div className={className}>
-        <p className="whitespace-pre-wrap text-foreground">
-          {a.draft.body || 'Empty text block'}
-        </p>
-      </div>
-    )
+    return <RichTextContent className={className} payload={a.draft} />
   }
 
   return (
     <div className={cn('space-y-2', className)}>
-      <label className="sr-only" htmlFor={`richtext-${block.id}`}>
-        Text content
-      </label>
-      <textarea
-        id={`richtext-${block.id}`}
-        value={a.draft.body}
+      <TiptapRichTextEditor
+        payload={a.draft}
         autoFocus={autoFocus}
-        onChange={(e) => {
+        onChange={(payload) => {
           a.setTouched(true)
-          a.setDraft({ ...a.draft, body: e.target.value })
+          a.setDraft(payload)
         }}
-        onBlur={() => a.flush()}
-        rows={4}
-        placeholder="Write the paragraph…"
-        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm leading-6"
+        onBlur={a.flush}
       />
       <AutosaveFooter
         status={a.status}
         error={a.error}
         validationErrors={a.validationErrors}
-        serverPreview={summarizePayload(
-          block.type,
-          (a.serverValue ?? {}) as Record<string, unknown>,
-        )}
+        serverPreview={summarizePayload(block.type, a.serverValue ?? {})}
         onUseServer={() => a.discardDraft()}
         onKeepLocal={() => a.retry()}
         retrying={a.status === 'saving'}

@@ -39,15 +39,133 @@ describe('block payload validation (ELN-002)', () => {
     expect(
       isBlockPayloadValid({
         type: 'rich_text',
-        payload: { body: 'Samples were held at 4 degrees C.' },
+        payload: {
+          doc: {
+            type: 'doc',
+            content: [
+              {
+                type: 'paragraph',
+                content: [
+                  { type: 'text', text: 'Samples were held at 4 degrees C.' },
+                ],
+              },
+            ],
+          },
+        },
       }),
     ).toBe(true)
   })
 
-  it('rejects a rich_text with missing body', () => {
+  it('accepts the complete supported rich-text v1 feature set', () => {
+    expect(
+      isBlockPayloadValid({
+        type: 'rich_text',
+        payload: {
+          doc: {
+            type: 'doc',
+            content: [
+              {
+                type: 'paragraph',
+                content: [
+                  {
+                    type: 'text',
+                    text: 'H2O x2 assay',
+                    marks: [
+                      { type: 'bold' },
+                      { type: 'italic' },
+                      {
+                        type: 'link',
+                        attrs: {
+                          href: 'https://example.test/result',
+                          target: null,
+                          rel: null,
+                          class: null,
+                        },
+                      },
+                    ],
+                  },
+                  {
+                    type: 'text',
+                    text: '2',
+                    marks: [{ type: 'subscript' }],
+                  },
+                  {
+                    type: 'text',
+                    text: '2',
+                    marks: [{ type: 'superscript' }],
+                  },
+                  {
+                    type: 'text',
+                    text: 'code',
+                    marks: [{ type: 'code' }],
+                  },
+                ],
+              },
+              {
+                type: 'bulletList',
+                content: [
+                  {
+                    type: 'listItem',
+                    content: [{ type: 'paragraph' }],
+                  },
+                ],
+              },
+              {
+                type: 'orderedList',
+                attrs: { start: 2, type: null },
+                content: [
+                  {
+                    type: 'listItem',
+                    content: [{ type: 'paragraph' }],
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      }),
+    ).toBe(true)
+  })
+
+  it('rejects rich text outside the supported v1 document schema', () => {
     const r = validateBlock({ type: 'rich_text', payload: {} })
     expect(r.ok).toBe(false)
-    expect(r.errors[0]?.field).toBe('body')
+    expect(r.errors[0]?.field).toBe('doc')
+    expect(
+      validateBlock({
+        type: 'rich_text',
+        payload: {
+          doc: {
+            type: 'doc',
+            content: [{ type: 'heading', attrs: { level: 1 } }],
+          },
+        },
+      }).ok,
+    ).toBe(false)
+    expect(
+      validateBlock({
+        type: 'rich_text',
+        payload: {
+          doc: {
+            type: 'doc',
+            content: [
+              {
+                type: 'paragraph',
+                content: [
+                  {
+                    type: 'text',
+                    text: 'unsafe',
+                    marks: [
+                      { type: 'link', attrs: { href: 'javascript:alert(1)' } },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      }).ok,
+    ).toBe(false)
   })
 
   it('accepts a valid checklist payload', () => {
@@ -124,7 +242,17 @@ describe('block payload validation (ELN-002)', () => {
   it('validates every known block type with a representative payload', () => {
     const samples: Record<string, unknown> = {
       heading: { level: 2, text: 'Methods' },
-      rich_text: { body: 'Body text.' },
+      rich_text: {
+        doc: {
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [{ type: 'text', text: 'Body text.' }],
+            },
+          ],
+        },
+      },
       checklist: { items: [{ text: 'x', checked: true }] },
       linked_record: {
         targetKind: 'sample',

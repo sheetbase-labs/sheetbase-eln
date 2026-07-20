@@ -134,6 +134,13 @@
       "when": 1784495200000,
       "tag": "0018_calc_003_cross_sheet_dependencies",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1784496200000,
+      "tag": "0019_calc_004_trusted_result_cache",
+      "breakpoints": true
     }
   ]
 }

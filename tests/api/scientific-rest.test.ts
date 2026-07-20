@@ -206,6 +206,13 @@ describe('DATA-003 real PostgREST contract', () => {
       body[0].columns.map((column: { label: string }) => column.label),
     ).toEqual(['Sample', 'Result'])
 
+    const formulaResults = await proxy(
+      request(`formula_results?record_id=eq.${RECORD}`, readToken),
+      'formula_results',
+    )
+    expect(formulaResults.status).toBe(200)
+    expect(await formulaResults.json()).toEqual([])
+
     const denied = await proxy(request(resource, projectToken), resource)
     expect(denied.status).toBe(403)
     expect((await denied.json()).error.category).toBe('permission_denied')

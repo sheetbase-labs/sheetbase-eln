@@ -779,6 +779,65 @@ export const formulaDependencies = api.table(
   ],
 )
 
+export const formulaResultCache = internal.table(
+  'formula_result_cache',
+  {
+    formulaId: uuid('formula_id')
+      .primaryKey()
+      .references(() => formulaDefinitions.id, { onDelete: 'cascade' }),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    recordId: uuid('record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'cascade' }),
+    formulaVersion: bigint('formula_version', { mode: 'bigint' }).notNull(),
+    inputRevision: bigint('input_revision', { mode: 'bigint' }).notNull(),
+    schemaVersions: jsonb('schema_versions').notNull(),
+    status: text('status').notNull(),
+    resultKind: text('result_kind').notNull(),
+    value: jsonb('value'),
+    errorCode: text('error_code'),
+    diagnostic: text('diagnostic'),
+    engineVersion: text('engine_version').notNull(),
+    profileFingerprint: text('profile_fingerprint').notNull(),
+    runtimeFingerprint: text('runtime_fingerprint').notNull(),
+    calculatedAt: timestamp('calculated_at', {
+      withTimezone: true,
+      mode: 'date',
+    })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', {
+      withTimezone: true,
+      mode: 'date',
+    })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check('formula_result_version_check', sql`${table.formulaVersion} > 0`),
+    check('formula_result_revision_check', sql`${table.inputRevision} >= 0`),
+    check(
+      'formula_result_schema_versions_check',
+      sql`jsonb_typeof(${table.schemaVersions}) = 'object'`,
+    ),
+    check(
+      'formula_result_status_check',
+      sql`${table.status} IN ('completed', 'failed', 'unavailable')`,
+    ),
+    check(
+      'formula_result_kind_check',
+      sql`${table.resultKind} IN ('value', 'error', 'none')`,
+    ),
+    check(
+      'formula_result_profile_check',
+      sql`${table.engineVersion} = '3.3.0' AND ${table.profileFingerprint} = 'fnv1a32-0c96cef0'`,
+    ),
+    index('idx_formula_result_record').on(table.recordId),
+  ],
+)
+
 // ---------------------------------------------------------------------------
 // api — durable workspace change events (LIVE-001). Append-only,
 // workspace-scoped history of every durable mutation to the notebook and

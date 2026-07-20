@@ -566,13 +566,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** CALC-003.
 
-- [ ] Store optional calculated-result caches with formula version, input revision and calculation status.
-- [ ] Mark caches stale whenever relevant literals, formulas or schemas change.
-- [ ] Ensure API consumers can distinguish literal values, formulas, current calculated values and stale or unavailable results.
-- [ ] Prevent stale caches from being presented as authoritative current calculations.
-- [ ] Define and implement the recalculation worker or controlled recalculation path selected in CALC-001.
-- [ ] Record calculation completion or failure as durable events without logging sensitive full datasets.
-- [ ] Test current, stale, failed and recalculated states through both UI and REST.
+- [x] Store optional calculated-result caches with formula version, input revision and calculation status.
+- [x] Mark caches stale whenever relevant literals, formulas or schemas change.
+- [x] Ensure API consumers can distinguish literal values, formulas, current calculated values and stale or unavailable results.
+- [x] Prevent stale caches from being presented as authoritative current calculations.
+- [x] Define and implement the recalculation worker or controlled recalculation path selected in CALC-001.
+- [x] Record calculation completion or failure as durable events without logging sensitive full datasets.
+- [x] Test current, stale, failed and recalculated states through both UI and REST.
 
 ### DATA-004 — Build the approachable API inspector
 

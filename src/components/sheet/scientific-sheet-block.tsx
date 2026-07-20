@@ -11,10 +11,12 @@ import {
   fetchAllScientificRows,
   fetchScientificFormulas,
   fetchScientificDependencies,
+  fetchScientificCalculationResults,
   fetchScientificRows,
   fetchScientificTable,
   mutateScientificFormula,
   preflightScientificConversion,
+  requestScientificCalculation,
   preflightScientificRetirement,
   renameScientificTable,
   SCIENTIFIC_PAGE_SIZE,
@@ -691,6 +693,12 @@ export function ScientificSheetBlock({
     queryFn: () => fetchScientificDependencies(scientificDataClient, tableId),
     enabled: !!table,
   })
+  const calculationResultsQuery = useQuery({
+    queryKey: scientificQueryKeys.calculationResults(tableId),
+    queryFn: () =>
+      fetchScientificCalculationResults(scientificDataClient, tableId),
+    enabled: !!table,
+  })
   const formulaByCell = useMemo(
     () =>
       new Map(
@@ -752,6 +760,13 @@ export function ScientificSheetBlock({
   const selectedFormula = selected
     ? formulaByCell.get(`${selected.rowId}/${selected.columnId}`)
     : undefined
+  const selectedCachedResult = selected
+    ? calculationResultsQuery.data?.find(
+        (result) =>
+          result.target_row_id === selected.rowId &&
+          result.target_column_id === selected.columnId,
+      )
+    : undefined
   const selectedResult = selected && workbook ? workbook.get(selected) : null
   useEffect(() => {
     setFormulaSource(selectedFormula?.source_expression ?? '')
@@ -773,6 +788,18 @@ export function ScientificSheetBlock({
         queryKey: scientificQueryKeys.formulas(tableId),
       }),
     ])
+    try {
+      await requestScientificCalculation(block.recordId)
+      await queryClient.invalidateQueries({
+        queryKey: scientificQueryKeys.calculationResults(tableId),
+      })
+    } catch (error) {
+      setFormulaStatus(
+        error instanceof Error
+          ? error.message
+          : 'Trusted calculation did not complete.',
+      )
+    }
   }
   // HOT mutates its data. Never expose canonical query-cache objects.
   const localRows = useMemo(() => {
@@ -1221,6 +1248,24 @@ export function ScientificSheetBlock({
               : 0}
           </span>
         ) : null}
+        {selectedFormula ? (
+          <span>
+            Trusted cache:{' '}
+            {selectedCachedResult?.calculation_status ?? 'pending'}
+            {selectedCachedResult?.calculation_status === 'current'
+              ? selectedCachedResult.calculation_error_code
+                ? ` · ${selectedCachedResult.calculation_error_code}`
+                : ` · ${String(selectedCachedResult.calculated_value ?? '')}`
+              : ''}
+          </span>
+        ) : null}
+        <button
+          type="button"
+          disabled={readOnly || calculationResultsQuery.isFetching}
+          onClick={() => void refreshCalculation()}
+        >
+          Recalculate trusted results
+        </button>
         {selectedFormula && workbook ? (
           <details>
             <summary>

@@ -70,6 +70,14 @@ describe('requiredScopes', () => {
       'scientific:read',
       'scientific:write',
     ])
+    for (const metadata of [
+      'formula_definitions',
+      'formula_dependencies',
+      'formula_results',
+    ])
+      expect(
+        requiredScopes('GET', { kind: 'table', resource: metadata }),
+      ).toEqual(['scientific:read'])
     expect(
       requiredScopes('POST', {
         kind: 'rpc',

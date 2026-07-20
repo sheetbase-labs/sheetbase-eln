@@ -61,6 +61,8 @@ export const scientificQueryKeys = {
   allRows: (id: string) => ['scientific-all-rows', id] as const,
   formulas: (id: string) => ['scientific-formulas', id] as const,
   dependencies: (id: string) => ['scientific-dependencies', id] as const,
+  calculationResults: (id: string) =>
+    ['scientific-calculation-results', id] as const,
 }
 export const scientificDataClient = createDataClient()
 
@@ -142,6 +144,59 @@ export interface FormulaDependencyWire {
   source_table_id: string
   source_row_id: string
   source_column_id: string
+}
+
+export interface FormulaResultWire {
+  formula_id: string
+  target_table_id: string
+  target_row_id: string
+  target_column_id: string
+  cell_kind: 'formula'
+  value_is_authoritative: false
+  definition_status: 'supported' | 'unsupported'
+  formula_version: number | string
+  current_input_revision: number | string
+  calculation_status: 'pending' | 'current' | 'stale' | 'failed' | 'unavailable'
+  calculated_value: unknown
+  calculation_error_code: string | null
+  cache_input_revision: number | string | null
+  engine_version: string | null
+  profile_fingerprint: string | null
+  runtime_fingerprint: string | null
+  calculated_at: string | null
+}
+
+export async function fetchScientificCalculationResults(
+  client: DataClient,
+  tableId: string,
+) {
+  const result: FormulaResultWire[] = []
+  const pageSize = 1000
+  for (let offset = 0; ; offset += pageSize) {
+    const page = await client.list<FormulaResultWire>(
+      'formula_results',
+      `?target_table_id=eq.${encodeURIComponent(tableId)}&order=formula_id.asc&limit=${pageSize}&offset=${offset}`,
+    )
+    result.push(...page)
+    if (page.length < pageSize) return result
+  }
+}
+
+export async function requestScientificCalculation(
+  recordId: string,
+  fetchImpl: typeof fetch = fetch,
+) {
+  const response = await fetchImpl('/api/calculations', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ recordId }),
+  })
+  const body = (await response.json().catch(() => null)) as {
+    error?: { message?: string }
+  } | null
+  if (!response.ok)
+    throw new Error(body?.error?.message ?? 'Trusted calculation failed.')
+  return body
 }
 
 export async function fetchScientificDependencies(

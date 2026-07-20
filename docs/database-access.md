@@ -200,3 +200,15 @@ Retirement revokes writes without dropping physical data. Conversion rejects
 formula-owned columns, preserves generated-row identity/version/timestamps,
 and currently supports integer to decimal plus unvalidated/default-free text
 to integer, decimal, boolean, date, or timestamp.
+
+## Formula results (CALC-004)
+
+`formula_definitions` and `formula_dependencies` are read-only provenance
+resources. `formula_results` is a security-invoker, RLS-protected view over the
+internal revision-bound cache. It exposes `calculated_value` only when the
+formula version and notebook `calculation_input_revision` match a completed
+server calculation. Its `calculation_status` distinguishes `pending`, `current`,
+`stale`, `failed`, and `unavailable`; structured current calculation errors use
+`calculation_error_code`. Generated sheet resources never substitute these
+derived values for literals. Browser members and external credentials with
+`scientific:read` can query all three resources within their claimed workspace.

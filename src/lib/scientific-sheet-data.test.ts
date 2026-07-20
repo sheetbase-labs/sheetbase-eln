@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   decodeScientificValue,
+  fetchScientificCalculationResults,
   fetchScientificDependencies,
+  requestScientificCalculation,
   fetchScientificFormulas,
   scientificQueryKeys,
 } from './scientific-sheet-data'
@@ -118,6 +120,37 @@ describe('scientific sheet codecs', () => {
     )
     expect(result).toHaveLength(1001)
     expect(list).toHaveBeenCalledTimes(2)
+    expect(list.mock.calls[1][1]).toContain('offset=1000')
+  })
+
+  it('requests controlled notebook recalculation without accepting stale cache locally', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ status: 'completed' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
+    await expect(
+      requestScientificCalculation(
+        '10000000-0000-4000-8000-000000000001',
+        fetchImpl,
+      ),
+    ).resolves.toMatchObject({ status: 'completed' })
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body)).toEqual({
+      recordId: '10000000-0000-4000-8000-000000000001',
+    })
+  })
+
+  it('loads every trusted-result status page', async () => {
+    const list = vi
+      .fn()
+      .mockResolvedValueOnce(Array.from({ length: 1000 }, () => ({})))
+      .mockResolvedValueOnce([{}])
+    const result = await fetchScientificCalculationResults(
+      { list } as never,
+      '10000000-0000-4000-8000-000000000001',
+    )
+    expect(result).toHaveLength(1001)
     expect(list.mock.calls[1][1]).toContain('offset=1000')
   })
 })

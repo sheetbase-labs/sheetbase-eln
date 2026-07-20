@@ -23,7 +23,7 @@ you lose it, revoke and create a new one.
 | ------------------- | ------------------------------------------------------------------------------------------- |
 | `projects:read`     | Read projects in the credential's workspace.                                                |
 | `projects:write`    | Create/update projects in the credential's workspace.                                       |
-| `scientific:read`   | Discover scientific metadata and read generated rows.                                       |
+| `scientific:read`   | Discover scientific/formula metadata, generated rows, and status-aware calculated results.  |
 | `scientific:write`  | Insert literal rows; use with `scientific:read` for canonical update/delete and bulk edits. |
 | `scientific:schema` | Call controlled scientific table/column management RPCs; does not imply row access.         |
 
@@ -138,7 +138,19 @@ curl --fail -H "Authorization: Bearer $TOKEN" \
   -H 'content-type: application/json' \
   -d '{"p_table_id":"<table-uuid>","p_expected_schema_version":1,"p_edits":[{"rowId":"<row-uuid>","expectedVersion":2,"values":{"<column-uuid>":2.0}}]}' \
   http://localhost:3000/api/db/rpc/apply_scientific_row_edits
+
+# Read formula definitions and trusted result states for one sheet. A
+# calculated_value is returned only when calculation_status=current.
+curl --fail -G -H "Authorization: Bearer $TOKEN" \
+  --data-urlencode 'select=formula_id,target_row_id,target_column_id,source_expression,calculation_status,calculated_value,calculation_error_code,current_input_revision,cache_input_revision' \
+  --data-urlencode 'target_table_id=eq.<table-uuid>' \
+  http://localhost:3000/api/db/formula_results
 ```
+
+`formula_definitions` and `formula_dependencies` expose durable provenance.
+`formula_results` is the safe calculated-result projection: `pending`, `stale`,
+`failed`, and `unavailable` rows never expose a cached scalar as current source
+data. Generated `sheet_…` resources remain the authoritative literal surface.
 
 For local development, substitute the exposed application portal for
 `http://localhost:3000`. External clients never call PostgREST directly.

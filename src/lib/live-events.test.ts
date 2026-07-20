@@ -241,6 +241,7 @@ describe('createLiveEventCoordinator', () => {
       ['scientific-tables', 'rec-1'],
       ['scientific-rows', 'table-1'],
       ['scientific-all-rows', 'table-1'],
+      ['scientific-calculation-results'],
     ])
     expect(
       keysFor({
@@ -266,6 +267,7 @@ describe('createLiveEventCoordinator', () => {
     ).toEqual([
       ['scientific-rows', 'table-1'],
       ['scientific-all-rows', 'table-1'],
+      ['scientific-calculation-results'],
     ])
     expect(
       keysFor({ entityType: 'formula', payload: { tableId: 'table-1' } }),
@@ -273,11 +275,12 @@ describe('createLiveEventCoordinator', () => {
       ['formula', 'table-1'],
       ['scientific-formulas', 'table-1'],
       ['scientific-dependencies'],
+      ['scientific-calculation-results'],
       ['calculation', 'table-1'],
     ])
     expect(
       keysFor({ entityType: 'calculation', payload: { tableId: 'table-1' } }),
-    ).toEqual([['calculation', 'table-1']])
+    ).toEqual([['scientific-calculation-results'], ['calculation', 'table-1']])
     expect(
       spy.mock.calls.some((call) => call[0]!.queryKey?.[0] === 'notebook'),
     ).toBe(false)
@@ -309,6 +312,7 @@ describe('createLiveEventCoordinator', () => {
       'scientific-all-rows',
       'scientific-formulas',
       'scientific-dependencies',
+      'scientific-calculation-results',
       'formula',
       'calculation',
     ])

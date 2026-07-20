@@ -94,6 +94,9 @@ const SCIENTIFIC_METADATA = new Set([
   'scientific_tables',
   'scientific_columns',
   'scientific_category_options',
+  'formula_definitions',
+  'formula_dependencies',
+  'formula_results',
 ])
 const SCIENTIFIC_SCHEMA_RPCS = new Set([
   'create_scientific_table',

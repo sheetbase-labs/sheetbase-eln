@@ -11,12 +11,14 @@ const SOURCE_BLOCK = '72000000-0000-4000-8000-000000000005'
 const USER = 'formula-owner'
 let migrator: Client
 let auth: Client
+let apiClient: Client
 let table: { id: string; resource_name: string; schema_version: number }
 let columns: Array<{ id: string; field_name: string }>
 let rows: Array<{ id: string; version: string }>
 let sourceTable: { id: string; resource_name: string; schema_version: number }
 let sourceColumns: Array<{ id: string; field_name: string }>
 let sourceRows: Array<{ id: string; version: string }>
+let formulaId: string
 
 const artifact = (
   sourceRow: string,
@@ -61,6 +63,40 @@ async function write(payload: Record<string, unknown>) {
   }
 }
 
+async function calculate(
+  revision: number,
+  outcome: 'completed' | 'failed',
+  results: Array<Record<string, unknown>>,
+  schemaVersions?: Record<string, number>,
+) {
+  await migrator.query('SET ROLE formula_writer')
+  try {
+    return (
+      await migrator.query(
+        `SELECT internal.apply_trusted_calculation($1,$2,$3,$4,$5::jsonb,$6::jsonb,$7,$8,$9) result`,
+        [
+          USER,
+          RECORD,
+          revision,
+          outcome,
+          JSON.stringify(results),
+          JSON.stringify(
+            schemaVersions ?? {
+              [table.id]: table.schema_version,
+              [sourceTable.id]: sourceTable.schema_version,
+            },
+          ),
+          'fnv1a32-0c96cef0',
+          'fnv1a32-5678abcd',
+          outcome === 'failed' ? 'Calculation worker failed.' : null,
+        ],
+      )
+    ).rows[0].result
+  } finally {
+    await migrator.query('RESET ROLE')
+  }
+}
+
 beforeAll(async () => {
   const prepared = await prepareTestDatabase()
   migrator = prepared.migrator
@@ -96,6 +132,16 @@ beforeAll(async () => {
   await auth.query('SET ROLE authenticated')
   await auth.query(`SELECT set_config('request.jwt.claims',$1,false)`, [
     JSON.stringify({ role: 'authenticated', sub: USER, workspace_id: WS }),
+  ])
+  apiClient = await prepared.asRole('authenticator')
+  await apiClient.query('SET ROLE api_client')
+  await apiClient.query(`SELECT set_config('request.jwt.claims',$1,false)`, [
+    JSON.stringify({
+      role: 'api_client',
+      credential_id: '72000000-0000-4000-8000-000000000099',
+      workspace_id: WS,
+      scopes: ['scientific:read'],
+    }),
   ])
   const made = (
     await auth.query(
@@ -151,7 +197,9 @@ beforeAll(async () => {
   ).rows
 })
 
-afterAll(async () => Promise.all([migrator?.end(), auth?.end()]))
+afterAll(async () =>
+  Promise.all([migrator?.end(), auth?.end(), apiClient?.end()]),
+)
 
 describe('CALC-002 formula persistence', () => {
   it('derives nested range dependencies exactly and supports required targets', async () => {
@@ -188,6 +236,44 @@ describe('CALC-002 formula persistence', () => {
       formulas: '1',
       rows: '1',
     })
+    const formula = (
+      await migrator.query(`SELECT id,version FROM api.formula_definitions`)
+    ).rows[0]
+    formulaId = formula.id
+    expect(
+      (
+        await auth.query(
+          `SELECT calculation_status,calculated_value FROM api.formula_results`,
+        )
+      ).rows[0],
+    ).toMatchObject({ calculation_status: 'pending', calculated_value: null })
+    await calculate(Number(persisted.rows[0].revision), 'completed', [
+      {
+        formulaId,
+        formulaVersion: 1,
+        status: 'completed',
+        resultKind: 'value',
+        value: 5,
+      },
+    ])
+    expect(
+      (
+        await auth.query(
+          `SELECT calculation_status,calculated_value,cache_input_revision FROM api.formula_results`,
+        )
+      ).rows[0],
+    ).toMatchObject({
+      calculation_status: 'current',
+      calculated_value: 5,
+      cache_input_revision: persisted.rows[0].revision,
+    })
+    expect(
+      (
+        await apiClient.query(
+          `SELECT calculation_status,calculated_value FROM api.formula_results`,
+        )
+      ).rows[0],
+    ).toMatchObject({ calculation_status: 'current', calculated_value: 5 })
     rows[1].version = '2'
   })
 
@@ -229,6 +315,76 @@ describe('CALC-002 formula persistence', () => {
         [rows[0].id],
       ),
     ).resolves.toBeDefined()
+    expect(
+      (
+        await auth.query(
+          `SELECT calculation_status,calculated_value FROM api.formula_results`,
+        )
+      ).rows[0],
+    ).toMatchObject({ calculation_status: 'stale', calculated_value: null })
+    expect(
+      (
+        await apiClient.query(
+          `SELECT calculation_status,calculated_value FROM api.formula_results`,
+        )
+      ).rows[0],
+    ).toMatchObject({ calculation_status: 'stale', calculated_value: null })
+    const revision = Number(
+      (
+        await migrator.query(
+          `SELECT calculation_input_revision FROM api.records WHERE id=$1`,
+          [RECORD],
+        )
+      ).rows[0].calculation_input_revision,
+    )
+    await expect(
+      calculate(revision - 1, 'completed', [
+        {
+          formulaId,
+          formulaVersion: 1,
+          status: 'completed',
+          resultKind: 'value',
+          value: 9,
+        },
+      ]),
+    ).rejects.toMatchObject({ code: 'SB001' })
+    await expect(calculate(revision, 'completed', [])).rejects.toMatchObject({
+      code: 'SB001',
+    })
+    await expect(
+      calculate(
+        revision,
+        'completed',
+        [
+          {
+            formulaId,
+            formulaVersion: 1,
+            status: 'completed',
+            resultKind: 'value',
+            value: 9,
+          },
+        ],
+        { [table.id]: table.schema_version },
+      ),
+    ).rejects.toMatchObject({ code: 'SB001' })
+    await calculate(revision, 'failed', [])
+    expect(
+      (
+        await auth.query(
+          `SELECT calculation_status,calculation_error_code FROM api.formula_results`,
+        )
+      ).rows[0],
+    ).toMatchObject({
+      calculation_status: 'failed',
+      calculation_error_code: 'WORKER_FAILED',
+    })
+    expect(
+      (
+        await apiClient.query(
+          `SELECT calculation_status,calculation_error_code FROM api.formula_results`,
+        )
+      ).rows[0].calculation_status,
+    ).toBe('failed')
   })
 
   it('updates and removes once each and does not deadlock against direct REST row writes', async () => {
@@ -244,6 +400,31 @@ describe('CALC-002 formula persistence', () => {
       artifact: artifact(sourceRows[0].id, sourceColumns[0].id, sourceTable.id),
     })
     expect(updated).toMatchObject({ version: 2, rowVersion: 3 })
+    expect(
+      (await auth.query(`SELECT calculation_status FROM api.formula_results`))
+        .rows[0].calculation_status,
+    ).toBe('stale')
+    await calculate(Number(updated.calculationInputRevision), 'completed', [
+      {
+        formulaId,
+        formulaVersion: 2,
+        status: 'completed',
+        resultKind: 'error',
+        errorCode: 'CYCLE',
+        diagnostic: 'A cycle was detected.',
+      },
+    ])
+    expect(
+      (
+        await auth.query(
+          `SELECT calculation_status,calculated_value,calculation_error_code FROM api.formula_results`,
+        )
+      ).rows[0],
+    ).toMatchObject({
+      calculation_status: 'current',
+      calculated_value: null,
+      calculation_error_code: 'CYCLE',
+    })
     await expect(
       auth.query(`DELETE FROM api.${sourceTable.resource_name} WHERE id=$1`, [
         sourceRows[0].id,
@@ -298,6 +479,9 @@ describe('CALC-002 formula persistence', () => {
       removed: true,
       rowVersion: 4,
     })
+    expect(
+      (await auth.query(`SELECT * FROM api.formula_results`)).rows,
+    ).toEqual([])
     const counts = (
       await migrator.query(
         `SELECT calculation_input_revision revision,(SELECT count(*) FROM api.change_events WHERE entity_type='formula') formulas FROM api.records WHERE id=$1`,

@@ -19,6 +19,8 @@ const mocks = vi.hoisted(() => ({
   allRows: vi.fn(),
   formulas: vi.fn(),
   dependencies: vi.fn(),
+  calculationResults: vi.fn(),
+  calculate: vi.fn(),
   formulaMutation: vi.fn(),
   apply: vi.fn(),
   add: vi.fn(),
@@ -36,6 +38,8 @@ vi.mock('#/lib/scientific-sheet-data', async (load) => ({
   fetchAllScientificRows: mocks.allRows,
   fetchScientificFormulas: mocks.formulas,
   fetchScientificDependencies: mocks.dependencies,
+  fetchScientificCalculationResults: mocks.calculationResults,
+  requestScientificCalculation: mocks.calculate,
   mutateScientificFormula: mocks.formulaMutation,
   applyScientificRowChanges: mocks.apply,
   addScientificColumn: mocks.add,
@@ -131,6 +135,8 @@ beforeEach(() => {
   mocks.allRows.mockResolvedValue([])
   mocks.formulas.mockResolvedValue([])
   mocks.dependencies.mockResolvedValue([])
+  mocks.calculationResults.mockResolvedValue([])
+  mocks.calculate.mockResolvedValue({ status: 'completed' })
   mocks.formulaMutation.mockResolvedValue({})
 })
 
@@ -368,6 +374,17 @@ describe('ScientificSheetBlock', () => {
         created_at: '2026-01-02T00:00:00Z',
       },
     ])
+    mocks.calculationResults.mockResolvedValue([
+      {
+        formula_id: '10000000-0000-4000-8000-000000000005',
+        target_table_id: tableId,
+        target_row_id: targetRow,
+        target_column_id: columnId,
+        calculation_status: 'current',
+        calculated_value: 6,
+        calculation_error_code: null,
+      },
+    ])
     mount({ block: { ...block, payload: { tableId } } })
     await ready()
     await waitFor(() => expect(mocks.settings!.data[1].col_number).toBe(6))
@@ -382,6 +399,13 @@ describe('ScientificSheetBlock', () => {
     expect(
       screen.getByText(/Result: 6 · supported · Dependencies: 1/),
     ).toBeTruthy()
+    expect(screen.getByText(/Trusted cache: current · 6/)).toBeTruthy()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Recalculate trusted results' }),
+    )
+    await waitFor(() =>
+      expect(mocks.calculate).toHaveBeenCalledWith(block.recordId),
+    )
     expect(screen.getByText(/Inspect 1 stable dependencies/)).toBeTruthy()
     fireEvent.click(screen.getByText(/Inspect 1 stable dependencies/))
     expect(screen.getByText(/Results · row 1 · Mass/)).toBeTruthy()

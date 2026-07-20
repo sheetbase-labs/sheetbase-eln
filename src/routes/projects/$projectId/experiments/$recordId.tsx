@@ -76,13 +76,10 @@ function ExperimentNotebookRoute() {
   const blocksQuery = useQuery({
     queryKey: notebookQueryKeys.blocks(recordId),
     queryFn: () => fetchBlocksForRecord(notebookDataClient, recordId),
-    // Blocks are meaningless without the record; gate on its presence.
-    enabled: !!recordQuery.data,
   })
   const linksQuery = useQuery({
     queryKey: notebookQueryKeys.links(recordId),
     queryFn: () => fetchLinksForRecord(notebookDataClient, recordId),
-    enabled: !!recordQuery.data,
   })
 
   const project = projectQuery.data ?? null

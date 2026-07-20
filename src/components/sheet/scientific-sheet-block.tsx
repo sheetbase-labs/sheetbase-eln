@@ -168,6 +168,8 @@ function SchemaConfigurator({
   table,
   tableId,
   readOnly,
+  open,
+  onOpenChange,
   draftColumnIds,
   rowMutationPending,
   formulaDependencies,
@@ -176,12 +178,13 @@ function SchemaConfigurator({
   table: ScientificTableWire
   tableId: string
   readOnly: boolean
+  open: boolean
+  onOpenChange: (open: boolean) => void
   draftColumnIds: Set<string>
   rowMutationPending: boolean
   formulaDependencies: FormulaDependencyWire[]
   onSuccess: () => Promise<void>
 }) {
-  const [open, setOpen] = useState(false)
   const [name, setName] = useState(table.name)
   const [label, setLabel] = useState('')
   const [type, setType] = useState<ScientificLogicalType>('text')
@@ -282,7 +285,7 @@ function SchemaConfigurator({
           <button
             type="button"
             className="rounded-md px-2 py-1 font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-            onClick={() => setOpen((value) => !value)}
+            onClick={() => onOpenChange(!open)}
           >
             {open ? 'Close configuration' : 'Configure table'}
           </button>
@@ -667,6 +670,7 @@ export function ScientificSheetBlock({
   )
   const [drafts, setDrafts] = useState<Record<string, DraftCell>>({})
   const [selected, setSelected] = useState<WorkbookCellAddress | null>(null)
+  const [configurationOpen, setConfigurationOpen] = useState(false)
   const [formulaSource, setFormulaSource] = useState('')
   const [formulaStatus, setFormulaStatus] = useState('')
   const nextGeneration = useRef(0)
@@ -691,18 +695,25 @@ export function ScientificSheetBlock({
   const formulasQuery = useQuery({
     queryKey: scientificQueryKeys.formulas(tableId),
     queryFn: () => fetchScientificFormulas(scientificDataClient, tableId),
-    enabled: !!table,
+    enabled: !!tableId,
   })
   const dependenciesQuery = useQuery({
     queryKey: scientificQueryKeys.dependencies(tableId),
     queryFn: () => fetchScientificDependencies(scientificDataClient, tableId),
-    enabled: !!table,
+    enabled: !!tableId && configurationOpen,
   })
   const calculationResultsQuery = useQuery({
     queryKey: scientificQueryKeys.calculationResults(tableId),
     queryFn: () =>
       fetchScientificCalculationResults(scientificDataClient, tableId),
-    enabled: !!table,
+    enabled:
+      !!tableId &&
+      !!selected &&
+      !!formulasQuery.data?.some(
+        (formula) =>
+          formula.target_row_id === selected.rowId &&
+          formula.target_column_id === selected.columnId,
+      ),
   })
   const formulaByCell = useMemo(
     () =>
@@ -1136,6 +1147,8 @@ export function ScientificSheetBlock({
         table={table}
         tableId={tableId}
         readOnly={readOnly}
+        open={configurationOpen}
+        onOpenChange={setConfigurationOpen}
         draftColumnIds={
           new Set(Object.values(drafts).map((draft) => draft.columnId))
         }

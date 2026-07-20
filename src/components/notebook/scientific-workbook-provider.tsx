@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react'
 import type { ReactNode } from 'react'
@@ -27,6 +28,8 @@ export function ScientificWorkbookProvider({
   children: ReactNode
 }) {
   const [tables, setTables] = useState<Map<string, WorkbookTable>>(new Map())
+  const [workbook, setWorkbook] = useState<ScientificWorkbook | null>(null)
+  const workbookRef = useRef<ScientificWorkbook | null>(null)
   const register = useCallback(
     (blockId: string, table: WorkbookTable | null) => {
       setTables((current) => {
@@ -40,15 +43,33 @@ export function ScientificWorkbookProvider({
     },
     [],
   )
-  const workbook = useMemo(() => {
-    if (!tables.size) return null
-    try {
-      return buildScientificWorkbook([...tables.values()])
-    } catch {
-      return null
-    }
+  useEffect(() => {
+    // Sheet queries often settle in the same browser turn. Build after those
+    // registrations have coalesced instead of synchronously rebuilding the
+    // complete HyperFormula workbook once per arriving sheet.
+    const timeout = window.setTimeout(() => {
+      let next: ScientificWorkbook | null = null
+      if (tables.size) {
+        try {
+          next = buildScientificWorkbook([...tables.values()])
+        } catch {
+          next = null
+        }
+      }
+      const previous = workbookRef.current
+      workbookRef.current = next
+      setWorkbook(next)
+      previous?.destroy()
+    }, 0)
+    return () => window.clearTimeout(timeout)
   }, [tables])
-  useEffect(() => () => workbook?.destroy(), [workbook])
+  useEffect(
+    () => () => {
+      workbookRef.current?.destroy()
+      workbookRef.current = null
+    },
+    [],
+  )
   const value = useMemo(() => ({ register, workbook }), [register, workbook])
   return (
     <WorkbookContext.Provider value={value}>

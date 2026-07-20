@@ -182,6 +182,21 @@ describe('ScientificSheetBlock', () => {
     expect(settings.data[0].col_category).toBe('Ready')
   })
 
+  it('defers configuration and trusted-cache metadata until interaction', async () => {
+    mocks.table.mockResolvedValue(table)
+    mocks.rows.mockResolvedValue([{ id: 'r1', version: 1 }])
+    mount()
+    const settings = await ready()
+    expect(mocks.dependencies).not.toHaveBeenCalled()
+    expect(mocks.calculationResults).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Configure table' }))
+    await waitFor(() => expect(mocks.dependencies).toHaveBeenCalledTimes(1))
+
+    settings.afterSelectionEnd(0, 0)
+    expect(mocks.calculationResults).not.toHaveBeenCalled()
+  })
+
   it('submits one batch for multiple existing cells and mixed spare rows', async () => {
     mocks.table.mockResolvedValue(table)
     mocks.rows.mockResolvedValue([{ id: 'r1', version: 4, col_text: 'old' }])

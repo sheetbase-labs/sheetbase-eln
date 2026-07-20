@@ -355,7 +355,7 @@ describe('Virus Stability demo fixtures', () => {
     const { rows: demoRec } = await migrator.query<{ title: string }>(
       `SELECT title FROM api.records WHERE id = '${DEMO_VIRUS_STABILITY_RECORD_ID}'`,
     )
-    expect(demoRec[0]?.title).toBe('Virus Stability at 4C')
+    expect(demoRec[0]?.title).toBe('Virus Stability at 4°C')
 
     const { rows: proj } = await migrator.query<{ n: string }>(
       `SELECT count(*)::text AS n FROM api.projects

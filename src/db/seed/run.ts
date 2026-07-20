@@ -169,7 +169,7 @@ export const demoSteps: Array<SeedStep> = [
     },
   },
   {
-    name: 'demo experiment: Virus Stability at 4C',
+    name: 'demo experiment: Virus Stability at 4°C',
     run: async (db) => {
       await db
         .insert(schema.records)
@@ -179,7 +179,7 @@ export const demoSteps: Array<SeedStep> = [
           projectId: DEMO_VIRUS_STABILITY_PROJECT_ID,
           kind: 'experiment',
           identifier: DEMO_VIRUS_STABILITY_RECORD_IDENTIFIER,
-          title: 'Virus Stability at 4C',
+          title: 'Virus Stability at 4°C',
           status: 'in_progress',
           tags: ['stability', 'qPCR', 'LVV-CAR-T'],
           createdByUserId: FIXTURE_USER_ID,
@@ -187,7 +187,7 @@ export const demoSteps: Array<SeedStep> = [
         .onConflictDoUpdate({
           target: [schema.records.projectId, schema.records.identifier],
           set: {
-            title: 'Virus Stability at 4C',
+            title: 'Virus Stability at 4°C',
             status: 'in_progress',
             tags: ['stability', 'qPCR', 'LVV-CAR-T'],
             deletedAt: null,
@@ -203,7 +203,7 @@ export const demoSteps: Array<SeedStep> = [
         {
           id: DEMO_BLOCK_IDS.title,
           type: 'heading',
-          payload: { level: 1, text: 'Virus Stability at 4C' },
+          payload: { level: 1, text: 'Virus Stability at 4°C' },
           order: 1,
         },
         {
@@ -216,7 +216,7 @@ export const demoSteps: Array<SeedStep> = [
           id: DEMO_BLOCK_IDS.objectiveBody,
           type: 'rich_text',
           payload: {
-            body: 'Evaluate the stability of the LVV-CAR-T vector when stored at 4C across a 28-day window.',
+            body: 'Evaluate LVV-CAR-T vector stability at 4 °C across a 28-day window with durable formulas and calculation provenance.',
           },
           order: 3,
         },
@@ -231,9 +231,9 @@ export const demoSteps: Array<SeedStep> = [
           type: 'list',
           payload: {
             items: [
-              'LVV-CAR-T drug substance (Lot A)',
-              'DPBS storage buffer',
-              '1.5 mL cryotubes',
+              'LVV-CAR-T drug substance (Lot LVV-250601)',
+              'DPBS, sterile filtered',
+              '1.5 mL low-bind tubes',
               'TaqMan qPCR kit',
             ],
             ordered: false,
@@ -253,16 +253,20 @@ export const demoSteps: Array<SeedStep> = [
             columns: [
               'Timepoint (days)',
               'Replicate',
-              'Volume (uL)',
+              'Volume (µL)',
               'Storage condition',
             ],
             rows: [
-              [0, 1, 100, '4C'],
-              [0, 2, 100, '4C'],
-              [7, 1, 100, '4C'],
-              [7, 2, 100, '4C'],
-              [14, 1, 100, '4C'],
-              [28, 1, 100, '4C'],
+              [0, 1, 100, '4 °C'],
+              [0, 2, 100, '4 °C'],
+              [7, 1, 100, '4 °C'],
+              [7, 2, 100, '4 °C'],
+              [14, 1, 100, '4 °C'],
+              [14, 2, 100, '4 °C'],
+              [21, 1, 100, '4 °C'],
+              [21, 2, 100, '4 °C'],
+              [28, 1, 100, '4 °C'],
+              [28, 2, 100, '4 °C'],
             ],
           },
           order: 7,

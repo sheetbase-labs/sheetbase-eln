@@ -82,6 +82,33 @@ describe('NotebookDocument — rendering', () => {
     fireEvent.click(container.querySelector('#block-b1')!)
     expect(screen.getByLabelText('Heading text')).toBeTruthy()
   })
+
+  it('renders an honest, labelled results chart preview', () => {
+    render(
+      <NotebookDocument
+        record={record}
+        blocks={[
+          {
+            ...headingBlock('chart-1', ''),
+            type: 'chart',
+            payload: { title: 'Vector genome copy number (qPCR)' },
+          },
+        ]}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+      />,
+    )
+
+    expect(
+      screen.getByRole('figure', {
+        name: 'Vector genome copy number (qPCR)',
+      }),
+    ).toBeTruthy()
+    expect(screen.getByText('Illustrative preview')).toBeTruthy()
+    expect(screen.getByText('Log Y')).toBeTruthy()
+  })
 })
 
 describe('NotebookDocument — insertion', () => {

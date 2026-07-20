@@ -67,14 +67,14 @@ export interface NotebookBlockProps {
 }
 
 const stateRing: Record<NotebookBlockState, string> = {
-  default: 'border-transparent hover:border-border/80',
-  selected: 'border-primary/60 bg-card ring-1 ring-primary/20',
-  editing: 'border-primary/70 bg-card ring-1 ring-primary/30',
-  dragging: 'border-primary/60 opacity-60 shadow-md',
-  invalid: 'border-destructive/70 ring-2 ring-destructive/40',
-  locked: 'border-border bg-muted/30',
-  loading: 'border-border',
-  'read-only': 'border-border bg-muted/20',
+  default: 'bg-transparent',
+  selected: 'bg-primary/[0.025] ring-1 ring-inset ring-primary/20',
+  editing: 'bg-primary/[0.025] ring-1 ring-inset ring-primary/30',
+  dragging: 'bg-background opacity-60 shadow-sm',
+  invalid: 'ring-1 ring-inset ring-destructive/60',
+  locked: 'bg-muted/20',
+  loading: 'bg-transparent',
+  'read-only': 'bg-transparent',
 }
 
 export function NotebookBlock({
@@ -98,20 +98,17 @@ export function NotebookBlock({
   return (
     <div
       className={cn(
-        'group relative rounded-md border bg-transparent px-4 py-2 transition-[border-color,background-color,box-shadow] focus-within:shadow-xs',
-        (state === 'editing' || state === 'selected') && 'pt-8',
+        'group relative rounded-none border-0 bg-transparent px-6 py-3 transition-[background-color,box-shadow]',
         stateRing[state],
         className,
       )}
       aria-label={ariaLabel}
+      data-block-type={label}
       data-state={state}
     >
-      <span className="absolute -left-9 top-3 hidden w-8 text-right text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70 lg:block">
-        {label}
-      </span>
       {/* Drag handle — focusable, visible on hover/focus, keyboard-operable */}
       {draggable ? (
-        <div className="absolute -left-7 top-4 hidden items-center lg:flex">
+        <div className="absolute left-0 top-7 hidden items-center lg:flex">
           <button
             type="button"
             aria-label="Drag block"

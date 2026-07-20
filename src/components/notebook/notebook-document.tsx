@@ -503,7 +503,7 @@ function NotebookDocumentContent({
   }
 
   return (
-    <div className={cn('space-y-3', className)}>
+    <div className={cn('space-y-0', className)}>
       {orderedIds.map((id, index) => {
         const block = blockById.get(id)
         if (!block) return null

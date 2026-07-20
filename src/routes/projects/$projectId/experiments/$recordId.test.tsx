@@ -93,10 +93,10 @@ describe('StickyRecordHeader', () => {
     expect(screen.getByText('In progress')).toBeTruthy()
   })
 
-  it('renders tags as badges', () => {
+  it('keeps tags in the properties inspector instead of the document header', () => {
     render(<StickyRecordHeader record={record} projectName={null} />)
-    expect(screen.getByText('stability')).toBeTruthy()
-    expect(screen.getByText('qPCR')).toBeTruthy()
+    expect(screen.queryByText('stability')).toBeNull()
+    expect(screen.queryByText('qPCR')).toBeNull()
   })
 })
 

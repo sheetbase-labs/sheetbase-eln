@@ -284,7 +284,7 @@ function SchemaConfigurator({
         {!readOnly ? (
           <button
             type="button"
-            className="rounded-md px-2 py-1 font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="rounded-md px-2 py-1 font-medium text-muted-foreground opacity-0 hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover/sheet:opacity-100"
             onClick={() => onOpenChange(!open)}
           >
             {open ? 'Close configuration' : 'Configure table'}
@@ -691,12 +691,12 @@ export function ScientificSheetBlock({
   const allRowsQuery = useQuery({
     queryKey: scientificQueryKeys.allRows(tableId),
     queryFn: () => fetchAllScientificRows(scientificDataClient, table!),
-    enabled: !!table,
+    enabled: !!table && rowsQuery.isSuccess,
   })
   const formulasQuery = useQuery({
     queryKey: scientificQueryKeys.formulas(tableId),
     queryFn: () => fetchScientificFormulas(scientificDataClient, tableId),
-    enabled: !!tableId,
+    enabled: !!table && rowsQuery.isSuccess,
   })
   const dependenciesQuery = useQuery({
     queryKey: scientificQueryKeys.dependencies(tableId),
@@ -1086,6 +1086,7 @@ export function ScientificSheetBlock({
         readOnly,
         fillHandle: !readOnly,
         contextMenu: !readOnly,
+        stretchH: 'all' as const,
         afterChange: (changes: CellChange[] | null, source: ChangeSource) => {
           if (readOnly || !changes || source === 'loadData') return
           const generation = ++nextGeneration.current
@@ -1144,7 +1145,7 @@ export function ScientificSheetBlock({
   if (!table || !settings)
     return <p role="alert">Scientific sheet not found.</p>
   return (
-    <div>
+    <div className="group/sheet">
       <SchemaConfigurator
         table={table}
         tableId={tableId}
@@ -1178,7 +1179,9 @@ export function ScientificSheetBlock({
         </p>
       ) : null}
       <details
-        className="mb-2 border-y bg-muted/10 text-xs"
+        className={
+          formulaToolsOpen ? 'mb-2 border-y bg-muted/10 text-xs' : 'hidden'
+        }
         open={formulaToolsOpen}
         onToggle={(event) => setFormulaToolsOpen(event.currentTarget.open)}
       >
@@ -1338,7 +1341,9 @@ export function ScientificSheetBlock({
       <SheetbaseGrid settings={settings} ariaLabel={table.name} />
       <details className="mt-2 rounded-md border bg-muted/15 text-xs">
         <summary className="cursor-pointer px-3 py-2 font-medium">
-          {(allRowsQuery.data ?? []).length} rows · Import, export and API
+          {(allRowsQuery.data ?? []).length}{' '}
+          {(allRowsQuery.data ?? []).length === 1 ? 'row' : 'rows'} · Sheet
+          tools
         </summary>
         <div className="border-t p-2">
           <ScientificTransferPanel

@@ -14,13 +14,14 @@ beforeAll(() => {
 })
 
 describe('NotebookBlock', () => {
-  it('renders the label and title', () => {
-    render(
+  it('keeps the block type semantic without showing technical chrome', () => {
+    const { container } = render(
       <NotebookBlock label="H2" title="Methods">
         body
       </NotebookBlock>,
     )
-    expect(screen.getByText('H2')).toBeTruthy()
+    expect(screen.queryByText('H2')).toBeNull()
+    expect(container.querySelector('[data-block-type="H2"]')).toBeTruthy()
     expect(screen.getByText('Methods')).toBeTruthy()
     expect(screen.getByText('body')).toBeTruthy()
   })

@@ -187,8 +187,8 @@ function ExperimentNotebookRoute() {
         />
       }
     >
-      <div className="-mx-4 -my-6 min-h-[calc(100svh-3.5rem)] bg-muted/20 px-4 py-6 md:-mx-8 md:px-6">
-        <div className="mx-auto max-w-[1100px] space-y-4 rounded-lg border bg-background px-6 pb-12 shadow-xs">
+      <div className="-mx-4 -my-6 min-h-[calc(100svh-3.5rem)] bg-background md:-mx-8">
+        <div className="mx-auto w-full max-w-[1180px] space-y-2 px-8 pb-16">
           <StickyRecordHeader
             record={record}
             projectName={project?.title ?? null}
@@ -280,25 +280,20 @@ export function StickyRecordHeader({
   onAddBlock?: () => void
 }) {
   return (
-    <div className="sticky top-14 z-20 -mx-6 mb-3 border-b bg-background/95 px-6 py-5 pr-28 backdrop-blur">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+    <div className="relative z-20 -mx-8 mb-2 border-b bg-background px-8 pt-7 pb-5">
+      <h1 className="font-display text-[28px] leading-9 font-semibold tracking-[-0.025em] text-foreground">
+        {record.title}
+      </h1>
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
         <span className="font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           {recordKindLabel(record.kind)}
         </span>
+        <StatusBadge domain="experiment" status={record.status} />
         <span className="font-mono tabular-nums text-muted-foreground">
           {record.identifier}
         </span>
-        <StatusBadge domain="experiment" status={record.status} />
-        {projectName ? (
-          <span className="text-muted-foreground">
-            in <span className="text-foreground">{projectName}</span>
-          </span>
-        ) : null}
       </div>
-      <h1 className="mt-2 truncate text-2xl font-semibold tracking-tight text-foreground">
-        {record.title}
-      </h1>
-      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-muted-foreground">
         <span>
           Created{' '}
           <span className="text-foreground">
@@ -311,23 +306,12 @@ export function StickyRecordHeader({
             {new Date(record.updatedAt).toLocaleDateString()}
           </span>
         </span>
-        {record.tags.length > 0 ? (
-          <span className="inline-flex flex-wrap gap-1">
-            {record.tags.map((tag) => (
-              <span
-                key={tag}
-                className="rounded-full bg-muted px-2 py-0.5 text-[11px]"
-              >
-                {tag}
-              </span>
-            ))}
-          </span>
-        ) : null}
+        {projectName ? <span>{projectName}</span> : null}
       </div>
       {onAddBlock ? (
         <button
           type="button"
-          className="absolute right-6 top-5 inline-flex h-8 items-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground shadow-xs hover:bg-primary/90"
+          className="absolute right-8 bottom-5 inline-flex h-8 items-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground shadow-xs hover:bg-primary/90"
           onClick={onAddBlock}
         >
           + Block

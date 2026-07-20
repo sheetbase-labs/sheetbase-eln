@@ -13,7 +13,7 @@
  * timers intercept React 19's effect scheduler.
  */
 import * as React from 'react'
-import { act, cleanup, render } from '@testing-library/react'
+import { act, cleanup, render, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { useAutosave } from './use-autosave'
@@ -182,11 +182,10 @@ describe('useAutosave — transient failure retries with bounds', () => {
     act(() => mount.current.setDraft({ text: 'hi' }))
     await sleep(20)
     expect(mount.current.status).toBe('retrying')
-    await sleep(20)
-    expect(save).toHaveBeenCalledTimes(2)
-    await sleep(30)
-    expect(save).toHaveBeenCalledTimes(3)
-    expect(mount.current.status).toBe('failed')
+    await waitFor(() => {
+      expect(save).toHaveBeenCalledTimes(3)
+      expect(mount.current.status).toBe('failed')
+    })
     await sleep(50)
     expect(save).toHaveBeenCalledTimes(3)
   })

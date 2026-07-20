@@ -11,6 +11,8 @@ dist-ssr
 .vinxi
 __unconfig*
 coverage
+playwright-report
+test-results
 tmp
 storybook-static
 .amp/

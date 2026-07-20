@@ -604,14 +604,14 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** CALC-004, DATA-004, DATA-005.
 
-- [ ] Add two sheet blocks to a Virus Stability notebook.
-- [ ] Configure real PostgreSQL columns with identifiers, types, units and validation.
-- [ ] Paste or import representative raw data through Handsontable.
-- [ ] Add formulas that calculate within one sheet and reference the second sheet.
-- [ ] Update a literal through an external API credential and observe the grid and dependent result update live.
-- [ ] Rename a display label and confirm stable API and formula identities remain valid.
-- [ ] Trigger validation, conflict, circular-reference and stale-calculation states and confirm each is understandable.
-- [ ] Automate the stable workflow as database, API and browser acceptance tests.
+- [x] Add two sheet blocks to a Virus Stability notebook.
+- [x] Configure real PostgreSQL columns with identifiers, types, units and validation.
+- [x] Paste or import representative raw data through Handsontable.
+- [x] Add formulas that calculate within one sheet and reference the second sheet.
+- [x] Update a literal through an external API credential and observe the grid and dependent result update live.
+- [x] Rename a display label and confirm stable API and formula identities remain valid.
+- [x] Trigger validation, conflict, circular-reference and stale-calculation states and confirm each is understandable.
+- [x] Automate the stable workflow as database, API and browser acceptance tests.
 
 ---
 

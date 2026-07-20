@@ -11,12 +11,12 @@ done names the layers it must touch; not every ticket needs all five.
 | API contract         | Does the HTTP boundary keep its promises: auth, validation, error envelopes, RLS through PostgREST? | Vitest against a running local service stack            | `tests/api/`                              | `pnpm test:api`     |
 | Browser workflow     | Does the whole user journey work in a real browser?                                                 | Playwright                                              | `tests/browser/`                          | `pnpm test:browser` |
 
-Status today: unit and component layers are wired (`pnpm test`,
-jsdom environment). The database integration layer is wired
-(`pnpm test:db`, node environment, fresh migrated `sheetbase_test` per run —
-requires `pnpm services:up`). The API and browser layers are defined here so
-their conventions exist before the tickets that introduce them (API-004 and
-the first browser acceptance proof respectively).
+Status today: all five layers are wired. Unit and component tests run through
+`pnpm test` in jsdom. Database integration uses `pnpm test:db` and a fresh
+migrated `sheetbase_test` per run. API contracts use `pnpm test:api` against
+the running PostgREST stack. Browser workflows use `pnpm test:browser`; the
+Playwright configuration starts an isolated application server and the tests
+create and remove their own authenticated fixtures.
 
 ## Rules that apply at every layer
 
@@ -98,3 +98,18 @@ isolation cases, a scope failure fails in the external-credential case.
 Run the full DB suite (`pnpm test:db`) to also cover AUTH-003 claim
 contracts, AUTH-004 RLS, API-004 RPC, API-005 credential exchange and the
 API-005 follow-up external-path integration.
+
+## Phase 4 sheet-and-formula proof (DATA-006)
+
+`pnpm test:phase4` runs the stable Phase 4 workflow across the component,
+database, real PostgREST and real-browser layers. It proves that a Virus
+Stability notebook can own two managed sheets; typed columns, units,
+validation, CSV import, literals and durable formulas survive display-name
+changes; within-sheet and cross-sheet calculations use stable identities;
+validation, stale-version, circular-reference and stale-cache states remain
+explicit; and an attributed external API edit reaches both Handsontable grids
+and their dependent HyperFormula results through the live-event stream.
+
+The browser proof inserts a short-lived Better Auth session directly, just as
+the OAuth callback would after provider consent. It never contacts GitHub and
+removes its user, workspace, generated resources and events after the run.

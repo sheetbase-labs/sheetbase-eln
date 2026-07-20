@@ -67,9 +67,9 @@ export interface NotebookBlockProps {
 }
 
 const stateRing: Record<NotebookBlockState, string> = {
-  default: 'border-border',
-  selected: 'border-primary ring-2 ring-primary/40',
-  editing: 'border-primary ring-2 ring-primary',
+  default: 'border-transparent hover:border-border/80',
+  selected: 'border-primary/60 bg-card ring-1 ring-primary/20',
+  editing: 'border-primary/70 bg-card ring-1 ring-primary/30',
   dragging: 'border-primary/60 opacity-60 shadow-md',
   invalid: 'border-destructive/70 ring-2 ring-destructive/40',
   locked: 'border-border bg-muted/30',
@@ -98,7 +98,8 @@ export function NotebookBlock({
   return (
     <div
       className={cn(
-        'group relative rounded-lg border bg-card p-4 shadow-xs transition-shadow focus-within:shadow-sm',
+        'group relative rounded-md border bg-transparent px-4 py-2 transition-[border-color,background-color,box-shadow] focus-within:shadow-xs',
+        (state === 'editing' || state === 'selected') && 'pt-8',
         stateRing[state],
         className,
       )}
@@ -121,8 +122,14 @@ export function NotebookBlock({
         </div>
       ) : null}
 
-      <div className="mb-3 flex items-center gap-2">
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <div className="pointer-events-none absolute inset-x-2 top-1 z-10 flex h-6 items-center gap-2">
+        <span
+          className={cn(
+            'rounded bg-card/90 px-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70 transition-opacity',
+            (state === 'default' || state === 'read-only') &&
+              'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100',
+          )}
+        >
           {label}
         </span>
         {title ? (
@@ -144,7 +151,7 @@ export function NotebookBlock({
             aria-label="Block has errors"
           />
         ) : null}
-        <div className="ml-auto flex items-center gap-1">
+        <div className="pointer-events-auto ml-auto flex items-center gap-1">
           {actions}
           {menuItems && menuItems.length > 0 ? (
             <DropdownMenu>

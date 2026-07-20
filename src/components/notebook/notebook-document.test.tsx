@@ -63,6 +63,25 @@ describe('NotebookDocument — rendering', () => {
     expect(container.querySelector('#block-b1')).toBeTruthy()
     expect(container.querySelector('#block-b2')).toBeTruthy()
   })
+
+  it('reads as a document until a block is selected for editing', () => {
+    const { container } = render(
+      <NotebookDocument
+        record={record}
+        blocks={[headingBlock('b1', 'Objective')]}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole('heading', { name: 'Objective' })).toBeTruthy()
+    expect(screen.queryByLabelText('Heading text')).toBeNull()
+
+    fireEvent.click(container.querySelector('#block-b1')!)
+    expect(screen.getByLabelText('Heading text')).toBeTruthy()
+  })
 })
 
 describe('NotebookDocument — insertion', () => {
@@ -700,9 +719,10 @@ describe('NotebookDocument — focus and selection after a move', () => {
     fireEvent.keyDown(row, { key: 'ArrowDown', altKey: true })
     // Wait for the optimistic move + requestAnimationFrame focus to settle.
     await new Promise((r) => setTimeout(r, 50))
-    // The block-b1 anchor should still be the active element after the move.
+    // Selection remains inside block-b1 after the move. Editable blocks may
+    // move focus into their contextual editor rather than the outer anchor.
     const b1Anchor = container.querySelector('#block-b1') as HTMLElement
-    expect(document.activeElement).toBe(b1Anchor)
+    expect(b1Anchor.contains(document.activeElement)).toBe(true)
   })
 
   it('refocuses the moved block after a rollback', async () => {

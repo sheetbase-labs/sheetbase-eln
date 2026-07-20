@@ -339,6 +339,7 @@ describe('NotebookCanvas — editable path', () => {
       </QueryClientProvider>,
     )
     expect(screen.getByRole('button', { name: /Add block/ })).toBeTruthy()
-    expect(screen.getByDisplayValue('Editable')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Editable' })).toBeTruthy()
+    expect(screen.queryByLabelText('Heading text')).toBeNull()
   })
 })

@@ -230,9 +230,11 @@ export function ScientificTransferPanel({
         >
           Export CSV + metadata
         </button>
-        <span className="text-muted-foreground">
-          XLSX is not read directly yet; save one value-only worksheet as CSV.
-        </span>
+        {open ? (
+          <span className="text-muted-foreground">
+            XLSX is not read directly yet; save one value-only worksheet as CSV.
+          </span>
+        ) : null}
       </div>
       {open ? (
         <div className="mt-2 space-y-3 border-t pt-2">

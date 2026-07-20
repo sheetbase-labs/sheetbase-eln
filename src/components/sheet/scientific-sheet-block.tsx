@@ -273,33 +273,36 @@ function SchemaConfigurator({
   }
 
   return (
-    <section className="mb-2 rounded-md border bg-muted/20 p-2 text-xs">
+    <section className="mb-2 border-b pb-2 text-xs">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <strong>{table.name}</strong>
-          <div className="font-mono text-[10px] text-muted-foreground">
-            API resource {table.resource_name} · table UUID {table.id}
-          </div>
+          <strong className="font-display text-sm">{table.name}</strong>
         </div>
         {!readOnly ? (
-          <button type="button" onClick={() => setOpen((value) => !value)}>
+          <button
+            type="button"
+            className="rounded-md px-2 py-1 font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+            onClick={() => setOpen((value) => !value)}
+          >
             {open ? 'Close configuration' : 'Configure table'}
           </button>
         ) : null}
       </div>
-      <p className="mt-1 text-[10px] text-muted-foreground">
-        Labels are editable display text. UUIDs and generated API names are
-        stable identities and never come from labels.
-      </p>
       {formulaDependencies.length ? (
-        <p className="mt-1 text-[10px] text-amber-700" role="status">
+        <p className="mt-0.5 text-[10px] text-amber-700" role="status">
           {new Set(formulaDependencies.map((item) => item.formula_id)).size}{' '}
-          persisted formula(s) depend on this sheet. Referenced source rows and
-          columns must be unbound before deletion or incompatible conversion.
+          persisted formula(s) depend on this sheet
         </p>
       ) : null}
       {open ? (
         <div className="mt-2 space-y-3 border-t pt-2">
+          <p className="font-mono text-[10px] text-muted-foreground">
+            API resource {table.resource_name} · stable table {table.id}
+          </p>
+          <p className="text-[10px] text-muted-foreground">
+            Display labels may change; UUIDs and generated API names remain
+            stable.
+          </p>
           <div className="flex flex-wrap items-end gap-2">
             <label>
               Sheet name
@@ -1159,39 +1162,25 @@ export function ScientificSheetBlock({
           {calculationProblem}
         </p>
       ) : null}
-      <ScientificTransferPanel
-        table={table}
-        rows={allRowsQuery.data ?? []}
-        readOnly={readOnly}
-        onImported={async () => {
-          await Promise.all([
-            tableQuery.refetch(),
-            queryClient.invalidateQueries({
-              queryKey: ['scientific-rows', tableId],
-            }),
-            queryClient.invalidateQueries({
-              queryKey: scientificQueryKeys.allRows(tableId),
-            }),
-          ])
-        }}
-      />
       <section
-        className="mb-2 flex flex-wrap items-center gap-2 rounded border p-2 text-xs"
+        className="mb-2 flex min-h-9 flex-wrap items-center gap-2 border-y bg-muted/15 px-2 py-1 text-xs"
         aria-label="Formula bar"
       >
-        <strong>fx</strong>
+        <strong className="font-display text-sm italic">fx</strong>
         <input
           aria-label="Formula source"
           placeholder="Select a saved cell, then enter =…"
           value={formulaSource}
           disabled={readOnly || !selected}
           onChange={(event) => setFormulaSource(event.target.value)}
+          className="h-7 min-w-48 flex-1 border-0 bg-transparent px-2 font-mono text-xs outline-none placeholder:text-muted-foreground/70"
         />
-        <span className="text-muted-foreground">
+        <span className="hidden text-muted-foreground lg:inline">
           Cross-sheet example: ='Sheet name'!A1
         </span>
         <button
           type="button"
+          className="rounded px-2 py-1 font-medium hover:bg-muted disabled:opacity-40"
           disabled={readOnly || !selected || !formulaSource.startsWith('=')}
           onClick={async () => {
             if (!selected) return
@@ -1321,6 +1310,22 @@ export function ScientificSheetBlock({
         {formulaStatus ? <span role="status">{formulaStatus}</span> : null}
       </section>
       <SheetbaseGrid settings={settings} ariaLabel={table.name} />
+      <ScientificTransferPanel
+        table={table}
+        rows={allRowsQuery.data ?? []}
+        readOnly={readOnly}
+        onImported={async () => {
+          await Promise.all([
+            tableQuery.refetch(),
+            queryClient.invalidateQueries({
+              queryKey: ['scientific-rows', tableId],
+            }),
+            queryClient.invalidateQueries({
+              queryKey: scientificQueryKeys.allRows(tableId),
+            }),
+          ])
+        }}
+      />
       <ScientificApiInspector
         table={table}
         selectedRowId={selected?.rowId}
@@ -1332,23 +1337,25 @@ export function ScientificSheetBlock({
         }
         selectedColumnId={selected?.columnId}
       />
-      <nav aria-label="Sheet pages" className="mt-2 flex gap-2">
-        <button
-          type="button"
-          disabled={page === 0 || rowsQuery.isFetching}
-          onClick={() => setPage((p) => p - 1)}
-        >
-          Previous
-        </button>
-        <span>Page {page + 1}</span>
-        <button
-          type="button"
-          disabled={terminal || rowsQuery.isFetching}
-          onClick={() => setPage((p) => p + 1)}
-        >
-          Next
-        </button>
-      </nav>
+      {page > 0 || !terminal ? (
+        <nav aria-label="Sheet pages" className="mt-2 flex gap-2 text-xs">
+          <button
+            type="button"
+            disabled={page === 0 || rowsQuery.isFetching}
+            onClick={() => setPage((p) => p - 1)}
+          >
+            Previous
+          </button>
+          <span>Page {page + 1}</span>
+          <button
+            type="button"
+            disabled={terminal || rowsQuery.isFetching}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            Next
+          </button>
+        </nav>
+      ) : null}
     </div>
   )
 }

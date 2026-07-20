@@ -81,7 +81,15 @@ function renderHeading(payload: unknown): React.ReactNode {
   const level = asNumber(obj.level)
   const Tag = headingTag(level)
   return (
-    <Tag className="font-display text-lg font-semibold tracking-tight text-foreground">
+    <Tag
+      className={cn(
+        'font-display font-semibold tracking-tight text-foreground',
+        level === 1 && 'text-2xl leading-8',
+        (level === null || level === 2) && 'text-lg leading-7',
+        level === 3 && 'text-base leading-6',
+        level !== null && level >= 4 && 'text-sm leading-5',
+      )}
+    >
       {text || 'Untitled heading'}
     </Tag>
   )

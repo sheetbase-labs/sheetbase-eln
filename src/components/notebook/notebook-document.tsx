@@ -503,7 +503,7 @@ function NotebookDocumentContent({
   }
 
   return (
-    <div className={cn('space-y-3', className)}>
+    <div className={cn('space-y-1', className)}>
       {orderedIds.map((id, index) => {
         const block = blockById.get(id)
         if (!block) return null
@@ -610,7 +610,7 @@ function NotebookDocumentContent({
               >
                 {block.type === 'sheet' ? (
                   <ScientificSheetBlock block={block} readOnly={isReadOnly} />
-                ) : editable ? (
+                ) : editable && isSelected ? (
                   <BlockEditor
                     block={block}
                     save={(payload) => onSaveBlock(block, payload)}

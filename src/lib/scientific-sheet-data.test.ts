@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   decodeScientificValue,
+  fetchScientificDependencies,
   fetchScientificFormulas,
   scientificQueryKeys,
 } from './scientific-sheet-data'
@@ -95,6 +96,23 @@ describe('scientific sheet codecs', () => {
       .mockResolvedValueOnce(first)
       .mockResolvedValueOnce([{ id: 'formula-1000' }])
     const result = await fetchScientificFormulas(
+      { list } as never,
+      '10000000-0000-4000-8000-000000000001',
+    )
+    expect(result).toHaveLength(1001)
+    expect(list).toHaveBeenCalledTimes(2)
+    expect(list.mock.calls[1][1]).toContain('offset=1000')
+  })
+
+  it('loads every source dependency page for schema-change explanations', async () => {
+    const first = Array.from({ length: 1000 }, (_, index) => ({
+      formula_id: `formula-${index}`,
+    }))
+    const list = vi
+      .fn()
+      .mockResolvedValueOnce(first)
+      .mockResolvedValueOnce([{ formula_id: 'formula-1000' }])
+    const result = await fetchScientificDependencies(
       { list } as never,
       '10000000-0000-4000-8000-000000000001',
     )

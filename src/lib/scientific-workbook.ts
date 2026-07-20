@@ -6,6 +6,7 @@ import type {
   RawCellContent,
 } from 'hyperformula'
 import {
+  calculationSheetName,
   emitFormula,
   parseFormula,
   validatePersistedFormulaArtifact,
@@ -25,6 +26,7 @@ import type { ScientificLogicalType } from './scientific-sheet-data'
 
 export interface WorkbookColumn {
   id: string
+  label?: string
   createdAt: string | Date
   logicalType: ScientificLogicalType
   categoryOptionIds?: readonly string[]
@@ -41,6 +43,7 @@ export interface WorkbookRow {
 }
 export interface WorkbookTable {
   id: string
+  name?: string
   columns: readonly WorkbookColumn[]
   rows: readonly WorkbookRow[]
 }
@@ -66,13 +69,7 @@ export type WorkbookResult =
     }
 
 export function scientificSheetName(tableId: string) {
-  if (
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-      tableId,
-    )
-  )
-    throw new Error('Scientific table IDs must be UUIDs.')
-  return `sb_${tableId.toLowerCase().replaceAll('-', '')}`
+  return calculationSheetName(tableId)
 }
 const ERROR_CODES: Record<string, string> = {
   DIV_BY_ZERO: 'DIV_BY_ZERO',
@@ -97,43 +94,55 @@ export class ScientificWorkbook {
   >()
   constructor(tables: readonly WorkbookTable[]) {
     this.engine = createSheetbaseHyperFormula()
-    for (const table of tables) {
-      const stable = <T extends { id: string; createdAt: string | Date }>(
-        values: readonly T[],
-      ) =>
-        [...values].sort((a, b) =>
-          `${new Date(a.createdAt).toISOString()}/${a.id}`.localeCompare(
-            `${new Date(b.createdAt).toISOString()}/${b.id}`,
-          ),
+    const stable = <T extends { id: string; createdAt: string | Date }>(
+      values: readonly T[],
+    ) =>
+      [...values].sort((a, b) =>
+        `${new Date(a.createdAt).toISOString()}/${a.id}`.localeCompare(
+          `${new Date(b.createdAt).toISOString()}/${b.id}`,
+        ),
+      )
+    const normalized = tables.map((table) => ({
+      ...table,
+      rows: stable(table.rows),
+      columns: stable(table.columns),
+    }))
+    // Register every engine sheet before installing any formula so a valid
+    // reference never depends on notebook block render/registration order.
+    for (const table of normalized) {
+      if (table.rows.length > 10_000 || table.columns.length > 256)
+        throw new Error(
+          'Table is unavailable for calculation: profile dimensions exceeded.',
         )
-      this.installTable({
-        ...table,
-        rows: stable(table.rows),
-        columns: stable(table.columns),
-      })
+      const sheetName = scientificSheetName(table.id)
+      this.engine.addSheet(sheetName)
+      const sheetId = this.engine.getSheetId(sheetName)
+      if (sheetId === undefined)
+        throw new Error('HyperFormula did not create the sheet.')
+      this.tables.set(table.id, table)
+      this.sheetIds.set(table.id, sheetId)
     }
+    for (const table of normalized) this.installTable(table)
   }
   private key(address: WorkbookCellAddress) {
     return `${address.tableId}/${address.rowId}/${address.columnId}`
   }
   private maps(table: WorkbookTable): FormulaMaps {
     return {
+      tableId: table.id,
+      name: table.name,
       rowIds: table.rows.map((r) => r.id),
       columnIds: table.columns.map((c) => c.id),
+      tables: [...this.tables.values()].map((candidate) => ({
+        tableId: candidate.id,
+        name: candidate.name,
+        rowIds: candidate.rows.map((row) => row.id),
+        columnIds: candidate.columns.map((column) => column.id),
+      })),
     }
   }
   private installTable(table: WorkbookTable) {
-    if (table.rows.length > 10_000 || table.columns.length > 256)
-      throw new Error(
-        'Table is unavailable for calculation: profile dimensions exceeded.',
-      )
-    const sheetName = scientificSheetName(table.id)
-    this.engine.addSheet(sheetName)
-    const sheetId = this.engine.getSheetId(sheetName)
-    if (sheetId === undefined)
-      throw new Error('HyperFormula did not create the sheet.')
-    this.tables.set(table.id, table)
-    this.sheetIds.set(table.id, sheetId)
+    const sheetId = this.sheetIds.get(table.id)!
     const maps = this.maps(table)
     const content: RawCellContent[][] = table.rows.map((row) =>
       table.columns.map((column) => {
@@ -268,6 +277,16 @@ export class ScientificWorkbook {
           ]
         : []
     })
+  }
+  describe(address: WorkbookCellAddress) {
+    const location = this.locate(address)
+    return {
+      tableName: location.table.name ?? location.table.id,
+      columnName:
+        location.table.columns[location.column].label ?? address.columnId,
+      rowNumber: location.row + 1,
+      columnNumber: location.column + 1,
+    }
   }
   destroy() {
     this.engine.destroy()

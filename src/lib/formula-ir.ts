@@ -19,10 +19,17 @@ export type AnchorFlags = Readonly<{
   rowAbsolute: boolean
 }>
 export type FormulaBinding = Readonly<
-  | { kind: 'cell'; slot: number; cell: CellIdentity; anchor: AnchorFlags }
+  | {
+      kind: 'cell'
+      slot: number
+      tableId?: string
+      cell: CellIdentity
+      anchor: AnchorFlags
+    }
   | {
       kind: 'range'
       slot: number
+      tableId?: string
       members: ReadonlyArray<ReadonlyArray<CellIdentity>>
       start: AnchorFlags
       end: AnchorFlags
@@ -68,8 +75,11 @@ export class FormulaSyntaxError extends Error {
   }
 }
 export interface FormulaMaps {
+  tableId?: string
+  name?: string
   rowIds: readonly string[]
   columnIds: readonly string[]
+  tables?: readonly FormulaMaps[]
 }
 type Token = {
   type:
@@ -77,11 +87,13 @@ type Token = {
     | 'string'
     | 'boolean'
     | 'ref'
+    | 'crossRef'
     | 'identifier'
     | 'operator'
     | 'punct'
     | 'eof'
   text: string
+  sheet?: string
 }
 
 function tokenize(source: string): Token[] {
@@ -99,10 +111,31 @@ function tokenize(source: string): Token[] {
         'syntax',
         'Arrays and spill formulas are not supported.',
       )
+    const quotedCross = /^'((?:[^']|'')+)'!(\$?[A-Za-z]{1,3}\$?\d+)/.exec(rest)
+    if (quotedCross) {
+      tokens.push({
+        type: 'crossRef',
+        text: quotedCross[2],
+        sheet: quotedCross[1].replaceAll("''", "'"),
+      })
+      i += quotedCross[0].length
+      continue
+    }
+    const plainCross =
+      /^([A-Za-z_][A-Za-z0-9_.]*)!(\$?[A-Za-z]{1,3}\$?\d+)/.exec(rest)
+    if (plainCross) {
+      tokens.push({
+        type: 'crossRef',
+        text: plainCross[2],
+        sheet: plainCross[1],
+      })
+      i += plainCross[0].length
+      continue
+    }
     if (/^[!']/.test(rest))
       throw new FormulaSyntaxError(
         'cross-sheet',
-        'Cross-sheet references are reserved for CALC-003.',
+        'Cross-sheet references require a quoted or identifier sheet name.',
       )
     const string = /^"(?:[^"]|"")*"/.exec(rest)
     if (string) {
@@ -202,6 +235,22 @@ export function parseFormula(
   const bindings: FormulaBinding[] = []
   const unsupported = new Set<string>()
   let rangeCells = 0
+  const resolveTable = (sheet?: string) => {
+    if (!sheet) return maps
+    const candidates = (maps.tables ?? []).filter(
+      (table) =>
+        table.name?.toLocaleLowerCase('en-US') ===
+        sheet.toLocaleLowerCase('en-US'),
+    )
+    if (candidates.length !== 1)
+      throw new FormulaSyntaxError(
+        'cross-sheet',
+        candidates.length
+          ? `Sheet name ${sheet} is ambiguous.`
+          : `Sheet ${sheet} was not found in this notebook.`,
+      )
+    return candidates[0]
+  }
   const peek = () => tokens[position]
   const take = () => tokens[position++]
   const expect = (text: string) => {
@@ -212,11 +261,12 @@ export function parseFormula(
       )
     take()
   }
-  const bindingFor = (firstText: string): FormulaNode => {
+  const bindingFor = (firstText: string, sheet?: string): FormulaNode => {
     const first = parseRef(firstText)
+    const referenceTable = resolveTable(sheet)
     const resolve = (ref: ReturnType<typeof parseRef>) => {
-      const rowId = maps.rowIds[ref.row],
-        columnId = maps.columnIds[ref.column]
+      const rowId = referenceTable.rowIds[ref.row],
+        columnId = referenceTable.columnIds[ref.column]
       if (!rowId || !columnId)
         throw new FormulaSyntaxError(
           'reference',
@@ -229,6 +279,7 @@ export function parseFormula(
       bindings.push({
         kind: 'cell',
         slot,
+        ...(sheet ? { tableId: referenceTable.tableId } : {}),
         cell: resolve(first),
         anchor: first.anchor,
       })
@@ -263,6 +314,7 @@ export function parseFormula(
       bindings.push({
         kind: 'range',
         slot,
+        ...(sheet ? { tableId: referenceTable.tableId } : {}),
         members,
         start: first.anchor,
         end: end.anchor,
@@ -298,7 +350,8 @@ export function parseFormula(
       }
     if (token.type === 'boolean')
       return { kind: 'boolean', value: token.text === 'TRUE' }
-    if (token.type === 'ref') return bindingFor(token.text)
+    if (token.type === 'ref' || token.type === 'crossRef')
+      return bindingFor(token.text, token.sheet)
     if (token.text === '(') {
       const node = expression(0)
       expect(')')
@@ -398,8 +451,12 @@ export function buildPersistedFormulaArtifact(
   for (const binding of result.artifact.bindings) {
     const cells =
       binding.kind === 'cell' ? [binding.cell] : binding.members.flat()
+    const sourceTableId = binding.tableId ?? tableId
     for (const cell of cells)
-      dependencies.set(`${cell.rowId}/${cell.columnId}`, { tableId, ...cell })
+      dependencies.set(`${sourceTableId}/${cell.rowId}/${cell.columnId}`, {
+        tableId: sourceTableId,
+        ...cell,
+      })
   }
   return Object.freeze({
     ...result.artifact,
@@ -506,15 +563,27 @@ export function validatePersistedFormulaArtifact(
     if (!record(binding) || binding.slot !== slot)
       fail('binding slots must be bijective and ordered.')
     if (binding.kind === 'cell') {
+      const bindingKeys = binding.tableId
+        ? ['kind', 'slot', 'tableId', 'cell', 'anchor']
+        : ['kind', 'slot', 'cell', 'anchor']
       if (
-        !ownKeys(binding, ['kind', 'slot', 'cell', 'anchor']) ||
+        !ownKeys(binding, bindingKeys) ||
+        (binding.tableId !== undefined &&
+          (typeof binding.tableId !== 'string' ||
+            !UUID.test(binding.tableId))) ||
         !identity(binding.cell) ||
         !anchors(binding.anchor)
       )
         fail('cell binding shape is invalid.')
     } else if (binding.kind === 'range') {
+      const bindingKeys = binding.tableId
+        ? ['kind', 'slot', 'tableId', 'members', 'start', 'end']
+        : ['kind', 'slot', 'members', 'start', 'end']
       if (
-        !ownKeys(binding, ['kind', 'slot', 'members', 'start', 'end']) ||
+        !ownKeys(binding, bindingKeys) ||
+        (binding.tableId !== undefined &&
+          (typeof binding.tableId !== 'string' ||
+            !UUID.test(binding.tableId))) ||
         !anchors(binding.start) ||
         !anchors(binding.end) ||
         !Array.isArray(binding.members) ||
@@ -631,9 +700,12 @@ export function validatePersistedFormulaArtifact(
   for (const binding of bindings as FormulaBinding[]) {
     const cells =
       binding.kind === 'cell' ? [binding.cell] : binding.members.flat()
-    cells.forEach((cell) => expected.add(`${cell.rowId}/${cell.columnId}`))
+    cells.forEach((cell) =>
+      expected.add(`${binding.tableId ?? ''}/${cell.rowId}/${cell.columnId}`),
+    )
   }
   const actual = new Set<string>()
+  const uniqueDependencies = new Set<string>()
   for (const dependency of dependencies) {
     if (
       !record(dependency) ||
@@ -643,9 +715,11 @@ export function validatePersistedFormulaArtifact(
       !identity({ rowId: dependency.rowId, columnId: dependency.columnId })
     )
       fail('dependency shape is invalid.')
-    const key = `${dependency.rowId}/${dependency.columnId}`
-    if (actual.has(key)) fail('dependencies must be unique.')
-    actual.add(key)
+    const key = `${dependency.tableId}/${dependency.rowId}/${dependency.columnId}`
+    const sameTableKey = `/${dependency.rowId}/${dependency.columnId}`
+    if (uniqueDependencies.has(key)) fail('dependencies must be unique.')
+    uniqueDependencies.add(key)
+    actual.add(expected.has(sameTableKey) ? sameTableKey : key)
   }
   if (
     actual.size !== expected.size ||
@@ -653,6 +727,12 @@ export function validatePersistedFormulaArtifact(
   )
     fail('dependencies do not match bindings.')
   return value as unknown as PersistedFormulaArtifact
+}
+
+export function calculationSheetName(tableId: string) {
+  if (!UUID.test(tableId))
+    throw new FormulaSyntaxError('reference', 'Scientific table ID is invalid.')
+  return `sb_${tableId.toLowerCase().replaceAll('-', '')}`
 }
 
 function a1(column: number, row: number, anchor: AnchorFlags) {
@@ -665,13 +745,25 @@ export function emitFormula(
   artifact: FormulaArtifact,
   maps: FormulaMaps,
 ): string {
-  const rows = new Map(maps.rowIds.map((id, i) => [id, i])),
-    columns = new Map(maps.columnIds.map((id, i) => [id, i]))
   const emitBinding = (slot: number) => {
     const binding = artifact.bindings[slot]
+    const sourceMaps = binding.tableId
+      ? (maps.tables ?? []).find((table) => table.tableId === binding.tableId)
+      : maps
+    if (!sourceMaps)
+      throw new FormulaSyntaxError(
+        'reference',
+        'A bound sheet is missing from the notebook workbook.',
+      )
+    const sourceRows = new Map(sourceMaps.rowIds.map((id, i) => [id, i])),
+      sourceColumns = new Map(sourceMaps.columnIds.map((id, i) => [id, i]))
+    const sheetPrefix =
+      binding.tableId && binding.tableId !== maps.tableId
+        ? `'${calculationSheetName(binding.tableId)}'!`
+        : ''
     const coord = (cell: CellIdentity, anchor: AnchorFlags) => {
-      const row = rows.get(cell.rowId),
-        column = columns.get(cell.columnId)
+      const row = sourceRows.get(cell.rowId),
+        column = sourceColumns.get(cell.columnId)
       if (row === undefined || column === undefined)
         throw new FormulaSyntaxError(
           'reference',
@@ -679,14 +771,15 @@ export function emitFormula(
         )
       return a1(column, row, anchor)
     }
-    if (binding.kind === 'cell') return coord(binding.cell, binding.anchor)
+    if (binding.kind === 'cell')
+      return `${sheetPrefix}${coord(binding.cell, binding.anchor)}`
     const first = binding.members[0]?.[0],
       lastRow = binding.members.at(-1),
       last = lastRow?.at(-1) as CellIdentity
-    const firstRow = rows.get(first.rowId),
-      firstColumn = columns.get(first.columnId),
-      lastRowIndex = rows.get(last.rowId),
-      lastColumn = columns.get(last.columnId)
+    const firstRow = sourceRows.get(first.rowId),
+      firstColumn = sourceColumns.get(first.columnId),
+      lastRowIndex = sourceRows.get(last.rowId),
+      lastColumn = sourceColumns.get(last.columnId)
     if (
       firstRow === undefined ||
       firstColumn === undefined ||
@@ -703,8 +796,8 @@ export function emitFormula(
     binding.members.forEach((row, r) =>
       row.forEach((cell, c) => {
         if (
-          rows.get(cell.rowId) !== firstRow + r * rowStep ||
-          columns.get(cell.columnId) !== firstColumn + c * columnStep
+          sourceRows.get(cell.rowId) !== firstRow + r * rowStep ||
+          sourceColumns.get(cell.columnId) !== firstColumn + c * columnStep
         )
           throw new FormulaSyntaxError(
             'reference',
@@ -712,7 +805,7 @@ export function emitFormula(
           )
       }),
     )
-    return `${coord(first, binding.start)}:${coord(last, binding.end)}`
+    return `${sheetPrefix}${coord(first, binding.start)}:${coord(last, binding.end)}`
   }
   const emit = (node: FormulaNode): string => {
     switch (node.kind) {

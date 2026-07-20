@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   rows: vi.fn(),
   allRows: vi.fn(),
   formulas: vi.fn(),
+  dependencies: vi.fn(),
   formulaMutation: vi.fn(),
   apply: vi.fn(),
   add: vi.fn(),
@@ -34,6 +35,7 @@ vi.mock('#/lib/scientific-sheet-data', async (load) => ({
   fetchScientificRows: mocks.rows,
   fetchAllScientificRows: mocks.allRows,
   fetchScientificFormulas: mocks.formulas,
+  fetchScientificDependencies: mocks.dependencies,
   mutateScientificFormula: mocks.formulaMutation,
   applyScientificRowChanges: mocks.apply,
   addScientificColumn: mocks.add,
@@ -128,6 +130,7 @@ async function ready() {
 beforeEach(() => {
   mocks.allRows.mockResolvedValue([])
   mocks.formulas.mockResolvedValue([])
+  mocks.dependencies.mockResolvedValue([])
   mocks.formulaMutation.mockResolvedValue({})
 })
 
@@ -379,6 +382,9 @@ describe('ScientificSheetBlock', () => {
     expect(
       screen.getByText(/Result: 6 · supported · Dependencies: 1/),
     ).toBeTruthy()
+    expect(screen.getByText(/Inspect 1 stable dependencies/)).toBeTruthy()
+    fireEvent.click(screen.getByText(/Inspect 1 stable dependencies/))
+    expect(screen.getByText(/Results · row 1 · Mass/)).toBeTruthy()
   })
 
   it('fully disables mutation affordances in read-only mode', async () => {

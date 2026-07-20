@@ -7,14 +7,22 @@ const WS = '72000000-0000-4000-8000-000000000001'
 const PROJECT = '72000000-0000-4000-8000-000000000002'
 const RECORD = '72000000-0000-4000-8000-000000000003'
 const BLOCK = '72000000-0000-4000-8000-000000000004'
+const SOURCE_BLOCK = '72000000-0000-4000-8000-000000000005'
 const USER = 'formula-owner'
 let migrator: Client
 let auth: Client
 let table: { id: string; resource_name: string; schema_version: number }
 let columns: Array<{ id: string; field_name: string }>
 let rows: Array<{ id: string; version: string }>
+let sourceTable: { id: string; resource_name: string; schema_version: number }
+let sourceColumns: Array<{ id: string; field_name: string }>
+let sourceRows: Array<{ id: string; version: string }>
 
-const artifact = (sourceRow: string, sourceColumn: string) => ({
+const artifact = (
+  sourceRow: string,
+  sourceColumn: string,
+  sourceTableId = table.id,
+) => ({
   version: 1,
   syntaxProfile: 'sheetbase-hf-en-us-v1',
   functionProfile: 'scientific-core-v1',
@@ -27,6 +35,7 @@ const artifact = (sourceRow: string, sourceColumn: string) => ({
     {
       kind: 'range',
       slot: 0,
+      ...(sourceTableId === table.id ? {} : { tableId: sourceTableId }),
       members: [[{ rowId: sourceRow, columnId: sourceColumn }]],
       start: { columnAbsolute: false, rowAbsolute: false },
       end: { columnAbsolute: false, rowAbsolute: false },
@@ -34,7 +43,7 @@ const artifact = (sourceRow: string, sourceColumn: string) => ({
   ],
   engineExpression: '=A1',
   dependencies: [
-    { tableId: table.id, rowId: sourceRow, columnId: sourceColumn },
+    { tableId: sourceTableId, rowId: sourceRow, columnId: sourceColumn },
   ],
 })
 
@@ -79,6 +88,10 @@ beforeAll(async () => {
     `INSERT INTO api.blocks(id,record_id,type,payload,"order",created_by_user_id) VALUES ($1,$2,'sheet','{}',1,$3)`,
     [BLOCK, RECORD, USER],
   )
+  await migrator.query(
+    `INSERT INTO api.blocks(id,record_id,type,payload,"order",created_by_user_id) VALUES ($1,$2,'sheet','{}',2,$3)`,
+    [SOURCE_BLOCK, RECORD, USER],
+  )
   auth = await prepared.asRole('authenticator')
   await auth.query('SET ROLE authenticated')
   await auth.query(`SELECT set_config('request.jwt.claims',$1,false)`, [
@@ -111,6 +124,29 @@ beforeAll(async () => {
   rows = (
     await auth.query(
       `INSERT INTO api.${table.resource_name} (${columns[0].field_name}) VALUES (2),(3) RETURNING id,version`,
+    )
+  ).rows
+  const madeSource = (
+    await auth.query(
+      `SELECT api.create_scientific_table($1,'Source sheet',$2::jsonb) result`,
+      [
+        SOURCE_BLOCK,
+        JSON.stringify([
+          {
+            label: 'External source',
+            logical_type: 'integer',
+            nullable: false,
+            default: 1,
+          },
+        ]),
+      ],
+    )
+  ).rows[0].result
+  sourceTable = madeSource.table
+  sourceColumns = madeSource.columns
+  sourceRows = (
+    await auth.query(
+      `INSERT INTO api.${sourceTable.resource_name} (${sourceColumns[0].field_name}) VALUES (12) RETURNING id,version`,
     )
   ).rows
 })
@@ -205,9 +241,43 @@ describe('CALC-002 formula persistence', () => {
       expectedSchemaVersion: table.schema_version,
       expectedRowVersion: 2,
       expectedFormulaVersion: Number(formula.version),
-      artifact: artifact(rows[0].id, columns[0].id),
+      artifact: artifact(sourceRows[0].id, sourceColumns[0].id, sourceTable.id),
     })
     expect(updated).toMatchObject({ version: 2, rowVersion: 3 })
+    await expect(
+      auth.query(`DELETE FROM api.${sourceTable.resource_name} WHERE id=$1`, [
+        sourceRows[0].id,
+      ]),
+    ).rejects.toMatchObject({ code: '23514' })
+    await expect(
+      auth.query(`SELECT api.delete_block($1,NULL)`, [SOURCE_BLOCK]),
+    ).rejects.toMatchObject({
+      code: '23514',
+      message: expect.stringContaining('persisted formula'),
+    })
+    const conversionEvidence = (
+      await auth.query(
+        `SELECT api.convert_scientific_column($1,$2,'decimal',NULL) result`,
+        [sourceColumns[0].id, sourceTable.schema_version],
+      )
+    ).rows[0].result
+    await expect(
+      auth.query(`SELECT api.convert_scientific_column($1,$2,'decimal',$3)`, [
+        sourceColumns[0].id,
+        sourceTable.schema_version,
+        conversionEvidence.hash,
+      ]),
+    ).rejects.toMatchObject({ code: '23514' })
+    const dependency = (
+      await migrator.query(
+        `SELECT source_table_id,source_row_id,source_column_id FROM api.formula_dependencies`,
+      )
+    ).rows[0]
+    expect(dependency).toMatchObject({
+      source_table_id: sourceTable.id,
+      source_row_id: sourceRows[0].id,
+      source_column_id: sourceColumns[0].id,
+    })
 
     await auth.query('BEGIN')
     await auth.query(

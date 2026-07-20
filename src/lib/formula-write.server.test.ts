@@ -14,6 +14,9 @@ vi.hoisted(() => {
 const tableId = '10000000-0000-4000-8000-000000000001'
 const rowId = '10000000-0000-4000-8000-000000000002'
 const columnId = '10000000-0000-4000-8000-000000000003'
+const sourceTableId = '10000000-0000-4000-8000-000000000006'
+const sourceRowId = '10000000-0000-4000-8000-000000000007'
+const sourceColumnId = '10000000-0000-4000-8000-000000000008'
 
 function request(body: unknown) {
   return new Request('http://sheetbase.test/api/formulas', {
@@ -23,7 +26,7 @@ function request(body: unknown) {
   })
 }
 
-function deps(authenticated = true) {
+function deps(authenticated = true, crossSheet = false) {
   const trustedWrite = vi.fn().mockResolvedValue({
     formulaId: '10000000-0000-4000-8000-000000000004',
     version: 1,
@@ -40,11 +43,34 @@ function deps(authenticated = true) {
           lifecycle: 'active',
           workspace_status: 'active',
           membership_id: '10000000-0000-4000-8000-000000000009',
+          record_id: '10000000-0000-4000-8000-000000000010',
         },
+      ],
+    })
+    .mockResolvedValueOnce({
+      rows: [
+        {
+          id: tableId,
+          name: 'Results',
+          resource_name: `sheet_${'a'.repeat(26)}`,
+        },
+        ...(crossSheet
+          ? [
+              {
+                id: sourceTableId,
+                name: 'Raw measurements',
+                resource_name: `sheet_${'b'.repeat(26)}`,
+              },
+            ]
+          : []),
       ],
     })
     .mockResolvedValueOnce({ rows: [{ id: columnId }] })
     .mockResolvedValueOnce({ rows: [{ id: rowId }] })
+  if (crossSheet) {
+    query.mockResolvedValueOnce({ rows: [{ id: sourceColumnId }] })
+    query.mockResolvedValueOnce({ rows: [{ id: sourceRowId }] })
+  }
   return {
     value: {
       getSession: vi
@@ -127,5 +153,34 @@ describe('formula write route contract', () => {
       error: { code: 'syntax' },
     })
     expect(mock.trustedWrite).not.toHaveBeenCalled()
+  })
+
+  it('resolves friendly cross-sheet names into stable dependency identities', async () => {
+    const mock = deps(true, true)
+    const response = await handleFormulaWrite(
+      request({
+        operation: 'create',
+        target: { tableId, rowId, columnId },
+        expectedSchemaVersion: 2,
+        expectedRowVersion: 1,
+        source: "='Raw measurements'!A1*2",
+      }),
+      mock.value,
+    )
+    expect(response.status).toBe(200)
+    expect(mock.trustedWrite).toHaveBeenCalledWith(
+      'server-actor',
+      expect.objectContaining({
+        artifact: expect.objectContaining({
+          dependencies: [
+            {
+              tableId: sourceTableId,
+              rowId: sourceRowId,
+              columnId: sourceColumnId,
+            },
+          ],
+        }),
+      }),
+    )
   })
 })

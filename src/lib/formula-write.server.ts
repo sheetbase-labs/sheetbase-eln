@@ -7,6 +7,7 @@ import { auth } from '#/lib/auth'
 import { createSheetbaseHyperFormula } from './hyperformula-profile'
 import {
   buildPersistedFormulaArtifact,
+  calculationSheetName,
   FormulaSyntaxError,
   parseFormula,
 } from './formula-ir'
@@ -67,6 +68,7 @@ type TableContext = {
   lifecycle: string
   workspace_status: string
   membership_id: string | null
+  record_id: string
 }
 
 export async function executeFormulaWrite(
@@ -75,7 +77,7 @@ export async function executeFormulaWrite(
   deps: Pick<FormulaWriteDeps, 'query' | 'trustedWrite'>,
 ) {
   const context = await deps.query<TableContext>(
-    `SELECT t.id,t.resource_name,t.schema_version,t.lifecycle,
+    `SELECT t.id,t.resource_name,t.schema_version,t.lifecycle,t.record_id,
             w.status workspace_status,m.id membership_id
        FROM api.scientific_tables t
        JOIN api.workspaces w ON w.id=t.workspace_id
@@ -99,24 +101,46 @@ export async function executeFormulaWrite(
   if (!/^sheet_[a-z2-7]{26}$/.test(table.resource_name))
     throw new Error('Invalid generated scientific resource.')
 
-  const [columns, rows] = await Promise.all([
-    deps.query<{ id: string }>(
-      `SELECT id FROM api.scientific_columns
-        WHERE table_id=$1 AND lifecycle='active' ORDER BY created_at,id`,
-      [table.id],
-    ),
-    // resource_name is checked against a closed generated-name grammar before
-    // interpolation. Values remain parameters.
-    deps.query<{ id: string }>(
-      `SELECT id FROM api."${table.resource_name}" ORDER BY created_at,id LIMIT 10001`,
-      [],
-    ),
-  ])
-  if (rows.rows.length > 10_000)
-    throw Object.assign(new Error('Formula calculation limits exceeded.'), {
-      status: 422,
-      code: 'limit',
-    })
+  const notebookTables = await deps.query<{
+    id: string
+    name: string
+    resource_name: string
+  }>(
+    `SELECT id,name,resource_name FROM api.scientific_tables
+      WHERE record_id=$1 AND lifecycle='active' ORDER BY created_at,id`,
+    [table.record_id],
+  )
+  const maps = await Promise.all(
+    notebookTables.rows.map(async (candidate) => {
+      if (!/^sheet_[a-z2-7]{26}$/.test(candidate.resource_name))
+        throw new Error('Invalid generated scientific resource.')
+      const [columns, rows] = await Promise.all([
+        deps.query<{ id: string }>(
+          `SELECT id FROM api.scientific_columns
+            WHERE table_id=$1 AND lifecycle='active' ORDER BY created_at,id`,
+          [candidate.id],
+        ),
+        // The generated identifier is checked against the closed grammar.
+        deps.query<{ id: string }>(
+          `SELECT id FROM api."${candidate.resource_name}" ORDER BY created_at,id LIMIT 10001`,
+          [],
+        ),
+      ])
+      if (rows.rows.length > 10_000 || columns.rows.length > 256)
+        throw Object.assign(new Error('Formula calculation limits exceeded.'), {
+          status: 422,
+          code: 'limit',
+        })
+      return {
+        tableId: candidate.id,
+        name: candidate.name,
+        rowIds: rows.rows.map((row) => row.id),
+        columnIds: columns.rows.map((column) => column.id),
+      }
+    }),
+  )
+  const targetMaps = maps.find((candidate) => candidate.tableId === table.id)
+  if (!targetMaps) throw new Error('Formula target map is unavailable.')
   const write: Record<string, unknown> = {
     operation: input.operation,
     target: input.target,
@@ -130,20 +154,17 @@ export async function executeFormulaWrite(
     if (input.operation === 'update')
       write.expectedFormulaVersion = input.expectedFormulaVersion
     const parsed = parseFormula(input.source, {
-      rowIds: rows.rows.map((row) => row.id),
-      columnIds: columns.rows.map((column) => column.id),
+      ...targetMaps,
+      tables: maps,
     })
     if (parsed.status === 'supported') {
       const engine = createSheetbaseHyperFormula()
       try {
-        engine.addSheet('target')
-        const sheet = engine.getSheetId('target')
-        const row = rows.rows.findIndex(
-          (item) => item.id === input.target.rowId,
-        )
-        const column = columns.rows.findIndex(
-          (item) => item.id === input.target.columnId,
-        )
+        for (const candidate of maps)
+          engine.addSheet(calculationSheetName(candidate.tableId))
+        const sheet = engine.getSheetId(calculationSheetName(table.id))
+        const row = targetMaps.rowIds.indexOf(input.target.rowId)
+        const column = targetMaps.columnIds.indexOf(input.target.columnId)
         if (sheet === undefined || row < 0 || column < 0)
           throw Object.assign(new Error('Formula target is unavailable.'), {
             status: 422,

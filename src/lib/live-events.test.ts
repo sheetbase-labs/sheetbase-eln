@@ -240,6 +240,7 @@ describe('createLiveEventCoordinator', () => {
       ['scientific-table', 'table-1'],
       ['scientific-tables', 'rec-1'],
       ['scientific-rows', 'table-1'],
+      ['scientific-all-rows', 'table-1'],
     ])
     expect(
       keysFor({
@@ -262,11 +263,16 @@ describe('createLiveEventCoordinator', () => {
         entityType: 'scientific_row',
         payload: { tableId: 'table-1' },
       }),
-    ).toEqual([['scientific-rows', 'table-1']])
+    ).toEqual([
+      ['scientific-rows', 'table-1'],
+      ['scientific-all-rows', 'table-1'],
+    ])
     expect(
       keysFor({ entityType: 'formula', payload: { tableId: 'table-1' } }),
     ).toEqual([
       ['formula', 'table-1'],
+      ['scientific-formulas', 'table-1'],
+      ['scientific-dependencies'],
       ['calculation', 'table-1'],
     ])
     expect(
@@ -300,6 +306,9 @@ describe('createLiveEventCoordinator', () => {
       'scientific-table',
       'scientific-tables',
       'scientific-rows',
+      'scientific-all-rows',
+      'scientific-formulas',
+      'scientific-dependencies',
       'formula',
       'calculation',
     ])

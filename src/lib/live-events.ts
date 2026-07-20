@@ -246,12 +246,18 @@ export function createLiveEventCoordinator(
         void qc.invalidateQueries({
           queryKey: ['scientific-rows', event.entityUuid],
         })
+        void qc.invalidateQueries({
+          queryKey: ['scientific-all-rows', event.entityUuid],
+        })
         break
       }
       case 'scientific_row': {
         const tableId = event.payload.tableId
         if (typeof tableId === 'string') {
           void qc.invalidateQueries({ queryKey: ['scientific-rows', tableId] })
+          void qc.invalidateQueries({
+            queryKey: ['scientific-all-rows', tableId],
+          })
         }
         break
       }
@@ -259,6 +265,12 @@ export function createLiveEventCoordinator(
         const tableId = event.payload.tableId
         if (typeof tableId === 'string') {
           void qc.invalidateQueries({ queryKey: ['formula', tableId] })
+          void qc.invalidateQueries({
+            queryKey: ['scientific-formulas', tableId],
+          })
+          void qc.invalidateQueries({
+            queryKey: ['scientific-dependencies'],
+          })
           void qc.invalidateQueries({ queryKey: ['calculation', tableId] })
         }
         break
@@ -311,6 +323,9 @@ export function createLiveEventCoordinator(
       'scientific-table',
       'scientific-tables',
       'scientific-rows',
+      'scientific-all-rows',
+      'scientific-formulas',
+      'scientific-dependencies',
       'formula',
       'calculation',
     ])
@@ -509,6 +524,9 @@ export function invalidateWorkspaceCollections(
     'scientific-table',
     'scientific-tables',
     'scientific-rows',
+    'scientific-all-rows',
+    'scientific-formulas',
+    'scientific-dependencies',
     'formula',
     'calculation',
   ])

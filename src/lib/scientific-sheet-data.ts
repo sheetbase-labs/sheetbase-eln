@@ -60,6 +60,7 @@ export const scientificQueryKeys = {
   rows: (id: string, page: number) => ['scientific-rows', id, page] as const,
   allRows: (id: string) => ['scientific-all-rows', id] as const,
   formulas: (id: string) => ['scientific-formulas', id] as const,
+  dependencies: (id: string) => ['scientific-dependencies', id] as const,
 }
 export const scientificDataClient = createDataClient()
 
@@ -134,6 +135,29 @@ export interface FormulaDefinitionWire {
   status: 'supported' | 'unsupported'
   version: number | string
   created_at: string
+}
+
+export interface FormulaDependencyWire {
+  formula_id: string
+  source_table_id: string
+  source_row_id: string
+  source_column_id: string
+}
+
+export async function fetchScientificDependencies(
+  client: DataClient,
+  tableId: string,
+) {
+  const result: FormulaDependencyWire[] = []
+  const pageSize = 1000
+  for (let offset = 0; ; offset += pageSize) {
+    const page = await client.list<FormulaDependencyWire>(
+      'formula_dependencies',
+      `?source_table_id=eq.${encodeURIComponent(tableId)}&order=formula_id.asc,source_row_id.asc,source_column_id.asc&limit=${pageSize}&offset=${offset}`,
+    )
+    result.push(...page)
+    if (page.length < pageSize) return result
+  }
 }
 
 export async function fetchScientificFormulas(

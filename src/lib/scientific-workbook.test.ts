@@ -89,6 +89,50 @@ describe('restricted formula IR', () => {
     ).toBe('=B1')
   })
 
+  it('binds friendly cross-sheet names to stable table identities', () => {
+    const sourceTableId = '11111111-1111-4111-8111-111111111112'
+    const parsed = parseFormula("='Raw measurements'!A1*2", {
+      tableId,
+      name: 'Results',
+      ...maps,
+      tables: [
+        { tableId, name: 'Results', ...maps },
+        {
+          tableId: sourceTableId,
+          name: 'Raw measurements',
+          rowIds,
+          columnIds,
+        },
+      ],
+    })
+    expect(parsed.artifact.bindings[0]).toMatchObject({
+      tableId: sourceTableId,
+      cell: { rowId: r1, columnId: c1 },
+    })
+    expect(buildPersistedFormulaArtifact(parsed, tableId).dependencies).toEqual(
+      [{ tableId: sourceTableId, rowId: r1, columnId: c1 }],
+    )
+  })
+
+  it('rejects missing and ambiguous friendly sheet names', () => {
+    const workbookMaps = {
+      tableId,
+      ...maps,
+      tables: [
+        { tableId, name: 'Duplicate', ...maps },
+        {
+          tableId: '11111111-1111-4111-8111-111111111112',
+          name: 'duplicate',
+          ...maps,
+        },
+      ],
+    }
+    expect(() => parseFormula('=Missing!A1', workbookMaps)).toThrow(/not found/)
+    expect(() => parseFormula('=Duplicate!A1', workbookMaps)).toThrow(
+      /ambiguous/,
+    )
+  })
+
   it('preserves reversed ranges and matches HyperFormula operator semantics', () => {
     expect(artifact('=SUM(B2:A1)').engineExpression).toBe('=SUM(B2:A1)')
     for (const [source, expected] of [
@@ -293,6 +337,112 @@ describe('scientific workbook', () => {
       value: 7,
     })
     workbook.destroy()
+  })
+
+  it('rebuilds cross-sheet formulas after display rename and detects workbook cycles', () => {
+    const betaTableId = '11111111-1111-4111-8111-111111111112'
+    const betaRow = '21111111-1111-4111-8111-111111111114'
+    const betaColumn = '31111111-1111-4111-8111-111111111114'
+    const tableMaps = [
+      { tableId, name: 'Alpha', rowIds: [r1], columnIds: [c1] },
+      {
+        tableId: betaTableId,
+        name: 'Beta source',
+        rowIds: [betaRow],
+        columnIds: [betaColumn],
+      },
+    ]
+    const cross = buildPersistedFormulaArtifact(
+      parseFormula("='Beta source'!A1*2", {
+        ...tableMaps[0],
+        tables: tableMaps,
+      }),
+      tableId,
+    )
+    const renamedTables = [
+      {
+        id: tableId,
+        name: 'Renamed result',
+        columns: [{ id: c1, createdAt: '2024-01-01', logicalType: 'decimal' }],
+        rows: [
+          {
+            id: r1,
+            createdAt: '2024-01-01',
+            cells: { [c1]: { formula: cross } },
+          },
+        ],
+      },
+      {
+        id: betaTableId,
+        name: 'Renamed source',
+        columns: [
+          { id: betaColumn, createdAt: '2024-01-01', logicalType: 'decimal' },
+        ],
+        rows: [
+          {
+            id: betaRow,
+            createdAt: '2024-01-01',
+            cells: { [betaColumn]: { literal: 4 } },
+          },
+        ],
+      },
+    ] as const
+    for (const tables of [renamedTables, [...renamedTables].reverse()]) {
+      const workbook = buildScientificWorkbook(tables)
+      expect(workbook.get({ tableId, rowId: r1, columnId: c1 })).toMatchObject({
+        status: 'formula',
+        value: 8,
+      })
+      workbook.destroy()
+    }
+
+    const alphaCycle = buildPersistedFormulaArtifact(
+      parseFormula("='Beta source'!A1+1", {
+        ...tableMaps[0],
+        tables: tableMaps,
+      }),
+      tableId,
+    )
+    const betaCycle = buildPersistedFormulaArtifact(
+      parseFormula('=Alpha!A1+1', {
+        ...tableMaps[1],
+        tables: tableMaps,
+      }),
+      betaTableId,
+    )
+    const cyclic = buildScientificWorkbook([
+      {
+        id: tableId,
+        name: 'Alpha',
+        columns: [{ id: c1, createdAt: '2024-01-01', logicalType: 'decimal' }],
+        rows: [
+          {
+            id: r1,
+            createdAt: '2024-01-01',
+            cells: { [c1]: { formula: alphaCycle } },
+          },
+        ],
+      },
+      {
+        id: betaTableId,
+        name: 'Beta source',
+        columns: [
+          { id: betaColumn, createdAt: '2024-01-01', logicalType: 'decimal' },
+        ],
+        rows: [
+          {
+            id: betaRow,
+            createdAt: '2024-01-01',
+            cells: { [betaColumn]: { formula: betaCycle } },
+          },
+        ],
+      },
+    ])
+    expect(cyclic.get({ tableId, rowId: r1, columnId: c1 })).toMatchObject({
+      status: 'error',
+      error: 'CYCLE',
+    })
+    cyclic.destroy()
   })
 
   it('rejects malformed persisted artifacts during reload', () => {

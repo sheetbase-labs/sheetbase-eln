@@ -554,13 +554,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** CALC-002, SHEET-003.
 
-- [ ] Allow formulas to reference other sheet blocks in the same notebook using approachable display names.
-- [ ] Persist stable referenced identities so renaming a sheet does not silently break formulas.
-- [ ] Recalculate downstream cells when a source sheet changes through the UI or REST API.
-- [ ] Detect and display circular dependencies spanning more than one sheet.
-- [ ] Prevent deletion or incompatible schema change without explaining affected formulas.
-- [ ] Provide a dependency inspection view suitable for later lineage work.
-- [ ] Test rename, reorder, source deletion attempt, cross-sheet error and REST-originated change.
+- [x] Allow formulas to reference other sheet blocks in the same notebook using approachable display names.
+- [x] Persist stable referenced identities so renaming a sheet does not silently break formulas.
+- [x] Recalculate downstream cells when a source sheet changes through the UI or REST API.
+- [x] Detect and display circular dependencies spanning more than one sheet.
+- [x] Prevent deletion or incompatible schema change without explaining affected formulas.
+- [x] Provide a dependency inspection view suitable for later lineage work.
+- [x] Test rename, reorder, source deletion attempt, cross-sheet error and REST-originated change.
 
 ### CALC-004 — Add trustworthy result caching and external reads
 

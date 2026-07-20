@@ -10,6 +10,7 @@ import {
   decodeScientificValue,
   fetchAllScientificRows,
   fetchScientificFormulas,
+  fetchScientificDependencies,
   fetchScientificRows,
   fetchScientificTable,
   mutateScientificFormula,
@@ -23,6 +24,7 @@ import {
 } from '#/lib/scientific-sheet-data'
 import type {
   ScientificColumnWire,
+  FormulaDependencyWire,
   FormulaDefinitionWire,
   ScientificLogicalType,
   ScientificRowWire,
@@ -70,6 +72,7 @@ function persistedFormula(formula: FormulaDefinitionWire) {
   for (const value of bindings) {
     const binding = value as {
       kind?: string
+      tableId?: string
       cell?: { rowId: string; columnId: string }
       members?: Array<Array<{ rowId: string; columnId: string }>>
     }
@@ -79,11 +82,13 @@ function persistedFormula(formula: FormulaDefinitionWire) {
         : binding.kind === 'range'
           ? (binding.members ?? []).flat()
           : []
-    for (const cell of cells)
-      dependencies.set(`${cell.rowId}/${cell.columnId}`, {
-        tableId: formula.target_table_id,
+    for (const cell of cells) {
+      const tableId = binding.tableId ?? formula.target_table_id
+      dependencies.set(`${tableId}/${cell.rowId}/${cell.columnId}`, {
+        tableId,
         ...cell,
       })
+    }
   }
   return {
     version: 1,
@@ -161,6 +166,7 @@ function SchemaConfigurator({
   readOnly,
   draftColumnIds,
   rowMutationPending,
+  formulaDependencies,
   onSuccess,
 }: {
   table: ScientificTableWire
@@ -168,6 +174,7 @@ function SchemaConfigurator({
   readOnly: boolean
   draftColumnIds: Set<string>
   rowMutationPending: boolean
+  formulaDependencies: FormulaDependencyWire[]
   onSuccess: () => Promise<void>
 }) {
   const [open, setOpen] = useState(false)
@@ -280,6 +287,13 @@ function SchemaConfigurator({
         Labels are editable display text. UUIDs and generated API names are
         stable identities and never come from labels.
       </p>
+      {formulaDependencies.length ? (
+        <p className="mt-1 text-[10px] text-amber-700" role="status">
+          {new Set(formulaDependencies.map((item) => item.formula_id)).size}{' '}
+          persisted formula(s) depend on this sheet. Referenced source rows and
+          columns must be unbound before deletion or incompatible conversion.
+        </p>
+      ) : null}
       {open ? (
         <div className="mt-2 space-y-3 border-t pt-2">
           <div className="flex flex-wrap items-end gap-2">
@@ -543,7 +557,18 @@ function SchemaConfigurator({
               <p>
                 Non-null rows: {confirmation.evidence.nonNullRows ?? 'n/a'} ·
                 Invalid rows: {confirmation.evidence.invalidRows ?? 'n/a'} ·
-                Formula markers: {confirmation.evidence.formulaMarkers}
+                Formula markers: {confirmation.evidence.formulaMarkers} ·
+                Referencing formulas:{' '}
+                {
+                  new Set(
+                    formulaDependencies
+                      .filter(
+                        (item) =>
+                          item.source_column_id === confirmation.column.id,
+                      )
+                      .map((item) => item.formula_id),
+                  ).size
+                }
               </p>
               <p>
                 This can affect formulas and API clients. The stable field
@@ -661,6 +686,11 @@ export function ScientificSheetBlock({
     queryFn: () => fetchScientificFormulas(scientificDataClient, tableId),
     enabled: !!table,
   })
+  const dependenciesQuery = useQuery({
+    queryKey: scientificQueryKeys.dependencies(tableId),
+    queryFn: () => fetchScientificDependencies(scientificDataClient, tableId),
+    enabled: !!table,
+  })
   const formulaByCell = useMemo(
     () =>
       new Map(
@@ -677,8 +707,10 @@ export function ScientificSheetBlock({
     try {
       return {
         id: table.id,
+        name: table.name,
         columns: table.columns.map((column) => ({
           id: column.id,
+          label: column.label,
           createdAt:
             column.created_at ?? table.created_at ?? '1970-01-01T00:00:00Z',
           logicalType: column.logical_type,
@@ -1070,6 +1102,7 @@ export function ScientificSheetBlock({
           new Set(Object.values(drafts).map((draft) => draft.columnId))
         }
         rowMutationPending={mutation.isPending}
+        formulaDependencies={dependenciesQuery.data ?? []}
         onSuccess={async () => {
           await tableQuery.refetch()
           await queryClient.invalidateQueries({
@@ -1103,6 +1136,9 @@ export function ScientificSheetBlock({
           disabled={readOnly || !selected}
           onChange={(event) => setFormulaSource(event.target.value)}
         />
+        <span className="text-muted-foreground">
+          Cross-sheet example: ='Sheet name'!A1
+        </span>
         <button
           type="button"
           disabled={readOnly || !selected || !formulaSource.startsWith('=')}
@@ -1184,6 +1220,34 @@ export function ScientificSheetBlock({
               ? persistedFormula(selectedFormula).dependencies.length
               : 0}
           </span>
+        ) : null}
+        {selectedFormula && workbook ? (
+          <details>
+            <summary>
+              Inspect {persistedFormula(selectedFormula).dependencies.length}{' '}
+              stable dependencies
+            </summary>
+            <ul>
+              {persistedFormula(selectedFormula).dependencies.map(
+                (dependency) => {
+                  const identity = `${dependency.tableId}/${dependency.rowId}/${dependency.columnId}`
+                  try {
+                    const description = workbook.describe(dependency)
+                    return (
+                      <li key={identity} title={identity}>
+                        {description.tableName} · row {description.rowNumber} ·{' '}
+                        {description.columnName}
+                      </li>
+                    )
+                  } catch {
+                    return (
+                      <li key={identity}>Missing dependency · {identity}</li>
+                    )
+                  }
+                },
+              )}
+            </ul>
+          </details>
         ) : null}
         {formulaStatus ? <span role="status">{formulaStatus}</span> : null}
       </section>

@@ -165,7 +165,7 @@ function ExperimentNotebookRoute() {
         ...(project
           ? [{ label: project.title, to: `/projects/${projectId}` }]
           : []),
-        { label: record.identifier },
+        { label: record.title },
       ]}
       projectTree={
         project ? (
@@ -180,6 +180,8 @@ function ExperimentNotebookRoute() {
       inspector={
         <NotebookInspector
           record={record}
+          projectName={project?.title ?? null}
+          ownerName={context.user.name}
           links={links}
           linksLoading={linksQuery.isLoading}
         />
@@ -190,6 +192,9 @@ function ExperimentNotebookRoute() {
           <StickyRecordHeader
             record={record}
             projectName={project?.title ?? null}
+            onAddBlock={() =>
+              document.getElementById('notebook-add-block')?.click()
+            }
           />
           {isArchived ? <ArchivedBanner /> : null}
           <NotebookCanvas
@@ -268,12 +273,14 @@ function loadingBreadcrumbs(
 export function StickyRecordHeader({
   record,
   projectName,
+  onAddBlock,
 }: {
   record: NotebookRecord
   projectName: string | null
+  onAddBlock?: () => void
 }) {
   return (
-    <div className="sticky top-14 z-20 -mx-6 mb-3 border-b bg-background/95 px-6 py-5 backdrop-blur">
+    <div className="sticky top-14 z-20 -mx-6 mb-3 border-b bg-background/95 px-6 py-5 pr-28 backdrop-blur">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
         <span className="font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           {recordKindLabel(record.kind)}
@@ -317,6 +324,15 @@ export function StickyRecordHeader({
           </span>
         ) : null}
       </div>
+      {onAddBlock ? (
+        <button
+          type="button"
+          className="absolute right-6 top-5 inline-flex h-8 items-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground shadow-xs hover:bg-primary/90"
+          onClick={onAddBlock}
+        >
+          + Block
+        </button>
+      ) : null}
     </div>
   )
 }
@@ -866,14 +882,18 @@ export function PermissionRestrictedState() {
 
 export function NotebookInspector({
   record,
+  projectName,
+  ownerName,
   links,
   linksLoading,
   defaultTab,
 }: {
   record: NotebookRecord
+  projectName?: string | null
+  ownerName?: string | null
   links: NotebookLink[]
   linksLoading: boolean
-  /** Initial active tab id. Defaults to the first tab (Overview). */
+  /** Initial active tab id. Defaults to the first tab (Properties). */
   defaultTab?: string
 }) {
   return (
@@ -883,8 +903,8 @@ export function NotebookInspector({
       defaultTab={defaultTab}
       tabs={[
         {
-          id: 'overview',
-          label: 'Overview',
+          id: 'properties',
+          label: 'Properties',
           content: (
             <PropertyList>
               <Property label="Identifier" mono>
@@ -894,8 +914,12 @@ export function NotebookInspector({
               <Property label="Status">
                 <StatusBadge domain="experiment" status={record.status} />
               </Property>
-              <Property label="Structure v">{record.structureVersion}</Property>
-              <Property label="Metadata v">{record.metadataVersion}</Property>
+              {projectName ? (
+                <Property label="Project">{projectName}</Property>
+              ) : null}
+              {ownerName ? (
+                <Property label="Created by">{ownerName}</Property>
+              ) : null}
               <Property label="Created">
                 {new Date(record.createdAt).toLocaleString()}
               </Property>
@@ -908,7 +932,18 @@ export function NotebookInspector({
                 </Property>
               ) : null}
               {record.tags.length > 0 ? (
-                <Property label="Tags">{record.tags.join(', ')}</Property>
+                <Property label="Tags">
+                  <span className="flex flex-wrap gap-1">
+                    {record.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-full bg-muted px-2 py-0.5 text-[10px]"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </span>
+                </Property>
               ) : null}
             </PropertyList>
           ),

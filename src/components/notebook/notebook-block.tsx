@@ -106,6 +106,9 @@ export function NotebookBlock({
       aria-label={ariaLabel}
       data-state={state}
     >
+      <span className="absolute -left-9 top-3 hidden w-8 text-right text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70 lg:block">
+        {label}
+      </span>
       {/* Drag handle — focusable, visible on hover/focus, keyboard-operable */}
       {draggable ? (
         <div className="absolute -left-7 top-4 hidden items-center lg:flex">
@@ -123,15 +126,6 @@ export function NotebookBlock({
       ) : null}
 
       <div className="pointer-events-none absolute inset-x-2 top-1 z-10 flex h-6 items-center gap-2">
-        <span
-          className={cn(
-            'rounded bg-card/90 px-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70 transition-opacity',
-            (state === 'default' || state === 'read-only') &&
-              'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100',
-          )}
-        >
-          {label}
-        </span>
         {title ? (
           <h3 className="min-w-0 flex-1 truncate font-display text-sm font-semibold">
             {title}

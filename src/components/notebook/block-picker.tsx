@@ -73,6 +73,7 @@ export interface BlockPickerProps {
   /** Variant: a full "Add block" button (default) or a compact icon trigger. */
   variant?: 'button' | 'icon'
   label?: string
+  triggerId?: string
 }
 
 export function BlockPicker({
@@ -82,6 +83,7 @@ export function BlockPicker({
   className,
   variant = 'button',
   label = 'Add block',
+  triggerId,
 }: BlockPickerProps) {
   const [open, setOpen] = React.useState(false)
   void afterBlockId // captured by the parent when wiring onInsert
@@ -89,6 +91,7 @@ export function BlockPicker({
   const trigger =
     variant === 'icon' ? (
       <Button
+        id={triggerId}
         variant="ghost"
         size="icon-sm"
         aria-label={label}
@@ -98,6 +101,7 @@ export function BlockPicker({
       </Button>
     ) : (
       <Button
+        id={triggerId}
         variant="outline"
         size="sm"
         disabled={disabled}

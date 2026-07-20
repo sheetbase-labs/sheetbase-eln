@@ -671,6 +671,7 @@ export function ScientificSheetBlock({
   const [drafts, setDrafts] = useState<Record<string, DraftCell>>({})
   const [selected, setSelected] = useState<WorkbookCellAddress | null>(null)
   const [configurationOpen, setConfigurationOpen] = useState(false)
+  const [formulaToolsOpen, setFormulaToolsOpen] = useState(false)
   const [formulaSource, setFormulaSource] = useState('')
   const [formulaStatus, setFormulaStatus] = useState('')
   const nextGeneration = useRef(0)
@@ -1130,6 +1131,7 @@ export function ScientificSheetBlock({
               ? { tableId: table.id, rowId, columnId: column.id }
               : null,
           )
+          if (rowId && column) setFormulaToolsOpen(true)
           if (!rowId) setFormulaStatus('Save the row before adding a formula.')
         },
       }
@@ -1175,181 +1177,200 @@ export function ScientificSheetBlock({
           {calculationProblem}
         </p>
       ) : null}
-      <section
-        className="mb-2 flex min-h-9 flex-wrap items-center gap-2 border-y bg-muted/15 px-2 py-1 text-xs"
-        aria-label="Formula bar"
+      <details
+        className="mb-2 border-y bg-muted/10 text-xs"
+        open={formulaToolsOpen}
+        onToggle={(event) => setFormulaToolsOpen(event.currentTarget.open)}
       >
-        <strong className="font-display text-sm italic">fx</strong>
-        <input
-          aria-label="Formula source"
-          placeholder="Select a saved cell, then enter =…"
-          value={formulaSource}
-          disabled={readOnly || !selected}
-          onChange={(event) => setFormulaSource(event.target.value)}
-          className="h-7 min-w-48 flex-1 border-0 bg-transparent px-2 font-mono text-xs outline-none placeholder:text-muted-foreground/70"
-        />
-        <span className="hidden text-muted-foreground lg:inline">
-          Cross-sheet example: ='Sheet name'!A1
-        </span>
-        <button
-          type="button"
-          className="rounded px-2 py-1 font-medium hover:bg-muted disabled:opacity-40"
-          disabled={readOnly || !selected || !formulaSource.startsWith('=')}
-          onClick={async () => {
-            if (!selected) return
-            const row = (allRowsQuery.data ?? []).find(
-              (item) => item.id === selected.rowId,
-            )
-            if (!row)
-              return setFormulaStatus('Save the row before adding a formula.')
-            try {
-              await mutateScientificFormula({
-                operation: selectedFormula ? 'update' : 'create',
-                target: selected,
-                expectedSchemaVersion: table.schema_version,
-                expectedRowVersion: row.version,
-                ...(selectedFormula
-                  ? { expectedFormulaVersion: Number(selectedFormula.version) }
-                  : {}),
-                source: formulaSource,
-              } as Parameters<typeof mutateScientificFormula>[0])
-              setFormulaStatus('Formula saved.')
-              await refreshCalculation(true)
-            } catch (error) {
-              setFormulaStatus(
-                error instanceof Error
-                  ? error.message
-                  : 'Could not save the formula.',
-              )
-            }
-          }}
+        <summary className="cursor-pointer px-2 py-1.5 font-medium text-muted-foreground hover:text-foreground">
+          Formula and calculation
+        </summary>
+        <section
+          className="flex min-h-9 flex-wrap items-center gap-2 border-t px-2 py-1"
+          aria-label="Formula bar"
         >
-          Apply formula
-        </button>
-        {selectedFormula &&
-        table.columns.find((column) => column.id === selected?.columnId)
-          ?.nullable ? (
+          <strong className="font-display text-sm italic">fx</strong>
+          <input
+            aria-label="Formula source"
+            placeholder="Select a saved cell, then enter =…"
+            value={formulaSource}
+            disabled={readOnly || !selected}
+            onChange={(event) => setFormulaSource(event.target.value)}
+            className="h-7 min-w-48 flex-1 border-0 bg-transparent px-2 font-mono text-xs outline-none placeholder:text-muted-foreground/70"
+          />
+          <span className="hidden text-muted-foreground lg:inline">
+            Cross-sheet example: ='Sheet name'!A1
+          </span>
           <button
             type="button"
-            disabled={readOnly}
+            className="rounded px-2 py-1 font-medium hover:bg-muted disabled:opacity-40"
+            disabled={readOnly || !selected || !formulaSource.startsWith('=')}
             onClick={async () => {
+              if (!selected) return
               const row = (allRowsQuery.data ?? []).find(
-                (item) => item.id === selected!.rowId,
-              )!
+                (item) => item.id === selected.rowId,
+              )
+              if (!row)
+                return setFormulaStatus('Save the row before adding a formula.')
               try {
                 await mutateScientificFormula({
-                  operation: 'remove',
-                  target: selected!,
+                  operation: selectedFormula ? 'update' : 'create',
+                  target: selected,
                   expectedSchemaVersion: table.schema_version,
                   expectedRowVersion: row.version,
-                  expectedFormulaVersion: Number(selectedFormula.version),
-                  replacement: null,
-                })
-                setFormulaStatus(
-                  'Formula removed and replaced with an empty value.',
-                )
+                  ...(selectedFormula
+                    ? {
+                        expectedFormulaVersion: Number(selectedFormula.version),
+                      }
+                    : {}),
+                  source: formulaSource,
+                } as Parameters<typeof mutateScientificFormula>[0])
+                setFormulaStatus('Formula saved.')
                 await refreshCalculation(true)
               } catch (error) {
                 setFormulaStatus(
                   error instanceof Error
                     ? error.message
-                    : 'Could not remove the formula.',
+                    : 'Could not save the formula.',
                 )
               }
             }}
           >
-            Remove formula
+            Apply formula
           </button>
-        ) : selectedFormula ? (
-          <span>
-            Overwrite this required cell in the grid to remove its formula.
-          </span>
-        ) : null}
-        {selected ? (
-          <span>
-            Result: {String(displayResult(selectedResult) ?? '')} ·{' '}
-            {selectedFormula?.status ?? 'literal'} · Dependencies:{' '}
-            {selectedFormula
-              ? persistedFormula(selectedFormula).dependencies.length
-              : 0}
-          </span>
-        ) : null}
-        {selectedFormula ? (
-          <span>
-            Trusted cache:{' '}
-            {selectedCachedResult?.calculation_status ?? 'pending'}
-            {selectedCachedResult?.calculation_status === 'current'
-              ? selectedCachedResult.calculation_error_code
-                ? ` · ${selectedCachedResult.calculation_error_code}`
-                : ` · ${String(selectedCachedResult.calculated_value ?? '')}`
-              : ''}
-          </span>
-        ) : null}
-        <button
-          type="button"
-          disabled={readOnly || calculationResultsQuery.isFetching}
-          onClick={() => void refreshCalculation()}
-        >
-          Recalculate trusted results
-        </button>
-        {selectedFormula && tableWorkbook ? (
-          <details>
-            <summary>
-              Inspect {persistedFormula(selectedFormula).dependencies.length}{' '}
-              stable dependencies
-            </summary>
-            <ul>
-              {persistedFormula(selectedFormula).dependencies.map(
-                (dependency) => {
-                  const identity = `${dependency.tableId}/${dependency.rowId}/${dependency.columnId}`
-                  try {
-                    const description = tableWorkbook.describe(dependency)
-                    return (
-                      <li key={identity} title={identity}>
-                        {description.tableName} · row {description.rowNumber} ·{' '}
-                        {description.columnName}
-                      </li>
-                    )
-                  } catch {
-                    return (
-                      <li key={identity}>Missing dependency · {identity}</li>
-                    )
-                  }
-                },
-              )}
-            </ul>
-          </details>
-        ) : null}
-        {formulaStatus ? <span role="status">{formulaStatus}</span> : null}
-      </section>
+          {selectedFormula &&
+          table.columns.find((column) => column.id === selected?.columnId)
+            ?.nullable ? (
+            <button
+              type="button"
+              disabled={readOnly}
+              onClick={async () => {
+                const row = (allRowsQuery.data ?? []).find(
+                  (item) => item.id === selected!.rowId,
+                )!
+                try {
+                  await mutateScientificFormula({
+                    operation: 'remove',
+                    target: selected!,
+                    expectedSchemaVersion: table.schema_version,
+                    expectedRowVersion: row.version,
+                    expectedFormulaVersion: Number(selectedFormula.version),
+                    replacement: null,
+                  })
+                  setFormulaStatus(
+                    'Formula removed and replaced with an empty value.',
+                  )
+                  await refreshCalculation(true)
+                } catch (error) {
+                  setFormulaStatus(
+                    error instanceof Error
+                      ? error.message
+                      : 'Could not remove the formula.',
+                  )
+                }
+              }}
+            >
+              Remove formula
+            </button>
+          ) : selectedFormula ? (
+            <span>
+              Overwrite this required cell in the grid to remove its formula.
+            </span>
+          ) : null}
+          {selected ? (
+            <span>
+              Result: {String(displayResult(selectedResult) ?? '')} ·{' '}
+              {selectedFormula?.status ?? 'literal'} · Dependencies:{' '}
+              {selectedFormula
+                ? persistedFormula(selectedFormula).dependencies.length
+                : 0}
+            </span>
+          ) : null}
+          {selectedFormula ? (
+            <span>
+              Trusted cache:{' '}
+              {selectedCachedResult?.calculation_status ?? 'pending'}
+              {selectedCachedResult?.calculation_status === 'current'
+                ? selectedCachedResult.calculation_error_code
+                  ? ` · ${selectedCachedResult.calculation_error_code}`
+                  : ` · ${String(selectedCachedResult.calculated_value ?? '')}`
+                : ''}
+            </span>
+          ) : null}
+          <button
+            type="button"
+            disabled={readOnly || calculationResultsQuery.isFetching}
+            onClick={() => void refreshCalculation()}
+          >
+            Recalculate trusted results
+          </button>
+          {selectedFormula && tableWorkbook ? (
+            <details>
+              <summary>
+                Inspect {persistedFormula(selectedFormula).dependencies.length}{' '}
+                stable dependencies
+              </summary>
+              <ul>
+                {persistedFormula(selectedFormula).dependencies.map(
+                  (dependency) => {
+                    const identity = `${dependency.tableId}/${dependency.rowId}/${dependency.columnId}`
+                    try {
+                      const description = tableWorkbook.describe(dependency)
+                      return (
+                        <li key={identity} title={identity}>
+                          {description.tableName} · row {description.rowNumber}{' '}
+                          · {description.columnName}
+                        </li>
+                      )
+                    } catch {
+                      return (
+                        <li key={identity}>Missing dependency · {identity}</li>
+                      )
+                    }
+                  },
+                )}
+              </ul>
+            </details>
+          ) : null}
+          {formulaStatus ? <span role="status">{formulaStatus}</span> : null}
+        </section>
+      </details>
       <SheetbaseGrid settings={settings} ariaLabel={table.name} />
-      <ScientificTransferPanel
-        table={table}
-        rows={allRowsQuery.data ?? []}
-        readOnly={readOnly}
-        onImported={async () => {
-          await Promise.all([
-            tableQuery.refetch(),
-            queryClient.invalidateQueries({
-              queryKey: ['scientific-rows', tableId],
-            }),
-            queryClient.invalidateQueries({
-              queryKey: scientificQueryKeys.allRows(tableId),
-            }),
-          ])
-        }}
-      />
-      <ScientificApiInspector
-        table={table}
-        selectedRowId={selected?.rowId}
-        selectedRowVersion={
-          selected
-            ? (allRowsQuery.data ?? []).find((row) => row.id === selected.rowId)
-                ?.version
-            : undefined
-        }
-        selectedColumnId={selected?.columnId}
-      />
+      <details className="mt-2 rounded-md border bg-muted/15 text-xs">
+        <summary className="cursor-pointer px-3 py-2 font-medium">
+          {(allRowsQuery.data ?? []).length} rows · Import, export and API
+        </summary>
+        <div className="border-t p-2">
+          <ScientificTransferPanel
+            table={table}
+            rows={allRowsQuery.data ?? []}
+            readOnly={readOnly}
+            onImported={async () => {
+              await Promise.all([
+                tableQuery.refetch(),
+                queryClient.invalidateQueries({
+                  queryKey: ['scientific-rows', tableId],
+                }),
+                queryClient.invalidateQueries({
+                  queryKey: scientificQueryKeys.allRows(tableId),
+                }),
+              ])
+            }}
+          />
+          <ScientificApiInspector
+            table={table}
+            selectedRowId={selected?.rowId}
+            selectedRowVersion={
+              selected
+                ? (allRowsQuery.data ?? []).find(
+                    (row) => row.id === selected.rowId,
+                  )?.version
+                : undefined
+            }
+            selectedColumnId={selected?.columnId}
+          />
+        </div>
+      </details>
       {page > 0 || !terminal ? (
         <nav aria-label="Sheet pages" className="mt-2 flex gap-2 text-xs">
           <button

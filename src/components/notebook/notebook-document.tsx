@@ -503,7 +503,7 @@ function NotebookDocumentContent({
   }
 
   return (
-    <div className={cn('space-y-1', className)}>
+    <div className={cn('space-y-3', className)}>
       {orderedIds.map((id, index) => {
         const block = blockById.get(id)
         if (!block) return null
@@ -559,7 +559,7 @@ function NotebookDocumentContent({
               onDrop={(e) => handleDrop(e)}
             >
               <NotebookBlock
-                label={blockLabel(block.type)}
+                label={blockLabel(block)}
                 state={blockState}
                 ariaLabel={`${block.type} block`}
                 draggable={canMove}
@@ -657,6 +657,7 @@ function NotebookDocumentContent({
           onInsert={(type) => void handleInsert(type)}
           disabled={false}
           label="Add block"
+          triggerId="notebook-add-block"
         />
       )}
 
@@ -709,14 +710,14 @@ function NotebookDocumentContent({
   )
 }
 
-function blockLabel(type: string): string {
+function blockLabel(block: NotebookBlockData): string {
   const map: Record<string, string> = {
-    heading: 'Heading',
+    heading: `H${typeof block.payload.level === 'number' ? block.payload.level : 2}`,
     rich_text: 'Text',
-    checklist: 'Checklist',
+    checklist: 'List',
     list: 'List',
-    callout: 'Callout',
-    linked_record: 'Linked record',
+    callout: 'Note',
+    linked_record: 'Link',
     table: 'Table',
     sheet: 'Sheet',
     chart: 'Chart',
@@ -725,5 +726,5 @@ function blockLabel(type: string): string {
     metric: 'Metric',
     procedure_step: 'Procedure step',
   }
-  return map[type] ?? type
+  return map[block.type] ?? block.type
 }

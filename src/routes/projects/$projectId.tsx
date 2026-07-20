@@ -1,5 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
-import { createFileRoute, Link, redirect } from '@tanstack/react-router'
+import {
+  createFileRoute,
+  Link,
+  Outlet,
+  redirect,
+  useRouterState,
+} from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { FlaskConical, Folder } from 'lucide-react'
 
@@ -43,6 +49,9 @@ export const Route = createFileRoute('/projects/$projectId')({
 function ProjectRoute() {
   const { context } = Route.useRouteContext()
   const { projectId } = Route.useParams()
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  })
 
   const projectQuery = useQuery({
     queryKey: notebookQueryKeys.project(projectId),
@@ -55,6 +64,8 @@ function ProjectRoute() {
 
   const project = projectQuery.data ?? null
   const records = recordsQuery.data ?? []
+
+  if (pathname !== `/projects/${projectId}`) return <Outlet />
 
   if (projectQuery.isLoading) {
     return (

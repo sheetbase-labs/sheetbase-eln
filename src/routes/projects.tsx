@@ -1,5 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import {
+  createFileRoute,
+  Outlet,
+  redirect,
+  useRouterState,
+} from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { useState } from 'react'
 
@@ -73,6 +78,9 @@ const PROJECTS_KEY = notebookQueryKeys.projectsList()
 function ProjectsRoute() {
   const { context } = Route.useRouteContext()
   const queryClient = useQueryClient()
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  })
 
   const query = useQuery({
     queryKey: PROJECTS_KEY,
@@ -135,6 +143,8 @@ function ProjectsRoute() {
   const projects = query.data ?? []
   const isLoading = query.isLoading
   const isPendingCreate = createMutation.isPending
+
+  if (pathname !== '/projects') return <Outlet />
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()

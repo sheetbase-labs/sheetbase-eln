@@ -82,6 +82,7 @@ function ProjectsRoute() {
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
+  const isProjectsIndex = pathname === '/projects'
 
   const query = useQuery({
     queryKey: PROJECTS_KEY,
@@ -92,6 +93,7 @@ function ProjectsRoute() {
       )
       return rows.map(toProject)
     },
+    enabled: isProjectsIndex,
   })
 
   const [title, setTitle] = useState('')
@@ -145,7 +147,7 @@ function ProjectsRoute() {
   const isLoading = query.isLoading
   const isPendingCreate = createMutation.isPending
 
-  if (pathname !== '/projects') return <Outlet />
+  if (!isProjectsIndex) return <Outlet />
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()

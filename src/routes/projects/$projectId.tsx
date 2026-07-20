@@ -3,10 +3,8 @@ import {
   createFileRoute,
   Link,
   Outlet,
-  redirect,
   useRouterState,
 } from '@tanstack/react-router'
-import { createServerFn } from '@tanstack/react-start'
 import { FlaskConical, Folder } from 'lucide-react'
 
 import { AppShell } from '#/components/app-shell'
@@ -27,22 +25,7 @@ import { DataClientError } from '#/lib/data-client'
  * missing-project, archived, empty and error states are all handled.
  */
 
-const getProjectContext = createServerFn({ method: 'GET' }).handler(
-  async () => {
-    const { getRequestHeaders } = await import('@tanstack/react-start/server')
-    const { getCurrentContext } = await import('#/lib/current-user')
-    return getCurrentContext(getRequestHeaders())
-  },
-)
-
 export const Route = createFileRoute('/projects/$projectId')({
-  beforeLoad: async () => {
-    const context = await getProjectContext()
-    if (!context) {
-      throw redirect({ to: '/sign-in' })
-    }
-    return { context }
-  },
   component: ProjectRoute,
 })
 
@@ -52,20 +35,23 @@ function ProjectRoute() {
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
+  const isProjectIndex = pathname === `/projects/${projectId}`
 
   const projectQuery = useQuery({
     queryKey: notebookQueryKeys.project(projectId),
     queryFn: () => fetchProject(notebookDataClient, projectId),
+    enabled: isProjectIndex,
   })
   const recordsQuery = useQuery({
     queryKey: notebookQueryKeys.records(projectId),
     queryFn: () => fetchRecordsForProject(notebookDataClient, projectId),
+    enabled: isProjectIndex,
   })
 
   const project = projectQuery.data ?? null
   const records = recordsQuery.data ?? []
 
-  if (pathname !== `/projects/${projectId}`) return <Outlet />
+  if (!isProjectIndex) return <Outlet />
 
   if (projectQuery.isLoading) {
     return (

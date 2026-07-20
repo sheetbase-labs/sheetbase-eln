@@ -1,12 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { QueryClient } from '@tanstack/react-query'
-import {
-  createFileRoute,
-  Link,
-  redirect,
-  useBlocker,
-} from '@tanstack/react-router'
-import { createServerFn } from '@tanstack/react-start'
+import { createFileRoute, Link, useBlocker } from '@tanstack/react-router'
 import { Archive, FileWarning, Lock } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
@@ -59,24 +53,9 @@ import type {
  * each get an honest state. ELN-005 adds editing/insertion on this canvas.
  */
 
-const getNotebookContext = createServerFn({ method: 'GET' }).handler(
-  async () => {
-    const { getRequestHeaders } = await import('@tanstack/react-start/server')
-    const { getCurrentContext } = await import('#/lib/current-user')
-    return getCurrentContext(getRequestHeaders())
-  },
-)
-
 export const Route = createFileRoute(
   '/projects/$projectId/experiments/$recordId',
 )({
-  beforeLoad: async () => {
-    const context = await getNotebookContext()
-    if (!context) {
-      throw redirect({ to: '/sign-in' })
-    }
-    return { context }
-  },
   component: ExperimentNotebookRoute,
 })
 

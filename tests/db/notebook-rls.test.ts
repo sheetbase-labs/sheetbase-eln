@@ -58,15 +58,16 @@ beforeAll(async () => {
       ('${WS_A}', '${PROJ_A}', 'experiment', 'EXP-2025-0001', 'Virus Stability A', '${OWNER_A}'),
       ('${WS_B}', '${PROJ_B}', 'experiment', 'EXP-2025-0001', 'Virus Stability B', '${OWNER_B}')`,
   )
-  const { rows: recs } = await migrator.query<{ id: string; workspace_id: string }>(
-    `SELECT id::text, workspace_id FROM api.records`,
-  )
+  const { rows: recs } = await migrator.query<{
+    id: string
+    workspace_id: string
+  }>(`SELECT id::text, workspace_id FROM api.records`)
   const recA = recs.find((r) => r.workspace_id === WS_A)!.id
   const recB = recs.find((r) => r.workspace_id === WS_B)!.id
   await migrator.query(
     `INSERT INTO api.blocks (record_id, type, payload, "order", created_by_user_id) VALUES
-      ('${recA}', 'heading', '{"level":2,"text":"Methods A"}', 1, '${OWNER_A}'),
-      ('${recB}', 'heading', '{"level":2,"text":"Methods B"}', 1, '${OWNER_B}')`,
+      ('${recA}', 'rich_text', '{"doc":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Methods A"}]}]}}', 1, '${OWNER_A}'),
+      ('${recB}', 'rich_text', '{"doc":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Methods B"}]}]}}', 1, '${OWNER_B}')`,
   )
   await migrator.query(
     `INSERT INTO api.record_links (source_record_id, target_kind, target_identifier, link_type, created_by_user_id) VALUES
@@ -114,7 +115,8 @@ async function recordTitles(client: Client): Promise<string[]> {
 
 async function blockTexts(client: Client): Promise<string[]> {
   const { rows } = await client.query<{ t: string | null }>(
-    `SELECT payload->>'text' AS t FROM api.blocks ORDER BY (payload->>'text')`,
+    `SELECT payload#>>'{doc,content,0,content,0,text}' AS t
+     FROM api.blocks ORDER BY payload#>>'{doc,content,0,content,0,text}'`,
   )
   return rows.map((r) => r.t ?? '')
 }
@@ -199,14 +201,18 @@ describe('notebook domain writes', () => {
   it('makes record deletion owner-only', async () => {
     const member = await asAuthenticated(MEMBER_A, WS_A)
     // Member cannot delete: owner-only USING excludes the row (0 rows affected).
-    await member.query(`DELETE FROM api.records WHERE identifier = 'EXP-2025-0002'`)
+    await member.query(
+      `DELETE FROM api.records WHERE identifier = 'EXP-2025-0002'`,
+    )
     const { rows: stillThere } = await migrator.query<{ id: string }>(
       `SELECT id::text FROM api.records WHERE identifier = 'EXP-2025-0002'`,
     )
     expect(stillThere).toHaveLength(1)
 
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    await owner.query(`DELETE FROM api.records WHERE identifier = 'EXP-2025-0002'`)
+    await owner.query(
+      `DELETE FROM api.records WHERE identifier = 'EXP-2025-0002'`,
+    )
     const { rows: gone } = await migrator.query<{ id: string }>(
       `SELECT id::text FROM api.records WHERE identifier = 'EXP-2025-0002'`,
     )
@@ -221,7 +227,7 @@ describe('notebook domain writes', () => {
     await expectDenied(
       a.query(
         `INSERT INTO api.blocks (record_id, type, payload, "order", created_by_user_id)
-         VALUES ('${bRec[0].id}', 'heading', '{"level":2,"text":"x"}', 1, '${OWNER_A}')`,
+         VALUES ('${bRec[0].id}', 'checklist', '{"items":[]}', 1, '${OWNER_A}')`,
       ),
       DENIED,
     )
@@ -232,7 +238,9 @@ describe('revisions are immutable through PostgREST', () => {
   it('rejects UPDATE on revisions via grants', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
     await expectDenied(
-      owner.query(`UPDATE api.revisions SET reason = 'submit' WHERE reason = 'manual'`),
+      owner.query(
+        `UPDATE api.revisions SET reason = 'submit' WHERE reason = 'manual'`,
+      ),
       DENIED,
     )
   })

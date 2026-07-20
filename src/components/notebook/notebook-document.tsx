@@ -93,12 +93,7 @@ export interface NotebookDocumentProps {
   className?: string
 }
 
-const EDITABLE_TYPES = new Set([
-  'heading',
-  'rich_text',
-  'checklist',
-  'linked_record',
-])
+const EDITABLE_TYPES = new Set(['rich_text', 'checklist', 'linked_record'])
 
 export function NotebookDocument(props: NotebookDocumentProps) {
   return (
@@ -712,10 +707,8 @@ function NotebookDocumentContent({
 
 function blockLabel(block: NotebookBlockData): string {
   const map: Record<string, string> = {
-    heading: `H${typeof block.payload.level === 'number' ? block.payload.level : 2}`,
     rich_text: 'Text',
     checklist: 'List',
-    list: 'List',
     callout: 'Note',
     linked_record: 'Link',
     table: 'Table',

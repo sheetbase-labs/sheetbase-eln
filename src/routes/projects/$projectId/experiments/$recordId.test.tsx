@@ -160,8 +160,19 @@ describe('NotebookCanvas', () => {
       {
         id: 'b1',
         recordId: 'r1',
-        type: 'heading',
-        payload: { level: 1, text: 'Virus Stability' },
+        type: 'rich_text',
+        payload: {
+          doc: {
+            type: 'doc',
+            content: [
+              {
+                type: 'heading',
+                attrs: { level: 2 },
+                content: [{ type: 'text', text: 'Objective' }],
+              },
+            ],
+          },
+        },
         payloadSchemaVersion: 1,
         order: 1,
         version: 1,
@@ -197,8 +208,8 @@ describe('NotebookCanvas', () => {
     )
     expect(container.querySelector('#block-b1')).toBeTruthy()
     expect(container.querySelector('#block-b2')).toBeTruthy()
-    // heading preview text renders
-    expect(screen.getByText('Virus Stability')).toBeTruthy()
+    // structured heading and paragraph content render
+    expect(screen.getByText('Objective')).toBeTruthy()
     expect(screen.getByText('Objective text.')).toBeTruthy()
     // archived record renders blocks read-only
     const readOnly = container.querySelectorAll('[data-state="read-only"]')
@@ -333,8 +344,19 @@ describe('NotebookCanvas — editable path', () => {
             {
               id: 'b1',
               recordId: 'r1',
-              type: 'heading',
-              payload: { level: 2, text: 'Editable' },
+              type: 'rich_text',
+              payload: {
+                doc: {
+                  type: 'doc',
+                  content: [
+                    {
+                      type: 'heading',
+                      attrs: { level: 2 },
+                      content: [{ type: 'text', text: 'Editable' }],
+                    },
+                  ],
+                },
+              },
               payloadSchemaVersion: 1,
               order: 1,
               version: 1,
@@ -350,6 +372,6 @@ describe('NotebookCanvas — editable path', () => {
     )
     expect(screen.getByRole('button', { name: /Add block/ })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Editable' })).toBeTruthy()
-    expect(screen.queryByLabelText('Heading text')).toBeNull()
+    expect(screen.queryByRole('textbox')).toBeNull()
   })
 })

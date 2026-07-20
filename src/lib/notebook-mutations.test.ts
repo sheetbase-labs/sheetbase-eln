@@ -31,8 +31,13 @@ function makeClient(
 const blockWire = {
   id: 'b1',
   record_id: 'r1',
-  type: 'heading',
-  payload: { level: 2, text: 'Hi' },
+  type: 'rich_text',
+  payload: {
+    doc: {
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Hi' }] }],
+    },
+  },
   payload_schema_version: 1,
   order: 1.5,
   version: 2,
@@ -45,20 +50,20 @@ describe('updateBlockPayload', () => {
     const client = makeClient(() => blockWire)
     const block = await updateBlockPayload(client, {
       blockId: 'b1',
-      payload: { level: 2, text: 'Hi' },
+      payload: blockWire.payload,
       expectedVersion: 1,
     })
     expect(client.rpc).toHaveBeenCalledWith('update_block_payload', {
       p_block_id: 'b1',
-      p_payload: { level: 2, text: 'Hi' },
+      p_payload: blockWire.payload,
       p_expected_version: 1,
       p_payload_schema_version: 1,
     })
     expect(block).toEqual({
       id: 'b1',
       recordId: 'r1',
-      type: 'heading',
-      payload: { level: 2, text: 'Hi' },
+      type: 'rich_text',
+      payload: blockWire.payload,
       payloadSchemaVersion: 1,
       order: 1.5,
       version: 2,
@@ -74,14 +79,14 @@ describe('insertBlock', () => {
     }))
     const res = await insertBlock(client, {
       recordId: 'r1',
-      type: 'heading',
-      payload: { level: 2, text: 'Hi' },
+      type: 'rich_text',
+      payload: blockWire.payload,
       expectedStructureVersion: 4,
     })
     expect(client.rpc).toHaveBeenCalledWith('insert_block', {
       p_record_id: 'r1',
-      p_type: 'heading',
-      p_payload: { level: 2, text: 'Hi' },
+      p_type: 'rich_text',
+      p_payload: blockWire.payload,
       p_payload_schema_version: 1,
       p_after_block_id: null,
       p_expected_structure_version: 4,
@@ -260,10 +265,6 @@ describe('moveBlock', () => {
 
 describe('defaultPayloadFor', () => {
   it('returns a valid payload for each editable type', () => {
-    expect(defaultPayloadFor('heading')).toEqual({
-      level: 2,
-      text: 'New heading',
-    })
     expect(defaultPayloadFor('rich_text')).toEqual({
       doc: { type: 'doc', content: [{ type: 'paragraph' }] },
     })

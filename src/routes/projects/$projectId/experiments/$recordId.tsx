@@ -762,8 +762,8 @@ export function EmptyNotebook({ record }: { record: NotebookRecord }) {
       <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
         {recordKindLabel(record.kind)}{' '}
         <span className="font-mono">{record.identifier}</span> has no content
-        yet. Start with a heading and an objective — every experiment notebook
-        begins with the same skeleton so the team can read it the same way.
+        yet. Start with a text block for the objective — section headings and
+        prose stay together so the team can read the same document structure.
       </p>
       <p className="mt-3 text-xs text-muted-foreground">
         Block insertion arrives in the next ticket (ELN-005). The notebook is

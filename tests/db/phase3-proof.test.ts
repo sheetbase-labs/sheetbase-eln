@@ -168,7 +168,7 @@ const CLIENT_TAB_B = 'phase3-tab-b'
 let ownerA: Client
 let ownerB: Client
 let recordId: string
-let headingBlockId: string
+let proseBlockId: string
 let textBlockId: string
 let checklistBlockId: string
 let protocolRecordId: string
@@ -197,7 +197,7 @@ describe('ELN-008 Phase 3 acceptance proof', () => {
       `create_record_with_blocks(
         '${PROJ}'::uuid, 'experiment', 'Virus Stability at 4C',
         'in-progress', ARRAY['stability','qPCR']::text[],
-        '[{"type":"heading","payload":{"level":1,"text":"Virus Stability at 4C"},"order":1},
+        '[{"type":"rich_text","payload":{"doc":{"type":"doc","content":[{"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"Objective"}]},{"type":"paragraph","content":[{"type":"text","text":"Determine half-life."}]}]}},"order":1},
             {"type":"rich_text","payload":{"doc":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Objective: determine half-life."}]}]}},"order":2}]'::jsonb
       )`,
     )
@@ -206,9 +206,9 @@ describe('ELN-008 Phase 3 acceptance proof', () => {
     expect(result.record.kind).toBe('experiment')
     expect(result.record.status).toBe('in-progress')
     expect(result.blocks).toHaveLength(2)
-    headingBlockId = result.blocks[0].id
+    proseBlockId = result.blocks[0].id
     textBlockId = result.blocks[1].id
-    expect(result.blocks[0].type).toBe('heading')
+    expect(result.blocks[0].type).toBe('rich_text')
     expect(result.blocks[1].type).toBe('rich_text')
   })
 
@@ -258,11 +258,11 @@ describe('ELN-008 Phase 3 acceptance proof', () => {
       order: Array<{ id: string; order: number }>
     }>(
       ownerA,
-      `move_block('${checklistBlockId}'::uuid, 2, '${headingBlockId}'::uuid, '${textBlockId}'::uuid)`,
+      `move_block('${checklistBlockId}'::uuid, 2, '${proseBlockId}'::uuid, '${textBlockId}'::uuid)`,
     )
     expect(res.structure_version).toBe(3)
     const order = res.order.map((o) => o.id)
-    expect(order).toEqual([headingBlockId, checklistBlockId, textBlockId])
+    expect(order).toEqual([proseBlockId, checklistBlockId, textBlockId])
   })
 
   it('creates a protocol template and links the experiment to it', async () => {
@@ -305,7 +305,7 @@ describe('ELN-008 Phase 3 acceptance proof', () => {
     )
     expect(blocks).toHaveLength(3)
     expect(blocks.map((b: { id: string }) => b.id)).toEqual([
-      headingBlockId,
+      proseBlockId,
       checklistBlockId,
       textBlockId,
     ])
@@ -322,15 +322,15 @@ describe('ELN-008 Phase 3 acceptance proof', () => {
     // Tab B is the same user but a different client_id.
     ownerB = await asAuthenticated(OWNER, WS, CLIENT_TAB_B)
 
-    // Tab B edits the heading.
+    // Tab B edits the structured prose document, including its heading.
     const updated = await rpc<{
       version: number
-      payload: { text: string }
+      payload: { doc: unknown }
     }>(
       ownerB,
       `update_block_payload(
-        '${headingBlockId}'::uuid,
-        '{"level":1,"text":"Virus Stability at 4C — Updated"}'::jsonb,
+        '${proseBlockId}'::uuid,
+        '{"doc":{"type":"doc","content":[{"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"Objective — Updated"}]},{"type":"paragraph","content":[{"type":"text","text":"Determine half-life."}]}]}}'::jsonb,
         1)`,
     )
     expect(updated.version).toBe(2)
@@ -342,7 +342,7 @@ describe('ELN-008 Phase 3 acceptance proof', () => {
     const blockUpdate = events.find(
       (e) =>
         e.entity_type === 'block' &&
-        e.entity_uuid === headingBlockId &&
+        e.entity_uuid === proseBlockId &&
         e.operation === 'update',
     )
     expect(blockUpdate).toBeDefined()
@@ -351,13 +351,13 @@ describe('ELN-008 Phase 3 acceptance proof', () => {
   })
 
   it('triggers a controlled conflict and confirms neither version is silently lost', async () => {
-    // Tab A still has the heading at version 1 (it never saw tab B's edit).
+    // Tab A still has the prose block at version 1 (it never saw tab B's edit).
     // Tab A tries to save its own edit at the stale version.
     await expect(
       ownerA.query(
         `SELECT * FROM api.update_block_payload(
-          '${headingBlockId}'::uuid,
-          '{"level":1,"text":"Tab A edit"}'::jsonb,
+          '${proseBlockId}'::uuid,
+          '{"doc":{"type":"doc","content":[{"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"Tab A edit"}]}]}}'::jsonb,
           1, 1)`,
       ),
     ).rejects.toMatchObject({ code: STALE })
@@ -365,10 +365,12 @@ describe('ELN-008 Phase 3 acceptance proof', () => {
     // The server's canonical version is untouched — tab A's edit was
     // NOT silently applied, and tab B's edit was NOT silently overwritten.
     const { rows } = await ownerA.query(
-      `SELECT version, payload FROM api.blocks WHERE id = '${headingBlockId}'`,
+      `SELECT version, payload FROM api.blocks WHERE id = '${proseBlockId}'`,
     )
     expect(rows[0].version).toBe(2)
-    expect(rows[0].payload.text).toBe('Virus Stability at 4C — Updated')
+    expect(rows[0].payload.doc.content[0].content[0].text).toBe(
+      'Objective — Updated',
+    )
   })
 
   it('reads the same notebook and blocks through an external API credential', async () => {
@@ -414,7 +416,7 @@ describe('ELN-008 Phase 3 acceptance proof', () => {
     )
     expect(blocks).toHaveLength(3)
     expect(blocks.map((b: { id: string }) => b.id)).toEqual([
-      headingBlockId,
+      proseBlockId,
       checklistBlockId,
       textBlockId,
     ])
@@ -457,7 +459,7 @@ describe('ELN-008 Phase 3 acceptance proof', () => {
     const blockUpdateTabB = events.find(
       (e) =>
         e.entity_type === 'block' &&
-        e.entity_uuid === headingBlockId &&
+        e.entity_uuid === proseBlockId &&
         e.operation === 'update' &&
         e.client_id === CLIENT_TAB_B,
     )
@@ -497,7 +499,7 @@ describe('ELN-008 Phase 3 acceptance proof', () => {
     await expect(
       crossCaller.query(
         `SELECT * FROM api.update_block_payload(
-          '${headingBlockId}'::uuid, '{"level":1,"text":"cross"}'::jsonb, 2, 1)`,
+          '${proseBlockId}'::uuid, '{"doc":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"cross"}]}]}}'::jsonb, 2, 1)`,
       ),
     ).rejects.toMatchObject({ code: DENIED })
     const { rows } = await crossCaller.query(

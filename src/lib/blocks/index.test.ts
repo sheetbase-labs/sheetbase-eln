@@ -1,40 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  KNOWN_BLOCK_TYPES,
-  PAYLOAD_SCHEMA_VERSION,
-  isBlockPayloadValid,
-  validateBlock,
-} from './index'
+import { KNOWN_BLOCK_TYPES, isBlockPayloadValid, validateBlock } from './index'
 
 describe('block payload validation (ELN-002)', () => {
-  it('accepts a valid heading payload', () => {
-    const r = validateBlock({
-      type: 'heading',
-      payload: { level: 2, text: 'Methods' },
-    })
-    expect(r.ok).toBe(true)
-    expect(r.payloadSchemaVersion).toBe(PAYLOAD_SCHEMA_VERSION)
-  })
-
-  it('rejects a heading with an out-of-range level', () => {
-    const r = validateBlock({
-      type: 'heading',
-      payload: { level: 7, text: 'Methods' },
-    })
-    expect(r.ok).toBe(false)
-    expect(r.errors[0]?.field).toBe('level')
-  })
-
-  it('rejects a heading with empty text', () => {
-    const r = validateBlock({
-      type: 'heading',
-      payload: { level: 2, text: '   ' },
-    })
-    expect(r.ok).toBe(false)
-    expect(r.errors[0]?.code).toBe('missing_required_field')
-  })
-
   it('accepts a valid rich_text payload', () => {
     expect(
       isBlockPayloadValid({
@@ -43,6 +11,16 @@ describe('block payload validation (ELN-002)', () => {
           doc: {
             type: 'doc',
             content: [
+              {
+                type: 'heading',
+                attrs: { level: 2 },
+                content: [{ type: 'text', text: 'Materials' }],
+              },
+              {
+                type: 'heading',
+                attrs: { level: 3 },
+                content: [{ type: 'text', text: 'Reagents' }],
+              },
               {
                 type: 'paragraph',
                 content: [
@@ -131,17 +109,19 @@ describe('block payload validation (ELN-002)', () => {
     const r = validateBlock({ type: 'rich_text', payload: {} })
     expect(r.ok).toBe(false)
     expect(r.errors[0]?.field).toBe('doc')
-    expect(
-      validateBlock({
-        type: 'rich_text',
-        payload: {
-          doc: {
-            type: 'doc',
-            content: [{ type: 'heading', attrs: { level: 1 } }],
+    for (const level of [1, 4]) {
+      expect(
+        validateBlock({
+          type: 'rich_text',
+          payload: {
+            doc: {
+              type: 'doc',
+              content: [{ type: 'heading', attrs: { level } }],
+            },
           },
-        },
-      }).ok,
-    ).toBe(false)
+        }).ok,
+      ).toBe(false)
+    }
     expect(
       validateBlock({
         type: 'rich_text',
@@ -225,8 +205,8 @@ describe('block payload validation (ELN-002)', () => {
 
   it('rejects an unsupported payload schema version', () => {
     const r = validateBlock({
-      type: 'heading',
-      payload: { level: 2, text: 'x' },
+      type: 'rich_text',
+      payload: { doc: { type: 'doc', content: [{ type: 'paragraph' }] } },
       payloadSchemaVersion: 99,
     })
     expect(r.ok).toBe(false)
@@ -234,14 +214,13 @@ describe('block payload validation (ELN-002)', () => {
   })
 
   it('rejects a non-object payload', () => {
-    const r = validateBlock({ type: 'heading', payload: 'not an object' })
+    const r = validateBlock({ type: 'rich_text', payload: 'not an object' })
     expect(r.ok).toBe(false)
     expect(r.errors[0]?.code).toBe('invalid_payload_shape')
   })
 
   it('validates every known block type with a representative payload', () => {
     const samples: Record<string, unknown> = {
-      heading: { level: 2, text: 'Methods' },
       rich_text: {
         doc: {
           type: 'doc',
@@ -259,7 +238,6 @@ describe('block payload validation (ELN-002)', () => {
         targetIdentifier: 'SMP-1',
         linkType: 'sample',
       },
-      list: { items: ['DPBS', 'TaqMan kit'], ordered: false },
       callout: { text: 'Include NTC.', variant: 'warning' },
       table: { columns: ['Time', 'Value'], rows: [[0, 1.2]] },
       sheet: { tableId: '0198d970-e266-4000-8000-000000000001' },

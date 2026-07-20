@@ -371,7 +371,7 @@ export const records = api.table(
 
 /**
  * Blocks are the ordered, typed content units of a record's notebook.
- * Sections are heading blocks, not a separate table. `order` is a real so
+ * Prose headings and lists live inside rich_text documents. `order` is a real so
  * fractional indexing supports insert/move without rewriting every block.
  * `version` is the optimistic-concurrency version for content edits; the
  * record's structure_version moves on insert/move/delete.
@@ -387,8 +387,8 @@ export const blocks = api.table(
     recordId: uuid('record_id')
       .notNull()
       .references(() => records.id, { onDelete: 'cascade' }),
-    // Heading, rich_text, checklist, linked_record, list, callout, table,
-    // chart, plate_map, file, metric, procedure_step, ...
+    // Rich_text, checklist, linked_record, callout, table, chart, plate_map,
+    // file, metric, procedure_step, ...
     type: text('type').notNull(),
     payload: jsonb('payload')
       .notNull()
@@ -413,7 +413,7 @@ export const blocks = api.table(
   (table) => [
     check(
       'chk_blocks_type',
-      sql`${table.type} IN ('heading', 'rich_text', 'checklist', 'linked_record', 'list', 'callout', 'table', 'sheet', 'chart', 'plate_map', 'file', 'metric', 'procedure_step')`,
+      sql`${table.type} IN ('rich_text', 'checklist', 'linked_record', 'callout', 'table', 'sheet', 'chart', 'plate_map', 'file', 'metric', 'procedure_step')`,
     ),
     index('idx_blocks_record_id').on(table.recordId),
     // (record_id, order) is the hot loading path for notebook render.

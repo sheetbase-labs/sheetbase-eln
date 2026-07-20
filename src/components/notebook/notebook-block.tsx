@@ -14,7 +14,7 @@ import {
 
 /**
  * NotebookBlock — a composable visual frame for one block in a notebook
- * (heading, paragraph, table, chart, plate map, …). It is presentational
+ * (structured prose, table, chart, plate map, …). It is presentational
  * only; notebook persistence (order, content, saving) lives in the route,
  * not here (UI-006).
  *
@@ -35,7 +35,7 @@ export type NotebookBlockState =
   | 'read-only'
 
 export interface NotebookBlockProps {
-  /** Block type tag, e.g. "H2", "Paragraph", "Table". */
+  /** Block type tag, e.g. "Text", "Table", "Chart". */
   label: string
   title?: string
   children: React.ReactNode

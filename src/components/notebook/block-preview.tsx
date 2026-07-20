@@ -51,14 +51,10 @@ export function BlockPreview({ block, className }: BlockPreviewProps) {
 
 function renderPayload(type: string, payload: unknown): React.ReactNode {
   switch (type) {
-    case 'heading':
-      return renderHeading(payload)
     case 'rich_text':
       return renderRichText(payload)
     case 'checklist':
       return renderChecklist(payload)
-    case 'list':
-      return renderList(payload)
     case 'callout':
       return renderCallout(payload)
     case 'linked_record':
@@ -77,32 +73,6 @@ function renderPayload(type: string, payload: unknown): React.ReactNode {
     default:
       return renderUnsupported(type, payload)
   }
-}
-
-function renderHeading(payload: unknown): React.ReactNode {
-  const obj = asObject(payload)
-  if (!obj) return null
-  const text = asString(obj.text) ?? ''
-  const level = asNumber(obj.level)
-  const Tag = headingTag(level)
-  return (
-    <Tag
-      className={cn(
-        'font-display font-semibold tracking-tight text-foreground',
-        level === 1 && 'text-2xl leading-8',
-        (level === null || level === 2) && 'text-lg leading-7',
-        level === 3 && 'text-base leading-6',
-        level !== null && level >= 4 && 'text-sm leading-5',
-      )}
-    >
-      {text || 'Untitled heading'}
-    </Tag>
-  )
-}
-
-function headingTag(level: number | null) {
-  const n = level && level >= 1 && level <= 6 ? level : 2
-  return `h${n}` as keyof React.JSX.IntrinsicElements
 }
 
 function renderRichText(payload: unknown): React.ReactNode {
@@ -143,24 +113,6 @@ function renderChecklist(payload: unknown): React.ReactNode {
         )
       })}
     </ul>
-  )
-}
-
-function renderList(payload: unknown): React.ReactNode {
-  const obj = asObject(payload)
-  if (!obj) return null
-  const items = asArray<string>(obj.items)
-  const ordered = obj.ordered === true
-  if (!items) return null
-  const Tag = ordered ? 'ol' : 'ul'
-  return (
-    <Tag
-      className={cn('space-y-1 pl-5', ordered ? 'list-decimal' : 'list-disc')}
-    >
-      {items.map((item, i) => (
-        <li key={i}>{item}</li>
-      ))}
-    </Tag>
   )
 }
 

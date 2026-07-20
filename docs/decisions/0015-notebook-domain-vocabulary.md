@@ -79,7 +79,7 @@ The domain objects are:
 | project     | workspace        | many  | Already in `api.projects` with immutable `key`.                                                       |
 | folder      | project          | many  | Optional organisational layer. A project's records can live at the root or in a folder. Folders nest. |
 | record      | project + folder | many  | The polymorphic notebook-backed record (experiment, protocol_template, report, …).                    |
-| block       | record           | many  | Ordered, typed content unit. Sections are heading blocks, not a separate table.                       |
+| block       | record           | many  | Ordered content unit: structured prose or a distinct embedded/interactive resource.                   |
 | record_link | record           | many  | Outgoing typed link from a record to another record (or to a structured object by stable id).         |
 | revision    | record           | many  | Immutable snapshot taken at submission, signature or explicit save point.                             |
 
@@ -150,24 +150,22 @@ A block is one row in `blocks`:
 | `created_by_user_id`       | Actor attribution. Cross-schema FK to `internal.user`.                                                                                                                     |
 | `version`                  | Integer, optimistic-concurrency version for **block content** edits.                                                                                                       |
 
-**Sections are heading blocks, not a separate table.** A `heading` block
-with level 2 opens a section; the section's blocks are the following blocks
-until the next same-or-higher level heading. This matches the mockups,
-where "Objective", "Materials", "Experimental design" are H2 headings
-inside the document, and the Report Builder's numbered sections are a
-derived rendering over the same heading blocks. A future report-specific
-view can project section status (Auto-filled, Edited, To do) from the
-blocks under each heading without a separate sections table.
+**Prose sections live inside `rich_text` documents.** Restrained H2/H3 nodes,
+paragraphs, and prose lists form one Tiptap JSON tree. The record title is
+outside prose and remains the page H1. Distinct resources such as sheets,
+charts, links, and interactive checklists remain sibling notebook blocks.
+Future report-specific section status is a projection over the structured
+prose and adjacent resources, not a reason to split headings into blocks or
+introduce a sections table.
 
-Initial block types (ELN-005 implements the first four):
+Notebook block types:
 
-- `heading` — level (1–6) + text.
-- `rich_text` — structured text payload (paragraphs, inline formatting).
+- `rich_text` — structured headings (H2/H3), paragraphs, prose lists, and
+  inline formatting.
 - `checklist` — items with checked/text.
 - `linked_record` — target record id/type/key + link label; rendered with
   `RecordLink` (UI-005), including missing/deleted/permission-restricted
   states.
-- `list` — ordered/unordered items (mockup "Materials" list).
 - `callout` — variant (info/warning/note) + text.
 - `table` — columns, rows, cell values; the Handsontable sheet block
   (Phase 4) is a distinct `sheet` type, not this static table.
@@ -264,9 +262,9 @@ revision is marked `superseded_by_revision_id` but kept.
 - **Experiment Notebook (Virus Stability):** maps to `records.kind =
 'experiment'`, identifier `EXP-2025-0014`, status `in-progress`
   (experiment vocabulary), project `Lentivector Stability Study`, owner
-  `Gareth Price`. Body blocks: `heading` (Objective, Materials,
-  Experimental design, Results), `rich_text`, `list` (Materials), `table`
-  (Experimental design), `chart` (Results). Inspector properties, files,
+  `Gareth Price`. Body blocks: `rich_text` documents containing Objective,
+  Materials (including its bullet list), Experimental design, and Results;
+  `table` (Experimental design); and `chart` (Results). Inspector properties, files,
   linked records (Samples 2, Protocol 1, Dataset 1) and checks all map to
   `records` metadata + `record_links` + the file/metadata surfaces
   introduced in later phases. Activity and comments build on the
@@ -274,14 +272,14 @@ revision is marked `superseded_by_revision_id` but kept.
 - **Protocol Template (Titration Assay):** maps to `records.kind =
 'protocol_template'`, identifier `PRT-2025-000X`, status `active`
   (template vocabulary), version `1.2` carried as record metadata. Body
-  blocks: `heading`, `rich_text`, `list`/`checklist` (Materials with
+  blocks: `rich_text`, `checklist` (interactive Materials with
   catalog numbers), `procedure_step` (numbered Procedure), `callout`
   ("Include NTC in triplicate"), `table` (Run qPCR stages). The approval
   sidebar maps to the review/approval machinery from UI-007.
 - **Report Builder (Lentivector Stability Study Report):** maps to
   `records.kind = 'report'`, identifier `RPT-2025-0003`, status `draft`.
-  Numbered sections are `heading` blocks; section status (Auto-filled,
-  Edited, To do) is derived from the blocks under each heading. Content
+  Numbered headings are nodes in `rich_text`; section status (Auto-filled,
+  Edited, To do) is derived from structured prose and adjacent resources. Content
   blocks include `chart`, `metric` (Titer summary), `table`, `file`
   (dataset). The review/approval sidebar and the export settings are
   report-kind metadata; the document hierarchy is the same blocks model.
@@ -313,10 +311,10 @@ Event types are added, never renamed.
   (`create_record_with_blocks`, `move_block`) that bump
   `structure_version` in one transaction.
 - ELN-004/005 build the experiment notebook route, record header and
-  initial block types (`heading`, `rich_text`, `checklist`,
-  `linked_record`) over this contract; later phases add `chart`,
+  initial block types (`rich_text`, `checklist`, `linked_record`) over this
+  contract; later phases add `chart`,
   `plate_map`, `sheet`, `file`, `metric`, `procedure_step`, `callout`,
-  `list`, `table` without schema changes.
+  `table` without changing the prose contract.
 - The `RecordLink`, `StatusBadge`, `RecordHeader`, `Inspector`,
   `NotebookBlock`, `AuditTrail` and `ApprovalStepper` components from
   Phase 2 map directly onto this model; no UI contract changes are needed

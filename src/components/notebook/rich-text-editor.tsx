@@ -7,10 +7,13 @@ import Superscript from '@tiptap/extension-superscript'
 import {
   Bold,
   Code2,
+  Heading2,
+  Heading3,
   Italic,
   Link2,
   List,
   ListOrdered,
+  Pilcrow,
   Redo2,
   SubscriptIcon,
   SuperscriptIcon,
@@ -27,10 +30,11 @@ const extensions = [
     blockquote: false,
     codeBlock: false,
     hardBreak: false,
-    heading: false,
+    heading: { levels: [2, 3] },
     horizontalRule: false,
     link: false,
     strike: false,
+    trailingNode: false,
   }),
   Link.configure({
     openOnClick: false,
@@ -66,7 +70,7 @@ export function RichTextEditor({
         'aria-multiline': 'true',
         role: 'textbox',
         class:
-          'min-h-28 px-3 py-2 text-sm leading-6 outline-none [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-5 [&_p]:min-h-[1.5rem] [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5',
+          'min-h-28 space-y-2 px-3 py-2 text-sm leading-6 outline-none [&_h2]:font-display [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:leading-7 [&_h2]:tracking-tight [&_h3]:font-display [&_h3]:text-base [&_h3]:font-semibold [&_h3]:leading-6 [&_h3]:tracking-tight [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-5 [&_p]:min-h-[1.5rem] [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5',
       },
     },
     onUpdate: ({ editor: currentEditor }) => {
@@ -110,6 +114,24 @@ export function RichTextEditor({
   }
 
   const controls = [
+    {
+      label: 'Paragraph',
+      icon: Pilcrow,
+      active: editor.isActive('paragraph'),
+      action: () => editor.chain().focus().setParagraph().run(),
+    },
+    {
+      label: 'Heading 2',
+      icon: Heading2,
+      active: editor.isActive('heading', { level: 2 }),
+      action: () => editor.chain().focus().toggleHeading({ level: 2 }).run(),
+    },
+    {
+      label: 'Heading 3',
+      icon: Heading3,
+      active: editor.isActive('heading', { level: 3 }),
+      action: () => editor.chain().focus().toggleHeading({ level: 3 }).run(),
+    },
     {
       label: 'Bold',
       icon: Bold,

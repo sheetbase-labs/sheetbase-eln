@@ -6,10 +6,16 @@
  */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { NotebookDocument } from './notebook-document'
 import type { NotebookBlock, NotebookRecord } from '#/lib/notebook-data'
+
+beforeAll(() => {
+  document.elementFromPoint = () => null
+  Range.prototype.getClientRects = () => [] as unknown as DOMRectList
+  Range.prototype.getBoundingClientRect = () => new DOMRect()
+})
 
 afterEach(() => cleanup())
 
@@ -36,12 +42,23 @@ const archivedRecord: NotebookRecord = {
   archivedAt: '2026-07-19T00:00:00.000Z',
 }
 
-function headingBlock(id: string, text: string): NotebookBlock {
+function richTextBlock(id: string, text: string): NotebookBlock {
   return {
     id,
     recordId: 'r1',
-    type: 'heading',
-    payload: { level: 2, text },
+    type: 'rich_text',
+    payload: {
+      doc: {
+        type: 'doc',
+        content: [
+          {
+            type: 'heading',
+            attrs: { level: 2 },
+            content: [{ type: 'text', text }],
+          },
+        ],
+      },
+    },
     payloadSchemaVersion: 1,
     order: 1,
     version: 1,
@@ -53,7 +70,7 @@ describe('NotebookDocument — rendering', () => {
     const { container } = render(
       <NotebookDocument
         record={record}
-        blocks={[headingBlock('b1', 'A'), headingBlock('b2', 'B')]}
+        blocks={[richTextBlock('b1', 'A'), richTextBlock('b2', 'B')]}
         onSaveBlock={vi.fn()}
         onInsertBlock={vi.fn()}
         onDuplicateBlock={vi.fn()}
@@ -68,7 +85,7 @@ describe('NotebookDocument — rendering', () => {
     const { container } = render(
       <NotebookDocument
         record={record}
-        blocks={[headingBlock('b1', 'Objective')]}
+        blocks={[richTextBlock('b1', 'Objective')]}
         onSaveBlock={vi.fn()}
         onInsertBlock={vi.fn()}
         onDuplicateBlock={vi.fn()}
@@ -77,10 +94,10 @@ describe('NotebookDocument — rendering', () => {
     )
 
     expect(screen.getByRole('heading', { name: 'Objective' })).toBeTruthy()
-    expect(screen.queryByLabelText('Heading text')).toBeNull()
+    expect(screen.queryByRole('textbox')).toBeNull()
 
     fireEvent.click(container.querySelector('#block-b1')!)
-    expect(screen.getByLabelText('Heading text')).toBeTruthy()
+    expect(screen.getByRole('textbox', { name: 'Text content' })).toBeTruthy()
   })
 
   it('renders an honest, labelled results chart preview', () => {
@@ -89,7 +106,7 @@ describe('NotebookDocument — rendering', () => {
         record={record}
         blocks={[
           {
-            ...headingBlock('chart-1', ''),
+            ...richTextBlock('chart-1', ''),
             type: 'chart',
             payload: { title: 'Vector genome copy number (qPCR)' },
           },
@@ -118,7 +135,7 @@ describe('NotebookDocument — insertion', () => {
     render(
       <NotebookDocument
         record={record}
-        blocks={[headingBlock('b1', 'A')]}
+        blocks={[richTextBlock('b1', 'A')]}
         onSaveBlock={vi.fn()}
         onInsertBlock={onInsertBlock}
         onDuplicateBlock={vi.fn()}
@@ -126,8 +143,8 @@ describe('NotebookDocument — insertion', () => {
       />,
     )
     await user.click(screen.getByRole('button', { name: /Add block/ }))
-    await user.click(screen.getByRole('menuitem', { name: /^Heading/ }))
-    expect(onInsertBlock).toHaveBeenCalledWith('heading', undefined)
+    await user.click(screen.getByRole('menuitem', { name: /^Text/ }))
+    expect(onInsertBlock).toHaveBeenCalledWith('rich_text', undefined)
   })
 })
 
@@ -138,7 +155,7 @@ describe('NotebookDocument — duplication', () => {
     render(
       <NotebookDocument
         record={record}
-        blocks={[headingBlock('b1', 'A')]}
+        blocks={[richTextBlock('b1', 'A')]}
         onSaveBlock={vi.fn()}
         onInsertBlock={vi.fn()}
         onDuplicateBlock={onDuplicateBlock}
@@ -148,7 +165,7 @@ describe('NotebookDocument — duplication', () => {
     await user.click(screen.getByRole('button', { name: /Block actions/ }))
     await user.click(screen.getByRole('menuitem', { name: 'Duplicate' }))
     expect(onDuplicateBlock).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'b1', type: 'heading' }),
+      expect.objectContaining({ id: 'b1', type: 'rich_text' }),
     )
   })
 })
@@ -160,7 +177,7 @@ describe('NotebookDocument — delete confirmation', () => {
     render(
       <NotebookDocument
         record={record}
-        blocks={[headingBlock('b1', 'A')]}
+        blocks={[richTextBlock('b1', 'A')]}
         onSaveBlock={vi.fn()}
         onInsertBlock={vi.fn()}
         onDuplicateBlock={vi.fn()}
@@ -183,7 +200,7 @@ describe('NotebookDocument — delete confirmation', () => {
     render(
       <NotebookDocument
         record={record}
-        blocks={[headingBlock('b1', 'A')]}
+        blocks={[richTextBlock('b1', 'A')]}
         onSaveBlock={vi.fn()}
         onInsertBlock={vi.fn()}
         onDuplicateBlock={vi.fn()}
@@ -205,7 +222,7 @@ describe('NotebookDocument — undo delete', () => {
     render(
       <NotebookDocument
         record={record}
-        blocks={[headingBlock('b1', 'A')]}
+        blocks={[richTextBlock('b1', 'A')]}
         onSaveBlock={vi.fn()}
         onInsertBlock={vi.fn()}
         onDuplicateBlock={vi.fn()}
@@ -217,7 +234,11 @@ describe('NotebookDocument — undo delete', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Delete' }))
     await user.click(screen.getByRole('button', { name: 'Delete' }))
     expect(screen.getByText('Block deleted.')).toBeTruthy()
-    await user.click(screen.getByRole('button', { name: 'Undo' }))
+    const undoDelete = screen
+      .getAllByRole('button', { name: 'Undo' })
+      .find((button) => !button.hasAttribute('disabled'))
+    expect(undoDelete).toBeTruthy()
+    await user.click(undoDelete!)
     expect(onUndoDelete).toHaveBeenCalled()
   })
 })
@@ -227,7 +248,7 @@ describe('NotebookDocument — read-only', () => {
     render(
       <NotebookDocument
         record={archivedRecord}
-        blocks={[headingBlock('b1', 'A')]}
+        blocks={[richTextBlock('b1', 'A')]}
         onSaveBlock={vi.fn()}
         onInsertBlock={vi.fn()}
         onDuplicateBlock={vi.fn()}
@@ -246,9 +267,9 @@ describe('NotebookDocument — read-only', () => {
 
 function threeBlocks() {
   return [
-    headingBlock('b1', 'A'),
-    headingBlock('b2', 'B'),
-    headingBlock('b3', 'C'),
+    richTextBlock('b1', 'A'),
+    richTextBlock('b2', 'B'),
+    richTextBlock('b3', 'C'),
   ]
 }
 
@@ -770,8 +791,9 @@ describe('NotebookDocument — focus and selection after a move', () => {
     // Wait for the rollback + requestAnimationFrame focus to settle.
     await new Promise((r) => setTimeout(r, 50))
     const b1Anchor = container.querySelector('#block-b1') as HTMLElement
-    // The anchor should exist and be focused (tabIndex=0 makes it focusable).
+    // Selection remains inside the restored block. Editable blocks may move
+    // focus into their contextual editor rather than the outer anchor.
     expect(b1Anchor).toBeTruthy()
-    expect(document.activeElement).toBe(b1Anchor)
+    expect(b1Anchor.contains(document.activeElement)).toBe(true)
   })
 })

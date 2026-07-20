@@ -194,14 +194,12 @@ export async function moveBlock(
 }
 
 /**
- * Default payloads for the four editable block types (ELN-005). Each starts
+ * Default payloads for the editable block types (ELN-005). Each starts
  * minimal and valid so the new block enters editing focus immediately
  * without surfacing a validation error first.
  */
 export function defaultPayloadFor(type: string): Record<string, unknown> {
   switch (type) {
-    case 'heading':
-      return { level: 2, text: 'New heading' }
     case 'rich_text':
       return { ...EMPTY_RICH_TEXT_PAYLOAD }
     case 'checklist':

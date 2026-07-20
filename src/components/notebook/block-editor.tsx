@@ -1,6 +1,6 @@
 /**
- * Editable block content for the four initial block types (ELN-005):
- * heading, rich_text, checklist, linked_record.
+ * Editable block content for the initial authoring types (ELN-005):
+ * rich_text, checklist, linked_record.
  *
  * ELN-007 — autosave + conflict handling. Each typed editor drives a
  * `useAutosave` state machine: edits are debounced, saves carry the
@@ -61,8 +61,6 @@ export function BlockEditor(props: BlockEditorProps) {
     return <UnsupportedEditor block={props.block} className={props.className} />
   }
   switch (props.block.type) {
-    case 'heading':
-      return <HeadingEditor {...props} />
     case 'rich_text':
       return <RichTextEditor {...props} />
     case 'checklist':
@@ -134,8 +132,6 @@ function summarizePayload(
   payload: Record<string, unknown>,
 ): string {
   switch (type) {
-    case 'heading':
-      return `H${payload.level ?? 2} — ${payload.text ?? '(empty)'}`
     case 'rich_text':
       return isRichTextPayload(payload)
         ? richTextToPlainText(payload) || '(empty)'
@@ -213,95 +209,6 @@ function AutosaveFooter({
       {status === 'failed' && validationErrors.length > 0 ? (
         <ValidationErrors errors={validationErrors} />
       ) : null}
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Heading.
-// ---------------------------------------------------------------------------
-
-interface HeadingDraft {
-  level: number
-  text: string
-}
-
-function HeadingEditor({
-  block,
-  save,
-  offline,
-  onStatusChange,
-  readOnly,
-  autoFocus,
-  className,
-}: BlockEditorProps) {
-  const initial = block.payload as { level?: number; text?: string }
-  const initialDraft: HeadingDraft = {
-    level: typeof initial.level === 'number' ? initial.level : 2,
-    text: typeof initial.text === 'string' ? initial.text : '',
-  }
-  const a = useBlockAutosave(block, initialDraft, save, offline, onStatusChange)
-
-  if (readOnly) {
-    return (
-      <div className={className}>
-        <p className="font-display text-lg font-semibold text-foreground">
-          {a.draft.text || 'Untitled heading'}
-        </p>
-      </div>
-    )
-  }
-
-  return (
-    <div className={cn('space-y-2', className)}>
-      <div className="flex items-start gap-2">
-        <label className="sr-only" htmlFor={`heading-level-${block.id}`}>
-          Level
-        </label>
-        <select
-          id={`heading-level-${block.id}`}
-          value={a.draft.level}
-          onChange={(e) => {
-            a.setTouched(true)
-            a.setDraft({ ...a.draft, level: Number(e.target.value) })
-          }}
-          className="h-9 rounded-md border border-input bg-background px-2 text-sm"
-        >
-          {[1, 2, 3, 4, 5, 6].map((lvl) => (
-            <option key={lvl} value={lvl}>
-              H{lvl}
-            </option>
-          ))}
-        </select>
-        <label className="sr-only" htmlFor={`heading-text-${block.id}`}>
-          Heading text
-        </label>
-        <input
-          id={`heading-text-${block.id}`}
-          type="text"
-          value={a.draft.text}
-          autoFocus={autoFocus}
-          onChange={(e) => {
-            a.setTouched(true)
-            a.setDraft({ ...a.draft, text: e.target.value })
-          }}
-          onBlur={() => a.flush()}
-          placeholder="Heading text"
-          className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm"
-        />
-      </div>
-      <AutosaveFooter
-        status={a.status}
-        error={a.error}
-        validationErrors={a.validationErrors}
-        serverPreview={summarizePayload(
-          block.type,
-          (a.serverValue ?? {}) as Record<string, unknown>,
-        )}
-        onUseServer={() => a.discardDraft()}
-        onKeepLocal={() => a.retry()}
-        retrying={a.status === 'saving'}
-      />
     </div>
   )
 }

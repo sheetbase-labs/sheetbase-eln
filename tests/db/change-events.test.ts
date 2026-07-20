@@ -150,7 +150,7 @@ async function createRecord(
     `create_record_with_blocks(
       '${PROJ}'::uuid, 'experiment', '${title}',
       'draft', ARRAY[]::text[],
-      '[{"type":"heading","payload":{"level":2,"text":"H"},"order":1},
+      '[{"type":"checklist","payload":{"items":[]},"order":1},
         {"type":"rich_text","payload":{"doc":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"B"}]}]}},"order":2}]'::jsonb)`,
   )
 }
@@ -337,7 +337,7 @@ describe('LIVE-001 change events — ordering and isolation', () => {
       `create_record_with_blocks(
         '${PROJ_B}'::uuid, 'experiment', 'Other workspace',
         'draft', ARRAY[]::text[],
-        '[{"type":"heading","payload":{"level":2,"text":"H"},"order":1}]'::jsonb)`,
+        '[{"type":"checklist","payload":{"items":[]},"order":1}]'::jsonb)`,
     )
 
     const owner = await asAuthenticated(OWNER, WS)

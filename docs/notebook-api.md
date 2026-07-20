@@ -41,16 +41,16 @@ Creates a record and its initial blocks in one transaction. Reuses
   "p_tags": ["stability", "qPCR"],
   "p_blocks": [
     {
-      "type": "heading",
-      "payload": { "level": 1, "text": "Virus Stability" },
-      "order": 1,
-    },
-    {
       "type": "rich_text",
       "payload": {
         "doc": {
           "type": "doc",
           "content": [
+            {
+              "type": "heading",
+              "attrs": { "level": 2 },
+              "content": [{ "type": "text", "text": "Objective" }],
+            },
             {
               "type": "paragraph",
               "content": [{ "type": "text", "text": "Objective text." }],
@@ -58,7 +58,7 @@ Creates a record and its initial blocks in one transaction. Reuses
           ],
         },
       },
-      "order": 2,
+      "order": 1,
     },
   ],
 }
@@ -170,8 +170,19 @@ caller's payload once the type is a known block type.
 // POST /api/db/rpc/insert_block
 {
   "p_record_id": "00000000-0000-4000-8000-000000000101",
-  "p_type": "heading",
-  "p_payload": { "level": 2, "text": "Methods" },
+  "p_type": "rich_text",
+  "p_payload": {
+    "doc": {
+      "type": "doc",
+      "content": [
+        {
+          "type": "heading",
+          "attrs": { "level": 2 },
+          "content": [{ "type": "text", "text": "Methods" }],
+        },
+      ],
+    },
+  },
   "p_payload_schema_version": 1,
   "p_after_block_id": null,
   "p_expected_structure_version": 3,
@@ -234,9 +245,9 @@ curl -sS -b cookie.txt '/api/db/records?kind=eq.experiment&order=created_at.desc
 curl -sS -b cookie.txt '/api/db/records?identifier=eq.EXP-2025-0001'
 curl -sS -b cookie.txt '/api/db/blocks?record_id=eq.<record-id>&order=order.asc'
 
-# Create a record with two initial blocks
+# Create a record with one structured prose block
 curl -sS -b cookie.txt -H 'content-type: application/json' \
-  -d '{"p_project_id":"<proj-id>","p_kind":"experiment","p_title":"Virus Stability","p_blocks":[{"type":"heading","payload":{"level":1,"text":"Virus Stability"},"order":1},{"type":"rich_text","payload":{"doc":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Objective."}]}]}},"order":2}]}' \
+  -d '{"p_project_id":"<proj-id>","p_kind":"experiment","p_title":"Virus Stability","p_blocks":[{"type":"rich_text","payload":{"doc":{"type":"doc","content":[{"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"Objective"}]},{"type":"paragraph","content":[{"type":"text","text":"Objective text."}]}]}},"order":1}]}' \
   /api/db/rpc/create_record_with_blocks
 
 # Edit a block's payload (optimistic concurrency)
@@ -262,9 +273,9 @@ curl -sS -b cookie.txt -H 'content-type: application/json' \
   -d '{"p_source_record_id":"<exp-id>","p_target_kind":"protocol_template","p_target_identifier":"PRT-2025-0001","p_link_type":"protocol","p_target_record_id":"<proto-id>"}' \
   /api/db/rpc/create_record_link
 
-# Insert a heading block after a given anchor
+# Insert a structured prose block after a given anchor
 curl -sS -b cookie.txt -H 'content-type: application/json' \
-  -d '{"p_record_id":"<record-id>","p_type":"heading","p_payload":{"level":2,"text":"Methods"},"p_payload_schema_version":1,"p_after_block_id":"<anchor-id>","p_expected_structure_version":3}' \
+  -d '{"p_record_id":"<record-id>","p_type":"rich_text","p_payload":{"doc":{"type":"doc","content":[{"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"Methods"}]}]}},"p_payload_schema_version":1,"p_after_block_id":"<anchor-id>","p_expected_structure_version":3}' \
   /api/db/rpc/insert_block
 
 # Delete a block

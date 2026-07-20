@@ -1,6 +1,6 @@
 /**
  * BlockEditor component tests (ELN-005 / ELN-007). Covers read/edit
- * behaviour for the four editable block types, payload validation
+ * behaviour for the editable block types, payload validation
  * preventing mutation, the failed-save and conflict surfaces, and
  * read-only mode.
  *
@@ -58,60 +58,6 @@ function richText(text: string): RichTextPayload {
   }
 }
 
-describe('BlockEditor — heading', () => {
-  it('renders the existing text and level', () => {
-    const { container } = render(
-      <BlockEditor
-        block={block({
-          type: 'heading',
-          payload: { level: 3, text: 'Methods' },
-        })}
-        save={okSave}
-      />,
-    )
-    expect(screen.getByDisplayValue('Methods')).toBeTruthy()
-    const select = container.querySelector('select') as HTMLSelectElement
-    expect(select.value).toBe('3')
-  })
-
-  it('saves on blur when the payload is valid', async () => {
-    const user = userEvent.setup()
-    const save = vi.fn(async () => ({ ok: true }))
-    render(
-      <BlockEditor
-        block={block({
-          type: 'heading',
-          payload: { level: 2, text: 'Methods' },
-        })}
-        save={save}
-      />,
-    )
-    const input = screen.getByDisplayValue('Methods')
-    await user.clear(input)
-    await user.type(input, 'Results')
-    await user.tab()
-    expect(save).toHaveBeenCalledWith({ level: 2, text: 'Results' })
-  })
-
-  it('does not call save when the text is blank', async () => {
-    const user = userEvent.setup()
-    const save = vi.fn(async () => ({ ok: true }))
-    render(
-      <BlockEditor
-        block={block({
-          type: 'heading',
-          payload: { level: 2, text: 'Methods' },
-        })}
-        save={save}
-      />,
-    )
-    const input = screen.getByDisplayValue('Methods')
-    await user.clear(input)
-    await user.tab()
-    expect(save).not.toHaveBeenCalled()
-  })
-})
-
 describe('BlockEditor — rich_text', () => {
   it('saves canonical structured JSON on blur', async () => {
     const user = userEvent.setup()
@@ -141,6 +87,9 @@ describe('BlockEditor — rich_text', () => {
     )
     const editor = await screen.findByRole('textbox', { name: 'Text content' })
     for (const name of [
+      'Paragraph',
+      'Heading 2',
+      'Heading 3',
       'Bold',
       'Italic',
       'Link',
@@ -168,6 +117,34 @@ describe('BlockEditor — rich_text', () => {
             content: [
               { type: 'text', marks: [{ type: 'bold' }], text: 'result' },
             ],
+          },
+        ],
+      },
+    })
+  })
+
+  it('selects and persists a restrained section heading', async () => {
+    const user = userEvent.setup()
+    const save = vi.fn(async () => ({ ok: true }))
+    render(
+      <BlockEditor
+        block={block({ type: 'rich_text', payload: richText('Materials') })}
+        save={save}
+      />,
+    )
+    const editor = await screen.findByRole('textbox', { name: 'Text content' })
+    editor.focus()
+    await user.keyboard('{Control>}a{/Control}')
+    await user.click(screen.getByRole('button', { name: 'Heading 2' }))
+    await user.tab()
+    expect(save).toHaveBeenCalledWith({
+      doc: {
+        type: 'doc',
+        content: [
+          {
+            type: 'heading',
+            attrs: { level: 2 },
+            content: [{ type: 'text', text: 'Materials' }],
           },
         ],
       },
@@ -338,22 +315,7 @@ describe('BlockEditor — unsupported type', () => {
 })
 
 describe('BlockEditor — read-only mode', () => {
-  it('renders heading text without inputs', () => {
-    render(
-      <BlockEditor
-        block={block({
-          type: 'heading',
-          payload: { level: 2, text: 'Locked' },
-        })}
-        save={okSave}
-        readOnly
-      />,
-    )
-    expect(screen.getByText('Locked')).toBeTruthy()
-    expect(screen.queryByRole('textbox')).toBeNull()
-  })
-
-  it('safely renders formatted rich text from the structured payload', () => {
+  it('safely renders headings and formatted text from the structured payload', () => {
     render(
       <BlockEditor
         block={block({
@@ -362,6 +324,11 @@ describe('BlockEditor — read-only mode', () => {
             doc: {
               type: 'doc',
               content: [
+                {
+                  type: 'heading',
+                  attrs: { level: 2 },
+                  content: [{ type: 'text', text: 'Results' }],
+                },
                 {
                   type: 'paragraph',
                   content: [
@@ -387,6 +354,9 @@ describe('BlockEditor — read-only mode', () => {
       />,
     )
     const link = screen.getByRole('link', { name: 'assay' })
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Results' }),
+    ).toBeTruthy()
     expect(link.getAttribute('href')).toBe('https://example.test/result')
     expect(link.querySelector('strong')).toBeTruthy()
     expect(screen.queryByRole('textbox')).toBeNull()
@@ -404,15 +374,16 @@ describe('BlockEditor — failed save surface', () => {
     render(
       <BlockEditor
         block={block({
-          type: 'heading',
-          payload: { level: 2, text: 'Hi' },
+          type: 'rich_text',
+          payload: richText('Hi'),
         })}
         save={save}
       />,
     )
-    const input = screen.getByDisplayValue('Hi')
-    await user.clear(input)
-    await user.type(input, 'X')
+    const editor = await screen.findByRole('textbox', { name: 'Text content' })
+    editor.focus()
+    await user.keyboard('{Control>}a{/Control}{Backspace}')
+    await user.paste('X')
     await user.tab()
     // The save returns a permanent validation failure; the footer should
     // surface the message truthfully.
@@ -427,28 +398,29 @@ describe('BlockEditor — conflict surface', () => {
       ok: false,
       kind: 'conflict' as const,
       message: 'This block was changed elsewhere.',
-      serverValue: { level: 2, text: 'server version' },
+      serverValue: richText('server version'),
     }))
     render(
       <BlockEditor
         block={block({
-          type: 'heading',
-          payload: { level: 2, text: 'Hi' },
+          type: 'rich_text',
+          payload: richText('Hi'),
         })}
         save={save}
       />,
     )
-    const input = screen.getByDisplayValue('Hi')
-    await user.clear(input)
-    await user.type(input, 'my edit')
+    const editor = await screen.findByRole('textbox', { name: 'Text content' })
+    editor.focus()
+    await user.keyboard('{Control>}a{/Control}{Backspace}')
+    await user.paste('my edit')
     await user.tab()
     // The conflict banner renders distinctive resolution buttons.
     expect(
       await screen.findByRole('button', { name: /Use server version/ }),
     ).toBeTruthy()
     // The server preview should be comprehensible — the banner shows a
-    // formatted preview of the server value (H2 — server version).
-    expect(screen.getByText('H2 — server version')).toBeTruthy()
+    // formatted plain-text preview of the structured server value.
+    expect(screen.getByText('server version')).toBeTruthy()
   })
 
   it('preserves a rich-text draft and adopts structured server content explicitly', async () => {

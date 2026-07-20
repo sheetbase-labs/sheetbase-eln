@@ -25,7 +25,7 @@ export interface ConflictBannerProps {
   /**
    * Compact, read-only preview of the canonical server value. The
    * caller serialises the payload into a readable string (e.g. the
-   * heading text or a one-line summary of the checklist).
+   * prose text or a one-line summary of the checklist).
    */
   serverPreview: string
   onUseServer: () => void

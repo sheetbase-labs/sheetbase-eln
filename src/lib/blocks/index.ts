@@ -7,11 +7,9 @@
  * before they reach the database, and that preserves unsupported future
  * block types as readable placeholders rather than silently rewriting them.
  *
- * Initial block types (ELN-005 implements the first four in the UI):
- * heading, rich_text, checklist, linked_record. The remaining types
- * (list, callout, table, chart, plate_map, file, metric, procedure_step)
- * are defined here so the API boundary is complete even before the UI
- * renders them.
+ * Prose structure belongs to rich_text. Checklist and linked_record remain
+ * semantic blocks; the remaining embedded/scientific types are defined here
+ * so the API boundary is complete even before every type has an editor.
  */
 
 import { isRichTextPayload } from './rich-text'
@@ -29,11 +27,9 @@ export type {
 } from './rich-text'
 
 export type BlockType =
-  | 'heading'
   | 'rich_text'
   | 'checklist'
   | 'linked_record'
-  | 'list'
   | 'callout'
   | 'table'
   | 'sheet'
@@ -48,15 +44,13 @@ export const PAYLOAD_SCHEMA_VERSION = 1 as const
 
 /**
  * The set of block types the DB check constraint allows. Kept in sync with
- * `chk_blocks_type` in drizzle/0008_powerful_celestials.sql. A type not in
+ * `chk_blocks_type` and its latest constraint migration. A type not in
  * this set is rejected as `unsupported_block_type`.
  */
 export const KNOWN_BLOCK_TYPES: readonly BlockType[] = [
-  'heading',
   'rich_text',
   'checklist',
   'linked_record',
-  'list',
   'callout',
   'table',
   'sheet',
@@ -176,30 +170,6 @@ type FieldErrors = Array<{
   message: string
 }>
 
-function validateHeading(payload: unknown): FieldErrors {
-  const errors: FieldErrors = []
-  if (!isObject(payload))
-    return [
-      { code: 'invalid_payload_shape', message: 'payload must be an object' },
-    ]
-  const level = payload.level
-  if (!isInteger(level) || level < 1 || level > 6) {
-    errors.push({
-      code: 'invalid_field_value',
-      field: 'level',
-      message: 'level must be an integer 1–6',
-    })
-  }
-  if (!isNonEmptyString(payload.text)) {
-    errors.push({
-      code: 'missing_required_field',
-      field: 'text',
-      message: 'text is required and must be a non-empty string',
-    })
-  }
-  return errors
-}
-
 function validateRichText(payload: unknown): FieldErrors {
   return isRichTextPayload(payload)
     ? []
@@ -208,7 +178,7 @@ function validateRichText(payload: unknown): FieldErrors {
           code: 'invalid_payload_shape',
           field: 'doc',
           message:
-            'doc must be a supported rich-text v1 document (paragraphs, lists, and approved inline marks)',
+            'doc must be a supported rich-text v1 document (H2/H3 headings, paragraphs, lists, and approved inline marks)',
         },
       ]
 }
@@ -294,30 +264,6 @@ function validateLinkedRecord(payload: unknown): FieldErrors {
       code: 'invalid_field_value',
       field: 'label',
       message: 'label must not be blank when present',
-    })
-  }
-  return errors
-}
-
-function validateList(payload: unknown): FieldErrors {
-  const errors: FieldErrors = []
-  if (!isObject(payload))
-    return [
-      { code: 'invalid_payload_shape', message: 'payload must be an object' },
-    ]
-  const items = payload.items
-  if (!Array.isArray(items) || !items.every(isString)) {
-    errors.push({
-      code: 'invalid_field_value',
-      field: 'items',
-      message: 'items must be an array of strings',
-    })
-  }
-  if (payload.ordered !== undefined && typeof payload.ordered !== 'boolean') {
-    errors.push({
-      code: 'invalid_field_value',
-      field: 'ordered',
-      message: 'ordered must be a boolean when present',
     })
   }
   return errors
@@ -530,11 +476,9 @@ function validateProcedureStep(payload: unknown): FieldErrors {
 }
 
 const validators: Record<BlockType, (payload: unknown) => FieldErrors> = {
-  heading: validateHeading,
   rich_text: validateRichText,
   checklist: validateChecklist,
   linked_record: validateLinkedRecord,
-  list: validateList,
   callout: validateCallout,
   table: validateTable,
   sheet: validateSheet,

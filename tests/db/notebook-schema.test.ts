@@ -12,6 +12,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import * as schema from '#/db/schema'
 import { validateBlock } from '#/lib/blocks'
 import {
+  DEMO_BLOCK_IDS,
   DEMO_VIRUS_STABILITY_PROJECT_ID,
   DEMO_VIRUS_STABILITY_RECORD_ID,
 } from '#/db/seed/identities'
@@ -168,20 +169,35 @@ describe('notebook domain schema', () => {
     ).rejects.toMatchObject({ cause: { code: CHECK_VIOLATION } })
   })
 
+  it('rejects removed standalone prose block types', async () => {
+    const recordId = await createRecord('experiment', 'EXP-2025-0107')
+    for (const type of ['heading', 'list']) {
+      await expect(
+        db.insert(schema.blocks).values({
+          recordId,
+          type,
+          payload: {},
+          order: 1,
+          createdByUserId: OWNER,
+        }),
+      ).rejects.toMatchObject({ cause: { code: CHECK_VIOLATION } })
+    }
+  })
+
   it('rejects duplicate block order within a record', async () => {
     const recordId = await createRecord('experiment', 'EXP-2025-0101')
     await db.insert(schema.blocks).values({
       recordId,
-      type: 'heading',
-      payload: { level: 2, text: 'A' },
+      type: 'checklist',
+      payload: { items: [{ text: 'A', checked: false }] },
       order: 1,
       createdByUserId: OWNER,
     })
     await expect(
       db.insert(schema.blocks).values({
         recordId,
-        type: 'heading',
-        payload: { level: 2, text: 'B' },
+        type: 'checklist',
+        payload: { items: [{ text: 'B', checked: false }] },
         order: 1,
         createdByUserId: OWNER,
       }),
@@ -192,15 +208,35 @@ describe('notebook domain schema', () => {
     const recordId = await createRecord('experiment', 'EXP-2025-0102')
     await db.insert(schema.blocks).values({
       recordId,
-      type: 'heading',
-      payload: { level: 2, text: 'first' },
+      type: 'rich_text',
+      payload: {
+        doc: {
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [{ type: 'text', text: 'first' }],
+            },
+          ],
+        },
+      },
       order: 1,
       createdByUserId: OWNER,
     })
     await db.insert(schema.blocks).values({
       recordId,
-      type: 'heading',
-      payload: { level: 2, text: 'third' },
+      type: 'rich_text',
+      payload: {
+        doc: {
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [{ type: 'text', text: 'third' }],
+            },
+          ],
+        },
+      },
       order: 2,
       createdByUserId: OWNER,
     })
@@ -299,8 +335,8 @@ describe('notebook domain schema', () => {
     const recordId = await createRecord('experiment', 'EXP-2025-0106')
     await db.insert(schema.blocks).values({
       recordId,
-      type: 'heading',
-      payload: { level: 2, text: 'to be deleted' },
+      type: 'checklist',
+      payload: { items: [{ text: 'to be deleted', checked: false }] },
       order: 1,
       createdByUserId: OWNER,
     })
@@ -355,8 +391,8 @@ describe('Virus Stability demo fixtures', () => {
       `SELECT count(*)::text AS n FROM api.blocks
        WHERE record_id = '${DEMO_VIRUS_STABILITY_RECORD_ID}'`,
     )
-    // 13 representative blocks and no duplicates after two runs.
-    expect(Number(rows[0]?.n)).toBe(13)
+    // 10 representative blocks and no duplicates after two runs.
+    expect(Number(rows[0]?.n)).toBe(10)
 
     const { rows: links } = await migrator.query<{ n: string }>(
       `SELECT count(*)::text AS n FROM api.record_links
@@ -384,9 +420,7 @@ describe('Virus Stability demo fixtures', () => {
     )
     expect(rows.map((r) => r.type)).toEqual(
       expect.arrayContaining([
-        'heading',
         'rich_text',
-        'list',
         'table',
         'chart',
         'metric',
@@ -395,6 +429,27 @@ describe('Virus Stability demo fixtures', () => {
         'linked_record',
       ]),
     )
+  })
+
+  it('keeps section headings and Materials bullets inside rich-text documents', async () => {
+    const { rows } = await migrator.query<{
+      id: string
+      type: string
+      payload: { doc?: { content?: Array<{ type?: string }> } }
+    }>(
+      `SELECT id, type, payload FROM api.blocks
+       WHERE record_id = '${DEMO_VIRUS_STABILITY_RECORD_ID}'
+       ORDER BY "order"`,
+    )
+    expect(
+      rows.some((row) => row.type === 'heading' || row.type === 'list'),
+    ).toBe(false)
+    const materials = rows.find((row) => row.id === DEMO_BLOCK_IDS.materials)
+    expect(materials?.type).toBe('rich_text')
+    expect(materials?.payload.doc?.content?.map((node) => node.type)).toEqual([
+      'heading',
+      'bulletList',
+    ])
   })
 
   it('demo block payloads validate at the application boundary', async () => {

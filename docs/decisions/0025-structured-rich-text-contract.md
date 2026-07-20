@@ -29,7 +29,10 @@ structured payload at runtime would create an unnecessary permanent branch.
 }
 ```
 
-`doc.content` contains `paragraph`, `bulletList`, or `orderedList` nodes.
+`doc.content` contains `heading`, `paragraph`, `bulletList`, or `orderedList`
+nodes. Heading nodes require exactly an integer `level` attribute of 2 or 3;
+H1 is reserved for the record title outside document prose, while H4–H6 are
+excluded to keep notebook hierarchy restrained.
 Lists contain `listItem` nodes whose first child is a paragraph and whose
 remaining children, when present, are nested lists. Paragraphs contain text
 nodes. Text nodes may carry each of these marks at most once: `bold`,
@@ -40,9 +43,11 @@ stored by the editor.
 
 Tiptap is the prose authoring engine and emits this JSON document. Unsupported
 nodes, marks, attributes, extra payload fields, unsafe links, and malformed
-trees fail application-boundary validation. Block headings, checklists,
-linked records, sheets, charts, and other scientific controls remain separate
-block types rather than Tiptap nodes.
+trees fail application-boundary validation. Headings, paragraphs, and prose
+lists are one coherent Tiptap document model. `heading` and generic `list`
+are therefore not notebook block types. Interactive checklists, linked
+records, sheets, charts, and other scientific controls remain separate blocks
+because they carry behavior or domain identity beyond prose.
 
 Read-only views render the validated tree directly as React elements. They do
 not convert stored content to HTML or use raw HTML injection. The Tiptap client
@@ -50,9 +55,11 @@ uses deferred initial rendering so server output and first hydration output
 remain stable.
 
 There is no runtime reader, writer, or adapter for legacy `{ "body": string }`
-payloads. Alpha fixtures and API examples move directly to the canonical
-shape. Existing development databases must be reseeded. The JSONB column and
-database schema do not change, so no database migration is added.
+payloads or standalone heading/list payloads. Alpha fixtures and API examples
+move directly to the canonical shape. Existing development databases must be
+reset and reseeded. The JSONB payload structure does not change, but migration
+0021 narrows the durable block-type constraint so removed prose block types
+cannot re-enter through lower-level API calls.
 
 ## Consequences
 
@@ -62,5 +69,7 @@ database schema do not change, so no database migration is added.
   HTML as scientific content.
 - Existing alpha rows using `body` are intentionally rejected and require a
   development reseed.
+- Existing alpha `heading` and generic `list` rows are intentionally not
+  converted at runtime; reset/reseed is the explicit transition.
 - Adding another node, mark, or attribute requires an explicit payload-schema
   contract change rather than accepting arbitrary Tiptap JSON.

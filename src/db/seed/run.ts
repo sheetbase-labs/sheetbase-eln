@@ -201,24 +201,17 @@ export const demoSteps: Array<SeedStep> = [
     run: async (db) => {
       const blocks = [
         {
-          id: DEMO_BLOCK_IDS.title,
-          type: 'heading',
-          payload: { level: 1, text: 'Virus Stability at 4°C' },
-          order: 1,
-        },
-        {
-          id: DEMO_BLOCK_IDS.objectiveHeading,
-          type: 'heading',
-          payload: { level: 2, text: 'Objective' },
-          order: 2,
-        },
-        {
-          id: DEMO_BLOCK_IDS.objectiveBody,
+          id: DEMO_BLOCK_IDS.objective,
           type: 'rich_text',
           payload: {
             doc: {
               type: 'doc',
               content: [
+                {
+                  type: 'heading',
+                  attrs: { level: 2 },
+                  content: [{ type: 'text', text: 'Objective' }],
+                },
                 {
                   type: 'paragraph',
                   content: [
@@ -231,33 +224,58 @@ export const demoSteps: Array<SeedStep> = [
               ],
             },
           },
-          order: 3,
+          order: 1,
         },
         {
-          id: DEMO_BLOCK_IDS.materialsHeading,
-          type: 'heading',
-          payload: { level: 2, text: 'Materials' },
-          order: 4,
-        },
-        {
-          id: DEMO_BLOCK_IDS.materialsList,
-          type: 'list',
+          id: DEMO_BLOCK_IDS.materials,
+          type: 'rich_text',
           payload: {
-            items: [
-              'LVV-CAR-T drug substance (Lot LVV-250601)',
-              'DPBS, sterile filtered',
-              '1.5 mL low-bind tubes',
-              'TaqMan qPCR kit',
-            ],
-            ordered: false,
+            doc: {
+              type: 'doc',
+              content: [
+                {
+                  type: 'heading',
+                  attrs: { level: 2 },
+                  content: [{ type: 'text', text: 'Materials' }],
+                },
+                {
+                  type: 'bulletList',
+                  content: [
+                    'LVV-CAR-T drug substance (Lot LVV-250601)',
+                    'DPBS, sterile filtered',
+                    '1.5 mL low-bind tubes',
+                    'TaqMan qPCR kit',
+                  ].map((text) => ({
+                    type: 'listItem' as const,
+                    content: [
+                      {
+                        type: 'paragraph' as const,
+                        content: [{ type: 'text' as const, text }],
+                      },
+                    ],
+                  })),
+                },
+              ],
+            },
           },
-          order: 5,
+          order: 2,
         },
         {
-          id: DEMO_BLOCK_IDS.designHeading,
-          type: 'heading',
-          payload: { level: 2, text: 'Experimental design' },
-          order: 6,
+          id: DEMO_BLOCK_IDS.design,
+          type: 'rich_text',
+          payload: {
+            doc: {
+              type: 'doc',
+              content: [
+                {
+                  type: 'heading',
+                  attrs: { level: 2 },
+                  content: [{ type: 'text', text: 'Experimental design' }],
+                },
+              ],
+            },
+          },
+          order: 3,
         },
         {
           id: DEMO_BLOCK_IDS.designTable,
@@ -282,13 +300,24 @@ export const demoSteps: Array<SeedStep> = [
               [28, 2, 100, '4 °C'],
             ],
           },
-          order: 7,
+          order: 4,
         },
         {
-          id: DEMO_BLOCK_IDS.resultsHeading,
-          type: 'heading',
-          payload: { level: 2, text: 'Results' },
-          order: 8,
+          id: DEMO_BLOCK_IDS.results,
+          type: 'rich_text',
+          payload: {
+            doc: {
+              type: 'doc',
+              content: [
+                {
+                  type: 'heading',
+                  attrs: { level: 2 },
+                  content: [{ type: 'text', text: 'Results' }],
+                },
+              ],
+            },
+          },
+          order: 5,
         },
         {
           id: DEMO_BLOCK_IDS.resultsChart,
@@ -298,7 +327,7 @@ export const demoSteps: Array<SeedStep> = [
             spec: '{"type":"line","yAxis":{"scale":"log"},"xKey":"days","yKey":"gcn"}',
             provenance: 'Analysis Studio',
           },
-          order: 9,
+          order: 6,
         },
         {
           id: DEMO_BLOCK_IDS.titerMetric,
@@ -309,7 +338,7 @@ export const demoSteps: Array<SeedStep> = [
             unit: 'copies/mL',
             provenance: 'qPCR',
           },
-          order: 10,
+          order: 7,
         },
         {
           id: DEMO_BLOCK_IDS.checks,
@@ -321,7 +350,7 @@ export const demoSteps: Array<SeedStep> = [
               { text: 'Reagent expiry', checked: true },
             ],
           },
-          order: 11,
+          order: 8,
         },
         {
           id: DEMO_BLOCK_IDS.callout,
@@ -330,7 +359,7 @@ export const demoSteps: Array<SeedStep> = [
             text: 'Include a no-template control (NTC) in every qPCR run.',
             variant: 'warning',
           },
-          order: 12,
+          order: 9,
         },
         {
           id: DEMO_BLOCK_IDS.linkedProtocol,
@@ -341,7 +370,7 @@ export const demoSteps: Array<SeedStep> = [
             linkType: 'protocol',
             label: 'Stability Assay Protocol',
           },
-          order: 13,
+          order: 10,
         },
       ] as const
 

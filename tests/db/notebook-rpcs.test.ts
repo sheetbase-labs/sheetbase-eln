@@ -111,14 +111,14 @@ describe('create_record_with_blocks', () => {
         'Virus Stability',
         'draft',
         ARRAY['stability']::text[],
-        '[{"type":"heading","payload":{"level":1,"text":"Virus Stability"},"order":1},
+        '[{"type":"rich_text","payload":{"doc":{"type":"doc","content":[{"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"Objective"}]},{"type":"paragraph","content":[{"type":"text","text":"Objective text."}]}]}},"order":1},
             {"type":"rich_text","payload":{"doc":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Objective text."}]}]}},"order":2}]'::jsonb
       )`,
     )
     expect(result.record.identifier).toMatch(/^EXP-\d{4}-\d{4}$/)
     expect(result.record.title).toBe('Virus Stability')
     expect(result.blocks).toHaveLength(2)
-    expect(result.blocks[0].type).toBe('heading')
+    expect(result.blocks[0].type).toBe('rich_text')
     expect(result.blocks[1].version).toBe(1)
   })
 
@@ -131,7 +131,7 @@ describe('create_record_with_blocks', () => {
       `create_record_with_blocks(
         '${PROJ}'::uuid, 'experiment', 'No order blocks',
         'draft', ARRAY[]::text[],
-        '[{"type":"heading","payload":{"level":2,"text":"A"}},
+        '[{"type":"checklist","payload":{"items":[]}},
             {"type":"rich_text","payload":{"doc":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"B"}]}]}}}]'::jsonb
       )`,
     )
@@ -235,9 +235,9 @@ describe('move_block', () => {
       `create_record_with_blocks(
         '${PROJ}'::uuid, 'experiment', 'Movable',
         'draft', ARRAY[]::text[],
-        '[{"type":"heading","payload":{"level":2,"text":"A"},"order":1},
-            {"type":"heading","payload":{"level":2,"text":"B"},"order":2},
-            {"type":"heading","payload":{"level":2,"text":"C"},"order":3}]'::jsonb)`,
+        '[{"type":"checklist","payload":{"items":[]},"order":1},
+            {"type":"checklist","payload":{"items":[]},"order":2},
+            {"type":"checklist","payload":{"items":[]},"order":3}]'::jsonb)`,
     )
     return {
       recordId: created.record.id,
@@ -436,11 +436,11 @@ describe('insert_block', () => {
     }>(
       owner,
       `insert_block(
-        '${recordId}'::uuid, 'heading',
-        '{"level":2,"text":"Appended"}'::jsonb, 1, NULL, 1)`,
+        '${recordId}'::uuid, 'checklist',
+        '{"items":[]}'::jsonb, 1, NULL, 1)`,
     )
-    expect(res.block.type).toBe('heading')
-    expect(res.block.payload.text).toBe('Appended')
+    expect(res.block.type).toBe('checklist')
+    expect(res.block.payload.items).toEqual([])
     expect(res.block.order).toBe(1)
     expect(res.structure_version).toBe(2)
   })
@@ -454,8 +454,8 @@ describe('insert_block', () => {
     }>(
       owner,
       `insert_block(
-        '${recordId}'::uuid, 'heading',
-        '{"level":2,"text":"A"}'::jsonb, 1, NULL, 1)`,
+        '${recordId}'::uuid, 'checklist',
+        '{"items":[]}'::jsonb, 1, NULL, 1)`,
     )
     const second = await rpcByName<{
       block: { id: string; order: number }
@@ -463,8 +463,8 @@ describe('insert_block', () => {
     }>(
       owner,
       `insert_block(
-        '${recordId}'::uuid, 'heading',
-        '{"level":2,"text":"B"}'::jsonb, 1, NULL, ${first.structure_version})`,
+        '${recordId}'::uuid, 'checklist',
+        '{"items":[]}'::jsonb, 1, NULL, ${first.structure_version})`,
     )
     // Insert between A (order 1) and B (order 2).
     const mid = await rpcByName<{
@@ -495,8 +495,8 @@ describe('insert_block', () => {
     await expect(
       owner.query(
         `SELECT * FROM api.insert_block(
-          '${recordId}'::uuid, 'heading',
-          '{"level":2,"text":"x"}'::jsonb, 1, NULL, 999)`,
+          '${recordId}'::uuid, 'checklist',
+          '{"items":[]}'::jsonb, 1, NULL, 999)`,
       ),
     ).rejects.toMatchObject({ code: STALE })
   })
@@ -508,15 +508,15 @@ describe('insert_block', () => {
     const foreign = await rpcByName<{ block: { id: string } }>(
       owner,
       `insert_block(
-        '${other.recordId}'::uuid, 'heading',
-        '{"level":2,"text":"foreign"}'::jsonb, 1, NULL, 1)`,
+        '${other.recordId}'::uuid, 'checklist',
+        '{"items":[]}'::jsonb, 1, NULL, 1)`,
     )
     // after_block_id points into a different record: FK-style rejection.
     await expect(
       owner.query(
         `SELECT * FROM api.insert_block(
-          '${recordId}'::uuid, 'heading',
-          '{"level":2,"text":"x"}'::jsonb, 1, '${foreign.block.id}'::uuid, 1)`,
+          '${recordId}'::uuid, 'checklist',
+          '{"items":[]}'::jsonb, 1, '${foreign.block.id}'::uuid, 1)`,
       ),
     ).rejects.toMatchObject({ code: '23503' })
   })
@@ -528,8 +528,8 @@ describe('insert_block', () => {
     await expect(
       ownerB.query(
         `SELECT * FROM api.insert_block(
-          '${recordId}'::uuid, 'heading',
-          '{"level":2,"text":"x"}'::jsonb, 1, NULL, 1)`,
+          '${recordId}'::uuid, 'checklist',
+          '{"items":[]}'::jsonb, 1, NULL, 1)`,
       ),
     ).rejects.toMatchObject({ code: DENIED })
   })
@@ -547,8 +547,8 @@ describe('delete_block', () => {
       `create_record_with_blocks(
         '${PROJ}'::uuid, 'experiment', 'Delete Target',
         'draft', ARRAY[]::text[],
-        '[{"type":"heading","payload":{"level":2,"text":"A"},"order":1},
-            {"type":"heading","payload":{"level":2,"text":"B"},"order":2}]'::jsonb)`,
+        '[{"type":"checklist","payload":{"items":[]},"order":1},
+            {"type":"checklist","payload":{"items":[]},"order":2}]'::jsonb)`,
     )
     return {
       recordId: created.record.id,

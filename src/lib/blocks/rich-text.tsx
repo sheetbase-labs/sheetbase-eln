@@ -23,6 +23,12 @@ export interface RichTextParagraphNode {
   content?: RichTextTextNode[]
 }
 
+export interface RichTextHeadingNode {
+  type: 'heading'
+  attrs: { level: 2 | 3 }
+  content?: RichTextTextNode[]
+}
+
 export interface RichTextListItemNode {
   type: 'listItem'
   content: Array<RichTextParagraphNode | RichTextListNode>
@@ -36,7 +42,7 @@ export interface RichTextListNode {
 
 export interface RichTextDocument {
   type: 'doc'
-  content: Array<RichTextParagraphNode | RichTextListNode>
+  content: Array<RichTextHeadingNode | RichTextParagraphNode | RichTextListNode>
 }
 
 export type RichTextPayload = Record<string, unknown> & {
@@ -118,6 +124,24 @@ function isParagraph(value: unknown): value is RichTextParagraphNode {
   )
 }
 
+function isHeading(value: unknown): value is RichTextHeadingNode {
+  if (!isObject(value) || !hasOnlyKeys(value, ['type', 'attrs', 'content'])) {
+    return false
+  }
+  if (
+    value.type !== 'heading' ||
+    !isObject(value.attrs) ||
+    !hasOnlyKeys(value.attrs, ['level']) ||
+    (value.attrs.level !== 2 && value.attrs.level !== 3)
+  ) {
+    return false
+  }
+  return (
+    value.content === undefined ||
+    (Array.isArray(value.content) && value.content.every(isTextNode))
+  )
+}
+
 function isList(value: unknown): value is RichTextListNode {
   if (!isObject(value) || !hasOnlyKeys(value, ['type', 'attrs', 'content'])) {
     return false
@@ -176,13 +200,17 @@ export function isRichTextPayload(value: unknown): value is RichTextPayload {
     doc.type === 'doc' &&
     Array.isArray(doc.content) &&
     doc.content.length > 0 &&
-    doc.content.every((node) => isParagraph(node) || isList(node))
+    doc.content.every(
+      (node) => isHeading(node) || isParagraph(node) || isList(node),
+    )
   )
 }
 
 export function richTextToPlainText(payload: RichTextPayload): string {
-  function nodeText(node: RichTextParagraphNode | RichTextListNode): string {
-    if (node.type === 'paragraph') {
+  function nodeText(
+    node: RichTextHeadingNode | RichTextParagraphNode | RichTextListNode,
+  ): string {
+    if (node.type === 'paragraph' || node.type === 'heading') {
       return node.content?.map((child) => child.text).join('') ?? ''
     }
     return node.content
@@ -233,11 +261,26 @@ function renderText(node: RichTextTextNode, key: number): React.ReactNode {
 }
 
 function renderNode(
-  node: RichTextParagraphNode | RichTextListNode,
+  node: RichTextHeadingNode | RichTextParagraphNode | RichTextListNode,
   key: number,
 ): React.ReactNode {
   if (node.type === 'paragraph') {
     return <p key={key}>{node.content?.map(renderText) ?? null}</p>
+  }
+  if (node.type === 'heading') {
+    const Tag = node.attrs.level === 2 ? 'h2' : 'h3'
+    return (
+      <Tag
+        className={
+          node.attrs.level === 2
+            ? 'font-display text-lg font-semibold leading-7 tracking-tight'
+            : 'font-display text-base font-semibold leading-6 tracking-tight'
+        }
+        key={key}
+      >
+        {node.content?.map(renderText) ?? null}
+      </Tag>
+    )
   }
   const Tag = node.type === 'orderedList' ? 'ol' : 'ul'
   return (

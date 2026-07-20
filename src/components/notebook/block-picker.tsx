@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { CheckSquare, Link2, Heading, Pilcrow, Sheet } from 'lucide-react'
+import { CheckSquare, Link2, Pilcrow, Sheet } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 import { cn } from '#/lib/utils'
@@ -15,8 +15,8 @@ import {
 
 /**
  * Block insertion control (ELN-005). A keyboard-accessible picker that
- * inserts one of the four editable block types. Familiar labels (Heading,
- * Text, Checklist, Linked record) rather than internal codes; each item is
+ * inserts one of the editable block types. Familiar labels (Text, Checklist,
+ * Linked record) rather than internal codes; each item is
  * keyboard-operable through the DropdownMenu and announces its type.
  *
  * The picker is the only insertion affordance on the canvas; it does not
@@ -33,15 +33,9 @@ export interface BlockPickerOption {
 
 export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
   {
-    type: 'heading',
-    label: 'Heading',
-    description: 'A section title. Levels H1–H6.',
-    icon: Heading,
-  },
-  {
     type: 'rich_text',
     label: 'Text',
-    description: 'A paragraph of rich text.',
+    description: 'Headings, paragraphs, and prose lists.',
     icon: Pilcrow,
   },
   {

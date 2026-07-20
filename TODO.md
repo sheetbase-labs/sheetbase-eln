@@ -365,8 +365,8 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** ELN-004, UI-006.
 
-- [x] Implement read and edit behaviour for heading, rich text, checklist and linked-record blocks.
-- [x] Provide in-place WYSIWYG rich-text authoring with validated structured JSON, restrained scientific formatting, safe read-only rendering and SSR-safe client initialisation.
+- [x] Implement read and edit behaviour for structured rich text, checklist and linked-record blocks.
+- [x] Provide in-place WYSIWYG rich-text authoring with validated structured JSON, H2/H3 section headings, prose lists, restrained scientific formatting, safe read-only rendering and SSR-safe client initialisation.
 - [x] Add an insertion control and keyboard-accessible block picker using familiar labels.
 - [x] Validate block payloads before mutation and preserve unsupported future block types as readable placeholders.
 - [x] Give every block a stable selection target and URL or anchor where comments and review can refer to it later.

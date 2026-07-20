@@ -58,7 +58,11 @@ afterAll(async () => {
 })
 
 function claims(userId: string, workspaceId: string): string {
-  return JSON.stringify({ sub: userId, workspace_id: workspaceId, role: 'authenticated' })
+  return JSON.stringify({
+    sub: userId,
+    workspace_id: workspaceId,
+    role: 'authenticated',
+  })
 }
 
 async function asAuthenticated(
@@ -94,7 +98,7 @@ async function createRecord(
     `create_record_with_blocks(
       '${proj}'::uuid, 'experiment', '${title}',
       'draft', ARRAY[]::text[],
-      '[{"type":"heading","payload":{"level":2,"text":"H"},"order":1}]'::jsonb)`,
+      '[{"type":"checklist","payload":{"items":[]},"order":1}]'::jsonb)`,
   )
 }
 
@@ -153,9 +157,13 @@ describe('LIVE-002 subscribeToChangeEvents — live delivery', () => {
   it('delivers live events for the workspace via LISTEN/NOTIFY', async () => {
     const owner = await asAuthenticated(OWNER, WS)
     const received: ChangeEventWire[] = []
-    const unsub = await subscribeToChangeEvents(WS, (e) => {
-      received.push(e)
-    }, migratorUrl())
+    const unsub = await subscribeToChangeEvents(
+      WS,
+      (e) => {
+        received.push(e)
+      },
+      migratorUrl(),
+    )
 
     // Give the LISTEN a moment to register.
     await new Promise((r) => setTimeout(r, 100))
@@ -173,9 +181,13 @@ describe('LIVE-002 subscribeToChangeEvents — live delivery', () => {
     const owner = await asAuthenticated(OWNER, WS)
     const ownerB = await asAuthenticated(OWNER_B, WS_B)
     const received: ChangeEventWire[] = []
-    const unsub = await subscribeToChangeEvents(WS, (e) => {
-      received.push(e)
-    }, migratorUrl())
+    const unsub = await subscribeToChangeEvents(
+      WS,
+      (e) => {
+        received.push(e)
+      },
+      migratorUrl(),
+    )
     await new Promise((r) => setTimeout(r, 100))
 
     // Mutate WS_B; the WS subscription must not deliver it.

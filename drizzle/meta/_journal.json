@@ -120,6 +120,13 @@
       "when": 1784493200000,
       "tag": "0016_sheet_003_table_display",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1784494200000,
+      "tag": "0017_calc_002_formula_persistence",
+      "breakpoints": true
     }
   ]
 }

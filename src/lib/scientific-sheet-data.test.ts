@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   decodeScientificValue,
+  fetchScientificFormulas,
   scientificQueryKeys,
 } from './scientific-sheet-data'
 import type { ScientificColumnWire } from './scientific-sheet-data'
@@ -83,5 +84,22 @@ describe('scientific sheet codecs', () => {
       'table',
       3,
     ])
+  })
+
+  it('loads every formula page instead of treating a capped response as complete', async () => {
+    const first = Array.from({ length: 1000 }, (_, index) => ({
+      id: `formula-${index}`,
+    }))
+    const list = vi
+      .fn()
+      .mockResolvedValueOnce(first)
+      .mockResolvedValueOnce([{ id: 'formula-1000' }])
+    const result = await fetchScientificFormulas(
+      { list } as never,
+      '10000000-0000-4000-8000-000000000001',
+    )
+    expect(result).toHaveLength(1001)
+    expect(list).toHaveBeenCalledTimes(2)
+    expect(list.mock.calls[1][1]).toContain('offset=1000')
   })
 })

@@ -10,6 +10,7 @@ export interface ScientificOptionWire {
 }
 export interface ScientificColumnWire {
   id: string
+  created_at?: string
   field_name: string
   label: string
   display_order: number
@@ -23,6 +24,7 @@ export interface ScientificColumnWire {
 }
 export interface ScientificTableWire {
   id: string
+  created_at?: string
   resource_name: string
   name: string
   schema_version: number
@@ -31,6 +33,7 @@ export interface ScientificTableWire {
 }
 export interface ScientificRowWire {
   id: string
+  created_at?: string
   version: number
   [field: string]: unknown
 }
@@ -55,6 +58,8 @@ export const SCIENTIFIC_PAGE_SIZE = 200
 export const scientificQueryKeys = {
   table: (id: string) => ['scientific-table', id] as const,
   rows: (id: string, page: number) => ['scientific-rows', id, page] as const,
+  allRows: (id: string) => ['scientific-all-rows', id] as const,
+  formulas: (id: string) => ['scientific-formulas', id] as const,
 }
 export const scientificDataClient = createDataClient()
 
@@ -101,6 +106,108 @@ export async function fetchScientificRows(
     encodeURIComponent(table.resource_name),
     query,
   )
+}
+
+export function fetchAllScientificRows(
+  client: DataClient,
+  table: ScientificTableWire,
+) {
+  return client.list<ScientificRowWire>(
+    encodeURIComponent(table.resource_name),
+    '?select=*&order=created_at.asc,id.asc&limit=10001',
+  )
+}
+
+export interface FormulaDefinitionWire {
+  id: string
+  target_table_id: string
+  target_row_id: string
+  target_column_id: string
+  source_expression: string
+  template: unknown
+  bindings: unknown
+  engine_expression: string
+  syntax_profile: string
+  function_profile: string
+  literal_profile: string
+  engine_version: string
+  status: 'supported' | 'unsupported'
+  version: number | string
+  created_at: string
+}
+
+export async function fetchScientificFormulas(
+  client: DataClient,
+  tableId: string,
+) {
+  const result: FormulaDefinitionWire[] = []
+  const pageSize = 1000
+  for (let offset = 0; ; offset += pageSize) {
+    const page = await client.list<FormulaDefinitionWire>(
+      'formula_definitions',
+      `?target_table_id=eq.${encodeURIComponent(tableId)}&order=created_at.asc,id.asc&limit=${pageSize}&offset=${offset}`,
+    )
+    result.push(...page)
+    if (page.length < pageSize) return result
+  }
+}
+
+export class FormulaMutationError extends Error {
+  constructor(
+    public readonly code: string,
+    public readonly status: number,
+    message: string,
+  ) {
+    super(message)
+    this.name = 'FormulaMutationError'
+  }
+}
+
+export type FormulaMutationInput =
+  | {
+      operation: 'create'
+      target: { tableId: string; rowId: string; columnId: string }
+      expectedSchemaVersion: number
+      expectedRowVersion: number
+      source: string
+    }
+  | {
+      operation: 'update'
+      target: { tableId: string; rowId: string; columnId: string }
+      expectedSchemaVersion: number
+      expectedRowVersion: number
+      expectedFormulaVersion: number
+      source: string
+    }
+  | {
+      operation: 'remove'
+      target: { tableId: string; rowId: string; columnId: string }
+      expectedSchemaVersion: number
+      expectedRowVersion: number
+      expectedFormulaVersion: number
+      replacement: unknown
+    }
+
+export async function mutateScientificFormula(
+  input: FormulaMutationInput,
+  fetchImpl: typeof fetch = fetch,
+) {
+  const response = await fetchImpl('/api/formulas', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'content-type': 'application/json', accept: 'application/json' },
+    body: JSON.stringify(input),
+  })
+  const body = (await response.json().catch(() => null)) as {
+    error?: { code?: string; message?: string }
+  } | null
+  if (!response.ok)
+    throw new FormulaMutationError(
+      body?.error?.code ?? 'formula_write_failed',
+      response.status,
+      body?.error?.message ?? 'Could not save the formula.',
+    )
+  return body
 }
 export function applyScientificRowChanges(
   client: DataClient,

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { CellChange, ChangeSource, ColumnSettings } from 'handsontable'
 import type { NotebookBlock } from '#/lib/notebook-data'
@@ -8,8 +8,11 @@ import {
   addScientificColumn,
   applyScientificRowChanges,
   decodeScientificValue,
+  fetchAllScientificRows,
+  fetchScientificFormulas,
   fetchScientificRows,
   fetchScientificTable,
+  mutateScientificFormula,
   preflightScientificConversion,
   preflightScientificRetirement,
   renameScientificTable,
@@ -20,11 +23,18 @@ import {
 } from '#/lib/scientific-sheet-data'
 import type {
   ScientificColumnWire,
+  FormulaDefinitionWire,
   ScientificLogicalType,
   ScientificRowWire,
   ScientificSchemaEvidence,
   ScientificTableWire,
 } from '#/lib/scientific-sheet-data'
+import type {
+  WorkbookCellAddress,
+  WorkbookResult,
+  WorkbookTable,
+} from '#/lib/scientific-workbook'
+import { useNotebookScientificWorkbook } from '#/components/notebook/scientific-workbook-provider'
 
 interface PendingCell {
   rowIndex: number
@@ -41,6 +51,61 @@ interface ChangeBatch {
 
 interface DraftCell extends PendingCell {
   generation: number
+}
+
+interface PendingFormulaWrite {
+  rowId: string
+  columnId: string
+  source?: string
+  replacement?: unknown
+  existing?: FormulaDefinitionWire
+}
+
+function persistedFormula(formula: FormulaDefinitionWire) {
+  const dependencies = new Map<
+    string,
+    { tableId: string; rowId: string; columnId: string }
+  >()
+  const bindings = Array.isArray(formula.bindings) ? formula.bindings : []
+  for (const value of bindings) {
+    const binding = value as {
+      kind?: string
+      cell?: { rowId: string; columnId: string }
+      members?: Array<Array<{ rowId: string; columnId: string }>>
+    }
+    const cells =
+      binding.kind === 'cell' && binding.cell
+        ? [binding.cell]
+        : binding.kind === 'range'
+          ? (binding.members ?? []).flat()
+          : []
+    for (const cell of cells)
+      dependencies.set(`${cell.rowId}/${cell.columnId}`, {
+        tableId: formula.target_table_id,
+        ...cell,
+      })
+  }
+  return {
+    version: 1,
+    syntaxProfile: formula.syntax_profile,
+    functionProfile: formula.function_profile,
+    literalProfile: formula.literal_profile,
+    engineVersion: formula.engine_version,
+    status: formula.status,
+    source: formula.source_expression,
+    template: formula.template,
+    bindings: formula.bindings,
+    engineExpression: formula.engine_expression,
+    dependencies: [...dependencies.values()].sort((a, b) =>
+      `${a.rowId}/${a.columnId}`.localeCompare(`${b.rowId}/${b.columnId}`),
+    ),
+  }
+}
+
+function displayResult(result: WorkbookResult | null) {
+  if (!result) return null
+  if (result.status === 'error') return `#${result.error}!`
+  return result.logical.ok ? result.logical.value : `#${result.logical.code}!`
 }
 
 const LOGICAL_TYPES: ScientificLogicalType[] = [
@@ -569,6 +634,9 @@ export function ScientificSheetBlock({
     [],
   )
   const [drafts, setDrafts] = useState<Record<string, DraftCell>>({})
+  const [selected, setSelected] = useState<WorkbookCellAddress | null>(null)
+  const [formulaSource, setFormulaSource] = useState('')
+  const [formulaStatus, setFormulaStatus] = useState('')
   const nextGeneration = useRef(0)
   const queryClient = useQueryClient()
   const tableQuery = useQuery({
@@ -583,6 +651,97 @@ export function ScientificSheetBlock({
     queryFn: () => fetchScientificRows(scientificDataClient, table!, page),
     enabled: !!table,
   })
+  const allRowsQuery = useQuery({
+    queryKey: scientificQueryKeys.allRows(tableId),
+    queryFn: () => fetchAllScientificRows(scientificDataClient, table!),
+    enabled: !!table,
+  })
+  const formulasQuery = useQuery({
+    queryKey: scientificQueryKeys.formulas(tableId),
+    queryFn: () => fetchScientificFormulas(scientificDataClient, tableId),
+    enabled: !!table,
+  })
+  const formulaByCell = useMemo(
+    () =>
+      new Map(
+        (formulasQuery.data ?? []).map((formula) => [
+          `${formula.target_row_id}/${formula.target_column_id}`,
+          formula,
+        ]),
+      ),
+    [formulasQuery.data],
+  )
+  const workbookTable = useMemo<WorkbookTable | null>(() => {
+    if (!table || !allRowsQuery.data || !formulasQuery.data) return null
+    if (allRowsQuery.data.length > 10_000) return null
+    try {
+      return {
+        id: table.id,
+        columns: table.columns.map((column) => ({
+          id: column.id,
+          createdAt:
+            column.created_at ?? table.created_at ?? '1970-01-01T00:00:00Z',
+          logicalType: column.logical_type,
+          categoryOptionIds: column.options.map((option) => option.id),
+        })),
+        rows: allRowsQuery.data.map((row) => ({
+          id: row.id,
+          createdAt: row.created_at ?? '1970-01-01T00:00:00Z',
+          cells: Object.fromEntries(
+            table.columns.map((column) => {
+              const formula = formulaByCell.get(`${row.id}/${column.id}`)
+              return [
+                column.id,
+                {
+                  literal: row[column.field_name],
+                  ...(formula ? { formula: persistedFormula(formula) } : {}),
+                },
+              ]
+            }),
+          ),
+        })),
+      }
+    } catch (error) {
+      // Persisted artifacts are untrusted wire data. A malformed artifact must
+      // disable calculation without preventing literal grid access.
+      void error
+      return null
+    }
+  }, [allRowsQuery.data, formulaByCell, formulasQuery.data, table])
+  const workbook = useNotebookScientificWorkbook(block.id, workbookTable)
+  const calculationProblem =
+    (allRowsQuery.data?.length ?? 0) > 10_000
+      ? 'Calculation is unavailable because this sheet exceeds 10,000 rows.'
+      : allRowsQuery.isError || formulasQuery.isError
+        ? 'Calculation data could not be loaded. Literal editing remains available.'
+        : formulasQuery.data && allRowsQuery.data && !workbookTable
+          ? 'Persisted formula data is invalid. Calculation is disabled to protect scientific meaning.'
+          : null
+  const selectedFormula = selected
+    ? formulaByCell.get(`${selected.rowId}/${selected.columnId}`)
+    : undefined
+  const selectedResult = selected && workbook ? workbook.get(selected) : null
+  useEffect(() => {
+    setFormulaSource(selectedFormula?.source_expression ?? '')
+    setFormulaStatus('')
+  }, [selected, selectedFormula])
+  const refreshCalculation = async (reconcilePage = false) => {
+    await Promise.all([
+      ...(reconcilePage
+        ? [
+            queryClient.invalidateQueries({
+              queryKey: ['scientific-rows', tableId],
+            }),
+          ]
+        : []),
+      queryClient.invalidateQueries({
+        queryKey: scientificQueryKeys.allRows(tableId),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: scientificQueryKeys.formulas(tableId),
+      }),
+    ])
+  }
   // HOT mutates its data. Never expose canonical query-cache objects.
   const localRows = useMemo(() => {
     const detached: Array<Record<string, unknown>> = (rowsQuery.data ?? []).map(
@@ -604,8 +763,17 @@ export function ScientificSheetBlock({
       detached[rowIndex] ??= {}
       detached[rowIndex][draft.fieldName] = draft.raw
     }
+    if (workbook)
+      for (const row of detached) {
+        if (typeof row.id !== 'string') continue
+        for (const column of table?.columns ?? [])
+          if (formulaByCell.has(`${row.id}/${column.id}`))
+            row[column.field_name] = displayResult(
+              workbook.get({ tableId, rowId: row.id, columnId: column.id }),
+            )
+      }
     return detached
-  }, [drafts, rowsQuery.data, table])
+  }, [drafts, formulaByCell, rowsQuery.data, table, tableId, workbook])
   const terminal = (rowsQuery.data?.length ?? 0) < SCIENTIFIC_PAGE_SIZE
 
   const mutation = useMutation({
@@ -624,11 +792,52 @@ export function ScientificSheetBlock({
         }
       >()
       const inserts = new Map<number, Record<string, unknown>>()
+      const formulaWrites: PendingFormulaWrite[] = []
       const errors: Array<{ key: string; message: string }> = []
+      const formulaCells = batch.cells.filter((cell) => {
+        const existing = cell.rowId
+          ? formulaByCell.has(`${cell.rowId}/${cell.columnId}`)
+          : false
+        return (
+          existing || (typeof cell.raw === 'string' && cell.raw.startsWith('='))
+        )
+      })
+      if (formulaCells.length && batch.cells.length !== 1) {
+        setIssues([
+          {
+            key: 'formula-batch',
+            message:
+              'Formula changes must be entered one cell at a time so the edit is atomic.',
+          },
+        ])
+        throw Object.assign(new Error('Formula batch is not supported.'), {
+          localValidation: true,
+        })
+      }
       for (const cell of batch.cells) {
         const { rowIndex, rowId, columnId, raw } = cell
         const column = table.columns.find((c) => c.id === columnId)
         if (!column) continue
+        const row = rowId ? canonicalById.get(rowId) : undefined
+        const existingFormula = row
+          ? formulaByCell.get(`${row.id}/${column.id}`)
+          : undefined
+        if (typeof raw === 'string' && raw.startsWith('=')) {
+          if (!row) {
+            errors.push({
+              key: `${rowIndex}:${column.id}`,
+              message: 'Save the row before adding a formula.',
+            })
+          } else {
+            formulaWrites.push({
+              rowId: row.id,
+              columnId,
+              source: raw,
+              existing: existingFormula,
+            })
+          }
+          continue
+        }
         let value: unknown
         try {
           value = decodeScientificValue(column, raw)
@@ -639,8 +848,16 @@ export function ScientificSheetBlock({
           })
           continue
         }
-        const row = rowId ? canonicalById.get(rowId) : undefined
         if (row) {
+          if (existingFormula) {
+            formulaWrites.push({
+              rowId: row.id,
+              columnId,
+              replacement: value,
+              existing: existingFormula,
+            })
+            continue
+          }
           const edit = edits.get(row.id) ?? {
             rowId: row.id,
             expectedVersion: row.version,
@@ -648,11 +865,12 @@ export function ScientificSheetBlock({
           }
           edit.values[column.id] = value
           edits.set(row.id, edit)
-        } else
+        } else {
           inserts.set(rowIndex, {
             ...(inserts.get(rowIndex) ?? {}),
             [column.id]: value,
           })
+        }
       }
       if (errors.length) {
         setIssues(errors)
@@ -660,25 +878,73 @@ export function ScientificSheetBlock({
           localValidation: true,
         })
       }
-      const result = await applyScientificRowChanges(
-        scientificDataClient,
-        table.id,
-        table.schema_version,
-        [...edits.values()],
-        [...inserts.values()],
-      )
-      if (!result.ok) {
-        setIssues(
-          result.errors.map((e) => ({
-            key: `${e.rowId}:${e.columnId}`,
-            message: e.message,
-          })),
+      let changedRows: ScientificRowWire[] = []
+      if (edits.size || inserts.size) {
+        const result = await applyScientificRowChanges(
+          scientificDataClient,
+          table.id,
+          table.schema_version,
+          [...edits.values()],
+          [...inserts.values()],
         )
-        throw Object.assign(new Error('Some cells were rejected.'), {
-          validation: true,
-        })
+        if (!result.ok) {
+          setIssues(
+            result.errors.map((e) => ({
+              key: `${e.rowId}:${e.columnId}`,
+              message: e.message,
+            })),
+          )
+          throw Object.assign(new Error('Some cells were rejected.'), {
+            validation: true,
+          })
+        }
+        changedRows = result.rows
       }
-      return result.rows
+      // Row edits run first. Formula writes then advance each target row's
+      // optimistic version one at a time, so a paste containing literals and
+      // several formulas in the same row cannot submit stale versions.
+      const rowVersions = new Map(
+        canonical.map((row) => [row.id, Number(row.version)]),
+      )
+      for (const row of changedRows)
+        rowVersions.set(row.id, Number(row.version))
+      for (const formula of formulaWrites) {
+        const expectedRowVersion = rowVersions.get(formula.rowId)
+        if (expectedRowVersion === undefined) continue
+        await mutateScientificFormula(
+          formula.source
+            ? ({
+                operation: formula.existing ? 'update' : 'create',
+                target: {
+                  tableId: table.id,
+                  rowId: formula.rowId,
+                  columnId: formula.columnId,
+                },
+                expectedSchemaVersion: table.schema_version,
+                expectedRowVersion,
+                ...(formula.existing
+                  ? {
+                      expectedFormulaVersion: Number(formula.existing.version),
+                    }
+                  : {}),
+                source: formula.source,
+              } as Parameters<typeof mutateScientificFormula>[0])
+            : {
+                operation: 'remove',
+                target: {
+                  tableId: table.id,
+                  rowId: formula.rowId,
+                  columnId: formula.columnId,
+                },
+                expectedSchemaVersion: table.schema_version,
+                expectedRowVersion,
+                expectedFormulaVersion: Number(formula.existing!.version),
+                replacement: formula.replacement,
+              },
+        )
+        rowVersions.set(formula.rowId, expectedRowVersion + 1)
+      }
+      return changedRows
     },
     onSuccess: (rows, batch) => {
       queryClient.setQueryData<ScientificRowWire[]>(rowsKey, (old = []) => {
@@ -698,6 +964,14 @@ export function ScientificSheetBlock({
         return next
       })
       setIssues([])
+      const formulaChanged = batch.cells.some(
+        (cell) =>
+          (typeof cell.raw === 'string' && cell.raw.startsWith('=')) ||
+          (!!cell.rowId && formulaByCell.has(`${cell.rowId}/${cell.columnId}`)),
+      )
+      // Formula writes advance the generated row version without returning a
+      // row. Literal writes already update the page from the RPC response.
+      void refreshCalculation(formulaChanged)
     },
     onError: (error, batch) => {
       if (!(error as { localValidation?: boolean }).localValidation)
@@ -764,6 +1038,19 @@ export function ScientificSheetBlock({
           })
           mutation.mutate({ generation, cells })
         },
+        afterSelectionEnd: (row: number, columnIndex: number) => {
+          const rowId =
+            typeof localRows[row]?.id === 'string'
+              ? String(localRows[row].id)
+              : null
+          const column = table.columns.at(columnIndex)
+          setSelected(
+            rowId && column
+              ? { tableId: table.id, rowId, columnId: column.id }
+              : null,
+          )
+          if (!rowId) setFormulaStatus('Save the row before adding a formula.')
+        },
       }
     : null
   if (!tableId) return <p role="alert">Invalid sheet block.</p>
@@ -799,6 +1086,107 @@ export function ScientificSheetBlock({
           ))}
         </ul>
       ) : null}
+      {calculationProblem ? (
+        <p role="alert" className="mb-2 text-xs text-destructive">
+          {calculationProblem}
+        </p>
+      ) : null}
+      <section
+        className="mb-2 flex flex-wrap items-center gap-2 rounded border p-2 text-xs"
+        aria-label="Formula bar"
+      >
+        <strong>fx</strong>
+        <input
+          aria-label="Formula source"
+          placeholder="Select a saved cell, then enter =…"
+          value={formulaSource}
+          disabled={readOnly || !selected}
+          onChange={(event) => setFormulaSource(event.target.value)}
+        />
+        <button
+          type="button"
+          disabled={readOnly || !selected || !formulaSource.startsWith('=')}
+          onClick={async () => {
+            if (!selected) return
+            const row = (allRowsQuery.data ?? []).find(
+              (item) => item.id === selected.rowId,
+            )
+            if (!row)
+              return setFormulaStatus('Save the row before adding a formula.')
+            try {
+              await mutateScientificFormula({
+                operation: selectedFormula ? 'update' : 'create',
+                target: selected,
+                expectedSchemaVersion: table.schema_version,
+                expectedRowVersion: row.version,
+                ...(selectedFormula
+                  ? { expectedFormulaVersion: Number(selectedFormula.version) }
+                  : {}),
+                source: formulaSource,
+              } as Parameters<typeof mutateScientificFormula>[0])
+              setFormulaStatus('Formula saved.')
+              await refreshCalculation(true)
+            } catch (error) {
+              setFormulaStatus(
+                error instanceof Error
+                  ? error.message
+                  : 'Could not save the formula.',
+              )
+            }
+          }}
+        >
+          Apply formula
+        </button>
+        {selectedFormula &&
+        table.columns.find((column) => column.id === selected?.columnId)
+          ?.nullable ? (
+          <button
+            type="button"
+            disabled={readOnly}
+            onClick={async () => {
+              const row = (allRowsQuery.data ?? []).find(
+                (item) => item.id === selected!.rowId,
+              )!
+              try {
+                await mutateScientificFormula({
+                  operation: 'remove',
+                  target: selected!,
+                  expectedSchemaVersion: table.schema_version,
+                  expectedRowVersion: row.version,
+                  expectedFormulaVersion: Number(selectedFormula.version),
+                  replacement: null,
+                })
+                setFormulaStatus(
+                  'Formula removed and replaced with an empty value.',
+                )
+                await refreshCalculation(true)
+              } catch (error) {
+                setFormulaStatus(
+                  error instanceof Error
+                    ? error.message
+                    : 'Could not remove the formula.',
+                )
+              }
+            }}
+          >
+            Remove formula
+          </button>
+        ) : selectedFormula ? (
+          <span>
+            Overwrite this required cell in the grid to remove its formula.
+          </span>
+        ) : null}
+        {selected ? (
+          <span>
+            Result: {String(displayResult(selectedResult) ?? '')} ·{' '}
+            {selectedFormula?.status ?? 'literal'} · Dependencies:{' '}
+            {selectedFormula
+              ? persistedFormula(selectedFormula).dependencies.length
+              : 0}
+          </span>
+        ) : null}
+        {formulaStatus ? <span role="status">{formulaStatus}</span> : null}
+      </section>
       <SheetbaseGrid settings={settings} ariaLabel={table.name} />
       <nav aria-label="Sheet pages" className="mt-2 flex gap-2">
         <button

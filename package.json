@@ -62,6 +62,7 @@
     "cmdk": "^1.1.1",
     "drizzle-orm": "^0.45.2",
     "handsontable": "18.0.0",
+    "hyperformula": "3.3.0",
     "jose": "^6.2.3",
     "lucide-react": "^0.577.0",
     "pg": "^8.22.0",

@@ -6,15 +6,19 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { DataClientError } from '#/lib/data-client'
 import type * as ScientificSheetData from '#/lib/scientific-sheet-data'
 import { ScientificSheetBlock } from './scientific-sheet-block'
+import { ScientificWorkbookProvider } from '#/components/notebook/scientific-workbook-provider'
 
 const mocks = vi.hoisted(() => ({
   table: vi.fn(),
   rows: vi.fn(),
+  allRows: vi.fn(),
+  formulas: vi.fn(),
+  formulaMutation: vi.fn(),
   apply: vi.fn(),
   add: vi.fn(),
   renameTable: vi.fn(),
@@ -28,6 +32,9 @@ vi.mock('#/lib/scientific-sheet-data', async (load) => ({
   scientificDataClient: {},
   fetchScientificTable: mocks.table,
   fetchScientificRows: mocks.rows,
+  fetchAllScientificRows: mocks.allRows,
+  fetchScientificFormulas: mocks.formulas,
+  mutateScientificFormula: mocks.formulaMutation,
   applyScientificRowChanges: mocks.apply,
   addScientificColumn: mocks.add,
   renameScientificTable: mocks.renameTable,
@@ -104,10 +111,12 @@ function mount(props: { readOnly?: boolean; block?: any } = {}) {
   })
   return render(
     <QueryClientProvider client={client}>
-      <ScientificSheetBlock
-        block={props.block ?? block}
-        readOnly={props.readOnly}
-      />
+      <ScientificWorkbookProvider>
+        <ScientificSheetBlock
+          block={props.block ?? block}
+          readOnly={props.readOnly}
+        />
+      </ScientificWorkbookProvider>
     </QueryClientProvider>,
   )
 }
@@ -115,6 +124,12 @@ async function ready() {
   await screen.findByTestId('grid')
   return mocks.settings!
 }
+
+beforeEach(() => {
+  mocks.allRows.mockResolvedValue([])
+  mocks.formulas.mockResolvedValue([])
+  mocks.formulaMutation.mockResolvedValue({})
+})
 
 afterEach(() => {
   cleanup()
@@ -249,6 +264,121 @@ describe('ScientificSheetBlock', () => {
     release()
     await waitFor(() => expect(mocks.apply).toHaveBeenCalledTimes(2))
     expect(mocks.apply.mock.calls[1][3][0].expectedVersion).toBe(2)
+  })
+
+  it('accepts a formula in a numeric cell before literal decoding', async () => {
+    mocks.table.mockResolvedValue(table)
+    mocks.rows.mockResolvedValue([{ id: 'r1', version: 4 }])
+    mount()
+    const settings = await ready()
+    settings.afterChange([[0, 'col_number', null, '=1+2']], 'edit')
+    await waitFor(() => expect(mocks.formulaMutation).toHaveBeenCalledTimes(1))
+    expect(mocks.formulaMutation).toHaveBeenCalledWith({
+      operation: 'create',
+      target: { tableId: 'table-1', rowId: 'r1', columnId: 'number' },
+      expectedSchemaVersion: 2,
+      expectedRowVersion: 4,
+      source: '=1+2',
+    })
+    expect(mocks.apply).not.toHaveBeenCalled()
+  })
+
+  it('rejects mixed formula batches before any partial write', async () => {
+    mocks.table.mockResolvedValue(table)
+    mocks.rows.mockResolvedValue([{ id: 'r1', version: 1 }])
+    mount()
+    const settings = await ready()
+    settings.afterChange(
+      [
+        [0, 'col_number', null, '=1+2'],
+        [0, 'col_text', null, 'partial'],
+      ],
+      'CopyPaste.paste',
+    )
+    expect(await screen.findByText(/one cell at a time/)).toBeTruthy()
+    expect(mocks.formulaMutation).not.toHaveBeenCalled()
+    expect(mocks.apply).not.toHaveBeenCalled()
+  })
+
+  it('reconstructs a persisted formula and shows source, result and dependencies', async () => {
+    const tableId = '10000000-0000-4000-8000-000000000001'
+    const columnId = '10000000-0000-4000-8000-000000000002'
+    const sourceRow = '10000000-0000-4000-8000-000000000003'
+    const targetRow = '10000000-0000-4000-8000-000000000004'
+    const formulaTable = {
+      ...table,
+      id: tableId,
+      created_at: '2026-01-01T00:00:00Z',
+      columns: [
+        {
+          ...columns[1],
+          id: columnId,
+          created_at: '2026-01-01T00:00:00Z',
+        },
+      ],
+    }
+    const persistedRows = [
+      {
+        id: sourceRow,
+        version: 1,
+        created_at: '2026-01-01T00:00:00Z',
+        col_number: 3,
+      },
+      {
+        id: targetRow,
+        version: 2,
+        created_at: '2026-01-02T00:00:00Z',
+        col_number: null,
+      },
+    ]
+    mocks.table.mockResolvedValue(formulaTable)
+    mocks.rows.mockResolvedValue(persistedRows)
+    mocks.allRows.mockResolvedValue(persistedRows)
+    mocks.formulas.mockResolvedValue([
+      {
+        id: '10000000-0000-4000-8000-000000000005',
+        target_table_id: tableId,
+        target_row_id: targetRow,
+        target_column_id: columnId,
+        source_expression: '=A1*2',
+        template: {
+          kind: 'binary',
+          operator: '*',
+          left: { kind: 'reference', slot: 0 },
+          right: { kind: 'number', value: 2 },
+        },
+        bindings: [
+          {
+            kind: 'cell',
+            slot: 0,
+            cell: { rowId: sourceRow, columnId },
+            anchor: { columnAbsolute: false, rowAbsolute: false },
+          },
+        ],
+        engine_expression: '=(A1*2)',
+        syntax_profile: 'sheetbase-hf-en-us-v1',
+        function_profile: 'scientific-core-v1',
+        literal_profile: 'sheetbase-literal-v1',
+        engine_version: '3.3.0',
+        status: 'supported',
+        version: 1,
+        created_at: '2026-01-02T00:00:00Z',
+      },
+    ])
+    mount({ block: { ...block, payload: { tableId } } })
+    await ready()
+    await waitFor(() => expect(mocks.settings!.data[1].col_number).toBe(6))
+    mocks.settings!.afterSelectionEnd(1, 0)
+    await waitFor(() =>
+      expect(
+        screen.getByRole<HTMLInputElement>('textbox', {
+          name: 'Formula source',
+        }).value,
+      ).toBe('=A1*2'),
+    )
+    expect(
+      screen.getByText(/Result: 6 · supported · Dependencies: 1/),
+    ).toBeTruthy()
   })
 
   it('fully disables mutation affordances in read-only mode', async () => {

@@ -13,10 +13,12 @@ import {
   bigint,
   boolean,
   check,
+  foreignKey,
   index,
   integer,
   jsonb,
   pgSchema,
+  primaryKey,
   real,
   text,
   timestamp,
@@ -330,6 +332,11 @@ export const records = api.table(
     // trail (LIVE-001) is the history; this column guards against
     // simultaneous metadata edits.
     metadataVersion: integer('metadata_version').notNull().default(1),
+    calculationInputRevision: bigint('calculation_input_revision', {
+      mode: 'bigint',
+    })
+      .notNull()
+      .default(sql`0`),
     ...timestamps,
     archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
     deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
@@ -342,6 +349,10 @@ export const records = api.table(
     }),
   },
   (table) => [
+    check(
+      'records_calculation_input_revision_check',
+      sql`${table.calculationInputRevision} >= 0`,
+    ),
     unique('uq_records_project_identifier').on(
       table.projectId,
       table.identifier,
@@ -637,6 +648,134 @@ export const scientificCategoryOptions = api.table(
     ),
     index('idx_scientific_category_options_column').on(table.columnId),
     index('idx_scientific_category_options_workspace').on(table.workspaceId),
+  ],
+)
+
+export const formulaDefinitions = api.table(
+  'formula_definitions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id').notNull(),
+    recordId: uuid('record_id').notNull(),
+    targetTableId: uuid('target_table_id').notNull(),
+    targetRowId: uuid('target_row_id').notNull(),
+    targetColumnId: uuid('target_column_id').notNull(),
+    sourceExpression: text('source_expression').notNull(),
+    template: jsonb('template').notNull(),
+    bindings: jsonb('bindings').notNull(),
+    engineExpression: text('engine_expression').notNull(),
+    syntaxProfile: text('syntax_profile').notNull(),
+    functionProfile: text('function_profile').notNull(),
+    literalProfile: text('literal_profile').notNull(),
+    engineVersion: text('engine_version').notNull(),
+    status: text('status').notNull().default('supported'),
+    version: bigint('version', { mode: 'bigint' })
+      .notNull()
+      .default(sql`1`),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').notNull(),
+    updatedByUserId: text('updated_by_user_id').notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.workspaceId],
+      foreignColumns: [workspaces.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [table.recordId],
+      foreignColumns: [records.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [table.targetTableId],
+      foreignColumns: [scientificTables.id],
+    }).onDelete('restrict'),
+    foreignKey({
+      columns: [table.targetColumnId],
+      foreignColumns: [scientificColumns.id],
+    }).onDelete('restrict'),
+    foreignKey({
+      columns: [table.createdByUserId],
+      foreignColumns: [user.id],
+    }).onDelete('restrict'),
+    foreignKey({
+      columns: [table.updatedByUserId],
+      foreignColumns: [user.id],
+    }).onDelete('restrict'),
+    check(
+      'formula_definitions_source_expression_check',
+      sql`length(${table.sourceExpression}) BETWEEN 1 AND 8192`,
+    ),
+    check(
+      'formula_definitions_template_check',
+      sql`jsonb_typeof(${table.template}) = 'object'`,
+    ),
+    check(
+      'formula_definitions_bindings_check',
+      sql`jsonb_typeof(${table.bindings}) = 'array'`,
+    ),
+    check('formula_definitions_version_check', sql`${table.version} > 0`),
+    check(
+      'chk_formula_status',
+      sql`${table.status} IN ('supported', 'unsupported')`,
+    ),
+    check(
+      'chk_formula_profiles',
+      sql`${table.syntaxProfile} = 'sheetbase-hf-en-us-v1' AND ${table.functionProfile} = 'scientific-core-v1' AND ${table.literalProfile} = 'sheetbase-literal-v1' AND ${table.engineVersion} = '3.3.0'`,
+    ),
+    unique('uq_formula_stable_target').on(
+      table.targetTableId,
+      table.targetRowId,
+      table.targetColumnId,
+    ),
+    index('idx_formula_record').on(table.recordId),
+    index('idx_formula_workspace').on(table.workspaceId),
+  ],
+)
+
+export const formulaDependencies = api.table(
+  'formula_dependencies',
+  {
+    formulaId: uuid('formula_id').notNull(),
+    workspaceId: uuid('workspace_id').notNull(),
+    recordId: uuid('record_id').notNull(),
+    sourceTableId: uuid('source_table_id').notNull(),
+    sourceRowId: uuid('source_row_id').notNull(),
+    sourceColumnId: uuid('source_column_id').notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [
+        table.formulaId,
+        table.sourceTableId,
+        table.sourceRowId,
+        table.sourceColumnId,
+      ],
+    }),
+    foreignKey({
+      columns: [table.formulaId],
+      foreignColumns: [formulaDefinitions.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [table.workspaceId],
+      foreignColumns: [workspaces.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [table.recordId],
+      foreignColumns: [records.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [table.sourceTableId],
+      foreignColumns: [scientificTables.id],
+    }).onDelete('restrict'),
+    foreignKey({
+      columns: [table.sourceColumnId],
+      foreignColumns: [scientificColumns.id],
+    }).onDelete('restrict'),
+    index('idx_formula_dependency_source').on(
+      table.sourceTableId,
+      table.sourceRowId,
+      table.sourceColumnId,
+    ),
   ],
 )
 

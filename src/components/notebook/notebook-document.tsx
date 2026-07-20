@@ -21,6 +21,7 @@ import { BlockEditor } from './block-editor'
 import type { AutosaveStatus, SaveResult } from './block-editor'
 import { BlockPicker } from './block-picker'
 import { ScientificSheetBlock } from '#/components/sheet/scientific-sheet-block'
+import { ScientificWorkbookProvider } from './scientific-workbook-provider'
 
 export type { AutosaveStatus, SaveResult }
 
@@ -99,7 +100,15 @@ const EDITABLE_TYPES = new Set([
   'linked_record',
 ])
 
-export function NotebookDocument({
+export function NotebookDocument(props: NotebookDocumentProps) {
+  return (
+    <ScientificWorkbookProvider>
+      <NotebookDocumentContent {...props} />
+    </ScientificWorkbookProvider>
+  )
+}
+
+function NotebookDocumentContent({
   record,
   blocks,
   onSaveBlock,

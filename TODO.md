@@ -541,14 +541,14 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** CALC-001, SHEET-002.
 
-- [ ] Add HyperFormula 3.3.0 using the approved GPLv3 demo configuration; block commercial distribution pending a licensing decision.
-- [ ] Build the notebook workbook from persisted sheet metadata, literals and formula definitions.
-- [ ] Keep Handsontable display coordinates translated to stable row, column and sheet identities.
-- [ ] Persist formula definitions separately from displayed calculated values.
-- [ ] Recalculate affected dependencies after literal or formula edits.
-- [ ] Show formula text, calculated result, error and dependency status clearly.
-- [ ] Ensure reloading the notebook reconstructs the same workbook and results.
-- [ ] Test arithmetic, ranges, supported scientific functions, errors, blanks and reload.
+- [x] Add HyperFormula 3.3.0 using the approved GPLv3 demo configuration; block commercial distribution pending a licensing decision.
+- [x] Build the notebook workbook from persisted sheet metadata, literals and formula definitions.
+- [x] Keep Handsontable display coordinates translated to stable row, column and sheet identities.
+- [x] Persist formula definitions separately from displayed calculated values.
+- [x] Recalculate affected dependencies after literal or formula edits.
+- [x] Show formula text, calculated result, error and dependency status clearly.
+- [x] Ensure reloading the notebook reconstructs the same workbook and results.
+- [x] Test arithmetic, ranges, supported scientific functions, errors, blanks and reload.
 
 ### CALC-003 — Support cross-sheet formulas and dependency changes
 

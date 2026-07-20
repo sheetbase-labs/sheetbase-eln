@@ -170,7 +170,7 @@ export function ScientificApiInspector({
   return (
     <details className="mt-3 rounded-md border bg-muted/20 text-xs">
       <summary className="cursor-pointer px-3 py-2 font-medium">
-        API inspector · {table.resource_name}
+        API inspector
       </summary>
       <div className="space-y-5 border-t px-3 py-4">
         <section aria-labelledby={`api-identity-${table.id}`}>

@@ -1,7 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { QueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link, useBlocker } from '@tanstack/react-router'
-import { Archive, FileWarning, Lock } from 'lucide-react'
+import {
+  Archive,
+  ChevronDown,
+  FileWarning,
+  FlaskConical,
+  Folder,
+  Lock,
+} from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { AppShell } from '#/components/app-shell'
@@ -160,6 +167,16 @@ function ExperimentNotebookRoute() {
           : []),
         { label: record.identifier },
       ]}
+      projectTree={
+        project ? (
+          <NotebookProjectTree
+            projectId={projectId}
+            projectName={project.title}
+            recordId={record.id}
+            recordTitle={record.title}
+          />
+        ) : undefined
+      }
       inspector={
         <NotebookInspector
           record={record}
@@ -168,23 +185,59 @@ function ExperimentNotebookRoute() {
         />
       }
     >
-      <div className="space-y-4">
-        <StickyRecordHeader
-          record={record}
-          projectName={project?.title ?? null}
-        />
-        {isArchived ? <ArchivedBanner /> : null}
-        <NotebookCanvas
-          record={record}
-          blocks={blocks}
-          isLoading={blocksQuery.isLoading}
-          error={blocksQuery.error}
-          onRetry={() => blocksQuery.refetch()}
-          client={notebookDataClient}
-          queryClient={queryClient}
-        />
+      <div className="-mx-4 -my-6 min-h-[calc(100svh-3.5rem)] bg-muted/20 px-4 py-6 md:-mx-8 md:px-6">
+        <div className="mx-auto max-w-[1100px] space-y-4 rounded-lg border bg-background px-6 pb-12 shadow-xs">
+          <StickyRecordHeader
+            record={record}
+            projectName={project?.title ?? null}
+          />
+          {isArchived ? <ArchivedBanner /> : null}
+          <NotebookCanvas
+            record={record}
+            blocks={blocks}
+            isLoading={blocksQuery.isLoading}
+            error={blocksQuery.error}
+            onRetry={() => blocksQuery.refetch()}
+            client={notebookDataClient}
+            queryClient={queryClient}
+          />
+        </div>
       </div>
     </AppShell>
+  )
+}
+
+export function NotebookProjectTree({
+  projectId,
+  projectName,
+  recordId,
+  recordTitle,
+}: {
+  projectId: string
+  projectName: string
+  recordId: string
+  recordTitle: string
+}) {
+  return (
+    <div className="space-y-0.5 text-sm">
+      <Link
+        to="/projects/$projectId"
+        params={{ projectId }}
+        className="flex h-8 items-center gap-2 rounded-md px-2 font-medium text-sidebar-foreground no-underline hover:bg-sidebar-accent/60"
+      >
+        <ChevronDown className="size-3.5 text-muted-foreground" />
+        <Folder className="size-4 text-muted-foreground" />
+        <span className="truncate">{projectName}</span>
+      </Link>
+      <Link
+        to="/projects/$projectId/experiments/$recordId"
+        params={{ projectId, recordId }}
+        className="ml-5 flex min-h-8 items-center gap-2 rounded-md bg-sidebar-accent px-2 py-1.5 text-xs font-medium text-sidebar-accent-foreground no-underline"
+      >
+        <FlaskConical className="size-3.5 shrink-0" />
+        <span className="line-clamp-2">{recordTitle}</span>
+      </Link>
+    </div>
   )
 }
 
@@ -220,7 +273,7 @@ export function StickyRecordHeader({
   projectName: string | null
 }) {
   return (
-    <div className="sticky top-14 z-20 -mx-4 mb-2 border-b bg-background/92 px-4 py-3 backdrop-blur md:-mx-8 md:px-8">
+    <div className="sticky top-14 z-20 -mx-6 mb-3 border-b bg-background/95 px-6 py-5 backdrop-blur">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
         <span className="font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           {recordKindLabel(record.kind)}
@@ -235,10 +288,10 @@ export function StickyRecordHeader({
           </span>
         ) : null}
       </div>
-      <h1 className="mt-1 truncate text-xl font-semibold tracking-tight text-foreground">
+      <h1 className="mt-2 truncate text-2xl font-semibold tracking-tight text-foreground">
         {record.title}
       </h1>
-      <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
         <span>
           Created{' '}
           <span className="text-foreground">

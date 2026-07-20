@@ -463,8 +463,10 @@ describe('ScientificSheetBlock', () => {
     mount()
     await ready()
     fireEvent.click(screen.getByRole('button', { name: 'Configure table' }))
-    expect(screen.getByText(new RegExp(table.resource_name))).toBeTruthy()
-    expect(screen.getByText('col_text')).toBeTruthy()
+    expect(
+      screen.getAllByText(new RegExp(table.resource_name)).length,
+    ).toBeGreaterThan(0)
+    expect(screen.getAllByText('col_text').length).toBeGreaterThan(0)
     fireEvent.change(screen.getByLabelText('Sheet name'), {
       target: { value: 'Renamed results' },
     })

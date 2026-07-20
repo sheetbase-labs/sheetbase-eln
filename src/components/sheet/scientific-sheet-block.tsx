@@ -4,6 +4,7 @@ import type { CellChange, ChangeSource, ColumnSettings } from 'handsontable'
 import type { NotebookBlock } from '#/lib/notebook-data'
 import { DataClientError } from '#/lib/data-client'
 import { SheetbaseGrid } from './sheetbase-grid'
+import { ScientificApiInspector } from './scientific-api-inspector'
 import {
   addScientificColumn,
   applyScientificRowChanges,
@@ -1297,6 +1298,17 @@ export function ScientificSheetBlock({
         {formulaStatus ? <span role="status">{formulaStatus}</span> : null}
       </section>
       <SheetbaseGrid settings={settings} ariaLabel={table.name} />
+      <ScientificApiInspector
+        table={table}
+        selectedRowId={selected?.rowId}
+        selectedRowVersion={
+          selected
+            ? (allRowsQuery.data ?? []).find((row) => row.id === selected.rowId)
+                ?.version
+            : undefined
+        }
+        selectedColumnId={selected?.columnId}
+      />
       <nav aria-label="Sheet pages" className="mt-2 flex gap-2">
         <button
           type="button"

@@ -578,14 +578,14 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** DATA-003, SHEET-003.
 
-- [ ] Add an inspector for a selected sheet showing its API resource, stable identifier and human-facing name.
-- [ ] Show fields, PostgreSQL/REST types, units, nullability and validation in language a scientist can follow.
-- [ ] Show authenticated request examples for listing, filtering, inserting and updating rows.
-- [ ] Distinguish browser-session access from external API-credential access.
-- [ ] Provide copy controls that never expose secrets in the page.
-- [ ] Link visible grid columns and rows to their API names and stable identities.
-- [ ] Explain formula definitions and calculated-result fields without implying cached results are source data.
-- [ ] Test examples against the real API contract so documentation cannot drift silently.
+- [x] Add an inspector for a selected sheet showing its API resource, stable identifier and human-facing name.
+- [x] Show fields, PostgreSQL/REST types, units, nullability and validation in language a scientist can follow.
+- [x] Show authenticated request examples for listing, filtering, inserting and updating rows.
+- [x] Distinguish browser-session access from external API-credential access.
+- [x] Provide copy controls that never expose secrets in the page.
+- [x] Link visible grid columns and rows to their API names and stable identities.
+- [x] Explain formula definitions and calculated-result fields without implying cached results are source data.
+- [x] Test examples against the real API contract so documentation cannot drift silently.
 
 ### DATA-005 — Add CSV and spreadsheet interchange
 

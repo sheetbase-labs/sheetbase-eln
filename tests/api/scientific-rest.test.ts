@@ -8,6 +8,7 @@ import { mintApiClientToken } from '#/lib/api-credentials'
 import { resolveExternalToken } from '#/lib/external-token'
 import { mintPostgrestToken } from '#/lib/postgrest-token'
 import { handleProxyRequest } from '#/lib/postgrest-proxy'
+import { buildScientificApiExamples } from '#/components/sheet/scientific-api-inspector'
 
 config({ path: ['.env.local', '.env'] })
 
@@ -335,5 +336,56 @@ describe('DATA-003 real PostgREST contract', () => {
     )
     expect(nullEdits.status).toBe(400)
     expect((await nullEdits.json()).error.category).toBe('validation_error')
+  })
+
+  it('executes the API inspector request model against the real contract', async () => {
+    const metadataResponse = await proxy(
+      request(`rpc/scientific_table_metadata?p_table_id=${tableId}`, readToken),
+      'rpc/scientific_table_metadata',
+    )
+    const metadata = (await metadataResponse.json())[0]
+    const examples = buildScientificApiExamples(metadata)
+    const insert = examples.find((example) => example.id === 'insert')!
+    const insertedResponse = await proxy(
+      request(insert.path.replace('/api/db/', ''), rowToken, {
+        method: insert.method,
+        headers: {
+          'content-type': 'application/json',
+          prefer: 'return=representation',
+        },
+        body: JSON.stringify(insert.body),
+      }),
+      resource,
+    )
+    expect(insertedResponse.status).toBe(201)
+    const inserted = (await insertedResponse.json())[0]
+    const executable = buildScientificApiExamples(metadata, {
+      rowId: inserted.id,
+      rowVersion: inserted.version,
+    })
+    for (const id of ['list', 'filter'] as const) {
+      const example = executable.find((item) => item.id === id)!
+      const response = await proxy(
+        request(example.path.replace('/api/db/', ''), rowToken, {
+          method: example.method,
+        }),
+        resource,
+      )
+      expect(response.status).toBe(200)
+    }
+    const update = executable.find((example) => example.id === 'update')!
+    const updated = await proxy(
+      request(update.path.replace('/api/db/', ''), rowToken, {
+        method: update.method,
+        headers: {
+          'content-type': 'application/json',
+          prefer: 'return=representation',
+        },
+        body: JSON.stringify(update.body),
+      }),
+      resource,
+    )
+    expect(updated.status).toBe(200)
+    expect(await updated.json()).toHaveLength(1)
   })
 })

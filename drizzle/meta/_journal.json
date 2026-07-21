@@ -176,6 +176,13 @@
       "when": 1784630000000,
       "tag": "0024_sci_002_protocol_material_blocks",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1784634000000,
+      "tag": "0025_sci_003_file_storage",
+      "breakpoints": true
     }
   ]
 }

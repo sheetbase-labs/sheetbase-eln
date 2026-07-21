@@ -17,6 +17,10 @@ export const env = createEnv({
     // PostgREST admin server (live/ready healthchecks). Server-only.
     POSTGREST_ADMIN_URL: z.string().url().default('http://localhost:3002'),
     PGRST_JWT_SECRET: z.string().min(32),
+    // SCI-003 object-storage boundary. The local backend is the orb default
+    // and needs no cloud credentials; S3 wiring is configuration-only.
+    FILE_STORAGE_BACKEND: z.enum(['local', 's3']).default('local'),
+    FILE_STORAGE_DIR: z.string().default('./.storage/objects'),
   },
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,

@@ -366,7 +366,7 @@ export const records = api.table(
     ),
     check(
       'chk_records_kind',
-      sql`${table.kind} IN ('experiment', 'protocol_template', 'report', 'sample', 'reagent')`,
+      sql`${table.kind} IN ('experiment', 'protocol_template', 'report', 'sample', 'reagent', 'file')`,
     ),
     index('idx_records_workspace_id').on(table.workspaceId),
     index('idx_records_project_id').on(table.projectId),
@@ -474,6 +474,87 @@ export const recordLinks = api.table(
     index('idx_record_links_source_record_id').on(table.sourceRecordId),
     index('idx_record_links_target_record_id').on(table.targetRecordId),
     index('idx_record_links_link_type').on(table.linkType),
+  ],
+)
+
+/**
+ * file_objects holds the universal storage-boundary metadata for a `file`
+ * record (SCI-003, decision 0028). 1:1 with a file record: the record carries
+ * identity, ownership, links, events and audit; this table carries the storage
+ * key, checksum, media type, size and lifecycle state. The bytes live behind
+ * the object-storage boundary and are never proxied through /api/db.
+ *
+ * `display_name` is untrusted client metadata, never used as the storage key.
+ * `status` is the honest lifecycle state: active | quarantined | deleted |
+ * missing. `version` guards optimistic lifecycle transitions.
+ */
+export const fileObjects = api.table(
+  'file_objects',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    recordId: uuid('record_id')
+      .notNull()
+      .unique()
+      .references(() => records.id, { onDelete: 'cascade' }),
+    // Server-generated, unique, independent of the user filename.
+    storageKey: text('storage_key').notNull().unique(),
+    // Untrusted client filename; display only.
+    displayName: text('display_name').notNull(),
+    mediaType: text('media_type').notNull(),
+    byteSize: bigint('byte_size', { mode: 'bigint' }).notNull(),
+    checksum: text('checksum'),
+    checksumAlgorithm: text('checksum_algorithm').notNull().default('sha256'),
+    status: text('status').notNull().default('active'),
+    statusReason: text('status_reason'),
+    storageBackend: text('storage_backend').notNull().default('local'),
+    quarantinedAt: timestamp('quarantined_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
+    version: integer('version').notNull().default(1),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    check(
+      'chk_file_objects_status',
+      sql`${table.status} IN ('active', 'quarantined', 'deleted', 'missing')`,
+    ),
+    check(
+      'chk_file_objects_byte_size',
+      sql`${table.byteSize} BETWEEN 0 AND 104857600`,
+    ),
+    check(
+      'chk_file_objects_media_type',
+      sql`${table.mediaType} IN ('text/csv', 'text/plain', 'application/json', 'application/pdf', 'image/png', 'image/jpeg', 'image/tiff', 'image/webp', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.openxmlformats-officedocument.presentationml.presentation', 'application/octet-stream')`,
+    ),
+    check(
+      'chk_file_objects_storage_backend',
+      sql`${table.storageBackend} IN ('local', 's3')`,
+    ),
+    check(
+      'chk_file_objects_checksum_algorithm',
+      sql`${table.checksumAlgorithm} = 'sha256'`,
+    ),
+    check(
+      'chk_file_objects_deleted_consistency',
+      sql`(${table.status} = 'deleted') = (${table.deletedAt} IS NOT NULL)`,
+    ),
+    check(
+      'chk_file_objects_quarantined_consistency',
+      sql`(${table.status} = 'quarantined') = (${table.quarantinedAt} IS NOT NULL)`,
+    ),
+    index('idx_file_objects_workspace').on(table.workspaceId),
+    index('idx_file_objects_record').on(table.recordId),
   ],
 )
 
@@ -1050,11 +1131,11 @@ export const changeEvents = api.table(
     ),
     check(
       'chk_change_events_entity_type',
-      sql`${table.entityType} IN ('project', 'folder', 'record', 'block', 'record_link', 'scientific_table', 'scientific_row', 'formula', 'calculation')`,
+      sql`${table.entityType} IN ('project', 'folder', 'record', 'block', 'record_link', 'scientific_table', 'scientific_row', 'formula', 'calculation', 'record_field_definition', 'file')`,
     ),
     check(
       'chk_change_events_operation',
-      sql`${table.operation} IN ('create', 'update', 'move', 'delete', 'archive', 'restore', 'link', 'unlink')`,
+      sql`${table.operation} IN ('create', 'update', 'move', 'delete', 'archive', 'restore', 'link', 'unlink', 'quarantine')`,
     ),
     // Hot replay path: WHERE workspace_id = $1 AND sequence > $2 ORDER BY sequence.
     index('idx_change_events_workspace_sequence').on(

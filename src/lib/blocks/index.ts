@@ -38,6 +38,8 @@ export type BlockType =
   | 'file'
   | 'metric'
   | 'procedure_step'
+  | 'protocol_reference'
+  | 'materials'
 
 /** The payload schema version this module validates against. */
 export const PAYLOAD_SCHEMA_VERSION = 1 as const
@@ -59,6 +61,8 @@ export const KNOWN_BLOCK_TYPES: readonly BlockType[] = [
   'file',
   'metric',
   'procedure_step',
+  'protocol_reference',
+  'materials',
 ]
 
 export type BlockValidationError =
@@ -114,6 +118,19 @@ function isString(v: unknown): v is string {
 
 function isInteger(v: unknown): v is number {
   return typeof v === 'number' && Number.isInteger(v)
+}
+
+function isUuid(v: unknown): v is string {
+  return (
+    typeof v === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      v,
+    )
+  )
+}
+
+function isTimestamp(v: unknown): v is string {
+  return typeof v === 'string' && !Number.isNaN(Date.parse(v))
 }
 
 function isNonEmptyString(v: unknown): v is string {
@@ -472,6 +489,201 @@ function validateProcedureStep(payload: unknown): FieldErrors {
       message: 'stepNumber must be an integer when present',
     })
   }
+  const executionFields = [
+    'sourceProtocolRevisionId',
+    'sourceStepBlockId',
+    'completed',
+    'note',
+    'completedAt',
+    'completedByUserId',
+  ]
+  const hasExecution = executionFields.some((field) => field in payload)
+  if (hasExecution) {
+    if (!isUuid(payload.sourceProtocolRevisionId)) {
+      errors.push({
+        code: 'invalid_field_value',
+        field: 'sourceProtocolRevisionId',
+        message: 'sourceProtocolRevisionId must be a UUID',
+      })
+    }
+    if (!isUuid(payload.sourceStepBlockId)) {
+      errors.push({
+        code: 'invalid_field_value',
+        field: 'sourceStepBlockId',
+        message: 'sourceStepBlockId must be a UUID',
+      })
+    }
+    if (typeof payload.completed !== 'boolean') {
+      errors.push({
+        code: 'invalid_field_value',
+        field: 'completed',
+        message: 'completed must be a boolean',
+      })
+    }
+    if (!isString(payload.note)) {
+      errors.push({
+        code: 'invalid_field_value',
+        field: 'note',
+        message: 'note must be a string',
+      })
+    }
+    if (payload.completedAt !== null && !isTimestamp(payload.completedAt)) {
+      errors.push({
+        code: 'invalid_field_value',
+        field: 'completedAt',
+        message: 'completedAt must be a timestamp or null',
+      })
+    }
+    if (
+      payload.completedByUserId !== null &&
+      !isNonEmptyString(payload.completedByUserId)
+    ) {
+      errors.push({
+        code: 'invalid_field_value',
+        field: 'completedByUserId',
+        message: 'completedByUserId must be a user id or null',
+      })
+    }
+  }
+  return errors
+}
+
+function validateProtocolReference(payload: unknown): FieldErrors {
+  if (!isObject(payload)) {
+    return [
+      { code: 'invalid_payload_shape', message: 'payload must be an object' },
+    ]
+  }
+  if (Object.keys(payload).length === 0) return []
+  const errors: FieldErrors = []
+  for (const field of ['protocolRecordId', 'protocolRevisionId'] as const) {
+    if (!isUuid(payload[field])) {
+      errors.push({
+        code: 'invalid_field_value',
+        field,
+        message: `${field} must be a UUID`,
+      })
+    }
+  }
+  for (const field of [
+    'protocolIdentifier',
+    'protocolTitle',
+    'version',
+    'approvalStatus',
+    'pinnedByUserId',
+  ] as const) {
+    if (!isNonEmptyString(payload[field])) {
+      errors.push({
+        code: 'missing_required_field',
+        field,
+        message: `${field} is required`,
+      })
+    }
+  }
+  if (!isTimestamp(payload.pinnedAt)) {
+    errors.push({
+      code: 'invalid_field_value',
+      field: 'pinnedAt',
+      message: 'pinnedAt must be a timestamp',
+    })
+  }
+  return errors
+}
+
+function validateMaterials(payload: unknown): FieldErrors {
+  if (!isObject(payload)) {
+    return [
+      { code: 'invalid_payload_shape', message: 'payload must be an object' },
+    ]
+  }
+  if (!Array.isArray(payload.items)) {
+    return [
+      {
+        code: 'missing_required_field',
+        field: 'items',
+        message: 'items is required and must be an array',
+      },
+    ]
+  }
+  const errors: FieldErrors = []
+  const ids = new Set<string>()
+  payload.items.forEach((value, index) => {
+    const field = `items[${index}]`
+    if (!isObject(value)) {
+      errors.push({
+        code: 'invalid_field_value',
+        field,
+        message: 'each material must be an object',
+      })
+      return
+    }
+    if (!isNonEmptyString(value.id) || ids.has(value.id)) {
+      errors.push({
+        code: 'invalid_field_value',
+        field: `${field}.id`,
+        message: 'material id must be nonblank and unique',
+      })
+    } else ids.add(value.id)
+    if (!isUuid(value.materialRecordId)) {
+      errors.push({
+        code: 'invalid_field_value',
+        field: `${field}.materialRecordId`,
+        message: 'materialRecordId must be a UUID',
+      })
+    }
+    if (value.kind !== 'sample' && value.kind !== 'reagent') {
+      errors.push({
+        code: 'invalid_field_value',
+        field: `${field}.kind`,
+        message: 'kind must be sample or reagent',
+      })
+    }
+    for (const name of ['identifier', 'title'] as const) {
+      if (!isNonEmptyString(value[name])) {
+        errors.push({
+          code: 'missing_required_field',
+          field: `${field}.${name}`,
+          message: `${name} is required`,
+        })
+      }
+    }
+    if (
+      typeof value.quantity !== 'number' ||
+      !Number.isFinite(value.quantity) ||
+      value.quantity <= 0
+    ) {
+      errors.push({
+        code: 'invalid_field_value',
+        field: `${field}.quantity`,
+        message: 'quantity must be a positive finite number',
+      })
+    }
+    if (
+      !isObject(value.unit) ||
+      !isNonEmptyString(value.unit.code) ||
+      !isNonEmptyString(value.unit.symbol)
+    ) {
+      errors.push({
+        code: 'invalid_field_value',
+        field: `${field}.unit`,
+        message: 'unit must have nonblank code and symbol',
+      })
+    }
+    if (value.note !== undefined && !isString(value.note)) {
+      errors.push({
+        code: 'invalid_field_value',
+        field: `${field}.note`,
+        message: 'note must be a string when present',
+      })
+    }
+    if (!isTimestamp(value.observedAt)) {
+      errors.push({
+        code: 'invalid_field_value',
+        field: `${field}.observedAt`,
+        message: 'observedAt must be a timestamp',
+      })
+    }
+  })
   return errors
 }
 
@@ -487,6 +699,8 @@ const validators: Record<BlockType, (payload: unknown) => FieldErrors> = {
   file: validateFile,
   metric: validateMetric,
   procedure_step: validateProcedureStep,
+  protocol_reference: validateProtocolReference,
+  materials: validateMaterials,
 }
 
 /**

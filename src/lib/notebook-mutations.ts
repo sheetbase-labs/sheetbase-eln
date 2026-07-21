@@ -211,6 +211,10 @@ export function defaultPayloadFor(type: string): Record<string, unknown> {
         linkType: 'general',
         label: '',
       }
+    case 'protocol_reference':
+      return {}
+    case 'materials':
+      return { items: [] }
     default:
       return {}
   }

@@ -19,6 +19,7 @@ import {
   DEMO_ARCHIVED_SAMPLE_IDENTIFIER,
   DEMO_ARCHIVED_SAMPLE_RECORD_ID,
   DEMO_FIELD_DEFINITION_IDS,
+  DEMO_PROTOCOL_REVISION_ID,
   DEMO_REAGENT_IDENTIFIER,
   DEMO_REAGENT_RECORD_ID,
   DEMO_SAMPLE_IDENTIFIER,
@@ -152,6 +153,15 @@ export const demoSteps: Array<SeedStep> = [
     name: 'demo field definitions: sample and reagent properties',
     run: async (db) => {
       const defs = [
+        {
+          id: DEMO_FIELD_DEFINITION_IDS.protocolVersion,
+          kind: 'protocol_template' as const,
+          fieldName: 'version',
+          label: 'Version',
+          displayOrder: 1,
+          logicalType: 'text' as const,
+          nullable: false,
+        },
         {
           id: DEMO_FIELD_DEFINITION_IDS.sampleConstruct,
           kind: 'sample' as const,
@@ -432,21 +442,84 @@ export const demoSteps: Array<SeedStep> = [
           projectId: DEMO_VIRUS_STABILITY_PROJECT_ID,
           kind: 'protocol_template',
           identifier: DEMO_VIRUS_STABILITY_PROTOCOL_IDENTIFIER,
-          title: 'Stability Assay Protocol',
+          title: 'Titration Assay',
           status: 'active',
-          tags: ['stability', 'qPCR'],
+          tags: ['titration', 'qPCR'],
+          properties: { version: '1.2' },
           createdByUserId: FIXTURE_USER_ID,
         })
         .onConflictDoUpdate({
           target: [schema.records.projectId, schema.records.identifier],
           set: {
-            title: 'Stability Assay Protocol',
+            title: 'Titration Assay',
             status: 'active',
-            tags: ['stability', 'qPCR'],
+            tags: ['titration', 'qPCR'],
+            properties: { version: '1.2' },
             deletedAt: null,
             archivedAt: null,
           },
         })
+    },
+  },
+  {
+    name: 'demo reusable protocol procedure and immutable revision',
+    run: async (db) => {
+      const definitions = [
+        {
+          id: DEMO_BLOCK_IDS.protocolStep1,
+          order: 1,
+          payload: {
+            text: 'Prepare a serial dilution of the sample.',
+            stepNumber: 1,
+          },
+        },
+        {
+          id: DEMO_BLOCK_IDS.protocolStep2,
+          order: 2,
+          payload: {
+            text: 'Measure the assay response and fit the titration curve.',
+            stepNumber: 2,
+          },
+        },
+      ] as const
+      for (const step of definitions)
+        await db
+          .insert(schema.blocks)
+          .values({
+            ...step,
+            recordId: DEMO_VIRUS_STABILITY_PROTOCOL_RECORD_ID,
+            type: 'procedure_step',
+            createdByUserId: FIXTURE_USER_ID,
+          })
+          .onConflictDoUpdate({
+            target: schema.blocks.id,
+            set: { payload: step.payload, order: step.order },
+          })
+      await db
+        .insert(schema.revisions)
+        .values({
+          id: DEMO_PROTOCOL_REVISION_ID,
+          recordId: DEMO_VIRUS_STABILITY_PROTOCOL_RECORD_ID,
+          structureVersion: 1,
+          metadataVersion: 1,
+          reason: 'manual',
+          createdByUserId: FIXTURE_USER_ID,
+          createdAt: new Date('2026-07-21T12:00:00Z'),
+          updatedAt: new Date('2026-07-21T12:00:00Z'),
+          metadataSnapshot: {
+            identifier: DEMO_VIRUS_STABILITY_PROTOCOL_IDENTIFIER,
+            title: 'Titration Assay',
+            status: 'active',
+            properties: { version: '1.2' },
+          },
+          blockSnapshot: definitions.map((step) => ({
+            id: step.id,
+            type: 'procedure_step',
+            payload: step.payload,
+            order: step.order,
+          })),
+        })
+        .onConflictDoNothing({ target: schema.revisions.id })
     },
   },
   {
@@ -480,6 +553,21 @@ export const demoSteps: Array<SeedStep> = [
   {
     name: 'demo notebook blocks: Virus Stability experiment',
     run: async (db) => {
+      // SCI-002 changes the two legacy demo blocks' immutable type. Remove
+      // only those obsolete stable-id rows once; normal reruns use upserts.
+      for (const [id, type] of [
+        [DEMO_BLOCK_IDS.materials, 'materials'],
+        [DEMO_BLOCK_IDS.linkedProtocol, 'protocol_reference'],
+      ] as const) {
+        const existing = (
+          await db
+            .select({ type: schema.blocks.type })
+            .from(schema.blocks)
+            .where(eq(schema.blocks.id, id))
+        ).at(0)
+        if (existing && existing.type !== type)
+          await db.delete(schema.blocks).where(eq(schema.blocks.id, id))
+      }
       const blocks = [
         {
           id: DEMO_BLOCK_IDS.objective,
@@ -509,35 +597,40 @@ export const demoSteps: Array<SeedStep> = [
         },
         {
           id: DEMO_BLOCK_IDS.materials,
-          type: 'rich_text',
+          type: 'materials',
           payload: {
-            doc: {
-              type: 'doc',
-              content: [
-                {
-                  type: 'heading',
-                  attrs: { level: 2 },
-                  content: [{ type: 'text', text: 'Materials' }],
-                },
-                {
-                  type: 'bulletList',
-                  content: [
-                    'LVV-CAR-T drug substance (Lot LVV-250601)',
-                    'DPBS, sterile filtered',
-                    '1.5 mL low-bind tubes',
-                    'TaqMan qPCR kit',
-                  ].map((text) => ({
-                    type: 'listItem' as const,
-                    content: [
-                      {
-                        type: 'paragraph' as const,
-                        content: [{ type: 'text' as const, text }],
-                      },
-                    ],
-                  })),
-                },
-              ],
-            },
+            items: [
+              {
+                id: 'sample-active',
+                materialRecordId: DEMO_SAMPLE_RECORD_ID,
+                kind: 'sample',
+                identifier: DEMO_SAMPLE_IDENTIFIER,
+                title: 'LVV-CAR-T drug substance',
+                quantity: 100,
+                unit: { code: 'uL', symbol: 'µL', quantityKind: 'volume' },
+                observedAt: '2026-07-21T12:00:00Z',
+              },
+              {
+                id: 'reagent-active',
+                materialRecordId: DEMO_REAGENT_RECORD_ID,
+                kind: 'reagent',
+                identifier: DEMO_REAGENT_IDENTIFIER,
+                title: 'TaqMan qPCR kit',
+                quantity: 20,
+                unit: { code: 'uL', symbol: 'µL', quantityKind: 'volume' },
+                observedAt: '2026-07-21T12:00:00Z',
+              },
+              {
+                id: 'sample-archived',
+                materialRecordId: DEMO_ARCHIVED_SAMPLE_RECORD_ID,
+                kind: 'sample',
+                identifier: DEMO_ARCHIVED_SAMPLE_IDENTIFIER,
+                title: 'LVV reference lot (expired)',
+                quantity: 50,
+                unit: { code: 'uL', symbol: 'µL', quantityKind: 'volume' },
+                observedAt: '2026-07-21T12:00:00Z',
+              },
+            ],
           },
           order: 2,
         },
@@ -644,14 +737,48 @@ export const demoSteps: Array<SeedStep> = [
         },
         {
           id: DEMO_BLOCK_IDS.linkedProtocol,
-          type: 'linked_record',
+          type: 'protocol_reference',
           payload: {
-            targetKind: 'protocol_template',
-            targetIdentifier: DEMO_VIRUS_STABILITY_PROTOCOL_IDENTIFIER,
-            linkType: 'protocol',
-            label: 'Stability Assay Protocol',
+            protocolRecordId: DEMO_VIRUS_STABILITY_PROTOCOL_RECORD_ID,
+            protocolIdentifier: DEMO_VIRUS_STABILITY_PROTOCOL_IDENTIFIER,
+            protocolTitle: 'Titration Assay',
+            protocolRevisionId: DEMO_PROTOCOL_REVISION_ID,
+            version: '1.2',
+            approvalStatus: 'active',
+            pinnedAt: '2026-07-21T12:00:00Z',
+            pinnedByUserId: FIXTURE_USER_ID,
           },
           order: 10,
+        },
+        {
+          id: DEMO_BLOCK_IDS.copiedStep1,
+          type: 'procedure_step',
+          payload: {
+            text: 'Prepare a serial dilution of the sample.',
+            stepNumber: 1,
+            sourceProtocolRevisionId: DEMO_PROTOCOL_REVISION_ID,
+            sourceStepBlockId: DEMO_BLOCK_IDS.protocolStep1,
+            completed: false,
+            note: '',
+            completedAt: null,
+            completedByUserId: null,
+          },
+          order: 11,
+        },
+        {
+          id: DEMO_BLOCK_IDS.copiedStep2,
+          type: 'procedure_step',
+          payload: {
+            text: 'Measure the assay response and fit the titration curve.',
+            stepNumber: 2,
+            sourceProtocolRevisionId: DEMO_PROTOCOL_REVISION_ID,
+            sourceStepBlockId: DEMO_BLOCK_IDS.protocolStep2,
+            completed: false,
+            note: '',
+            completedAt: null,
+            completedByUserId: null,
+          },
+          order: 12,
         },
       ] as const
 

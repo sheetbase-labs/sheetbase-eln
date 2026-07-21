@@ -420,7 +420,7 @@ export const blocks = api.table(
   (table) => [
     check(
       'chk_blocks_type',
-      sql`${table.type} IN ('rich_text', 'checklist', 'linked_record', 'callout', 'table', 'sheet', 'chart', 'plate_map', 'file', 'metric', 'procedure_step')`,
+      sql`${table.type} IN ('rich_text', 'checklist', 'linked_record', 'callout', 'table', 'sheet', 'chart', 'plate_map', 'file', 'metric', 'procedure_step', 'protocol_reference', 'materials')`,
     ),
     index('idx_blocks_record_id').on(table.recordId),
     // (record_id, order) is the hot loading path for notebook render.

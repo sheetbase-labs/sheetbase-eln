@@ -169,6 +169,13 @@
       "when": 1784626000000,
       "tag": "0023_sci_001_field_definition_grants_and_archive_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1784630000000,
+      "tag": "0024_sci_002_protocol_material_blocks",
+      "breakpoints": true
     }
   ]
 }

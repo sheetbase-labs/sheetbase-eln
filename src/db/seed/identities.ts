@@ -46,7 +46,13 @@ export const DEMO_BLOCK_IDS = {
   checks: '00000000-0000-4000-8000-00000000011a',
   callout: '00000000-0000-4000-8000-00000000011b',
   linkedProtocol: '00000000-0000-4000-8000-00000000011c',
+  protocolStep1: '00000000-0000-4000-8000-00000000011d',
+  protocolStep2: '00000000-0000-4000-8000-00000000011e',
+  copiedStep1: '00000000-0000-4000-8000-00000000011f',
+  copiedStep2: '00000000-0000-4000-8000-000000000120',
 } as const
+
+export const DEMO_PROTOCOL_REVISION_ID = '00000000-0000-4000-8000-000000000150'
 
 // SCI-001 scientific record fixtures (Virus Stability). Samples and reagents
 // are registry records with configurable properties; field definitions are
@@ -62,6 +68,7 @@ export const DEMO_REAGENT_IDENTIFIER = 'RGT-2025-0001'
 
 // Stable field-definition ids so re-seeds converge idempotently. 0x130–0x14f.
 export const DEMO_FIELD_DEFINITION_IDS = {
+  protocolVersion: '00000000-0000-4000-8000-000000000130',
   sampleConstruct: '00000000-0000-4000-8000-000000000131',
   sampleBatch: '00000000-0000-4000-8000-000000000132',
   sampleConcentration: '00000000-0000-4000-8000-000000000133',

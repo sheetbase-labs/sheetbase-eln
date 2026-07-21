@@ -633,12 +633,12 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** SCI-001, ELN-005.
 
-- [ ] Add a protocol-reference block with version and approval status.
-- [ ] Add ordered procedure steps with completion, notes and timestamps separated from the reusable protocol definition.
-- [ ] Add materials lists linked to sample and reagent records with quantities and units.
-- [ ] Preserve the exact protocol version used by an experiment even after the template changes.
-- [ ] Surface unavailable, expired or low-stock materials without rewriting historical observations.
-- [ ] Add tests for linking, version pinning, step completion and archived materials.
+- [x] Add a protocol-reference block with version and approval status.
+- [x] Add ordered procedure steps with completion, notes and timestamps separated from the reusable protocol definition.
+- [x] Add materials lists linked to sample and reagent records with quantities and units.
+- [x] Preserve the exact protocol version used by an experiment even after the template changes.
+- [x] Surface unavailable, expired or low-stock materials without rewriting historical observations.
+- [x] Add tests for linking, version pinning, step completion and archived materials.
 
 ### SCI-003 — Add files and object-storage abstraction
 

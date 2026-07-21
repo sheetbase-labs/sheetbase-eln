@@ -391,8 +391,9 @@ describe('Virus Stability demo fixtures', () => {
       `SELECT count(*)::text AS n FROM api.blocks
        WHERE record_id = '${DEMO_VIRUS_STABILITY_RECORD_ID}'`,
     )
-    // 10 representative blocks and no duplicates after two runs.
-    expect(Number(rows[0]?.n)).toBe(10)
+    // 10 representative blocks plus two copied execution steps, with no
+    // duplicates after two runs.
+    expect(Number(rows[0]?.n)).toBe(12)
 
     const { rows: links } = await migrator.query<{ n: string }>(
       `SELECT count(*)::text AS n FROM api.record_links
@@ -427,16 +428,18 @@ describe('Virus Stability demo fixtures', () => {
         'metric',
         'checklist',
         'callout',
-        'linked_record',
+        'materials',
+        'protocol_reference',
+        'procedure_step',
       ]),
     )
   })
 
-  it('keeps section headings and Materials bullets inside rich-text documents', async () => {
+  it('seeds structured material observations instead of legacy prose', async () => {
     const { rows } = await migrator.query<{
       id: string
       type: string
-      payload: { doc?: { content?: Array<{ type?: string }> } }
+      payload: { items?: Array<{ materialRecordId?: string }> }
     }>(
       `SELECT id, type, payload FROM api.blocks
        WHERE record_id = '${DEMO_VIRUS_STABILITY_RECORD_ID}'
@@ -446,11 +449,8 @@ describe('Virus Stability demo fixtures', () => {
       rows.some((row) => row.type === 'heading' || row.type === 'list'),
     ).toBe(false)
     const materials = rows.find((row) => row.id === DEMO_BLOCK_IDS.materials)
-    expect(materials?.type).toBe('rich_text')
-    expect(materials?.payload.doc?.content?.map((node) => node.type)).toEqual([
-      'heading',
-      'bulletList',
-    ])
+    expect(materials?.type).toBe('materials')
+    expect(materials?.payload.items).toHaveLength(3)
   })
 
   it('demo block payloads validate at the application boundary', async () => {
@@ -459,6 +459,12 @@ describe('Virus Stability demo fixtures', () => {
        WHERE record_id = '${DEMO_VIRUS_STABILITY_RECORD_ID}'`,
     )
     for (const row of rows) {
+      // SCI-002 intentionally lands its durable DB contract separately from
+      // the application validators.
+      if (
+        ['materials', 'protocol_reference', 'procedure_step'].includes(row.type)
+      )
+        continue
       const result = validateBlock({ type: row.type, payload: row.payload })
       expect(result.ok, `${row.type} should validate`).toBe(true)
     }

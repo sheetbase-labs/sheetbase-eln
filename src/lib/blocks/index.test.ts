@@ -250,9 +250,89 @@ describe('block payload validation (ELN-002)', () => {
       file: { name: 'data.xlsx', size: 1024, mime: 'application/vnd.ms-excel' },
       metric: { label: 'Titer', value: 2.31e7, unit: 'copies/mL' },
       procedure_step: { text: 'Prepare standards.', stepNumber: 1 },
+      protocol_reference: {
+        protocolRecordId: '0198d970-e266-4000-8000-000000000010',
+        protocolIdentifier: 'PRT-2026-0001',
+        protocolTitle: 'Titration Assay',
+        protocolRevisionId: '0198d970-e266-4000-8000-000000000011',
+        version: '1.2',
+        approvalStatus: 'active',
+        pinnedAt: '2026-07-21T12:00:00Z',
+        pinnedByUserId: 'user-1',
+      },
+      materials: {
+        items: [
+          {
+            id: 'material-1',
+            materialRecordId: '0198d970-e266-4000-8000-000000000012',
+            kind: 'sample',
+            identifier: 'SMP-2026-0001',
+            title: 'Reference sample',
+            quantity: 25,
+            unit: { code: 'uL', symbol: 'µL', quantityKind: 'volume' },
+            observedAt: '2026-07-21T12:00:00Z',
+          },
+        ],
+      },
     }
     for (const type of KNOWN_BLOCK_TYPES) {
       expect(validateBlock({ type, payload: samples[type] }).ok).toBe(true)
     }
+  })
+
+  it('validates execution state separately from a reusable procedure definition', () => {
+    expect(
+      validateBlock({
+        type: 'procedure_step',
+        payload: {
+          text: 'Read the plate.',
+          stepNumber: 2,
+          sourceProtocolRevisionId: '0198d970-e266-4000-8000-000000000011',
+          sourceStepBlockId: '0198d970-e266-4000-8000-000000000013',
+          completed: true,
+          note: 'Read at 450 nm.',
+          completedAt: '2026-07-21T12:30:00Z',
+          completedByUserId: 'user-1',
+        },
+      }).ok,
+    ).toBe(true)
+  })
+
+  it('rejects invalid material quantities, units, and duplicate item ids', () => {
+    const result = validateBlock({
+      type: 'materials',
+      payload: {
+        items: [
+          {
+            id: 'same',
+            materialRecordId: '0198d970-e266-4000-8000-000000000012',
+            kind: 'sample',
+            identifier: 'SMP-2026-0001',
+            title: 'Sample',
+            quantity: 0,
+            unit: { code: '', symbol: '' },
+            observedAt: '2026-07-21T12:00:00Z',
+          },
+          {
+            id: 'same',
+            materialRecordId: '0198d970-e266-4000-8000-000000000012',
+            kind: 'sample',
+            identifier: 'SMP-2026-0001',
+            title: 'Sample',
+            quantity: 1,
+            unit: { code: 'uL', symbol: 'µL' },
+            observedAt: '2026-07-21T12:00:00Z',
+          },
+        ],
+      },
+    })
+    expect(result.ok).toBe(false)
+    expect(result.errors.map((error) => error.field)).toEqual(
+      expect.arrayContaining([
+        'items[0].quantity',
+        'items[0].unit',
+        'items[1].id',
+      ]),
+    )
   })
 })

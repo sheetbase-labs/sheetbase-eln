@@ -14,12 +14,21 @@ afterEach(() => cleanup())
 describe('BlockPicker', () => {
   it('exposes the editable block types with familiar labels', () => {
     const types = BLOCK_PICKER_OPTIONS.map((o) => o.type)
-    expect(types).toEqual(['rich_text', 'checklist', 'linked_record', 'sheet'])
+    expect(types).toEqual([
+      'rich_text',
+      'checklist',
+      'linked_record',
+      'sheet',
+      'protocol_reference',
+      'materials',
+    ])
     expect(BLOCK_PICKER_OPTIONS.map((o) => o.label)).toEqual([
       'Text',
       'Checklist',
       'Linked record',
       'Sheet',
+      'Protocol',
+      'Materials',
     ])
     expect(types).not.toContain('heading')
   })

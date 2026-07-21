@@ -19,9 +19,12 @@ import { Route as ApiFormulasRouteImport } from './routes/api/formulas'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects/$projectId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiDbSplatRouteImport } from './routes/api/db/$'
+import { Route as ApiFilesUploadAuthorizeRouteImport } from './routes/api/files/upload-authorize'
 import { Route as ApiHealthLiveRouteImport } from './routes/api/health/live'
 import { Route as ApiHealthReadyRouteImport } from './routes/api/health/ready'
 import { Route as ApiTokenIndexRouteImport } from './routes/api/token/index'
+import { Route as ApiFilesFileIdDownloadRouteImport } from './routes/api/files/$fileId/download'
+import { Route as ApiFilesFileIdUploadRouteImport } from './routes/api/files/$fileId/upload'
 import { Route as ProjectsProjectIdExperimentsRecordIdRouteImport } from './routes/projects/$projectId/experiments/$recordId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -74,6 +77,11 @@ const ApiDbSplatRoute = ApiDbSplatRouteImport.update({
   path: '/api/db/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiFilesUploadAuthorizeRoute = ApiFilesUploadAuthorizeRouteImport.update({
+  id: '/api/files/upload-authorize',
+  path: '/api/files/upload-authorize',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiHealthLiveRoute = ApiHealthLiveRouteImport.update({
   id: '/api/health/live',
   path: '/api/health/live',
@@ -87,6 +95,16 @@ const ApiHealthReadyRoute = ApiHealthReadyRouteImport.update({
 const ApiTokenIndexRoute = ApiTokenIndexRouteImport.update({
   id: '/api/token/',
   path: '/api/token/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFilesFileIdDownloadRoute = ApiFilesFileIdDownloadRouteImport.update({
+  id: '/api/files/$fileId/download',
+  path: '/api/files/$fileId/download',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFilesFileIdUploadRoute = ApiFilesFileIdUploadRouteImport.update({
+  id: '/api/files/$fileId/upload',
+  path: '/api/files/$fileId/upload',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProjectsProjectIdExperimentsRecordIdRoute =
@@ -107,9 +125,12 @@ export interface FileRoutesByFullPath {
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/db/$': typeof ApiDbSplatRoute
+  '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
   '/api/health/live': typeof ApiHealthLiveRoute
   '/api/health/ready': typeof ApiHealthReadyRoute
   '/api/token/': typeof ApiTokenIndexRoute
+  '/api/files/$fileId/download': typeof ApiFilesFileIdDownloadRoute
+  '/api/files/$fileId/upload': typeof ApiFilesFileIdUploadRoute
   '/projects/$projectId/experiments/$recordId': typeof ProjectsProjectIdExperimentsRecordIdRoute
 }
 export interface FileRoutesByTo {
@@ -123,9 +144,12 @@ export interface FileRoutesByTo {
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/db/$': typeof ApiDbSplatRoute
+  '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
   '/api/health/live': typeof ApiHealthLiveRoute
   '/api/health/ready': typeof ApiHealthReadyRoute
   '/api/token': typeof ApiTokenIndexRoute
+  '/api/files/$fileId/download': typeof ApiFilesFileIdDownloadRoute
+  '/api/files/$fileId/upload': typeof ApiFilesFileIdUploadRoute
   '/projects/$projectId/experiments/$recordId': typeof ProjectsProjectIdExperimentsRecordIdRoute
 }
 export interface FileRoutesById {
@@ -140,9 +164,12 @@ export interface FileRoutesById {
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/db/$': typeof ApiDbSplatRoute
+  '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
   '/api/health/live': typeof ApiHealthLiveRoute
   '/api/health/ready': typeof ApiHealthReadyRoute
   '/api/token/': typeof ApiTokenIndexRoute
+  '/api/files/$fileId/download': typeof ApiFilesFileIdDownloadRoute
+  '/api/files/$fileId/upload': typeof ApiFilesFileIdUploadRoute
   '/projects/$projectId/experiments/$recordId': typeof ProjectsProjectIdExperimentsRecordIdRoute
 }
 export interface FileRouteTypes {
@@ -158,9 +185,12 @@ export interface FileRouteTypes {
     | '/projects/$projectId'
     | '/api/auth/$'
     | '/api/db/$'
+    | '/api/files/upload-authorize'
     | '/api/health/live'
     | '/api/health/ready'
     | '/api/token/'
+    | '/api/files/$fileId/download'
+    | '/api/files/$fileId/upload'
     | '/projects/$projectId/experiments/$recordId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -174,9 +204,12 @@ export interface FileRouteTypes {
     | '/projects/$projectId'
     | '/api/auth/$'
     | '/api/db/$'
+    | '/api/files/upload-authorize'
     | '/api/health/live'
     | '/api/health/ready'
     | '/api/token'
+    | '/api/files/$fileId/download'
+    | '/api/files/$fileId/upload'
     | '/projects/$projectId/experiments/$recordId'
   id:
     | '__root__'
@@ -190,9 +223,12 @@ export interface FileRouteTypes {
     | '/projects/$projectId'
     | '/api/auth/$'
     | '/api/db/$'
+    | '/api/files/upload-authorize'
     | '/api/health/live'
     | '/api/health/ready'
     | '/api/token/'
+    | '/api/files/$fileId/download'
+    | '/api/files/$fileId/upload'
     | '/projects/$projectId/experiments/$recordId'
   fileRoutesById: FileRoutesById
 }
@@ -206,9 +242,12 @@ export interface RootRouteChildren {
   ApiFormulasRoute: typeof ApiFormulasRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiDbSplatRoute: typeof ApiDbSplatRoute
+  ApiFilesUploadAuthorizeRoute: typeof ApiFilesUploadAuthorizeRoute
   ApiHealthLiveRoute: typeof ApiHealthLiveRoute
   ApiHealthReadyRoute: typeof ApiHealthReadyRoute
   ApiTokenIndexRoute: typeof ApiTokenIndexRoute
+  ApiFilesFileIdDownloadRoute: typeof ApiFilesFileIdDownloadRoute
+  ApiFilesFileIdUploadRoute: typeof ApiFilesFileIdUploadRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -283,6 +322,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDbSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/files/upload-authorize': {
+      id: '/api/files/upload-authorize'
+      path: '/api/files/upload-authorize'
+      fullPath: '/api/files/upload-authorize'
+      preLoaderRoute: typeof ApiFilesUploadAuthorizeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/health/live': {
       id: '/api/health/live'
       path: '/api/health/live'
@@ -302,6 +348,20 @@ declare module '@tanstack/react-router' {
       path: '/api/token'
       fullPath: '/api/token/'
       preLoaderRoute: typeof ApiTokenIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/files/$fileId/download': {
+      id: '/api/files/$fileId/download'
+      path: '/api/files/$fileId/download'
+      fullPath: '/api/files/$fileId/download'
+      preLoaderRoute: typeof ApiFilesFileIdDownloadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/files/$fileId/upload': {
+      id: '/api/files/$fileId/upload'
+      path: '/api/files/$fileId/upload'
+      fullPath: '/api/files/$fileId/upload'
+      preLoaderRoute: typeof ApiFilesFileIdUploadRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/projects/$projectId/experiments/$recordId': {
@@ -348,9 +408,12 @@ const rootRouteChildren: RootRouteChildren = {
   ApiFormulasRoute: ApiFormulasRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiDbSplatRoute: ApiDbSplatRoute,
+  ApiFilesUploadAuthorizeRoute: ApiFilesUploadAuthorizeRoute,
   ApiHealthLiveRoute: ApiHealthLiveRoute,
   ApiHealthReadyRoute: ApiHealthReadyRoute,
   ApiTokenIndexRoute: ApiTokenIndexRoute,
+  ApiFilesFileIdDownloadRoute: ApiFilesFileIdDownloadRoute,
+  ApiFilesFileIdUploadRoute: ApiFilesFileIdUploadRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

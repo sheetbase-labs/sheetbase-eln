@@ -19,11 +19,7 @@ import { dirname, join, resolve } from 'node:path'
 import { env } from '#/env.server'
 
 /** Lifecycle states mirrored from the `file_objects.status` check. */
-export type FileObjectStatus =
-  | 'active'
-  | 'quarantined'
-  | 'deleted'
-  | 'missing'
+export type FileObjectStatus = 'active' | 'quarantined' | 'deleted' | 'missing'
 
 export class OversizeError extends Error {
   constructor(
@@ -65,22 +61,22 @@ export interface ObjectStorage {
    * `OversizeError` if the stream exceeds the cap; the partial object is
    * removed before returning.
    */
-  putStream(
+  putStream: (
     storageKey: string,
     body: ReadableStream<Uint8Array>,
     maxBytes: number,
-  ): Promise<PutResult>
+  ) => Promise<PutResult>
   /**
    * Open a read stream for the object. Throws `MissingStorageObjectError`
    * if the object is absent.
    */
-  getStream(
+  getStream: (
     storageKey: string,
-  ): Promise<{ stream: ReadableStream<Uint8Array>; byteSize: number }>
+  ) => Promise<{ stream: ReadableStream<Uint8Array>; byteSize: number }>
   /** Returns the object size or null if it is absent. */
-  head(storageKey: string): Promise<{ byteSize: number } | null>
+  head: (storageKey: string) => Promise<{ byteSize: number } | null>
   /** Remove the object. No-op if it is already absent. */
-  delete(storageKey: string): Promise<void>
+  delete: (storageKey: string) => Promise<void>
 }
 
 const CHUNK_SIZE = 64 * 1024
@@ -121,18 +117,16 @@ export class LocalFileStorage implements ObjectStorage {
     let oversize = false
     try {
       const reader = body.getReader()
-      while (true) {
+      for (;;) {
         const { done, value } = await reader.read()
         if (done) break
-        if (value) {
-          byteSize += BigInt(value.byteLength)
-          if (byteSize > BigInt(maxBytes)) {
-            oversize = true
-            break
-          }
-          hash.update(value)
-          await handle.write(value)
+        byteSize += BigInt(value.byteLength)
+        if (byteSize > BigInt(maxBytes)) {
+          oversize = true
+          break
         }
+        hash.update(value)
+        await handle.write(value)
       }
     } finally {
       await handle.close()

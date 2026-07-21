@@ -209,9 +209,7 @@ export function toLink(row: RecordLinkWire): NotebookLink {
   }
 }
 
-export function toFileObjectSummary(
-  row: FileObjectWire,
-): FileObjectSummary {
+export function toFileObjectSummary(row: FileObjectWire): FileObjectSummary {
   return {
     recordId: row.record_id,
     displayName: row.display_name,

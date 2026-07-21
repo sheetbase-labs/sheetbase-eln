@@ -46,23 +46,23 @@ Universal storage-boundary metadata is **not** configurable property JSON. It
 is real, queryable, constraint-bearing columns on a new `api.file_objects`
 table, owned 1:1 by a `file` record:
 
-| column | purpose |
-| --- | --- |
-| `id` | uuid PK |
-| `workspace_id` | workspace ownership (matches the file record) |
-| `record_id` | unique FK to `records.id` (`file` kind), `ON DELETE CASCADE` |
-| `storage_key` | server-generated, unique, independent of user filename |
-| `display_name` | untrusted client filename, display only |
-| `media_type` | validated against the allowed-media-type check |
-| `byte_size` | validated `BETWEEN 0 AND 104857600` (100 MiB) |
-| `checksum` | content hash |
-| `checksum_algorithm` | currently `sha256` |
-| `status` | `active` \| `quarantined` \| `deleted` \| `missing` |
-| `status_reason` | free-text reason for a non-active state |
-| `quarantined_at`, `deleted_at` | lifecycle timestamps |
-| `storage_backend` | `local` (dev) or `s3` (production) |
-| `created_by_user_id`, `updated_by_user_id` | actor attribution |
-| `created_at`, `updated_at` | timestamps |
+| column                                     | purpose                                                      |
+| ------------------------------------------ | ------------------------------------------------------------ |
+| `id`                                       | uuid PK                                                      |
+| `workspace_id`                             | workspace ownership (matches the file record)                |
+| `record_id`                                | unique FK to `records.id` (`file` kind), `ON DELETE CASCADE` |
+| `storage_key`                              | server-generated, unique, independent of user filename       |
+| `display_name`                             | untrusted client filename, display only                      |
+| `media_type`                               | validated against the allowed-media-type check               |
+| `byte_size`                                | validated `BETWEEN 0 AND 104857600` (100 MiB)                |
+| `checksum`                                 | content hash                                                 |
+| `checksum_algorithm`                       | currently `sha256`                                           |
+| `status`                                   | `active` \| `quarantined` \| `deleted` \| `missing`          |
+| `status_reason`                            | free-text reason for a non-active state                      |
+| `quarantined_at`, `deleted_at`             | lifecycle timestamps                                         |
+| `storage_backend`                          | `local` (dev) or `s3` (production)                           |
+| `created_by_user_id`, `updated_by_user_id` | actor attribution                                            |
+| `created_at`, `updated_at`                 | timestamps                                                   |
 
 `storage_key` is generated server-side as
 `<workspace_id>/<file_object_id>/<random32hex>` and is the only reference to
@@ -103,7 +103,7 @@ Upload is a two-phase, authenticated flow:
    `file` record (via the `create_record` RPC, kind `file`) and the
    `file_objects` row (status `active`, storage key generated, byte size and
    checksum recorded as claimed), and returns `{ fileId, storageKey,
-   uploadUrl }`. For the local backend `uploadUrl` is the same-origin
+uploadUrl }`. For the local backend `uploadUrl` is the same-origin
    `/api/files/{fileId}/upload`; for S3 it is a presigned PUT URL with
    bounded conditions.
 2. **Write bytes** (`PUT /api/files/{fileId}/upload` for local, or the
@@ -154,7 +154,7 @@ media type are always treated as untrusted metadata.
   of file identity.
 
 Both paths carry provenance and actor attribution through the existing
- `created_by_user_id` columns and change-event triggers.
+`created_by_user_id` columns and change-event triggers.
 
 ### 6. Download, missing-object, quarantined and deleted states render honestly
 
@@ -227,16 +227,16 @@ the only boundary.
 
 ## REST resources and RPCs
 
-| Path | Method | Purpose |
-| --- | --- | --- |
-| `/api/db/records?kind=eq.file` | GET | list file records (metadata) |
-| `/api/db/file_objects` | GET/PATCH | file storage metadata CRUD |
-| `/api/db/rpc/create_record` | POST | create the `file` record (kind `file`) |
-| `/api/db/rpc/transition_file_status` | POST | quarantine/delete/restore |
-| `/api/db/rpc/create_record_link` | POST | link a record to a file |
-| `/api/files/upload-authorize` | POST | authorize + create metadata, return upload URL |
-| `/api/files/{fileId}/upload` | PUT | stream bytes to the local backend |
-| `/api/files/{fileId}/download` | GET | stream/redirect bytes for an active file |
+| Path                                 | Method    | Purpose                                        |
+| ------------------------------------ | --------- | ---------------------------------------------- |
+| `/api/db/records?kind=eq.file`       | GET       | list file records (metadata)                   |
+| `/api/db/file_objects`               | GET/PATCH | file storage metadata CRUD                     |
+| `/api/db/rpc/create_record`          | POST      | create the `file` record (kind `file`)         |
+| `/api/db/rpc/transition_file_status` | POST      | quarantine/delete/restore                      |
+| `/api/db/rpc/create_record_link`     | POST      | link a record to a file                        |
+| `/api/files/upload-authorize`        | POST      | authorize + create metadata, return upload URL |
+| `/api/files/{fileId}/upload`         | PUT       | stream bytes to the local backend              |
+| `/api/files/{fileId}/download`       | GET       | stream/redirect bytes for an active file       |
 
 Request/response examples use placeholders, never real credentials.
 

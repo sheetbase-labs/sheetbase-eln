@@ -9,12 +9,16 @@
  * Only file bytes bypass the JSON boundary, through the `ObjectStorage` impl.
  */
 import type { ObjectStorage } from '#/lib/file-storage'
-import { getObjectStorage } from '#/lib/file-storage'
+import {
+  getObjectStorage,
+  generateStorageKey,
+  newFileObjectId,
+  OversizeError,
+} from '#/lib/file-storage'
 import { FILE_MAX_BYTES, validateUploadRequest } from '#/lib/file-policy'
 import { env } from '#/env.server'
 
 import {
-  type FileAuthDeps,
   fileErrorResponse,
   postgrestInsert,
   postgrestPatch,
@@ -22,8 +26,7 @@ import {
   postgrestSelect,
   resolveFileAuth,
 } from '#/lib/file-auth'
-import { generateStorageKey, newFileObjectId } from '#/lib/file-storage'
-import { OversizeError } from '#/lib/file-storage'
+import type { FileAuthDeps } from '#/lib/file-auth'
 
 interface CreateRecordRow {
   id: string
@@ -211,14 +214,14 @@ export async function handleUpload(
     )
   }
   const rows = selectRes.body as FileObjectWire[]
-  const fileObject = rows?.[0]
-  if (!fileObject) {
+  if (rows.length === 0) {
     return fileErrorResponse(
       404,
       'not_found',
       'File object not found in your workspace.',
     )
   }
+  const fileObject = rows[0]
   if (fileObject.status !== 'active' && fileObject.status !== 'missing') {
     return fileErrorResponse(
       409,
@@ -232,7 +235,12 @@ export async function handleUpload(
   try {
     result = await storage.putStream(
       fileObject.storage_key,
-      request.body ?? new ReadableStream<Uint8Array>({ start(c) { c.close() } }),
+      request.body ??
+        new ReadableStream<Uint8Array>({
+          start(c) {
+            c.close()
+          },
+        }),
       FILE_MAX_BYTES,
     )
   } catch (error) {
@@ -334,16 +342,21 @@ export async function handleDownload(
     )
   }
   const rows = selectRes.body as FileObjectWire[]
-  const fileObject = rows?.[0]
-  if (!fileObject) {
-    return fileErrorResponse(404, 'not_found', 'File not found in your workspace.')
+  if (rows.length === 0) {
+    return fileErrorResponse(
+      404,
+      'not_found',
+      'File not found in your workspace.',
+    )
   }
 
+  const fileObject = rows[0]
   if (fileObject.status === 'quarantined') {
     return fileErrorResponse(
       410,
       'quarantined',
-      fileObject.status_reason ?? 'This file is quarantined and not downloadable.',
+      fileObject.status_reason ??
+        'This file is quarantined and not downloadable.',
     )
   }
   if (fileObject.status === 'deleted') {
@@ -384,7 +397,7 @@ export async function handleDownload(
     'content-disposition': `attachment; filename="${safeName}"`,
     'cache-control': 'private, no-store',
   })
-  return new Response(stream as ReadableStream<Uint8Array>, {
+  return new Response(stream, {
     status: 200,
     headers,
   })

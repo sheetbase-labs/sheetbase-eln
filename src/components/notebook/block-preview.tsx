@@ -603,7 +603,8 @@ function FileBlockPreview({ payload }: { payload: unknown }) {
 
   const live = useQuery({
     queryKey: notebookQueryKeys.fileObject(fileRecordId ?? 'unresolved-file'),
-    queryFn: () => fetchFileObjectByRecordId(notebookDataClient, fileRecordId ?? ''),
+    queryFn: () =>
+      fetchFileObjectByRecordId(notebookDataClient, fileRecordId ?? ''),
     enabled: Boolean(fileRecordId),
     staleTime: 0,
   })
@@ -647,7 +648,7 @@ function FileBlockPreview({ payload }: { payload: unknown }) {
     )
   }
 
-  if (status === 'missing' || (!live.data && !live.isLoading)) {
+  if (status === 'missing' || !live.data) {
     return (
       <div className="rounded-md border border-warning/50 bg-warning/5 p-3 text-sm">
         <p className="font-medium text-foreground">{name || 'File'}</p>
@@ -664,7 +665,7 @@ function FileBlockPreview({ payload }: { payload: unknown }) {
         <p className="font-medium text-foreground">{name}</p>
         <p className="mt-1 text-xs text-warning-foreground">
           Quarantined
-          {live.data?.statusReason ? ` — ${live.data.statusReason}` : ''}.
+          {live.data.statusReason ? ` — ${live.data.statusReason}` : ''}.
         </p>
         <FileMetaLine mediaType={mediaType} byteSize={byteSize} />
       </div>
@@ -674,7 +675,9 @@ function FileBlockPreview({ payload }: { payload: unknown }) {
     return (
       <div className="rounded-md border bg-muted/30 p-3 text-sm">
         <p className="font-medium text-muted-foreground line-through">{name}</p>
-        <p className="mt-1 text-xs text-muted-foreground">This file is deleted.</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          This file is deleted.
+        </p>
         <FileMetaLine mediaType={mediaType} byteSize={byteSize} />
       </div>
     )
@@ -718,18 +721,17 @@ function FileMetaLine({
 }
 
 function FileIcon({ mediaType }: { mediaType: string }) {
-  const label =
-    mediaType.startsWith('image/')
-      ? 'IMG'
-      : mediaType === 'application/pdf'
-        ? 'PDF'
-        : mediaType.includes('spreadsheet') || mediaType === 'text/csv'
-          ? 'XLS'
-          : mediaType.includes('wordprocessing')
-            ? 'DOC'
-            : mediaType.includes('presentation')
-              ? 'PPT'
-              : 'FILE'
+  const label = mediaType.startsWith('image/')
+    ? 'IMG'
+    : mediaType === 'application/pdf'
+      ? 'PDF'
+      : mediaType.includes('spreadsheet') || mediaType === 'text/csv'
+        ? 'XLS'
+        : mediaType.includes('wordprocessing')
+          ? 'DOC'
+          : mediaType.includes('presentation')
+            ? 'PPT'
+            : 'FILE'
   return (
     <span
       aria-hidden="true"

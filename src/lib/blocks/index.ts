@@ -435,11 +435,12 @@ function validateFile(payload: unknown): FieldErrors {
       message: 'mediaType is required when a file is attached',
     })
   }
-  if (!isInteger(payload.byteSize) || (payload.byteSize as number) < 0) {
+  if (!isInteger(payload.byteSize) || payload.byteSize < 0) {
     errors.push({
       code: 'invalid_field_value',
       field: 'byteSize',
-      message: 'byteSize must be a non-negative integer when a file is attached',
+      message:
+        'byteSize must be a non-negative integer when a file is attached',
     })
   }
   return errors

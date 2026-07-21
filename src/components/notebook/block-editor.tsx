@@ -978,8 +978,8 @@ function FileBlockEditor({ block, onAttachFile, readOnly }: BlockEditorProps) {
           {mediaType || 'unknown'} · {formatBytes(byteSize)}
         </p>
         <p className="text-xs text-muted-foreground">
-          File attached. Download and lifecycle are available in the preview
-          and inspector.
+          File attached. Download and lifecycle are available in the preview and
+          inspector.
         </p>
       </div>
     )

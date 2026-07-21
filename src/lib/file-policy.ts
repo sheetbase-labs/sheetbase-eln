@@ -41,7 +41,9 @@ export function validateUploadRequest(input: {
   mediaType?: unknown
   byteSize?: unknown
   checksum?: unknown
-}): { ok: true; value: AuthorizeInput } | { ok: false; violations: PolicyViolation[] } {
+}):
+  | { ok: true; value: AuthorizeInput }
+  | { ok: false; violations: PolicyViolation[] } {
   const violations: PolicyViolation[] = []
 
   const displayName =
@@ -58,8 +60,7 @@ export function validateUploadRequest(input: {
   if (!isAllowedMediaType(mediaType)) {
     violations.push({
       field: 'mediaType',
-      message:
-        'mediaType is not in the allowed list (see ALLOWED_MEDIA_TYPES)',
+      message: 'mediaType is not in the allowed list (see ALLOWED_MEDIA_TYPES)',
     })
   }
 

@@ -10,14 +10,14 @@ import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { NotebookBlock } from '#/lib/notebook-data'
+import type { NotebookBlock, FileObjectSummary } from '#/lib/notebook-data'
 import { fetchFileObjectByRecordId } from '#/lib/notebook-data'
-import type { FileObjectSummary } from '#/lib/notebook-data'
+import type * as notebookData from '#/lib/notebook-data'
 import { BlockEditor } from './block-editor'
 import { BlockPreview } from './block-preview'
 
 vi.mock('#/lib/notebook-data', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('#/lib/notebook-data')>()
+  const actual = await importOriginal<typeof notebookData>()
   return { ...actual, fetchFileObjectByRecordId: vi.fn() }
 })
 
@@ -28,9 +28,7 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-function makeBlock(
-  payload: Record<string, unknown>,
-): NotebookBlock {
+function makeBlock(payload: Record<string, unknown>): NotebookBlock {
   return {
     id: 'block-file',
     recordId: 'experiment-1',
@@ -46,9 +44,7 @@ function renderWithQuery(ui: ReactNode) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   })
-  return render(
-    <QueryClientProvider client={client}>{ui}</QueryClientProvider>,
-  )
+  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
 }
 
 const activePayload = {
@@ -89,7 +85,9 @@ describe('SCI-003 file block preview', () => {
     await waitFor(() => {
       expect(fetchFileObject).toHaveBeenCalled()
     })
-    const link = await screen.findByRole('link', { name: 'stability-run07.csv' })
+    const link = await screen.findByRole('link', {
+      name: 'stability-run07.csv',
+    })
     expect(link.getAttribute('href')).toBe(
       '/api/files/10000000-0000-4000-8000-000000000001/download',
     )
@@ -138,9 +136,7 @@ describe('SCI-003 file block preview', () => {
     fetchFileObject.mockRejectedValue(new Error('network down'))
     renderWithQuery(<BlockPreview block={makeBlock(activePayload)} />)
     await waitFor(() =>
-      expect(
-        screen.getByText('File status could not be loaded.'),
-      ).toBeTruthy(),
+      expect(screen.getByText('File status could not be loaded.')).toBeTruthy(),
     )
   })
 })
@@ -175,11 +171,9 @@ describe('SCI-003 file block editor upload flow', () => {
     const user = userEvent.setup()
     const onAttachFile = vi.fn()
     renderEditor({ onAttachFile })
-    const input = screen.getByLabelText('Attach a file') as HTMLInputElement
+    const input = screen.getByLabelText('Attach a file')
     await user.upload(input, file('evil.exe', 'application/x-msdownload', 10))
-    expect(
-      await screen.findByText(/not allowed/i),
-    ).toBeTruthy()
+    expect(await screen.findByText(/not allowed/i)).toBeTruthy()
     expect(onAttachFile).not.toHaveBeenCalled()
   })
 
@@ -187,7 +181,7 @@ describe('SCI-003 file block editor upload flow', () => {
     const user = userEvent.setup()
     const onAttachFile = vi.fn().mockResolvedValue(undefined)
     renderEditor({ onAttachFile })
-    const input = screen.getByLabelText('Attach a file') as HTMLInputElement
+    const input = screen.getByLabelText('Attach a file')
     await user.upload(input, file('run.csv', 'text/csv', 12))
     await waitFor(() => expect(onAttachFile).toHaveBeenCalledTimes(1))
     expect(onAttachFile.mock.calls[0][0].name).toBe('run.csv')
@@ -197,12 +191,12 @@ describe('SCI-003 file block editor upload flow', () => {
     const user = userEvent.setup()
     const onAttachFile = vi
       .fn()
-      .mockRejectedValue(new Error('File is 200.0 MiB; the limit is 100.0 MiB.'))
+      .mockRejectedValue(
+        new Error('File is 200.0 MiB; the limit is 100.0 MiB.'),
+      )
     renderEditor({ onAttachFile })
-    const input = screen.getByLabelText('Attach a file') as HTMLInputElement
+    const input = screen.getByLabelText('Attach a file')
     await user.upload(input, file('big.csv', 'text/csv', 12))
-    expect(
-      await screen.findByText(/limit is 100.0 MiB/i),
-    ).toBeTruthy()
+    expect(await screen.findByText(/limit is 100.0 MiB/i)).toBeTruthy()
   })
 })

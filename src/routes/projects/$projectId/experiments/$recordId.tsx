@@ -742,10 +742,7 @@ function EditableNotebook({
     ])
   }
 
-  async function handleAttachFile(
-    block: NotebookBlockDomain,
-    file: File,
-  ) {
+  async function handleAttachFile(block: NotebookBlockDomain, file: File) {
     const currentBlocks =
       queryClient.getQueryData<NotebookBlockDomain[]>(blocksKey) ?? blocks
     const currentBlock =

@@ -632,11 +632,11 @@ function NotebookDocumentContent({
                             onPinProtocol(block, protocolRecordId)
                         : undefined
                     }
-                   onAttachFile={
-                     onAttachFile
-                       ? (file) => onAttachFile(block, file)
-                       : undefined
-                   }
+                    onAttachFile={
+                      onAttachFile
+                        ? (file) => onAttachFile(block, file)
+                        : undefined
+                    }
                     offline={offline}
                     onStatusChange={(status) =>
                       handleStatusChange(block.id, status)

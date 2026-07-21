@@ -19,7 +19,11 @@ import { PAYLOAD_SCHEMA_VERSION, validateBlock } from '#/lib/blocks'
 import { updateBlockPayload } from '#/lib/notebook-mutations'
 import type { NotebookBlock } from '#/lib/notebook-data'
 
-import { ALLOWED_MEDIA_TYPES, FILE_MAX_BYTES, isAllowedMediaType } from './file-policy'
+import {
+  ALLOWED_MEDIA_TYPES,
+  FILE_MAX_BYTES,
+  isAllowedMediaType,
+} from './file-policy'
 
 export interface AttachFileArgs {
   blockId: string
@@ -64,7 +68,9 @@ function mapStatusToError(status: number, body: unknown): AttachFileError {
     return new AttachFileError('Sign in to upload files.', 'unauthenticated')
   if (status === 403 || status === 404)
     return new AttachFileError(
-      code === 'not_found' ? 'File not found in your workspace.' : 'Permission denied.',
+      code === 'not_found'
+        ? 'File not found in your workspace.'
+        : 'Permission denied.',
       'permission_denied',
     )
   if (status === 409 && code === 'checksum_mismatch')
@@ -79,7 +85,9 @@ function mapStatusToError(status: number, body: unknown): AttachFileError {
  * Validates a `File` against the upload policy before any network call, for
  * an immediate, useful client-side error. The server re-validates.
  */
-export function validateFileForUpload(file: File):
+export function validateFileForUpload(
+  file: File,
+):
   | { ok: true; mediaType: string }
   | { ok: false; code: 'oversize' | 'disallowed_type'; message: string } {
   const mediaType = file.type || 'application/octet-stream'

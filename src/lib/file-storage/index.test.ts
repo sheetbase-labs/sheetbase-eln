@@ -133,8 +133,8 @@ describe('LocalFileStorage', () => {
     const { stream, byteSize } = await storage.getStream(key)
     const reader = stream.getReader()
     let acc = ''
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
+
+    for (;;) {
       const { done, value } = await reader.read()
       if (done) break
       acc += new TextDecoder().decode(value)
@@ -158,9 +158,7 @@ describe('LocalFileStorage', () => {
     const ws = '00000000-0000-4000-8000-000000000005'
     const obj = newFileObjectId()
     const key = generateStorageKey(ws, obj)
-    expect(key).toMatch(
-      /^[0-9a-f-]+\/[0-9a-f-]+\/[0-9a-f]{32}$/,
-    )
+    expect(key).toMatch(/^[0-9a-f-]+\/[0-9a-f-]+\/[0-9a-f]{32}$/)
     expect(key).not.toContain('userfile.csv')
   })
 })

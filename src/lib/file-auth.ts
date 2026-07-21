@@ -127,7 +127,7 @@ export async function postgrestRpc<T = unknown>(
   try {
     body = text ? (JSON.parse(text) as T) : ({} as T)
   } catch {
-    body = { error: text } as { error: unknown }
+    body = { error: text }
   }
   return { status: response.status, body }
 }
@@ -153,7 +153,7 @@ export async function postgrestInsert<T = unknown>(
   try {
     body = text ? (JSON.parse(text) as T) : ({} as T)
   } catch {
-    body = { error: text } as { error: unknown }
+    body = { error: text }
   }
   return { status: response.status, body }
 }
@@ -176,7 +176,7 @@ export async function postgrestSelect<T = unknown>(
   try {
     body = text ? (JSON.parse(text) as T) : ({} as T)
   } catch {
-    body = { error: text } as { error: unknown }
+    body = { error: text }
   }
   return { status: response.status, body }
 }
@@ -203,7 +203,7 @@ export async function postgrestPatch<T = unknown>(
   try {
     body = text ? (JSON.parse(text) as T) : ({} as T)
   } catch {
-    body = { error: text } as { error: unknown }
+    body = { error: text }
   }
   return { status: response.status, body }
 }

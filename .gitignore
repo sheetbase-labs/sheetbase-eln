@@ -16,3 +16,4 @@ test-results
 tmp
 storybook-static
 .amp/
+.storage/

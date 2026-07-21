@@ -397,7 +397,10 @@ describe('Virus Stability demo fixtures', () => {
     // duplicates after two runs.
     // 10 representative blocks plus two copied execution steps plus one
     // SCI-003 file block, with no duplicates after two runs.
-    expect(Number(rows[0]?.n)).toBe(13)
+    // SCI-004 adds a stability sheet block (backing a scientific table) and a
+    // frozen chart block, bringing the total to 15 with no duplicates after
+    // two runs.
+    expect(Number(rows[0]?.n)).toBe(15)
 
     const { rows: links } = await migrator.query<{ n: string }>(
       `SELECT count(*)::text AS n FROM api.record_links

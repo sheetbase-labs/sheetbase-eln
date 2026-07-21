@@ -190,6 +190,13 @@
       "when": 1784638000000,
       "tag": "0026_sci_003_create_file_upload_rpc",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1784642000000,
+      "tag": "0027_sci_004_chart_blocks",
+      "breakpoints": true
     }
   ]
 }

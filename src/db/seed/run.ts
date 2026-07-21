@@ -14,6 +14,7 @@ import { eq } from 'drizzle-orm'
 import { createHash } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
+import { Client } from 'pg'
 import { drizzle } from 'drizzle-orm/node-postgres'
 
 import * as schema from '../schema'
@@ -700,11 +701,9 @@ export const demoSteps: Array<SeedStep> = [
         {
           id: DEMO_BLOCK_IDS.resultsChart,
           type: 'chart',
-          payload: {
-            title: 'Vector genome copy number (qPCR)',
-            spec: '{"type":"line","yAxis":{"scale":"log"},"xKey":"days","yKey":"gcn"}',
-            provenance: 'Analysis Studio',
-          },
+          // Draft placeholder; the SCI-004 scientific-table step populates
+          // this with a valid chart specification once its dataset exists.
+          payload: {},
           order: 6,
         },
         {
@@ -1089,6 +1088,213 @@ export const demoSteps: Array<SeedStep> = [
             order: 21,
           },
         })
+    },
+  },
+  {
+    name: 'demo SCI-004 chart specifications: Virus Stability',
+    run: async (db) => {
+      // A scientific 'sheet' block backs the stability dataset; a live chart
+      // references it and a second chart is frozen to exercise both lifecycle
+      // states. The scientific table is created through the same RPC the UI
+      // uses (create_scientific_table), so no parallel identity path exists.
+      // The drizzle connection handles the plain sheet-block upsert. The
+      // authenticated RPCs (create_scientific_table, freeze_chart) require a
+      // session that can SET ROLE authenticated with JWT claims, so a short
+      // pg.Client is opened as the authenticator role against the SAME
+      // database the drizzle pool targets (parsed from the pool's connection
+      // string). This keeps dev seeds and integration tests isolated to their
+      // own database without ever reading DATABASE_URL directly.
+      const poolCs = db.$client.options.connectionString
+      if (!poolCs)
+        throw new Error(
+          'drizzle pool connection string is required for SCI-004 seed',
+        )
+      const poolUrl = new URL(poolCs)
+      const pgrst = new URL(process.env.PGRST_DB_URI ?? '')
+      const authUrl = new URL(poolUrl.toString())
+      authUrl.username = pgrst.username
+      authUrl.password = pgrst.password
+      if (!pgrst.username)
+        throw new Error('PGRST_DB_URI is required for SCI-004 seed')
+      const client = new Client({ connectionString: authUrl.toString() })
+      await client.connect()
+      try {
+        await db
+          .insert(schema.blocks)
+          .values({
+            id: DEMO_BLOCK_IDS.stabilitySheet,
+            recordId: DEMO_VIRUS_STABILITY_RECORD_ID,
+            type: 'sheet',
+            payload: {},
+            order: 22,
+            createdByUserId: FIXTURE_USER_ID,
+          })
+          .onConflictDoUpdate({
+            target: schema.blocks.id,
+            set: { type: 'sheet', payload: {}, order: 22 },
+          })
+
+        await client.query('SET ROLE authenticated')
+        await client.query("SELECT set_config('request.jwt.claims',$1,false)", [
+          JSON.stringify({
+            sub: FIXTURE_USER_ID,
+            workspace_id: FIXTURE_WORKSPACE_ID,
+            role: 'authenticated',
+          }),
+        ])
+
+        // Reuse an existing scientific table for the sheet block; create one
+        // on first seed. The table id and generated column names are not
+        // stable across fresh environments, so look them up each run.
+        let tableId: string
+        let resourceName: string
+        const existing = await client.query(
+          `SELECT t.id, t.resource_name FROM api.scientific_tables t WHERE t.block_id=$1 AND t.lifecycle='active'`,
+          [DEMO_BLOCK_IDS.stabilitySheet],
+        )
+        if (existing.rows.length > 0) {
+          tableId = existing.rows[0].id
+          resourceName = existing.rows[0].resource_name
+        } else {
+          const created = await client.query(
+            `SELECT api.create_scientific_table($1,$2,$3::jsonb) result`,
+            [
+              DEMO_BLOCK_IDS.stabilitySheet,
+              'Stability readings (qPCR)',
+              JSON.stringify([
+                {
+                  label: 'Time (days)',
+                  logical_type: 'decimal',
+                  unit: { code: 'd', symbol: 'd' },
+                },
+                {
+                  label: 'Log titer',
+                  logical_type: 'decimal',
+                  unit: { code: 'log10', symbol: 'log₁₀' },
+                },
+                { label: 'Condition', logical_type: 'text' },
+              ]),
+            ],
+          )
+          tableId = created.rows[0].result.table.id
+          resourceName = created.rows[0].result.table.resource_name
+        }
+        // Pin the sheet block payload to the scientific table id so the block
+        // validates at the application boundary and renders its dataset.
+        await client.query(
+          `UPDATE api.blocks SET payload=$2::jsonb WHERE id=$1`,
+          [DEMO_BLOCK_IDS.stabilitySheet, JSON.stringify({ tableId })],
+        )
+        const cols = await client.query(
+          `SELECT id, field_name, label FROM api.scientific_columns WHERE table_id=$1 AND lifecycle='active' ORDER BY display_order`,
+          [tableId],
+        )
+        const byLabel = Object.fromEntries(cols.rows.map((c) => [c.label, c]))
+        const timeField = byLabel['Time (days)'].field_name
+        const recoveryField = byLabel['Log titer'].field_name
+        const conditionField = byLabel['Condition'].field_name
+        const timeColumnId = byLabel['Time (days)'].id
+        const recoveryColumnId = byLabel['Log titer'].id
+        const conditionColumnId = byLabel['Condition'].id
+
+        // Idempotent dataset rows: wipe and re-insert the stability series.
+        await client.query(`DELETE FROM api."${resourceName}"`)
+        const rows = [
+          [0, 7.2, '4 °C'],
+          [7, 7.0, '4 °C'],
+          [14, 6.6, '4 °C'],
+          [28, 5.9, '4 °C'],
+          [0, 7.1, '−20 °C'],
+          [7, 6.9, '−20 °C'],
+          [14, 6.7, '−20 °C'],
+          [28, 6.4, '−20 °C'],
+        ] as const
+        for (const [t, logTiter, condition] of rows) {
+          await client.query(
+            `INSERT INTO api."${resourceName}" ("${timeField}","${recoveryField}","${conditionField}") VALUES ($1,$2,$3)`,
+            [t, logTiter, condition],
+          )
+        }
+
+        const chartSpec = {
+          specVersion: 1,
+          type: 'line' as const,
+          datasets: [{ tableId }],
+          fields: {
+            x: { columnId: timeColumnId, fieldName: timeField },
+            y: { columnId: recoveryColumnId, fieldName: recoveryField },
+            series: { columnId: conditionColumnId, fieldName: conditionField },
+            color: null,
+            size: null,
+          },
+          filters: [],
+          transformations: [],
+          display: {
+            axes: {
+              x: { label: 'Time (days)', scale: 'linear' as const, unit: 'd' },
+              y: { label: 'Log titer', scale: 'log' as const, unit: 'log₁₀' },
+            },
+            series: [
+              { identifier: '4 °C', label: '4 °C', color: '#006EDC' },
+              { identifier: '−20 °C', label: '−20 °C', color: '#00A659' },
+            ],
+            legend: { visible: true },
+          },
+          overlays: { errorBars: null },
+        }
+
+        // Live chart block: upsert the spec onto the placeholder block.
+        await client.query(
+          `UPDATE api.blocks SET payload=$2::jsonb, version=version+1 WHERE id=$1`,
+          [
+            DEMO_BLOCK_IDS.resultsChart,
+            JSON.stringify({
+              title: 'Vector genome copy number (qPCR)',
+              spec: chartSpec,
+              provenance: 'Stability readings (qPCR)',
+              frozen: null,
+            }),
+          ],
+        )
+
+        // Frozen chart block: recreate each run so the frozen snapshot always
+        // reflects the current dataset. Remove any prior block at this slot
+        // (including orphans left by an interrupted run), insert a draft with
+        // the stable fixture id, populate it, then freeze through the
+        // transactional RPC so the snapshot/provenance are authoritative.
+        await client.query(
+          `DELETE FROM api.blocks WHERE record_id=$1 AND "order"=23`,
+          [DEMO_VIRUS_STABILITY_RECORD_ID],
+        )
+        await client.query(
+          `INSERT INTO api.blocks(id,record_id,type,payload,"order",created_by_user_id) VALUES($1,$2,'chart','{}'::jsonb,23,$3)`,
+          [
+            DEMO_BLOCK_IDS.stabilityChartFrozen,
+            DEMO_VIRUS_STABILITY_RECORD_ID,
+            FIXTURE_USER_ID,
+          ],
+        )
+        const populated = await client.query(
+          `UPDATE api.blocks SET payload=$2::jsonb, version=version+1 WHERE id=$1 RETURNING version`,
+          [
+            DEMO_BLOCK_IDS.stabilityChartFrozen,
+            JSON.stringify({
+              title: 'Frozen stability snapshot (qPCR)',
+              spec: chartSpec,
+              provenance: 'Stability readings (qPCR)',
+              frozen: null,
+            }),
+          ],
+        )
+        await client.query('SELECT api.freeze_chart($1,$2)', [
+          DEMO_BLOCK_IDS.stabilityChartFrozen,
+          populated.rows[0].version,
+        ])
+
+        await client.query('RESET ROLE')
+      } finally {
+        await client.end()
+      }
     },
   },
 ]

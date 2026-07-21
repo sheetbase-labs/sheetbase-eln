@@ -50,6 +50,11 @@ export const DEMO_BLOCK_IDS = {
   protocolStep2: '00000000-0000-4000-8000-00000000011e',
   copiedStep1: '00000000-0000-4000-8000-00000000011f',
   copiedStep2: '00000000-0000-4000-8000-000000000120',
+  // SCI-004 chart fixtures: a scientific 'sheet' block backs the stability
+  // dataset the charts reference; one chart is live and one is frozen to
+  // exercise both lifecycle states. 0x170–0x17f.
+  stabilitySheet: '00000000-0000-4000-8000-000000000170',
+  stabilityChartFrozen: '00000000-0000-4000-8000-000000000171',
 } as const
 
 export const DEMO_PROTOCOL_REVISION_ID = '00000000-0000-4000-8000-000000000150'

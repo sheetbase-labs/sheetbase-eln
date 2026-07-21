@@ -45,6 +45,7 @@ import {
   updateBlockPayload,
 } from '#/lib/notebook-mutations'
 import { validateBlock } from '#/lib/blocks'
+import { pinProtocolReference } from '#/lib/protocol-materials'
 import type {
   NotebookBlock as NotebookBlockDomain,
   NotebookLink,
@@ -715,6 +716,31 @@ function EditableNotebook({
     await insertMutation.mutateAsync({ type, afterBlockId })
   }
 
+  async function handlePinProtocol(
+    block: NotebookBlockDomain,
+    protocolRecordId: string,
+  ) {
+    const currentRecord =
+      queryClient.getQueryData<NotebookRecord | null>(recordKey) ?? record
+    const currentBlocks =
+      queryClient.getQueryData<NotebookBlockDomain[]>(blocksKey) ?? blocks
+    const currentBlock =
+      currentBlocks.find((item) => item.id === block.id) ?? block
+    await pinProtocolReference(client, {
+      blockId: currentBlock.id,
+      protocolRecordId,
+      expectedBlockVersion: currentBlock.version,
+      expectedStructureVersion: currentRecord.structureVersion,
+    })
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: blocksKey }),
+      queryClient.invalidateQueries({ queryKey: recordKey }),
+      queryClient.invalidateQueries({
+        queryKey: notebookQueryKeys.links(record.id),
+      }),
+    ])
+  }
+
   async function handleDuplicate(block: NotebookBlockDomain) {
     await duplicateMutation.mutateAsync(block)
   }
@@ -745,6 +771,7 @@ function EditableNotebook({
       offline={offline}
       onUnsavedWorkChange={setHasUnsavedWork}
       onInsertBlock={handleInsert}
+      onPinProtocol={handlePinProtocol}
       onDuplicateBlock={handleDuplicate}
       onDeleteBlock={handleDelete}
       onUndoDelete={handleUndoDelete}

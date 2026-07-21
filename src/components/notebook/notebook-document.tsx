@@ -65,6 +65,11 @@ export interface NotebookDocumentProps {
   onUnsavedWorkChange?: (hasUnsavedWork: boolean) => void
   /** Insert a new block of `type`, optionally after `afterBlockId`. */
   onInsertBlock: (type: string, afterBlockId?: string) => Promise<void>
+  /** Pin a protocol to an empty protocol-reference block. */
+  onPinProtocol?: (
+    block: NotebookBlockData,
+    protocolRecordId: string,
+  ) => Promise<void>
   /** Duplicate an existing block (same type/payload, inserted after it). */
   onDuplicateBlock: (block: NotebookBlockData) => Promise<void>
   /** Delete a block. */
@@ -93,7 +98,14 @@ export interface NotebookDocumentProps {
   className?: string
 }
 
-const EDITABLE_TYPES = new Set(['rich_text', 'checklist', 'linked_record'])
+const EDITABLE_TYPES = new Set([
+  'rich_text',
+  'checklist',
+  'linked_record',
+  'protocol_reference',
+  'procedure_step',
+  'materials',
+])
 
 export function NotebookDocument(props: NotebookDocumentProps) {
   return (
@@ -110,6 +122,7 @@ function NotebookDocumentContent({
   offline,
   onUnsavedWorkChange,
   onInsertBlock,
+  onPinProtocol,
   onDuplicateBlock,
   onDeleteBlock,
   onUndoDelete,
@@ -609,6 +622,12 @@ function NotebookDocumentContent({
                   <BlockEditor
                     block={block}
                     save={(payload) => onSaveBlock(block, payload)}
+                    pinProtocol={
+                      onPinProtocol
+                        ? (protocolRecordId) =>
+                            onPinProtocol(block, protocolRecordId)
+                        : undefined
+                    }
                     offline={offline}
                     onStatusChange={(status) =>
                       handleStatusChange(block.id, status)
@@ -718,6 +737,8 @@ function blockLabel(block: NotebookBlockData): string {
     file: 'File',
     metric: 'Metric',
     procedure_step: 'Procedure step',
+    protocol_reference: 'Protocol',
+    materials: 'Materials',
   }
   return map[block.type] ?? block.type
 }

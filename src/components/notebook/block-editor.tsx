@@ -14,6 +14,7 @@
  * `readOnly` disables editing (archived notebooks, etc.).
  */
 import * as React from 'react'
+import { useQuery } from '@tanstack/react-query'
 
 import { cn } from '#/lib/utils'
 import {
@@ -25,6 +26,14 @@ import {
 import type { RichTextPayload } from '#/lib/blocks'
 import type { NotebookBlock } from '#/lib/notebook-data'
 import { Button } from '#/components/ui'
+import { RecordPicker } from '#/components/scientific'
+import type { RecordPickerResult } from '#/components/scientific'
+import { notebookDataClient } from '#/lib/notebook-data'
+import {
+  scientificRecordQueryKeys,
+  searchRecords,
+} from '#/lib/scientific-records'
+import type { MaterialItem } from '#/lib/protocol-materials'
 import { useAutosave } from './use-autosave'
 import type { AutosaveStatus, SaveResult } from './use-autosave'
 import { SaveStatus } from './save-status'
@@ -51,6 +60,8 @@ export interface BlockEditorProps {
   readOnly?: boolean
   autoFocus?: boolean
   className?: string
+  /** Transactionally pin a selected protocol and copy its procedure steps. */
+  pinProtocol?: (protocolRecordId: string) => Promise<void>
 }
 
 export function BlockEditor(props: BlockEditorProps) {
@@ -67,6 +78,12 @@ export function BlockEditor(props: BlockEditorProps) {
       return <ChecklistEditor {...props} />
     case 'linked_record':
       return <LinkedRecordEditor {...props} />
+    case 'protocol_reference':
+      return <ProtocolReferenceEditor {...props} />
+    case 'procedure_step':
+      return <ProcedureStepEditor {...props} />
+    case 'materials':
+      return <MaterialsEditor {...props} />
     default:
       return (
         <UnsupportedEditor block={props.block} className={props.className} />
@@ -567,6 +584,329 @@ function Field({
         {label}
       </label>
       {children}
+    </div>
+  )
+}
+
+function ProtocolReferenceEditor({ block, pinProtocol }: BlockEditorProps) {
+  const pinned = Object.keys(block.payload).length > 0
+  const [query, setQuery] = React.useState('')
+  const [error, setError] = React.useState<string | null>(null)
+  const [pending, setPending] = React.useState(false)
+  const records = useQuery({
+    queryKey: scientificRecordQueryKeys.search('protocol_template', query),
+    queryFn: () =>
+      searchRecords(notebookDataClient, 'protocol_template', query),
+    enabled: !pinned,
+  })
+  if (pinned) {
+    return (
+      <div className="space-y-1">
+        <p className="font-medium">{String(block.payload.protocolTitle)}</p>
+        <p className="text-xs text-muted-foreground">
+          {String(block.payload.protocolIdentifier)} · Version{' '}
+          {String(block.payload.version)} ·{' '}
+          {String(block.payload.approvalStatus)}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Pinned {new Date(String(block.payload.pinnedAt)).toLocaleString()}
+        </p>
+      </div>
+    )
+  }
+  return (
+    <div className="space-y-2 rounded-md border">
+      <p className="px-3 pt-3 text-sm font-medium">Select a protocol version</p>
+      <RecordPicker
+        kind="protocol_template"
+        results={records.data ?? []}
+        loading={records.isLoading || pending}
+        error={records.error}
+        onSearch={setQuery}
+        onSelect={(record) => {
+          if (!pinProtocol) return
+          setPending(true)
+          setError(null)
+          void pinProtocol(record.id)
+            .catch((cause) =>
+              setError(
+                cause instanceof Error
+                  ? cause.message
+                  : 'Could not pin protocol.',
+              ),
+            )
+            .finally(() => setPending(false))
+        }}
+      />
+      {error ? (
+        <p role="alert" className="px-3 pb-3 text-xs text-destructive">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
+function ProcedureStepEditor(props: BlockEditorProps) {
+  const { block } = props
+  const payload = block.payload
+  if (typeof payload.completed !== 'boolean') {
+    return <UnsupportedEditor block={block} className={props.className} />
+  }
+  const initial = {
+    ...payload,
+    completed: payload.completed,
+    note: typeof payload.note === 'string' ? payload.note : '',
+  }
+  const a = useBlockAutosave(
+    block,
+    initial,
+    props.save,
+    props.offline,
+    props.onStatusChange,
+  )
+  return (
+    <div className="space-y-3">
+      <label className="flex cursor-pointer items-start gap-3">
+        <input
+          type="checkbox"
+          checked={a.draft.completed}
+          disabled={props.readOnly}
+          onChange={(event) => {
+            a.setTouched(true)
+            a.setDraft({ ...a.draft, completed: event.target.checked })
+          }}
+          onBlur={() => a.flush()}
+          className="mt-1 size-4 rounded border-input"
+        />
+        <span>
+          <span className="block text-xs font-medium text-muted-foreground">
+            Step {String(payload.stepNumber ?? '')}
+          </span>
+          <span className="block text-sm">{String(payload.text)}</span>
+        </span>
+      </label>
+      <Field label="Execution note" htmlFor={`step-note-${block.id}`}>
+        <textarea
+          id={`step-note-${block.id}`}
+          value={String(a.draft.note)}
+          disabled={props.readOnly}
+          onChange={(event) => {
+            a.setTouched(true)
+            a.setDraft({ ...a.draft, note: event.target.value })
+          }}
+          onBlur={() => a.flush()}
+          rows={2}
+          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+        />
+      </Field>
+      <AutosaveFooter
+        status={a.status}
+        error={a.error}
+        validationErrors={a.validationErrors}
+        serverPreview={summarizePayload(block.type, a.serverValue ?? {})}
+        onUseServer={() => a.discardDraft()}
+        onKeepLocal={() => a.retry()}
+        retrying={a.status === 'saving'}
+      />
+    </div>
+  )
+}
+
+function MaterialsEditor(props: BlockEditorProps) {
+  const { block } = props
+  const initialItems = Array.isArray(block.payload.items)
+    ? (block.payload.items as MaterialItem[])
+    : []
+  const a = useBlockAutosave(
+    block,
+    { items: initialItems },
+    props.save,
+    props.offline,
+    props.onStatusChange,
+  )
+  const [kind, setKind] = React.useState<'sample' | 'reagent'>('sample')
+  const [query, setQuery] = React.useState('')
+  const [selected, setSelected] = React.useState<RecordPickerResult | null>(
+    null,
+  )
+  const [quantity, setQuantity] = React.useState('')
+  const [unitCode, setUnitCode] = React.useState('')
+  const [unitSymbol, setUnitSymbol] = React.useState('')
+  const records = useQuery({
+    queryKey: scientificRecordQueryKeys.search(kind, query),
+    queryFn: () => searchRecords(notebookDataClient, kind, query),
+  })
+
+  const updateItems = (items: MaterialItem[], flush = false) => {
+    a.setTouched(true)
+    a.setDraft({ items })
+    if (flush) window.setTimeout(() => a.flush(), 0)
+  }
+  return (
+    <div className="space-y-4">
+      {a.draft.items.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          No materials linked yet.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {a.draft.items.map((item, index) => (
+            <div
+              key={item.id}
+              className="grid gap-2 rounded-md border p-3 sm:grid-cols-[1fr_7rem_7rem_auto]"
+            >
+              <div>
+                <p className="text-sm font-medium">{item.title}</p>
+                <p className="font-mono text-xs text-muted-foreground">
+                  {item.identifier}
+                </p>
+              </div>
+              <input
+                aria-label={`Quantity for ${item.title}`}
+                type="number"
+                min="0"
+                step="any"
+                value={item.quantity}
+                onChange={(event) => {
+                  const items = [...a.draft.items]
+                  items[index] = {
+                    ...item,
+                    quantity: Number(event.target.value),
+                  }
+                  updateItems(items)
+                }}
+                onBlur={() => a.flush()}
+                className="h-9 rounded-md border border-input px-2 text-sm"
+              />
+              <input
+                aria-label={`Unit for ${item.title}`}
+                value={item.unit.symbol}
+                onChange={(event) => {
+                  const items = [...a.draft.items]
+                  items[index] = {
+                    ...item,
+                    unit: { ...item.unit, symbol: event.target.value },
+                  }
+                  updateItems(items)
+                }}
+                onBlur={() => a.flush()}
+                className="h-9 rounded-md border border-input px-2 text-sm"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  updateItems(
+                    a.draft.items.filter((x) => x.id !== item.id),
+                    true,
+                  )
+                }
+              >
+                Remove
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="space-y-3 rounded-md border p-3">
+        <div className="flex gap-2">
+          {(['sample', 'reagent'] as const).map((value) => (
+            <Button
+              key={value}
+              type="button"
+              size="sm"
+              variant={kind === value ? 'secondary' : 'ghost'}
+              onClick={() => {
+                setKind(value)
+                setSelected(null)
+              }}
+            >
+              {value === 'sample' ? 'Samples' : 'Reagents'}
+            </Button>
+          ))}
+        </div>
+        <RecordPicker
+          kind={kind}
+          results={records.data ?? []}
+          loading={records.isLoading}
+          error={records.error}
+          onSearch={setQuery}
+          onSelect={setSelected}
+          selectedId={selected?.id}
+        />
+        {selected ? (
+          <div className="grid gap-2 sm:grid-cols-3">
+            <input
+              aria-label="Material quantity"
+              type="number"
+              min="0"
+              step="any"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              placeholder="Quantity"
+              className="h-9 rounded-md border border-input px-2 text-sm"
+            />
+            <input
+              aria-label="Canonical unit code"
+              value={unitCode}
+              onChange={(e) => setUnitCode(e.target.value)}
+              placeholder="Unit code (uL)"
+              className="h-9 rounded-md border border-input px-2 text-sm"
+            />
+            <input
+              aria-label="Unit symbol"
+              value={unitSymbol}
+              onChange={(e) => setUnitSymbol(e.target.value)}
+              placeholder="Symbol (µL)"
+              className="h-9 rounded-md border border-input px-2 text-sm"
+            />
+            <Button
+              type="button"
+              disabled={
+                !(Number(quantity) > 0 && unitCode.trim() && unitSymbol.trim())
+              }
+              onClick={() => {
+                updateItems(
+                  [
+                    ...a.draft.items,
+                    {
+                      id: crypto.randomUUID(),
+                      materialRecordId: selected.id,
+                      kind,
+                      identifier: selected.identifier,
+                      title: selected.title,
+                      quantity: Number(quantity),
+                      unit: {
+                        code: unitCode.trim(),
+                        symbol: unitSymbol.trim(),
+                      },
+                      observedAt: new Date().toISOString(),
+                    },
+                  ],
+                  true,
+                )
+                setSelected(null)
+                setQuantity('')
+                setUnitCode('')
+                setUnitSymbol('')
+              }}
+            >
+              Add material
+            </Button>
+          </div>
+        ) : null}
+      </div>
+      <AutosaveFooter
+        status={a.status}
+        error={a.error}
+        validationErrors={a.validationErrors}
+        serverPreview={summarizePayload(block.type, a.serverValue ?? {})}
+        onUseServer={() => a.discardDraft()}
+        onKeepLocal={() => a.retry()}
+        retrying={a.status === 'saving'}
+      />
     </div>
   )
 }

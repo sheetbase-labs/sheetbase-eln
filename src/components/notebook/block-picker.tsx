@@ -1,5 +1,12 @@
 import * as React from 'react'
-import { CheckSquare, Link2, Pilcrow, Sheet } from 'lucide-react'
+import {
+  CheckSquare,
+  FlaskConical,
+  Link2,
+  PackageOpen,
+  Pilcrow,
+  Sheet,
+} from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 import { cn } from '#/lib/utils'
@@ -55,6 +62,18 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     label: 'Sheet',
     description: 'A PostgreSQL-backed scientific table.',
     icon: Sheet,
+  },
+  {
+    type: 'protocol_reference',
+    label: 'Protocol',
+    description: 'Pin an exact protocol version and its procedure.',
+    icon: FlaskConical,
+  },
+  {
+    type: 'materials',
+    label: 'Materials',
+    description: 'Linked samples and reagents with quantities and units.',
+    icon: PackageOpen,
   },
 ]
 

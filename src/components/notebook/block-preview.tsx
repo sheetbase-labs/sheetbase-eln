@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { useQueries, useQuery } from '@tanstack/react-query'
 
 import { cn } from '#/lib/utils'
 import type { NotebookBlock } from '#/lib/notebook-data'
@@ -7,6 +8,10 @@ import {
   RichTextContent,
   isRichTextPayload,
 } from '#/lib/blocks'
+import { notebookDataClient, notebookQueryKeys } from '#/lib/notebook-data'
+import { fetchRecordById } from '#/lib/scientific-records'
+import { materialAlerts } from '#/lib/protocol-materials'
+import type { MaterialItem } from '#/lib/protocol-materials'
 
 /**
  * Read-only preview of a block's typed payload (ELN-004). Renders the
@@ -61,6 +66,10 @@ function renderPayload(type: string, payload: unknown): React.ReactNode {
       return renderLinkedRecord(payload)
     case 'procedure_step':
       return renderProcedureStep(payload)
+    case 'protocol_reference':
+      return <ProtocolReferencePreview payload={payload} />
+    case 'materials':
+      return <MaterialsPreview payload={payload} />
     case 'metric':
       return renderMetric(payload)
     case 'table':
@@ -161,14 +170,163 @@ function renderProcedureStep(payload: unknown): React.ReactNode {
   if (!obj) return null
   const text = asString(obj.text) ?? ''
   const number = asNumber(obj.stepNumber)
+  const completed = obj.completed === true
+  const note = asString(obj.note)
+  const completedAt = asString(obj.completedAt)
   return (
-    <div className="flex items-start gap-2">
-      {number !== null ? (
-        <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-semibold text-primary">
-          {number}
+    <div className="flex items-start gap-3">
+      <span
+        aria-label={completed ? 'Completed' : 'Not completed'}
+        className={cn(
+          'flex size-5 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold',
+          completed
+            ? 'border-success bg-success text-white'
+            : 'border-primary/30 bg-primary/10 text-primary',
+        )}
+      >
+        {completed ? '✓' : number}
+      </span>
+      <div className="min-w-0">
+        <p
+          className={cn(
+            'whitespace-pre-wrap text-foreground',
+            completed && 'line-through opacity-70',
+          )}
+        >
+          {text}
+        </p>
+        {note ? (
+          <p className="mt-1 text-xs text-muted-foreground">{note}</p>
+        ) : null}
+        {completedAt ? (
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Completed {new Date(completedAt).toLocaleString()}
+          </p>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+function ProtocolReferencePreview({ payload }: { payload: unknown }) {
+  const obj = asObject(payload)
+  const protocolRecordId = asString(obj?.protocolRecordId)
+  const current = useQuery({
+    queryKey: notebookQueryKeys.record(
+      protocolRecordId ?? 'unresolved-protocol',
+    ),
+    queryFn: () => fetchRecordById(notebookDataClient, protocolRecordId ?? ''),
+    enabled: Boolean(protocolRecordId),
+  })
+  if (!obj || Object.keys(obj).length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        No protocol version pinned. Select this block to choose a protocol.
+      </p>
+    )
+  }
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-muted/20 p-3">
+      <div>
+        <p className="font-medium text-foreground">
+          {asString(obj.protocolTitle) ?? 'Protocol'}
+        </p>
+        <p className="font-mono text-xs text-muted-foreground">
+          {asString(obj.protocolIdentifier)} · revision{' '}
+          {(asString(obj.protocolRevisionId) ?? '').slice(0, 8)}
+        </p>
+      </div>
+      <div className="flex items-center gap-2 text-xs">
+        <span className="rounded-full bg-primary/10 px-2 py-1 font-medium text-primary">
+          Version {asString(obj.version) ?? '—'}
         </span>
+        <span className="rounded-full border px-2 py-1 text-muted-foreground">
+          {asString(obj.approvalStatus) ?? 'Unknown approval'}
+        </span>
+        {current.isLoading ? (
+          <span className="text-muted-foreground">
+            Checking current status…
+          </span>
+        ) : current.error ? (
+          <span className="text-muted-foreground">
+            Current status unavailable
+          </span>
+        ) : current.data?.archivedAt ? (
+          <span className="rounded-full bg-warning/15 px-2 py-1 font-medium text-warning-foreground">
+            Protocol archived
+          </span>
+        ) : current.data === null ? (
+          <span className="rounded-full bg-destructive/10 px-2 py-1 font-medium text-destructive">
+            Protocol unavailable
+          </span>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+function MaterialsPreview({ payload }: { payload: unknown }) {
+  const obj = asObject(payload)
+  const items = asArray<MaterialItem>(obj?.items) ?? []
+  const records = useQueries({
+    queries: items.map((item) => ({
+      queryKey: notebookQueryKeys.record(item.materialRecordId),
+      queryFn: () => fetchRecordById(notebookDataClient, item.materialRecordId),
+    })),
+  })
+  const loading = records.some((query) => query.isLoading)
+  const error = records.some((query) => query.error)
+  if (items.length === 0) {
+    return <p className="text-sm text-muted-foreground">No materials linked.</p>
+  }
+  return (
+    <div className="space-y-2" aria-busy={loading}>
+      {error ? (
+        <p role="alert" className="text-xs text-destructive">
+          Current material availability could not be loaded. Stored observations
+          remain visible.
+        </p>
       ) : null}
-      <p className="whitespace-pre-wrap text-foreground">{text}</p>
+      {items.map((item, index) => {
+        const alerts =
+          loading || error ? [] : materialAlerts(records[index]?.data ?? null)
+        return (
+          <div
+            key={item.id}
+            className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2"
+          >
+            <div>
+              <p className="text-sm font-medium">{item.title}</p>
+              <p className="font-mono text-xs text-muted-foreground">
+                {item.identifier}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <span className="font-mono text-sm tabular-nums">
+                {item.quantity} {item.unit.symbol}
+              </span>
+              {loading ? (
+                <span className="text-xs text-muted-foreground">
+                  Checking availability…
+                </span>
+              ) : null}
+              {alerts.map((alert) => (
+                <span
+                  key={alert.kind}
+                  className={cn(
+                    'rounded-full px-2 py-0.5 text-xs font-medium',
+                    alert.kind === 'unavailable'
+                      ? 'bg-destructive/10 text-destructive'
+                      : 'bg-warning/15 text-warning-foreground',
+                  )}
+                >
+                  {alert.label}
+                </span>
+              ))}
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }

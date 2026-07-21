@@ -401,32 +401,45 @@ function validateFile(payload: unknown): FieldErrors {
     return [
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
     ]
-  if (!isNonEmptyString(payload.name)) {
+  // SCI-003 (decision 0028): a file block is either an empty draft `{}` (no
+  // file attached yet) or a reference to a file record. The DB trigger
+  // (drizzle/0025) verifies the referenced file record, workspace match, and
+  // exact file_objects metadata; status is intentionally NOT cached in the
+  // payload so the preview always reflects the live file_objects row.
+  if (Object.keys(payload).length === 0) return errors
+  if (!isNonEmptyString(payload.fileRecordId)) {
     errors.push({
       code: 'missing_required_field',
-      field: 'name',
-      message: 'name is required',
+      field: 'fileRecordId',
+      message: 'fileRecordId is required when a file is attached',
     })
   }
-  if (payload.size !== undefined && !isInteger(payload.size)) {
+  if (!isNonEmptyString(payload.fileIdentifier)) {
     errors.push({
-      code: 'invalid_field_value',
-      field: 'size',
-      message: 'size must be an integer when present',
+      code: 'missing_required_field',
+      field: 'fileIdentifier',
+      message: 'fileIdentifier is required when a file is attached',
     })
   }
-  if (payload.mime !== undefined && !isString(payload.mime)) {
+  if (!isNonEmptyString(payload.displayName)) {
     errors.push({
-      code: 'invalid_field_value',
-      field: 'mime',
-      message: 'mime must be a string when present',
+      code: 'missing_required_field',
+      field: 'displayName',
+      message: 'displayName is required when a file is attached',
     })
   }
-  if (payload.storageKey !== undefined && !isString(payload.storageKey)) {
+  if (!isNonEmptyString(payload.mediaType)) {
+    errors.push({
+      code: 'missing_required_field',
+      field: 'mediaType',
+      message: 'mediaType is required when a file is attached',
+    })
+  }
+  if (!isInteger(payload.byteSize) || (payload.byteSize as number) < 0) {
     errors.push({
       code: 'invalid_field_value',
-      field: 'storageKey',
-      message: 'storageKey must be a string when present',
+      field: 'byteSize',
+      message: 'byteSize must be a non-negative integer when a file is attached',
     })
   }
   return errors

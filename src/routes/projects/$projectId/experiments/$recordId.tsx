@@ -46,6 +46,7 @@ import {
 } from '#/lib/notebook-mutations'
 import { validateBlock } from '#/lib/blocks'
 import { pinProtocolReference } from '#/lib/protocol-materials'
+import { attachFileToBlock, AttachFileError } from '#/lib/file-attach'
 import type {
   NotebookBlock as NotebookBlockDomain,
   NotebookLink,
@@ -741,6 +742,38 @@ function EditableNotebook({
     ])
   }
 
+  async function handleAttachFile(
+    block: NotebookBlockDomain,
+    file: File,
+  ) {
+    const currentBlocks =
+      queryClient.getQueryData<NotebookBlockDomain[]>(blocksKey) ?? blocks
+    const currentBlock =
+      currentBlocks.find((item) => item.id === block.id) ?? block
+    try {
+      await attachFileToBlock(client, {
+        blockId: currentBlock.id,
+        expectedBlockVersion: currentBlock.version,
+        projectId: record.projectId,
+        file,
+      })
+    } catch (cause) {
+      // Re-throw AttachFileError verbatim so the editor shows its message;
+      // wrap anything else for a comprehensible failure.
+      if (cause instanceof AttachFileError) throw cause
+      throw new AttachFileError(
+        cause instanceof Error ? cause.message : 'Could not attach the file.',
+        'server_error',
+      )
+    }
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: blocksKey }),
+      queryClient.invalidateQueries({
+        queryKey: notebookQueryKeys.links(record.id),
+      }),
+    ])
+  }
+
   async function handleDuplicate(block: NotebookBlockDomain) {
     await duplicateMutation.mutateAsync(block)
   }
@@ -772,6 +805,7 @@ function EditableNotebook({
       onUnsavedWorkChange={setHasUnsavedWork}
       onInsertBlock={handleInsert}
       onPinProtocol={handlePinProtocol}
+      onAttachFile={handleAttachFile}
       onDuplicateBlock={handleDuplicate}
       onDeleteBlock={handleDelete}
       onUndoDelete={handleUndoDelete}

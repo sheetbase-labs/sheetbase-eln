@@ -21,6 +21,7 @@ describe('BlockPicker', () => {
       'sheet',
       'protocol_reference',
       'materials',
+      'file',
     ])
     expect(BLOCK_PICKER_OPTIONS.map((o) => o.label)).toEqual([
       'Text',
@@ -29,6 +30,7 @@ describe('BlockPicker', () => {
       'Sheet',
       'Protocol',
       'Materials',
+      'File',
     ])
     expect(types).not.toContain('heading')
   })

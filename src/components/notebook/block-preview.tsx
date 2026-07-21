@@ -8,10 +8,15 @@ import {
   RichTextContent,
   isRichTextPayload,
 } from '#/lib/blocks'
-import { notebookDataClient, notebookQueryKeys } from '#/lib/notebook-data'
+import {
+  notebookDataClient,
+  notebookQueryKeys,
+  fetchFileObjectByRecordId,
+} from '#/lib/notebook-data'
 import { fetchRecordById } from '#/lib/scientific-records'
 import { materialAlerts } from '#/lib/protocol-materials'
 import type { MaterialItem } from '#/lib/protocol-materials'
+import { formatBytes } from '#/lib/file-attach'
 
 /**
  * Read-only preview of a block's typed payload (ELN-004). Renders the
@@ -77,8 +82,9 @@ function renderPayload(type: string, payload: unknown): React.ReactNode {
     case 'chart':
       return renderResultsChart(payload)
     case 'plate_map':
-    case 'file':
       return renderVisualPlaceholder(type, payload)
+    case 'file':
+      return <FileBlockPreview payload={payload} />
     default:
       return renderUnsupported(type, payload)
   }
@@ -578,5 +584,158 @@ function renderUnsupported(type: string, payload: unknown): React.ReactNode {
         {JSON.stringify(payload, null, 2)}
       </pre>
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// SCI-003 file block preview. Renders name, size, media type and the LIVE
+// file_objects status — active, quarantined, deleted, or missing — honestly.
+// Status is never cached in the block payload, so this always reflects the
+// authoritative row. An empty draft `{}` prompts the user to attach a file.
+// ---------------------------------------------------------------------------
+
+function FileBlockPreview({ payload }: { payload: unknown }) {
+  const obj = asObject(payload)
+  const fileRecordId = asString(obj?.fileRecordId)
+  const draftName = asString(obj?.displayName) ?? ''
+  const draftMediaType = asString(obj?.mediaType) ?? ''
+  const draftByteSize = asNumber(obj?.byteSize)
+
+  const live = useQuery({
+    queryKey: notebookQueryKeys.fileObject(fileRecordId ?? 'unresolved-file'),
+    queryFn: () => fetchFileObjectByRecordId(notebookDataClient, fileRecordId ?? ''),
+    enabled: Boolean(fileRecordId),
+    staleTime: 0,
+  })
+
+  if (!obj || Object.keys(obj).length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        No file attached. Select this block to upload a file.
+      </p>
+    )
+  }
+  if (!fileRecordId) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        This file block is incomplete.
+      </p>
+    )
+  }
+
+  const name = live.data?.displayName ?? draftName
+  const mediaType = live.data?.mediaType ?? draftMediaType
+  const byteSize = live.data?.byteSize ?? draftByteSize ?? 0
+  const status = live.data?.status ?? null
+
+  if (live.isLoading) {
+    return (
+      <div className="flex items-center gap-2 rounded-md border p-3 text-sm text-muted-foreground">
+        <FileIcon mediaType={mediaType} />
+        <span>{name || 'Loading file…'}</span>
+      </div>
+    )
+  }
+  if (live.error) {
+    return (
+      <div className="rounded-md border border-destructive/40 p-3 text-sm">
+        <p className="font-medium text-foreground">{name || 'File'}</p>
+        <p role="alert" className="mt-1 text-xs text-destructive">
+          File status could not be loaded.
+        </p>
+      </div>
+    )
+  }
+
+  if (status === 'missing' || (!live.data && !live.isLoading)) {
+    return (
+      <div className="rounded-md border border-warning/50 bg-warning/5 p-3 text-sm">
+        <p className="font-medium text-foreground">{name || 'File'}</p>
+        <p className="mt-1 text-xs text-warning-foreground">
+          The storage object for this file is missing.
+        </p>
+        <FileMetaLine mediaType={mediaType} byteSize={byteSize} />
+      </div>
+    )
+  }
+  if (status === 'quarantined') {
+    return (
+      <div className="rounded-md border border-warning/50 bg-warning/5 p-3 text-sm">
+        <p className="font-medium text-foreground">{name}</p>
+        <p className="mt-1 text-xs text-warning-foreground">
+          Quarantined
+          {live.data?.statusReason ? ` — ${live.data.statusReason}` : ''}.
+        </p>
+        <FileMetaLine mediaType={mediaType} byteSize={byteSize} />
+      </div>
+    )
+  }
+  if (status === 'deleted') {
+    return (
+      <div className="rounded-md border bg-muted/30 p-3 text-sm">
+        <p className="font-medium text-muted-foreground line-through">{name}</p>
+        <p className="mt-1 text-xs text-muted-foreground">This file is deleted.</p>
+        <FileMetaLine mediaType={mediaType} byteSize={byteSize} />
+      </div>
+    )
+  }
+
+  // active
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3">
+      <div className="flex items-center gap-2">
+        <FileIcon mediaType={mediaType} />
+        <div>
+          <a
+            href={`/api/files/${fileRecordId}/download`}
+            className="font-medium text-foreground underline-offset-2 hover:underline"
+            download
+          >
+            {name}
+          </a>
+          <FileMetaLine mediaType={mediaType} byteSize={byteSize} />
+        </div>
+      </div>
+      <span className="rounded-full bg-emerald-500/10 px-2 py-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+        Active
+      </span>
+    </div>
+  )
+}
+
+function FileMetaLine({
+  mediaType,
+  byteSize,
+}: {
+  mediaType: string
+  byteSize: number
+}) {
+  return (
+    <p className="font-mono text-xs text-muted-foreground">
+      {mediaType || 'unknown'} · {formatBytes(byteSize)}
+    </p>
+  )
+}
+
+function FileIcon({ mediaType }: { mediaType: string }) {
+  const label =
+    mediaType.startsWith('image/')
+      ? 'IMG'
+      : mediaType === 'application/pdf'
+        ? 'PDF'
+        : mediaType.includes('spreadsheet') || mediaType === 'text/csv'
+          ? 'XLS'
+          : mediaType.includes('wordprocessing')
+            ? 'DOC'
+            : mediaType.includes('presentation')
+              ? 'PPT'
+              : 'FILE'
+  return (
+    <span
+      aria-hidden="true"
+      className="flex size-8 shrink-0 items-center justify-center rounded bg-muted text-[10px] font-bold text-muted-foreground"
+    >
+      {label}
+    </span>
   )
 }

@@ -39,6 +39,12 @@ import type { AutosaveStatus, SaveResult } from './use-autosave'
 import { SaveStatus } from './save-status'
 import { ConflictBanner } from './conflict-banner'
 import { RichTextEditor as TiptapRichTextEditor } from './rich-text-editor'
+import {
+  AttachFileError,
+  formatBytes,
+  validateFileForUpload,
+} from '#/lib/file-attach'
+import { FILE_MAX_BYTES } from '#/lib/file-policy'
 
 export type { AutosaveStatus, SaveResult }
 
@@ -62,6 +68,8 @@ export interface BlockEditorProps {
   className?: string
   /** Transactionally pin a selected protocol and copy its procedure steps. */
   pinProtocol?: (protocolRecordId: string) => Promise<void>
+  /** SCI-003: attach an uploaded file to an empty file block. */
+  onAttachFile?: (file: File) => Promise<void>
 }
 
 export function BlockEditor(props: BlockEditorProps) {
@@ -84,6 +92,8 @@ export function BlockEditor(props: BlockEditorProps) {
       return <ProcedureStepEditor {...props} />
     case 'materials':
       return <MaterialsEditor {...props} />
+    case 'file':
+      return <FileBlockEditor {...props} />
     default:
       return (
         <UnsupportedEditor block={props.block} className={props.className} />
@@ -937,6 +947,101 @@ function UnsupportedEditor({
           {JSON.stringify(block.payload, null, 2)}
         </pre>
       </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// SCI-003 file block editor. Upload flow: a keyboard-accessible file input
+// validates type/size client-side (the server re-validates), then calls
+// `onAttachFile`, which authorizes + streams the bytes through the bounded
+// `/api/files` routes and persists the file reference in the block payload.
+// Once attached, the block renders the file (read-only here; the preview
+// shows live status). Replacing a file is a later concern.
+// ---------------------------------------------------------------------------
+
+function FileBlockEditor({ block, onAttachFile, readOnly }: BlockEditorProps) {
+  const attached = Object.keys(block.payload).length > 0
+  const inputRef = React.useRef<HTMLInputElement>(null)
+  const [pending, setPending] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+
+  if (attached) {
+    // The preview renders the live file state; the editor just confirms it.
+    const name = String(block.payload.displayName ?? 'File')
+    const mediaType = String(block.payload.mediaType ?? '')
+    const byteSize = Number(block.payload.byteSize ?? 0)
+    return (
+      <div className="space-y-1">
+        <p className="font-medium">{name}</p>
+        <p className="font-mono text-xs text-muted-foreground">
+          {mediaType || 'unknown'} · {formatBytes(byteSize)}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          File attached. Download and lifecycle are available in the preview
+          and inspector.
+        </p>
+      </div>
+    )
+  }
+
+  async function handleFile(file: File) {
+    setError(null)
+    const checked = validateFileForUpload(file)
+    if (!checked.ok) {
+      setError(checked.message)
+      return
+    }
+    if (!onAttachFile) {
+      setError('File upload is not available in this context.')
+      return
+    }
+    setPending(true)
+    try {
+      await onAttachFile(file)
+    } catch (cause) {
+      setError(
+        cause instanceof AttachFileError
+          ? cause.message
+          : cause instanceof Error
+            ? cause.message
+            : 'Could not attach the file.',
+      )
+    } finally {
+      setPending(false)
+    }
+  }
+
+  return (
+    <div className="space-y-2 rounded-md border p-3">
+      <p className="text-sm font-medium">Attach a file</p>
+      <p className="text-xs text-muted-foreground">
+        Allowed: CSV, text, JSON, PDF, common images and Office formats. Limit{' '}
+        {formatBytes(FILE_MAX_BYTES)}. The filename is display metadata only.
+      </p>
+      <input
+        ref={inputRef}
+        type="file"
+        aria-label="Attach a file"
+        disabled={pending || readOnly}
+        onChange={(event) => {
+          const file = event.target.files?.[0]
+          if (file) void handleFile(file)
+          // Reset so selecting the same file again re-triggers.
+          event.target.value = ''
+        }}
+        className="block w-full text-sm file:mr-3 file:rounded-md file:border file:border-input file:bg-background file:px-3 file:py-1.5 file:text-sm file:font-medium hover:file:bg-accent"
+      />
+      {pending ? (
+        <p role="status" className="text-xs text-muted-foreground">
+          Uploading…
+        </p>
+      ) : null}
+      {error ? (
+        <p role="alert" className="text-xs text-destructive">
+          {error}
+        </p>
+      ) : null}
     </div>
   )
 }

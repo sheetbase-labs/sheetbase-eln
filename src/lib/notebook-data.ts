@@ -72,6 +72,33 @@ export interface RecordLinkWire {
   created_at: string
 }
 
+// SCI-003: file storage metadata as returned by PostgREST. The file record
+// itself is a normal `records` row (kind 'file'); this is the 1:1
+// `file_objects` row whose status drives honest download/preview rendering.
+export interface FileObjectWire {
+  id: string
+  workspace_id: string
+  record_id: string
+  storage_key: string
+  display_name: string
+  media_type: string
+  byte_size: string
+  checksum: string | null
+  status: string
+  status_reason: string | null
+  version: number
+}
+
+export interface FileObjectSummary {
+  recordId: string
+  displayName: string
+  mediaType: string
+  byteSize: number
+  status: 'active' | 'quarantined' | 'deleted' | 'missing'
+  statusReason: string | null
+  version: number
+}
+
 // ---------------------------------------------------------------------------
 // Domain shapes (camelCase, consumed by the UI).
 // ---------------------------------------------------------------------------
@@ -182,6 +209,20 @@ export function toLink(row: RecordLinkWire): NotebookLink {
   }
 }
 
+export function toFileObjectSummary(
+  row: FileObjectWire,
+): FileObjectSummary {
+  return {
+    recordId: row.record_id,
+    displayName: row.display_name,
+    mediaType: row.media_type,
+    byteSize: Number(row.byte_size),
+    status: row.status as FileObjectSummary['status'],
+    statusReason: row.status_reason,
+    version: row.version,
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Route-aware query helpers. Each helper builds the PostgREST query string
 // for one resource so the route useQuery hooks stay declarative. A shared
@@ -227,6 +268,19 @@ export function fetchLinksForRecord(client: DataClient, recordId: string) {
     .then((rows) => rows.map(toLink))
 }
 
+/** SCI-003: fetch the live `file_objects` metadata for a file record. */
+export function fetchFileObjectByRecordId(
+  client: DataClient,
+  fileRecordId: string,
+) {
+  return client
+    .list<FileObjectWire>(
+      'file_objects',
+      `?record_id=eq.${fileRecordId}&select=id,workspace_id,record_id,storage_key,display_name,media_type,byte_size,checksum,status,status_reason,version&limit=1`,
+    )
+    .then((rows) => (rows.length > 0 ? toFileObjectSummary(rows[0]) : null))
+}
+
 // Query keys are scoped by id so navigating between notebooks always refetches
 // rather than serving a stale sibling's data.
 export const notebookQueryKeys = {
@@ -239,6 +293,8 @@ export const notebookQueryKeys = {
   record: (recordId: string) => ['notebook', 'record', recordId] as const,
   blocks: (recordId: string) => ['notebook', 'blocks', recordId] as const,
   links: (recordId: string) => ['notebook', 'links', recordId] as const,
+  fileObject: (fileRecordId: string) =>
+    ['notebook', 'file-object', fileRecordId] as const,
 }
 
 /**

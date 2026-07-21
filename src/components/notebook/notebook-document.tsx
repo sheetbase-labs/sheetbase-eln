@@ -70,6 +70,8 @@ export interface NotebookDocumentProps {
     block: NotebookBlockData,
     protocolRecordId: string,
   ) => Promise<void>
+  /** SCI-003: attach an uploaded file to an empty file block. */
+  onAttachFile?: (block: NotebookBlockData, file: File) => Promise<void>
   /** Duplicate an existing block (same type/payload, inserted after it). */
   onDuplicateBlock: (block: NotebookBlockData) => Promise<void>
   /** Delete a block. */
@@ -105,6 +107,7 @@ const EDITABLE_TYPES = new Set([
   'protocol_reference',
   'procedure_step',
   'materials',
+  'file',
 ])
 
 export function NotebookDocument(props: NotebookDocumentProps) {
@@ -123,6 +126,7 @@ function NotebookDocumentContent({
   onUnsavedWorkChange,
   onInsertBlock,
   onPinProtocol,
+  onAttachFile,
   onDuplicateBlock,
   onDeleteBlock,
   onUndoDelete,
@@ -628,6 +632,11 @@ function NotebookDocumentContent({
                             onPinProtocol(block, protocolRecordId)
                         : undefined
                     }
+                   onAttachFile={
+                     onAttachFile
+                       ? (file) => onAttachFile(block, file)
+                       : undefined
+                   }
                     offline={offline}
                     onStatusChange={(status) =>
                       handleStatusChange(block.id, status)

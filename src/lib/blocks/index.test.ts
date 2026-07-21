@@ -247,7 +247,13 @@ describe('block payload validation (ELN-002)', () => {
         provenance: 'Analysis Studio',
       },
       plate_map: { wells: [{ row: 0, col: 0, value: 0.5 }] },
-      file: { name: 'data.xlsx', size: 1024, mime: 'application/vnd.ms-excel' },
+      file: {
+        fileRecordId: '0198d970-e266-4000-8000-000000000020',
+        fileIdentifier: 'FILE-2026-0001',
+        displayName: 'data.xlsx',
+        mediaType: 'application/vnd.ms-excel',
+        byteSize: 1024,
+      },
       metric: { label: 'Titer', value: 2.31e7, unit: 'copies/mL' },
       procedure_step: { text: 'Prepare standards.', stepNumber: 1 },
       protocol_reference: {

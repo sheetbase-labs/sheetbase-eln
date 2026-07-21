@@ -6,6 +6,7 @@ import {
   PackageOpen,
   Pilcrow,
   Sheet,
+  Paperclip,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -74,6 +75,12 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     label: 'Materials',
     description: 'Linked samples and reagents with quantities and units.',
     icon: PackageOpen,
+  },
+  {
+    type: 'file',
+    label: 'File',
+    description: 'Attach a file with provenance and lifecycle states.',
+    icon: Paperclip,
   },
 ]
 

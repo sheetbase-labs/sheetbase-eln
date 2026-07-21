@@ -196,7 +196,6 @@ function checkLogicalType(
 ): string | null {
   switch (def.logicalType) {
     case 'text':
-    case 'category':
       return typeof value === 'string' ? null : `${def.label} must be text.`
     case 'integer':
       return Number.isInteger(value)
@@ -210,6 +209,16 @@ function checkLogicalType(
       return typeof value === 'boolean'
         ? null
         : `${def.label} must be true or false.`
+    case 'category': {
+      if (typeof value !== 'string') return `${def.label} must be text.`
+      const enumValues = Array.isArray(def.validation.enum)
+        ? (def.validation.enum as unknown[])
+        : null
+      if (enumValues && enumValues.length > 0 && !enumValues.includes(value)) {
+        return `${def.label} must be one of: ${enumValues.join(', ')}.`
+      }
+      return null
+    }
     case 'date':
       return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
         ? null
@@ -307,6 +316,36 @@ export function allowedTargets(
   return KIND_STATUS_VOCABULARY[kind].filter((to) =>
     isAllowedTransition(kind, from, to),
   )
+}
+
+/**
+ * Link type for a scientific record kind — the `record_links.link_type`
+ * value used when linking a scientific record into a notebook. Mirrors the
+ * `sample`/`reagent`/`protocol` link types from decision 0015.
+ */
+export function linkTypeForKind(kind: ScientificRecordKind): string {
+  return kind === 'protocol_template' ? 'protocol' : kind
+}
+
+/**
+ * Create a durable link from a notebook record to a scientific record through
+ * the existing `create_record_link` RPC. The RPC validates same-workspace
+ * membership and rejects cross-workspace targets with SB002; the preserved
+ * `target_identifier` keeps the link resolvable when the target is later
+ * archived or soft-deleted.
+ */
+export function createScientificLink(
+  client: DataClient,
+  sourceRecordId: string,
+  target: { id: string; kind: ScientificRecordKind; identifier: string },
+): Promise<unknown> {
+  return client.rpc('create_record_link', {
+    p_source_record_id: sourceRecordId,
+    p_target_kind: target.kind,
+    p_target_identifier: target.identifier,
+    p_link_type: linkTypeForKind(target.kind),
+    p_target_record_id: target.id,
+  })
 }
 
 // ---------------------------------------------------------------------------

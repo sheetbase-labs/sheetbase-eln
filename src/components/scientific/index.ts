@@ -4,3 +4,6 @@
  */
 export * from './status-badge'
 export * from './record-link'
+export * from './record-picker'
+export * from './scientific-record-summary'
+export * from './scientific-record-linker'

@@ -71,6 +71,31 @@ export const sampleStatusVocabulary: StatusVocabulary = {
   frozen: { label: 'Frozen', tone: 'info', icon: Snowflake },
 }
 
+/**
+ * Reagent lifecycle vocabulary (SCI-001). Reagents share the sample
+ * availability/quarantine states and add a low-stock inventory state that is
+ * not a lifecycle transition target but is rendered when present.
+ */
+export const reagentStatusVocabulary: StatusVocabulary = {
+  available: { label: 'Available', tone: 'success', icon: CheckCircle2 },
+  reserved: { label: 'Reserved', tone: 'info', icon: Lock },
+  consumed: { label: 'Consumed', tone: 'neutral', icon: Archive },
+  expired: { label: 'Expired', tone: 'danger', icon: XCircle },
+  quarantined: { label: 'Quarantined', tone: 'warning', icon: ShieldAlert },
+  low_stock: { label: 'Low stock', tone: 'warning', icon: ShieldAlert },
+}
+
+/**
+ * Protocol template lifecycle vocabulary (SCI-001). Protocols are notebook-
+ * backed records (kind `protocol_template`); their status drives the
+ * template registry and the protocol picker.
+ */
+export const protocolStatusVocabulary: StatusVocabulary = {
+  draft: { label: 'Draft', tone: 'neutral', icon: CircleDashed },
+  active: { label: 'Active', tone: 'success', icon: CheckCircle2 },
+  under_review: { label: 'Under review', tone: 'violet', icon: Eye },
+}
+
 export const datasetStatusVocabulary: StatusVocabulary = {
   draft: { label: 'Draft', tone: 'neutral', icon: CircleDashed },
   valid: { label: 'Valid', tone: 'success', icon: CheckCircle2 },
@@ -83,6 +108,8 @@ export const statusVocabularies = {
   review: reviewStatusVocabulary,
   sample: sampleStatusVocabulary,
   dataset: datasetStatusVocabulary,
+  reagent: reagentStatusVocabulary,
+  protocol: protocolStatusVocabulary,
 } as const
 
 export type StatusDomain = keyof typeof statusVocabularies

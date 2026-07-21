@@ -23,7 +23,7 @@ import {
   LinkedRecordList,
   EmptyHint,
 } from '#/components/record'
-import { StatusBadge } from '#/components/scientific'
+import { ScientificRecordLinker, StatusBadge } from '#/components/scientific'
 import { DataClientError } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
 import {
@@ -947,6 +947,10 @@ export function NotebookInspector({
                   title: link.targetIdentifier,
                   meta: link.linkType,
                 }))}
+              />
+              <ScientificRecordLinker
+                sourceRecordId={record.id}
+                links={links}
               />
             </InspectorSection>
           ),

@@ -11,6 +11,9 @@
  */
 import { config } from 'dotenv'
 import { eq } from 'drizzle-orm'
+import { createHash } from 'node:crypto'
+import { mkdir, writeFile } from 'node:fs/promises'
+import { dirname, join, resolve } from 'node:path'
 import { drizzle } from 'drizzle-orm/node-postgres'
 
 import * as schema from '../schema'
@@ -19,6 +22,7 @@ import {
   DEMO_ARCHIVED_SAMPLE_IDENTIFIER,
   DEMO_ARCHIVED_SAMPLE_RECORD_ID,
   DEMO_FIELD_DEFINITION_IDS,
+  DEMO_FILE_IDS,
   DEMO_PROTOCOL_REVISION_ID,
   DEMO_REAGENT_IDENTIFIER,
   DEMO_REAGENT_RECORD_ID,
@@ -880,6 +884,211 @@ export const demoSteps: Array<SeedStep> = [
             },
           })
       }
+    },
+  },
+  {
+    name: 'demo file attachments: Virus Stability (SCI-003)',
+    run: async (db) => {
+      // Four file records exercising every lifecycle state. Storage keys
+      // are deterministic so the seed is idempotent and the local backend
+      // can materialise the active object. Bytes live behind the storage
+      // boundary; only the active file has bytes on disk (the missing file
+      // deliberately has none, and quarantined/deleted refuse download).
+      const storageRoot = resolve(
+        process.env.FILE_STORAGE_DIR ?? './.storage/objects',
+      )
+      const activeCsv =
+        'timepoint,temperature,log_titer\n0,4,7.2\n7,4,7.0\n14,4,6.6\n28,4,5.9\n'
+      const activeChecksum = createHash('sha256')
+        .update(activeCsv)
+        .digest('hex')
+      const activeStorageKey = `${FIXTURE_WORKSPACE_ID}/${DEMO_FILE_IDS.activeRecord}/a1b2c3d4e5f60718293a4b5c6d7e8f90`
+      const activePath = join(storageRoot, activeStorageKey)
+      await mkdir(dirname(activePath), { recursive: true })
+      await writeFile(activePath, activeCsv, { encoding: 'utf8' })
+
+      const files = [
+        {
+          recordId: DEMO_FILE_IDS.activeRecord,
+          objectId: DEMO_FILE_IDS.activeObject,
+          identifier: DEMO_FILE_IDS.activeIdentifier,
+          title: 'Stability run 07 — titer curve (4 °C)',
+          displayName: 'stability-run07-4c.csv',
+          mediaType: 'text/csv',
+          byteSize: BigInt(activeCsv.length),
+          checksum: activeChecksum,
+          status: 'active' as const,
+          statusReason: null as string | null,
+          storageKey: activeStorageKey,
+          quarantinedAt: null as Date | null,
+          deletedAt: null as Date | null,
+        },
+        {
+          recordId: DEMO_FILE_IDS.quarantinedRecord,
+          objectId: DEMO_FILE_IDS.quarantinedObject,
+          identifier: DEMO_FILE_IDS.quarantinedIdentifier,
+          title: 'Raw plate read (quarantined)',
+          displayName: 'plate-read-raw.csv',
+          mediaType: 'text/csv',
+          byteSize: BigInt(2048),
+          checksum: null,
+          status: 'quarantined' as const,
+          statusReason: 'suspected contamination on plate B',
+          storageKey: `${FIXTURE_WORKSPACE_ID}/${DEMO_FILE_IDS.quarantinedRecord}/b2c3d4e5f60718293a4b5c6d7e8f9a10`,
+          quarantinedAt: new Date('2025-06-18T09:30:00Z'),
+          deletedAt: null as Date | null,
+        },
+        {
+          recordId: DEMO_FILE_IDS.deletedRecord,
+          objectId: DEMO_FILE_IDS.deletedObject,
+          identifier: DEMO_FILE_IDS.deletedIdentifier,
+          title: 'Superseded calibration (deleted)',
+          displayName: 'calibration-old.pdf',
+          mediaType: 'application/pdf',
+          byteSize: BigInt(524288),
+          checksum: null,
+          status: 'deleted' as const,
+          statusReason: null as string | null,
+          storageKey: `${FIXTURE_WORKSPACE_ID}/${DEMO_FILE_IDS.deletedRecord}/c3d4e5f60718293a4b5c6d7e8f9a1b20`,
+          quarantinedAt: null as Date | null,
+          deletedAt: new Date('2025-06-20T12:00:00Z'),
+        },
+        {
+          recordId: DEMO_FILE_IDS.missingRecord,
+          objectId: DEMO_FILE_IDS.missingObject,
+          identifier: DEMO_FILE_IDS.missingIdentifier,
+          title: 'Instrument export (missing storage object)',
+          displayName: 'qpcr-export.json',
+          mediaType: 'application/json',
+          byteSize: BigInt(8192),
+          checksum: null,
+          status: 'missing' as const,
+          statusReason: 'storage object absent',
+          storageKey: `${FIXTURE_WORKSPACE_ID}/${DEMO_FILE_IDS.missingRecord}/d4e5f60718293a4b5c6d7e8f9a1b2c30`,
+          quarantinedAt: null as Date | null,
+          deletedAt: null as Date | null,
+        },
+      ] as const
+
+      for (const f of files) {
+        await db
+          .insert(schema.records)
+          .values({
+            id: f.recordId,
+            workspaceId: FIXTURE_WORKSPACE_ID,
+            projectId: DEMO_VIRUS_STABILITY_PROJECT_ID,
+            kind: 'file',
+            identifier: f.identifier,
+            title: f.title,
+            status: 'active',
+            tags: [],
+            createdByUserId: FIXTURE_USER_ID,
+          })
+          .onConflictDoUpdate({
+            target: [schema.records.projectId, schema.records.identifier],
+            set: {
+              title: f.title,
+              status: 'active',
+              tags: [],
+              deletedAt: null,
+              archivedAt: null,
+            },
+          })
+        await db
+          .insert(schema.fileObjects)
+          .values({
+            id: f.objectId,
+            workspaceId: FIXTURE_WORKSPACE_ID,
+            recordId: f.recordId,
+            storageKey: f.storageKey,
+            displayName: f.displayName,
+            mediaType: f.mediaType,
+            byteSize: f.byteSize,
+            checksum: f.checksum,
+            status: f.status,
+            statusReason: f.statusReason,
+            storageBackend: 'local',
+            quarantinedAt: f.quarantinedAt,
+            deletedAt: f.deletedAt,
+            version: 1,
+            createdByUserId: FIXTURE_USER_ID,
+            updatedByUserId: FIXTURE_USER_ID,
+          })
+          .onConflictDoUpdate({
+            target: schema.fileObjects.recordId,
+            set: {
+              storageKey: f.storageKey,
+              displayName: f.displayName,
+              mediaType: f.mediaType,
+              byteSize: f.byteSize,
+              checksum: f.checksum,
+              status: f.status,
+              statusReason: f.statusReason,
+              storageBackend: 'local',
+              quarantinedAt: f.quarantinedAt,
+              deletedAt: f.deletedAt,
+              updatedByUserId: FIXTURE_USER_ID,
+            },
+          })
+      }
+
+      // Link each file to the experiment with provenance (linkType 'file').
+      for (const f of files) {
+        await db
+          .insert(schema.recordLinks)
+          .values({
+            sourceRecordId: DEMO_VIRUS_STABILITY_RECORD_ID,
+            targetRecordId: f.recordId,
+            targetKind: 'file',
+            targetIdentifier: f.identifier,
+            linkType: 'file',
+            createdByUserId: FIXTURE_USER_ID,
+          })
+          .onConflictDoUpdate({
+            target: [
+              schema.recordLinks.sourceRecordId,
+              schema.recordLinks.targetIdentifier,
+              schema.recordLinks.linkType,
+            ],
+            set: {
+              targetRecordId: f.recordId,
+              targetKind: 'file',
+            },
+          })
+      }
+
+      // A file block in the notebook referencing the active file, so the
+      // canonical block presentation is exercised alongside the inspector.
+      await db
+        .insert(schema.blocks)
+        .values({
+          id: DEMO_FILE_IDS.block,
+          recordId: DEMO_VIRUS_STABILITY_RECORD_ID,
+          type: 'file',
+          payload: {
+            fileRecordId: DEMO_FILE_IDS.activeRecord,
+            fileIdentifier: DEMO_FILE_IDS.activeIdentifier,
+            displayName: 'stability-run07-4c.csv',
+            mediaType: 'text/csv',
+            byteSize: activeCsv.length,
+          },
+          order: 21,
+          createdByUserId: FIXTURE_USER_ID,
+        })
+        .onConflictDoUpdate({
+          target: schema.blocks.id,
+          set: {
+            type: 'file',
+            payload: {
+              fileRecordId: DEMO_FILE_IDS.activeRecord,
+              fileIdentifier: DEMO_FILE_IDS.activeIdentifier,
+              displayName: 'stability-run07-4c.csv',
+              mediaType: 'text/csv',
+              byteSize: activeCsv.length,
+            },
+            order: 21,
+          },
+        })
     },
   },
 ]

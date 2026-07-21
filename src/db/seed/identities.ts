@@ -81,3 +81,23 @@ export const DEMO_FIELD_DEFINITION_IDS = {
   reagentUnit: '00000000-0000-4000-8000-000000000146',
   reagentStorage: '00000000-0000-4000-8000-000000000147',
 } as const
+
+// SCI-003 file attachment fixtures (Virus Stability). Four file records
+// exercise the lifecycle states: active, quarantined, deleted and missing.
+// Each has a 1:1 file_objects row with a deterministic storage key so the
+// seed is idempotent and the honest renderings are visible. 0x160–0x16f.
+export const DEMO_FILE_IDS = {
+  activeRecord: '00000000-0000-4000-8000-000000000160',
+  activeObject: '00000000-0000-4000-8000-000000000161',
+  activeIdentifier: 'FILE-2025-0001',
+  quarantinedRecord: '00000000-0000-4000-8000-000000000162',
+  quarantinedObject: '00000000-0000-4000-8000-000000000163',
+  quarantinedIdentifier: 'FILE-2025-0002',
+  deletedRecord: '00000000-0000-4000-8000-000000000164',
+  deletedObject: '00000000-0000-4000-8000-000000000165',
+  deletedIdentifier: 'FILE-2025-0003',
+  missingRecord: '00000000-0000-4000-8000-000000000166',
+  missingObject: '00000000-0000-4000-8000-000000000167',
+  missingIdentifier: 'FILE-2025-0004',
+  block: '00000000-0000-4000-8000-000000000168',
+} as const

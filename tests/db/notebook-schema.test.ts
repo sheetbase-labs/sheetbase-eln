@@ -13,6 +13,8 @@ import * as schema from '#/db/schema'
 import { validateBlock } from '#/lib/blocks'
 import {
   DEMO_BLOCK_IDS,
+  DEMO_FILE_IDS,
+  FIXTURE_WORKSPACE_ID,
   DEMO_VIRUS_STABILITY_PROJECT_ID,
   DEMO_VIRUS_STABILITY_RECORD_ID,
 } from '#/db/seed/identities'
@@ -393,14 +395,17 @@ describe('Virus Stability demo fixtures', () => {
     )
     // 10 representative blocks plus two copied execution steps, with no
     // duplicates after two runs.
-    expect(Number(rows[0]?.n)).toBe(12)
+    // 10 representative blocks plus two copied execution steps plus one
+    // SCI-003 file block, with no duplicates after two runs.
+    expect(Number(rows[0]?.n)).toBe(13)
 
     const { rows: links } = await migrator.query<{ n: string }>(
       `SELECT count(*)::text AS n FROM api.record_links
        WHERE source_record_id = '${DEMO_VIRUS_STABILITY_RECORD_ID}'`,
     )
-    // 1 protocol link + 3 SCI-001 links (sample, reagent, archived sample).
-    expect(Number(links[0]?.n)).toBe(4)
+    // 1 protocol link + 3 SCI-001 links (sample, reagent, archived sample)
+    // + 4 SCI-003 file links (active, quarantined, deleted, missing).
+    expect(Number(links[0]?.n)).toBe(8)
 
     const { rows: demoRec } = await migrator.query<{ title: string }>(
       `SELECT title FROM api.records WHERE id = '${DEMO_VIRUS_STABILITY_RECORD_ID}'`,
@@ -431,6 +436,7 @@ describe('Virus Stability demo fixtures', () => {
         'materials',
         'protocol_reference',
         'procedure_step',
+        'file',
       ]),
     )
   })
@@ -468,5 +474,82 @@ describe('Virus Stability demo fixtures', () => {
       const result = validateBlock({ type: row.type, payload: row.payload })
       expect(result.ok, `${row.type} should validate`).toBe(true)
     }
+  })
+
+  it('seeds four SCI-003 file fixtures covering every lifecycle state', async () => {
+    const { rows: files } = await migrator.query<{
+      id: string
+      status: string
+      display_name: string
+      media_type: string
+      byte_size: string
+      quarantined_at: string | null
+      deleted_at: string | null
+      storage_key: string
+    }>(
+      `SELECT id, status, display_name, media_type, byte_size::text,
+              quarantined_at, deleted_at, storage_key
+         FROM api.file_objects
+        WHERE workspace_id = '${FIXTURE_WORKSPACE_ID}'
+          AND record_id IN (
+            '${DEMO_FILE_IDS.activeRecord}',
+            '${DEMO_FILE_IDS.quarantinedRecord}',
+            '${DEMO_FILE_IDS.deletedRecord}',
+            '${DEMO_FILE_IDS.missingRecord}'
+          )
+        ORDER BY status`,
+    )
+    expect(files).toHaveLength(4)
+
+    const byStatus = Object.fromEntries(files.map((f) => [f.status, f]))
+    // Active: checksum and bytes are consistent; no lifecycle timestamps.
+    expect(byStatus.active.display_name).toBe('stability-run07-4c.csv')
+    expect(byStatus.active.media_type).toBe('text/csv')
+    expect(byStatus.active.quarantined_at).toBeNull()
+    expect(byStatus.active.deleted_at).toBeNull()
+    expect(byStatus.active.storage_key).toMatch(/\/[0-9a-f]{32}$/)
+    // Quarantined: reason and timestamp set, no deletion.
+    expect(byStatus.quarantined.quarantined_at).not.toBeNull()
+    expect(byStatus.quarantined.deleted_at).toBeNull()
+    // Deleted: timestamp set, no quarantine.
+    expect(byStatus.deleted.deleted_at).not.toBeNull()
+    expect(byStatus.deleted.quarantined_at).toBeNull()
+    // Missing: no bytes on disk and no lifecycle timestamps; honest render.
+    expect(byStatus.missing.status).toBe('missing')
+    expect(byStatus.missing.quarantined_at).toBeNull()
+    expect(byStatus.missing.deleted_at).toBeNull()
+
+    // The active file block references the active file record and carries
+    // display metadata that matches the storage object.
+    const { rows: blocks } = await migrator.query<{
+      type: string
+      payload: {
+        fileRecordId?: string
+        fileIdentifier?: string
+        displayName?: string
+        mediaType?: string
+        byteSize?: number
+      }
+    }>(
+      `SELECT type, payload FROM api.blocks
+        WHERE id = '${DEMO_FILE_IDS.block}'`,
+    )
+    expect(blocks).toHaveLength(1)
+    expect(blocks[0].type).toBe('file')
+    expect(blocks[0].payload.fileRecordId).toBe(DEMO_FILE_IDS.activeRecord)
+    expect(blocks[0].payload.fileIdentifier).toBe(
+      DEMO_FILE_IDS.activeIdentifier,
+    )
+    expect(blocks[0].payload.displayName).toBe('stability-run07-4c.csv')
+    expect(blocks[0].payload.mediaType).toBe('text/csv')
+    expect(blocks[0].payload.byteSize).toBe(Number(byStatus.active.byte_size))
+
+    // Four file links to the experiment, one per lifecycle state.
+    const { rows: links } = await migrator.query<{ n: string }>(
+      `SELECT count(*)::text AS n FROM api.record_links
+        WHERE source_record_id = '${DEMO_VIRUS_STABILITY_RECORD_ID}'
+          AND link_type = 'file'`,
+    )
+    expect(Number(links[0]?.n)).toBe(4)
   })
 })

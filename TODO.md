@@ -644,13 +644,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** ELN-008.
 
-- [ ] Decide and document the initial object-storage service and local-development substitute.
-- [ ] Store file metadata, ownership, checksums, media type, size and storage key in PostgreSQL.
-- [ ] Upload through authenticated, bounded flows without proxying unbounded files through inappropriate application memory.
-- [ ] Validate allowed types and sizes while treating client-provided filenames as untrusted metadata.
-- [ ] Link files to records and blocks with provenance and actor attribution.
-- [ ] Support download, missing-object, quarantined and deleted states.
-- [ ] Add tests for successful upload, oversized file, checksum mismatch, cross-workspace access and missing storage object.
+- [x] Decide and document the initial object-storage service and local-development substitute.
+- [x] Store file metadata, ownership, checksums, media type, size and storage key in PostgreSQL.
+- [x] Upload through authenticated, bounded flows without proxying unbounded files through inappropriate application memory.
+- [x] Validate allowed types and sizes while treating client-provided filenames as untrusted metadata.
+- [x] Link files to records and blocks with provenance and actor attribution.
+- [x] Support download, missing-object, quarantined and deleted states.
+- [x] Add tests for successful upload, oversized file, checksum mismatch, cross-workspace access and missing storage object.
 
 ### SCI-004 — Build chart specifications and chart blocks
 

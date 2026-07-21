@@ -286,7 +286,6 @@ Authorization: Bearer <jwt>
 - Instrument-specific parsing, full instrument-output workflows, and
   versioned-file revisions belong to later tickets (SCI-004 onward). SCI-003
   delivers the abstraction and the honest states only.
-- S3 production wiring is structured but not exercised by tests in this
 - S3-compatible production wiring is a documented future target, not yet
   implemented. The initial object-storage service is the local filesystem
   backend for both development and initial single-node production. The

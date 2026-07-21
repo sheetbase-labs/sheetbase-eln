@@ -12,8 +12,15 @@ import { join } from 'node:path'
 import { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { LocalFileStorage, setObjectStorageForTesting } from '#/lib/file-storage'
-import { handleDownload, handleUpload, handleUploadAuthorize } from '#/lib/file-routes'
+import {
+  LocalFileStorage,
+  setObjectStorageForTesting,
+} from '#/lib/file-storage'
+import {
+  handleDownload,
+  handleUpload,
+  handleUploadAuthorize,
+} from '#/lib/file-routes'
 import { mintPostgrestToken } from '#/lib/postgrest-token'
 import { handleProxyRequest } from '#/lib/postgrest-proxy'
 
@@ -33,7 +40,10 @@ let storage: LocalFileStorage
 
 function authDeps(userId: string, workspaceId: string) {
   return {
-    getSession: async () => ({ user: { id: userId }, session: { id: 'sci-003-session' } }),
+    getSession: async () => ({
+      user: { id: userId },
+      session: { id: 'sci-003-session' },
+    }),
     getWorkspaceForUser: async () => ({ id: workspaceId }),
     mintToken: (input: {
       userId: string
@@ -44,13 +54,21 @@ function authDeps(userId: string, workspaceId: string) {
   }
 }
 
-function proxy(path: string, userId: string, workspaceId: string, init: RequestInit = {}) {
+function proxy(
+  path: string,
+  userId: string,
+  workspaceId: string,
+  init: RequestInit = {},
+) {
   const headers = new Headers(init.headers)
   return handleProxyRequest(
     new Request(`http://sheetbase.test/api/db/${path}`, { ...init, headers }),
     path.split('?')[0],
     {
-      getSession: async () => ({ user: { id: userId }, session: { id: 'sci-003-session' } }),
+      getSession: async () => ({
+        user: { id: userId },
+        session: { id: 'sci-003-session' },
+      }),
       getWorkspaceForUser: async () => ({ id: workspaceId }),
       mintToken: (input) => mintPostgrestToken(SECRET, input),
       resolveExternalToken: () => Promise.resolve(null),
@@ -59,7 +77,12 @@ function proxy(path: string, userId: string, workspaceId: string, init: RequestI
   )
 }
 
-async function rpc(name: string, userId: string, workspaceId: string, body: unknown) {
+async function rpc(
+  name: string,
+  userId: string,
+  workspaceId: string,
+  body: unknown,
+) {
   return proxy(`rpc/${name}`, userId, workspaceId, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -67,7 +90,14 @@ async function rpc(name: string, userId: string, workspaceId: string, body: unkn
   })
 }
 
-async function createRecord(userId: string, workspaceId: string, projectId: string, kind: string, title: string, status = 'draft') {
+async function createRecord(
+  userId: string,
+  workspaceId: string,
+  projectId: string,
+  kind: string,
+  title: string,
+  status = 'draft',
+) {
   const res = await rpc('create_record', userId, workspaceId, {
     p_project_id: projectId,
     p_kind: kind,
@@ -86,7 +116,11 @@ function authorizeRequest(userId: string, workspaceId: string, body: unknown) {
   })
 }
 
-function uploadRequest(fileRecordId: string, bytes: Uint8Array, contentType = 'text/csv') {
+function uploadRequest(
+  fileRecordId: string,
+  bytes: Uint8Array,
+  contentType = 'text/csv',
+) {
   return new Request(`http://sheetbase.test/api/files/${fileRecordId}/upload`, {
     method: 'PUT',
     headers: { 'content-type': contentType },
@@ -95,9 +129,12 @@ function uploadRequest(fileRecordId: string, bytes: Uint8Array, contentType = 't
 }
 
 function downloadRequest(fileRecordId: string) {
-  return new Request(`http://sheetbase.test/api/files/${fileRecordId}/download`, {
-    method: 'GET',
-  })
+  return new Request(
+    `http://sheetbase.test/api/files/${fileRecordId}/download`,
+    {
+      method: 'GET',
+    },
+  )
 }
 
 async function clean() {
@@ -115,11 +152,26 @@ async function clean() {
       (SELECT id FROM api.records WHERE workspace_id IN ($1,$2))`,
     [WS_A, WS_B],
   )
-  await admin.query(`DELETE FROM api.records WHERE workspace_id IN ($1,$2)`, [WS_A, WS_B])
-  await admin.query(`DELETE FROM api.projects WHERE workspace_id IN ($1,$2)`, [WS_A, WS_B])
-  await admin.query(`DELETE FROM api.workspace_memberships WHERE workspace_id IN ($1,$2)`, [WS_A, WS_B])
-  await admin.query(`DELETE FROM api.workspaces WHERE id IN ($1,$2)`, [WS_A, WS_B])
-  await admin.query(`DELETE FROM internal."user" WHERE id IN ($1,$2)`, [USER_A, USER_B])
+  await admin.query(`DELETE FROM api.records WHERE workspace_id IN ($1,$2)`, [
+    WS_A,
+    WS_B,
+  ])
+  await admin.query(`DELETE FROM api.projects WHERE workspace_id IN ($1,$2)`, [
+    WS_A,
+    WS_B,
+  ])
+  await admin.query(
+    `DELETE FROM api.workspace_memberships WHERE workspace_id IN ($1,$2)`,
+    [WS_A, WS_B],
+  )
+  await admin.query(`DELETE FROM api.workspaces WHERE id IN ($1,$2)`, [
+    WS_A,
+    WS_B,
+  ])
+  await admin.query(`DELETE FROM internal."user" WHERE id IN ($1,$2)`, [
+    USER_A,
+    USER_B,
+  ])
   await admin.query(`SELECT pg_notify('pgrst','reload schema')`)
 }
 
@@ -211,7 +263,9 @@ describe('SCI-003 file upload, download and isolation', () => {
     )
     expect(dlRes.status).toBe(200)
     expect(dlRes.headers.get('content-type')).toBe('text/csv')
-    expect(dlRes.headers.get('content-disposition')).toContain('stability-run07.csv')
+    expect(dlRes.headers.get('content-disposition')).toContain(
+      'stability-run07.csv',
+    )
     const body = await dlRes.text()
     expect(body).toBe(new TextDecoder().decode(bytes))
   })
@@ -436,7 +490,13 @@ describe('SCI-003 file upload, download and isolation', () => {
   })
 
   it('links a file to an experiment with provenance and emits durable events', async () => {
-    const experiment = await createRecord(USER_A, WS_A, PROJECT_A, 'experiment', 'File link host')
+    const experiment = await createRecord(
+      USER_A,
+      WS_A,
+      PROJECT_A,
+      'experiment',
+      'File link host',
+    )
     const bytes = new TextEncoder().encode('linked file bytes')
     const { meta } = await authorizeAndUpload(USER_A, WS_A, PROJECT_A, {
       name: 'linked.csv',
@@ -466,7 +526,13 @@ describe('SCI-003 file upload, download and isolation', () => {
   })
 
   it('rejects a cross-workspace file link at the database boundary', async () => {
-    const experimentA = await createRecord(USER_A, WS_A, PROJECT_A, 'experiment', 'A host')
+    const experimentA = await createRecord(
+      USER_A,
+      WS_A,
+      PROJECT_A,
+      'experiment',
+      'A host',
+    )
     const bytes = new TextEncoder().encode('ws A file')
     const { meta } = await authorizeAndUpload(USER_A, WS_A, PROJECT_A, {
       name: 'wsA.csv',
@@ -474,7 +540,13 @@ describe('SCI-003 file upload, download and isolation', () => {
       bytes,
     })
     // Workspace B experiment tries to link workspace A's file.
-    const experimentB = await createRecord(USER_B, WS_B, PROJECT_B, 'experiment', 'B host')
+    const experimentB = await createRecord(
+      USER_B,
+      WS_B,
+      PROJECT_B,
+      'experiment',
+      'B host',
+    )
     const linkRes = await rpc('create_record_link', USER_B, WS_B, {
       p_source_record_id: experimentB.id,
       p_target_record_id: meta.fileRecordId,
@@ -485,5 +557,122 @@ describe('SCI-003 file upload, download and isolation', () => {
     // The same-workspace trigger rejects this (the B record cannot link to an
     // A file because the target record is in a different workspace).
     expect(linkRes.status).toBeGreaterThanOrEqual(400)
+  })
+  it('rejects upload-authorize without a session', async () => {
+    const res = await handleUploadAuthorize(
+      authorizeRequest(USER_A, WS_A, {
+        projectId: PROJECT_A,
+        displayName: 'noauth.csv',
+        mediaType: 'text/csv',
+        byteSize: 10,
+      }),
+      {
+        ...authDeps(USER_A, WS_A),
+        getSession: async () => null,
+      },
+    )
+    expect(res.status).toBe(401)
+    const err = await res.json()
+    expect(err.error.code).toBe('unauthenticated')
+  })
+
+  it('exposes file_objects metadata through /api/db with status filtering', async () => {
+    const { meta } = await authorizeAndUpload(USER_A, WS_A, PROJECT_A, {
+      name: 'filter.csv',
+      type: 'text/csv',
+      bytes: new TextEncoder().encode('filter me'),
+    })
+
+    const getRes = await proxy(
+      `file_objects?record_id=eq.${meta.fileRecordId}&select=status,display_name,media_type,byte_size,storage_key`,
+      USER_A,
+      WS_A,
+    )
+    expect(getRes.status).toBe(200)
+    const rows = await getRes.json()
+    expect(rows).toHaveLength(1)
+    expect(rows[0].status).toBe('active')
+    expect(rows[0].display_name).toBe('filter.csv')
+    expect(rows[0].media_type).toBe('text/csv')
+    expect(rows[0].storage_key).toMatch(/\/[0-9a-f]{32}$/)
+
+    const qRes = await rpc('transition_file_status', USER_A, WS_A, {
+      p_file_id: meta.fileObjectId,
+      p_target_status: 'quarantined',
+      p_expected_version: 1,
+      p_reason: 'metadata filter test',
+    })
+    expect(qRes.status).toBe(200)
+
+    const activeRes = await proxy(
+      `file_objects?record_id=eq.${meta.fileRecordId}&status=eq.active&select=status`,
+      USER_A,
+      WS_A,
+    )
+    const activeRows = await activeRes.json()
+    expect(activeRows).toHaveLength(0)
+
+    const qFilterRes = await proxy(
+      `file_objects?record_id=eq.${meta.fileRecordId}&status=eq.quarantined&select=status`,
+      USER_A,
+      WS_A,
+    )
+    const qRows = await qFilterRes.json()
+    expect(qRows).toHaveLength(1)
+    expect(qRows[0].status).toBe('quarantined')
+  })
+
+  it('denies cross-workspace file_objects metadata reads', async () => {
+    const { meta } = await authorizeAndUpload(USER_A, WS_A, PROJECT_A, {
+      name: 'private-meta.csv',
+      type: 'text/csv',
+      bytes: new TextEncoder().encode('private metadata'),
+    })
+    const res = await proxy(
+      `file_objects?record_id=eq.${meta.fileRecordId}&select=status`,
+      USER_B,
+      WS_B,
+    )
+    expect(res.status).toBe(200)
+    const rows = await res.json()
+    expect(rows).toHaveLength(0)
+  })
+
+  it('allows same-workspace display_name updates via /api/db PATCH and emits an update event', async () => {
+    const { meta } = await authorizeAndUpload(USER_A, WS_A, PROJECT_A, {
+      name: 'rename-me.csv',
+      type: 'text/csv',
+      bytes: new TextEncoder().encode('rename payload'),
+    })
+    const before = await admin.query(
+      `SELECT version FROM api.file_objects WHERE record_id=$1`,
+      [meta.fileRecordId],
+    )
+    const patchRes = await proxy(
+      `file_objects?record_id=eq.${meta.fileRecordId}`,
+      USER_A,
+      WS_A,
+      {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ display_name: 'renamed-safely.csv' }),
+      },
+    )
+    expect(patchRes.status).toBe(204)
+    const after = await admin.query(
+      `SELECT display_name, version, updated_by_user_id FROM api.file_objects WHERE record_id=$1`,
+      [meta.fileRecordId],
+    )
+    expect(after.rows[0].display_name).toBe('renamed-safely.csv')
+    expect(after.rows[0].version).toBe(before.rows[0].version)
+    expect(after.rows[0].updated_by_user_id).toBe(USER_A)
+    const events = await admin.query(
+      `SELECT operation FROM api.change_events
+       WHERE workspace_id=$1 AND entity_type='file' AND entity_uuid=(
+         SELECT id FROM api.file_objects WHERE record_id=$2
+       ) ORDER BY sequence DESC LIMIT 2`,
+      [WS_A, meta.fileRecordId],
+    )
+    expect(events.rows.some((r) => r.operation === 'update')).toBe(true)
   })
 })

@@ -14,6 +14,8 @@
 
 import { isRichTextPayload } from './rich-text'
 
+import { validateChartPayload } from '../chart-spec'
+
 export {
   EMPTY_RICH_TEXT_PAYLOAD,
   RichTextContent,
@@ -25,6 +27,19 @@ export type {
   RichTextMark,
   RichTextPayload,
 } from './rich-text'
+export {
+  CHART_PALETTE,
+  CHART_SPEC_VERSION,
+  CHART_TYPES,
+  validateChartPayload,
+  validateChartSpec,
+} from '../chart-spec'
+export type {
+  ChartBlockPayload,
+  ChartSpec,
+  ChartType,
+  FrozenChart,
+} from '../chart-spec'
 
 export type BlockType =
   | 'rich_text'
@@ -349,33 +364,37 @@ function validateTable(payload: unknown): FieldErrors {
 }
 
 function validateChart(payload: unknown): FieldErrors {
-  const errors: FieldErrors = []
   if (!isObject(payload))
     return [
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
     ]
-  if (!isNonEmptyString(payload.title)) {
-    errors.push({
-      code: 'missing_required_field',
-      field: 'title',
-      message: 'title is required',
-    })
+  // SCI-004 (decision 0029): delegate to the real ChartSpec validator. An
+  // empty draft `{}` is valid. Dataset reference integrity is enforced by
+  // the database trigger; this gate checks structural validity, palette and
+  // chart-type-specific required fields.
+  return validateChartPayload(payload).map((e) => ({
+    code: mapChartErrorCode(e.code),
+    field: e.field,
+    message: e.message,
+  }))
+}
+
+function mapChartErrorCode(
+  code: string,
+): BlockValidationError {
+  switch (code) {
+    case 'missing_field':
+      return 'missing_required_field'
+    case 'invalid_palette':
+    case 'invalid_dataset_reference':
+    case 'unsupported_type':
+    case 'unsupported_spec_version':
+    case 'invalid_value':
+      return 'invalid_field_value'
+    case 'invalid_shape':
+    default:
+      return 'invalid_payload_shape'
   }
-  if (!isNonEmptyString(payload.spec)) {
-    errors.push({
-      code: 'missing_required_field',
-      field: 'spec',
-      message: 'spec is required',
-    })
-  }
-  if (payload.provenance !== undefined && !isString(payload.provenance)) {
-    errors.push({
-      code: 'invalid_field_value',
-      field: 'provenance',
-      message: 'provenance must be a string when present',
-    })
-  }
-  return errors
 }
 
 function validatePlateMap(payload: unknown): FieldErrors {

@@ -243,7 +243,36 @@ describe('block payload validation (ELN-002)', () => {
       sheet: { tableId: '0198d970-e266-4000-8000-000000000001' },
       chart: {
         title: 'Assay',
-        spec: '{"type":"line"}',
+        spec: {
+          specVersion: 1,
+          type: 'line',
+          datasets: [{ tableId: '0198d970-e266-4000-8000-000000000001' }],
+          fields: {
+            x: {
+              columnId: '0198d970-e266-4000-8000-000000000002',
+              fieldName: 'col_days',
+            },
+            y: {
+              columnId: '0198d970-e266-4000-8000-000000000003',
+              fieldName: 'col_gcn',
+            },
+            series: null,
+            color: null,
+            size: null,
+          },
+          filters: [],
+          transformations: [],
+          display: {
+            axes: {
+              x: { label: 'Time (days)', scale: 'linear', unit: 'd' },
+              y: { label: 'GCN per mL', scale: 'log', unit: 'copies/mL' },
+            },
+            series: [],
+            legend: { visible: true },
+            annotations: [],
+          },
+          overlays: { errorBars: null },
+        },
         provenance: 'Analysis Studio',
       },
       plate_map: { wells: [{ row: 0, col: 0, value: 0.5 }] },

@@ -622,12 +622,12 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** ELN-008.
 
-- [ ] Define minimal configurable schemas for samples, reagents and protocols without baking biotech-specific fields into global infrastructure.
-- [ ] Add stable identifiers, project/workspace ownership, statuses, links and audit attribution.
-- [ ] Expose safe CRUD and controlled lifecycle operations through REST.
-- [ ] Add record pickers and inspector summaries for linking these objects into notebook blocks.
-- [ ] Prevent invalid cross-workspace links and preserve references to archived records.
-- [ ] Add fixtures and isolation tests using the Virus Stability example.
+- [x] Define minimal configurable schemas for samples, reagents and protocols without baking biotech-specific fields into global infrastructure.
+- [x] Add stable identifiers, project/workspace ownership, statuses, links and audit attribution.
+- [x] Expose safe CRUD and controlled lifecycle operations through REST.
+- [x] Add record pickers and inspector summaries for linking these objects into notebook blocks.
+- [x] Prevent invalid cross-workspace links and preserve references to archived records.
+- [x] Add fixtures and isolation tests using the Virus Stability example.
 
 ### SCI-002 — Build protocol and materials notebook blocks
 

@@ -162,6 +162,13 @@
       "when": 1784625414658,
       "tag": "0022_sci_001_scientific_records",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1784626000000,
+      "tag": "0023_sci_001_field_definition_grants_and_archive_guard",
+      "breakpoints": true
     }
   ]
 }

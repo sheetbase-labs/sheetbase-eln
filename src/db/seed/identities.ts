@@ -47,3 +47,30 @@ export const DEMO_BLOCK_IDS = {
   callout: '00000000-0000-4000-8000-00000000011b',
   linkedProtocol: '00000000-0000-4000-8000-00000000011c',
 } as const
+
+// SCI-001 scientific record fixtures (Virus Stability). Samples and reagents
+// are registry records with configurable properties; field definitions are
+// seeded for the fixture workspace so the demo records carry realistic
+// scientific fields without runtime configuration. 0x120–0x13f.
+export const DEMO_SAMPLE_RECORD_ID = '00000000-0000-4000-8000-000000000121'
+export const DEMO_SAMPLE_IDENTIFIER = 'SMP-2025-0001'
+export const DEMO_ARCHIVED_SAMPLE_RECORD_ID =
+  '00000000-0000-4000-8000-000000000122'
+export const DEMO_ARCHIVED_SAMPLE_IDENTIFIER = 'SMP-2025-0002'
+export const DEMO_REAGENT_RECORD_ID = '00000000-0000-4000-8000-000000000123'
+export const DEMO_REAGENT_IDENTIFIER = 'RGT-2025-0001'
+
+// Stable field-definition ids so re-seeds converge idempotently. 0x130–0x14f.
+export const DEMO_FIELD_DEFINITION_IDS = {
+  sampleConstruct: '00000000-0000-4000-8000-000000000131',
+  sampleBatch: '00000000-0000-4000-8000-000000000132',
+  sampleConcentration: '00000000-0000-4000-8000-000000000133',
+  sampleStorage: '00000000-0000-4000-8000-000000000134',
+  reagentSupplier: '00000000-0000-4000-8000-000000000141',
+  reagentCatalogNo: '00000000-0000-4000-8000-000000000142',
+  reagentLot: '00000000-0000-4000-8000-000000000143',
+  reagentExpiry: '00000000-0000-4000-8000-000000000144',
+  reagentQuantity: '00000000-0000-4000-8000-000000000145',
+  reagentUnit: '00000000-0000-4000-8000-000000000146',
+  reagentStorage: '00000000-0000-4000-8000-000000000147',
+} as const

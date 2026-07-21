@@ -15,6 +15,8 @@ export type ErrorCategory =
   | 'conflict' // 409 — unique violation, stale version
   | 'stale_version' // 409 — optimistic-concurrency mismatch
   | 'missing_link' // 422 — record_link target unresolved in workspace
+  | 'invalid_transition' // 422 — disallowed lifecycle status transition (SCI-001)
+  | 'invalid_properties' // 422 — configurable property failed DB validation (SCI-001)
   | 'unauthenticated' // 401
   | 'rate_limited' // 429
   | 'service_unavailable' // 502/503 — upstream down
@@ -42,6 +44,8 @@ const PG_CODE_TO_CATEGORY: Record<string, ErrorCategory> = {
   SB001: 'stale_version', // expected_version did not match
   SB002: 'missing_link', // record_link target unresolved in workspace
   SB003: 'validation_error', // invalid block payload shape
+  SB004: 'invalid_transition', // disallowed lifecycle status transition (SCI-001)
+  SB005: 'invalid_properties', // configurable property failed DB validation (SCI-001)
 }
 
 /** Maps a PostgREST error body to a stable category. */
@@ -59,7 +63,9 @@ export function categorisePostgrestError(
     status:
       category === 'stale_version'
         ? 409
-        : category === 'missing_link'
+        : category === 'missing_link' ||
+            category === 'invalid_transition' ||
+            category === 'invalid_properties'
           ? 422
           : status,
     message: body?.message ?? 'Request failed.',

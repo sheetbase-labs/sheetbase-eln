@@ -320,6 +320,13 @@ export const records = api.table(
     // DB check, so new kinds can introduce their own vocabulary without a
     // migration.
     status: text('status').notNull().default('draft'),
+    // SCI-001: configurable typed properties for registry-style record kinds
+    // (sample, reagent, protocol_template). A flat JSONB object keyed by
+    // field_name; validated at the application boundary against the
+    // workspace's active record_field_definitions for the record's kind.
+    properties: jsonb('properties')
+      .notNull()
+      .default(sql`'{}'`),
     // Typed tags array; UI renders as badges.
     tags: text('tags')
       .array()
@@ -359,7 +366,7 @@ export const records = api.table(
     ),
     check(
       'chk_records_kind',
-      sql`${table.kind} IN ('experiment', 'protocol_template', 'report')`,
+      sql`${table.kind} IN ('experiment', 'protocol_template', 'report', 'sample', 'reagent')`,
     ),
     index('idx_records_workspace_id').on(table.workspaceId),
     index('idx_records_project_id').on(table.projectId),
@@ -505,6 +512,69 @@ export const revisions = api.table(
     ),
     index('idx_revisions_record_id').on(table.recordId),
     index('idx_revisions_created_at').on(table.createdAt),
+  ],
+)
+
+/**
+ * record_field_definitions (SCI-001) define the configurable, typed property
+ * schema for a record kind within a workspace. The values live in
+ * records.properties as a flat JSONB object keyed by field_name. Reuses the
+ * Phase 4 scientific type vocabulary (decision 0019) for logical_type, unit
+ * and validation. Workspace-owned and admin-managed (owner-only writes via
+ * RLS); all members read. Retiring a field does not delete historical values.
+ */
+export const recordFieldDefinitions = api.table(
+  'record_field_definitions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    // sample | reagent | protocol_template | future kinds. The record kind
+    // whose properties this definition describes.
+    kind: text('kind').notNull(),
+    // Stable slug; the key in records.properties. Immutable once active rows
+    // reference it (guarded by trigger); rename the label, not the field_name.
+    fieldName: text('field_name').notNull(),
+    label: text('label').notNull(),
+    description: text('description'),
+    displayOrder: integer('display_order').notNull(),
+    // Reuses the scientific_columns type vocabulary (decision 0019).
+    logicalType: text('logical_type').notNull(),
+    nullable: boolean('nullable').notNull().default(true),
+    defaultValue: jsonb('default_value'),
+    unit: jsonb('unit'),
+    validation: jsonb('validation')
+      .notNull()
+      .default(sql`'{}'`),
+    lifecycle: text('lifecycle').notNull().default('active'),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    unique('uq_record_field_definitions_workspace_kind_field').on(
+      table.workspaceId,
+      table.kind,
+      table.fieldName,
+    ),
+    check(
+      'chk_record_field_definitions_kind',
+      sql`${table.kind} IN ('sample', 'reagent', 'protocol_template')`,
+    ),
+    check(
+      'chk_record_field_definitions_type',
+      sql`${table.logicalType} IN ('text','integer','decimal','boolean','date','timestamp','category')`,
+    ),
+    check(
+      'chk_record_field_definitions_lifecycle',
+      sql`${table.lifecycle} IN ('active', 'retired')`,
+    ),
+    index('idx_record_field_definitions_workspace_kind').on(
+      table.workspaceId,
+      table.kind,
+    ),
   ],
 )
 

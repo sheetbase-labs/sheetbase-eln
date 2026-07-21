@@ -71,6 +71,7 @@ const record: NotebookRecord = {
   deletedAt: null,
   createdByUserId: 'u1',
   updatedByUserId: null,
+  properties: {},
 }
 
 const archivedRecord: NotebookRecord = {

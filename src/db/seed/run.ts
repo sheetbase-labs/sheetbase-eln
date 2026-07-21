@@ -10,11 +10,19 @@
  * (identity/workspace/project steps arrive with API-003).
  */
 import { config } from 'dotenv'
+import { eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/node-postgres'
 
 import * as schema from '../schema'
 import {
   DEMO_BLOCK_IDS,
+  DEMO_ARCHIVED_SAMPLE_IDENTIFIER,
+  DEMO_ARCHIVED_SAMPLE_RECORD_ID,
+  DEMO_FIELD_DEFINITION_IDS,
+  DEMO_REAGENT_IDENTIFIER,
+  DEMO_REAGENT_RECORD_ID,
+  DEMO_SAMPLE_IDENTIFIER,
+  DEMO_SAMPLE_RECORD_ID,
   DEMO_VIRUS_STABILITY_PROJECT_ID,
   DEMO_VIRUS_STABILITY_PROJECT_KEY,
   DEMO_VIRUS_STABILITY_PROTOCOL_IDENTIFIER,
@@ -137,6 +145,279 @@ export const demoSteps: Array<SeedStep> = [
         .onConflictDoUpdate({
           target: [schema.projects.workspaceId, schema.projects.key],
           set: { title: 'Lentivector Stability Study' },
+        })
+    },
+  },
+  {
+    name: 'demo field definitions: sample and reagent properties',
+    run: async (db) => {
+      const defs = [
+        {
+          id: DEMO_FIELD_DEFINITION_IDS.sampleConstruct,
+          kind: 'sample' as const,
+          fieldName: 'construct',
+          label: 'Construct',
+          displayOrder: 1,
+          logicalType: 'text' as const,
+          nullable: false,
+        },
+        {
+          id: DEMO_FIELD_DEFINITION_IDS.sampleBatch,
+          kind: 'sample' as const,
+          fieldName: 'batch',
+          label: 'Batch',
+          displayOrder: 2,
+          logicalType: 'text' as const,
+          nullable: false,
+        },
+        {
+          id: DEMO_FIELD_DEFINITION_IDS.sampleConcentration,
+          kind: 'sample' as const,
+          fieldName: 'concentration',
+          label: 'Concentration',
+          displayOrder: 3,
+          logicalType: 'decimal' as const,
+          nullable: true,
+          unit: { symbol: 'copies/mL' },
+        },
+        {
+          id: DEMO_FIELD_DEFINITION_IDS.sampleStorage,
+          kind: 'sample' as const,
+          fieldName: 'storage',
+          label: 'Storage',
+          displayOrder: 4,
+          logicalType: 'category' as const,
+          nullable: true,
+          validation: { enum: ['-80 °C', '-20 °C', '4 °C', 'ambient'] },
+        },
+        {
+          id: DEMO_FIELD_DEFINITION_IDS.reagentSupplier,
+          kind: 'reagent' as const,
+          fieldName: 'supplier',
+          label: 'Supplier',
+          displayOrder: 1,
+          logicalType: 'text' as const,
+          nullable: true,
+        },
+        {
+          id: DEMO_FIELD_DEFINITION_IDS.reagentCatalogNo,
+          kind: 'reagent' as const,
+          fieldName: 'catalog_no',
+          label: 'Catalog No.',
+          displayOrder: 2,
+          logicalType: 'text' as const,
+          nullable: true,
+        },
+        {
+          id: DEMO_FIELD_DEFINITION_IDS.reagentLot,
+          kind: 'reagent' as const,
+          fieldName: 'lot',
+          label: 'Lot',
+          displayOrder: 3,
+          logicalType: 'text' as const,
+          nullable: true,
+        },
+        {
+          id: DEMO_FIELD_DEFINITION_IDS.reagentExpiry,
+          kind: 'reagent' as const,
+          fieldName: 'expiry',
+          label: 'Expiry',
+          displayOrder: 4,
+          logicalType: 'date' as const,
+          nullable: true,
+        },
+        {
+          id: DEMO_FIELD_DEFINITION_IDS.reagentQuantity,
+          kind: 'reagent' as const,
+          fieldName: 'quantity',
+          label: 'Quantity',
+          displayOrder: 5,
+          logicalType: 'decimal' as const,
+          nullable: true,
+        },
+        {
+          id: DEMO_FIELD_DEFINITION_IDS.reagentUnit,
+          kind: 'reagent' as const,
+          fieldName: 'unit',
+          label: 'Unit',
+          displayOrder: 6,
+          logicalType: 'category' as const,
+          nullable: true,
+          validation: { enum: ['mL', 'µL', 'reactions'] },
+        },
+        {
+          id: DEMO_FIELD_DEFINITION_IDS.reagentStorage,
+          kind: 'reagent' as const,
+          fieldName: 'storage',
+          label: 'Storage',
+          displayOrder: 7,
+          logicalType: 'category' as const,
+          nullable: true,
+          validation: { enum: ['-80 °C', '-20 °C', '4 °C', 'ambient'] },
+        },
+      ] as const
+
+      for (const def of defs) {
+        await db
+          .insert(schema.recordFieldDefinitions)
+          .values({
+            id: def.id,
+            workspaceId: FIXTURE_WORKSPACE_ID,
+            kind: def.kind,
+            fieldName: def.fieldName,
+            label: def.label,
+            displayOrder: def.displayOrder,
+            logicalType: def.logicalType,
+            nullable: def.nullable,
+            unit: 'unit' in def ? def.unit : null,
+            validation: 'validation' in def ? def.validation : {},
+            createdByUserId: FIXTURE_USER_ID,
+          })
+          .onConflictDoUpdate({
+            target: [
+              schema.recordFieldDefinitions.workspaceId,
+              schema.recordFieldDefinitions.kind,
+              schema.recordFieldDefinitions.fieldName,
+            ],
+            set: {
+              label: def.label,
+              displayOrder: def.displayOrder,
+              logicalType: def.logicalType,
+              nullable: def.nullable,
+              lifecycle: 'active',
+            },
+          })
+      }
+    },
+  },
+  {
+    name: 'demo sample: LVV-CAR-T drug substance',
+    run: async (db) => {
+      await db
+        .insert(schema.records)
+        .values({
+          id: DEMO_SAMPLE_RECORD_ID,
+          workspaceId: FIXTURE_WORKSPACE_ID,
+          projectId: DEMO_VIRUS_STABILITY_PROJECT_ID,
+          kind: 'sample',
+          identifier: DEMO_SAMPLE_IDENTIFIER,
+          title: 'LVV-CAR-T drug substance',
+          status: 'available',
+          tags: ['LVV-CAR-T', 'drug-substance'],
+          properties: {
+            construct: 'LVV-CAR-T',
+            batch: 'LVV-250601',
+            concentration: 2.31e7,
+            storage: '4 °C',
+          },
+          createdByUserId: FIXTURE_USER_ID,
+        })
+        .onConflictDoUpdate({
+          target: [schema.records.projectId, schema.records.identifier],
+          set: {
+            title: 'LVV-CAR-T drug substance',
+            status: 'available',
+            tags: ['LVV-CAR-T', 'drug-substance'],
+            properties: {
+              construct: 'LVV-CAR-T',
+              batch: 'LVV-250601',
+              concentration: 2.31e7,
+              storage: '4 °C',
+            },
+            deletedAt: null,
+            archivedAt: null,
+          },
+        })
+    },
+  },
+  {
+    name: 'demo archived sample: expired LVV reference lot',
+    run: async (db) => {
+      // Insert (or restore) the archived reference sample, then mark it
+      // archived. The validate_record_properties trigger fires on INSERT and
+      // on UPDATE of kind/properties/workspace_id only, so setting archived_at
+      // does not re-trigger validation.
+      await db
+        .insert(schema.records)
+        .values({
+          id: DEMO_ARCHIVED_SAMPLE_RECORD_ID,
+          workspaceId: FIXTURE_WORKSPACE_ID,
+          projectId: DEMO_VIRUS_STABILITY_PROJECT_ID,
+          kind: 'sample',
+          identifier: DEMO_ARCHIVED_SAMPLE_IDENTIFIER,
+          title: 'LVV reference lot (expired)',
+          status: 'expired',
+          tags: ['LVV-CAR-T', 'reference'],
+          properties: {
+            construct: 'LVV-CAR-T',
+            batch: 'LVV-240118',
+            storage: '-80 °C',
+          },
+          createdByUserId: FIXTURE_USER_ID,
+        })
+        .onConflictDoUpdate({
+          target: [schema.records.projectId, schema.records.identifier],
+          set: {
+            title: 'LVV reference lot (expired)',
+            status: 'expired',
+            tags: ['LVV-CAR-T', 'reference'],
+            properties: {
+              construct: 'LVV-CAR-T',
+              batch: 'LVV-240118',
+              storage: '-80 °C',
+            },
+            deletedAt: null,
+          },
+        })
+      await db
+        .update(schema.records)
+        .set({ archivedAt: new Date('2025-03-01T00:00:00Z') })
+        .where(eq(schema.records.id, DEMO_ARCHIVED_SAMPLE_RECORD_ID))
+    },
+  },
+  {
+    name: 'demo reagent: TaqMan qPCR kit',
+    run: async (db) => {
+      await db
+        .insert(schema.records)
+        .values({
+          id: DEMO_REAGENT_RECORD_ID,
+          workspaceId: FIXTURE_WORKSPACE_ID,
+          projectId: DEMO_VIRUS_STABILITY_PROJECT_ID,
+          kind: 'reagent',
+          identifier: DEMO_REAGENT_IDENTIFIER,
+          title: 'TaqMan qPCR kit',
+          status: 'available',
+          tags: ['qPCR', 'reagent'],
+          properties: {
+            supplier: 'Acme Biosystems',
+            catalog_no: 'TAQ-1000',
+            lot: 'TG-2604',
+            expiry: '2026-12-31',
+            quantity: 200,
+            unit: 'reactions',
+            storage: '-20 °C',
+          },
+          createdByUserId: FIXTURE_USER_ID,
+        })
+        .onConflictDoUpdate({
+          target: [schema.records.projectId, schema.records.identifier],
+          set: {
+            title: 'TaqMan qPCR kit',
+            status: 'available',
+            tags: ['qPCR', 'reagent'],
+            properties: {
+              supplier: 'Acme Biosystems',
+              catalog_no: 'TAQ-1000',
+              lot: 'TG-2604',
+              expiry: '2026-12-31',
+              quantity: 200,
+              unit: 'reactions',
+              storage: '-20 °C',
+            },
+            deletedAt: null,
+            archivedAt: null,
+          },
         })
     },
   },
@@ -420,6 +701,58 @@ export const demoSteps: Array<SeedStep> = [
             targetKind: 'protocol_template',
           },
         })
+    },
+  },
+  {
+    name: 'demo record links: experiment -> sample, reagent, archived sample',
+    run: async (db) => {
+      const links = [
+        {
+          targetRecordId: DEMO_SAMPLE_RECORD_ID,
+          targetKind: 'sample' as const,
+          targetIdentifier: DEMO_SAMPLE_IDENTIFIER,
+          linkType: 'sample' as const,
+        },
+        {
+          targetRecordId: DEMO_REAGENT_RECORD_ID,
+          targetKind: 'reagent' as const,
+          targetIdentifier: DEMO_REAGENT_IDENTIFIER,
+          linkType: 'reagent' as const,
+        },
+        // An active link to an archived target exercises the honest
+        // archived-reference rendering: target_identifier is preserved so the
+        // link resolves even though the sample is archived.
+        {
+          targetRecordId: DEMO_ARCHIVED_SAMPLE_RECORD_ID,
+          targetKind: 'sample' as const,
+          targetIdentifier: DEMO_ARCHIVED_SAMPLE_IDENTIFIER,
+          linkType: 'sample' as const,
+        },
+      ] as const
+
+      for (const link of links) {
+        await db
+          .insert(schema.recordLinks)
+          .values({
+            sourceRecordId: DEMO_VIRUS_STABILITY_RECORD_ID,
+            targetRecordId: link.targetRecordId,
+            targetKind: link.targetKind,
+            targetIdentifier: link.targetIdentifier,
+            linkType: link.linkType,
+            createdByUserId: FIXTURE_USER_ID,
+          })
+          .onConflictDoUpdate({
+            target: [
+              schema.recordLinks.sourceRecordId,
+              schema.recordLinks.targetIdentifier,
+              schema.recordLinks.linkType,
+            ],
+            set: {
+              targetRecordId: link.targetRecordId,
+              targetKind: link.targetKind,
+            },
+          })
+      }
     },
   },
 ]

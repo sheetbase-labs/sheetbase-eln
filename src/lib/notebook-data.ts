@@ -47,6 +47,7 @@ export interface RecordWire {
   deleted_at: string | null
   created_by_user_id: string
   updated_by_user_id: string | null
+  properties: Record<string, unknown> | null
 }
 
 export interface BlockWire {
@@ -100,6 +101,7 @@ export interface NotebookRecord {
   deletedAt: string | null
   createdByUserId: string
   updatedByUserId: string | null
+  properties: Record<string, unknown>
 }
 
 export interface NotebookBlock {
@@ -153,6 +155,7 @@ export function toRecord(row: RecordWire): NotebookRecord {
     deletedAt: row.deleted_at,
     createdByUserId: row.created_by_user_id,
     updatedByUserId: row.updated_by_user_id,
+    properties: row.properties ?? {},
   }
 }
 

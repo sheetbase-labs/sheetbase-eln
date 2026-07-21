@@ -114,6 +114,8 @@ const PROJECT_DOMAIN_RESOURCES = new Set([
   'blocks',
   'record_links',
   'revisions',
+  // SCI-001: configurable property schema for scientific record kinds.
+  'record_field_definitions',
 ])
 const PROJECT_DOMAIN_RPCS = new Set([
   'create_project',
@@ -126,6 +128,8 @@ const PROJECT_DOMAIN_RPCS = new Set([
   'create_record_link',
   'insert_block',
   'delete_block',
+  // SCI-001: kind-specific lifecycle transitions (sample/reagent/protocol).
+  'transition_record_status',
 ])
 
 /**

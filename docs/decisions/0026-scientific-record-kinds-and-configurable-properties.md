@@ -95,12 +95,25 @@ slug, unique per workspace+kind), `label`, `description`, `display_order`,
 on `(workspace_id, kind, field_name)`.
 
 `records.properties` is a flat JSONB object keyed by `field_name`. It is
-validated at the application boundary against the workspace's active field
-definitions for the record's kind, exactly as block `payload` is validated
-against `(type, payload_schema_version)`. The database does not enforce the
-property schema by check constraint (the set of fields is
-workspace-configurable and evolves without migrations); it enforces
-workspace isolation and kind membership via RLS and the widened check.
+validated against the workspace's active field definitions for the record's
+kind. Validation is layered so neither boundary is the sole enforcement
+point:
+
+- The **application boundary** (`src/lib/scientific-records.ts`) gives the
+  UI clear, typed errors and drives the picker/inspector, exactly as block
+  `payload` is validated against `(type, payload_schema_version)`.
+- The **database boundary** is authoritative: a `SECURITY INVOKER`
+  `validate_record_properties` trigger on `records` (INSERT, and UPDATE of
+  `kind`/`properties`/`workspace_id`) checks every active field definition
+  for the record's kind — non-nullable presence, `logical_type` type-checks,
+  and `category` enum membership — so direct PostgREST CRUD cannot bypass
+  validation. It raises `SB005 invalid_properties` (mapped to HTTP 422).
+
+The schema is not enforced by a hard-coded check constraint (the set of
+fields is workspace-configurable and evolves without migrations); the
+trigger reads the configurable `record_field_definitions` at validate time.
+The database also enforces workspace isolation and kind membership via RLS
+and the widened check.
 Retiring a field definition does not delete historical values: the value
 remains in `properties` and the inspector renders it with its last known
 label, mirroring how retired scientific columns remain readable.
@@ -114,11 +127,11 @@ demo records carry realistic fields without runtime configuration.
 Identifiers remain project-scoped, type-prefixed, immutable and assigned by
 `create_record`:
 
-| Kind               | Prefix | Example                     |
-| ------------------ | ------ | --------------------------- |
-| sample             | `SMP`  | `SMP-2025-0001`             |
-| reagent            | `RGT`  | `RGT-2025-0001`             |
-| protocol_template  | `PRT`  | `PRT-2025-0001` (existing)  |
+| Kind              | Prefix | Example                    |
+| ----------------- | ------ | -------------------------- |
+| sample            | `SMP`  | `SMP-2025-0001`            |
+| reagent           | `RGT`  | `RGT-2025-0001`            |
+| protocol_template | `PRT`  | `PRT-2025-0001` (existing) |
 
 The `create_record` RPC's kind-to-prefix CASE is widened for `sample` and
 `reagent`. The per-(project, prefix, year) sequence is unchanged, so sample
@@ -138,9 +151,20 @@ Two layers, kept distinct as in 0015 §6:
 - **Status transitions** use a new `transition_record_status` RPC. Each kind
   has a transition matrix enforced at the database so a stale or hostile
   client cannot move a record to an incoherent state. Initial matrices:
-  - sample: `available` to `in_use`/`depleted`; `in_use` to `available`/`depleted`.
-  - reagent: `available` to `in_use`/`depleted`/`quarantined`; `in_use` to
-    `available`/`depleted`/`quarantined`; `quarantined` to `available`.
+  The vocabularies match the concept-system `StatusBadge` domains (UI-005)
+  and the Samples/Reagents registry mockups; they are intentionally richer
+  than a minimal available/in_use/depleted lifecycle so the UI can render
+  realistic registry states. Initial matrices:
+  - sample (`available`, `reserved`, `consumed`, `expired`, `quarantined`,
+    `frozen`): `available` to `reserved`/`consumed`/`quarantined`; `reserved`
+    to `available`/`consumed`; `quarantined` to `available`. `expired` and
+    `frozen` are terminal/external inventory states — set via direct PATCH,
+    not driven by the transition RPC.
+  - reagent (`available`, `reserved`, `consumed`, `expired`, `quarantined`,
+    `low_stock`): `available` to `reserved`/`consumed`/`quarantined`/`expired`;
+    `reserved` to `available`/`consumed`; `quarantined` to `available`.
+    `low_stock` is a display-derived inventory state — set via direct PATCH,
+    not a transition target.
   - protocol_template: `draft` to `active`/`under_review`; `under_review` to
     `active`/`draft`; `active` to `draft`.
   - experiment/report: unchanged (free-form status, no transition RPC

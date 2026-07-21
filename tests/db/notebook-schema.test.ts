@@ -398,7 +398,8 @@ describe('Virus Stability demo fixtures', () => {
       `SELECT count(*)::text AS n FROM api.record_links
        WHERE source_record_id = '${DEMO_VIRUS_STABILITY_RECORD_ID}'`,
     )
-    expect(Number(links[0]?.n)).toBe(1)
+    // 1 protocol link + 3 SCI-001 links (sample, reagent, archived sample).
+    expect(Number(links[0]?.n)).toBe(4)
 
     const { rows: demoRec } = await migrator.query<{ title: string }>(
       `SELECT title FROM api.records WHERE id = '${DEMO_VIRUS_STABILITY_RECORD_ID}'`,

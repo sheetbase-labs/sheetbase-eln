@@ -141,6 +141,7 @@ describe('RecordListSection', () => {
             deletedAt: null,
             createdByUserId: 'u1',
             updatedByUserId: null,
+            properties: {},
           },
         ]}
         isLoading={false}

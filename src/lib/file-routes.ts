@@ -20,7 +20,6 @@ import { env } from '#/env.server'
 
 import {
   fileErrorResponse,
-  postgrestInsert,
   postgrestPatch,
   postgrestRpc,
   postgrestSelect,
@@ -28,10 +27,11 @@ import {
 } from '#/lib/file-auth'
 import type { FileAuthDeps } from '#/lib/file-auth'
 
-interface CreateRecordRow {
-  id: string
+interface CreateFileUploadRow {
+  record_id: string
   identifier: string
-  kind: string
+  file_object_id: string
+  storage_key: string
 }
 
 interface FileObjectWire {
@@ -113,68 +113,49 @@ export async function handleUploadAuthorize(
   }
   const { displayName, mediaType, byteSize, checksum } = checked.value
 
-  const recordRes = await postgrestRpc<CreateRecordRow>(
-    'create_record',
+  const fileObjectId = newFileObjectId()
+  const storageKey = generateStorageKey(context.workspaceId, fileObjectId)
+
+  // Single transactional RPC: create_record + file_objects insert are atomic
+  // so a metadata failure cannot leave an orphan file record. RLS, change
+  // events and audit attribution fire inside the transaction.
+  const uploadRes = await postgrestRpc<CreateFileUploadRow>(
+    'create_file_upload',
     {
       p_project_id: payload.projectId,
-      p_kind: 'file',
-      p_title: displayName,
-      p_status: 'active',
+      p_display_name: displayName,
+      p_media_type: mediaType,
+      p_byte_size: byteSize,
+      p_storage_key: storageKey,
+      p_checksum: checksum,
+      p_storage_backend: env.FILE_STORAGE_BACKEND,
+      p_file_object_id: fileObjectId,
     },
     context.token,
   )
-  if (recordRes.status >= 400) {
+  if (uploadRes.status >= 400) {
     return fileErrorResponse(
-      recordRes.status,
+      uploadRes.status,
       'record_create_failed',
       'Could not create the file record.',
     )
   }
-  const recordRow = asRow<CreateRecordRow>(recordRes.body)
-  if (!recordRow || !recordRow.id) {
+  const uploadRow = asRow<CreateFileUploadRow>(uploadRes.body)
+  if (!uploadRow || !uploadRow.record_id) {
     return fileErrorResponse(
       502,
       'record_create_failed',
-      'create_record returned no row.',
-    )
-  }
-
-  const fileObjectId = newFileObjectId()
-  const storageKey = generateStorageKey(context.workspaceId, fileObjectId)
-  const insertRes = await postgrestInsert(
-    'file_objects',
-    {
-      id: fileObjectId,
-      workspace_id: context.workspaceId,
-      record_id: recordRow.id,
-      storage_key: storageKey,
-      display_name: displayName,
-      media_type: mediaType,
-      byte_size: byteSize,
-      checksum: checksum,
-      checksum_algorithm: 'sha256',
-      status: 'active',
-      storage_backend: env.FILE_STORAGE_BACKEND,
-      created_by_user_id: context.userId,
-      updated_by_user_id: context.userId,
-    },
-    context.token,
-  )
-  if (insertRes.status >= 400) {
-    return fileErrorResponse(
-      insertRes.status,
-      'file_object_create_failed',
-      'Could not create file storage metadata.',
+      'create_file_upload returned no row.',
     )
   }
 
   return new Response(
     JSON.stringify({
-      fileRecordId: recordRow.id,
-      fileIdentifier: recordRow.identifier,
+      fileRecordId: uploadRow.record_id,
+      fileIdentifier: uploadRow.identifier,
       fileObjectId,
       storageKey,
-      uploadUrl: `/api/files/${recordRow.id}/upload`,
+      uploadUrl: `/api/files/${uploadRow.record_id}/upload`,
       maxBytes: FILE_MAX_BYTES,
     }),
     { status: 201, headers: { 'content-type': 'application/json' } },

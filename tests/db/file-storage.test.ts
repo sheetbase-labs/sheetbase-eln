@@ -526,3 +526,66 @@ describe('SCI-003 storage key, size, type and state constraints', () => {
     ).rejects.toMatchObject({ code: '23505' })
   })
 })
+
+describe('SCI-003 create_file_upload transactional RPC', () => {
+  it('atomically creates the file record and storage metadata', async () => {
+    const a = await asAuthenticated(OWNER_A, WS_A)
+    const fileObjectId = '00000000-0000-4000-8000-000000000180'
+    const storageKey = key(WS_A, '00000000-0000-4000-8000-000000000180', S1)
+    // Use a distinct record-id-less storage key; the RPC generates the record.
+    const { rows } = await a.query(
+      `SELECT * FROM api.create_file_upload(
+        $1::uuid, 'rpc.csv', 'text/csv', 256, $2, NULL, 'local', $3::uuid)`,
+      [PROJ_A, storageKey, fileObjectId],
+    )
+    expect(rows).toHaveLength(1)
+    expect(rows[0].record_id).toBeTruthy()
+    expect(rows[0].identifier).toMatch(/^FILE-\d{4}-\d{4}$/)
+    expect(rows[0].file_object_id).toBe(fileObjectId)
+    expect(rows[0].storage_key).toBe(storageKey)
+
+    // Both the record and the metadata row exist in the workspace.
+    const { rows: fo } = await a.query(
+      `SELECT status, display_name, byte_size::text AS byte_size
+         FROM api.file_objects WHERE id = $1`,
+      [fileObjectId],
+    )
+    expect(fo).toHaveLength(1)
+    expect(fo[0].status).toBe('active')
+    expect(fo[0].display_name).toBe('rpc.csv')
+    expect(fo[0].byte_size).toBe('256')
+  })
+
+  it('rolls back the file record when metadata insert fails (no orphan)', async () => {
+    const a = await asAuthenticated(OWNER_A, WS_A)
+    const fileObjectId = '00000000-0000-4000-8000-000000000181'
+    // An invalid storage key triggers a CHECK violation on file_objects; the
+    // whole transaction (including the create_record insert) must roll back.
+    await expect(
+      a.query(
+        `SELECT * FROM api.create_file_upload(
+          $1::uuid, 'orphan.csv', 'text/csv', 256, 'not-a-valid-key',
+          NULL, 'local', $2::uuid)`,
+        [PROJ_A, fileObjectId],
+      ),
+    ).rejects.toMatchObject({ code: CHECK_VIOLATION })
+
+    // No file_objects row.
+    const { rows: fo } = await a.query(
+      `SELECT id FROM api.file_objects WHERE id = $1`,
+      [fileObjectId],
+    )
+    expect(fo).toHaveLength(0)
+
+    // No orphan file record with the title that create_record would have used.
+    // create_record uses the identifier as the title fallback when the title is
+    // empty; here the title is 'orphan.csv', so verify no record has that title
+    // in this project.
+    const { rows: recs } = await a.query(
+      `SELECT id FROM api.records
+        WHERE project_id = $1 AND title = 'orphan.csv'`,
+      [PROJ_A],
+    )
+    expect(recs).toHaveLength(0)
+  })
+})

@@ -183,6 +183,13 @@
       "when": 1784634000000,
       "tag": "0025_sci_003_file_storage",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1784638000000,
+      "tag": "0026_sci_003_create_file_upload_rpc",
+      "breakpoints": true
     }
   ]
 }

@@ -71,27 +71,30 @@ untrusted metadata (sanitised for display, never executed or path-joined).
 
 ### 2. Initial object-storage service and local-development substitute
 
-**Production:** any S3-compatible object storage (AWS S3, Cloudflare R2, MinIO,
-etc.) addressed through a single `ObjectStorage` interface. Uploads and
-downloads use presigned URLs with bounded conditions
-(`Content-Length-Range: 0,104857600` and an allowed `Content-Type`). The
-application server never copies unbounded file bytes into its own memory; it
-mints short-lived presigned URLs and finalizes metadata after the object is
-written.
-
-**Local-development substitute (and the orb default):** a filesystem-backed
-implementation of the same `ObjectStorage` interface rooted at
-`FILE_STORAGE_DIR` (defaults to `./.storage/objects`). It needs no external
-cloud credentials and works inside this orb. Upload and download are
+**Initial service (implemented and tested):** a filesystem-backed
+`ObjectStorage` implementation rooted at `FILE_STORAGE_DIR` (defaults to
+`./.storage/objects`). This is the initial object-storage service for **both**
+local development and initial single-node production deployments — it needs no
+external cloud credentials and works inside this orb. Upload and download are
 authenticated, streamed, size-bounded server routes — bytes are piped between
 the client and the filesystem in fixed-size chunks and the running byte count
 is checked against the cap on every chunk, so an oversized upload is aborted
 before the file is materialised. The whole file is never held in application
 memory as a single buffer.
 
-Both backends implement the same interface, so the only configuration
-difference is `FILE_STORAGE_BACKEND=local|s3` plus the S3 credentials when
-production is used. The storage key is backend-independent.
+**Future production target (documented, not yet wired):** any S3-compatible
+object storage (AWS S3, Cloudflare R2, MinIO, etc.) addressed through the same
+`ObjectStorage` interface. Uploads and downloads will use presigned URLs with
+bounded conditions (`Content-Length-Range: 0,104857600` and an allowed
+`Content-Type`); the application server will mint short-lived presigned URLs
+and finalize metadata after the object is written, never copying unbounded file
+bytes into its own memory. The `storage_backend` column already accepts `s3`,
+and requesting `FILE_STORAGE_BACKEND=s3` fails fast with a clear error rather
+than silently falling back to the local backend. Wiring the S3 implementation is
+a later ticket; the interface contract is stable so the switch is
+configuration-plus-implementation, not a schema change.
+
+The storage key is backend-independent and never derived from a user filename.
 
 ### 3. Upload is authenticated, bounded, and never proxies through `/api/db`
 
@@ -99,13 +102,16 @@ Upload is a two-phase, authenticated flow:
 
 1. **Authorize** (`POST /api/files/upload-authorize`, session-authenticated):
    the client sends proposed `displayName`, `mediaType`, `byteSize`, and
-   optional `checksum`. The server validates the type/size policy, creates the
-   `file` record (via the `create_record` RPC, kind `file`) and the
-   `file_objects` row (status `active`, storage key generated, byte size and
-   checksum recorded as claimed), and returns `{ fileId, storageKey,
-uploadUrl }`. For the local backend `uploadUrl` is the same-origin
-   `/api/files/{fileId}/upload`; for S3 it is a presigned PUT URL with
-   bounded conditions.
+   optional `checksum`. The server validates the type/size policy, generates a
+   storage key and file-object UUID, then calls the transactional
+   `create_file_upload` RPC which atomically creates the `file` record (kind
+   `file`, via `create_record`) and the `file_objects` row (status `active`,
+   storage key, byte size and checksum recorded as claimed). A metadata
+   failure rolls back the record insert — no orphan file records. It returns
+   `{ fileRecordId, fileIdentifier, fileObjectId, storageKey, uploadUrl,
+maxBytes }`. For the local backend `uploadUrl` is the same-origin
+   `/api/files/{fileRecordId}/upload`; for S3 it will be a presigned PUT URL
+   with bounded conditions.
 2. **Write bytes** (`PUT /api/files/{fileId}/upload` for local, or the
    presigned URL for S3): the client streams the bytes. The local endpoint
    streams to disk in chunks, accumulates the sha256, and aborts with `413`
@@ -231,7 +237,7 @@ the only boundary.
 | ------------------------------------ | --------- | ---------------------------------------------- |
 | `/api/db/records?kind=eq.file`       | GET       | list file records (metadata)                   |
 | `/api/db/file_objects`               | GET/PATCH | file storage metadata CRUD                     |
-| `/api/db/rpc/create_record`          | POST      | create the `file` record (kind `file`)         |
+| `/api/db/rpc/create_file_upload`     | POST      | atomic file record + metadata creation         |
 | `/api/db/rpc/transition_file_status` | POST      | quarantine/delete/restore                      |
 | `/api/db/rpc/create_record_link`     | POST      | link a record to a file                        |
 | `/api/files/upload-authorize`        | POST      | authorize + create metadata, return upload URL |
@@ -245,10 +251,10 @@ POST /api/files/upload-authorize
 Content-Type: application/json
 Cookie: <session>
 
-{"displayName":"qPCR_Run07.xlsx","mediaType":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","byteSize":13219840,"checksum":"<sha256 hex>"}
+{"projectId":"<uuid>","displayName":"qPCR_Run07.xlsx","mediaType":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","byteSize":13219840,"checksum":"<sha256 hex>"}
 
-200 OK
-{"fileId":"<uuid>","storageKey":"<ws>/<obj>/<rand>","uploadUrl":"/api/files/<uuid>/upload"}
+201 Created
+{"fileRecordId":"<uuid>","fileIdentifier":"FILE-2025-0001","fileObjectId":"<uuid>","storageKey":"<ws>/<obj>/<rand>","uploadUrl":"/api/files/<uuid>/upload","maxBytes":104857600}
 ```
 
 ```http
@@ -266,7 +272,7 @@ POST /api/db/rpc/transition_file_status
 Content-Type: application/json
 Authorization: Bearer <jwt>
 
-{"p_file_id":"<uuid>","p_target_status":"quarantined","p_expected_version":1,"p_reason":"suspected corruption"}
+{"args":{"p_file_id":"<uuid>","p_target_status":"quarantined","p_expected_version":1,"p_reason":"suspected corruption"}}
 ```
 
 ## Consequences
@@ -281,5 +287,10 @@ Authorization: Bearer <jwt>
   versioned-file revisions belong to later tickets (SCI-004 onward). SCI-003
   delivers the abstraction and the honest states only.
 - S3 production wiring is structured but not exercised by tests in this
-  ticket; the local backend is the tested path. The interface is identical, so
-  switching is configuration.
+- S3-compatible production wiring is a documented future target, not yet
+  implemented. The initial object-storage service is the local filesystem
+  backend for both development and initial single-node production. The
+  `ObjectStorage` interface and `storage_backend` column are stable, so adding
+  the S3 implementation is configuration-plus-implementation, not a schema
+  change; requesting `FILE_STORAGE_BACKEND=s3` fails fast until that ticket
+  lands.

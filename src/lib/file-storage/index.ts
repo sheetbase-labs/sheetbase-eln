@@ -189,11 +189,24 @@ export class LocalFileStorage implements ObjectStorage {
 
 let cached: ObjectStorage | null = null
 
-/** Returns the configured backend (local by default). */
+/**
+ * Returns the configured backend. The initial object-storage service is the
+ * filesystem-backed implementation for both local development and initial
+ * single-node production; S3-compatible storage is a documented future target
+ * (ADR 0028) whose interface contract is already in place but is not yet
+ * wired. Requesting `s3` fails fast with a clear error rather than silently
+ * falling back to the local backend.
+ */
 export function getObjectStorage(): ObjectStorage {
   if (cached) return cached
-  // S3 backend is structured but not exercised in this ticket; the local
-  // backend is the tested path. Switching is configuration-only.
+  const backend = env.FILE_STORAGE_BACKEND
+  if (backend === 's3') {
+    throw new Error(
+      'FILE_STORAGE_BACKEND=s3 is not yet implemented. The initial ' +
+        'object-storage service is the local filesystem backend (ADR 0028). ' +
+        'Set FILE_STORAGE_BACKEND=local or leave it unset.',
+    )
+  }
   cached = new LocalFileStorage()
   return cached
 }

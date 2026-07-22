@@ -29,6 +29,7 @@ import {
   DEMO_REAGENT_RECORD_ID,
   DEMO_SAMPLE_IDENTIFIER,
   DEMO_SAMPLE_RECORD_ID,
+  DEMO_TEMPLATE_IDS,
   DEMO_VIRUS_STABILITY_PROJECT_ID,
   DEMO_VIRUS_STABILITY_PROJECT_KEY,
   DEMO_VIRUS_STABILITY_PROTOCOL_IDENTIFIER,
@@ -1386,6 +1387,438 @@ export const demoSteps: Array<SeedStep> = [
         .onConflictDoUpdate({
           target: schema.blocks.id,
           set: { type: 'plate_map', payload, order: 24 },
+        })
+    },
+  },
+  // -------------------------------------------------------------------------
+  // SCI-006: template fixtures. A validated notebook template, a draft
+  // notebook template, an archived protocol template, and a record
+  // instantiated from the validated template with a source-template link.
+  // -------------------------------------------------------------------------
+  {
+    name: 'demo SCI-006 notebook template: Stability Study (ICH)',
+    run: async (db) => {
+      const blocks = [
+        {
+          id: DEMO_TEMPLATE_IDS.notebookTemplateBlock1,
+          type: 'rich_text',
+          payload: {
+            doc: {
+              type: 'doc',
+              content: [
+                {
+                  type: 'heading',
+                  attrs: { level: 2 },
+                  content: [{ type: 'text', text: 'Objective' }],
+                },
+                {
+                  type: 'paragraph',
+                  content: [
+                    {
+                      type: 'text',
+                      text: 'Evaluate the stability of the drug substance under ICH-accelerated conditions (40 °C / 75% RH) over 6 months.',
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+          order: 1,
+        },
+        {
+          id: DEMO_TEMPLATE_IDS.notebookTemplateBlock2,
+          type: 'checklist',
+          payload: {
+            items: [
+              {
+                text: 'Prepare stability chambers at 40 °C / 75% RH',
+                checked: false,
+              },
+              {
+                text: 'Assign time points: T=0, 1, 2, 3, 6 months',
+                checked: false,
+              },
+              {
+                text: 'Define acceptance criteria (potency ≥ 90%, impurities ≤ 5%)',
+                checked: false,
+              },
+            ],
+          },
+          order: 2,
+        },
+        {
+          id: DEMO_TEMPLATE_IDS.notebookTemplateBlock3,
+          type: 'callout',
+          payload: {
+            body: 'Follow ICH Q1A(R2) guidelines for accelerated stability testing.',
+            tone: 'info',
+          },
+          order: 3,
+        },
+      ]
+      await db
+        .insert(schema.records)
+        .values({
+          id: DEMO_TEMPLATE_IDS.notebookTemplateValidated,
+          workspaceId: FIXTURE_WORKSPACE_ID,
+          projectId: DEMO_VIRUS_STABILITY_PROJECT_ID,
+          kind: 'notebook_template',
+          identifier: DEMO_TEMPLATE_IDS.notebookTemplateValidatedIdentifier,
+          title: 'Stability Study (ICH)',
+          status: 'validated',
+          createdByUserId: FIXTURE_USER_ID,
+        })
+        .onConflictDoUpdate({
+          target: schema.records.id,
+          set: {
+            title: 'Stability Study (ICH)',
+            status: 'validated',
+            archivedAt: null,
+            deletedAt: null,
+          },
+        })
+      for (const block of blocks) {
+        await db
+          .insert(schema.blocks)
+          .values({
+            id: block.id,
+            recordId: DEMO_TEMPLATE_IDS.notebookTemplateValidated,
+            type: block.type,
+            payload: block.payload,
+            order: block.order,
+            createdByUserId: FIXTURE_USER_ID,
+          })
+          .onConflictDoUpdate({
+            target: schema.blocks.id,
+            set: {
+              type: block.type,
+              payload: block.payload,
+              order: block.order,
+            },
+          })
+      }
+    },
+  },
+  {
+    name: 'demo SCI-006 draft notebook template: Cell Viability Assay',
+    run: async (db) => {
+      await db
+        .insert(schema.records)
+        .values({
+          id: DEMO_TEMPLATE_IDS.notebookTemplateDraft,
+          workspaceId: FIXTURE_WORKSPACE_ID,
+          projectId: DEMO_VIRUS_STABILITY_PROJECT_ID,
+          kind: 'notebook_template',
+          identifier: DEMO_TEMPLATE_IDS.notebookTemplateDraftIdentifier,
+          title: 'Cell Viability Assay',
+          status: 'draft',
+          createdByUserId: FIXTURE_USER_ID,
+        })
+        .onConflictDoUpdate({
+          target: schema.records.id,
+          set: {
+            title: 'Cell Viability Assay',
+            status: 'draft',
+            archivedAt: null,
+            deletedAt: null,
+          },
+        })
+      await db
+        .insert(schema.blocks)
+        .values({
+          id: DEMO_TEMPLATE_IDS.notebookTemplateDraftBlock1,
+          recordId: DEMO_TEMPLATE_IDS.notebookTemplateDraft,
+          type: 'rich_text',
+          payload: {
+            doc: {
+              type: 'doc',
+              content: [
+                {
+                  type: 'heading',
+                  attrs: { level: 2 },
+                  content: [{ type: 'text', text: 'Overview' }],
+                },
+                {
+                  type: 'paragraph',
+                  content: [
+                    {
+                      type: 'text',
+                      text: 'Draft template for measuring cell viability using MTT assay. Work in progress.',
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+          order: 1,
+          createdByUserId: FIXTURE_USER_ID,
+        })
+        .onConflictDoUpdate({
+          target: schema.blocks.id,
+          set: {
+            type: 'rich_text',
+            payload: {
+              doc: {
+                type: 'doc',
+                content: [
+                  {
+                    type: 'heading',
+                    attrs: { level: 2 },
+                    content: [{ type: 'text', text: 'Overview' }],
+                  },
+                  {
+                    type: 'paragraph',
+                    content: [
+                      {
+                        type: 'text',
+                        text: 'Draft template for measuring cell viability using MTT assay. Work in progress.',
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+            order: 1,
+          },
+        })
+    },
+  },
+  {
+    name: 'demo SCI-006 archived protocol template: ELISA Protocol',
+    run: async (db) => {
+      await db
+        .insert(schema.records)
+        .values({
+          id: DEMO_TEMPLATE_IDS.protocolTemplateArchived,
+          workspaceId: FIXTURE_WORKSPACE_ID,
+          projectId: DEMO_VIRUS_STABILITY_PROJECT_ID,
+          kind: 'protocol_template',
+          identifier: DEMO_TEMPLATE_IDS.protocolTemplateArchivedIdentifier,
+          title: 'ELISA Protocol (Archived)',
+          status: 'active',
+          properties: { version: '1.0' },
+          archivedAt: new Date('2025-06-01T00:00:00Z'),
+          createdByUserId: FIXTURE_USER_ID,
+        })
+        .onConflictDoUpdate({
+          target: schema.records.id,
+          set: {
+            title: 'ELISA Protocol (Archived)',
+            status: 'active',
+            properties: { version: '1.0' },
+            archivedAt: new Date('2025-06-01T00:00:00Z'),
+            deletedAt: null,
+          },
+        })
+      await db
+        .insert(schema.blocks)
+        .values({
+          id: DEMO_TEMPLATE_IDS.protocolTemplateArchivedBlock1,
+          recordId: DEMO_TEMPLATE_IDS.protocolTemplateArchived,
+          type: 'procedure_step',
+          payload: {
+            text: 'Coat plate with capture antibody overnight at 4 °C.',
+            stepNumber: 1,
+          },
+          order: 1,
+          createdByUserId: FIXTURE_USER_ID,
+        })
+        .onConflictDoUpdate({
+          target: schema.blocks.id,
+          set: {
+            type: 'procedure_step',
+            payload: {
+              text: 'Coat plate with capture antibody overnight at 4 °C.',
+              stepNumber: 1,
+            },
+            order: 1,
+          },
+        })
+    },
+  },
+  {
+    name: 'demo SCI-006 instantiated record from template with source link',
+    run: async (db) => {
+      // Create the instantiated experiment record
+      await db
+        .insert(schema.records)
+        .values({
+          id: DEMO_TEMPLATE_IDS.instantiatedRecord,
+          workspaceId: FIXTURE_WORKSPACE_ID,
+          projectId: DEMO_VIRUS_STABILITY_PROJECT_ID,
+          kind: 'experiment',
+          identifier: DEMO_TEMPLATE_IDS.instantiatedRecordIdentifier,
+          title: 'Stability Study — Batch 2025-001',
+          status: 'draft',
+          createdByUserId: FIXTURE_USER_ID,
+        })
+        .onConflictDoUpdate({
+          target: schema.records.id,
+          set: {
+            title: 'Stability Study — Batch 2025-001',
+            status: 'draft',
+            archivedAt: null,
+            deletedAt: null,
+          },
+        })
+
+      // Deep-copied blocks from the template (matching the template's blocks)
+      const copiedBlocks = [
+        {
+          id: DEMO_TEMPLATE_IDS.instantiatedBlock1,
+          type: 'rich_text' as const,
+          payload: {
+            doc: {
+              type: 'doc',
+              content: [
+                {
+                  type: 'heading',
+                  attrs: { level: 2 },
+                  content: [{ type: 'text', text: 'Objective' }],
+                },
+                {
+                  type: 'paragraph',
+                  content: [
+                    {
+                      type: 'text',
+                      text: 'Evaluate the stability of the drug substance under ICH-accelerated conditions (40 °C / 75% RH) over 6 months.',
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+          order: 1,
+        },
+        {
+          id: DEMO_TEMPLATE_IDS.instantiatedBlock2,
+          type: 'checklist' as const,
+          payload: {
+            items: [
+              {
+                text: 'Prepare stability chambers at 40 °C / 75% RH',
+                checked: false,
+              },
+              {
+                text: 'Assign time points: T=0, 1, 2, 3, 6 months',
+                checked: false,
+              },
+              {
+                text: 'Define acceptance criteria (potency ≥ 90%, impurities ≤ 5%)',
+                checked: false,
+              },
+            ],
+          },
+          order: 2,
+        },
+        {
+          id: DEMO_TEMPLATE_IDS.instantiatedBlock3,
+          type: 'callout' as const,
+          payload: {
+            body: 'Follow ICH Q1A(R2) guidelines for accelerated stability testing.',
+            tone: 'info',
+          },
+          order: 3,
+        },
+      ]
+      for (const block of copiedBlocks) {
+        await db
+          .insert(schema.blocks)
+          .values({
+            id: block.id,
+            recordId: DEMO_TEMPLATE_IDS.instantiatedRecord,
+            type: block.type,
+            payload: block.payload,
+            order: block.order,
+            createdByUserId: FIXTURE_USER_ID,
+          })
+          .onConflictDoUpdate({
+            target: schema.blocks.id,
+            set: {
+              type: block.type,
+              payload: block.payload,
+              order: block.order,
+            },
+          })
+      }
+
+      // Immutable revision of the template at instantiation time
+      await db
+        .insert(schema.revisions)
+        .values({
+          id: DEMO_TEMPLATE_IDS.templateRevision,
+          recordId: DEMO_TEMPLATE_IDS.notebookTemplateValidated,
+          structureVersion: 1,
+          metadataVersion: 1,
+          metadataSnapshot: {
+            id: DEMO_TEMPLATE_IDS.notebookTemplateValidated,
+            identifier: DEMO_TEMPLATE_IDS.notebookTemplateValidatedIdentifier,
+            title: 'Stability Study (ICH)',
+            status: 'validated',
+            properties: {},
+            tags: [],
+            metadataVersion: 1,
+            kind: 'notebook_template',
+          },
+          blockSnapshot: [
+            {
+              id: DEMO_TEMPLATE_IDS.notebookTemplateBlock1,
+              type: 'rich_text',
+              payload: copiedBlocks[0].payload,
+              payload_schema_version: 1,
+              order: 1,
+              version: 1,
+            },
+            {
+              id: DEMO_TEMPLATE_IDS.notebookTemplateBlock2,
+              type: 'checklist',
+              payload: copiedBlocks[1].payload,
+              payload_schema_version: 1,
+              order: 2,
+              version: 1,
+            },
+            {
+              id: DEMO_TEMPLATE_IDS.notebookTemplateBlock3,
+              type: 'callout',
+              payload: copiedBlocks[2].payload,
+              payload_schema_version: 1,
+              order: 3,
+              version: 1,
+            },
+          ],
+          reason: 'validate',
+          createdByUserId: FIXTURE_USER_ID,
+        })
+        .onConflictDoNothing({ target: schema.revisions.id })
+
+      // Source-template link with revision provenance
+      await db
+        .insert(schema.recordLinks)
+        .values({
+          id: DEMO_TEMPLATE_IDS.templateLink,
+          sourceRecordId: DEMO_TEMPLATE_IDS.instantiatedRecord,
+          targetRecordId: DEMO_TEMPLATE_IDS.notebookTemplateValidated,
+          targetKind: 'notebook_template',
+          targetIdentifier:
+            DEMO_TEMPLATE_IDS.notebookTemplateValidatedIdentifier,
+          linkType: 'template',
+          linkMetadata: {
+            template_revision_id: DEMO_TEMPLATE_IDS.templateRevision,
+          },
+          createdByUserId: FIXTURE_USER_ID,
+        })
+        .onConflictDoUpdate({
+          target: schema.recordLinks.id,
+          set: {
+            targetRecordId: DEMO_TEMPLATE_IDS.notebookTemplateValidated,
+            targetKind: 'notebook_template',
+            targetIdentifier:
+              DEMO_TEMPLATE_IDS.notebookTemplateValidatedIdentifier,
+            linkType: 'template',
+            linkMetadata: {
+              template_revision_id: DEMO_TEMPLATE_IDS.templateRevision,
+            },
+          },
         })
     },
   },

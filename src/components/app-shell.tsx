@@ -13,6 +13,7 @@ import {
   ClipboardList,
   Home as HomeIcon,
   LayoutGrid,
+  LayoutTemplate,
   LogOut,
   Menu,
   Moon,
@@ -135,6 +136,7 @@ export const defaultNavSections: AppShellNavSection[] = [
     label: 'Workspace',
     items: [
       { to: '/', label: 'Home', icon: HomeIcon },
+      { to: '/templates', label: 'Templates', icon: LayoutTemplate },
       { to: '/my-work', label: 'My work', icon: LayoutGrid, disabled: true },
       {
         to: '/activity',

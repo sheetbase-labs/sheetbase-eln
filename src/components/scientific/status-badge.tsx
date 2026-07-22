@@ -96,6 +96,15 @@ export const protocolStatusVocabulary: StatusVocabulary = {
   under_review: { label: 'Under review', tone: 'violet', icon: Eye },
 }
 
+/**
+ * Notebook template lifecycle vocabulary (SCI-006). Notebook templates use
+ * draft → validated, with archived handled by the record's archived_at.
+ */
+export const notebookTemplateStatusVocabulary: StatusVocabulary = {
+  draft: { label: 'Draft', tone: 'neutral', icon: CircleDashed },
+  validated: { label: 'Validated', tone: 'success', icon: CheckCircle2 },
+}
+
 export const datasetStatusVocabulary: StatusVocabulary = {
   draft: { label: 'Draft', tone: 'neutral', icon: CircleDashed },
   valid: { label: 'Valid', tone: 'success', icon: CheckCircle2 },
@@ -110,6 +119,7 @@ export const statusVocabularies = {
   dataset: datasetStatusVocabulary,
   reagent: reagentStatusVocabulary,
   protocol: protocolStatusVocabulary,
+  notebook_template: notebookTemplateStatusVocabulary,
 } as const
 
 export type StatusDomain = keyof typeof statusVocabularies

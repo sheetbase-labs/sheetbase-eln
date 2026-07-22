@@ -107,3 +107,34 @@ export const DEMO_FILE_IDS = {
   missingIdentifier: 'FILE-2025-0004',
   block: '00000000-0000-4000-8000-000000000168',
 } as const
+
+// SCI-006 template fixtures (Virus Stability). A validated notebook template
+// (Stability Study), a draft notebook template, an archived protocol template,
+// and a record instantiated from the validated template with a source-template
+// link. 0x190–0x1af.
+export const DEMO_TEMPLATE_IDS = {
+  // Validated notebook template: Stability Study (ICH)
+  notebookTemplateValidated: '00000000-0000-4000-8000-000000000190',
+  notebookTemplateValidatedIdentifier: 'NBK-2025-0001',
+  notebookTemplateBlock1: '00000000-0000-4000-8000-000000000191',
+  notebookTemplateBlock2: '00000000-0000-4000-8000-000000000192',
+  notebookTemplateBlock3: '00000000-0000-4000-8000-000000000193',
+  // Draft notebook template: Cell Viability Assay
+  notebookTemplateDraft: '00000000-0000-4000-8000-000000000194',
+  notebookTemplateDraftIdentifier: 'NBK-2025-0002',
+  notebookTemplateDraftBlock1: '00000000-0000-4000-8000-000000000195',
+  // Archived protocol template: ELISA Protocol
+  protocolTemplateArchived: '00000000-0000-4000-8000-000000000196',
+  protocolTemplateArchivedIdentifier: 'PRT-2025-0002',
+  protocolTemplateArchivedBlock1: '00000000-0000-4000-8000-000000000197',
+  // Record instantiated from the validated notebook template
+  instantiatedRecord: '00000000-0000-4000-8000-0000000001a0',
+  instantiatedRecordIdentifier: 'EXP-2025-0002',
+  instantiatedBlock1: '00000000-0000-4000-8000-0000000001a1',
+  instantiatedBlock2: '00000000-0000-4000-8000-0000000001a2',
+  instantiatedBlock3: '00000000-0000-4000-8000-0000000001a3',
+  // Immutable revision of the validated template at instantiation time
+  templateRevision: '00000000-0000-4000-8000-0000000001a8',
+  // Source-template link from instantiated record to template
+  templateLink: '00000000-0000-4000-8000-0000000001a9',
+} as const

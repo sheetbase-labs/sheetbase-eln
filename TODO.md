@@ -680,12 +680,12 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** SCI-002, DATA-006.
 
-- [ ] Define template identity, type, version, validation status and ownership.
-- [ ] Instantiate notebooks and protocols from a fixed template version without sharing mutable content accidentally.
-- [ ] Preserve links between created records and their source template version.
-- [ ] Support draft, validated, archived and permission-restricted templates.
-- [ ] Build the minimal Template Library list, filters, preview inspector and use-template action.
-- [ ] Test instantiation, later template edits, archived templates and cross-workspace isolation.
+- [x] Define template identity, type, version, validation status and ownership.
+- [x] Instantiate notebooks and protocols from a fixed template version without sharing mutable content accidentally.
+- [x] Preserve links between created records and their source template version.
+- [x] Support draft, validated, archived and permission-restricted templates.
+- [x] Build the minimal Template Library list, filters, preview inspector and use-template action.
+- [x] Test instantiation, later template edits, archived templates and cross-workspace isolation.
 
 ### SCI-007 — Build Experiment Overview from notebook data
 

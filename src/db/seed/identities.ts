@@ -55,6 +55,7 @@ export const DEMO_BLOCK_IDS = {
   // exercise both lifecycle states. 0x170–0x17f.
   stabilitySheet: '00000000-0000-4000-8000-000000000170',
   stabilityChartFrozen: '00000000-0000-4000-8000-000000000171',
+  plateMap: '00000000-0000-4000-8000-000000000180',
 } as const
 
 export const DEMO_PROTOCOL_REVISION_ID = '00000000-0000-4000-8000-000000000150'

@@ -1297,6 +1297,98 @@ export const demoSteps: Array<SeedStep> = [
       }
     },
   },
+  {
+    name: 'demo SCI-005 plate map: Virus Stability qPCR plate',
+    run: async (db) => {
+      const volume = { value: 20, unit: 'µL' }
+      const payload = {
+        title: 'qPCR titration plate',
+        spec: {
+          specVersion: 1,
+          format: '96_well',
+          rows: 8,
+          cols: 12,
+          wells: [
+            ...[0, 1, 2].map((col) => ({
+              wellCode: `A${col + 1}`,
+              row: 0,
+              col,
+              role: 'sample',
+              sampleRef: {
+                recordId: DEMO_SAMPLE_RECORD_ID,
+                identifier: DEMO_SAMPLE_IDENTIFIER,
+                title: 'LVV-CAR-T drug substance',
+              },
+              replicate: col + 1,
+              volume,
+              notes: 'Active stability sample',
+            })),
+            ...[0, 1, 2].map((col) => ({
+              wellCode: `B${col + 1}`,
+              row: 1,
+              col,
+              role: 'sample',
+              sampleRef: {
+                recordId: DEMO_ARCHIVED_SAMPLE_RECORD_ID,
+                identifier: DEMO_ARCHIVED_SAMPLE_IDENTIFIER,
+                title: 'LVV reference lot (expired)',
+                archived: true,
+              },
+              replicate: col + 1,
+              volume,
+              notes: 'Archived reference lot',
+            })),
+            ...[0, 1, 2].map((col) => ({
+              wellCode: `C${col + 1}`,
+              row: 2,
+              col,
+              role: 'positive_control',
+              replicate: col + 1,
+              volume,
+            })),
+            ...[0, 1, 2].map((col) => ({
+              wellCode: `D${col + 1}`,
+              row: 3,
+              col,
+              role: 'negative_control',
+              replicate: col + 1,
+              volume,
+            })),
+            ...[0, 1, 2].map((col) => ({
+              wellCode: `E${col + 1}`,
+              row: 4,
+              col,
+              role: 'blank',
+              replicate: col + 1,
+              volume,
+            })),
+          ],
+          validation: {
+            requiredRoles: ['positive_control', 'negative_control'],
+            volumeMin: 20,
+            volumeMax: 20,
+            volumeUnit: 'µL',
+          },
+        },
+        provenance: 'Virus Stability qPCR',
+      }
+
+      await db
+        .insert(schema.blocks)
+        .values({
+          id: DEMO_BLOCK_IDS.plateMap,
+          recordId: DEMO_VIRUS_STABILITY_RECORD_ID,
+          type: 'plate_map',
+          payload,
+          order: 24,
+          createdByUserId: FIXTURE_USER_ID,
+        })
+        .onConflictDoUpdate({
+          target: schema.blocks.id,
+          set: { type: 'plate_map', payload, order: 24 },
+        })
+    },
+  },
 ]
 
 async function main() {

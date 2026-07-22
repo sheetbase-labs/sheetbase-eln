@@ -1,7 +1,7 @@
 # ADR 0030: Plate Map Block Contract
 
 - **Status:** Accepted
-- **Date:** 2025-07-22
+- **Date:** 2026-07-22
 - **Ticket:** SCI-005
 
 ## Context

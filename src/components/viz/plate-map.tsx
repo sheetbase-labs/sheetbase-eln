@@ -8,6 +8,10 @@ import { cn } from '#/lib/utils'
  * users. Wells with no value render as empty/missing (distinct from zero),
  * and a legend explains the colour scale (UI-006).
  *
+ * SCI-005 extends the component with optional assignment-role colouring,
+ * well-code-based selection, keyboard arrow navigation, and a role legend —
+ * while preserving the existing value-band API and tests.
+ *
  * The component is presentational: it takes well data and selection and
  * reports selection changes. It never owns assay state.
  */
@@ -21,6 +25,12 @@ export interface PlateWell {
   value?: number | null
   /** Optional per-well label, e.g. "A1 positive control". */
   label?: string
+  /** Optional canonical well code, e.g. "A1" (SCI-005). */
+  wellCode?: string
+  /** Optional role-based colour class, overriding band-based colouring (SCI-005). */
+  roleClass?: string
+  /** Optional short label to display inside the well cell (SCI-005). */
+  displayLabel?: string
 }
 
 export interface PlateMapBand {
@@ -28,6 +38,11 @@ export interface PlateMapBand {
   from: number
   /** Inclusive upper bound. */
   to: number
+  label: string
+  className: string
+}
+
+export interface PlateMapRoleLegendEntry {
   label: string
   className: string
 }
@@ -40,10 +55,18 @@ export interface PlateMapProps {
   /** Index of the selected well in `wells`, or undefined. */
   selectedIndex?: number
   onSelect?: (index: number) => void
+  /** Selected well by well code (alternative to selectedIndex, SCI-005). */
+  selectedWellCode?: string | null
+  /** Called when a well is selected by well code (SCI-005). */
+  onSelectWellCode?: (wellCode: string) => void
   compact?: boolean
   /** Accessible label for the plate, e.g. "96-well plate". */
   ariaLabel?: string
   className?: string
+  /** Role-based legend entries (SCI-005). When provided, replaces band legend. */
+  roleLegend?: PlateMapRoleLegendEntry[]
+  /** Disable well interaction (read-only mode, SCI-005). */
+  readOnly?: boolean
 }
 
 const DEFAULT_BANDS: PlateMapBand[] = [
@@ -87,6 +110,10 @@ function rowLabel(i: number): string {
   return String.fromCharCode(65 + i)
 }
 
+function wellCodeForRowCol(r: number, c: number): string {
+  return `${rowLabel(r)}${c + 1}`
+}
+
 export function PlateMap({
   wells,
   rows = 8,
@@ -94,10 +121,16 @@ export function PlateMap({
   bands = DEFAULT_BANDS,
   selectedIndex,
   onSelect,
+  selectedWellCode,
+  onSelectWellCode,
   compact = false,
   ariaLabel = 'Microplate',
   className,
+  roleLegend,
+  readOnly = false,
 }: PlateMapProps) {
+  const gridRef = React.useRef<HTMLDivElement>(null)
+
   const wellByCell = React.useMemo(() => {
     const map = new Map<string, { well: PlateWell; index: number }>()
     wells.forEach((well, index) => {
@@ -106,13 +139,88 @@ export function PlateMap({
     return map
   }, [wells])
 
+  // Keyboard navigation: arrow keys move focus between cells
+  function handleSelect(r: number, c: number) {
+    if (readOnly) return
+    const cell = wellByCell.get(`${r}:${c}`)
+    const code = wellCodeForRowCol(r, c)
+    // For well-code-based selection, always report (even for empty cells)
+    if (onSelectWellCode) {
+      onSelectWellCode(code)
+    }
+    // For index-based selection, only report if the well exists
+    if (onSelect && cell?.index !== undefined) {
+      onSelect(cell.index)
+    }
+  }
+
+  // Keyboard navigation: arrow keys move focus between cells
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (readOnly) return
+    const focused = document.activeElement as HTMLButtonElement | null
+    if (!focused || !focused.dataset.cell) return
+
+    const [r, c] = focused.dataset.cell.split(':').map(Number)
+    let nr = r
+    let nc = c
+
+    switch (e.key) {
+      case 'ArrowRight':
+        nc = Math.min(c + 1, cols - 1)
+        break
+      case 'ArrowLeft':
+        nc = Math.max(c - 1, 0)
+        break
+      case 'ArrowDown':
+        nr = Math.min(r + 1, rows - 1)
+        break
+      case 'ArrowUp':
+        nr = Math.max(r - 1, 0)
+        break
+      case 'Home':
+        if (e.ctrlKey) {
+          nr = 0
+          nc = 0
+        } else {
+          nc = 0
+        }
+        break
+      case 'End':
+        if (e.ctrlKey) {
+          nr = rows - 1
+          nc = cols - 1
+        } else {
+          nc = cols - 1
+        }
+        break
+      default:
+        return
+    }
+
+    e.preventDefault()
+    if (nr === r && nc === c) return
+
+    // Find the button at the target cell
+    const targetBtn = gridRef.current?.querySelector(
+      `button[data-cell="${nr}:${nc}"]`,
+    ) as HTMLButtonElement | null
+    if (targetBtn) {
+      targetBtn.focus()
+      handleSelect(nr, nc)
+    }
+  }
+
+  const legendEntries = roleLegend ?? bands
+
   return (
     <div className={cn('space-y-2', className)}>
       <div
+        ref={gridRef}
         role="grid"
         aria-label={ariaLabel}
         className="inline-block"
         style={{ minWidth: compact ? '12rem' : '20rem' }}
+        onKeyDown={handleKeyDown}
       >
         {/* Column header row */}
         <div role="row" className="flex gap-1">
@@ -151,10 +259,18 @@ export function PlateMap({
               const index = cell?.index
               const missing =
                 !well || well.value === null || well.value === undefined
-              const selected = index !== undefined && index === selectedIndex
+              const code = wellCodeForRowCol(r, c)
+              const selectedByIndex =
+                index !== undefined && index === selectedIndex
+              const selectedByCode = selectedWellCode === code
+              const selected = selectedByIndex || selectedByCode
               const title =
                 well?.label ??
                 `${rowLabel(r)}${c + 1}${missing ? ' (empty)' : ''}`
+
+              // Use roleClass if available, otherwise fall back to band-based colouring
+              const cellColour = well?.roleClass ?? bandFor(well?.value, bands)
+
               return (
                 <span
                   role="gridcell"
@@ -165,14 +281,19 @@ export function PlateMap({
                   <button
                     type="button"
                     aria-label={title}
-                    onClick={() => index !== undefined && onSelect?.(index)}
+                    data-cell={`${r}:${c}`}
+                    disabled={readOnly}
+                    onClick={() => handleSelect(r, c)}
                     className={cn(
-                      'aspect-square rounded-[3px] border border-white/60 transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 dark:border-black/20',
+                      'flex aspect-square items-center justify-center rounded-[3px] border border-white/60 text-[8px] font-medium text-white/90 transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 dark:border-black/20',
                       compact ? 'min-w-2' : 'min-w-4',
-                      bandFor(well?.value, bands),
+                      cellColour,
                       selected && 'ring-2 ring-primary ring-offset-1',
+                      readOnly && 'cursor-default hover:scale-100',
                     )}
-                  />
+                  >
+                    {well?.displayLabel ?? ''}
+                  </button>
                 </span>
               )
             })}
@@ -180,9 +301,9 @@ export function PlateMap({
         ))}
       </div>
 
-      {bands.length > 0 ? (
+      {legendEntries.length > 0 ? (
         <div className="flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
-          {bands.map((b) => (
+          {legendEntries.map((b) => (
             <span key={b.label} className="inline-flex items-center gap-1">
               <span
                 className={cn(

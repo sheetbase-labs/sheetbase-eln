@@ -8,6 +8,7 @@ import {
   Sheet,
   Paperclip,
   LineChart,
+  Grid3x3,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -89,6 +90,13 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     description:
       'A line, scatter or bar chart from a saved dataset, with a live or frozen snapshot.',
     icon: LineChart,
+  },
+  {
+    type: 'plate_map',
+    label: 'Plate map',
+    description:
+      'A 96-well plate layout with sample assignments, controls, replicates and volumes.',
+    icon: Grid3x3,
   },
 ]
 

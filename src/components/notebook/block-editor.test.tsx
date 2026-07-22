@@ -303,7 +303,7 @@ describe('BlockEditor — unsupported type', () => {
     render(
       <BlockEditor
         block={block({
-          type: 'plate_map',
+          type: 'unknown_future_type' as unknown as string,
           payload: { title: 'X' },
         })}
         save={save}

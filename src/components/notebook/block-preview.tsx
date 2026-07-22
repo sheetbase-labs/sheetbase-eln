@@ -25,6 +25,16 @@ import {
 import { CHART_SPEC_VERSION } from '#/lib/chart-spec'
 import type { ChartBlockPayload, ChartSpec } from '#/lib/chart-spec'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
+import { PlateMap } from '#/components/viz/plate-map'
+import type { PlateWell, PlateMapRoleLegendEntry } from '#/components/viz/plate-map'
+import {
+  PLATE_MAP_SPEC_VERSION,
+  ROLE_STYLES,
+} from '#/lib/plate-map'
+import type {
+  PlateMapSpec,
+  WellAssignment,
+} from '#/lib/plate-map'
 
 /**
  * Read-only preview of a block's typed payload (ELN-004). Renders the
@@ -90,7 +100,7 @@ function renderPayload(type: string, payload: unknown): React.ReactNode {
     case 'chart':
       return <ChartBlockPreview payload={payload} />
     case 'plate_map':
-      return renderVisualPlaceholder(type, payload)
+      return <PlateMapBlockPreview payload={payload} />
     case 'file':
       return <FileBlockPreview payload={payload} />
     default:
@@ -411,32 +421,6 @@ function renderTable(payload: unknown): React.ReactNode {
   )
 }
 
-function renderVisualPlaceholder(
-  type: string,
-  payload: unknown,
-): React.ReactNode {
-  const obj = asObject(payload) ?? {}
-  const title = asString(obj.title) ?? asString(obj.caption) ?? ''
-  const label =
-    type === 'plate_map'
-      ? 'Plate map'
-      : type === 'file'
-        ? 'File'
-        : 'Visualisation'
-  return (
-    <div className="rounded-md border border-dashed bg-muted/20 p-4 text-xs text-muted-foreground">
-      <p className="font-medium text-foreground">
-        {label}
-        {title ? ` — ${title}` : ''}
-      </p>
-      <p className="mt-1">
-        Rendered by its dedicated component in a later ticket. The block payload
-        is preserved and readable through the API.
-      </p>
-    </div>
-  )
-}
-
 function renderUnsupported(type: string, payload: unknown): React.ReactNode {
   const known = (KNOWN_BLOCK_TYPES as readonly string[]).includes(type)
   return (
@@ -739,4 +723,139 @@ function parseChartSpec(v: unknown): ChartSpec | null {
 function parseFrozenChart(v: unknown): ChartBlockPayload['frozen'] {
   if (!asObject(v)) return null
   return v as ChartBlockPayload['frozen']
+}
+
+// ---------------------------------------------------------------------------
+// SCI-005 plate map block preview. Renders the plate grid with assignment-
+// role colours, a legend, and honest sample-reference resolution. An empty
+// draft `{}` prompts the user to configure the plate in the editor.
+// ---------------------------------------------------------------------------
+
+function PlateMapBlockPreview({ payload }: { payload: unknown }) {
+  const obj = asObject(payload)
+  const isEmpty = !obj || Object.keys(obj).length === 0
+  const titleStr = obj ? asString(obj.title) : null
+  const title = titleStr ?? 'Plate map'
+  const spec = obj && !isEmpty ? parsePlateMapSpec(obj.spec) : null
+
+  // Resolve sample references for honest display (active vs archived).
+  // Hooks must be unconditional, so always call useQueries (empty array when
+  // there is nothing to resolve).
+  const sampleRefs =
+    spec?.wells.filter((w) => w.sampleRef).map((w) => w.sampleRef!) ?? []
+  const sampleQueries = useQueries({
+    queries: sampleRefs.map((ref) => ({
+      queryKey: notebookQueryKeys.record(ref.recordId),
+      queryFn: () => fetchRecordById(notebookDataClient, ref.recordId),
+      staleTime: 30_000,
+    })),
+  })
+
+  if (isEmpty) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        No plate map configured. Select this block to set dimensions and assign
+        wells.
+      </p>
+    )
+  }
+
+  if (!spec) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        {title} — plate map spec is incomplete or unsupported.
+      </p>
+    )
+  }
+
+  const loading = sampleQueries.some((q) => q.isLoading)
+  const sampleError = sampleQueries.some((q) => q.error)
+
+  // Build a lookup of recordId → live record state
+  const liveRecords = new Map<string, { archivedAt: string | null } | null>()
+  sampleRefs.forEach((ref, i) => {
+    liveRecords.set(ref.recordId, sampleQueries[i]?.data ?? null)
+  })
+
+  // Convert WellAssignments to PlateWells with role-based coloring
+  const plateWells: PlateWell[] = spec.wells.map((w) => {
+    const roleStyle = ROLE_STYLES[w.role]
+    const liveRecord = w.sampleRef ? liveRecords.get(w.sampleRef.recordId) : null
+    const isArchived = Boolean(w.sampleRef?.archived || liveRecord?.archivedAt)
+    const displayLabel = w.sampleRef
+      ? `${w.sampleRef.identifier}${isArchived ? ' (arch)' : ''}`
+      : w.role === 'empty'
+        ? ''
+        : ROLE_STYLES[w.role].label[0].toUpperCase()
+    return {
+      row: w.row,
+      col: w.col,
+      wellCode: w.wellCode,
+      roleClass: roleStyle.cellClass,
+      displayLabel,
+      label: buildWellLabel(w, isArchived),
+    }
+  })
+
+  // Build role legend from the roles present on the plate
+  const presentRoles = new Set(spec.wells.map((w) => w.role))
+  const roleLegend: PlateMapRoleLegendEntry[] = Array.from(presentRoles)
+    .map((role) => ({
+      label: ROLE_STYLES[role].label,
+      className: ROLE_STYLES[role].cellClass,
+    }))
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="font-medium text-foreground">{title}</p>
+        {spec.wells.length === 0 ? (
+          <span className="text-xs text-muted-foreground">No wells assigned</span>
+        ) : (
+          <span className="text-xs text-muted-foreground">
+            {spec.wells.length} well{spec.wells.length !== 1 ? 's' : ''} ·{' '}
+            {spec.rows}×{spec.cols}
+          </span>
+        )}
+      </div>
+      {sampleError ? (
+        <p role="alert" className="text-xs text-destructive">
+          Some sample references could not be loaded. Stored observations remain
+          visible.
+        </p>
+      ) : null}
+      {loading ? (
+        <p className="text-xs text-muted-foreground">Loading sample details…</p>
+      ) : null}
+      <PlateMap
+        wells={plateWells}
+        rows={spec.rows}
+        cols={spec.cols}
+        ariaLabel={`${title} — ${spec.rows}×${spec.cols} plate`}
+        roleLegend={roleLegend}
+        readOnly
+        compact
+      />
+    </div>
+  )
+}
+
+function buildWellLabel(w: WellAssignment, isArchived: boolean): string {
+  const parts = [w.wellCode, ROLE_STYLES[w.role].label]
+  if (w.sampleRef) {
+    parts.push(w.sampleRef.identifier)
+    if (w.sampleRef.title) parts.push(w.sampleRef.title)
+    if (isArchived) parts.push('archived')
+  }
+  if (w.replicate) parts.push(`replicate ${w.replicate}`)
+  if (w.volume) parts.push(`${w.volume.value} ${w.volume.unit}`)
+  if (w.notes) parts.push(w.notes)
+  return parts.join(' · ')
+}
+
+function parsePlateMapSpec(v: unknown): PlateMapSpec | null {
+  if (!asObject(v)) return null
+  if ((v as { specVersion?: unknown }).specVersion !== PLATE_MAP_SPEC_VERSION)
+    return null
+  return v as PlateMapSpec
 }

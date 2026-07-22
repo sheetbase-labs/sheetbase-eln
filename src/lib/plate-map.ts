@@ -463,7 +463,7 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
           message: 'sampleRef must be an object',
         })
       } else {
-        const ref = sampleRef as Record<string, unknown>
+        const ref = sampleRef
         if (!isString(ref.recordId) || ref.recordId.length === 0) {
           errors.push({
             code: 'invalid_sample_ref',
@@ -541,9 +541,9 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
     if (
       isString(role) &&
       isObject(sampleRef) &&
-      isString((sampleRef as Record<string, unknown>).recordId)
+      isString(sampleRef.recordId)
     ) {
-      const ref = sampleRef as Record<string, unknown>
+      const ref = sampleRef
       const repKey = well.replicate ?? 0
       const key = `${ref.recordId}:${role}:${repKey}`
       if (!assignmentMap.has(key)) {
@@ -567,7 +567,7 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
 
   // Required roles check
   if (isObject(validation)) {
-    const requiredRoles = (validation as Record<string, unknown>).requiredRoles
+    const requiredRoles = validation.requiredRoles
     if (Array.isArray(requiredRoles)) {
       const presentRoles = new Set(
         wells
@@ -589,8 +589,8 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
     }
 
     // Volume constraints
-    const volMin = (validation as Record<string, unknown>).volumeMin
-    const volMax = (validation as Record<string, unknown>).volumeMax
+    const volMin = validation.volumeMin
+    const volMax = validation.volumeMax
     if (volMin !== undefined && typeof volMin !== 'number') {
       errors.push({
         code: 'invalid_value',
@@ -708,7 +708,7 @@ export function wellsToPlateWells(spec: PlateMapSpec): Array<{
   notes?: string
 }> {
   return spec.wells.map((w) => {
-    const roleLabel = ROLE_STYLES[w.role]?.label ?? w.role
+    const roleLabel = ROLE_STYLES[w.role].label
     const parts = [w.wellCode, roleLabel]
     if (w.sampleRef) {
       parts.push(w.sampleRef.identifier)

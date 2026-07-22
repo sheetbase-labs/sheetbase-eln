@@ -24,7 +24,7 @@ import {
   validateBlock,
 } from '#/lib/blocks'
 import type { RichTextPayload } from '#/lib/blocks'
-import type { NotebookBlock } from '#/lib/notebook-data'
+import type { NotebookBlock, NotebookRecord } from '#/lib/notebook-data'
 import { Button } from '#/components/ui'
 import { RecordPicker } from '#/components/scientific'
 import type { RecordPickerResult } from '#/components/scientific'
@@ -64,6 +64,20 @@ import {
 } from '#/lib/scientific-sheet-data'
 import type { ScientificTableWire } from '#/lib/scientific-sheet-data'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
+import { PlateMap } from '#/components/viz/plate-map'
+import {
+  ASSIGNMENT_ROLES,
+  ROLE_STYLES,
+  defaultPlateMapSpec,
+  parseWellCode,
+} from '#/lib/plate-map'
+import type {
+  AssignmentRole,
+  PlateMapBlockPayload,
+  PlateMapSpec,
+  WellAssignment,
+} from '#/lib/plate-map'
+import type { ScientificRecordKind } from '#/lib/scientific-records'
 
 export type { AutosaveStatus, SaveResult }
 
@@ -119,6 +133,8 @@ export function BlockEditor(props: BlockEditorProps) {
       return <FileBlockEditor {...props} />
     case 'chart':
       return <ChartBlockEditor {...props} />
+    case 'plate_map':
+      return <PlateMapBlockEditor {...props} />
     default:
       return (
         <UnsupportedEditor block={props.block} className={props.className} />
@@ -204,6 +220,12 @@ function summarizePayload(
       return `${payload.linkType ?? 'general'}: ${payload.targetKind ?? ''} ${
         payload.targetIdentifier ?? ''
       }${payload.label ? ` — ${payload.label}` : ''}`
+    case 'plate_map': {
+      const title = typeof payload.title === 'string' ? payload.title : ''
+      const spec = payload.spec as { wells?: unknown[] } | undefined
+      const wells = Array.isArray(spec?.wells) ? spec.wells : []
+      return `${title || 'Plate map'} — ${wells.length} well(s)`
+    }
     default:
       return JSON.stringify(payload, null, 2)
   }
@@ -1491,4 +1513,577 @@ function unitSymbol(unit: unknown): string | undefined {
     return (unit as { symbol: string }).symbol
   }
   return undefined
+}
+
+// ---------------------------------------------------------------------------
+// SCI-005 plate map block editor. Authors a plate_map block payload with
+// 96-well format, well assignments (role, sample link, replicate, volume,
+// notes), and validation config. Uses the shared autosave hook, the existing
+// RecordPicker for sample links, and the presentational PlateMap for live
+// preview with keyboard navigation and well-code-based selection.
+// ---------------------------------------------------------------------------
+
+function PlateMapBlockEditor({
+  block,
+  save,
+  offline,
+  onStatusChange,
+  readOnly,
+}: BlockEditorProps) {
+  const initial = block.payload as unknown as PlateMapBlockPayload
+  const a = useBlockAutosave<PlateMapBlockPayload>(
+    block,
+    initial,
+    save,
+    offline,
+    onStatusChange,
+  )
+  const draft = a.draft
+  const spec = draft.spec ?? null
+  const [selectedWellCode, setSelectedWellCode] = React.useState<string | null>(
+    null,
+  )
+  const [sampleSearch, setSampleSearch] = React.useState('')
+
+  // Sample search query for the RecordPicker
+  const sampleQuery = useQuery({
+    queryKey: [
+      ...scientificRecordQueryKeys.search('sample', sampleSearch),
+      'includeArchived',
+    ],
+    queryFn: () =>
+      searchRecords(notebookDataClient, 'sample', sampleSearch, {
+        includeArchived: true,
+      }),
+    enabled: Boolean(selectedWellCode) && !readOnly,
+    staleTime: 5_000,
+  })
+
+  // Initialize spec when user starts editing an empty draft
+  function ensureSpec(): PlateMapSpec {
+    if (spec) return spec
+    const next = defaultPlateMapSpec()
+    a.setTouched(true)
+    a.setDraft({ ...draft, spec: next })
+    return next
+  }
+
+  function updateDraft(patch: Partial<PlateMapBlockPayload>) {
+    a.setTouched(true)
+    a.setDraft({ ...draft, ...patch })
+  }
+
+  function updateSpec(patch: Partial<PlateMapSpec>) {
+    const current = ensureSpec()
+    a.setTouched(true)
+    a.setDraft({ ...draft, spec: { ...current, ...patch } })
+  }
+
+  // Find a well by wellCode in the current spec
+  function findWell(code: string): WellAssignment | undefined {
+    if (!spec) return undefined
+    return spec.wells.find((w) => w.wellCode === code)
+  }
+
+  // Update or insert a well assignment
+  function upsertWell(code: string, patch: Partial<WellAssignment>) {
+    const current = ensureSpec()
+    const parsed = parseWellCode(code)
+    if (!parsed) return
+    const existing = current.wells.find((w) => w.wellCode === code)
+    let wells: WellAssignment[]
+    if (existing) {
+      wells = current.wells.map((w) =>
+        w.wellCode === code ? { ...w, ...patch } : w,
+      )
+    } else {
+      wells = [
+        ...current.wells,
+        {
+          wellCode: code,
+          row: parsed.row,
+          col: parsed.col,
+          role: 'empty',
+          ...patch,
+        },
+      ]
+    }
+    updateSpec({ wells })
+  }
+
+  // Remove a well assignment (revert to unassigned)
+  function removeWell(code: string) {
+    if (!spec) return
+    updateSpec({ wells: spec.wells.filter((w) => w.wellCode !== code) })
+  }
+
+  const selectedWell = selectedWellCode ? findWell(selectedWellCode) : undefined
+
+  // Build plate wells for the PlateMap preview
+  const plateWells = React.useMemo(() => {
+    if (!spec) return []
+    return spec.wells.map((w) => ({
+      row: w.row,
+      col: w.col,
+      wellCode: w.wellCode,
+      roleClass: ROLE_STYLES[w.role].cellClass,
+      displayLabel: w.sampleRef
+        ? w.sampleRef.identifier
+        : w.role === 'empty'
+          ? ''
+          : ROLE_STYLES[w.role].label[0].toUpperCase(),
+      label: [
+        w.wellCode,
+        ROLE_STYLES[w.role].label,
+        w.sampleRef?.identifier,
+        w.replicate && `rep ${w.replicate}`,
+        w.volume && `${w.volume.value} ${w.volume.unit}`,
+      ]
+        .filter(Boolean)
+        .join(' · '),
+    }))
+  }, [spec])
+
+  const roleLegend = React.useMemo(() => {
+    if (!spec) return []
+    const present = new Set(spec.wells.map((w) => w.role))
+    return Array.from(present).map((role) => ({
+      label: ROLE_STYLES[role].label,
+      className: ROLE_STYLES[role].cellClass,
+    }))
+  }, [spec])
+
+  if (readOnly) {
+    return (
+      <div className={cn('space-y-2')}>
+        <p className="font-medium text-foreground">
+          {draft.title ?? 'Plate map'}
+        </p>
+        {spec ? (
+          <PlateMap
+            wells={plateWells}
+            rows={spec.rows}
+            cols={spec.cols}
+            roleLegend={roleLegend}
+            readOnly
+            compact
+          />
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No plate map configured.
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Title */}
+      <label className="block">
+        <span className="text-xs font-medium text-muted-foreground">Title</span>
+        <input
+          type="text"
+          value={draft.title ?? ''}
+          onChange={(e) => updateDraft({ title: e.target.value })}
+          placeholder="e.g. qPCR titration plate"
+          className="mt-1 w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm"
+        />
+      </label>
+
+      {/* Format info */}
+      {spec ? (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span className="rounded-full bg-muted px-2 py-0.5 font-medium">
+            96-well (8×12)
+          </span>
+          <span>{spec.wells.length} wells assigned</span>
+        </div>
+      ) : (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => ensureSpec()}
+        >
+          Initialize 96-well plate
+        </Button>
+      )}
+
+      {/* Plate grid + inspector */}
+      {spec ? (
+        <div className="grid gap-4 md:grid-cols-[1fr_16rem]">
+          {/* Grid */}
+          <div>
+            <PlateMap
+              wells={plateWells}
+              rows={spec.rows}
+              cols={spec.cols}
+              selectedWellCode={selectedWellCode}
+              onSelectWellCode={(code) => setSelectedWellCode(code)}
+              roleLegend={roleLegend}
+              ariaLabel="Plate map editor — click a well to assign"
+            />
+          </div>
+
+          {/* Inspector */}
+          <div className="space-y-3 rounded-md border p-3">
+            {selectedWellCode ? (
+              <WellInspector
+                wellCode={selectedWellCode}
+                well={selectedWell}
+                sampleResults={sampleQuery.data ?? []}
+                sampleLoading={sampleQuery.isLoading}
+                sampleError={sampleQuery.error ?? null}
+                onSampleSearch={setSampleSearch}
+                onAssignRole={(role) =>
+                  upsertWell(selectedWellCode, { role })
+                }
+                onSelectSample={(result) =>
+                  upsertWell(selectedWellCode, {
+                    role: selectedWell?.role === 'empty' ? 'sample' : selectedWell?.role ?? 'sample',
+                    sampleRef: {
+                      recordId: result.id,
+                      identifier: result.identifier,
+                      title: result.title,
+                      archived: result.archived,
+                    },
+                  })
+                }
+                onClearSample={() =>
+                  upsertWell(selectedWellCode, {
+                    sampleRef: undefined,
+                  })
+                }
+                onSetReplicate={(n) =>
+                  upsertWell(selectedWellCode, { replicate: n })
+                }
+                onSetVolume={(value, unit) =>
+                  upsertWell(selectedWellCode, {
+                    volume: { value, unit },
+                  })
+                }
+                onClearVolume={() =>
+                  upsertWell(selectedWellCode, { volume: undefined })
+                }
+                onSetNotes={(notes) =>
+                  upsertWell(selectedWellCode, { notes })
+                }
+                onRemoveWell={() => {
+                  removeWell(selectedWellCode)
+                  setSelectedWellCode(null)
+                }}
+              />
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Click a well in the grid to assign it.
+              </p>
+            )}
+
+            {/* Validation config */}
+            <ValidationConfigEditor
+              spec={spec}
+              onChange={(validation) => updateSpec({ validation })}
+            />
+          </div>
+        </div>
+      ) : null}
+
+      <AutosaveFooter
+        status={a.status}
+        error={a.error}
+        validationErrors={a.validationErrors}
+        serverPreview={summarizePayload(
+          block.type,
+          (a.serverValue ?? {}) as Record<string, unknown>,
+        )}
+        onUseServer={() => a.discardDraft()}
+        onKeepLocal={() => a.retry()}
+        retrying={a.status === 'saving'}
+      />
+    </div>
+  )
+}
+
+function WellInspector({
+  wellCode,
+  well,
+  sampleResults,
+  sampleLoading,
+  sampleError,
+  onSampleSearch,
+  onAssignRole,
+  onSelectSample,
+  onClearSample,
+  onSetReplicate,
+  onSetVolume,
+  onClearVolume,
+  onSetNotes,
+  onRemoveWell,
+}: {
+  wellCode: string
+  well: WellAssignment | undefined
+  sampleResults: NotebookRecord[]
+  sampleLoading: boolean
+  sampleError: Error | null
+  onSampleSearch: (q: string) => void
+  onAssignRole: (role: AssignmentRole) => void
+  onSelectSample: (result: RecordPickerResult) => void
+  onClearSample: () => void
+  onSetReplicate: (n: number) => void
+  onSetVolume: (value: number, unit: string) => void
+  onClearVolume: () => void
+  onSetNotes: (notes: string) => void
+  onRemoveWell: () => void
+}) {
+  const role = well?.role ?? 'empty'
+  const sampleKind: ScientificRecordKind = 'sample'
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h4 className="text-sm font-medium">Well {wellCode}</h4>
+        {well ? (
+          <button
+            type="button"
+            onClick={onRemoveWell}
+            className="text-xs text-destructive hover:underline"
+          >
+            Remove
+          </button>
+        ) : null}
+      </div>
+
+      {/* Role selector */}
+      <label className="block">
+        <span className="text-xs font-medium text-muted-foreground">Role</span>
+        <select
+          value={role}
+          onChange={(e) => onAssignRole(e.target.value as AssignmentRole)}
+          className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+        >
+          {ASSIGNMENT_ROLES.map((r) => (
+            <option key={r} value={r}>
+              {ROLE_STYLES[r].label}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      {/* Sample link (for sample and control roles) */}
+      {role !== 'empty' && role !== 'blank' ? (
+        <div className="space-y-1">
+          <span className="text-xs font-medium text-muted-foreground">
+            Sample
+          </span>
+          {well?.sampleRef ? (
+            <div className="flex items-center justify-between gap-2 rounded-md border bg-muted/20 px-2 py-1.5">
+              <div className="min-w-0">
+                <p className="truncate text-xs font-medium">
+                  {well.sampleRef.identifier}
+                </p>
+                <p className="truncate text-[11px] text-muted-foreground">
+                  {well.sampleRef.title}
+                  {well.sampleRef.archived ? ' · archived' : ''}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={onClearSample}
+                className="shrink-0 text-xs text-destructive hover:underline"
+              >
+                Clear
+              </button>
+            </div>
+          ) : (
+            <RecordPicker
+              kind={sampleKind}
+              results={sampleResults}
+              loading={sampleLoading}
+              error={sampleError}
+              onSearch={onSampleSearch}
+              onSelect={onSelectSample}
+              includeArchived
+              searchLabel="Search samples by identifier or title"
+              className="max-h-48"
+            />
+          )}
+        </div>
+      ) : null}
+
+      {/* Replicate */}
+      {role !== 'empty' ? (
+        <label className="block">
+          <span className="text-xs font-medium text-muted-foreground">
+            Replicate
+          </span>
+          <input
+            type="number"
+            min={1}
+            value={well?.replicate ?? ''}
+            onChange={(e) => {
+              const v = parseInt(e.target.value, 10)
+              onSetReplicate(Number.isFinite(v) && v > 0 ? v : 1)
+            }}
+            placeholder="e.g. 1"
+            className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+          />
+        </label>
+      ) : null}
+
+      {/* Volume */}
+      {role !== 'empty' ? (
+        <div className="space-y-1">
+          <span className="text-xs font-medium text-muted-foreground">
+            Volume
+          </span>
+          {well?.volume ? (
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={0}
+                step="any"
+                value={well.volume.value}
+                onChange={(e) =>
+                  onSetVolume(
+                    parseFloat(e.target.value) || 0,
+                    well.volume!.unit,
+                  )
+                }
+                className="w-20 rounded-md border border-input bg-background px-2 py-1 text-sm"
+              />
+              <input
+                type="text"
+                value={well.volume.unit}
+                onChange={(e) =>
+                  onSetVolume(well.volume!.value, e.target.value)
+                }
+                className="w-16 rounded-md border border-input bg-background px-2 py-1 text-sm"
+              />
+              <button
+                type="button"
+                onClick={onClearVolume}
+                className="text-xs text-destructive hover:underline"
+              >
+                Clear
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={0}
+                step="any"
+                placeholder="value"
+                onChange={(e) => onSetVolume(parseFloat(e.target.value) || 0, 'µL')}
+                className="w-20 rounded-md border border-input bg-background px-2 py-1 text-sm"
+              />
+              <span className="text-xs text-muted-foreground">µL</span>
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      {/* Notes */}
+      {role !== 'empty' ? (
+        <label className="block">
+          <span className="text-xs font-medium text-muted-foreground">
+            Notes
+          </span>
+          <textarea
+            value={well?.notes ?? ''}
+            onChange={(e) => onSetNotes(e.target.value)}
+            placeholder="Optional notes"
+            rows={2}
+            className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+          />
+        </label>
+      ) : null}
+    </div>
+  )
+}
+
+function ValidationConfigEditor({
+  spec,
+  onChange,
+}: {
+  spec: PlateMapSpec
+  onChange: (validation: PlateMapSpec['validation']) => void
+}) {
+  const v = spec.validation
+  return (
+    <details className="space-y-2 rounded-md border p-2">
+      <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
+        Validation config
+      </summary>
+      <div className="space-y-2">
+        <div>
+          <span className="text-xs text-muted-foreground">Required roles</span>
+          <div className="mt-1 flex flex-wrap gap-2">
+            {ASSIGNMENT_ROLES.filter((r) => r !== 'empty').map((r) => (
+              <label
+                key={r}
+                className="flex items-center gap-1 text-xs"
+              >
+                <input
+                  type="checkbox"
+                  checked={v.requiredRoles?.includes(r) ?? false}
+                  onChange={(e) => {
+                    const current = v.requiredRoles ?? []
+                    const next = e.target.checked
+                      ? [...current, r]
+                      : current.filter((x) => x !== r)
+                    onChange({ ...v, requiredRoles: next })
+                  }}
+                />
+                {ROLE_STYLES[r].label}
+              </label>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-muted-foreground">
+            Vol min
+            <input
+              type="number"
+              step="any"
+              value={v.volumeMin ?? ''}
+              onChange={(e) => {
+                const val = parseFloat(e.target.value)
+                onChange({
+                  ...v,
+                  volumeMin: Number.isFinite(val) ? val : undefined,
+                })
+              }}
+              className="ml-1 w-16 rounded-md border border-input bg-background px-1 py-0.5 text-xs"
+            />
+          </label>
+          <label className="text-xs text-muted-foreground">
+            Vol max
+            <input
+              type="number"
+              step="any"
+              value={v.volumeMax ?? ''}
+              onChange={(e) => {
+                const val = parseFloat(e.target.value)
+                onChange({
+                  ...v,
+                  volumeMax: Number.isFinite(val) ? val : undefined,
+                })
+              }}
+              className="ml-1 w-16 rounded-md border border-input bg-background px-1 py-0.5 text-xs"
+            />
+          </label>
+          <input
+            type="text"
+            value={v.volumeUnit ?? ''}
+            onChange={(e) =>
+              onChange({ ...v, volumeUnit: e.target.value || undefined })
+            }
+            placeholder="unit"
+            className="w-16 rounded-md border border-input bg-background px-1 py-0.5 text-xs"
+          />
+        </div>
+      </div>
+    </details>
+  )
 }

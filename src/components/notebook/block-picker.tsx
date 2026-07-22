@@ -7,8 +7,8 @@ import {
   Pilcrow,
   Sheet,
   Paperclip,
+  LineChart,
 } from 'lucide-react'
-import { LineChart } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 import { cn } from '#/lib/utils'

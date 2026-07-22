@@ -45,13 +45,12 @@ import {
   validateFileForUpload,
 } from '#/lib/file-attach'
 import { FILE_MAX_BYTES } from '#/lib/file-policy'
-import {
-  CHART_SPEC_VERSION,
-  CHART_TYPES,
-  type ChartBlockPayload,
-  type ChartSpec,
-  type ChartType,
-  type AxisScale,
+import { CHART_SPEC_VERSION, CHART_TYPES } from '#/lib/chart-spec'
+import type {
+  ChartBlockPayload,
+  ChartSpec,
+  ChartType,
+  AxisScale,
 } from '#/lib/chart-spec'
 import {
   materialiseFrozenChart,
@@ -62,8 +61,8 @@ import {
   fetchScientificTable,
   scientificDataClient,
   scientificQueryKeys,
-  type ScientificTableWire,
 } from '#/lib/scientific-sheet-data'
+import type { ScientificTableWire } from '#/lib/scientific-sheet-data'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 
 export type { AutosaveStatus, SaveResult }
@@ -301,10 +300,7 @@ function RichTextEditor({
         status={a.status}
         error={a.error}
         validationErrors={a.validationErrors}
-        serverPreview={summarizePayload(
-          block.type,
-          (a.serverValue ?? {}) as Record<string, unknown>,
-        )}
+        serverPreview={summarizePayload(block.type, a.serverValue ?? {})}
         onUseServer={() => a.discardDraft()}
         onKeepLocal={() => a.retry()}
         retrying={a.status === 'saving'}
@@ -743,10 +739,7 @@ function ProcedureStepEditor(props: BlockEditorProps) {
         status={a.status}
         error={a.error}
         validationErrors={a.validationErrors}
-        serverPreview={summarizePayload(
-          block.type,
-          (a.serverValue ?? {}) as Record<string, unknown>,
-        )}
+        serverPreview={summarizePayload(block.type, a.serverValue ?? {})}
         onUseServer={() => a.discardDraft()}
         onKeepLocal={() => a.retry()}
         retrying={a.status === 'saving'}
@@ -774,7 +767,7 @@ function MaterialsEditor(props: BlockEditorProps) {
   )
   const [quantity, setQuantity] = React.useState('')
   const [unitCode, setUnitCode] = React.useState('')
-  const [unitSymbol, setUnitSymbol] = React.useState('')
+  const [materialUnitSymbol, setMaterialUnitSymbol] = React.useState('')
   const records = useQuery({
     queryKey: scientificRecordQueryKeys.search(kind, query),
     queryFn: () => searchRecords(notebookDataClient, kind, query),
@@ -899,15 +892,19 @@ function MaterialsEditor(props: BlockEditorProps) {
             />
             <input
               aria-label="Unit symbol"
-              value={unitSymbol}
-              onChange={(e) => setUnitSymbol(e.target.value)}
+              value={materialUnitSymbol}
+              onChange={(e) => setMaterialUnitSymbol(e.target.value)}
               placeholder="Symbol (µL)"
               className="h-9 rounded-md border border-input px-2 text-sm"
             />
             <Button
               type="button"
               disabled={
-                !(Number(quantity) > 0 && unitCode.trim() && unitSymbol.trim())
+                !(
+                  Number(quantity) > 0 &&
+                  unitCode.trim() &&
+                  materialUnitSymbol.trim()
+                )
               }
               onClick={() => {
                 updateItems(
@@ -922,7 +919,7 @@ function MaterialsEditor(props: BlockEditorProps) {
                       quantity: Number(quantity),
                       unit: {
                         code: unitCode.trim(),
-                        symbol: unitSymbol.trim(),
+                        symbol: materialUnitSymbol.trim(),
                       },
                       observedAt: new Date().toISOString(),
                     },
@@ -932,7 +929,7 @@ function MaterialsEditor(props: BlockEditorProps) {
                 setSelected(null)
                 setQuantity('')
                 setUnitCode('')
-                setUnitSymbol('')
+                setMaterialUnitSymbol('')
               }}
             >
               Add material
@@ -944,10 +941,7 @@ function MaterialsEditor(props: BlockEditorProps) {
         status={a.status}
         error={a.error}
         validationErrors={a.validationErrors}
-        serverPreview={summarizePayload(
-          block.type,
-          (a.serverValue ?? {}) as Record<string, unknown>,
-        )}
+        serverPreview={summarizePayload(block.type, a.serverValue ?? {})}
         onUseServer={() => a.discardDraft()}
         onKeepLocal={() => a.retry()}
         retrying={a.status === 'saving'}
@@ -1102,7 +1096,7 @@ function ChartBlockEditor({
   onUnfreezeChart,
   readOnly,
 }: BlockEditorProps) {
-  const initial = (block.payload ?? {}) as unknown as ChartBlockPayload
+  const initial = block.payload as unknown as ChartBlockPayload
   const a = useBlockAutosave<ChartBlockPayload>(
     block,
     initial,
@@ -1153,8 +1147,8 @@ function ChartBlockEditor({
   function chooseDataset(tableId: string) {
     a.setTouched(true)
     const col = columnsQuery.data?.columns ?? []
-    const xCol = col[0]
-    const yCol = col[1] ?? col[0]
+    const xCol = col.length > 0 ? col[0] : null
+    const yCol = col.length > 1 ? col[1] : col.length > 0 ? col[0] : null
     const next: ChartSpec = {
       specVersion: CHART_SPEC_VERSION,
       type: spec?.type ?? 'line',
@@ -1163,10 +1157,7 @@ function ChartBlockEditor({
         x: xCol ? { columnId: xCol.id, fieldName: xCol.field_name } : null,
         y: yCol
           ? { columnId: yCol.id, fieldName: yCol.field_name }
-          : ({ columnId: '', fieldName: '' } as {
-              columnId: string
-              fieldName: string
-            }),
+          : { columnId: '', fieldName: '' },
         series: null,
         color: null,
         size: null,
@@ -1495,7 +1486,7 @@ function unitSymbol(unit: unknown): string | undefined {
     typeof unit === 'object' &&
     unit !== null &&
     'symbol' in unit &&
-    typeof (unit as { symbol: unknown }).symbol === 'string'
+    typeof unit.symbol === 'string'
   ) {
     return (unit as { symbol: string }).symbol
   }

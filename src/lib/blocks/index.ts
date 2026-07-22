@@ -379,9 +379,7 @@ function validateChart(payload: unknown): FieldErrors {
   }))
 }
 
-function mapChartErrorCode(
-  code: string,
-): BlockValidationError {
+function mapChartErrorCode(code: string): BlockValidationError {
   switch (code) {
     case 'missing_field':
       return 'missing_required_field'

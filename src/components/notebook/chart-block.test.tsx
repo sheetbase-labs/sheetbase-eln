@@ -25,7 +25,8 @@ import type {
   ScientificRowWire,
   ScientificTableWire,
 } from '#/lib/scientific-sheet-data'
-import { CHART_PALETTE, type ChartSpec } from '#/lib/chart-spec'
+import { CHART_PALETTE } from '#/lib/chart-spec'
+import type { ChartSpec } from '#/lib/chart-spec'
 
 vi.mock('#/lib/scientific-sheet-data', async (importOriginal) => {
   const actual = await importOriginal<typeof scientificSheetData>()

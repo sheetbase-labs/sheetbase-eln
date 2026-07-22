@@ -166,10 +166,10 @@ export interface FrozenChart {
 
 /** The chart block payload (payload_schema_version 1). */
 export interface ChartBlockPayload {
-  title: string
-  spec: ChartSpec
+  title?: string
+  spec?: ChartSpec
   provenance?: string
-  frozen: FrozenChart | null
+  frozen?: FrozenChart | null
 }
 
 // ---------------------------------------------------------------------------
@@ -204,17 +204,11 @@ function isUuid(v: unknown): v is string {
   return typeof v === 'string' && UUID_RE.test(v)
 }
 
-function isOneOf<T extends string>(
-  v: unknown,
-  allowed: readonly T[],
-): v is T {
+function isOneOf<T extends string>(v: unknown, allowed: readonly T[]): v is T {
   return typeof v === 'string' && (allowed as readonly string[]).includes(v)
 }
 
-function validateFieldBinding(
-  v: unknown,
-  field: string,
-): ChartSpecError[] {
+function validateFieldBinding(v: unknown, field: string): ChartSpecError[] {
   if (v === null) return []
   if (!isObject(v))
     return [
@@ -243,10 +237,7 @@ function validateFieldBinding(
   return []
 }
 
-function validateAxisDisplay(
-  v: unknown,
-  field: string,
-): ChartSpecError[] {
+function validateAxisDisplay(v: unknown, field: string): ChartSpecError[] {
   if (!isObject(v))
     return [
       {
@@ -256,11 +247,7 @@ function validateAxisDisplay(
       },
     ]
   const errors: ChartSpecError[] = []
-  if (
-    v.label !== undefined &&
-    v.label !== null &&
-    typeof v.label !== 'string'
-  )
+  if (v.label !== undefined && v.label !== null && typeof v.label !== 'string')
     errors.push({
       code: 'invalid_value',
       field: `${field}.label`,
@@ -289,7 +276,13 @@ function validateAxisDisplay(
  */
 export function validateChartSpec(spec: unknown): ChartSpecError[] {
   if (!isObject(spec))
-    return [{ code: 'invalid_shape', field: 'spec', message: 'spec must be an object' }]
+    return [
+      {
+        code: 'invalid_shape',
+        field: 'spec',
+        message: 'spec must be an object',
+      },
+    ]
   const errors: ChartSpecError[] = []
 
   if (spec.specVersion !== CHART_SPEC_VERSION)
@@ -623,7 +616,9 @@ export function rowMatchesFilter(
         return false
       const lo = toNumber(filter.value[0])
       const hi = toNumber(filter.value[1])
-      return num !== null && lo !== null && hi !== null && num >= lo && num <= hi
+      return (
+        num !== null && lo !== null && hi !== null && num >= lo && num <= hi
+      )
     }
     default:
       return false
@@ -648,7 +643,9 @@ export function resolveColumn(
 ): ChartColumn | null {
   if (!binding) return null
   return (
-    columns.find((c) => c.id === binding.columnId && c.fieldName === binding.fieldName) ??
+    columns.find(
+      (c) => c.id === binding.columnId && c.fieldName === binding.fieldName,
+    ) ??
     columns.find((c) => c.id === binding.columnId) ??
     columns.find((c) => c.fieldName === binding.fieldName) ??
     null
@@ -705,14 +702,16 @@ export function materialiseChart(
   if (spec.fields.series && !seriesCol) missing.push('series')
   if (spec.overlays.errorBars && !errorCol) missing.push('errorBars')
 
-  const xLabel = xCol?.label ?? spec.display.axes.x.label ?? spec.fields.x?.fieldName ?? 'x'
-  const yLabel = yCol?.label ?? spec.display.axes.y.label ?? spec.fields.y.fieldName
+  const xLabel =
+    xCol?.label ?? spec.display.axes.x.label ?? spec.fields.x?.fieldName ?? 'x'
+  const yLabel =
+    yCol?.label ?? spec.display.axes.y.label ?? spec.fields.y.fieldName
   const xUnit =
-    typeof xCol?.unit === 'object' && xCol?.unit && 'symbol' in xCol.unit
+    typeof xCol?.unit === 'object' && xCol.unit && 'symbol' in xCol.unit
       ? String((xCol.unit as { symbol: string }).symbol)
       : spec.display.axes.x.unit
   const yUnit =
-    typeof yCol?.unit === 'object' && yCol?.unit && 'symbol' in yCol.unit
+    typeof yCol?.unit === 'object' && yCol.unit && 'symbol' in yCol.unit
       ? String((yCol.unit as { symbol: string }).symbol)
       : spec.display.axes.y.unit
 
@@ -754,13 +753,12 @@ export function materialiseChart(
   }
 
   const paletteLookup = new Map(
-    (spec.display.series ?? []).map((s) => [s.identifier, s]),
+    spec.display.series.map((s) => [s.identifier, s]),
   )
   const series: MaterialisedSeries[] = order.map((key, i) => {
     const configured = paletteLookup.get(key)
     const color = (
-      configured?.color ??
-      CHART_PALETTE[i % CHART_PALETTE.length]
+      configured?.color ?? CHART_PALETTE[i % CHART_PALETTE.length]
     ).toLowerCase()
     const label = configured?.label ?? key
     const points: FrozenChartPoint[] = groups.get(key)!.map((row) => {

@@ -11,11 +11,11 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 
 import { ChartRenderer } from './chart-renderer'
-import {
-  CHART_PALETTE,
-  type ChartSpec,
-  type FrozenChart,
-  type MaterialisedChart,
+import { CHART_PALETTE } from '#/lib/chart-spec'
+import type {
+  ChartSpec,
+  FrozenChart,
+  MaterialisedChart,
 } from '#/lib/chart-spec'
 
 afterEach(() => cleanup())

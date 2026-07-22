@@ -25,8 +25,8 @@ import type {
   ScientificRowWire,
   ScientificTableWire,
 } from '#/lib/scientific-sheet-data'
-import { CHART_PALETTE  } from '#/lib/chart-spec'
-import type {ChartSpec} from '#/lib/chart-spec';
+import { CHART_PALETTE } from '#/lib/chart-spec'
+import type { ChartSpec } from '#/lib/chart-spec'
 
 vi.mock('#/lib/scientific-sheet-data', async (importOriginal) => {
   const actual = await importOriginal<typeof scientificSheetData>()
@@ -227,8 +227,8 @@ describe('BlockEditor — chart: dataset and type controls', () => {
     await waitFor(() => {
       expect(screen.getByLabelText('X field')).toBeTruthy()
     })
-    const typeSelect = screen.getByLabelText('Chart type')
-    expect((typeSelect as HTMLSelectElement).value).toBe('line')
+    const typeSelect = screen.getByLabelText<HTMLSelectElement>('Chart type')
+    expect(typeSelect.value).toBe('line')
   })
 
   it('changes the chart type select to scatter', async () => {
@@ -241,13 +241,13 @@ describe('BlockEditor — chart: dataset and type controls', () => {
         save={okSave}
       />,
     )
-    const typeSelect = screen.getByLabelText('Chart type')
-    expect((typeSelect as HTMLSelectElement).value).toBe('line')
+    const typeSelect = screen.getByLabelText<HTMLSelectElement>('Chart type')
+    expect(typeSelect.value).toBe('line')
     await user.selectOptions(typeSelect, 'scatter')
-    expect((typeSelect as HTMLSelectElement).value).toBe('scatter')
+    expect(typeSelect.value).toBe('scatter')
     // Selecting bar also works.
     await user.selectOptions(typeSelect, 'bar')
-    expect((typeSelect as HTMLSelectElement).value).toBe('bar')
+    expect(typeSelect.value).toBe('bar')
   })
 })
 
@@ -267,7 +267,7 @@ describe('BlockEditor — chart: field mapping controls', () => {
       const sel = screen.getByLabelText('X field')
       expect((sel as HTMLSelectElement).innerHTML).toContain('col_condition')
     })
-    const xSelect = screen.getByLabelText('X field')
+    const xSelect = screen.getByLabelText<HTMLSelectElement>('X field')
     expect(xSelect.value).toContain('c1')
     await user.selectOptions(xSelect, 'c3|col_condition')
     expect(xSelect.value).toBe('c3|col_condition')
@@ -283,9 +283,8 @@ describe('BlockEditor — chart: field mapping controls', () => {
         save={okSave}
       />,
     )
-    const yScaleSelect = screen.getByLabelText(
-      'Y axis scale',
-    )
+    const yScaleSelect =
+      screen.getByLabelText<HTMLSelectElement>('Y axis scale')
     expect(yScaleSelect.value).toBe('linear')
     await user.selectOptions(yScaleSelect, 'log')
     expect(yScaleSelect.value).toBe('log')
@@ -307,11 +306,9 @@ describe('BlockEditor — chart: freeze and unfreeze lifecycle', () => {
     )
     await waitFor(() => {
       expect(
-        (
-          screen.getByRole('button', {
-            name: 'Freeze snapshot',
-          })
-        ).disabled,
+        screen.getByRole<HTMLButtonElement>('button', {
+          name: 'Freeze snapshot',
+        }).disabled,
       ).toBe(false)
     })
     await user.click(screen.getByRole('button', { name: 'Freeze snapshot' }))
@@ -372,15 +369,15 @@ describe('BlockEditor — chart: freeze and unfreeze lifecycle', () => {
       />,
     )
     expect(screen.getAllByText(/Frozen snapshot/).length).toBeGreaterThan(0)
+    expect(screen.getByLabelText<HTMLSelectElement>('Dataset').disabled).toBe(
+      true,
+    )
     expect(
-      (screen.getByLabelText('Dataset')).disabled,
+      screen.getByLabelText<HTMLSelectElement>('Chart type').disabled,
     ).toBe(true)
-    expect(
-      (screen.getByLabelText('Chart type')).disabled,
-    ).toBe(true)
-    expect(
-      (screen.getByLabelText('X field')).disabled,
-    ).toBe(true)
+    expect(screen.getByLabelText<HTMLSelectElement>('X field').disabled).toBe(
+      true,
+    )
     expect(screen.getByRole('button', { name: /Unfreeze/ })).toBeTruthy()
   })
 

@@ -19,25 +19,27 @@
 import { useQuery } from '@tanstack/react-query'
 
 import type { DataClient } from '#/lib/data-client'
-import { scientificDataClient } from '#/lib/scientific-sheet-data'
 import {
+  scientificDataClient,
   fetchAllScientificRows,
   fetchScientificCalculationResults,
   fetchScientificTable,
   scientificQueryKeys,
-  type FormulaResultWire,
-  type ScientificColumnWire,
-  type ScientificRowWire,
-  type ScientificTableWire,
+} from '#/lib/scientific-sheet-data'
+import type {
+  FormulaResultWire,
+  ScientificColumnWire,
+  ScientificRowWire,
+  ScientificTableWire,
 } from '#/lib/scientific-sheet-data'
 import { toBlock } from '#/lib/notebook-data'
 import type { BlockWire, NotebookBlock } from '#/lib/notebook-data'
-import {
-  materialiseChart,
-  type ChartColumn,
-  type ChartSpec,
-  type FrozenChart,
-  type MaterialisedChart,
+import { materialiseChart } from '#/lib/chart-spec'
+import type {
+  ChartColumn,
+  ChartSpec,
+  FrozenChart,
+  MaterialisedChart,
 } from '#/lib/chart-spec'
 
 export const chartQueryKeys = {

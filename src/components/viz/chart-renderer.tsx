@@ -2,14 +2,13 @@ import * as React from 'react'
 
 import { cn } from '#/lib/utils'
 import { ChartFrame } from './chart-frame'
-import {
-  CHART_PALETTE,
-  formatScientific,
-  type ChartSpec,
-  type ChartType,
-  type FrozenChart,
-  type MaterialisedChart,
-  type MaterialisedSeries,
+import { CHART_PALETTE, formatScientific } from '#/lib/chart-spec'
+import type {
+  ChartSpec,
+  ChartType,
+  FrozenChart,
+  MaterialisedChart,
+  MaterialisedSeries,
 } from '#/lib/chart-spec'
 
 /**

@@ -46,9 +46,26 @@ function baseSpec(overrides: Partial<ChartSpec> = {}): ChartSpec {
 }
 
 const COLUMNS: ChartColumn[] = [
-  { id: COL_DAYS, fieldName: 'col_days', label: 'Time (days)', logicalType: 'integer', unit: { symbol: 'd' } },
-  { id: COL_GCN, fieldName: 'col_gcn', label: 'GCN per mL', logicalType: 'decimal', unit: { symbol: 'copies/mL' } },
-  { id: COL_REP, fieldName: 'col_rep', label: 'Replicate', logicalType: 'text' },
+  {
+    id: COL_DAYS,
+    fieldName: 'col_days',
+    label: 'Time (days)',
+    logicalType: 'integer',
+    unit: { symbol: 'd' },
+  },
+  {
+    id: COL_GCN,
+    fieldName: 'col_gcn',
+    label: 'GCN per mL',
+    logicalType: 'decimal',
+    unit: { symbol: 'copies/mL' },
+  },
+  {
+    id: COL_REP,
+    fieldName: 'col_rep',
+    label: 'Replicate',
+    logicalType: 'text',
+  },
   { id: COL_ERR, fieldName: 'col_err', label: 'SD', logicalType: 'decimal' },
 ]
 
@@ -66,7 +83,12 @@ describe('validateChartSpec', () => {
 
   it('accepts a scatter spec without an x field', () => {
     expect(
-      validateChartSpec(baseSpec({ type: 'scatter', fields: { ...baseSpec().fields, x: null } })),
+      validateChartSpec(
+        baseSpec({
+          type: 'scatter',
+          fields: { ...baseSpec().fields, x: null },
+        }),
+      ),
     ).toEqual([])
   })
 
@@ -78,7 +100,9 @@ describe('validateChartSpec', () => {
   })
 
   it('rejects an unsupported chart type', () => {
-    const errors = validateChartSpec(baseSpec({ type: 'pie' as unknown as ChartSpec['type'] }))
+    const errors = validateChartSpec(
+      baseSpec({ type: 'pie' as unknown as ChartSpec['type'] }),
+    )
     expect(errors.some((e) => e.code === 'unsupported_type')).toBe(true)
   })
 
@@ -96,7 +120,9 @@ describe('validateChartSpec', () => {
     const errors = validateChartSpec(
       baseSpec({ datasets: [{ tableId: 'not-a-uuid' }] }),
     )
-    expect(errors.some((e) => e.code === 'invalid_dataset_reference')).toBe(true)
+    expect(errors.some((e) => e.code === 'invalid_dataset_reference')).toBe(
+      true,
+    )
   })
 
   it('rejects a series colour outside the approved palette', () => {
@@ -104,9 +130,7 @@ describe('validateChartSpec', () => {
       baseSpec({
         display: {
           ...baseSpec().display,
-          series: [
-            { identifier: 'Rep 1', label: 'Rep 1', color: '#FF00FF' },
-          ],
+          series: [{ identifier: 'Rep 1', label: 'Rep 1', color: '#FF00FF' }],
         },
       }),
     )
@@ -118,9 +142,7 @@ describe('validateChartSpec', () => {
       baseSpec({
         display: {
           ...baseSpec().display,
-          series: [
-            { identifier: 'Rep 1', label: 'Rep 1', color: '#006edc' },
-          ],
+          series: [{ identifier: 'Rep 1', label: 'Rep 1', color: '#006edc' }],
         },
       }),
     )
@@ -131,7 +153,11 @@ describe('validateChartSpec', () => {
     const errors = validateChartSpec(
       baseSpec({
         overlays: {
-          errorBars: { columnId: COL_ERR, fieldName: 'col_err', basis: 'magic' as unknown as never },
+          errorBars: {
+            columnId: COL_ERR,
+            fieldName: 'col_err',
+            basis: 'magic' as unknown as never,
+          },
         },
       }),
     )
@@ -140,7 +166,12 @@ describe('validateChartSpec', () => {
 
   it('rejects a missing y field binding', () => {
     const errors = validateChartSpec(
-      baseSpec({ fields: { ...baseSpec().fields, y: null as unknown as ChartSpec['fields']['y'] } }),
+      baseSpec({
+        fields: {
+          ...baseSpec().fields,
+          y: null as unknown as ChartSpec['fields']['y'],
+        },
+      }),
     )
     expect(errors.some((e) => e.field === 'spec.fields.y')).toBe(true)
   })
@@ -157,7 +188,9 @@ describe('validateChartPayload', () => {
   })
 
   it('rejects a non-object payload', () => {
-    expect(validateChartPayload('nope').some((e) => e.code === 'invalid_shape')).toBe(true)
+    expect(
+      validateChartPayload('nope').some((e) => e.code === 'invalid_shape'),
+    ).toBe(true)
   })
 })
 
@@ -173,7 +206,12 @@ describe('applyFilters', () => {
   })
   it('filters by a between predicate', () => {
     const out = applyFilters(ROWS, [
-      { columnId: COL_GCN, fieldName: 'col_gcn', op: 'between', value: [1.7e8, 1.9e8] },
+      {
+        columnId: COL_GCN,
+        fieldName: 'col_gcn',
+        op: 'between',
+        value: [1.7e8, 1.9e8],
+      },
     ])
     expect(
       out.every(
@@ -192,7 +230,10 @@ describe('applyFilters', () => {
 describe('materialiseChart', () => {
   it('groups rows into series by the series field', () => {
     const spec = baseSpec({
-      fields: { ...baseSpec().fields, series: { columnId: COL_REP, fieldName: 'col_rep' } },
+      fields: {
+        ...baseSpec().fields,
+        series: { columnId: COL_REP, fieldName: 'col_rep' },
+      },
     })
     const m = materialiseChart(spec, COLUMNS, ROWS)
     expect(m.state.kind).toBe('ok')
@@ -212,7 +253,9 @@ describe('materialiseChart', () => {
 
   it('reports an empty_dataset state when filters remove every row', () => {
     const spec = baseSpec({
-      filters: [{ columnId: COL_DAYS, fieldName: 'col_days', op: 'gt', value: 999 }],
+      filters: [
+        { columnId: COL_DAYS, fieldName: 'col_days', op: 'gt', value: 999 },
+      ],
     })
     const m = materialiseChart(spec, COLUMNS, ROWS)
     expect(m.state.kind).toBe('empty_dataset')
@@ -228,7 +271,10 @@ describe('materialiseChart', () => {
         },
       },
     })
-    const rowsWithZero = [...ROWS, { col_days: 14, col_gcn: 0, col_rep: 'Rep 1', col_err: 0 }]
+    const rowsWithZero = [
+      ...ROWS,
+      { col_days: 14, col_gcn: 0, col_rep: 'Rep 1', col_err: 0 },
+    ]
     const m = materialiseChart(spec, COLUMNS, rowsWithZero)
     expect(m.state.kind).toBe('log_scale_invalid')
     if (m.state.kind === 'log_scale_invalid') {
@@ -239,25 +285,39 @@ describe('materialiseChart', () => {
 
   it('attaches error-bar values when overlays.errorBars is set', () => {
     const spec = baseSpec({
-      overlays: { errorBars: { columnId: COL_ERR, fieldName: 'col_err', basis: 'sd' } },
+      overlays: {
+        errorBars: { columnId: COL_ERR, fieldName: 'col_err', basis: 'sd' },
+      },
     })
     const m = materialiseChart(spec, COLUMNS, ROWS)
     expect(m.state.kind).toBe('ok')
-    expect(m.series[0].points.every((p) => typeof p.yError === 'number')).toBe(true)
+    expect(m.series[0].points.every((p) => typeof p.yError === 'number')).toBe(
+      true,
+    )
   })
 
   it('reports missing_field when an error-bar column is retired', () => {
     const spec = baseSpec({
-      overlays: { errorBars: { columnId: COL_ERR, fieldName: 'col_err', basis: 'sd' } },
+      overlays: {
+        errorBars: { columnId: COL_ERR, fieldName: 'col_err', basis: 'sd' },
+      },
     })
-    const m = materialiseChart(spec, COLUMNS.filter((c) => c.id !== COL_ERR), ROWS)
+    const m = materialiseChart(
+      spec,
+      COLUMNS.filter((c) => c.id !== COL_ERR),
+      ROWS,
+    )
     expect(m.state.kind).toBe('missing_field')
-    if (m.state.kind === 'missing_field') expect(m.state.fields).toContain('errorBars')
+    if (m.state.kind === 'missing_field')
+      expect(m.state.fields).toContain('errorBars')
   })
 
   it('uses palette colours in order when display.series is unconfigured', () => {
     const spec = baseSpec({
-      fields: { ...baseSpec().fields, series: { columnId: COL_REP, fieldName: 'col_rep' } },
+      fields: {
+        ...baseSpec().fields,
+        series: { columnId: COL_REP, fieldName: 'col_rep' },
+      },
     })
     const m = materialiseChart(spec, COLUMNS, ROWS)
     expect(m.series.map((s) => s.color)).toEqual([

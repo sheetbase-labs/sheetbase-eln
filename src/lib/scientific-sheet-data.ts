@@ -96,7 +96,7 @@ export async function fetchScientificTable(
     'scientific_table_metadata',
     { p_table_id: tableId },
   )
-  return result[0] ?? null
+  return result.length > 0 ? result[0] : null
 }
 export async function fetchScientificRows(
   client: DataClient,

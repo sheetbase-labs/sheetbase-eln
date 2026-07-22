@@ -175,13 +175,33 @@ A chart block is **frozen** when `frozen` is a `FrozenChart`:
   "frozenAt": "<iso timestamp>",
   "frozenByUserId": "<user id>",
   "datasetProvenance": [
-    { "tableId": "<uuid>", "schemaVersion": 3, "rowCount": 10, "checksum": "<md5 of materialised rows>" }
+    {
+      "tableId": "<uuid>",
+      "schemaVersion": 3,
+      "rowCount": 10,
+      "checksum": "<md5 of materialised rows>",
+    },
   ],
   "data": {
-    "columns": [{ "columnId": "<uuid>", "fieldName": "col_...", "label": "Time (days)", "unit": "d", "logicalType": "integer" }],
-    "rows": [ { /* materialised, filtered, transformed rows used by the chart */ } ],
-    "series": [ { "identifier": "...", "points": [ { "x": 0, "y": 2.31e8, "yError": 1.2e7 } ] } ]
-  }
+    "columns": [
+      {
+        "columnId": "<uuid>",
+        "fieldName": "col_...",
+        "label": "Time (days)",
+        "unit": "d",
+        "logicalType": "integer",
+      },
+    ],
+    "rows": [
+      {/* materialised, filtered, transformed rows used by the chart */},
+    ],
+    "series": [
+      {
+        "identifier": "...",
+        "points": [{ "x": 0, "y": 2.31e8, "yError": 1.2e7 }],
+      },
+    ],
+  },
 }
 ```
 
@@ -297,6 +317,6 @@ No new event types. Chart block mutations emit the existing `block.create`,
 - Analysis Studio (ROADMAP line 117) later adds reusable saved specs,
   multi-dataset joins, additional chart types, export and saved analysis views
   on top of this contract without rewriting it.
-- Full dataset-version pinning for *live* charts in submitted revisions is
+- Full dataset-version pinning for _live_ charts in submitted revisions is
   deferred to Analysis Studio / REV-008; SCI-004 requires freezing for
   reproducible review.

@@ -22,11 +22,8 @@ import {
   materialiseLiveChart,
   useLiveChartDataset,
 } from '#/lib/chart-data'
-import {
-  CHART_SPEC_VERSION,
-  type ChartBlockPayload,
-  type ChartSpec,
-} from '#/lib/chart-spec'
+import { CHART_SPEC_VERSION } from '#/lib/chart-spec'
+import type { ChartBlockPayload, ChartSpec } from '#/lib/chart-spec'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 
 /**

@@ -9,18 +9,17 @@ import { describe, expect, it } from 'vitest'
 import {
   detectStaleCalculations,
   materialiseFrozenChart,
-  materialiseLiveChart
-  
+  materialiseLiveChart,
 } from './chart-data'
-import type {ResolvedDataset} from './chart-data';
+import type { ResolvedDataset } from './chart-data'
 import type {
   FormulaResultWire,
   ScientificColumnWire,
   ScientificRowWire,
   ScientificTableWire,
 } from './scientific-sheet-data'
-import { CHART_PALETTE   } from './chart-spec'
-import type {ChartSpec, FrozenChart} from './chart-spec';
+import { CHART_PALETTE } from './chart-spec'
+import type { ChartSpec, FrozenChart } from './chart-spec'
 
 const TABLE_ID = '00000000-0000-4000-8000-000000000170'
 

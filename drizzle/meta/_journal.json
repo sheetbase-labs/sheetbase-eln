@@ -197,6 +197,13 @@
       "when": 1784642000000,
       "tag": "0027_sci_004_chart_blocks",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1784642100000,
+      "tag": "0028_sci_005_plate_map_blocks",
+      "breakpoints": true
     }
   ]
 }

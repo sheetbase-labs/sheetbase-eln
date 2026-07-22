@@ -15,6 +15,7 @@
 import { isRichTextPayload } from './rich-text'
 
 import { validateChartPayload } from '../chart-spec'
+import { validatePlateMapPayload } from '../plate-map'
 
 export {
   EMPTY_RICH_TEXT_PAYLOAD,
@@ -40,6 +41,29 @@ export type {
   ChartType,
   FrozenChart,
 } from '../chart-spec'
+export {
+  ASSIGNMENT_ROLES,
+  PLATE_FORMATS,
+  PLATE_MAP_SPEC_VERSION,
+  ROLE_STYLES,
+  FORMAT_DIMENSIONS,
+  defaultPlateMapSpec,
+  parseWellCode,
+  rowLabel as plateRowLabel,
+  validatePlateMapPayload,
+  validatePlateMapSpec,
+  wellCode,
+} from '../plate-map'
+export type {
+  AssignmentRole,
+  PlateFormat,
+  PlateMapBlockPayload,
+  PlateMapSpec,
+  PlateValidationConfig,
+  SampleRef as PlateSampleRef,
+  Volume as PlateVolume,
+  WellAssignment as PlateWellAssignment,
+} from '../plate-map'
 
 export type BlockType =
   | 'rich_text'
@@ -395,21 +419,43 @@ function mapChartErrorCode(code: string): BlockValidationError {
   }
 }
 
+function mapPlateMapErrorCode(code: string): BlockValidationError {
+  switch (code) {
+    case 'missing_field':
+    case 'missing_required_role':
+      return 'missing_required_field'
+    case 'unsupported_format':
+    case 'unsupported_role':
+    case 'unsupported_spec_version':
+    case 'invalid_well_code':
+    case 'duplicate_well':
+    case 'out_of_bounds':
+    case 'invalid_sample_ref':
+    case 'invalid_volume':
+    case 'invalid_replicate':
+    case 'duplicate_assignment':
+    case 'invalid_value':
+      return 'invalid_field_value'
+    case 'invalid_shape':
+    default:
+      return 'invalid_payload_shape'
+  }
+}
+
 function validatePlateMap(payload: unknown): FieldErrors {
-  const errors: FieldErrors = []
   if (!isObject(payload))
     return [
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
     ]
-  const wells = payload.wells
-  if (!Array.isArray(wells)) {
-    errors.push({
-      code: 'missing_required_field',
-      field: 'wells',
-      message: 'wells is required and must be an array',
-    })
-  }
-  return errors
+  // SCI-005 (decision 0030): delegate to the real PlateMapSpec validator. An
+  // empty draft `{}` is valid. Sample reference integrity is enforced by the
+  // database trigger; this gate checks structural validity, well codes,
+  // roles, duplicate detection, required controls and volume constraints.
+  return validatePlateMapPayload(payload).map((e) => ({
+    code: mapPlateMapErrorCode(e.code),
+    field: e.field,
+    message: e.message,
+  }))
 }
 
 function validateFile(payload: unknown): FieldErrors {

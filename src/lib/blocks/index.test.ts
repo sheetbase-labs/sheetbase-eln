@@ -275,7 +275,43 @@ describe('block payload validation (ELN-002)', () => {
         },
         provenance: 'Analysis Studio',
       },
-      plate_map: { wells: [{ row: 0, col: 0, value: 0.5 }] },
+      plate_map: {
+        title: 'qPCR titration plate',
+        spec: {
+          specVersion: 1,
+          format: '96_well',
+          rows: 8,
+          cols: 12,
+          wells: [
+            {
+              wellCode: 'A1',
+              row: 0,
+              col: 0,
+              role: 'positive_control',
+            },
+            {
+              wellCode: 'A2',
+              row: 0,
+              col: 1,
+              role: 'sample',
+              sampleRef: {
+                recordId: '0198d970-e266-4000-8000-000000000012',
+                identifier: 'SMP-2026-0001',
+                title: 'Reference sample',
+              },
+              replicate: 1,
+              volume: { value: 20, unit: 'µL' },
+            },
+          ],
+          validation: {
+            requiredRoles: ['positive_control'],
+            volumeMin: 5,
+            volumeMax: 50,
+            volumeUnit: 'µL',
+          },
+        },
+        provenance: 'Titration assay layout',
+      },
       file: {
         fileRecordId: '0198d970-e266-4000-8000-000000000020',
         fileIdentifier: 'FILE-2026-0001',

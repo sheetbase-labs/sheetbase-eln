@@ -1254,6 +1254,7 @@ function ChartBlockEditor({
               aria-label="Dataset"
               value={selectedTableId}
               onChange={(e) => chooseDataset(e.target.value)}
+              onBlur={() => a.flush()}
               disabled={!!frozen || tablesQuery.isLoading}
               className="h-9 w-full rounded-md border border-input px-2 text-sm"
             >
@@ -1278,6 +1279,7 @@ function ChartBlockEditor({
                 onChange={(e) =>
                   updateSpec({ type: e.target.value as ChartType })
                 }
+                onBlur={() => a.flush()}
                 disabled={!!frozen || !spec}
                 className="h-9 w-full rounded-md border border-input px-2 text-sm"
               >
@@ -1295,6 +1297,7 @@ function ChartBlockEditor({
                 onChange={(e) =>
                   updateFields({ series: parseBinding(e.target.value) })
                 }
+                onBlur={() => a.flush()}
                 disabled={!!frozen || !spec}
                 className="h-9 w-full rounded-md border border-input px-2 text-sm"
               >
@@ -1309,6 +1312,7 @@ function ChartBlockEditor({
                 onChange={(e) =>
                   updateFields({ x: parseBinding(e.target.value) })
                 }
+                onBlur={() => a.flush()}
                 disabled={!!frozen || !spec}
                 className="h-9 w-full rounded-md border border-input px-2 text-sm"
               >
@@ -1328,6 +1332,7 @@ function ChartBlockEditor({
                     },
                   })
                 }
+                onBlur={() => a.flush()}
                 disabled={!!frozen || !spec}
                 className="h-9 w-full rounded-md border border-input px-2 text-sm"
               >
@@ -1350,6 +1355,7 @@ function ChartBlockEditor({
                     },
                   })
                 }
+                onBlur={() => a.flush()}
                 disabled={!!frozen || !spec}
                 className="h-9 w-full rounded-md border border-input px-2 text-sm"
               >
@@ -1375,6 +1381,7 @@ function ChartBlockEditor({
                     },
                   })
                 }
+                onBlur={() => a.flush()}
                 disabled={!!frozen || !spec}
                 className="h-9 w-full rounded-md border border-input px-2 text-sm"
               >

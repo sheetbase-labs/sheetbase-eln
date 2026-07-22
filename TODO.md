@@ -656,13 +656,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** DATA-006, UI-006.
 
-- [ ] Define a saved chart specification referencing stable datasets, fields, filters, transformations and display settings.
-- [ ] Support the initial line, scatter and bar charts needed by the mockups before expanding the chart catalogue.
-- [ ] Keep statistical overlays and error-bar definitions explicit and reproducible.
-- [ ] Render charts inside `ChartFrame` using the approved palette and scientific number formatting.
-- [ ] Provide accessible legends, descriptions and tabular alternatives.
-- [ ] Distinguish a live chart from a frozen chart included in a submitted revision.
-- [ ] Add tests for missing fields, empty datasets, log-scale invalid values and stale calculations.
+- [x] Define a saved chart specification referencing stable datasets, fields, filters, transformations and display settings.
+- [x] Support the initial line, scatter and bar charts needed by the mockups before expanding the chart catalogue.
+- [x] Keep statistical overlays and error-bar definitions explicit and reproducible.
+- [x] Render charts inside `ChartFrame` using the approved palette and scientific number formatting.
+- [x] Provide accessible legends, descriptions and tabular alternatives.
+- [x] Distinguish a live chart from a frozen chart included in a submitted revision.
+- [x] Add tests for missing fields, empty datasets, log-scale invalid values and stale calculations.
 
 ### SCI-005 — Build the working PlateMap block
 

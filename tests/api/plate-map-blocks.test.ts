@@ -41,14 +41,26 @@ async function clean(): Promise<void> {
       (SELECT id FROM api.records WHERE workspace_id IN ($1,$2))`,
     [WS_A, WS_B],
   )
-  await admin.query(`DELETE FROM api.records WHERE workspace_id IN ($1,$2)`, [WS_A, WS_B])
-  await admin.query(`DELETE FROM api.projects WHERE workspace_id IN ($1,$2)`, [WS_A, WS_B])
+  await admin.query(`DELETE FROM api.records WHERE workspace_id IN ($1,$2)`, [
+    WS_A,
+    WS_B,
+  ])
+  await admin.query(`DELETE FROM api.projects WHERE workspace_id IN ($1,$2)`, [
+    WS_A,
+    WS_B,
+  ])
   await admin.query(
     `DELETE FROM api.workspace_memberships WHERE workspace_id IN ($1,$2)`,
     [WS_A, WS_B],
   )
-  await admin.query(`DELETE FROM api.workspaces WHERE id IN ($1,$2)`, [WS_A, WS_B])
-  await admin.query(`DELETE FROM internal."user" WHERE id IN ($1,$2)`, [USER_A, USER_B])
+  await admin.query(`DELETE FROM api.workspaces WHERE id IN ($1,$2)`, [
+    WS_A,
+    WS_B,
+  ])
+  await admin.query(`DELETE FROM internal."user" WHERE id IN ($1,$2)`, [
+    USER_A,
+    USER_B,
+  ])
   await admin.query(`SELECT pg_notify('pgrst','reload schema')`)
 }
 
@@ -75,7 +87,12 @@ function proxy(
   )
 }
 
-async function rpc(path: string, user: string, workspace: string, body: unknown) {
+async function rpc(
+  path: string,
+  user: string,
+  workspace: string,
+  body: unknown,
+) {
   return proxy(`rpc/${path}`, user, workspace, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -117,7 +134,11 @@ async function insertBlock(
   })
 }
 
-function platePayload(sample: { id: string; identifier: string; title: string }) {
+function platePayload(sample: {
+  id: string
+  identifier: string
+  title: string
+}) {
   return {
     title: 'Test plate',
     spec: {
@@ -188,13 +209,35 @@ describe('SCI-005 plate-map blocks REST contract', () => {
   let block: { id: string; version: number; payload: any }
 
   it('creates and reads an authenticated plate_map block through the proxy', async () => {
-    experiment = await createRecord(USER_A, WS_A, PROJECT_A, 'experiment', 'Plate map API')
-    sample = await createRecord(USER_A, WS_A, PROJECT_A, 'sample', 'Test sample')
-    const response = await insertBlock(USER_A, WS_A, experiment, 'plate_map', platePayload(sample))
+    experiment = await createRecord(
+      USER_A,
+      WS_A,
+      PROJECT_A,
+      'experiment',
+      'Plate map API',
+    )
+    sample = await createRecord(
+      USER_A,
+      WS_A,
+      PROJECT_A,
+      'sample',
+      'Test sample',
+    )
+    const response = await insertBlock(
+      USER_A,
+      WS_A,
+      experiment,
+      'plate_map',
+      platePayload(sample),
+    )
     expect(response.status).toBe(200)
     block = (await response.json()).block
 
-    const read = await proxy(`blocks?id=eq.${block.id}&select=id,type,payload`, USER_A, WS_A)
+    const read = await proxy(
+      `blocks?id=eq.${block.id}&select=id,type,payload`,
+      USER_A,
+      WS_A,
+    )
     expect(read.status).toBe(200)
     const rows = await read.json()
     expect(rows).toHaveLength(1)
@@ -231,7 +274,10 @@ describe('SCI-005 plate-map blocks REST contract', () => {
     const payload = platePayload(sample)
     payload.spec.rows = 4
     const response = await rpc('update_block_payload', USER_A, WS_A, {
-      p_block_id: block.id, p_payload: payload, p_expected_version: block.version, p_payload_schema_version: 1,
+      p_block_id: block.id,
+      p_payload: payload,
+      p_expected_version: block.version,
+      p_payload_schema_version: 1,
     })
     expect(response.status).toBeGreaterThanOrEqual(400)
   })
@@ -240,16 +286,27 @@ describe('SCI-005 plate-map blocks REST contract', () => {
     const payload = platePayload(sample)
     payload.spec.wells[0].wellCode = 'Z99'
     const response = await rpc('update_block_payload', USER_A, WS_A, {
-      p_block_id: block.id, p_payload: payload, p_expected_version: block.version, p_payload_schema_version: 1,
+      p_block_id: block.id,
+      p_payload: payload,
+      p_expected_version: block.version,
+      p_payload_schema_version: 1,
     })
     expect(response.status).toBeGreaterThanOrEqual(400)
   })
 
   it('rejects duplicate well assignments', async () => {
     const payload = platePayload(sample)
-    payload.spec.wells[1] = { wellCode: 'A1', row: 0, col: 0, role: 'positive_control' }
+    payload.spec.wells[1] = {
+      wellCode: 'A1',
+      row: 0,
+      col: 0,
+      role: 'positive_control',
+    }
     const response = await rpc('update_block_payload', USER_A, WS_A, {
-      p_block_id: block.id, p_payload: payload, p_expected_version: block.version, p_payload_schema_version: 1,
+      p_block_id: block.id,
+      p_payload: payload,
+      p_expected_version: block.version,
+      p_payload_schema_version: 1,
     })
     expect(response.status).toBeGreaterThanOrEqual(400)
   })
@@ -261,20 +318,43 @@ describe('SCI-005 plate-map blocks REST contract', () => {
   })
 
   it('accepts and reads a plate map referencing an archived sample', async () => {
-    const archived = await createRecord(USER_A, WS_A, PROJECT_A, 'sample', 'Archived sample')
+    const archived = await createRecord(
+      USER_A,
+      WS_A,
+      PROJECT_A,
+      'sample',
+      'Archived sample',
+    )
     const archive = await proxy(`records?id=eq.${archived.id}`, USER_A, WS_A, {
       method: 'PATCH',
-      headers: { 'content-type': 'application/json', prefer: 'return=representation' },
+      headers: {
+        'content-type': 'application/json',
+        prefer: 'return=representation',
+      },
       body: JSON.stringify({ archived_at: new Date().toISOString() }),
     })
     expect(archive.status).toBe(200)
-    const record = await createRecord(USER_A, WS_A, PROJECT_A, 'experiment', 'Archived plate')
-    const response = await insertBlock(USER_A, WS_A, record, 'plate_map', platePayload(archived))
+    const record = await createRecord(
+      USER_A,
+      WS_A,
+      PROJECT_A,
+      'experiment',
+      'Archived plate',
+    )
+    const response = await insertBlock(
+      USER_A,
+      WS_A,
+      record,
+      'plate_map',
+      platePayload(archived),
+    )
     expect(response.status).toBe(200)
     const archivedBlock = (await response.json()).block
     const read = await proxy(`blocks?id=eq.${archivedBlock.id}`, USER_A, WS_A)
     expect(read.status).toBe(200)
-    expect((await read.json())[0].payload.spec.wells[0].sampleRef.recordId).toBe(archived.id)
+    expect(
+      (await read.json())[0].payload.spec.wells[0].sampleRef.recordId,
+    ).toBe(archived.id)
   })
 
   it('emits a durable block.update event with actor attribution', async () => {
@@ -283,7 +363,12 @@ describe('SCI-005 plate-map blocks REST contract', () => {
        WHERE record_id=$1 AND entity_type='block' ORDER BY sequence DESC LIMIT 20`,
       [experiment.id],
     )
-    expect(rows.some((event: any) => event.operation === 'update' && event.actor_user_id === USER_A)).toBe(true)
+    expect(
+      rows.some(
+        (event: any) =>
+          event.operation === 'update' && event.actor_user_id === USER_A,
+      ),
+    ).toBe(true)
   })
 
   it('rejects an unauthenticated REST request at the proxy boundary', async () => {

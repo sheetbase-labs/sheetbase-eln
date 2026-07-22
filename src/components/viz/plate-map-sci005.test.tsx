@@ -12,9 +12,30 @@ import type { PlateWell } from './plate-map'
 afterEach(() => cleanup())
 
 const roleWells: PlateWell[] = [
-  { row: 0, col: 0, wellCode: 'A1', roleClass: 'bg-blue-300', displayLabel: 'S', label: 'A1 Sample' },
-  { row: 0, col: 1, wellCode: 'A2', roleClass: 'bg-emerald-400', displayLabel: 'P', label: 'A2 Positive control' },
-  { row: 1, col: 0, wellCode: 'B1', roleClass: 'bg-orange-400', displayLabel: 'N', label: 'B1 Negative control' },
+  {
+    row: 0,
+    col: 0,
+    wellCode: 'A1',
+    roleClass: 'bg-blue-300',
+    displayLabel: 'S',
+    label: 'A1 Sample',
+  },
+  {
+    row: 0,
+    col: 1,
+    wellCode: 'A2',
+    roleClass: 'bg-emerald-400',
+    displayLabel: 'P',
+    label: 'A2 Positive control',
+  },
+  {
+    row: 1,
+    col: 0,
+    wellCode: 'B1',
+    roleClass: 'bg-orange-400',
+    displayLabel: 'N',
+    label: 'B1 Negative control',
+  },
   { row: 1, col: 1, wellCode: 'B2', label: 'B2 (empty)' },
 ]
 
@@ -26,7 +47,13 @@ const roleLegend = [
 
 describe('PlateMap SCI-005 extensions', () => {
   it('renders a role legend when roleLegend is provided', () => {
-    render(<PlateMap wells={roleWells} roleLegend={roleLegend} ariaLabel="Test plate" />)
+    render(
+      <PlateMap
+        wells={roleWells}
+        roleLegend={roleLegend}
+        ariaLabel="Test plate"
+      />,
+    )
     expect(screen.getByText('Sample')).toBeTruthy()
     expect(screen.getByText('Positive control')).toBeTruthy()
     expect(screen.getByText('Negative control')).toBeTruthy()
@@ -35,11 +62,15 @@ describe('PlateMap SCI-005 extensions', () => {
   it('renders displayLabel inside well cells', () => {
     render(<PlateMap wells={roleWells} ariaLabel="Test plate" />)
     expect(screen.getByRole('button', { name: 'A1 Sample' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'A2 Positive control' })).toBeTruthy()
+    expect(
+      screen.getByRole('button', { name: 'A2 Positive control' }),
+    ).toBeTruthy()
   })
 
   it('distinguishes missing wells from empty wells', () => {
-    render(<PlateMap wells={roleWells} rows={8} cols={12} ariaLabel="Test plate" />)
+    render(
+      <PlateMap wells={roleWells} rows={8} cols={12} ariaLabel="Test plate" />,
+    )
     // B2 is in the wells array but has no value → empty
     expect(screen.getByRole('button', { name: 'B2 (empty)' })).toBeTruthy()
     // A3 is not in the wells array → also empty (no value)
@@ -152,7 +183,9 @@ describe('PlateMap SCI-005 extensions', () => {
 
   it('moves to last column on End', async () => {
     const user = userEvent.setup()
-    render(<PlateMap wells={roleWells} rows={2} cols={2} ariaLabel="Test plate" />)
+    render(
+      <PlateMap wells={roleWells} rows={2} cols={2} ariaLabel="Test plate" />,
+    )
     const a1 = screen.getByRole('button', { name: 'A1 Sample' })
     a1.focus()
     await user.keyboard('{End}')
@@ -162,7 +195,9 @@ describe('PlateMap SCI-005 extensions', () => {
 
   it('moves to first cell on Ctrl+Home', async () => {
     const user = userEvent.setup()
-    render(<PlateMap wells={roleWells} rows={2} cols={2} ariaLabel="Test plate" />)
+    render(
+      <PlateMap wells={roleWells} rows={2} cols={2} ariaLabel="Test plate" />,
+    )
     const b2 = screen.getByRole('button', { name: 'B2 (empty)' })
     b2.focus()
     await user.keyboard('{Control>}{Home}{/Control}')
@@ -172,7 +207,9 @@ describe('PlateMap SCI-005 extensions', () => {
 
   it('moves to last cell on Ctrl+End', async () => {
     const user = userEvent.setup()
-    render(<PlateMap wells={roleWells} rows={2} cols={2} ariaLabel="Test plate" />)
+    render(
+      <PlateMap wells={roleWells} rows={2} cols={2} ariaLabel="Test plate" />,
+    )
     const a1 = screen.getByRole('button', { name: 'A1 Sample' })
     a1.focus()
     await user.keyboard('{Control>}{End}{/Control}')

@@ -1700,11 +1700,7 @@ function PlateMapBlockEditor({
           <span>{spec.wells.length} wells assigned</span>
         </div>
       ) : (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => ensureSpec()}
-        >
+        <Button variant="outline" size="sm" onClick={() => ensureSpec()}>
           Initialize 96-well plate
         </Button>
       )}
@@ -1735,12 +1731,13 @@ function PlateMapBlockEditor({
                 sampleLoading={sampleQuery.isLoading}
                 sampleError={sampleQuery.error ?? null}
                 onSampleSearch={setSampleSearch}
-                onAssignRole={(role) =>
-                  upsertWell(selectedWellCode, { role })
-                }
+                onAssignRole={(role) => upsertWell(selectedWellCode, { role })}
                 onSelectSample={(result) =>
                   upsertWell(selectedWellCode, {
-                    role: selectedWell?.role === 'empty' ? 'sample' : selectedWell?.role ?? 'sample',
+                    role:
+                      selectedWell?.role === 'empty'
+                        ? 'sample'
+                        : (selectedWell?.role ?? 'sample'),
                     sampleRef: {
                       recordId: result.id,
                       identifier: result.identifier,
@@ -1765,9 +1762,7 @@ function PlateMapBlockEditor({
                 onClearVolume={() =>
                   upsertWell(selectedWellCode, { volume: undefined })
                 }
-                onSetNotes={(notes) =>
-                  upsertWell(selectedWellCode, { notes })
-                }
+                onSetNotes={(notes) => upsertWell(selectedWellCode, { notes })}
                 onRemoveWell={() => {
                   removeWell(selectedWellCode)
                   setSelectedWellCode(null)
@@ -1974,7 +1969,9 @@ function WellInspector({
                 min={0}
                 step="any"
                 placeholder="value"
-                onChange={(e) => onSetVolume(parseFloat(e.target.value) || 0, 'µL')}
+                onChange={(e) =>
+                  onSetVolume(parseFloat(e.target.value) || 0, 'µL')
+                }
                 className="w-20 rounded-md border border-input bg-background px-2 py-1 text-sm"
               />
               <span className="text-xs text-muted-foreground">µL</span>
@@ -2020,10 +2017,7 @@ function ValidationConfigEditor({
           <span className="text-xs text-muted-foreground">Required roles</span>
           <div className="mt-1 flex flex-wrap gap-2">
             {ASSIGNMENT_ROLES.filter((r) => r !== 'empty').map((r) => (
-              <label
-                key={r}
-                className="flex items-center gap-1 text-xs"
-              >
+              <label key={r} className="flex items-center gap-1 text-xs">
                 <input
                   type="checkbox"
                   checked={v.requiredRoles?.includes(r) ?? false}

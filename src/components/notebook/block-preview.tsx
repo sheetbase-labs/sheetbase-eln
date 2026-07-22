@@ -26,15 +26,12 @@ import { CHART_SPEC_VERSION } from '#/lib/chart-spec'
 import type { ChartBlockPayload, ChartSpec } from '#/lib/chart-spec'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import { PlateMap } from '#/components/viz/plate-map'
-import type { PlateWell, PlateMapRoleLegendEntry } from '#/components/viz/plate-map'
-import {
-  PLATE_MAP_SPEC_VERSION,
-  ROLE_STYLES,
-} from '#/lib/plate-map'
 import type {
-  PlateMapSpec,
-  WellAssignment,
-} from '#/lib/plate-map'
+  PlateWell,
+  PlateMapRoleLegendEntry,
+} from '#/components/viz/plate-map'
+import { PLATE_MAP_SPEC_VERSION, ROLE_STYLES } from '#/lib/plate-map'
+import type { PlateMapSpec, WellAssignment } from '#/lib/plate-map'
 
 /**
  * Read-only preview of a block's typed payload (ELN-004). Renders the
@@ -780,7 +777,9 @@ function PlateMapBlockPreview({ payload }: { payload: unknown }) {
   // Convert WellAssignments to PlateWells with role-based coloring
   const plateWells: PlateWell[] = spec.wells.map((w) => {
     const roleStyle = ROLE_STYLES[w.role]
-    const liveRecord = w.sampleRef ? liveRecords.get(w.sampleRef.recordId) : null
+    const liveRecord = w.sampleRef
+      ? liveRecords.get(w.sampleRef.recordId)
+      : null
     const isArchived = Boolean(w.sampleRef?.archived || liveRecord?.archivedAt)
     const displayLabel = w.sampleRef
       ? `${w.sampleRef.identifier}${isArchived ? ' (arch)' : ''}`
@@ -799,18 +798,21 @@ function PlateMapBlockPreview({ payload }: { payload: unknown }) {
 
   // Build role legend from the roles present on the plate
   const presentRoles = new Set(spec.wells.map((w) => w.role))
-  const roleLegend: PlateMapRoleLegendEntry[] = Array.from(presentRoles)
-    .map((role) => ({
+  const roleLegend: PlateMapRoleLegendEntry[] = Array.from(presentRoles).map(
+    (role) => ({
       label: ROLE_STYLES[role].label,
       className: ROLE_STYLES[role].cellClass,
-    }))
+    }),
+  )
 
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
         <p className="font-medium text-foreground">{title}</p>
         {spec.wells.length === 0 ? (
-          <span className="text-xs text-muted-foreground">No wells assigned</span>
+          <span className="text-xs text-muted-foreground">
+            No wells assigned
+          </span>
         ) : (
           <span className="text-xs text-muted-foreground">
             {spec.wells.length} well{spec.wells.length !== 1 ? 's' : ''} ·{' '}

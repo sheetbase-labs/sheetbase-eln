@@ -400,7 +400,8 @@ describe('Virus Stability demo fixtures', () => {
     // SCI-004 adds a stability sheet block (backing a scientific table) and a
     // frozen chart block, bringing the total to 15 with no duplicates after
     // two runs.
-    expect(Number(rows[0]?.n)).toBe(15)
+    // SCI-005 adds a plate map block, bringing the total to 16.
+    expect(Number(rows[0]?.n)).toBe(16)
 
     const { rows: links } = await migrator.query<{ n: string }>(
       `SELECT count(*)::text AS n FROM api.record_links

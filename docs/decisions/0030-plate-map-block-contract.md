@@ -60,39 +60,40 @@ interface PlateMapBlockPayload {
 }
 
 interface PlateMapSpec {
-  specVersion: number   // PLATE_MAP_SPEC_VERSION = 1
-  format: PlateFormat   // '96_well' initially
-  rows: number          // 8 for 96-well
-  cols: number          // 12 for 96-well
+  specVersion: number // PLATE_MAP_SPEC_VERSION = 1
+  format: PlateFormat // '96_well' initially
+  rows: number // 8 for 96-well
+  cols: number // 12 for 96-well
   wells: WellAssignment[]
   validation: PlateValidationConfig
 }
 
-type PlateFormat = '96_well'  // extensible to '384_well' etc.
+type PlateFormat = '96_well' // extensible to '384_well' etc.
 
 interface WellAssignment {
-  wellCode: string     // canonical "A1", "B12"
-  row: number          // 0-based row index
-  col: number          // 0-based column index
+  wellCode: string // canonical "A1", "B12"
+  row: number // 0-based row index
+  col: number // 0-based column index
   role: AssignmentRole
   sampleRef?: SampleRef
-  replicate?: number   // positive integer
+  replicate?: number // positive integer
   volume?: Volume
   notes?: string
 }
 
-type AssignmentRole = 'sample' | 'positive_control' | 'negative_control' | 'blank' | 'empty'
+type AssignmentRole =
+  'sample' | 'positive_control' | 'negative_control' | 'blank' | 'empty'
 
 interface SampleRef {
-  recordId: string     // stable UUID of the sample record
-  identifier: string   // observed display identifier (honest snapshot)
-  title: string        // observed display title
-  archived?: boolean   // snapshot of archived state at observation time
+  recordId: string // stable UUID of the sample record
+  identifier: string // observed display identifier (honest snapshot)
+  title: string // observed display title
+  archived?: boolean // snapshot of archived state at observation time
 }
 
 interface Volume {
   value: number
-  unit: string         // e.g. 'µL', 'mL'
+  unit: string // e.g. 'µL', 'mL'
 }
 
 interface PlateValidationConfig {
@@ -127,6 +128,7 @@ enum itself, only a trigger update to accept the new format and its dimensions.
 ### 5. Assignment roles
 
 Roles are generic and extensible:
+
 - `sample` — a well assigned to a sample record (requires `sampleRef`).
 - `positive_control` — a positive control well (may optionally link a sample).
 - `negative_control` — a negative / no-template control well.
@@ -166,6 +168,7 @@ or payload-specific data.
 ### 8. Validation
 
 **Application-enforced (detailed error messages):**
+
 - Duplicate assignment: same sample record linked to multiple wells with the
   same role and replicate number (controls are not incorrectly flagged as
   duplicates when no sample is linked).
@@ -176,6 +179,7 @@ or payload-specific data.
 - Well-count vs dimensions: wells array length does not exceed rows × cols.
 
 **DB-enforced (authoritative invariants):**
+
 - Payload is a JSON object with schema version 1.
 - Draft `{}` is allowed.
 - `title` is a non-empty string when payload is populated.

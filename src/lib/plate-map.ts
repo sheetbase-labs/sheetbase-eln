@@ -32,7 +32,10 @@ export type PlateFormat = (typeof PLATE_FORMATS)[number]
  * Format dimensions lookup. Adding a format requires adding its dimensions
  * here, in the DB trigger, and in the application validator.
  */
-export const FORMAT_DIMENSIONS: Record<PlateFormat, { rows: number; cols: number }> = {
+export const FORMAT_DIMENSIONS: Record<
+  PlateFormat,
+  { rows: number; cols: number }
+> = {
   '96_well': { rows: 8, cols: 12 },
 }
 
@@ -220,7 +223,9 @@ export function wellCode(row: number, col: number): string {
  * Parse a canonical well code into 0-based row and column indices.
  * Returns null if the code is malformed.
  */
-export function parseWellCode(code: string): { row: number; col: number } | null {
+export function parseWellCode(
+  code: string,
+): { row: number; col: number } | null {
   const match = /^([A-Z]+)(\d+)$/.exec(code)
   if (!match) return null
   const rowStr = match[1]
@@ -244,7 +249,9 @@ export function isValidWellCode(
 ): boolean {
   const parsed = parseWellCode(code)
   if (!parsed) return false
-  return parsed.row >= 0 && parsed.row < rows && parsed.col >= 0 && parsed.col < cols
+  return (
+    parsed.row >= 0 && parsed.row < rows && parsed.col >= 0 && parsed.col < cols
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -307,7 +314,11 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
 
   // rows
   const rows = spec.rows
-  if (typeof rows !== 'number' || !Number.isInteger(rows) || rows !== expectedDims.rows) {
+  if (
+    typeof rows !== 'number' ||
+    !Number.isInteger(rows) ||
+    rows !== expectedDims.rows
+  ) {
     errors.push({
       code: 'invalid_value',
       field: 'spec.rows',
@@ -317,7 +328,11 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
 
   // cols
   const cols = spec.cols
-  if (typeof cols !== 'number' || !Number.isInteger(cols) || cols !== expectedDims.cols) {
+  if (
+    typeof cols !== 'number' ||
+    !Number.isInteger(cols) ||
+    cols !== expectedDims.cols
+  ) {
     errors.push({
       code: 'invalid_value',
       field: 'spec.cols',
@@ -396,7 +411,12 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
 
     // row
     const r = well.row
-    if (typeof r !== 'number' || !Number.isInteger(r) || r < 0 || r >= actualRows) {
+    if (
+      typeof r !== 'number' ||
+      !Number.isInteger(r) ||
+      r < 0 ||
+      r >= actualRows
+    ) {
       errors.push({
         code: 'out_of_bounds',
         field: `${prefix}.row`,
@@ -406,7 +426,12 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
 
     // col
     const c = well.col
-    if (typeof c !== 'number' || !Number.isInteger(c) || c < 0 || c >= actualCols) {
+    if (
+      typeof c !== 'number' ||
+      !Number.isInteger(c) ||
+      c < 0 ||
+      c >= actualCols
+    ) {
       errors.push({
         code: 'out_of_bounds',
         field: `${prefix}.col`,
@@ -417,8 +442,14 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
     // Cross-check wellCode ↔ row/col
     if (
       isString(code) &&
-      typeof r === 'number' && Number.isInteger(r) && r >= 0 && r < actualRows &&
-      typeof c === 'number' && Number.isInteger(c) && c >= 0 && c < actualCols
+      typeof r === 'number' &&
+      Number.isInteger(r) &&
+      r >= 0 &&
+      r < actualRows &&
+      typeof c === 'number' &&
+      Number.isInteger(c) &&
+      c >= 0 &&
+      c < actualCols
     ) {
       const expected = wellCode(r, c)
       if (code !== expected) {
@@ -468,7 +499,8 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
           errors.push({
             code: 'invalid_sample_ref',
             field: `${prefix}.sampleRef.recordId`,
-            message: 'sampleRef.recordId is required and must be a non-empty string',
+            message:
+              'sampleRef.recordId is required and must be a non-empty string',
           })
         }
         if (!isString(ref.identifier)) {
@@ -538,11 +570,7 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
     }
 
     // Track assignments for duplicate detection
-    if (
-      isString(role) &&
-      isObject(sampleRef) &&
-      isString(sampleRef.recordId)
-    ) {
+    if (isString(role) && isObject(sampleRef) && isString(sampleRef.recordId)) {
       const ref = sampleRef
       const repKey = well.replicate ?? 0
       const key = `${ref.recordId}:${role}:${repKey}`
@@ -576,7 +604,10 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
           .filter((r): r is string => isString(r)),
       )
       for (const required of requiredRoles) {
-        if (isString(required) && ASSIGNMENT_ROLES.includes(required as AssignmentRole)) {
+        if (
+          isString(required) &&
+          ASSIGNMENT_ROLES.includes(required as AssignmentRole)
+        ) {
           if (!presentRoles.has(required)) {
             errors.push({
               code: 'missing_required_role',
@@ -606,7 +637,9 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
       })
     }
     if (
-      typeof volMin === 'number' && typeof volMax === 'number' && volMin > volMax
+      typeof volMin === 'number' &&
+      typeof volMax === 'number' &&
+      volMin > volMax
     ) {
       errors.push({
         code: 'invalid_value',

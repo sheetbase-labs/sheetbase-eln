@@ -116,12 +116,16 @@ describe('validatePlateMapPayload', () => {
 
   it('requires a non-empty title for a populated payload', () => {
     const errors = validatePlateMapPayload({ spec: defaultPlateMapSpec() })
-    expect(errors.some((e) => e.code === 'missing_field' && e.field === 'title')).toBe(true)
+    expect(
+      errors.some((e) => e.code === 'missing_field' && e.field === 'title'),
+    ).toBe(true)
   })
 
   it('requires spec for a populated payload', () => {
     const errors = validatePlateMapPayload({ title: 'My plate' })
-    expect(errors.some((e) => e.code === 'missing_field' && e.field === 'spec')).toBe(true)
+    expect(
+      errors.some((e) => e.code === 'missing_field' && e.field === 'spec'),
+    ).toBe(true)
   })
 
   it('accepts a valid payload', () => {
@@ -178,29 +182,45 @@ describe('validatePlateMapSpec — structural', () => {
 
   it('rejects mismatched rows', () => {
     const errors = validatePlateMapSpec(validSpec({ rows: 4 }))
-    expect(errors.some((e) => e.code === 'invalid_value' && e.field === 'spec.rows')).toBe(true)
+    expect(
+      errors.some((e) => e.code === 'invalid_value' && e.field === 'spec.rows'),
+    ).toBe(true)
   })
 
   it('rejects mismatched cols', () => {
     const errors = validatePlateMapSpec(validSpec({ cols: 6 }))
-    expect(errors.some((e) => e.code === 'invalid_value' && e.field === 'spec.cols')).toBe(true)
+    expect(
+      errors.some((e) => e.code === 'invalid_value' && e.field === 'spec.cols'),
+    ).toBe(true)
   })
 
   it('rejects wells that is not an array', () => {
-    const errors = validatePlateMapSpec(validSpec({ wells: 'not array' as unknown as WellAssignment[] }))
-    expect(errors.some((e) => e.code === 'missing_field' && e.field === 'spec.wells')).toBe(true)
+    const errors = validatePlateMapSpec(
+      validSpec({ wells: 'not array' as unknown as WellAssignment[] }),
+    )
+    expect(
+      errors.some(
+        (e) => e.code === 'missing_field' && e.field === 'spec.wells',
+      ),
+    ).toBe(true)
   })
 
   it('rejects wells exceeding plate capacity', () => {
-    const wells = Array.from({ length: 97 }, (_, i) => well({
-      wellCode: wellCode(Math.floor(i / 12), i % 12),
-      row: Math.floor(i / 12),
-      col: i % 12,
-      role: 'empty',
-      sampleRef: undefined,
-    }))
+    const wells = Array.from({ length: 97 }, (_, i) =>
+      well({
+        wellCode: wellCode(Math.floor(i / 12), i % 12),
+        row: Math.floor(i / 12),
+        col: i % 12,
+        role: 'empty',
+        sampleRef: undefined,
+      }),
+    )
     const errors = validatePlateMapSpec(validSpec({ wells }))
-    expect(errors.some((e) => e.code === 'invalid_value' && e.field === 'spec.wells')).toBe(true)
+    expect(
+      errors.some(
+        (e) => e.code === 'invalid_value' && e.field === 'spec.wells',
+      ),
+    ).toBe(true)
   })
 })
 
@@ -210,83 +230,140 @@ describe('validatePlateMapSpec — structural', () => {
 
 describe('validatePlateMapSpec — well validation', () => {
   it('rejects an invalid well code', () => {
-    const errors = validatePlateMapSpec(validSpec({
-      wells: [well({ wellCode: 'Z99' })],
-    }))
+    const errors = validatePlateMapSpec(
+      validSpec({
+        wells: [well({ wellCode: 'Z99' })],
+      }),
+    )
     expect(errors.some((e) => e.code === 'invalid_well_code')).toBe(true)
   })
 
   it('rejects a well code that does not match row/col', () => {
-    const errors = validatePlateMapSpec(validSpec({
-      wells: [well({ wellCode: 'B2', row: 0, col: 0 })],
-    }))
+    const errors = validatePlateMapSpec(
+      validSpec({
+        wells: [well({ wellCode: 'B2', row: 0, col: 0 })],
+      }),
+    )
     expect(errors.some((e) => e.code === 'invalid_well_code')).toBe(true)
   })
 
   it('rejects out-of-bounds row', () => {
-    const errors = validatePlateMapSpec(validSpec({
-      wells: [well({ row: 8, wellCode: 'I1' })],
-    }))
-    expect(errors.some((e) => e.code === 'out_of_bounds' && e.field === 'spec.wells[0].row')).toBe(true)
+    const errors = validatePlateMapSpec(
+      validSpec({
+        wells: [well({ row: 8, wellCode: 'I1' })],
+      }),
+    )
+    expect(
+      errors.some(
+        (e) => e.code === 'out_of_bounds' && e.field === 'spec.wells[0].row',
+      ),
+    ).toBe(true)
   })
 
   it('rejects out-of-bounds col', () => {
-    const errors = validatePlateMapSpec(validSpec({
-      wells: [well({ col: 12, wellCode: 'A13' })],
-    }))
-    expect(errors.some((e) => e.code === 'out_of_bounds' && e.field === 'spec.wells[0].col')).toBe(true)
+    const errors = validatePlateMapSpec(
+      validSpec({
+        wells: [well({ col: 12, wellCode: 'A13' })],
+      }),
+    )
+    expect(
+      errors.some(
+        (e) => e.code === 'out_of_bounds' && e.field === 'spec.wells[0].col',
+      ),
+    ).toBe(true)
   })
 
   it('rejects duplicate well codes', () => {
-    const errors = validatePlateMapSpec(validSpec({
-      wells: [
-        well({ wellCode: 'A1', row: 0, col: 0 }),
-        well({ wellCode: 'A1', row: 0, col: 0, sampleRef: undefined, role: 'empty' }),
-      ],
-    }))
+    const errors = validatePlateMapSpec(
+      validSpec({
+        wells: [
+          well({ wellCode: 'A1', row: 0, col: 0 }),
+          well({
+            wellCode: 'A1',
+            row: 0,
+            col: 0,
+            sampleRef: undefined,
+            role: 'empty',
+          }),
+        ],
+      }),
+    )
     expect(errors.some((e) => e.code === 'duplicate_well')).toBe(true)
   })
 
   it('rejects an unsupported role', () => {
-    const errors = validatePlateMapSpec(validSpec({
-      wells: [well({ role: 'calibrator' as unknown as AssignmentRole })],
-    }))
+    const errors = validatePlateMapSpec(
+      validSpec({
+        wells: [well({ role: 'calibrator' as unknown as AssignmentRole })],
+      }),
+    )
     expect(errors.some((e) => e.code === 'unsupported_role')).toBe(true)
   })
 
   it('rejects a non-object sampleRef', () => {
-    const errors = validatePlateMapSpec(validSpec({
-      wells: [well({ sampleRef: 'bad' as unknown as WellAssignment['sampleRef'] })],
-    }))
+    const errors = validatePlateMapSpec(
+      validSpec({
+        wells: [
+          well({ sampleRef: 'bad' as unknown as WellAssignment['sampleRef'] }),
+        ],
+      }),
+    )
     expect(errors.some((e) => e.code === 'invalid_sample_ref')).toBe(true)
   })
 
   it('rejects a sampleRef with missing recordId', () => {
-    const errors = validatePlateMapSpec(validSpec({
-      wells: [well({ sampleRef: { identifier: 'X', title: 'Y' } as unknown as WellAssignment['sampleRef'] })],
-    }))
-    expect(errors.some((e) => e.code === 'invalid_sample_ref' && e.field === 'spec.wells[0].sampleRef.recordId')).toBe(true)
+    const errors = validatePlateMapSpec(
+      validSpec({
+        wells: [
+          well({
+            sampleRef: {
+              identifier: 'X',
+              title: 'Y',
+            } as unknown as WellAssignment['sampleRef'],
+          }),
+        ],
+      }),
+    )
+    expect(
+      errors.some(
+        (e) =>
+          e.code === 'invalid_sample_ref' &&
+          e.field === 'spec.wells[0].sampleRef.recordId',
+      ),
+    ).toBe(true)
   })
 
   it('rejects an invalid replicate', () => {
-    const errors = validatePlateMapSpec(validSpec({
-      wells: [well({ replicate: -1 })],
-    }))
+    const errors = validatePlateMapSpec(
+      validSpec({
+        wells: [well({ replicate: -1 })],
+      }),
+    )
     expect(errors.some((e) => e.code === 'invalid_replicate')).toBe(true)
   })
 
   it('rejects an invalid volume value', () => {
-    const errors = validatePlateMapSpec(validSpec({
-      wells: [well({ volume: { value: -5, unit: 'µL' } })],
-    }))
+    const errors = validatePlateMapSpec(
+      validSpec({
+        wells: [well({ volume: { value: -5, unit: 'µL' } })],
+      }),
+    )
     expect(errors.some((e) => e.code === 'invalid_volume')).toBe(true)
   })
 
   it('rejects a volume with missing unit', () => {
-    const errors = validatePlateMapSpec(validSpec({
-      wells: [well({ volume: { value: 10, unit: '' } })],
-    }))
-    expect(errors.some((e) => e.code === 'invalid_volume' && e.field === 'spec.wells[0].volume.unit')).toBe(true)
+    const errors = validatePlateMapSpec(
+      validSpec({
+        wells: [well({ volume: { value: 10, unit: '' } })],
+      }),
+    )
+    expect(
+      errors.some(
+        (e) =>
+          e.code === 'invalid_volume' &&
+          e.field === 'spec.wells[0].volume.unit',
+      ),
+    ).toBe(true)
   })
 })
 
@@ -296,34 +373,88 @@ describe('validatePlateMapSpec — well validation', () => {
 
 describe('validatePlateMapSpec — duplicate assignment', () => {
   it('flags the same sample + role + replicate in multiple wells', () => {
-    const ref = { recordId: '00000000-0000-4000-8000-000000000999', identifier: 'SMP-1', title: 'Sample 1' }
-    const errors = validatePlateMapSpec(validSpec({
-      wells: [
-        well({ wellCode: 'A1', row: 0, col: 0, sampleRef: ref, role: 'sample', replicate: 1 }),
-        well({ wellCode: 'A2', row: 0, col: 1, sampleRef: ref, role: 'sample', replicate: 1 }),
-      ],
-    }))
+    const ref = {
+      recordId: '00000000-0000-4000-8000-000000000999',
+      identifier: 'SMP-1',
+      title: 'Sample 1',
+    }
+    const errors = validatePlateMapSpec(
+      validSpec({
+        wells: [
+          well({
+            wellCode: 'A1',
+            row: 0,
+            col: 0,
+            sampleRef: ref,
+            role: 'sample',
+            replicate: 1,
+          }),
+          well({
+            wellCode: 'A2',
+            row: 0,
+            col: 1,
+            sampleRef: ref,
+            role: 'sample',
+            replicate: 1,
+          }),
+        ],
+      }),
+    )
     expect(errors.some((e) => e.code === 'duplicate_assignment')).toBe(true)
   })
 
   it('does not flag the same sample with different replicates', () => {
-    const ref = { recordId: '00000000-0000-4000-8000-000000000999', identifier: 'SMP-1', title: 'Sample 1' }
-    const errors = validatePlateMapSpec(validSpec({
-      wells: [
-        well({ wellCode: 'A1', row: 0, col: 0, sampleRef: ref, role: 'sample', replicate: 1 }),
-        well({ wellCode: 'A2', row: 0, col: 1, sampleRef: ref, role: 'sample', replicate: 2 }),
-      ],
-    }))
+    const ref = {
+      recordId: '00000000-0000-4000-8000-000000000999',
+      identifier: 'SMP-1',
+      title: 'Sample 1',
+    }
+    const errors = validatePlateMapSpec(
+      validSpec({
+        wells: [
+          well({
+            wellCode: 'A1',
+            row: 0,
+            col: 0,
+            sampleRef: ref,
+            role: 'sample',
+            replicate: 1,
+          }),
+          well({
+            wellCode: 'A2',
+            row: 0,
+            col: 1,
+            sampleRef: ref,
+            role: 'sample',
+            replicate: 2,
+          }),
+        ],
+      }),
+    )
     expect(errors.some((e) => e.code === 'duplicate_assignment')).toBe(false)
   })
 
   it('does not flag controls without sample links as duplicates', () => {
-    const errors = validatePlateMapSpec(validSpec({
-      wells: [
-        well({ wellCode: 'A1', row: 0, col: 0, role: 'positive_control', sampleRef: undefined }),
-        well({ wellCode: 'A2', row: 0, col: 1, role: 'positive_control', sampleRef: undefined }),
-      ],
-    }))
+    const errors = validatePlateMapSpec(
+      validSpec({
+        wells: [
+          well({
+            wellCode: 'A1',
+            row: 0,
+            col: 0,
+            role: 'positive_control',
+            sampleRef: undefined,
+          }),
+          well({
+            wellCode: 'A2',
+            row: 0,
+            col: 1,
+            role: 'positive_control',
+            sampleRef: undefined,
+          }),
+        ],
+      }),
+    )
     expect(errors.some((e) => e.code === 'duplicate_assignment')).toBe(false)
   })
 })
@@ -334,21 +465,31 @@ describe('validatePlateMapSpec — duplicate assignment', () => {
 
 describe('validatePlateMapSpec — required controls', () => {
   it('flags a missing required role', () => {
-    const errors = validatePlateMapSpec(validSpec({
-      wells: [well({ role: 'sample' })],
-      validation: { requiredRoles: ['positive_control'] },
-    }))
+    const errors = validatePlateMapSpec(
+      validSpec({
+        wells: [well({ role: 'sample' })],
+        validation: { requiredRoles: ['positive_control'] },
+      }),
+    )
     expect(errors.some((e) => e.code === 'missing_required_role')).toBe(true)
   })
 
   it('passes when all required roles are present', () => {
-    const errors = validatePlateMapSpec(validSpec({
-      wells: [
-        well({ wellCode: 'A1', row: 0, col: 0, role: 'sample' }),
-        well({ wellCode: 'A2', row: 0, col: 1, role: 'positive_control', sampleRef: undefined }),
-      ],
-      validation: { requiredRoles: ['positive_control'] },
-    }))
+    const errors = validatePlateMapSpec(
+      validSpec({
+        wells: [
+          well({ wellCode: 'A1', row: 0, col: 0, role: 'sample' }),
+          well({
+            wellCode: 'A2',
+            row: 0,
+            col: 1,
+            role: 'positive_control',
+            sampleRef: undefined,
+          }),
+        ],
+        validation: { requiredRoles: ['positive_control'] },
+      }),
+    )
     expect(errors.some((e) => e.code === 'missing_required_role')).toBe(false)
   })
 })
@@ -359,35 +500,47 @@ describe('validatePlateMapSpec — required controls', () => {
 
 describe('validatePlateMapSpec — volume constraints', () => {
   it('flags a volume below the minimum', () => {
-    const errors = validatePlateMapSpec(validSpec({
-      wells: [well({ volume: { value: 5, unit: 'µL' } })],
-      validation: { volumeMin: 10 },
-    }))
+    const errors = validatePlateMapSpec(
+      validSpec({
+        wells: [well({ volume: { value: 5, unit: 'µL' } })],
+        validation: { volumeMin: 10 },
+      }),
+    )
     expect(errors.some((e) => e.code === 'invalid_volume')).toBe(true)
   })
 
   it('flags a volume exceeding the maximum', () => {
-    const errors = validatePlateMapSpec(validSpec({
-      wells: [well({ volume: { value: 200, unit: 'µL' } })],
-      validation: { volumeMax: 100 },
-    }))
+    const errors = validatePlateMapSpec(
+      validSpec({
+        wells: [well({ volume: { value: 200, unit: 'µL' } })],
+        validation: { volumeMax: 100 },
+      }),
+    )
     expect(errors.some((e) => e.code === 'invalid_volume')).toBe(true)
   })
 
   it('passes when volumes are within bounds', () => {
-    const errors = validatePlateMapSpec(validSpec({
-      wells: [well({ volume: { value: 50, unit: 'µL' } })],
-      validation: { volumeMin: 10, volumeMax: 100 },
-    }))
+    const errors = validatePlateMapSpec(
+      validSpec({
+        wells: [well({ volume: { value: 50, unit: 'µL' } })],
+        validation: { volumeMin: 10, volumeMax: 100 },
+      }),
+    )
     expect(errors.some((e) => e.code === 'invalid_volume')).toBe(false)
   })
 
   it('flags volumeMin > volumeMax as invalid', () => {
-    const errors = validatePlateMapSpec(validSpec({
-      wells: [],
-      validation: { volumeMin: 100, volumeMax: 10 },
-    }))
-    expect(errors.some((e) => e.code === 'invalid_value' && e.field === 'spec.validation')).toBe(true)
+    const errors = validatePlateMapSpec(
+      validSpec({
+        wells: [],
+        validation: { volumeMin: 100, volumeMax: 10 },
+      }),
+    )
+    expect(
+      errors.some(
+        (e) => e.code === 'invalid_value' && e.field === 'spec.validation',
+      ),
+    ).toBe(true)
   })
 })
 
@@ -397,16 +550,20 @@ describe('validatePlateMapSpec — volume constraints', () => {
 
 describe('validatePlateMapSpec — archived sample snapshot', () => {
   it('accepts a sampleRef with archived=true', () => {
-    const errors = validatePlateMapSpec(validSpec({
-      wells: [well({
-        sampleRef: {
-          recordId: '00000000-0000-4000-8000-000000000999',
-          identifier: 'SMP-OLD',
-          title: 'Old sample',
-          archived: true,
-        },
-      })],
-    }))
+    const errors = validatePlateMapSpec(
+      validSpec({
+        wells: [
+          well({
+            sampleRef: {
+              recordId: '00000000-0000-4000-8000-000000000999',
+              identifier: 'SMP-OLD',
+              title: 'Old sample',
+              archived: true,
+            },
+          }),
+        ],
+      }),
+    )
     expect(errors.some((e) => e.code === 'invalid_sample_ref')).toBe(false)
   })
 })
@@ -440,7 +597,14 @@ describe('wellsToPlateWells', () => {
   it('converts well assignments to plate well objects with labels', () => {
     const spec = validSpec({
       wells: [
-        well({ wellCode: 'A1', row: 0, col: 0, role: 'sample', replicate: 1, volume: { value: 20, unit: 'µL' } }),
+        well({
+          wellCode: 'A1',
+          row: 0,
+          col: 0,
+          role: 'sample',
+          replicate: 1,
+          volume: { value: 20, unit: 'µL' },
+        }),
       ],
     })
     const result = wellsToPlateWells(spec)

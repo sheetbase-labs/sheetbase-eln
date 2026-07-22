@@ -668,13 +668,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** SCI-001, UI-006.
 
-- [ ] Define plate dimensions, well identity, assignment roles, sample links, replicates, volumes and validation metadata.
-- [ ] Support 96-well plates first while keeping the model extensible to approved future formats.
-- [ ] Render row and column labels, legend, selection and missing values accessibly.
-- [ ] Show the selected well in the shared inspector pattern.
-- [ ] Validate duplicate assignments, required controls and volume constraints.
-- [ ] Persist plate edits atomically enough to avoid partial layouts.
-- [ ] Add tests for keyboard navigation, selection, validation and linked samples.
+- [x] Define plate dimensions, well identity, assignment roles, sample links, replicates, volumes and validation metadata.
+- [x] Support 96-well plates first while keeping the model extensible to approved future formats.
+- [x] Render row and column labels, legend, selection and missing values accessibly.
+- [x] Show the selected well in the shared inspector pattern.
+- [x] Validate duplicate assignments, required controls and volume constraints.
+- [x] Persist plate edits atomically enough to avoid partial layouts.
+- [x] Add tests for keyboard navigation, selection, validation and linked samples.
 
 ### SCI-006 — Add reusable notebook and protocol templates
 

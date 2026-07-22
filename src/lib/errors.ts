@@ -17,6 +17,7 @@ export type ErrorCategory =
   | 'missing_link' // 422 — record_link target unresolved in workspace
   | 'invalid_transition' // 422 — disallowed lifecycle status transition (SCI-001)
   | 'invalid_properties' // 422 — configurable property failed DB validation (SCI-001)
+  | 'template_not_instantiable' // 422 — template not in an instantiable status (SCI-006)
   | 'unauthenticated' // 401
   | 'rate_limited' // 429
   | 'service_unavailable' // 502/503 — upstream down
@@ -46,6 +47,7 @@ const PG_CODE_TO_CATEGORY: Record<string, ErrorCategory> = {
   SB003: 'validation_error', // invalid block payload shape
   SB004: 'invalid_transition', // disallowed lifecycle status transition (SCI-001)
   SB005: 'invalid_properties', // configurable property failed DB validation (SCI-001)
+  SB006: 'template_not_instantiable', // template not instantiable (draft/archived/wrong status) (SCI-006)
 }
 
 /** Maps a PostgREST error body to a stable category. */
@@ -65,7 +67,8 @@ export function categorisePostgrestError(
         ? 409
         : category === 'missing_link' ||
             category === 'invalid_transition' ||
-            category === 'invalid_properties'
+            category === 'invalid_properties' ||
+            category === 'template_not_instantiable'
           ? 422
           : status,
     message: body?.message ?? 'Request failed.',

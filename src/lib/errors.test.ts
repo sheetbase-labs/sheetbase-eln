@@ -72,6 +72,17 @@ describe('categorisePostgrestError', () => {
     })
     expect(out.category).toBe('validation_error')
   })
+
+  it('maps the Sheetbase template-not-instantiable SQLSTATE to template_not_instantiable', () => {
+    const out = categorisePostgrestError(400, {
+      code: 'SB006',
+      message: 'cannot instantiate from a draft template',
+    })
+    expect(out).toMatchObject({
+      category: 'template_not_instantiable',
+      status: 422,
+    })
+  })
 })
 
 describe('categoriseProxyError', () => {

@@ -366,7 +366,7 @@ export const records = api.table(
     ),
     check(
       'chk_records_kind',
-      sql`${table.kind} IN ('experiment', 'protocol_template', 'report', 'sample', 'reagent', 'file')`,
+      sql`${table.kind} IN ('experiment', 'protocol_template', 'report', 'sample', 'reagent', 'file', 'notebook_template')`,
     ),
     index('idx_records_workspace_id').on(table.workspaceId),
     index('idx_records_project_id').on(table.projectId),
@@ -453,6 +453,11 @@ export const recordLinks = api.table(
     targetKind: text('target_kind').notNull(),
     targetIdentifier: text('target_identifier').notNull(),
     linkType: text('link_type').notNull(),
+    // SCI-006: optional structured metadata for links. Template-instantiation
+    // links carry { template_revision_id } so the source version is durable.
+    linkMetadata: jsonb('link_metadata')
+      .notNull()
+      .default(sql`'{}'`),
     ...timestamps,
     createdByUserId: text('created_by_user_id')
       .notNull()
@@ -461,7 +466,7 @@ export const recordLinks = api.table(
   (table) => [
     check(
       'chk_record_links_link_type',
-      sql`${table.linkType} IN ('sample', 'protocol', 'dataset', 'reagent', 'analysis', 'file', 'general')`,
+      sql`${table.linkType} IN ('sample', 'protocol', 'dataset', 'reagent', 'analysis', 'file', 'general', 'template')`,
     ),
     // No duplicate (source, target_identifier, link_type). target_identifier
     // is used (not target_record_id) so a link to a missing target is still
@@ -589,7 +594,7 @@ export const revisions = api.table(
   (table) => [
     check(
       'chk_revisions_reason',
-      sql`${table.reason} IN ('submit', 'sign', 'manual')`,
+      sql`${table.reason} IN ('submit', 'sign', 'manual', 'validate')`,
     ),
     index('idx_revisions_record_id').on(table.recordId),
     index('idx_revisions_created_at').on(table.createdAt),
@@ -642,7 +647,7 @@ export const recordFieldDefinitions = api.table(
     ),
     check(
       'chk_record_field_definitions_kind',
-      sql`${table.kind} IN ('sample', 'reagent', 'protocol_template')`,
+      sql`${table.kind} IN ('sample', 'reagent', 'protocol_template', 'notebook_template')`,
     ),
     check(
       'chk_record_field_definitions_type',

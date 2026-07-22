@@ -303,6 +303,10 @@ export const RECORD_KIND_LABELS: Record<string, string> = {
   experiment: 'Experiment',
   protocol_template: 'Protocol template',
   report: 'Report',
+  notebook_template: 'Notebook template',
+  sample: 'Sample',
+  reagent: 'Reagent',
+  file: 'File',
 }
 
 export function recordKindLabel(kind: string): string {

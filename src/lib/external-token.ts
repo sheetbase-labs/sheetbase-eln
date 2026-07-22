@@ -130,6 +130,8 @@ const PROJECT_DOMAIN_RPCS = new Set([
   'delete_block',
   // SCI-001: kind-specific lifecycle transitions (sample/reagent/protocol).
   'transition_record_status',
+  // SCI-006: template instantiation (transactional deep-copy RPC).
+  'instantiate_template',
 ])
 
 /**

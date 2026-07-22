@@ -45,6 +45,26 @@ import {
   validateFileForUpload,
 } from '#/lib/file-attach'
 import { FILE_MAX_BYTES } from '#/lib/file-policy'
+import {
+  CHART_SPEC_VERSION,
+  CHART_TYPES,
+  type ChartBlockPayload,
+  type ChartSpec,
+  type ChartType,
+  type AxisScale,
+} from '#/lib/chart-spec'
+import {
+  materialiseFrozenChart,
+  materialiseLiveChart,
+  useLiveChartDataset,
+} from '#/lib/chart-data'
+import {
+  fetchScientificTable,
+  scientificDataClient,
+  scientificQueryKeys,
+  type ScientificTableWire,
+} from '#/lib/scientific-sheet-data'
+import { ChartRenderer } from '#/components/viz/chart-renderer'
 
 export type { AutosaveStatus, SaveResult }
 
@@ -70,6 +90,10 @@ export interface BlockEditorProps {
   pinProtocol?: (protocolRecordId: string) => Promise<void>
   /** SCI-003: attach an uploaded file to an empty file block. */
   onAttachFile?: (file: File) => Promise<void>
+  /** SCI-004: freeze a chart block into an immutable snapshot. */
+  onFreezeChart?: () => Promise<void>
+  /** SCI-004: remove the frozen snapshot so the chart can be edited again. */
+  onUnfreezeChart?: () => Promise<void>
 }
 
 export function BlockEditor(props: BlockEditorProps) {
@@ -94,6 +118,8 @@ export function BlockEditor(props: BlockEditorProps) {
       return <MaterialsEditor {...props} />
     case 'file':
       return <FileBlockEditor {...props} />
+    case 'chart':
+      return <ChartBlockEditor {...props} />
     default:
       return (
         <UnsupportedEditor block={props.block} className={props.className} />
@@ -275,7 +301,10 @@ function RichTextEditor({
         status={a.status}
         error={a.error}
         validationErrors={a.validationErrors}
-        serverPreview={summarizePayload(block.type, a.serverValue ?? {})}
+        serverPreview={summarizePayload(
+          block.type,
+          (a.serverValue ?? {}) as Record<string, unknown>,
+        )}
         onUseServer={() => a.discardDraft()}
         onKeepLocal={() => a.retry()}
         retrying={a.status === 'saving'}
@@ -714,7 +743,10 @@ function ProcedureStepEditor(props: BlockEditorProps) {
         status={a.status}
         error={a.error}
         validationErrors={a.validationErrors}
-        serverPreview={summarizePayload(block.type, a.serverValue ?? {})}
+        serverPreview={summarizePayload(
+          block.type,
+          (a.serverValue ?? {}) as Record<string, unknown>,
+        )}
         onUseServer={() => a.discardDraft()}
         onKeepLocal={() => a.retry()}
         retrying={a.status === 'saving'}
@@ -912,7 +944,10 @@ function MaterialsEditor(props: BlockEditorProps) {
         status={a.status}
         error={a.error}
         validationErrors={a.validationErrors}
-        serverPreview={summarizePayload(block.type, a.serverValue ?? {})}
+        serverPreview={summarizePayload(
+          block.type,
+          (a.serverValue ?? {}) as Record<string, unknown>,
+        )}
         onUseServer={() => a.discardDraft()}
         onKeepLocal={() => a.retry()}
         retrying={a.status === 'saving'}
@@ -1044,4 +1079,418 @@ function FileBlockEditor({ block, onAttachFile, readOnly }: BlockEditorProps) {
       ) : null}
     </div>
   )
+}
+
+// ---------------------------------------------------------------------------
+// SCI-004 chart block editor. Lets the user pick a stable dataset (a
+// scientific table in the workspace), map fields to x/y/series, choose a
+// chart type (line/scatter/bar) and axis scales, and render a live preview
+// inside ChartFrame. Freeze/unfreeze lifecycle actions call the transactional
+// RPCs through the route so durable events and audit attribution stay
+// canonical. Filters, transformations and error-bar overlays are kept
+// explicit in the spec. An empty draft `{}` opens the configuration panel.
+// ---------------------------------------------------------------------------
+
+const AXIS_SCALES_EDITOR: readonly AxisScale[] = ['linear', 'log'] as const
+
+function ChartBlockEditor({
+  block,
+  save,
+  offline,
+  onStatusChange,
+  onFreezeChart,
+  onUnfreezeChart,
+  readOnly,
+}: BlockEditorProps) {
+  const initial = (block.payload ?? {}) as unknown as ChartBlockPayload
+  const a = useBlockAutosave<ChartBlockPayload>(
+    block,
+    initial,
+    save,
+    offline,
+    onStatusChange,
+  )
+  const draft = a.draft
+  const spec = draft.spec ?? null
+  const frozen = draft.frozen ?? null
+
+  // Available datasets: scientific tables in the workspace the user can read.
+  const tablesQuery = useQuery({
+    queryKey: ['chart-available-tables'] as const,
+    queryFn: () =>
+      scientificDataClient.list<Pick<ScientificTableWire, 'id' | 'name'>>(
+        'scientific_tables',
+        '?select=id,name&lifecycle=eq.active&order=name.asc',
+      ),
+    staleTime: 30_000,
+  })
+
+  // Columns for the selected dataset (so field mappings are honest).
+  const selectedTableId = spec?.datasets[0]?.tableId ?? ''
+  const columnsQuery = useQuery({
+    queryKey: scientificQueryKeys.table(selectedTableId),
+    queryFn: () => fetchScientificTable(scientificDataClient, selectedTableId),
+    enabled: Boolean(selectedTableId),
+    staleTime: 10_000,
+  })
+  const columns = columnsQuery.data?.columns ?? []
+
+  function updateSpec(patch: Partial<ChartSpec>) {
+    if (!spec) return
+    a.setTouched(true)
+    a.setDraft({ ...draft, spec: { ...spec, ...patch } })
+  }
+  function updateDisplay(patch: Partial<ChartSpec['display']>) {
+    if (!spec) return
+    updateSpec({ display: { ...spec.display, ...patch } })
+  }
+  function updateFields(patch: Partial<ChartSpec['fields']>) {
+    if (!spec) return
+    updateSpec({ fields: { ...spec.fields, ...patch } })
+  }
+
+  // Start a spec when the user picks a dataset for an empty draft.
+  function chooseDataset(tableId: string) {
+    a.setTouched(true)
+    const col = columnsQuery.data?.columns ?? []
+    const xCol = col[0]
+    const yCol = col[1] ?? col[0]
+    const next: ChartSpec = {
+      specVersion: CHART_SPEC_VERSION,
+      type: spec?.type ?? 'line',
+      datasets: [{ tableId }],
+      fields: {
+        x: xCol ? { columnId: xCol.id, fieldName: xCol.field_name } : null,
+        y: yCol
+          ? { columnId: yCol.id, fieldName: yCol.field_name }
+          : ({ columnId: '', fieldName: '' } as {
+              columnId: string
+              fieldName: string
+            }),
+        series: null,
+        color: null,
+        size: null,
+      },
+      filters: [],
+      transformations: [],
+      display: {
+        axes: {
+          x: {
+            label: xCol?.label ?? 'x',
+            scale: 'linear',
+            unit: unitSymbol(xCol?.unit),
+          },
+          y: {
+            label: yCol?.label ?? 'y',
+            scale: 'linear',
+            unit: unitSymbol(yCol?.unit),
+          },
+        },
+        series: [],
+        legend: { visible: true },
+      },
+      overlays: { errorBars: null },
+    }
+    a.setDraft({ ...draft, spec: next })
+  }
+
+  const fieldOptions = columns.map((c) => (
+    <option key={c.id} value={`${c.id}|${c.field_name}`}>
+      {c.label}
+    </option>
+  ))
+
+  // Live preview materialisation.
+  const { datasetQuery, calcQuery } = useLiveChartDataset(spec)
+  const previewMaterialised = frozen
+    ? materialiseFrozenChart(frozen)
+    : spec
+      ? materialiseLiveChart(
+          spec,
+          datasetQuery.data ?? null,
+          calcQuery.data ?? null,
+        )
+      : {
+          state: { kind: 'missing_dataset' as const },
+          columns: [],
+          rows: [],
+          series: [],
+          xLabel: 'x',
+          yLabel: 'y',
+          xUnit: undefined,
+          yUnit: undefined,
+        }
+  const previewLoading =
+    !frozen && (datasetQuery.isLoading || calcQuery.isLoading)
+
+  return (
+    <div className="space-y-4">
+      <ChartRenderer
+        title={draft.title || 'Untitled chart'}
+        provenance={draft.provenance}
+        spec={spec}
+        materialised={previewMaterialised}
+        frozen={frozen}
+        loading={previewLoading}
+      />
+
+      {readOnly ? null : (
+        <div className="space-y-4 rounded-md border p-3">
+          <ChartField label="Title">
+            <input
+              aria-label="Chart title"
+              value={draft.title ?? ''}
+              onChange={(e) => {
+                a.setTouched(true)
+                a.setDraft({ ...draft, title: e.target.value })
+              }}
+              onBlur={() => a.flush()}
+              className="h-9 w-full rounded-md border border-input px-2 text-sm"
+            />
+          </ChartField>
+
+          <ChartField label="Dataset">
+            <select
+              aria-label="Dataset"
+              value={selectedTableId}
+              onChange={(e) => chooseDataset(e.target.value)}
+              disabled={!!frozen || tablesQuery.isLoading}
+              className="h-9 w-full rounded-md border border-input px-2 text-sm"
+            >
+              <option value="">
+                {tablesQuery.isLoading
+                  ? 'Loading datasets…'
+                  : 'Select a dataset'}
+              </option>
+              {tablesQuery.data?.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </ChartField>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <ChartField label="Chart type">
+              <select
+                aria-label="Chart type"
+                value={spec?.type ?? 'line'}
+                onChange={(e) =>
+                  updateSpec({ type: e.target.value as ChartType })
+                }
+                disabled={!!frozen || !spec}
+                className="h-9 w-full rounded-md border border-input px-2 text-sm"
+              >
+                {CHART_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t.charAt(0).toUpperCase() + t.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </ChartField>
+            <ChartField label="Series field (optional)">
+              <select
+                aria-label="Series field"
+                value={bindingValue(spec?.fields.series)}
+                onChange={(e) =>
+                  updateFields({ series: parseBinding(e.target.value) })
+                }
+                disabled={!!frozen || !spec}
+                className="h-9 w-full rounded-md border border-input px-2 text-sm"
+              >
+                <option value="">(none)</option>
+                {fieldOptions}
+              </select>
+            </ChartField>
+            <ChartField label="X field">
+              <select
+                aria-label="X field"
+                value={bindingValue(spec?.fields.x)}
+                onChange={(e) =>
+                  updateFields({ x: parseBinding(e.target.value) })
+                }
+                disabled={!!frozen || !spec}
+                className="h-9 w-full rounded-md border border-input px-2 text-sm"
+              >
+                <option value="">(none)</option>
+                {fieldOptions}
+              </select>
+            </ChartField>
+            <ChartField label="Y field">
+              <select
+                aria-label="Y field"
+                value={bindingValue(spec?.fields.y)}
+                onChange={(e) =>
+                  updateFields({
+                    y: parseBinding(e.target.value) as {
+                      columnId: string
+                      fieldName: string
+                    },
+                  })
+                }
+                disabled={!!frozen || !spec}
+                className="h-9 w-full rounded-md border border-input px-2 text-sm"
+              >
+                <option value="">(none)</option>
+                {fieldOptions}
+              </select>
+            </ChartField>
+            <ChartField label="X axis scale">
+              <select
+                aria-label="X axis scale"
+                value={spec?.display.axes.x.scale ?? 'linear'}
+                onChange={(e) =>
+                  updateDisplay({
+                    axes: {
+                      ...spec!.display.axes,
+                      x: {
+                        ...spec!.display.axes.x,
+                        scale: e.target.value as AxisScale,
+                      },
+                    },
+                  })
+                }
+                disabled={!!frozen || !spec}
+                className="h-9 w-full rounded-md border border-input px-2 text-sm"
+              >
+                {AXIS_SCALES_EDITOR.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </ChartField>
+            <ChartField label="Y axis scale">
+              <select
+                aria-label="Y axis scale"
+                value={spec?.display.axes.y.scale ?? 'linear'}
+                onChange={(e) =>
+                  updateDisplay({
+                    axes: {
+                      ...spec!.display.axes,
+                      y: {
+                        ...spec!.display.axes.y,
+                        scale: e.target.value as AxisScale,
+                      },
+                    },
+                  })
+                }
+                disabled={!!frozen || !spec}
+                className="h-9 w-full rounded-md border border-input px-2 text-sm"
+              >
+                {AXIS_SCALES_EDITOR.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </ChartField>
+          </div>
+
+          <ChartField label="Provenance note (optional)">
+            <input
+              aria-label="Provenance note"
+              value={draft.provenance ?? ''}
+              onChange={(e) => {
+                a.setTouched(true)
+                a.setDraft({ ...draft, provenance: e.target.value })
+              }}
+              onBlur={() => a.flush()}
+              className="h-9 w-full rounded-md border border-input px-2 text-sm"
+            />
+          </ChartField>
+
+          <div className="flex flex-wrap gap-2">
+            {frozen ? (
+              <>
+                <span className="inline-flex items-center gap-1 rounded-md border bg-muted px-3 py-1.5 text-xs">
+                  Frozen snapshot — immutable
+                </span>
+                {onUnfreezeChart ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void onUnfreezeChart()}
+                  >
+                    Unfreeze (edit live again)
+                  </Button>
+                ) : null}
+              </>
+            ) : onFreezeChart && spec ? (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => void onFreezeChart()}
+                disabled={previewMaterialised.state.kind !== 'ok'}
+                title={
+                  previewMaterialised.state.kind !== 'ok'
+                    ? 'Resolve chart state before freezing'
+                    : 'Freeze an immutable snapshot of the current dataset'
+                }
+              >
+                Freeze snapshot
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      )}
+
+      <AutosaveFooter
+        status={a.status}
+        error={a.error}
+        validationErrors={a.validationErrors}
+        serverPreview={summarizePayload(
+          block.type,
+          (a.serverValue ?? {}) as Record<string, unknown>,
+        )}
+        onUseServer={() => a.discardDraft()}
+        onKeepLocal={() => a.retry()}
+        retrying={a.status === 'saving'}
+      />
+    </div>
+  )
+}
+
+function ChartField({
+  label,
+  children,
+}: {
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <label className="grid gap-1 text-xs">
+      <span className="font-medium text-muted-foreground">{label}</span>
+      {children}
+    </label>
+  )
+}
+
+function bindingValue(
+  binding: { columnId: string; fieldName: string } | null | undefined,
+): string {
+  return binding ? `${binding.columnId}|${binding.fieldName}` : ''
+}
+
+function parseBinding(
+  v: string,
+): { columnId: string; fieldName: string } | null {
+  if (!v) return null
+  const [columnId, fieldName] = v.split('|')
+  if (!columnId || !fieldName) return null
+  return { columnId, fieldName }
+}
+
+function unitSymbol(unit: unknown): string | undefined {
+  if (
+    typeof unit === 'object' &&
+    unit !== null &&
+    'symbol' in unit &&
+    typeof (unit as { symbol: unknown }).symbol === 'string'
+  ) {
+    return (unit as { symbol: string }).symbol
+  }
+  return undefined
 }

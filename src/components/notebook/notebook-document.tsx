@@ -72,6 +72,10 @@ export interface NotebookDocumentProps {
   ) => Promise<void>
   /** SCI-003: attach an uploaded file to an empty file block. */
   onAttachFile?: (block: NotebookBlockData, file: File) => Promise<void>
+  /** SCI-004: freeze a chart block into an immutable snapshot. */
+  onFreezeChart?: (block: NotebookBlockData) => Promise<void>
+  /** SCI-004: remove the frozen snapshot so the chart can be edited again. */
+  onUnfreezeChart?: (block: NotebookBlockData) => Promise<void>
   /** Duplicate an existing block (same type/payload, inserted after it). */
   onDuplicateBlock: (block: NotebookBlockData) => Promise<void>
   /** Delete a block. */
@@ -108,6 +112,7 @@ const EDITABLE_TYPES = new Set([
   'procedure_step',
   'materials',
   'file',
+  'chart',
 ])
 
 export function NotebookDocument(props: NotebookDocumentProps) {
@@ -127,6 +132,8 @@ function NotebookDocumentContent({
   onInsertBlock,
   onPinProtocol,
   onAttachFile,
+  onFreezeChart,
+  onUnfreezeChart,
   onDuplicateBlock,
   onDeleteBlock,
   onUndoDelete,
@@ -636,6 +643,12 @@ function NotebookDocumentContent({
                       onAttachFile
                         ? (file) => onAttachFile(block, file)
                         : undefined
+                    }
+                    onFreezeChart={
+                      onFreezeChart ? () => onFreezeChart(block) : undefined
+                    }
+                    onUnfreezeChart={
+                      onUnfreezeChart ? () => onUnfreezeChart(block) : undefined
                     }
                     offline={offline}
                     onStatusChange={(status) =>

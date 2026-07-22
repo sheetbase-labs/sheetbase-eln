@@ -215,6 +215,10 @@ export function defaultPayloadFor(type: string): Record<string, unknown> {
       return {}
     case 'materials':
       return { items: [] }
+    // SCI-004: a chart starts as an empty draft `{}` (valid) so the editor
+    // opens immediately; the user picks a dataset, fields and chart type.
+    case 'chart':
+      return {}
     default:
       return {}
   }

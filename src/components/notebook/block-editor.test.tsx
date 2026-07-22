@@ -303,8 +303,8 @@ describe('BlockEditor — unsupported type', () => {
     render(
       <BlockEditor
         block={block({
-          type: 'chart',
-          payload: { title: 'X', spec: '{}' },
+          type: 'plate_map',
+          payload: { title: 'X' },
         })}
         save={save}
       />,

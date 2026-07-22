@@ -101,7 +101,7 @@ describe('NotebookDocument — rendering', () => {
     expect(screen.getByRole('textbox', { name: 'Text content' })).toBeTruthy()
   })
 
-  it('renders an honest, labelled results chart preview', () => {
+  it('renders an honest, labelled frozen chart preview', () => {
     render(
       <NotebookDocument
         record={record}
@@ -109,7 +109,56 @@ describe('NotebookDocument — rendering', () => {
           {
             ...richTextBlock('chart-1', ''),
             type: 'chart',
-            payload: { title: 'Vector genome copy number (qPCR)' },
+            payload: {
+              title: 'Frozen stability snapshot (qPCR)',
+              spec: null,
+              frozen: {
+                revisionId: null,
+                frozenAt: '2025-07-14T10:00:00Z',
+                frozenByUserId: 'u1',
+                datasetProvenance: [
+                  {
+                    tableId: '00000000-0000-4000-8000-000000000170',
+                    schemaVersion: 1,
+                    rowCount: 2,
+                    checksum: 'abc12345',
+                  },
+                ],
+                data: {
+                  columns: [
+                    {
+                      columnId: 'c1',
+                      fieldName: 'col_time',
+                      label: 'Time (days)',
+                      logicalType: 'decimal',
+                      unit: { symbol: 'd' },
+                    },
+                    {
+                      columnId: 'c2',
+                      fieldName: 'col_titer',
+                      label: 'Log titer',
+                      logicalType: 'decimal',
+                      unit: { symbol: 'log₁₀' },
+                    },
+                  ],
+                  rows: [
+                    { col_time: 0, col_titer: 7.2 },
+                    { col_time: 28, col_titer: 5.9 },
+                  ],
+                  series: [
+                    {
+                      identifier: '4 °C',
+                      label: '4 °C',
+                      color: '#006EDC',
+                      points: [
+                        { x: 0, y: 7.2, yError: null, label: '4 °C' },
+                        { x: 28, y: 5.9, yError: null, label: '4 °C' },
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
           },
         ]}
         onSaveBlock={vi.fn()}
@@ -121,11 +170,12 @@ describe('NotebookDocument — rendering', () => {
 
     expect(
       screen.getByRole('figure', {
-        name: 'Vector genome copy number (qPCR)',
+        name: 'Frozen stability snapshot (qPCR)',
       }),
     ).toBeTruthy()
-    expect(screen.getByText('Illustrative preview')).toBeTruthy()
-    expect(screen.getByText('Log Y')).toBeTruthy()
+    expect(screen.getByText('Snapshot')).toBeTruthy()
+    // Accessible tabular alternative renders the frozen points.
+    expect(screen.getByText(/Show data table/)).toBeTruthy()
   })
 })
 

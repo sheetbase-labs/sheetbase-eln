@@ -17,6 +17,17 @@ import { fetchRecordById } from '#/lib/scientific-records'
 import { materialAlerts } from '#/lib/protocol-materials'
 import type { MaterialItem } from '#/lib/protocol-materials'
 import { formatBytes } from '#/lib/file-attach'
+import {
+  materialiseFrozenChart,
+  materialiseLiveChart,
+  useLiveChartDataset,
+} from '#/lib/chart-data'
+import {
+  CHART_SPEC_VERSION,
+  type ChartBlockPayload,
+  type ChartSpec,
+} from '#/lib/chart-spec'
+import { ChartRenderer } from '#/components/viz/chart-renderer'
 
 /**
  * Read-only preview of a block's typed payload (ELN-004). Renders the
@@ -80,7 +91,7 @@ function renderPayload(type: string, payload: unknown): React.ReactNode {
     case 'table':
       return renderTable(payload)
     case 'chart':
-      return renderResultsChart(payload)
+      return <ChartBlockPreview payload={payload} />
     case 'plate_map':
       return renderVisualPlaceholder(type, payload)
     case 'file':
@@ -410,13 +421,11 @@ function renderVisualPlaceholder(
   const obj = asObject(payload) ?? {}
   const title = asString(obj.title) ?? asString(obj.caption) ?? ''
   const label =
-    type === 'chart'
-      ? 'Chart'
-      : type === 'plate_map'
-        ? 'Plate map'
-        : type === 'file'
-          ? 'File'
-          : 'Visualisation'
+    type === 'plate_map'
+      ? 'Plate map'
+      : type === 'file'
+        ? 'File'
+        : 'Visualisation'
   return (
     <div className="rounded-md border border-dashed bg-muted/20 p-4 text-xs text-muted-foreground">
       <p className="font-medium text-foreground">
@@ -428,144 +437,6 @@ function renderVisualPlaceholder(
         is preserved and readable through the API.
       </p>
     </div>
-  )
-}
-
-function renderResultsChart(payload: unknown): React.ReactNode {
-  const obj = asObject(payload) ?? {}
-  const title =
-    asString(obj.title) ?? 'Vector genome copy number over storage time'
-  const series = [
-    {
-      color: '#006edc',
-      dash: '',
-      points: '70,54 180,76 290,104 400,136 510,170',
-    },
-    {
-      color: '#006edc',
-      dash: '6 5',
-      points: '70,62 180,84 290,112 400,146 510,180',
-    },
-    {
-      color: '#00a659',
-      dash: '',
-      points: '70,78 180,96 290,124 400,154 510,192',
-    },
-    {
-      color: '#00a659',
-      dash: '6 5',
-      points: '70,86 180,106 290,134 400,166 510,204',
-    },
-  ]
-  return (
-    <figure aria-label={title} className="overflow-hidden rounded-md border">
-      <figcaption className="flex min-h-10 items-center justify-between gap-3 border-b px-3 py-2">
-        <span className="flex items-center gap-2 text-sm font-semibold">
-          {title}
-          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-            Illustrative preview
-          </span>
-        </span>
-        <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-          <span className="rounded border px-2 py-1">Line</span>
-          <span className="rounded border px-2 py-1">Log Y</span>
-          <span className="rounded border px-2 py-1">Customize</span>
-        </span>
-      </figcaption>
-      <div className="grid grid-cols-[1fr_150px] gap-3 p-3">
-        <svg
-          viewBox="0 0 560 240"
-          className="h-[240px] w-full"
-          role="img"
-          aria-label="Four qPCR series decline across days 0 through 28"
-        >
-          {[48, 100, 152, 204].map((y, index) => (
-            <g key={y}>
-              <line x1="70" y1={y} x2="520" y2={y} stroke="#dfe3e8" />
-              <text x="8" y={y + 4} fontSize="11" fill="#6b7280">
-                {['1e+09', '1e+08', '1e+07', '1e+06'][index]}
-              </text>
-            </g>
-          ))}
-          {[70, 180, 290, 400, 510].map((x, index) => (
-            <g key={x}>
-              <line x1={x} y1="48" x2={x} y2="204" stroke="#eef0f3" />
-              <text
-                x={x}
-                y="225"
-                textAnchor="middle"
-                fontSize="11"
-                fill="#6b7280"
-              >
-                {[0, 7, 14, 21, 28][index]}
-              </text>
-            </g>
-          ))}
-          {series.map((line, index) => (
-            <g key={index}>
-              <polyline
-                points={line.points}
-                fill="none"
-                stroke={line.color}
-                strokeWidth="2.5"
-                strokeDasharray={line.dash}
-              />
-              {line.points.split(' ').map((point) => {
-                const [cx, cy] = point.split(',')
-                return (
-                  <circle
-                    key={point}
-                    cx={cx}
-                    cy={cy}
-                    r="3"
-                    fill="white"
-                    stroke={line.color}
-                    strokeWidth="2"
-                  />
-                )
-              })}
-            </g>
-          ))}
-          <text
-            x="295"
-            y="239"
-            textAnchor="middle"
-            fontSize="11"
-            fill="#4b5563"
-          >
-            Time (days)
-          </text>
-          <text
-            x="12"
-            y="130"
-            textAnchor="middle"
-            fontSize="11"
-            fill="#4b5563"
-            transform="rotate(-90 12 130)"
-          >
-            GCN per mL
-          </text>
-        </svg>
-        <div className="space-y-4 border-l pl-3 text-[11px]">
-          <div>
-            <p className="font-semibold text-foreground">Batch</p>
-            <p className="mt-2 flex items-center gap-2">
-              <span className="size-2 rounded-full bg-[#006edc]" />
-              LVV-250601
-            </p>
-            <p className="mt-2 flex items-center gap-2">
-              <span className="size-2 rounded-full bg-[#00a659]" />
-              LVV-250602
-            </p>
-          </div>
-          <div>
-            <p className="font-semibold text-foreground">Replicate</p>
-            <p className="mt-2">━━ Rep 1</p>
-            <p className="mt-2">┅┅ Rep 2</p>
-          </div>
-        </div>
-      </div>
-    </figure>
   )
 }
 
@@ -740,4 +611,135 @@ function FileIcon({ mediaType }: { mediaType: string }) {
       {label}
     </span>
   )
+}
+
+// ---------------------------------------------------------------------------
+// SCI-004 chart block preview. Renders the chart inside `ChartFrame` using
+// the approved palette and scientific number formatting. A frozen chart
+// renders its immutable snapshot; a live chart re-reads the current dataset
+// state through the shared scientific-sheet-data client and surfaces
+// missing-field, empty-dataset, log-scale-invalid and stale-calculation
+// states honestly instead of plotting. An empty draft `{}` prompts the user
+// to configure the chart in the editor.
+// ---------------------------------------------------------------------------
+
+function ChartBlockPreview({ payload }: { payload: unknown }) {
+  const obj = asObject(payload)
+  if (!obj || Object.keys(obj).length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        No chart configured. Select this block to choose a dataset and fields.
+      </p>
+    )
+  }
+  const title = asString(obj.title) ?? 'Chart'
+  const provenance = asString(obj.provenance) ?? undefined
+  const spec = parseChartSpec(obj.spec)
+  const frozen = parseFrozenChart(obj.frozen)
+
+  // No spec and no frozen snapshot: nothing to plot. Avoid the live resolver
+  // (and its React Query context) when the chart is still an empty draft.
+  if (!spec && !frozen) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        No chart configured. Select this block to choose a dataset and fields.
+      </p>
+    )
+  }
+
+  // Frozen charts render the immutable snapshot directly — no live re-read,
+  // no stale detection.
+  if (frozen) {
+    const materialised = materialiseFrozenChart(frozen)
+    return (
+      <ChartRenderer
+        title={title}
+        provenance={provenance}
+        spec={spec}
+        materialised={materialised}
+        frozen={frozen}
+      />
+    )
+  }
+
+  // Live chart: resolve the dataset and calculation results.
+  return <LiveChartPreview title={title} provenance={provenance} spec={spec} />
+}
+
+function LiveChartPreview({
+  title,
+  provenance,
+  spec,
+}: {
+  title: string
+  provenance?: string
+  spec: ChartSpec | null
+}) {
+  const { datasetQuery, calcQuery } = useLiveChartDataset(spec)
+  const loading = datasetQuery.isLoading || calcQuery.isLoading
+  if (loading) {
+    return (
+      <ChartRenderer
+        title={title}
+        provenance={provenance}
+        spec={spec}
+        materialised={emptyMaterialised(spec)}
+        frozen={null}
+        loading
+      />
+    )
+  }
+  if (datasetQuery.error) {
+    return (
+      <ChartRenderer
+        title={title}
+        provenance={provenance}
+        spec={spec}
+        materialised={emptyMaterialised(spec)}
+        frozen={null}
+        error="The dataset could not be loaded. You may not have access to it."
+      />
+    )
+  }
+  const materialised = spec
+    ? materialiseLiveChart(
+        spec,
+        datasetQuery.data ?? null,
+        calcQuery.data ?? null,
+      )
+    : emptyMaterialised(spec)
+  return (
+    <ChartRenderer
+      title={title}
+      provenance={provenance}
+      spec={spec}
+      materialised={materialised}
+      frozen={null}
+    />
+  )
+}
+
+function emptyMaterialised(spec: ChartSpec | null) {
+  return {
+    state: { kind: 'missing_dataset' as const },
+    columns: [],
+    rows: [],
+    series: [],
+    xLabel: spec?.display.axes.x.label ?? spec?.fields.x?.fieldName ?? 'x',
+    yLabel: spec?.display.axes.y.label ?? 'y',
+    xUnit: spec?.display.axes.x.unit,
+    yUnit: spec?.display.axes.y.unit,
+  }
+}
+
+function parseChartSpec(v: unknown): ChartSpec | null {
+  if (!asObject(v)) return null
+  if ((v as { specVersion?: unknown }).specVersion !== CHART_SPEC_VERSION)
+    return null
+  return v as ChartSpec
+}
+
+function parseFrozenChart(v: unknown): ChartBlockPayload['frozen'] {
+  if (!asObject(v)) return null
+  return v as ChartBlockPayload['frozen']
 }

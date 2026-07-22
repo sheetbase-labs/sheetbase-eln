@@ -44,6 +44,7 @@ import {
   moveBlock,
   updateBlockPayload,
 } from '#/lib/notebook-mutations'
+import { freezeChart, unfreezeChart } from '#/lib/chart-data'
 import { validateBlock } from '#/lib/blocks'
 import { pinProtocolReference } from '#/lib/protocol-materials'
 import { attachFileToBlock, AttachFileError } from '#/lib/file-attach'
@@ -771,6 +772,36 @@ function EditableNotebook({
     ])
   }
 
+  // SCI-004 — freeze a chart into an immutable snapshot through the
+  // transactional SECURITY DEFINER RPC. Reads the latest block version from
+  // the cache so an action after a live-event version bump targets the
+  // right version; invalidates the blocks cache so the frozen payload and
+  // new version reconcile. Unfreeze is the inverse (rejected by the DB once
+  // the chart is bound to a submitted revision).
+  async function handleFreezeChart(block: NotebookBlockDomain) {
+    const currentBlocks =
+      queryClient.getQueryData<NotebookBlockDomain[]>(blocksKey) ?? blocks
+    const currentBlock =
+      currentBlocks.find((item) => item.id === block.id) ?? block
+    await freezeChart(client, {
+      blockId: currentBlock.id,
+      expectedVersion: currentBlock.version,
+    })
+    await queryClient.invalidateQueries({ queryKey: blocksKey })
+  }
+
+  async function handleUnfreezeChart(block: NotebookBlockDomain) {
+    const currentBlocks =
+      queryClient.getQueryData<NotebookBlockDomain[]>(blocksKey) ?? blocks
+    const currentBlock =
+      currentBlocks.find((item) => item.id === block.id) ?? block
+    await unfreezeChart(client, {
+      blockId: currentBlock.id,
+      expectedVersion: currentBlock.version,
+    })
+    await queryClient.invalidateQueries({ queryKey: blocksKey })
+  }
+
   async function handleDuplicate(block: NotebookBlockDomain) {
     await duplicateMutation.mutateAsync(block)
   }
@@ -803,6 +834,8 @@ function EditableNotebook({
       onInsertBlock={handleInsert}
       onPinProtocol={handlePinProtocol}
       onAttachFile={handleAttachFile}
+      onFreezeChart={handleFreezeChart}
+      onUnfreezeChart={handleUnfreezeChart}
       onDuplicateBlock={handleDuplicate}
       onDeleteBlock={handleDelete}
       onUndoDelete={handleUndoDelete}

@@ -8,6 +8,7 @@ import {
   Sheet,
   Paperclip,
 } from 'lucide-react'
+import { LineChart } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 import { cn } from '#/lib/utils'
@@ -81,6 +82,13 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     label: 'File',
     description: 'Attach a file with provenance and lifecycle states.',
     icon: Paperclip,
+  },
+  {
+    type: 'chart',
+    label: 'Chart',
+    description:
+      'A line, scatter or bar chart from a saved dataset, with a live or frozen snapshot.',
+    icon: LineChart,
   },
 ]
 

@@ -56,6 +56,16 @@ performance demands it, a future ticket can add a generated `tsvector` column
 or a `search_index` table refreshed by triggers or durable change events
 (0016/0017) without changing the REST contract.
 
+**Known FTS tokenizer limitation:** PostgreSQL's default full-text search
+parser treats dot/hyphen-delimited strings that resemble file paths or URLs
+(e.g. `stability-run07-4c.csv`) as single `host` tokens, so words within them
+are not individually searchable. Display names with spaces tokenize correctly.
+This is a PostgreSQL FTS behaviour, not a Sheetbase-specific limitation. Record
+titles, identifiers and notebook text (which use natural-language spacing) are
+unaffected. A future ticket could preprocess file display names (replacing
+non-alphanumeric characters with spaces) before indexing if finer-grained
+filename search is needed.
+
 **Indexing delay and stale-result behaviour:** there is none. Search reads the
 live `records`, `blocks`, `file_objects` and `record_links` rows at query time.
 A block edit is searchable immediately after the transaction commits. There is

@@ -102,6 +102,46 @@ function ExperimentOverviewRoute() {
     enabled: Boolean(revisionId),
   })
 
+  // Block visibility toggle mutation (active mode only).  Declared
+  // unconditionally alongside the other hooks so the Rules of Hooks are
+  // satisfied even when early returns short-circuit the render.
+  const toggleMutation = useMutation({
+    mutationFn: async ({
+      blockId,
+      exclude,
+    }: {
+      blockId: string
+      exclude: boolean
+    }) => {
+      const currentRecord = queryClient.getQueryData<NotebookRecord>(
+        notebookQueryKeys.record(recordId),
+      )
+      const currentBlocks =
+        queryClient.getQueryData<NotebookBlock[]>(
+          notebookQueryKeys.blocks(recordId),
+        ) ?? []
+      if (!currentRecord) return
+      const currentConfig = getOverviewConfig(currentRecord.properties)
+      const nextConfig = toggleBlockExclusion(currentConfig, blockId, exclude)
+      const knownBlockIds = currentBlocks.map((b) => b.id)
+      const normalised = normaliseOverviewConfig(
+        nextConfig.excludedBlockIds,
+        knownBlockIds,
+      )
+      const merged = mergeOverviewConfig(currentRecord.properties, normalised)
+      return updateRecordProperties(
+        notebookDataClient,
+        currentRecord.id,
+        merged,
+      )
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: notebookQueryKeys.record(recordId),
+      })
+    },
+  })
+
   const project = projectQuery.data ?? null
   const record = recordQuery.data ?? null
   const liveBlocks = blocksQuery.data ?? []
@@ -239,31 +279,6 @@ function ExperimentOverviewRoute() {
   // Overview configuration (excluded block ids).
   const config = getOverviewConfig(record.properties)
   const sections = composeSections(blocks, config.excludedBlockIds)
-
-  // Block visibility toggle mutation (active mode only).
-  const toggleMutation = useMutation({
-    mutationFn: async ({
-      blockId,
-      exclude,
-    }: {
-      blockId: string
-      exclude: boolean
-    }) => {
-      const nextConfig = toggleBlockExclusion(config, blockId, exclude)
-      const knownBlockIds = blocks.map((b) => b.id)
-      const normalised = normaliseOverviewConfig(
-        nextConfig.excludedBlockIds,
-        knownBlockIds,
-      )
-      const merged = mergeOverviewConfig(record.properties, normalised)
-      return updateRecordProperties(notebookDataClient, record.id, merged)
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: notebookQueryKeys.record(record.id),
-      })
-    },
-  })
 
   return (
     <AppShell

@@ -391,3 +391,63 @@ stream.
 The subscription filters notifications by `workspace_id`; a caller never
 sees event metadata from another workspace. The contract is proven in
 `tests/db/sse-events.test.ts`.
+
+## Experiment overview (SCI-007)
+
+The experiment overview is a read-only composed view of a notebook's blocks and
+linked records (decision 0032). It loads through the same RLS-enforced
+PostgREST resources as the notebook editor — no new tables or RPCs are
+introduced. The browser calls these through `src/lib/data-client.ts`.
+
+### Data loading
+
+| Resource                                                          | Purpose                                  |
+| ----------------------------------------------------------------- | ---------------------------------------- |
+| `GET /api/db/records?id=eq.<experimentId>`                        | experiment metadata and `properties`     |
+| `GET /api/db/blocks?record_id=eq.<experimentId>&order=order.asc`  | notebook blocks (live)                   |
+| `GET /api/db/record_links?source_record_id=eq.<experimentId>`     | outgoing linked records                  |
+| `GET /api/db/revisions?id=eq.<revisionId>`                        | immutable revision snapshot (historical) |
+| `PATCH /api/db/records?id=eq.<experimentId>&select=id,properties` | overview configuration update            |
+
+Scientific sheet data, chart data clients and calculation results are loaded by
+the existing block preview components (`ChartBlockPreview`,
+`PlateMapBlockPreview`, etc.) through their own query hooks — the overview does
+not re-implement data loading for these resources.
+
+### Overview configuration
+
+Users can exclude individual blocks from the overview. The configuration is a
+denylist stored in the record's existing `properties` JSONB column:
+
+```jsonc
+// records.properties
+{
+  "overview": {
+    "excludedBlockIds": ["<block-id>", "..."],
+  },
+}
+```
+
+By default all blocks appear. The configuration is updated through a direct
+PATCH:
+
+```jsonc
+// PATCH /api/db/records?id=eq.<recordId>&select=id,properties
+{ "properties": { "overview": { "excludedBlockIds": ["block-1"] } } }
+```
+
+The application (`src/lib/overview.ts`) validates that `excludedBlockIds` is an
+array of strings referencing blocks that belong to the record; unknown ids are
+silently dropped so stale exclusions from deleted blocks do not block the
+update. The existing `records_update` RLS policy enforces workspace membership;
+the `trg_change_event_records` AFTER UPDATE trigger emits a durable `record`
+change event with `changedMetadata: true` (migration 0030) and actor
+attribution.
+
+### Historical revision viewing
+
+The route accepts a `?revision=<id>` search param. When present, the overview
+loads the immutable `revisions` row and renders from its `block_snapshot` (a
+JSONB array of `{ id, type, payload, payload_schema_version, order, version }`)
+and `metadata_snapshot` instead of the live `blocks` rows. All edit
+affordances (block-visibility toggles) are hidden in this mode.

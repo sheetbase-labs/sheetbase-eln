@@ -1,8 +1,32 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { CellChange, ChangeSource, ColumnSettings } from 'handsontable'
+import {
+  ChevronLeft,
+  ChevronRight,
+  MoreHorizontal,
+  Settings,
+} from 'lucide-react'
 import type { NotebookBlock } from '#/lib/notebook-data'
 import { DataClientError } from '#/lib/data-client'
+import {
+  Badge,
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  Field,
+  FieldLabel,
+  Input,
+  Separator,
+  Textarea,
+} from '#/components/ui'
 import { SheetbaseGrid } from './sheetbase-grid'
 import { ScientificApiInspector } from './scientific-api-inspector'
 import { ScientificTransferPanel } from './scientific-transfer-panel'
@@ -127,6 +151,16 @@ const LOGICAL_TYPES: ScientificLogicalType[] = [
   'category',
 ]
 
+/** Native `<select>` styled to match the design-system input. There is no
+ * shadcn Select primitive in this project, so we style the native control with
+ * the same tokens as `Input`. */
+const selectClass =
+  'h-8 rounded-md border border-input bg-background px-2 text-xs shadow-xs outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50'
+
+/** Native checkbox styled to match the design system (no Checkbox primitive). */
+const checkboxClass =
+  'size-4 rounded border-input text-primary accent-primary focus-visible:ring-2 focus-visible:ring-ring/50'
+
 type Confirmation =
   | {
       kind: 'convert'
@@ -168,8 +202,6 @@ function SchemaConfigurator({
   table,
   tableId,
   readOnly,
-  open,
-  onOpenChange,
   draftColumnIds,
   rowMutationPending,
   formulaDependencies,
@@ -178,8 +210,6 @@ function SchemaConfigurator({
   table: ScientificTableWire
   tableId: string
   readOnly: boolean
-  open: boolean
-  onOpenChange: (open: boolean) => void
   draftColumnIds: Set<string>
   rowMutationPending: boolean
   formulaDependencies: FormulaDependencyWire[]
@@ -276,361 +306,421 @@ function SchemaConfigurator({
   }
 
   return (
-    <section className="mb-2 border-b pb-2 text-xs">
-      <div className="flex items-center justify-between gap-2">
-        <div>
-          <strong className="font-display text-sm">{table.name}</strong>
-        </div>
-        {!readOnly ? (
-          <button
-            type="button"
-            className="rounded-md px-2 py-1 font-medium text-muted-foreground opacity-0 hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover/sheet:opacity-100"
-            onClick={() => onOpenChange(!open)}
-          >
-            {open ? 'Close configuration' : 'Configure table'}
-          </button>
-        ) : null}
-      </div>
+    <div className="space-y-5">
+      <DialogHeader>
+        <DialogTitle className="font-display">Configure sheet</DialogTitle>
+        <DialogDescription>
+          Rename the sheet, add columns, and manage units, validation and schema
+          lifecycle. Display labels can change; stable identities remain.
+        </DialogDescription>
+      </DialogHeader>
+
       {formulaDependencies.length ? (
-        <p className="mt-0.5 text-[10px] text-amber-700" role="status">
+        <p className="text-xs text-amber-700" role="status">
           {new Set(formulaDependencies.map((item) => item.formula_id)).size}{' '}
           persisted formula(s) depend on this sheet
         </p>
       ) : null}
-      {open ? (
-        <div className="mt-2 space-y-3 border-t pt-2">
-          <p className="font-mono text-[10px] text-muted-foreground">
-            API resource {table.resource_name} · stable table {table.id}
-          </p>
-          <p className="text-[10px] text-muted-foreground">
-            Display labels may change; UUIDs and generated API names remain
-            stable.
-          </p>
-          <div className="flex flex-wrap items-end gap-2">
-            <label>
-              Sheet name
-              <input
-                aria-label="Sheet name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-            </label>
-            <button
-              type="button"
-              disabled={disabled || !name.trim() || name === table.name}
-              onClick={() =>
-                schemaMutation.mutate((v) =>
-                  renameScientificTable(
-                    scientificDataClient,
-                    tableId,
-                    v,
-                    name.trim(),
-                  ),
-                )
-              }
+
+      <Field>
+        <FieldLabel htmlFor="sheet-name">Sheet name</FieldLabel>
+        <div className="flex items-center gap-2">
+          <Input
+            id="sheet-name"
+            aria-label="Sheet name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="max-w-sm"
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="subtle"
+            disabled={disabled || !name.trim() || name === table.name}
+            onClick={() =>
+              schemaMutation.mutate((v) =>
+                renameScientificTable(
+                  scientificDataClient,
+                  tableId,
+                  v,
+                  name.trim(),
+                ),
+              )
+            }
+          >
+            Save name
+          </Button>
+        </div>
+      </Field>
+
+      <Separator />
+
+      <div className="space-y-3">
+        <FieldLabel>Add column</FieldLabel>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Field>
+            <FieldLabel htmlFor="new-col-label">Label</FieldLabel>
+            <Input
+              id="new-col-label"
+              aria-label="New column label"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+            />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="new-col-type">Type</FieldLabel>
+            <select
+              id="new-col-type"
+              aria-label="New column type"
+              className={selectClass}
+              value={type}
+              onChange={(e) => setType(e.target.value as ScientificLogicalType)}
             >
-              Save name
-            </button>
-          </div>
-          <fieldset className="flex flex-wrap items-end gap-2">
-            <legend className="font-medium">Add column</legend>
-            <label>
-              Label{' '}
-              <input
-                aria-label="New column label"
-                value={label}
-                onChange={(e) => setLabel(e.target.value)}
-              />
-            </label>
-            <label>
-              Type{' '}
-              <select
-                aria-label="New column type"
-                value={type}
-                onChange={(e) =>
-                  setType(e.target.value as ScientificLogicalType)
-                }
-              >
-                {LOGICAL_TYPES.map((value) => (
-                  <option key={value}>{value}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={!nullable}
-                onChange={(e) => setNullable(!e.target.checked)}
-              />{' '}
-              Required
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={hasDefault}
-                onChange={(e) => setHasDefault(e.target.checked)}
-              />{' '}
-              Set default
-            </label>
-            {hasDefault ? (
-              <label>
-                Typed default{' '}
-                <input
-                  aria-label="Typed default"
-                  value={defaultText}
-                  onChange={(e) => setDefaultText(e.target.value)}
-                />
-              </label>
-            ) : null}
-            <label>
-              Unit JSON{' '}
-              <input
+              {LOGICAL_TYPES.map((value) => (
+                <option key={value}>{value}</option>
+              ))}
+            </select>
+          </Field>
+        </div>
+        <div className="flex flex-wrap items-center gap-4 text-xs">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              className={checkboxClass}
+              checked={!nullable}
+              onChange={(e) => setNullable(!e.target.checked)}
+            />
+            Required
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              className={checkboxClass}
+              checked={hasDefault}
+              onChange={(e) => setHasDefault(e.target.checked)}
+            />
+            Set default
+          </label>
+          {hasDefault ? (
+            <Input
+              aria-label="Typed default"
+              value={defaultText}
+              onChange={(e) => setDefaultText(e.target.value)}
+              className="h-8 max-w-48"
+            />
+          ) : null}
+        </div>
+        {type === 'category' ? (
+          <Field>
+            <FieldLabel htmlFor="cat-options">
+              Category options (one per line)
+            </FieldLabel>
+            <Textarea
+              id="cat-options"
+              aria-label="Category options"
+              value={options}
+              onChange={(e) => setOptions(e.target.value)}
+              className="min-h-24"
+            />
+          </Field>
+        ) : null}
+        <details className="rounded-md border bg-muted/20 p-2 text-xs">
+          <summary className="cursor-pointer font-medium text-muted-foreground">
+            Advanced · custom JSON
+          </summary>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor="unit-json">Unit JSON</FieldLabel>
+              <Textarea
+                id="unit-json"
                 aria-label="Unit JSON"
                 placeholder='{"code":"mg","symbol":"mg"}'
                 value={unit}
                 onChange={(e) => setUnit(e.target.value)}
+                className="min-h-20 font-mono"
               />
-            </label>
-            <label>
-              Validation JSON{' '}
-              <input
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="validation-json">Validation JSON</FieldLabel>
+              <Textarea
+                id="validation-json"
                 aria-label="Validation JSON"
                 placeholder='{"min":0}'
                 value={validation}
                 onChange={(e) => setValidation(e.target.value)}
+                className="min-h-20 font-mono"
               />
-            </label>
-            {type === 'category' ? (
-              <label>
-                Category options (one per line)
-                <textarea
-                  aria-label="Category options"
-                  value={options}
-                  onChange={(e) => setOptions(e.target.value)}
-                />
-              </label>
-            ) : null}
-            <button type="button" disabled={disabled} onClick={addColumn}>
-              Add column
-            </button>
-          </fieldset>
-          <ol className="space-y-1" aria-label="Columns">
-            {table.columns.map((column, index) => (
-              <li
-                key={column.id}
-                className="flex flex-wrap items-center gap-2 rounded border p-1"
-              >
-                <input
-                  aria-label={`Label for ${column.label}`}
-                  defaultValue={column.label}
-                  onBlur={(e) => {
-                    if (e.target.value !== column.label)
-                      schemaMutation.mutate((v) =>
-                        updateScientificColumnDisplay(
-                          scientificDataClient,
-                          column.id,
-                          v,
-                          e.target.value,
-                          null,
-                        ),
-                      )
-                  }}
-                />
-                <span>
-                  {column.logical_type}
-                  {column.nullable ? ' · nullable' : ' · required'}
-                </span>
-                <code title="Stable column UUID">{column.id}</code>
-                <code title="Stable API field">{column.field_name}</code>
-                <button
-                  type="button"
-                  disabled={disabled || index === 0}
-                  onClick={() =>
-                    schemaMutation.mutate((v) =>
-                      updateScientificColumnDisplay(
-                        scientificDataClient,
-                        column.id,
-                        v,
-                        null,
-                        index,
-                      ),
-                    )
-                  }
-                >
-                  Move left
-                </button>
-                <button
-                  type="button"
-                  disabled={disabled || index === table.columns.length - 1}
-                  onClick={() =>
-                    schemaMutation.mutate((v) =>
-                      updateScientificColumnDisplay(
-                        scientificDataClient,
-                        column.id,
-                        v,
-                        null,
-                        index + 2,
-                      ),
-                    )
-                  }
-                >
-                  Move right
-                </button>
-                <select
-                  aria-label={`Convert ${column.label}`}
-                  defaultValue=""
-                  disabled={
-                    disabled ||
-                    rowMutationPending ||
-                    draftColumnIds.has(column.id)
-                  }
-                  onChange={async (e) => {
-                    const next = e.target.value
-                    e.target.value = ''
-                    if (!next) return
-                    try {
-                      setStatus('Checking conversion consequences…')
-                      const evidence = await preflightScientificConversion(
-                        scientificDataClient,
-                        column.id,
-                        version.current,
-                        next as ScientificLogicalType,
-                      )
-                      setConfirmation({
-                        kind: 'convert',
-                        column,
-                        evidence: evidence as ScientificSchemaEvidence,
-                      })
-                      setStatus('Review and confirm the conversion.')
-                    } catch (error) {
-                      setStatus(
-                        `Conversion rejected. ${error instanceof Error ? error.message : ''}`,
-                      )
-                    }
-                  }}
-                >
-                  <option value="">Convert…</option>
-                  {LOGICAL_TYPES.filter(
-                    (value) => value !== column.logical_type,
-                  ).map((value) => (
-                    <option key={value}>{value}</option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  disabled={
-                    disabled ||
-                    rowMutationPending ||
-                    draftColumnIds.has(column.id)
-                  }
-                  onClick={async () => {
-                    try {
-                      setStatus('Checking retirement consequences…')
-                      const evidence = await preflightScientificRetirement(
-                        scientificDataClient,
-                        column.id,
-                        version.current,
-                      )
-                      setConfirmation({
-                        kind: 'retire',
-                        column,
-                        evidence: evidence as ScientificSchemaEvidence,
-                      })
-                      setStatus('Review and confirm retirement.')
-                    } catch (error) {
-                      setStatus(
-                        `Retirement check failed. ${error instanceof Error ? error.message : ''}`,
-                      )
-                    }
-                  }}
-                >
-                  Retire
-                </button>
-              </li>
-            ))}
-          </ol>
-          {rowMutationPending || draftColumnIds.size > 0 ? (
-            <p role="status">
-              Save or discard pending row changes before converting or retiring
-              columns.
-            </p>
-          ) : null}
-          {confirmation ? (
-            <div
-              role="alertdialog"
-              aria-label="Confirm schema change"
-              className="rounded border border-destructive p-2"
+            </Field>
+          </div>
+        </details>
+        <Button type="button" size="sm" disabled={disabled} onClick={addColumn}>
+          Add column
+        </Button>
+      </div>
+
+      <Separator />
+
+      <div className="space-y-2">
+        <FieldLabel>Columns</FieldLabel>
+        <ol className="space-y-1.5" aria-label="Columns">
+          {table.columns.map((column, index) => (
+            <li
+              key={column.id}
+              className="flex flex-wrap items-center gap-2 rounded-md border bg-card/40 p-2"
             >
-              <strong>
-                Confirm {confirmation.kind} of {confirmation.column.label}
-              </strong>
-              <p>
-                Non-null rows: {confirmation.evidence.nonNullRows ?? 'n/a'} ·
-                Invalid rows: {confirmation.evidence.invalidRows ?? 'n/a'} ·
-                Formula markers: {confirmation.evidence.formulaMarkers} ·
-                Referencing formulas:{' '}
-                {
-                  new Set(
-                    formulaDependencies
-                      .filter(
-                        (item) =>
-                          item.source_column_id === confirmation.column.id,
-                      )
-                      .map((item) => item.formula_id),
-                  ).size
-                }
-              </p>
-              <p>
-                This can affect formulas and API clients. The stable field
-                remains {confirmation.column.field_name}.
-              </p>
-              <button
-                type="button"
+              <Input
+                aria-label={`Label for ${column.label}`}
+                defaultValue={column.label}
+                onBlur={(e) => {
+                  if (e.target.value !== column.label)
+                    schemaMutation.mutate((v) =>
+                      updateScientificColumnDisplay(
+                        scientificDataClient,
+                        column.id,
+                        v,
+                        e.target.value,
+                        null,
+                      ),
+                    )
+                }}
+                className="h-8 min-w-36 flex-1"
+              />
+              <Badge variant="secondary">{column.logical_type}</Badge>
+              <Badge variant="outline">
+                {column.nullable ? 'nullable' : 'required'}
+              </Badge>
+              <select
+                aria-label={`Convert ${column.label}`}
+                defaultValue=""
+                className={selectClass}
                 disabled={
                   disabled ||
                   rowMutationPending ||
-                  draftColumnIds.has(confirmation.column.id) ||
-                  (confirmation.kind === 'convert' &&
-                    ((confirmation.evidence.invalidRows ?? 0) > 0 ||
-                      confirmation.evidence.formulaMarkers > 0))
+                  draftColumnIds.has(column.id)
                 }
+                onChange={async (e) => {
+                  const next = e.target.value
+                  e.target.value = ''
+                  if (!next) return
+                  try {
+                    setStatus('Checking conversion consequences…')
+                    const evidence = await preflightScientificConversion(
+                      scientificDataClient,
+                      column.id,
+                      version.current,
+                      next as ScientificLogicalType,
+                    )
+                    setConfirmation({
+                      kind: 'convert',
+                      column,
+                      evidence: evidence as ScientificSchemaEvidence,
+                    })
+                    setStatus('Review and confirm the conversion.')
+                  } catch (error) {
+                    setStatus(
+                      `Conversion rejected. ${error instanceof Error ? error.message : ''}`,
+                    )
+                  }
+                }}
+              >
+                <option value="">Convert…</option>
+                {LOGICAL_TYPES.filter(
+                  (value) => value !== column.logical_type,
+                ).map((value) => (
+                  <option key={value}>{value}</option>
+                ))}
+              </select>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Move left"
+                disabled={disabled || index === 0}
                 onClick={() =>
-                  schemaMutation.mutate(() =>
-                    confirmation.kind === 'convert'
-                      ? preflightScientificConversion(
-                          scientificDataClient,
-                          confirmation.column.id,
-                          confirmation.evidence.schemaVersion,
-                          confirmation.evidence.targetType!,
-                          confirmation.evidence.hash,
-                        )
-                      : preflightScientificRetirement(
-                          scientificDataClient,
-                          confirmation.column.id,
-                          confirmation.evidence.schemaVersion,
-                          confirmation.evidence.hash,
-                        ),
+                  schemaMutation.mutate((v) =>
+                    updateScientificColumnDisplay(
+                      scientificDataClient,
+                      column.id,
+                      v,
+                      null,
+                      index,
+                    ),
                   )
                 }
               >
-                Confirm change
-              </button>
-              <button
+                <ChevronLeft className="size-4" />
+              </Button>
+              <Button
                 type="button"
-                disabled={disabled}
-                onClick={() => {
-                  setConfirmation(null)
-                  setStatus('Schema change cancelled.')
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Move right"
+                disabled={disabled || index === table.columns.length - 1}
+                onClick={() =>
+                  schemaMutation.mutate((v) =>
+                    updateScientificColumnDisplay(
+                      scientificDataClient,
+                      column.id,
+                      v,
+                      null,
+                      index + 2,
+                    ),
+                  )
+                }
+              >
+                <ChevronRight className="size-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={
+                  disabled ||
+                  rowMutationPending ||
+                  draftColumnIds.has(column.id)
+                }
+                onClick={async () => {
+                  try {
+                    setStatus('Checking retirement consequences…')
+                    const evidence = await preflightScientificRetirement(
+                      scientificDataClient,
+                      column.id,
+                      version.current,
+                    )
+                    setConfirmation({
+                      kind: 'retire',
+                      column,
+                      evidence: evidence as ScientificSchemaEvidence,
+                    })
+                    setStatus('Review and confirm retirement.')
+                  } catch (error) {
+                    setStatus(
+                      `Retirement check failed. ${error instanceof Error ? error.message : ''}`,
+                    )
+                  }
                 }}
               >
-                Cancel
-              </button>
-            </div>
-          ) : null}
-          {status ? <p role="status">{status}</p> : null}
+                Retire
+              </Button>
+            </li>
+          ))}
+        </ol>
+        {rowMutationPending || draftColumnIds.size > 0 ? (
+          <p role="status" className="text-xs text-amber-700">
+            Save or discard pending row changes before converting or retiring
+            columns.
+          </p>
+        ) : null}
+      </div>
+
+      {confirmation ? (
+        <div
+          role="alertdialog"
+          aria-label="Confirm schema change"
+          className="space-y-2 rounded-md border border-destructive/50 bg-destructive/5 p-3 text-xs"
+        >
+          <strong className="font-medium">
+            Confirm {confirmation.kind} of {confirmation.column.label}
+          </strong>
+          <p>
+            Non-null rows: {confirmation.evidence.nonNullRows ?? 'n/a'} ·
+            Invalid rows: {confirmation.evidence.invalidRows ?? 'n/a'} · Formula
+            markers: {confirmation.evidence.formulaMarkers} · Referencing
+            formulas:{' '}
+            {
+              new Set(
+                formulaDependencies
+                  .filter(
+                    (item) => item.source_column_id === confirmation.column.id,
+                  )
+                  .map((item) => item.formula_id),
+              ).size
+            }
+          </p>
+          <p className="text-muted-foreground">
+            This can affect formulas and API clients. The stable field remains{' '}
+            {confirmation.column.field_name}.
+          </p>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              disabled={
+                disabled ||
+                rowMutationPending ||
+                draftColumnIds.has(confirmation.column.id) ||
+                (confirmation.kind === 'convert' &&
+                  ((confirmation.evidence.invalidRows ?? 0) > 0 ||
+                    confirmation.evidence.formulaMarkers > 0))
+              }
+              onClick={() =>
+                schemaMutation.mutate(() =>
+                  confirmation.kind === 'convert'
+                    ? preflightScientificConversion(
+                        scientificDataClient,
+                        confirmation.column.id,
+                        confirmation.evidence.schemaVersion,
+                        confirmation.evidence.targetType!,
+                        confirmation.evidence.hash,
+                      )
+                    : preflightScientificRetirement(
+                        scientificDataClient,
+                        confirmation.column.id,
+                        confirmation.evidence.schemaVersion,
+                        confirmation.evidence.hash,
+                      ),
+                )
+              }
+            >
+              Confirm change
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={disabled}
+              onClick={() => {
+                setConfirmation(null)
+                setStatus('Schema change cancelled.')
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
         </div>
       ) : null}
-    </section>
+
+      {status ? (
+        <p role="status" className="text-xs">
+          {status}
+        </p>
+      ) : null}
+
+      <Separator />
+
+      <details className="rounded-md border bg-muted/20 p-2 text-[11px] text-muted-foreground">
+        <summary className="cursor-pointer font-medium">Developer info</summary>
+        <div className="mt-2 space-y-2">
+          <p>
+            API resource{' '}
+            <code className="font-mono">{table.resource_name}</code> · stable
+            table <code className="font-mono">{table.id}</code>
+          </p>
+          <p>
+            Display labels may change; UUIDs and generated API names remain
+            stable.
+          </p>
+          <ul className="space-y-1 font-mono">
+            {table.columns.map((column) => (
+              <li key={column.id}>
+                {column.label}: <span>{column.field_name}</span> · {column.id}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </details>
+    </div>
   )
 }
 
@@ -671,7 +761,8 @@ export function ScientificSheetBlock({
   const [drafts, setDrafts] = useState<Record<string, DraftCell>>({})
   const [selected, setSelected] = useState<WorkbookCellAddress | null>(null)
   const [configurationOpen, setConfigurationOpen] = useState(false)
-  const [formulaToolsOpen, setFormulaToolsOpen] = useState(false)
+  const [transferOpen, setTransferOpen] = useState(false)
+  const [inspectorOpen, setInspectorOpen] = useState(false)
   const [formulaSource, setFormulaSource] = useState('')
   const [formulaStatus, setFormulaStatus] = useState('')
   const nextGeneration = useRef(0)
@@ -1132,7 +1223,6 @@ export function ScientificSheetBlock({
               ? { tableId: table.id, rowId, columnId: column.id }
               : null,
           )
-          if (rowId && column) setFormulaToolsOpen(true)
           if (!rowId) setFormulaStatus('Save the row before adding a formula.')
         },
       }
@@ -1145,27 +1235,12 @@ export function ScientificSheetBlock({
   if (!table || !settings)
     return <p role="alert">Scientific sheet not found.</p>
   return (
-    <div className="group/sheet">
-      <SchemaConfigurator
-        table={table}
-        tableId={tableId}
-        readOnly={readOnly}
-        open={configurationOpen}
-        onOpenChange={setConfigurationOpen}
-        draftColumnIds={
-          new Set(Object.values(drafts).map((draft) => draft.columnId))
-        }
-        rowMutationPending={mutation.isPending}
-        formulaDependencies={dependenciesQuery.data ?? []}
-        onSuccess={async () => {
-          await tableQuery.refetch()
-          await queryClient.invalidateQueries({
-            queryKey: ['scientific-rows', tableId],
-          })
-        }}
-      />
+    <div className="group/sheet border-t border-border/50 pt-1.5">
       {issues.length ? (
-        <ul role="alert" className="mb-2 text-xs text-destructive">
+        <ul
+          role="alert"
+          className="mb-2 space-y-0.5 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive"
+        >
           {issues.map((issue) => (
             <li key={issue.key} data-cell={issue.key}>
               {issue.message}
@@ -1174,178 +1249,272 @@ export function ScientificSheetBlock({
         </ul>
       ) : null}
       {calculationProblem ? (
-        <p role="alert" className="mb-2 text-xs text-destructive">
+        <p
+          role="alert"
+          className="mb-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive"
+        >
           {calculationProblem}
         </p>
       ) : null}
-      <details
-        className={
-          formulaToolsOpen ? 'mb-2 border-y bg-muted/10 text-xs' : 'hidden'
-        }
-        open={formulaToolsOpen}
-        onToggle={(event) => setFormulaToolsOpen(event.currentTarget.open)}
+
+      <section
+        aria-label="Formula bar"
+        className={`flex flex-wrap items-center gap-2 border-y bg-muted/25 px-2 py-1.5 text-xs ${
+          selected ? 'mb-2' : 'hidden'
+        }`}
       >
-        <summary className="cursor-pointer px-2 py-1.5 font-medium text-muted-foreground hover:text-foreground">
-          Formula and calculation
-        </summary>
-        <section
-          className="flex min-h-9 flex-wrap items-center gap-2 border-t px-2 py-1"
-          aria-label="Formula bar"
-        >
-          <strong className="font-display text-sm italic">fx</strong>
-          <input
-            aria-label="Formula source"
-            placeholder="Select a saved cell, then enter =…"
-            value={formulaSource}
-            disabled={readOnly || !selected}
-            onChange={(event) => setFormulaSource(event.target.value)}
-            className="h-7 min-w-48 flex-1 border-0 bg-transparent px-2 font-mono text-xs outline-none placeholder:text-muted-foreground/70"
-          />
-          <span className="hidden text-muted-foreground lg:inline">
-            Cross-sheet example: ='Sheet name'!A1
-          </span>
-          <button
-            type="button"
-            className="rounded px-2 py-1 font-medium hover:bg-muted disabled:opacity-40"
-            disabled={readOnly || !selected || !formulaSource.startsWith('=')}
-            onClick={async () => {
-              if (!selected) return
-              const row = (allRowsQuery.data ?? []).find(
-                (item) => item.id === selected.rowId,
+        <strong className="font-display text-sm italic text-muted-foreground">
+          fx
+        </strong>
+        <Input
+          aria-label="Formula source"
+          placeholder="Select a saved cell, then enter =…"
+          value={formulaSource}
+          disabled={readOnly || !selected}
+          onChange={(event) => setFormulaSource(event.target.value)}
+          className="h-7 min-w-48 flex-1 font-mono text-xs"
+        />
+        <span className="hidden text-muted-foreground lg:inline">
+          Cross-sheet example: ='Sheet name'!A1
+        </span>
+        <Button
+          type="button"
+          size="sm"
+          variant="subtle"
+          disabled={readOnly || !selected || !formulaSource.startsWith('=')}
+          onClick={async () => {
+            if (!selected) return
+            const row = (allRowsQuery.data ?? []).find(
+              (item) => item.id === selected.rowId,
+            )
+            if (!row)
+              return setFormulaStatus('Save the row before adding a formula.')
+            try {
+              await mutateScientificFormula({
+                operation: selectedFormula ? 'update' : 'create',
+                target: selected,
+                expectedSchemaVersion: table.schema_version,
+                expectedRowVersion: row.version,
+                ...(selectedFormula
+                  ? {
+                      expectedFormulaVersion: Number(selectedFormula.version),
+                    }
+                  : {}),
+                source: formulaSource,
+              } as Parameters<typeof mutateScientificFormula>[0])
+              setFormulaStatus('Formula saved.')
+              await refreshCalculation(true)
+            } catch (error) {
+              setFormulaStatus(
+                error instanceof Error
+                  ? error.message
+                  : 'Could not save the formula.',
               )
-              if (!row)
-                return setFormulaStatus('Save the row before adding a formula.')
+            }
+          }}
+        >
+          Apply formula
+        </Button>
+        {selectedFormula &&
+        table.columns.find((column) => column.id === selected?.columnId)
+          ?.nullable ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={readOnly}
+            onClick={async () => {
+              const row = (allRowsQuery.data ?? []).find(
+                (item) => item.id === selected!.rowId,
+              )!
               try {
                 await mutateScientificFormula({
-                  operation: selectedFormula ? 'update' : 'create',
-                  target: selected,
+                  operation: 'remove',
+                  target: selected!,
                   expectedSchemaVersion: table.schema_version,
                   expectedRowVersion: row.version,
-                  ...(selectedFormula
-                    ? {
-                        expectedFormulaVersion: Number(selectedFormula.version),
-                      }
-                    : {}),
-                  source: formulaSource,
-                } as Parameters<typeof mutateScientificFormula>[0])
-                setFormulaStatus('Formula saved.')
+                  expectedFormulaVersion: Number(selectedFormula.version),
+                  replacement: null,
+                })
+                setFormulaStatus(
+                  'Formula removed and replaced with an empty value.',
+                )
                 await refreshCalculation(true)
               } catch (error) {
                 setFormulaStatus(
                   error instanceof Error
                     ? error.message
-                    : 'Could not save the formula.',
+                    : 'Could not remove the formula.',
                 )
               }
             }}
           >
-            Apply formula
-          </button>
-          {selectedFormula &&
-          table.columns.find((column) => column.id === selected?.columnId)
-            ?.nullable ? (
-            <button
-              type="button"
-              disabled={readOnly}
-              onClick={async () => {
-                const row = (allRowsQuery.data ?? []).find(
-                  (item) => item.id === selected!.rowId,
-                )!
-                try {
-                  await mutateScientificFormula({
-                    operation: 'remove',
-                    target: selected!,
-                    expectedSchemaVersion: table.schema_version,
-                    expectedRowVersion: row.version,
-                    expectedFormulaVersion: Number(selectedFormula.version),
-                    replacement: null,
-                  })
-                  setFormulaStatus(
-                    'Formula removed and replaced with an empty value.',
-                  )
-                  await refreshCalculation(true)
-                } catch (error) {
-                  setFormulaStatus(
-                    error instanceof Error
-                      ? error.message
-                      : 'Could not remove the formula.',
-                  )
-                }
-              }}
-            >
-              Remove formula
-            </button>
-          ) : selectedFormula ? (
-            <span>
-              Overwrite this required cell in the grid to remove its formula.
-            </span>
-          ) : null}
-          {selected ? (
-            <span>
-              Result: {String(displayResult(selectedResult) ?? '')} ·{' '}
-              {selectedFormula?.status ?? 'literal'} · Dependencies:{' '}
-              {selectedFormula
-                ? persistedFormula(selectedFormula).dependencies.length
-                : 0}
-            </span>
-          ) : null}
-          {selectedFormula ? (
-            <span>
-              Trusted cache:{' '}
-              {selectedCachedResult?.calculation_status ?? 'pending'}
-              {selectedCachedResult?.calculation_status === 'current'
-                ? selectedCachedResult.calculation_error_code
-                  ? ` · ${selectedCachedResult.calculation_error_code}`
-                  : ` · ${String(selectedCachedResult.calculated_value ?? '')}`
-                : ''}
-            </span>
-          ) : null}
-          <button
-            type="button"
-            disabled={readOnly || calculationResultsQuery.isFetching}
-            onClick={() => void refreshCalculation()}
-          >
-            Recalculate trusted results
-          </button>
-          {selectedFormula && tableWorkbook ? (
-            <details>
-              <summary>
-                Inspect {persistedFormula(selectedFormula).dependencies.length}{' '}
-                stable dependencies
-              </summary>
-              <ul>
-                {persistedFormula(selectedFormula).dependencies.map(
-                  (dependency) => {
-                    const identity = `${dependency.tableId}/${dependency.rowId}/${dependency.columnId}`
-                    try {
-                      const description = tableWorkbook.describe(dependency)
-                      return (
-                        <li key={identity} title={identity}>
-                          {description.tableName} · row {description.rowNumber}{' '}
-                          · {description.columnName}
-                        </li>
-                      )
-                    } catch {
-                      return (
-                        <li key={identity}>Missing dependency · {identity}</li>
-                      )
-                    }
-                  },
-                )}
-              </ul>
-            </details>
-          ) : null}
-          {formulaStatus ? <span role="status">{formulaStatus}</span> : null}
-        </section>
-      </details>
+            Remove formula
+          </Button>
+        ) : selectedFormula ? (
+          <span className="text-muted-foreground">
+            Overwrite this required cell in the grid to remove its formula.
+          </span>
+        ) : null}
+        {selected ? (
+          <span>
+            Result: {String(displayResult(selectedResult) ?? '')} ·{' '}
+            {selectedFormula?.status ?? 'literal'} · Dependencies:{' '}
+            {selectedFormula
+              ? persistedFormula(selectedFormula).dependencies.length
+              : 0}
+          </span>
+        ) : null}
+        {selectedFormula ? (
+          <span>
+            Trusted cache:{' '}
+            {selectedCachedResult?.calculation_status ?? 'pending'}
+            {selectedCachedResult?.calculation_status === 'current'
+              ? selectedCachedResult.calculation_error_code
+                ? ` · ${selectedCachedResult.calculation_error_code}`
+                : ` · ${String(selectedCachedResult.calculated_value ?? '')}`
+              : ''}
+          </span>
+        ) : null}
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          disabled={readOnly || calculationResultsQuery.isFetching}
+          onClick={() => void refreshCalculation()}
+        >
+          Recalculate trusted results
+        </Button>
+        {selectedFormula && tableWorkbook ? (
+          <details className="w-full rounded-md border bg-background/60 p-2">
+            <summary className="cursor-pointer font-medium text-muted-foreground">
+              Inspect {persistedFormula(selectedFormula).dependencies.length}{' '}
+              stable dependencies
+            </summary>
+            <ul className="mt-1 space-y-0.5">
+              {persistedFormula(selectedFormula).dependencies.map(
+                (dependency) => {
+                  const identity = `${dependency.tableId}/${dependency.rowId}/${dependency.columnId}`
+                  try {
+                    const description = tableWorkbook.describe(dependency)
+                    return (
+                      <li key={identity} title={identity}>
+                        {description.tableName} · row {description.rowNumber} ·{' '}
+                        {description.columnName}
+                      </li>
+                    )
+                  } catch {
+                    return (
+                      <li key={identity}>Missing dependency · {identity}</li>
+                    )
+                  }
+                },
+              )}
+            </ul>
+          </details>
+        ) : null}
+        {formulaStatus ? (
+          <span role="status" className="text-muted-foreground">
+            {formulaStatus}
+          </span>
+        ) : null}
+      </section>
+
       <SheetbaseGrid settings={settings} ariaLabel={table.name} />
-      <details className="mt-2 rounded-md border bg-muted/15 text-xs">
-        <summary className="cursor-pointer px-3 py-2 font-medium">
+
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+        <span>
           {(allRowsQuery.data ?? []).length}{' '}
-          {(allRowsQuery.data ?? []).length === 1 ? 'row' : 'rows'} · Sheet
-          tools
-        </summary>
-        <div className="border-t p-2">
+          {(allRowsQuery.data ?? []).length === 1 ? 'row' : 'rows'}
+        </span>
+        <div className="flex items-center gap-1">
+          {page > 0 || !terminal ? (
+            <nav aria-label="Sheet pages" className="flex items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={page === 0 || rowsQuery.isFetching}
+                onClick={() => setPage((p) => p - 1)}
+              >
+                Previous
+              </Button>
+              <span>Page {page + 1}</span>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={terminal || rowsQuery.isFetching}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Next
+              </Button>
+            </nav>
+          ) : null}
+          {!readOnly ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Configure table"
+              onClick={() => setConfigurationOpen(true)}
+            >
+              <Settings className="size-4" />
+            </Button>
+          ) : null}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Sheet tools"
+              >
+                <MoreHorizontal className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => setTransferOpen(true)}>
+                Import &amp; export CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setInspectorOpen(true)}>
+                API inspector
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      <Dialog open={configurationOpen} onOpenChange={setConfigurationOpen}>
+        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+          <SchemaConfigurator
+            table={table}
+            tableId={tableId}
+            readOnly={readOnly}
+            draftColumnIds={
+              new Set(Object.values(drafts).map((draft) => draft.columnId))
+            }
+            rowMutationPending={mutation.isPending}
+            formulaDependencies={dependenciesQuery.data ?? []}
+            onSuccess={async () => {
+              await tableQuery.refetch()
+              await queryClient.invalidateQueries({
+                queryKey: ['scientific-rows', tableId],
+              })
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
+        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Data interchange</DialogTitle>
+            <DialogDescription>
+              Import rows from CSV or export the sheet with schema and unit
+              metadata.
+            </DialogDescription>
+          </DialogHeader>
           <ScientificTransferPanel
             table={table}
             rows={allRowsQuery.data ?? []}
@@ -1362,6 +1531,17 @@ export function ScientificSheetBlock({
               ])
             }}
           />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={inspectorOpen} onOpenChange={setInspectorOpen}>
+        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>API inspector</DialogTitle>
+            <DialogDescription>
+              Sheet identity, fields, and authenticated request examples.
+            </DialogDescription>
+          </DialogHeader>
           <ScientificApiInspector
             table={table}
             selectedRowId={selected?.rowId}
@@ -1374,27 +1554,8 @@ export function ScientificSheetBlock({
             }
             selectedColumnId={selected?.columnId}
           />
-        </div>
-      </details>
-      {page > 0 || !terminal ? (
-        <nav aria-label="Sheet pages" className="mt-2 flex gap-2 text-xs">
-          <button
-            type="button"
-            disabled={page === 0 || rowsQuery.isFetching}
-            onClick={() => setPage((p) => p - 1)}
-          >
-            Previous
-          </button>
-          <span>Page {page + 1}</span>
-          <button
-            type="button"
-            disabled={terminal || rowsQuery.isFetching}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            Next
-          </button>
-        </nav>
-      ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as FoundationsRouteImport } from './routes/foundations'
 import { Route as ProjectsRouteImport } from './routes/projects'
+import { Route as SearchRouteImport } from './routes/search'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as TemplatesRouteImport } from './routes/templates'
 import { Route as ApiCalculationsRouteImport } from './routes/api/calculations'
@@ -42,6 +43,11 @@ const FoundationsRoute = FoundationsRouteImport.update({
 const ProjectsRoute = ProjectsRouteImport.update({
   id: '/projects',
   path: '/projects',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SearchRoute = SearchRouteImport.update({
+  id: '/search',
+  path: '/search',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignInRoute = SignInRouteImport.update({
@@ -131,6 +137,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/foundations': typeof FoundationsRoute
   '/projects': typeof ProjectsRouteWithChildren
+  '/search': typeof SearchRoute
   '/sign-in': typeof SignInRoute
   '/templates': typeof TemplatesRoute
   '/api/calculations': typeof ApiCalculationsRoute
@@ -152,6 +159,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/foundations': typeof FoundationsRoute
   '/projects': typeof ProjectsRouteWithChildren
+  '/search': typeof SearchRoute
   '/sign-in': typeof SignInRoute
   '/templates': typeof TemplatesRoute
   '/api/calculations': typeof ApiCalculationsRoute
@@ -174,6 +182,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/foundations': typeof FoundationsRoute
   '/projects': typeof ProjectsRouteWithChildren
+  '/search': typeof SearchRoute
   '/sign-in': typeof SignInRoute
   '/templates': typeof TemplatesRoute
   '/api/calculations': typeof ApiCalculationsRoute
@@ -197,6 +206,7 @@ export interface FileRouteTypes {
     | '/'
     | '/foundations'
     | '/projects'
+    | '/search'
     | '/sign-in'
     | '/templates'
     | '/api/calculations'
@@ -218,6 +228,7 @@ export interface FileRouteTypes {
     | '/'
     | '/foundations'
     | '/projects'
+    | '/search'
     | '/sign-in'
     | '/templates'
     | '/api/calculations'
@@ -239,6 +250,7 @@ export interface FileRouteTypes {
     | '/'
     | '/foundations'
     | '/projects'
+    | '/search'
     | '/sign-in'
     | '/templates'
     | '/api/calculations'
@@ -261,6 +273,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   FoundationsRoute: typeof FoundationsRoute
   ProjectsRoute: typeof ProjectsRouteWithChildren
+  SearchRoute: typeof SearchRoute
   SignInRoute: typeof SignInRoute
   TemplatesRoute: typeof TemplatesRoute
   ApiCalculationsRoute: typeof ApiCalculationsRoute
@@ -297,6 +310,13 @@ declare module '@tanstack/react-router' {
       path: '/projects'
       fullPath: '/projects'
       preLoaderRoute: typeof ProjectsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/search': {
+      id: '/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof SearchRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sign-in': {
@@ -457,6 +477,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   FoundationsRoute: FoundationsRoute,
   ProjectsRoute: ProjectsRouteWithChildren,
+  SearchRoute: SearchRoute,
   SignInRoute: SignInRoute,
   TemplatesRoute: TemplatesRoute,
   ApiCalculationsRoute: ApiCalculationsRoute,

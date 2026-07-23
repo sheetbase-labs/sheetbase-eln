@@ -136,6 +136,7 @@ export const defaultNavSections: AppShellNavSection[] = [
     label: 'Workspace',
     items: [
       { to: '/', label: 'Home', icon: HomeIcon },
+      { to: '/search', label: 'Search', icon: Search },
       { to: '/templates', label: 'Templates', icon: LayoutTemplate },
       { to: '/my-work', label: 'My work', icon: LayoutGrid, disabled: true },
       {

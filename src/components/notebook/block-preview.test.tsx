@@ -47,7 +47,8 @@ describe('BlockPreview callout (SCI-009 contract fix)', () => {
         block={block('callout', { text: 'Heads up', variant: 'warning' })}
       />,
     )
-    const callout = container.querySelector('.border-warning\\/40')
+    // Warning callouts use an amber left-border accent.
+    const callout = container.querySelector('.border-l-amber-400')
     expect(callout).toBeTruthy()
   })
 
@@ -57,7 +58,8 @@ describe('BlockPreview callout (SCI-009 contract fix)', () => {
         block={block('callout', { text: 'FYI', variant: 'info' })}
       />,
     )
-    const callout = container.querySelector('.border-primary\\/30')
+    // Info callouts use a blue left-border accent.
+    const callout = container.querySelector('.border-l-blue-400')
     expect(callout).toBeTruthy()
   })
 
@@ -111,5 +113,44 @@ describe('BlockPreview sheet (read-only preview)', () => {
   it('shows a not-configured hint when tableId is absent', () => {
     renderWithQuery(<BlockPreview block={block('sheet', {})} />)
     expect(screen.getByText(/not configured yet/i)).toBeTruthy()
+  })
+})
+
+describe('BlockPreview metric (number formatting)', () => {
+  it('formats large integers with thousands separators', () => {
+    render(
+      <BlockPreview
+        block={block('metric', {
+          label: 'Viral titer',
+          value: 23100000,
+          unit: 'copies/mL',
+        })}
+      />,
+    )
+    expect(screen.getByText('23,100,000')).toBeTruthy()
+  })
+
+  it('renders the label in muted small text and the value prominently', () => {
+    const { container } = render(
+      <BlockPreview
+        block={block('metric', { label: 'Volume', value: 100, unit: 'µL' })}
+      />,
+    )
+    expect(screen.getByText('Volume')).toBeTruthy()
+    const value = screen.getByText('100')
+    // The value sits in a font-display dd, the label in a muted dt.
+    expect(value.closest('dd')?.className).toContain('font-display')
+    expect(container.querySelector('dt')?.className).toContain(
+      'text-muted-foreground',
+    )
+  })
+
+  it('leaves non-numeric string values untouched', () => {
+    render(
+      <BlockPreview
+        block={block('metric', { label: 'Pass/fail', value: 'Pass' })}
+      />,
+    )
+    expect(screen.getByText('Pass')).toBeTruthy()
   })
 })

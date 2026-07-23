@@ -1,5 +1,20 @@
 import * as React from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
+import {
+  Check,
+  CheckCircle2,
+  CircleAlert,
+  FileText,
+  FileSpreadsheet,
+  FileImage,
+  File as FileIconLucide,
+  FlaskConical,
+  Info,
+  Link2,
+  StickyNote,
+  TriangleAlert,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
 import { cn } from '#/lib/utils'
 import type { NotebookBlock } from '#/lib/notebook-data'
@@ -16,7 +31,12 @@ import {
 import { fetchRecordById } from '#/lib/scientific-records'
 import { materialAlerts } from '#/lib/protocol-materials'
 import type { MaterialItem } from '#/lib/protocol-materials'
-import { formatBytes } from '#/lib/file-attach'
+import {
+  formatFileSize,
+  formatCellValue,
+  formatMetricValue,
+} from '#/lib/format-numbers'
+import { Badge } from '#/components/ui'
 import {
   materialiseFrozenChart,
   materialiseLiveChart,
@@ -125,25 +145,30 @@ function renderChecklist(payload: unknown): React.ReactNode {
   const items = asArray<{ text?: unknown; checked?: unknown }>(obj.items)
   if (!items) return null
   return (
-    <ul className="space-y-1.5">
+    <ul className="space-y-2">
       {items.map((item, i) => {
         const text = asString(item.text) ?? ''
         const checked = item.checked === true
         return (
-          <li key={i} className="flex items-start gap-2">
+          <li key={i} className="flex items-start gap-2.5">
             <span
               aria-hidden="true"
               className={cn(
-                'mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-[4px] border text-[10px]',
+                'mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-[5px] border transition-colors',
                 checked
                   ? 'border-primary bg-primary text-primary-foreground'
                   : 'border-input bg-background',
               )}
             >
-              {checked ? '✓' : ''}
+              {checked ? <Check className="size-3.5" strokeWidth={3} /> : null}
             </span>
             <span
-              className={cn(checked && 'text-muted-foreground line-through')}
+              className={cn(
+                'text-sm leading-6',
+                checked
+                  ? 'text-muted-foreground line-through'
+                  : 'text-foreground',
+              )}
             >
               {text}
             </span>
@@ -162,19 +187,55 @@ function renderCallout(payload: unknown): React.ReactNode {
   if (!obj) return null
   const text = asString(obj.text) ?? ''
   const variant = asString(obj.variant) ?? 'info'
+  const styles = CALLOUT_STYLES[variant] ?? CALLOUT_STYLES.info
+  const Icon = styles.icon
   return (
     <div
       className={cn(
-        'rounded-md border p-3 text-sm',
-        variant === 'warning' && 'border-warning/40 bg-warning/10',
-        variant === 'danger' && 'border-destructive/40 bg-destructive/10',
-        (variant === 'info' || variant === 'note') &&
-          'border-primary/30 bg-primary/5',
+        'flex gap-3 rounded-md border-l-4 py-3 pr-3 pl-3.5 text-sm leading-6',
+        styles.container,
       )}
     >
-      {text}
+      <Icon
+        className={cn('mt-0.5 size-4 shrink-0', styles.iconClass)}
+        aria-hidden="true"
+      />
+      <p className="min-w-0 flex-1">{text}</p>
     </div>
   )
+}
+
+interface CalloutStyle {
+  container: string
+  icon: LucideIcon
+  iconClass: string
+}
+
+const CALLOUT_STYLES: Record<string, CalloutStyle> = {
+  info: {
+    container:
+      'border-l-blue-400 bg-blue-50 text-blue-900 dark:border-l-blue-500 dark:bg-blue-950/40 dark:text-blue-100',
+    icon: Info,
+    iconClass: 'text-blue-500 dark:text-blue-400',
+  },
+  warning: {
+    container:
+      'border-l-amber-400 bg-amber-50 text-amber-900 dark:border-l-amber-500 dark:bg-amber-950/40 dark:text-amber-100',
+    icon: TriangleAlert,
+    iconClass: 'text-amber-500 dark:text-amber-400',
+  },
+  danger: {
+    container:
+      'border-l-red-400 bg-red-50 text-red-900 dark:border-l-red-500 dark:bg-red-950/40 dark:text-red-100',
+    icon: CircleAlert,
+    iconClass: 'text-red-500 dark:text-red-400',
+  },
+  note: {
+    container:
+      'border-l-emerald-400 bg-emerald-50 text-emerald-900 dark:border-l-emerald-500 dark:bg-emerald-950/40 dark:text-emerald-100',
+    icon: StickyNote,
+    iconClass: 'text-emerald-500 dark:text-emerald-400',
+  },
 }
 
 function renderLinkedRecord(payload: unknown): React.ReactNode {
@@ -184,17 +245,38 @@ function renderLinkedRecord(payload: unknown): React.ReactNode {
   const targetIdentifier = asString(obj.targetIdentifier) ?? ''
   const label = asString(obj.label) ?? ''
   const linkType = asString(obj.linkType) ?? 'general'
+  const Icon = LINKED_RECORD_ICONS[targetKind] ?? Link2
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/30 p-3 text-xs">
-      <span className="font-semibold uppercase tracking-wide text-muted-foreground">
-        {linkType}
-      </span>
-      <span className="font-medium text-foreground">
-        {targetKind} {targetIdentifier}
-      </span>
-      {label ? <span className="text-muted-foreground">— {label}</span> : null}
+    <div className="flex flex-wrap items-center gap-2">
+      <Badge variant="outline" className="gap-1.5 px-2.5 py-1 text-xs">
+        <Icon className="size-3.5 text-muted-foreground" aria-hidden="true" />
+        <span className="font-medium text-foreground">
+          {targetKind}
+          {targetIdentifier ? (
+            <span className="ml-1 font-mono text-muted-foreground">
+              {targetIdentifier}
+            </span>
+          ) : null}
+        </span>
+      </Badge>
+      {label ? (
+        <span className="text-xs text-muted-foreground">{label}</span>
+      ) : null}
+      {linkType && linkType !== 'general' ? (
+        <span className="text-[11px] uppercase tracking-wide text-muted-foreground/70">
+          {linkType}
+        </span>
+      ) : null}
     </div>
   )
+}
+
+const LINKED_RECORD_ICONS: Record<string, LucideIcon> = {
+  experiment: FlaskConical,
+  protocol: FlaskConical,
+  sample: FileImage,
+  dataset: FileSpreadsheet,
+  file: FileText,
 }
 
 function renderProcedureStep(payload: unknown): React.ReactNode {
@@ -210,19 +292,21 @@ function renderProcedureStep(payload: unknown): React.ReactNode {
       <span
         aria-label={completed ? 'Completed' : 'Not completed'}
         className={cn(
-          'flex size-5 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold',
+          'flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold tabular-nums',
           completed
-            ? 'border-success bg-success text-white'
-            : 'border-primary/30 bg-primary/10 text-primary',
+            ? 'border-emerald-500 bg-emerald-500 text-white'
+            : 'border-border bg-muted text-muted-foreground',
         )}
       >
-        {completed ? '✓' : number}
+        {completed ? <Check className="size-3.5" strokeWidth={3} /> : number}
       </span>
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <p
           className={cn(
-            'whitespace-pre-wrap text-foreground',
-            completed && 'line-through opacity-70',
+            'whitespace-pre-wrap text-sm leading-6',
+            completed
+              ? 'text-muted-foreground line-through'
+              : 'text-foreground',
           )}
         >
           {text}
@@ -257,40 +341,39 @@ function ProtocolReferencePreview({ payload }: { payload: unknown }) {
       </p>
     )
   }
+  const approvalStatus = asString(obj.approvalStatus) ?? 'Unknown approval'
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-muted/20 p-3">
-      <div>
-        <p className="font-medium text-foreground">
-          {asString(obj.protocolTitle) ?? 'Protocol'}
-        </p>
-        <p className="font-mono text-xs text-muted-foreground">
-          {asString(obj.protocolIdentifier)} · revision{' '}
-          {(asString(obj.protocolRevisionId) ?? '').slice(0, 8)}
-        </p>
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex items-start gap-2.5">
+        <FlaskConical
+          className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+          aria-hidden="true"
+        />
+        <div className="min-w-0">
+          <p className="font-medium text-foreground">
+            {asString(obj.protocolTitle) ?? 'Protocol'}
+          </p>
+          <p className="font-mono text-xs text-muted-foreground">
+            {asString(obj.protocolIdentifier)} · revision{' '}
+            {(asString(obj.protocolRevisionId) ?? '').slice(0, 8)}
+          </p>
+        </div>
       </div>
-      <div className="flex items-center gap-2 text-xs">
-        <span className="rounded-full bg-primary/10 px-2 py-1 font-medium text-primary">
-          Version {asString(obj.version) ?? '—'}
-        </span>
-        <span className="rounded-full border px-2 py-1 text-muted-foreground">
-          {asString(obj.approvalStatus) ?? 'Unknown approval'}
-        </span>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Badge variant="info">Version {asString(obj.version) ?? '—'}</Badge>
+        <Badge variant="outline">{approvalStatus}</Badge>
         {current.isLoading ? (
-          <span className="text-muted-foreground">
+          <span className="text-xs text-muted-foreground">
             Checking current status…
           </span>
         ) : current.error ? (
-          <span className="text-muted-foreground">
+          <span className="text-xs text-muted-foreground">
             Current status unavailable
           </span>
         ) : current.data?.archivedAt ? (
-          <span className="rounded-full bg-warning/15 px-2 py-1 font-medium text-warning-foreground">
-            Protocol archived
-          </span>
+          <Badge variant="warning">Protocol archived</Badge>
         ) : current.data === null ? (
-          <span className="rounded-full bg-destructive/10 px-2 py-1 font-medium text-destructive">
-            Protocol unavailable
-          </span>
+          <Badge variant="danger">Protocol unavailable</Badge>
         ) : null}
       </div>
     </div>
@@ -312,9 +395,9 @@ function MaterialsPreview({ payload }: { payload: unknown }) {
     return <p className="text-sm text-muted-foreground">No materials linked.</p>
   }
   return (
-    <div className="space-y-2" aria-busy={loading}>
+    <div className="divide-y divide-border" aria-busy={loading}>
       {error ? (
-        <p role="alert" className="text-xs text-destructive">
+        <p role="alert" className="pb-2 text-xs text-destructive">
           Current material availability could not be loaded. Stored observations
           remain visible.
         </p>
@@ -325,16 +408,18 @@ function MaterialsPreview({ payload }: { payload: unknown }) {
         return (
           <div
             key={item.id}
-            className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2"
+            className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-2 first:pt-0 last:pb-0"
           >
-            <div>
-              <p className="text-sm font-medium">{item.title}</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-foreground">
+                {item.title}
+              </p>
               <p className="font-mono text-xs text-muted-foreground">
                 {item.identifier}
               </p>
             </div>
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <span className="font-mono text-sm tabular-nums">
+            <div className="flex flex-wrap items-baseline justify-end gap-x-3 gap-y-1">
+              <span className="font-mono text-sm tabular-nums text-foreground">
                 {item.quantity} {item.unit.symbol}
               </span>
               {loading ? (
@@ -343,17 +428,12 @@ function MaterialsPreview({ payload }: { payload: unknown }) {
                 </span>
               ) : null}
               {alerts.map((alert) => (
-                <span
+                <Badge
                   key={alert.kind}
-                  className={cn(
-                    'rounded-full px-2 py-0.5 text-xs font-medium',
-                    alert.kind === 'unavailable'
-                      ? 'bg-destructive/10 text-destructive'
-                      : 'bg-warning/15 text-warning-foreground',
-                  )}
+                  variant={alert.kind === 'unavailable' ? 'danger' : 'warning'}
                 >
                   {alert.label}
-                </span>
+                </Badge>
               ))}
             </div>
           </div>
@@ -367,17 +447,19 @@ function renderMetric(payload: unknown): React.ReactNode {
   const obj = asObject(payload)
   if (!obj) return null
   const label = asString(obj.label) ?? ''
-  const value = asString(obj.value) ?? asNumber(obj.value)?.toString() ?? ''
   const unit = asString(obj.unit) ?? ''
+  const value = formatMetricValue(obj.value)
   return (
-    <dl className="grid grid-cols-[auto_1fr] items-baseline gap-x-3 gap-y-1 text-sm">
+    <dl className="flex flex-col gap-0.5">
       <dt className="text-xs uppercase tracking-wide text-muted-foreground">
         {label || 'Metric'}
       </dt>
-      <dd className="font-mono tabular-nums text-foreground">
+      <dd className="font-display text-2xl font-semibold leading-tight tabular-nums text-foreground">
         {value}
         {unit ? (
-          <span className="ml-1 text-muted-foreground">{unit}</span>
+          <span className="ml-1.5 text-sm font-normal text-muted-foreground">
+            {unit}
+          </span>
         ) : null}
       </dd>
     </dl>
@@ -408,24 +490,24 @@ function renderTable(payload: unknown): React.ReactNode {
       }))
 
   return (
-    <div className="overflow-x-auto rounded-md border">
-      <table className="w-full text-xs">
-        <thead className="bg-muted/40">
-          <tr>
+    <div className="overflow-hidden rounded-md border border-border">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-border bg-muted/40">
             {columns.map((col, i) => (
               <th
                 key={i}
                 scope="col"
-                className="border-b px-3 py-2 text-left font-medium text-muted-foreground"
+                className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
               >
                 {col.label}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-border">
           {rows.map((row, i) => (
-            <tr key={i} className="odd:bg-background">
+            <tr key={i} className="bg-background">
               {columns.map((col, j) => {
                 const cell = Array.isArray(row)
                   ? row[j]
@@ -433,15 +515,25 @@ function renderTable(payload: unknown): React.ReactNode {
                 return (
                   <td
                     key={j}
-                    className="border-b px-3 py-2 font-mono tabular-nums text-foreground"
+                    className="px-3 py-2 font-mono tabular-nums text-foreground"
                   >
-                    {cell === null || cell === undefined ? '' : String(cell)}
+                    {formatCellValue(cell)}
                   </td>
                 )
               })}
             </tr>
           ))}
         </tbody>
+        <tfoot>
+          <tr className="border-t border-border">
+            <td
+              colSpan={columns.length}
+              className="px-3 py-1.5 text-[11px] text-muted-foreground"
+            >
+              {rows.length} {rows.length === 1 ? 'row' : 'rows'}
+            </td>
+          </tr>
+        </tfoot>
       </table>
     </div>
   )
@@ -485,7 +577,7 @@ function SheetBlockPreview({ payload }: { payload: unknown }) {
   }
   if (tableQuery.error || !table) {
     return (
-      <div className="rounded-md border border-dashed border-warning/50 bg-warning/5 p-3 text-xs">
+      <div className="rounded-md border border-dashed border-amber-300 bg-amber-50 p-3 text-xs dark:border-amber-800 dark:bg-amber-950/40">
         <p className="font-medium text-foreground">
           Scientific sheet unavailable
         </p>
@@ -503,24 +595,24 @@ function SheetBlockPreview({ payload }: { payload: unknown }) {
   const rows = rowsQuery.data ?? []
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-1.5">
       <p className="text-xs font-medium text-muted-foreground">{table.name}</p>
-      <div className="overflow-x-auto rounded-md border">
-        <table className="w-full text-xs">
-          <thead className="bg-muted/40">
-            <tr>
+      <div className="overflow-hidden rounded-md border border-border">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border bg-muted/40">
               {columns.map((col) => (
                 <th
                   key={col.id}
                   scope="col"
-                  className="border-b px-3 py-2 text-left font-medium text-muted-foreground"
+                  className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
                 >
                   {col.label}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-border">
             {rows.length === 0 ? (
               <tr>
                 <td
@@ -532,16 +624,13 @@ function SheetBlockPreview({ payload }: { payload: unknown }) {
               </tr>
             ) : (
               rows.map((row) => (
-                <tr key={row.id} className="odd:bg-background">
+                <tr key={row.id} className="bg-background">
                   {columns.map((col) => (
                     <td
                       key={col.id}
-                      className="border-b px-3 py-2 font-mono tabular-nums text-foreground"
+                      className="px-3 py-2 font-mono tabular-nums text-foreground"
                     >
-                      {row[col.field_name] === null ||
-                      row[col.field_name] === undefined
-                        ? ''
-                        : String(row[col.field_name])}
+                      {formatCellValue(row[col.field_name])}
                     </td>
                   ))}
                 </tr>
@@ -557,7 +646,7 @@ function SheetBlockPreview({ payload }: { payload: unknown }) {
 function renderUnsupported(type: string, payload: unknown): React.ReactNode {
   const known = (KNOWN_BLOCK_TYPES as readonly string[]).includes(type)
   return (
-    <div className="rounded-md border border-dashed border-warning/50 bg-warning/5 p-3 text-xs">
+    <div className="rounded-md border border-dashed border-amber-300 bg-amber-50 p-3 text-xs dark:border-amber-800 dark:bg-amber-950/40">
       <p className="font-medium text-foreground">
         {known ? 'Unsupported payload version' : `Unknown block type: ${type}`}
       </p>
@@ -616,7 +705,7 @@ function FileBlockPreview({ payload }: { payload: unknown }) {
 
   if (live.isLoading) {
     return (
-      <div className="flex items-center gap-2 rounded-md border p-3 text-sm text-muted-foreground">
+      <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
         <FileIcon mediaType={mediaType} />
         <span>{name || 'Loading file…'}</span>
       </div>
@@ -624,7 +713,7 @@ function FileBlockPreview({ payload }: { payload: unknown }) {
   }
   if (live.error) {
     return (
-      <div className="rounded-md border border-destructive/40 p-3 text-sm">
+      <div className="text-sm">
         <p className="font-medium text-foreground">{name || 'File'}</p>
         <p role="alert" className="mt-1 text-xs text-destructive">
           File status could not be loaded.
@@ -635,9 +724,9 @@ function FileBlockPreview({ payload }: { payload: unknown }) {
 
   if (status === 'missing' || !live.data) {
     return (
-      <div className="rounded-md border border-warning/50 bg-warning/5 p-3 text-sm">
+      <div className="text-sm">
         <p className="font-medium text-foreground">{name || 'File'}</p>
-        <p className="mt-1 text-xs text-warning-foreground">
+        <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
           The storage object for this file is missing.
         </p>
         <FileMetaLine mediaType={mediaType} byteSize={byteSize} />
@@ -646,9 +735,9 @@ function FileBlockPreview({ payload }: { payload: unknown }) {
   }
   if (status === 'quarantined') {
     return (
-      <div className="rounded-md border border-warning/50 bg-warning/5 p-3 text-sm">
+      <div className="text-sm">
         <p className="font-medium text-foreground">{name}</p>
-        <p className="mt-1 text-xs text-warning-foreground">
+        <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
           Quarantined
           {live.data.statusReason ? ` — ${live.data.statusReason}` : ''}.
         </p>
@@ -658,7 +747,7 @@ function FileBlockPreview({ payload }: { payload: unknown }) {
   }
   if (status === 'deleted') {
     return (
-      <div className="rounded-md border bg-muted/30 p-3 text-sm">
+      <div className="text-sm">
         <p className="font-medium text-muted-foreground line-through">{name}</p>
         <p className="mt-1 text-xs text-muted-foreground">
           This file is deleted.
@@ -670,10 +759,10 @@ function FileBlockPreview({ payload }: { payload: unknown }) {
 
   // active
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3">
-      <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex min-w-0 items-center gap-2.5">
         <FileIcon mediaType={mediaType} />
-        <div>
+        <div className="min-w-0">
           <a
             href={`/api/files/${fileRecordId}/download`}
             className="font-medium text-foreground underline-offset-2 hover:underline"
@@ -684,9 +773,10 @@ function FileBlockPreview({ payload }: { payload: unknown }) {
           <FileMetaLine mediaType={mediaType} byteSize={byteSize} />
         </div>
       </div>
-      <span className="rounded-full bg-emerald-500/10 px-2 py-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+      <Badge variant="success">
+        <CheckCircle2 className="size-3" aria-hidden="true" />
         Active
-      </span>
+      </Badge>
     </div>
   )
 }
@@ -700,29 +790,29 @@ function FileMetaLine({
 }) {
   return (
     <p className="font-mono text-xs text-muted-foreground">
-      {mediaType || 'unknown'} · {formatBytes(byteSize)}
+      {mediaType || 'unknown'} · {formatFileSize(byteSize)}
     </p>
   )
 }
 
+function fileIconForType(mediaType: string): LucideIcon {
+  if (mediaType.startsWith('image/')) return FileImage
+  if (mediaType === 'application/pdf') return FileText
+  if (mediaType.includes('spreadsheet') || mediaType === 'text/csv') {
+    return FileSpreadsheet
+  }
+  if (mediaType.includes('wordprocessing')) return FileText
+  return FileIconLucide
+}
+
 function FileIcon({ mediaType }: { mediaType: string }) {
-  const label = mediaType.startsWith('image/')
-    ? 'IMG'
-    : mediaType === 'application/pdf'
-      ? 'PDF'
-      : mediaType.includes('spreadsheet') || mediaType === 'text/csv'
-        ? 'XLS'
-        : mediaType.includes('wordprocessing')
-          ? 'DOC'
-          : mediaType.includes('presentation')
-            ? 'PPT'
-            : 'FILE'
+  const Icon = fileIconForType(mediaType)
   return (
     <span
       aria-hidden="true"
-      className="flex size-8 shrink-0 items-center justify-center rounded bg-muted text-[10px] font-bold text-muted-foreground"
+      className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground"
     >
-      {label}
+      <Icon className="size-5" />
     </span>
   )
 }

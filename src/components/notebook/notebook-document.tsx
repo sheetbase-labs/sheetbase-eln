@@ -689,12 +689,14 @@ function NotebookDocumentContent({
       ) : null}
 
       {isReadOnly ? null : (
-        <BlockPicker
-          onInsert={(type) => void handleInsert(type)}
-          disabled={false}
-          label="Add block"
-          triggerId="notebook-add-block"
-        />
+        <div className="px-6 pt-1">
+          <BlockPicker
+            onInsert={(type) => void handleInsert(type)}
+            disabled={false}
+            label="Add block"
+            triggerId="notebook-add-block"
+          />
+        </div>
       )}
 
       {undo ? (

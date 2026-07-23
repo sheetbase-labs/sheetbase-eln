@@ -119,7 +119,9 @@ describe('SCI-002 protocol and procedure blocks', () => {
         />
       </QueryClientProvider>,
     )
-    expect(screen.getByLabelText('Completed').textContent).toBe('✓')
+    // The completed step shows a checkmark icon inside its indicator.
+    const completedIndicator = screen.getByLabelText('Completed')
+    expect(completedIndicator.querySelector('svg')).toBeTruthy()
     expect(screen.getByText('No precipitate observed')).toBeTruthy()
     expect(screen.getByText(/^Completed /)).toBeTruthy()
     expect(screen.queryByRole('checkbox')).toBeNull()

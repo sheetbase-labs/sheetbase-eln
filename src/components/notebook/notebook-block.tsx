@@ -98,7 +98,7 @@ export function NotebookBlock({
   return (
     <div
       className={cn(
-        'group relative rounded-none border-0 bg-transparent px-6 py-3 transition-[background-color,box-shadow]',
+        'group relative rounded-none border-0 bg-transparent px-6 py-4 transition-[background-color,box-shadow]',
         stateRing[state],
         className,
       )}

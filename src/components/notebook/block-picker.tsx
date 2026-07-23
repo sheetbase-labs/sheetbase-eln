@@ -5,6 +5,7 @@ import {
   Link2,
   PackageOpen,
   Pilcrow,
+  Plus,
   Sheet,
   Paperclip,
   LineChart,
@@ -138,13 +139,14 @@ export function BlockPicker({
     ) : (
       <Button
         id={triggerId}
-        variant="outline"
+        variant="ghost"
         size="sm"
         disabled={disabled}
         aria-label={label}
-        className="w-full justify-start border-dashed"
+        className="w-full justify-start text-muted-foreground hover:bg-muted/60 hover:text-foreground"
       >
-        + {label}
+        <Plus className="size-4" aria-hidden="true" />
+        {label}
       </Button>
     )
 

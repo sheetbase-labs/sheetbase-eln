@@ -218,6 +218,20 @@
       "when": 1784642300000,
       "tag": "0030_sci_007_overview_properties_event",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1784642400000,
+      "tag": "0031_sci_008_search_rpc",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1784642500000,
+      "tag": "0032_sci_008_search_fixes",
+      "breakpoints": true
     }
   ]
 }

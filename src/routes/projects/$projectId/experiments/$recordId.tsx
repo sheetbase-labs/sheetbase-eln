@@ -215,7 +215,6 @@ function ExperimentNotebookRoute() {
             record={record}
             projectName={project?.title ?? null}
             projectId={projectId}
-            activeTab="notebook"
             onAddBlock={() =>
               document.getElementById('notebook-add-block')?.click()
             }
@@ -297,14 +296,11 @@ function loadingBreadcrumbs(
 export function StickyRecordHeader({
   record,
   projectName,
-  projectId,
-  activeTab,
   onAddBlock,
 }: {
   record: NotebookRecord
   projectName: string | null
   projectId?: string
-  activeTab?: 'notebook' | 'overview'
   onAddBlock?: () => void
 }) {
   return (
@@ -336,24 +332,6 @@ export function StickyRecordHeader({
         </span>
         {projectName ? <span>{projectName}</span> : null}
       </div>
-      {projectId ? (
-        <nav className="mt-4 flex gap-1" aria-label="Experiment views">
-          <HeaderTab
-            to="/projects/$projectId/experiments/$recordId"
-            params={{ projectId, recordId: record.id }}
-            active={activeTab !== 'overview'}
-          >
-            Notebook
-          </HeaderTab>
-          <HeaderTab
-            to="/projects/$projectId/experiments/$recordId/overview"
-            params={{ projectId, recordId: record.id }}
-            active={activeTab === 'overview'}
-          >
-            Overview
-          </HeaderTab>
-        </nav>
-      ) : null}
       {onAddBlock ? (
         <button
           type="button"
@@ -364,33 +342,6 @@ export function StickyRecordHeader({
         </button>
       ) : null}
     </div>
-  )
-}
-
-function HeaderTab({
-  to,
-  params,
-  active,
-  children,
-}: {
-  to: string
-  params: { projectId: string; recordId: string }
-  active: boolean
-  children: React.ReactNode
-}) {
-  return (
-    <Link
-      to={to as '/projects/$projectId/experiments/$recordId'}
-      params={params}
-      className={
-        'inline-flex h-8 items-center rounded-md px-3 text-xs font-medium no-underline transition-colors ' +
-        (active
-          ? 'border-b-2 border-primary text-foreground'
-          : 'text-muted-foreground hover:text-foreground')
-      }
-    >
-      {children}
-    </Link>
   )
 }
 

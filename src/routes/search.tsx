@@ -34,44 +34,39 @@ import type { LucideIcon } from 'lucide-react'
 
 import { AppShell } from '#/components/app-shell'
 import { Inspector } from '#/components/record/inspector'
-import { StatusBadge, type StatusDomain } from '#/components/scientific/status-badge'
+import { StatusBadge } from '#/components/scientific/status-badge'
+import type { StatusDomain } from '#/components/scientific/status-badge'
 import { Badge, Button, Input, Skeleton } from '#/components/ui'
 import { cn } from '#/lib/utils'
-import {
-  createDataClient,
-  DataClientError,
-  type DataClient,
-} from '#/lib/data-client'
+import { createDataClient, DataClientError } from '#/lib/data-client'
+import type { DataClient } from '#/lib/data-client'
 import {
   fetchRecord,
   fetchLinksForRecord,
   notebookDataClient,
   notebookQueryKeys,
   recordKindLabel,
-  type ProjectWire,
   toProject,
 } from '#/lib/notebook-data'
+import type { ProjectWire } from '#/lib/notebook-data'
 import {
   executeSearch,
   matchedFieldLabel,
   parseMatchedContext,
   searchQueryKeys,
   SEARCHABLE_KINDS,
-  type SearchFilters,
-  type SearchResult,
 } from '#/lib/search'
+import type { SearchFilters, SearchResult } from '#/lib/search'
 
 // ---------------------------------------------------------------------------
 // Auth context (same pattern as /templates).
 // ---------------------------------------------------------------------------
 
-const getSearchContext = createServerFn({ method: 'GET' }).handler(
-  async () => {
-    const { getRequestHeaders } = await import('@tanstack/react-start/server')
-    const { getCurrentContext } = await import('#/lib/current-user')
-    return getCurrentContext(getRequestHeaders())
-  },
-)
+const getSearchContext = createServerFn({ method: 'GET' }).handler(async () => {
+  const { getRequestHeaders } = await import('@tanstack/react-start/server')
+  const { getCurrentContext } = await import('#/lib/current-user')
+  return getCurrentContext(getRequestHeaders())
+})
 
 export const Route = createFileRoute('/search')({
   beforeLoad: async () => {
@@ -98,7 +93,7 @@ const KIND_ICON: Record<string, LucideIcon> = {
   notebook_template: LayoutTemplate,
 }
 
-const KIND_STATUS_DOMAIN: Record<string, StatusDomain> = {
+const KIND_STATUS_DOMAIN: Partial<Record<string, StatusDomain>> = {
   experiment: 'experiment',
   sample: 'sample',
   reagent: 'reagent',
@@ -194,7 +189,7 @@ function SearchRoute() {
   }, [searchQuery.data])
 
   const selectedResult = selectedId
-    ? results.find((r) => r.recordId === selectedId) ?? null
+    ? (results.find((r) => r.recordId === selectedId) ?? null)
     : null
 
   function selectResult(result: SearchResult) {
@@ -212,8 +207,7 @@ function SearchRoute() {
       setActiveIndex((i) => Math.max(i - 1, 0))
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      const result = results[activeIndex]
-      if (result) selectResult(result)
+      if (activeIndex < results.length) selectResult(results[activeIndex])
     }
   }
 
@@ -228,9 +222,7 @@ function SearchRoute() {
   const hasFilters = projectId || kind || status || dateFrom || dateTo
 
   const shellContext = {
-    workspace: context.workspace
-      ? { name: context.workspace.name }
-      : null,
+    workspace: context.workspace ? { name: context.workspace.name } : null,
     user: {
       name: context.user.name,
       email: context.user.email,
@@ -599,7 +591,9 @@ export function SearchResultRow({
               {segments.map((seg, i) => (
                 <span
                   key={i}
-                  className={seg.highlighted ? 'font-semibold text-foreground' : ''}
+                  className={
+                    seg.highlighted ? 'font-semibold text-foreground' : ''
+                  }
                 >
                   {seg.text}
                 </span>
@@ -651,9 +645,7 @@ function SearchResultInspector({
       <InspectorProp label="Identifier" mono>
         {result.identifier}
       </InspectorProp>
-      <InspectorProp label="Kind">
-        {recordKindLabel(result.kind)}
-      </InspectorProp>
+      <InspectorProp label="Kind">{recordKindLabel(result.kind)}</InspectorProp>
       <InspectorProp label="Status">
         {domain ? (
           <StatusBadge domain={domain} status={result.status} size="sm" />
@@ -695,28 +687,22 @@ function SearchResultInspector({
     </dl>
   )
 
-  const linksTab =
-    linksQuery.isLoading ? (
-      <p className="text-sm text-muted-foreground">Loading links…</p>
-    ) : links.length === 0 ? (
-      <p className="text-sm text-muted-foreground">No outgoing links.</p>
-    ) : (
-      <ul className="space-y-1">
-        {links.map((link) => (
-          <li
-            key={link.id}
-            className="flex items-center justify-between text-sm"
-          >
-            <span className="font-mono text-xs text-muted-foreground">
-              {link.targetIdentifier}
-            </span>
-            <span className="text-xs text-muted-foreground">
-              {link.linkType}
-            </span>
-          </li>
-        ))}
-      </ul>
-    )
+  const linksTab = linksQuery.isLoading ? (
+    <p className="text-sm text-muted-foreground">Loading links…</p>
+  ) : links.length === 0 ? (
+    <p className="text-sm text-muted-foreground">No outgoing links.</p>
+  ) : (
+    <ul className="space-y-1">
+      {links.map((link) => (
+        <li key={link.id} className="flex items-center justify-between text-sm">
+          <span className="font-mono text-xs text-muted-foreground">
+            {link.targetIdentifier}
+          </span>
+          <span className="text-xs text-muted-foreground">{link.linkType}</span>
+        </li>
+      ))}
+    </ul>
+  )
 
   return (
     <Inspector

@@ -232,7 +232,9 @@ export const MATCHED_FIELD_LABELS: Record<MatchedField, string> = {
 }
 
 export function matchedFieldLabel(field: string): string {
-  return MATCHED_FIELD_LABELS[field as MatchedField] ?? 'Matched'
+  return field in MATCHED_FIELD_LABELS
+    ? MATCHED_FIELD_LABELS[field as MatchedField]
+    : 'Matched'
 }
 
 // ---------------------------------------------------------------------------
@@ -303,7 +305,9 @@ export function extractBlockText(
       return rows
         .map((row) =>
           Array.isArray(row)
-            ? row.map((cell) => (typeof cell === 'string' ? cell : '')).join(' ')
+            ? row
+                .map((cell) => (typeof cell === 'string' ? cell : ''))
+                .join(' ')
             : '',
         )
         .join(' ')
@@ -333,7 +337,7 @@ function extractFromArrayField(
       if (typeof item !== 'object' || item === null) return ''
       const obj = item as Record<string, unknown>
       return keys
-        .map((k) => (typeof obj[k] === 'string' ? (obj[k] as string) : ''))
+        .map((k) => (typeof obj[k] === 'string' ? obj[k] : ''))
         .filter(Boolean)
         .join(' ')
     })
@@ -353,10 +357,7 @@ export function extractAllStrings(value: unknown): string {
     return value.map(extractAllStrings).filter(Boolean).join(' ')
   }
   if (typeof value === 'object') {
-    return Object.values(value)
-      .map(extractAllStrings)
-      .filter(Boolean)
-      .join(' ')
+    return Object.values(value).map(extractAllStrings).filter(Boolean).join(' ')
   }
   return ''
 }
@@ -388,17 +389,18 @@ export function executeSearch(
 // ---------------------------------------------------------------------------
 
 export const searchQueryKeys = {
-  search: (filters: SearchFilters) => [
-    'sci-008',
-    'search',
-    filters.query,
-    filters.projectId ?? '',
-    filters.kind ?? '',
-    filters.status ?? '',
-    filters.ownerId ?? '',
-    filters.dateFrom ?? '',
-    filters.dateTo ?? '',
-    filters.limit ?? 20,
-    filters.offset ?? 0,
-  ] as const,
+  search: (filters: SearchFilters) =>
+    [
+      'sci-008',
+      'search',
+      filters.query,
+      filters.projectId ?? '',
+      filters.kind ?? '',
+      filters.status ?? '',
+      filters.ownerId ?? '',
+      filters.dateFrom ?? '',
+      filters.dateTo ?? '',
+      filters.limit ?? 20,
+      filters.offset ?? 0,
+    ] as const,
 }

@@ -27,6 +27,7 @@ import { Route as ApiTokenIndexRouteImport } from './routes/api/token/index'
 import { Route as ApiFilesFileIdDownloadRouteImport } from './routes/api/files/$fileId/download'
 import { Route as ApiFilesFileIdUploadRouteImport } from './routes/api/files/$fileId/upload'
 import { Route as ProjectsProjectIdExperimentsRecordIdRouteImport } from './routes/projects/$projectId/experiments/$recordId'
+import { Route as ProjectsProjectIdExperimentsRecordIdOverviewRouteImport } from './routes/projects/$projectId/experiments/$recordId/overview'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -119,6 +120,12 @@ const ProjectsProjectIdExperimentsRecordIdRoute =
     path: '/experiments/$recordId',
     getParentRoute: () => ProjectsProjectIdRoute,
   } as any)
+const ProjectsProjectIdExperimentsRecordIdOverviewRoute =
+  ProjectsProjectIdExperimentsRecordIdOverviewRouteImport.update({
+    id: '/overview',
+    path: '/overview',
+    getParentRoute: () => ProjectsProjectIdExperimentsRecordIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -138,7 +145,8 @@ export interface FileRoutesByFullPath {
   '/api/token/': typeof ApiTokenIndexRoute
   '/api/files/$fileId/download': typeof ApiFilesFileIdDownloadRoute
   '/api/files/$fileId/upload': typeof ApiFilesFileIdUploadRoute
-  '/projects/$projectId/experiments/$recordId': typeof ProjectsProjectIdExperimentsRecordIdRoute
+  '/projects/$projectId/experiments/$recordId': typeof ProjectsProjectIdExperimentsRecordIdRouteWithChildren
+  '/projects/$projectId/experiments/$recordId/overview': typeof ProjectsProjectIdExperimentsRecordIdOverviewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -158,7 +166,8 @@ export interface FileRoutesByTo {
   '/api/token': typeof ApiTokenIndexRoute
   '/api/files/$fileId/download': typeof ApiFilesFileIdDownloadRoute
   '/api/files/$fileId/upload': typeof ApiFilesFileIdUploadRoute
-  '/projects/$projectId/experiments/$recordId': typeof ProjectsProjectIdExperimentsRecordIdRoute
+  '/projects/$projectId/experiments/$recordId': typeof ProjectsProjectIdExperimentsRecordIdRouteWithChildren
+  '/projects/$projectId/experiments/$recordId/overview': typeof ProjectsProjectIdExperimentsRecordIdOverviewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -179,7 +188,8 @@ export interface FileRoutesById {
   '/api/token/': typeof ApiTokenIndexRoute
   '/api/files/$fileId/download': typeof ApiFilesFileIdDownloadRoute
   '/api/files/$fileId/upload': typeof ApiFilesFileIdUploadRoute
-  '/projects/$projectId/experiments/$recordId': typeof ProjectsProjectIdExperimentsRecordIdRoute
+  '/projects/$projectId/experiments/$recordId': typeof ProjectsProjectIdExperimentsRecordIdRouteWithChildren
+  '/projects/$projectId/experiments/$recordId/overview': typeof ProjectsProjectIdExperimentsRecordIdOverviewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -202,6 +212,7 @@ export interface FileRouteTypes {
     | '/api/files/$fileId/download'
     | '/api/files/$fileId/upload'
     | '/projects/$projectId/experiments/$recordId'
+    | '/projects/$projectId/experiments/$recordId/overview'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -222,6 +233,7 @@ export interface FileRouteTypes {
     | '/api/files/$fileId/download'
     | '/api/files/$fileId/upload'
     | '/projects/$projectId/experiments/$recordId'
+    | '/projects/$projectId/experiments/$recordId/overview'
   id:
     | '__root__'
     | '/'
@@ -242,6 +254,7 @@ export interface FileRouteTypes {
     | '/api/files/$fileId/download'
     | '/api/files/$fileId/upload'
     | '/projects/$projectId/experiments/$recordId'
+    | '/projects/$projectId/experiments/$recordId/overview'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -391,16 +404,38 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsProjectIdExperimentsRecordIdRouteImport
       parentRoute: typeof ProjectsProjectIdRoute
     }
+    '/projects/$projectId/experiments/$recordId/overview': {
+      id: '/projects/$projectId/experiments/$recordId/overview'
+      path: '/overview'
+      fullPath: '/projects/$projectId/experiments/$recordId/overview'
+      preLoaderRoute: typeof ProjectsProjectIdExperimentsRecordIdOverviewRouteImport
+      parentRoute: typeof ProjectsProjectIdExperimentsRecordIdRoute
+    }
   }
 }
 
+interface ProjectsProjectIdExperimentsRecordIdRouteChildren {
+  ProjectsProjectIdExperimentsRecordIdOverviewRoute: typeof ProjectsProjectIdExperimentsRecordIdOverviewRoute
+}
+
+const ProjectsProjectIdExperimentsRecordIdRouteChildren: ProjectsProjectIdExperimentsRecordIdRouteChildren =
+  {
+    ProjectsProjectIdExperimentsRecordIdOverviewRoute:
+      ProjectsProjectIdExperimentsRecordIdOverviewRoute,
+  }
+
+const ProjectsProjectIdExperimentsRecordIdRouteWithChildren =
+  ProjectsProjectIdExperimentsRecordIdRoute._addFileChildren(
+    ProjectsProjectIdExperimentsRecordIdRouteChildren,
+  )
+
 interface ProjectsProjectIdRouteChildren {
-  ProjectsProjectIdExperimentsRecordIdRoute: typeof ProjectsProjectIdExperimentsRecordIdRoute
+  ProjectsProjectIdExperimentsRecordIdRoute: typeof ProjectsProjectIdExperimentsRecordIdRouteWithChildren
 }
 
 const ProjectsProjectIdRouteChildren: ProjectsProjectIdRouteChildren = {
   ProjectsProjectIdExperimentsRecordIdRoute:
-    ProjectsProjectIdExperimentsRecordIdRoute,
+    ProjectsProjectIdExperimentsRecordIdRouteWithChildren,
 }
 
 const ProjectsProjectIdRouteWithChildren =

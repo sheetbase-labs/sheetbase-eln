@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { QueryClient } from '@tanstack/react-query'
-import { createFileRoute, Link, useBlocker } from '@tanstack/react-router'
+import {
+  createFileRoute,
+  Link,
+  Outlet,
+  useBlocker,
+  useRouterState,
+} from '@tanstack/react-router'
 import {
   Archive,
   ChevronDown,
@@ -72,25 +78,38 @@ export const Route = createFileRoute(
 function ExperimentNotebookRoute() {
   const { context } = Route.useRouteContext()
   const { projectId, recordId } = Route.useParams()
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  })
+  const isNotebookIndex =
+    pathname === `/projects/${projectId}/experiments/${recordId}`
 
   const queryClient = useQueryClient()
 
   const projectQuery = useQuery({
     queryKey: notebookQueryKeys.project(projectId),
     queryFn: () => fetchProject(notebookDataClient, projectId),
+    enabled: isNotebookIndex,
   })
   const recordQuery = useQuery({
     queryKey: notebookQueryKeys.record(recordId),
     queryFn: () => fetchRecord(notebookDataClient, recordId),
+    enabled: isNotebookIndex,
   })
   const blocksQuery = useQuery({
     queryKey: notebookQueryKeys.blocks(recordId),
     queryFn: () => fetchBlocksForRecord(notebookDataClient, recordId),
+    enabled: isNotebookIndex,
   })
   const linksQuery = useQuery({
     queryKey: notebookQueryKeys.links(recordId),
     queryFn: () => fetchLinksForRecord(notebookDataClient, recordId),
+    enabled: isNotebookIndex,
   })
+
+  // Child routes (e.g. /overview) render through the Outlet; the notebook
+  // queries only run for the exact experiment path.
+  if (!isNotebookIndex) return <Outlet />
 
   const project = projectQuery.data ?? null
   const record = recordQuery.data ?? null
@@ -195,6 +214,8 @@ function ExperimentNotebookRoute() {
           <StickyRecordHeader
             record={record}
             projectName={project?.title ?? null}
+            projectId={projectId}
+            activeTab="notebook"
             onAddBlock={() =>
               document.getElementById('notebook-add-block')?.click()
             }
@@ -276,10 +297,14 @@ function loadingBreadcrumbs(
 export function StickyRecordHeader({
   record,
   projectName,
+  projectId,
+  activeTab,
   onAddBlock,
 }: {
   record: NotebookRecord
   projectName: string | null
+  projectId?: string
+  activeTab?: 'notebook' | 'overview'
   onAddBlock?: () => void
 }) {
   return (
@@ -311,6 +336,24 @@ export function StickyRecordHeader({
         </span>
         {projectName ? <span>{projectName}</span> : null}
       </div>
+      {projectId ? (
+        <nav className="mt-4 flex gap-1" aria-label="Experiment views">
+          <HeaderTab
+            to="/projects/$projectId/experiments/$recordId"
+            params={{ projectId, recordId: record.id }}
+            active={activeTab !== 'overview'}
+          >
+            Notebook
+          </HeaderTab>
+          <HeaderTab
+            to="/projects/$projectId/experiments/$recordId/overview"
+            params={{ projectId, recordId: record.id }}
+            active={activeTab === 'overview'}
+          >
+            Overview
+          </HeaderTab>
+        </nav>
+      ) : null}
       {onAddBlock ? (
         <button
           type="button"
@@ -321,6 +364,33 @@ export function StickyRecordHeader({
         </button>
       ) : null}
     </div>
+  )
+}
+
+function HeaderTab({
+  to,
+  params,
+  active,
+  children,
+}: {
+  to: string
+  params: { projectId: string; recordId: string }
+  active: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <Link
+      to={to as '/projects/$projectId/experiments/$recordId'}
+      params={params}
+      className={
+        'inline-flex h-8 items-center rounded-md px-3 text-xs font-medium no-underline transition-colors ' +
+        (active
+          ? 'border-b-2 border-primary text-foreground'
+          : 'text-muted-foreground hover:text-foreground')
+      }
+    >
+      {children}
+    </Link>
   )
 }
 

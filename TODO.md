@@ -691,12 +691,12 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** SCI-002, SCI-003, SCI-004, SCI-005.
 
-- [ ] Compose objective, hypothesis, materials, observations, procedures, tables, charts, plates, files, links and tasks into the approved read-oriented overview.
-- [ ] Read from the same notebook blocks and linked records rather than duplicating overview content.
-- [ ] Let users choose which blocks appear in the overview while retaining notebook order and provenance.
-- [ ] Keep record identity, links, checks, files and comments available in the inspector.
-- [ ] Render locked or historical versions without live-edit controls.
-- [ ] Add responsive, empty-section and permission-state tests.
+- [x] Compose objective, hypothesis, materials, observations, procedures, tables, charts, plates, files, links and tasks into the approved read-oriented overview.
+- [x] Read from the same notebook blocks and linked records rather than duplicating overview content.
+- [x] Let users choose which blocks appear in the overview while retaining notebook order and provenance.
+- [x] Keep record identity, links, checks, files and comments available in the inspector.
+- [x] Render locked or historical versions without live-edit controls.
+- [x] Add responsive, empty-section and permission-state tests.
 
 ### SCI-008 — Add initial scientific search
 

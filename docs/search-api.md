@@ -15,17 +15,17 @@ short-lived authenticated JWT. The response is a JSON array of result objects.
 
 ## Parameters
 
-| Parameter       | Type            | Default | Description                              |
-| --------------- | --------------- | ------- | ---------------------------------------- |
-| `p_query`       | text            | `''`    | Search text (plain English, no tsquery syntax needed). Empty = browse all. |
-| `p_project_id`  | uuid            | NULL    | Filter by project.                        |
-| `p_kind`        | text            | NULL    | Filter by record kind (experiment, sample, reagent, protocol_template, report, file, notebook_template). |
-| `p_status`      | text            | NULL    | Filter by status.                         |
-| `p_owner_id`    | text            | NULL    | Filter by `created_by_user_id`.           |
-| `p_date_from`   | timestamptz     | NULL    | Filter by `created_at >=`.                |
-| `p_date_to`     | timestamptz     | NULL    | Filter by `created_at <=`.                |
-| `p_limit`       | int             | 20      | Page size (clamped to 1–100).             |
-| `p_offset`      | int             | 0       | Page offset.                              |
+| Parameter      | Type        | Default | Description                                                                                              |
+| -------------- | ----------- | ------- | -------------------------------------------------------------------------------------------------------- |
+| `p_query`      | text        | `''`    | Search text (plain English, no tsquery syntax needed). Empty = browse all.                               |
+| `p_project_id` | uuid        | NULL    | Filter by project.                                                                                       |
+| `p_kind`       | text        | NULL    | Filter by record kind (experiment, sample, reagent, protocol_template, report, file, notebook_template). |
+| `p_status`     | text        | NULL    | Filter by status.                                                                                        |
+| `p_owner_id`   | text        | NULL    | Filter by `created_by_user_id`.                                                                          |
+| `p_date_from`  | timestamptz | NULL    | Filter by `created_at >=`.                                                                               |
+| `p_date_to`    | timestamptz | NULL    | Filter by `created_at <=`.                                                                               |
+| `p_limit`      | int         | 20      | Page size (clamped to 1–100).                                                                            |
+| `p_offset`     | int         | 0       | Page offset.                                                                                             |
 
 All filters are optional. `NULL` (or omitted) means "no filter on this
 dimension".
@@ -68,31 +68,31 @@ dimension".
 
 ## Result columns
 
-| Column               | Type    | Description                                                       |
-| -------------------- | ------- | ----------------------------------------------------------------- |
-| `result_type`        | text    | `record` or `file` (kind = `file`).                               |
-| `record_id`          | uuid    | Record id.                                                        |
-| `kind`               | text    | Record kind (experiment, sample, reagent, etc.).                  |
-| `identifier`         | text    | Stable public identifier (EXP-2025-0001, SMP-…).                  |
-| `title`              | text    | Record title.                                                     |
-| `status`             | text    | Free-form status string.                                          |
-| `project_id`         | uuid    | Project id.                                                       |
-| `archived`           | boolean | `true` if `archived_at` is set. Soft-deleted records are excluded. |
-| `created_by_user_id` | text    | Owner id.                                                         |
-| `created_at`         | timestamptz | Creation timestamp.                                           |
-| `updated_at`         | timestamptz | Last update timestamp.                                        |
-| `matched_context`    | text    | `ts_headline` snippet with `<b>` highlights, or a title excerpt in browse mode. |
-| `matched_field`      | text    | Which source matched: `title`, `identifier`, `kind`, `status`, `tags`, `block_text`, `file_metadata`, `properties`, `relationship`. |
-| `rank`               | real    | PostgreSQL `ts_rank` (0 in browse mode).                          |
-| `deep_link`          | text    | Stable route path.                                                |
-| `total_count`        | bigint  | Total matching rows before pagination (same on every row).        |
+| Column               | Type        | Description                                                                                                                         |
+| -------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `result_type`        | text        | `record` or `file` (kind = `file`).                                                                                                 |
+| `record_id`          | uuid        | Record id.                                                                                                                          |
+| `kind`               | text        | Record kind (experiment, sample, reagent, etc.).                                                                                    |
+| `identifier`         | text        | Stable public identifier (EXP-2025-0001, SMP-…).                                                                                    |
+| `title`              | text        | Record title.                                                                                                                       |
+| `status`             | text        | Free-form status string.                                                                                                            |
+| `project_id`         | uuid        | Project id.                                                                                                                         |
+| `archived`           | boolean     | `true` if `archived_at` is set. Soft-deleted records are excluded.                                                                  |
+| `created_by_user_id` | text        | Owner id.                                                                                                                           |
+| `created_at`         | timestamptz | Creation timestamp.                                                                                                                 |
+| `updated_at`         | timestamptz | Last update timestamp.                                                                                                              |
+| `matched_context`    | text        | `ts_headline` snippet with `<b>` highlights, or a title excerpt in browse mode.                                                     |
+| `matched_field`      | text        | Which source matched: `title`, `identifier`, `kind`, `status`, `tags`, `block_text`, `file_metadata`, `properties`, `relationship`. |
+| `rank`               | real        | PostgreSQL `ts_rank` (0 in browse mode).                                                                                            |
+| `deep_link`          | text        | Stable route path.                                                                                                                  |
+| `total_count`        | bigint      | Total matching rows before pagination (same on every row).                                                                          |
 
 ## Deep link formats
 
-| Kind               | Deep link                                        |
-| ------------------ | ------------------------------------------------ |
-| `notebook_template`| `/templates`                                     |
-| All other kinds    | `/projects/$projectId/experiments/$recordId`     |
+| Kind                | Deep link                                    |
+| ------------------- | -------------------------------------------- |
+| `notebook_template` | `/templates`                                 |
+| All other kinds     | `/projects/$projectId/experiments/$recordId` |
 
 ## Matched context
 
@@ -124,12 +124,12 @@ fields are not returned.
 
 ## Error shapes
 
-| Condition                          | HTTP status | Error category      |
-| ---------------------------------- | ----------- | ------------------- |
-| Unauthenticated                    | 401         | `unauthenticated`   |
-| No active workspace in claims      | 42804       | `upstream_error`    |
-| Caller not a workspace member      | 42501       | `permission_denied` |
-| PostgREST upstream failure         | 500         | `upstream_error`    |
+| Condition                     | HTTP status | Error category      |
+| ----------------------------- | ----------- | ------------------- |
+| Unauthenticated               | 401         | `unauthenticated`   |
+| No active workspace in claims | 42804       | `upstream_error`    |
+| Caller not a workspace member | 42501       | `permission_denied` |
+| PostgREST upstream failure    | 500         | `upstream_error`    |
 
 Errors use the same `{ error: { category, message, request_id } }` envelope as
 all other `/api/db` resources.

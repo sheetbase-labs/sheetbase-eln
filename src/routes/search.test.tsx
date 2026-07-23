@@ -111,7 +111,11 @@ describe('SearchResults — states', () => {
   }
 
   it('shows skeleton loaders while loading', () => {
-    render(<SearchResults {...props({ query: queryResult(null, { isLoading: true }) })} />)
+    render(
+      <SearchResults
+        {...props({ query: queryResult(null, { isLoading: true }) })}
+      />,
+    )
     expect(screen.getByLabelText('Loading search results')).toBeTruthy()
   })
 
@@ -123,7 +127,11 @@ describe('SearchResults — states', () => {
   it('shows a "No results found" empty state when query has no matches', () => {
     render(
       <SearchResults
-        {...props({ query: queryResult([]), hasQuery: true, queryString: 'zzz' })}
+        {...props({
+          query: queryResult([]),
+          hasQuery: true,
+          queryString: 'zzz',
+        })}
       />,
     )
     expect(screen.getByText('No results found')).toBeTruthy()
@@ -237,7 +245,11 @@ describe('SearchResultRow', () => {
   it('renders file result type with a file icon', () => {
     render(
       <SearchResultRow
-        result={result({ resultType: 'file', kind: 'file', identifier: 'FILE-2025-0001' })}
+        result={result({
+          resultType: 'file',
+          kind: 'file',
+          identifier: 'FILE-2025-0001',
+        })}
         selected={false}
         active={false}
         onSelect={() => {}}

@@ -41,7 +41,9 @@ const tiptapParagraph = {
     content: [
       {
         type: 'paragraph',
-        content: [{ type: 'text', text: 'Evaluated lentiviral vector stability.' }],
+        content: [
+          { type: 'text', text: 'Evaluated lentiviral vector stability.' },
+        ],
       },
     ],
   },
@@ -71,13 +73,19 @@ const tiptapHeadingsAndList = {
           {
             type: 'listItem',
             content: [
-              { type: 'paragraph', content: [{ type: 'text', text: 'TaqMan kit' }] },
+              {
+                type: 'paragraph',
+                content: [{ type: 'text', text: 'TaqMan kit' }],
+              },
             ],
           },
           {
             type: 'listItem',
             content: [
-              { type: 'paragraph', content: [{ type: 'text', text: 'PCR buffer' }] },
+              {
+                type: 'paragraph',
+                content: [{ type: 'text', text: 'PCR buffer' }],
+              },
             ],
           },
         ],
@@ -134,7 +142,9 @@ describe('extractBlockText — rich_text canonical Tiptap', () => {
 
   it('returns empty string for malformed rich_text payload', () => {
     expect(extractBlockText('rich_text', { foo: 'bar' })).toBe('')
-    expect(extractBlockText('rich_text', null as unknown as Record<string, unknown>)).toBe('')
+    expect(
+      extractBlockText('rich_text', null as unknown as Record<string, unknown>),
+    ).toBe('')
   })
 })
 
@@ -168,7 +178,11 @@ describe('extractBlockText — other block types', () => {
   it('extracts materials item identifiers, titles and notes', () => {
     const text = extractBlockText('materials', {
       items: [
-        { identifier: 'RGT-2025-0001', title: 'TaqMan kit', note: 'store at -20 °C' },
+        {
+          identifier: 'RGT-2025-0001',
+          title: 'TaqMan kit',
+          note: 'store at -20 °C',
+        },
       ],
     })
     expect(text).toContain('RGT-2025-0001')
@@ -209,14 +223,20 @@ describe('extractBlockText — other block types', () => {
 
   it('extracts table cell text', () => {
     const text = extractBlockText('table', {
-      rows: [['Sample', 'Ct'], ['S1', '28.4']],
+      rows: [
+        ['Sample', 'Ct'],
+        ['S1', '28.4'],
+      ],
     })
     expect(text).toContain('Sample')
     expect(text).toContain('28.4')
   })
 
   it('falls back to extractAllStrings for unknown block types', () => {
-    const text = extractBlockText('chart', { title: 'Growth curve', xAxis: 'Time' })
+    const text = extractBlockText('chart', {
+      title: 'Growth curve',
+      xAxis: 'Time',
+    })
     expect(text).toContain('Growth curve')
     expect(text).toContain('Time')
   })
@@ -310,7 +330,8 @@ function wireRow(overrides: Partial<SearchResultWire> = {}): SearchResultWire {
     matched_context: 'Virus <b>Stability</b> at 4 °C',
     matched_field: 'title',
     rank: '0.06079271',
-    deep_link: '/projects/00000000-0000-4000-8000-000000000100/experiments/00000000-0000-4000-8000-000000000101',
+    deep_link:
+      '/projects/00000000-0000-4000-8000-000000000100/experiments/00000000-0000-4000-8000-000000000101',
     total_count: '42',
     ...overrides,
   }
@@ -328,7 +349,9 @@ describe('toSearchResult', () => {
   })
 
   it('discriminates file result type', () => {
-    const result = toSearchResult(wireRow({ result_type: 'file', kind: 'file' }))
+    const result = toSearchResult(
+      wireRow({ result_type: 'file', kind: 'file' }),
+    )
     expect(result.resultType).toBe('file')
     expect(result.kind).toBe('file')
   })
@@ -447,13 +470,17 @@ describe('executeSearch', () => {
   }
 
   it('maps an array of wire rows to domain results', async () => {
-    const results = await executeSearch(mockClient([wireRow()]), { query: 'virus' })
+    const results = await executeSearch(mockClient([wireRow()]), {
+      query: 'virus',
+    })
     expect(results).toHaveLength(1)
     expect(results[0].identifier).toBe('EXP-2025-0001')
   })
 
   it('normalises a single-object RPC response into an array', async () => {
-    const results = await executeSearch(mockClient(wireRow()), { query: 'virus' })
+    const results = await executeSearch(mockClient(wireRow()), {
+      query: 'virus',
+    })
     expect(results).toHaveLength(1)
   })
 })

@@ -78,14 +78,14 @@ change events would be the natural driver for async index updates.
 
 ### 2. What is searchable
 
-| Source                          | Text indexed                                              | Weight |
-| ------------------------------- | --------------------------------------------------------- | ------ |
-| Record metadata                 | `title`, `identifier`                                     | A      |
-| Record metadata                 | `kind`, `status`                                          | B      |
-| Configurable properties         | String values extracted from `records.properties` JSONB  | C      |
-| Notebook block text             | All string values extracted from `blocks.payload` JSONB  | C      |
-| File metadata                   | `display_name`, `media_type` from `file_objects`          | C      |
-| Record relationships            | `target_identifier`, `target_kind`, `link_type` from `record_links` | C |
+| Source                  | Text indexed                                                        | Weight |
+| ----------------------- | ------------------------------------------------------------------- | ------ |
+| Record metadata         | `title`, `identifier`                                               | A      |
+| Record metadata         | `kind`, `status`                                                    | B      |
+| Configurable properties | String values extracted from `records.properties` JSONB             | C      |
+| Notebook block text     | All string values extracted from `blocks.payload` JSONB             | C      |
+| File metadata           | `display_name`, `media_type` from `file_objects`                    | C      |
+| Record relationships    | `target_identifier`, `target_kind`, `link_type` from `record_links` | C      |
 
 **Permitted notebook text boundary:** only text from blocks belonging to
 records the caller's workspace can access via RLS. Because the search function
@@ -119,10 +119,10 @@ indicating the relationship.
 
 Results are typed with a `result_type` discriminator:
 
-| `result_type` | When                               | Deep link                                                        |
-| ------------- | ---------------------------------- | ---------------------------------------------------------------- |
-| `record`      | All non-file records               | `/projects/$projectId/experiments/$recordId`                     |
-| `file`        | Records with `kind = 'file'`       | `/projects/$projectId/experiments/$recordId`                     |
+| `result_type` | When                         | Deep link                                    |
+| ------------- | ---------------------------- | -------------------------------------------- |
+| `record`      | All non-file records         | `/projects/$projectId/experiments/$recordId` |
+| `file`        | Records with `kind = 'file'` | `/projects/$projectId/experiments/$recordId` |
 
 The `kind` field further discriminates records (experiment, sample, reagent,
 protocol_template, report, notebook_template) for UI icons and type badges.
@@ -151,14 +151,14 @@ without leaking full content.
 
 Structured filters are applied as `WHERE` clauses inside the search function:
 
-| Filter        | Parameter        | Column                      |
-| ------------- | ---------------- | --------------------------- |
-| Project       | `p_project_id`   | `records.project_id`        |
-| Type (kind)   | `p_kind`         | `records.kind`              |
-| Status        | `p_status`       | `records.status`            |
-| Owner         | `p_owner_id`     | `records.created_by_user_id`|
-| Date from     | `p_date_from`    | `records.created_at >=`     |
-| Date to       | `p_date_to`      | `records.created_at <=`     |
+| Filter      | Parameter      | Column                       |
+| ----------- | -------------- | ---------------------------- |
+| Project     | `p_project_id` | `records.project_id`         |
+| Type (kind) | `p_kind`       | `records.kind`               |
+| Status      | `p_status`     | `records.status`             |
+| Owner       | `p_owner_id`   | `records.created_by_user_id` |
+| Date from   | `p_date_from`  | `records.created_at >=`      |
+| Date to     | `p_date_to`    | `records.created_at <=`      |
 
 All filters are optional. `NULL` means "no filter on this dimension". The
 function does not invent filters the caller did not request.

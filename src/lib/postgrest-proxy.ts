@@ -246,6 +246,8 @@ const SCHEMA_READINESS_RPCS = new Set([
   'create_scientific_table',
   'add_scientific_column',
   'convert_scientific_column',
+  // SCI-010: schema-bound sheet instantiation creates a generated table.
+  'instantiate_dataset_schema',
 ])
 
 /**

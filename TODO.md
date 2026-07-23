@@ -723,6 +723,28 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 ---
 
+### SCI-010 — Dataset schema registry
+
+**Blocked by:** SCI-001, SCI-003.
+
+**ADR:** [0034 — Dataset schema registry](docs/decisions/0034-dataset-schema-registry.md)
+
+- [x] Add `api.dataset_schemas` and `api.dataset_schema_fields` tables with identity guards, RLS, and constraints (migration 0035).
+- [x] Add nullable binding columns to `scientific_tables` and `scientific_columns`.
+- [x] Implement RPCs: `create_dataset_schema`, `add_dataset_schema_field`, `retire_dataset_schema_field`, `publish_dataset_schema`, `instantiate_dataset_schema`, `upgrade_scientific_schema`.
+- [x] Implement `api.query_dataset` (SECURITY INVOKER, RLS-filtered, cross-sheet UNION ALL by stable slug, no physical names exposed).
+- [x] Implement `api.bind_legacy_sheet` (opt-in per-sheet backfill RPC).
+- [x] Widen `insert_sheet_block` to accept an optional `p_dataset_schema_id`.
+- [x] Widen `scientific_table_metadata` to include the bound schema name, revision, and latest published revision.
+- [x] Sheet-block UI: schema picker dialog (select published / create on the fly / continue ad-hoc).
+- [x] Sheet editor: bound schema name + revision badge, upgrade-available indicator.
+- [x] Schema management UI: browser route at `/schemas` with list, inspect, publish, retire, edit drafts (permission-gated).
+- [x] Add dataset schema resources and RPCs to the external-token allowlist.
+- [x] Database tests: schema CRUD, field immutability, permissions, instantiation, cross-sheet query, filters, workspace isolation, additive upgrade, non-additive rejection, field retirement, legacy backfill, `insert_sheet_block` with/without schema, `scientific_table_metadata` binding.
+- [x] Run `pnpm validate` and fix all task-caused failures.
+
+---
+
 ## Phase 6 — Review, signatures and integrity
 
 ### REV-001 — Lock revision and submission semantics

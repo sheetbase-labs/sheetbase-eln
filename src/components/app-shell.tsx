@@ -16,6 +16,7 @@ import {
   ChevronsUpDown,
   CircleHelp,
   ClipboardList,
+  Database,
   Home as HomeIcon,
   LayoutGrid,
   LayoutTemplate,
@@ -143,6 +144,7 @@ export const defaultNavSections: AppShellNavSection[] = [
       { to: '/', label: 'Home', icon: HomeIcon },
       { to: '/search', label: 'Search', icon: Search },
       { to: '/templates', label: 'Templates', icon: LayoutTemplate },
+      { to: '/schemas', label: 'Schemas', icon: Database },
       { to: '/my-work', label: 'My work', icon: LayoutGrid, disabled: true },
       {
         to: '/activity',

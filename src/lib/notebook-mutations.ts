@@ -79,7 +79,7 @@ export async function insertSheetBlock(
   args: Pick<
     InsertBlockArgs,
     'recordId' | 'afterBlockId' | 'expectedStructureVersion'
-  >,
+  > & { datasetSchemaId?: string },
 ): Promise<InsertBlockResult & { tableId: string }> {
   const res = await client.rpc<{
     block: BlockWire
@@ -89,6 +89,7 @@ export async function insertSheetBlock(
     p_record_id: args.recordId,
     p_after_block_id: args.afterBlockId ?? null,
     p_expected_structure_version: args.expectedStructureVersion ?? null,
+    p_dataset_schema_id: args.datasetSchemaId ?? null,
   })
   return {
     block: toBlock(res.block),

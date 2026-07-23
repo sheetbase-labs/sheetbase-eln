@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as FoundationsRouteImport } from './routes/foundations'
 import { Route as ProjectsRouteImport } from './routes/projects'
+import { Route as SchemasRouteImport } from './routes/schemas'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as TemplatesRouteImport } from './routes/templates'
@@ -43,6 +44,11 @@ const FoundationsRoute = FoundationsRouteImport.update({
 const ProjectsRoute = ProjectsRouteImport.update({
   id: '/projects',
   path: '/projects',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SchemasRoute = SchemasRouteImport.update({
+  id: '/schemas',
+  path: '/schemas',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SearchRoute = SearchRouteImport.update({
@@ -137,6 +143,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/foundations': typeof FoundationsRoute
   '/projects': typeof ProjectsRouteWithChildren
+  '/schemas': typeof SchemasRoute
   '/search': typeof SearchRoute
   '/sign-in': typeof SignInRoute
   '/templates': typeof TemplatesRoute
@@ -159,6 +166,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/foundations': typeof FoundationsRoute
   '/projects': typeof ProjectsRouteWithChildren
+  '/schemas': typeof SchemasRoute
   '/search': typeof SearchRoute
   '/sign-in': typeof SignInRoute
   '/templates': typeof TemplatesRoute
@@ -182,6 +190,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/foundations': typeof FoundationsRoute
   '/projects': typeof ProjectsRouteWithChildren
+  '/schemas': typeof SchemasRoute
   '/search': typeof SearchRoute
   '/sign-in': typeof SignInRoute
   '/templates': typeof TemplatesRoute
@@ -206,6 +215,7 @@ export interface FileRouteTypes {
     | '/'
     | '/foundations'
     | '/projects'
+    | '/schemas'
     | '/search'
     | '/sign-in'
     | '/templates'
@@ -228,6 +238,7 @@ export interface FileRouteTypes {
     | '/'
     | '/foundations'
     | '/projects'
+    | '/schemas'
     | '/search'
     | '/sign-in'
     | '/templates'
@@ -250,6 +261,7 @@ export interface FileRouteTypes {
     | '/'
     | '/foundations'
     | '/projects'
+    | '/schemas'
     | '/search'
     | '/sign-in'
     | '/templates'
@@ -273,6 +285,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   FoundationsRoute: typeof FoundationsRoute
   ProjectsRoute: typeof ProjectsRouteWithChildren
+  SchemasRoute: typeof SchemasRoute
   SearchRoute: typeof SearchRoute
   SignInRoute: typeof SignInRoute
   TemplatesRoute: typeof TemplatesRoute
@@ -310,6 +323,13 @@ declare module '@tanstack/react-router' {
       path: '/projects'
       fullPath: '/projects'
       preLoaderRoute: typeof ProjectsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/schemas': {
+      id: '/schemas'
+      path: '/schemas'
+      fullPath: '/schemas'
+      preLoaderRoute: typeof SchemasRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/search': {
@@ -477,6 +497,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   FoundationsRoute: FoundationsRoute,
   ProjectsRoute: ProjectsRouteWithChildren,
+  SchemasRoute: SchemasRoute,
   SearchRoute: SearchRoute,
   SignInRoute: SignInRoute,
   TemplatesRoute: TemplatesRoute,

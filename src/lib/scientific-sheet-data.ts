@@ -22,6 +22,14 @@ export interface ScientificColumnWire {
   width: number | null
   options: ScientificOptionWire[]
 }
+export interface ScientificDatasetSchemaBinding {
+  id: string
+  slug: string
+  name: string
+  revision: number
+  status: string
+  latest_published_revision: number | null
+}
 export interface ScientificTableWire {
   id: string
   created_at?: string
@@ -30,6 +38,10 @@ export interface ScientificTableWire {
   schema_version: number
   lifecycle: string
   columns: ScientificColumnWire[]
+  /** SCI-010: dataset schema binding. null for legacy unbound sheets. */
+  dataset_schema_id?: string | null
+  dataset_schema_revision?: number | null
+  dataset_schema?: ScientificDatasetSchemaBinding | null
 }
 export interface ScientificRowWire {
   id: string

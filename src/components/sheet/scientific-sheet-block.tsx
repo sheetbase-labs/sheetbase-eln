@@ -59,6 +59,8 @@ import type {
   ScientificSchemaEvidence,
   ScientificTableWire,
 } from '#/lib/scientific-sheet-data'
+import { SchemaBadge } from '#/components/dataset-schema/schema-badge'
+import { upgradeScientificSchema } from '#/lib/dataset-schema-data'
 import type {
   WorkbookCellAddress,
   WorkbookResult,
@@ -773,6 +775,25 @@ export function ScientificSheetBlock({
     enabled: !!tableId,
   })
   const table = tableQuery.data
+  // SCI-010: upgrade the bound sheet to a newer published schema revision.
+  const upgradeMutation = useMutation({
+    mutationFn: async (targetRevision: number) => {
+      if (!table) throw new Error('Table not loaded.')
+      return upgradeScientificSchema(
+        scientificDataClient,
+        table.id,
+        targetRevision,
+      )
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: scientificQueryKeys.table(tableId),
+      })
+      await queryClient.invalidateQueries({
+        queryKey: scientificQueryKeys.rows(tableId, page),
+      })
+    },
+  })
   const rowsKey = scientificQueryKeys.rows(tableId, page)
   const rowsQuery = useQuery({
     queryKey: rowsKey,
@@ -1256,6 +1277,25 @@ export function ScientificSheetBlock({
           {calculationProblem}
         </p>
       ) : null}
+
+      {/* SCI-010: bound schema name + revision badge with upgrade indicator. */}
+      {table.dataset_schema && (
+        <div className="flex items-center justify-between px-1 pb-1.5">
+          <SchemaBadge
+            schema={table.dataset_schema}
+            onUpgrade={
+              readOnly || !table.dataset_schema.latest_published_revision
+                ? undefined
+                : () => {
+                    void upgradeMutation.mutateAsync(
+                      table.dataset_schema!.latest_published_revision!,
+                    )
+                  }
+            }
+            upgrading={upgradeMutation.isPending}
+          />
+        </div>
+      )}
 
       <section
         aria-label="Formula bar"

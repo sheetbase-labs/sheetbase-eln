@@ -664,6 +664,99 @@ export const recordFieldDefinitions = api.table(
   ],
 )
 
+// SCI-010: workspace-level dataset schema registry (decision 0034). A stable,
+// versioned, permission-managed metadata layer over the per-sheet physical
+// tables. Cross-sheet queries join on dataset_schema_field_id, not physical
+// column names.
+export const datasetSchemas = api.table(
+  'dataset_schemas',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    // Stable, immutable, workspace-unique slug. The cross-sheet schema identity.
+    slug: text('slug').notNull(),
+    name: text('name').notNull(),
+    description: text('description'),
+    // Immutable once published; starts at 1. Each revision is a separate row.
+    revision: integer('revision').notNull().default(1),
+    status: text('status').notNull().default('draft'),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    unique('uq_dataset_schemas_workspace_slug_revision').on(
+      table.workspaceId,
+      table.slug,
+      table.revision,
+    ),
+    check(
+      'chk_dataset_schemas_slug',
+      sql`${table.slug} ~ '^[a-z][a-z0-9_]{0,59}$'`,
+    ),
+    check(
+      'chk_dataset_schemas_status',
+      sql`${table.status} IN ('draft', 'published', 'retired')`,
+    ),
+    check('chk_dataset_schemas_revision', sql`${table.revision} > 0`),
+    index('idx_dataset_schemas_workspace_slug').on(
+      table.workspaceId,
+      table.slug,
+    ),
+  ],
+)
+
+export const datasetSchemaFields = api.table(
+  'dataset_schema_fields',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    schemaId: uuid('schema_id')
+      .notNull()
+      .references(() => datasetSchemas.id, { onDelete: 'cascade' }),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    // Stable, immutable within (schema_id, slug). The cross-sheet join key.
+    slug: text('slug').notNull(),
+    label: text('label').notNull(),
+    description: text('description'),
+    displayOrder: integer('display_order').notNull(),
+    // Reuses the scientific_columns type vocabulary (decision 0019).
+    logicalType: text('logical_type').notNull(),
+    nullable: boolean('nullable').notNull().default(true),
+    defaultValue: jsonb('default_value'),
+    unit: jsonb('unit'),
+    validation: jsonb('validation')
+      .notNull()
+      .default(sql`'{}'`),
+    lifecycle: text('lifecycle').notNull().default('active'),
+    ...timestamps,
+  },
+  (table) => [
+    unique('uq_dataset_schema_fields_schema_slug').on(
+      table.schemaId,
+      table.slug,
+    ),
+    check(
+      'chk_dataset_schema_fields_slug',
+      sql`${table.slug} ~ '^[a-z][a-z0-9_]{0,59}$'`,
+    ),
+    check(
+      'chk_dataset_schema_fields_type',
+      sql`${table.logicalType} IN ('text','integer','decimal','boolean','date','timestamp','category')`,
+    ),
+    check(
+      'chk_dataset_schema_fields_lifecycle',
+      sql`${table.lifecycle} IN ('active', 'retired')`,
+    ),
+    index('idx_dataset_schema_fields_schema').on(table.schemaId),
+    index('idx_dataset_schema_fields_workspace').on(table.workspaceId),
+  ],
+)
+
 export const scientificTables = api.table(
   'scientific_tables',
   {
@@ -686,6 +779,15 @@ export const scientificTables = api.table(
       .default(sql`'{}'`),
     lifecycle: text('lifecycle').notNull().default('active'),
     schemaVersion: integer('schema_version').notNull().default(1),
+    // SCI-010: nullable binding to the dataset schema registry. null = legacy
+    // unbound sheet (migration 0013 behaviour preserved).
+    datasetSchemaId: uuid('dataset_schema_id').references(
+      () => datasetSchemas.id,
+      {
+        onDelete: 'set null',
+      },
+    ),
+    datasetSchemaRevision: integer('dataset_schema_revision'),
     ...timestamps,
     createdByUserId: text('created_by_user_id').references(() => user.id, {
       onDelete: 'set null',
@@ -743,6 +845,12 @@ export const scientificColumns = api.table(
       .default(sql`'{}'`),
     width: integer('width'),
     lifecycle: text('lifecycle').notNull().default('active'),
+    // SCI-010: link to the stable dataset schema field identity. null = local
+    // ad-hoc column with no cross-sheet identity.
+    datasetSchemaFieldId: uuid('dataset_schema_field_id').references(
+      () => datasetSchemaFields.id,
+      { onDelete: 'set null' },
+    ),
     ...timestamps,
     createdByUserId: text('created_by_user_id').references(() => user.id, {
       onDelete: 'set null',
@@ -1232,6 +1340,10 @@ export const scientificTablesRelations = relations(
       fields: [scientificTables.blockId],
       references: [blocks.id],
     }),
+    datasetSchema: one(datasetSchemas, {
+      fields: [scientificTables.datasetSchemaId],
+      references: [datasetSchemas.id],
+    }),
     columns: many(scientificColumns),
   }),
 )
@@ -1243,7 +1355,32 @@ export const scientificColumnsRelations = relations(
       fields: [scientificColumns.tableId],
       references: [scientificTables.id],
     }),
+    datasetSchemaField: one(datasetSchemaFields, {
+      fields: [scientificColumns.datasetSchemaFieldId],
+      references: [datasetSchemaFields.id],
+    }),
     options: many(scientificCategoryOptions),
+  }),
+)
+
+export const datasetSchemasRelations = relations(
+  datasetSchemas,
+  ({ one, many }) => ({
+    workspace: one(workspaces, {
+      fields: [datasetSchemas.workspaceId],
+      references: [workspaces.id],
+    }),
+    fields: many(datasetSchemaFields),
+  }),
+)
+
+export const datasetSchemaFieldsRelations = relations(
+  datasetSchemaFields,
+  ({ one }) => ({
+    schema: one(datasetSchemas, {
+      fields: [datasetSchemaFields.schemaId],
+      references: [datasetSchemas.id],
+    }),
   }),
 )
 

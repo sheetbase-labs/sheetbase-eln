@@ -21,6 +21,8 @@ import { BlockEditor } from './block-editor'
 import type { AutosaveStatus, SaveResult } from './block-editor'
 import { BlockPicker } from './block-picker'
 import { ScientificSheetBlock } from '#/components/sheet/scientific-sheet-block'
+import { SchemaPickerDialog } from '#/components/dataset-schema/schema-picker-dialog'
+import type { SchemaPickerResult } from '#/components/dataset-schema/schema-picker-dialog'
 import { ScientificWorkbookProvider } from './scientific-workbook-provider'
 
 export type { AutosaveStatus, SaveResult }
@@ -64,7 +66,11 @@ export interface NotebookDocumentProps {
    */
   onUnsavedWorkChange?: (hasUnsavedWork: boolean) => void
   /** Insert a new block of `type`, optionally after `afterBlockId`. */
-  onInsertBlock: (type: string, afterBlockId?: string) => Promise<void>
+  onInsertBlock: (
+    type: string,
+    afterBlockId?: string,
+    options?: { datasetSchemaId?: string },
+  ) => Promise<void>
   /** Pin a protocol to an empty protocol-reference block. */
   onPinProtocol?: (
     block: NotebookBlockData,
@@ -142,6 +148,10 @@ function NotebookDocumentContent({
   className,
 }: NotebookDocumentProps) {
   const [selectedId, setSelectedId] = React.useState<string | null>(null)
+  // SCI-010: schema picker dialog state for sheet block creation.
+  const [schemaPickerOpen, setSchemaPickerOpen] = React.useState(false)
+  const [schemaPickerAfterBlockId, setSchemaPickerAfterBlockId] =
+    React.useState<string | null>(null)
   // Per-block error messages for insert / duplicate / delete (ELN-005).
   // Save errors are owned per-editor by `useAutosave` (ELN-007).
   const [errorById, setErrorById] = React.useState<Record<string, string>>({})
@@ -247,6 +257,14 @@ function NotebookDocumentContent({
 
   async function handleInsert(type: string, afterBlockId?: string) {
     try {
+      // SCI-010: when inserting a sheet, show the schema picker dialog
+      // so the user can choose a published schema, create one on the fly,
+      // or continue ad-hoc.
+      if (type === 'sheet' && !isReadOnly) {
+        setSchemaPickerAfterBlockId(afterBlockId ?? null)
+        setSchemaPickerOpen(true)
+        return
+      }
       await onInsertBlock(type, afterBlockId)
       setUndo(null)
     } catch (err) {
@@ -698,6 +716,22 @@ function NotebookDocumentContent({
           />
         </div>
       )}
+
+      {/* SCI-010: schema picker dialog for sheet block creation. */}
+      <SchemaPickerDialog
+        open={schemaPickerOpen}
+        onOpenChange={setSchemaPickerOpen}
+        onSelect={async (result: SchemaPickerResult) => {
+          const datasetSchemaId =
+            result.mode === 'ad-hoc' ? undefined : result.schemaId
+          await onInsertBlock(
+            'sheet',
+            schemaPickerAfterBlockId ?? undefined,
+            datasetSchemaId ? { datasetSchemaId } : undefined,
+          )
+          setUndo(null)
+        }}
+      />
 
       {undo ? (
         <div

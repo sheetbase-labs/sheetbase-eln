@@ -541,15 +541,18 @@ function EditableNotebook({
     mutationFn: async ({
       type,
       afterBlockId,
+      options,
     }: {
       type: string
       afterBlockId?: string
+      options?: { datasetSchemaId?: string }
     }) => {
       if (type === 'sheet') {
         return insertSheetBlock(client, {
           recordId: record.id,
           afterBlockId,
           expectedStructureVersion: record.structureVersion,
+          datasetSchemaId: options?.datasetSchemaId,
         })
       }
       const payload = defaultPayloadFor(type)
@@ -735,8 +738,12 @@ function EditableNotebook({
     }
   }
 
-  async function handleInsert(type: string, afterBlockId?: string) {
-    await insertMutation.mutateAsync({ type, afterBlockId })
+  async function handleInsert(
+    type: string,
+    afterBlockId?: string,
+    options?: { datasetSchemaId?: string },
+  ) {
+    await insertMutation.mutateAsync({ type, afterBlockId, options })
   }
 
   async function handlePinProtocol(

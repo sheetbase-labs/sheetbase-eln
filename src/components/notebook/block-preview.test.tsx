@@ -1,0 +1,115 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { cleanup, render, screen } from '@testing-library/react'
+import type { ReactNode } from 'react'
+import { afterEach, describe, expect, it } from 'vitest'
+
+import { BlockPreview } from './block-preview'
+
+afterEach(() => cleanup())
+
+function renderWithQuery(ui: ReactNode) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0 } },
+  })
+  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
+}
+
+const block = (type: string, payload: unknown) => ({
+  id: 'b1',
+  recordId: 'r1',
+  type,
+  payload: payload as Record<string, unknown>,
+  payloadSchemaVersion: 1,
+  order: 1,
+  version: 1,
+})
+
+describe('BlockPreview callout (SCI-009 contract fix)', () => {
+  it('renders the validated text/variant payload, not body/tone', () => {
+    render(
+      <BlockPreview
+        block={block('callout', {
+          text: 'Include a no-template control (NTC) in every qPCR run.',
+          variant: 'warning',
+        })}
+      />,
+    )
+    expect(
+      screen.getByText(
+        'Include a no-template control (NTC) in every qPCR run.',
+      ),
+    ).toBeTruthy()
+  })
+
+  it('applies the warning variant styling', () => {
+    const { container } = render(
+      <BlockPreview
+        block={block('callout', { text: 'Heads up', variant: 'warning' })}
+      />,
+    )
+    const callout = container.querySelector('.border-warning\\/40')
+    expect(callout).toBeTruthy()
+  })
+
+  it('renders the info variant with primary styling', () => {
+    const { container } = render(
+      <BlockPreview
+        block={block('callout', { text: 'FYI', variant: 'info' })}
+      />,
+    )
+    const callout = container.querySelector('.border-primary\\/30')
+    expect(callout).toBeTruthy()
+  })
+
+  it('renders nothing for the legacy body/tone payload shape', () => {
+    const { container } = render(
+      <BlockPreview block={block('callout', { body: 'old', tone: 'info' })} />,
+    )
+    // The renderer now reads text/variant; a payload without `text` renders
+    // an empty callout body, confirming the old shape is no longer honoured.
+    expect(container.textContent).not.toContain('old')
+  })
+})
+
+describe('BlockPreview table (canonical string-array payload)', () => {
+  it('renders column labels and row values from the canonical format', () => {
+    render(
+      <BlockPreview
+        block={block('table', {
+          columns: ['Timepoint', 'Replicate', 'Volume'],
+          rows: [
+            [0, 1, 100],
+            [28, 1, 100],
+          ],
+        })}
+      />,
+    )
+    expect(screen.getByText('Timepoint')).toBeTruthy()
+    expect(screen.getByText('Replicate')).toBeTruthy()
+    expect(screen.getByText('Volume')).toBeTruthy()
+    expect(screen.getByText('0')).toBeTruthy()
+    expect(screen.getByText('28')).toBeTruthy()
+  })
+
+  it('renders an empty body for null cells', () => {
+    const { container } = render(
+      <BlockPreview
+        block={block('table', {
+          columns: ['A', 'B'],
+          rows: [[null, 'x']],
+        })}
+      />,
+    )
+    const cells = container.querySelectorAll('tbody td')
+    expect(cells).toHaveLength(2)
+    expect(cells[0].textContent).toBe('')
+    expect(cells[1].textContent).toBe('x')
+  })
+})
+
+describe('BlockPreview sheet (read-only preview)', () => {
+  it('shows a not-configured hint when tableId is absent', () => {
+    renderWithQuery(<BlockPreview block={block('sheet', {})} />)
+    expect(screen.getByText(/not configured yet/i)).toBeTruthy()
+  })
+})

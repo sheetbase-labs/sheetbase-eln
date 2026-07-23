@@ -56,6 +56,9 @@ export const DEMO_BLOCK_IDS = {
   stabilitySheet: '00000000-0000-4000-8000-000000000170',
   stabilityChartFrozen: '00000000-0000-4000-8000-000000000171',
   plateMap: '00000000-0000-4000-8000-000000000180',
+  // SCI-009: a linked_record block exercises the in-notebook link render path
+  // alongside the record_links relation rows. 0x181.
+  linkedRecord: '00000000-0000-4000-8000-000000000181',
 } as const
 
 export const DEMO_PROTOCOL_REVISION_ID = '00000000-0000-4000-8000-000000000150'

@@ -1391,6 +1391,45 @@ export const demoSteps: Array<SeedStep> = [
     },
   },
   // -------------------------------------------------------------------------
+  // SCI-009: a linked_record block in the notebook body. The record_links
+  // relation rows (below) carry the authoritative graph; this block exercises
+  // the in-notebook linked-record render path so every valid block type is
+  // represented in the Virus Stability notebook and overview.
+  // -------------------------------------------------------------------------
+  {
+    name: 'demo SCI-009 linked_record block: Virus Stability',
+    run: async (db) => {
+      await db
+        .insert(schema.blocks)
+        .values({
+          id: DEMO_BLOCK_IDS.linkedRecord,
+          recordId: DEMO_VIRUS_STABILITY_RECORD_ID,
+          type: 'linked_record',
+          payload: {
+            targetKind: 'sample',
+            targetIdentifier: DEMO_SAMPLE_IDENTIFIER,
+            label: 'LVV-CAR-T drug substance',
+            linkType: 'sample',
+          },
+          order: 25,
+          createdByUserId: FIXTURE_USER_ID,
+        })
+        .onConflictDoUpdate({
+          target: schema.blocks.id,
+          set: {
+            type: 'linked_record',
+            payload: {
+              targetKind: 'sample',
+              targetIdentifier: DEMO_SAMPLE_IDENTIFIER,
+              label: 'LVV-CAR-T drug substance',
+              linkType: 'sample',
+            },
+            order: 25,
+          },
+        })
+    },
+  },
+  // -------------------------------------------------------------------------
   // SCI-007: submitted revision of the Virus Stability experiment for the
   // locked/historical overview state. Snapshots all blocks that exist at
   // seed time so the overview can render a historical version.
@@ -1430,7 +1469,28 @@ export const demoSteps: Array<SeedStep> = [
             version: b.version,
           })),
         })
-        .onConflictDoNothing({ target: schema.revisions.id })
+        .onConflictDoUpdate({
+          target: schema.revisions.id,
+          set: {
+            structureVersion: 1,
+            metadataVersion: 1,
+            metadataSnapshot: {
+              identifier: DEMO_VIRUS_STABILITY_RECORD_IDENTIFIER,
+              title: 'Virus Stability at 4°C',
+              status: 'in_progress',
+              tags: ['stability', 'qPCR', 'LVV-CAR-T'],
+            },
+            blockSnapshot: blocks.map((b) => ({
+              id: b.id,
+              type: b.type,
+              payload: b.payload,
+              payload_schema_version: b.payloadSchemaVersion,
+              order: Number(b.order),
+              version: b.version,
+            })),
+            updatedAt: new Date('2026-07-22T10:00:00Z'),
+          },
+        })
     },
   },
   // -------------------------------------------------------------------------
@@ -1493,8 +1553,8 @@ export const demoSteps: Array<SeedStep> = [
           id: DEMO_TEMPLATE_IDS.notebookTemplateBlock3,
           type: 'callout',
           payload: {
-            body: 'Follow ICH Q1A(R2) guidelines for accelerated stability testing.',
-            tone: 'info',
+            text: 'Follow ICH Q1A(R2) guidelines for accelerated stability testing.',
+            variant: 'info',
           },
           order: 3,
         },
@@ -1758,8 +1818,8 @@ export const demoSteps: Array<SeedStep> = [
           id: DEMO_TEMPLATE_IDS.instantiatedBlock3,
           type: 'callout' as const,
           payload: {
-            body: 'Follow ICH Q1A(R2) guidelines for accelerated stability testing.',
-            tone: 'info',
+            text: 'Follow ICH Q1A(R2) guidelines for accelerated stability testing.',
+            variant: 'info',
           },
           order: 3,
         },

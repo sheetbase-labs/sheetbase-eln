@@ -32,6 +32,12 @@ import type {
 } from '#/components/viz/plate-map'
 import { PLATE_MAP_SPEC_VERSION, ROLE_STYLES } from '#/lib/plate-map'
 import type { PlateMapSpec, WellAssignment } from '#/lib/plate-map'
+import {
+  scientificDataClient,
+  scientificQueryKeys,
+  fetchScientificTable,
+  fetchScientificRows,
+} from '#/lib/scientific-sheet-data'
 
 /**
  * Read-only preview of a block's typed payload (ELN-004). Renders the
@@ -94,6 +100,8 @@ function renderPayload(type: string, payload: unknown): React.ReactNode {
       return renderMetric(payload)
     case 'table':
       return renderTable(payload)
+    case 'sheet':
+      return <SheetBlockPreview payload={payload} />
     case 'chart':
       return <ChartBlockPreview payload={payload} />
     case 'plate_map':
@@ -147,21 +155,24 @@ function renderChecklist(payload: unknown): React.ReactNode {
 }
 
 function renderCallout(payload: unknown): React.ReactNode {
+  // The callout payload contract (src/lib/blocks validateCallout) is
+  // { text, variant } with variant one of info|warning|note|danger. The
+  // renderer must read the same fields the validator enforces.
   const obj = asObject(payload)
   if (!obj) return null
-  const body = asString(obj.body) ?? ''
-  const tone = asString(obj.tone) ?? 'info'
+  const text = asString(obj.text) ?? ''
+  const variant = asString(obj.variant) ?? 'info'
   return (
     <div
       className={cn(
         'rounded-md border p-3 text-sm',
-        tone === 'warning' && 'border-warning/40 bg-warning/10',
-        tone === 'danger' && 'border-destructive/40 bg-destructive/10',
-        (tone === 'info' || tone === 'neutral') &&
+        variant === 'warning' && 'border-warning/40 bg-warning/10',
+        variant === 'danger' && 'border-destructive/40 bg-destructive/10',
+        (variant === 'info' || variant === 'note') &&
           'border-primary/30 bg-primary/5',
       )}
     >
-      {body}
+      {text}
     </div>
   )
 }
@@ -376,9 +387,26 @@ function renderMetric(payload: unknown): React.ReactNode {
 function renderTable(payload: unknown): React.ReactNode {
   const obj = asObject(payload)
   if (!obj) return null
-  const columns = asArray<{ key?: unknown; label?: unknown }>(obj.columns)
-  const rows = asArray<Record<string, unknown>>(obj.rows)
-  if (!columns || !rows) return null
+  const rawColumns = asArray(obj.columns)
+  const rows = asArray(obj.rows)
+  if (!rawColumns || !rows) return null
+
+  // Canonical table payload (validated by validateTable): columns is an
+  // array of strings, rows is an array of arrays.  A legacy object-based
+  // format (columns with {key,label}, rows as keyed objects) is also handled.
+  const isStringColumns = rawColumns.every(
+    (c): c is string => typeof c === 'string',
+  )
+  const columns = isStringColumns
+    ? rawColumns.map((label, i) => ({
+        label,
+        key: String(i),
+      }))
+    : rawColumns.map((c, i) => ({
+        label: asString((c as Record<string, unknown>).label) ?? `col ${i + 1}`,
+        key: asString((c as Record<string, unknown>).key) ?? String(i),
+      }))
+
   return (
     <div className="overflow-x-auto rounded-md border">
       <table className="w-full text-xs">
@@ -390,7 +418,7 @@ function renderTable(payload: unknown): React.ReactNode {
                 scope="col"
                 className="border-b px-3 py-2 text-left font-medium text-muted-foreground"
               >
-                {asString(col.label) ?? asString(col.key) ?? `col ${i + 1}`}
+                {col.label}
               </th>
             ))}
           </tr>
@@ -399,8 +427,9 @@ function renderTable(payload: unknown): React.ReactNode {
           {rows.map((row, i) => (
             <tr key={i} className="odd:bg-background">
               {columns.map((col, j) => {
-                const key = asString(col.key) ?? ''
-                const cell = key ? row[key] : undefined
+                const cell = Array.isArray(row)
+                  ? row[j]
+                  : (row as Record<string, unknown>)[col.key]
                 return (
                   <td
                     key={j}
@@ -414,6 +443,113 @@ function renderTable(payload: unknown): React.ReactNode {
           ))}
         </tbody>
       </table>
+    </div>
+  )
+}
+
+/**
+ * Read-only preview of a scientific sheet block (SCI-003).  Fetches the
+ * table metadata and first page of rows via the same data client the
+ * notebook editor uses, then renders a compact HTML table.  No HyperFormula
+ * or Handsontable — the preview is intentionally lightweight for the
+ * overview and read-only contexts.
+ */
+function SheetBlockPreview({ payload }: { payload: unknown }) {
+  const obj = asObject(payload)
+  const tableId = obj ? asString(obj.tableId) : null
+  const tableQuery = useQuery({
+    queryKey: scientificQueryKeys.table(tableId ?? ''),
+    queryFn: () => fetchScientificTable(scientificDataClient, tableId!),
+    enabled: !!tableId,
+  })
+  const table = tableQuery.data
+  const rowsQuery = useQuery({
+    queryKey: scientificQueryKeys.rows(tableId ?? '', 0),
+    queryFn: () => fetchScientificRows(scientificDataClient, table!, 0),
+    enabled: !!table,
+  })
+
+  if (!tableId) {
+    return (
+      <div className="rounded-md border border-dashed border-muted-foreground/30 p-3 text-xs text-muted-foreground">
+        Scientific sheet not configured yet.
+      </div>
+    )
+  }
+  if (tableQuery.isLoading) {
+    return (
+      <div className="rounded-md border p-3 text-xs text-muted-foreground">
+        Preparing scientific sheet…
+      </div>
+    )
+  }
+  if (tableQuery.error || !table) {
+    return (
+      <div className="rounded-md border border-dashed border-warning/50 bg-warning/5 p-3 text-xs">
+        <p className="font-medium text-foreground">
+          Scientific sheet unavailable
+        </p>
+        <p className="mt-1 text-muted-foreground">
+          The sheet data could not be loaded. It may have been deleted or you
+          may not have access.
+        </p>
+      </div>
+    )
+  }
+
+  const columns = [...table.columns].sort(
+    (a, b) => a.display_order - b.display_order,
+  )
+  const rows = rowsQuery.data ?? []
+
+  return (
+    <div className="space-y-1">
+      <p className="text-xs font-medium text-muted-foreground">{table.name}</p>
+      <div className="overflow-x-auto rounded-md border">
+        <table className="w-full text-xs">
+          <thead className="bg-muted/40">
+            <tr>
+              {columns.map((col) => (
+                <th
+                  key={col.id}
+                  scope="col"
+                  className="border-b px-3 py-2 text-left font-medium text-muted-foreground"
+                >
+                  {col.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={columns.length}
+                  className="px-3 py-2 text-muted-foreground"
+                >
+                  No rows yet.
+                </td>
+              </tr>
+            ) : (
+              rows.map((row) => (
+                <tr key={row.id} className="odd:bg-background">
+                  {columns.map((col) => (
+                    <td
+                      key={col.id}
+                      className="border-b px-3 py-2 font-mono tabular-nums text-foreground"
+                    >
+                      {row[col.field_name] === null ||
+                      row[col.field_name] === undefined
+                        ? ''
+                        : String(row[col.field_name])}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

@@ -714,12 +714,12 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** SCI-007, SCI-008.
 
-- [ ] Create the concept experiment using ordinary UI and API capabilities rather than special seed-only rendering.
-- [ ] Include objective, materials, protocol, procedure progress, scientific sheets, HyperFormula calculations, chart, plate map, files and linked records.
-- [ ] Confirm the overview is composed from the underlying notebook record.
-- [ ] Confirm search can retrieve the experiment and its permitted linked objects.
-- [ ] Confirm every major visible object has an approachable REST representation.
-- [ ] Capture a browser acceptance test and a concise demonstration checklist.
+- [x] Create the concept experiment using ordinary UI and API capabilities rather than special seed-only rendering.
+- [x] Include objective, materials, protocol, procedure progress, scientific sheets, HyperFormula calculations, chart, plate map, files and linked records.
+- [x] Confirm the overview is composed from the underlying notebook record.
+- [x] Confirm search can retrieve the experiment and its permitted linked objects.
+- [x] Confirm every major visible object has an approachable REST representation.
+- [x] Capture a browser acceptance test and a concise demonstration checklist.
 
 ---
 

@@ -68,6 +68,7 @@ const baseProject: Project = {
   title: 'Lentivector Stability Study',
   status: 'active',
   createdAt: '2025-06-01T00:00:00Z',
+  updatedAt: '2025-06-02T00:00:00Z',
   archivedAt: null,
 }
 

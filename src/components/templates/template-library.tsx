@@ -18,19 +18,10 @@
  */
 import { Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import {
-  Archive,
-  CheckCircle2,
-  FileWarning,
-  Search,
-} from 'lucide-react'
+import { Archive, CheckCircle2, FileWarning, Search } from 'lucide-react'
 
 import { BlockPreview } from '#/components/notebook'
-import {
-  EmptyHint,
-  Inspector,
-  InspectorSection,
-} from '#/components/record'
+import { EmptyHint, Inspector, InspectorSection } from '#/components/record'
 import { StatusBadge } from '#/components/scientific'
 import { Badge, Skeleton } from '#/components/ui'
 import { cn } from '#/lib/utils'
@@ -185,10 +176,7 @@ function TemplateListSkeleton({ rows = 6 }: { rows?: number }) {
       aria-hidden="true"
     >
       {Array.from({ length: rows }).map((_, i) => (
-        <div
-          key={i}
-          className="flex items-center gap-4 px-3 py-2.5"
-        >
+        <div key={i} className="flex items-center gap-4 px-3 py-2.5">
           <Skeleton className="h-4 w-28 shrink-0" />
           <Skeleton className="h-4 flex-1" style={{ maxWidth: 220 }} />
           <Skeleton className="h-5 w-24 shrink-0 rounded-full" />
@@ -222,10 +210,7 @@ export function TemplateList({
   if (isLoading) {
     return (
       <div>
-        <p
-          className="mb-2 text-sm text-muted-foreground"
-          aria-busy="true"
-        >
+        <p className="mb-2 text-sm text-muted-foreground" aria-busy="true">
           Loading templates…
         </p>
         <TemplateListSkeleton />

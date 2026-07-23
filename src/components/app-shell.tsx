@@ -2,7 +2,12 @@
 'use client'
 
 import * as React from 'react'
-import { Link, useNavigate, useRouter, useRouterState } from '@tanstack/react-router'
+import {
+  Link,
+  useNavigate,
+  useRouter,
+  useRouterState,
+} from '@tanstack/react-router'
 import {
   Activity as ActivityIcon,
   Bell,

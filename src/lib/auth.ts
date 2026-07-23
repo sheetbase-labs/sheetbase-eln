@@ -48,12 +48,14 @@ export function createAuth(databaseUrl: string) {
       },
     },
     advanced: {
-      // Secure cookies only where HTTPS exists; SameSite=Lax allows the
-      // OAuth callback round-trip while blocking cross-site POSTs.
-      useSecureCookies: process.env.NODE_ENV === 'production',
+      // app.sheetbase.co.uk serves HTTPS via Cloudflare Tunnel. The GitHub
+      // OAuth callback is a cross-site top-level navigation, so the state
+      // cookie needs SameSite=None + Secure to survive the redirect.
+      useSecureCookies: true,
       defaultCookieAttributes: {
         httpOnly: true,
-        sameSite: 'lax',
+        sameSite: 'none',
+        secure: true,
       },
     },
     onAPIError: {

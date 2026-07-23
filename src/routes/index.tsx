@@ -35,7 +35,12 @@ import {
   toProject,
   toRecord,
 } from '#/lib/notebook-data'
-import type { NotebookRecord, Project, ProjectWire, RecordWire } from '#/lib/notebook-data'
+import type {
+  NotebookRecord,
+  Project,
+  ProjectWire,
+  RecordWire,
+} from '#/lib/notebook-data'
 import { cn } from '#/lib/utils'
 
 export const Route = createFileRoute('/')({
@@ -357,10 +362,7 @@ export function RecentWorkTable({
         className="rounded-lg border border-border bg-card"
       >
         <SectionHeader title="Recent work" />
-        <ErrorState
-          message="Could not load recent work."
-          onRetry={onRetry}
-        />
+        <ErrorState message="Could not load recent work." onRetry={onRetry} />
       </section>
     )
   }

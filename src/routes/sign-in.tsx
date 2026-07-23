@@ -63,8 +63,23 @@ function SignInWithGitHub() {
       type="button"
       className="inline-flex h-9 w-full items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground"
       onClick={async () => {
-        const { authClient } = await import('#/lib/auth-client')
-        await authClient.signIn.social({ provider: 'github', callbackURL: '/' })
+        try {
+          const res = await fetch('/api/auth/sign-in/social', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+              provider: 'github',
+              callbackURL: '/',
+            }),
+          })
+          const data = (await res.json()) as { url?: string }
+          if (data.url) {
+            window.location.href = data.url
+          }
+        } catch (err) {
+          console.error('GitHub sign-in failed:', err)
+        }
       }}
     >
       Continue with GitHub

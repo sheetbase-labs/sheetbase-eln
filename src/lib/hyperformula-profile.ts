@@ -157,11 +157,14 @@ function registerAndAssert() {
     try {
       HyperFormula.registerLanguage('enUS', enUS)
     } catch (error) {
-      if (
-        !(error instanceof Error) ||
-        !error.name.includes('LanguageAlreadyRegistered')
-      )
-        throw error
+      // HMR reloads reset the module-level `registered` flag, but
+      // HyperFormula's language registry is global and persists across
+      // reloads. Swallow the "already registered" error in that case.
+      const isAlreadyRegistered =
+        error instanceof Error &&
+        (error.name.includes('LanguageAlreadyRegistered') ||
+          error.message.includes('Language already registered'))
+      if (!isAlreadyRegistered) throw error
     }
     registered = true
   }

@@ -445,7 +445,7 @@ export const demoSteps: Array<SeedStep> = [
         .values({
           id: DEMO_VIRUS_STABILITY_PROTOCOL_RECORD_ID,
           workspaceId: FIXTURE_WORKSPACE_ID,
-          projectId: DEMO_VIRUS_STABILITY_PROJECT_ID,
+          projectId: null,
           kind: 'protocol_template',
           identifier: DEMO_VIRUS_STABILITY_PROTOCOL_IDENTIFIER,
           title: 'Titration Assay',
@@ -455,7 +455,7 @@ export const demoSteps: Array<SeedStep> = [
           createdByUserId: FIXTURE_USER_ID,
         })
         .onConflictDoUpdate({
-          target: [schema.records.projectId, schema.records.identifier],
+          target: schema.records.id,
           set: {
             title: 'Titration Assay',
             status: 'active',
@@ -1564,7 +1564,7 @@ export const demoSteps: Array<SeedStep> = [
         .values({
           id: DEMO_TEMPLATE_IDS.notebookTemplateValidated,
           workspaceId: FIXTURE_WORKSPACE_ID,
-          projectId: DEMO_VIRUS_STABILITY_PROJECT_ID,
+          projectId: null,
           kind: 'notebook_template',
           identifier: DEMO_TEMPLATE_IDS.notebookTemplateValidatedIdentifier,
           title: 'Stability Study (ICH)',
@@ -1610,7 +1610,7 @@ export const demoSteps: Array<SeedStep> = [
         .values({
           id: DEMO_TEMPLATE_IDS.notebookTemplateDraft,
           workspaceId: FIXTURE_WORKSPACE_ID,
-          projectId: DEMO_VIRUS_STABILITY_PROJECT_ID,
+          projectId: null,
           kind: 'notebook_template',
           identifier: DEMO_TEMPLATE_IDS.notebookTemplateDraftIdentifier,
           title: 'Cell Viability Assay',
@@ -1694,7 +1694,7 @@ export const demoSteps: Array<SeedStep> = [
         .values({
           id: DEMO_TEMPLATE_IDS.protocolTemplateArchived,
           workspaceId: FIXTURE_WORKSPACE_ID,
-          projectId: DEMO_VIRUS_STABILITY_PROJECT_ID,
+          projectId: null,
           kind: 'protocol_template',
           identifier: DEMO_TEMPLATE_IDS.protocolTemplateArchivedIdentifier,
           title: 'ELISA Protocol (Archived)',

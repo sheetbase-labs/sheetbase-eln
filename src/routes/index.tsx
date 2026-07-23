@@ -410,16 +410,26 @@ export function RecentWorkTable({
         </TableHeader>
         <TableBody>
           {records.map((record) => {
-            const project = projectById.get(record.projectId)
+            const project = record.projectId
+              ? projectById.get(record.projectId)
+              : undefined
             return (
               <TableRow key={record.id}>
                 <TableCell>
                   <Link
-                    to="/projects/$projectId/experiments/$recordId"
-                    params={{
-                      projectId: record.projectId,
-                      recordId: record.id,
-                    }}
+                    to={
+                      record.projectId
+                        ? '/projects/$projectId/experiments/$recordId'
+                        : '/templates'
+                    }
+                    params={
+                      record.projectId
+                        ? {
+                            projectId: record.projectId,
+                            recordId: record.id,
+                          }
+                        : {}
+                    }
                     className="flex items-center gap-3 no-underline"
                   >
                     <RecordKindIcon kind={record.kind} />

@@ -157,7 +157,7 @@ function TemplateLibraryRoute() {
       setInstantiationError(null)
       setInstantiationSuccess({
         recordId: result.record.id,
-        projectId: result.record.projectId,
+        projectId: result.record.projectId ?? '',
       })
       void queryClient.invalidateQueries({
         queryKey: ['sci-006', 'templates'],

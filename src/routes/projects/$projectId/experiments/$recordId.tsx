@@ -822,7 +822,7 @@ function EditableNotebook({
       await attachFileToBlock(client, {
         blockId: currentBlock.id,
         expectedBlockVersion: currentBlock.version,
-        projectId: record.projectId,
+        projectId: record.projectId ?? '',
         file,
       })
     } catch (cause) {

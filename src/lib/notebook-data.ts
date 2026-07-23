@@ -32,7 +32,7 @@ export interface ProjectWire {
 export interface RecordWire {
   id: string
   workspace_id: string
-  project_id: string
+  project_id: string | null
   folder_id: string | null
   kind: string
   identifier: string
@@ -115,7 +115,7 @@ export interface Project {
 
 export interface NotebookRecord {
   id: string
-  projectId: string
+  projectId: string | null
   kind: string
   identifier: string
   title: string

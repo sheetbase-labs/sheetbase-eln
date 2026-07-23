@@ -302,9 +302,9 @@ export const records = api.table(
     workspaceId: uuid('workspace_id')
       .notNull()
       .references(() => workspaces.id, { onDelete: 'cascade' }),
-    projectId: uuid('project_id')
-      .notNull()
-      .references(() => projects.id, { onDelete: 'cascade' }),
+    projectId: uuid('project_id').references(() => projects.id, {
+      onDelete: 'cascade',
+    }),
     folderId: uuid('folder_id').references(() => folders.id, {
       onDelete: 'set null',
     }),

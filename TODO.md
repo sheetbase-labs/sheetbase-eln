@@ -702,13 +702,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** SCI-001, SCI-003, SCI-006.
 
-- [ ] Index record metadata, permitted notebook text, structured fields, file metadata and record relationships.
-- [ ] Keep search results filtered by the same workspace and record permissions as direct access.
-- [ ] Return typed results with matched context and stable deep links.
-- [ ] Add filters for project, type, status, owner and date.
-- [ ] Show a result preview in the shared inspector without leaking restricted fields.
-- [ ] Define indexing delay and stale-result behaviour honestly.
-- [ ] Add tests for permissions, archived records, updated text and mixed result types.
+- [x] Index record metadata, permitted notebook text, structured fields, file metadata and record relationships.
+- [x] Keep search results filtered by the same workspace and record permissions as direct access.
+- [x] Return typed results with matched context and stable deep links.
+- [x] Add filters for project, type, status, owner and date.
+- [x] Show a result preview in the shared inspector without leaking restricted fields.
+- [x] Define indexing delay and stale-result behaviour honestly.
+- [x] Add tests for permissions, archived records, updated text and mixed result types.
 
 ### SCI-009 — Reproduce the Virus Stability notebook end to end
 

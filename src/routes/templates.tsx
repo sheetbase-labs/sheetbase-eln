@@ -92,6 +92,27 @@ function TemplateLibraryRoute() {
     },
   })
 
+  // Block counts for every listed template, fetched in a single query so
+  // the list can show a "blocks" column without N+1 requests. Selects only
+  // record_id to keep the payload small.
+  const templateIds = (templatesQuery.data ?? []).map((t) => t.id)
+  const blockCountsQuery = useQuery({
+    queryKey: ['sci-006', 'template-block-counts', templateIds],
+    queryFn: async () => {
+      const idFilter = templateIds.join(',')
+      const rows = await notebookDataClient.list<{ record_id: string }>(
+        'blocks',
+        `?record_id=in.(${idFilter})&select=record_id`,
+      )
+      const counts: Record<string, number> = {}
+      for (const row of rows) {
+        counts[row.record_id] = (counts[row.record_id] ?? 0) + 1
+      }
+      return counts
+    },
+    enabled: templateIds.length > 0,
+  })
+
   // Selected template detail queries
   const selectedQuery = useQuery({
     queryKey: notebookQueryKeys.record(selectedId ?? 'none'),
@@ -120,6 +141,7 @@ function TemplateLibraryRoute() {
   const selected = selectedQuery.data ?? null
   const selectedBlocks = blocksQuery.data ?? []
   const projects = projectsQuery.data ?? []
+  const blockCounts = blockCountsQuery.data ?? {}
 
   // Instantiation mutation
   const instantiateMutation = useMutation({
@@ -217,6 +239,7 @@ function TemplateLibraryRoute() {
           onStatusChange={setStatusFilter}
           search={search}
           onSearchChange={setSearch}
+          count={templates.length}
         />
 
         <TemplateList
@@ -226,6 +249,7 @@ function TemplateLibraryRoute() {
           selectedId={selectedId}
           onSelect={setSelectedId}
           onRetry={() => templatesQuery.refetch()}
+          blockCounts={blockCounts}
         />
       </div>
     </AppShell>

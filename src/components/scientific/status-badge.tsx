@@ -112,6 +112,17 @@ export const datasetStatusVocabulary: StatusVocabulary = {
   retracted: { label: 'Retracted', tone: 'danger', icon: Ban },
 }
 
+/**
+ * Project lifecycle vocabulary. Projects are workspace-level containers; their
+ * status is a coarse active/archived state rather than a fine experiment
+ * state machine. Used by the projects dashboard table and project header.
+ */
+export const projectStatusVocabulary: StatusVocabulary = {
+  active: { label: 'Active', tone: 'success', icon: CheckCircle2 },
+  draft: { label: 'Draft', tone: 'neutral', icon: CircleDashed },
+  archived: { label: 'Archived', tone: 'neutral', icon: Archive },
+}
+
 export const statusVocabularies = {
   experiment: experimentStatusVocabulary,
   review: reviewStatusVocabulary,
@@ -120,6 +131,7 @@ export const statusVocabularies = {
   reagent: reagentStatusVocabulary,
   protocol: protocolStatusVocabulary,
   notebook_template: notebookTemplateStatusVocabulary,
+  project: projectStatusVocabulary,
 } as const
 
 export type StatusDomain = keyof typeof statusVocabularies

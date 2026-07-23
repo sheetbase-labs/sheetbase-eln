@@ -55,6 +55,7 @@ function mockClient(
     rpc: overrides.rpc ?? vi.fn().mockResolvedValue({}),
     insert: vi.fn().mockResolvedValue({}),
     patch: vi.fn().mockResolvedValue([]),
+    count: vi.fn().mockResolvedValue(0),
   }
 }
 

@@ -109,6 +109,7 @@ export interface Project {
   title: string
   status: string
   createdAt: string
+  updatedAt: string | null
   archivedAt: string | null
 }
 
@@ -161,6 +162,7 @@ export function toProject(row: ProjectWire): Project {
     title: row.title,
     status: row.status,
     createdAt: row.created_at,
+    updatedAt: row.updated_at,
     archivedAt: row.archived_at,
   }
 }
@@ -315,6 +317,66 @@ export const RECORD_KIND_LABELS: Record<string, string> = {
 
 export function recordKindLabel(kind: string): string {
   return RECORD_KIND_LABELS[kind] ?? kind
+}
+
+/**
+ * StatusBadge domain for a given record kind, so the project dashboard and
+ * records table render each record with its own lifecycle vocabulary rather
+ * than forcing every kind through the experiment vocabulary.
+ */
+export function statusDomainForKind(
+  kind: string,
+): 'experiment' | 'sample' | 'reagent' | 'protocol' | 'notebook_template' {
+  switch (kind) {
+    case 'sample':
+      return 'sample'
+    case 'reagent':
+      return 'reagent'
+    case 'protocol_template':
+      return 'protocol'
+    case 'notebook_template':
+      return 'notebook_template'
+    default:
+      // experiment, report, file and any unknown kind use the experiment
+      // lifecycle, which is the most general scientific state machine.
+      return 'experiment'
+  }
+}
+
+/**
+ * Compact relative timestamp ("2h ago", "3d ago") for last-activity columns.
+ * Falls back to a formatted date for anything older than a week so the value
+ * stays unambiguous in dense tables. Returns an en-CA-style absolute date if
+ * the input is missing.
+ */
+export function formatRelativeTime(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const then = Date.parse(iso)
+  if (Number.isNaN(then)) return '—'
+  const seconds = Math.round((Date.now() - then) / 1000)
+  if (seconds < 0) return 'just now'
+  if (seconds < 60) return 'just now'
+  const minutes = Math.round(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.round(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.round(hours / 24)
+  if (days < 7) return `${days}d ago`
+  const weeks = Math.round(days / 7)
+  if (weeks < 5) return `${weeks}w ago`
+  return formatDate(iso)
+}
+
+/** Stable absolute date label for dense tables and metadata strips. */
+export function formatDate(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const parsed = Date.parse(iso)
+  if (Number.isNaN(parsed)) return '—'
+  return new Date(parsed).toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  })
 }
 
 /**

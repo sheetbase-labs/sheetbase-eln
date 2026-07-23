@@ -74,6 +74,14 @@ async function parseError(response: Response): Promise<DataClientError> {
 
 export interface DataClient {
   list: <T>(resource: string, query?: string) => Promise<T[]>
+  /**
+   * Cheap total count for a resource query. Uses PostgREST's
+   * `Prefer: count=exact` + `Range: 0-0` so at most one row is transferred
+   * and the total is read from the `Content-Range` header
+   * (`0-0/<total>`). Falls back to counting the returned rows when the
+   * header is absent (e.g. a proxy that strips it).
+   */
+  count: (resource: string, query?: string) => Promise<number>
   rpc: <T>(name: string, args: Record<string, unknown>) => Promise<T>
   insert: <T>(resource: string, row: Record<string, unknown>) => Promise<T>
   patch: <T>(
@@ -108,6 +116,35 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
         headers: { accept: 'application/json' },
       })
       return (await response.json()) as T[]
+    },
+
+    async count(resource: string, query = ''): Promise<number> {
+      const response = await request(`/${resource}${query}`, {
+        method: 'GET',
+        // Ask PostgREST for an exact total via the Content-Range header while
+        // limiting the body to a single row so counts stay cheap at scale.
+        headers: {
+          accept: 'application/json',
+          prefer: 'count=exact',
+          range: '0-0',
+        },
+      })
+      const contentRange = response.headers.get('content-range')
+      if (contentRange) {
+        const match = contentRange.match(/\/(\d+)$/)
+        if (match) {
+          // Drain the body so the connection can be reused.
+          await response.text().catch(() => {})
+          return Number(match[1])
+        }
+      }
+      // No count header: count whatever was returned.
+      try {
+        const rows = (await response.json()) as unknown[]
+        return rows.length
+      } catch {
+        return 0
+      }
     },
 
     async rpc<T>(name: string, args: Record<string, unknown>): Promise<T> {

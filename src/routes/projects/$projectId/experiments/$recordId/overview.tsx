@@ -228,7 +228,6 @@ function ExperimentOverviewRoute() {
             record={record}
             projectName={project?.title ?? null}
             projectId={projectId}
-
           />
           <OverviewSkeleton />
         </AppShell>
@@ -253,7 +252,6 @@ function ExperimentOverviewRoute() {
             record={record}
             projectName={project?.title ?? null}
             projectId={projectId}
-
           />
           <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4">
             <p role="alert" className="text-sm text-destructive">
@@ -301,7 +299,6 @@ function ExperimentOverviewRoute() {
             record={record}
             projectName={project?.title ?? null}
             projectId={projectId}
-
           />
           {blocksQuery.error && !viewingRevision ? (
             <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4">

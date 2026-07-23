@@ -2,7 +2,7 @@
 'use client'
 
 import * as React from 'react'
-import { Link, useRouter, useRouterState } from '@tanstack/react-router'
+import { Link, useNavigate, useRouter, useRouterState } from '@tanstack/react-router'
 import {
   Activity as ActivityIcon,
   Bell,
@@ -712,10 +712,13 @@ function CommandPalette({
   setDensity: (d: 'comfortable' | 'compact') => void
   onSignOut: () => void
 }) {
+  const navigate = useNavigate()
   const go = (to: string) => {
     onNavigate()
     onOpenChange(false)
-    window.location.assign(to)
+    // Client-side navigation — a full page reload here would discard the
+    // TanStack Router cache and live-event subscriptions.
+    void navigate({ to })
   }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

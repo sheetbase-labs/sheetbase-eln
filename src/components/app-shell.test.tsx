@@ -25,6 +25,7 @@ vi.mock('#/components/theme-provider', () => ({
 let currentPathname = '/projects'
 vi.mock('@tanstack/react-router', () => ({
   useRouter: () => ({ invalidate: vi.fn() }),
+  useNavigate: () => vi.fn(),
   useRouterState: ({
     select,
   }: {

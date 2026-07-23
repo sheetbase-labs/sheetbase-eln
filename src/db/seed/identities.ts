@@ -137,4 +137,7 @@ export const DEMO_TEMPLATE_IDS = {
   templateRevision: '00000000-0000-4000-8000-0000000001a8',
   // Source-template link from instantiated record to template
   templateLink: '00000000-0000-4000-8000-0000000001a9',
+  // SCI-007: submitted revision of the Virus Stability experiment for
+  // the locked/historical overview state.
+  experimentRevision: '00000000-0000-4000-8000-0000000001b0',
 } as const

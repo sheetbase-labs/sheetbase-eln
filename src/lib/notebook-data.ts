@@ -293,6 +293,10 @@ export const notebookQueryKeys = {
   links: (recordId: string) => ['notebook', 'links', recordId] as const,
   fileObject: (fileRecordId: string) =>
     ['notebook', 'file-object', fileRecordId] as const,
+  // SCI-007: overview revision snapshot — scoped by revision id so navigating
+  // between revisions always refetches.
+  revision: (revisionId: string) =>
+    ['overview', 'revision', revisionId] as const,
 }
 
 /**
@@ -322,4 +326,53 @@ export function recordKindLabel(kind: string): string {
  */
 export function recordPath(projectId: string, recordId: string): string {
   return `/projects/${projectId}/experiments/${recordId}`
+}
+
+// ---------------------------------------------------------------------------
+// SCI-007: overview revision fetch and overview configuration update.
+// ---------------------------------------------------------------------------
+
+export interface RevisionWire {
+  id: string
+  record_id: string
+  structure_version: number
+  metadata_version: number
+  metadata_snapshot: Record<string, unknown>
+  block_snapshot: Array<{
+    id: string
+    type: string
+    payload: Record<string, unknown>
+    payload_schema_version: number
+    order: number
+    version: number
+  }>
+  reason: string
+  superseded_by_revision_id: string | null
+  created_at: string
+  created_by_user_id: string
+}
+
+/** Fetch an immutable revision snapshot for historical overview rendering. */
+export function fetchRevision(client: DataClient, revisionId: string) {
+  return client
+    .list<RevisionWire>('revisions', `?id=eq.${revisionId}&limit=1`)
+    .then((rows) => (rows.length > 0 ? rows[0] : null))
+}
+
+/**
+ * Update a record's `properties` JSONB through a direct PATCH. Used by the
+ * overview to persist `properties.overview.excludedBlockIds`. The existing
+ * records_update RLS policy enforces workspace membership; the AFTER UPDATE
+ * trigger emits a durable change event with actor attribution.
+ */
+export function updateRecordProperties(
+  client: DataClient,
+  recordId: string,
+  properties: Record<string, unknown>,
+) {
+  return client.patch<Pick<RecordWire, 'id' | 'properties'>>(
+    'records',
+    `?id=eq.${recordId}&select=id,properties`,
+    { properties },
+  )
 }

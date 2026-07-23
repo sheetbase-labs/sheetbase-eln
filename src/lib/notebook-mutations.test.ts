@@ -22,6 +22,7 @@ function makeClient(
   return {
     list: vi.fn(async () => []),
     insert: vi.fn(async () => ({})) as unknown as DataClient['insert'],
+    patch: vi.fn(async () => []),
     rpc: vi.fn(async (name, args) =>
       rpcImpl(name, args),
     ) as unknown as DataClient['rpc'],

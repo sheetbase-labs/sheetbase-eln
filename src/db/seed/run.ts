@@ -10,7 +10,7 @@
  * (identity/workspace/project steps arrive with API-003).
  */
 import { config } from 'dotenv'
-import { eq } from 'drizzle-orm'
+import { asc, eq } from 'drizzle-orm'
 import { createHash } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
@@ -1388,6 +1388,49 @@ export const demoSteps: Array<SeedStep> = [
           target: schema.blocks.id,
           set: { type: 'plate_map', payload, order: 24 },
         })
+    },
+  },
+  // -------------------------------------------------------------------------
+  // SCI-007: submitted revision of the Virus Stability experiment for the
+  // locked/historical overview state. Snapshots all blocks that exist at
+  // seed time so the overview can render a historical version.
+  // -------------------------------------------------------------------------
+  {
+    name: 'demo SCI-007 submitted revision: Virus Stability',
+    run: async (db) => {
+      // Query the live blocks to build the snapshot.
+      const blocks = await db
+        .select()
+        .from(schema.blocks)
+        .where(eq(schema.blocks.recordId, DEMO_VIRUS_STABILITY_RECORD_ID))
+        .orderBy(asc(schema.blocks.order))
+      await db
+        .insert(schema.revisions)
+        .values({
+          id: DEMO_TEMPLATE_IDS.experimentRevision,
+          recordId: DEMO_VIRUS_STABILITY_RECORD_ID,
+          structureVersion: 1,
+          metadataVersion: 1,
+          reason: 'submit',
+          createdByUserId: FIXTURE_USER_ID,
+          createdAt: new Date('2026-07-22T10:00:00Z'),
+          updatedAt: new Date('2026-07-22T10:00:00Z'),
+          metadataSnapshot: {
+            identifier: DEMO_VIRUS_STABILITY_RECORD_IDENTIFIER,
+            title: 'Virus Stability at 4°C',
+            status: 'in_progress',
+            tags: ['stability', 'qPCR', 'LVV-CAR-T'],
+          },
+          blockSnapshot: blocks.map((b) => ({
+            id: b.id,
+            type: b.type,
+            payload: b.payload,
+            payload_schema_version: b.payloadSchemaVersion,
+            order: Number(b.order),
+            version: b.version,
+          })),
+        })
+        .onConflictDoNothing({ target: schema.revisions.id })
     },
   },
   // -------------------------------------------------------------------------

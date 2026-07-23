@@ -76,6 +76,11 @@ export interface DataClient {
   list: <T>(resource: string, query?: string) => Promise<T[]>
   rpc: <T>(name: string, args: Record<string, unknown>) => Promise<T>
   insert: <T>(resource: string, row: Record<string, unknown>) => Promise<T>
+  patch: <T>(
+    resource: string,
+    query: string,
+    row: Record<string, unknown>,
+  ) => Promise<T[]>
 }
 
 export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
@@ -132,6 +137,23 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
         body: JSON.stringify(row),
       })
       return (await response.json()) as T
+    },
+
+    async patch<T>(
+      resource: string,
+      query: string,
+      row: Record<string, unknown>,
+    ): Promise<T[]> {
+      const response = await request(`/${resource}${query}`, {
+        method: 'PATCH',
+        headers: {
+          'content-type': 'application/json',
+          accept: 'application/json',
+          prefer: 'return=representation',
+        },
+        body: JSON.stringify(row),
+      })
+      return (await response.json()) as T[]
     },
   }
 }

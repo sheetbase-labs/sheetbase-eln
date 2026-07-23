@@ -232,6 +232,13 @@
       "when": 1784642500000,
       "tag": "0032_sci_008_search_fixes",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1784642600000,
+      "tag": "0033_sci_008_search_empty_query_notice",
+      "breakpoints": true
     }
   ]
 }

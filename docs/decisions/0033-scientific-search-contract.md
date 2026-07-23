@@ -235,6 +235,19 @@ excerpt, not the full text.
 ### 10. Pagination
 
 The function accepts `p_limit` (default 20, max 100) and `p_offset` (default 0).
-The response includes the total count via a separate `p_count` output parameter
-so the UI can render pagination without a second request. The count is the
-actual number of matching rows after filters, not an estimate.
+Every result row carries a `total_count` column (a `count(*) OVER ()` window
+function) holding the total number of matching rows after filters, before
+pagination. The UI renders pagination from this column without a second
+request. The count is the actual number of matching rows, not an estimate.
+
+**Empty/stop-word query behaviour:** an empty query means "browse all records"
+mode — no tsquery match is required, results are ordered by `updated_at`
+descending, and `matched_context` is a title/identifier excerpt. A query that
+contains only stop words (e.g. "the a an") falls back to browse mode. The
+`v_tsquery` is left `NULL` in browse mode and is never evaluated by the
+`@@` operator, `ts_headline` or `ts_rank` (all are guarded by
+`CASE WHEN v_has_query` branches), so no empty-tsquery NOTICE is emitted for
+the common browse path. PostgreSQL may still emit a benign
+`text-search query contains only stop words` NOTICE for stop-word-only input
+from `plainto_tsquery` itself; this is a server-level notice (not an error)
+and the function correctly falls back to browse mode.

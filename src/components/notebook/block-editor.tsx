@@ -25,7 +25,32 @@ import {
 } from '#/lib/blocks'
 import type { RichTextPayload } from '#/lib/blocks'
 import type { NotebookBlock, NotebookRecord } from '#/lib/notebook-data'
-import { Button } from '#/components/ui'
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  Checkbox,
+  Input,
+  Label,
+  Select,
+  Separator,
+  Textarea,
+} from '#/components/ui'
+import {
+  Plus,
+  Trash2,
+  File as FileIcon,
+  FileText,
+  FileSpreadsheet,
+  Image as ImageIcon,
+  Snowflake,
+  Pencil,
+  Link2,
+  Pin,
+  FlaskConical,
+  Beaker,
+} from 'lucide-react'
 import { RecordPicker } from '#/components/scientific'
 import type { RecordPickerResult } from '#/components/scientific'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -234,14 +259,13 @@ function summarizePayload(
 function ValidationErrors({ errors }: { errors: string[] }) {
   if (errors.length === 0) return null
   return (
-    <ul
-      className="mt-2 space-y-1 rounded-md border border-destructive/40 bg-destructive/5 p-2 text-xs text-destructive"
-      role="alert"
-    >
-      {errors.map((e, i) => (
-        <li key={i}>{e}</li>
-      ))}
-    </ul>
+    <Alert variant="destructive" className="mt-2 space-y-1 p-2">
+      <ul className="space-y-1">
+        {errors.map((e, i) => (
+          <li key={i}>{e}</li>
+        ))}
+      </ul>
+    </Alert>
   )
 }
 
@@ -377,23 +401,13 @@ function ChecklistEditor({
 
   if (readOnly) {
     return (
-      <ul className={cn('space-y-1.5', className)}>
+      <ul className={cn('space-y-2', className)}>
         {a.draft.items.length === 0 ? (
           <li className="text-sm text-muted-foreground">No checklist items</li>
         ) : null}
         {a.draft.items.map((item, i) => (
-          <li key={i} className="flex items-start gap-2 text-sm">
-            <span
-              aria-hidden="true"
-              className={cn(
-                'mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-[4px] border text-[10px]',
-                item.checked
-                  ? 'border-primary bg-primary text-primary-foreground'
-                  : 'border-input bg-background',
-              )}
-            >
-              {item.checked ? '✓' : ''}
-            </span>
+          <li key={i} className="flex items-center gap-2.5 text-sm">
+            <Checkbox checked={item.checked} disabled aria-hidden="true" />
             <span
               className={cn(
                 item.checked && 'text-muted-foreground line-through',
@@ -408,31 +422,30 @@ function ChecklistEditor({
   }
 
   return (
-    <div className={cn('space-y-2', className)}>
-      <ul className="space-y-1.5">
+    <div className={cn('space-y-2.5', className)}>
+      <ul className="space-y-2">
         {a.draft.items.map((item, i) => (
-          <li key={i} className="flex items-start gap-2">
+          <li key={i} className="flex items-center gap-2.5">
             <label className="sr-only" htmlFor={`check-${block.id}-${i}`}>
               Item {i + 1} checked
             </label>
-            <input
+            <Checkbox
               id={`check-${block.id}-${i}`}
-              type="checkbox"
               checked={item.checked}
-              onChange={(e) => {
+              onCheckedChange={(checked) => {
                 a.setTouched(true)
                 a.setDraft({
                   items: a.draft.items.map((it, idx) =>
-                    idx === i ? { ...it, checked: e.target.checked } : it,
+                    idx === i ? { ...it, checked: checked === true } : it,
                   ),
                 })
               }}
-              className="mt-1 size-4"
+              className="mt-0"
             />
             <label className="sr-only" htmlFor={`check-text-${block.id}-${i}`}>
               Item {i + 1} text
             </label>
-            <input
+            <Input
               id={`check-text-${block.id}-${i}`}
               type="text"
               value={item.text}
@@ -440,7 +453,10 @@ function ChecklistEditor({
               onChange={(e) => update(i, { text: e.target.value })}
               onBlur={() => a.flush()}
               placeholder={`Item ${i + 1}`}
-              className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm"
+              className={cn(
+                'h-9 min-w-0 flex-1 border-0 bg-transparent px-1 shadow-none focus-visible:ring-1 focus-visible:ring-ring/40 focus-visible:ring-offset-0',
+                item.checked && 'text-muted-foreground line-through',
+              )}
             />
             <Button
               type="button"
@@ -449,13 +465,19 @@ function ChecklistEditor({
               aria-label={`Remove item ${i + 1}`}
               onClick={() => remove(i)}
             >
-              ×
+              <Trash2 />
             </Button>
           </li>
         ))}
       </ul>
-      <Button type="button" variant="ghost" size="sm" onClick={add}>
-        + Add item
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={add}
+        className="text-muted-foreground"
+      >
+        <Plus /> Add item
       </Button>
       <AutosaveFooter
         status={a.status}
@@ -522,16 +544,15 @@ function LinkedRecordEditor({
   if (readOnly) {
     return (
       <div
-        className={cn(
-          'flex flex-wrap items-center gap-2 rounded-md border bg-muted/30 p-3 text-xs',
-          className,
-        )}
+        className={cn('flex flex-wrap items-center gap-2 text-sm', className)}
       >
-        <span className="font-semibold uppercase tracking-wide text-muted-foreground">
+        <Badge variant="outline" className="uppercase">
+          <Link2 className="size-3" />
           {a.draft.linkType}
-        </span>
+        </Badge>
         <span className="font-medium text-foreground">
-          {a.draft.targetKind} {a.draft.targetIdentifier || '—'}
+          {a.draft.targetKind}{' '}
+          <span className="font-mono">{a.draft.targetIdentifier || '—'}</span>
         </span>
         {a.draft.label ? (
           <span className="text-muted-foreground">— {a.draft.label}</span>
@@ -541,27 +562,26 @@ function LinkedRecordEditor({
   }
 
   return (
-    <div className={cn('space-y-2', className)}>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+    <div className={cn('space-y-3', className)}>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Field label="Target kind" htmlFor={`lr-kind-${block.id}`}>
-          <select
+          <Select
             id={`lr-kind-${block.id}`}
             value={a.draft.targetKind}
             onChange={(e) => {
               a.setTouched(true)
               a.setDraft({ ...a.draft, targetKind: e.target.value })
             }}
-            className="h-9 rounded-md border border-input bg-background px-2 text-sm"
           >
             {TARGET_KINDS.map((k) => (
               <option key={k} value={k}>
                 {k}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
         <Field label="Identifier" htmlFor={`lr-id-${block.id}`}>
-          <input
+          <Input
             id={`lr-id-${block.id}`}
             type="text"
             value={a.draft.targetIdentifier}
@@ -572,28 +592,27 @@ function LinkedRecordEditor({
             }}
             onBlur={() => a.flush()}
             placeholder="EXP-2025-0001"
-            className="h-9 w-full rounded-md border border-input bg-background px-3 font-mono text-sm"
+            className="font-mono"
           />
         </Field>
         <Field label="Link type" htmlFor={`lr-link-${block.id}`}>
-          <select
+          <Select
             id={`lr-link-${block.id}`}
             value={a.draft.linkType}
             onChange={(e) => {
               a.setTouched(true)
               a.setDraft({ ...a.draft, linkType: e.target.value })
             }}
-            className="h-9 rounded-md border border-input bg-background px-2 text-sm"
           >
             {LINK_TYPES.map((t) => (
               <option key={t} value={t}>
                 {t}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
         <Field label="Label" htmlFor={`lr-label-${block.id}`}>
-          <input
+          <Input
             id={`lr-label-${block.id}`}
             type="text"
             value={a.draft.label}
@@ -603,7 +622,6 @@ function LinkedRecordEditor({
             }}
             onBlur={() => a.flush()}
             placeholder="Optional"
-            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
           />
         </Field>
       </div>
@@ -633,13 +651,13 @@ function Field({
   children: React.ReactNode
 }) {
   return (
-    <div className="space-y-1">
-      <label
+    <div className="space-y-1.5">
+      <Label
         htmlFor={htmlFor}
         className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
       >
         {label}
-      </label>
+      </Label>
       {children}
     </div>
   )
@@ -657,23 +675,38 @@ function ProtocolReferenceEditor({ block, pinProtocol }: BlockEditorProps) {
     enabled: !pinned,
   })
   if (pinned) {
+    const status = String(block.payload.approvalStatus)
+    const statusVariant =
+      status === 'Approved'
+        ? 'success'
+        : status === 'Rejected'
+          ? 'danger'
+          : 'warning'
     return (
-      <div className="space-y-1">
-        <p className="font-medium">{String(block.payload.protocolTitle)}</p>
-        <p className="text-xs text-muted-foreground">
-          {String(block.payload.protocolIdentifier)} · Version{' '}
-          {String(block.payload.version)} ·{' '}
-          {String(block.payload.approvalStatus)}
-        </p>
-        <p className="text-xs text-muted-foreground">
+      <Card className="space-y-2 p-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="space-y-1">
+            <p className="text-sm font-medium">
+              {String(block.payload.protocolTitle)}
+            </p>
+            <p className="font-mono text-xs text-muted-foreground">
+              {String(block.payload.protocolIdentifier)} · Version{' '}
+              {String(block.payload.version)}
+            </p>
+          </div>
+          <Badge variant={statusVariant}>{status}</Badge>
+        </div>
+        <Separator />
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Pin className="size-3" />
           Pinned {new Date(String(block.payload.pinnedAt)).toLocaleString()}
         </p>
-      </div>
+      </Card>
     )
   }
   return (
-    <div className="space-y-2 rounded-md border">
-      <p className="px-3 pt-3 text-sm font-medium">Select a protocol version</p>
+    <Card className="space-y-3 p-3">
+      <p className="text-sm font-medium">Select a protocol version</p>
       <RecordPicker
         kind="protocol_template"
         results={records.data ?? []}
@@ -696,11 +729,11 @@ function ProtocolReferenceEditor({ block, pinProtocol }: BlockEditorProps) {
         }}
       />
       {error ? (
-        <p role="alert" className="px-3 pb-3 text-xs text-destructive">
+        <Alert variant="destructive" className="p-2">
           {error}
-        </p>
+        </Alert>
       ) : null}
-    </div>
+    </Card>
   )
 }
 
@@ -725,26 +758,32 @@ function ProcedureStepEditor(props: BlockEditorProps) {
   return (
     <div className="space-y-3">
       <label className="flex cursor-pointer items-start gap-3">
-        <input
-          type="checkbox"
+        <Checkbox
           checked={a.draft.completed}
           disabled={props.readOnly}
-          onChange={(event) => {
+          onCheckedChange={(checked) => {
             a.setTouched(true)
-            a.setDraft({ ...a.draft, completed: event.target.checked })
+            a.setDraft({ ...a.draft, completed: checked === true })
           }}
           onBlur={() => a.flush()}
-          className="mt-1 size-4 rounded border-input"
+          className="mt-1"
         />
         <span>
           <span className="block text-xs font-medium text-muted-foreground">
             Step {String(payload.stepNumber ?? '')}
           </span>
-          <span className="block text-sm">{String(payload.text)}</span>
+          <span
+            className={cn(
+              'block text-sm',
+              a.draft.completed && 'text-muted-foreground line-through',
+            )}
+          >
+            {String(payload.text)}
+          </span>
         </span>
       </label>
       <Field label="Execution note" htmlFor={`step-note-${block.id}`}>
-        <textarea
+        <Textarea
           id={`step-note-${block.id}`}
           value={String(a.draft.note)}
           disabled={props.readOnly}
@@ -754,7 +793,6 @@ function ProcedureStepEditor(props: BlockEditorProps) {
           }}
           onBlur={() => a.flush()}
           rows={2}
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
         />
       </Field>
       <AutosaveFooter
@@ -807,19 +845,32 @@ function MaterialsEditor(props: BlockEditorProps) {
           No materials linked yet.
         </p>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {a.draft.items.map((item, index) => (
             <div
               key={item.id}
-              className="grid gap-2 rounded-md border p-3 sm:grid-cols-[1fr_7rem_7rem_auto]"
+              className="grid items-center gap-3 rounded-md border p-3 sm:grid-cols-[1fr_8rem_7rem_auto]"
             >
-              <div>
-                <p className="text-sm font-medium">{item.title}</p>
+              <div className="min-w-0 space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <p className="truncate text-sm font-medium">{item.title}</p>
+                  <Badge
+                    variant={item.kind === 'sample' ? 'info' : 'violet'}
+                    className="shrink-0"
+                  >
+                    {item.kind === 'sample' ? (
+                      <FlaskConical className="size-3" />
+                    ) : (
+                      <Beaker className="size-3" />
+                    )}
+                    {item.kind}
+                  </Badge>
+                </div>
                 <p className="font-mono text-xs text-muted-foreground">
                   {item.identifier}
                 </p>
               </div>
-              <input
+              <Input
                 aria-label={`Quantity for ${item.title}`}
                 type="number"
                 min="0"
@@ -834,9 +885,9 @@ function MaterialsEditor(props: BlockEditorProps) {
                   updateItems(items)
                 }}
                 onBlur={() => a.flush()}
-                className="h-9 rounded-md border border-input px-2 text-sm"
+                className="text-right font-mono tabular-nums"
               />
-              <input
+              <Input
                 aria-label={`Unit for ${item.title}`}
                 value={item.unit.symbol}
                 onChange={(event) => {
@@ -848,12 +899,13 @@ function MaterialsEditor(props: BlockEditorProps) {
                   updateItems(items)
                 }}
                 onBlur={() => a.flush()}
-                className="h-9 rounded-md border border-input px-2 text-sm"
+                className="font-mono"
               />
               <Button
                 type="button"
                 variant="ghost"
-                size="sm"
+                size="icon-sm"
+                aria-label={`Remove ${item.title}`}
                 onClick={() =>
                   updateItems(
                     a.draft.items.filter((x) => x.id !== item.id),
@@ -861,25 +913,26 @@ function MaterialsEditor(props: BlockEditorProps) {
                   )
                 }
               >
-                Remove
+                <Trash2 />
               </Button>
             </div>
           ))}
         </div>
       )}
-      <div className="space-y-3 rounded-md border p-3">
+      <Card className="space-y-3 p-3">
         <div className="flex gap-2">
           {(['sample', 'reagent'] as const).map((value) => (
             <Button
               key={value}
               type="button"
               size="sm"
-              variant={kind === value ? 'secondary' : 'ghost'}
+              variant={kind === value ? 'secondary' : 'outline'}
               onClick={() => {
                 setKind(value)
                 setSelected(null)
               }}
             >
+              {value === 'sample' ? <FlaskConical /> : <Beaker />}
               {value === 'sample' ? 'Samples' : 'Reagents'}
             </Button>
           ))}
@@ -894,8 +947,8 @@ function MaterialsEditor(props: BlockEditorProps) {
           selectedId={selected?.id}
         />
         {selected ? (
-          <div className="grid gap-2 sm:grid-cols-3">
-            <input
+          <div className="grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto]">
+            <Input
               aria-label="Material quantity"
               type="number"
               min="0"
@@ -903,24 +956,25 @@ function MaterialsEditor(props: BlockEditorProps) {
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
               placeholder="Quantity"
-              className="h-9 rounded-md border border-input px-2 text-sm"
+              className="font-mono tabular-nums"
             />
-            <input
+            <Input
               aria-label="Canonical unit code"
               value={unitCode}
               onChange={(e) => setUnitCode(e.target.value)}
               placeholder="Unit code (uL)"
-              className="h-9 rounded-md border border-input px-2 text-sm"
+              className="font-mono"
             />
-            <input
+            <Input
               aria-label="Unit symbol"
               value={materialUnitSymbol}
               onChange={(e) => setMaterialUnitSymbol(e.target.value)}
               placeholder="Symbol (µL)"
-              className="h-9 rounded-md border border-input px-2 text-sm"
+              className="font-mono"
             />
             <Button
               type="button"
+              size="sm"
               disabled={
                 !(
                   Number(quantity) > 0 &&
@@ -954,11 +1008,11 @@ function MaterialsEditor(props: BlockEditorProps) {
                 setMaterialUnitSymbol('')
               }}
             >
-              Add material
+              <Plus /> Add material
             </Button>
           </div>
         ) : null}
-      </div>
+      </Card>
       <AutosaveFooter
         status={a.status}
         error={a.error}
@@ -1022,17 +1076,22 @@ function FileBlockEditor({ block, onAttachFile, readOnly }: BlockEditorProps) {
     const name = String(block.payload.displayName ?? 'File')
     const mediaType = String(block.payload.mediaType ?? '')
     const byteSize = Number(block.payload.byteSize ?? 0)
+    const FileGlyph = fileIconFor(mediaType)
     return (
-      <div className="space-y-1">
-        <p className="font-medium">{name}</p>
-        <p className="font-mono text-xs text-muted-foreground">
-          {mediaType || 'unknown'} · {formatBytes(byteSize)}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          File attached. Download and lifecycle are available in the preview and
-          inspector.
-        </p>
-      </div>
+      <Card className="flex items-center gap-3 p-3">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+          <FileGlyph className="size-5" />
+        </div>
+        <div className="min-w-0 space-y-0.5">
+          <p className="truncate text-sm font-medium">{name}</p>
+          <p className="font-mono text-xs text-muted-foreground tabular-nums">
+            {mediaType || 'unknown'} · {formatBytes(byteSize)}
+          </p>
+        </div>
+        <Badge variant="success" className="ml-auto shrink-0">
+          Attached
+        </Badge>
+      </Card>
     )
   }
 
@@ -1064,13 +1123,18 @@ function FileBlockEditor({ block, onAttachFile, readOnly }: BlockEditorProps) {
   }
 
   return (
-    <div className="space-y-2 rounded-md border p-3">
-      <p className="text-sm font-medium">Attach a file</p>
-      <p className="text-xs text-muted-foreground">
-        Allowed: CSV, text, JSON, PDF, common images and Office formats. Limit{' '}
-        {formatBytes(FILE_MAX_BYTES)}. The filename is display metadata only.
-      </p>
-      <input
+    <div className="space-y-3 rounded-md border border-dashed border-input bg-muted/20 p-6 text-center">
+      <div className="mx-auto flex size-10 items-center justify-center rounded-md bg-background text-muted-foreground shadow-xs">
+        <FileText className="size-5" />
+      </div>
+      <div className="space-y-1">
+        <p className="text-sm font-medium">Attach a file</p>
+        <p className="text-xs text-muted-foreground">
+          CSV, text, JSON, PDF, images &amp; Office formats · up to{' '}
+          {formatBytes(FILE_MAX_BYTES)}
+        </p>
+      </div>
+      <Input
         ref={inputRef}
         type="file"
         aria-label="Attach a file"
@@ -1081,7 +1145,7 @@ function FileBlockEditor({ block, onAttachFile, readOnly }: BlockEditorProps) {
           // Reset so selecting the same file again re-triggers.
           event.target.value = ''
         }}
-        className="block w-full text-sm file:mr-3 file:rounded-md file:border file:border-input file:bg-background file:px-3 file:py-1.5 file:text-sm file:font-medium hover:file:bg-accent"
+        className="mx-auto h-auto w-full max-w-xs rounded-none border-0 bg-transparent p-0 text-xs shadow-none file:mr-3 file:rounded-md file:border file:border-input file:bg-background file:px-3 file:py-1.5 file:text-sm file:font-medium hover:file:bg-accent"
       />
       {pending ? (
         <p role="status" className="text-xs text-muted-foreground">
@@ -1089,12 +1153,26 @@ function FileBlockEditor({ block, onAttachFile, readOnly }: BlockEditorProps) {
         </p>
       ) : null}
       {error ? (
-        <p role="alert" className="text-xs text-destructive">
+        <Alert variant="destructive" className="mx-auto max-w-md text-left">
           {error}
-        </p>
+        </Alert>
       ) : null}
     </div>
   )
+}
+
+/** Pick a lucide file glyph from the media type. */
+function fileIconFor(mediaType: string) {
+  if (mediaType.startsWith('image/')) return ImageIcon
+  if (
+    mediaType.includes('spreadsheet') ||
+    mediaType.includes('csv') ||
+    mediaType.includes('excel')
+  )
+    return FileSpreadsheet
+  if (mediaType.startsWith('text/') || mediaType === 'application/json')
+    return FileText
+  return FileIcon
 }
 
 // ---------------------------------------------------------------------------
@@ -1248,9 +1326,9 @@ function ChartBlockEditor({
       />
 
       {readOnly ? null : (
-        <div className="space-y-4 rounded-md border p-3">
+        <Card className="space-y-4 p-3">
           <ChartField label="Title">
-            <input
+            <Input
               aria-label="Chart title"
               value={draft.title ?? ''}
               onChange={(e) => {
@@ -1258,18 +1336,16 @@ function ChartBlockEditor({
                 a.setDraft({ ...draft, title: e.target.value })
               }}
               onBlur={() => a.flush()}
-              className="h-9 w-full rounded-md border border-input px-2 text-sm"
             />
           </ChartField>
 
           <ChartField label="Dataset">
-            <select
+            <Select
               aria-label="Dataset"
               value={selectedTableId}
               onChange={(e) => chooseDataset(e.target.value)}
               onBlur={() => a.flush()}
               disabled={!!frozen || tablesQuery.isLoading}
-              className="h-9 w-full rounded-md border border-input px-2 text-sm"
             >
               <option value="">
                 {tablesQuery.isLoading
@@ -1281,12 +1357,12 @@ function ChartBlockEditor({
                   {t.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </ChartField>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <ChartField label="Chart type">
-              <select
+              <Select
                 aria-label="Chart type"
                 value={spec?.type ?? 'line'}
                 onChange={(e) =>
@@ -1294,17 +1370,16 @@ function ChartBlockEditor({
                 }
                 onBlur={() => a.flush()}
                 disabled={!!frozen || !spec}
-                className="h-9 w-full rounded-md border border-input px-2 text-sm"
               >
                 {CHART_TYPES.map((t) => (
                   <option key={t} value={t}>
                     {t.charAt(0).toUpperCase() + t.slice(1)}
                   </option>
                 ))}
-              </select>
+              </Select>
             </ChartField>
             <ChartField label="Series field (optional)">
-              <select
+              <Select
                 aria-label="Series field"
                 value={bindingValue(spec?.fields.series)}
                 onChange={(e) =>
@@ -1312,14 +1387,13 @@ function ChartBlockEditor({
                 }
                 onBlur={() => a.flush()}
                 disabled={!!frozen || !spec}
-                className="h-9 w-full rounded-md border border-input px-2 text-sm"
               >
                 <option value="">(none)</option>
                 {fieldOptions}
-              </select>
+              </Select>
             </ChartField>
             <ChartField label="X field">
-              <select
+              <Select
                 aria-label="X field"
                 value={bindingValue(spec?.fields.x)}
                 onChange={(e) =>
@@ -1327,14 +1401,13 @@ function ChartBlockEditor({
                 }
                 onBlur={() => a.flush()}
                 disabled={!!frozen || !spec}
-                className="h-9 w-full rounded-md border border-input px-2 text-sm"
               >
                 <option value="">(none)</option>
                 {fieldOptions}
-              </select>
+              </Select>
             </ChartField>
             <ChartField label="Y field">
-              <select
+              <Select
                 aria-label="Y field"
                 value={bindingValue(spec?.fields.y)}
                 onChange={(e) =>
@@ -1347,14 +1420,13 @@ function ChartBlockEditor({
                 }
                 onBlur={() => a.flush()}
                 disabled={!!frozen || !spec}
-                className="h-9 w-full rounded-md border border-input px-2 text-sm"
               >
                 <option value="">(none)</option>
                 {fieldOptions}
-              </select>
+              </Select>
             </ChartField>
             <ChartField label="X axis scale">
-              <select
+              <Select
                 aria-label="X axis scale"
                 value={spec?.display.axes.x.scale ?? 'linear'}
                 onChange={(e) =>
@@ -1370,17 +1442,16 @@ function ChartBlockEditor({
                 }
                 onBlur={() => a.flush()}
                 disabled={!!frozen || !spec}
-                className="h-9 w-full rounded-md border border-input px-2 text-sm"
               >
                 {AXIS_SCALES_EDITOR.map((s) => (
                   <option key={s} value={s}>
                     {s}
                   </option>
                 ))}
-              </select>
+              </Select>
             </ChartField>
             <ChartField label="Y axis scale">
-              <select
+              <Select
                 aria-label="Y axis scale"
                 value={spec?.display.axes.y.scale ?? 'linear'}
                 onChange={(e) =>
@@ -1396,19 +1467,18 @@ function ChartBlockEditor({
                 }
                 onBlur={() => a.flush()}
                 disabled={!!frozen || !spec}
-                className="h-9 w-full rounded-md border border-input px-2 text-sm"
               >
                 {AXIS_SCALES_EDITOR.map((s) => (
                   <option key={s} value={s}>
                     {s}
                   </option>
                 ))}
-              </select>
+              </Select>
             </ChartField>
           </div>
 
           <ChartField label="Provenance note (optional)">
-            <input
+            <Input
               aria-label="Provenance note"
               value={draft.provenance ?? ''}
               onChange={(e) => {
@@ -1416,16 +1486,16 @@ function ChartBlockEditor({
                 a.setDraft({ ...draft, provenance: e.target.value })
               }}
               onBlur={() => a.flush()}
-              className="h-9 w-full rounded-md border border-input px-2 text-sm"
             />
           </ChartField>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {frozen ? (
               <>
-                <span className="inline-flex items-center gap-1 rounded-md border bg-muted px-3 py-1.5 text-xs">
+                <Badge variant="warning">
+                  <Snowflake className="size-3" />
                   Frozen snapshot — immutable
-                </span>
+                </Badge>
                 {onUnfreezeChart ? (
                   <Button
                     type="button"
@@ -1433,7 +1503,7 @@ function ChartBlockEditor({
                     size="sm"
                     onClick={() => void onUnfreezeChart()}
                   >
-                    Unfreeze (edit live again)
+                    <Pencil /> Unfreeze (edit live again)
                   </Button>
                 ) : null}
               </>
@@ -1450,11 +1520,11 @@ function ChartBlockEditor({
                     : 'Freeze an immutable snapshot of the current dataset'
                 }
               >
-                Freeze snapshot
+                <Snowflake /> Freeze snapshot
               </Button>
             ) : null}
           </div>
-        </div>
+        </Card>
       )}
 
       <AutosaveFooter
@@ -1680,24 +1750,23 @@ function PlateMapBlockEditor({
   return (
     <div className="space-y-3">
       {/* Title */}
-      <label className="block">
-        <span className="text-xs font-medium text-muted-foreground">Title</span>
-        <input
+      <Field label="Title" htmlFor={`pm-title-${block.id}`}>
+        <Input
+          id={`pm-title-${block.id}`}
           type="text"
           value={draft.title ?? ''}
           onChange={(e) => updateDraft({ title: e.target.value })}
           placeholder="e.g. qPCR titration plate"
-          className="mt-1 w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm"
         />
-      </label>
+      </Field>
 
       {/* Format info */}
       {spec ? (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span className="rounded-full bg-muted px-2 py-0.5 font-medium">
-            96-well (8×12)
+          <Badge variant="secondary">96-well (8×12)</Badge>
+          <span className="tabular-nums">
+            {spec.wells.length} wells assigned
           </span>
-          <span>{spec.wells.length} wells assigned</span>
         </div>
       ) : (
         <Button variant="outline" size="sm" onClick={() => ensureSpec()}>
@@ -1722,7 +1791,7 @@ function PlateMapBlockEditor({
           </div>
 
           {/* Inspector */}
-          <div className="space-y-3 rounded-md border p-3">
+          <Card className="space-y-3 p-3">
             {selectedWellCode ? (
               <WellInspector
                 wellCode={selectedWellCode}
@@ -1779,7 +1848,7 @@ function PlateMapBlockEditor({
               spec={spec}
               onChange={(validation) => updateSpec({ validation })}
             />
-          </div>
+          </Card>
         </div>
       ) : null}
 
@@ -1838,38 +1907,39 @@ function WellInspector({
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-medium">Well {wellCode}</h4>
         {well ? (
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={onRemoveWell}
-            className="text-xs text-destructive hover:underline"
+            className="text-xs text-destructive"
           >
-            Remove
-          </button>
+            <Trash2 /> Remove
+          </Button>
         ) : null}
       </div>
 
       {/* Role selector */}
-      <label className="block">
-        <span className="text-xs font-medium text-muted-foreground">Role</span>
-        <select
+      <Field label="Role" htmlFor={`well-role-${wellCode}`}>
+        <Select
+          id={`well-role-${wellCode}`}
           value={role}
           onChange={(e) => onAssignRole(e.target.value as AssignmentRole)}
-          className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
         >
           {ASSIGNMENT_ROLES.map((r) => (
             <option key={r} value={r}>
               {ROLE_STYLES[r].label}
             </option>
           ))}
-        </select>
-      </label>
+        </Select>
+      </Field>
 
       {/* Sample link (for sample and control roles) */}
       {role !== 'empty' && role !== 'blank' ? (
-        <div className="space-y-1">
-          <span className="text-xs font-medium text-muted-foreground">
+        <div className="space-y-1.5">
+          <Label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             Sample
-          </span>
+          </Label>
           {well?.sampleRef ? (
             <div className="flex items-center justify-between gap-2 rounded-md border bg-muted/20 px-2 py-1.5">
               <div className="min-w-0">
@@ -1881,13 +1951,15 @@ function WellInspector({
                   {well.sampleRef.archived ? ' · archived' : ''}
                 </p>
               </div>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={onClearSample}
-                className="shrink-0 text-xs text-destructive hover:underline"
+                className="shrink-0 text-xs text-destructive"
               >
                 Clear
-              </button>
+              </Button>
             </div>
           ) : (
             <RecordPicker
@@ -1907,11 +1979,9 @@ function WellInspector({
 
       {/* Replicate */}
       {role !== 'empty' ? (
-        <label className="block">
-          <span className="text-xs font-medium text-muted-foreground">
-            Replicate
-          </span>
-          <input
+        <Field label="Replicate" htmlFor={`well-rep-${wellCode}`}>
+          <Input
+            id={`well-rep-${wellCode}`}
             type="number"
             min={1}
             value={well?.replicate ?? ''}
@@ -1920,20 +1990,20 @@ function WellInspector({
               onSetReplicate(Number.isFinite(v) && v > 0 ? v : 1)
             }}
             placeholder="e.g. 1"
-            className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+            className="font-mono tabular-nums"
           />
-        </label>
+        </Field>
       ) : null}
 
       {/* Volume */}
       {role !== 'empty' ? (
-        <div className="space-y-1">
-          <span className="text-xs font-medium text-muted-foreground">
+        <div className="space-y-1.5">
+          <Label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             Volume
-          </span>
+          </Label>
           {well?.volume ? (
             <div className="flex items-center gap-2">
-              <input
+              <Input
                 type="number"
                 min={0}
                 step="any"
@@ -1944,27 +2014,29 @@ function WellInspector({
                     well.volume!.unit,
                   )
                 }
-                className="w-20 rounded-md border border-input bg-background px-2 py-1 text-sm"
+                className="w-20 font-mono tabular-nums"
               />
-              <input
+              <Input
                 type="text"
                 value={well.volume.unit}
                 onChange={(e) =>
                   onSetVolume(well.volume!.value, e.target.value)
                 }
-                className="w-16 rounded-md border border-input bg-background px-2 py-1 text-sm"
+                className="w-16 font-mono"
               />
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={onClearVolume}
-                className="text-xs text-destructive hover:underline"
+                className="text-xs text-destructive"
               >
                 Clear
-              </button>
+              </Button>
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <input
+              <Input
                 type="number"
                 min={0}
                 step="any"
@@ -1972,7 +2044,7 @@ function WellInspector({
                 onChange={(e) =>
                   onSetVolume(parseFloat(e.target.value) || 0, 'µL')
                 }
-                className="w-20 rounded-md border border-input bg-background px-2 py-1 text-sm"
+                className="w-20 font-mono tabular-nums"
               />
               <span className="text-xs text-muted-foreground">µL</span>
             </div>
@@ -1982,18 +2054,15 @@ function WellInspector({
 
       {/* Notes */}
       {role !== 'empty' ? (
-        <label className="block">
-          <span className="text-xs font-medium text-muted-foreground">
-            Notes
-          </span>
-          <textarea
+        <Field label="Notes" htmlFor={`well-notes-${wellCode}`}>
+          <Textarea
+            id={`well-notes-${wellCode}`}
             value={well?.notes ?? ''}
             onChange={(e) => onSetNotes(e.target.value)}
             placeholder="Optional notes"
             rows={2}
-            className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
           />
-        </label>
+        </Field>
       ) : null}
     </div>
   )
@@ -2008,24 +2077,29 @@ function ValidationConfigEditor({
 }) {
   const v = spec.validation
   return (
-    <details className="space-y-2 rounded-md border p-2">
+    <details className="space-y-3 rounded-md border p-3">
       <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
         Validation config
       </summary>
-      <div className="space-y-2">
-        <div>
-          <span className="text-xs text-muted-foreground">Required roles</span>
-          <div className="mt-1 flex flex-wrap gap-2">
+      <div className="space-y-3">
+        <div className="space-y-1.5">
+          <Label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Required roles
+          </Label>
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
             {ASSIGNMENT_ROLES.filter((r) => r !== 'empty').map((r) => (
-              <label key={r} className="flex items-center gap-1 text-xs">
-                <input
-                  type="checkbox"
+              <label
+                key={r}
+                className="flex items-center gap-1.5 text-xs text-foreground"
+              >
+                <Checkbox
                   checked={v.requiredRoles?.includes(r) ?? false}
-                  onChange={(e) => {
+                  onCheckedChange={(checked) => {
                     const current = v.requiredRoles ?? []
-                    const next = e.target.checked
-                      ? [...current, r]
-                      : current.filter((x) => x !== r)
+                    const next =
+                      checked === true
+                        ? [...current, r]
+                        : current.filter((x) => x !== r)
                     onChange({ ...v, requiredRoles: next })
                   }}
                 />
@@ -2034,10 +2108,10 @@ function ValidationConfigEditor({
             ))}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <label className="text-xs text-muted-foreground">
-            Vol min
-            <input
+        <div className="flex flex-wrap items-end gap-3">
+          <Field label="Vol min" htmlFor={`vc-volmin-${spec.rows}`}>
+            <Input
+              id={`vc-volmin-${spec.rows}`}
               type="number"
               step="any"
               value={v.volumeMin ?? ''}
@@ -2048,12 +2122,12 @@ function ValidationConfigEditor({
                   volumeMin: Number.isFinite(val) ? val : undefined,
                 })
               }}
-              className="ml-1 w-16 rounded-md border border-input bg-background px-1 py-0.5 text-xs"
+              className="w-20 font-mono tabular-nums"
             />
-          </label>
-          <label className="text-xs text-muted-foreground">
-            Vol max
-            <input
+          </Field>
+          <Field label="Vol max" htmlFor={`vc-volmax-${spec.rows}`}>
+            <Input
+              id={`vc-volmax-${spec.rows}`}
               type="number"
               step="any"
               value={v.volumeMax ?? ''}
@@ -2064,18 +2138,21 @@ function ValidationConfigEditor({
                   volumeMax: Number.isFinite(val) ? val : undefined,
                 })
               }}
-              className="ml-1 w-16 rounded-md border border-input bg-background px-1 py-0.5 text-xs"
+              className="w-20 font-mono tabular-nums"
             />
-          </label>
-          <input
-            type="text"
-            value={v.volumeUnit ?? ''}
-            onChange={(e) =>
-              onChange({ ...v, volumeUnit: e.target.value || undefined })
-            }
-            placeholder="unit"
-            className="w-16 rounded-md border border-input bg-background px-1 py-0.5 text-xs"
-          />
+          </Field>
+          <Field label="Unit" htmlFor={`vc-volunit-${spec.rows}`}>
+            <Input
+              id={`vc-volunit-${spec.rows}`}
+              type="text"
+              value={v.volumeUnit ?? ''}
+              onChange={(e) =>
+                onChange({ ...v, volumeUnit: e.target.value || undefined })
+              }
+              placeholder="unit"
+              className="w-20 font-mono"
+            />
+          </Field>
         </div>
       </div>
     </details>

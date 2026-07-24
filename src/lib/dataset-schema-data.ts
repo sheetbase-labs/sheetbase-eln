@@ -59,6 +59,36 @@ export interface DatasetQueryRow {
   field_values: Record<string, unknown>
 }
 
+export type RelationshipType = 'references' | 'derives_from' | 'composed_of'
+export type RelationshipCardinality =
+  'one_to_one' | 'one_to_many' | 'many_to_many'
+
+export interface DatasetSchemaRelationshipWire {
+  id: string
+  workspace_id: string
+  source_schema_id: string
+  target_schema_id: string
+  relationship_type: RelationshipType
+  label: string
+  cardinality: RelationshipCardinality
+  source_field_id: string | null
+  target_field_id: string | null
+  lifecycle: 'active' | 'inactive'
+  created_by_user_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateSchemaRelationshipInput {
+  source_schema_id: string
+  target_schema_id: string
+  relationship_type: RelationshipType
+  label?: string
+  cardinality?: RelationshipCardinality
+  source_field_id?: string | null
+  target_field_id?: string | null
+}
+
 // --- Input types ---------------------------------------------------------
 
 export interface DatasetSchemaFieldInput {
@@ -70,6 +100,8 @@ export interface DatasetSchemaFieldInput {
   unit?: Record<string, unknown>
   validation?: Record<string, unknown>
   description?: string
+  /** SCI-011: for `reference` fields, the target schema to link to. */
+  target_schema_id?: string | null
 }
 
 export interface CreateDatasetSchemaInput {
@@ -86,6 +118,8 @@ export const datasetSchemaQueryKeys = {
   detail: (id: string) => ['dataset-schema', id] as const,
   fields: (schemaId: string) => ['dataset-schema-fields', schemaId] as const,
   published: ['dataset-schemas-published'] as const,
+  relationships: (workspaceId: string) =>
+    ['dataset-schema-relationships', workspaceId] as const,
 }
 
 export const datasetSchemaDataClient = createDataClient()
@@ -240,6 +274,7 @@ export async function queryDataset(
   filters?: Record<string, unknown>,
   limit?: number,
   offset?: number,
+  expand?: Record<string, { depth: number }>,
 ): Promise<DatasetQueryRow[]> {
   return client.rpc<DatasetQueryRow[]>('query_dataset', {
     p_schema_id: schemaId,
@@ -247,5 +282,44 @@ export async function queryDataset(
     p_filters: filters ?? {},
     p_limit: limit ?? 200,
     p_offset: offset ?? 0,
+    p_expand: expand ?? {},
+  })
+}
+
+// --- Relationship functions (SCI-011) ------------------------------------
+
+export async function fetchDatasetSchemaRelationships(
+  client: DataClient = datasetSchemaDataClient,
+): Promise<DatasetSchemaRelationshipWire[]> {
+  return client.list<DatasetSchemaRelationshipWire>(
+    'dataset_schema_relationships',
+    '?lifecycle=eq.active&order=created_at.asc',
+  )
+}
+
+export async function createSchemaRelationship(
+  client: DataClient,
+  input: CreateSchemaRelationshipInput,
+): Promise<DatasetSchemaRelationshipWire> {
+  return client.rpc<DatasetSchemaRelationshipWire>(
+    'create_schema_relationship',
+    {
+      p_source_schema_id: input.source_schema_id,
+      p_target_schema_id: input.target_schema_id,
+      p_relationship_type: input.relationship_type,
+      p_label: input.label ?? '',
+      p_cardinality: input.cardinality ?? 'one_to_many',
+      p_source_field_id: input.source_field_id ?? null,
+      p_target_field_id: input.target_field_id ?? null,
+    },
+  )
+}
+
+export async function deleteSchemaRelationship(
+  client: DataClient,
+  relationshipId: string,
+): Promise<{ deleted: boolean; relationshipId: string }> {
+  return client.rpc('delete_schema_relationship', {
+    p_relationship_id: relationshipId,
   })
 }

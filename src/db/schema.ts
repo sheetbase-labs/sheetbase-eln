@@ -23,6 +23,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
 
@@ -746,7 +747,7 @@ export const datasetSchemaFields = api.table(
     ),
     check(
       'chk_dataset_schema_fields_type',
-      sql`${table.logicalType} IN ('text','integer','decimal','boolean','date','timestamp','category')`,
+      sql`${table.logicalType} IN ('text','integer','decimal','boolean','date','timestamp','category','reference')`,
     ),
     check(
       'chk_dataset_schema_fields_lifecycle',
@@ -754,6 +755,69 @@ export const datasetSchemaFields = api.table(
     ),
     index('idx_dataset_schema_fields_schema').on(table.schemaId),
     index('idx_dataset_schema_fields_workspace').on(table.workspaceId),
+  ],
+)
+
+// SCI-011: typed, directed relationships between dataset schemas (decision
+// 0035). Slug-level (not revision-level): source/target point to the latest
+// published revision and are repointed on publish. Soft-deleted via lifecycle.
+export const datasetSchemaRelationships = api.table(
+  'dataset_schema_relationships',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    sourceSchemaId: uuid('source_schema_id')
+      .notNull()
+      .references(() => datasetSchemas.id, { onDelete: 'cascade' }),
+    targetSchemaId: uuid('target_schema_id')
+      .notNull()
+      .references(() => datasetSchemas.id, { onDelete: 'cascade' }),
+    relationshipType: text('relationship_type').notNull(),
+    label: text('label').notNull().default(''),
+    cardinality: text('cardinality').notNull().default('one_to_many'),
+    sourceFieldId: uuid('source_field_id').references(
+      () => datasetSchemaFields.id,
+      {
+        onDelete: 'set null',
+      },
+    ),
+    targetFieldId: uuid('target_field_id').references(
+      () => datasetSchemaFields.id,
+      {
+        onDelete: 'set null',
+      },
+    ),
+    lifecycle: text('lifecycle').notNull().default('active'),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    check(
+      'chk_dataset_schema_relationships_type',
+      sql`${table.relationshipType} IN ('references','derives_from','composed_of')`,
+    ),
+    check(
+      'chk_dataset_schema_relationships_cardinality',
+      sql`${table.cardinality} IN ('one_to_one','one_to_many','many_to_many')`,
+    ),
+    check(
+      'chk_dataset_schema_relationships_lifecycle',
+      sql`${table.lifecycle} IN ('active','inactive')`,
+    ),
+    check(
+      'no_self_reference',
+      sql`${table.sourceSchemaId} <> ${table.targetSchemaId}`,
+    ),
+    uniqueIndex('uq_dataset_schema_relationships_active')
+      .on(table.sourceSchemaId, table.targetSchemaId, table.relationshipType)
+      .where(sql`${table.lifecycle} = 'active'`),
+    index('idx_dataset_schema_relationships_workspace').on(table.workspaceId),
+    index('idx_dataset_schema_relationships_source').on(table.sourceSchemaId),
+    index('idx_dataset_schema_relationships_target').on(table.targetSchemaId),
   ],
 )
 
@@ -875,7 +939,7 @@ export const scientificColumns = api.table(
     ),
     check(
       'chk_scientific_columns_type',
-      sql`${table.logicalType} IN ('text','integer','decimal','boolean','date','timestamp','category')`,
+      sql`${table.logicalType} IN ('text','integer','decimal','boolean','date','timestamp','category','reference')`,
     ),
     check(
       'chk_scientific_columns_lifecycle',

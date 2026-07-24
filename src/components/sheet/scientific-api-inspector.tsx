@@ -111,6 +111,7 @@ const postgresType: Record<ScientificColumnWire['logical_type'], string> = {
   date: 'date',
   timestamp: 'timestamptz',
   category: 'uuid',
+  reference: 'uuid',
 }
 
 const restType: Record<ScientificColumnWire['logical_type'], string> = {
@@ -121,6 +122,7 @@ const restType: Record<ScientificColumnWire['logical_type'], string> = {
   date: 'YYYY-MM-DD string',
   timestamp: 'ISO 8601 string',
   category: 'option UUID string',
+  reference: 'referenced row UUID string',
 }
 
 function describeUnit(unit: unknown) {

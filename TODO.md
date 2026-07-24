@@ -751,19 +751,19 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Plan:** [sci-011-schema-relationships-plan.md](docs/sci-011-schema-relationships-plan.md)
 
-- [ ] Add `api.dataset_schema_relationships` table with RLS, constraints, and unique relationship enforcement (migration 0036).
-- [ ] Add `reference` to the logical type vocabulary (`scientific_storage_type`, `compile_scientific_column`).
-- [ ] Implement RPCs: `create_schema_relationship`, `delete_schema_relationship` (soft delete).
-- [ ] Add trigger to repoint relationships to the latest published revision on schema publish.
-- [ ] Add `DatasetSchemaRelationshipWire` type and data functions (`fetchDatasetSchemaRelationships`, `createSchemaRelationship`, `deleteSchemaRelationship`).
-- [ ] ReactFlow multi-schema graph: all schemas as nodes (dagre layout), relationships as directed edges with labels and cardinality badges.
-- [ ] Edge creation: drag-to-connect with dialog (type, label, cardinality, source/target field).
-- [ ] Edge deletion: select + confirm.
-- [ ] `reference` field type in schema editor UI with target-schema dropdown.
-- [ ] Extend `query_dataset` with optional `p_expand` for reference field expansion (max depth 2).
-- [ ] Database tests: relationship CRUD, self-reference rejection, duplicate rejection, cross-workspace isolation, revision repointing, reference field type, query expansion, permissions.
-- [ ] Browser QA on `app.sheetbase.co.uk/schemas`: verify graph, edge creation, reference field type.
-- [ ] Run `pnpm validate` and fix all task-caused failures.
+- [x] Add `api.dataset_schema_relationships` table with RLS, constraints, and unique relationship enforcement (migration 0036).
+- [x] Add `reference` to the logical type vocabulary (`scientific_storage_type`, `compile_scientific_column`).
+- [x] Implement RPCs: `create_schema_relationship`, `delete_schema_relationship` (soft delete).
+- [x] Add trigger to repoint relationships to the latest published revision on schema publish.
+- [x] Add `DatasetSchemaRelationshipWire` type and data functions (`fetchDatasetSchemaRelationships`, `createSchemaRelationship`, `deleteSchemaRelationship`).
+- [x] ReactFlow multi-schema graph: all schemas as nodes (dagre layout), relationships as directed edges with labels and cardinality badges.
+- [x] Edge creation: drag-to-connect with dialog (type, label, cardinality, source/target field).
+- [x] Edge deletion: select + confirm.
+- [x] `reference` field type in schema editor UI with target-schema dropdown.
+- [x] Extend `query_dataset` with optional `p_expand` for reference field expansion (max depth 2).
+- [x] Database tests: relationship CRUD, self-reference rejection, duplicate rejection, cross-workspace isolation, revision repointing, reference field type, query expansion, permissions.
+- [x] Browser QA on `app.sheetbase.co.uk/schemas`: verify graph, edge creation, reference field type.
+- [x] Run `pnpm validate` and fix all task-caused failures.
 
 ---
 

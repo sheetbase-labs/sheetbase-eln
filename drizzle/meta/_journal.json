@@ -253,6 +253,13 @@
       "when": 1784910000000,
       "tag": "0035_sci_010_dataset_schema_registry",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1784920000000,
+      "tag": "0036_sci_011_schema_relationships",
+      "breakpoints": true
     }
   ]
 }

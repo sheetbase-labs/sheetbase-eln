@@ -50,7 +50,12 @@ function sessionHeaders(token?: string): Headers {
   if (token) {
     // Better Auth stores the session token as a signed cookie:
     // encodeURIComponent(`${token}.${base64(HMAC-SHA256(token, secret))}`).
-    headers.set('cookie', `better-auth.session_token=${signSessionToken(token)}`)
+    // With useSecureCookies enabled (auth.ts) the cookie is prefixed with
+    // the `__Secure-` prefix, so the session lookup only matches that name.
+    headers.set(
+      'cookie',
+      `__Secure-better-auth.session_token=${signSessionToken(token)}`,
+    )
   }
   return headers
 }

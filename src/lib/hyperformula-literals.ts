@@ -104,6 +104,7 @@ export function encodeScientificLiteral(
   switch (type) {
     case 'text':
     case 'category':
+    case 'reference':
       return `'${String(value)}`
     case 'integer':
       return safeNumber(value, true)
@@ -135,6 +136,10 @@ export function decodeScientificResult(
     switch (type) {
       case 'text':
         if (typeof value !== 'string') throw new Error('Expected text result.')
+        return { ok: true, value }
+      case 'reference':
+        if (typeof value !== 'string')
+          throw new Error('Expected reference UUID result.')
         return { ok: true, value }
       case 'category':
         if (typeof value !== 'string')

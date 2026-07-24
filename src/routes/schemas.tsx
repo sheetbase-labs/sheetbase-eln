@@ -5,11 +5,16 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Background,
   BackgroundVariant,
+  Handle,
+  MarkerType,
   MiniMap,
+  Panel,
+  Position,
   ReactFlow,
 } from '@xyflow/react'
-import type { NodeProps, Node, Edge } from '@xyflow/react'
+import type { NodeProps, Node, Edge, Connection } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
+import dagre from '@dagrejs/dagre'
 import {
   ChevronDown,
   ChevronRight,
@@ -19,6 +24,7 @@ import {
   Eye,
   Hash,
   Layers,
+  Link2,
   Plus,
   Tag,
   ToggleLeft,
@@ -27,6 +33,7 @@ import {
   Calendar,
   PanelLeft,
   PanelRight,
+  Workflow,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -38,6 +45,12 @@ import {
   Button,
   Card,
   Checkbox,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -59,16 +72,24 @@ import { formatRelativeTime } from '#/lib/notebook-data'
 import {
   addDatasetSchemaField,
   createDatasetSchema,
+  createSchemaRelationship,
   datasetSchemaQueryKeys,
+  deleteSchemaRelationship,
   fetchDatasetSchemaFields,
+  fetchDatasetSchemaRelationships,
   fetchDatasetSchemas,
+  fetchPublishedDatasetSchemas,
   publishDatasetSchema,
   retireDatasetSchemaField,
 } from '#/lib/dataset-schema-data'
 import type {
+  CreateSchemaRelationshipInput,
   DatasetSchemaFieldInput,
   DatasetSchemaFieldWire,
+  DatasetSchemaRelationshipWire,
   DatasetSchemaWire,
+  RelationshipCardinality,
+  RelationshipType,
 } from '#/lib/dataset-schema-data'
 import type { ScientificLogicalType } from '#/lib/scientific-sheet-data'
 import { cn } from '#/lib/utils'
@@ -98,6 +119,7 @@ const logicalTypes: ScientificLogicalType[] = [
   'date',
   'timestamp',
   'category',
+  'reference',
 ]
 
 const typeIcon: Record<ScientificLogicalType, LucideIcon> = {
@@ -108,6 +130,7 @@ const typeIcon: Record<ScientificLogicalType, LucideIcon> = {
   date: Calendar,
   timestamp: Calendar,
   category: Tag,
+  reference: Link2,
 }
 
 /** Type shortcuts shown in the bottom field-toolbar. */
@@ -121,6 +144,7 @@ const typeShortcuts: {
   { label: 'Date', type: 'date', icon: Calendar },
   { label: 'Boolean', type: 'boolean', icon: ToggleLeft },
   { label: 'Category', type: 'category', icon: Tag },
+  { label: 'Reference', type: 'reference', icon: Link2 },
 ]
 
 /** Schema lifecycle vocabulary: Draft amber, Published green. */
@@ -141,6 +165,7 @@ const emptyField = (
   unit: {},
   validation: {},
   description: '',
+  target_schema_id: null,
 })
 
 function errorMessage(error: unknown): string {
@@ -159,6 +184,9 @@ export function SchemaManagementRoute() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [registryOpen, setRegistryOpen] = useState(true)
   const [inspectorOpen, setInspectorOpen] = useState(true)
+  // SCI-011: 'graph' shows all schemas as nodes with relationship edges;
+  // 'zoom' shows the single-schema field-table editor (existing behaviour).
+  const [viewMode, setViewMode] = useState<'graph' | 'zoom'>('graph')
 
   // Create-mode draft state.
   const [draftName, setDraftName] = useState('')
@@ -190,11 +218,47 @@ export function SchemaManagementRoute() {
   })
   const fields: DatasetSchemaFieldWire[] = fieldsQuery.data || []
 
-  const refreshList = () =>
+  // SCI-011: relationships (graph edges) and published schemas (reference
+  // target dropdown + graph nodes). RLS scopes both to the current workspace.
+  const workspaceId = context.workspace?.id ?? ''
+  const relationshipsQuery = useQuery({
+    queryKey: datasetSchemaQueryKeys.relationships(workspaceId),
+    queryFn: () => fetchDatasetSchemaRelationships(dataClient),
+    enabled: Boolean(workspaceId),
+  })
+  const relationships: DatasetSchemaRelationshipWire[] =
+    relationshipsQuery.data || []
+  const publishedSchemasQuery = useQuery({
+    queryKey: datasetSchemaQueryKeys.published,
+    queryFn: () => fetchPublishedDatasetSchemas(dataClient),
+  })
+  const publishedSchemas: DatasetSchemaWire[] = publishedSchemasQuery.data || []
+
+  // SCI-011: map a reference field id to its relationship target schema id,
+  // so the inspector can show the target schema for saved reference fields
+  // (field wire rows carry no target metadata — it lives on the relationship).
+  const referenceTargetByFieldId = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const r of relationships) {
+      if (r.source_field_id && r.relationship_type === 'references')
+        map[r.source_field_id] = r.target_schema_id
+    }
+    return map
+  }, [relationships])
+
+  const refreshList = () => {
     queryClient.invalidateQueries({ queryKey: datasetSchemaQueryKeys.list })
+    queryClient.invalidateQueries({
+      queryKey: datasetSchemaQueryKeys.published,
+    })
+  }
   const refreshFields = (schemaId: string) =>
     queryClient.invalidateQueries({
       queryKey: datasetSchemaQueryKeys.fields(schemaId),
+    })
+  const refreshRelationships = () =>
+    queryClient.invalidateQueries({
+      queryKey: datasetSchemaQueryKeys.relationships(workspaceId),
     })
 
   const createMutation = useMutation({
@@ -205,17 +269,59 @@ export function SchemaManagementRoute() {
         description: draftDescription || undefined,
         fields: draftFields.filter((f) => f.slug.trim() && f.label.trim()),
       }),
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
+      // SCI-011: auto-create `references` relationships for reference fields
+      // that have a target schema selected. Match the created field by slug.
+      const refFields = draftFields.filter(
+        (f) =>
+          f.logical_type === 'reference' &&
+          f.target_schema_id &&
+          f.slug.trim() &&
+          f.label.trim(),
+      )
+      for (const f of refFields) {
+        const created = result.fields.find((cf) => cf.slug === f.slug)
+        if (!created) continue
+        try {
+          await createSchemaRelationship(dataClient, {
+            source_schema_id: result.schema.id,
+            target_schema_id: f.target_schema_id!,
+            relationship_type: 'references',
+            source_field_id: created.id,
+          })
+        } catch {
+          // A relationship may already exist; surface nothing here.
+        }
+      }
       setMode('view')
       setSelectedId(result.schema.id)
+      setViewMode('zoom')
       resetDraft()
       void refreshList()
+      void refreshRelationships()
     },
   })
   const addMutation = useMutation({
     mutationFn: () =>
       addDatasetSchemaField(dataClient, selected!.id, pendingField!),
-    onSuccess: () => {
+    onSuccess: async (created) => {
+      // SCI-011: auto-create a `references` relationship for a reference field.
+      if (
+        pendingField?.logical_type === 'reference' &&
+        pendingField.target_schema_id
+      ) {
+        try {
+          await createSchemaRelationship(dataClient, {
+            source_schema_id: selected!.id,
+            target_schema_id: pendingField.target_schema_id,
+            relationship_type: 'references',
+            source_field_id: created.id,
+          })
+          void refreshRelationships()
+        } catch {
+          // Relationship may already exist; ignore.
+        }
+      }
       setPendingField(null)
       if (selected) {
         void refreshFields(selected.id)
@@ -226,12 +332,25 @@ export function SchemaManagementRoute() {
   const publishMutation = useMutation({
     mutationFn: (schemaId: string) =>
       publishDatasetSchema(dataClient, schemaId),
-    onSuccess: () => void refreshList(),
+    onSuccess: () => {
+      void refreshList()
+      void refreshRelationships()
+    },
   })
   const retireMutation = useMutation({
     mutationFn: (fieldId: string) =>
       retireDatasetSchemaField(dataClient, fieldId),
     onSuccess: () => selected && void refreshFields(selected.id),
+  })
+  const createRelationshipMutation = useMutation({
+    mutationFn: (input: CreateSchemaRelationshipInput) =>
+      createSchemaRelationship(dataClient, input),
+    onSuccess: () => void refreshRelationships(),
+  })
+  const deleteRelationshipMutation = useMutation({
+    mutationFn: (relationshipId: string) =>
+      deleteSchemaRelationship(dataClient, relationshipId),
+    onSuccess: () => void refreshRelationships(),
   })
 
   const isOwner = context.workspace?.role === 'owner'
@@ -268,6 +387,7 @@ export function SchemaManagementRoute() {
     setPendingField(null)
     setSelectedFieldId(null)
     setMode('create')
+    setViewMode('zoom')
   }
 
   function selectSchema(id: string) {
@@ -275,7 +395,22 @@ export function SchemaManagementRoute() {
     setSelectedId(id)
     setPendingField(null)
     setSelectedFieldId(null)
+    setViewMode('zoom')
   }
+
+  function showGraph() {
+    setViewMode('graph')
+  }
+
+  // Escape returns from zoom to the graph (ADR 0035).
+  useEffect(() => {
+    if (viewMode !== 'zoom') return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setViewMode('graph')
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [viewMode])
 
   const grouped = useMemo(
     () =>
@@ -442,6 +577,7 @@ export function SchemaManagementRoute() {
               fields={draftFields}
               selectedIndex={draftSelected}
               isOwner={isOwner}
+              publishedSchemas={publishedSchemas}
               createPending={createMutation.isPending}
               createError={createMutation.error}
               onChangeName={setDraftName}
@@ -474,12 +610,33 @@ export function SchemaManagementRoute() {
               }
               onCancel={() => {
                 setMode('view')
+                setViewMode('graph')
                 setRegistryOpen(true)
                 resetDraft()
               }}
               onSave={() => createMutation.mutate()}
               inspectorOpen={inspectorOpen}
               onToggleInspector={() => setInspectorOpen((v) => !v)}
+            />
+          ) : viewMode === 'graph' ? (
+            <SchemaGraphCanvas
+              schemas={schemas}
+              relationships={relationships}
+              relationshipsLoading={relationshipsQuery.isLoading}
+              relationshipsError={relationshipsQuery.error}
+              selectedId={selectedId}
+              isOwner={isOwner}
+              createPending={createRelationshipMutation.isPending}
+              createError={createRelationshipMutation.error}
+              deletePending={deleteRelationshipMutation.isPending}
+              onSelectSchema={selectSchema}
+              onCreateRelationship={(input) =>
+                createRelationshipMutation.mutate(input)
+              }
+              onDeleteRelationship={(id) =>
+                deleteRelationshipMutation.mutate(id)
+              }
+              onStartCreate={startCreate}
             />
           ) : selected ? (
             <SchemaEditor
@@ -492,6 +649,8 @@ export function SchemaManagementRoute() {
               panelMode={panelMode}
               isOwner={isOwner}
               canAdd={canAddToSelected}
+              publishedSchemas={publishedSchemas}
+              referenceTargetByFieldId={referenceTargetByFieldId}
               addPending={addMutation.isPending}
               addError={addMutation.error}
               publishPending={publishMutation.isPending}
@@ -511,6 +670,7 @@ export function SchemaManagementRoute() {
               onAddField={() => addMutation.mutate()}
               onPublish={() => publishMutation.mutate(selected.id)}
               onRetireField={(id) => retireMutation.mutate(id)}
+              onShowGraph={showGraph}
               inspectorOpen={inspectorOpen}
               onToggleInspector={() => setInspectorOpen((v) => !v)}
             />
@@ -555,6 +715,7 @@ interface CreateSchemaEditorProps {
   fields: DatasetSchemaFieldInput[]
   selectedIndex: number
   isOwner: boolean
+  publishedSchemas: DatasetSchemaWire[]
   createPending: boolean
   createError: unknown
   onChangeName: (value: string) => void
@@ -577,6 +738,7 @@ function CreateSchemaEditor({
   fields,
   selectedIndex,
   isOwner,
+  publishedSchemas,
   createPending,
   createError,
   onChangeName,
@@ -694,6 +856,8 @@ function CreateSchemaEditor({
           draftField={selectedField}
           isOwner={isOwner}
           canAdd
+          publishedSchemas={publishedSchemas}
+          currentSchemaId={null}
           addPending={false}
           retirePending={false}
           onDraftChange={(next) => onChangeField(next, selectedIndex)}
@@ -734,6 +898,8 @@ interface SchemaEditorProps {
   panelMode: 'none' | 'draft' | 'pending' | 'saved'
   isOwner: boolean
   canAdd: boolean
+  publishedSchemas: DatasetSchemaWire[]
+  referenceTargetByFieldId: Record<string, string>
   addPending: boolean
   addError: unknown
   publishPending: boolean
@@ -747,6 +913,7 @@ interface SchemaEditorProps {
   onAddField: () => void
   onPublish: () => void
   onRetireField: (id: string) => void
+  onShowGraph: () => void
   inspectorOpen: boolean
   onToggleInspector: () => void
 }
@@ -761,6 +928,8 @@ function SchemaEditor({
   panelMode,
   isOwner,
   canAdd,
+  publishedSchemas,
+  referenceTargetByFieldId,
   addPending,
   addError,
   publishPending,
@@ -774,6 +943,7 @@ function SchemaEditor({
   onAddField,
   onPublish,
   onRetireField,
+  onShowGraph,
   inspectorOpen,
   onToggleInspector,
 }: SchemaEditorProps) {
@@ -801,6 +971,7 @@ function SchemaEditor({
           primaryPending={publishPending}
           onPrimary={onPublish}
           publishError={publishError}
+          onShowGraph={onShowGraph}
         />
 
         <SchemaTabs>
@@ -841,6 +1012,9 @@ function SchemaEditor({
           draftField={null}
           isOwner={isOwner}
           canAdd={canAdd}
+          publishedSchemas={publishedSchemas}
+          currentSchemaId={schema.id}
+          referenceTargetByFieldId={referenceTargetByFieldId}
           addPending={addPending}
           retirePending={retirePending}
           onDraftChange={() => {}}
@@ -894,6 +1068,7 @@ interface SchemaHeaderProps {
   onPrimary: () => void
   secondaryLabel?: string
   onSecondary?: () => void
+  onShowGraph?: () => void
   onChangeName?: (value: string) => void
   onChangeSlug?: (value: string) => void
   onChangeDescription?: (value: string) => void
@@ -917,6 +1092,7 @@ function SchemaHeader({
   onPrimary,
   secondaryLabel,
   onSecondary,
+  onShowGraph,
   onChangeName,
   onChangeSlug,
   onChangeDescription,
@@ -961,6 +1137,11 @@ function SchemaHeader({
           )}
         </div>
         <div className="flex items-center gap-2">
+          {onShowGraph && (
+            <Button variant="outline" size="sm" onClick={onShowGraph}>
+              <Workflow className="size-3.5" aria-hidden="true" /> Graph
+            </Button>
+          )}
           <Button variant="outline" size="sm" disabled>
             <Eye className="size-3.5" aria-hidden="true" /> Preview data
           </Button>
@@ -1100,6 +1281,573 @@ function ComingSoonTab({ label, hint }: { label: string; hint?: string }) {
 
 /* -------------------------------------------------------------------------- */
 /* Schema canvas — ReactFlow visual field editor                              */
+/* -------------------------------------------------------------------------- */
+
+/* -------------------------------------------------------------------------- */
+/* SCI-011: multi-schema graph canvas                                         */
+/* -------------------------------------------------------------------------- */
+
+interface GraphSchemaNodeData extends Record<string, unknown> {
+  schema: DatasetSchemaWire
+  isSelected: boolean
+  onDoubleClick: (id: string) => void
+}
+
+type GraphSchemaNode = Node<GraphSchemaNodeData, 'graphSchema'>
+
+const relationshipEdgeColor: Record<RelationshipType, string> = {
+  references: '#3b82f6',
+  derives_from: '#8b5cf6',
+  composed_of: '#10b981',
+}
+
+const relationshipTypeOptions: RelationshipType[] = [
+  'references',
+  'derives_from',
+  'composed_of',
+]
+const cardinalityOptions: RelationshipCardinality[] = [
+  'one_to_one',
+  'one_to_many',
+  'many_to_many',
+]
+
+const cardinalityBadge: Record<RelationshipCardinality, string> = {
+  one_to_one: '1:1',
+  one_to_many: '1:N',
+  many_to_many: 'N:M',
+}
+
+interface SchemaGraphCanvasProps {
+  schemas: DatasetSchemaWire[]
+  relationships: DatasetSchemaRelationshipWire[]
+  relationshipsLoading: boolean
+  relationshipsError: unknown
+  selectedId: string | null
+  isOwner: boolean
+  createPending: boolean
+  createError: unknown
+  deletePending: boolean
+  onSelectSchema: (id: string) => void
+  onCreateRelationship: (input: CreateSchemaRelationshipInput) => void
+  onDeleteRelationship: (id: string) => void
+  onStartCreate: () => void
+}
+
+function SchemaGraphCanvas({
+  schemas,
+  relationships,
+  relationshipsLoading,
+  relationshipsError,
+  selectedId,
+  isOwner,
+  createPending,
+  createError,
+  deletePending,
+  onSelectSchema,
+  onCreateRelationship,
+  onDeleteRelationship,
+  onStartCreate,
+}: SchemaGraphCanvasProps) {
+  // One node per slug — latest revision wins (ADR 0035: slug-level graph).
+  const latestPerSlug = useMemo(() => {
+    const bySlug = new Map<string, DatasetSchemaWire>()
+    for (const s of schemas) {
+      const prev = bySlug.get(s.slug)
+      if (!prev || s.revision > prev.revision) bySlug.set(s.slug, s)
+    }
+    return bySlug
+  }, [schemas])
+  const graphSchemas = useMemo(
+    () => Array.from(latestPerSlug.values()),
+    [latestPerSlug],
+  )
+
+  // Pending drag-to-connect: captured connection awaiting the dialog.
+  const [pendingConnection, setPendingConnection] = useState<Connection | null>(
+    null,
+  )
+  const [dialogType, setDialogType] = useState<RelationshipType>('references')
+  const [dialogLabel, setDialogLabel] = useState('')
+  const [dialogCardinality, setDialogCardinality] =
+    useState<RelationshipCardinality>('one_to_many')
+  const [dialogSourceFieldId, setDialogSourceFieldId] = useState<string | null>(
+    null,
+  )
+  const [dialogTargetFieldId, setDialogTargetFieldId] = useState<string | null>(
+    null,
+  )
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+
+  // SCI-011: load the source/target schema fields for the edge-creation dialog
+  // so the caller can attach optional source/target fields (ADR 0035).
+  const sourceSchemaId = pendingConnection?.source ?? null
+  const targetSchemaId = pendingConnection?.target ?? null
+  const sourceFieldsQuery = useQuery({
+    queryKey: datasetSchemaQueryKeys.fields(sourceSchemaId ?? 'none'),
+    queryFn: () => fetchDatasetSchemaFields(dataClient, sourceSchemaId!),
+    enabled: Boolean(sourceSchemaId),
+  })
+  const targetFieldsQuery = useQuery({
+    queryKey: datasetSchemaQueryKeys.fields(targetSchemaId ?? 'none'),
+    queryFn: () => fetchDatasetSchemaFields(dataClient, targetSchemaId!),
+    enabled: Boolean(targetSchemaId),
+  })
+  const sourceFields: DatasetSchemaFieldWire[] = sourceFieldsQuery.data || []
+  const targetFields: DatasetSchemaFieldWire[] = targetFieldsQuery.data || []
+
+  const nodes: GraphSchemaNode[] = useMemo(
+    () =>
+      graphSchemas.map((s) => ({
+        id: s.id,
+        type: 'graphSchema',
+        position: { x: 0, y: 0 },
+        data: {
+          schema: s,
+          isSelected: s.id === selectedId,
+          onDoubleClick: onSelectSchema,
+        },
+        draggable: false,
+      })),
+    [graphSchemas, selectedId, onSelectSchema],
+  )
+
+  // Build visible edges: only those whose source/target schema ids are
+  // rendered nodes (latest revision per slug). ReactFlow needs stable ids.
+  const visibleEdges: Edge[] = useMemo(() => {
+    const nodeIds = new Set(graphSchemas.map((s) => s.id))
+    // Relationships may point at older revisions; remap to the latest
+    // revision of that slug so the edge attaches to the visible node.
+    const idToSlug = new Map<string, string>()
+    for (const s of schemas) idToSlug.set(s.id, s.slug)
+    const slugToLatestId = new Map<string, string>()
+    for (const s of graphSchemas) slugToLatestId.set(s.slug, s.id)
+    return relationships
+      .map((r) => {
+        const sourceSlug = idToSlug.get(r.source_schema_id)
+        const targetSlug = idToSlug.get(r.target_schema_id)
+        const sourceId = sourceSlug
+          ? (slugToLatestId.get(sourceSlug) ?? r.source_schema_id)
+          : r.source_schema_id
+        const targetId = targetSlug
+          ? (slugToLatestId.get(targetSlug) ?? r.target_schema_id)
+          : r.target_schema_id
+        if (!nodeIds.has(sourceId) || !nodeIds.has(targetId)) return null
+        return {
+          id: r.id,
+          source: sourceId,
+          target: targetId,
+          label: `${r.relationship_type} · ${cardinalityBadge[r.cardinality]}`,
+          type: 'default',
+          animated: r.lifecycle === 'active',
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: relationshipEdgeColor[r.relationship_type],
+          },
+          style: {
+            stroke: relationshipEdgeColor[r.relationship_type],
+            strokeWidth: 2,
+          },
+          data: { relationship: r },
+        }
+      })
+      .filter(Boolean) as Edge[]
+  }, [relationships, graphSchemas, schemas])
+
+  // dagre layout — compute positions once per node/edge set.
+  const layoutedNodes = useMemo(() => {
+    const g = new dagre.graphlib.Graph()
+    g.setGraph({ rankdir: 'LR', nodesep: 80, ranksep: 240 })
+    g.setDefaultEdgeLabel(() => ({}))
+    const nodeWidth = 240
+    const nodeHeight = 96
+    for (const n of nodes)
+      g.setNode(n.id, { width: nodeWidth, height: nodeHeight })
+    for (const e of visibleEdges) g.setEdge(e.source, e.target)
+    dagre.layout(g)
+    return nodes.map((n) => {
+      const pos = g.node(n.id)
+      return {
+        ...n,
+        position: pos
+          ? { x: pos.x - nodeWidth / 2, y: pos.y - nodeHeight / 2 }
+          : n.position,
+      }
+    })
+  }, [nodes, visibleEdges])
+
+  function onConnect(conn: Connection) {
+    setDialogType('references')
+    setDialogLabel('')
+    setDialogCardinality('one_to_many')
+    setDialogSourceFieldId(null)
+    setDialogTargetFieldId(null)
+    setPendingConnection(conn)
+  }
+
+  function confirmCreate() {
+    if (!pendingConnection) return
+    onCreateRelationship({
+      source_schema_id: pendingConnection.source,
+      target_schema_id: pendingConnection.target,
+      relationship_type: dialogType,
+      label: dialogLabel || undefined,
+      cardinality: dialogCardinality,
+      source_field_id: dialogSourceFieldId,
+      target_field_id: dialogTargetFieldId,
+    })
+    setPendingConnection(null)
+  }
+
+  const selectedEdge = visibleEdges.find((e) => e.id === selectedEdgeId) || null
+  const selectedRelationship: DatasetSchemaRelationshipWire | null =
+    (
+      selectedEdge?.data as
+        { relationship?: DatasetSchemaRelationshipWire } | undefined
+    )?.relationship ?? null
+
+  return (
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="flex shrink-0 items-center justify-between border-b px-4 py-2">
+        <div className="flex items-center gap-2">
+          <Workflow className="size-4 text-violet-500" aria-hidden="true" />
+          <h1 className="text-base font-semibold tracking-tight">
+            Schema relationships
+          </h1>
+          <span className="text-xs text-muted-foreground">
+            {graphSchemas.length} schema
+            {graphSchemas.length === 1 ? '' : 's'} · {visibleEdges.length}{' '}
+            relationship{visibleEdges.length === 1 ? '' : 's'}
+          </span>
+        </div>
+        <Button size="sm" onClick={onStartCreate}>
+          <Plus className="size-3.5" aria-hidden="true" /> New schema
+        </Button>
+      </div>
+
+      <div className="relative min-h-0 flex-1 overflow-hidden">
+        {relationshipsLoading && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 text-sm text-muted-foreground">
+            Loading relationships…
+          </div>
+        )}
+        {Boolean(relationshipsError) && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 p-6 text-center text-sm text-destructive">
+            {errorMessage(relationshipsError)}
+          </div>
+        )}
+        {graphSchemas.length === 0 && !relationshipsLoading && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 p-6 text-center">
+            <Database
+              className="size-8 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <p className="max-w-md text-sm text-muted-foreground">
+              No schemas yet. Create your first dataset schema to start building
+              a relationship graph.
+            </p>
+            <Button size="sm" onClick={onStartCreate}>
+              <Plus className="size-3.5" aria-hidden="true" /> New schema
+            </Button>
+          </div>
+        )}
+        <div className="absolute inset-0">
+          <ReactFlow
+            nodes={layoutedNodes}
+            edges={visibleEdges}
+            nodeTypes={graphNodeTypes}
+            fitView
+            fitViewOptions={{ padding: 0.25, maxZoom: 1 }}
+            minZoom={0.3}
+            maxZoom={1.5}
+            panOnDrag
+            zoomOnScroll
+            proOptions={{ hideAttribution: true }}
+            nodesConnectable
+            elementsSelectable
+            onConnect={onConnect}
+            onEdgeClick={(_event, edge) => setSelectedEdgeId(edge.id)}
+            onPaneClick={() => setSelectedEdgeId(null)}
+            onNodeDoubleClick={(_, n) => {
+              const data = n.data
+              data.onDoubleClick(n.id)
+            }}
+            style={{ width: '100%', height: '100%' }}
+          >
+            <Background
+              variant={BackgroundVariant.Dots}
+              gap={16}
+              size={1}
+              className="bg-muted/20"
+            />
+            <MiniMap
+              pannable
+              zoomable
+              className="!bg-background !border"
+              maskColor="rgba(0,0,0,0.05)"
+            />
+            <Panel position="top-left">
+              <div className="rounded-md border bg-card/90 px-3 py-2 text-xs shadow-sm backdrop-blur">
+                <p className="font-medium">
+                  Drag from a node’s right handle to another node to create a
+                  relationship.
+                </p>
+                <p className="text-muted-foreground">
+                  Double-click a node to zoom into its field editor.
+                </p>
+              </div>
+            </Panel>
+            {selectedRelationship && (
+              <Panel position="top-right">
+                <div className="space-y-2 rounded-md border bg-card/90 px-3 py-2 text-xs shadow-sm backdrop-blur">
+                  <p className="font-medium">
+                    {selectedRelationship.relationship_type}
+                    {selectedRelationship.label
+                      ? ': ' + selectedRelationship.label
+                      : ''}
+                  </p>
+                  <p className="text-muted-foreground">
+                    Cardinality: {selectedRelationship.cardinality}
+                  </p>
+                  {isOwner ? (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      disabled={deletePending}
+                      onClick={() =>
+                        setConfirmDeleteId(selectedRelationship.id)
+                      }
+                    >
+                      <Trash2 className="size-3.5" aria-hidden="true" />
+                      {deletePending ? 'Deleting…' : 'Delete relationship'}
+                    </Button>
+                  ) : (
+                    <p className="text-muted-foreground">
+                      Only workspace owners can delete relationships.
+                    </p>
+                  )}
+                </div>
+              </Panel>
+            )}
+          </ReactFlow>
+        </div>
+      </div>
+
+      {Boolean(createError) && (
+        <p role="alert" className="shrink-0 px-4 py-1 text-sm text-destructive">
+          {errorMessage(createError)}
+        </p>
+      )}
+
+      {/* Edge-creation dialog */}
+      <Dialog
+        open={Boolean(pendingConnection)}
+        onOpenChange={(open) => !open && setPendingConnection(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New schema relationship</DialogTitle>
+            <DialogDescription>
+              Define how these two schemas relate. You can adjust the type,
+              label, and cardinality.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Relationship type</Label>
+              <Select
+                value={dialogType}
+                onChange={(e) =>
+                  setDialogType(e.target.value as RelationshipType)
+                }
+                className="h-8"
+              >
+                {relationshipTypeOptions.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">
+                Label{' '}
+                <span className="font-normal text-muted-foreground">
+                  (optional, e.g. “measured on”)
+                </span>
+              </Label>
+              <Input
+                value={dialogLabel}
+                onChange={(e) => setDialogLabel(e.target.value)}
+                className="h-8"
+                placeholder="measured on"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Cardinality</Label>
+              <Select
+                value={dialogCardinality}
+                onChange={(e) =>
+                  setDialogCardinality(
+                    e.target.value as RelationshipCardinality,
+                  )
+                }
+                className="h-8"
+              >
+                {cardinalityOptions.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">
+                Source field{' '}
+                <span className="font-normal text-muted-foreground">
+                  (optional)
+                </span>
+              </Label>
+              <Select
+                value={dialogSourceFieldId ?? ''}
+                onChange={(e) => setDialogSourceFieldId(e.target.value || null)}
+                className="h-8"
+              >
+                <option value="">None</option>
+                {sourceFields.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.label} ({f.slug})
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">
+                Target field{' '}
+                <span className="font-normal text-muted-foreground">
+                  (optional, usually the target identifier)
+                </span>
+              </Label>
+              <Select
+                value={dialogTargetFieldId ?? ''}
+                onChange={(e) => setDialogTargetFieldId(e.target.value || null)}
+                className="h-8"
+              >
+                <option value="">None</option>
+                {targetFields.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.label} ({f.slug})
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setPendingConnection(null)}
+            >
+              Cancel
+            </Button>
+            <Button size="sm" disabled={createPending} onClick={confirmCreate}>
+              {createPending ? 'Creating…' : 'Create relationship'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edge-deletion confirmation */}
+      <Dialog
+        open={Boolean(confirmDeleteId)}
+        onOpenChange={(open) => !open && setConfirmDeleteId(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete relationship?</DialogTitle>
+            <DialogDescription>
+              This soft-deletes the relationship. The schemas and their data are
+              not affected.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setConfirmDeleteId(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={deletePending}
+              onClick={() => {
+                if (confirmDeleteId) {
+                  onDeleteRelationship(confirmDeleteId)
+                  setConfirmDeleteId(null)
+                  setSelectedEdgeId(null)
+                }
+              }}
+            >
+              {deletePending ? 'Deleting…' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+const graphNodeTypes = { graphSchema: GraphSchemaNodeComponent }
+
+function GraphSchemaNodeComponent({ data }: NodeProps<GraphSchemaNode>) {
+  const { schema, isSelected } = data
+  const isDraft = schema.status === 'draft'
+  return (
+    <div
+      className={cn(
+        'w-[240px] rounded-lg border bg-card px-3 py-2 shadow-sm transition-colors',
+        isDraft
+          ? 'border-dashed border-amber-400/70 opacity-80'
+          : 'border-border',
+        isSelected && 'ring-2 ring-primary',
+      )}
+    >
+      <Handle
+        type="target"
+        position={Position.Left}
+        className="!h-2.5 !w-2.5 !border-0 !bg-muted-foreground"
+      />
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <Database
+            className="size-3.5 shrink-0 text-violet-500"
+            aria-hidden="true"
+          />
+          <span className="truncate text-sm font-semibold">{schema.name}</span>
+        </div>
+        <StatusBadge
+          status={schema.status}
+          vocabulary={schemaStatusVocabulary}
+          size="sm"
+        />
+      </div>
+      <p className="mt-1 truncate font-mono text-[11px] text-muted-foreground">
+        {schema.slug} · rev {schema.revision}
+      </p>
+      <Handle
+        type="source"
+        position={Position.Right}
+        className="!h-2.5 !w-2.5 !border-0 !bg-muted-foreground"
+      />
+    </div>
+  )
+}
+
+/* -------------------------------------------------------------------------- */
+/* Schema canvas (single-schema zoom view)                                    */
 /* -------------------------------------------------------------------------- */
 
 interface FieldRowData {
@@ -1358,6 +2106,9 @@ interface FieldPropertiesPanelProps {
   draftField: DatasetSchemaFieldInput | null
   isOwner: boolean
   canAdd: boolean
+  publishedSchemas: DatasetSchemaWire[]
+  currentSchemaId: string | null
+  referenceTargetByFieldId?: Record<string, string>
   addPending: boolean
   retirePending: boolean
   onDraftChange: (field: DatasetSchemaFieldInput) => void
@@ -1377,6 +2128,9 @@ function FieldPropertiesPanel(props: FieldPropertiesPanelProps) {
     draftField,
     isOwner,
     canAdd,
+    publishedSchemas,
+    currentSchemaId,
+    referenceTargetByFieldId,
     addPending,
     retirePending,
     onDraftChange,
@@ -1424,6 +2178,13 @@ function FieldPropertiesPanel(props: FieldPropertiesPanelProps) {
           label={savedField.label}
           type={savedField.logical_type}
           fieldId={savedField.id}
+          targetSchemaId={
+            savedField.logical_type === 'reference'
+              ? (referenceTargetByFieldId?.[savedField.id] ?? null)
+              : null
+          }
+          publishedSchemas={publishedSchemas}
+          currentSchemaId={currentSchemaId}
           readOnly
         />
         <ValidationSection
@@ -1481,9 +2242,23 @@ function FieldPropertiesPanel(props: FieldPropertiesPanelProps) {
         slug={editable.slug}
         label={editable.label}
         type={editable.logical_type}
+        targetSchemaId={editable.target_schema_id ?? null}
+        publishedSchemas={publishedSchemas}
+        currentSchemaId={currentSchemaId}
         onChangeSlug={(v) => change({ ...editable, slug: v })}
         onChangeLabel={(v) => change({ ...editable, label: v })}
-        onChangeType={(v) => change({ ...editable, logical_type: v })}
+        onChangeType={(v) =>
+          change({
+            ...editable,
+            logical_type: v,
+            // Clear reference target when leaving the reference type.
+            target_schema_id:
+              v === 'reference' ? (editable.target_schema_id ?? null) : null,
+          })
+        }
+        onChangeTargetSchema={(v) =>
+          change({ ...editable, target_schema_id: v })
+        }
       />
       <ValidationSection
         nullable={editable.nullable ?? true}
@@ -1577,19 +2352,27 @@ function BasicSection({
   label,
   type,
   fieldId,
+  targetSchemaId,
+  publishedSchemas,
+  currentSchemaId,
   readOnly,
   onChangeSlug,
   onChangeLabel,
   onChangeType,
+  onChangeTargetSchema,
 }: {
   slug: string
   label: string
   type: ScientificLogicalType
   fieldId?: string
+  targetSchemaId?: string | null
+  publishedSchemas?: DatasetSchemaWire[]
+  currentSchemaId?: string | null
   readOnly?: boolean
   onChangeSlug?: (value: string) => void
   onChangeLabel?: (value: string) => void
   onChangeType?: (value: ScientificLogicalType) => void
+  onChangeTargetSchema?: (value: string | null) => void
 }) {
   return (
     <section className="space-y-3">
@@ -1663,6 +2446,37 @@ function BasicSection({
           ))}
         </Select>
       </div>
+      {type === 'reference' && (
+        <div className="space-y-1.5">
+          <Label htmlFor="fp-target-schema" className="text-xs">
+            Target schema{' '}
+            <span className="font-normal text-muted-foreground">
+              (referenced dataset)
+            </span>
+          </Label>
+          <Select
+            id="fp-target-schema"
+            value={targetSchemaId ?? ''}
+            disabled={readOnly}
+            className="h-8"
+            onChange={(e) => onChangeTargetSchema?.(e.target.value || null)}
+          >
+            <option value="">{readOnly ? '—' : 'Select a schema…'}</option>
+            {(publishedSchemas ?? [])
+              .filter((s) => s.id !== currentSchemaId)
+              .map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} ({s.slug})
+                </option>
+              ))}
+          </Select>
+          {!readOnly && !targetSchemaId && (
+            <p className="text-[11px] text-amber-600 dark:text-amber-400">
+              Pick the schema this field points to.
+            </p>
+          )}
+        </div>
+      )}
     </section>
   )
 }

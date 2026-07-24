@@ -2,7 +2,14 @@ import { createDataClient } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
 
 export type ScientificLogicalType =
-  'text' | 'integer' | 'decimal' | 'boolean' | 'date' | 'timestamp' | 'category'
+  | 'text'
+  | 'integer'
+  | 'decimal'
+  | 'boolean'
+  | 'date'
+  | 'timestamp'
+  | 'category'
+  | 'reference'
 export interface ScientificOptionWire {
   id: string
   label: string

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Background,
   BackgroundVariant,
@@ -163,6 +163,7 @@ export function SchemaManagementRoute() {
   // Create-mode draft state.
   const [draftName, setDraftName] = useState('')
   const [draftSlug, setDraftSlug] = useState('')
+  const [slugTouched, setSlugTouched] = useState(false)
   const [draftDescription, setDraftDescription] = useState('')
   const [draftFields, setDraftFields] = useState<DatasetSchemaFieldInput[]>([
     emptyField(),
@@ -242,10 +243,25 @@ export function SchemaManagementRoute() {
   function resetDraft() {
     setDraftName('')
     setDraftSlug('')
+    setSlugTouched(false)
     setDraftDescription('')
     setDraftFields([emptyField()])
     setDraftSelected(0)
   }
+
+  // Auto-generate slug from name unless the user has manually edited it.
+  useEffect(() => {
+    if (!slugTouched && mode === 'create') {
+      const generated = draftName
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9_\s-]/g, '')
+        .replace(/[\s-]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .replace(/^[^a-z]/, '') // must start with a lowercase letter
+      setDraftSlug(generated)
+    }
+  }, [draftName, slugTouched, mode])
 
   function startCreate() {
     resetDraft()
@@ -310,7 +326,7 @@ export function SchemaManagementRoute() {
       <div className="flex min-h-0 flex-1 gap-0 overflow-hidden">
         {/* Schema registry — collapsible */}
         {registryOpen ? (
-          <Card className="flex h-full min-h-0 w-60 shrink-0 flex-col rounded-r-none border-r p-0">
+          <div className="flex h-full min-h-0 w-60 shrink-0 flex-col border-r">
             <div className="flex items-center justify-between border-b px-3 py-2.5">
               <h2 className="text-sm font-semibold">Schemas</h2>
               <div className="flex items-center gap-1">
@@ -402,7 +418,7 @@ export function SchemaManagementRoute() {
                 ))}
               </div>
             </div>
-          </Card>
+          </div>
         ) : (
           <div className="flex h-full w-10 shrink-0 justify-center border-r py-1">
             <Button
@@ -429,7 +445,10 @@ export function SchemaManagementRoute() {
               createPending={createMutation.isPending}
               createError={createMutation.error}
               onChangeName={setDraftName}
-              onChangeSlug={setDraftSlug}
+              onChangeSlug={(v) => {
+                setSlugTouched(true)
+                setDraftSlug(v)
+              }}
               onChangeDescription={setDraftDescription}
               onChangeField={(next, index) =>
                 setDraftFields((items) =>
@@ -510,7 +529,7 @@ export function SchemaManagementRoute() {
 
 function EmptyState({ onStartCreate }: { onStartCreate: () => void }) {
   return (
-    <Card className="flex flex-1 flex-col items-center justify-center gap-3 p-10 text-center">
+    <div className="flex flex-1 flex-col items-center justify-center gap-3 p-10 text-center">
       <Database className="size-8 text-muted-foreground" aria-hidden="true" />
       <h2 className="text-lg font-semibold">No schema selected</h2>
       <p className="max-w-md text-sm text-muted-foreground">
@@ -521,7 +540,7 @@ function EmptyState({ onStartCreate }: { onStartCreate: () => void }) {
       <Button onClick={onStartCreate}>
         <Plus className="size-4" aria-hidden="true" /> New schema
       </Button>
-    </Card>
+    </div>
   )
 }
 
@@ -989,7 +1008,10 @@ function SchemaHeader({
           {editingSlug && (
             <div className="space-y-1">
               <Label htmlFor="schema-slug" className="text-xs">
-                Slug
+                Slug{' '}
+                <span className="font-normal text-muted-foreground">
+                  (auto-generated from name)
+                </span>
               </Label>
               <Input
                 id="schema-slug"

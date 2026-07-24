@@ -13,6 +13,7 @@ import '@xyflow/react/dist/style.css'
 import {
   ChevronDown,
   ChevronRight,
+  CircleAlert,
   Database,
   EllipsisVertical,
   Eye,
@@ -572,11 +573,25 @@ function CreateSchemaEditor({
   onToggleInspector,
 }: CreateSchemaEditorProps) {
   const selectedField = fields[selectedIndex] ?? null
-  const canSave =
-    slug.trim() !== '' &&
-    name.trim() !== '' &&
-    fields.some((f) => f.slug.trim() && f.label.trim()) &&
-    !createPending
+  const hasSlug = slug.trim() !== ''
+  const hasName = name.trim() !== ''
+  const hasCompleteField = fields.some(
+    (f) => f.slug.trim() !== '' && f.label.trim() !== '',
+  )
+  const slugValid = !hasSlug || /^[a-z][a-z0-9_]{0,59}$/.test(slug)
+  const canSave = hasSlug && hasName && hasCompleteField && !createPending
+
+  const missingHints: string[] = []
+  if (!hasName) missingHints.push('Enter a schema name')
+  if (!hasSlug) missingHints.push('Enter a schema slug')
+  else if (!slugValid)
+    missingHints.push(
+      'Slug must start with a lowercase letter and contain only lowercase letters, numbers, and underscores',
+    )
+  if (!hasCompleteField)
+    missingHints.push(
+      'Add at least one field with both a slug and a label — the label is the human-readable name shown in the table',
+    )
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
@@ -601,6 +616,27 @@ function CreateSchemaEditor({
           onChangeDescription={onChangeDescription}
         />
 
+        {!canSave && missingHints.length > 0 && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="flex shrink-0 items-start gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200"
+          >
+            <CircleAlert
+              className="mt-0.5 size-3.5 shrink-0 text-amber-600 dark:text-amber-400"
+              aria-hidden="true"
+            />
+            <div className="space-y-0.5">
+              <p className="font-medium">Complete these to save:</p>
+              <ul className="ml-3 list-disc space-y-0.5">
+                {missingHints.map((hint) => (
+                  <li key={hint}>{hint}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
+
         <SchemaTabs>
           <SchemaCanvas
             schemaName={name || 'New Schema'}
@@ -614,6 +650,7 @@ function CreateSchemaEditor({
               lifecycle: 'active' as const,
               selected: i === selectedIndex,
               retired: false,
+              incomplete: f.slug.trim() !== '' && f.label.trim() === '',
             }))}
             loading={false}
             emptyLabel="Start building this schema by adding a field from the toolbar below."
@@ -958,7 +995,7 @@ function SchemaHeader({
                 id="schema-slug"
                 value={slug}
                 onChange={(e) => onChangeSlug?.(e.target.value)}
-                placeholder="e.g. virus-stability-assay"
+                placeholder="e.g. virus_stability_assay"
                 className="h-8 font-mono text-sm"
               />
             </div>
@@ -1052,6 +1089,7 @@ interface FieldRowData {
   lifecycle: 'active' | 'retired'
   selected: boolean
   retired: boolean
+  incomplete?: boolean
 }
 
 interface SchemaNodeData extends Record<string, unknown> {
@@ -1245,7 +1283,10 @@ function SchemaNodeComponent({ data }: NodeProps<SchemaNode>) {
             >
               <span className="flex min-w-0 flex-1 items-center gap-1.5">
                 <Icon
-                  className="size-3.5 shrink-0 text-muted-foreground"
+                  className={cn(
+                    'size-3.5 shrink-0',
+                    row.incomplete ? 'text-amber-500' : 'text-muted-foreground',
+                  )}
                   aria-hidden="true"
                 />
                 <span
@@ -1259,6 +1300,14 @@ function SchemaNodeComponent({ data }: NodeProps<SchemaNode>) {
                 {!row.nullable && (
                   <span className="text-primary" aria-label="Required">
                     *
+                  </span>
+                )}
+                {row.incomplete && (
+                  <span
+                    className="shrink-0 rounded bg-amber-100 px-1 text-[9px] font-medium uppercase tracking-wide text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                    title="This field has a slug but no label — add a label in the properties panel"
+                  >
+                    Needs label
                   </span>
                 )}
               </span>
@@ -1547,15 +1596,30 @@ function BasicSection({
       )}
       <div className="space-y-1.5">
         <Label htmlFor="fp-label" className="text-xs">
-          Label
+          Label <span className="text-destructive">*</span>
+          <span className="font-normal text-muted-foreground">
+            {' '}
+            (human-readable name)
+          </span>
         </Label>
         <Input
           id="fp-label"
           value={label}
           readOnly={readOnly}
           onChange={(e) => onChangeLabel?.(e.target.value)}
-          className="h-8"
+          className={cn(
+            'h-8',
+            !readOnly &&
+              !label.trim() &&
+              'border-amber-400 focus-visible:border-amber-500',
+          )}
+          placeholder="e.g. Sample ID"
         />
+        {!readOnly && !label.trim() && (
+          <p className="text-[11px] text-amber-600 dark:text-amber-400">
+            Label is required to save this field.
+          </p>
+        )}
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="fp-type" className="text-xs">

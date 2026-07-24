@@ -124,11 +124,29 @@ export async function createDatasetSchema(
   client: DataClient,
   input: CreateDatasetSchemaInput,
 ): Promise<DatasetSchemaWithFields> {
+  // Map frontend field keys to the keys compile_scientific_column expects.
+  // The backend strips 'slug' and 'display_order' before delegating to
+  // compile_scientific_column, which accepts: label, description,
+  // logical_type, nullable, default, unit, validation, width, options.
+  const mappedFields = input.fields.map((f) => {
+    const mapped: Record<string, unknown> = {
+      slug: f.slug,
+      label: f.label,
+      logical_type: f.logical_type,
+      nullable: f.nullable ?? true,
+      validation: f.validation ?? {},
+    }
+    if (f.description) mapped.description = f.description
+    if (f.default_value !== null && f.default_value !== undefined)
+      mapped.default = f.default_value
+    if (f.unit && Object.keys(f.unit).length > 0) mapped.unit = f.unit
+    return mapped
+  })
   return client.rpc<DatasetSchemaWithFields>('create_dataset_schema', {
     p_slug: input.slug,
     p_name: input.name,
     p_description: input.description ?? null,
-    p_fields: input.fields,
+    p_fields: mappedFields,
   })
 }
 

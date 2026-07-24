@@ -949,8 +949,8 @@ function SchemaHeader({
 
 function SchemaTabs({ children }: { children: React.ReactNode }) {
   return (
-    <Tabs defaultValue="schema" className="flex h-full min-h-0 flex-1 flex-col">
-      <TabsList className="w-fit shrink-0">
+    <Tabs defaultValue="schema" className="relative flex-1 overflow-hidden">
+      <TabsList className="absolute left-0 top-0 z-10 w-fit">
         <TabsTrigger value="schema">Schema</TabsTrigger>
         <TabsTrigger value="records">Records</TabsTrigger>
         <TabsTrigger value="views">Views</TabsTrigger>
@@ -959,7 +959,7 @@ function SchemaTabs({ children }: { children: React.ReactNode }) {
       </TabsList>
       <TabsContent
         value="schema"
-        className="mt-2 flex h-full min-h-0 flex-1 flex-col gap-2"
+        className="absolute inset-0 top-10 flex flex-col gap-2"
       >
         {children}
       </TabsContent>

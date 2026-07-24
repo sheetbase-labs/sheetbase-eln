@@ -247,3 +247,17 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ReactFlow: when panning is disabled, internal layers still intercept
+ * pointer events. Allow node content (field buttons) to receive clicks. */
+.react-flow__pane,
+.react-flow__renderer {
+  pointer-events: none !important;
+}
+.react-flow__node,
+.react-flow__node *,
+.react-flow__minimap,
+.react-flow__controls,
+.react-flow__attribution {
+  pointer-events: auto;
+}

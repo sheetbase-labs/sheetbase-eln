@@ -305,8 +305,9 @@ export function SchemaManagementRoute() {
         { label: 'Data Models' },
         ...(headerTitle ? [{ label: headerTitle }] : []),
       ]}
+      fullBleed
     >
-      <div className="flex h-[calc(100svh-6.5rem)] min-h-0 gap-0 overflow-hidden">
+      <div className="flex min-h-0 flex-1 gap-0 overflow-hidden">
         {/* Schema registry — collapsible */}
         {registryOpen ? (
           <Card className="flex h-full min-h-0 w-60 shrink-0 flex-col rounded-r-none border-r p-0">
@@ -416,7 +417,7 @@ export function SchemaManagementRoute() {
         )}
 
         {/* Main area */}
-        <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col gap-3 p-3 pl-3">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-hidden p-3">
           {mode === 'create' ? (
             <CreateSchemaEditor
               name={draftName}
@@ -571,8 +572,8 @@ function CreateSchemaEditor({
     !createPending
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-1 gap-3">
-      <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col gap-3">
+    <div className="flex min-h-0 min-w-0 flex-1 gap-3 overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-hidden">
         <SchemaHeader
           title={name || 'New Schema'}
           status="draft"
@@ -698,8 +699,8 @@ function SchemaEditor({
   const activeSavedField = fields.find((f) => f.id === selectedFieldId) || null
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-1 gap-3">
-      <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col gap-3">
+    <div className="flex min-h-0 min-w-0 flex-1 gap-3 overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-hidden">
         <SchemaHeader
           title={schema.name}
           status={schema.status}
@@ -827,9 +828,9 @@ function SchemaHeader({
   publishError,
 }: SchemaHeaderProps) {
   return (
-    <div className="shrink-0 space-y-2 border-b pb-3">
+    <div className="shrink-0 space-y-1 border-b pb-2">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0 space-y-1">
+        <div className="min-w-0 space-y-0.5">
           {editingName ? (
             <div className="flex items-center gap-2">
               <Input
@@ -858,6 +859,11 @@ function SchemaHeader({
             </div>
           )}
           {subtitle}
+          {!editingName && description && (
+            <p className="line-clamp-1 text-xs text-muted-foreground">
+              {description}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" disabled>
@@ -902,7 +908,7 @@ function SchemaHeader({
         </div>
       </div>
 
-      {(editingName || editingSlug || description !== null) && (
+      {(editingName || editingSlug) && (
         <div className="grid gap-2 sm:grid-cols-2">
           {editingSlug && (
             <div className="space-y-1">
@@ -949,7 +955,10 @@ function SchemaHeader({
 
 function SchemaTabs({ children }: { children: React.ReactNode }) {
   return (
-    <Tabs defaultValue="schema" className="relative flex-1 overflow-hidden">
+    <Tabs
+      defaultValue="schema"
+      className="relative min-h-0 flex-1 overflow-hidden"
+    >
       <TabsList className="absolute left-0 top-0 z-10 w-fit">
         <TabsTrigger value="schema">Schema</TabsTrigger>
         <TabsTrigger value="records">Records</TabsTrigger>
@@ -959,7 +968,7 @@ function SchemaTabs({ children }: { children: React.ReactNode }) {
       </TabsList>
       <TabsContent
         value="schema"
-        className="absolute inset-0 top-10 flex flex-col gap-2"
+        className="absolute inset-x-0 bottom-0 top-10 flex min-h-0 flex-col gap-2"
       >
         {children}
       </TabsContent>
@@ -1043,7 +1052,7 @@ function SchemaCanvas({
       {
         id: 'schema-node',
         type: 'schema',
-        position: { x: 80, y: 60 },
+        position: { x: 120, y: 40 },
         data: {
           schemaName,
           schemaStatus,
@@ -1059,11 +1068,8 @@ function SchemaCanvas({
   const edges: Edge[] = []
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col gap-2">
-      <div
-        className="relative flex-1 overflow-hidden rounded-lg border bg-muted/20"
-        style={{ height: 'calc(100svh - 14rem)' }}
-      >
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
+      <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg border bg-muted/20">
         {loading && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 text-sm text-muted-foreground">
             Loading fields…
@@ -1080,35 +1086,35 @@ function SchemaCanvas({
           </div>
         )}
         <div className="absolute inset-0">
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          nodeTypes={nodeTypes}
-          fitView
-          fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
-          minZoom={0.5}
-          maxZoom={1.5}
-          panOnDrag
-          zoomOnScroll
-          proOptions={{ hideAttribution: true }}
-          nodesDraggable={false}
-          nodesConnectable={false}
-          elementsSelectable={false}
-          style={{ width: '100%', height: '100%' }}
-        >
-          <Background
-            variant={BackgroundVariant.Dots}
-            gap={16}
-            size={1}
-            className="bg-muted/20"
-          />
-          <MiniMap
-            pannable
-            zoomable
-            className="!bg-background !border"
-            maskColor="rgba(0,0,0,0.05)"
-          />
-        </ReactFlow>
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={nodeTypes}
+            fitView
+            fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
+            minZoom={0.5}
+            maxZoom={1.5}
+            panOnDrag={false}
+            zoomOnScroll
+            proOptions={{ hideAttribution: true }}
+            nodesDraggable={false}
+            nodesConnectable={false}
+            elementsSelectable={false}
+            style={{ width: '100%', height: '100%' }}
+          >
+            <Background
+              variant={BackgroundVariant.Dots}
+              gap={16}
+              size={1}
+              className="bg-muted/20"
+            />
+            <MiniMap
+              pannable
+              zoomable
+              className="!bg-background !border"
+              maskColor="rgba(0,0,0,0.05)"
+            />
+          </ReactFlow>
         </div>
       </div>
 
@@ -1149,7 +1155,7 @@ const nodeTypes = { schema: SchemaNodeComponent }
 function SchemaNodeComponent({ data }: NodeProps<SchemaNode>) {
   const { schemaName, schemaStatus, rows, onSelectField } = data
   return (
-    <div className="w-96 rounded-lg border border-border bg-card shadow-md">
+    <div className="w-[480px] overflow-hidden rounded-lg border border-border bg-card shadow-md">
       {/* Node header */}
       <div className="flex items-center justify-between gap-2 border-b bg-muted/40 px-3 py-2">
         <div className="flex min-w-0 items-center gap-2">
@@ -1165,6 +1171,14 @@ function SchemaNodeComponent({ data }: NodeProps<SchemaNode>) {
           size="sm"
         />
       </div>
+      {/* Column header */}
+      {rows.length > 0 && (
+        <div className="flex items-center gap-2 border-b bg-muted/20 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <span className="flex-1">Field</span>
+          <span className="w-20 shrink-0 text-center">Type</span>
+          <span className="w-32 shrink-0 font-mono normal-case">Slug</span>
+        </div>
+      )}
       {/* Field rows */}
       <div className="max-h-[400px] overflow-y-auto">
         {rows.length === 0 && (
@@ -1184,13 +1198,17 @@ function SchemaNodeComponent({ data }: NodeProps<SchemaNode>) {
                 onSelectField(row.id)
               }}
               className={cn(
-                'flex w-full items-center justify-between gap-2 border-b border-border/50 px-3 py-2 text-left text-sm transition-colors last:border-b-0 hover:bg-muted/50',
+                'flex w-full items-center gap-2 border-b border-border/50 px-3 py-2 text-left transition-colors last:border-b-0 hover:bg-muted/50',
                 row.selected &&
                   'bg-primary/8 ring-1 ring-inset ring-primary/25',
                 row.retired && 'opacity-40',
               )}
             >
-              <span className="flex min-w-0 items-center gap-1.5">
+              <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                <Icon
+                  className="size-3.5 shrink-0 text-muted-foreground"
+                  aria-hidden="true"
+                />
                 <span
                   className={cn(
                     'truncate text-sm',
@@ -1205,9 +1223,11 @@ function SchemaNodeComponent({ data }: NodeProps<SchemaNode>) {
                   </span>
                 )}
               </span>
-              <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
-                <Icon className="size-3" aria-hidden="true" />
-                <span className="font-mono">{row.slug || '—'}</span>
+              <span className="w-20 shrink-0 text-center text-xs text-muted-foreground">
+                {row.logical_type}
+              </span>
+              <span className="w-32 shrink-0 truncate font-mono text-xs text-muted-foreground">
+                {row.slug || '—'}
               </span>
             </button>
           )

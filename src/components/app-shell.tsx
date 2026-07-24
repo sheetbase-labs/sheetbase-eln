@@ -133,6 +133,14 @@ export interface AppShellProps {
   /** Optional right-inspector content. When omitted no inspector renders. */
   inspector?: React.ReactNode
   inspectorLabel?: string
+  /**
+   * When true, children render directly in `<main>` with no max-width
+   * wrapper or padding, and the shell constrains to exactly viewport
+   * height with `overflow-hidden`. Use for full-viewport dashboard routes
+   * (e.g. the schema builder canvas) that manage their own internal
+   * scrolling and layout.
+   */
+  fullBleed?: boolean
   children: React.ReactNode
 }
 
@@ -202,6 +210,7 @@ export function AppShell({
   primaryAction,
   inspector,
   inspectorLabel = 'Inspector',
+  fullBleed = false,
   children,
 }: AppShellProps) {
   const router = useRouter()
@@ -456,7 +465,9 @@ export function AppShell({
 
         <div
           className={cn(
-            'flex min-h-svh flex-col',
+            fullBleed
+              ? 'flex h-svh flex-col overflow-hidden'
+              : 'flex min-h-svh flex-col',
             collapsed ? 'md:pl-14' : 'md:pl-60',
           )}
         >
@@ -569,15 +580,22 @@ export function AppShell({
             </div>
           </header>
 
-          <div className="flex flex-1">
+          <div className="flex flex-1 overflow-hidden">
             <main
               id={APP_SHELL_MAIN_ID}
               tabIndex={-1}
-              className="min-w-0 flex-1"
+              className={cn(
+                'min-w-0 flex-1',
+                fullBleed && 'flex flex-col overflow-hidden',
+              )}
             >
-              <div className="mx-auto w-full max-w-[1280px] px-4 py-6 md:px-8">
-                {children}
-              </div>
+              {fullBleed ? (
+                children
+              ) : (
+                <div className="mx-auto w-full max-w-[1280px] px-4 py-6 md:px-8">
+                  {children}
+                </div>
+              )}
             </main>
 
             {inspector && (

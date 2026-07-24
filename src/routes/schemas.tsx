@@ -306,7 +306,7 @@ export function SchemaManagementRoute() {
         ...(headerTitle ? [{ label: headerTitle }] : []),
       ]}
     >
-      <div className="flex min-h-[calc(100vh-7.5rem)] gap-0">
+      <div className="flex h-[calc(100vh-7.5rem)] gap-0 overflow-hidden">
         {/* Schema registry — collapsible */}
         {registryOpen ? (
           <Card className="flex w-60 shrink-0 flex-col rounded-r-none border-r p-0">
@@ -415,7 +415,7 @@ export function SchemaManagementRoute() {
         )}
 
         {/* Main area */}
-        <div className="flex min-w-0 flex-1 gap-4 p-1 pl-3">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-3 pl-3">
           {mode === 'create' ? (
             <CreateSchemaEditor
               name={draftName}
@@ -570,8 +570,8 @@ function CreateSchemaEditor({
     !createPending
 
   return (
-    <div className="flex min-w-0 flex-1 gap-4">
-      <div className="flex min-w-0 flex-1 flex-col gap-4">
+    <div className="flex min-h-0 min-w-0 flex-1 gap-3">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
         <SchemaHeader
           title={name || 'New Schema'}
           status="draft"
@@ -697,8 +697,8 @@ function SchemaEditor({
   const activeSavedField = fields.find((f) => f.id === selectedFieldId) || null
 
   return (
-    <div className="flex min-w-0 flex-1 gap-4">
-      <div className="flex min-w-0 flex-1 flex-col gap-4">
+    <div className="flex min-h-0 min-w-0 flex-1 gap-3">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
         <SchemaHeader
           title={schema.name}
           status={schema.status}
@@ -826,9 +826,9 @@ function SchemaHeader({
   publishError,
 }: SchemaHeaderProps) {
   return (
-    <Card className="space-y-3 p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 space-y-1.5">
+    <div className="shrink-0 space-y-2 border-b pb-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0 space-y-1">
           {editingName ? (
             <div className="flex items-center gap-2">
               <Input
@@ -836,7 +836,7 @@ function SchemaHeader({
                 value={name}
                 onChange={(e) => onChangeName?.(e.target.value)}
                 placeholder="Schema name"
-                className="h-8 max-w-xs text-lg font-semibold"
+                className="h-8 max-w-xs text-base font-semibold"
               />
               <StatusBadge
                 status={status}
@@ -845,13 +845,14 @@ function SchemaHeader({
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <Database className="size-5 text-violet-500" aria-hidden="true" />
-              <h1 className="truncate text-xl font-semibold tracking-tight">
+              <Database className="size-4 text-violet-500" aria-hidden="true" />
+              <h1 className="truncate text-base font-semibold tracking-tight">
                 {title}
               </h1>
               <StatusBadge
                 status={status}
                 vocabulary={schemaStatusVocabulary}
+                size="sm"
               />
             </div>
           )}
@@ -901,9 +902,9 @@ function SchemaHeader({
       </div>
 
       {(editingName || editingSlug || description !== null) && (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-2 sm:grid-cols-2">
           {editingSlug && (
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <Label htmlFor="schema-slug" className="text-xs">
                 Slug
               </Label>
@@ -912,11 +913,11 @@ function SchemaHeader({
                 value={slug}
                 onChange={(e) => onChangeSlug?.(e.target.value)}
                 placeholder="e.g. virus-stability-assay"
-                className="font-mono text-sm"
+                className="h-8 font-mono text-sm"
               />
             </div>
           )}
-          <div className={cn('space-y-1.5', !editingSlug && 'sm:col-span-2')}>
+          <div className={cn('space-y-1', !editingSlug && 'sm:col-span-2')}>
             <Label htmlFor="schema-description" className="text-xs">
               Description
             </Label>
@@ -925,7 +926,8 @@ function SchemaHeader({
               value={description ?? ''}
               onChange={(e) => onChangeDescription?.(e.target.value)}
               placeholder="What does this schema measure?"
-              rows={2}
+              rows={1}
+              className="min-h-8"
             />
           </div>
         </div>
@@ -936,7 +938,7 @@ function SchemaHeader({
           {errorMessage(publishError)}
         </p>
       )}
-    </Card>
+    </div>
   )
 }
 
@@ -947,7 +949,7 @@ function SchemaHeader({
 function SchemaTabs({ children }: { children: React.ReactNode }) {
   return (
     <Tabs defaultValue="schema" className="flex min-h-0 flex-1 flex-col">
-      <TabsList className="w-fit">
+      <TabsList className="w-fit shrink-0">
         <TabsTrigger value="schema">Schema</TabsTrigger>
         <TabsTrigger value="records">Records</TabsTrigger>
         <TabsTrigger value="views">Views</TabsTrigger>
@@ -956,23 +958,23 @@ function SchemaTabs({ children }: { children: React.ReactNode }) {
       </TabsList>
       <TabsContent
         value="schema"
-        className="mt-3 flex min-h-0 flex-1 flex-col gap-3"
+        className="mt-2 flex min-h-0 flex-1 flex-col gap-2"
       >
         {children}
       </TabsContent>
-      <TabsContent value="records" className="mt-3">
+      <TabsContent value="records" className="mt-2">
         <ComingSoonTab label="Records" />
       </TabsContent>
-      <TabsContent value="views" className="mt-3">
+      <TabsContent value="views" className="mt-2">
         <ComingSoonTab label="Saved views" />
       </TabsContent>
-      <TabsContent value="permissions" className="mt-3">
+      <TabsContent value="permissions" className="mt-2">
         <ComingSoonTab
           label="Permissions"
           hint="Workspace owners can publish and retire fields; members can create drafts."
         />
       </TabsContent>
-      <TabsContent value="history" className="mt-3">
+      <TabsContent value="history" className="mt-2">
         <ComingSoonTab label="Revision history" />
       </TabsContent>
     </Tabs>
@@ -1056,8 +1058,8 @@ function SchemaCanvas({
   const edges: Edge[] = []
 
   return (
-    <div className="flex flex-1 flex-col gap-3">
-      <Card className="relative flex-1 overflow-hidden p-0">
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
+      <Card className="relative min-h-0 flex-1 overflow-hidden p-0">
         {loading && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 text-sm text-muted-foreground">
             Loading fields…
@@ -1103,8 +1105,8 @@ function SchemaCanvas({
         </ReactFlow>
       </Card>
 
-      {/* Add-field toolbar */}
-      <Card className="flex flex-wrap items-center gap-1.5 p-2.5">
+      {/* Add-field toolbar — floating bar */}
+      <div className="flex shrink-0 flex-wrap items-center gap-1.5 rounded-lg border bg-card p-2 shadow-sm">
         {canAdd ? (
           <>
             <span className="px-1 text-[11px] font-medium text-muted-foreground">
@@ -1129,7 +1131,7 @@ function SchemaCanvas({
             published
           </span>
         )}
-      </Card>
+      </div>
     </div>
   )
 }
@@ -1140,11 +1142,13 @@ const nodeTypes = { schema: SchemaNodeComponent }
 function SchemaNodeComponent({ data }: NodeProps<SchemaNode>) {
   const { schemaName, schemaStatus, rows, onSelectField } = data
   return (
-    <div className="w-72 rounded-lg border border-border bg-card shadow-sm">
+    <div className="w-80 rounded-lg border border-border bg-card shadow-md">
       {/* Node header */}
-      <div className="flex items-center gap-2 border-b bg-muted/40 px-3 py-2">
-        <Database className="size-4 text-violet-500" aria-hidden="true" />
-        <span className="truncate text-sm font-semibold">{schemaName}</span>
+      <div className="flex items-center justify-between gap-2 border-b bg-muted/40 px-3 py-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <Database className="size-4 shrink-0 text-violet-500" aria-hidden="true" />
+          <span className="truncate text-sm font-semibold">{schemaName}</span>
+        </div>
         <StatusBadge
           status={schemaStatus}
           vocabulary={schemaStatusVocabulary}
@@ -1152,9 +1156,11 @@ function SchemaNodeComponent({ data }: NodeProps<SchemaNode>) {
         />
       </div>
       {/* Field rows */}
-      <div className="max-h-80 overflow-y-auto">
+      <div className="max-h-[400px] overflow-y-auto">
         {rows.length === 0 && (
-          <p className="px-3 py-3 text-xs text-muted-foreground">No fields.</p>
+          <p className="px-3 py-4 text-center text-xs text-muted-foreground">
+            No fields yet. Use the toolbar below to add one.
+          </p>
         )}
         {rows.map((row) => {
           const Icon = typeIcon[row.logical_type]
@@ -1167,20 +1173,20 @@ function SchemaNodeComponent({ data }: NodeProps<SchemaNode>) {
                 onSelectField(row.id)
               }}
               className={cn(
-                'flex w-full items-center justify-between gap-2 border-b border-border/60 px-3 py-2 text-left text-sm transition-colors last:border-b-0 hover:bg-muted/50',
+                'flex w-full items-center justify-between gap-2 border-b border-border/50 px-3 py-1.5 text-left text-sm transition-colors last:border-b-0 hover:bg-muted/50',
                 row.selected &&
-                  'bg-primary/5 ring-1 ring-inset ring-primary/20',
-                row.retired && 'opacity-50',
+                  'bg-primary/8 ring-1 ring-inset ring-primary/25',
+                row.retired && 'opacity-40',
               )}
             >
               <span className="flex min-w-0 items-center gap-1.5">
                 <span
                   className={cn(
-                    'truncate font-mono text-xs',
+                    'truncate text-sm',
                     row.retired && 'line-through',
                   )}
                 >
-                  {row.slug || '—'}
+                  {row.label || row.slug || 'Untitled'}
                 </span>
                 {!row.nullable && (
                   <span className="text-primary" aria-label="Required">
@@ -1190,7 +1196,7 @@ function SchemaNodeComponent({ data }: NodeProps<SchemaNode>) {
               </span>
               <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
                 <Icon className="size-3" aria-hidden="true" />
-                {row.label || '—'}
+                <span className="font-mono">{row.slug || '—'}</span>
               </span>
             </button>
           )
@@ -1241,7 +1247,7 @@ function FieldPropertiesPanel(props: FieldPropertiesPanelProps) {
 
   if (mode === 'none') {
     return (
-      <Card className="hidden w-72 shrink-0 p-4 lg:block">
+      <Card className="hidden w-72 shrink-0 self-stretch p-4 lg:block">
         <p className="text-sm text-muted-foreground">
           Select a field to inspect or configure it.
         </p>
@@ -1252,7 +1258,7 @@ function FieldPropertiesPanel(props: FieldPropertiesPanelProps) {
   // Saved (read-only) field view.
   if (mode === 'saved' && savedField) {
     return (
-      <Card className="flex w-72 shrink-0 flex-col gap-4 overflow-y-auto p-4">
+      <Card className="flex w-72 shrink-0 self-stretch flex-col gap-4 overflow-y-auto p-4">
         <PanelHeader title={savedField.label || savedField.slug} />
         <Separator />
         <BasicSection
@@ -1297,7 +1303,7 @@ function FieldPropertiesPanel(props: FieldPropertiesPanelProps) {
   const change = mode === 'draft' ? onDraftChange : onPendingChange
 
   return (
-    <Card className="flex w-72 shrink-0 flex-col gap-4 overflow-y-auto p-4">
+    <Card className="flex w-72 shrink-0 self-stretch flex-col gap-4 overflow-y-auto p-4">
       <PanelHeader
         title={editable.label || editable.slug || 'New field'}
         hint={

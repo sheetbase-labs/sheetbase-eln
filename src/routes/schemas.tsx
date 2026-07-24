@@ -1060,7 +1060,10 @@ function SchemaCanvas({
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col gap-2">
-      <Card className="relative h-full min-h-0 flex-1 overflow-hidden p-0">
+      <div
+        className="relative flex-1 overflow-hidden rounded-lg border bg-muted/20"
+        style={{ height: 'calc(100svh - 14rem)' }}
+      >
         {loading && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 text-sm text-muted-foreground">
             Loading fields…
@@ -1076,8 +1079,8 @@ function SchemaCanvas({
             {emptyLabel}
           </div>
         )}
+        <div className="absolute inset-0">
         <ReactFlow
-          className="!absolute !inset-0 !h-full !w-full"
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
@@ -1091,6 +1094,7 @@ function SchemaCanvas({
           nodesDraggable={false}
           nodesConnectable={false}
           elementsSelectable={false}
+          style={{ width: '100%', height: '100%' }}
         >
           <Background
             variant={BackgroundVariant.Dots}
@@ -1105,7 +1109,8 @@ function SchemaCanvas({
             maskColor="rgba(0,0,0,0.05)"
           />
         </ReactFlow>
-      </Card>
+        </div>
+      </div>
 
       {/* Add-field toolbar — floating bar */}
       <div className="flex shrink-0 flex-wrap items-center gap-1.5 rounded-lg border bg-card p-2 shadow-sm">

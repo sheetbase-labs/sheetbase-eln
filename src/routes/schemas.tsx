@@ -25,6 +25,7 @@ import {
   Type as TypeIcon,
   Calendar,
   PanelLeft,
+  PanelRight,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -156,6 +157,7 @@ export function SchemaManagementRoute() {
   const [mode, setMode] = useState<EditorMode>('view')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [registryOpen, setRegistryOpen] = useState(true)
+  const [inspectorOpen, setInspectorOpen] = useState(true)
 
   // Create-mode draft state.
   const [draftName, setDraftName] = useState('')
@@ -204,7 +206,6 @@ export function SchemaManagementRoute() {
     onSuccess: (result) => {
       setMode('view')
       setSelectedId(result.schema.id)
-      setRegistryOpen(false)
       resetDraft()
       void refreshList()
     },
@@ -249,7 +250,6 @@ export function SchemaManagementRoute() {
     resetDraft()
     setPendingField(null)
     setSelectedFieldId(null)
-    setRegistryOpen(false)
     setMode('create')
   }
 
@@ -258,7 +258,6 @@ export function SchemaManagementRoute() {
     setSelectedId(id)
     setPendingField(null)
     setSelectedFieldId(null)
-    setRegistryOpen(false)
   }
 
   const grouped = useMemo(
@@ -417,7 +416,7 @@ export function SchemaManagementRoute() {
         )}
 
         {/* Main area */}
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-hidden p-3">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {mode === 'create' ? (
             <CreateSchemaEditor
               name={draftName}
@@ -459,6 +458,8 @@ export function SchemaManagementRoute() {
                 resetDraft()
               }}
               onSave={() => createMutation.mutate()}
+              inspectorOpen={inspectorOpen}
+              onToggleInspector={() => setInspectorOpen((v) => !v)}
             />
           ) : selected ? (
             <SchemaEditor
@@ -490,6 +491,8 @@ export function SchemaManagementRoute() {
               onAddField={() => addMutation.mutate()}
               onPublish={() => publishMutation.mutate(selected.id)}
               onRetireField={(id) => retireMutation.mutate(id)}
+              inspectorOpen={inspectorOpen}
+              onToggleInspector={() => setInspectorOpen((v) => !v)}
             />
           ) : (
             <EmptyState onStartCreate={startCreate} />
@@ -543,6 +546,8 @@ interface CreateSchemaEditorProps {
   onRemoveField: (index: number) => void
   onCancel: () => void
   onSave: () => void
+  inspectorOpen: boolean
+  onToggleInspector: () => void
 }
 
 function CreateSchemaEditor({
@@ -563,6 +568,8 @@ function CreateSchemaEditor({
   onRemoveField,
   onCancel,
   onSave,
+  inspectorOpen,
+  onToggleInspector,
 }: CreateSchemaEditorProps) {
   const selectedField = fields[selectedIndex] ?? null
   const canSave =
@@ -572,8 +579,8 @@ function CreateSchemaEditor({
     !createPending
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 gap-3 overflow-hidden">
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-hidden">
+    <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <SchemaHeader
           title={name || 'New Schema'}
           status="draft"
@@ -623,22 +630,36 @@ function CreateSchemaEditor({
         )}
       </div>
 
-      <FieldPropertiesPanel
-        mode={fields.length > 0 ? 'draft' : 'none'}
-        savedField={null}
-        pendingField={null}
-        draftField={selectedField}
-        isOwner={isOwner}
-        canAdd
-        addPending={false}
-        retirePending={false}
-        onDraftChange={(next) => onChangeField(next, selectedIndex)}
-        onRemoveDraft={() => onRemoveField(selectedIndex)}
-        onPendingChange={() => {}}
-        onAddField={() => {}}
-        onCancelPending={() => {}}
-        onRetireField={() => {}}
-      />
+      {inspectorOpen ? (
+        <FieldPropertiesPanel
+          mode={fields.length > 0 ? 'draft' : 'none'}
+          savedField={null}
+          pendingField={null}
+          draftField={selectedField}
+          isOwner={isOwner}
+          canAdd
+          addPending={false}
+          retirePending={false}
+          onDraftChange={(next) => onChangeField(next, selectedIndex)}
+          onRemoveDraft={() => onRemoveField(selectedIndex)}
+          onPendingChange={() => {}}
+          onAddField={() => {}}
+          onCancelPending={() => {}}
+          onRetireField={() => {}}
+          onClose={onToggleInspector}
+        />
+      ) : (
+        <div className="flex w-10 shrink-0 justify-center border-l py-1">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={onToggleInspector}
+            aria-label="Show field properties"
+          >
+            <PanelRight className="size-4" aria-hidden="true" />
+          </Button>
+        </div>
+      )}
     </div>
   )
 }
@@ -670,6 +691,8 @@ interface SchemaEditorProps {
   onAddField: () => void
   onPublish: () => void
   onRetireField: (id: string) => void
+  inspectorOpen: boolean
+  onToggleInspector: () => void
 }
 
 function SchemaEditor({
@@ -695,12 +718,14 @@ function SchemaEditor({
   onAddField,
   onPublish,
   onRetireField,
+  inspectorOpen,
+  onToggleInspector,
 }: SchemaEditorProps) {
   const activeSavedField = fields.find((f) => f.id === selectedFieldId) || null
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 gap-3 overflow-hidden">
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-hidden">
+    <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <SchemaHeader
           title={schema.name}
           status={schema.status}
@@ -752,22 +777,36 @@ function SchemaEditor({
         )}
       </div>
 
-      <FieldPropertiesPanel
-        mode={panelMode}
-        savedField={activeSavedField}
-        pendingField={pendingField}
-        draftField={null}
-        isOwner={isOwner}
-        canAdd={canAdd}
-        addPending={addPending}
-        retirePending={retirePending}
-        onDraftChange={() => {}}
-        onRemoveDraft={() => {}}
-        onPendingChange={onPendingChange}
-        onAddField={onAddField}
-        onCancelPending={onCancelPending}
-        onRetireField={onRetireField}
-      />
+      {inspectorOpen ? (
+        <FieldPropertiesPanel
+          mode={panelMode}
+          savedField={activeSavedField}
+          pendingField={pendingField}
+          draftField={null}
+          isOwner={isOwner}
+          canAdd={canAdd}
+          addPending={addPending}
+          retirePending={retirePending}
+          onDraftChange={() => {}}
+          onRemoveDraft={() => {}}
+          onPendingChange={onPendingChange}
+          onAddField={onAddField}
+          onCancelPending={onCancelPending}
+          onRetireField={onRetireField}
+          onClose={onToggleInspector}
+        />
+      ) : (
+        <div className="flex w-10 shrink-0 justify-center border-l py-1">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={onToggleInspector}
+            aria-label="Show field properties"
+          >
+            <PanelRight className="size-4" aria-hidden="true" />
+          </Button>
+        </div>
+      )}
 
       {Boolean(addError) && (
         <p role="alert" className="sr-only">
@@ -828,7 +867,7 @@ function SchemaHeader({
   publishError,
 }: SchemaHeaderProps) {
   return (
-    <div className="shrink-0 space-y-1 border-b pb-2">
+    <div className="shrink-0 space-y-1 border-b px-4 py-2">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 space-y-0.5">
           {editingName ? (
@@ -1068,7 +1107,7 @@ function SchemaCanvas({
   const edges: Edge[] = []
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2">
+    <div className="flex min-h-0 flex-1 flex-col gap-2 px-4 pb-4">
       <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg border bg-muted/20">
         {loading && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 text-sm text-muted-foreground">
@@ -1256,6 +1295,7 @@ interface FieldPropertiesPanelProps {
   onAddField: () => void
   onCancelPending: () => void
   onRetireField: (id: string) => void
+  onClose?: () => void
 }
 
 function FieldPropertiesPanel(props: FieldPropertiesPanelProps) {
@@ -1274,14 +1314,27 @@ function FieldPropertiesPanel(props: FieldPropertiesPanelProps) {
     onAddField,
     onCancelPending,
     onRetireField,
+    onClose,
   } = props
 
   if (mode === 'none') {
     return (
-      <Card className="hidden w-72 shrink-0 self-stretch p-4 lg:block">
-        <p className="text-sm text-muted-foreground">
-          Select a field to inspect or configure it.
-        </p>
+      <Card className="hidden w-64 shrink-0 self-stretch border-l border-l-border p-4 lg:block">
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Select a field to inspect or configure it.
+          </p>
+          {onClose && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={onClose}
+              aria-label="Hide field properties"
+            >
+              <PanelRight className="size-4" aria-hidden="true" />
+            </Button>
+          )}
+        </div>
       </Card>
     )
   }
@@ -1289,8 +1342,11 @@ function FieldPropertiesPanel(props: FieldPropertiesPanelProps) {
   // Saved (read-only) field view.
   if (mode === 'saved' && savedField) {
     return (
-      <Card className="flex w-72 shrink-0 self-stretch flex-col gap-3 overflow-y-auto p-4">
-        <PanelHeader title={savedField.label || savedField.slug} />
+      <Card className="flex w-64 shrink-0 self-stretch flex-col gap-3 overflow-y-auto border-l border-l-border p-4">
+        <PanelHeader
+          title={savedField.label || savedField.slug}
+          onClose={onClose}
+        />
         <Separator />
         <BasicSection
           slug={savedField.slug}
@@ -1333,7 +1389,7 @@ function FieldPropertiesPanel(props: FieldPropertiesPanelProps) {
   const change = mode === 'draft' ? onDraftChange : onPendingChange
 
   return (
-    <Card className="flex w-72 shrink-0 self-stretch flex-col gap-3 overflow-y-auto p-4">
+    <Card className="flex w-64 shrink-0 self-stretch flex-col gap-3 overflow-y-auto border-l border-l-border p-4">
       <PanelHeader
         title={editable.label || editable.slug || 'New field'}
         hint={
@@ -1347,6 +1403,7 @@ function FieldPropertiesPanel(props: FieldPropertiesPanelProps) {
             />
           )
         }
+        onClose={onClose}
       />
       <Separator />
       <BasicSection
@@ -1414,14 +1471,28 @@ function FieldPropertiesPanel(props: FieldPropertiesPanelProps) {
 function PanelHeader({
   title,
   hint,
+  onClose,
 }: {
   title: string
   hint?: React.ReactNode
+  onClose?: () => void
 }) {
   return (
     <div className="flex items-center justify-between gap-2">
       <h3 className="truncate text-sm font-semibold">{title}</h3>
-      {hint}
+      <div className="flex items-center gap-1">
+        {hint}
+        {onClose && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={onClose}
+            aria-label="Hide field properties"
+          >
+            <PanelRight className="size-4" aria-hidden="true" />
+          </Button>
+        )}
+      </div>
     </div>
   )
 }

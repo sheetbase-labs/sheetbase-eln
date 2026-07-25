@@ -1,4 +1,25 @@
-import { Eye, EyeOff, Lock, History, Archive } from 'lucide-react'
+import { Link } from '@tanstack/react-router'
+import {
+  Archive,
+  ArrowRight,
+  BarChart3,
+  CheckSquare,
+  ExternalLink,
+  Eye,
+  EyeOff,
+  FileText,
+  Hash,
+  History,
+  Link as LinkIcon,
+  ListChecks,
+  Lock,
+  Maximize,
+  Package,
+  Paperclip,
+  Table as TableIcon,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
+import * as React from 'react'
 
 import { cn } from '#/lib/utils'
 import type { NotebookBlock } from '#/lib/notebook-data'
@@ -8,7 +29,14 @@ import type {
   OverviewMode,
   OverviewSection,
   OverviewRevision,
+  SectionId,
 } from '#/lib/overview'
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogTrigger,
+} from '#/components/ui'
 
 /**
  * Experiment overview view (SCI-007, decision 0032).
@@ -32,8 +60,34 @@ export interface OverviewViewProps {
   excludedBlockIds: readonly string[]
   /** Toggle a block's overview visibility. Omit for read-only modes. */
   onToggleBlock?: (blockId: string, exclude: boolean) => void
+  /**
+   * Project + record ids for the "Open in notebook" / "Open full table"
+   * navigation links on each block. Omitted in unit tests; when present the
+   * read-only hover controls get link affordances to the notebook editor.
+   */
+  projectId?: string
+  recordId?: string
   className?: string
 }
+
+/**
+ * Icon for each overview section header (decision 0032 §3, overview mockup).
+ * `other` has no dedicated icon and renders a neutral fallback.
+ */
+export const SECTION_ICONS: Partial<Record<SectionId, LucideIcon>> = {
+  notes: FileText,
+  materials: Package,
+  procedures: ListChecks,
+  tables: TableIcon,
+  visualizations: BarChart3,
+  metrics: Hash,
+  files: Paperclip,
+  links: LinkIcon,
+  tasks: CheckSquare,
+}
+
+/** Block types that show an "Open full table" affordance in the overview. */
+const TABLE_BLOCK_TYPES = new Set(['table', 'sheet'])
 
 export function OverviewView({
   sections,
@@ -41,6 +95,8 @@ export function OverviewView({
   revision,
   excludedBlockIds,
   onToggleBlock,
+  projectId,
+  recordId,
   className,
 }: OverviewViewProps) {
   const showToggles = canConfigureOverview(mode) && Boolean(onToggleBlock)
@@ -57,52 +113,66 @@ export function OverviewView({
       ) : null}
       {mode === 'archived' ? <ArchivedBanner /> : null}
       {mode === 'locked' ? <LockedBanner /> : null}
-      {sections.map((section) => (
-        <section
-          key={section.id}
-          aria-labelledby={`overview-section-${section.id}`}
-          className="space-y-3"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <h2
-              id={`overview-section-${section.id}`}
-              className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground"
-            >
-              {section.label}
-            </h2>
-            <span className="text-[11px] text-muted-foreground">
-              {section.blocks.length}{' '}
-              {section.blocks.length === 1 ? 'block' : 'blocks'}
-            </span>
-          </div>
-          <div className="space-y-3">
-            {section.blocks.map((block) => (
-              <OverviewBlock
-                key={block.id}
-                block={block}
-                excluded={excluded.has(block.id)}
-                showToggle={showToggles}
-                onToggle={onToggleBlock}
-              />
-            ))}
-          </div>
-        </section>
-      ))}
+      {sections.map((section) => {
+        const SectionIcon = SECTION_ICONS[section.id]
+        return (
+          <section
+            key={section.id}
+            aria-labelledby={`overview-section-${section.id}`}
+            className="space-y-3"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h2
+                id={`overview-section-${section.id}`}
+                className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground"
+              >
+                {SectionIcon ? (
+                  <SectionIcon className="size-3.5" aria-hidden="true" />
+                ) : null}
+                {section.label}
+              </h2>
+              <span className="text-[11px] text-muted-foreground">
+                {section.blocks.length}{' '}
+                {section.blocks.length === 1 ? 'block' : 'blocks'}
+              </span>
+            </div>
+            <div className="space-y-3">
+              {section.blocks.map((block) => (
+                <OverviewBlock
+                  key={block.id}
+                  block={block}
+                  excluded={excluded.has(block.id)}
+                  showToggle={showToggles}
+                  onToggle={onToggleBlock}
+                  projectId={projectId}
+                  recordId={recordId}
+                />
+              ))}
+            </div>
+          </section>
+        )
+      })}
     </div>
   )
 }
 
-function OverviewBlock({
+export function OverviewBlock({
   block,
   excluded,
   showToggle,
   onToggle,
+  projectId,
+  recordId,
 }: {
   block: NotebookBlock
   excluded: boolean
   showToggle: boolean
   onToggle?: (blockId: string, exclude: boolean) => void
+  projectId?: string
+  recordId?: string
 }) {
+  const canLinkToNotebook = Boolean(projectId && recordId)
+  const showOpenFullTable = TABLE_BLOCK_TYPES.has(block.type)
   return (
     <div
       className={cn(
@@ -110,24 +180,82 @@ function OverviewBlock({
         excluded && 'opacity-50',
       )}
     >
-      {showToggle ? (
+      {/* Read-only hover controls (top-right). The overview is never an
+          editor; these only open a larger view or jump to the notebook. */}
+      <div className="absolute right-3 top-3 flex items-center gap-1">
+        {canLinkToNotebook ? <BlockExpandControl block={block} /> : null}
+        {canLinkToNotebook ? (
+          <Link
+            to="/projects/$projectId/experiments/$recordId"
+            params={{ projectId: projectId!, recordId: recordId! }}
+            className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100 focus-visible:opacity-100"
+            aria-label="Open in notebook"
+            title="Open in notebook"
+          >
+            <ExternalLink className="size-4" aria-hidden="true" />
+          </Link>
+        ) : null}
+        {showToggle ? (
+          <button
+            type="button"
+            className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100 focus-visible:opacity-100"
+            aria-label={excluded ? 'Show in overview' : 'Hide from overview'}
+            aria-pressed={excluded}
+            title={excluded ? 'Show in overview' : 'Hide from overview'}
+            onClick={() => onToggle?.(block.id, !excluded)}
+          >
+            {excluded ? (
+              <EyeOff className="size-4" aria-hidden="true" />
+            ) : (
+              <Eye className="size-4" aria-hidden="true" />
+            )}
+          </button>
+        ) : null}
+      </div>
+      <BlockPreview block={block} />
+      {showOpenFullTable && canLinkToNotebook ? (
+        <div className="mt-3 flex justify-end border-t border-border/60 pt-2">
+          <Link
+            to="/projects/$projectId/experiments/$recordId"
+            params={{ projectId: projectId!, recordId: recordId! }}
+            className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground no-underline underline-offset-2 hover:text-foreground hover:underline"
+          >
+            Open full table
+            <ArrowRight className="size-3.5" aria-hidden="true" />
+          </Link>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+/**
+ * Expand control: opens a dialog rendering the block content at full size.
+ * Read-only — the dialog never mounts editors or block pickers.
+ */
+function BlockExpandControl({ block }: { block: NotebookBlock }) {
+  const [open, setOpen] = React.useState(false)
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
         <button
           type="button"
-          className="absolute right-3 top-3 inline-flex size-7 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100 focus-visible:opacity-100"
-          aria-label={excluded ? 'Show in overview' : 'Hide from overview'}
-          aria-pressed={excluded}
-          title={excluded ? 'Show in overview' : 'Hide from overview'}
-          onClick={() => onToggle?.(block.id, !excluded)}
+          className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100 focus-visible:opacity-100"
+          aria-label="Expand block"
+          title="Expand"
         >
-          {excluded ? (
-            <EyeOff className="size-4" aria-hidden="true" />
-          ) : (
-            <Eye className="size-4" aria-hidden="true" />
-          )}
+          <Maximize className="size-4" aria-hidden="true" />
         </button>
-      ) : null}
-      <BlockPreview block={block} />
-    </div>
+      </DialogTrigger>
+      <DialogContent className="max-w-4xl">
+        <DialogTitle className="sr-only">
+          {block.type} block preview
+        </DialogTitle>
+        <div className="max-h-[80vh] overflow-auto">
+          <BlockPreview block={block} />
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 

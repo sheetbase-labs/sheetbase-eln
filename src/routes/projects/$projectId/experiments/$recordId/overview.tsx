@@ -8,7 +8,7 @@ import { createFileRoute, Link, useSearch } from '@tanstack/react-router'
 import { FileWarning } from 'lucide-react'
 
 import { AppShell } from '#/components/app-shell'
-import { OverviewView } from '#/components/overview'
+import { OverviewTabs } from '#/components/overview'
 import {
   Inspector,
   InspectorSection,
@@ -314,8 +314,9 @@ function ExperimentOverviewRoute() {
               </button>
             </div>
           ) : (
-            <OverviewView
+            <OverviewTabs
               sections={sections}
+              blocks={blocks}
               mode={mode}
               revision={revision}
               excludedBlockIds={config.excludedBlockIds}
@@ -325,6 +326,8 @@ function ExperimentOverviewRoute() {
                       toggleMutation.mutate({ blockId, exclude })
                   : undefined
               }
+              projectId={projectId}
+              recordId={recordId}
             />
           )}
         </div>

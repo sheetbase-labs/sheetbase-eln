@@ -290,30 +290,39 @@ describe('PermissionRestrictedState', () => {
 })
 
 describe('NotebookInspector', () => {
-  it('renders overview properties and a links tab with a count', () => {
+  it('renders Properties, Activity and Comments tabs with record metadata', () => {
+    const queryClient = new QueryClient()
     render(
-      <NotebookInspector
-        record={record}
-        links={[
-          {
-            id: 'l1',
-            sourceRecordId: 'r1',
-            targetRecordId: 'r2',
-            targetKind: 'protocol_template',
-            targetIdentifier: 'PRT-2025-0001',
-            linkType: 'protocol',
-          },
-        ]}
-        linksLoading={false}
-      />,
+      <QueryClientProvider client={queryClient}>
+        <NotebookInspector
+          record={record}
+          links={[
+            {
+              id: 'l1',
+              sourceRecordId: 'r1',
+              targetRecordId: 'r2',
+              targetKind: 'protocol_template',
+              targetIdentifier: 'PRT-2025-0001',
+              linkType: 'protocol',
+            },
+          ]}
+          linksLoading={false}
+        />
+      </QueryClientProvider>,
     )
     // Identity header
     expect(screen.getByText('Virus Stability at 4C')).toBeTruthy()
-    // Overview tab is the default; identifier appears in PropertyList
+    // Three mockup tabs
+    expect(screen.getByRole('tab', { name: 'Properties' })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: 'Activity' })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: 'Comments' })).toBeTruthy()
+    // Properties is the default; identifier appears in PropertyList
     expect(screen.getByText('EXP-2025-0001')).toBeTruthy()
-    // Links tab badge
-    const linksTab = screen.getByRole('tab', { name: /Links/ })
-    expect(linksTab.textContent).toContain('1')
+    // Tags render as outline badges within Properties
+    expect(screen.getByText('stability')).toBeTruthy()
+    expect(screen.getByText('qPCR')).toBeTruthy()
+    // Linked records render within the Properties tab
+    expect(screen.getByText('PRT-2025-0001')).toBeTruthy()
   })
 
   it('shows a loading hint for links while they load', () => {
@@ -322,10 +331,36 @@ describe('NotebookInspector', () => {
         record={record}
         links={[]}
         linksLoading={true}
-        defaultTab="links"
+        defaultTab="properties"
       />,
     )
     expect(screen.getByText('Loading links…')).toBeTruthy()
+  })
+
+  it('shows an activity feed from change events attributed to the current user', () => {
+    render(
+      <NotebookInspector
+        record={record}
+        links={[]}
+        linksLoading={false}
+        currentUserId="u1"
+        activity={[
+          {
+            id: 'e1',
+            operation: 'create',
+            entityType: 'block',
+            actorUserId: 'u1',
+            createdAt: '2026-07-18T12:30:00.000Z',
+            payload: {},
+          },
+        ]}
+        defaultTab="activity"
+      />,
+    )
+    // The current user's own action is attributed as "You"
+    expect(screen.getByText('You')).toBeTruthy()
+    expect(screen.getByText(/created/)).toBeTruthy()
+    expect(screen.getByText('a block')).toBeTruthy()
   })
 })
 

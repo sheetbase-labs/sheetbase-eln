@@ -25,6 +25,7 @@ import {
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
+  PanelRight,
   Search,
   Settings,
   Sun,
@@ -83,6 +84,7 @@ import {
  */
 
 const COLLAPSE_KEY = 'sheetbase-sidebar-collapsed'
+const INSPECTOR_COLLAPSE_KEY = 'sheetbase-inspector-collapsed'
 
 export const APP_SHELL_MAIN_ID = 'app-shell-main'
 export const APP_SHELL_NAV_ID = 'app-shell-nav'
@@ -133,6 +135,13 @@ export interface AppShellProps {
   /** Optional right-inspector content. When omitted no inspector renders. */
   inspector?: React.ReactNode
   inspectorLabel?: string
+  /**
+   * When true, the desktop (xl+) inspector gets a collapse/expand toggle in
+   * the top bar (PanelRight icon) and remembers its state across reloads via
+   * localStorage. The narrow-screen Sheet behaviour is unchanged. Opt in per
+   * route; routes that do not set this keep the always-visible inspector.
+   */
+  inspectorCollapsible?: boolean
   /**
    * When true, children render directly in `<main>` with no max-width
    * wrapper or padding, and the shell constrains to exactly viewport
@@ -210,6 +219,7 @@ export function AppShell({
   primaryAction,
   inspector,
   inspectorLabel = 'Inspector',
+  inspectorCollapsible = false,
   fullBleed = false,
   children,
 }: AppShellProps) {
@@ -226,6 +236,7 @@ export function AppShell({
   const [mobileOpen, setMobileOpen] = React.useState(false)
   const [commandOpen, setCommandOpen] = React.useState(false)
   const [inspectorOpen, setInspectorOpen] = React.useState(false)
+  const [inspectorCollapsed, setInspectorCollapsed] = React.useState(false)
 
   React.useEffect(() => {
     try {
@@ -235,11 +246,36 @@ export function AppShell({
     }
   }, [])
 
+  // Collapsible inspector persistence — separate key from the left sidebar
+  // so the two panels remember their state independently.
+  React.useEffect(() => {
+    if (!inspectorCollapsible) return
+    try {
+      setInspectorCollapsed(
+        localStorage.getItem(INSPECTOR_COLLAPSE_KEY) === '1',
+      )
+    } catch {
+      /* ignore */
+    }
+  }, [inspectorCollapsible])
+
   const toggleCollapsed = React.useCallback(() => {
     setCollapsed((prev) => {
       const next = !prev
       try {
         localStorage.setItem(COLLAPSE_KEY, next ? '1' : '0')
+      } catch {
+        /* ignore */
+      }
+      return next
+    })
+  }, [])
+
+  const toggleInspectorCollapsed = React.useCallback(() => {
+    setInspectorCollapsed((prev) => {
+      const next = !prev
+      try {
+        localStorage.setItem(INSPECTOR_COLLAPSE_KEY, next ? '1' : '0')
       } catch {
         /* ignore */
       }
@@ -574,8 +610,34 @@ export function AppShell({
                   aria-expanded={inspectorOpen}
                   onClick={() => setInspectorOpen(true)}
                 >
-                  <PanelLeftOpen />
+                  <PanelRight />
                 </Button>
+              )}
+              {inspector && inspectorCollapsible && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="hidden xl:inline-flex"
+                      aria-label={
+                        inspectorCollapsed ? 'Show inspector' : 'Hide inspector'
+                      }
+                      aria-expanded={!inspectorCollapsed}
+                      onClick={toggleInspectorCollapsed}
+                    >
+                      <PanelRight
+                        className={cn(
+                          'size-4',
+                          !inspectorCollapsed && 'text-foreground',
+                        )}
+                      />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {inspectorCollapsed ? 'Show inspector' : 'Hide inspector'}
+                  </TooltipContent>
+                </Tooltip>
               )}
             </div>
           </header>
@@ -601,11 +663,31 @@ export function AppShell({
             {inspector && (
               <aside
                 aria-label={inspectorLabel}
-                className="hidden w-80 shrink-0 border-l bg-background xl:block"
+                className={cn(
+                  'hidden shrink-0 border-l bg-background xl:block',
+                  inspectorCollapsible && inspectorCollapsed ? 'w-10' : 'w-80',
+                )}
+                data-inspector-collapsed={
+                  inspectorCollapsible && inspectorCollapsed ? 'true' : 'false'
+                }
               >
-                <div className="sticky top-14 h-[calc(100svh-3.5rem)] overflow-y-auto p-4">
-                  {inspector}
-                </div>
+                {inspectorCollapsible && inspectorCollapsed ? (
+                  <div className="flex h-full flex-col items-center pt-3">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="Show inspector"
+                      aria-expanded={false}
+                      onClick={toggleInspectorCollapsed}
+                    >
+                      <PanelRight className="size-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="sticky top-14 h-[calc(100svh-3.5rem)] overflow-y-auto p-4">
+                    {inspector}
+                  </div>
+                )}
               </aside>
             )}
           </div>

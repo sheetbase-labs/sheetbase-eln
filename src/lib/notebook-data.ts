@@ -224,6 +224,48 @@ export function toFileObjectSummary(row: FileObjectWire): FileObjectSummary {
 }
 
 // ---------------------------------------------------------------------------
+// Change events — the durable activity feed. `internal.emit_change_event`
+// appends one row per mutation; RLS lets workspace members read them. The
+// browser queries `change_events` filtered by `record_id` for the activity
+// tab. Actor names live in `internal.user` (not exposed to PostgREST), so
+// callers attribute the current user by id and fall back to a generic label
+// for collaborators.
+// ---------------------------------------------------------------------------
+
+export interface ChangeEventRecordWire {
+  id: string
+  entity_type: string
+  entity_uuid: string
+  operation: string
+  record_id: string | null
+  actor_user_id: string | null
+  payload: Record<string, unknown>
+  created_at: string
+}
+
+export interface RecordActivityItem {
+  id: string
+  operation: string
+  entityType: string
+  actorUserId: string | null
+  createdAt: string
+  payload: Record<string, unknown>
+}
+
+export function toRecordActivityItem(
+  row: ChangeEventRecordWire,
+): RecordActivityItem {
+  return {
+    id: row.id,
+    operation: row.operation,
+    entityType: row.entity_type,
+    actorUserId: row.actor_user_id,
+    createdAt: row.created_at,
+    payload: row.payload,
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Route-aware query helpers. Each helper builds the PostgREST query string
 // for one resource so the route useQuery hooks stay declarative. A shared
 // client instance is fine: the helpers are stateless and the proxy adds the
@@ -268,6 +310,24 @@ export function fetchLinksForRecord(client: DataClient, recordId: string) {
     .then((rows) => rows.map(toLink))
 }
 
+/**
+ * Recent durable change events scoped to a record (the activity feed).
+ * PostgREST exposes `change_events` under RLS; `record_id` is the scoping
+ * hint written by the emit trigger for block/link/record events. Ordered
+ * newest-first and bounded so the inspector stays compact.
+ */
+export function fetchChangeEventsForRecord(
+  client: DataClient,
+  recordId: string,
+) {
+  return client
+    .list<ChangeEventRecordWire>(
+      'change_events',
+      `?record_id=eq.${recordId}&order=created_at.desc&limit=25&select=id,entity_type,entity_uuid,operation,record_id,actor_user_id,payload,created_at`,
+    )
+    .then((rows) => rows.map(toRecordActivityItem))
+}
+
 /** SCI-003: fetch the live `file_objects` metadata for a file record. */
 export function fetchFileObjectByRecordId(
   client: DataClient,
@@ -293,6 +353,7 @@ export const notebookQueryKeys = {
   record: (recordId: string) => ['notebook', 'record', recordId] as const,
   blocks: (recordId: string) => ['notebook', 'blocks', recordId] as const,
   links: (recordId: string) => ['notebook', 'links', recordId] as const,
+  activity: (recordId: string) => ['notebook', 'activity', recordId] as const,
   fileObject: (fileRecordId: string) =>
     ['notebook', 'file-object', fileRecordId] as const,
   // SCI-007: overview revision snapshot — scoped by revision id so navigating

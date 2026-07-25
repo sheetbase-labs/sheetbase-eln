@@ -14,6 +14,7 @@ import {
   FlaskConical,
   Folder,
   Lock,
+  Share2,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
@@ -22,6 +23,9 @@ import { NotebookDocument } from '#/components/notebook'
 import type { SaveResult } from '#/components/notebook'
 import { useLiveStatus } from '#/components/live/live-event-provider'
 import {
+  ActivityFeed,
+  CheckList,
+  FileList,
   Inspector,
   InspectorSection,
   PropertyList,
@@ -30,16 +34,25 @@ import {
   EmptyHint,
 } from '#/components/record'
 import { ScientificRecordLinker, StatusBadge } from '#/components/scientific'
+import { Badge, Button } from '#/components/ui'
 import { DataClientError } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
 import {
   fetchBlocksForRecord,
+  fetchChangeEventsForRecord,
   fetchLinksForRecord,
   fetchProject,
   fetchRecord,
+  formatRelativeTime,
   notebookDataClient,
   notebookQueryKeys,
   recordKindLabel,
+} from '#/lib/notebook-data'
+import type {
+  NotebookBlock as NotebookBlockDomain,
+  NotebookLink,
+  NotebookRecord,
+  RecordActivityItem,
 } from '#/lib/notebook-data'
 import {
   defaultPayloadFor,
@@ -54,11 +67,6 @@ import { freezeChart, unfreezeChart } from '#/lib/chart-data'
 import { validateBlock } from '#/lib/blocks'
 import { pinProtocolReference } from '#/lib/protocol-materials'
 import { attachFileToBlock, AttachFileError } from '#/lib/file-attach'
-import type {
-  NotebookBlock as NotebookBlockDomain,
-  NotebookLink,
-  NotebookRecord,
-} from '#/lib/notebook-data'
 
 /**
  * ELN-004: the deep-linkable experiment notebook route. Loads the record,
@@ -106,6 +114,11 @@ function ExperimentNotebookRoute() {
     queryFn: () => fetchLinksForRecord(notebookDataClient, recordId),
     enabled: isNotebookIndex,
   })
+  const activityQuery = useQuery({
+    queryKey: notebookQueryKeys.activity(recordId),
+    queryFn: () => fetchChangeEventsForRecord(notebookDataClient, recordId),
+    enabled: isNotebookIndex,
+  })
 
   // Child routes (e.g. /overview) render through the Outlet; the notebook
   // queries only run for the exact experiment path.
@@ -115,6 +128,7 @@ function ExperimentNotebookRoute() {
   const record = recordQuery.data ?? null
   const blocks = blocksQuery.data ?? []
   const links = linksQuery.data ?? []
+  const activity = activityQuery.data ?? []
 
   const shellContext = {
     workspace: context.workspace ? { name: context.workspace.name } : null,
@@ -199,13 +213,18 @@ function ExperimentNotebookRoute() {
           />
         ) : undefined
       }
+      inspectorCollapsible
       inspector={
         <NotebookInspector
           record={record}
           projectName={project?.title ?? null}
           ownerName={context.user.name}
+          currentUserId={context.user.id}
           links={links}
           linksLoading={linksQuery.isLoading}
+          blocks={blocks}
+          activity={activity}
+          activityLoading={activityQuery.isLoading}
         />
       }
     >
@@ -332,15 +351,25 @@ export function StickyRecordHeader({
         </span>
         {projectName ? <span>{projectName}</span> : null}
       </div>
-      {onAddBlock ? (
-        <button
-          type="button"
-          className="absolute right-8 bottom-5 inline-flex h-8 items-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground shadow-xs hover:bg-primary/90"
-          onClick={onAddBlock}
+      <div className="absolute right-8 bottom-5 flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          aria-label="Share experiment"
+          title="Sharing coming soon"
+          onClick={() => {
+            /* placeholder — sharing arrives in a later ticket */
+          }}
         >
-          + Block
-        </button>
-      ) : null}
+          <Share2 className="size-3.5" />
+          <span>Share</span>
+        </Button>
+        {onAddBlock ? (
+          <Button size="sm" onClick={onAddBlock}>
+            + Block
+          </Button>
+        ) : null}
+      </div>
     </div>
   )
 }
@@ -981,24 +1010,142 @@ export function PermissionRestrictedState() {
 
 // ---------------------------------------------------------------------------
 // Inspector. Route-owned so it composes against the live record/links data.
+// The mockup's right sidebar has three tabs: Properties, Activity, Comments.
+// Properties gathers metadata, tags, attached files, linked records and QC
+// checks into one dense column; Activity reads the durable change_events
+// feed; Comments is a placeholder until collaborative annotation ships.
 // ---------------------------------------------------------------------------
+
+const OPERATION_LABELS: Record<string, string> = {
+  create: 'created',
+  update: 'updated',
+  move: 'moved',
+  delete: 'deleted',
+  archive: 'archived',
+  restore: 'restored',
+  link: 'linked',
+  unlink: 'unlinked',
+  quarantine: 'quarantined',
+}
+
+const ENTITY_LABELS: Record<string, string> = {
+  block: 'a block',
+  record: 'the record',
+  record_link: 'a link',
+  file: 'a file',
+  project: 'the project',
+  folder: 'a folder',
+}
+
+/**
+ * Static QC check indicators. The mockup shows data-integrity and
+ * instrument-calibration checks as "Passed"; these are placeholder concepts
+ * until a real QC workflow lands, so they always report a pass state.
+ */
+const QC_CHECKS = [
+  {
+    id: 'data-integrity',
+    label: 'Data integrity',
+    state: 'pass' as const,
+    detail: 'Passed',
+  },
+  {
+    id: 'instrument-cal',
+    label: 'Instrument calibration',
+    state: 'pass' as const,
+    detail: 'Passed',
+  },
+]
+
+function formatBytes(bytes: number): string {
+  if (!bytes) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB']
+  const i = Math.min(
+    Math.floor(Math.log(bytes) / Math.log(1024)),
+    units.length - 1,
+  )
+  return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`
+}
+
+/** Build file-list items from file block payloads (no extra fetch needed). */
+function fileItemsFromBlocks(blocks: NotebookBlockDomain[]): {
+  id: string
+  name: string
+  meta: string
+  href?: string
+}[] {
+  return blocks.map((b) => {
+    const p = b.payload
+    const displayName =
+      typeof p.displayName === 'string' ? p.displayName : 'File'
+    const mediaType = typeof p.mediaType === 'string' ? p.mediaType : ''
+    const byteSize = typeof p.byteSize === 'number' ? p.byteSize : 0
+    const fileRecordId =
+      typeof p.fileRecordId === 'string' ? p.fileRecordId : ''
+    return {
+      id: b.id,
+      name: displayName,
+      meta: `${mediaType || 'unknown'} · ${formatBytes(byteSize)}`,
+      href: fileRecordId ? `/api/files/${fileRecordId}/download` : undefined,
+    }
+  })
+}
+
+function activityItemsFromEvents(
+  activity: RecordActivityItem[],
+  currentUserId?: string | null,
+): {
+  id: string
+  actor: { name: string; initials?: string }
+  action: string
+  target?: string
+  at: string
+}[] {
+  return activity.map((event) => {
+    const isSelf = currentUserId && event.actorUserId === currentUserId
+    const actor = isSelf
+      ? { name: 'You', initials: 'Y' }
+      : { name: 'A collaborator', initials: '••' }
+    const action = OPERATION_LABELS[event.operation] ?? event.operation
+    const target = ENTITY_LABELS[event.entityType] ?? event.entityType
+    return {
+      id: event.id,
+      actor,
+      action,
+      target,
+      at: formatRelativeTime(event.createdAt),
+    }
+  })
+}
 
 export function NotebookInspector({
   record,
   projectName,
   ownerName,
+  currentUserId,
   links,
   linksLoading,
+  blocks,
+  activity,
+  activityLoading,
   defaultTab,
 }: {
   record: NotebookRecord
   projectName?: string | null
   ownerName?: string | null
+  currentUserId?: string | null
   links: NotebookLink[]
   linksLoading: boolean
+  blocks?: NotebookBlockDomain[]
+  activity?: RecordActivityItem[]
+  activityLoading?: boolean
   /** Initial active tab id. Defaults to the first tab (Properties). */
   defaultTab?: string
 }) {
+  const fileBlocks = blocks?.filter((b) => b.type === 'file') ?? []
+  const fileItems = fileItemsFromBlocks(fileBlocks)
+  const activityItems = activityItemsFromEvents(activity ?? [], currentUserId)
+
   return (
     <Inspector
       recordType={recordKindLabel(record.kind)}
@@ -1009,68 +1156,94 @@ export function NotebookInspector({
           id: 'properties',
           label: 'Properties',
           content: (
-            <PropertyList>
-              <Property label="Identifier" mono>
-                {record.identifier}
-              </Property>
-              <Property label="Kind">{recordKindLabel(record.kind)}</Property>
-              <Property label="Status">
-                <StatusBadge domain="experiment" status={record.status} />
-              </Property>
-              {projectName ? (
-                <Property label="Project">{projectName}</Property>
-              ) : null}
-              {ownerName ? (
-                <Property label="Created by">{ownerName}</Property>
-              ) : null}
-              <Property label="Created">
-                {new Date(record.createdAt).toLocaleString()}
-              </Property>
-              <Property label="Updated">
-                {new Date(record.updatedAt).toLocaleString()}
-              </Property>
-              {record.archivedAt ? (
-                <Property label="Archived">
-                  {new Date(record.archivedAt).toLocaleString()}
+            <div className="space-y-0">
+              <PropertyList>
+                <Property label="Identifier" mono>
+                  {record.identifier}
                 </Property>
-              ) : null}
+                <Property label="Kind">{recordKindLabel(record.kind)}</Property>
+                <Property label="Status">
+                  <StatusBadge domain="experiment" status={record.status} />
+                </Property>
+                {projectName ? (
+                  <Property label="Project">{projectName}</Property>
+                ) : null}
+                {ownerName ? (
+                  <Property label="Author">{ownerName}</Property>
+                ) : null}
+                <Property label="Created">
+                  {new Date(record.createdAt).toLocaleDateString()}
+                </Property>
+                <Property label="Updated">
+                  {new Date(record.updatedAt).toLocaleDateString()}
+                </Property>
+                {record.archivedAt ? (
+                  <Property label="Archived">
+                    {new Date(record.archivedAt).toLocaleString()}
+                  </Property>
+                ) : null}
+              </PropertyList>
+
               {record.tags.length > 0 ? (
-                <Property label="Tags">
-                  <span className="flex flex-wrap gap-1">
+                <InspectorSection title="Tags">
+                  <div className="flex flex-wrap gap-1">
                     {record.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="rounded-full bg-muted px-2 py-0.5 text-[10px]"
-                      >
+                      <Badge key={tag} variant="outline">
                         {tag}
-                      </span>
+                      </Badge>
                     ))}
-                  </span>
-                </Property>
+                  </div>
+                </InspectorSection>
               ) : null}
-            </PropertyList>
+
+              <InspectorSection title="Files">
+                <FileList items={fileItems} />
+              </InspectorSection>
+
+              <InspectorSection title="Linked records">
+                {linksLoading ? (
+                  <EmptyHint>Loading links…</EmptyHint>
+                ) : (
+                  <>
+                    <LinkedRecordList
+                      items={links.map((link) => ({
+                        id: link.id,
+                        type: recordKindLabel(link.targetKind),
+                        title: link.targetIdentifier,
+                        meta: link.linkType,
+                      }))}
+                    />
+                    <ScientificRecordLinker
+                      sourceRecordId={record.id}
+                      links={links}
+                    />
+                  </>
+                )}
+              </InspectorSection>
+
+              <InspectorSection title="QC checks">
+                <CheckList items={QC_CHECKS} />
+              </InspectorSection>
+            </div>
           ),
         },
         {
-          id: 'links',
-          label: 'Links',
-          badge: links.length,
-          content: linksLoading ? (
-            <EmptyHint>Loading links…</EmptyHint>
+          id: 'activity',
+          label: 'Activity',
+          content: activityLoading ? (
+            <EmptyHint>Loading activity…</EmptyHint>
           ) : (
-            <InspectorSection title="Outgoing links">
-              <LinkedRecordList
-                items={links.map((link) => ({
-                  id: link.id,
-                  type: recordKindLabel(link.targetKind),
-                  title: link.targetIdentifier,
-                  meta: link.linkType,
-                }))}
-              />
-              <ScientificRecordLinker
-                sourceRecordId={record.id}
-                links={links}
-              />
+            <ActivityFeed items={activityItems} />
+          ),
+        },
+        {
+          id: 'comments',
+          label: 'Comments',
+          content: (
+            <InspectorSection title="Comments">
+              <EmptyHint>
+                Comments coming soon. Collaborative annotation will appear here.
+              </EmptyHint>
             </InspectorSection>
           ),
         },

@@ -1,5 +1,11 @@
 import * as React from 'react'
-import { GripVertical, Lock, MoreHorizontal, TriangleAlert } from 'lucide-react'
+import {
+  EllipsisVertical,
+  GripVertical,
+  Lock,
+  Maximize,
+  TriangleAlert,
+} from 'lucide-react'
 
 import { cn } from '#/lib/utils'
 import {
@@ -144,6 +150,17 @@ export function NotebookBlock({
         ) : null}
         <div className="pointer-events-auto ml-auto flex items-center gap-1">
           {actions}
+          {/* Expand — placeholder affordance for a future focused/full-block
+              view. Subtle on hover/focus like the rest of the hover toolbar. */}
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Expand block"
+            title="Expand"
+            className="opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
+          >
+            <Maximize />
+          </Button>
           {menuItems && menuItems.length > 0 ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -153,7 +170,7 @@ export function NotebookBlock({
                   aria-label="Block actions"
                   className="opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
                 >
-                  <MoreHorizontal />
+                  <EllipsisVertical />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">

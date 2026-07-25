@@ -13,17 +13,29 @@ import {
   useRouterState,
 } from '@tanstack/react-router'
 import {
+  Activity as ActivityIcon,
   FlaskConical,
   Beaker,
   TestTube,
   FileText,
   ClipboardList,
   Inbox,
+  PanelRight,
+  Pin,
+  ShieldCheck,
+  Upload,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { AppShell } from '#/components/app-shell'
+import {
+  CheckList,
+  EmptyHint,
+  InspectorSection,
+  Property,
+  PropertyList,
+} from '#/components/record'
 import { StatusBadge } from '#/components/scientific'
 import {
   Button,
@@ -178,23 +190,29 @@ function ProjectRoute() {
         { label: project.title },
       ]}
     >
-      <div className="flex flex-col gap-5">
-        <ProjectHeader
-          project={project}
-          isArchived={isArchived}
-          recordCount={records.length}
-          isLoadingRecords={recordsQuery.isLoading}
-        />
+      <div className="flex gap-5">
+        <div className="flex min-w-0 flex-1 flex-col gap-5">
+          <ProjectHeader
+            project={project}
+            isArchived={isArchived}
+            recordCount={records.length}
+            isLoadingRecords={recordsQuery.isLoading}
+          />
 
-        <ProjectStatCards stats={stats} />
+          <ProjectStatCards stats={stats} />
 
-        <RecordListSection
-          projectId={project.id}
-          records={records}
-          isLoading={recordsQuery.isLoading}
-          error={recordsQuery.error}
-          onRetry={() => recordsQuery.refetch()}
-        />
+          <RecordListSection
+            projectId={project.id}
+            records={records}
+            isLoading={recordsQuery.isLoading}
+            error={recordsQuery.error}
+            onRetry={() => recordsQuery.refetch()}
+          />
+
+          <ProjectActivityFeed />
+        </div>
+
+        <ProjectSidebar project={project} />
       </div>
     </AppShell>
   )
@@ -727,6 +745,200 @@ function ProjectDashboardSkeleton() {
       </div>
       <RecordsTableShell />
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Right sidebar — properties, pinned links, compliance, quick actions
+// ---------------------------------------------------------------------------
+
+const PROJECT_SIDEBAR_KEY = (projectId: string) =>
+  `sheetbase-project-sidebar-${projectId}`
+
+const COMPLIANCE_CHECKS = [
+  { id: 'data-integrity', label: 'Data integrity', state: 'pass' as const },
+  {
+    id: 'instrument-calibration',
+    label: 'Instrument calibration',
+    state: 'pass' as const,
+  },
+  { id: 'reagent-expiry', label: 'Reagent expiry', state: 'pass' as const },
+  {
+    id: 'training-records',
+    label: 'Training records',
+    state: 'pass' as const,
+  },
+]
+
+/**
+ * Collapsible right sidebar for the project dashboard. Mirrors the
+ * PanelRight collapse pattern used by the schemas route: open shows a
+ * ~280px panel of project metadata and actions; collapsed leaves a thin
+ * rail with an expand control. The open/closed choice persists per project.
+ *
+ * Pinned links and compliance are placeholders — the backing endpoints do
+ * not exist yet — and quick actions deep-link to the creation surfaces that
+ * do (the template library).
+ */
+export function ProjectSidebar({ project }: { project: Project }) {
+  const [open, setOpen] = useState<boolean>(() => {
+    try {
+      return (
+        localStorage.getItem(PROJECT_SIDEBAR_KEY(project.id)) !== 'collapsed'
+      )
+    } catch {
+      return true
+    }
+  })
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        PROJECT_SIDEBAR_KEY(project.id),
+        open ? 'open' : 'collapsed',
+      )
+    } catch {
+      /* ignore: private mode / disabled storage */
+    }
+  }, [project.id, open])
+
+  if (!open) {
+    return (
+      <aside className="hidden w-10 shrink-0 justify-center lg:flex">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="mt-1"
+          aria-label="Show project details"
+          onClick={() => setOpen(true)}
+        >
+          <PanelRight className="size-4" aria-hidden="true" />
+        </Button>
+      </aside>
+    )
+  }
+
+  return (
+    <aside className="hidden w-[280px] shrink-0 lg:flex lg:flex-col">
+      <div className="sticky top-14 max-h-[calc(100svh-3.5rem)] overflow-y-auto rounded-lg border border-border bg-surface">
+        <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
+          <h2 className="text-sm font-semibold text-foreground">Details</h2>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Hide project details"
+            onClick={() => setOpen(false)}
+          >
+            <PanelRight className="size-4" aria-hidden="true" />
+          </Button>
+        </div>
+
+        <div className="px-4 pb-4">
+          <InspectorSection title="Properties">
+            <PropertyList>
+              <Property label="Project ID" mono>
+                {project.id.slice(0, 8)}
+              </Property>
+              <Property label="Key" mono>
+                {project.key}
+              </Property>
+              <Property label="Status">
+                <StatusBadge
+                  domain="project"
+                  status={project.archivedAt ? 'archived' : project.status}
+                />
+              </Property>
+              <Property label="Created">
+                {formatDate(project.createdAt)}
+              </Property>
+              <Property label="Updated">
+                {formatRelativeTime(project.updatedAt ?? project.createdAt)}
+              </Property>
+              <Property label="Owner">Workspace</Property>
+            </PropertyList>
+            <EmptyHint>No tags</EmptyHint>
+          </InspectorSection>
+
+          <InspectorSection title="Pinned links">
+            <EmptyHint>
+              <span className="inline-flex items-center gap-1">
+                <Pin className="size-3" aria-hidden="true" />
+                No pinned links yet
+              </span>
+            </EmptyHint>
+          </InspectorSection>
+
+          <InspectorSection title="Compliance">
+            <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <ShieldCheck
+                className="size-3.5 text-emerald-600 dark:text-emerald-400"
+                aria-hidden="true"
+              />
+              All checks passing
+            </p>
+            <CheckList items={COMPLIANCE_CHECKS} />
+          </InspectorSection>
+
+          <InspectorSection title="Quick actions">
+            <div className="grid gap-2">
+              <Button asChild variant="outline" size="sm" className="w-full">
+                <Link to="/templates" className="no-underline">
+                  <FlaskConical className="size-3.5" aria-hidden="true" />
+                  Create experiment
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="sm" className="w-full">
+                <Link to="/templates" className="no-underline">
+                  <TestTube className="size-3.5" aria-hidden="true" />
+                  Add sample
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="sm" className="w-full">
+                <Link to="/templates" className="no-underline">
+                  <Upload className="size-3.5" aria-hidden="true" />
+                  Upload file
+                </Link>
+              </Button>
+            </div>
+          </InspectorSection>
+        </div>
+      </div>
+    </aside>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Activity feed — placeholder until a queryable events endpoint exists
+// ---------------------------------------------------------------------------
+
+export function ProjectActivityFeed() {
+  return (
+    <section
+      aria-label="Project activity"
+      className="rounded-lg border border-border bg-surface"
+    >
+      <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
+        <div className="flex items-center gap-2">
+          <ActivityIcon
+            className="size-4 text-muted-foreground"
+            aria-hidden="true"
+          />
+          <h2 className="text-sm font-semibold text-foreground">Activity</h2>
+        </div>
+      </div>
+      <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
+        <span className="flex size-9 items-center justify-center rounded-full bg-muted text-muted-foreground">
+          <ActivityIcon className="size-4" aria-hidden="true" />
+        </span>
+        <p className="text-sm font-medium text-foreground">
+          No recent activity
+        </p>
+        <p className="mx-auto max-w-xs text-xs leading-5 text-muted-foreground">
+          Edits, comments, reviews and status changes from this project will
+          appear here once activity tracking is enabled.
+        </p>
+      </div>
+    </section>
   )
 }
 

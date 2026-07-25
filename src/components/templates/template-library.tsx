@@ -18,10 +18,21 @@
  */
 import { Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { Archive, CheckCircle2, FileWarning, Search } from 'lucide-react'
+import {
+  Archive,
+  CheckCircle2,
+  FileWarning,
+  Search,
+  Sparkles,
+} from 'lucide-react'
 
 import { BlockPreview } from '#/components/notebook'
-import { EmptyHint, Inspector, InspectorSection } from '#/components/record'
+import {
+  CheckList,
+  EmptyHint,
+  Inspector,
+  InspectorSection,
+} from '#/components/record'
 import { StatusBadge } from '#/components/scientific'
 import { Badge, Skeleton } from '#/components/ui'
 import { cn } from '#/lib/utils'
@@ -57,6 +68,22 @@ function formatRelativeTime(iso: string, now: number = Date.now()): string {
   if (hours < 24) return `${hours}h ago`
   if (days < 30) return `${days}d ago`
   return new Date(iso).toLocaleDateString()
+}
+
+/**
+ * Featured heuristic: a template is "Featured" when it is instantiable
+ * (published lifecycle — `active` for protocols, `validated` for notebooks)
+ * and has a rich body of content (>10 blocks). This is a stand-in until a
+ * real editorial featuring flag exists.
+ */
+export function isFeatured(
+  template: NotebookRecord,
+  blockCount: number | undefined,
+): boolean {
+  const kind = isTemplateKind(template.kind) ? template.kind : null
+  if (!kind) return false
+  if (!isInstantiable(kind, template.status, template.archivedAt)) return false
+  return (blockCount ?? 0) > 10
 }
 
 // ---------------------------------------------------------------------------
@@ -197,6 +224,7 @@ export function TemplateList({
   onSelect,
   onRetry,
   blockCounts = {},
+  usageCounts = {},
 }: {
   templates: NotebookRecord[]
   isLoading: boolean
@@ -206,6 +234,8 @@ export function TemplateList({
   onRetry: () => void
   /** Map of template id → block count, for the Blocks column. */
   blockCounts?: Record<string, number>
+  /** Map of template id → number of records instantiated from it. */
+  usageCounts?: Record<string, number>
 }) {
   if (isLoading) {
     return (
@@ -256,6 +286,9 @@ export function TemplateList({
             ? isInstantiable(kind, template.status, template.archivedAt)
             : false
           const isSelected = template.id === selectedId
+          const blockCount = blockCounts[template.id]
+          const usageCount = usageCounts[template.id] ?? 0
+          const featured = isFeatured(template, blockCount)
           return (
             <li key={template.id}>
               <button
@@ -271,9 +304,25 @@ export function TemplateList({
                   {template.identifier}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium text-foreground">
-                    {template.title}
+                  <span className="flex items-center gap-1.5">
+                    <span className="truncate text-sm font-medium text-foreground">
+                      {template.title}
+                    </span>
+                    {featured ? (
+                      <Badge
+                        variant="violet"
+                        className="shrink-0 gap-0.5 text-[10px]"
+                      >
+                        <Sparkles className="size-3" aria-hidden="true" />
+                        Featured
+                      </Badge>
+                    ) : null}
                   </span>
+                  {usageCount > 0 ? (
+                    <span className="block truncate text-[11px] tabular-nums text-muted-foreground">
+                      {usageCount} {usageCount === 1 ? 'use' : 'uses'}
+                    </span>
+                  ) : null}
                 </span>
                 <span className="flex shrink-0 items-center gap-2">
                   {kind ? (
@@ -412,6 +461,29 @@ export function TemplateInspector({
           </div>
         ) : null}
       </dl>
+
+      <InspectorSection title="Approvals">
+        <p className="text-[11px] text-muted-foreground">
+          Review workflow is not yet connected — statuses shown are
+          placeholders.
+        </p>
+        <CheckList
+          items={[
+            {
+              id: 'scientific-review',
+              label: 'Scientific review',
+              state: 'pending',
+              detail: 'Pending',
+            },
+            {
+              id: 'qa-review',
+              label: 'QA review',
+              state: 'pending',
+              detail: 'Pending',
+            },
+          ]}
+        />
+      </InspectorSection>
 
       {canInstantiate ? (
         <InspectorSection title="Use this template">

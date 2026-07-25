@@ -11,9 +11,15 @@ import {
   Activity as ActivityIcon,
   ArrowRight,
   ClipboardList,
+  Database,
   FlaskConical,
   Folder,
+  Inbox,
+  LayoutTemplate,
   Plus,
+  Search,
+  TestTube,
+  Upload,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -142,6 +148,11 @@ function Home() {
 
 const RECENT_RECORDS_KEY = ['dashboard', 'recent-records'] as const
 
+/** Query key for a workspace-scoped record count used by a summary card. */
+function DASHBOARD_COUNT_KEY(metric: string) {
+  return ['dashboard', 'count', metric] as const
+}
+
 function greetingFor(hour: number): string {
   if (hour < 12) return 'Good morning'
   if (hour < 18) return 'Good afternoon'
@@ -192,10 +203,45 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
     queryFn: async () => {
       const rows = await notebookDataClient.list<RecordWire>(
         'records',
-        '?order=updated_at.desc&limit=10',
+        '?order=updated_at.desc&limit=5',
       )
       return rows.map(toRecord)
     },
+  })
+
+  // Summary card counts. Each uses PostgREST's cheap count path
+  // (Prefer: count=exact + Range: 0-0) so no rows are transferred.
+  const experimentsCountQuery = useQuery({
+    queryKey: DASHBOARD_COUNT_KEY('experiments'),
+    queryFn: () =>
+      notebookDataClient.count(
+        'records',
+        '?kind=eq.experiment&archived_at=is.null&deleted_at=is.null',
+      ),
+  })
+  const pendingReviewsCountQuery = useQuery({
+    queryKey: DASHBOARD_COUNT_KEY('pending-reviews'),
+    queryFn: () =>
+      notebookDataClient.count(
+        'records',
+        '?status=in.(review,under_review)&archived_at=is.null&deleted_at=is.null',
+      ),
+  })
+  const inProgressCountQuery = useQuery({
+    queryKey: DASHBOARD_COUNT_KEY('in-progress'),
+    queryFn: () =>
+      notebookDataClient.count(
+        'records',
+        '?status=eq.in-progress&archived_at=is.null&deleted_at=is.null',
+      ),
+  })
+  const samplesCountQuery = useQuery({
+    queryKey: DASHBOARD_COUNT_KEY('samples'),
+    queryFn: () =>
+      notebookDataClient.count(
+        'records',
+        '?kind=eq.sample&archived_at=is.null&deleted_at=is.null',
+      ),
   })
 
   const projectsQuery = useQuery({
@@ -212,11 +258,6 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
   const records = recordsQuery.data ?? []
   const projects = projectsQuery.data ?? []
   const projectById = new Map(projects.map((p) => [p.id, p]))
-
-  const inReviewCount = records.filter((r) => r.status === 'review').length
-  const inProgressCount = records.filter(
-    (r) => r.status === 'in-progress',
-  ).length
 
   return (
     <div className="space-y-8">
@@ -236,32 +277,56 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
 
       <section
         aria-label="Summary"
-        className="grid grid-cols-2 gap-3 sm:grid-cols-4"
+        className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"
       >
-        <MetricTile
+        <SummaryCard
+          label="Experiments"
+          value={experimentsCountQuery.data}
+          loading={experimentsCountQuery.isLoading}
+          hint="Active notebooks"
+          icon={FlaskConical}
+          tone="info"
+        />
+        <SummaryCard
+          label="Pending reviews"
+          value={pendingReviewsCountQuery.data}
+          loading={pendingReviewsCountQuery.isLoading}
+          hint={
+            (pendingReviewsCountQuery.data ?? 0) > 0
+              ? 'awaiting action'
+              : undefined
+          }
+          hintTone="text-violet-600 dark:text-violet-400"
+          icon={Inbox}
+          tone="violet"
+        />
+        <SummaryCard
+          label="In progress"
+          value={inProgressCountQuery.data}
+          loading={inProgressCountQuery.isLoading}
+          hint="Open experiments"
+          icon={ClipboardList}
+          tone="warning"
+        />
+        <SummaryCard
+          label="Samples"
+          value={samplesCountQuery.data}
+          loading={samplesCountQuery.isLoading}
+          hint="Linked samples"
+          icon={TestTube}
+          tone="success"
+        />
+        <SummaryCard
           label="Projects"
           value={projects.length}
           loading={projectsQuery.isLoading}
-        />
-        <MetricTile
-          label="Recent records"
-          value={records.length}
-          loading={recordsQuery.isLoading}
-          hint={records.length >= 10 ? 'showing latest 10' : undefined}
-        />
-        <MetricTile
-          label="In progress"
-          value={inProgressCount}
-          loading={recordsQuery.isLoading}
-        />
-        <MetricTile
-          label="In review"
-          value={inReviewCount}
-          loading={recordsQuery.isLoading}
-          hint={inReviewCount > 0 ? 'awaiting action' : undefined}
-          hintTone="text-violet-600 dark:text-violet-400"
+          hint="All projects"
+          icon={Folder}
+          tone="neutral"
         />
       </section>
+
+      <QuickActionsGrid />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-6">
@@ -290,27 +355,50 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
   )
 }
 
-function MetricTile({
+type CardTone = 'info' | 'success' | 'warning' | 'violet' | 'neutral'
+
+const summaryToneClasses: Record<CardTone, string> = {
+  info: 'text-blue-600 dark:text-blue-400',
+  success: 'text-emerald-600 dark:text-emerald-400',
+  warning: 'text-amber-600 dark:text-amber-400',
+  violet: 'text-violet-600 dark:text-violet-400',
+  neutral: 'text-muted-foreground',
+}
+
+function SummaryCard({
   label,
   value,
   hint,
   hintTone,
+  icon: Icon,
+  tone,
   loading,
 }: {
   label: string
-  value: number
+  /** When undefined, the card shows a skeleton while the count loads. */
+  value: number | undefined
   hint?: string
   hintTone?: string
+  icon: LucideIcon
+  tone: CardTone
   loading?: boolean
 }) {
   return (
     <div className="rounded-lg border border-border bg-card p-4">
-      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          {label}
+        </span>
+        <Icon
+          className={`size-4 ${summaryToneClasses[tone]}`}
+          aria-hidden="true"
+        />
+      </div>
       {loading ? (
         <Skeleton className="mt-2 h-7 w-10" />
       ) : (
-        <p className="mt-1 font-display text-2xl font-semibold tabular-nums text-foreground">
-          {value}
+        <p className="mt-1.5 font-display text-2xl font-semibold tabular-nums leading-none text-foreground">
+          {value ?? 0}
         </p>
       )}
       {hint ? (
@@ -319,6 +407,89 @@ function MetricTile({
         </p>
       ) : null}
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Quick actions
+// ---------------------------------------------------------------------------
+
+interface QuickAction {
+  label: string
+  to: string
+  icon: LucideIcon
+  hint: string
+}
+
+const QUICK_ACTIONS: QuickAction[] = [
+  {
+    label: 'Create experiment',
+    to: '/templates',
+    icon: FlaskConical,
+    hint: 'Instantiate from a template',
+  },
+  {
+    label: 'Add sample',
+    to: '/templates',
+    icon: TestTube,
+    hint: 'Register a new sample',
+  },
+  {
+    label: 'Upload file',
+    to: '/templates',
+    icon: Upload,
+    hint: 'Attach a file to a record',
+  },
+  {
+    label: 'Browse templates',
+    to: '/templates',
+    icon: LayoutTemplate,
+    hint: 'Explore the template library',
+  },
+  {
+    label: 'Search',
+    to: '/search',
+    icon: Search,
+    hint: 'Find records across the workspace',
+  },
+  {
+    label: 'Schemas',
+    to: '/schemas',
+    icon: Database,
+    hint: 'Manage dataset schemas',
+  },
+]
+
+function QuickActionsGrid() {
+  return (
+    <section aria-label="Quick actions">
+      <h2 className="mb-3 text-sm font-semibold text-foreground">
+        Quick actions
+      </h2>
+      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        {QUICK_ACTIONS.map((action) => {
+          const Icon = action.icon
+          return (
+            <li key={action.label}>
+              <Link
+                to={action.to}
+                className="flex h-full flex-col gap-2 rounded-lg border border-border bg-card p-3 no-underline transition-colors hover:bg-muted/40"
+              >
+                <span className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+                  <Icon className="size-4" aria-hidden="true" />
+                </span>
+                <span className="text-sm font-medium text-foreground">
+                  {action.label}
+                </span>
+                <span className="text-[11px] text-muted-foreground">
+                  {action.hint}
+                </span>
+              </Link>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
   )
 }
 

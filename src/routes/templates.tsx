@@ -113,6 +113,27 @@ function TemplateLibraryRoute() {
     enabled: templateIds.length > 0,
   })
 
+  // Usage counts: how many records were instantiated from each template.
+  // Each instantiation creates a `record_links` row with link_type='template'
+  // whose target_record_id is the template, so grouping by target gives the
+  // per-template usage count in one request.
+  const usageCountsQuery = useQuery({
+    queryKey: ['sci-006', 'template-usage-counts', templateIds],
+    queryFn: async () => {
+      const idFilter = templateIds.join(',')
+      const rows = await notebookDataClient.list<{ target_record_id: string }>(
+        'record_links',
+        `?link_type=eq.template&target_record_id=in.(${idFilter})&select=target_record_id`,
+      )
+      const counts: Record<string, number> = {}
+      for (const row of rows) {
+        counts[row.target_record_id] = (counts[row.target_record_id] ?? 0) + 1
+      }
+      return counts
+    },
+    enabled: templateIds.length > 0,
+  })
+
   // Selected template detail queries
   const selectedQuery = useQuery({
     queryKey: notebookQueryKeys.record(selectedId ?? 'none'),
@@ -142,6 +163,7 @@ function TemplateLibraryRoute() {
   const selectedBlocks = blocksQuery.data ?? []
   const projects = projectsQuery.data ?? []
   const blockCounts = blockCountsQuery.data ?? {}
+  const usageCounts = usageCountsQuery.data ?? {}
 
   // Instantiation mutation
   const instantiateMutation = useMutation({
@@ -250,6 +272,7 @@ function TemplateLibraryRoute() {
           onSelect={setSelectedId}
           onRetry={() => templatesQuery.refetch()}
           blockCounts={blockCounts}
+          usageCounts={usageCounts}
         />
       </div>
     </AppShell>

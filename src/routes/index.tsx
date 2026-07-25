@@ -232,7 +232,7 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
     queryFn: () =>
       notebookDataClient.count(
         'records',
-        '?status=eq.in-progress&archived_at=is.null&deleted_at=is.null',
+        '?status=eq.in_progress&archived_at=is.null&deleted_at=is.null',
       ),
   })
   const samplesCountQuery = useQuery({

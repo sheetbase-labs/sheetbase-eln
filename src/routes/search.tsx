@@ -3,16 +3,19 @@
  *
  * A dense, full-width search surface for finding records, file metadata and
  * notebook content across a workspace. Follows the "Knowledge Search"
- * mockup: a prominent search bar, type tabs, a faceted filter bar, a left
- * column of recent searches, a divider-separated result list with type
- * indicator, highlighted matched context and inline metadata (identifier,
- * project, last updated), server-side pagination, and a read-only inspector
- * preview for the selected result.
+ * mockup: a prominent search bar, type tabs with per-type counts, a faceted
+ * filter bar (project / status / owner / date range), a left column of recent
+ * searches, a divider-separated result list with type indicator, highlighted
+ * matched context and inline metadata (identifier, project, owner, last
+ * updated), and a read-only inspector preview for the selected result.
  *
- * Search goes through the same-origin `/api/db/rpc/search` boundary;
- * PostgreSQL and RLS remain authoritative (decision 0033). The route owns
- * its data and passes typed inspector content, reusing the shared
- * Inspector/StatusBadge patterns (ADRs 0010/0011).
+ * Filtering model: the route fires a single `api.search` RPC per query
+ * (limit 200) and applies every facet — type, project, status, owner, date
+ * range — client-side on the fetched set. This keeps per-type tab counts and
+ * facet option lists consistent with the displayed results and avoids an RPC
+ * round-trip per filter click. PostgreSQL and RLS remain authoritative
+ * (decision 0033); the route owns its data and passes typed inspector
+ * content, reusing the shared Inspector/StatusBadge patterns (ADRs 0010/0011).
  *
  * Design (DESIGN.md / PRODUCT.md): dense never cramped, context stays
  * visible, status never by colour alone, Instrument Sans headings / Inter
@@ -45,7 +48,7 @@ import { AppShell } from '#/components/app-shell'
 import { Inspector } from '#/components/record/inspector'
 import { StatusBadge } from '#/components/scientific/status-badge'
 import type { StatusDomain } from '#/components/scientific/status-badge'
-import { Badge, Button, Input, Skeleton } from '#/components/ui'
+import { Badge, Button, Input, Select, Skeleton } from '#/components/ui'
 import { cn } from '#/lib/utils'
 import { createDataClient, DataClientError } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
@@ -123,9 +126,19 @@ const KIND_FILTER_LABELS: Record<string, string> = {
 }
 
 const DEBOUNCE_MS = 300
+const FETCH_LIMIT = 200
 const PAGE_SIZE = 20
 
 export type SortKey = 'relevance' | 'updated'
+
+type DateRangeKey = '7d' | '30d' | 'year' | 'all'
+
+const DATE_RANGE_OPTIONS: { value: DateRangeKey; label: string }[] = [
+  { value: 'all', label: 'Any time' },
+  { value: '7d', label: 'Last 7 days' },
+  { value: '30d', label: 'Last 30 days' },
+  { value: 'year', label: 'This year' },
+]
 
 // ---------------------------------------------------------------------------
 // Recent searches (client-side, localStorage).
@@ -137,7 +150,7 @@ interface RecentSearch {
 }
 
 const RECENT_KEY = 'sheetbase-recent-searches'
-const RECENT_MAX = 8
+const RECENT_MAX = 5
 
 function loadRecentSearches(): RecentSearch[] {
   try {
@@ -193,7 +206,7 @@ function useRecentSearches() {
 }
 
 // ---------------------------------------------------------------------------
-// Time formatting.
+// Time formatting + owner label helpers.
 // ---------------------------------------------------------------------------
 
 function relativeTime(ts: number): string {
@@ -206,6 +219,7 @@ function relativeTime(ts: number): string {
   if (hr < 24) return `${hr}h ago`
   const day = Math.floor(hr / 24)
   if (day < 7) return `${day}d ago`
+  if (day < 14) return 'Yesterday'
   return new Date(ts).toLocaleDateString()
 }
 
@@ -213,6 +227,31 @@ function relativeUpdatedAt(iso: string): string {
   const ts = new Date(iso).getTime()
   if (Number.isNaN(ts)) return ''
   return `Updated ${relativeTime(ts)}`
+}
+
+/**
+ * Short, stable label for a user id when no directory lookup is available.
+ * Falls back to a readable slice of the id.
+ */
+function ownerLabel(userId: string, name?: string): string {
+  if (name) return name
+  if (!userId) return 'Unknown'
+  return userId.length <= 8 ? userId : userId.slice(0, 8)
+}
+
+/** Two-letter initials for an avatar, derived from a name or user id. */
+function ownerInitials(userId: string, name?: string): string {
+  if (name) {
+    const parts = name.split(/[\s_.-]+/).filter(Boolean)
+    const init = parts
+      .slice(0, 2)
+      .map((p) => p.charAt(0).toUpperCase())
+      .join('')
+    if (init) return init
+  }
+  if (!userId) return '?'
+  const clean = userId.replace(/[^a-zA-Z0-9]/g, '')
+  return clean.slice(0, 2).toUpperCase() || 'U'
 }
 
 // ---------------------------------------------------------------------------
@@ -223,14 +262,14 @@ function SearchRoute() {
   const { context } = Route.useRouteContext()
   const client = useMemo(() => createDataClient(), [])
 
-  // Query + filter state.
+  // Query + client-side filter state.
   const [query, setQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
-  const [projectId, setProjectId] = useState('')
   const [kind, setKind] = useState('')
+  const [projectId, setProjectId] = useState('')
   const [status, setStatus] = useState('')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
+  const [ownerId, setOwnerId] = useState('')
+  const [dateRange, setDateRange] = useState<DateRangeKey>('all')
 
   // Pagination + sort.
   const [page, setPage] = useState(0)
@@ -267,26 +306,20 @@ function SearchRoute() {
   // Reset to the first page whenever a filter dimension changes.
   useEffect(() => {
     setPage(0)
-  }, [debouncedQuery, projectId, kind, status, dateFrom, dateTo])
+  }, [debouncedQuery, kind, projectId, status, ownerId, dateRange])
 
-  const filters: SearchFilters = useMemo(
-    () => ({
-      query: debouncedQuery,
-      projectId: projectId || undefined,
-      kind: kind || undefined,
-      status: status || undefined,
-      dateFrom: dateFrom || undefined,
-      dateTo: dateTo || undefined,
-      limit: PAGE_SIZE,
-      offset: page * PAGE_SIZE,
-    }),
-    [debouncedQuery, projectId, kind, status, dateFrom, dateTo, page],
+  const hasQuery = debouncedQuery.trim() !== ''
+
+  // Single search fetch — no facet params; all filtering is client-side so
+  // tab counts and facet options stay consistent with the displayed rows.
+  const fetchFilters: SearchFilters = useMemo(
+    () => ({ query: debouncedQuery, limit: FETCH_LIMIT, offset: 0 }),
+    [debouncedQuery],
   )
 
-  // Search query.
   const searchQuery = useQuery({
-    queryKey: searchQueryKeys.search(filters),
-    queryFn: () => executeSearch(client, filters),
+    queryKey: searchQueryKeys.search(fetchFilters),
+    queryFn: () => executeSearch(client, fetchFilters),
     // Keep results fresh; search is real-time (no stale index).
     staleTime: 0,
   })
@@ -307,18 +340,98 @@ function SearchRoute() {
     return map
   }, [projectsQuery.data])
 
-  const results = searchQuery.data ?? []
-  const totalCount = results[0]?.totalCount ?? 0
-  const hasQuery = debouncedQuery.trim() !== ''
-  const projects = projectsQuery.data ?? []
+  // Owner name resolution. There is no client-side user directory, so the
+  // only name we can resolve is the signed-in user's own — which covers the
+  // common "my records" case and the seeded demo data. Other owners fall
+  // back to a short id slice.
+  const ownerNames = useMemo(() => {
+    const map = new Map<string, string>()
+    if (context.user.id) map.set(context.user.id, context.user.name)
+    return map
+  }, [context.user.id, context.user.name])
 
-  // Reset active index when results change.
+  const allResults = searchQuery.data ?? []
+
+  // ---- Client-side derivations -------------------------------------------
+
+  // Per-kind counts across the full fetched set (drive the type tabs).
+  const kindCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const r of allResults) {
+      counts.set(r.kind, (counts.get(r.kind) ?? 0) + 1)
+    }
+    return counts
+  }, [allResults])
+
+  // Facet option lists, derived from the fetched results so they always
+  // reflect what is actually available to filter.
+  const projectOptions = useMemo(() => {
+    const seen = new Map<string, string>()
+    for (const r of allResults) {
+      if (r.projectId && !seen.has(r.projectId)) {
+        seen.set(r.projectId, projectNames.get(r.projectId) ?? r.projectId)
+      }
+    }
+    return Array.from(seen, ([value, label]) => ({ value, label }))
+  }, [allResults, projectNames])
+
+  const statusOptions = useMemo(() => {
+    const seen = new Set<string>()
+    for (const r of allResults) if (r.status) seen.add(r.status)
+    return Array.from(seen).sort()
+  }, [allResults])
+
+  const ownerOptions = useMemo(() => {
+    const seen = new Set<string>()
+    for (const r of allResults)
+      if (r.createdByUserId) seen.add(r.createdByUserId)
+    return Array.from(seen).sort()
+  }, [allResults])
+
+  // Apply every facet client-side.
+  const filteredResults = useMemo(() => {
+    const now = Date.now()
+    const yearStart = new Date(now, 0, 1).getTime()
+    const rangeMs: Record<Exclude<DateRangeKey, 'all'>, number> = {
+      '7d': 7 * 86_400_000,
+      '30d': 30 * 86_400_000,
+      year: now - yearStart,
+    }
+    return allResults.filter((r) => {
+      if (kind && r.kind !== kind) return false
+      if (projectId && r.projectId !== projectId) return false
+      if (status && r.status !== status) return false
+      if (ownerId && r.createdByUserId !== ownerId) return false
+      if (dateRange !== 'all') {
+        const ts = new Date(r.updatedAt).getTime()
+        if (Number.isNaN(ts)) return false
+        if (dateRange === 'year') {
+          if (ts < yearStart) return false
+        } else if (now - ts > rangeMs[dateRange]) return false
+      }
+      return true
+    })
+  }, [allResults, kind, projectId, status, ownerId, dateRange])
+
+  const sortedResults = useMemo(
+    () => sortResults(filteredResults, sort, hasQuery),
+    [filteredResults, sort, hasQuery],
+  )
+
+  const totalCount = sortedResults.length
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
+  const pageResults = useMemo(() => {
+    const start = page * PAGE_SIZE
+    return sortedResults.slice(start, start + PAGE_SIZE)
+  }, [sortedResults, page])
+
+  // Reset active index when the displayed page changes.
   useEffect(() => {
     setActiveIndex(0)
-  }, [searchQuery.data])
+  }, [pageResults])
 
   const selectedResult = selectedId
-    ? (results.find((r) => r.recordId === selectedId) ?? null)
+    ? (allResults.find((r) => r.recordId === selectedId) ?? null)
     : null
 
   function selectResult(result: SearchResult) {
@@ -337,25 +450,27 @@ function SearchRoute() {
   function handleListKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'ArrowDown') {
       e.preventDefault()
-      setActiveIndex((i) => Math.min(i + 1, results.length - 1))
+      setActiveIndex((i) => Math.min(i + 1, pageResults.length - 1))
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
       setActiveIndex((i) => Math.max(i - 1, 0))
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      if (activeIndex < results.length) selectResult(results[activeIndex])
+      if (activeIndex < pageResults.length)
+        selectResult(pageResults[activeIndex])
     }
   }
 
   function clearFilters() {
-    setProjectId('')
     setKind('')
+    setProjectId('')
     setStatus('')
-    setDateFrom('')
-    setDateTo('')
+    setOwnerId('')
+    setDateRange('all')
   }
 
-  const hasFilters = projectId || kind || status || dateFrom || dateTo
+  const hasFilters =
+    kind || projectId || status || ownerId || dateRange !== 'all'
 
   const shellContext = {
     workspace: context.workspace ? { name: context.workspace.name } : null,
@@ -371,6 +486,7 @@ function SearchRoute() {
       result={selectedResult}
       client={notebookDataClient}
       projectName={projectNames.get(selectedResult.projectId) ?? null}
+      ownerName={ownerNames.get(selectedResult.createdByUserId) ?? null}
       onClose={() => {
         setSelectedId(null)
         setInspectorOpen(false)
@@ -421,7 +537,7 @@ function SearchRoute() {
                   // Let the form submit handler run (records recent search).
                   return
                 }
-                if (e.key === 'ArrowDown' && results.length > 0) {
+                if (e.key === 'ArrowDown' && pageResults.length > 0) {
                   e.preventDefault()
                   listRef.current?.focus()
                 }
@@ -450,7 +566,7 @@ function SearchRoute() {
           </Button>
         </form>
 
-        {/* Type tabs */}
+        {/* Type tabs with per-type counts */}
         <div
           role="tablist"
           aria-label="Filter by type"
@@ -458,13 +574,15 @@ function SearchRoute() {
         >
           <TypeTab
             label="All"
+            count={allResults.length}
             active={kind === ''}
             onClick={() => setKind('')}
           />
-          {SEARCHABLE_KINDS.map((k) => (
+          {SEARCHABLE_KINDS.filter((k) => kindCounts.has(k)).map((k) => (
             <TypeTab
               key={k}
               label={KIND_FILTER_LABELS[k] ?? k}
+              count={kindCounts.get(k) ?? 0}
               active={kind === k}
               onClick={() => setKind(k)}
             />
@@ -488,49 +606,45 @@ function SearchRoute() {
 
           {/* Results column */}
           <div className="min-w-0 flex-1">
-            {/* Filter bar */}
+            {/* Facet filter bar */}
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <FilterSelect
                 id="filter-project"
                 label="Filter by project"
-                placeholder="Project: All"
                 value={projectId}
                 onChange={setProjectId}
-                options={projects.map((p) => ({
-                  value: p.id,
-                  label: p.title,
-                }))}
+                placeholder="Project: All"
+                options={projectOptions}
               />
               <FilterSelect
                 id="filter-status"
                 label="Filter by status"
-                placeholder="Status: All"
                 value={status}
                 onChange={setStatus}
-                options={STATUS_OPTIONS}
+                placeholder="Status: All"
+                options={statusOptions.map((s) => ({ value: s, label: s }))}
               />
-              <label htmlFor="filter-date-from" className="sr-only">
-                Date from
-              </label>
-              <input
-                id="filter-date-from"
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-                aria-label="Date from"
+              <FilterSelect
+                id="filter-owner"
+                label="Filter by owner"
+                value={ownerId}
+                onChange={setOwnerId}
+                placeholder="Owner: All"
+                options={ownerOptions.map((o) => ({
+                  value: o,
+                  label: ownerLabel(o, ownerNames.get(o)),
+                }))}
               />
-              <span className="text-xs text-muted-foreground">to</span>
-              <label htmlFor="filter-date-to" className="sr-only">
-                Date to
-              </label>
-              <input
-                id="filter-date-to"
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                className="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-                aria-label="Date to"
+              <FilterSelect
+                id="filter-date"
+                label="Filter by date range"
+                value={dateRange}
+                onChange={(v) => setDateRange(v as DateRangeKey)}
+                placeholder="Date: Any time"
+                options={DATE_RANGE_OPTIONS.map((o) => ({
+                  value: o.value,
+                  label: o.label,
+                }))}
               />
               {hasFilters ? (
                 <Button
@@ -549,17 +663,19 @@ function SearchRoute() {
               queryString={debouncedQuery}
               hasQuery={hasQuery}
               totalCount={totalCount}
-              results={results}
+              results={pageResults}
               selectedId={selectedId}
               activeIndex={activeIndex}
               onSelect={selectResult}
               listRef={listRef}
               onKeyDown={handleListKeyDown}
               projectNames={projectNames}
+              ownerNames={ownerNames}
               sort={sort}
               onSortChange={setSort}
               page={page}
               pageSize={PAGE_SIZE}
+              totalPages={totalPages}
               onPageChange={setPage}
             />
           </div>
@@ -570,15 +686,17 @@ function SearchRoute() {
 }
 
 // ---------------------------------------------------------------------------
-// Type tab.
+// Type tab with count.
 // ---------------------------------------------------------------------------
 
 function TypeTab({
   label,
+  count,
   active,
   onClick,
 }: {
   label: string
+  count: number
   active: boolean
   onClick: () => void
 }) {
@@ -589,13 +707,23 @@ function TypeTab({
       aria-selected={active}
       onClick={onClick}
       className={cn(
-        '-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors',
+        '-mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition-colors',
         active
           ? 'border-primary text-primary'
           : 'border-transparent text-muted-foreground hover:text-foreground',
       )}
     >
       {label}
+      <span
+        className={cn(
+          'rounded-full px-1.5 py-0.5 text-[11px] font-semibold tabular-nums',
+          active
+            ? 'bg-primary/10 text-primary'
+            : 'bg-muted text-muted-foreground',
+        )}
+      >
+        {count}
+      </span>
     </button>
   )
 }
@@ -607,16 +735,16 @@ function TypeTab({
 function FilterSelect({
   id,
   label,
-  placeholder,
   value,
   onChange,
+  placeholder,
   options,
 }: {
   id: string
   label: string
-  placeholder: string
   value: string
   onChange: (value: string) => void
+  placeholder: string
   options: { value: string; label: string }[]
 }) {
   return (
@@ -624,11 +752,12 @@ function FilterSelect({
       <label htmlFor={id} className="sr-only">
         {label}
       </label>
-      <select
+      <Select
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+        className="h-9 w-auto min-w-[9rem]"
+        aria-label={label}
       >
         <option value="">{placeholder}</option>
         {options.map((o) => (
@@ -636,27 +765,10 @@ function FilterSelect({
             {o.label}
           </option>
         ))}
-      </select>
+      </Select>
     </>
   )
 }
-
-const STATUS_OPTIONS = [
-  { value: 'draft', label: 'Draft' },
-  { value: 'planned', label: 'Planned' },
-  { value: 'in-progress', label: 'In progress' },
-  { value: 'review', label: 'In review' },
-  { value: 'approved', label: 'Approved' },
-  { value: 'locked', label: 'Locked' },
-  { value: 'available', label: 'Available' },
-  { value: 'active', label: 'Active' },
-  { value: 'validated', label: 'Validated' },
-  { value: 'consumed', label: 'Consumed' },
-  { value: 'expired', label: 'Expired' },
-  { value: 'quarantined', label: 'Quarantined' },
-  { value: 'paused', label: 'Paused' },
-  { value: 'failed', label: 'Failed' },
-]
 
 // ---------------------------------------------------------------------------
 // Recent searches facet.
@@ -739,12 +851,15 @@ export interface SearchResultsProps {
   onKeyDown: (e: React.KeyboardEvent) => void
   /** Optional project-id → title map for the result metadata footer. */
   projectNames?: Map<string, string>
+  /** Optional user-id → name map for owner labels/avatars. */
+  ownerNames?: Map<string, string>
   /** Optional sort control. */
   sort?: SortKey
   onSortChange?: (sort: SortKey) => void
   /** Optional pagination control. */
   page?: number
   pageSize?: number
+  totalPages?: number
   onPageChange?: (page: number) => void
 }
 
@@ -760,10 +875,12 @@ export function SearchResults({
   listRef,
   onKeyDown,
   projectNames,
+  ownerNames,
   sort,
   onSortChange,
   page = 0,
   pageSize = PAGE_SIZE,
+  totalPages,
   onPageChange,
 }: SearchResultsProps) {
   if (searchQuery.isLoading) {
@@ -822,13 +939,8 @@ export function SearchResults({
     )
   }
 
-  // Client-side sort of the current page. The RPC returns rank; in browse
-  // mode rank is 0 so "recently updated" is the useful default there.
-  const sorted = sortResults(results, sort, hasQuery)
-
   const showingFrom = page * pageSize + 1
   const showingTo = Math.min((page + 1) * pageSize, totalCount)
-  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
 
   return (
     <div className="space-y-3">
@@ -866,7 +978,7 @@ export function SearchResults({
         onKeyDown={onKeyDown}
         className="divide-y divide-border rounded-lg border border-border bg-card outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
       >
-        {sorted.map((result, index) => (
+        {results.map((result, index) => (
           <SearchResultRow
             key={result.recordId}
             result={result}
@@ -874,13 +986,14 @@ export function SearchResults({
             active={index === activeIndex}
             onSelect={() => onSelect(result)}
             projectName={projectNames?.get(result.projectId)}
+            ownerName={ownerNames?.get(result.createdByUserId)}
           />
         ))}
       </ul>
       {onPageChange ? (
         <Pagination
           page={page}
-          totalPages={totalPages}
+          totalPages={totalPages ?? 1}
           showingFrom={showingFrom}
           showingTo={showingTo}
           totalCount={totalCount}
@@ -971,12 +1084,14 @@ export function SearchResultRow({
   active,
   onSelect,
   projectName,
+  ownerName,
 }: {
   result: SearchResult
   selected: boolean
   active: boolean
   onSelect: () => void
   projectName?: string
+  ownerName?: string
 }) {
   const Icon = KIND_ICON[result.kind] ?? FileText
   const domain = KIND_STATUS_DOMAIN[result.kind]
@@ -1017,12 +1132,15 @@ export function SearchResultRow({
           />
         </div>
         <div className="min-w-0 flex-1 space-y-1">
-          {/* Type label + status */}
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-              {recordKindLabel(result.kind)}
-            </span>
+          {/* Title + status / type badges */}
+          <div className="flex items-start justify-between gap-2">
+            <p className="truncate font-medium text-foreground">
+              {result.title}
+            </p>
             <div className="flex shrink-0 items-center gap-1.5">
+              <Badge variant="outline" className="text-[10px] capitalize">
+                {recordKindLabel(result.kind)}
+              </Badge>
               {result.archived ? (
                 <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
                   <Archive className="size-3" aria-hidden /> Archived
@@ -1037,9 +1155,7 @@ export function SearchResultRow({
               )}
             </div>
           </div>
-          {/* Title */}
-          <p className="truncate font-medium text-foreground">{result.title}</p>
-          {/* Matched context with highlights */}
+          {/* Matched context with highlights (description / excerpt) */}
           {segments.length > 0 ? (
             <p className="line-clamp-2 text-sm text-muted-foreground">
               {segments.map((seg, i) => (
@@ -1054,7 +1170,7 @@ export function SearchResultRow({
               ))}
             </p>
           ) : null}
-          {/* Metadata footer: identifier · project · updated · matched field */}
+          {/* Metadata footer: id · project · updated · matched field · owner */}
           <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-muted-foreground">
             <span className="font-mono">{result.identifier}</span>
             {projectName ? (
@@ -1071,6 +1187,20 @@ export function SearchResultRow({
             ) : null}
             <span aria-hidden>·</span>
             <span>{matchedFieldLabel(result.matchedField)}</span>
+            <span aria-hidden className="ml-auto">
+              ·
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span
+                className="flex size-4 items-center justify-center rounded-full bg-primary/15 text-[9px] font-semibold text-primary"
+                aria-hidden
+              >
+                {ownerInitials(result.createdByUserId, ownerName)}
+              </span>
+              <span className={cn(!ownerName && 'font-mono')}>
+                {ownerLabel(result.createdByUserId, ownerName)}
+              </span>
+            </span>
           </div>
         </div>
       </Link>
@@ -1086,11 +1216,13 @@ function SearchResultInspector({
   result,
   client,
   projectName,
+  ownerName,
   onClose,
 }: {
   result: SearchResult
   client: DataClient
   projectName: string | null
+  ownerName: string | null
   onClose: () => void
 }) {
   // Fetch the live record (RLS-guarded) for the inspector header. This is
@@ -1110,56 +1242,89 @@ function SearchResultInspector({
   const record = recordQuery.data
   const links = linksQuery.data ?? []
   const domain = KIND_STATUS_DOMAIN[result.kind]
+  const segments = parseMatchedContext(result.matchedContext)
 
   const propertiesTab = (
-    <dl className="space-y-1.5">
-      <InspectorProp label="Identifier" mono>
-        {result.identifier}
-      </InspectorProp>
-      <InspectorProp label="Kind">{recordKindLabel(result.kind)}</InspectorProp>
-      <InspectorProp label="Status">
-        {domain ? (
-          <StatusBadge domain={domain} status={result.status} size="sm" />
-        ) : (
-          <Badge variant="outline" className="text-[10px]">
-            {result.status}
-          </Badge>
-        )}
-      </InspectorProp>
-      <InspectorProp label="Project">
-        {projectName ?? result.projectId}
-      </InspectorProp>
-      <InspectorProp label="Owner">
-        <span className="font-mono text-xs">{result.createdByUserId}</span>
-      </InspectorProp>
-      <InspectorProp label="Created">
-        {new Date(result.createdAt).toLocaleString()}
-      </InspectorProp>
-      <InspectorProp label="Updated">
-        {new Date(result.updatedAt).toLocaleString()}
-      </InspectorProp>
-      {result.archived ? (
-        <InspectorProp label="Archived">
-          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-            <Archive className="size-3" aria-hidden /> This record is archived
-          </span>
-        </InspectorProp>
-      ) : null}
-      {record?.tags && record.tags.length > 0 ? (
-        <InspectorProp label="Tags">
-          <span className="flex flex-wrap gap-1">
-            {record.tags.map((tag) => (
+    <div className="space-y-3">
+      {/* Description / first text excerpt from the matched context. */}
+      {segments.length > 0 ? (
+        <div>
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+            Excerpt
+          </p>
+          <p className="text-sm text-foreground">
+            {segments.map((seg, i) => (
               <span
-                key={tag}
-                className="rounded-full bg-muted px-2 py-0.5 text-[10px]"
+                key={i}
+                className={seg.highlighted ? 'font-semibold text-primary' : ''}
               >
-                {tag}
+                {seg.text}
               </span>
             ))}
+          </p>
+        </div>
+      ) : null}
+      <dl className="space-y-1.5">
+        <InspectorProp label="Identifier" mono>
+          {result.identifier}
+        </InspectorProp>
+        <InspectorProp label="Kind">
+          {recordKindLabel(result.kind)}
+        </InspectorProp>
+        <InspectorProp label="Status">
+          {domain ? (
+            <StatusBadge domain={domain} status={result.status} size="sm" />
+          ) : (
+            <Badge variant="outline" className="text-[10px]">
+              {result.status}
+            </Badge>
+          )}
+        </InspectorProp>
+        <InspectorProp label="Project">
+          {projectName ?? result.projectId}
+        </InspectorProp>
+        <InspectorProp label="Owner">
+          <span className="inline-flex items-center gap-1.5">
+            <span
+              className="flex size-5 items-center justify-center rounded-full bg-primary/15 text-[10px] font-semibold text-primary"
+              aria-hidden
+            >
+              {ownerInitials(result.createdByUserId, ownerName ?? undefined)}
+            </span>
+            <span className={cn('text-xs', !ownerName && 'font-mono')}>
+              {ownerLabel(result.createdByUserId, ownerName ?? undefined)}
+            </span>
           </span>
         </InspectorProp>
-      ) : null}
-    </dl>
+        <InspectorProp label="Created">
+          {new Date(result.createdAt).toLocaleString()}
+        </InspectorProp>
+        <InspectorProp label="Updated">
+          {new Date(result.updatedAt).toLocaleString()}
+        </InspectorProp>
+        {result.archived ? (
+          <InspectorProp label="Archived">
+            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              <Archive className="size-3" aria-hidden /> This record is archived
+            </span>
+          </InspectorProp>
+        ) : null}
+        {record?.tags && record.tags.length > 0 ? (
+          <InspectorProp label="Tags">
+            <span className="flex flex-wrap justify-end gap-1">
+              {record.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-full bg-muted px-2 py-0.5 text-[10px]"
+                >
+                  {tag}
+                </span>
+              ))}
+            </span>
+          </InspectorProp>
+        ) : null}
+      </dl>
+    </div>
   )
 
   const linksTab = linksQuery.isLoading ? (

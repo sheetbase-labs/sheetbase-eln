@@ -4,6 +4,7 @@ import {
   createRegistrySavedViewStore,
   formatRegistryValue,
   registrySavedViewStorageKey,
+  sanitizeRegistryView,
 } from './registry'
 
 function memoryStorage(): Storage {
@@ -104,6 +105,41 @@ describe('registry saved views', () => {
     })
 
     expect(store.list()).toEqual([])
+  })
+
+  it('removes fields that are outside the current registry policy', () => {
+    const safe = sanitizeRegistryView(
+      {
+        id: 'stale',
+        name: 'Stale',
+        state: {
+          ...viewState,
+          query: {
+            ...viewState.query,
+            pageSize: 999,
+            sorting: [...viewState.query.sorting, { id: 'secret', desc: true }],
+            filters: [...viewState.query.filters, { id: 'secret', value: 'x' }],
+          },
+          columnVisibility: { owner: false, secret: true },
+        },
+      },
+      {
+        sortColumnIds: ['identifier'],
+        visibilityColumnIds: ['owner'],
+        filterIds: ['status'],
+        groupingIds: ['status'],
+        pageSizes: [25, 50, 100],
+        fallbackPageSize: 25,
+      },
+    )
+
+    expect(safe.state.query).toMatchObject({
+      pageIndex: 0,
+      pageSize: 25,
+      sorting: [{ id: 'identifier', desc: false }],
+      filters: [{ id: 'status', value: 'available' }],
+    })
+    expect(safe.state.columnVisibility).toEqual({ owner: false })
   })
 })
 

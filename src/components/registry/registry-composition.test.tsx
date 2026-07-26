@@ -29,7 +29,18 @@ const rows: Row[] = [
 const columns: ColumnDef<Row, unknown>[] = [
   { accessorKey: 'identifier', header: 'Identifier' },
   { accessorKey: 'status', header: 'Status' },
-  { accessorKey: 'value', header: 'Concentration' },
+  {
+    accessorKey: 'value',
+    header: 'Concentration',
+    meta: { registryFormat: { kind: 'scientific', unit: 'µg/mL' } },
+  },
+  {
+    id: 'actions',
+    header: 'Actions',
+    enableSorting: false,
+    enableHiding: false,
+    cell: () => 'Open',
+  },
 ]
 
 const query: RegistryQuery = {
@@ -180,6 +191,20 @@ describe('RegistryComposition interaction and states', () => {
     expect(screen.getByText('Inspecting SMP-0002')).toBeTruthy()
   })
 
+  it('keeps a selected record visible when it is loaded outside the current page', () => {
+    render(
+      <RegistryComposition
+        {...props({
+          rows: [rows[0]],
+          selectedId: 'two',
+          selectedRecord: rows[1],
+        })}
+      />,
+    )
+
+    expect(screen.getByText('Inspecting SMP-0002')).toBeTruthy()
+  })
+
   it.each([
     ['loading', { loading: true }, 'Loading Test records'],
     ['permission', { permissionDenied: true }, 'Permission denied'],
@@ -208,6 +233,26 @@ describe('RegistryComposition interaction and states', () => {
     expect(screen.getByText('SMP-0001')).toBeTruthy()
   })
 
+  it('hides all server-derived summaries, totals and controls when denied', () => {
+    render(
+      <RegistryComposition
+        {...props({
+          permissionDenied: true,
+          actions: <button type="button">Export secret rows</button>,
+        })}
+      />,
+    )
+
+    expect(screen.getByText('Permission denied')).toBeTruthy()
+    expect(screen.queryByText('1.25m')).toBeNull()
+    expect(screen.queryByText('2 records')).toBeNull()
+    expect(
+      screen.queryByRole('button', { name: 'Export secret rows' }),
+    ).toBeNull()
+    expect(screen.queryByLabelText('Filter by Status')).toBeNull()
+    expect(screen.queryByLabelText('Registry inspector')).toBeNull()
+  })
+
   it('has accessible column headers and Sheetbase density controls', async () => {
     const user = userEvent.setup()
     render(<RegistryComposition {...props()} />)
@@ -217,6 +262,25 @@ describe('RegistryComposition interaction and states', () => {
     ).toBeTruthy()
     await user.selectOptions(screen.getByLabelText('Table density'), 'compact')
     expect(table.getAttribute('data-density')).toBe('compact')
+    expect(within(table).getByText('1.2 µg/mL')).toBeTruthy()
+  })
+
+  it('preserves an explicit custom renderer for numeric cells', () => {
+    render(
+      <RegistryComposition
+        {...props({
+          columns: [
+            {
+              accessorKey: 'value',
+              header: 'Progress',
+              cell: ({ getValue }) => `Custom ${getValue<number>()}`,
+            },
+          ],
+        })}
+      />,
+    )
+
+    expect(screen.getByText('Custom 1.2')).toBeTruthy()
   })
 })
 
@@ -250,14 +314,74 @@ describe('RegistryComposition saved views', () => {
     await user.keyboard('{Escape}')
     expect(screen.getByRole('columnheader', { name: /Status/ })).toBeTruthy()
 
-    await user.selectOptions(
-      screen.getByLabelText('Saved views'),
-      'available-compact',
-    )
+    await user.selectOptions(screen.getByLabelText('Saved views'), [
+      screen.getByRole('option', { name: 'Available compact' }),
+    ])
     expect(onQueryChange).toHaveBeenLastCalledWith(query)
     expect(screen.getByRole('table').getAttribute('data-density')).toBe(
       'compact',
     )
     expect(screen.queryByRole('columnheader', { name: /Status/ })).toBeNull()
+  })
+
+  it('sanitises persisted queries against the current registry contract', async () => {
+    const user = userEvent.setup()
+    const onQueryChange = vi.fn()
+    const store = createRegistrySavedViewStore({
+      registryId: 'test-records',
+      workspaceId: 'workspace-a',
+      userId: 'user-a',
+      storage: memoryStorage(),
+    })
+    store.save({
+      id: 'unsafe',
+      name: 'Stale view',
+      state: {
+        query: {
+          pageIndex: 99,
+          pageSize: 999,
+          sorting: [
+            { id: 'identifier', desc: false },
+            { id: 'actions', desc: false },
+            { id: 'secret', desc: true },
+          ],
+          grouping: ['secret', 'status'],
+          filters: [
+            { id: 'secret', value: 'leak' },
+            { id: 'status', value: 'available' },
+          ],
+        },
+        columnVisibility: { identifier: true, actions: false, secret: true },
+        density: 'compact',
+      },
+    })
+    render(
+      <RegistryComposition
+        {...props({ savedViewStore: store, onQueryChange })}
+      />,
+    )
+
+    await user.selectOptions(screen.getByLabelText('Saved views'), 'unsafe')
+    expect(onQueryChange).toHaveBeenLastCalledWith({
+      pageIndex: 0,
+      pageSize: 25,
+      sorting: [{ id: 'identifier', desc: false }],
+      grouping: ['status'],
+      filters: [{ id: 'status', value: 'available' }],
+    })
+  })
+
+  it('keeps distinct saved views whose names normalise the same way', async () => {
+    const user = userEvent.setup()
+    render(<RegistryComposition {...props()} />)
+
+    await user.type(screen.getByLabelText('Saved view name'), 'QC ready')
+    await user.click(screen.getByRole('button', { name: 'Save current view' }))
+    await user.type(screen.getByLabelText('Saved view name'), 'QC-ready')
+    await user.click(screen.getByRole('button', { name: 'Save current view' }))
+
+    expect(screen.getAllByRole('option', { name: /QC.?ready/i })).toHaveLength(
+      2,
+    )
   })
 })

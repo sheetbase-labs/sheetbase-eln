@@ -34,12 +34,15 @@ import { formatCount } from '#/lib/format-numbers'
 import {
   createRegistrySavedViewStore,
   DEFAULT_REGISTRY_QUERY,
+  formatRegistryValue,
+  sanitizeRegistryView,
 } from '#/lib/registry'
 import type {
   RegistryDensity,
   RegistryQuery,
   RegistrySavedView,
   RegistrySavedViewStore,
+  RegistryValueFormat,
 } from '#/lib/registry'
 import { cn } from '#/lib/utils'
 
@@ -61,6 +64,13 @@ export interface RegistryGroupingOption {
   label: string
 }
 
+declare module '@tanstack/react-table' {
+  interface ColumnMeta<TData, TValue> {
+    /** Sheetbase-owned rendering contract for registry values. */
+    registryFormat?: RegistryValueFormat
+  }
+}
+
 export interface RegistryCompositionProps<TData> {
   registryId: string
   workspaceId: string
@@ -75,6 +85,8 @@ export interface RegistryCompositionProps<TData> {
   onQueryChange: (query: RegistryQuery) => void
   getRowId: (row: TData) => string
   selectedId: string | null
+  /** A selected record loaded independently of the current server page. */
+  selectedRecord?: TData | null
   onSelectedIdChange: (id: string | null) => void
   summaries?: RegistrySummary[]
   filterDefinitions?: RegistryFilterDefinition[]
@@ -99,13 +111,11 @@ function resolveUpdater<T>(updater: Updater<T>, previous: T): T {
     : updater
 }
 
-function viewId(name: string): string {
-  const slug = name
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-  return slug || `view-${Date.now()}`
+function viewId(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID()
+  }
+  return `view-${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
 function activeFilter(query: RegistryQuery, id: string): string {
@@ -125,6 +135,7 @@ export function RegistryComposition<TData>({
   onQueryChange,
   getRowId,
   selectedId,
+  selectedRecord,
   onSelectedIdChange,
   summaries = [],
   filterDefinitions = [],
@@ -149,9 +160,7 @@ export function RegistryComposition<TData>({
       createRegistrySavedViewStore({ registryId, workspaceId, userId }),
     [registryId, savedViewStore, userId, workspaceId],
   )
-  const [savedViews, setSavedViews] = React.useState<RegistrySavedView[]>(() =>
-    store.list(),
-  )
+  const [savedViews, setSavedViews] = React.useState<RegistrySavedView[]>([])
   const [savedViewName, setSavedViewName] = React.useState('')
   const [selectedViewId, setSelectedViewId] = React.useState('')
   const [columnVisibility, setColumnVisibility] =
@@ -232,9 +241,32 @@ export function RegistryComposition<TData>({
     onColumnVisibilityChange: setColumnVisibility,
   })
 
+  const viewPolicy = React.useMemo(
+    () => ({
+      sortColumnIds: table
+        .getAllLeafColumns()
+        .filter((column) => column.getCanSort())
+        .map((column) => column.id),
+      visibilityColumnIds: table
+        .getAllLeafColumns()
+        .filter((column) => column.getCanHide())
+        .map((column) => column.id),
+      filterIds: filterDefinitions.map((filter) => filter.id),
+      groupingIds: groupingOptions.map((group) => group.id),
+      pageSizes: [25, 50, 100],
+      fallbackPageSize: [25, 50, 100].includes(query.pageSize)
+        ? query.pageSize
+        : DEFAULT_REGISTRY_QUERY.pageSize,
+    }),
+    [filterDefinitions, groupingOptions, query.pageSize, table],
+  )
+
   const pageCount = Math.max(1, Math.ceil(totalCount / query.pageSize))
   const selectedRow = selectedId
-    ? (rows.find((row) => getRowId(row) === selectedId) ?? null)
+    ? (rows.find((row) => getRowId(row) === selectedId) ??
+      (selectedRecord && getRowId(selectedRecord) === selectedId
+        ? selectedRecord
+        : null))
     : null
   const hasFilters = query.filters.some((filter) => filter.value !== '')
 
@@ -256,7 +288,7 @@ export function RegistryComposition<TData>({
     const name = savedViewName.trim()
     if (!name) return
     store.save({
-      id: viewId(name),
+      id: viewId(),
       name,
       state: { query, columnVisibility, density },
     })
@@ -268,9 +300,10 @@ export function RegistryComposition<TData>({
     setSelectedViewId(id)
     const view = savedViews.find((candidate) => candidate.id === id)
     if (!view) return
-    onQueryChange({ ...view.state.query, pageIndex: 0 })
-    setColumnVisibility(view.state.columnVisibility)
-    setDensity(view.state.density)
+    const safeView = sanitizeRegistryView(view, viewPolicy)
+    onQueryChange(safeView.state.query)
+    setColumnVisibility(safeView.state.columnVisibility)
+    setDensity(safeView.state.density)
   }
 
   function focusRow(index: number) {
@@ -418,7 +451,15 @@ export function RegistryComposition<TData>({
                         'scientific-nums text-right tabular-nums',
                     )}
                   >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    {cell.column.columnDef.meta?.registryFormat
+                      ? formatRegistryValue(
+                          cell.getValue(),
+                          cell.column.columnDef.meta.registryFormat,
+                        )
+                      : flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        )}
                   </TableCell>
                 ))}
               </TableRow>
@@ -449,10 +490,10 @@ export function RegistryComposition<TData>({
             </p>
           ) : null}
         </div>
-        {actions}
+        {permissionDenied ? null : actions}
       </header>
 
-      {summaries.length > 0 ? (
+      {!permissionDenied && summaries.length > 0 ? (
         <dl className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {summaries.map((summary) => (
             <div
@@ -475,144 +516,148 @@ export function RegistryComposition<TData>({
         </dl>
       ) : null}
 
-      <div className="flex flex-wrap items-end gap-2 rounded-md border bg-muted/20 p-2">
-        {filterDefinitions.map((filter) => (
-          <label
-            key={filter.id}
-            className="min-w-36 text-xs text-muted-foreground"
-          >
-            {filter.label}
-            {filter.options ? (
+      {!permissionDenied ? (
+        <div className="flex flex-wrap items-end gap-2 rounded-md border bg-muted/20 p-2">
+          {filterDefinitions.map((filter) => (
+            <label
+              key={filter.id}
+              className="min-w-36 text-xs text-muted-foreground"
+            >
+              {filter.label}
+              {filter.options ? (
+                <Select
+                  aria-label={`Filter by ${filter.label}`}
+                  value={activeFilter(query, filter.id)}
+                  onChange={(event) => setFilter(filter.id, event.target.value)}
+                  className="mt-1 h-8 bg-background text-xs"
+                >
+                  <option value="">
+                    {filter.placeholder ?? `All ${filter.label.toLowerCase()}`}
+                  </option>
+                  {filter.options.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </Select>
+              ) : (
+                <span className="relative mt-1 block">
+                  <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2" />
+                  <Input
+                    aria-label={`Filter by ${filter.label}`}
+                    value={activeFilter(query, filter.id)}
+                    onChange={(event) =>
+                      setFilter(filter.id, event.target.value)
+                    }
+                    placeholder={filter.placeholder}
+                    className="h-8 bg-background pl-7 text-xs"
+                  />
+                </span>
+              )}
+            </label>
+          ))}
+
+          {groupingOptions.length > 0 ? (
+            <label className="min-w-36 text-xs text-muted-foreground">
+              Group
               <Select
-                aria-label={`Filter by ${filter.label}`}
-                value={activeFilter(query, filter.id)}
-                onChange={(event) => setFilter(filter.id, event.target.value)}
+                aria-label="Group rows"
+                value={query.grouping[0] ?? ''}
+                onChange={(event) => setGrouping(event.target.value)}
                 className="mt-1 h-8 bg-background text-xs"
               >
-                <option value="">
-                  {filter.placeholder ?? `All ${filter.label.toLowerCase()}`}
-                </option>
-                {filter.options.map((option) => (
-                  <option key={option.value} value={option.value}>
+                <option value="">No grouping</option>
+                {groupingOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
                     {option.label}
                   </option>
                 ))}
               </Select>
-            ) : (
-              <span className="relative mt-1 block">
-                <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2" />
-                <Input
-                  aria-label={`Filter by ${filter.label}`}
-                  value={activeFilter(query, filter.id)}
-                  onChange={(event) => setFilter(filter.id, event.target.value)}
-                  placeholder={filter.placeholder}
-                  className="h-8 bg-background pl-7 text-xs"
-                />
-              </span>
-            )}
-          </label>
-        ))}
+            </label>
+          ) : null}
 
-        {groupingOptions.length > 0 ? (
-          <label className="min-w-36 text-xs text-muted-foreground">
-            Group
+          <label className="min-w-28 text-xs text-muted-foreground">
+            Density
             <Select
-              aria-label="Group rows"
-              value={query.grouping[0] ?? ''}
-              onChange={(event) => setGrouping(event.target.value)}
+              aria-label="Table density"
+              value={density}
+              onChange={(event) =>
+                setDensity(event.target.value as RegistryDensity)
+              }
               className="mt-1 h-8 bg-background text-xs"
             >
-              <option value="">No grouping</option>
-              {groupingOptions.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.label}
-                </option>
-              ))}
+              <option value="comfortable">Comfortable</option>
+              <option value="compact">Compact</option>
             </Select>
           </label>
-        ) : null}
 
-        <label className="min-w-28 text-xs text-muted-foreground">
-          Density
-          <Select
-            aria-label="Table density"
-            value={density}
-            onChange={(event) =>
-              setDensity(event.target.value as RegistryDensity)
-            }
-            className="mt-1 h-8 bg-background text-xs"
-          >
-            <option value="comfortable">Comfortable</option>
-            <option value="compact">Compact</option>
-          </Select>
-        </label>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                aria-label="Choose visible columns"
+              >
+                <Columns3 /> Columns
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Visible columns</DropdownMenuLabel>
+              {table.getAllLeafColumns().map((column) => (
+                <DropdownMenuCheckboxItem
+                  key={column.id}
+                  checked={column.getIsVisible()}
+                  disabled={!column.getCanHide()}
+                  onCheckedChange={(checked) =>
+                    column.toggleVisibility(Boolean(checked))
+                  }
+                >
+                  {typeof column.columnDef.header === 'string'
+                    ? column.columnDef.header
+                    : column.id}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+          <div className="ml-auto flex flex-wrap items-end gap-2">
+            <label className="min-w-36 text-xs text-muted-foreground">
+              Saved views
+              <Select
+                aria-label="Saved views"
+                value={selectedViewId}
+                onChange={(event) => applyView(event.target.value)}
+                className="mt-1 h-8 bg-background text-xs"
+              >
+                <option value="">Current view</option>
+                {savedViews.map((view) => (
+                  <option key={view.id} value={view.id}>
+                    {view.name}
+                  </option>
+                ))}
+              </Select>
+            </label>
+            <label className="min-w-40 text-xs text-muted-foreground">
+              Saved view name
+              <Input
+                aria-label="Saved view name"
+                value={savedViewName}
+                onChange={(event) => setSavedViewName(event.target.value)}
+                className="mt-1 h-8 bg-background text-xs"
+              />
+            </label>
             <Button
               variant="outline"
               size="sm"
-              aria-label="Choose visible columns"
+              onClick={saveView}
+              disabled={!savedViewName.trim()}
+              aria-label="Save current view"
             >
-              <Columns3 /> Columns
+              <Save /> Save
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Visible columns</DropdownMenuLabel>
-            {table.getAllLeafColumns().map((column) => (
-              <DropdownMenuCheckboxItem
-                key={column.id}
-                checked={column.getIsVisible()}
-                disabled={!column.getCanHide()}
-                onCheckedChange={(checked) =>
-                  column.toggleVisibility(Boolean(checked))
-                }
-              >
-                {typeof column.columnDef.header === 'string'
-                  ? column.columnDef.header
-                  : column.id}
-              </DropdownMenuCheckboxItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        <div className="ml-auto flex flex-wrap items-end gap-2">
-          <label className="min-w-36 text-xs text-muted-foreground">
-            Saved views
-            <Select
-              aria-label="Saved views"
-              value={selectedViewId}
-              onChange={(event) => applyView(event.target.value)}
-              className="mt-1 h-8 bg-background text-xs"
-            >
-              <option value="">Current view</option>
-              {savedViews.map((view) => (
-                <option key={view.id} value={view.id}>
-                  {view.name}
-                </option>
-              ))}
-            </Select>
-          </label>
-          <label className="min-w-40 text-xs text-muted-foreground">
-            Saved view name
-            <Input
-              aria-label="Saved view name"
-              value={savedViewName}
-              onChange={(event) => setSavedViewName(event.target.value)}
-              className="mt-1 h-8 bg-background text-xs"
-            />
-          </label>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={saveView}
-            disabled={!savedViewName.trim()}
-            aria-label="Save current view"
-          >
-            <Save /> Save
-          </Button>
+          </div>
         </div>
-      </div>
+      ) : null}
 
       <div
         className={cn(
@@ -622,65 +667,74 @@ export function RegistryComposition<TData>({
         <div className="overflow-hidden rounded-lg border bg-card">
           {stateContent}
         </div>
-        {renderInspector ? (
+        {renderInspector && !permissionDenied ? (
           <aside
             aria-label="Registry inspector"
             className="min-h-72 overflow-hidden rounded-lg border bg-card"
           >
-            {renderInspector(selectedRow)}
+            {selectedId && !selectedRow ? (
+              <RegistryState
+                title="Selected record is outside this page"
+                detail="Its selection is preserved while the record details are loaded."
+              />
+            ) : (
+              renderInspector(selectedRow)
+            )}
           </aside>
         ) : null}
       </div>
 
-      <footer className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-        <p>
-          {formatCount(totalCount)} {totalCount === 1 ? 'record' : 'records'}
-        </p>
-        <div className="flex items-center gap-2">
-          <label className="flex items-center gap-1">
-            Rows
-            <Select
-              aria-label="Rows per page"
-              value={String(query.pageSize)}
-              onChange={(event) =>
-                onQueryChange({
-                  ...query,
-                  pageIndex: 0,
-                  pageSize: Number(event.target.value),
-                })
-              }
-              className="h-8 w-20 bg-background text-xs"
+      {!permissionDenied ? (
+        <footer className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+          <p>
+            {formatCount(totalCount)} {totalCount === 1 ? 'record' : 'records'}
+          </p>
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-1">
+              Rows
+              <Select
+                aria-label="Rows per page"
+                value={String(query.pageSize)}
+                onChange={(event) =>
+                  onQueryChange({
+                    ...query,
+                    pageIndex: 0,
+                    pageSize: Number(event.target.value),
+                  })
+                }
+                className="h-8 w-20 bg-background text-xs"
+              >
+                {[25, 50, 100].map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </Select>
+            </label>
+            <span>
+              Page {query.pageIndex + 1} of {pageCount}
+            </span>
+            <Button
+              variant="outline"
+              size="icon-sm"
+              aria-label="Previous page"
+              disabled={query.pageIndex === 0 || loading}
+              onClick={() => table.previousPage()}
             >
-              {[25, 50, 100].map((size) => (
-                <option key={size} value={size}>
-                  {size}
-                </option>
-              ))}
-            </Select>
-          </label>
-          <span>
-            Page {query.pageIndex + 1} of {pageCount}
-          </span>
-          <Button
-            variant="outline"
-            size="icon-sm"
-            aria-label="Previous page"
-            disabled={query.pageIndex === 0 || loading}
-            onClick={() => table.previousPage()}
-          >
-            <ChevronLeft />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon-sm"
-            aria-label="Next page"
-            disabled={query.pageIndex >= pageCount - 1 || loading}
-            onClick={() => table.nextPage()}
-          >
-            <ChevronRight />
-          </Button>
-        </div>
-      </footer>
+              <ChevronLeft />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon-sm"
+              aria-label="Next page"
+              disabled={query.pageIndex >= pageCount - 1 || loading}
+              onClick={() => table.nextPage()}
+            >
+              <ChevronRight />
+            </Button>
+          </div>
+        </footer>
+      ) : null}
     </section>
   )
 }

@@ -44,6 +44,15 @@ export interface RegistrySavedViewStore {
   remove: (id: string) => void
 }
 
+export interface RegistryViewPolicy {
+  sortColumnIds: readonly string[]
+  visibilityColumnIds: readonly string[]
+  filterIds: readonly string[]
+  groupingIds: readonly string[]
+  pageSizes: readonly number[]
+  fallbackPageSize: number
+}
+
 export const DEFAULT_REGISTRY_QUERY: RegistryQuery = {
   pageIndex: 0,
   pageSize: 25,
@@ -111,6 +120,50 @@ function isSavedView(value: unknown): value is RegistrySavedView {
     visibilityValid &&
     (state.density === 'comfortable' || state.density === 'compact')
   )
+}
+
+/**
+ * Treat persisted view state as untrusted browser input. This keeps stale or
+ * edited local storage from emitting fields the current registry does not
+ * expose. The receiving API must enforce the same allow-list.
+ */
+export function sanitizeRegistryView(
+  view: RegistrySavedView,
+  policy: RegistryViewPolicy,
+): RegistrySavedView {
+  const sortableColumns = new Set(policy.sortColumnIds)
+  const hideableColumns = new Set(policy.visibilityColumnIds)
+  const filters = new Set(policy.filterIds)
+  const groups = new Set(policy.groupingIds)
+  const pageSizes = new Set(policy.pageSizes)
+
+  return {
+    ...view,
+    state: {
+      ...view.state,
+      query: {
+        ...view.state.query,
+        pageIndex: 0,
+        pageSize: pageSizes.has(view.state.query.pageSize)
+          ? view.state.query.pageSize
+          : policy.fallbackPageSize,
+        sorting: view.state.query.sorting.filter((sort) =>
+          sortableColumns.has(sort.id),
+        ),
+        grouping: view.state.query.grouping.filter((group) =>
+          groups.has(group),
+        ),
+        filters: view.state.query.filters.filter((filter) =>
+          filters.has(filter.id),
+        ),
+      },
+      columnVisibility: Object.fromEntries(
+        Object.entries(view.state.columnVisibility).filter(([id]) =>
+          hideableColumns.has(id),
+        ),
+      ),
+    },
+  }
 }
 
 export function createRegistrySavedViewStore({

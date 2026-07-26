@@ -274,6 +274,13 @@
       "when": 1785092400000,
       "tag": "0038_rev_002_file_retention",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1785096000000,
+      "tag": "0039_rev_005_review_checks",
+      "breakpoints": true
     }
   ]
 }

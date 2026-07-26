@@ -820,13 +820,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** REV-002, CALC-004.
 
-- [ ] Define configurable reviewer checklist items and required completion rules.
-- [ ] Run completeness, schema, formula, stale-result and required-link checks against the frozen revision.
-- [ ] Distinguish blocking failures, warnings and informational checks.
-- [ ] Store the check definition version, inputs and result with the review evidence.
-- [ ] Prevent live data changes from rewriting a historical check result.
-- [ ] Allow reviewers to inspect the evidence behind each result.
-- [ ] Add tests for pass, warning, failure and changed check definitions.
+- [x] Define configurable reviewer checklist items and required completion rules.
+- [x] Run completeness, schema, formula, stale-result and required-link checks against the frozen revision.
+- [x] Distinguish blocking failures, warnings and informational checks.
+- [x] Store the check definition version, inputs and result with the review evidence.
+- [x] Prevent live data changes from rewriting a historical check result.
+- [x] Allow reviewers to inspect the evidence behind each result.
+- [x] Add tests for pass, warning, failure and changed check definitions.
 
 ### REV-006 — Build the review inbox
 

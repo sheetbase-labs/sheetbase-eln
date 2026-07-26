@@ -161,6 +161,36 @@ export const reviewWorkflowDefinitions = internal.table(
   ],
 )
 
+/**
+ * Immutable, versioned reviewer check definitions (REV-005). Each definition
+ * describes a configurable set of checklist items and data-integrity checks.
+ * Like workflow definitions, versions are append-only so a historical check
+ * result always references the exact definition that produced it.
+ */
+export const reviewCheckDefinitions = internal.table(
+  'review_check_definitions',
+  {
+    definitionKey: text('definition_key').notNull(),
+    version: integer('version').notNull(),
+    definition: jsonb('definition').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.definitionKey, table.version] }),
+    check(
+      'chk_review_check_definition_key',
+      sql`${table.definitionKey} ~ '^[a-z0-9][a-z0-9_-]{0,127}$'`,
+    ),
+    check('chk_review_check_definition_version', sql`${table.version} > 0`),
+    check(
+      'chk_review_check_definition_shape',
+      sql`jsonb_typeof(${table.definition}) = 'object' AND jsonb_typeof(${table.definition}->'checks') = 'array'`,
+    ),
+  ],
+)
+
 // ---------------------------------------------------------------------------
 // internal — API-005 scoped external API credentials. Never exposed to
 // PostgREST's api schema. Secrets are hashed (SHA-256, salted with the
@@ -727,6 +757,111 @@ export const reviewSubmissions = api.table(
       table.recordId,
       table.submittedAt,
     ),
+  ],
+)
+
+/**
+ * Immutable reviewer check results (REV-005). Each row records the outcome of
+ * running a versioned check definition against a frozen revision's canonical
+ * snapshot. The inputs (the snapshot) and the check definition are pinned by
+ * their SHA-256 digests so live data changes can never rewrite historical
+ * evidence. Like revisions, results are write-once — the immutability trigger
+ * prevents updates and deletes by application roles.
+ */
+export const reviewCheckResults = api.table(
+  'review_check_results',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    recordId: uuid('record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'restrict' }),
+    revisionId: uuid('revision_id')
+      .notNull()
+      .references(() => revisions.id, { onDelete: 'restrict' }),
+    checkDefinitionKey: text('check_definition_key').notNull(),
+    checkDefinitionVersion: integer('check_definition_version').notNull(),
+    revisionIntegrityDigest: text('revision_integrity_digest').notNull(),
+    checkDefinitionDigest: text('check_definition_digest').notNull(),
+    inputDigest: text('input_digest').notNull(),
+    overallStatus: text('overall_status').notNull(),
+    passCount: integer('pass_count').notNull().default(0),
+    blockingFailureCount: integer('blocking_failure_count')
+      .notNull()
+      .default(0),
+    warningFailureCount: integer('warning_failure_count').notNull().default(0),
+    infoFailureCount: integer('info_failure_count').notNull().default(0),
+    results: jsonb('results').notNull(),
+    runByUserId: text('run_by_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    runSessionId: text('run_session_id').notNull(),
+    runRole: text('run_role').notNull(),
+    runAt: timestamp('run_at', { withTimezone: true, mode: 'date' }).notNull(),
+    idempotencyKey: text('idempotency_key').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'chk_review_check_results_status',
+      sql`${table.overallStatus} IN ('pass', 'warning', 'fail')`,
+    ),
+    check(
+      'chk_review_check_results_definition_key',
+      sql`${table.checkDefinitionKey} ~ '^[a-z0-9][a-z0-9_-]{0,127}$'`,
+    ),
+    check(
+      'chk_review_check_results_definition_version',
+      sql`${table.checkDefinitionVersion} > 0`,
+    ),
+    check(
+      'chk_review_check_results_revision_digest',
+      sql`${table.revisionIntegrityDigest} ~ '^[0-9a-f]{64}$'`,
+    ),
+    check(
+      'chk_review_check_results_definition_digest',
+      sql`${table.checkDefinitionDigest} ~ '^[0-9a-f]{64}$'`,
+    ),
+    check(
+      'chk_review_check_results_input_digest',
+      sql`${table.inputDigest} ~ '^[0-9a-f]{64}$'`,
+    ),
+    check(
+      'chk_review_check_results_idempotency_key',
+      sql`length(${table.idempotencyKey}) BETWEEN 1 AND 128`,
+    ),
+    check(
+      'chk_review_check_results_counts',
+      sql`${table.passCount} >= 0 AND ${table.blockingFailureCount} >= 0 AND ${table.warningFailureCount} >= 0 AND ${table.infoFailureCount} >= 0`,
+    ),
+    check(
+      'chk_review_check_results_results_shape',
+      sql`jsonb_typeof(${table.results}) = 'array'`,
+    ),
+    unique('uq_review_check_results_actor_idempotency').on(
+      table.workspaceId,
+      table.runByUserId,
+      table.idempotencyKey,
+    ),
+    foreignKey({
+      columns: [table.checkDefinitionKey, table.checkDefinitionVersion],
+      foreignColumns: [
+        reviewCheckDefinitions.definitionKey,
+        reviewCheckDefinitions.version,
+      ],
+      name: 'review_check_results_definition_fk',
+    }).onDelete('restrict'),
+    index('idx_review_check_results_revision').on(table.revisionId),
+    index('idx_review_check_results_workspace_status').on(
+      table.workspaceId,
+      table.overallStatus,
+      table.runAt,
+    ),
+    index('idx_review_check_results_record').on(table.recordId, table.runAt),
   ],
 )
 
@@ -1683,6 +1818,24 @@ export const reviewSubmissionsRelations = relations(
     }),
     revision: one(revisions, {
       fields: [reviewSubmissions.revisionId],
+      references: [revisions.id],
+    }),
+  }),
+)
+
+export const reviewCheckResultsRelations = relations(
+  reviewCheckResults,
+  ({ one }) => ({
+    workspace: one(workspaces, {
+      fields: [reviewCheckResults.workspaceId],
+      references: [workspaces.id],
+    }),
+    record: one(records, {
+      fields: [reviewCheckResults.recordId],
+      references: [records.id],
+    }),
+    revision: one(revisions, {
+      fields: [reviewCheckResults.revisionId],
       references: [revisions.id],
     }),
   }),

@@ -13,6 +13,8 @@ import {
   bigint,
   boolean,
   check,
+  date,
+  decimal,
   foreignKey,
   index,
   integer,
@@ -1644,6 +1646,72 @@ export const changeEvents = api.table(
   ],
 )
 
+/**
+ * reagent_movements (REG-003) — the auditable inventory ledger for reagents.
+ * One row per receive/consume/quarantine/restore movement, written exclusively
+ * by the `record_reagent_movement` SECURITY DEFINER RPC (no direct INSERT
+ * grant to request roles). Snapshots supplier/catalog_no/lot/expiry at
+ * movement time so the historical identity used by experiments is preserved
+ * when the reagent record's properties are later updated.
+ *
+ * `quantity_delta` is signed: positive for receive, negative for consume, zero
+ * for quarantine/restore. `resulting_quantity` is the absolute stock after the
+ * movement. Low-stock and expiry attention are derived by the application from
+ * configured thresholds; they are never stored as a status here.
+ */
+export const reagentMovements = api.table(
+  'reagent_movements',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    reagentRecordId: uuid('reagent_record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'cascade' }),
+    operation: text('operation').notNull(),
+    quantityDelta: decimal('quantity_delta', {
+      precision: 18,
+      scale: 6,
+    }).notNull(),
+    resultingQuantity: decimal('resulting_quantity', {
+      precision: 18,
+      scale: 6,
+    }).notNull(),
+    unit: text('unit'),
+    supplier: text('supplier'),
+    catalogNo: text('catalog_no'),
+    lot: text('lot'),
+    expiry: date('expiry'),
+    reason: text('reason'),
+    actorUserId: text('actor_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'chk_reagent_movements_operation',
+      sql`${table.operation} IN ('receive','consume','quarantine','restore')`,
+    ),
+    check(
+      'chk_reagent_movements_quantity_delta',
+      sql`(${table.operation} = 'receive' AND ${table.quantityDelta} > 0) OR (${table.operation} = 'consume' AND ${table.quantityDelta} < 0) OR (${table.operation} IN ('quarantine','restore') AND ${table.quantityDelta} = 0)`,
+    ),
+    check(
+      'chk_reagent_movements_resulting_quantity',
+      sql`${table.resultingQuantity} >= 0`,
+    ),
+    index('idx_reagent_movements_workspace').on(table.workspaceId),
+    index('idx_reagent_movements_reagent_created').on(
+      table.reagentRecordId,
+      table.createdAt,
+    ),
+  ],
+)
+
 // ---------------------------------------------------------------------------
 // Relations for drizzle query API (no migration impact).
 // ---------------------------------------------------------------------------
@@ -1697,6 +1765,7 @@ export const recordsRelations = relations(records, ({ one, many }) => ({
   outgoingLinks: many(recordLinks, { relationName: 'record_outgoing_links' }),
   incomingLinks: many(recordLinks, { relationName: 'record_incoming_links' }),
   revisions: many(revisions),
+  reagentMovements: many(reagentMovements),
   reviewSubmissions: many(reviewSubmissions),
 }))
 

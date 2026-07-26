@@ -918,12 +918,12 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** REG-001.
 
-- [ ] Implement reagent categories, suppliers, catalogue and lot identity, expiry, quantity, storage and status.
-- [ ] Show certificates, documents, usage, linked protocols, supplier details and recent orders in the inspector.
-- [ ] Add receive, consume, quarantine and archive workflows with auditable quantity changes.
-- [ ] Calculate low-stock and expiry attention from configured thresholds rather than manual badges.
-- [ ] Preserve historical supplier and lot details used by experiments.
-- [ ] Add tests for receive, consume, expiry, low-stock and quarantine behaviour.
+- [x] Implement reagent categories, suppliers, catalogue and lot identity, expiry, quantity, storage and status.
+- [x] Show certificates, documents, usage, linked protocols, supplier details and recent orders in the inspector.
+- [x] Add receive, consume, quarantine and archive workflows with auditable quantity changes.
+- [x] Calculate low-stock and expiry attention from configured thresholds rather than manual badges.
+- [x] Preserve historical supplier and lot details used by experiments.
+- [x] Add tests for receive, consume, expiry, low-stock and quarantine behaviour.
 
 ### DATA-007 — Deliver Dataset Explorer
 

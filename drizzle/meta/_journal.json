@@ -281,6 +281,13 @@
       "when": 1785096000000,
       "tag": "0039_rev_005_review_checks",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1785096000000,
+      "tag": "0040_reg_003_reagent_movements",
+      "breakpoints": true
     }
   ]
 }

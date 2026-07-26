@@ -1,0 +1,544 @@
+/**
+ * Reagent registry domain library (REG-003).
+ *
+ * Reagents are `records` of kind='reagent' with configurable properties
+ * (supplier, catalog_no, lot, expiry, quantity, unit, storage) defined by
+ * `record_field_definitions` (SCI-001 / decision 0026). This module provides
+ * the application-boundary layer on top of the database contract:
+ *
+ * - typed projection of a reagent record's properties into a domain shape;
+ * - low-stock and expiry attention derived from configured thresholds
+ *   (`low_stock_threshold`, `expiry_warning_days`) rather than a stored status;
+ * - PostgREST query translation for server-side pagination/sorting/filtering
+ *   so the registry never loads the whole workspace into the browser;
+ * - controlled-mutation helpers (receive/consume/quarantine/restore/archive)
+ *   that call the `record_reagent_movement` and `archive_record` RPCs;
+ * - fetch helpers for the inspector (recent movements, incoming usage links,
+ *   linked protocols/documents).
+ *
+ * PostgreSQL and RLS remain authoritative. These helpers improve errors and
+ * drive the UI; they must not be the only access-control boundary.
+ */
+
+import type { DataClient } from '#/lib/data-client'
+import { toRecord } from '#/lib/notebook-data'
+import type { NotebookRecord, RecordWire } from '#/lib/notebook-data'
+import type { RegistryQuery } from '#/lib/registry'
+
+// ---------------------------------------------------------------------------
+// Property projection. Reagent properties are a flat JSONB object keyed by
+// field_name. The seeded field definitions (docs/scientific-records-api.md)
+// define supplier/catalog_no/lot/expiry/quantity/unit/storage; thresholds are
+// optional configurable fields. Every accessor is total: a missing or
+// malformed value resolves to null so the UI can render an honest em dash.
+// ---------------------------------------------------------------------------
+
+export interface ReagentProperties {
+  supplier: string | null
+  catalogNo: string | null
+  lot: string | null
+  expiry: string | null // ISO date YYYY-MM-DD
+  quantity: number | null
+  unit: string | null
+  storage: string | null
+  lowStockThreshold: number | null
+  expiryWarningDays: number | null
+}
+
+function asString(value: unknown): string | null {
+  return typeof value === 'string' && value !== '' ? value : null
+}
+
+function asNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (
+    typeof value === 'string' &&
+    value !== '' &&
+    /^-?[0-9]+(\.[0-9]+)?$/.test(value)
+  ) {
+    const n = Number(value)
+    return Number.isFinite(n) ? n : null
+  }
+  return null
+}
+
+export function projectReagentProperties(
+  properties: Record<string, unknown>,
+): ReagentProperties {
+  return {
+    supplier: asString(properties.supplier),
+    catalogNo: asString(properties.catalog_no),
+    lot: asString(properties.lot),
+    expiry: asString(properties.expiry),
+    quantity: asNumber(properties.quantity),
+    unit: asString(properties.unit),
+    storage: asString(properties.storage),
+    lowStockThreshold: asNumber(properties.low_stock_threshold),
+    expiryWarningDays: asNumber(properties.expiry_warning_days),
+  }
+}
+
+/** Default expiry warning window when no per-reagent threshold is configured. */
+export const DEFAULT_EXPIRY_WARNING_DAYS = 30
+
+export interface Reagent extends ReagentProperties {
+  id: string
+  identifier: string
+  title: string
+  status: string
+  tags: string[]
+  projectId: string | null
+  createdAt: string
+  updatedAt: string
+  archivedAt: string | null
+  metadataVersion: number
+  /** First tag, used as the reagent category column/grouping. */
+  category: string
+  /** Underlying record, for the inspector and link resolution. */
+  record: NotebookRecord
+}
+
+export function toReagent(record: NotebookRecord): Reagent {
+  const props = projectReagentProperties(record.properties)
+  return {
+    ...props,
+    id: record.id,
+    identifier: record.identifier,
+    title: record.title,
+    status: record.status,
+    tags: record.tags,
+    projectId: record.projectId,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+    archivedAt: record.archivedAt,
+    metadataVersion: record.metadataVersion,
+    category: record.tags[0] ?? 'Uncategorised',
+    record,
+  }
+}
+
+export function toReagentFromWire(row: RecordWire): Reagent {
+  return toReagent(toRecord(row))
+}
+
+// ---------------------------------------------------------------------------
+// Low-stock and expiry attention. Derived from configured thresholds, never
+// stored as a status. `low_stock` and `expired` pills are display-only; the
+// authoritative lifecycle status (available/reserved/consumed/expired/
+// quarantined) is rendered separately by the StatusBadge.
+// ---------------------------------------------------------------------------
+
+export type AttentionKind = 'ok' | 'low_stock' | 'near_expiry' | 'expired'
+
+export interface ReagentAttention {
+  kind: AttentionKind
+  lowStock: boolean
+  nearExpiry: boolean
+  expired: boolean
+  /** Days until expiry (negative when already past). */
+  daysToExpiry: number | null
+}
+
+function daysBetween(iso: string, from: Date): number {
+  const then = Date.parse(iso)
+  if (Number.isNaN(then)) return 0
+  const day = 86_400_000
+  // Compare calendar days from midnight to avoid time-of-day drift.
+  const fromMidnight = Date.UTC(
+    from.getUTCFullYear(),
+    from.getUTCMonth(),
+    from.getUTCDate(),
+  )
+  return Math.round((then - fromMidnight) / day)
+}
+
+/**
+ * Compute low-stock and expiry attention from a reagent's configured
+ * thresholds. A reagent shows `low_stock` only when a `low_stock_threshold`
+ * is configured and the quantity is at or below it; `near_expiry` when
+ * `expiry` falls within the warning window; `expired` when `expiry` has
+ * passed. Consumed, expired and quarantined reagents suppress low-stock (no
+ * restock signal once terminal); quarantined reagents suppress expiry
+ * attention (the quarantine already isolates them).
+ */
+export function reagentAttention(
+  reagent: Pick<
+    Reagent,
+    'status' | 'quantity' | 'expiry' | 'lowStockThreshold' | 'expiryWarningDays'
+  >,
+  now: Date = new Date(),
+): ReagentAttention {
+  const daysToExpiry = reagent.expiry ? daysBetween(reagent.expiry, now) : null
+  const warningDays = reagent.expiryWarningDays ?? DEFAULT_EXPIRY_WARNING_DAYS
+
+  const expired =
+    daysToExpiry !== null &&
+    daysToExpiry < 0 &&
+    reagent.status !== 'quarantined'
+
+  const nearExpiry =
+    !expired &&
+    daysToExpiry !== null &&
+    daysToExpiry >= 0 &&
+    daysToExpiry <= warningDays &&
+    reagent.status !== 'expired' &&
+    reagent.status !== 'quarantined'
+
+  const lowStock =
+    reagent.lowStockThreshold !== null &&
+    reagent.quantity !== null &&
+    reagent.quantity <= reagent.lowStockThreshold &&
+    reagent.status !== 'consumed' &&
+    reagent.status !== 'expired' &&
+    reagent.status !== 'quarantined'
+
+  const kind: AttentionKind = expired
+    ? 'expired'
+    : nearExpiry
+      ? 'near_expiry'
+      : lowStock
+        ? 'low_stock'
+        : 'ok'
+
+  return { kind, lowStock, nearExpiry, expired, daysToExpiry }
+}
+
+// ---------------------------------------------------------------------------
+// Movement ledger wire + domain shapes. `reagent_movements` is exposed by
+// PostgREST under RLS; writes go through the `record_reagent_movement` RPC.
+// ---------------------------------------------------------------------------
+
+export interface ReagentMovementWire {
+  id: string
+  workspace_id: string
+  reagent_record_id: string
+  operation: string
+  quantity_delta: string // numeric comes over the wire as a string
+  resulting_quantity: string
+  unit: string | null
+  supplier: string | null
+  catalog_no: string | null
+  lot: string | null
+  expiry: string | null
+  reason: string | null
+  actor_user_id: string | null
+  created_at: string
+}
+
+export interface ReagentMovement {
+  id: string
+  reagentRecordId: string
+  operation: 'receive' | 'consume' | 'quarantine' | 'restore'
+  quantityDelta: number
+  resultingQuantity: number
+  unit: string | null
+  supplier: string | null
+  catalogNo: string | null
+  lot: string | null
+  expiry: string | null
+  reason: string | null
+  actorUserId: string | null
+  createdAt: string
+}
+
+export function toReagentMovement(row: ReagentMovementWire): ReagentMovement {
+  return {
+    id: row.id,
+    reagentRecordId: row.reagent_record_id,
+    operation: row.operation as ReagentMovement['operation'],
+    quantityDelta: Number(row.quantity_delta),
+    resultingQuantity: Number(row.resulting_quantity),
+    unit: row.unit,
+    supplier: row.supplier,
+    catalogNo: row.catalog_no,
+    lot: row.lot,
+    expiry: row.expiry,
+    reason: row.reason,
+    actorUserId: row.actor_user_id,
+    createdAt: row.created_at,
+  }
+}
+
+export const MOVEMENT_LABELS: Record<ReagentMovement['operation'], string> = {
+  receive: 'Received',
+  consume: 'Consumed',
+  quarantine: 'Quarantined',
+  restore: 'Restored',
+}
+
+// ---------------------------------------------------------------------------
+// Attention summary (server-computed). Returned by the
+// `reagent_attention_summary` RPC so dashboard counts stay authoritative
+// without loading every reagent row.
+// ---------------------------------------------------------------------------
+
+export interface ReagentAttentionSummary {
+  total: number
+  lowStock: number
+  nearExpiry: number
+  expired: number
+  quarantined: number
+}
+
+// ---------------------------------------------------------------------------
+// RegistryQuery -> PostgREST query translation. Server-side pagination,
+// sorting, status/storage filtering and identifier/title search. Sorting on
+// JSONB properties uses the `properties->>field` text accessor; ISO dates sort
+// correctly as text. Quantity is not sortable server-side (text sort would be
+// lexically wrong) — the column is display-only.
+// ---------------------------------------------------------------------------
+
+const SORTABLE_COLUMNS: Record<string, string> = {
+  identifier: 'identifier',
+  title: 'title',
+  status: 'status',
+  expiry: 'properties->>expiry',
+  supplier: 'properties->>supplier',
+  storage: 'properties->>storage',
+  updatedAt: 'updated_at',
+  createdAt: 'created_at',
+}
+
+const FILTER_IDS = ['status', 'storage', 'q'] as const
+export type ReagentFilterId = (typeof FILTER_IDS)[number]
+
+const STORAGE_OPTIONS = ['-80 °C', '-20 °C', '4 °C', 'ambient']
+const STATUS_OPTIONS = [
+  'available',
+  'reserved',
+  'consumed',
+  'expired',
+  'quarantined',
+]
+
+export const REAGENT_STATUS_OPTIONS = STATUS_OPTIONS.map((value) => ({
+  value,
+  label: value.replace('_', ' '),
+}))
+export const REAGENT_STORAGE_OPTIONS = STORAGE_OPTIONS.map((value) => ({
+  value,
+  label: value,
+}))
+
+function escapePostgrest(value: string): string {
+  // PostgREST uses commas and parens as separators; the safe set for inline
+  // values is small. For our filter values (status/storage/search) the inputs
+  // are bounded; we still strip the delimiters so a stray comma cannot inject
+  // a second condition.
+  return value.replace(/[,&()*."\\]/g, ' ').trim()
+}
+
+/**
+ * Build the PostgREST query string for a reagent registry page. Always scopes
+ * to non-soft-deleted reagents; archived rows are excluded by default and
+ * included only when the status filter is `archived`.
+ */
+export function reagentListQuery(query: RegistryQuery): string {
+  const parts: string[] = ['kind=eq.reagent', 'deleted_at=is.null']
+
+  const archived = query.filters.find(
+    (f) => f.id === 'status' && f.value === 'archived',
+  )
+  parts.push(archived ? 'archived_at=is.not.null' : 'archived_at=is.null')
+
+  for (const filter of query.filters) {
+    if (filter.id === 'status' && filter.value && filter.value !== 'archived') {
+      parts.push(`status=eq.${escapePostgrest(filter.value)}`)
+    } else if (filter.id === 'storage' && filter.value) {
+      parts.push(`properties->>storage=eq.${escapePostgrest(filter.value)}`)
+    } else if (filter.id === 'q' && filter.value) {
+      const enc = encodeURIComponent(`${filter.value}*`)
+      parts.push(`(identifier=ilike.${enc},title=ilike.${enc})`)
+    }
+  }
+
+  const order: string[] = []
+  for (const sort of query.sorting) {
+    const col = SORTABLE_COLUMNS[sort.id]
+    if (col) order.push(`${col}.${sort.desc ? 'desc' : 'asc'}`)
+  }
+  // Deterministic secondary sort so pagination is stable.
+  order.push('identifier.asc')
+  parts.push(`order=${order.join(',')}`)
+
+  const offset = query.pageIndex * query.pageSize
+  parts.push(`limit=${query.pageSize}`)
+  parts.push(`offset=${offset}`)
+
+  return `?${parts.join('&')}`
+}
+
+/** Query string for the count path (no limit/order, same filters). */
+export function reagentCountQuery(query: RegistryQuery): string {
+  const full = reagentListQuery(query)
+  const without = full
+    .replace(/&?limit=\d+/, '')
+    .replace(/&?offset=\d+/, '')
+    .replace(/&?order=[^&]+/, '')
+  return without
+}
+
+// ---------------------------------------------------------------------------
+// Fetch helpers.
+// ---------------------------------------------------------------------------
+
+export const reagentQueryKeys = {
+  list: (query: RegistryQuery) =>
+    ['reg-003', 'reagents', 'list', query] as const,
+  count: (query: RegistryQuery) =>
+    ['reg-003', 'reagents', 'count', query] as const,
+  detail: (id: string) => ['reg-003', 'reagents', 'detail', id] as const,
+  movements: (id: string) => ['reg-003', 'reagents', 'movements', id] as const,
+  usage: (identifier: string) =>
+    ['reg-003', 'reagents', 'usage', identifier] as const,
+  outgoingLinks: (id: string) =>
+    ['reg-003', 'reagents', 'outgoing', id] as const,
+  attention: (warningDays: number) =>
+    ['reg-003', 'reagents', 'attention', warningDays] as const,
+}
+
+export function fetchReagentsPage(
+  client: DataClient,
+  query: RegistryQuery,
+): Promise<Reagent[]> {
+  return client
+    .list<RecordWire>('records', reagentListQuery(query))
+    .then((rows) => rows.map(toReagentFromWire))
+}
+
+export function fetchReagentsCount(
+  client: DataClient,
+  query: RegistryQuery,
+): Promise<number> {
+  return client.count('records', reagentCountQuery(query))
+}
+
+export function fetchReagent(
+  client: DataClient,
+  recordId: string,
+): Promise<Reagent | null> {
+  return client
+    .list<RecordWire>('records', `?id=eq.${recordId}&limit=1`)
+    .then((rows) => (rows.length > 0 ? toReagentFromWire(rows[0]) : null))
+}
+
+export function fetchReagentMovements(
+  client: DataClient,
+  reagentRecordId: string,
+  limit = 10,
+): Promise<ReagentMovement[]> {
+  return client
+    .list<ReagentMovementWire>(
+      'reagent_movements',
+      `?reagent_record_id=eq.${reagentRecordId}&order=created_at.desc&limit=${limit}` +
+        `&select=id,workspace_id,reagent_record_id,operation,quantity_delta,resulting_quantity,unit,supplier,catalog_no,lot,expiry,reason,actor_user_id,created_at`,
+    )
+    .then((rows) => rows.map(toReagentMovement))
+}
+
+export interface ReagentUsageLink {
+  id: string
+  sourceRecordId: string | null
+  sourceKind: string
+  sourceIdentifier: string
+  linkType: string
+}
+
+interface UsageLinkWire {
+  id: string
+  source_record_id: string | null
+  source_kind: string
+  source_identifier: string
+  link_type: string
+}
+
+/**
+ * Incoming links to this reagent — the experiments, samples and protocols
+ * that reference it. Resolved by `target_identifier` so links to a
+ * soft-deleted or archived reagent still render honestly.
+ */
+export function fetchReagentUsage(
+  client: DataClient,
+  identifier: string,
+  limit = 25,
+): Promise<ReagentUsageLink[]> {
+  return client
+    .list<UsageLinkWire>(
+      'record_links',
+      `?target_identifier=eq.${encodeURIComponent(identifier)}&link_type=eq.reagent&order=created_at.desc&limit=${limit}` +
+        `&select=id,source_record_id,source_kind,source_identifier,link_type`,
+    )
+    .then((rows) =>
+      rows.map((row) => ({
+        id: row.id,
+        sourceRecordId: row.source_record_id,
+        sourceKind: row.source_kind,
+        sourceIdentifier: row.source_identifier,
+        linkType: row.link_type,
+      })),
+    )
+}
+
+export function fetchReagentAttentionSummary(
+  client: DataClient,
+  expiryWarningDays = DEFAULT_EXPIRY_WARNING_DAYS,
+): Promise<ReagentAttentionSummary> {
+  return client
+    .rpc<ReagentAttentionSummary>('reagent_attention_summary', {
+      p_expiry_warning_days: expiryWarningDays,
+    })
+    .then(
+      (summary) =>
+        ({
+          total: Number(summary.total) || 0,
+          lowStock: Number(summary.lowStock) || 0,
+          nearExpiry: Number(summary.nearExpiry) || 0,
+          expired: Number(summary.expired) || 0,
+          quarantined: Number(summary.quarantined) || 0,
+        }) satisfies ReagentAttentionSummary,
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Controlled mutations. Each calls a SECURITY DEFINER RPC so quantity logic
+// and status transitions are enforced at the database; the caller passes the
+// metadata_version it last saw for optimistic concurrency.
+// ---------------------------------------------------------------------------
+
+export interface RecordReagentMovementInput {
+  recordId: string
+  operation: 'receive' | 'consume' | 'quarantine' | 'restore'
+  /** Positive magnitude for receive/consume; ignored for quarantine/restore. */
+  quantityDelta?: number
+  reason?: string
+  expectedMetadataVersion: number
+}
+
+export interface RecordReagentMovementResult {
+  movement: ReagentMovementWire
+  record: RecordWire
+}
+
+export function recordReagentMovement(
+  client: DataClient,
+  input: RecordReagentMovementInput,
+): Promise<RecordReagentMovementResult> {
+  return client.rpc<RecordReagentMovementResult>('record_reagent_movement', {
+    p_reagent_record_id: input.recordId,
+    p_operation: input.operation,
+    p_quantity_delta: input.quantityDelta ?? 0,
+    p_reason: input.reason ?? null,
+    p_expected_metadata_version: input.expectedMetadataVersion,
+  })
+}
+
+export function archiveReagent(
+  client: DataClient,
+  recordId: string,
+  expectedMetadataVersion: number,
+): Promise<RecordWire> {
+  return client.rpc<RecordWire>('archive_record', {
+    p_record_id: recordId,
+    p_expected_metadata_version: expectedMetadataVersion,
+  })
+}

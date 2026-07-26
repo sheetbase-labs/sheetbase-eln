@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as DatasetsRouteImport } from './routes/datasets'
 import { Route as FoundationsRouteImport } from './routes/foundations'
 import { Route as ProjectsRouteImport } from './routes/projects'
+import { Route as ReagentsRouteImport } from './routes/reagents'
 import { Route as SchemasRouteImport } from './routes/schemas'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as SignInRouteImport } from './routes/sign-in'
@@ -50,6 +51,11 @@ const FoundationsRoute = FoundationsRouteImport.update({
 const ProjectsRoute = ProjectsRouteImport.update({
   id: '/projects',
   path: '/projects',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReagentsRoute = ReagentsRouteImport.update({
+  id: '/reagents',
+  path: '/reagents',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SchemasRoute = SchemasRouteImport.update({
@@ -150,6 +156,7 @@ export interface FileRoutesByFullPath {
   '/datasets': typeof DatasetsRoute
   '/foundations': typeof FoundationsRoute
   '/projects': typeof ProjectsRouteWithChildren
+  '/reagents': typeof ReagentsRoute
   '/schemas': typeof SchemasRoute
   '/search': typeof SearchRoute
   '/sign-in': typeof SignInRoute
@@ -174,6 +181,7 @@ export interface FileRoutesByTo {
   '/datasets': typeof DatasetsRoute
   '/foundations': typeof FoundationsRoute
   '/projects': typeof ProjectsRouteWithChildren
+  '/reagents': typeof ReagentsRoute
   '/schemas': typeof SchemasRoute
   '/search': typeof SearchRoute
   '/sign-in': typeof SignInRoute
@@ -199,6 +207,7 @@ export interface FileRoutesById {
   '/datasets': typeof DatasetsRoute
   '/foundations': typeof FoundationsRoute
   '/projects': typeof ProjectsRouteWithChildren
+  '/reagents': typeof ReagentsRoute
   '/schemas': typeof SchemasRoute
   '/search': typeof SearchRoute
   '/sign-in': typeof SignInRoute
@@ -225,6 +234,7 @@ export interface FileRouteTypes {
     | '/datasets'
     | '/foundations'
     | '/projects'
+    | '/reagents'
     | '/schemas'
     | '/search'
     | '/sign-in'
@@ -249,6 +259,7 @@ export interface FileRouteTypes {
     | '/datasets'
     | '/foundations'
     | '/projects'
+    | '/reagents'
     | '/schemas'
     | '/search'
     | '/sign-in'
@@ -273,6 +284,7 @@ export interface FileRouteTypes {
     | '/datasets'
     | '/foundations'
     | '/projects'
+    | '/reagents'
     | '/schemas'
     | '/search'
     | '/sign-in'
@@ -298,6 +310,7 @@ export interface RootRouteChildren {
   DatasetsRoute: typeof DatasetsRoute
   FoundationsRoute: typeof FoundationsRoute
   ProjectsRoute: typeof ProjectsRouteWithChildren
+  ReagentsRoute: typeof ReagentsRoute
   SchemasRoute: typeof SchemasRoute
   SearchRoute: typeof SearchRoute
   SignInRoute: typeof SignInRoute
@@ -343,6 +356,13 @@ declare module '@tanstack/react-router' {
       path: '/projects'
       fullPath: '/projects'
       preLoaderRoute: typeof ProjectsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reagents': {
+      id: '/reagents'
+      path: '/reagents'
+      fullPath: '/reagents'
+      preLoaderRoute: typeof ReagentsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/schemas': {
@@ -518,6 +538,7 @@ const rootRouteChildren: RootRouteChildren = {
   DatasetsRoute: DatasetsRoute,
   FoundationsRoute: FoundationsRoute,
   ProjectsRoute: ProjectsRouteWithChildren,
+  ReagentsRoute: ReagentsRoute,
   SchemasRoute: SchemasRoute,
   SearchRoute: SearchRoute,
   SignInRoute: SignInRoute,

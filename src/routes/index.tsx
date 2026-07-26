@@ -287,19 +287,21 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
           icon={FlaskConical}
           tone="info"
         />
-        <SummaryCard
-          label="Pending reviews"
-          value={pendingReviewsCountQuery.data}
-          loading={pendingReviewsCountQuery.isLoading}
-          hint={
-            (pendingReviewsCountQuery.data ?? 0) > 0
-              ? 'awaiting action'
-              : undefined
-          }
-          hintTone="text-violet-600 dark:text-violet-400"
-          icon={Inbox}
-          tone="violet"
-        />
+        <Link to="/reviews" className="no-underline contents">
+          <SummaryCard
+            label="Pending reviews"
+            value={pendingReviewsCountQuery.data}
+            loading={pendingReviewsCountQuery.isLoading}
+            hint={
+              (pendingReviewsCountQuery.data ?? 0) > 0
+                ? 'awaiting action'
+                : undefined
+            }
+            hintTone="text-violet-600 dark:text-violet-400"
+            icon={Inbox}
+            tone="violet"
+          />
+        </Link>
         <SummaryCard
           label="In progress"
           value={inProgressCountQuery.data}
@@ -451,6 +453,12 @@ const QUICK_ACTIONS: QuickAction[] = [
     to: '/search',
     icon: Search,
     hint: 'Find records across the workspace',
+  },
+  {
+    label: 'Review inbox',
+    to: '/reviews',
+    icon: Inbox,
+    hint: 'Open the review and approvals queue',
   },
   {
     label: 'Schemas',

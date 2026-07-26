@@ -832,12 +832,12 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** REV-002, UI-004.
 
-- [ ] List assigned and relevant reviews using TanStack Table with status, priority, submitter, dates and current step.
-- [ ] Add filters, saved views and selected-review inspector behaviour from the mockup.
-- [ ] Keep selection and filters deep-linkable where useful.
-- [ ] Provide empty, overdue, withdrawn and permission-changed states.
-- [ ] Ensure bulk actions appear only when they are safe and genuinely supported.
-- [ ] Add query, keyboard and permission tests.
+- [x] List assigned and relevant reviews using TanStack Table with status, priority, submitter, dates and current step.
+- [x] Add filters, saved views and selected-review inspector behaviour from the mockup.
+- [x] Keep selection and filters deep-linkable where useful.
+- [x] Provide empty, overdue, withdrawn and permission-changed states.
+- [x] Ensure bulk actions appear only when they are safe and genuinely supported.
+- [x] Add query, keyboard and permission tests.
 
 ### REV-007 — Build the Review & Approvals workspace
 

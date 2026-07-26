@@ -1,0 +1,732 @@
+import * as React from 'react'
+import {
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+} from '@tanstack/react-table'
+import type {
+  ColumnDef,
+  ColumnFiltersState,
+  SortingState,
+  Updater,
+  VisibilityState,
+} from '@tanstack/react-table'
+import { ChevronLeft, ChevronRight, Columns3, Save, Search } from 'lucide-react'
+
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+  Input,
+  Select,
+  Skeleton,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '#/components/ui'
+import { formatCount } from '#/lib/format-numbers'
+import {
+  createRegistrySavedViewStore,
+  DEFAULT_REGISTRY_QUERY,
+} from '#/lib/registry'
+import type {
+  RegistryDensity,
+  RegistryQuery,
+  RegistrySavedView,
+  RegistrySavedViewStore,
+} from '#/lib/registry'
+import { cn } from '#/lib/utils'
+
+export interface RegistrySummary {
+  label: string
+  value: React.ReactNode
+  hint?: string
+}
+
+export interface RegistryFilterDefinition {
+  id: string
+  label: string
+  placeholder?: string
+  options?: { value: string; label: string }[]
+}
+
+export interface RegistryGroupingOption {
+  id: string
+  label: string
+}
+
+export interface RegistryCompositionProps<TData> {
+  registryId: string
+  workspaceId: string
+  userId: string
+  title: string
+  description?: string
+  rows: TData[]
+  /** Authoritative server total, never inferred from the current page. */
+  totalCount: number
+  columns: ColumnDef<TData, unknown>[]
+  query: RegistryQuery
+  onQueryChange: (query: RegistryQuery) => void
+  getRowId: (row: TData) => string
+  selectedId: string | null
+  onSelectedIdChange: (id: string | null) => void
+  summaries?: RegistrySummary[]
+  filterDefinitions?: RegistryFilterDefinition[]
+  groupingOptions?: RegistryGroupingOption[]
+  renderInspector?: (row: TData | null) => React.ReactNode
+  loading?: boolean
+  error?: unknown
+  permissionDenied?: boolean
+  partialData?: boolean
+  onRetry?: () => void
+  emptyTitle?: string
+  noResultsTitle?: string
+  initialColumnVisibility?: VisibilityState
+  initialDensity?: RegistryDensity
+  savedViewStore?: RegistrySavedViewStore
+  actions?: React.ReactNode
+}
+
+function resolveUpdater<T>(updater: Updater<T>, previous: T): T {
+  return typeof updater === 'function'
+    ? (updater as (old: T) => T)(previous)
+    : updater
+}
+
+function viewId(name: string): string {
+  const slug = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+  return slug || `view-${Date.now()}`
+}
+
+function activeFilter(query: RegistryQuery, id: string): string {
+  return query.filters.find((filter) => filter.id === id)?.value ?? ''
+}
+
+export function RegistryComposition<TData>({
+  registryId,
+  workspaceId,
+  userId,
+  title,
+  description,
+  rows,
+  totalCount,
+  columns,
+  query,
+  onQueryChange,
+  getRowId,
+  selectedId,
+  onSelectedIdChange,
+  summaries = [],
+  filterDefinitions = [],
+  groupingOptions = [],
+  renderInspector,
+  loading = false,
+  error = null,
+  permissionDenied = false,
+  partialData = false,
+  onRetry,
+  emptyTitle = 'No records yet',
+  noResultsTitle = 'No matching records',
+  initialColumnVisibility = {},
+  initialDensity = 'comfortable',
+  savedViewStore,
+  actions,
+}: RegistryCompositionProps<TData>) {
+  const compositionRef = React.useRef<HTMLElement>(null)
+  const store = React.useMemo(
+    () =>
+      savedViewStore ??
+      createRegistrySavedViewStore({ registryId, workspaceId, userId }),
+    [registryId, savedViewStore, userId, workspaceId],
+  )
+  const [savedViews, setSavedViews] = React.useState<RegistrySavedView[]>(() =>
+    store.list(),
+  )
+  const [savedViewName, setSavedViewName] = React.useState('')
+  const [selectedViewId, setSelectedViewId] = React.useState('')
+  const [columnVisibility, setColumnVisibility] =
+    React.useState<VisibilityState>(initialColumnVisibility)
+  const [density, setDensity] = React.useState<RegistryDensity>(initialDensity)
+  const [activeRowId, setActiveRowId] = React.useState<string | null>(
+    selectedId ?? (rows[0] ? getRowId(rows[0]) : null),
+  )
+
+  React.useEffect(() => {
+    setSavedViews(store.list())
+    setSelectedViewId('')
+  }, [store])
+
+  React.useEffect(() => {
+    if (selectedId && rows.some((row) => getRowId(row) === selectedId)) {
+      setActiveRowId(selectedId)
+      return
+    }
+    if (!activeRowId || !rows.some((row) => getRowId(row) === activeRowId)) {
+      setActiveRowId(rows[0] ? getRowId(rows[0]) : null)
+    }
+  }, [activeRowId, getRowId, rows, selectedId])
+
+  const sorting = query.sorting as SortingState
+  const grouping = query.grouping
+  const columnFilters: ColumnFiltersState = query.filters
+
+  const table = useReactTable({
+    data: rows,
+    columns,
+    getRowId: (row) => getRowId(row),
+    getCoreRowModel: getCoreRowModel(),
+    manualPagination: true,
+    manualSorting: true,
+    manualFiltering: true,
+    manualGrouping: true,
+    rowCount: totalCount,
+    state: {
+      pagination: { pageIndex: query.pageIndex, pageSize: query.pageSize },
+      sorting,
+      grouping,
+      columnFilters,
+      columnVisibility,
+    },
+    onPaginationChange(updater) {
+      const next = resolveUpdater(updater, {
+        pageIndex: query.pageIndex,
+        pageSize: query.pageSize,
+      })
+      onQueryChange({ ...query, ...next })
+    },
+    onSortingChange(updater) {
+      onQueryChange({
+        ...query,
+        pageIndex: 0,
+        sorting: resolveUpdater(updater, sorting),
+      })
+    },
+    onGroupingChange(updater) {
+      onQueryChange({
+        ...query,
+        pageIndex: 0,
+        grouping: resolveUpdater(updater, grouping),
+      })
+    },
+    onColumnFiltersChange(updater) {
+      const next = resolveUpdater(updater, columnFilters)
+      onQueryChange({
+        ...query,
+        pageIndex: 0,
+        filters: next.map((filter) => ({
+          id: filter.id,
+          value: String(filter.value ?? ''),
+        })),
+      })
+    },
+    onColumnVisibilityChange: setColumnVisibility,
+  })
+
+  const pageCount = Math.max(1, Math.ceil(totalCount / query.pageSize))
+  const selectedRow = selectedId
+    ? (rows.find((row) => getRowId(row) === selectedId) ?? null)
+    : null
+  const hasFilters = query.filters.some((filter) => filter.value !== '')
+
+  function setFilter(id: string, value: string) {
+    const filters = query.filters.filter((filter) => filter.id !== id)
+    if (value) filters.push({ id, value })
+    onQueryChange({ ...query, pageIndex: 0, filters })
+  }
+
+  function setGrouping(id: string) {
+    onQueryChange({
+      ...query,
+      pageIndex: 0,
+      grouping: id ? [id] : [],
+    })
+  }
+
+  function saveView() {
+    const name = savedViewName.trim()
+    if (!name) return
+    store.save({
+      id: viewId(name),
+      name,
+      state: { query, columnVisibility, density },
+    })
+    setSavedViews(store.list())
+    setSavedViewName('')
+  }
+
+  function applyView(id: string) {
+    setSelectedViewId(id)
+    const view = savedViews.find((candidate) => candidate.id === id)
+    if (!view) return
+    onQueryChange({ ...view.state.query, pageIndex: 0 })
+    setColumnVisibility(view.state.columnVisibility)
+    setDensity(view.state.density)
+  }
+
+  function focusRow(index: number) {
+    const row = rows[index]
+    if (!row) return
+    const id = getRowId(row)
+    setActiveRowId(id)
+    const elements = compositionRef.current?.querySelectorAll<HTMLElement>(
+      '[data-registry-row-id]',
+    )
+    if (elements && index < elements.length) elements[index].focus()
+  }
+
+  const stateContent = permissionDenied ? (
+    <RegistryState
+      title="Permission denied"
+      detail="You do not have access to this registry."
+    />
+  ) : loading ? (
+    <RegistryLoading title={title} columns={Math.max(columns.length, 1)} />
+  ) : error ? (
+    <RegistryState
+      title="Could not load records"
+      detail="The registry request failed."
+      action={
+        onRetry ? (
+          <Button variant="outline" size="sm" onClick={onRetry}>
+            Try again
+          </Button>
+        ) : null
+      }
+      alert
+    />
+  ) : totalCount === 0 ? (
+    <RegistryState
+      title={hasFilters ? noResultsTitle : emptyTitle}
+      detail={
+        hasFilters
+          ? 'Change or clear the filters to broaden the server query.'
+          : 'Records will appear here when they are available.'
+      }
+    />
+  ) : (
+    <>
+      {partialData ? (
+        <div
+          role="status"
+          className="border-b border-warning/30 bg-warning/10 px-3 py-2 text-xs text-foreground"
+        >
+          <span className="font-semibold">Partial data.</span> Some rows or
+          fields could not be returned; totals describe the server result.
+        </div>
+      ) : null}
+      <Table aria-label={title} data-density={density}>
+        <TableHeader>
+          {table.getHeaderGroups().map((headerGroup) => (
+            <TableRow key={headerGroup.id} className="hover:bg-transparent">
+              {headerGroup.headers.map((header) => {
+                const sorted = header.column.getIsSorted()
+                const label =
+                  typeof header.column.columnDef.header === 'string'
+                    ? header.column.columnDef.header
+                    : header.column.id
+                return (
+                  <TableHead
+                    key={header.id}
+                    aria-sort={
+                      sorted === 'asc'
+                        ? 'ascending'
+                        : sorted === 'desc'
+                          ? 'descending'
+                          : 'none'
+                    }
+                  >
+                    {header.isPlaceholder ? null : header.column.getCanSort() ? (
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        onClick={header.column.getToggleSortingHandler()}
+                        aria-label={`Sort by ${label} ${sorted === 'asc' ? 'descending' : 'ascending'}`}
+                      >
+                        {flexRender(
+                          header.column.columnDef.header,
+                          header.getContext(),
+                        )}
+                        <span aria-hidden>
+                          {sorted === 'asc'
+                            ? '↑'
+                            : sorted === 'desc'
+                              ? '↓'
+                              : '↕'}
+                        </span>
+                      </button>
+                    ) : (
+                      flexRender(
+                        header.column.columnDef.header,
+                        header.getContext(),
+                      )
+                    )}
+                  </TableHead>
+                )
+              })}
+            </TableRow>
+          ))}
+        </TableHeader>
+        <TableBody>
+          {table.getRowModel().rows.map((row, index) => {
+            const id = getRowId(row.original)
+            const selected = id === selectedId
+            return (
+              <TableRow
+                key={id}
+                data-registry-row-id={id}
+                data-state={selected ? 'selected' : undefined}
+                aria-selected={selected}
+                tabIndex={id === activeRowId ? 0 : -1}
+                className="cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                onFocus={() => setActiveRowId(id)}
+                onClick={() => onSelectedIdChange(id)}
+                onKeyDown={(event) => {
+                  if (event.key === 'ArrowDown') {
+                    event.preventDefault()
+                    focusRow(Math.min(index + 1, rows.length - 1))
+                  } else if (event.key === 'ArrowUp') {
+                    event.preventDefault()
+                    focusRow(Math.max(index - 1, 0))
+                  } else if (event.key === 'Home') {
+                    event.preventDefault()
+                    focusRow(0)
+                  } else if (event.key === 'End') {
+                    event.preventDefault()
+                    focusRow(rows.length - 1)
+                  } else if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    onSelectedIdChange(id)
+                  }
+                }}
+              >
+                {row.getVisibleCells().map((cell) => (
+                  <TableCell
+                    key={cell.id}
+                    className={cn(
+                      density === 'compact' && 'py-1.5',
+                      typeof cell.getValue() === 'number' &&
+                        'scientific-nums text-right tabular-nums',
+                    )}
+                  >
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </TableCell>
+                ))}
+              </TableRow>
+            )
+          })}
+        </TableBody>
+      </Table>
+    </>
+  )
+
+  return (
+    <section
+      ref={compositionRef}
+      aria-labelledby={`${registryId}-title`}
+      className="space-y-4"
+    >
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1
+            id={`${registryId}-title`}
+            className="text-xl font-semibold tracking-tight"
+          >
+            {title}
+          </h1>
+          {description ? (
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {description}
+            </p>
+          ) : null}
+        </div>
+        {actions}
+      </header>
+
+      {summaries.length > 0 ? (
+        <dl className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {summaries.map((summary) => (
+            <div
+              key={summary.label}
+              className="rounded-md border bg-card px-3 py-2"
+            >
+              <dt className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {summary.label}
+              </dt>
+              <dd className="mt-0.5 text-lg font-semibold tabular-nums">
+                {summary.value}
+              </dd>
+              {summary.hint ? (
+                <dd className="text-xs text-muted-foreground">
+                  {summary.hint}
+                </dd>
+              ) : null}
+            </div>
+          ))}
+        </dl>
+      ) : null}
+
+      <div className="flex flex-wrap items-end gap-2 rounded-md border bg-muted/20 p-2">
+        {filterDefinitions.map((filter) => (
+          <label
+            key={filter.id}
+            className="min-w-36 text-xs text-muted-foreground"
+          >
+            {filter.label}
+            {filter.options ? (
+              <Select
+                aria-label={`Filter by ${filter.label}`}
+                value={activeFilter(query, filter.id)}
+                onChange={(event) => setFilter(filter.id, event.target.value)}
+                className="mt-1 h-8 bg-background text-xs"
+              >
+                <option value="">
+                  {filter.placeholder ?? `All ${filter.label.toLowerCase()}`}
+                </option>
+                {filter.options.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
+            ) : (
+              <span className="relative mt-1 block">
+                <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2" />
+                <Input
+                  aria-label={`Filter by ${filter.label}`}
+                  value={activeFilter(query, filter.id)}
+                  onChange={(event) => setFilter(filter.id, event.target.value)}
+                  placeholder={filter.placeholder}
+                  className="h-8 bg-background pl-7 text-xs"
+                />
+              </span>
+            )}
+          </label>
+        ))}
+
+        {groupingOptions.length > 0 ? (
+          <label className="min-w-36 text-xs text-muted-foreground">
+            Group
+            <Select
+              aria-label="Group rows"
+              value={query.grouping[0] ?? ''}
+              onChange={(event) => setGrouping(event.target.value)}
+              className="mt-1 h-8 bg-background text-xs"
+            >
+              <option value="">No grouping</option>
+              {groupingOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
+          </label>
+        ) : null}
+
+        <label className="min-w-28 text-xs text-muted-foreground">
+          Density
+          <Select
+            aria-label="Table density"
+            value={density}
+            onChange={(event) =>
+              setDensity(event.target.value as RegistryDensity)
+            }
+            className="mt-1 h-8 bg-background text-xs"
+          >
+            <option value="comfortable">Comfortable</option>
+            <option value="compact">Compact</option>
+          </Select>
+        </label>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              aria-label="Choose visible columns"
+            >
+              <Columns3 /> Columns
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Visible columns</DropdownMenuLabel>
+            {table.getAllLeafColumns().map((column) => (
+              <DropdownMenuCheckboxItem
+                key={column.id}
+                checked={column.getIsVisible()}
+                disabled={!column.getCanHide()}
+                onCheckedChange={(checked) =>
+                  column.toggleVisibility(Boolean(checked))
+                }
+              >
+                {typeof column.columnDef.header === 'string'
+                  ? column.columnDef.header
+                  : column.id}
+              </DropdownMenuCheckboxItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <div className="ml-auto flex flex-wrap items-end gap-2">
+          <label className="min-w-36 text-xs text-muted-foreground">
+            Saved views
+            <Select
+              aria-label="Saved views"
+              value={selectedViewId}
+              onChange={(event) => applyView(event.target.value)}
+              className="mt-1 h-8 bg-background text-xs"
+            >
+              <option value="">Current view</option>
+              {savedViews.map((view) => (
+                <option key={view.id} value={view.id}>
+                  {view.name}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <label className="min-w-40 text-xs text-muted-foreground">
+            Saved view name
+            <Input
+              aria-label="Saved view name"
+              value={savedViewName}
+              onChange={(event) => setSavedViewName(event.target.value)}
+              className="mt-1 h-8 bg-background text-xs"
+            />
+          </label>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={saveView}
+            disabled={!savedViewName.trim()}
+            aria-label="Save current view"
+          >
+            <Save /> Save
+          </Button>
+        </div>
+      </div>
+
+      <div
+        className={cn(
+          renderInspector && 'grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]',
+        )}
+      >
+        <div className="overflow-hidden rounded-lg border bg-card">
+          {stateContent}
+        </div>
+        {renderInspector ? (
+          <aside
+            aria-label="Registry inspector"
+            className="min-h-72 overflow-hidden rounded-lg border bg-card"
+          >
+            {renderInspector(selectedRow)}
+          </aside>
+        ) : null}
+      </div>
+
+      <footer className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+        <p>
+          {formatCount(totalCount)} {totalCount === 1 ? 'record' : 'records'}
+        </p>
+        <div className="flex items-center gap-2">
+          <label className="flex items-center gap-1">
+            Rows
+            <Select
+              aria-label="Rows per page"
+              value={String(query.pageSize)}
+              onChange={(event) =>
+                onQueryChange({
+                  ...query,
+                  pageIndex: 0,
+                  pageSize: Number(event.target.value),
+                })
+              }
+              className="h-8 w-20 bg-background text-xs"
+            >
+              {[25, 50, 100].map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <span>
+            Page {query.pageIndex + 1} of {pageCount}
+          </span>
+          <Button
+            variant="outline"
+            size="icon-sm"
+            aria-label="Previous page"
+            disabled={query.pageIndex === 0 || loading}
+            onClick={() => table.previousPage()}
+          >
+            <ChevronLeft />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon-sm"
+            aria-label="Next page"
+            disabled={query.pageIndex >= pageCount - 1 || loading}
+            onClick={() => table.nextPage()}
+          >
+            <ChevronRight />
+          </Button>
+        </div>
+      </footer>
+    </section>
+  )
+}
+
+function RegistryState({
+  title,
+  detail,
+  action,
+  alert = false,
+}: {
+  title: string
+  detail: string
+  action?: React.ReactNode
+  alert?: boolean
+}) {
+  return (
+    <div
+      className="flex min-h-56 flex-col items-center justify-center gap-2 p-8 text-center"
+      role={alert ? 'alert' : undefined}
+    >
+      <p className="text-sm font-semibold">{title}</p>
+      <p className="max-w-md text-sm text-muted-foreground">{detail}</p>
+      {action}
+    </div>
+  )
+}
+
+function RegistryLoading({
+  title,
+  columns,
+}: {
+  title: string
+  columns: number
+}) {
+  return (
+    <div aria-busy="true" aria-label={`Loading ${title}`}>
+      <p className="sr-only">Loading {title}</p>
+      {Array.from({ length: 6 }).map((_, row) => (
+        <div key={row} className="flex gap-4 border-b px-3 py-3 last:border-0">
+          {Array.from({ length: columns }).map((__, column) => (
+            <Skeleton key={column} className="h-4 flex-1" />
+          ))}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+export { DEFAULT_REGISTRY_QUERY }

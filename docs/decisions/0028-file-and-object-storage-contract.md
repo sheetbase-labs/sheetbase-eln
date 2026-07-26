@@ -105,8 +105,9 @@ Upload is a two-phase, authenticated flow:
    optional `checksum`. The server validates the type/size policy, generates a
    storage key and file-object UUID, then calls the transactional
    `create_file_upload` RPC which atomically creates the `file` record (kind
-   `file`, via `create_record`) and the `file_objects` row (status `active`,
-   storage key, byte size and checksum recorded as claimed). A metadata
+   `file`, via `create_record`) and the `file_objects` row (status `missing`
+   while the upload is pending, with byte size and checksum recorded as
+   claimed). A metadata
    failure rolls back the record insert — no orphan file records. It returns
    `{ fileRecordId, fileIdentifier, fileObjectId, storageKey, uploadUrl,
 maxBytes }`. For the local backend `uploadUrl` is the same-origin
@@ -114,10 +115,19 @@ maxBytes }`. For the local backend `uploadUrl` is the same-origin
    with bounded conditions.
 2. **Write bytes** (`PUT /api/files/{fileId}/upload` for local, or the
    presigned URL for S3): the client streams the bytes. The local endpoint
-   streams to disk in chunks, accumulates the sha256, and aborts with `413`
-   if the running size exceeds the cap. On completion it verifies the sha256
-   against the claimed checksum (mismatch → `409`, and the file object is
-   marked `missing`) and finalizes `byte_size`.
+   streams to a fresh storage key in chunks, accumulates the sha256, and
+   aborts with `413` if the running size exceeds the cap. On completion it
+   verifies the sha256 against the claimed checksum (mismatch → `409`) and
+   atomically swaps the unretained file row to the new key through
+   `finalize_file_upload`. Existing keys are never overwritten.
+
+REV-002 adds normalized `internal.revision_file_objects` retention rows for
+every file captured by a submitted revision. Retention and upload finalization
+lock the same `file_objects` row, so submission either captures the finalized
+bytes or makes the upload lose the race and clean up its candidate key.
+Retained storage identity, backend, checksum and size cannot change, and a
+retained object cannot be deleted or moved to `missing` or `deleted`. Later
+draft bytes require a newly authorised file object and storage identity.
 
 Metadata mutations (create, quarantine, delete, restore, link) go through the
 existing `/api/db` boundary as ordinary PostgREST CRUD or RPCs. Only the bytes
@@ -238,6 +248,7 @@ the only boundary.
 | `/api/db/records?kind=eq.file`       | GET       | list file records (metadata)                   |
 | `/api/db/file_objects`               | GET/PATCH | file storage metadata CRUD                     |
 | `/api/db/rpc/create_file_upload`     | POST      | atomic file record + metadata creation         |
+| `/api/db/rpc/finalize_file_upload`   | POST      | atomically publish a fresh unretained byte key |
 | `/api/db/rpc/transition_file_status` | POST      | quarantine/delete/restore                      |
 | `/api/db/rpc/create_record_link`     | POST      | link a record to a file                        |
 | `/api/files/upload-authorize`        | POST      | authorize + create metadata, return upload URL |

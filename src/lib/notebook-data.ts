@@ -457,6 +457,7 @@ export function recordPath(projectId: string, recordId: string): string {
 
 export interface RevisionWire {
   id: string
+  workspace_id?: string
   record_id: string
   structure_version: number
   metadata_version: number
@@ -469,10 +470,60 @@ export interface RevisionWire {
     order: number
     version: number
   }>
+  canonical_snapshot?: Record<string, unknown>
+  integrity_algorithm?: 'sha256'
+  integrity_digest?: string
   reason: string
   superseded_by_revision_id: string | null
   created_at: string
   created_by_user_id: string
+}
+
+export interface SubmissionDigestPreview {
+  recordId: string
+  sourceDigest: string
+  structureVersion: number
+  metadataVersion: number
+  calculationInputRevision: number
+}
+
+export interface SubmitRecordRevisionInput {
+  recordId: string
+  expectedSourceDigest: string
+  workflowDefinitionKey: string
+  workflowDefinitionVersion: number
+  reviewerUserIds: string[]
+  idempotencyKey: string
+}
+
+export interface SubmitRecordRevisionResult {
+  revision: { id: string; integrityDigest: string }
+  submission: { id: string; state: 'submitted' }
+  idempotent: boolean
+}
+
+/** Read the digest of the complete live evidence set immediately before submit. */
+export function previewSubmissionDigest(
+  client: DataClient,
+  recordId: string,
+): Promise<SubmissionDigestPreview> {
+  return client.rpc('preview_submission_digest', { p_record_id: recordId })
+}
+
+/** Create an immutable submitted revision after explicit user confirmation. */
+export function submitRecordRevision(
+  client: DataClient,
+  input: SubmitRecordRevisionInput,
+): Promise<SubmitRecordRevisionResult> {
+  return client.rpc('submit_record_revision', {
+    p_record_id: input.recordId,
+    p_expected_source_digest: input.expectedSourceDigest,
+    p_workflow_definition_key: input.workflowDefinitionKey,
+    p_workflow_definition_version: input.workflowDefinitionVersion,
+    p_reviewer_user_ids: input.reviewerUserIds,
+    p_confirmed: true,
+    p_idempotency_key: input.idempotencyKey,
+  })
 }
 
 /** Fetch an immutable revision snapshot for historical overview rendering. */

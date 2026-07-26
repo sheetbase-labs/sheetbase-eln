@@ -551,7 +551,7 @@ describe('SCI-003 create_file_upload transactional RPC', () => {
       [fileObjectId],
     )
     expect(fo).toHaveLength(1)
-    expect(fo[0].status).toBe('active')
+    expect(fo[0].status).toBe('missing')
     expect(fo[0].display_name).toBe('rpc.csv')
     expect(fo[0].byte_size).toBe('256')
   })

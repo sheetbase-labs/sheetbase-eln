@@ -260,6 +260,20 @@
       "when": 1784920000000,
       "tag": "0036_sci_011_schema_relationships",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1785088800000,
+      "tag": "0037_rev_002_submitted_revisions",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1785092400000,
+      "tag": "0038_rev_002_file_retention",
+      "breakpoints": true
     }
   ]
 }

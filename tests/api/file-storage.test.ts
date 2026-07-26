@@ -139,6 +139,18 @@ function downloadRequest(fileRecordId: string) {
 
 async function clean() {
   await admin.query(
+    `DELETE FROM api.review_submissions WHERE workspace_id IN ($1,$2)`,
+    [WS_A, WS_B],
+  )
+  await admin.query(
+    `DELETE FROM internal.revision_file_objects WHERE workspace_id IN ($1,$2)`,
+    [WS_A, WS_B],
+  )
+  await admin.query(`DELETE FROM api.revisions WHERE workspace_id IN ($1,$2)`, [
+    WS_A,
+    WS_B,
+  ])
+  await admin.query(
     `DELETE FROM api.file_objects WHERE workspace_id IN ($1,$2)`,
     [WS_A, WS_B],
   )
@@ -177,7 +189,10 @@ async function clean() {
 
 beforeAll(async () => {
   if (!SECRET) throw new Error('PGRST_JWT_SECRET is required for API tests.')
-  admin = new Client({ connectionString: process.env.DATABASE_URL })
+  admin = new Client({
+    connectionString:
+      process.env.MIGRATION_DATABASE_URL ?? process.env.DATABASE_URL,
+  })
   await admin.connect()
   await clean()
   storageDir = await mkdtemp(join(tmpdir(), 'sheetbase-sci003-api-'))
@@ -525,6 +540,124 @@ describe('SCI-003 file upload, download and isolation', () => {
     expect(rows[0].actor_user_id).toBe(USER_A)
   })
 
+  it('retains submitted bytes and requires a new file identity for later draft bytes', async () => {
+    const experiment = await createRecord(
+      USER_A,
+      WS_A,
+      PROJECT_A,
+      'experiment',
+      'Retained file host',
+    )
+    const submittedBytes = new TextEncoder().encode('submitted,immutable\n')
+    const { meta } = await authorizeAndUpload(USER_A, WS_A, PROJECT_A, {
+      name: 'submitted.csv',
+      type: 'text/csv',
+      bytes: submittedBytes,
+    })
+    const linkRes = await rpc('create_record_link', USER_A, WS_A, {
+      p_source_record_id: experiment.id,
+      p_target_record_id: meta.fileRecordId,
+      p_target_kind: 'file',
+      p_target_identifier: meta.fileIdentifier,
+      p_link_type: 'file',
+    })
+    expect(linkRes.status).toBe(200)
+
+    const previewRes = await rpc('preview_submission_digest', USER_A, WS_A, {
+      p_record_id: experiment.id,
+    })
+    expect(previewRes.status).toBe(200)
+    const preview = await previewRes.json()
+    const submitRes = await rpc('submit_record_revision', USER_A, WS_A, {
+      p_record_id: experiment.id,
+      p_expected_source_digest: preview.sourceDigest,
+      p_workflow_definition_key: 'default-scientific-review',
+      p_workflow_definition_version: 1,
+      p_reviewer_user_ids: [USER_A],
+      p_confirmed: true,
+      p_idempotency_key: `retain-file-${experiment.id}`,
+    })
+    expect(submitRes.status).toBe(200)
+
+    const original = await admin.query(
+      `SELECT id,storage_key,version FROM api.file_objects WHERE record_id=$1`,
+      [meta.fileRecordId],
+    )
+    const originalKey = original.rows[0].storage_key
+    const retained = await admin.query(
+      `SELECT storage_key,checksum,byte_size::text byte_size
+       FROM internal.revision_file_objects
+       WHERE revision_id=$1 AND file_object_id=$2`,
+      [(await submitRes.json()).revision.id, original.rows[0].id],
+    )
+    expect(retained.rows).toHaveLength(1)
+    expect(retained.rows[0].storage_key).toBe(originalKey)
+
+    const overwrite = await handleUpload(
+      uploadRequest(
+        meta.fileRecordId,
+        new TextEncoder().encode('later,different\n'),
+      ),
+      meta.fileRecordId,
+      authDeps(USER_A, WS_A),
+      storage,
+    )
+    expect(overwrite.status).toBe(409)
+    expect((await overwrite.json()).error.code).toBe('checksum_mismatch')
+
+    // Even identical bytes cannot swap the retained storage identity. This
+    // reaches the transactional finalizer rather than the checksum guard.
+    const retainedRetry = await handleUpload(
+      uploadRequest(meta.fileRecordId, submittedBytes),
+      meta.fileRecordId,
+      authDeps(USER_A, WS_A),
+      storage,
+    )
+    expect(retainedRetry.status).toBe(409)
+    expect((await retainedRetry.json()).error.code).toBe('upload_conflict')
+
+    for (const status of ['missing', 'deleted']) {
+      const transition = await rpc('transition_file_status', USER_A, WS_A, {
+        p_file_id: original.rows[0].id,
+        p_target_status: status,
+        p_expected_version: original.rows[0].version,
+        p_reason: 'attempted loss',
+      })
+      expect(transition.status).toBeGreaterThanOrEqual(400)
+    }
+    const deletion = await proxy(
+      `file_objects?id=eq.${original.rows[0].id}`,
+      USER_A,
+      WS_A,
+      { method: 'DELETE' },
+    )
+    expect(deletion.status).toBeGreaterThanOrEqual(400)
+
+    const originalDownload = await handleDownload(
+      downloadRequest(meta.fileRecordId),
+      meta.fileRecordId,
+      authDeps(USER_A, WS_A),
+      storage,
+    )
+    expect(originalDownload.status).toBe(200)
+    expect(await originalDownload.text()).toBe(
+      new TextDecoder().decode(submittedBytes),
+    )
+
+    const replacement = await authorizeAndUpload(USER_A, WS_A, PROJECT_A, {
+      name: 'later-draft.csv',
+      type: 'text/csv',
+      bytes: new TextEncoder().encode('later,different\n'),
+    })
+    expect(replacement.upRes.status).toBe(200)
+    expect(replacement.meta.fileObjectId).not.toBe(meta.fileObjectId)
+    const replacementRow = await admin.query(
+      `SELECT storage_key FROM api.file_objects WHERE id=$1`,
+      [replacement.meta.fileObjectId],
+    )
+    expect(replacementRow.rows[0].storage_key).not.toBe(originalKey)
+  })
+
   it('rejects a cross-workspace file link at the database boundary', async () => {
     const experimentA = await createRecord(
       USER_A,
@@ -584,7 +717,7 @@ describe('SCI-003 file upload, download and isolation', () => {
     })
 
     const getRes = await proxy(
-      `file_objects?record_id=eq.${meta.fileRecordId}&select=status,display_name,media_type,byte_size,storage_key`,
+      `file_objects?record_id=eq.${meta.fileRecordId}&select=status,display_name,media_type,byte_size,storage_key,version`,
       USER_A,
       WS_A,
     )
@@ -599,7 +732,7 @@ describe('SCI-003 file upload, download and isolation', () => {
     const qRes = await rpc('transition_file_status', USER_A, WS_A, {
       p_file_id: meta.fileObjectId,
       p_target_status: 'quarantined',
-      p_expected_version: 1,
+      p_expected_version: rows[0].version,
       p_reason: 'metadata filter test',
     })
     expect(qRes.status).toBe(200)

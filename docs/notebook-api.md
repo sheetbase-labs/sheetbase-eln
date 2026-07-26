@@ -12,19 +12,61 @@ the RLS shape; this document maps notebook operations to HTTP.
 
 ## Resources
 
-| Resource       | Shape                                                                                                                  |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `folders`      | folder hierarchy under a project. `GET`, `POST`, `PATCH`, `DELETE` (owner).                                            |
-| `records`      | notebook-backed records (experiment / protocol_template / report). `GET`, `POST` (via RPC), `PATCH`, `DELETE` (owner). |
-| `blocks`       | ordered typed content of a record. `GET`, `POST`, `PATCH` (via RPC for version safety), `DELETE`.                      |
-| `record_links` | typed links from a record to another record or external object. `GET`, `POST` (via RPC), `PATCH`, `DELETE`.            |
-| `revisions`    | immutable snapshots. `GET`, `POST` only — UPDATE/DELETE are not granted.                                               |
+| Resource             | Shape                                                                                                                  |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `folders`            | folder hierarchy under a project. `GET`, `POST`, `PATCH`, `DELETE` (owner).                                            |
+| `records`            | notebook-backed records (experiment / protocol_template / report). `GET`, `POST` (via RPC), `PATCH`, `DELETE` (owner). |
+| `blocks`             | ordered typed content of a record. `GET`, `POST`, `PATCH` (via RPC for version safety), `DELETE`.                      |
+| `record_links`       | typed links from a record to another record or external object. `GET`, `POST` (via RPC), `PATCH`, `DELETE`.            |
+| `revisions`          | immutable canonical evidence envelopes. `GET` only; creation is restricted to `submit_record_revision`.                |
+| `review_submissions` | submitted workflow identity, first-step reviewers and actor/session attribution. `GET` only.                           |
 
 ## RPCs
 
 All RPCs are `POST /api/db/rpc/<name>` with a JSON body. Each runs as
-`SECURITY INVOKER`, so the writes inside are still subject to RLS (defence in
-depth). The browser calls them through `dataClient.rpc(name, args)`.
+an explicitly granted database function. Most notebook RPCs use
+`SECURITY INVOKER`; submission uses a narrow `SECURITY DEFINER` transaction
+after independently validating the workspace claim and membership. The
+browser calls them through `dataClient.rpc(name, args)`.
+
+### `preview_submission_digest` / `submit_record_revision`
+
+`preview_submission_digest` returns the SHA-256 digest and source versions of
+the complete live evidence envelope the caller is about to submit. The client
+then asks for explicit confirmation and passes that digest to
+`submit_record_revision`:
+
+```jsonc
+{
+  "p_record_id": "00000000-0000-4000-8000-000000000101",
+  "p_expected_source_digest": "64 lowercase SHA-256 hex characters",
+  "p_workflow_definition_key": "default-scientific-review",
+  "p_workflow_definition_version": 1,
+  "p_reviewer_user_ids": ["reviewer-user-id"],
+  "p_confirmed": true,
+  "p_idempotency_key": "client-generated-command-id",
+}
+```
+
+Submission locks the live record, rebuilds the canonical envelope in the same
+transaction, and rejects a changed digest with `SB001`. A successful response
+contains the revision id, submission id and integrity digest. Retrying the
+same command id with identical inputs returns those identities with
+`idempotent: true`; reusing it for different inputs is rejected.
+
+The envelope freezes record metadata, ordered blocks and complete payloads,
+links and pinned target revisions, generated scientific table schemas and
+rows, formulas and calculation evidence, and attached-file identity and
+checksums. Later live edits remain in the draft tables and cannot rewrite the
+submitted JSON or digest. Direct `INSERT`, `UPDATE` and `DELETE` on revisions
+and submissions are not granted to application roles.
+
+Each frozen file also creates an internal normalized retention reference to
+its exact file-object id, storage key/backend, checksum and byte size. Uploads
+always stream to a fresh candidate key and publish it through the row-locking
+`finalize_file_upload` RPC. Submission and finalization therefore serialize:
+once retained, the object cannot be overwritten, deleted, marked missing or
+marked deleted. A later draft that changes bytes must create a new file object.
 
 ### `create_record_with_blocks`
 

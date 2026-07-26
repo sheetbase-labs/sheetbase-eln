@@ -53,6 +53,14 @@ let fileMeta: any
 let allBlockIds: string[] = []
 
 async function clean(): Promise<void> {
+  await admin.query(
+    `DELETE FROM api.review_submissions WHERE workspace_id IN ($1,$2)`,
+    [WS_A, WS_B],
+  )
+  await admin.query(
+    `DELETE FROM internal.revision_file_objects WHERE workspace_id IN ($1,$2)`,
+    [WS_A, WS_B],
+  )
   // Drop generated scientific tables in these workspaces before removing the
   // blocks they reference (scientific_tables.block_id is ON DELETE RESTRICT).
   const generated = await admin.query<{ resource_name: string }>(
@@ -329,7 +337,10 @@ function plateMapPayload(sampleRef: {
 
 beforeAll(async () => {
   if (!SECRET) throw new Error('PGRST_JWT_SECRET is required for API tests.')
-  admin = new Client({ connectionString: process.env.DATABASE_URL })
+  admin = new Client({
+    connectionString:
+      process.env.MIGRATION_DATABASE_URL ?? process.env.DATABASE_URL,
+  })
   await admin.connect()
   await clean()
   storageDir = await mkdtemp(join(tmpdir(), 'sheetbase-sci009-api-'))

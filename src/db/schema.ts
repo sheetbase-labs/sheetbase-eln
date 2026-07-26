@@ -136,6 +136,31 @@ export const verification = internal.table('verification', {
     .defaultNow(),
 })
 
+/** Immutable, versioned workflow definitions used by submitted reviews. */
+export const reviewWorkflowDefinitions = internal.table(
+  'review_workflow_definitions',
+  {
+    definitionKey: text('definition_key').notNull(),
+    version: integer('version').notNull(),
+    definition: jsonb('definition').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.definitionKey, table.version] }),
+    check(
+      'chk_review_workflow_definition_key',
+      sql`${table.definitionKey} ~ '^[a-z0-9][a-z0-9_-]{0,127}$'`,
+    ),
+    check('chk_review_workflow_definition_version', sql`${table.version} > 0`),
+    check(
+      'chk_review_workflow_definition_shape',
+      sql`jsonb_typeof(${table.definition}) = 'object' AND jsonb_typeof(${table.definition}->'steps') = 'array'`,
+    ),
+  ],
+)
+
 // ---------------------------------------------------------------------------
 // internal — API-005 scoped external API credentials. Never exposed to
 // PostgREST's api schema. Secrets are hashed (SHA-256, salted with the
@@ -574,15 +599,29 @@ export const revisions = api.table(
   'revisions',
   {
     id: uuid('id').primaryKey().defaultRandom(),
+    // Populated by the controlled submission RPC. The database insert trigger
+    // also derives it for legacy migrator/seed revisions created before
+    // REV-002; request roles no longer have direct INSERT permission.
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .default(sql`NULL`)
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
     recordId: uuid('record_id')
       .notNull()
-      .references(() => records.id, { onDelete: 'cascade' }),
+      .references(() => records.id, { onDelete: 'restrict' }),
     // The structure_version and metadata_version captured at snapshot time,
     // so a reader can correlate the revision with the live row's history.
     structureVersion: integer('structure_version').notNull(),
     metadataVersion: integer('metadata_version').notNull(),
     metadataSnapshot: jsonb('metadata_snapshot').notNull(),
     blockSnapshot: jsonb('block_snapshot').notNull(),
+    canonicalSnapshot: jsonb('canonical_snapshot')
+      .notNull()
+      .default(sql`NULL`),
+    integrityAlgorithm: text('integrity_algorithm').notNull().default('sha256'),
+    integrityDigest: text('integrity_digest')
+      .notNull()
+      .default(sql`NULL`),
     // submit | sign | manual
     reason: text('reason').notNull(),
     // Set when a later revision supersedes this one; the row is kept.
@@ -590,15 +629,156 @@ export const revisions = api.table(
     ...timestamps,
     createdByUserId: text('created_by_user_id')
       .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
+      .references(() => user.id, { onDelete: 'restrict' }),
   },
   (table) => [
     check(
       'chk_revisions_reason',
       sql`${table.reason} IN ('submit', 'sign', 'manual', 'validate')`,
     ),
+    check(
+      'chk_revisions_integrity_algorithm',
+      sql`${table.integrityAlgorithm} = 'sha256'`,
+    ),
+    check(
+      'chk_revisions_integrity_digest',
+      sql`${table.integrityDigest} ~ '^[0-9a-f]{64}$'`,
+    ),
+    index('idx_revisions_workspace_id').on(table.workspaceId),
     index('idx_revisions_record_id').on(table.recordId),
     index('idx_revisions_created_at').on(table.createdAt),
+  ],
+)
+
+/**
+ * A review submission binds one immutable revision to the versioned workflow
+ * and first-step reviewers selected at submit time. REV-002 exposes it as a
+ * read-only REST resource; later review tickets add controlled transitions.
+ */
+export const reviewSubmissions = api.table(
+  'review_submissions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    recordId: uuid('record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'restrict' }),
+    revisionId: uuid('revision_id')
+      .notNull()
+      .unique()
+      .references(() => revisions.id, { onDelete: 'restrict' }),
+    state: text('state').notNull().default('submitted'),
+    workflowDefinitionKey: text('workflow_definition_key').notNull(),
+    workflowDefinitionVersion: integer('workflow_definition_version').notNull(),
+    assignedReviewerUserIds: text('assigned_reviewer_user_ids')
+      .array()
+      .notNull(),
+    submittedByUserId: text('submitted_by_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    submittedSessionId: text('submitted_session_id').notNull(),
+    submittedRole: text('submitted_role').notNull(),
+    submittedAt: timestamp('submitted_at', {
+      withTimezone: true,
+      mode: 'date',
+    }).notNull(),
+    idempotencyKey: text('idempotency_key').notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    check('chk_review_submissions_state', sql`${table.state} = 'submitted'`),
+    check(
+      'chk_review_submissions_workflow_key',
+      sql`${table.workflowDefinitionKey} ~ '^[a-z0-9][a-z0-9_-]{0,127}$'`,
+    ),
+    check(
+      'chk_review_submissions_workflow_version',
+      sql`${table.workflowDefinitionVersion} > 0`,
+    ),
+    check(
+      'chk_review_submissions_reviewers',
+      sql`cardinality(${table.assignedReviewerUserIds}) > 0`,
+    ),
+    check(
+      'chk_review_submissions_idempotency_key',
+      sql`length(${table.idempotencyKey}) BETWEEN 1 AND 128`,
+    ),
+    unique('uq_review_submissions_actor_idempotency').on(
+      table.workspaceId,
+      table.submittedByUserId,
+      table.idempotencyKey,
+    ),
+    foreignKey({
+      columns: [table.workflowDefinitionKey, table.workflowDefinitionVersion],
+      foreignColumns: [
+        reviewWorkflowDefinitions.definitionKey,
+        reviewWorkflowDefinitions.version,
+      ],
+      name: 'review_submissions_workflow_definition_fk',
+    }).onDelete('restrict'),
+    index('idx_review_submissions_workspace_state').on(
+      table.workspaceId,
+      table.state,
+      table.submittedAt,
+    ),
+    index('idx_review_submissions_record').on(
+      table.recordId,
+      table.submittedAt,
+    ),
+  ],
+)
+
+/**
+ * Normalized retention references for every physical file object captured in
+ * an immutable revision envelope. This internal table pins the exact storage
+ * identity, checksum and size so later draft uploads cannot replace evidence.
+ */
+export const revisionFileObjects = internal.table(
+  'revision_file_objects',
+  {
+    revisionId: uuid('revision_id')
+      .notNull()
+      .references(() => revisions.id, { onDelete: 'restrict' }),
+    fileObjectId: uuid('file_object_id')
+      .notNull()
+      .references(() => fileObjects.id, { onDelete: 'restrict' }),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    fileRecordId: uuid('file_record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'restrict' }),
+    storageKey: text('storage_key').notNull(),
+    storageBackend: text('storage_backend').notNull(),
+    checksumAlgorithm: text('checksum_algorithm').notNull(),
+    checksum: text('checksum').notNull(),
+    byteSize: bigint('byte_size', { mode: 'bigint' }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.revisionId, table.fileObjectId] }),
+    unique('uq_revision_file_objects_storage_key').on(
+      table.revisionId,
+      table.storageKey,
+    ),
+    check(
+      'chk_revision_file_objects_checksum_algorithm',
+      sql`${table.checksumAlgorithm} = 'sha256'`,
+    ),
+    check(
+      'chk_revision_file_objects_checksum',
+      sql`${table.checksum} ~ '^[0-9a-f]{64}$'`,
+    ),
+    check(
+      'chk_revision_file_objects_byte_size',
+      sql`${table.byteSize} BETWEEN 0 AND 104857600`,
+    ),
+    index('idx_revision_file_objects_file_object').on(table.fileObjectId),
+    index('idx_revision_file_objects_file_record').on(table.fileRecordId),
   ],
 )
 
@@ -1336,6 +1516,8 @@ export const changeEvents = api.table(
 export const workspacesRelations = relations(workspaces, ({ many }) => ({
   memberships: many(workspaceMemberships),
   projects: many(projects),
+  revisions: many(revisions),
+  reviewSubmissions: many(reviewSubmissions),
 }))
 
 export const workspaceMembershipsRelations = relations(
@@ -1380,6 +1562,7 @@ export const recordsRelations = relations(records, ({ one, many }) => ({
   outgoingLinks: many(recordLinks, { relationName: 'record_outgoing_links' }),
   incomingLinks: many(recordLinks, { relationName: 'record_incoming_links' }),
   revisions: many(revisions),
+  reviewSubmissions: many(reviewSubmissions),
 }))
 
 export const blocksRelations = relations(blocks, ({ one }) => ({
@@ -1472,6 +1655,10 @@ export const recordLinksRelations = relations(recordLinks, ({ one }) => ({
 }))
 
 export const revisionsRelations = relations(revisions, ({ one }) => ({
+  workspace: one(workspaces, {
+    fields: [revisions.workspaceId],
+    references: [workspaces.id],
+  }),
   record: one(records, {
     fields: [revisions.recordId],
     references: [records.id],
@@ -1482,3 +1669,21 @@ export const revisionsRelations = relations(revisions, ({ one }) => ({
     relationName: 'revision_superseded_by',
   }),
 }))
+
+export const reviewSubmissionsRelations = relations(
+  reviewSubmissions,
+  ({ one }) => ({
+    workspace: one(workspaces, {
+      fields: [reviewSubmissions.workspaceId],
+      references: [workspaces.id],
+    }),
+    record: one(records, {
+      fields: [reviewSubmissions.recordId],
+      references: [records.id],
+    }),
+    revision: one(revisions, {
+      fields: [reviewSubmissions.revisionId],
+      references: [revisions.id],
+    }),
+  }),
+)

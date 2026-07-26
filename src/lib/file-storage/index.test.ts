@@ -114,6 +114,22 @@ describe('LocalFileStorage', () => {
     expect(written.toString()).toBe('hello sheetbase')
   })
 
+  it('never overwrites an existing storage key', async () => {
+    const ws = '00000000-0000-4000-8000-000000000005'
+    const key = generateStorageKey(ws, newFileObjectId())
+    const original = new TextEncoder().encode('submitted bytes')
+    await storage.putStream(key, streamOf(original), 1024)
+
+    await expect(
+      storage.putStream(
+        key,
+        streamOf(new TextEncoder().encode('replacement bytes')),
+        1024,
+      ),
+    ).rejects.toMatchObject({ code: 'EEXIST' })
+    expect((await readFile(join(dir, key))).toString()).toBe('submitted bytes')
+  })
+
   it('aborts and removes the partial object when the cap is exceeded', async () => {
     const ws = '00000000-0000-4000-8000-000000000002'
     const key = generateStorageKey(ws, newFileObjectId())

@@ -20,7 +20,6 @@ import { env } from '#/env.server'
 
 import {
   fileErrorResponse,
-  postgrestPatch,
   postgrestRpc,
   postgrestSelect,
   resolveFileAuth,
@@ -50,24 +49,6 @@ interface FileObjectWire {
 function asRow<T>(body: T | { error: unknown }): T | undefined {
   if (Array.isArray(body)) return (body as T[])[0]
   return body as T
-}
-
-async function markMissing(
-  token: string,
-  fileObjectId: string,
-  version: number,
-  reason: string,
-): Promise<void> {
-  await postgrestRpc(
-    'transition_file_status',
-    {
-      p_file_id: fileObjectId,
-      p_target_status: 'missing',
-      p_expected_version: version,
-      p_reason: reason,
-    },
-    token,
-  )
 }
 
 /** `POST /api/files/upload-authorize`. */
@@ -212,10 +193,18 @@ export async function handleUpload(
   }
 
   const claimedChecksum = fileObject.checksum
+  const previousStorageKey = fileObject.storage_key
+  // Never stream a PUT over the current object. The fresh candidate is made
+  // visible only by finalize_file_upload, whose row lock serializes with
+  // submitted-revision retention and concurrent upload attempts.
+  const candidateStorageKey = generateStorageKey(
+    context.workspaceId,
+    fileObject.id,
+  )
   let result
   try {
     result = await storage.putStream(
-      fileObject.storage_key,
+      candidateStorageKey,
       request.body ??
         new ReadableStream<Uint8Array>({
           start(c) {
@@ -226,12 +215,6 @@ export async function handleUpload(
     )
   } catch (error) {
     if (error instanceof OversizeError) {
-      await markMissing(
-        context.token,
-        fileObject.id,
-        fileObject.version,
-        'upload exceeded the size cap',
-      )
       return fileErrorResponse(
         413,
         'oversize',
@@ -242,13 +225,7 @@ export async function handleUpload(
   }
 
   if (claimedChecksum && claimedChecksum !== result.checksum) {
-    await storage.delete(fileObject.storage_key)
-    await markMissing(
-      context.token,
-      fileObject.id,
-      fileObject.version,
-      'checksum mismatch on upload',
-    )
+    await storage.delete(candidateStorageKey)
     return fileErrorResponse(
       409,
       'checksum_mismatch',
@@ -256,28 +233,30 @@ export async function handleUpload(
     )
   }
 
-  const patch: Record<string, unknown> = {
-    byte_size: result.byteSize.toString(),
-    checksum: result.checksum,
-    updated_by_user_id: context.userId,
-  }
-  if (fileObject.status === 'missing') {
-    await postgrestRpc(
-      'transition_file_status',
-      {
-        p_file_id: fileObject.id,
-        p_target_status: 'active',
-        p_expected_version: fileObject.version,
-      },
-      context.token,
-    )
-  }
-  await postgrestPatch(
-    'file_objects',
-    `id=eq.${fileObject.id}`,
-    patch,
+  const finalize = await postgrestRpc(
+    'finalize_file_upload',
+    {
+      p_file_id: fileObject.id,
+      p_expected_version: fileObject.version,
+      p_expected_storage_key: previousStorageKey,
+      p_new_storage_key: candidateStorageKey,
+      p_byte_size: result.byteSize.toString(),
+      p_checksum: result.checksum,
+    },
     context.token,
   )
+  if (finalize.status >= 400) {
+    await storage.delete(candidateStorageKey)
+    return fileErrorResponse(
+      409,
+      'upload_conflict',
+      'The file changed or was submitted while this upload was in progress.',
+    )
+  }
+
+  // The database pointer has moved atomically. The old object was never
+  // retained (otherwise finalization failed), so it is now safe to remove.
+  await storage.delete(previousStorageKey)
 
   return new Response(
     JSON.stringify({

@@ -25,6 +25,10 @@ const SECRET = process.env.PGRST_JWT_SECRET ?? ''
 let admin: Client
 
 async function clean(): Promise<void> {
+  await admin.query(
+    `DELETE FROM api.review_submissions WHERE workspace_id IN ($1,$2)`,
+    [WS_A, WS_B],
+  )
   // Drop generated scientific tables in these workspaces before removing the
   // blocks they reference (scientific_tables.block_id is ON DELETE RESTRICT).
   const generated = await admin.query<{ resource_name: string }>(
@@ -196,7 +200,12 @@ function chartPayload(
 
 beforeAll(async () => {
   if (!SECRET) throw new Error('PGRST_JWT_SECRET is required for API tests.')
-  admin = new Client({ connectionString: process.env.DATABASE_URL })
+  // Revision fixture cleanup is intentionally reserved for the migration
+  // owner; ordinary application and request roles cannot mutate frozen rows.
+  admin = new Client({
+    connectionString:
+      process.env.MIGRATION_DATABASE_URL ?? process.env.DATABASE_URL,
+  })
   await admin.connect()
   await clean()
   await admin.query(
@@ -448,24 +457,62 @@ describe('SCI-004 chart blocks REST contract', () => {
   })
 
   it('binds a frozen chart to a same-record revision and then rejects unfreeze', async () => {
-    const revRes = await proxy('revisions', USER_A, WS_A, {
+    const previewRes = await rpc('preview_submission_digest', USER_A, WS_A, {
+      p_record_id: experiment.id,
+    })
+    expect(previewRes.status).toBe(200)
+    const preview = await previewRes.json()
+    const revRes = await rpc('submit_record_revision', USER_A, WS_A, {
+      p_record_id: experiment.id,
+      p_expected_source_digest: preview.sourceDigest,
+      p_workflow_definition_key: 'default-scientific-review',
+      p_workflow_definition_version: 1,
+      p_reviewer_user_ids: [USER_A],
+      p_confirmed: true,
+      p_idempotency_key: `chart-bind-${experiment.id}`,
+    })
+    expect(revRes.status).toBe(200)
+    const submissionResult = await revRes.json()
+    const rev = submissionResult.revision
+
+    const visibleRevision = await proxy(
+      `revisions?id=eq.${rev.id}`,
+      USER_A,
+      WS_A,
+    )
+    expect(visibleRevision.status).toBe(200)
+    expect(await visibleRevision.json()).toHaveLength(1)
+
+    const visibleSubmission = await proxy(
+      `review_submissions?id=eq.${submissionResult.submission.id}`,
+      USER_A,
+      WS_A,
+    )
+    expect(visibleSubmission.status).toBe(200)
+    expect(await visibleSubmission.json()).toHaveLength(1)
+
+    const hiddenRevision = await proxy(
+      `revisions?id=eq.${rev.id}`,
+      USER_B,
+      WS_B,
+    )
+    expect(hiddenRevision.status).toBe(200)
+    expect(await hiddenRevision.json()).toEqual([])
+
+    const directInsert = await proxy('revisions', USER_A, WS_A, {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        prefer: 'return=representation',
-      },
+      headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         record_id: experiment.id,
         structure_version: experiment.structure_version,
         metadata_version: 1,
-        metadata_snapshot: { title: 'Submit run' },
+        metadata_snapshot: {},
         block_snapshot: [],
         reason: 'submit',
         created_by_user_id: USER_A,
       }),
     })
-    expect(revRes.status).toBe(201)
-    const rev = (await revRes.json())[0]
+    expect(directInsert.status).toBe(403)
 
     const bindRes = await rpc('bind_chart_revision', USER_A, WS_A, {
       p_block_id: chart.id,

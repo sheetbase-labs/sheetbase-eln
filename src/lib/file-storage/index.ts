@@ -56,7 +56,8 @@ export interface PutResult {
 
 export interface ObjectStorage {
   /**
-   * Stream `body` to the object at `storageKey`, enforcing `maxBytes`.
+   * Stream `body` to a new object at `storageKey`, enforcing `maxBytes`.
+   * Existing objects are never overwritten.
    * Returns the materialised byte size and sha256 checksum. Throws
    * `OversizeError` if the stream exceeds the cap; the partial object is
    * removed before returning.
@@ -113,7 +114,7 @@ export class LocalFileStorage implements ObjectStorage {
     await mkdir(dirname(target), { recursive: true })
     const hash = createHash('sha256')
     let byteSize = 0n
-    const handle = await open(target, 'w', 0o600)
+    const handle = await open(target, 'wx', 0o600)
     let oversize = false
     try {
       const reader = body.getReader()

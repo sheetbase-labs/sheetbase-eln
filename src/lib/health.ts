@@ -5,9 +5,9 @@
  * Both probes accept x-request-id and stamp it back on the response so an
  * operator can correlate a probe hit with logs.
  */
-import { drizzle } from 'drizzle-orm/node-postgres'
+import { Client } from 'pg'
 
-import { env } from '#/env.server'
+import { env, getDeploymentConfig } from '#/env.server'
 import { logger } from '#/lib/logger'
 import { resolveRequestId, stampRequestId } from '#/lib/request-id'
 
@@ -15,21 +15,68 @@ export interface ProbeResult {
   ok: boolean
   latencyMs: number
   error?: string
+  migration?: MigrationCompatibility
 }
 
-async function probeDatabase(): Promise<ProbeResult> {
+export interface MigrationCompatibility {
+  status: 'compatible' | 'incompatible' | 'not_checked'
+  expected: string
+  applied: string | null
+}
+
+export function evaluateMigrationCompatibility(
+  expected: string,
+  applied: string | null,
+): MigrationCompatibility {
+  if (expected === 'untracked') {
+    return { status: 'not_checked', expected, applied }
+  }
+  return {
+    status: expected === applied ? 'compatible' : 'incompatible',
+    expected,
+    applied,
+  }
+}
+
+async function probeDatabase(expectedMigration: string): Promise<ProbeResult> {
   const start = Date.now()
+  const client = new Client({ connectionString: env.DATABASE_URL })
   try {
-    // A short-lived client per probe keeps the health endpoint independent
-    // of the app's pooled client and avoids leaking connections on failure.
-    const db = drizzle(env.DATABASE_URL)
-    await db.execute('SELECT 1')
-    await db.$client.end()
-    return { ok: true, latencyMs: Date.now() - start }
+    // A short-lived connection keeps the probe independent of application
+    // pools and is always closed, including migration-query failure paths.
+    await client.connect()
+    await client.query('SELECT 1')
+    let appliedMigration: string | null = null
+    if (expectedMigration !== 'untracked') {
+      const result = await client.query<{ created_at: string }>(
+        'SELECT created_at::text FROM drizzle.__drizzle_migrations ORDER BY created_at DESC LIMIT 1',
+      )
+      appliedMigration = result.rows[0]?.created_at ?? null
+    }
+    const migration = evaluateMigrationCompatibility(
+      expectedMigration,
+      appliedMigration,
+    )
+    if (migration.status === 'incompatible') {
+      logger.error('database migration compatibility check failed', {
+        expected_migration: migration.expected,
+        applied_migration: migration.applied,
+      })
+      return {
+        ok: false,
+        latencyMs: Date.now() - start,
+        error:
+          'database migration is incompatible with the application artifact',
+        migration,
+      }
+    }
+    return { ok: true, latencyMs: Date.now() - start, migration }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     logger.error('database readiness probe failed', { error: message })
     return { ok: false, latencyMs: Date.now() - start, error: message }
+  } finally {
+    await client.end().catch(() => undefined)
   }
 }
 
@@ -62,6 +109,7 @@ async function probePostgrest(): Promise<ProbeResult> {
 
 export interface ReadinessReport {
   status: 'ready' | 'not_ready'
+  artifact: { version: string; digest: string }
   database: ProbeResult
   postgrest: ProbeResult
 }
@@ -73,12 +121,14 @@ export interface ReadinessReport {
  * can see which dependency is broken.
  */
 export async function runReadiness(): Promise<ReadinessReport> {
+  const deployment = getDeploymentConfig()
   const [database, postgrest] = await Promise.all([
-    probeDatabase(),
+    probeDatabase(deployment.expectedMigration),
     probePostgrest(),
   ])
   return {
     status: database.ok && postgrest.ok ? 'ready' : 'not_ready',
+    artifact: deployment.artifact,
     database: stripErrorForBody(database),
     postgrest: stripErrorForBody(postgrest),
   }
@@ -90,7 +140,11 @@ export async function runReadiness(): Promise<ReadinessReport> {
  */
 function stripErrorForBody(probe: ProbeResult): ProbeResult {
   if (probe.ok) return probe
-  return { ok: false, latencyMs: probe.latencyMs }
+  return {
+    ok: false,
+    latencyMs: probe.latencyMs,
+    migration: probe.migration,
+  }
 }
 
 /** Builds the liveness response — process is up, no dependency checks. */

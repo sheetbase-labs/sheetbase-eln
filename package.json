@@ -10,6 +10,9 @@
     "dev": "vite dev --port 3000",
     "generate-routes": "tsr generate",
     "build": "vite build",
+    "artifact:build": "node --import tsx scripts/build-artifact.ts",
+    "deploy:plan": "node --import tsx scripts/deploy.ts --plan",
+    "deploy:apply": "node --import tsx scripts/deploy.ts --apply",
     "preview": "vite preview",
     "test": "vitest run",
     "screenshot:gallery": "tsx scripts/screenshot-gallery.mts",
@@ -36,9 +39,9 @@
     "db:push": "drizzle-kit push",
     "db:pull": "drizzle-kit pull",
     "db:studio": "drizzle-kit studio",
-    "lint": "eslint src vite.config.ts vitest.config.ts drizzle.config.ts",
-    "format": "prettier --write src docs package.json components.json tsconfig.json tsr.config.json vite.config.ts vitest.config.ts drizzle.config.ts eslint.config.js prettier.config.js pnpm-workspace.yaml compose.yaml README.md && eslint --fix src vite.config.ts vitest.config.ts drizzle.config.ts",
-    "check": "prettier --check src docs package.json components.json tsconfig.json tsr.config.json vite.config.ts vitest.config.ts drizzle.config.ts eslint.config.js prettier.config.js pnpm-workspace.yaml compose.yaml README.md"
+    "lint": "eslint src scripts vite.config.ts vitest.config.ts drizzle.config.ts",
+    "format": "prettier --write src scripts docs package.json components.json tsconfig.json tsr.config.json vite.config.ts vitest.config.ts drizzle.config.ts eslint.config.js prettier.config.js pnpm-workspace.yaml compose.yaml compose.deploy.yaml README.md && eslint --fix src scripts vite.config.ts vitest.config.ts drizzle.config.ts",
+    "check": "prettier --check src scripts docs package.json components.json tsconfig.json tsr.config.json vite.config.ts vitest.config.ts drizzle.config.ts eslint.config.js prettier.config.js pnpm-workspace.yaml compose.yaml compose.deploy.yaml README.md"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.0.0",

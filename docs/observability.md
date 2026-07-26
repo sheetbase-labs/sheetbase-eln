@@ -18,10 +18,24 @@ dependency separately in the body:
 ```json
 {
   "status": "ready",
-  "database": { "ok": true, "latencyMs": 3 },
+  "artifact": { "version": "2026.07.26", "digest": "sha256:<digest>" },
+  "database": {
+    "ok": true,
+    "latencyMs": 3,
+    "migration": {
+      "status": "compatible",
+      "expected": "<journal-version>",
+      "applied": "<journal-version>"
+    }
+  },
   "postgrest": { "ok": true, "latencyMs": 8 }
 }
 ```
+
+Staging and production set an expected migration version in the immutable
+artifact contract. Readiness returns 503 when the latest applied Drizzle
+migration differs, preventing traffic from reaching an incompatible database.
+Development reports `not_checked` while using the explicit `untracked` default.
 
 The `error` field is intentionally absent from the public body — connection
 strings and hostnames can leak through raw driver errors, so the detail is

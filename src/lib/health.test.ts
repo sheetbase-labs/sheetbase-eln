@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { livenessResponse, readinessResponse } from './health'
+import {
+  evaluateMigrationCompatibility,
+  livenessResponse,
+  readinessResponse,
+} from './health'
 import { REQUEST_ID_HEADER } from './request-id'
 
 describe('livenessResponse', () => {
@@ -20,6 +24,7 @@ describe('readinessResponse', () => {
     const request = new Request('http://localhost/api/health/ready')
     const response = readinessResponse(request, {
       status: 'ready',
+      artifact: { version: 'local', digest: 'untracked' },
       database: { ok: true, latencyMs: 1 },
       postgrest: { ok: true, latencyMs: 2 },
     })
@@ -36,6 +41,7 @@ describe('readinessResponse', () => {
     const request = new Request('http://localhost/api/health/ready')
     const response = readinessResponse(request, {
       status: 'not_ready',
+      artifact: { version: 'local', digest: 'untracked' },
       database: { ok: true, latencyMs: 1 },
       postgrest: { ok: false, latencyMs: 2 },
     })
@@ -47,9 +53,37 @@ describe('readinessResponse', () => {
     const request = new Request('http://localhost/api/health/ready')
     const response = readinessResponse(request, {
       status: 'ready',
+      artifact: { version: 'local', digest: 'untracked' },
       database: { ok: true, latencyMs: 1 },
       postgrest: { ok: true, latencyMs: 2 },
     })
     expect(response.headers.get(REQUEST_ID_HEADER)).toMatch(/^[a-f0-9]{32}$/)
+  })
+})
+
+describe('evaluateMigrationCompatibility', () => {
+  it('accepts only the exact migration baked into a deployed artifact', () => {
+    expect(
+      evaluateMigrationCompatibility('1784920000000', '1784920000000'),
+    ).toEqual({
+      status: 'compatible',
+      expected: '1784920000000',
+      applied: '1784920000000',
+    })
+    expect(
+      evaluateMigrationCompatibility('1784920000000', '1784910000000'),
+    ).toEqual({
+      status: 'incompatible',
+      expected: '1784920000000',
+      applied: '1784910000000',
+    })
+  })
+
+  it('reports local development as not checked when no artifact contract exists', () => {
+    expect(evaluateMigrationCompatibility('untracked', null)).toEqual({
+      status: 'not_checked',
+      expected: 'untracked',
+      applied: null,
+    })
   })
 })

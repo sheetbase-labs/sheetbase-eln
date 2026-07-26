@@ -44,6 +44,8 @@ Everything a new developer needs, without reading source:
 | Follow service logs                                  | `pnpm services:logs`     |
 | Recreate services from scratch                       | `pnpm services:recreate` |
 | Start the app (dev)                                  | `pnpm dev`               |
+| Build an immutable deployment artifact               | `pnpm artifact:build`    |
+| Validate and print a deployment plan                 | `pnpm deploy:plan`       |
 | Run all tests                                        | `pnpm test`              |
 | Run database integration tests                       | `pnpm test:db`           |
 | Generate a migration after schema edits              | `pnpm db:generate`       |
@@ -59,7 +61,9 @@ See `docs/migrations.md` before changing schema, including how to verify
 against a fresh database. See `docs/testing.md` for the test layers and
 `docs/seeds.md` for fixture and seed conventions. Handsontable's required
 commercial licence setup and client-only integration boundary are documented
-in `docs/handsontable.md`.
+in `docs/handsontable.md`. Environment separation, immutable artifacts,
+managed-secret injection, promotion and rollback are documented in
+`docs/deployment.md`.
 
 ## Repository boundaries
 

@@ -1,0 +1,176 @@
+import { spawnSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
+
+import { validateDeploymentConfig } from '../src/lib/deployment-config'
+import {
+  assertImmutableImageReference,
+  buildDeploymentPlan,
+  latestMigrationVersion,
+  validateArtifactImageMetadata,
+} from '../src/lib/deployment-plan'
+
+function required(name: string): string {
+  const value = process.env[name]
+  if (!value) throw new Error(`${name} is required`)
+  return value
+}
+
+function capture(command: string, args: string[]): string {
+  const result = spawnSync(command, args, {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'inherit'],
+  })
+  if (result.status !== 0) {
+    throw new Error(`${command} ${args.join(' ')} failed`)
+  }
+  return result.stdout.trim()
+}
+
+const applicationImage = assertImmutableImageReference(
+  required('SHEETBASE_APP_IMAGE'),
+)
+const postgrestImage = assertImmutableImageReference(
+  required('SHEETBASE_POSTGREST_IMAGE'),
+)
+const imageDigest = applicationImage.split('@').at(-1)
+if (!imageDigest) throw new Error('application image has no digest')
+
+const imageLabels = JSON.parse(
+  capture('docker', [
+    'image',
+    'inspect',
+    '--format',
+    '{{json .Config.Labels}}',
+    applicationImage,
+  ]),
+) as Record<string, unknown>
+const imageMetadata = validateArtifactImageMetadata(imageLabels)
+
+const deployment = validateDeploymentConfig({
+  SHEETBASE_ENV: required('SHEETBASE_ENV') as 'staging' | 'production',
+  SHEETBASE_SECRET_SOURCE: required(
+    'SHEETBASE_SECRET_SOURCE',
+  ) as 'secret-manager',
+  SHEETBASE_ARTIFACT_VERSION: imageMetadata.version,
+  SHEETBASE_ARTIFACT_DIGEST: imageDigest,
+  SHEETBASE_EXPECTED_MIGRATION: imageMetadata.expectedMigration,
+  BETTER_AUTH_URL: required('BETTER_AUTH_URL'),
+  DATABASE_URL: required('DATABASE_URL'),
+  POSTGREST_URL: required('POSTGREST_URL'),
+  POSTGREST_ADMIN_URL: required('POSTGREST_ADMIN_URL'),
+  GITHUB_CLIENT_ID: required('GITHUB_CLIENT_ID'),
+  GITHUB_CLIENT_SECRET: required('GITHUB_CLIENT_SECRET'),
+})
+if (
+  deployment.environment !== 'staging' &&
+  deployment.environment !== 'production'
+) {
+  throw new Error('deployment flow is restricted to staging or production')
+}
+
+const journal = JSON.parse(
+  readFileSync('drizzle/meta/_journal.json', 'utf8'),
+) as Parameters<typeof latestMigrationVersion>[0]
+const repositoryMigration = latestMigrationVersion(journal)
+if (repositoryMigration.version !== deployment.expectedMigration) {
+  throw new Error(
+    `artifact expects migration ${deployment.expectedMigration}, but this checkout ends at ${repositoryMigration.version} (${repositoryMigration.tag})`,
+  )
+}
+
+process.env.SHEETBASE_ARTIFACT_DIGEST = imageDigest
+
+const plan = buildDeploymentPlan({
+  environment: deployment.environment,
+  applicationImage,
+  postgrestImage,
+  expectedMigration: deployment.expectedMigration,
+  readinessUrl: required('SHEETBASE_READINESS_URL'),
+  publicOrigin: required('BETTER_AUTH_URL'),
+})
+
+const mode = process.argv[2] ?? '--plan'
+if (mode !== '--plan' && mode !== '--apply') {
+  throw new Error('usage: deploy.ts [--plan|--apply]')
+}
+
+process.stdout.write(`${JSON.stringify({ mode, plan }, null, 2)}\n`)
+if (mode === '--plan') process.exit(0)
+
+function compose(args: string[]) {
+  const result = spawnSync(
+    'docker',
+    ['compose', '-f', 'compose.deploy.yaml', ...args],
+    {
+      stdio: 'inherit',
+      env: process.env,
+    },
+  )
+  if (result.status !== 0) {
+    throw new Error(`docker compose ${args.join(' ')} failed`)
+  }
+}
+
+function isolateFailedRollout() {
+  const result = spawnSync(
+    'docker',
+    ['compose', '-f', 'compose.deploy.yaml', 'rm', '-sf', 'app'],
+    { stdio: 'inherit', env: process.env },
+  )
+  if (result.status !== 0) {
+    process.stderr.write(
+      `${JSON.stringify({ level: 'error', message: 'failed to isolate rejected application rollout' })}\n`,
+    )
+  }
+}
+
+compose(['run', '--rm', 'migrate'])
+try {
+  compose(['up', '-d', '--wait', 'app'])
+} catch (error) {
+  isolateFailedRollout()
+  throw error
+}
+
+const readinessUrl = required('SHEETBASE_READINESS_URL')
+let evidence: unknown
+for (let attempt = 1; attempt <= 12; attempt += 1) {
+  try {
+    const response = await fetch(readinessUrl)
+    const body = await response.json()
+    if (
+      response.ok &&
+      body.status === 'ready' &&
+      body.artifact?.version === deployment.artifact.version &&
+      body.artifact?.digest === deployment.artifact.digest &&
+      body.database?.migration?.status === 'compatible' &&
+      body.database?.migration?.expected === deployment.expectedMigration
+    ) {
+      evidence = body
+      break
+    }
+  } catch {
+    // Retry during the bounded rollout window; final failure is explicit.
+  }
+  await new Promise((resolve) => setTimeout(resolve, 5000))
+}
+if (!evidence) {
+  isolateFailedRollout()
+  throw new Error(
+    'readiness did not prove artifact and migration compatibility within 60 seconds',
+  )
+}
+
+process.stdout.write(
+  `${JSON.stringify(
+    {
+      deployedAt: new Date().toISOString(),
+      environment: deployment.environment,
+      artifact: deployment.artifact,
+      expectedMigration: deployment.expectedMigration,
+      readiness: evidence,
+    },
+    null,
+    2,
+  )}\n`,
+)

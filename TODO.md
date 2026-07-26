@@ -773,24 +773,24 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** SCI-009.
 
-- [ ] Define the exact immutable content included in a submitted revision: metadata, block order, block payloads, linked versions, table snapshots, formulas, calculated state and files.
-- [ ] Define what remains live outside a revision, such as later inventory state.
-- [ ] Define draft, submitted, changes-requested, approved, rejected and locked transitions.
-- [ ] Define which transitions require comments, assigned roles or re-authentication.
-- [ ] Define how withdrawn submissions and superseding revisions remain visible in history.
-- [ ] Review the model against Review & Approvals, Review Inbox and compliance language in `PRODUCT.md`.
+- [x] Define the exact immutable content included in a submitted revision: metadata, block order, block payloads, linked versions, table snapshots, formulas, calculated state and files.
+- [x] Define what remains live outside a revision, such as later inventory state.
+- [x] Define draft, submitted, changes-requested, approved, rejected and locked transitions.
+- [x] Define which transitions require comments, assigned roles or re-authentication.
+- [x] Define how withdrawn submissions and superseding revisions remain visible in history.
+- [x] Review the model against Review & Approvals, Review Inbox and compliance language in `PRODUCT.md`.
 
 ### REV-002 — Create immutable submitted revisions
 
 **Blocked by:** REV-001.
 
-- [ ] Add revision, submission and frozen-content persistence with actor and timestamp attribution.
-- [ ] Create a submitted revision transactionally so it cannot mix content from different moments.
-- [ ] Store checksums or equivalent integrity evidence for immutable revision content.
-- [ ] Prevent ordinary CRUD from modifying submitted evidence.
-- [ ] Keep later draft edits separate and clearly identified.
-- [ ] Expose revision metadata and frozen content through permission-controlled REST resources.
-- [ ] Test submission during concurrent edits, retry, immutability and cross-workspace isolation.
+- [x] Add revision, submission and frozen-content persistence with actor and timestamp attribution.
+- [x] Create a submitted revision transactionally so it cannot mix content from different moments.
+- [x] Store checksums or equivalent integrity evidence for immutable revision content.
+- [x] Prevent ordinary CRUD from modifying submitted evidence.
+- [x] Keep later draft edits separate and clearly identified.
+- [x] Expose revision metadata and frozen content through permission-controlled REST resources.
+- [x] Test submission during concurrent edits, retry, immutability and cross-workspace isolation.
 
 ### REV-003 — Build meaningful version diffs
 

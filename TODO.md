@@ -1086,12 +1086,12 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** API-007.
 
-- [ ] Define development, test, staging and production configuration boundaries.
+- [x] Define development, test, staging and production configuration boundaries.
 - [ ] Store secrets in an appropriate secret manager and keep rotation procedures documented.
-- [ ] Build immutable application artifacts and pin service dependencies.
-- [ ] Run migrations as an explicit deployment step with failure visibility.
-- [ ] Add readiness gates so traffic does not reach incompatible application and database versions.
-- [ ] Document environment promotion and rollback decisions.
+- [x] Build immutable application artifacts and pin service dependencies.
+- [x] Run migrations as an explicit deployment step with failure visibility.
+- [x] Add readiness gates so traffic does not reach incompatible application and database versions.
+- [x] Document environment promotion and rollback decisions.
 - [ ] Verify a staging deployment from a clean artifact.
 
 ### REL-002 — Add backup, restore and migration rehearsal

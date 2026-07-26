@@ -895,13 +895,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** SCI-001, UI-004.
 
-- [ ] Create the standard registry composition: compact header, summary metrics, filters, saved views, TanStack Table and selected-record inspector.
-- [ ] Support server-side pagination, filtering, sorting and grouping without loading entire registries into the browser.
-- [ ] Keep columns, density and scientific formatting under Sheetbase control.
-- [ ] Add column visibility and saved-view persistence scoped to the user and workspace.
-- [ ] Support keyboard row navigation and accessible table headers.
-- [ ] Add loading, empty, no-results, partial-data and permission states.
-- [ ] Test large result counts and selection persistence across refreshes.
+- [x] Create the standard registry composition: compact header, summary metrics, filters, saved views, TanStack Table and selected-record inspector.
+- [x] Support server-side pagination, filtering, sorting and grouping without loading entire registries into the browser.
+- [x] Keep columns, density and scientific formatting under Sheetbase control.
+- [x] Add column visibility and saved-view persistence scoped to the user and workspace.
+- [x] Support keyboard row navigation and accessible table headers.
+- [x] Add loading, empty, no-results, partial-data and permission states.
+- [x] Test large result counts and selection persistence across refreshes.
 
 ### REG-002 — Deliver Samples Registry
 

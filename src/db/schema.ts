@@ -19,6 +19,7 @@ import {
   index,
   integer,
   jsonb,
+  numeric,
   pgSchema,
   primaryKey,
   real,
@@ -982,6 +983,82 @@ export const recordFieldDefinitions = api.table(
   ],
 )
 
+/**
+ * sample_events (REG-002) is the append-only chain-of-custody and quantity
+ * event log for sample records. Every controlled receive/consume/transfer
+ * appends one row with actor attribution; the authoritative quantity and
+ * storage location stay in `records.properties`. RLS gives workspace members
+ * read access and lets the SECURITY INVOKER RPCs insert (with
+ * actor = current_user_id), but no role can UPDATE or DELETE — the history is
+ * durable. `quantity_delta`, `quantity_before` and `quantity_after` are either
+ * all present (quantity-bearing operations) or all absent (transfer/edit/
+ * archive/restore), and `quantity_after = quantity_before + quantity_delta`
+ * with no negative result.
+ */
+export const sampleEvents = api.table(
+  'sample_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    recordId: uuid('record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'cascade' }),
+    // create | receive | consume | transfer | edit | archive | restore
+    operation: text('operation').notNull(),
+    // Signed: receive > 0, consume < 0, null for non-quantity operations.
+    quantityDelta: numeric('quantity_delta'),
+    quantityBefore: numeric('quantity_before'),
+    quantityAfter: numeric('quantity_after'),
+    quantityUnit: text('quantity_unit'),
+    fromLocation: text('from_location'),
+    toLocation: text('to_location'),
+    actorUserId: text('actor_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    notes: text('notes'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'chk_sample_events_operation',
+      sql`${table.operation} IN ('create','receive','consume','transfer','edit','archive','restore')`,
+    ),
+    check(
+      'chk_sample_events_quantity_presence',
+      sql`(${table.quantityDelta} IS NOT NULL) = (${table.quantityBefore} IS NOT NULL) AND (${table.quantityDelta} IS NOT NULL) = (${table.quantityAfter} IS NOT NULL)`,
+    ),
+    check(
+      'chk_sample_events_quantity_arithmetic',
+      sql`${table.quantityDelta} IS NULL OR (${table.quantityAfter} = (${table.quantityBefore} + ${table.quantityDelta}) AND ${table.quantityAfter} >= 0)`,
+    ),
+    check(
+      'chk_sample_events_receive_delta',
+      sql`${table.operation} <> 'receive' OR ${table.quantityDelta} > 0`,
+    ),
+    check(
+      'chk_sample_events_consume_delta',
+      sql`${table.operation} <> 'consume' OR ${table.quantityDelta} < 0`,
+    ),
+    check(
+      'chk_sample_events_transfer_locations',
+      sql`${table.operation} <> 'transfer' OR (${table.fromLocation} IS NOT NULL AND ${table.toLocation} IS NOT NULL AND ${table.fromLocation} <> ${table.toLocation})`,
+    ),
+    index('idx_sample_events_record_created').on(
+      table.recordId,
+      table.createdAt,
+    ),
+    index('idx_sample_events_workspace_created').on(
+      table.workspaceId,
+      table.createdAt,
+    ),
+    index('idx_sample_events_operation').on(table.operation),
+  ],
+)
+
 // SCI-010: workspace-level dataset schema registry (decision 0034). A stable,
 // versioned, permission-managed metadata layer over the per-sheet physical
 // tables. Cross-sheet queries join on dataset_schema_field_id, not physical
@@ -1625,7 +1702,7 @@ export const changeEvents = api.table(
     ),
     check(
       'chk_change_events_entity_type',
-      sql`${table.entityType} IN ('project', 'folder', 'record', 'block', 'record_link', 'scientific_table', 'scientific_row', 'formula', 'calculation', 'record_field_definition', 'file')`,
+      sql`${table.entityType} IN ('project', 'folder', 'record', 'block', 'record_link', 'scientific_table', 'scientific_row', 'formula', 'calculation', 'record_field_definition', 'file', 'dataset_schema', 'dataset_schema_field', 'dataset_schema_relationship', 'sample_event')`,
     ),
     check(
       'chk_change_events_operation',
@@ -1767,11 +1844,23 @@ export const recordsRelations = relations(records, ({ one, many }) => ({
   revisions: many(revisions),
   reagentMovements: many(reagentMovements),
   reviewSubmissions: many(reviewSubmissions),
+  sampleEvents: many(sampleEvents),
 }))
 
 export const blocksRelations = relations(blocks, ({ one }) => ({
   record: one(records, {
     fields: [blocks.recordId],
+    references: [records.id],
+  }),
+}))
+
+export const sampleEventsRelations = relations(sampleEvents, ({ one }) => ({
+  workspace: one(workspaces, {
+    fields: [sampleEvents.workspaceId],
+    references: [workspaces.id],
+  }),
+  record: one(records, {
+    fields: [sampleEvents.recordId],
     references: [records.id],
   }),
 }))

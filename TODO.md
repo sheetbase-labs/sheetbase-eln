@@ -907,12 +907,12 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** REG-001.
 
-- [ ] Implement the concept columns, grouping, status filters and summary metrics using real sample records.
-- [ ] Show identity, quantities, units, storage, barcode, chain of custody, linked experiments, files and notes in the inspector.
-- [ ] Add create, edit, receive, consume, transfer, archive and restore operations as controlled mutations where multi-record integrity matters.
-- [ ] Prevent impossible negative quantities and untraceable location changes.
-- [ ] Record custody and quantity events with actor attribution.
-- [ ] Add tests for filtering, transfer, consumption, low-stock state and isolation.
+- [x] Implement the concept columns, grouping, status filters and summary metrics using real sample records.
+- [x] Show identity, quantities, units, storage, barcode, chain of custody, linked experiments, files and notes in the inspector.
+- [x] Add create, edit, receive, consume, transfer, archive and restore operations as controlled mutations where multi-record integrity matters.
+- [x] Prevent impossible negative quantities and untraceable location changes.
+- [x] Record custody and quantity events with actor attribution.
+- [x] Add tests for filtering, transfer, consumption, low-stock state and isolation.
 
 ### REG-003 — Deliver Reagents Registry
 

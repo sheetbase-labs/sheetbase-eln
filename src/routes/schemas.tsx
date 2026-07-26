@@ -1386,12 +1386,14 @@ function SchemaGraphCanvas({
   const targetSchemaId = pendingConnection?.target ?? null
   const sourceFieldsQuery = useQuery({
     queryKey: datasetSchemaQueryKeys.fields(sourceSchemaId ?? 'none'),
-    queryFn: () => fetchDatasetSchemaFields(dataClient, sourceSchemaId!),
+    queryFn: () =>
+      fetchDatasetSchemaFields(dataClient, sourceSchemaId ?? 'none'),
     enabled: Boolean(sourceSchemaId),
   })
   const targetFieldsQuery = useQuery({
     queryKey: datasetSchemaQueryKeys.fields(targetSchemaId ?? 'none'),
-    queryFn: () => fetchDatasetSchemaFields(dataClient, targetSchemaId!),
+    queryFn: () =>
+      fetchDatasetSchemaFields(dataClient, targetSchemaId ?? 'none'),
     enabled: Boolean(targetSchemaId),
   })
   const sourceFields: DatasetSchemaFieldWire[] = sourceFieldsQuery.data || []

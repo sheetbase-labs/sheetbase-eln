@@ -71,7 +71,7 @@ export type WorkbookResult =
 export function scientificSheetName(tableId: string) {
   return calculationSheetName(tableId)
 }
-const ERROR_CODES: Record<string, string> = {
+const ERROR_CODES: Partial<Record<string, string>> = {
   DIV_BY_ZERO: 'DIV_BY_ZERO',
   CYCLE: 'CYCLE',
   REF: 'REF',

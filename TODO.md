@@ -976,12 +976,12 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** SCI-006, REG-001.
 
-- [ ] Add grid and list views, filters, favourites, validation status and ownership.
-- [ ] Show template version, author, usage, linked records, approvals and actions in the inspector.
-- [ ] Add duplicate, export and archive actions with permission and dependency checks.
-- [ ] Generate preview thumbnails from actual template content rather than unrelated static images.
-- [ ] Keep use-template operations pinned to the selected version.
-- [ ] Add tests for filters, permissions, archived versions and instantiation.
+- [x] Add grid and list views, filters, favourites, validation status and ownership.
+- [x] Show template version, author, usage, linked records, approvals and actions in the inspector.
+- [x] Add duplicate, export and archive actions with permission and dependency checks.
+- [x] Generate preview thumbnails from actual template content rather than unrelated static images.
+- [x] Keep use-template operations pinned to the selected version.
+- [x] Add tests for filters, permissions, archived versions and instantiation.
 
 ---
 

@@ -1,7 +1,9 @@
 /**
- * SCI-006 Template Library presentational components: a dense, scannable
- * template list with column headers, a filter bar with result count, and a
- * preview inspector with Details/Preview tabs and the use-template action.
+ * TPL-001 Template Library presentational components: a dense, scannable
+ * template list with grid/list views, favourites, filters (type, validation
+ * status, ownership, favourites-only), a preview inspector with version /
+ * author / usage / linked records / approvals / actions, and the
+ * use-template action pinned to the selected template version.
  *
  * Extracted from the route so they are independently testable. All data
  * fetching lives in the route; these components are pure functions of their
@@ -15,15 +17,22 @@
  *   variant palette so light/dark themes stay equivalent.
  * - Full-width layout with aligned columns; secondary columns hide on narrow
  *   screens so the title always has room.
+ * - Thumbnails are rendered from actual template content (compact block
+ *   previews), never from unrelated static images.
  */
 import { Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import {
   Archive,
   CheckCircle2,
+  Copy,
+  Download,
   FileWarning,
+  LayoutGrid,
+  List as ListIcon,
   Search,
   Sparkles,
+  Star,
 } from 'lucide-react'
 
 import { BlockPreview } from '#/components/notebook'
@@ -34,9 +43,11 @@ import {
   InspectorSection,
 } from '#/components/record'
 import { StatusBadge } from '#/components/scientific'
-import { Badge, Skeleton } from '#/components/ui'
+import { Badge, Button, Skeleton } from '#/components/ui'
 import { cn } from '#/lib/utils'
 import {
+  archiveDependencyWarning,
+  canManageTemplate,
   isInstantiable,
   isTemplateKind,
   TEMPLATE_KIND_LABEL,
@@ -50,8 +61,22 @@ export interface TemplateProject {
   title: string
 }
 
+/** A usage-linked record (instantiated from the selected template). */
+export interface TemplateLinkedRecord {
+  id: string
+  identifier: string
+  title: string
+  kind: string
+  status: string
+  projectId: string | null
+}
+
+export type TemplateView = 'list' | 'grid'
+
+export type TemplateOwnershipFilter = 'all' | 'mine'
+
 // ---------------------------------------------------------------------------
-// Time helpers
+// Time + ownership helpers
 // ---------------------------------------------------------------------------
 
 /** Compact relative time, e.g. "2d ago". Falls back to a date for >30d. */
@@ -68,6 +93,21 @@ function formatRelativeTime(iso: string, now: number = Date.now()): string {
   if (hours < 24) return `${hours}h ago`
   if (days < 30) return `${days}d ago`
   return new Date(iso).toLocaleDateString()
+}
+
+/**
+ * Owner label for the list/inspector. The ELN does not expose other users'
+ * names to the browser (internal.user is server-only), so the current user is
+ * labelled "You" and everyone else gets a stable, anonymised handle derived
+ * from their id suffix. RLS remains the authoritative boundary.
+ */
+export function ownerLabel(
+  createdByUserId: string,
+  currentUserId: string | null,
+): string {
+  if (currentUserId && createdByUserId === currentUserId) return 'You'
+  const suffix = createdByUserId.slice(-6)
+  return `User ${suffix}`
 }
 
 /**
@@ -98,6 +138,12 @@ export function TemplateFilters({
   search,
   onSearchChange,
   count,
+  favouritesOnly = false,
+  onFavouritesOnlyChange,
+  ownership = 'all',
+  onOwnershipChange,
+  view = 'list',
+  onViewChange,
 }: {
   kindFilter: 'all' | TemplateKind
   onKindChange: (value: 'all' | TemplateKind) => void
@@ -107,6 +153,15 @@ export function TemplateFilters({
   onSearchChange: (value: string) => void
   /** Optional result count rendered at the right of the bar. */
   count?: number
+  /** TPL-001: show only favourited templates. */
+  favouritesOnly?: boolean
+  onFavouritesOnlyChange?: (value: boolean) => void
+  /** TPL-001: ownership filter (all / mine). */
+  ownership?: TemplateOwnershipFilter
+  onOwnershipChange?: (value: TemplateOwnershipFilter) => void
+  /** TPL-001: grid/list view. */
+  view?: TemplateView
+  onViewChange?: (value: TemplateView) => void
 }) {
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -158,6 +213,83 @@ export function TemplateFilters({
         <option value="under_review">Under review</option>
       </select>
 
+      {onOwnershipChange ? (
+        <label htmlFor="template-ownership" className="sr-only">
+          Filter by ownership
+        </label>
+      ) : null}
+      {onOwnershipChange ? (
+        <select
+          id="template-ownership"
+          value={ownership}
+          onChange={(e) =>
+            onOwnershipChange(e.target.value as TemplateOwnershipFilter)
+          }
+          className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <option value="all">All owners</option>
+          <option value="mine">My templates</option>
+        </select>
+      ) : null}
+
+      {onFavouritesOnlyChange ? (
+        <label className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-input bg-background px-3 text-sm">
+          <Star
+            className={cn(
+              'size-4',
+              favouritesOnly
+                ? 'fill-amber-400 text-amber-500'
+                : 'text-muted-foreground',
+            )}
+            aria-hidden="true"
+          />
+          <input
+            type="checkbox"
+            className="sr-only"
+            checked={favouritesOnly}
+            onChange={(e) => onFavouritesOnlyChange(e.target.checked)}
+          />
+          Favourites
+        </label>
+      ) : null}
+
+      {onViewChange ? (
+        <div
+          role="group"
+          aria-label="Template view"
+          className="inline-flex h-9 items-center rounded-md border border-input bg-background p-0.5"
+        >
+          <button
+            type="button"
+            aria-pressed={view === 'list'}
+            onClick={() => onViewChange('list')}
+            className={cn(
+              'inline-flex size-8 items-center justify-center rounded-sm',
+              view === 'list'
+                ? 'bg-accent text-accent-foreground'
+                : 'text-muted-foreground',
+            )}
+          >
+            <ListIcon className="size-4" aria-hidden="true" />
+            <span className="sr-only">List view</span>
+          </button>
+          <button
+            type="button"
+            aria-pressed={view === 'grid'}
+            onClick={() => onViewChange('grid')}
+            className={cn(
+              'inline-flex size-8 items-center justify-center rounded-sm',
+              view === 'grid'
+                ? 'bg-accent text-accent-foreground'
+                : 'text-muted-foreground',
+            )}
+          >
+            <LayoutGrid className="size-4" aria-hidden="true" />
+            <span className="sr-only">Grid view</span>
+          </button>
+        </div>
+      ) : null}
+
       {count !== undefined ? (
         <span
           className="ml-auto text-xs tabular-nums text-muted-foreground"
@@ -171,7 +303,94 @@ export function TemplateFilters({
 }
 
 // ---------------------------------------------------------------------------
-// Template list
+// Favourite toggle
+// ---------------------------------------------------------------------------
+
+function FavouriteToggle({
+  favourited,
+  onToggle,
+  className,
+}: {
+  favourited: boolean
+  onToggle: () => void
+  className?: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        onToggle()
+      }}
+      aria-pressed={favourited}
+      aria-label={favourited ? 'Remove from favourites' : 'Add to favourites'}
+      className={cn(
+        'inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        className,
+      )}
+    >
+      <Star
+        className={cn('size-4', favourited && 'fill-amber-400 text-amber-500')}
+        aria-hidden="true"
+      />
+    </button>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Template thumbnail — rendered from actual template content
+// ---------------------------------------------------------------------------
+
+/**
+ * Compact thumbnail rendered from the template's own blocks (TPL-001:
+ * "preview thumbnails from actual template content rather than unrelated
+ * static images"). Shows up to `maxBlocks` block previews in a clipped
+ * stack so the grid card previews real content, not a placeholder image.
+ */
+export function TemplateThumbnail({
+  blocks,
+  maxBlocks = 2,
+  className,
+}: {
+  blocks: NotebookBlock[]
+  maxBlocks?: number
+  className?: string
+}) {
+  const previewBlocks = blocks
+    .slice()
+    .sort((a, b) => a.order - b.order)
+    .slice(0, maxBlocks)
+  if (previewBlocks.length === 0) {
+    return (
+      <div
+        className={cn(
+          'flex h-full items-center justify-center rounded-md border border-dashed border-border bg-muted/30 text-xs text-muted-foreground',
+          className,
+        )}
+      >
+        No content
+      </div>
+    )
+  }
+  return (
+    <div
+      className={cn(
+        'pointer-events-none h-full max-h-[160px] overflow-hidden rounded-md border border-border bg-background p-3 text-[11px] leading-5 text-muted-foreground',
+        className,
+      )}
+      aria-hidden="true"
+    >
+      <div className="space-y-1.5">
+        {previewBlocks.map((block) => (
+          <BlockPreview key={block.id} block={block} className="text-[11px]" />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Template list (row view)
 // ---------------------------------------------------------------------------
 
 /**
@@ -216,6 +435,32 @@ function TemplateListSkeleton({ rows = 6 }: { rows?: number }) {
   )
 }
 
+function StateIndicator({
+  template,
+  instantiable,
+}: {
+  template: NotebookRecord
+  instantiable: boolean
+}) {
+  if (template.archivedAt) {
+    return (
+      <Badge variant="outline" className="text-[10px]">
+        <Archive className="size-3" aria-hidden="true" />
+        Archived
+      </Badge>
+    )
+  }
+  if (instantiable) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
+        <CheckCircle2 className="size-3" aria-hidden="true" />
+        Ready
+      </span>
+    )
+  }
+  return null
+}
+
 export function TemplateList({
   templates,
   isLoading,
@@ -225,6 +470,11 @@ export function TemplateList({
   onRetry,
   blockCounts = {},
   usageCounts = {},
+  view = 'list',
+  favourites = new Set<string>(),
+  onToggleFavourite,
+  currentUserId = null,
+  blockPreviews = {},
 }: {
   templates: NotebookRecord[]
   isLoading: boolean
@@ -236,6 +486,15 @@ export function TemplateList({
   blockCounts?: Record<string, number>
   /** Map of template id → number of records instantiated from it. */
   usageCounts?: Record<string, number>
+  /** TPL-001: grid/list view. */
+  view?: TemplateView
+  /** TPL-001: favourited template ids. */
+  favourites?: Set<string>
+  onToggleFavourite?: (id: string) => void
+  /** TPL-001: current user id for ownership display. */
+  currentUserId?: string | null
+  /** TPL-001: per-template blocks for grid thumbnails (actual content). */
+  blockPreviews?: Record<string, NotebookBlock[]>
 }) {
   if (isLoading) {
     return (
@@ -276,6 +535,30 @@ export function TemplateList({
     )
   }
 
+  if (view === 'grid') {
+    return (
+      <ul
+        role="list"
+        className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
+      >
+        {templates.map((template) => (
+          <TemplateGridCard
+            key={template.id}
+            template={template}
+            isSelected={template.id === selectedId}
+            onSelect={onSelect}
+            blockCount={blockCounts[template.id]}
+            usageCount={usageCounts[template.id] ?? 0}
+            favourited={favourites.has(template.id)}
+            onToggleFavourite={onToggleFavourite}
+            currentUserId={currentUserId}
+            previewBlocks={blockPreviews[template.id] ?? []}
+          />
+        ))}
+      </ul>
+    )
+  }
+
   return (
     <div className="overflow-hidden rounded-md border border-border">
       <TemplateListHeader />
@@ -291,9 +574,16 @@ export function TemplateList({
           const featured = isFeatured(template, blockCount)
           return (
             <li key={template.id}>
-              <button
-                type="button"
+              <div
+                role="button"
+                tabIndex={0}
                 onClick={() => onSelect(template.id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    onSelect(template.id)
+                  }
+                }}
                 aria-pressed={isSelected}
                 className={cn(
                   'flex w-full items-center gap-4 px-3 py-2.5 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
@@ -317,12 +607,19 @@ export function TemplateList({
                         Featured
                       </Badge>
                     ) : null}
+                    {favourites.has(template.id) ? (
+                      <Star
+                        className="size-3 shrink-0 fill-amber-400 text-amber-500"
+                        aria-label="Favourite"
+                      />
+                    ) : null}
                   </span>
-                  {usageCount > 0 ? (
-                    <span className="block truncate text-[11px] tabular-nums text-muted-foreground">
-                      {usageCount} {usageCount === 1 ? 'use' : 'uses'}
-                    </span>
-                  ) : null}
+                  <span className="block truncate text-[11px] tabular-nums text-muted-foreground">
+                    {ownerLabel(template.createdByUserId, currentUserId)}
+                    {usageCount > 0
+                      ? ` · ${usageCount} ${usageCount === 1 ? 'use' : 'uses'}`
+                      : ''}
+                  </span>
                 </span>
                 <span className="flex shrink-0 items-center gap-2">
                   {kind ? (
@@ -347,25 +644,225 @@ export function TemplateList({
                     ? `${blockCounts[template.id]} blocks`
                     : '—'}
                 </span>
-                <span className="flex w-16 shrink-0 justify-end">
-                  {template.archivedAt ? (
-                    <Badge variant="outline" className="text-[10px]">
-                      <Archive className="size-3" aria-hidden="true" />
-                      Archived
-                    </Badge>
-                  ) : instantiable ? (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
-                      <CheckCircle2 className="size-3" aria-hidden="true" />
-                      Ready
-                    </span>
+                <span className="flex w-16 shrink-0 items-center justify-end gap-1">
+                  <StateIndicator
+                    template={template}
+                    instantiable={instantiable}
+                  />
+                  {onToggleFavourite ? (
+                    <FavouriteToggle
+                      favourited={favourites.has(template.id)}
+                      onToggle={() => onToggleFavourite(template.id)}
+                    />
                   ) : null}
                 </span>
-              </button>
+              </div>
             </li>
           )
         })}
       </ul>
     </div>
+  )
+}
+
+function TemplateGridCard({
+  template,
+  isSelected,
+  onSelect,
+  blockCount,
+  usageCount,
+  favourited,
+  onToggleFavourite,
+  currentUserId,
+  previewBlocks,
+}: {
+  template: NotebookRecord
+  isSelected: boolean
+  onSelect: (id: string) => void
+  blockCount: number | undefined
+  usageCount: number
+  favourited: boolean
+  onToggleFavourite?: (id: string) => void
+  currentUserId: string | null
+  previewBlocks: NotebookBlock[]
+}) {
+  const kind = isTemplateKind(template.kind) ? template.kind : null
+  const instantiable = kind
+    ? isInstantiable(kind, template.status, template.archivedAt)
+    : false
+  return (
+    <li>
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => onSelect(template.id)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            onSelect(template.id)
+          }
+        }}
+        aria-pressed={isSelected}
+        className={cn(
+          'flex h-full w-full flex-col gap-3 rounded-lg border border-border p-3 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          isSelected && 'border-primary ring-1 ring-primary',
+        )}
+      >
+        <div className="flex items-start gap-2">
+          <span className="min-w-0 flex-1">
+            <span className="flex items-center gap-1.5">
+              <span className="truncate text-sm font-medium text-foreground">
+                {template.title}
+              </span>
+              {template.archivedAt ? (
+                <Badge variant="outline" className="shrink-0 text-[10px]">
+                  <Archive className="size-3" aria-hidden="true" />
+                  Archived
+                </Badge>
+              ) : instantiable ? (
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
+                  <CheckCircle2 className="size-3" aria-hidden="true" />
+                  Ready
+                </span>
+              ) : null}
+            </span>
+            <span className="block truncate font-mono text-[11px] text-muted-foreground">
+              {template.identifier}
+            </span>
+          </span>
+          {onToggleFavourite ? (
+            <FavouriteToggle
+              favourited={favourited}
+              onToggle={() => onToggleFavourite(template.id)}
+            />
+          ) : null}
+        </div>
+        <TemplateThumbnail blocks={previewBlocks} />
+        <div className="mt-auto flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            {kind ? (
+              <Badge variant="outline" className="text-[10px]">
+                {TEMPLATE_KIND_LABEL[kind]}
+              </Badge>
+            ) : null}
+            <StatusBadge
+              status={template.status}
+              domain={
+                template.kind === 'notebook_template'
+                  ? 'notebook_template'
+                  : 'protocol'
+              }
+            />
+          </span>
+          <span className="tabular-nums">
+            {ownerLabel(template.createdByUserId, currentUserId)} ·{' '}
+            {blockCount ?? 0} blocks · {usageCount}{' '}
+            {usageCount === 1 ? 'use' : 'uses'}
+          </span>
+        </div>
+      </div>
+    </li>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Template actions (duplicate / export / archive)
+// ---------------------------------------------------------------------------
+
+export interface TemplateActionsProps {
+  template: NotebookRecord
+  usageCount: number
+  canManage: boolean
+  isArchiving: boolean
+  isDuplicating: boolean
+  actionError: string | null
+  onArchive: () => void
+  onDuplicate: () => void
+  onExport: () => void
+}
+
+/**
+ * Duplicate / export / archive actions with permission and dependency
+ * checks (TPL-001). Duplicate and export are available to any workspace
+ * member who can read the template; archive requires management rights and
+ * is disabled once the template is already archived. Archive shows a
+ * dependency warning when the template is in use.
+ */
+export function TemplateActions({
+  template,
+  usageCount,
+  canManage,
+  isArchiving,
+  isDuplicating,
+  actionError,
+  onArchive,
+  onDuplicate,
+  onExport,
+}: TemplateActionsProps) {
+  const archived = Boolean(template.archivedAt)
+  const warning = archiveDependencyWarning(usageCount)
+  return (
+    <InspectorSection title="Actions">
+      <div className="space-y-2">
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onDuplicate}
+            disabled={isDuplicating || archived}
+            className="gap-1.5"
+          >
+            <Copy className="size-3.5" aria-hidden="true" />
+            {isDuplicating ? 'Duplicating…' : 'Duplicate'}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onExport}
+            className="gap-1.5"
+          >
+            <Download className="size-3.5" aria-hidden="true" />
+            Export
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onArchive}
+            disabled={!canManage || archived || isArchiving}
+            className="gap-1.5"
+          >
+            <Archive className="size-3.5" aria-hidden="true" />
+            {isArchiving ? 'Archiving…' : 'Archive'}
+          </Button>
+        </div>
+        {!canManage ? (
+          <p className="text-[11px] text-muted-foreground">
+            Only the template author or a workspace owner/admin can archive it.
+          </p>
+        ) : null}
+        {archived ? (
+          <p className="text-[11px] text-muted-foreground">
+            This template is already archived.
+          </p>
+        ) : null}
+        {warning ? (
+          <p
+            role="note"
+            className="rounded-md border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
+          >
+            {warning}
+          </p>
+        ) : null}
+        {actionError ? (
+          <p role="alert" className="text-xs text-destructive">
+            {actionError}
+          </p>
+        ) : null}
+      </div>
+    </InspectorSection>
   )
 }
 
@@ -382,6 +879,16 @@ export function TemplateInspector({
   isInstantiating,
   instantiationError,
   instantiationSuccess,
+  usageCount = 0,
+  linkedRecords = [],
+  currentUserId = null,
+  role = null,
+  onArchive,
+  onDuplicate,
+  onExport,
+  isArchiving = false,
+  isDuplicating = false,
+  actionError = null,
 }: {
   template: NotebookRecord
   blocks: NotebookBlock[]
@@ -391,6 +898,19 @@ export function TemplateInspector({
   isInstantiating: boolean
   instantiationError: string | null
   instantiationSuccess: { recordId: string; projectId: string } | null
+  /** TPL-001: number of records instantiated from this template. */
+  usageCount?: number
+  /** TPL-001: records instantiated from this template. */
+  linkedRecords?: TemplateLinkedRecord[]
+  /** TPL-001: current user id + workspace role for ownership/permissions. */
+  currentUserId?: string | null
+  role?: string | null
+  onArchive?: () => void
+  onDuplicate?: () => void
+  onExport?: () => void
+  isArchiving?: boolean
+  isDuplicating?: boolean
+  actionError?: string | null
 }) {
   const [title, setTitle] = useState(template.title)
   const [projectId, setProjectId] = useState('')
@@ -399,6 +919,8 @@ export function TemplateInspector({
   const canInstantiate = kind
     ? isInstantiable(kind, template.status, template.archivedAt)
     : false
+  const canManage = canManageTemplate(template, currentUserId, role)
+  const hasActions = Boolean(onArchive || onDuplicate || onExport)
 
   // Reset title when template changes.
   useEffect(() => {
@@ -441,6 +963,24 @@ export function TemplateInspector({
           </dd>
         </div>
         <div className="flex gap-2">
+          <dt className="w-20 shrink-0 text-muted-foreground">Version</dt>
+          <dd className="text-xs tabular-nums text-muted-foreground">
+            v{template.metadataVersion} (structure v{template.structureVersion})
+          </dd>
+        </div>
+        <div className="flex gap-2">
+          <dt className="w-20 shrink-0 text-muted-foreground">Author</dt>
+          <dd className="text-xs text-muted-foreground">
+            {ownerLabel(template.createdByUserId, currentUserId)}
+          </dd>
+        </div>
+        <div className="flex gap-2">
+          <dt className="w-20 shrink-0 text-muted-foreground">Usage</dt>
+          <dd className="text-xs tabular-nums text-muted-foreground">
+            {usageCount} {usageCount === 1 ? 'record' : 'records'}
+          </dd>
+        </div>
+        <div className="flex gap-2">
           <dt className="w-20 shrink-0 text-muted-foreground">Updated</dt>
           <dd className="text-xs text-muted-foreground">
             {formatRelativeTime(template.updatedAt)}
@@ -462,18 +1002,52 @@ export function TemplateInspector({
         ) : null}
       </dl>
 
+      <InspectorSection title="Linked records">
+        {linkedRecords.length === 0 ? (
+          <p className="text-[11px] text-muted-foreground">
+            No records have been instantiated from this template yet.
+          </p>
+        ) : (
+          <ul className="space-y-1">
+            {linkedRecords.map((record) => (
+              <li key={record.id}>
+                <Link
+                  to="/projects/$projectId/experiments/$recordId"
+                  params={{
+                    projectId: record.projectId ?? '',
+                    recordId: record.id,
+                  }}
+                  className="block truncate text-xs text-primary no-underline hover:underline"
+                >
+                  <span className="font-mono text-muted-foreground">
+                    {record.identifier}
+                  </span>{' '}
+                  {record.title}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </InspectorSection>
+
       <InspectorSection title="Approvals">
         <p className="text-[11px] text-muted-foreground">
-          Review workflow is not yet connected — statuses shown are
-          placeholders.
+          Review workflow is not yet connected — statuses shown are placeholders
+          derived from the template lifecycle.
         </p>
         <CheckList
           items={[
             {
               id: 'scientific-review',
               label: 'Scientific review',
-              state: 'pending',
-              detail: 'Pending',
+              state:
+                template.status === 'validated' || template.status === 'active'
+                  ? 'pass'
+                  : 'pending',
+              detail:
+                template.status === 'validated' || template.status === 'active'
+                  ? 'Approved'
+                  : 'Pending',
             },
             {
               id: 'qa-review',
@@ -484,6 +1058,20 @@ export function TemplateInspector({
           ]}
         />
       </InspectorSection>
+
+      {hasActions ? (
+        <TemplateActions
+          template={template}
+          usageCount={usageCount}
+          canManage={canManage}
+          isArchiving={isArchiving}
+          isDuplicating={isDuplicating}
+          actionError={actionError}
+          onArchive={onArchive ?? (() => {})}
+          onDuplicate={onDuplicate ?? (() => {})}
+          onExport={onExport ?? (() => {})}
+        />
+      ) : null}
 
       {canInstantiate ? (
         <InspectorSection title="Use this template">
@@ -512,6 +1100,11 @@ export function TemplateInspector({
               }}
               className="space-y-3"
             >
+              <p className="text-[11px] text-muted-foreground">
+                Pinned to version v{template.metadataVersion}. A new record is
+                created from an immutable snapshot of this template; later
+                template edits do not affect it.
+              </p>
               <div>
                 <label
                   htmlFor="instantiate-title"

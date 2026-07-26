@@ -39,7 +39,8 @@ async function main() {
 
   for (const theme of ['light', 'dark'] as const) {
     await page.goto(`${BASE}/foundations`)
-    await page.waitForLoadState("domcontentloaded"); await page.waitForTimeout(800)
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(800)
     // Set theme + density via localStorage and reload so the no-flash script
     // applies them before first paint.
     await page.evaluate(
@@ -50,12 +51,15 @@ async function main() {
       { t: theme },
     )
     await page.reload()
-    await page.waitForLoadState("domcontentloaded"); await page.waitForTimeout(800)
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(800)
 
     for (const { name, selector } of shots) {
       const el = await page.$(selector)
       if (!el) {
-        console.warn(`[screenshot] ${theme}/${name}: selector ${selector} not found`)
+        console.warn(
+          `[screenshot] ${theme}/${name}: selector ${selector} not found`,
+        )
         continue
       }
       const file = resolve(OUT, `${theme}-${name}.png`)
@@ -68,7 +72,8 @@ async function main() {
       localStorage.setItem('sheetbase-density', 'compact')
     })
     await page.reload()
-    await page.waitForLoadState("domcontentloaded"); await page.waitForTimeout(800)
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(800)
     for (const { name, selector } of [
       { name: 'states', selector: '#states' },
       { name: 'record', selector: '#record' },
@@ -88,4 +93,3 @@ main().catch((err) => {
   console.error(err)
   process.exit(1)
 })
-

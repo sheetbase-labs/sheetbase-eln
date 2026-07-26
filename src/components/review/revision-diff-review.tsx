@@ -16,6 +16,7 @@ import { diffRevisionEnvelopes } from '#/lib/revision-diff'
 import type {
   CanonicalRevisionEnvelope,
   RevisionChange,
+  RevisionChangeArea,
   RevisionChangeKind,
   RevisionDiffResult,
   RevisionTableDiffSummary,
@@ -31,6 +32,20 @@ export interface RevisionDiffReviewProps {
 }
 
 const KINDS: RevisionChangeKind[] = ['added', 'removed', 'modified', 'moved']
+
+// Display order matches the diff engine's internal area ordering so filtered
+// controls follow the same sequence reviewers see changes in.
+const AREA_ORDER: RevisionChangeArea[] = [
+  'metadata',
+  'blocks',
+  'text',
+  'checklists',
+  'links',
+  'tables',
+  'formulas',
+  'files',
+]
+
 const TABLE_DETAIL_BATCH = 100
 
 const KIND_META: Record<
@@ -281,12 +296,25 @@ function TableDiffCard({
   )
 }
 
+function changeMatchesFilters(
+  change: RevisionChange,
+  enabledKinds: Set<RevisionChangeKind>,
+  enabledAreas: Set<RevisionChangeArea>,
+): boolean {
+  return enabledKinds.has(change.kind) && enabledAreas.has(change.area)
+}
+
 function buildReviewItems(
   diff: RevisionDiffResult,
   enabledKinds: Set<RevisionChangeKind>,
+  enabledAreas: Set<RevisionChangeArea>,
 ): ReviewItem[] {
   const items: ReviewItem[] = diff.changes
-    .filter((change) => !change.tableId && enabledKinds.has(change.kind))
+    .filter(
+      (change) =>
+        !change.tableId &&
+        changeMatchesFilters(change, enabledKinds, enabledAreas),
+    )
     .map((change) => ({
       id: change.id,
       order: diff.changes.indexOf(change),
@@ -296,7 +324,7 @@ function buildReviewItems(
 
   for (const summary of diff.tableSummaries) {
     const visibleChanges = summary.changes.filter((change) =>
-      enabledKinds.has(change.kind),
+      changeMatchesFilters(change, enabledKinds, enabledAreas),
     )
     if (visibleChanges.length === 0) continue
     items.push({
@@ -324,15 +352,28 @@ export function RevisionDiffReview({
   const [enabledKinds, setEnabledKinds] = React.useState(
     () => new Set<RevisionChangeKind>(KINDS),
   )
+  const [enabledAreas, setEnabledAreas] = React.useState(
+    () => new Set<RevisionChangeArea>(AREA_ORDER),
+  )
   const [activeIndex, setActiveIndex] = React.useState(0)
   const rootRef = React.useRef<HTMLElement>(null)
+  const areasInDiff = React.useMemo(
+    () =>
+      AREA_ORDER.filter((area) =>
+        diff.changes.some((change) => change.area === area),
+      ),
+    [diff.changes],
+  )
   const items = React.useMemo(
-    () => buildReviewItems(diff, enabledKinds),
-    [diff, enabledKinds],
+    () => buildReviewItems(diff, enabledKinds, enabledAreas),
+    [diff, enabledKinds, enabledAreas],
   )
   const visibleChanges = React.useMemo(
-    () => diff.changes.filter((change) => enabledKinds.has(change.kind)),
-    [diff.changes, enabledKinds],
+    () =>
+      diff.changes.filter((change) =>
+        changeMatchesFilters(change, enabledKinds, enabledAreas),
+      ),
+    [diff.changes, enabledKinds, enabledAreas],
   )
   const activeChange: RevisionChange | undefined =
     visibleChanges.at(activeIndex)
@@ -358,6 +399,15 @@ export function RevisionDiffReview({
       const next = new Set(current)
       if (next.has(kind)) next.delete(kind)
       else next.add(kind)
+      return next
+    })
+  }
+
+  function toggleArea(area: RevisionChangeArea) {
+    setEnabledAreas((current) => {
+      const next = new Set(current)
+      if (next.has(area)) next.delete(area)
+      else next.add(area)
       return next
     })
   }
@@ -395,27 +445,55 @@ export function RevisionDiffReview({
 
       {!diff.unchanged ? (
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div
-            role="group"
-            className="flex flex-wrap gap-1"
-            aria-label="Change type filters"
-          >
-            {KINDS.map((kind) => {
-              const enabled = enabledKinds.has(kind)
-              const meta = KIND_META[kind]
-              return (
-                <Button
-                  key={kind}
-                  variant={enabled ? 'secondary' : 'outline'}
-                  size="sm"
-                  aria-pressed={enabled}
-                  aria-label={`${enabled ? 'Hide' : 'Show'} ${kind} changes`}
-                  onClick={() => toggleKind(kind)}
-                >
-                  {meta.label} ({diff.counts[kind]})
-                </Button>
-              )
-            })}
+          <div className="flex flex-col gap-1">
+            <div
+              role="group"
+              className="flex flex-wrap gap-1"
+              aria-label="Change type filters"
+            >
+              {KINDS.map((kind) => {
+                const enabled = enabledKinds.has(kind)
+                const meta = KIND_META[kind]
+                return (
+                  <Button
+                    key={kind}
+                    variant={enabled ? 'secondary' : 'outline'}
+                    size="sm"
+                    aria-pressed={enabled}
+                    aria-label={`${enabled ? 'Hide' : 'Show'} ${kind} changes`}
+                    onClick={() => toggleKind(kind)}
+                  >
+                    {meta.label} ({diff.counts[kind]})
+                  </Button>
+                )
+              })}
+            </div>
+            {areasInDiff.length > 1 ? (
+              <div
+                role="group"
+                className="flex flex-wrap gap-1"
+                aria-label="Change area filters"
+              >
+                {areasInDiff.map((area) => {
+                  const enabled = enabledAreas.has(area)
+                  const areaCount = diff.changes.filter(
+                    (change) => change.area === area,
+                  ).length
+                  return (
+                    <Button
+                      key={area}
+                      variant={enabled ? 'secondary' : 'outline'}
+                      size="sm"
+                      aria-pressed={enabled}
+                      aria-label={`${enabled ? 'Hide' : 'Show'} ${AREA_LABELS[area]} changes`}
+                      onClick={() => toggleArea(area)}
+                    >
+                      {AREA_LABELS[area]} ({areaCount})
+                    </Button>
+                  )
+                })}
+              </div>
+            ) : null}
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground" aria-live="polite">

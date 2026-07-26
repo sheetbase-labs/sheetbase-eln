@@ -42,6 +42,47 @@ describe('RevisionDiffReview', () => {
     ).toBe('false')
   })
 
+  it('focuses by change area so reviewers can isolate a single area', () => {
+    render(
+      <RevisionDiffReview
+        before={revisionFixture()}
+        after={changedRevisionFixture()}
+      />,
+    )
+
+    // The multi-area fixture exposes an area filter group covering every area
+    // that has changes. Table changes start collapsed behind a summary card.
+    expect(
+      screen.getByRole('group', { name: 'Change area filters' }),
+    ).toBeTruthy()
+    expect(
+      screen.getByRole('button', { name: /show changes for timepoints/i }),
+    ).toBeTruthy()
+
+    const total = screen.getByText(/^Change 1 of /).textContent
+
+    // Hiding the scientific-table area removes the table summary card and
+    // drops every table cell change from the navigation stream.
+    fireEvent.click(
+      screen.getByRole('button', { name: /hide scientific table changes/i }),
+    )
+    expect(
+      screen.queryByRole('button', { name: /show changes for timepoints/i }),
+    ).toBeNull()
+    const remaining = screen.getByText(/^Change 1 of /).textContent
+    expect(Number(remaining.match(/of (\d+)/)![1])).toBeLessThan(
+      Number(total.match(/of (\d+)/)![1]),
+    )
+
+    // Restoring the area brings the table summary card back.
+    fireEvent.click(
+      screen.getByRole('button', { name: /show scientific table changes/i }),
+    )
+    expect(
+      screen.getByRole('button', { name: /show changes for timepoints/i }),
+    ).toBeTruthy()
+  })
+
   it('navigates between visible changes with labelled controls', () => {
     const scrollIntoView = vi.fn()
     Element.prototype.scrollIntoView = scrollIntoView

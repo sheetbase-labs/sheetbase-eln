@@ -796,13 +796,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** REV-002.
 
-- [ ] Compare record metadata, block insertion/removal/order, text, checklist state, links, table cells, formulas and files.
-- [ ] Use stable identities so moves are not misreported as delete-and-add when avoidable.
-- [ ] Distinguish added, removed and modified values without relying only on colour.
-- [ ] Allow reviewers to focus by change type and navigate between changes.
-- [ ] Handle large table diffs with summaries and on-demand detail.
-- [ ] Preserve scientific notation, units and formula text exactly.
-- [ ] Add fixture-based tests for each change type and unchanged content.
+- [x] Compare record metadata, block insertion/removal/order, text, checklist state, links, table cells, formulas and files.
+- [x] Use stable identities so moves are not misreported as delete-and-add when avoidable.
+- [x] Distinguish added, removed and modified values without relying only on colour.
+- [x] Allow reviewers to focus by change type and navigate between changes.
+- [x] Handle large table diffs with summaries and on-demand detail.
+- [x] Preserve scientific notation, units and formula text exactly.
+- [x] Add fixture-based tests for each change type and unchanged content.
 
 ### REV-004 — Add anchored comments and resolutions
 

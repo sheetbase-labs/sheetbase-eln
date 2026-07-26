@@ -45,6 +45,8 @@ export interface ScientificTableWire {
   schema_version: number
   lifecycle: string
   columns: ScientificColumnWire[]
+  /** Present in the `scientific_table_metadata` RPC result; omitted by some stubs. */
+  record_id?: string
   /** SCI-010: dataset schema binding. null for legacy unbound sheets. */
   dataset_schema_id?: string | null
   dataset_schema_revision?: number | null

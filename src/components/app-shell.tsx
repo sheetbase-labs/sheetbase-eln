@@ -162,6 +162,7 @@ export const defaultNavSections: AppShellNavSection[] = [
       { to: '/search', label: 'Search', icon: Search },
       { to: '/templates', label: 'Templates', icon: LayoutTemplate },
       { to: '/schemas', label: 'Schemas', icon: Database },
+      { to: '/datasets', label: 'Datasets', icon: Database },
       { to: '/my-work', label: 'My work', icon: LayoutGrid, disabled: true },
       {
         to: '/activity',

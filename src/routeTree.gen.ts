@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DatasetsRouteImport } from './routes/datasets'
 import { Route as FoundationsRouteImport } from './routes/foundations'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as SchemasRouteImport } from './routes/schemas'
@@ -34,6 +35,11 @@ import { Route as ProjectsProjectIdExperimentsRecordIdOverviewRouteImport } from
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DatasetsRoute = DatasetsRouteImport.update({
+  id: '/datasets',
+  path: '/datasets',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FoundationsRoute = FoundationsRouteImport.update({
@@ -141,6 +147,7 @@ const ProjectsProjectIdExperimentsRecordIdOverviewRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/datasets': typeof DatasetsRoute
   '/foundations': typeof FoundationsRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/schemas': typeof SchemasRoute
@@ -164,6 +171,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/datasets': typeof DatasetsRoute
   '/foundations': typeof FoundationsRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/schemas': typeof SchemasRoute
@@ -188,6 +196,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/datasets': typeof DatasetsRoute
   '/foundations': typeof FoundationsRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/schemas': typeof SchemasRoute
@@ -213,6 +222,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/datasets'
     | '/foundations'
     | '/projects'
     | '/schemas'
@@ -236,6 +246,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/datasets'
     | '/foundations'
     | '/projects'
     | '/schemas'
@@ -259,6 +270,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/datasets'
     | '/foundations'
     | '/projects'
     | '/schemas'
@@ -283,6 +295,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DatasetsRoute: typeof DatasetsRoute
   FoundationsRoute: typeof FoundationsRoute
   ProjectsRoute: typeof ProjectsRouteWithChildren
   SchemasRoute: typeof SchemasRoute
@@ -309,6 +322,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/datasets': {
+      id: '/datasets'
+      path: '/datasets'
+      fullPath: '/datasets'
+      preLoaderRoute: typeof DatasetsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/foundations': {
@@ -495,6 +515,7 @@ const ProjectsRouteWithChildren = ProjectsRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DatasetsRoute: DatasetsRoute,
   FoundationsRoute: FoundationsRoute,
   ProjectsRoute: ProjectsRouteWithChildren,
   SchemasRoute: SchemasRoute,

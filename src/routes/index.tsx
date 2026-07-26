@@ -458,6 +458,12 @@ const QUICK_ACTIONS: QuickAction[] = [
     icon: Database,
     hint: 'Manage dataset schemas',
   },
+  {
+    label: 'Datasets',
+    to: '/datasets',
+    icon: Database,
+    hint: 'Browse datasets, schemas and lineage',
+  },
 ]
 
 function QuickActionsGrid() {

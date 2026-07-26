@@ -231,6 +231,23 @@ export function createLiveEventCoordinator(
         }
         break
       }
+      case 'comment': {
+        // REV-004: comment events carry the anchored revision id in the
+        // payload. Invalidate the comments collection for that revision so a
+        // second tab's comment arrives without a full reload.
+        const revisionId = event.payload.revisionId
+        if (typeof revisionId === 'string') {
+          void qc.invalidateQueries({
+            queryKey: ['comments', 'revision', revisionId],
+          })
+        }
+        if (event.recordId) {
+          void qc.invalidateQueries({
+            queryKey: ['comments', 'record', event.recordId],
+          })
+        }
+        break
+      }
       case 'scientific_table': {
         void qc.invalidateQueries({
           queryKey: ['scientific-table', event.entityUuid],
@@ -340,6 +357,7 @@ export function createLiveEventCoordinator(
       'scientific-calculation-results',
       'formula',
       'calculation',
+      'comments',
     ])
       void qc.invalidateQueries({ queryKey: [prefix] })
   }

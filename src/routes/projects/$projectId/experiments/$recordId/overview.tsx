@@ -8,6 +8,7 @@ import { createFileRoute, Link, useSearch } from '@tanstack/react-router'
 import { FileWarning } from 'lucide-react'
 
 import { AppShell } from '#/components/app-shell'
+import { CommentPanel } from '#/components/comments'
 import { OverviewTabs } from '#/components/overview'
 import {
   Inspector,
@@ -290,6 +291,10 @@ function ExperimentOverviewRoute() {
           links={links}
           linksLoading={linksQuery.isLoading}
           blocks={blocks}
+          revisionId={revisionId}
+          currentUserId={context.user.id}
+          currentUserName={context.user.name}
+          canComment={Boolean(context.workspace)}
         />
       }
     >
@@ -348,6 +353,10 @@ function OverviewInspector({
   links,
   linksLoading,
   blocks,
+  revisionId,
+  currentUserId,
+  currentUserName,
+  canComment,
 }: {
   record: NotebookRecord
   projectName?: string | null
@@ -355,6 +364,10 @@ function OverviewInspector({
   links: NotebookLink[]
   linksLoading: boolean
   blocks?: NotebookBlock[]
+  revisionId?: string
+  currentUserId?: string | null
+  currentUserName?: string
+  canComment?: boolean
 }) {
   // Collect file blocks for the Files tab.
   const fileBlocks = blocks?.filter((b) => b.type === 'file') ?? []
@@ -450,7 +463,18 @@ function OverviewInspector({
         {
           id: 'comments',
           label: 'Comments',
-          content: (
+          content: revisionId ? (
+            <InspectorSection title="Comments">
+              <CommentPanel
+                revisionId={revisionId}
+                targetKind="revision"
+                target={{}}
+                currentUserId={currentUserId ?? null}
+                currentUserName={currentUserName ?? 'Reviewer'}
+                canComment={Boolean(canComment)}
+              />
+            </InspectorSection>
+          ) : (
             <InspectorSection title="Comments">
               <CommentList items={[]} />
             </InspectorSection>

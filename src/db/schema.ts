@@ -29,6 +29,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
+import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 
 const internal = pgSchema('internal')
 const api = pgSchema('api')
@@ -869,6 +870,96 @@ export const reviewCheckResults = api.table(
 )
 
 /**
+ * comments (REV-004) are anchored review discussions on an immutable
+ * submitted revision. The anchor is `revision_id` plus a stable `target`
+ * descriptor referencing an entity by its snapshot identity (block id, table
+ * id / row / column, or a deterministic diff change id between two immutable
+ * revisions). Because both sides of the anchor are frozen, later draft edits
+ * can never silently move a comment to unrelated content.
+ *
+ * Threading uses `rootId` (self for a top-level comment) and `parentId` (the
+ * direct parent for a reply; null for top-level). Resolution is a
+ * thread-level state stored on the root; replies are always 'open' and
+ * inherit the thread state for display.
+ *
+ * Author attribution is honest about departed users: `authorUserId` is ON
+ * DELETE SET NULL and the UI renders "Deleted user" when it is null. Writes
+ * go only through SECURITY DEFINER RPCs (create/reply/resolve/reopen), so
+ * target validation, workspace membership and mention checks are enforced in
+ * one place; request roles get SELECT plus EXECUTE on the RPCs and nothing
+ * else.
+ */
+export const comments = api.table(
+  'comments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    revisionId: uuid('revision_id')
+      .notNull()
+      .references(() => revisions.id, { onDelete: 'restrict' }),
+    recordId: uuid('record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'restrict' }),
+    // Self for a top-level comment; the thread root for replies.
+    rootId: uuid('root_id')
+      .notNull()
+      .references((): AnyPgColumn => comments.id, { onDelete: 'restrict' }),
+    parentId: uuid('parent_id').references((): AnyPgColumn => comments.id, {
+      onDelete: 'restrict',
+    }),
+    // revision | block | table_region | diff
+    targetKind: text('target_kind').notNull(),
+    target: jsonb('target')
+      .notNull()
+      .default(sql`'{}'`),
+    body: text('body').notNull(),
+    mentions: text('mentions')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    // open | resolved (thread-level state on the root).
+    state: text('state').notNull().default('open'),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true, mode: 'date' }),
+    resolvedByUserId: text('resolved_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    authorUserId: text('author_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      'chk_comments_target_kind',
+      sql`${table.targetKind} IN ('revision', 'block', 'table_region', 'diff')`,
+    ),
+    check('chk_comments_state', sql`${table.state} IN ('open', 'resolved')`),
+    check('chk_comments_body', sql`length(${table.body}) BETWEEN 1 AND 8000`),
+    check(
+      'chk_comments_resolved_consistency',
+      sql`(${table.state} = 'resolved') = (${table.resolvedAt} IS NOT NULL)`,
+    ),
+    check(
+      'chk_comments_root_parent',
+      sql`(${table.parentId} IS NULL) = (${table.rootId} = ${table.id})`,
+    ),
+    index('idx_comments_workspace_revision').on(
+      table.workspaceId,
+      table.revisionId,
+      table.createdAt,
+    ),
+    index('idx_comments_root').on(
+      table.workspaceId,
+      table.rootId,
+      table.createdAt,
+    ),
+    index('idx_comments_record').on(table.workspaceId, table.recordId),
+  ],
+)
+
+/**
  * Normalized retention references for every physical file object captured in
  * an immutable revision envelope. This internal table pins the exact storage
  * identity, checksum and size so later draft uploads cannot replace evidence.
@@ -1702,11 +1793,11 @@ export const changeEvents = api.table(
     ),
     check(
       'chk_change_events_entity_type',
-      sql`${table.entityType} IN ('project', 'folder', 'record', 'block', 'record_link', 'scientific_table', 'scientific_row', 'formula', 'calculation', 'record_field_definition', 'file', 'dataset_schema', 'dataset_schema_field', 'dataset_schema_relationship', 'sample_event')`,
+      sql`${table.entityType} IN ('project', 'folder', 'record', 'block', 'record_link', 'scientific_table', 'scientific_row', 'formula', 'calculation', 'record_field_definition', 'file', 'dataset_schema', 'dataset_schema_field', 'dataset_schema_relationship', 'sample_event', 'comment')`,
     ),
     check(
       'chk_change_events_operation',
-      sql`${table.operation} IN ('create', 'update', 'move', 'delete', 'archive', 'restore', 'link', 'unlink', 'quarantine')`,
+      sql`${table.operation} IN ('create', 'update', 'move', 'delete', 'archive', 'restore', 'link', 'unlink', 'quarantine', 'resolve', 'reopen')`,
     ),
     // Hot replay path: WHERE workspace_id = $1 AND sequence > $2 ORDER BY sequence.
     index('idx_change_events_workspace_sequence').on(
@@ -1798,6 +1889,7 @@ export const workspacesRelations = relations(workspaces, ({ many }) => ({
   projects: many(projects),
   revisions: many(revisions),
   reviewSubmissions: many(reviewSubmissions),
+  comments: many(comments),
 }))
 
 export const workspaceMembershipsRelations = relations(
@@ -1845,6 +1937,7 @@ export const recordsRelations = relations(records, ({ one, many }) => ({
   reagentMovements: many(reagentMovements),
   reviewSubmissions: many(reviewSubmissions),
   sampleEvents: many(sampleEvents),
+  comments: many(comments),
 }))
 
 export const blocksRelations = relations(blocks, ({ one }) => ({
@@ -1947,7 +2040,7 @@ export const recordLinksRelations = relations(recordLinks, ({ one }) => ({
   }),
 }))
 
-export const revisionsRelations = relations(revisions, ({ one }) => ({
+export const revisionsRelations = relations(revisions, ({ one, many }) => ({
   workspace: one(workspaces, {
     fields: [revisions.workspaceId],
     references: [workspaces.id],
@@ -1961,6 +2054,7 @@ export const revisionsRelations = relations(revisions, ({ one }) => ({
     references: [revisions.id],
     relationName: 'revision_superseded_by',
   }),
+  comments: many(comments),
 }))
 
 export const reviewSubmissionsRelations = relations(
@@ -1998,3 +2092,28 @@ export const reviewCheckResultsRelations = relations(
     }),
   }),
 )
+
+export const commentsRelations = relations(comments, ({ one }) => ({
+  workspace: one(workspaces, {
+    fields: [comments.workspaceId],
+    references: [workspaces.id],
+  }),
+  revision: one(revisions, {
+    fields: [comments.revisionId],
+    references: [revisions.id],
+  }),
+  record: one(records, {
+    fields: [comments.recordId],
+    references: [records.id],
+  }),
+  root: one(comments, {
+    fields: [comments.rootId],
+    references: [comments.id],
+    relationName: 'comment_thread_root',
+  }),
+  parent: one(comments, {
+    fields: [comments.parentId],
+    references: [comments.id],
+    relationName: 'comment_parent',
+  }),
+}))

@@ -157,26 +157,20 @@ describe('reagentAttention', () => {
 
   it('flags low stock when quantity is at or below the threshold', () => {
     expect(
-      reagentAttention(
-        makeReagent({ quantity: 2, lowStockThreshold: 5 }),
-        now,
-      ).kind,
+      reagentAttention(makeReagent({ quantity: 2, lowStockThreshold: 5 }), now)
+        .kind,
     ).toBe('low_stock')
     // At the boundary (equal) it is still low stock.
     expect(
-      reagentAttention(
-        makeReagent({ quantity: 5, lowStockThreshold: 5 }),
-        now,
-      ).kind,
+      reagentAttention(makeReagent({ quantity: 5, lowStockThreshold: 5 }), now)
+        .kind,
     ).toBe('low_stock')
   })
 
   it('does not flag low stock above the threshold', () => {
     expect(
-      reagentAttention(
-        makeReagent({ quantity: 10, lowStockThreshold: 5 }),
-        now,
-      ).kind,
+      reagentAttention(makeReagent({ quantity: 10, lowStockThreshold: 5 }), now)
+        .kind,
     ).toBe('ok')
   })
 

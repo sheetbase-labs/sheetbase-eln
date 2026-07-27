@@ -242,4 +242,50 @@ describe('diffRevisionEnvelopes', () => {
       diffRevisionEnvelopes(before, after),
     )
   })
+
+  it('diffs scientific-table cells when columns are serialized with field_name (real DB shape)', () => {
+    // The canonical snapshot built by internal.build_revision_envelope
+    // serializes scientific_columns with to_jsonb(column_row), so each column
+    // carries `field_name` (the physical API column), not `api_name`. A cell
+    // edit must still surface as a modifiedCells change with the field_name
+    // key resolving the row value.
+    const before = revisionFixture()
+    const after = changedRevisionFixture()
+    const tableBefore = before.scientificTables[0]
+    const tableAfter = after.scientificTables[0]
+    const toFieldName = (columns: unknown) =>
+      (columns as Array<Record<string, unknown>>).map((column) => {
+        const { api_name, ...rest } = column
+        return { ...rest, field_name: api_name }
+      })
+    tableBefore.columns = toFieldName(tableBefore.columns)
+    tableAfter.columns = toFieldName(tableAfter.columns)
+    // Re-key the dynamic rows to match the renamed columns.
+    tableBefore.rows = [
+      { id: 'row-1', timepoint: '0', titer: '1.2300E+06' },
+      { id: 'row-2', timepoint: '7', titer: '9.5000E+05' },
+    ]
+    tableAfter.rows = [
+      { id: 'row-1', timepoint: '0', titer: '1.2300E+06' },
+      { id: 'row-2', timepoint: '7', titer: '1.0250E+06' },
+      { id: 'row-3', timepoint: '14', titer: '8.1000E+05' },
+    ]
+
+    const diff = diffRevisionEnvelopes(before, after)
+    const summary = diff.tableSummaries[0]
+    const cell = summary.changes.find(
+      (change) => change.identity === 'table-1:row-2:column-titer',
+    )
+
+    expect(summary).toMatchObject({
+      tableId: 'table-1',
+      addedRows: 1,
+      modifiedCells: 1,
+    })
+    expect(cell).toMatchObject({
+      kind: 'modified',
+      before: '9.5000E+05',
+      after: '1.0250E+06',
+    })
+  })
 })

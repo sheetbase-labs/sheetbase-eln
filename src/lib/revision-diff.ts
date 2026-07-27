@@ -549,7 +549,7 @@ function tableColumnName(column: RevisionEntity, id: string): string {
 }
 
 function tableColumnKey(column: RevisionEntity): string | null {
-  for (const key of ['apiName', 'api_name', 'name']) {
+  for (const key of ['apiName', 'api_name', 'field_name', 'name']) {
     if (typeof column[key] === 'string') return column[key]
   }
   return null

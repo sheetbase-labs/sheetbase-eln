@@ -808,13 +808,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** REV-002.
 
-- [ ] Allow comments on a revision, block, table region or specific diff where the target has a stable identity.
-- [ ] Store comment author, timestamp, target, thread and resolution state.
-- [ ] Prevent later document changes from silently moving a comment to unrelated content.
-- [ ] Support replies, mentions, resolution and reopening with appropriate permissions.
-- [ ] Deliver comment events through the existing live event channel.
-- [ ] Show unavailable targets and deleted users honestly.
-- [ ] Add permission, anchoring, live-update and resolution tests.
+- [x] Allow comments on a revision, block, table region or specific diff where the target has a stable identity.
+- [x] Store comment author, timestamp, target, thread and resolution state.
+- [x] Prevent later document changes from silently moving a comment to unrelated content.
+- [x] Support replies, mentions, resolution and reopening with appropriate permissions.
+- [x] Deliver comment events through the existing live event channel.
+- [x] Show unavailable targets and deleted users honestly.
+- [x] Add permission, anchoring, live-update and resolution tests.
 
 ### REV-005 — Add reviewer checklists and data-integrity checks
 
@@ -878,14 +878,14 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** SIGN-002.
 
-- [ ] Submit the working Virus Stability experiment as a fixed revision.
-- [ ] Create a later draft change and verify the submitted version remains unchanged.
-- [ ] Review text, table and formula differences.
-- [ ] Add and resolve an anchored comment.
-- [ ] Run reviewer and calculation checks against the submitted evidence.
-- [ ] Approve, sign and lock the revision.
-- [ ] Reconstruct the complete history and verify prohibited mutations fail through UI and REST.
-- [ ] Automate the stable path as browser, API and database tests.
+- [x] Submit the working Virus Stability experiment as a fixed revision.
+- [x] Create a later draft change and verify the submitted version remains unchanged.
+- [x] Review text, table and formula differences.
+- [x] Add and resolve an anchored comment.
+- [x] Run reviewer and calculation checks against the submitted evidence.
+- [x] Approve, sign and lock the revision.
+- [x] Reconstruct the complete history and verify prohibited mutations fail through UI and REST.
+- [x] Automate the stable path as browser, API and database tests.
 
 ---
 
@@ -929,13 +929,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** REG-001, DATA-006, SCI-004.
 
-- [ ] Add data, schema, relationships and lineage tabs over real scientific-table metadata.
-- [ ] Use TanStack Table for paged query and review views and Handsontable only when editing is enabled.
-- [ ] Support filters, grouping, sorting, field selection, joins and calculated-column specifications within defined safe limits.
-- [ ] Show the selected row, lineage, linked records and transformations in the inspector.
-- [ ] Save named views and preserve their query specifications.
-- [ ] Show a chart preview built from the same saved specification model as Analysis Studio.
-- [ ] Add contract and browser tests for large datasets, invalid transformations and permission-limited joins.
+- [x] Add data, schema, relationships and lineage tabs over real scientific-table metadata.
+- [x] Use TanStack Table for paged query and review views and Handsontable only when editing is enabled.
+- [x] Support filters, grouping, sorting, field selection, joins and calculated-column specifications within defined safe limits.
+- [x] Show the selected row, lineage, linked records and transformations in the inspector.
+- [x] Save named views and preserve their query specifications.
+- [x] Show a chart preview built from the same saved specification model as Analysis Studio.
+- [x] Add contract and browser tests for large datasets, invalid transformations and permission-limited joins.
 
 ### ANALYSIS-001 — Deliver Analysis Studio
 

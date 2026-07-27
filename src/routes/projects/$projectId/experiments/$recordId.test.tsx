@@ -8,6 +8,7 @@ import type { DataClient } from '#/lib/data-client'
 import {
   ArchivedBanner,
   EmptyNotebook,
+  LockedBanner,
   NotebookCanvas,
   NotebookErrorState,
   NotebookInspector,
@@ -72,6 +73,8 @@ const record: NotebookRecord = {
   createdByUserId: 'u1',
   updatedByUserId: null,
   properties: {},
+  lockedAt: null,
+  lockedByRevisionId: null,
 }
 
 const archivedRecord: NotebookRecord = {
@@ -107,6 +110,61 @@ describe('ArchivedBanner', () => {
     const status = screen.getByRole('status')
     expect(status.textContent).toContain('archived')
     expect(status.textContent).toContain('read-only')
+  })
+})
+
+const lockedRecord: NotebookRecord = {
+  ...record,
+  lockedAt: '2026-07-26T12:00:00.000Z',
+  lockedByRevisionId: 'rev-abcdef123456',
+}
+
+describe('LockedBanner', () => {
+  it('announces the locked, frozen state with the approved revision', () => {
+    render(<LockedBanner record={lockedRecord} />)
+    const status = screen.getByRole('status')
+    expect(status.textContent).toContain('locked')
+    expect(status.textContent).toContain('frozen')
+    expect(status.textContent).toContain('rev-abcd')
+  })
+})
+
+describe('StickyRecordHeader — lock state', () => {
+  it('shows a Locked badge when the record is locked', () => {
+    render(<StickyRecordHeader record={lockedRecord} projectName="Stability" />)
+    expect(screen.getByText('Locked')).toBeTruthy()
+  })
+
+  it('does not show a Locked badge for an editable record', () => {
+    render(<StickyRecordHeader record={record} projectName="Stability" />)
+    expect(screen.queryByText('Locked')).toBeNull()
+  })
+})
+
+describe('NotebookCanvas — locked record', () => {
+  it('renders read-only when the record is locked (no client/queryClient)', () => {
+    render(
+      <NotebookCanvas
+        record={lockedRecord}
+        blocks={[
+          {
+            id: 'b1',
+            recordId: lockedRecord.id,
+            type: 'rich_text',
+            payload: { doc: { type: 'doc', content: [] } },
+            payloadSchemaVersion: 1,
+            order: 0,
+            version: 1,
+          },
+        ]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+      />,
+    )
+    // The read-only document renders the block content without an add-block
+    // control.
+    expect(screen.queryByText('+ Block')).toBeNull()
   })
 })
 

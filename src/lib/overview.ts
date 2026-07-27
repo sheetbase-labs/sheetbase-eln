@@ -237,17 +237,18 @@ export type OverviewMode = 'active' | 'locked' | 'archived' | 'historical'
  *
  * - `historical` — a revision snapshot is being viewed (takes precedence).
  * - `archived` — `record.archivedAt` is set.
- * - `locked` — `record.status` is `'locked'`.
+ * - `locked` — the record is locked (`lockedAt` set by an approve-for-record
+ *   signature, or `status` is `'locked'`).
  * - `active` — the live notebook is editable (overview itself is always
  *   read-only, but block-visibility toggles are available).
  */
 export function detectOverviewMode(
-  record: Pick<NotebookRecord, 'status' | 'archivedAt'>,
+  record: Pick<NotebookRecord, 'status' | 'archivedAt' | 'lockedAt'>,
   viewingRevision: boolean,
 ): OverviewMode {
   if (viewingRevision) return 'historical'
   if (record.archivedAt !== null) return 'archived'
-  if (record.status === 'locked') return 'locked'
+  if (record.lockedAt !== null || record.status === 'locked') return 'locked'
   return 'active'
 }
 

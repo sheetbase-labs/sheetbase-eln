@@ -277,7 +277,7 @@ export async function fetchRecordsForReviews(
   const idFilter = recordIds.join(',')
   return client.list<RecordWire>(
     'records',
-    `?id=in.(${idFilter})&select=id,workspace_id,project_id,kind,identifier,title,status,created_at,updated_at,archived_at,deleted_at,created_by_user_id,structure_version,metadata_version,tags,properties,updated_by_user_id`,
+    `?id=in.(${idFilter})&select=id,workspace_id,project_id,kind,identifier,title,status,created_at,updated_at,archived_at,deleted_at,created_by_user_id,structure_version,metadata_version,tags,properties,updated_by_user_id,locked_at,locked_by_revision_id`,
   )
 }
 

@@ -71,6 +71,8 @@ function makeReagent(
       createdByUserId: 'u1',
       updatedByUserId: null,
       properties: {},
+      lockedAt: null,
+      lockedByRevisionId: null,
     },
     ...overrides,
   }

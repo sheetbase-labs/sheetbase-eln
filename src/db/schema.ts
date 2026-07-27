@@ -404,6 +404,19 @@ export const records = api.table(
     })
       .notNull()
       .default(sql`0`),
+    // SIGN-002: a record is locked when an approve-for-record signature is
+    // recorded against its approved revision. While locked, ordinary CRUD on
+    // the record's scientific evidence (blocks, links, scientific rows,
+    // formulas, metadata) is rejected; a new draft begins only through the
+    // api.create_amendment RPC, which unlocks the record and records an
+    // 'amend' revision. Set/cleared by SECURITY DEFINER functions bypassing
+    // RLS; the consistency check ties the two columns together.
+    lockedAt: timestamp('locked_at', { withTimezone: true, mode: 'date' }),
+    // Forward reference to revisions (defined below); the FK constraint is
+    // declared in the migration SQL. Omitting .references() here mirrors
+    // revisions.supersededByRevisionId and avoids a circular type-inference
+    // cycle between records and revisions.
+    lockedByRevisionId: uuid('locked_by_revision_id'),
     ...timestamps,
     archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
     deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
@@ -420,6 +433,11 @@ export const records = api.table(
       'records_calculation_input_revision_check',
       sql`${table.calculationInputRevision} >= 0`,
     ),
+    // SIGN-002: lock columns are set/cleared together.
+    check(
+      'chk_records_locked_consistency',
+      sql`(${table.lockedAt} IS NULL) = (${table.lockedByRevisionId} IS NULL)`,
+    ),
     unique('uq_records_project_identifier').on(
       table.projectId,
       table.identifier,
@@ -433,6 +451,10 @@ export const records = api.table(
     index('idx_records_folder_id').on(table.folderId),
     index('idx_records_kind').on(table.kind),
     index('idx_records_status').on(table.status),
+    // Partial index of locked records — small, hot lookup for the lock guard.
+    index('idx_records_locked')
+      .on(table.lockedAt)
+      .where(sql`${table.lockedAt} IS NOT NULL`),
   ],
 )
 
@@ -668,7 +690,7 @@ export const revisions = api.table(
   (table) => [
     check(
       'chk_revisions_reason',
-      sql`${table.reason} IN ('submit', 'sign', 'manual', 'validate')`,
+      sql`${table.reason} IN ('submit', 'sign', 'manual', 'validate', 'amend')`,
     ),
     check(
       'chk_revisions_integrity_algorithm',
@@ -1948,7 +1970,7 @@ export const changeEvents = api.table(
     ),
     check(
       'chk_change_events_operation',
-      sql`${table.operation} IN ('create', 'update', 'move', 'delete', 'archive', 'restore', 'link', 'unlink', 'quarantine', 'resolve', 'reopen')`,
+      sql`${table.operation} IN ('create', 'update', 'move', 'delete', 'archive', 'restore', 'link', 'unlink', 'quarantine', 'resolve', 'reopen', 'lock', 'amend')`,
     ),
     // Hot replay path: WHERE workspace_id = $1 AND sequence > $2 ORDER BY sequence.
     index('idx_change_events_workspace_sequence').on(
@@ -2089,6 +2111,11 @@ export const recordsRelations = relations(records, ({ one, many }) => ({
   reviewSubmissions: many(reviewSubmissions),
   sampleEvents: many(sampleEvents),
   comments: many(comments),
+  lockedBy: one(revisions, {
+    fields: [records.lockedByRevisionId],
+    references: [revisions.id],
+    relationName: 'record_locked_by_revision',
+  }),
 }))
 
 export const blocksRelations = relations(blocks, ({ one }) => ({
@@ -2206,6 +2233,9 @@ export const revisionsRelations = relations(revisions, ({ one, many }) => ({
     relationName: 'revision_superseded_by',
   }),
   comments: many(comments),
+  lockedRecords: many(records, {
+    relationName: 'record_locked_by_revision',
+  }),
 }))
 
 export const reviewSubmissionsRelations = relations(

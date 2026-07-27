@@ -234,11 +234,14 @@ function ExperimentNotebookRoute() {
             record={record}
             projectName={project?.title ?? null}
             projectId={projectId}
-            onAddBlock={() =>
-              document.getElementById('notebook-add-block')?.click()
+            onAddBlock={
+              record.lockedAt
+                ? undefined
+                : () => document.getElementById('notebook-add-block')?.click()
             }
           />
           {isArchived ? <ArchivedBanner /> : null}
+          {record.lockedAt ? <LockedBanner record={record} /> : null}
           <NotebookCanvas
             record={record}
             blocks={blocks}
@@ -332,6 +335,12 @@ export function StickyRecordHeader({
           {recordKindLabel(record.kind)}
         </span>
         <StatusBadge domain="experiment" status={record.status} />
+        {record.lockedAt ? (
+          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-300">
+            <Lock className="size-3" aria-hidden />
+            Locked
+          </span>
+        ) : null}
         <span className="font-mono tabular-nums text-muted-foreground">
           {record.identifier}
         </span>
@@ -383,6 +392,38 @@ export function ArchivedBanner() {
       <Archive className="size-3.5 text-warning" aria-hidden="true" />
       <span className="text-foreground">
         This notebook is archived. It is read-only until restored.
+      </span>
+    </div>
+  )
+}
+
+/**
+ * LockedBanner — SIGN-002. Shown when an approve-for-record signature has
+ * locked the record. The scientific evidence is frozen; editing resumes only
+ * after an amendment (api.create_amendment) unlocks the record.
+ */
+export function LockedBanner({
+  record,
+}: {
+  record: { lockedAt: string | null; lockedByRevisionId?: string | null }
+}) {
+  return (
+    <div
+      role="status"
+      className="flex items-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs"
+    >
+      <Lock
+        className="size-3.5 text-emerald-600 dark:text-emerald-400"
+        aria-hidden="true"
+      />
+      <span className="text-foreground">
+        This record is locked by an approved signature. Scientific evidence is
+        frozen — start an amendment to edit again.
+        {record.lockedByRevisionId ? (
+          <span className="ml-1 font-mono text-muted-foreground">
+            (revision {record.lockedByRevisionId.slice(0, 8)})
+          </span>
+        ) : null}
       </span>
     </div>
   )
@@ -445,10 +486,11 @@ export function NotebookCanvas({
   if (blocks.length === 0) {
     return <EmptyNotebook record={record} />
   }
-  if (record.archivedAt || !client || !queryClient) {
-    // Archived notebooks and provider-less callers render read-only through
-    // the same document component so the visual frame and anchors match the
-    // editable state.
+  if (record.archivedAt || record.lockedAt || !client || !queryClient) {
+    // Archived and locked notebooks, plus provider-less callers, render
+    // read-only through the same document component so the visual frame and
+    // anchors match the editable state. SIGN-002: a locked record's
+    // scientific evidence is frozen until an amendment unlocks it.
     return (
       <NotebookDocument
         record={record}

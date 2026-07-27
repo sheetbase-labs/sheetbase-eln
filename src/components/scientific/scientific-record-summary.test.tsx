@@ -27,6 +27,8 @@ function record(overrides: Partial<NotebookRecord> = {}): NotebookRecord {
     createdByUserId: 'u-1',
     updatedByUserId: null,
     properties: { mass: 1.5, note: 'cold' },
+    lockedAt: null,
+    lockedByRevisionId: null,
     ...overrides,
   }
 }

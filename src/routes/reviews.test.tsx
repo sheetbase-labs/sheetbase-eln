@@ -118,6 +118,8 @@ function record(overrides: Partial<RecordWire> = {}): RecordWire {
     created_by_user_id: 'owner-a',
     updated_by_user_id: null,
     properties: {},
+    locked_at: null,
+    locked_by_revision_id: null,
     ...overrides,
   }
 }

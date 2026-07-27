@@ -293,11 +293,21 @@ describe('isBlockExcluded', () => {
 // Locked / historical state detection ---------------------------------------
 
 describe('detectOverviewMode', () => {
-  const activeRecord = { status: 'in_progress', archivedAt: null }
-  const lockedRecord = { status: 'locked', archivedAt: null }
+  const activeRecord = {
+    status: 'in_progress',
+    archivedAt: null,
+    lockedAt: null,
+  }
+  const lockedRecord = { status: 'locked', archivedAt: null, lockedAt: null }
+  const signedRecord = {
+    status: 'in_progress',
+    archivedAt: null,
+    lockedAt: '2026-07-26T00:00:00Z',
+  }
   const archivedRecord = {
     status: 'in_progress',
     archivedAt: '2026-07-20T00:00:00Z',
+    lockedAt: null,
   }
 
   it('returns "active" for a live, non-locked record', () => {
@@ -308,6 +318,10 @@ describe('detectOverviewMode', () => {
     expect(detectOverviewMode(lockedRecord, false)).toBe('locked')
   })
 
+  it('returns "locked" when the record is signed/locked (lockedAt set)', () => {
+    expect(detectOverviewMode(signedRecord, false)).toBe('locked')
+  })
+
   it('returns "archived" when archivedAt is set', () => {
     expect(detectOverviewMode(archivedRecord, false)).toBe('archived')
   })
@@ -315,6 +329,7 @@ describe('detectOverviewMode', () => {
   it('returns "historical" when viewing a revision (takes precedence)', () => {
     expect(detectOverviewMode(archivedRecord, true)).toBe('historical')
     expect(detectOverviewMode(lockedRecord, true)).toBe('historical')
+    expect(detectOverviewMode(signedRecord, true)).toBe('historical')
   })
 })
 

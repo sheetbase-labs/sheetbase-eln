@@ -31,9 +31,12 @@ import {
   CheckCircle2,
   ChevronLeft,
   ClipboardList,
+  Download,
+  GitCommit,
   GitCompare,
   History,
   ListChecks,
+  Lock,
   MessageSquare,
   PenLine,
   ShieldCheck,
@@ -42,7 +45,7 @@ import {
 } from 'lucide-react'
 
 import { AppShell } from '#/components/app-shell'
-import { ApprovalStepper, AuditTrail } from '#/components/audit'
+import { ApprovalStepper, RecordHistoryTimeline } from '#/components/audit'
 import type { ApprovalStepDef, ApprovalStepStatus } from '#/components/audit'
 import { CommentPanel } from '#/components/comments'
 import { ReviewCheckResults, RevisionDiffReview } from '#/components/review'
@@ -78,7 +81,7 @@ import {
   reviewsDataClient,
   workflowStepsFor,
 } from '#/lib/reviews'
-import { formatDate, formatRelativeTime } from '#/lib/notebook-data'
+import { formatDate } from '#/lib/notebook-data'
 import {
   fetchReviewCheckResults,
   reviewCheckQueryKeys,
@@ -118,6 +121,13 @@ import {
   signRevision,
 } from '#/lib/signatures'
 import type { SignatureMeaning, SignatureWire } from '#/lib/signatures'
+import {
+  createAmendment,
+  fetchRecordTimeline,
+  fetchRevisionEvidenceExport,
+  sign002DataClient,
+  sign002QueryKeys,
+} from '#/lib/sign-002'
 import { cn } from '#/lib/utils'
 
 // ---------------------------------------------------------------------------
@@ -187,6 +197,7 @@ const DEFAULT_CHECK_DEFINITION_VERSION = 1
 function ReviewWorkspaceRoute() {
   const { context } = Route.useRouteContext()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { revisionId } = useParams({ from: '/reviews/$revisionId' })
   const search = useSearch({ from: '/reviews/$revisionId' })
 
@@ -246,6 +257,14 @@ function ReviewWorkspaceRoute() {
     queryFn: () => fetchProjectsForReviews(reviewsDataClient),
   })
 
+  // SIGN-002: complete chronological history for the record, fetched via the
+  // record_timeline RPC. Invalidated after review/sign/amendment actions.
+  const timelineQuery = useQuery({
+    queryKey: sign002QueryKeys.timeline(recordId ?? ''),
+    queryFn: () => fetchRecordTimeline(sign002DataClient, recordId!),
+    enabled: recordId !== null,
+  })
+
   // --- Derived state ------------------------------------------------------
 
   const revision = revisionQuery.data ?? null
@@ -254,6 +273,7 @@ function ReviewWorkspaceRoute() {
     () => (recordsQuery.data ?? []).find((r) => r.id === recordId) ?? null,
     [recordsQuery.data, recordId],
   )
+  const isLocked = Boolean(record?.locked_at)
   const project = useMemo(() => {
     const map = projectsQuery.data ?? new Map()
     return record?.project_id ? map.get(record.project_id) : undefined
@@ -397,6 +417,23 @@ function ReviewWorkspaceRoute() {
       currentUserName={currentUserName}
       integrityDigest={integrityDigest}
       loading={loading}
+      isLocked={isLocked}
+      recordId={recordId}
+      onAfterAmendment={async () => {
+        await queryClient.invalidateQueries({
+          queryKey: reviewWorkspaceQueryKeys.revision(revisionId),
+        })
+        await queryClient.invalidateQueries({
+          queryKey: reviewQueryKeys.recordsForReviews(
+            recordId ? [recordId] : [],
+          ),
+        })
+        if (recordId) {
+          await queryClient.invalidateQueries({
+            queryKey: sign002QueryKeys.timeline(recordId),
+          })
+        }
+      }}
     />
   )
 
@@ -421,6 +458,9 @@ function ReviewWorkspaceRoute() {
           projectTitle={project?.title ?? null}
           revision={revision}
           permission={permission}
+          isLocked={isLocked}
+          lockedAt={record?.locked_at ?? null}
+          lockedByRevisionId={record?.locked_by_revision_id ?? null}
         />
 
         <Tabs
@@ -506,12 +546,16 @@ function ReviewWorkspaceRoute() {
             value="history"
             className="min-h-0 flex-1 overflow-y-auto"
           >
-            <HistoryPanel
-              submission={submission}
-              decisions={decisions}
-              revision={revision}
-              loading={decisionsQuery.isLoading}
+            <RecordHistoryTimeline
+              events={timelineQuery.data ?? []}
+              loading={timelineQuery.isLoading}
+              error={timelineQuery.error}
+              revisionId={revision?.id ?? null}
+              integrityDigest={revision?.integrity_digest ?? null}
+              currentUserId={currentUserId}
               currentUserName={currentUserName}
+              onRefresh={() => void timelineQuery.refetch()}
+              refreshing={timelineQuery.isFetching && !timelineQuery.isLoading}
             />
           </TabsContent>
         </Tabs>
@@ -548,12 +592,18 @@ function WorkspaceHeader({
   projectTitle,
   revision,
   permission,
+  isLocked,
+  lockedAt,
+  lockedByRevisionId,
 }: {
   submission: ReviewSubmissionWire | null
   record: { identifier?: string; title?: string; kind?: string } | null
   projectTitle: string | null
   revision: RevisionWire | null
   permission: ReturnType<typeof deriveReviewActionPermission> | null
+  isLocked: boolean
+  lockedAt: string | null
+  lockedByRevisionId: string | null
 }) {
   const isSuperseded =
     revision?.superseded_by_revision_id !== null && revision !== null
@@ -580,6 +630,12 @@ function WorkspaceHeader({
               size="sm"
             />
           ) : null}
+          {isLocked ? (
+            <Badge variant="outline" className="gap-1 text-[10px]">
+              <Lock className="size-3" aria-hidden />
+              Locked
+            </Badge>
+          ) : null}
           {projectTitle ? (
             <span className="text-xs text-muted-foreground">
               {projectTitle}
@@ -587,6 +643,31 @@ function WorkspaceHeader({
           ) : null}
         </div>
       </div>
+      {isLocked ? (
+        <div
+          role="status"
+          className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200"
+        >
+          <Lock className="mr-1 inline size-3 align-text-bottom" aria-hidden />
+          This record is locked by an approved signature
+          {lockedByRevisionId ? (
+            <>
+              {' '}
+              (revision{' '}
+              <span className="font-mono">
+                {lockedByRevisionId.slice(0, 8)}
+              </span>
+              )
+            </>
+          ) : null}
+          . Scientific evidence is frozen — start an amendment to edit again.
+          {lockedAt ? (
+            <span className="ml-1 text-emerald-700 dark:text-emerald-300">
+              Locked {formatDate(lockedAt)}.
+            </span>
+          ) : null}
+        </div>
+      ) : null}
       {isSuperseded ? (
         <div
           role="status"
@@ -812,113 +893,10 @@ function ChecksPanel({
 }
 
 // ---------------------------------------------------------------------------
-// History panel — audit trail built from the submission and its decisions.
+// History panel — SIGN-002 replaces the narrow submission/decisions list with
+// the complete RPC-backed RecordHistoryTimeline (rendered in the route
+// component above). The legacy HistoryPanel and its helpers were removed.
 // ---------------------------------------------------------------------------
-
-function HistoryPanel({
-  submission,
-  decisions,
-  revision,
-  loading,
-  currentUserName,
-}: {
-  submission: ReviewSubmissionWire | null
-  decisions: ReviewDecisionWire[]
-  revision: RevisionWire | null
-  loading: boolean
-  currentUserName: string
-}) {
-  const events = useMemo(() => {
-    const out: React.ComponentProps<typeof AuditTrail>['events'] = []
-    if (submission) {
-      out.push({
-        id: `submission-${submission.id}`,
-        type: 'review-requested',
-        title: 'Revision submitted for review',
-        actor: { name: submitterLabel(submission, currentUserName) },
-        timestamp: formatRelativeTime(submission.submitted_at),
-        icon: ClipboardList,
-      })
-    }
-    for (const decision of decisions) {
-      out.push({
-        id: decision.id,
-        type: 'review-started',
-        title: decisionLabel(decision.decision),
-        actor: {
-          name:
-            decision.actor_user_id === submission?.submitted_by_user_id
-              ? submitterLabel(submission, currentUserName)
-              : 'Reviewer',
-        },
-        timestamp: formatRelativeTime(decision.created_at),
-        icon: decisionIcon(decision.decision),
-      })
-    }
-    return out
-  }, [submission, decisions, currentUserName])
-
-  if (loading) {
-    return (
-      <div className="space-y-3" aria-busy="true">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-12 w-full" />
-        ))}
-      </div>
-    )
-  }
-
-  return (
-    <section aria-label="Review history" className="space-y-3">
-      <h2 className="text-sm font-semibold">Review history</h2>
-      <AuditTrail events={events} totalCount={events.length} />
-      {revision ? (
-        <p className="font-mono text-[10px] text-muted-foreground/70">
-          Revision {revision.id} · integrity{' '}
-          {revision.integrity_digest?.slice(0, 16)}…
-        </p>
-      ) : null}
-    </section>
-  )
-}
-
-function submitterLabel(
-  submission: ReviewSubmissionWire | null,
-  currentUserName: string,
-): string {
-  if (!submission) return 'Submitter'
-  // The inbox renders the raw user id when it is not the current user; the
-  // workspace mirrors that honest-but-terse attribution.
-  return currentUserName
-}
-
-function decisionLabel(decision: ReviewDecisionWire['decision']): string {
-  switch (decision) {
-    case 'request_changes':
-      return 'Changes requested'
-    case 'reject':
-      return 'Review rejected'
-    case 'approve':
-      return 'Review approved'
-    case 'withdraw':
-      return 'Review withdrawn'
-  }
-}
-
-function decisionIcon(
-  decision: ReviewDecisionWire['decision'],
-): React.ComponentProps<typeof AuditTrail>['events'][number]['icon'] {
-  switch (decision) {
-    case 'approve':
-      return CheckCircle2
-    case 'reject':
-      return XCircle
-    case 'request_changes':
-      return Undo2
-    case 'withdraw':
-      return Undo2
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Inspector — revision identity, integrity, approval stepper, actions.
@@ -936,6 +914,9 @@ function ReviewInspector({
   currentUserName,
   integrityDigest,
   loading,
+  isLocked,
+  recordId,
+  onAfterAmendment,
 }: {
   revision: RevisionWire | null
   submission: ReviewSubmissionWire | null
@@ -948,6 +929,9 @@ function ReviewInspector({
   currentUserName: string
   integrityDigest: string | null
   loading: boolean
+  isLocked: boolean
+  recordId: string | null
+  onAfterAmendment: () => Promise<void>
 }) {
   const queryClient = useQueryClient()
 
@@ -1055,6 +1039,15 @@ function ReviewInspector({
             integrityDigest={integrityDigest}
             currentUserId={currentUserId}
             currentUserName={currentUserName}
+          />
+        ) : null}
+
+        <EvidenceExportSection revisionId={revision.id} />
+
+        {isLocked && recordId ? (
+          <AmendmentSection
+            recordId={recordId}
+            onAfterAmendment={onAfterAmendment}
           />
         ) : null}
       </div>
@@ -1771,4 +1764,202 @@ function InspectorPropStatic({
       </dd>
     </div>
   )
+}
+
+// ---------------------------------------------------------------------------
+// SIGN-002 — Evidence export and amendment sections.
+//
+// EvidenceExportSection fetches the machine-readable evidence bundle from the
+// export_revision_evidence RPC and offers it as a JSON download with a stable
+// filename. The bundle is deterministic (formatVersion 1) so it can be archived
+// or diffed. AmendmentSection is the explicit, traceable way to begin a new
+// draft from a locked record — it calls create_amendment, which records an
+// 'amend' revision, supersedes the locked revision and unlocks the record.
+// ---------------------------------------------------------------------------
+
+function EvidenceExportSection({ revisionId }: { revisionId: string }) {
+  const [downloading, setDownloading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleDownload() {
+    setDownloading(true)
+    setError(null)
+    try {
+      const bundle = await fetchRevisionEvidenceExport(
+        sign002DataClient,
+        revisionId,
+      )
+      const json = JSON.stringify(bundle, null, 2)
+      const blob = new Blob([json], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = evidenceExportFilename(revisionId, bundle.exportedAt)
+      document.body.appendChild(anchor)
+      anchor.click()
+      document.body.removeChild(anchor)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      setError(renderError(err))
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  return (
+    <section>
+      <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        Evidence export
+      </h3>
+      <p className="mb-2 text-xs text-muted-foreground">
+        Download the review and signature evidence as a stable, machine-readable
+        JSON bundle (format version 1).
+      </p>
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-9 w-full text-xs"
+        onClick={handleDownload}
+        disabled={downloading}
+      >
+        <Download className="size-3.5" aria-hidden />
+        {downloading ? 'Preparing…' : 'Download evidence (JSON)'}
+      </Button>
+      {error ? (
+        <p
+          role="alert"
+          className="mt-2 rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-[11px] text-destructive"
+        >
+          {error}
+        </p>
+      ) : null}
+    </section>
+  )
+}
+
+function AmendmentSection({
+  recordId,
+  onAfterAmendment,
+}: {
+  recordId: string
+  onAfterAmendment: () => Promise<void>
+}) {
+  const [open, setOpen] = useState(false)
+  const [note, setNote] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [result, setResult] = useState<{
+    revisionId: string
+    unlockedAt: string
+  } | null>(null)
+
+  async function handleConfirm() {
+    setSubmitting(true)
+    setError(null)
+    try {
+      const res = await createAmendment(sign002DataClient, {
+        recordId,
+        note: note.trim() || undefined,
+      })
+      setResult({
+        revisionId: res.revisionId,
+        unlockedAt: res.unlockedAt,
+      })
+      await onAfterAmendment()
+      setOpen(false)
+      setNote('')
+    } catch (err) {
+      setError(renderError(err))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (result) {
+    return (
+      <section
+        role="status"
+        className="rounded-md border border-emerald-200 bg-emerald-50 p-2 text-xs text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200"
+      >
+        <GitCommit
+          className="mr-1 inline size-3 align-text-bottom"
+          aria-hidden
+        />
+        Amendment started — revision{' '}
+        <span className="font-mono">{result.revisionId.slice(0, 8)}</span>. The
+        record is unlocked and ready to edit.
+      </section>
+    )
+  }
+
+  return (
+    <section>
+      <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        Amendment
+      </h3>
+      <p className="mb-2 text-xs text-muted-foreground">
+        This record is locked. Start an amendment to create a new draft
+        revision, supersede the locked one and unlock the record for editing.
+        The amendment is recorded in the audit trail.
+      </p>
+      <AlertDialog
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next)
+          if (next) {
+            setNote('')
+            setError(null)
+          }
+        }}
+      >
+        <AlertDialogTrigger asChild>
+          <Button variant="outline" size="sm" className="h-9 w-full text-xs">
+            <GitCommit className="size-3.5" aria-hidden />
+            Start amendment
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Start an amendment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A new revision will be created from the current record, the locked
+              revision will be superseded, and the record will be unlocked so
+              you can edit again. This is recorded in the audit trail and cannot
+              be undone from the workspace.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Textarea
+            className="min-h-[70px]"
+            placeholder="Describe the reason for the amendment (optional)…"
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+            aria-label="Amendment note"
+          />
+          {error ? (
+            <p
+              role="alert"
+              className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+            >
+              {error}
+            </p>
+          ) : null}
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction disabled={submitting} onClick={handleConfirm}>
+              {submitting ? 'Starting…' : 'Start amendment'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </section>
+  )
+}
+
+function evidenceExportFilename(
+  revisionId: string,
+  exportedAt: string,
+): string {
+  // Stable, sortable filename: evidence-<revision-prefix>-<utcstamp>.json
+  const stamp = exportedAt.replace(/[^0-9TZ:.-]/g, '').replace(/:/g, '')
+  return `evidence-${revisionId.slice(0, 8)}-${stamp}.json`
 }

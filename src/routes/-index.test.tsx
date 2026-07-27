@@ -60,6 +60,8 @@ const baseRecord: NotebookRecord = {
   createdByUserId: 'u1',
   updatedByUserId: null,
   properties: {},
+  lockedAt: null,
+  lockedByRevisionId: null,
 }
 
 const baseProject: Project = {

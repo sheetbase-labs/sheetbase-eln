@@ -49,6 +49,8 @@ function wire(props: Record<string, unknown> = {}): RecordWire {
     created_by_user_id: 'u1',
     updated_by_user_id: null,
     properties: props,
+    locked_at: null,
+    locked_by_revision_id: null,
   }
 }
 

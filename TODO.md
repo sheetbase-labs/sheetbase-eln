@@ -866,13 +866,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** SIGN-001.
 
-- [ ] Lock the approved revision and prevent ordinary mutation of its scientific evidence.
-- [ ] Allow a new draft or amendment only through an explicit, traceable workflow.
-- [ ] Show lock state consistently in notebook, overview, API and exports.
-- [ ] Build a readable timeline of creation, edits, submissions, comments, checks, signatures and amendments.
-- [ ] Ensure audit records cannot be edited through ordinary application or API roles.
-- [ ] Export review and signature evidence in a stable machine-readable form.
-- [ ] Test attempted mutation, amendment, audit ordering and evidence export.
+- [x] Lock the approved revision and prevent ordinary mutation of its scientific evidence.
+- [x] Allow a new draft or amendment only through an explicit, traceable workflow.
+- [x] Show lock state consistently in notebook, overview, API and exports.
+- [x] Build a readable timeline of creation, edits, submissions, comments, checks, signatures and amendments.
+- [x] Ensure audit records cannot be edited through ordinary application or API roles.
+- [x] Export review and signature evidence in a stable machine-readable form.
+- [x] Test attempted mutation, amendment, audit ordering and evidence export.
 
 ### REV-008 — Complete the review acceptance proof
 

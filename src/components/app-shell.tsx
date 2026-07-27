@@ -21,6 +21,7 @@ import {
   Home as HomeIcon,
   LayoutGrid,
   LayoutTemplate,
+  LineChart as LineChartIcon,
   LogOut,
   Menu,
   Moon,
@@ -165,6 +166,7 @@ export const defaultNavSections: AppShellNavSection[] = [
       { to: '/reagents', label: 'Reagents', icon: FlaskConical },
       { to: '/schemas', label: 'Schemas', icon: Database },
       { to: '/datasets', label: 'Datasets', icon: Database },
+      { to: '/analysis', label: 'Analysis', icon: LineChartIcon },
       { to: '/samples', label: 'Samples', icon: FlaskConical },
       { to: '/my-work', label: 'My work', icon: LayoutGrid, disabled: true },
       {

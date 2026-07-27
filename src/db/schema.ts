@@ -2341,3 +2341,52 @@ export const commentsRelations = relations(comments, ({ one }) => ({
     relationName: 'comment_parent',
   }),
 }))
+
+// ANALYSIS-001: saved analysis views from the Analysis Studio. Each view
+// stores a reproducible ChartSpec (decision 0029) plus the source revisions
+// captured at save time so a later reader can detect a stale source. The
+// owner is the user who created it; version bumps on every update. RLS lets
+// workspace members read shared analysis evidence while only the owner can
+// mutate their own views.
+export const analysisViews = api.table(
+  'analysis_views',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    ownerUserId: text('owner_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    // Bumped by the bump_analysis_view_version trigger on every UPDATE.
+    version: integer('version').notNull().default(1),
+    spec: jsonb('spec').notNull(),
+    sourceRevisions: jsonb('source_revisions')
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    exportSettings: jsonb('export_settings'),
+    ...timestamps,
+  },
+  (table) => [
+    unique('uq_analysis_views_workspace_owner_name').on(
+      table.workspaceId,
+      table.ownerUserId,
+      table.name,
+    ),
+    check('chk_analysis_views_version', sql`${table.version} > 0`),
+    index('idx_analysis_views_workspace').on(table.workspaceId),
+    index('idx_analysis_views_owner').on(table.workspaceId, table.ownerUserId),
+  ],
+)
+
+export const analysisViewsRelations = relations(analysisViews, ({ one }) => ({
+  workspace: one(workspaces, {
+    fields: [analysisViews.workspaceId],
+    references: [workspaces.id],
+  }),
+  owner: one(user, {
+    fields: [analysisViews.ownerUserId],
+    references: [user.id],
+  }),
+}))

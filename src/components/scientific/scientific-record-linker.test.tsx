@@ -56,6 +56,7 @@ function mockClient(
     insert: vi.fn().mockResolvedValue({}),
     patch: vi.fn().mockResolvedValue([]),
     count: vi.fn().mockResolvedValue(0),
+    remove: vi.fn().mockResolvedValue([]),
   }
 }
 

@@ -89,6 +89,13 @@ export interface DataClient {
     query: string,
     row: Record<string, unknown>,
   ) => Promise<T[]>
+  /**
+   * Delete rows matching a PostgREST filter query (e.g. `?id=eq.<uuid>`).
+   * Goes through the same authenticated /api/db boundary as every other
+   * method so RLS applies. Returns the deleted rows when the caller requests
+   * `return=representation`, otherwise an empty array.
+   */
+  remove: (resource: string, query: string) => Promise<unknown[]>
 }
 
 export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
@@ -191,6 +198,23 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
         body: JSON.stringify(row),
       })
       return (await response.json()) as T[]
+    },
+
+    async remove(resource: string, query: string): Promise<unknown[]> {
+      const response = await request(`/${resource}${query}`, {
+        method: 'DELETE',
+        headers: {
+          accept: 'application/json',
+          prefer: 'return=representation',
+        },
+      })
+      // PostgREST returns the deleted rows with return=representation; an
+      // empty body (e.g. when nothing matched) parses to an empty array.
+      try {
+        return (await response.json()) as unknown[]
+      } catch {
+        return []
+      }
     },
   }
 }

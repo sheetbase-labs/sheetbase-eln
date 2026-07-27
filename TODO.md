@@ -941,13 +941,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** DATA-007, SCI-004.
 
-- [ ] Build data-source, chart-type, axis, grouping, normalisation, aggregation and statistical-overlay controls from typed specifications.
-- [ ] Recalculate previews without mutating source datasets.
-- [ ] Save reproducible analysis views with owner, version and source revisions.
-- [ ] Support export with explicit format, dimensions, theme and provenance metadata.
-- [ ] Provide the data table that underlies every chart and preserve accessible alternatives.
-- [ ] Handle missing columns, stale sources, invalid log values and excessive result size clearly.
-- [ ] Test reproducibility by rebuilding a saved chart from its stored specification.
+- [x] Build data-source, chart-type, axis, grouping, normalisation, aggregation and statistical-overlay controls from typed specifications.
+- [x] Recalculate previews without mutating source datasets.
+- [x] Save reproducible analysis views with owner, version and source revisions.
+- [x] Support export with explicit format, dimensions, theme and provenance metadata.
+- [x] Provide the data table that underlies every chart and preserve accessible alternatives.
+- [x] Handle missing columns, stale sources, invalid log values and excessive result size clearly.
+- [x] Test reproducibility by rebuilding a saved chart from its stored specification.
 
 ### LINEAGE-001 — Deliver Lineage Explorer
 

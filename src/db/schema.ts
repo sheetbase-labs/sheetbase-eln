@@ -722,7 +722,10 @@ export const reviewSubmissions = api.table(
     ...timestamps,
   },
   (table) => [
-    check('chk_review_submissions_state', sql`${table.state} = 'submitted'`),
+    check(
+      'chk_review_submissions_state',
+      sql`${table.state} IN ('submitted', 'returned', 'rejected', 'approved', 'withdrawn')`,
+    ),
     check(
       'chk_review_submissions_workflow_key',
       sql`${table.workflowDefinitionKey} ~ '^[a-z0-9][a-z0-9_-]{0,127}$'`,
@@ -866,6 +869,70 @@ export const reviewCheckResults = api.table(
       table.runAt,
     ),
     index('idx_review_check_results_record').on(table.recordId, table.runAt),
+  ],
+)
+
+/**
+ * review_decisions (REV-007) is the append-only audit log of every
+ * request-changes / reject / approve / withdraw decision on a review
+ * submission. Each row pins the revision integrity digest the actor was
+ * acting on, the actor, session and role, and an optional note. Writes go
+ * only through the four SECURITY DEFINER transition RPCs; request roles get
+ * SELECT and EXECUTE and nothing else, so the transition logic and
+ * permission boundary live in one place. The submission's new state is set
+ * by the same RPC; no direct UPDATE grant on `review_submissions` exists.
+ */
+export const reviewDecisions = api.table(
+  'review_decisions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    submissionId: uuid('submission_id')
+      .notNull()
+      .references(() => reviewSubmissions.id, { onDelete: 'restrict' }),
+    revisionId: uuid('revision_id')
+      .notNull()
+      .references(() => revisions.id, { onDelete: 'restrict' }),
+    recordId: uuid('record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'restrict' }),
+    // request_changes | reject | approve | withdraw
+    decision: text('decision').notNull(),
+    note: text('note'),
+    revisionIntegrityDigest: text('revision_integrity_digest').notNull(),
+    actorUserId: text('actor_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    actorSessionId: text('actor_session_id').notNull(),
+    actorRole: text('actor_role').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'chk_review_decisions_decision',
+      sql`${table.decision} IN ('request_changes', 'reject', 'approve', 'withdraw')`,
+    ),
+    check(
+      'chk_review_decisions_note',
+      sql`${table.note} IS NULL OR length(${table.note}) BETWEEN 1 AND 8000`,
+    ),
+    check(
+      'chk_review_decisions_digest',
+      sql`${table.revisionIntegrityDigest} ~ '^[0-9a-f]{64}$'`,
+    ),
+    index('idx_review_decisions_submission').on(
+      table.submissionId,
+      table.createdAt,
+    ),
+    index('idx_review_decisions_workspace_created').on(
+      table.workspaceId,
+      table.createdAt,
+    ),
+    index('idx_review_decisions_record').on(table.recordId, table.createdAt),
   ],
 )
 
@@ -2059,7 +2126,7 @@ export const revisionsRelations = relations(revisions, ({ one, many }) => ({
 
 export const reviewSubmissionsRelations = relations(
   reviewSubmissions,
-  ({ one }) => ({
+  ({ one, many }) => ({
     workspace: one(workspaces, {
       fields: [reviewSubmissions.workspaceId],
       references: [workspaces.id],
@@ -2072,6 +2139,7 @@ export const reviewSubmissionsRelations = relations(
       fields: [reviewSubmissions.revisionId],
       references: [revisions.id],
     }),
+    decisions: many(reviewDecisions),
   }),
 )
 
@@ -2089,6 +2157,28 @@ export const reviewCheckResultsRelations = relations(
     revision: one(revisions, {
       fields: [reviewCheckResults.revisionId],
       references: [revisions.id],
+    }),
+  }),
+)
+
+export const reviewDecisionsRelations = relations(
+  reviewDecisions,
+  ({ one }) => ({
+    workspace: one(workspaces, {
+      fields: [reviewDecisions.workspaceId],
+      references: [workspaces.id],
+    }),
+    submission: one(reviewSubmissions, {
+      fields: [reviewDecisions.submissionId],
+      references: [reviewSubmissions.id],
+    }),
+    revision: one(revisions, {
+      fields: [reviewDecisions.revisionId],
+      references: [revisions.id],
+    }),
+    record: one(records, {
+      fields: [reviewDecisions.recordId],
+      references: [records.id],
     }),
   }),
 )

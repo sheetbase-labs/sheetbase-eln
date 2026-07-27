@@ -843,12 +843,12 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** REV-003, REV-004, REV-005, REV-006, UI-007.
 
-- [ ] Present selected versions side by side with navigable text, table and formula diffs.
-- [ ] Keep anchored comments and reviewer checklist context visible without obscuring the changed content.
-- [ ] Show approval steps, assigned reviewers, integrity checks and revision identity in the inspector.
-- [ ] Provide request-changes, reject and approve actions with explicit consequences.
-- [ ] Prevent actions against a superseded, withdrawn or already-completed review.
-- [ ] Test keyboard navigation, large diffs, stale action attempts and permission loss.
+- [x] Present selected versions side by side with navigable text, table and formula diffs.
+- [x] Keep anchored comments and reviewer checklist context visible without obscuring the changed content.
+- [x] Show approval steps, assigned reviewers, integrity checks and revision identity in the inspector.
+- [x] Provide request-changes, reject and approve actions with explicit consequences.
+- [x] Prevent actions against a superseded, withdrawn or already-completed review.
+- [x] Test keyboard navigation, large diffs, stale action attempts and permission loss.
 
 ### SIGN-001 — Define and implement initial electronic signatures
 

@@ -185,7 +185,6 @@ export const defaultNavSections: AppShellNavSection[] = [
         label: 'Reviews',
         icon: CheckCircle2,
         badge: 0,
-        disabled: true,
       },
     ],
   },

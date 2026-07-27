@@ -33,6 +33,7 @@ import {
   ClipboardList,
   Clock,
   Eye,
+  ExternalLink,
   GitCompare,
   Undo2,
   UserCog,
@@ -841,17 +842,25 @@ export function ReviewInspector({
       </div>
 
       <div className="space-y-2 border-t p-3">
+        <Link
+          to="/reviews/$revisionId"
+          params={{ revisionId: row.revisionId }}
+          className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-md bg-primary text-sm font-medium text-primary-foreground no-underline hover:bg-primary/90"
+        >
+          <ExternalLink className="size-4" aria-hidden />
+          Open review workspace
+        </Link>
         {openDiffEnabled ? (
           <Link
             to="/projects/$projectId/experiments/$recordId"
             params={{ projectId: row.projectId!, recordId: row.recordId }}
-            className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-md bg-primary text-sm font-medium text-primary-foreground no-underline hover:bg-primary/90"
+            className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-md border text-sm font-medium no-underline hover:bg-muted"
           >
             <GitCompare className="size-4" aria-hidden />
             Open record
           </Link>
         ) : (
-          <Button variant="default" size="sm" className="w-full" disabled>
+          <Button variant="outline" size="sm" className="w-full" disabled>
             <GitCompare className="size-4" aria-hidden />
             Open record
           </Button>

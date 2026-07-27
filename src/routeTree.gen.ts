@@ -24,6 +24,7 @@ import { Route as ApiCalculationsRouteImport } from './routes/api/calculations'
 import { Route as ApiEventsRouteImport } from './routes/api/events'
 import { Route as ApiFormulasRouteImport } from './routes/api/formulas'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects/$projectId'
+import { Route as ReviewsRevisionIdRouteImport } from './routes/reviews/$revisionId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiDbSplatRouteImport } from './routes/api/db/$'
 import { Route as ApiFilesUploadAuthorizeRouteImport } from './routes/api/files/upload-authorize'
@@ -110,6 +111,11 @@ const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
   path: '/$projectId',
   getParentRoute: () => ProjectsRoute,
 } as any)
+const ReviewsRevisionIdRoute = ReviewsRevisionIdRouteImport.update({
+  id: '/$revisionId',
+  path: '/$revisionId',
+  getParentRoute: () => ReviewsRoute,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -169,7 +175,7 @@ export interface FileRoutesByFullPath {
   '/foundations': typeof FoundationsRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/reagents': typeof ReagentsRoute
-  '/reviews': typeof ReviewsRoute
+  '/reviews': typeof ReviewsRouteWithChildren
   '/samples': typeof SamplesRoute
   '/schemas': typeof SchemasRoute
   '/search': typeof SearchRoute
@@ -179,6 +185,7 @@ export interface FileRoutesByFullPath {
   '/api/events': typeof ApiEventsRoute
   '/api/formulas': typeof ApiFormulasRoute
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
+  '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/db/$': typeof ApiDbSplatRoute
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
@@ -196,7 +203,7 @@ export interface FileRoutesByTo {
   '/foundations': typeof FoundationsRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/reagents': typeof ReagentsRoute
-  '/reviews': typeof ReviewsRoute
+  '/reviews': typeof ReviewsRouteWithChildren
   '/samples': typeof SamplesRoute
   '/schemas': typeof SchemasRoute
   '/search': typeof SearchRoute
@@ -206,6 +213,7 @@ export interface FileRoutesByTo {
   '/api/events': typeof ApiEventsRoute
   '/api/formulas': typeof ApiFormulasRoute
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
+  '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/db/$': typeof ApiDbSplatRoute
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
@@ -224,7 +232,7 @@ export interface FileRoutesById {
   '/foundations': typeof FoundationsRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/reagents': typeof ReagentsRoute
-  '/reviews': typeof ReviewsRoute
+  '/reviews': typeof ReviewsRouteWithChildren
   '/samples': typeof SamplesRoute
   '/schemas': typeof SchemasRoute
   '/search': typeof SearchRoute
@@ -234,6 +242,7 @@ export interface FileRoutesById {
   '/api/events': typeof ApiEventsRoute
   '/api/formulas': typeof ApiFormulasRoute
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
+  '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/db/$': typeof ApiDbSplatRoute
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
@@ -263,6 +272,7 @@ export interface FileRouteTypes {
     | '/api/events'
     | '/api/formulas'
     | '/projects/$projectId'
+    | '/reviews/$revisionId'
     | '/api/auth/$'
     | '/api/db/$'
     | '/api/files/upload-authorize'
@@ -290,6 +300,7 @@ export interface FileRouteTypes {
     | '/api/events'
     | '/api/formulas'
     | '/projects/$projectId'
+    | '/reviews/$revisionId'
     | '/api/auth/$'
     | '/api/db/$'
     | '/api/files/upload-authorize'
@@ -317,6 +328,7 @@ export interface FileRouteTypes {
     | '/api/events'
     | '/api/formulas'
     | '/projects/$projectId'
+    | '/reviews/$revisionId'
     | '/api/auth/$'
     | '/api/db/$'
     | '/api/files/upload-authorize'
@@ -335,7 +347,7 @@ export interface RootRouteChildren {
   FoundationsRoute: typeof FoundationsRoute
   ProjectsRoute: typeof ProjectsRouteWithChildren
   ReagentsRoute: typeof ReagentsRoute
-  ReviewsRoute: typeof ReviewsRoute
+  ReviewsRoute: typeof ReviewsRouteWithChildren
   SamplesRoute: typeof SamplesRoute
   SchemasRoute: typeof SchemasRoute
   SearchRoute: typeof SearchRoute
@@ -461,6 +473,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsProjectIdRouteImport
       parentRoute: typeof ProjectsRoute
     }
+    '/reviews/$revisionId': {
+      id: '/reviews/$revisionId'
+      path: '/$revisionId'
+      fullPath: '/reviews/$revisionId'
+      preLoaderRoute: typeof ReviewsRevisionIdRouteImport
+      parentRoute: typeof ReviewsRoute
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -573,13 +592,24 @@ const ProjectsRouteWithChildren = ProjectsRoute._addFileChildren(
   ProjectsRouteChildren,
 )
 
+interface ReviewsRouteChildren {
+  ReviewsRevisionIdRoute: typeof ReviewsRevisionIdRoute
+}
+
+const ReviewsRouteChildren: ReviewsRouteChildren = {
+  ReviewsRevisionIdRoute: ReviewsRevisionIdRoute,
+}
+
+const ReviewsRouteWithChildren =
+  ReviewsRoute._addFileChildren(ReviewsRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DatasetsRoute: DatasetsRoute,
   FoundationsRoute: FoundationsRoute,
   ProjectsRoute: ProjectsRouteWithChildren,
   ReagentsRoute: ReagentsRoute,
-  ReviewsRoute: ReviewsRoute,
+  ReviewsRoute: ReviewsRouteWithChildren,
   SamplesRoute: SamplesRoute,
   SchemasRoute: SchemasRoute,
   SearchRoute: SearchRoute,

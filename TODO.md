@@ -854,13 +854,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** REV-007.
 
-- [ ] Define the initial signature meaning and assurance level without labelling it compliant by default.
-- [ ] Require the signer to review the target revision identity and stated signing meaning.
-- [ ] Re-authenticate or otherwise verify current signing intent according to the chosen assurance level.
-- [ ] Store signer identity, meaning, timestamp, revision integrity reference and relevant authentication evidence.
-- [ ] Make signature evidence immutable and independently readable.
-- [ ] Reject signing when required checks, permissions or workflow steps are incomplete.
-- [ ] Add tests for valid signing, expired session, changed revision, duplicate action and unauthorised signer.
+- [x] Define the initial signature meaning and assurance level without labelling it compliant by default.
+- [x] Require the signer to review the target revision identity and stated signing meaning.
+- [x] Re-authenticate or otherwise verify current signing intent according to the chosen assurance level.
+- [x] Store signer identity, meaning, timestamp, revision integrity reference and relevant authentication evidence.
+- [x] Make signature evidence immutable and independently readable.
+- [x] Reject signing when required checks, permissions or workflow steps are incomplete.
+- [x] Add tests for valid signing, expired session, changed revision, duplicate action and unauthorised signer.
 
 ### SIGN-002 — Lock approved records and expose complete history
 

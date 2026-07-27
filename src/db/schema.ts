@@ -937,6 +937,90 @@ export const reviewDecisions = api.table(
 )
 
 /**
+ * signatures (SIGN-001) are immutable, workspace-scoped electronic
+ * signatures that record a signer's post-approval attestation against a
+ * frozen revision. Each row pins the signer identity, the stated signature
+ * meaning, the assurance level, the revision integrity digest the signer was
+ * looking at, and the authentication evidence (session id, role, auth method,
+ * confirmation phrase). Writes go only through the `sign_revision` SECURITY
+ * DEFINER RPC; request roles get SELECT and EXECUTE and nothing else, and an
+ * immutability trigger prevents UPDATE/DELETE by application roles.
+ *
+ * The assurance level is a stated property of the evidence, not a compliance
+ * certification — no 21 CFR Part 11 / EU Annex 11 claim is made or implied.
+ * The initial assurance level is 'standard', verified by the authenticated
+ * session plus a typed confirmation that matches the signer's recorded name.
+ */
+export const signatures = api.table(
+  'signatures',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    submissionId: uuid('submission_id')
+      .notNull()
+      .references(() => reviewSubmissions.id, { onDelete: 'restrict' }),
+    revisionId: uuid('revision_id')
+      .notNull()
+      .references(() => revisions.id, { onDelete: 'restrict' }),
+    recordId: uuid('record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'restrict' }),
+    // approve-for-record | witness
+    signatureMeaning: text('signature_meaning').notNull(),
+    assuranceLevel: text('assurance_level').notNull().default('standard'),
+    revisionIntegrityDigest: text('revision_integrity_digest').notNull(),
+    signerUserId: text('signer_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    signerSessionId: text('signer_session_id').notNull(),
+    signerRole: text('signer_role').notNull(),
+    authMethod: text('auth_method').notNull(),
+    confirmationPhrase: text('confirmation_phrase').notNull(),
+    signedAt: timestamp('signed_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .default(sql`clock_timestamp()`),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'chk_signatures_meaning',
+      sql`${table.signatureMeaning} IN ('approve-for-record', 'witness')`,
+    ),
+    check(
+      'chk_signatures_assurance_level',
+      sql`${table.assuranceLevel} IN ('standard')`,
+    ),
+    check(
+      'chk_signatures_auth_method',
+      sql`${table.authMethod} IN ('session+name-confirmation')`,
+    ),
+    check(
+      'chk_signatures_digest',
+      sql`${table.revisionIntegrityDigest} ~ '^[0-9a-f]{64}$'`,
+    ),
+    check(
+      'chk_signatures_confirmation_phrase',
+      sql`length(${table.confirmationPhrase}) BETWEEN 1 AND 200`,
+    ),
+    unique('uq_signatures_submission_signer').on(
+      table.submissionId,
+      table.signerUserId,
+    ),
+    index('idx_signatures_submission').on(table.submissionId, table.signedAt),
+    index('idx_signatures_workspace_signed').on(
+      table.workspaceId,
+      table.signedAt,
+    ),
+    index('idx_signatures_record').on(table.recordId, table.signedAt),
+    index('idx_signatures_revision').on(table.revisionId),
+  ],
+)
+
+/**
  * comments (REV-004) are anchored review discussions on an immutable
  * submitted revision. The anchor is `revision_id` plus a stable `target`
  * descriptor referencing an entity by its snapshot identity (block id, table
@@ -2140,6 +2224,7 @@ export const reviewSubmissionsRelations = relations(
       references: [revisions.id],
     }),
     decisions: many(reviewDecisions),
+    signatures: many(signatures),
   }),
 )
 
@@ -2182,6 +2267,25 @@ export const reviewDecisionsRelations = relations(
     }),
   }),
 )
+
+export const signaturesRelations = relations(signatures, ({ one }) => ({
+  workspace: one(workspaces, {
+    fields: [signatures.workspaceId],
+    references: [workspaces.id],
+  }),
+  submission: one(reviewSubmissions, {
+    fields: [signatures.submissionId],
+    references: [reviewSubmissions.id],
+  }),
+  revision: one(revisions, {
+    fields: [signatures.revisionId],
+    references: [revisions.id],
+  }),
+  record: one(records, {
+    fields: [signatures.recordId],
+    references: [records.id],
+  }),
+}))
 
 export const commentsRelations = relations(comments, ({ one }) => ({
   workspace: one(workspaces, {

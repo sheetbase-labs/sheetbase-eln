@@ -35,6 +35,7 @@ import {
   History,
   ListChecks,
   MessageSquare,
+  PenLine,
   ShieldCheck,
   Undo2,
   XCircle,
@@ -109,6 +110,14 @@ import type {
 } from '#/lib/review-workspace'
 import type { ReviewSubmissionWire } from '#/lib/reviews'
 import type { RevisionWire } from '#/lib/notebook-data'
+import {
+  ASSURANCE_LEVEL_STATEMENT,
+  fetchSignaturesForSubmission,
+  signatureQueryKeys,
+  SIGNATURE_MEANING_OPTIONS,
+  signRevision,
+} from '#/lib/signatures'
+import type { SignatureMeaning, SignatureWire } from '#/lib/signatures'
 import { cn } from '#/lib/utils'
 
 // ---------------------------------------------------------------------------
@@ -214,6 +223,13 @@ function ReviewWorkspaceRoute() {
     enabled: submissionId !== null,
   })
 
+  const signaturesQuery = useQuery({
+    queryKey: signatureQueryKeys.forSubmission(submissionId ?? ''),
+    queryFn: () =>
+      fetchSignaturesForSubmission(reviewsDataClient, submissionId!),
+    enabled: submissionId !== null,
+  })
+
   const checksQuery = useQuery({
     queryKey: reviewCheckQueryKeys.resultsForRevision(revisionId),
     queryFn: () => fetchReviewCheckResults(reviewsDataClient, revisionId),
@@ -270,6 +286,7 @@ function ReviewWorkspaceRoute() {
 
   const decisions = decisionsQuery.data ?? []
   const checkResults = checksQuery.data ?? []
+  const signatures = signaturesQuery.data ?? []
 
   const permission = useMemo(() => {
     if (!submission || !revision) return null
@@ -374,6 +391,7 @@ function ReviewWorkspaceRoute() {
       record={record}
       projectTitle={project?.title ?? null}
       decisions={decisions}
+      signatures={signatures}
       permission={permission}
       currentUserId={currentUserId}
       currentUserName={currentUserName}
@@ -912,6 +930,7 @@ function ReviewInspector({
   record,
   projectTitle,
   decisions,
+  signatures,
   permission,
   currentUserId,
   currentUserName,
@@ -923,6 +942,7 @@ function ReviewInspector({
   record: { identifier?: string; title?: string; kind?: string } | null
   projectTitle: string | null
   decisions: ReviewDecisionWire[]
+  signatures: SignatureWire[]
   permission: ReturnType<typeof deriveReviewActionPermission> | null
   currentUserId: string
   currentUserName: string
@@ -1026,6 +1046,17 @@ function ReviewInspector({
             <p className="text-xs text-muted-foreground">No assignees.</p>
           )}
         </section>
+
+        {submission ? (
+          <SignaturePanel
+            submission={submission}
+            revision={revision}
+            signatures={signatures}
+            integrityDigest={integrityDigest}
+            currentUserId={currentUserId}
+            currentUserName={currentUserName}
+          />
+        ) : null}
       </div>
 
       <div className="space-y-2 border-t p-3">
@@ -1423,6 +1454,15 @@ export function renderError(err: unknown): string {
       return 'This revision has been superseded — act on the latest submission instead.'
     if (err.code === 'SB001')
       return 'The revision you were viewing is no longer the active one. Refresh and try again.'
+    if (err.code === 'SB002')
+      return 'Your session has expired. Sign in again to sign this revision.'
+    if (err.code === 'SB007')
+      return 'This review has not been approved — only an approved review can be signed.'
+    if (err.code === 'SB008')
+      return 'Required checks have not passed. Run the reviewer checks and resolve any blocking failures before signing.'
+    if (err.code === 'SB009')
+      return 'The confirmation you typed does not match your recorded name. Type your name exactly to confirm signing intent.'
+    if (err.code === 'SB010') return 'You have already signed this submission.'
     if (err.code === '42501' || err.code === 'permission_denied')
       return 'You do not have permission to perform this action.'
     return err.message
@@ -1432,4 +1472,303 @@ export function renderError(err: unknown): string {
     if (typeof message === 'string') return message
   }
   return 'Action failed.'
+}
+
+// ---------------------------------------------------------------------------
+// SIGN-001 — Signature panel and dialog.
+//
+// Signing is offered only after a review is approved, and only to an assigned
+// reviewer who has not already signed. The dialog states the signature
+// meaning, the target revision identity and integrity digest, and the
+// assurance level honestly — without compliance labelling. The signer must
+// type their recorded name to verify current signing intent at the 'standard'
+// assurance level.
+// ---------------------------------------------------------------------------
+
+function SignaturePanel({
+  submission,
+  revision,
+  signatures,
+  integrityDigest,
+  currentUserId,
+  currentUserName,
+}: {
+  submission: ReviewSubmissionWire
+  revision: RevisionWire
+  signatures: SignatureWire[]
+  integrityDigest: string | null
+  currentUserId: string
+  currentUserName: string
+}) {
+  const queryClient = useQueryClient()
+  const [open, setOpen] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [signing, setSigning] = useState(false)
+
+  const isApproved = submission.state === 'approved'
+  const isAssignedReviewer =
+    submission.assigned_reviewer_user_ids.includes(currentUserId)
+  const alreadySigned = signatures.some(
+    (sig) => sig.signer_user_id === currentUserId,
+  )
+
+  const canSign = isApproved && isAssignedReviewer && !alreadySigned
+
+  async function handleSigned(meaning: SignatureMeaning, confirmation: string) {
+    if (!integrityDigest) {
+      setError('Integrity digest unavailable — signing disabled.')
+      return
+    }
+    setSigning(true)
+    setError(null)
+    try {
+      await signRevision(reviewsDataClient, {
+        submissionId: submission.id,
+        signatureMeaning: meaning,
+        confirmationPhrase: confirmation,
+        expectedRevisionDigest: integrityDigest,
+      })
+      await queryClient.invalidateQueries({
+        queryKey: signatureQueryKeys.forSubmission(submission.id),
+      })
+      setOpen(false)
+    } catch (err) {
+      setError(renderError(err))
+    } finally {
+      setSigning(false)
+    }
+  }
+
+  return (
+    <section>
+      <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        Signatures
+      </h3>
+
+      {signatures.length > 0 ? (
+        <ul className="space-y-2">
+          {signatures.map((sig) => (
+            <li
+              key={sig.id}
+              className="rounded-md border bg-muted/20 p-2 text-xs"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-medium text-foreground">
+                  {sig.signer_user_id === currentUserId
+                    ? currentUserName
+                    : sig.signer_user_id.slice(0, 8)}
+                </span>
+                <span className="text-muted-foreground">
+                  {formatDate(sig.signed_at)}
+                </span>
+              </div>
+              <p className="mt-1 text-muted-foreground">
+                {signatureMeaningLabel(sig.signature_meaning)}
+              </p>
+              <p className="mt-0.5 font-mono text-[10px] text-muted-foreground/70">
+                {sig.assurance_level} · {sig.auth_method} ·{' '}
+                {sig.revision_integrity_digest.slice(0, 12)}…
+              </p>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          No signatures recorded yet.
+        </p>
+      )}
+
+      {isApproved ? (
+        <div className="mt-2">
+          {canSign ? (
+            <SignatureDialog
+              open={open}
+              onOpenChange={(next) => {
+                setOpen(next)
+                if (next) setError(null)
+              }}
+              revision={revision}
+              integrityDigest={integrityDigest}
+              currentUserName={currentUserName}
+              signing={signing}
+              error={error}
+              onConfirm={handleSigned}
+            />
+          ) : alreadySigned ? (
+            <p className="text-[10px] text-muted-foreground">
+              You have already signed this submission.
+            </p>
+          ) : !isAssignedReviewer ? (
+            <p className="text-[10px] text-muted-foreground">
+              Only an assigned reviewer may sign an approved revision.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+    </section>
+  )
+}
+
+function SignatureDialog({
+  open,
+  onOpenChange,
+  revision,
+  integrityDigest,
+  currentUserName,
+  signing,
+  error,
+  onConfirm,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  revision: RevisionWire
+  integrityDigest: string | null
+  currentUserName: string
+  signing: boolean
+  error: string | null
+  onConfirm: (meaning: SignatureMeaning, confirmation: string) => void
+}) {
+  const [meaning, setMeaning] = useState<SignatureMeaning>('approve-for-record')
+  const [confirmation, setConfirmation] = useState('')
+
+  const selected = SIGNATURE_MEANING_OPTIONS.find((o) => o.value === meaning)!
+  const confirmationMatches =
+    confirmation.trim().toLowerCase() === currentUserName.trim().toLowerCase()
+
+  return (
+    <AlertDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (next) {
+          setMeaning('approve-for-record')
+          setConfirmation('')
+        }
+        onOpenChange(next)
+      }}
+    >
+      <AlertDialogTrigger asChild>
+        <Button size="sm" className="h-9 w-full text-xs">
+          <PenLine className="size-3.5" aria-hidden />
+          Sign revision
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Sign this revision</AlertDialogTitle>
+          <AlertDialogDescription>
+            You are signing revision{' '}
+            <span className="font-mono">{revision.id.slice(0, 8)}</span> as an
+            attestation of your review. This is an internal electronic
+            signature, not a regulatory compliance certification.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        <dl className="space-y-1 rounded-md border bg-muted/30 p-2 text-xs">
+          <InspectorPropStatic label="Revision">
+            <span className="font-mono">{revision.id.slice(0, 12)}…</span>
+          </InspectorPropStatic>
+          <InspectorPropStatic label="Integrity">
+            <span className="font-mono">
+              {integrityDigest ? `${integrityDigest.slice(0, 16)}…` : '—'}
+            </span>
+          </InspectorPropStatic>
+          <InspectorPropStatic label="Reason">
+            {revision.reason}
+          </InspectorPropStatic>
+        </dl>
+
+        <div className="space-y-2">
+          <label
+            htmlFor="signature-meaning"
+            className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+          >
+            Signature meaning
+          </label>
+          <select
+            id="signature-meaning"
+            className="block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+            value={meaning}
+            onChange={(event) =>
+              setMeaning(event.target.value as SignatureMeaning)
+            }
+          >
+            {SIGNATURE_MEANING_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-muted-foreground">
+            {selected.description}
+          </p>
+        </div>
+
+        <p className="rounded-md border border-border bg-muted/20 px-2 py-1.5 text-[11px] text-muted-foreground">
+          {ASSURANCE_LEVEL_STATEMENT.standard}
+        </p>
+
+        <div className="space-y-2">
+          <label
+            htmlFor="signature-confirmation"
+            className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+          >
+            Type your name to confirm
+          </label>
+          <input
+            id="signature-confirmation"
+            type="text"
+            className="block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+            placeholder={currentUserName}
+            value={confirmation}
+            onChange={(event) => setConfirmation(event.target.value)}
+            autoComplete="off"
+          />
+          <p className="text-[11px] text-muted-foreground">
+            Type your recorded name exactly to verify your signing intent.
+          </p>
+        </div>
+
+        {error ? (
+          <p
+            role="alert"
+            className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+          >
+            {error}
+          </p>
+        ) : null}
+
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            disabled={signing || !confirmationMatches}
+            onClick={() => onConfirm(meaning, confirmation)}
+          >
+            {signing ? 'Signing…' : 'Sign'}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
+function signatureMeaningLabel(meaning: SignatureMeaning): string {
+  const option = SIGNATURE_MEANING_OPTIONS.find((o) => o.value === meaning)
+  return option?.label ?? meaning
+}
+
+function InspectorPropStatic({
+  label,
+  children,
+}: {
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 truncate text-right text-foreground">
+        {children}
+      </dd>
+    </div>
+  )
 }

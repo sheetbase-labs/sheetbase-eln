@@ -19,6 +19,7 @@ import {
   ClipboardList,
   Database,
   FlaskConical,
+  FolderOpen,
   Gauge,
   Grid3x3,
   Home as HomeIcon,
@@ -166,6 +167,7 @@ export const defaultNavSections: AppShellNavSection[] = [
     label: 'Workspace',
     items: [
       { to: '/', label: 'Home', icon: HomeIcon },
+      { to: '/projects', label: 'Projects', icon: FolderOpen },
       { to: '/search', label: 'Search', icon: Search },
       { to: '/templates', label: 'Templates', icon: LayoutTemplate },
       { to: '/reagents', label: 'Reagents', icon: FlaskConical },

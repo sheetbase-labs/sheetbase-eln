@@ -94,10 +94,10 @@ describe('AppShell', () => {
       breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Projects' }],
       children: null,
     })
-    expect(screen.getByText('Projects').getAttribute('aria-current')).toBe(
-      'page',
-    )
     const breadcrumb = screen.getByRole('navigation', { name: 'Breadcrumb' })
+    expect(
+      within(breadcrumb).getByText('Projects').getAttribute('aria-current'),
+    ).toBe('page')
     expect(within(breadcrumb).getByRole('link', { name: 'Home' })).toBeTruthy()
   })
 

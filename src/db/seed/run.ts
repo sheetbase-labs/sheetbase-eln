@@ -18,6 +18,7 @@ import { Client } from 'pg'
 import { drizzle } from 'drizzle-orm/node-postgres'
 
 import * as schema from '../schema'
+import { monthSteps } from './month'
 import {
   DEMO_BLOCK_IDS,
   DEMO_ARCHIVED_SAMPLE_IDENTIFIER,
@@ -125,10 +126,9 @@ export const fixtureSteps: Array<SeedStep> = [
           key: FIXTURE_PROJECT_KEY,
           title: 'Fixture Project',
         })
-        .onConflictDoUpdate({
-          target: [schema.projects.workspaceId, schema.projects.key],
-          set: { title: 'Fixture Project' },
-        })
+        // A live workspace may already own the historical fixture UUID. Do
+        // not mutate or move that row when running an additive seed.
+        .onConflictDoNothing()
     },
   },
 ]
@@ -1936,7 +1936,12 @@ async function main() {
   }
 
   const withDemo = process.argv.includes('--demo')
-  const steps = withDemo ? [...fixtureSteps, ...demoSteps] : fixtureSteps
+  const withMonth = process.argv.includes('--month')
+  const steps = [
+    ...fixtureSteps,
+    ...(withDemo ? demoSteps : []),
+    ...(withMonth ? monthSteps : []),
+  ]
 
   const db = createDb(databaseUrl)
   try {

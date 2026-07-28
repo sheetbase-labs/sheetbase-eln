@@ -29,6 +29,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx src/db/seed/run.ts",
     "db:seed:demo": "tsx src/db/seed/run.ts --demo",
+    "db:seed:month": "tsx src/db/seed/run.ts --month",
     "db:reset": "tsx src/db/reset.ts",
     "db:fresh": "tsx src/db/fresh.ts",
     "services:up": "docker compose --env-file .env.local up -d --build",

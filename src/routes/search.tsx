@@ -419,7 +419,9 @@ function SearchRoute() {
     queryKey: searchQueryKeys.search(fetchFilters),
     queryFn: () => executeSearch(client, fetchFilters),
     // Keep results fresh; search is real-time (no stale index).
-    staleTime: 0,
+    // Use a short staleTime instead of 0 so navigating back to the search
+    // tab doesn't force an instant refetch of the same query.
+    staleTime: 10_000,
   })
 
   // Projects list for the project filter + name resolution.

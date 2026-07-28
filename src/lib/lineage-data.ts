@@ -392,12 +392,12 @@ export async function fetchLineageReviews(
       .join(',')
     return client.list<ReviewSubmissionWire>(
       'review_submissions',
-      `?record_id=in.(${filter})&order=submitted_at.desc`,
+      `?record_id=in.(${filter})&order=submitted_at.desc&select=id,workspace_id,record_id,revision_id,state,workflow_definition_key,workflow_definition_version,assigned_reviewer_user_ids,submitted_by_user_id,submitted_at,created_at,updated_at`,
     )
   }
   return client.list<ReviewSubmissionWire>(
     'review_submissions',
-    `?order=submitted_at.desc`,
+    `?order=submitted_at.desc&select=id,workspace_id,record_id,revision_id,state,workflow_definition_key,workflow_definition_version,assigned_reviewer_user_ids,submitted_by_user_id,submitted_at,created_at,updated_at`,
   )
 }
 
@@ -414,12 +414,12 @@ export async function fetchLineageDecisions(
       .join(',')
     return client.list<ReviewDecisionWire>(
       'review_decisions',
-      `?record_id=in.(${filter})&order=created_at.desc`,
+      `?record_id=in.(${filter})&order=created_at.desc&select=id,workspace_id,submission_id,revision_id,record_id,decision,note,actor_user_id,created_at`,
     )
   }
   return client.list<ReviewDecisionWire>(
     'review_decisions',
-    `?order=created_at.desc`,
+    `?order=created_at.desc&select=id,workspace_id,submission_id,revision_id,record_id,decision,note,actor_user_id,created_at`,
   )
 }
 
@@ -436,10 +436,13 @@ export async function fetchLineageSignatures(
       .join(',')
     return client.list<SignatureWire>(
       'signatures',
-      `?record_id=in.(${filter})&order=created_at.desc`,
+      `?record_id=in.(${filter})&order=created_at.desc&select=id,workspace_id,record_id,revision_id,signer_user_id,signature_meaning,assurance_level,created_at`,
     )
   }
-  return client.list<SignatureWire>('signatures', `?order=created_at.desc`)
+  return client.list<SignatureWire>(
+    'signatures',
+    `?order=created_at.desc&select=id,workspace_id,record_id,revision_id,signer_user_id,signature_meaning,assurance_level,created_at`,
+  )
 }
 
 /**
@@ -456,12 +459,12 @@ export async function fetchLineageEvents(
       .join(',')
     return client.list<ChangeEventWire>(
       'change_events',
-      `?record_id=in.(${filter})&order=created_at.desc&limit=${LINEAGE_MAX_EVENTS}`,
+      `?record_id=in.(${filter})&order=created_at.desc&limit=${LINEAGE_MAX_EVENTS}&select=id,workspace_id,sequence,entity_type,entity_uuid,operation,record_id,project_id,actor_user_id,actor_credential_id,client_id,payload,created_at`,
     )
   }
   return client.list<ChangeEventWire>(
     'change_events',
-    `?order=created_at.desc&limit=${LINEAGE_MAX_EVENTS}`,
+    `?order=created_at.desc&limit=${LINEAGE_MAX_EVENTS}&select=id,workspace_id,sequence,entity_type,entity_uuid,operation,record_id,project_id,actor_user_id,actor_credential_id,client_id,payload,created_at`,
   )
 }
 

@@ -186,7 +186,10 @@ export function fetchTemplates(
     parts.push(`(identifier=ilike.${q}*,title=ilike.${q}*)`)
   }
   return client
-    .list<RecordWire>('records', `?${parts.join('&')}`)
+    .list<RecordWire>(
+      'records',
+      `?${parts.join('&')}&select=id,workspace_id,project_id,folder_id,kind,identifier,title,status,tags,structure_version,metadata_version,created_at,updated_at,archived_at,deleted_at,created_by_user_id,updated_by_user_id,locked_at,locked_by_revision_id`,
+    )
     .then((rows) => rows.map(toRecord))
 }
 

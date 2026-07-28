@@ -346,12 +346,12 @@ export async function fetchLineageRecords(
   if (seedRecordId) {
     return client.list<RecordWire>(
       'records',
-      `?id=eq.${encodeURIComponent(seedRecordId)}`,
+      `?id=eq.${encodeURIComponent(seedRecordId)}&select=id,workspace_id,project_id,kind,identifier,title,status,properties,tags,structure_version,metadata_version,created_at,updated_at,archived_at,deleted_at,created_by_user_id,updated_by_user_id`,
     )
   }
   return client.list<RecordWire>(
     'records',
-    `?deleted_at=is.null&order=updated_at.desc&limit=${LINEAGE_MAX_NODES}`,
+    `?deleted_at=is.null&order=updated_at.desc&limit=${LINEAGE_MAX_NODES}&select=id,workspace_id,project_id,kind,identifier,title,status,properties,tags,structure_version,metadata_version,created_at,updated_at,archived_at,deleted_at,created_by_user_id,updated_by_user_id`,
   )
 }
 
@@ -370,12 +370,12 @@ export async function fetchLineageLinks(
       .join(',')
     return client.list<RecordLinkWire>(
       'record_links',
-      `?or=(source_record_id.in.(${filter}),target_record_id.in.(${filter}))&order=created_at.desc&limit=${LINEAGE_MAX_NODES * 4}`,
+      `?or=(source_record_id.in.(${filter}),target_record_id.in.(${filter}))&order=created_at.desc&limit=${LINEAGE_MAX_NODES * 4}&select=id,source_record_id,target_record_id,target_kind,target_identifier,link_type,link_metadata,created_at,created_by_user_id`,
     )
   }
   return client.list<RecordLinkWire>(
     'record_links',
-    `?order=created_at.desc&limit=${LINEAGE_MAX_NODES * 4}`,
+    `?order=created_at.desc&limit=${LINEAGE_MAX_NODES * 4}&select=id,source_record_id,target_record_id,target_kind,target_identifier,link_type,link_metadata,created_at,created_by_user_id`,
   )
 }
 
@@ -1270,15 +1270,27 @@ export async function fetchLineageGraph(
   maxDepth: number = LINEAGE_MAX_DEPTH,
   maxNodes: number = LINEAGE_MAX_NODES,
 ): Promise<LineageGraph> {
-  // Step 1: fetch seed record (or all records).
-  let records = await fetchLineageRecords(client, seedRecordId)
+  // Step 1+2: When seed-centred, fetch the seed record and its links in
+  // parallel — we already know the seed id, so the link query doesn't need
+  // to wait for the record fetch. This saves one serial round-trip.
+  let records: RecordWire[]
+  let links: RecordLinkWire[]
 
-  // Step 2: fetch links for the initial record set.
-  const initialIds = records.map((r) => r.id)
-  let links = await fetchLineageLinks(
-    client,
-    initialIds.length > 0 ? initialIds : null,
-  )
+  if (seedRecordId) {
+    const [seedRecords, seedLinks] = await Promise.all([
+      fetchLineageRecords(client, seedRecordId),
+      fetchLineageLinks(client, [seedRecordId]),
+    ])
+    records = seedRecords
+    links = seedLinks
+  } else {
+    records = await fetchLineageRecords(client, null)
+    const initialIds = records.map((r) => r.id)
+    links = await fetchLineageLinks(
+      client,
+      initialIds.length > 0 ? initialIds : null,
+    )
+  }
 
   // Step 3: if seed-centred, iteratively expand the record set by following
   // links up to maxDepth. This discovers records referenced by links that

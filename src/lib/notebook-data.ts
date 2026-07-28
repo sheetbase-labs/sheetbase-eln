@@ -296,7 +296,7 @@ export function fetchRecordsForProject(client: DataClient, projectId: string) {
   return client
     .list<RecordWire>(
       'records',
-      `?project_id=eq.${projectId}&order=created_at.desc&archived_at=is.null`,
+      `?project_id=eq.${projectId}&order=created_at.desc&archived_at=is.null&select=id,workspace_id,project_id,folder_id,kind,identifier,title,status,tags,structure_version,metadata_version,created_at,updated_at,archived_at,deleted_at,created_by_user_id,updated_by_user_id,locked_at,locked_by_revision_id`,
     )
     .then((rows) => rows.map(toRecord))
 }

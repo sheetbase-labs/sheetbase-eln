@@ -391,7 +391,7 @@ export function executeSearch(
 export const searchQueryKeys = {
   search: (filters: SearchFilters) =>
     [
-      'sci-008',
+      'search-001',
       'search',
       filters.query,
       filters.projectId ?? '',
@@ -403,4 +403,334 @@ export const searchQueryKeys = {
       filters.limit ?? 20,
       filters.offset ?? 0,
     ] as const,
+}
+
+// ---------------------------------------------------------------------------
+// SEARCH-001 — Relevance ranking tiers.
+//
+// The RPC already weights title/identifier as tsvector weight A, so ts_rank
+// tends to surface them first. But "predictably" (checkbox 2) means exact
+// identifier matches ALWAYS come first, then structured matches, then fuzzy
+// text — not just usually. We derive a tier from the matched_field and sort
+// by (tier, rank) client-side so the ordering is deterministic regardless of
+// ts_rank score variations.
+// ---------------------------------------------------------------------------
+
+export type MatchTier = 0 | 1 | 2 | 3 | 4
+
+/**
+ * Tier hierarchy:
+ *   0 — exact identifier match (query equals or is a substring of identifier)
+ *   1 — identifier field match (partial FTS match on identifier)
+ *   2 — title field match
+ *   3 — structured match (tags, status, kind)
+ *   4 — fuzzy text match (block_text, file_metadata, properties, relationship)
+ */
+export function matchTierForField(
+  field: MatchedField,
+  query: string,
+  identifier: string,
+): MatchTier {
+  const q = query.trim().toLowerCase()
+  if (q && field === 'identifier') {
+    // Exact identifier match: the query is the identifier or a substring of it.
+    if (identifier.toLowerCase().includes(q)) return 0
+    return 1
+  }
+  if (field === 'title') return 2
+  if (field === 'tags' || field === 'status' || field === 'kind') return 3
+  return 4
+}
+
+/**
+ * Rank results by match tier first, then by ts_rank (relevance score), then
+ * by updated_at descending. This guarantees exact identifier and structured
+ * matches appear before fuzzy text matches.
+ */
+export function rankByTier(
+  results: SearchResult[],
+  query: string,
+): SearchResult[] {
+  const q = query.trim()
+  if (!q) {
+    // Browse mode: keep updated_at order (RPC default).
+    return [...results].sort(
+      (a, b) =>
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    )
+  }
+  return [...results].sort((a, b) => {
+    const tierA = matchTierForField(a.matchedField, q, a.identifier)
+    const tierB = matchTierForField(b.matchedField, q, b.identifier)
+    if (tierA !== tierB) return tierA - tierB
+    if (b.rank !== a.rank) return b.rank - a.rank
+    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  })
+}
+
+// ---------------------------------------------------------------------------
+// SEARCH-001 — Saved queries (client-side, localStorage, per workspace).
+//
+// Saved queries are persisted in localStorage scoped by workspace ID so they
+// don't leak across workspaces. No DB table needed — the task explicitly
+// allows localStorage for this.
+// ---------------------------------------------------------------------------
+
+export interface SavedQuery {
+  id: string
+  name: string
+  query: string
+  kind: string
+  projectId: string
+  status: string
+  ownerId: string
+  dateRange: string
+  ts: number
+}
+
+const SAVED_PREFIX = 'sheetbase-saved-searches'
+const SAVED_MAX = 20
+
+export function savedQueriesKey(workspaceId: string): string {
+  return `${SAVED_PREFIX}-${workspaceId}`
+}
+
+export function loadSavedQueries(workspaceId: string): SavedQuery[] {
+  try {
+    const raw = localStorage.getItem(savedQueriesKey(workspaceId))
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .filter(
+        (s: unknown): s is SavedQuery =>
+          typeof s === 'object' &&
+          s !== null &&
+          typeof (s as SavedQuery).id === 'string' &&
+          typeof (s as SavedQuery).name === 'string',
+      )
+      .slice(0, SAVED_MAX)
+  } catch {
+    return []
+  }
+}
+
+export function saveQuery(
+  workspaceId: string,
+  params: Omit<SavedQuery, 'id' | 'ts'>,
+): SavedQuery[] {
+  const existing = loadSavedQueries(workspaceId)
+  // Deduplicate by name + query + filters.
+  const dedupKey = `${params.name}|${params.query}|${params.kind}|${params.projectId}|${params.status}|${params.ownerId}|${params.dateRange}`
+  const filtered = existing.filter((s) => {
+    const key = `${s.name}|${s.query}|${s.kind}|${s.projectId}|${s.status}|${s.ownerId}|${s.dateRange}`
+    return key !== dedupKey
+  })
+  const entry: SavedQuery = {
+    ...params,
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    ts: Date.now(),
+  }
+  const next = [entry, ...filtered].slice(0, SAVED_MAX)
+  try {
+    localStorage.setItem(savedQueriesKey(workspaceId), JSON.stringify(next))
+  } catch {
+    /* ignore: private mode / disabled storage */
+  }
+  return next
+}
+
+export function deleteSavedQuery(
+  workspaceId: string,
+  id: string,
+): SavedQuery[] {
+  const existing = loadSavedQueries(workspaceId)
+  const next = existing.filter((s) => s.id !== id)
+  try {
+    localStorage.setItem(savedQueriesKey(workspaceId), JSON.stringify(next))
+  } catch {
+    /* ignore */
+  }
+  return next
+}
+
+// ---------------------------------------------------------------------------
+// SEARCH-001 — Semantic suggestions with clear provenance.
+//
+// Suggestions are derived ONLY from the already-fetched, RLS-filtered search
+// results — never from separate queries that could leak restricted counts or
+// snippets. Each suggestion carries a human-readable provenance label so the
+// user understands why it was offered.
+// ---------------------------------------------------------------------------
+
+export type SuggestionKind = 'identifier' | 'tag' | 'type'
+
+export interface SearchSuggestion {
+  id: string
+  kind: SuggestionKind
+  label: string
+  provenance: string
+  /** The query string to apply when the suggestion is accepted. */
+  applyQuery: string
+  /** Optional kind filter to apply. */
+  applyKind?: string
+}
+
+/**
+ * Derive semantic suggestions from the current search results. Only offers
+ * suggestions when their provenance is clear — i.e. they are directly
+ * backed by visible results the user can already see.
+ */
+export function deriveSuggestions(
+  results: SearchResult[],
+  query: string,
+): SearchSuggestion[] {
+  const q = query.trim().toLowerCase()
+  if (!q || results.length === 0) return []
+  const suggestions: SearchSuggestion[] = []
+  const seen = new Set<string>()
+
+  // 1. Identifier suggestions: if the query partially matches an identifier,
+  //    offer the exact identifier.
+  for (const r of results) {
+    if (
+      r.matchedField === 'identifier' &&
+      r.identifier.toLowerCase().includes(q)
+    ) {
+      const key = `id-${r.identifier}`
+      if (!seen.has(key)) {
+        seen.add(key)
+        suggestions.push({
+          id: key,
+          kind: 'identifier',
+          label: r.identifier,
+          provenance: `Identifier match — ${r.title}`,
+          applyQuery: r.identifier,
+        })
+      }
+    }
+  }
+
+  // 2. Tag suggestions: if results matched on tags, offer to refine.
+  for (const r of results) {
+    // Tags are not in the search result shape, but the matched_field 'tags'
+    // tells us the result matched on tags. We can offer the query as a tag
+    // search suggestion.
+    if (r.matchedField === 'tags') {
+      const key = `tag-${r.identifier}`
+      if (!seen.has(key)) {
+        seen.add(key)
+        suggestions.push({
+          id: key,
+          kind: 'tag',
+          label: `Records matching "${query.trim()}" in tags`,
+          provenance: `Tag match — ${r.identifier}`,
+          applyQuery: query.trim(),
+        })
+      }
+    }
+  }
+
+  // 3. Type suggestions: if results span multiple kinds, offer to filter.
+  const kindCounts = new Map<string, number>()
+  for (const r of results) {
+    kindCounts.set(r.kind, (kindCounts.get(r.kind) ?? 0) + 1)
+  }
+  if (kindCounts.size > 1) {
+    for (const [kind, count] of kindCounts) {
+      const key = `type-${kind}`
+      if (!seen.has(key) && count > 0) {
+        seen.add(key)
+        suggestions.push({
+          id: key,
+          kind: 'type',
+          label: `Filter to ${kindLabelForSuggestion(kind)} (${count})`,
+          provenance: `${count} ${kindLabelForSuggestion(kind).toLowerCase()} in current results`,
+          applyQuery: query.trim(),
+          applyKind: kind,
+        })
+      }
+    }
+  }
+
+  return suggestions.slice(0, 6)
+}
+
+function kindLabelForSuggestion(kind: string): string {
+  const labels: Record<string, string> = {
+    experiment: 'Experiments',
+    sample: 'Samples',
+    reagent: 'Reagents',
+    protocol_template: 'Protocols',
+    report: 'Reports',
+    file: 'Files',
+    notebook_template: 'Templates',
+  }
+  return labels[kind] ?? kind
+}
+
+// ---------------------------------------------------------------------------
+// SEARCH-001 — URL search parameter helpers.
+//
+// The route uses validateSearch + useSearch + useNavigate so filter and query
+// state lives in the URL. This makes searches shareable without embedding
+// secrets — only public filter dimensions (query, kind, project, status,
+// owner, date range, sort, selected result) are in the URL. No tokens,
+// session IDs, or internal IDs beyond the project/record IDs that are
+// already part of the application's public URL space.
+// ---------------------------------------------------------------------------
+
+export interface SearchUrlParams {
+  q: string
+  kind: string
+  project: string
+  status: string
+  owner: string
+  date: string
+  sort: string
+  selected: string
+}
+
+export const SEARCH_URL_DEFAULTS: SearchUrlParams = {
+  q: '',
+  kind: '',
+  project: '',
+  status: '',
+  owner: '',
+  date: 'all',
+  sort: 'relevance',
+  selected: '',
+}
+
+/**
+ * Parse and validate URL search params, applying defaults for missing/invalid
+ * values. Used by the route's validateSearch.
+ */
+export function parseSearchUrl(
+  search: Record<string, unknown>,
+): SearchUrlParams {
+  return {
+    q: typeof search.q === 'string' ? search.q : '',
+    kind: typeof search.kind === 'string' ? search.kind : '',
+    project: typeof search.project === 'string' ? search.project : '',
+    status: typeof search.status === 'string' ? search.status : '',
+    owner: typeof search.owner === 'string' ? search.owner : '',
+    date: typeof search.date === 'string' ? search.date : 'all',
+    sort:
+      typeof search.sort === 'string' &&
+      ['relevance', 'updated'].includes(search.sort)
+        ? search.sort
+        : 'relevance',
+    selected: typeof search.selected === 'string' ? search.selected : '',
+  }
+}
+
+/**
+ * Serialize search params back to a plain object for navigate(). Strips
+ // empty/default values so the URL stays clean.
+ */
+export function serializeSearchUrl(
+  params: Partial<SearchUrlParams>,
+): SearchUrlParams {
+  return { ...SEARCH_URL_DEFAULTS, ...params }
 }

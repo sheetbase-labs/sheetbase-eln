@@ -22,24 +22,35 @@
  * body, semantic tokens, keyboard accessible (arrow keys + Enter).
  */
 import { useQuery } from '@tanstack/react-query'
-import { createFileRoute, Link, redirect } from '@tanstack/react-router'
+import {
+  createFileRoute,
+  Link,
+  redirect,
+  useNavigate,
+} from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertCircle,
   Archive,
+  Bookmark,
   ChevronLeft,
   ChevronRight,
   Clock,
+  ExternalLink,
   FileText,
   FlaskConical,
   History,
   LayoutTemplate,
+  Lightbulb,
+  MessageSquare,
   Microscope,
+  Pencil,
   Beaker,
   ScrollText,
   File as FileIcon,
   Search as SearchIcon,
+  Trash2,
   X,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -60,15 +71,28 @@ import {
   recordKindLabel,
   toProject,
 } from '#/lib/notebook-data'
-import type { ProjectWire } from '#/lib/notebook-data'
+import type { NotebookLink, ProjectWire } from '#/lib/notebook-data'
 import {
+  deleteSavedQuery,
+  deriveSuggestions,
   executeSearch,
+  loadSavedQueries,
   matchedFieldLabel,
   parseMatchedContext,
+  parseSearchUrl,
+  rankByTier,
+  saveQuery,
   searchQueryKeys,
   SEARCHABLE_KINDS,
+  serializeSearchUrl,
 } from '#/lib/search'
-import type { SearchFilters, SearchResult } from '#/lib/search'
+import type {
+  SavedQuery,
+  SearchFilters,
+  SearchResult,
+  SearchSuggestion,
+  SearchUrlParams,
+} from '#/lib/search'
 
 // ---------------------------------------------------------------------------
 // Auth context (same pattern as /templates).
@@ -88,6 +112,11 @@ export const Route = createFileRoute('/search')({
     }
     return { context }
   },
+  // SEARCH-001: filter and query state lives in the URL so searches are
+  // shareable. Only public filter dimensions are stored — no tokens, session
+  // IDs, or secrets. Project/record IDs are already part of the public URL
+  // space (project deep links use them).
+  validateSearch: (search: Record<string, unknown>) => parseSearchUrl(search),
   component: SearchRoute,
 })
 
@@ -261,29 +290,60 @@ function ownerInitials(userId: string, name?: string): string {
 function SearchRoute() {
   const { context } = Route.useRouteContext()
   const client = useMemo(() => createDataClient(), [])
+  const navigate = useNavigate()
 
-  // Query + client-side filter state.
-  const [query, setQuery] = useState('')
-  const [debouncedQuery, setDebouncedQuery] = useState('')
-  const [kind, setKind] = useState('')
-  const [projectId, setProjectId] = useState('')
-  const [status, setStatus] = useState('')
-  const [ownerId, setOwnerId] = useState('')
-  const [dateRange, setDateRange] = useState<DateRangeKey>('all')
+  // ---- URL-derived state (shareable, no secrets) -------------------------
+  const urlSearch = Route.useSearch()
+  const query = urlSearch.q
+  const kind = urlSearch.kind
+  const projectId = urlSearch.project
+  const status = urlSearch.status
+  const ownerId = urlSearch.owner
+  const dateRange = urlSearch.date as DateRangeKey
+  const sort = urlSearch.sort as SortKey
+  const selectedId = urlSearch.selected || null
 
-  // Pagination + sort.
+  // Local input state for the text field (debounced → URL).
+  const [inputValue, setInputValue] = useState(query)
+  const [debouncedQuery, setDebouncedQuery] = useState(query)
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Sync local input when the URL q changes externally (saved query click,
+  // recent search pick, back/forward navigation).
+  useEffect(() => {
+    setInputValue(query)
+    setDebouncedQuery(query)
+  }, [query])
+
+  // Debounce input → update URL q (and thus the search query).
+  useEffect(() => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current)
+    // Only debounce if the input differs from the URL (avoid loops).
+    if (inputValue === query) return
+    debounceTimer.current = setTimeout(() => {
+      void navigate({
+        to: '/search',
+        search: serializeSearchUrl({
+          ...urlSearch,
+          q: inputValue,
+          selected: '',
+        }),
+        replace: true,
+      })
+    }, DEBOUNCE_MS)
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current)
+    }
+  }, [inputValue, query, urlSearch, navigate])
+
+  // Pagination (local state — reset on filter changes).
   const [page, setPage] = useState(0)
-  const [sort, setSort] = useState<SortKey>('relevance')
-
-  // Selected result for inspector preview.
-  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [inspectorOpen, setInspectorOpen] = useState(false)
 
   // Keyboard navigation.
   const [activeIndex, setActiveIndex] = useState(0)
   const listRef = useRef<HTMLUListElement | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const {
     recent,
@@ -291,17 +351,68 @@ function SearchRoute() {
     clear: clearRecentSearches,
   } = useRecentSearches()
 
-  // Debounce the query so we don't fire an RPC per keystroke.
+  // ---- Saved queries (localStorage, per workspace) -----------------------
+  const workspaceId = context.workspace?.id ?? 'default'
+  const [savedQueries, setSavedQueries] = useState<SavedQuery[]>([])
+
   useEffect(() => {
-    if (debounceTimer.current) clearTimeout(debounceTimer.current)
-    debounceTimer.current = setTimeout(
-      () => setDebouncedQuery(query),
-      DEBOUNCE_MS,
-    )
-    return () => {
-      if (debounceTimer.current) clearTimeout(debounceTimer.current)
-    }
-  }, [query])
+    setSavedQueries(loadSavedQueries(workspaceId))
+  }, [workspaceId])
+
+  const handleSaveQuery = useCallback(() => {
+    const name = query.trim() || 'Untitled search'
+    const next = saveQuery(workspaceId, {
+      name,
+      query: query,
+      kind,
+      projectId,
+      status,
+      ownerId,
+      dateRange: dateRange,
+    })
+    setSavedQueries(next)
+  }, [workspaceId, query, kind, projectId, status, ownerId, dateRange])
+
+  const handleDeleteSavedQuery = useCallback(
+    (id: string) => {
+      const next = deleteSavedQuery(workspaceId, id)
+      setSavedQueries(next)
+    },
+    [workspaceId],
+  )
+
+  const handleApplySavedQuery = useCallback(
+    (sq: SavedQuery) => {
+      void navigate({
+        to: '/search',
+        search: serializeSearchUrl({
+          q: sq.query,
+          kind: sq.kind,
+          project: sq.projectId,
+          status: sq.status,
+          owner: sq.ownerId,
+          date: sq.dateRange,
+          sort: 'relevance',
+          selected: '',
+        }),
+        replace: false,
+      })
+    },
+    [navigate],
+  )
+
+  // Helper: navigate to update a single filter dimension.
+  function updateFilter(key: keyof SearchUrlParams, value: string) {
+    void navigate({
+      to: '/search',
+      search: serializeSearchUrl({
+        ...urlSearch,
+        [key]: value,
+        selected: key === 'selected' ? value : '',
+      }),
+      replace: false,
+    })
+  }
 
   // Reset to the first page whenever a filter dimension changes.
   useEffect(() => {
@@ -351,6 +462,12 @@ function SearchRoute() {
   }, [context.user.id, context.user.name])
 
   const allResults = searchQuery.data ?? []
+
+  // ---- Semantic suggestions (derived from RLS-filtered results) ----------
+  const suggestions = useMemo(
+    () => deriveSuggestions(allResults, debouncedQuery),
+    [allResults, debouncedQuery],
+  )
 
   // ---- Client-side derivations -------------------------------------------
 
@@ -413,9 +530,15 @@ function SearchRoute() {
     })
   }, [allResults, kind, projectId, status, ownerId, dateRange])
 
+  // SEARCH-001: rank by tier (exact identifier → structured → fuzzy) then
+  // by ts_rank, guaranteeing predictable ordering regardless of score
+  // variations. Falls back to updated_at sort when sorting by "updated".
   const sortedResults = useMemo(
-    () => sortResults(filteredResults, sort, hasQuery),
-    [filteredResults, sort, hasQuery],
+    () =>
+      sort === 'updated'
+        ? sortResults(filteredResults, 'updated', hasQuery)
+        : rankByTier(filteredResults, debouncedQuery),
+    [filteredResults, sort, hasQuery, debouncedQuery],
   )
 
   const totalCount = sortedResults.length
@@ -435,15 +558,20 @@ function SearchRoute() {
     : null
 
   function selectResult(result: SearchResult) {
-    setSelectedId(result.recordId)
+    updateFilter('selected', result.recordId)
     setInspectorOpen(true)
   }
 
   // Submit the query immediately (Search button / Enter) and record it.
   function submitQuery() {
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
-    setDebouncedQuery(query)
-    if (query.trim()) addRecentSearch(query)
+    // Navigate immediately with the current input value.
+    void navigate({
+      to: '/search',
+      search: serializeSearchUrl({ ...urlSearch, q: inputValue, selected: '' }),
+      replace: false,
+    })
+    if (inputValue.trim()) addRecentSearch(inputValue)
   }
 
   // Keyboard navigation within the results list.
@@ -462,15 +590,27 @@ function SearchRoute() {
   }
 
   function clearFilters() {
-    setKind('')
-    setProjectId('')
-    setStatus('')
-    setOwnerId('')
-    setDateRange('all')
+    void navigate({
+      to: '/search',
+      search: serializeSearchUrl({
+        ...urlSearch,
+        kind: '',
+        project: '',
+        status: '',
+        owner: '',
+        date: 'all',
+        selected: '',
+      }),
+      replace: false,
+    })
   }
 
   const hasFilters =
-    kind || projectId || status || ownerId || dateRange !== 'all'
+    Boolean(kind) ||
+    Boolean(projectId) ||
+    Boolean(status) ||
+    Boolean(ownerId) ||
+    dateRange !== 'all'
 
   const shellContext = {
     workspace: context.workspace ? { name: context.workspace.name } : null,
@@ -488,7 +628,7 @@ function SearchRoute() {
       projectName={projectNames.get(selectedResult.projectId) ?? null}
       ownerName={ownerNames.get(selectedResult.createdByUserId) ?? null}
       onClose={() => {
-        setSelectedId(null)
+        updateFilter('selected', '')
         setInspectorOpen(false)
       }}
     />
@@ -514,7 +654,7 @@ function SearchRoute() {
           </div>
         </header>
 
-        {/* Prominent search bar */}
+        {/* Prominent search bar + save query */}
         <form
           className="flex items-center gap-2"
           onSubmit={(e) => {
@@ -530,8 +670,8 @@ function SearchRoute() {
             <Input
               ref={inputRef}
               type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   // Let the form submit handler run (records recent search).
@@ -546,11 +686,11 @@ function SearchRoute() {
               aria-label="Search query"
               className="h-12 pl-11 pr-9 text-base shadow-xs"
             />
-            {query ? (
+            {inputValue ? (
               <button
                 type="button"
                 onClick={() => {
-                  setQuery('')
+                  setInputValue('')
                   inputRef.current?.focus()
                 }}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
@@ -564,6 +704,18 @@ function SearchRoute() {
             <SearchIcon className="size-4" />
             Search
           </Button>
+          {hasQuery ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="h-12 px-3"
+              onClick={handleSaveQuery}
+              aria-label="Save current search query"
+              title="Save query"
+            >
+              <Bookmark className="size-4" />
+            </Button>
+          ) : null}
         </form>
 
         {/* Type tabs with per-type counts */}
@@ -576,7 +728,7 @@ function SearchRoute() {
             label="All"
             count={allResults.length}
             active={kind === ''}
-            onClick={() => setKind('')}
+            onClick={() => updateFilter('kind', '')}
           />
           {SEARCHABLE_KINDS.filter((k) => kindCounts.has(k)).map((k) => (
             <TypeTab
@@ -584,21 +736,49 @@ function SearchRoute() {
               label={KIND_FILTER_LABELS[k] ?? k}
               count={kindCounts.get(k) ?? 0}
               active={kind === k}
-              onClick={() => setKind(k)}
+              onClick={() => updateFilter('kind', k)}
             />
           ))}
         </div>
 
         {/* Filter bar + results / facets split */}
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-          {/* Left facets column: recent searches */}
-          <aside className="hidden w-56 shrink-0 lg:block">
+          {/* Left facets column: suggestions, saved queries, recent searches */}
+          <aside className="hidden w-56 shrink-0 space-y-3 lg:block">
+            <SemanticSuggestions
+              suggestions={suggestions}
+              onPick={(s) => {
+                void navigate({
+                  to: '/search',
+                  search: serializeSearchUrl({
+                    ...urlSearch,
+                    q: s.applyQuery,
+                    kind: s.applyKind ?? urlSearch.kind,
+                    selected: '',
+                  }),
+                  replace: false,
+                })
+                if (s.applyQuery.trim()) addRecentSearch(s.applyQuery)
+              }}
+            />
+            <SavedQueries
+              queries={savedQueries}
+              onApply={handleApplySavedQuery}
+              onDelete={handleDeleteSavedQuery}
+            />
             <RecentSearches
               recent={recent}
               onPick={(q) => {
-                setQuery(q)
-                if (debounceTimer.current) clearTimeout(debounceTimer.current)
-                setDebouncedQuery(q)
+                void navigate({
+                  to: '/search',
+                  search: serializeSearchUrl({
+                    ...urlSearch,
+                    q,
+                    selected: '',
+                  }),
+                  replace: false,
+                })
+                if (q.trim()) addRecentSearch(q)
               }}
               onClear={clearRecentSearches}
             />
@@ -612,7 +792,7 @@ function SearchRoute() {
                 id="filter-project"
                 label="Filter by project"
                 value={projectId}
-                onChange={setProjectId}
+                onChange={(v) => updateFilter('project', v)}
                 placeholder="Project: All"
                 options={projectOptions}
               />
@@ -620,7 +800,7 @@ function SearchRoute() {
                 id="filter-status"
                 label="Filter by status"
                 value={status}
-                onChange={setStatus}
+                onChange={(v) => updateFilter('status', v)}
                 placeholder="Status: All"
                 options={statusOptions.map((s) => ({ value: s, label: s }))}
               />
@@ -628,7 +808,7 @@ function SearchRoute() {
                 id="filter-owner"
                 label="Filter by owner"
                 value={ownerId}
-                onChange={setOwnerId}
+                onChange={(v) => updateFilter('owner', v)}
                 placeholder="Owner: All"
                 options={ownerOptions.map((o) => ({
                   value: o,
@@ -639,7 +819,7 @@ function SearchRoute() {
                 id="filter-date"
                 label="Filter by date range"
                 value={dateRange}
-                onChange={(v) => setDateRange(v as DateRangeKey)}
+                onChange={(v) => updateFilter('date', v)}
                 placeholder="Date: Any time"
                 options={DATE_RANGE_OPTIONS.map((o) => ({
                   value: o.value,
@@ -672,7 +852,7 @@ function SearchRoute() {
               projectNames={projectNames}
               ownerNames={ownerNames}
               sort={sort}
-              onSortChange={setSort}
+              onSortChange={(s) => updateFilter('sort', s)}
               page={page}
               pageSize={PAGE_SIZE}
               totalPages={totalPages}
@@ -826,6 +1006,108 @@ function RecentSearches({
               <span className="shrink-0 text-[11px] text-muted-foreground">
                 {relativeTime(r.ts)}
               </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// SEARCH-001 — Semantic suggestions with clear provenance.
+// ---------------------------------------------------------------------------
+
+const SUGGESTION_ICON: Record<SearchSuggestion['kind'], LucideIcon> = {
+  identifier: SearchIcon,
+  tag: Bookmark,
+  type: FlaskConical,
+}
+
+function SemanticSuggestions({
+  suggestions,
+  onPick,
+}: {
+  suggestions: SearchSuggestion[]
+  onPick: (suggestion: SearchSuggestion) => void
+}) {
+  if (suggestions.length === 0) return null
+  return (
+    <div className="rounded-lg border border-border bg-sidebar p-3">
+      <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+        <Lightbulb className="size-3.5" aria-hidden /> Suggestions
+      </div>
+      <ul className="space-y-0.5">
+        {suggestions.map((s) => {
+          const Icon = SUGGESTION_ICON[s.kind]
+          return (
+            <li key={s.id}>
+              <button
+                type="button"
+                onClick={() => onPick(s)}
+                className="flex w-full flex-col gap-0.5 rounded-md px-2 py-1.5 text-left hover:bg-sidebar-accent/60"
+                title={s.provenance}
+              >
+                <span className="flex items-center gap-2 text-sm text-foreground">
+                  <Icon
+                    className="size-3.5 shrink-0 text-muted-foreground"
+                    aria-hidden
+                  />
+                  <span className="min-w-0 flex-1 truncate">{s.label}</span>
+                </span>
+                <span className="pl-5 text-[11px] text-muted-foreground">
+                  {s.provenance}
+                </span>
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// SEARCH-001 — Saved queries (localStorage, per workspace).
+// ---------------------------------------------------------------------------
+
+function SavedQueries({
+  queries,
+  onApply,
+  onDelete,
+}: {
+  queries: SavedQuery[]
+  onApply: (query: SavedQuery) => void
+  onDelete: (id: string) => void
+}) {
+  if (queries.length === 0) return null
+  return (
+    <div className="rounded-lg border border-border bg-sidebar p-3">
+      <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+        <Bookmark className="size-3.5" aria-hidden /> Saved queries
+      </div>
+      <ul className="space-y-0.5">
+        {queries.map((sq) => (
+          <li key={sq.id} className="group flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => onApply(sq)}
+              className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-sidebar-accent/60"
+              title={sq.query || 'Browse all records'}
+            >
+              <Bookmark
+                className="size-3.5 shrink-0 text-muted-foreground"
+                aria-hidden
+              />
+              <span className="min-w-0 flex-1 truncate">{sq.name}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onDelete(sq.id)}
+              className="shrink-0 rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+              aria-label={`Delete saved query "${sq.name}"`}
+            >
+              <Trash2 className="size-3" />
             </button>
           </li>
         ))}
@@ -1244,6 +1526,15 @@ function SearchResultInspector({
   const domain = KIND_STATUS_DOMAIN[result.kind]
   const segments = parseMatchedContext(result.matchedContext)
 
+  // Linked-record counts by target kind, for the summary.
+  const linkCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const link of links) {
+      counts.set(link.targetKind, (counts.get(link.targetKind) ?? 0) + 1)
+    }
+    return counts
+  }, [links])
+
   const propertiesTab = (
     <div className="space-y-3">
       {/* Description / first text excerpt from the matched context. */}
@@ -1324,24 +1615,94 @@ function SearchResultInspector({
           </InspectorProp>
         ) : null}
       </dl>
+
+      {/* SEARCH-001: linked-record counts (permission-safe — derived from
+          RLS-filtered links the caller can already see). */}
+      {links.length > 0 ? (
+        <div>
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+            Linked records
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {Array.from(linkCounts.entries()).map(([kind, count]) => (
+              <span
+                key={kind}
+                className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs"
+              >
+                <span className="text-muted-foreground">
+                  {KIND_FILTER_LABELS[kind] ?? kind}
+                </span>
+                <span className="font-semibold tabular-nums text-foreground">
+                  {count}
+                </span>
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {/* SEARCH-001: safe quick actions. Only show actions that navigate to
+          the record or common operations — no restricted payloads or
+          privileged mutations. */}
+      <div>
+        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+          Quick actions
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" className="h-8" asChild>
+            <Link to={result.deepLink}>
+              <ExternalLink className="size-3.5" />
+              Open
+            </Link>
+          </Button>
+          {!result.archived ? (
+            <Button variant="outline" size="sm" className="h-8" asChild>
+              <Link to={result.deepLink}>
+                <Pencil className="size-3.5" />
+                Edit
+              </Link>
+            </Button>
+          ) : null}
+          <Button variant="ghost" size="sm" className="h-8" asChild>
+            <Link to={result.deepLink}>
+              <MessageSquare className="size-3.5" />
+              Add comment
+            </Link>
+          </Button>
+        </div>
+      </div>
     </div>
   )
 
+  // SEARCH-001: Links tab with linked-record summary (mini node graph).
+  // All links are RLS-filtered — restricted targets are simply absent.
   const linksTab = linksQuery.isLoading ? (
     <p className="text-sm text-muted-foreground">Loading links…</p>
   ) : links.length === 0 ? (
     <p className="text-sm text-muted-foreground">No outgoing links.</p>
   ) : (
-    <ul className="space-y-1">
-      {links.map((link) => (
-        <li key={link.id} className="flex items-center justify-between text-sm">
-          <span className="font-mono text-xs text-muted-foreground">
-            {link.targetIdentifier}
-          </span>
-          <span className="text-xs text-muted-foreground">{link.linkType}</span>
-        </li>
-      ))}
-    </ul>
+    <div className="space-y-3">
+      <LinkedRecordSummary
+        centerIdentifier={result.identifier}
+        centerKind={result.kind}
+        links={links}
+      />
+      <ul className="space-y-1">
+        {links.map((link) => (
+          <li
+            key={link.id}
+            className="flex items-center justify-between text-sm"
+          >
+            <span className="font-mono text-xs text-muted-foreground">
+              {link.targetIdentifier}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {link.linkType}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 
   return (
@@ -1355,6 +1716,70 @@ function SearchResultInspector({
         { id: 'links', label: 'Links', badge: links.length, content: linksTab },
       ]}
     />
+  )
+}
+
+// ---------------------------------------------------------------------------
+// SEARCH-001 — Linked-record summary: a compact node-link diagram showing
+// the selected record at the center with its directly linked records around
+// it. All data is RLS-filtered (inaccessible targets are absent, not
+// revealed). This mirrors the mockup's "Linked records" graph in the
+// inspector.
+// ---------------------------------------------------------------------------
+
+function LinkedRecordSummary({
+  centerIdentifier,
+  centerKind,
+  links,
+}: {
+  centerIdentifier: string
+  centerKind: string
+  links: NotebookLink[]
+}) {
+  const CenterIcon = KIND_ICON[centerKind] ?? FileText
+  const maxNodes = 8
+  const visibleLinks = links.slice(0, maxNodes)
+
+  return (
+    <div className="rounded-md border border-border bg-muted/30 p-3">
+      <div className="flex flex-col items-center gap-2">
+        {/* Center node */}
+        <div className="flex items-center gap-1.5 rounded-md bg-primary/10 px-2.5 py-1.5 ring-1 ring-primary/20">
+          <CenterIcon className="size-3.5 text-primary" aria-hidden />
+          <span className="font-mono text-xs font-medium text-foreground">
+            {centerIdentifier}
+          </span>
+        </div>
+        {/* Connector lines (decorative) */}
+        {visibleLinks.length > 0 ? (
+          <div className="text-muted-foreground/40" aria-hidden>
+            │
+          </div>
+        ) : null}
+        {/* Linked nodes */}
+        <div className="flex flex-wrap justify-center gap-1.5">
+          {visibleLinks.map((link) => {
+            const Icon = KIND_ICON[link.targetKind] ?? FileText
+            return (
+              <div
+                key={link.id}
+                className="flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1"
+              >
+                <Icon className="size-3 text-muted-foreground" aria-hidden />
+                <span className="font-mono text-[11px] text-muted-foreground">
+                  {link.targetIdentifier}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+        {links.length > maxNodes ? (
+          <p className="text-[11px] text-muted-foreground">
+            +{links.length - maxNodes} more
+          </p>
+        ) : null}
+      </div>
+    </div>
   )
 }
 

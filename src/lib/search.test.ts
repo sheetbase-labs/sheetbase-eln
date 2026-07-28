@@ -13,7 +13,7 @@
  * PostgreSQL and RLS remain authoritative; these helpers improve the UI and
  * drive validation.
  */
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 
 import {
   buildSearchRpcArgs,
@@ -27,8 +27,18 @@ import {
   searchResultDeepLink,
   SEARCHABLE_KINDS,
   toSearchResult,
+  matchTierForField,
+  rankByTier,
+  deriveSuggestions,
+  loadSavedQueries,
+  saveQuery,
+  deleteSavedQuery,
+  savedQueriesKey,
+  parseSearchUrl,
+  serializeSearchUrl,
+  SEARCH_URL_DEFAULTS,
 } from './search'
-import type { SearchResultWire, SearchFilters } from './search'
+import type { SearchResultWire, SearchFilters, SearchResult } from './search'
 import type { DataClient } from './data-client'
 
 // ---------------------------------------------------------------------------
@@ -451,7 +461,7 @@ describe('searchQueryKeys', () => {
     const key1 = searchQueryKeys.search(base)
     const key2 = searchQueryKeys.search({ ...base, kind: 'experiment' })
     expect(key1).not.toEqual(key2)
-    expect(key1[0]).toBe('sci-008')
+    expect(key1[0]).toBe('search-001')
   })
 })
 
@@ -500,5 +510,369 @@ describe('SEARCHABLE_KINDS', () => {
       'file',
       'notebook_template',
     ])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// SEARCH-001 — Relevance ranking tiers.
+// ---------------------------------------------------------------------------
+
+describe('matchTierForField', () => {
+  it('assigns tier 0 for exact identifier substring match', () => {
+    expect(matchTierForField('identifier', 'EXP-2025', 'EXP-2025-0014')).toBe(0)
+  })
+
+  it('assigns tier 1 for identifier field match that is not a substring', () => {
+    // The FTS might match on a stemmed token, but the raw identifier doesn't
+    // contain the query as a substring.
+    expect(matchTierForField('identifier', 'experiment', 'EXP-2025-0014')).toBe(
+      1,
+    )
+  })
+
+  it('assigns tier 2 for title field match', () => {
+    expect(matchTierForField('title', 'virus', 'EXP-2025-0014')).toBe(2)
+  })
+
+  it('assigns tier 3 for structured matches (tags, status, kind)', () => {
+    expect(matchTierForField('tags', 'lentivirus', 'EXP-2025-0014')).toBe(3)
+    expect(matchTierForField('status', 'progress', 'EXP-2025-0014')).toBe(3)
+    expect(matchTierForField('kind', 'experiment', 'EXP-2025-0014')).toBe(3)
+  })
+
+  it('assigns tier 4 for fuzzy text matches', () => {
+    expect(matchTierForField('block_text', 'stability', 'EXP-2025-0014')).toBe(
+      4,
+    )
+    expect(
+      matchTierForField('file_metadata', 'amplification', 'EXP-2025-0014'),
+    ).toBe(4)
+    expect(
+      matchTierForField('properties', 'concentration', 'EXP-2025-0014'),
+    ).toBe(4)
+    expect(
+      matchTierForField('relationship', 'SMP-2025-0001', 'EXP-2025-0014'),
+    ).toBe(4)
+  })
+
+  it('handles empty query (browse mode) with tier 4 for fuzzy fields', () => {
+    expect(matchTierForField('block_text', '', 'EXP-2025-0014')).toBe(4)
+  })
+})
+
+function searchResult(overrides: Partial<SearchResult> = {}): SearchResult {
+  return {
+    resultType: 'record',
+    recordId: 'rec-1',
+    kind: 'experiment',
+    identifier: 'EXP-2025-0001',
+    title: 'Virus Stability at 4 °C',
+    status: 'in-progress',
+    projectId: 'proj-1',
+    archived: false,
+    createdByUserId: 'user-1',
+    createdAt: '2025-01-15T10:00:00Z',
+    updatedAt: '2025-01-20T14:30:00Z',
+    matchedContext: 'Virus <b>Stability</b> at 4 °C',
+    matchedField: 'title',
+    rank: 0.06,
+    deepLink: '/projects/proj-1/experiments/rec-1',
+    totalCount: 1,
+    ...overrides,
+  }
+}
+
+describe('rankByTier', () => {
+  it('ranks exact identifier matches (tier 0) before title matches (tier 2)', () => {
+    const titleMatch = searchResult({
+      recordId: 'rec-a',
+      matchedField: 'title',
+      rank: 0.08,
+    })
+    const idMatch = searchResult({
+      recordId: 'rec-b',
+      identifier: 'EXP-2025-0001',
+      matchedField: 'identifier',
+      rank: 0.02,
+    })
+    const ranked = rankByTier([titleMatch, idMatch], 'EXP-2025-0001')
+    expect(ranked[0].recordId).toBe('rec-b') // identifier match first
+    expect(ranked[1].recordId).toBe('rec-a')
+  })
+
+  it('ranks structured matches (tier 3) before fuzzy text (tier 4)', () => {
+    const fuzzy = searchResult({
+      recordId: 'rec-a',
+      matchedField: 'block_text',
+      rank: 0.09,
+    })
+    const structured = searchResult({
+      recordId: 'rec-b',
+      matchedField: 'tags',
+      rank: 0.01,
+    })
+    const ranked = rankByTier([fuzzy, structured], 'lentivirus')
+    expect(ranked[0].recordId).toBe('rec-b')
+    expect(ranked[1].recordId).toBe('rec-a')
+  })
+
+  it('preserves ts_rank order within the same tier', () => {
+    const low = searchResult({
+      recordId: 'rec-a',
+      matchedField: 'title',
+      rank: 0.01,
+    })
+    const high = searchResult({
+      recordId: 'rec-b',
+      matchedField: 'title',
+      rank: 0.09,
+    })
+    const ranked = rankByTier([low, high], 'virus')
+    expect(ranked[0].recordId).toBe('rec-b') // higher rank first
+  })
+
+  it('falls back to updated_at order in browse mode (empty query)', () => {
+    const older = searchResult({
+      recordId: 'rec-a',
+      updatedAt: '2025-01-01T00:00:00Z',
+    })
+    const newer = searchResult({
+      recordId: 'rec-b',
+      updatedAt: '2025-06-01T00:00:00Z',
+    })
+    const ranked = rankByTier([older, newer], '')
+    expect(ranked[0].recordId).toBe('rec-b') // newer first
+  })
+})
+
+// ---------------------------------------------------------------------------
+// SEARCH-001 — Semantic suggestions.
+// ---------------------------------------------------------------------------
+
+describe('deriveSuggestions', () => {
+  it('returns no suggestions for empty query', () => {
+    expect(deriveSuggestions([searchResult()], '')).toEqual([])
+  })
+
+  it('returns no suggestions for empty results', () => {
+    expect(deriveSuggestions([], 'virus')).toEqual([])
+  })
+
+  it('offers identifier suggestions when query matches an identifier', () => {
+    const results = [
+      searchResult({
+        recordId: 'rec-a',
+        identifier: 'EXP-2025-0014',
+        matchedField: 'identifier',
+        title: 'Virus Stability at 4 °C',
+      }),
+    ]
+    const suggestions = deriveSuggestions(results, 'EXP-2025')
+    expect(suggestions).toHaveLength(1)
+    expect(suggestions[0].kind).toBe('identifier')
+    expect(suggestions[0].label).toBe('EXP-2025-0014')
+    expect(suggestions[0].applyQuery).toBe('EXP-2025-0014')
+    expect(suggestions[0].provenance).toContain('Identifier match')
+  })
+
+  it('offers type filter suggestions when results span multiple kinds', () => {
+    const results = [
+      searchResult({ recordId: 'rec-a', kind: 'experiment' }),
+      searchResult({ recordId: 'rec-b', kind: 'sample' }),
+    ]
+    const suggestions = deriveSuggestions(results, 'test')
+    const typeSuggestions = suggestions.filter((s) => s.kind === 'type')
+    expect(typeSuggestions.length).toBe(2) // one per kind
+    expect(typeSuggestions[0].provenance).toContain('in current results')
+  })
+
+  it('does not offer type suggestions when all results are the same kind', () => {
+    const results = [
+      searchResult({ recordId: 'rec-a', kind: 'experiment' }),
+      searchResult({ recordId: 'rec-b', kind: 'experiment' }),
+    ]
+    const suggestions = deriveSuggestions(results, 'test')
+    expect(suggestions.filter((s) => s.kind === 'type')).toHaveLength(0)
+  })
+
+  it('limits to 6 suggestions', () => {
+    const results = SEARCHABLE_KINDS.map((kind, i) =>
+      searchResult({
+        recordId: `rec-${i}`,
+        kind,
+        identifier: `ID-${kind}-${i}`,
+        matchedField: 'identifier',
+        title: `Result ${kind}`,
+      }),
+    )
+    const suggestions = deriveSuggestions(results, 'ID')
+    // 7 identifier matches (all kinds have identifier matching 'ID')
+    // + 7 type suggestions (7 kinds). But limited to 6 total.
+    expect(suggestions.length).toBeLessThanOrEqual(6)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// SEARCH-001 — Saved queries (localStorage).
+// ---------------------------------------------------------------------------
+
+describe('saved queries', () => {
+  const wsId = 'test-workspace-saved-queries'
+
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  it('returns empty array when no saved queries exist', () => {
+    expect(loadSavedQueries(wsId)).toEqual([])
+  })
+
+  it('saves and loads a query', () => {
+    const next = saveQuery(wsId, {
+      name: 'My search',
+      query: 'virus stability',
+      kind: 'experiment',
+      projectId: '',
+      status: '',
+      ownerId: '',
+      dateRange: 'all',
+    })
+    expect(next).toHaveLength(1)
+    expect(next[0].name).toBe('My search')
+    expect(next[0].query).toBe('virus stability')
+
+    const loaded = loadSavedQueries(wsId)
+    expect(loaded).toHaveLength(1)
+    expect(loaded[0].name).toBe('My search')
+  })
+
+  it('deduplicates by name + query + filters', () => {
+    saveQuery(wsId, {
+      name: 'My search',
+      query: 'virus',
+      kind: '',
+      projectId: '',
+      status: '',
+      ownerId: '',
+      dateRange: 'all',
+    })
+    const next = saveQuery(wsId, {
+      name: 'My search',
+      query: 'virus',
+      kind: '',
+      projectId: '',
+      status: '',
+      ownerId: '',
+      dateRange: 'all',
+    })
+    expect(next).toHaveLength(1)
+  })
+
+  it('deletes a saved query by id', () => {
+    const next = saveQuery(wsId, {
+      name: 'To delete',
+      query: 'test',
+      kind: '',
+      projectId: '',
+      status: '',
+      ownerId: '',
+      dateRange: 'all',
+    })
+    const id = next[0].id
+    const afterDelete = deleteSavedQuery(wsId, id)
+    expect(afterDelete).toEqual([])
+  })
+
+  it('scopes saved queries by workspace id', () => {
+    saveQuery('ws-a', {
+      name: 'WS A search',
+      query: 'alpha',
+      kind: '',
+      projectId: '',
+      status: '',
+      ownerId: '',
+      dateRange: 'all',
+    })
+    saveQuery('ws-b', {
+      name: 'WS B search',
+      query: 'beta',
+      kind: '',
+      projectId: '',
+      status: '',
+      ownerId: '',
+      dateRange: 'all',
+    })
+    expect(loadSavedQueries('ws-a')).toHaveLength(1)
+    expect(loadSavedQueries('ws-b')).toHaveLength(1)
+    expect(loadSavedQueries('ws-a')[0].name).toBe('WS A search')
+    expect(loadSavedQueries('ws-b')[0].name).toBe('WS B search')
+  })
+
+  it('generates a stable localStorage key', () => {
+    expect(savedQueriesKey('ws-1')).toBe('sheetbase-saved-searches-ws-1')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// SEARCH-001 — URL search parameter helpers.
+// ---------------------------------------------------------------------------
+
+describe('parseSearchUrl', () => {
+  it('applies defaults for missing values', () => {
+    expect(parseSearchUrl({})).toEqual(SEARCH_URL_DEFAULTS)
+  })
+
+  it('parses provided values', () => {
+    const parsed = parseSearchUrl({
+      q: 'virus stability',
+      kind: 'experiment',
+      project: 'proj-1',
+      status: 'in-progress',
+      owner: 'user-1',
+      date: '30d',
+      sort: 'updated',
+      selected: 'rec-1',
+    })
+    expect(parsed).toEqual({
+      q: 'virus stability',
+      kind: 'experiment',
+      project: 'proj-1',
+      status: 'in-progress',
+      owner: 'user-1',
+      date: '30d',
+      sort: 'updated',
+      selected: 'rec-1',
+    })
+  })
+
+  it('defaults invalid sort to relevance', () => {
+    expect(parseSearchUrl({ sort: 'invalid' }).sort).toBe('relevance')
+  })
+
+  it('defaults non-string values to empty/default', () => {
+    const parsed = parseSearchUrl({ q: 123, kind: null })
+    expect(parsed.q).toBe('')
+    expect(parsed.kind).toBe('')
+  })
+})
+
+describe('serializeSearchUrl', () => {
+  it('merges partial params with defaults', () => {
+    const serialized = serializeSearchUrl({ q: 'test' })
+    expect(serialized.q).toBe('test')
+    expect(serialized.kind).toBe('')
+    expect(serialized.date).toBe('all')
+    expect(serialized.sort).toBe('relevance')
+  })
+
+  it('preserves all provided values', () => {
+    const serialized = serializeSearchUrl({
+      q: 'test',
+      kind: 'experiment',
+      project: 'proj-1',
+    })
+    expect(serialized.q).toBe('test')
+    expect(serialized.kind).toBe('experiment')
+    expect(serialized.project).toBe('proj-1')
   })
 })

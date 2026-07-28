@@ -378,3 +378,188 @@ describe('SCI-008 search — deep links', () => {
     expect(results[0].deep_link).toMatch(/\/projects\/.*\/experiments\//)
   })
 })
+
+// ---------------------------------------------------------------------------
+// SEARCH-001 — Relevance ranking fixtures.
+//
+// The RPC returns matched_field for each result. The client ranks by tier:
+// exact identifier (tier 0) → identifier (tier 1) → title (tier 2) →
+// structured (tier 3) → fuzzy text (tier 4). These DB tests verify the RPC
+// returns correct matched_field values so the client can rank predictably.
+// ---------------------------------------------------------------------------
+
+describe('SEARCH-001 search — relevance ranking by matched_field', () => {
+  it('reports matched_field=identifier when the query matches an identifier', async () => {
+    const owner = await asAuthenticated(OWNER_A, WS_A)
+    // Create a record whose identifier contains a unique searchable term.
+    const { rows: [rec] } = await migrator.query(
+      `INSERT INTO api.records (workspace_id, project_id, kind, identifier, title, status, created_by_user_id)
+       VALUES ($1, $2, 'experiment', 'EXP-REL-IDENT-001', 'Relevance identifier test', 'draft', $3)
+       RETURNING *`,
+      [WS_A, PROJ_A, OWNER_A],
+    )
+    const results = await search(owner, 'EXP-REL-IDENT')
+    const hit = results.find((r) => r.record_id === rec.id)
+    expect(hit).toBeDefined()
+    expect(hit.matched_field).toBe('identifier')
+  })
+
+  it('reports matched_field=title when the query matches the title but not identifier', async () => {
+    const owner = await asAuthenticated(OWNER_A, WS_A)
+    const record = await createRecord(owner, PROJ_A, 'experiment', 'Relevance title unique phrase zzz')
+    const results = await search(owner, 'unique phrase zzz')
+    const hit = results.find((r) => r.record_id === record.id)
+    expect(hit).toBeDefined()
+    expect(hit.matched_field).toBe('title')
+  })
+
+  it('reports matched_field=block_text when the query matches notebook text only', async () => {
+    const owner = await asAuthenticated(OWNER_A, WS_A)
+    const record = await createRecord(owner, PROJ_A, 'experiment', 'Relevance block text container')
+    await insertBlock(owner, record.id, 'rich_text', {
+      doc: {
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [{ type: 'text', text: 'This block has unique fuzzy text xyzabc.' }],
+          },
+        ],
+      },
+    }, OWNER_A)
+    const results = await search(owner, 'unique fuzzy text xyzabc')
+    const hit = results.find((r) => r.record_id === record.id)
+    expect(hit).toBeDefined()
+    expect(hit.matched_field).toBe('block_text')
+  })
+
+  it('identifier match ranks before block_text match (ts_rank weight A > C)', async () => {
+    const owner = await asAuthenticated(OWNER_A, WS_A)
+    // Create two records: one matching on identifier, one on block text,
+    // both containing the same searchable term "rankscore".
+    const { rows: [idRec] } = await migrator.query(
+      `INSERT INTO api.records (workspace_id, project_id, kind, identifier, title, status, created_by_user_id)
+       VALUES ($1, $2, 'experiment', 'EXP-RANKSCORE-001', 'Identifier match for rankscore', 'draft', $3)
+       RETURNING *`,
+      [WS_A, PROJ_A, OWNER_A],
+    )
+    const blockRec = await createRecord(owner, PROJ_A, 'experiment', 'Block text match for rankscore')
+    await insertBlock(owner, blockRec.id, 'rich_text', {
+      doc: {
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [{ type: 'text', text: 'This content discusses rankscore in detail.' }],
+          },
+        ],
+      },
+    }, OWNER_A)
+    const results = await search(owner, 'rankscore')
+    const idHit = results.find((r) => r.record_id === idRec.id)
+    const blockHit = results.find((r) => r.record_id === blockRec.id)
+    expect(idHit).toBeDefined()
+    expect(blockHit).toBeDefined()
+    // The identifier match should have a higher rank (weight A > C).
+    expect(Number(idHit.rank)).toBeGreaterThan(Number(blockHit.rank))
+  })
+})
+
+// ---------------------------------------------------------------------------
+// SEARCH-001 — Permission regression tests.
+//
+// Verifies that restricted snippets, counts and relationship context never
+// leak across workspace boundaries. The RPC is SECURITY INVOKER and all
+// table reads are RLS-filtered, so cross-workspace records are invisible.
+// These tests guard against regressions that might expose restricted data
+// through counts, suggestions or relationship graphs.
+// ---------------------------------------------------------------------------
+
+describe('SEARCH-001 search — permission regression', () => {
+  it('total_count does not include cross-workspace records', async () => {
+    const ownerA = await asAuthenticated(OWNER_A, WS_A)
+    const ownerB = await asAuthenticated(OWNER_B, WS_B)
+    // Create a record in WS_B with a unique term.
+    await createRecord(ownerB, PROJ_B, 'experiment', 'Permission count leak unique qqqxxx')
+    // Search in WS_A for that term — should return 0 results.
+    const results = await search(ownerA, 'qqqxxx')
+    expect(results).toHaveLength(0)
+    // Even if other results exist, total_count on those rows should not
+    // include the cross-workspace record.
+    if (results.length > 0) {
+      const total = Number(results[0].total_count)
+      // No cross-workspace hits in the count.
+      expect(results.every((r) => !r.title.includes('qqqxxx'))).toBe(true)
+      expect(total).toBe(results.length)
+    }
+  })
+
+  it('matched_context does not contain cross-workspace snippets', async () => {
+    const ownerA = await asAuthenticated(OWNER_A, WS_A)
+    const ownerB = await asAuthenticated(OWNER_B, WS_B)
+    // Create a record in WS_B with a distinct phrase in block text.
+    const recB = await createRecord(ownerB, PROJ_B, 'experiment', 'Permission snippet container')
+    await insertBlock(ownerB, recB.id, 'rich_text', {
+      doc: {
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [{ type: 'text', text: 'Secret cross-workspace snippet marker pppqqq' }],
+          },
+        ],
+      },
+    }, OWNER_B)
+    // Search in WS_A for the secret phrase.
+    const results = await search(ownerA, 'pppqqq')
+    expect(results).toHaveLength(0)
+    // Also verify no snippet contains the marker.
+    const allSnippets = await search(ownerA, '', { p_limit: 100 })
+    expect(
+      allSnippets.every((r) => !r.matched_context.includes('pppqqq')),
+    ).toBe(true)
+  })
+
+  it('relationship context does not reveal cross-workspace link targets', async () => {
+    const ownerA = await asAuthenticated(OWNER_A, WS_A)
+    const ownerB = await asAuthenticated(OWNER_B, WS_B)
+    // Create a record in WS_B with a link to another WS_B record.
+    const sampleB = await createRecord(ownerB, PROJ_B, 'sample', 'Permission relationship target sample', 'available')
+    const experimentB = await createRecord(ownerB, PROJ_B, 'experiment', 'Permission relationship source experiment')
+    await ownerB.query(
+      `SELECT * FROM api.create_record_link($1, 'sample', $2, 'sample', $3, NULL)`,
+      [experimentB.id, sampleB.identifier, sampleB.id],
+    )
+    // Search in WS_A for the WS_B sample identifier — should not find the
+    // WS_B experiment through relationship context.
+    const results = await search(ownerA, sampleB.identifier)
+    expect(results.find((r) => r.record_id === experimentB.id)).toBeUndefined()
+  })
+
+  it('does not leak restricted file fields (storage_key, checksum) in results', async () => {
+    const owner = await asAuthenticated(OWNER_A, WS_A)
+    const { rows: [fileRec] } = await migrator.query(
+      `INSERT INTO api.records (workspace_id, project_id, kind, identifier, title, status, created_by_user_id)
+       VALUES ($1, $2, 'file', 'FILE-PERM-0001', 'Permission restricted file test', 'active', $3) RETURNING *`,
+      [WS_A, PROJ_A, OWNER_A],
+    )
+    const hash = fileRec.id.replace(/-/g, '').padEnd(32, '0').slice(0, 32)
+    await migrator.query(
+      `INSERT INTO api.file_objects
+        (workspace_id, record_id, storage_key, display_name, media_type, byte_size, status, storage_backend, created_by_user_id, updated_by_user_id)
+       VALUES ($1, $2, $3, 'permission restricted file', 'text/plain', 100, 'active', 'local', $4, $4)`,
+      [WS_A, fileRec.id, `${WS_A}/${fileRec.id}/${hash}`, OWNER_A],
+    )
+    const results = await search(owner, 'permission restricted file')
+    const hit = results.find((r) => r.record_id === fileRec.id)
+    expect(hit).toBeDefined()
+    // No restricted fields in the result.
+    expect(hit).not.toHaveProperty('storage_key')
+    expect(hit).not.toHaveProperty('checksum')
+    expect(hit).not.toHaveProperty('payload')
+    expect(hit).not.toHaveProperty('properties')
+    expect(hit).not.toHaveProperty('byte_size')
+    // The matched context is a short snippet, not full content.
+    expect(hit.matched_context.length).toBeLessThan(500)
+  })
+})

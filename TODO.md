@@ -965,12 +965,12 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** SCI-008, LINEAGE-001.
 
-- [ ] Add typed result tabs, saved queries, recent searches and semantic suggestions only where their provenance is clear.
-- [ ] Rank exact identifiers and structured matches predictably before fuzzy suggestions.
-- [ ] Show record preview, linked-record summary and safe quick actions in the inspector.
-- [ ] Preserve filter and query state in shareable URLs without embedding secrets.
-- [ ] Never reveal restricted snippets through counts, suggestions or relationship graphs.
-- [ ] Add relevance fixtures and permission-regression tests.
+- [x] Add typed result tabs, saved queries, recent searches and semantic suggestions only where their provenance is clear.
+- [x] Rank exact identifiers and structured matches predictably before fuzzy suggestions.
+- [x] Show record preview, linked-record summary and safe quick actions in the inspector.
+- [x] Preserve filter and query state in shareable URLs without embedding secrets.
+- [x] Never reveal restricted snippets through counts, suggestions or relationship graphs.
+- [x] Add relevance fixtures and permission-regression tests.
 
 ### TPL-001 — Complete Template Library
 

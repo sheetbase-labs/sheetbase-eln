@@ -8,7 +8,8 @@
  * helpers; PostgreSQL/RLS remain the authoritative access-control boundary.
  */
 import type { DataClient } from './data-client'
-import type { NotebookBlock, NotebookRecord } from './notebook-data'
+import type { NotebookBlock, NotebookRecord, RecordWire } from './notebook-data'
+import { toRecord } from './notebook-data'
 
 // ---------------------------------------------------------------------------
 // Template kinds and identifiers
@@ -184,7 +185,9 @@ export function fetchTemplates(
     const q = encodeURIComponent(opts.search.trim().replace(/[,*]/g, ''))
     parts.push(`(identifier=ilike.${q}*,title=ilike.${q}*)`)
   }
-  return client.list<NotebookRecord>('records', `?${parts.join('&')}`)
+  return client
+    .list<RecordWire>('records', `?${parts.join('&')}`)
+    .then((rows) => rows.map(toRecord))
 }
 
 /**

@@ -15,6 +15,7 @@ import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as DatasetsRouteImport } from './routes/datasets'
 import { Route as FoundationsRouteImport } from './routes/foundations'
 import { Route as LineageRouteImport } from './routes/lineage'
+import { Route as PlannerRouteImport } from './routes/planner'
 import { Route as PlateDesignerRouteImport } from './routes/plate-designer'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as ReagentsRouteImport } from './routes/reagents'
@@ -69,6 +70,11 @@ const FoundationsRoute = FoundationsRouteImport.update({
 const LineageRoute = LineageRouteImport.update({
   id: '/lineage',
   path: '/lineage',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlannerRoute = PlannerRouteImport.update({
+  id: '/planner',
+  path: '/planner',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PlateDesignerRoute = PlateDesignerRouteImport.update({
@@ -206,6 +212,7 @@ export interface FileRoutesByFullPath {
   '/datasets': typeof DatasetsRoute
   '/foundations': typeof FoundationsRoute
   '/lineage': typeof LineageRoute
+  '/planner': typeof PlannerRoute
   '/plate-designer': typeof PlateDesignerRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/reagents': typeof ReagentsRoute
@@ -239,6 +246,7 @@ export interface FileRoutesByTo {
   '/datasets': typeof DatasetsRoute
   '/foundations': typeof FoundationsRoute
   '/lineage': typeof LineageRoute
+  '/planner': typeof PlannerRoute
   '/plate-designer': typeof PlateDesignerRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/reagents': typeof ReagentsRoute
@@ -273,6 +281,7 @@ export interface FileRoutesById {
   '/datasets': typeof DatasetsRoute
   '/foundations': typeof FoundationsRoute
   '/lineage': typeof LineageRoute
+  '/planner': typeof PlannerRoute
   '/plate-designer': typeof PlateDesignerRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/reagents': typeof ReagentsRoute
@@ -308,6 +317,7 @@ export interface FileRouteTypes {
     | '/datasets'
     | '/foundations'
     | '/lineage'
+    | '/planner'
     | '/plate-designer'
     | '/projects'
     | '/reagents'
@@ -341,6 +351,7 @@ export interface FileRouteTypes {
     | '/datasets'
     | '/foundations'
     | '/lineage'
+    | '/planner'
     | '/plate-designer'
     | '/projects'
     | '/reagents'
@@ -374,6 +385,7 @@ export interface FileRouteTypes {
     | '/datasets'
     | '/foundations'
     | '/lineage'
+    | '/planner'
     | '/plate-designer'
     | '/projects'
     | '/reagents'
@@ -408,6 +420,7 @@ export interface RootRouteChildren {
   DatasetsRoute: typeof DatasetsRoute
   FoundationsRoute: typeof FoundationsRoute
   LineageRoute: typeof LineageRoute
+  PlannerRoute: typeof PlannerRoute
   PlateDesignerRoute: typeof PlateDesignerRoute
   ProjectsRoute: typeof ProjectsRouteWithChildren
   ReagentsRoute: typeof ReagentsRoute
@@ -473,6 +486,13 @@ declare module '@tanstack/react-router' {
       path: '/lineage'
       fullPath: '/lineage'
       preLoaderRoute: typeof LineageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/planner': {
+      id: '/planner'
+      path: '/planner'
+      fullPath: '/planner'
+      preLoaderRoute: typeof PlannerRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/plate-designer': {
@@ -710,6 +730,7 @@ const rootRouteChildren: RootRouteChildren = {
   DatasetsRoute: DatasetsRoute,
   FoundationsRoute: FoundationsRoute,
   LineageRoute: LineageRoute,
+  PlannerRoute: PlannerRoute,
   PlateDesignerRoute: PlateDesignerRoute,
   ProjectsRoute: ProjectsRouteWithChildren,
   ReagentsRoute: ReagentsRoute,

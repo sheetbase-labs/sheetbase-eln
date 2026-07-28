@@ -1035,12 +1035,12 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** OPS-004, OPS-001.
 
-- [ ] Model tasks, workstreams, milestones, dependencies, assignments, resources and deliverables.
-- [ ] Provide timeline, calendar, list, workload and resource views over one task model.
-- [ ] Detect circular dependencies and resource overbooking.
-- [ ] Show selected-task detail, protocol, samples, conflicts and approval requirements in the inspector.
-- [ ] Keep timeline edits transactional and accessible through equivalent form controls.
-- [ ] Test dependency movement, milestones, conflicts and time-zone boundaries.
+- [x] Model tasks, workstreams, milestones, dependencies, assignments, resources and deliverables.
+- [x] Provide timeline, calendar, list, workload and resource views over one task model.
+- [x] Detect circular dependencies and resource overbooking.
+- [x] Show selected-task detail, protocol, samples, conflicts and approval requirements in the inspector.
+- [x] Keep timeline edits transactional and accessible through equivalent form controls.
+- [x] Test dependency movement, milestones, conflicts and time-zone boundaries.
 
 ### OPS-006 — Deliver Instrument Run Monitor
 

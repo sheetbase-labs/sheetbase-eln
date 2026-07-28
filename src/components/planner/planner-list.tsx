@@ -1,0 +1,164 @@
+/**
+ * OPS-005 — Study Planner list view.
+ *
+ * A TanStack-Table-style read-oriented table over the same task model.
+ * Columns: Title, Workstream, Status, Priority, Assignee, Start, Due,
+ * Progress, Dependencies.
+ */
+import { useMemo } from 'react'
+
+import { cn } from '#/lib/utils'
+import type {
+  StudyTask,
+  StudyTaskDependency,
+  StudyWorkstream,
+} from '#/lib/planner'
+import {
+  TASK_STATUS_TOKENS,
+  TASK_STATUS_LABELS,
+  PRIORITY_LABELS,
+  PRIORITY_TOKENS,
+  formatDateInZone,
+} from '#/lib/planner'
+
+export interface PlannerListProps {
+  tasks: StudyTask[]
+  workstreams: StudyWorkstream[]
+  dependencies: StudyTaskDependency[]
+  timeZone: string
+  selectedTaskId: string | null
+  onSelectTask: (taskId: string) => void
+}
+
+export function PlannerList({
+  tasks,
+  workstreams,
+  dependencies,
+  timeZone,
+  selectedTaskId,
+  onSelectTask,
+}: PlannerListProps) {
+  const workstreamMap = useMemo(
+    () => new Map(workstreams.map((w) => [w.id, w.name])),
+    [workstreams],
+  )
+
+  const successorDeps = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const dep of dependencies) {
+      map.set(dep.successorId, (map.get(dep.successorId) ?? 0) + 1)
+    }
+    return map
+  }, [dependencies])
+
+  if (tasks.length === 0) {
+    return (
+      <div className="flex flex-1 items-center justify-center py-20 text-sm text-muted-foreground">
+        No tasks yet. Use Add task to create one.
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex-1 overflow-auto">
+      <table className="w-full text-sm">
+        <thead className="sticky top-0 border-b border-border bg-background">
+          <tr className="text-left text-xs text-muted-foreground">
+            <th className="px-3 py-2 font-medium">Title</th>
+            <th className="px-3 py-2 font-medium">Workstream</th>
+            <th className="px-3 py-2 font-medium">Status</th>
+            <th className="px-3 py-2 font-medium">Priority</th>
+            <th className="px-3 py-2 font-medium">Assignee</th>
+            <th className="px-3 py-2 font-medium">Start</th>
+            <th className="px-3 py-2 font-medium">Due</th>
+            <th className="px-3 py-2 font-medium">Progress</th>
+            <th className="px-3 py-2 font-medium">Deps</th>
+          </tr>
+        </thead>
+        <tbody>
+          {tasks
+            .filter((t) => t.status !== 'cancelled')
+            .map((task) => {
+              const isSelected = task.id === selectedTaskId
+              const assigneeLabel =
+                task.assignments
+                  .filter((a) => a.role === 'assignee')
+                  .map((a) => a.displayName ?? a.userId ?? '—')
+                  .join(', ') || '—'
+              const depCount = successorDeps.get(task.id) ?? 0
+              return (
+                <tr
+                  key={task.id}
+                  onClick={() => onSelectTask(task.id)}
+                  className={cn(
+                    'cursor-pointer border-b border-border/30 transition-colors hover:bg-muted/30',
+                    isSelected && 'bg-blue-50/50',
+                  )}
+                >
+                  <td className="px-3 py-2 font-medium">{task.title}</td>
+                  <td className="px-3 py-2 text-muted-foreground">
+                    {task.workstreamId
+                      ? (workstreamMap.get(task.workstreamId) ?? '—')
+                      : '—'}
+                  </td>
+                  <td className="px-3 py-2">
+                    <span
+                      className={cn(
+                        'inline-flex items-center rounded border px-1.5 py-0.5 text-xs font-medium',
+                        TASK_STATUS_TOKENS[task.status],
+                      )}
+                    >
+                      {TASK_STATUS_LABELS[task.status]}
+                    </span>
+                  </td>
+                  <td
+                    className={cn(
+                      'px-3 py-2 text-xs font-medium',
+                      PRIORITY_TOKENS[task.priority],
+                    )}
+                  >
+                    {PRIORITY_LABELS[task.priority]}
+                  </td>
+                  <td className="px-3 py-2 text-muted-foreground">
+                    {assigneeLabel}
+                  </td>
+                  <td className="px-3 py-2 text-xs text-muted-foreground">
+                    {task.startsAt
+                      ? formatDateInZone(new Date(task.startsAt), timeZone)
+                      : '—'}
+                  </td>
+                  <td className="px-3 py-2 text-xs text-muted-foreground">
+                    {task.dueAt
+                      ? formatDateInZone(new Date(task.dueAt), timeZone)
+                      : task.endsAt
+                        ? formatDateInZone(new Date(task.endsAt), timeZone)
+                        : '—'}
+                  </td>
+                  <td className="px-3 py-2">
+                    {task.progressPercent > 0 ? (
+                      <div className="flex items-center gap-1.5">
+                        <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
+                          <div
+                            className="h-full rounded-full bg-primary"
+                            style={{ width: `${task.progressPercent}%` }}
+                          />
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {task.progressPercent}%
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-xs text-muted-foreground">
+                    {depCount > 0 ? depCount : '—'}
+                  </td>
+                </tr>
+              )
+            })}
+        </tbody>
+      </table>
+    </div>
+  )
+}

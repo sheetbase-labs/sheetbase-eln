@@ -3350,3 +3350,400 @@ export const calendarBookingSamplesRelations = relations(
     }),
   }),
 )
+
+// ---------------------------------------------------------------------------
+// api — Study Planner (OPS-005). Workstreams (swimlanes), tasks and
+// milestones, dependencies (directed edges with circular-dependency
+// detection), assignments, resource bookings (with overbooking detection)
+// and deliverables. Timestamps are timestamptz (UTC-stored, zone-aware); the
+// task's `timezone` column fixes the display/DST boundary. Controlled RPCs
+// (migration 0051) are the only writers for tasks/dependencies/assignments/
+// resources so circular-dependency and overbooking checks are always enforced.
+// ---------------------------------------------------------------------------
+
+export const studyWorkstreams = api.table(
+  'study_workstreams',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    projectId: uuid('project_id').references(() => projects.id, {
+      onDelete: 'set null',
+    }),
+    name: text('name').notNull(),
+    color: text('color'),
+    position: integer('position').notNull().default(0),
+    status: text('status').notNull().default('active'),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    check(
+      'chk_study_workstreams_name',
+      sql`length(btrim(${table.name})) BETWEEN 1 AND 200`,
+    ),
+    check(
+      'chk_study_workstreams_status',
+      sql`${table.status} IN ('active','archived')`,
+    ),
+    check('chk_study_workstreams_position', sql`${table.position} >= 0`),
+    index('idx_study_workstreams_workspace').on(table.workspaceId),
+    index('idx_study_workstreams_project').on(table.projectId),
+    index('idx_study_workstreams_workspace_position').on(
+      table.workspaceId,
+      table.position,
+    ),
+  ],
+)
+
+export const studyTasks = api.table(
+  'study_tasks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    workstreamId: uuid('workstream_id').references(() => studyWorkstreams.id, {
+      onDelete: 'set null',
+    }),
+    projectId: uuid('project_id').references(() => projects.id, {
+      onDelete: 'set null',
+    }),
+    title: text('title').notNull(),
+    description: text('description'),
+    taskType: text('task_type').notNull().default('task'),
+    status: text('status').notNull().default('not_started'),
+    priority: text('priority').notNull().default('medium'),
+    startsAt: timestamp('starts_at', { withTimezone: true, mode: 'date' }),
+    endsAt: timestamp('ends_at', { withTimezone: true, mode: 'date' }),
+    dueAt: timestamp('due_at', { withTimezone: true, mode: 'date' }),
+    timezone: text('timezone').notNull().default('UTC'),
+    position: integer('position').notNull().default(0),
+    color: text('color'),
+    progressPercent: integer('progress_percent').notNull().default(0),
+    linkedExperimentRecordId: uuid('linked_experiment_record_id'),
+    linkedExperimentIdentifier: text('linked_experiment_identifier'),
+    linkedExperimentTitle: text('linked_experiment_title'),
+    linkedProtocolRecordId: uuid('linked_protocol_record_id'),
+    linkedProtocolIdentifier: text('linked_protocol_identifier'),
+    approvalRequired: boolean('approval_required').notNull().default(false),
+    approvalStatus: text('approval_status').notNull().default('not_required'),
+    tags: text('tags')
+      .notNull()
+      .default(sql`'{}'`),
+    metadataVersion: integer('metadata_version').notNull().default(1),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    check(
+      'chk_study_tasks_title',
+      sql`length(btrim(${table.title})) BETWEEN 1 AND 200`,
+    ),
+    check(
+      'chk_study_tasks_type',
+      sql`${table.taskType} IN ('task','milestone')`,
+    ),
+    check(
+      'chk_study_tasks_status',
+      sql`${table.status} IN ('not_started','in_progress','review','completed','blocked','cancelled')`,
+    ),
+    check(
+      'chk_study_tasks_priority',
+      sql`${table.priority} IN ('low','medium','high','critical')`,
+    ),
+    check(
+      'chk_study_tasks_approval',
+      sql`${table.approvalStatus} IN ('not_required','pending','approved','rejected')`,
+    ),
+    check('chk_study_tasks_version', sql`${table.metadataVersion} > 0`),
+    check(
+      'chk_study_tasks_progress',
+      sql`${table.progressPercent} BETWEEN 0 AND 100`,
+    ),
+    check('chk_study_tasks_position', sql`${table.position} >= 0`),
+    index('idx_study_tasks_workspace').on(table.workspaceId),
+    index('idx_study_tasks_workstream').on(table.workstreamId),
+    index('idx_study_tasks_project').on(table.projectId),
+    index('idx_study_tasks_workspace_position').on(
+      table.workspaceId,
+      table.position,
+    ),
+  ],
+)
+
+export const studyTaskDependencies = api.table(
+  'study_task_dependencies',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    predecessorId: uuid('predecessor_id')
+      .notNull()
+      .references(() => studyTasks.id, { onDelete: 'cascade' }),
+    successorId: uuid('successor_id')
+      .notNull()
+      .references(() => studyTasks.id, { onDelete: 'cascade' }),
+    dependencyType: text('dependency_type')
+      .notNull()
+      .default('finish_to_start'),
+    lagDays: integer('lag_days').notNull().default(0),
+    isExternal: boolean('is_external').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    check(
+      'chk_study_task_deps_type',
+      sql`${table.dependencyType} IN ('finish_to_start','start_to_start','finish_to_finish','start_to_finish')`,
+    ),
+    check(
+      'chk_study_task_deps_self',
+      sql`${table.predecessorId} <> ${table.successorId}`,
+    ),
+    uniqueIndex('uq_study_task_deps_edge').on(
+      table.predecessorId,
+      table.successorId,
+      table.dependencyType,
+    ),
+    index('idx_study_task_deps_workspace').on(table.workspaceId),
+    index('idx_study_task_deps_predecessor').on(table.predecessorId),
+    index('idx_study_task_deps_successor').on(table.successorId),
+  ],
+)
+
+export const studyTaskAssignments = api.table(
+  'study_task_assignments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    taskId: uuid('task_id')
+      .notNull()
+      .references(() => studyTasks.id, { onDelete: 'cascade' }),
+    userId: text('user_id').references(() => user.id, { onDelete: 'set null' }),
+    displayName: text('display_name'),
+    role: text('role').notNull().default('assignee'),
+    effortPercent: integer('effort_percent').notNull().default(100),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'chk_study_task_assignments_role',
+      sql`${table.role} IN ('assignee','reviewer','observer')`,
+    ),
+    check(
+      'chk_study_task_assignments_identity',
+      sql`${table.userId} IS NOT NULL OR ${table.displayName} IS NOT NULL`,
+    ),
+    check(
+      'chk_study_task_assignments_effort',
+      sql`${table.effortPercent} BETWEEN 0 AND 100`,
+    ),
+    uniqueIndex('uq_study_task_assignments_task_user')
+      .on(table.taskId, table.userId)
+      .where(sql`${table.userId} IS NOT NULL`),
+    index('idx_study_task_assignments_workspace').on(table.workspaceId),
+    index('idx_study_task_assignments_task').on(table.taskId),
+  ],
+)
+
+export const studyTaskResources = api.table(
+  'study_task_resources',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    taskId: uuid('task_id')
+      .notNull()
+      .references(() => studyTasks.id, { onDelete: 'cascade' }),
+    calendarResourceId: uuid('calendar_resource_id')
+      .notNull()
+      .references(() => calendarResources.id, { onDelete: 'cascade' }),
+    startsAt: timestamp('starts_at', {
+      withTimezone: true,
+      mode: 'date',
+    }).notNull(),
+    endsAt: timestamp('ends_at', {
+      withTimezone: true,
+      mode: 'date',
+    }).notNull(),
+    notes: text('notes'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    check(
+      'chk_study_task_resources_range',
+      sql`${table.endsAt} > ${table.startsAt}`,
+    ),
+    index('idx_study_task_resources_workspace').on(table.workspaceId),
+    index('idx_study_task_resources_task').on(table.taskId),
+    index('idx_study_task_resources_resource').on(
+      table.calendarResourceId,
+      table.startsAt,
+      table.endsAt,
+    ),
+  ],
+)
+
+export const studyDeliverables = api.table(
+  'study_deliverables',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    taskId: uuid('task_id')
+      .notNull()
+      .references(() => studyTasks.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    description: text('description'),
+    status: text('status').notNull().default('planned'),
+    dueAt: timestamp('due_at', { withTimezone: true, mode: 'date' }),
+    linkedRecordId: uuid('linked_record_id'),
+    linkedRecordIdentifier: text('linked_record_identifier'),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      'chk_study_deliverables_name',
+      sql`length(btrim(${table.name})) BETWEEN 1 AND 200`,
+    ),
+    check(
+      'chk_study_deliverables_status',
+      sql`${table.status} IN ('planned','in_progress','delivered','overdue')`,
+    ),
+    index('idx_study_deliverables_workspace').on(table.workspaceId),
+    index('idx_study_deliverables_task').on(table.taskId),
+  ],
+)
+
+export const studyWorkstreamsRelations = relations(
+  studyWorkstreams,
+  ({ one, many }) => ({
+    workspace: one(workspaces, {
+      fields: [studyWorkstreams.workspaceId],
+      references: [workspaces.id],
+    }),
+    project: one(projects, {
+      fields: [studyWorkstreams.projectId],
+      references: [projects.id],
+    }),
+    tasks: many(studyTasks),
+  }),
+)
+
+export const studyTasksRelations = relations(studyTasks, ({ one, many }) => ({
+  workspace: one(workspaces, {
+    fields: [studyTasks.workspaceId],
+    references: [workspaces.id],
+  }),
+  workstream: one(studyWorkstreams, {
+    fields: [studyTasks.workstreamId],
+    references: [studyWorkstreams.id],
+  }),
+  project: one(projects, {
+    fields: [studyTasks.projectId],
+    references: [projects.id],
+  }),
+  assignments: many(studyTaskAssignments),
+  resources: many(studyTaskResources),
+  deliverables: many(studyDeliverables),
+  dependenciesAsPredecessor: many(studyTaskDependencies, {
+    relationName: 'study_task_predecessor',
+  }),
+  dependenciesAsSuccessor: many(studyTaskDependencies, {
+    relationName: 'study_task_successor',
+  }),
+}))
+
+export const studyTaskDependenciesRelations = relations(
+  studyTaskDependencies,
+  ({ one }) => ({
+    workspace: one(workspaces, {
+      fields: [studyTaskDependencies.workspaceId],
+      references: [workspaces.id],
+    }),
+    predecessor: one(studyTasks, {
+      fields: [studyTaskDependencies.predecessorId],
+      references: [studyTasks.id],
+      relationName: 'study_task_predecessor',
+    }),
+    successor: one(studyTasks, {
+      fields: [studyTaskDependencies.successorId],
+      references: [studyTasks.id],
+      relationName: 'study_task_successor',
+    }),
+  }),
+)
+
+export const studyTaskAssignmentsRelations = relations(
+  studyTaskAssignments,
+  ({ one }) => ({
+    workspace: one(workspaces, {
+      fields: [studyTaskAssignments.workspaceId],
+      references: [workspaces.id],
+    }),
+    task: one(studyTasks, {
+      fields: [studyTaskAssignments.taskId],
+      references: [studyTasks.id],
+    }),
+  }),
+)
+
+export const studyTaskResourcesRelations = relations(
+  studyTaskResources,
+  ({ one }) => ({
+    workspace: one(workspaces, {
+      fields: [studyTaskResources.workspaceId],
+      references: [workspaces.id],
+    }),
+    task: one(studyTasks, {
+      fields: [studyTaskResources.taskId],
+      references: [studyTasks.id],
+    }),
+    calendarResource: one(calendarResources, {
+      fields: [studyTaskResources.calendarResourceId],
+      references: [calendarResources.id],
+    }),
+  }),
+)
+
+export const studyDeliverablesRelations = relations(
+  studyDeliverables,
+  ({ one }) => ({
+    workspace: one(workspaces, {
+      fields: [studyDeliverables.workspaceId],
+      references: [workspaces.id],
+    }),
+    task: one(studyTasks, {
+      fields: [studyDeliverables.taskId],
+      references: [studyTasks.id],
+    }),
+  }),
+)

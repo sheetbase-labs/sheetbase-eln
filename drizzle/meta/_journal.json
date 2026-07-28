@@ -358,6 +358,13 @@
       "when": 1785132000000,
       "tag": "0050_ops_004_lab_calendar",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1785135600000,
+      "tag": "0051_ops_005_study_planner",
+      "breakpoints": true
     }
   ]
 }

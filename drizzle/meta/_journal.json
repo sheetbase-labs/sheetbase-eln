@@ -351,6 +351,13 @@
       "when": 1785128400000,
       "tag": "0049_ops_003_plate_designer",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1785132000000,
+      "tag": "0050_ops_004_lab_calendar",
+      "breakpoints": true
     }
   ]
 }

@@ -11,6 +11,7 @@ import {
 import {
   Activity as ActivityIcon,
   Bell,
+  CalendarDays,
   CheckCircle2,
   ChevronRight,
   ChevronsUpDown,
@@ -172,6 +173,7 @@ export const defaultNavSections: AppShellNavSection[] = [
       { to: '/samples', label: 'Samples', icon: FlaskConical },
       { to: '/storage', label: 'Storage', icon: Snowflake },
       { to: '/plate-designer', label: 'Plate Designer', icon: Grid3x3 },
+      { to: '/calendar', label: 'Lab Calendar', icon: CalendarDays },
       { to: '/my-work', label: 'My work', icon: LayoutGrid, disabled: true },
       {
         to: '/activity',

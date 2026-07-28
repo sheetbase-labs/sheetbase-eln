@@ -1024,12 +1024,12 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** SCI-001, OPS-001.
 
-- [ ] Model resources, bookings, participants, linked records, required samples and locations with explicit time zones.
-- [ ] Build day, week and month views with filtering by team, instrument, project and location.
-- [ ] Detect overlapping bookings and resource availability transactionally.
-- [ ] Show selected booking details, participants, linked experiment, samples, notes and actions in the inspector.
-- [ ] Support create, edit, duplicate and cancel workflows with notifications as a later integration boundary.
-- [ ] Test daylight-saving transitions, recurring or duplicated bookings, conflicts and permission changes.
+- [x] Model resources, bookings, participants, linked records, required samples and locations with explicit time zones.
+- [x] Build day, week and month views with filtering by team, instrument, project and location.
+- [x] Detect overlapping bookings and resource availability transactionally.
+- [x] Show selected booking details, participants, linked experiment, samples, notes and actions in the inspector.
+- [x] Support create, edit, duplicate and cancel workflows with notifications as a later integration boundary.
+- [x] Test daylight-saving transitions, recurring or duplicated bookings, conflicts and permission changes.
 
 ### OPS-005 — Deliver Study Planner
 

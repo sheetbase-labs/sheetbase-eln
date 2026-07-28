@@ -3085,3 +3085,268 @@ export const plateLayoutTemplatesRelations = relations(
     }),
   }),
 )
+
+// ---------------------------------------------------------------------------
+// api — Lab Calendar (OPS-004). Bookable resources, time-range bookings,
+// participants and required samples. Timestamps are timestamptz (UTC-stored,
+// zone-aware); the booking's `timezone` column fixes the display/DST
+// boundary. Controlled RPCs (migration 0050) are the only writers for
+// bookings/participants/samples and enforce transactional overlap detection.
+// ---------------------------------------------------------------------------
+
+export const calendarResources = api.table(
+  'calendar_resources',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    projectId: uuid('project_id').references(() => projects.id, {
+      onDelete: 'set null',
+    }),
+    name: text('name').notNull(),
+    code: text('code').notNull(),
+    resourceType: text('resource_type').notNull().default('instrument'),
+    location: text('location'),
+    capacity: integer('capacity').notNull().default(1),
+    timezone: text('timezone').notNull().default('UTC'),
+    status: text('status').notNull().default('active'),
+    metadata: jsonb('metadata')
+      .notNull()
+      .default(sql`'{}'`),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    check(
+      'chk_calendar_resources_name',
+      sql`length(btrim(${table.name})) BETWEEN 1 AND 200`,
+    ),
+    check(
+      'chk_calendar_resources_code',
+      sql`length(btrim(${table.code})) BETWEEN 1 AND 100`,
+    ),
+    check(
+      'chk_calendar_resources_type',
+      sql`${table.resourceType} IN ('instrument','room','equipment')`,
+    ),
+    check('chk_calendar_resources_capacity', sql`${table.capacity} > 0`),
+    check(
+      'chk_calendar_resources_status',
+      sql`${table.status} IN ('active','inactive')`,
+    ),
+    uniqueIndex('uq_calendar_resources_workspace_code').on(
+      table.workspaceId,
+      table.code,
+    ),
+    index('idx_calendar_resources_workspace').on(table.workspaceId),
+    index('idx_calendar_resources_workspace_type').on(
+      table.workspaceId,
+      table.resourceType,
+    ),
+    index('idx_calendar_resources_project').on(table.projectId),
+  ],
+)
+
+export const calendarBookings = api.table(
+  'calendar_bookings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    resourceId: uuid('resource_id')
+      .notNull()
+      .references(() => calendarResources.id, { onDelete: 'cascade' }),
+    projectId: uuid('project_id').references(() => projects.id, {
+      onDelete: 'set null',
+    }),
+    title: text('title').notNull(),
+    status: text('status').notNull().default('tentative'),
+    allDay: boolean('all_day').notNull().default(false),
+    startsAt: timestamp('starts_at', {
+      withTimezone: true,
+      mode: 'date',
+    }).notNull(),
+    endsAt: timestamp('ends_at', {
+      withTimezone: true,
+      mode: 'date',
+    }).notNull(),
+    timezone: text('timezone').notNull().default('UTC'),
+    location: text('location'),
+    color: text('color'),
+    notes: text('notes'),
+    linkedExperimentRecordId: uuid('linked_experiment_record_id'),
+    linkedExperimentIdentifier: text('linked_experiment_identifier'),
+    linkedExperimentTitle: text('linked_experiment_title'),
+    metadataVersion: integer('metadata_version').notNull().default(1),
+    cancelledAt: timestamp('cancelled_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    check(
+      'chk_calendar_bookings_title',
+      sql`length(btrim(${table.title})) BETWEEN 1 AND 200`,
+    ),
+    check(
+      'chk_calendar_bookings_status',
+      sql`${table.status} IN ('tentative','confirmed','cancelled')`,
+    ),
+    check(
+      'chk_calendar_bookings_range',
+      sql`${table.endsAt} > ${table.startsAt}`,
+    ),
+    check('chk_calendar_bookings_version', sql`${table.metadataVersion} > 0`),
+    check(
+      'chk_calendar_bookings_cancel',
+      sql`(${table.status} = 'cancelled') = (${table.cancelledAt} IS NOT NULL)`,
+    ),
+    index('idx_calendar_bookings_workspace').on(table.workspaceId),
+    index('idx_calendar_bookings_resource').on(table.resourceId),
+    index('idx_calendar_bookings_project').on(table.projectId),
+    index('idx_calendar_bookings_resource_starts').on(
+      table.resourceId,
+      table.startsAt,
+    ),
+  ],
+)
+
+export const calendarBookingParticipants = api.table(
+  'calendar_booking_participants',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    bookingId: uuid('booking_id')
+      .notNull()
+      .references(() => calendarBookings.id, { onDelete: 'cascade' }),
+    userId: text('user_id').references(() => user.id, { onDelete: 'set null' }),
+    displayName: text('display_name'),
+    role: text('role').notNull().default('participant'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'chk_calendar_booking_participants_role',
+      sql`${table.role} IN ('owner','participant')`,
+    ),
+    check(
+      'chk_calendar_booking_participants_identity',
+      sql`${table.userId} IS NOT NULL OR ${table.displayName} IS NOT NULL`,
+    ),
+    uniqueIndex('uq_calendar_booking_participants_booking_user')
+      .on(table.bookingId, table.userId)
+      .where(sql`${table.userId} IS NOT NULL`),
+    index('idx_calendar_booking_participants_workspace').on(table.workspaceId),
+    index('idx_calendar_booking_participants_booking').on(table.bookingId),
+  ],
+)
+
+export const calendarBookingSamples = api.table(
+  'calendar_booking_samples',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    bookingId: uuid('booking_id')
+      .notNull()
+      .references(() => calendarBookings.id, { onDelete: 'cascade' }),
+    sampleRecordId: uuid('sample_record_id'),
+    sampleIdentifier: text('sample_identifier'),
+    sampleTitle: text('sample_title'),
+    quantityValue: numeric('quantity_value'),
+    quantityUnit: text('quantity_unit'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'chk_calendar_booking_samples_quantity',
+      sql`${table.quantityValue} IS NULL OR ${table.quantityValue} > 0`,
+    ),
+    index('idx_calendar_booking_samples_workspace').on(table.workspaceId),
+    index('idx_calendar_booking_samples_booking').on(table.bookingId),
+  ],
+)
+
+export const calendarResourcesRelations = relations(
+  calendarResources,
+  ({ one, many }) => ({
+    workspace: one(workspaces, {
+      fields: [calendarResources.workspaceId],
+      references: [workspaces.id],
+    }),
+    project: one(projects, {
+      fields: [calendarResources.projectId],
+      references: [projects.id],
+    }),
+    bookings: many(calendarBookings),
+  }),
+)
+
+export const calendarBookingsRelations = relations(
+  calendarBookings,
+  ({ one, many }) => ({
+    workspace: one(workspaces, {
+      fields: [calendarBookings.workspaceId],
+      references: [workspaces.id],
+    }),
+    resource: one(calendarResources, {
+      fields: [calendarBookings.resourceId],
+      references: [calendarResources.id],
+    }),
+    project: one(projects, {
+      fields: [calendarBookings.projectId],
+      references: [projects.id],
+    }),
+    participants: many(calendarBookingParticipants),
+    samples: many(calendarBookingSamples),
+  }),
+)
+
+export const calendarBookingParticipantsRelations = relations(
+  calendarBookingParticipants,
+  ({ one }) => ({
+    workspace: one(workspaces, {
+      fields: [calendarBookingParticipants.workspaceId],
+      references: [workspaces.id],
+    }),
+    booking: one(calendarBookings, {
+      fields: [calendarBookingParticipants.bookingId],
+      references: [calendarBookings.id],
+    }),
+  }),
+)
+
+export const calendarBookingSamplesRelations = relations(
+  calendarBookingSamples,
+  ({ one }) => ({
+    workspace: one(workspaces, {
+      fields: [calendarBookingSamples.workspaceId],
+      references: [workspaces.id],
+    }),
+    booking: one(calendarBookings, {
+      fields: [calendarBookingSamples.bookingId],
+      references: [calendarBookings.id],
+    }),
+  }),
+)

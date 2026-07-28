@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AnalysisRouteImport } from './routes/analysis'
+import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as DatasetsRouteImport } from './routes/datasets'
 import { Route as FoundationsRouteImport } from './routes/foundations'
 import { Route as LineageRouteImport } from './routes/lineage'
@@ -48,6 +49,11 @@ const IndexRoute = IndexRouteImport.update({
 const AnalysisRoute = AnalysisRouteImport.update({
   id: '/analysis',
   path: '/analysis',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CalendarRoute = CalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DatasetsRoute = DatasetsRouteImport.update({
@@ -196,6 +202,7 @@ const ProjectsProjectIdExperimentsRecordIdOverviewRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/analysis': typeof AnalysisRoute
+  '/calendar': typeof CalendarRoute
   '/datasets': typeof DatasetsRoute
   '/foundations': typeof FoundationsRoute
   '/lineage': typeof LineageRoute
@@ -228,6 +235,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/analysis': typeof AnalysisRoute
+  '/calendar': typeof CalendarRoute
   '/datasets': typeof DatasetsRoute
   '/foundations': typeof FoundationsRoute
   '/lineage': typeof LineageRoute
@@ -261,6 +269,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/analysis': typeof AnalysisRoute
+  '/calendar': typeof CalendarRoute
   '/datasets': typeof DatasetsRoute
   '/foundations': typeof FoundationsRoute
   '/lineage': typeof LineageRoute
@@ -295,6 +304,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/analysis'
+    | '/calendar'
     | '/datasets'
     | '/foundations'
     | '/lineage'
@@ -327,6 +337,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/analysis'
+    | '/calendar'
     | '/datasets'
     | '/foundations'
     | '/lineage'
@@ -359,6 +370,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/analysis'
+    | '/calendar'
     | '/datasets'
     | '/foundations'
     | '/lineage'
@@ -392,6 +404,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AnalysisRoute: typeof AnalysisRoute
+  CalendarRoute: typeof CalendarRoute
   DatasetsRoute: typeof DatasetsRoute
   FoundationsRoute: typeof FoundationsRoute
   LineageRoute: typeof LineageRoute
@@ -432,6 +445,13 @@ declare module '@tanstack/react-router' {
       path: '/analysis'
       fullPath: '/analysis'
       preLoaderRoute: typeof AnalysisRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/calendar': {
+      id: '/calendar'
+      path: '/calendar'
+      fullPath: '/calendar'
+      preLoaderRoute: typeof CalendarRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/datasets': {
@@ -686,6 +706,7 @@ const ReviewsRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AnalysisRoute: AnalysisRoute,
+  CalendarRoute: CalendarRoute,
   DatasetsRoute: DatasetsRoute,
   FoundationsRoute: FoundationsRoute,
   LineageRoute: LineageRoute,

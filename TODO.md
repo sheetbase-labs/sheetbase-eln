@@ -991,12 +991,12 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** REV-008, SEARCH-001.
 
-- [ ] Build My Work from real assignments, reviews, tasks, recent edits, mentions, deadlines and pinned records.
-- [ ] Build Project Dashboard from real experiment, sample, dataset, protocol, milestone and activity summaries.
-- [ ] Ensure every metric links to the records that produce it and defines its time boundary.
-- [ ] Avoid duplicating source state into dashboard-only tables.
-- [ ] Add empty and single-user states that remain useful before collaboration expands.
-- [ ] Test metric correctness, permission filtering and time-zone handling.
+- [x] Build My Work from real assignments, reviews, tasks, recent edits, mentions, deadlines and pinned records.
+- [x] Build Project Dashboard from real experiment, sample, dataset, protocol, milestone and activity summaries.
+- [x] Ensure every metric links to the records that produce it and defines its time boundary.
+- [x] Avoid duplicating source state into dashboard-only tables.
+- [x] Add empty and single-user states that remain useful before collaboration expands.
+- [x] Test metric correctness, permission filtering and time-zone handling.
 
 ### OPS-002 — Deliver Freezer & Storage Map
 

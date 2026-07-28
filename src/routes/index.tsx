@@ -10,12 +10,14 @@ import { useState } from 'react'
 import {
   Activity as ActivityIcon,
   ArrowRight,
+  AtSign,
   ClipboardList,
   Database,
   FlaskConical,
   Folder,
   Inbox,
   LayoutTemplate,
+  Pin,
   Plus,
   Search,
   TestTube,
@@ -39,14 +41,30 @@ import {
   notebookDataClient,
   notebookQueryKeys,
   toProject,
-  toRecord,
+  formatRelativeTime,
 } from '#/lib/notebook-data'
+import type { NotebookRecord, Project, ProjectWire } from '#/lib/notebook-data'
+import {
+  activitySentence,
+  computeMyWorkMetrics,
+  dashboardQueryKeys,
+  fetchMyMentions,
+  fetchMyPendingReviews,
+  fetchMyRecords,
+  fetchPinnedRecords,
+  fetchRecentActivity,
+  isReviewOverdue,
+  nextDeadlineHint,
+  OVERDUE_DAYS,
+  SOON_DAYS,
+} from '#/lib/dashboard-data'
 import type {
-  NotebookRecord,
-  Project,
-  ProjectWire,
-  RecordWire,
-} from '#/lib/notebook-data'
+  DashboardActivityItem,
+  DashboardMetric,
+  DashboardMentionItem,
+  DashboardPinnedItem,
+} from '#/lib/dashboard-data'
+import type { ReviewItem } from '#/lib/reviews'
 import { cn } from '#/lib/utils'
 
 export const Route = createFileRoute('/')({
@@ -128,6 +146,7 @@ function Home() {
     >
       <MyWorkDashboard
         context={{
+          userId: context.user.id,
           user: { name: context.user.name, email: context.user.email },
           workspace: {
             name: context.workspace.name,
@@ -141,17 +160,8 @@ function Home() {
 }
 
 // ---------------------------------------------------------------------------
-// Dashboard query keys. Recent records are dashboard-scoped; the projects
-// list reuses the shared `projectsList` key so it stays in sync with the
-// projects route and the live-event coordinator.
+// Dashboard query keys are now in src/lib/dashboard-data.ts (dashboardQueryKeys).
 // ---------------------------------------------------------------------------
-
-const RECENT_RECORDS_KEY = ['dashboard', 'recent-records'] as const
-
-/** Query key for a workspace-scoped record count used by a summary card. */
-function DASHBOARD_COUNT_KEY(metric: string) {
-  return ['dashboard', 'count', metric] as const
-}
 
 function greetingFor(hour: number): string {
   if (hour < 12) return 'Good morning'
@@ -159,34 +169,24 @@ function greetingFor(hour: number): string {
   return 'Good evening'
 }
 
-function formatRelativeTime(iso: string): string {
-  const then = new Date(iso).getTime()
-  if (Number.isNaN(then)) return '—'
-  const diff = Math.max(0, Date.now() - then)
-  const minute = 60_000
-  const hour = 3_600_000
-  const day = 86_400_000
-  if (diff < minute) return 'just now'
-  if (diff < hour) return `${Math.floor(diff / minute)}m ago`
-  if (diff < day) return `${Math.floor(diff / hour)}h ago`
-  if (diff < 7 * day) return `${Math.floor(diff / day)}d ago`
-  return new Date(iso).toLocaleDateString()
-}
-
 interface DashboardContext {
+  userId: string
   user: { name: string; email: string }
   workspace: { name: string; slug: string; role: string }
 }
 
 /**
  * My Work dashboard — the signed-in landing surface. A dense, work-oriented
- * view of recent records, projects, assigned tasks and activity. Data comes
- * from the same-origin `/api/db` PostgREST boundary via TanStack Query so it
- * stays live with the rest of the app.
+ * view of real assignments, pending reviews, recent edits, mentions,
+ * deadlines, pinned records and workspace activity. All data comes from the
+ * same PostgREST resources the rest of the app uses (`records`,
+ * `change_events`, `review_submissions`, `comments`) via TanStack Query — no
+ * dashboard-only tables are created. Every metric links to the records that
+ * produce it and declares its time boundary.
  *
- * Tasks and activity are stubbed with honest empty states for now: those
- * collections do not have backing endpoints yet, so the dashboard says so
- * rather than fabricating content.
+ * Empty and single-user states remain useful: before collaboration expands,
+ * the dashboard shows the user's own records and workspace activity with
+ * honest "nothing yet" states rather than fabricated content.
  */
 export function MyWorkDashboard({ context }: { context: DashboardContext }) {
   const now = new Date()
@@ -197,53 +197,35 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
     month: 'short',
     year: 'numeric',
   })
+  const userId = context.userId
 
-  const recordsQuery = useQuery({
-    queryKey: RECENT_RECORDS_KEY,
-    queryFn: async () => {
-      const rows = await notebookDataClient.list<RecordWire>(
-        'records',
-        '?order=updated_at.desc&limit=5',
-      )
-      return rows.map(toRecord)
-    },
+  // --- Real data queries -------------------------------------------------
+
+  // Records created or updated by the current user — "assigned to me".
+  const myRecordsQuery = useQuery({
+    queryKey: dashboardQueryKeys.myRecords(userId),
+    queryFn: () => fetchMyRecords(notebookDataClient, userId),
   })
 
-  // Summary card counts. Each uses PostgREST's cheap count path
-  // (Prefer: count=exact + Range: 0-0) so no rows are transferred.
-  const experimentsCountQuery = useQuery({
-    queryKey: DASHBOARD_COUNT_KEY('experiments'),
-    queryFn: () =>
-      notebookDataClient.count(
-        'records',
-        '?kind=eq.experiment&archived_at=is.null&deleted_at=is.null',
-      ),
-  })
-  const pendingReviewsCountQuery = useQuery({
-    queryKey: DASHBOARD_COUNT_KEY('pending-reviews'),
-    queryFn: () =>
-      notebookDataClient.count(
-        'records',
-        '?status=in.(review,under_review)&archived_at=is.null&deleted_at=is.null',
-      ),
-  })
-  const inProgressCountQuery = useQuery({
-    queryKey: DASHBOARD_COUNT_KEY('in-progress'),
-    queryFn: () =>
-      notebookDataClient.count(
-        'records',
-        '?status=eq.in_progress&archived_at=is.null&deleted_at=is.null',
-      ),
-  })
-  const samplesCountQuery = useQuery({
-    queryKey: DASHBOARD_COUNT_KEY('samples'),
-    queryFn: () =>
-      notebookDataClient.count(
-        'records',
-        '?kind=eq.sample&archived_at=is.null&deleted_at=is.null',
-      ),
+  // Pending review submissions assigned to the current user.
+  const myReviewsQuery = useQuery({
+    queryKey: dashboardQueryKeys.myReviews(userId),
+    queryFn: () => fetchMyPendingReviews(notebookDataClient, userId),
   })
 
+  // Open comments mentioning the current user.
+  const myMentionsQuery = useQuery({
+    queryKey: dashboardQueryKeys.myMentions(userId),
+    queryFn: () => fetchMyMentions(notebookDataClient, userId),
+  })
+
+  // Workspace-wide recent activity feed.
+  const activityQuery = useQuery({
+    queryKey: dashboardQueryKeys.recentActivity(25),
+    queryFn: () => fetchRecentActivity(notebookDataClient, 25),
+  })
+
+  // All projects for quick access.
   const projectsQuery = useQuery({
     queryKey: notebookQueryKeys.projectsList(),
     queryFn: async () => {
@@ -255,9 +237,61 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
     },
   })
 
-  const records = recordsQuery.data ?? []
+  // Pinned records — IDs stored in localStorage, resolved to full records.
+  const [pinnedIds, setPinnedIds] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem(PINNED_RECORDS_KEY)
+      return raw ? (JSON.parse(raw) as string[]) : []
+    } catch {
+      return []
+    }
+  })
+
+  const pinnedQuery = useQuery({
+    queryKey: dashboardQueryKeys.pinnedRecords(pinnedIds),
+    queryFn: () => fetchPinnedRecords(notebookDataClient, pinnedIds),
+    enabled: pinnedIds.length > 0,
+  })
+
+  const togglePin = (recordId: string) => {
+    setPinnedIds((prev) => {
+      const next = prev.includes(recordId)
+        ? prev.filter((id) => id !== recordId)
+        : [...prev, recordId]
+      try {
+        localStorage.setItem(PINNED_RECORDS_KEY, JSON.stringify(next))
+      } catch {
+        /* ignore: private mode / disabled storage */
+      }
+      return next
+    })
+  }
+
+  // --- Derived data ------------------------------------------------------
+
+  const myRecords = myRecordsQuery.data ?? []
+  const pendingReviews = myReviewsQuery.data ?? []
+  const myMentions = myMentionsQuery.data ?? []
+  const recentActivity = activityQuery.data ?? []
   const projects = projectsQuery.data ?? []
+  const pinnedRecords = pinnedQuery.data ?? []
   const projectById = new Map(projects.map((p) => [p.id, p]))
+
+  const metrics = computeMyWorkMetrics({
+    myRecords,
+    pendingReviews,
+    myMentions,
+    recentActivity,
+    overdueDays: OVERDUE_DAYS,
+    soonDays: SOON_DAYS,
+  })
+
+  const deadlineHint = nextDeadlineHint(pendingReviews)
+
+  // My priorities — top 3 pending reviews sorted by age (oldest first).
+  const myPriorities = [...pendingReviews]
+    .sort((a, b) => Date.parse(a.submittedAt) - Date.parse(b.submittedAt))
+    .slice(0, 3)
 
   return (
     <div className="space-y-8">
@@ -279,53 +313,48 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
         aria-label="Summary"
         className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"
       >
-        <SummaryCard
-          label="Experiments"
-          value={experimentsCountQuery.data}
-          loading={experimentsCountQuery.isLoading}
-          hint="Active notebooks"
-          icon={FlaskConical}
-          tone="info"
-        />
-        <Link to="/reviews" className="no-underline contents">
-          <SummaryCard
-            label="Pending reviews"
-            value={pendingReviewsCountQuery.data}
-            loading={pendingReviewsCountQuery.isLoading}
-            hint={
-              (pendingReviewsCountQuery.data ?? 0) > 0
-                ? 'awaiting action'
-                : undefined
-            }
-            hintTone="text-violet-600 dark:text-violet-400"
-            icon={Inbox}
-            tone="violet"
-          />
-        </Link>
-        <SummaryCard
-          label="In progress"
-          value={inProgressCountQuery.data}
-          loading={inProgressCountQuery.isLoading}
-          hint="Open experiments"
-          icon={ClipboardList}
-          tone="warning"
-        />
-        <SummaryCard
-          label="Samples"
-          value={samplesCountQuery.data}
-          loading={samplesCountQuery.isLoading}
-          hint="Linked samples"
-          icon={TestTube}
-          tone="success"
-        />
-        <SummaryCard
-          label="Projects"
-          value={projects.length}
-          loading={projectsQuery.isLoading}
-          hint="All projects"
-          icon={Folder}
-          tone="neutral"
-        />
+        {metrics.map((metric, i) => {
+          const isLoading =
+            i === 0
+              ? myRecordsQuery.isLoading
+              : i === 1
+                ? myReviewsQuery.isLoading
+                : i === 2
+                  ? myRecordsQuery.isLoading
+                  : i === 3
+                    ? activityQuery.isLoading
+                    : myMentionsQuery.isLoading
+          const icon =
+            i === 0
+              ? FlaskConical
+              : i === 1
+                ? Inbox
+                : i === 2
+                  ? ClipboardList
+                  : i === 3
+                    ? ActivityIcon
+                    : AtSign
+          const tone: CardTone =
+            i === 0
+              ? 'info'
+              : i === 1
+                ? 'violet'
+                : i === 2
+                  ? 'warning'
+                  : i === 3
+                    ? 'neutral'
+                    : 'info'
+          return (
+            <MetricCard
+              key={metric.label}
+              metric={metric}
+              loading={isLoading}
+              icon={icon}
+              tone={tone}
+              deadlineHint={i === 1 ? deadlineHint : undefined}
+            />
+          )
+        })}
       </section>
 
       <QuickActionsGrid />
@@ -333,17 +362,47 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-6">
           <RecentWorkTable
-            records={records}
+            records={myRecords.slice(0, 6)}
             projectById={projectById}
-            isLoading={recordsQuery.isLoading}
-            error={recordsQuery.error}
-            onRetry={() => recordsQuery.refetch()}
+            isLoading={myRecordsQuery.isLoading}
+            error={myRecordsQuery.error}
+            onRetry={() => myRecordsQuery.refetch()}
+            pinnedIds={pinnedIds}
+            onTogglePin={togglePin}
+            title="Recently edited"
+            emptyTitle="No records yet"
+            emptyBody="Experiments, samples, protocols and reports you create or edit will show up here. Start by opening a project."
+          />
+          <MentionsPanel
+            mentions={myMentions}
+            isLoading={myMentionsQuery.isLoading}
+            error={myMentionsQuery.error}
+            onRetry={() => myMentionsQuery.refetch()}
+            currentUserId={userId}
+          />
+          <ActivityFeed
+            items={recentActivity}
+            isLoading={activityQuery.isLoading}
+            error={activityQuery.error}
+            onRetry={() => activityQuery.refetch()}
+            currentUserId={userId}
           />
         </div>
 
         <div className="space-y-6">
-          <TasksPanel />
-          <ActivityFeed />
+          <MyPrioritiesPanel
+            priorities={myPriorities}
+            isLoading={myReviewsQuery.isLoading}
+          />
+          <PinnedRecordsPanel
+            pinnedRecords={pinnedRecords}
+            isLoading={pinnedQuery.isLoading}
+            onUnpin={togglePin}
+          />
+          <UpcomingApprovalsPanel
+            pendingReviews={pendingReviews}
+            isLoading={myReviewsQuery.isLoading}
+          />
         </div>
       </div>
 
@@ -367,29 +426,42 @@ const summaryToneClasses: Record<CardTone, string> = {
   neutral: 'text-muted-foreground',
 }
 
-function SummaryCard({
-  label,
-  value,
-  hint,
-  hintTone,
+const hintToneClasses: Record<
+  NonNullable<DashboardMetric['hintTone']>,
+  string
+> = {
+  default: 'text-muted-foreground',
+  urgent: 'text-red-600 dark:text-red-400',
+  warning: 'text-amber-600 dark:text-amber-400',
+  info: 'text-blue-600 dark:text-blue-400',
+  success: 'text-emerald-600 dark:text-emerald-400',
+  violet: 'text-violet-600 dark:text-violet-400',
+}
+
+/**
+ * Metric card rendered from a DashboardMetric. When the metric has a
+ * `linkTo`, the card is wrapped in a Link so the user can navigate to the
+ * records that produce the count. The `timeBoundary` is shown as a tooltip
+ * on the value so the user can verify the window.
+ */
+function MetricCard({
+  metric,
+  loading,
   icon: Icon,
   tone,
-  loading,
+  deadlineHint,
 }: {
-  label: string
-  /** When undefined, the card shows a skeleton while the count loads. */
-  value: number | undefined
-  hint?: string
-  hintTone?: string
+  metric: DashboardMetric
+  loading?: boolean
   icon: LucideIcon
   tone: CardTone
-  loading?: boolean
+  deadlineHint?: string
 }) {
-  return (
+  const card = (
     <div className="rounded-lg border border-border bg-card p-4">
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-          {label}
+          {metric.label}
         </span>
         <Icon
           className={`size-4 ${summaryToneClasses[tone]}`}
@@ -399,17 +471,45 @@ function SummaryCard({
       {loading ? (
         <Skeleton className="mt-2 h-7 w-10" />
       ) : (
-        <p className="mt-1.5 font-display text-2xl font-semibold tabular-nums leading-none text-foreground">
-          {value ?? 0}
+        <p
+          className="mt-1.5 font-display text-2xl font-semibold tabular-nums leading-none text-foreground"
+          title={metric.timeBoundary}
+        >
+          {metric.value}
         </p>
       )}
-      {hint ? (
-        <p className={cn('mt-1 text-xs', hintTone ?? 'text-muted-foreground')}>
-          {hint}
+      {metric.hint ? (
+        <p
+          className={cn(
+            'mt-1 text-xs',
+            metric.hintTone
+              ? hintToneClasses[metric.hintTone]
+              : 'text-muted-foreground',
+          )}
+        >
+          {metric.hint}
+        </p>
+      ) : null}
+      {deadlineHint ? (
+        <p className="mt-0.5 text-xs text-blue-600 dark:text-blue-400">
+          {deadlineHint}
         </p>
       ) : null}
     </div>
   )
+
+  if (metric.linkTo && !loading) {
+    return (
+      <Link
+        to={metric.linkTo}
+        params={metric.linkParams}
+        className="no-underline contents"
+      >
+        {card}
+      </Link>
+    )
+  }
+  return card
 }
 
 // ---------------------------------------------------------------------------
@@ -517,20 +617,30 @@ export function RecentWorkTable({
   isLoading,
   error,
   onRetry,
+  pinnedIds,
+  onTogglePin,
+  title = 'Recent work',
+  emptyTitle = 'No recent work yet',
+  emptyBody = 'Experiments, samples, protocols and reports you create will show up here. Start by opening a project.',
 }: {
   records: NotebookRecord[]
   projectById: Map<string, Project>
   isLoading: boolean
   error: unknown
   onRetry: () => void
+  pinnedIds?: string[]
+  onTogglePin?: (recordId: string) => void
+  title?: string
+  emptyTitle?: string
+  emptyBody?: string
 }) {
   if (isLoading) {
     return (
       <section
-        aria-label="Recent work"
+        aria-label={title}
         className="rounded-lg border border-border bg-card"
       >
-        <SectionHeader title="Recent work" />
+        <SectionHeader title={title} />
         <div className="space-y-2 p-3">
           {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-10 w-full" />
@@ -543,11 +653,14 @@ export function RecentWorkTable({
   if (error) {
     return (
       <section
-        aria-label="Recent work"
+        aria-label={title}
         className="rounded-lg border border-border bg-card"
       >
-        <SectionHeader title="Recent work" />
-        <ErrorState message="Could not load recent work." onRetry={onRetry} />
+        <SectionHeader title={title} />
+        <ErrorState
+          message={`Could not load ${title.toLowerCase()}.`}
+          onRetry={onRetry}
+        />
       </section>
     )
   }
@@ -555,14 +668,14 @@ export function RecentWorkTable({
   if (records.length === 0) {
     return (
       <section
-        aria-label="Recent work"
+        aria-label={title}
         className="rounded-lg border border-border bg-card"
       >
-        <SectionHeader title="Recent work" />
+        <SectionHeader title={title} />
         <EmptyState
           icon={FlaskConical}
-          title="No recent work yet"
-          body="Experiments, samples, protocols and reports you create will show up here. Start by opening a project."
+          title={emptyTitle}
+          body={emptyBody}
           action={
             <Button asChild variant="outline" size="sm">
               <Link to="/projects" className="no-underline">
@@ -577,10 +690,10 @@ export function RecentWorkTable({
 
   return (
     <section
-      aria-label="Recent work"
+      aria-label={title}
       className="rounded-lg border border-border bg-card"
     >
-      <SectionHeader title="Recent work" count={records.length} />
+      <SectionHeader title={title} count={records.length} />
       <Table>
         <TableHeader>
           <TableRow>
@@ -591,6 +704,7 @@ export function RecentWorkTable({
               Updated
             </TableHead>
             <TableHead className="hidden md:table-cell">Owner</TableHead>
+            {onTogglePin ? <TableHead className="w-8" /> : null}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -598,6 +712,7 @@ export function RecentWorkTable({
             const project = record.projectId
               ? projectById.get(record.projectId)
               : undefined
+            const isPinned = pinnedIds?.includes(record.id) ?? false
             return (
               <TableRow key={record.id}>
                 <TableCell>
@@ -648,10 +763,28 @@ export function RecentWorkTable({
                   {formatRelativeTime(record.updatedAt)}
                 </TableCell>
                 <TableCell className="hidden text-sm text-muted-foreground md:table-cell">
-                  {/* Owner resolution needs a user-directory endpoint that is
-                      not yet available; show an honest placeholder. */}
                   <span aria-label="Owner not available">—</span>
                 </TableCell>
+                {onTogglePin ? (
+                  <TableCell className="w-8">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={isPinned ? 'Unpin record' : 'Pin record'}
+                      onClick={() => onTogglePin(record.id)}
+                    >
+                      <Pin
+                        className={cn(
+                          'size-3.5',
+                          isPinned
+                            ? 'fill-foreground text-foreground'
+                            : 'text-muted-foreground',
+                        )}
+                        aria-hidden="true"
+                      />
+                    </Button>
+                  </TableCell>
+                ) : null}
               </TableRow>
             )
           })}
@@ -671,37 +804,429 @@ function RecordKindIcon({ kind }: { kind: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// Tasks & activity — honest empty states until backing endpoints exist.
+// Pinned records — localStorage key and panel.
 // ---------------------------------------------------------------------------
 
-export function TasksPanel() {
+const PINNED_RECORDS_KEY = 'sheetbase-pinned-records'
+
+// ---------------------------------------------------------------------------
+// Mentions panel — open comments mentioning the current user.
+// ---------------------------------------------------------------------------
+
+export function MentionsPanel({
+  mentions,
+  isLoading,
+  error,
+  onRetry,
+  currentUserId,
+}: {
+  mentions: DashboardMentionItem[]
+  isLoading: boolean
+  error: unknown
+  onRetry: () => void
+  currentUserId: string
+}) {
+  if (isLoading) {
+    return (
+      <section
+        aria-label="Mentions and comments"
+        className="rounded-lg border border-border bg-card"
+      >
+        <SectionHeader title="Mentions & comments" />
+        <div className="space-y-2 p-3">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <Skeleton key={i} className="h-16 w-full" />
+          ))}
+        </div>
+      </section>
+    )
+  }
+
+  if (error) {
+    return (
+      <section
+        aria-label="Mentions and comments"
+        className="rounded-lg border border-border bg-card"
+      >
+        <SectionHeader title="Mentions & comments" />
+        <ErrorState message="Could not load mentions." onRetry={onRetry} />
+      </section>
+    )
+  }
+
+  if (mentions.length === 0) {
+    return (
+      <section
+        aria-label="Mentions and comments"
+        className="rounded-lg border border-border bg-card"
+      >
+        <SectionHeader title="Mentions & comments" />
+        <EmptyState
+          icon={AtSign}
+          title="No mentions yet"
+          body="When collaborators mention you in a comment, it will appear here. Share a record to start a discussion."
+        />
+      </section>
+    )
+  }
+
   return (
     <section
-      aria-label="Active tasks"
+      aria-label="Mentions and comments"
       className="rounded-lg border border-border bg-card"
     >
-      <SectionHeader title="Active tasks" />
-      <EmptyState
-        icon={ClipboardList}
-        title="No tasks assigned"
-        body="Tasks linked to experiments and reviews will appear here once task tracking is enabled."
+      <SectionHeader
+        title="Mentions & comments"
+        count={mentions.length}
+        action={
+          <span className="text-xs text-muted-foreground">
+            {mentions.length} new
+          </span>
+        }
       />
+      <ul className="divide-y divide-border">
+        {mentions.map((mention) => (
+          <li key={mention.id} className="px-4 py-3">
+            <Link
+              to="/projects/$projectId/experiments/$recordId"
+              params={{
+                projectId: 'unknown',
+                recordId: mention.recordId,
+              }}
+              className="block no-underline"
+            >
+              <p className="line-clamp-2 text-sm text-foreground">
+                {mention.body}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {mention.authorUserId === currentUserId
+                  ? 'You'
+                  : mention.authorUserId
+                    ? mention.authorUserId.slice(0, 8)
+                    : 'Deleted user'}
+                {' · '}
+                {formatRelativeTime(mention.createdAt)}
+              </p>
+            </Link>
+          </li>
+        ))}
+      </ul>
     </section>
   )
 }
 
-export function ActivityFeed() {
+// ---------------------------------------------------------------------------
+// Activity feed — real change events from the workspace audit trail.
+// ---------------------------------------------------------------------------
+
+export function ActivityFeed({
+  items,
+  isLoading,
+  error,
+  onRetry,
+  currentUserId,
+}: {
+  items: DashboardActivityItem[]
+  isLoading: boolean
+  error: unknown
+  onRetry: () => void
+  currentUserId: string
+}) {
+  if (isLoading) {
+    return (
+      <section
+        aria-label="Recent activity"
+        className="rounded-lg border border-border bg-card"
+      >
+        <SectionHeader title="Recent activity" />
+        <div className="space-y-2 p-3">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-8 w-full" />
+          ))}
+        </div>
+      </section>
+    )
+  }
+
+  if (error) {
+    return (
+      <section
+        aria-label="Recent activity"
+        className="rounded-lg border border-border bg-card"
+      >
+        <SectionHeader title="Recent activity" />
+        <ErrorState message="Could not load activity." onRetry={onRetry} />
+      </section>
+    )
+  }
+
+  if (items.length === 0) {
+    return (
+      <section
+        aria-label="Recent activity"
+        className="rounded-lg border border-border bg-card"
+      >
+        <SectionHeader title="Recent activity" />
+        <EmptyState
+          icon={ActivityIcon}
+          title="No recent activity"
+          body="Edits, comments, reviews and status changes from your workspace will show up here once you start creating records."
+        />
+      </section>
+    )
+  }
+
   return (
     <section
       aria-label="Recent activity"
       className="rounded-lg border border-border bg-card"
     >
-      <SectionHeader title="Recent activity" />
-      <EmptyState
-        icon={ActivityIcon}
-        title="No recent activity"
-        body="Edits, comments, reviews and status changes from your workspace will show up here."
-      />
+      <SectionHeader title="Recent activity" count={items.length} />
+      <ul className="divide-y divide-border">
+        {items.slice(0, 15).map((item) => {
+          const isMe = item.actorUserId === currentUserId
+          const actor = isMe
+            ? 'You'
+            : item.actorUserId
+              ? item.actorUserId.slice(0, 8)
+              : 'System'
+          return (
+            <li key={item.id} className="flex items-start gap-3 px-4 py-2.5">
+              <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                <ActivityIcon className="size-3" aria-hidden="true" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm text-foreground">
+                  <span className="font-medium">{actor}</span>{' '}
+                  {activitySentence(item)}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {formatRelativeTime(item.createdAt)}
+                </p>
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// My priorities — top pending reviews, shown in the right sidebar.
+// ---------------------------------------------------------------------------
+
+export function MyPrioritiesPanel({
+  priorities,
+  isLoading,
+}: {
+  priorities: ReviewItem[]
+  isLoading: boolean
+}) {
+  return (
+    <section
+      aria-label="My priorities"
+      className="rounded-lg border border-border bg-card"
+    >
+      <SectionHeader title="My priorities" />
+      {isLoading ? (
+        <div className="space-y-2 p-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 w-full" />
+          ))}
+        </div>
+      ) : priorities.length === 0 ? (
+        <EmptyState
+          icon={ClipboardList}
+          title="No priorities"
+          body="Pending reviews assigned to you will appear here as priorities."
+        />
+      ) : (
+        <ol className="divide-y divide-border">
+          {priorities.map((review, i) => {
+            const overdue = isReviewOverdue(
+              review.state,
+              review.submittedAt,
+              OVERDUE_DAYS,
+            )
+            return (
+              <li key={review.id} className="flex items-center gap-3 px-4 py-3">
+                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
+                  {i + 1}
+                </span>
+                <Link to="/reviews" className="min-w-0 flex-1 no-underline">
+                  <p className="truncate text-sm font-medium text-foreground">
+                    Review {review.recordIdentifier}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {review.recordTitle}
+                  </p>
+                </Link>
+                <span
+                  className={cn(
+                    'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium',
+                    overdue
+                      ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                      : 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
+                  )}
+                >
+                  {overdue ? 'Overdue' : 'Under review'}
+                </span>
+              </li>
+            )
+          })}
+        </ol>
+      )}
+    </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Pinned records panel — shortcuts to records the user pinned.
+// ---------------------------------------------------------------------------
+
+export function PinnedRecordsPanel({
+  pinnedRecords,
+  isLoading,
+  onUnpin,
+}: {
+  pinnedRecords: DashboardPinnedItem[]
+  isLoading: boolean
+  onUnpin: (recordId: string) => void
+}) {
+  return (
+    <section
+      aria-label="Pinned items"
+      className="rounded-lg border border-border bg-card"
+    >
+      <SectionHeader title="Pinned items" />
+      {isLoading ? (
+        <div className="space-y-2 p-3">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 w-full" />
+          ))}
+        </div>
+      ) : pinnedRecords.length === 0 ? (
+        <EmptyState
+          icon={Pin}
+          title="No pinned items"
+          body="Pin records from the recently edited table to keep them handy here."
+        />
+      ) : (
+        <ul className="divide-y divide-border">
+          {pinnedRecords.map(({ record, project }) => (
+            <li key={record.id} className="flex items-center gap-2 px-4 py-3">
+              <Link
+                to={
+                  record.projectId
+                    ? '/projects/$projectId/experiments/$recordId'
+                    : '/templates'
+                }
+                params={
+                  record.projectId
+                    ? { projectId: record.projectId, recordId: record.id }
+                    : {}
+                }
+                className="min-w-0 flex-1 no-underline"
+              >
+                <p className="truncate text-sm font-medium text-foreground">
+                  {record.title}
+                </p>
+                <p className="truncate font-mono text-[11px] tabular-nums text-muted-foreground">
+                  {record.identifier}
+                  {project ? ` · ${project.title}` : ''}
+                </p>
+              </Link>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Unpin record"
+                onClick={() => onUnpin(record.id)}
+              >
+                <Pin
+                  className="size-3.5 fill-foreground text-foreground"
+                  aria-hidden="true"
+                />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Upcoming approvals — pending reviews with ageing info.
+// ---------------------------------------------------------------------------
+
+export function UpcomingApprovalsPanel({
+  pendingReviews,
+  isLoading,
+}: {
+  pendingReviews: ReviewItem[]
+  isLoading: boolean
+}) {
+  const sorted = [...pendingReviews]
+    .sort((a, b) => Date.parse(a.submittedAt) - Date.parse(b.submittedAt))
+    .slice(0, 5)
+
+  return (
+    <section
+      aria-label="Upcoming approvals"
+      className="rounded-lg border border-border bg-card"
+    >
+      <SectionHeader title="Upcoming approvals" />
+      {isLoading ? (
+        <div className="space-y-2 p-3">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 w-full" />
+          ))}
+        </div>
+      ) : sorted.length === 0 ? (
+        <EmptyState
+          icon={Inbox}
+          title="No upcoming approvals"
+          body="Reviews assigned to you will appear here with their ageing status."
+        />
+      ) : (
+        <ul className="divide-y divide-border">
+          {sorted.map((review) => {
+            const ageDays = Math.floor(
+              (Date.now() - Date.parse(review.submittedAt)) / 86_400_000,
+            )
+            const overdue = ageDays > OVERDUE_DAYS
+            return (
+              <li key={review.id} className="px-4 py-3">
+                <Link to="/reviews" className="block no-underline">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+                      {review.recordIdentifier}
+                    </span>
+                    <span
+                      className={cn(
+                        'text-[10px] font-medium',
+                        overdue
+                          ? 'text-red-600 dark:text-red-400'
+                          : 'text-muted-foreground',
+                      )}
+                    >
+                      {overdue
+                        ? `Overdue (${ageDays}d)`
+                        : ageDays === 0
+                          ? 'Today'
+                          : `${ageDays}d ago`}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 truncate text-sm text-foreground">
+                    {review.recordTitle}
+                  </p>
+                </Link>
+              </li>
+            )
+          })}
+        </ul>
+      )}
     </section>
   )
 }

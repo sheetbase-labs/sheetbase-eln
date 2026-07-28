@@ -63,6 +63,17 @@ import {
   statusDomainForKind,
 } from '#/lib/notebook-data'
 import type { NotebookRecord, Project } from '#/lib/notebook-data'
+import {
+  activitySentence,
+  computeProjectMetrics,
+  dashboardQueryKeys,
+  fetchProjectActivity,
+  OVERDUE_DAYS,
+} from '#/lib/dashboard-data'
+import type {
+  DashboardActivityItem,
+  DashboardMetric,
+} from '#/lib/dashboard-data'
 
 /**
  * Project dashboard. A dense, full-width overview of one project: metadata
@@ -102,6 +113,11 @@ function ProjectRoute() {
   const recordsQuery = useQuery({
     queryKey: notebookQueryKeys.records(projectId),
     queryFn: () => fetchRecordsForProject(notebookDataClient, projectId),
+    enabled: isProjectIndex,
+  })
+  const activityQuery = useQuery({
+    queryKey: dashboardQueryKeys.projectActivity(projectId, 25),
+    queryFn: () => fetchProjectActivity(notebookDataClient, projectId, 25),
     enabled: isProjectIndex,
   })
 
@@ -177,6 +193,11 @@ function ProjectRoute() {
 
   const isArchived = project.archivedAt !== null
   const stats = computeRecordStats(records)
+  const projectMetrics = computeProjectMetrics({
+    records,
+    projectId: project.id,
+    overdueDays: OVERDUE_DAYS,
+  })
 
   return (
     <AppShell
@@ -199,7 +220,7 @@ function ProjectRoute() {
             isLoadingRecords={recordsQuery.isLoading}
           />
 
-          <ProjectStatCards stats={stats} />
+          <ProjectStatCards stats={stats} metrics={projectMetrics} />
 
           <RecordListSection
             projectId={project.id}
@@ -209,7 +230,12 @@ function ProjectRoute() {
             onRetry={() => recordsQuery.refetch()}
           />
 
-          <ProjectActivityFeed />
+          <ProjectActivityFeed
+            items={activityQuery.data ?? []}
+            isLoading={activityQuery.isLoading}
+            error={activityQuery.error}
+            onRetry={() => activityQuery.refetch()}
+          />
         </div>
 
         <ProjectSidebar project={project} />
@@ -335,11 +361,17 @@ interface StatCardDef {
   tone: 'info' | 'success' | 'warning' | 'violet' | 'danger' | 'neutral'
 }
 
-function ProjectStatCards({ stats }: { stats: RecordStats }) {
+function ProjectStatCards({
+  stats,
+  metrics,
+}: {
+  stats: RecordStats
+  metrics: DashboardMetric[]
+}) {
   const cards: StatCardDef[] = [
     {
       key: 'experiments',
-      label: 'Experiments',
+      label: 'Active experiments',
       value: stats.experiments,
       hint: 'Active notebooks',
       icon: FlaskConical,
@@ -347,19 +379,19 @@ function ProjectStatCards({ stats }: { stats: RecordStats }) {
     },
     {
       key: 'samples',
-      label: 'Samples',
+      label: 'Linked samples',
       value: stats.samples,
       hint: 'Linked samples',
       icon: TestTube,
       tone: 'success',
     },
     {
-      key: 'reagents',
-      label: 'Reagents',
-      value: stats.reagents,
-      hint: 'Reagent records',
-      icon: Beaker,
-      tone: 'success',
+      key: 'datasets',
+      label: 'Datasets',
+      value: stats.files,
+      hint: 'File records',
+      icon: FileText,
+      tone: 'neutral',
     },
     {
       key: 'protocols',
@@ -368,14 +400,6 @@ function ProjectStatCards({ stats }: { stats: RecordStats }) {
       hint: 'Protocol templates',
       icon: ClipboardList,
       tone: 'violet',
-    },
-    {
-      key: 'reports',
-      label: 'Reports',
-      value: stats.reports,
-      hint: 'Report records',
-      icon: FileText,
-      tone: 'neutral',
     },
     {
       key: 'reviews',
@@ -388,10 +412,19 @@ function ProjectStatCards({ stats }: { stats: RecordStats }) {
   ]
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-      {cards.map((card) => (
-        <StatCard key={card.key} card={card} />
-      ))}
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      {cards.map((card, i) => {
+        const metric = metrics[i]
+        return (
+          <StatCard
+            key={card.key}
+            card={card}
+            timeBoundary={metric.timeBoundary}
+            linkTo={metric.linkTo}
+            linkParams={metric.linkParams}
+          />
+        )
+      })}
     </div>
   )
 }
@@ -405,9 +438,19 @@ const toneClasses: Record<StatCardDef['tone'], string> = {
   neutral: 'text-muted-foreground',
 }
 
-function StatCard({ card }: { card: StatCardDef }) {
+function StatCard({
+  card,
+  timeBoundary,
+  linkTo,
+  linkParams,
+}: {
+  card: StatCardDef
+  timeBoundary?: string
+  linkTo?: string
+  linkParams?: Record<string, string>
+}) {
   const Icon = card.icon
-  return (
+  const card_el = (
     <div className="rounded-lg border border-border bg-surface p-3">
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
@@ -418,12 +461,23 @@ function StatCard({ card }: { card: StatCardDef }) {
           aria-hidden="true"
         />
       </div>
-      <p className="mt-1.5 font-display text-2xl font-semibold tabular-nums leading-none">
+      <p
+        className="mt-1.5 font-display text-2xl font-semibold tabular-nums leading-none"
+        title={timeBoundary}
+      >
         {card.value}
       </p>
       <p className="mt-1 text-[11px] text-muted-foreground">{card.hint}</p>
     </div>
   )
+  if (linkTo) {
+    return (
+      <Link to={linkTo} params={linkParams} className="no-underline contents">
+        {card_el}
+      </Link>
+    )
+  }
+  return card_el
 }
 
 // ---------------------------------------------------------------------------
@@ -908,10 +962,102 @@ export function ProjectSidebar({ project }: { project: Project }) {
 }
 
 // ---------------------------------------------------------------------------
-// Activity feed — placeholder until a queryable events endpoint exists
+// Activity feed — real change events scoped to this project.
 // ---------------------------------------------------------------------------
 
-export function ProjectActivityFeed() {
+export function ProjectActivityFeed({
+  items,
+  isLoading,
+  error,
+  onRetry,
+}: {
+  items: DashboardActivityItem[]
+  isLoading: boolean
+  error: unknown
+  onRetry: () => void
+}) {
+  if (isLoading) {
+    return (
+      <section
+        aria-label="Project activity"
+        className="rounded-lg border border-border bg-surface"
+      >
+        <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
+          <div className="flex items-center gap-2">
+            <ActivityIcon
+              className="size-4 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <h2 className="text-sm font-semibold text-foreground">Activity</h2>
+          </div>
+        </div>
+        <div className="space-y-2 p-3">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-8 w-full" />
+          ))}
+        </div>
+      </section>
+    )
+  }
+
+  if (error) {
+    return (
+      <section
+        aria-label="Project activity"
+        className="rounded-lg border border-border bg-surface"
+      >
+        <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
+          <div className="flex items-center gap-2">
+            <ActivityIcon
+              className="size-4 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <h2 className="text-sm font-semibold text-foreground">Activity</h2>
+          </div>
+        </div>
+        <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
+          <p role="alert" className="text-sm text-destructive">
+            Could not load activity.
+          </p>
+          <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+            Try again
+          </Button>
+        </div>
+      </section>
+    )
+  }
+
+  if (items.length === 0) {
+    return (
+      <section
+        aria-label="Project activity"
+        className="rounded-lg border border-border bg-surface"
+      >
+        <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
+          <div className="flex items-center gap-2">
+            <ActivityIcon
+              className="size-4 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <h2 className="text-sm font-semibold text-foreground">Activity</h2>
+          </div>
+        </div>
+        <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
+          <span className="flex size-9 items-center justify-center rounded-full bg-muted text-muted-foreground">
+            <ActivityIcon className="size-4" aria-hidden="true" />
+          </span>
+          <p className="text-sm font-medium text-foreground">
+            No recent activity
+          </p>
+          <p className="mx-auto max-w-xs text-xs leading-5 text-muted-foreground">
+            Edits, comments, reviews and status changes from this project will
+            appear here once you start creating records.
+          </p>
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section
       aria-label="Project activity"
@@ -924,20 +1070,34 @@ export function ProjectActivityFeed() {
             aria-hidden="true"
           />
           <h2 className="text-sm font-semibold text-foreground">Activity</h2>
+          <span className="text-xs tabular-nums text-muted-foreground">
+            {items.length}
+          </span>
         </div>
       </div>
-      <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
-        <span className="flex size-9 items-center justify-center rounded-full bg-muted text-muted-foreground">
-          <ActivityIcon className="size-4" aria-hidden="true" />
-        </span>
-        <p className="text-sm font-medium text-foreground">
-          No recent activity
-        </p>
-        <p className="mx-auto max-w-xs text-xs leading-5 text-muted-foreground">
-          Edits, comments, reviews and status changes from this project will
-          appear here once activity tracking is enabled.
-        </p>
-      </div>
+      <ul className="divide-y divide-border">
+        {items.slice(0, 15).map((item) => {
+          const actor = item.actorUserId
+            ? item.actorUserId.slice(0, 8)
+            : 'System'
+          return (
+            <li key={item.id} className="flex items-start gap-3 px-4 py-2.5">
+              <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                <ActivityIcon className="size-3" aria-hidden="true" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm text-foreground">
+                  <span className="font-medium">{actor}</span>{' '}
+                  {activitySentence(item)}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {formatRelativeTime(item.createdAt)}
+                </p>
+              </div>
+            </li>
+          )
+        })}
+      </ul>
     </section>
   )
 }

@@ -9,6 +9,7 @@ import { TanStackDevtools } from '@tanstack/react-devtools'
 
 import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
 import { LiveEventProvider } from '../components/live'
+import { ShellProvider } from '../components/app-shell'
 
 import appCss from '../styles.css?url'
 
@@ -66,7 +67,9 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 function RootRouteComponent() {
   return (
     <LiveEventProvider>
-      <Outlet />
+      <ShellProvider>
+        <Outlet />
+      </ShellProvider>
     </LiveEventProvider>
   )
 }

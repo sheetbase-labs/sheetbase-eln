@@ -7,6 +7,7 @@ import {
 } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { useState } from 'react'
+import type { ReactNode } from 'react'
 import {
   Activity as ActivityIcon,
   ArrowRight,
@@ -25,7 +26,15 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
-import { AppShell } from '#/components/app-shell'
+import { useShell } from '#/components/app-shell'
+
+function RouteShell({
+  children,
+  ...configuration
+}: Parameters<typeof useShell>[0] & { children: ReactNode }) {
+  useShell(configuration)
+  return <>{children}</>
+}
 import {
   Button,
   Skeleton,
@@ -112,7 +121,7 @@ function Home() {
 
   if (!context.workspace) {
     return (
-      <AppShell
+      <RouteShell
         context={{
           workspace: null,
           user: { name: context.user.name, email: context.user.email },
@@ -120,12 +129,12 @@ function Home() {
         breadcrumbs={[{ label: 'Home' }]}
       >
         <BootstrapRecovery userName={context.user.name} />
-      </AppShell>
+      </RouteShell>
     )
   }
 
   return (
-    <AppShell
+    <RouteShell
       context={{
         workspace: { name: context.workspace.name },
         user: {
@@ -155,7 +164,7 @@ function Home() {
           },
         }}
       />
-    </AppShell>
+    </RouteShell>
   )
 }
 

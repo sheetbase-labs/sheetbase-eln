@@ -55,7 +55,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
-import { AppShell } from '#/components/app-shell'
+import { useShell } from '#/components/app-shell'
 import { Inspector } from '#/components/record/inspector'
 import { StatusBadge } from '#/components/scientific/status-badge'
 import type { StatusDomain } from '#/components/scientific/status-badge'
@@ -634,13 +634,15 @@ function SearchRoute() {
     />
   ) : null
 
+  useShell({
+    context: shellContext,
+    breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Search' }],
+    inspector: inspector,
+    inspectorLabel: inspectorOpen ? 'Search preview' : 'Inspector',
+  })
+
   return (
-    <AppShell
-      context={shellContext}
-      breadcrumbs={[{ label: 'Home', to: '/' }, { label: 'Search' }]}
-      inspector={inspector}
-      inspectorLabel={inspectorOpen ? 'Search preview' : 'Inspector'}
-    >
+    <>
       <div className="flex flex-col gap-4">
         {/* Page heading — compact, per DESIGN.md (no marketing-scale type). */}
         <header className="flex items-center justify-between gap-4">
@@ -861,7 +863,7 @@ function SearchRoute() {
           </div>
         </div>
       </div>
-    </AppShell>
+    </>
   )
 }
 

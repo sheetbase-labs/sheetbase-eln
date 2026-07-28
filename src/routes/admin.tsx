@@ -4,7 +4,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { Shield } from 'lucide-react'
 
-import { AppShell } from '#/components/app-shell'
+import { useShell } from '#/components/app-shell'
 import {
   AdminActivity,
   AdminInspector,
@@ -240,37 +240,35 @@ function AdminRoute() {
     },
   }
 
+  useShell({
+    context: shellContext,
+    breadcrumbs: [
+      { label: 'Settings' },
+      { label: 'Workspace Settings & Permissions' },
+    ],
+    inspectorLabel: 'Member details',
+    inspector: selectedMember ? (
+      <AdminInspector
+        member={selectedMember}
+        currentUserId={context.user.id}
+        isOwner={isOwner}
+        onSuspend={() => suspend.mutate(selectedMember.userId)}
+        onReinstate={() => reinstate.mutate(selectedMember.userId)}
+        onRemove={() => remove.mutate(selectedMember.userId)}
+        onRoleChange={(role) =>
+          roleChange.mutate({ userId: selectedMember.userId, role })
+        }
+      />
+    ) : null,
+    primaryAction: isOwner ? (
+      <Button onClick={exportAudit} disabled={auditExport.isPending}>
+        Export audit log
+      </Button>
+    ) : undefined,
+  })
+
   return (
-    <AppShell
-      context={shellContext}
-      breadcrumbs={[
-        { label: 'Settings' },
-        { label: 'Workspace Settings & Permissions' },
-      ]}
-      inspectorLabel="Member details"
-      inspector={
-        selectedMember ? (
-          <AdminInspector
-            member={selectedMember}
-            currentUserId={context.user.id}
-            isOwner={isOwner}
-            onSuspend={() => suspend.mutate(selectedMember.userId)}
-            onReinstate={() => reinstate.mutate(selectedMember.userId)}
-            onRemove={() => remove.mutate(selectedMember.userId)}
-            onRoleChange={(role) =>
-              roleChange.mutate({ userId: selectedMember.userId, role })
-            }
-          />
-        ) : null
-      }
-      primaryAction={
-        isOwner ? (
-          <Button onClick={exportAudit} disabled={auditExport.isPending}>
-            Export audit log
-          </Button>
-        ) : undefined
-      }
-    >
+    <>
       <div className="space-y-6">
         <header>
           <div className="flex items-center gap-2">
@@ -393,6 +391,6 @@ function AdminRoute() {
           </p>
         )}
       </div>
-    </AppShell>
+    </>
   )
 }

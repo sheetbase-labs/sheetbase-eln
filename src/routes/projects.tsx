@@ -16,7 +16,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { FolderPlus, Search, SlidersHorizontal } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
-import { AppShell } from '#/components/app-shell'
+import { useShell } from '#/components/app-shell'
 import { StatusBadge } from '#/components/scientific'
 import {
   Button,
@@ -235,40 +235,42 @@ function ProjectsRoute() {
     createMutation.mutate(trimmed)
   }
 
+  useShell({
+    context: {
+      workspace: context.workspace ? { name: context.workspace.name } : null,
+      user: { name: context.user.name, email: context.user.email },
+    },
+    breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Projects' }],
+    primaryAction: (
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogTrigger asChild>
+          <Button size="sm">
+            <FolderPlus className="size-4" />
+            New project
+          </Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New project</DialogTitle>
+            <DialogDescription>
+              Give the project a clear title. Sheetbase generates the project
+              key and workspace binding on the server.
+            </DialogDescription>
+          </DialogHeader>
+          <CreateProjectForm
+            title={title}
+            onTitleChange={setTitle}
+            onSubmit={handleSubmit}
+            isPending={isPendingCreate}
+            validationError={validationError}
+          />
+        </DialogContent>
+      </Dialog>
+    ),
+  })
+
   return (
-    <AppShell
-      context={{
-        workspace: context.workspace ? { name: context.workspace.name } : null,
-        user: { name: context.user.name, email: context.user.email },
-      }}
-      breadcrumbs={[{ label: 'Home', to: '/' }, { label: 'Projects' }]}
-      primaryAction={
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm">
-              <FolderPlus className="size-4" />
-              New project
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>New project</DialogTitle>
-              <DialogDescription>
-                Give the project a clear title. Sheetbase generates the project
-                key and workspace binding on the server.
-              </DialogDescription>
-            </DialogHeader>
-            <CreateProjectForm
-              title={title}
-              onTitleChange={setTitle}
-              onSubmit={handleSubmit}
-              isPending={isPendingCreate}
-              validationError={validationError}
-            />
-          </DialogContent>
-        </Dialog>
-      }
-    >
+    <>
       <div className="flex flex-col gap-4">
         <header className="flex flex-wrap items-end justify-between gap-3">
           <div className="space-y-1">
@@ -297,7 +299,7 @@ function ProjectsRoute() {
           }
         />
       </div>
-    </AppShell>
+    </>
   )
 }
 

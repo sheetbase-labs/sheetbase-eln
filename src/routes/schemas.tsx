@@ -37,7 +37,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
-import { AppShell } from '#/components/app-shell'
+import { useShell } from '#/components/app-shell'
 import { StatusBadge } from '#/components/scientific/status-badge'
 import type { StatusVocabulary } from '#/components/scientific/status-badge'
 import {
@@ -448,16 +448,18 @@ function SchemaManagementRoute() {
       ? 'New Schema'
       : ''
 
+  useShell({
+    context: shellContext,
+    breadcrumbs: [
+      { label: 'Home', to: '/' },
+      { label: 'Data Models' },
+      ...(headerTitle ? [{ label: headerTitle }] : []),
+    ],
+    fullBleed: true,
+  })
+
   return (
-    <AppShell
-      context={shellContext}
-      breadcrumbs={[
-        { label: 'Home', to: '/' },
-        { label: 'Data Models' },
-        ...(headerTitle ? [{ label: headerTitle }] : []),
-      ]}
-      fullBleed
-    >
+    <>
       <div className="flex min-h-0 flex-1 gap-0 overflow-hidden">
         {/* Schema registry — collapsible */}
         {registryOpen ? (
@@ -679,7 +681,7 @@ function SchemaManagementRoute() {
           )}
         </div>
       </div>
-    </AppShell>
+    </>
   )
 }
 

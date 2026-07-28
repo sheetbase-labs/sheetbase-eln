@@ -6,6 +6,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { ShellProvider } from '#/components/app-shell'
 import { Route } from './plate-designer'
 
 const PlateDesignerRoute = Route.options.component as React.ComponentType
@@ -52,20 +53,31 @@ vi.mock('@tanstack/react-query', () => ({
 
 // Keep these route tests focused on the designer rather than AppShell's
 // router and responsive-panel integration.
-vi.mock('#/components/app-shell', () => ({
-  AppShell: ({
-    children,
-    inspector,
-  }: {
-    children: React.ReactNode
-    inspector: React.ReactNode
-  }) => (
+vi.mock('#/components/app-shell', async () => {
+  const React = await import('react')
+  const ctx = React.createContext({ setConfig: (_c: any) => {} })
+  const AppShell = ({ children, inspector, primaryAction }: { children: React.ReactNode; inspector: React.ReactNode; primaryAction: React.ReactNode }) => (
     <div>
+      <div data-testid="primary-action">{primaryAction}</div>
       <main>{children}</main>
       <aside aria-label="Plate well">{inspector}</aside>
     </div>
-  ),
-}))
+  )
+  const ShellProvider = ({ children }: { children: React.ReactNode }) => {
+    const [config, setConfig] = React.useState<{ context: unknown | null; [k: string]: unknown }>({ context: null })
+    const value = React.useMemo(
+      () => ({ setConfig: (c: Partial<typeof config>) => setConfig((prev) => ({ ...prev, ...c })) }),
+      [],
+    )
+    if (!config.context) return React.createElement(ctx.Provider, { value }, children as any)
+    return React.createElement(ctx.Provider, { value }, React.createElement(AppShell, config as any, children) as any)
+  }
+  const useShell = (config: Record<string, unknown>) => {
+    const { setConfig } = React.useContext(ctx)
+    React.useLayoutEffect(() => { setConfig(config) }, [])
+  }
+  return { AppShell, ShellProvider, useShell }
+})
 
 // jsdom does not implement ResizeObserver; responsive UI primitives read it.
 globalThis.ResizeObserver = class {
@@ -78,7 +90,7 @@ afterEach(() => cleanup())
 
 describe('PlateDesignerRoute', () => {
   it('renders the plate designer title and header copy', () => {
-    render(<PlateDesignerRoute />)
+    render(<ShellProvider><PlateDesignerRoute /></ShellProvider>)
 
     expect(screen.getByRole('heading', { name: 'Plate Designer' })).toBeTruthy()
     expect(
@@ -87,7 +99,7 @@ describe('PlateDesignerRoute', () => {
   })
 
   it('renders all 96 wells in an 8 by 12 plate grid', () => {
-    render(<PlateDesignerRoute />)
+    render(<ShellProvider><PlateDesignerRoute /></ShellProvider>)
 
     const grid = screen.getByRole('grid', { name: '8 by 12 plate' })
     expect(grid.querySelectorAll('button[data-cell]')).toHaveLength(96)
@@ -97,7 +109,7 @@ describe('PlateDesignerRoute', () => {
 
   it('renders the toolbar with an interactive Auto-fill button', async () => {
     const user = userEvent.setup()
-    render(<PlateDesignerRoute />)
+    render(<ShellProvider><PlateDesignerRoute /></ShellProvider>)
 
     const autoFill = screen.getByRole('button', { name: 'Auto-fill' })
     expect(autoFill).toBeTruthy()
@@ -106,13 +118,13 @@ describe('PlateDesignerRoute', () => {
   })
 
   it('shows the empty inspector hint when no well is selected', () => {
-    render(<PlateDesignerRoute />)
+    render(<ShellProvider><PlateDesignerRoute /></ShellProvider>)
 
     expect(screen.getByText('Select a well to see details')).toBeTruthy()
   })
 
   it('renders role assignment controls and the role legend', () => {
-    render(<PlateDesignerRoute />)
+    render(<ShellProvider><PlateDesignerRoute /></ShellProvider>)
 
     expect(screen.getByText('Assign selected')).toBeTruthy()
     expect(screen.getAllByText('Sample').length).toBeGreaterThanOrEqual(2)

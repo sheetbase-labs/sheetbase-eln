@@ -4,7 +4,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { Archive, Plus } from 'lucide-react'
 
-import { AppShell } from '#/components/app-shell'
+import { useShell } from '#/components/app-shell'
 import { CsvImportDialog } from '#/components/plate-designer/csv-import-dialog'
 import { PlateInspector } from '#/components/plate-designer/plate-inspector'
 import {
@@ -217,33 +217,35 @@ function PlateDesignerRoute() {
       role: context.workspace?.role,
     },
   }
+  useShell({
+    context: shellContext,
+    breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Plate Designer' }],
+    fullBleed: true,
+    inspectorLabel: 'Plate well',
+    inspector: (
+      <PlateInspector
+        well={selectedWell}
+        wellCode={selectedCode}
+        validationErrors={validationErrors}
+        design={design}
+        saveHistory={saveHistory}
+        onClose={() => setSelectedWellCodes([])}
+        onEditWell={(patch) => {
+          if (!selectedWell) return
+          updateWells(
+            design.wells.map((well) =>
+              well.wellCode === selectedWell.wellCode
+                ? { ...well, ...patch }
+                : well,
+            ),
+          )
+        }}
+      />
+    ),
+  })
+
   return (
-    <AppShell
-      context={shellContext}
-      breadcrumbs={[{ label: 'Home', to: '/' }, { label: 'Plate Designer' }]}
-      fullBleed
-      inspectorLabel="Plate well"
-      inspector={
-        <PlateInspector
-          well={selectedWell}
-          wellCode={selectedCode}
-          validationErrors={validationErrors}
-          design={design}
-          saveHistory={saveHistory}
-          onClose={() => setSelectedWellCodes([])}
-          onEditWell={(patch) => {
-            if (!selectedWell) return
-            updateWells(
-              design.wells.map((well) =>
-                well.wellCode === selectedWell.wellCode
-                  ? { ...well, ...patch }
-                  : well,
-              ),
-            )
-          }}
-        />
-      }
-    >
+    <>
       <div className="h-full overflow-auto bg-muted/20 p-4">
         <div className="space-y-4">
           <header className="flex flex-wrap items-center gap-2">
@@ -395,7 +397,7 @@ function PlateDesignerRoute() {
         cols={design.cols}
         onImport={(rows) => updateWells(rowsToAssignments(rows))}
       />
-    </AppShell>
+    </>
   )
 }
 

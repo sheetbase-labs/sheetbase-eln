@@ -6,8 +6,17 @@ import {
 } from '@tanstack/react-query'
 import { createFileRoute, Link, useSearch } from '@tanstack/react-router'
 import { FileWarning } from 'lucide-react'
+import type { ReactNode } from 'react'
 
-import { AppShell } from '#/components/app-shell'
+import { useShell } from '#/components/app-shell'
+
+function RouteShell({
+  children,
+  ...configuration
+}: Parameters<typeof useShell>[0] & { children: ReactNode }) {
+  useShell(configuration)
+  return <>{children}</>
+}
 import { CommentPanel } from '#/components/comments'
 import { OverviewTabs } from '#/components/overview'
 import {
@@ -156,7 +165,7 @@ function ExperimentOverviewRoute() {
   // Loading — record is the authoritative gate.
   if (recordQuery.isLoading) {
     return (
-      <AppShell
+      <RouteShell
         context={shellContext}
         breadcrumbs={loadingBreadcrumbs(project, projectId)}
         inspector={
@@ -169,14 +178,14 @@ function ExperimentOverviewRoute() {
         }
       >
         <OverviewSkeleton />
-      </AppShell>
+      </RouteShell>
     )
   }
 
   // Error from the proxy (e.g. permission_denied).
   if (recordQuery.error) {
     return (
-      <AppShell
+      <RouteShell
         context={shellContext}
         breadcrumbs={[
           { label: 'Home', to: '/' },
@@ -188,14 +197,14 @@ function ExperimentOverviewRoute() {
           error={recordQuery.error}
           onRetry={() => recordQuery.refetch()}
         />
-      </AppShell>
+      </RouteShell>
     )
   }
 
   // RLS hid the row (missing or permission-restricted).
   if (!record) {
     return (
-      <AppShell
+      <RouteShell
         context={shellContext}
         breadcrumbs={[
           { label: 'Home', to: '/' },
@@ -204,7 +213,7 @@ function ExperimentOverviewRoute() {
         ]}
       >
         <OverviewUnavailableState projectId={projectId} />
-      </AppShell>
+      </RouteShell>
     )
   }
 
@@ -212,7 +221,7 @@ function ExperimentOverviewRoute() {
   if (revisionId) {
     if (revisionQuery.isLoading) {
       return (
-        <AppShell
+        <RouteShell
           context={shellContext}
           breadcrumbs={overviewBreadcrumbs(project, projectId, record)}
           inspector={
@@ -231,12 +240,12 @@ function ExperimentOverviewRoute() {
             projectId={projectId}
           />
           <OverviewSkeleton />
-        </AppShell>
+        </RouteShell>
       )
     }
     if (revisionQuery.error || !revisionQuery.data) {
       return (
-        <AppShell
+        <RouteShell
           context={shellContext}
           breadcrumbs={overviewBreadcrumbs(project, projectId, record)}
           inspector={
@@ -260,7 +269,7 @@ function ExperimentOverviewRoute() {
               or you may not have access to it.
             </p>
           </div>
-        </AppShell>
+        </RouteShell>
       )
     }
   }
@@ -280,7 +289,7 @@ function ExperimentOverviewRoute() {
   const sections = composeSections(blocks, config.excludedBlockIds)
 
   return (
-    <AppShell
+    <RouteShell
       context={shellContext}
       breadcrumbs={overviewBreadcrumbs(project, projectId, record)}
       inspector={
@@ -337,7 +346,7 @@ function ExperimentOverviewRoute() {
           )}
         </div>
       </div>
-    </AppShell>
+    </RouteShell>
   )
 }
 

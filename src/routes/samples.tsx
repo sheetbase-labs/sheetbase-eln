@@ -15,7 +15,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { useMemo, useState } from 'react'
 import { PackagePlus } from 'lucide-react'
 
-import { AppShell } from '#/components/app-shell'
+import { useShell } from '#/components/app-shell'
 import { RegistryComposition } from '#/components/registry/registry-composition'
 import { SampleInspector } from '#/components/samples/sample-inspector'
 import type { SampleCustodyAction } from '#/components/samples/sample-inspector'
@@ -320,11 +320,13 @@ function SamplesRegistryRoute() {
       />
     )
 
+  useShell({
+    context: shellContext,
+    breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Samples' }],
+  })
+
   return (
-    <AppShell
-      context={shellContext}
-      breadcrumbs={[{ label: 'Home', to: '/' }, { label: 'Samples' }]}
-    >
+    <>
       <RegistryComposition
         registryId="samples"
         workspaceId={workspaceId}
@@ -364,7 +366,7 @@ function SamplesRegistryRoute() {
         error={createError}
         onCreate={(input) => createMutation.mutate(input)}
       />
-    </AppShell>
+    </>
   )
 }
 

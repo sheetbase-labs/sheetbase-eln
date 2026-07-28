@@ -27,8 +27,17 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 
-import { AppShell } from '#/components/app-shell'
+import { useShell } from '#/components/app-shell'
+
+function RouteShell({
+  children,
+  ...configuration
+}: Parameters<typeof useShell>[0] & { children: ReactNode }) {
+  useShell(configuration)
+  return <>{children}</>
+}
 import {
   CheckList,
   EmptyHint,
@@ -128,7 +137,7 @@ function ProjectRoute() {
 
   if (projectQuery.isLoading) {
     return (
-      <AppShell
+      <RouteShell
         context={{
           workspace: context.workspace
             ? { name: context.workspace.name }
@@ -142,13 +151,13 @@ function ProjectRoute() {
         ]}
       >
         <ProjectDashboardSkeleton />
-      </AppShell>
+      </RouteShell>
     )
   }
 
   if (projectQuery.error) {
     return (
-      <AppShell
+      <RouteShell
         context={{
           workspace: context.workspace
             ? { name: context.workspace.name }
@@ -165,7 +174,7 @@ function ProjectRoute() {
           error={projectQuery.error}
           onRetry={() => projectQuery.refetch()}
         />
-      </AppShell>
+      </RouteShell>
     )
   }
 
@@ -173,7 +182,7 @@ function ProjectRoute() {
     // RLS hides rows the viewer cannot access, so a missing project may be
     // either gone or permission-restricted. We surface one honest state.
     return (
-      <AppShell
+      <RouteShell
         context={{
           workspace: context.workspace
             ? { name: context.workspace.name }
@@ -187,7 +196,7 @@ function ProjectRoute() {
         ]}
       >
         <ProjectUnavailableState />
-      </AppShell>
+      </RouteShell>
     )
   }
 
@@ -200,7 +209,7 @@ function ProjectRoute() {
   })
 
   return (
-    <AppShell
+    <RouteShell
       context={{
         workspace: context.workspace ? { name: context.workspace.name } : null,
         user: { name: context.user.name, email: context.user.email },
@@ -240,7 +249,7 @@ function ProjectRoute() {
 
         <ProjectSidebar project={project} />
       </div>
-    </AppShell>
+    </RouteShell>
   )
 }
 

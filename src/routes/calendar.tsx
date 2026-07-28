@@ -13,7 +13,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { CalendarDays, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 
-import { AppShell } from '#/components/app-shell'
+import { useShell } from '#/components/app-shell'
 import {
   BookingDialog,
   CalendarFilters,
@@ -285,32 +285,34 @@ function CalendarRoute() {
     setDialogOpen(true)
   }
 
+  useShell({
+    context: shellContext,
+    breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Lab Calendar' }],
+    fullBleed: true,
+    primaryAction: (
+      <Button onClick={openCreate} size="sm">
+        <Plus className="size-4" /> New booking
+      </Button>
+    ),
+    inspectorLabel: 'Booking',
+    inspector: (
+      <CalendarInspector
+        booking={selectedBookingFull}
+        resource={
+          resourcesQuery.data?.find(
+            (r) => r.id === selectedBookingFull?.resourceId,
+          ) ?? null
+        }
+        timeZone={VIEW_TIMEZONE}
+        onEdit={openEdit}
+        onDuplicate={(b) => duplicateMutation.mutate(b)}
+        onCancel={(b) => cancelMutation.mutate(b)}
+      />
+    ),
+  })
+
   return (
-    <AppShell
-      context={shellContext}
-      breadcrumbs={[{ label: 'Home', to: '/' }, { label: 'Lab Calendar' }]}
-      fullBleed
-      primaryAction={
-        <Button onClick={openCreate} size="sm">
-          <Plus className="size-4" /> New booking
-        </Button>
-      }
-      inspectorLabel="Booking"
-      inspector={
-        <CalendarInspector
-          booking={selectedBookingFull}
-          resource={
-            resourcesQuery.data?.find(
-              (r) => r.id === selectedBookingFull?.resourceId,
-            ) ?? null
-          }
-          timeZone={VIEW_TIMEZONE}
-          onEdit={openEdit}
-          onDuplicate={(b) => duplicateMutation.mutate(b)}
-          onCancel={(b) => cancelMutation.mutate(b)}
-        />
-      }
-    >
+    <>
       <div className="flex h-[calc(100svh-3.5rem)] min-h-0 flex-col">
         {/* Header: view controls, navigation, filters */}
         <div className="space-y-2 border-b border-border/60 px-4 py-2.5">
@@ -420,6 +422,6 @@ function CalendarRoute() {
         }}
         error={dialogError}
       />
-    </AppShell>
+    </>
   )
 }

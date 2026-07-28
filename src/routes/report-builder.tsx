@@ -13,7 +13,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { FileText, Plus } from 'lucide-react'
 
-import { AppShell } from '#/components/app-shell'
+import { useShell } from '#/components/app-shell'
 import {
   ReportDetails,
   ReportOutline,
@@ -223,40 +223,42 @@ function ReportBuilderRoute() {
     },
   }
 
+  useShell({
+    context: shellContext,
+    breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Report Builder' }],
+    fullBleed: true,
+    primaryAction: (
+      <Button
+        size="sm"
+        onClick={() => createReportMutation.mutate()}
+        disabled={createReportMutation.isPending}
+      >
+        <Plus className="size-4" /> New report
+      </Button>
+    ),
+    inspectorLabel: 'Report',
+    inspector: (
+      <ReportDetails
+        report={selectedReport}
+        generations={generations}
+        validation={
+          validationReady && validationReady.reportId === activeReportId
+            ? validationReady
+            : null
+        }
+        outputFormat={outputFormat}
+        onOutputFormatChange={setOutputFormat}
+        onValidate={() => validateMutation.mutate()}
+        onGenerate={() => generateMutation.mutate()}
+        isGenerating={generateMutation.isPending}
+        isValidating={validateMutation.isPending}
+        timeZone={VIEW_TIMEZONE}
+      />
+    ),
+  })
+
   return (
-    <AppShell
-      context={shellContext}
-      breadcrumbs={[{ label: 'Home', to: '/' }, { label: 'Report Builder' }]}
-      fullBleed
-      primaryAction={
-        <Button
-          size="sm"
-          onClick={() => createReportMutation.mutate()}
-          disabled={createReportMutation.isPending}
-        >
-          <Plus className="size-4" /> New report
-        </Button>
-      }
-      inspectorLabel="Report"
-      inspector={
-        <ReportDetails
-          report={selectedReport}
-          generations={generations}
-          validation={
-            validationReady && validationReady.reportId === activeReportId
-              ? validationReady
-              : null
-          }
-          outputFormat={outputFormat}
-          onOutputFormatChange={setOutputFormat}
-          onValidate={() => validateMutation.mutate()}
-          onGenerate={() => generateMutation.mutate()}
-          isGenerating={generateMutation.isPending}
-          isValidating={validateMutation.isPending}
-          timeZone={VIEW_TIMEZONE}
-        />
-      }
-    >
+    <>
       <div className="flex h-[calc(100svh-3.5rem)] min-h-0 flex-col">
         <div className="space-y-2 border-b border-border/60 px-4 py-2.5">
           <div className="flex flex-wrap items-center gap-2">
@@ -325,6 +327,6 @@ function ReportBuilderRoute() {
           </div>
         </div>
       </div>
-    </AppShell>
+    </>
   )
 }

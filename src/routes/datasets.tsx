@@ -44,7 +44,7 @@ import {
   Workflow,
 } from 'lucide-react'
 
-import { AppShell } from '#/components/app-shell'
+import { useShell } from '#/components/app-shell'
 import { StatusBadge } from '#/components/scientific/status-badge'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import {
@@ -241,12 +241,14 @@ function DatasetExplorerRoute() {
     },
   }
 
+  useShell({
+    context: shellContext,
+    breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Datasets' }],
+    fullBleed: true,
+  })
+
   return (
-    <AppShell
-      context={shellContext}
-      breadcrumbs={[{ label: 'Home', to: '/' }, { label: 'Datasets' }]}
-      fullBleed
-    >
+    <>
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4">
         <DatasetExplorerHeader
           datasets={datasets}
@@ -271,7 +273,7 @@ function DatasetExplorerRoute() {
           />
         )}
       </div>
-    </AppShell>
+    </>
   )
 }
 

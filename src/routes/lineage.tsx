@@ -49,7 +49,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
-import { AppShell } from '#/components/app-shell'
+import { useShell } from '#/components/app-shell'
 import {
   Badge,
   Button,
@@ -201,19 +201,21 @@ function LineageExplorerRoute() {
       />
     ) : null
 
+  useShell({
+    context: shellContext,
+    breadcrumbs: [
+      { label: 'Home', to: '/' },
+      { label: 'Analysis', to: '/analysis' },
+      { label: 'Lineage Explorer' },
+    ],
+    fullBleed: true,
+    inspector: inspector,
+    inspectorLabel: 'Lineage inspector',
+    inspectorCollapsible: true,
+  })
+
   return (
-    <AppShell
-      context={shellContext}
-      breadcrumbs={[
-        { label: 'Home', to: '/' },
-        { label: 'Analysis', to: '/analysis' },
-        { label: 'Lineage Explorer' },
-      ]}
-      fullBleed
-      inspector={inspector}
-      inspectorLabel="Lineage inspector"
-      inspectorCollapsible
-    >
+    <>
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {/* Header */}
         <LineageHeader
@@ -280,7 +282,7 @@ function LineageExplorerRoute() {
           )}
         </div>
       </div>
-    </AppShell>
+    </>
   )
 }
 

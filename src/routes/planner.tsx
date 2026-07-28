@@ -13,7 +13,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { CalendarDays, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 
-import { AppShell } from '#/components/app-shell'
+import { useShell } from '#/components/app-shell'
 import {
   EMPTY_PLANNER_FILTERS,
   PlannerFilters,
@@ -287,29 +287,31 @@ function PlannerRoute() {
     { key: 'resource', label: 'Resource view' },
   ]
 
+  useShell({
+    context: shellContext,
+    breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Study Planner' }],
+    fullBleed: true,
+    primaryAction: (
+      <Button onClick={openCreate} size="sm">
+        <Plus className="size-4" /> Add task
+      </Button>
+    ),
+    inspectorLabel: 'Task',
+    inspector: (
+      <PlannerInspector
+        task={selectedTaskFull}
+        resources={resourcesQuery.data ?? []}
+        taskResources={taskResourcesQuery.data ?? []}
+        allTaskResources={allTaskResourcesQuery.data ?? []}
+        timeZone={VIEW_TIMEZONE}
+        onEdit={openEdit}
+        onDelete={(t) => deleteMutation.mutate(t)}
+      />
+    ),
+  })
+
   return (
-    <AppShell
-      context={shellContext}
-      breadcrumbs={[{ label: 'Home', to: '/' }, { label: 'Study Planner' }]}
-      fullBleed
-      primaryAction={
-        <Button onClick={openCreate} size="sm">
-          <Plus className="size-4" /> Add task
-        </Button>
-      }
-      inspectorLabel="Task"
-      inspector={
-        <PlannerInspector
-          task={selectedTaskFull}
-          resources={resourcesQuery.data ?? []}
-          taskResources={taskResourcesQuery.data ?? []}
-          allTaskResources={allTaskResourcesQuery.data ?? []}
-          timeZone={VIEW_TIMEZONE}
-          onEdit={openEdit}
-          onDelete={(t) => deleteMutation.mutate(t)}
-        />
-      }
-    >
+    <>
       <div className="flex h-[calc(100svh-3.5rem)] min-h-0 flex-col">
         {/* Header */}
         <div className="space-y-2 border-b border-border/60 px-4 py-2.5">
@@ -446,6 +448,6 @@ function PlannerRoute() {
         }}
         error={dialogError}
       />
-    </AppShell>
+    </>
   )
 }

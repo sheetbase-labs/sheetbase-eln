@@ -5,7 +5,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { Activity, Play } from 'lucide-react'
 
-import { AppShell } from '#/components/app-shell'
+import { useShell } from '#/components/app-shell'
 import {
   RunDetail,
   RunInspector,
@@ -257,26 +257,28 @@ function InstrumentMonitorRoute() {
     },
   }
 
+  useShell({
+    context: shellContext,
+    breadcrumbs: [
+      { label: 'Home', to: '/' },
+      { label: 'Instrument Run Monitor' },
+    ],
+    fullBleed: true,
+    inspectorLabel: 'Run',
+    inspector: (
+      <RunInspector
+        run={selectedRun}
+        instrument={selectedInstrument}
+        qcChecks={qcChecksQuery.data ?? []}
+        rawFiles={rawFilesQuery.data ?? []}
+        runLinks={runLinksQuery.data ?? []}
+        timeZone={VIEW_TIMEZONE}
+      />
+    ),
+  })
+
   return (
-    <AppShell
-      context={shellContext}
-      breadcrumbs={[
-        { label: 'Home', to: '/' },
-        { label: 'Instrument Run Monitor' },
-      ]}
-      fullBleed
-      inspectorLabel="Run"
-      inspector={
-        <RunInspector
-          run={selectedRun}
-          instrument={selectedInstrument}
-          qcChecks={qcChecksQuery.data ?? []}
-          rawFiles={rawFilesQuery.data ?? []}
-          runLinks={runLinksQuery.data ?? []}
-          timeZone={VIEW_TIMEZONE}
-        />
-      }
-    >
+    <>
       <div className="flex h-[calc(100svh-3.5rem)] min-h-0 flex-col">
         <div className="space-y-2 border-b border-border/60 px-4 py-2.5">
           <div className="flex flex-wrap items-center gap-2">
@@ -321,6 +323,6 @@ function InstrumentMonitorRoute() {
           </div>
         </div>
       </div>
-    </AppShell>
+    </>
   )
 }

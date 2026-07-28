@@ -4,7 +4,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { PackagePlus, Plus, RefreshCw, Search } from 'lucide-react'
 
-import { AppShell } from '#/components/app-shell'
+import { useShell } from '#/components/app-shell'
 import {
   BoxGrid,
   BoxContentsTable,
@@ -223,28 +223,30 @@ function StorageRoute() {
       role: context.workspace?.role,
     },
   }
+  useShell({
+    context: shellContext,
+    breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Storage' }],
+    fullBleed: true,
+    inspectorLabel: 'Storage position',
+    inspector: (
+      <StorageInspector
+        position={position}
+        box={contents.data?.box ?? null}
+        positions={positions}
+        pendingSample={pendingSample}
+        movements={movements.data ?? []}
+        events={events.data ?? []}
+        loading={movements.isLoading || events.isLoading}
+        actionPending={action.isPending}
+        actionError={error}
+        onAction={(value) => action.mutate(value)}
+        onClose={() => setPositionId(null)}
+      />
+    ),
+  })
+
   return (
-    <AppShell
-      context={shellContext}
-      breadcrumbs={[{ label: 'Home', to: '/' }, { label: 'Storage' }]}
-      fullBleed
-      inspectorLabel="Storage position"
-      inspector={
-        <StorageInspector
-          position={position}
-          box={contents.data?.box ?? null}
-          positions={positions}
-          pendingSample={pendingSample}
-          movements={movements.data ?? []}
-          events={events.data ?? []}
-          loading={movements.isLoading || events.isLoading}
-          actionPending={action.isPending}
-          actionError={error}
-          onAction={(value) => action.mutate(value)}
-          onClose={() => setPositionId(null)}
-        />
-      }
-    >
+    <>
       <div className="h-full overflow-auto bg-muted/20">
         <div className="space-y-4 p-4">
           <header className="flex flex-wrap items-center gap-3">
@@ -382,7 +384,7 @@ function StorageRoute() {
         pending={createBoxMutation.isPending}
         onCreate={(value) => createBoxMutation.mutate(value)}
       />
-    </AppShell>
+    </>
   )
 }
 

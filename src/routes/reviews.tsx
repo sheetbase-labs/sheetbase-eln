@@ -40,7 +40,7 @@ import {
   XCircle,
 } from 'lucide-react'
 
-import { AppShell } from '#/components/app-shell'
+import { useShell } from '#/components/app-shell'
 import { RegistryComposition } from '#/components/registry/registry-composition'
 import type { RegistrySummary } from '#/components/registry/registry-composition'
 import { StatusBadge } from '#/components/scientific/status-badge'
@@ -613,11 +613,13 @@ function ReviewsRoute() {
     },
   }
 
+  useShell({
+    context: shellContext,
+    breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Reviews' }],
+  })
+
   return (
-    <AppShell
-      context={shellContext}
-      breadcrumbs={[{ label: 'Home', to: '/' }, { label: 'Reviews' }]}
-    >
+    <>
       <RegistryComposition<ReviewItem>
         registryId="reviews"
         workspaceId={workspaceId}
@@ -659,7 +661,7 @@ function ReviewsRoute() {
           </Button>
         }
       />
-    </AppShell>
+    </>
   )
 }
 

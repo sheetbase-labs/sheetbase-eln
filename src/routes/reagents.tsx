@@ -27,7 +27,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { useState } from 'react'
 import { Archive, ShieldAlert, TriangleAlert } from 'lucide-react'
 
-import { AppShell } from '#/components/app-shell'
+import { useShell } from '#/components/app-shell'
 import { RegistryComposition } from '#/components/registry'
 import type { RegistrySummary } from '#/components/registry'
 import {
@@ -266,11 +266,13 @@ function ReagentsRegistryRoute() {
     })
   }
 
+  useShell({
+    context: shellContext,
+    breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Reagents' }],
+  })
+
   return (
-    <AppShell
-      context={shellContext}
-      breadcrumbs={[{ label: 'Home', to: '/' }, { label: 'Reagents' }]}
-    >
+    <>
       <RegistryComposition
         registryId="reagents"
         workspaceId={context.workspace?.id ?? 'unknown'}
@@ -347,7 +349,7 @@ function ReagentsRegistryRoute() {
           )
         }
       />
-    </AppShell>
+    </>
   )
 }
 

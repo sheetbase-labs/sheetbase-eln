@@ -27,6 +27,7 @@ import {
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 import {
   CheckCircle2,
   ChevronLeft,
@@ -44,7 +45,15 @@ import {
   XCircle,
 } from 'lucide-react'
 
-import { AppShell } from '#/components/app-shell'
+import { useShell } from '#/components/app-shell'
+
+function RouteShell({
+  children,
+  ...configuration
+}: Parameters<typeof useShell>[0] & { children: ReactNode }) {
+  useShell(configuration)
+  return <>{children}</>
+}
 import { ApprovalStepper, RecordHistoryTimeline } from '#/components/audit'
 import type { ApprovalStepDef, ApprovalStepStatus } from '#/components/audit'
 import { CommentPanel } from '#/components/comments'
@@ -375,7 +384,7 @@ function ReviewWorkspaceRoute() {
 
   if (permissionDenied) {
     return (
-      <AppShell
+      <RouteShell
         context={shellContext(context)}
         breadcrumbs={[
           { label: 'Home', to: '/' },
@@ -383,13 +392,13 @@ function ReviewWorkspaceRoute() {
         ]}
       >
         <PermissionDenied />
-      </AppShell>
+      </RouteShell>
     )
   }
 
   if (!loading && !revision) {
     return (
-      <AppShell
+      <RouteShell
         context={shellContext(context)}
         breadcrumbs={[
           { label: 'Home', to: '/' },
@@ -398,7 +407,7 @@ function ReviewWorkspaceRoute() {
         ]}
       >
         <MissingRevision />
-      </AppShell>
+      </RouteShell>
     )
   }
 
@@ -440,7 +449,7 @@ function ReviewWorkspaceRoute() {
   const shellContextValue = shellContext(context)
 
   return (
-    <AppShell
+    <RouteShell
       context={shellContextValue}
       breadcrumbs={[
         { label: 'Home', to: '/' },
@@ -560,7 +569,7 @@ function ReviewWorkspaceRoute() {
           </TabsContent>
         </Tabs>
       </div>
-    </AppShell>
+    </RouteShell>
   )
 }
 

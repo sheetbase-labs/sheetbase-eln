@@ -17,10 +17,19 @@ import {
   Share2,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 
-import { AppShell } from '#/components/app-shell'
-import { NotebookDocument } from '#/components/notebook/notebook-document'
-import type { SaveResult } from '#/components/notebook/use-autosave'
+import { useShell } from '#/components/app-shell'
+import { NotebookDocument } from '#/components/notebook'
+import type { SaveResult } from '#/components/notebook'
+
+function RouteShell({
+  children,
+  ...configuration
+}: Parameters<typeof useShell>[0] & { children: ReactNode }) {
+  useShell(configuration)
+  return <>{children}</>
+}
 import { useLiveStatus } from '#/components/live/live-event-provider'
 import {
   ActivityFeed,
@@ -138,7 +147,7 @@ function ExperimentNotebookRoute() {
   // Loading — record is the authoritative gate; project loads in parallel.
   if (recordQuery.isLoading) {
     return (
-      <AppShell
+      <RouteShell
         context={shellContext}
         breadcrumbs={loadingBreadcrumbs(project, projectId)}
         inspector={
@@ -151,14 +160,14 @@ function ExperimentNotebookRoute() {
         }
       >
         <NotebookSkeleton />
-      </AppShell>
+      </RouteShell>
     )
   }
 
   // Error from the proxy (e.g. permission_denied) — distinct from a hidden row.
   if (recordQuery.error) {
     return (
-      <AppShell
+      <RouteShell
         context={shellContext}
         breadcrumbs={[
           { label: 'Home', to: '/' },
@@ -170,14 +179,14 @@ function ExperimentNotebookRoute() {
           error={recordQuery.error}
           onRetry={() => recordQuery.refetch()}
         />
-      </AppShell>
+      </RouteShell>
     )
   }
 
   // RLS hid the row (missing or permission-restricted). One honest state.
   if (!record) {
     return (
-      <AppShell
+      <RouteShell
         context={shellContext}
         breadcrumbs={[
           { label: 'Home', to: '/' },
@@ -186,14 +195,14 @@ function ExperimentNotebookRoute() {
         ]}
       >
         <NotebookUnavailableState projectId={projectId} />
-      </AppShell>
+      </RouteShell>
     )
   }
 
   const isArchived = record.archivedAt !== null
 
   return (
-    <AppShell
+    <RouteShell
       context={shellContext}
       breadcrumbs={[
         { label: 'Home', to: '/' },
@@ -253,7 +262,7 @@ function ExperimentNotebookRoute() {
           />
         </div>
       </div>
-    </AppShell>
+    </RouteShell>
   )
 }
 

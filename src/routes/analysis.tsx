@@ -33,7 +33,7 @@ import {
   TriangleAlert,
 } from 'lucide-react'
 
-import { AppShell } from '#/components/app-shell'
+import { useShell } from '#/components/app-shell'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import {
   Badge,
@@ -253,12 +253,14 @@ function AnalysisStudioRoute() {
     },
   }
 
+  useShell({
+    context: shellContext,
+    breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Analysis' }],
+    fullBleed: true,
+  })
+
   return (
-    <AppShell
-      context={shellContext}
-      breadcrumbs={[{ label: 'Home', to: '/' }, { label: 'Analysis' }]}
-      fullBleed
-    >
+    <>
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4">
         <AnalysisStudioHeader
           datasets={datasets}
@@ -316,7 +318,7 @@ function AnalysisStudioRoute() {
           />
         )}
       </div>
-    </AppShell>
+    </>
   )
 }
 

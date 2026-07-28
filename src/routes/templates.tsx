@@ -4,7 +4,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { useMemo, useState } from 'react'
 import { LayoutTemplate } from 'lucide-react'
 
-import { AppShell } from '#/components/app-shell'
+import { useShell } from '#/components/app-shell'
 import {
   TemplateFilters,
   TemplateInspector,
@@ -475,12 +475,14 @@ function TemplateLibraryRoute() {
     />
   ) : null
 
+  useShell({
+    context: shellContext,
+    breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Templates' }],
+    inspector: inspector,
+  })
+
   return (
-    <AppShell
-      context={shellContext}
-      breadcrumbs={[{ label: 'Home', to: '/' }, { label: 'Templates' }]}
-      inspector={inspector}
-    >
+    <>
       <div className="space-y-6">
         <header className="space-y-1">
           <div className="flex items-center gap-2">
@@ -527,6 +529,6 @@ function TemplateLibraryRoute() {
           blockPreviews={blockPreviews}
         />
       </div>
-    </AppShell>
+    </>
   )
 }

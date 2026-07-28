@@ -94,6 +94,107 @@ const INSPECTOR_COLLAPSE_KEY = 'sheetbase-inspector-collapsed'
 export const APP_SHELL_MAIN_ID = 'app-shell-main'
 export const APP_SHELL_NAV_ID = 'app-shell-nav'
 
+// ---------------------------------------------------------------------------
+// ShellProvider — renders <AppShell> once at the root so it persists across
+// route changes.  Each route calls useShell() to set its breadcrumbs,
+// inspector, and other per-route shell props.  This prevents the full
+// unmount/remount of the sidebar, header, and inspector on every navigation.
+// ---------------------------------------------------------------------------
+
+/** Per-route shell configuration set via useShell(). */
+interface ShellConfig {
+  context: AppShellContext | null
+  breadcrumbs: AppShellBreadcrumb[]
+  inspector?: React.ReactNode
+  inspectorLabel?: string
+  inspectorCollapsible?: boolean
+  fullBleed?: boolean
+  primaryAction?: React.ReactNode
+  projectTree?: React.ReactNode
+  navExtra?: React.ReactNode
+}
+
+const ShellContext = React.createContext<{
+  setConfig: (c: Partial<ShellConfig>) => void
+}>({ setConfig: () => {} })
+
+/**
+ * Render <AppShell> once for the whole session.  When no auth context has
+ * been set (public routes, initial load), children render bare — matching
+ * the previous behaviour where sign-in/foundations did not use the shell.
+ */
+export function ShellProvider({ children }: { children: React.ReactNode }) {
+  const [config, setConfigState] = React.useState<ShellConfig>({
+    context: null,
+    breadcrumbs: [],
+  })
+
+  const setConfig = React.useCallback(
+    (c: Partial<ShellConfig>) => setConfigState((prev) => ({ ...prev, ...c })),
+    [],
+  )
+
+  if (!config.context) {
+    return (
+      <ShellContext.Provider value={{ setConfig }}>
+        {children}
+      </ShellContext.Provider>
+    )
+  }
+
+  return (
+    <ShellContext.Provider value={{ setConfig }}>
+      <AppShell
+        context={config.context}
+        breadcrumbs={config.breadcrumbs}
+        inspector={config.inspector}
+        inspectorLabel={config.inspectorLabel}
+        inspectorCollapsible={config.inspectorCollapsible}
+        fullBleed={config.fullBleed}
+        primaryAction={config.primaryAction}
+        projectTree={config.projectTree}
+        navExtra={config.navExtra}
+      >
+        {children}
+      </AppShell>
+    </ShellContext.Provider>
+  )
+}
+
+/**
+ * Hook called by each route to set its per-route shell configuration
+ * (breadcrumbs, inspector, primary action, etc.).  Uses useLayoutEffect
+ * so the shell updates synchronously before paint, avoiding flashes.
+ */
+export function useShell(config: Partial<ShellConfig>) {
+  const { setConfig } = React.useContext(ShellContext)
+
+  // Set config on every render — setConfig merges, and React bails out
+  // if the merged state is referentially equal (it won't be, but the
+  // re-render is cheap because AppShell stays mounted).
+  React.useLayoutEffect(() => {
+    setConfig(config)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  })
+
+  // Clear per-route slots on unmount so the next route starts clean.
+  React.useEffect(() => {
+    return () => {
+      setConfig({
+        inspector: undefined,
+        inspectorLabel: undefined,
+        inspectorCollapsible: undefined,
+        fullBleed: undefined,
+        primaryAction: undefined,
+        projectTree: undefined,
+        navExtra: undefined,
+        breadcrumbs: [],
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+}
+
 export interface AppShellBreadcrumb {
   label: string
   to?: string

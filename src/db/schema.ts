@@ -4275,3 +4275,257 @@ export const instrumentRunLinksRelations = relations(
     }),
   }),
 )
+
+// ---------------------------------------------------------------------------
+// OPS-007 — Report Builder
+//
+// report_definitions: the report document. report_sections: ordered sections
+// bound to frozen revision evidence (REV-003/REV-005/REV-008). The
+// canonical_snapshot captured at bind time lives in frozenPayload so preview
+// and export never silently substitute live data. report_generations records
+// generation inputs, version, actor and output checksum for deterministic
+// regeneration. Templates (SCI-006) and review submissions (REV-002) are
+// reused by reference.
+// ---------------------------------------------------------------------------
+
+export const reportDefinitions = api.table(
+  'report_definitions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    projectId: uuid('project_id').references(() => projects.id, {
+      onDelete: 'set null',
+    }),
+    recordId: uuid('record_id').references(() => records.id, {
+      onDelete: 'set null',
+    }),
+    templateRecordId: uuid('template_record_id').references(() => records.id, {
+      onDelete: 'set null',
+    }),
+    reviewSubmissionId: uuid('review_submission_id').references(
+      () => reviewSubmissions.id,
+      { onDelete: 'set null' },
+    ),
+    title: text('title').notNull(),
+    subtitle: text('subtitle'),
+    documentIdentifier: text('document_identifier').notNull(),
+    status: text('status').notNull().default('draft'),
+    version: integer('version').notNull().default(1),
+    lastSavedAt: timestamp('last_saved_at', {
+      withTimezone: true,
+      mode: 'date',
+    })
+      .notNull()
+      .defaultNow(),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    check(
+      'chk_report_definitions_title',
+      sql`length(btrim(${table.title})) BETWEEN 1 AND 300`,
+    ),
+    check(
+      'chk_report_definitions_status',
+      sql`${table.status} IN ('draft','in_review','approved','published','archived')`,
+    ),
+    check('chk_report_definitions_version', sql`${table.version} > 0`),
+    uniqueIndex('uq_report_definitions_workspace_identifier').on(
+      table.workspaceId,
+      table.documentIdentifier,
+    ),
+    index('idx_report_definitions_workspace').on(table.workspaceId),
+    index('idx_report_definitions_workspace_status').on(
+      table.workspaceId,
+      table.status,
+    ),
+    index('idx_report_definitions_project').on(table.projectId),
+  ],
+)
+
+export const reportSections = api.table(
+  'report_sections',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    reportId: uuid('report_id')
+      .notNull()
+      .references(() => reportDefinitions.id, { onDelete: 'cascade' }),
+    position: integer('position').notNull().default(0),
+    title: text('title').notNull(),
+    description: text('description'),
+    sectionType: text('section_type').notNull().default('text'),
+    sourceType: text('source_type').notNull().default('free_text'),
+    sourceRevisionId: uuid('source_revision_id').references(
+      () => revisions.id,
+      {
+        onDelete: 'restrict',
+      },
+    ),
+    sourceRef: jsonb('source_ref')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    frozenPayload: jsonb('frozen_payload')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    validationStatus: text('validation_status').notNull().default('pending'),
+    validationDetail: jsonb('validation_detail')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    check(
+      'chk_report_sections_title',
+      sql`length(btrim(${table.title})) BETWEEN 1 AND 300`,
+    ),
+    check('chk_report_sections_position', sql`${table.position} >= 0`),
+    check(
+      'chk_report_sections_section_type',
+      sql`${table.sectionType} IN ('text','table','chart','file','record_metadata','composite')`,
+    ),
+    check(
+      'chk_report_sections_source_type',
+      sql`${table.sourceType} IN ('free_text','revision_block','chart_block','table_block','file_object','record_metadata')`,
+    ),
+    check(
+      'chk_report_sections_validation_status',
+      sql`${table.validationStatus} IN ('pending','valid','missing_source','stale','locked')`,
+    ),
+    index('idx_report_sections_workspace').on(table.workspaceId),
+    index('idx_report_sections_report').on(table.reportId),
+    index('idx_report_sections_report_position').on(
+      table.reportId,
+      table.position,
+    ),
+    index('idx_report_sections_revision').on(table.sourceRevisionId),
+  ],
+)
+
+export const reportGenerations = api.table(
+  'report_generations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    reportId: uuid('report_id')
+      .notNull()
+      .references(() => reportDefinitions.id, { onDelete: 'cascade' }),
+    reportVersion: integer('report_version').notNull(),
+    generationInputs: jsonb('generation_inputs').notNull(),
+    outputFormat: text('output_format').notNull().default('html'),
+    outputChecksum: text('output_checksum').notNull(),
+    outputSizeBytes: bigint('output_size_bytes', { mode: 'number' })
+      .notNull()
+      .default(0),
+    outputHtml: text('output_html'),
+    actorUserId: text('actor_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    generatedAt: timestamp('generated_at', {
+      withTimezone: true,
+      mode: 'date',
+    })
+      .notNull()
+      .defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'chk_report_generations_format',
+      sql`${table.outputFormat} IN ('html','pdf')`,
+    ),
+    check(
+      'chk_report_generations_checksum',
+      sql`${table.outputChecksum} ~ '^[0-9a-f]{64}$'`,
+    ),
+    check('chk_report_generations_version', sql`${table.reportVersion} > 0`),
+    check('chk_report_generations_size', sql`${table.outputSizeBytes} >= 0`),
+    index('idx_report_generations_workspace').on(table.workspaceId),
+    index('idx_report_generations_report').on(table.reportId),
+    index('idx_report_generations_report_version').on(
+      table.reportId,
+      table.reportVersion,
+    ),
+    index('idx_report_generations_checksum').on(table.outputChecksum),
+  ],
+)
+
+export const reportDefinitionsRelations = relations(
+  reportDefinitions,
+  ({ one, many }) => ({
+    workspace: one(workspaces, {
+      fields: [reportDefinitions.workspaceId],
+      references: [workspaces.id],
+    }),
+    project: one(projects, {
+      fields: [reportDefinitions.projectId],
+      references: [projects.id],
+    }),
+    record: one(records, {
+      fields: [reportDefinitions.recordId],
+      references: [records.id],
+    }),
+    templateRecord: one(records, {
+      fields: [reportDefinitions.templateRecordId],
+      references: [records.id],
+    }),
+    reviewSubmission: one(reviewSubmissions, {
+      fields: [reportDefinitions.reviewSubmissionId],
+      references: [reviewSubmissions.id],
+    }),
+    sections: many(reportSections),
+    generations: many(reportGenerations),
+  }),
+)
+
+export const reportSectionsRelations = relations(reportSections, ({ one }) => ({
+  workspace: one(workspaces, {
+    fields: [reportSections.workspaceId],
+    references: [workspaces.id],
+  }),
+  report: one(reportDefinitions, {
+    fields: [reportSections.reportId],
+    references: [reportDefinitions.id],
+  }),
+  sourceRevision: one(revisions, {
+    fields: [reportSections.sourceRevisionId],
+    references: [revisions.id],
+  }),
+}))
+
+export const reportGenerationsRelations = relations(
+  reportGenerations,
+  ({ one }) => ({
+    workspace: one(workspaces, {
+      fields: [reportGenerations.workspaceId],
+      references: [workspaces.id],
+    }),
+    report: one(reportDefinitions, {
+      fields: [reportGenerations.reportId],
+      references: [reportDefinitions.id],
+    }),
+    actor: one(user, {
+      fields: [reportGenerations.actorUserId],
+      references: [user.id],
+    }),
+  }),
+)

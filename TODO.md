@@ -1058,13 +1058,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** ANALYSIS-001, REV-008, SCI-003.
 
-- [ ] Define ordered report sections that can reference frozen text, tables, charts, files and record metadata.
-- [ ] Make section order and source revision explicit and reproducible.
-- [ ] Build preview, validation and export flows without silently substituting live data for frozen evidence.
-- [ ] Reuse template, review and approval capabilities where appropriate.
-- [ ] Record report generation inputs, version, actor and output checksum.
-- [ ] Support an accessible HTML or PDF-ready representation and verify rendered output.
-- [ ] Test missing sources, stale live references, locked revisions and deterministic regeneration.
+- [x] Define ordered report sections that can reference frozen text, tables, charts, files and record metadata.
+- [x] Make section order and source revision explicit and reproducible.
+- [x] Build preview, validation and export flows without silently substituting live data for frozen evidence.
+- [x] Reuse template, review and approval capabilities where appropriate.
+- [x] Record report generation inputs, version, actor and output checksum.
+- [x] Support an accessible HTML or PDF-ready representation and verify rendered output.
+- [x] Test missing sources, stale live references, locked revisions and deterministic regeneration.
 
 ### ADMIN-001 — Deliver workspace permissions and administration
 

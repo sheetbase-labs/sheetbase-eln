@@ -953,13 +953,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** ANALYSIS-001, REV-008.
 
-- [ ] Derive graph edges from real record links, dataset transformations, figures, reviews and approvals.
-- [ ] Support upstream, downstream and relationship-type filtering.
-- [ ] Provide graph, timeline and table representations of the same lineage.
-- [ ] Keep selected-node details, transformation history and actions in the inspector.
-- [ ] Preserve permission boundaries by hiding or safely redacting inaccessible nodes and edges.
-- [ ] Make keyboard and non-visual navigation possible through the table representation.
-- [ ] Add tests for cycles, missing records, restricted nodes and large neighbourhoods.
+- [x] Derive graph edges from real record links, dataset transformations, figures, reviews and approvals.
+- [x] Support upstream, downstream and relationship-type filtering.
+- [x] Provide graph, timeline and table representations of the same lineage.
+- [x] Keep selected-node details, transformation history and actions in the inspector.
+- [x] Preserve permission boundaries by hiding or safely redacting inaccessible nodes and edges.
+- [x] Make keyboard and non-visual navigation possible through the table representation.
+- [x] Add tests for cycles, missing records, restricted nodes and large neighbourhoods.
 
 ### SEARCH-001 — Deliver Knowledge Search
 

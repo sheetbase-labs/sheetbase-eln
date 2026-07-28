@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AnalysisRouteImport } from './routes/analysis'
 import { Route as DatasetsRouteImport } from './routes/datasets'
 import { Route as FoundationsRouteImport } from './routes/foundations'
+import { Route as LineageRouteImport } from './routes/lineage'
 import { Route as PlateDesignerRouteImport } from './routes/plate-designer'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as ReagentsRouteImport } from './routes/reagents'
@@ -57,6 +58,11 @@ const DatasetsRoute = DatasetsRouteImport.update({
 const FoundationsRoute = FoundationsRouteImport.update({
   id: '/foundations',
   path: '/foundations',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LineageRoute = LineageRouteImport.update({
+  id: '/lineage',
+  path: '/lineage',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PlateDesignerRoute = PlateDesignerRouteImport.update({
@@ -192,6 +198,7 @@ export interface FileRoutesByFullPath {
   '/analysis': typeof AnalysisRoute
   '/datasets': typeof DatasetsRoute
   '/foundations': typeof FoundationsRoute
+  '/lineage': typeof LineageRoute
   '/plate-designer': typeof PlateDesignerRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/reagents': typeof ReagentsRoute
@@ -223,6 +230,7 @@ export interface FileRoutesByTo {
   '/analysis': typeof AnalysisRoute
   '/datasets': typeof DatasetsRoute
   '/foundations': typeof FoundationsRoute
+  '/lineage': typeof LineageRoute
   '/plate-designer': typeof PlateDesignerRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/reagents': typeof ReagentsRoute
@@ -255,6 +263,7 @@ export interface FileRoutesById {
   '/analysis': typeof AnalysisRoute
   '/datasets': typeof DatasetsRoute
   '/foundations': typeof FoundationsRoute
+  '/lineage': typeof LineageRoute
   '/plate-designer': typeof PlateDesignerRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/reagents': typeof ReagentsRoute
@@ -288,6 +297,7 @@ export interface FileRouteTypes {
     | '/analysis'
     | '/datasets'
     | '/foundations'
+    | '/lineage'
     | '/plate-designer'
     | '/projects'
     | '/reagents'
@@ -319,6 +329,7 @@ export interface FileRouteTypes {
     | '/analysis'
     | '/datasets'
     | '/foundations'
+    | '/lineage'
     | '/plate-designer'
     | '/projects'
     | '/reagents'
@@ -350,6 +361,7 @@ export interface FileRouteTypes {
     | '/analysis'
     | '/datasets'
     | '/foundations'
+    | '/lineage'
     | '/plate-designer'
     | '/projects'
     | '/reagents'
@@ -382,6 +394,7 @@ export interface RootRouteChildren {
   AnalysisRoute: typeof AnalysisRoute
   DatasetsRoute: typeof DatasetsRoute
   FoundationsRoute: typeof FoundationsRoute
+  LineageRoute: typeof LineageRoute
   PlateDesignerRoute: typeof PlateDesignerRoute
   ProjectsRoute: typeof ProjectsRouteWithChildren
   ReagentsRoute: typeof ReagentsRoute
@@ -433,6 +446,13 @@ declare module '@tanstack/react-router' {
       path: '/foundations'
       fullPath: '/foundations'
       preLoaderRoute: typeof FoundationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lineage': {
+      id: '/lineage'
+      path: '/lineage'
+      fullPath: '/lineage'
+      preLoaderRoute: typeof LineageRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/plate-designer': {
@@ -668,6 +688,7 @@ const rootRouteChildren: RootRouteChildren = {
   AnalysisRoute: AnalysisRoute,
   DatasetsRoute: DatasetsRoute,
   FoundationsRoute: FoundationsRoute,
+  LineageRoute: LineageRoute,
   PlateDesignerRoute: PlateDesignerRoute,
   ProjectsRoute: ProjectsRouteWithChildren,
   ReagentsRoute: ReagentsRoute,

@@ -371,14 +371,11 @@ export function AppShell({
   fullBleed = false,
   children,
 }: AppShellProps) {
-  // When no auth context is set (public routes, initial load), render
-  // children bare — matching the previous behaviour where sign-in and
-  // foundations did not use the shell.  Returning early here (instead of
-  // conditionally wrapping in ShellProvider) keeps the React tree structure
-  // stable, avoiding unmount/remount of route children when context arrives.
-  if (!context) {
-    return <>{children}</>
-  }
+  // All hooks MUST be called unconditionally — the early return for null
+  // context used to sit above these, causing a Rules of Hooks violation
+  // that produced an infinite flicker loop when context transitioned from
+  // null to set (hook count changed → React remounted → context dropped
+  // → route re-set it → remount again).
 
   const router = useRouter()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
@@ -461,7 +458,7 @@ export function AppShell({
     [navSections],
   )
 
-  const sidebarBody = (
+  const sidebarBody = context ? (
     <div className="flex h-full flex-col">
       <div className="flex h-14 items-center border-b border-sidebar-border px-3">
         <Link
@@ -623,181 +620,189 @@ export function AppShell({
         </DropdownMenu>
       </div>
     </div>
-  )
+  ) : null
 
   return (
     <TooltipProvider delayDuration={200}>
       <div className="min-h-svh bg-background text-foreground">
-        <a
-          href={`#${APP_SHELL_MAIN_ID}`}
-          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground"
-        >
-          Skip to content
-        </a>
-
-        <aside
-          aria-label="Application navigation"
-          className={cn(
-            'fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-sidebar-border bg-sidebar md:flex',
-            collapsed ? 'md:w-14' : 'md:w-60',
-          )}
-          data-collapsed={collapsed ? 'true' : 'false'}
-        >
-          {sidebarBody}
-        </aside>
-
-        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-          <SheetContent
-            side="left"
-            className="w-72 border-r border-sidebar-border bg-sidebar p-0 md:hidden"
+        {context && (
+          <a
+            href={`#${APP_SHELL_MAIN_ID}`}
+            className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground"
           >
-            <SheetTitle className="sr-only">Navigation</SheetTitle>
+            Skip to content
+          </a>
+        )}
+
+        {context && (
+          <aside
+            aria-label="Application navigation"
+            className={cn(
+              'fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-sidebar-border bg-sidebar md:flex',
+              collapsed ? 'md:w-14' : 'md:w-60',
+            )}
+            data-collapsed={collapsed ? 'true' : 'false'}
+          >
             {sidebarBody}
-          </SheetContent>
-        </Sheet>
+          </aside>
+        )}
+
+        {context && (
+          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+            <SheetContent
+              side="left"
+              className="w-72 border-r border-sidebar-border bg-sidebar p-0 md:hidden"
+            >
+              <SheetTitle className="sr-only">Navigation</SheetTitle>
+              {sidebarBody}
+            </SheetContent>
+          </Sheet>
+        )}
 
         <div
           className={cn(
             fullBleed
               ? 'flex h-svh flex-col overflow-hidden'
               : 'flex min-h-svh flex-col',
-            collapsed ? 'md:pl-14' : 'md:pl-60',
+            context && (collapsed ? 'md:pl-14' : 'md:pl-60'),
           )}
         >
-          <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background/92 px-4 backdrop-blur md:px-6">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="md:hidden"
-              aria-label="Open navigation"
-              onClick={() => setMobileOpen(true)}
-            >
-              <Menu />
-            </Button>
-
-            <nav
-              aria-label="Breadcrumb"
-              className="flex min-w-0 items-center gap-1.5 text-sm"
-            >
-              <HomeIcon className="size-3.5 shrink-0 text-muted-foreground" />
-              {breadcrumbs.map((crumb, i) => {
-                const last = i === breadcrumbs.length - 1
-                return (
-                  <React.Fragment key={`${crumb.label}-${i}`}>
-                    <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" />
-                    {crumb.to && !last ? (
-                      <Link
-                        to={crumb.to}
-                        className="truncate text-muted-foreground no-underline hover:text-foreground"
-                      >
-                        {crumb.label}
-                      </Link>
-                    ) : (
-                      <span
-                        className="truncate font-medium text-foreground"
-                        aria-current={last ? 'page' : undefined}
-                      >
-                        {crumb.label}
-                      </span>
-                    )}
-                  </React.Fragment>
-                )
-              })}
-            </nav>
-
-            <div className="ml-auto flex items-center gap-1.5">
-              <ConnectionStatus
-                status={liveStatus.status}
-                lastAppliedSeq={liveStatus.lastAppliedSeq}
-              />
-              <button
-                type="button"
-                onClick={() => setCommandOpen(true)}
-                className="hidden h-8 items-center gap-2 rounded-md border bg-background px-3 text-left text-xs text-muted-foreground shadow-xs hover:bg-muted/50 sm:flex"
-                aria-label="Search"
-              >
-                <Search className="size-3.5" />
-                <span className="flex-1">Search</span>
-                <Kbd>⌘K</Kbd>
-              </button>
+          {context && (
+            <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background/92 px-4 backdrop-blur md:px-6">
               <Button
                 variant="ghost"
                 size="icon-sm"
-                className="sm:hidden"
-                aria-label="Search"
-                onClick={() => setCommandOpen(true)}
+                className="md:hidden"
+                aria-label="Open navigation"
+                onClick={() => setMobileOpen(true)}
               >
-                <Search />
+                <Menu />
               </Button>
 
-              {primaryAction}
+              <nav
+                aria-label="Breadcrumb"
+                className="flex min-w-0 items-center gap-1.5 text-sm"
+              >
+                <HomeIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                {breadcrumbs.map((crumb, i) => {
+                  const last = i === breadcrumbs.length - 1
+                  return (
+                    <React.Fragment key={`${crumb.label}-${i}`}>
+                      <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" />
+                      {crumb.to && !last ? (
+                        <Link
+                          to={crumb.to}
+                          className="truncate text-muted-foreground no-underline hover:text-foreground"
+                        >
+                          {crumb.label}
+                        </Link>
+                      ) : (
+                        <span
+                          className="truncate font-medium text-foreground"
+                          aria-current={last ? 'page' : undefined}
+                        >
+                          {crumb.label}
+                        </span>
+                      )}
+                    </React.Fragment>
+                  )
+                })}
+              </nav>
 
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="Help"
-                    disabled
-                  >
-                    <CircleHelp />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Help</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="Notifications"
-                  >
-                    <Bell />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Notifications</TooltipContent>
-              </Tooltip>
-
-              {inspector && (
+              <div className="ml-auto flex items-center gap-1.5">
+                <ConnectionStatus
+                  status={liveStatus.status}
+                  lastAppliedSeq={liveStatus.lastAppliedSeq}
+                />
+                <button
+                  type="button"
+                  onClick={() => setCommandOpen(true)}
+                  className="hidden h-8 items-center gap-2 rounded-md border bg-background px-3 text-left text-xs text-muted-foreground shadow-xs hover:bg-muted/50 sm:flex"
+                  aria-label="Search"
+                >
+                  <Search className="size-3.5" />
+                  <span className="flex-1">Search</span>
+                  <Kbd>⌘K</Kbd>
+                </button>
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  className="xl:hidden"
-                  aria-label={inspectorLabel}
-                  aria-expanded={inspectorOpen}
-                  onClick={() => setInspectorOpen(true)}
+                  className="sm:hidden"
+                  aria-label="Search"
+                  onClick={() => setCommandOpen(true)}
                 >
-                  <PanelRight />
+                  <Search />
                 </Button>
-              )}
-              {inspector && inspectorCollapsible && (
+
+                {primaryAction}
+
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      className="hidden xl:inline-flex"
-                      aria-label={
-                        inspectorCollapsed ? 'Show inspector' : 'Hide inspector'
-                      }
-                      aria-expanded={!inspectorCollapsed}
-                      onClick={toggleInspectorCollapsed}
+                      aria-label="Help"
+                      disabled
                     >
-                      <PanelRight
-                        className={cn(
-                          'size-4',
-                          !inspectorCollapsed && 'text-foreground',
-                        )}
-                      />
+                      <CircleHelp />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>
-                    {inspectorCollapsed ? 'Show inspector' : 'Hide inspector'}
-                  </TooltipContent>
+                  <TooltipContent>Help</TooltipContent>
                 </Tooltip>
-              )}
-            </div>
-          </header>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="Notifications"
+                    >
+                      <Bell />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Notifications</TooltipContent>
+                </Tooltip>
+
+                {inspector && (
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="xl:hidden"
+                    aria-label={inspectorLabel}
+                    aria-expanded={inspectorOpen}
+                    onClick={() => setInspectorOpen(true)}
+                  >
+                    <PanelRight />
+                  </Button>
+                )}
+                {inspector && inspectorCollapsible && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="hidden xl:inline-flex"
+                        aria-label={
+                          inspectorCollapsed ? 'Show inspector' : 'Hide inspector'
+                        }
+                        aria-expanded={!inspectorCollapsed}
+                        onClick={toggleInspectorCollapsed}
+                      >
+                        <PanelRight
+                          className={cn(
+                            'size-4',
+                            !inspectorCollapsed && 'text-foreground',
+                          )}
+                        />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {inspectorCollapsed ? 'Show inspector' : 'Hide inspector'}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+            </header>
+          )}
 
           <div className="flex flex-1 overflow-hidden">
             <main
@@ -817,7 +822,7 @@ export function AppShell({
               )}
             </main>
 
-            {inspector && (
+            {context && inspector && (
               <aside
                 aria-label={inspectorLabel}
                 className={cn(
@@ -850,7 +855,7 @@ export function AppShell({
           </div>
         </div>
 
-        {inspector && (
+        {context && inspector && (
           <Sheet open={inspectorOpen} onOpenChange={setInspectorOpen}>
             <SheetContent side="right" className="w-80 border-l p-0 xl:hidden">
               <SheetTitle className="sr-only">{inspectorLabel}</SheetTitle>
@@ -859,17 +864,19 @@ export function AppShell({
           </Sheet>
         )}
 
-        <CommandPalette
-          open={commandOpen}
-          onOpenChange={setCommandOpen}
-          navItems={allNavItems}
-          onNavigate={() => setMobileOpen(false)}
-          theme={theme}
-          setTheme={setTheme}
-          density={density}
-          setDensity={setDensity}
-          onSignOut={signOut}
-        />
+        {context && (
+          <CommandPalette
+            open={commandOpen}
+            onOpenChange={setCommandOpen}
+            navItems={allNavItems}
+            onNavigate={() => setMobileOpen(false)}
+            theme={theme}
+            setTheme={setTheme}
+            density={density}
+            setDensity={setDensity}
+            onSignOut={signOut}
+          />
+        )}
       </div>
     </TooltipProvider>
   )

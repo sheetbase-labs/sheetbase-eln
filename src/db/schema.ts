@@ -265,6 +265,10 @@ export const workspaceMemberships = api.table(
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
     role: text('role').notNull(),
+    suspendedAt: timestamp('suspended_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
     ...timestamps,
   },
   (table) => [
@@ -274,9 +278,132 @@ export const workspaceMemberships = api.table(
     ),
     check(
       'chk_workspace_memberships_role',
-      sql`${table.role} IN ('owner', 'member')`,
+      sql`${table.role} IN ('owner', 'admin', 'member', 'scientist', 'analyst', 'reviewer', 'viewer')`,
     ),
     index('idx_workspace_memberships_user_id').on(table.userId),
+    index('idx_workspace_memberships_suspended_at').on(table.suspendedAt),
+  ],
+)
+
+// ---------------------------------------------------------------------------
+// ADMIN-001 — workspace invitations, settings, and project access.
+// ---------------------------------------------------------------------------
+
+export const workspaceInvitations = api.table(
+  'workspace_invitations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    email: text('email').notNull(),
+    role: text('role').notNull().default('member'),
+    tokenHash: text('token_hash').notNull(),
+    status: text('status').notNull().default('pending'),
+    expiresAt: timestamp('expires_at', {
+      withTimezone: true,
+      mode: 'date',
+    }).notNull(),
+    acceptedAt: timestamp('accepted_at', { withTimezone: true, mode: 'date' }),
+    acceptedByUserId: text('accepted_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    revokedAt: timestamp('revoked_at', { withTimezone: true, mode: 'date' }),
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      'chk_workspace_invitations_status',
+      sql`${table.status} IN ('pending', 'accepted', 'revoked', 'expired')`,
+    ),
+    check(
+      'chk_workspace_invitations_role',
+      sql`${table.role} IN ('owner', 'admin', 'member', 'scientist', 'analyst', 'reviewer', 'viewer')`,
+    ),
+    check(
+      'chk_workspace_invitations_email',
+      sql`${table.email} ~ '^[^@]+@[^@]+\\.[^@]+$'`,
+    ),
+    index('idx_workspace_invitations_workspace').on(table.workspaceId),
+    index('idx_workspace_invitations_email').on(table.email),
+    index('idx_workspace_invitations_status').on(table.status),
+  ],
+)
+
+export const workspaceSettings = api.table(
+  'workspace_settings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .unique()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    registrationMode: text('registration_mode').notNull().default('open'),
+    reviewWorkflowEnabled: boolean('review_workflow_enabled')
+      .notNull()
+      .default(false),
+    reviewWorkflowConfig: jsonb('review_workflow_config')
+      .notNull()
+      .default(sql`'{}'`),
+    signaturePolicy: jsonb('signature_policy')
+      .notNull()
+      .default(sql`'{}'`),
+    auditRetentionDays: integer('audit_retention_days').notNull().default(2555),
+    integrationSettings: jsonb('integration_settings')
+      .notNull()
+      .default(sql`'{}'`),
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      'chk_workspace_settings_registration_mode',
+      sql`${table.registrationMode} IN ('open', 'invitation_only')`,
+    ),
+    check(
+      'chk_workspace_settings_audit_retention_days',
+      sql`${table.auditRetentionDays} > 0`,
+    ),
+  ],
+)
+
+export const projectAccess = api.table(
+  'project_access',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    accessLevel: text('access_level').notNull().default('viewer'),
+    grantedByUserId: text('granted_by_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    ...timestamps,
+  },
+  (table) => [
+    unique('uq_project_access_workspace_project_user').on(
+      table.workspaceId,
+      table.projectId,
+      table.userId,
+    ),
+    check(
+      'chk_project_access_access_level',
+      sql`${table.accessLevel} IN ('owner', 'editor', 'viewer')`,
+    ),
+    index('idx_project_access_workspace').on(table.workspaceId),
+    index('idx_project_access_project').on(table.projectId),
+    index('idx_project_access_user').on(table.userId),
   ],
 )
 
@@ -2323,11 +2450,11 @@ export const changeEvents = api.table(
     ),
     check(
       'chk_change_events_entity_type',
-      sql`${table.entityType} IN ('project', 'folder', 'record', 'block', 'record_link', 'scientific_table', 'scientific_row', 'formula', 'calculation', 'record_field_definition', 'file', 'dataset_schema', 'dataset_schema_field', 'dataset_schema_relationship', 'sample_event', 'comment')`,
+      sql`${table.entityType} IN ('project', 'folder', 'record', 'block', 'record_link', 'scientific_table', 'scientific_row', 'formula', 'calculation', 'record_field_definition', 'file', 'dataset_schema', 'dataset_schema_field', 'dataset_schema_relationship', 'sample_event', 'comment', 'review_submission', 'signature', 'storage_site', 'storage_room', 'storage_unit', 'storage_shelf', 'storage_rack', 'storage_box', 'storage_position', 'storage_movement', 'plate_design', 'plate_well', 'plate_layout_template', 'calendar_resource', 'calendar_booking', 'calendar_booking_participant', 'calendar_booking_sample', 'study_workstream', 'study_task', 'study_task_dependency', 'study_task_assignment', 'study_task_resource', 'study_deliverable', 'instrument', 'instrument_run', 'instrument_run_stage', 'instrument_observation', 'instrument_plate_snapshot', 'instrument_qc_check', 'instrument_raw_file', 'instrument_run_link', 'report_definition', 'report_section', 'report_generation', 'workspace_invitation', 'workspace_settings', 'project_access')`,
     ),
     check(
       'chk_change_events_operation',
-      sql`${table.operation} IN ('create', 'update', 'move', 'delete', 'archive', 'restore', 'link', 'unlink', 'quarantine', 'resolve', 'reopen', 'lock', 'amend')`,
+      sql`${table.operation} IN ('create', 'update', 'move', 'delete', 'archive', 'restore', 'link', 'unlink', 'quarantine', 'resolve', 'reopen', 'lock', 'amend', 'suspend', 'revoke')`,
     ),
     // Hot replay path: WHERE workspace_id = $1 AND sequence > $2 ORDER BY sequence.
     index('idx_change_events_workspace_sequence').on(
@@ -4529,3 +4656,58 @@ export const reportGenerationsRelations = relations(
     }),
   }),
 )
+
+// ---------------------------------------------------------------------------
+// ADMIN-001 relations.
+// ---------------------------------------------------------------------------
+
+export const workspaceInvitationsRelations = relations(
+  workspaceInvitations,
+  ({ one }) => ({
+    workspace: one(workspaces, {
+      fields: [workspaceInvitations.workspaceId],
+      references: [workspaces.id],
+    }),
+    createdBy: one(user, {
+      fields: [workspaceInvitations.createdByUserId],
+      references: [user.id],
+    }),
+    acceptedBy: one(user, {
+      fields: [workspaceInvitations.acceptedByUserId],
+      references: [user.id],
+    }),
+  }),
+)
+
+export const workspaceSettingsRelations = relations(
+  workspaceSettings,
+  ({ one }) => ({
+    workspace: one(workspaces, {
+      fields: [workspaceSettings.workspaceId],
+      references: [workspaces.id],
+    }),
+    createdBy: one(user, {
+      fields: [workspaceSettings.createdByUserId],
+      references: [user.id],
+    }),
+  }),
+)
+
+export const projectAccessRelations = relations(projectAccess, ({ one }) => ({
+  workspace: one(workspaces, {
+    fields: [projectAccess.workspaceId],
+    references: [workspaces.id],
+  }),
+  project: one(projects, {
+    fields: [projectAccess.projectId],
+    references: [projects.id],
+  }),
+  user: one(user, {
+    fields: [projectAccess.userId],
+    references: [user.id],
+  }),
+  grantedBy: one(user, {
+    fields: [projectAccess.grantedByUserId],
+    references: [user.id],
+  }),
+}))

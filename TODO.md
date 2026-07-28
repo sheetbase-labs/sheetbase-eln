@@ -1070,13 +1070,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** AUTH-004, SIGN-002.
 
-- [ ] Add invitations and optionally switch registration from open to invitation-only before additional users are onboarded.
-- [ ] Build user, role, project access, session and activity views using the shared registry and inspector patterns.
-- [ ] Add role and access changes through explicit controlled mutations with self-lockout protection.
-- [ ] Expose review workflow, signature policy, audit retention and integration settings without presenting unvalidated compliance claims.
-- [ ] Add session revocation and account suspension with immediate enforcement.
-- [ ] Export audit information subject to owner permissions and bounded query limits.
-- [ ] Test invitation expiry, role changes, removed access, session revocation and last-owner protection.
+- [x] Add invitations and optionally switch registration from open to invitation-only before additional users are onboarded.
+- [x] Build user, role, project access, session and activity views using the shared registry and inspector patterns.
+- [x] Add role and access changes through explicit controlled mutations with self-lockout protection.
+- [x] Expose review workflow, signature policy, audit retention and integration settings without presenting unvalidated compliance claims.
+- [x] Add session revocation and account suspension with immediate enforcement.
+- [x] Export audit information subject to owner permissions and bounded query limits.
+- [x] Test invitation expiry, role changes, removed access, session revocation and last-owner protection.
 
 ---
 

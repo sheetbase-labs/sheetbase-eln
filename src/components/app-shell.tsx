@@ -180,6 +180,7 @@ export const defaultNavSections: AppShellNavSection[] = [
       { to: '/calendar', label: 'Lab Calendar', icon: CalendarDays },
       { to: '/instrument-monitor', label: 'Instruments', icon: Gauge },
       { to: '/report-builder', label: 'Report Builder', icon: FileText },
+      { to: '/admin', label: 'Administration', icon: Settings },
       { to: '/my-work', label: 'My work', icon: LayoutGrid, disabled: true },
       {
         to: '/activity',

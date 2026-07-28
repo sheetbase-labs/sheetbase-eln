@@ -844,15 +844,17 @@ const COMPLIANCE_CHECKS = [
  * do (the template library).
  */
 export function ProjectSidebar({ project }: { project: Project }) {
-  const [open, setOpen] = useState<boolean>(() => {
+  const [open, setOpen] = useState<boolean>(true)
+
+  useEffect(() => {
     try {
-      return (
-        localStorage.getItem(PROJECT_SIDEBAR_KEY(project.id)) !== 'collapsed'
+      setOpen(
+        localStorage.getItem(PROJECT_SIDEBAR_KEY(project.id)) !== 'collapsed',
       )
     } catch {
-      return true
+      /* ignore: private mode / disabled storage */
     }
-  })
+  }, [project.id])
 
   useEffect(() => {
     try {

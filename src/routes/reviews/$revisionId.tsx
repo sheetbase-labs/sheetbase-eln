@@ -165,6 +165,7 @@ const workspaceSearchSchema = z.object({
 type WorkspaceSearch = z.infer<typeof workspaceSearchSchema>
 
 export const Route = createFileRoute('/reviews/$revisionId')({
+  validateSearch: workspaceSearchSchema,
   beforeLoad: async () => {
     const context = await getReviewWorkspaceContext()
     if (!context) {
@@ -172,7 +173,6 @@ export const Route = createFileRoute('/reviews/$revisionId')({
     }
     return { context }
   },
-  validateSearch: workspaceSearchSchema,
   component: ReviewWorkspaceRoute,
 })
 

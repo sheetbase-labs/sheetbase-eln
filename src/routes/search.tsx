@@ -105,6 +105,11 @@ const getSearchContext = createServerFn({ method: 'GET' }).handler(async () => {
 })
 
 export const Route = createFileRoute('/search')({
+  // SEARCH-001: filter and query state lives in the URL so searches are
+  // shareable. Only public filter dimensions are stored — no tokens, session
+  // IDs, or secrets. Project/record IDs are already part of the public URL
+  // space (project deep links use them).
+  validateSearch: (search: Record<string, unknown>) => parseSearchUrl(search),
   beforeLoad: async () => {
     const context = await getSearchContext()
     if (!context) {
@@ -112,11 +117,6 @@ export const Route = createFileRoute('/search')({
     }
     return { context }
   },
-  // SEARCH-001: filter and query state lives in the URL so searches are
-  // shareable. Only public filter dimensions are stored — no tokens, session
-  // IDs, or secrets. Project/record IDs are already part of the public URL
-  // space (project deep links use them).
-  validateSearch: (search: Record<string, unknown>) => parseSearchUrl(search),
   component: SearchRoute,
 })
 
@@ -208,19 +208,17 @@ function useRecentSearches() {
   const add = useCallback((q: string) => {
     const query = q.trim()
     if (!query) return
-    setRecent((prev) => {
-      const next = [
-        { q: query, ts: Date.now() },
-        ...prev.filter((r) => r.q !== query),
-      ].slice(0, RECENT_MAX)
-      try {
-        localStorage.setItem(RECENT_KEY, JSON.stringify(next))
-      } catch {
-        /* ignore: private mode / disabled storage */
-      }
-      return next
-    })
-  }, [])
+    const next = [
+      { q: query, ts: Date.now() },
+      ...recent.filter((r) => r.q !== query),
+    ].slice(0, RECENT_MAX)
+    setRecent(next)
+    try {
+      localStorage.setItem(RECENT_KEY, JSON.stringify(next))
+    } catch {
+      /* ignore: private mode / disabled storage */
+    }
+  }, [recent])
 
   const clear = useCallback(() => {
     setRecent([])

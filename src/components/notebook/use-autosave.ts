@@ -185,11 +185,13 @@ export function useAutosave<T>({
   const statusRef = React.useRef<AutosaveStatus>('clean')
   const mountedRef = React.useRef(true)
 
-  saveRef.current = save
-  validateRef.current = validate
-  offlineRef.current = offline
-  touchedRef.current = touched
-  statusRef.current = status
+  React.useEffect(() => {
+    saveRef.current = save
+    validateRef.current = validate
+    offlineRef.current = offline
+    touchedRef.current = touched
+    statusRef.current = status
+  }, [save, validate, offline, touched, status])
 
   React.useEffect(() => {
     mountedRef.current = true
@@ -240,36 +242,34 @@ export function useAutosave<T>({
   }, [initialSerialized, initialValue])
 
   function setDraft(next: React.SetStateAction<T>) {
-    setDraftState((prev) => {
-      const resolved =
-        typeof next === 'function' ? (next as (prev: T) => T)(prev) : next
-      draftRef.current = resolved
-      revisionRef.current += 1
-      // Editing clears a permanent validation failure if the new draft
-      // validates; a conflict is sticky until explicitly resolved.
-      if (statusRef.current === 'failed') {
-        const errs = validateRef.current(resolved)
-        if (errs.length === 0) {
-          setError(null)
-        }
+    const resolved =
+      typeof next === 'function' ? (next as (prev: T) => T)(draftRef.current) : next
+    draftRef.current = resolved
+    revisionRef.current += 1
+    // Editing clears a permanent validation failure if the new draft
+    // validates; a conflict is sticky until explicitly resolved.
+    if (statusRef.current === 'failed') {
+      const errs = validateRef.current(resolved)
+      if (errs.length === 0) {
+        setError(null)
       }
-      if (statusRef.current !== 'conflict') {
-        setStatusSafe('dirty')
-      }
-      // (Re)start the debounce timer.
-      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
-      if (offlineRef.current) {
-        // Offline: hold the save; the offline effect below flushes on
-        // reconnect.
-        setStatusSafe('offline')
-      } else {
-        debounceTimerRef.current = setTimeout(() => {
-          debounceTimerRef.current = null
-          void startSave(resolved, revisionRef.current)
-        }, debounceMs)
-      }
-      return resolved
-    })
+    }
+    if (statusRef.current !== 'conflict') {
+      setStatusSafe('dirty')
+    }
+    // (Re)start the debounce timer.
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+    if (offlineRef.current) {
+      // Offline: hold the save; the offline effect below flushes on
+      // reconnect.
+      setStatusSafe('offline')
+    } else {
+      debounceTimerRef.current = setTimeout(() => {
+        debounceTimerRef.current = null
+        void startSave(resolved, revisionRef.current)
+      }, debounceMs)
+    }
+    setDraftState(resolved)
   }
 
   async function startSave(value: T, savedRevision: number) {

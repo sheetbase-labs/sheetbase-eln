@@ -84,13 +84,6 @@ import type { RegistryQuery } from '#/lib/registry'
  * projects, so the registry lists every reagent in the active workspace.
  */
 export const Route = createFileRoute('/reagents')({
-  beforeLoad: async () => {
-    const context = await getReagentContext()
-    if (!context) {
-      throw redirect({ to: '/sign-in' })
-    }
-    return { context }
-  },
   validateSearch: (search: Record<string, unknown>) => ({
     pageIndex:
       Number.isInteger(search.pageIndex) && (search.pageIndex as number) >= 0
@@ -108,6 +101,13 @@ export const Route = createFileRoute('/reagents')({
     q: typeof search.q === 'string' ? search.q : '',
     selected: typeof search.selected === 'string' ? search.selected : '',
   }),
+  beforeLoad: async () => {
+    const context = await getReagentContext()
+    if (!context) {
+      throw redirect({ to: '/sign-in' })
+    }
+    return { context }
+  },
   component: ReagentsRegistryRoute,
 })
 

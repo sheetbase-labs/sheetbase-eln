@@ -6,7 +6,7 @@ import {
   useRouter,
 } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
   Activity as ActivityIcon,
@@ -247,14 +247,17 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
   })
 
   // Pinned records — IDs stored in localStorage, resolved to full records.
-  const [pinnedIds, setPinnedIds] = useState<string[]>(() => {
+  // Initialize empty on the server; load from localStorage on mount.
+  const [pinnedIds, setPinnedIds] = useState<string[]>([])
+  useEffect(() => {
     try {
       const raw = localStorage.getItem(PINNED_RECORDS_KEY)
-      return raw ? (JSON.parse(raw) as string[]) : []
+      const ids = raw ? (JSON.parse(raw) as string[]) : []
+      if (ids.length > 0) setPinnedIds(ids)
     } catch {
-      return []
+      /* ignore: private mode / disabled storage */
     }
-  })
+  }, [])
 
   const pinnedQuery = useQuery({
     queryKey: dashboardQueryKeys.pinnedRecords(pinnedIds),
@@ -263,17 +266,15 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
   })
 
   const togglePin = (recordId: string) => {
-    setPinnedIds((prev) => {
-      const next = prev.includes(recordId)
-        ? prev.filter((id) => id !== recordId)
-        : [...prev, recordId]
-      try {
-        localStorage.setItem(PINNED_RECORDS_KEY, JSON.stringify(next))
-      } catch {
-        /* ignore: private mode / disabled storage */
-      }
-      return next
-    })
+    const next = pinnedIds.includes(recordId)
+      ? pinnedIds.filter((id) => id !== recordId)
+      : [...pinnedIds, recordId]
+    setPinnedIds(next)
+    try {
+      localStorage.setItem(PINNED_RECORDS_KEY, JSON.stringify(next))
+    } catch {
+      /* ignore: private mode / disabled storage */
+    }
   }
 
   // --- Derived data ------------------------------------------------------

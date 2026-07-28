@@ -110,6 +110,7 @@ const reviewsSearchSchema = z.object({
 type ReviewsSearch = z.infer<typeof reviewsSearchSchema>
 
 export const Route = createFileRoute('/reviews')({
+  validateSearch: reviewsSearchSchema,
   beforeLoad: async () => {
     const context = await getReviewsContext()
     if (!context) {
@@ -117,7 +118,6 @@ export const Route = createFileRoute('/reviews')({
     }
     return { context }
   },
-  validateSearch: reviewsSearchSchema,
   component: ReviewsRoute,
 })
 

@@ -376,7 +376,6 @@ export function AppShell({
   // that produced an infinite flicker loop when context transitioned from
   // null to set (hook count changed → React remounted → context dropped
   // → route re-set it → remount again).
-
   const router = useRouter()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const { theme, setTheme, density, setDensity } = useTheme()
@@ -414,28 +413,24 @@ export function AppShell({
   }, [inspectorCollapsible])
 
   const toggleCollapsed = React.useCallback(() => {
-    setCollapsed((prev) => {
-      const next = !prev
-      try {
-        localStorage.setItem(COLLAPSE_KEY, next ? '1' : '0')
-      } catch {
-        /* ignore */
-      }
-      return next
-    })
-  }, [])
+    const next = !collapsed
+    try {
+      localStorage.setItem(COLLAPSE_KEY, next ? '1' : '0')
+    } catch {
+      /* ignore */
+    }
+    setCollapsed(next)
+  }, [collapsed])
 
   const toggleInspectorCollapsed = React.useCallback(() => {
-    setInspectorCollapsed((prev) => {
-      const next = !prev
-      try {
-        localStorage.setItem(INSPECTOR_COLLAPSE_KEY, next ? '1' : '0')
-      } catch {
-        /* ignore */
-      }
-      return next
-    })
-  }, [])
+    const next = !inspectorCollapsed
+    try {
+      localStorage.setItem(INSPECTOR_COLLAPSE_KEY, next ? '1' : '0')
+    } catch {
+      /* ignore */
+    }
+    setInspectorCollapsed(next)
+  }, [inspectorCollapsed])
 
   React.useEffect(() => {
     const handler = (event: KeyboardEvent) => {

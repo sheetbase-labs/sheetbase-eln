@@ -229,7 +229,10 @@ function SchemaConfigurator({
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null)
   const [status, setStatus] = useState('')
   const version = useRef(table.schema_version)
-  version.current = Math.max(version.current, table.schema_version)
+
+  useEffect(() => {
+    version.current = Math.max(version.current, table.schema_version)
+  }, [table.schema_version])
 
   const schemaMutation = useMutation({
     scope: { id: `scientific-table:${tableId}` },

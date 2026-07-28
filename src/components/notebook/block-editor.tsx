@@ -376,10 +376,13 @@ function ChecklistEditor({
   autoFocus,
   className,
 }: BlockEditorProps) {
-  const initial = block.payload as { items?: ChecklistItem[] }
-  const initialDraft: ChecklistDraft = {
-    items: Array.isArray(initial.items) ? initial.items : [],
-  }
+  const initialDraft = React.useMemo<ChecklistDraft>(
+    () => {
+      const initial = block.payload as { items?: ChecklistItem[] }
+      return { items: Array.isArray(initial.items) ? initial.items : [] }
+    },
+    [block.payload],
+  )
   const a = useBlockAutosave(block, initialDraft, save, offline, onStatusChange)
 
   function update(i: number, patch: Partial<ChecklistItem>) {
@@ -527,18 +530,23 @@ function LinkedRecordEditor({
   autoFocus,
   className,
 }: BlockEditorProps) {
-  const initial = block.payload as {
-    targetKind?: string
-    targetIdentifier?: string
-    linkType?: string
-    label?: string
-  }
-  const initialDraft: LinkedRecordDraft = {
-    targetKind: initial.targetKind ?? 'experiment',
-    targetIdentifier: initial.targetIdentifier ?? '',
-    linkType: initial.linkType ?? 'general',
-    label: initial.label ?? '',
-  }
+  const initialDraft = React.useMemo<LinkedRecordDraft>(
+    () => {
+      const initial = block.payload as {
+        targetKind?: string
+        targetIdentifier?: string
+        linkType?: string
+        label?: string
+      }
+      return {
+        targetKind: initial.targetKind ?? 'experiment',
+        targetIdentifier: initial.targetIdentifier ?? '',
+        linkType: initial.linkType ?? 'general',
+        label: initial.label ?? '',
+      }
+    },
+    [block.payload],
+  )
   const a = useBlockAutosave(block, initialDraft, save, offline, onStatusChange)
 
   if (readOnly) {
@@ -740,14 +748,15 @@ function ProtocolReferenceEditor({ block, pinProtocol }: BlockEditorProps) {
 function ProcedureStepEditor(props: BlockEditorProps) {
   const { block } = props
   const payload = block.payload
-  if (typeof payload.completed !== 'boolean') {
-    return <UnsupportedEditor block={block} className={props.className} />
-  }
-  const initial = {
-    ...payload,
-    completed: payload.completed,
-    note: typeof payload.note === 'string' ? payload.note : '',
-  }
+  const initial = React.useMemo(
+    () => ({
+      ...payload,
+      completed:
+        typeof payload.completed === 'boolean' ? payload.completed : false,
+      note: typeof payload.note === 'string' ? payload.note : '',
+    }),
+    [payload],
+  )
   const a = useBlockAutosave(
     block,
     initial,
@@ -755,6 +764,9 @@ function ProcedureStepEditor(props: BlockEditorProps) {
     props.offline,
     props.onStatusChange,
   )
+  if (typeof payload.completed !== 'boolean') {
+    return <UnsupportedEditor block={block} className={props.className} />
+  }
   return (
     <div className="space-y-3">
       <label className="flex cursor-pointer items-start gap-3">
@@ -810,12 +822,17 @@ function ProcedureStepEditor(props: BlockEditorProps) {
 
 function MaterialsEditor(props: BlockEditorProps) {
   const { block } = props
-  const initialItems = Array.isArray(block.payload.items)
-    ? (block.payload.items as MaterialItem[])
-    : []
+  const initialDraft = React.useMemo<{ items: MaterialItem[] }>(
+    () => ({
+      items: Array.isArray(block.payload.items)
+        ? (block.payload.items as MaterialItem[])
+        : [],
+    }),
+    [block.payload],
+  )
   const a = useBlockAutosave(
     block,
-    { items: initialItems },
+    initialDraft,
     props.save,
     props.offline,
     props.onStatusChange,

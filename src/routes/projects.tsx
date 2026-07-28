@@ -223,8 +223,6 @@ function ProjectsRoute() {
   const isLoading = query.isLoading
   const isPendingCreate = createMutation.isPending
 
-  if (!isProjectsIndex) return <Outlet />
-
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const trimmed = title.trim()
@@ -268,6 +266,8 @@ function ProjectsRoute() {
       </Dialog>
     ),
   })
+
+  if (!isProjectsIndex) return <Outlet />
 
   return (
     <>

@@ -594,22 +594,19 @@ function SchemaManagementRoute() {
                 )
               }
               onSelectField={setDraftSelected}
-              onAddField={(type) =>
-                setDraftFields((items) => {
-                  const next = [...items, emptyField(type)]
-                  setDraftSelected(next.length - 1)
-                  return next
-                })
-              }
-              onRemoveField={(index) =>
-                setDraftFields((items) => {
-                  const next = items.filter((_, i) => i !== index)
-                  setDraftSelected(
-                    Math.max(0, Math.min(index, next.length - 1)),
-                  )
-                  return next.length ? next : [emptyField()]
-                })
-              }
+              onAddField={(type) => {
+                const next = [...draftFields, emptyField(type)]
+                setDraftFields(next)
+                setDraftSelected(next.length - 1)
+              }}
+              onRemoveField={(index) => {
+                const next = draftFields.filter((_, i) => i !== index)
+                const result = next.length ? next : [emptyField()]
+                setDraftFields(result)
+                setDraftSelected(
+                  Math.max(0, Math.min(index, result.length - 1)),
+                )
+              }}
               onCancel={() => {
                 setMode('view')
                 setViewMode('graph')

@@ -14,6 +14,7 @@ import { Route as AnalysisRouteImport } from './routes/analysis'
 import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as DatasetsRouteImport } from './routes/datasets'
 import { Route as FoundationsRouteImport } from './routes/foundations'
+import { Route as InstrumentMonitorRouteImport } from './routes/instrument-monitor'
 import { Route as LineageRouteImport } from './routes/lineage'
 import { Route as PlannerRouteImport } from './routes/planner'
 import { Route as PlateDesignerRouteImport } from './routes/plate-designer'
@@ -65,6 +66,11 @@ const DatasetsRoute = DatasetsRouteImport.update({
 const FoundationsRoute = FoundationsRouteImport.update({
   id: '/foundations',
   path: '/foundations',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InstrumentMonitorRoute = InstrumentMonitorRouteImport.update({
+  id: '/instrument-monitor',
+  path: '/instrument-monitor',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LineageRoute = LineageRouteImport.update({
@@ -211,6 +217,7 @@ export interface FileRoutesByFullPath {
   '/calendar': typeof CalendarRoute
   '/datasets': typeof DatasetsRoute
   '/foundations': typeof FoundationsRoute
+  '/instrument-monitor': typeof InstrumentMonitorRoute
   '/lineage': typeof LineageRoute
   '/planner': typeof PlannerRoute
   '/plate-designer': typeof PlateDesignerRoute
@@ -245,6 +252,7 @@ export interface FileRoutesByTo {
   '/calendar': typeof CalendarRoute
   '/datasets': typeof DatasetsRoute
   '/foundations': typeof FoundationsRoute
+  '/instrument-monitor': typeof InstrumentMonitorRoute
   '/lineage': typeof LineageRoute
   '/planner': typeof PlannerRoute
   '/plate-designer': typeof PlateDesignerRoute
@@ -280,6 +288,7 @@ export interface FileRoutesById {
   '/calendar': typeof CalendarRoute
   '/datasets': typeof DatasetsRoute
   '/foundations': typeof FoundationsRoute
+  '/instrument-monitor': typeof InstrumentMonitorRoute
   '/lineage': typeof LineageRoute
   '/planner': typeof PlannerRoute
   '/plate-designer': typeof PlateDesignerRoute
@@ -316,6 +325,7 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/datasets'
     | '/foundations'
+    | '/instrument-monitor'
     | '/lineage'
     | '/planner'
     | '/plate-designer'
@@ -350,6 +360,7 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/datasets'
     | '/foundations'
+    | '/instrument-monitor'
     | '/lineage'
     | '/planner'
     | '/plate-designer'
@@ -384,6 +395,7 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/datasets'
     | '/foundations'
+    | '/instrument-monitor'
     | '/lineage'
     | '/planner'
     | '/plate-designer'
@@ -419,6 +431,7 @@ export interface RootRouteChildren {
   CalendarRoute: typeof CalendarRoute
   DatasetsRoute: typeof DatasetsRoute
   FoundationsRoute: typeof FoundationsRoute
+  InstrumentMonitorRoute: typeof InstrumentMonitorRoute
   LineageRoute: typeof LineageRoute
   PlannerRoute: typeof PlannerRoute
   PlateDesignerRoute: typeof PlateDesignerRoute
@@ -479,6 +492,13 @@ declare module '@tanstack/react-router' {
       path: '/foundations'
       fullPath: '/foundations'
       preLoaderRoute: typeof FoundationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/instrument-monitor': {
+      id: '/instrument-monitor'
+      path: '/instrument-monitor'
+      fullPath: '/instrument-monitor'
+      preLoaderRoute: typeof InstrumentMonitorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/lineage': {
@@ -729,6 +749,7 @@ const rootRouteChildren: RootRouteChildren = {
   CalendarRoute: CalendarRoute,
   DatasetsRoute: DatasetsRoute,
   FoundationsRoute: FoundationsRoute,
+  InstrumentMonitorRoute: InstrumentMonitorRoute,
   LineageRoute: LineageRoute,
   PlannerRoute: PlannerRoute,
   PlateDesignerRoute: PlateDesignerRoute,

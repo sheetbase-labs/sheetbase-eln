@@ -19,6 +19,7 @@ import {
   ClipboardList,
   Database,
   FlaskConical,
+  Gauge,
   Grid3x3,
   Home as HomeIcon,
   LayoutGrid,
@@ -174,6 +175,7 @@ export const defaultNavSections: AppShellNavSection[] = [
       { to: '/storage', label: 'Storage', icon: Snowflake },
       { to: '/plate-designer', label: 'Plate Designer', icon: Grid3x3 },
       { to: '/calendar', label: 'Lab Calendar', icon: CalendarDays },
+      { to: '/instrument-monitor', label: 'Instruments', icon: Gauge },
       { to: '/my-work', label: 'My work', icon: LayoutGrid, disabled: true },
       {
         to: '/activity',

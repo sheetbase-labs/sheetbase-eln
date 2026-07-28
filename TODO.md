@@ -1046,13 +1046,13 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** OPS-003, SCI-003.
 
-- [ ] Define an instrument adapter boundary and implement one qPCR demonstration adapter.
-- [ ] Model instruments, runs, stages, telemetry, plate snapshots, QC checks, raw files and linked records.
-- [ ] Treat incoming instrument data as append-only observations with source timestamps and ingestion status.
-- [ ] Show live progress, telemetry, plate state, queue and selected-run inspector from the concept.
-- [ ] Handle disconnection, delayed data, duplicate events, failed runs and partial files honestly.
-- [ ] Add replayable fixture streams so development and tests do not require a real instrument.
-- [ ] Test ingestion idempotency, ordering, failure recovery and workspace isolation.
+- [x] Define an instrument adapter boundary and implement one qPCR demonstration adapter.
+- [x] Model instruments, runs, stages, telemetry, plate snapshots, QC checks, raw files and linked records.
+- [x] Treat incoming instrument data as append-only observations with source timestamps and ingestion status.
+- [x] Show live progress, telemetry, plate state, queue and selected-run inspector from the concept.
+- [x] Handle disconnection, delayed data, duplicate events, failed runs and partial files honestly.
+- [x] Add replayable fixture streams so development and tests do not require a real instrument.
+- [x] Test ingestion idempotency, ordering, failure recovery and workspace isolation.
 
 ### OPS-007 — Deliver Report Builder
 

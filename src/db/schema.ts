@@ -3643,6 +3643,401 @@ export const studyDeliverables = api.table(
   ],
 )
 
+export const instruments = api.table(
+  'instruments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    instrumentType: text('instrument_type').notNull().default('qpcr'),
+    model: text('model'),
+    serialNumber: text('serial_number'),
+    vendor: text('vendor'),
+    connectionStatus: text('connection_status')
+      .notNull()
+      .default('disconnected'),
+    lastConnectedAt: timestamp('last_connected_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    config: jsonb('config')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    position: integer('position').notNull().default(0),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    check(
+      'chk_instruments_name',
+      sql`length(btrim(${table.name})) BETWEEN 1 AND 200`,
+    ),
+    check(
+      'chk_instruments_type',
+      sql`${table.instrumentType} IN ('qpcr','sequencer','spectrophotometer','other')`,
+    ),
+    check(
+      'chk_instruments_connection',
+      sql`${table.connectionStatus} IN ('connected','disconnected','error')`,
+    ),
+    check('chk_instruments_position', sql`${table.position} >= 0`),
+    index('idx_instruments_workspace').on(table.workspaceId),
+    index('idx_instruments_workspace_position').on(
+      table.workspaceId,
+      table.position,
+    ),
+  ],
+)
+
+export const instrumentRuns = api.table(
+  'instrument_runs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    instrumentId: uuid('instrument_id')
+      .notNull()
+      .references(() => instruments.id, { onDelete: 'cascade' }),
+    projectId: uuid('project_id').references(() => projects.id, {
+      onDelete: 'set null',
+    }),
+    name: text('name').notNull(),
+    runIdentifier: text('run_identifier').notNull(),
+    protocolName: text('protocol_name'),
+    status: text('status').notNull().default('queued'),
+    progressPercent: integer('progress_percent').notNull().default(0),
+    plateFormat: text('plate_format').notNull().default('96'),
+    startedAt: timestamp('started_at', { withTimezone: true, mode: 'date' }),
+    completedAt: timestamp('completed_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    estimatedDurationSeconds: integer('estimated_duration_seconds'),
+    elapsedSeconds: integer('elapsed_seconds'),
+    operator: text('operator'),
+    errorMessage: text('error_message'),
+    metadataVersion: integer('metadata_version').notNull().default(1),
+    queuePosition: integer('queue_position').notNull().default(0),
+    tags: text('tags')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    check(
+      'chk_instrument_runs_name',
+      sql`length(btrim(${table.name})) BETWEEN 1 AND 200`,
+    ),
+    check(
+      'chk_instrument_runs_status',
+      sql`${table.status} IN ('queued','running','completed','failed','cancelled')`,
+    ),
+    check(
+      'chk_instrument_runs_progress',
+      sql`${table.progressPercent} BETWEEN 0 AND 100`,
+    ),
+    check(
+      'chk_instrument_runs_plate_format',
+      sql`${table.plateFormat} IN ('6','24','48','96','384')`,
+    ),
+    check('chk_instrument_runs_version', sql`${table.metadataVersion} > 0`),
+    check('chk_instrument_runs_queue', sql`${table.queuePosition} >= 0`),
+    uniqueIndex('uq_instrument_runs_workspace_identifier').on(
+      table.workspaceId,
+      table.runIdentifier,
+    ),
+    index('idx_instrument_runs_workspace').on(table.workspaceId),
+    index('idx_instrument_runs_instrument').on(table.instrumentId),
+    index('idx_instrument_runs_workspace_status').on(
+      table.workspaceId,
+      table.status,
+    ),
+    index('idx_instrument_runs_workspace_queue').on(
+      table.workspaceId,
+      table.queuePosition,
+    ),
+  ],
+)
+
+export const instrumentRunStages = api.table(
+  'instrument_run_stages',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    runId: uuid('run_id')
+      .notNull()
+      .references(() => instrumentRuns.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    stageType: text('stage_type').notNull().default('cycling'),
+    position: integer('position').notNull().default(0),
+    status: text('status').notNull().default('pending'),
+    cycleCount: integer('cycle_count'),
+    currentCycle: integer('current_cycle').notNull().default(0),
+    targetTemperature: numeric('target_temperature', {
+      precision: 6,
+      scale: 2,
+    }),
+    startedAt: timestamp('started_at', { withTimezone: true, mode: 'date' }),
+    completedAt: timestamp('completed_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    durationSeconds: integer('duration_seconds'),
+    config: jsonb('config')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      'chk_instrument_run_stages_name',
+      sql`length(btrim(${table.name})) BETWEEN 1 AND 200`,
+    ),
+    check(
+      'chk_instrument_run_stages_type',
+      sql`${table.stageType} IN ('hold','cycling','melt','image','custom')`,
+    ),
+    check(
+      'chk_instrument_run_stages_status',
+      sql`${table.status} IN ('pending','running','completed','skipped','failed')`,
+    ),
+    check('chk_instrument_run_stages_position', sql`${table.position} >= 0`),
+    check(
+      'chk_instrument_run_stages_current_cycle',
+      sql`${table.currentCycle} >= 0`,
+    ),
+    index('idx_instrument_run_stages_workspace').on(table.workspaceId),
+    index('idx_instrument_run_stages_run').on(table.runId),
+    index('idx_instrument_run_stages_run_position').on(
+      table.runId,
+      table.position,
+    ),
+  ],
+)
+
+export const instrumentObservations = api.table(
+  'instrument_observations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    runId: uuid('run_id')
+      .notNull()
+      .references(() => instrumentRuns.id, { onDelete: 'cascade' }),
+    stageId: uuid('stage_id').references(() => instrumentRunStages.id, {
+      onDelete: 'set null',
+    }),
+    sourceId: text('source_id').notNull(),
+    observationType: text('observation_type').notNull(),
+    sourceTimestamp: timestamp('source_timestamp', {
+      withTimezone: true,
+      mode: 'date',
+    }).notNull(),
+    ingestionStatus: text('ingestion_status').notNull().default('received'),
+    payload: jsonb('payload')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    errorDetail: text('error_detail'),
+    ingestedAt: timestamp('ingested_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'chk_instrument_observations_type',
+      sql`${table.observationType} IN ('telemetry','stage_start','stage_complete','run_start','run_complete','run_fail','plate_snapshot','qc_result','status_change','heartbeat')`,
+    ),
+    check(
+      'chk_instrument_observations_ingestion',
+      sql`${table.ingestionStatus} IN ('received','processed','failed','duplicate')`,
+    ),
+    uniqueIndex('uq_instrument_observations_run_source').on(
+      table.runId,
+      table.sourceId,
+    ),
+    index('idx_instrument_observations_workspace').on(table.workspaceId),
+    index('idx_instrument_observations_run').on(table.runId),
+    index('idx_instrument_observations_run_timestamp').on(
+      table.runId,
+      table.sourceTimestamp,
+    ),
+    index('idx_instrument_observations_run_type').on(
+      table.runId,
+      table.observationType,
+    ),
+    index('idx_instrument_observations_ingestion').on(table.ingestionStatus),
+  ],
+)
+
+export const instrumentPlateSnapshots = api.table(
+  'instrument_plate_snapshots',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    runId: uuid('run_id')
+      .notNull()
+      .references(() => instrumentRuns.id, { onDelete: 'cascade' }),
+    observationId: uuid('observation_id').references(
+      () => instrumentObservations.id,
+      { onDelete: 'set null' },
+    ),
+    plateFormat: text('plate_format').notNull().default('96'),
+    wells: jsonb('wells')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    capturedAt: timestamp('captured_at', {
+      withTimezone: true,
+      mode: 'date',
+    }).notNull(),
+    cycleNumber: integer('cycle_number'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'chk_instrument_plate_snapshots_format',
+      sql`${table.plateFormat} IN ('6','24','48','96','384')`,
+    ),
+    index('idx_instrument_plate_snapshots_workspace').on(table.workspaceId),
+    index('idx_instrument_plate_snapshots_run').on(table.runId),
+    index('idx_instrument_plate_snapshots_run_captured').on(
+      table.runId,
+      table.capturedAt,
+    ),
+  ],
+)
+
+export const instrumentQcChecks = api.table(
+  'instrument_qc_checks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    runId: uuid('run_id')
+      .notNull()
+      .references(() => instrumentRuns.id, { onDelete: 'cascade' }),
+    checkName: text('check_name').notNull(),
+    checkType: text('check_type').notNull().default('info'),
+    message: text('message'),
+    detail: jsonb('detail')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    checkedAt: timestamp('checked_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'chk_instrument_qc_checks_name',
+      sql`length(btrim(${table.checkName})) BETWEEN 1 AND 200`,
+    ),
+    check(
+      'chk_instrument_qc_checks_type',
+      sql`${table.checkType} IN ('pass','warning','fail','info')`,
+    ),
+    index('idx_instrument_qc_checks_workspace').on(table.workspaceId),
+    index('idx_instrument_qc_checks_run').on(table.runId),
+    index('idx_instrument_qc_checks_run_type').on(table.runId, table.checkType),
+  ],
+)
+
+export const instrumentRawFiles = api.table(
+  'instrument_raw_files',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    runId: uuid('run_id')
+      .notNull()
+      .references(() => instrumentRuns.id, { onDelete: 'cascade' }),
+    fileId: uuid('file_id').references(() => fileObjects.id, {
+      onDelete: 'set null',
+    }),
+    filename: text('filename').notNull(),
+    mediaType: text('media_type'),
+    sizeBytes: bigint('size_bytes', { mode: 'bigint' }),
+    storageKey: text('storage_key'),
+    checksum: text('checksum'),
+    ingestionStatus: text('ingestion_status').notNull().default('pending'),
+    errorDetail: text('error_detail'),
+    receivedAt: timestamp('received_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'chk_instrument_raw_files_filename',
+      sql`length(btrim(${table.filename})) BETWEEN 1 AND 500`,
+    ),
+    check(
+      'chk_instrument_raw_files_ingestion',
+      sql`${table.ingestionStatus} IN ('pending','complete','partial','failed')`,
+    ),
+    index('idx_instrument_raw_files_workspace').on(table.workspaceId),
+    index('idx_instrument_raw_files_run').on(table.runId),
+  ],
+)
+
+export const instrumentRunLinks = api.table(
+  'instrument_run_links',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    runId: uuid('run_id')
+      .notNull()
+      .references(() => instrumentRuns.id, { onDelete: 'cascade' }),
+    linkedRecordId: uuid('linked_record_id').references(() => records.id, {
+      onDelete: 'set null',
+    }),
+    linkedRecordIdentifier: text('linked_record_identifier'),
+    linkedRecordTitle: text('linked_record_title'),
+    linkType: text('link_type').notNull().default('experiment'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'chk_instrument_run_links_type',
+      sql`${table.linkType} IN ('experiment','sample','protocol','file')`,
+    ),
+    index('idx_instrument_run_links_workspace').on(table.workspaceId),
+    index('idx_instrument_run_links_run').on(table.runId),
+    index('idx_instrument_run_links_record').on(table.linkedRecordId),
+  ],
+)
+
 export const studyWorkstreamsRelations = relations(
   studyWorkstreams,
   ({ one, many }) => ({
@@ -3744,6 +4139,139 @@ export const studyDeliverablesRelations = relations(
     task: one(studyTasks, {
       fields: [studyDeliverables.taskId],
       references: [studyTasks.id],
+    }),
+  }),
+)
+
+export const instrumentsRelations = relations(instruments, ({ one, many }) => ({
+  workspace: one(workspaces, {
+    fields: [instruments.workspaceId],
+    references: [workspaces.id],
+  }),
+  runs: many(instrumentRuns),
+}))
+
+export const instrumentRunsRelations = relations(
+  instrumentRuns,
+  ({ one, many }) => ({
+    workspace: one(workspaces, {
+      fields: [instrumentRuns.workspaceId],
+      references: [workspaces.id],
+    }),
+    instrument: one(instruments, {
+      fields: [instrumentRuns.instrumentId],
+      references: [instruments.id],
+    }),
+    project: one(projects, {
+      fields: [instrumentRuns.projectId],
+      references: [projects.id],
+    }),
+    stages: many(instrumentRunStages),
+    observations: many(instrumentObservations),
+    plateSnapshots: many(instrumentPlateSnapshots),
+    qcChecks: many(instrumentQcChecks),
+    rawFiles: many(instrumentRawFiles),
+    runLinks: many(instrumentRunLinks),
+  }),
+)
+
+export const instrumentRunStagesRelations = relations(
+  instrumentRunStages,
+  ({ one, many }) => ({
+    workspace: one(workspaces, {
+      fields: [instrumentRunStages.workspaceId],
+      references: [workspaces.id],
+    }),
+    run: one(instrumentRuns, {
+      fields: [instrumentRunStages.runId],
+      references: [instrumentRuns.id],
+    }),
+    observations: many(instrumentObservations),
+  }),
+)
+
+export const instrumentObservationsRelations = relations(
+  instrumentObservations,
+  ({ one }) => ({
+    workspace: one(workspaces, {
+      fields: [instrumentObservations.workspaceId],
+      references: [workspaces.id],
+    }),
+    run: one(instrumentRuns, {
+      fields: [instrumentObservations.runId],
+      references: [instrumentRuns.id],
+    }),
+    stage: one(instrumentRunStages, {
+      fields: [instrumentObservations.stageId],
+      references: [instrumentRunStages.id],
+    }),
+  }),
+)
+
+export const instrumentPlateSnapshotsRelations = relations(
+  instrumentPlateSnapshots,
+  ({ one }) => ({
+    workspace: one(workspaces, {
+      fields: [instrumentPlateSnapshots.workspaceId],
+      references: [workspaces.id],
+    }),
+    run: one(instrumentRuns, {
+      fields: [instrumentPlateSnapshots.runId],
+      references: [instrumentRuns.id],
+    }),
+    observation: one(instrumentObservations, {
+      fields: [instrumentPlateSnapshots.observationId],
+      references: [instrumentObservations.id],
+    }),
+  }),
+)
+
+export const instrumentQcChecksRelations = relations(
+  instrumentQcChecks,
+  ({ one }) => ({
+    workspace: one(workspaces, {
+      fields: [instrumentQcChecks.workspaceId],
+      references: [workspaces.id],
+    }),
+    run: one(instrumentRuns, {
+      fields: [instrumentQcChecks.runId],
+      references: [instrumentRuns.id],
+    }),
+  }),
+)
+
+export const instrumentRawFilesRelations = relations(
+  instrumentRawFiles,
+  ({ one }) => ({
+    workspace: one(workspaces, {
+      fields: [instrumentRawFiles.workspaceId],
+      references: [workspaces.id],
+    }),
+    run: one(instrumentRuns, {
+      fields: [instrumentRawFiles.runId],
+      references: [instrumentRuns.id],
+    }),
+    fileObject: one(fileObjects, {
+      fields: [instrumentRawFiles.fileId],
+      references: [fileObjects.id],
+    }),
+  }),
+)
+
+export const instrumentRunLinksRelations = relations(
+  instrumentRunLinks,
+  ({ one }) => ({
+    workspace: one(workspaces, {
+      fields: [instrumentRunLinks.workspaceId],
+      references: [workspaces.id],
+    }),
+    run: one(instrumentRuns, {
+      fields: [instrumentRunLinks.runId],
+      references: [instrumentRuns.id],
+    }),
+    linkedRecord: one(records, {
+      fields: [instrumentRunLinks.linkedRecordId],
+      references: [records.id],
     }),
   }),
 )

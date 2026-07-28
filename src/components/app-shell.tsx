@@ -119,6 +119,28 @@ const ShellContext = React.createContext<{
 }>({ setConfig: () => {} })
 
 /**
+ * Memoized wrapper that provides the stable `setConfig` via context and
+ * renders children.  Because it is memoized and `setConfig` is a stable
+ * callback, React skips re-rendering this subtree when the parent
+ * `ShellProvider` updates its config state — only `AppShell` re-renders.
+ * This breaks the feedback loop where a config update → provider re-render
+ * → route re-render → useShell → setConfig → …
+ */
+const ShellContent = React.memo(function ShellContentView({
+  children,
+  setConfig,
+}: {
+  children: React.ReactNode
+  setConfig: (c: Partial<ShellConfig>) => void
+}) {
+  return (
+    <ShellContext.Provider value={{ setConfig }}>
+      {children}
+    </ShellContext.Provider>
+  )
+})
+
+/**
  * Render <AppShell> once for the whole session.  When no auth context has
  * been set (public routes, initial load), children render bare — matching
  * the previous behaviour where sign-in/foundations did not use the shell.
@@ -130,34 +152,41 @@ export function ShellProvider({ children }: { children: React.ReactNode }) {
   })
 
   const setConfig = React.useCallback(
-    (c: Partial<ShellConfig>) => setConfigState((prev) => ({ ...prev, ...c })),
+    (c: Partial<ShellConfig>) =>
+      setConfigState((prev) => {
+        // Shallow-merge and bail out when nothing actually changed so
+        // repeated setConfig calls with equivalent values don't trigger
+        // a needless AppShell re-render.
+        let changed = false
+        for (const key of Object.keys(c) as (keyof ShellConfig)[]) {
+          if (c[key] !== prev[key]) {
+            changed = true
+            break
+          }
+        }
+        return changed ? { ...prev, ...c } : prev
+      }),
     [],
   )
 
-  if (!config.context) {
-    return (
-      <ShellContext.Provider value={{ setConfig }}>
-        {children}
-      </ShellContext.Provider>
-    )
-  }
-
+  // `content` is memoized via ShellContent — config state updates
+  // re-render AppShell but NOT the route children inside.
+  // Always render AppShell (even when context is null) to keep the tree
+  // structure stable — AppShell returns bare children when context is null.
   return (
-    <ShellContext.Provider value={{ setConfig }}>
-      <AppShell
-        context={config.context}
-        breadcrumbs={config.breadcrumbs}
-        inspector={config.inspector}
-        inspectorLabel={config.inspectorLabel}
-        inspectorCollapsible={config.inspectorCollapsible}
-        fullBleed={config.fullBleed}
-        primaryAction={config.primaryAction}
-        projectTree={config.projectTree}
-        navExtra={config.navExtra}
-      >
-        {children}
-      </AppShell>
-    </ShellContext.Provider>
+    <AppShell
+      context={config.context}
+      breadcrumbs={config.breadcrumbs}
+      inspector={config.inspector}
+      inspectorLabel={config.inspectorLabel}
+      inspectorCollapsible={config.inspectorCollapsible}
+      fullBleed={config.fullBleed}
+      primaryAction={config.primaryAction}
+      projectTree={config.projectTree}
+      navExtra={config.navExtra}
+    >
+      <ShellContent setConfig={setConfig}>{children}</ShellContent>
+    </AppShell>
   )
 }
 
@@ -165,21 +194,39 @@ export function ShellProvider({ children }: { children: React.ReactNode }) {
  * Hook called by each route to set its per-route shell configuration
  * (breadcrumbs, inspector, primary action, etc.).  Uses useLayoutEffect
  * so the shell updates synchronously before paint, avoiding flashes.
+ *
+ * The layout effect compares each config field against the last values
+ * sent to the provider and only calls `setConfig` when something actually
+ * changed.  This avoids redundant state updates while still catching real
+ * prop/data-driven config changes.
  */
 export function useShell(config: Partial<ShellConfig>) {
   const { setConfig } = React.useContext(ShellContext)
+  const prevRef = React.useRef<Partial<ShellConfig> | undefined>(undefined)
 
-  // Set config on every render — setConfig merges, and React bails out
-  // if the merged state is referentially equal (it won't be, but the
-  // re-render is cheap because AppShell stays mounted).
   React.useLayoutEffect(() => {
+    const prev = prevRef.current
+    if (prev !== undefined) {
+      let changed = false
+      for (const key of Object.keys(config) as (keyof ShellConfig)[]) {
+        if (config[key] !== prev[key]) {
+          changed = true
+          break
+        }
+      }
+      if (!changed) return
+    }
+    prevRef.current = config
     setConfig(config)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   })
 
-  // Clear per-route slots on unmount so the next route starts clean.
-  React.useEffect(() => {
+  // Clear per-route shell slots on unmount.  Using useLayoutEffect (not
+  // useEffect) ensures the cleanup runs synchronously BEFORE the next
+  // route's useLayoutEffect sets its config — otherwise the cleanup
+  // fires after the new route has already set the inspector, clearing it.
+  React.useLayoutEffect(() => {
     return () => {
+      prevRef.current = undefined
       setConfig({
         inspector: undefined,
         inspectorLabel: undefined,
@@ -191,7 +238,6 @@ export function useShell(config: Partial<ShellConfig>) {
         breadcrumbs: [],
       })
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 }
 
@@ -229,7 +275,7 @@ export interface AppShellContext {
 }
 
 export interface AppShellProps {
-  context: AppShellContext
+  context: AppShellContext | null
   breadcrumbs: AppShellBreadcrumb[]
   navSections?: AppShellNavSection[]
   /** Active-project tree slot rendered under a PROJECTS heading. */
@@ -325,6 +371,15 @@ export function AppShell({
   fullBleed = false,
   children,
 }: AppShellProps) {
+  // When no auth context is set (public routes, initial load), render
+  // children bare — matching the previous behaviour where sign-in and
+  // foundations did not use the shell.  Returning early here (instead of
+  // conditionally wrapping in ShellProvider) keeps the React tree structure
+  // stable, avoiding unmount/remount of route children when context arrives.
+  if (!context) {
+    return <>{children}</>
+  }
+
   const router = useRouter()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const { theme, setTheme, density, setDensity } = useTheme()

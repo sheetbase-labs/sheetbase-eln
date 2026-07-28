@@ -22,14 +22,6 @@ import type { ReactNode } from 'react'
 import { useShell } from '#/components/app-shell'
 import { NotebookDocument } from '#/components/notebook'
 import type { SaveResult } from '#/components/notebook'
-
-function RouteShell({
-  children,
-  ...configuration
-}: Parameters<typeof useShell>[0] & { children: ReactNode }) {
-  useShell(configuration)
-  return <>{children}</>
-}
 import { useLiveStatus } from '#/components/live/live-event-provider'
 import {
   ActivityFeed,
@@ -76,6 +68,14 @@ import { freezeChart, unfreezeChart } from '#/lib/chart-data'
 import { validateBlock } from '#/lib/blocks'
 import { pinProtocolReference } from '#/lib/protocol-materials'
 import { attachFileToBlock, AttachFileError } from '#/lib/file-attach'
+
+function RouteShell({
+  children,
+  ...configuration
+}: Parameters<typeof useShell>[0] & { children: ReactNode }) {
+  useShell(configuration)
+  return <>{children}</>
+}
 
 /**
  * ELN-004: the deep-linkable experiment notebook route. Loads the record,

@@ -1,9 +1,21 @@
-import { cleanup, render, screen, within } from '@testing-library/react'
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Folder, Home, ListTodo } from 'lucide-react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
-import { APP_SHELL_MAIN_ID, APP_SHELL_NAV_ID, AppShell } from './app-shell'
+import {
+  APP_SHELL_MAIN_ID,
+  APP_SHELL_NAV_ID,
+  AppShell,
+  ShellProvider,
+  useShell,
+} from './app-shell'
 import type { AppShellNavItem } from './app-shell'
 
 // Stub auth-client so signOut never hits the network.
@@ -208,5 +220,105 @@ describe('AppShell', () => {
       screen.getByRole('button', { name: 'Account: Gareth Price' }),
     ).toBeTruthy()
     expect(screen.getByText('OXB Labs')).toBeTruthy()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ShellProvider + useShell regression tests
+//
+// These use the REAL provider/hook (not the mocked versions in route tests)
+// to catch the infinite-update-loop regression that occurred when useShell
+// called setConfig in a layout effect with no dependency array while
+// ShellProvider held config in useState.
+// ---------------------------------------------------------------------------
+
+/** A child route component that calls useShell like a real route would. */
+function FakeRoute({
+  label,
+  inspectorContent,
+}: {
+  label: string
+  inspectorContent?: string
+}) {
+  useShell({
+    context: baseContext,
+    breadcrumbs: [{ label }],
+    inspector: inspectorContent ? <div>{inspectorContent}</div> : undefined,
+  })
+  return <p data-testid="route-content">{label}</p>
+}
+
+describe('ShellProvider + useShell', () => {
+  beforeAll(() => {
+    globalThis.ResizeObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+    Element.prototype.scrollIntoView = vi.fn()
+  })
+
+  afterEach(() => {
+    cleanup()
+    localStorage.clear()
+  })
+
+  it('renders without maximum-update-depth errors', async () => {
+    // If the provider/hook loops, React throws "Maximum update depth
+    // exceeded" and this render will fail.
+    const result = render(
+      <ShellProvider>
+        <FakeRoute label="Home" />
+      </ShellProvider>,
+    )
+    await waitFor(() => {
+      expect(result.getByTestId('route-content').textContent).toBe('Home')
+    })
+    // Shell should have rendered (sidebar visible)
+    expect(screen.getByText('OXB Labs')).toBeTruthy()
+  })
+
+  it('passes config through to AppShell (sidebar, breadcrumbs, inspector)', async () => {
+    render(
+      <ShellProvider>
+        <FakeRoute label="Projects" inspectorContent="Details" />
+      </ShellProvider>,
+    )
+    // Wait for the layout effect to fire and AppShell to render
+    await waitFor(() => {
+      expect(screen.getByText('OXB Labs')).toBeTruthy()
+    })
+    // Breadcrumb
+    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toBeTruthy()
+    expect(screen.getAllByText('Projects').length).toBeGreaterThanOrEqual(1)
+    // Inspector
+    expect(screen.getByText('Details')).toBeTruthy()
+    // Route content
+    expect(screen.getByTestId('route-content').textContent).toBe('Projects')
+  })
+
+  it('clears per-route shell slots on unmount', async () => {
+    const { rerender } = render(
+      <ShellProvider>
+        <FakeRoute label="Page A" inspectorContent="Inspector A" />
+      </ShellProvider>,
+    )
+    await waitFor(() => {
+      expect(screen.getByText('Inspector A')).toBeTruthy()
+    })
+
+    // Simulate navigating to a route that doesn't set an inspector.
+    // The old FakeRoute unmounts → useShell cleanup clears inspector.
+    // The new FakeRoute mounts → useShell sets new breadcrumbs, no inspector.
+    rerender(
+      <ShellProvider>
+        <FakeRoute label="Page B" />
+      </ShellProvider>,
+    )
+    await waitFor(() => {
+      expect(screen.getByTestId('route-content').textContent).toBe('Page B')
+    })
+    // Inspector from the previous route should be gone
+    expect(screen.queryByText('Inspector A')).toBeNull()
   })
 })

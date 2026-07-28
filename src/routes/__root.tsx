@@ -85,9 +85,28 @@ export const Route = createRootRouteWithContext<RouterContext>()({
  * active child route (e.g. `/sign-in`) inside the provider.
  */
 function RootRouteComponent() {
+  const { auth } = Route.useRouteContext()
+
+  // Map the auth context to the AppShell context shape so the sidebar
+  // (workspace name, user info, nav) renders during SSR — not after
+  // hydration.  This eliminates the multi-second delay where main
+  // content appeared but the sidebar was missing.
+  const shellContext = auth
+    ? {
+        workspace: auth.workspace
+          ? { name: auth.workspace.name }
+          : null,
+        user: {
+          name: auth.user.name,
+          email: auth.user.email,
+          role: auth.workspace?.role,
+        },
+      }
+    : null
+
   return (
     <LiveEventProvider>
-      <ShellProvider>
+      <ShellProvider initialContext={shellContext}>
         <Outlet />
       </ShellProvider>
     </LiveEventProvider>

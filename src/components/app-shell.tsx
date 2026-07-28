@@ -144,10 +144,20 @@ const ShellContent = React.memo(function ShellContentView({
  * Render <AppShell> once for the whole session.  When no auth context has
  * been set (public routes, initial load), children render bare — matching
  * the previous behaviour where sign-in/foundations did not use the shell.
+ *
+ * `initialContext` is passed from the root route so the sidebar renders
+ * during SSR — without it the sidebar only appears after hydration when
+ * useShell's useLayoutEffect fires, causing a multi-second delay.
  */
-export function ShellProvider({ children }: { children: React.ReactNode }) {
+export function ShellProvider({
+  children,
+  initialContext,
+}: {
+  children: React.ReactNode
+  initialContext?: AppShellContext | null
+}) {
   const [config, setConfigState] = React.useState<ShellConfig>({
-    context: null,
+    context: initialContext ?? null,
     breadcrumbs: [],
   })
 

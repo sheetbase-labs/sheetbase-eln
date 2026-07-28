@@ -6,6 +6,7 @@ import { Client } from 'pg'
 import type { QueryResultRow } from 'pg'
 
 import * as schema from '../schema'
+import { eq } from 'drizzle-orm'
 import type { SeedStep } from './run'
 
 const WORKSPACE = '798f250c-99bb-4460-9a2a-e9ec98fbecab'
@@ -129,9 +130,12 @@ async function upsertCore(db: Parameters<SeedStep['run']>[0]) {
     title: `assay-results-${String(i + 1).padStart(2, '0')}.csv`, status: 'active', tags: ['month-seed', 'raw-data'], properties: {},
     createdAt: daysAgo(i * 2), updatedAt: daysAgo(i * 2), createdByUserId: GARETH, updatedByUserId: GARETH,
   })
-  for (const record of records) await db.insert(schema.records).values(record).onConflictDoUpdate({ target: schema.records.id, set: { title: record.title, status: record.status, properties: record.properties, tags: record.tags, updatedByUserId: GARETH } })
+  for (const record of records) await db.insert(schema.records).values(record).onConflictDoNothing({ target: schema.records.id })
 
   for (let i = 0; i < 30; i++) {
+    // Skip block creation if blocks already exist (records may be locked by revisions)
+    const existingBlocks = await db.select({ id: schema.blocks.id }).from(schema.blocks).where(eq(schema.blocks.recordId, uuid(0x300 + i))).limit(1)
+    if (existingBlocks.length > 0) continue
     const payloads = [
       { type: 'rich_text' as const, payload: { content: [{ type: 'paragraph', content: [{ type: 'text', text: `Objective and observations for ${experimentTitles[i]}. Work performed according to approved SOP.` }] }] } },
       { type: 'materials' as const, payload: { items: [{ id: `sample-${i}`, materialRecordId: uuid(0x340 + (i % 10)), kind: 'sample', identifier: `SMP-2026-${String((i % 10) + 1).padStart(4, '0')}`, title: `CAR-T process sample ${String((i % 10) + 1).padStart(2, '0')}`, quantity: 2, unit: { code: 'mL', symbol: 'mL', quantityKind: 'volume' }, observedAt: daysAgo(i).toISOString() }] } },
@@ -139,7 +143,7 @@ async function upsertCore(db: Parameters<SeedStep['run']>[0]) {
       { type: 'rich_text' as const, payload: { content: [{ type: 'paragraph', content: [{ type: 'text', text: `${i % 2 ? 'Viability' : 'Titer'} result: ${i % 2 ? `${92 + (i % 7)}%` : `${2.8 + i / 10}e9 IU/mL`}.` }] }] } },
       { type: 'callout' as const, payload: { variant: 'info', text: i < 22 ? 'Acceptance criteria met.' : 'Analysis in progress.' } },
     ]
-    for (const [j, block] of payloads.entries()) await db.insert(schema.blocks).values({ id: uuid(0x500 + i * 8 + j), recordId: uuid(0x300 + i), type: block.type, payload: block.payload, order: j + 1, createdByUserId: GARETH }).onConflictDoUpdate({ target: schema.blocks.id, set: { payload: block.payload, order: j + 1 } })
+    for (const [j, block] of payloads.entries()) await db.insert(schema.blocks).values({ id: uuid(0x500 + i * 8 + j), recordId: uuid(0x300 + i), type: block.type, payload: block.payload, order: j + 1, createdByUserId: GARETH }).onConflictDoNothing({ target: schema.blocks.id })
   }
   const storage = join(process.cwd(), '.storage', 'objects')
   await mkdir(storage, { recursive: true })
@@ -203,7 +207,229 @@ async function upsertOperations(db: Parameters<SeedStep['run']>[0]) {
   }
 }
 
+async function upsertReviewsAndReports(db: Parameters<SeedStep['run']>[0]) {
+  const auth = await authClient(db)
+  try {
+    // --- Reports (RPC-created, lookup-or-create by document_identifier) ---
+    const reportDefs = [
+      ['Cell Therapy Process Development Summary', 'Monthly progress report for the CAR-T program', 0],
+      ['Stability Study Report — July 2026', 'ICH-compliant stability data compilation', 2],
+      ['Quality Control Trend Analysis', 'Cross-project QC metrics and exceptions', 2],
+    ] as const
+    for (const [i, [title, subtitle, projIdx]] of reportDefs.entries()) {
+      const docId = `RPT-2026-${String(i + 1).padStart(4, '0')}`
+      const found = await auth.client.query('select id from api.report_definitions where workspace_id=$1 and document_identifier=$2', [WORKSPACE, docId])
+      let reportId: string
+      if (found.rowCount) {
+        reportId = found.rows[0].id as string
+      } else {
+        const res = await auth.rpc('create_report_definition', [WORKSPACE, title, subtitle, uuid(0x200 + projIdx)])
+        reportId = res.rows[0].id as string
+        // Update document_identifier to our stable value
+        await auth.client.query('update api.report_definitions set document_identifier=$1 where id=$2', [docId, reportId])
+      }
+
+      // Add sections if they don't exist yet
+      const existingSections = await auth.client.query('select count(*)::int as n from api.report_sections where report_id=$1', [reportId])
+      if (existingSections.rows[0].n === 0) {
+        const sectionDefs = [
+          ['Executive Summary', 'text', 'free_text'],
+          ['Methods and Materials', 'text', 'free_text'],
+          ['Key Results', 'text', 'free_text'],
+          ['Discussion and Conclusions', 'text', 'free_text'],
+          ['Appendix — Raw Data References', 'text', 'free_text'],
+        ] as const
+        for (const [, [secTitle, secType, srcType]] of sectionDefs.entries()) {
+          await auth.rpc('add_report_section', [WORKSPACE, reportId, secTitle, `Section content for ${secTitle}`, secType, srcType])
+        }
+      }
+    }
+
+    // --- Revisions for 8 completed experiments ---
+    // Create simple revisions that capture the experiment state for review
+    const experimentIds = Array.from({ length: 8 }, (_, i) => uuid(0x300 + i))
+    for (let i = 0; i < 8; i++) {
+      const recordId = experimentIds[i]
+      const revId = uuid(0x400 + i)
+      const existing = await db.select({ id: schema.revisions.id }).from(schema.revisions).where(eq(schema.revisions.id, revId)).limit(1)
+      if (existing.length === 0) {
+        const snapshot = {
+          record: { id: recordId, identifier: `EXP-2026-${String(i + 1).padStart(4, '0')}`, title: experimentTitles[i], status: 'completed' },
+          blocks: [],
+          files: [],
+        }
+        const digest = createHash('sha256').update(JSON.stringify(snapshot)).digest('hex')
+        await db.insert(schema.revisions).values({
+          id: revId,
+          workspaceId: WORKSPACE,
+          recordId,
+          structureVersion: 1,
+          metadataVersion: 1,
+          metadataSnapshot: { title: experimentTitles[i], status: 'completed' },
+          blockSnapshot: [],
+          canonicalSnapshot: snapshot,
+          reason: 'submit',
+          createdByUserId: GARETH,
+          integrityAlgorithm: 'sha256',
+          integrityDigest: digest,
+        }).onConflictDoNothing({ target: schema.revisions.id })
+      }
+    }
+
+    // --- Review submissions (8 submissions with various states) ---
+    const reviewerIds = people.map((_, i) => uuid(0x201 + i))
+    for (let i = 0; i < 8; i++) {
+      const subId = uuid(0x420 + i)
+      const revId = uuid(0x400 + i)
+      const recordId = experimentIds[i]
+      // 5 approved, 2 returned (changes requested), 1 submitted (pending)
+      const state = i < 5 ? 'approved' : i < 7 ? 'returned' : 'submitted'
+      const existing = await db.select({ id: schema.reviewSubmissions.id }).from(schema.reviewSubmissions).where(eq(schema.reviewSubmissions.id, subId)).limit(1)
+      if (existing.length === 0) {
+        await db.insert(schema.reviewSubmissions).values({
+          id: subId,
+          workspaceId: WORKSPACE,
+          recordId,
+          revisionId: revId,
+          state,
+          workflowDefinitionKey: 'default-scientific-review',
+          workflowDefinitionVersion: 1,
+          assignedReviewerUserIds: [reviewerIds[4]], // Anna Kowalski reviews
+          submittedByUserId: GARETH,
+          submittedSessionId: 'month-seed',
+          submittedRole: 'owner',
+          submittedAt: daysAgo(i * 3 + 1),
+          idempotencyKey: `month-review-${i + 1}`,
+        }).onConflictDoNothing({ target: schema.reviewSubmissions.id })
+      }
+
+      // Review decisions for approved and changes_requested
+      if (i < 7) {
+        const decId = uuid(0x440 + i)
+        const decision = i < 5 ? 'approve' : 'request_changes'
+        const existingDec = await db.select({ id: schema.reviewDecisions.id }).from(schema.reviewDecisions).where(eq(schema.reviewDecisions.id, decId)).limit(1)
+        if (existingDec.length === 0) {
+          const rev = await db.select({ integrityDigest: schema.revisions.integrityDigest }).from(schema.revisions).where(eq(schema.revisions.id, revId)).limit(1)
+          await db.insert(schema.reviewDecisions).values({
+            id: decId,
+            workspaceId: WORKSPACE,
+            submissionId: subId,
+            revisionId: revId,
+            recordId,
+            decision,
+            note: i < 5
+              ? 'Results meet acceptance criteria. Approved for release.'
+              : 'Please clarify the statistical method used for the replicate analysis.',
+            revisionIntegrityDigest: rev[0]?.integrityDigest ?? 'seed-digest',
+            actorUserId: reviewerIds[4],
+            actorSessionId: 'month-seed',
+            actorRole: 'reviewer',
+          }).onConflictDoNothing({ target: schema.reviewDecisions.id })
+        }
+      }
+
+      // Signatures for approved reviews
+      if (i < 5) {
+        const sigId = uuid(0x460 + i)
+        const existingSig = await db.select({ id: schema.signatures.id }).from(schema.signatures).where(eq(schema.signatures.id, sigId)).limit(1)
+        if (existingSig.length === 0) {
+          const rev = await db.select({ integrityDigest: schema.revisions.integrityDigest }).from(schema.revisions).where(eq(schema.revisions.id, revId)).limit(1)
+          await db.insert(schema.signatures).values({
+            id: sigId,
+            workspaceId: WORKSPACE,
+            submissionId: subId,
+            revisionId: revId,
+            recordId,
+            signatureMeaning: 'approve-for-record',
+            assuranceLevel: 'standard',
+            revisionIntegrityDigest: rev[0]?.integrityDigest ?? 'seed-digest',
+            signerUserId: reviewerIds[4],
+            signerSessionId: 'month-seed',
+            signerRole: 'reviewer',
+            authMethod: 'session+name-confirmation',
+            confirmationPhrase: 'I approve this revision for release',
+            signedAt: daysAgo(i * 3),
+          }).onConflictDoNothing({ target: schema.signatures.id })
+        }
+      }
+    }
+
+    // --- Comments on revisions ---
+    const commentBodies = [
+      'Can you add the raw fluorescence data to the appendix?',
+      'The acceptance criteria for this assay should be referenced explicitly.',
+      'Looks good — the trend is consistent with previous batches.',
+      'Please verify the calculation for sample dilution factor.',
+      'The CV between replicates is slightly above our usual threshold. Any explanation?',
+      'Approved. Well-documented experiment.',
+      'Consider adding a negative control for the next run.',
+      'The pH drift in run 3 is notable — worth investigating.',
+      'Good catch on the pipetting error. Documented correctly.',
+      'This aligns with the stability protocol. Proceeding to the next timepoint.',
+    ]
+    for (let i = 0; i < 10; i++) {
+      const commentId = uuid(0x480 + i)
+      const revId = uuid(0x400 + (i % 8))
+      const recordId = experimentIds[i % 8]
+      const existing = await db.select({ id: schema.comments.id }).from(schema.comments).where(eq(schema.comments.id, commentId)).limit(1)
+      if (existing.length === 0) {
+        await db.insert(schema.comments).values({
+          id: commentId,
+          workspaceId: WORKSPACE,
+          revisionId: revId,
+          recordId,
+          rootId: commentId,
+          parentId: null,
+          targetKind: 'block',
+          target: { blockId: uuid(0x500 + (i % 30) * 8) },
+          body: commentBodies[i],
+          mentions: i % 3 === 0 ? [people[0][1]] : [],
+          state: i < 7 ? 'resolved' : 'open',
+          resolvedAt: i < 7 ? daysAgo(i) : null,
+          resolvedByUserId: i < 7 ? reviewerIds[4] : null,
+          authorUserId: uuid(0x201 + (i % 5)),
+        }).onConflictDoNothing({ target: schema.comments.id })
+      }
+    }
+
+    // --- Reply comments (threaded) ---
+    const replies = [
+      'Good point — will add in the next revision.',
+      'Agreed, the reference is in section 2.1 of the protocol.',
+      'Thanks for the review. Updated accordingly.',
+    ]
+    for (let i = 0; i < 3; i++) {
+      const replyId = uuid(0x4a0 + i)
+      const parentId = uuid(0x480 + i)
+      const revId = uuid(0x400 + (i % 8))
+      const recordId = experimentIds[i % 8]
+      const existing = await db.select({ id: schema.comments.id }).from(schema.comments).where(eq(schema.comments.id, replyId)).limit(1)
+      if (existing.length === 0) {
+        await db.insert(schema.comments).values({
+          id: replyId,
+          workspaceId: WORKSPACE,
+          revisionId: revId,
+          recordId,
+          rootId: parentId,
+          parentId,
+          targetKind: 'block',
+          target: { blockId: uuid(0x500 + (i % 30) * 8) },
+          body: replies[i],
+          mentions: [],
+          state: 'resolved',
+          resolvedAt: daysAgo(i),
+          resolvedByUserId: GARETH,
+          authorUserId: GARETH,
+        }).onConflictDoNothing({ target: schema.comments.id })
+      }
+    }
+  } finally {
+    await auth.close()
+  }
+}
+
 export const monthSteps: Array<SeedStep> = [
   { name: 'month: people, projects, records, blocks and files', run: upsertCore },
   { name: 'month: calendar, planner and instrument operations', run: upsertOperations },
+  { name: 'month: reviews, comments, signatures and reports', run: upsertReviewsAndReports },
 ]

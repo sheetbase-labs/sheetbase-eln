@@ -1,9 +1,24 @@
 import { createServer } from 'node:http'
-import { readFileSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { createReadStream, readFileSync, statSync } from 'node:fs'
+import { dirname, extname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
+const clientDir = resolve(__dirname, '..', 'dist', 'client')
+
+const MIME = {
+  '.js': 'text/javascript',
+  '.css': 'text/css',
+  '.html': 'text/html',
+  '.json': 'application/json',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.ico': 'image/x-icon',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.map': 'application/json',
+}
 
 // Load .env and .env.local files for production server (vite dev loads
 // these automatically, but plain node doesn't).
@@ -27,9 +42,42 @@ const handler = serverModule.default
 const port = Number(process.env.PORT) || 3000
 const hostname = process.env.HOST || '0.0.0.0'
 
+// Serve hashed static assets from dist/client (CSS, JS chunks, fonts, etc.)
+// before falling through to the SSR handler. Prevents path traversal.
+function tryServeStatic(req, res, url) {
+  let pathname = url.pathname
+  // Only serve files under known static prefixes to avoid shadowing routes.
+  if (
+    !pathname.startsWith('/assets/') &&
+    !pathname.startsWith('/favicon') &&
+    !pathname.endsWith('.ico')
+  ) {
+    return false
+  }
+  const safePath = join(clientDir, pathname)
+  if (!safePath.startsWith(clientDir)) return false
+  let stats
+  try {
+    stats = statSync(safePath)
+  } catch {
+    return false
+  }
+  if (!stats.isFile()) return false
+  res.writeHead(200, {
+    'Content-Type': MIME[extname(safePath)] || 'application/octet-stream',
+    'Cache-Control': 'public, max-age=31536000, immutable',
+    'Content-Length': stats.size,
+  })
+  createReadStream(safePath).pipe(res)
+  return true
+}
+
 const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${hostname}:${port}`)
+
+    // Serve static client assets first.
+    if (tryServeStatic(req, res, url)) return
     const headers = new Headers()
     for (const [key, value] of Object.entries(req.headers)) {
       if (Array.isArray(value)) {

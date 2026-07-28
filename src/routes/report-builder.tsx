@@ -55,7 +55,7 @@ export const Route = createFileRoute('/report-builder')({
 const dataClient = createDataClient()
 const VIEW_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
 
-export function ReportBuilderRoute() {
+function ReportBuilderRoute() {
   const { context } = Route.useRouteContext()
   const queryClient = useQueryClient()
   const workspaceId = context.workspace?.id ?? ''

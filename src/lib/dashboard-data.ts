@@ -367,10 +367,17 @@ export async function fetchMyPendingReviews(
     : []
   const recordMap = new Map(records.map((r) => [r.id, r]))
 
-  const projectRows = await client.list<ProjectWire>(
-    'projects',
-    '?select=id,key,title',
-  )
+  // Fetch only projects referenced by the returned records instead of
+  // every project in the workspace.
+  const projectIds = [
+    ...new Set(records.map((r) => r.project_id).filter(Boolean)),
+  ]
+  const projectRows = projectIds.length
+    ? await client.list<ProjectWire>(
+        'projects',
+        `?id=in.(${projectIds.join(',')})&select=id,key,title`,
+      )
+    : []
   const projectMap = new Map(
     projectRows.map((p) => [p.id, { key: p.key, title: p.title }]),
   )

@@ -176,7 +176,7 @@ function errorMessage(error: unknown): string {
 
 type EditorMode = 'view' | 'create'
 
-export function SchemaManagementRoute() {
+function SchemaManagementRoute() {
   const { context } = Route.useRouteContext()
   const queryClient = useQueryClient()
 

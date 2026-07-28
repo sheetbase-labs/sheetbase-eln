@@ -197,14 +197,12 @@ export function useLiveChartDataset(spec: ChartSpec | null | undefined) {
     queryKey: chartQueryKeys.dataset(tableId),
     queryFn: () => resolveChartDataset(scientificDataClient, spec),
     enabled: Boolean(tableId),
-    staleTime: 0,
   })
   const calcQuery = useQuery({
     queryKey: chartQueryKeys.calcResults(tableId),
     queryFn: () =>
       fetchScientificCalculationResults(scientificDataClient, tableId),
     enabled: Boolean(tableId),
-    staleTime: 0,
   })
   return { datasetQuery, calcQuery }
 }

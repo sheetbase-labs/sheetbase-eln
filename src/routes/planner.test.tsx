@@ -6,17 +6,21 @@ import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { PlannerRoute } from './planner'
+import { Route } from './planner'
+
+const PlannerRoute = Route.options.component as React.ComponentType
 
 vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => () => ({
-    useRouteContext: () => ({
-      context: {
-        workspace: { id: 'workspace-1', name: 'Test workspace', role: 'owner' },
-        user: { name: 'Test User', email: 'test@example.com' },
-      },
+  createFileRoute: () =>
+    (config: Record<string, unknown>) => ({
+      useRouteContext: () => ({
+        context: {
+          workspace: { id: 'workspace-1', name: 'Test workspace', role: 'owner' },
+          user: { name: 'Test User', email: 'test@example.com' },
+        },
+      }),
+      options: config,
     }),
-  }),
   redirect: (options: unknown) => options,
   Link: ({
     to,

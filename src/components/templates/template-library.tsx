@@ -35,7 +35,7 @@ import {
   Star,
 } from 'lucide-react'
 
-import { BlockPreview } from '#/components/notebook'
+import { BlockPreview } from '#/components/notebook/block-preview'
 import {
   CheckList,
   EmptyHint,

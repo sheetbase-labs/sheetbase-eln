@@ -54,7 +54,7 @@ export const Route = createFileRoute('/instrument-monitor')({
 const dataClient = createDataClient()
 const VIEW_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
 
-export function InstrumentMonitorRoute() {
+function InstrumentMonitorRoute() {
   const { context } = Route.useRouteContext()
   const queryClient = useQueryClient()
   const workspaceId = context.workspace?.id ?? ''

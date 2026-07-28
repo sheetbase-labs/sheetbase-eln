@@ -21,7 +21,7 @@ import {
   statusVocabularies,
 } from '#/components/scientific'
 import type { StatusDomain } from '#/components/scientific'
-import { NotebookBlock } from '#/components/notebook'
+import { NotebookBlock } from '#/components/notebook/notebook-block'
 import { ChartFrame, PlateMap } from '#/components/viz'
 import type { PlateWell } from '#/components/viz'
 import { AuditTrail, ApprovalStepper } from '#/components/audit'

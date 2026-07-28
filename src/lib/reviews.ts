@@ -265,7 +265,10 @@ export async function fetchReviewSubmissions(
 ): Promise<ReviewSubmissionWire[]> {
   return client.list<ReviewSubmissionWire>(
     'review_submissions',
-    `?select=id,workspace_id,record_id,revision_id,state,workflow_definition_key,workflow_definition_version,assigned_reviewer_user_ids,submitted_by_user_id,submitted_session_id,submitted_role,submitted_at,idempotency_key,created_at,updated_at&order=submitted_at.desc&limit=${REVIEW_FETCH_LIMIT}`,
+    // Select only fields consumed by toReviewItem and the dashboard
+    // pending-review filter. Omit workspace_id, submitted_session_id,
+    // submitted_role, and idempotency_key to reduce payload size.
+    `?select=id,record_id,revision_id,state,workflow_definition_key,workflow_definition_version,assigned_reviewer_user_ids,submitted_by_user_id,submitted_at,created_at,updated_at&order=submitted_at.desc&limit=${REVIEW_FETCH_LIMIT}`,
   )
 }
 

@@ -15,6 +15,32 @@ const config = defineConfig({
     // portal URL can reach Vite without a "Blocked request" error.
     allowedHosts: ['.onamp.dev', '.e2b.app', '.sheetbase.co.uk'],
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Split heavy vendor libraries into separate cacheable chunks.
+        // These are loaded lazily by the routes that need them, but
+        // without manualChunks the bundler may merge them into the
+        // main entry when a non-code-split route transitively imports
+        // them. Explicit chunks keep each vendor lib in its own file
+        // so it can be cached independently and loaded on demand.
+        manualChunks(id) {
+          if (id.includes('/node_modules/')) {
+            if (id.includes('@tiptap/') || id.includes('prosemirror')) {
+              return 'tiptap'
+            }
+            if (
+              id.includes('@xyflow/') ||
+              id.includes('@dagrejs/') ||
+              id.includes('dagre')
+            ) {
+              return 'reactflow'
+            }
+          }
+        },
+      },
+    },
+  },
 })
 
 export default config

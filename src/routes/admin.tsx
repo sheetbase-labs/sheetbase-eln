@@ -65,7 +65,7 @@ export const Route = createFileRoute('/admin')({
 
 const dataClient = createDataClient()
 
-export function AdminRoute() {
+function AdminRoute() {
   const { context } = Route.useRouteContext()
   const queryClient = useQueryClient()
   const workspaceId = context.workspace?.id ?? ''

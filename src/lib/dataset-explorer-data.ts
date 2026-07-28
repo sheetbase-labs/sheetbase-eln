@@ -35,10 +35,7 @@ import type {
   DatasetSchemaRelationshipWire,
   DatasetSchemaWire,
 } from './dataset-schema-data'
-import {
-  fetchDatasetSchemaFields,
-  fetchDatasetSchemaRelationships,
-} from './dataset-schema-data'
+import { fetchDatasetSchemaFields } from './dataset-schema-data'
 import { CHART_SPEC_VERSION } from './chart-spec'
 import type { ChartSpec } from './chart-spec'
 
@@ -179,11 +176,15 @@ export async function fetchDatasetSchemaDetail(
 ): Promise<DatasetSchemaDetail> {
   const schemaId = table.dataset_schema_id ?? null
   if (!schemaId) return { schema: null, fields: [] }
-  const fields = await fetchDatasetSchemaFields(client, schemaId)
-  const schemas = await client.list<DatasetSchemaWire>(
-    'dataset_schemas',
-    `?id=eq.${encodeURIComponent(schemaId)}&limit=1`,
-  )
+  // Fields and schema are independent — fetch in parallel to avoid
+  // a sequential waterfall that adds a full round-trip of latency.
+  const [fields, schemas] = await Promise.all([
+    fetchDatasetSchemaFields(client, schemaId),
+    client.list<DatasetSchemaWire>(
+      'dataset_schemas',
+      `?id=eq.${encodeURIComponent(schemaId)}&limit=1`,
+    ),
+  ])
   return { schema: schemas[0] ?? null, fields }
 }
 
@@ -192,10 +193,13 @@ export async function fetchDatasetRelationshipsFor(
   client: DataClient,
   schemaId: string | null,
 ): Promise<DatasetSchemaRelationshipWire[]> {
-  const all = await fetchDatasetSchemaRelationships(client)
   if (!schemaId) return []
-  return all.filter(
-    (r) => r.source_schema_id === schemaId || r.target_schema_id === schemaId,
+  // Filter server-side via PostgREST `or` so we transfer only the
+  // relationships that touch this schema, not the entire workspace set.
+  const filter = `or=(source_schema_id.eq.${encodeURIComponent(schemaId)},target_schema_id.eq.${encodeURIComponent(schemaId)})`
+  return client.list<DatasetSchemaRelationshipWire>(
+    'dataset_schema_relationships',
+    `?lifecycle=eq.active&${filter}&order=created_at.asc`,
   )
 }
 

@@ -72,7 +72,7 @@ const initialConfig: AutoFillConfig = {
   controls: DEFAULT_CONTROLS,
 }
 
-export function PlateDesignerRoute() {
+function PlateDesignerRoute() {
   const { context } = Route.useRouteContext()
   const queryClient = useQueryClient()
   const workspaceId = context.workspace?.id ?? ''

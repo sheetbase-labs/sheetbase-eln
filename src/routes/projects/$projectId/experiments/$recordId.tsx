@@ -19,8 +19,8 @@ import {
 import { useEffect, useRef, useState } from 'react'
 
 import { AppShell } from '#/components/app-shell'
-import { NotebookDocument } from '#/components/notebook'
-import type { SaveResult } from '#/components/notebook'
+import { NotebookDocument } from '#/components/notebook/notebook-document'
+import type { SaveResult } from '#/components/notebook/use-autosave'
 import { useLiveStatus } from '#/components/live/live-event-provider'
 import {
   ActivityFeed,

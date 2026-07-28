@@ -67,7 +67,7 @@ export const Route = createFileRoute('/planner')({
 const dataClient = createDataClient()
 const VIEW_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
 
-export function PlannerRoute() {
+function PlannerRoute() {
   const { context } = Route.useRouteContext()
   const queryClient = useQueryClient()
   const workspaceId = context.workspace?.id ?? ''

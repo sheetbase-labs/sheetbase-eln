@@ -17,7 +17,6 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { createServerFn } from '@tanstack/react-start'
 import { useEffect, useMemo, useState } from 'react'
 import {
   flexRender,
@@ -112,21 +111,9 @@ import type { ChartSpec, ChartType } from '#/lib/chart-spec'
 import { CHART_TYPES } from '#/lib/chart-spec'
 import { cn } from '#/lib/utils'
 
-// ---------------------------------------------------------------------------
-// Auth context (same pattern as /schemas, /search).
-// ---------------------------------------------------------------------------
-
-const getDatasetContext = createServerFn({ method: 'GET' }).handler(
-  async () => {
-    const { getRequestHeaders } = await import('@tanstack/react-start/server')
-    const { getCurrentContext } = await import('#/lib/current-user')
-    return getCurrentContext(getRequestHeaders())
-  },
-)
-
 export const Route = createFileRoute('/datasets')({
-  beforeLoad: async () => {
-    const context = await getDatasetContext()
+  beforeLoad: async ({ context: rootContext }) => {
+    const context = rootContext.auth
     if (!context) throw redirect({ to: '/sign-in' })
     return { context }
   },

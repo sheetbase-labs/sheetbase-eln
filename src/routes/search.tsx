@@ -28,7 +28,6 @@ import {
   redirect,
   useNavigate,
 } from '@tanstack/react-router'
-import { createServerFn } from '@tanstack/react-start'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertCircle,
@@ -94,24 +93,14 @@ import type {
   SearchUrlParams,
 } from '#/lib/search'
 
-// ---------------------------------------------------------------------------
-// Auth context (same pattern as /templates).
-// ---------------------------------------------------------------------------
-
-const getSearchContext = createServerFn({ method: 'GET' }).handler(async () => {
-  const { getRequestHeaders } = await import('@tanstack/react-start/server')
-  const { getCurrentContext } = await import('#/lib/current-user')
-  return getCurrentContext(getRequestHeaders())
-})
-
 export const Route = createFileRoute('/search')({
   // SEARCH-001: filter and query state lives in the URL so searches are
   // shareable. Only public filter dimensions are stored — no tokens, session
   // IDs, or secrets. Project/record IDs are already part of the public URL
   // space (project deep links use them).
   validateSearch: (search: Record<string, unknown>) => parseSearchUrl(search),
-  beforeLoad: async () => {
-    const context = await getSearchContext()
+  beforeLoad: async ({ context: rootContext }) => {
+    const context = rootContext.auth
     if (!context) {
       throw redirect({ to: '/sign-in' })
     }

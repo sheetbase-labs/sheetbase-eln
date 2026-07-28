@@ -77,23 +77,17 @@ import type { ReviewItem } from '#/lib/reviews'
 import { cn } from '#/lib/utils'
 
 export const Route = createFileRoute('/')({
-  beforeLoad: async () => {
-    const context = await getCurrentContextFn()
-    if (!context) {
+  beforeLoad: async ({ context }) => {
+    // Auth context is fetched once at the root route — read it from there
+    // instead of making a separate server round-trip.
+    const contextValue = context.auth
+    if (!contextValue) {
       throw redirect({ to: '/sign-in' })
     }
-    return { context }
+    return { context: contextValue }
   },
   component: Home,
 })
-
-const getCurrentContextFn = createServerFn({ method: 'GET' }).handler(
-  async () => {
-    const { getRequestHeaders } = await import('@tanstack/react-start/server')
-    const { getCurrentContext } = await import('#/lib/current-user')
-    return getCurrentContext(getRequestHeaders())
-  },
-)
 
 const retryBootstrapFn = createServerFn({ method: 'POST' }).handler(
   async () => {

@@ -24,7 +24,6 @@ import {
   useParams,
   useSearch,
 } from '@tanstack/react-router'
-import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -140,18 +139,6 @@ import {
 import { cn } from '#/lib/utils'
 
 // ---------------------------------------------------------------------------
-// Auth context (same pattern as /reviews, /templates, /search).
-// ---------------------------------------------------------------------------
-
-const getReviewWorkspaceContext = createServerFn({ method: 'GET' }).handler(
-  async () => {
-    const { getRequestHeaders } = await import('@tanstack/react-start/server')
-    const { getCurrentContext } = await import('#/lib/current-user')
-    return getCurrentContext(getRequestHeaders())
-  },
-)
-
-// ---------------------------------------------------------------------------
 // Deep-linkable search state. `tab` keeps the active panel shareable; the
 // comparison revision id lets a reviewer link to a specific before/after
 // diff view.
@@ -166,8 +153,8 @@ type WorkspaceSearch = z.infer<typeof workspaceSearchSchema>
 
 export const Route = createFileRoute('/reviews/$revisionId')({
   validateSearch: workspaceSearchSchema,
-  beforeLoad: async () => {
-    const context = await getReviewWorkspaceContext()
+  beforeLoad: async ({ context: rootContext }) => {
+    const context = rootContext.auth
     if (!context) {
       throw redirect({ to: '/sign-in' })
     }

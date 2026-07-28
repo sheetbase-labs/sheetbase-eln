@@ -12,7 +12,6 @@ import {
   redirect,
   useRouterState,
 } from '@tanstack/react-router'
-import { createServerFn } from '@tanstack/react-start'
 import { FolderPlus, Search, SlidersHorizontal } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
@@ -90,19 +89,9 @@ function toProject(row: ProjectWire): Project {
   }
 }
 
-// Route guard: redirect unauthenticated users to sign-in. Reuses the
-// existing getCurrentContext pattern so the guard is consistent with /.
-const getProjectContext = createServerFn({ method: 'GET' }).handler(
-  async () => {
-    const { getRequestHeaders } = await import('@tanstack/react-start/server')
-    const { getCurrentContext } = await import('#/lib/current-user')
-    return getCurrentContext(getRequestHeaders())
-  },
-)
-
 export const Route = createFileRoute('/projects')({
-  beforeLoad: async () => {
-    const context = await getProjectContext()
+  beforeLoad: async ({ context: rootContext }) => {
+    const context = rootContext.auth
     if (!context) {
       throw redirect({ to: '/sign-in' })
     }

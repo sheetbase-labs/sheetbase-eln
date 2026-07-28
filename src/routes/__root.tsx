@@ -10,16 +10,32 @@ import { TanStackDevtools } from '@tanstack/react-devtools'
 import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
 import { LiveEventProvider } from '../components/live'
 import { ShellProvider } from '../components/app-shell'
+import { createServerFn } from '@tanstack/react-start'
 
 import appCss from '../styles.css?url'
 
 import { ThemeProvider } from '../components/theme-provider'
 
 import type { QueryClient } from '@tanstack/react-query'
+import type { CurrentContext } from '#/lib/current-user'
 
 interface RouterContext {
   queryClient: QueryClient
+  auth: CurrentContext | null
 }
+
+// Fetch auth context once at the root so every child route can read it
+// from the router context without each making its own server round-trip.
+// The dynamic imports inside the handler are server-only — TanStack
+// Start's import protection allows them because the handler never runs
+// in the client bundle.
+const getAuthContextFn = createServerFn({ method: 'GET' }).handler(
+  async () => {
+    const { getRequestHeaders } = await import('@tanstack/react-start/server')
+    const { getCurrentContext } = await import('#/lib/current-user')
+    return getCurrentContext(getRequestHeaders())
+  },
+)
 
 export const Route = createRootRouteWithContext<RouterContext>()({
   head: () => ({
@@ -53,6 +69,10 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   // stream returns 401; no false `live` state.
   component: RootRouteComponent,
   shellComponent: RootDocument,
+  beforeLoad: async () => {
+    const auth = await getAuthContextFn()
+    return { auth }
+  },
 })
 
 /**

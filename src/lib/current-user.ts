@@ -1,12 +1,11 @@
 /**
- * Server-side accessors for the current signed-in context. Used by route
- * loaders; never import into client-only modules.
+ * Server-side accessors for the signed-in context. Used by route loaders;
+ * never import into client-only modules.
  */
-import { drizzle } from 'drizzle-orm/node-postgres'
 import { eq } from 'drizzle-orm'
 
+import { db } from '#/db/client.server'
 import * as schema from '#/db/schema'
-import { env } from '#/env.server'
 import { auth } from '#/lib/auth'
 
 export interface CurrentContext {
@@ -21,7 +20,6 @@ export async function getCurrentContext(
   const session = await auth.api.getSession({ headers })
   if (!session) return null
 
-  const db = drizzle(env.DATABASE_URL, { schema })
   const membership = await db.query.workspaceMemberships.findFirst({
     where: eq(schema.workspaceMemberships.userId, session.user.id),
     with: { workspace: true },

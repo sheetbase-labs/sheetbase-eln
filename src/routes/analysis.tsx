@@ -18,7 +18,6 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { createServerFn } from '@tanstack/react-start'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   BarChart3,
@@ -94,21 +93,9 @@ import type { ScientificTableWire } from '#/lib/scientific-sheet-data'
 import { formatCount } from '#/lib/format-numbers'
 import { cn } from '#/lib/utils'
 
-// ---------------------------------------------------------------------------
-// Auth context (same pattern as /datasets, /schemas).
-// ---------------------------------------------------------------------------
-
-const getAnalysisContext = createServerFn({ method: 'GET' }).handler(
-  async () => {
-    const { getRequestHeaders } = await import('@tanstack/react-start/server')
-    const { getCurrentContext } = await import('#/lib/current-user')
-    return getCurrentContext(getRequestHeaders())
-  },
-)
-
 export const Route = createFileRoute('/analysis')({
-  beforeLoad: async () => {
-    const context = await getAnalysisContext()
+  beforeLoad: async ({ context: rootContext }) => {
+    const context = rootContext.auth
     if (!context) throw redirect({ to: '/sign-in' })
     return { context }
   },

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { createServerFn } from '@tanstack/react-start'
 import { Archive, Plus } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
@@ -43,17 +42,9 @@ import {
 } from '#/lib/plate-map'
 import type { AssignmentRole } from '#/lib/plate-map'
 
-const getPlateDesignerContext = createServerFn({ method: 'GET' }).handler(
-  async () => {
-    const { getRequestHeaders } = await import('@tanstack/react-start/server')
-    const { getCurrentContext } = await import('#/lib/current-user')
-    return getCurrentContext(getRequestHeaders())
-  },
-)
-
 export const Route = createFileRoute('/plate-designer')({
-  beforeLoad: async () => {
-    const context = await getPlateDesignerContext()
+  beforeLoad: async ({ context: rootContext }) => {
+    const context = rootContext.auth
     if (!context) throw redirect({ to: '/sign-in' })
     return { context }
   },

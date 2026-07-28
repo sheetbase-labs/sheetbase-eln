@@ -23,7 +23,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createColumnHelper } from '@tanstack/react-table'
 import type { ColumnDef } from '@tanstack/react-table'
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
-import { createServerFn } from '@tanstack/react-start'
 import { useState } from 'react'
 import { Archive, ShieldAlert, TriangleAlert } from 'lucide-react'
 
@@ -101,8 +100,8 @@ export const Route = createFileRoute('/reagents')({
     q: typeof search.q === 'string' ? search.q : '',
     selected: typeof search.selected === 'string' ? search.selected : '',
   }),
-  beforeLoad: async () => {
-    const context = await getReagentContext()
+  beforeLoad: async ({ context: rootContext }) => {
+    const context = rootContext.auth
     if (!context) {
       throw redirect({ to: '/sign-in' })
     }
@@ -110,14 +109,6 @@ export const Route = createFileRoute('/reagents')({
   },
   component: ReagentsRegistryRoute,
 })
-
-const getReagentContext = createServerFn({ method: 'GET' }).handler(
-  async () => {
-    const { getRequestHeaders } = await import('@tanstack/react-start/server')
-    const { getCurrentContext } = await import('#/lib/current-user')
-    return getCurrentContext(getRequestHeaders())
-  },
-)
 
 // Shared data client for the registry. Stateless; the proxy stamps the
 // session cookie per request.

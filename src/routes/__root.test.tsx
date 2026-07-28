@@ -40,6 +40,24 @@ vi.mock('#/lib/client-identity', () => ({
   getOrCreateClientId: () => 'test-client-id',
 }))
 
+// Mock @tanstack/react-start so createServerFn doesn't require the
+// server runtime (AsyncLocalStorage) during unit tests.
+vi.mock('@tanstack/react-start', () => ({
+  createServerFn: () => ({
+    handler: (fn: () => unknown) => fn,
+  }),
+}))
+
+// Mock the server-only auth context so beforeLoad doesn't hit env vars
+// or database connections during the unit test.
+vi.mock('#/lib/current-user', () => ({
+  getCurrentContext: () => null,
+}))
+
+vi.mock('@tanstack/react-start/server', () => ({
+  getRequestHeaders: () => new Headers(),
+}))
+
 afterEach(() => {
   vi.restoreAllMocks()
 })
@@ -51,11 +69,9 @@ function buildRouter() {
     component: () => <p data-testid="child-marker">child-content</p>,
   })
 
-  // `RootRoute` is a `RootRouteWithContext<{ queryClient }>`; supply the
-  // context the real router does.
   const router = createRouter({
     routeTree: (RootRoute as any).addChildren([child]),
-    context: { queryClient: new QueryClient() },
+    context: { queryClient: new QueryClient(), auth: null },
     history: createMemoryHistory({ initialEntries: ['/'] }),
   })
 

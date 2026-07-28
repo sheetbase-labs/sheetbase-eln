@@ -11,7 +11,6 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { createServerFn } from '@tanstack/react-start'
 import { useMemo, useState } from 'react'
 import { PackagePlus } from 'lucide-react'
 
@@ -59,15 +58,9 @@ import type { SampleRecord } from '#/lib/samples'
 import { DEFAULT_REGISTRY_QUERY } from '#/lib/registry'
 import type { RegistryQuery } from '#/lib/registry'
 
-const getSampleContext = createServerFn({ method: 'GET' }).handler(async () => {
-  const { getRequestHeaders } = await import('@tanstack/react-start/server')
-  const { getCurrentContext } = await import('#/lib/current-user')
-  return getCurrentContext(getRequestHeaders())
-})
-
 export const Route = createFileRoute('/samples')({
-  beforeLoad: async () => {
-    const context = await getSampleContext()
+  beforeLoad: async ({ context: rootContext }) => {
+    const context = rootContext.auth
     if (!context) {
       throw redirect({ to: '/sign-in' })
     }

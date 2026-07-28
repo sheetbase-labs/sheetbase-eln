@@ -24,7 +24,6 @@ import {
   useNavigate,
   useSearch,
 } from '@tanstack/react-router'
-import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { useMemo } from 'react'
 import type { ComponentProps, ReactNode } from 'react'
@@ -77,18 +76,6 @@ import type { RegistryQuery, RegistryFilterValue } from '#/lib/registry'
 import { cn } from '#/lib/utils'
 
 // ---------------------------------------------------------------------------
-// Auth context (same pattern as /templates, /search).
-// ---------------------------------------------------------------------------
-
-const getReviewsContext = createServerFn({ method: 'GET' }).handler(
-  async () => {
-    const { getRequestHeaders } = await import('@tanstack/react-start/server')
-    const { getCurrentContext } = await import('#/lib/current-user')
-    return getCurrentContext(getRequestHeaders())
-  },
-)
-
-// ---------------------------------------------------------------------------
 // Deep-linkable search state. The URL is the single source of truth for
 // selection, filters, sort and page; `pageSize` is a personal preference and
 // is deep-linked too so a shared link reproduces the density the sender saw.
@@ -111,8 +98,8 @@ type ReviewsSearch = z.infer<typeof reviewsSearchSchema>
 
 export const Route = createFileRoute('/reviews')({
   validateSearch: reviewsSearchSchema,
-  beforeLoad: async () => {
-    const context = await getReviewsContext()
+  beforeLoad: async ({ context: rootContext }) => {
+    const context = rootContext.auth
     if (!context) {
       throw redirect({ to: '/sign-in' })
     }

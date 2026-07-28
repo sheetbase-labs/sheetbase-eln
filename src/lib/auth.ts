@@ -5,18 +5,15 @@
  */
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import { drizzle } from 'drizzle-orm/node-postgres'
 
-import * as schema from '#/db/schema'
+import { db } from '#/db/client.server'
 import { account, session, user, verification } from '#/db/schema'
 import { env } from '#/env.server'
 import { bootstrapWorkspaceForUser } from '#/lib/bootstrap'
 
 const authSchema = { user, session, account, verification }
 
-export function createAuth(databaseUrl: string) {
-  const db = drizzle(databaseUrl, { schema })
-
+export function createAuth(_databaseUrl: string) {
   const socialProviders =
     env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET
       ? {

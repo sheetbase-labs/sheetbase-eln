@@ -1013,12 +1013,12 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** SCI-005, REG-002.
 
-- [ ] Add assignment tools, replicate patterns, fill direction, grouping, randomisation and auto-fill.
-- [ ] Keep automatic layouts previewable and reversible before saving.
-- [ ] Validate controls, replicates, concentrations, volumes and instrument constraints.
-- [ ] Show selected-well details, linked records, notes, validation and history in the inspector.
-- [ ] Import sample assignments from CSV with mapping and validation preview.
-- [ ] Test deterministic randomisation seeds, undo, validation and concurrent edits.
+- [x] Add assignment tools, replicate patterns, fill direction, grouping, randomisation and auto-fill.
+- [x] Keep automatic layouts previewable and reversible before saving.
+- [x] Validate controls, replicates, concentrations, volumes and instrument constraints.
+- [x] Show selected-well details, linked records, notes, validation and history in the inspector.
+- [x] Import sample assignments from CSV with mapping and validation preview.
+- [x] Test deterministic randomisation seeds, undo, validation and concurrent edits.
 
 ### OPS-004 — Deliver Lab Calendar
 

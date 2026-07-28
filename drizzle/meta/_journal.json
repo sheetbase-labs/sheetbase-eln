@@ -344,6 +344,13 @@
       "when": 1785124800000,
       "tag": "0048_ops_002_freezer_storage_map",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1785128400000,
+      "tag": "0049_ops_003_plate_designer",
+      "breakpoints": true
     }
   ]
 }

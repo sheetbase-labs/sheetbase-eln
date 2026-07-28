@@ -2877,3 +2877,211 @@ export const analysisViewsRelations = relations(analysisViews, ({ one }) => ({
     references: [user.id],
   }),
 }))
+
+// OPS-003: Plate Designer — standalone plate designs, well assignments, and
+// reusable layout templates. The Plate Designer UI performs auto-fill,
+// randomisation, replicate patterning and CSV import in local state with an
+// undo stack, then persists the final layout through the save_plate_design
+// RPC (migration 0049). RLS is the access-control boundary; the controlled
+// RPCs are the only writers for plate_wells and the only path to bump
+// metadata_version, so concurrent saves are rejected with SB001.
+export const plateDesigns = api.table(
+  'plate_designs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    projectId: uuid('project_id').references(() => projects.id, {
+      onDelete: 'set null',
+    }),
+    name: text('name').notNull(),
+    format: text('format').notNull().default('96_well'),
+    rows: integer('rows').notNull(),
+    cols: integer('cols').notNull(),
+    validation: jsonb('validation')
+      .notNull()
+      .default(sql`'{}'`),
+    status: text('status').notNull().default('draft'),
+    metadataVersion: integer('metadata_version').notNull().default(1),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    check(
+      'chk_plate_designs_name',
+      sql`length(btrim(${table.name})) BETWEEN 1 AND 200`,
+    ),
+    check('chk_plate_designs_format', sql`${table.format} IN ('96_well')`),
+    check(
+      'chk_plate_designs_rows',
+      sql`${table.rows} > 0 AND ${table.rows} <= 26`,
+    ),
+    check(
+      'chk_plate_designs_cols',
+      sql`${table.cols} > 0 AND ${table.cols} <= 26`,
+    ),
+    check(
+      'chk_plate_designs_status',
+      sql`${table.status} IN ('draft','finalized','archived')`,
+    ),
+    check('chk_plate_designs_version', sql`${table.metadataVersion} > 0`),
+    index('idx_plate_designs_workspace').on(table.workspaceId),
+    index('idx_plate_designs_project').on(table.projectId),
+    index('idx_plate_designs_workspace_status').on(
+      table.workspaceId,
+      table.status,
+    ),
+  ],
+)
+
+export const plateWells = api.table(
+  'plate_wells',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    designId: uuid('design_id')
+      .notNull()
+      .references(() => plateDesigns.id, { onDelete: 'cascade' }),
+    wellCode: text('well_code').notNull(),
+    rowIndex: integer('row_index').notNull(),
+    colIndex: integer('col_index').notNull(),
+    role: text('role').notNull(),
+    sampleRecordId: uuid('sample_record_id').references(() => records.id, {
+      onDelete: 'set null',
+    }),
+    sampleIdentifier: text('sample_identifier'),
+    sampleTitle: text('sample_title'),
+    replicate: integer('replicate'),
+    volumeValue: numeric('volume_value'),
+    volumeUnit: text('volume_unit'),
+    concentrationValue: numeric('concentration_value'),
+    concentrationUnit: text('concentration_unit'),
+    notes: text('notes'),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex('uq_plate_wells_design_well').on(
+      table.designId,
+      table.wellCode,
+    ),
+    check(
+      'chk_plate_wells_role',
+      sql`${table.role} IN ('sample','positive_control','negative_control','blank','empty')`,
+    ),
+    check('chk_plate_wells_row', sql`${table.rowIndex} >= 0`),
+    check('chk_plate_wells_col', sql`${table.colIndex} >= 0`),
+    check(
+      'chk_plate_wells_replicate',
+      sql`${table.replicate} IS NULL OR ${table.replicate} > 0`,
+    ),
+    check(
+      'chk_plate_wells_volume',
+      sql`${table.volumeValue} IS NULL OR ${table.volumeValue} > 0`,
+    ),
+    check(
+      'chk_plate_wells_concentration',
+      sql`${table.concentrationValue} IS NULL OR ${table.concentrationValue} >= 0`,
+    ),
+    index('idx_plate_wells_workspace').on(table.workspaceId),
+    index('idx_plate_wells_design').on(
+      table.designId,
+      table.rowIndex,
+      table.colIndex,
+    ),
+  ],
+)
+
+export const plateLayoutTemplates = api.table(
+  'plate_layout_templates',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    description: text('description'),
+    format: text('format').notNull().default('96_well'),
+    rows: integer('rows').notNull(),
+    cols: integer('cols').notNull(),
+    layout: jsonb('layout')
+      .notNull()
+      .default(sql`'{}'`),
+    status: text('status').notNull().default('active'),
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      'chk_plate_layout_templates_name',
+      sql`length(btrim(${table.name})) BETWEEN 1 AND 200`,
+    ),
+    check(
+      'chk_plate_layout_templates_format',
+      sql`${table.format} IN ('96_well')`,
+    ),
+    check(
+      'chk_plate_layout_templates_rows',
+      sql`${table.rows} > 0 AND ${table.rows} <= 26`,
+    ),
+    check(
+      'chk_plate_layout_templates_cols',
+      sql`${table.cols} > 0 AND ${table.cols} <= 26`,
+    ),
+    check(
+      'chk_plate_layout_templates_status',
+      sql`${table.status} IN ('active','archived')`,
+    ),
+    index('idx_plate_layout_templates_workspace').on(table.workspaceId),
+  ],
+)
+
+export const plateDesignsRelations = relations(
+  plateDesigns,
+  ({ one, many }) => ({
+    workspace: one(workspaces, {
+      fields: [plateDesigns.workspaceId],
+      references: [workspaces.id],
+    }),
+    project: one(projects, {
+      fields: [plateDesigns.projectId],
+      references: [projects.id],
+    }),
+    wells: many(plateWells),
+  }),
+)
+
+export const plateWellsRelations = relations(plateWells, ({ one }) => ({
+  workspace: one(workspaces, {
+    fields: [plateWells.workspaceId],
+    references: [workspaces.id],
+  }),
+  design: one(plateDesigns, {
+    fields: [plateWells.designId],
+    references: [plateDesigns.id],
+  }),
+  sampleRecord: one(records, {
+    fields: [plateWells.sampleRecordId],
+    references: [records.id],
+    relationName: 'plate_well_sample',
+  }),
+}))
+
+export const plateLayoutTemplatesRelations = relations(
+  plateLayoutTemplates,
+  ({ one }) => ({
+    workspace: one(workspaces, {
+      fields: [plateLayoutTemplates.workspaceId],
+      references: [workspaces.id],
+    }),
+  }),
+)

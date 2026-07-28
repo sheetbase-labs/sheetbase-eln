@@ -1,6 +1,5 @@
 import {
   useMutation,
-  useQueries,
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query'
@@ -34,7 +33,7 @@ import { StatusBadge } from '#/components/scientific'
 import { DataClientError } from '#/lib/data-client'
 import {
   fetchBlocksForRecord,
-  fetchFileObjectByRecordId,
+  fetchFileObjectsByRecordIds,
   fetchLinksForRecord,
   fetchProject,
   fetchRecord,
@@ -495,48 +494,45 @@ function OverviewInspector({
 }
 
 function InspectorFileList({ blocks }: { blocks: NotebookBlock[] }) {
-  const fileQueries = useQueriesFileObjects(blocks)
-  if (fileQueries.some((q) => q.isLoading)) {
+  const fileMap = useFileObjectsMap(blocks)
+  if (fileMap.isLoading) {
     return <EmptyHint>Loading files…</EmptyHint>
   }
-  const items = fileQueries.map((q, i) => {
-    const block = blocks[i]
+  const items = blocks.map((block) => {
     const payload = block.payload
     const displayName =
-      q.data?.displayName ??
-      (typeof payload.displayName === 'string' ? payload.displayName : 'File')
+      payload &&
+      typeof payload.displayName === 'string'
+        ? payload.displayName
+        : 'File'
     const mediaType =
-      q.data?.mediaType ??
-      (typeof payload.mediaType === 'string' ? payload.mediaType : '')
+      payload && typeof payload.mediaType === 'string' ? payload.mediaType : ''
     const byteSize =
-      q.data?.byteSize ??
-      (typeof payload.byteSize === 'number' ? payload.byteSize : 0)
+      payload && typeof payload.byteSize === 'number' ? payload.byteSize : 0
     const fileRecordId =
-      typeof payload.fileRecordId === 'string' ? payload.fileRecordId : ''
+      payload && typeof payload.fileRecordId === 'string'
+        ? payload.fileRecordId
+        : ''
+    const fileObj = fileRecordId ? fileMap.data?.get(fileRecordId) : undefined
     return {
       id: block.id,
-      name: displayName,
-      meta: `${mediaType || 'unknown'} · ${formatBytes(byteSize)}`,
+      name: fileObj?.displayName ?? displayName,
+      meta: `${(fileObj?.mediaType ?? mediaType) || 'unknown'} · ${formatBytes(fileObj?.byteSize ?? byteSize)}`,
       href: fileRecordId ? `/api/files/${fileRecordId}/download` : undefined,
     }
   })
   return <FileList items={items} />
 }
 
-function useQueriesFileObjects(blocks: NotebookBlock[]) {
-  return useQueries({
-    queries: blocks.map((block) => {
-      const payload = block.payload
-      const fileRecordId =
-        typeof payload.fileRecordId === 'string' ? payload.fileRecordId : ''
-      return {
-        queryKey: notebookQueryKeys.fileObject(fileRecordId || 'unresolved'),
-        queryFn: () =>
-          fetchFileObjectByRecordId(notebookDataClient, fileRecordId),
-        enabled: Boolean(fileRecordId),
-        staleTime: 0,
-      }
-    }),
+function useFileObjectsMap(blocks: NotebookBlock[]) {
+  const fileRecordIds = blocks
+    .map((b) => b.payload.fileRecordId)
+    .filter((id): id is string => typeof id === 'string' && id.length > 0)
+  return useQuery({
+    queryKey: notebookQueryKeys.fileObjects(fileRecordIds),
+    queryFn: () =>
+      fetchFileObjectsByRecordIds(notebookDataClient, fileRecordIds),
+    enabled: fileRecordIds.length > 0,
   })
 }
 

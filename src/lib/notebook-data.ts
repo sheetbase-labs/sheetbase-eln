@@ -353,6 +353,31 @@ export function fetchFileObjectByRecordId(
     .then((rows) => (rows.length > 0 ? toFileObjectSummary(rows[0]) : null))
 }
 
+/**
+ * Batch-fetch `file_objects` metadata for multiple file records in a single
+ * PostgREST request (avoids the N+1 of one `fetchFileObjectByRecordId` call
+ * per file block). Returns a map keyed by `record_id` for O(1) lookup.
+ */
+export function fetchFileObjectsByRecordIds(
+  client: DataClient,
+  fileRecordIds: string[],
+): Promise<Map<string, FileObjectSummary>> {
+  if (fileRecordIds.length === 0) return Promise.resolve(new Map())
+  const filter = fileRecordIds
+    .map((id) => `eq.${encodeURIComponent(id)}`)
+    .join(',')
+  return client
+    .list<FileObjectWire>(
+      'file_objects',
+      `?record_id=in.(${filter})&select=id,workspace_id,record_id,storage_key,display_name,media_type,byte_size,checksum,status,status_reason,version`,
+    )
+    .then((rows) => {
+      const map = new Map<string, FileObjectSummary>()
+      for (const row of rows) map.set(row.record_id, toFileObjectSummary(row))
+      return map
+    })
+}
+
 // Query keys are scoped by id so navigating between notebooks always refetches
 // rather than serving a stale sibling's data.
 export const notebookQueryKeys = {
@@ -368,6 +393,8 @@ export const notebookQueryKeys = {
   activity: (recordId: string) => ['notebook', 'activity', recordId] as const,
   fileObject: (fileRecordId: string) =>
     ['notebook', 'file-object', fileRecordId] as const,
+  fileObjects: (fileRecordIds: readonly string[]) =>
+    ['notebook', 'file-objects', fileRecordIds.join(',')] as const,
   // SCI-007: overview revision snapshot — scoped by revision id so navigating
   // between revisions always refetches.
   revision: (revisionId: string) =>

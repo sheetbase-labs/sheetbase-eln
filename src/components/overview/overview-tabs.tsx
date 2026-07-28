@@ -1,4 +1,4 @@
-import { useQueries } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import {
   File as FileIcon,
   FileImage,
@@ -9,9 +9,9 @@ import {
 import type { LucideIcon } from 'lucide-react'
 
 import { cn } from '#/lib/utils'
-import type { NotebookBlock } from '#/lib/notebook-data'
+import type { FileObjectSummary, NotebookBlock } from '#/lib/notebook-data'
 import {
-  fetchFileObjectByRecordId,
+  fetchFileObjectsByRecordIds,
   notebookDataClient,
   notebookQueryKeys,
 } from '#/lib/notebook-data'
@@ -180,20 +180,19 @@ function ResultsView({
  * data client the notebook uses, so status is never stale.
  */
 function FilesView({ blocks }: { blocks: NotebookBlock[] }) {
-  const fileQueries = useQueries({
-    queries: blocks.map((block) => {
-      const payload = block.payload
-      const fileRecordId =
-        typeof payload.fileRecordId === 'string' ? payload.fileRecordId : ''
-      return {
-        queryKey: notebookQueryKeys.fileObject(fileRecordId || 'unresolved'),
-        queryFn: () =>
-          fetchFileObjectByRecordId(notebookDataClient, fileRecordId),
-        enabled: Boolean(fileRecordId),
-        staleTime: 0,
-      }
-    }),
+  // Collect file record ids once; the batch fetch issues a single PostgREST
+  // `in.(...)` query instead of one request per file block (N+1 → 1).
+  const fileRecordIds = blocks
+    .map((b) => b.payload.fileRecordId)
+    .filter((id): id is string => typeof id === 'string' && id.length > 0)
+
+  const fileObjectsQuery = useQuery({
+    queryKey: notebookQueryKeys.fileObjects(fileRecordIds),
+    queryFn: () => fetchFileObjectsByRecordIds(notebookDataClient, fileRecordIds),
+    enabled: fileRecordIds.length > 0,
   })
+
+  const fileMap = fileObjectsQuery.data ?? new Map<string, FileObjectSummary>()
 
   if (blocks.length === 0) {
     return (
@@ -206,14 +205,13 @@ function FilesView({ blocks }: { blocks: NotebookBlock[] }) {
     )
   }
 
-  const loading = fileQueries.some((q) => q.isLoading)
+  const loading = fileObjectsQuery.isLoading
   return (
     <ul
       className="divide-y divide-border rounded-lg border bg-card"
       aria-busy={loading}
     >
-      {blocks.map((block, i) => {
-        const query = fileQueries[i]
+      {blocks.map((block) => {
         const payload = block.payload
         const draftName =
           typeof payload.displayName === 'string' ? payload.displayName : ''
@@ -224,10 +222,11 @@ function FilesView({ blocks }: { blocks: NotebookBlock[] }) {
         const fileRecordId =
           typeof payload.fileRecordId === 'string' ? payload.fileRecordId : ''
 
-        const name = query.data?.displayName ?? (draftName || 'File')
-        const mediaType = query.data?.mediaType ?? draftMediaType
-        const byteSize = query.data?.byteSize ?? draftByteSize
-        const status = query.data?.status ?? null
+        const fileObj = fileRecordId ? fileMap.get(fileRecordId) : undefined
+        const name = fileObj?.displayName ?? (draftName || 'File')
+        const mediaType = fileObj?.mediaType ?? draftMediaType
+        const byteSize = fileObj?.byteSize ?? draftByteSize
+        const status = fileObj?.status ?? null
         const Icon = fileIconForType(mediaType)
 
         const body = (

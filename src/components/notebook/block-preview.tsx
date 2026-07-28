@@ -680,7 +680,6 @@ function FileBlockPreview({ payload }: { payload: unknown }) {
     queryFn: () =>
       fetchFileObjectByRecordId(notebookDataClient, fileRecordId ?? ''),
     enabled: Boolean(fileRecordId),
-    staleTime: 0,
   })
 
   if (!obj || Object.keys(obj).length === 0) {

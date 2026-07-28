@@ -31,6 +31,7 @@ import {
   Search,
   Settings,
   Sun,
+  Snowflake,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -168,6 +169,7 @@ export const defaultNavSections: AppShellNavSection[] = [
       { to: '/datasets', label: 'Datasets', icon: Database },
       { to: '/analysis', label: 'Analysis', icon: LineChartIcon },
       { to: '/samples', label: 'Samples', icon: FlaskConical },
+      { to: '/storage', label: 'Storage', icon: Snowflake },
       { to: '/my-work', label: 'My work', icon: LayoutGrid, disabled: true },
       {
         to: '/activity',

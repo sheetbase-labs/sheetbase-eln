@@ -1323,6 +1323,363 @@ export const sampleEvents = api.table(
   ],
 )
 
+// ---------------------------------------------------------------------------
+// OPS-002: Freezer & Storage Map. A workspace-scoped physical storage
+// hierarchy (site > room > unit > shelf > rack > box > position) with capacity
+// and environment metadata, plus an append-only movement log. Samples occupy
+// positions; the controlled move RPCs enforce single-occupancy and
+// traceability transactionally (migration 0048). RLS gives workspace members
+// read/write on the hierarchy levels and read-only on positions/movements; the
+// SECURITY INVOKER RPCs are the only writers for occupancy, position status
+// and movements.
+// ---------------------------------------------------------------------------
+
+export const storageSites = api.table(
+  'storage_sites',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    code: text('code').notNull(),
+    description: text('description'),
+    temperatureMinC: numeric('temperature_min_c'),
+    temperatureMaxC: numeric('temperature_max_c'),
+    // 0 = unlimited.
+    capacity: integer('capacity').notNull().default(0),
+    metadata: jsonb('metadata')
+      .notNull()
+      .default(sql`'{}'`),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      'chk_storage_sites_name',
+      sql`length(btrim(${table.name})) BETWEEN 1 AND 200`,
+    ),
+    check(
+      'chk_storage_sites_code',
+      sql`length(btrim(${table.code})) BETWEEN 1 AND 64`,
+    ),
+    check('chk_storage_sites_capacity', sql`${table.capacity} >= 0`),
+    check(
+      'chk_storage_sites_temp_range',
+      sql`${table.temperatureMinC} IS NULL OR ${table.temperatureMaxC} IS NULL OR ${table.temperatureMinC} <= ${table.temperatureMaxC}`,
+    ),
+    uniqueIndex('uq_storage_sites_workspace_code').on(
+      table.workspaceId,
+      table.code,
+    ),
+    index('idx_storage_sites_workspace').on(table.workspaceId),
+  ],
+)
+
+export const storageRooms = api.table(
+  'storage_rooms',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    siteId: uuid('site_id')
+      .notNull()
+      .references(() => storageSites.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    code: text('code').notNull(),
+    temperatureMinC: numeric('temperature_min_c'),
+    temperatureMaxC: numeric('temperature_max_c'),
+    capacity: integer('capacity').notNull().default(0),
+    metadata: jsonb('metadata')
+      .notNull()
+      .default(sql`'{}'`),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      'chk_storage_rooms_name',
+      sql`length(btrim(${table.name})) BETWEEN 1 AND 200`,
+    ),
+    check(
+      'chk_storage_rooms_code',
+      sql`length(btrim(${table.code})) BETWEEN 1 AND 64`,
+    ),
+    check('chk_storage_rooms_capacity', sql`${table.capacity} >= 0`),
+    check(
+      'chk_storage_rooms_temp_range',
+      sql`${table.temperatureMinC} IS NULL OR ${table.temperatureMaxC} IS NULL OR ${table.temperatureMinC} <= ${table.temperatureMaxC}`,
+    ),
+    uniqueIndex('uq_storage_rooms_workspace_site_code').on(
+      table.workspaceId,
+      table.siteId,
+      table.code,
+    ),
+    index('idx_storage_rooms_workspace').on(table.workspaceId),
+    index('idx_storage_rooms_site').on(table.siteId),
+  ],
+)
+
+export const storageUnits = api.table(
+  'storage_units',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    roomId: uuid('room_id')
+      .notNull()
+      .references(() => storageRooms.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    code: text('code').notNull(),
+    // freezer | fridge | cryo | incubator | ambient | dewar | cabinet
+    unitType: text('unit_type').notNull().default('freezer'),
+    temperatureMinC: numeric('temperature_min_c'),
+    temperatureMaxC: numeric('temperature_max_c'),
+    capacity: integer('capacity').notNull().default(0),
+    metadata: jsonb('metadata')
+      .notNull()
+      .default(sql`'{}'`),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      'chk_storage_units_name',
+      sql`length(btrim(${table.name})) BETWEEN 1 AND 200`,
+    ),
+    check(
+      'chk_storage_units_code',
+      sql`length(btrim(${table.code})) BETWEEN 1 AND 64`,
+    ),
+    check(
+      'chk_storage_units_type',
+      sql`${table.unitType} IN ('freezer','fridge','cryo','incubator','ambient','dewar','cabinet')`,
+    ),
+    check('chk_storage_units_capacity', sql`${table.capacity} >= 0`),
+    check(
+      'chk_storage_units_temp_range',
+      sql`${table.temperatureMinC} IS NULL OR ${table.temperatureMaxC} IS NULL OR ${table.temperatureMinC} <= ${table.temperatureMaxC}`,
+    ),
+    uniqueIndex('uq_storage_units_workspace_room_code').on(
+      table.workspaceId,
+      table.roomId,
+      table.code,
+    ),
+    index('idx_storage_units_workspace').on(table.workspaceId),
+    index('idx_storage_units_room').on(table.roomId),
+  ],
+)
+
+export const storageShelves = api.table(
+  'storage_shelves',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    unitId: uuid('unit_id')
+      .notNull()
+      .references(() => storageUnits.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    position: integer('position').notNull().default(1),
+    capacity: integer('capacity').notNull().default(0),
+    metadata: jsonb('metadata')
+      .notNull()
+      .default(sql`'{}'`),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      'chk_storage_shelves_name',
+      sql`length(btrim(${table.name})) BETWEEN 1 AND 200`,
+    ),
+    check('chk_storage_shelves_capacity', sql`${table.capacity} >= 0`),
+    check('chk_storage_shelves_position', sql`${table.position} > 0`),
+    index('idx_storage_shelves_workspace').on(table.workspaceId),
+    index('idx_storage_shelves_unit').on(table.unitId, table.position),
+  ],
+)
+
+export const storageRacks = api.table(
+  'storage_racks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    shelfId: uuid('shelf_id')
+      .notNull()
+      .references(() => storageShelves.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    position: integer('position').notNull().default(1),
+    capacity: integer('capacity').notNull().default(0),
+    metadata: jsonb('metadata')
+      .notNull()
+      .default(sql`'{}'`),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      'chk_storage_racks_name',
+      sql`length(btrim(${table.name})) BETWEEN 1 AND 200`,
+    ),
+    check('chk_storage_racks_capacity', sql`${table.capacity} >= 0`),
+    check('chk_storage_racks_position', sql`${table.position} > 0`),
+    index('idx_storage_racks_workspace').on(table.workspaceId),
+    index('idx_storage_racks_shelf').on(table.shelfId, table.position),
+  ],
+)
+
+export const storageBoxes = api.table(
+  'storage_boxes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    rackId: uuid('rack_id')
+      .notNull()
+      .references(() => storageRacks.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    code: text('code').notNull(),
+    rows: integer('rows').notNull(),
+    cols: integer('cols').notNull(),
+    capacity: integer('capacity').notNull(),
+    metadata: jsonb('metadata')
+      .notNull()
+      .default(sql`'{}'`),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      'chk_storage_boxes_name',
+      sql`length(btrim(${table.name})) BETWEEN 1 AND 200`,
+    ),
+    check(
+      'chk_storage_boxes_code',
+      sql`length(btrim(${table.code})) BETWEEN 1 AND 64`,
+    ),
+    check('chk_storage_boxes_rows', sql`${table.rows} BETWEEN 1 AND 26`),
+    check('chk_storage_boxes_cols', sql`${table.cols} BETWEEN 1 AND 26`),
+    check(
+      'chk_storage_boxes_capacity',
+      sql`${table.capacity} = ${table.rows} * ${table.cols}`,
+    ),
+    uniqueIndex('uq_storage_boxes_workspace_rack_code').on(
+      table.workspaceId,
+      table.rackId,
+      table.code,
+    ),
+    index('idx_storage_boxes_workspace').on(table.workspaceId),
+    index('idx_storage_boxes_rack').on(table.rackId),
+  ],
+)
+
+export const storagePositions = api.table(
+  'storage_positions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    boxId: uuid('box_id')
+      .notNull()
+      .references(() => storageBoxes.id, { onDelete: 'cascade' }),
+    rowIndex: integer('row_index').notNull(),
+    colIndex: integer('col_index').notNull(),
+    label: text('label').notNull(),
+    // available | occupied | quarantined | missing
+    status: text('status').notNull().default('available'),
+    occupiedRecordId: uuid('occupied_record_id').references(() => records.id, {
+      onDelete: 'set null',
+    }),
+    metadata: jsonb('metadata')
+      .notNull()
+      .default(sql`'{}'`),
+    ...timestamps,
+  },
+  (table) => [
+    check('chk_storage_positions_row', sql`${table.rowIndex} >= 0`),
+    check('chk_storage_positions_col', sql`${table.colIndex} >= 0`),
+    check(
+      'chk_storage_positions_label',
+      sql`length(btrim(${table.label})) BETWEEN 1 AND 8`,
+    ),
+    check(
+      'chk_storage_positions_status',
+      sql`${table.status} IN ('available','occupied','quarantined','missing')`,
+    ),
+    check(
+      'chk_storage_positions_occupancy',
+      sql`(${table.status} = 'occupied') = (${table.occupiedRecordId} IS NOT NULL)`,
+    ),
+    uniqueIndex('uq_storage_positions_box_row_col').on(
+      table.boxId,
+      table.rowIndex,
+      table.colIndex,
+    ),
+    uniqueIndex('uq_storage_positions_occupied_record')
+      .on(table.occupiedRecordId)
+      .where(sql`${table.occupiedRecordId} IS NOT NULL`),
+    index('idx_storage_positions_workspace').on(table.workspaceId),
+    index('idx_storage_positions_box').on(
+      table.boxId,
+      table.rowIndex,
+      table.colIndex,
+    ),
+  ],
+)
+
+export const storageMovements = api.table(
+  'storage_movements',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    recordId: uuid('record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'cascade' }),
+    // place | move | remove
+    operation: text('operation').notNull(),
+    fromPositionId: uuid('from_position_id').references(
+      () => storagePositions.id,
+      {
+        onDelete: 'set null',
+      },
+    ),
+    toPositionId: uuid('to_position_id').references(() => storagePositions.id, {
+      onDelete: 'set null',
+    }),
+    fromPath: text('from_path'),
+    toPath: text('to_path'),
+    actorUserId: text('actor_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    notes: text('notes'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'chk_storage_movements_operation',
+      sql`${table.operation} IN ('place','move','remove')`,
+    ),
+    check(
+      'chk_storage_movements_positions',
+      sql`${table.fromPositionId} IS NOT NULL OR ${table.toPositionId} IS NOT NULL`,
+    ),
+    index('idx_storage_movements_record_created').on(
+      table.recordId,
+      table.createdAt,
+    ),
+    index('idx_storage_movements_workspace_created').on(
+      table.workspaceId,
+      table.createdAt,
+    ),
+  ],
+)
+
 // SCI-010: workspace-level dataset schema registry (decision 0034). A stable,
 // versioned, permission-managed metadata layer over the per-sheet physical
 // tables. Cross-sheet queries join on dataset_schema_field_id, not physical
@@ -2135,6 +2492,136 @@ export const sampleEventsRelations = relations(sampleEvents, ({ one }) => ({
     references: [records.id],
   }),
 }))
+
+// OPS-002 storage hierarchy relations.
+export const storageSitesRelations = relations(
+  storageSites,
+  ({ one, many }) => ({
+    workspace: one(workspaces, {
+      fields: [storageSites.workspaceId],
+      references: [workspaces.id],
+    }),
+    rooms: many(storageRooms),
+  }),
+)
+
+export const storageRoomsRelations = relations(
+  storageRooms,
+  ({ one, many }) => ({
+    workspace: one(workspaces, {
+      fields: [storageRooms.workspaceId],
+      references: [workspaces.id],
+    }),
+    site: one(storageSites, {
+      fields: [storageRooms.siteId],
+      references: [storageSites.id],
+    }),
+    units: many(storageUnits),
+  }),
+)
+
+export const storageUnitsRelations = relations(
+  storageUnits,
+  ({ one, many }) => ({
+    workspace: one(workspaces, {
+      fields: [storageUnits.workspaceId],
+      references: [workspaces.id],
+    }),
+    room: one(storageRooms, {
+      fields: [storageUnits.roomId],
+      references: [storageRooms.id],
+    }),
+    shelves: many(storageShelves),
+  }),
+)
+
+export const storageShelvesRelations = relations(
+  storageShelves,
+  ({ one, many }) => ({
+    workspace: one(workspaces, {
+      fields: [storageShelves.workspaceId],
+      references: [workspaces.id],
+    }),
+    unit: one(storageUnits, {
+      fields: [storageShelves.unitId],
+      references: [storageUnits.id],
+    }),
+    racks: many(storageRacks),
+  }),
+)
+
+export const storageRacksRelations = relations(
+  storageRacks,
+  ({ one, many }) => ({
+    workspace: one(workspaces, {
+      fields: [storageRacks.workspaceId],
+      references: [workspaces.id],
+    }),
+    shelf: one(storageShelves, {
+      fields: [storageRacks.shelfId],
+      references: [storageShelves.id],
+    }),
+    boxes: many(storageBoxes),
+  }),
+)
+
+export const storageBoxesRelations = relations(
+  storageBoxes,
+  ({ one, many }) => ({
+    workspace: one(workspaces, {
+      fields: [storageBoxes.workspaceId],
+      references: [workspaces.id],
+    }),
+    rack: one(storageRacks, {
+      fields: [storageBoxes.rackId],
+      references: [storageRacks.id],
+    }),
+    positions: many(storagePositions),
+  }),
+)
+
+export const storagePositionsRelations = relations(
+  storagePositions,
+  ({ one }) => ({
+    workspace: one(workspaces, {
+      fields: [storagePositions.workspaceId],
+      references: [workspaces.id],
+    }),
+    box: one(storageBoxes, {
+      fields: [storagePositions.boxId],
+      references: [storageBoxes.id],
+    }),
+    occupiedRecord: one(records, {
+      fields: [storagePositions.occupiedRecordId],
+      references: [records.id],
+      relationName: 'position_occupied_record',
+    }),
+  }),
+)
+
+export const storageMovementsRelations = relations(
+  storageMovements,
+  ({ one }) => ({
+    workspace: one(workspaces, {
+      fields: [storageMovements.workspaceId],
+      references: [workspaces.id],
+    }),
+    record: one(records, {
+      fields: [storageMovements.recordId],
+      references: [records.id],
+    }),
+    fromPosition: one(storagePositions, {
+      fields: [storageMovements.fromPositionId],
+      references: [storagePositions.id],
+      relationName: 'movement_from_position',
+    }),
+    toPosition: one(storagePositions, {
+      fields: [storageMovements.toPositionId],
+      references: [storagePositions.id],
+      relationName: 'movement_to_position',
+    }),
+  }),
+)
 
 export const scientificTablesRelations = relations(
   scientificTables,

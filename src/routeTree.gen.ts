@@ -20,6 +20,7 @@ import { Route as SamplesRouteImport } from './routes/samples'
 import { Route as SchemasRouteImport } from './routes/schemas'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as SignInRouteImport } from './routes/sign-in'
+import { Route as StorageRouteImport } from './routes/storage'
 import { Route as TemplatesRouteImport } from './routes/templates'
 import { Route as ApiCalculationsRouteImport } from './routes/api/calculations'
 import { Route as ApiEventsRouteImport } from './routes/api/events'
@@ -90,6 +91,11 @@ const SearchRoute = SearchRouteImport.update({
 const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StorageRoute = StorageRouteImport.update({
+  id: '/storage',
+  path: '/storage',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TemplatesRoute = TemplatesRouteImport.update({
@@ -187,6 +193,7 @@ export interface FileRoutesByFullPath {
   '/schemas': typeof SchemasRoute
   '/search': typeof SearchRoute
   '/sign-in': typeof SignInRoute
+  '/storage': typeof StorageRoute
   '/templates': typeof TemplatesRoute
   '/api/calculations': typeof ApiCalculationsRoute
   '/api/events': typeof ApiEventsRoute
@@ -216,6 +223,7 @@ export interface FileRoutesByTo {
   '/schemas': typeof SchemasRoute
   '/search': typeof SearchRoute
   '/sign-in': typeof SignInRoute
+  '/storage': typeof StorageRoute
   '/templates': typeof TemplatesRoute
   '/api/calculations': typeof ApiCalculationsRoute
   '/api/events': typeof ApiEventsRoute
@@ -246,6 +254,7 @@ export interface FileRoutesById {
   '/schemas': typeof SchemasRoute
   '/search': typeof SearchRoute
   '/sign-in': typeof SignInRoute
+  '/storage': typeof StorageRoute
   '/templates': typeof TemplatesRoute
   '/api/calculations': typeof ApiCalculationsRoute
   '/api/events': typeof ApiEventsRoute
@@ -277,6 +286,7 @@ export interface FileRouteTypes {
     | '/schemas'
     | '/search'
     | '/sign-in'
+    | '/storage'
     | '/templates'
     | '/api/calculations'
     | '/api/events'
@@ -306,6 +316,7 @@ export interface FileRouteTypes {
     | '/schemas'
     | '/search'
     | '/sign-in'
+    | '/storage'
     | '/templates'
     | '/api/calculations'
     | '/api/events'
@@ -335,6 +346,7 @@ export interface FileRouteTypes {
     | '/schemas'
     | '/search'
     | '/sign-in'
+    | '/storage'
     | '/templates'
     | '/api/calculations'
     | '/api/events'
@@ -365,6 +377,7 @@ export interface RootRouteChildren {
   SchemasRoute: typeof SchemasRoute
   SearchRoute: typeof SearchRoute
   SignInRoute: typeof SignInRoute
+  StorageRoute: typeof StorageRoute
   TemplatesRoute: typeof TemplatesRoute
   ApiCalculationsRoute: typeof ApiCalculationsRoute
   ApiEventsRoute: typeof ApiEventsRoute
@@ -456,6 +469,13 @@ declare module '@tanstack/react-router' {
       path: '/sign-in'
       fullPath: '/sign-in'
       preLoaderRoute: typeof SignInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/storage': {
+      id: '/storage'
+      path: '/storage'
+      fullPath: '/storage'
+      preLoaderRoute: typeof StorageRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/templates': {
@@ -635,6 +655,7 @@ const rootRouteChildren: RootRouteChildren = {
   SchemasRoute: SchemasRoute,
   SearchRoute: SearchRoute,
   SignInRoute: SignInRoute,
+  StorageRoute: StorageRoute,
   TemplatesRoute: TemplatesRoute,
   ApiCalculationsRoute: ApiCalculationsRoute,
   ApiEventsRoute: ApiEventsRoute,

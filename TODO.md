@@ -1002,12 +1002,12 @@ This is the executable companion to [ROADMAP.md](./ROADMAP.md). It turns the roa
 
 **Blocked by:** REG-002.
 
-- [ ] Model sites, rooms, storage units, shelves, racks, boxes and positions with capacity and environment metadata.
-- [ ] Prevent double occupation and impossible moves transactionally.
-- [ ] Render occupancy, status and selection using accessible colour-plus-text treatment.
-- [ ] Show box contents, environment, chain of custody, movements, links and files in the inspector.
-- [ ] Add barcode lookup and controlled sample-move workflows.
-- [ ] Test concurrent moves, capacity, quarantine, missing positions and custody history.
+- [x] Model sites, rooms, storage units, shelves, racks, boxes and positions with capacity and environment metadata.
+- [x] Prevent double occupation and impossible moves transactionally.
+- [x] Render occupancy, status and selection using accessible colour-plus-text treatment.
+- [x] Show box contents, environment, chain of custody, movements, links and files in the inspector.
+- [x] Add barcode lookup and controlled sample-move workflows.
+- [x] Test concurrent moves, capacity, quarantine, missing positions and custody history.
 
 ### OPS-003 — Deliver Plate Designer
 

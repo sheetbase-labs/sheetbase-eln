@@ -10,6 +10,7 @@
     "dev": "vite dev --port 3000",
     "generate-routes": "tsr generate",
     "build": "vite build",
+    "start": "node scripts/start-prod.mjs",
     "artifact:build": "node --import tsx scripts/build-artifact.ts",
     "deploy:plan": "node --import tsx scripts/deploy.ts --plan",
     "deploy:apply": "node --import tsx scripts/deploy.ts --apply",

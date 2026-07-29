@@ -82,12 +82,10 @@ function CommentRow({
   comment,
   currentUserId,
   currentUserName,
-  isRoot,
 }: {
   comment: CommentWire
   currentUserId: string | null
   currentUserName: string
-  isRoot: boolean
 }) {
   const label = authorLabel(
     comment.author_user_id,
@@ -96,19 +94,14 @@ function CommentRow({
   )
   const deleted = comment.author_user_id === null
   return (
-    <article
-      className={cn(
-        'rounded-md border bg-card p-3',
-        isRoot && 'ring-1 ring-border',
-      )}
-    >
+    <article className="rounded-lg border bg-card p-3">
       <div className="flex items-center justify-between gap-2">
         <span className="inline-flex items-center gap-1.5">
           <span
             title={label}
             aria-label={label}
             className={cn(
-              'flex size-5 items-center justify-center rounded-full text-[9px] font-semibold',
+              'flex size-6 items-center justify-center rounded-full text-[10px] font-semibold',
               deleted
                 ? 'bg-muted text-muted-foreground'
                 : 'bg-primary/15 text-primary',
@@ -179,22 +172,26 @@ export function CommentThread({
         comment={root}
         currentUserId={currentUserId}
         currentUserName={currentUserName}
-        isRoot
       />
 
       {replies.length > 0 ? (
-        <ol className="space-y-2 border-l-2 border-border pl-3">
-          {replies.map((reply) => (
-            <li key={reply.id}>
-              <CommentRow
-                comment={reply}
-                currentUserId={currentUserId}
-                currentUserName={currentUserName}
-                isRoot={false}
-              />
-            </li>
-          ))}
-        </ol>
+        <div className="relative space-y-2 pl-5">
+          {/* vertical connector line aligned with avatar center */}
+          <div className="absolute bottom-3 left-2 top-0 w-px bg-border" />
+          <ol className="space-y-2">
+            {replies.map((reply) => (
+              <li key={reply.id} className="relative">
+                {/* horizontal stub from vertical line to card */}
+                <div className="absolute -left-3 top-4 h-px w-3 bg-border" />
+                <CommentRow
+                  comment={reply}
+                  currentUserId={currentUserId}
+                  currentUserName={currentUserName}
+                />
+              </li>
+            ))}
+          </ol>
+        </div>
       ) : null}
 
       {canComment ? (
@@ -234,7 +231,7 @@ export function CommentThread({
       ) : null}
 
       {showReply && canComment ? (
-        <form onSubmit={handleReply} className="space-y-2">
+        <form onSubmit={handleReply} className="space-y-2 pl-5">
           <textarea
             className="min-h-[60px] w-full rounded-md border bg-background px-3 py-2 text-xs leading-5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
             placeholder="Write a reply…"

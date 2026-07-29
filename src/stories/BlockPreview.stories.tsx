@@ -30,9 +30,8 @@ export const Checklist: Story = {
 export const Callout: Story = {
   args: {
     block: block('callout', {
-      tone: 'info',
-      title: 'Observation',
-      body: 'Control wells remained below the detection threshold.',
+      text: 'Control wells remained below the detection threshold.',
+      variant: 'info',
     }),
   },
 }

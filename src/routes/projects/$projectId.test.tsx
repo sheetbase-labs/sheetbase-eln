@@ -78,6 +78,7 @@ describe('RecordListSection', () => {
   const baseProps = {
     projectId: 'p1',
     onRetry: () => {},
+    userLabel: (id: string) => id,
   }
 
   it('shows a loading state', () => {

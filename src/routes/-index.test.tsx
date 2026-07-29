@@ -209,6 +209,8 @@ describe('RecentWorkTable', () => {
 })
 
 describe('ActivityFeed', () => {
+  const stubUserLabel = (id: string) => id
+
   it('renders real activity items from change events', () => {
     render(
       <ActivityFeed
@@ -217,6 +219,7 @@ describe('ActivityFeed', () => {
         error={null}
         onRetry={() => {}}
         currentUserId="u1"
+        userLabel={stubUserLabel}
       />,
     )
 
@@ -234,6 +237,7 @@ describe('ActivityFeed', () => {
         error={null}
         onRetry={() => {}}
         currentUserId="u1"
+        userLabel={stubUserLabel}
       />,
     )
 
@@ -248,6 +252,7 @@ describe('ActivityFeed', () => {
         error={new Error('boom')}
         onRetry={() => {}}
         currentUserId="u1"
+        userLabel={stubUserLabel}
       />,
     )
 
@@ -258,6 +263,8 @@ describe('ActivityFeed', () => {
 })
 
 describe('MentionsPanel', () => {
+  const stubUserLabel = (id: string) => id
+
   it('renders mention items with body and author', () => {
     render(
       <MentionsPanel
@@ -266,6 +273,7 @@ describe('MentionsPanel', () => {
         error={null}
         onRetry={() => {}}
         currentUserId="u1"
+        userLabel={stubUserLabel}
       />,
     )
 
@@ -282,6 +290,7 @@ describe('MentionsPanel', () => {
         error={null}
         onRetry={() => {}}
         currentUserId="u1"
+        userLabel={stubUserLabel}
       />,
     )
 

@@ -4,7 +4,6 @@ import { X } from 'lucide-react'
 import { cn } from '#/lib/utils'
 import {
   Button,
-  Separator,
   Skeleton,
   Tabs,
   TabsContent,
@@ -85,16 +84,16 @@ export function Inspector({
       className={cn('flex h-full flex-col bg-background', className)}
       aria-label="Inspector"
     >
-      {/* Identity header — always visible */}
-      <div className="shrink-0 px-4 pt-4">
+      {/* Compact identity header — record type label, title, close */}
+      <div className="shrink-0 border-b border-border px-4 py-3">
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
             {recordType ? (
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
                 {recordType}
               </p>
             ) : null}
-            <h2 className="truncate text-sm font-semibold text-foreground">
+            <h2 className="text-sm font-semibold leading-snug text-foreground">
               {title}
             </h2>
           </div>
@@ -102,6 +101,7 @@ export function Inspector({
             <Button
               variant="ghost"
               size="icon-sm"
+              className="mt-0.5 shrink-0"
               aria-label="Close inspector"
               onClick={onClose}
             >
@@ -111,14 +111,10 @@ export function Inspector({
         </div>
       </div>
 
-      <Separator className="my-2 shrink-0" />
-
-      {/* Scroll region: tabs + content scroll together but the identity
-          header above stays pinned. Within it, the TabsList is sticky so it
-          remains visible while content scrolls. */}
+      {/* Scroll region: tabs + content */}
       <div className="min-h-0 flex-1 overflow-y-auto">
         {state === 'skeleton' ? (
-          <div className="space-y-3 px-4 pb-4">
+          <div className="space-y-3 px-4 pb-4 pt-3">
             {Array.from({ length: 6 }).map((_, i) => (
               <Skeleton key={i} className="h-4 w-full" />
             ))}
@@ -140,13 +136,13 @@ export function Inspector({
           />
         ) : showTabs ? (
           <Tabs defaultValue={initial} className="flex flex-col gap-0">
-            <div className="sticky top-0 z-10 bg-background px-2 pt-1">
-              <TabsList className="w-full justify-start">
+            <div className="sticky top-0 z-10 border-b border-border bg-background px-3 pt-2">
+              <TabsList className="w-full justify-start gap-1">
                 {tabs.map((tab) => (
-                  <TabsTrigger key={tab.id} value={tab.id}>
+                  <TabsTrigger key={tab.id} value={tab.id} className="text-xs">
                     {tab.label}
                     {tab.badge !== undefined ? (
-                      <span className="ml-1.5 text-xs font-medium text-muted-foreground">
+                      <span className="ml-1 text-[0.65rem] font-medium text-muted-foreground">
                         {tab.badge}
                       </span>
                     ) : null}
@@ -158,7 +154,7 @@ export function Inspector({
               <TabsContent
                 key={tab.id}
                 value={tab.id}
-                className="mt-0 px-4 pb-6"
+                className="mt-0 px-4 pb-6 pt-3"
               >
                 {tab.content}
               </TabsContent>

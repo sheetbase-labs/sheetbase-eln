@@ -40,7 +40,6 @@ function RouteShell({
 }
 import {
   CheckList,
-  EmptyHint,
   InspectorSection,
   Property,
   PropertyList,
@@ -83,6 +82,7 @@ import type {
   DashboardActivityItem,
   DashboardMetric,
 } from '#/lib/dashboard-data'
+import { useUserNames } from '#/lib/user-names'
 
 /**
  * Project dashboard. A dense, full-width overview of one project: metadata
@@ -132,6 +132,20 @@ function ProjectRoute() {
 
   const project = projectQuery.data ?? null
   const records = recordsQuery.data ?? []
+
+  // Resolve user IDs → names for the records table Owner column
+  const ownerIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const r of records) {
+      if (r.createdByUserId) ids.add(r.createdByUserId)
+      if (r.updatedByUserId) ids.add(r.updatedByUserId)
+    }
+    return Array.from(ids)
+  }, [records])
+  const { userLabel } = useUserNames(ownerIds, {
+    id: context.user.id,
+    name: context.user.name,
+  })
 
   if (!isProjectIndex) return <Outlet />
 
@@ -238,6 +252,7 @@ function ProjectRoute() {
             isLoading={recordsQuery.isLoading}
             error={recordsQuery.error}
             onRetry={() => recordsQuery.refetch()}
+            userLabel={userLabel}
           />
 
           <ProjectActivityFeed
@@ -245,10 +260,11 @@ function ProjectRoute() {
             isLoading={activityQuery.isLoading}
             error={activityQuery.error}
             onRetry={() => activityQuery.refetch()}
+            userLabel={userLabel}
           />
         </div>
 
-        <ProjectSidebar project={project} />
+        <ProjectSidebar project={project} ownerName={context.user.name} />
       </div>
     </RouteShell>
   )
@@ -513,12 +529,14 @@ export function RecordListSection({
   isLoading,
   error,
   onRetry,
+  userLabel,
 }: {
   projectId: string
   records: NotebookRecord[]
   isLoading: boolean
   error: unknown
   onRetry: () => void
+  userLabel: (userId: string) => string
 }) {
   const [kindFilter, setKindFilter] = useState('all')
 
@@ -587,17 +605,17 @@ export function RecordListSection({
             row.original.updatedByUserId ?? row.original.createdByUserId
           return (
             <span
-              className="font-mono text-xs tabular-nums text-muted-foreground"
+              className="text-xs text-muted-foreground"
               title={owner}
             >
-              {owner ? owner.slice(0, 8) : '—'}
+              {owner ? userLabel(owner) : '—'}
             </span>
           )
         },
         meta: { className: 'w-[6.5rem]' },
       }),
     ],
-    [projectId],
+    [projectId, userLabel],
   )
 
   const table = useReactTable({
@@ -844,7 +862,13 @@ const COMPLIANCE_CHECKS = [
  * not exist yet — and quick actions deep-link to the creation surfaces that
  * do (the template library).
  */
-export function ProjectSidebar({ project }: { project: Project }) {
+export function ProjectSidebar({
+  project,
+  ownerName,
+}: {
+  project: Project
+  ownerName: string
+}) {
   const [open, setOpen] = useState<boolean>(true)
 
   useEffect(() => {
@@ -885,13 +909,28 @@ export function ProjectSidebar({ project }: { project: Project }) {
   }
 
   return (
-    <aside className="hidden w-[280px] shrink-0 lg:flex lg:flex-col">
+    <aside className="hidden w-[300px] shrink-0 lg:flex lg:flex-col">
       <div className="sticky top-14 max-h-[calc(100svh-3.5rem)] overflow-y-auto rounded-lg border border-border bg-surface">
-        <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
-          <h2 className="text-sm font-semibold text-foreground">Details</h2>
+        {/* Compact identity header */}
+        <div className="flex items-start justify-between gap-2 border-b border-border px-4 py-3">
+          <div className="min-w-0 space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                {project.key}
+              </span>
+              <StatusBadge
+                domain="project"
+                status={project.archivedAt ? 'archived' : project.status}
+              />
+            </div>
+            <h2 className="truncate text-sm font-semibold text-foreground">
+              {project.title}
+            </h2>
+          </div>
           <Button
             variant="ghost"
             size="icon-sm"
+            className="mt-0.5 shrink-0"
             aria-label="Hide project details"
             onClick={() => setOpen(false)}
           >
@@ -899,20 +938,12 @@ export function ProjectSidebar({ project }: { project: Project }) {
           </Button>
         </div>
 
-        <div className="px-4 pb-4">
+        <div className="px-4 py-2">
+          {/* Dense metadata */}
           <InspectorSection title="Properties">
             <PropertyList>
               <Property label="Project ID" mono>
                 {project.id.slice(0, 8)}
-              </Property>
-              <Property label="Key" mono>
-                {project.key}
-              </Property>
-              <Property label="Status">
-                <StatusBadge
-                  domain="project"
-                  status={project.archivedAt ? 'archived' : project.status}
-                />
               </Property>
               <Property label="Created">
                 {formatDate(project.createdAt)}
@@ -920,22 +951,30 @@ export function ProjectSidebar({ project }: { project: Project }) {
               <Property label="Updated">
                 {formatRelativeTime(project.updatedAt ?? project.createdAt)}
               </Property>
-              <Property label="Owner">Workspace</Property>
+              <Property label="Owner">{ownerName}</Property>
             </PropertyList>
-            <EmptyHint>No tags</EmptyHint>
           </InspectorSection>
 
-          <InspectorSection title="Pinned links">
-            <EmptyHint>
-              <span className="inline-flex items-center gap-1">
-                <Pin className="size-3" aria-hidden="true" />
-                No pinned links yet
+          {/* Tags as compact chips, inline empty marker */}
+          <InspectorSection title="Tags">
+            <div className="flex flex-wrap gap-1">
+              <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                No tags
               </span>
-            </EmptyHint>
+            </div>
           </InspectorSection>
 
+          {/* Pinned links — single muted inline row when empty */}
+          <InspectorSection title="Pinned links">
+            <p className="flex items-center gap-1.5 py-0.5 text-xs text-muted-foreground">
+              <Pin className="size-3" aria-hidden="true" />
+              None pinned
+            </p>
+          </InspectorSection>
+
+          {/* Compliance — concise status summary */}
           <InspectorSection title="Compliance">
-            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-foreground">
               <ShieldCheck
                 className="size-3.5 text-emerald-600 dark:text-emerald-400"
                 aria-hidden="true"
@@ -945,21 +984,22 @@ export function ProjectSidebar({ project }: { project: Project }) {
             <CheckList items={COMPLIANCE_CHECKS} />
           </InspectorSection>
 
+          {/* Quick actions — compact side-by-side */}
           <InspectorSection title="Quick actions">
-            <div className="grid gap-2">
-              <Button asChild variant="outline" size="sm" className="w-full">
+            <div className="grid grid-cols-2 gap-1.5">
+              <Button asChild variant="outline" size="sm">
                 <Link to="/templates" className="no-underline">
                   <FlaskConical className="size-3.5" aria-hidden="true" />
-                  Create experiment
+                  Experiment
                 </Link>
               </Button>
-              <Button asChild variant="outline" size="sm" className="w-full">
+              <Button asChild variant="outline" size="sm">
                 <Link to="/templates" className="no-underline">
                   <TestTube className="size-3.5" aria-hidden="true" />
-                  Add sample
+                  Sample
                 </Link>
               </Button>
-              <Button asChild variant="outline" size="sm" className="w-full">
+              <Button asChild variant="outline" size="sm" className="col-span-2">
                 <Link to="/templates" className="no-underline">
                   <Upload className="size-3.5" aria-hidden="true" />
                   Upload file
@@ -982,11 +1022,13 @@ export function ProjectActivityFeed({
   isLoading,
   error,
   onRetry,
+  userLabel,
 }: {
   items: DashboardActivityItem[]
   isLoading: boolean
   error: unknown
   onRetry: () => void
+  userLabel: (userId: string) => string
 }) {
   if (isLoading) {
     return (
@@ -1090,7 +1132,7 @@ export function ProjectActivityFeed({
       <ul className="divide-y divide-border">
         {items.slice(0, 15).map((item) => {
           const actor = item.actorUserId
-            ? item.actorUserId.slice(0, 8)
+            ? userLabel(item.actorUserId)
             : 'System'
           return (
             <li key={item.id} className="flex items-start gap-3 px-4 py-2.5">

@@ -51,7 +51,7 @@ vi.mock('@tanstack/react-router', () => ({
 }))
 
 vi.mock('@tanstack/react-start', () => ({
-  createServerFn: () => ({ handler: () => vi.fn() }),
+  createServerFn: () => ({ validator: () => ({ handler: () => vi.fn() }) }),
 }))
 
 // jsdom does not implement ResizeObserver; radix UI reads it on mount.

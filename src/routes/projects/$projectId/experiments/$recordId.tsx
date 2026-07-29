@@ -238,7 +238,7 @@ function ExperimentNotebookRoute() {
         />
       }
     >
-      <div className="px-4 pb-16 md:px-6">
+      <div className="flex-1 overflow-y-auto px-4 pb-16 md:px-6">
           <StickyRecordHeader
             record={record}
             projectName={project?.title ?? null}
@@ -1249,9 +1249,9 @@ export function NotebookInspector({
 
               {record.tags.length > 0 ? (
                 <InspectorSection title="Tags">
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex flex-wrap gap-1.5">
                     {record.tags.map((tag) => (
-                      <Badge key={tag} variant="outline">
+                      <Badge key={tag} variant="outline" className="px-2 py-0.5 text-xs">
                         {tag}
                       </Badge>
                     ))}
@@ -1273,7 +1273,6 @@ export function NotebookInspector({
                         id: link.id,
                         type: recordKindLabel(link.targetKind),
                         title: link.targetIdentifier,
-                        meta: link.linkType,
                       }))}
                     />
                     <ScientificRecordLinker

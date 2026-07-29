@@ -24,7 +24,6 @@ import {
   useNavigate,
   useSearch,
 } from '@tanstack/react-router'
-import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { useMemo } from 'react'
 import type { ComponentProps, ReactNode } from 'react'
@@ -75,18 +74,7 @@ import type {
 } from '#/lib/reviews'
 import type { RegistryQuery, RegistryFilterValue } from '#/lib/registry'
 import { cn } from '#/lib/utils'
-
-// ---------------------------------------------------------------------------
-// Server function: resolve user IDs → names for display.
-// `internal.user` is not PostgREST-exposed, so this runs server-side.
-// ---------------------------------------------------------------------------
-
-const resolveUserNamesFn = createServerFn({ method: 'POST' })
-  .validator((userIds: string[]) => userIds)
-  .handler(async ({ data }) => {
-    const { resolveUserNames } = await import('#/lib/current-user')
-    return resolveUserNames(data)
-  })
+import { useUserNames } from '#/lib/user-names'
 
 // ---------------------------------------------------------------------------
 // Deep-linkable search state. The URL is the single source of truth for
@@ -429,23 +417,10 @@ function ReviewsRoute() {
     return Array.from(ids)
   }, [allItems])
 
-  const userNamesQuery = useQuery({
-    queryKey: ['reviews', 'user-names', userIdsToResolve],
-    queryFn: () => resolveUserNamesFn({ data: userIdsToResolve }),
-    enabled: userIdsToResolve.length > 0,
+  const { userLabel } = useUserNames(userIdsToResolve, {
+    id: context.user.id,
+    name: context.user.name,
   })
-
-  const userNames = useMemo(() => {
-    const map: Record<string, string> = {}
-    if (context.user.id) map[context.user.id] = context.user.name
-    Object.assign(map, userNamesQuery.data ?? {})
-    return map
-  }, [context.user.id, context.user.name, userNamesQuery.data])
-
-  /** Resolve a user ID to a display name, falling back to a short id slice. */
-  function userLabel(userId: string): string {
-    return userNames[userId] ?? (userId.length <= 8 ? userId : userId.slice(0, 8))
-  }
 
   // --- Filter / sort / paginate (client-side over the bounded fetch) ------
 

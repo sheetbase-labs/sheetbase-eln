@@ -6,7 +6,7 @@ import {
   useRouter,
 } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
   Activity as ActivityIcon,
@@ -75,6 +75,7 @@ import type {
 } from '#/lib/dashboard-data'
 import type { ReviewItem } from '#/lib/reviews'
 import { cn } from '#/lib/utils'
+import { useUserNames } from '#/lib/user-names'
 
 export const Route = createFileRoute('/')({
   beforeLoad: async ({ context }) => {
@@ -282,6 +283,18 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
   const pinnedRecords = pinnedQuery.data ?? []
   const projectById = new Map(projects.map((p) => [p.id, p]))
 
+  // Resolve user IDs → names for mentions and activity feed
+  const allUserIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const m of myMentions) if (m.authorUserId) ids.add(m.authorUserId)
+    for (const a of recentActivity) if (a.actorUserId) ids.add(a.actorUserId)
+    return Array.from(ids)
+  }, [myMentions, recentActivity])
+  const { userLabel } = useUserNames(allUserIds, {
+    id: userId,
+    name: context.user.name,
+  })
+
   const metrics = computeMyWorkMetrics({
     myRecords,
     pendingReviews,
@@ -384,6 +397,7 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
             error={myMentionsQuery.error}
             onRetry={() => myMentionsQuery.refetch()}
             currentUserId={userId}
+            userLabel={userLabel}
           />
           <ActivityFeed
             items={recentActivity}
@@ -391,6 +405,7 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
             error={activityQuery.error}
             onRetry={() => activityQuery.refetch()}
             currentUserId={userId}
+            userLabel={userLabel}
           />
         </div>
 
@@ -824,12 +839,14 @@ export function MentionsPanel({
   error,
   onRetry,
   currentUserId,
+  userLabel,
 }: {
   mentions: DashboardMentionItem[]
   isLoading: boolean
   error: unknown
   onRetry: () => void
   currentUserId: string
+  userLabel: (userId: string) => string
 }) {
   if (isLoading) {
     return (
@@ -907,7 +924,7 @@ export function MentionsPanel({
                 {mention.authorUserId === currentUserId
                   ? 'You'
                   : mention.authorUserId
-                    ? mention.authorUserId.slice(0, 8)
+                    ? userLabel(mention.authorUserId)
                     : 'Deleted user'}
                 {' · '}
                 {formatRelativeTime(mention.createdAt)}
@@ -930,12 +947,14 @@ export function ActivityFeed({
   error,
   onRetry,
   currentUserId,
+  userLabel,
 }: {
   items: DashboardActivityItem[]
   isLoading: boolean
   error: unknown
   onRetry: () => void
   currentUserId: string
+  userLabel: (userId: string) => string
 }) {
   if (isLoading) {
     return (
@@ -993,7 +1012,7 @@ export function ActivityFeed({
           const actor = isMe
             ? 'You'
             : item.actorUserId
-              ? item.actorUserId.slice(0, 8)
+              ? userLabel(item.actorUserId)
               : 'System'
           return (
             <li key={item.id} className="flex items-start gap-3 px-4 py-2.5">

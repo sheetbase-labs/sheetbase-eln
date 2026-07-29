@@ -35,9 +35,9 @@ export function InspectorSection({
   className?: string
 }) {
   return (
-    <section className={cn('space-y-1.5 py-2', className)}>
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+    <section className={cn('border-t border-border py-3 first:border-t-0 first:pt-0', className)}>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h3 className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
           {title}
         </h3>
         {action}
@@ -55,7 +55,7 @@ export function PropertyList({
   children: React.ReactNode
   className?: string
 }) {
-  return <dl className={cn('grid gap-1.5 text-xs', className)}>{children}</dl>
+  return <dl className={cn('space-y-1.5 text-xs', className)}>{children}</dl>
 }
 
 export function Property({
@@ -69,11 +69,11 @@ export function Property({
   mono?: boolean
 }) {
   return (
-    <div className="grid grid-cols-[7rem_1fr] items-start gap-3">
-      <dt className="text-muted-foreground">{label}</dt>
+    <div className="flex items-center justify-between gap-2">
+      <dt className="shrink-0 text-muted-foreground">{label}</dt>
       <dd
         className={cn(
-          'min-w-0 break-words font-medium text-foreground',
+          'min-w-0 truncate text-right font-medium text-foreground',
           mono && 'font-mono tabular-nums',
         )}
       >
@@ -96,26 +96,27 @@ export interface LinkedRecordItem {
 export function LinkedRecordList({ items }: { items: LinkedRecordItem[] }) {
   if (items.length === 0) return <EmptyHint>No linked records</EmptyHint>
   return (
-    <ul className="space-y-1.5">
+    <ul className="space-y-1">
       {items.map((item) => {
         const Icon = item.icon ?? Link2
         const body = (
           <>
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-              <Icon className="size-3.5" />
+            <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <Icon className="size-3" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {item.type}
-              </span>
-              <span className="block truncate text-xs font-medium">
+              <span className="block truncate text-xs font-medium text-foreground">
                 {item.title}
               </span>
               {item.meta ? (
-                <span className="block truncate text-xs text-muted-foreground">
-                  {item.meta}
+                <span className="block truncate text-[0.65rem] text-muted-foreground">
+                  {item.type} · {item.meta}
                 </span>
-              ) : null}
+              ) : (
+                <span className="block truncate text-[0.65rem] text-muted-foreground">
+                  {item.type}
+                </span>
+              )}
             </span>
           </>
         )
@@ -124,12 +125,12 @@ export function LinkedRecordList({ items }: { items: LinkedRecordItem[] }) {
             {item.href ? (
               <a
                 href={item.href}
-                className="flex items-center gap-2.5 rounded-md border bg-background p-2 no-underline transition-colors hover:bg-muted/50"
+                className="flex items-center gap-2 rounded-md border border-border/80 bg-surface px-2 py-1.5 no-underline transition-colors hover:border-border hover:bg-muted/50"
               >
                 {body}
               </a>
             ) : (
-              <div className="flex items-center gap-2.5 rounded-md border bg-background p-2">
+              <div className="flex items-center gap-2 rounded-md border border-border/80 bg-surface px-2 py-1.5">
                 {body}
               </div>
             )}
@@ -156,13 +157,13 @@ export function FileList({ items }: { items: FileItem[] }) {
         const Icon = Paperclip
         const body = (
           <>
-            <Icon className="size-3.5 shrink-0 text-muted-foreground" />
+            <Icon className="size-3 shrink-0 text-muted-foreground" />
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-xs font-medium">
+              <span className="block truncate text-xs font-medium text-foreground">
                 {f.name}
               </span>
               {f.meta ? (
-                <span className="block truncate text-xs text-muted-foreground">
+                <span className="block truncate text-[0.65rem] text-muted-foreground">
                   {f.meta}
                 </span>
               ) : null}
@@ -174,12 +175,12 @@ export function FileList({ items }: { items: FileItem[] }) {
             {f.href ? (
               <a
                 href={f.href}
-                className="flex items-center gap-2 rounded-md px-2 py-1.5 no-underline hover:bg-muted/50"
+                className="flex items-center gap-2 rounded-md px-1.5 py-1 no-underline hover:bg-muted/50"
               >
                 {body}
               </a>
             ) : (
-              <div className="flex items-center gap-2 rounded-md px-2 py-1.5">
+              <div className="flex items-center gap-2 rounded-md px-1.5 py-1">
                 {body}
               </div>
             )}
@@ -213,23 +214,23 @@ const checkIcon: Record<CheckState, { icon: LucideIcon; className: string }> = {
 export function CheckList({ items }: { items: CheckItem[] }) {
   if (items.length === 0) return <EmptyHint>No checks</EmptyHint>
   return (
-    <ul className="space-y-1">
+    <ul className="space-y-0.5">
       {items.map((c) => {
         const { icon: Icon, className } = checkIcon[c.state]
         return (
           <li
             key={c.id}
-            className="flex items-center gap-2 rounded-md px-2 py-1.5"
+            className="flex items-center gap-2 rounded-md px-1 py-1"
           >
             <Icon
-              className={cn('size-4 shrink-0', className)}
+              className={cn('size-3.5 shrink-0', className)}
               aria-hidden="true"
             />
-            <span className="min-w-0 flex-1 truncate text-xs font-medium">
+            <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
               {c.label}
             </span>
             {c.detail ? (
-              <span className="shrink-0 text-xs text-muted-foreground">
+              <span className="shrink-0 text-[0.65rem] text-muted-foreground">
                 {c.detail}
               </span>
             ) : null}
@@ -320,7 +321,7 @@ export function CommentList({ items }: { items: CommentItem[] }) {
 
 export function EmptyHint({ children }: { children: React.ReactNode }) {
   return (
-    <p className="rounded-md border border-dashed bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+    <p className="py-1 text-xs text-muted-foreground">
       {children}
     </p>
   )

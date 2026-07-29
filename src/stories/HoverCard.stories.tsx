@@ -14,7 +14,7 @@ export default meta
 type Story = StoryObj<typeof meta>
 export const Default: Story = {
   render: () => (
-    <HoverCard openDelay={100}>
+    <HoverCard defaultOpen openDelay={100}>
       <HoverCardTrigger asChild>
         <a href="#" className="font-medium underline">
           EXP-2026-014

@@ -83,12 +83,19 @@ export const RecordTabs: Story = {
 }
 export const Scrolling: Story = {
   render: () => (
-    <ScrollArea className="h-48 w-80 rounded border p-4">
-      {Array.from({ length: 20 }, (_, i) => (
-        <p key={i} className="py-1">
-          SMP-2026-{String(i + 1).padStart(4, '0')} · Plasma aliquot
-        </p>
-      ))}
-    </ScrollArea>
+    <div className="w-full min-w-[28rem] max-w-xl">
+      <p className="mb-2 text-sm text-muted-foreground">
+        Scroll to view all sample records
+      </p>
+      <ScrollArea className="h-48 w-full rounded border px-4">
+        <div className="py-3">
+          {Array.from({ length: 20 }, (_, i) => (
+            <p key={i} className="whitespace-nowrap py-1">
+              SMP-2026-{String(i + 1).padStart(4, '0')} · Plasma aliquot
+            </p>
+          ))}
+        </div>
+      </ScrollArea>
+    </div>
   ),
 }

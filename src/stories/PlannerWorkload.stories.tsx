@@ -63,7 +63,7 @@ const tasks = [
   task(
     'task-2',
     'Run assay',
-    'Alex Morgan',
+    'Jordan Kim',
     '2026-07-31T00:00:00Z',
     '2026-08-05T00:00:00Z',
     'in_progress',

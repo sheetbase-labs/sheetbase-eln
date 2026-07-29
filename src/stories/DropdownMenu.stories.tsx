@@ -21,7 +21,7 @@ export default meta
 type Story = StoryObj<typeof meta>
 export const Default: Story = {
   render: () => (
-    <DropdownMenu>
+    <DropdownMenu defaultOpen>
       <DropdownMenuTrigger asChild>
         <Button variant="outline">
           <MoreHorizontal />
@@ -49,7 +49,7 @@ export const Default: Story = {
 }
 export const WithCheckboxes: Story = {
   render: () => (
-    <DropdownMenu>
+    <DropdownMenu defaultOpen>
       <DropdownMenuTrigger asChild>
         <Button variant="outline">Columns</Button>
       </DropdownMenuTrigger>

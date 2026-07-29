@@ -43,4 +43,9 @@ export const LongTitle: Story = {
       'Longitudinal protein stability and aggregation assessment under accelerated storage conditions',
     owner: { name: 'Alex Morgan' },
   },
+  render: (args) => (
+    <div className="w-full max-w-4xl p-4">
+      <RecordHeader {...args} />
+    </div>
+  ),
 }

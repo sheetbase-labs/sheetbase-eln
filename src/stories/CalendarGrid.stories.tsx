@@ -4,7 +4,7 @@ const cursor = new Date('2026-07-29T12:00:00Z')
 const bookings: any[] = [
   {
     id: 'b1',
-    title: 'LC-MS calibration',
+    title: 'LC-MS cal',
     startsAt: '2026-07-27T09:00:00Z',
     endsAt: '2026-07-27T11:00:00Z',
     status: 'confirmed',
@@ -12,7 +12,7 @@ const bookings: any[] = [
   },
   {
     id: 'b2',
-    title: 'qPCR run · Stability study',
+    title: 'qPCR stability',
     startsAt: '2026-07-29T10:00:00Z',
     endsAt: '2026-07-29T13:00:00Z',
     status: 'confirmed',
@@ -20,10 +20,10 @@ const bookings: any[] = [
   },
   {
     id: 'b3',
-    title: 'Confocal training',
+    title: 'Confocal',
     startsAt: '2026-07-30T14:00:00Z',
-    endsAt: '2026-07-30T16:00:00Z',
-    status: 'cancelled',
+    endsAt: '2026-07-30T18:00:00Z',
+    status: 'confirmed',
     color: 'purple',
   },
 ]
@@ -46,5 +46,12 @@ export default meta
 type Story = StoryObj<typeof meta>
 export const Week: Story = {}
 export const Day: Story = { args: { view: 'day' } }
-export const Month: Story = { args: { view: 'month' } }
+export const Month: Story = {
+  args: {
+    view: 'month',
+    bookings: bookings.map((b) =>
+      b.id === 'b3' ? { ...b, status: 'cancelled' } : b,
+    ),
+  },
+}
 export const Empty: Story = { args: { bookings: [] } }

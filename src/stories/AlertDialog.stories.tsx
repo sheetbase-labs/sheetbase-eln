@@ -20,7 +20,7 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 const Demo = ({ destructive = false }) => (
-  <AlertDialog>
+  <AlertDialog defaultOpen>
     <AlertDialogTrigger asChild>
       <Button variant={destructive ? 'destructive' : 'outline'}>
         {destructive ? 'Delete record' : 'Leave page'}

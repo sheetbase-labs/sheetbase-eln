@@ -21,9 +21,28 @@ export const Types: Story = {
 }
 export const States: Story = {
   render: () => (
-    <div className="grid max-w-sm gap-3">
-      <Input disabled value="Disabled" readOnly />
-      <Input aria-invalid="true" value="Invalid value" readOnly />
+    <div className="grid max-w-sm gap-5">
+      <div className="grid gap-1.5">
+        <label htmlFor="disabled-input" className="text-sm font-medium">
+          Disabled
+        </label>
+        <Input id="disabled-input" disabled value="Unavailable value" readOnly />
+      </div>
+      <div className="grid gap-1.5">
+        <label htmlFor="invalid-input" className="text-sm font-medium">
+          Invalid
+        </label>
+        <Input
+          id="invalid-input"
+          aria-invalid="true"
+          aria-describedby="invalid-input-error"
+          value="Invalid value"
+          readOnly
+        />
+        <p id="invalid-input-error" className="text-sm text-destructive">
+          Enter a valid value.
+        </p>
+      </div>
     </div>
   ),
 }

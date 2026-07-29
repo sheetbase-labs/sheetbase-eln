@@ -3,7 +3,7 @@
  * editor header. Shows the bound schema name and revision, and an
  * "Upgrade available" indicator when a newer published revision exists.
  */
-import { ArrowUpCircle, Database } from 'lucide-react'
+import { ArrowUpCircle, Database, Loader2 } from 'lucide-react'
 
 import { Badge, Button } from '#/components/ui'
 import type { ScientificDatasetSchemaBinding } from '#/lib/scientific-sheet-data'
@@ -38,9 +38,13 @@ export function SchemaBadge({
           size="sm"
           onClick={onUpgrade}
           disabled={upgrading}
-          className="gap-1.5"
+          className="h-6 gap-1.5 rounded-full px-2 text-[11px] font-medium leading-4"
         >
-          <ArrowUpCircle className="size-3.5" aria-hidden="true" />
+          {upgrading ? (
+            <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+          ) : (
+            <ArrowUpCircle className="size-3" aria-hidden="true" />
+          )}
           {upgrading
             ? 'Upgrading…'
             : `Upgrade to rev ${schema.latest_published_revision}`}

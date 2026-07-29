@@ -46,6 +46,54 @@ const hostname = process.env.HOST || '0.0.0.0'
 // before falling through to the SSR handler. Prevents path traversal.
 function tryServeStatic(req, res, url) {
   let pathname = url.pathname
+
+  // Serve Storybook static build at /storybook/ — goes through the
+  // Cloudflare tunnel (app.sheetbase.co.uk), bypassing the Amp portal
+  // proxy that would otherwise block Storybook's internal iframe via CSP.
+  if (pathname === '/storybook' || pathname.startsWith('/storybook/')) {
+    const storybookDir = resolve(__dirname, '..', 'storybook-static')
+    const subPath = pathname === '/storybook' ? '' : pathname.slice('/storybook/'.length)
+    // Empty subpath or trailing slash -> serve index.html
+    if (subPath === '' || subPath === '/') {
+      const indexPath = join(storybookDir, 'index.html')
+      try {
+        const stats = statSync(indexPath)
+        res.writeHead(200, {
+          'Content-Type': 'text/html; charset=UTF-8',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Content-Length': stats.size,
+        })
+        createReadStream(indexPath).pipe(res)
+        return true
+      } catch {
+        return false
+      }
+    }
+    const safePath = join(storybookDir, subPath)
+    if (!safePath.startsWith(storybookDir)) return false
+    let stats
+    try {
+      stats = statSync(safePath)
+    } catch {
+      return false
+    }
+    if (stats.isDirectory()) {
+      try {
+        stats = statSync(join(safePath, 'index.html'))
+      } catch {
+        return false
+      }
+    }
+    if (!stats.isFile()) return false
+    res.writeHead(200, {
+      'Content-Type': MIME[extname(safePath)] || 'text/html; charset=UTF-8',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Content-Length': stats.size,
+    })
+    createReadStream(safePath).pipe(res)
+    return true
+  }
+
   // Only serve files under known static prefixes to avoid shadowing routes.
   if (
     !pathname.startsWith('/assets/') &&

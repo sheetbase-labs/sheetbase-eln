@@ -1,1 +1,85 @@
-import type { Meta, StoryObj } from '@storybook/tanstack-react'; import { Inspector } from '#/components/record/inspector'; import { CheckList, InspectorSection, LinkedRecordList, Property, PropertyList } from '#/components/record/inspector-sections'; const tabs=[{id:'properties',label:'Properties',content:<><InspectorSection title="Identity"><PropertyList><Property label="Identifier" mono>SMP-2026-0142</Property><Property label="Matrix">Human plasma</Property><Property label="Volume" mono>2.4 mL</Property><Property label="Storage" mono>−80 °C</Property></PropertyList></InspectorSection><InspectorSection title="Linked records"><LinkedRecordList items={[{id:'1',type:'Experiment',title:'Stability assay',meta:'EXP-2026-0042'}]}/></InspectorSection></>},{id:'checks',label:'Checks',badge:3,content:<CheckList items={[{id:'1',label:'Identifier valid',state:'pass'},{id:'2',label:'Expiry date present',state:'warning',detail:'30 days'}]}/>}]; const meta={title:'Record/Inspector',component:Inspector,tags:['autodocs'],parameters:{layout:'fullscreen'},args:{recordType:'Sample',title:'Human plasma aliquot',tabs,onClose:()=>{},className:'h-[600px] w-[380px] border'}} satisfies Meta<typeof Inspector>; export default meta; type Story=StoryObj<typeof meta>; export const Loaded:Story={}; export const Skeleton:Story={args:{state:'skeleton'}}; export const NoSelection:Story={args:{state:'no-selection',title:'Inspector'}}; export const Unavailable:Story={args:{state:'unavailable'}}; export const PermissionDenied:Story={args:{state:'permission-denied'}}
+import type { Meta, StoryObj } from '@storybook/tanstack-react'
+import { Inspector } from '#/components/record/inspector'
+import {
+  CheckList,
+  InspectorSection,
+  LinkedRecordList,
+  Property,
+  PropertyList,
+} from '#/components/record/inspector-sections'
+const tabs = [
+  {
+    id: 'properties',
+    label: 'Properties',
+    content: (
+      <>
+        <InspectorSection title="Identity">
+          <PropertyList>
+            <Property label="Identifier" mono>
+              SMP-2026-0142
+            </Property>
+            <Property label="Matrix">Human plasma</Property>
+            <Property label="Volume" mono>
+              2.4 mL
+            </Property>
+            <Property label="Storage" mono>
+              −80 °C
+            </Property>
+          </PropertyList>
+        </InspectorSection>
+        <InspectorSection title="Linked records">
+          <LinkedRecordList
+            items={[
+              {
+                id: '1',
+                type: 'Experiment',
+                title: 'Stability assay',
+                meta: 'EXP-2026-0042',
+              },
+            ]}
+          />
+        </InspectorSection>
+      </>
+    ),
+  },
+  {
+    id: 'checks',
+    label: 'Checks',
+    badge: 3,
+    content: (
+      <CheckList
+        items={[
+          { id: '1', label: 'Identifier valid', state: 'pass' },
+          {
+            id: '2',
+            label: 'Expiry date present',
+            state: 'warning',
+            detail: '30 days',
+          },
+        ]}
+      />
+    ),
+  },
+]
+const meta = {
+  title: 'Record/Inspector',
+  component: Inspector,
+  tags: ['autodocs'],
+  parameters: { layout: 'fullscreen' },
+  args: {
+    recordType: 'Sample',
+    title: 'Human plasma aliquot',
+    tabs,
+    onClose: () => {},
+    className: 'h-[600px] w-[380px] border',
+  },
+} satisfies Meta<typeof Inspector>
+export default meta
+type Story = StoryObj<typeof meta>
+export const Loaded: Story = {}
+export const Skeleton: Story = { args: { state: 'skeleton' } }
+export const NoSelection: Story = {
+  args: { state: 'no-selection', title: 'Inspector' },
+}
+export const Unavailable: Story = { args: { state: 'unavailable' } }
+export const PermissionDenied: Story = { args: { state: 'permission-denied' } }

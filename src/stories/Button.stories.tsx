@@ -25,7 +25,45 @@ export const WithIcon: Story = {
 }
 
 export const AllVariants: Story = {
-  render: () => <div className="flex flex-wrap gap-2">{(['default','destructive','outline','secondary','ghost','link','subtle'] as const).map(variant => <Button key={variant} variant={variant}>{variant}</Button>)}</div>,
+  render: () => (
+    <div className="flex flex-wrap gap-2">
+      {(
+        [
+          'default',
+          'destructive',
+          'outline',
+          'secondary',
+          'ghost',
+          'link',
+          'subtle',
+        ] as const
+      ).map((variant) => (
+        <Button key={variant} variant={variant}>
+          {variant}
+        </Button>
+      ))}
+    </div>
+  ),
 }
-export const Sizes: Story = { render: () => <div className="flex items-center gap-2"><Button size="sm">Small</Button><Button>Default</Button><Button size="lg">Large</Button><Button size="icon" aria-label="Add"><Plus /></Button></div> }
-export const States: Story = { render: () => <div className="flex gap-2"><Button disabled>Disabled</Button><Button disabled><Loader2 className="animate-spin" /> Saving…</Button></div> }
+export const Sizes: Story = {
+  render: () => (
+    <div className="flex items-center gap-2">
+      <Button size="sm">Small</Button>
+      <Button>Default</Button>
+      <Button size="lg">Large</Button>
+      <Button size="icon" aria-label="Add">
+        <Plus />
+      </Button>
+    </div>
+  ),
+}
+export const States: Story = {
+  render: () => (
+    <div className="flex gap-2">
+      <Button disabled>Disabled</Button>
+      <Button disabled>
+        <Loader2 className="animate-spin" /> Saving…
+      </Button>
+    </div>
+  ),
+}

@@ -6,11 +6,20 @@ const spec: any = {
   specVersion: 1,
   type: 'line',
   datasets: [{ tableId: 'table-1' }],
-  fields: { x: { columnId: 'x', fieldName: 'time' }, y: { columnId: 'y', fieldName: 'od' }, series: { columnId: 's', fieldName: 'condition' }, color: null, size: null },
+  fields: {
+    x: { columnId: 'x', fieldName: 'time' },
+    y: { columnId: 'y', fieldName: 'od' },
+    series: { columnId: 's', fieldName: 'condition' },
+    color: null,
+    size: null,
+  },
   filters: [],
   transformations: [],
   display: {
-    axes: { x: { label: 'Time', scale: 'linear', unit: 'h' }, y: { label: 'OD₆₀₀', scale: 'linear' } },
+    axes: {
+      x: { label: 'Time', scale: 'linear', unit: 'h' },
+      y: { label: 'OD₆₀₀', scale: 'linear' },
+    },
     series: [{ identifier: '37 °C', label: '37 °C', color: CHART_PALETTE[0] }],
     legend: { visible: true },
   },
@@ -32,7 +41,13 @@ const materialised: any = {
       identifier: '37 °C',
       label: '37 °C',
       color: CHART_PALETTE[0],
-      points: [[0, 0.05], [2, 0.12], [4, 0.34], [6, 0.68], [8, 0.82]].map(([x, y]) => ({ x, y, yError: null, label: '37 °C' })),
+      points: [
+        [0, 0.05],
+        [2, 0.12],
+        [4, 0.34],
+        [6, 0.68],
+        [8, 0.82],
+      ].map(([x, y]) => ({ x, y, yError: null, label: '37 °C' })),
     },
   ],
   xLabel: 'Time',
@@ -53,15 +68,28 @@ type Story = StoryObj<typeof meta>
 export const Line: Story = {}
 
 export const Scatter: Story = {
-  args: { spec: { ...spec, type: 'scatter' }, title: 'Concentration vs response' },
+  args: {
+    spec: { ...spec, type: 'scatter' },
+    title: 'Concentration vs response',
+  },
 }
 
 export const Bar: Story = {
-  args: { spec: { ...spec, type: 'bar' }, title: 'Endpoint yield by condition' },
+  args: {
+    spec: { ...spec, type: 'bar' },
+    title: 'Endpoint yield by condition',
+  },
 }
 
 export const Empty: Story = {
-  args: { materialised: { ...materialised, state: { kind: 'empty_dataset' }, rows: [], series: [] } },
+  args: {
+    materialised: {
+      ...materialised,
+      state: { kind: 'empty_dataset' },
+      rows: [],
+      series: [],
+    },
+  },
 }
 
 export const Loading: Story = {

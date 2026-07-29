@@ -24,6 +24,7 @@ import {
   useNavigate,
   useSearch,
 } from '@tanstack/react-router'
+import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { useMemo } from 'react'
 import type { ComponentProps, ReactNode } from 'react'
@@ -74,6 +75,18 @@ import type {
 } from '#/lib/reviews'
 import type { RegistryQuery, RegistryFilterValue } from '#/lib/registry'
 import { cn } from '#/lib/utils'
+
+// ---------------------------------------------------------------------------
+// Server function: resolve user IDs → names for display.
+// `internal.user` is not PostgREST-exposed, so this runs server-side.
+// ---------------------------------------------------------------------------
+
+const resolveUserNamesFn = createServerFn({ method: 'POST' })
+  .validator((userIds: string[]) => userIds)
+  .handler(async ({ data }) => {
+    const { resolveUserNames } = await import('#/lib/current-user')
+    return resolveUserNames(data)
+  })
 
 // ---------------------------------------------------------------------------
 // Deep-linkable search state. The URL is the single source of truth for
@@ -192,16 +205,6 @@ function searchFromQuery(
 // Columns.
 // ---------------------------------------------------------------------------
 
-function ownerLabel(
-  userId: string,
-  currentUserId: string,
-  currentName: string,
-): string {
-  if (userId === currentUserId) return currentName
-  if (!userId) return 'Unknown'
-  return userId.length <= 10 ? userId : userId.slice(0, 10)
-}
-
 /**
  * Summary cards for the inbox header, derived from the full (unfiltered) set.
  * Exported so the inbox's derived counts can be tested without mounting the
@@ -240,17 +243,20 @@ export function buildReviewSummaries(
   ]
 }
 
-const columns: ColumnDef<ReviewItem, unknown>[] = [
+function buildColumns(
+  userLabel: (userId: string) => string,
+): ColumnDef<ReviewItem, unknown>[] {
+  return [
   {
     id: 'entry',
     header: 'Entry',
     accessorFn: (row) => row.recordIdentifier,
     cell: ({ row }) => (
-      <div className="min-w-0">
-        <p className="truncate font-medium text-foreground">
+      <div className="min-w-0 py-0.5">
+        <p className="truncate text-sm font-medium text-foreground">
           {row.original.recordIdentifier}
         </p>
-        <p className="truncate text-xs text-muted-foreground">
+        <p className="truncate text-xs leading-tight text-muted-foreground">
           {row.original.recordTitle}
         </p>
       </div>
@@ -285,10 +291,10 @@ const columns: ColumnDef<ReviewItem, unknown>[] = [
   {
     id: 'submitter',
     header: 'Requested by',
-    accessorFn: (row) => row.submittedByUserId,
+    accessorFn: (row) => userLabel(row.submittedByUserId),
     cell: ({ row }) => (
-      <span className="font-mono text-xs text-muted-foreground">
-        {row.original.submittedByUserId}
+      <span className="text-sm text-muted-foreground">
+        {userLabel(row.original.submittedByUserId)}
       </span>
     ),
   },
@@ -297,13 +303,13 @@ const columns: ColumnDef<ReviewItem, unknown>[] = [
     header: 'Current step',
     accessorFn: (row) => row.currentStep.label,
     cell: ({ row }) => (
-      <div className="flex flex-col gap-0.5">
+      <div className="flex items-center gap-1.5 py-0.5">
         <StatusBadge
           status={row.original.status}
           vocabulary={inboxStatusVocabulary}
           size="sm"
         />
-        <span className="text-xs text-muted-foreground">
+        <span className="truncate text-xs text-muted-foreground">
           {row.original.currentStep.label}
         </span>
       </div>
@@ -317,27 +323,22 @@ const columns: ColumnDef<ReviewItem, unknown>[] = [
       const item = row.original
       const overdue = item.isOverdue
       return (
-        <div className="flex flex-col gap-0.5">
-          <span
-            className={cn(
-              'text-xs tabular-nums',
-              overdue
-                ? 'font-semibold text-red-600 dark:text-red-400'
-                : 'text-muted-foreground',
-            )}
-          >
-            {formatDate(item.submittedAt)}
-          </span>
-          {overdue ? (
-            <span className="text-xs font-medium text-red-600 dark:text-red-400">
-              Overdue
-            </span>
-          ) : (
-            <span className="text-xs text-muted-foreground">
+        <span
+          className={cn(
+            'text-xs tabular-nums whitespace-nowrap',
+            overdue
+              ? 'font-semibold text-red-600 dark:text-red-400'
+              : 'text-muted-foreground',
+          )}
+        >
+          {formatDate(item.submittedAt)}
+          {!overdue && (
+            <span className="ml-1 text-muted-foreground/70">
               {formatRelativeTime(item.submittedAt)}
             </span>
           )}
-        </div>
+          {overdue && <span className="ml-1 text-red-600 dark:text-red-400">· Overdue</span>}
+        </span>
       )
     },
   },
@@ -354,7 +355,8 @@ const columns: ColumnDef<ReviewItem, unknown>[] = [
       )
     },
   },
-]
+  ]
+}
 
 // ---------------------------------------------------------------------------
 // Route component.
@@ -366,7 +368,6 @@ function ReviewsRoute() {
   const search = useSearch({ from: '/reviews' })
 
   const currentUserId = context.user.id
-  const currentUserName = context.user.name
   const workspaceId = context.workspace?.id ?? 'workspace'
 
   const query = useMemo(() => queryFromSearch(search), [search])
@@ -417,6 +418,35 @@ function ReviewsRoute() {
     })
   }, [submissionsQuery.data, recordsQuery.data, projectsQuery.data])
 
+  // --- Resolve user IDs → names (server-side; internal.user not PostgREST-exposed) ---
+
+  const userIdsToResolve = useMemo(() => {
+    const ids = new Set<string>()
+    for (const item of allItems) {
+      if (item.submittedByUserId) ids.add(item.submittedByUserId)
+      for (const rId of item.assignedReviewerUserIds) ids.add(rId)
+    }
+    return Array.from(ids)
+  }, [allItems])
+
+  const userNamesQuery = useQuery({
+    queryKey: ['reviews', 'user-names', userIdsToResolve],
+    queryFn: () => resolveUserNamesFn({ data: userIdsToResolve }),
+    enabled: userIdsToResolve.length > 0,
+  })
+
+  const userNames = useMemo(() => {
+    const map: Record<string, string> = {}
+    if (context.user.id) map[context.user.id] = context.user.name
+    Object.assign(map, userNamesQuery.data ?? {})
+    return map
+  }, [context.user.id, context.user.name, userNamesQuery.data])
+
+  /** Resolve a user ID to a display name, falling back to a short id slice. */
+  function userLabel(userId: string): string {
+    return userNames[userId] ?? (userId.length <= 8 ? userId : userId.slice(0, 8))
+  }
+
   // --- Filter / sort / paginate (client-side over the bounded fetch) ------
 
   const filters = useMemo<ReviewFilterInput>(
@@ -460,6 +490,8 @@ function ReviewsRoute() {
     query.pageIndex,
     Math.max(0, Math.ceil(totalCount / query.pageSize) - 1),
   )
+  const columns = useMemo(() => buildColumns(userLabel), [userLabel])
+
   const rows = useMemo(
     () => paginateReviews(sortedItems, pageIndex, query.pageSize),
     [sortedItems, pageIndex, query.pageSize],
@@ -567,11 +599,7 @@ function ReviewsRoute() {
     }
 
     const steps = workflowStepsFor(row.workflowDefinitionKey)
-    const submitterLabel = ownerLabel(
-      row.submittedByUserId,
-      currentUserId,
-      currentUserName,
-    )
+    const submitterLabel = userLabel(row.submittedByUserId)
     const overdue = row.isOverdue
 
     return (
@@ -580,6 +608,7 @@ function ReviewsRoute() {
         steps={steps}
         submitterLabel={submitterLabel}
         overdue={overdue}
+        userLabel={userLabel}
         onClose={() => handleSelectedIdChange(null)}
       />
     )
@@ -661,12 +690,14 @@ export function ReviewInspector({
   steps,
   submitterLabel,
   overdue,
+  userLabel,
   onClose,
 }: {
   row: ReviewItem
   steps: { key: string; label: string; required: boolean }[]
   submitterLabel: string
   overdue: boolean
+  userLabel: (userId: string) => string
   onClose: () => void
 }) {
   const priorityMeta = PRIORITY_META[row.priority]
@@ -732,12 +763,7 @@ export function ReviewInspector({
             {row.projectTitle ?? '—'}
           </InspectorProp>
           <InspectorProp label="Requested by">
-            <span
-              className={cn(
-                'text-xs',
-                row.submittedByUserId.length > 10 && 'font-mono',
-              )}
-            >
+            <span className="text-xs text-foreground">
               {submitterLabel}
             </span>
           </InspectorProp>
@@ -814,63 +840,65 @@ export function ReviewInspector({
             <p className="text-xs text-muted-foreground">No assignees.</p>
           ) : (
             <ul className="space-y-1">
-              {row.assignedReviewerUserIds.map((userId) => (
-                <li
-                  key={userId}
-                  className="flex items-center gap-2 text-xs text-muted-foreground"
-                >
-                  <span className="flex size-5 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
-                    {userId.slice(0, 2).toUpperCase()}
-                  </span>
-                  <span className="font-mono">{userId}</span>
-                </li>
-              ))}
+              {row.assignedReviewerUserIds.map((userId) => {
+                const name = userLabel(userId)
+                return (
+                  <li
+                    key={userId}
+                    className="flex items-center gap-2 text-xs text-muted-foreground"
+                  >
+                    <span className="flex size-5 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
+                      {name.slice(0, 2).toUpperCase()}
+                    </span>
+                    <span>{name}</span>
+                  </li>
+                )
+              })}
             </ul>
           )}
         </section>
       </div>
 
       <div className="space-y-2 border-t p-3">
-        <Link
-          to="/reviews/$revisionId"
-          params={{ revisionId: row.revisionId }}
-          className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-md bg-primary text-sm font-medium text-primary-foreground no-underline hover:bg-primary/90"
-        >
-          <ExternalLink className="size-4" aria-hidden />
-          Open review workspace
-        </Link>
-        {openDiffEnabled ? (
+        <div className="flex gap-2">
           <Link
-            to="/projects/$projectId/experiments/$recordId"
-            params={{ projectId: row.projectId!, recordId: row.recordId }}
-            className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-md border text-sm font-medium no-underline hover:bg-muted"
+            to="/reviews/$revisionId"
+            params={{ revisionId: row.revisionId }}
+            className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md bg-primary text-xs font-medium text-primary-foreground no-underline hover:bg-primary/90"
           >
-            <GitCompare className="size-4" aria-hidden />
-            Open record
+            <ExternalLink className="size-3.5" aria-hidden />
+            Open workspace
           </Link>
-        ) : (
-          <Button variant="outline" size="sm" className="w-full" disabled>
-            <GitCompare className="size-4" aria-hidden />
-            Open record
-          </Button>
-        )}
-        <div className="grid grid-cols-3 gap-2">
-          <Button variant="outline" size="sm" disabled>
-            <CheckCircle2 className="size-3.5" aria-hidden />
+          {openDiffEnabled ? (
+            <Link
+              to="/projects/$projectId/experiments/$recordId"
+              params={{ projectId: row.projectId!, recordId: row.recordId }}
+              className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md border text-xs font-medium no-underline hover:bg-muted"
+            >
+              <GitCompare className="size-3.5" aria-hidden />
+              Open record
+            </Link>
+          ) : (
+            <Button variant="outline" size="sm" className="flex-1" disabled>
+              <GitCompare className="size-3.5" aria-hidden />
+              Open record
+            </Button>
+          )}
+        </div>
+        <div className="grid grid-cols-3 gap-1.5">
+          <Button variant="outline" size="sm" disabled className="h-7 text-xs">
+            <CheckCircle2 className="size-3" aria-hidden />
             Approve
           </Button>
-          <Button variant="outline" size="sm" disabled>
-            <Undo2 className="size-3.5" aria-hidden />
+          <Button variant="outline" size="sm" disabled className="h-7 text-xs">
+            <Undo2 className="size-3" aria-hidden />
             Changes
           </Button>
-          <Button variant="outline" size="sm" disabled>
-            <UserCog className="size-3.5" aria-hidden />
+          <Button variant="outline" size="sm" disabled className="h-7 text-xs">
+            <UserCog className="size-3" aria-hidden />
             Reassign
           </Button>
         </div>
-        <p className="text-center text-xs text-muted-foreground">
-          Approve, request changes and reassign arrive with review transitions.
-        </p>
       </div>
     </div>
   )
@@ -892,4 +920,4 @@ function InspectorProp({
 }
 
 // Re-export so tests can drive the column model without importing the route.
-export { columns as reviewColumns }
+export { buildColumns as buildReviewColumns }

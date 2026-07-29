@@ -237,7 +237,7 @@ function ExperimentNotebookRoute() {
         />
       }
     >
-      <div className="-my-6 mx-auto w-full max-w-3xl px-4 pb-16 md:px-6">
+      <div className="-my-6 mx-auto w-full max-w-5xl px-4 pb-16 md:px-6">
           <StickyRecordHeader
             record={record}
             projectName={project?.title ?? null}

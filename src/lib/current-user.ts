@@ -2,7 +2,7 @@
  * Server-side accessors for the signed-in context. Used by route loaders;
  * never import into client-only modules.
  */
-import { eq } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 
 import { db } from '#/db/client.server'
 import * as schema from '#/db/schema'
@@ -40,4 +40,25 @@ export async function getCurrentContext(
         }
       : null,
   }
+}
+
+/**
+ * Resolve a set of user IDs to { id → name } for display. Queries
+ * `internal.user` (not PostgREST-exposed) joined with workspace memberships.
+ * Returns only the names that exist; missing IDs are omitted so callers can
+ * fall back to a short-id slice.
+ */
+export async function resolveUserNames(
+  userIds: string[],
+): Promise<Record<string, string>> {
+  if (userIds.length === 0) return {}
+  const uniqueIds = [...new Set(userIds)].filter(Boolean)
+  if (uniqueIds.length === 0) return {}
+  const rows = await db
+    .select({ id: schema.user.id, name: schema.user.name })
+    .from(schema.user)
+    .where(inArray(schema.user.id, uniqueIds))
+  const map: Record<string, string> = {}
+  for (const r of rows) map[r.id] = r.name
+  return map
 }

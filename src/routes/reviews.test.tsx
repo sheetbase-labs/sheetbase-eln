@@ -22,7 +22,7 @@ import { toReviewItem, workflowStepsFor } from '#/lib/reviews'
 import type { ReviewItem, ReviewSubmissionWire } from '#/lib/reviews'
 import type { RecordWire } from '#/lib/notebook-data'
 
-import { buildReviewSummaries, ReviewInspector, reviewColumns } from './reviews'
+import { buildReviewSummaries, ReviewInspector, buildReviewColumns } from './reviews'
 
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => () => ({ useRouteContext: () => ({}) }),
@@ -169,7 +169,7 @@ function inboxProps(
     title: 'Review inbox',
     rows: [reviewItem({ id: 'sub-1' })],
     totalCount: 1,
-    columns: reviewColumns,
+    columns: buildReviewColumns((id) => id),
     query,
     onQueryChange: vi.fn(),
     getRowId: (row) => row.id,
@@ -182,6 +182,7 @@ function inboxProps(
           steps={workflowStepsFor(row.workflowDefinitionKey)}
           submitterLabel={row.submittedByUserId}
           overdue={row.isOverdue}
+          userLabel={(id) => id}
           onClose={() => {}}
         />
       ) : (
@@ -212,6 +213,7 @@ describe('ReviewInspector states', () => {
         steps={workflowStepsFor(item.workflowDefinitionKey)}
         submitterLabel="Owner A"
         overdue={false}
+        userLabel={(id) => id}
         onClose={() => {}}
       />,
     )
@@ -240,6 +242,7 @@ describe('ReviewInspector states', () => {
         steps={workflowStepsFor(item.workflowDefinitionKey)}
         submitterLabel="Owner A"
         overdue
+        userLabel={(id) => id}
         onClose={() => {}}
       />,
     )
@@ -254,6 +257,7 @@ describe('ReviewInspector states', () => {
         steps={workflowStepsFor(item.workflowDefinitionKey)}
         submitterLabel="Owner A"
         overdue={false}
+        userLabel={(id) => id}
         onClose={() => {}}
       />,
     )

@@ -837,7 +837,7 @@ export function AppShell({
               {fullBleed ? (
                 children
               ) : (
-                <div className="mx-auto w-full max-w-[1280px] px-4 py-6 md:px-8">
+                <div className="mx-auto w-full max-w-[1600px] px-4 py-6 md:px-8">
                   {children}
                 </div>
               )}

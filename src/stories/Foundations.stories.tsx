@@ -18,6 +18,27 @@ const swatches = [
   ['Card', 'bg-card', 'text-card-foreground'],
 ]
 
+const statusSwatches = [
+  ['Success', 'bg-success', 'text-success-foreground'],
+  ['Warning', 'bg-warning', 'text-warning-foreground'],
+  ['Info', 'bg-info', 'text-info-foreground'],
+  ['Violet', 'bg-violet', 'text-violet-foreground'],
+]
+
+const chartSwatches = [
+  ['Chart 1', 'bg-chart-1', 'text-primary-foreground'],
+  ['Chart 2', 'bg-chart-2', 'text-primary-foreground'],
+  ['Chart 3', 'bg-chart-3', 'text-primary-foreground'],
+  ['Chart 4', 'bg-chart-4', 'text-primary-foreground'],
+  ['Chart 5', 'bg-chart-5', 'text-primary-foreground'],
+]
+
+const sidebarSwatches = [
+  ['Sidebar', 'bg-sidebar', 'text-sidebar-foreground'],
+  ['Sidebar primary', 'bg-sidebar-primary', 'text-sidebar-primary-foreground'],
+  ['Sidebar accent', 'bg-sidebar-accent', 'text-sidebar-accent-foreground'],
+]
+
 export const Colour: Story = {
   render: () => (
     <div className="grid max-w-4xl gap-8">
@@ -27,20 +48,82 @@ export const Colour: Story = {
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Sheetbase themes are expressed through semantic CSS variables.
+          Status, chart and sidebar tokens extend the base palette per the
+          Brand Guide.
         </p>
       </div>
-      <div className="grid grid-cols-3 gap-4">
-        {swatches.map(([label, background, foreground]) => (
-          <div
-            key={label}
-            className={`rounded-lg border p-5 ${background} ${foreground}`}
-          >
-            <div className="font-medium">{label}</div>
-            <div className="mt-6 font-mono text-xs">
-              --{label.toLowerCase()}
+
+      <div>
+        <h3 className="mb-3 text-sm font-semibold text-muted-foreground">
+          Base
+        </h3>
+        <div className="grid grid-cols-3 gap-4">
+          {swatches.map(([label, background, foreground]) => (
+            <div
+              key={label}
+              className={`rounded-lg border p-5 ${background} ${foreground}`}
+            >
+              <div className="font-medium">{label}</div>
+              <div className="mt-6 font-mono text-xs">
+                --{label.toLowerCase().replace(/\s+/g, '-')}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h3 className="mb-3 text-sm font-semibold text-muted-foreground">
+          Status
+        </h3>
+        <div className="grid grid-cols-4 gap-4">
+          {statusSwatches.map(([label, background, foreground]) => (
+            <div
+              key={label}
+              className={`rounded-lg border p-5 ${background} ${foreground}`}
+            >
+              <div className="font-medium">{label}</div>
+              <div className="mt-6 font-mono text-xs">
+                --{label.toLowerCase()}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h3 className="mb-3 text-sm font-semibold text-muted-foreground">
+          Chart
+        </h3>
+        <div className="flex flex-wrap gap-4">
+          {chartSwatches.map(([label, background, foreground]) => (
+            <div
+              key={label}
+              className={`size-20 rounded-lg border p-3 ${background} ${foreground}`}
+            >
+              <div className="text-xs font-medium">{label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h3 className="mb-3 text-sm font-semibold text-muted-foreground">
+          Sidebar
+        </h3>
+        <div className="grid grid-cols-3 gap-4">
+          {sidebarSwatches.map(([label, background, foreground]) => (
+            <div
+              key={label}
+              className={`rounded-lg border p-5 ${background} ${foreground}`}
+            >
+              <div className="font-medium">{label}</div>
+              <div className="mt-6 font-mono text-xs">
+                --{label.toLowerCase().replace(/\s+/g, '-')}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   ),

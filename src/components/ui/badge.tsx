@@ -6,7 +6,8 @@ import { cn } from '#/lib/utils'
 
 /**
  * Badge variants. Status variants (success/warning/danger/info/violet) use
- * the brand guide's tinted background + readable text colour in both themes.
+ * semantic colour tokens (--success, --warning, etc.) at low opacity for
+ * backgrounds and full colour for text, matching the Brand Guide palette.
  * Status is always conveyed by text or icon as well as colour (DESIGN.md /
  * UI-005), so a badge must contain a text label — colour alone is never the
  * only signal.
@@ -20,14 +21,14 @@ const badgeVariants = cva(
         secondary: 'border-transparent bg-secondary text-secondary-foreground',
         outline: 'border-border bg-background text-foreground',
         success:
-          'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300',
+          'border-success/20 bg-success/10 text-success',
         warning:
-          'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300',
+          'border-warning/30 bg-warning/15 text-warning-foreground',
         danger:
-          'border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300',
-        info: 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300',
+          'border-destructive/20 bg-destructive/10 text-destructive',
+        info: 'border-info/20 bg-info/10 text-info',
         violet:
-          'border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900 dark:bg-violet-950 dark:text-violet-300',
+          'border-violet/20 bg-violet/10 text-violet',
       },
     },
     defaultVariants: { variant: 'default' },

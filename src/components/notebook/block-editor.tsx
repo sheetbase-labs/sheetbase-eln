@@ -132,6 +132,16 @@ export interface BlockEditorProps {
   onFreezeChart?: () => Promise<void>
   /** SCI-004: remove the frozen snapshot so the chart can be edited again. */
   onUnfreezeChart?: () => Promise<void>
+  /** Slash command: user picked a block type from the `/` menu. */
+  onSlashCommand?: (type: string) => void
+  /** Enter at end of the last paragraph → create a new text block below. */
+  onEnterAtEnd?: () => void
+  /** Backspace at start of an empty block → delete and focus previous. */
+  onBackspaceAtStart?: () => void
+  /** ArrowUp at start of first paragraph → focus previous block. */
+  onArrowUpFromStart?: () => void
+  /** ArrowDown at end of last paragraph → focus next block. */
+  onArrowDownFromEnd?: () => void
 }
 
 export function BlockEditor(props: BlockEditorProps) {
@@ -293,7 +303,7 @@ function AutosaveFooter({
 }) {
   if (status === 'clean') return null
   return (
-    <div className="mt-2 space-y-1">
+    <div className="absolute right-0 bottom-0 z-10 max-w-full space-y-1 rounded-md bg-background/90 p-1.5 text-xs shadow-sm backdrop-blur-sm">
       <SaveStatus status={status} message={error} />
       {status === 'conflict' ? (
         <ConflictBanner
@@ -323,6 +333,11 @@ function RichTextEditor({
   readOnly,
   autoFocus,
   className,
+  onSlashCommand,
+  onEnterAtEnd,
+  onBackspaceAtStart,
+  onArrowUpFromStart,
+  onArrowDownFromEnd,
 }: BlockEditorProps) {
   const initialDraft = block.payload as unknown as RichTextPayload
   const a = useBlockAutosave(block, initialDraft, save, offline, onStatusChange)
@@ -332,7 +347,7 @@ function RichTextEditor({
   }
 
   return (
-    <div className={cn('space-y-2', className)}>
+    <div className={cn('relative', className)}>
       <TiptapRichTextEditor
         payload={a.draft}
         autoFocus={autoFocus}
@@ -341,6 +356,11 @@ function RichTextEditor({
           a.setDraft(payload)
         }}
         onBlur={a.flush}
+        onSlashCommand={onSlashCommand}
+        onEnterAtEnd={onEnterAtEnd}
+        onBackspaceAtStart={onBackspaceAtStart}
+        onArrowUpFromStart={onArrowUpFromStart}
+        onArrowDownFromEnd={onArrowDownFromEnd}
       />
       <AutosaveFooter
         status={a.status}

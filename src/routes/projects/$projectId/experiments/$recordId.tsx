@@ -639,11 +639,13 @@ function EditableNotebook({
       afterBlockId?: string
       options?: { datasetSchemaId?: string }
     }) => {
+      const current = queryClient.getQueryData<NotebookRecord | null>(recordKey)
       if (type === 'sheet') {
         return insertSheetBlock(client, {
           recordId: record.id,
           afterBlockId,
-          expectedStructureVersion: record.structureVersion,
+          expectedStructureVersion:
+            current?.structureVersion ?? record.structureVersion,
           datasetSchemaId: options?.datasetSchemaId,
         })
       }
@@ -653,7 +655,8 @@ function EditableNotebook({
         type,
         payload,
         afterBlockId,
-        expectedStructureVersion: record.structureVersion,
+        expectedStructureVersion:
+          current?.structureVersion ?? record.structureVersion,
       })
     },
     onSuccess: (res) => {
@@ -689,11 +692,14 @@ function EditableNotebook({
 
   // --- Delete ------------------------------------------------------------
   const deleteMutation = useMutation({
-    mutationFn: async (block: NotebookBlockDomain) =>
-      deleteBlock(client, {
+    mutationFn: async (block: NotebookBlockDomain) => {
+      const current = queryClient.getQueryData<NotebookRecord | null>(recordKey)
+      return deleteBlock(client, {
         blockId: block.id,
-        expectedStructureVersion: record.structureVersion,
-      }),
+        expectedStructureVersion:
+          current?.structureVersion ?? record.structureVersion,
+      })
+    },
     onSuccess: (res, vars) => {
       removeBlock(vars.id)
       setRecordStructureVersion(res.structureVersion)
@@ -835,7 +841,8 @@ function EditableNotebook({
     afterBlockId?: string,
     options?: { datasetSchemaId?: string },
   ) {
-    await insertMutation.mutateAsync({ type, afterBlockId, options })
+    const res = await insertMutation.mutateAsync({ type, afterBlockId, options })
+    return res.block.id
   }
 
   async function handlePinProtocol(
@@ -930,6 +937,23 @@ function EditableNotebook({
     await deleteMutation.mutateAsync(block)
   }
 
+  /**
+   * Replace a block with a new type (slash command). Inserts the new block
+   * after the current one, then deletes the current one — both reading the
+   * latest structure_version from the query cache so back-to-back
+   * operations succeed. Returns the new block's id so the caller can select
+   * and focus it.
+   */
+  async function handleReplaceBlock(
+    block: NotebookBlockDomain,
+    type: string,
+    options?: { datasetSchemaId?: string },
+  ): Promise<string | undefined> {
+    const newId = await handleInsert(type, block.id, options)
+    await deleteMutation.mutateAsync(block)
+    return newId
+  }
+
   async function handleUndoDelete(
     type: string,
     payload: Record<string, unknown>,
@@ -960,6 +984,7 @@ function EditableNotebook({
       onDeleteBlock={handleDelete}
       onUndoDelete={handleUndoDelete}
       onMoveBlock={handleMove}
+      onReplaceBlock={handleReplaceBlock}
     />
   )
 }

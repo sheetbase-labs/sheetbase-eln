@@ -30,7 +30,7 @@ const rows: Row[] = [
   },
 ]
 
-const columns: ColumnDef<Row, unknown>[] = [
+const columns: ColumnDef<unknown, unknown>[] = [
   { accessorKey: 'identifier', header: 'Identifier' },
   { accessorKey: 'title', header: 'Sample' },
   { accessorKey: 'status', header: 'Status' },
@@ -57,7 +57,7 @@ const baseArgs = {
   columns,
   query: DEFAULT_REGISTRY_QUERY,
   onQueryChange: () => {},
-  getRowId: (r: Row) => r.id,
+  getRowId: (r: unknown) => (r as Row).id,
   selectedId: '1',
   onSelectedIdChange: () => {},
   summaries: [

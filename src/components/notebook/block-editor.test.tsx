@@ -86,6 +86,10 @@ describe('BlockEditor — rich_text', () => {
       />,
     )
     const editor = await screen.findByRole('textbox', { name: 'Text content' })
+    editor.focus()
+    await user.paste('result')
+    await user.keyboard('{Control>}a{/Control}')
+    // The floating BubbleMenu toolbar appears when text is selected.
     for (const name of [
       'Paragraph',
       'Heading 2',
@@ -103,9 +107,6 @@ describe('BlockEditor — rich_text', () => {
     ]) {
       expect(screen.getByRole('button', { name })).toBeTruthy()
     }
-    editor.focus()
-    await user.paste('result')
-    await user.keyboard('{Control>}a{/Control}')
     await user.click(screen.getByRole('button', { name: 'Bold' }))
     await user.tab()
     expect(save).toHaveBeenCalledWith({

@@ -3,7 +3,6 @@ import {
   EllipsisVertical,
   GripVertical,
   Lock,
-  Maximize,
   TriangleAlert,
 } from 'lucide-react'
 
@@ -28,6 +27,10 @@ import {
  * and read-only. Drag handle and action menu are focusable buttons so
  * keyboard users can reach them; they become visible on hover/focus rather
  * than being mouse-only.
+ *
+ * The drag handle (six-dots grip icon) also serves as a click target for
+ * the block actions menu — a Notion-style pattern where clicking the handle
+ * opens Delete / Duplicate / Move up / Move down.
  */
 
 export type NotebookBlockState =
@@ -74,8 +77,8 @@ export interface NotebookBlockProps {
 
 const stateRing: Record<NotebookBlockState, string> = {
   default: 'bg-transparent',
-  selected: 'bg-primary/[0.025] ring-1 ring-inset ring-primary/20',
-  editing: 'bg-primary/[0.025] ring-1 ring-inset ring-primary/30',
+  selected: 'bg-primary/[0.015]',
+  editing: 'bg-primary/[0.015]',
   dragging: 'bg-background opacity-60 shadow-sm',
   invalid: 'ring-1 ring-inset ring-destructive/60',
   locked: 'bg-muted/20',
@@ -100,6 +103,8 @@ export function NotebookBlock({
   const readOnly = state === 'read-only' || locked
   const invalid = state === 'invalid'
   const loading = state === 'loading'
+  const hasMenu = !!menuItems && menuItems.length > 0
+  const [menuOpen, setMenuOpen] = React.useState(false)
 
   return (
     <div
@@ -112,7 +117,11 @@ export function NotebookBlock({
       data-block-type={label}
       data-state={state}
     >
-      {/* Left-margin drag handle (visible on desktop) */}
+      {/* Left-margin drag handle (visible on desktop).
+          Clicking the handle opens the block actions menu; dragging it
+          reorders the block. HTML5 drag-and-drop suppresses the click
+          event when a drag actually starts, so the two interactions do
+          not conflict. */}
       <div className="absolute left-1 top-3 hidden w-8 items-center lg:flex">
         {draggable ? (
           <button
@@ -121,6 +130,7 @@ export function NotebookBlock({
             draggable
             onDragStart={onDragStart}
             onDragEnd={onDragEnd}
+            onClick={() => hasMenu && setMenuOpen(true)}
             className="cursor-grab rounded p-0.5 text-muted-foreground opacity-0 outline-none transition-opacity focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100 active:cursor-grabbing"
           >
             <GripVertical className="size-3.5" />
@@ -144,17 +154,8 @@ export function NotebookBlock({
               aria-label="Block has errors"
             />
           ) : null}
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Expand block"
-            title="Expand"
-            className="opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
-          >
-            <Maximize />
-          </Button>
-          {menuItems && menuItems.length > 0 ? (
-            <DropdownMenu>
+          {hasMenu ? (
+            <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
@@ -166,7 +167,7 @@ export function NotebookBlock({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                {menuItems.map((item) => (
+                {menuItems!.map((item) => (
                   <React.Fragment key={item.id}>
                     <DropdownMenuItem
                       onSelect={item.onSelect}
@@ -174,7 +175,9 @@ export function NotebookBlock({
                     >
                       {item.label}
                     </DropdownMenuItem>
-                    {item.separatorAfter ? <DropdownMenuSeparator /> : null}
+                    {item.separatorAfter ? (
+                      <DropdownMenuSeparator />
+                    ) : null}
                   </React.Fragment>
                 ))}
               </DropdownMenuContent>

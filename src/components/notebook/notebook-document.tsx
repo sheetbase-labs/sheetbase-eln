@@ -70,7 +70,7 @@ export interface NotebookDocumentProps {
     type: string,
     afterBlockId?: string,
     options?: { datasetSchemaId?: string },
-  ) => Promise<void>
+  ) => Promise<string | undefined>
   /** Pin a protocol to an empty protocol-reference block. */
   onPinProtocol?: (
     block: NotebookBlockData,
@@ -106,6 +106,16 @@ export interface NotebookDocumentProps {
       beforeBlockId: string | null
     },
   ) => Promise<void>
+  /**
+   * Replace `block` with a new block of `type` (slash command). Inserts the
+   * new block and removes the old one atomically from the user's
+   * perspective. Returns the new block's id so the caller can focus it.
+   */
+  onReplaceBlock?: (
+    block: NotebookBlockData,
+    type: string,
+    options?: { datasetSchemaId?: string },
+  ) => Promise<string | undefined>
   readOnly?: boolean
   className?: string
 }
@@ -144,6 +154,7 @@ function NotebookDocumentContent({
   onDeleteBlock,
   onUndoDelete,
   onMoveBlock,
+  onReplaceBlock,
   readOnly,
   className,
 }: NotebookDocumentProps) {
@@ -152,6 +163,9 @@ function NotebookDocumentContent({
   const [schemaPickerOpen, setSchemaPickerOpen] = React.useState(false)
   const [schemaPickerAfterBlockId, setSchemaPickerAfterBlockId] =
     React.useState<string | null>(null)
+  // When the slash command opens the sheet schema picker, this ref holds the
+  // id of the original text block to delete after the sheet is inserted.
+  const slashReplaceBlockId = React.useRef<string | null>(null)
   // Per-block error messages for insert / duplicate / delete (ELN-005).
   // Save errors are owned per-editor by `useAutosave` (ELN-007).
   const [errorById, setErrorById] = React.useState<Record<string, string>>({})
@@ -432,6 +446,96 @@ function NotebookDocumentContent({
     void performMove(block, target)
   }
 
+  // --- Notion-like keyboard & slash command handlers ----------------------
+
+  /**
+   * Focus a block's anchor element and select it. Deferred via rAF so the
+   * DOM has settled after reorders/inserts before we focus.
+   */
+  function selectAndFocus(blockId: string) {
+    setSelectedId(blockId)
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`block-${blockId}`)
+      if (el && typeof el.focus === 'function') el.focus()
+    })
+  }
+
+  /** Slash command: replace the current empty text block with a new type. */
+  async function handleSlashCommand(block: NotebookBlockData, type: string) {
+    if (type === 'rich_text') return // handled in the editor itself
+    try {
+      if (type === 'sheet' && !isReadOnly) {
+        // Open the schema picker; the replace (delete old block) happens
+        // after the sheet is created via the dialog's onSelect.
+        setSchemaPickerAfterBlockId(block.id)
+        setSchemaPickerOpen(true)
+        // Track that we need to delete the original block after the sheet
+        // is inserted.
+        slashReplaceBlockId.current = block.id
+        return
+      }
+      const newId = onReplaceBlock
+        ? await onReplaceBlock(block, type)
+        : await onInsertBlock(type, block.id)
+      if (newId) selectAndFocus(newId)
+      setUndo(null)
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Could not insert the block.'
+      setErrorById((prev) => ({ ...prev, __insert: message }))
+    }
+  }
+
+  /** Enter at end of a text block → create a new empty text block below. */
+  async function handleEnterAtEnd(block: NotebookBlockData) {
+    try {
+      const newId = await onInsertBlock('rich_text', block.id)
+      if (newId) selectAndFocus(newId)
+      setUndo(null)
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Could not create a block.'
+      setErrorById((prev) => ({ ...prev, [block.id]: message }))
+    }
+  }
+
+  /** Backspace at start of an empty block → delete and focus previous.
+   *  Does nothing if this is the only remaining block — a notebook must
+   *  always have at least one block. */
+  async function handleBackspaceAtStart(block: NotebookBlockData) {
+    if (orderedIds.length <= 1) return
+    const idx = orderedIds.indexOf(block.id)
+    const prevId = idx > 0 ? orderedIds[idx - 1] : null
+    try {
+      await onDeleteBlock(block)
+      setUndo({
+        type: block.type,
+        payload: block.payload,
+        afterBlockId: null,
+        label: `${block.type} block`,
+      })
+      if (prevId) selectAndFocus(prevId)
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Could not delete the block.'
+      setErrorById((prev) => ({ ...prev, [block.id]: message }))
+    }
+  }
+
+  /** ArrowUp at start of first paragraph → focus previous block. */
+  function handleArrowUpFromStart(block: NotebookBlockData) {
+    const idx = orderedIds.indexOf(block.id)
+    if (idx <= 0) return
+    selectAndFocus(orderedIds[idx - 1])
+  }
+
+  /** ArrowDown at end of last paragraph → focus next block. */
+  function handleArrowDownFromEnd(block: NotebookBlockData) {
+    const idx = orderedIds.indexOf(block.id)
+    if (idx < 0 || idx >= orderedIds.length - 1) return
+    selectAndFocus(orderedIds[idx + 1])
+  }
+
   function handleRowKeyDown(
     e: React.KeyboardEvent<HTMLDivElement>,
     block: NotebookBlockData,
@@ -674,6 +778,11 @@ function NotebookDocumentContent({
                     }
                     readOnly={isReadOnly}
                     autoFocus={isSelected}
+                    onSlashCommand={(type) => void handleSlashCommand(block, type)}
+                    onEnterAtEnd={() => void handleEnterAtEnd(block)}
+                    onBackspaceAtStart={() => void handleBackspaceAtStart(block)}
+                    onArrowUpFromStart={() => handleArrowUpFromStart(block)}
+                    onArrowDownFromEnd={() => handleArrowDownFromEnd(block)}
                   />
                 ) : (
                   <BlockPreview block={block} />
@@ -720,15 +829,27 @@ function NotebookDocumentContent({
       {/* SCI-010: schema picker dialog for sheet block creation. */}
       <SchemaPickerDialog
         open={schemaPickerOpen}
-        onOpenChange={setSchemaPickerOpen}
+        onOpenChange={(open) => {
+          setSchemaPickerOpen(open)
+          if (!open) slashReplaceBlockId.current = null
+        }}
         onSelect={async (result: SchemaPickerResult) => {
           const datasetSchemaId =
             result.mode === 'ad-hoc' ? undefined : result.schemaId
-          await onInsertBlock(
+          const newId = await onInsertBlock(
             'sheet',
             schemaPickerAfterBlockId ?? undefined,
             datasetSchemaId ? { datasetSchemaId } : undefined,
           )
+          // If this came from a slash command replace, delete the original
+          // text block now that the sheet has been inserted after it.
+          const replaceId = slashReplaceBlockId.current
+          slashReplaceBlockId.current = null
+          if (replaceId) {
+            const original = blockById.get(replaceId)
+            if (original) await onDeleteBlock(original)
+          }
+          if (newId) selectAndFocus(newId)
           setUndo(null)
         }}
       />

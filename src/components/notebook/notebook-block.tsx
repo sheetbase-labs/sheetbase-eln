@@ -192,13 +192,13 @@ export function NotebookBlock({
       </div>
 
       {loading ? (
-        <div className="space-y-2" aria-busy="true" aria-live="polite">
+        <div className="space-y-2 pt-6" aria-busy="true" aria-live="polite">
           <Skeleton className="h-4 w-3/4" />
           <Skeleton className="h-4 w-1/2" />
           <Skeleton className="h-20 w-full" />
         </div>
       ) : (
-        <div className={cn(readOnly && 'pointer-events-none select-none')}>
+        <div className={cn('pt-6', readOnly && 'pointer-events-none select-none')}>
           {children}
         </div>
       )}

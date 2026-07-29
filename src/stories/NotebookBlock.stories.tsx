@@ -1,17 +1,24 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { NotebookBlock } from '#/components/notebook/notebook-block'
 import { BlockPreview } from '#/components/notebook/block-preview'
+
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+})
 const payloads: any = {
   rich_text: {
-    type: 'doc',
-    content: [
-      {
-        type: 'paragraph',
-        content: [
-          { type: 'text', text: 'Cells were incubated at 37 °C for 24 hours.' },
-        ],
-      },
-    ],
+    doc: {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            { type: 'text', text: 'Cells were incubated at 37 °C for 24 hours.' },
+          ],
+        },
+      ],
+    },
   },
   checklist: {
     items: [
@@ -20,9 +27,8 @@ const payloads: any = {
     ],
   },
   callout: {
-    tone: 'warning',
-    title: 'Safety',
-    body: 'Handle all plasma in a class II cabinet.',
+    text: 'Handle all plasma in a class II cabinet.',
+    variant: 'warning',
   },
   metric: { label: 'Final concentration', value: 7.42, unit: 'ng/µL' },
   materials: { items: [] },
@@ -31,6 +37,13 @@ const meta = {
   title: 'Notebook/Notebook block',
   component: NotebookBlock,
   tags: ['autodocs'],
+  decorators: [
+    (Story) => (
+      <QueryClientProvider client={queryClient}>
+        <Story />
+      </QueryClientProvider>
+    ),
+  ],
   args: {
     label: 'Rich text',
     title: 'Method',
@@ -76,7 +89,9 @@ export const States: Story = {
         ] as const
       ).map((state) => (
         <NotebookBlock key={state} label="Text" title={state} state={state}>
-          Scientific notebook content
+          <p className="text-sm text-foreground">
+            Scientific notebook content
+          </p>
         </NotebookBlock>
       ))}
     </div>

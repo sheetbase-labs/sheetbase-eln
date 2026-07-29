@@ -35,14 +35,12 @@ export function InspectorSection({
   className?: string
 }) {
   return (
-    <section className={cn('border-t border-border py-3 first:border-t-0 first:pt-0', className)}>
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <h3 className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
-          {title}
-        </h3>
-        {action}
-      </div>
-      {children}
+    <section className={cn('border-t border-border pt-2 pb-1 first:border-t-0 first:pt-0', className)}>
+      <h3 className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
+        {title}
+      </h3>
+      {action ? <div className="float-right">{action}</div> : null}
+      <div className="clear-both">{children}</div>
     </section>
   )
 }
@@ -55,7 +53,7 @@ export function PropertyList({
   children: React.ReactNode
   className?: string
 }) {
-  return <dl className={cn('space-y-1.5 text-xs', className)}>{children}</dl>
+  return <dl className={cn('space-y-1 text-xs', className)}>{children}</dl>
 }
 
 export function Property({
@@ -69,7 +67,7 @@ export function Property({
   mono?: boolean
 }) {
   return (
-    <div className="flex items-center justify-between gap-2">
+    <div className="grid grid-cols-[auto_1fr] items-center gap-2">
       <dt className="shrink-0 text-muted-foreground">{label}</dt>
       <dd
         className={cn(

@@ -85,7 +85,7 @@ export function Inspector({
       aria-label="Inspector"
     >
       {/* Compact identity header — record type label, title, close */}
-      <div className="shrink-0 border-b border-border px-4 py-3">
+      <div className="shrink-0 border-b border-border px-4 py-2.5">
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
             {recordType ? (
@@ -93,7 +93,7 @@ export function Inspector({
                 {recordType}
               </p>
             ) : null}
-            <h2 className="text-sm font-semibold leading-snug text-foreground">
+            <h2 className="text-sm font-semibold leading-tight text-foreground">
               {title}
             </h2>
           </div>
@@ -136,7 +136,7 @@ export function Inspector({
           />
         ) : showTabs ? (
           <Tabs defaultValue={initial} className="flex flex-col gap-0">
-            <div className="sticky top-0 z-10 border-b border-border bg-background px-3 pt-2">
+            <div className="sticky top-0 z-10 border-b border-border bg-background px-3 pt-1.5 pb-0.5">
               <TabsList className="w-full justify-start gap-1">
                 {tabs.map((tab) => (
                   <TabsTrigger key={tab.id} value={tab.id} className="text-xs">
@@ -154,7 +154,7 @@ export function Inspector({
               <TabsContent
                 key={tab.id}
                 value={tab.id}
-                className="mt-0 px-4 pb-6 pt-3"
+                className="mt-0 px-4 pb-6 pt-2"
               >
                 {tab.content}
               </TabsContent>

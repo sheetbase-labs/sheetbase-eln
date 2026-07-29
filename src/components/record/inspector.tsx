@@ -136,10 +136,14 @@ export function Inspector({
           />
         ) : showTabs ? (
           <Tabs defaultValue={initial} className="flex flex-col gap-0">
-            <div className="sticky top-0 z-10 border-b border-border bg-background px-3 pt-1.5 pb-0.5">
-              <TabsList className="w-full justify-start gap-1">
+            <div className="sticky top-0 z-10 border-b border-border bg-background px-4">
+              <TabsList className="flex h-auto w-full justify-start gap-3 rounded-none bg-transparent p-0">
                 {tabs.map((tab) => (
-                  <TabsTrigger key={tab.id} value={tab.id} className="text-xs">
+                  <TabsTrigger
+                    key={tab.id}
+                    value={tab.id}
+                    className="-mb-px h-8 rounded-none border-b-2 border-transparent bg-transparent px-0 text-xs text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                  >
                     {tab.label}
                     {tab.badge !== undefined ? (
                       <span className="ml-1 text-[0.65rem] font-medium text-muted-foreground">

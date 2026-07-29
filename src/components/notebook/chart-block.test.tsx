@@ -214,7 +214,7 @@ describe('ChartBlockPreview — live resolution', () => {
       expect(screen.getByText('Live')).toBeTruthy()
     })
     await waitFor(() => {
-      expect(document.querySelector('svg[role="img"]')).toBeTruthy()
+      expect(document.querySelector('[role="img"]')).toBeTruthy()
     })
   })
 
@@ -430,6 +430,6 @@ describe('ChartBlockPreview — frozen snapshot', () => {
     expect(screen.queryByText('Live')).toBeNull()
     // Frozen path must not call the live dataset resolver.
     expect(mockFetchTable).not.toHaveBeenCalled()
-    expect(document.querySelector('svg[role="img"]')).toBeTruthy()
+    expect(document.querySelector('[role="img"]')).toBeTruthy()
   })
 })

@@ -1,85 +1,19 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { Inspector } from '#/components/record/inspector'
-import {
-  CheckList,
-  InspectorSection,
-  LinkedRecordList,
-  Property,
-  PropertyList,
-} from '#/components/record/inspector-sections'
+import { PropertyList, Property } from '#/components/scientific/property-list'
+import { StatusBadge } from '#/components/scientific/status-badge'
+import { Badge } from '#/components/ui/badge'
+
 const tabs = [
-  {
-    id: 'properties',
-    label: 'Properties',
-    content: (
-      <>
-        <InspectorSection title="Identity">
-          <PropertyList>
-            <Property label="Identifier" mono>
-              SMP-2026-0142
-            </Property>
-            <Property label="Matrix">Human plasma</Property>
-            <Property label="Volume" mono>
-              2.4 mL
-            </Property>
-            <Property label="Storage" mono>
-              −80 °C
-            </Property>
-          </PropertyList>
-        </InspectorSection>
-        <InspectorSection title="Linked records">
-          <LinkedRecordList
-            items={[
-              {
-                id: '1',
-                type: 'Experiment',
-                title: 'Stability assay',
-                meta: 'EXP-2026-0042',
-              },
-            ]}
-          />
-        </InspectorSection>
-      </>
-    ),
-  },
-  {
-    id: 'checks',
-    label: 'Checks',
-    badge: 3,
-    content: (
-      <CheckList
-        items={[
-          { id: '1', label: 'Identifier valid', state: 'pass' },
-          {
-            id: '2',
-            label: 'Expiry date present',
-            state: 'warning',
-            detail: '30 days',
-          },
-        ]}
-      />
-    ),
-  },
+  { id: 'properties', label: 'Properties', content: <PropertyList><Property label="ID">EXP-2025-0014</Property><Property label="Status"><StatusBadge domain="experiment" status="in-progress" /></Property><Property label="Owner">Dr. Maya Chen</Property><Property label="Project">Vector stability</Property><Property label="Created">14 July 2025</Property><Property label="Last modified">29 July 2025</Property><Property label="Tags"><span className="flex gap-1"><Badge variant="outline">lentivirus</Badge><Badge variant="outline">stability</Badge></span></Property></PropertyList> },
+  { id: 'activity', label: 'Activity', badge: 3, content: <ol className="space-y-4 text-sm"><li><b>Dr. Maya Chen</b> updated the storage condition <p className="text-xs text-muted-foreground">Today, 09:42</p></li><li><b>Alex Rivera</b> attached qPCR results <p className="text-xs text-muted-foreground">Yesterday, 16:18</p></li><li><b>System</b> recorded a new revision <p className="text-xs text-muted-foreground">25 July, 11:03</p></li></ol> },
+  { id: 'comments', label: 'Comments', badge: 2, content: <div className="space-y-4"><div className="flex gap-3"><span className="flex size-8 items-center justify-center rounded-full bg-muted text-xs">MC</span><p className="text-sm"><b>Maya Chen</b><br />Replicate two should be repeated before review.</p></div><div className="flex gap-3"><span className="flex size-8 items-center justify-center rounded-full bg-muted text-xs">AR</span><p className="text-sm"><b>Alex Rivera</b><br />The repeat is scheduled for Friday.</p></div></div> },
 ]
-const meta = {
-  title: 'Record/Inspector',
-  component: Inspector,
-  tags: ['autodocs'],
-  parameters: { layout: 'fullscreen' },
-  args: {
-    recordType: 'Sample',
-    title: 'Human plasma aliquot',
-    tabs,
-    onClose: () => {},
-    className: 'h-[600px] w-[380px] border',
-  },
-} satisfies Meta<typeof Inspector>
+const meta = { title: 'Record/Inspector', component: Inspector, tags: ['autodocs'], parameters: { layout: 'fullscreen' }, args: { recordType: 'Experiment', title: 'Virus Stability at 4 °C', tabs, className: 'h-[600px] w-[380px] border' } } satisfies Meta<typeof Inspector>
 export default meta
 type Story = StoryObj<typeof meta>
-export const Loaded: Story = {}
-export const Skeleton: Story = { args: { state: 'skeleton' } }
-export const NoSelection: Story = {
-  args: { state: 'no-selection', title: 'Inspector' },
-}
+export const Default: Story = {}
+export const Loading: Story = { args: { state: 'skeleton' } }
+export const NoSelection: Story = { args: { state: 'no-selection', title: 'Inspector' } }
 export const Unavailable: Story = { args: { state: 'unavailable' } }
 export const PermissionDenied: Story = { args: { state: 'permission-denied' } }

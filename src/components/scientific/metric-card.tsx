@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
+import { TrendingDown, TrendingUp } from 'lucide-react'
 
 import { Card, CardContent } from '#/components/ui/card'
 import { cn } from '#/lib/utils'
@@ -10,6 +11,10 @@ export type MetricCardHintTone =
 export interface MetricCardProps {
   label: string
   value: string | number
+  /** Optional trend indicator with change text, shown below the value. */
+  change?: string
+  /** Direction of the trend arrow. */
+  trend?: 'up' | 'down' | 'neutral'
   hint?: string
   hintTone?: MetricCardHintTone
   icon?: LucideIcon
@@ -29,6 +34,8 @@ const hintToneClasses: Record<MetricCardHintTone, string> = {
 export function MetricCard({
   label,
   value,
+  change,
+  trend = 'neutral',
   hint,
   hintTone = 'default',
   icon: Icon,
@@ -54,6 +61,24 @@ export function MetricCard({
           </p>
           {sparkline ? <div className="min-w-0 shrink">{sparkline}</div> : null}
         </div>
+        {change ? (
+          <p
+            className={cn(
+              'mt-1 flex items-center gap-1 text-xs',
+              trend === 'up' && 'text-success',
+              trend === 'down' && 'text-warning',
+              trend === 'neutral' && 'text-muted-foreground',
+            )}
+          >
+            {trend === 'up' ? (
+              <TrendingUp className="size-3.5" aria-hidden="true" />
+            ) : null}
+            {trend === 'down' ? (
+              <TrendingDown className="size-3.5" aria-hidden="true" />
+            ) : null}
+            {change}
+          </p>
+        ) : null}
         {hint ? (
           <p className={cn('mt-1 text-xs', hintToneClasses[hintTone])}>
             {hint}

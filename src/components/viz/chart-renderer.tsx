@@ -1,4 +1,18 @@
 import * as React from 'react'
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ErrorBar,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Scatter,
+  ScatterChart,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
 
 import { cn } from '#/lib/utils'
 import { ChartFrame } from './chart-frame'
@@ -14,27 +28,18 @@ import type {
 /**
  * SCI-004 — Chart renderer inside `ChartFrame` (decision 0029).
  *
- * Renders line, scatter and bar charts as accessible SVG using the approved
- * palette and scientific number formatting. No charting dependency: the
- * three initial types fit a single shared axis system, and keeping the SVG
- * in-tree keeps it accessible (every series, point and axis is real DOM a
- * screen reader can traverse via the tabular alternative) and screenshot-
- * stable across environments.
+ * Renders line, scatter and bar charts using the approved palette and
+ * scientific number formatting.
  *
  * Accessibility:
  *  - `ChartFrame` owns the figure semantics (role=figure, labelled title,
  *    sr-only `alt` description).
- *  - The SVG carries `role="img"` and a `<title>`/`<desc>` pair that
- *    summarises the plotted series.
+ *  - The plot carries an accessible label that summarises the plotted series.
  *  - The tabular alternative (`ChartTableAlternative`) renders the exact
  *    rows the chart plots, so the data is reachable without the visual.
  *  - Series are distinguishable by colour AND dash/symbol so non-colour
  *    perception still works (DESIGN.md "non-colour distinctions").
  */
-
-const PLOT_W = 560
-const PLOT_H = 240
-const MARGIN = { top: 16, right: 16, bottom: 32, left: 64 }
 
 export interface ChartRendererProps {
   title: string
@@ -109,272 +114,185 @@ function ChartPlot({
   materialised: MaterialisedChart
 }) {
   const type = spec?.type ?? 'line'
-  const allPoints = materialised.series.flatMap((s) => s.points)
-  const finiteX = allPoints
-    .map((p) => p.x)
-    .filter((v): v is number => v !== null)
-  const finiteY = allPoints
-    .map((p) => p.y)
-    .filter((v): v is number => v !== null)
-  const xScale = makeScale(finiteX, spec?.display.axes.x.scale ?? 'linear')
-  const yScale = makeScale(finiteY, spec?.display.axes.y.scale ?? 'linear')
-  const innerW = PLOT_W - MARGIN.left - MARGIN.right
-  const innerH = PLOT_H - MARGIN.top - MARGIN.bottom
-  const xTicks = makeTicks(xScale, 5)
-  const yTicks = makeTicks(yScale, 4)
-  const titleId = React.useId()
-  const descId = React.useId()
-  return (
-    <svg
-      viewBox={`0 0 ${PLOT_W} ${PLOT_H}`}
-      className="h-[240px] w-full"
-      role="img"
-      aria-labelledby={`${titleId} ${descId}`}
-    >
-      <title id={titleId}>
-        {spec?.display.axes.x.label ?? materialised.xLabel} vs{' '}
-        {spec?.display.axes.y.label ?? materialised.yLabel}
-      </title>
-      <desc id={descId}>{describeSeries(materialised)}</desc>
-      {/* y gridlines + ticks */}
-      {yTicks.map((t) => {
-        const y = MARGIN.top + innerH - yScale.toPixels(t)
-        return (
-          <g key={`y${t}`}>
-            <line
-              x1={MARGIN.left}
-              y1={y}
-              x2={PLOT_W - MARGIN.right}
-              y2={y}
-              stroke="#dfe3e8"
-            />
-            <text
-              x={MARGIN.left - 8}
-              y={y + 4}
-              textAnchor="end"
-              fontSize="11"
-              fill="#6b7280"
-            >
-              {formatScientific(t)}
-            </text>
-          </g>
-        )
-      })}
-      {/* x ticks */}
-      {xTicks.map((t) => {
-        const x = MARGIN.left + xScale.toPixels(t)
-        return (
-          <g key={`x${t}`}>
-            <line
-              x1={x}
-              y1={MARGIN.top}
-              x2={x}
-              y2={MARGIN.top + innerH}
-              stroke="#eef0f3"
-            />
-            <text
-              x={x}
-              y={PLOT_H - 10}
-              textAnchor="middle"
-              fontSize="11"
-              fill="#6b7280"
-            >
-              {formatScientific(t)}
-            </text>
-          </g>
-        )
-      })}
-      {/* axes labels */}
-      <text
-        x={MARGIN.left + innerW / 2}
-        y={PLOT_H - 0}
-        textAnchor="middle"
-        fontSize="11"
-        fill="#4b5563"
-      >
-        {axisLabel(materialised.xLabel, materialised.xUnit)}
-      </text>
-      <text
-        x={12}
-        y={MARGIN.top + innerH / 2}
-        textAnchor="middle"
-        fontSize="11"
-        fill="#4b5563"
-        transform={`rotate(-90 12 ${MARGIN.top + innerH / 2})`}
-      >
-        {axisLabel(materialised.yLabel, materialised.yUnit)}
-      </text>
-      {/* series */}
-      {materialised.series.map((s, i) => (
-        <SeriesGlyph
-          key={s.identifier}
-          series={s}
-          index={i}
-          type={type}
-          xScale={xScale}
-          yScale={yScale}
-          innerH={innerH}
-        />
-      ))}
-    </svg>
+  const data = toRechartsData(materialised.series)
+  const xScale = spec?.display.axes.x.scale ?? 'linear'
+  const yScale = spec?.display.axes.y.scale ?? 'linear'
+  const margin = { top: 16, right: 16, bottom: 32, left: 64 }
+  const grid = <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+  const xAxis = (
+    <XAxis
+      dataKey="x"
+      type="number"
+      scale={xScale}
+      domain={['auto', 'auto']}
+      tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+      axisLine={{ stroke: 'var(--border)' }}
+      tickLine={false}
+      label={{
+        value: axisLabel(materialised.xLabel, materialised.xUnit),
+        position: 'bottom',
+        fontSize: 11,
+        fill: 'var(--muted-foreground)',
+      }}
+      tickFormatter={(value) => formatScientific(value)}
+    />
   )
-}
-
-function SeriesGlyph({
-  series,
-  index,
-  type,
-  xScale,
-  yScale,
-  innerH,
-}: {
-  series: MaterialisedSeries
-  index: number
-  type: ChartType
-  xScale: Scale
-  yScale: Scale
-  innerH: number
-}) {
-  const color = series.color
-  // Dash pattern rotates through a small set so non-colour perception
-  // still distinguishes series (DESIGN.md non-colour distinctions).
-  const dashes = ['', '6 5', '2 4', '10 5 2 5']
-  const dash = dashes[index % dashes.length]
-  const pts = series.points
-    .map((p) => {
-      if (p.x === null || p.y === null) return null
-      const px = MARGIN.left + xScale.toPixels(p.x)
-      const py = MARGIN.top + innerH - yScale.toPixels(p.y)
-      return { px, py, p }
-    })
-    .filter(
-      (
-        v,
-      ): v is {
-        px: number
-        py: number
-        p: (typeof series.points)[number]
-      } => v !== null,
-    )
-  if (pts.length === 0) return null
-  if (type === 'bar') {
-    const innerW = PLOT_W - MARGIN.left - MARGIN.right
-    const barW = Math.max(2, innerW / (pts.length * 2))
-    const baseY = MARGIN.top + innerH - yScale.toPixels(yScale.min)
-    return (
-      <g>
-        {pts.map(({ px, py, p }, i) => {
-          const h = Math.max(0, baseY - py)
-          return (
-            <g key={i}>
-              <rect
-                x={px - barW / 2}
-                y={py}
-                width={barW}
-                height={h}
-                fill={color}
-                opacity={0.85}
-              />
-              {p.yError !== null && p.yError !== undefined ? (
-                <ErrorBar
-                  cx={px}
-                  cy={py}
-                  yError={p.yError}
-                  yScale={yScale}
-                  color={color}
-                />
-              ) : null}
-            </g>
-          )
-        })}
-      </g>
-    )
-  }
+  const yAxis = (
+    <YAxis
+      type="number"
+      scale={yScale}
+      domain={['auto', 'auto']}
+      tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+      axisLine={false}
+      tickLine={false}
+      tickFormatter={(value) => formatScientific(value)}
+      label={{
+        value: axisLabel(materialised.yLabel, materialised.yUnit),
+        angle: -90,
+        position: 'insideLeft',
+        fontSize: 11,
+        fill: 'var(--muted-foreground)',
+      }}
+    />
+  )
+  const tooltip = (
+    <Tooltip
+      contentStyle={{
+        background: 'var(--popover)',
+        border: '1px solid var(--border)',
+        borderRadius: 8,
+        fontSize: 12,
+      }}
+      formatter={(value) => formatScientific(Number(value))}
+    />
+  )
+  let chart: React.ReactNode
   if (type === 'scatter') {
-    return (
-      <g>
-        {pts.map(({ px, py, p }, i) => (
-          <g key={i}>
-            <circle
-              cx={px}
-              cy={py}
-              r={3.5}
-              fill="white"
-              stroke={color}
-              strokeWidth={2}
-            />
-            {p.yError !== null && p.yError !== undefined ? (
+    chart = (
+      <ScatterChart margin={margin} role="img">
+        {grid}
+        {xAxis}
+        {yAxis}
+        {tooltip}
+        {materialised.series.map((series) => (
+          <Scatter
+            key={series.identifier}
+            name={series.label}
+            data={data.filter(
+              (row) =>
+                row[series.identifier] !== null &&
+                row[series.identifier] !== undefined,
+            )}
+            dataKey={series.identifier}
+            fill="var(--popover)"
+            stroke={series.color}
+            strokeWidth={2}
+          >
+            {hasErrorBars(series) ? (
               <ErrorBar
-                cx={px}
-                cy={py}
-                yError={p.yError}
-                yScale={yScale}
-                color={color}
+                dataKey={`${series.identifier}_error`}
+                stroke={series.color}
+                strokeWidth={1.5}
               />
             ) : null}
-          </g>
+          </Scatter>
         ))}
-      </g>
+      </ScatterChart>
+    )
+  } else if (type === 'bar') {
+    chart = (
+      <BarChart data={data} margin={margin} role="img">
+        {grid}
+        {xAxis}
+        {yAxis}
+        {tooltip}
+        {materialised.series.map((series) => (
+          <Bar
+            key={series.identifier}
+            dataKey={series.identifier}
+            name={series.label}
+            fill={series.color}
+            opacity={0.85}
+          >
+            {hasErrorBars(series) ? (
+              <ErrorBar
+                dataKey={`${series.identifier}_error`}
+                stroke={series.color}
+                strokeWidth={1.5}
+              />
+            ) : null}
+          </Bar>
+        ))}
+      </BarChart>
+    )
+  } else {
+    chart = (
+      <LineChart data={data} margin={margin} role="img">
+        {grid}
+        {xAxis}
+        {yAxis}
+        {tooltip}
+        {materialised.series.map((series) => (
+          <Line
+            key={series.identifier}
+            type="monotone"
+            dataKey={series.identifier}
+            name={series.label}
+            stroke={series.color}
+            strokeWidth={2}
+            dot={{
+              r: 3,
+              fill: 'var(--popover)',
+              stroke: series.color,
+              strokeWidth: 2,
+            }}
+            activeDot={{ r: 5 }}
+          >
+            {hasErrorBars(series) ? (
+              <ErrorBar
+                dataKey={`${series.identifier}_error`}
+                stroke={series.color}
+                strokeWidth={1.5}
+              />
+            ) : null}
+          </Line>
+        ))}
+      </LineChart>
     )
   }
-  // line (default)
-  const poly = pts.map(({ px, py }) => `${px},${py}`).join(' ')
   return (
-    <g>
-      <polyline
-        points={poly}
-        fill="none"
-        stroke={color}
-        strokeWidth={2.5}
-        strokeDasharray={dash}
-      />
-      {pts.map(({ px, py, p }, i) => (
-        <g key={i}>
-          <circle
-            cx={px}
-            cy={py}
-            r={3}
-            fill="white"
-            stroke={color}
-            strokeWidth={2}
-          />
-          {p.yError !== null && p.yError !== undefined ? (
-            <ErrorBar
-              cx={px}
-              cy={py}
-              yError={p.yError}
-              yScale={yScale}
-              color={color}
-            />
-          ) : null}
-        </g>
-      ))}
-    </g>
+    <div
+      role="img"
+      aria-label={`${materialised.xLabel} vs ${materialised.yLabel}. ${describeSeries(materialised)}`}
+      className="h-[240px] w-full"
+    >
+      <ResponsiveContainer width="100%" height={240}>
+        {chart}
+      </ResponsiveContainer>
+    </div>
   )
 }
 
-function ErrorBar({
-  cx,
-  cy,
-  yError,
-  yScale,
-  color,
-}: {
-  cx: number
-  cy: number
-  yError: number
-  yScale: Scale
-  color: string
-}) {
-  const half = yScale.toPixels(yError) - yScale.toPixels(0)
-  const top = cy - half
-  const bottom = cy + half
-  return (
-    <g stroke={color} strokeWidth={1.5}>
-      <line x1={cx} y1={top} x2={cx} y2={bottom} />
-      <line x1={cx - 3} y1={top} x2={cx + 3} y2={top} />
-      <line x1={cx - 3} y1={bottom} x2={cx + 3} y2={bottom} />
-    </g>
+function toRechartsData(series: MaterialisedSeries[]) {
+  const xMap = new Map<number, Record<string, number | null>>()
+  for (const item of series) {
+    for (const point of item.points) {
+      if (point.x === null || point.y === null) continue
+      const row = xMap.get(point.x) ?? { x: point.x }
+      row[item.identifier] = point.y
+      if (point.yError !== null && point.yError !== undefined)
+        row[`${item.identifier}_error`] = point.yError
+      xMap.set(point.x, row)
+    }
+  }
+  return Array.from(xMap.values()).sort(
+    (a, b) => (a.x as number) - (b.x as number),
+  )
+}
+
+function hasErrorBars(series: MaterialisedSeries) {
+  return series.points.some(
+    (point) => point.yError !== null && point.yError !== undefined,
   )
 }
 
@@ -505,69 +423,6 @@ function ChartStateMessage({
       {children}
     </div>
   )
-}
-
-// ---------------------------------------------------------------------------
-// Scales + ticks
-// ---------------------------------------------------------------------------
-
-interface Scale {
-  min: number
-  max: number
-  toPixels: (v: number) => number
-}
-
-function makeScale(values: number[], scale: 'linear' | 'log'): Scale {
-  if (values.length === 0) {
-    return { min: 0, max: 1, toPixels: () => 0 }
-  }
-  let min = Math.min(...values)
-  let max = Math.max(...values)
-  if (scale === 'log') {
-    const pos = values.filter((v) => v > 0)
-    min = pos.length ? Math.min(...pos) : 1
-    max = pos.length ? Math.max(...pos) : 10
-    // Pad to nice log decades.
-    min = Math.pow(10, Math.floor(Math.log10(min)))
-    max = Math.pow(10, Math.ceil(Math.log10(max)))
-    const logMin = Math.log10(min)
-    const logMax = Math.log10(max)
-    const innerW = PLOT_W - MARGIN.left - MARGIN.right
-    return {
-      min,
-      max,
-      toPixels: (v) => {
-        if (v <= 0) return 0
-        const t = (Math.log10(v) - logMin) / (logMax - logMin || 1)
-        return t * innerW
-      },
-    }
-  }
-  if (min === max) {
-    min = min - 1
-    max = max + 1
-  }
-  // Pad linear by 5%.
-  const pad = (max - min) * 0.05
-  min = min - pad
-  max = max + pad
-  const span = max - min || 1
-  const innerW = PLOT_W - MARGIN.left - MARGIN.right
-  return {
-    min,
-    max,
-    toPixels: (v) => ((v - min) / span) * innerW,
-  }
-}
-
-function makeTicks(scale: Scale, count: number): number[] {
-  if (scale.min === scale.max) return [scale.min]
-  const step = (scale.max - scale.min) / count
-  const ticks: number[] = []
-  for (let i = 0; i <= count; i++) {
-    ticks.push(scale.min + step * i)
-  }
-  return ticks
 }
 
 // ---------------------------------------------------------------------------

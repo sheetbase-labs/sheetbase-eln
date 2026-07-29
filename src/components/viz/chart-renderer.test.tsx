@@ -114,7 +114,7 @@ describe('ChartRenderer', () => {
     expect(screen.getByText('Live')).toBeTruthy()
     expect(screen.getByText('Source: Stability readings (qPCR)')).toBeTruthy()
     // SVG plot present.
-    expect(document.querySelector('svg[role="img"]')).toBeTruthy()
+    expect(document.querySelector('[role="img"]')).toBeTruthy()
   })
 
   it('renders a scatter chart', () => {
@@ -126,7 +126,7 @@ describe('ChartRenderer', () => {
         frozen={null}
       />,
     )
-    expect(document.querySelector('svg[role="img"]')).toBeTruthy()
+    expect(document.querySelector('[role="img"]')).toBeTruthy()
     // Scatter renders circles (points).
     expect(document.querySelectorAll('circle').length).toBeGreaterThan(0)
   })
@@ -140,9 +140,9 @@ describe('ChartRenderer', () => {
         frozen={null}
       />,
     )
-    expect(document.querySelector('svg[role="img"]')).toBeTruthy()
-    // Bar renders rects.
-    expect(document.querySelector('rect')).toBeTruthy()
+    expect(document.querySelector('[role="img"]')).toBeTruthy()
+    // Bar chart renders visible SVG shapes.
+    expect(document.querySelectorAll('svg path').length).toBeGreaterThan(0)
   })
 
   it('renders a snapshot badge when frozen', () => {
@@ -252,7 +252,7 @@ describe('ChartRenderer', () => {
       />,
     )
     expect(screen.getAllByText(/missing field/i).length).toBeGreaterThan(0)
-    expect(document.querySelector('svg[role="img"]')).toBeNull()
+    expect(document.querySelector('[role="img"]')).toBeNull()
   })
 
   it('surfaces an empty-dataset state', () => {

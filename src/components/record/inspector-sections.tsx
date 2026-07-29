@@ -35,7 +35,7 @@ export function InspectorSection({
   className?: string
 }) {
   return (
-    <section className={cn('space-y-2 py-3', className)}>
+    <section className={cn('space-y-1.5 py-2', className)}>
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           {title}
@@ -55,7 +55,7 @@ export function PropertyList({
   children: React.ReactNode
   className?: string
 }) {
-  return <dl className={cn('grid gap-2.5 text-xs', className)}>{children}</dl>
+  return <dl className={cn('grid gap-1.5 text-xs', className)}>{children}</dl>
 }
 
 export function Property({

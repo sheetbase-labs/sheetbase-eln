@@ -305,7 +305,7 @@ export function RichTextContent({
   return (
     <div
       className={[
-        'space-y-2 text-sm leading-6 text-foreground [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-5 [&_p]:min-h-[1.5rem] [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5',
+        'space-y-1.5 text-sm leading-6 text-foreground [&_ol]:list-decimal [&_ol]:space-y-0.5 [&_ol]:pl-5 [&_p]:min-h-[1.25rem] [&_ul]:list-disc [&_ul]:space-y-0.5 [&_ul]:pl-5',
         className,
       ]
         .filter(Boolean)

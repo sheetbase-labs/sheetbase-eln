@@ -104,7 +104,7 @@ export function NotebookBlock({
   return (
     <div
       className={cn(
-        'group relative px-4 py-4 transition-[background-color,box-shadow] sm:px-6 lg:pl-16',
+        'group relative px-4 py-3 transition-[background-color,box-shadow] sm:px-6 lg:pl-12',
         stateRing[state],
         className,
       )}
@@ -112,8 +112,8 @@ export function NotebookBlock({
       data-block-type={label}
       data-state={state}
     >
-      {/* Left-margin block type label (visible on desktop) + drag handle */}
-      <div className="absolute left-1 top-4 hidden w-12 flex-col items-center gap-1 lg:flex">
+      {/* Left-margin drag handle (visible on desktop) */}
+      <div className="absolute left-1 top-3 hidden w-8 items-center lg:flex">
         {draggable ? (
           <button
             type="button"
@@ -126,9 +126,6 @@ export function NotebookBlock({
             <GripVertical className="size-3.5" />
           </button>
         ) : null}
-        <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/40">
-          {label}
-        </span>
       </div>
 
       {/* Right-edge hover toolbar — no overlap with content */}

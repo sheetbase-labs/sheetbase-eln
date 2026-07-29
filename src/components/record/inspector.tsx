@@ -111,7 +111,7 @@ export function Inspector({
         </div>
       </div>
 
-      <Separator className="my-3 shrink-0" />
+      <Separator className="my-2 shrink-0" />
 
       {/* Scroll region: tabs + content scroll together but the identity
           header above stays pinned. Within it, the TabsList is sticky so it

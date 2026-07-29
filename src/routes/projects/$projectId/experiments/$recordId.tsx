@@ -237,7 +237,7 @@ function ExperimentNotebookRoute() {
         />
       }
     >
-      <div className="mx-auto w-full max-w-3xl px-4 pb-16 md:px-6">
+      <div className="-my-6 mx-auto w-full max-w-3xl px-4 pb-16 md:px-6">
           <StickyRecordHeader
             record={record}
             projectName={project?.title ?? null}
@@ -333,9 +333,9 @@ export function StickyRecordHeader({
   onAddBlock?: () => void
 }) {
   return (
-    <div className="border-b bg-background pb-4 pt-5">
-      {/* Row 1: type · status · identifier (left) — no actions here */}
-      <div className="flex flex-wrap items-center gap-2 text-xs">
+    <div className="pb-3 pt-4">
+      {/* Row 1: type · status · identifier — compact inline */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
         <span className="font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           {recordKindLabel(record.kind)}
         </span>
@@ -351,27 +351,33 @@ export function StickyRecordHeader({
         </span>
       </div>
 
-      {/* Row 2: title (full width) */}
-      <h1 className="mt-2 font-display text-2xl font-semibold leading-8 tracking-[-0.025em] text-foreground sm:text-3xl sm:leading-9">
+      {/* Row 2: title — tight to the badge row above */}
+      <h1 className="mt-1.5 font-display text-xl font-semibold leading-7 tracking-[-0.025em] text-foreground sm:text-2xl sm:leading-8">
         {record.title}
       </h1>
 
-      {/* Row 3: metadata (left) + actions (right) — wraps on mobile */}
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+      {/* Row 3: metadata + actions — single compact line */}
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
           <span>
             Created{' '}
             <span className="text-foreground">
               {new Date(record.createdAt).toLocaleDateString()}
             </span>
           </span>
+          <span className="text-muted-foreground/50">·</span>
           <span>
             Updated{' '}
             <span className="text-foreground">
               {new Date(record.updatedAt).toLocaleDateString()}
             </span>
           </span>
-          {projectName ? <span>{projectName}</span> : null}
+          {projectName ? (
+            <>
+              <span className="text-muted-foreground/50">·</span>
+              <span className="text-foreground">{projectName}</span>
+            </>
+          ) : null}
         </div>
         <div className="flex items-center gap-2">
           <Button

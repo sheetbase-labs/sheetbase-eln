@@ -14,14 +14,12 @@ beforeAll(() => {
 })
 
 describe('NotebookBlock', () => {
-  it('keeps the block type semantic with a subtle left-margin label', () => {
+  it('keeps the block type semantic via data attribute', () => {
     const { container } = render(
       <NotebookBlock label="H2" title="Methods">
         body
       </NotebookBlock>,
     )
-    // The label is rendered as a subtle left-margin marker (hidden on small
-    // screens via lg:flex). The semantic data attribute is always present.
     expect(container.querySelector('[data-block-type="H2"]')).toBeTruthy()
     expect(screen.getByText('Methods')).toBeTruthy()
     expect(screen.getByText('body')).toBeTruthy()

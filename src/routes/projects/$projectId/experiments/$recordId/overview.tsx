@@ -289,6 +289,7 @@ function ExperimentOverviewRoute() {
 
   return (
     <RouteShell
+      fullBleed
       context={shellContext}
       breadcrumbs={overviewBreadcrumbs(project, projectId, record)}
       inspector={
@@ -306,8 +307,8 @@ function ExperimentOverviewRoute() {
         />
       }
     >
-      <div className="-mx-4 -my-6 min-h-[calc(100svh-3.5rem)] bg-background md:-mx-8">
-        <div className="mx-auto w-full max-w-[1180px] space-y-2 px-8 pb-16">
+      <div className="min-h-[calc(100svh-3.5rem)] bg-background">
+        <div className="space-y-2 px-4 pb-16 md:px-6">
           <StickyRecordHeader
             record={record}
             projectName={project?.title ?? null}

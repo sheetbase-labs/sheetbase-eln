@@ -624,6 +624,7 @@ function SearchRoute() {
   ) : null
 
   useShell({
+    fullBleed: true,
     context: shellContext,
     breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Search' }],
     inspector: inspector,
@@ -632,7 +633,7 @@ function SearchRoute() {
 
   return (
     <>
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4 p-4 md:p-6">
         {/* Page heading — compact, per DESIGN.md (no marketing-scale type). */}
         <header className="flex items-center justify-between gap-4">
           <div>

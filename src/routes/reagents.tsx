@@ -258,12 +258,14 @@ function ReagentsRegistryRoute() {
   }
 
   useShell({
+    fullBleed: true,
     context: shellContext,
     breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Reagents' }],
   })
 
   return (
     <>
+      <div className="flex flex-col gap-4 p-4 md:p-6">
       <RegistryComposition
         registryId="reagents"
         workspaceId={context.workspace?.id ?? 'unknown'}
@@ -340,6 +342,7 @@ function ReagentsRegistryRoute() {
           )
         }
       />
+      </div>
     </>
   )
 }

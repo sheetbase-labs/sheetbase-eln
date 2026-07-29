@@ -437,6 +437,7 @@ function ReviewWorkspaceRoute() {
 
   return (
     <RouteShell
+      fullBleed
       context={shellContextValue}
       breadcrumbs={[
         { label: 'Home', to: '/' },
@@ -447,7 +448,7 @@ function ReviewWorkspaceRoute() {
       inspectorLabel="Review"
       inspectorCollapsible
     >
-      <div className="flex h-full flex-col gap-3">
+      <div className="flex h-full flex-col gap-3 p-4 md:p-6">
         <WorkspaceHeader
           submission={submission}
           record={record}

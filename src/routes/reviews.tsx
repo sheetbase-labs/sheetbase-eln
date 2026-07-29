@@ -630,12 +630,14 @@ function ReviewsRoute() {
   }
 
   useShell({
+    fullBleed: true,
     context: shellContext,
     breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Reviews' }],
   })
 
   return (
     <>
+      <div className="flex flex-col gap-4 p-4 md:p-6">
       <RegistryComposition<ReviewItem>
         registryId="reviews"
         workspaceId={workspaceId}
@@ -677,6 +679,7 @@ function ReviewsRoute() {
           </Button>
         }
       />
+      </div>
     </>
   )
 }

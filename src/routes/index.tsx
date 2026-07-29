@@ -129,6 +129,7 @@ function Home() {
 
   return (
     <RouteShell
+      fullBleed
       context={{
         workspace: { name: context.workspace.name },
         user: {
@@ -298,7 +299,7 @@ export function MyWorkDashboard({ context }: { context: DashboardContext }) {
     .slice(0, 3)
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 p-4 md:p-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-1">
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">

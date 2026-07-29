@@ -476,6 +476,7 @@ function TemplateLibraryRoute() {
   ) : null
 
   useShell({
+    fullBleed: true,
     context: shellContext,
     breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Templates' }],
     inspector: inspector,
@@ -483,7 +484,7 @@ function TemplateLibraryRoute() {
 
   return (
     <>
-      <div className="space-y-6">
+      <div className="space-y-6 p-4 md:p-6">
         <header className="space-y-1">
           <div className="flex items-center gap-2">
             <LayoutTemplate className="size-6 text-muted-foreground" />

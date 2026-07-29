@@ -203,6 +203,7 @@ function ExperimentNotebookRoute() {
 
   return (
     <RouteShell
+      fullBleed
       context={shellContext}
       breadcrumbs={[
         { label: 'Home', to: '/' },
@@ -237,7 +238,7 @@ function ExperimentNotebookRoute() {
         />
       }
     >
-      <div className="-my-6 mx-auto w-full max-w-5xl px-4 pb-16 md:px-6">
+      <div className="px-4 pb-16 md:px-6">
           <StickyRecordHeader
             record={record}
             projectName={project?.title ?? null}

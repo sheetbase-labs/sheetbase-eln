@@ -314,12 +314,14 @@ function SamplesRegistryRoute() {
     )
 
   useShell({
+    fullBleed: true,
     context: shellContext,
     breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Samples' }],
   })
 
   return (
     <>
+      <div className="flex flex-col gap-4 p-4 md:p-6">
       <RegistryComposition
         registryId="samples"
         workspaceId={workspaceId}
@@ -359,6 +361,7 @@ function SamplesRegistryRoute() {
         error={createError}
         onCreate={(input) => createMutation.mutate(input)}
       />
+      </div>
     </>
   )
 }

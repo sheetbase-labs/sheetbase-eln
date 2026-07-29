@@ -223,6 +223,7 @@ function ProjectsRoute() {
   }
 
   useShell({
+    fullBleed: true,
     context: {
       workspace: context.workspace ? { name: context.workspace.name } : null,
       user: { name: context.user.name, email: context.user.email },
@@ -260,7 +261,7 @@ function ProjectsRoute() {
 
   return (
     <>
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4 p-4 md:p-6">
         <header className="flex flex-wrap items-end justify-between gap-3">
           <div className="space-y-1">
             <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">

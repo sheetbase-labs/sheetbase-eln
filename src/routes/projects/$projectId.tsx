@@ -210,6 +210,7 @@ function ProjectRoute() {
 
   return (
     <RouteShell
+      fullBleed
       context={{
         workspace: context.workspace ? { name: context.workspace.name } : null,
         user: { name: context.user.name, email: context.user.email },
@@ -220,7 +221,7 @@ function ProjectRoute() {
         { label: project.title },
       ]}
     >
-      <div className="flex gap-5">
+      <div className="flex gap-5 p-4 md:p-6">
         <div className="flex min-w-0 flex-1 flex-col gap-5">
           <ProjectHeader
             project={project}

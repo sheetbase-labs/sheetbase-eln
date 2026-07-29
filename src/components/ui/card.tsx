@@ -41,7 +41,7 @@ function CardTitle({
   return (
     <h4
       data-slot="card-title"
-      className={cn('text-sm font-medium leading-none', className)}
+      className={cn('font-display text-sm font-medium leading-none', className)}
       {...props}
     />
   )

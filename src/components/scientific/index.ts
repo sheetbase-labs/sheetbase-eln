@@ -3,6 +3,7 @@
  * components (UI-005). Import from `#/components/scientific`.
  */
 export * from './status-badge'
+export * from './metric-card'
 export * from './record-link'
 export * from './record-picker'
 export * from './scientific-record-summary'

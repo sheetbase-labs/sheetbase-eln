@@ -45,12 +45,12 @@ export type StatusVocabulary = Record<string, StatusDefinition>
 export const experimentStatusVocabulary: StatusVocabulary = {
   draft: { label: 'Draft', tone: 'neutral', icon: CircleDashed },
   planned: { label: 'Planned', tone: 'info', icon: CalendarClock },
-  'in-progress': { label: 'In progress', tone: 'info', icon: PlayCircle },
+  'in-progress': { label: 'In progress', tone: 'success', icon: PlayCircle },
   review: { label: 'In review', tone: 'violet', icon: Eye },
   approved: { label: 'Approved', tone: 'success', icon: CheckCircle2 },
   locked: { label: 'Locked', tone: 'neutral', icon: Lock },
   failed: { label: 'Failed', tone: 'danger', icon: XCircle },
-  paused: { label: 'Paused', tone: 'warning', icon: PauseCircle },
+  paused: { label: 'Paused', tone: 'info', icon: PauseCircle },
   archived: { label: 'Archived', tone: 'neutral', icon: Archive },
 }
 

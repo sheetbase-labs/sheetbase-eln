@@ -10,6 +10,8 @@
     "dev": "vite dev --port 3000",
     "generate-routes": "tsr generate",
     "build": "vite build",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build",
     "start": "node scripts/start-prod.mjs",
     "artifact:build": "node --import tsx scripts/build-artifact.ts",
     "deploy:plan": "node --import tsx scripts/deploy.ts --plan",
@@ -90,6 +92,8 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@storybook/react-vite": "^10.5.5",
+    "@storybook/tanstack-react": "^10.5.5",
     "@tanstack/devtools-vite": "^0.8.1",
     "@tanstack/eslint-config": "^0.4.0",
     "@tanstack/router-cli": "^1.167.21",
@@ -108,6 +112,7 @@
     "jsdom": "^28.1.0",
     "playwright": "^1.61.1",
     "prettier": "^3.8.1",
+    "storybook": "^10.5.5",
     "tsx": "^4.23.1",
     "typescript": "^6.0.2",
     "vite": "^8.0.0",

@@ -101,7 +101,7 @@ function bandFor(
   value: number | null | undefined,
   bands: PlateMapBand[],
 ): string {
-  if (value === null || value === undefined) return 'bg-muted-foreground/10'
+  if (value === null || value === undefined) return 'bg-muted/60'
   const band = bands.find((b) => value >= b.from && value <= b.to)
   return band ? band.className : 'bg-muted-foreground/10'
 }
@@ -212,6 +212,10 @@ export function PlateMap({
 
   const legendEntries = roleLegend ?? bands
 
+  const wellSize = compact ? 'min-w-4' : 'min-w-5'
+  const labelSize = compact ? 'w-4' : 'w-5'
+  const gap = compact ? 'gap-0.5' : 'gap-1'
+
   return (
     <div className={cn('space-y-2', className)}>
       <div
@@ -219,13 +223,13 @@ export function PlateMap({
         role="grid"
         aria-label={ariaLabel}
         className="inline-block"
-        style={{ minWidth: compact ? '12rem' : '20rem' }}
+        style={{ minWidth: compact ? '14rem' : '22rem' }}
         onKeyDown={handleKeyDown}
       >
         {/* Column header row */}
-        <div role="row" className="flex gap-1">
+        <div role="row" className={cn('flex', gap)}>
           <span
-            className={cn('shrink-0', compact ? 'w-3' : 'w-5')}
+            className={cn('shrink-0', labelSize)}
             aria-hidden="true"
           />
           {Array.from({ length: cols }, (_, c) => (
@@ -234,7 +238,7 @@ export function PlateMap({
               role="columnheader"
               className={cn(
                 'flex-1 text-center text-[10px] font-medium text-muted-foreground',
-                compact ? 'min-w-2' : 'min-w-4',
+                wellSize,
               )}
             >
               {c + 1}
@@ -243,12 +247,12 @@ export function PlateMap({
         </div>
 
         {Array.from({ length: rows }, (_, r) => (
-          <div role="row" key={r} className="mt-1 flex gap-1">
+          <div role="row" key={r} className={cn('mt-0.5 flex', gap)}>
             <span
               role="rowheader"
               className={cn(
                 'flex shrink-0 items-center justify-center text-[10px] font-medium text-muted-foreground',
-                compact ? 'w-3' : 'w-5',
+                labelSize,
               )}
             >
               {rowLabel(r)}
@@ -285,8 +289,8 @@ export function PlateMap({
                     disabled={readOnly}
                     onClick={() => handleSelect(r, c)}
                     className={cn(
-                      'flex aspect-square items-center justify-center rounded-[3px] border border-white/60 text-[8px] font-medium text-white/90 transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 dark:border-black/20',
-                      compact ? 'min-w-2' : 'min-w-4',
+                      'flex aspect-square items-center justify-center rounded-full border border-white/60 text-[8px] font-medium text-white/90 transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 dark:border-black/20',
+                      wellSize,
                       cellColour,
                       selected && 'ring-2 ring-primary ring-offset-1',
                       readOnly && 'cursor-default hover:scale-100',
@@ -307,7 +311,7 @@ export function PlateMap({
             <span key={b.label} className="inline-flex items-center gap-1">
               <span
                 className={cn(
-                  'inline-block size-2.5 rounded-[2px]',
+                  'inline-block size-2.5 rounded-full',
                   b.className,
                 )}
               />

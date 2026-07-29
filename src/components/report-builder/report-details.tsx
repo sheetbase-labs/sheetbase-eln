@@ -113,8 +113,8 @@ export function ReportDetails({
                 <Badge
                   className={cn(
                     validation.ready
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : 'bg-amber-100 text-amber-700',
+                      ? 'bg-success/10 text-success'
+                      : 'bg-warning/10 text-warning-foreground',
                   )}
                 >
                   {validation.ready ? 'Yes' : 'No'}

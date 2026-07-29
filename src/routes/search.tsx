@@ -887,7 +887,7 @@ function TypeTab({
       {label}
       <span
         className={cn(
-          'rounded-full px-1.5 py-0.5 text-[11px] font-semibold tabular-nums',
+          'rounded-full px-1.5 py-0.5 text-xs font-semibold tabular-nums',
           active
             ? 'bg-primary/10 text-primary'
             : 'bg-muted text-muted-foreground',
@@ -994,7 +994,7 @@ function RecentSearches({
                 aria-hidden
               />
               <span className="min-w-0 flex-1 truncate">{r.q}</span>
-              <span className="shrink-0 text-[11px] text-muted-foreground">
+              <span className="shrink-0 text-xs text-muted-foreground">
                 {relativeTime(r.ts)}
               </span>
             </button>
@@ -1046,7 +1046,7 @@ function SemanticSuggestions({
                   />
                   <span className="min-w-0 flex-1 truncate">{s.label}</span>
                 </span>
-                <span className="pl-5 text-[11px] text-muted-foreground">
+                <span className="pl-5 text-xs text-muted-foreground">
                   {s.provenance}
                 </span>
               </button>
@@ -1411,18 +1411,18 @@ export function SearchResultRow({
               {result.title}
             </p>
             <div className="flex shrink-0 items-center gap-1.5">
-              <Badge variant="outline" className="text-[10px] capitalize">
+              <Badge variant="outline" className="text-xs capitalize">
                 {recordKindLabel(result.kind)}
               </Badge>
               {result.archived ? (
-                <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                   <Archive className="size-3" aria-hidden /> Archived
                 </span>
               ) : null}
               {domain ? (
                 <StatusBadge domain={domain} status={result.status} size="sm" />
               ) : (
-                <Badge variant="outline" className="text-[10px]">
+                <Badge variant="outline" className="text-xs">
                   {result.status}
                 </Badge>
               )}
@@ -1444,7 +1444,7 @@ export function SearchResultRow({
             </p>
           ) : null}
           {/* Metadata footer: id · project · updated · matched field · owner */}
-          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground">
             <span className="font-mono">{result.identifier}</span>
             {projectName ? (
               <>
@@ -1465,7 +1465,7 @@ export function SearchResultRow({
             </span>
             <span className="inline-flex items-center gap-1">
               <span
-                className="flex size-4 items-center justify-center rounded-full bg-primary/15 text-[9px] font-semibold text-primary"
+                className="flex size-4 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary"
                 aria-hidden
               >
                 {ownerInitials(result.createdByUserId, ownerName)}
@@ -1531,7 +1531,7 @@ function SearchResultInspector({
       {/* Description / first text excerpt from the matched context. */}
       {segments.length > 0 ? (
         <div>
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">
             Excerpt
           </p>
           <p className="text-sm text-foreground">
@@ -1557,7 +1557,7 @@ function SearchResultInspector({
           {domain ? (
             <StatusBadge domain={domain} status={result.status} size="sm" />
           ) : (
-            <Badge variant="outline" className="text-[10px]">
+            <Badge variant="outline" className="text-xs">
               {result.status}
             </Badge>
           )}
@@ -1568,7 +1568,7 @@ function SearchResultInspector({
         <InspectorProp label="Owner">
           <span className="inline-flex items-center gap-1.5">
             <span
-              className="flex size-5 items-center justify-center rounded-full bg-primary/15 text-[10px] font-semibold text-primary"
+              className="flex size-5 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary"
               aria-hidden
             >
               {ownerInitials(result.createdByUserId, ownerName ?? undefined)}
@@ -1597,7 +1597,7 @@ function SearchResultInspector({
               {record.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="rounded-full bg-muted px-2 py-0.5 text-[10px]"
+                  className="rounded-full bg-muted px-2 py-0.5 text-xs"
                 >
                   {tag}
                 </span>
@@ -1611,7 +1611,7 @@ function SearchResultInspector({
           RLS-filtered links the caller can already see). */}
       {links.length > 0 ? (
         <div>
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">
             Linked records
           </p>
           <div className="flex flex-wrap gap-2">
@@ -1636,7 +1636,7 @@ function SearchResultInspector({
           the record or common operations — no restricted payloads or
           privileged mutations. */}
       <div>
-        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+        <p className="mb-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">
           Quick actions
         </p>
         <div className="flex flex-wrap gap-2">
@@ -1757,7 +1757,7 @@ function LinkedRecordSummary({
                 className="flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1"
               >
                 <Icon className="size-3 text-muted-foreground" aria-hidden />
-                <span className="font-mono text-[11px] text-muted-foreground">
+                <span className="font-mono text-xs text-muted-foreground">
                   {link.targetIdentifier}
                 </span>
               </div>
@@ -1765,7 +1765,7 @@ function LinkedRecordSummary({
           })}
         </div>
         {links.length > maxNodes ? (
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             +{links.length - maxNodes} more
           </p>
         ) : null}

@@ -36,10 +36,10 @@ const STATUS_META: Record<
 > = {
   live: {
     label: 'Live',
-    dot: 'bg-emerald-500',
+    dot: 'bg-success',
     icon: (
       <Wifi
-        className="size-3 text-emerald-600 dark:text-emerald-400"
+        className="size-3 text-success"
         aria-hidden="true"
       />
     ),
@@ -58,10 +58,10 @@ const STATUS_META: Record<
   },
   reconnecting: {
     label: 'Reconnecting…',
-    dot: 'bg-amber-500',
+    dot: 'bg-warning',
     icon: (
       <RefreshCw
-        className="size-3 animate-spin text-amber-600 dark:text-amber-400"
+        className="size-3 animate-spin text-warning-foreground"
         aria-hidden="true"
       />
     ),
@@ -69,10 +69,10 @@ const STATUS_META: Record<
   },
   offline: {
     label: 'Offline',
-    dot: 'bg-red-500',
+    dot: 'bg-destructive',
     icon: (
       <WifiOff
-        className="size-3 text-red-600 dark:text-red-400"
+        className="size-3 text-destructive"
         aria-hidden="true"
       />
     ),

@@ -35,17 +35,17 @@ const overallStatusConfig: Record<
 > = {
   pass: {
     label: 'All checks passed',
-    className: 'text-emerald-600 dark:text-emerald-400',
+    className: 'text-success',
     icon: CheckCircle2,
   },
   warning: {
     label: 'Passed with warnings',
-    className: 'text-amber-600 dark:text-amber-400',
+    className: 'text-warning-foreground',
     icon: AlertTriangle,
   },
   fail: {
     label: 'Blocking failures',
-    className: 'text-red-600 dark:text-red-400',
+    className: 'text-destructive',
     icon: XCircle,
   },
 }
@@ -54,14 +54,14 @@ function itemIcon(status: CheckItemResult['status']) {
   if (status === 'pass') {
     return (
       <CheckCircle2
-        className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400"
+        className="size-4 shrink-0 text-success"
         aria-hidden="true"
       />
     )
   }
   return (
     <XCircle
-      className="size-4 shrink-0 text-red-600 dark:text-red-400"
+      className="size-4 shrink-0 text-destructive"
       aria-hidden="true"
     />
   )
@@ -93,13 +93,13 @@ function CheckResultItem({ item }: { item: CheckItemResult }) {
         </span>
         <span
           className={cn(
-            'shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide',
+            'shrink-0 rounded px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide',
             item.severity === 'blocking' &&
-              'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300',
+              'bg-destructive/10 text-destructive',
             item.severity === 'warning' &&
-              'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
+              'bg-warning/10 text-warning-foreground',
             item.severity === 'informational' &&
-              'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300',
+              'bg-info/10 text-info',
           )}
         >
           {severityLabel[item.severity]}
@@ -117,10 +117,10 @@ function CheckResultItem({ item }: { item: CheckItemResult }) {
       </button>
       {expanded && hasEvidence && (
         <div className="border-t border-border/60 px-3 py-2">
-          <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+          <div className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Evidence
           </div>
-          <pre className="max-h-48 overflow-auto rounded bg-muted/50 p-2 text-[11px] leading-relaxed">
+          <pre className="max-h-48 overflow-auto rounded bg-muted/50 p-2 text-xs leading-relaxed">
             {formatEvidence(item.evidence)}
           </pre>
         </div>
@@ -157,17 +157,17 @@ export function ReviewCheckResults({ result }: ReviewCheckResultsProps) {
       <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
         <span>{result.pass_count} passed</span>
         {result.blocking_failure_count > 0 && (
-          <span className="text-red-600 dark:text-red-400">
+          <span className="text-destructive">
             {result.blocking_failure_count} blocking
           </span>
         )}
         {result.warning_failure_count > 0 && (
-          <span className="text-amber-600 dark:text-amber-400">
+          <span className="text-warning-foreground">
             {result.warning_failure_count} warnings
           </span>
         )}
         {result.info_failure_count > 0 && (
-          <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+          <span className="flex items-center gap-1 text-info">
             <Info className="size-3" aria-hidden="true" />
             {result.info_failure_count} informational
           </span>
@@ -175,11 +175,11 @@ export function ReviewCheckResults({ result }: ReviewCheckResultsProps) {
       </div>
 
       <div className="space-y-1">
-        <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+        <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Definition: {result.check_definition_key} v
           {result.check_definition_version}
         </div>
-        <div className="font-mono text-[10px] text-muted-foreground/70">
+        <div className="font-mono text-xs text-muted-foreground/70">
           {result.revision_integrity_digest.slice(0, 16)}…
         </div>
       </div>

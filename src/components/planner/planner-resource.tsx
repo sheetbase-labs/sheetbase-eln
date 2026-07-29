@@ -97,9 +97,10 @@ export function PlannerResourceView({
   }
 
   function heatClass(pct: number): string {
-    if (pct > 90) return 'bg-red-200 text-red-900 border-red-400'
-    if (pct >= 70) return 'bg-amber-200 text-amber-900 border-amber-400'
-    return 'bg-green-200 text-green-900 border-green-400'
+    if (pct > 90) return 'bg-destructive/20 text-destructive border-destructive/40'
+    if (pct >= 70)
+      return 'bg-warning/20 text-warning-foreground border-warning/40'
+    return 'bg-success/20 text-success border-success/40'
   }
 
   if (resources.length === 0) {
@@ -153,7 +154,7 @@ export function PlannerResourceView({
                 <div className="text-xs text-muted-foreground">
                   {resource.resourceType}
                   {conflicts.length > 0 ? (
-                    <span className="ml-1.5 text-red-600">
+                    <span className="ml-1.5 text-destructive">
                       ⚠ {conflicts.length} conflict
                       {conflicts.length > 1 ? 's' : ''}
                     </span>
@@ -200,7 +201,7 @@ export function PlannerResourceView({
                       >
                         <div
                           className={cn(
-                            'flex h-5 items-center rounded border px-1.5 text-[10px] font-semibold',
+                            'flex h-5 items-center rounded border px-1.5 text-xs font-semibold',
                             heatClass(pct),
                           )}
                           style={{ width: `${pct}%` }}
@@ -238,10 +239,10 @@ export function PlannerResourceView({
                         type="button"
                         onClick={() => onSelectTask(task.id)}
                         className={cn(
-                          'absolute rounded border px-1.5 py-0.5 text-left text-[10px] font-medium transition-all hover:opacity-80',
+                          'absolute rounded border px-1.5 py-0.5 text-left text-xs font-medium transition-all hover:opacity-80',
                           conflicts.includes(tr)
-                            ? 'border-red-400 bg-red-100 text-red-900'
-                            : 'border-blue-300 bg-blue-100 text-blue-900',
+                            ? 'border-destructive/40 bg-destructive/10 text-destructive'
+                            : 'border-info/30 bg-info/10 text-info',
                           isSelected && 'ring-2 ring-blue-400',
                         )}
                         style={{

@@ -104,7 +104,7 @@ export function NotebookBlock({
   return (
     <div
       className={cn(
-        'group relative rounded-none border-0 bg-transparent px-6 py-4 transition-[background-color,box-shadow]',
+        'group relative px-4 py-4 transition-[background-color,box-shadow] sm:px-6 lg:pl-16',
         stateRing[state],
         className,
       )}
@@ -112,46 +112,41 @@ export function NotebookBlock({
       data-block-type={label}
       data-state={state}
     >
-      {/* Drag handle — focusable, visible on hover/focus, keyboard-operable */}
-      {draggable ? (
-        <div className="absolute left-0 top-7 hidden items-center lg:flex">
+      {/* Left-margin block type label (visible on desktop) + drag handle */}
+      <div className="absolute left-1 top-4 hidden w-12 flex-col items-center gap-1 lg:flex">
+        {draggable ? (
           <button
             type="button"
             aria-label="Drag block"
             draggable
             onDragStart={onDragStart}
             onDragEnd={onDragEnd}
-            className="cursor-grab rounded p-1 text-muted-foreground opacity-0 outline-none transition-opacity focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100 active:cursor-grabbing"
+            className="cursor-grab rounded p-0.5 text-muted-foreground opacity-0 outline-none transition-opacity focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100 active:cursor-grabbing"
           >
-            <GripVertical className="size-4" />
+            <GripVertical className="size-3.5" />
           </button>
-        </div>
-      ) : null}
+        ) : null}
+        <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/40">
+          {label}
+        </span>
+      </div>
 
-      <div className="pointer-events-none absolute inset-x-2 top-1 z-10 flex h-6 items-center gap-2">
-        {title ? (
-          <h3 className="min-w-0 flex-1 truncate font-display text-sm font-semibold">
-            {title}
-          </h3>
-        ) : (
-          <span className="flex-1" />
-        )}
-        {locked ? (
-          <Lock
-            className="size-3.5 text-muted-foreground"
-            aria-label="Block locked"
-          />
-        ) : null}
-        {invalid ? (
-          <TriangleAlert
-            className="size-3.5 text-destructive"
-            aria-label="Block has errors"
-          />
-        ) : null}
-        <div className="pointer-events-auto ml-auto flex items-center gap-1">
+      {/* Right-edge hover toolbar — no overlap with content */}
+      <div className="pointer-events-none absolute right-1 top-1 z-10 flex items-center gap-1">
+        <div className="pointer-events-auto flex items-center gap-1">
           {actions}
-          {/* Expand — placeholder affordance for a future focused/full-block
-              view. Subtle on hover/focus like the rest of the hover toolbar. */}
+          {locked ? (
+            <Lock
+              className="size-3.5 text-muted-foreground"
+              aria-label="Block locked"
+            />
+          ) : null}
+          {invalid ? (
+            <TriangleAlert
+              className="size-3.5 text-destructive"
+              aria-label="Block has errors"
+            />
+          ) : null}
           <Button
             variant="ghost"
             size="icon-sm"
@@ -191,14 +186,20 @@ export function NotebookBlock({
         </div>
       </div>
 
+      {title ? (
+        <h3 className="mb-1 font-display text-sm font-semibold">
+          {title}
+        </h3>
+      ) : null}
+
       {loading ? (
-        <div className="space-y-2 pt-6" aria-busy="true" aria-live="polite">
+        <div className="space-y-2" aria-busy="true" aria-live="polite">
           <Skeleton className="h-4 w-3/4" />
           <Skeleton className="h-4 w-1/2" />
           <Skeleton className="h-20 w-full" />
         </div>
       ) : (
-        <div className={cn('pt-6', readOnly && 'pointer-events-none select-none')}>
+        <div className={cn(readOnly && 'pointer-events-none select-none')}>
           {children}
         </div>
       )}

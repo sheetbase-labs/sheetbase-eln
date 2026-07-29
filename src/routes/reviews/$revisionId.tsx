@@ -608,7 +608,7 @@ function WorkspaceHeader({
     <header className="space-y-2 rounded-lg border bg-card p-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {record?.kind ?? 'Record'}
           </p>
           <h1 className="truncate text-base font-semibold text-foreground">
@@ -627,7 +627,7 @@ function WorkspaceHeader({
             />
           ) : null}
           {isLocked ? (
-            <Badge variant="outline" className="gap-1 text-[10px]">
+            <Badge variant="outline" className="gap-1 text-xs">
               <Lock className="size-3" aria-hidden />
               Locked
             </Badge>
@@ -735,7 +735,7 @@ function DiffPanel({
         <div className="min-w-0">
           <label
             htmlFor="review-comparison-select"
-            className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+            className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
           >
             Compare against
           </label>
@@ -993,14 +993,14 @@ function ReviewInspector({
         </dl>
 
         <section>
-          <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Approval workflow
           </h3>
           <ApprovalStepper steps={steps} reviewState={reviewState} />
         </section>
 
         <section>
-          <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Assigned reviewers
           </h3>
           {submission && submission.assigned_reviewer_user_ids.length > 0 ? (
@@ -1010,12 +1010,12 @@ function ReviewInspector({
                   key={userId}
                   className="flex items-center gap-2 text-xs text-muted-foreground"
                 >
-                  <span className="flex size-5 items-center justify-center rounded-full bg-primary/15 text-[9px] font-semibold text-primary">
+                  <span className="flex size-5 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
                     {userId.slice(0, 2).toUpperCase()}
                   </span>
                   <span className="font-mono">{userId}</span>
                   {userId === currentUserId ? (
-                    <span className="text-[10px] font-medium text-primary">
+                    <span className="text-xs font-medium text-primary">
                       you
                     </span>
                   ) : null}
@@ -1076,7 +1076,7 @@ function ReviewInspector({
             }}
           />
         ) : (
-          <p className="text-center text-[10px] text-muted-foreground">
+          <p className="text-center text-xs text-muted-foreground">
             Actions are available once the submission loads.
           </p>
         )}
@@ -1128,7 +1128,7 @@ export function ActionButtons({
 
   if (integrityDigest === null) {
     return (
-      <p className="text-center text-[10px] text-muted-foreground">
+      <p className="text-center text-xs text-muted-foreground">
         Integrity digest unavailable — actions disabled.
       </p>
     )
@@ -1227,7 +1227,7 @@ export function ActionButtons({
       {error ? (
         <p
           role="alert"
-          className="rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-[11px] text-destructive"
+          className="rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-xs text-destructive"
         >
           {error}
         </p>
@@ -1530,7 +1530,7 @@ function SignaturePanel({
 
   return (
     <section>
-      <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Signatures
       </h3>
 
@@ -1554,7 +1554,7 @@ function SignaturePanel({
               <p className="mt-1 text-muted-foreground">
                 {signatureMeaningLabel(sig.signature_meaning)}
               </p>
-              <p className="mt-0.5 font-mono text-[10px] text-muted-foreground/70">
+              <p className="mt-0.5 font-mono text-xs text-muted-foreground/70">
                 {sig.assurance_level} · {sig.auth_method} ·{' '}
                 {sig.revision_integrity_digest.slice(0, 12)}…
               </p>
@@ -1584,11 +1584,11 @@ function SignaturePanel({
               onConfirm={handleSigned}
             />
           ) : alreadySigned ? (
-            <p className="text-[10px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               You have already signed this submission.
             </p>
           ) : !isAssignedReviewer ? (
-            <p className="text-[10px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Only an assigned reviewer may sign an approved revision.
             </p>
           ) : null}
@@ -1692,7 +1692,7 @@ function SignatureDialog({
           </p>
         </div>
 
-        <p className="rounded-md border border-border bg-muted/20 px-2 py-1.5 text-[11px] text-muted-foreground">
+        <p className="rounded-md border border-border bg-muted/20 px-2 py-1.5 text-xs text-muted-foreground">
           {ASSURANCE_LEVEL_STATEMENT.standard}
         </p>
 
@@ -1712,7 +1712,7 @@ function SignatureDialog({
             onChange={(event) => setConfirmation(event.target.value)}
             autoComplete="off"
           />
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             Type your recorded name exactly to verify your signing intent.
           </p>
         </div>
@@ -1804,7 +1804,7 @@ function EvidenceExportSection({ revisionId }: { revisionId: string }) {
 
   return (
     <section>
-      <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Evidence export
       </h3>
       <p className="mb-2 text-xs text-muted-foreground">
@@ -1824,7 +1824,7 @@ function EvidenceExportSection({ revisionId }: { revisionId: string }) {
       {error ? (
         <p
           role="alert"
-          className="mt-2 rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-[11px] text-destructive"
+          className="mt-2 rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-xs text-destructive"
         >
           {error}
         </p>
@@ -1890,7 +1890,7 @@ function AmendmentSection({
 
   return (
     <section>
-      <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Amendment
       </h3>
       <p className="mb-2 text-xs text-muted-foreground">

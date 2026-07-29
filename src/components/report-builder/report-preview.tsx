@@ -84,25 +84,25 @@ export function ReportPreview({
               {validation.valid}/{validation.sections} valid
             </span>
             {validation.missingSource > 0 ? (
-              <Badge variant="outline" className="text-red-700">
+              <Badge variant="outline" className="text-destructive">
                 {validation.missingSource} missing
               </Badge>
             ) : null}
             {validation.stale > 0 ? (
-              <Badge variant="outline" className="text-amber-700">
+              <Badge variant="outline" className="text-warning-foreground">
                 {validation.stale} stale
               </Badge>
             ) : null}
             {validation.locked > 0 ? (
-              <Badge variant="outline" className="text-blue-700">
+              <Badge variant="outline" className="text-info">
                 {validation.locked} locked
               </Badge>
             ) : null}
             <Badge
               className={cn(
                 validation.ready
-                  ? 'bg-emerald-100 text-emerald-700'
-                  : 'bg-amber-100 text-amber-700',
+                  ? 'bg-success/10 text-success'
+                  : 'bg-warning/10 text-warning-foreground',
               )}
             >
               {validation.ready ? 'Ready to export' : 'Not ready'}
@@ -111,7 +111,7 @@ export function ReportPreview({
               <Badge
                 variant="outline"
                 className={
-                  matchesGeneration ? 'text-emerald-700' : 'text-amber-700'
+                  matchesGeneration ? 'text-success' : 'text-warning-foreground'
                 }
                 title={`${generationsChecksum.slice(0, 12)}…`}
               >
@@ -163,11 +163,11 @@ export function ReportPreview({
                         revision {section.sourceRevisionId.slice(0, 8)}
                       </span>
                     ) : (
-                      <span className="text-amber-700">no frozen source</span>
+                      <span className="text-warning-foreground">no frozen source</span>
                     )}
                     <Badge
                       className={cn(
-                        'text-[10px]',
+                        'text-xs',
                         VALIDATION_STATUS_TOKENS[section.validationStatus],
                       )}
                     >
@@ -189,7 +189,7 @@ export function ReportPreview({
         <summary className="cursor-pointer text-muted-foreground">
           HTML source (PDF-ready, {previewHtml.length} bytes)
         </summary>
-        <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words text-[10px] text-muted-foreground">
+        <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words text-xs text-muted-foreground">
           {previewHtml}
         </pre>
       </details>

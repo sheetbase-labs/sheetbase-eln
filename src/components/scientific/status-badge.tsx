@@ -178,7 +178,7 @@ export function StatusBadge({
     <Badge
       variant={variant}
       data-status={status}
-      className={cn(size === 'sm' && 'text-[10px]', className)}
+      className={cn(size === 'sm' && 'text-xs', className)}
     >
       <Icon
         className={cn(size === 'sm' ? 'size-3' : 'size-3.5')}

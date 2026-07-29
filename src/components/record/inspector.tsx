@@ -90,7 +90,7 @@ export function Inspector({
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
             {recordType ? (
-              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 {recordType}
               </p>
             ) : null}
@@ -146,7 +146,7 @@ export function Inspector({
                   <TabsTrigger key={tab.id} value={tab.id}>
                     {tab.label}
                     {tab.badge !== undefined ? (
-                      <span className="ml-1.5 text-[10px] font-medium text-muted-foreground">
+                      <span className="ml-1.5 text-xs font-medium text-muted-foreground">
                         {tab.badge}
                       </span>
                     ) : null}

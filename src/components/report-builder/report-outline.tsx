@@ -76,13 +76,13 @@ export function ReportOutline({
                     <span className="mt-1 flex flex-wrap items-center gap-1">
                       <Badge
                         variant="outline"
-                        className="text-[10px] font-normal"
+                        className="text-xs font-normal"
                       >
                         {SECTION_TYPE_LABELS[section.sectionType]}
                       </Badge>
                       <Badge
                         className={cn(
-                          'text-[10px]',
+                          'text-xs',
                           VALIDATION_STATUS_TOKENS[section.validationStatus],
                         )}
                       >

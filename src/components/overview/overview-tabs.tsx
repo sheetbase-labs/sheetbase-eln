@@ -82,7 +82,7 @@ export function OverviewTabs({
         <TabsTrigger value="files">
           Files
           {fileBlocks.length > 0 ? (
-            <span className="ml-1.5 rounded-full bg-muted-foreground/15 px-1.5 text-[10px] font-semibold tabular-nums text-muted-foreground">
+            <span className="ml-1.5 rounded-full bg-muted-foreground/15 px-1.5 text-xs font-semibold tabular-nums text-muted-foreground">
               {fileBlocks.length}
             </span>
           ) : null}

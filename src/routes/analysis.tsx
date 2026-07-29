@@ -938,7 +938,7 @@ export function SavedViewsPanel({
                   aria-label={`Load view ${view.name}`}
                 >
                   <span className="truncate font-medium">{view.name}</span>
-                  <span className="text-[10px] text-muted-foreground">
+                  <span className="text-xs text-muted-foreground">
                     v{view.version} ·{' '}
                     {formatCount(view.source_revisions.length)} source
                     {view.source_revisions.length === 1 ? '' : 's'}

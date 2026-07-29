@@ -60,12 +60,12 @@ export function StageProgress({ stages }: StageProgressProps) {
                   </span>
                 </div>
                 <div className="mt-1.5 flex items-center gap-1">
-                  <Badge variant="outline" className="text-[10px] capitalize">
+                  <Badge variant="outline" className="text-xs capitalize">
                     {stage.stageType}
                   </Badge>
                   <Badge
                     className={cn(
-                      'text-[10px]',
+                      'text-xs',
                       STAGE_STATUS_TOKENS[stage.status],
                     )}
                   >
@@ -73,7 +73,7 @@ export function StageProgress({ stages }: StageProgressProps) {
                   </Badge>
                 </div>
                 {stage.stageType === 'cycling' && stage.cycleCount ? (
-                  <p className="mt-1 text-[10px] text-muted-foreground">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     Cycle {stage.currentCycle}/{stage.cycleCount}
                   </p>
                 ) : null}

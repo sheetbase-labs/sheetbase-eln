@@ -13,16 +13,23 @@ interface PropertyProps {
 }
 
 function PropertyList({ children, className }: PropertyListProps) {
-  return <dl className={cn('grid gap-3 text-sm', className)}>{children}</dl>
+  return (
+    <dl
+      className={cn(
+        'grid divide-y divide-border text-sm [&>*]:py-2 [&>*]:first:pt-0 [&>*]:last:pb-0',
+        className,
+      )}
+    >
+      {children}
+    </dl>
+  )
 }
 
 function Property({ label, children }: PropertyProps) {
   return (
-    <div className="grid grid-cols-[7rem_1fr] items-start gap-3">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 text-xs font-medium text-foreground">
-        {children}
-      </dd>
+    <div className="grid grid-cols-[8rem_1fr] items-baseline gap-3">
+      <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 text-sm font-medium text-foreground">{children}</dd>
     </div>
   )
 }

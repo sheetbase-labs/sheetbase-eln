@@ -827,7 +827,7 @@ function ColumnVisibilityMenu({
           <Columns3 className="size-3.5" aria-hidden="true" /> Columns
         </summary>
         <div className="absolute right-0 z-20 mt-1 w-56 rounded-md border bg-card p-2 shadow-md">
-          <p className="px-1 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <p className="px-1 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Visible columns
           </p>
           {columns.map((column) => {

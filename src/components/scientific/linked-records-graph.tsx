@@ -96,7 +96,7 @@ function toFlowNodes(nodes: GraphNode[]): Node[] {
                 {node.label}
               </span>
               {node.status ? (
-                <span className="block max-w-28 truncate text-[10px] text-muted-foreground">
+                <span className="block max-w-28 truncate text-xs text-muted-foreground">
                   {node.status}
                 </span>
               ) : null}

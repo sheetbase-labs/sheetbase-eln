@@ -5,7 +5,7 @@ function Empty({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       className={cn(
-        'flex min-h-48 flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center',
+        'flex min-h-48 flex-col items-center justify-center rounded-lg border p-8 text-center',
         className,
       )}
       {...props}

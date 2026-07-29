@@ -145,7 +145,7 @@ export function PlannerInspector({
         {task.tags.length > 0 ? (
           <div className="mt-3 flex flex-wrap gap-1">
             {task.tags.map((tag) => (
-              <Badge key={tag} variant="outline" className="text-[10px]">
+              <Badge key={tag} variant="outline" className="text-xs">
                 {tag}
               </Badge>
             ))}
@@ -201,13 +201,13 @@ export function PlannerInspector({
           <h3 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
             Resource conflicts
           </h3>
-          <div className="rounded-md border border-red-300 bg-red-50 p-3">
-            <div className="flex items-center gap-2 text-xs font-medium text-red-800">
+          <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3">
+            <div className="flex items-center gap-2 text-xs font-medium text-destructive">
               <AlertTriangle className="size-4" />
               {conflicts.length} conflict{conflicts.length > 1 ? 's' : ''}{' '}
               detected
             </div>
-            <ul className="mt-1.5 space-y-1 text-xs text-red-700">
+            <ul className="mt-1.5 space-y-1 text-xs text-destructive">
               {conflicts.map((c) => {
                 const res = resourceMap.get(c.calendarResourceId)
                 return (
@@ -232,11 +232,11 @@ export function PlannerInspector({
             <div className="flex items-center gap-4 text-xs">
               <span>
                 Required{' '}
-                <span className="font-semibold text-amber-600">(1)</span>
+                <span className="font-semibold text-warning-foreground">(1)</span>
               </span>
               <span>
                 Approved{' '}
-                <span className="font-semibold text-green-600">
+                <span className="font-semibold text-success">
                   ({task.approvalStatus === 'approved' ? 1 : 0})
                 </span>
               </span>
@@ -263,7 +263,7 @@ export function PlannerInspector({
                   className={cn(
                     'size-3.5',
                     d.status === 'delivered'
-                      ? 'text-green-600'
+                      ? 'text-success'
                       : 'text-muted-foreground',
                   )}
                 />

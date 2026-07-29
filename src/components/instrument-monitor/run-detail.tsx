@@ -88,7 +88,7 @@ export function RunDetail({
             aria-valuemax={100}
           >
             <div
-              className="h-full rounded-full bg-blue-500"
+              className="h-full rounded-full bg-primary"
               style={{ width: `${progress}%` }}
             />
           </div>

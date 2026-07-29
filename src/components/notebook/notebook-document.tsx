@@ -540,7 +540,7 @@ function NotebookDocumentContent({
   }
 
   return (
-    <div className={cn('space-y-0', className)}>
+    <div className={cn('divide-y divide-border/60', className)}>
       {orderedIds.map((id, index) => {
         const block = blockById.get(id)
         if (!block) return null
@@ -707,7 +707,7 @@ function NotebookDocumentContent({
       ) : null}
 
       {isReadOnly ? null : (
-        <div className="px-6 pt-1">
+        <div className="px-4 pt-4 sm:px-6 lg:pl-16">
           <BlockPicker
             onInsert={(type) => void handleInsert(type)}
             disabled={false}

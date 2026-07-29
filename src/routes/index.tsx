@@ -464,7 +464,7 @@ function MetricCard({
   const card = (
     <div className="rounded-lg border border-border bg-card p-4">
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           {metric.label}
         </span>
         <Icon
@@ -599,7 +599,7 @@ function QuickActionsGrid() {
                 <span className="text-sm font-medium text-foreground">
                   {action.label}
                 </span>
-                <span className="text-[11px] text-muted-foreground">
+                <span className="text-xs text-muted-foreground">
                   {action.hint}
                 </span>
               </Link>
@@ -741,7 +741,7 @@ export function RecentWorkTable({
                       <span className="block truncate text-sm font-medium text-foreground">
                         {record.title}
                       </span>
-                      <span className="block truncate font-mono text-[11px] tabular-nums text-muted-foreground">
+                      <span className="block truncate font-mono text-xs tabular-nums text-muted-foreground">
                         {record.identifier}
                       </span>
                     </span>
@@ -1068,7 +1068,7 @@ export function MyPrioritiesPanel({
                 </Link>
                 <span
                   className={cn(
-                    'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium',
+                    'shrink-0 rounded-full px-2 py-0.5 text-xs font-medium',
                     overdue
                       ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
                       : 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
@@ -1136,7 +1136,7 @@ export function PinnedRecordsPanel({
                 <p className="truncate text-sm font-medium text-foreground">
                   {record.title}
                 </p>
-                <p className="truncate font-mono text-[11px] tabular-nums text-muted-foreground">
+                <p className="truncate font-mono text-xs tabular-nums text-muted-foreground">
                   {record.identifier}
                   {project ? ` · ${project.title}` : ''}
                 </p>
@@ -1204,12 +1204,12 @@ export function UpcomingApprovalsPanel({
               <li key={review.id} className="px-4 py-3">
                 <Link to="/reviews" className="block no-underline">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+                    <span className="font-mono text-xs tabular-nums text-muted-foreground">
                       {review.recordIdentifier}
                     </span>
                     <span
                       className={cn(
-                        'text-[10px] font-medium',
+                        'text-xs font-medium',
                         overdue
                           ? 'text-red-600 dark:text-red-400'
                           : 'text-muted-foreground',
@@ -1305,7 +1305,7 @@ export function ProjectQuickAccess({
                     {project.title}
                   </span>
                 </div>
-                <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+                <span className="font-mono text-xs tabular-nums text-muted-foreground">
                   {project.key}
                 </span>
               </Link>

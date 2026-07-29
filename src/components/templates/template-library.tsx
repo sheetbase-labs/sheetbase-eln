@@ -238,7 +238,7 @@ export function TemplateFilters({
             className={cn(
               'size-4',
               favouritesOnly
-                ? 'fill-amber-400 text-amber-500'
+                ? 'fill-amber-400 text-warning-foreground'
                 : 'text-muted-foreground',
             )}
             aria-hidden="true"
@@ -330,7 +330,7 @@ function FavouriteToggle({
       )}
     >
       <Star
-        className={cn('size-4', favourited && 'fill-amber-400 text-amber-500')}
+        className={cn('size-4', favourited && 'fill-amber-400 text-warning-foreground')}
         aria-hidden="true"
       />
     </button>
@@ -375,14 +375,14 @@ export function TemplateThumbnail({
   return (
     <div
       className={cn(
-        'pointer-events-none h-full max-h-[160px] overflow-hidden rounded-md border border-border bg-background p-3 text-[11px] leading-5 text-muted-foreground',
+        'pointer-events-none h-full max-h-[160px] overflow-hidden rounded-md border border-border bg-background p-3 text-xs leading-5 text-muted-foreground',
         className,
       )}
       aria-hidden="true"
     >
       <div className="space-y-1.5">
         {previewBlocks.map((block) => (
-          <BlockPreview key={block.id} block={block} className="text-[11px]" />
+          <BlockPreview key={block.id} block={block} className="text-xs" />
         ))}
       </div>
     </div>
@@ -401,7 +401,7 @@ export function TemplateThumbnail({
 function TemplateListHeader() {
   return (
     <div
-      className="hidden items-center gap-4 border-b border-border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground sm:flex"
+      className="hidden items-center gap-4 border-b border-border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground sm:flex"
       aria-hidden="true"
     >
       <span className="w-28 shrink-0">Identifier</span>
@@ -444,7 +444,7 @@ function StateIndicator({
 }) {
   if (template.archivedAt) {
     return (
-      <Badge variant="outline" className="text-[10px]">
+      <Badge variant="outline" className="text-xs">
         <Archive className="size-3" aria-hidden="true" />
         Archived
       </Badge>
@@ -452,7 +452,7 @@ function StateIndicator({
   }
   if (instantiable) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
+      <span className="inline-flex items-center gap-1 rounded-full border border-success/20 bg-success/5 px-1.5 py-0.5 text-xs font-medium text-success">
         <CheckCircle2 className="size-3" aria-hidden="true" />
         Ready
       </span>
@@ -601,7 +601,7 @@ export function TemplateList({
                     {featured ? (
                       <Badge
                         variant="violet"
-                        className="shrink-0 gap-0.5 text-[10px]"
+                        className="shrink-0 gap-0.5 text-xs"
                       >
                         <Sparkles className="size-3" aria-hidden="true" />
                         Featured
@@ -609,12 +609,12 @@ export function TemplateList({
                     ) : null}
                     {favourites.has(template.id) ? (
                       <Star
-                        className="size-3 shrink-0 fill-amber-400 text-amber-500"
+                        className="size-3 shrink-0 fill-amber-400 text-warning-foreground"
                         aria-label="Favourite"
                       />
                     ) : null}
                   </span>
-                  <span className="block truncate text-[11px] tabular-nums text-muted-foreground">
+                  <span className="block truncate text-xs tabular-nums text-muted-foreground">
                     {ownerLabel(template.createdByUserId, currentUserId)}
                     {usageCount > 0
                       ? ` · ${usageCount} ${usageCount === 1 ? 'use' : 'uses'}`
@@ -623,7 +623,7 @@ export function TemplateList({
                 </span>
                 <span className="flex shrink-0 items-center gap-2">
                   {kind ? (
-                    <Badge variant="outline" className="text-[10px]">
+                    <Badge variant="outline" className="text-xs">
                       {TEMPLATE_KIND_LABEL[kind]}
                     </Badge>
                   ) : null}
@@ -715,18 +715,18 @@ function TemplateGridCard({
                 {template.title}
               </span>
               {template.archivedAt ? (
-                <Badge variant="outline" className="shrink-0 text-[10px]">
+                <Badge variant="outline" className="shrink-0 text-xs">
                   <Archive className="size-3" aria-hidden="true" />
                   Archived
                 </Badge>
               ) : instantiable ? (
-                <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-success/20 bg-success/5 px-1.5 py-0.5 text-xs font-medium text-success">
                   <CheckCircle2 className="size-3" aria-hidden="true" />
                   Ready
                 </span>
               ) : null}
             </span>
-            <span className="block truncate font-mono text-[11px] text-muted-foreground">
+            <span className="block truncate font-mono text-xs text-muted-foreground">
               {template.identifier}
             </span>
           </span>
@@ -738,10 +738,10 @@ function TemplateGridCard({
           ) : null}
         </div>
         <TemplateThumbnail blocks={previewBlocks} />
-        <div className="mt-auto flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+        <div className="mt-auto flex items-center justify-between gap-2 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">
             {kind ? (
-              <Badge variant="outline" className="text-[10px]">
+              <Badge variant="outline" className="text-xs">
                 {TEMPLATE_KIND_LABEL[kind]}
               </Badge>
             ) : null}
@@ -839,19 +839,19 @@ export function TemplateActions({
           </Button>
         </div>
         {!canManage ? (
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             Only the template author or a workspace owner/admin can archive it.
           </p>
         ) : null}
         {archived ? (
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             This template is already archived.
           </p>
         ) : null}
         {warning ? (
           <p
             role="note"
-            className="rounded-md border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
+            className="rounded-md border border-warning/20 bg-warning/5 p-2 text-xs text-warning-foreground"
           >
             {warning}
           </p>
@@ -1004,7 +1004,7 @@ export function TemplateInspector({
 
       <InspectorSection title="Linked records">
         {linkedRecords.length === 0 ? (
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             No records have been instantiated from this template yet.
           </p>
         ) : (
@@ -1031,7 +1031,7 @@ export function TemplateInspector({
       </InspectorSection>
 
       <InspectorSection title="Approvals">
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           Review workflow is not yet connected — statuses shown are placeholders
           derived from the template lifecycle.
         </p>
@@ -1077,7 +1077,7 @@ export function TemplateInspector({
         <InspectorSection title="Use this template">
           {instantiationSuccess ? (
             <div className="space-y-2">
-              <p className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700 dark:text-emerald-300">
+              <p className="inline-flex items-center gap-1.5 text-sm font-medium text-success">
                 <CheckCircle2 className="size-4" aria-hidden="true" />
                 Record created successfully.
               </p>
@@ -1100,7 +1100,7 @@ export function TemplateInspector({
               }}
               className="space-y-3"
             >
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Pinned to version v{template.metadataVersion}. A new record is
                 created from an immutable snapshot of this template; later
                 template edits do not affect it.
@@ -1163,9 +1163,9 @@ export function TemplateInspector({
         </InspectorSection>
       ) : (
         <InspectorSection title="Use this template">
-          <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950">
+          <div className="flex items-center gap-2 rounded-md border border-warning/20 bg-warning/5 p-3">
             <FileWarning
-              className="size-4 shrink-0 text-amber-600 dark:text-amber-400"
+              className="size-4 shrink-0 text-warning-foreground"
               aria-hidden="true"
             />
             <p className="text-sm text-muted-foreground">

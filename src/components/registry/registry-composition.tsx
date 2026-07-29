@@ -500,7 +500,7 @@ export function RegistryComposition<TData>({
               key={summary.label}
               className="rounded-md border bg-card px-3 py-2"
             >
-              <dt className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 {summary.label}
               </dt>
               <dd className="mt-0.5 text-lg font-semibold tabular-nums">

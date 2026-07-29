@@ -293,7 +293,7 @@ export function ScientificApiInspector({
                     {copied === example.id ? 'Copied' : 'Copy'}
                   </button>
                 </div>
-                <pre className="overflow-x-auto whitespace-pre-wrap break-all font-mono text-[11px]">
+                <pre className="overflow-x-auto whitespace-pre-wrap break-all font-mono text-xs">
                   {example.code}
                 </pre>
               </div>

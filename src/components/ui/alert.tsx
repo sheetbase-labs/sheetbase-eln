@@ -11,14 +11,16 @@ import { cn } from '#/lib/utils'
  * a polite, surfaced notice).
  */
 const alertVariants = cva(
-  'relative w-full rounded-md border p-3 text-xs gap-2',
+  'relative w-full rounded-lg border p-3 text-sm gap-2',
   {
     variants: {
       variant: {
         default: 'border-border bg-muted/40 text-foreground',
-        destructive: 'border-destructive/40 bg-destructive/5 text-destructive',
-        warning: 'border-warning/50 bg-warning/5 text-warning-foreground',
-        info: 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300',
+        destructive:
+          'border-destructive/30 bg-destructive/5 text-foreground [&_strong]:text-destructive',
+        warning:
+          'border-warning/30 bg-warning/5 text-foreground [&_strong]:text-warning-foreground',
+        info: 'border-info/20 bg-info/5 text-foreground [&_strong]:text-info',
       },
     },
     defaultVariants: { variant: 'default' },
@@ -61,7 +63,7 @@ function AlertDescription({
   return (
     <div
       data-slot="alert-description"
-      className={cn('text-xs leading-relaxed', className)}
+      className={cn('text-sm leading-relaxed', className)}
       {...props}
     />
   )

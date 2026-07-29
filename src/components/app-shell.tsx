@@ -9,12 +9,12 @@ import {
   useRouterState,
 } from '@tanstack/react-router'
 import {
-  Bell,
+
   CalendarDays,
   CheckCircle2,
   ChevronRight,
   ChevronsUpDown,
-  CircleHelp,
+
   Database,
   FlaskConical,
   FolderOpen,
@@ -323,31 +323,41 @@ export const defaultNavSections: AppShellNavSection[] = [
       { to: '/', label: 'Home', icon: HomeIcon },
       { to: '/projects', label: 'Projects', icon: FolderOpen },
       { to: '/search', label: 'Search', icon: Search },
+    ],
+  },
+  {
+    label: 'Registries',
+    items: [
       { to: '/templates', label: 'Templates', icon: LayoutTemplate },
       { to: '/reagents', label: 'Reagents', icon: FlaskConical },
-      { to: '/schemas', label: 'Schemas', icon: Database },
-      { to: '/datasets', label: 'Datasets', icon: Database },
-      { to: '/analysis', label: 'Analysis', icon: LineChartIcon },
       { to: '/samples', label: 'Samples', icon: FlaskConical },
+      { to: '/datasets', label: 'Datasets', icon: Database },
+      { to: '/schemas', label: 'Schemas', icon: Database },
       { to: '/storage', label: 'Storage', icon: Snowflake },
+    ],
+  },
+  {
+    label: 'Tools',
+    items: [
+      { to: '/analysis', label: 'Analysis', icon: LineChartIcon },
       { to: '/plate-designer', label: 'Plate Designer', icon: Grid3x3 },
       { to: '/calendar', label: 'Lab Calendar', icon: CalendarDays },
       { to: '/instrument-monitor', label: 'Instruments', icon: Gauge },
       { to: '/report-builder', label: 'Report Builder', icon: FileText },
-      { to: '/admin', label: 'Administration', icon: Settings },
       {
         to: '/reviews',
         label: 'Reviews',
         icon: CheckCircle2,
         badge: 0,
       },
+      { to: '/admin', label: 'Administration', icon: Settings },
     ],
   },
 ]
 
 function Kbd({ children }: { children: React.ReactNode }) {
   return (
-    <kbd className="pointer-events-none hidden h-5 select-none items-center gap-0.5 rounded border bg-muted px-1.5 font-sans text-[10px] font-medium text-muted-foreground sm:flex">
+    <kbd className="pointer-events-none hidden h-5 select-none items-center gap-0.5 rounded border bg-muted px-1.5 font-sans text-xs font-medium text-muted-foreground sm:flex">
       {children}
     </kbd>
   )
@@ -527,13 +537,13 @@ export function AppShell({
         aria-label="Primary"
         className={cn(
           'flex-1 overflow-y-auto px-2 pb-4',
-          collapsed && 'px-1.5',
+          collapsed && 'px-2',
         )}
       >
         {navSections.map((section) => (
           <div key={section.label ?? 'section'} className="mb-2">
             {section.label && !collapsed && (
-              <p className="px-2 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              <p className="px-2 pb-1 pt-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 {section.label}
               </p>
             )}
@@ -553,7 +563,7 @@ export function AppShell({
 
         {projectTree && !collapsed && (
           <div className="mb-2">
-            <p className="px-2 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            <p className="px-2 pb-1 pt-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               Projects
             </p>
             {projectTree}
@@ -569,7 +579,7 @@ export function AppShell({
             <button
               type="button"
               className={cn(
-                'flex w-full items-center gap-2 rounded-md p-1.5 text-left hover:bg-sidebar-accent/60',
+                'flex w-full items-center gap-2 rounded-md p-2 text-left hover:bg-sidebar-accent/60',
                 collapsed && 'justify-center',
               )}
               aria-label={`Account: ${context.user.name}`}
@@ -673,7 +683,7 @@ export function AppShell({
           )}
         >
           {context && (
-            <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background/92 px-4 backdrop-blur md:px-6">
+            <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-sidebar-border bg-background px-4 md:px-6">
               <Button
                 variant="ghost"
                 size="icon-sm"
@@ -686,35 +696,67 @@ export function AppShell({
 
               <nav
                 aria-label="Breadcrumb"
-                className="flex min-w-0 items-center gap-1.5 text-sm"
+                className="flex min-w-0 items-center gap-2 text-sm"
               >
-                <HomeIcon className="size-3.5 shrink-0 text-muted-foreground" />
-                {breadcrumbs.map((crumb, i) => {
-                  const last = i === breadcrumbs.length - 1
-                  return (
-                    <React.Fragment key={`${crumb.label}-${i}`}>
-                      <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" />
-                      {crumb.to && !last ? (
-                        <Link
-                          to={crumb.to}
-                          className="truncate text-muted-foreground no-underline hover:text-foreground"
-                        >
-                          {crumb.label}
-                        </Link>
-                      ) : (
-                        <span
-                          className="truncate font-medium text-foreground"
-                          aria-current={last ? 'page' : undefined}
-                        >
-                          {crumb.label}
-                        </span>
-                      )}
-                    </React.Fragment>
-                  )
-                })}
+                {/* Mobile: show only a back chevron + the last crumb label.
+                    Desktop: show the full trail. */}
+                {breadcrumbs.length > 2 ? (
+                  <span className="flex min-w-0 items-center gap-2 sm:hidden">
+                    {breadcrumbs[breadcrumbs.length - 2]?.to ? (
+                      <Link
+                        to={breadcrumbs[breadcrumbs.length - 2].to ?? ''}
+                        className="inline-flex items-center gap-1 text-muted-foreground no-underline hover:text-foreground"
+                      >
+                        <ChevronRight className="size-3.5 shrink-0 rotate-180 text-muted-foreground/60" />
+                        <span className="truncate">Back</span>
+                      </Link>
+                    ) : (
+                      <ChevronRight className="size-3.5 shrink-0 rotate-180 text-muted-foreground/60" />
+                    )}
+                    <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" />
+                    <span
+                      className="truncate font-medium text-foreground"
+                      aria-current="page"
+                    >
+                      {breadcrumbs[breadcrumbs.length - 1].label}
+                    </span>
+                  </span>
+                ) : null}
+                <span className="hidden min-w-0 items-center gap-2 sm:flex">
+                  <Link
+                    to="/"
+                    aria-label="Sheetbase home"
+                    className="shrink-0 text-muted-foreground no-underline hover:text-foreground"
+                  >
+                    <HomeIcon className="size-3.5 shrink-0" />
+                  </Link>
+                  {breadcrumbs.map((crumb, i) => {
+                    const last = i === breadcrumbs.length - 1
+                    return (
+                      <React.Fragment key={`${crumb.label}-${i}`}>
+                        <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" />
+                        {crumb.to && !last ? (
+                          <Link
+                            to={crumb.to}
+                            className="truncate text-muted-foreground no-underline hover:text-foreground"
+                          >
+                            {crumb.label}
+                          </Link>
+                        ) : (
+                          <span
+                            className="truncate font-medium text-foreground"
+                            aria-current={last ? 'page' : undefined}
+                          >
+                            {crumb.label}
+                          </span>
+                        )}
+                      </React.Fragment>
+                    )
+                  })}
+                </span>
               </nav>
 
-              <div className="ml-auto flex items-center gap-1.5">
+              <div className="ml-auto flex items-center gap-2">
                 <ConnectionStatus
                   status={liveStatus.status}
                   lastAppliedSeq={liveStatus.lastAppliedSeq}
@@ -722,11 +764,11 @@ export function AppShell({
                 <button
                   type="button"
                   onClick={() => setCommandOpen(true)}
-                  className="hidden h-8 items-center gap-2 rounded-md border bg-background px-3 text-left text-xs text-muted-foreground shadow-xs hover:bg-muted/50 sm:flex"
-                  aria-label="Search"
+                  className="hidden h-8 w-56 items-center gap-2 rounded-md border border-input bg-background px-3 text-left text-sm text-muted-foreground shadow-xs transition-colors hover:bg-muted/50 sm:flex"
+                  aria-label="Search records and samples"
                 >
-                  <Search className="size-3.5" />
-                  <span className="flex-1">Search</span>
+                  <Search className="size-4 shrink-0" />
+                  <span className="flex-1 truncate">Search records, samples…</span>
                   <Kbd>⌘K</Kbd>
                 </button>
                 <Button
@@ -740,32 +782,6 @@ export function AppShell({
                 </Button>
 
                 {primaryAction}
-
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label="Help"
-                      disabled
-                    >
-                      <CircleHelp />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Help</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label="Notifications"
-                    >
-                      <Bell />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Notifications</TooltipContent>
-                </Tooltip>
 
                 {inspector && (
                   <Button
@@ -831,7 +847,7 @@ export function AppShell({
               <aside
                 aria-label={inspectorLabel}
                 className={cn(
-                  'hidden shrink-0 border-l bg-background xl:block',
+                  'hidden shrink-0 border-l border-sidebar-border bg-background xl:block',
                   inspectorCollapsible && inspectorCollapsed ? 'w-10' : 'w-80',
                 )}
                 data-inspector-collapsed={
@@ -916,7 +932,7 @@ function NavRow({
       <span
         aria-disabled="true"
         className={cn(
-          'flex h-9 cursor-not-allowed items-center gap-2 rounded-md px-2.5 text-sm font-medium text-muted-foreground/60 no-underline',
+          'flex h-9 cursor-not-allowed items-center gap-2 rounded-md px-3 text-sm font-medium text-muted-foreground/60 no-underline',
           collapsed && 'justify-center px-0',
         )}
         title={`${item.label} (coming soon)`}
@@ -949,10 +965,10 @@ function NavRow({
             onClick={onNavigate}
             aria-current={active ? 'page' : undefined}
             className={cn(
-              'flex h-9 items-center gap-2 rounded-md px-2.5 text-sm font-medium no-underline transition-colors',
+              'flex h-9 items-center gap-2 rounded-md px-3 text-sm no-underline transition-colors',
               active
-                ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                : 'text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground',
+                ? 'bg-sidebar-accent font-semibold text-sidebar-accent-foreground'
+                : 'font-medium text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground',
               collapsed && 'justify-center px-0',
             )}
           >

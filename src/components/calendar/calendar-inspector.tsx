@@ -65,7 +65,7 @@ function ParticipantRow({
     <div className="flex items-center gap-2">
       <span
         aria-hidden="true"
-        className="flex size-6 items-center justify-center rounded-full bg-primary/10 text-[10px] font-medium text-primary"
+        className="flex size-6 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary"
       >
         {initials}
       </span>
@@ -253,7 +253,7 @@ export function CalendarInspector({
         </Button>
       </div>
 
-      <p className="pt-1 text-[10px] text-muted-foreground">
+      <p className="pt-1 text-xs text-muted-foreground">
         <Trash2 className="mb-0.5 mr-1 inline size-3" />
         Cancelled bookings free the resource slot and remain visible for audit.
       </p>

@@ -47,8 +47,8 @@ describe('BlockPreview callout (SCI-009 contract fix)', () => {
         block={block('callout', { text: 'Heads up', variant: 'warning' })}
       />,
     )
-    // Warning callouts use an amber left-border accent.
-    const callout = container.querySelector('.border-l-amber-400')
+    // Warning callouts use a semantic warning border.
+    const callout = container.querySelector('[class*="border-warning"]')
     expect(callout).toBeTruthy()
   })
 
@@ -58,8 +58,8 @@ describe('BlockPreview callout (SCI-009 contract fix)', () => {
         block={block('callout', { text: 'FYI', variant: 'info' })}
       />,
     )
-    // Info callouts use a blue left-border accent.
-    const callout = container.querySelector('.border-l-blue-400')
+    // Info callouts use a semantic info border.
+    const callout = container.querySelector('[class*="border-info"]')
     expect(callout).toBeTruthy()
   })
 

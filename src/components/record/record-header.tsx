@@ -65,7 +65,7 @@ function Avatar({
       aria-label={name}
       className={cn(
         'inline-flex items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary ring-2 ring-background',
-        size === 'sm' ? 'size-6 text-[10px]' : 'size-8 text-xs',
+        size === 'sm' ? 'size-6 text-xs' : 'size-8 text-xs',
       )}
     >
       {text}
@@ -98,7 +98,7 @@ export function RecordHeader({
           {recordType}
         </span>
         {identifier ? (
-          <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+          <span className="font-mono text-xs tabular-nums text-muted-foreground">
             {identifier}
           </span>
         ) : null}
@@ -141,7 +141,7 @@ export function RecordHeader({
           <Separator />
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
             {owner ? (
-              <span className="inline-flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-2">
                 <Avatar name={owner.name} initials={owner.initials} size="sm" />
                 <span className="text-foreground">{owner.name}</span>
               </span>
@@ -161,7 +161,7 @@ export function RecordHeader({
                   />
                 ))}
                 {contributors.length > 5 ? (
-                  <span className="inline-flex size-6 items-center justify-center rounded-full bg-muted text-[10px] font-medium ring-2 ring-background">
+                  <span className="inline-flex size-6 items-center justify-center rounded-full bg-muted text-xs font-medium ring-2 ring-background">
                     +{contributors.length - 5}
                   </span>
                 ) : null}

@@ -192,7 +192,7 @@ function renderCallout(payload: unknown): React.ReactNode {
   return (
     <div
       className={cn(
-        'flex gap-3 rounded-md border-l-4 py-3 pr-3 pl-3.5 text-sm leading-6',
+        'flex gap-3 rounded-lg border py-3 pr-3 pl-3.5 text-sm leading-6',
         styles.container,
       )}
     >
@@ -214,27 +214,27 @@ interface CalloutStyle {
 const CALLOUT_STYLES: Record<string, CalloutStyle> = {
   info: {
     container:
-      'border-l-blue-400 bg-blue-50 text-blue-900 dark:border-l-blue-500 dark:bg-blue-950/40 dark:text-blue-100',
+      'border-info/20 bg-info/10 text-foreground',
     icon: Info,
-    iconClass: 'text-blue-500 dark:text-blue-400',
+    iconClass: 'text-info',
   },
   warning: {
     container:
-      'border-l-amber-400 bg-amber-50 text-amber-900 dark:border-l-amber-500 dark:bg-amber-950/40 dark:text-amber-100',
+      'border-warning/30 bg-warning/15 text-foreground',
     icon: TriangleAlert,
-    iconClass: 'text-amber-500 dark:text-amber-400',
+    iconClass: 'text-warning-foreground',
   },
   danger: {
     container:
-      'border-l-red-400 bg-red-50 text-red-900 dark:border-l-red-500 dark:bg-red-950/40 dark:text-red-100',
+      'border-destructive/20 bg-destructive/10 text-foreground',
     icon: CircleAlert,
-    iconClass: 'text-red-500 dark:text-red-400',
+    iconClass: 'text-destructive',
   },
   note: {
     container:
-      'border-l-emerald-400 bg-emerald-50 text-emerald-900 dark:border-l-emerald-500 dark:bg-emerald-950/40 dark:text-emerald-100',
+      'border-success/20 bg-success/10 text-foreground',
     icon: StickyNote,
-    iconClass: 'text-emerald-500 dark:text-emerald-400',
+    iconClass: 'text-success',
   },
 }
 
@@ -263,7 +263,7 @@ function renderLinkedRecord(payload: unknown): React.ReactNode {
         <span className="text-xs text-muted-foreground">{label}</span>
       ) : null}
       {linkType && linkType !== 'general' ? (
-        <span className="text-[11px] uppercase tracking-wide text-muted-foreground/70">
+        <span className="text-xs uppercase tracking-wide text-muted-foreground/70">
           {linkType}
         </span>
       ) : null}
@@ -294,7 +294,7 @@ function renderProcedureStep(payload: unknown): React.ReactNode {
         className={cn(
           'flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold tabular-nums',
           completed
-            ? 'border-emerald-500 bg-emerald-500 text-white'
+            ? 'border-success bg-success text-success-foreground'
             : 'border-border bg-muted text-muted-foreground',
         )}
       >
@@ -315,7 +315,7 @@ function renderProcedureStep(payload: unknown): React.ReactNode {
           <p className="mt-1 text-xs text-muted-foreground">{note}</p>
         ) : null}
         {completedAt ? (
-          <p className="mt-1 text-[11px] text-muted-foreground">
+          <p className="mt-1 text-xs text-muted-foreground">
             Completed {new Date(completedAt).toLocaleString()}
           </p>
         ) : null}
@@ -498,7 +498,7 @@ function renderTable(payload: unknown): React.ReactNode {
               <th
                 key={i}
                 scope="col"
-                className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
+                className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground"
               >
                 {col.label}
               </th>
@@ -528,7 +528,7 @@ function renderTable(payload: unknown): React.ReactNode {
           <tr className="border-t border-border">
             <td
               colSpan={columns.length}
-              className="px-3 py-1.5 text-[11px] text-muted-foreground"
+              className="px-3 py-1.5 text-xs text-muted-foreground"
             >
               {rows.length} {rows.length === 1 ? 'row' : 'rows'}
             </td>
@@ -563,21 +563,21 @@ function SheetBlockPreview({ payload }: { payload: unknown }) {
 
   if (!tableId) {
     return (
-      <div className="rounded-md border border-dashed border-muted-foreground/30 p-3 text-xs text-muted-foreground">
+      <div className="rounded-lg border border-muted-foreground/30 p-3 text-xs text-muted-foreground">
         Scientific sheet not configured yet.
       </div>
     )
   }
   if (tableQuery.isLoading) {
     return (
-      <div className="rounded-md border p-3 text-xs text-muted-foreground">
+      <div className="rounded-lg border p-3 text-sm text-muted-foreground">
         Preparing scientific sheet…
       </div>
     )
   }
   if (tableQuery.error || !table) {
     return (
-      <div className="rounded-md border border-dashed border-amber-300 bg-amber-50 p-3 text-xs dark:border-amber-800 dark:bg-amber-950/40">
+      <div className="rounded-lg border border-dashed border-warning/30 bg-warning/10 p-3 text-xs">
         <p className="font-medium text-foreground">
           Scientific sheet unavailable
         </p>
@@ -605,7 +605,7 @@ function SheetBlockPreview({ payload }: { payload: unknown }) {
                 <th
                   key={col.id}
                   scope="col"
-                  className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
+                  className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground"
                 >
                   {col.label}
                 </th>
@@ -646,7 +646,7 @@ function SheetBlockPreview({ payload }: { payload: unknown }) {
 function renderUnsupported(type: string, payload: unknown): React.ReactNode {
   const known = (KNOWN_BLOCK_TYPES as readonly string[]).includes(type)
   return (
-    <div className="rounded-md border border-dashed border-amber-300 bg-amber-50 p-3 text-xs dark:border-amber-800 dark:bg-amber-950/40">
+    <div className="rounded-lg border border-dashed border-warning/30 bg-warning/10 p-3 text-xs">
       <p className="font-medium text-foreground">
         {known ? 'Unsupported payload version' : `Unknown block type: ${type}`}
       </p>
@@ -654,7 +654,7 @@ function renderUnsupported(type: string, payload: unknown): React.ReactNode {
         The block is preserved as stored. Its content will render here once a
         renderer for this type and schema version is available.
       </p>
-      <pre className="mt-2 max-h-40 overflow-auto rounded bg-muted/40 p-2 font-mono text-[11px]">
+      <pre className="mt-2 max-h-40 overflow-auto rounded bg-muted/40 p-2 font-mono text-xs">
         {JSON.stringify(payload, null, 2)}
       </pre>
     </div>
@@ -725,7 +725,7 @@ function FileBlockPreview({ payload }: { payload: unknown }) {
     return (
       <div className="text-sm">
         <p className="font-medium text-foreground">{name || 'File'}</p>
-        <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+        <p className="mt-1 text-xs text-warning-foreground">
           The storage object for this file is missing.
         </p>
         <FileMetaLine mediaType={mediaType} byteSize={byteSize} />
@@ -736,7 +736,7 @@ function FileBlockPreview({ payload }: { payload: unknown }) {
     return (
       <div className="text-sm">
         <p className="font-medium text-foreground">{name}</p>
-        <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+        <p className="mt-1 text-xs text-warning-foreground">
           Quarantined
           {live.data.statusReason ? ` — ${live.data.statusReason}` : ''}.
         </p>

@@ -134,7 +134,7 @@ export function CommentPanel({
           <Badge variant={openCount > 0 ? 'warning' : 'info'}>
             {threads.length} {threads.length === 1 ? 'thread' : 'threads'}
           </Badge>
-          <span className="text-[11px] text-muted-foreground">
+          <span className="text-xs text-muted-foreground">
             {openCount} open · {threads.length - openCount} resolved
           </span>
         </div>
@@ -150,9 +150,9 @@ export function CommentPanel({
       ) : null}
 
       {loading ? (
-        <p className="text-[11px] text-muted-foreground">Loading comments…</p>
+        <p className="text-xs text-muted-foreground">Loading comments…</p>
       ) : threads.length === 0 && !loadError ? (
-        <p className="rounded-md border border-dashed bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+        <p className="rounded-md border border-dashed bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
           No comments yet on this revision.
         </p>
       ) : (
@@ -204,7 +204,7 @@ export function CommentPanel({
               Add comment
             </Button>
             {createMutation.isPending ? (
-              <span className="text-[11px] text-muted-foreground">
+              <span className="text-xs text-muted-foreground">
                 Sending…
               </span>
             ) : null}

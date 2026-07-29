@@ -26,9 +26,9 @@ export interface RunInspectorProps {
 
 const FILE_TOKENS: Record<FileIngestionStatus, string> = {
   pending: 'bg-slate-100 text-slate-600',
-  complete: 'bg-emerald-100 text-emerald-700',
-  partial: 'bg-amber-100 text-amber-700',
-  failed: 'bg-red-100 text-red-700',
+  complete: 'bg-success/10 text-success',
+  partial: 'bg-warning/10 text-warning-foreground',
+  failed: 'bg-destructive/10 text-destructive',
 }
 function formatDate(value: string | null, timeZone: string): string {
   return value

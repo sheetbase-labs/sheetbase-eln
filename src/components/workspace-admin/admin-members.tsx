@@ -117,8 +117,8 @@ export function AdminMembers(props: AdminMembersProps) {
                   <Badge
                     className={
                       member.suspendedAt
-                        ? 'bg-red-100 text-red-700'
-                        : 'bg-emerald-100 text-emerald-700'
+                        ? 'bg-destructive/10 text-destructive'
+                        : 'bg-success/10 text-success'
                     }
                   >
                     {member.suspendedAt ? 'Suspended' : 'Active'}

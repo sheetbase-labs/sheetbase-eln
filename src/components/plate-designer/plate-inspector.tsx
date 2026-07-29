@@ -200,7 +200,7 @@ export function PlateInspector(props: PlateInspectorProps) {
             ))}
           </ul>
         ) : (
-          <p className="rounded border border-emerald-500/30 bg-emerald-500/10 p-2 text-xs text-emerald-700">
+          <p className="rounded border border-success/30 bg-success/10 p-2 text-xs text-success">
             No issues
           </p>
         )}

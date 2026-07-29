@@ -321,7 +321,7 @@ function SchemaConfigurator({
       </DialogHeader>
 
       {formulaDependencies.length ? (
-        <p className="text-xs text-amber-700" role="status">
+        <p className="text-xs text-warning-foreground" role="status">
           {new Set(formulaDependencies.map((item) => item.formula_id)).size}{' '}
           persisted formula(s) depend on this sheet
         </p>
@@ -611,7 +611,7 @@ function SchemaConfigurator({
           ))}
         </ol>
         {rowMutationPending || draftColumnIds.size > 0 ? (
-          <p role="status" className="text-xs text-amber-700">
+          <p role="status" className="text-xs text-warning-foreground">
             Save or discard pending row changes before converting or retiring
             columns.
           </p>
@@ -704,7 +704,7 @@ function SchemaConfigurator({
 
       <Separator />
 
-      <details className="rounded-md border bg-muted/20 p-2 text-[11px] text-muted-foreground">
+      <details className="rounded-md border bg-muted/20 p-2 text-xs text-muted-foreground">
         <summary className="cursor-pointer font-medium">Developer info</summary>
         <div className="mt-2 space-y-2">
           <p>

@@ -511,7 +511,7 @@ function SchemaManagementRoute() {
                     key={groupSlug}
                     aria-label={`${groupSlug} revisions`}
                   >
-                    <p className="px-1.5 pb-1 font-mono text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                    <p className="px-1.5 pb-1 font-mono text-xs font-medium uppercase tracking-wide text-muted-foreground">
                       {groupSlug}
                     </p>
                     <div className="space-y-0.5">
@@ -535,7 +535,7 @@ function SchemaManagementRoute() {
                               vocabulary={schemaStatusVocabulary}
                             />
                           </span>
-                          <span className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                          <span className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
                             <span className="font-mono">
                               rev {schema.revision}
                             </span>
@@ -1828,7 +1828,7 @@ function GraphSchemaNodeComponent({ data }: NodeProps<GraphSchemaNode>) {
           size="sm"
         />
       </div>
-      <p className="mt-1 truncate font-mono text-[11px] text-muted-foreground">
+      <p className="mt-1 truncate font-mono text-xs text-muted-foreground">
         {schema.slug} · rev {schema.revision}
       </p>
       <Handle
@@ -1963,7 +1963,7 @@ function SchemaCanvas({
       <div className="flex shrink-0 flex-wrap items-center gap-1.5 rounded-lg border bg-card p-2 shadow-sm">
         {canAdd ? (
           <>
-            <span className="px-1 text-[11px] font-medium text-muted-foreground">
+            <span className="px-1 text-xs font-medium text-muted-foreground">
               Add field:
             </span>
             {typeShortcuts.map(({ label, type, icon: Icon }) => (
@@ -1980,7 +1980,7 @@ function SchemaCanvas({
             ))}
           </>
         ) : (
-          <span className="px-1 text-[11px] text-muted-foreground">
+          <span className="px-1 text-xs text-muted-foreground">
             {rows.length} field{rows.length === 1 ? '' : 's'} · schema is
             published
           </span>
@@ -2014,7 +2014,7 @@ function SchemaNodeComponent({ data }: NodeProps<SchemaNode>) {
       </div>
       {/* Column header */}
       {rows.length > 0 && (
-        <div className="flex items-center gap-2 border-b bg-muted/20 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <div className="flex items-center gap-2 border-b bg-muted/20 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           <span className="flex-1">Field</span>
           <span className="w-20 shrink-0 text-center">Type</span>
           <span className="w-32 shrink-0 font-mono normal-case">Slug</span>
@@ -2068,7 +2068,7 @@ function SchemaNodeComponent({ data }: NodeProps<SchemaNode>) {
                 )}
                 {row.incomplete && (
                   <span
-                    className="shrink-0 rounded bg-amber-100 px-1 text-[9px] font-medium uppercase tracking-wide text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                    className="shrink-0 rounded bg-amber-100 px-1 text-xs font-medium uppercase tracking-wide text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
                     title="This field has a slug but no label — add a label in the properties panel"
                   >
                     Needs label
@@ -2370,7 +2370,7 @@ function BasicSection({
 }) {
   return (
     <section className="space-y-3">
-      <h4 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Basic
       </h4>
       <div className="space-y-1.5">
@@ -2415,7 +2415,7 @@ function BasicSection({
           placeholder="e.g. Sample ID"
         />
         {!readOnly && !label.trim() && (
-          <p className="text-[11px] text-amber-600 dark:text-amber-400">
+          <p className="text-xs text-amber-600 dark:text-amber-400">
             Label is required to save this field.
           </p>
         )}
@@ -2465,7 +2465,7 @@ function BasicSection({
               ))}
           </Select>
           {!readOnly && !targetSchemaId && (
-            <p className="text-[11px] text-amber-600 dark:text-amber-400">
+            <p className="text-xs text-amber-600 dark:text-amber-400">
               Pick the schema this field points to.
             </p>
           )}
@@ -2498,7 +2498,7 @@ function ValidationSection({
 }) {
   return (
     <section className="space-y-3">
-      <h4 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Validation
       </h4>
       <label className="flex items-center justify-between gap-2 rounded-md border px-3 py-2">
@@ -2538,7 +2538,7 @@ function ValidationSection({
           <Label htmlFor="fp-description" className="text-xs">
             Description
           </Label>
-          <span className="text-[10px] text-muted-foreground">
+          <span className="text-xs text-muted-foreground">
             {description.length} chars
           </span>
         </div>
@@ -2572,7 +2572,7 @@ function AdvancedSection({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
+        className="flex w-full items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
       >
         {open ? (
           <ChevronDown className="size-3" aria-hidden="true" />

@@ -68,8 +68,8 @@ const stateMeta: Record<
   completed: {
     icon: Check,
     label: 'Completed',
-    ring: 'border-emerald-500 bg-emerald-500 text-white',
-    dot: 'text-emerald-500',
+    ring: 'border-success bg-success text-success-foreground',
+    dot: 'text-success',
   },
   rejected: {
     icon: XCircle,
@@ -80,8 +80,8 @@ const stateMeta: Record<
   returned: {
     icon: Undo2,
     label: 'Returned',
-    ring: 'border-amber-500 bg-amber-500 text-white',
-    dot: 'text-amber-500',
+    ring: 'border-warning bg-warning text-warning-foreground',
+    dot: 'text-warning-foreground',
   },
   unavailable: {
     icon: MinusCircle,

@@ -13,12 +13,12 @@ function appearance(position: BoxPositionWithSample) {
   if (isExpiringSoon(position))
     return ['Expiring soon', 'bg-orange-100 border-orange-300 text-orange-900']
   if (position.status === 'occupied')
-    return ['In stock', 'bg-emerald-100 border-emerald-300 text-emerald-900']
+    return ['In stock', 'bg-success/10 border-success/30 text-success']
   return ['Empty', 'bg-slate-50 border-slate-200 text-slate-600']
 }
 
 const legend = [
-  ['In stock', 'bg-emerald-200'],
+  ['In stock', 'bg-success/20'],
   ['Low volume', 'bg-yellow-200'],
   ['Expiring soon', 'bg-orange-200'],
   ['Quarantined', 'bg-pink-200'],
@@ -105,7 +105,7 @@ export function BoxGrid({
                     onClick={() => onSelectPosition(position.id)}
                     aria-label={`${position.label}, ${label}${position.sample ? `, ${position.sample.identifier}, ${position.sample.title}` : ''}`}
                     className={cn(
-                      'min-h-16 rounded-md border p-1.5 text-left text-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+                      'min-h-16 rounded-md border p-1.5 text-left text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
                       tone,
                       selectedPositionId === position.id &&
                         'ring-2 ring-primary ring-offset-1',

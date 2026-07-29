@@ -37,7 +37,7 @@ export function InspectorSection({
   return (
     <section className={cn('space-y-2 py-3', className)}>
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           {title}
         </h3>
         {action}
@@ -105,14 +105,14 @@ export function LinkedRecordList({ items }: { items: LinkedRecordItem[] }) {
               <Icon className="size-3.5" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <span className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 {item.type}
               </span>
               <span className="block truncate text-xs font-medium">
                 {item.title}
               </span>
               {item.meta ? (
-                <span className="block truncate text-[11px] text-muted-foreground">
+                <span className="block truncate text-xs text-muted-foreground">
                   {item.meta}
                 </span>
               ) : null}
@@ -162,7 +162,7 @@ export function FileList({ items }: { items: FileItem[] }) {
                 {f.name}
               </span>
               {f.meta ? (
-                <span className="block truncate text-[11px] text-muted-foreground">
+                <span className="block truncate text-xs text-muted-foreground">
                   {f.meta}
                 </span>
               ) : null}
@@ -203,11 +203,11 @@ export interface CheckItem {
 const checkIcon: Record<CheckState, { icon: LucideIcon; className: string }> = {
   pass: {
     icon: CheckCircle2,
-    className: 'text-emerald-600 dark:text-emerald-400',
+    className: 'text-success',
   },
-  fail: { icon: XCircle, className: 'text-red-600 dark:text-red-400' },
+  fail: { icon: XCircle, className: 'text-destructive' },
   pending: { icon: Clock, className: 'text-muted-foreground' },
-  warning: { icon: Circle, className: 'text-amber-600 dark:text-amber-400' },
+  warning: { icon: Circle, className: 'text-warning-foreground' },
 }
 
 export function CheckList({ items }: { items: CheckItem[] }) {
@@ -229,7 +229,7 @@ export function CheckList({ items }: { items: CheckItem[] }) {
               {c.label}
             </span>
             {c.detail ? (
-              <span className="shrink-0 text-[11px] text-muted-foreground">
+              <span className="shrink-0 text-xs text-muted-foreground">
                 {c.detail}
               </span>
             ) : null}
@@ -259,7 +259,7 @@ export function ActivityFeed({ items }: { items: ActivityItem[] }) {
           <span
             title={a.actor.name}
             aria-label={a.actor.name}
-            className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[10px] font-semibold text-primary"
+            className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary"
           >
             {(a.actor.initials ?? a.actor.name.slice(0, 2)).toUpperCase()}
           </span>
@@ -274,7 +274,7 @@ export function ActivityFeed({ items }: { items: ActivityItem[] }) {
                 </>
               ) : null}
             </p>
-            <p className="text-[11px] text-muted-foreground">{a.at}</p>
+            <p className="text-xs text-muted-foreground">{a.at}</p>
           </div>
         </li>
       ))}
@@ -301,13 +301,13 @@ export function CommentList({ items }: { items: CommentItem[] }) {
               <span
                 title={c.author.name}
                 aria-label={c.author.name}
-                className="flex size-5 items-center justify-center rounded-full bg-primary/15 text-[9px] font-semibold text-primary"
+                className="flex size-5 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary"
               >
                 {(c.author.initials ?? c.author.name.slice(0, 2)).toUpperCase()}
               </span>
               <span className="text-xs font-medium">{c.author.name}</span>
             </span>
-            <span className="text-[11px] text-muted-foreground">{c.at}</span>
+            <span className="text-xs text-muted-foreground">{c.at}</span>
           </div>
           <p className="break-words text-xs leading-5 text-foreground">
             {c.body}
@@ -320,7 +320,7 @@ export function CommentList({ items }: { items: CommentItem[] }) {
 
 export function EmptyHint({ children }: { children: React.ReactNode }) {
   return (
-    <p className="rounded-md border border-dashed bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+    <p className="rounded-md border border-dashed bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
       {children}
     </p>
   )

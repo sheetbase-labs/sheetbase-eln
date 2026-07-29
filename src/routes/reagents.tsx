@@ -367,7 +367,7 @@ function buildColumns(): ColumnDef<Reagent, unknown>[] {
       id: 'category',
       header: 'Category',
       cell: (info) => (
-        <Badge variant="outline" className="text-[10px]">
+        <Badge variant="outline" className="text-xs">
           {info.getValue()}
         </Badge>
       ),
@@ -441,7 +441,7 @@ function AttentionCell({ reagent }: { reagent: Reagent }) {
             ? 'warning'
             : 'warning'
       }
-      className="text-[10px]"
+      className="text-xs"
     >
       <Icon className="size-3" aria-hidden="true" />
       <span>{ATTENTION_LABELS[attention.kind]}</span>
@@ -600,7 +600,7 @@ function ReagentInspector({
                 <ul className="space-y-1 text-xs">
                   {usage.map((link) => (
                     <li key={link.id} className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-[10px]">
+                      <Badge variant="outline" className="text-xs">
                         {link.sourceKind}
                       </Badge>
                       <span className="font-mono tabular-nums text-muted-foreground">

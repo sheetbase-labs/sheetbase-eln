@@ -53,7 +53,7 @@ export function RunQueue({
               onClick={() => onSelectRun(run.id)}
               className={cn(
                 'w-full rounded-md border border-transparent p-3 text-left transition-colors hover:bg-muted/50',
-                selectedRunId === run.id && 'border-blue-300 bg-blue-50/60',
+                selectedRunId === run.id && 'border-primary/30 bg-primary/5',
               )}
             >
               <div className="flex items-start justify-between gap-2">
@@ -75,7 +75,7 @@ export function RunQueue({
               <div className="mt-2 flex items-center gap-2">
                 <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
                   <div
-                    className="h-full rounded-full bg-blue-500"
+                    className="h-full rounded-full bg-primary"
                     style={{
                       width: `${Math.max(0, Math.min(100, run.progressPercent))}%`,
                     }}

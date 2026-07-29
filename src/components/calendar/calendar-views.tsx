@@ -155,7 +155,7 @@ function HourAxis() {
         return (
           <div
             key={hour}
-            className="absolute right-1 -translate-y-1/2 text-[10px] text-muted-foreground"
+            className="absolute right-1 -translate-y-1/2 text-xs text-muted-foreground"
             style={{ top: i * HOUR_PX }}
           >
             {String(hour).padStart(2, '0')}:00
@@ -217,7 +217,7 @@ function DayColumn({
               type="button"
               onClick={() => onSelectBooking(booking.id)}
               className={cn(
-                'absolute left-0.5 overflow-hidden rounded-md border px-1.5 py-1 text-left text-[11px] leading-tight transition-shadow',
+                'absolute left-0.5 overflow-hidden rounded-md border px-1.5 py-1 text-left text-xs leading-tight transition-shadow',
                 bookingColorClass(booking),
                 booking.status === 'cancelled' && 'opacity-50 line-through',
                 selectedBookingId === booking.id &&
@@ -328,7 +328,7 @@ function MonthView({
             >
               <div
                 className={cn(
-                  'mb-1 text-right text-[11px]',
+                  'mb-1 text-right text-xs',
                   isToday && 'font-bold text-primary',
                 )}
               >
@@ -341,7 +341,7 @@ function MonthView({
                     type="button"
                     onClick={() => onSelectBooking(booking.id)}
                     className={cn(
-                      'truncate rounded px-1 py-0.5 text-left text-[10px] leading-tight',
+                      'truncate rounded px-1 py-0.5 text-left text-xs leading-tight',
                       bookingColorClass(booking),
                       booking.status === 'cancelled' &&
                         'line-through opacity-60',

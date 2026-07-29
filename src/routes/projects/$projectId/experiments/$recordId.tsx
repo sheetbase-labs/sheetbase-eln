@@ -237,8 +237,7 @@ function ExperimentNotebookRoute() {
         />
       }
     >
-      <div className="-mx-4 -my-6 min-h-[calc(100svh-3.5rem)] bg-background md:-mx-8">
-        <div className="mx-auto w-full max-w-[1180px] space-y-2 px-8 pb-16">
+      <div className="mx-auto w-full max-w-3xl px-4 pb-16 md:px-6">
           <StickyRecordHeader
             record={record}
             projectName={project?.title ?? null}
@@ -252,15 +251,14 @@ function ExperimentNotebookRoute() {
           {isArchived ? <ArchivedBanner /> : null}
           {record.lockedAt ? <LockedBanner record={record} /> : null}
           <NotebookCanvas
-            record={record}
-            blocks={blocks}
-            isLoading={blocksQuery.isLoading}
-            error={blocksQuery.error}
-            onRetry={() => blocksQuery.refetch()}
-            client={notebookDataClient}
-            queryClient={queryClient}
-          />
-        </div>
+              record={record}
+              blocks={blocks}
+              isLoading={blocksQuery.isLoading}
+              error={blocksQuery.error}
+              onRetry={() => blocksQuery.refetch()}
+              client={notebookDataClient}
+              queryClient={queryClient}
+            />
       </div>
     </RouteShell>
   )
@@ -335,17 +333,15 @@ export function StickyRecordHeader({
   onAddBlock?: () => void
 }) {
   return (
-    <div className="relative z-20 -mx-8 mb-2 border-b bg-background px-8 pt-7 pb-5">
-      <h1 className="font-display text-[28px] leading-9 font-semibold tracking-[-0.025em] text-foreground">
-        {record.title}
-      </h1>
-      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+    <div className="border-b bg-background pb-4 pt-5">
+      {/* Row 1: type · status · identifier (left) — no actions here */}
+      <div className="flex flex-wrap items-center gap-2 text-xs">
         <span className="font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           {recordKindLabel(record.kind)}
         </span>
         <StatusBadge domain="experiment" status={record.status} />
         {record.lockedAt ? (
-          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-300">
+          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300">
             <Lock className="size-3" aria-hidden />
             Locked
           </span>
@@ -354,39 +350,48 @@ export function StickyRecordHeader({
           {record.identifier}
         </span>
       </div>
-      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-muted-foreground">
-        <span>
-          Created{' '}
-          <span className="text-foreground">
-            {new Date(record.createdAt).toLocaleDateString()}
+
+      {/* Row 2: title (full width) */}
+      <h1 className="mt-2 font-display text-2xl font-semibold leading-8 tracking-[-0.025em] text-foreground sm:text-3xl sm:leading-9">
+        {record.title}
+      </h1>
+
+      {/* Row 3: metadata (left) + actions (right) — wraps on mobile */}
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          <span>
+            Created{' '}
+            <span className="text-foreground">
+              {new Date(record.createdAt).toLocaleDateString()}
+            </span>
           </span>
-        </span>
-        <span>
-          Updated{' '}
-          <span className="text-foreground">
-            {new Date(record.updatedAt).toLocaleDateString()}
+          <span>
+            Updated{' '}
+            <span className="text-foreground">
+              {new Date(record.updatedAt).toLocaleDateString()}
+            </span>
           </span>
-        </span>
-        {projectName ? <span>{projectName}</span> : null}
-      </div>
-      <div className="absolute right-8 bottom-5 flex items-center gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          aria-label="Share experiment"
-          title="Sharing coming soon"
-          onClick={() => {
-            /* placeholder — sharing arrives in a later ticket */
-          }}
-        >
-          <Share2 className="size-3.5" />
-          <span>Share</span>
-        </Button>
-        {onAddBlock ? (
-          <Button size="sm" onClick={onAddBlock}>
-            + Block
+          {projectName ? <span>{projectName}</span> : null}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label="Share experiment"
+            title="Sharing coming soon"
+            onClick={() => {
+              /* placeholder — sharing arrives in a later ticket */
+            }}
+          >
+            <Share2 className="size-3.5" />
+            <span>Share</span>
           </Button>
-        ) : null}
+          {onAddBlock ? (
+            <Button size="sm" onClick={onAddBlock}>
+              + Block
+            </Button>
+          ) : null}
+        </div>
       </div>
     </div>
   )

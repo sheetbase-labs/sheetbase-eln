@@ -20,7 +20,7 @@ function PageHeader({
     >
       <div data-slot="page-header-content" className="max-w-2xl">
         {eyebrow && (
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-primary">
             {eyebrow}
           </p>
         )}

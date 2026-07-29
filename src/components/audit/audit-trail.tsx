@@ -101,7 +101,7 @@ export function AuditTrail({
 
   if (events.length === 0) {
     return (
-      <p className="rounded-md border border-dashed bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+      <p className="rounded-md border border-dashed bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
         No activity yet
       </p>
     )
@@ -162,7 +162,7 @@ export function AuditTrail({
         </div>
       ) : null}
       {totalCount !== undefined ? (
-        <p className="pt-2 text-[11px] text-muted-foreground">
+        <p className="pt-2 text-xs text-muted-foreground">
           Showing {events.length} of {totalCount} events
         </p>
       ) : null}

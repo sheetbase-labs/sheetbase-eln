@@ -38,7 +38,7 @@ export function SchemaBadge({
           size="sm"
           onClick={onUpgrade}
           disabled={upgrading}
-          className="h-6 gap-1.5 rounded-full px-2 text-[11px] font-medium leading-4"
+          className="h-6 gap-1.5 rounded-full px-2 text-xs font-medium leading-4"
         >
           {upgrading ? (
             <Loader2 className="size-3 animate-spin" aria-hidden="true" />
@@ -51,7 +51,7 @@ export function SchemaBadge({
         </Button>
       )}
       {upgradeAvailable && !onUpgrade && (
-        <Badge variant="outline" className="gap-1.5 text-amber-600">
+        <Badge variant="outline" className="gap-1.5 text-warning-foreground">
           <ArrowUpCircle className="size-3" aria-hidden="true" />
           Upgrade available
         </Badge>

@@ -92,7 +92,7 @@ export function PlannerList({
                   onClick={() => onSelectTask(task.id)}
                   className={cn(
                     'cursor-pointer border-b border-border/30 transition-colors hover:bg-muted/30',
-                    isSelected && 'bg-blue-50/50',
+                    isSelected && 'bg-primary/5',
                   )}
                 >
                   <td className="px-3 py-2 font-medium">{task.title}</td>

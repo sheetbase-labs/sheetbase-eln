@@ -197,7 +197,7 @@ export function PlannerTimeline({
                     onClick={() => onSelectTask(task.id)}
                     className={cn(
                       'flex w-full items-stretch border-b border-border/20 text-left transition-colors hover:bg-muted/30',
-                      isSelected && 'bg-blue-50/50',
+                      isSelected && 'bg-primary/5',
                     )}
                   >
                     {/* Left columns */}
@@ -221,7 +221,7 @@ export function PlannerTimeline({
                       <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                         <span
                           className={cn(
-                            'inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-medium',
+                            'inline-flex items-center rounded border px-1.5 py-0.5 text-xs font-medium',
                             TASK_STATUS_TOKENS[task.status],
                           )}
                         >
@@ -250,12 +250,12 @@ export function PlannerTimeline({
                       {/* Today marker */}
                       {todayOffsetDays >= 0 && todayOffsetDays < totalDays ? (
                         <div
-                          className="absolute top-0 bottom-0 w-px bg-blue-500"
+                          className="absolute top-0 bottom-0 w-px bg-primary"
                           style={{
                             left: `${(todayOffsetDays / totalDays) * 100}%`,
                           }}
                         >
-                          <span className="absolute -top-0.5 left-0.5 text-[9px] font-medium text-blue-500">
+                          <span className="absolute -top-0.5 left-0.5 text-xs font-medium text-primary">
                             ●
                           </span>
                         </div>
@@ -308,7 +308,7 @@ export function PlannerTimeline({
                                 className={cn(
                                   'inline-flex items-center',
                                   d.status === 'delivered'
-                                    ? 'text-green-600'
+                                    ? 'text-success'
                                     : 'text-muted-foreground',
                                 )}
                               >
@@ -329,14 +329,14 @@ export function PlannerTimeline({
         {/* Dependency legend */}
         <div className="flex items-center gap-4 border-t border-border px-3 py-2 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
-            <span className="inline-block h-2 w-6 rounded bg-blue-200" /> In
+            <span className="inline-block h-2 w-6 rounded bg-info/20" /> In
             progress
           </span>
           <span className="flex items-center gap-1">
-            <span className="inline-block h-2 w-6 rounded bg-green-200" /> Done
+            <span className="inline-block h-2 w-6 rounded bg-success/20" /> Done
           </span>
           <span className="flex items-center gap-1">
-            <span className="inline-block h-2 w-6 rounded bg-amber-200" />{' '}
+            <span className="inline-block h-2 w-6 rounded bg-warning/20" />{' '}
             Review
           </span>
           <span className="flex items-center gap-1">

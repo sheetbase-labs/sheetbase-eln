@@ -122,14 +122,14 @@ function ChangeValue({
 }) {
   return (
     <div className="min-w-0 rounded-md border bg-background px-3 py-2">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         {label}
       </p>
       <pre className="mt-1 whitespace-pre-wrap break-words font-sans text-xs leading-5 text-foreground">
         {exactText(value)}
       </pre>
       {unit ? (
-        <p className="mt-1 font-mono text-[11px] text-muted-foreground">
+        <p className="mt-1 font-mono text-xs text-muted-foreground">
           {unit}
         </p>
       ) : null}
@@ -177,7 +177,7 @@ function ChangeCard({
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {AREA_LABELS[change.area]}
           </p>
           <h3 className="break-words text-sm font-semibold">{change.label}</h3>
@@ -232,7 +232,7 @@ function TableDiffCard({
     >
       <div className="flex flex-wrap items-center gap-3 p-3">
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Scientific table
           </p>
           <h3 className="text-sm font-semibold">{summary.label}</h3>
@@ -426,7 +426,7 @@ export function RevisionDiffReview({
     >
       <header className="flex flex-wrap items-start justify-between gap-3 rounded-lg border bg-card p-3">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Compare revisions
           </p>
           <div className="mt-1 flex items-center gap-2 text-sm font-semibold">

@@ -227,7 +227,7 @@ export function RecordHistoryTimeline({
       </div>
       <AuditTrail events={mapped} totalCount={mapped.length} />
       {revisionId ? (
-        <p className="font-mono text-[10px] text-muted-foreground/70">
+        <p className="font-mono text-xs text-muted-foreground/70">
           Revision {revisionId.slice(0, 12)}…
           {integrityDigest
             ? ` · integrity ${integrityDigest.slice(0, 16)}…`

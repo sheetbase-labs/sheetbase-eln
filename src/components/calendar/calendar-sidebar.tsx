@@ -73,7 +73,7 @@ function MiniMonthPicker({
         {WEEKDAY_LABELS.map((d) => (
           <div
             key={d}
-            className="text-center text-[10px] font-medium text-muted-foreground"
+            className="text-center text-xs font-medium text-muted-foreground"
           >
             {d[0]}
           </div>
@@ -90,7 +90,7 @@ function MiniMonthPicker({
               type="button"
               onClick={() => onPickDate(day)}
               className={cn(
-                'rounded text-center text-[11px] leading-6 transition-colors',
+                'rounded text-center text-xs leading-6 transition-colors',
                 !inMonth && 'text-muted-foreground/50',
                 inMonth && 'text-foreground hover:bg-muted',
                 isToday && 'font-bold text-primary',
@@ -208,7 +208,7 @@ export function CalendarSidebar({
       </div>
 
       <div className="space-y-2">
-        <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-emerald-600">
+        <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-success">
           <CheckCircle2 className="size-3.5" />
           Available now
         </div>
@@ -219,7 +219,7 @@ export function CalendarSidebar({
             {availableNow.map((r) => (
               <li key={r.id} className="flex items-center justify-between">
                 <span>{r.name}</span>
-                <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
+                <span className="rounded bg-success/5 px-1.5 py-0.5 text-xs font-medium text-success">
                   Free
                 </span>
               </li>

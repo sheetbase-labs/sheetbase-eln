@@ -263,7 +263,7 @@ const columns: ColumnDef<ReviewItem, unknown>[] = [
     cell: ({ row }) => (
       <Badge
         variant={TYPE_BADGE_VARIANT[row.original.recordKind] ?? 'outline'}
-        className="text-[10px]"
+        className="text-xs"
       >
         {recordKindLabel(row.original.recordKind)}
       </Badge>
@@ -329,11 +329,11 @@ const columns: ColumnDef<ReviewItem, unknown>[] = [
             {formatDate(item.submittedAt)}
           </span>
           {overdue ? (
-            <span className="text-[10px] font-medium text-red-600 dark:text-red-400">
+            <span className="text-xs font-medium text-red-600 dark:text-red-400">
               Overdue
             </span>
           ) : (
-            <span className="text-[10px] text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               {formatRelativeTime(item.submittedAt)}
             </span>
           )}
@@ -770,7 +770,7 @@ export function ReviewInspector({
         </dl>
 
         <section>
-          <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Review workflow
           </h3>
           <ol className="space-y-2">
@@ -780,7 +780,7 @@ export function ReviewInspector({
                 <li key={step.key} className="flex items-start gap-2">
                   <span
                     className={cn(
-                      'mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-semibold',
+                      'mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border text-xs font-semibold',
                       active
                         ? 'border-primary bg-primary text-primary-foreground'
                         : 'border-border bg-muted text-muted-foreground',
@@ -807,7 +807,7 @@ export function ReviewInspector({
         </section>
 
         <section>
-          <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Assignees
           </h3>
           {row.assignedReviewerUserIds.length === 0 ? (
@@ -819,7 +819,7 @@ export function ReviewInspector({
                   key={userId}
                   className="flex items-center gap-2 text-xs text-muted-foreground"
                 >
-                  <span className="flex size-5 items-center justify-center rounded-full bg-primary/15 text-[9px] font-semibold text-primary">
+                  <span className="flex size-5 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
                     {userId.slice(0, 2).toUpperCase()}
                   </span>
                   <span className="font-mono">{userId}</span>
@@ -868,7 +868,7 @@ export function ReviewInspector({
             Reassign
           </Button>
         </div>
-        <p className="text-center text-[10px] text-muted-foreground">
+        <p className="text-center text-xs text-muted-foreground">
           Approve, request changes and reassign arrive with review transitions.
         </p>
       </div>

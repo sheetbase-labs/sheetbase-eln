@@ -398,7 +398,7 @@ export function ProjectList({
               <span className="truncate text-sm font-medium text-foreground group-hover:text-primary">
                 {p.title}
               </span>
-              <span className="truncate font-mono text-[11px] tabular-nums text-muted-foreground">
+              <span className="truncate font-mono text-xs tabular-nums text-muted-foreground">
                 {p.key}
               </span>
             </Link>

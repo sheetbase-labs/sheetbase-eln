@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { PlannerTimeline } from '#/components/planner/planner-timeline'
 const workstreams: any[] = [
-  { id: 'ws1', name: 'Assay development', color: '#3b82f6', status: 'active' },
-  { id: 'ws2', name: 'Stability', color: '#10b981', status: 'active' },
+  { id: 'ws1', name: 'Assay development', color: 'var(--primary)', status: 'active' },
+  { id: 'ws2', name: 'Stability', color: 'var(--success)', status: 'active' },
 ]
 const task = (
   id: string,

@@ -32,7 +32,7 @@ const META: Record<
   clean: {
     label: 'Saved',
     icon: <Check className="size-3" aria-hidden="true" />,
-    className: 'text-emerald-600 dark:text-emerald-400',
+    className: 'text-success',
     testId: 'clean',
   },
   dirty: {
@@ -50,13 +50,13 @@ const META: Record<
   retrying: {
     label: 'Retrying…',
     icon: <RefreshCw className="size-3 animate-spin" aria-hidden="true" />,
-    className: 'text-amber-600 dark:text-amber-400',
+    className: 'text-warning-foreground',
     testId: 'retrying',
   },
   offline: {
     label: 'Offline — will save when reconnected',
     icon: <WifiOff className="size-3" aria-hidden="true" />,
-    className: 'text-amber-600 dark:text-amber-400',
+    className: 'text-warning-foreground',
     testId: 'offline',
   },
   failed: {

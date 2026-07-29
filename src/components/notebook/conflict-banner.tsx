@@ -57,7 +57,7 @@ export function ConflictBanner({
         Your edits are preserved below. The latest server version is:
       </p>
       <pre
-        className="mt-1 max-h-32 overflow-auto rounded bg-muted/40 p-2 font-mono text-[11px]"
+        className="mt-1 max-h-32 overflow-auto rounded bg-muted/40 p-2 font-mono text-xs"
         data-conflict-server-preview
       >
         {serverPreview}

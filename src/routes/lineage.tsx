@@ -569,10 +569,10 @@ function GraphView({
         animated: edge.relationshipType === 'derived_from',
         markerEnd: {
           type: MarkerType.ArrowClosed,
-          color: '#94a3b8',
+          color: 'var(--border)',
         },
         style: {
-          stroke: '#94a3b8',
+          stroke: 'var(--border)',
           strokeWidth: 1.5,
         },
         data: { edge },
@@ -739,7 +739,7 @@ function LineageNodeComponent({ data }: NodeProps<LineageRFNode>) {
       </p>
       <div className="mt-1 flex items-center gap-1.5">
         <span
-          className="rounded px-1.5 py-0.5 text-[10px] font-medium"
+          className="rounded px-1.5 py-0.5 text-xs font-medium"
           style={{
             backgroundColor: `${color}20`,
             color,
@@ -750,7 +750,7 @@ function LineageNodeComponent({ data }: NodeProps<LineageRFNode>) {
         {node.status &&
           node.status !== 'missing' &&
           node.status !== 'restricted' && (
-            <span className="text-[10px] text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               {node.status}
             </span>
           )}
@@ -899,7 +899,7 @@ function TableView({
               </TableCell>
               <TableCell>
                 <span
-                  className="rounded px-1.5 py-0.5 text-[11px] font-medium"
+                  className="rounded px-1.5 py-0.5 text-xs font-medium"
                   style={{
                     backgroundColor: `${ENTITY_TYPE_COLORS[row.entityType]}20`,
                     color: ENTITY_TYPE_COLORS[row.entityType],
@@ -1108,7 +1108,7 @@ function LineageInspector({
                 <span className="text-muted-foreground">
                   {group.entityTypeLabel}
                 </span>
-                <Badge variant="secondary" className="text-[10px]">
+                <Badge variant="secondary" className="text-xs">
                   {group.count}
                 </Badge>
               </button>

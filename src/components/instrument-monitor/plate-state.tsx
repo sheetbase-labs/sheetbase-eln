@@ -11,8 +11,8 @@ export interface PlateStateProps {
 }
 
 const WELL_COLORS: Record<string, string> = {
-  amplified: 'border-emerald-500 bg-emerald-400',
-  no_amplification: 'border-blue-500 bg-blue-400',
+  amplified: 'border-success bg-success/80',
+  no_amplification: 'border-info bg-info/80',
   blank: 'border-zinc-400 bg-zinc-300',
   pending: 'border-border bg-muted/30',
 }

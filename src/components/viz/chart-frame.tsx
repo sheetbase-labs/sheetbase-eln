@@ -142,7 +142,7 @@ export function ChartFrame({
       ) : null}
 
       {provenance ? (
-        <p className="border-t px-4 py-2 text-[11px] text-muted-foreground">
+        <p className="border-t px-4 py-2 text-xs text-muted-foreground">
           {provenance}
         </p>
       ) : null}

@@ -75,19 +75,19 @@ const DEFAULT_BANDS: PlateMapBand[] = [
     from: 0.0001,
     to: 0.25,
     label: 'Low',
-    className: 'bg-blue-200 dark:bg-blue-900',
+    className: 'bg-info/20',
   },
   {
     from: 0.25,
     to: 0.5,
     label: 'Mid-low',
-    className: 'bg-blue-300 dark:bg-blue-700',
+    className: 'bg-info/40',
   },
   {
     from: 0.5,
     to: 0.75,
     label: 'Mid-high',
-    className: 'bg-blue-400 dark:bg-blue-600',
+    className: 'bg-info/60',
   },
   {
     from: 0.75,
@@ -237,7 +237,7 @@ export function PlateMap({
               key={c}
               role="columnheader"
               className={cn(
-                'flex-1 text-center text-[10px] font-medium text-muted-foreground',
+                'flex-1 text-center text-xs font-medium text-muted-foreground',
                 wellSize,
               )}
             >
@@ -251,7 +251,7 @@ export function PlateMap({
             <span
               role="rowheader"
               className={cn(
-                'flex shrink-0 items-center justify-center text-[10px] font-medium text-muted-foreground',
+                'flex shrink-0 items-center justify-center text-xs font-medium text-muted-foreground',
                 labelSize,
               )}
             >
@@ -306,7 +306,7 @@ export function PlateMap({
       </div>
 
       {legendEntries.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
           {legendEntries.map((b) => (
             <span key={b.label} className="inline-flex items-center gap-1">
               <span

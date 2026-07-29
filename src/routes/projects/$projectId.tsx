@@ -462,7 +462,7 @@ function StatCard({
   const card_el = (
     <div className="rounded-lg border border-border bg-surface p-3">
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           {card.label}
         </span>
         <Icon
@@ -476,7 +476,7 @@ function StatCard({
       >
         {card.value}
       </p>
-      <p className="mt-1 text-[11px] text-muted-foreground">{card.hint}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{card.hint}</p>
     </div>
   )
   if (linkTo) {
@@ -537,7 +537,7 @@ export function RecordListSection({
               <span className="truncate text-sm font-medium text-foreground group-hover:text-primary">
                 {record.title}
               </span>
-              <span className="truncate font-mono text-[11px] tabular-nums text-muted-foreground">
+              <span className="truncate font-mono text-xs tabular-nums text-muted-foreground">
                 {record.identifier}
               </span>
             </Link>
@@ -586,7 +586,7 @@ export function RecordListSection({
             row.original.updatedByUserId ?? row.original.createdByUserId
           return (
             <span
-              className="font-mono text-[11px] tabular-nums text-muted-foreground"
+              className="font-mono text-xs tabular-nums text-muted-foreground"
               title={owner}
             >
               {owner ? owner.slice(0, 8) : '—'}
@@ -674,7 +674,7 @@ export function RecordListSection({
                 className="h-7 gap-1.5 px-2.5 text-xs"
               >
                 {f.label}
-                <span className="rounded bg-muted-foreground/15 px-1 text-[10px] tabular-nums text-muted-foreground">
+                <span className="rounded bg-muted-foreground/15 px-1 text-xs tabular-nums text-muted-foreground">
                   {kindCounts[f.value] ?? 0}
                 </span>
               </TabsTrigger>
@@ -934,7 +934,7 @@ export function ProjectSidebar({ project }: { project: Project }) {
           </InspectorSection>
 
           <InspectorSection title="Compliance">
-            <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <ShieldCheck
                 className="size-3.5 text-emerald-600 dark:text-emerald-400"
                 aria-hidden="true"

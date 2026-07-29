@@ -662,7 +662,7 @@ function Field({
     <div className="space-y-1.5">
       <Label
         htmlFor={htmlFor}
-        className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+        className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
       >
         {label}
       </Label>
@@ -1065,7 +1065,7 @@ function UnsupportedEditor({
           This block type or payload schema version is not editable in this
           client yet. Its content is preserved and readable through the API.
         </p>
-        <pre className="mt-2 max-h-40 overflow-auto rounded bg-muted/40 p-2 font-mono text-[11px]">
+        <pre className="mt-2 max-h-40 overflow-auto rounded bg-muted/40 p-2 font-mono text-xs">
           {JSON.stringify(block.payload, null, 2)}
         </pre>
       </div>
@@ -1954,7 +1954,7 @@ function WellInspector({
       {/* Sample link (for sample and control roles) */}
       {role !== 'empty' && role !== 'blank' ? (
         <div className="space-y-1.5">
-          <Label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Sample
           </Label>
           {well?.sampleRef ? (
@@ -1963,7 +1963,7 @@ function WellInspector({
                 <p className="truncate text-xs font-medium">
                   {well.sampleRef.identifier}
                 </p>
-                <p className="truncate text-[11px] text-muted-foreground">
+                <p className="truncate text-xs text-muted-foreground">
                   {well.sampleRef.title}
                   {well.sampleRef.archived ? ' · archived' : ''}
                 </p>
@@ -2015,7 +2015,7 @@ function WellInspector({
       {/* Volume */}
       {role !== 'empty' ? (
         <div className="space-y-1.5">
-          <Label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Volume
           </Label>
           {well?.volume ? (
@@ -2100,7 +2100,7 @@ function ValidationConfigEditor({
       </summary>
       <div className="space-y-3">
         <div className="space-y-1.5">
-          <Label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Required roles
           </Label>
           <div className="flex flex-wrap gap-x-4 gap-y-2">

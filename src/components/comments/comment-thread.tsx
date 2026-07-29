@@ -96,12 +96,12 @@ function CommentRow({
   return (
     <article className="rounded-lg border bg-card p-3">
       <div className="flex items-center justify-between gap-2">
-        <span className="inline-flex items-center gap-1.5">
+        <span className="inline-flex items-center gap-2">
           <span
             title={label}
             aria-label={label}
             className={cn(
-              'flex size-6 items-center justify-center rounded-full text-[10px] font-semibold',
+              'flex size-6 items-center justify-center rounded-full text-xs font-semibold',
               deleted
                 ? 'bg-muted text-muted-foreground'
                 : 'bg-primary/15 text-primary',
@@ -111,11 +111,11 @@ function CommentRow({
           </span>
           <span className="text-xs font-medium">{label}</span>
         </span>
-        <span className="text-[11px] text-muted-foreground">
+        <span className="text-xs text-muted-foreground">
           {formatRelative(comment.created_at)}
         </span>
       </div>
-      <p className="mt-2 break-words text-xs leading-5 text-foreground whitespace-pre-wrap">
+      <p className="mt-2 break-words text-sm leading-6 text-foreground whitespace-pre-wrap">
         {comment.body}
       </p>
     </article>
@@ -163,7 +163,7 @@ export function CommentThread({
             </>
           )}
         </Badge>
-        <span className="text-[11px] text-muted-foreground">
+        <span className="text-xs text-muted-foreground">
           Anchored to {targetLabel}
         </span>
       </div>

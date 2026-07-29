@@ -24,8 +24,8 @@ export interface MetricCardProps {
 
 const hintToneClasses: Record<MetricCardHintTone, string> = {
   default: 'text-muted-foreground',
-  warning: 'text-warning',
-  danger: 'text-danger',
+  warning: 'text-warning-foreground',
+  danger: 'text-destructive',
   info: 'text-info',
   success: 'text-success',
 }

@@ -131,7 +131,7 @@ export function OverviewView({
                 ) : null}
                 {section.label}
               </h2>
-              <span className="text-[11px] text-muted-foreground">
+              <span className="text-xs text-muted-foreground">
                 {section.blocks.length}{' '}
                 {section.blocks.length === 1 ? 'block' : 'blocks'}
               </span>

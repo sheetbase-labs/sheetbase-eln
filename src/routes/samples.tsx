@@ -243,7 +243,7 @@ function SamplesRegistryRoute() {
           <span className="inline-flex items-center gap-1.5">
             <StatusBadge status={row.original.status} domain="sample" />
             {isLowStock(row.original) ? (
-              <span className="text-[10px] font-medium text-warning">Low</span>
+              <span className="text-xs font-medium text-warning">Low</span>
             ) : null}
           </span>
         ),

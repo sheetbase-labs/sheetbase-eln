@@ -254,7 +254,7 @@ function FoundationsPage() {
                       className="rounded-sm bg-primary/20"
                       style={{ width: v, height: v }}
                     />
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       {v}
                     </span>
                   </div>
@@ -269,7 +269,7 @@ function FoundationsPage() {
                       className="size-14 border bg-muted/50"
                       style={{ borderRadius: v }}
                     />
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       {v}px
                     </span>
                   </div>
@@ -290,7 +290,7 @@ function FoundationsPage() {
                       v.cls,
                     )}
                   >
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       {v.label}
                     </span>
                   </div>
@@ -345,7 +345,7 @@ function FoundationsPage() {
                 className="flex aspect-square flex-col items-center justify-center gap-2 rounded-lg border bg-card"
               >
                 <Icon className="size-5" />
-                <span className="text-[10px] text-muted-foreground">
+                <span className="text-xs text-muted-foreground">
                   16–20px
                 </span>
               </div>
@@ -535,7 +535,7 @@ function TokenSwatch({ name, value, varName }: TokenSwatchProps) {
       />
       <div className="p-2.5">
         <p className="text-sm font-semibold">{name}</p>
-        <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+        <p className="mt-0.5 font-mono text-xs text-muted-foreground">
           {value}
         </p>
       </div>
@@ -577,7 +577,7 @@ function RecordPreview() {
           identifier="EXP-2025-0014"
           status={<StatusBadge domain="experiment" status="in-progress" />}
           phase={
-            <span className="rounded-full border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+            <span className="rounded-full border px-2 py-0.5 text-xs font-medium text-muted-foreground">
               Phase 2
             </span>
           }
@@ -588,13 +588,13 @@ function RecordPreview() {
           }))}
           tags={
             <>
-              <span className="rounded-full bg-muted px-2 py-0.5 text-[11px]">
+              <span className="rounded-full bg-muted px-2 py-0.5 text-xs">
                 stability
               </span>
-              <span className="rounded-full bg-muted px-2 py-0.5 text-[11px]">
+              <span className="rounded-full bg-muted px-2 py-0.5 text-xs">
                 lentivirus
               </span>
-              <span className="rounded-full bg-muted px-2 py-0.5 text-[11px]">
+              <span className="rounded-full bg-muted px-2 py-0.5 text-xs">
                 gcPCR
               </span>
             </>
@@ -813,7 +813,7 @@ function NotebookVizPreview() {
           provenance="Source: Stability assay - 2025-07-14"
           alt="Line chart of vector genome copy number over 14 days for two lots; lot A rises from 1e6 to 1e8, lot B plateaus at 1e7."
           legend={
-            <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
               <span className="inline-flex items-center gap-1">
                 <span className="inline-block size-2.5 rounded-[2px] bg-blue-500" />
                 Lot LWV-250601
@@ -1220,14 +1220,14 @@ function ScientificPreview() {
                   <StatusBadge key={key} domain={domain} status={key} />
                 ))}
               </div>
-              <p className="mt-3 text-[11px] text-muted-foreground">
+              <p className="mt-3 text-xs text-muted-foreground">
                 {Object.keys(statusVocabularies[domain]).length} states · text,
                 icon and colour all carry the status
               </p>
             </div>
           ))}
         </div>
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           Unknown status falls back to a neutral pill with the raw text, so the
           UI never hides an unrecognised value.
         </p>
@@ -1305,7 +1305,7 @@ function AppShellPreview() {
           </div>
         </div>
       </div>
-      <p className="text-[11px] text-muted-foreground">
+      <p className="text-xs text-muted-foreground">
         Visit <code>/projects</code> for the full interactive shell. Sidebar
         state persists to localStorage; the command palette opens with Ctrl+K.
       </p>
@@ -1379,7 +1379,7 @@ function StatesMatrixPreview() {
           </NotebookBlock>
         </StateCard>
       </div>
-      <p className="text-[11px] text-muted-foreground">
+      <p className="text-xs text-muted-foreground">
         Toggle <strong>Dark</strong> and <strong>Compact</strong> in the header
         to see dense/dark variants of every state above. Realistic scientific
         values are used throughout: identifiers (EXP-2174, PR-118, RP-0091),

@@ -145,7 +145,7 @@ function renderChecklist(payload: unknown): React.ReactNode {
   const items = asArray<{ text?: unknown; checked?: unknown }>(obj.items)
   if (!items) return null
   return (
-    <ul className="space-y-2">
+    <ul className="space-y-1.5">
       {items.map((item, i) => {
         const text = asString(item.text) ?? ''
         const checked = item.checked === true
@@ -192,7 +192,7 @@ function renderCallout(payload: unknown): React.ReactNode {
   return (
     <div
       className={cn(
-        'flex gap-3 rounded-lg border py-3 pr-3 pl-3.5 text-sm leading-6',
+        'flex gap-3 rounded-r-lg py-2 pr-3 pl-3.5 text-sm leading-6',
         styles.container,
       )}
     >
@@ -214,25 +214,25 @@ interface CalloutStyle {
 const CALLOUT_STYLES: Record<string, CalloutStyle> = {
   info: {
     container:
-      'border-info/20 bg-info/10 text-foreground',
+      'border-l-[3px] border-l-info/50 bg-info/[0.06] text-foreground',
     icon: Info,
     iconClass: 'text-info',
   },
   warning: {
     container:
-      'border-warning/30 bg-warning/15 text-foreground',
+      'border-l-[3px] border-l-warning/50 bg-warning/[0.08] text-foreground',
     icon: TriangleAlert,
     iconClass: 'text-warning-foreground',
   },
   danger: {
     container:
-      'border-destructive/20 bg-destructive/10 text-foreground',
+      'border-l-[3px] border-l-destructive/50 bg-destructive/[0.06] text-foreground',
     icon: CircleAlert,
     iconClass: 'text-destructive',
   },
   note: {
     container:
-      'border-success/20 bg-success/10 text-foreground',
+      'border-l-[3px] border-l-success/50 bg-success/[0.06] text-foreground',
     icon: StickyNote,
     iconClass: 'text-success',
   },
@@ -809,9 +809,9 @@ function FileIcon({ mediaType }: { mediaType: string }) {
   return (
     <span
       aria-hidden="true"
-      className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground"
+      className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted/60 text-muted-foreground"
     >
-      <Icon className="size-5" />
+      <Icon className="size-4" />
     </span>
   )
 }

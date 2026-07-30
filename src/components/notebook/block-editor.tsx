@@ -34,7 +34,6 @@ import {
   Input,
   Label,
   Select,
-  Separator,
   Textarea,
 } from '#/components/ui'
 import {
@@ -424,7 +423,7 @@ function ChecklistEditor({
 
   if (readOnly) {
     return (
-      <ul className={cn('space-y-2', className)}>
+      <ul className={cn('space-y-1.5', className)}>
         {a.draft.items.length === 0 ? (
           <li className="text-sm text-muted-foreground">No checklist items</li>
         ) : null}
@@ -445,8 +444,8 @@ function ChecklistEditor({
   }
 
   return (
-    <div className={cn('space-y-2.5', className)}>
-      <ul className="space-y-2">
+    <div className={cn('space-y-1.5', className)}>
+      <ul className="space-y-1.5">
         {a.draft.items.map((item, i) => (
           <li key={i} className="flex items-center gap-2.5">
             <label className="sr-only" htmlFor={`check-${block.id}-${i}`}>
@@ -463,7 +462,7 @@ function ChecklistEditor({
                   ),
                 })
               }}
-              className="mt-0"
+              className="mt-0.5 size-[18px]"
             />
             <label className="sr-only" htmlFor={`check-text-${block.id}-${i}`}>
               Item {i + 1} text
@@ -477,7 +476,7 @@ function ChecklistEditor({
               onBlur={() => a.flush()}
               placeholder={`Item ${i + 1}`}
               className={cn(
-                'h-9 min-w-0 flex-1 border-0 bg-transparent px-1 shadow-none focus-visible:ring-1 focus-visible:ring-ring/40 focus-visible:ring-offset-0',
+                'h-7 min-w-0 flex-1 border-0 bg-transparent px-1 shadow-none focus-visible:ring-1 focus-visible:ring-ring/40 focus-visible:ring-offset-0',
                 item.checked && 'text-muted-foreground line-through',
               )}
             />
@@ -711,7 +710,7 @@ function ProtocolReferenceEditor({ block, pinProtocol }: BlockEditorProps) {
           ? 'danger'
           : 'warning'
     return (
-      <Card className="space-y-2 p-3">
+      <div className="space-y-2 py-1">
         <div className="flex items-start justify-between gap-2">
           <div className="space-y-1">
             <p className="text-sm font-medium">
@@ -724,16 +723,15 @@ function ProtocolReferenceEditor({ block, pinProtocol }: BlockEditorProps) {
           </div>
           <Badge variant={statusVariant}>{status}</Badge>
         </div>
-        <Separator />
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Pin className="size-3" />
           Pinned {new Date(String(block.payload.pinnedAt)).toLocaleString()}
         </p>
-      </Card>
+      </div>
     )
   }
   return (
-    <Card className="space-y-3 p-3">
+    <div className="space-y-3 py-1">
       <p className="text-sm font-medium">Select a protocol version</p>
       <RecordPicker
         kind="protocol_template"
@@ -761,7 +759,7 @@ function ProtocolReferenceEditor({ block, pinProtocol }: BlockEditorProps) {
           {error}
         </Alert>
       ) : null}
-    </Card>
+    </div>
   )
 }
 
@@ -882,11 +880,11 @@ function MaterialsEditor(props: BlockEditorProps) {
           No materials linked yet.
         </p>
       ) : (
-        <div className="space-y-2">
+        <div className="divide-y divide-border">
           {a.draft.items.map((item, index) => (
             <div
               key={item.id}
-              className="grid items-center gap-3 rounded-md border p-3 sm:grid-cols-[1fr_8rem_7rem_auto]"
+              className="grid items-center gap-3 py-2.5 first:pt-0 last:pb-0 sm:grid-cols-[1fr_8rem_7rem_auto]"
             >
               <div className="min-w-0 space-y-0.5">
                 <div className="flex items-center gap-2">
@@ -1110,14 +1108,16 @@ function FileBlockEditor({ block, onAttachFile, readOnly }: BlockEditorProps) {
 
   if (attached) {
     // The preview renders the live file state; the editor just confirms it.
+    // No Card/border here so the edit transition doesn't add a box around
+    // content that reads as a seamless line in the document flow.
     const name = String(block.payload.displayName ?? 'File')
     const mediaType = String(block.payload.mediaType ?? '')
     const byteSize = Number(block.payload.byteSize ?? 0)
     const FileGlyph = fileIconFor(mediaType)
     return (
-      <Card className="flex items-center gap-3 p-3">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-          <FileGlyph className="size-5" />
+      <div className="flex items-center gap-3 py-1">
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted/60 text-muted-foreground">
+          <FileGlyph className="size-4" />
         </div>
         <div className="min-w-0 space-y-0.5">
           <p className="truncate text-sm font-medium">{name}</p>
@@ -1128,7 +1128,7 @@ function FileBlockEditor({ block, onAttachFile, readOnly }: BlockEditorProps) {
         <Badge variant="success" className="ml-auto shrink-0">
           Attached
         </Badge>
-      </Card>
+      </div>
     )
   }
 

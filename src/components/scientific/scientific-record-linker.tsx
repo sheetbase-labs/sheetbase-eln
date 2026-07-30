@@ -47,6 +47,11 @@ export interface ScientificRecordLinkerProps {
   client?: DataClient
   /** Called after a link is created so the caller can refetch. */
   onLinked?: () => void
+  /** Suppress the per-record summary cards. Use when the caller renders
+   * its own compact link summary (e.g. the notebook inspector's "Link to"
+   * count pills) and doesn't want the detailed properties dumped into the
+   * same scroll. */
+  hideSummaries?: boolean
 }
 
 const KIND_OPTIONS: { kind: ScientificRecordKind; label: string }[] = [
@@ -60,6 +65,7 @@ export function ScientificRecordLinker({
   links,
   client = notebookDataClient,
   onLinked,
+  hideSummaries = false,
 }: ScientificRecordLinkerProps) {
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
@@ -115,16 +121,17 @@ export function ScientificRecordLinker({
 
   return (
     <div className="space-y-1.5">
-      <div className="flex items-center gap-2">
+      <div>
         <Button
           type="button"
-          variant="outline"
+          variant="ghost"
           size="sm"
+          className="h-7 px-2 text-xs text-muted-foreground"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
           aria-controls="sci-001-linker-picker"
         >
-          <Plus className="size-4" aria-hidden /> Link scientific record
+          <Plus className="size-3" aria-hidden /> Link record
         </Button>
       </div>
 
@@ -186,7 +193,7 @@ export function ScientificRecordLinker({
         </div>
       )}
 
-      {scientificLinks.length > 0 ? (
+      {!hideSummaries && scientificLinks.length > 0 ? (
         <div className="space-y-3">
           {scientificLinks.map((link, i) => {
             const record = summaryQueries[i]?.data

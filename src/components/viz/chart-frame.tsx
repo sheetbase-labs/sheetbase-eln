@@ -39,6 +39,10 @@ export interface ChartFrameProps {
   loading?: boolean
   children?: React.ReactNode
   className?: string
+  /** When true, the title is rendered by the parent (e.g. NotebookBlock)
+   * and ChartFrame suppresses its own visual title. The title is still
+   * used for the figure's aria-labelledby. */
+  hideTitle?: boolean
 }
 
 export function ChartFrame({
@@ -52,6 +56,7 @@ export function ChartFrame({
   loading = false,
   children,
   className,
+  hideTitle = false,
 }: ChartFrameProps) {
   const titleId = React.useId()
   const altId = React.useId()
@@ -60,15 +65,17 @@ export function ChartFrame({
     <figure
       className={cn('rounded-lg border bg-card shadow-xs', className)}
       role="figure"
-      aria-labelledby={titleId}
+      aria-labelledby={hideTitle ? undefined : titleId}
       aria-describedby={alt ? altId : undefined}
     >
       <figcaption className="flex items-start justify-between gap-3 border-b px-4 py-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h3 id={titleId} className="truncate text-sm font-semibold">
-              {title}
-            </h3>
+            {hideTitle ? null : (
+              <h3 id={titleId} className="truncate text-sm font-semibold">
+                {title}
+              </h3>
+            )}
             {mode === 'live' ? (
               <Badge variant="success" className="shrink-0">
                 <Radio className="size-3" aria-hidden="true" />

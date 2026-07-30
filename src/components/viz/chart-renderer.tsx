@@ -53,6 +53,8 @@ export interface ChartRendererProps {
   error?: string | null
   className?: string
   actions?: React.ReactNode
+  /** When true, suppress the visual title (parent renders it). */
+  hideTitle?: boolean
 }
 
 export function ChartRenderer({
@@ -66,6 +68,7 @@ export function ChartRenderer({
   error = null,
   className,
   actions,
+  hideTitle = false,
 }: ChartRendererProps) {
   const mode = frozen ? 'snapshot' : 'live'
   const alt = describeChart(spec, materialised, frozen)
@@ -83,6 +86,7 @@ export function ChartRenderer({
       loading={loading}
       actions={actions}
       className={className}
+      hideTitle={hideTitle}
     >
       {error ? (
         <ChartStateMessage tone="error">{error}</ChartStateMessage>

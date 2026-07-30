@@ -14,7 +14,6 @@ import {
   FlaskConical,
   Folder,
   Lock,
-  Share2,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -25,17 +24,18 @@ import type { SaveResult } from '#/components/notebook'
 import { useLiveStatus } from '#/components/live/live-event-provider'
 import {
   ActivityFeed,
-  CheckList,
+  ContributorAvatars,
   FileList,
   Inspector,
   InspectorSection,
+  LinkToPills,
   PropertyList,
   Property,
-  LinkedRecordList,
+  TagPills,
   EmptyHint,
 } from '#/components/record'
 import { ScientificRecordLinker, StatusBadge } from '#/components/scientific'
-import { Badge, Button } from '#/components/ui'
+import { Badge } from '#/components/ui'
 import { DataClientError } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
 import {
@@ -48,6 +48,7 @@ import {
   notebookDataClient,
   notebookQueryKeys,
   recordKindLabel,
+  statusDomainForKind,
 } from '#/lib/notebook-data'
 import type {
   NotebookBlock as NotebookBlockDomain,
@@ -243,11 +244,6 @@ function ExperimentNotebookRoute() {
             record={record}
             projectName={project?.title ?? null}
             projectId={projectId}
-            onAddBlock={
-              record.lockedAt
-                ? undefined
-                : () => document.getElementById('notebook-add-block')?.click()
-            }
           />
           {isArchived ? <ArchivedBanner /> : null}
           {record.lockedAt ? <LockedBanner record={record} /> : null}
@@ -326,12 +322,10 @@ function loadingBreadcrumbs(
 export function StickyRecordHeader({
   record,
   projectName,
-  onAddBlock,
 }: {
   record: NotebookRecord
   projectName: string | null
   projectId?: string
-  onAddBlock?: () => void
 }) {
   return (
     <div className="pb-3 pt-4">
@@ -357,48 +351,27 @@ export function StickyRecordHeader({
         {record.title}
       </h1>
 
-      {/* Row 3: metadata + actions — single compact line */}
-      <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-          <span>
-            Created{' '}
-            <span className="text-foreground">
-              {new Date(record.createdAt).toLocaleDateString()}
-            </span>
+      {/* Row 3: metadata — single compact line */}
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+        <span>
+          Created{' '}
+          <span className="text-foreground">
+            {new Date(record.createdAt).toLocaleDateString()}
           </span>
-          <span className="text-muted-foreground/50">·</span>
-          <span>
-            Updated{' '}
-            <span className="text-foreground">
-              {new Date(record.updatedAt).toLocaleDateString()}
-            </span>
+        </span>
+        <span className="text-muted-foreground/50">·</span>
+        <span>
+          Updated{' '}
+          <span className="text-foreground">
+            {new Date(record.updatedAt).toLocaleDateString()}
           </span>
-          {projectName ? (
-            <>
-              <span className="text-muted-foreground/50">·</span>
-              <span className="text-foreground">{projectName}</span>
-            </>
-          ) : null}
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            aria-label="Share experiment"
-            title="Sharing coming soon"
-            onClick={() => {
-              /* placeholder — sharing arrives in a later ticket */
-            }}
-          >
-            <Share2 className="size-3.5" />
-            <span>Share</span>
-          </Button>
-          {onAddBlock ? (
-            <Button size="sm" onClick={onAddBlock}>
-              + Block
-            </Button>
-          ) : null}
-        </div>
+        </span>
+        {projectName ? (
+          <>
+            <span className="text-muted-foreground/50">·</span>
+            <span className="text-foreground">{projectName}</span>
+          </>
+        ) : null}
       </div>
     </div>
   )
@@ -1125,26 +1098,6 @@ const ENTITY_LABELS: Record<string, string> = {
   folder: 'a folder',
 }
 
-/**
- * Static QC check indicators. The mockup shows data-integrity and
- * instrument-calibration checks as "Passed"; these are placeholder concepts
- * until a real QC workflow lands, so they always report a pass state.
- */
-const QC_CHECKS = [
-  {
-    id: 'data-integrity',
-    label: 'Data integrity',
-    state: 'pass' as const,
-    detail: 'Passed',
-  },
-  {
-    id: 'instrument-cal',
-    label: 'Instrument calibration',
-    state: 'pass' as const,
-    detail: 'Passed',
-  },
-]
-
 function formatBytes(bytes: number): string {
   if (!bytes) return '0 B'
   const units = ['B', 'KB', 'MB', 'GB']
@@ -1160,6 +1113,8 @@ function fileItemsFromBlocks(blocks: NotebookBlockDomain[]): {
   id: string
   name: string
   meta: string
+  size: string
+  mediaType: string
   href?: string
 }[] {
   return blocks.map((b) => {
@@ -1173,7 +1128,9 @@ function fileItemsFromBlocks(blocks: NotebookBlockDomain[]): {
     return {
       id: b.id,
       name: displayName,
-      meta: `${mediaType || 'unknown'} · ${formatBytes(byteSize)}`,
+      meta: mediaType || 'unknown',
+      mediaType,
+      size: formatBytes(byteSize),
       href: fileRecordId ? `/api/files/${fileRecordId}/download` : undefined,
     }
   })
@@ -1206,6 +1163,71 @@ function activityItemsFromEvents(
   })
 }
 
+/** Derive unique contributors from activity events + the owner. */
+function contributorsFromActivity(
+  activity: RecordActivityItem[],
+  ownerName: string | null | undefined,
+  currentUserId: string | null | undefined,
+): { id: string; name: string; initials?: string }[] {
+  const seen = new Set<string>()
+  const contributors: { id: string; name: string; initials?: string }[] = []
+
+  // Owner is the first contributor.
+  if (ownerName) {
+    const id = currentUserId ?? 'owner'
+    contributors.push({
+      id,
+      name: ownerName,
+      initials: ownerName
+        .split(' ')
+        .map((p) => p[0])
+        .join('')
+        .slice(0, 2),
+    })
+    seen.add(id)
+  }
+
+  // Add unique actors from activity.
+  for (const event of activity) {
+    const actorId = event.actorUserId ?? 'unknown'
+    if (seen.has(actorId)) continue
+    seen.add(actorId)
+    const isSelf = currentUserId != null && actorId === currentUserId
+    contributors.push({
+      id: actorId,
+      name: isSelf ? 'You' : 'A collaborator',
+      initials: isSelf ? 'Y' : '••',
+    })
+  }
+
+  return contributors
+}
+
+/** Group links by target kind for the "Link to" count pills. */
+const LINK_KIND_LABELS: Record<string, string> = {
+  sample: 'Samples',
+  reagent: 'Reagents',
+  protocol_template: 'Protocols',
+  dataset: 'Datasets',
+  experiment: 'Experiments',
+  report: 'Reports',
+}
+
+function linkCountsByKind(
+  links: NotebookLink[],
+): { label: string; count: number; kind: string }[] {
+  const counts = new Map<string, number>()
+  for (const link of links) {
+    const kind = link.targetKind
+    counts.set(kind, (counts.get(kind) ?? 0) + 1)
+  }
+  return Array.from(counts.entries()).map(([kind, count]) => ({
+    label: LINK_KIND_LABELS[kind] ?? `${recordKindLabel(kind)}s`,
+    count,
+    kind,
+  }))
+}
+
 export function NotebookInspector({
   record,
   projectName,
@@ -1233,10 +1255,25 @@ export function NotebookInspector({
   const fileBlocks = blocks?.filter((b) => b.type === 'file') ?? []
   const fileItems = fileItemsFromBlocks(fileBlocks)
   const activityItems = activityItemsFromEvents(activity ?? [], currentUserId)
+  const contributors = contributorsFromActivity(
+    activity ?? [],
+    ownerName,
+    currentUserId,
+  )
+  const linkCounts = linkCountsByKind(links)
+  const fmtDateTime = (iso: string) =>
+    new Date(iso).toLocaleString('en-CA', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    })
 
   return (
     <Inspector
-      recordType={recordKindLabel(record.kind)}
+      hideHeader
       title={record.title}
       defaultTab={defaultTab}
       tabs={[
@@ -1244,72 +1281,89 @@ export function NotebookInspector({
           id: 'properties',
           label: 'Properties',
           content: (
-            <div className="space-y-0">
+            <div className="space-y-2">
+              {/* Core metadata — Type & Status as semantic badges, then
+                  dense key-value rows matching the mockup's layout. */}
               <PropertyList>
-                <Property label="Identifier" mono>
-                  {record.identifier}
+                <Property label="Type">
+                  <Badge variant="info" className="text-xs">
+                    {recordKindLabel(record.kind)}
+                  </Badge>
                 </Property>
-                <Property label="Kind">{recordKindLabel(record.kind)}</Property>
                 <Property label="Status">
-                  <StatusBadge domain="experiment" status={record.status} />
+                  <StatusBadge
+                    domain={statusDomainForKind(record.kind)}
+                    status={record.status}
+                  />
+                </Property>
+                <Property label="ID" mono>
+                  {record.identifier}
                 </Property>
                 {projectName ? (
                   <Property label="Project">{projectName}</Property>
                 ) : null}
-                {ownerName ? (
-                  <Property label="Author">{ownerName}</Property>
-                ) : null}
                 <Property label="Created">
-                  {new Date(record.createdAt).toLocaleDateString()}
+                  {fmtDateTime(record.createdAt)}
                 </Property>
                 <Property label="Updated">
-                  {new Date(record.updatedAt).toLocaleDateString()}
+                  {fmtDateTime(record.updatedAt)}
                 </Property>
-                {record.archivedAt ? (
-                  <Property label="Archived">
-                    {new Date(record.archivedAt).toLocaleString()}
-                  </Property>
+                {ownerName ? (
+                  <Property label="Created by">{ownerName}</Property>
                 ) : null}
               </PropertyList>
 
-              {record.tags.length > 0 ? (
-                <InspectorSection title="Tags">
-                  <div className="flex flex-wrap gap-1.5">
-                    {record.tags.map((tag) => (
-                      <Badge key={tag} variant="outline" className="px-2 py-0.5 text-xs">
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
-                </InspectorSection>
+              {/* Contributors + Review status — same key-value rhythm. */}
+              {contributors.length > 0 ? (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    Contributors
+                  </span>
+                  <ContributorAvatars contributors={contributors} />
+                </div>
               ) : null}
 
-              <InspectorSection title="Files">
-                <FileList items={fileItems} />
+              <div className="flex items-center justify-between gap-2">
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  Review status
+                </span>
+                <Badge variant="outline" className="text-xs">
+                  Not submitted
+                </Badge>
+              </div>
+
+              {/* Tags — coloured pills, always visible */}
+              <InspectorSection title="Tags">
+                {record.tags.length > 0 ? (
+                  <TagPills tags={record.tags} />
+                ) : (
+                  <p className="text-xs text-muted-foreground">No tags</p>
+                )}
               </InspectorSection>
 
-              <InspectorSection title="Linked records">
+              {/* Link to — compact count pills */}
+              <InspectorSection title="Link to">
                 {linksLoading ? (
                   <EmptyHint>Loading links…</EmptyHint>
                 ) : (
                   <>
-                    <LinkedRecordList
-                      items={links.map((link) => ({
-                        id: link.id,
-                        type: recordKindLabel(link.targetKind),
-                        title: link.targetIdentifier,
+                    <LinkToPills
+                      items={linkCounts.map((lc) => ({
+                        label: lc.label,
+                        count: lc.count,
                       }))}
                     />
                     <ScientificRecordLinker
                       sourceRecordId={record.id}
                       links={links}
+                      hideSummaries
                     />
                   </>
                 )}
               </InspectorSection>
 
-              <InspectorSection title="QC checks">
-                <CheckList items={QC_CHECKS} />
+              <InspectorSection title="Files">
+                <FileList items={fileItems} />
               </InspectorSection>
             </div>
           ),

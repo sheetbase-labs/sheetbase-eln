@@ -192,7 +192,7 @@ function renderCallout(payload: unknown): React.ReactNode {
   return (
     <div
       className={cn(
-        'flex gap-3 rounded-r-lg py-2 pr-3 pl-3.5 text-sm leading-6',
+        'flex gap-3 rounded-md px-3.5 py-2 text-sm leading-6',
         styles.container,
       )}
     >
@@ -213,26 +213,22 @@ interface CalloutStyle {
 
 const CALLOUT_STYLES: Record<string, CalloutStyle> = {
   info: {
-    container:
-      'border-l-[3px] border-l-info/50 bg-info/[0.06] text-foreground',
+    container: 'bg-info/[0.07] text-foreground',
     icon: Info,
     iconClass: 'text-info',
   },
   warning: {
-    container:
-      'border-l-[3px] border-l-warning/50 bg-warning/[0.08] text-foreground',
+    container: 'bg-warning/[0.09] text-foreground',
     icon: TriangleAlert,
     iconClass: 'text-warning-foreground',
   },
   danger: {
-    container:
-      'border-l-[3px] border-l-destructive/50 bg-destructive/[0.06] text-foreground',
+    container: 'bg-destructive/[0.07] text-foreground',
     icon: CircleAlert,
     iconClass: 'text-destructive',
   },
   note: {
-    container:
-      'border-l-[3px] border-l-success/50 bg-success/[0.06] text-foreground',
+    container: 'bg-success/[0.07] text-foreground',
     icon: StickyNote,
     iconClass: 'text-success',
   },
@@ -395,39 +391,40 @@ function MaterialsPreview({ payload }: { payload: unknown }) {
     return <p className="text-sm text-muted-foreground">No materials linked.</p>
   }
   return (
-    <div className="divide-y divide-border" aria-busy={loading}>
+    <div aria-busy={loading}>
       {error ? (
         <p role="alert" className="pb-2 text-xs text-destructive">
           Current material availability could not be loaded. Stored observations
           remain visible.
         </p>
       ) : null}
-      {items.map((item, index) => {
-        const alerts =
-          loading || error ? [] : materialAlerts(records[index]?.data ?? null)
-        return (
-          <div
-            key={item.id}
-            className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-2 first:pt-0 last:pb-0"
-          >
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-foreground">
-                {item.title}
-              </p>
-              <p className="font-mono text-xs text-muted-foreground">
-                {item.identifier}
-              </p>
-            </div>
-            <div className="flex flex-wrap items-baseline justify-end gap-x-3 gap-y-1">
-              <span className="font-mono text-sm tabular-nums text-foreground">
-                {item.quantity} {item.unit.symbol}
-              </span>
-              {loading ? (
-                <span className="text-xs text-muted-foreground">
-                  Checking availability…
+      <div className="divide-y divide-border">
+        {items.map((item, index) => {
+          const alerts =
+            loading || error ? [] : materialAlerts(records[index]?.data ?? null)
+          return (
+            <div
+              key={item.id}
+              className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-2 first:pt-0 last:pb-0"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-foreground">
+                  {item.title}
+                </p>
+                <p className="font-mono text-xs text-muted-foreground">
+                  {item.identifier}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-baseline justify-end gap-x-3 gap-y-1">
+                <span className="font-mono text-sm tabular-nums text-foreground">
+                  {item.quantity} {item.unit.symbol}
                 </span>
-              ) : null}
-              {alerts.map((alert) => (
+                {loading ? (
+                  <span className="text-xs text-muted-foreground">
+                    Checking availability…
+                  </span>
+                ) : null}
+                {alerts.map((alert) => (
                 <Badge
                   key={alert.kind}
                   variant={alert.kind === 'unavailable' ? 'danger' : 'warning'}
@@ -439,6 +436,7 @@ function MaterialsPreview({ payload }: { payload: unknown }) {
           </div>
         )
       })}
+      </div>
     </div>
   )
 }
@@ -451,7 +449,7 @@ function renderMetric(payload: unknown): React.ReactNode {
   const value = formatMetricValue(obj.value)
   return (
     <dl className="flex flex-col gap-0.5">
-      <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {label || 'Metric'}
       </dt>
       <dd className="font-display text-2xl font-semibold leading-tight tabular-nums text-foreground">
@@ -1006,11 +1004,12 @@ function PlateMapBlockPreview({ payload }: { payload: unknown }) {
       ? liveRecords.get(w.sampleRef.recordId)
       : null
     const isArchived = Boolean(w.sampleRef?.archived || liveRecord?.archivedAt)
-    const displayLabel = w.sampleRef
-      ? `${w.sampleRef.identifier}${isArchived ? ' (arch)' : ''}`
-      : w.role === 'empty'
-        ? ''
-        : ROLE_STYLES[w.role].label[0].toUpperCase()
+    // In compact/read-only mode, show only the well code (A1, B2) inside
+    // the circle — full sample identifiers overflow the tiny wells. The
+    // complete info (sample ID, role, replicate) is in the tooltip/title.
+    const displayLabel = w.role === 'empty'
+      ? ''
+      : w.wellCode
     return {
       row: w.row,
       col: w.col,

@@ -169,7 +169,10 @@ export function StatusBadge({
   className,
 }: StatusBadgeProps) {
   const vocab = vocabulary ?? (domain ? statusVocabularies[domain] : undefined)
-  const def = vocab?.[status]
+  // Normalise: databases may store `in_progress` (underscore) while the
+  // vocabulary keys use `in-progress` (hyphen). Try both.
+  const normalised = status.replace(/_/g, '-')
+  const def = vocab?.[status] ?? vocab?.[normalised]
   const label = def?.label ?? status
   const Icon = def?.icon ?? fallbackIcon
   const variant = def ? toneToVariant[def.tone] : 'outline'

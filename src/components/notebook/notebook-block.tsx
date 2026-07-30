@@ -46,7 +46,12 @@ export type NotebookBlockState =
 export interface NotebookBlockProps {
   /** Block type tag, e.g. "Text", "Table", "Chart". */
   label: string
+  /** Visible, user-editable title for the block. When empty/undefined,
+   * no heading is rendered and no space is consumed. */
   title?: string
+  /** Called when the user edits the title (blur/Enter). When provided,
+   * the title renders as an editable input in editing state. */
+  onTitleChange?: (title: string) => void
   children: React.ReactNode
   state?: NotebookBlockState
   /** Drag handle affordance. Focusable; aria-label customisable. */
@@ -89,6 +94,7 @@ const stateRing: Record<NotebookBlockState, string> = {
 export function NotebookBlock({
   label,
   title,
+  onTitleChange,
   children,
   state = 'default',
   draggable = false,
@@ -105,11 +111,26 @@ export function NotebookBlock({
   const loading = state === 'loading'
   const hasMenu = !!menuItems && menuItems.length > 0
   const [menuOpen, setMenuOpen] = React.useState(false)
+  const isEditing = state === 'editing' && !!onTitleChange
+  const [titleDraft, setTitleDraft] = React.useState(title ?? '')
+  const titleInputRef = React.useRef<HTMLInputElement>(null)
+
+  // Sync local draft when the prop changes externally (e.g. after save round-trip)
+  React.useEffect(() => {
+    setTitleDraft(title ?? '')
+  }, [title])
+
+  function commitTitle() {
+    const trimmed = titleDraft.trim()
+    if (trimmed !== (title ?? '')) {
+      onTitleChange!(trimmed)
+    }
+  }
 
   return (
     <div
       className={cn(
-        'group relative px-4 py-3 transition-[background-color,box-shadow] sm:px-6 lg:pl-12',
+        'group relative py-1 transition-[background-color,box-shadow]',
         stateRing[state],
         className,
       )}
@@ -121,8 +142,9 @@ export function NotebookBlock({
           Clicking the handle opens the block actions menu; dragging it
           reorders the block. HTML5 drag-and-drop suppresses the click
           event when a drag actually starts, so the two interactions do
-          not conflict. */}
-      <div className="absolute left-1 top-3 hidden w-8 items-center lg:flex">
+          not conflict. Positioned in the negative left margin so it
+          doesn't indent the content. */}
+      <div className="absolute -left-8 top-2 hidden w-7 items-center justify-center lg:flex">
         {draggable ? (
           <button
             type="button"
@@ -186,7 +208,23 @@ export function NotebookBlock({
         </div>
       </div>
 
-      {title ? (
+      {isEditing ? (
+        <input
+          ref={titleInputRef}
+          type="text"
+          value={titleDraft}
+          onChange={(e) => setTitleDraft(e.target.value)}
+          onBlur={commitTitle}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              titleInputRef.current?.blur()
+            }
+          }}
+          placeholder="Untitled"
+          className="mb-1 w-full border-0 bg-transparent p-0 font-display text-sm font-semibold text-foreground outline-none placeholder:text-muted-foreground/40 focus:ring-0"
+        />
+      ) : title ? (
         <h3 className="mb-1 font-display text-sm font-semibold">
           {title}
         </h3>

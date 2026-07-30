@@ -1,25 +1,24 @@
 import * as React from 'react'
 import {
-  CheckCircle2,
-  Circle,
-  Clock,
-  Paperclip,
+  FileImage,
+  FileSpreadsheet,
+  FileText,
+  File as FileIcon,
   Link2,
-  XCircle,
+  Plus,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
+import { Badge } from '#/components/ui'
 import { cn } from '#/lib/utils'
 
 /**
  * Reusable inspector sections — the building blocks that fill an Inspector
- * tab. Each is a small, typed, presentational component. UI-005 hardens
- * PropertyList/RecordLink/StatusBadge and UI-007 hardens AuditTrail and
- * ApprovalStepper; the contracts here stay stable so those tickets improve
- * rather than replace them.
+ * tab. Each is a small, typed, presentational component.
  *
- * Long identifiers, units, tags and user-provided text are truncated with
- * `min-w-0 truncate` so the inspector stays usable at narrow widths.
+ * The visual language follows the concept mockup: dense, visually rich
+ * metadata with semantic colour, compact pills, file-type iconography and
+ * clear status badges — never a flat grey text-only list.
  */
 
 /** A labelled section inside an inspector tab. */
@@ -35,12 +34,14 @@ export function InspectorSection({
   className?: string
 }) {
   return (
-    <section className={cn('border-t border-border pt-2 pb-1 first:border-t-0 first:pt-0', className)}>
-      <h3 className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
-        {title}
-      </h3>
-      {action ? <div className="float-right">{action}</div> : null}
-      <div className="clear-both">{children}</div>
+    <section className={cn('border-t border-border pt-2 first:border-t-0 first:pt-0', className)}>
+      <div className="mb-1.5 flex items-center justify-between">
+        <h3 className="text-xs font-semibold text-foreground">
+          {title}
+        </h3>
+        {action ? <div>{action}</div> : null}
+      </div>
+      {children}
     </section>
   )
 }
@@ -53,7 +54,7 @@ export function PropertyList({
   children: React.ReactNode
   className?: string
 }) {
-  return <dl className={cn('space-y-1 text-xs', className)}>{children}</dl>
+  return <dl className={cn('space-y-2', className)}>{children}</dl>
 }
 
 export function Property({
@@ -67,11 +68,11 @@ export function Property({
   mono?: boolean
 }) {
   return (
-    <div className="grid grid-cols-[auto_1fr] items-center gap-2">
-      <dt className="shrink-0 text-muted-foreground">{label}</dt>
+    <div className="flex items-center justify-between gap-2">
+      <dt className="shrink-0 text-xs text-muted-foreground">{label}</dt>
       <dd
         className={cn(
-          'min-w-0 truncate text-right font-medium text-foreground',
+          'min-w-0 truncate text-right text-xs font-medium text-foreground',
           mono && 'font-mono tabular-nums',
         )}
       >
@@ -144,28 +145,74 @@ export interface FileItem {
   id: string
   name: string
   meta?: string
+  /** File size string (e.g. "12.6 MB"), shown right-aligned. */
+  size?: string
+  /** MIME type or extension, used to pick the file-type icon. */
+  mediaType?: string
   href?: string
+}
+
+/** Pick a file-type icon + accent colour from the media type. */
+function fileTypeIcon(
+  mediaType?: string,
+): { icon: LucideIcon; className: string } {
+  const mt = (mediaType ?? '').toLowerCase()
+  if (
+    mt.includes('spreadsheet') ||
+    mt.includes('excel') ||
+    mt.includes('csv') ||
+    mt.endsWith('.xlsx') ||
+    mt.endsWith('.csv') ||
+    mt.endsWith('.tsv')
+  ) {
+    return { icon: FileSpreadsheet, className: 'text-success' }
+  }
+  if (
+    mt.includes('pdf') ||
+    mt.endsWith('.pdf')
+  ) {
+    return { icon: FileText, className: 'text-destructive' }
+  }
+  if (
+    mt.includes('image') ||
+    mt.endsWith('.png') ||
+    mt.endsWith('.jpg') ||
+    mt.endsWith('.jpeg') ||
+    mt.endsWith('.gif') ||
+    mt.endsWith('.webp') ||
+    mt.endsWith('.svg')
+  ) {
+    return { icon: FileImage, className: 'text-info' }
+  }
+  if (
+    mt.includes('text') ||
+    mt.endsWith('.txt') ||
+    mt.endsWith('.md')
+  ) {
+    return { icon: FileText, className: 'text-muted-foreground' }
+  }
+  return { icon: FileIcon, className: 'text-muted-foreground' }
 }
 
 export function FileList({ items }: { items: FileItem[] }) {
   if (items.length === 0) return <EmptyHint>No attached files</EmptyHint>
   return (
-    <ul className="space-y-1">
+    <ul className="space-y-0.5">
       {items.map((f) => {
-        const Icon = Paperclip
+        const { icon: Icon, className: iconCls } = fileTypeIcon(
+          f.mediaType ?? f.meta,
+        )
         const body = (
           <>
-            <Icon className="size-3 shrink-0 text-muted-foreground" />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-xs font-medium text-foreground">
-                {f.name}
-              </span>
-              {f.meta ? (
-                <span className="block truncate text-[0.65rem] text-muted-foreground">
-                  {f.meta}
-                </span>
-              ) : null}
+            <Icon className={cn('size-3.5 shrink-0', iconCls)} aria-hidden="true" />
+            <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
+              {f.name}
             </span>
+            {f.size ? (
+              <span className="shrink-0 text-[0.65rem] tabular-nums text-muted-foreground">
+                {f.size}
+              </span>
+            ) : null}
           </>
         )
         return (
@@ -189,7 +236,7 @@ export function FileList({ items }: { items: FileItem[] }) {
   )
 }
 
-/** Compliance/quality check row. UI-007 hardens the approval workflow. */
+/** Compliance/quality check row. */
 export type CheckState = 'pass' | 'fail' | 'pending' | 'warning'
 
 export interface CheckItem {
@@ -199,14 +246,11 @@ export interface CheckItem {
   detail?: string
 }
 
-const checkIcon: Record<CheckState, { icon: LucideIcon; className: string }> = {
-  pass: {
-    icon: CheckCircle2,
-    className: 'text-success',
-  },
-  fail: { icon: XCircle, className: 'text-destructive' },
-  pending: { icon: Clock, className: 'text-muted-foreground' },
-  warning: { icon: Circle, className: 'text-warning-foreground' },
+const checkBadge: Record<CheckState, { label: string; variant: 'success' | 'danger' | 'outline' | 'warning' }> = {
+  pass: { label: 'Passed', variant: 'success' },
+  fail: { label: 'Failed', variant: 'danger' },
+  pending: { label: 'Pending', variant: 'outline' },
+  warning: { label: 'Warning', variant: 'warning' },
 }
 
 export function CheckList({ items }: { items: CheckItem[] }) {
@@ -214,16 +258,12 @@ export function CheckList({ items }: { items: CheckItem[] }) {
   return (
     <ul className="space-y-0.5">
       {items.map((c) => {
-        const { icon: Icon, className } = checkIcon[c.state]
+        const badge = checkBadge[c.state]
         return (
           <li
             key={c.id}
             className="flex items-center gap-2 rounded-md px-1 py-1"
           >
-            <Icon
-              className={cn('size-3.5 shrink-0', className)}
-              aria-hidden="true"
-            />
             <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
               {c.label}
             </span>
@@ -232,6 +272,12 @@ export function CheckList({ items }: { items: CheckItem[] }) {
                 {c.detail}
               </span>
             ) : null}
+            <Badge
+              variant={badge.variant}
+              className="shrink-0 px-1.5 py-0 text-[0.65rem]"
+            >
+              {badge.label}
+            </Badge>
             <span className="sr-only">{c.state}</span>
           </li>
         )
@@ -322,5 +368,142 @@ export function EmptyHint({ children }: { children: React.ReactNode }) {
     <p className="py-1 text-xs text-muted-foreground">
       {children}
     </p>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Rich inspector components — modelled on the concept mockup's dense,
+// visually rich property panel. These supplement the basic Property/File/
+// Check rows with the compact visual elements the mockup uses: avatar
+// stacks, coloured tag pills, count-annotated link buttons.
+// ---------------------------------------------------------------------------
+
+/** Contributor avatar stack — overlapping initial circles with +N overflow. */
+export function ContributorAvatars({
+  contributors,
+  max = 4,
+  size = 'sm',
+}: {
+  contributors: { id: string; name: string; initials?: string }[]
+  max?: number
+  size?: 'sm' | 'md'
+}) {
+  const visible = contributors.slice(0, max)
+  const overflow = contributors.length - visible.length
+  const dim = size === 'sm' ? 'size-5 text-[0.6rem]' : 'size-6 text-xs'
+
+  if (contributors.length === 0) return null
+
+  return (
+    <div className="flex items-center">
+      <div className="flex -space-x-1.5">
+        {visible.map((c) => (
+          <span
+            key={c.id}
+            title={c.name}
+            aria-label={c.name}
+            className={cn(
+              'flex shrink-0 items-center justify-center rounded-full border border-background bg-primary/15 font-semibold text-primary',
+              dim,
+            )}
+          >
+            {(c.initials ?? c.name.slice(0, 2)).toUpperCase()}
+          </span>
+        ))}
+      </div>
+      {overflow > 0 ? (
+        <span
+          className={cn(
+            'ml-1.5 flex shrink-0 items-center justify-center rounded-full bg-muted font-medium text-muted-foreground',
+            dim,
+          )}
+        >
+          +{overflow}
+        </span>
+      ) : null}
+    </div>
+  )
+}
+
+/** Coloured tag pills with optional add button. */
+export function TagPills({
+  tags,
+  onAdd,
+}: {
+  tags: string[]
+  onAdd?: () => void
+}) {
+  if (tags.length === 0 && !onAdd) return null
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {tags.map((tag) => (
+        <Badge
+          key={tag}
+          variant="violet"
+          className="px-2 py-0 text-[0.65rem]"
+        >
+          {tag}
+        </Badge>
+      ))}
+      {onAdd ? (
+        <button
+          type="button"
+          onClick={onAdd}
+          className="flex size-4 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          aria-label="Add tag"
+        >
+          <Plus className="size-3" />
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
+/** Compact "Link to" count buttons — e.g. Samples (2), Protocol (1). */
+export interface LinkToItem {
+  label: string
+  count: number
+  icon?: LucideIcon
+  onClick?: () => void
+}
+
+export function LinkToPills({ items }: { items: LinkToItem[] }) {
+  if (items.length === 0) return <EmptyHint>No linked records</EmptyHint>
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {items.map((item, i) => {
+        const Icon = item.icon ?? Link2
+        return (
+          <button
+            key={i}
+            type="button"
+            onClick={item.onClick}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2 py-1 text-xs font-medium text-foreground transition-colors hover:border-input hover:bg-muted/50"
+          >
+            <Icon className="size-3 text-muted-foreground" aria-hidden="true" />
+            {item.label}
+            {item.count > 0 ? (
+              <span className="tabular-nums text-muted-foreground">
+                ({item.count})
+              </span>
+            ) : null}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/** "Add property" link — the mockup's blue action at the bottom of properties. */
+export function AddPropertyLink({ onClick }: { onClick?: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex items-center gap-1 text-xs font-medium text-primary transition-colors hover:text-primary/80"
+    >
+      <Plus className="size-3" />
+      Add property
+    </button>
   )
 }

@@ -212,8 +212,8 @@ export function PlateMap({
 
   const legendEntries = roleLegend ?? bands
 
-  const wellSize = compact ? 'min-w-4' : 'min-w-5'
-  const labelSize = compact ? 'w-4' : 'w-5'
+  const wellSize = compact ? 'min-w-5' : 'min-w-6'
+  const labelSize = compact ? 'w-5' : 'w-6'
   const gap = compact ? 'gap-0.5' : 'gap-1'
 
   return (
@@ -223,7 +223,7 @@ export function PlateMap({
         role="grid"
         aria-label={ariaLabel}
         className="inline-block"
-        style={{ minWidth: compact ? '14rem' : '22rem' }}
+        style={{ minWidth: compact ? '18rem' : '24rem' }}
         onKeyDown={handleKeyDown}
       >
         {/* Column header row */}
@@ -289,7 +289,7 @@ export function PlateMap({
                     disabled={readOnly}
                     onClick={() => handleSelect(r, c)}
                     className={cn(
-                      'flex aspect-square items-center justify-center rounded-full border border-white/60 text-[8px] font-medium text-white/90 transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 dark:border-black/20',
+                      'flex aspect-square w-full items-center justify-center overflow-hidden rounded-full border border-white/60 text-[8px] font-medium leading-none text-white/90 transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 dark:border-black/20',
                       wellSize,
                       cellColour,
                       selected && 'ring-2 ring-primary ring-offset-1',

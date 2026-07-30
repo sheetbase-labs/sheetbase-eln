@@ -644,7 +644,7 @@ function NotebookDocumentContent({
   }
 
   return (
-    <div className={cn('space-y-0', className)}>
+    <div className={cn('space-y-2', className)}>
       {orderedIds.map((id, index) => {
         const block = blockById.get(id)
         if (!block) return null
@@ -701,6 +701,26 @@ function NotebookDocumentContent({
             >
               <NotebookBlock
                 label={blockLabel(block)}
+                title={
+                  // Chart and plate_map render their own payload.title
+                  // internally (ChartFrame header, plate map caption).
+                  // Suppress the wrapper title to avoid duplication.
+                  block.type !== 'chart' &&
+                  block.type !== 'plate_map' &&
+                  typeof block.payload?.title === 'string' &&
+                  block.payload.title.trim()
+                    ? block.payload.title
+                    : undefined
+                }
+                onTitleChange={
+                  editable && !isReadOnly && !isPayloadImmutable(block)
+                    ? (newTitle) =>
+                        onSaveBlock(block, {
+                          ...block.payload,
+                          title: newTitle || undefined,
+                        })
+                    : undefined
+                }
                 state={blockState}
                 ariaLabel={`${block.type} block`}
                 draggable={canMove}
@@ -816,7 +836,7 @@ function NotebookDocumentContent({
       ) : null}
 
       {isReadOnly ? null : (
-        <div className="px-4 pt-2 sm:px-6 lg:pl-12">
+        <div className="pt-2">
           <BlockPicker
             onInsert={(type) => void handleInsert(type)}
             disabled={false}
@@ -903,6 +923,22 @@ function NotebookDocumentContent({
   )
 }
 
+/**
+ * Some block payloads are immutable after a lifecycle event (pinned
+ * protocol reference, frozen chart). The DB trigger rejects any payload
+ * change for these, so title editing must be disabled to avoid silent
+ * save failures.
+ */
+function isPayloadImmutable(block: NotebookBlockData): boolean {
+  if (block.type === 'protocol_reference') {
+    return Boolean(block.payload?.protocolRecordId)
+  }
+  if (block.type === 'chart') {
+    return Boolean(block.payload?.frozen)
+  }
+  return false
+}
+
 function blockLabel(block: NotebookBlockData): string {
   const map: Record<string, string> = {
     rich_text: 'Text',
@@ -921,3 +957,12 @@ function blockLabel(block: NotebookBlockData): string {
   }
   return map[block.type] ?? block.type
 }
+
+/**
+ * Visible title for blocks that lack their own heading. Blocks that render
+ * their own title internally (rich_text with a heading node, materials,
+ * protocol_reference, chart, plate_map, metric, file) return undefined so
+ * NotebookBlock doesn't add a duplicate header.
+ */
+// NOTE: blockTitle removed — titles are now user-editable via the block
+// payload's optional `title` field. When empty, no heading space is rendered.

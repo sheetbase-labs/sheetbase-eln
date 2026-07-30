@@ -47,6 +47,10 @@ export interface InspectorProps {
   state?: InspectorState
   onClose?: () => void
   className?: string
+  /** Skip the identity header entirely — tabs are the first element.
+   * Used by the notebook inspector where the title is already in the
+   * sticky record header above the canvas. */
+  hideHeader?: boolean
 }
 
 function StateBlock({
@@ -75,6 +79,7 @@ export function Inspector({
   state = 'loaded',
   onClose,
   className,
+  hideHeader = false,
 }: InspectorProps) {
   const initial = defaultTab ?? tabs[0]?.id
   const showTabs = state === 'loaded' && tabs.length > 0
@@ -84,32 +89,35 @@ export function Inspector({
       className={cn('flex h-full flex-col bg-background', className)}
       aria-label="Inspector"
     >
-      {/* Compact identity header — record type label, title, close */}
-      <div className="shrink-0 border-b border-border px-4 py-2.5">
-        <div className="flex items-start gap-2">
-          <div className="min-w-0 flex-1">
-            {recordType ? (
-              <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
-                {recordType}
-              </p>
+      {/* Identity header — omitted when hideHeader is set (e.g. notebook
+          inspector where the title is already in the sticky record header) */}
+      {!hideHeader ? (
+        <div className="shrink-0 border-b border-border px-4 py-2.5">
+          <div className="flex items-start gap-2">
+            <div className="min-w-0 flex-1">
+              {recordType ? (
+                <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
+                  {recordType}
+                </p>
+              ) : null}
+              <h2 className="text-sm font-semibold leading-tight text-foreground">
+                {title}
+              </h2>
+            </div>
+            {onClose ? (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="mt-0.5 shrink-0"
+                aria-label="Close inspector"
+                onClick={onClose}
+              >
+                <X className="size-4" />
+              </Button>
             ) : null}
-            <h2 className="text-sm font-semibold leading-tight text-foreground">
-              {title}
-            </h2>
           </div>
-          {onClose ? (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="mt-0.5 shrink-0"
-              aria-label="Close inspector"
-              onClick={onClose}
-            >
-              <X className="size-4" />
-            </Button>
-          ) : null}
         </div>
-      </div>
+      ) : null}
 
       {/* Scroll region: tabs + content */}
       <div className="min-h-0 flex-1 overflow-y-auto">
@@ -136,7 +144,7 @@ export function Inspector({
           />
         ) : showTabs ? (
           <Tabs defaultValue={initial} className="flex flex-col gap-0">
-            <div className="sticky top-0 z-10 border-b border-border bg-background px-4">
+            <div className="sticky top-0 z-10 flex items-center border-b border-border bg-background px-4">
               <TabsList className="flex h-auto w-full justify-start gap-3 rounded-none bg-transparent p-0">
                 {tabs.map((tab) => (
                   <TabsTrigger
@@ -153,6 +161,17 @@ export function Inspector({
                   </TabsTrigger>
                 ))}
               </TabsList>
+              {hideHeader && onClose ? (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="ml-auto shrink-0"
+                  aria-label="Close inspector"
+                  onClick={onClose}
+                >
+                  <X className="size-4" />
+                </Button>
+              ) : null}
             </div>
             {tabs.map((tab) => (
               <TabsContent

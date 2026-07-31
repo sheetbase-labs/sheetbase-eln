@@ -56,7 +56,6 @@ import {
   Input,
   Label,
   Select,
-  Separator,
 } from '#/components/ui'
 import type { ScientificLogicalType } from '#/lib/scientific-sheet-data'
 import {
@@ -575,8 +574,6 @@ function CreateSchemaForm({
           />
         </div>
       </div>
-
-      <Separator />
 
       {/* Field builder — dense table */}
       <div className="flex flex-col gap-2">

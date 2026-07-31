@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { ReviewCheckResults } from '#/components/review/review-check-results'
+
 const base: any = {
   overall_status: 'warning',
   pass_count: 2,

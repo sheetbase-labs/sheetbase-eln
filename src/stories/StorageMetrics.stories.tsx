@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { StorageMetrics } from '#/components/storage/storage-metrics'
+
 const box: any = {
   id: 'box',
   name: 'Plasma cohort B',

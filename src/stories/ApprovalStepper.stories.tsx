@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { ApprovalStepper } from '#/components/audit/approval-stepper'
+
 const steps = [
   { id: 'author', title: 'Author sign-off', role: 'Study owner' },
   { id: 'science', title: 'Scientific review', role: 'Principal scientist' },

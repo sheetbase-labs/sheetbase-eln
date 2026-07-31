@@ -24,6 +24,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '#/components/ui'
+
 const meta = { title: 'UI/Menu & command', tags: ['autodocs'] } satisfies Meta
 export default meta
 type Story = StoryObj<typeof meta>

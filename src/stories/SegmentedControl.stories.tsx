@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { BarChart3, LayoutGrid, Table2 } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { useState  } from 'react'
+import type {ReactNode} from 'react';
 
 import { ToggleGroup, ToggleGroupItem } from '#/components/ui/toggle-group'
 

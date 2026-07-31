@@ -8,14 +8,6 @@ import { FileWarning } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 import { useShell } from '#/components/app-shell'
-
-function RouteShell({
-  children,
-  ...configuration
-}: Parameters<typeof useShell>[0] & { children: ReactNode }) {
-  useShell(configuration)
-  return <>{children}</>
-}
 import { CommentPanel } from '#/components/comments'
 import { OverviewTabs } from '#/components/overview'
 import {
@@ -59,6 +51,14 @@ import {
 } from '#/lib/overview'
 import type { OverviewMode } from '#/lib/overview'
 import { StickyRecordHeader } from '../$recordId'
+
+function RouteShell({
+  children,
+  ...configuration
+}: Parameters<typeof useShell>[0] & { children: ReactNode }) {
+  useShell(configuration)
+  return <>{children}</>
+}
 
 /**
  * SCI-007: the experiment overview route. A deep-linkable, read-oriented

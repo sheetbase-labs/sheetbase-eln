@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { FlaskConical, MoreHorizontal } from 'lucide-react'
 import { RecordLink } from '#/components/scientific/record-link'
 import { Button } from '#/components/ui'
+
 const meta = {
   title: 'Scientific/Record link',
   component: RecordLink,

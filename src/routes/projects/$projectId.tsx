@@ -30,14 +30,6 @@ import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 
 import { useShell } from '#/components/app-shell'
-
-function RouteShell({
-  children,
-  ...configuration
-}: Parameters<typeof useShell>[0] & { children: ReactNode }) {
-  useShell(configuration)
-  return <>{children}</>
-}
 import {
   CheckList,
   InspectorSection,
@@ -83,6 +75,14 @@ import type {
   DashboardMetric,
 } from '#/lib/dashboard-data'
 import { useUserNames } from '#/lib/user-names'
+
+function RouteShell({
+  children,
+  ...configuration
+}: Parameters<typeof useShell>[0] & { children: ReactNode }) {
+  useShell(configuration)
+  return <>{children}</>
+}
 
 /**
  * Project dashboard. A dense, full-width overview of one project: metadata

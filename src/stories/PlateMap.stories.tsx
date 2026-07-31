@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { PlateMap } from '#/components/viz/plate-map'
+
 const wells = Array.from({ length: 96 }, (_, i) => ({
   row: Math.floor(i / 12),
   col: i % 12,

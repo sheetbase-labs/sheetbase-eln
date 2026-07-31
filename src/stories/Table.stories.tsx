@@ -10,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from '#/components/ui'
+
 const meta = { title: 'UI/Table', tags: ['autodocs'] } satisfies Meta
 export default meta
 type Story = StoryObj<typeof meta>

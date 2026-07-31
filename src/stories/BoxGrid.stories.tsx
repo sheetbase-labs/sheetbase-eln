@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { BoxGrid } from '#/components/storage/box-grid'
+
 const box: any = {
   id: 'box',
   name: 'Plasma cohort B',

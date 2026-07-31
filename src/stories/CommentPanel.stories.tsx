@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { CommentThread } from '#/components/comments/comment-thread'
+
 const root: any = {
   id: 'c1',
   revision_id: 'rev1',

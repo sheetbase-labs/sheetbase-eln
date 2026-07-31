@@ -45,14 +45,6 @@ import {
 } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
-
-function RouteShell({
-  children,
-  ...configuration
-}: Parameters<typeof useShell>[0] & { children: ReactNode }) {
-  useShell(configuration)
-  return <>{children}</>
-}
 import { ApprovalStepper, RecordHistoryTimeline } from '#/components/audit'
 import type { ApprovalStepDef, ApprovalStepStatus } from '#/components/audit'
 import { CommentPanel } from '#/components/comments'
@@ -137,6 +129,14 @@ import {
   sign002QueryKeys,
 } from '#/lib/sign-002'
 import { cn } from '#/lib/utils'
+
+function RouteShell({
+  children,
+  ...configuration
+}: Parameters<typeof useShell>[0] & { children: ReactNode }) {
+  useShell(configuration)
+  return <>{children}</>
+}
 
 // ---------------------------------------------------------------------------
 // Deep-linkable search state. `tab` keeps the active panel shareable; the

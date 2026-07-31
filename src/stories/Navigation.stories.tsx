@@ -20,6 +20,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '#/components/ui'
+
 const meta = { title: 'UI/Navigation', tags: ['autodocs'] } satisfies Meta
 export default meta
 type Story = StoryObj<typeof meta>

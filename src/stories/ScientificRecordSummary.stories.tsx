@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { ScientificRecordSummary } from '#/components/scientific/scientific-record-summary'
+
 const record = {
   id: '1',
   kind: 'sample',

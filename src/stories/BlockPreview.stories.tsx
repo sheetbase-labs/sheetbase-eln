@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { BlockPreview } from '#/components/notebook/block-preview'
+
 const block = (type: string, payload: unknown) =>
   ({ id: type, type, payload, payloadSchemaVersion: 1 }) as any
 const meta = {

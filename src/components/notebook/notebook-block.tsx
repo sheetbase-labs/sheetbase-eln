@@ -189,7 +189,7 @@ export function NotebookBlock({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                {menuItems!.map((item) => (
+                {menuItems.map((item) => (
                   <React.Fragment key={item.id}>
                     <DropdownMenuItem
                       onSelect={item.onSelect}

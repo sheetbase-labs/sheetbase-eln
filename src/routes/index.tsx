@@ -27,14 +27,6 @@ import {
 import type { LucideIcon } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
-
-function RouteShell({
-  children,
-  ...configuration
-}: Parameters<typeof useShell>[0] & { children: ReactNode }) {
-  useShell(configuration)
-  return <>{children}</>
-}
 import {
   Button,
   Skeleton,
@@ -76,6 +68,14 @@ import type {
 import type { ReviewItem } from '#/lib/reviews'
 import { cn } from '#/lib/utils'
 import { useUserNames } from '#/lib/user-names'
+
+function RouteShell({
+  children,
+  ...configuration
+}: Parameters<typeof useShell>[0] & { children: ReactNode }) {
+  useShell(configuration)
+  return <>{children}</>
+}
 
 export const Route = createFileRoute('/')({
   beforeLoad: async ({ context }) => {

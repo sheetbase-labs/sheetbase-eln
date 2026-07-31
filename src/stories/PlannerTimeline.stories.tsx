@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { PlannerTimeline } from '#/components/planner/planner-timeline'
+
 const workstreams: any[] = [
   { id: 'ws1', name: 'Assay development', color: 'var(--primary)', status: 'active' },
   { id: 'ws2', name: 'Stability', color: 'var(--success)', status: 'active' },

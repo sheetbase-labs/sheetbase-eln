@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { ChartFrame } from '#/components/viz/chart-frame'
+
 const meta = {
   title: 'Visualization/Chart frame',
   component: ChartFrame,

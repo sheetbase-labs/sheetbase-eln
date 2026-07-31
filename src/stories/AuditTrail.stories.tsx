@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { AuditTrail } from '#/components/audit/audit-trail'
+
 const events = [
   {
     id: '1',

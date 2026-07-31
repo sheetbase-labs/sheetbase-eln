@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { CalendarGrid } from '#/components/calendar/calendar-views'
+
 const cursor = new Date('2026-07-29T12:00:00Z')
 const bookings: any[] = [
   {

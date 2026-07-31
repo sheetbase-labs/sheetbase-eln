@@ -169,7 +169,6 @@ export function SchemaPickerDialog({
   const [schemaSlug, setSchemaSlug] = React.useState('')
   const [schemaSlugEdited, setSchemaSlugEdited] = React.useState(false)
   const [fields, setFields] = React.useState<DraftField[]>([])
-  const [publishImmediately, setPublishImmediately] = React.useState(false)
 
   // Reset state when dialog opens.
   React.useEffect(() => {
@@ -181,7 +180,6 @@ export function SchemaPickerDialog({
       setSchemaSlug('')
       setSchemaSlugEdited(false)
       setFields([])
-      setPublishImmediately(false)
     }
   }, [open])
 
@@ -298,15 +296,13 @@ export function SchemaPickerDialog({
             nullable: !f.required,
           })),
         })
-        let schemaId = created.schema.id
-        if (publishImmediately) {
-          const pub = await publishDatasetSchema(
-            datasetSchemaDataClient,
-            schemaId,
-          )
-          schemaId = pub.schemaId
-        }
-        await onSelect({ mode: 'created', schemaId })
+        // A sheet block requires a published schema revision, so always
+        // publish before instantiating.
+        const pub = await publishDatasetSchema(
+          datasetSchemaDataClient,
+          created.schema.id,
+        )
+        await onSelect({ mode: 'created', schemaId: pub.schemaId })
         onOpenChange(false)
       } else {
         // ad-hoc
@@ -314,7 +310,24 @@ export function SchemaPickerDialog({
         onOpenChange(false)
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not create sheet.')
+      const raw = err instanceof Error ? err.message : String(err)
+      // Translate common DB constraint violations to human-readable messages.
+      let friendly: string
+      if (raw.includes('uq_change_events_workspace_sequence')) {
+        friendly =
+          'A workspace sync conflict occurred. Please try again — if the problem persists, contact support.'
+      } else if (raw.includes('duplicate key')) {
+        friendly =
+          'A schema with this slug already exists. Choose a different name or slug.'
+      } else if (raw.includes('foreign key')) {
+        friendly =
+          'A referenced record could not be found. Refresh the page and try again.'
+      } else {
+        friendly = raw.startsWith('Could not')
+          ? raw
+          : 'Could not create the sheet. Please try again.'
+      }
+      setError(friendly)
     } finally {
       setLoading(false)
     }
@@ -325,6 +338,7 @@ export function SchemaPickerDialog({
       <DialogContent
         className={cn(
           mode === 'create' ? 'max-w-2xl' : 'max-w-lg',
+          'max-h-[85vh] overflow-y-auto',
         )}
         onKeyDown={(e) => {
           // Cmd/Ctrl+Enter submits the dialog — the same path as the
@@ -437,8 +451,6 @@ export function SchemaPickerDialog({
             onUpdateFieldType={updateFieldType}
             onUpdateFieldRequired={updateFieldRequired}
             onRemoveField={removeField}
-            publishImmediately={publishImmediately}
-            onPublishChange={setPublishImmediately}
             loading={loading}
             onBack={() => setMode('choose')}
             onConfirm={() => void handleConfirm()}
@@ -472,8 +484,6 @@ interface CreateSchemaFormProps {
   onUpdateFieldType: (index: number, type: ScientificLogicalType) => void
   onUpdateFieldRequired: (index: number, required: boolean) => void
   onRemoveField: (index: number) => void
-  publishImmediately: boolean
-  onPublishChange: (value: boolean) => void
   loading: boolean
   onBack: () => void
   onConfirm: () => void
@@ -492,8 +502,6 @@ function CreateSchemaForm({
   onUpdateFieldType,
   onUpdateFieldRequired,
   onRemoveField,
-  publishImmediately,
-  onPublishChange,
   loading,
   onBack,
   onConfirm,
@@ -528,7 +536,7 @@ function CreateSchemaForm({
   }
 
   return (
-    <div className="flex max-h-[72vh] flex-col gap-4 py-1">
+    <div className="flex flex-col gap-4 py-1">
       {/* Guidance — one concise line, not a chrome-heavy callout. */}
       <p className="flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">
         <Info className="mt-0.5 size-3.5 shrink-0" />
@@ -617,7 +625,7 @@ function CreateSchemaForm({
             </div>
 
             {/* Rows — bounded scroll for 20+ fields */}
-            <div className="max-h-[280px] overflow-y-auto">
+            <div className="max-h-[240px] overflow-y-auto">
               {fields.map((field, i) => (
                 <FieldRow
                   key={i}
@@ -653,23 +661,6 @@ function CreateSchemaForm({
           </Button>
         )}
       </div>
-
-      <Separator />
-
-      {/* Publish option */}
-      <label className="flex items-start gap-2.5 text-sm">
-        <Checkbox
-          checked={publishImmediately}
-          onCheckedChange={(v) => onPublishChange(v === true)}
-          className="mt-0.5"
-        />
-        <span>
-          <span className="font-medium">Publish immediately</span>
-          <span className="block text-xs text-muted-foreground">
-            Otherwise the schema is saved as a draft you can refine first.
-          </span>
-        </span>
-      </label>
 
       {/* Footer actions */}
       <div className="flex items-center justify-between gap-2 pt-1">

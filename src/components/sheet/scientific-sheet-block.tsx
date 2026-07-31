@@ -1198,6 +1198,13 @@ export function ScientificSheetBlock({
         ),
         rowHeaders: true,
         minSpareRows: !readOnly && terminal ? 1 : 0,
+        // Without a height, Handsontable collapses to 0px when there are
+        // no data rows. Give it a minimum so column headers are always
+        // visible, even for an empty sheet.
+        height: Math.max(
+          (localRows.length + 1) * 28 + 8,
+          table.columns.length > 0 ? 80 : 48,
+        ),
         readOnly,
         fillHandle: !readOnly,
         contextMenu: !readOnly,

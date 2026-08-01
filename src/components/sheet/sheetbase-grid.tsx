@@ -1,4 +1,5 @@
 import type { GridSettings } from 'handsontable/settings'
+import type Handsontable from 'handsontable/base'
 import type { ComponentType, ErrorInfo, ReactNode } from 'react'
 import { Component, useEffect, useId, useState } from 'react'
 
@@ -11,11 +12,13 @@ export interface SheetbaseGridProps {
   settings: SheetbaseGridSettings
   ariaLabel?: string
   description?: string
+  onReady?: (instance: Handsontable | null) => void
 }
 
 export interface SheetbaseGridClientProps {
   settings: SheetbaseGridSettings
   licenseKey: string
+  onReady?: (instance: Handsontable | null) => void
 }
 
 type ClientGrid = ComponentType<SheetbaseGridClientProps>
@@ -65,6 +68,7 @@ export function SheetbaseGrid({
   settings,
   ariaLabel = 'Scientific data sheet',
   description = 'Spreadsheet editor. Use the arrow keys to move between cells and Enter to edit.',
+  onReady,
 }: SheetbaseGridProps) {
   const descriptionId = useId()
   const [ClientGrid, setClientGrid] = useState<ClientGrid | null>(null)
@@ -101,7 +105,7 @@ export function SheetbaseGrid({
       </p>
       {ClientGrid ? (
         <GridBoundary>
-          <ClientGrid licenseKey={licenseKey} settings={settings} />
+          <ClientGrid licenseKey={licenseKey} settings={settings} onReady={onReady} />
         </GridBoundary>
       ) : (
         <div

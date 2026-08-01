@@ -168,7 +168,7 @@ describe('ScientificSheetBlock', () => {
 
   it('maps column types, units, and category UUIDs to grid labels', async () => {
     mocks.table.mockResolvedValue(table)
-    mocks.rows.mockResolvedValue([
+    mocks.allRows.mockResolvedValue([
       { id: 'r1', version: 1, col_category: 'option-id' },
     ])
     mount()
@@ -184,7 +184,7 @@ describe('ScientificSheetBlock', () => {
 
   it('defers configuration and trusted-cache metadata until interaction', async () => {
     mocks.table.mockResolvedValue(table)
-    mocks.rows.mockResolvedValue([{ id: 'r1', version: 1 }])
+    mocks.allRows.mockResolvedValue([{ id: 'r1', version: 1 }])
     mount()
     const settings = await ready()
     expect(mocks.dependencies).not.toHaveBeenCalled()
@@ -199,7 +199,7 @@ describe('ScientificSheetBlock', () => {
 
   it('submits one batch for multiple existing cells and mixed spare rows', async () => {
     mocks.table.mockResolvedValue(table)
-    mocks.rows.mockResolvedValue([{ id: 'r1', version: 4, col_text: 'old' }])
+    mocks.allRows.mockResolvedValue([{ id: 'r1', version: 4, col_text: 'old' }])
     mocks.apply.mockResolvedValue({ ok: true, schemaVersion: 2, rows: [] })
     mount()
     const settings = await ready()
@@ -226,7 +226,7 @@ describe('ScientificSheetBlock', () => {
 
   it('rejects an entire invalid batch locally and preserves its draft', async () => {
     mocks.table.mockResolvedValue(table)
-    mocks.rows.mockResolvedValue([{ id: 'r1', version: 1 }])
+    mocks.allRows.mockResolvedValue([{ id: 'r1', version: 1 }])
     mount()
     const settings = await ready()
     settings.afterChange(
@@ -245,7 +245,7 @@ describe('ScientificSheetBlock', () => {
 
   it('preserves stale drafts, identifies the row, and refetches', async () => {
     mocks.table.mockResolvedValue(table)
-    mocks.rows.mockResolvedValue([{ id: 'r1', version: 1 }])
+    mocks.allRows.mockResolvedValue([{ id: 'r1', version: 1 }])
     mocks.apply.mockRejectedValue(
       new DataClientError('stale_version', 'stale', 409),
     )
@@ -256,12 +256,12 @@ describe('ScientificSheetBlock', () => {
       'Row 1 changed elsewhere',
     )
     expect(mocks.settings!.data[0].col_text).toBe('raw')
-    await waitFor(() => expect(mocks.rows.mock.calls.length).toBeGreaterThan(1))
+    await waitFor(() => expect(mocks.allRows.mock.calls.length).toBeGreaterThan(1))
   })
 
   it('serializes rapid edits and uses the first canonical version for the second', async () => {
     mocks.table.mockResolvedValue(table)
-    mocks.rows.mockResolvedValue([{ id: 'r1', version: 1 }])
+    mocks.allRows.mockResolvedValue([{ id: 'r1', version: 1 }])
     let release!: () => void
     mocks.apply
       .mockImplementationOnce(
@@ -292,7 +292,7 @@ describe('ScientificSheetBlock', () => {
 
   it('accepts a formula in a numeric cell before literal decoding', async () => {
     mocks.table.mockResolvedValue(table)
-    mocks.rows.mockResolvedValue([{ id: 'r1', version: 4 }])
+    mocks.allRows.mockResolvedValue([{ id: 'r1', version: 4 }])
     mount()
     const settings = await ready()
     settings.afterChange([[0, 'col_number', null, '=1+2']], 'edit')
@@ -309,7 +309,7 @@ describe('ScientificSheetBlock', () => {
 
   it('rejects mixed formula batches before any partial write', async () => {
     mocks.table.mockResolvedValue(table)
-    mocks.rows.mockResolvedValue([{ id: 'r1', version: 1 }])
+    mocks.allRows.mockResolvedValue([{ id: 'r1', version: 1 }])
     mount()
     const settings = await ready()
     settings.afterChange(
@@ -356,7 +356,6 @@ describe('ScientificSheetBlock', () => {
       },
     ]
     mocks.table.mockResolvedValue(formulaTable)
-    mocks.rows.mockResolvedValue(persistedRows)
     mocks.allRows.mockResolvedValue(persistedRows)
     mocks.formulas.mockResolvedValue([
       {
@@ -402,7 +401,13 @@ describe('ScientificSheetBlock', () => {
     ])
     mount({ block: { ...block, payload: { tableId } } })
     await ready()
-    await waitFor(() => expect(mocks.settings!.data[1].col_number).toBe(6))
+    // The grid injects the HyperFormula engine expression for same-sheet
+    // formulas so the Handsontable formulas plugin computes them inline.
+    // The plugin itself doesn't run in this test (SheetbaseGrid is mocked),
+    // so the cell value is the engine expression, not the computed result.
+    await waitFor(() =>
+      expect(mocks.settings!.data[1].col_number).toBe('=(A1*2)'),
+    )
     mocks.settings!.afterSelectionEnd(1, 0)
     await waitFor(() =>
       expect(
@@ -411,12 +416,11 @@ describe('ScientificSheetBlock', () => {
         }).value,
       ).toBe('=A1*2'),
     )
-    expect(
-      screen.getByText(/Result: 6 · supported · Dependencies: 1/),
-    ).toBeTruthy()
-    expect(screen.getByText(/Trusted cache: current · 6/)).toBeTruthy()
+    expect(screen.getByText(/supported · 1 deps/)).toBeTruthy()
+    expect(screen.getByText(/^6$/, { selector: '.font-mono' })).toBeTruthy()
+    expect(screen.getByText(/cache: current 6/)).toBeTruthy()
     fireEvent.click(
-      screen.getByRole('button', { name: 'Recalculate trusted results' }),
+      screen.getByRole('button', { name: 'Recalculate' }),
     )
     await waitFor(() =>
       expect(mocks.calculate).toHaveBeenCalledWith(block.recordId),
@@ -428,7 +432,7 @@ describe('ScientificSheetBlock', () => {
 
   it('fully disables mutation affordances in read-only mode', async () => {
     mocks.table.mockResolvedValue(table)
-    mocks.rows.mockResolvedValue([])
+    mocks.allRows.mockResolvedValue([])
     mount({ readOnly: true })
     const settings = await ready()
     expect(settings).toMatchObject({
@@ -444,7 +448,7 @@ describe('ScientificSheetBlock', () => {
 
   it('adds a fully typed category column with stable option UUIDs', async () => {
     mocks.table.mockResolvedValue(table)
-    mocks.rows.mockResolvedValue([])
+    mocks.allRows.mockResolvedValue([])
     mocks.add.mockResolvedValue({})
     mount()
     await ready()
@@ -472,7 +476,7 @@ describe('ScientificSheetBlock', () => {
 
   it('renames and reorders display metadata without changing stable identities', async () => {
     mocks.table.mockResolvedValue(table)
-    mocks.rows.mockResolvedValue([])
+    mocks.allRows.mockResolvedValue([])
     mocks.renameTable.mockResolvedValue({})
     mocks.display.mockResolvedValue({})
     mount()
@@ -503,7 +507,7 @@ describe('ScientificSheetBlock', () => {
 
   it('shows recoverable schema errors without refetching rows', async () => {
     mocks.table.mockResolvedValue(table)
-    mocks.rows.mockResolvedValue([])
+    mocks.allRows.mockResolvedValue([])
     mocks.add.mockRejectedValue(new Error('schema cache is not ready'))
     mount()
     await ready()
@@ -512,20 +516,20 @@ describe('ScientificSheetBlock', () => {
       target: { value: 'Failed column' },
     })
     const tableFetches = mocks.table.mock.calls.length
-    const rowFetches = mocks.rows.mock.calls.length
+    const rowFetches = mocks.allRows.mock.calls.length
     fireEvent.click(screen.getByRole('button', { name: 'Add column' }))
     expect((await screen.findByRole('status')).textContent).toContain(
       'schema cache is not ready',
     )
     expect(mocks.table).toHaveBeenCalledTimes(tableFetches)
-    expect(mocks.rows).toHaveBeenCalledTimes(rowFetches)
+    expect(mocks.allRows).toHaveBeenCalledTimes(rowFetches)
   })
 
   it.each(['service_unavailable', 'stale_version'])(
     'reconciles metadata and rows after ambiguous %s schema failures',
     async (code) => {
       mocks.table.mockResolvedValue(table)
-      mocks.rows.mockResolvedValue([])
+      mocks.allRows.mockResolvedValue([])
       mocks.add.mockRejectedValue(new DataClientError(code, 'retry', 503))
       mount()
       await ready()
@@ -534,13 +538,13 @@ describe('ScientificSheetBlock', () => {
         target: { value: 'Maybe committed' },
       })
       const tableFetches = mocks.table.mock.calls.length
-      const rowFetches = mocks.rows.mock.calls.length
+      const rowFetches = mocks.allRows.mock.calls.length
       fireEvent.click(screen.getByRole('button', { name: 'Add column' }))
       await waitFor(() =>
         expect(mocks.table.mock.calls.length).toBeGreaterThan(tableFetches),
       )
       await waitFor(() =>
-        expect(mocks.rows.mock.calls.length).toBeGreaterThan(rowFetches),
+        expect(mocks.allRows.mock.calls.length).toBeGreaterThan(rowFetches),
       )
       expect(screen.getByRole('status').textContent).toContain(
         'Could not update schema',
@@ -550,7 +554,7 @@ describe('ScientificSheetBlock', () => {
 
   it('preserves text null and rejects unsafe integers and duplicate category labels', async () => {
     mocks.table.mockResolvedValue(table)
-    mocks.rows.mockResolvedValue([])
+    mocks.allRows.mockResolvedValue([])
     mocks.add.mockResolvedValue({})
     mount()
     await ready()
@@ -592,7 +596,7 @@ describe('ScientificSheetBlock', () => {
 
   it('blocks destructive schema checks while drafts or row writes are pending', async () => {
     mocks.table.mockResolvedValue(table)
-    mocks.rows.mockResolvedValue([{ id: 'r1', version: 1 }])
+    mocks.allRows.mockResolvedValue([{ id: 'r1', version: 1 }])
     mocks.apply.mockImplementation(() => new Promise(() => {}))
     mount()
     const settings = await ready()
@@ -613,7 +617,7 @@ describe('ScientificSheetBlock', () => {
 
   it('preflights conversion, blocks incompatible evidence, and supports cancellation', async () => {
     mocks.table.mockResolvedValue(table)
-    mocks.rows.mockResolvedValue([])
+    mocks.allRows.mockResolvedValue([])
     mocks.convert.mockResolvedValue({
       schemaVersion: 2,
       targetType: 'integer',
@@ -641,7 +645,7 @@ describe('ScientificSheetBlock', () => {
 
   it('preflights and confirms retirement with the exact evidence hash', async () => {
     mocks.table.mockResolvedValue(table)
-    mocks.rows.mockResolvedValue([])
+    mocks.allRows.mockResolvedValue([])
     mocks.retire
       .mockResolvedValueOnce({
         schemaVersion: 2,
@@ -666,23 +670,34 @@ describe('ScientificSheetBlock', () => {
     )
   })
 
-  it('pages and only provides a spare row on the terminal page', async () => {
+  it('loads all rows without pagination and always offers a spare row when editable', async () => {
     mocks.table.mockResolvedValue(table)
-    mocks.rows.mockImplementation((_c: any, _t: any, page: number) =>
-      Promise.resolve(
-        page === 0
-          ? Array.from({ length: 200 }, (_, i) => ({ id: `r${i}`, version: 1 }))
-          : [],
-      ),
-    )
+    const many = Array.from({ length: 250 }, (_, i) => ({
+      id: `r${i}`,
+      version: 1,
+    }))
+    mocks.allRows.mockResolvedValue(many)
     mount()
-    expect((await ready()).minSpareRows).toBe(0)
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
-    await waitFor(() =>
-      expect(mocks.rows).toHaveBeenLastCalledWith({}, table, 1),
-    )
-    await waitFor(() => expect(mocks.settings!.minSpareRows).toBe(1))
-    fireEvent.click(screen.getByRole('button', { name: 'Previous' }))
-    await waitFor(() => expect(screen.getByText('Page 1')).toBeTruthy())
+    const settings = await ready()
+    // No pagination controls — the full dataset is bound to the grid.
+    expect(screen.queryByRole('button', { name: 'Next' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Previous' })).toBeNull()
+    expect(screen.queryByText(/Page \d+/)).toBeNull()
+    // Every row is present (no 200-row page truncation).
+    expect(settings.data).toHaveLength(250)
+    expect(settings.minSpareRows).toBe(1)
+    expect(screen.getByText('250 rows')).toBeTruthy()
+  })
+
+  it('provides no spare row in read-only mode', async () => {
+    mocks.table.mockResolvedValue(table)
+    mocks.allRows.mockResolvedValue([
+      { id: 'r1', version: 1 },
+      { id: 'r2', version: 1 },
+    ])
+    mount({ readOnly: true })
+    const settings = await ready()
+    expect(settings.minSpareRows).toBe(0)
+    expect(screen.queryByRole('button', { name: 'Next' })).toBeNull()
   })
 })

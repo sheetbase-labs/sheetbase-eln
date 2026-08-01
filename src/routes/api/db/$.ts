@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { drizzle } from 'drizzle-orm/node-postgres'
 import { eq } from 'drizzle-orm'
 
+import { db } from '#/db/client.server'
 import * as schema from '#/db/schema'
 import { env } from '#/env.server'
 import { auth } from '#/lib/auth'
@@ -14,6 +14,11 @@ import { handleProxyRequest } from '#/lib/postgrest-proxy'
 //   - external bearer token (Authorization: Bearer <api_client jwt>),
 //   - browser session (Better Auth cookies → short-lived authenticated jwt).
 // The Better Auth session never reaches PostgREST directly.
+//
+// The shared `db` instance from client.server.ts is reused so all requests
+// share a single connection pool. Creating a new Drizzle instance per request
+// opens a new pg.Pool each time, which exhausts PostgreSQL max_connections
+// under concurrent load (e.g. a notebook page firing 100+ API calls).
 const handler = ({
   request,
   params,
@@ -21,7 +26,6 @@ const handler = ({
   request: Request
   params: { _splat?: string }
 }) => {
-  const db = drizzle(env.DATABASE_URL, { schema })
   return handleProxyRequest(request, params._splat ?? '', {
     getSession: (headers) => auth.api.getSession({ headers }),
     getWorkspaceForUser: async (userId) => {

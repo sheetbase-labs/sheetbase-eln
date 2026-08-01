@@ -117,7 +117,7 @@ export async function executeFormulaWrite(
       const [columns, rows] = await Promise.all([
         deps.query<{ id: string }>(
           `SELECT id FROM api.scientific_columns
-            WHERE table_id=$1 AND lifecycle='active' ORDER BY created_at,id`,
+            WHERE table_id=$1 AND lifecycle='active' ORDER BY display_order,id`,
           [candidate.id],
         ),
         // The generated identifier is checked against the closed grammar.

@@ -1,0 +1,215 @@
+# Deploy Sheetbase ELN to the Hostinger VPS.
+#
+# Architecture:
+#   1. build  — on a GitHub-hosted runner, build the app and PostgREST Docker
+#               images, push them to GHCR with immutable @sha256 digests.
+#   2. deploy — join the VPS's Tailscale network, SSH into the VPS, pull the
+#               latest code, load production secrets, and run the existing
+#               deploy controller (pnpm deploy:plan / deploy:apply).
+#
+# The VPS runs Docker Compose (compose.deploy.yaml) with PostgreSQL, PostgREST,
+# and the app container. A Cloudflare Tunnel proxies public traffic from
+# app.sheetbase.co.uk to localhost:3000 on the VPS. No inbound ports are open.
+#
+# Required GitHub Secrets:
+#   VPS_SSH_PRIVATE_KEY    — SSH private key for the deploy user on the VPS
+#   VPS_TAILSCALE_IP       — Tailscale IP of the VPS (e.g. 100.x.y.z)
+#   TAILSCALE_AUTH_KEY     — Tailscale auth key for the ephemeral runner node
+#   GHCR_TOKEN             — GitHub PAT with write:packages (or use GITHUB_TOKEN)
+#
+# Required VPS files (never committed):
+#   /opt/sheetbase/.env.production — all production secrets (see docs/vps-deployment.md)
+#
+# The VPS must have: Docker, Docker Compose, Node.js 22, pnpm, and the repo
+# cloned at /opt/sheetbase with origin pointing at GitHub. See
+# docs/vps-deployment.md for the full VPS setup runbook.
+
+name: Deploy to production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "deploy" to confirm'
+        required: true
+        default: ''
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  APP_IMAGE_NAME: ${{ github.repository }}
+  POSTGREST_IMAGE_NAME: ${{ github.repository }}-postgrest
+
+jobs:
+  build:
+    name: Build and push images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      app_image_ref: ${{ steps.app_digest.outputs.ref }}
+      postgrest_image_ref: ${{ steps.postgrest_digest.outputs.ref }}
+      artifact_version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # build-artifact.ts validates a clean worktree via git status;
+          # a shallow checkout leaves .git shallow but clean.
+          fetch-depth: 1
+
+      - name: Set artifact version
+        id: version
+        run: |
+          VERSION="$(git rev-parse --short HEAD)"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Artifact version: ${VERSION}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Resolve the Node.js base image digest so build-artifact.ts can pin it.
+      # The artifact builder requires NODE_IMAGE as name@sha256:digest.
+      - name: Resolve Node image digest
+        id: node_image
+        run: |
+          docker pull node:22-alpine
+          REF="$(docker inspect --format '{{index .RepoDigests 0}}' node:22-alpine)"
+          echo "ref=${REF}" >> "$GITHUB_OUTPUT"
+          echo "Node image: ${REF}"
+
+      # Build the application image using the project's artifact builder.
+      # This validates a clean git worktree, records the migration version,
+      # and tags the image with OCI labels for the deploy controller.
+      - name: Install pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.9.0 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate route tree
+        run: pnpm generate-routes
+
+      - name: Build app image
+        env:
+          SHEETBASE_NODE_IMAGE: ${{ steps.node_image.outputs.ref }}
+          SHEETBASE_ARTIFACT_VERSION: ${{ steps.version.outputs.version }}
+          SHEETBASE_ARTIFACT_TAG: ${{ env.REGISTRY }}/${{ env.APP_IMAGE_NAME }}:${{ steps.version.outputs.version }}
+        run: pnpm artifact:build
+
+      - name: Push app image to GHCR
+        id: app_digest
+        run: |
+          TAG="${{ env.REGISTRY }}/${{ env.APP_IMAGE_NAME }}:${{ steps.version.outputs.version }}"
+          docker push "$TAG"
+          # Resolve the registry digest after push.
+          REF="$(docker inspect --format '{{index .RepoDigests 0}}' "$TAG")"
+          echo "ref=${REF}" >> "$GITHUB_OUTPUT"
+          echo "App image: ${REF}"
+
+      # Build and push the PostgREST image (postgrest/postgrest:v14.5 + curl).
+      - name: Build PostgREST image
+        run: |
+          docker build \
+            --build-arg POSTGREST_VERSION=v14.5 \
+            --tag ${{ env.REGISTRY }}/${{ env.POSTGREST_IMAGE_NAME }}:v14.5 \
+            docker/postgrest
+
+      - name: Push PostgREST image to GHCR
+        id: postgrest_digest
+        run: |
+          TAG="${{ env.REGISTRY }}/${{ env.POSTGREST_IMAGE_NAME }}:v14.5"
+          docker push "$TAG"
+          REF="$(docker inspect --format '{{index .RepoDigests 0}}' "$TAG")"
+          echo "ref=${REF}" >> "$GITHUB_OUTPUT"
+          echo "PostgREST image: ${REF}"
+
+  deploy:
+    name: Deploy to VPS
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+      - name: Validate manual trigger confirmation
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "deploy" ]; then
+            echo 'Manual trigger requires confirm="deploy"'
+            exit 1
+          fi
+
+      - name: Install Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
+          version: latest
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_TAILSCALE_IP }}
+          username: deploy
+          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          # Tailscale routes the SSH connection over the tailnet; no public
+          # inbound port is needed on the VPS.
+          envs: APP_IMAGE_REF, POSTGREST_IMAGE_REF, ARTIFACT_VERSION
+          script: |
+            set -euo pipefail
+            export APP_IMAGE_REF="$1"
+            export POSTGREST_IMAGE_REF="$2"
+            export ARTIFACT_VERSION="$3"
+
+            cd /opt/sheetbase
+
+            echo "==> Pulling latest code"
+            git fetch --all
+            git checkout "$ARTIFACT_VERSION"
+            git pull origin main
+
+            echo "==> Installing dependencies"
+            corepack enable
+            corepack prepare pnpm@11.9.0 --activate
+            pnpm install --frozen-lockfile
+            pnpm generate-routes
+
+            echo "==> Loading production secrets"
+            set -a
+            # shellcheck disable=SC1091
+            . /opt/sheetbase/.env.production
+            set +a
+
+            # Override the image references with the immutable digests from CI.
+            export SHEETBASE_APP_IMAGE="$APP_IMAGE_REF"
+            export SHEETBASE_POSTGREST_IMAGE="$POSTGREST_IMAGE_REF"
+
+            # Derive the artifact digest from the app image reference.
+            export SHEETBASE_ARTIFACT_DIGEST="${APP_IMAGE_REF##*@}"
+
+            echo "==> Planning deployment"
+            pnpm deploy:plan
+
+            echo "==> Applying deployment"
+            pnpm deploy:apply
+
+            echo "==> Deployment complete"
+            echo "Verify: https://app.sheetbase.co.uk/api/health/ready"
+        env:
+          APP_IMAGE_REF: ${{ needs.build.outputs.app_image_ref }}
+          POSTGREST_IMAGE_REF: ${{ needs.build.outputs.postgrest_image_ref }}
+          ARTIFACT_VERSION: ${{ needs.build.outputs.artifact_version }}

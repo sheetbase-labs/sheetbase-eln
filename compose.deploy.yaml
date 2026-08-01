@@ -77,6 +77,11 @@ services:
       FILE_STORAGE_DIR: /app/.storage/objects
     volumes:
       - object-storage:/app/.storage/objects
+    # The public service is reached only through cloudflared on this host.
+    # Bind to loopback so neither the app nor its health endpoint becomes a
+    # directly reachable VPS port.
+    ports:
+      - '127.0.0.1:3000:3000'
     healthcheck:
       test:
         [

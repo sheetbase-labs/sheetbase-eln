@@ -55,10 +55,30 @@ date in the deployment system.
 
 ## Build an immutable artifact
 
-`Dockerfile` has no default base image. The caller must supply a Node image by
-digest, and the build records the release version, source revision, and latest
-Drizzle journal version as OCI metadata. The build refuses a dirty Git worktree,
-so the recorded revision identifies the source bytes copied into the image.
+`Dockerfile` uses `ARG NODE_IMAGE` with a mutable default of `node:22-alpine`
+to prevent a Dockerfile lint warning when the file is inspected without build
+args. The CI workflow always overrides this with an immutable `@sha256` digest
+via `--build-arg`. The build records the release version, source revision, and
+latest Drizzle journal version as OCI metadata. The build refuses a dirty Git
+worktree, so the recorded revision identifies the source bytes copied into the
+image.
+
+### CI workflow (GitHub Actions)
+
+The `.github/workflows/deploy.yml` workflow runs on every push to `main`. It:
+
+1. Resolves `node:22-alpine` to its immutable digest via `docker inspect`,
+   producing `node:22-alpine@sha256:<64-hex>`.
+2. Sets `SHEETBASE_ARTIFACT_VERSION` to the immutable commit SHA
+   (`${{ github.sha }}`), never a mutable short SHA, branch name, or run number.
+3. Runs `pnpm artifact:build` with the resolved digest and SHA-based version.
+4. Pushes the application and PostgREST images to GHCR, then resolves
+   and publishes their immutable registry digests.
+
+The workflow does **not** run `pnpm generate-routes` — the route tree is
+committed. Deployment is a separate step via SSH over Tailscale.
+
+### Local build (for testing)
 
 ```bash
 export SHEETBASE_NODE_IMAGE='node@sha256:<verified-node-image-digest>'
@@ -105,6 +125,44 @@ removes the rejected application container so it cannot receive traffic.
 
 The final JSON output is the minimum deployment evidence. Store it with the
 release record together with the image registry attestations and migration logs.
+
+### First-deploy and Cloudflare hostname sequencing
+
+The deployment apply path verifies **local container health** before any
+public hostname is expected to serve traffic:
+
+1. `docker compose run --rm migrate` applies migrations (one-shot, stops on
+   failure). The migrate service waits for PostgreSQL's healthcheck.
+2. `docker compose up -d --wait app` starts the app container only after
+   PostgREST's healthcheck passes (`depends_on: service_healthy`).
+3. The app container's own healthcheck polls `http://localhost:3000/api/health/ready`.
+4. `deploy.ts` polls the public HTTPS readiness URL for at most 60 seconds.
+
+The Cloudflare hostname (`app.sheetbase.co.uk`) is configured as a **manual
+one-time external step** that should only be activated after the local app
+healthcheck is green. The tunnel routes the public hostname to the local port;
+it does not participate in the deployment health sequencing. If the tunnel is
+activated before the app is healthy, Cloudflare will return 502 until the app
+passes its readiness check.
+
+## Clean checkout and route generation
+
+`src/routeTree.gen.ts` is committed to the repository. The CI workflow and
+`.agents/setup` do **not** run `pnpm generate-routes` when the committed file
+exists. This keeps a clean checkout clean, which is required by the artifact
+build's `assertCleanBuildSource` check.
+
+Developers must regenerate and commit the route tree after adding, removing, or
+renaming route files:
+
+```bash
+pnpm generate-routes
+git add src/routeTree.gen.ts
+git commit -m "chore: regenerate route tree"
+```
+
+`.env.production` is gitignored. Production secrets are injected by the secret
+manager at deploy time, never committed to the repository.
 
 ## Promotion and rollback
 

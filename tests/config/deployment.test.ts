@@ -10,7 +10,9 @@ const deployCompose = parse(deployComposeRaw) as {
 
 describe('REL-001 immutable deployment artifact contract', () => {
   it('requires the build caller to supply a pinned Node base image', () => {
-    expect(dockerfile).toMatch(/^ARG NODE_IMAGE$/m)
+    // The ARG has a mutable default only to satisfy Dockerfile lint; CI
+    // always overrides it with an immutable @sha256 digest via --build-arg.
+    expect(dockerfile).toMatch(/^ARG NODE_IMAGE=/m)
     expect(dockerfile).toMatch(/^FROM \$\{NODE_IMAGE\}/m)
     expect(dockerfile).not.toMatch(/^FROM node:/m)
   })

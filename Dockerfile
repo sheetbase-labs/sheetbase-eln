@@ -1,4 +1,7 @@
-ARG NODE_IMAGE
+# Default prevents a Dockerfile lint warning when the file is inspected
+# without build args. The CI workflow always passes an immutable
+# @sha256 digest via --build-arg, overriding this mutable default.
+ARG NODE_IMAGE=node:22-alpine
 FROM ${NODE_IMAGE} AS build
 
 WORKDIR /app

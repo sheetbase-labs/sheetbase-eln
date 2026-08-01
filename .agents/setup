@@ -114,10 +114,17 @@ SQL
 echo "==> Installing dependencies (frozen lockfile)"
 pnpm install --frozen-lockfile
 
-echo "==> Generating TanStack Router route tree"
-# tsc does not run the vite router plugin, so regenerate the committed
-# routeTree.gen.ts before typecheck/build rely on it.
-pnpm generate-routes
+echo "==> Verifying TanStack Router route tree"
+# routeTree.gen.ts is committed to the repository. Only regenerate it if
+# it's missing (e.g. a fresh checkout without the generated file). Running
+# `tsr generate` unconditionally would mutate a clean checkout and break
+# the artifact build's clean-worktree assertion.
+if [ ! -f src/routeTree.gen.ts ]; then
+  echo "    src/routeTree.gen.ts not found — regenerating"
+  pnpm generate-routes
+else
+  echo "    src/routeTree.gen.ts present — using committed version"
+fi
 
 echo "==> Applying database migrations"
 pnpm db:migrate

@@ -66,10 +66,11 @@ jobs:
 
       - name: Set artifact version
         id: version
+        # The immutable commit SHA is the artifact version — never a mutable
+        # short SHA, branch name, or run number.
         run: |
-          VERSION="$(git rev-parse --short HEAD)"
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "Artifact version: ${VERSION}"
+          echo "version=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          echo "Artifact version: ${{ github.sha }}"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -102,9 +103,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Generate route tree
-        run: pnpm generate-routes
-
+      # routeTree.gen.ts is committed — do not regenerate it here. Running
+      # `tsr generate` would mutate the clean checkout and break the artifact
+      # build's assertCleanBuildSource check.
       - name: Build app image
         env:
           SHEETBASE_NODE_IMAGE: ${{ steps.node_image.outputs.ref }}
@@ -186,7 +187,6 @@ jobs:
             corepack enable
             corepack prepare pnpm@11.9.0 --activate
             pnpm install --frozen-lockfile
-            pnpm generate-routes
 
             echo "==> Loading production secrets"
             set -a

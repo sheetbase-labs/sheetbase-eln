@@ -5,30 +5,30 @@ PostgreSQL, PostgREST, and a TanStack Start SSR frontend.
 
 ## Build & run
 
-| Command | Purpose |
-|---|---|
-| `pnpm install --frozen-lockfile` | Install deps (Node ≥22.12, pnpm 11.9.0) |
-| `pnpm generate-routes` | Generate TanStack Router route tree |
-| `pnpm dev` | Vite dev server on port 3000 |
-| `pnpm build` | Production build → `dist/client/` + `dist/server/` |
-| `pnpm start` | Production server (`scripts/start-prod.mjs`) on `$PORT` |
-| `pnpm typecheck` | TypeScript check (no emit) |
-| `pnpm lint` | ESLint |
-| `pnpm test` | Vitest (unit + integration) |
-| `pnpm test:db` | Database integration tests |
-| `pnpm test:api` | API tests |
-| `pnpm test:browser` | Playwright E2E |
-| `pnpm validate` | Full: check + lint + typecheck + test + build |
+| Command                          | Purpose                                                 |
+| -------------------------------- | ------------------------------------------------------- |
+| `pnpm install --frozen-lockfile` | Install deps (Node ≥22.12, pnpm 11.9.0)                 |
+| `pnpm generate-routes`           | Generate TanStack Router route tree                     |
+| `pnpm dev`                       | Vite dev server on port 3000                            |
+| `pnpm build`                     | Production build → `dist/client/` + `dist/server/`      |
+| `pnpm start`                     | Production server (`scripts/start-prod.mjs`) on `$PORT` |
+| `pnpm typecheck`                 | TypeScript check (no emit)                              |
+| `pnpm lint`                      | ESLint                                                  |
+| `pnpm test`                      | Vitest (unit + integration)                             |
+| `pnpm test:db`                   | Database integration tests                              |
+| `pnpm test:api`                  | API tests                                               |
+| `pnpm test:browser`              | Playwright E2E                                          |
+| `pnpm validate`                  | Full: check + lint + typecheck + test + build           |
 
 ## Database
 
-| Command | Purpose |
-|---|---|
-| `pnpm db:migrate` | Apply Drizzle migrations |
-| `pnpm db:generate` | Generate new migration from schema changes |
-| `pnpm db:seed:demo` | Seed demo data |
-| `pnpm db:seed:month` | Seed month-scale data |
-| `pnpm db:fresh` | Reset + migrate + seed |
+| Command              | Purpose                                    |
+| -------------------- | ------------------------------------------ |
+| `pnpm db:migrate`    | Apply Drizzle migrations                   |
+| `pnpm db:generate`   | Generate new migration from schema changes |
+| `pnpm db:seed:demo`  | Seed demo data                             |
+| `pnpm db:seed:month` | Seed month-scale data                      |
+| `pnpm db:fresh`      | Reset + migrate + seed                     |
 
 Migrations are in `drizzle/` (55 files, 0000–0054). Schema source:
 `src/db/schema.ts`. Migration config: `drizzle.config.ts`. The migration
@@ -89,11 +89,11 @@ See `.env.example` for all variables and documentation.
 
 ### Required GitHub Secrets
 
-| Secret | Purpose |
-|---|---|
+| Secret                | Purpose                         |
+| --------------------- | ------------------------------- |
 | `VPS_SSH_PRIVATE_KEY` | SSH key for the VPS deploy user |
-| `VPS_TAILSCALE_IP` | Tailscale IP of the VPS |
-| `TAILSCALE_AUTH_KEY` | Tailscale auth key for CI nodes |
+| `VPS_TAILSCALE_IP`    | Tailscale IP of the VPS         |
+| `TAILSCALE_AUTH_KEY`  | Tailscale auth key for CI nodes |
 
 ### Rollback
 
@@ -109,8 +109,9 @@ cluster, not Docker Compose. PostgREST runs as a downloaded binary.
 ## Project conventions
 
 - **TypeScript paths:** `#/` maps to `src/` (see `tsconfig.json`).
-- **Routing:** TanStack Router with file-based routes. Run `pnpm generate-routes`
-  after adding/removing route files.
+- **Routing:** TanStack Router with file-based routes. `src/routeTree.gen.ts`
+  is committed — run `pnpm generate-routes` after adding/removing route files,
+  then commit the result. CI and `.agents/setup` do not regenerate it.
 - **API boundary:** The browser never talks to PostgREST directly. All data
   goes through the same-origin `/api/db/*` proxy (`src/routes/api/db/$.ts`).
 - **Auth:** Better Auth with GitHub OAuth. Database-backed sessions. See

@@ -185,11 +185,11 @@ openssl rand -base64 32   # for POSTGRES_PASSWORD, auth secrets, JWT secrets
 
 Set these in the repository settings (Settings → Secrets and variables → Actions):
 
-| Secret | Purpose |
-|---|---|
-| `VPS_SSH_PRIVATE_KEY` | SSH private key for the `deploy` user on the VPS |
-| `VPS_TAILSCALE_IP` | Tailscale IP of the VPS (e.g. `100.x.y.z`) |
-| `TAILSCALE_AUTH_KEY` | Tailscale auth key for ephemeral GitHub Actions nodes |
+| Secret                | Purpose                                               |
+| --------------------- | ----------------------------------------------------- |
+| `VPS_SSH_PRIVATE_KEY` | SSH private key for the `deploy` user on the VPS      |
+| `VPS_TAILSCALE_IP`    | Tailscale IP of the VPS (e.g. `100.x.y.z`)            |
+| `TAILSCALE_AUTH_KEY`  | Tailscale auth key for ephemeral GitHub Actions nodes |
 
 `GITHUB_TOKEN` is automatically available for GHCR authentication — no
 additional secret needed unless using a PAT.
@@ -221,7 +221,6 @@ ssh deploy@<VPS_TAILSCALE_IP>
 cd /opt/sheetbase
 git pull origin main
 pnpm install --frozen-lockfile
-pnpm generate-routes
 
 set -a
 . /opt/sheetbase/.env.production
@@ -252,7 +251,7 @@ use immutable `@sha256` image references from GHCR.
 > **Note:** The first deploy uses local image tags without `@sha256` digests.
 > The `deploy.ts` controller validates `@sha256` references, so you may need to
 > bypass the controller for the initial bootstrap by running `docker compose -f
-> compose.deploy.yaml up -d --wait` directly, then switch to the CI-driven flow
+compose.deploy.yaml up -d --wait` directly, then switch to the CI-driven flow
 > for all subsequent deploys.
 
 ## Rollback

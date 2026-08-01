@@ -1,12 +1,45 @@
 name: sheetbase-deploy
 
-# The deployment controller validates that both image variables contain
-# @sha256 digests before invoking Compose. Secret values are injected into the
-# process environment by the selected secret manager; this file contains none.
+# Production deployment compose. The deployment controller (scripts/deploy.ts)
+# validates that both image variables contain @sha256 digests before invoking
+# Compose. Secret values are injected into the process environment by the
+# selected secret manager; this file contains none.
+#
+# PostgreSQL runs in the same Compose stack so all services share a private
+# network. No ports are published to the host — the database is reachable only
+# from the app, PostgREST, and migrate containers via the "postgres" service
+# name. Public traffic arrives through the Cloudflare Tunnel, which proxies to
+# the app container's port 3000 via the host's localhost.
 services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env.production}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env.production}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production}
+      # Consumed by docker/db/init/00-roles.sh on first volume initialisation.
+      POSTGREST_AUTHENTICATOR_PASSWORD: ${POSTGREST_AUTHENTICATOR_PASSWORD:?Set POSTGREST_AUTHENTICATOR_PASSWORD in .env.production}
+      MIGRATOR_PASSWORD: ${MIGRATOR_PASSWORD:?Set MIGRATOR_PASSWORD in .env.production}
+      FORMULA_WRITER_PASSWORD: ${FORMULA_WRITER_PASSWORD:?Set FORMULA_WRITER_PASSWORD in .env.production}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+      - ./docker/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
   postgrest:
     image: ${SHEETBASE_POSTGREST_IMAGE:?Set an immutable PostgREST image reference with @sha256 digest}
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
+      # authenticator is a NOINHERIT login role that can only switch to the
+      # NOLOGIN request roles. Privileged database credentials never leave
+      # the server side; nothing here is shipped to the browser.
       PGRST_DB_URI: ${PGRST_DB_URI:?Inject from the environment secret manager}
       PGRST_DB_SCHEMAS: api
       PGRST_DB_ANON_ROLE: anon
@@ -61,6 +94,9 @@ services:
   migrate:
     image: ${SHEETBASE_APP_IMAGE:?Set an immutable application image reference with @sha256 digest}
     profiles: [deployment]
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
       MIGRATION_DATABASE_URL: ${MIGRATION_DATABASE_URL:?Inject from the environment secret manager}
     command: ['./node_modules/.bin/drizzle-kit', 'migrate']
@@ -68,3 +104,4 @@ services:
 
 volumes:
   object-storage:
+  postgres-data:

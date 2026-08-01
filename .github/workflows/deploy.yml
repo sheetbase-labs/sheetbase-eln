@@ -146,6 +146,9 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     environment: production
+    permissions:
+      contents: read
+      packages: read
     steps:
       - name: Validate manual trigger confirmation
         if: github.event_name == 'workflow_dispatch'
@@ -168,7 +171,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
           # Tailscale routes the SSH connection over the tailnet; no public
           # inbound port is needed on the VPS.
-          envs: APP_IMAGE_REF, POSTGREST_IMAGE_REF, ARTIFACT_VERSION
+          envs: APP_IMAGE_REF, POSTGREST_IMAGE_REF, ARTIFACT_VERSION,GHCR_USERNAME,GHCR_TOKEN
           script: |
             set -euo pipefail
 
@@ -193,6 +196,12 @@ jobs:
             export SHEETBASE_APP_IMAGE="$APP_IMAGE_REF"
             export SHEETBASE_POSTGREST_IMAGE="$POSTGREST_IMAGE_REF"
 
+            echo "==> Pulling deployment images"
+            printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GHCR_USERNAME" --password-stdin
+            docker pull "$SHEETBASE_APP_IMAGE"
+            docker pull "$SHEETBASE_POSTGREST_IMAGE"
+            unset GHCR_TOKEN
+
             # Derive the artifact digest from the app image reference.
             export SHEETBASE_ARTIFACT_DIGEST="${APP_IMAGE_REF##*@}"
 
@@ -208,3 +217,5 @@ jobs:
           APP_IMAGE_REF: ${{ needs.build.outputs.app_image_ref }}
           POSTGREST_IMAGE_REF: ${{ needs.build.outputs.postgrest_image_ref }}
           ARTIFACT_VERSION: ${{ needs.build.outputs.artifact_version }}
+          GHCR_USERNAME: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -209,7 +209,7 @@ jobs:
             # through its loopback listener. Cloudflare is an ingress concern;
             # it must not make a healthy rollout fail while the hostname route
             # is being configured or repaired.
-            export SHEETBASE_READINESS_URL="http://127.0.0.1:3000/api/health/ready"
+            export SHEETBASE_LOCAL_READINESS_URL="http://127.0.0.1:3000/api/health/ready"
 
             echo "==> Planning deployment"
             pnpm deploy:plan

@@ -91,6 +91,9 @@ const plan = buildDeploymentPlan({
   applicationImage,
   postgrestImage,
   expectedMigration: deployment.expectedMigration,
+  // The documented public HTTPS endpoint remains part of the deployment
+  // contract. The controller can optionally prove readiness through the
+  // VPS-local listener after Compose starts.
   readinessUrl: required('SHEETBASE_READINESS_URL'),
   publicOrigin: required('BETTER_AUTH_URL'),
 })
@@ -138,7 +141,9 @@ try {
   throw error
 }
 
-const readinessUrl = required('SHEETBASE_READINESS_URL')
+const readinessUrl =
+  process.env.SHEETBASE_LOCAL_READINESS_URL ??
+  required('SHEETBASE_READINESS_URL')
 let evidence: unknown
 for (let attempt = 1; attempt <= 12; attempt += 1) {
   try {

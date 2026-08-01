@@ -45,6 +45,12 @@ const imageLabels = JSON.parse(
   ]),
 ) as Record<string, unknown>
 const imageMetadata = validateArtifactImageMetadata(imageLabels)
+// These names resolve on the private Compose network. They are deployment
+// topology, not host-level secrets, so keep the controller aligned with
+// compose.deploy.yaml when they are not present in .env.production.
+const postgrestUrl = process.env.POSTGREST_URL ?? 'http://postgrest:3000'
+const postgrestAdminUrl =
+  process.env.POSTGREST_ADMIN_URL ?? 'http://postgrest:3001'
 
 const deployment = validateDeploymentConfig({
   SHEETBASE_ENV: required('SHEETBASE_ENV') as 'staging' | 'production',
@@ -56,8 +62,8 @@ const deployment = validateDeploymentConfig({
   SHEETBASE_EXPECTED_MIGRATION: imageMetadata.expectedMigration,
   BETTER_AUTH_URL: required('BETTER_AUTH_URL'),
   DATABASE_URL: required('DATABASE_URL'),
-  POSTGREST_URL: required('POSTGREST_URL'),
-  POSTGREST_ADMIN_URL: required('POSTGREST_ADMIN_URL'),
+  POSTGREST_URL: postgrestUrl,
+  POSTGREST_ADMIN_URL: postgrestAdminUrl,
   GITHUB_CLIENT_ID: required('GITHUB_CLIENT_ID'),
   GITHUB_CLIENT_SECRET: required('GITHUB_CLIENT_SECRET'),
 })

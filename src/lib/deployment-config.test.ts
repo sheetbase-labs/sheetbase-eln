@@ -24,7 +24,7 @@ const invalidProductionCases: Array<
   [
     'local secrets',
     { SHEETBASE_SECRET_SOURCE: 'local-env' },
-    /requires SHEETBASE_SECRET_SOURCE=secret-manager/,
+    /requires a managed secret source/,
   ],
   [
     'a mutable artifact identity',
@@ -65,6 +65,15 @@ describe('validateDeploymentConfig', () => {
       ).toThrow(message)
     },
   )
+
+  it('accepts a VPS-local production secret file', () => {
+    expect(
+      validateDeploymentConfig({
+        ...productionConfig,
+        SHEETBASE_SECRET_SOURCE: 'vps-local',
+      }),
+    ).toEqual(expect.objectContaining({ secretSource: 'vps-local' }))
+  })
 
   it('allows local environment inputs in development', () => {
     expect(

@@ -14,7 +14,11 @@ const migrationVersion = z.string().regex(/^\d{13}$/)
 
 const deploymentInputSchema = z.object({
   SHEETBASE_ENV: deploymentEnvironmentSchema,
-  SHEETBASE_SECRET_SOURCE: z.enum(['local-env', 'secret-manager']),
+  SHEETBASE_SECRET_SOURCE: z.enum([
+    'local-env',
+    'vps-local',
+    'secret-manager',
+  ]),
   SHEETBASE_ARTIFACT_VERSION: z.string().min(1),
   SHEETBASE_ARTIFACT_DIGEST: z.string().min(1),
   SHEETBASE_EXPECTED_MIGRATION: z.string().min(1),
@@ -28,7 +32,7 @@ const deploymentInputSchema = z.object({
 
 export interface DeploymentConfig {
   environment: DeploymentEnvironment
-  secretSource: 'local-env' | 'secret-manager'
+  secretSource: 'local-env' | 'vps-local' | 'secret-manager'
   artifact: { version: string; digest: string }
   expectedMigration: string
 }
@@ -47,9 +51,12 @@ export function validateDeploymentConfig(
     parsed.SHEETBASE_ENV === 'staging' || parsed.SHEETBASE_ENV === 'production'
 
   if (deployed) {
-    if (parsed.SHEETBASE_SECRET_SOURCE !== 'secret-manager') {
+    if (
+      parsed.SHEETBASE_SECRET_SOURCE !== 'secret-manager' &&
+      parsed.SHEETBASE_SECRET_SOURCE !== 'vps-local'
+    ) {
       throw new Error(
-        `${parsed.SHEETBASE_ENV} requires SHEETBASE_SECRET_SOURCE=secret-manager`,
+        `${parsed.SHEETBASE_ENV} requires a managed secret source`,
       )
     }
     sha256Digest.parse(parsed.SHEETBASE_ARTIFACT_DIGEST)

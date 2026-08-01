@@ -62,7 +62,7 @@ services:
     environment:
       NODE_ENV: production
       SHEETBASE_ENV: ${SHEETBASE_ENV:?Set staging or production}
-      SHEETBASE_SECRET_SOURCE: secret-manager
+      SHEETBASE_SECRET_SOURCE: ${SHEETBASE_SECRET_SOURCE:-vps-local}
       SHEETBASE_ARTIFACT_DIGEST: ${SHEETBASE_ARTIFACT_DIGEST:?Set the application sha256 digest}
       DATABASE_URL: ${DATABASE_URL:?Inject from the environment secret manager}
       FORMULA_DATABASE_URL: ${FORMULA_DATABASE_URL:?Inject from the environment secret manager}

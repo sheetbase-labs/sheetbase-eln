@@ -30,7 +30,7 @@ export const env = createEnv({
       .enum(['development', 'test', 'staging', 'production'])
       .default('development'),
     SHEETBASE_SECRET_SOURCE: z
-      .enum(['local-env', 'secret-manager'])
+      .enum(['local-env', 'vps-local', 'secret-manager'])
       .default('local-env'),
     SHEETBASE_ARTIFACT_VERSION: z.string().min(1).default('local'),
     SHEETBASE_ARTIFACT_DIGEST: z.string().min(1).default('untracked'),

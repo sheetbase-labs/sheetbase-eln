@@ -171,16 +171,12 @@ jobs:
           envs: APP_IMAGE_REF, POSTGREST_IMAGE_REF, ARTIFACT_VERSION
           script: |
             set -euo pipefail
-            export APP_IMAGE_REF="$1"
-            export POSTGREST_IMAGE_REF="$2"
-            export ARTIFACT_VERSION="$3"
 
             cd /opt/sheetbase
 
             echo "==> Pulling latest code"
-            git fetch --all
-            git checkout "$ARTIFACT_VERSION"
-            git pull origin main
+            git fetch origin main
+            git checkout --detach "$ARTIFACT_VERSION"
 
             echo "==> Installing dependencies"
             corepack enable

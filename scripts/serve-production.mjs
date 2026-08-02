@@ -32,9 +32,15 @@ function writeLog(level, message, fields = {}) {
 
 async function assertStartupReady() {
   if (process.env.NODE_ENV !== 'production') return
-  if (!['staging', 'production'].includes(process.env.SHEETBASE_ENV)) {
+  const isAuthFreeDevelopment =
+    process.env.SHEETBASE_ENV === 'development' &&
+    process.env.SHEETBASE_DEV_AUTH_FREE === 'true'
+  if (
+    !['staging', 'production'].includes(process.env.SHEETBASE_ENV) &&
+    !isAuthFreeDevelopment
+  ) {
     throw new Error(
-      'production startup requires SHEETBASE_ENV=staging or production',
+      'production startup requires SHEETBASE_ENV=staging or production, or explicit auth-free development mode',
     )
   }
   const response = await application.fetch(

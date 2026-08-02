@@ -77,7 +77,9 @@ managed-secret injection, promotion and rollback are documented in
   `testing.md`, `seeds.md`, `database-access.md`, `authentication.md`) and
   durable architectural decision records (`docs/decisions/`).
 - `PRODUCT.md` and `DESIGN.md` describe product and design intent;
-  `ROADMAP.md` and `TODO.md` govern what gets built and in what order.
+- `docs/dev-environment.md` describes the disposable auth-free development
+  surface at `dev.sheetbase.co.uk`;
+- `ROADMAP.md` and `TODO.md` govern what gets built and in what order.
 
 Product components should be added through shadcn's source-owned pattern and
 then reconciled with the concept system. Copying the concept catalogue

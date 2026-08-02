@@ -24,6 +24,15 @@ product is single-user: the first GitHub account to sign in becomes the
 initial user (bootstrap: AUTH-002). No email or GitHub id is hard-coded
 anywhere.
 
+## Auth-free development surface
+
+The separate `dev.sheetbase.co.uk` environment does not use this OAuth flow.
+Its Compose file sets `SHEETBASE_ENV=development` and
+`SHEETBASE_DEV_AUTH_FREE=true`, so the server resolves the seeded fixture owner
+without a cookie. This flag is explicitly rejected by deployment validation
+outside development. See [Development environment](dev-environment.md) for
+the disposable database, storage and manual tunnel setup.
+
 ## Environment variables
 
 | Variable                                    | Notes                                                                                         |

@@ -35,6 +35,18 @@ export const env = createEnv({
     SHEETBASE_ARTIFACT_VERSION: z.string().min(1).default('local'),
     SHEETBASE_ARTIFACT_DIGEST: z.string().min(1).default('untracked'),
     SHEETBASE_EXPECTED_MIGRATION: z.string().min(1).default('untracked'),
+    // Explicit opt-in for the disposable, public development surface. This
+    // is rejected for staging/production by validateDeploymentConfig.
+    SHEETBASE_DEV_AUTH_FREE: z
+      .union([
+        z.boolean(),
+        z.enum(['true', 'false']).transform((v) => v === 'true'),
+      ])
+      .default(false),
+    SHEETBASE_DEV_USER_ID: z
+      .string()
+      .uuid()
+      .default('00000000-0000-4000-8000-000000000001'),
   },
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,
@@ -54,5 +66,6 @@ export function getDeploymentConfig() {
     POSTGREST_ADMIN_URL: env.POSTGREST_ADMIN_URL,
     GITHUB_CLIENT_ID: env.GITHUB_CLIENT_ID,
     GITHUB_CLIENT_SECRET: env.GITHUB_CLIENT_SECRET,
+    SHEETBASE_DEV_AUTH_FREE: env.SHEETBASE_DEV_AUTH_FREE,
   })
 }

@@ -14,11 +14,7 @@ const migrationVersion = z.string().regex(/^\d{13}$/)
 
 const deploymentInputSchema = z.object({
   SHEETBASE_ENV: deploymentEnvironmentSchema,
-  SHEETBASE_SECRET_SOURCE: z.enum([
-    'local-env',
-    'vps-local',
-    'secret-manager',
-  ]),
+  SHEETBASE_SECRET_SOURCE: z.enum(['local-env', 'vps-local', 'secret-manager']),
   SHEETBASE_ARTIFACT_VERSION: z.string().min(1),
   SHEETBASE_ARTIFACT_DIGEST: z.string().min(1),
   SHEETBASE_EXPECTED_MIGRATION: z.string().min(1),
@@ -28,6 +24,7 @@ const deploymentInputSchema = z.object({
   POSTGREST_ADMIN_URL: z.string().url(),
   GITHUB_CLIENT_ID: z.string().min(1).optional(),
   GITHUB_CLIENT_SECRET: z.string().min(1).optional(),
+  SHEETBASE_DEV_AUTH_FREE: z.boolean().default(false),
 })
 
 export interface DeploymentConfig {
@@ -49,6 +46,13 @@ export function validateDeploymentConfig(
   const parsed = deploymentInputSchema.parse(input)
   const deployed =
     parsed.SHEETBASE_ENV === 'staging' || parsed.SHEETBASE_ENV === 'production'
+
+  if (
+    parsed.SHEETBASE_DEV_AUTH_FREE &&
+    parsed.SHEETBASE_ENV !== 'development'
+  ) {
+    throw new Error('SHEETBASE_DEV_AUTH_FREE is only allowed in development')
+  }
 
   if (deployed) {
     if (

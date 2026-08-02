@@ -1,0 +1,181 @@
+# Deploy the disposable, auth-free development surface. This workflow is
+# deliberately separate from deploy.yml: it never reads production secrets,
+# never changes the production Compose project, and is manually dispatched so
+# a PR or AMP can update ordinary GitHub code review without deploying.
+
+name: Deploy development environment
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch or tag to build and deploy'
+        required: true
+        default: 'main'
+      confirm:
+        description: 'Type "deploy-dev" to confirm'
+        required: true
+        default: ''
+
+concurrency:
+  group: development-deploy
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  APP_IMAGE_NAME: ${{ github.repository }}
+  POSTGREST_IMAGE_NAME: ${{ github.repository }}-postgrest
+
+jobs:
+  build:
+    name: Build and push development images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      app_image_ref: ${{ steps.app_digest.outputs.ref }}
+      postgrest_image_ref: ${{ steps.postgrest_digest.outputs.ref }}
+      artifact_version: ${{ steps.version.outputs.version }}
+      expected_migration: ${{ steps.migration.outputs.version }}
+    steps:
+      - name: Checkout selected ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 1
+
+      - name: Set artifact version
+        id: version
+        run: |
+          echo "version=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          echo "Artifact version: ${{ github.sha }}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve Node image digest
+        id: node_image
+        run: |
+          docker pull node:22-alpine
+          REF="$(docker inspect --format '{{index .RepoDigests 0}}' node:22-alpine)"
+          echo "ref=${REF}" >> "$GITHUB_OUTPUT"
+
+      - name: Install pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.9.0 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Read expected migration
+        id: migration
+        run: |
+          VERSION="$(node -e "const j=require('./drizzle/meta/_journal.json'); console.log(j.entries.at(-1).when)")"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Build app image
+        env:
+          SHEETBASE_NODE_IMAGE: ${{ steps.node_image.outputs.ref }}
+          SHEETBASE_ARTIFACT_VERSION: ${{ steps.version.outputs.version }}
+          SHEETBASE_ARTIFACT_TAG: ${{ env.REGISTRY }}/${{ env.APP_IMAGE_NAME }}:dev-${{ steps.version.outputs.version }}
+        run: pnpm artifact:build
+
+      - name: Push app image to GHCR
+        id: app_digest
+        run: |
+          TAG="${{ env.REGISTRY }}/${{ env.APP_IMAGE_NAME }}:dev-${{ steps.version.outputs.version }}"
+          docker push "$TAG"
+          REF="$(docker inspect --format '{{index .RepoDigests 0}}' "$TAG")"
+          echo "ref=${REF}" >> "$GITHUB_OUTPUT"
+
+      - name: Build PostgREST image
+        run: |
+          docker build \
+            --build-arg POSTGREST_VERSION=v14.5 \
+            --tag ${{ env.REGISTRY }}/${{ env.POSTGREST_IMAGE_NAME }}:v14.5 \
+            docker/postgrest
+
+      - name: Push PostgREST image to GHCR
+        id: postgrest_digest
+        run: |
+          TAG="${{ env.REGISTRY }}/${{ env.POSTGREST_IMAGE_NAME }}:v14.5"
+          docker push "$TAG"
+          REF="$(docker inspect --format '{{index .RepoDigests 0}}' "$TAG")"
+          echo "ref=${REF}" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Deploy to development VPS
+    needs: build
+    if: inputs.confirm == 'deploy-dev'
+    runs-on: ubuntu-latest
+    environment: development
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Install Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          authkey: ${{ secrets.DEV_TAILSCALE_AUTH_KEY }}
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEV_VPS_TAILSCALE_IP }}
+          username: deploy
+          key: ${{ secrets.DEV_VPS_SSH_PRIVATE_KEY }}
+          envs: APP_IMAGE_REF,POSTGREST_IMAGE_REF,ARTIFACT_VERSION,EXPECTED_MIGRATION,DEPLOY_REF,GHCR_USERNAME,GHCR_TOKEN
+          script: |
+            set -euo pipefail
+
+            case "$APP_IMAGE_REF" in *@sha256:*) ;; *) echo 'App image is not immutable'; exit 1 ;; esac
+            case "$POSTGREST_IMAGE_REF" in *@sha256:*) ;; *) echo 'PostgREST image is not immutable'; exit 1 ;; esac
+
+            cd /opt/sheetbase-dev
+            git fetch --depth=1 origin "$DEPLOY_REF"
+            git checkout --detach "$ARTIFACT_VERSION"
+
+            set -a
+            # shellcheck disable=SC1091
+            . /opt/sheetbase-dev/.env.development
+            set +a
+            export SHEETBASE_APP_IMAGE="$APP_IMAGE_REF"
+            export SHEETBASE_POSTGREST_IMAGE="$POSTGREST_IMAGE_REF"
+            export SHEETBASE_ARTIFACT_VERSION="$ARTIFACT_VERSION"
+            export SHEETBASE_ARTIFACT_DIGEST="${APP_IMAGE_REF##*@}"
+            export SHEETBASE_EXPECTED_MIGRATION="$EXPECTED_MIGRATION"
+
+            printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GHCR_USERNAME" --password-stdin
+            docker compose -f compose.dev.yaml --env-file /opt/sheetbase-dev/.env.development pull
+            docker compose -f compose.dev.yaml --env-file /opt/sheetbase-dev/.env.development up -d postgres
+            docker compose -f compose.dev.yaml --env-file /opt/sheetbase-dev/.env.development --profile deployment run --rm migrate
+            docker compose -f compose.dev.yaml --env-file /opt/sheetbase-dev/.env.development --profile deployment run --rm seed
+            docker compose -f compose.dev.yaml --env-file /opt/sheetbase-dev/.env.development up -d postgrest app
+            unset GHCR_TOKEN
+
+            for attempt in $(seq 1 30); do
+              if curl -fsS http://127.0.0.1:3100/api/health/ready >/dev/null; then
+                echo 'Development environment ready: http://127.0.0.1:3100'
+                exit 0
+              fi
+              sleep 2
+            done
+            docker compose -f compose.dev.yaml --env-file /opt/sheetbase-dev/.env.development ps
+            exit 1
+        env:
+          APP_IMAGE_REF: ${{ needs.build.outputs.app_image_ref }}
+          POSTGREST_IMAGE_REF: ${{ needs.build.outputs.postgrest_image_ref }}
+          ARTIFACT_VERSION: ${{ needs.build.outputs.artifact_version }}
+          EXPECTED_MIGRATION: ${{ needs.build.outputs.expected_migration }}
+          DEPLOY_REF: ${{ inputs.ref }}
+          GHCR_USERNAME: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -7,8 +7,12 @@ import { describeSignInError } from '#/lib/auth-errors'
 const getSignInState = createServerFn({ method: 'GET' }).handler(async () => {
   // Server-only: tells the page whether GitHub OAuth is configured without
   // exposing any credential material to the client.
-  const { isGithubConfigured } = await import('#/lib/auth')
-  return { githubEnabled: isGithubConfigured }
+  const { isDevAuthFreeEnabled, isGithubConfigured } =
+    await import('#/lib/auth')
+  return {
+    devAuthFree: isDevAuthFreeEnabled(),
+    githubEnabled: isGithubConfigured,
+  }
 })
 
 const signInSearch = z.object({
@@ -22,7 +26,7 @@ export const Route = createFileRoute('/sign-in')({
 })
 
 function SignIn() {
-  const { githubEnabled } = Route.useLoaderData()
+  const { devAuthFree, githubEnabled } = Route.useLoaderData()
   const { error } = Route.useSearch()
   const message = describeSignInError(error)
 
@@ -43,7 +47,12 @@ function SignIn() {
           </p>
         ) : null}
 
-        {githubEnabled ? (
+        {devAuthFree ? (
+          <p className="text-sm leading-6 text-muted-foreground">
+            This disposable development environment is open for review. No
+            sign-in or OAuth setup is required.
+          </p>
+        ) : githubEnabled ? (
           <SignInWithGitHub />
         ) : (
           <p className="text-sm leading-6 text-muted-foreground">

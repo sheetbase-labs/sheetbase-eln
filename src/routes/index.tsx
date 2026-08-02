@@ -93,13 +93,13 @@ export const Route = createFileRoute('/')({
 const retryBootstrapFn = createServerFn({ method: 'POST' }).handler(
   async () => {
     const { getRequestHeaders } = await import('@tanstack/react-start/server')
-    const { auth } = await import('#/lib/auth')
+    const { getAppSession } = await import('#/lib/auth')
     const { drizzle } = await import('drizzle-orm/node-postgres')
     const { env } = await import('#/env.server')
     const schema = await import('#/db/schema')
     const { bootstrapWorkspaceForUser } = await import('#/lib/bootstrap')
 
-    const session = await auth.api.getSession({ headers: getRequestHeaders() })
+    const session = await getAppSession(getRequestHeaders())
     if (!session) {
       throw new Error('Not signed in')
     }

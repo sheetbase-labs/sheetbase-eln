@@ -2,6 +2,7 @@ import { createEnv } from '@t3-oss/env-core'
 import { z } from 'zod'
 
 import { validateDeploymentConfig } from '#/lib/deployment-config'
+import { DEFAULT_DEV_USER_ID } from '#/lib/dev-identity'
 
 export const env = createEnv({
   server: {
@@ -43,10 +44,7 @@ export const env = createEnv({
         z.enum(['true', 'false']).transform((v) => v === 'true'),
       ])
       .default(false),
-    SHEETBASE_DEV_USER_ID: z
-      .string()
-      .uuid()
-      .default('00000000-0000-4000-8000-000000000001'),
+    SHEETBASE_DEV_USER_ID: z.string().uuid().default(DEFAULT_DEV_USER_ID),
   },
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,

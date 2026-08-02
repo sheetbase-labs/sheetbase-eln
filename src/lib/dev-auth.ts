@@ -1,9 +1,13 @@
 import { env } from '#/env.server'
+import {
+  DEFAULT_DEV_USER_EMAIL,
+  DEV_USER_NAME,
+  devUserEmail,
+} from '#/lib/dev-identity'
 
 /** Stable identity used by the disposable auth-free development environment. */
 export const DEV_SESSION_ID = 'dev-auth-free-session'
-export const DEV_USER_NAME = 'Fixture Owner'
-export const DEV_USER_EMAIL = 'owner@sheetbase.test'
+export { DEFAULT_DEV_USER_EMAIL as DEV_USER_EMAIL, DEV_USER_NAME }
 
 export interface AppSession {
   user: {
@@ -30,7 +34,7 @@ export function getDevSession(): AppSession {
     user: {
       id: env.SHEETBASE_DEV_USER_ID,
       name: DEV_USER_NAME,
-      email: DEV_USER_EMAIL,
+      email: devUserEmail(env.SHEETBASE_DEV_USER_ID),
     },
     session: { id: DEV_SESSION_ID },
   }

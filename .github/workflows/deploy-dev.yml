@@ -48,8 +48,9 @@ jobs:
       - name: Set artifact version
         id: version
         run: |
-          echo "version=${{ github.sha }}" >> "$GITHUB_OUTPUT"
-          echo "Artifact version: ${{ github.sha }}"
+          VERSION="$(git rev-parse HEAD)"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Artifact version: ${VERSION}"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

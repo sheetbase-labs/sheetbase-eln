@@ -9,8 +9,11 @@ It is a disposable demo surface, not a staging or production environment.
 - `SHEETBASE_ENV=development` and `SHEETBASE_DEV_AUTH_FREE=true` select the
   open development identity. The application refuses this flag in staging or
   production.
-- The seeded identity is `owner@sheetbase.test`, with the existing fixture
-  workspace and Virus Stability demo data. No GitHub/Google OAuth application,
+- The seeded identity is `owner@sheetbase.test` by default, with the existing
+  fixture workspace and Virus Stability demo data. `SHEETBASE_DEV_USER_ID` is
+  passed to both the app and seed containers, so the auth-free session and its
+  fixture-workspace owner membership stay aligned. A custom ID gets a unique
+  `owner+...@sheetbase.test` seed email. No GitHub/Google OAuth application,
   user session or Better Auth setup is needed to view or edit the demo.
 - `compose.dev.yaml` uses the `sheetbase-dev` Compose project, host port
   `3100`, Postgres volume `sheetbase-dev-postgres-data`, and object-storage

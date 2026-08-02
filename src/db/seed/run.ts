@@ -18,6 +18,7 @@ import { Client } from 'pg'
 import { drizzle } from 'drizzle-orm/node-postgres'
 
 import * as schema from '../schema'
+import { resolveDevUserIdentity } from '#/lib/dev-identity'
 import { monthSteps } from './month'
 import {
   DEMO_BLOCK_IDS,
@@ -46,6 +47,8 @@ import {
 } from './identities'
 
 config({ path: ['.env.local', '.env'] })
+
+const DEV_USER = resolveDevUserIdentity(process.env.SHEETBASE_DEV_USER_ID)
 
 export interface SeedStep {
   name: string
@@ -129,6 +132,42 @@ export const fixtureSteps: Array<SeedStep> = [
         // A live workspace may already own the historical fixture UUID. Do
         // not mutate or move that row when running an additive seed.
         .onConflictDoNothing()
+    },
+  },
+  {
+    name: 'auth-free development user',
+    run: async (db) => {
+      await db
+        .insert(schema.user)
+        .values({
+          id: DEV_USER.id,
+          name: DEV_USER.name,
+          email: DEV_USER.email,
+          emailVerified: true,
+        })
+        .onConflictDoUpdate({
+          target: schema.user.id,
+          set: { name: DEV_USER.name, email: DEV_USER.email },
+        })
+    },
+  },
+  {
+    name: 'auth-free development workspace membership',
+    run: async (db) => {
+      await db
+        .insert(schema.workspaceMemberships)
+        .values({
+          workspaceId: FIXTURE_WORKSPACE_ID,
+          userId: DEV_USER.id,
+          role: 'owner',
+        })
+        .onConflictDoUpdate({
+          target: [
+            schema.workspaceMemberships.workspaceId,
+            schema.workspaceMemberships.userId,
+          ],
+          set: { role: 'owner' },
+        })
     },
   },
 ]

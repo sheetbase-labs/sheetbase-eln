@@ -2,7 +2,7 @@ name: sheetbase-dev
 
 # Non-production, auth-free development stack. This file is intentionally
 # separate from compose.deploy.yaml: it uses independent volumes, a separate
-# host port, a separate env file and a fixed seeded development identity.
+# host port, a separate env file and a seeded development identity.
 # Public access must be provided by a manually configured Cloudflare Tunnel;
 # this Compose file does not expose the app beyond loopback.
 services:
@@ -106,6 +106,7 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in the development env file}
       PGRST_DB_URI: ${PGRST_DB_URI:?Set PGRST_DB_URI in the development env file}
+      SHEETBASE_DEV_USER_ID: ${SHEETBASE_DEV_USER_ID:-00000000-0000-4000-8000-000000000001}
       FILE_STORAGE_DIR: /app/.storage/objects
     volumes:
       - dev-object-storage:/app/.storage/objects

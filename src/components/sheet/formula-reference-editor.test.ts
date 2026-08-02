@@ -11,6 +11,15 @@ import {
 } from './formula-reference-editor'
 import type { HotLike } from './formula-reference-editor'
 
+/** jsdom converts hex border colours to rgb(...) — normalise for assertions. */
+function hexToRgb(hex: string): string {
+  const n = parseInt(hex.slice(1), 16)
+  const r = (n >> 16) & 255
+  const g = (n >> 8) & 255
+  const b = n & 255
+  return `rgb(${r}, ${g}, ${b})`
+}
+
 describe('A1 notation helpers', () => {
   it('converts zero-indexed columns to letters', () => {
     expect(columnToLetter(0)).toBe('A')
@@ -82,8 +91,6 @@ function mockHot(cellGrid: HTMLTableCellElement[][]): {
   hot: HotLike
   root: HTMLElement
   coordsSpy: ReturnType<typeof vi.fn>
-  setBordersSpy: ReturnType<typeof vi.fn>
-  clearBordersSpy: ReturnType<typeof vi.fn>
 } {
   const doc = document
   const root = doc.createElement('div')
@@ -97,19 +104,13 @@ function mockHot(cellGrid: HTMLTableCellElement[][]): {
     }
     return null
   })
-  const setBordersSpy = vi.fn()
-  const clearBordersSpy = vi.fn()
   const hot: HotLike = {
     rootElement: root,
     rootDocument: doc,
     getCoords: coordsSpy,
     getCell: (row, col) => cellGrid[row]?.[col] ?? null,
-    getPlugin: () => ({
-      setBorders: setBordersSpy,
-      clearBorders: clearBordersSpy,
-    }),
   }
-  return { hot, root, coordsSpy, setBordersSpy, clearBordersSpy }
+  return { hot, root, coordsSpy }
 }
 
 function td(): HTMLTableCellElement {
@@ -201,7 +202,7 @@ describe('ReferencePicker', () => {
 
   it('inserts a range reference after a click-drag and outlines the range', () => {
     const cells = Array.from({ length: 5 }, () => [td()])
-    const { hot, setBordersSpy } = mockHot(cells)
+    const { hot, root } = mockHot(cells)
     const inserted: string[] = []
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
@@ -233,9 +234,11 @@ describe('ReferencePicker', () => {
     }
 
     expect(inserted).toEqual(['A1:A5'])
-    const [ranges, style] = setBordersSpy.mock.calls[0]
-    expect(ranges).toEqual([[0, 0, 4, 0]])
-    expect((style.top as { color: string }).color).toBe(REFERENCE_COLORS[0])
+    // A persistent overlay div is created for the range.
+    const highlights = root.querySelectorAll<HTMLDivElement>('.sheetbase-ref-highlight')
+    expect(highlights).toHaveLength(1)
+    expect(highlights[0].style.border).toContain('dashed')
+    expect(highlights[0].style.border).toContain(hexToRgb(REFERENCE_COLORS[0]))
   })
 
   it('assigns a new colour to each subsequent reference', () => {
@@ -243,7 +246,7 @@ describe('ReferencePicker', () => {
       [td(), td(), td()],
       [td(), td(), td()],
     ]
-    const { hot, setBordersSpy } = mockHot(cells)
+    const { hot, root } = mockHot(cells)
     const inserted: string[] = []
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
@@ -260,13 +263,13 @@ describe('ReferencePicker', () => {
 
     expect(inserted).toEqual(['B1', 'C2'])
     expect(picker.references).toHaveLength(2)
-    const firstColor = (setBordersSpy.mock.calls[0][1].top as { color: string })
-      .color
-    const secondColor = (setBordersSpy.mock.calls[1][1].top as { color: string })
-      .color
-    expect(firstColor).toBe(REFERENCE_COLORS[0])
-    expect(secondColor).toBe(REFERENCE_COLORS[1])
-    expect(firstColor).not.toBe(secondColor)
+    const highlights = root.querySelectorAll<HTMLDivElement>('.sheetbase-ref-highlight')
+    expect(highlights).toHaveLength(2)
+    const firstBorder = highlights[0].style.border
+    const secondBorder = highlights[1].style.border
+    expect(firstBorder).toContain(hexToRgb(REFERENCE_COLORS[0]))
+    expect(secondBorder).toContain(hexToRgb(REFERENCE_COLORS[1]))
+    expect(firstBorder).not.toBe(secondBorder)
   })
 
   it('keeps all committed references until clearAllHighlights removes them', () => {
@@ -274,7 +277,7 @@ describe('ReferencePicker', () => {
       [td(), td()],
       [td(), td()],
     ]
-    const { hot, clearBordersSpy } = mockHot(cells)
+    const { hot, root } = mockHot(cells)
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
       insertReference: vi.fn(),
@@ -286,12 +289,11 @@ describe('ReferencePicker', () => {
     picker.onPointerDown(pointer('pointerdown', cells[1][1]))
     picker.onPointerUp(pointer('pointerup', cells[1][1]))
     expect(picker.references).toHaveLength(2)
+    expect(root.querySelectorAll('.sheetbase-ref-highlight')).toHaveLength(2)
 
     picker.clearAllHighlights()
-    // One clearBorders call per committed reference range.
-    expect(clearBordersSpy).toHaveBeenCalledTimes(2)
-    expect(clearBordersSpy.mock.calls[0][0]).toEqual([[0, 0, 0, 0]])
-    expect(clearBordersSpy.mock.calls[1][0]).toEqual([[1, 1, 1, 1]])
+    // All overlay divs are removed.
+    expect(root.querySelectorAll('.sheetbase-ref-highlight')).toHaveLength(0)
     expect(picker.references).toHaveLength(0)
   })
 
@@ -356,6 +358,34 @@ describe('ReferencePicker', () => {
     expect(picker.isDragging).toBe(false)
     expect(picker.references).toHaveLength(0)
     expect(root.querySelector('.sheetbase-ref-preview')).toBeNull()
+  })
+
+  it('repositionHighlights updates overlay positions from cell geometry', () => {
+    const cells = [[td(), td()]]
+    const { hot, root } = mockHot(cells)
+    const picker = new ReferencePicker(hot, {
+      getSheetName: () => '',
+      insertReference: vi.fn(),
+      refocusEditor: vi.fn(),
+    })
+
+    picker.onPointerDown(pointer('pointerdown', cells[0][1]))
+    picker.onPointerUp(pointer('pointerup', cells[0][1]))
+    const overlay = root.querySelector('.sheetbase-ref-highlight') as HTMLDivElement
+    expect(overlay).not.toBeNull()
+    const leftBefore = overlay.style.left
+
+    // Simulate a scroll: move the cell's bounding rect and reposition.
+    const originalGetBoundingClientRect =
+      cells[0][1].getBoundingClientRect.bind(cells[0][1])
+    vi.spyOn(cells[0][1], 'getBoundingClientRect').mockReturnValue({
+      ...originalGetBoundingClientRect(),
+      left: originalGetBoundingClientRect().left + 50,
+      right: originalGetBoundingClientRect().right + 50,
+    })
+    picker.repositionHighlights()
+    const leftAfter = overlay.style.left
+    expect(leftAfter).not.toBe(leftBefore)
   })
 
   it('suppresses mousedown inside the grid without starting a pick', () => {

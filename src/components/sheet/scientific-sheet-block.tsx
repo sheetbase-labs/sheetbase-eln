@@ -736,15 +736,10 @@ function SchemaConfigurator({
 /**
  * Explicit context-menu item list for the editable scientific sheet.
  *
- * `contextMenu: true` would inherit Handsontable's `DEFAULT_ITEMS` plus any
- * items contributed by enabled plugins. The `customBorders` plugin (enabled so
- * the {@link FormulaReferenceEditor} can draw reference highlights) hooks
- * `afterContextMenuDefaultOptions` and pushes a `borders` submenu into those
- * default options — exposing a Borders menu the user should never see. By
- * supplying an explicit item array we opt out of the plugin-contributed items
- * and keep the standard editing actions only (insert/remove row & column,
- * undo/redo, read-only toggle, alignment). Read-only mode disables the menu
- * entirely (`false`).
+ * Supplying an explicit item array (rather than `contextMenu: true`) keeps the
+ * standard editing actions only (insert/remove row & column, undo/redo,
+ * read-only toggle, alignment) and avoids inheriting any plugin-contributed
+ * items. Read-only mode disables the menu entirely (`false`).
  */
 const GRID_CONTEXT_MENU_ITEMS: readonly string[] = Object.freeze([
   'row_above',
@@ -1374,15 +1369,9 @@ export function ScientificSheetBlock({
             readOnly,
             fillHandle: !readOnly,
             // Explicit item list (see GRID_CONTEXT_MENU_ITEMS) rather than
-            // `true`, so the customBorders plugin's auto-added `borders`
-            // submenu is never exposed to users.
+            // `true`, so only the standard editing actions are exposed.
             contextMenu: readOnly ? false : GRID_CONTEXT_MENU_ITEMS,
             stretchH: 'all' as const,
-            // Enable customBorders so the FormulaReferenceEditor can draw the
-            // persistent coloured outlines around picked references. The
-            // plugin does not add a context-menu item because `contextMenu`
-            // is an explicit array, not `true`.
-            customBorders: !readOnly,
             formulas: formulasConfig,
             afterChange: handleAfterChange,
             afterSelectionEnd: handleAfterSelectionEnd,

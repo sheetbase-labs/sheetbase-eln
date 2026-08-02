@@ -446,18 +446,14 @@ describe('ScientificSheetBlock', () => {
     expect(screen.queryByRole('button', { name: 'Configure table' })).toBeNull()
   })
 
-  it('uses an explicit context-menu item list that excludes the borders submenu', async () => {
+  it('uses an explicit context-menu item list with standard editing actions', async () => {
     mocks.table.mockResolvedValue(table)
     mocks.allRows.mockResolvedValue([])
     mount()
     const settings = await ready()
-    // customBorders is enabled (for reference highlights) but contextMenu is
-    // an explicit array — not `true` — so the customBorders plugin does not
-    // contribute its `borders` submenu to the default options.
-    expect(settings.customBorders).toBe(true)
+    // contextMenu is an explicit array (not `true`) so only the standard
+    // editing actions are exposed — no plugin-contributed items.
     expect(Array.isArray(settings.contextMenu)).toBe(true)
-    expect(settings.contextMenu).not.toContain('borders')
-    // The standard editing actions are present.
     expect(settings.contextMenu).toEqual(
       expect.arrayContaining([
         'row_above',

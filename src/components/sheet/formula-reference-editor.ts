@@ -132,13 +132,6 @@ export interface HotLike {
     col: number | null
   } | null
   getCell: (row: number, col: number) => HTMLTableCellElement | null
-  getPlugin: (name: 'customBorders') => {
-    setBorders: (
-      ranges: number[][],
-      borderObject?: Record<string, unknown>,
-    ) => void
-    clearBorders: (ranges?: number[][]) => void
-  }
 }
 
 /** A live preview overlay + the set of committed reference highlights. */
@@ -157,15 +150,20 @@ interface PickerOptions {
  *
  * The picker tracks the anchor cell of an in-progress click-drag, renders a
  * live marquee overlay while dragging, and on release commits a reference
- * (single cell or range) with a persistent coloured border drawn via the
- * `customBorders` plugin. Multiple references each keep their own highlight
- * for the lifetime of the edit; {@link clearAllHighlights} removes them all.
+ * (single cell or range) with a persistent coloured overlay (a dashed border +
+ * translucent fill, like Excel). Multiple references each keep their own
+ * overlay for the lifetime of the edit; {@link clearAllHighlights} removes
+ * them all. Overlays are plain divs positioned relative to the grid root —
+ * not plugin borders — so they work with any column type and never interfere
+ * with Handsontable's internal event system.
  */
 export class ReferencePicker {
   private readonly hot: HotLike
   private readonly options: PickerOptions
   /** References committed during this edit, in insertion order. */
   private _references: PickedReference[] = []
+  /** Overlay divs for committed references, paired with their references. */
+  private _overlays: Array<{ ref: PickedReference; element: HTMLDivElement }> = []
   /** Anchor cell of the in-progress drag (pointerdown). */
   private _anchor: { row: number; col: number } | null = null
   /** Current drag extent (last cell the pointer moved over). */
@@ -180,6 +178,12 @@ export class ReferencePicker {
   private readonly _onPointerCancel = (e: PointerEvent) => this.abortDrag(e)
   /** Bound window-blur listener (aborts an in-progress drag on focus loss). */
   private readonly _onBlur = () => this.abortDrag()
+  /** Whether the scroll/resize reposition listeners are attached. */
+  private _repositionAttached = false
+  /** Bound scroll listener (capture, for internal Handsontable scroll containers). */
+  private readonly _onScroll = () => this.repositionHighlights()
+  /** Bound window resize listener (repositions overlays on viewport changes). */
+  private readonly _onResize = () => this.repositionHighlights()
 
   constructor(hot: HotLike, options: PickerOptions) {
     this.hot = hot
@@ -198,7 +202,7 @@ export class ReferencePicker {
 
   /** Reset all state for a fresh edit (called when the editor opens). */
   reset(): void {
-    this._references = []
+    this.clearAllHighlights()
     this._anchor = null
     this._current = null
     this._activePointerId = null
@@ -383,36 +387,129 @@ export class ReferencePicker {
   }
 
   /**
-   * Draw a persistent coloured border around a committed reference using the
-   * `customBorders` plugin. The border outlines the full range perimeter.
+   * Draw a persistent coloured overlay around a committed reference. The
+   * overlay is a pointer-events-none div with a dashed border and translucent
+   * fill, appended to the grid root element — the same approach as the drag
+   * marquee, but kept visible for the lifetime of the edit.
    */
   private applyHighlight(ref: PickedReference): void {
     const color = REFERENCE_COLORS[ref.colorIndex] ?? REFERENCE_COLORS[0]
-    const border = { width: 2, color, style: 'solid' as const }
-    this.hot
-      .getPlugin('customBorders')
-      .setBorders(
-        [[ref.startRow, ref.startCol, ref.endRow, ref.endCol]],
-        { top: border, bottom: border, start: border, end: border },
+    const root = this.hot.rootElement
+    const el = root.ownerDocument.createElement('div')
+    el.className = 'sheetbase-ref-highlight'
+    el.style.position = 'absolute'
+    el.style.pointerEvents = 'none'
+    el.style.boxSizing = 'border-box'
+    el.style.zIndex = '5'
+    el.style.border = `2px dashed ${color}`
+    el.style.background = `${color}1a` // ~10% alpha
+    if (
+      !this.positionOverlay(
+        el,
+        ref.startRow,
+        ref.startCol,
+        ref.endRow,
+        ref.endCol,
       )
+    ) {
+      // Cell not in the rendered viewport yet; hide the overlay until a scroll
+      // /resize brings it into view (see repositionHighlights).
+      el.style.display = 'none'
+    }
+    root.appendChild(el)
+    this._overlays.push({ ref, element: el })
+    this.attachRepositionListeners()
   }
 
   /**
-   * Remove every reference highlight added during this edit. Each reference's
-   * range is cleared individually so user-defined borders on unrelated cells
-   * are preserved. `customBorders.clearBorders(range)` removes every custom
-   * border side on cells in that range — including any user-created borders on
-   * the same cells. There are no user-defined borders in this product yet, so
-   * this is acceptable; if user borders are introduced, snapshot/restore will
-   * be needed here.
+   * Remove every reference overlay added during this edit and detach the
+   * scroll/resize reposition listeners. Safe to call when no overlays exist.
    */
   clearAllHighlights(): void {
-    if (this._references.length === 0) return
-    const plugin = this.hot.getPlugin('customBorders')
-    for (const ref of this._references) {
-      plugin.clearBorders([[ref.startRow, ref.startCol, ref.endRow, ref.endCol]])
-    }
+    for (const { element } of this._overlays) element.remove()
+    this._overlays = []
     this._references = []
+    this.detachRepositionListeners()
+  }
+
+  /**
+   * Recompute the position of every committed reference overlay from the
+   * current cell geometry. Called on grid scroll and window resize so overlays
+   * track their cells. Overlays whose cells are not in the rendered viewport
+   * are hidden until the next reposition brings them into view.
+   */
+  repositionHighlights(): void {
+    for (const { ref, element } of this._overlays) {
+      const visible = this.positionOverlay(
+        element,
+        ref.startRow,
+        ref.startCol,
+        ref.endRow,
+        ref.endCol,
+      )
+      element.style.display = visible ? '' : 'none'
+    }
+  }
+
+  /** Attach scroll/resize listeners if not already attached. */
+  private attachRepositionListeners(): void {
+    if (this._repositionAttached) return
+    // Capture phase catches scroll from Handsontable's internal scroll
+    // containers (scroll events do not bubble).
+    this.hot.rootElement.addEventListener('scroll', this._onScroll, true)
+    this.hot.rootDocument.defaultView?.addEventListener('resize', this._onResize)
+    this._repositionAttached = true
+  }
+
+  /** Detach scroll/resize listeners if attached. */
+  private detachRepositionListeners(): void {
+    if (!this._repositionAttached) return
+    this.hot.rootElement.removeEventListener('scroll', this._onScroll, true)
+    this.hot.rootDocument.defaultView?.removeEventListener(
+      'resize',
+      this._onResize,
+    )
+    this._repositionAttached = false
+  }
+
+  /**
+   * Position an overlay element over a cell range, computing its rectangle
+   * from the rendered TD elements relative to the grid root. Returns true if
+   * both corners were found and positioned, false if the cells are outside the
+   * rendered viewport. Shared by the drag marquee and persistent highlights.
+   */
+  private positionOverlay(
+    element: HTMLDivElement,
+    rowA: number,
+    colA: number,
+    rowB: number,
+    colB: number,
+  ): boolean {
+    const { startRow, startCol, endRow, endCol } = normalizeRange(
+      rowA,
+      colA,
+      rowB,
+      colB,
+    )
+    const startCell = this.hot.getCell(startRow, startCol)
+    const endCell = this.hot.getCell(endRow, endCol)
+    if (!startCell || !endCell) return false
+    const root = this.hot.rootElement
+    if (getComputedStyle(root).position === 'static') {
+      root.style.position = 'relative'
+    }
+    const rootRect = root.getBoundingClientRect()
+    const startRect = startCell.getBoundingClientRect()
+    const endRect = endCell.getBoundingClientRect()
+    const left = Math.min(startRect.left, endRect.left) - rootRect.left
+    const top = Math.min(startRect.top, endRect.top) - rootRect.top
+    const right = Math.max(startRect.right, endRect.right) - rootRect.left
+    const bottom = Math.max(startRect.bottom, endRect.bottom) - rootRect.top
+    element.style.left = `${left}px`
+    element.style.top = `${top}px`
+    element.style.width = `${right - left}px`
+    element.style.height = `${bottom - top}px`
+    return true
   }
 
   /**
@@ -426,50 +523,23 @@ export class ReferencePicker {
     rowB: number,
     colB: number,
   ): void {
-    const { startRow, startCol, endRow, endCol } = normalizeRange(
-      rowA,
-      colA,
-      rowB,
-      colB,
-    )
-    const startCell = this.hot.getCell(startRow, startCol)
-    const endCell = this.hot.getCell(endRow, endCol)
-    if (!startCell || !endCell) {
-      // Cells outside the rendered viewport are not available; skip this
-      // update rather than flashing a stale marquee.
-      return
-    }
-    const root = this.hot.rootElement
-    if (getComputedStyle(root).position === 'static') {
-      root.style.position = 'relative'
-    }
-    const rootRect = root.getBoundingClientRect()
-    const startRect = startCell.getBoundingClientRect()
-    const endRect = endCell.getBoundingClientRect()
-    const left = Math.min(startRect.left, endRect.left) - rootRect.left
-    const top = Math.min(startRect.top, endRect.top) - rootRect.top
-    const right = Math.max(startRect.right, endRect.right) - rootRect.left
-    const bottom = Math.max(startRect.bottom, endRect.bottom) - rootRect.top
     const color =
       REFERENCE_COLORS[this._references.length % REFERENCE_COLORS.length] ??
       REFERENCE_COLORS[0]
     if (!this._preview) {
+      const root = this.hot.rootElement
       const el = root.ownerDocument.createElement('div')
       el.className = 'sheetbase-ref-preview'
       el.style.position = 'absolute'
       el.style.pointerEvents = 'none'
       el.style.boxSizing = 'border-box'
       el.style.zIndex = '5'
+      el.style.border = `2px dashed ${color}`
+      el.style.background = `${color}1a` // ~10% alpha
       root.appendChild(el)
       this._preview = el
     }
-    const preview = this._preview
-    preview.style.left = `${left}px`
-    preview.style.top = `${top}px`
-    preview.style.width = `${right - left}px`
-    preview.style.height = `${bottom - top}px`
-    preview.style.border = `2px dashed ${color}`
-    preview.style.background = `${color}1a` // ~10% alpha
+    this.positionOverlay(this._preview, rowA, colA, rowB, colB)
   }
 
   /** Remove the live marquee overlay. */
@@ -488,8 +558,9 @@ export class ReferencePicker {
  * When the user types `=` to start a formula, clicking another cell in the same
  * grid inserts that cell's A1 reference (e.g. `B3`) at the cursor instead of
  * closing the editor. Click-dragging inserts a RANGE reference (e.g. `A1:A5`).
- * Each referenced cell or range gets a persistent coloured border (a distinct
- * colour per reference) that stays visible until the editor commits or cancels.
+ * Each referenced cell or range gets a persistent coloured overlay (a dashed
+ * border + translucent fill, a distinct colour per reference) that stays
+ * visible until the editor commits or cancels.
  * Typing operators (`+`, `-`, etc.) then clicking continues building the
  * formula with additional highlighted references.
  *

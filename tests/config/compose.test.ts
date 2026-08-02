@@ -65,6 +65,22 @@ describe('compose.yaml service contract', () => {
 })
 
 describe('compose.preview.yaml PR isolation contract', () => {
+  it('requires an immutable PostgreSQL image and seeds the demo identity', () => {
+    expect(previewComposeRaw).toContain(
+      'image: ${SHEETBASE_POSTGRES_IMAGE:-postgres:18-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15}',
+    )
+    expect(previewCompose.services.app.environment.SHEETBASE_PREVIEW_DEMO).toBe(
+      'true',
+    )
+    expect(previewCompose.services.seed.command).toEqual([
+      'node',
+      '--import',
+      'tsx',
+      'src/db/seed/run.ts',
+      '--demo',
+    ])
+  })
+
   it('uses a separate project and loopback-only, PR-specific app port', () => {
     expect(previewComposeRaw).toContain('name: ${SHEETBASE_PREVIEW_PROJECT:?')
     expect(previewCompose.services.app.ports[0]).toContain(
@@ -80,11 +96,16 @@ describe('compose.preview.yaml PR isolation contract', () => {
     expect(previewCompose.services.app.volumes.join(' ')).toContain(
       'object-storage:/app/.storage/objects',
     )
-    for (const service of ['postgres', 'postgrest', 'app', 'migrate']) {
+    for (const service of ['postgres', 'postgrest', 'app', 'migrate', 'seed']) {
       expect(previewCompose.services[service].mem_limit, service).toBeTruthy()
       expect(previewCompose.services[service].cpus, service).toBeTruthy()
       expect(previewCompose.services[service].pids_limit, service).toBeTruthy()
     }
+  })
+
+  it('does not configure OAuth credentials for concurrent previews', () => {
+    expect(previewComposeRaw).not.toContain('GITHUB_CLIENT_ID')
+    expect(previewComposeRaw).not.toContain('GITHUB_CLIENT_SECRET')
   })
 
   it('does not publish preview Postgres or PostgREST ports', () => {

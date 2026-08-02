@@ -33,6 +33,10 @@ export const env = createEnv({
     SHEETBASE_SECRET_SOURCE: z
       .enum(['local-env', 'vps-local', 'secret-manager'])
       .default('local-env'),
+    SHEETBASE_PREVIEW_DEMO: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((value) => value === 'true'),
     SHEETBASE_ARTIFACT_VERSION: z.string().min(1).default('local'),
     SHEETBASE_ARTIFACT_DIGEST: z.string().min(1).default('untracked'),
     SHEETBASE_EXPECTED_MIGRATION: z.string().min(1).default('untracked'),
@@ -55,6 +59,7 @@ export function getDeploymentConfig() {
   return validateDeploymentConfig({
     SHEETBASE_ENV: env.SHEETBASE_ENV,
     SHEETBASE_SECRET_SOURCE: env.SHEETBASE_SECRET_SOURCE,
+    SHEETBASE_PREVIEW_DEMO: env.SHEETBASE_PREVIEW_DEMO,
     SHEETBASE_ARTIFACT_VERSION: env.SHEETBASE_ARTIFACT_VERSION,
     SHEETBASE_ARTIFACT_DIGEST: env.SHEETBASE_ARTIFACT_DIGEST,
     SHEETBASE_EXPECTED_MIGRATION: env.SHEETBASE_EXPECTED_MIGRATION,

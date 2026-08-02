@@ -88,7 +88,6 @@ export async function getAppSession(
 }
 
 export { isDevAuthFreeEnabled }
-
 export const isGithubConfigured = Boolean(
   env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET,
 )

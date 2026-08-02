@@ -4,7 +4,7 @@ name: ${SHEETBASE_PREVIEW_PROJECT:?Set SHEETBASE_PREVIEW_PROJECT}
 # preview environment and are never committed here.
 services:
   postgres:
-    image: postgres:18-alpine
+    image: ${SHEETBASE_POSTGRES_IMAGE:-postgres:18-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15}
     environment:
       POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in the VPS preview environment}
       POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in the VPS preview environment}
@@ -57,14 +57,13 @@ services:
       NODE_ENV: production
       SHEETBASE_ENV: preview
       SHEETBASE_SECRET_SOURCE: vps-local
+      SHEETBASE_PREVIEW_DEMO: 'true'
       SHEETBASE_ARTIFACT_DIGEST: ${SHEETBASE_ARTIFACT_DIGEST:?Set the application sha256 digest}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       MIGRATION_DATABASE_URL: postgresql://migrator:${MIGRATOR_PASSWORD}@postgres:5432/${POSTGRES_DB}
       FORMULA_DATABASE_URL: postgresql://formula_runtime:${FORMULA_WRITER_PASSWORD}@postgres:5432/${POSTGRES_DB}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Set BETTER_AUTH_SECRET in the VPS preview environment}
       BETTER_AUTH_URL: ${SHEETBASE_PREVIEW_PUBLIC_ORIGIN:?Set the preview HTTPS origin}
-      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:?Set GITHUB_CLIENT_ID in the VPS preview environment}
-      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:?Set GITHUB_CLIENT_SECRET in the VPS preview environment}
       PGRST_JWT_SECRET: ${PGRST_JWT_SECRET:?Set PGRST_JWT_SECRET in the VPS preview environment}
       POSTGREST_URL: http://postgrest:3000
       POSTGREST_ADMIN_URL: http://postgrest:3001
@@ -102,6 +101,25 @@ services:
     environment:
       MIGRATION_DATABASE_URL: postgresql://migrator:${MIGRATOR_PASSWORD}@postgres:5432/${POSTGRES_DB}
     command: ['./node_modules/.bin/drizzle-kit', 'migrate']
+    mem_limit: 256m
+    cpus: '0.25'
+    pids_limit: 128
+    restart: 'no'
+
+  seed:
+    image: ${SHEETBASE_APP_IMAGE:?Set an immutable application image reference with @sha256 digest}
+    profiles: [deployment]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      SHEETBASE_ENV: preview
+      SHEETBASE_PREVIEW_DEMO: 'true'
+      FILE_STORAGE_DIR: /app/.storage/objects
+    volumes:
+      - object-storage:/app/.storage/objects
+    command: ['node', '--import', 'tsx', 'src/db/seed/run.ts', '--demo']
     mem_limit: 256m
     cpus: '0.25'
     pids_limit: 128

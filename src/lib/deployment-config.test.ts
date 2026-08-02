@@ -86,6 +86,29 @@ describe('validateDeploymentConfig', () => {
     ).toEqual(expect.objectContaining({ environment: 'preview' }))
   })
 
+  it('allows preview demo mode without OAuth credentials', () => {
+    expect(
+      validateDeploymentConfig({
+        ...productionConfig,
+        SHEETBASE_ENV: 'preview',
+        SHEETBASE_SECRET_SOURCE: 'vps-local',
+        SHEETBASE_PREVIEW_DEMO: true,
+        BETTER_AUTH_URL: 'https://pr-42.sheetbase.example.com',
+        GITHUB_CLIENT_ID: undefined,
+        GITHUB_CLIENT_SECRET: undefined,
+      }),
+    ).toEqual(expect.objectContaining({ environment: 'preview' }))
+  })
+
+  it('rejects preview demo mode outside preview', () => {
+    expect(() =>
+      validateDeploymentConfig({
+        ...productionConfig,
+        SHEETBASE_PREVIEW_DEMO: true,
+      }),
+    ).toThrow(/only allowed in preview/)
+  })
+
   it('allows local environment inputs in development', () => {
     expect(
       validateDeploymentConfig({

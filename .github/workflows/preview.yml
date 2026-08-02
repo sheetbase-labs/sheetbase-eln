@@ -1,6 +1,7 @@
 # This workflow is read from the trusted base branch. PR source is used only
-# in the secret-free image build; deploy/cleanup use the controller from main.
-# AMP never needs VPS, Cloudflare, GHCR, OAuth, or production credentials.
+# in the secret-free image build; the publish, deploy and cleanup jobs never
+# execute PR-controlled code. AMP can update ordinary PRs without holding any
+# VPS, Cloudflare, GHCR, OAuth, or production credentials.
 name: PR preview
 
 on:
@@ -17,16 +18,18 @@ env:
   POSTGREST_IMAGE_NAME: ${{ github.repository }}-postgrest
 
 jobs:
+  # This job has no packages:write permission and never logs into GHCR. A
+  # compromised PR build can only affect the untrusted runner and its artifact.
   build:
-    name: Build preview images
+    name: Build preview images (untrusted)
     if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
     outputs:
-      app_image_ref: ${{ steps.app_digest.outputs.ref }}
-      postgrest_image_ref: ${{ steps.postgrest_digest.outputs.ref }}
+      app_tag: ${{ steps.tags.outputs.app_tag }}
+      postgrest_tag: ${{ steps.tags.outputs.postgrest_tag }}
+      artifact_name: ${{ steps.artifact_name.outputs.name }}
     steps:
       - name: Checkout PR merge ref without persisted credentials
         uses: actions/checkout@v4
@@ -34,6 +37,18 @@ jobs:
           ref: refs/pull/${{ github.event.pull_request.number }}/merge
           fetch-depth: 1
           persist-credentials: false
+
+      - name: Set image tags
+        id: tags
+        run: |
+          set -euo pipefail
+          suffix="pr-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}"
+          echo "app_tag=${REGISTRY}/${APP_IMAGE_NAME}:${suffix}" >> "$GITHUB_OUTPUT"
+          echo "postgrest_tag=${REGISTRY}/${POSTGREST_IMAGE_NAME}:${suffix}" >> "$GITHUB_OUTPUT"
+
+      - name: Set artifact name
+        id: artifact_name
+        run: echo "name=preview-images-pr-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -57,15 +72,50 @@ jobs:
         env:
           SHEETBASE_NODE_IMAGE: ${{ steps.node_image.outputs.ref }}
           SHEETBASE_ARTIFACT_VERSION: pr-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
-          SHEETBASE_ARTIFACT_TAG: ${{ env.REGISTRY }}/${{ env.APP_IMAGE_NAME }}:pr-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
+          SHEETBASE_ARTIFACT_TAG: ${{ steps.tags.outputs.app_tag }}
         run: pnpm artifact:build
 
       - name: Build PostgREST image
         run: |
-          TAG="${{ env.REGISTRY }}/${{ env.POSTGREST_IMAGE_NAME }}:pr-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}"
-          docker build --build-arg POSTGREST_VERSION=v14.5 --tag "$TAG" docker/postgrest
+          docker build \
+            --build-arg POSTGREST_VERSION=v14.5 \
+            --tag "${{ steps.tags.outputs.postgrest_tag }}" \
+            docker/postgrest
 
-      - name: Log in to GHCR after PR-controlled build work
+      - name: Export images as an artifact
+        run: docker save "${{ steps.tags.outputs.app_tag }}" "${{ steps.tags.outputs.postgrest_tag }}" | gzip > preview-images.tar.gz
+
+      - name: Upload images for trusted publishing
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact_name.outputs.name }}
+          path: preview-images.tar.gz
+          if-no-files-found: error
+          retention-days: 2
+
+  # This job is trusted workflow code only. It consumes a Docker image archive
+  # but does not run containers or PR scripts before logging into GHCR.
+  publish:
+    name: Publish immutable preview images (trusted)
+    needs: build
+    if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      app_image_ref: ${{ steps.app_digest.outputs.ref }}
+      postgrest_image_ref: ${{ steps.postgrest_digest.outputs.ref }}
+    steps:
+      - name: Download untrusted build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build.outputs.artifact_name }}
+
+      - name: Load images
+        run: gunzip -c preview-images.tar.gz | docker load
+
+      - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -74,24 +124,25 @@ jobs:
 
       - name: Push app image
         id: app_digest
+        env:
+          TAG: ${{ needs.build.outputs.app_tag }}
         run: |
-          TAG="${{ env.REGISTRY }}/${{ env.APP_IMAGE_NAME }}:pr-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}"
           docker push "$TAG"
           REF="$(docker inspect --format '{{index .RepoDigests 0}}' "$TAG")"
           echo "ref=${REF}" >> "$GITHUB_OUTPUT"
 
       - name: Push PostgREST image
         id: postgrest_digest
+        env:
+          TAG: ${{ needs.build.outputs.postgrest_tag }}
         run: |
-          TAG="${{ env.REGISTRY }}/${{ env.POSTGREST_IMAGE_NAME }}:pr-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}"
-          docker build --build-arg POSTGREST_VERSION=v14.5 --tag "$TAG" docker/postgrest
           docker push "$TAG"
           REF="$(docker inspect --format '{{index .RepoDigests 0}}' "$TAG")"
           echo "ref=${REF}" >> "$GITHUB_OUTPUT"
 
   deploy:
     name: Deploy preview to VPS
-    needs: build
+    needs: publish
     if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     environment: preview
@@ -133,8 +184,8 @@ jobs:
             unset GHCR_TOKEN
             pnpm preview:deploy
         env:
-          APP_IMAGE_REF: ${{ needs.build.outputs.app_image_ref }}
-          POSTGREST_IMAGE_REF: ${{ needs.build.outputs.postgrest_image_ref }}
+          APP_IMAGE_REF: ${{ needs.publish.outputs.app_image_ref }}
+          POSTGREST_IMAGE_REF: ${{ needs.publish.outputs.postgrest_image_ref }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           BASE_DOMAIN: sheetbase.co.uk
           GHCR_USERNAME: ${{ github.actor }}

@@ -26,6 +26,7 @@ const deploymentInputSchema = z.object({
   GITHUB_CLIENT_ID: z.string().min(1).optional(),
   GITHUB_CLIENT_SECRET: z.string().min(1).optional(),
   SHEETBASE_DEV_AUTH_FREE: z.boolean().default(false),
+  SHEETBASE_PREVIEW_DEMO: z.boolean().default(false),
 })
 
 export interface DeploymentConfig {
@@ -56,6 +57,10 @@ export function validateDeploymentConfig(
     throw new Error('SHEETBASE_DEV_AUTH_FREE is only allowed in development')
   }
 
+  if (parsed.SHEETBASE_PREVIEW_DEMO && parsed.SHEETBASE_ENV !== 'preview') {
+    throw new Error('SHEETBASE_PREVIEW_DEMO is only allowed in preview')
+  }
+
   if (deployed) {
     if (
       parsed.SHEETBASE_SECRET_SOURCE !== 'secret-manager' &&
@@ -72,7 +77,10 @@ export function validateDeploymentConfig(
         `${parsed.SHEETBASE_ENV} requires an HTTPS BETTER_AUTH_URL`,
       )
     }
-    if (!parsed.GITHUB_CLIENT_ID || !parsed.GITHUB_CLIENT_SECRET) {
+    if (
+      !parsed.SHEETBASE_PREVIEW_DEMO &&
+      (!parsed.GITHUB_CLIENT_ID || !parsed.GITHUB_CLIENT_SECRET)
+    ) {
       throw new Error(
         `${parsed.SHEETBASE_ENV} requires both GitHub OAuth credentials`,
       )

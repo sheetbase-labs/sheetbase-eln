@@ -29,10 +29,18 @@ need VPS, Cloudflare, GHCR, OAuth, or production credentials.
   object-storage, Cloudflare, or deployment-controller access.
 
 The preview app uses the separate `SHEETBASE_ENV=preview` deployment contract
-and therefore requires GitHub OAuth credentials. Configure a dedicated preview OAuth client
-or another provider callback strategy appropriate for the preview hostnames;
-never reuse production-only secrets. The local `development` environment and
-its auth-free behavior are unchanged.
+and runs in the explicitly seeded demo mode
+`SHEETBASE_PREVIEW_DEMO=true`. The app resolves the fixed seeded fixture owner
+without a browser session, and the seed service loads the fixture plus Virus
+Stability demo data into that PR's disposable database. No GitHub OAuth client
+or callback is needed, so concurrent previews do not share authentication
+state. The local `development` environment and its auth behavior are unchanged.
+
+This PR is independently runnable and does not depend on PR #1, which remains
+an unmerged separate development-environment change. Preview demo auth is
+implemented under the preview-only flag here; it is not enabled by ordinary
+development configuration and deployment validation rejects it outside
+`SHEETBASE_ENV=preview`.
 
 ## One-time VPS setup
 
@@ -64,11 +72,16 @@ delete external infrastructure.
    POSTGREST_AUTHENTICATOR_PASSWORD=<unique-preview-password>
    MIGRATOR_PASSWORD=<unique-preview-password>
    FORMULA_WRITER_PASSWORD=<unique-preview-password>
+   SHEETBASE_POSTGRES_IMAGE=postgres:18-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
    BETTER_AUTH_SECRET=<32+-character-preview-secret>
    PGRST_JWT_SECRET=<32+-character-preview-secret>
-   GITHUB_CLIENT_ID=<dedicated-preview-oauth-client>
-   GITHUB_CLIENT_SECRET=<dedicated-preview-oauth-secret>
    ```
+
+   `SHEETBASE_POSTGRES_IMAGE` is optional when using the pinned default shown
+   above, but any override must be an exact digest-approved PostgreSQL image.
+   The preview controller validates the PostgreSQL, application, and PostgREST
+   references before pulling or starting anything; it rejects tags without
+   `@sha256:<64 hex characters>`.
 
 3. Install the trusted router as a systemd service. It reads only the route
    registry and proxies to loopback ports; it does not access the Docker socket:
@@ -119,13 +132,9 @@ delete external infrastructure.
    route still precedes the wildcard. Do not commit the tunnel token or edit
    production's `app.sheetbase.co.uk` target as part of a PR deployment.
 
-5. Configure the OAuth callback strategy for preview hosts. GitHub OAuth
-   callback URLs are provider configuration, not repository configuration; use
-   a dedicated preview app and confirm whether the provider permits the
-   wildcard callback policy you intend. If it does not, use a controlled
-   callback relay or register the exact active preview callback. Do not point a
-   preview at a production callback without validating cookie and redirect
-   isolation.
+5. The preview demo is intentionally auth-free and needs no OAuth provider
+   setup. Treat every preview URL as public: never seed real data, and keep the
+   disposable `BETTER_AUTH_SECRET` and database credentials unique to previews.
 
 ## GitHub configuration
 
@@ -136,9 +145,10 @@ The workflow reuses the existing GitHub Actions/Tailscale foundation. In the
 - `VPS_TAILSCALE_IP` — the VPS Tailscale address; and
 - `TAILSCALE_AUTH_KEY` — an ephemeral CI-node auth key.
 
-`GITHUB_TOKEN` is supplied by Actions for GHCR package read/write during the
-workflow and is not stored in AMP or on the VPS. Production GitHub secrets are
-not used by the preview app. Protect the `preview` environment with the same
+`GITHUB_TOKEN` is supplied only to the trusted publish/deploy jobs for GHCR;
+the PR-controlled build job has `contents: read` only and never logs into
+GHCR. It is not stored in AMP or on the VPS. Production GitHub secrets are not
+used by the preview app. Protect the `preview` environment with the same
 repository policy used for deployment workflows, and restrict PR previews to
 same-repository PRs as the workflow does; fork PRs do not receive a preview.
 
@@ -155,6 +165,11 @@ pnpm test src/lib/preview-deployment.test.ts tests/config/compose.test.ts
 pnpm typecheck
 pnpm check
 ```
+
+The first preview workflow run becomes available after this workflow is merged
+to `main`; the build reads the PR merge ref, while trusted publishing and the
+VPS controller are deliberately separated from that build. No external
+resource is created or deleted by local validation.
 
 After setup, a successful deploy prints the preview URL, Compose project, image
 digest, and readiness evidence. For manual recovery, remove a route first by

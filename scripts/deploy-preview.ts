@@ -4,8 +4,9 @@ import { mkdir, open, readFile, rename, rm, writeFile } from 'node:fs/promises'
 
 import { validateDeploymentConfig } from '../src/lib/deployment-config'
 import {
-  assertImmutableImageReference,
+  DEFAULT_PREVIEW_POSTGRES_IMAGE,
   validateArtifactImageMetadata,
+  validatePreviewImageReferences,
 } from '../src/lib/deployment-plan'
 import {
   normalizePreviewRoutes,
@@ -52,6 +53,9 @@ function compose(args: string[]) {
     'BETTER_AUTH_SECRET',
     'GITHUB_CLIENT_ID',
     'GITHUB_CLIENT_SECRET',
+    'SHEETBASE_PREVIEW_DEMO',
+    'SHEETBASE_ARTIFACT_VERSION',
+    'SHEETBASE_EXPECTED_MIGRATION',
     'SHEETBASE_PREVIEW_PUBLIC_ORIGIN',
     'SHEETBASE_ARTIFACT_DIGEST',
     'SHEETBASE_APP_IMAGE',
@@ -249,12 +253,13 @@ if (mode === '--cleanup') {
   process.exit(0)
 }
 
-const applicationImage = assertImmutableImageReference(
-  required('SHEETBASE_APP_IMAGE'),
-)
-const postgrestImage = assertImmutableImageReference(
-  required('SHEETBASE_POSTGREST_IMAGE'),
-)
+const { applicationImage, postgrestImage, postgresImage } =
+  validatePreviewImageReferences({
+    applicationImage: required('SHEETBASE_APP_IMAGE'),
+    postgrestImage: required('SHEETBASE_POSTGREST_IMAGE'),
+    postgresImage:
+      process.env.SHEETBASE_POSTGRES_IMAGE ?? DEFAULT_PREVIEW_POSTGRES_IMAGE,
+  })
 const imageDigest = applicationImage.split('@').at(-1)
 if (!imageDigest) throw new Error('application image has no digest')
 const imageLabels = JSON.parse(
@@ -271,6 +276,7 @@ const imageMetadata = validateArtifactImageMetadata(imageLabels)
 validateDeploymentConfig({
   SHEETBASE_ENV: 'preview',
   SHEETBASE_SECRET_SOURCE: 'vps-local',
+  SHEETBASE_PREVIEW_DEMO: true,
   SHEETBASE_ARTIFACT_VERSION: imageMetadata.version,
   SHEETBASE_ARTIFACT_DIGEST: imageDigest,
   SHEETBASE_EXPECTED_MIGRATION: imageMetadata.expectedMigration,
@@ -278,13 +284,15 @@ validateDeploymentConfig({
   DATABASE_URL: 'postgresql://sheetbase:preview@postgres:5432/sheetbase',
   POSTGREST_URL: 'http://postgrest:3000',
   POSTGREST_ADMIN_URL: 'http://postgrest:3001',
-  GITHUB_CLIENT_ID: required('GITHUB_CLIENT_ID'),
-  GITHUB_CLIENT_SECRET: required('GITHUB_CLIENT_SECRET'),
 })
 
 process.env.SHEETBASE_APP_IMAGE = applicationImage
 process.env.SHEETBASE_POSTGREST_IMAGE = postgrestImage
+process.env.SHEETBASE_POSTGRES_IMAGE = postgresImage
 process.env.SHEETBASE_ARTIFACT_DIGEST = imageDigest
+process.env.SHEETBASE_PREVIEW_DEMO = 'true'
+
+capture('docker', ['pull', postgresImage])
 
 const route = previewRoute(pullRequestNumber, baseDomain)
 await withRegistryLock(registryPath, async () => {
@@ -296,6 +304,7 @@ await withRegistryLock(registryPath, async () => {
 
 try {
   compose(['run', '--rm', 'migrate'])
+  compose(['run', '--rm', 'seed'])
   compose(['up', '-d', '--wait', 'app'])
   const readiness = await waitForLocalReadiness(
     Number(process.env.SHEETBASE_PREVIEW_APP_PORT),

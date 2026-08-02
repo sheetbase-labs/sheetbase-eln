@@ -2,6 +2,9 @@ import type { DeploymentEnvironment } from './deployment-config'
 
 const immutableImagePattern = /@sha256:[a-f0-9]{64}$/
 
+export const DEFAULT_PREVIEW_POSTGRES_IMAGE =
+  'postgres:18-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15'
+
 export function assertCleanBuildSource(status: string): void {
   if (status.trim().length > 0) {
     throw new Error(
@@ -17,6 +20,18 @@ export function assertImmutableImageReference(reference: string): string {
     )
   }
   return reference
+}
+
+export function validatePreviewImageReferences(input: {
+  applicationImage: string
+  postgrestImage: string
+  postgresImage: string
+}) {
+  return {
+    applicationImage: assertImmutableImageReference(input.applicationImage),
+    postgrestImage: assertImmutableImageReference(input.postgrestImage),
+    postgresImage: assertImmutableImageReference(input.postgresImage),
+  }
 }
 
 interface MigrationJournal {

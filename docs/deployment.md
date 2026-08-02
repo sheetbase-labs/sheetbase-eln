@@ -17,10 +17,10 @@ infrastructure evidence and remains the final open REL-001 acceptance item.
 | OAuth origin    | Local callback                  | Test callback or stub        | Staging HTTPS callback                      | Production HTTPS callback                      |
 | Data            | Fixtures and optional demo data | Test-owned fixtures only     | Approved demonstration data only            | Production records                             |
 
-The server rejects staging or production startup unless the authentication
-origin is HTTPS, service URLs are non-local, GitHub OAuth is configured, the
-secret source is `secret-manager`, and artifact plus migration identities are
-immutable. Before it listens, the production adapter also runs the readiness
+The server rejects preview, staging, or production startup unless the
+authentication origin is HTTPS, service URLs are non-local, GitHub OAuth is
+configured, the secret source is managed for that environment, and artifact
+plus migration identities are immutable. Before it listens, the production adapter also runs the readiness
 contract against the target database, so an incompatible artifact cannot serve
 traffic. Development keeps explicit `local`/`untracked` defaults.
 
@@ -185,3 +185,8 @@ Before REL-001 can close, provision staging outside this repository, inject real
 managed secrets, deploy a clean registry artifact by digest, and retain the
 successful migration and readiness evidence. Local tests and a deployment plan
 do not satisfy that acceptance item.
+
+PR-specific preview deployment is documented in
+[`docs/preview-deployments.md`](preview-deployments.md). It uses a distinct
+Compose project, loopback port range, route registry, and disposable secrets;
+it does not alter the production deployment route.

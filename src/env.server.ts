@@ -28,7 +28,7 @@ export const env = createEnv({
     // defaults; staging and production are rejected unless an immutable
     // artifact, expected migration and managed secret source are supplied.
     SHEETBASE_ENV: z
-      .enum(['development', 'test', 'staging', 'production'])
+      .enum(['development', 'test', 'preview', 'staging', 'production'])
       .default('development'),
     SHEETBASE_SECRET_SOURCE: z
       .enum(['local-env', 'vps-local', 'secret-manager'])

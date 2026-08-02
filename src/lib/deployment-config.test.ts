@@ -75,6 +75,17 @@ describe('validateDeploymentConfig', () => {
     ).toEqual(expect.objectContaining({ secretSource: 'vps-local' }))
   })
 
+  it('accepts a disposable preview environment with VPS-local secrets', () => {
+    expect(
+      validateDeploymentConfig({
+        ...productionConfig,
+        SHEETBASE_ENV: 'preview',
+        SHEETBASE_SECRET_SOURCE: 'vps-local',
+        BETTER_AUTH_URL: 'https://pr-42.sheetbase.example.com',
+      }),
+    ).toEqual(expect.objectContaining({ environment: 'preview' }))
+  })
+
   it('allows local environment inputs in development', () => {
     expect(
       validateDeploymentConfig({

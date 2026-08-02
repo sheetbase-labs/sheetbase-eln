@@ -1,0 +1,176 @@
+# This workflow is read from the trusted base branch. PR source is used only
+# in the secret-free image build; deploy/cleanup use the controller from main.
+# AMP never needs VPS, Cloudflare, GHCR, OAuth, or production credentials.
+name: PR preview
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, closed]
+
+concurrency:
+  group: preview-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: ${{ github.event.action != 'closed' }}
+
+env:
+  REGISTRY: ghcr.io
+  APP_IMAGE_NAME: ${{ github.repository }}
+  POSTGREST_IMAGE_NAME: ${{ github.repository }}-postgrest
+
+jobs:
+  build:
+    name: Build preview images
+    if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      app_image_ref: ${{ steps.app_digest.outputs.ref }}
+      postgrest_image_ref: ${{ steps.postgrest_digest.outputs.ref }}
+    steps:
+      - name: Checkout PR merge ref without persisted credentials
+        uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/merge
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Resolve Node image digest
+        id: node_image
+        run: |
+          docker pull node:22-alpine
+          REF="$(docker inspect --format '{{index .RepoDigests 0}}' node:22-alpine)"
+          echo "ref=${REF}" >> "$GITHUB_OUTPUT"
+
+      - name: Install pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.9.0 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build app image
+        env:
+          SHEETBASE_NODE_IMAGE: ${{ steps.node_image.outputs.ref }}
+          SHEETBASE_ARTIFACT_VERSION: pr-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
+          SHEETBASE_ARTIFACT_TAG: ${{ env.REGISTRY }}/${{ env.APP_IMAGE_NAME }}:pr-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
+        run: pnpm artifact:build
+
+      - name: Build PostgREST image
+        run: |
+          TAG="${{ env.REGISTRY }}/${{ env.POSTGREST_IMAGE_NAME }}:pr-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}"
+          docker build --build-arg POSTGREST_VERSION=v14.5 --tag "$TAG" docker/postgrest
+
+      - name: Log in to GHCR after PR-controlled build work
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push app image
+        id: app_digest
+        run: |
+          TAG="${{ env.REGISTRY }}/${{ env.APP_IMAGE_NAME }}:pr-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}"
+          docker push "$TAG"
+          REF="$(docker inspect --format '{{index .RepoDigests 0}}' "$TAG")"
+          echo "ref=${REF}" >> "$GITHUB_OUTPUT"
+
+      - name: Push PostgREST image
+        id: postgrest_digest
+        run: |
+          TAG="${{ env.REGISTRY }}/${{ env.POSTGREST_IMAGE_NAME }}:pr-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}"
+          docker build --build-arg POSTGREST_VERSION=v14.5 --tag "$TAG" docker/postgrest
+          docker push "$TAG"
+          REF="$(docker inspect --format '{{index .RepoDigests 0}}' "$TAG")"
+          echo "ref=${REF}" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Deploy preview to VPS
+    needs: build
+    if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    environment: preview
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Install Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_TAILSCALE_IP }}
+          username: deploy
+          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          envs: APP_IMAGE_REF,POSTGREST_IMAGE_REF,PR_NUMBER,BASE_DOMAIN,GHCR_USERNAME,GHCR_TOKEN
+          script: |
+            set -euo pipefail
+            cd /opt/sheetbase-preview/controller
+            git fetch origin main
+            git checkout --detach origin/main
+            corepack enable
+            corepack prepare pnpm@11.9.0 --activate
+            pnpm install --frozen-lockfile
+            set -a
+            . /opt/sheetbase-preview/.env
+            set +a
+            export SHEETBASE_PREVIEW_NUMBER="$PR_NUMBER"
+            export SHEETBASE_PREVIEW_BASE_DOMAIN="$BASE_DOMAIN"
+            export SHEETBASE_APP_IMAGE="$APP_IMAGE_REF"
+            export SHEETBASE_POSTGREST_IMAGE="$POSTGREST_IMAGE_REF"
+            export SHEETBASE_ARTIFACT_DIGEST="${APP_IMAGE_REF##*@}"
+            printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GHCR_USERNAME" --password-stdin
+            docker pull "$SHEETBASE_APP_IMAGE"
+            docker pull "$SHEETBASE_POSTGREST_IMAGE"
+            unset GHCR_TOKEN
+            pnpm preview:deploy
+        env:
+          APP_IMAGE_REF: ${{ needs.build.outputs.app_image_ref }}
+          POSTGREST_IMAGE_REF: ${{ needs.build.outputs.postgrest_image_ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_DOMAIN: sheetbase.co.uk
+          GHCR_USERNAME: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  cleanup:
+    name: Tear down preview
+    if: github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    environment: preview
+    permissions:
+      contents: read
+    steps:
+      - name: Install Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
+
+      - name: Remove preview via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_TAILSCALE_IP }}
+          username: deploy
+          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          envs: PR_NUMBER,BASE_DOMAIN
+          script: |
+            set -euo pipefail
+            cd /opt/sheetbase-preview/controller
+            git fetch origin main
+            git checkout --detach origin/main
+            corepack enable
+            corepack prepare pnpm@11.9.0 --activate
+            pnpm install --frozen-lockfile
+            export SHEETBASE_PREVIEW_NUMBER="$PR_NUMBER"
+            export SHEETBASE_PREVIEW_BASE_DOMAIN="$BASE_DOMAIN"
+            pnpm preview:cleanup
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_DOMAIN: sheetbase.co.uk

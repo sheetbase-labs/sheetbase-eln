@@ -3,6 +3,7 @@ import { z } from 'zod'
 export const deploymentEnvironmentSchema = z.enum([
   'development',
   'test',
+  'preview',
   'staging',
   'production',
 ])
@@ -44,8 +45,9 @@ export function validateDeploymentConfig(
   input: z.input<typeof deploymentInputSchema>,
 ): DeploymentConfig {
   const parsed = deploymentInputSchema.parse(input)
-  const deployed =
-    parsed.SHEETBASE_ENV === 'staging' || parsed.SHEETBASE_ENV === 'production'
+  const deployed = ['preview', 'staging', 'production'].includes(
+    parsed.SHEETBASE_ENV,
+  )
 
   if (
     parsed.SHEETBASE_DEV_AUTH_FREE &&

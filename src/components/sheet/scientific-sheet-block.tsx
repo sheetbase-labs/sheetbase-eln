@@ -1067,6 +1067,112 @@ export function ScientificSheetBlock({
       )
     }
   }
+  // Refs that hold the latest values for the coordinator callbacks. The
+  // coordinator is created once and its callbacks capture these refs, so
+  // they always read current state without being recreated.
+  const tableRef = useRef<ScientificTableWire | null>(table ?? null)
+  tableRef.current = table ?? null
+  const formulaByCellRef = useRef(formulaByCell)
+  formulaByCellRef.current = formulaByCell
+  const readOnlyRef = useRef(readOnly)
+  readOnlyRef.current = readOnly
+  const refreshCalculationRef = useRef(refreshCalculation)
+  refreshCalculationRef.current = refreshCalculation
+  // Mirror `selected` into a ref so the coordinator's
+  // onProvisionalRowReplaced callback can migrate the active selection when
+  // a provisional row ID is swapped for the server-assigned UUID. Without
+  // this, the formula bar and address box would keep pointing at the stale
+  // `prov:` id after the insert resolves, so a subsequent formula-bar
+  // commit would target the wrong (now-removed) identity.
+  const selectedRef = useRef(selected)
+  selectedRef.current = selected
+  // The coordinator replaces the per-afterChange mutation pattern with a
+  // coalesced, ordered, status-aware write pipeline. It persists edits with
+  // a ~300ms coalescing window, serialises literal and formula writes
+  // against one canonical snapshot, and exposes save status states.
+  const coordinator = useMemo(
+    () =>
+      new GridOperationCoordinator({
+        client: scientificDataClient,
+        coalesceMs: 300,
+        getCanonicalRows: () =>
+          queryClient.getQueryData<ScientificRowWire[]>(allRowsKey) ?? [],
+        getFormulaByCell: () => formulaByCellRef.current,
+        getTable: () => tableRef.current,
+        isReadOnly: () => readOnlyRef.current,
+        onRowsUpdated: (rows) =>
+          queryClient.setQueryData<ScientificRowWire[]>(allRowsKey, (old = []) => {
+            const map = new Map(old.map((r) => [r.id, r]))
+            for (const row of rows) map.set(row.id, row)
+            return [...map.values()]
+          }),
+        onProvisionalRowReplaced: (provisionalId, realId) => {
+          queryClient.setQueryData<ScientificRowWire[]>(allRowsKey, (old = []) =>
+            old.map((row) =>
+              row.id === provisionalId
+                ? { ...row, id: realId, version: 1 }
+                : row,
+            ),
+          )
+          // Migrate the active selection off the stale provisional id so the
+          // formula bar, address box, and subsequent commits target the real
+          // UUID after the insert resolves.
+          if (selectedRef.current?.rowId === provisionalId) {
+            setSelected({ ...selectedRef.current, rowId: realId })
+          }
+          // Migrate any in-flight draft keys that still reference the
+          // provisional id (e.g. an empty cell the user typed into but
+          // hasn't committed yet).
+          setDrafts((current) => {
+            const prefix = `${provisionalId}:`
+            let changed = false
+            const next: typeof current = {}
+            for (const [key, value] of Object.entries(current)) {
+              if (key.startsWith(prefix)) {
+                next[`${realId}:${key.slice(prefix.length)}`] = value
+                changed = true
+              } else {
+                next[key] = value
+              }
+            }
+            return changed ? next : current
+          })
+        },
+        onDraftsCleared: (cells) =>
+          setDrafts((current) => {
+            const next = { ...current }
+            for (const cell of cells) {
+              const key = `${cell.rowId ?? `new:${cell.rowIndex}`}:${cell.columnId}`
+              // The draft may have been discarded or replaced while this
+              // request was in flight; keep the optional lookup intentionally.
+              // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+              if (next[key]?.generation === cell.generation) delete next[key]
+            }
+            return next
+          }),
+        onIssues: setIssues,
+        onStatusChange: setSaveStatus,
+        onCalculationNeeded: (reconcileRows) =>
+          void refreshCalculationRef.current(reconcileRows),
+        onRefetchRows: () =>
+          void queryClient.invalidateQueries({ queryKey: allRowsKey }),
+      }),
+    [queryClient, allRowsKey, tableId],
+  )
+  // Destroy the coordinator on unmount.
+  useEffect(() => () => coordinator.destroy(), [coordinator])
+  // Warn before route exit if durable writes remain unsent.
+  useEffect(() => {
+    if (readOnly) return
+    const handler = (event: BeforeUnloadEvent) => {
+      if (coordinator.hasPendingEdits()) {
+        event.preventDefault()
+        event.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [coordinator, readOnly])
 
   /**
    * Commit the formula bar's current text to the selected cell via
@@ -1081,6 +1187,30 @@ export function ScientificSheetBlock({
     if (normalized !== formulaSource) {
       setFormulaSource(normalized)
       setExponentHint(true)
+    }
+    // Provisional rows (optimistic Add Row) must route through the
+    // coordinator, which will insert the row first and then apply the
+    // formula to the server-created UUID. Calling mutateScientificFormula
+    // directly with a `prov:` ID would fail because the server doesn't
+    // know about the row yet.
+    if (selected.rowId.startsWith('prov:')) {
+      const column = table.columns.find((c) => c.id === selected.columnId)
+      if (!column) return
+      const rowIndex = (allRowsQuery.data ?? []).findIndex(
+        (item) => item.id === selected.rowId,
+      )
+      coordinator.enqueue([
+        {
+          rowIndex: rowIndex >= 0 ? rowIndex : (allRowsQuery.data ?? []).length - 1,
+          rowId: selected.rowId,
+          columnId: selected.columnId,
+          fieldName: column.field_name,
+          raw: normalized,
+          generation: ++nextGeneration.current,
+        },
+      ])
+      setFormulaStatus('')
+      return
     }
     const row = (allRowsQuery.data ?? []).find(
       (item) => item.id === selected.rowId,
@@ -1114,6 +1244,7 @@ export function ScientificSheetBlock({
     selectedFormula,
     allRowsQuery.data,
     refreshCalculation,
+    coordinator,
   ])
 
   // HOT mutates its data. Never expose canonical query-cache objects.
@@ -1167,80 +1298,6 @@ export function ScientificSheetBlock({
       }
     return detached
   }, [drafts, formulaByCell, allRowsQuery.data, table, tableId, tableWorkbook])
-  // Refs that hold the latest values for the coordinator callbacks. The
-  // coordinator is created once and its callbacks capture these refs, so
-  // they always read current state without being recreated.
-  const tableRef = useRef<ScientificTableWire | null>(table ?? null)
-  tableRef.current = table ?? null
-  const formulaByCellRef = useRef(formulaByCell)
-  formulaByCellRef.current = formulaByCell
-  const readOnlyRef = useRef(readOnly)
-  readOnlyRef.current = readOnly
-  const refreshCalculationRef = useRef(refreshCalculation)
-  refreshCalculationRef.current = refreshCalculation
-  // The coordinator replaces the per-afterChange mutation pattern with a
-  // coalesced, ordered, status-aware write pipeline. It persists edits with
-  // a ~300ms coalescing window, serialises literal and formula writes
-  // against one canonical snapshot, and exposes save status states.
-  const coordinator = useMemo(
-    () =>
-      new GridOperationCoordinator({
-        client: scientificDataClient,
-        coalesceMs: 300,
-        getCanonicalRows: () =>
-          queryClient.getQueryData<ScientificRowWire[]>(allRowsKey) ?? [],
-        getFormulaByCell: () => formulaByCellRef.current,
-        getTable: () => tableRef.current,
-        isReadOnly: () => readOnlyRef.current,
-        onRowsUpdated: (rows) =>
-          queryClient.setQueryData<ScientificRowWire[]>(allRowsKey, (old = []) => {
-            const map = new Map(old.map((r) => [r.id, r]))
-            for (const row of rows) map.set(row.id, row)
-            return [...map.values()]
-          }),
-        onProvisionalRowReplaced: (provisionalId, realId) =>
-          queryClient.setQueryData<ScientificRowWire[]>(allRowsKey, (old = []) =>
-            old.map((row) =>
-              row.id === provisionalId
-                ? { ...row, id: realId, version: 1 }
-                : row,
-            ),
-          ),
-        onDraftsCleared: (cells) =>
-          setDrafts((current) => {
-            const next = { ...current }
-            for (const cell of cells) {
-              const key = `${cell.rowId ?? `new:${cell.rowIndex}`}:${cell.columnId}`
-              // The draft may have been discarded or replaced while this
-              // request was in flight; keep the optional lookup intentionally.
-              // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-              if (next[key]?.generation === cell.generation) delete next[key]
-            }
-            return next
-          }),
-        onIssues: setIssues,
-        onStatusChange: setSaveStatus,
-        onCalculationNeeded: (reconcileRows) =>
-          void refreshCalculationRef.current(reconcileRows),
-        onRefetchRows: () =>
-          void queryClient.invalidateQueries({ queryKey: allRowsKey }),
-      }),
-    [queryClient, allRowsKey, tableId],
-  )
-  // Destroy the coordinator on unmount.
-  useEffect(() => () => coordinator.destroy(), [coordinator])
-  // Warn before route exit if durable writes remain unsent.
-  useEffect(() => {
-    if (readOnly) return
-    const handler = (event: BeforeUnloadEvent) => {
-      if (coordinator.hasPendingEdits()) {
-        event.preventDefault()
-        event.returnValue = ''
-      }
-    }
-    window.addEventListener('beforeunload', handler)
-    return () => window.removeEventListener('beforeunload', handler)
-  }, [coordinator, readOnly])
   // Add Row: creates a provisional row optimistically in the query cache,
   // registers it with the coordinator for persistence, and selects its
   // first editable cell. The coordinator sends the insert RPC and swaps

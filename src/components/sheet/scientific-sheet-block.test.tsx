@@ -298,6 +298,112 @@ describe('ScientificSheetBlock', () => {
     expect(mocks.apply).not.toHaveBeenCalled()
   })
 
+  it('routes a formula bar commit on a provisional row through the coordinator', async () => {
+    mocks.table.mockResolvedValue(table)
+    mocks.allRows.mockResolvedValue([])
+    mocks.apply.mockResolvedValue({
+      ok: true,
+      schemaVersion: 2,
+      rows: [{ id: 'real-uuid', version: 1 }],
+    })
+    mocks.formulaMutation.mockResolvedValue({})
+    mount()
+    await ready()
+    // Simulate clicking "Add row" — adds a provisional row to the cache.
+    fireEvent.click(screen.getByRole('button', { name: 'Add row' }))
+    // The provisional row appears in the grid data (read latest settings).
+    await waitFor(() =>
+      expect(
+        mocks.settings!.data.some((r: any) => r.id?.startsWith('prov:')),
+      ).toBe(true),
+    )
+    // Select the provisional row's first cell (column 1 = number column).
+    // Use the latest afterSelectionEnd callback — the settings object was
+    // recreated after the Add Row click re-rendered the component.
+    mocks.settings!.afterSelectionEnd(0, 1)
+    // Wait for the selection to take effect — the formula input should
+    // become enabled and the address box should show B1.
+    await waitFor(() =>
+      expect(screen.getByLabelText('Active cell address').textContent).toBe(
+        'B1',
+      ),
+    )
+    // Type a formula in the formula bar and commit with Enter.
+    const input = screen.getByRole<HTMLInputElement>('textbox', {
+      name: 'Formula source',
+    })
+    fireEvent.change(input, { target: { value: '=2**3' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    // The coordinator should enqueue the formula and trigger an insert
+    // (applyScientificRowChanges), not mutateScientificFormula directly
+    // with the prov: ID.
+    await waitFor(() => expect(mocks.apply).toHaveBeenCalledTimes(1))
+    // After the insert returns, the formula is applied to the real UUID.
+    await waitFor(() =>
+      expect(mocks.formulaMutation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          operation: 'create',
+          target: expect.objectContaining({ rowId: 'real-uuid' }),
+          source: '=2^3',
+        }),
+      ),
+    )
+  })
+
+  it('migrates selection to the real UUID after the empty insert completes, then formula bar commits directly', async () => {
+    mocks.table.mockResolvedValue(table)
+    mocks.allRows.mockResolvedValue([])
+    mocks.apply.mockResolvedValue({
+      ok: true,
+      schemaVersion: 2,
+      rows: [{ id: 'real-uuid', version: 1 }],
+    })
+    mocks.formulaMutation.mockResolvedValue({})
+    mount()
+    await ready()
+    // Click Add Row — schedules an empty insert after the 300ms coalesce.
+    fireEvent.click(screen.getByRole('button', { name: 'Add row' }))
+    // Select the provisional row's first editable cell.
+    await waitFor(() =>
+      expect(
+        mocks.settings!.data.some((r: any) => r.id?.startsWith('prov:')),
+      ).toBe(true),
+    )
+    mocks.settings!.afterSelectionEnd(0, 1)
+    await waitFor(() =>
+      expect(screen.getByLabelText('Active cell address').textContent).toBe(
+        'B1',
+      ),
+    )
+    // Wait for the empty insert to flush and resolve — the coordinator
+    // sends the insert after ~300ms, and onProvisionalRowReplaced swaps
+    // the prov: id for real-uuid in both the cache and the selection.
+    await waitFor(
+      () => expect(mocks.apply).toHaveBeenCalledTimes(1),
+      { timeout: 2000 },
+    )
+    // After the swap, the address box still shows B1 but the underlying
+    // rowId is now real-uuid (not prov:). The formula bar commit should
+    // go directly to mutateScientificFormula with the real UUID — no
+    // second apply call.
+    const input = screen.getByRole<HTMLInputElement>('textbox', {
+      name: 'Formula source',
+    })
+    fireEvent.change(input, { target: { value: '=2**3' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await waitFor(() =>
+      expect(mocks.formulaMutation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          operation: 'create',
+          target: expect.objectContaining({ rowId: 'real-uuid' }),
+          source: '=2^3',
+        }),
+      ),
+    )
+    // No second insert should have been sent — the formula went directly.
+    expect(mocks.apply).toHaveBeenCalledTimes(1)
+  })
+
   it('supports mixed formula and literal batches without partial writes', async () => {
     mocks.table.mockResolvedValue(table)
     mocks.allRows.mockResolvedValue([

@@ -687,7 +687,12 @@ export function validatePersistedFormulaArtifact(
   const hasUnsupported = [...calls].some(
     (id) => !(SCIENTIFIC_CORE_FUNCTIONS as readonly string[]).includes(id),
   )
-  if ((value.status === 'supported') === hasUnsupported)
+  // A `supported` formula must not contain unsupported functions. The reverse
+  // is intentionally lenient: a formula persisted as `unsupported` under an
+  // earlier profile may become calculable after the allow-list expands (e.g.
+  // v1 → v2), so `unsupported` with no unsupported functions is a benign
+  // transitional state rather than an integrity violation.
+  if (value.status === 'supported' && hasUnsupported)
     fail('status does not match function semantics.')
 
   if (!Array.isArray(value.dependencies))

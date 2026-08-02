@@ -323,7 +323,7 @@ describe('DATA-006 Phase 4 database acceptance proof', () => {
           [raw.table.id]: raw.table.schema_version,
           [result.table.id]: result.table.schema_version,
         }),
-        'fnv1a32-0c96cef0',
+        'fnv1a32-dcfa915f',
         'fnv1a32-5678abcd',
       ],
     )

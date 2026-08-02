@@ -105,7 +105,7 @@ an over-limit table remains editable as literals but its calculation status is
 Startup imports the exact `enUS` translation from HyperFormula 3.3.0 and calls
 `HyperFormula.registerLanguage('enUS', enUS)` before the first instance. No
 custom plugin is registered: the exact package's built-in registry remains
-available, while the Sheetbase parser enforces `scientific-core-v1`. Startup
+available, while the Sheetbase parser enforces `scientific-core-v2`. Startup
 asserts every allowed function ID and records the sorted
 `function ID -> built-in plugin constructor name` map in the profile
 fingerprint.
@@ -138,19 +138,45 @@ release; `internal-use-in-handsontable` is not valid for detached server use.
 
 ### Function profile
 
-Only profile `scientific-core-v1` is accepted as supported. It allows operators,
-cell/range references and these function IDs:
+Profiles `scientific-core-v1` (superseded) and `scientific-core-v2` (current)
+are accepted. v2 is a strict superset of v1: it adds 112 built-in HyperFormula
+3.3.0 functions while keeping the v1 allow-list intact. Existing v1
+definitions are migrated to v2 by the `0055_calc_005_function_profile_v2`
+migration; v1 definitions remain valid because every v1 function is also in v2.
 
-- aggregation/statistics: `SUM`, `PRODUCT`, `SUMSQ`, `AVERAGE`, `MEDIAN`,
+v2 allows operators, cell/range references and these function IDs:
+
+- v1 aggregation/statistics: `SUM`, `PRODUCT`, `SUMSQ`, `AVERAGE`, `MEDIAN`,
   `MIN`, `MAX`, `COUNT`, `COUNTA`, `STDEV.S`, `STDEV.P`, `VAR.S`, `VAR.P`;
-- numeric/scientific: `ABS`, `SIGN`, `MOD`, `POWER`, `SQRT`, `EXP`, `LN`,
+- v1 numeric/scientific: `ABS`, `SIGN`, `MOD`, `POWER`, `SQRT`, `EXP`, `LN`,
   `LOG`, `LOG10`, `ROUND`, `ROUNDDOWN`, `ROUNDUP`, `INT`, `PI`, `SIN`, `COS`,
   `TAN`, `ASIN`, `ACOS`, `ATAN`, `ATAN2`, `DEGREES`, `RADIANS`;
-- logical/error: `IF`, `IFS`, `AND`, `OR`, `NOT`, `IFERROR`, `IFNA`, `NA`;
-- inspection/lookup: `ISBLANK`, `ISERROR`, `ISNA`, `ISNUMBER`, `ISTEXT`,
+- v1 logical/error: `IF`, `IFS`, `AND`, `OR`, `NOT`, `IFERROR`, `IFNA`, `NA`;
+- v1 inspection/lookup: `ISBLANK`, `ISERROR`, `ISNA`, `ISNUMBER`, `ISTEXT`,
   `INDEX`, `MATCH`, `XLOOKUP`;
-- deterministic date parts: `DATE`, `TIME`, `YEAR`, `MONTH`, `DAY`, `HOUR`,
-  `MINUTE`, `SECOND`.
+- v1 deterministic date parts: `DATE`, `TIME`, `YEAR`, `MONTH`, `DAY`, `HOUR`,
+  `MINUTE`, `SECOND`;
+- v2 statistics: `STDEV`, `STDEVA`, `STDEVP`, `STDEVPA`, `VAR`, `VARA`,
+  `VARP`, `VARPA`, `COVARIANCE.P`, `COVARIANCE.S`, `CORREL`, `PEARSON`,
+  `NORM.DIST`, `NORM.INV`, `NORM.S.DIST`, `NORM.S.INV`, `T.DIST`, `T.DIST.2T`,
+  `T.INV`, `T.INV.2T`, `T.TEST`, `CHISQ.DIST`, `CHISQ.INV`, `CHISQ.TEST`,
+  `F.DIST`, `F.INV`, `F.TEST`, `PERCENTILE`, `PERCENTILE.INC`,
+  `PERCENTILE.EXC`, `QUARTILE`, `QUARTILE.INC`, `QUARTILE.EXC`, `LARGE`,
+  `SMALL`, `SKEW`, `SKEW.P`, `CONFIDENCE`, `CONFIDENCE.NORM`,
+  `CONFIDENCE.T`, `AVERAGEIF`, `SUMIF`, `SUMIFS`, `COUNTIF`, `COUNTIFS`,
+  `GEOMEAN`, `HARMEAN`, `RSQ`;
+- v2 math: `MROUND`, `CEILING`, `CEILING.MATH`, `FLOOR`, `FLOOR.MATH`,
+  `FACT`, `FACTDOUBLE`, `COMBIN`, `GCD`, `LCM`, `SERIESSUM`, `SUMPRODUCT`,
+  `SUBTOTAL`, `BASE`, `DECIMAL`, `ROMAN`, `ARABIC`;
+- v2 lookup/reference: `VLOOKUP`, `HLOOKUP`, `CHOOSE`, `COLUMNS`, `ROWS`,
+  `ADDRESS`, `TRANSPOSE`, `FILTER`, `SEQUENCE`;
+- v2 text: `LEFT`, `RIGHT`, `MID`, `LEN`, `FIND`, `SEARCH`, `REPLACE`,
+  `SUBSTITUTE`, `UPPER`, `LOWER`, `PROPER`, `TRIM`, `CLEAN`, `CONCATENATE`,
+  `TEXTJOIN`, `TEXT`, `VALUE`, `REPT`;
+- v2 date/time: `DATEDIF`, `DATEVALUE`, `TIMEVALUE`, `NETWORKDAYS`, `WORKDAY`,
+  `EOMONTH`, `EDATE`, `WEEKDAY`, `WEEKNUM`, `ISOWEEKNUM`;
+- v2 logical: `TRUE`, `FALSE`, `XOR`, `SWITCH`;
+- v2 information: `ISLOGICAL`, `ISNONTEXT`, `ISODD`, `ISEVEN`, `ISREF`, `N`.
 
 The Sheetbase parser/template validator is the authoritative allow-list. A
 controlled per-instance plugin set and startup assertions against HyperFormula's
@@ -159,13 +185,23 @@ startup. Protected/special `OFFSET` and `VERSION` tokens are rejected lexically.
 A syntactically valid definition containing any other function may be retained
 for provenance with status `unsupported`, but cannot produce a current trusted
 result. No named expressions, asynchronous functions or custom functions are
-allowed in v1.
+allowed.
 
-`RAND`, `RANDBETWEEN`, `NOW` and `TODAY` are explicitly unsupported because
-rebuilds and browser/server clocks cannot reproduce them. Structure-dependent
-functions such as `ROW`, `ROWS`, `COLUMN`, `COLUMNS`, `OFFSET`, `INDIRECT` and
-`FORMULATEXT` are also excluded because they would make disposable coordinates
-part of scientific meaning.
+The persisted-formula validator is intentionally lenient about the
+`unsupported` → `supported` direction: a formula persisted as `unsupported`
+under v1 may become calculable after the allow-list expands to v2, so
+`unsupported` status with no unsupported functions is a benign transitional
+state. The reverse (`supported` with unsupported functions) remains an
+integrity violation. The `0055` migration reclassifies previously-unsupported
+definitions whose functions are all admitted by v2.
+
+`RAND`, `RANDBETWEEN`, `NOW` and `TODAY` remain explicitly unsupported because
+rebuilds and browser/server clocks cannot reproduce them. Coordinate-
+introspective functions `ROW`, `COLUMN`, `OFFSET` and `INDIRECT` remain
+excluded because they would make disposable coordinates part of scientific
+meaning. `ROWS` and `COLUMNS` are admitted in v2 because they return
+deterministic range dimensions derived from UUID-bound captured members, not
+disposable absolute coordinates. `FORMULATEXT` remains excluded.
 
 ### Literals, definitions and result caches
 

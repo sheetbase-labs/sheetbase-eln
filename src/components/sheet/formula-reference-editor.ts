@@ -1,4 +1,5 @@
 import { TextEditor } from 'handsontable/editors/textEditor'
+import { FunctionAutocompleteDom } from './function-autocomplete-dom'
 
 /**
  * Convert a 0-indexed column number to its A1 letter representation.
@@ -576,6 +577,8 @@ export class FormulaReferenceEditor extends TextEditor {
   }
 
   private _picker: ReferencePicker | null = null
+  /** Function-name autocomplete manager for the in-cell textarea. */
+  private _autocomplete: FunctionAutocompleteDom | null = null
   /** Capture-phase pointerdown: owns the reference-pick drag. */
   private _onPointerDown = (event: PointerEvent): void => {
     this.handlePointerDown(event)
@@ -602,14 +605,19 @@ export class FormulaReferenceEditor extends TextEditor {
     const doc = this.hot.rootDocument
     doc.addEventListener('pointerdown', this._onPointerDown, true)
     doc.addEventListener('mousedown', this._onMouseDown, true)
+    this._autocomplete = new FunctionAutocompleteDom(this.TEXTAREA)
   }
 
   close(): void {
+    this._autocomplete?.destroy()
+    this._autocomplete = null
     this.cleanup()
     super.close()
   }
 
   destroy(): void {
+    this._autocomplete?.destroy()
+    this._autocomplete = null
     this.cleanup()
     super.destroy()
   }

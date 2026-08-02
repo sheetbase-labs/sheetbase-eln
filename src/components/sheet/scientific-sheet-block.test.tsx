@@ -381,7 +381,7 @@ describe('ScientificSheetBlock', () => {
         ],
         engine_expression: '=(A1*2)',
         syntax_profile: 'sheetbase-hf-en-us-v1',
-        function_profile: 'scientific-core-v1',
+        function_profile: 'scientific-core-v2',
         literal_profile: 'sheetbase-literal-v1',
         engine_version: '3.3.0',
         status: 'supported',

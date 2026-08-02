@@ -2234,7 +2234,7 @@ export const formulaDefinitions = api.table(
     ),
     check(
       'chk_formula_profiles',
-      sql`${table.syntaxProfile} = 'sheetbase-hf-en-us-v1' AND ${table.functionProfile} = 'scientific-core-v1' AND ${table.literalProfile} = 'sheetbase-literal-v1' AND ${table.engineVersion} = '3.3.0'`,
+      sql`${table.syntaxProfile} = 'sheetbase-hf-en-us-v1' AND ${table.functionProfile} = 'scientific-core-v2' AND ${table.literalProfile} = 'sheetbase-literal-v1' AND ${table.engineVersion} = '3.3.0'`,
     ),
     unique('uq_formula_stable_target').on(
       table.targetTableId,
@@ -2346,7 +2346,7 @@ export const formulaResultCache = internal.table(
     ),
     check(
       'formula_result_profile_check',
-      sql`${table.engineVersion} = '3.3.0' AND ${table.profileFingerprint} = 'fnv1a32-0c96cef0'`,
+      sql`${table.engineVersion} = '3.3.0' AND ${table.profileFingerprint} = 'fnv1a32-dcfa915f'`,
     ),
     index('idx_formula_result_record').on(table.recordId),
   ],

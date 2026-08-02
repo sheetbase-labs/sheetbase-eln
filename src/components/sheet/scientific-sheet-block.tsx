@@ -3,6 +3,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { CellChange, ChangeSource, ColumnSettings } from 'handsontable'
 import { FormulaReferenceEditor } from '#/components/sheet/formula-reference-editor'
 import {
+  FunctionAutocompleteDropdown,
+  useFunctionAutocomplete,
+} from '#/components/sheet/function-autocomplete'
+import {
   ChevronLeft,
   ChevronRight,
   MoreHorizontal,
@@ -834,6 +838,19 @@ export function ScientificSheetBlock({
   const [formulaSource, setFormulaSource] = useState('')
   const [formulaStatus, setFormulaStatus] = useState('')
   const nextGeneration = useRef(0)
+  const formulaInputRef = useRef<HTMLInputElement>(null)
+  const formulaAutocomplete = useFunctionAutocomplete({
+    value: formulaSource,
+    inputRef: formulaInputRef,
+    onInsert: ({ text, cursor }) => {
+      setFormulaSource(text)
+      // Defer cursor positioning until after React re-renders the input.
+      requestAnimationFrame(() => {
+        formulaInputRef.current?.focus()
+        formulaInputRef.current?.setSelectionRange(cursor, cursor)
+      })
+    },
+  })
   const queryClient = useQueryClient()
   const tableQuery = useQuery({
     queryKey: scientificQueryKeys.table(tableId),
@@ -1504,24 +1521,35 @@ export function ScientificSheetBlock({
           <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-muted font-mono text-[10px] font-semibold italic text-muted-foreground">
             fx
           </span>
-          <Input
-            aria-label="Formula source"
-            placeholder={selected ? '' : 'Select a cell'}
-            value={formulaSource}
-            disabled={!selected}
-            onChange={(event) => setFormulaSource(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault()
-                void commitFormula()
-              } else if (event.key === 'Escape') {
-                event.preventDefault()
-                setFormulaSource(selectedFormula?.source_expression ?? '')
-                setFormulaStatus('')
-              }
-            }}
-            className="h-6 min-w-40 flex-1 border-muted font-mono text-xs"
-          />
+          <div className="relative flex-1">
+            <Input
+              ref={formulaInputRef}
+              aria-label="Formula source"
+              placeholder={selected ? '' : 'Select a cell'}
+              value={formulaSource}
+              disabled={!selected}
+              onChange={(event) => setFormulaSource(event.target.value)}
+              onKeyDown={(event) => {
+                formulaAutocomplete.handleKeyDown(event)
+                if (event.defaultPrevented) return
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  void commitFormula()
+                } else if (event.key === 'Escape') {
+                  event.preventDefault()
+                  setFormulaSource(selectedFormula?.source_expression ?? '')
+                  setFormulaStatus('')
+                }
+              }}
+              className="h-6 min-w-40 flex-1 border-muted font-mono text-xs"
+            />
+            <FunctionAutocompleteDropdown
+              suggestions={formulaAutocomplete.suggestions}
+              activeIndex={formulaAutocomplete.activeIndex}
+              listRef={formulaAutocomplete.listRef}
+              onSelect={formulaAutocomplete.selectSuggestion}
+            />
+          </div>
           {formulaStatus ? (
             <span role="status" className="text-muted-foreground">
               {formulaStatus}

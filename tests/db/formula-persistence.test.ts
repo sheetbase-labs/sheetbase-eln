@@ -27,7 +27,7 @@ const artifact = (
 ) => ({
   version: 1,
   syntaxProfile: 'sheetbase-hf-en-us-v1',
-  functionProfile: 'scientific-core-v1',
+  functionProfile: 'scientific-core-v2',
   literalProfile: 'sheetbase-literal-v1',
   engineVersion: '3.3.0',
   status: 'supported',
@@ -86,7 +86,7 @@ async function calculate(
               [sourceTable.id]: sourceTable.schema_version,
             },
           ),
-          'fnv1a32-0c96cef0',
+          'fnv1a32-dcfa915f',
           'fnv1a32-5678abcd',
           outcome === 'failed' ? 'Calculation worker failed.' : null,
         ],

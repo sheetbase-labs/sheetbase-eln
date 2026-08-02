@@ -204,7 +204,7 @@ jobs:
         with:
           script: |
             const marker = '<!-- sheetbase-preview -->'
-            const body = `${marker}\n✅ Preview deployed: https://pr-${context.payload.pull_request.number}.sheetbase.co.uk`
+            const body = `${marker}\n✅ Preview deployed: https://pr-${context.payload.pull_request.number}.sheetbase.co.uk\n\nLast updated: ${new Date().toISOString()}`
             const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -264,3 +264,42 @@ jobs:
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           BASE_DOMAIN: sheetbase.co.uk
+
+  cleanup-comment:
+    name: Mark preview removed on PR
+    needs: cleanup
+    if: github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Create or update preview removal comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = '<!-- sheetbase-preview -->'
+            const body = `${marker}\n🧹 Preview removed: https://pr-${context.payload.pull_request.number}.sheetbase.co.uk\n\nLast updated: ${new Date().toISOString()}`
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              per_page: 100,
+            })
+            const existing = comments.find(
+              (comment) => comment.user.type === 'Bot' && comment.body?.includes(marker),
+            )
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              })
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body,
+              })
+            }

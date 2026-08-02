@@ -260,35 +260,25 @@ describe('ScientificSheetBlock', () => {
     await waitFor(() => expect(mocks.allRows.mock.calls.length).toBeGreaterThan(1))
   })
 
-  it('serializes rapid edits and uses the first canonical version for the second', async () => {
+  it('coalesces rapid edits into one batch using the initial canonical version', async () => {
     mocks.table.mockResolvedValue(table)
     mocks.allRows.mockResolvedValue([{ id: 'r1', version: 1 }])
-    let release!: () => void
-    mocks.apply
-      .mockImplementationOnce(
-        () =>
-          new Promise((resolve) => {
-            release = () =>
-              resolve({
-                ok: true,
-                schemaVersion: 2,
-                rows: [{ id: 'r1', version: 2, col_text: 'first' }],
-              })
-          }),
-      )
-      .mockResolvedValueOnce({
-        ok: true,
-        schemaVersion: 2,
-        rows: [{ id: 'r1', version: 3 }],
-      })
+    mocks.apply.mockResolvedValue({
+      ok: true,
+      schemaVersion: 2,
+      rows: [{ id: 'r1', version: 2 }],
+    })
     mount()
     const settings = await ready()
+    // Two rapid edits within the coalescing window are merged into one
+    // batch that uses the initial canonical version (1).
     settings.afterChange([[0, 'col_text', null, 'first']], 'edit')
     settings.afterChange([[0, 'col_number', null, '2']], 'edit')
     await waitFor(() => expect(mocks.apply).toHaveBeenCalledTimes(1))
-    release()
-    await waitFor(() => expect(mocks.apply).toHaveBeenCalledTimes(2))
-    expect(mocks.apply.mock.calls[1][3][0].expectedVersion).toBe(2)
+    const edits = mocks.apply.mock.calls[0][3]
+    expect(edits).toHaveLength(1)
+    expect(edits[0].expectedVersion).toBe(1)
+    expect(edits[0].values).toEqual({ text: 'first', number: 2 })
   })
 
   it('accepts a formula in a numeric cell before literal decoding', async () => {
@@ -308,21 +298,51 @@ describe('ScientificSheetBlock', () => {
     expect(mocks.apply).not.toHaveBeenCalled()
   })
 
-  it('rejects mixed formula batches before any partial write', async () => {
+  it('supports mixed formula and literal batches without partial writes', async () => {
     mocks.table.mockResolvedValue(table)
-    mocks.allRows.mockResolvedValue([{ id: 'r1', version: 1 }])
+    mocks.allRows.mockResolvedValue([
+      { id: 'r1', version: 1 },
+      { id: 'r2', version: 1 },
+    ])
+    mocks.apply.mockResolvedValue({
+      ok: true,
+      schemaVersion: 2,
+      rows: [{ id: 'r1', version: 2 }, { id: 'r2', version: 2 }],
+    })
+    mocks.formulaMutation.mockResolvedValue({})
     mount()
     const settings = await ready()
+    // A batch containing both a formula and a literal is now supported.
+    // The literal goes through applyScientificRowChanges; the formula
+    // goes through mutateScientificFormula with the correct version.
     settings.afterChange(
       [
         [0, 'col_number', null, '=1+2'],
-        [0, 'col_text', null, 'partial'],
+        [0, 'col_text', null, 'literal'],
+        [1, 'col_number', null, '=2+3'],
       ],
       'CopyPaste.paste',
     )
-    expect(await screen.findByText(/one cell at a time/)).toBeTruthy()
-    expect(mocks.formulaMutation).not.toHaveBeenCalled()
-    expect(mocks.apply).not.toHaveBeenCalled()
+    // Both the literal RPC and both formula writes should fire.
+    await waitFor(() => expect(mocks.apply).toHaveBeenCalledTimes(1))
+    await waitFor(() =>
+      expect(mocks.formulaMutation).toHaveBeenCalledTimes(2),
+    )
+    // The literal edit uses the initial version.
+    const edits = mocks.apply.mock.calls[0][3]
+    expect(edits[0].rowId).toBe('r1')
+    expect(edits[0].values).toEqual({ text: 'literal' })
+    // The formula on r1 uses the version returned by the literal RPC (2).
+    const formulaCallR1 = mocks.formulaMutation.mock.calls.find(
+      (c: any) => c[0].target.rowId === 'r1',
+    )!
+    expect(formulaCallR1[0].expectedRowVersion).toBe(2)
+    expect(formulaCallR1[0].source).toBe('=1+2')
+    // The formula on r2 uses its initial version (2, from the RPC).
+    const formulaCallR2 = mocks.formulaMutation.mock.calls.find(
+      (c: any) => c[0].target.rowId === 'r2',
+    )!
+    expect(formulaCallR2[0].source).toBe('=2+3')
   })
 
   it('reconstructs a persisted formula and shows its source in the formula bar', async () => {

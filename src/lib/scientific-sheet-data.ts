@@ -373,6 +373,21 @@ export function recordScientificExport(
   })
 }
 
+/**
+ * Delete rows from a scientific table by ID via PostgREST. The database
+ * trigger on the dynamic table raises an exception (23514) if any row has
+ * formula targets or is referenced by formula dependencies — the error is
+ * surfaced to the caller.
+ */
+export async function deleteScientificRows(
+  client: DataClient,
+  resource: string,
+  rowIds: string[],
+) {
+  const query = `?id=in.(${rowIds.map((id) => encodeURIComponent(id)).join(',')})`
+  return client.remove(encodeURIComponent(resource), query)
+}
+
 export function renameScientificTable(
   client: DataClient,
   tableId: string,

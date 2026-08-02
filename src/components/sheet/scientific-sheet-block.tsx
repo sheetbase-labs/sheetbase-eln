@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { CellChange, ChangeSource, ColumnSettings } from 'handsontable'
+import type Handsontable from 'handsontable/base'
 import { FormulaReferenceEditor, columnToLetter, toA1 } from '#/components/sheet/formula-reference-editor'
 import { normalizeExponentiation } from '#/lib/formula-ir'
 import {
@@ -38,8 +39,7 @@ import { ScientificApiInspector } from './scientific-api-inspector'
 import { ScientificTransferPanel } from './scientific-transfer-panel'
 import {
   addScientificColumn,
-  applyScientificRowChanges,
-  decodeScientificValue,
+  deleteScientificRows,
   fetchAllScientificRows,
   fetchScientificFormulas,
   fetchScientificDependencies,
@@ -77,6 +77,11 @@ import type {
 import { createSheetbaseHyperFormula } from '#/lib/hyperformula-profile'
 import type { HyperFormula } from 'hyperformula'
 import { useNotebookScientificWorkbook } from '#/components/notebook/scientific-workbook-provider'
+import { GridOperationCoordinator } from '#/lib/grid-operation-coordinator'
+import type {
+  SaveStatus,
+  PendingCell as CoordinatorCell,
+} from '#/lib/grid-operation-coordinator'
 
 interface PendingCell {
   rowIndex: number
@@ -86,21 +91,8 @@ interface PendingCell {
   raw: unknown
 }
 
-interface ChangeBatch {
-  generation: number
-  cells: PendingCell[]
-}
-
 interface DraftCell extends PendingCell {
   generation: number
-}
-
-interface PendingFormulaWrite {
-  rowId: string
-  columnId: string
-  source?: string
-  replacement?: unknown
-  existing?: FormulaDefinitionWire
 }
 
 function persistedFormula(formula: FormulaDefinitionWire) {
@@ -183,27 +175,23 @@ export function safeWorkbookGet(
  * clutter on initial load.
  */
 function SaveStatusIndicator({
-  isPending,
-  isError,
-  isSuccess,
+  status,
   onRetry,
 }: {
-  isPending: boolean
-  isError: boolean
-  isSuccess: boolean
+  status: SaveStatus
   onRetry: () => void
 }) {
-  if (isPending)
+  if (status === 'saving' || status === 'retrying')
     return (
       <span
         className="flex items-center gap-1 text-muted-foreground"
-        aria-label="Saving"
+        aria-label={status === 'retrying' ? 'Retrying save' : 'Saving'}
       >
         <Spinner className="size-3" />
-        Saving…
+        {status === 'retrying' ? 'Offline/Retrying…' : 'Saving…'}
       </span>
     )
-  if (isError)
+  if (status === 'error')
     return (
       <span
         className="flex items-center gap-1 text-destructive"
@@ -223,7 +211,7 @@ function SaveStatusIndicator({
         </Button>
       </span>
     )
-  if (isSuccess)
+  if (status === 'saved')
     return (
       <span
         className="flex items-center gap-1 text-success-foreground"
@@ -826,22 +814,18 @@ function SchemaConfigurator({
  * Built-in context-menu item keys for the editable scientific sheet. Only
  * operations that are backed by the data model are included — column
  * insert/remove and read-only toggle are omitted because they would mutate
- * Handsontable locally without persisting. Custom items (clear contents,
- * configure columns) are added in the settings memo where they can access
- * component state.
+ * Handsontable locally without persisting. The full ordered item list
+ * (including custom items) is assembled in the settings memo where custom
+ * callbacks can access component state.
  */
 const GRID_CONTEXT_MENU_ITEMS: readonly string[] = Object.freeze([
   'row_above',
   'row_below',
-  '---------',
   'remove_row',
   '---------',
   'cut',
   'copy',
   'paste',
-  '---------',
-  'undo',
-  'redo',
 ])
 
 function columnSettings(
@@ -899,7 +883,9 @@ export function ScientificSheetBlock({
   const [formulaSource, setFormulaSource] = useState('')
   const [formulaStatus, setFormulaStatus] = useState('')
   const [exponentHint, setExponentHint] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const nextGeneration = useRef(0)
+  const hotRef = useRef<Handsontable | null>(null)
   const queryClient = useQueryClient()
   const tableQuery = useQuery({
     queryKey: scientificQueryKeys.table(tableId),
@@ -926,7 +912,10 @@ export function ScientificSheetBlock({
       })
     },
   })
-  const allRowsKey = scientificQueryKeys.allRows(tableId)
+  const allRowsKey = useMemo(
+    () => scientificQueryKeys.allRows(tableId),
+    [tableId],
+  )
   const allRowsQuery = useQuery({
     queryKey: allRowsKey,
     queryFn: () => fetchAllScientificRows(scientificDataClient, table!),
@@ -1178,221 +1167,193 @@ export function ScientificSheetBlock({
       }
     return detached
   }, [drafts, formulaByCell, allRowsQuery.data, table, tableId, tableWorkbook])
-  const mutation = useMutation({
-    scope: { id: `scientific-table:${tableId}` },
-    mutationFn: async (batch: ChangeBatch) => {
-      if (readOnly || !table) return []
-      const canonical =
-        queryClient.getQueryData<ScientificRowWire[]>(allRowsKey) ?? []
-      const canonicalById = new Map(canonical.map((row) => [row.id, row]))
-      const edits = new Map<
-        string,
-        {
-          rowId: string
-          expectedVersion: number
-          values: Record<string, unknown>
+  // Refs that hold the latest values for the coordinator callbacks. The
+  // coordinator is created once and its callbacks capture these refs, so
+  // they always read current state without being recreated.
+  const tableRef = useRef<ScientificTableWire | null>(table ?? null)
+  tableRef.current = table ?? null
+  const formulaByCellRef = useRef(formulaByCell)
+  formulaByCellRef.current = formulaByCell
+  const readOnlyRef = useRef(readOnly)
+  readOnlyRef.current = readOnly
+  const refreshCalculationRef = useRef(refreshCalculation)
+  refreshCalculationRef.current = refreshCalculation
+  // The coordinator replaces the per-afterChange mutation pattern with a
+  // coalesced, ordered, status-aware write pipeline. It persists edits with
+  // a ~300ms coalescing window, serialises literal and formula writes
+  // against one canonical snapshot, and exposes save status states.
+  const coordinator = useMemo(
+    () =>
+      new GridOperationCoordinator({
+        client: scientificDataClient,
+        coalesceMs: 300,
+        getCanonicalRows: () =>
+          queryClient.getQueryData<ScientificRowWire[]>(allRowsKey) ?? [],
+        getFormulaByCell: () => formulaByCellRef.current,
+        getTable: () => tableRef.current,
+        isReadOnly: () => readOnlyRef.current,
+        onRowsUpdated: (rows) =>
+          queryClient.setQueryData<ScientificRowWire[]>(allRowsKey, (old = []) => {
+            const map = new Map(old.map((r) => [r.id, r]))
+            for (const row of rows) map.set(row.id, row)
+            return [...map.values()]
+          }),
+        onProvisionalRowReplaced: (provisionalId, realId) =>
+          queryClient.setQueryData<ScientificRowWire[]>(allRowsKey, (old = []) =>
+            old.map((row) =>
+              row.id === provisionalId
+                ? { ...row, id: realId, version: 1 }
+                : row,
+            ),
+          ),
+        onDraftsCleared: (cells) =>
+          setDrafts((current) => {
+            const next = { ...current }
+            for (const cell of cells) {
+              const key = `${cell.rowId ?? `new:${cell.rowIndex}`}:${cell.columnId}`
+              // The draft may have been discarded or replaced while this
+              // request was in flight; keep the optional lookup intentionally.
+              // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+              if (next[key]?.generation === cell.generation) delete next[key]
+            }
+            return next
+          }),
+        onIssues: setIssues,
+        onStatusChange: setSaveStatus,
+        onCalculationNeeded: (reconcileRows) =>
+          void refreshCalculationRef.current(reconcileRows),
+        onRefetchRows: () =>
+          void queryClient.invalidateQueries({ queryKey: allRowsKey }),
+      }),
+    [queryClient, allRowsKey, tableId],
+  )
+  // Destroy the coordinator on unmount.
+  useEffect(() => () => coordinator.destroy(), [coordinator])
+  // Warn before route exit if durable writes remain unsent.
+  useEffect(() => {
+    if (readOnly) return
+    const handler = (event: BeforeUnloadEvent) => {
+      if (coordinator.hasPendingEdits()) {
+        event.preventDefault()
+        event.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [coordinator, readOnly])
+  // Add Row: creates a provisional row optimistically in the query cache,
+  // registers it with the coordinator for persistence, and selects its
+  // first editable cell. The coordinator sends the insert RPC and swaps
+  // the provisional ID for the server-created UUID on success.
+  const addRow = useCallback(() => {
+    if (readOnly || !table) return
+    const provisionalId = `prov:${crypto.randomUUID()}`
+    queryClient.setQueryData<ScientificRowWire[]>(allRowsKey, (old = []) => [
+      ...old,
+      { id: provisionalId, version: 0 },
+    ])
+    coordinator.registerProvisionalRow(provisionalId)
+    // Select the first editable cell of the new row after the grid re-renders.
+    setTimeout(() => {
+      const hot = hotRef.current
+      if (!hot) return
+      const rowIndex = hot.countRows() - 1
+      if (table.columns.length > 0) {
+        hot.selectCell(rowIndex, 0, rowIndex, 0, true)
+        hot.scrollViewportTo(rowIndex, 0, false, false)
+      }
+    }, 0)
+  }, [readOnly, table, coordinator, queryClient, allRowsKey])
+  // Row deletion: captures row IDs before removal, then persists via
+  // deleteScientificRows. If the DB trigger blocks deletion (formula
+  // dependencies), refetches to restore the row and surfaces the error.
+  const removedRowIdsRef = useRef<string[]>([])
+  const handleBeforeRemoveRow = useCallback(
+    (rowIndex: number, amount: number) => {
+      if (readOnly) return
+      const ids: string[] = []
+      let hasContent = false
+      for (let i = rowIndex; i < rowIndex + amount; i++) {
+        if (i >= localRows.length) continue
+        const row = localRows[i]
+        if (typeof row.id === 'string') {
+          if (row.id.startsWith('prov:')) continue
+          ids.push(row.id)
         }
-      >()
-      const inserts = new Map<number, Record<string, unknown>>()
-      const formulaWrites: PendingFormulaWrite[] = []
-      const errors: Array<{ key: string; message: string }> = []
-      const formulaCells = batch.cells.filter((cell) => {
-        const existing = cell.rowId
-          ? formulaByCell.has(`${cell.rowId}/${cell.columnId}`)
-          : false
-        return (
-          existing || (typeof cell.raw === 'string' && cell.raw.startsWith('='))
+        for (const column of table?.columns ?? []) {
+          if (row[column.field_name] !== null && row[column.field_name] !== undefined) {
+            hasContent = true
+            break
+          }
+        }
+      }
+      // Preflight: check if any formula depends on the rows being deleted.
+      // The DB trigger blocks deletion of rows referenced by formulas
+      // (SQLSTATE 23514); surfacing this before the request gives a clearer
+      // error than a post-failure refetch.
+      const deps = dependenciesQuery.data ?? []
+      const blockedIds = new Set(ids)
+      const blockingFormulas = deps.filter((d) => blockedIds.has(d.source_row_id))
+      if (blockingFormulas.length) {
+        const formulaIds = [...new Set(blockingFormulas.map((d) => d.formula_id))]
+        setIssues(
+          formulaIds.map((fid) => ({
+            key: `${fid}:delete-block`,
+            message: `Cannot remove row: formula ${fid.slice(0, 8)}… references it. Remove the formula first.`,
+          })),
         )
-      })
-      if (formulaCells.length && batch.cells.length !== 1) {
-        setIssues([
-          {
-            key: 'formula-batch',
-            message:
-              'Formula changes must be entered one cell at a time so the edit is atomic.',
-          },
-        ])
-        throw Object.assign(new Error('Formula batch is not supported.'), {
-          localValidation: true,
-        })
+        return false
       }
-      for (const cell of batch.cells) {
-        const { rowIndex, rowId, columnId, raw } = cell
-        const column = table.columns.find((c) => c.id === columnId)
-        if (!column) continue
-        const row = rowId ? canonicalById.get(rowId) : undefined
-        const existingFormula = row
-          ? formulaByCell.get(`${row.id}/${column.id}`)
-          : undefined
-        if (typeof raw === 'string' && raw.startsWith('=')) {
-          if (!row) {
-            errors.push({
-              key: `${rowIndex}:${column.id}`,
-              message: 'Save the row before adding a formula.',
-            })
-          } else {
-            formulaWrites.push({
-              rowId: row.id,
-              columnId,
-              source: normalizeExponentiation(raw),
-              existing: existingFormula,
-            })
-          }
-          continue
-        }
-        let value: unknown
-        try {
-          value = decodeScientificValue(column, raw)
-        } catch (error) {
-          errors.push({
-            key: `${rowIndex}:${column.id}`,
-            message: error instanceof Error ? error.message : 'Invalid value.',
-          })
-          continue
-        }
-        if (row) {
-          if (existingFormula) {
-            formulaWrites.push({
-              rowId: row.id,
-              columnId,
-              replacement: value,
-              existing: existingFormula,
-            })
-            continue
-          }
-          const edit = edits.get(row.id) ?? {
-            rowId: row.id,
-            expectedVersion: row.version,
-            values: {},
-          }
-          edit.values[column.id] = value
-          edits.set(row.id, edit)
-        } else {
-          inserts.set(rowIndex, {
-            ...(inserts.get(rowIndex) ?? {}),
-            [column.id]: value,
-          })
-        }
+      removedRowIdsRef.current = ids
+      // Confirm non-empty or multi-row deletion.
+      if (hasContent || amount > 1) {
+        const message =
+          amount > 1
+            ? `Remove ${amount} rows?`
+            : 'Remove this row? It contains data.'
+        return window.confirm(message)
       }
-      if (errors.length) {
-        setIssues(errors)
-        throw Object.assign(new Error('Some cells are invalid.'), {
-          localValidation: true,
-        })
-      }
-      let changedRows: ScientificRowWire[] = []
-      if (edits.size || inserts.size) {
-        const result = await applyScientificRowChanges(
+    },
+    [readOnly, localRows, table, dependenciesQuery.data],
+  )
+  const handleAfterRemoveRow = useCallback(
+    async (_rowIndex: number, _amount: number, source: string) => {
+      if (readOnly || !table) return
+      if (source === 'auto' || source === 'loadData') return
+      const rowIds = removedRowIdsRef.current
+      removedRowIdsRef.current = []
+      if (rowIds.length === 0) return
+      try {
+        await deleteScientificRows(
           scientificDataClient,
-          table.id,
-          table.schema_version,
-          [...edits.values()],
-          [...inserts.values()],
+          table.resource_name,
+          rowIds,
         )
-        if (!result.ok) {
-          setIssues(
-            result.errors.map((e) => ({
-              key: `${e.rowId}:${e.columnId}`,
-              message: e.message,
-            })),
-          )
-          throw Object.assign(new Error('Some cells were rejected.'), {
-            validation: true,
-          })
-        }
-        changedRows = result.rows
-      }
-      // Row edits run first. Formula writes then advance each target row's
-      // optimistic version one at a time, so a paste containing literals and
-      // several formulas in the same row cannot submit stale versions.
-      const rowVersions = new Map(
-        canonical.map((row) => [row.id, Number(row.version)]),
-      )
-      for (const row of changedRows)
-        rowVersions.set(row.id, Number(row.version))
-      for (const formula of formulaWrites) {
-        const expectedRowVersion = rowVersions.get(formula.rowId)
-        if (expectedRowVersion === undefined) continue
-        await mutateScientificFormula(
-          formula.source
-            ? ({
-                operation: formula.existing ? 'update' : 'create',
-                target: {
-                  tableId: table.id,
-                  rowId: formula.rowId,
-                  columnId: formula.columnId,
-                },
-                expectedSchemaVersion: table.schema_version,
-                expectedRowVersion,
-                ...(formula.existing
-                  ? {
-                      expectedFormulaVersion: Number(formula.existing.version),
-                    }
-                  : {}),
-                source: formula.source,
-              } as Parameters<typeof mutateScientificFormula>[0])
-            : {
-                operation: 'remove',
-                target: {
-                  tableId: table.id,
-                  rowId: formula.rowId,
-                  columnId: formula.columnId,
-                },
-                expectedSchemaVersion: table.schema_version,
-                expectedRowVersion,
-                expectedFormulaVersion: Number(formula.existing!.version),
-                replacement: formula.replacement,
-              },
+        setIssues([])
+        void refreshCalculation(true)
+      } catch (error) {
+        // The DB trigger blocks deletion of rows with formula dependencies.
+        // Refetch to restore the row in the grid (Handsontable already
+        // removed it locally) and surface the error. Drafts are preserved
+        // because they live in React state, not the query cache.
+        await queryClient.invalidateQueries({ queryKey: allRowsKey })
+        const message =
+          error instanceof Error
+            ? error.message.includes('formula') ||
+                error.message.includes('23514')
+              ? 'Cannot remove rows referenced by formulas. Remove the formulas first.'
+              : error.message
+            : 'Could not remove row.'
+        setIssues(
+          rowIds.map((id) => ({
+            key: `${id}:delete`,
+            message,
+          })),
         )
-        rowVersions.set(formula.rowId, expectedRowVersion + 1)
-      }
-      return changedRows
-    },
-    onSuccess: (rows, batch) => {
-      queryClient.setQueryData<ScientificRowWire[]>(allRowsKey, (old = []) => {
-        const map = new Map(old.map((r) => [r.id, r]))
-        for (const row of rows) map.set(row.id, row)
-        return [...map.values()]
-      })
-      setDrafts((current) => {
-        const next = { ...current }
-        for (const cell of batch.cells) {
-          const key = `${cell.rowId ?? `new:${cell.rowIndex}`}:${cell.columnId}`
-          // The draft may have been discarded or replaced while this request
-          // was in flight; keep the optional lookup intentionally.
-          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-          if (next[key]?.generation === batch.generation) delete next[key]
-        }
-        return next
-      })
-      setIssues([])
-      const formulaChanged = batch.cells.some(
-        (cell) =>
-          (typeof cell.raw === 'string' && cell.raw.startsWith('=')) ||
-          (!!cell.rowId && formulaByCell.has(`${cell.rowId}/${cell.columnId}`)),
-      )
-      // Formula writes advance the generated row version without returning a
-      // row. Literal writes already update the page from the RPC response.
-      void refreshCalculation(formulaChanged)
-    },
-    onError: (error, batch) => {
-      if (!(error as { localValidation?: boolean }).localValidation)
-        void queryClient.invalidateQueries({
-          queryKey: allRowsKey,
-        })
-      if (error instanceof DataClientError && error.code === 'stale_version') {
-        const affected = new Map<string, { key: string; message: string }>()
-        for (const cell of batch.cells) {
-          const rowKey = cell.rowId ?? `new:${cell.rowIndex}`
-          affected.set(rowKey, {
-            key: `${rowKey}:conflict`,
-            message: `Row ${cell.rowIndex + 1} changed elsewhere. Your entered values remain in the grid.`,
-          })
-        }
-        setIssues([...affected.values()])
       }
     },
-  })
+    [readOnly, table, allRowsKey, queryClient, refreshCalculation],
+  )
   // Memoize columns, colHeaders, and formulas config so they don't get new
   // object references on every re-render. Without this, React reconciliation
   // (e.g. setSelected from afterSelectionEnd) would give HotTable "changed"
@@ -1438,7 +1399,7 @@ export function ScientificSheetBlock({
       // internal operations — only persist user-initiated edits.
       if (source === 'auto') return
       const generation = ++nextGeneration.current
-      const cells: PendingCell[] = changes.flatMap(
+      const cells: CoordinatorCell[] = changes.flatMap(
         ([rowIndex, property, , raw]) => {
           const column = table!.columns.find(
             (candidate) => candidate.field_name === String(property),
@@ -1455,6 +1416,7 @@ export function ScientificSheetBlock({
               columnId: column.id,
               fieldName: column.field_name,
               raw,
+              generation,
             },
           ]
         },
@@ -1467,9 +1429,9 @@ export function ScientificSheetBlock({
         }
         return next
       })
-      mutation.mutate({ generation, cells })
+      coordinator.enqueue(cells)
     },
-    [readOnly, table, localRows, mutation],
+    [readOnly, table, localRows, coordinator],
   )
   // Memoize afterSelectionEnd so it's stable across renders.
   const handleAfterSelectionEnd = useCallback(
@@ -1511,15 +1473,19 @@ export function ScientificSheetBlock({
             ),
             readOnly,
             fillHandle: !readOnly,
-            // Only truthful, persisted operations are exposed. Custom items
-            // (clear contents, configure columns) need component-state access
-            // so they are defined here rather than in the frozen constant.
+            // Only truthful, persisted operations are exposed. The full
+            // ordered item list matches the requested layout:
+            //   Insert row above/below → Remove row(s) → separator
+            //   Cut/Copy/Paste → Clear contents → separator
+            //   Undo/Redo → separator → Configure columns
+            // Custom items (clear contents, configure columns) need
+            // component-state access so they are defined here rather than in
+            // the frozen constant.
             contextMenu: readOnly
               ? false
               : {
                   items: [
                     ...GRID_CONTEXT_MENU_ITEMS,
-                    '---------',
                     {
                       name: 'Clear contents',
                       callback: function (this: {
@@ -1544,6 +1510,9 @@ export function ScientificSheetBlock({
                       },
                     },
                     '---------',
+                    'undo',
+                    'redo',
+                    '---------',
                     {
                       name: 'Configure columns…',
                       callback: () => setConfigurationOpen(true),
@@ -1554,6 +1523,8 @@ export function ScientificSheetBlock({
             formulas: formulasConfig,
             afterChange: handleAfterChange,
             afterSelectionEnd: handleAfterSelectionEnd,
+            beforeRemoveRow: handleBeforeRemoveRow,
+            afterRemoveRow: handleAfterRemoveRow,
           }
         : null,
     [
@@ -1565,6 +1536,8 @@ export function ScientificSheetBlock({
       readOnly,
       handleAfterChange,
       handleAfterSelectionEnd,
+      handleBeforeRemoveRow,
+      handleAfterRemoveRow,
     ],
   )
   if (!tableId) return <p role="alert">Invalid sheet block.</p>
@@ -1669,6 +1642,9 @@ export function ScientificSheetBlock({
       <SheetbaseGrid
         settings={settings}
         ariaLabel={table.name}
+        onReady={(instance) => {
+          hotRef.current = instance
+        }}
       />
 
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
@@ -1679,16 +1655,24 @@ export function ScientificSheetBlock({
           </span>
           {readOnly ? null : (
             <SaveStatusIndicator
-              isPending={mutation.isPending}
-              isError={mutation.isError}
-              isSuccess={mutation.isSuccess}
-              onRetry={() => {
-                if (mutation.variables) mutation.mutate(mutation.variables)
-              }}
+              status={saveStatus}
+              onRetry={() => void coordinator.retry()}
             />
           )}
         </div>
         <div className="flex items-center gap-1">
+          {!readOnly ? (
+            <Button
+              type="button"
+              variant="subtle"
+              size="sm"
+              className="h-7 text-xs"
+              aria-label="Add row"
+              onClick={addRow}
+            >
+              + Add row
+            </Button>
+          ) : null}
           {!readOnly ? (
             <Button
               type="button"
@@ -1740,7 +1724,9 @@ export function ScientificSheetBlock({
             draftColumnIds={
               new Set(Object.values(drafts).map((draft) => draft.columnId))
             }
-            rowMutationPending={mutation.isPending}
+            rowMutationPending={
+              saveStatus === 'saving' || saveStatus === 'retrying'
+            }
             formulaDependencies={dependenciesQuery.data ?? []}
             onSuccess={async () => {
               await tableQuery.refetch()

@@ -1508,28 +1508,7 @@ export const demoSteps: Array<SeedStep> = [
             version: b.version,
           })),
         })
-        .onConflictDoUpdate({
-          target: schema.revisions.id,
-          set: {
-            structureVersion: 1,
-            metadataVersion: 1,
-            metadataSnapshot: {
-              identifier: DEMO_VIRUS_STABILITY_RECORD_IDENTIFIER,
-              title: 'Virus Stability at 4°C',
-              status: 'in_progress',
-              tags: ['stability', 'qPCR', 'LVV-CAR-T'],
-            },
-            blockSnapshot: blocks.map((b) => ({
-              id: b.id,
-              type: b.type,
-              payload: b.payload,
-              payload_schema_version: b.payloadSchemaVersion,
-              order: Number(b.order),
-              version: b.version,
-            })),
-            updatedAt: new Date('2026-07-22T10:00:00Z'),
-          },
-        })
+        .onConflictDoNothing({ target: schema.revisions.id })
     },
   },
   // -------------------------------------------------------------------------

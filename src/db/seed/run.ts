@@ -1240,17 +1240,29 @@ export const demoSteps: Array<SeedStep> = [
         // Idempotent dataset rows: wipe and re-insert the stability series.
         // Clear any formulas from prior test sessions first — the per-row
         // delete trigger (migration 0017) blocks deleting rows that have
-        // formula_column_ids or incoming formula dependencies. Deleting
-        // formula_definitions cascades to formula_dependencies and
+        // formula_column_ids or incoming formula dependencies. The seed
+        // role (POSTGRES_USER) lacks DELETE on formula_definitions and
+        // formula_dependencies (only SELECT is granted to authenticated/
+        // api_client), so use a migrator connection which owns the tables.
+        // Deleting formula_definitions cascades to formula_dependencies and
         // formula_result_cache via FK onDelete cascade.
-        await client.query(
-          `DELETE FROM api.formula_dependencies WHERE source_table_id = $1`,
-          [tableId],
-        )
-        await client.query(
-          `DELETE FROM api.formula_definitions WHERE target_table_id = $1`,
-          [tableId],
-        )
+        const migrationUrl = process.env.MIGRATION_DATABASE_URL
+        if (migrationUrl) {
+          const migratorClient = new Client({ connectionString: migrationUrl })
+          await migratorClient.connect()
+          try {
+            await migratorClient.query(
+              `DELETE FROM api.formula_dependencies WHERE source_table_id = $1`,
+              [tableId],
+            )
+            await migratorClient.query(
+              `DELETE FROM api.formula_definitions WHERE target_table_id = $1`,
+              [tableId],
+            )
+          } finally {
+            await migratorClient.end()
+          }
+        }
         await client.query(
           `UPDATE api."${resourceName}" SET formula_column_ids = '{}' WHERE cardinality(formula_column_ids) > 0`,
         )

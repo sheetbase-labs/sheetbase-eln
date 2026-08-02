@@ -64,6 +64,7 @@ import {
   scientificSheetName,
 } from '#/lib/scientific-workbook'
 import type {
+  ScientificWorkbook,
   WorkbookCellAddress,
   WorkbookResult,
   WorkbookTable,
@@ -145,6 +146,29 @@ function displayResult(result: WorkbookResult | null) {
   if (!result) return null
   if (result.status === 'error') return `#${result.error}!`
   return result.logical.ok ? result.logical.value : `#${result.logical.code}!`
+}
+
+/**
+ * Guard `ScientificWorkbook.get` against a stale workbook. The workbook is
+ * rebuilt asynchronously (a `setTimeout(0)` in the workbook provider) when
+ * table data changes, so a `tableWorkbook` reference held across a render can
+ * briefly predate the row/column identity it is asked to look up. An
+ * unguarded `locate()` throws `Unknown stable cell identity.` and crashes
+ * render, which cascades into Handsontable's destroy path (`Cannot read
+ * properties of undefined (reading 'off')`). Returning `null` lets the UI
+ * degrade gracefully until the rebuilt workbook arrives.
+ *
+ * Exported for unit testing.
+ */
+export function safeWorkbookGet(
+  workbook: ScientificWorkbook,
+  address: WorkbookCellAddress,
+): WorkbookResult | null {
+  try {
+    return workbook.get(address)
+  } catch {
+    return null
+  }
 }
 
 const LOGICAL_TYPES: ScientificLogicalType[] = [
@@ -954,8 +978,16 @@ export function ScientificSheetBlock({
           result.target_column_id === selected.columnId,
       )
     : undefined
+  // The workbook is rebuilt asynchronously (setTimeout(0) in the provider)
+  // when table data changes, so `tableWorkbook` can briefly point at a stale
+  // workbook whose `locate()` no longer knows the selected row/column. Wrap
+  // the lookup so a stale workbook degrades to `null` instead of throwing and
+  // crashing render (which cascades into Handsontable's destroy path with
+  // `.off()` on an undefined listener — see the same guard in `localRows`).
   const selectedResult =
-    selected && tableWorkbook ? tableWorkbook.get(selected) : null
+    selected && tableWorkbook
+      ? safeWorkbookGet(tableWorkbook, selected)
+      : null
   useEffect(() => {
     setFormulaSource(selectedFormula?.source_expression ?? '')
     setFormulaStatus('')
@@ -1031,7 +1063,7 @@ export function ScientificSheetBlock({
               row[column.field_name] = formula.engine_expression
             else
               row[column.field_name] = displayResult(
-                tableWorkbook.get({
+                safeWorkbookGet(tableWorkbook, {
                   tableId,
                   rowId: row.id,
                   columnId: column.id,

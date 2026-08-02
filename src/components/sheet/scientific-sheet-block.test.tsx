@@ -10,7 +10,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { DataClientError } from '#/lib/data-client'
 import type * as ScientificSheetData from '#/lib/scientific-sheet-data'
-import { ScientificSheetBlock } from './scientific-sheet-block'
+import type { ScientificWorkbook, WorkbookCellAddress } from '#/lib/scientific-workbook'
+import { ScientificSheetBlock, safeWorkbookGet } from './scientific-sheet-block'
 import { ScientificWorkbookProvider } from '#/components/notebook/scientific-workbook-provider'
 
 const mocks = vi.hoisted(() => ({
@@ -720,5 +721,44 @@ describe('ScientificSheetBlock', () => {
     const settings = await ready()
     expect(settings.minSpareRows).toBe(0)
     expect(screen.queryByRole('button', { name: 'Next' })).toBeNull()
+  })
+})
+
+describe('safeWorkbookGet', () => {
+  const address: WorkbookCellAddress = {
+    tableId: 'table-1',
+    rowId: 'r1',
+    columnId: 'number',
+  }
+
+  it('returns the workbook result when get() succeeds', () => {
+    const workbook = {
+      get: vi.fn().mockReturnValue({ status: 'ok', logical: { ok: true, value: 42 } }),
+    } as unknown as ScientificWorkbook
+    expect(safeWorkbookGet(workbook, address)).toEqual({
+      status: 'ok',
+      logical: { ok: true, value: 42 },
+    })
+  })
+
+  it('returns null when get() throws (stale workbook)', () => {
+    const workbook = {
+      get: vi.fn().mockImplementation(() => {
+        throw new Error('Unknown stable cell identity.')
+      }),
+    } as unknown as ScientificWorkbook
+    expect(safeWorkbookGet(workbook, address)).toBeNull()
+  })
+
+  it('does not swallow non-locate errors silently — any throw returns null', () => {
+    // The guard is intentionally broad: any throw from the workbook (stale
+    // maps, destroyed engine, etc.) degrades to null rather than crashing
+    // render.
+    const workbook = {
+      get: vi.fn().mockImplementation(() => {
+        throw new TypeError('engine destroyed')
+      }),
+    } as unknown as ScientificWorkbook
+    expect(safeWorkbookGet(workbook, address)).toBeNull()
   })
 })

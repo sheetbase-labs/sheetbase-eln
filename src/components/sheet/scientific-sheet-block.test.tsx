@@ -10,7 +10,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { DataClientError } from '#/lib/data-client'
 import type * as ScientificSheetData from '#/lib/scientific-sheet-data'
-import { ScientificSheetBlock } from './scientific-sheet-block'
+import type { ScientificWorkbook, WorkbookCellAddress } from '#/lib/scientific-workbook'
+import { ScientificSheetBlock, safeWorkbookGet } from './scientific-sheet-block'
 import { ScientificWorkbookProvider } from '#/components/notebook/scientific-workbook-provider'
 
 const mocks = vi.hoisted(() => ({
@@ -324,7 +325,7 @@ describe('ScientificSheetBlock', () => {
     expect(mocks.apply).not.toHaveBeenCalled()
   })
 
-  it('reconstructs a persisted formula and shows source, result and dependencies', async () => {
+  it('reconstructs a persisted formula and shows its source in the formula bar', async () => {
     const tableId = '10000000-0000-4000-8000-000000000001'
     const columnId = '10000000-0000-4000-8000-000000000002'
     const sourceRow = '10000000-0000-4000-8000-000000000003'
@@ -408,26 +409,61 @@ describe('ScientificSheetBlock', () => {
     await waitFor(() =>
       expect(mocks.settings!.data[1].col_number).toBe('=(A1*2)'),
     )
+    // The formula bar is always visible (not conditionally hidden).
+    const input = screen.getByRole<HTMLInputElement>('textbox', {
+      name: 'Formula source',
+    })
+    // No cell selected yet — input is disabled with placeholder.
+    expect(input.hasAttribute('disabled')).toBe(true)
+    expect(input.placeholder).toBe('Select a cell')
+    // Selecting a cell populates the formula source.
     mocks.settings!.afterSelectionEnd(1, 0)
+    await waitFor(() => expect(input.value).toBe('=A1*2'))
+    expect(input.hasAttribute('disabled')).toBe(false)
+    // The simplified formula bar has no Apply, Remove, or Recalculate
+    // buttons, no status row, and no dependency inspector.
+    expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Recalculate' })).toBeNull()
+    expect(screen.queryByText(/supported ·/)).toBeNull()
+    expect(screen.queryByText(/cache:/)).toBeNull()
+    expect(screen.queryByText(/Inspect.*stable dependencies/)).toBeNull()
+  })
+
+  it('commits a formula via Enter in the formula bar and cancels via Escape', async () => {
+    mocks.table.mockResolvedValue(table)
+    mocks.allRows.mockResolvedValue([{ id: 'r1', version: 1 }])
+    mocks.formulaMutation.mockResolvedValue({})
+    mocks.calculate.mockResolvedValue({ status: 'completed' })
+    mount()
+    const settings = await ready()
+    // Select a cell.
+    settings.afterSelectionEnd(0, 0)
+    const input = await screen.findByRole<HTMLInputElement>('textbox', {
+      name: 'Formula source',
+    })
+    // Type a formula.
+    fireEvent.change(input, { target: { value: '=1+2' } })
+    expect(input.value).toBe('=1+2')
+    // Enter commits the formula via mutateScientificFormula.
+    fireEvent.keyDown(input, { key: 'Enter' })
     await waitFor(() =>
-      expect(
-        screen.getByRole<HTMLInputElement>('textbox', {
-          name: 'Formula source',
-        }).value,
-      ).toBe('=A1*2'),
+      expect(mocks.formulaMutation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          operation: 'create',
+          source: '=1+2',
+        }),
+      ),
     )
-    expect(screen.getByText(/supported · 1 deps/)).toBeTruthy()
-    expect(screen.getByText(/^6$/, { selector: '.font-mono' })).toBeTruthy()
-    expect(screen.getByText(/cache: current 6/)).toBeTruthy()
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Recalculate' }),
-    )
+    // Recalculation is triggered after a formula write.
     await waitFor(() =>
       expect(mocks.calculate).toHaveBeenCalledWith(block.recordId),
     )
-    expect(screen.getByText(/Inspect 1 stable dependencies/)).toBeTruthy()
-    fireEvent.click(screen.getByText(/Inspect 1 stable dependencies/))
-    expect(screen.getByText(/Results · row 1 · Mass/)).toBeTruthy()
+    // Escape cancels: typing then Escape reverts to the cell's current
+    // formula (empty for a literal cell).
+    fireEvent.change(input, { target: { value: '=999' } })
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(input.value).toBe('')
   })
 
   it('fully disables mutation affordances in read-only mode', async () => {
@@ -444,6 +480,30 @@ describe('ScientificSheetBlock', () => {
     settings.afterChange([[0, 'col_text', null, 'x']], 'edit')
     expect(mocks.apply).not.toHaveBeenCalled()
     expect(screen.queryByRole('button', { name: 'Configure table' })).toBeNull()
+    // The formula bar is not rendered in read-only mode.
+    expect(screen.queryByRole('textbox', { name: 'Formula source' })).toBeNull()
+    expect(screen.queryByLabelText('Formula bar')).toBeNull()
+  })
+
+  it('uses an explicit context-menu item list with standard editing actions', async () => {
+    mocks.table.mockResolvedValue(table)
+    mocks.allRows.mockResolvedValue([])
+    mount()
+    const settings = await ready()
+    // contextMenu is an explicit array (not `true`) so only the standard
+    // editing actions are exposed — no plugin-contributed items.
+    expect(Array.isArray(settings.contextMenu)).toBe(true)
+    expect(settings.contextMenu).toEqual(
+      expect.arrayContaining([
+        'row_above',
+        'row_below',
+        'remove_row',
+        'remove_col',
+        'undo',
+        'redo',
+        'alignment',
+      ]),
+    )
   })
 
   it('adds a fully typed category column with stable option UUIDs', async () => {
@@ -699,5 +759,44 @@ describe('ScientificSheetBlock', () => {
     const settings = await ready()
     expect(settings.minSpareRows).toBe(0)
     expect(screen.queryByRole('button', { name: 'Next' })).toBeNull()
+  })
+})
+
+describe('safeWorkbookGet', () => {
+  const address: WorkbookCellAddress = {
+    tableId: 'table-1',
+    rowId: 'r1',
+    columnId: 'number',
+  }
+
+  it('returns the workbook result when get() succeeds', () => {
+    const workbook = {
+      get: vi.fn().mockReturnValue({ status: 'ok', logical: { ok: true, value: 42 } }),
+    } as unknown as ScientificWorkbook
+    expect(safeWorkbookGet(workbook, address)).toEqual({
+      status: 'ok',
+      logical: { ok: true, value: 42 },
+    })
+  })
+
+  it('returns null when get() throws (stale workbook)', () => {
+    const workbook = {
+      get: vi.fn().mockImplementation(() => {
+        throw new Error('Unknown stable cell identity.')
+      }),
+    } as unknown as ScientificWorkbook
+    expect(safeWorkbookGet(workbook, address)).toBeNull()
+  })
+
+  it('does not swallow non-locate errors silently — any throw returns null', () => {
+    // The guard is intentionally broad: any throw from the workbook (stale
+    // maps, destroyed engine, etc.) degrades to null rather than crashing
+    // render.
+    const workbook = {
+      get: vi.fn().mockImplementation(() => {
+        throw new TypeError('engine destroyed')
+      }),
+    } as unknown as ScientificWorkbook
+    expect(safeWorkbookGet(workbook, address)).toBeNull()
   })
 })

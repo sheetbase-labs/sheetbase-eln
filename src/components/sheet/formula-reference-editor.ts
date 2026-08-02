@@ -1,4 +1,5 @@
 import { TextEditor } from 'handsontable/editors/textEditor'
+import { normalizeExponentiation } from '#/lib/formula-ir'
 
 /**
  * Convert a 0-indexed column number to its A1 letter representation.
@@ -612,6 +613,28 @@ export class FormulaReferenceEditor extends TextEditor {
   destroy(): void {
     this.cleanup()
     super.destroy()
+  }
+
+  /**
+   * Normalise `**` to `^` in the editor value before it is committed through
+   * the `afterChange` pipeline. Only applies to formula values (starting with
+   * `=`) and only on a real commit (not when reverting via Escape). The
+   * canonical `^` form is what gets stored and displayed.
+   */
+  override finishEditing(
+    restoreOriginalValue?: boolean,
+    ctrlDown?: boolean,
+    callback?: (() => void) | undefined,
+  ): void {
+    if (!restoreOriginalValue && this.isFormulaMode()) {
+      const value = String(this.getValue() ?? '')
+      const normalized = normalizeExponentiation(value)
+      if (normalized !== value) {
+        this.setValue(normalized)
+        this.TEXTAREA.value = normalized
+      }
+    }
+    super.finishEditing(restoreOriginalValue, ctrlDown, callback)
   }
 
   /** Remove listeners, abort any in-progress drag, and clear all highlights. */

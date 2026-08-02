@@ -179,7 +179,7 @@ describe('ScientificSheetBlock', () => {
       'numeric',
       'dropdown',
     ])
-    expect(settings.colHeaders).toEqual(['Name', 'Mass (mg)', 'State'])
+    expect(settings.colHeaders).toEqual(['A · Name', 'B · Mass (mg)', 'C · State'])
     expect(settings.data[0].col_category).toBe('Ready')
   })
 
@@ -442,6 +442,9 @@ describe('ScientificSheetBlock', () => {
     const input = await screen.findByRole<HTMLInputElement>('textbox', {
       name: 'Formula source',
     })
+    // The address box shows the A1 notation of the selected cell.
+    const address = screen.getByLabelText('Active cell address')
+    expect(address.textContent).toBe('A1')
     // Type a formula.
     fireEvent.change(input, { target: { value: '=1+2' } })
     expect(input.value).toBe('=1+2')
@@ -466,6 +469,32 @@ describe('ScientificSheetBlock', () => {
     expect(input.value).toBe('')
   })
 
+  it('normalises ** to ^ when committing a formula via the formula bar', async () => {
+    mocks.table.mockResolvedValue(table)
+    mocks.allRows.mockResolvedValue([{ id: 'r1', version: 1 }])
+    mocks.formulaMutation.mockResolvedValue({})
+    mocks.calculate.mockResolvedValue({ status: 'completed' })
+    mount()
+    const settings = await ready()
+    settings.afterSelectionEnd(0, 1)
+    const input = await screen.findByRole<HTMLInputElement>('textbox', {
+      name: 'Formula source',
+    })
+    // The address box shows B1 for row 0, col 1.
+    expect(screen.getByLabelText('Active cell address').textContent).toBe('B1')
+    fireEvent.change(input, { target: { value: '=2**3' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await waitFor(() =>
+      expect(mocks.formulaMutation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          source: '=2^3',
+        }),
+      ),
+    )
+    // The formula bar displays the canonical ^ form.
+    expect(input.value).toBe('=2^3')
+  })
+
   it('fully disables mutation affordances in read-only mode', async () => {
     mocks.table.mockResolvedValue(table)
     mocks.allRows.mockResolvedValue([])
@@ -485,25 +514,40 @@ describe('ScientificSheetBlock', () => {
     expect(screen.queryByLabelText('Formula bar')).toBeNull()
   })
 
-  it('uses an explicit context-menu item list with standard editing actions', async () => {
+  it('uses an explicit context-menu item list with only truthful operations', async () => {
     mocks.table.mockResolvedValue(table)
     mocks.allRows.mockResolvedValue([])
     mount()
     const settings = await ready()
-    // contextMenu is an explicit array (not `true`) so only the standard
-    // editing actions are exposed — no plugin-contributed items.
-    expect(Array.isArray(settings.contextMenu)).toBe(true)
-    expect(settings.contextMenu).toEqual(
+    // contextMenu is an object with an items array (not `true`) so only
+    // truthful, data-model-backed operations are exposed. Column insert/
+    // remove, read-only toggle, and alignment are absent — they would
+    // mutate Handsontable locally without persisting.
+    expect(settings.contextMenu).toBeTypeOf('object')
+    expect(settings.contextMenu).not.toBe(false)
+    const items = settings.contextMenu.items
+    expect(Array.isArray(items)).toBe(true)
+    const itemKeys = items.map((item: any) =>
+      typeof item === 'string' ? item : item.name,
+    )
+    expect(itemKeys).toEqual(
       expect.arrayContaining([
         'row_above',
         'row_below',
         'remove_row',
-        'remove_col',
         'undo',
         'redo',
-        'alignment',
       ]),
     )
+    // Dishonest items are absent.
+    expect(itemKeys).not.toContain('col_left')
+    expect(itemKeys).not.toContain('col_right')
+    expect(itemKeys).not.toContain('remove_col')
+    expect(itemKeys).not.toContain('make_readonly')
+    expect(itemKeys).not.toContain('alignment')
+    // Custom items are present.
+    expect(itemKeys).toContain('Clear contents')
+    expect(itemKeys).toContain('Configure columns…')
   })
 
   it('adds a fully typed category column with stable option UUIDs', async () => {

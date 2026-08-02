@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { CellChange, ChangeSource, ColumnSettings } from 'handsontable'
-import { FormulaReferenceEditor } from '#/components/sheet/formula-reference-editor'
+import { FormulaReferenceEditor, columnToLetter, toA1 } from '#/components/sheet/formula-reference-editor'
+import { normalizeExponentiation } from '#/lib/formula-ir'
 import {
   ChevronLeft,
   ChevronRight,
+  Check,
+  AlertCircle,
   MoreHorizontal,
+  RotateCcw,
   Settings,
 } from 'lucide-react'
 import type { NotebookBlock } from '#/lib/notebook-data'
@@ -26,6 +30,7 @@ import {
   FieldLabel,
   Input,
   Separator,
+  Spinner,
   Textarea,
 } from '#/components/ui'
 import { SheetbaseGrid } from './sheetbase-grid'
@@ -169,6 +174,66 @@ export function safeWorkbookGet(
   } catch {
     return null
   }
+}
+
+/**
+ * Small save-status indicator for the grid footer. Shows Saved (green check),
+ * Saving… (spinner), or Save failed (red, with retry). Only visible when the
+ * mutation has been triggered at least once — idle state is hidden to avoid
+ * clutter on initial load.
+ */
+function SaveStatusIndicator({
+  isPending,
+  isError,
+  isSuccess,
+  onRetry,
+}: {
+  isPending: boolean
+  isError: boolean
+  isSuccess: boolean
+  onRetry: () => void
+}) {
+  if (isPending)
+    return (
+      <span
+        className="flex items-center gap-1 text-muted-foreground"
+        aria-label="Saving"
+      >
+        <Spinner className="size-3" />
+        Saving…
+      </span>
+    )
+  if (isError)
+    return (
+      <span
+        className="flex items-center gap-1 text-destructive"
+        aria-label="Save failed"
+      >
+        <AlertCircle className="size-3" />
+        Save failed
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-5 px-1.5 text-[10px] text-destructive"
+          onClick={onRetry}
+        >
+          <RotateCcw className="size-3" />
+          Retry
+        </Button>
+      </span>
+    )
+  if (isSuccess)
+    return (
+      <span
+        className="flex items-center gap-1 text-success-foreground"
+        aria-label="Saved"
+      >
+        <Check className="size-3" />
+        Saved
+      </span>
+    )
+  return null
 }
 
 const LOGICAL_TYPES: ScientificLogicalType[] = [
@@ -758,29 +823,25 @@ function SchemaConfigurator({
 }
 
 /**
- * Explicit context-menu item list for the editable scientific sheet.
- *
- * Supplying an explicit item array (rather than `contextMenu: true`) keeps the
- * standard editing actions only (insert/remove row & column, undo/redo,
- * read-only toggle, alignment) and avoids inheriting any plugin-contributed
- * items. Read-only mode disables the menu entirely (`false`).
+ * Built-in context-menu item keys for the editable scientific sheet. Only
+ * operations that are backed by the data model are included — column
+ * insert/remove and read-only toggle are omitted because they would mutate
+ * Handsontable locally without persisting. Custom items (clear contents,
+ * configure columns) are added in the settings memo where they can access
+ * component state.
  */
 const GRID_CONTEXT_MENU_ITEMS: readonly string[] = Object.freeze([
   'row_above',
   'row_below',
   '---------',
-  'col_left',
-  'col_right',
-  '---------',
   'remove_row',
-  'remove_col',
+  '---------',
+  'cut',
+  'copy',
+  'paste',
   '---------',
   'undo',
   'redo',
-  '---------',
-  'make_readonly',
-  '---------',
-  'alignment',
 ])
 
 function columnSettings(
@@ -828,11 +889,16 @@ export function ScientificSheetBlock({
   )
   const [drafts, setDrafts] = useState<Record<string, DraftCell>>({})
   const [selected, setSelected] = useState<WorkbookCellAddress | null>(null)
+  const [selectedCoords, setSelectedCoords] = useState<{
+    row: number
+    col: number
+  } | null>(null)
   const [configurationOpen, setConfigurationOpen] = useState(false)
   const [transferOpen, setTransferOpen] = useState(false)
   const [inspectorOpen, setInspectorOpen] = useState(false)
   const [formulaSource, setFormulaSource] = useState('')
   const [formulaStatus, setFormulaStatus] = useState('')
+  const [exponentHint, setExponentHint] = useState(false)
   const nextGeneration = useRef(0)
   const queryClient = useQueryClient()
   const tableQuery = useQuery({
@@ -975,6 +1041,12 @@ export function ScientificSheetBlock({
     setFormulaSource(selectedFormula?.source_expression ?? '')
     setFormulaStatus('')
   }, [selected, selectedFormula])
+  // Auto-dismiss the ** → ^ conversion hint after 4 seconds.
+  useEffect(() => {
+    if (!exponentHint) return
+    const timer = setTimeout(() => setExponentHint(false), 4000)
+    return () => clearTimeout(timer)
+  }, [exponentHint])
   const refreshCalculation = async (reconcileRows = false) => {
     // Literal edits update the all-rows cache optimistically in onSuccess; do
     // not refetch them here or rapid successive edits would read a stale
@@ -1016,6 +1088,11 @@ export function ScientificSheetBlock({
   const commitFormula = useCallback(async () => {
     if (!selected || !table) return
     if (!formulaSource.startsWith('=')) return
+    const normalized = normalizeExponentiation(formulaSource)
+    if (normalized !== formulaSource) {
+      setFormulaSource(normalized)
+      setExponentHint(true)
+    }
     const row = (allRowsQuery.data ?? []).find(
       (item) => item.id === selected.rowId,
     )
@@ -1032,7 +1109,7 @@ export function ScientificSheetBlock({
         ...(selectedFormula
           ? { expectedFormulaVersion: Number(selectedFormula.version) }
           : {}),
-        source: formulaSource,
+        source: normalized,
       } as Parameters<typeof mutateScientificFormula>[0])
       setFormulaStatus('')
       await refreshCalculation(true)
@@ -1157,7 +1234,7 @@ export function ScientificSheetBlock({
             formulaWrites.push({
               rowId: row.id,
               columnId,
-              source: raw,
+              source: normalizeExponentiation(raw),
               existing: existingFormula,
             })
           }
@@ -1327,8 +1404,14 @@ export function ScientificSheetBlock({
   const gridColHeaders = useMemo(
     () =>
       table?.columns.map(
-        (c) =>
-          `${c.label}${c.unit && typeof c.unit === 'object' && 'symbol' in c.unit ? ` (${String(c.unit.symbol)})` : ''}`,
+        (c, index) => {
+          const letter = columnToLetter(index)
+          const unitSuffix =
+            c.unit && typeof c.unit === 'object' && 'symbol' in c.unit
+              ? ` (${String(c.unit.symbol)})`
+              : ''
+          return `${letter} · ${c.label}${unitSuffix}`
+        },
       ) ?? [],
     [table?.columns],
   )
@@ -1396,6 +1479,7 @@ export function ScientificSheetBlock({
           ? String(localRows[row].id)
           : null
       const column = table!.columns.at(columnIndex)
+      setSelectedCoords({ row, col: columnIndex })
       setSelected(
         rowId && column
           ? { tableId: table!.id, rowId, columnId: column.id }
@@ -1427,9 +1511,45 @@ export function ScientificSheetBlock({
             ),
             readOnly,
             fillHandle: !readOnly,
-            // Explicit item list (see GRID_CONTEXT_MENU_ITEMS) rather than
-            // `true`, so only the standard editing actions are exposed.
-            contextMenu: readOnly ? false : GRID_CONTEXT_MENU_ITEMS,
+            // Only truthful, persisted operations are exposed. Custom items
+            // (clear contents, configure columns) need component-state access
+            // so they are defined here rather than in the frozen constant.
+            contextMenu: readOnly
+              ? false
+              : {
+                  items: [
+                    ...GRID_CONTEXT_MENU_ITEMS,
+                    '---------',
+                    {
+                      name: 'Clear contents',
+                      callback: function (this: {
+                        getSelected: () => number[][] | null
+                        setDataAtCell: (
+                          changes: Array<[number, number, unknown]>,
+                        ) => void
+                      }) {
+                        const ranges = this.getSelected()
+                        if (!ranges) return
+                        const changes: Array<[number, number, unknown]> = []
+                        for (const [sR, sC, eR, eC] of ranges) {
+                          const startRow = Math.min(sR, eR)
+                          const endRow = Math.max(sR, eR)
+                          const startCol = Math.min(sC, eC)
+                          const endCol = Math.max(sC, eC)
+                          for (let r = startRow; r <= endRow; r++)
+                            for (let c = startCol; c <= endCol; c++)
+                              changes.push([r, c, null])
+                        }
+                        if (changes.length) this.setDataAtCell(changes)
+                      },
+                    },
+                    '---------',
+                    {
+                      name: 'Configure columns…',
+                      callback: () => setConfigurationOpen(true),
+                    },
+                  ],
+                },
             stretchH: 'all' as const,
             formulas: formulasConfig,
             afterChange: handleAfterChange,
@@ -1501,6 +1621,14 @@ export function ScientificSheetBlock({
           aria-label="Formula bar"
           className="mb-2 flex items-center gap-1.5 border-y bg-muted/20 px-3 py-2 text-xs"
         >
+          <span
+            className="flex h-5 w-12 shrink-0 items-center justify-center rounded bg-background font-mono text-[10px] font-semibold text-muted-foreground"
+            aria-label="Active cell address"
+          >
+            {selectedCoords
+              ? toA1(selectedCoords.row, selectedCoords.col)
+              : '—'}
+          </span>
           <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-muted font-mono text-[10px] font-semibold italic text-muted-foreground">
             fx
           </span>
@@ -1522,6 +1650,14 @@ export function ScientificSheetBlock({
             }}
             className="h-6 min-w-40 flex-1 border-muted font-mono text-xs"
           />
+          {exponentHint ? (
+            <span
+              role="status"
+              className="shrink-0 text-[10px] text-muted-foreground italic"
+            >
+              ** converted to ^
+            </span>
+          ) : null}
           {formulaStatus ? (
             <span role="status" className="text-muted-foreground">
               {formulaStatus}
@@ -1536,10 +1672,22 @@ export function ScientificSheetBlock({
       />
 
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-        <span>
-          {(allRowsQuery.data ?? []).length}{' '}
-          {(allRowsQuery.data ?? []).length === 1 ? 'row' : 'rows'}
-        </span>
+        <div className="flex items-center gap-2">
+          <span>
+            {(allRowsQuery.data ?? []).length}{' '}
+            {(allRowsQuery.data ?? []).length === 1 ? 'row' : 'rows'}
+          </span>
+          {readOnly ? null : (
+            <SaveStatusIndicator
+              isPending={mutation.isPending}
+              isError={mutation.isError}
+              isSuccess={mutation.isSuccess}
+              onRetry={() => {
+                if (mutation.variables) mutation.mutate(mutation.variables)
+              }}
+            />
+          )}
+        </div>
         <div className="flex items-center gap-1">
           {!readOnly ? (
             <Button

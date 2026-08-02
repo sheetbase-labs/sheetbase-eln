@@ -79,6 +79,9 @@ describe('compose.preview.yaml PR isolation contract', () => {
       'src/db/seed/run.ts',
       '--demo',
     ])
+    expect(previewCompose.services.seed.environment.PGRST_DB_URI).toContain(
+      'postgresql://authenticator:${POSTGREST_AUTHENTICATOR_PASSWORD}@postgres:5432/${POSTGRES_DB}',
+    )
   })
 
   it('uses a separate project and loopback-only, PR-specific app port', () => {

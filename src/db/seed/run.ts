@@ -1238,6 +1238,24 @@ export const demoSteps: Array<SeedStep> = [
         const conditionColumnId = byLabel['Condition'].id
 
         // Idempotent dataset rows: wipe and re-insert the stability series.
+        // Clear any formulas/dependencies from prior test sessions first —
+        // the per-row delete trigger (migration 0017) blocks deleting rows
+        // that have formula_column_ids or incoming formula dependencies.
+        await client.query(
+          `DELETE FROM internal.formula_result_cache WHERE record_id = $1`,
+          [DEMO_VIRUS_STABILITY_RECORD_ID],
+        )
+        await client.query(
+          `DELETE FROM api.formula_dependencies WHERE source_table_id = $1`,
+          [tableId],
+        )
+        await client.query(
+          `DELETE FROM api.formula_definitions WHERE target_table_id = $1`,
+          [tableId],
+        )
+        await client.query(
+          `UPDATE api."${resourceName}" SET formula_column_ids = '{}' WHERE cardinality(formula_column_ids) > 0`,
+        )
         await client.query(`DELETE FROM api."${resourceName}"`)
         const rows = [
           [0, 7.2, '4 °C'],

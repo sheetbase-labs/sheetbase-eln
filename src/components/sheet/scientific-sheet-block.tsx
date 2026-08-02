@@ -1344,6 +1344,11 @@ export function ScientificSheetBlock({
             fillHandle: !readOnly,
             contextMenu: !readOnly,
             stretchH: 'all' as const,
+            // Enable customBorders so the FormulaReferenceEditor can draw the
+            // persistent coloured outlines around picked references. The plugin
+            // does not add a context-menu item unless 'borders' is listed in
+            // contextMenu, so this stays invisible to users.
+            customBorders: !readOnly,
             formulas: formulasConfig,
             afterChange: handleAfterChange,
             afterSelectionEnd: handleAfterSelectionEnd,

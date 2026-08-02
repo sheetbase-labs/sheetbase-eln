@@ -15,6 +15,7 @@ RUN DATABASE_URL=postgresql://build:build@database.invalid/sheetbase \
     FORMULA_DATABASE_URL=postgresql://build:build@database.invalid/sheetbase \
     BETTER_AUTH_SECRET=build-only-placeholder-at-least-32-characters \
     PGRST_JWT_SECRET=build-only-placeholder-at-least-32-characters \
+    VITE_HANDSONTABLE_LICENSE_KEY=non-commercial-and-evaluation \
     pnpm build
 
 ARG ARTIFACT_VERSION

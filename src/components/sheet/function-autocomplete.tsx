@@ -98,9 +98,9 @@ export function useFunctionAutocomplete({
       // Walk backwards to find the token span (same logic as extractFunctionPrefix).
       let start = cursor
       while (start > 0 && /[A-Za-z0-9_.]/.test(value[start - 1])) start--
-      const insertText = `${suggestion.id}(`
+      const insertText = `${suggestion.id}()`
       const newText = value.slice(0, start) + insertText + value.slice(cursor)
-      const newCursor = start + insertText.length
+      const newCursor = start + suggestion.id.length + 1 // between the parens
       setSuggestions([])
       setActiveIndex(-1)
       onInsert({ text: newText, cursor: newCursor })

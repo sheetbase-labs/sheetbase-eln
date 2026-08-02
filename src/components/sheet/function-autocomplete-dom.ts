@@ -172,10 +172,10 @@ export class FunctionAutocompleteDom {
     // Find the token span (same walk-back as extractFunctionPrefix).
     let start = cursor
     while (start > 0 && /[A-Za-z0-9_.]/.test(value[start - 1])) start--
-    const insertText = `${suggestion.id}(`
+    const insertText = `${suggestion.id}()`
     const newText = value.slice(0, start) + insertText + value.slice(cursor)
     textarea.value = newText
-    const newCursor = start + insertText.length
+    const newCursor = start + suggestion.id.length + 1 // between the parens
     textarea.setSelectionRange(newCursor, newCursor)
     // Trigger an input event so Handsontable's editor picks up the change.
     textarea.dispatchEvent(new Event('input', { bubbles: true }))

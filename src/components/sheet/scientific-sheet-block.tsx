@@ -1418,7 +1418,6 @@ export function ScientificSheetBlock({
           ? { tableId: table!.id, rowId, columnId: column.id }
           : null,
       )
-      if (!rowId) setFormulaStatus('Save the row before adding a formula.')
     },
     [table, localRows],
   )

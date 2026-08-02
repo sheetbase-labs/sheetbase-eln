@@ -49,8 +49,8 @@ function SignIn() {
 
         {devAuthFree ? (
           <p className="text-sm leading-6 text-muted-foreground">
-            This disposable development environment is open for review. No
-            sign-in or OAuth setup is required.
+            This disposable development or preview environment is open for
+            review. No sign-in or OAuth setup is required.
           </p>
         ) : githubEnabled ? (
           <SignInWithGitHub />

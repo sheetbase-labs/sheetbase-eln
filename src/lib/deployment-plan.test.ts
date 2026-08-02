@@ -5,6 +5,7 @@ import {
   assertImmutableImageReference,
   buildDeploymentPlan,
   latestMigrationVersion,
+  validatePreviewImageReferences,
   validateArtifactImageMetadata,
 } from './deployment-plan'
 
@@ -18,6 +19,23 @@ describe('deployment contract', () => {
     expect(
       assertImmutableImageReference(`registry.example/sheetbase/app@${digest}`),
     ).toBe(`registry.example/sheetbase/app@${digest}`)
+  })
+
+  it('validates PostgreSQL alongside the application and PostgREST images', () => {
+    expect(
+      validatePreviewImageReferences({
+        applicationImage: `registry.example/sheetbase/app@${digest}`,
+        postgrestImage: `postgrest/postgrest@sha256:${'c'.repeat(64)}`,
+        postgresImage: `postgres:18-alpine@sha256:${'d'.repeat(64)}`,
+      }).postgresImage,
+    ).toBe(`postgres:18-alpine@sha256:${'d'.repeat(64)}`)
+    expect(() =>
+      validatePreviewImageReferences({
+        applicationImage: `registry.example/sheetbase/app@${digest}`,
+        postgrestImage: `postgrest/postgrest@sha256:${'c'.repeat(64)}`,
+        postgresImage: 'postgres:18-alpine',
+      }),
+    ).toThrow(/digest/)
   })
 
   it('reads the exact expected database version from the migration journal', () => {

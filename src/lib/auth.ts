@@ -10,6 +10,8 @@ import { db } from '#/db/client.server'
 import { account, session, user, verification } from '#/db/schema'
 import { env } from '#/env.server'
 import { bootstrapWorkspaceForUser } from '#/lib/bootstrap'
+import { getDevSession, isDevAuthFreeEnabled } from '#/lib/dev-auth'
+import type { AppSession } from '#/lib/dev-auth'
 
 const authSchema = { user, session, account, verification }
 
@@ -64,6 +66,28 @@ export function createAuth(_databaseUrl: string) {
 }
 
 export const auth = createAuth(env.DATABASE_URL)
+
+/**
+ * Resolve the application session, or the fixed seeded development identity
+ * when the explicitly opt-in auth-free mode is active.
+ */
+export async function getAppSession(
+  headers: Headers,
+): Promise<AppSession | null> {
+  if (isDevAuthFreeEnabled()) return getDevSession()
+  const appSession = await auth.api.getSession({ headers })
+  if (!appSession) return null
+  return {
+    user: {
+      id: appSession.user.id,
+      name: appSession.user.name,
+      email: appSession.user.email,
+    },
+    session: { id: appSession.session.id },
+  }
+}
+
+export { isDevAuthFreeEnabled }
 
 export const isGithubConfigured = Boolean(
   env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET,

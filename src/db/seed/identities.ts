@@ -11,8 +11,10 @@
  * humans. Tests create their own data or use the minimal fixtures.
  */
 
-export const FIXTURE_USER_ID = '00000000-0000-4000-8000-000000000001'
-export const FIXTURE_USER_EMAIL = 'owner@sheetbase.test'
+import { DEFAULT_DEV_USER_EMAIL, DEFAULT_DEV_USER_ID } from '#/lib/dev-identity'
+
+export const FIXTURE_USER_ID = DEFAULT_DEV_USER_ID
+export const FIXTURE_USER_EMAIL = DEFAULT_DEV_USER_EMAIL
 
 export const FIXTURE_WORKSPACE_ID = '00000000-0000-4000-8000-000000000002'
 export const FIXTURE_WORKSPACE_SLUG = 'fixture-workspace'

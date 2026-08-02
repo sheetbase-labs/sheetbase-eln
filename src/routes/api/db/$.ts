@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm'
 import { db } from '#/db/client.server'
 import * as schema from '#/db/schema'
 import { env } from '#/env.server'
-import { auth } from '#/lib/auth'
+import { getAppSession } from '#/lib/auth'
 import { resolveExternalToken } from '#/lib/external-token'
 import { mintPostgrestToken } from '#/lib/postgrest-token'
 import { handleProxyRequest } from '#/lib/postgrest-proxy'
@@ -27,7 +27,7 @@ const handler = ({
   params: { _splat?: string }
 }) => {
   return handleProxyRequest(request, params._splat ?? '', {
-    getSession: (headers) => auth.api.getSession({ headers }),
+    getSession: getAppSession,
     getWorkspaceForUser: async (userId) => {
       const membership = await db.query.workspaceMemberships.findFirst({
         where: eq(schema.workspaceMemberships.userId, userId),

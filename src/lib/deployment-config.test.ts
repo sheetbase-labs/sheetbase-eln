@@ -98,4 +98,24 @@ describe('validateDeploymentConfig', () => {
       }),
     )
   })
+
+  it('rejects auth-free mode outside development', () => {
+    expect(() =>
+      validateDeploymentConfig({
+        ...productionConfig,
+        SHEETBASE_DEV_AUTH_FREE: true,
+      }),
+    ).toThrow(/only allowed in development/)
+  })
+
+  it('allows explicitly enabled auth-free mode in development', () => {
+    expect(
+      validateDeploymentConfig({
+        ...productionConfig,
+        SHEETBASE_ENV: 'development',
+        SHEETBASE_SECRET_SOURCE: 'vps-local',
+        SHEETBASE_DEV_AUTH_FREE: true,
+      }),
+    ).toEqual(expect.objectContaining({ environment: 'development' }))
+  })
 })

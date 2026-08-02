@@ -3,7 +3,7 @@ import type { QueryResultRow } from 'pg'
 import { z } from 'zod'
 
 import { env } from '#/env.server'
-import { auth } from '#/lib/auth'
+import { getAppSession } from '#/lib/auth'
 import { createSheetbaseHyperFormula } from './hyperformula-profile'
 import {
   buildPersistedFormulaArtifact,
@@ -251,7 +251,7 @@ export async function handleFormulaWrite(
 }
 
 const defaultDeps: FormulaWriteDeps = {
-  getSession: (headers) => auth.api.getSession({ headers }),
+  getSession: getAppSession,
   async query<T extends QueryResultRow>(text: string, values: unknown[]) {
     const client = new Client({ connectionString: env.DATABASE_URL })
     await client.connect()

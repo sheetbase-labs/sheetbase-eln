@@ -6,7 +6,7 @@ import { eq, inArray } from 'drizzle-orm'
 
 import { db } from '#/db/client.server'
 import * as schema from '#/db/schema'
-import { auth } from '#/lib/auth'
+import { getAppSession } from '#/lib/auth'
 
 export interface CurrentContext {
   user: { id: string; name: string; email: string }
@@ -17,7 +17,7 @@ export interface CurrentContext {
 export async function getCurrentContext(
   headers: Headers,
 ): Promise<CurrentContext | null> {
-  const session = await auth.api.getSession({ headers })
+  const session = await getAppSession(headers)
   if (!session) return null
 
   const membership = await db.query.workspaceMemberships.findFirst({

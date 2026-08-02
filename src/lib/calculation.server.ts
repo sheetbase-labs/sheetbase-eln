@@ -3,7 +3,7 @@ import type { QueryResultRow } from 'pg'
 import { z } from 'zod'
 
 import { env } from '#/env.server'
-import { auth } from '#/lib/auth'
+import { getAppSession } from '#/lib/auth'
 import {
   SHEETBASE_PROFILE_FINGERPRINT,
   sheetbaseRuntimeFingerprint,
@@ -386,7 +386,7 @@ async function finalize(
 }
 
 const defaultDeps: CalculationDeps = {
-  getSession: (headers) => auth.api.getSession({ headers }),
+  getSession: getAppSession,
   loadSnapshot,
   finalize,
 }

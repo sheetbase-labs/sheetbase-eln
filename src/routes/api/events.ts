@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import * as schema from '#/db/schema'
 import { env } from '#/env.server'
-import { auth } from '#/lib/auth'
+import { getAppSession } from '#/lib/auth'
 import { handleSseRequest } from '#/lib/sse-events'
 import { readChangeEvents, subscribeToChangeEvents } from '#/lib/sse-subscribe'
 
@@ -20,7 +20,7 @@ import { readChangeEvents, subscribeToChangeEvents } from '#/lib/sse-subscribe'
 const handler = ({ request }: { request: Request }) => {
   const db = drizzle(env.DATABASE_URL, { schema })
   return handleSseRequest(request, {
-    getSession: (headers) => auth.api.getSession({ headers }),
+    getSession: getAppSession,
     getWorkspaceForUser: async (userId) => {
       const membership = await db.query.workspaceMemberships.findFirst({
         where: eq(schema.workspaceMemberships.userId, userId),
@@ -32,7 +32,7 @@ const handler = ({ request }: { request: Request }) => {
     subscribe: (workspaceId, onEvent) =>
       subscribeToChangeEvents(workspaceId, onEvent),
     isSessionValid: async (headers) => {
-      const session = await auth.api.getSession({ headers })
+      const session = await getAppSession(headers)
       return !!session
     },
     now: () => Date.now(),

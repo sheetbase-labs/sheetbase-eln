@@ -1506,7 +1506,7 @@ export function ScientificSheetBlock({
           </span>
           <Input
             aria-label="Formula source"
-            placeholder={selected ? 'Enter =…' : 'Select a cell'}
+            placeholder={selected ? '' : 'Select a cell'}
             value={formulaSource}
             disabled={!selected}
             onChange={(event) => setFormulaSource(event.target.value)}

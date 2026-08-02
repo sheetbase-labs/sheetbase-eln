@@ -172,9 +172,14 @@ export class ReferencePicker {
   private _current: { row: number; col: number } | null = null
   /** Live marquee overlay element, or null when no drag is in progress. */
   private _preview: HTMLDivElement | null = null
-  /** Bound drag listeners (added on pointerdown, removed on pointerup). */
+  /** Pointer id of the active drag, or null when no drag is in progress. */
+  private _activePointerId: number | null = null
+  /** Bound drag listeners (added on pointerdown, removed on pointerup/cancel). */
   private readonly _onPointerMove = (e: PointerEvent) => this.onPointerMove(e)
   private readonly _onPointerUp = (e: PointerEvent) => this.onPointerUp(e)
+  private readonly _onPointerCancel = (e: PointerEvent) => this.abortDrag(e)
+  /** Bound window-blur listener (aborts an in-progress drag on focus loss). */
+  private readonly _onBlur = () => this.abortDrag()
 
   constructor(hot: HotLike, options: PickerOptions) {
     this.hot = hot
@@ -196,16 +201,20 @@ export class ReferencePicker {
     this._references = []
     this._anchor = null
     this._current = null
+    this._activePointerId = null
     this.hidePreview()
   }
 
   /**
    * Capture-phase pointerdown handler. Intercepts clicks inside the grid while
-   * a formula is being edited: a click on a data cell starts a reference pick
-   * (and a potential drag-to-range); a click anywhere else in the grid chrome
-   * is swallowed so the editor stays open and focused. The event is always
-   * stopped from reaching Handsontable, which would otherwise close the editor
-   * and move the selection.
+   * a formula is being edited: a primary-button click on a data cell starts a
+   * reference pick (and a potential drag-to-range); non-primary-button clicks
+   * and clicks on grid chrome are swallowed so the editor stays open and
+   * focused without inserting a reference. The event is always stopped from
+   * reaching Handsontable, which would otherwise close the editor and move the
+   * selection. Only the primary pointer with button 0 (left mouse / touch)
+   * starts a pick — right-click and auxiliary buttons are suppressed but never
+   * initiate a drag.
    */
   onPointerDown(event: PointerEvent): void {
     const target = event.target as HTMLElement | null
@@ -218,6 +227,14 @@ export class ReferencePicker {
     event.stopPropagation()
     event.preventDefault()
 
+    // Only the primary pointer / left button starts a reference pick. Other
+    // buttons (right-click, middle, eraser) are swallowed so the editor stays
+    // open but no reference is inserted and no drag begins.
+    if (!event.isPrimary || event.button !== 0) {
+      this.options.refocusEditor()
+      return
+    }
+
     const coords = this.cellCoordsFromTarget(target)
     if (!coords) {
       // Clicked grid chrome (header, corner, scrollbar) — keep the editor
@@ -228,10 +245,35 @@ export class ReferencePicker {
 
     this._anchor = coords
     this._current = coords
+    this._activePointerId = event.pointerId
     this.showPreview(coords.row, coords.col, coords.row, coords.col)
     const doc = this.hot.rootDocument
     doc.addEventListener('pointermove', this._onPointerMove, true)
     doc.addEventListener('pointerup', this._onPointerUp, true)
+    doc.addEventListener('pointercancel', this._onPointerCancel, true)
+    // Abort the drag if the window loses focus (alt-tab, dialog, etc.) so the
+    // marquee and listeners do not leak.
+    doc.defaultView?.addEventListener('blur', this._onBlur)
+  }
+
+  /**
+   * Capture-phase `mousedown` suppressor. Handsontable drives cell selection
+   * and editor closure from native `mousedown`; `pointerdown`'s
+   * `preventDefault()` only suppresses compatibility mouse events in normal
+   * primary-pointer cases, so a separate capture-phase `mousedown` listener is
+   * required to reliably block Handsontable's mouse path during formula
+   * editing. This method ONLY suppresses the event (stop propagation +
+   * prevent default + refocus the editor) — it never starts a pick, since
+   * `pointerdown`/`pointerup` own the drag. Returns true when it swallowed the
+   * event, false when it let it pass (target outside the grid).
+   */
+  suppressMouseDown(event: MouseEvent): boolean {
+    const target = event.target as HTMLElement | null
+    if (!target || !this.hot.rootElement.contains(target)) return false
+    event.stopPropagation()
+    event.preventDefault()
+    this.options.refocusEditor()
+    return true
   }
 
   /** Remove the drag listeners without committing (used on editor close). */
@@ -239,10 +281,15 @@ export class ReferencePicker {
     const doc = this.hot.rootDocument
     doc.removeEventListener('pointermove', this._onPointerMove, true)
     doc.removeEventListener('pointerup', this._onPointerUp, true)
+    doc.removeEventListener('pointercancel', this._onPointerCancel, true)
+    doc.defaultView?.removeEventListener('blur', this._onBlur)
   }
 
   onPointerMove(event: PointerEvent): void {
     if (!this._anchor) return
+    // Ignore moves from a different pointer (e.g. a second touch).
+    if (this._activePointerId !== null && event.pointerId !== this._activePointerId)
+      return
     const coords = this.cellCoordsFromPoint(event.clientX, event.clientY)
     if (!coords) return // pointer left the data area; keep the last preview
     this._current = coords
@@ -255,13 +302,13 @@ export class ReferencePicker {
   }
 
   onPointerUp(event: PointerEvent): void {
+    // Ignore up from a different pointer than the one that started the drag.
+    if (this._activePointerId !== null && event.pointerId !== this._activePointerId)
+      return
     event.stopPropagation()
-    this.detachDragListeners()
     const anchor = this._anchor
     const current = this._current
-    this._anchor = null
-    this._current = null
-    this.hidePreview()
+    this.abortDrag()
     if (!anchor) return
     const end = current ?? anchor
     const colorIndex = this._references.length % REFERENCE_COLORS.length
@@ -277,6 +324,23 @@ export class ReferencePicker {
     this._references.push(ref)
     this.options.insertReference(ref.a1)
     this.options.refocusEditor()
+  }
+
+  /**
+   * Idempotently cancel an in-progress drag without committing a reference.
+   * Detaches the `pointermove`/`pointerup`/`pointercancel`/`blur` listeners,
+   * clears the anchor/extent/pointer id, and hides the marquee. Called on
+   * `pointercancel`, window blur, and editor close/destroy, in addition to the
+   * `pointerup` path (which captures the anchor first, then aborts, then
+   * commits). Safe to call when no drag is in progress.
+   */
+  abortDrag(event?: PointerEvent): void {
+    if (event) event.stopPropagation()
+    this.detachDragListeners()
+    this._anchor = null
+    this._current = null
+    this._activePointerId = null
+    this.hidePreview()
   }
 
   /**
@@ -336,8 +400,11 @@ export class ReferencePicker {
   /**
    * Remove every reference highlight added during this edit. Each reference's
    * range is cleared individually so user-defined borders on unrelated cells
-   * are preserved. Borders on cells shared between a reference and a user
-   * border are also cleared — an inherent limitation of the customBorders API.
+   * are preserved. `customBorders.clearBorders(range)` removes every custom
+   * border side on cells in that range — including any user-created borders on
+   * the same cells. There are no user-defined borders in this product yet, so
+   * this is acceptable; if user borders are introduced, snapshot/restore will
+   * be needed here.
    */
   clearAllHighlights(): void {
     if (this._references.length === 0) return
@@ -438,8 +505,17 @@ export class FormulaReferenceEditor extends TextEditor {
   }
 
   private _picker: ReferencePicker | null = null
+  /** Capture-phase pointerdown: owns the reference-pick drag. */
   private _onPointerDown = (event: PointerEvent): void => {
     this.handlePointerDown(event)
+  }
+  /**
+   * Capture-phase mousedown: suppresses Handsontable's native mouse path
+   * (cell selection / editor closure) during formula editing. Does NOT start a
+   * pick — `pointerdown`/`pointerup` own the drag.
+   */
+  private _onMouseDown = (event: MouseEvent): void => {
+    this.handleMouseDown(event)
   }
 
   open(): void {
@@ -452,7 +528,9 @@ export class FormulaReferenceEditor extends TextEditor {
       })
     }
     this._picker.reset()
-    this.hot.rootDocument.addEventListener('pointerdown', this._onPointerDown, true)
+    const doc = this.hot.rootDocument
+    doc.addEventListener('pointerdown', this._onPointerDown, true)
+    doc.addEventListener('mousedown', this._onMouseDown, true)
   }
 
   close(): void {
@@ -465,15 +543,14 @@ export class FormulaReferenceEditor extends TextEditor {
     super.destroy()
   }
 
-  /** Remove listeners, the marquee overlay, and all reference highlights. */
+  /** Remove listeners, abort any in-progress drag, and clear all highlights. */
   private cleanup(): void {
-    this.hot.rootDocument.removeEventListener(
-      'pointerdown',
-      this._onPointerDown,
-      true,
-    )
-    this._picker?.detachDragListeners()
-    this._picker?.hidePreview()
+    const doc = this.hot.rootDocument
+    doc.removeEventListener('pointerdown', this._onPointerDown, true)
+    doc.removeEventListener('mousedown', this._onMouseDown, true)
+    // abortDrag detaches the drag listeners, clears the marquee, and resets
+    // the drag state — covering pointercancel/blur/teardown in one call.
+    this._picker?.abortDrag()
     this._picker?.clearAllHighlights()
   }
 
@@ -485,6 +562,19 @@ export class FormulaReferenceEditor extends TextEditor {
   private handlePointerDown(event: PointerEvent): void {
     if (!this.isOpened() || !this.isFormulaMode()) return
     this._picker?.onPointerDown(event)
+  }
+
+  /**
+   * Document capture-phase mousedown: when the editor is open and in formula
+   * mode, suppress the matching `mousedown` so Handsontable's native mouse
+   * path (cell selection / editor closure) never fires. `pointerdown`'s
+   * `preventDefault()` only suppresses compatibility mouse events in normal
+   * primary-pointer cases, so this explicit listener is required for
+   * reliability. It never starts a pick.
+   */
+  private handleMouseDown(event: MouseEvent): void {
+    if (!this.isOpened() || !this.isFormulaMode()) return
+    this._picker?.suppressMouseDown(event)
   }
 
   /** True when the current editor value starts with `=`. */

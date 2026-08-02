@@ -117,19 +117,45 @@ function td(): HTMLTableCellElement {
 }
 
 function pointer(
-  type: 'pointerdown' | 'pointermove' | 'pointerup',
+  type: 'pointerdown' | 'pointermove' | 'pointerup' | 'pointercancel',
   target: HTMLElement | null,
   clientX = 0,
   clientY = 0,
+  overrides: Partial<{
+    isPrimary: boolean
+    button: number
+    pointerId: number
+  }> = {},
 ): PointerEvent {
   return {
     type,
     target,
     clientX,
     clientY,
+    isPrimary: true,
+    button: 0,
+    pointerId: 1,
+    ...overrides,
     preventDefault: vi.fn(),
     stopPropagation: vi.fn(),
   } as unknown as PointerEvent
+}
+
+/** Build a mock MouseEvent resembling a capture-phase mousedown. */
+function mouseEvent(
+  target: HTMLElement | null,
+  overrides: Partial<{ button: number; clientX: number; clientY: number }> = {},
+): MouseEvent {
+  return {
+    type: 'mousedown',
+    target,
+    button: 0,
+    clientX: 0,
+    clientY: 0,
+    ...overrides,
+    preventDefault: vi.fn(),
+    stopPropagation: vi.fn(),
+  } as unknown as MouseEvent
 }
 
 afterEach(() => {
@@ -330,5 +356,142 @@ describe('ReferencePicker', () => {
     expect(picker.isDragging).toBe(false)
     expect(picker.references).toHaveLength(0)
     expect(root.querySelector('.sheetbase-ref-preview')).toBeNull()
+  })
+
+  it('suppresses mousedown inside the grid without starting a pick', () => {
+    const cells = [[td(), td()]]
+    const { hot } = mockHot(cells)
+    const refocus = vi.fn()
+    const inserted: string[] = []
+    const picker = new ReferencePicker(hot, {
+      getSheetName: () => '',
+      insertReference: (a1) => inserted.push(a1),
+      refocusEditor: refocus,
+    })
+
+    const event = mouseEvent(cells[0][1])
+    const swallowed = picker.suppressMouseDown(event)
+
+    expect(swallowed).toBe(true)
+    expect(event.stopPropagation).toHaveBeenCalled()
+    expect(event.preventDefault).toHaveBeenCalled()
+    expect(refocus).toHaveBeenCalled()
+    // No drag started, no reference inserted.
+    expect(picker.isDragging).toBe(false)
+    expect(inserted).toHaveLength(0)
+  })
+
+  it('does not suppress mousedown outside its own grid', () => {
+    const cells = [[td()]]
+    const { hot } = mockHot(cells)
+    const picker = new ReferencePicker(hot, {
+      getSheetName: () => '',
+      insertReference: vi.fn(),
+      refocusEditor: vi.fn(),
+    })
+
+    const outside = document.createElement('td')
+    document.body.appendChild(outside)
+    const event = mouseEvent(outside)
+    expect(picker.suppressMouseDown(event)).toBe(false)
+    expect(event.stopPropagation).not.toHaveBeenCalled()
+  })
+
+  it('aborts an in-progress drag on pointercancel without committing', () => {
+    const cells = [[td(), td()]]
+    const { hot, root } = mockHot(cells)
+    const inserted: string[] = []
+    const picker = new ReferencePicker(hot, {
+      getSheetName: () => '',
+      insertReference: (a1) => inserted.push(a1),
+      refocusEditor: vi.fn(),
+    })
+
+    picker.onPointerDown(pointer('pointerdown', cells[0][0]))
+    expect(picker.isDragging).toBe(true)
+    expect(root.querySelector('.sheetbase-ref-preview')).not.toBeNull()
+
+    // pointercancel arrives mid-drag.
+    picker.abortDrag(pointer('pointercancel', cells[0][0]))
+
+    expect(picker.isDragging).toBe(false)
+    expect(root.querySelector('.sheetbase-ref-preview')).toBeNull()
+    expect(inserted).toHaveLength(0)
+    expect(picker.references).toHaveLength(0)
+  })
+
+  it('abortDrag is idempotent when no drag is in progress', () => {
+    const cells = [[td()]]
+    const { hot } = mockHot(cells)
+    const picker = new ReferencePicker(hot, {
+      getSheetName: () => '',
+      insertReference: vi.fn(),
+      refocusEditor: vi.fn(),
+    })
+    // Calling abortDrag with no active drag must not throw.
+    expect(() => picker.abortDrag()).not.toThrow()
+    expect(picker.isDragging).toBe(false)
+  })
+
+  it('rejects non-primary and non-left-button pointerdowns without picking', () => {
+    const cells = [[td(), td()]]
+    const { hot } = mockHot(cells)
+    const refocus = vi.fn()
+    const inserted: string[] = []
+    const picker = new ReferencePicker(hot, {
+      getSheetName: () => '',
+      insertReference: (a1) => inserted.push(a1),
+      refocusEditor: refocus,
+    })
+
+    // Right-click (button 2, primary): swallowed, no pick.
+    const rightClick = pointer('pointerdown', cells[0][1], 0, 0, {
+      button: 2,
+    })
+    picker.onPointerDown(rightClick)
+    expect(rightClick.stopPropagation).toHaveBeenCalled()
+    expect(rightClick.preventDefault).toHaveBeenCalled()
+    expect(picker.isDragging).toBe(false)
+    expect(inserted).toHaveLength(0)
+    expect(refocus).toHaveBeenCalled()
+
+    // Non-primary pointer (e.g. second touch): swallowed, no pick.
+    const secondTouch = pointer('pointerdown', cells[0][1], 0, 0, {
+      isPrimary: false,
+      pointerId: 2,
+    })
+    picker.onPointerDown(secondTouch)
+    expect(secondTouch.stopPropagation).toHaveBeenCalled()
+    expect(picker.isDragging).toBe(false)
+    expect(inserted).toHaveLength(0)
+  })
+
+  it('ignores pointermove/pointerup from a different pointer id', () => {
+    const cells = [[td(), td()]]
+    const { hot } = mockHot(cells)
+    const inserted: string[] = []
+    const picker = new ReferencePicker(hot, {
+      getSheetName: () => '',
+      insertReference: (a1) => inserted.push(a1),
+      refocusEditor: vi.fn(),
+    })
+
+    // Start a drag with pointer id 1.
+    picker.onPointerDown(pointer('pointerdown', cells[0][0], 0, 0, {
+      pointerId: 1,
+    }))
+    // A pointerup from a different pointer (id 2) must not commit.
+    picker.onPointerUp(pointer('pointerup', cells[0][0], 0, 0, {
+      pointerId: 2,
+    }))
+    expect(picker.isDragging).toBe(true)
+    expect(inserted).toHaveLength(0)
+
+    // The matching pointerup (id 1) commits.
+    picker.onPointerUp(pointer('pointerup', cells[0][0], 0, 0, {
+      pointerId: 1,
+    }))
+    expect(inserted).toEqual(['A1'])
+    expect(picker.isDragging).toBe(false)
   })
 })

@@ -1326,7 +1326,7 @@ export const demoSteps: Array<SeedStep> = [
             }),
           ],
         )
-        await client.query('SELECT api.freeze_chart($1,$2)', [
+        await client.query('SELECT * FROM api.freeze_chart($1,$2)', [
           DEMO_BLOCK_IDS.stabilityChartFrozen,
           populated.rows[0].version,
         ])

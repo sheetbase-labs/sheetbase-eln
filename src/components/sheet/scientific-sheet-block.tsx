@@ -1321,34 +1321,37 @@ export function ScientificSheetBlock({
         return copy
       },
     )
-    if (tableWorkbook)
-      for (const row of detached) {
-        if (typeof row.id !== 'string') continue
-        for (const column of table?.columns ?? []) {
-          const formula = formulaByCell.get(`${row.id}/${column.id}`)
-          if (formula) {
-            // Inject the engine expression so the Handsontable formulas
-            // plugin recognises the cell as a formula and computes it
-            // inline. Only same-sheet formulas (no `!` cross-sheet prefix)
-            // can be computed by the Handsontable-owned engine; cross-sheet
-            // formulas fall back to the pre-computed workbook result.
-            const isSameSheet =
-              formula.status === 'supported' &&
-              !!formula.engine_expression &&
-              !formula.engine_expression.includes('!')
-            if (isSameSheet)
-              row[column.field_name] = formula.engine_expression
-            else
-              row[column.field_name] = displayResult(
-                safeWorkbookGet(tableWorkbook, {
-                  tableId,
-                  rowId: row.id,
-                  columnId: column.id,
-                }),
-              )
-          }
+    for (const row of detached) {
+      if (typeof row.id !== 'string') continue
+      for (const column of table?.columns ?? []) {
+        const formula = formulaByCell.get(`${row.id}/${column.id}`)
+        if (!formula) continue
+        // Same-sheet formulas (no `!` cross-sheet prefix) are injected as
+        // engine expressions so the Handsontable formulas plugin recognises
+        // the cell as a formula, computes it inline, and — crucially —
+        // enables formula-preserving copy-paste and autofill. This does NOT
+        // require `tableWorkbook`: the grid's own `gridEngine` (configured
+        // in `formulasConfig`) evaluates the expression.
+        const isSameSheet =
+          formula.status === 'supported' &&
+          !!formula.engine_expression &&
+          !formula.engine_expression.includes('!')
+        if (isSameSheet) {
+          row[column.field_name] = formula.engine_expression
+        } else if (tableWorkbook) {
+          // Cross-sheet formulas fall back to the pre-computed workbook
+          // result. This branch DOES require `tableWorkbook` because only
+          // the notebook-level engine has cross-sheet references.
+          row[column.field_name] = displayResult(
+            safeWorkbookGet(tableWorkbook, {
+              tableId,
+              rowId: row.id,
+              columnId: column.id,
+            }),
+          )
         }
       }
+    }
     return detached
   }, [formulaByCell, allRowsQuery.data, table, tableId, tableWorkbook])
 

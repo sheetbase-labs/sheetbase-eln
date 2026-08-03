@@ -1378,7 +1378,15 @@ export function ScientificSheetBlock({
         },
       )
       setFormulaStatus('')
-      await refreshCalculationRef.current(true)
+      // Don't reconcile rows for formula bar commits. Formula writes change
+      // row versions on the server but don't change the row data that
+      // gridData uses. Avoiding the allRows invalidation prevents a
+      // background refetch that would recompute gridData → settings →
+      // updateSettings on HotTable, which calls loadData() and can
+      // overwrite the formula expression in the source data. If a stale
+      // version error occurs on a subsequent literal edit, the coordinator
+      // handles it by refetching.
+      await refreshCalculationRef.current(false)
     } catch (error) {
       setFormulaStatus(
         error instanceof Error ? error.message : 'Could not save the formula.',

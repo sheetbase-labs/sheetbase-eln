@@ -214,6 +214,15 @@ export class GridOperationCoordinator {
       this.config.onRowsUpdated(changedRows)
       this.config.onDraftsCleared(cells)
       this.config.onIssues([])
+      // Only reconcile rows if there were actual row changes (literal
+      // edits or inserts). Formula-only writes change row versions on the
+      // server but don't change the row data that gridData uses. Avoiding
+      // the unnecessary allRows invalidation prevents a background refetch
+      // that would recompute gridData → settings → updateSettings on
+      // HotTable, which calls loadData() and overwrites the formula
+      // expression that the editor wrote to the source data. If a stale
+      // version error occurs on a subsequent literal edit, the coordinator
+      // handles it by refetching.
       const formulaChanged = cells.some(
         (cell) =>
           (typeof cell.raw === 'string' && cell.raw.startsWith('=')) ||
@@ -222,7 +231,9 @@ export class GridOperationCoordinator {
               .getFormulaByCell()
               .has(`${cell.rowId}/${cell.columnId}`)),
       )
-      this.config.onCalculationNeeded(formulaChanged)
+      this.config.onCalculationNeeded(
+        formulaChanged && changedRows.length > 0,
+      )
       this.setStatus('saved')
     } catch (error) {
       const isLocalValidation = (

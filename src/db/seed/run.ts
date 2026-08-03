@@ -1238,49 +1238,34 @@ export const demoSteps: Array<SeedStep> = [
         const conditionColumnId = byLabel['Condition'].id
 
         // Idempotent dataset rows: wipe and re-insert the stability series.
-        // Clear any formulas from prior test sessions first — the per-row
-        // delete trigger (migration 0017) blocks deleting rows that have
+        // Clear any formulas from prior test sessions first. The per-row
+        // triggers (migration 0017) block deleting rows that have
         // formula_column_ids or incoming formula dependencies, and the
         // before-update trigger blocks mutating formula_column_ids unless
-        // the trusted-actor setting is present. The seed role
-        // (POSTGRES_USER) also lacks DELETE on formula_definitions/
-        // formula_dependencies and UPDATE on formula_column_ids (only
-        // SELECT/DELETE on data columns is granted), so use a migrator
-        // connection which owns the tables.
+        // the trusted-actor setting is present.
         //
-        // Set session_replication_role = 'replica' on the migrator
-        // connection to bypass ALL triggers (both the before-update
-        // immutability check and the before-delete formula-dependency
-        // check) for this maintenance operation. This is the PostgreSQL-
-        // standard way to bypass triggers for data migration/seed scripts.
-        const migrationUrl = process.env.MIGRATION_DATABASE_URL
-        if (migrationUrl) {
-          const migratorClient = new Client({ connectionString: migrationUrl })
-          await migratorClient.connect()
-          try {
-            await migratorClient.query("SET session_replication_role = 'replica'")
-            // Delete formula definitions/dependencies first for cleanliness
-            // (FK cascade would handle dependencies, but explicit is clearer).
-            await migratorClient.query(
-              `DELETE FROM api.formula_dependencies WHERE source_table_id = $1`,
-              [tableId],
-            )
-            await migratorClient.query(
-              `DELETE FROM api.formula_definitions WHERE target_table_id = $1`,
-              [tableId],
-            )
-            // Now safe to clear formula_column_ids and delete rows —
-            // triggers are bypassed by the replica role.
-            await migratorClient.query(
-              `UPDATE api."${resourceName}" SET formula_column_ids = '{}' WHERE cardinality(formula_column_ids) > 0`,
-            )
-            await migratorClient.query(`DELETE FROM api."${resourceName}"`)
-            await migratorClient.query("SET session_replication_role = 'origin'")
-          } finally {
-            await migratorClient.end()
-          }
-        } else {
+        // DATABASE_URL connects as POSTGRES_USER, which is the PostgreSQL
+        // superuser (created by the Docker postgres image). Only superusers
+        // can reliably SET session_replication_role = 'replica' to bypass
+        // all triggers. The migrator role is non-superuser and cannot
+        // disable triggers. The superuser also bypasses RLS (no FORCE RLS
+        // is set), so it has full access to formula tables.
+        await client.query("SET session_replication_role = 'replica'")
+        try {
+          await client.query(
+            `DELETE FROM api.formula_dependencies WHERE source_table_id = $1`,
+            [tableId],
+          )
+          await client.query(
+            `DELETE FROM api.formula_definitions WHERE target_table_id = $1`,
+            [tableId],
+          )
+          await client.query(
+            `UPDATE api."${resourceName}" SET formula_column_ids = '{}' WHERE cardinality(formula_column_ids) > 0`,
+          )
           await client.query(`DELETE FROM api."${resourceName}"`)
+        } finally {
+          await client.query("SET session_replication_role = 'origin'")
         }
         const rows = [
           [0, 7.2, '4 °C'],

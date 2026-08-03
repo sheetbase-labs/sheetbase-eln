@@ -1745,7 +1745,7 @@ export function ScientificSheetBlock({
             minSpareRows: !readOnly ? 1 : 0,
             height: Math.min(
               Math.max(
-                (gridData.length + 1) * 28 + 8,
+                (gridData.length + 1) * 30 + 40,
                 table.columns.length > 0 ? 80 : 48,
               ),
               600,

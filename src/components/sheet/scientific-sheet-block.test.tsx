@@ -978,24 +978,24 @@ describe('ScientificSheetBlock', () => {
     ])
     mount()
     const settings = await ready()
-    // 2 data rows + 1 spare row = 3 rows → (3 * 28 + 8) = 92px
+    // 2 data rows + 1 spare row = 3 rows → (3 * 30 + 40) = 130px
     const initialHeight = settings.height
-    expect(initialHeight).toBe(92)
+    expect(initialHeight).toBe(130)
     // Add a row — provisional row is added to allRows cache, gridData
-    // recomputes, settings height increases by one row (28px).
+    // recomputes, settings height increases by one row (30px).
     fireEvent.click(screen.getByRole('button', { name: 'Add row' }))
     await waitFor(() => {
       const latest = mocks.settings!
-      // 3 data rows + 1 spare = 4 rows → (4 * 28 + 8) = 120px
-      expect(latest.height).toBe(120)
+      // 3 data rows + 1 spare = 4 rows → (4 * 30 + 40) = 160px
+      expect(latest.height).toBe(160)
       expect(latest.height).toBeGreaterThan(initialHeight)
     })
     // Add another row.
     fireEvent.click(screen.getByRole('button', { name: 'Add row' }))
     await waitFor(() => {
       const latest = mocks.settings!
-      // 4 data rows + 1 spare = 5 rows → (5 * 28 + 8) = 148px
-      expect(latest.height).toBe(148)
+      // 4 data rows + 1 spare = 5 rows → (5 * 30 + 40) = 190px
+      expect(latest.height).toBe(190)
     })
   })
 })

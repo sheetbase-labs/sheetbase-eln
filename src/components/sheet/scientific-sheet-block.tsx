@@ -1030,7 +1030,19 @@ export function ScientificSheetBlock({
   // this engine automatically.
   const gridEngine = useMemo<HyperFormula | null>(() => {
     if (!table) return null
-    return createSheetbaseHyperFormula()
+    // The formulas plugin requires the sheet to already exist in the engine.
+    // Without this, the plugin cannot map grid cells to HyperFormula cells,
+    // so formula evaluation, copy-paste formula preservation, and autofill
+    // translation all silently fail (cells show computed values instead of
+    // formula expressions).
+    try {
+      const engine = createSheetbaseHyperFormula()
+      const sheetName = scientificSheetName(table.id)
+      if (!engine.doesSheetExist(sheetName)) engine.addSheet(sheetName)
+      return engine
+    } catch {
+      return null
+    }
   }, [table?.id])
   // Destroy the engine when the table changes or the component unmounts.
   useEffect(() => {
@@ -1068,6 +1080,13 @@ export function ScientificSheetBlock({
     // reverted version. Only formula writes (which advance row versions
     // server-side without returning a row) and explicit recalculation need to
     // reconcile the canonical rows.
+    //
+    // The formulas query is refetched explicitly (not just invalidated) so
+    // the formula bar updates immediately after a formula commit, even if
+    // the calculation request fails. Without the await, the refetch happens
+    // in the background and the formula bar stays empty until the next
+    // render cycle, which can confuse users into thinking the formula
+    // wasn't saved.
     await Promise.all([
       ...(reconcileRows
         ? [
@@ -1076,7 +1095,7 @@ export function ScientificSheetBlock({
             }),
           ]
         : []),
-      queryClient.invalidateQueries({
+      queryClient.refetchQueries({
         queryKey: scientificQueryKeys.formulas(tableId),
       }),
     ])

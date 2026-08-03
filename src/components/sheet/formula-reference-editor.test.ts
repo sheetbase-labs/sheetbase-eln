@@ -297,7 +297,7 @@ describe('ReferencePicker', () => {
     expect(picker.references).toHaveLength(0)
   })
 
-  it('ignores clicks on headers and grid chrome but keeps the editor focused', () => {
+  it('lets clicks on headers and grid chrome pass through to Handsontable', () => {
     const cells = [[td()]]
     const { hot } = mockHot(cells)
     const refocus = vi.fn()
@@ -308,7 +308,8 @@ describe('ReferencePicker', () => {
       refocusEditor: refocus,
     })
 
-    // A TH header element is not a TD.
+    // A TH header element is not a TD — the event must pass through so
+    // Handsontable features like autofill work even with a stale editor.
     const header = document.createElement('th')
     hot.rootElement.appendChild(header)
     const event = pointer('pointerdown', header)
@@ -317,9 +318,30 @@ describe('ReferencePicker', () => {
     expect(inserted).toHaveLength(0)
     expect(picker.references).toHaveLength(0)
     expect(picker.isDragging).toBe(false)
-    // The click is still swallowed so the editor does not close.
-    expect(event.stopPropagation).toHaveBeenCalled()
-    expect(refocus).toHaveBeenCalled()
+    // The click is NOT swallowed — Handsontable receives it.
+    expect(event.stopPropagation).not.toHaveBeenCalled()
+    expect(event.preventDefault).not.toHaveBeenCalled()
+    expect(refocus).not.toHaveBeenCalled()
+  })
+
+  it('lets clicks on the fill handle (wtBorder.corner) pass through', () => {
+    const cells = [[td()]]
+    const { hot } = mockHot(cells)
+    const picker = new ReferencePicker(hot, {
+      getSheetName: () => '',
+      insertReference: vi.fn(),
+      refocusEditor: vi.fn(),
+    })
+
+    // The fill handle is a div, not a TD — it must never be suppressed.
+    const fillHandle = document.createElement('div')
+    fillHandle.className = 'wtBorder current corner'
+    hot.rootElement.appendChild(fillHandle)
+    const event = pointer('pointerdown', fillHandle)
+    picker.onPointerDown(event)
+
+    expect(event.stopPropagation).not.toHaveBeenCalled()
+    expect(event.preventDefault).not.toHaveBeenCalled()
   })
 
   it('does not intercept clicks outside its own grid', () => {
@@ -409,6 +431,27 @@ describe('ReferencePicker', () => {
     // No drag started, no reference inserted.
     expect(picker.isDragging).toBe(false)
     expect(inserted).toHaveLength(0)
+  })
+
+  it('does not suppress mousedown on grid chrome (fill handle, headers)', () => {
+    const cells = [[td()]]
+    const { hot } = mockHot(cells)
+    const picker = new ReferencePicker(hot, {
+      getSheetName: () => '',
+      insertReference: vi.fn(),
+      refocusEditor: vi.fn(),
+    })
+
+    // Fill handle is a div, not a TD — must not be suppressed.
+    const fillHandle = document.createElement('div')
+    fillHandle.className = 'wtBorder current corner'
+    hot.rootElement.appendChild(fillHandle)
+    expect(picker.suppressMouseDown(mouseEvent(fillHandle))).toBe(false)
+
+    // TH header is not a TD — must not be suppressed.
+    const header = document.createElement('th')
+    hot.rootElement.appendChild(header)
+    expect(picker.suppressMouseDown(mouseEvent(header))).toBe(false)
   })
 
   it('does not suppress mousedown outside its own grid', () => {

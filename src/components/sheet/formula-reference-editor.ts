@@ -1,5 +1,6 @@
 import { TextEditor } from 'handsontable/editors/textEditor'
 import { FunctionAutocompleteDom } from './function-autocomplete-dom'
+import { normalizeExponentiation } from '#/lib/formula-ir'
 
 /**
  * Convert a 0-indexed column number to its A1 letter representation.
@@ -213,13 +214,13 @@ export class ReferencePicker {
   /**
    * Capture-phase pointerdown handler. Intercepts clicks inside the grid while
    * a formula is being edited: a primary-button click on a data cell starts a
-   * reference pick (and a potential drag-to-range); non-primary-button clicks
-   * and clicks on grid chrome are swallowed so the editor stays open and
-   * focused without inserting a reference. The event is always stopped from
-   * reaching Handsontable, which would otherwise close the editor and move the
-   * selection. Only the primary pointer with button 0 (left mouse / touch)
-   * starts a pick — right-click and auxiliary buttons are suppressed but never
-   * initiate a drag.
+   * reference pick (and a potential drag-to-range); clicks on grid chrome
+   * (fill handle, headers, scrollbars) are left untouched so Handsontable
+   * features like autofill continue to work even if the editor is stale-open.
+   * Non-primary-button clicks on data cells are swallowed so the editor stays
+   * open and focused without inserting a reference. Only the primary pointer
+   * with button 0 (left mouse / touch) starts a pick — right-click and
+   * auxiliary buttons are suppressed but never initiate a drag.
    */
   onPointerDown(event: PointerEvent): void {
     const target = event.target as HTMLElement | null
@@ -227,8 +228,18 @@ export class ReferencePicker {
     // fall through and the editor closes normally.
     if (!target || !this.hot.rootElement.contains(target)) return
 
-    // Prevent Handsontable from receiving the gesture: it would close the
-    // editor and move the selection to the clicked cell.
+    // Only intercept clicks on actual data cells (TD elements with valid
+    // row/col coordinates). Grid chrome — the fill handle (div.wtBorder.corner),
+    // headers (TH), scrollbars, etc. — must pass through to Handsontable so
+    // features like autofill work even if the editor is stale-open in formula
+    // mode. This is a safety net: the primary fix is ensuring the editor
+    // closes after Enter, but this guard prevents the fill handle from being
+    // permanently broken if the editor ever stays open.
+    const coords = this.cellCoordsFromTarget(target)
+    if (!coords) return // Let Handsontable handle chrome clicks
+
+    // Prevent Handsontable from receiving the gesture on data cells: it
+    // would close the editor and move the selection to the clicked cell.
     event.stopPropagation()
     event.preventDefault()
 
@@ -236,14 +247,6 @@ export class ReferencePicker {
     // buttons (right-click, middle, eraser) are swallowed so the editor stays
     // open but no reference is inserted and no drag begins.
     if (!event.isPrimary || event.button !== 0) {
-      this.options.refocusEditor()
-      return
-    }
-
-    const coords = this.cellCoordsFromTarget(target)
-    if (!coords) {
-      // Clicked grid chrome (header, corner, scrollbar) — keep the editor
-      // open and focused without inserting a reference.
       this.options.refocusEditor()
       return
     }
@@ -267,14 +270,19 @@ export class ReferencePicker {
    * `preventDefault()` only suppresses compatibility mouse events in normal
    * primary-pointer cases, so a separate capture-phase `mousedown` listener is
    * required to reliably block Handsontable's mouse path during formula
-   * editing. This method ONLY suppresses the event (stop propagation +
-   * prevent default + refocus the editor) — it never starts a pick, since
-   * `pointerdown`/`pointerup` own the drag. Returns true when it swallowed the
-   * event, false when it let it pass (target outside the grid).
+   * editing. This method ONLY suppresses the event on actual data cells (`td`
+   * elements) — it never stops `mousedown` on grid chrome like the fill handle
+   * (`div.wtBorder.corner`), headers, or scrollbars, so Handsontable features
+   * like autofill continue to work even if the editor is stale-open. Returns
+   * true when it swallowed the event, false when it let it pass.
    */
   suppressMouseDown(event: MouseEvent): boolean {
     const target = event.target as HTMLElement | null
     if (!target || !this.hot.rootElement.contains(target)) return false
+    // Only suppress mousedowns on actual data cells. Grid chrome (fill
+    // handle, headers, borders, etc.) must pass through to Handsontable so
+    // autofill and other features work even with a stale-open editor.
+    if (target.tagName !== 'TD') return false
     event.stopPropagation()
     event.preventDefault()
     this.options.refocusEditor()
@@ -620,6 +628,28 @@ export class FormulaReferenceEditor extends TextEditor {
     this._autocomplete = null
     this.cleanup()
     super.destroy()
+  }
+
+  /**
+   * Normalise `**` to `^` in the editor value before it is committed through
+   * the `afterChange` pipeline. Only applies to formula values (starting with
+   * `=`) and only on a real commit (not when reverting via Escape). The
+   * canonical `^` form is what gets stored and displayed.
+   */
+  override finishEditing(
+    restoreOriginalValue?: boolean,
+    ctrlDown?: boolean,
+    callback?: (() => void) | undefined,
+  ): void {
+    if (!restoreOriginalValue && this.isFormulaMode()) {
+      const value = String(this.getValue() ?? '')
+      const normalized = normalizeExponentiation(value)
+      if (normalized !== value) {
+        this.setValue(normalized)
+        this.TEXTAREA.value = normalized
+      }
+    }
+    super.finishEditing(restoreOriginalValue, ctrlDown, callback)
   }
 
   /** Remove listeners, abort any in-progress drag, and clear all highlights. */

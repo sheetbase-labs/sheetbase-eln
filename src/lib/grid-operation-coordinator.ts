@@ -60,6 +60,16 @@ export interface CoordinatorConfig {
   onCalculationNeeded: (reconcileRows: boolean) => void
   /** Called to refetch rows after ambiguous errors. */
   onRefetchRows: () => void
+  /**
+   * Called after a formula write succeeds, with the target cell and source
+   * expression. The caller can use this to optimistically update the
+   * formulas query cache so the formula bar updates immediately without
+   * waiting for a refetch.
+   */
+  onFormulaPersisted?: (
+    target: { tableId: string; rowId: string; columnId: string },
+    source: string,
+  ) => void
 }
 
 /**
@@ -497,6 +507,20 @@ export class GridOperationCoordinator {
             },
       )
       rowVersions.set(formula.rowId, expectedRowVersion + 1)
+      // Notify the caller so it can optimistically update the formulas
+      // query cache. This makes the formula bar update immediately after
+      // a formula write without waiting for the refetch in
+      // onCalculationNeeded.
+      if (formula.source) {
+        this.config.onFormulaPersisted?.(
+          {
+            tableId: table.id,
+            rowId: formula.rowId,
+            columnId: formula.columnId,
+          },
+          formula.source,
+        )
+      }
     }
 
     return changedRows

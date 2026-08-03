@@ -393,6 +393,13 @@
       "when": 1785150000000,
       "tag": "0055_calc_005_function_profile_v2",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1785153600000,
+      "tag": "0056_calc_006_drop_stale_v1_profile_constraint",
+      "breakpoints": true
     }
   ]
 }

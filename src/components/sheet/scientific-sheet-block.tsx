@@ -1201,6 +1201,48 @@ export function ScientificSheetBlock({
           void refreshCalculationRef.current(reconcileRows),
         onRefetchRows: () =>
           void queryClient.invalidateQueries({ queryKey: allRowsKey }),
+        onFormulaPersisted: (target, source) => {
+          // Optimistically update the formulas query cache so the formula
+          // bar shows the source expression immediately after a formula
+          // write, without waiting for the refetch in onCalculationNeeded.
+          // The refetch will replace this with the full server-side
+          // formula definition (including engine_expression, template,
+          // bindings, etc.) shortly after.
+          queryClient.setQueryData<FormulaDefinitionWire[]>(
+            scientificQueryKeys.formulas(tableId),
+            (old = []) => {
+              const normalized = normalizeExponentiation(source)
+              const idx = old.findIndex(
+                (f) =>
+                  f.target_row_id === target.rowId &&
+                  f.target_column_id === target.columnId,
+              )
+              const entry: FormulaDefinitionWire = {
+                id: idx >= 0 ? old[idx].id : '',
+                target_table_id: target.tableId,
+                target_row_id: target.rowId,
+                target_column_id: target.columnId,
+                source_expression: normalized,
+                template: idx >= 0 ? old[idx].template : null,
+                bindings: idx >= 0 ? old[idx].bindings : [],
+                engine_expression: `(${normalized})`,
+                syntax_profile: 'sheetbase-hf-en-us-v1',
+                function_profile: 'scientific-core-v2',
+                literal_profile: 'sheetbase-literal-v1',
+                engine_version: '3.3.0',
+                status: 'supported',
+                version: idx >= 0 ? old[idx].version : 1,
+                created_at: idx >= 0 ? old[idx].created_at : new Date().toISOString(),
+              }
+              if (idx >= 0) {
+                const next = [...old]
+                next[idx] = entry
+                return next
+              }
+              return [...old, entry]
+            },
+          )
+        },
       }),
     [queryClient, allRowsKey, tableId],
   )
@@ -1291,6 +1333,43 @@ export function ScientificSheetBlock({
           : {}),
         source: normalized,
       } as Parameters<typeof mutateScientificFormula>[0])
+      // Optimistically update the formulas query cache so the formula bar
+      // shows the source expression immediately. The refetch in
+      // refreshCalculation will replace this with the full server-side
+      // formula definition shortly after.
+      queryClient.setQueryData<FormulaDefinitionWire[]>(
+        scientificQueryKeys.formulas(tableId),
+        (old = []) => {
+          const idx = old.findIndex(
+            (f) =>
+              f.target_row_id === selected.rowId &&
+              f.target_column_id === selected.columnId,
+          )
+          const entry: FormulaDefinitionWire = {
+            id: idx >= 0 ? old[idx].id : '',
+            target_table_id: selected.tableId,
+            target_row_id: selected.rowId,
+            target_column_id: selected.columnId,
+            source_expression: normalized,
+            template: idx >= 0 ? old[idx].template : null,
+            bindings: idx >= 0 ? old[idx].bindings : [],
+            engine_expression: `(${normalized})`,
+            syntax_profile: 'sheetbase-hf-en-us-v1',
+            function_profile: 'scientific-core-v2',
+            literal_profile: 'sheetbase-literal-v1',
+            engine_version: '3.3.0',
+            status: 'supported',
+            version: idx >= 0 ? old[idx].version : 1,
+            created_at: idx >= 0 ? old[idx].created_at : new Date().toISOString(),
+          }
+          if (idx >= 0) {
+            const next = [...old]
+            next[idx] = entry
+            return next
+          }
+          return [...old, entry]
+        },
+      )
       setFormulaStatus('')
       await refreshCalculationRef.current(true)
     } catch (error) {
@@ -1563,6 +1642,14 @@ export function ScientificSheetBlock({
       // Skip formula strings recalculated by the formulas plugin from
       // internal operations — only persist user-initiated edits.
       if (source === 'auto') return
+      // Diagnostic: log autofill changes to determine if the formulas
+      // plugin is translating relative references correctly.
+      if (source === 'Autofill.fill') {
+        console.info(
+          '[autofill] afterChange source=autofill.fill changes=',
+          changes.map(([r, p, , v]) => ({ row: r, prop: p, newValue: v })),
+        )
+      }
       const generation = ++nextGeneration.current
       const rows = localRowsRef.current
       const cells: CoordinatorCell[] = changes.flatMap(
@@ -1707,6 +1794,19 @@ export function ScientificSheetBlock({
             afterSelectionEnd: handleAfterSelectionEnd,
             beforeRemoveRow: handleBeforeRemoveRow,
             afterRemoveRow: handleAfterRemoveRow,
+            // Diagnostic: log the fillData after the formulas plugin
+            // translates relative references. If the formulas plugin is
+            // working, fillData should contain formula strings (e.g.,
+            // '=A2*2'). If it contains literal values, the plugin is not
+            // translating.
+            beforeAutofill: (
+              fillData: unknown,
+              _sourceRange: unknown,
+              _targetRange: unknown,
+            ) => {
+              console.info('[autofill] beforeAutofill fillData=', fillData)
+              return fillData
+            },
           }
         : null,
     [

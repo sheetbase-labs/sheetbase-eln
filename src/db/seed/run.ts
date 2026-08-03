@@ -1244,28 +1244,57 @@ export const demoSteps: Array<SeedStep> = [
         // before-update trigger blocks mutating formula_column_ids unless
         // the trusted-actor setting is present.
         //
-        // DATABASE_URL connects as POSTGRES_USER, which is the PostgreSQL
-        // superuser (created by the Docker postgres image). Only superusers
-        // can reliably SET session_replication_role = 'replica' to bypass
-        // all triggers. The migrator role is non-superuser and cannot
-        // disable triggers. The superuser also bypasses RLS (no FORCE RLS
-        // is set), so it has full access to formula tables.
-        await client.query("SET session_replication_role = 'replica'")
-        try {
-          await client.query(
-            `DELETE FROM api.formula_dependencies WHERE source_table_id = $1`,
-            [tableId],
-          )
-          await client.query(
-            `DELETE FROM api.formula_definitions WHERE target_table_id = $1`,
-            [tableId],
-          )
-          await client.query(
-            `UPDATE api."${resourceName}" SET formula_column_ids = '{}' WHERE cardinality(formula_column_ids) > 0`,
-          )
+        // POSTGRES_USER (DATABASE_URL) is NOT a superuser in the preview
+        // environment and cannot SET session_replication_role = 'replica'.
+        // The migrator role (MIGRATION_DATABASE_URL) is also non-superuser
+        // but OWNS the tables (it ran the migrations that created them).
+        // Table owners can ALTER TABLE ... DISABLE TRIGGER (requires
+        // ownership, not superuser) and bypass RLS (no FORCE RLS is set).
+        // This is the same pattern used in migration 0013 for column
+        // type swaps.
+        const migrationUrl = process.env.MIGRATION_DATABASE_URL
+        if (migrationUrl) {
+          const migratorClient = new Client({ connectionString: migrationUrl })
+          await migratorClient.connect()
+          try {
+            // Disable the row-level triggers that guard formula columns
+            // and emit change events. This mirrors the pattern in
+            // migration 0013 (internal.alter_scientific_column_type).
+            await migratorClient.query(
+              `ALTER TABLE api."${resourceName}" DISABLE TRIGGER scientific_row_before`,
+            )
+            await migratorClient.query(
+              `ALTER TABLE api."${resourceName}" DISABLE TRIGGER scientific_row_event`,
+            )
+            // Delete formula definitions/dependencies first. The migrator
+            // owns these tables and bypasses RLS (no FORCE RLS is set).
+            await migratorClient.query(
+              `DELETE FROM api.formula_dependencies WHERE source_table_id = $1`,
+              [tableId],
+            )
+            await migratorClient.query(
+              `DELETE FROM api.formula_definitions WHERE target_table_id = $1`,
+              [tableId],
+            )
+            // Now safe to clear formula_column_ids and delete rows —
+            // the guarding triggers are disabled.
+            await migratorClient.query(
+              `UPDATE api."${resourceName}" SET formula_column_ids = '{}' WHERE cardinality(formula_column_ids) > 0`,
+            )
+            await migratorClient.query(`DELETE FROM api."${resourceName}"`)
+            // Re-enable triggers before the INSERTs below (which need
+            // the triggers for proper row creation and versioning).
+            await migratorClient.query(
+              `ALTER TABLE api."${resourceName}" ENABLE TRIGGER scientific_row_before`,
+            )
+            await migratorClient.query(
+              `ALTER TABLE api."${resourceName}" ENABLE TRIGGER scientific_row_event`,
+            )
+          } finally {
+            await migratorClient.end()
+          }
+        } else {
           await client.query(`DELETE FROM api."${resourceName}"`)
-        } finally {
-          await client.query("SET session_replication_role = 'origin'")
         }
         const rows = [
           [0, 7.2, '4 °C'],

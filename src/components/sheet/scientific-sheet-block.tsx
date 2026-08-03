@@ -1559,13 +1559,24 @@ export function ScientificSheetBlock({
           ]
         },
       )
-      setDrafts((current) => {
-        const next = { ...current }
-        for (const cell of cells) {
-          const key = `${cell.rowId ?? `new:${cell.rowIndex}`}:${cell.columnId}`
-          next[key] = { ...cell, generation }
-        }
-        return next
+      // Defer setDrafts() to a microtask so the React state update does not
+      // interfere with the Handsontable editor commit cycle. afterChange
+      // fires synchronously inside super.finishEditing() → saveValue(). If
+      // setDrafts() triggers a synchronous re-render (even via React's
+      // automatic batching in React 19, which processes batched updates
+      // after the current synchronous code), it could disrupt the editor
+      // while it is in WAITING state (validation pending). By deferring to
+      // queueMicrotask(), we ensure the state update runs after the
+      // synchronous editor close cycle completes.
+      queueMicrotask(() => {
+        setDrafts((current) => {
+          const next = { ...current }
+          for (const cell of cells) {
+            const key = `${cell.rowId ?? `new:${cell.rowIndex}`}:${cell.columnId}`
+            next[key] = { ...cell, generation }
+          }
+          return next
+        })
       })
       coordinator.enqueue(cells)
     },

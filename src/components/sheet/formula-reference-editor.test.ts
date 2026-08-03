@@ -454,6 +454,36 @@ describe('ReferencePicker', () => {
     expect(picker.suppressMouseDown(mouseEvent(header))).toBe(false)
   })
 
+  it('lets fill handle pass through even if it were a TD with corner/wtBorder class', () => {
+    // Defense in depth: even if a future Handsontable version uses a TD for
+    // the fill handle, the explicit class check catches it.
+    const cells = [[td()]]
+    const { hot } = mockHot(cells)
+    const picker = new ReferencePicker(hot, {
+      getSheetName: () => '',
+      insertReference: vi.fn(),
+      refocusEditor: vi.fn(),
+    })
+
+    // TD with 'corner' class — must not be suppressed.
+    const cornerTd = document.createElement('td')
+    cornerTd.className = 'wtBorder current corner'
+    hot.rootElement.appendChild(cornerTd)
+    expect(picker.suppressMouseDown(mouseEvent(cornerTd))).toBe(false)
+
+    // TD with 'wtBorder' class (no 'corner') — must not be suppressed.
+    const borderTd = document.createElement('td')
+    borderTd.className = 'wtBorder area'
+    hot.rootElement.appendChild(borderTd)
+    expect(picker.suppressMouseDown(mouseEvent(borderTd))).toBe(false)
+
+    // pointerdown on a TD with 'corner' class — must pass through.
+    const cornerEvent = pointer('pointerdown', cornerTd)
+    picker.onPointerDown(cornerEvent)
+    expect(cornerEvent.stopPropagation).not.toHaveBeenCalled()
+    expect(cornerEvent.preventDefault).not.toHaveBeenCalled()
+  })
+
   it('does not suppress mousedown outside its own grid', () => {
     const cells = [[td()]]
     const { hot } = mockHot(cells)

@@ -228,15 +228,21 @@ export class ReferencePicker {
     // fall through and the editor closes normally.
     if (!target || !this.hot.rootElement.contains(target)) return
 
-    // Only intercept clicks on actual data cells (TD elements with valid
-    // row/col coordinates). Grid chrome — the fill handle (div.wtBorder.corner),
-    // headers (TH), scrollbars, etc. — must pass through to Handsontable so
-    // features like autofill work even if the editor is stale-open in formula
-    // mode. This is a safety net: the primary fix is ensuring the editor
-    // closes after Enter, but this guard prevents the fill handle from being
+    // Grid chrome — the fill handle (div.wtBorder.corner), headers (TH),
+    // scrollbars, etc. — must pass through to Handsontable so features like
+    // autofill work even if the editor is stale-open in formula mode.
+    // This is checked BEFORE stopPropagation/preventDefault so chrome events
+    // are never suppressed. The primary fix is ensuring the editor closes
+    // after Enter, but this guard prevents the fill handle from being
     // permanently broken if the editor ever stays open.
+    if (target.tagName !== 'TD') return
+    // Explicit fill-handle / border check (defense in depth: even if a
+    // future Handsontable version uses TD for chrome, the class check
+    // catches it).
+    if (target.classList.contains('corner') || target.classList.contains('wtBorder')) return
+
     const coords = this.cellCoordsFromTarget(target)
-    if (!coords) return // Let Handsontable handle chrome clicks
+    if (!coords) return
 
     // Prevent Handsontable from receiving the gesture on data cells: it
     // would close the editor and move the selection to the clicked cell.
@@ -283,6 +289,8 @@ export class ReferencePicker {
     // handle, headers, borders, etc.) must pass through to Handsontable so
     // autofill and other features work even with a stale-open editor.
     if (target.tagName !== 'TD') return false
+    // Explicit fill-handle / border check (defense in depth).
+    if (target.classList.contains('corner') || target.classList.contains('wtBorder')) return false
     event.stopPropagation()
     event.preventDefault()
     this.options.refocusEditor()
@@ -650,6 +658,31 @@ export class FormulaReferenceEditor extends TextEditor {
       }
     }
     super.finishEditing(restoreOriginalValue, ctrlDown, callback)
+    // Failsafe: if the editor is still open after super.finishEditing()
+    // returns, the validation close cycle (postAfterValidate → discardEditor)
+    // did not complete. This happens when a React re-render disrupts
+    // Handsontable's internal microtask scheduling during the WAITING state.
+    // The editor stays stuck open, blocking autofill and all grid interactions.
+    //
+    // We use setTimeout(0) (a macrotask) rather than queueMicrotask because
+    // the validator callback is itself scheduled as a microtask — the
+    // macrotask runs after all pending microtasks, so if the validator does
+    // complete normally, isOpened() will already be false and we skip.
+    //
+    // cancelChanges() is used instead of close() because it properly
+    // transitions the editor state machine: FINISHED → discardEditor() →
+    // close() → _opened=false → state=VIRGIN. This is safe even if
+    // postAfterValidate fires later — _fireCallbacks is idempotent (it
+    // nulls _closeCallback after calling it), and close() is safe to call
+    // twice. The value was already saved by saveValue() inside
+    // super.finishEditing(), so cancelChanges() does not revert it.
+    if (this.isOpened()) {
+      setTimeout(() => {
+        if (this.isOpened()) {
+          this.cancelChanges()
+        }
+      }, 0)
+    }
   }
 
   /** Remove listeners, abort any in-progress drag, and clear all highlights. */

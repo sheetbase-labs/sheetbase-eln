@@ -670,4 +670,75 @@ describe('ReferencePicker.pickCell (keyboard reference picking)', () => {
       hexToRgb(REFERENCE_COLORS[1]),
     )
   })
+
+  it('popLastReference removes the last reference and its overlay', () => {
+    const cells = [
+      [td(), td(), td()],
+      [td(), td(), td()],
+    ]
+    const { hot, root } = mockHot(cells)
+    const inserted: string[] = []
+    const picker = new ReferencePicker(hot, {
+      getSheetName: () => '',
+      insertReference: (a1) => inserted.push(a1),
+      refocusEditor: vi.fn(),
+    })
+
+    picker.pickCell(0, 0) // A1
+    picker.pickCell(1, 2) // C2
+    expect(picker.references).toHaveLength(2)
+    expect(root.querySelectorAll('.sheetbase-ref-highlight')).toHaveLength(2)
+
+    const popped = picker.popLastReference()
+    expect(popped?.a1).toBe('C2')
+    expect(picker.references).toHaveLength(1)
+    expect(picker.references[0].a1).toBe('A1')
+    // Only the first overlay remains.
+    expect(root.querySelectorAll('.sheetbase-ref-highlight')).toHaveLength(1)
+
+    // Popping again removes the last one.
+    const popped2 = picker.popLastReference()
+    expect(popped2?.a1).toBe('A1')
+    expect(picker.references).toHaveLength(0)
+    expect(root.querySelectorAll('.sheetbase-ref-highlight')).toHaveLength(0)
+  })
+
+  it('popLastReference returns null when there are no references', () => {
+    const cells = [[td()]]
+    const { hot } = mockHot(cells)
+    const picker = new ReferencePicker(hot, {
+      getSheetName: () => '',
+      insertReference: vi.fn(),
+      refocusEditor: vi.fn(),
+    })
+    expect(picker.popLastReference()).toBeNull()
+  })
+
+  it('pickCell after popLastReference reuses the same colour index', () => {
+    const cells = [
+      [td(), td(), td()],
+      [td(), td(), td()],
+    ]
+    const { hot, root } = mockHot(cells)
+    const picker = new ReferencePicker(hot, {
+      getSheetName: () => '',
+      insertReference: vi.fn(),
+      refocusEditor: vi.fn(),
+    })
+
+    // Insert A1 (colour 0), then replace it with B1.
+    picker.pickCell(0, 0) // A1, colour index 0
+    picker.popLastReference() // remove A1
+    picker.pickCell(0, 1) // B1, colour index 0 again (length was 0)
+
+    expect(picker.references).toHaveLength(1)
+    expect(picker.references[0].a1).toBe('B1')
+    const highlights =
+      root.querySelectorAll<HTMLDivElement>('.sheetbase-ref-highlight')
+    expect(highlights).toHaveLength(1)
+    // The new reference uses the same colour as the popped one.
+    expect(highlights[0].style.border).toContain(
+      hexToRgb(REFERENCE_COLORS[0]),
+    )
+  })
 })

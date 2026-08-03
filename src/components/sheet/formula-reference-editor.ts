@@ -379,6 +379,23 @@ export class ReferencePicker {
   }
 
   /**
+   * Remove the most recently committed reference and its highlight overlay.
+   * Used by the keyboard reference-picking path to replace the last reference
+   * when the user presses consecutive arrow keys (Excel-like behaviour:
+   * `=A1` then Down replaces `A1` with `A2` instead of appending `A2`).
+   * After popping, the next {@link pickCell} call reuses the same colour
+   * index because `_references.length` has decreased by one. Returns the
+   * removed reference, or null if there are no references to pop.
+   */
+  popLastReference(): PickedReference | null {
+    const ref = this._references.pop() ?? null
+    const overlay = this._overlays.pop()
+    if (overlay) overlay.element.remove()
+    if (this._overlays.length === 0) this.detachRepositionListeners()
+    return ref
+  }
+
+  /**
    * Idempotently cancel an in-progress drag without committing a reference.
    * Detaches the `pointermove`/`pointerup`/`pointercancel`/`blur` listeners,
    * clears the anchor/extent/pointer id, and hides the marquee. Called on
@@ -645,6 +662,17 @@ export class FormulaReferenceEditor extends TextEditor {
    * cell so the first arrow moves relative to it.
    */
   private _referenceCursor: { row: number; col: number } | null = null
+  /**
+   * The textarea span `[textStart, textEnd)` of the most recent
+   * keyboard-inserted reference, or null when the last edit was not a
+   * keyboard pick. When the user presses consecutive arrow keys, the next
+   * pick replaces the reference at this span instead of appending a new
+   * one — matching Excel's behaviour (`=A1` then Down → `=A2`, not `=A1A2`).
+   * Any non-arrow action (typing, clicking, Home/End) moves the cursor away
+   * from `textEnd`, so the position check naturally invalidates it.
+   */
+  private _lastKeyboardRef: { textStart: number; textEnd: number } | null =
+    null
   /** Bound capture-phase keydown handler for keyboard reference picking. */
   private readonly _onReferenceKeyDown = (event: Event): void =>
     this.handleReferenceKeyDown(event as KeyboardEvent)
@@ -669,6 +697,7 @@ export class FormulaReferenceEditor extends TextEditor {
       this.row != null && this.col != null
         ? { row: this.row, col: this.col }
         : null
+    this._lastKeyboardRef = null
     this.TEXTAREA.addEventListener('keydown', this._onReferenceKeyDown, true)
     this._autocomplete = new FunctionAutocompleteDom(this.TEXTAREA)
   }
@@ -741,6 +770,7 @@ export class FormulaReferenceEditor extends TextEditor {
     doc.removeEventListener('mousedown', this._onMouseDown, true)
     this.TEXTAREA.removeEventListener('keydown', this._onReferenceKeyDown, true)
     this._referenceCursor = null
+    this._lastKeyboardRef = null
     // abortDrag detaches the drag listeners, clears the marquee, and resets
     // the drag state — covering pointercancel/blur/teardown in one call.
     this._picker?.abortDrag()
@@ -775,13 +805,18 @@ export class FormulaReferenceEditor extends TextEditor {
    * editor is in formula mode and the user presses an unmodified arrow key,
    * the arrow inserts a reference to the adjacent cell (e.g. pressing Left
    * after `=` inserts `A1` for the cell to the left) instead of moving the
-   * textarea cursor. Modified arrows (Shift/Ctrl/Alt/Meta) and composition
-   * events are left to the browser/autocomplete. Up/Down are yielded to
+   * textarea cursor. When the cursor is immediately after a reference that
+   * was just inserted by a previous keyboard pick, the new reference
+   * **replaces** the old one (Excel-like: `=A1` then Down → `=A2`, not
+   * `=A1A2`). Typing an operator or moving the cursor breaks the replace
+   * chain so the next arrow inserts a fresh reference.
+   *
+   * Modified arrows (Shift/Ctrl/Alt/Meta) and composition events are left to
+   * the browser/autocomplete. Up/Down are yielded to
    * {@link FunctionAutocompleteDom} when its suggestion dropdown is open so
    * function-name navigation still works. The reference cursor starts at the
-   * edited cell and moves with each arrow pick, so consecutive arrows walk
-   * across the grid (e.g. Left then Left again references the cell two to
-   * the left). Never calls `hot.selectCell()` — it would close the editor.
+   * edited cell and moves with each arrow pick. Never calls
+   * `hot.selectCell()` — it would close the editor.
    */
   private handleReferenceKeyDown(event: KeyboardEvent): void {
     if (!this.isOpened() || !this.isFormulaMode()) return
@@ -816,7 +851,33 @@ export class FormulaReferenceEditor extends TextEditor {
     )
       return
     this._referenceCursor = next
+
+    // Excel-like replace: if the cursor is immediately after the last
+    // keyboard-picked reference, replace that reference instead of appending
+    // a new one. This makes `=A1` + Down → `=A2` (not `=A1A2`). Typing an
+    // operator or otherwise moving the cursor breaks the chain because
+    // selectionStart no longer equals textEnd.
+    const textarea = this.TEXTAREA
+    const lastRef = this._lastKeyboardRef
+    let insertPoint: number
+    if (lastRef && textarea.selectionStart === lastRef.textEnd) {
+      // Remove the old reference's highlight before inserting the new one.
+      this._picker?.popLastReference()
+      // Select the old reference text so insertReference overwrites it.
+      textarea.setSelectionRange(lastRef.textStart, lastRef.textEnd)
+      insertPoint = lastRef.textStart
+    } else {
+      insertPoint =
+        textarea.selectionStart ?? String(this.getValue() ?? '').length
+    }
+
     this._picker?.pickCell(next.row, next.col)
+
+    // Track the new reference's span so the next arrow can replace it.
+    this._lastKeyboardRef = {
+      textStart: insertPoint,
+      textEnd: textarea.selectionStart ?? insertPoint,
+    }
   }
 
   /** True when the current editor value starts with `=`. */

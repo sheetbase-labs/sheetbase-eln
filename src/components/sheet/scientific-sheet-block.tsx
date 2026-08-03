@@ -1065,9 +1065,16 @@ export function ScientificSheetBlock({
     ? formulaByCell.get(`${selected.rowId}/${selected.columnId}`)
     : undefined
   useEffect(() => {
+    // Diagnostic: log formula bar state to debug the "empty after commit" issue.
+    console.info('[formula-bar] effect fired', {
+      selected: selected ? `${selected.rowId}/${selected.columnId}` : null,
+      hasFormula: !!selectedFormula,
+      source: selectedFormula?.source_expression ?? '(none)',
+      formulaCount: (formulasQuery.data ?? []).length,
+    })
     setFormulaSource(selectedFormula?.source_expression ?? '')
     setFormulaStatus('')
-  }, [selected, selectedFormula])
+  }, [selected, selectedFormula, formulasQuery.data])
   // Auto-dismiss the ** → ^ conversion hint after 4 seconds.
   useEffect(() => {
     if (!exponentHint) return
@@ -1081,24 +1088,23 @@ export function ScientificSheetBlock({
     // server-side without returning a row) and explicit recalculation need to
     // reconcile the canonical rows.
     //
-    // The formulas query is refetched explicitly (not just invalidated) so
-    // the formula bar updates immediately after a formula commit, even if
-    // the calculation request fails. Without the await, the refetch happens
-    // in the background and the formula bar stays empty until the next
-    // render cycle, which can confuse users into thinking the formula
-    // wasn't saved.
-    await Promise.all([
-      ...(reconcileRows
-        ? [
-            queryClient.invalidateQueries({
-              queryKey: allRowsKey,
-            }),
-          ]
-        : []),
-      queryClient.refetchQueries({
-        queryKey: scientificQueryKeys.formulas(tableId),
-      }),
-    ])
+    // The formulas query is NOT refetched here. The optimistic cache update
+    // in onFormulaPersisted (coordinator path) or commitFormula (formula bar
+    // path) already inserted the formula into the cache for immediate
+    // formula bar display. A refetch would overwrite the optimistic data and
+    // — critically — change formulasQuery.data, which recomputes gridData,
+    // which recomputes settings, which triggers updateSettings on HotTable.
+    // That updateSettings call can disrupt ongoing grid interactions like
+    // autofill drags by calling loadData() mid-drag. Instead, we just
+    // invalidate the formulas query so it refetches in the background
+    // (non-awaited) and replaces the optimistic data when it completes —
+    // hopefully when the user is not mid-interaction.
+    queryClient.invalidateQueries({
+      queryKey: scientificQueryKeys.formulas(tableId),
+    })
+    if (reconcileRows) {
+      await queryClient.invalidateQueries({ queryKey: allRowsKey })
+    }
     try {
       await requestScientificCalculation(block.recordId)
       await queryClient.invalidateQueries({
@@ -1208,6 +1214,7 @@ export function ScientificSheetBlock({
           // The refetch will replace this with the full server-side
           // formula definition (including engine_expression, template,
           // bindings, etc.) shortly after.
+          console.info('[formula-persisted] target=', target, 'source=', source)
           queryClient.setQueryData<FormulaDefinitionWire[]>(
             scientificQueryKeys.formulas(tableId),
             (old = []) => {
@@ -1794,17 +1801,52 @@ export function ScientificSheetBlock({
             afterSelectionEnd: handleAfterSelectionEnd,
             beforeRemoveRow: handleBeforeRemoveRow,
             afterRemoveRow: handleAfterRemoveRow,
-            // Diagnostic: log the fillData after the formulas plugin
-            // translates relative references. If the formulas plugin is
-            // working, fillData should contain formula strings (e.g.,
-            // '=A2*2'). If it contains literal values, the plugin is not
-            // translating.
+            // Diagnostic: log the fillData and engine state to determine
+            // if the formulas plugin is translating relative references.
             beforeAutofill: (
               fillData: unknown,
-              _sourceRange: unknown,
-              _targetRange: unknown,
+              sourceRange: {
+                getTopStartCorner: () => { row: number; col: number }
+                getBottomEndCorner: () => { row: number; col: number }
+              },
+              targetRange: {
+                getTopStartCorner: () => { row: number; col: number }
+                getBottomEndCorner: () => { row: number; col: number }
+              },
             ) => {
-              console.info('[autofill] beforeAutofill fillData=', fillData)
+              const hot = hotRef.current
+              const srcStart = sourceRange.getTopStartCorner()
+              const srcEnd = sourceRange.getBottomEndCorner()
+              const tgtStart = targetRange.getTopStartCorner()
+              const tgtEnd = targetRange.getBottomEndCorner()
+              console.info('[autofill] beforeAutofill', {
+                fillData,
+                source: `r${srcStart.row}-r${srcEnd.row},c${srcStart.col}-c${srcEnd.col}`,
+                target: `r${tgtStart.row}-r${tgtEnd.row},c${tgtStart.col}-c${tgtEnd.col}`,
+                selectedRange: hot?.getSelectedRangeLast()?.toString() ?? null,
+              })
+              if (hot) {
+                const plugin = hot.getPlugin('formulas') as {
+                  enabled: boolean
+                  sheetId: number | null
+                  engine: {
+                    doesCellHaveFormula: (a: { sheet: number; row: number; col: number }) => boolean
+                    getCellSerialized: (a: { sheet: number; row: number; col: number }) => unknown
+                  } | null
+                }
+                const sid = plugin.sheetId
+                console.info('[autofill] formulas plugin', {
+                  enabled: plugin.enabled,
+                  sheetId: sid,
+                  sourceCellHasFormula: plugin.engine && sid != null
+                    ? plugin.engine.doesCellHaveFormula({ sheet: sid, row: srcStart.row, col: srcStart.col })
+                    : 'no engine',
+                  sourceCellSerialized: plugin.engine && sid != null
+                    ? plugin.engine.getCellSerialized({ sheet: sid, row: srcStart.row, col: srcStart.col })
+                    : 'no engine',
+                  sourceDataAtCell: hot.getSourceDataAtCell(srcStart.row, srcStart.col),
+                })
+              }
               return fillData
             },
           }

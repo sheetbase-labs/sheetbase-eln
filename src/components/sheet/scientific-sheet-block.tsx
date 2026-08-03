@@ -1273,8 +1273,27 @@ export function ScientificSheetBlock({
     coordinator,
   ])
 
-  // HOT mutates its data. Never expose canonical query-cache objects.
-  const localRows = useMemo(() => {
+  // gridData: canonical rows + formula overlays, WITHOUT drafts.
+  //
+  // This is the data passed to Handsontable via settings.data. It is
+  // deliberately NOT overlaid with draft (optimistic) values because
+  // Handsontable's editor already writes optimistic values to its internal
+  // data source via saveValue(). If we also put drafts in settings.data,
+  // every setDrafts() call (fired synchronously inside afterChange, which
+  // fires inside super.finishEditing()) would give settings.data a new array
+  // identity. That causes the HotTable wrapper to call updateSettings({data}),
+  // which triggers loadData(), which disrupts the editor mid-commit — the
+  // editor is in WAITING state (validation pending) and never completes its
+  // close cycle. The editor stays open, blocking autofill and all other
+  // grid interactions.
+  //
+  // By keeping drafts OUT of gridData, settings.data keeps the same array
+  // reference across draft changes. The settings memo doesn't recompute,
+  // HotTable doesn't call updateSettings, and the editor closes normally.
+  // Drafts are still tracked in React state (for refetch recovery and
+  // coordinator cleanup) and overlaid in `localRows` for the footer row
+  // count and localRowsRef — just not in the data passed to Handsontable.
+  const gridData = useMemo(() => {
     const detached: Array<Record<string, unknown>> = (allRowsQuery.data ?? []).map(
       (row) => {
         const copy = { ...row }
@@ -1286,14 +1305,6 @@ export function ScientificSheetBlock({
         return copy
       },
     )
-    for (const draft of Object.values(drafts)) {
-      const rowIndex = draft.rowId
-        ? detached.findIndex((row) => row.id === draft.rowId)
-        : draft.rowIndex
-      if (rowIndex < 0) continue
-      detached[rowIndex] ??= {}
-      detached[rowIndex][draft.fieldName] = draft.raw
-    }
     if (tableWorkbook)
       for (const row of detached) {
         if (typeof row.id !== 'string') continue
@@ -1323,7 +1334,23 @@ export function ScientificSheetBlock({
         }
       }
     return detached
-  }, [drafts, formulaByCell, allRowsQuery.data, table, tableId, tableWorkbook])
+  }, [formulaByCell, allRowsQuery.data, table, tableId, tableWorkbook])
+
+  // localRows: gridData + draft overlays. Used for localRowsRef (read by
+  // afterChange/afterSelectionEnd callbacks to get row IDs) and the footer
+  // row count. NOT passed to Handsontable — see gridData comment above.
+  const localRows = useMemo(() => {
+    const detached = gridData.map((row) => ({ ...row }))
+    for (const draft of Object.values(drafts)) {
+      const rowIndex = draft.rowId
+        ? detached.findIndex((row) => row.id === draft.rowId)
+        : draft.rowIndex
+      if (rowIndex < 0) continue
+      detached[rowIndex] ??= {}
+      detached[rowIndex][draft.fieldName] = draft.raw
+    }
+    return detached
+  }, [gridData, drafts])
   // Mirror `localRows` into a ref so the afterChange and afterSelectionEnd
   // callbacks can read current grid data without depending on `localRows` in
   // their useCallback deps. This keeps the callbacks stable across renders,
@@ -1558,14 +1585,14 @@ export function ScientificSheetBlock({
     () =>
       table
         ? {
-            data: localRows,
+            data: gridData,
             columns: gridColumns,
             colHeaders: gridColHeaders,
             rowHeaders: true,
             minSpareRows: !readOnly ? 1 : 0,
             height: Math.min(
               Math.max(
-                (localRows.length + 1) * 28 + 8,
+                (gridData.length + 1) * 28 + 8,
                 table.columns.length > 0 ? 80 : 48,
               ),
               600,
@@ -1628,7 +1655,7 @@ export function ScientificSheetBlock({
         : null,
     [
       table,
-      localRows,
+      gridData,
       gridColumns,
       gridColHeaders,
       formulasConfig,

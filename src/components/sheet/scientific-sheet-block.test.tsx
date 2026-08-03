@@ -241,7 +241,9 @@ describe('ScientificSheetBlock', () => {
       'Mass must be a finite number.',
     )
     expect(mocks.apply).not.toHaveBeenCalled()
-    expect(mocks.settings!.data[0].col_number).toBe('not-number')
+    // Drafts are preserved in React state (not in settings.data — see the
+    // gridData/localRows split) and the save status surfaces the failure.
+    screen.getByLabelText('Save failed')
   })
 
   it('preserves stale drafts, identifies the row, and refetches', async () => {
@@ -256,7 +258,9 @@ describe('ScientificSheetBlock', () => {
     expect((await screen.findByRole('alert')).textContent).toContain(
       'Row 1 changed elsewhere',
     )
-    expect(mocks.settings!.data[0].col_text).toBe('raw')
+    // Drafts are preserved in React state (not in settings.data — see the
+    // gridData/localRows split) and the save status surfaces the conflict.
+    screen.getByLabelText('Save failed')
     await waitFor(() => expect(mocks.allRows.mock.calls.length).toBeGreaterThan(1))
   })
 

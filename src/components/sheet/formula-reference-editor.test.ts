@@ -109,6 +109,8 @@ function mockHot(cellGrid: HTMLTableCellElement[][]): {
     rootDocument: doc,
     getCoords: coordsSpy,
     getCell: (row, col) => cellGrid[row]?.[col] ?? null,
+    countRows: () => cellGrid.length,
+    countCols: () => (cellGrid[0]?.length ?? 0),
   }
   return { hot, root, coordsSpy }
 }
@@ -596,5 +598,76 @@ describe('ReferencePicker', () => {
     }))
     expect(inserted).toEqual(['A1'])
     expect(picker.isDragging).toBe(false)
+  })
+})
+
+describe('ReferencePicker.pickCell (keyboard reference picking)', () => {
+  it('inserts a single-cell reference without starting a drag', () => {
+    const cells = [
+      [td(), td(), td()],
+      [td(), td(), td()],
+    ]
+    const { hot, root } = mockHot(cells)
+    const inserted: string[] = []
+    const refocus = vi.fn()
+    const picker = new ReferencePicker(hot, {
+      getSheetName: () => '',
+      insertReference: (a1) => inserted.push(a1),
+      refocusEditor: refocus,
+    })
+
+    // pickCell is the keyboard path — it commits a single cell reference
+    // directly without any pointer drag state.
+    picker.pickCell(0, 1) // B1
+
+    expect(inserted).toEqual(['B1'])
+    expect(picker.references).toHaveLength(1)
+    expect(picker.references[0]).toMatchObject({
+      a1: 'B1',
+      startRow: 0,
+      startCol: 1,
+      endRow: 0,
+      endCol: 1,
+    })
+    // A highlight overlay is created, just like the pointer path.
+    expect(root.querySelectorAll('.sheetbase-ref-highlight')).toHaveLength(1)
+    // pickCell does NOT refocus the editor (the textarea already has focus
+    // during keyboard reference picking).
+    expect(refocus).not.toHaveBeenCalled()
+    // No drag was started.
+    expect(picker.isDragging).toBe(false)
+  })
+
+  it('assigns cycling colours across mixed pointer and keyboard picks', () => {
+    const cells = [
+      [td(), td(), td()],
+      [td(), td(), td()],
+    ]
+    const { hot, root } = mockHot(cells)
+    const inserted: string[] = []
+    const picker = new ReferencePicker(hot, {
+      getSheetName: () => '',
+      insertReference: (a1) => inserted.push(a1),
+      refocusEditor: vi.fn(),
+    })
+
+    // First reference via pointer: A1 (row 0, col 0).
+    picker.onPointerDown(pointer('pointerdown', cells[0][0]))
+    picker.onPointerUp(pointer('pointerup', cells[0][0]))
+    // Second reference via keyboard: C2 (row 1, col 2).
+    picker.pickCell(1, 2)
+
+    expect(inserted).toEqual(['A1', 'C2'])
+    expect(picker.references).toHaveLength(2)
+    const highlights =
+      root.querySelectorAll<HTMLDivElement>('.sheetbase-ref-highlight')
+    expect(highlights).toHaveLength(2)
+    // Colours cycle in insertion order, matching the pointer-only path.
+    expect(highlights[0].style.border).toContain(
+      hexToRgb(REFERENCE_COLORS[0]),
+    )
+    expect(highlights[1].style.border).toContain(
+      hexToRgb(REFERENCE_COLORS[1]),
+    )
   })
 })

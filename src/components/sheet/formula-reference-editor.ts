@@ -134,6 +134,8 @@ export interface HotLike {
     col: number | null
   } | null
   getCell: (row: number, col: number) => HTMLTableCellElement | null
+  countRows: () => number
+  countCols: () => number
 }
 
 /** A live preview overlay + the set of committed reference highlights. */
@@ -332,19 +334,48 @@ export class ReferencePicker {
     this.abortDrag()
     if (!anchor) return
     const end = current ?? anchor
+    this.commitRange(anchor.row, anchor.col, end.row, end.col)
+    // The pointer path must refocus the editor (the textarea lost focus to
+    // the grid during the click-drag). The keyboard path (pickCell) keeps
+    // focus in the textarea and does NOT refocus.
+    this.options.refocusEditor()
+  }
+
+  /**
+   * Commit a single-cell reference picked via the keyboard (arrow keys). Does
+   * NOT refocus the editor — the textarea already has focus during keyboard
+   * reference picking. Used by {@link FormulaReferenceEditor}'s arrow-key
+   * handler so that typing `=` and pressing an arrow inserts the referenced
+   * cell's A1 notation instead of moving the textarea cursor.
+   */
+  pickCell(row: number, col: number): void {
+    this.commitRange(row, col, row, col)
+  }
+
+  /**
+   * Build, highlight, record, and insert a reference for the given range.
+   * Shared by the pointer path ({@link onPointerUp}) and the keyboard path
+   * ({@link pickCell}). The caller is responsible for refocusing the editor
+   * when needed (pointer path only).
+   */
+  private commitRange(
+    rowA: number,
+    colA: number,
+    rowB: number,
+    colB: number,
+  ): void {
     const colorIndex = this._references.length % REFERENCE_COLORS.length
     const ref = buildReference(
       this.options.getSheetName(),
-      anchor.row,
-      anchor.col,
-      end.row,
-      end.col,
+      rowA,
+      colA,
+      rowB,
+      colB,
       colorIndex,
     )
     this.applyHighlight(ref)
     this._references.push(ref)
     this.options.insertReference(ref.a1)
-    this.options.refocusEditor()
   }
 
   /**
@@ -607,6 +638,16 @@ export class FormulaReferenceEditor extends TextEditor {
   private _onMouseDown = (event: MouseEvent): void => {
     this.handleMouseDown(event)
   }
+  /**
+   * Current keyboard reference cursor position (row/col in grid coordinates),
+   * or null when not in formula mode. Used by the arrow-key handler to track
+   * which cell the next arrow pick will reference. Initialised to the edited
+   * cell so the first arrow moves relative to it.
+   */
+  private _referenceCursor: { row: number; col: number } | null = null
+  /** Bound capture-phase keydown handler for keyboard reference picking. */
+  private readonly _onReferenceKeyDown = (event: Event): void =>
+    this.handleReferenceKeyDown(event as KeyboardEvent)
 
   open(): void {
     super.open()
@@ -621,6 +662,14 @@ export class FormulaReferenceEditor extends TextEditor {
     const doc = this.hot.rootDocument
     doc.addEventListener('pointerdown', this._onPointerDown, true)
     doc.addEventListener('mousedown', this._onMouseDown, true)
+    // Initialise the keyboard reference cursor to the edited cell so the
+    // first arrow key moves relative to it. Both this.row and this.col are
+    // set by Handsontable before open() is called.
+    this._referenceCursor =
+      this.row != null && this.col != null
+        ? { row: this.row, col: this.col }
+        : null
+    this.TEXTAREA.addEventListener('keydown', this._onReferenceKeyDown, true)
     this._autocomplete = new FunctionAutocompleteDom(this.TEXTAREA)
   }
 
@@ -690,6 +739,8 @@ export class FormulaReferenceEditor extends TextEditor {
     const doc = this.hot.rootDocument
     doc.removeEventListener('pointerdown', this._onPointerDown, true)
     doc.removeEventListener('mousedown', this._onMouseDown, true)
+    this.TEXTAREA.removeEventListener('keydown', this._onReferenceKeyDown, true)
+    this._referenceCursor = null
     // abortDrag detaches the drag listeners, clears the marquee, and resets
     // the drag state — covering pointercancel/blur/teardown in one call.
     this._picker?.abortDrag()
@@ -717,6 +768,55 @@ export class FormulaReferenceEditor extends TextEditor {
   private handleMouseDown(event: MouseEvent): void {
     if (!this.isOpened() || !this.isFormulaMode()) return
     this._picker?.suppressMouseDown(event)
+  }
+
+  /**
+   * Capture-phase keydown handler for keyboard reference picking. When the
+   * editor is in formula mode and the user presses an unmodified arrow key,
+   * the arrow inserts a reference to the adjacent cell (e.g. pressing Left
+   * after `=` inserts `A1` for the cell to the left) instead of moving the
+   * textarea cursor. Modified arrows (Shift/Ctrl/Alt/Meta) and composition
+   * events are left to the browser/autocomplete. Up/Down are yielded to
+   * {@link FunctionAutocompleteDom} when its suggestion dropdown is open so
+   * function-name navigation still works. The reference cursor starts at the
+   * edited cell and moves with each arrow pick, so consecutive arrows walk
+   * across the grid (e.g. Left then Left again references the cell two to
+   * the left). Never calls `hot.selectCell()` — it would close the editor.
+   */
+  private handleReferenceKeyDown(event: KeyboardEvent): void {
+    if (!this.isOpened() || !this.isFormulaMode()) return
+    const ARROW_DELTAS: Record<string, { row: number; col: number }> = {
+      ArrowUp: { row: -1, col: 0 },
+      ArrowDown: { row: 1, col: 0 },
+      ArrowLeft: { row: 0, col: -1 },
+      ArrowRight: { row: 0, col: 1 },
+    }
+    if (!(event.key in ARROW_DELTAS)) return
+    // Ignore modified arrows (Shift+arrow for selection, Ctrl+arrow for jump,
+    // etc.) and IME composition — let the browser handle those natively.
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+    if (event.isComposing) return
+    // Yield to autocomplete when its dropdown is open so Up/Down navigate
+    // function suggestions. The autocomplete listener runs in the same
+    // capture phase and calls stopPropagation, so defaultPrevented also
+    // catches that case.
+    if (event.defaultPrevented || this._autocomplete?.isOpen) return
+    const cursor = this._referenceCursor
+    if (!cursor) return
+    event.preventDefault()
+    event.stopPropagation()
+    const delta = ARROW_DELTAS[event.key]
+    const next = { row: cursor.row + delta.row, col: cursor.col + delta.col }
+    // Bounds-check against the grid dimensions — do nothing at edges.
+    if (
+      next.row < 0 ||
+      next.row >= this.hot.countRows() ||
+      next.col < 0 ||
+      next.col >= this.hot.countCols()
+    )
+      return
+    this._referenceCursor = next
+    this._picker?.pickCell(next.row, next.col)
   }
 
   /** True when the current editor value starts with `=`. */

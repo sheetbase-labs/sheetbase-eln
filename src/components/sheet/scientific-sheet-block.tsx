@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { CellChange, ChangeSource, ColumnSettings } from 'handsontable'
 import type Handsontable from 'handsontable/base'
-import { FormulaReferenceEditor, columnToLetter, toA1 } from '#/components/sheet/formula-reference-editor'
+import { FormulaReferenceEditor, toA1 } from '#/components/sheet/formula-reference-editor'
 import { normalizeExponentiation } from '#/lib/formula-ir'
 import {
   FunctionAutocompleteDropdown,
@@ -1064,10 +1064,24 @@ export function ScientificSheetBlock({
   const selectedFormula = selected
     ? formulaByCell.get(`${selected.rowId}/${selected.columnId}`)
     : undefined
+  // Compute the canonical formula-bar display value for the selected cell:
+  // the formula source expression for formula cells, or the raw cell value
+  // for non-formula cells (like Excel). Used by the selection effect and the
+  // Escape-key handler so they stay consistent.
+  const selectedCellDisplay = useCallback((): string => {
+    if (selectedFormula) return selectedFormula.source_expression
+    if (!selected) return ''
+    const rows = localRowsRef.current
+    const row = rows.find((candidate) => candidate.id === selected.rowId)
+    const column = table?.columns.find(
+      (candidate) => candidate.id === selected.columnId,
+    )
+    return row && column ? String(row[column.field_name] ?? '') : ''
+  }, [selected, selectedFormula, table])
   useEffect(() => {
-    setFormulaSource(selectedFormula?.source_expression ?? '')
+    setFormulaSource(selectedCellDisplay())
     setFormulaStatus('')
-  }, [selected, selectedFormula, formulasQuery.data])
+  }, [selectedCellDisplay])
   // Auto-dismiss the ** → ^ conversion hint after 4 seconds.
   useEffect(() => {
     if (!exponentHint) return
@@ -1615,16 +1629,13 @@ export function ScientificSheetBlock({
   )
   const gridColHeaders = useMemo(
     () =>
-      table?.columns.map(
-        (c, index) => {
-          const letter = columnToLetter(index)
-          const unitSuffix =
-            c.unit && typeof c.unit === 'object' && 'symbol' in c.unit
-              ? ` (${String(c.unit.symbol)})`
-              : ''
-          return `${letter} · ${c.label}${unitSuffix}`
-        },
-      ) ?? [],
+      table?.columns.map((c) => {
+        const unitSuffix =
+          c.unit && typeof c.unit === 'object' && 'symbol' in c.unit
+            ? ` (${String(c.unit.symbol)})`
+            : ''
+        return `${c.label}${unitSuffix}`
+      }) ?? [],
     [table?.columns],
   )
   const formulasConfig = useMemo(
@@ -1889,7 +1900,7 @@ export function ScientificSheetBlock({
                   void commitFormula()
                 } else if (event.key === 'Escape') {
                   event.preventDefault()
-                  setFormulaSource(selectedFormula?.source_expression ?? '')
+                  setFormulaSource(selectedCellDisplay())
                   setFormulaStatus('')
                 }
               }}

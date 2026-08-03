@@ -179,7 +179,7 @@ describe('ScientificSheetBlock', () => {
       'numeric',
       'dropdown',
     ])
-    expect(settings.colHeaders).toEqual(['A · Name', 'B · Mass (mg)', 'C · State'])
+    expect(settings.colHeaders).toEqual(['Name', 'Mass (mg)', 'State'])
     expect(settings.data[0].col_category).toBe('Ready')
   })
 
@@ -560,6 +560,41 @@ describe('ScientificSheetBlock', () => {
     expect(screen.queryByText(/Inspect.*stable dependencies/)).toBeNull()
   })
 
+  it('shows the raw cell value in the formula bar for non-formula cells', async () => {
+    mocks.table.mockResolvedValue(table)
+    mocks.allRows.mockResolvedValue([
+      { id: 'r1', version: 1, col_text: 'hello', col_number: 42 },
+    ])
+    mocks.formulas.mockResolvedValue([])
+    mount()
+    const settings = await ready()
+    const input = screen.getByRole<HTMLInputElement>('textbox', {
+      name: 'Formula source',
+    })
+    // Select the text cell (row 0, col 0) — formula bar shows its raw value.
+    settings.afterSelectionEnd(0, 0)
+    await waitFor(() => expect(input.value).toBe('hello'))
+    // Select the numeric cell (row 0, col 1) — formula bar shows its value.
+    settings.afterSelectionEnd(0, 1)
+    await waitFor(() => expect(input.value).toBe('42'))
+    // Escape after editing a non-formula cell restores the raw value.
+    fireEvent.change(input, { target: { value: 'modified' } })
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(input.value).toBe('42')
+  })
+
+  it('shows empty string for non-formula cells with null values', async () => {
+    mocks.table.mockResolvedValue(table)
+    mocks.allRows.mockResolvedValue([{ id: 'r1', version: 1, col_text: null }])
+    mount()
+    const settings = await ready()
+    settings.afterSelectionEnd(0, 0)
+    const input = await screen.findByRole<HTMLInputElement>('textbox', {
+      name: 'Formula source',
+    })
+    await waitFor(() => expect(input.value).toBe(''))
+  })
+
   it('commits a formula via Enter in the formula bar and cancels via Escape', async () => {
     mocks.table.mockResolvedValue(table)
     mocks.allRows.mockResolvedValue([{ id: 'r1', version: 1 }])
@@ -933,6 +968,35 @@ describe('ScientificSheetBlock', () => {
     const settings = await ready()
     expect(settings.minSpareRows).toBe(0)
     expect(screen.queryByRole('button', { name: 'Next' })).toBeNull()
+  })
+
+  it('grows the grid height when rows are added', async () => {
+    mocks.table.mockResolvedValue(table)
+    mocks.allRows.mockResolvedValue([
+      { id: 'r1', version: 1 },
+      { id: 'r2', version: 1 },
+    ])
+    mount()
+    const settings = await ready()
+    // 2 data rows + 1 spare row = 3 rows → (3 * 28 + 8) = 92px
+    const initialHeight = settings.height
+    expect(initialHeight).toBe(92)
+    // Add a row — provisional row is added to allRows cache, gridData
+    // recomputes, settings height increases by one row (28px).
+    fireEvent.click(screen.getByRole('button', { name: 'Add row' }))
+    await waitFor(() => {
+      const latest = mocks.settings!
+      // 3 data rows + 1 spare = 4 rows → (4 * 28 + 8) = 120px
+      expect(latest.height).toBe(120)
+      expect(latest.height).toBeGreaterThan(initialHeight)
+    })
+    // Add another row.
+    fireEvent.click(screen.getByRole('button', { name: 'Add row' }))
+    await waitFor(() => {
+      const latest = mocks.settings!
+      // 4 data rows + 1 spare = 5 rows → (5 * 28 + 8) = 148px
+      expect(latest.height).toBe(148)
+    })
   })
 })
 

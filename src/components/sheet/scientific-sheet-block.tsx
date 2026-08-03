@@ -1273,7 +1273,7 @@ export function ScientificSheetBlock({
         source: normalized,
       } as Parameters<typeof mutateScientificFormula>[0])
       setFormulaStatus('')
-      await refreshCalculation(true)
+      await refreshCalculationRef.current(true)
     } catch (error) {
       setFormulaStatus(
         error instanceof Error ? error.message : 'Could not save the formula.',
@@ -1286,7 +1286,6 @@ export function ScientificSheetBlock({
     formulaSource,
     selectedFormula,
     allRowsQuery.data,
-    refreshCalculation,
     coordinator,
   ])
 
@@ -1467,7 +1466,7 @@ export function ScientificSheetBlock({
           rowIds,
         )
         setIssues([])
-        void refreshCalculation(true)
+        void refreshCalculationRef.current(true)
       } catch (error) {
         // The DB trigger blocks deletion of rows with formula dependencies.
         // Refetch to restore the row in the grid (Handsontable already
@@ -1489,7 +1488,14 @@ export function ScientificSheetBlock({
         )
       }
     },
-    [readOnly, table, allRowsKey, queryClient, refreshCalculation],
+    // refreshCalculation is NOT in the deps because it's a non-memoized
+    // function that gets a new reference on every render. Including it
+    // here would give handleAfterRemoveRow a new reference on every
+    // render, which flows into the settings memo, which causes
+    // SheetbaseGridClient to re-render and HotTable to call
+    // updateSettings() — reloading all data and reverting formulas set
+    // by autofill. Use the ref instead.
+    [readOnly, table, allRowsKey, queryClient],
   )
   // Memoize columns, colHeaders, and formulas config so they don't get new
   // object references on every re-render. Without this, React reconciliation

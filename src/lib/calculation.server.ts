@@ -62,7 +62,18 @@ export async function executeCalculation(
   recordId: string,
   deps: Pick<CalculationDeps, 'loadSnapshot' | 'finalize'>,
 ) {
-  const snapshot = await deps.loadSnapshot(actor, recordId)
+  let snapshot: CalculationSnapshot
+  try {
+    snapshot = await deps.loadSnapshot(actor, recordId)
+  } catch (error) {
+    console.error(
+      '[calculation] snapshot load failed for record',
+      recordId,
+      ':',
+      error instanceof Error ? error.message : String(error),
+    )
+    throw error
+  }
   let workbook: ReturnType<typeof buildScientificWorkbook> | undefined
   let results: CalculationResult[]
   try {
@@ -103,9 +114,15 @@ export async function executeCalculation(
         value: result.logical.value,
       }
     })
-  } catch {
+  } catch (error) {
     // A failed worker commits one revision-bound failure state, never a partial
     // result set and never raw data or formula text as a diagnostic.
+    console.error(
+      '[calculation] workbook build/evaluation failed for record',
+      recordId,
+      ':',
+      error instanceof Error ? error.message : String(error),
+    )
     return deps.finalize(
       actor,
       snapshot,
@@ -159,6 +176,12 @@ export async function handleCalculation(
       )
     if (candidate.code === '42501' || candidate.status === 403)
       return errorResponse(403, 'forbidden', 'Notebook is unavailable.')
+    console.error(
+      '[calculation] trusted finalize failed for record',
+      parsed.data.recordId,
+      ':',
+      error instanceof Error ? error.message : String(error),
+    )
     return errorResponse(
       500,
       'calculation_failed',

@@ -1238,34 +1238,43 @@ export const demoSteps: Array<SeedStep> = [
         const conditionColumnId = byLabel['Condition'].id
 
         // Idempotent dataset rows: wipe and re-insert the stability series.
-        // Clear any formulas from prior test sessions first. The per-row
-        // triggers (migration 0017) block deleting rows that have
-        // formula_column_ids or incoming formula dependencies, and the
-        // before-update trigger blocks mutating formula_column_ids unless
-        // the trusted-actor setting is present.
+        // Clear any formulas from prior test sessions first.
         //
-        // DATABASE_URL connects as POSTGRES_USER, which is the PostgreSQL
-        // superuser (created by the Docker postgres image). Only superusers
-        // can reliably SET session_replication_role = 'replica' to bypass
-        // all triggers. The migrator role is non-superuser and cannot
-        // disable triggers. The superuser also bypasses RLS (no FORCE RLS
-        // is set), so it has full access to formula tables.
-        await client.query("SET session_replication_role = 'replica'")
-        try {
-          await client.query(
-            `DELETE FROM api.formula_dependencies WHERE source_table_id = $1`,
-            [tableId],
-          )
-          await client.query(
-            `DELETE FROM api.formula_definitions WHERE target_table_id = $1`,
-            [tableId],
-          )
-          await client.query(
-            `UPDATE api."${resourceName}" SET formula_column_ids = '{}' WHERE cardinality(formula_column_ids) > 0`,
-          )
+        // TRUNCATE does not fire row-level triggers (it's a DDL operation,
+        // not DML), so the scientific_row_before BEFORE DELETE trigger
+        // (which blocks deleting rows with formula_column_ids or incoming
+        // formula dependencies) never fires. This is more robust than
+        // ALTER TABLE ... DISABLE TRIGGER, which can fail if the role
+        // lacks MAINTAIN privilege (required in PostgreSQL 18+).
+        //
+        // The migrator owns the tables (it ran the migrations that created
+        // them) and bypasses RLS (no FORCE RLS is set), so it can TRUNCATE
+        // the resource table and DELETE from formula tables directly.
+        const migrationUrl = process.env.MIGRATION_DATABASE_URL
+        if (migrationUrl) {
+          const migratorClient = new Client({ connectionString: migrationUrl })
+          await migratorClient.connect()
+          try {
+            // Delete formula dependencies and definitions first.
+            // These reference target_table_id/source_table_id (the
+            // scientific_tables UUID), not the resource table directly,
+            // so TRUNCATE CASCADE on the resource table won't clear them.
+            await migratorClient.query(
+              `DELETE FROM api.formula_dependencies WHERE source_table_id = $1`,
+              [tableId],
+            )
+            await migratorClient.query(
+              `DELETE FROM api.formula_definitions WHERE target_table_id = $1`,
+              [tableId],
+            )
+            // TRUNCATE the resource table — no triggers fire, no need to
+            // clear formula_column_ids first (all rows are removed).
+            await migratorClient.query(`TRUNCATE TABLE api."${resourceName}"`)
+          } finally {
+            await migratorClient.end()
+          }
+        } else {
           await client.query(`DELETE FROM api."${resourceName}"`)
-        } finally {
-          await client.query("SET session_replication_role = 'origin'")
         }
         const rows = [
           [0, 7.2, '4 °C'],

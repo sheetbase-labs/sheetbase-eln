@@ -114,6 +114,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      MIGRATION_DATABASE_URL: postgresql://migrator:${MIGRATOR_PASSWORD}@postgres:5432/${POSTGRES_DB}
       PGRST_DB_URI: postgresql://authenticator:${POSTGREST_AUTHENTICATOR_PASSWORD}@postgres:5432/${POSTGRES_DB}
       SHEETBASE_ENV: preview
       SHEETBASE_PREVIEW_DEMO: 'true'

@@ -236,6 +236,20 @@ export class GridOperationCoordinator {
         this.setStatus('error')
         return
       }
+      // Permission errors (401/403) are not transient — don't retry.
+      const isPermissionError =
+        error instanceof DataClientError &&
+        (error.status === 401 || error.status === 403)
+      if (isPermissionError) {
+        this.config.onIssues(
+          cells.map((cell) => ({
+            key: `${cell.rowId ?? `new:${cell.rowIndex}`}:${cell.columnId}`,
+            message: error.message,
+          })),
+        )
+        this.setStatus('error')
+        return
+      }
       if (!isLocalValidation) {
         // Network or server error — retry with backoff.
         if (attempt < this.maxRetries) {

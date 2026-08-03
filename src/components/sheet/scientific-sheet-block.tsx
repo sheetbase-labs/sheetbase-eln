@@ -1216,7 +1216,23 @@ export function ScientificSheetBlock({
       (item) => item.id === selected.rowId,
     )
     if (!row) {
-      setFormulaStatus('Save the row before adding a formula.')
+      // The row may have been removed by a refetch after a failed insert.
+      // Don't tell the user to "save the row" — that's confusing when the
+      // formula already evaluated locally. Route through the coordinator
+      // which will re-insert if needed.
+      coordinator.enqueue([
+        {
+          rowIndex: selectedCoords?.row ?? 0,
+          rowId: selected.rowId,
+          columnId: selected.columnId,
+          fieldName:
+            table.columns.find((c) => c.id === selected.columnId)
+              ?.field_name ?? '',
+          raw: normalized,
+          generation: ++nextGeneration.current,
+        },
+      ])
+      setFormulaStatus('')
       return
     }
     try {
@@ -1239,6 +1255,7 @@ export function ScientificSheetBlock({
     }
   }, [
     selected,
+    selectedCoords,
     table,
     formulaSource,
     selectedFormula,
@@ -1298,6 +1315,15 @@ export function ScientificSheetBlock({
       }
     return detached
   }, [drafts, formulaByCell, allRowsQuery.data, table, tableId, tableWorkbook])
+  // Mirror `localRows` into a ref so the afterChange and afterSelectionEnd
+  // callbacks can read current grid data without depending on `localRows` in
+  // their useCallback deps. This keeps the callbacks stable across renders,
+  // which prevents the settings memo from being recreated on every edit —
+  // recreating settings triggers updateSettings, which reloads the grid data
+  // and can interfere with the formulas plugin during multi-cell operations
+  // like autofill.
+  const localRowsRef = useRef(localRows)
+  localRowsRef.current = localRows
   // Add Row: creates a provisional row optimistically in the query cache,
   // registers it with the coordinator for persistence, and selects its
   // first editable cell. The coordinator sends the insert RPC and swaps
@@ -1328,11 +1354,12 @@ export function ScientificSheetBlock({
   const handleBeforeRemoveRow = useCallback(
     (rowIndex: number, amount: number) => {
       if (readOnly) return
+      const rows = localRowsRef.current
       const ids: string[] = []
       let hasContent = false
       for (let i = rowIndex; i < rowIndex + amount; i++) {
-        if (i >= localRows.length) continue
-        const row = localRows[i]
+        if (i >= rows.length) continue
+        const row = rows[i]
         if (typeof row.id === 'string') {
           if (row.id.startsWith('prov:')) continue
           ids.push(row.id)
@@ -1371,7 +1398,7 @@ export function ScientificSheetBlock({
         return window.confirm(message)
       }
     },
-    [readOnly, localRows, table, dependenciesQuery.data],
+    [readOnly, table, dependenciesQuery.data],
   )
   const handleAfterRemoveRow = useCallback(
     async (_rowIndex: number, _amount: number, source: string) => {
@@ -1456,6 +1483,7 @@ export function ScientificSheetBlock({
       // internal operations — only persist user-initiated edits.
       if (source === 'auto') return
       const generation = ++nextGeneration.current
+      const rows = localRowsRef.current
       const cells: CoordinatorCell[] = changes.flatMap(
         ([rowIndex, property, , raw]) => {
           const column = table!.columns.find(
@@ -1463,8 +1491,8 @@ export function ScientificSheetBlock({
           )
           if (!column) return []
           const rowId =
-            typeof localRows[rowIndex]?.id === 'string'
-              ? String(localRows[rowIndex].id)
+            typeof rows[rowIndex]?.id === 'string'
+              ? String(rows[rowIndex].id)
               : null
           return [
             {
@@ -1488,14 +1516,15 @@ export function ScientificSheetBlock({
       })
       coordinator.enqueue(cells)
     },
-    [readOnly, table, localRows, coordinator],
+    [readOnly, table, coordinator],
   )
   // Memoize afterSelectionEnd so it's stable across renders.
   const handleAfterSelectionEnd = useCallback(
     (row: number, columnIndex: number) => {
+      const rows = localRowsRef.current
       const rowId =
-        typeof localRows[row]?.id === 'string'
-          ? String(localRows[row].id)
+        typeof rows[row]?.id === 'string'
+          ? String(rows[row].id)
           : null
       const column = table!.columns.at(columnIndex)
       setSelectedCoords({ row, col: columnIndex })
@@ -1504,9 +1533,13 @@ export function ScientificSheetBlock({
           ? { tableId: table!.id, rowId, columnId: column.id }
           : null,
       )
-      if (!rowId) setFormulaStatus('Save the row before adding a formula.')
+      // Don't show "Save the row before adding a formula" — provisional
+      // rows (prov:…) and spare rows have no rowId, but the user can
+      // still enter formulas. The coordinator handles persistence for
+      // provisional rows; spare-row edits become inserts automatically.
+      if (!rowId) setFormulaStatus('')
     },
-    [table, localRows],
+    [table],
   )
   // Memoize the complete settings object so the React wrapper doesn't
   // call updateSettings on every render. This is critical: without it,
@@ -1657,7 +1690,7 @@ export function ScientificSheetBlock({
           >
             {selectedCoords
               ? toA1(selectedCoords.row, selectedCoords.col)
-              : '—'}
+              : ''}
           </span>
           <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-muted font-mono text-[10px] font-semibold italic text-muted-foreground">
             fx
@@ -1707,8 +1740,8 @@ export function ScientificSheetBlock({
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
         <div className="flex items-center gap-2">
           <span>
-            {(allRowsQuery.data ?? []).length}{' '}
-            {(allRowsQuery.data ?? []).length === 1 ? 'row' : 'rows'}
+            {localRows.length}{' '}
+            {localRows.length === 1 ? 'row' : 'rows'}
           </span>
           {readOnly ? null : (
             <SaveStatusIndicator

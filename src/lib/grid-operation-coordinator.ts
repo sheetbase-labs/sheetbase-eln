@@ -236,11 +236,16 @@ export class GridOperationCoordinator {
         this.setStatus('error')
         return
       }
-      // Permission errors (401/403) are not transient — don't retry.
-      const isPermissionError =
+      // Permission errors (401/403) and bad requests (400) are not
+      // transient — don't retry. 400 typically means a validation or
+      // constraint error from PostgREST/PostgreSQL that won't resolve
+      // by resending the same payload.
+      const isNonRetryableError =
         error instanceof DataClientError &&
-        (error.status === 401 || error.status === 403)
-      if (isPermissionError) {
+        (error.status === 400 ||
+          error.status === 401 ||
+          error.status === 403)
+      if (isNonRetryableError) {
         this.config.onIssues(
           cells.map((cell) => ({
             key: `${cell.rowId ?? `new:${cell.rowIndex}`}:${cell.columnId}`,

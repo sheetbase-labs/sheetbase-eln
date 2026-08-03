@@ -298,6 +298,24 @@ describe('GridOperationCoordinator', () => {
     expect(callbacks.onStatusChange).not.toHaveBeenCalledWith('retrying')
   })
 
+  it('surfaces 400 bad request immediately without retrying', async () => {
+    applyChanges.mockRejectedValue(
+      new DataClientError('validation_error', 'Invalid value', 400),
+    )
+    const { coordinator, callbacks } = setup()
+    coordinator.enqueue([cell(0, 'row-1', 'col-a', 'bad')])
+
+    await elapseCoalescingWindow()
+    await vi.runAllTimersAsync()
+
+    expect(applyChanges).toHaveBeenCalledTimes(1)
+    expect(callbacks.onStatusChange).toHaveBeenCalledWith('error')
+    expect(callbacks.onStatusChange).not.toHaveBeenCalledWith('retrying')
+    expect(callbacks.onIssues).toHaveBeenCalledWith([
+      expect.objectContaining({ key: 'row-1:col-a', message: 'Invalid value' }),
+    ])
+  })
+
   it('reports pending edits while queued and not after the flush', async () => {
     const { coordinator } = setup()
     expect(coordinator.hasPendingEdits()).toBe(false)

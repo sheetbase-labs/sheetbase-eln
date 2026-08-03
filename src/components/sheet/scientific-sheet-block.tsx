@@ -886,6 +886,15 @@ export function ScientificSheetBlock({
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const nextGeneration = useRef(0)
   const hotRef = useRef<Handsontable | null>(null)
+  // Stable callback for the grid's onReady event. This MUST be stable
+  // (useCallback with no deps) so that SheetbaseGridClient's memo check
+  // passes — otherwise every parent re-render (selection change, draft
+  // update, etc.) would flow through as a new onReady prop, break the
+  // memo, re-render HotTable, and trigger updateSettings, which kills
+  // ongoing interactions like the autofill drag.
+  const handleGridReady = useCallback((instance: Handsontable | null) => {
+    hotRef.current = instance
+  }, [])
   const queryClient = useQueryClient()
   const tableQuery = useQuery({
     queryKey: scientificQueryKeys.table(tableId),
@@ -1732,9 +1741,7 @@ export function ScientificSheetBlock({
       <SheetbaseGrid
         settings={settings}
         ariaLabel={table.name}
-        onReady={(instance) => {
-          hotRef.current = instance
-        }}
+        onReady={handleGridReady}
       />
 
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">

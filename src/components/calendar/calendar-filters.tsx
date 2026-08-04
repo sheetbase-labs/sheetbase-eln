@@ -4,7 +4,7 @@
  */
 import { Filter } from 'lucide-react'
 
-import { Badge, Select } from '#/components/ui'
+import { Badge, Button, Select } from '#/components/ui'
 import type { CalendarResource } from '#/lib/calendar'
 
 export interface CalendarFilterValue {
@@ -118,13 +118,13 @@ export function CalendarFilters({
       </Select>
 
       {activeCount > 0 ? (
-        <button
-          type="button"
-          className="text-sm text-muted-foreground underline-offset-2 hover:underline"
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => onChange(EMPTY_CALENDAR_FILTERS)}
         >
           Clear
-        </button>
+        </Button>
       ) : null}
     </div>
   )

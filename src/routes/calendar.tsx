@@ -10,7 +10,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { CalendarDays, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { AlertCircle, CalendarDays, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
 import {
@@ -22,7 +22,21 @@ import {
   EMPTY_CALENDAR_FILTERS,
 } from '#/components/calendar'
 import type { CalendarFilterValue } from '#/components/calendar'
-import { Button } from '#/components/ui'
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+  Button,
+  Empty,
+  EmptyActions,
+  EmptyDescription,
+  EmptyIcon,
+  EmptyTitle,
+  PageHeader,
+  Skeleton,
+  ToggleGroup,
+  ToggleGroupItem,
+} from '#/components/ui'
 import { createDataClient } from '#/lib/data-client'
 import {
   addDays,
@@ -99,6 +113,9 @@ function CalendarRoute() {
       ),
     enabled: Boolean(workspaceId),
   })
+
+  const isLoading = resourcesQuery.isLoading || bookingsQuery.isLoading
+  const error = bookingsQuery.error ?? resourcesQuery.error ?? null
 
   // Hydrate participants + samples for every booking in range.
   const bookings = useMemo<CalendarBooking[]>(() => {
@@ -304,90 +321,168 @@ function CalendarRoute() {
 
   return (
     <>
-      <div className="flex h-[calc(100svh-3.5rem)] min-h-0 flex-col">
-        {/* Header: view controls, navigation, filters */}
-        <div className="space-y-2 border-b border-border/60 px-4 py-2.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => stepView(-1)}
-                aria-label="Previous"
-              >
-                <ChevronLeft className="size-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCursor(new Date())}
-              >
-                Today
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => stepView(1)}
-                aria-label="Next"
-              >
-                <ChevronRight className="size-4" />
-              </Button>
-            </div>
-            <h1 className="flex items-center gap-1.5 text-sm font-semibold">
-              <CalendarDays className="size-4 text-muted-foreground" />
-              {headerLabel}
-            </h1>
-            <div className="ml-auto flex items-center gap-1 rounded-md border border-border p-0.5">
-              {(['day', 'week', 'month'] as CalendarView[]).map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => setView(v)}
-                  className={
-                    view === v
-                      ? 'rounded bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground'
-                      : 'rounded px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-muted'
-                  }
+      <div className="flex flex-1 min-h-0 flex-col">
+        {/* Header: page title, view controls, filters */}
+        <div className="space-y-0 border-b border-border/60 px-4 pt-4">
+          <PageHeader
+            eyebrow={context.workspace?.name ?? undefined}
+            title="Lab Calendar"
+            description="Bookings for instruments, rooms, and shared resources."
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => stepView(-1)}
+                  aria-label="Previous"
                 >
-                  {v[0].toUpperCase() + v.slice(1)}
-                </button>
-              ))}
+                  <ChevronLeft className="size-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCursor(new Date())}
+                >
+                  Today
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => stepView(1)}
+                  aria-label="Next"
+                >
+                  <ChevronRight className="size-4" />
+                </Button>
+              </div>
+              <span className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+                <CalendarDays className="size-4" />
+                {headerLabel}
+              </span>
+              <ToggleGroup
+                type="single"
+                value={view}
+                onValueChange={(v) => v && setView(v as CalendarView)}
+                variant="outline"
+                size="sm"
+              >
+                {(['day', 'week', 'month'] as CalendarView[]).map((v) => (
+                  <ToggleGroupItem key={v} value={v}>
+                    {v[0].toUpperCase() + v.slice(1)}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
             </div>
+          </PageHeader>
+          <div className="space-y-2 py-2.5">
+            <CalendarFilters
+              resources={resourcesQuery.data ?? []}
+              value={filters}
+              onChange={setFilters}
+              projectOptions={projectOptions}
+            />
+            {actionError ? (
+              <p role="alert" className="text-sm text-destructive">
+                {actionError}
+              </p>
+            ) : null}
           </div>
-          <CalendarFilters
-            resources={resourcesQuery.data ?? []}
-            value={filters}
-            onChange={setFilters}
-            projectOptions={projectOptions}
-          />
-          {actionError ? (
-            <p role="alert" className="text-sm text-destructive">
-              {actionError}
-            </p>
-          ) : null}
         </div>
 
         {/* Body: sidebar + grid */}
         <div className="flex min-h-0 flex-1">
-          <CalendarSidebar
-            cursor={cursor}
-            timeZone={VIEW_TIMEZONE}
-            view={view}
-            bookings={filteredBookings}
-            resources={resourcesQuery.data ?? []}
-            selectedBookingId={selectedBookingId}
-            onPickDate={(d) => setCursor(d)}
-            onSelectBooking={setSelectedBookingId}
-          />
-          <CalendarGrid
-            view={view}
-            cursor={cursor}
-            timeZone={VIEW_TIMEZONE}
-            bookings={filteredBookings}
-            resources={resourcesQuery.data ?? []}
-            selectedBookingId={selectedBookingId}
-            onSelectBooking={setSelectedBookingId}
-          />
+          {isLoading ? (
+            <>
+              <div className="flex w-56 shrink-0 flex-col gap-4 border-r border-border/60 p-3">
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-24 w-full" />
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-12 w-full" />
+              </div>
+              <div className="flex flex-1 flex-col gap-3 p-4">
+                <Skeleton className="h-6 w-48" />
+                <Skeleton className="h-32 w-full" />
+                <Skeleton className="h-32 w-full" />
+              </div>
+            </>
+          ) : error ? (
+            <>
+              <CalendarSidebar
+                cursor={cursor}
+                timeZone={VIEW_TIMEZONE}
+                view={view}
+                bookings={[]}
+                resources={[]}
+                selectedBookingId={selectedBookingId}
+                onPickDate={(d) => setCursor(d)}
+                onSelectBooking={setSelectedBookingId}
+              />
+              <div className="flex flex-1 items-center justify-center p-6">
+                <Alert variant="destructive" className="max-w-md">
+                  <AlertCircle className="size-4" />
+                  <AlertTitle>Couldn’t load calendar</AlertTitle>
+                  <AlertDescription className="flex flex-col gap-3">
+                    <span>
+                      {describeCalendarError(error)}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-fit"
+                      onClick={() => {
+                        if (bookingsQuery.error) void bookingsQuery.refetch()
+                        if (resourcesQuery.error) void resourcesQuery.refetch()
+                      }}
+                    >
+                      Retry
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              </div>
+            </>
+          ) : (
+            <>
+              <CalendarSidebar
+                cursor={cursor}
+                timeZone={VIEW_TIMEZONE}
+                view={view}
+                bookings={filteredBookings}
+                resources={resourcesQuery.data ?? []}
+                selectedBookingId={selectedBookingId}
+                onPickDate={(d) => setCursor(d)}
+                onSelectBooking={setSelectedBookingId}
+              />
+              {filteredBookings.length === 0 ? (
+                <Empty className="m-4 flex-1">
+                  <EmptyIcon>
+                    <CalendarDays />
+                  </EmptyIcon>
+                  <EmptyTitle>No bookings in this range</EmptyTitle>
+                  <EmptyDescription>
+                    There are no bookings matching the current filters and date
+                    range.
+                  </EmptyDescription>
+                  <EmptyActions>
+                    <Button size="sm" onClick={openCreate}>
+                      <Plus className="size-4" /> New booking
+                    </Button>
+                  </EmptyActions>
+                </Empty>
+              ) : (
+                <CalendarGrid
+                  view={view}
+                  cursor={cursor}
+                  timeZone={VIEW_TIMEZONE}
+                  bookings={filteredBookings}
+                  resources={resourcesQuery.data ?? []}
+                  selectedBookingId={selectedBookingId}
+                  onSelectBooking={setSelectedBookingId}
+                />
+              )}
+            </>
+          )}
         </div>
       </div>
 

@@ -45,8 +45,94 @@ vi.mock('@tanstack/react-start', () => ({
 
 const emptyData: never[] = []
 
+const sampleResources: any[] = [
+  {
+    id: 'r1',
+    workspace_id: 'workspace-1',
+    project_id: null,
+    name: 'Test instrument',
+    code: 'TI-1',
+    resource_type: 'instrument',
+    location: 'Lab A',
+    capacity: 1,
+    timezone: 'UTC',
+    status: 'active',
+    metadata: {},
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+    created_by_user_id: null,
+    updated_by_user_id: null,
+  },
+]
+
+function sampleBookings(): any[] {
+  const now = new Date()
+  const start = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 10, 0),
+  )
+  const end = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 11, 0),
+  )
+  return [
+    {
+      id: 'b1',
+      workspace_id: 'workspace-1',
+      resource_id: 'r1',
+      project_id: null,
+      title: 'Test booking',
+      status: 'confirmed',
+      all_day: false,
+      starts_at: start.toISOString(),
+      ends_at: end.toISOString(),
+      timezone: 'UTC',
+      location: null,
+      color: 'blue',
+      notes: null,
+      linked_experiment_record_id: null,
+      linked_experiment_identifier: null,
+      linked_experiment_title: null,
+      metadata_version: 1,
+      cancelled_at: null,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+    },
+  ]
+}
+
+// Configurable query state so individual tests can exercise loading, error,
+// and empty states without re-mocking the module.
+let queryState: {
+  bookings?: { data?: unknown[]; isLoading?: boolean; error?: unknown }
+  resources?: { data?: unknown[]; isLoading?: boolean; error?: unknown }
+} = {}
+
 vi.mock('@tanstack/react-query', () => ({
-  useQuery: () => ({ data: emptyData, isLoading: false }),
+  useQuery: ({ queryKey }: { queryKey: string[] }) => {
+    if (queryKey.includes('bookings')) {
+      const override = queryState.bookings
+      return {
+        data: override?.data ?? sampleBookings(),
+        isLoading: override?.isLoading ?? false,
+        error: override?.error ?? null,
+        refetch: vi.fn(),
+      }
+    }
+    if (queryKey.includes('resources')) {
+      const override = queryState.resources
+      return {
+        data: override?.data ?? sampleResources,
+        isLoading: override?.isLoading ?? false,
+        error: override?.error ?? null,
+        refetch: vi.fn(),
+      }
+    }
+    return {
+      data: emptyData,
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    }
+  },
   useMutation: () => ({
     mutate: vi.fn(),
     mutateAsync: vi.fn(),
@@ -87,7 +173,10 @@ globalThis.ResizeObserver = class {
   disconnect() {}
 }
 
-afterEach(() => cleanup())
+afterEach(() => {
+  cleanup()
+  queryState = {}
+})
 
 describe('CalendarRoute', () => {
   it('renders the calendar title and new-booking action', () => {
@@ -99,9 +188,10 @@ describe('CalendarRoute', () => {
   it('renders the day, week and month view controls', () => {
     render(<ShellProvider><CalendarRoute /></ShellProvider>)
 
-    expect(screen.getByRole('button', { name: 'Day' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Week' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Month' })).toBeTruthy()
+    // ToggleGroup type="single" renders items as radios.
+    expect(screen.getByRole('radio', { name: 'Day' })).toBeTruthy()
+    expect(screen.getByRole('radio', { name: 'Week' })).toBeTruthy()
+    expect(screen.getByRole('radio', { name: 'Month' })).toBeTruthy()
   })
 
   it('renders the Today navigation button', () => {
@@ -136,7 +226,7 @@ describe('CalendarRoute', () => {
     const user = userEvent.setup()
     render(<ShellProvider><CalendarRoute /></ShellProvider>)
 
-    const monthBtn = screen.getByRole('button', { name: 'Month' })
+    const monthBtn = screen.getByRole('radio', { name: 'Month' })
     await user.click(monthBtn)
 
     // Month grid renders 6 rows x 7 cols of weekday headers + cells.
@@ -147,7 +237,51 @@ describe('CalendarRoute', () => {
     const user = userEvent.setup()
     render(<ShellProvider><CalendarRoute /></ShellProvider>)
 
-    await user.click(screen.getByRole('button', { name: 'Day' }))
+    await user.click(screen.getByRole('radio', { name: 'Day' }))
     expect(screen.getByRole('grid', { name: 'Day calendar' })).toBeTruthy()
+  })
+
+  it('renders the PageHeader title and description', () => {
+    render(<ShellProvider><CalendarRoute /></ShellProvider>)
+
+    expect(screen.getByRole('heading', { name: 'Lab Calendar' })).toBeTruthy()
+    expect(
+      screen.getByText(
+        'Bookings for instruments, rooms, and shared resources.',
+      ),
+    ).toBeTruthy()
+  })
+
+  it('shows skeleton placeholders while queries are loading', () => {
+    queryState = {
+      bookings: { isLoading: true },
+      resources: { isLoading: true },
+    }
+    render(<ShellProvider><CalendarRoute /></ShellProvider>)
+
+    // Loading skeletons render instead of the sidebar sections / grid.
+    expect(screen.queryByText('Upcoming bookings')).toBeFalsy()
+    expect(screen.queryByRole('grid')).toBeFalsy()
+  })
+
+  it('shows a destructive alert with a retry button on query error', () => {
+    queryState = {
+      bookings: { error: new Error('Network failed') },
+    }
+    render(<ShellProvider><CalendarRoute /></ShellProvider>)
+
+    expect(screen.getByRole('heading', { name: 'Couldn’t load calendar' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy()
+  })
+
+  it('shows the empty state when no bookings match the range', () => {
+    queryState = {
+      bookings: { data: [] },
+      resources: { data: sampleResources },
+    }
+    render(<ShellProvider><CalendarRoute /></ShellProvider>)
+
+    expect(screen.getByText('No bookings in this range')).toBeTruthy()
+    expect(screen.queryByRole('grid')).toBeFalsy()
   })
 })

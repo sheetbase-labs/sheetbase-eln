@@ -68,7 +68,7 @@ export interface CoordinatorConfig {
    */
   onFormulaPersisted?: (
     target: { tableId: string; rowId: string; columnId: string },
-    source: string,
+    source: string | null,
   ) => void
 }
 
@@ -102,6 +102,8 @@ export class GridOperationCoordinator {
   private status: SaveStatus = 'idle'
   private generation = 0
   private destroyed = false
+  /** Latest formula-only row versions, which are not written into grid data. */
+  private formulaRowVersions = new Map<string, number>()
 
   constructor(config: CoordinatorConfig) {
     this.config = config
@@ -231,14 +233,11 @@ export class GridOperationCoordinator {
               .getFormulaByCell()
               .has(`${cell.rowId}/${cell.columnId}`)),
       )
-      this.config.onCalculationNeeded(
-        formulaChanged && changedRows.length > 0,
-      )
+      this.config.onCalculationNeeded(formulaChanged && changedRows.length > 0)
       this.setStatus('saved')
     } catch (error) {
-      const isLocalValidation = (
-        error as { localValidation?: boolean }
-      ).localValidation
+      const isLocalValidation = (error as { localValidation?: boolean })
+        .localValidation
       // stale_version is a deterministic conflict, not a transient failure —
       // do NOT retry. Surface it immediately so the user sees the conflict.
       const isStaleVersion =
@@ -263,9 +262,7 @@ export class GridOperationCoordinator {
       // by resending the same payload.
       const isNonRetryableError =
         error instanceof DataClientError &&
-        (error.status === 400 ||
-          error.status === 401 ||
-          error.status === 403)
+        (error.status === 400 || error.status === 401 || error.status === 403)
       if (isNonRetryableError) {
         this.config.onIssues(
           cells.map((cell) => ({
@@ -286,7 +283,9 @@ export class GridOperationCoordinator {
             const key = `${cell.rowId ?? `new:${cell.rowIndex}`}:${cell.columnId}`
             if (!this.pendingCells.has(key)) this.pendingCells.set(key, cell)
           }
-          await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)))
+          await new Promise((resolve) =>
+            setTimeout(resolve, 500 * (attempt + 1)),
+          )
           await this.doFlush(attempt + 1)
           return
         }
@@ -318,7 +317,11 @@ export class GridOperationCoordinator {
 
     const edits = new Map<
       string,
-      { rowId: string; expectedVersion: number; values: Record<string, unknown> }
+      {
+        rowId: string
+        expectedVersion: number
+        values: Record<string, unknown>
+      }
     >()
     // Ordered insert entries so we can match returned rows to their source
     // key. For spare-row inserts the key is `rowIndex:N`; for provisional
@@ -361,9 +364,7 @@ export class GridOperationCoordinator {
       const existingFormula = row
         ? formulaByCell.get(`${row.id}/${column.id}`)
         : undefined
-      const insertKey = isProvisional(rowId)
-        ? rowId!
-        : `rowIndex:${rowIndex}`
+      const insertKey = isProvisional(rowId) ? rowId! : `rowIndex:${rowIndex}`
 
       if (typeof raw === 'string' && raw.startsWith('=')) {
         if (!row) {
@@ -408,7 +409,10 @@ export class GridOperationCoordinator {
         }
         const edit = edits.get(row.id) ?? {
           rowId: row.id,
-          expectedVersion: row.version,
+          expectedVersion: Math.max(
+            Number(row.version),
+            this.formulaRowVersions.get(row.id) ?? Number(row.version),
+          ),
           values: {},
         }
         edit.values[columnId] = value
@@ -458,7 +462,13 @@ export class GridOperationCoordinator {
 
     // Build the version map from canonical + changed rows.
     const rowVersions = new Map(
-      canonical.map((row) => [row.id, Number(row.version)]),
+      canonical.map((row) => [
+        row.id,
+        Math.max(
+          Number(row.version),
+          this.formulaRowVersions.get(row.id) ?? Number(row.version),
+        ),
+      ]),
     )
     for (const row of changedRows) rowVersions.set(row.id, Number(row.version))
 
@@ -518,20 +528,19 @@ export class GridOperationCoordinator {
             },
       )
       rowVersions.set(formula.rowId, expectedRowVersion + 1)
+      this.formulaRowVersions.set(formula.rowId, expectedRowVersion + 1)
       // Notify the caller so it can optimistically update the formulas
       // query cache. This makes the formula bar update immediately after
       // a formula write without waiting for the refetch in
       // onCalculationNeeded.
-      if (formula.source) {
-        this.config.onFormulaPersisted?.(
-          {
-            tableId: table.id,
-            rowId: formula.rowId,
-            columnId: formula.columnId,
-          },
-          formula.source,
-        )
-      }
+      this.config.onFormulaPersisted?.(
+        {
+          tableId: table.id,
+          rowId: formula.rowId,
+          columnId: formula.columnId,
+        },
+        formula.source ?? null,
+      )
     }
 
     return changedRows

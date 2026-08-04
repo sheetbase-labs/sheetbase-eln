@@ -60,7 +60,8 @@ export function toA1Range(
     rowB,
     colB,
   )
-  if (startRow === endRow && startCol === endCol) return toA1(startRow, startCol)
+  if (startRow === endRow && startCol === endCol)
+    return toA1(startRow, startCol)
   return `${toA1(startRow, startCol)}:${toA1(endRow, endCol)}`
 }
 
@@ -167,7 +168,8 @@ export class ReferencePicker {
   /** References committed during this edit, in insertion order. */
   private _references: PickedReference[] = []
   /** Overlay divs for committed references, paired with their references. */
-  private _overlays: Array<{ ref: PickedReference; element: HTMLDivElement }> = []
+  private _overlays: Array<{ ref: PickedReference; element: HTMLDivElement }> =
+    []
   /** Anchor cell of the in-progress drag (pointerdown). */
   private _anchor: { row: number; col: number } | null = null
   /** Current drag extent (last cell the pointer moved over). */
@@ -241,7 +243,11 @@ export class ReferencePicker {
     // Explicit fill-handle / border check (defense in depth: even if a
     // future Handsontable version uses TD for chrome, the class check
     // catches it).
-    if (target.classList.contains('corner') || target.classList.contains('wtBorder')) return
+    if (
+      target.classList.contains('corner') ||
+      target.classList.contains('wtBorder')
+    )
+      return
 
     const coords = this.cellCoordsFromTarget(target)
     if (!coords) return
@@ -292,7 +298,11 @@ export class ReferencePicker {
     // autofill and other features work even with a stale-open editor.
     if (target.tagName !== 'TD') return false
     // Explicit fill-handle / border check (defense in depth).
-    if (target.classList.contains('corner') || target.classList.contains('wtBorder')) return false
+    if (
+      target.classList.contains('corner') ||
+      target.classList.contains('wtBorder')
+    )
+      return false
     event.stopPropagation()
     event.preventDefault()
     this.options.refocusEditor()
@@ -311,22 +321,23 @@ export class ReferencePicker {
   onPointerMove(event: PointerEvent): void {
     if (!this._anchor) return
     // Ignore moves from a different pointer (e.g. a second touch).
-    if (this._activePointerId !== null && event.pointerId !== this._activePointerId)
+    if (
+      this._activePointerId !== null &&
+      event.pointerId !== this._activePointerId
+    )
       return
     const coords = this.cellCoordsFromPoint(event.clientX, event.clientY)
     if (!coords) return // pointer left the data area; keep the last preview
     this._current = coords
-    this.showPreview(
-      this._anchor.row,
-      this._anchor.col,
-      coords.row,
-      coords.col,
-    )
+    this.showPreview(this._anchor.row, this._anchor.col, coords.row, coords.col)
   }
 
   onPointerUp(event: PointerEvent): void {
     // Ignore up from a different pointer than the one that started the drag.
-    if (this._activePointerId !== null && event.pointerId !== this._activePointerId)
+    if (
+      this._activePointerId !== null &&
+      event.pointerId !== this._activePointerId
+    )
       return
     event.stopPropagation()
     const anchor = this._anchor
@@ -350,6 +361,11 @@ export class ReferencePicker {
    */
   pickCell(row: number, col: number): void {
     this.commitRange(row, col, row, col)
+  }
+
+  /** Commit a keyboard-selected range without changing textarea focus. */
+  pickRange(rowA: number, colA: number, rowB: number, colB: number): void {
+    this.commitRange(rowA, colA, rowB, colB)
   }
 
   /**
@@ -522,7 +538,10 @@ export class ReferencePicker {
     // Capture phase catches scroll from Handsontable's internal scroll
     // containers (scroll events do not bubble).
     this.hot.rootElement.addEventListener('scroll', this._onScroll, true)
-    this.hot.rootDocument.defaultView?.addEventListener('resize', this._onResize)
+    this.hot.rootDocument.defaultView?.addEventListener(
+      'resize',
+      this._onResize,
+    )
     this._repositionAttached = true
   }
 
@@ -662,6 +681,8 @@ export class FormulaReferenceEditor extends TextEditor {
    * cell so the first arrow moves relative to it.
    */
   private _referenceCursor: { row: number; col: number } | null = null
+  /** Anchor retained while Shift+Arrow extends a keyboard-picked range. */
+  private _referenceAnchor: { row: number; col: number } | null = null
   /**
    * The textarea span `[textStart, textEnd)` of the most recent
    * keyboard-inserted reference, or null when the last edit was not a
@@ -671,8 +692,7 @@ export class FormulaReferenceEditor extends TextEditor {
    * Any non-arrow action (typing, clicking, Home/End) moves the cursor away
    * from `textEnd`, so the position check naturally invalidates it.
    */
-  private _lastKeyboardRef: { textStart: number; textEnd: number } | null =
-    null
+  private _lastKeyboardRef: { textStart: number; textEnd: number } | null = null
   /** Bound capture-phase keydown handler for keyboard reference picking. */
   private readonly _onReferenceKeyDown = (event: Event): void =>
     this.handleReferenceKeyDown(event as KeyboardEvent)
@@ -697,6 +717,7 @@ export class FormulaReferenceEditor extends TextEditor {
       this.row != null && this.col != null
         ? { row: this.row, col: this.col }
         : null
+    this._referenceAnchor = null
     this._lastKeyboardRef = null
     this.TEXTAREA.addEventListener('keydown', this._onReferenceKeyDown, true)
     this._autocomplete = new FunctionAutocompleteDom(this.TEXTAREA)
@@ -770,6 +791,7 @@ export class FormulaReferenceEditor extends TextEditor {
     doc.removeEventListener('mousedown', this._onMouseDown, true)
     this.TEXTAREA.removeEventListener('keydown', this._onReferenceKeyDown, true)
     this._referenceCursor = null
+    this._referenceAnchor = null
     this._lastKeyboardRef = null
     // abortDrag detaches the drag listeners, clears the marquee, and resets
     // the drag state — covering pointercancel/blur/teardown in one call.
@@ -811,8 +833,8 @@ export class FormulaReferenceEditor extends TextEditor {
    * `=A1A2`). Typing an operator or moving the cursor breaks the replace
    * chain so the next arrow inserts a fresh reference.
    *
-   * Modified arrows (Shift/Ctrl/Alt/Meta) and composition events are left to
-   * the browser/autocomplete. Up/Down are yielded to
+   * Shift+Arrow extends a range from the current reference cursor. Other
+   * modified arrows and composition events are left to the browser. Up/Down are yielded to
    * {@link FunctionAutocompleteDom} when its suggestion dropdown is open so
    * function-name navigation still works. The reference cursor starts at the
    * edited cell and moves with each arrow pick. Never calls
@@ -827,9 +849,8 @@ export class FormulaReferenceEditor extends TextEditor {
       ArrowRight: { row: 0, col: 1 },
     }
     if (!(event.key in ARROW_DELTAS)) return
-    // Ignore modified arrows (Shift+arrow for selection, Ctrl+arrow for jump,
-    // etc.) and IME composition — let the browser handle those natively.
-    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+    // Ctrl/Alt/Meta arrows and IME composition keep their native behaviour.
+    if (event.altKey || event.ctrlKey || event.metaKey) return
     if (event.isComposing) return
     // Yield to autocomplete when its dropdown is open so Up/Down navigate
     // function suggestions. The autocomplete listener runs in the same
@@ -850,6 +871,8 @@ export class FormulaReferenceEditor extends TextEditor {
       next.col >= this.hot.countCols()
     )
       return
+    const anchor = event.shiftKey ? (this._referenceAnchor ?? cursor) : null
+    this._referenceAnchor = anchor
     this._referenceCursor = next
 
     // Excel-like replace: if the cursor is immediately after the last
@@ -871,7 +894,11 @@ export class FormulaReferenceEditor extends TextEditor {
         textarea.selectionStart ?? String(this.getValue() ?? '').length
     }
 
-    this._picker?.pickCell(next.row, next.col)
+    if (anchor) {
+      this._picker?.pickRange(anchor.row, anchor.col, next.row, next.col)
+    } else {
+      this._picker?.pickCell(next.row, next.col)
+    }
 
     // Track the new reference's span so the next arrow can replace it.
     this._lastKeyboardRef = {
@@ -892,8 +919,7 @@ export class FormulaReferenceEditor extends TextEditor {
    */
   private currentSheetName(): string {
     const formulas = this.hot.getPlugin('formulas') as
-      | { sheetName?: string | null }
-      | undefined
+      { sheetName?: string | null } | undefined
     return formulas?.sheetName ?? ''
   }
 

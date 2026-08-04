@@ -1,8 +1,17 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { CellChange, ChangeSource, ColumnSettings } from 'handsontable'
+import type {
+  CellChange,
+  CellValue,
+  ChangeSource,
+  ColumnSettings,
+  RangeType,
+} from 'handsontable'
 import type Handsontable from 'handsontable/base'
-import { FormulaReferenceEditor, toA1 } from '#/components/sheet/formula-reference-editor'
+import {
+  FormulaReferenceEditor,
+  toA1,
+} from '#/components/sheet/formula-reference-editor'
 import { normalizeExponentiation } from '#/lib/formula-ir'
 import {
   FunctionAutocompleteDropdown,
@@ -69,9 +78,7 @@ import type {
 } from '#/lib/scientific-sheet-data'
 import { SchemaBadge } from '#/components/dataset-schema/schema-badge'
 import { upgradeScientificSchema } from '#/lib/dataset-schema-data'
-import {
-  scientificSheetName,
-} from '#/lib/scientific-workbook'
+import { scientificSheetName } from '#/lib/scientific-workbook'
 import type {
   ScientificWorkbook,
   WorkbookCellAddress,
@@ -145,8 +152,46 @@ function persistedFormula(formula: FormulaDefinitionWire) {
 
 function displayResult(result: WorkbookResult | null) {
   if (!result) return null
-  if (result.status === 'error') return `#${result.error}!`
+  if (result.status === 'error') return formulaErrorDisplay(result.error)
   return result.logical.ok ? result.logical.value : `#${result.logical.code}!`
+}
+
+const FORMULA_ERROR_DISPLAY: Record<string, string> = {
+  DIV_BY_ZERO: '#DIV/0!',
+  VALUE: '#VALUE!',
+  NAME: '#NAME?',
+  REF: '#REF!',
+  NUM: '#NUM!',
+  NA: '#N/A',
+  ERROR: '#ERROR!',
+  CYCLE: '#CYCLE!',
+  SPILL: '#SPILL!',
+  LIC: '#LIC!',
+}
+
+export function formulaErrorDisplay(code: string): string {
+  return FORMULA_ERROR_DISPLAY[code] ?? '#ERROR!'
+}
+
+function readColumnPreferences<T>(key: string, fallback: T): T {
+  if (typeof window === 'undefined') return fallback
+  try {
+    const value: unknown = JSON.parse(
+      window.localStorage.getItem(key) ?? 'null',
+    )
+    return value === null ? fallback : (value as T)
+  } catch {
+    return fallback
+  }
+}
+
+function writeColumnPreferences(key: string, value: unknown): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value))
+  } catch {
+    // Storage can be unavailable in private browsing or a locked-down iframe.
+  }
 }
 
 /**
@@ -845,7 +890,15 @@ function columnSettings(
   // resolve correctly across dynamically-imported bundles.
   const formulaEditor = !readOnly ? { editor: FormulaReferenceEditor } : {}
   if (column.logical_type === 'integer' || column.logical_type === 'decimal')
-    return { ...base, type: 'numeric', ...formulaEditor }
+    return {
+      ...base,
+      type: 'numeric',
+      numericFormat: {
+        pattern:
+          column.format ?? (column.logical_type === 'decimal' ? '0.00' : '0'),
+      },
+      ...formulaEditor,
+    }
   if (column.logical_type === 'boolean') return { ...base, type: 'checkbox' }
   if (column.logical_type === 'date')
     return {
@@ -1159,18 +1212,23 @@ export function ScientificSheetBlock({
         getTable: () => tableRef.current,
         isReadOnly: () => readOnlyRef.current,
         onRowsUpdated: (rows) =>
-          queryClient.setQueryData<ScientificRowWire[]>(allRowsKey, (old = []) => {
-            const map = new Map(old.map((r) => [r.id, r]))
-            for (const row of rows) map.set(row.id, row)
-            return [...map.values()]
-          }),
+          queryClient.setQueryData<ScientificRowWire[]>(
+            allRowsKey,
+            (old = []) => {
+              const map = new Map(old.map((r) => [r.id, r]))
+              for (const row of rows) map.set(row.id, row)
+              return [...map.values()]
+            },
+          ),
         onProvisionalRowReplaced: (provisionalId, realId) => {
-          queryClient.setQueryData<ScientificRowWire[]>(allRowsKey, (old = []) =>
-            old.map((row) =>
-              row.id === provisionalId
-                ? { ...row, id: realId, version: 1 }
-                : row,
-            ),
+          queryClient.setQueryData<ScientificRowWire[]>(
+            allRowsKey,
+            (old = []) =>
+              old.map((row) =>
+                row.id === provisionalId
+                  ? { ...row, id: realId, version: 1 }
+                  : row,
+              ),
           )
           // Migrate the active selection off the stale provisional id so the
           // formula bar, address box, and subsequent commits target the real
@@ -1224,6 +1282,12 @@ export function ScientificSheetBlock({
           queryClient.setQueryData<FormulaDefinitionWire[]>(
             scientificQueryKeys.formulas(tableId),
             (old = []) => {
+              if (source === null)
+                return old.filter(
+                  (formula) =>
+                    formula.target_row_id !== target.rowId ||
+                    formula.target_column_id !== target.columnId,
+                )
               const normalized = normalizeExponentiation(source)
               const idx = old.findIndex(
                 (f) =>
@@ -1245,7 +1309,8 @@ export function ScientificSheetBlock({
                 engine_version: '3.3.0',
                 status: 'supported',
                 version: idx >= 0 ? old[idx].version : 1,
-                created_at: idx >= 0 ? old[idx].created_at : new Date().toISOString(),
+                created_at:
+                  idx >= 0 ? old[idx].created_at : new Date().toISOString(),
               }
               if (idx >= 0) {
                 const next = [...old]
@@ -1301,7 +1366,8 @@ export function ScientificSheetBlock({
       )
       coordinator.enqueue([
         {
-          rowIndex: rowIndex >= 0 ? rowIndex : (allRowsQuery.data ?? []).length - 1,
+          rowIndex:
+            rowIndex >= 0 ? rowIndex : (allRowsQuery.data ?? []).length - 1,
           rowId: selected.rowId,
           columnId: selected.columnId,
           fieldName: column.field_name,
@@ -1326,8 +1392,8 @@ export function ScientificSheetBlock({
           rowId: selected.rowId,
           columnId: selected.columnId,
           fieldName:
-            table.columns.find((c) => c.id === selected.columnId)
-              ?.field_name ?? '',
+            table.columns.find((c) => c.id === selected.columnId)?.field_name ??
+            '',
           raw: normalized,
           generation: ++nextGeneration.current,
         },
@@ -1373,7 +1439,8 @@ export function ScientificSheetBlock({
             engine_version: '3.3.0',
             status: 'supported',
             version: idx >= 0 ? old[idx].version : 1,
-            created_at: idx >= 0 ? old[idx].created_at : new Date().toISOString(),
+            created_at:
+              idx >= 0 ? old[idx].created_at : new Date().toISOString(),
           }
           if (idx >= 0) {
             const next = [...old]
@@ -1429,17 +1496,17 @@ export function ScientificSheetBlock({
   // coordinator cleanup) and overlaid in `localRows` for the footer row
   // count and localRowsRef — just not in the data passed to Handsontable.
   const gridData = useMemo(() => {
-    const detached: Array<Record<string, unknown>> = (allRowsQuery.data ?? []).map(
-      (row) => {
-        const copy = { ...row }
-        for (const column of table?.columns ?? [])
-          if (column.logical_type === 'category')
-            copy[column.field_name] =
-              column.options.find((o) => o.id === row[column.field_name])
-                ?.label ?? row[column.field_name]
-        return copy
-      },
-    )
+    const detached: Array<Record<string, unknown>> = (
+      allRowsQuery.data ?? []
+    ).map((row) => {
+      const copy = { ...row }
+      for (const column of table?.columns ?? [])
+        if (column.logical_type === 'category')
+          copy[column.field_name] =
+            column.options.find((o) => o.id === row[column.field_name])
+              ?.label ?? row[column.field_name]
+      return copy
+    })
     for (const row of detached) {
       if (typeof row.id !== 'string') continue
       for (const column of table?.columns ?? []) {
@@ -1539,7 +1606,10 @@ export function ScientificSheetBlock({
           ids.push(row.id)
         }
         for (const column of table?.columns ?? []) {
-          if (row[column.field_name] !== null && row[column.field_name] !== undefined) {
+          if (
+            row[column.field_name] !== null &&
+            row[column.field_name] !== undefined
+          ) {
             hasContent = true
             break
           }
@@ -1551,9 +1621,13 @@ export function ScientificSheetBlock({
       // error than a post-failure refetch.
       const deps = dependenciesQuery.data ?? []
       const blockedIds = new Set(ids)
-      const blockingFormulas = deps.filter((d) => blockedIds.has(d.source_row_id))
+      const blockingFormulas = deps.filter((d) =>
+        blockedIds.has(d.source_row_id),
+      )
       if (blockingFormulas.length) {
-        const formulaIds = [...new Set(blockingFormulas.map((d) => d.formula_id))]
+        const formulaIds = [
+          ...new Set(blockingFormulas.map((d) => d.formula_id)),
+        ]
         setIssues(
           formulaIds.map((fid) => ({
             key: `${fid}:delete-block`,
@@ -1598,7 +1672,7 @@ export function ScientificSheetBlock({
         const message =
           error instanceof Error
             ? error.message.includes('formula') ||
-                error.message.includes('23514')
+              error.message.includes('23514')
               ? 'Cannot remove rows referenced by formulas. Remove the formulas first.'
               : error.message
             : 'Could not remove row.'
@@ -1638,20 +1712,43 @@ export function ScientificSheetBlock({
       }) ?? [],
     [table?.columns],
   )
-  const formulasConfig = useMemo(
-    () => {
-      if (!gridEngine || !table) return undefined
-      try {
-        return {
-          engine: gridEngine,
-          sheetName: scientificSheetName(table.id),
-        }
-      } catch {
-        return undefined
+  const columnWidthsKey = `sheetbase:column-widths:${tableId}`
+  const columnOrderKey = `sheetbase:column-order:${tableId}`
+  const initialColumnWidths = useMemo(() => {
+    if (!table) return true
+    const stored = readColumnPreferences<Partial<Record<string, number>>>(
+      columnWidthsKey,
+      {},
+    )
+    return table.columns.map(
+      (column) => stored[column.id] ?? column.width ?? 120,
+    )
+  }, [columnWidthsKey, table])
+  const initialColumnOrder = useMemo(() => {
+    if (!table) return true
+    const stored = readColumnPreferences<string[]>(columnOrderKey, [])
+    const currentIds = new Set(table.columns.map((column) => column.id))
+    const orderedIds = [
+      ...stored.filter((id) => currentIds.has(id)),
+      ...table.columns
+        .map((column) => column.id)
+        .filter((id) => !stored.includes(id)),
+    ]
+    return orderedIds.map((id) =>
+      table.columns.findIndex((column) => column.id === id),
+    )
+  }, [columnOrderKey, table])
+  const formulasConfig = useMemo(() => {
+    if (!gridEngine || !table) return undefined
+    try {
+      return {
+        engine: gridEngine,
+        sheetName: scientificSheetName(table.id),
       }
-    },
-    [gridEngine, table?.id],
-  )
+    } catch {
+      return undefined
+    }
+  }, [gridEngine, table?.id])
   // Memoize the afterChange handler so it doesn't get a new function
   // reference on every render (which would reconfigure the grid).
   const handleAfterChange = useCallback(
@@ -1712,10 +1809,10 @@ export function ScientificSheetBlock({
     (row: number, columnIndex: number) => {
       const rows = localRowsRef.current
       const rowId =
-        typeof rows[row]?.id === 'string'
-          ? String(rows[row].id)
-          : null
-      const column = table!.columns.at(columnIndex)
+        typeof rows[row]?.id === 'string' ? String(rows[row].id) : null
+      const physicalColumn =
+        hotRef.current?.toPhysicalColumn(columnIndex) ?? columnIndex
+      const column = table!.columns.at(physicalColumn)
       setSelectedCoords({ row, col: columnIndex })
       setSelected(
         rowId && column
@@ -1729,6 +1826,71 @@ export function ScientificSheetBlock({
       if (!rowId) setFormulaStatus('')
     },
     [table],
+  )
+  const preserveFormulaClipboard = useCallback(
+    (data: CellValue[][], coords: RangeType[]) => {
+      const start = coords.at(0)
+      if (!start || !table) return
+      const rows = localRowsRef.current
+      for (let rowOffset = 0; rowOffset < data.length; rowOffset++) {
+        for (
+          let colOffset = 0;
+          colOffset < (data[rowOffset]?.length ?? 0);
+          colOffset++
+        ) {
+          const rowIndex = start.startRow + rowOffset
+          const row = rows.at(rowIndex)
+          const visualColumn = start.startCol + colOffset
+          const physicalColumn =
+            hotRef.current?.toPhysicalColumn(visualColumn) ?? visualColumn
+          const column = table.columns.at(physicalColumn)
+          if (!row || !column || typeof row.id !== 'string') continue
+          const formula = formulaByCellRef.current.get(`${row.id}/${column.id}`)
+          const source =
+            formula?.source_expression ??
+            hotRef.current?.getSourceDataAtCell(rowIndex, physicalColumn)
+          if (typeof source === 'string' && source.startsWith('='))
+            data[rowOffset][colOffset] = source
+        }
+      }
+    },
+    [table],
+  )
+  const handleAfterColumnResize = useCallback(
+    (newSize: number, visualColumn: number) => {
+      if (!table) return
+      const physicalColumn =
+        hotRef.current?.toPhysicalColumn(visualColumn) ?? visualColumn
+      const column = table.columns.at(physicalColumn)
+      if (!column) return
+      const widths = readColumnPreferences<Partial<Record<string, number>>>(
+        columnWidthsKey,
+        {},
+      )
+      writeColumnPreferences(columnWidthsKey, {
+        ...widths,
+        [column.id]: newSize,
+      })
+    },
+    [columnWidthsKey, table],
+  )
+  const handleAfterColumnMove = useCallback(
+    (
+      _moved: number[],
+      _finalIndex: number,
+      _dropIndex: number | undefined,
+      _possible: boolean,
+      orderChanged: boolean,
+    ) => {
+      const hot = hotRef.current
+      if (!orderChanged || !hot || !table) return
+      const ids = Array.from({ length: hot.countCols() }, (_, visualColumn) => {
+        const physicalColumn = hot.toPhysicalColumn(visualColumn)
+        return table.columns[physicalColumn]?.id
+      }).filter((id): id is string => typeof id === 'string')
+      writeColumnPreferences(columnOrderKey, ids)
+    },
+    [columnOrderKey, table],
   )
   // Memoize the complete settings object so the React wrapper doesn't
   // call updateSettings on every render. This is critical: without it,
@@ -1799,9 +1961,25 @@ export function ScientificSheetBlock({
                   ],
                 },
             stretchH: 'all' as const,
+            manualColumnResize: initialColumnWidths,
+            manualColumnMove: initialColumnOrder,
             formulas: formulasConfig,
+            beforeCopy: preserveFormulaClipboard,
+            beforeCut: preserveFormulaClipboard,
+            beforePaste: (data: CellValue[][]) => {
+              // Keep formula-looking clipboard text as source expressions;
+              // afterChange routes these values through the coordinator.
+              for (const row of data)
+                for (let column = 0; column < row.length; column++) {
+                  const value = row[column]
+                  if (typeof value === 'string' && value.startsWith('='))
+                    row[column] = value
+                }
+            },
             afterChange: handleAfterChange,
             afterSelectionEnd: handleAfterSelectionEnd,
+            afterColumnResize: handleAfterColumnResize,
+            afterColumnMove: handleAfterColumnMove,
             beforeRemoveRow: handleBeforeRemoveRow,
             afterRemoveRow: handleAfterRemoveRow,
           }
@@ -1812,9 +1990,14 @@ export function ScientificSheetBlock({
       gridColumns,
       gridColHeaders,
       formulasConfig,
+      initialColumnWidths,
+      initialColumnOrder,
       readOnly,
       handleAfterChange,
       handleAfterSelectionEnd,
+      preserveFormulaClipboard,
+      handleAfterColumnResize,
+      handleAfterColumnMove,
       handleBeforeRemoveRow,
       handleAfterRemoveRow,
     ],
@@ -1877,9 +2060,7 @@ export function ScientificSheetBlock({
             className="flex h-5 w-12 shrink-0 items-center justify-center rounded bg-background font-mono text-[10px] font-semibold text-muted-foreground"
             aria-label="Active cell address"
           >
-            {selectedCoords
-              ? toA1(selectedCoords.row, selectedCoords.col)
-              : ''}
+            {selectedCoords ? toA1(selectedCoords.row, selectedCoords.col) : ''}
           </span>
           <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-muted font-mono text-[10px] font-semibold italic text-muted-foreground">
             fx
@@ -1938,8 +2119,7 @@ export function ScientificSheetBlock({
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
         <div className="flex items-center gap-2">
           <span>
-            {localRows.length}{' '}
-            {localRows.length === 1 ? 'row' : 'rows'}
+            {localRows.length} {localRows.length === 1 ? 'row' : 'rows'}
           </span>
           {readOnly ? null : (
             <SaveStatusIndicator

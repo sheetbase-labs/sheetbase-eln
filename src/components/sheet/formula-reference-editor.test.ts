@@ -80,9 +80,9 @@ describe('buildReference', () => {
   })
 
   it('cycles colour indices without wrapping in buildReference itself', () => {
-    expect(buildReference('', 0, 0, 0, 0, REFERENCE_COLORS.length).colorIndex).toBe(
-      REFERENCE_COLORS.length,
-    )
+    expect(
+      buildReference('', 0, 0, 0, 0, REFERENCE_COLORS.length).colorIndex,
+    ).toBe(REFERENCE_COLORS.length)
   })
 })
 
@@ -110,7 +110,7 @@ function mockHot(cellGrid: HTMLTableCellElement[][]): {
     getCoords: coordsSpy,
     getCell: (row, col) => cellGrid[row]?.[col] ?? null,
     countRows: () => cellGrid.length,
-    countCols: () => (cellGrid[0]?.length ?? 0),
+    countCols: () => cellGrid[0]?.length ?? 0,
   }
   return { hot, root, coordsSpy }
 }
@@ -215,7 +215,10 @@ describe('ReferencePicker', () => {
     picker.onPointerDown(pointer('pointerdown', cells[0][0]))
     // Stub elementFromPoint to report the dragged-to cell (A5). jsdom does not
     // implement elementsFromPoint, so install it for the duration of the drag.
-    const descriptor = Object.getOwnPropertyDescriptor(document, 'elementsFromPoint')
+    const descriptor = Object.getOwnPropertyDescriptor(
+      document,
+      'elementsFromPoint',
+    )
     Object.defineProperty(document, 'elementsFromPoint', {
       configurable: true,
       writable: true,
@@ -237,7 +240,9 @@ describe('ReferencePicker', () => {
 
     expect(inserted).toEqual(['A1:A5'])
     // A persistent overlay div is created for the range.
-    const highlights = root.querySelectorAll<HTMLDivElement>('.sheetbase-ref-highlight')
+    const highlights = root.querySelectorAll<HTMLDivElement>(
+      '.sheetbase-ref-highlight',
+    )
     expect(highlights).toHaveLength(1)
     expect(highlights[0].style.border).toContain('dashed')
     expect(highlights[0].style.border).toContain(hexToRgb(REFERENCE_COLORS[0]))
@@ -265,7 +270,9 @@ describe('ReferencePicker', () => {
 
     expect(inserted).toEqual(['B1', 'C2'])
     expect(picker.references).toHaveLength(2)
-    const highlights = root.querySelectorAll<HTMLDivElement>('.sheetbase-ref-highlight')
+    const highlights = root.querySelectorAll<HTMLDivElement>(
+      '.sheetbase-ref-highlight',
+    )
     expect(highlights).toHaveLength(2)
     const firstBorder = highlights[0].style.border
     const secondBorder = highlights[1].style.border
@@ -395,7 +402,9 @@ describe('ReferencePicker', () => {
 
     picker.onPointerDown(pointer('pointerdown', cells[0][1]))
     picker.onPointerUp(pointer('pointerup', cells[0][1]))
-    const overlay = root.querySelector('.sheetbase-ref-highlight') as HTMLDivElement
+    const overlay = root.querySelector(
+      '.sheetbase-ref-highlight',
+    ) as HTMLDivElement
     expect(overlay).not.toBeNull()
     const leftBefore = overlay.style.left
 
@@ -582,20 +591,26 @@ describe('ReferencePicker', () => {
     })
 
     // Start a drag with pointer id 1.
-    picker.onPointerDown(pointer('pointerdown', cells[0][0], 0, 0, {
-      pointerId: 1,
-    }))
+    picker.onPointerDown(
+      pointer('pointerdown', cells[0][0], 0, 0, {
+        pointerId: 1,
+      }),
+    )
     // A pointerup from a different pointer (id 2) must not commit.
-    picker.onPointerUp(pointer('pointerup', cells[0][0], 0, 0, {
-      pointerId: 2,
-    }))
+    picker.onPointerUp(
+      pointer('pointerup', cells[0][0], 0, 0, {
+        pointerId: 2,
+      }),
+    )
     expect(picker.isDragging).toBe(true)
     expect(inserted).toHaveLength(0)
 
     // The matching pointerup (id 1) commits.
-    picker.onPointerUp(pointer('pointerup', cells[0][0], 0, 0, {
-      pointerId: 1,
-    }))
+    picker.onPointerUp(
+      pointer('pointerup', cells[0][0], 0, 0, {
+        pointerId: 1,
+      }),
+    )
     expect(inserted).toEqual(['A1'])
     expect(picker.isDragging).toBe(false)
   })
@@ -638,6 +653,27 @@ describe('ReferencePicker.pickCell (keyboard reference picking)', () => {
     expect(picker.isDragging).toBe(false)
   })
 
+  it('inserts and highlights a keyboard-selected range', () => {
+    const cells = Array.from({ length: 4 }, () => [td()])
+    const { hot, root } = mockHot(cells)
+    const inserted: string[] = []
+    const picker = new ReferencePicker(hot, {
+      getSheetName: () => '',
+      insertReference: (a1) => inserted.push(a1),
+      refocusEditor: vi.fn(),
+    })
+
+    picker.pickRange(0, 0, 3, 0)
+
+    expect(inserted).toEqual(['A1:A4'])
+    expect(picker.references[0]).toMatchObject({
+      startRow: 0,
+      endRow: 3,
+      a1: 'A1:A4',
+    })
+    expect(root.querySelectorAll('.sheetbase-ref-highlight')).toHaveLength(1)
+  })
+
   it('assigns cycling colours across mixed pointer and keyboard picks', () => {
     const cells = [
       [td(), td(), td()],
@@ -659,16 +695,13 @@ describe('ReferencePicker.pickCell (keyboard reference picking)', () => {
 
     expect(inserted).toEqual(['A1', 'C2'])
     expect(picker.references).toHaveLength(2)
-    const highlights =
-      root.querySelectorAll<HTMLDivElement>('.sheetbase-ref-highlight')
+    const highlights = root.querySelectorAll<HTMLDivElement>(
+      '.sheetbase-ref-highlight',
+    )
     expect(highlights).toHaveLength(2)
     // Colours cycle in insertion order, matching the pointer-only path.
-    expect(highlights[0].style.border).toContain(
-      hexToRgb(REFERENCE_COLORS[0]),
-    )
-    expect(highlights[1].style.border).toContain(
-      hexToRgb(REFERENCE_COLORS[1]),
-    )
+    expect(highlights[0].style.border).toContain(hexToRgb(REFERENCE_COLORS[0]))
+    expect(highlights[1].style.border).toContain(hexToRgb(REFERENCE_COLORS[1]))
   })
 
   it('popLastReference removes the last reference and its overlay', () => {
@@ -733,12 +766,11 @@ describe('ReferencePicker.pickCell (keyboard reference picking)', () => {
 
     expect(picker.references).toHaveLength(1)
     expect(picker.references[0].a1).toBe('B1')
-    const highlights =
-      root.querySelectorAll<HTMLDivElement>('.sheetbase-ref-highlight')
+    const highlights = root.querySelectorAll<HTMLDivElement>(
+      '.sheetbase-ref-highlight',
+    )
     expect(highlights).toHaveLength(1)
     // The new reference uses the same colour as the popped one.
-    expect(highlights[0].style.border).toContain(
-      hexToRgb(REFERENCE_COLORS[0]),
-    )
+    expect(highlights[0].style.border).toContain(hexToRgb(REFERENCE_COLORS[0]))
   })
 })

@@ -1,10 +1,13 @@
 import * as React from 'react'
 
+import { cn } from '#/lib/utils'
+
 interface PageHeaderProps {
   eyebrow?: string
   title: string
   description: string
   children?: React.ReactNode
+  className?: string
 }
 
 function PageHeader({
@@ -12,11 +15,15 @@ function PageHeader({
   title,
   description,
   children,
+  className,
 }: PageHeaderProps) {
   return (
     <div
       data-slot="page-header"
-      className="flex flex-col gap-4 border-b pb-6 md:flex-row md:items-end md:justify-between"
+      className={cn(
+        'flex flex-col gap-4 border-b pb-6 md:flex-row md:items-end md:justify-between',
+        className,
+      )}
     >
       <div data-slot="page-header-content" className="max-w-2xl">
         {eyebrow && (

@@ -2,12 +2,17 @@
  * OPS-005 — Study Planner filter bar.
  *
  * Group-by, status, assignee, instrument and team filters for the planner
- * views. Mirrors the mockup toolbar: "Group by Workstream", "Filter All
- * tasks", "Assignee All", "Instrument All", "Team All", and a Clear link.
+ * views. Mirrors the mockup toolbar: "Group by: Workstream", "Status: All",
+ * "Priority: All", "Assignee: All", "Instrument: All", and a Clear link.
+ *
+ * Filters are styled as subtle chips (bg-muted/50, no visible border) rather
+ * than bordered form inputs, so the toolbar reads as a calm filter row, not
+ * a jagged sequence of boxes. The shared `Select` primitive already provides
+ * `appearance-none` + a CSS chevron; the chip styling is layered on top.
  */
-import { LayoutGrid, RotateCcw } from 'lucide-react'
+import { RotateCcw } from 'lucide-react'
 
-import { Button } from '#/components/ui'
+import { Button, Select } from '#/components/ui'
 import type { StudyTaskStatus, StudyTaskPriority } from '#/lib/planner'
 import { TASK_STATUS_LABELS } from '#/lib/planner'
 
@@ -36,7 +41,7 @@ export interface PlannerFiltersProps {
 }
 
 const STATUS_OPTIONS: Array<{ value: StudyTaskStatus | ''; label: string }> = [
-  { value: '', label: 'All tasks' },
+  { value: '', label: 'Status: All' },
   ...(
     Object.entries(TASK_STATUS_LABELS) as Array<[StudyTaskStatus, string]>
   ).map(([value, label]) => ({ value, label })),
@@ -46,12 +51,20 @@ const PRIORITY_OPTIONS: Array<{
   value: StudyTaskPriority | ''
   label: string
 }> = [
-  { value: '', label: 'All priorities' },
+  { value: '', label: 'Priority: All' },
   { value: 'low', label: 'Low' },
   { value: 'medium', label: 'Medium' },
   { value: 'high', label: 'High' },
   { value: 'critical', label: 'Critical' },
 ]
+
+const GROUP_BY_OPTIONS = [
+  { value: 'workstream', label: 'Group by: Workstream' },
+]
+
+/** Shared chip className for all filter selects — subtle, no harsh border. */
+const chipClassName =
+  'h-7 min-w-[120px] w-auto rounded-md border-0 bg-muted/50 px-2 pr-7 text-xs hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none'
 
 export function PlannerFilters({
   value,
@@ -68,14 +81,22 @@ export function PlannerFilters({
     value.calendarResourceId
 
   return (
-    <div className="flex flex-wrap items-center gap-2 text-xs">
-      <div className="flex items-center gap-1.5 text-muted-foreground">
-        <LayoutGrid className="size-3.5" />
-        <span>Group by Workstream</span>
-      </div>
-      <select
+    <div className="flex flex-nowrap items-center gap-2 overflow-x-auto text-xs">
+      <Select
+        aria-label="Group by"
+        className={chipClassName}
+        value="workstream"
+        onChange={() => {}}
+      >
+        {GROUP_BY_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </Select>
+      <Select
         aria-label="Status"
-        className="h-7 rounded-md border border-border bg-background px-2 text-xs"
+        className={chipClassName}
         value={value.status}
         onChange={(e) =>
           onChange({
@@ -89,10 +110,10 @@ export function PlannerFilters({
             {o.label}
           </option>
         ))}
-      </select>
-      <select
+      </Select>
+      <Select
         aria-label="Priority"
-        className="h-7 rounded-md border border-border bg-background px-2 text-xs"
+        className={chipClassName}
         value={value.priority}
         onChange={(e) =>
           onChange({
@@ -106,48 +127,48 @@ export function PlannerFilters({
             {o.label}
           </option>
         ))}
-      </select>
-      <select
+      </Select>
+      <Select
         aria-label="Assignee"
-        className="h-7 rounded-md border border-border bg-background px-2 text-xs"
+        className={chipClassName}
         value={value.assignee}
         onChange={(e) => onChange({ ...value, assignee: e.target.value })}
       >
-        <option value="">Assignee All</option>
+        <option value="">Assignee: All</option>
         {assignees.map((a) => (
           <option key={a.id} value={a.id}>
             {a.name}
           </option>
         ))}
-      </select>
-      <select
+      </Select>
+      <Select
         aria-label="Instrument"
-        className="h-7 rounded-md border border-border bg-background px-2 text-xs"
+        className={chipClassName}
         value={value.calendarResourceId}
         onChange={(e) =>
           onChange({ ...value, calendarResourceId: e.target.value })
         }
       >
-        <option value="">Instrument All</option>
+        <option value="">Instrument: All</option>
         {resources.map((r) => (
           <option key={r.id} value={r.id}>
             {r.name}
           </option>
         ))}
-      </select>
-      <select
+      </Select>
+      <Select
         aria-label="Workstream"
-        className="h-7 rounded-md border border-border bg-background px-2 text-xs"
+        className={chipClassName}
         value={value.workstreamId}
         onChange={(e) => onChange({ ...value, workstreamId: e.target.value })}
       >
-        <option value="">Workstream All</option>
+        <option value="">Workstream: All</option>
         {workstreams.map((w) => (
           <option key={w.id} value={w.id}>
             {w.name}
           </option>
         ))}
-      </select>
+      </Select>
       {hasFilters ? (
         <Button
           variant="ghost"

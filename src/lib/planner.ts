@@ -31,7 +31,7 @@ export type StudyDeliverableStatus =
   'planned' | 'in_progress' | 'delivered' | 'overdue'
 export type StudyWorkstreamStatus = 'active' | 'archived'
 export type PlannerView =
-  'timeline' | 'calendar' | 'list' | 'workload' | 'resource'
+  'timeline' | 'list' | 'workload'
 
 export interface StudyWorkstreamWire {
   id: string
@@ -685,6 +685,22 @@ export const TASK_STATUS_TOKENS: Record<StudyTaskStatus, string> = {
   completed: 'bg-green-100 text-green-900 border-green-300',
   blocked: 'bg-red-100 text-red-900 border-red-300',
   cancelled: 'bg-muted text-muted-foreground border-border line-through',
+}
+
+/**
+ * Maps task statuses to `Badge` variants so status pills use the shared
+ * semantic tokens (UI-005) instead of one-off className combinations.
+ */
+export const TASK_STATUS_BADGE_VARIANT: Record<
+  StudyTaskStatus,
+  'outline' | 'info' | 'success' | 'warning' | 'danger'
+> = {
+  not_started: 'outline',
+  in_progress: 'info',
+  review: 'warning',
+  completed: 'success',
+  blocked: 'danger',
+  cancelled: 'outline',
 }
 
 export const TASK_STATUS_LABELS: Record<StudyTaskStatus, string> = {

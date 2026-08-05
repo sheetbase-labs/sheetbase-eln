@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react'
 
 import {
   Button,
+  Checkbox,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -16,6 +17,8 @@ import {
   Field,
   Input,
   Label,
+  Select,
+  Slider,
   Textarea,
 } from '#/components/ui'
 import type {
@@ -158,21 +161,19 @@ export function TaskDialog({
           <div className="grid grid-cols-2 gap-4">
             <Field>
               <Label htmlFor="task-type">Type</Label>
-              <select
+              <Select
                 id="task-type"
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
                 value={taskType}
                 onChange={(e) => setTaskType(e.target.value as StudyTaskType)}
               >
                 <option value="task">Task</option>
                 <option value="milestone">Milestone</option>
-              </select>
+              </Select>
             </Field>
             <Field>
               <Label htmlFor="task-workstream">Workstream</Label>
-              <select
+              <Select
                 id="task-workstream"
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
                 value={workstreamId || 'none'}
                 onChange={(e) =>
                   setWorkstreamId(
@@ -186,16 +187,15 @@ export function TaskDialog({
                     {w.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </Field>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <Field>
               <Label htmlFor="task-status">Status</Label>
-              <select
+              <Select
                 id="task-status"
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
                 value={status}
                 onChange={(e) => setStatus(e.target.value as StudyTaskStatus)}
               >
@@ -204,13 +204,12 @@ export function TaskDialog({
                     {TASK_STATUS_LABELS[s]}
                   </option>
                 ))}
-              </select>
+              </Select>
             </Field>
             <Field>
               <Label htmlFor="task-priority">Priority</Label>
-              <select
+              <Select
                 id="task-priority"
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
                 value={priority}
                 onChange={(e) =>
                   setPriority(e.target.value as StudyTaskPriority)
@@ -221,7 +220,7 @@ export function TaskDialog({
                     {PRIORITY_LABELS[p]}
                   </option>
                 ))}
-              </select>
+              </Select>
             </Field>
           </div>
 
@@ -266,15 +265,13 @@ export function TaskDialog({
               <Label htmlFor="task-progress">
                 Progress: {progressPercent}%
               </Label>
-              <input
-                id="task-progress"
-                type="range"
+              <Slider
                 min={0}
                 max={100}
                 step={5}
-                value={progressPercent}
-                onChange={(e) => setProgressPercent(Number(e.target.value))}
-                className="w-full"
+                value={[progressPercent]}
+                onValueChange={(v) => setProgressPercent(v[0])}
+                aria-label="Progress percentage"
               />
             </Field>
           ) : null}
@@ -300,11 +297,10 @@ export function TaskDialog({
           </Field>
 
           <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
+            <Checkbox
+              id="task-approval"
               checked={approvalRequired}
-              onChange={(e) => setApprovalRequired(e.target.checked)}
-              className="size-4 rounded border-border"
+              onCheckedChange={(v) => setApprovalRequired(v === true)}
             />
             Approval required
           </label>

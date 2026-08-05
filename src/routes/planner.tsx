@@ -1,7 +1,7 @@
 /**
  * OPS-005 — Study Planner route.
  *
- * Timeline, calendar, list, workload and resource views over one task model.
+ * Timeline, list and workload views over one task model.
  * The left side shows swimlane-grouped tasks; the right inspector shows the
  * selected task's detail, protocol, samples, conflicts and approval
  * requirements. Timeline edits are transactional via the controlled RPCs and
@@ -10,7 +10,13 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { CalendarDays, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import {
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  Plus,
+} from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
 import {
@@ -18,13 +24,27 @@ import {
   PlannerFilters,
   PlannerInspector,
   PlannerList,
-  PlannerResourceView,
   PlannerTimeline,
   PlannerWorkload,
   TaskDialog,
 } from '#/components/planner'
 import type { PlannerFilterValue } from '#/components/planner'
-import { Button } from '#/components/ui'
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+  Button,
+  Empty,
+  EmptyActions,
+  EmptyDescription,
+  EmptyIcon,
+  EmptyTitle,
+  PageHeader,
+  Skeleton,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from '#/components/ui'
 import { createDataClient } from '#/lib/data-client'
 import {
   addDays,
@@ -272,21 +292,14 @@ function PlannerRoute() {
 
   const viewTabs: Array<{ key: PlannerView; label: string }> = [
     { key: 'timeline', label: 'Timeline' },
-    { key: 'calendar', label: 'Calendar' },
     { key: 'list', label: 'List' },
     { key: 'workload', label: 'Workload' },
-    { key: 'resource', label: 'Resource view' },
   ]
 
   useShell({
     context: shellContext,
     breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Study Planner' }],
     fullBleed: true,
-    primaryAction: (
-      <Button onClick={openCreate} size="sm">
-        <Plus className="size-4" /> Add task
-      </Button>
-    ),
     inspectorLabel: 'Task',
     inspector: (
       <PlannerInspector
@@ -303,82 +316,135 @@ function PlannerRoute() {
 
   return (
     <>
-      <div className="flex h-[calc(100svh-3.5rem)] min-h-0 flex-col">
+      <div className="flex flex-1 min-h-0 flex-col">
         {/* Header */}
-        <div className="space-y-2 border-b border-border/60 px-4 py-2.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => stepView(-1)}
-                aria-label="Previous"
+        <div className="px-4 pt-4">
+          <PageHeader
+            eyebrow={context.workspace?.name ?? undefined}
+            title="Study Planner"
+            description="Tasks, milestones, and dependencies across the workspace."
+            className="border-0 pb-4"
+          >
+            <Button onClick={openCreate} size="sm">
+              <Plus className="size-4" /> Add task
+            </Button>
+          </PageHeader>
+          <div className="space-y-1.5 border-b border-border/60 pb-2.5">
+            {/* Tabs row + contextual date nav */}
+            <div className="flex flex-wrap items-center gap-2">
+              <Tabs
+                value={view}
+                onValueChange={(v) => setView(v as PlannerView)}
               >
-                <ChevronLeft className="size-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCursor(new Date())}
-              >
-                Today
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => stepView(1)}
-                aria-label="Next"
-              >
-                <ChevronRight className="size-4" />
-              </Button>
+                <TabsList className="h-auto gap-0 bg-transparent p-0">
+                  {viewTabs.map((v) => (
+                    <TabsTrigger
+                      key={v.key}
+                      value={v.key}
+                      className="rounded-none border-b-2 border-b-transparent px-3 pb-1.5 pt-1.5 text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground data-[state=active]:border-b-primary data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                    >
+                      {v.label}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+              {view === 'workload' ? (
+                <div className="ml-auto flex items-center gap-0.5 rounded-md bg-muted/50 p-0.5">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0"
+                    onClick={() => stepView(-1)}
+                    aria-label="Previous"
+                  >
+                    <ChevronLeft className="size-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setCursor(new Date())}
+                  >
+                    Today
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0"
+                    onClick={() => stepView(1)}
+                    aria-label="Next"
+                  >
+                    <ChevronRight className="size-4" />
+                  </Button>
+                </div>
+              ) : null}
             </div>
-            <h1 className="flex items-center gap-1.5 text-sm font-semibold">
-              <CalendarDays className="size-4 text-muted-foreground" />
-              Study Planner
-            </h1>
-            <div className="ml-auto flex items-center gap-1 rounded-md border border-border p-0.5">
-              {viewTabs.map((v) => (
-                <button
-                  key={v.key}
-                  type="button"
-                  onClick={() => setView(v.key)}
-                  className={
-                    view === v.key
-                      ? 'rounded bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground'
-                      : 'rounded px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-muted'
-                  }
-                >
-                  {v.label}
-                </button>
-              ))}
-            </div>
+            <PlannerFilters
+              value={filters}
+              onChange={setFilters}
+              workstreams={workstreamsQuery.data ?? []}
+              resources={resourcesQuery.data ?? []}
+              assignees={assigneeOptions}
+            />
+            {actionError ? (
+              <p role="alert" className="text-sm text-destructive">
+                {actionError}
+              </p>
+            ) : null}
           </div>
-          <PlannerFilters
-            value={filters}
-            onChange={setFilters}
-            workstreams={workstreamsQuery.data ?? []}
-            resources={resourcesQuery.data ?? []}
-            assignees={assigneeOptions}
-          />
-          {actionError ? (
-            <p role="alert" className="text-sm text-destructive">
-              {actionError}
-            </p>
-          ) : null}
         </div>
 
         {/* Body */}
-        {view === 'timeline' ? (
+        {tasksQuery.isLoading || workstreamsQuery.isLoading ? (
+          <div className="flex-1 space-y-4 p-4">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+        ) : tasksQuery.error || workstreamsQuery.error ? (
+          <Alert variant="destructive" className="m-6 max-w-md">
+            <AlertCircle className="size-4" />
+            <AlertTitle>Couldn't load planner</AlertTitle>
+            <AlertDescription className="flex flex-col gap-3">
+              <span>{describePlannerError(tasksQuery.error ?? workstreamsQuery.error)}</span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-fit"
+                onClick={() => {
+                  if (tasksQuery.error) void tasksQuery.refetch()
+                  if (workstreamsQuery.error) void workstreamsQuery.refetch()
+                }}
+              >
+                Retry
+              </Button>
+            </AlertDescription>
+          </Alert>
+        ) : filteredTasks.length === 0 ? (
+          <Empty className="flex-1 border-0 rounded-none">
+            <EmptyIcon>
+              <ClipboardList className="size-5" />
+            </EmptyIcon>
+            <EmptyTitle>No tasks yet</EmptyTitle>
+            <EmptyDescription>
+              Create your first study task to start planning milestones,
+              dependencies, and resource assignments.
+            </EmptyDescription>
+            <EmptyActions>
+              <Button onClick={openCreate} size="sm">
+                <Plus className="size-4" /> Add task
+              </Button>
+            </EmptyActions>
+          </Empty>
+        ) : view === 'timeline' ? (
           <PlannerTimeline
             tasks={filteredTasks}
             workstreams={workstreamsQuery.data ?? []}
             dependencies={dependenciesQuery.data ?? []}
-            resources={resourcesQuery.data ?? []}
-            timeZone={VIEW_TIMEZONE}
-            weekStart={weekStart}
-            weekCount={weekCount}
             selectedTaskId={selectedTaskId}
             onSelectTask={setSelectedTaskId}
+            onCreateTask={openCreate}
           />
         ) : view === 'list' ? (
           <PlannerList
@@ -389,7 +455,7 @@ function PlannerRoute() {
             selectedTaskId={selectedTaskId}
             onSelectTask={setSelectedTaskId}
           />
-        ) : view === 'workload' ? (
+        ) : (
           <PlannerWorkload
             tasks={filteredTasks}
             timeZone={VIEW_TIMEZONE}
@@ -398,22 +464,6 @@ function PlannerRoute() {
             selectedTaskId={selectedTaskId}
             onSelectTask={setSelectedTaskId}
           />
-        ) : view === 'resource' ? (
-          <PlannerResourceView
-            resources={resourcesQuery.data ?? []}
-            taskResources={allTaskResourcesQuery.data ?? []}
-            tasks={filteredTasks}
-            timeZone={VIEW_TIMEZONE}
-            weekStart={weekStart}
-            weekCount={weekCount}
-            selectedTaskId={selectedTaskId}
-            onSelectTask={setSelectedTaskId}
-          />
-        ) : (
-          <div className="flex flex-1 items-center justify-center py-20 text-sm text-muted-foreground">
-            Calendar view — use the Lab Calendar for resource scheduling. The
-            Study Planner timeline provides the Gantt overview.
-          </div>
         )}
       </div>
 

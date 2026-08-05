@@ -19,6 +19,7 @@ import {
   FlaskConical,
   FolderOpen,
   Gauge,
+  GanttChart,
   Grid3x3,
   Home as HomeIcon,
   LayoutTemplate,
@@ -342,6 +343,7 @@ export const defaultNavSections: AppShellNavSection[] = [
       { to: '/analysis', label: 'Analysis', icon: LineChartIcon },
       { to: '/plate-designer', label: 'Plate Designer', icon: Grid3x3 },
       { to: '/calendar', label: 'Lab Calendar', icon: CalendarDays },
+      { to: '/planner', label: 'Planner', icon: GanttChart },
       { to: '/instrument-monitor', label: 'Instruments', icon: Gauge },
       { to: '/report-builder', label: 'Report Builder', icon: FileText },
       {

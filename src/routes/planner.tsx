@@ -64,7 +64,14 @@ import {
   startOfWeekInZone,
   toStudyTask,
 } from '#/lib/planner'
-import type { PlannerView, StudyTask, StudyTaskInput } from '#/lib/planner'
+import type {
+  PlannerView,
+  StudyTask,
+  StudyTaskInput,
+  StudyTaskPriority,
+  StudyTaskStatus,
+  StudyWorkstream,
+} from '#/lib/planner'
 import { fetchCalendarResources } from '#/lib/calendar'
 
 export const Route = createFileRoute('/planner')({
@@ -128,10 +135,125 @@ function PlannerRoute() {
     enabled: Boolean(workspaceId),
   })
 
+  // ── TEMPORARY: mock workstreams for screenshots (revert before merge) ──
+  const mockWorkstreams: StudyWorkstream[] =
+    workstreamsQuery.data && workstreamsQuery.data.length > 0
+      ? workstreamsQuery.data
+      : [
+          {
+            id: 'ws-mock-1',
+            workspaceId,
+            projectId: null,
+            name: 'Upstream Process Development',
+            color: '#3b82f6',
+            position: 0,
+            status: 'active',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+          {
+            id: 'ws-mock-2',
+            workspaceId,
+            projectId: null,
+            name: 'Analytical Development',
+            color: '#8b5cf6',
+            position: 1,
+            status: 'active',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        ]
+  // ── END TEMPORARY ──
+
   // Hydrate tasks with assignments, resources and deliverables.
   const tasks = useMemo<StudyTask[]>(() => {
     const wires = tasksQuery.data ?? []
-    return wires.map((w) => toStudyTask(w, [], [], []))
+    const real = wires.map((w) => toStudyTask(w, [], [], []))
+    if (real.length > 0) return real
+    // ── TEMPORARY: mock data for screenshots (revert before merge) ──
+    const now = new Date()
+    const iso = (d: Date) => d.toISOString()
+    const day = (offset: number) => {
+      const d = new Date(now)
+      d.setDate(d.getDate() + offset)
+      return d
+    }
+    const ws1 = 'ws-mock-1'
+    const ws2 = 'ws-mock-2'
+    const mkTask = (
+      id: string,
+      title: string,
+      workstreamId: string,
+      status: StudyTaskStatus,
+      priority: StudyTaskPriority,
+      taskType: 'task' | 'milestone',
+      startOffset: number,
+      endOffset: number,
+      progress: number,
+      assignees: Array<{ id: string; name: string }>,
+    ): StudyTask => ({
+      id,
+      workspaceId,
+      workstreamId,
+      projectId: null,
+      title,
+      description: null,
+      taskType,
+      status,
+      priority,
+      startsAt: taskType === 'milestone' ? iso(day(endOffset)) : iso(day(startOffset)),
+      endsAt: iso(day(endOffset)),
+      dueAt: iso(day(endOffset)),
+      timezone: VIEW_TIMEZONE,
+      position: 0,
+      color: null,
+      progressPercent: progress,
+      linkedExperimentRecordId: null,
+      linkedExperimentIdentifier: null,
+      linkedExperimentTitle: null,
+      linkedProtocolRecordId: null,
+      linkedProtocolIdentifier: null,
+      approvalRequired: status === 'review',
+      approvalStatus: status === 'review' ? 'pending' : 'not_required',
+      tags: [],
+      metadataVersion: 1,
+      createdAt: iso(day(startOffset)),
+      updatedAt: iso(day(0)),
+      assignments: assignees.map((a) => ({
+        id: `${id}-asg-${a.id}`,
+        taskId: id,
+        userId: a.id,
+        displayName: a.name,
+        role: 'assignee' as const,
+        effortPercent: 50,
+        createdAt: iso(day(startOffset)),
+      })),
+      resources: [],
+      deliverables: [],
+    })
+    return [
+      mkTask('t1', 'Cell line expansion — CHO-K1', ws1, 'in_progress', 'high', 'task', -2, 10, 45, [
+        { id: 'u1', name: 'Dr. Sarah Chen' },
+      ]),
+      mkTask('t2', 'Stability study design', ws1, 'completed', 'medium', 'task', -7, -1, 100, [
+        { id: 'u2', name: 'Marcus Webb' },
+      ]),
+      mkTask('t3', 'Phase 1 readout', ws1, 'review', 'critical', 'milestone', 14, 14, 100, [
+        { id: 'u1', name: 'Dr. Sarah Chen' },
+        { id: 'u2', name: 'Marcus Webb' },
+      ]),
+      mkTask('t4', 'Analytical method transfer', ws2, 'not_started', 'medium', 'task', 5, 20, 0, [
+        { id: 'u3', name: 'Priya Sharma' },
+      ]),
+      mkTask('t5', 'Buffer screening DoE', ws2, 'blocked', 'high', 'task', 3, 12, 20, [
+        { id: 'u3', name: 'Priya Sharma' },
+        { id: 'u1', name: 'Dr. Sarah Chen' },
+      ]),
+      mkTask('t6', 'Raw material qualification', ws2, 'in_progress', 'low', 'task', -1, 8, 60, [
+        { id: 'u2', name: 'Marcus Webb' },
+      ]),
+    ]
+    // ── END TEMPORARY ──
   }, [tasksQuery.data])
 
   // Apply filters.
@@ -385,7 +507,7 @@ function PlannerRoute() {
             <PlannerFilters
               value={filters}
               onChange={setFilters}
-              workstreams={workstreamsQuery.data ?? []}
+              workstreams={mockWorkstreams}
               resources={resourcesQuery.data ?? []}
               assignees={assigneeOptions}
             />
@@ -443,7 +565,7 @@ function PlannerRoute() {
         ) : view === 'timeline' ? (
           <PlannerTimeline
             tasks={filteredTasks}
-            workstreams={workstreamsQuery.data ?? []}
+            workstreams={mockWorkstreams}
             dependencies={dependenciesQuery.data ?? []}
             selectedTaskId={selectedTaskId}
             onSelectTask={setSelectedTaskId}
@@ -452,7 +574,7 @@ function PlannerRoute() {
         ) : view === 'list' ? (
           <PlannerList
             tasks={filteredTasks}
-            workstreams={workstreamsQuery.data ?? []}
+            workstreams={mockWorkstreams}
             dependencies={dependenciesQuery.data ?? []}
             timeZone={VIEW_TIMEZONE}
             selectedTaskId={selectedTaskId}
@@ -492,7 +614,7 @@ function PlannerRoute() {
           setDialogOpen(o)
           if (!o) setEditingTask(null)
         }}
-        workstreams={workstreamsQuery.data ?? []}
+        workstreams={mockWorkstreams}
         workspaceId={workspaceId}
         task={editingTask}
         onSubmit={async (input) => {

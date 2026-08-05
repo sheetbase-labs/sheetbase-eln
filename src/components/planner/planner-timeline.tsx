@@ -140,7 +140,7 @@ export function PlannerTimeline({
           return (
             <Badge
               variant={TASK_STATUS_BADGE_VARIANT[task.status]}
-              className="whitespace-nowrap px-1.5 py-0.5 text-[10px]"
+              className="whitespace-nowrap px-1.5 py-0 text-xs"
             >
               {TASK_STATUS_LABELS[task.status]}
             </Badge>

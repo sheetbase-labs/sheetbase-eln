@@ -140,7 +140,7 @@ export function PlannerTimeline({
           return (
             <Badge
               variant={TASK_STATUS_BADGE_VARIANT[task.status]}
-              className="px-1.5 py-0.5 text-[10px]"
+              className="whitespace-nowrap px-1.5 py-0.5 text-[10px]"
             >
               {TASK_STATUS_LABELS[task.status]}
             </Badge>
@@ -186,7 +186,7 @@ export function PlannerTimeline({
       }}
       onRangeChange={() => {}}
       className="flex-1 min-h-0"
-      treePanel={{ width: 420 }}
+      treePanel={{ width: 480 }}
       barLabel="inside"
       interactions={{ drag: false, resize: false, selectSlot: false }}
     >

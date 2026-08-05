@@ -99,15 +99,13 @@ describe('PlannerRoute', () => {
     expect(screen.getByText('Study Planner')).toBeTruthy()
   })
 
-  it('renders the Timeline, Calendar, List, Workload and Resource view tabs', () => {
+  it('renders the Timeline, List and Workload view tabs', () => {
     render(<ShellProvider><PlannerRoute /></ShellProvider>)
 
     // View switcher uses Tabs (role="tab") with underline active indicator.
     expect(screen.getByRole('tab', { name: 'Timeline' })).toBeTruthy()
-    expect(screen.getByRole('tab', { name: 'Calendar' })).toBeTruthy()
     expect(screen.getByRole('tab', { name: 'List' })).toBeTruthy()
     expect(screen.getByRole('tab', { name: 'Workload' })).toBeTruthy()
-    expect(screen.getByRole('tab', { name: 'Resource view' })).toBeTruthy()
   })
 
   it('renders the Today navigation button for non-timeline views', async () => {
@@ -156,16 +154,6 @@ describe('PlannerRoute', () => {
     const workloadTab = screen.getByRole('tab', { name: 'Workload' })
     await user.click(workloadTab)
     expect(workloadTab.getAttribute('aria-selected')).toBe('true')
-    expect(screen.getByText('No tasks yet')).toBeTruthy()
-  })
-
-  it('switches to the resource view when Resource view tab is clicked', async () => {
-    const user = userEvent.setup()
-    render(<ShellProvider><PlannerRoute /></ShellProvider>)
-
-    const resourceTab = screen.getByRole('tab', { name: 'Resource view' })
-    await user.click(resourceTab)
-    expect(resourceTab.getAttribute('aria-selected')).toBe('true')
     expect(screen.getByText('No tasks yet')).toBeTruthy()
   })
 })

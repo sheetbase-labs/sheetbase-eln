@@ -1,7 +1,7 @@
 /**
  * OPS-005 — Study Planner route.
  *
- * Timeline, calendar, list, workload and resource views over one task model.
+ * Timeline, list and workload views over one task model.
  * The left side shows swimlane-grouped tasks; the right inspector shows the
  * selected task's detail, protocol, samples, conflicts and approval
  * requirements. Timeline edits are transactional via the controlled RPCs and
@@ -24,7 +24,6 @@ import {
   PlannerFilters,
   PlannerInspector,
   PlannerList,
-  PlannerResourceView,
   PlannerTimeline,
   PlannerWorkload,
   TaskDialog,
@@ -293,10 +292,8 @@ function PlannerRoute() {
 
   const viewTabs: Array<{ key: PlannerView; label: string }> = [
     { key: 'timeline', label: 'Timeline' },
-    { key: 'calendar', label: 'Calendar' },
     { key: 'list', label: 'List' },
     { key: 'workload', label: 'Workload' },
-    { key: 'resource', label: 'Resource view' },
   ]
 
   useShell({
@@ -351,7 +348,7 @@ function PlannerRoute() {
                   ))}
                 </TabsList>
               </Tabs>
-              {view === 'workload' || view === 'resource' ? (
+              {view === 'workload' ? (
                 <div className="ml-auto flex items-center gap-0.5 rounded-md bg-muted/50 p-0.5">
                   <Button
                     variant="ghost"
@@ -458,7 +455,7 @@ function PlannerRoute() {
             selectedTaskId={selectedTaskId}
             onSelectTask={setSelectedTaskId}
           />
-        ) : view === 'workload' ? (
+        ) : (
           <PlannerWorkload
             tasks={filteredTasks}
             timeZone={VIEW_TIMEZONE}
@@ -467,22 +464,6 @@ function PlannerRoute() {
             selectedTaskId={selectedTaskId}
             onSelectTask={setSelectedTaskId}
           />
-        ) : view === 'resource' ? (
-          <PlannerResourceView
-            resources={resourcesQuery.data ?? []}
-            taskResources={allTaskResourcesQuery.data ?? []}
-            tasks={filteredTasks}
-            timeZone={VIEW_TIMEZONE}
-            weekStart={weekStart}
-            weekCount={weekCount}
-            selectedTaskId={selectedTaskId}
-            onSelectTask={setSelectedTaskId}
-          />
-        ) : (
-          <div className="flex flex-1 items-center justify-center py-20 text-sm text-muted-foreground">
-            Calendar view — use the Lab Calendar for resource scheduling. The
-            Study Planner timeline provides the Gantt overview.
-          </div>
         )}
       </div>
 

@@ -65,15 +65,15 @@ export function PlannerList({
       <Table>
         <TableHeader>
           <TableRow className="text-left text-xs text-muted-foreground">
-            <TableHead className="font-medium">Title</TableHead>
-            <TableHead className="font-medium">Workstream</TableHead>
-            <TableHead className="font-medium">Status</TableHead>
-            <TableHead className="font-medium">Priority</TableHead>
-            <TableHead className="font-medium">Assignee</TableHead>
-            <TableHead className="font-medium">Start</TableHead>
-            <TableHead className="font-medium">Due</TableHead>
-            <TableHead className="font-medium">Progress</TableHead>
-            <TableHead className="font-medium">Deps</TableHead>
+            <TableHead className="min-w-[200px] font-medium">Title</TableHead>
+            <TableHead className="whitespace-nowrap font-medium">Workstream</TableHead>
+            <TableHead className="whitespace-nowrap font-medium">Status</TableHead>
+            <TableHead className="whitespace-nowrap font-medium">Priority</TableHead>
+            <TableHead className="min-w-[120px] font-medium">Assignee</TableHead>
+            <TableHead className="whitespace-nowrap font-medium">Start</TableHead>
+            <TableHead className="whitespace-nowrap font-medium">Due</TableHead>
+            <TableHead className="whitespace-nowrap font-medium">Progress</TableHead>
+            <TableHead className="whitespace-nowrap font-medium">Deps</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -97,7 +97,7 @@ export function PlannerList({
                   )}
                 >
                   <TableCell className="py-2 font-medium">
-                    {task.title}
+                    <span className="line-clamp-2">{task.title}</span>
                   </TableCell>
                   <TableCell className="py-2 text-muted-foreground">
                     {task.workstreamId
@@ -107,7 +107,7 @@ export function PlannerList({
                   <TableCell className="py-2">
                     <Badge
                       variant={TASK_STATUS_BADGE_VARIANT[task.status]}
-                      className="px-1.5 py-0.5 text-xs"
+                      className="whitespace-nowrap px-1.5 py-0.5 text-xs"
                     >
                       {TASK_STATUS_LABELS[task.status]}
                     </Badge>
@@ -123,12 +123,12 @@ export function PlannerList({
                   <TableCell className="py-2 text-muted-foreground">
                     {assigneeLabel}
                   </TableCell>
-                  <TableCell className="py-2 text-xs text-muted-foreground">
+                  <TableCell className="whitespace-nowrap py-2 text-xs text-muted-foreground">
                     {task.startsAt
                       ? formatDateInZone(new Date(task.startsAt), timeZone)
                       : '—'}
                   </TableCell>
-                  <TableCell className="py-2 text-xs text-muted-foreground">
+                  <TableCell className="whitespace-nowrap py-2 text-xs text-muted-foreground">
                     {task.dueAt
                       ? formatDateInZone(new Date(task.dueAt), timeZone)
                       : task.endsAt

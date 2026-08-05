@@ -4,6 +4,9 @@
  * Shows each assignee's tasks as stacked bars across the same weekly timeline,
  * making it easy to spot over-allocation. Derived entirely from the same task
  * model — no separate workload table.
+ *
+ * When multiple tasks for the same assignee overlap in time, they are stacked
+ * into separate lanes within that assignee's row (standard Gantt stacking).
  */
 import { useMemo } from 'react'
 
@@ -32,6 +35,8 @@ interface AssigneeRow {
   key: string
   name: string
   tasks: StudyTask[]
+  /** Stacked lanes: each lane is a non-overlapping set of tasks. */
+  lanes: StudyTask[][]
 }
 
 export function PlannerWorkload({
@@ -61,12 +66,43 @@ export function PlannerWorkload({
         if (a.role !== 'assignee') continue
         const key = a.userId ?? a.displayName ?? 'unknown'
         const name = a.displayName ?? a.userId ?? 'Unknown'
-        const row = map.get(key) ?? { key, name, tasks: [] }
+        const row = map.get(key) ?? { key, name, tasks: [], lanes: [] }
         row.tasks.push(task)
         map.set(key, row)
       }
     }
-    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name))
+
+    // Stack tasks into lanes: sort by start date, place each task in the
+    // first lane where it doesn't overlap with any existing task.
+    for (const row of map.values()) {
+      const sorted = [...row.tasks].sort(
+        (a, b) =>
+          taskStartDate(a).getTime() - taskStartDate(b).getTime(),
+      )
+      const lanes: StudyTask[][] = []
+      for (const task of sorted) {
+        const taskStart = taskStartDate(task).getTime()
+        let placed = false
+        for (const lane of lanes) {
+          const lastEnd = lane.length > 0
+            ? taskEndDate(lane[lane.length - 1]).getTime()
+            : -Infinity
+          if (taskStart >= lastEnd) {
+            lane.push(task)
+            placed = true
+            break
+          }
+        }
+        if (!placed) {
+          lanes.push([task])
+        }
+      }
+      row.lanes = lanes
+    }
+
+    return Array.from(map.values()).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    )
   }, [tasks])
 
   function dayOffset(date: Date): number {
@@ -83,8 +119,9 @@ export function PlannerWorkload({
 
   const leftColWidth = 200
   const weekWidth = 140
-  const rowHeight = 28
-  const rowGap = 4
+  const barHeight = 24
+  const barGap = 4
+  const rowVerticalPadding = 8
 
   return (
     <div className="flex-1 overflow-auto">
@@ -111,13 +148,14 @@ export function PlannerWorkload({
 
       {/* Rows */}
       {rows.map((row) => {
+        const laneCount = Math.max(1, row.lanes.length)
         const rowContentHeight =
-          row.tasks.length * rowHeight + (row.tasks.length - 1) * rowGap
+          laneCount * barHeight + (laneCount - 1) * barGap
         return (
           <div
             key={row.key}
             className="border-b border-border/30"
-            style={{ minHeight: 56 }}
+            style={{ minHeight: rowContentHeight + rowVerticalPadding * 2 }}
           >
             <div className="flex">
               {/* Left column: assignee name */}
@@ -137,7 +175,7 @@ export function PlannerWorkload({
                 className="relative flex-1 py-2"
                 style={{
                   minWidth: weekWidth * weekCount,
-                  minHeight: rowContentHeight + 16,
+                  minHeight: rowContentHeight + rowVerticalPadding,
                 }}
               >
                 {/* Week grid lines — extend full height */}
@@ -150,12 +188,9 @@ export function PlannerWorkload({
                     />
                   ))}
                 </div>
-                {/* Task bars stacked vertically */}
-                <div
-                  className="relative flex flex-col"
-                  style={{ gap: rowGap }}
-                >
-                  {row.tasks.map((task) => {
+                {/* Task bars: each lane is a horizontal strip */}
+                {row.lanes.map((lane, laneIndex) =>
+                  lane.map((task) => {
                     const start = taskStartDate(task)
                     const end = taskEndDate(task)
                     const offset = Math.max(0, dayOffset(start))
@@ -171,6 +206,7 @@ export function PlannerWorkload({
                     const leftPct = (offset / totalDays) * 100
                     const widthPct = (duration / totalDays) * 100
                     const isSelected = task.id === selectedTaskId
+                    const top = laneIndex * (barHeight + barGap)
                     return (
                       <button
                         key={task.id}
@@ -185,8 +221,8 @@ export function PlannerWorkload({
                           position: 'absolute',
                           left: `${leftPct}%`,
                           width: `${widthPct}%`,
-                          top: 0,
-                          height: rowHeight,
+                          top,
+                          height: barHeight,
                         }}
                         title={`${task.title}: ${formatDateInZone(start, timeZone)} – ${formatDateInZone(end, timeZone)}`}
                       >
@@ -196,8 +232,8 @@ export function PlannerWorkload({
                         </span>
                       </button>
                     )
-                  })}
-                </div>
+                  }),
+                )}
               </div>
             </div>
           </div>

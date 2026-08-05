@@ -10,6 +10,7 @@ import type {
 import type Handsontable from 'handsontable/base'
 import {
   FormulaReferenceEditor,
+  shiftFormulaReferences,
   toA1,
 } from '#/components/sheet/formula-reference-editor'
 import { normalizeExponentiation } from '#/lib/formula-ir'
@@ -1565,6 +1566,9 @@ export function ScientificSheetBlock({
   // like autofill.
   const localRowsRef = useRef(localRows)
   localRowsRef.current = localRows
+  // Track the source range of the last copy/cut so beforePaste can
+  // translate relative A1 references by the row/column offset.
+  const copySourceRef = useRef<{ startRow: number; startCol: number } | null>(null)
   // Add Row: creates a provisional row optimistically in the query cache,
   // registers it with the coordinator for persistence, and selects its
   // first editable cell. The coordinator sends the insert RPC and swaps
@@ -1831,6 +1835,8 @@ export function ScientificSheetBlock({
     (data: CellValue[][], coords: RangeType[]) => {
       const start = coords.at(0)
       if (!start || !table) return
+      // Record the source start for paste-time reference translation
+      copySourceRef.current = { startRow: start.startRow, startCol: start.startCol }
       const rows = localRowsRef.current
       for (let rowOffset = 0; rowOffset < data.length; rowOffset++) {
         for (
@@ -1966,15 +1972,27 @@ export function ScientificSheetBlock({
             formulas: formulasConfig,
             beforeCopy: preserveFormulaClipboard,
             beforeCut: preserveFormulaClipboard,
-            beforePaste: (data: CellValue[][]) => {
-              // Keep formula-looking clipboard text as source expressions;
-              // afterChange routes these values through the coordinator.
+            beforePaste: (data: CellValue[][], coords: RangeType[]) => {
+              // Translate relative A1 references in pasted formulas by the
+              // row/column offset between the copy source and paste target.
+              const target = coords.at(0)
+              const source = copySourceRef.current
+              const rowOffset =
+                source && target ? target.startRow - source.startRow : 0
+              const colOffset =
+                source && target ? target.startCol - source.startCol : 0
               for (const row of data)
                 for (let column = 0; column < row.length; column++) {
                   const value = row[column]
                   if (typeof value === 'string' && value.startsWith('='))
-                    row[column] = value
+                    row[column] = shiftFormulaReferences(
+                      value,
+                      rowOffset,
+                      colOffset,
+                    )
                 }
+              // Clear so a subsequent external paste doesn't use a stale offset
+              copySourceRef.current = null
             },
             afterChange: handleAfterChange,
             afterSelectionEnd: handleAfterSelectionEnd,

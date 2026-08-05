@@ -17,6 +17,45 @@ export function columnToLetter(col: number): string {
 }
 
 /**
+ * Convert A1 column letters to a 0-indexed column number.
+ * "A" → 0, "B" → 1, "Z" → 25, "AA" → 26, "LOG" → 9001, etc.
+ */
+export function letterToColumn(letters: string): number {
+  let col = 0
+  for (let i = 0; i < letters.length; i++)
+    col = col * 26 + (letters.charCodeAt(i) - 64)
+  return col - 1
+}
+
+/**
+ * Shift A1 cell references in a formula expression by a row and/or column
+ * offset.  Absolute references (with `$`) are not shifted.  Function names
+ * (letters+digits immediately followed by `(`) are left alone so that e.g.
+ * `LOG10(` is not mistaken for cell `LOG10`.
+ *
+ * Used by the paste hook to translate relative references when a formula
+ * is pasted into a different row/column.
+ */
+export function shiftFormulaReferences(
+  formula: string,
+  rowOffset: number,
+  colOffset: number,
+): string {
+  if (rowOffset === 0 && colOffset === 0) return formula
+  return formula.replace(
+    /(\$?)([A-Z]{1,3})(\$?)(\d+)(?![\d(])/g,
+    (match, colDollar: string, letters: string, rowDollar: string, rowStr: string) => {
+      const col = letterToColumn(letters)
+      const row = parseInt(rowStr, 10) - 1 // convert to 0-indexed
+      const newCol = colDollar ? col : col + colOffset
+      const newRow = rowDollar ? row : row + rowOffset
+      if (newCol < 0 || newRow < 0) return match // refuse negative refs
+      return `${colDollar}${columnToLetter(newCol)}${rowDollar}${newRow + 1}`
+    },
+  )
+}
+
+/**
  * Convert 0-indexed row and column to an A1 cell reference.
  * Row is 1-indexed (row + 1), column is converted to letters.
  * toA1(0, 0) → "A1", toA1(2, 1) → "B3"

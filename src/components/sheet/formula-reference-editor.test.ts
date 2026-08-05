@@ -5,7 +5,9 @@ import {
   ReferencePicker,
   buildReference,
   columnToLetter,
+  letterToColumn,
   normalizeRange,
+  shiftFormulaReferences,
   toA1,
   toA1Range,
 } from './formula-reference-editor'
@@ -29,6 +31,16 @@ describe('A1 notation helpers', () => {
     expect(columnToLetter(27)).toBe('AB')
     expect(columnToLetter(51)).toBe('AZ')
     expect(columnToLetter(52)).toBe('BA')
+  })
+
+  it('converts A1 letters back to zero-indexed columns', () => {
+    expect(letterToColumn('A')).toBe(0)
+    expect(letterToColumn('B')).toBe(1)
+    expect(letterToColumn('Z')).toBe(25)
+    expect(letterToColumn('AA')).toBe(26)
+    expect(letterToColumn('AB')).toBe(27)
+    expect(letterToColumn('AZ')).toBe(51)
+    expect(letterToColumn('BA')).toBe(52)
   })
 
   it('converts row/col to A1 cell references', () => {
@@ -58,6 +70,55 @@ describe('A1 notation helpers', () => {
     // Corners supplied in any order normalise to the same range.
     expect(toA1Range(4, 0, 0, 0)).toBe('A1:A5')
     expect(toA1Range(0, 1, 2, 3)).toBe('B1:D3')
+  })
+})
+
+describe('shiftFormulaReferences', () => {
+  it('returns the formula unchanged when offsets are zero', () => {
+    expect(shiftFormulaReferences('=A1*2', 0, 0)).toBe('=A1*2')
+  })
+
+  it('shifts relative references by row offset', () => {
+    expect(shiftFormulaReferences('=A1*2', 1, 0)).toBe('=A2*2')
+    expect(shiftFormulaReferences('=A1*2', 3, 0)).toBe('=A4*2')
+  })
+
+  it('shifts relative references by column offset', () => {
+    expect(shiftFormulaReferences('=A1*2', 0, 1)).toBe('=B1*2')
+    expect(shiftFormulaReferences('=A1*2', 0, 2)).toBe('=C1*2')
+  })
+
+  it('shifts both row and column', () => {
+    expect(shiftFormulaReferences('=A1+B2', 1, 1)).toBe('=B2+C3')
+  })
+
+  it('does not shift absolute references', () => {
+    expect(shiftFormulaReferences('=$A$1*2', 1, 1)).toBe('=$A$1*2')
+    expect(shiftFormulaReferences('=$A1*2', 1, 1)).toBe('=$A2*2')
+    expect(shiftFormulaReferences('=A$1*2', 1, 1)).toBe('=B$1*2')
+  })
+
+  it('shifts ranges', () => {
+    expect(shiftFormulaReferences('=SUM(A1:A5)', 2, 0)).toBe('=SUM(A3:A7)')
+    expect(shiftFormulaReferences('=SUM(A1:B2)', 1, 1)).toBe('=SUM(B2:C3)')
+  })
+
+  it('does not modify function names followed by parens', () => {
+    // LOG10( should not be treated as cell reference LOG10
+    expect(shiftFormulaReferences('=LOG10(A1)', 1, 0)).toBe('=LOG10(A2)')
+    // SUM( should not be treated as a cell reference either
+    expect(shiftFormulaReferences('=SUM(A1:B2)', 1, 0)).toBe('=SUM(A2:B3)')
+    // EXP5( is an unusual but possible function name pattern
+    expect(shiftFormulaReferences('=EXP5(A1)', 1, 0)).toBe('=EXP5(A2)')
+  })
+
+  it('handles multiple references in one formula', () => {
+    expect(shiftFormulaReferences('=A1+B1*C1', 1, 0)).toBe('=A2+B2*C2')
+  })
+
+  it('refuses to shift to negative references', () => {
+    expect(shiftFormulaReferences('=A1*2', -1, 0)).toBe('=A1*2')
+    expect(shiftFormulaReferences('=A1*2', 0, -1)).toBe('=A1*2')
   })
 })
 

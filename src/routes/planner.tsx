@@ -35,6 +35,7 @@ import {
   AlertDescription,
   AlertTitle,
   Button,
+  ButtonGroup,
   Empty,
   EmptyActions,
   EmptyDescription,
@@ -42,8 +43,9 @@ import {
   EmptyTitle,
   PageHeader,
   Skeleton,
-  ToggleGroup,
-  ToggleGroupItem,
+  Tabs,
+  TabsList,
+  TabsTrigger,
 } from '#/components/ui'
 import { createDataClient } from '#/lib/data-client'
 import {
@@ -320,7 +322,7 @@ function PlannerRoute() {
     <>
       <div className="flex flex-1 min-h-0 flex-col">
         {/* Header */}
-        <div className="border-b border-border/60 px-4 pt-4">
+        <div className="px-4 pt-4">
           <PageHeader
             eyebrow={context.workspace?.name ?? undefined}
             title="Study Planner"
@@ -330,10 +332,26 @@ function PlannerRoute() {
               <Plus className="size-4" /> Add task
             </Button>
           </PageHeader>
-          <div className="space-y-2.5 pb-2.5">
-            {/* View controls */}
+          <div className="space-y-2.5 border-b border-border/60 pb-2.5">
+            {/* Tabs + date navigation on the same row */}
             <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1">
+              <Tabs
+                value={view}
+                onValueChange={(v) => setView(v as PlannerView)}
+              >
+                <TabsList className="bg-transparent p-0 h-auto">
+                  {viewTabs.map((v) => (
+                    <TabsTrigger
+                      key={v.key}
+                      value={v.key}
+                      className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:shadow-none px-3 py-2 text-sm"
+                    >
+                      {v.label}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+              <ButtonGroup className="ml-auto">
                 <Button
                   variant="outline"
                   size="sm"
@@ -357,22 +375,7 @@ function PlannerRoute() {
                 >
                   <ChevronRight className="size-4" />
                 </Button>
-              </div>
-              <ToggleGroup
-                type="single"
-                value={view}
-                onValueChange={(v) => v && setView(v as PlannerView)}
-                variant="outline"
-                size="sm"
-                className="ml-auto"
-                aria-label="Planner view"
-              >
-                {viewTabs.map((v) => (
-                  <ToggleGroupItem key={v.key} value={v.key}>
-                    {v.label}
-                  </ToggleGroupItem>
-                ))}
-              </ToggleGroup>
+              </ButtonGroup>
             </div>
             <PlannerFilters
               value={filters}
@@ -417,7 +420,7 @@ function PlannerRoute() {
             </AlertDescription>
           </Alert>
         ) : filteredTasks.length === 0 ? (
-          <Empty className="m-6">
+          <Empty className="flex-1">
             <EmptyIcon>
               <ClipboardList className="size-5" />
             </EmptyIcon>

@@ -102,12 +102,12 @@ describe('PlannerRoute', () => {
   it('renders the Timeline, Calendar, List, Workload and Resource view tabs', () => {
     render(<ShellProvider><PlannerRoute /></ShellProvider>)
 
-    // ToggleGroup with type="single" renders items as radio buttons.
-    expect(screen.getByRole('radio', { name: 'Timeline' })).toBeTruthy()
-    expect(screen.getByRole('radio', { name: 'Calendar' })).toBeTruthy()
-    expect(screen.getByRole('radio', { name: 'List' })).toBeTruthy()
-    expect(screen.getByRole('radio', { name: 'Workload' })).toBeTruthy()
-    expect(screen.getByRole('radio', { name: 'Resource view' })).toBeTruthy()
+    // View switcher uses Tabs (role="tab") with underline active indicator.
+    expect(screen.getByRole('tab', { name: 'Timeline' })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: 'Calendar' })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: 'List' })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: 'Workload' })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: 'Resource view' })).toBeTruthy()
   })
 
   it('renders the Today navigation button', () => {
@@ -136,9 +136,9 @@ describe('PlannerRoute', () => {
     const user = userEvent.setup()
     render(<ShellProvider><PlannerRoute /></ShellProvider>)
 
-    const listTab = screen.getByRole('radio', { name: 'List' })
+    const listTab = screen.getByRole('tab', { name: 'List' })
     await user.click(listTab)
-    expect(listTab.getAttribute('data-state')).toBe('on')
+    expect(listTab.getAttribute('aria-selected')).toBe('true')
     // With no tasks, the route-level empty state shows.
     expect(screen.getByText('No tasks yet')).toBeTruthy()
   })
@@ -147,9 +147,9 @@ describe('PlannerRoute', () => {
     const user = userEvent.setup()
     render(<ShellProvider><PlannerRoute /></ShellProvider>)
 
-    const workloadTab = screen.getByRole('radio', { name: 'Workload' })
+    const workloadTab = screen.getByRole('tab', { name: 'Workload' })
     await user.click(workloadTab)
-    expect(workloadTab.getAttribute('data-state')).toBe('on')
+    expect(workloadTab.getAttribute('aria-selected')).toBe('true')
     expect(screen.getByText('No tasks yet')).toBeTruthy()
   })
 
@@ -157,9 +157,9 @@ describe('PlannerRoute', () => {
     const user = userEvent.setup()
     render(<ShellProvider><PlannerRoute /></ShellProvider>)
 
-    const resourceTab = screen.getByRole('radio', { name: 'Resource view' })
+    const resourceTab = screen.getByRole('tab', { name: 'Resource view' })
     await user.click(resourceTab)
-    expect(resourceTab.getAttribute('data-state')).toBe('on')
+    expect(resourceTab.getAttribute('aria-selected')).toBe('true')
     expect(screen.getByText('No tasks yet')).toBeTruthy()
   })
 })

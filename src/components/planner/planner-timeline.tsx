@@ -327,7 +327,7 @@ export function PlannerTimeline({
         )}
 
         {/* Dependency legend */}
-        <div className="flex items-center gap-4 border-t border-border px-3 py-2 text-xs text-muted-foreground">
+        <div className="flex items-center gap-4 border-t border-border/60 px-3 py-2 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
             <span className="inline-block h-2 w-6 rounded bg-info/20" /> In
             progress

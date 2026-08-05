@@ -1,3 +1,15 @@
+/**
+ * OPS-006 — Amplification curves rendered through the shared ChartRenderer
+ * (Recharts-based) instead of hand-rolled SVG. Maps qPCR telemetry
+ * observations (RFU by cycle, one trace per well) into a MaterialisedChart
+ * the renderer consumes.
+ */
+import { ChartRenderer } from '#/components/viz/chart-renderer'
+import { CHART_PALETTE } from '#/lib/chart-spec'
+import type {
+  MaterialisedChart,
+  MaterialisedSeries,
+} from '#/lib/chart-spec'
 import type { InstrumentObservation } from '#/lib/instrument-monitor'
 
 export interface TelemetryChartProps {
@@ -8,17 +20,6 @@ interface Point {
   cycle: number
   fluorescence: number
 }
-
-const PALETTE = [
-  '#2563eb',
-  '#16a34a',
-  '#dc2626',
-  '#9333ea',
-  '#ea580c',
-  '#0891b2',
-  '#db2777',
-  '#65a30d',
-]
 
 function tracesFrom(
   observations: InstrumentObservation[],
@@ -64,118 +65,43 @@ function tracesFrom(
   return traces
 }
 
+function buildMaterialised(traces: Map<string, Point[]>): MaterialisedChart {
+  const series: MaterialisedSeries[] = [...traces.entries()].map(
+    ([well, points], index) => ({
+      identifier: well,
+      label: well,
+      color: CHART_PALETTE[index % CHART_PALETTE.length],
+      points: points.map((point) => ({
+        x: point.cycle,
+        y: point.fluorescence,
+        yError: null,
+        label: well,
+      })),
+    }),
+  )
+  return {
+    state: { kind: 'ok' },
+    columns: [],
+    rows: [],
+    series,
+    xLabel: 'Cycle',
+    yLabel: 'RFU',
+    xUnit: undefined,
+    yUnit: undefined,
+  }
+}
+
 export function TelemetryChart({ observations }: TelemetryChartProps) {
   const traces = tracesFrom(observations)
-  if (traces.size === 0)
-    return (
-      <p className="py-16 text-center text-sm text-muted-foreground">
-        No telemetry data yet.
-      </p>
-    )
-
-  const allPoints = [...traces.values()].flat()
-  const minCycle = Math.min(...allPoints.map((point) => point.cycle))
-  const maxCycle = Math.max(...allPoints.map((point) => point.cycle))
-  const maxRfu = Math.max(1, ...allPoints.map((point) => point.fluorescence))
-  const x = (cycle: number) =>
-    45 + ((cycle - minCycle) / Math.max(1, maxCycle - minCycle)) * 325
-  const y = (rfu: number) => 205 - (rfu / maxRfu) * 170
+  const materialised = buildMaterialised(traces)
 
   return (
-    <div className="overflow-x-auto">
-      <svg
-        viewBox="0 0 400 250"
-        role="img"
-        aria-label="Amplification curves showing fluorescence by cycle"
-        className="min-w-[400px] w-full"
-      >
-        <line
-          x1="45"
-          y1="205"
-          x2="370"
-          y2="205"
-          stroke="currentColor"
-          className="text-border"
-        />
-        <line
-          x1="45"
-          y1="35"
-          x2="45"
-          y2="205"
-          stroke="currentColor"
-          className="text-border"
-        />
-        <text
-          x="207"
-          y="238"
-          textAnchor="middle"
-          fontSize="11"
-          fill="currentColor"
-        >
-          Cycle
-        </text>
-        <text
-          x="14"
-          y="120"
-          textAnchor="middle"
-          fontSize="11"
-          fill="currentColor"
-          transform="rotate(-90 14 120)"
-        >
-          RFU
-        </text>
-        <text
-          x="42"
-          y="220"
-          textAnchor="middle"
-          fontSize="9"
-          fill="currentColor"
-        >
-          {minCycle}
-        </text>
-        <text
-          x="370"
-          y="220"
-          textAnchor="middle"
-          fontSize="9"
-          fill="currentColor"
-        >
-          {maxCycle}
-        </text>
-        {[...traces].map(([well, points], index) => (
-          <polyline
-            key={well}
-            points={points
-              .map((point) => `${x(point.cycle)},${y(point.fluorescence)}`)
-              .join(' ')}
-            fill="none"
-            stroke={PALETTE[index % PALETTE.length]}
-            strokeWidth="2"
-          />
-        ))}
-        {[...traces.keys()].map((well, index) => {
-          const column = Math.floor(index / 8)
-          const row = index % 8
-          return (
-            <g
-              key={well}
-              transform={`translate(${285 + column * 48} ${42 + row * 14})`}
-            >
-              <line
-                x1="0"
-                y1="0"
-                x2="10"
-                y2="0"
-                stroke={PALETTE[index % PALETTE.length]}
-                strokeWidth="2"
-              />
-              <text x="14" y="3" fontSize="8" fill="currentColor">
-                {well}
-              </text>
-            </g>
-          )
-        })}
-      </svg>
-    </div>
+    <ChartRenderer
+      title="Amplification curves"
+      subtitle="Fluorescence (RFU) by cycle, one trace per well"
+      spec={null}
+      materialised={materialised}
+      frozen={null}
+    />
   )
 }

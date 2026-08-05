@@ -113,13 +113,8 @@ export function RunDetail({
           </h3>
           <StageProgress stages={stages} />
         </section>
-        <section className="space-y-3">
-          <h3 className="text-sm font-semibold">Amplification curves</h3>
-          <Card>
-            <CardContent className="p-4">
-              <TelemetryChart observations={observations} />
-            </CardContent>
-          </Card>
+        <section>
+          <TelemetryChart observations={observations} />
         </section>
         <section className="space-y-3">
           <h3 className="text-sm font-semibold">Plate state</h3>

@@ -64,7 +64,7 @@ const GROUP_BY_OPTIONS = [
 
 /** Shared chip className for all filter selects — subtle, no harsh border. */
 const chipClassName =
-  'h-7 min-w-[120px] w-auto rounded-md border-transparent bg-muted/50 px-2 pr-7 text-xs hover:bg-muted focus:border-input focus:bg-background'
+  'h-7 min-w-[120px] w-auto rounded-md border-0 bg-muted/50 px-2 pr-7 text-xs hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none'
 
 export function PlannerFilters({
   value,

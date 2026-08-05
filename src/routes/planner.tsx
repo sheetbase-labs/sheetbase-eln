@@ -35,7 +35,6 @@ import {
   AlertDescription,
   AlertTitle,
   Button,
-  ButtonGroup,
   Empty,
   EmptyActions,
   EmptyDescription,
@@ -327,6 +326,7 @@ function PlannerRoute() {
             eyebrow={context.workspace?.name ?? undefined}
             title="Study Planner"
             description="Tasks, milestones, and dependencies across the workspace."
+            className="border-0 pb-4"
           >
             <Button onClick={openCreate} size="sm">
               <Plus className="size-4" /> Add task
@@ -351,31 +351,34 @@ function PlannerRoute() {
                   ))}
                 </TabsList>
               </Tabs>
-              <ButtonGroup className="ml-auto">
+              <div className="ml-auto flex items-center gap-0.5 rounded-md bg-muted/50 p-0.5">
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
+                  className="h-7 w-7 p-0"
                   onClick={() => stepView(-1)}
                   aria-label="Previous"
                 >
                   <ChevronLeft className="size-4" />
                 </Button>
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
+                  className="h-7 px-2 text-xs"
                   onClick={() => setCursor(new Date())}
                 >
                   Today
                 </Button>
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
+                  className="h-7 w-7 p-0"
                   onClick={() => stepView(1)}
                   aria-label="Next"
                 >
                   <ChevronRight className="size-4" />
                 </Button>
-              </ButtonGroup>
+              </div>
             </div>
             <PlannerFilters
               value={filters}
@@ -420,7 +423,7 @@ function PlannerRoute() {
             </AlertDescription>
           </Alert>
         ) : filteredTasks.length === 0 ? (
-          <Empty className="flex-1">
+          <Empty className="flex-1 border-0 rounded-none">
             <EmptyIcon>
               <ClipboardList className="size-5" />
             </EmptyIcon>

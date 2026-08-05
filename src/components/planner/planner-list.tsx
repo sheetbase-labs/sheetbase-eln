@@ -8,14 +8,15 @@
 import { useMemo } from 'react'
 
 import { cn } from '#/lib/utils'
+import { Badge } from '#/components/ui'
 import type {
   StudyTask,
   StudyTaskDependency,
   StudyWorkstream,
 } from '#/lib/planner'
 import {
-  TASK_STATUS_TOKENS,
   TASK_STATUS_LABELS,
+  TASK_STATUS_BADGE_VARIANT,
   PRIORITY_LABELS,
   PRIORITY_TOKENS,
   formatDateInZone,
@@ -102,14 +103,12 @@ export function PlannerList({
                       : '—'}
                   </td>
                   <td className="px-3 py-2">
-                    <span
-                      className={cn(
-                        'inline-flex items-center rounded border px-1.5 py-0.5 text-xs font-medium',
-                        TASK_STATUS_TOKENS[task.status],
-                      )}
+                    <Badge
+                      variant={TASK_STATUS_BADGE_VARIANT[task.status]}
+                      className="px-1.5 py-0.5 text-xs"
                     >
                       {TASK_STATUS_LABELS[task.status]}
-                    </span>
+                    </Badge>
                   </td>
                   <td
                     className={cn(

@@ -687,6 +687,22 @@ export const TASK_STATUS_TOKENS: Record<StudyTaskStatus, string> = {
   cancelled: 'bg-muted text-muted-foreground border-border line-through',
 }
 
+/**
+ * Maps task statuses to `Badge` variants so status pills use the shared
+ * semantic tokens (UI-005) instead of one-off className combinations.
+ */
+export const TASK_STATUS_BADGE_VARIANT: Record<
+  StudyTaskStatus,
+  'outline' | 'info' | 'success' | 'warning' | 'danger'
+> = {
+  not_started: 'outline',
+  in_progress: 'info',
+  review: 'warning',
+  completed: 'success',
+  blocked: 'danger',
+  cancelled: 'outline',
+}
+
 export const TASK_STATUS_LABELS: Record<StudyTaskStatus, string> = {
   not_started: 'Todo',
   in_progress: 'In progress',

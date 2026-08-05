@@ -10,7 +10,13 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { CalendarDays, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import {
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  Plus,
+} from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
 import {
@@ -24,7 +30,21 @@ import {
   TaskDialog,
 } from '#/components/planner'
 import type { PlannerFilterValue } from '#/components/planner'
-import { Button } from '#/components/ui'
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+  Button,
+  Empty,
+  EmptyActions,
+  EmptyDescription,
+  EmptyIcon,
+  EmptyTitle,
+  PageHeader,
+  Skeleton,
+  ToggleGroup,
+  ToggleGroupItem,
+} from '#/components/ui'
 import { createDataClient } from '#/lib/data-client'
 import {
   addDays,
@@ -282,11 +302,6 @@ function PlannerRoute() {
     context: shellContext,
     breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Study Planner' }],
     fullBleed: true,
-    primaryAction: (
-      <Button onClick={openCreate} size="sm">
-        <Plus className="size-4" /> Add task
-      </Button>
-    ),
     inspectorLabel: 'Task',
     inspector: (
       <PlannerInspector
@@ -303,72 +318,121 @@ function PlannerRoute() {
 
   return (
     <>
-      <div className="flex h-[calc(100svh-3.5rem)] min-h-0 flex-col">
+      <div className="flex flex-1 min-h-0 flex-col">
         {/* Header */}
-        <div className="space-y-2 border-b border-border/60 px-4 py-2.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => stepView(-1)}
-                aria-label="Previous"
-              >
-                <ChevronLeft className="size-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCursor(new Date())}
-              >
-                Today
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => stepView(1)}
-                aria-label="Next"
-              >
-                <ChevronRight className="size-4" />
-              </Button>
-            </div>
-            <h1 className="flex items-center gap-1.5 text-sm font-semibold">
-              <CalendarDays className="size-4 text-muted-foreground" />
-              Study Planner
-            </h1>
-            <div className="ml-auto flex items-center gap-1 rounded-md border border-border p-0.5">
-              {viewTabs.map((v) => (
-                <button
-                  key={v.key}
-                  type="button"
-                  onClick={() => setView(v.key)}
-                  className={
-                    view === v.key
-                      ? 'rounded bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground'
-                      : 'rounded px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-muted'
-                  }
+        <div className="border-b border-border/60 px-4 pt-4">
+          <PageHeader
+            eyebrow={context.workspace?.name ?? undefined}
+            title="Study Planner"
+            description="Tasks, milestones, and dependencies across the workspace."
+          >
+            <Button onClick={openCreate} size="sm">
+              <Plus className="size-4" /> Add task
+            </Button>
+          </PageHeader>
+          <div className="space-y-2.5 pb-2.5">
+            {/* View controls */}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => stepView(-1)}
+                  aria-label="Previous"
                 >
-                  {v.label}
-                </button>
-              ))}
+                  <ChevronLeft className="size-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCursor(new Date())}
+                >
+                  Today
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => stepView(1)}
+                  aria-label="Next"
+                >
+                  <ChevronRight className="size-4" />
+                </Button>
+              </div>
+              <ToggleGroup
+                type="single"
+                value={view}
+                onValueChange={(v) => v && setView(v as PlannerView)}
+                variant="outline"
+                size="sm"
+                className="ml-auto"
+                aria-label="Planner view"
+              >
+                {viewTabs.map((v) => (
+                  <ToggleGroupItem key={v.key} value={v.key}>
+                    {v.label}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
             </div>
+            <PlannerFilters
+              value={filters}
+              onChange={setFilters}
+              workstreams={workstreamsQuery.data ?? []}
+              resources={resourcesQuery.data ?? []}
+              assignees={assigneeOptions}
+            />
+            {actionError ? (
+              <p role="alert" className="text-sm text-destructive">
+                {actionError}
+              </p>
+            ) : null}
           </div>
-          <PlannerFilters
-            value={filters}
-            onChange={setFilters}
-            workstreams={workstreamsQuery.data ?? []}
-            resources={resourcesQuery.data ?? []}
-            assignees={assigneeOptions}
-          />
-          {actionError ? (
-            <p role="alert" className="text-sm text-destructive">
-              {actionError}
-            </p>
-          ) : null}
         </div>
 
         {/* Body */}
-        {view === 'timeline' ? (
+        {tasksQuery.isLoading || workstreamsQuery.isLoading ? (
+          <div className="flex-1 space-y-4 p-4">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+        ) : tasksQuery.error || workstreamsQuery.error ? (
+          <Alert variant="destructive" className="m-6 max-w-md">
+            <AlertCircle className="size-4" />
+            <AlertTitle>Couldn't load planner</AlertTitle>
+            <AlertDescription className="flex flex-col gap-3">
+              <span>{describePlannerError(tasksQuery.error ?? workstreamsQuery.error)}</span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-fit"
+                onClick={() => {
+                  if (tasksQuery.error) void tasksQuery.refetch()
+                  if (workstreamsQuery.error) void workstreamsQuery.refetch()
+                }}
+              >
+                Retry
+              </Button>
+            </AlertDescription>
+          </Alert>
+        ) : filteredTasks.length === 0 ? (
+          <Empty className="m-6">
+            <EmptyIcon>
+              <ClipboardList className="size-5" />
+            </EmptyIcon>
+            <EmptyTitle>No tasks yet</EmptyTitle>
+            <EmptyDescription>
+              Create your first study task to start planning milestones,
+              dependencies, and resource assignments.
+            </EmptyDescription>
+            <EmptyActions>
+              <Button onClick={openCreate} size="sm">
+                <Plus className="size-4" /> Add task
+              </Button>
+            </EmptyActions>
+          </Empty>
+        ) : view === 'timeline' ? (
           <PlannerTimeline
             tasks={filteredTasks}
             workstreams={workstreamsQuery.data ?? []}

@@ -7,7 +7,7 @@
  */
 import { LayoutGrid, RotateCcw } from 'lucide-react'
 
-import { Button } from '#/components/ui'
+import { Button, Select } from '#/components/ui'
 import type { StudyTaskStatus, StudyTaskPriority } from '#/lib/planner'
 import { TASK_STATUS_LABELS } from '#/lib/planner'
 
@@ -73,9 +73,9 @@ export function PlannerFilters({
         <LayoutGrid className="size-3.5" />
         <span>Group by Workstream</span>
       </div>
-      <select
+      <Select
         aria-label="Status"
-        className="h-7 rounded-md border border-border bg-background px-2 text-xs"
+        className="h-7 w-auto text-xs"
         value={value.status}
         onChange={(e) =>
           onChange({
@@ -89,10 +89,10 @@ export function PlannerFilters({
             {o.label}
           </option>
         ))}
-      </select>
-      <select
+      </Select>
+      <Select
         aria-label="Priority"
-        className="h-7 rounded-md border border-border bg-background px-2 text-xs"
+        className="h-7 w-auto text-xs"
         value={value.priority}
         onChange={(e) =>
           onChange({
@@ -106,10 +106,10 @@ export function PlannerFilters({
             {o.label}
           </option>
         ))}
-      </select>
-      <select
+      </Select>
+      <Select
         aria-label="Assignee"
-        className="h-7 rounded-md border border-border bg-background px-2 text-xs"
+        className="h-7 w-auto text-xs"
         value={value.assignee}
         onChange={(e) => onChange({ ...value, assignee: e.target.value })}
       >
@@ -119,10 +119,10 @@ export function PlannerFilters({
             {a.name}
           </option>
         ))}
-      </select>
-      <select
+      </Select>
+      <Select
         aria-label="Instrument"
-        className="h-7 rounded-md border border-border bg-background px-2 text-xs"
+        className="h-7 w-auto text-xs"
         value={value.calendarResourceId}
         onChange={(e) =>
           onChange({ ...value, calendarResourceId: e.target.value })
@@ -134,10 +134,10 @@ export function PlannerFilters({
             {r.name}
           </option>
         ))}
-      </select>
-      <select
+      </Select>
+      <Select
         aria-label="Workstream"
-        className="h-7 rounded-md border border-border bg-background px-2 text-xs"
+        className="h-7 w-auto text-xs"
         value={value.workstreamId}
         onChange={(e) => onChange({ ...value, workstreamId: e.target.value })}
       >
@@ -147,7 +147,7 @@ export function PlannerFilters({
             {w.name}
           </option>
         ))}
-      </select>
+      </Select>
       {hasFilters ? (
         <Button
           variant="ghost"

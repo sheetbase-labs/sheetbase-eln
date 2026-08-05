@@ -46,7 +46,7 @@ vi.mock('@tanstack/react-start', () => ({
 const emptyData: never[] = []
 
 vi.mock('@tanstack/react-query', () => ({
-  useQuery: () => ({ data: emptyData, isLoading: false }),
+  useQuery: () => ({ data: emptyData, isLoading: false, error: null, refetch: vi.fn() }),
   useMutation: () => ({
     mutate: vi.fn(),
     mutateAsync: vi.fn(),
@@ -93,18 +93,21 @@ describe('PlannerRoute', () => {
   it('renders the Study Planner title and Add task action', () => {
     render(<ShellProvider><PlannerRoute /></ShellProvider>)
 
-    expect(screen.getByRole('button', { name: 'Add task' })).toBeTruthy()
+    // "Add task" appears in the PageHeader and the empty-state actions.
+    const addTaskButtons = screen.getAllByRole('button', { name: 'Add task' })
+    expect(addTaskButtons.length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('Study Planner')).toBeTruthy()
   })
 
   it('renders the Timeline, Calendar, List, Workload and Resource view tabs', () => {
     render(<ShellProvider><PlannerRoute /></ShellProvider>)
 
-    expect(screen.getByRole('button', { name: 'Timeline' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Calendar' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'List' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Workload' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Resource view' })).toBeTruthy()
+    // ToggleGroup with type="single" renders items as radio buttons.
+    expect(screen.getByRole('radio', { name: 'Timeline' })).toBeTruthy()
+    expect(screen.getByRole('radio', { name: 'Calendar' })).toBeTruthy()
+    expect(screen.getByRole('radio', { name: 'List' })).toBeTruthy()
+    expect(screen.getByRole('radio', { name: 'Workload' })).toBeTruthy()
+    expect(screen.getByRole('radio', { name: 'Resource view' })).toBeTruthy()
   })
 
   it('renders the Today navigation button', () => {
@@ -133,31 +136,30 @@ describe('PlannerRoute', () => {
     const user = userEvent.setup()
     render(<ShellProvider><PlannerRoute /></ShellProvider>)
 
-    await user.click(screen.getByRole('button', { name: 'List' }))
-    expect(
-      screen.getByText('No tasks yet. Use Add task to create one.'),
-    ).toBeTruthy()
+    const listTab = screen.getByRole('radio', { name: 'List' })
+    await user.click(listTab)
+    expect(listTab.getAttribute('data-state')).toBe('on')
+    // With no tasks, the route-level empty state shows.
+    expect(screen.getByText('No tasks yet')).toBeTruthy()
   })
 
   it('switches to the workload view when Workload tab is clicked', async () => {
     const user = userEvent.setup()
     render(<ShellProvider><PlannerRoute /></ShellProvider>)
 
-    await user.click(screen.getByRole('button', { name: 'Workload' }))
-    expect(
-      screen.getByText('No assigned tasks in the visible range.'),
-    ).toBeTruthy()
+    const workloadTab = screen.getByRole('radio', { name: 'Workload' })
+    await user.click(workloadTab)
+    expect(workloadTab.getAttribute('data-state')).toBe('on')
+    expect(screen.getByText('No tasks yet')).toBeTruthy()
   })
 
   it('switches to the resource view when Resource view tab is clicked', async () => {
     const user = userEvent.setup()
     render(<ShellProvider><PlannerRoute /></ShellProvider>)
 
-    await user.click(screen.getByRole('button', { name: 'Resource view' }))
-    expect(
-      screen.getByText(
-        'No calendar resources configured. Create resources in Lab Calendar first.',
-      ),
-    ).toBeTruthy()
+    const resourceTab = screen.getByRole('radio', { name: 'Resource view' })
+    await user.click(resourceTab)
+    expect(resourceTab.getAttribute('data-state')).toBe('on')
+    expect(screen.getByText('No tasks yet')).toBeTruthy()
   })
 })

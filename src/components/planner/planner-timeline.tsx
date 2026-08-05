@@ -18,6 +18,7 @@ import type {
 import {
   TASK_STATUS_TOKENS,
   TASK_STATUS_LABELS,
+  TASK_STATUS_BADGE_VARIANT,
   addDays,
   formatShortDateInZone,
   taskDurationDays,
@@ -26,6 +27,7 @@ import {
   weekLabel,
 } from '#/lib/planner'
 import type { CalendarResource } from '#/lib/calendar'
+import { Badge } from '#/components/ui'
 
 export interface PlannerTimelineProps {
   tasks: StudyTask[]
@@ -219,14 +221,12 @@ export function PlannerTimeline({
                         </span>
                       </div>
                       <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                        <span
-                          className={cn(
-                            'inline-flex items-center rounded border px-1.5 py-0.5 text-xs font-medium',
-                            TASK_STATUS_TOKENS[task.status],
-                          )}
+                        <Badge
+                          variant={TASK_STATUS_BADGE_VARIANT[task.status]}
+                          className="px-1.5 py-0.5 text-xs"
                         >
                           {TASK_STATUS_LABELS[task.status]}
-                        </span>
+                        </Badge>
                         <span className="truncate">{assigneeLabel}</span>
                       </div>
                     </div>

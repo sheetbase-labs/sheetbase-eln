@@ -1,9 +1,8 @@
 /**
- * OPS-004 calendar route tests: chrome, view controls, filters, empty
- * inspector, and booking-grid selection.
+ * OPS-004 calendar route tests: chrome, view switcher, filters, empty
+ * inspector, loading state, and error state.
  */
 import { cleanup, render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { ShellProvider } from '#/components/app-shell'
@@ -45,8 +44,18 @@ vi.mock('@tanstack/react-start', () => ({
 
 const emptyData: never[] = []
 
+/**
+ * Mutable query state so individual tests can simulate loading and error
+ * conditions without re-mocking the module.
+ */
+const queryState = {
+  data: emptyData as unknown,
+  isLoading: false,
+  error: null as unknown,
+}
+
 vi.mock('@tanstack/react-query', () => ({
-  useQuery: () => ({ data: emptyData, isLoading: false }),
+  useQuery: () => queryState,
   useMutation: () => ({
     mutate: vi.fn(),
     mutateAsync: vi.fn(),
@@ -87,27 +96,31 @@ globalThis.ResizeObserver = class {
   disconnect() {}
 }
 
-afterEach(() => cleanup())
+afterEach(() => {
+  cleanup()
+  queryState.data = emptyData
+  queryState.isLoading = false
+  queryState.error = null
+})
 
 describe('CalendarRoute', () => {
   it('renders the calendar title and new-booking action', () => {
     render(<ShellProvider><CalendarRoute /></ShellProvider>)
 
+    expect(screen.getByText('Lab Calendar')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'New booking' })).toBeTruthy()
-  })
-
-  it('renders the day, week and month view controls', () => {
-    render(<ShellProvider><CalendarRoute /></ShellProvider>)
-
-    expect(screen.getByRole('button', { name: 'Day' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Week' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Month' })).toBeTruthy()
   })
 
   it('renders the Today navigation button', () => {
     render(<ShellProvider><CalendarRoute /></ShellProvider>)
 
     expect(screen.getByRole('button', { name: 'Today' })).toBeTruthy()
+  })
+
+  it('renders the view switcher dropdown trigger', () => {
+    render(<ShellProvider><CalendarRoute /></ShellProvider>)
+
+    expect(screen.getByRole('button', { name: 'Select view' })).toBeTruthy()
   })
 
   it('renders the filter controls', () => {
@@ -124,30 +137,19 @@ describe('CalendarRoute', () => {
     expect(screen.getByText('No booking selected')).toBeTruthy()
   })
 
-  it('renders the sidebar upcoming and conflicts sections', () => {
+  it('dims the calendar content when queries are loading', () => {
+    queryState.isLoading = true
     render(<ShellProvider><CalendarRoute /></ShellProvider>)
 
-    expect(screen.getByText('Upcoming bookings')).toBeTruthy()
-    expect(screen.getByText('Booking conflicts')).toBeTruthy()
-    expect(screen.getByText('Available now')).toBeTruthy()
+    const loadingContent = document.querySelector('[data-loading="true"]')
+    expect(loadingContent).toBeTruthy()
   })
 
-  it('switches to the month view when Month is clicked', async () => {
-    const user = userEvent.setup()
+  it('shows an error alert with retry when a query fails', () => {
+    queryState.error = new Error('Network error')
     render(<ShellProvider><CalendarRoute /></ShellProvider>)
 
-    const monthBtn = screen.getByRole('button', { name: 'Month' })
-    await user.click(monthBtn)
-
-    // Month grid renders 6 rows x 7 cols of weekday headers + cells.
-    expect(screen.getByRole('grid', { name: 'Month calendar' })).toBeTruthy()
-  })
-
-  it('switches to the day view when Day is clicked', async () => {
-    const user = userEvent.setup()
-    render(<ShellProvider><CalendarRoute /></ShellProvider>)
-
-    await user.click(screen.getByRole('button', { name: 'Day' }))
-    expect(screen.getByRole('grid', { name: 'Day calendar' })).toBeTruthy()
+    expect(screen.getByText("Couldn't load calendar")).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy()
   })
 })

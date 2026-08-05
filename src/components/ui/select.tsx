@@ -13,8 +13,8 @@ import { cn } from '#/lib/utils'
  * so the control matches the white background of `Input`/`Textarea` across
  * browsers. A CSS background SVG chevron is positioned on the right (UI-005).
  */
-const chevronBackground =
-  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\") no-repeat right 0.5rem center / 1rem"
+const chevronSvg =
+  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")"
 
 function Select({
   className,
@@ -30,7 +30,13 @@ function Select({
         'pr-8',
         className,
       )}
-      style={{ backgroundImage: chevronBackground, ...style }}
+      style={{
+        backgroundImage: chevronSvg,
+        backgroundRepeat: 'no-repeat',
+        backgroundPosition: 'right 0.5rem center',
+        backgroundSize: '1rem',
+        ...style,
+      }}
       {...props}
     >
       {children}

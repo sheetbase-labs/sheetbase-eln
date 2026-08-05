@@ -83,6 +83,8 @@ export function PlannerWorkload({
 
   const leftColWidth = 200
   const weekWidth = 140
+  const rowHeight = 28
+  const rowGap = 4
 
   return (
     <div className="flex-1 overflow-auto">
@@ -108,84 +110,99 @@ export function PlannerWorkload({
       </div>
 
       {/* Rows */}
-      {rows.map((row) => (
-        <div
-          key={row.key}
-          className="border-b border-border/30 px-3 py-2"
-          style={{ minHeight: 56 }}
-        >
-          <div className="flex">
-            <div
-              className="shrink-0 text-sm font-medium"
-              style={{ width: leftColWidth - 24 }}
-            >
-              {row.name}
-              <span className="ml-2 text-xs text-muted-foreground">
-                {row.tasks.length}
-              </span>
-            </div>
-            <div
-              className="relative flex-1"
-              style={{ minWidth: weekWidth * weekCount }}
-            >
-              {/* Week grid lines */}
-              <div className="absolute inset-0 flex">
-                {weeks.map((w) => (
-                  <div
-                    key={w.start.toISOString()}
-                    className="border-r border-border/20"
-                    style={{ width: weekWidth }}
-                  />
-                ))}
+      {rows.map((row) => {
+        const rowContentHeight =
+          row.tasks.length * rowHeight + (row.tasks.length - 1) * rowGap
+        return (
+          <div
+            key={row.key}
+            className="border-b border-border/30"
+            style={{ minHeight: 56 }}
+          >
+            <div className="flex">
+              {/* Left column: assignee name */}
+              <div
+                className="shrink-0 px-3 py-2"
+                style={{ width: leftColWidth }}
+              >
+                <span className="truncate text-sm font-medium">
+                  {row.name}
+                </span>
+                <span className="ml-2 text-xs text-muted-foreground">
+                  {row.tasks.length}
+                </span>
               </div>
-              {/* Task bars stacked vertically */}
-              <div className="relative flex flex-col gap-1">
-                {row.tasks.map((task) => {
-                  const start = taskStartDate(task)
-                  const end = taskEndDate(task)
-                  const offset = Math.max(0, dayOffset(start))
-                  const duration = Math.max(
-                    1,
-                    Math.min(
-                      totalDays - offset,
-                      Math.round(
-                        (end.getTime() - start.getTime()) / 86_400_000,
-                      ) + 1,
-                    ),
-                  )
-                  const leftPct = (offset / totalDays) * 100
-                  const widthPct = (duration / totalDays) * 100
-                  const isSelected = task.id === selectedTaskId
-                  return (
-                    <button
-                      key={task.id}
-                      type="button"
-                      onClick={() => onSelectTask(task.id)}
-                      className={cn(
-                        'rounded border px-2 py-0.5 text-left text-xs font-medium transition-all hover:opacity-80',
-                        TASK_STATUS_TOKENS[task.status],
-                        isSelected && 'ring-2 ring-blue-400',
-                      )}
-                      style={{
-                        position: 'absolute',
-                        left: `${leftPct}%`,
-                        width: `${widthPct}%`,
-                        top: 0,
-                      }}
-                      title={`${task.title}: ${formatDateInZone(start, timeZone)} – ${formatDateInZone(end, timeZone)}`}
-                    >
-                      <span className="truncate">{task.title}</span>
-                      <span className="ml-1.5 opacity-60">
-                        {TASK_STATUS_LABELS[task.status]}
-                      </span>
-                    </button>
-                  )
-                })}
+              {/* Right: timeline grid + task bars */}
+              <div
+                className="relative flex-1 py-2"
+                style={{
+                  minWidth: weekWidth * weekCount,
+                  minHeight: rowContentHeight + 16,
+                }}
+              >
+                {/* Week grid lines — extend full height */}
+                <div className="absolute inset-0 flex">
+                  {weeks.map((w) => (
+                    <div
+                      key={w.start.toISOString()}
+                      className="border-r border-border/20"
+                      style={{ width: weekWidth }}
+                    />
+                  ))}
+                </div>
+                {/* Task bars stacked vertically */}
+                <div
+                  className="relative flex flex-col"
+                  style={{ gap: rowGap }}
+                >
+                  {row.tasks.map((task) => {
+                    const start = taskStartDate(task)
+                    const end = taskEndDate(task)
+                    const offset = Math.max(0, dayOffset(start))
+                    const duration = Math.max(
+                      1,
+                      Math.min(
+                        totalDays - offset,
+                        Math.round(
+                          (end.getTime() - start.getTime()) / 86_400_000,
+                        ) + 1,
+                      ),
+                    )
+                    const leftPct = (offset / totalDays) * 100
+                    const widthPct = (duration / totalDays) * 100
+                    const isSelected = task.id === selectedTaskId
+                    return (
+                      <button
+                        key={task.id}
+                        type="button"
+                        onClick={() => onSelectTask(task.id)}
+                        className={cn(
+                          'flex items-center truncate rounded border px-2 text-left text-xs font-medium transition-all hover:opacity-80',
+                          TASK_STATUS_TOKENS[task.status],
+                          isSelected && 'ring-2 ring-blue-400',
+                        )}
+                        style={{
+                          position: 'absolute',
+                          left: `${leftPct}%`,
+                          width: `${widthPct}%`,
+                          top: 0,
+                          height: rowHeight,
+                        }}
+                        title={`${task.title}: ${formatDateInZone(start, timeZone)} – ${formatDateInZone(end, timeZone)}`}
+                      >
+                        <span className="truncate">{task.title}</span>
+                        <span className="ml-1.5 shrink-0 opacity-60">
+                          {TASK_STATUS_LABELS[task.status]}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

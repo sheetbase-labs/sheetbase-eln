@@ -1,14 +1,14 @@
 /**
  * OPS-005 — Study Planner list view.
  *
- * A TanStack-Table-style read-oriented table over the same task model.
+ * Table view over the same task model using the shared Table primitives.
  * Columns: Title, Workstream, Status, Priority, Assignee, Start, Due,
  * Progress, Dependencies.
  */
 import { useMemo } from 'react'
 
 import { cn } from '#/lib/utils'
-import { Badge } from '#/components/ui'
+import { Badge, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui'
 import type {
   StudyTask,
   StudyTaskDependency,
@@ -62,21 +62,21 @@ export function PlannerList({
 
   return (
     <div className="flex-1 overflow-auto">
-      <table className="w-full text-sm">
-        <thead className="sticky top-0 border-b border-border bg-background">
-          <tr className="text-left text-xs text-muted-foreground">
-            <th className="px-3 py-2 font-medium">Title</th>
-            <th className="px-3 py-2 font-medium">Workstream</th>
-            <th className="px-3 py-2 font-medium">Status</th>
-            <th className="px-3 py-2 font-medium">Priority</th>
-            <th className="px-3 py-2 font-medium">Assignee</th>
-            <th className="px-3 py-2 font-medium">Start</th>
-            <th className="px-3 py-2 font-medium">Due</th>
-            <th className="px-3 py-2 font-medium">Progress</th>
-            <th className="px-3 py-2 font-medium">Deps</th>
-          </tr>
-        </thead>
-        <tbody>
+      <Table>
+        <TableHeader>
+          <TableRow className="text-left text-xs text-muted-foreground">
+            <TableHead className="font-medium">Title</TableHead>
+            <TableHead className="font-medium">Workstream</TableHead>
+            <TableHead className="font-medium">Status</TableHead>
+            <TableHead className="font-medium">Priority</TableHead>
+            <TableHead className="font-medium">Assignee</TableHead>
+            <TableHead className="font-medium">Start</TableHead>
+            <TableHead className="font-medium">Due</TableHead>
+            <TableHead className="font-medium">Progress</TableHead>
+            <TableHead className="font-medium">Deps</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {tasks
             .filter((t) => t.status !== 'cancelled')
             .map((task) => {
@@ -88,52 +88,54 @@ export function PlannerList({
                   .join(', ') || '—'
               const depCount = successorDeps.get(task.id) ?? 0
               return (
-                <tr
+                <TableRow
                   key={task.id}
                   onClick={() => onSelectTask(task.id)}
                   className={cn(
-                    'cursor-pointer border-b border-border/30 transition-colors hover:bg-muted/30',
+                    'cursor-pointer transition-colors hover:bg-muted/30',
                     isSelected && 'bg-primary/5',
                   )}
                 >
-                  <td className="px-3 py-2 font-medium">{task.title}</td>
-                  <td className="px-3 py-2 text-muted-foreground">
+                  <TableCell className="py-2 font-medium">
+                    {task.title}
+                  </TableCell>
+                  <TableCell className="py-2 text-muted-foreground">
                     {task.workstreamId
                       ? (workstreamMap.get(task.workstreamId) ?? '—')
                       : '—'}
-                  </td>
-                  <td className="px-3 py-2">
+                  </TableCell>
+                  <TableCell className="py-2">
                     <Badge
                       variant={TASK_STATUS_BADGE_VARIANT[task.status]}
                       className="px-1.5 py-0.5 text-xs"
                     >
                       {TASK_STATUS_LABELS[task.status]}
                     </Badge>
-                  </td>
-                  <td
+                  </TableCell>
+                  <TableCell
                     className={cn(
-                      'px-3 py-2 text-xs font-medium',
+                      'py-2 text-xs font-medium',
                       PRIORITY_TOKENS[task.priority],
                     )}
                   >
                     {PRIORITY_LABELS[task.priority]}
-                  </td>
-                  <td className="px-3 py-2 text-muted-foreground">
+                  </TableCell>
+                  <TableCell className="py-2 text-muted-foreground">
                     {assigneeLabel}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-muted-foreground">
+                  </TableCell>
+                  <TableCell className="py-2 text-xs text-muted-foreground">
                     {task.startsAt
                       ? formatDateInZone(new Date(task.startsAt), timeZone)
                       : '—'}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-muted-foreground">
+                  </TableCell>
+                  <TableCell className="py-2 text-xs text-muted-foreground">
                     {task.dueAt
                       ? formatDateInZone(new Date(task.dueAt), timeZone)
                       : task.endsAt
                         ? formatDateInZone(new Date(task.endsAt), timeZone)
                         : '—'}
-                  </td>
-                  <td className="px-3 py-2">
+                  </TableCell>
+                  <TableCell className="py-2">
                     {task.progressPercent > 0 ? (
                       <div className="flex items-center gap-1.5">
                         <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
@@ -149,15 +151,15 @@ export function PlannerList({
                     ) : (
                       <span className="text-xs text-muted-foreground">—</span>
                     )}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-muted-foreground">
+                  </TableCell>
+                  <TableCell className="py-2 text-xs text-muted-foreground">
                     {depCount > 0 ? depCount : '—'}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )
             })}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   )
 }

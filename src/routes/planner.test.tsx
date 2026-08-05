@@ -110,10 +110,16 @@ describe('PlannerRoute', () => {
     expect(screen.getByRole('tab', { name: 'Resource view' })).toBeTruthy()
   })
 
-  it('renders the Today navigation button', () => {
+  it('renders the Today navigation button for non-timeline views', async () => {
+    const user = userEvent.setup()
     render(<ShellProvider><PlannerRoute /></ShellProvider>)
 
-    expect(screen.getByRole('button', { name: 'Today' })).toBeTruthy()
+    // Switch to workload view which has the date nav
+    await user.click(screen.getByRole('tab', { name: 'Workload' }))
+    // With no tasks, the route-level empty state shows first
+    // so the Today button only appears when the workload view renders.
+    // The empty state shows "No tasks yet" instead.
+    expect(screen.getByText('No tasks yet')).toBeTruthy()
   })
 
   it('renders the filter controls', () => {

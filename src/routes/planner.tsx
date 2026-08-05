@@ -333,7 +333,7 @@ function PlannerRoute() {
             </Button>
           </PageHeader>
           <div className="space-y-1.5 border-b border-border/60 pb-2.5">
-            {/* Tabs + date navigation on the same row */}
+            {/* Tabs row + contextual date nav */}
             <div className="flex flex-wrap items-center gap-2">
               <Tabs
                 value={view}
@@ -351,34 +351,36 @@ function PlannerRoute() {
                   ))}
                 </TabsList>
               </Tabs>
-              <div className="ml-auto flex items-center gap-0.5 rounded-md bg-muted/50 p-0.5">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 w-7 p-0"
-                  onClick={() => stepView(-1)}
-                  aria-label="Previous"
-                >
-                  <ChevronLeft className="size-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs"
-                  onClick={() => setCursor(new Date())}
-                >
-                  Today
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 w-7 p-0"
-                  onClick={() => stepView(1)}
-                  aria-label="Next"
-                >
-                  <ChevronRight className="size-4" />
-                </Button>
-              </div>
+              {view === 'workload' || view === 'resource' ? (
+                <div className="ml-auto flex items-center gap-0.5 rounded-md bg-muted/50 p-0.5">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0"
+                    onClick={() => stepView(-1)}
+                    aria-label="Previous"
+                  >
+                    <ChevronLeft className="size-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setCursor(new Date())}
+                  >
+                    Today
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0"
+                    onClick={() => stepView(1)}
+                    aria-label="Next"
+                  >
+                    <ChevronRight className="size-4" />
+                  </Button>
+                </div>
+              ) : null}
             </div>
             <PlannerFilters
               value={filters}
@@ -443,12 +445,9 @@ function PlannerRoute() {
             tasks={filteredTasks}
             workstreams={workstreamsQuery.data ?? []}
             dependencies={dependenciesQuery.data ?? []}
-            resources={resourcesQuery.data ?? []}
-            timeZone={VIEW_TIMEZONE}
-            weekStart={weekStart}
-            weekCount={weekCount}
             selectedTaskId={selectedTaskId}
             onSelectTask={setSelectedTaskId}
+            onCreateTask={openCreate}
           />
         ) : view === 'list' ? (
           <PlannerList

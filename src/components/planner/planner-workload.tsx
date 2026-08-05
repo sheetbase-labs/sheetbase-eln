@@ -81,13 +81,23 @@ export function PlannerWorkload({
       )
       const lanes: StudyTask[][] = []
       for (const task of sorted) {
-        const taskStart = taskStartDate(task).getTime()
+        const taskStartDay = Math.floor(
+          taskStartDate(task).getTime() / 86_400_000,
+        )
         let placed = false
         for (const lane of lanes) {
-          const lastEnd = lane.length > 0
-            ? taskEndDate(lane[lane.length - 1]).getTime()
-            : -Infinity
-          if (taskStart >= lastEnd) {
+          if (lane.length === 0) {
+            lane.push(task)
+            placed = true
+            break
+          }
+          const lastTask = lane[lane.length - 1]
+          const lastEndDay = Math.floor(
+            taskEndDate(lastTask).getTime() / 86_400_000,
+          )
+          // Only place in this lane if the new task starts AFTER the last
+          // task ends (no day-level overlap).
+          if (taskStartDay > lastEndDay) {
             lane.push(task)
             placed = true
             break

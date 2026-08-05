@@ -197,7 +197,7 @@ beforeAll(async () => {
         },
       ]),
       JSON.stringify({ [table.table.id]: table.table.schema_version }),
-      'fnv1a32-0c96cef0',
+      'fnv1a32-dcfa915f',
       'fnv1a32-5678abcd',
     ],
   )

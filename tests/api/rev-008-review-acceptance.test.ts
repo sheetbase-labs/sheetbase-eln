@@ -546,7 +546,7 @@ beforeAll(async () => {
       ]),
       'ROUND([Log titer] * 1.000, 4)',
       'sheetbase-hf-en-us-v1',
-      'scientific-core-v1',
+      'scientific-core-v2',
       'sheetbase-literal-v1',
       '3.3.0',
       'supported',
@@ -558,7 +558,7 @@ beforeAll(async () => {
        formula_id, workspace_id, record_id, formula_version, input_revision,
        schema_versions, status, result_kind, value, error_code, engine_version,
        profile_fingerprint, runtime_fingerprint)
-     VALUES ($1,$2,$3,1,0,$4,'completed','value',$5,NULL,'3.3.0','fnv1a32-0c96cef0','fnv1a32-5678abcd')`,
+     VALUES ($1,$2,$3,1,0,$4,'completed','value',$5,NULL,'3.3.0','fnv1a32-dcfa915f','fnv1a32-5678abcd')`,
     [
       formulaId,
       WS,

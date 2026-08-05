@@ -10,8 +10,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { DataClientError } from '#/lib/data-client'
 import type * as ScientificSheetData from '#/lib/scientific-sheet-data'
-import type { ScientificWorkbook, WorkbookCellAddress } from '#/lib/scientific-workbook'
-import { ScientificSheetBlock, safeWorkbookGet } from './scientific-sheet-block'
+import type {
+  ScientificWorkbook,
+  WorkbookCellAddress,
+} from '#/lib/scientific-workbook'
+import {
+  ScientificSheetBlock,
+  formulaErrorDisplay,
+  safeWorkbookGet,
+} from './scientific-sheet-block'
 import { ScientificWorkbookProvider } from '#/components/notebook/scientific-workbook-provider'
 
 const mocks = vi.hoisted(() => ({
@@ -30,6 +37,7 @@ const mocks = vi.hoisted(() => ({
   convert: vi.fn(),
   retire: vi.fn(),
   settings: null as Record<string, any> | null,
+  onReady: null as ((instance: any) => void) | null,
 }))
 vi.mock('#/lib/scientific-sheet-data', async (load) => ({
   ...(await load<typeof ScientificSheetData>()),
@@ -50,8 +58,15 @@ vi.mock('#/lib/scientific-sheet-data', async (load) => ({
   preflightScientificRetirement: mocks.retire,
 }))
 vi.mock('./sheetbase-grid', () => ({
-  SheetbaseGrid: ({ settings }: { settings: Record<string, any> }) => {
+  SheetbaseGrid: ({
+    settings,
+    onReady,
+  }: {
+    settings: Record<string, any>
+    onReady?: (instance: any) => void
+  }) => {
     mocks.settings = settings
+    mocks.onReady = onReady ?? null
     return <div data-testid="grid" />
   },
 }))
@@ -133,6 +148,7 @@ async function ready() {
 }
 
 beforeEach(() => {
+  window.localStorage.clear()
   mocks.allRows.mockResolvedValue([])
   mocks.formulas.mockResolvedValue([])
   mocks.dependencies.mockResolvedValue([])
@@ -145,9 +161,17 @@ afterEach(() => {
   cleanup()
   vi.clearAllMocks()
   mocks.settings = null
+  mocks.onReady = null
 })
 
 describe('ScientificSheetBlock', () => {
+  it('renders HyperFormula error types with spreadsheet-standard labels', () => {
+    expect(formulaErrorDisplay('DIV_BY_ZERO')).toBe('#DIV/0!')
+    expect(formulaErrorDisplay('NAME')).toBe('#NAME?')
+    expect(formulaErrorDisplay('REF')).toBe('#REF!')
+    expect(formulaErrorDisplay('unexpected')).toBe('#ERROR!')
+  })
+
   it('renders loading, load failures, and a missing table id', async () => {
     mocks.table.mockReturnValue(new Promise(() => {}))
     mount()
@@ -181,6 +205,137 @@ describe('ScientificSheetBlock', () => {
     ])
     expect(settings.colHeaders).toEqual(['Name', 'Mass (mg)', 'State'])
     expect(settings.data[0].col_category).toBe('Ready')
+    expect(settings.columns[1].numericFormat.pattern).toBe('0.00')
+  })
+
+  it('applies numeric defaults and per-column format overrides', async () => {
+    mocks.table.mockResolvedValue({
+      ...table,
+      columns: [
+        { ...columns[1], id: 'integer', logical_type: 'integer' },
+        { ...columns[1], id: 'decimal', format: '0.0E+0' },
+      ],
+    })
+    mocks.allRows.mockResolvedValue([])
+    mount()
+    const settings = await ready()
+    expect(
+      settings.columns.map((column: any) => column.numericFormat.pattern),
+    ).toEqual(['0', '0.0E+0'])
+  })
+
+  it('copies and cuts formula source expressions instead of computed values', async () => {
+    mocks.table.mockResolvedValue(table)
+    mocks.allRows.mockResolvedValue([{ id: 'r1', version: 1, col_number: 14 }])
+    mocks.formulas.mockResolvedValue([
+      {
+        id: 'formula-1',
+        target_table_id: 'table-1',
+        target_row_id: 'r1',
+        target_column_id: 'number',
+        source_expression: '=A1*2',
+        engine_expression: '=A1*2',
+        syntax_profile: 'sheetbase-hf-en-us-v1',
+        function_profile: 'scientific-core-v2',
+        literal_profile: 'sheetbase-literal-v1',
+        engine_version: '3.3.0',
+        status: 'supported',
+        version: 1,
+        template: null,
+        bindings: [],
+      },
+    ])
+    mount()
+    const settings = await ready()
+    const range = [{ startRow: 0, startCol: 1, endRow: 0, endCol: 1 }]
+    const copied = [[14]]
+    settings.beforeCopy(copied, range, { columnHeadersCount: 0 })
+    expect(copied).toEqual([['=A1*2']])
+    const cut = [[14]]
+    settings.beforeCut(cut, range)
+    expect(cut).toEqual([['=A1*2']])
+    const pasted = [['=A1*2']]
+    settings.beforePaste(pasted, range)
+    expect(pasted).toEqual([['=A1*2']])
+  })
+
+  it('persists Handsontable formula undo and redo through the coordinator', async () => {
+    const existingFormula = {
+      id: 'formula-1',
+      target_table_id: 'table-1',
+      target_row_id: 'r1',
+      target_column_id: 'number',
+      source_expression: '=A1*2',
+      engine_expression: '=A1*2',
+      syntax_profile: 'sheetbase-hf-en-us-v1',
+      function_profile: 'scientific-core-v2',
+      literal_profile: 'sheetbase-literal-v1',
+      engine_version: '3.3.0',
+      status: 'supported',
+      version: 2,
+      template: null,
+      bindings: [],
+    }
+    mocks.table.mockResolvedValue(table)
+    mocks.allRows.mockResolvedValue([{ id: 'r1', version: 5, col_number: 14 }])
+    mocks.formulas.mockResolvedValue([existingFormula])
+    mount()
+    const settings = await ready()
+
+    mocks.formulas.mockResolvedValue([])
+    settings.afterChange([[0, 'col_number', '=A1*2', 14]], 'UndoRedo.undo')
+    await waitFor(() =>
+      expect(mocks.formulaMutation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          operation: 'remove',
+          expectedRowVersion: 5,
+          expectedFormulaVersion: 2,
+          replacement: 14,
+        }),
+      ),
+    )
+
+    mocks.formulaMutation.mockClear()
+    settings.afterChange([[0, 'col_number', 14, '=A1*2']], 'UndoRedo.redo')
+    await waitFor(() =>
+      expect(mocks.formulaMutation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          operation: 'create',
+          expectedRowVersion: 6,
+          source: '=A1*2',
+        }),
+      ),
+    )
+  })
+
+  it('persists column widths and visual order by stable column ID', async () => {
+    mocks.table.mockResolvedValue(table)
+    mocks.allRows.mockResolvedValue([{ id: 'r1', version: 1, col_number: 5 }])
+    mount()
+    const settings = await ready()
+    const hot = {
+      countCols: () => 3,
+      toPhysicalColumn: (visual: number) => [1, 0, 2][visual],
+    }
+    mocks.onReady!(hot)
+
+    settings.afterColumnResize(180, 0, false)
+    settings.afterColumnMove([0], 1, 2, true, true)
+    expect(
+      JSON.parse(localStorage.getItem('sheetbase:column-widths:table-1')!),
+    ).toEqual({ number: 180 })
+    expect(
+      JSON.parse(localStorage.getItem('sheetbase:column-order:table-1')!),
+    ).toEqual(['number', 'text', 'category'])
+
+    settings.afterSelectionEnd(0, 0)
+    await waitFor(() =>
+      expect(
+        screen.getByRole<HTMLInputElement>('textbox', {
+          name: 'Formula source',
+        }).value,
+      ).toBe('5'),
+    )
   })
 
   it('defers configuration and trusted-cache metadata until interaction', async () => {
@@ -241,7 +396,9 @@ describe('ScientificSheetBlock', () => {
       'Mass must be a finite number.',
     )
     expect(mocks.apply).not.toHaveBeenCalled()
-    expect(mocks.settings!.data[0].col_number).toBe('not-number')
+    // Drafts are preserved in React state (not in settings.data — see the
+    // gridData/localRows split) and the save status surfaces the failure.
+    screen.getByLabelText('Save failed')
   })
 
   it('preserves stale drafts, identifies the row, and refetches', async () => {
@@ -256,39 +413,33 @@ describe('ScientificSheetBlock', () => {
     expect((await screen.findByRole('alert')).textContent).toContain(
       'Row 1 changed elsewhere',
     )
-    expect(mocks.settings!.data[0].col_text).toBe('raw')
-    await waitFor(() => expect(mocks.allRows.mock.calls.length).toBeGreaterThan(1))
+    // Drafts are preserved in React state (not in settings.data — see the
+    // gridData/localRows split) and the save status surfaces the conflict.
+    screen.getByLabelText('Save failed')
+    await waitFor(() =>
+      expect(mocks.allRows.mock.calls.length).toBeGreaterThan(1),
+    )
   })
 
-  it('serializes rapid edits and uses the first canonical version for the second', async () => {
+  it('coalesces rapid edits into one batch using the initial canonical version', async () => {
     mocks.table.mockResolvedValue(table)
     mocks.allRows.mockResolvedValue([{ id: 'r1', version: 1 }])
-    let release!: () => void
-    mocks.apply
-      .mockImplementationOnce(
-        () =>
-          new Promise((resolve) => {
-            release = () =>
-              resolve({
-                ok: true,
-                schemaVersion: 2,
-                rows: [{ id: 'r1', version: 2, col_text: 'first' }],
-              })
-          }),
-      )
-      .mockResolvedValueOnce({
-        ok: true,
-        schemaVersion: 2,
-        rows: [{ id: 'r1', version: 3 }],
-      })
+    mocks.apply.mockResolvedValue({
+      ok: true,
+      schemaVersion: 2,
+      rows: [{ id: 'r1', version: 2 }],
+    })
     mount()
     const settings = await ready()
+    // Two rapid edits within the coalescing window are merged into one
+    // batch that uses the initial canonical version (1).
     settings.afterChange([[0, 'col_text', null, 'first']], 'edit')
     settings.afterChange([[0, 'col_number', null, '2']], 'edit')
     await waitFor(() => expect(mocks.apply).toHaveBeenCalledTimes(1))
-    release()
-    await waitFor(() => expect(mocks.apply).toHaveBeenCalledTimes(2))
-    expect(mocks.apply.mock.calls[1][3][0].expectedVersion).toBe(2)
+    const edits = mocks.apply.mock.calls[0][3]
+    expect(edits).toHaveLength(1)
+    expect(edits[0].expectedVersion).toBe(1)
+    expect(edits[0].values).toEqual({ text: 'first', number: 2 })
   })
 
   it('accepts a formula in a numeric cell before literal decoding', async () => {
@@ -308,21 +459,157 @@ describe('ScientificSheetBlock', () => {
     expect(mocks.apply).not.toHaveBeenCalled()
   })
 
-  it('rejects mixed formula batches before any partial write', async () => {
+  it('routes a formula bar commit on a provisional row through the coordinator', async () => {
     mocks.table.mockResolvedValue(table)
-    mocks.allRows.mockResolvedValue([{ id: 'r1', version: 1 }])
+    mocks.allRows.mockResolvedValue([])
+    mocks.apply.mockResolvedValue({
+      ok: true,
+      schemaVersion: 2,
+      rows: [{ id: 'real-uuid', version: 1 }],
+    })
+    mocks.formulaMutation.mockResolvedValue({})
+    mount()
+    await ready()
+    // Simulate clicking "Add row" — adds a provisional row to the cache.
+    fireEvent.click(screen.getByRole('button', { name: 'Add row' }))
+    // The provisional row appears in the grid data (read latest settings).
+    await waitFor(() =>
+      expect(
+        mocks.settings!.data.some((r: any) => r.id?.startsWith('prov:')),
+      ).toBe(true),
+    )
+    // Select the provisional row's first cell (column 1 = number column).
+    // Use the latest afterSelectionEnd callback — the settings object was
+    // recreated after the Add Row click re-rendered the component.
+    mocks.settings!.afterSelectionEnd(0, 1)
+    // Wait for the selection to take effect — the formula input should
+    // become enabled and the address box should show B1.
+    await waitFor(() =>
+      expect(screen.getByLabelText('Active cell address').textContent).toBe(
+        'B1',
+      ),
+    )
+    // Type a formula in the formula bar and commit with Enter.
+    const input = screen.getByRole<HTMLInputElement>('textbox', {
+      name: 'Formula source',
+    })
+    fireEvent.change(input, { target: { value: '=2**3' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    // The coordinator should enqueue the formula and trigger an insert
+    // (applyScientificRowChanges), not mutateScientificFormula directly
+    // with the prov: ID.
+    await waitFor(() => expect(mocks.apply).toHaveBeenCalledTimes(1))
+    // After the insert returns, the formula is applied to the real UUID.
+    await waitFor(() =>
+      expect(mocks.formulaMutation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          operation: 'create',
+          target: expect.objectContaining({ rowId: 'real-uuid' }),
+          source: '=2^3',
+        }),
+      ),
+    )
+  })
+
+  it('migrates selection to the real UUID after the empty insert completes, then formula bar commits directly', async () => {
+    mocks.table.mockResolvedValue(table)
+    mocks.allRows.mockResolvedValue([])
+    mocks.apply.mockResolvedValue({
+      ok: true,
+      schemaVersion: 2,
+      rows: [{ id: 'real-uuid', version: 1 }],
+    })
+    mocks.formulaMutation.mockResolvedValue({})
+    mount()
+    await ready()
+    // Click Add Row — schedules an empty insert after the 300ms coalesce.
+    fireEvent.click(screen.getByRole('button', { name: 'Add row' }))
+    // Select the provisional row's first editable cell.
+    await waitFor(() =>
+      expect(
+        mocks.settings!.data.some((r: any) => r.id?.startsWith('prov:')),
+      ).toBe(true),
+    )
+    mocks.settings!.afterSelectionEnd(0, 1)
+    await waitFor(() =>
+      expect(screen.getByLabelText('Active cell address').textContent).toBe(
+        'B1',
+      ),
+    )
+    // Wait for the empty insert to flush and resolve — the coordinator
+    // sends the insert after ~300ms, and onProvisionalRowReplaced swaps
+    // the prov: id for real-uuid in both the cache and the selection.
+    await waitFor(() => expect(mocks.apply).toHaveBeenCalledTimes(1), {
+      timeout: 2000,
+    })
+    // After the swap, the address box still shows B1 but the underlying
+    // rowId is now real-uuid (not prov:). The formula bar commit should
+    // go directly to mutateScientificFormula with the real UUID — no
+    // second apply call.
+    const input = screen.getByRole<HTMLInputElement>('textbox', {
+      name: 'Formula source',
+    })
+    fireEvent.change(input, { target: { value: '=2**3' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await waitFor(() =>
+      expect(mocks.formulaMutation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          operation: 'create',
+          target: expect.objectContaining({ rowId: 'real-uuid' }),
+          source: '=2^3',
+        }),
+      ),
+    )
+    // No second insert should have been sent — the formula went directly.
+    expect(mocks.apply).toHaveBeenCalledTimes(1)
+  })
+
+  it('supports mixed formula and literal batches without partial writes', async () => {
+    mocks.table.mockResolvedValue(table)
+    mocks.allRows.mockResolvedValue([
+      { id: 'r1', version: 1 },
+      { id: 'r2', version: 1 },
+    ])
+    mocks.apply.mockResolvedValue({
+      ok: true,
+      schemaVersion: 2,
+      rows: [
+        { id: 'r1', version: 2 },
+        { id: 'r2', version: 2 },
+      ],
+    })
+    mocks.formulaMutation.mockResolvedValue({})
     mount()
     const settings = await ready()
+    // A batch containing both a formula and a literal is now supported.
+    // The literal goes through applyScientificRowChanges; the formula
+    // goes through mutateScientificFormula with the correct version.
     settings.afterChange(
       [
         [0, 'col_number', null, '=1+2'],
-        [0, 'col_text', null, 'partial'],
+        [0, 'col_text', null, 'literal'],
+        [1, 'col_number', null, '=2+3'],
       ],
       'CopyPaste.paste',
     )
-    expect(await screen.findByText(/one cell at a time/)).toBeTruthy()
-    expect(mocks.formulaMutation).not.toHaveBeenCalled()
-    expect(mocks.apply).not.toHaveBeenCalled()
+    // Both the literal RPC and both formula writes should fire.
+    await waitFor(() => expect(mocks.apply).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(mocks.formulaMutation).toHaveBeenCalledTimes(2))
+    // The literal edit uses the initial version.
+    const edits = mocks.apply.mock.calls[0][3]
+    expect(edits[0].rowId).toBe('r1')
+    expect(edits[0].values).toEqual({ text: 'literal' })
+    // The formula on r1 uses the version returned by the literal RPC (2).
+    const formulaCallR1 = mocks.formulaMutation.mock.calls.find(
+      (c: any) => c[0].target.rowId === 'r1',
+    )!
+    expect(formulaCallR1[0].expectedRowVersion).toBe(2)
+    expect(formulaCallR1[0].source).toBe('=1+2')
+    // The formula on r2 uses its initial version (2, from the RPC).
+    const formulaCallR2 = mocks.formulaMutation.mock.calls.find(
+      (c: any) => c[0].target.rowId === 'r2',
+    )!
+    expect(formulaCallR2[0].source).toBe('=2+3')
   })
 
   it('reconstructs a persisted formula and shows its source in the formula bar', async () => {
@@ -381,7 +668,7 @@ describe('ScientificSheetBlock', () => {
         ],
         engine_expression: '=(A1*2)',
         syntax_profile: 'sheetbase-hf-en-us-v1',
-        function_profile: 'scientific-core-v1',
+        function_profile: 'scientific-core-v2',
         literal_profile: 'sheetbase-literal-v1',
         engine_version: '3.3.0',
         status: 'supported',
@@ -430,6 +717,41 @@ describe('ScientificSheetBlock', () => {
     expect(screen.queryByText(/Inspect.*stable dependencies/)).toBeNull()
   })
 
+  it('shows the raw cell value in the formula bar for non-formula cells', async () => {
+    mocks.table.mockResolvedValue(table)
+    mocks.allRows.mockResolvedValue([
+      { id: 'r1', version: 1, col_text: 'hello', col_number: 42 },
+    ])
+    mocks.formulas.mockResolvedValue([])
+    mount()
+    const settings = await ready()
+    const input = screen.getByRole<HTMLInputElement>('textbox', {
+      name: 'Formula source',
+    })
+    // Select the text cell (row 0, col 0) — formula bar shows its raw value.
+    settings.afterSelectionEnd(0, 0)
+    await waitFor(() => expect(input.value).toBe('hello'))
+    // Select the numeric cell (row 0, col 1) — formula bar shows its value.
+    settings.afterSelectionEnd(0, 1)
+    await waitFor(() => expect(input.value).toBe('42'))
+    // Escape after editing a non-formula cell restores the raw value.
+    fireEvent.change(input, { target: { value: 'modified' } })
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(input.value).toBe('42')
+  })
+
+  it('shows empty string for non-formula cells with null values', async () => {
+    mocks.table.mockResolvedValue(table)
+    mocks.allRows.mockResolvedValue([{ id: 'r1', version: 1, col_text: null }])
+    mount()
+    const settings = await ready()
+    settings.afterSelectionEnd(0, 0)
+    const input = await screen.findByRole<HTMLInputElement>('textbox', {
+      name: 'Formula source',
+    })
+    await waitFor(() => expect(input.value).toBe(''))
+  })
+
   it('commits a formula via Enter in the formula bar and cancels via Escape', async () => {
     mocks.table.mockResolvedValue(table)
     mocks.allRows.mockResolvedValue([{ id: 'r1', version: 1 }])
@@ -442,6 +764,9 @@ describe('ScientificSheetBlock', () => {
     const input = await screen.findByRole<HTMLInputElement>('textbox', {
       name: 'Formula source',
     })
+    // The address box shows the A1 notation of the selected cell.
+    const address = screen.getByLabelText('Active cell address')
+    expect(address.textContent).toBe('A1')
     // Type a formula.
     fireEvent.change(input, { target: { value: '=1+2' } })
     expect(input.value).toBe('=1+2')
@@ -466,6 +791,32 @@ describe('ScientificSheetBlock', () => {
     expect(input.value).toBe('')
   })
 
+  it('normalises ** to ^ when committing a formula via the formula bar', async () => {
+    mocks.table.mockResolvedValue(table)
+    mocks.allRows.mockResolvedValue([{ id: 'r1', version: 1 }])
+    mocks.formulaMutation.mockResolvedValue({})
+    mocks.calculate.mockResolvedValue({ status: 'completed' })
+    mount()
+    const settings = await ready()
+    settings.afterSelectionEnd(0, 1)
+    const input = await screen.findByRole<HTMLInputElement>('textbox', {
+      name: 'Formula source',
+    })
+    // The address box shows B1 for row 0, col 1.
+    expect(screen.getByLabelText('Active cell address').textContent).toBe('B1')
+    fireEvent.change(input, { target: { value: '=2**3' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await waitFor(() =>
+      expect(mocks.formulaMutation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          source: '=2^3',
+        }),
+      ),
+    )
+    // The formula bar displays the canonical ^ form.
+    expect(input.value).toBe('=2^3')
+  })
+
   it('fully disables mutation affordances in read-only mode', async () => {
     mocks.table.mockResolvedValue(table)
     mocks.allRows.mockResolvedValue([])
@@ -485,25 +836,40 @@ describe('ScientificSheetBlock', () => {
     expect(screen.queryByLabelText('Formula bar')).toBeNull()
   })
 
-  it('uses an explicit context-menu item list with standard editing actions', async () => {
+  it('uses an explicit context-menu item list with only truthful operations', async () => {
     mocks.table.mockResolvedValue(table)
     mocks.allRows.mockResolvedValue([])
     mount()
     const settings = await ready()
-    // contextMenu is an explicit array (not `true`) so only the standard
-    // editing actions are exposed — no plugin-contributed items.
-    expect(Array.isArray(settings.contextMenu)).toBe(true)
-    expect(settings.contextMenu).toEqual(
+    // contextMenu is an object with an items array (not `true`) so only
+    // truthful, data-model-backed operations are exposed. Column insert/
+    // remove, read-only toggle, and alignment are absent — they would
+    // mutate Handsontable locally without persisting.
+    expect(settings.contextMenu).toBeTypeOf('object')
+    expect(settings.contextMenu).not.toBe(false)
+    const items = settings.contextMenu.items
+    expect(Array.isArray(items)).toBe(true)
+    const itemKeys = items.map((item: any) =>
+      typeof item === 'string' ? item : item.name,
+    )
+    expect(itemKeys).toEqual(
       expect.arrayContaining([
         'row_above',
         'row_below',
         'remove_row',
-        'remove_col',
         'undo',
         'redo',
-        'alignment',
       ]),
     )
+    // Dishonest items are absent.
+    expect(itemKeys).not.toContain('col_left')
+    expect(itemKeys).not.toContain('col_right')
+    expect(itemKeys).not.toContain('remove_col')
+    expect(itemKeys).not.toContain('make_readonly')
+    expect(itemKeys).not.toContain('alignment')
+    // Custom items are present.
+    expect(itemKeys).toContain('Clear contents')
+    expect(itemKeys).toContain('Configure columns…')
   })
 
   it('adds a fully typed category column with stable option UUIDs', async () => {
@@ -760,6 +1126,35 @@ describe('ScientificSheetBlock', () => {
     expect(settings.minSpareRows).toBe(0)
     expect(screen.queryByRole('button', { name: 'Next' })).toBeNull()
   })
+
+  it('grows the grid height when rows are added', async () => {
+    mocks.table.mockResolvedValue(table)
+    mocks.allRows.mockResolvedValue([
+      { id: 'r1', version: 1 },
+      { id: 'r2', version: 1 },
+    ])
+    mount()
+    const settings = await ready()
+    // 2 data rows + 1 spare row = 3 rows → (3 * 30 + 40) = 130px
+    const initialHeight = settings.height
+    expect(initialHeight).toBe(130)
+    // Add a row — provisional row is added to allRows cache, gridData
+    // recomputes, settings height increases by one row (30px).
+    fireEvent.click(screen.getByRole('button', { name: 'Add row' }))
+    await waitFor(() => {
+      const latest = mocks.settings!
+      // 3 data rows + 1 spare = 4 rows → (4 * 30 + 40) = 160px
+      expect(latest.height).toBe(160)
+      expect(latest.height).toBeGreaterThan(initialHeight)
+    })
+    // Add another row.
+    fireEvent.click(screen.getByRole('button', { name: 'Add row' }))
+    await waitFor(() => {
+      const latest = mocks.settings!
+      // 4 data rows + 1 spare = 5 rows → (5 * 30 + 40) = 190px
+      expect(latest.height).toBe(190)
+    })
+  })
 })
 
 describe('safeWorkbookGet', () => {
@@ -771,7 +1166,9 @@ describe('safeWorkbookGet', () => {
 
   it('returns the workbook result when get() succeeds', () => {
     const workbook = {
-      get: vi.fn().mockReturnValue({ status: 'ok', logical: { ok: true, value: 42 } }),
+      get: vi
+        .fn()
+        .mockReturnValue({ status: 'ok', logical: { ok: true, value: 42 } }),
     } as unknown as ScientificWorkbook
     expect(safeWorkbookGet(workbook, address)).toEqual({
       status: 'ok',

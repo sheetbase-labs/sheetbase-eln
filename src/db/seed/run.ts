@@ -1238,7 +1238,52 @@ export const demoSteps: Array<SeedStep> = [
         const conditionColumnId = byLabel['Condition'].id
 
         // Idempotent dataset rows: wipe and re-insert the stability series.
-        await client.query(`DELETE FROM api."${resourceName}"`)
+        // Clear any formulas from prior test sessions first.
+        //
+        // DATABASE_URL connects as POSTGRES_USER, which is the PostgreSQL
+        // superuser (created by the Docker postgres image). Only superusers
+        // can reliably SET session_replication_role = 'replica' to bypass
+        // all triggers. The migrator role is non-superuser and cannot
+        // disable triggers. The superuser also bypasses RLS (no FORCE RLS
+        // is set), so it has full access to formula tables.
+        //
+        // session_replication_role = 'replica' disables all non-ALWAYS
+        // triggers for the session, including the scientific_row_before
+        // BEFORE DELETE trigger (which blocks deleting rows with
+        // formula_column_ids or incoming formula dependencies). This is
+        // the PostgreSQL-standard way to bypass triggers for maintenance
+        // operations. The finally block resets to 'origin' before the
+        // subsequent INSERT operations (which need triggers enabled).
+        const superuserClient = new Client({ connectionString: poolCs })
+        await superuserClient.connect()
+        try {
+          await superuserClient.query("SET session_replication_role = 'replica'")
+          try {
+            // Delete formula dependencies and definitions first.
+            // These reference target_table_id/source_table_id (the
+            // scientific_tables UUID), not the resource table directly.
+            await superuserClient.query(
+              `DELETE FROM api.formula_dependencies WHERE source_table_id = $1`,
+              [tableId],
+            )
+            await superuserClient.query(
+              `DELETE FROM api.formula_definitions WHERE target_table_id = $1`,
+              [tableId],
+            )
+            // Clear formula_column_ids on resource rows (the before-update
+            // trigger would block this without the replica role).
+            await superuserClient.query(
+              `UPDATE api."${resourceName}" SET formula_column_ids = '{}' WHERE cardinality(formula_column_ids) > 0`,
+            )
+            // Delete all resource rows (the before-delete trigger would
+            // block this without the replica role).
+            await superuserClient.query(`DELETE FROM api."${resourceName}"`)
+          } finally {
+            await superuserClient.query("SET session_replication_role = 'origin'")
+          }
+        } finally {
+          await superuserClient.end()
+        }
         const rows = [
           [0, 7.2, '4 °C'],
           [7, 7.0, '4 °C'],

@@ -96,6 +96,47 @@ type Token = {
   sheet?: string
 }
 
+/**
+ * Convert `**` exponentiation to HyperFormula's `^` operator, preserving
+ * string literals verbatim. Users expect `**` (Python/JavaScript style) to
+ * work; HyperFormula only understands `^`. Applied at the parser entry point
+ * so server-side validation canonicalises identically to the client editors.
+ *
+ * String literals (`"…"`, with `""` as an escaped quote) are copied untouched
+ * — `="pattern ** here"` keeps its `**`. Everything else outside a string has
+ * `**` replaced by `^`.
+ */
+export function normalizeExponentiation(source: string): string {
+  let result = ''
+  let i = 0
+  while (i < source.length) {
+    if (source[i] === '"') {
+      // Copy the string literal verbatim, handling "" escaped quotes.
+      result += source[i++]
+      while (i < source.length) {
+        if (source[i] === '"') {
+          if (source[i + 1] === '"') {
+            result += '""'
+            i += 2
+            continue
+          }
+          result += source[i++]
+          break
+        }
+        result += source[i++]
+      }
+      continue
+    }
+    if (source[i] === '*' && source[i + 1] === '*') {
+      result += '^'
+      i += 2
+      continue
+    }
+    result += source[i++]
+  }
+  return result
+}
+
 function tokenize(source: string): Token[] {
   const tokens: Token[] = []
   let i = 1
@@ -218,9 +259,10 @@ export function parseFormula(
   source: string,
   maps: FormulaMaps,
 ): FormulaParseResult {
-  if (!source.startsWith('='))
+  const normalized = normalizeExponentiation(source)
+  if (!normalized.startsWith('='))
     throw new FormulaSyntaxError('syntax', 'A formula must begin with =.')
-  if (source.length > FORMULA_LIMITS.source)
+  if (normalized.length > FORMULA_LIMITS.source)
     throw new FormulaSyntaxError('limit', 'Formula exceeds 8,192 characters.')
   if (
     maps.rowIds.length > FORMULA_LIMITS.rows ||
@@ -230,7 +272,7 @@ export function parseFormula(
       'limit',
       'Table exceeds the calculation profile dimensions.',
     )
-  const tokens = tokenize(source)
+  const tokens = tokenize(normalized)
   let position = 0
   const bindings: FormulaBinding[] = []
   const unsupported = new Set<string>()
@@ -421,7 +463,7 @@ export function parseFormula(
     version: 1,
     syntaxProfile: SHEETBASE_HF_PROFILE,
     functionProfile: SHEETBASE_FUNCTION_PROFILE,
-    source,
+    source: normalized,
     template,
     bindings,
     engineExpression: '',
@@ -435,7 +477,7 @@ export function parseFormula(
   if (unsupported.size)
     return {
       status: 'unsupported',
-      source,
+      source: normalized,
       functionIds: [...unsupported].sort(),
       artifact: Object.freeze(artifact),
     }
@@ -687,7 +729,12 @@ export function validatePersistedFormulaArtifact(
   const hasUnsupported = [...calls].some(
     (id) => !(SCIENTIFIC_CORE_FUNCTIONS as readonly string[]).includes(id),
   )
-  if ((value.status === 'supported') === hasUnsupported)
+  // A `supported` formula must not contain unsupported functions. The reverse
+  // is intentionally lenient: a formula persisted as `unsupported` under an
+  // earlier profile may become calculable after the allow-list expands (e.g.
+  // v1 → v2), so `unsupported` with no unsupported functions is a benign
+  // transitional state rather than an integrity violation.
+  if (value.status === 'supported' && hasUnsupported)
     fail('status does not match function semantics.')
 
   if (!Array.isArray(value.dependencies))

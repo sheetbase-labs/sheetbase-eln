@@ -57,12 +57,38 @@ type CalculationResult = {
   diagnostic?: string
 }
 
+export class CalculationError extends Error {
+  constructor(
+    public readonly stage: 'snapshot' | 'workbook' | 'finalize',
+    message: string,
+    public readonly code?: string,
+  ) {
+    super(message)
+    this.name = 'CalculationError'
+  }
+}
+
 export async function executeCalculation(
   actor: string,
   recordId: string,
   deps: Pick<CalculationDeps, 'loadSnapshot' | 'finalize'>,
 ) {
-  const snapshot = await deps.loadSnapshot(actor, recordId)
+  let snapshot: CalculationSnapshot
+  try {
+    snapshot = await deps.loadSnapshot(actor, recordId)
+  } catch (error) {
+    console.error(
+      '[calculation] snapshot load failed for record',
+      recordId,
+      ':',
+      error instanceof Error ? error.message : String(error),
+    )
+    throw new CalculationError(
+      'snapshot',
+      'Calculation snapshot could not be loaded.',
+      (error as { code?: string }).code,
+    )
+  }
   let workbook: ReturnType<typeof buildScientificWorkbook> | undefined
   let results: CalculationResult[]
   try {
@@ -103,22 +129,44 @@ export async function executeCalculation(
         value: result.logical.value,
       }
     })
-  } catch {
+  } catch (error) {
     // A failed worker commits one revision-bound failure state, never a partial
     // result set and never raw data or formula text as a diagnostic.
-    return deps.finalize(
-      actor,
-      snapshot,
-      'failed',
-      [],
-      'Calculation worker failed.',
+    console.error(
+      '[calculation] workbook build/evaluation failed for record',
+      recordId,
+      ':',
+      error instanceof Error ? error.message : String(error),
     )
+    try {
+      return await deps.finalize(
+        actor,
+        snapshot,
+        'failed',
+        [],
+        'Calculation worker failed.',
+      )
+    } catch (finalizeError) {
+      throw new CalculationError(
+        'finalize',
+        'Trusted finalize failed after workbook error.',
+        (finalizeError as { code?: string }).code,
+      )
+    }
   } finally {
     workbook?.destroy()
   }
   // Commit errors (especially revision CAS failures) are not worker failures
   // and must never overwrite a newer revision with a failed state.
-  return deps.finalize(actor, snapshot, 'completed', results)
+  try {
+    return await deps.finalize(actor, snapshot, 'completed', results)
+  } catch (error) {
+    throw new CalculationError(
+      'finalize',
+      'Trusted finalize failed.',
+      (error as { code?: string }).code,
+    )
+  }
 }
 
 function errorResponse(status: number, code: string, message: string) {
@@ -150,7 +198,7 @@ export async function handleCalculation(
       status: result.status === 'failed' ? 500 : 200,
     })
   } catch (error) {
-    const candidate = error as { code?: string; status?: number }
+    const candidate = error as { code?: string; status?: number; stage?: string }
     if (candidate.code === 'SB001')
       return errorResponse(
         409,
@@ -159,10 +207,19 @@ export async function handleCalculation(
       )
     if (candidate.code === '42501' || candidate.status === 403)
       return errorResponse(403, 'forbidden', 'Notebook is unavailable.')
+    const stage = error instanceof CalculationError ? error.stage : 'unknown'
+    const errorCode = error instanceof CalculationError ? error.code : candidate.code
+    console.error(
+      `[calculation] failed at stage "${stage}" for record`,
+      parsed.data.recordId,
+      ':',
+      error instanceof Error ? error.message : String(error),
+      errorCode ? `(code: ${errorCode})` : '',
+    )
     return errorResponse(
       500,
       'calculation_failed',
-      'Trusted calculation did not complete.',
+      `Calculation failed at stage: ${stage}.`,
     )
   }
 }

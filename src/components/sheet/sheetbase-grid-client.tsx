@@ -1,6 +1,6 @@
 import { HotTable } from '@handsontable/react-wrapper'
 import type { HotTableRef } from '@handsontable/react-wrapper'
-import { memo } from 'react'
+import { memo, useCallback } from 'react'
 import { registerAllModules } from 'handsontable/registry'
 
 import type { SheetbaseGridClientProps } from './sheetbase-grid'
@@ -12,15 +12,24 @@ function SheetbaseGridClientBase({
   licenseKey,
   onReady,
 }: SheetbaseGridClientProps) {
+  // Stabilize the ref callback so it doesn't change between renders.
+  // A new ref function on every render would cause React to call the
+  // old ref with null and the new ref with the instance, which can
+  // interfere with Handsontable's internal state during interactions
+  // like the autofill drag.
+  const refCallback = useCallback(
+    (ref: HotTableRef | null) => {
+      onReady?.(ref?.hotInstance ?? null)
+    },
+    [onReady],
+  )
   return (
     <HotTable
       {...settings}
       className="sheetbase-grid"
       licenseKey={licenseKey}
       themeName="ht-theme-main"
-      ref={(ref: HotTableRef | null) => {
-        onReady?.(ref?.hotInstance ?? null)
-      }}
+      ref={refCallback}
     />
   )
 }

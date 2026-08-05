@@ -332,19 +332,19 @@ function PlannerRoute() {
               <Plus className="size-4" /> Add task
             </Button>
           </PageHeader>
-          <div className="space-y-2.5 border-b border-border/60 pb-2.5">
+          <div className="space-y-1.5 border-b border-border/60 pb-2.5">
             {/* Tabs + date navigation on the same row */}
             <div className="flex flex-wrap items-center gap-2">
               <Tabs
                 value={view}
                 onValueChange={(v) => setView(v as PlannerView)}
               >
-                <TabsList className="bg-transparent p-0 h-auto">
+                <TabsList className="h-auto gap-0 bg-transparent p-0">
                   {viewTabs.map((v) => (
                     <TabsTrigger
                       key={v.key}
                       value={v.key}
-                      className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:shadow-none px-3 py-2 text-sm"
+                      className="rounded-none border-b-2 border-b-transparent px-3 pb-1.5 pt-1.5 text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground data-[state=active]:border-b-primary data-[state=active]:text-foreground data-[state=active]:shadow-none"
                     >
                       {v.label}
                     </TabsTrigger>

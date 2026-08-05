@@ -1,5 +1,3 @@
 export * from './calendar-filters'
-export * from './calendar-views'
 export * from './calendar-inspector'
 export * from './booking-dialog'
-export * from './calendar-sidebar'

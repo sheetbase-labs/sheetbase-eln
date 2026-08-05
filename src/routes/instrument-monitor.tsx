@@ -2,7 +2,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { Activity, Play } from 'lucide-react'
+import { Activity, AlertCircle, Play } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
 import {
@@ -10,7 +10,19 @@ import {
   RunInspector,
   RunQueue,
 } from '#/components/instrument-monitor'
-import { Button } from '#/components/ui'
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+  Button,
+  Empty,
+  EmptyActions,
+  EmptyDescription,
+  EmptyIcon,
+  EmptyTitle,
+  PageHeader,
+  Skeleton,
+} from '#/components/ui'
 import { createDataClient } from '#/lib/data-client'
 import {
   createInstrument,
@@ -270,14 +282,80 @@ function InstrumentMonitorRoute() {
 
   return (
     <>
-      <div className="flex h-[calc(100svh-3.5rem)] min-h-0 flex-col">
-        <div className="space-y-2 border-b border-border/60 px-4 py-2.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="flex items-center gap-1.5 text-sm font-semibold">
-              <Activity className="size-4 text-muted-foreground" />
-              Instrument Run Monitor
-            </h1>
-            <div className="ml-auto">
+      <div className="flex flex-1 min-h-0 flex-col">
+        {/* Header */}
+        <div className="px-4 pt-4">
+          <PageHeader
+            eyebrow={context.workspace?.name ?? undefined}
+            title="Instrument Run Monitor"
+            description="Real-time tracking of qPCR runs, plate reads, and telemetry."
+            className="border-0 pb-4"
+          >
+            <Button
+              onClick={() => simulateMutation.mutate()}
+              size="sm"
+              disabled={simulateMutation.isPending}
+            >
+              <Play className="size-4" /> Simulate run
+            </Button>
+          </PageHeader>
+          <div className="space-y-1.5 border-b border-border/60 pb-2.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+                <Activity className="size-4" />
+                Live run queue
+              </span>
+            </div>
+            {actionError ? (
+              <p role="alert" className="text-sm text-destructive">
+                {actionError}
+              </p>
+            ) : null}
+          </div>
+        </div>
+
+        {/* Body */}
+        {instrumentsQuery.isLoading || runsQuery.isLoading ? (
+          <div className="flex-1 space-y-4 p-4">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+        ) : instrumentsQuery.error || runsQuery.error ? (
+          <Alert variant="destructive" className="m-6 max-w-md">
+            <AlertCircle className="size-4" />
+            <AlertTitle>Couldn't load instrument runs</AlertTitle>
+            <AlertDescription className="flex flex-col gap-3">
+              <span>
+                {describeInstrumentMonitorError(
+                  instrumentsQuery.error ?? runsQuery.error,
+                )}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-fit"
+                onClick={() => {
+                  if (instrumentsQuery.error) void instrumentsQuery.refetch()
+                  if (runsQuery.error) void runsQuery.refetch()
+                }}
+              >
+                Retry
+              </Button>
+            </AlertDescription>
+          </Alert>
+        ) : filteredRuns.length === 0 ? (
+          <Empty className="flex-1 border-0 rounded-none">
+            <EmptyIcon>
+              <Activity className="size-5" />
+            </EmptyIcon>
+            <EmptyTitle>No instrument runs yet</EmptyTitle>
+            <EmptyDescription>
+              Simulate a qPCR run to populate the queue with stages,
+              telemetry, and plate snapshots for live monitoring.
+            </EmptyDescription>
+            <EmptyActions>
               <Button
                 onClick={() => simulateMutation.mutate()}
                 size="sm"
@@ -285,34 +363,30 @@ function InstrumentMonitorRoute() {
               >
                 <Play className="size-4" /> Simulate run
               </Button>
+            </EmptyActions>
+          </Empty>
+        ) : (
+          <div className="flex min-h-0 flex-1">
+            <div className="w-72 overflow-auto border-r border-border/60">
+              <RunQueue
+                runs={filteredRuns}
+                instruments={instruments}
+                selectedRunId={selectedRunId}
+                onSelectRun={setSelectedRunId}
+              />
+            </div>
+            <div className="flex-1 overflow-auto">
+              <RunDetail
+                run={selectedRun}
+                instrument={selectedInstrument}
+                stages={stagesQuery.data ?? []}
+                observations={observationsQuery.data ?? []}
+                plateSnapshots={snapshotsQuery.data ?? []}
+                timeZone={VIEW_TIMEZONE}
+              />
             </div>
           </div>
-          {actionError ? (
-            <p role="alert" className="text-sm text-destructive">
-              {actionError}
-            </p>
-          ) : null}
-        </div>
-        <div className="flex min-h-0 flex-1">
-          <div className="w-72 overflow-auto border-r border-border/60">
-            <RunQueue
-              runs={filteredRuns}
-              instruments={instruments}
-              selectedRunId={selectedRunId}
-              onSelectRun={setSelectedRunId}
-            />
-          </div>
-          <div className="flex-1 overflow-auto">
-            <RunDetail
-              run={selectedRun}
-              instrument={selectedInstrument}
-              stages={stagesQuery.data ?? []}
-              observations={observationsQuery.data ?? []}
-              plateSnapshots={snapshotsQuery.data ?? []}
-              timeZone={VIEW_TIMEZONE}
-            />
-          </div>
-        </div>
+        )}
       </div>
     </>
   )

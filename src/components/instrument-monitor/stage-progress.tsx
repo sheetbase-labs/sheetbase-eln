@@ -9,11 +9,10 @@ import {
 
 import { Badge } from '#/components/ui'
 import {
+  STAGE_STATUS_BADGE_VARIANT,
   STAGE_STATUS_LABELS,
-  STAGE_STATUS_TOKENS,
 } from '#/lib/instrument-monitor'
 import type { InstrumentRunStage, StageType } from '#/lib/instrument-monitor'
-import { cn } from '#/lib/utils'
 
 export interface StageProgressProps {
   stages: InstrumentRunStage[]
@@ -60,20 +59,21 @@ export function StageProgress({ stages }: StageProgressProps) {
                   </span>
                 </div>
                 <div className="mt-1.5 flex items-center gap-1">
-                  <Badge variant="outline" className="text-xs capitalize">
+                  <Badge
+                    variant="outline"
+                    className="whitespace-nowrap text-xs capitalize"
+                  >
                     {stage.stageType}
                   </Badge>
                   <Badge
-                    className={cn(
-                      'text-xs',
-                      STAGE_STATUS_TOKENS[stage.status],
-                    )}
+                    variant={STAGE_STATUS_BADGE_VARIANT[stage.status]}
+                    className="whitespace-nowrap text-xs"
                   >
                     {STAGE_STATUS_LABELS[stage.status]}
                   </Badge>
                 </div>
                 {stage.stageType === 'cycling' && stage.cycleCount ? (
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <p className="mt-1 text-xs text-muted-foreground tabular-nums">
                     Cycle {stage.currentCycle}/{stage.cycleCount}
                   </p>
                 ) : null}

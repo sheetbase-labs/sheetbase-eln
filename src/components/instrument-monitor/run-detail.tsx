@@ -1,9 +1,9 @@
-import { Badge } from '#/components/ui'
+import { Badge, Card, CardContent } from '#/components/ui'
 import {
+  CONNECTION_STATUS_BADGE_VARIANT,
   CONNECTION_STATUS_LABELS,
-  CONNECTION_STATUS_TOKENS,
+  RUN_STATUS_BADGE_VARIANT,
   RUN_STATUS_LABELS,
-  RUN_STATUS_TOKENS,
 } from '#/lib/instrument-monitor'
 import type {
   Instrument,
@@ -12,7 +12,6 @@ import type {
   InstrumentRun,
   InstrumentRunStage,
 } from '#/lib/instrument-monitor'
-import { cn } from '#/lib/utils'
 
 import { PlateState } from './plate-state'
 import { StageProgress } from './stage-progress'
@@ -52,17 +51,22 @@ export function RunDetail({
   const progress = Math.max(0, Math.min(100, run.progressPercent))
   return (
     <div className="h-full overflow-y-auto">
-      <header className="border-b p-5">
+      <header className="space-y-4 p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-semibold">{run.runIdentifier}</h1>
-              <Badge className={cn(RUN_STATUS_TOKENS[run.status])}>
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-semibold tracking-tight">
+                {run.runIdentifier}
+              </h2>
+              <Badge
+                variant={RUN_STATUS_BADGE_VARIANT[run.status]}
+                className="whitespace-nowrap"
+              >
                 {RUN_STATUS_LABELS[run.status]}
               </Badge>
             </div>
             <p className="text-sm font-medium">{run.name}</p>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               {instrument?.name ?? 'Unknown instrument'}
               {instrument?.model ? ` · ${instrument.model}` : ''} ·{' '}
               {run.protocolName ?? 'No protocol'}
@@ -70,15 +74,16 @@ export function RunDetail({
           </div>
           {instrument ? (
             <Badge
-              className={cn(
-                CONNECTION_STATUS_TOKENS[instrument.connectionStatus],
-              )}
+              variant={
+                CONNECTION_STATUS_BADGE_VARIANT[instrument.connectionStatus]
+              }
+              className="whitespace-nowrap"
             >
               {CONNECTION_STATUS_LABELS[instrument.connectionStatus]}
             </Badge>
           ) : null}
         </div>
-        <div className="mt-4 flex items-center gap-3">
+        <div className="flex items-center gap-3">
           <div
             className="h-2 flex-1 overflow-hidden rounded-full bg-muted"
             role="progressbar"
@@ -92,27 +97,39 @@ export function RunDetail({
               style={{ width: `${progress}%` }}
             />
           </div>
-          <span className="text-xs font-medium">{progress}%</span>
-          <span className="text-xs text-muted-foreground">
+          <span className="whitespace-nowrap text-xs font-medium tabular-nums">
+            {progress}%
+          </span>
+          <span className="whitespace-nowrap text-xs text-muted-foreground">
             Elapsed {elapsed(run.elapsedSeconds)}
           </span>
         </div>
         <span className="sr-only">Time zone: {timeZone}</span>
       </header>
-      <section className="border-b p-5">
-        <h2 className="mb-3 text-xs font-semibold uppercase text-muted-foreground">
-          Stage progress
-        </h2>
-        <StageProgress stages={stages} />
-      </section>
-      <section className="border-b p-5">
-        <h2 className="mb-3 text-sm font-semibold">Amplification curves</h2>
-        <TelemetryChart observations={observations} />
-      </section>
-      <section className="p-5">
-        <h2 className="mb-3 text-sm font-semibold">Plate state</h2>
-        <PlateState snapshots={plateSnapshots} runStatus={run.status} />
-      </section>
+      <div className="space-y-8 px-6 pb-8">
+        <section className="space-y-3">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Stage progress
+          </h3>
+          <StageProgress stages={stages} />
+        </section>
+        <section className="space-y-3">
+          <h3 className="text-sm font-semibold">Amplification curves</h3>
+          <Card>
+            <CardContent className="p-4">
+              <TelemetryChart observations={observations} />
+            </CardContent>
+          </Card>
+        </section>
+        <section className="space-y-3">
+          <h3 className="text-sm font-semibold">Plate state</h3>
+          <Card>
+            <CardContent className="p-4">
+              <PlateState snapshots={plateSnapshots} runStatus={run.status} />
+            </CardContent>
+          </Card>
+        </section>
+      </div>
     </div>
   )
 }

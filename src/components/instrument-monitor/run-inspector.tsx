@@ -1,19 +1,18 @@
-import { Badge } from '#/components/ui'
+import { Badge, Separator } from '#/components/ui'
 import {
+  CONNECTION_STATUS_BADGE_VARIANT,
   CONNECTION_STATUS_LABELS,
-  CONNECTION_STATUS_TOKENS,
+  FILE_INGESTION_BADGE_VARIANT,
+  QC_CHECK_BADGE_VARIANT,
   QC_CHECK_LABELS,
-  QC_CHECK_TOKENS,
 } from '#/lib/instrument-monitor'
 import type {
-  FileIngestionStatus,
   Instrument,
   InstrumentQcCheck,
   InstrumentRawFile,
   InstrumentRun,
   InstrumentRunLink,
 } from '#/lib/instrument-monitor'
-import { cn } from '#/lib/utils'
 
 export interface RunInspectorProps {
   run: InstrumentRun | null
@@ -24,12 +23,6 @@ export interface RunInspectorProps {
   timeZone: string
 }
 
-const FILE_TOKENS: Record<FileIngestionStatus, string> = {
-  pending: 'bg-slate-100 text-slate-600',
-  complete: 'bg-success/10 text-success',
-  partial: 'bg-warning/10 text-warning-foreground',
-  failed: 'bg-destructive/10 text-destructive',
-}
 function formatDate(value: string | null, timeZone: string): string {
   return value
     ? new Intl.DateTimeFormat(undefined, {
@@ -71,12 +64,13 @@ export function RunInspector({
     )
   return (
     <div className="flex h-full flex-col overflow-y-auto">
-      <header className="border-b p-4">
+      <header className="space-y-1 p-4">
         <h2 className="text-sm font-semibold">{run.runIdentifier}</h2>
         <p className="text-xs text-muted-foreground">Run inspector</p>
       </header>
-      <section className="border-b p-4">
-        <h3 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
+      <Separator />
+      <section className="space-y-3 p-4">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Run info
         </h3>
         <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
@@ -95,16 +89,19 @@ export function RunInspector({
             {formatDate(run.completedAt, timeZone)}
           </dd>
           <dt className="text-muted-foreground">Elapsed</dt>
-          <dd className="font-medium">{formatElapsed(run.elapsedSeconds)}</dd>
+          <dd className="font-medium tabular-nums">
+            {formatElapsed(run.elapsedSeconds)}
+          </dd>
           <dt className="text-muted-foreground">Operator</dt>
           <dd className="font-medium">{run.operator ?? '—'}</dd>
           <dt className="text-muted-foreground">Connection</dt>
           <dd>
             {instrument ? (
               <Badge
-                className={cn(
-                  CONNECTION_STATUS_TOKENS[instrument.connectionStatus],
-                )}
+                variant={
+                  CONNECTION_STATUS_BADGE_VARIANT[instrument.connectionStatus]
+                }
+                className="whitespace-nowrap"
               >
                 {CONNECTION_STATUS_LABELS[instrument.connectionStatus]}
               </Badge>
@@ -114,8 +111,9 @@ export function RunInspector({
           </dd>
         </dl>
       </section>
-      <section className="border-b p-4">
-        <h3 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
+      <Separator />
+      <section className="space-y-3 p-4">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           QC checks
         </h3>
         {qcChecks.length ? (
@@ -123,7 +121,10 @@ export function RunInspector({
             {qcChecks.map((check) => (
               <li key={check.id} className="rounded-md border p-2">
                 <div className="flex items-center gap-2">
-                  <Badge className={cn(QC_CHECK_TOKENS[check.checkType])}>
+                  <Badge
+                    variant={QC_CHECK_BADGE_VARIANT[check.checkType]}
+                    className="whitespace-nowrap"
+                  >
                     {QC_CHECK_LABELS[check.checkType]}
                   </Badge>
                   <span className="text-xs font-medium">{check.checkName}</span>
@@ -140,8 +141,9 @@ export function RunInspector({
           <p className="text-xs text-muted-foreground">No QC checks yet.</p>
         )}
       </section>
-      <section className="border-b p-4">
-        <h3 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
+      <Separator />
+      <section className="space-y-3 p-4">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Raw files
         </h3>
         {rawFiles.length ? (
@@ -155,15 +157,13 @@ export function RunInspector({
                   <p className="truncate text-xs font-medium">
                     {file.filename}
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground tabular-nums">
                     {formatBytes(file.sizeBytes)}
                   </p>
                 </div>
                 <Badge
-                  className={cn(
-                    'capitalize',
-                    FILE_TOKENS[file.ingestionStatus],
-                  )}
+                  variant={FILE_INGESTION_BADGE_VARIANT[file.ingestionStatus]}
+                  className="whitespace-nowrap capitalize"
                 >
                   {file.ingestionStatus}
                 </Badge>
@@ -174,8 +174,9 @@ export function RunInspector({
           <p className="text-xs text-muted-foreground">No raw files.</p>
         )}
       </section>
-      <section className="p-4">
-        <h3 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
+      <Separator />
+      <section className="space-y-3 p-4">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Linked records
         </h3>
         {runLinks.length ? (

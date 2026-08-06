@@ -44,11 +44,11 @@ export function StageProgress({ stages }: StageProgressProps) {
             <li key={stage.id} className="flex items-center">
               {index > 0 ? (
                 <ArrowRight
-                  className="mx-2 size-4 shrink-0 text-muted-foreground"
+                  className="mx-2 size-4 shrink-0 text-muted-foreground/50"
                   aria-hidden="true"
                 />
               ) : null}
-              <div className="min-w-32 rounded-md border p-2">
+              <div className="min-w-32 space-y-1.5 px-1">
                 <div className="flex items-center gap-1.5">
                   <Icon
                     className="size-3.5 text-muted-foreground"
@@ -58,7 +58,7 @@ export function StageProgress({ stages }: StageProgressProps) {
                     {stage.name}
                   </span>
                 </div>
-                <div className="mt-1.5 flex items-center gap-1">
+                <div className="flex items-center gap-1">
                   <Badge
                     variant="outline"
                     className="whitespace-nowrap text-xs capitalize"
@@ -73,7 +73,7 @@ export function StageProgress({ stages }: StageProgressProps) {
                   </Badge>
                 </div>
                 {stage.stageType === 'cycling' && stage.cycleCount ? (
-                  <p className="mt-1 text-xs text-muted-foreground tabular-nums">
+                  <p className="text-xs text-muted-foreground tabular-nums">
                     Cycle {stage.currentCycle}/{stage.cycleCount}
                   </p>
                 ) : null}

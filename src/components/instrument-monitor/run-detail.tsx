@@ -1,5 +1,4 @@
-import { Badge, Card, CardContent } from '#/components/ui'
-import { MetricCard } from '#/components/scientific'
+import { Badge, Separator } from '#/components/ui'
 import {
   CONNECTION_STATUS_BADGE_VARIANT,
   CONNECTION_STATUS_LABELS,
@@ -230,102 +229,77 @@ export function RunDetail({
         </div>
         <span className="sr-only">Time zone: {timeZone}</span>
       </header>
-      <div className="space-y-8 px-6 pb-8">
+      <div className="space-y-6 px-6 pb-8">
         <section className="space-y-3">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Stage progress
           </h3>
           <StageProgress stages={stages} />
         </section>
-        <section className="space-y-3">
+        <section className="space-y-2">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Live telemetry
           </h3>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            <MetricCard
-              label="Block temp"
-              value={blockTemp !== undefined ? `${blockTemp.toFixed(1)}°C` : '—'}
-            />
-            <MetricCard
-              label="Sample temp"
-              value={sampleTemp !== undefined ? `${sampleTemp.toFixed(1)}°C` : '—'}
-            />
-            <MetricCard
-              label="Cycle"
-              value={
-                cycle !== undefined
-                  ? totalCycles !== undefined
-                    ? `${cycle}/${totalCycles}`
-                    : `${cycle}`
-                  : '—'
-              }
-            />
-            <MetricCard
-              label="Fluorescence"
-              value={rfu !== undefined ? rfu.toFixed(3) : '—'}
-              hint="RFU"
-            />
-            <MetricCard
-              label="Baseline"
-              value={baseline !== undefined ? baseline.toFixed(3) : '—'}
-            />
+          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm">
+            <span aria-label="Block temperature">
+              Block <span className="tabular-nums font-medium">{blockTemp !== undefined ? `${blockTemp.toFixed(1)}°C` : '—'}</span>
+            </span>
+            <Separator orientation="vertical" className="h-4" />
+            <span aria-label="Sample temperature">
+              Sample <span className="tabular-nums font-medium">{sampleTemp !== undefined ? `${sampleTemp.toFixed(1)}°C` : '—'}</span>
+            </span>
+            <Separator orientation="vertical" className="h-4" />
+            <span aria-label="Cycle">
+              Cycle <span className="tabular-nums font-medium">{cycle !== undefined ? (totalCycles !== undefined ? `${cycle}/${totalCycles}` : `${cycle}`) : '—'}</span>
+            </span>
+            <Separator orientation="vertical" className="h-4" />
+            <span aria-label="Fluorescence RFU">
+              RFU <span className="tabular-nums font-medium">{rfu !== undefined ? rfu.toFixed(3) : '—'}</span>
+            </span>
+            <Separator orientation="vertical" className="h-4" />
+            <span aria-label="Baseline">
+              Baseline <span className="tabular-nums font-medium">{baseline !== undefined ? baseline.toFixed(3) : '—'}</span>
+            </span>
           </div>
         </section>
-        <section className="space-y-3">
+        <section className="space-y-2">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Event log
           </h3>
-          <Card className="flex h-[36rem] flex-col overflow-hidden">
-            <CardContent className="flex min-h-0 flex-1 flex-col p-0">
-              <EventLog
-                observations={observations}
-                timeZone={timeZone}
-                isLive={run.status === 'running'}
-              />
-            </CardContent>
-          </Card>
+          <div className="flex h-[36rem] flex-col overflow-hidden rounded-lg border border-border/60">
+            <EventLog
+              observations={observations}
+              timeZone={timeZone}
+              isLive={run.status === 'running'}
+            />
+          </div>
         </section>
         <section>
           <TelemetryChart observations={observations} />
         </section>
-        <section className="space-y-3">
-          <h3 className="text-sm font-semibold">Plate state</h3>
-          <Card>
-            <CardContent className="p-4">
-              <PlateState snapshots={plateSnapshots} runStatus={run.status} />
-            </CardContent>
-          </Card>
+        <section className="space-y-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Plate state
+          </h3>
+          <PlateState snapshots={plateSnapshots} runStatus={run.status} />
         </section>
         {snapshotStats ? (
-          <section className="space-y-3">
+          <section className="space-y-2">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Run snapshot
             </h3>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <MetricCard
-                label="Wells complete"
-                value={`${snapshotStats.wellsComplete}/${snapshotStats.wellsTotal}`}
-              />
-              <MetricCard
-                label="Mean Ct"
-                value={
-                  snapshotStats.meanCt !== undefined
-                    ? snapshotStats.meanCt.toFixed(2)
-                    : '—'
-                }
-                hint="Threshold cycle"
-              />
-              <MetricCard
-                label="NTC status"
-                value={snapshotStats.ntcStatus}
-                hintTone={
-                  snapshotStats.ntcStatus === 'Clean'
-                    ? 'success'
-                    : snapshotStats.ntcStatus === 'Contaminated'
-                      ? 'danger'
-                      : 'warning'
-                }
-              />
+            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm">
+              <span aria-label="Wells complete">
+                Wells <span className="tabular-nums font-medium">{snapshotStats.wellsComplete}/{snapshotStats.wellsTotal}</span>
+              </span>
+              <Separator orientation="vertical" className="h-4" />
+              <span aria-label="Mean Ct">
+                Mean Ct <span className="tabular-nums font-medium">{snapshotStats.meanCt !== undefined ? snapshotStats.meanCt.toFixed(2) : '—'}</span>
+              </span>
+              <Separator orientation="vertical" className="h-4" />
+              <span aria-label="NTC status">
+                NTC <span className={`font-medium ${snapshotStats.ntcStatus === 'Clean' ? 'text-success' : snapshotStats.ntcStatus === 'Contaminated' ? 'text-destructive' : 'text-warning-foreground'}`}>{snapshotStats.ntcStatus}</span>
+              </span>
             </div>
           </section>
         ) : null}

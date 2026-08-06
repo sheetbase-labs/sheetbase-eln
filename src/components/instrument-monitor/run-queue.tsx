@@ -55,8 +55,8 @@ export function RunQueue({
               aria-label={`Run ${run.runIdentifier}`}
               onClick={() => onSelectRun(run.id)}
               className={cn(
-                'w-full rounded-md border border-transparent p-3 text-left transition-colors hover:bg-muted/50',
-                selectedRunId === run.id && 'border-primary/30 bg-primary/5',
+                'w-full rounded-md p-3 text-left transition-colors hover:bg-muted/40',
+                selectedRunId === run.id && 'bg-primary/8',
               )}
             >
               <div className="flex items-start justify-between gap-2">

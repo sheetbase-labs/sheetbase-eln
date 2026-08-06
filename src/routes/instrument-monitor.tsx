@@ -2,7 +2,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { Activity, AlertCircle, CheckCircle2, Cpu, Play, Timer, XCircle } from 'lucide-react'
+import { Activity, AlertCircle, Play } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
 import {
@@ -10,7 +10,6 @@ import {
   RunInspector,
   RunQueue,
 } from '#/components/instrument-monitor'
-import { MetricCard } from '#/components/scientific'
 import {
   Alert,
   AlertDescription,
@@ -22,6 +21,7 @@ import {
   EmptyIcon,
   EmptyTitle,
   PageHeader,
+  Separator,
   Skeleton,
 } from '#/components/ui'
 import { createDataClient } from '#/lib/data-client'
@@ -396,44 +396,26 @@ function InstrumentMonitorRoute() {
           </Empty>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col">
-            <div className="grid grid-cols-2 gap-3 px-4 py-3 sm:grid-cols-3 lg:grid-cols-5">
-              <MetricCard
-                label="Live runs"
-                value={summaryMetrics.liveRuns}
-                icon={Activity}
-                hintTone={summaryMetrics.liveRuns > 0 ? 'info' : 'default'}
-                hint={
-                  summaryMetrics.liveRuns > 0 ? 'In progress' : 'Idle'
-                }
-              />
-              <MetricCard
-                label="Queued"
-                value={summaryMetrics.queuedRuns}
-                icon={Timer}
-              />
-              <MetricCard
-                label="Completed today"
-                value={summaryMetrics.completedToday}
-                icon={CheckCircle2}
-                hintTone="success"
-              />
-              <MetricCard
-                label="Failed"
-                value={summaryMetrics.failedRuns}
-                icon={XCircle}
-                hintTone={summaryMetrics.failedRuns > 0 ? 'danger' : 'default'}
-              />
-              <MetricCard
-                label="Instruments online"
-                value={`${summaryMetrics.instrumentsOnline}/${summaryMetrics.instrumentsTotal}`}
-                icon={Cpu}
-                hintTone={
-                  summaryMetrics.instrumentsOnline ===
-                  summaryMetrics.instrumentsTotal
-                    ? 'success'
-                    : 'warning'
-                }
-              />
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-border/60 px-4 py-2.5 text-sm">
+              <span className="font-medium" aria-label="Live runs">
+                Live <span className="tabular-nums text-info">{summaryMetrics.liveRuns}</span>
+              </span>
+              <Separator orientation="vertical" className="h-4" />
+              <span aria-label="Queued runs">
+                Queued <span className="tabular-nums">{summaryMetrics.queuedRuns}</span>
+              </span>
+              <Separator orientation="vertical" className="h-4" />
+              <span aria-label="Completed today">
+                Completed <span className="tabular-nums text-success">{summaryMetrics.completedToday}</span>
+              </span>
+              <Separator orientation="vertical" className="h-4" />
+              <span aria-label="Failed runs">
+                Failed <span className={`tabular-nums ${summaryMetrics.failedRuns > 0 ? 'text-destructive' : ''}`}>{summaryMetrics.failedRuns}</span>
+              </span>
+              <Separator orientation="vertical" className="h-4" />
+              <span aria-label="Instruments online">
+                Online <span className="tabular-nums">{summaryMetrics.instrumentsOnline}/{summaryMetrics.instrumentsTotal}</span>
+              </span>
             </div>
             <div className="flex min-h-0 flex-1">
             <div className="w-72 overflow-auto border-r border-border/60">

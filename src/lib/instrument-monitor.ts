@@ -752,6 +752,21 @@ export const RUN_STATUS_TOKENS: Record<RunStatus, string> = {
   failed: 'bg-red-100 text-red-700',
   cancelled: 'bg-zinc-100 text-zinc-600',
 }
+/**
+ * Semantic Badge variants for run status. Status is always conveyed by text
+ * (the label) as well as colour (UI-005). Mirrors the
+ * `TASK_STATUS_BADGE_VARIANT` pattern from the Planner surface.
+ */
+export const RUN_STATUS_BADGE_VARIANT: Record<
+  RunStatus,
+  'secondary' | 'info' | 'success' | 'danger' | 'outline'
+> = {
+  queued: 'secondary',
+  running: 'info',
+  completed: 'success',
+  failed: 'danger',
+  cancelled: 'outline',
+}
 export const RUN_STATUS_LABELS: Record<RunStatus, string> = {
   queued: 'Queued',
   running: 'Running',
@@ -763,6 +778,14 @@ export const CONNECTION_STATUS_TOKENS: Record<ConnectionStatus, string> = {
   connected: 'bg-emerald-100 text-emerald-700',
   disconnected: 'bg-slate-100 text-slate-600',
   error: 'bg-red-100 text-red-700',
+}
+export const CONNECTION_STATUS_BADGE_VARIANT: Record<
+  ConnectionStatus,
+  'success' | 'outline' | 'danger'
+> = {
+  connected: 'success',
+  disconnected: 'outline',
+  error: 'danger',
 }
 export const CONNECTION_STATUS_LABELS: Record<ConnectionStatus, string> = {
   connected: 'Connected',
@@ -776,6 +799,16 @@ export const STAGE_STATUS_TOKENS: Record<StageStatus, string> = {
   skipped: 'bg-zinc-100 text-zinc-600',
   failed: 'bg-red-100 text-red-700',
 }
+export const STAGE_STATUS_BADGE_VARIANT: Record<
+  StageStatus,
+  'outline' | 'info' | 'success' | 'secondary' | 'danger'
+> = {
+  pending: 'outline',
+  running: 'info',
+  completed: 'success',
+  skipped: 'secondary',
+  failed: 'danger',
+}
 export const STAGE_STATUS_LABELS: Record<StageStatus, string> = {
   pending: 'Pending',
   running: 'Running',
@@ -788,6 +821,15 @@ export const QC_CHECK_TOKENS: Record<QcCheckType, string> = {
   warning: 'bg-amber-100 text-amber-700',
   fail: 'bg-red-100 text-red-700',
   info: 'bg-blue-100 text-blue-700',
+}
+export const QC_CHECK_BADGE_VARIANT: Record<
+  QcCheckType,
+  'success' | 'warning' | 'danger' | 'info'
+> = {
+  pass: 'success',
+  warning: 'warning',
+  fail: 'danger',
+  info: 'info',
 }
 export const QC_CHECK_LABELS: Record<QcCheckType, string> = {
   pass: 'Pass',
@@ -806,6 +848,15 @@ export const INGESTION_STATUS_LABELS: Record<IngestionStatus, string> = {
   processed: 'Processed',
   failed: 'Failed',
   duplicate: 'Duplicate',
+}
+export const FILE_INGESTION_BADGE_VARIANT: Record<
+  FileIngestionStatus,
+  'outline' | 'success' | 'warning' | 'danger'
+> = {
+  pending: 'outline',
+  complete: 'success',
+  partial: 'warning',
+  failed: 'danger',
 }
 
 export const WELL_ROWS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] as const

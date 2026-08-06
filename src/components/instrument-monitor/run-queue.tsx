@@ -1,5 +1,8 @@
 import { Badge } from '#/components/ui'
-import { RUN_STATUS_LABELS, RUN_STATUS_TOKENS } from '#/lib/instrument-monitor'
+import {
+  RUN_STATUS_BADGE_VARIANT,
+  RUN_STATUS_LABELS,
+} from '#/lib/instrument-monitor'
 import type { Instrument, InstrumentRun } from '#/lib/instrument-monitor'
 import { cn } from '#/lib/utils'
 
@@ -41,7 +44,7 @@ export function RunQueue({
     <div aria-label="Run queue" className="h-full overflow-y-auto">
       {sortedRuns.length === 0 ? (
         <p className="p-6 text-center text-sm text-muted-foreground">
-          No instrument runs. Create one to get started.
+          No instrument runs in the queue.
         </p>
       ) : (
         <div className="space-y-1 p-2">
@@ -52,8 +55,8 @@ export function RunQueue({
               aria-label={`Run ${run.runIdentifier}`}
               onClick={() => onSelectRun(run.id)}
               className={cn(
-                'w-full rounded-md border border-transparent p-3 text-left transition-colors hover:bg-muted/50',
-                selectedRunId === run.id && 'border-primary/30 bg-primary/5',
+                'w-full rounded-md p-3 text-left transition-colors hover:bg-muted/40',
+                selectedRunId === run.id && 'bg-primary/8',
               )}
             >
               <div className="flex items-start justify-between gap-2">
@@ -64,7 +67,8 @@ export function RunQueue({
                   <p className="truncate text-xs">{run.name}</p>
                 </div>
                 <Badge
-                  className={cn('shrink-0', RUN_STATUS_TOKENS[run.status])}
+                  variant={RUN_STATUS_BADGE_VARIANT[run.status]}
+                  className="shrink-0 whitespace-nowrap"
                 >
                   {RUN_STATUS_LABELS[run.status]}
                 </Badge>
@@ -81,7 +85,7 @@ export function RunQueue({
                     }}
                   />
                 </div>
-                <span className="text-xs font-medium">
+                <span className="whitespace-nowrap text-xs font-medium tabular-nums">
                   {run.progressPercent}%
                 </span>
               </div>

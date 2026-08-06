@@ -45,7 +45,7 @@ vi.mock('@tanstack/react-start', () => ({
 const emptyData: never[] = []
 
 vi.mock('@tanstack/react-query', () => ({
-  useQuery: () => ({ data: emptyData, isLoading: false }),
+  useQuery: () => ({ data: emptyData, isLoading: false, error: null, refetch: vi.fn() }),
   useMutation: () => ({
     mutate: vi.fn(),
     mutateAsync: vi.fn(),
@@ -95,18 +95,20 @@ describe('InstrumentMonitorRoute', () => {
     expect(screen.getByText('Instrument Run Monitor')).toBeTruthy()
   })
 
-  it('renders the Simulate run button', () => {
+  it('renders the Simulate run action', () => {
     render(<ShellProvider><InstrumentMonitorRoute /></ShellProvider>)
 
-    expect(screen.getByRole('button', { name: 'Simulate run' })).toBeTruthy()
+    // "Simulate run" appears in the PageHeader and the empty-state actions.
+    const simulateButtons = screen.getAllByRole('button', {
+      name: 'Simulate run',
+    })
+    expect(simulateButtons.length).toBeGreaterThanOrEqual(1)
   })
 
-  it('shows the empty run detail state when no run is selected', () => {
+  it('renders the route-level empty state when no runs exist', () => {
     render(<ShellProvider><InstrumentMonitorRoute /></ShellProvider>)
 
-    expect(
-      screen.getByText('Select a run from the queue to view details.'),
-    ).toBeTruthy()
+    expect(screen.getByText('No instrument runs yet')).toBeTruthy()
   })
 
   it('shows the empty inspector hint when no run is selected', () => {
@@ -115,7 +117,7 @@ describe('InstrumentMonitorRoute', () => {
     expect(screen.getByText('No run selected')).toBeTruthy()
   })
 
-  it('renders the run queue empty state', () => {
+  it('renders the run queue empty hint within the route empty state', () => {
     render(<ShellProvider><InstrumentMonitorRoute /></ShellProvider>)
 
     expect(

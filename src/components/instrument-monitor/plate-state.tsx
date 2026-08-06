@@ -1,4 +1,17 @@
-import { WELL_COLS, WELL_ROWS } from '#/lib/instrument-monitor'
+/**
+ * OPS-006 — 96-well plate state rendered through the shared PlateMap
+ * component (semantic grid, keyboard-operable, role-based colouring) instead
+ * of a custom HTML/CSS grid. Maps qPCR well statuses into PlateWell[] with
+ * roleClass colouring and a role legend.
+ */
+import * as React from 'react'
+
+import { PlateMap } from '#/components/viz/plate-map'
+import type { PlateWell, PlateMapRoleLegendEntry } from '#/components/viz/plate-map'
+import {
+  WELL_COLS,
+  WELL_ROWS,
+} from '#/lib/instrument-monitor'
 import type {
   InstrumentPlateSnapshot,
   RunStatus,
@@ -10,11 +23,40 @@ export interface PlateStateProps {
   runStatus: RunStatus
 }
 
-const WELL_COLORS: Record<string, string> = {
-  amplified: 'border-success bg-success/80',
-  no_amplification: 'border-info bg-info/80',
-  blank: 'border-zinc-400 bg-zinc-300',
-  pending: 'border-border bg-muted/30',
+type WellStatus = 'amplified' | 'no_amplification' | 'blank' | 'pending'
+
+const WELL_ROLE_CLASS: Record<WellStatus, string> = {
+  amplified: 'bg-success/80',
+  no_amplification: 'bg-info/80',
+  blank: 'bg-zinc-400 dark:bg-zinc-500',
+  pending: 'bg-muted/30',
+}
+
+const WELL_ROLE_LABEL: Record<WellStatus, string> = {
+  amplified: 'Amplified',
+  no_amplification: 'No amplification',
+  blank: 'Blank',
+  pending: 'Pending',
+}
+
+const ROLE_LEGEND: PlateMapRoleLegendEntry[] = (
+  Object.keys(WELL_ROLE_CLASS) as WellStatus[]
+).map((status) => ({
+  label: WELL_ROLE_LABEL[status],
+  className: WELL_ROLE_CLASS[status],
+}))
+
+function wellStatus(value: unknown): WellStatus {
+  if (typeof value === 'string') {
+    return value in WELL_ROLE_CLASS ? (value as WellStatus) : 'pending'
+  }
+  if (value && typeof value === 'object') {
+    const status = String(
+      (value as Record<string, unknown>).status ?? 'pending',
+    )
+    return status in WELL_ROLE_CLASS ? (status as WellStatus) : 'pending'
+  }
+  return 'pending'
 }
 
 export function PlateState({ snapshots, runStatus }: PlateStateProps) {
@@ -22,63 +64,48 @@ export function PlateState({ snapshots, runStatus }: PlateStateProps) {
     snapshots.length > 0
       ? [...snapshots].sort(
           (a, b) =>
-            new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime(),
+            new Date(b.capturedAt).getTime() -
+            new Date(a.capturedAt).getTime(),
         )[0]
       : null
-  return (
-    <div className="overflow-x-auto">
-      <div
-        role="grid"
-        aria-label="96-well plate state"
-        className="grid min-w-[540px] grid-cols-[24px_repeat(12,minmax(32px,1fr))] gap-1 rounded-lg border bg-muted/10 p-3"
-      >
-        <span />
-        {WELL_COLS.map((col) => (
-          <span
-            key={col}
-            role="columnheader"
-            className="text-center text-xs text-muted-foreground"
-          >
-            {col}
-          </span>
-        ))}
-        {WELL_ROWS.map((row) => (
-          <div key={row} className="contents">
-            <span
-              role="rowheader"
-              className="self-center text-center text-xs text-muted-foreground"
-            >
-              {row}
-            </span>
-            {WELL_COLS.map((col) => {
-              const code = `${row}${col}`
-              const value = latest?.wells[code]
-              const status =
-                typeof value === 'string'
-                  ? value
-                  : value && typeof value === 'object'
-                    ? String(
-                        (value as Record<string, unknown>).status ?? 'pending',
-                      )
-                    : 'pending'
-              return (
-                <button
-                  key={code}
-                  type="button"
-                  role="gridcell"
-                  aria-label={code}
-                  title={`${code}: ${status}`}
-                  className={cn(
-                    'aspect-square rounded-full border transition-transform hover:scale-110',
-                    WELL_COLORS[status] ?? WELL_COLORS.pending,
-                    runStatus === 'cancelled' && 'opacity-60',
-                  )}
-                />
+
+  const wells: PlateWell[] = React.useMemo(() => {
+    if (!latest) return []
+    const result: PlateWell[] = []
+    for (const row of WELL_ROWS) {
+      for (const col of WELL_COLS) {
+        const code = `${row}${col}`
+        const value = latest.wells[code]
+        const status = wellStatus(value)
+        const sample =
+          value && typeof value === 'object'
+            ? String(
+                (value as Record<string, unknown>).sample ?? '',
               )
-            })}
-          </div>
-        ))}
-      </div>
-    </div>
+            : ''
+        result.push({
+          row: row.charCodeAt(0) - 65,
+          col: col - 1,
+          wellCode: code,
+          roleClass: WELL_ROLE_CLASS[status],
+          label: sample
+            ? `${code} · ${WELL_ROLE_LABEL[status]} · ${sample}`
+            : `${code} · ${WELL_ROLE_LABEL[status]}`,
+        })
+      }
+    }
+    return result
+  }, [latest])
+
+  return (
+    <PlateMap
+      wells={wells}
+      rows={WELL_ROWS.length}
+      cols={WELL_COLS.length}
+      roleLegend={ROLE_LEGEND}
+      readOnly
+      ariaLabel="96-well plate state"
+      className={cn(runStatus === 'cancelled' && 'opacity-60')}
+    />
   )
 }

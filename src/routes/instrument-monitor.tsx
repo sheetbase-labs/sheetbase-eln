@@ -396,25 +396,29 @@ function InstrumentMonitorRoute() {
           </Empty>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-border/60 px-4 py-2.5 text-sm">
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5 bg-muted/30 px-4 py-2.5 text-sm">
               <span className="font-medium" aria-label="Live runs">
                 Live <span className="tabular-nums text-info">{summaryMetrics.liveRuns}</span>
               </span>
               <Separator orientation="vertical" className="h-4" />
               <span aria-label="Queued runs">
-                Queued <span className="tabular-nums">{summaryMetrics.queuedRuns}</span>
+                <span className="text-muted-foreground">Queued</span>{' '}
+                <span className="tabular-nums">{summaryMetrics.queuedRuns}</span>
               </span>
               <Separator orientation="vertical" className="h-4" />
               <span aria-label="Completed today">
-                Completed <span className="tabular-nums text-success">{summaryMetrics.completedToday}</span>
+                <span className="text-muted-foreground">Completed</span>{' '}
+                <span className="tabular-nums text-success">{summaryMetrics.completedToday}</span>
               </span>
               <Separator orientation="vertical" className="h-4" />
               <span aria-label="Failed runs">
-                Failed <span className={`tabular-nums ${summaryMetrics.failedRuns > 0 ? 'text-destructive' : ''}`}>{summaryMetrics.failedRuns}</span>
+                <span className="text-muted-foreground">Failed</span>{' '}
+                <span className={`tabular-nums ${summaryMetrics.failedRuns > 0 ? 'text-destructive' : ''}`}>{summaryMetrics.failedRuns}</span>
               </span>
               <Separator orientation="vertical" className="h-4" />
               <span aria-label="Instruments online">
-                Online <span className="tabular-nums">{summaryMetrics.instrumentsOnline}/{summaryMetrics.instrumentsTotal}</span>
+                <span className="text-muted-foreground">Online</span>{' '}
+                <span className="tabular-nums">{summaryMetrics.instrumentsOnline}/{summaryMetrics.instrumentsTotal}</span>
               </span>
             </div>
             <div className="flex min-h-0 flex-1">

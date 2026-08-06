@@ -174,7 +174,7 @@ export function RunDetail({
 
   return (
     <div className="h-full overflow-y-auto">
-      <header className="space-y-4 p-6">
+      <header className="space-y-3 p-6 pb-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
@@ -229,41 +229,51 @@ export function RunDetail({
         </div>
         <span className="sr-only">Time zone: {timeZone}</span>
       </header>
-      <div className="space-y-6 px-6 pb-8">
-        <section className="space-y-3">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <div className="space-y-4 px-6 pb-8">
+        {/* Stage progress */}
+        <section>
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Stage progress
           </h3>
           <StageProgress stages={stages} />
         </section>
-        <section className="space-y-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+
+        {/* Live telemetry — inline strip on subtle panel */}
+        <section>
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Live telemetry
           </h3>
-          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5 rounded-lg bg-muted/30 px-4 py-2.5 text-sm">
             <span aria-label="Block temperature">
-              Block <span className="tabular-nums font-medium">{blockTemp !== undefined ? `${blockTemp.toFixed(1)}°C` : '—'}</span>
+              <span className="text-muted-foreground">Block</span>{' '}
+              <span className="tabular-nums font-medium">{blockTemp !== undefined ? `${blockTemp.toFixed(1)}°C` : '—'}</span>
             </span>
             <Separator orientation="vertical" className="h-4" />
             <span aria-label="Sample temperature">
-              Sample <span className="tabular-nums font-medium">{sampleTemp !== undefined ? `${sampleTemp.toFixed(1)}°C` : '—'}</span>
+              <span className="text-muted-foreground">Sample</span>{' '}
+              <span className={`tabular-nums font-medium ${sampleTemp === undefined ? 'text-muted-foreground/50' : ''}`}>{sampleTemp !== undefined ? `${sampleTemp.toFixed(1)}°C` : '—'}</span>
             </span>
             <Separator orientation="vertical" className="h-4" />
             <span aria-label="Cycle">
-              Cycle <span className="tabular-nums font-medium">{cycle !== undefined ? (totalCycles !== undefined ? `${cycle}/${totalCycles}` : `${cycle}`) : '—'}</span>
+              <span className="text-muted-foreground">Cycle</span>{' '}
+              <span className="tabular-nums font-medium">{cycle !== undefined ? (totalCycles !== undefined ? `${cycle}/${totalCycles}` : `${cycle}`) : '—'}</span>
             </span>
             <Separator orientation="vertical" className="h-4" />
             <span aria-label="Fluorescence RFU">
-              RFU <span className="tabular-nums font-medium">{rfu !== undefined ? rfu.toFixed(3) : '—'}</span>
+              <span className="text-muted-foreground">RFU</span>{' '}
+              <span className="tabular-nums font-medium">{rfu !== undefined ? rfu.toFixed(3) : '—'}</span>
             </span>
             <Separator orientation="vertical" className="h-4" />
             <span aria-label="Baseline">
-              Baseline <span className="tabular-nums font-medium">{baseline !== undefined ? baseline.toFixed(3) : '—'}</span>
+              <span className="text-muted-foreground">Baseline</span>{' '}
+              <span className={`tabular-nums font-medium ${baseline === undefined ? 'text-muted-foreground/50' : ''}`}>{baseline !== undefined ? baseline.toFixed(3) : '—'}</span>
             </span>
           </div>
         </section>
-        <section className="space-y-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+
+        {/* Event log */}
+        <section>
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Event log
           </h3>
           <div className="flex h-[36rem] flex-col overflow-hidden rounded-lg border border-border/60">
@@ -274,31 +284,42 @@ export function RunDetail({
             />
           </div>
         </section>
+
+        {/* Amplification curves */}
         <section>
           <TelemetryChart observations={observations} />
         </section>
-        <section className="space-y-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+
+        {/* Plate state */}
+        <section>
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Plate state
           </h3>
-          <PlateState snapshots={plateSnapshots} runStatus={run.status} />
+          <div className="rounded-lg bg-muted/30 p-4">
+            <PlateState snapshots={plateSnapshots} runStatus={run.status} />
+          </div>
         </section>
+
+        {/* Run snapshot — inline strip on subtle panel */}
         {snapshotStats ? (
-          <section className="space-y-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <section>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Run snapshot
             </h3>
-            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm">
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5 rounded-lg bg-muted/30 px-4 py-2.5 text-sm">
               <span aria-label="Wells complete">
-                Wells <span className="tabular-nums font-medium">{snapshotStats.wellsComplete}/{snapshotStats.wellsTotal}</span>
+                <span className="text-muted-foreground">Wells</span>{' '}
+                <span className="tabular-nums font-medium">{snapshotStats.wellsComplete}/{snapshotStats.wellsTotal}</span>
               </span>
               <Separator orientation="vertical" className="h-4" />
               <span aria-label="Mean Ct">
-                Mean Ct <span className="tabular-nums font-medium">{snapshotStats.meanCt !== undefined ? snapshotStats.meanCt.toFixed(2) : '—'}</span>
+                <span className="text-muted-foreground">Mean Ct</span>{' '}
+                <span className={`tabular-nums font-medium ${snapshotStats.meanCt === undefined ? 'text-muted-foreground/50' : ''}`}>{snapshotStats.meanCt !== undefined ? snapshotStats.meanCt.toFixed(2) : '—'}</span>
               </span>
               <Separator orientation="vertical" className="h-4" />
               <span aria-label="NTC status">
-                NTC <span className={`font-medium ${snapshotStats.ntcStatus === 'Clean' ? 'text-success' : snapshotStats.ntcStatus === 'Contaminated' ? 'text-destructive' : 'text-warning-foreground'}`}>{snapshotStats.ntcStatus}</span>
+                <span className="text-muted-foreground">NTC</span>{' '}
+                <span className={`font-medium ${snapshotStats.ntcStatus === 'Clean' ? 'text-success' : snapshotStats.ntcStatus === 'Contaminated' ? 'text-destructive' : 'text-warning-foreground'}`}>{snapshotStats.ntcStatus}</span>
               </span>
             </div>
           </section>

@@ -35,7 +35,7 @@ export function StageProgress({ stages }: StageProgressProps) {
     )
 
   return (
-    <ol className="flex min-w-max items-center overflow-x-auto pb-2">
+    <ol className="flex min-w-max items-center gap-1 overflow-x-auto pb-1">
       {[...stages]
         .sort((a, b) => a.position - b.position)
         .map((stage, index) => {
@@ -44,39 +44,33 @@ export function StageProgress({ stages }: StageProgressProps) {
             <li key={stage.id} className="flex items-center">
               {index > 0 ? (
                 <ArrowRight
-                  className="mx-2 size-4 shrink-0 text-muted-foreground/50"
+                  className="mx-1.5 size-4 shrink-0 text-muted-foreground/40"
                   aria-hidden="true"
                 />
               ) : null}
-              <div className="min-w-32 space-y-1.5 px-1">
+              <div className="min-w-28 rounded-md bg-muted/30 px-3 py-2">
                 <div className="flex items-center gap-1.5">
                   <Icon
-                    className="size-3.5 text-muted-foreground"
+                    className="size-3.5 shrink-0 text-muted-foreground"
                     aria-hidden="true"
                   />
                   <span className="truncate text-xs font-semibold">
                     {stage.name}
                   </span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Badge
-                    variant="outline"
-                    className="whitespace-nowrap text-xs capitalize"
-                  >
-                    {stage.stageType}
-                  </Badge>
+                <div className="mt-1.5 flex items-center gap-1.5">
                   <Badge
                     variant={STAGE_STATUS_BADGE_VARIANT[stage.status]}
                     className="whitespace-nowrap text-xs"
                   >
                     {STAGE_STATUS_LABELS[stage.status]}
                   </Badge>
+                  {stage.stageType === 'cycling' && stage.cycleCount ? (
+                    <span className="text-xs tabular-nums text-muted-foreground">
+                      {stage.currentCycle}/{stage.cycleCount}
+                    </span>
+                  ) : null}
                 </div>
-                {stage.stageType === 'cycling' && stage.cycleCount ? (
-                  <p className="text-xs text-muted-foreground tabular-nums">
-                    Cycle {stage.currentCycle}/{stage.cycleCount}
-                  </p>
-                ) : null}
               </div>
             </li>
           )

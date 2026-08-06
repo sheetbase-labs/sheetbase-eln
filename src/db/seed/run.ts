@@ -2163,10 +2163,18 @@ export const demoSteps: Array<SeedStep> = [
             )
           }
 
-          // Set / refresh report status so reruns converge.
+          // Refresh title, subtitle, and status so reruns converge even if a
+          // prior deployment created a report with the same auto-generated
+          // identifier (e.g. via the UI "New report" button).
           await client.query(
-            'update api.report_definitions set status=$1 where id=$2 and workspace_id=$3',
-            [report.status, reportId, FIXTURE_WORKSPACE_ID],
+            'update api.report_definitions set title=$1, subtitle=$2, status=$3 where id=$4 and workspace_id=$5',
+            [
+              report.title,
+              report.subtitle,
+              report.status,
+              reportId,
+              FIXTURE_WORKSPACE_ID,
+            ],
           )
 
           // Add sections only if none exist yet.

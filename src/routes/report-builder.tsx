@@ -17,6 +17,7 @@ import {
   ReportDetails,
   ReportOutline,
   ReportPreview,
+  SectionEditor,
 } from '#/components/report-builder'
 import {
   Alert,
@@ -43,9 +44,10 @@ import {
   generateReport,
   reportBuilderQueryKeys,
   reorderReportSections,
+  updateReportSection,
   validateReport,
 } from '#/lib/report-builder'
-import type { OutputFormat } from '#/lib/report-builder'
+import type { OutputFormat, SectionType } from '#/lib/report-builder'
 
 export const Route = createFileRoute('/report-builder')({
   beforeLoad: async ({ context: rootContext }) => {
@@ -96,6 +98,10 @@ function ReportBuilderRoute() {
 
   const sections = sectionsQuery.data ?? []
   const generations = generationsQuery.data ?? []
+  const selectedSection = useMemo(
+    () => sections.find((section) => section.id === selectedSectionId) ?? null,
+    [sections, selectedSectionId],
+  )
   const [validationReady, setValidationReady] = useState<{
     reportId: string
     sections: number
@@ -182,6 +188,33 @@ function ReportBuilderRoute() {
     onSuccess: () => {
       setActionError(null)
       invalidateReport(activeReportId)
+    },
+    onError: (cause) => setActionError(describeReportBuilderError(cause)),
+  })
+
+  const updateSectionMutation = useMutation({
+    mutationFn: ({
+      title,
+      description,
+      sectionType,
+    }: {
+      title: string
+      description: string
+      sectionType: SectionType
+    }) => {
+      if (!selectedSectionId) throw new Error('No section selected.')
+      return updateReportSection(dataClient, {
+        workspaceId,
+        sectionId: selectedSectionId,
+        title,
+        description,
+        sectionType,
+      })
+    },
+    onSuccess: () => {
+      setActionError(null)
+      invalidateReport(activeReportId)
+      setSelectedSectionId(null)
     },
     onError: (cause) => setActionError(describeReportBuilderError(cause)),
   })
@@ -410,6 +443,12 @@ function ReportBuilderRoute() {
           </div>
         </div>
       )}
+      <SectionEditor
+        section={selectedSection}
+        isSaving={updateSectionMutation.isPending}
+        onClose={() => setSelectedSectionId(null)}
+        onSave={(input) => updateSectionMutation.mutate(input)}
+      />
     </div>
   )
 }

@@ -67,6 +67,8 @@ describe('SectionEditor', () => {
     )
 
     const sourceType = screen.getByLabelText('Source type')
+    if (!(sourceType instanceof HTMLSelectElement))
+      throw new Error('Source type must be a select element')
     expect(sourceType.value).toBe('free_text')
     expect(sourceType.disabled).toBe(true)
   })

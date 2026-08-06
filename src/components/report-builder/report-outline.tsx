@@ -45,13 +45,13 @@ export function ReportOutline({
           {ordered.map((section, index) => {
             const isSelected = section.id === selectedSectionId
             return (
-              <li key={section.id}>
+              <li key={section.id} className="flex items-stretch">
                 <button
                   type="button"
                   onClick={() => onSelectSection(section.id)}
                   aria-current={isSelected ? 'true' : undefined}
                   className={cn(
-                    'flex w-full items-start gap-2 border-l-2 px-3 py-2 text-left transition-colors',
+                    'flex min-w-0 flex-1 items-start gap-2 border-l-2 px-3 py-2 text-left transition-colors',
                     isSelected
                       ? 'border-primary bg-primary/5'
                       : 'border-transparent hover:bg-muted/40',
@@ -92,35 +92,29 @@ export function ReportOutline({
                       </Badge>
                     </span>
                   </span>
-                  <span className="flex shrink-0 flex-col">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="size-5"
-                      aria-label={`Move ${section.title} up`}
-                      disabled={index === 0}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onMoveSection(section.id, 'up')
-                      }}
-                    >
-                      <ArrowUp className="size-3" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="size-5"
-                      aria-label={`Move ${section.title} down`}
-                      disabled={index === ordered.length - 1}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onMoveSection(section.id, 'down')
-                      }}
-                    >
-                      <ArrowDown className="size-3" />
-                    </Button>
-                  </span>
                 </button>
+                <span className="flex shrink-0 flex-col pr-2 pt-2">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-5"
+                    aria-label={`Move ${section.title} up`}
+                    disabled={index === 0}
+                    onClick={() => onMoveSection(section.id, 'up')}
+                  >
+                    <ArrowUp className="size-3" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-5"
+                    aria-label={`Move ${section.title} down`}
+                    disabled={index === ordered.length - 1}
+                    onClick={() => onMoveSection(section.id, 'down')}
+                  >
+                    <ArrowDown className="size-3" />
+                  </Button>
+                </span>
               </li>
             )
           })}

@@ -78,12 +78,12 @@ function ReportBuilderRoute() {
     enabled: Boolean(workspaceId),
   })
   const reports = reportsQuery.data ?? []
-  const selectedReport = useMemo(
-    () => reports.find((r) => r.id === selectedReportId) ?? null,
-    [reports, selectedReportId],
-  )
   const activeReportId =
     selectedReportId ?? (reports.length > 0 ? reports[0].id : '')
+  const activeReport = useMemo(
+    () => reports.find((report) => report.id === activeReportId) ?? null,
+    [activeReportId, reports],
+  )
 
   const sectionsQuery = useQuery({
     queryKey: reportBuilderQueryKeys.sections(activeReportId || 'none'),
@@ -267,7 +267,7 @@ function ReportBuilderRoute() {
     inspectorLabel: 'Report',
     inspector: (
       <ReportDetails
-        report={selectedReport}
+        report={activeReport}
         generations={generations}
         validation={
           validationReady && validationReady.reportId === activeReportId
@@ -308,9 +308,9 @@ function ReportBuilderRoute() {
               <FileText className="size-4" />
               Report
             </span>
-            {selectedReport ? (
+            {activeReport ? (
               <span className="text-xs text-muted-foreground">
-                {selectedReport.documentIdentifier}
+                {activeReport.documentIdentifier}
               </span>
             ) : null}
             {actionError ? (
@@ -429,7 +429,7 @@ function ReportBuilderRoute() {
               </div>
             ) : (
               <ReportPreview
-                report={selectedReport}
+                report={activeReport}
                 sections={sections}
                 validation={
                   validationReady &&

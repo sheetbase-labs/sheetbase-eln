@@ -2,10 +2,11 @@
  * OPS-007 report builder route tests: chrome, empty preview, empty inspector,
  * outline empty state, and the New report action.
  */
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { ShellProvider } from '#/components/app-shell'
+import type { ReportDefinition, ReportSection } from '#/lib/report-builder'
 import { Route } from './report-builder'
 
 const ReportBuilderRoute = Route.options.component as React.ComponentType
@@ -43,9 +44,17 @@ vi.mock('@tanstack/react-start', () => ({
 }))
 
 const emptyData: never[] = []
+let reportData: ReportDefinition[] = []
+let sectionsByReport: Record<string, ReportSection[]> = {}
 
 vi.mock('@tanstack/react-query', () => ({
-  useQuery: () => ({ data: emptyData, isLoading: false }),
+  useQuery: ({ queryKey }: { queryKey: readonly string[] }) => {
+    if (queryKey[1] === 'reports')
+      return { data: reportData, isLoading: false }
+    if (queryKey[1] === 'sections')
+      return { data: sectionsByReport[queryKey[2]] ?? emptyData, isLoading: false }
+    return { data: emptyData, isLoading: false }
+  },
   useMutation: () => ({
     mutate: vi.fn(),
     mutateAsync: vi.fn(),
@@ -64,7 +73,7 @@ vi.mock('#/components/app-shell', async () => {
       <aside aria-label="Report">{inspector}</aside>
     </div>
   )
-  const ShellProvider = ({ children }: { children: React.ReactNode }) => {
+  const MockShellProvider = ({ children }: { children: React.ReactNode }) => {
     const [config, setConfig] = React.useState<{ context: unknown | null; [k: string]: unknown }>({ context: null })
     const value = React.useMemo(
       () => ({ setConfig: (c: Partial<typeof config>) => setConfig((prev) => ({ ...prev, ...c })) }),
@@ -77,7 +86,7 @@ vi.mock('#/components/app-shell', async () => {
     const { setConfig } = React.useContext(ctx)
     React.useLayoutEffect(() => { setConfig(config) }, [])
   }
-  return { AppShell, ShellProvider, useShell }
+  return { AppShell, ShellProvider: MockShellProvider, useShell }
 })
 
 globalThis.ResizeObserver = class {
@@ -86,7 +95,72 @@ globalThis.ResizeObserver = class {
   disconnect() {}
 }
 
-afterEach(() => cleanup())
+afterEach(() => {
+  cleanup()
+  reportData = []
+  sectionsByReport = {}
+})
+
+const reports: ReportDefinition[] = [
+  {
+    id: 'report-1',
+    workspaceId: 'workspace-1',
+    projectId: null,
+    recordId: null,
+    templateRecordId: null,
+    reviewSubmissionId: null,
+    title: 'First report',
+    subtitle: 'First report subtitle',
+    documentIdentifier: 'RPT-2026-0001',
+    status: 'draft',
+    version: 1,
+    lastSavedAt: '2026-08-06T12:00:00Z',
+    createdAt: '2026-08-06T12:00:00Z',
+    updatedAt: '2026-08-06T12:00:00Z',
+    createdByUserId: 'user-1',
+    updatedByUserId: 'user-1',
+  },
+  {
+    id: 'report-2',
+    workspaceId: 'workspace-1',
+    projectId: null,
+    recordId: null,
+    templateRecordId: null,
+    reviewSubmissionId: null,
+    title: 'Second report',
+    subtitle: 'Second report subtitle',
+    documentIdentifier: 'RPT-2026-0002',
+    status: 'in_review',
+    version: 2,
+    lastSavedAt: '2026-08-06T12:00:00Z',
+    createdAt: '2026-08-06T12:00:00Z',
+    updatedAt: '2026-08-06T12:00:00Z',
+    createdByUserId: 'user-1',
+    updatedByUserId: 'user-1',
+  },
+]
+
+function section(reportId: string, title: string): ReportSection {
+  return {
+    id: `${reportId}-section`,
+    workspaceId: 'workspace-1',
+    reportId,
+    position: 0,
+    title,
+    description: `${title} content`,
+    sectionType: 'text',
+    sourceType: 'free_text',
+    sourceRevisionId: null,
+    sourceRef: {},
+    frozenPayload: {},
+    validationStatus: 'pending',
+    validationDetail: {},
+    createdAt: '2026-08-06T12:00:00Z',
+    updatedAt: '2026-08-06T12:00:00Z',
+    createdByUserId: 'user-1',
+    updatedByUserId: 'user-1',
+  }
+}
 
 describe('ReportBuilderRoute', () => {
   it('renders the Report Builder title', () => {
@@ -107,5 +181,42 @@ describe('ReportBuilderRoute', () => {
   it('shows the empty inspector hint when no report is selected', () => {
     render(<ShellProvider><ReportBuilderRoute /></ShellProvider>)
     expect(screen.getByText('No report selected.')).toBeTruthy()
+  })
+
+  it('previews the first report when none is explicitly selected', () => {
+    reportData = reports
+    sectionsByReport = {
+      'report-1': [section('report-1', 'First report section')],
+      'report-2': [section('report-2', 'Second report section')],
+    }
+
+    render(<ShellProvider><ReportBuilderRoute /></ShellProvider>)
+
+    expect(screen.getAllByText('First report').length).toBeGreaterThan(0)
+    expect(
+      screen.getAllByText('First report section content').length,
+    ).toBeGreaterThan(1)
+    expect(
+      screen.queryByText('Create or select a report to preview it here.'),
+    ).toBeNull()
+  })
+
+  it('updates the preview when another report is selected', () => {
+    reportData = reports
+    sectionsByReport = {
+      'report-1': [section('report-1', 'First report section')],
+      'report-2': [section('report-2', 'Second report section')],
+    }
+
+    render(<ShellProvider><ReportBuilderRoute /></ShellProvider>)
+    fireEvent.change(screen.getByLabelText('Select report'), {
+      target: { value: 'report-2' },
+    })
+
+    expect(screen.getAllByText('Second report').length).toBeGreaterThan(0)
+    expect(
+      screen.getAllByText('Second report section content').length,
+    ).toBeGreaterThan(1)
+    expect(screen.queryByText('First report section content')).toBeNull()
   })
 })

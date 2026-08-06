@@ -588,13 +588,13 @@ export function renderReportHtml(
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>${escapeHtml(report.title)}</title>
 <style>
-body{font-family:system-ui,-apple-system,sans-serif;max-width:820px;margin:2rem auto;padding:0 1rem;color:#111;line-height:1.5}
-h1{font-size:1.6rem;margin:0 0 .25rem}
-.subtitle{color:#555;font-style:italic;margin:0 0 .5rem}
-.meta{font-size:.8rem;color:#666}
-section{margin:1.5rem 0;padding-bottom:1rem;border-bottom:1px solid #eee}
-section h2{font-size:1.15rem;margin:0 0 .5rem}
-pre{background:#f6f6f6;padding:.75rem;border-radius:4px;overflow:auto;font-size:.8rem}
+body{font-family:system-ui,-apple-system,sans-serif;max-width:820px;margin:2rem auto;padding:0 1rem;color:#0F141C;line-height:1.5}
+h1{font-size:1.5rem;margin:0 0 .25rem}
+.subtitle{color:#5D646F;font-style:italic;margin:0 0 .5rem}
+.meta{font-size:.8rem;color:#5D646F}
+section{margin:1.5rem 0;padding-bottom:1rem;border-bottom:1px solid #DEE1E7}
+section h2{font-size:0.875rem;margin:0 0 .5rem}
+pre{background:#F1F4F8;padding:.75rem;border-radius:4px;overflow:auto;font-size:.8rem}
 @media print{body{max-width:none;margin:0}}
 </style>
 </head>

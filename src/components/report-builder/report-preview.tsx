@@ -116,13 +116,15 @@ export function ReportPreview({
           </div>
         ) : null}
       </header>
-      <div className="flex-1 overflow-auto bg-muted/20 p-5">
-        <div className="mx-auto max-w-2xl rounded-lg border bg-white p-6 shadow-sm">
+      <div className="flex-1 overflow-auto p-5">
+        <div className="mx-auto max-w-2xl">
           <h2 className="text-lg font-semibold">{report.title}</h2>
           {report.subtitle ? (
-            <p className="text-sm italic text-slate-500">{report.subtitle}</p>
+            <p className="text-sm italic text-muted-foreground">
+              {report.subtitle}
+            </p>
           ) : null}
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-muted-foreground">
             {report.documentIdentifier} · v{report.version}
           </p>
           <div className="mt-4 space-y-4">
@@ -134,13 +136,13 @@ export function ReportPreview({
               ordered.map((section, index) => (
                 <section
                   key={section.id}
-                  className="border-b border-slate-100 pb-3"
+                  className="border-b border-border/60 pb-3"
                 >
                   <h3 className="text-sm font-semibold">
                     {index + 1}. {section.title}
                   </h3>
                   {section.description ? (
-                    <p className="text-sm text-slate-600">
+                    <p className="text-sm text-muted-foreground">
                       {section.description}
                     </p>
                   ) : null}
@@ -152,7 +154,7 @@ export function ReportPreview({
                       {SOURCE_TYPE_LABELS[section.sourceType]}
                     </Badge>
                     {section.sourceRevisionId ? (
-                      <span className="text-slate-500">
+                      <span className="text-muted-foreground">
                         revision {section.sourceRevisionId.slice(0, 8)}
                       </span>
                     ) : (
@@ -170,7 +172,7 @@ export function ReportPreview({
                     </Badge>
                   </div>
                   {Object.keys(section.frozenPayload).length > 0 ? (
-                    <pre className="mt-2 max-h-48 overflow-auto rounded bg-slate-50 p-2 text-xs">
+                    <pre className="mt-2 max-h-48 overflow-auto rounded bg-muted/30 p-2 text-xs">
                       {JSON.stringify(section.frozenPayload, null, 2)}
                     </pre>
                   ) : null}

@@ -275,9 +275,13 @@ export function RunDetail({
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Event log
           </h3>
-          <Card>
-            <CardContent className="p-0">
-              <EventLog observations={observations} timeZone={timeZone} />
+          <Card className="flex h-[36rem] flex-col overflow-hidden">
+            <CardContent className="flex min-h-0 flex-1 flex-col p-0">
+              <EventLog
+                observations={observations}
+                timeZone={timeZone}
+                isLive={run.status === 'running'}
+              />
             </CardContent>
           </Card>
         </section>

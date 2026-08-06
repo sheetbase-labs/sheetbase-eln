@@ -2,7 +2,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { Activity, AlertCircle, Play } from 'lucide-react'
+import { Activity, AlertCircle, CheckCircle2, Cpu, Play, Timer, XCircle } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
 import {
@@ -10,6 +10,7 @@ import {
   RunInspector,
   RunQueue,
 } from '#/components/instrument-monitor'
+import { MetricCard } from '#/components/scientific'
 import {
   Alert,
   AlertDescription,
@@ -124,6 +125,34 @@ function InstrumentMonitorRoute() {
       ) ?? null,
     [instruments, selectedRun],
   )
+  const summaryMetrics = useMemo(() => {
+    const liveRuns = filteredRuns.filter((r) => r.status === 'running').length
+    const queuedRuns = filteredRuns.filter((r) => r.status === 'queued').length
+    const failedRuns = filteredRuns.filter((r) => r.status === 'failed').length
+    const now = new Date()
+    const startOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    ).getTime()
+    const completedToday = filteredRuns.filter(
+      (r) =>
+        r.status === 'completed' &&
+        r.completedAt &&
+        new Date(r.completedAt).getTime() >= startOfToday,
+    ).length
+    const instrumentsOnline = instruments.filter(
+      (i) => i.connectionStatus === 'connected',
+    ).length
+    return {
+      liveRuns,
+      queuedRuns,
+      completedToday,
+      failedRuns,
+      instrumentsOnline,
+      instrumentsTotal: instruments.length,
+    }
+  }, [filteredRuns, instruments])
 
   function invalidateAll(runId: string | null = selectedRunId) {
     void queryClient.invalidateQueries({
@@ -366,7 +395,47 @@ function InstrumentMonitorRoute() {
             </EmptyActions>
           </Empty>
         ) : (
-          <div className="flex min-h-0 flex-1">
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="grid grid-cols-2 gap-3 px-4 py-3 sm:grid-cols-3 lg:grid-cols-5">
+              <MetricCard
+                label="Live runs"
+                value={summaryMetrics.liveRuns}
+                icon={Activity}
+                hintTone={summaryMetrics.liveRuns > 0 ? 'info' : 'default'}
+                hint={
+                  summaryMetrics.liveRuns > 0 ? 'In progress' : 'Idle'
+                }
+              />
+              <MetricCard
+                label="Queued"
+                value={summaryMetrics.queuedRuns}
+                icon={Timer}
+              />
+              <MetricCard
+                label="Completed today"
+                value={summaryMetrics.completedToday}
+                icon={CheckCircle2}
+                hintTone="success"
+              />
+              <MetricCard
+                label="Failed"
+                value={summaryMetrics.failedRuns}
+                icon={XCircle}
+                hintTone={summaryMetrics.failedRuns > 0 ? 'danger' : 'default'}
+              />
+              <MetricCard
+                label="Instruments online"
+                value={`${summaryMetrics.instrumentsOnline}/${summaryMetrics.instrumentsTotal}`}
+                icon={Cpu}
+                hintTone={
+                  summaryMetrics.instrumentsOnline ===
+                  summaryMetrics.instrumentsTotal
+                    ? 'success'
+                    : 'warning'
+                }
+              />
+            </div>
+            <div className="flex min-h-0 flex-1">
             <div className="w-72 overflow-auto border-r border-border/60">
               <RunQueue
                 runs={filteredRuns}
@@ -384,6 +453,7 @@ function InstrumentMonitorRoute() {
                 plateSnapshots={snapshotsQuery.data ?? []}
                 timeZone={VIEW_TIMEZONE}
               />
+            </div>
             </div>
           </div>
         )}

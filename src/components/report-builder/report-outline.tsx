@@ -38,7 +38,8 @@ export function ReportOutline({
       </div>
       {ordered.length === 0 ? (
         <p className="px-3 py-6 text-sm text-muted-foreground">
-          No sections yet. Add a section to start building the report.
+          No sections yet. Each section is a titled part of the report; add
+          one, then edit its content and type before validating sources.
         </p>
       ) : (
         <ol className="flex-1 overflow-auto py-1">

@@ -15,8 +15,10 @@ import { AlertCircle, FileText, Plus } from 'lucide-react'
 import { useShell } from '#/components/app-shell'
 import {
   ReportDetails,
+  GeneratedOutputDialog,
   ReportOutline,
   ReportPreview,
+  ReportWorkflowToolbar,
   SectionEditor,
 } from '#/components/report-builder'
 import {
@@ -44,10 +46,11 @@ import {
   generateReport,
   reportBuilderQueryKeys,
   reorderReportSections,
+  toReportGeneration,
   updateReportSection,
   validateReport,
 } from '#/lib/report-builder'
-import type { OutputFormat, SectionType } from '#/lib/report-builder'
+import type { ReportGeneration, SectionType } from '#/lib/report-builder'
 
 export const Route = createFileRoute('/report-builder')({
   beforeLoad: async ({ context: rootContext }) => {
@@ -70,7 +73,8 @@ function ReportBuilderRoute() {
     null,
   )
   const [actionError, setActionError] = useState<string | null>(null)
-  const [outputFormat, setOutputFormat] = useState<OutputFormat>('html')
+  const [generatedOutput, setGeneratedOutput] =
+    useState<ReportGeneration | null>(null)
 
   const reportsQuery = useQuery({
     queryKey: reportBuilderQueryKeys.reports(workspaceId),
@@ -111,6 +115,10 @@ function ReportBuilderRoute() {
     locked: number
     ready: boolean
   } | null>(null)
+  const activeValidation =
+    validationReady && validationReady.reportId === activeReportId
+      ? validationReady
+      : null
 
   function invalidateReport(reportId: string | null = activeReportId) {
     void queryClient.invalidateQueries({
@@ -238,14 +246,19 @@ function ReportBuilderRoute() {
   const generateMutation = useMutation({
     mutationFn: () => {
       if (!activeReportId) throw new Error('No report selected.')
+      if (!activeValidation?.ready)
+        throw new Error('Validate sources and resolve issues before exporting.')
       return generateReport(dataClient, {
         workspaceId,
         reportId: activeReportId,
-        outputFormat,
+        outputFormat: 'html',
       })
     },
-    onSuccess: () => {
+    onSuccess: (wire) => {
       setActionError(null)
+      const generation = toReportGeneration(wire)
+      if (generation.outputHtml) setGeneratedOutput(generation)
+      else setActionError('The server did not return downloadable HTML.')
       invalidateReport(activeReportId)
     },
     onError: (cause) => setActionError(describeReportBuilderError(cause)),
@@ -269,17 +282,7 @@ function ReportBuilderRoute() {
       <ReportDetails
         report={activeReport}
         generations={generations}
-        validation={
-          validationReady && validationReady.reportId === activeReportId
-            ? validationReady
-            : null
-        }
-        outputFormat={outputFormat}
-        onOutputFormatChange={setOutputFormat}
-        onValidate={() => validateMutation.mutate()}
-        onGenerate={() => generateMutation.mutate()}
-        isGenerating={generateMutation.isPending}
-        isValidating={validateMutation.isPending}
+        validation={activeValidation}
         timeZone={VIEW_TIMEZONE}
       />
     ),
@@ -327,6 +330,7 @@ function ReportBuilderRoute() {
               onChange={(e) => {
                 setSelectedReportId(e.target.value || null)
                 setSelectedSectionId(null)
+                setGeneratedOutput(null)
               }}
             >
               {reports.map((r) => (
@@ -337,6 +341,14 @@ function ReportBuilderRoute() {
             </Select>
           ) : null}
         </div>
+        <ReportWorkflowToolbar
+          report={activeReport}
+          validation={activeValidation}
+          isValidating={validateMutation.isPending}
+          isExporting={generateMutation.isPending}
+          onValidate={() => validateMutation.mutate()}
+          onExport={() => generateMutation.mutate()}
+        />
       </div>
 
       {reportsQuery.isLoading ? (
@@ -369,9 +381,9 @@ function ReportBuilderRoute() {
           </EmptyIcon>
           <EmptyTitle>No reports yet</EmptyTitle>
           <EmptyDescription>
-            Create a report definition to start assembling frozen evidence
-            into a review-ready document with validation and deterministic
-            export.
+            Create a report, add titled sections for the content you need,
+            then validate frozen sources before exporting a review-ready HTML
+            document.
           </EmptyDescription>
           <EmptyActions>
             <Button
@@ -432,10 +444,7 @@ function ReportBuilderRoute() {
                 report={activeReport}
                 sections={sections}
                 validation={
-                  validationReady &&
-                  validationReady.reportId === activeReportId
-                    ? validationReady
-                    : null
+                  activeValidation
                 }
                 generationsChecksum={generations[0]?.outputChecksum ?? null}
               />
@@ -448,6 +457,10 @@ function ReportBuilderRoute() {
         isSaving={updateSectionMutation.isPending}
         onClose={() => setSelectedSectionId(null)}
         onSave={(input) => updateSectionMutation.mutate(input)}
+      />
+      <GeneratedOutputDialog
+        generation={generatedOutput}
+        onClose={() => setGeneratedOutput(null)}
       />
     </div>
   )

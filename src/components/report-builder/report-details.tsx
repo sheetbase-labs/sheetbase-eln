@@ -1,16 +1,14 @@
 /** OPS-007 — Report details inspector: document properties, review status,
- * generation audit and export settings. Reuses template/review/approval by
- * reference rather than reimplementing them. */
-import { Download, FileCheck2, History } from 'lucide-react'
+ * validation snapshot, and generation audit. Primary workflow controls live
+ * in the builder workspace so this remains secondary/audit information. */
+import { History } from 'lucide-react'
 
-import { Badge, Button } from '#/components/ui'
+import { Badge } from '#/components/ui'
 import {
-  OUTPUT_FORMAT_LABELS,
   REPORT_STATUS_BADGE_VARIANT,
   REPORT_STATUS_LABELS,
 } from '#/lib/report-builder'
 import type {
-  OutputFormat,
   ReportDefinition,
   ReportGeneration,
   ValidationSummary,
@@ -20,12 +18,6 @@ export interface ReportDetailsProps {
   report: ReportDefinition | null
   generations: ReportGeneration[]
   validation: ValidationSummary | null
-  outputFormat: OutputFormat
-  onOutputFormatChange: (format: OutputFormat) => void
-  onValidate: () => void
-  onGenerate: () => void
-  isGenerating: boolean
-  isValidating: boolean
   timeZone: string
 }
 
@@ -43,12 +35,6 @@ export function ReportDetails({
   report,
   generations,
   validation,
-  outputFormat,
-  onOutputFormatChange,
-  onValidate,
-  onGenerate,
-  isGenerating,
-  isValidating,
   timeZone,
 }: ReportDetailsProps) {
   if (!report)
@@ -120,16 +106,6 @@ export function ReportDetails({
             Run validation to check sources.
           </p>
         )}
-        <Button
-          size="sm"
-          variant="outline"
-          className="mt-3 w-full"
-          onClick={onValidate}
-          disabled={isValidating}
-        >
-          <FileCheck2 className="size-4" />
-          {isValidating ? 'Validating…' : 'Validate sources'}
-        </Button>
       </section>
 
       <section className="border-b border-border/60 p-4">
@@ -144,7 +120,7 @@ export function ReportDetails({
             />
             <Row
               label="Format"
-              value={OUTPUT_FORMAT_LABELS[latest.outputFormat]}
+              value={latest.outputFormat.toUpperCase()}
             />
             <Row label="Actor" value={latest.actorUserId} />
             <Row
@@ -172,38 +148,6 @@ export function ReportDetails({
         ) : null}
       </section>
 
-      <section className="p-4">
-        <h2 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
-          Export
-        </h2>
-        <div className="mb-3 flex gap-1">
-          {(Object.keys(OUTPUT_FORMAT_LABELS) as OutputFormat[]).map((fmt) => (
-            <Button
-              key={fmt}
-              size="sm"
-              variant={outputFormat === fmt ? 'default' : 'outline'}
-              onClick={() => onOutputFormatChange(fmt)}
-            >
-              {OUTPUT_FORMAT_LABELS[fmt]}
-            </Button>
-          ))}
-        </div>
-        <Button
-          size="sm"
-          className="w-full"
-          onClick={onGenerate}
-          disabled={isGenerating}
-        >
-          <Download className="size-4" />
-          {isGenerating
-            ? 'Generating…'
-            : `Export ${OUTPUT_FORMAT_LABELS[outputFormat]}`}
-        </Button>
-        <p className="mt-2 text-xs text-muted-foreground">
-          Export records the generation inputs, version, actor and output
-          checksum. Same inputs reproduce the same checksum.
-        </p>
-      </section>
     </div>
   )
 }

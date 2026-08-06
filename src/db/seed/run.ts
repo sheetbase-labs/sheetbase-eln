@@ -1988,6 +1988,227 @@ export const demoSteps: Array<SeedStep> = [
         })
     },
   },
+  // -------------------------------------------------------------------------
+  // OPS-007: Report Builder demo data. Two reports with varied statuses and
+  // 4–5 sections each, exercising every validation status token. Created
+  // through the same RPCs the UI uses (create_report_definition,
+  // add_report_section) so invariants fire. Idempotent: lookup-or-create by
+  // document_identifier; sections added only when none exist.
+  // -------------------------------------------------------------------------
+  {
+    name: 'demo OPS-007 report builder: reports and sections',
+    run: async (db) => {
+      const poolCs = db.$client.options.connectionString
+      if (!poolCs)
+        throw new Error(
+          'drizzle pool connection string is required for OPS-007 seed',
+        )
+      const pgrst = new URL(process.env.PGRST_DB_URI ?? '')
+      if (!pgrst.username)
+        throw new Error('PGRST_DB_URI is required for OPS-007 seed')
+      const authUrl = new URL(poolCs)
+      authUrl.username = pgrst.username
+      authUrl.password = pgrst.password
+      const client = new Client({ connectionString: authUrl.toString() })
+      await client.connect()
+      try {
+        await client.query('SET ROLE authenticated')
+        await client.query(
+          "SELECT set_config('request.jwt.claims',$1,false)",
+          [
+            JSON.stringify({
+              sub: FIXTURE_USER_ID,
+              workspace_id: FIXTURE_WORKSPACE_ID,
+              role: 'authenticated',
+            }),
+          ],
+        )
+
+        const rpc = async (name: string, params: unknown[]) => {
+          const args = params.map((_, i) => `$${i + 1}`).join(',')
+          return client.query(`select * from api.${name}(${args})`, params)
+        }
+
+        interface ReportDef {
+          title: string
+          subtitle: string
+          docId: string
+          status: 'draft' | 'in_review'
+          projectId: string
+          sections: Array<{
+            title: string
+            description: string
+            sectionType: string
+            sourceType: string
+            validationStatus: string
+          }>
+        }
+
+        const reports: ReportDef[] = [
+          {
+            title: 'Virus Stability Study Report',
+            subtitle:
+              'Comprehensive stability analysis of LVV-CAR-T vector at 4 °C',
+            docId: 'RPT-2026-0001',
+            status: 'in_review',
+            projectId: DEMO_VIRUS_STABILITY_PROJECT_ID,
+            sections: [
+              {
+                title: 'Executive Summary',
+                description:
+                  'Summary of stability findings and recommendations for the LVV-CAR-T drug substance.',
+                sectionType: 'text',
+                sourceType: 'free_text',
+                validationStatus: 'valid',
+              },
+              {
+                title: 'Materials and Methods',
+                description:
+                  'qPCR titration assay protocol, storage conditions, and timepoint schedule.',
+                sectionType: 'text',
+                sourceType: 'free_text',
+                validationStatus: 'valid',
+              },
+              {
+                title: 'Stability Data — Titer Curve',
+                description:
+                  'Frozen chart snapshot of vector genome copy number across the 28-day window.',
+                sectionType: 'chart',
+                sourceType: 'chart_block',
+                validationStatus: 'stale',
+              },
+              {
+                title: 'Raw Data References',
+                description:
+                  'Links to the underlying qPCR export files and plate maps.',
+                sectionType: 'file',
+                sourceType: 'file_object',
+                validationStatus: 'missing_source',
+              },
+              {
+                title: 'Conclusions',
+                description:
+                  'The vector remains within potency specification through day 21 at 4 °C.',
+                sectionType: 'text',
+                sourceType: 'free_text',
+                validationStatus: 'pending',
+              },
+            ],
+          },
+          {
+            title: 'QC Trend Analysis — Q3 2026',
+            subtitle:
+              'Cross-project quality control metrics and exception review',
+            docId: 'RPT-2026-0002',
+            status: 'draft',
+            projectId: DEMO_VIRUS_STABILITY_PROJECT_ID,
+            sections: [
+              {
+                title: 'Overview',
+                description:
+                  'Quarterly QC performance summary across all active projects.',
+                sectionType: 'text',
+                sourceType: 'free_text',
+                validationStatus: 'pending',
+              },
+              {
+                title: 'Assay Performance Metrics',
+                description:
+                  'Pass/fail rates, CV trends, and outlier flags for all QC assays.',
+                sectionType: 'table',
+                sourceType: 'table_block',
+                validationStatus: 'valid',
+              },
+              {
+                title: 'Exception Log',
+                description:
+                  'Documented deviations, investigations, and CAPA status.',
+                sectionType: 'text',
+                sourceType: 'free_text',
+                validationStatus: 'missing_source',
+              },
+              {
+                title: 'Locked Reference Snapshot',
+                description:
+                  'Frozen regulatory snapshot from the previous quarter for comparison.',
+                sectionType: 'composite',
+                sourceType: 'revision_block',
+                validationStatus: 'locked',
+              },
+            ],
+          },
+        ]
+
+        for (const report of reports) {
+          // Lookup-or-create by document_identifier.
+          const found = await client.query(
+            'select id from api.report_definitions where workspace_id=$1 and document_identifier=$2',
+            [FIXTURE_WORKSPACE_ID, report.docId],
+          )
+          let reportId: string
+          if (found.rowCount) {
+            reportId = found.rows[0].id as string
+          } else {
+            const res = await rpc('create_report_definition', [
+              FIXTURE_WORKSPACE_ID,
+              report.title,
+              report.subtitle,
+              report.projectId,
+            ])
+            reportId = res.rows[0].id as string
+            // Pin the stable document_identifier (RPC auto-generates one).
+            await client.query(
+              'update api.report_definitions set document_identifier=$1 where id=$2',
+              [report.docId, reportId],
+            )
+          }
+
+          // Set / refresh report status so reruns converge.
+          await client.query(
+            'update api.report_definitions set status=$1 where id=$2 and workspace_id=$3',
+            [report.status, reportId, FIXTURE_WORKSPACE_ID],
+          )
+
+          // Add sections only if none exist yet.
+          const existing = await client.query(
+            'select count(*)::int as n from api.report_sections where report_id=$1',
+            [reportId],
+          )
+          if (existing.rows[0].n === 0) {
+            for (const sec of report.sections) {
+              await rpc('add_report_section', [
+                FIXTURE_WORKSPACE_ID,
+                reportId,
+                sec.title,
+                sec.description,
+                sec.sectionType,
+                sec.sourceType,
+              ])
+            }
+          }
+
+          // Apply varied validation statuses (idempotent — always refresh so
+          // reruns converge even if a prior run was interrupted mid-seed).
+          const sections = await client.query(
+            'select id, title from api.report_sections where report_id=$1 order by position',
+            [reportId],
+          )
+          for (const [i, row] of sections.rows.entries()) {
+            if (i >= report.sections.length) break
+            const target = report.sections[i]
+            await client.query(
+              'update api.report_sections set validation_status=$1 where id=$2 and workspace_id=$3',
+              [target.validationStatus, row.id, FIXTURE_WORKSPACE_ID],
+            )
+          }
+        }
+
+        await client.query('RESET ROLE')
+      } finally {
+        await client.end()
+      }
+    },
+  },
 ]
 
 async function main() {

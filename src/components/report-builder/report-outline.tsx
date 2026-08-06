@@ -4,8 +4,8 @@ import { ArrowDown, ArrowUp, FileText, GripVertical, Plus } from 'lucide-react'
 import { Badge, Button } from '#/components/ui'
 import {
   SECTION_TYPE_LABELS,
+  VALIDATION_STATUS_BADGE_VARIANT,
   VALIDATION_STATUS_LABELS,
-  VALIDATION_STATUS_TOKENS,
 } from '#/lib/report-builder'
 import type { ReportSection } from '#/lib/report-builder'
 import { cn } from '#/lib/utils'
@@ -81,10 +81,12 @@ export function ReportOutline({
                         {SECTION_TYPE_LABELS[section.sectionType]}
                       </Badge>
                       <Badge
-                        className={cn(
-                          'text-xs',
-                          VALIDATION_STATUS_TOKENS[section.validationStatus],
-                        )}
+                        variant={
+                          VALIDATION_STATUS_BADGE_VARIANT[
+                            section.validationStatus
+                          ]
+                        }
+                        className="text-xs"
                       >
                         {VALIDATION_STATUS_LABELS[section.validationStatus]}
                       </Badge>

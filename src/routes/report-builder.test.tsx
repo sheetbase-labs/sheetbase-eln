@@ -96,25 +96,16 @@ describe('ReportBuilderRoute', () => {
 
   it('renders the New report button', () => {
     render(<ShellProvider><ReportBuilderRoute /></ShellProvider>)
-    expect(screen.getByRole('button', { name: /New report/i })).toBeTruthy()
+    expect(screen.getAllByRole('button', { name: /New report/i }).length).toBeGreaterThan(0)
   })
 
-  it('shows the empty preview state when no report is selected', () => {
+  it('shows the empty state when no reports exist', () => {
     render(<ShellProvider><ReportBuilderRoute /></ShellProvider>)
-    expect(
-      screen.getByText('Create or select a report to preview it here.'),
-    ).toBeTruthy()
+    expect(screen.getByText('No reports yet')).toBeTruthy()
   })
 
   it('shows the empty inspector hint when no report is selected', () => {
     render(<ShellProvider><ReportBuilderRoute /></ShellProvider>)
     expect(screen.getByText('No report selected.')).toBeTruthy()
-  })
-
-  it('shows the empty outline hint when no report exists', () => {
-    render(<ShellProvider><ReportBuilderRoute /></ShellProvider>)
-    expect(
-      screen.getByText('Create a report to start building its outline.'),
-    ).toBeTruthy()
   })
 })

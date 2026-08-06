@@ -2,12 +2,12 @@
 import { useMemo } from 'react'
 import { Badge } from '#/components/ui'
 import {
+  REPORT_STATUS_BADGE_VARIANT,
   REPORT_STATUS_LABELS,
-  REPORT_STATUS_TOKENS,
   SECTION_TYPE_LABELS,
   SOURCE_TYPE_LABELS,
+  VALIDATION_STATUS_BADGE_VARIANT,
   VALIDATION_STATUS_LABELS,
-  VALIDATION_STATUS_TOKENS,
   buildGenerationInputs,
   computeChecksum,
   renderReportHtml,
@@ -17,7 +17,6 @@ import type {
   ReportSection,
   ValidationSummary,
 } from '#/lib/report-builder'
-import { cn } from '#/lib/utils'
 import { useAsync } from './use-async-checksum'
 
 export interface ReportPreviewProps {
@@ -65,8 +64,8 @@ export function ReportPreview({
     <div className="flex h-full flex-col">
       <header className="border-b border-border/60 px-5 py-3">
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-base font-semibold">{report.title}</h1>
-          <Badge className={cn(REPORT_STATUS_TOKENS[report.status])}>
+          <h2 className="text-base font-semibold">{report.title}</h2>
+          <Badge variant={REPORT_STATUS_BADGE_VARIANT[report.status]}>
             {REPORT_STATUS_LABELS[report.status]}
           </Badge>
           <span className="text-xs text-muted-foreground">
@@ -84,27 +83,21 @@ export function ReportPreview({
               {validation.valid}/{validation.sections} valid
             </span>
             {validation.missingSource > 0 ? (
-              <Badge variant="outline" className="text-destructive">
+              <Badge variant="danger">
                 {validation.missingSource} missing
               </Badge>
             ) : null}
             {validation.stale > 0 ? (
-              <Badge variant="outline" className="text-warning-foreground">
+              <Badge variant="warning">
                 {validation.stale} stale
               </Badge>
             ) : null}
             {validation.locked > 0 ? (
-              <Badge variant="outline" className="text-info">
+              <Badge variant="info">
                 {validation.locked} locked
               </Badge>
             ) : null}
-            <Badge
-              className={cn(
-                validation.ready
-                  ? 'bg-success/10 text-success'
-                  : 'bg-warning/10 text-warning-foreground',
-              )}
-            >
+            <Badge variant={validation.ready ? 'success' : 'warning'}>
               {validation.ready ? 'Ready to export' : 'Not ready'}
             </Badge>
             {generationsChecksum ? (
@@ -166,10 +159,12 @@ export function ReportPreview({
                       <span className="text-warning-foreground">no frozen source</span>
                     )}
                     <Badge
-                      className={cn(
-                        'text-xs',
-                        VALIDATION_STATUS_TOKENS[section.validationStatus],
-                      )}
+                      variant={
+                        VALIDATION_STATUS_BADGE_VARIANT[
+                          section.validationStatus
+                        ]
+                      }
+                      className="text-xs"
                     >
                       {VALIDATION_STATUS_LABELS[section.validationStatus]}
                     </Badge>
@@ -185,11 +180,11 @@ export function ReportPreview({
           </div>
         </div>
       </div>
-      <details className="border-t border-border/60 px-5 py-2 text-xs">
-        <summary className="cursor-pointer text-muted-foreground">
+      <details className="border-t border-border/60 bg-muted/30 px-5 py-2 text-xs">
+        <summary className="cursor-pointer select-none font-medium text-muted-foreground">
           HTML source (PDF-ready, {previewHtml.length} bytes)
         </summary>
-        <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words text-xs text-muted-foreground">
+        <pre className="mt-2 max-h-48 overflow-auto rounded bg-background p-3 whitespace-pre-wrap break-words text-xs text-muted-foreground">
           {previewHtml}
         </pre>
       </details>

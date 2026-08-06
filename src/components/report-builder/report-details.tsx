@@ -6,8 +6,8 @@ import { Download, FileCheck2, History } from 'lucide-react'
 import { Badge, Button } from '#/components/ui'
 import {
   OUTPUT_FORMAT_LABELS,
+  REPORT_STATUS_BADGE_VARIANT,
   REPORT_STATUS_LABELS,
-  REPORT_STATUS_TOKENS,
 } from '#/lib/report-builder'
 import type {
   OutputFormat,
@@ -15,7 +15,6 @@ import type {
   ReportGeneration,
   ValidationSummary,
 } from '#/lib/report-builder'
-import { cn } from '#/lib/utils'
 
 export interface ReportDetailsProps {
   report: ReportDefinition | null
@@ -74,7 +73,7 @@ export function ReportDetails({
           <Row
             label="Status"
             value={
-              <Badge className={cn(REPORT_STATUS_TOKENS[report.status])}>
+              <Badge variant={REPORT_STATUS_BADGE_VARIANT[report.status]}>
                 {REPORT_STATUS_LABELS[report.status]}
               </Badge>
             }
@@ -110,13 +109,7 @@ export function ReportDetails({
             <Row
               label="Ready"
               value={
-                <Badge
-                  className={cn(
-                    validation.ready
-                      ? 'bg-success/10 text-success'
-                      : 'bg-warning/10 text-warning-foreground',
-                  )}
-                >
+                <Badge variant={validation.ready ? 'success' : 'warning'}>
                   {validation.ready ? 'Yes' : 'No'}
                 </Badge>
               }

@@ -620,12 +620,15 @@ export const REPORT_STATUS_LABELS: Record<ReportStatus, string> = {
   archived: 'Archived',
 }
 
-export const REPORT_STATUS_TOKENS: Record<ReportStatus, string> = {
-  draft: 'bg-slate-100 text-slate-700',
-  in_review: 'bg-amber-100 text-amber-700',
-  approved: 'bg-emerald-100 text-emerald-700',
-  published: 'bg-blue-100 text-blue-700',
-  archived: 'bg-zinc-100 text-zinc-600',
+export const REPORT_STATUS_BADGE_VARIANT: Record<
+  ReportStatus,
+  'secondary' | 'warning' | 'success' | 'info' | 'outline'
+> = {
+  draft: 'secondary',
+  in_review: 'warning',
+  approved: 'success',
+  published: 'info',
+  archived: 'outline',
 }
 
 export const SECTION_TYPE_LABELS: Record<SectionType, string> = {
@@ -654,12 +657,15 @@ export const VALIDATION_STATUS_LABELS: Record<ValidationStatus, string> = {
   locked: 'Locked revision',
 }
 
-export const VALIDATION_STATUS_TOKENS: Record<ValidationStatus, string> = {
-  pending: 'bg-slate-100 text-slate-600',
-  valid: 'bg-emerald-100 text-emerald-700',
-  missing_source: 'bg-red-100 text-red-700',
-  stale: 'bg-amber-100 text-amber-700',
-  locked: 'bg-blue-100 text-blue-700',
+export const VALIDATION_STATUS_BADGE_VARIANT: Record<
+  ValidationStatus,
+  'secondary' | 'success' | 'danger' | 'warning' | 'info'
+> = {
+  pending: 'secondary',
+  valid: 'success',
+  missing_source: 'danger',
+  stale: 'warning',
+  locked: 'info',
 }
 
 export const OUTPUT_FORMAT_LABELS: Record<OutputFormat, string> = {

@@ -1,4 +1,4 @@
-import { Card, CardContent } from '#/components/ui'
+import { boxOccupancy } from '#/lib/storage'
 import type { BoxPositionWithSample, StorageBox } from '#/lib/storage'
 
 function properties(position: BoxPositionWithSample) {
@@ -30,42 +30,33 @@ export function StorageMetrics({
   box: StorageBox | null
 }) {
   const total = box?.capacity ?? 0
+  const occupancy = boxOccupancy(positions, total)
   const values = [
-    ['Total capacity', total, 'bg-info'],
-    [
-      'Occupied',
-      positions.filter((p) => p.status === 'occupied').length,
-      'bg-success',
-    ],
-    [
-      'Available',
-      positions.filter((p) => p.status === 'available').length,
-      'bg-muted-foreground',
-    ],
-    ['Low volume', positions.filter(isLowVolume).length, 'bg-warning'],
-    ['Expiring soon', positions.filter(isExpiringSoon).length, 'bg-orange-500'],
-    [
-      'Quarantined',
-      positions.filter((p) => p.status === 'quarantined').length,
-      'bg-danger',
-    ],
+    ['Total capacity', total],
+    ['Occupied', occupancy.occupied],
+    ['Available', occupancy.available],
+    ['Low volume', positions.filter(isLowVolume).length],
+    ['Expiring soon', positions.filter(isExpiringSoon).length],
+    ['Quarantined', occupancy.quarantined],
+    ['Missing', occupancy.missing],
   ] as const
   return (
-    <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
-      {values.map(([label, value, tone]) => (
-        <Card key={label} className="overflow-hidden py-0">
-          <CardContent className="px-3 py-3">
-            <p className="text-xs text-muted-foreground">{label}</p>
-            <div className="mt-1 flex items-end justify-between">
-              <strong className="text-2xl">{value}</strong>
-              <span className="text-xs text-muted-foreground">
-                {total ? `${Math.round((value / total) * 100)}%` : '—'}
-              </span>
-            </div>
-          </CardContent>
-          <div className={`h-1 ${tone}`} aria-hidden />
-        </Card>
+    <section
+      aria-label="Box capacity summary"
+      aria-description="Occupied, available, quarantined, and missing positions are mutually exclusive and reconcile to total capacity. Low-volume and expiring-soon values are attention flags within occupied positions."
+      className="grid divide-y overflow-hidden rounded-lg border bg-card sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-3 xl:grid-cols-7"
+    >
+      {values.map(([label, value]) => (
+        <div key={label} className="px-3 py-3">
+          <p className="text-xs text-muted-foreground">{label}</p>
+          <div className="mt-1 flex items-end justify-between gap-2">
+            <strong className="text-xl tabular-nums">{value}</strong>
+            <span className="text-xs text-muted-foreground">
+              {total ? `${Math.round((value / total) * 100)}%` : '—'}
+            </span>
+          </div>
+        </div>
       ))}
-    </div>
+    </section>
   )
 }

@@ -50,6 +50,25 @@ config({ path: ['.env.local', '.env'] })
 
 const DEV_USER = resolveDevUserIdentity(process.env.SHEETBASE_DEV_USER_ID)
 
+// OPS-002 storage demonstration fixtures. These stable IDs make preview
+// reseeds converge while keeping the storage map useful for visual review.
+const DEMO_STORAGE_IDS = {
+  site: '00000000-0000-4000-8000-000000000260',
+  room: '00000000-0000-4000-8000-000000000261',
+  unit: '00000000-0000-4000-8000-000000000262',
+  shelf: '00000000-0000-4000-8000-000000000263',
+  rack: '00000000-0000-4000-8000-000000000264',
+  box: '00000000-0000-4000-8000-000000000265',
+  occupiedSample: '00000000-0000-4000-8000-000000000266',
+  lowVolumeSample: '00000000-0000-4000-8000-000000000267',
+  occupiedPosition: '00000000-0000-4000-8000-000000000268',
+  lowVolumePosition: '00000000-0000-4000-8000-000000000269',
+  quarantinedPosition: '00000000-0000-4000-8000-00000000026a',
+  missingPosition: '00000000-0000-4000-8000-00000000026b',
+  movement: '00000000-0000-4000-8000-00000000026c',
+  custodyEvent: '00000000-0000-4000-8000-00000000026d',
+} as const
+
 export interface SeedStep {
   name: string
   run: (db: ReturnType<typeof createDb>) => Promise<void>
@@ -428,6 +447,278 @@ export const demoSteps: Array<SeedStep> = [
         .update(schema.records)
         .set({ archivedAt: new Date('2025-03-01T00:00:00Z') })
         .where(eq(schema.records.id, DEMO_ARCHIVED_SAMPLE_RECORD_ID))
+    },
+  },
+  {
+    name: 'demo OPS-002 storage map: populated -80 °C freezer box',
+    run: async (db) => {
+      const ids = DEMO_STORAGE_IDS
+      await db
+        .insert(schema.records)
+        .values([
+          {
+            id: ids.occupiedSample,
+            workspaceId: FIXTURE_WORKSPACE_ID,
+            projectId: DEMO_VIRUS_STABILITY_PROJECT_ID,
+            kind: 'sample',
+            identifier: 'SMP-2025-0020',
+            title: 'LVV-CAR-T retention aliquot',
+            status: 'available',
+            tags: ['LVV-CAR-T', 'retention'],
+            properties: {
+              construct: 'LVV-CAR-T',
+              batch: 'LVV-250601',
+              storage: '-80 °C',
+              quantity: 4,
+              expiryDate: '2027-06-30',
+              barcode: 'SMP-LVV-0020',
+              sampleType: 'Drug substance',
+              storageLocation:
+                'Cambridge site / Cold room 1 / Freezer FZ-80-01 / Shelf 2 / Rack 3 / BX-LVV-07 / A1',
+            },
+            createdByUserId: FIXTURE_USER_ID,
+          },
+          {
+            id: ids.lowVolumeSample,
+            workspaceId: FIXTURE_WORKSPACE_ID,
+            projectId: DEMO_VIRUS_STABILITY_PROJECT_ID,
+            kind: 'sample',
+            identifier: 'SMP-2025-0021',
+            title: 'LVV-CAR-T stability pull',
+            status: 'available',
+            tags: ['LVV-CAR-T', 'stability'],
+            properties: {
+              construct: 'LVV-CAR-T',
+              batch: 'LVV-250601',
+              storage: '-80 °C',
+              quantity: 1,
+              expiryDate: '2026-08-20',
+              barcode: 'SMP-LVV-0021',
+              sampleType: 'Stability sample',
+              storageLocation:
+                'Cambridge site / Cold room 1 / Freezer FZ-80-01 / Shelf 2 / Rack 3 / BX-LVV-07 / A2',
+            },
+            createdByUserId: FIXTURE_USER_ID,
+          },
+        ])
+        .onConflictDoUpdate({
+          target: schema.records.id,
+          set: { status: 'available', archivedAt: null, deletedAt: null },
+        })
+
+      await db
+        .insert(schema.storageSites)
+        .values({
+          id: ids.site,
+          workspaceId: FIXTURE_WORKSPACE_ID,
+          name: 'Cambridge site',
+          code: 'CAM',
+          capacity: 12,
+        })
+        .onConflictDoUpdate({
+          target: schema.storageSites.id,
+          set: { name: 'Cambridge site', code: 'CAM', capacity: 12 },
+        })
+      await db
+        .insert(schema.storageRooms)
+        .values({
+          id: ids.room,
+          workspaceId: FIXTURE_WORKSPACE_ID,
+          siteId: ids.site,
+          name: 'Cold room 1',
+          code: 'CR-01',
+          capacity: 8,
+        })
+        .onConflictDoUpdate({
+          target: schema.storageRooms.id,
+          set: { name: 'Cold room 1', code: 'CR-01', capacity: 8 },
+        })
+      await db
+        .insert(schema.storageUnits)
+        .values({
+          id: ids.unit,
+          workspaceId: FIXTURE_WORKSPACE_ID,
+          roomId: ids.room,
+          name: 'Freezer FZ-80-01',
+          code: 'FZ-80-01',
+          unitType: 'freezer',
+          temperatureMinC: '-85',
+          temperatureMaxC: '-75',
+          capacity: 6,
+        })
+        .onConflictDoUpdate({
+          target: schema.storageUnits.id,
+          set: {
+            name: 'Freezer FZ-80-01',
+            code: 'FZ-80-01',
+            unitType: 'freezer',
+            temperatureMinC: '-85',
+            temperatureMaxC: '-75',
+            capacity: 6,
+          },
+        })
+      await db
+        .insert(schema.storageShelves)
+        .values({
+          id: ids.shelf,
+          workspaceId: FIXTURE_WORKSPACE_ID,
+          unitId: ids.unit,
+          name: 'Shelf 2',
+          position: 2,
+          capacity: 4,
+        })
+        .onConflictDoUpdate({
+          target: schema.storageShelves.id,
+          set: { name: 'Shelf 2', position: 2, capacity: 4 },
+        })
+      await db
+        .insert(schema.storageRacks)
+        .values({
+          id: ids.rack,
+          workspaceId: FIXTURE_WORKSPACE_ID,
+          shelfId: ids.shelf,
+          name: 'Rack 3',
+          position: 3,
+          capacity: 2,
+        })
+        .onConflictDoUpdate({
+          target: schema.storageRacks.id,
+          set: { name: 'Rack 3', position: 3, capacity: 2 },
+        })
+      await db
+        .insert(schema.storageBoxes)
+        .values({
+          id: ids.box,
+          workspaceId: FIXTURE_WORKSPACE_ID,
+          rackId: ids.rack,
+          name: 'LVV retention box 07',
+          code: 'BX-LVV-07',
+          rows: 3,
+          cols: 4,
+          capacity: 12,
+        })
+        .onConflictDoUpdate({
+          target: schema.storageBoxes.id,
+          set: {
+            name: 'LVV retention box 07',
+            code: 'BX-LVV-07',
+            rows: 3,
+            cols: 4,
+            capacity: 12,
+          },
+        })
+
+      const specialPositions = new Map([
+        [
+          '0:0',
+          {
+            id: ids.occupiedPosition,
+            label: 'A1',
+            status: 'occupied',
+            occupiedRecordId: ids.occupiedSample,
+          },
+        ],
+        [
+          '0:1',
+          {
+            id: ids.lowVolumePosition,
+            label: 'A2',
+            status: 'occupied',
+            occupiedRecordId: ids.lowVolumeSample,
+          },
+        ],
+        [
+          '1:2',
+          {
+            id: ids.quarantinedPosition,
+            label: 'B3',
+            status: 'quarantined',
+            occupiedRecordId: null,
+          },
+        ],
+        [
+          '2:3',
+          {
+            id: ids.missingPosition,
+            label: 'C4',
+            status: 'missing',
+            occupiedRecordId: null,
+          },
+        ],
+      ])
+      for (let rowIndex = 0; rowIndex < 3; rowIndex += 1) {
+        for (let colIndex = 0; colIndex < 4; colIndex += 1) {
+          const special = specialPositions.get(`${rowIndex}:${colIndex}`)
+          const label = `${String.fromCharCode(65 + rowIndex)}${colIndex + 1}`
+          await db
+            .insert(schema.storagePositions)
+            .values({
+              id:
+                special?.id ??
+                `00000000-0000-4000-8000-0000000002${80 + rowIndex * 4 + colIndex}`,
+              workspaceId: FIXTURE_WORKSPACE_ID,
+              boxId: ids.box,
+              rowIndex,
+              colIndex,
+              label,
+              status: special?.status ?? 'available',
+              occupiedRecordId: special?.occupiedRecordId ?? null,
+            })
+            .onConflictDoUpdate({
+              target: [
+                schema.storagePositions.boxId,
+                schema.storagePositions.rowIndex,
+                schema.storagePositions.colIndex,
+              ],
+              set: {
+                label,
+                status: special?.status ?? 'available',
+                occupiedRecordId: special?.occupiedRecordId ?? null,
+              },
+            })
+        }
+      }
+      const path =
+        'Cambridge site / Cold room 1 / Freezer FZ-80-01 / Shelf 2 / Rack 3 / BX-LVV-07 / A1'
+      await db
+        .insert(schema.storageMovements)
+        .values({
+          id: ids.movement,
+          workspaceId: FIXTURE_WORKSPACE_ID,
+          recordId: ids.occupiedSample,
+          operation: 'place',
+          toPositionId: ids.occupiedPosition,
+          toPath: path,
+          actorUserId: FIXTURE_USER_ID,
+          notes: 'Seeded retention placement for preview review.',
+        })
+        .onConflictDoUpdate({
+          target: schema.storageMovements.id,
+          set: {
+            toPositionId: ids.occupiedPosition,
+            toPath: path,
+            notes: 'Seeded retention placement for preview review.',
+          },
+        })
+      await db
+        .insert(schema.sampleEvents)
+        .values({
+          id: ids.custodyEvent,
+          workspaceId: FIXTURE_WORKSPACE_ID,
+          recordId: ids.occupiedSample,
+          operation: 'transfer',
+          fromLocation: 'Quarantine release',
+          toLocation: path,
+          actorUserId: FIXTURE_USER_ID,
+          notes: 'Released and placed in -80 °C retention storage.',
+        })
+        .onConflictDoUpdate({
+          target: schema.sampleEvents.id,
+          set: {
+            toLocation: path,
+            notes: 'Released and placed in -80 °C retention storage.',
+          },
+        })
     },
   },
   {

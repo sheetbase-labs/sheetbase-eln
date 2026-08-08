@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { PackagePlus, Plus, RefreshCw, Search } from 'lucide-react'
+import { AlertCircle, PackagePlus, Plus, RefreshCw, Search } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
 import {
@@ -19,6 +19,9 @@ import type {
 import {
   Badge,
   Button,
+  Alert,
+  AlertDescription,
+  AlertTitle,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -27,6 +30,8 @@ import {
   DialogTitle,
   Input,
   Label,
+  PageHeader,
+  Skeleton,
 } from '#/components/ui'
 import { createDataClient } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -49,6 +54,7 @@ import {
   removeSampleFromPosition,
   setPositionStatus,
   storageQueryKeys,
+  canonicalStorageIdentifier,
   toRecord,
 } from '#/lib/storage'
 
@@ -122,6 +128,13 @@ function StorageRoute() {
     enabled: Boolean(boxId),
   })
   const positions = contents.data?.positions ?? []
+  const hierarchyError =
+    sites.error ||
+    rooms.error ||
+    units.error ||
+    shelves.error ||
+    racks.error ||
+    boxes.error
   const visiblePositions = filters.status
     ? positions.filter((item) => item.status === filters.status)
     : positions
@@ -239,35 +252,34 @@ function StorageRoute() {
   return (
     <>
       <div className="h-full overflow-auto bg-muted/20">
-        <div className="space-y-4 p-4">
-          <header className="flex flex-wrap items-center gap-3">
-            <div className="mr-auto">
-              <h1 className="text-xl font-semibold">
-                Freezer &amp; Storage Map
-              </h1>
-              <p className="text-xs text-muted-foreground">
-                Last updated {contents.data ? 'just now' : '—'}
-              </p>
+        <div className="space-y-3 p-3 lg:p-4 xl:space-y-4 xl:p-6">
+          <PageHeader
+            eyebrow={context.workspace?.name ?? undefined}
+            title="Freezer & Storage Map"
+            description="Navigate storage locations, review capacity, and manage sample positions."
+            className="gap-2 pb-2 lg:[&_[data-slot=page-header-content]>p]:hidden xl:gap-4 xl:pb-4 xl:[&_[data-slot=page-header-content]>p]:block"
+          >
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="outline" onClick={invalidate}>
+                <RefreshCw className="size-3.5" /> Refresh
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setSiteOpen(true)}
+              >
+                <Plus className="size-3.5" /> New site
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setBoxOpen(true)}
+                disabled={!rackId}
+              >
+                <PackagePlus className="size-3.5" /> New box
+              </Button>
             </div>
-            <Button size="sm" variant="outline" onClick={invalidate}>
-              <RefreshCw className="size-3.5" /> Refresh
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setSiteOpen(true)}
-            >
-              <Plus className="size-3.5" /> New site
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => setBoxOpen(true)}
-              disabled={!rackId}
-            >
-              <PackagePlus className="size-3.5" /> New box
-            </Button>
-          </header>
-          <div className="flex flex-wrap items-center gap-2">
+          </PageHeader>
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <form
               className="flex gap-2"
               onSubmit={(event) => {
@@ -288,7 +300,7 @@ function StorageRoute() {
             </form>
             {pendingSample ? (
               <Badge variant="info">
-                Pending move: {pendingSample.identifier} — {pendingSample.title}
+                Pending move: {canonicalStorageIdentifier(pendingSample.identifier)} — {pendingSample.title}
                 <button
                   type="button"
                   className="ml-2"
@@ -301,9 +313,25 @@ function StorageRoute() {
             ) : null}
           </div>
           {error ? (
-            <p role="alert" className="text-xs text-danger">
-              {error}
-            </p>
+            <Alert variant="destructive">
+              <AlertCircle className="size-4" />
+              <AlertTitle>Storage action failed</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : null}
+          {hierarchyError ? (
+            <Alert variant="destructive">
+              <AlertCircle className="size-4" />
+              <AlertTitle>Couldn&apos;t load storage locations</AlertTitle>
+              <AlertDescription className="flex items-center justify-between gap-3">
+                <span>
+                  Retry loading the hierarchy or refresh the workspace.
+                </span>
+                <Button size="sm" variant="outline" onClick={invalidate}>
+                  Retry
+                </Button>
+              </AlertDescription>
+            </Alert>
           ) : null}
           <StorageMetrics
             positions={positions}
@@ -326,41 +354,48 @@ function StorageRoute() {
             racks={racks.data ?? []}
             boxes={boxes.data ?? []}
           />
-          <div className="grid min-h-[32rem] grid-cols-1 gap-4 lg:grid-cols-[17rem_minmax(0,1fr)]">
-            <StorageHierarchyBrowser
-              sites={
-                filters.siteId
-                  ? (sites.data ?? []).filter(
-                      (site) => site.id === filters.siteId,
-                    )
-                  : (sites.data ?? [])
-              }
-              loading={sites.isLoading}
-              selectedBoxId={boxId}
-              onSelectBox={(id) => {
-                setBoxId(id)
-                setFilters((value) => ({ ...value, boxId: id }))
-                setPositionId(null)
-              }}
-              onSelectRack={setRackId}
-            />
-            <div className="min-w-0 space-y-4 overflow-auto">
-              <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[minmax(28rem,1fr)_minmax(30rem,1fr)]">
-                <BoxGrid
-                  box={contents.data?.box ?? null}
-                  positions={visiblePositions}
-                  loading={contents.isLoading}
-                  selectedPositionId={positionId}
-                  onSelectPosition={setPositionId}
-                />
-                <BoxContentsTable
-                  positions={visiblePositions}
-                  selectedPositionId={positionId}
-                  onSelectPosition={setPositionId}
-                />
+          {sites.isLoading ? (
+            <div className="grid min-h-[32rem] grid-cols-1 gap-4 lg:grid-cols-[17rem_minmax(0,1fr)]">
+              <Skeleton className="h-full min-h-80" />
+              <Skeleton className="h-full min-h-80" />
+            </div>
+          ) : (
+            <div className="grid min-h-[32rem] grid-cols-1 gap-4 lg:grid-cols-[17rem_minmax(0,1fr)]">
+              <StorageHierarchyBrowser
+                sites={
+                  filters.siteId
+                    ? (sites.data ?? []).filter(
+                        (site) => site.id === filters.siteId,
+                      )
+                    : (sites.data ?? [])
+                }
+                loading={sites.isLoading}
+                selectedBoxId={boxId}
+                onSelectBox={(id) => {
+                  setBoxId(id)
+                  setFilters((value) => ({ ...value, boxId: id }))
+                  setPositionId(null)
+                }}
+                onSelectRack={setRackId}
+              />
+              <div className="min-w-0 space-y-4 overflow-auto">
+                <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[minmax(28rem,1fr)_minmax(30rem,1fr)]">
+                  <BoxGrid
+                    box={contents.data?.box ?? null}
+                    positions={visiblePositions}
+                    loading={contents.isLoading}
+                    selectedPositionId={positionId}
+                    onSelectPosition={setPositionId}
+                  />
+                  <BoxContentsTable
+                    positions={visiblePositions}
+                    selectedPositionId={positionId}
+                    onSelectPosition={setPositionId}
+                  />
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
       <CreateSiteDialog

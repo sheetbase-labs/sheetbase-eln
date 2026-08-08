@@ -833,19 +833,32 @@ export interface BoxOccupancySummary {
   missing: number
 }
 
+/**
+ * Render record identifiers as their canonical token, without whitespace
+ * around separators. Storage data can contain legacy whitespace, but it must
+ * not create a visually different identifier in the grid, table, or inspector.
+ */
+export function canonicalStorageIdentifier(identifier: string): string {
+  return identifier.trim().replace(/\s*-\s*/g, '-')
+}
+
 export function boxOccupancy(
   positions: StoragePosition[],
+  capacity = positions.length,
 ): BoxOccupancySummary {
   const s: BoxOccupancySummary = {
-    total: positions.length,
+    total: capacity,
     occupied: 0,
     available: 0,
     quarantined: 0,
     missing: 0,
   }
   for (const p of positions) {
-    s[p.status as keyof BoxOccupancySummary] += 1
+    if (p.status === 'occupied') s.occupied += 1
+    if (p.status === 'quarantined') s.quarantined += 1
+    if (p.status === 'missing') s.missing += 1
   }
+  s.available = Math.max(s.total - s.occupied - s.quarantined - s.missing, 0)
   return s
 }
 

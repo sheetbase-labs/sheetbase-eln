@@ -38,12 +38,12 @@ export function StorageFilters({
   boxes: StorageBox[]
 }) {
   const fields = [
-    ['siteId', 'Site', sites],
-    ['roomId', 'Room', rooms],
-    ['unitId', 'Freezer', units],
-    ['shelfId', 'Shelf', shelves],
-    ['rackId', 'Rack', racks],
-    ['boxId', 'Box', boxes],
+    ['siteId', 'Site', 'sites', sites],
+    ['roomId', 'Room', 'rooms', rooms],
+    ['unitId', 'Freezer', 'freezers', units],
+    ['shelfId', 'Shelf', 'shelves', shelves],
+    ['rackId', 'Rack', 'racks', racks],
+    ['boxId', 'Box', 'boxes', boxes],
   ] as const
   const keys = fields.map(([key]) => key)
   return (
@@ -51,7 +51,7 @@ export function StorageFilters({
       className="flex flex-wrap gap-2 rounded-lg border bg-card p-2"
       aria-label="Storage filters"
     >
-      {fields.map(([key, label, options], index) => (
+      {fields.map(([key, label, plural, options], index) => (
         <Select
           key={key}
           aria-label={label}
@@ -63,7 +63,7 @@ export function StorageFilters({
             onChange(next)
           }}
         >
-          <option value="">All {label.toLowerCase()}s</option>
+          <option value="">All {plural}</option>
           {options.map((item) => (
             <option key={item.id} value={item.id}>
               {item.name}

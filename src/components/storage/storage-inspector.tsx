@@ -11,7 +11,11 @@ import { Badge, Button } from '#/components/ui'
 import { formatDate, notebookDataClient } from '#/lib/notebook-data'
 import type { NotebookRecord } from '#/lib/notebook-data'
 import type { SampleEvent } from '#/lib/samples'
-import { boxOccupancy, positionStatusDef } from '#/lib/storage'
+import {
+  boxOccupancy,
+  canonicalStorageIdentifier,
+  positionStatusDef,
+} from '#/lib/storage'
 import type {
   BoxPositionWithSample,
   StorageBox,
@@ -90,35 +94,56 @@ export function StorageInspector({
   const def = positionStatusDef(position.status)
   const summary = boxOccupancy(positions)
   const sample = position.sample
+  const identifier = sample
+    ? canonicalStorageIdentifier(sample.identifier)
+    : null
   return (
     <div className="h-full overflow-y-auto px-4 pb-6">
       <header className="space-y-2 py-3">
-        <div className="flex items-start gap-2">
-          <div className="min-w-0 flex-1">
-            <h2 className="truncate text-lg font-semibold">
-              {box?.name ?? 'Storage box'}
-            </h2>
-            <p className="font-mono text-xs text-muted-foreground">
-              {box?.code ?? '—'}
+        <div className="min-w-0">
+          <div className="flex items-start justify-between gap-4">
+            <p className="pt-1 text-xs font-medium text-muted-foreground">
+              Position {position.label}
             </p>
+            {onClose && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="shrink-0"
+                aria-label="Close inspector"
+                onClick={onClose}
+              >
+                <X className="size-4" />
+              </Button>
+            )}
           </div>
-          <Badge variant={def.tone === 'neutral' ? 'outline' : def.tone}>
-            {def.glyph} {def.label}
-          </Badge>
-          {onClose && (
-            <Button
-              size="sm"
-              variant="ghost"
-              aria-label="Close inspector"
-              onClick={onClose}
-            >
-              <X className="size-4" />
-            </Button>
-          )}
+          <h2 className="max-w-full text-lg leading-snug font-semibold text-balance">
+            {sample?.title ?? box?.name ?? 'Storage box'}
+          </h2>
+          <p className="font-mono text-xs text-muted-foreground">
+            {sample ? `Storage box: ${box?.code ?? '—'}` : (box?.code ?? '—')}
+          </p>
         </div>
-        <p className="text-xs text-muted-foreground">
-          {summary.occupied} samples · Position {position.label}
-        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant={def.tone === 'neutral' ? 'outline' : def.tone}>
+            {def.glyph} Position: {def.label}
+          </Badge>
+        </div>
+        {sample ? (
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="font-mono text-muted-foreground">
+              Sample identifier: {identifier}
+            </span>
+            <span className="inline-flex items-center gap-1 text-muted-foreground">
+              Sample availability:
+              <StatusBadge domain="sample" status={sample.status} />
+            </span>
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            {summary.occupied} samples in this box
+          </p>
+        )}
       </header>
       <InspectorSection title="Environment">
         <div className="flex items-center gap-2">
@@ -144,12 +169,10 @@ export function StorageInspector({
       </InspectorSection>
       {sample && (
         <InspectorSection title="Sample details">
-          <div className="mb-2 flex items-center justify-between">
-            <span className="font-mono text-xs">{sample.identifier}</span>
-            <StatusBadge domain="sample" status={sample.status} />
-          </div>
-          <p className="mb-2 text-sm font-medium">{sample.title}</p>
           <PropertyList>
+            <Property label="Sample identifier" mono>
+              {identifier}
+            </Property>
             <Property label="Barcode" mono>
               <span>
                 {sample.barcode ?? '—'}{' '}
@@ -251,7 +274,7 @@ export function StorageInspector({
               disabled={actionPending}
               onClick={() => onAction({ kind: 'move' })}
             >
-              Move {pendingSample.identifier} here
+              Move {canonicalStorageIdentifier(pendingSample.identifier)} here
             </Button>
           )}
           {sample && (

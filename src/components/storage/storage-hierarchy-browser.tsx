@@ -1,8 +1,17 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronRight } from 'lucide-react'
+import { Archive, ChevronRight } from 'lucide-react'
 
-import { Badge, Skeleton } from '#/components/ui'
+import {
+  Alert,
+  AlertDescription,
+  Badge,
+  Empty,
+  EmptyDescription,
+  EmptyIcon,
+  EmptyTitle,
+  Skeleton,
+} from '#/components/ui'
 import { notebookDataClient } from '#/lib/notebook-data'
 import {
   fetchStorageBoxes,
@@ -62,11 +71,13 @@ function TreeButton({
     <button
       type="button"
       className={cn(
-        'flex w-full items-start gap-1.5 rounded-md px-2 py-1.5 text-left hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'relative flex w-full items-start gap-1.5 rounded-md px-2 py-1.5 text-left hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        level > 0 &&
+          'before:absolute before:top-1/2 before:left-[-1rem] before:h-px before:w-4 before:bg-border',
         selected && 'bg-primary/10 text-primary',
       )}
-      style={{ paddingLeft: `${level * 14 + 8}px` }}
       aria-expanded={leaf ? undefined : expanded}
+      aria-current={selected ? 'true' : undefined}
       onClick={onClick}
     >
       <ChevronRight
@@ -125,8 +136,14 @@ function Branch<T extends Node, TChild extends Node>(
       {expanded ? (
         query.isLoading ? (
           <Skeleton className="ml-8 my-1 h-7 w-36" />
+        ) : query.error ? (
+          <Alert variant="destructive" className="mx-2 my-1 py-2 text-xs">
+            <AlertDescription>
+              Couldn&apos;t load this location.
+            </AlertDescription>
+          </Alert>
         ) : (
-          <ul>
+          <ul className="ml-4 [&>li]:relative [&>li]:before:absolute [&>li]:before:top-0 [&>li]:before:bottom-0 [&>li]:before:left-0 [&>li]:before:w-px [&>li]:before:bg-border [&>li:last-child]:before:bottom-1/2">
             {query.data?.map((child) =>
               props.renderChild(child, props.level + 1),
             )}
@@ -221,7 +238,10 @@ export function StorageHierarchyBrowser({
   )
 
   return (
-    <div className="flex h-full flex-col border-r bg-background">
+    <nav
+      className="flex h-full min-h-80 flex-col rounded-lg border bg-card"
+      aria-label="Storage hierarchy"
+    >
       <div className="border-b px-3 py-2">
         <h2 className="text-sm font-semibold">Storage hierarchy</h2>
       </div>
@@ -246,9 +266,15 @@ export function StorageHierarchyBrowser({
             ))}
           </ul>
         ) : (
-          <p className="p-3 text-xs text-muted-foreground">
-            No storage sites yet.
-          </p>
+          <Empty className="min-h-52 border-0 p-4">
+            <EmptyIcon>
+              <Archive />
+            </EmptyIcon>
+            <EmptyTitle>No storage sites yet</EmptyTitle>
+            <EmptyDescription>
+              Create a site to begin mapping your storage locations.
+            </EmptyDescription>
+          </Empty>
         )}
       </div>
       {selected ? (
@@ -261,6 +287,6 @@ export function StorageHierarchyBrowser({
           </p>
         </div>
       ) : null}
-    </div>
+    </nav>
   )
 }

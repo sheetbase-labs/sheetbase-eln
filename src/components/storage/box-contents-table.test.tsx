@@ -26,7 +26,8 @@ const position: BoxPositionWithSample = {
 }
 
 describe('BoxContentsTable', () => {
-  it('sets stable column widths and exposes complete values for clipped cells', () => {
+  it('sets stable column widths and renders canonical identifiers without spaced hyphens', () => {
+    position.sample!.identifier = ' SMP - 2025 - 0020 '
     const { container } = render(
       <BoxContentsTable positions={[position]} onSelectPosition={vi.fn()} />,
     )
@@ -34,9 +35,9 @@ describe('BoxContentsTable', () => {
     expect(container.querySelector('table')?.className).toContain(
       'min-w-[30rem]',
     )
-    expect(screen.getByText('SMP-2025-0020').getAttribute('title')).toBe(
-      'SMP-2025-0020',
-    )
+    const identifier = screen.getByText('SMP-2025-0020')
+    expect(identifier.getAttribute('title')).toBe('SMP-2025-0020')
+    expect(identifier.textContent).not.toContain(' - ')
     expect(screen.getByText('Drug substance').getAttribute('title')).toBe(
       'Drug substance',
     )

@@ -54,6 +54,7 @@ import {
   removeSampleFromPosition,
   setPositionStatus,
   storageQueryKeys,
+  canonicalStorageIdentifier,
   toRecord,
 } from '#/lib/storage'
 
@@ -299,7 +300,7 @@ function StorageRoute() {
             </form>
             {pendingSample ? (
               <Badge variant="info">
-                Pending move: {pendingSample.identifier} — {pendingSample.title}
+                Pending move: {canonicalStorageIdentifier(pendingSample.identifier)} — {pendingSample.title}
                 <button
                   type="button"
                   className="ml-2"

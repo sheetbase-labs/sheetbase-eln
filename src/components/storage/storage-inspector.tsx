@@ -11,7 +11,11 @@ import { Badge, Button } from '#/components/ui'
 import { formatDate, notebookDataClient } from '#/lib/notebook-data'
 import type { NotebookRecord } from '#/lib/notebook-data'
 import type { SampleEvent } from '#/lib/samples'
-import { boxOccupancy, positionStatusDef } from '#/lib/storage'
+import {
+  boxOccupancy,
+  canonicalStorageIdentifier,
+  positionStatusDef,
+} from '#/lib/storage'
 import type {
   BoxPositionWithSample,
   StorageBox,
@@ -90,6 +94,9 @@ export function StorageInspector({
   const def = positionStatusDef(position.status)
   const summary = boxOccupancy(positions)
   const sample = position.sample
+  const identifier = sample
+    ? canonicalStorageIdentifier(sample.identifier)
+    : null
   return (
     <div className="h-full overflow-y-auto px-4 pb-6">
       <header className="space-y-2 py-3">
@@ -125,7 +132,7 @@ export function StorageInspector({
         {sample ? (
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <span className="font-mono text-muted-foreground">
-              Sample identifier: {sample.identifier}
+              Sample identifier: {identifier}
             </span>
             <span className="inline-flex items-center gap-1 text-muted-foreground">
               Sample availability:
@@ -164,7 +171,7 @@ export function StorageInspector({
         <InspectorSection title="Sample details">
           <PropertyList>
             <Property label="Sample identifier" mono>
-              {sample.identifier}
+              {identifier}
             </Property>
             <Property label="Barcode" mono>
               <span>
@@ -267,7 +274,7 @@ export function StorageInspector({
               disabled={actionPending}
               onClick={() => onAction({ kind: 'move' })}
             >
-              Move {pendingSample.identifier} here
+              Move {canonicalStorageIdentifier(pendingSample.identifier)} here
             </Button>
           )}
           {sample && (

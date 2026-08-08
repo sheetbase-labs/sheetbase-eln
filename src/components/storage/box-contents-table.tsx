@@ -7,7 +7,7 @@ import {
   TableHeader,
   TableRow,
 } from '#/components/ui'
-import { positionStatusDef } from '#/lib/storage'
+import { canonicalStorageIdentifier, positionStatusDef } from '#/lib/storage'
 import type { BoxPositionWithSample } from '#/lib/storage'
 import { cn } from '#/lib/utils'
 
@@ -47,6 +47,7 @@ export function BoxContentsTable({
           {rows.map((position) => {
             const sample = position.sample!
             const def = positionStatusDef(position.status)
+            const identifier = canonicalStorageIdentifier(sample.identifier)
             const props = (
               sample as unknown as { properties?: Record<string, unknown> }
             ).properties
@@ -72,9 +73,9 @@ export function BoxContentsTable({
                 <TableCell>{position.label}</TableCell>
                 <TableCell
                   className="truncate font-mono text-primary"
-                  title={sample.identifier}
+                  title={identifier}
                 >
-                  {sample.identifier}
+                  {identifier}
                 </TableCell>
                 <TableCell
                   className="truncate"

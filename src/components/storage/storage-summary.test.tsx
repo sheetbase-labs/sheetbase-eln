@@ -68,7 +68,7 @@ describe('storage box summary', () => {
     )!
     occupiedPosition.sample = {
       id: 'sample-1',
-      identifier: 'SMP-2025-0020',
+      identifier: 'SMP - 2025 - 0020',
       title: 'LVV-CAR-T retention aliquot',
       status: 'available',
       barcode: null,
@@ -85,6 +85,7 @@ describe('storage box summary', () => {
       'A1: SMP-2025-0020 — LVV-CAR-T retention aliquot',
     )
     expect(cell.textContent).toContain('SMP-2025-0020')
+    expect(cell.textContent).not.toContain('SMP - 2025 - 0020')
   })
 
   it('accounts for each position status against total capacity', () => {
@@ -99,5 +100,23 @@ describe('storage box summary', () => {
     expect(summary.getAttribute('aria-description')).toMatch(
       /mutually exclusive and reconcile to total capacity/i,
     )
+  })
+
+  it('derives available capacity by excluding occupied, quarantined, and missing positions', () => {
+    const incompletePositions = positions.filter(
+      (position) => position.status !== 'available',
+    )
+    const { container } = render(
+      <StorageMetrics box={box} positions={incompletePositions} />,
+    )
+
+    const summary = container.querySelector('[aria-label="Box capacity summary"]')
+    if (!summary) throw new Error('Expected box capacity summary')
+    expect(summary.textContent).toContain('Total capacity12')
+    expect(summary.textContent).toContain('Occupied2')
+    expect(summary.textContent).toContain('Available8')
+    expect(summary.textContent).toContain('Quarantined1')
+    expect(summary.textContent).toContain('Missing1')
+    expect(summary.querySelector('.h-0\\.5')).toBeNull()
   })
 })

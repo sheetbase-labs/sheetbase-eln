@@ -6,7 +6,11 @@ import {
   EmptyTitle,
   Skeleton,
 } from '#/components/ui'
-import { boxOccupancy, positionStatusDef } from '#/lib/storage'
+import {
+  boxOccupancy,
+  canonicalStorageIdentifier,
+  positionStatusDef,
+} from '#/lib/storage'
 import type { BoxPositionWithSample, StorageBox } from '#/lib/storage'
 import { cn } from '#/lib/utils'
 import { isExpiringSoon, isLowVolume } from './storage-metrics'
@@ -123,16 +127,19 @@ export function BoxGrid({
                 const position = byCell.get(`${row}:${col}`)
                 if (!position) return <span key={col} />
                 const [label, tone] = appearance(position)
+                const identifier = position.sample
+                  ? canonicalStorageIdentifier(position.sample.identifier)
+                  : null
                 return (
                   <button
                     key={position.id}
                     type="button"
                     onClick={() => onSelectPosition(position.id)}
                     aria-pressed={selectedPositionId === position.id}
-                    aria-label={`${position.label}, ${label}${position.sample ? `, ${position.sample.identifier}, ${position.sample.title}` : ''}`}
+                    aria-label={`${position.label}, ${label}${position.sample ? `, ${identifier}, ${position.sample.title}` : ''}`}
                     title={
                       position.sample
-                        ? `${position.label}: ${position.sample.identifier} — ${position.sample.title}`
+                        ? `${position.label}: ${identifier} — ${position.sample.title}`
                         : `${position.label}: ${label}`
                     }
                     className={cn(
@@ -147,7 +154,7 @@ export function BoxGrid({
                     </span>
                     {position.sample && (
                       <span className="mt-1 block whitespace-nowrap font-mono text-[10px] leading-tight">
-                        {position.sample.identifier}
+                        {identifier}
                       </span>
                     )}
                   </button>

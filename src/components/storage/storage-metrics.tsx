@@ -1,3 +1,4 @@
+import { boxOccupancy } from '#/lib/storage'
 import type { BoxPositionWithSample, StorageBox } from '#/lib/storage'
 
 function properties(position: BoxPositionWithSample) {
@@ -29,30 +30,15 @@ export function StorageMetrics({
   box: StorageBox | null
 }) {
   const total = box?.capacity ?? 0
+  const occupancy = boxOccupancy(positions, total)
   const values = [
-    ['Total capacity', total, 'bg-info'],
-    [
-      'Occupied',
-      positions.filter((p) => p.status === 'occupied').length,
-      'bg-success',
-    ],
-    [
-      'Available',
-      positions.filter((p) => p.status === 'available').length,
-      'bg-muted-foreground',
-    ],
-    ['Low volume', positions.filter(isLowVolume).length, 'bg-warning'],
-    ['Expiring soon', positions.filter(isExpiringSoon).length, 'bg-orange-500'],
-    [
-      'Quarantined',
-      positions.filter((p) => p.status === 'quarantined').length,
-      'bg-danger',
-    ],
-    [
-      'Missing',
-      positions.filter((p) => p.status === 'missing').length,
-      'bg-danger',
-    ],
+    ['Total capacity', total],
+    ['Occupied', occupancy.occupied],
+    ['Available', occupancy.available],
+    ['Low volume', positions.filter(isLowVolume).length],
+    ['Expiring soon', positions.filter(isExpiringSoon).length],
+    ['Quarantined', occupancy.quarantined],
+    ['Missing', occupancy.missing],
   ] as const
   return (
     <section
@@ -60,8 +46,8 @@ export function StorageMetrics({
       aria-description="Occupied, available, quarantined, and missing positions are mutually exclusive and reconcile to total capacity. Low-volume and expiring-soon values are attention flags within occupied positions."
       className="grid divide-y overflow-hidden rounded-lg border bg-card sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-3 xl:grid-cols-7"
     >
-      {values.map(([label, value, tone]) => (
-        <div key={label} className="relative px-3 py-3">
+      {values.map(([label, value]) => (
+        <div key={label} className="px-3 py-3">
           <p className="text-xs text-muted-foreground">{label}</p>
           <div className="mt-1 flex items-end justify-between gap-2">
             <strong className="text-xl tabular-nums">{value}</strong>
@@ -69,10 +55,6 @@ export function StorageMetrics({
               {total ? `${Math.round((value / total) * 100)}%` : '—'}
             </span>
           </div>
-          <div
-            className={`absolute inset-x-0 bottom-0 h-0.5 ${tone}`}
-            aria-hidden
-          />
         </div>
       ))}
     </section>

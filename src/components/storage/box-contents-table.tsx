@@ -32,15 +32,15 @@ export function BoxContentsTable({
         </h3>
         <p className="text-xs text-muted-foreground">{rows.length} samples</p>
       </div>
-      <Table className="min-w-[44rem] table-fixed">
+      <Table className="min-w-[32rem] table-fixed">
         <TableHeader>
           <TableRow>
             <TableHead className="w-16">Position</TableHead>
             <TableHead className="w-40">Sample identifier</TableHead>
-            <TableHead className="w-52">Name</TableHead>
             <TableHead className="w-36">Type</TableHead>
             <TableHead className="w-28">Status</TableHead>
-            <TableHead className="w-20">Volume</TableHead>
+            <TableHead className="hidden w-52 2xl:table-cell">Name</TableHead>
+            <TableHead className="hidden w-20 2xl:table-cell">Volume</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -76,9 +76,6 @@ export function BoxContentsTable({
                 >
                   {sample.identifier}
                 </TableCell>
-                <TableCell className="truncate" title={sample.title}>
-                  {sample.title}
-                </TableCell>
                 <TableCell
                   className="truncate"
                   title={sample.sampleType ?? undefined}
@@ -92,7 +89,13 @@ export function BoxContentsTable({
                     {def.glyph} {def.label}
                   </Badge>
                 </TableCell>
-                <TableCell>
+                <TableCell
+                  className="hidden truncate 2xl:table-cell"
+                  title={sample.title}
+                >
+                  {sample.title}
+                </TableCell>
+                <TableCell className="hidden 2xl:table-cell">
                   {props?.quantity == null ? '—' : String(props.quantity)}
                 </TableCell>
               </TableRow>

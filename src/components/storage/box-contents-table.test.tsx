@@ -32,7 +32,7 @@ describe('BoxContentsTable', () => {
     )
 
     expect(container.querySelector('table')?.className).toContain(
-      'min-w-[44rem]',
+      'min-w-[32rem]',
     )
     expect(screen.getByText('SMP-2025-0020').getAttribute('title')).toBe(
       'SMP-2025-0020',

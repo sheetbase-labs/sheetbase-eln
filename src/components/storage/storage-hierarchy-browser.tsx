@@ -143,7 +143,7 @@ function Branch<T extends Node, TChild extends Node>(
             </AlertDescription>
           </Alert>
         ) : (
-          <ul className="relative ml-4 before:absolute before:-top-6 before:bottom-0 before:left-0 before:w-px before:bg-border">
+          <ul className="ml-4 [&>li]:relative [&>li]:before:absolute [&>li]:before:top-0 [&>li]:before:bottom-0 [&>li]:before:left-0 [&>li]:before:w-px [&>li]:before:bg-border [&>li:last-child]:before:bottom-1/2">
             {query.data?.map((child) =>
               props.renderChild(child, props.level + 1),
             )}

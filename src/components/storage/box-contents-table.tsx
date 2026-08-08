@@ -32,7 +32,7 @@ export function BoxContentsTable({
         </h3>
         <p className="text-xs text-muted-foreground">{rows.length} samples</p>
       </div>
-      <Table className="min-w-[32rem] table-fixed">
+      <Table className="min-w-[30rem] table-fixed">
         <TableHeader>
           <TableRow>
             <TableHead className="w-16">Position</TableHead>

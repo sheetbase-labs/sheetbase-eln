@@ -130,6 +130,11 @@ export function BoxGrid({
                     onClick={() => onSelectPosition(position.id)}
                     aria-pressed={selectedPositionId === position.id}
                     aria-label={`${position.label}, ${label}${position.sample ? `, ${position.sample.identifier}, ${position.sample.title}` : ''}`}
+                    title={
+                      position.sample
+                        ? `${position.label}: ${position.sample.identifier} — ${position.sample.title}`
+                        : `${position.label}: ${label}`
+                    }
                     className={cn(
                       'min-h-16 rounded-md border p-1.5 text-left text-xs transition-colors hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
                       tone,
@@ -153,7 +158,7 @@ export function BoxGrid({
         </div>
       </div>
       <div
-        className="mt-4 flex flex-wrap gap-x-4 gap-y-2"
+        className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2.5"
         aria-label="Position status legend"
       >
         {legend.map(([label, tone]) => (

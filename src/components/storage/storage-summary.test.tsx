@@ -62,6 +62,29 @@ describe('storage box summary', () => {
     expect(container.querySelector('.w-full')).toBeTruthy()
   })
 
+  it('exposes the complete occupied sample identity without expanding the grid cell', () => {
+    const occupiedPosition = positions.find((position) => position.label === 'A1')!
+    occupiedPosition.sample = {
+      id: 'sample-1',
+      identifier: 'SMP-2025-0020',
+      title: 'LVV-CAR-T retention aliquot',
+      status: 'available',
+      barcode: null,
+      sampleType: null,
+    }
+    render(
+      <BoxGrid box={box} positions={positions} onSelectPosition={vi.fn()} />,
+    )
+
+    const cell = screen.getByRole('button', {
+      name: 'A1, Occupied, SMP-2025-0020, LVV-CAR-T retention aliquot',
+    })
+    expect(cell.getAttribute('title')).toBe(
+      'A1: SMP-2025-0020 — LVV-CAR-T retention aliquot',
+    )
+    expect(cell.textContent).toContain('ID: SMP-2025-0020')
+  })
+
   it('accounts for each position status against total capacity', () => {
     render(<StorageMetrics box={box} positions={positions} />)
 

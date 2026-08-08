@@ -93,40 +93,43 @@ export function StorageInspector({
   return (
     <div className="h-full overflow-y-auto px-4 pb-6">
       <header className="space-y-2 py-3">
-        <div className="flex items-start gap-2">
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-medium text-muted-foreground">
+        <div className="min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <p className="pt-1 text-xs font-medium text-muted-foreground">
               Position {position.label}
             </p>
-            <h2 className="break-words text-lg font-semibold">
-              {sample?.title ?? box?.name ?? 'Storage box'}
-            </h2>
-            <p className="font-mono text-xs text-muted-foreground">
-              {sample ? `Storage box: ${box?.code ?? '—'}` : (box?.code ?? '—')}
-            </p>
+            {onClose && (
+              <Button
+                size="sm"
+                variant="ghost"
+                aria-label="Close inspector"
+                onClick={onClose}
+              >
+                <X className="size-4" />
+              </Button>
+            )}
           </div>
+          <h2 className="max-w-full text-lg leading-snug font-semibold text-balance">
+            {sample?.title ?? box?.name ?? 'Storage box'}
+          </h2>
+          <p className="font-mono text-xs text-muted-foreground">
+            {sample ? `Storage box: ${box?.code ?? '—'}` : (box?.code ?? '—')}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
           <Badge variant={def.tone === 'neutral' ? 'outline' : def.tone}>
             {def.glyph} Position: {def.label}
           </Badge>
-          {onClose && (
-            <Button
-              size="sm"
-              variant="ghost"
-              aria-label="Close inspector"
-              onClick={onClose}
-            >
-              <X className="size-4" />
-            </Button>
-          )}
         </div>
         {sample ? (
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <span className="font-mono text-muted-foreground">
               Sample identifier: {sample.identifier}
             </span>
-            <span className="text-muted-foreground">·</span>
-            <span className="text-muted-foreground">Sample availability:</span>
-            <StatusBadge domain="sample" status={sample.status} />
+            <span className="inline-flex items-center gap-1 text-muted-foreground">
+              Sample availability:
+              <StatusBadge domain="sample" status={sample.status} />
+            </span>
           </div>
         ) : (
           <p className="text-xs text-muted-foreground">

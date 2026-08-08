@@ -76,12 +76,20 @@ describe('StorageInspector', () => {
       }),
     ).toBeTruthy()
     expect(
-      screen.getByText(
-        (_content, element) => element?.textContent === '● Position: Occupied',
-      ),
-    ).toBeTruthy()
+      screen
+        .getByRole('heading', { level: 2 })
+        .classList.contains('text-balance'),
+    ).toBe(true)
+    expect(
+      screen
+        .getAllByText(
+          (_content, element) => element?.textContent === '● Position: Occupied',
+        )
+        .some((element) => element.tagName === 'SPAN'),
+    ).toBe(true)
     expect(screen.getByText('Sample availability:')).toBeTruthy()
     expect(screen.getByText('Available')).toBeTruthy()
+    expect(screen.queryByText('·')).toBeNull()
     expect(screen.getAllByText('Sample identifier').length).toBeGreaterThan(0)
     expect(screen.getByText('SMP-2025-0020')).toBeTruthy()
     expect(screen.getByText('Barcode')).toBeTruthy()

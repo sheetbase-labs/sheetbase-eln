@@ -100,9 +100,9 @@ export function BoxGrid({
       </header>
       <div className="overflow-x-auto">
         <div
-          className="grid min-w-max gap-1.5"
+          className="grid w-full gap-1.5"
           style={{
-            gridTemplateColumns: `1.5rem repeat(${box.cols}, minmax(4.25rem, 1fr))`,
+            gridTemplateColumns: `1.5rem repeat(${box.cols}, minmax(0, 1fr))`,
           }}
         >
           <span />

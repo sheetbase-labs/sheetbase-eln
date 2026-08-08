@@ -48,11 +48,17 @@ export function StorageMetrics({
       positions.filter((p) => p.status === 'quarantined').length,
       'bg-danger',
     ],
+    [
+      'Missing',
+      positions.filter((p) => p.status === 'missing').length,
+      'bg-danger',
+    ],
   ] as const
   return (
     <section
       aria-label="Box capacity summary"
-      className="grid divide-y overflow-hidden rounded-lg border bg-card sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-3 xl:grid-cols-6"
+      aria-description="Occupied, available, quarantined, and missing positions are mutually exclusive and reconcile to total capacity. Low-volume and expiring-soon values are attention flags within occupied positions."
+      className="grid divide-y overflow-hidden rounded-lg border bg-card sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-3 xl:grid-cols-7"
     >
       {values.map(([label, value, tone]) => (
         <div key={label} className="relative px-3 py-3">

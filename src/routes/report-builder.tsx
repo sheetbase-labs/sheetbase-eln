@@ -10,15 +10,31 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { FileText, Plus } from 'lucide-react'
+import { AlertCircle, FileText, Plus } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
 import {
   ReportDetails,
+  GeneratedOutputDialog,
   ReportOutline,
   ReportPreview,
+  ReportWorkflowToolbar,
+  SectionEditor,
 } from '#/components/report-builder'
-import { Button } from '#/components/ui'
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+  Button,
+  Empty,
+  EmptyActions,
+  EmptyDescription,
+  EmptyIcon,
+  EmptyTitle,
+  PageHeader,
+  Select,
+  Skeleton,
+} from '#/components/ui'
 import { createDataClient } from '#/lib/data-client'
 import {
   addReportSection,
@@ -30,9 +46,17 @@ import {
   generateReport,
   reportBuilderQueryKeys,
   reorderReportSections,
+  toReportGeneration,
+  updateReportSection,
   validateReport,
 } from '#/lib/report-builder'
-import type { OutputFormat } from '#/lib/report-builder'
+import type { ReportGeneration, SectionType } from '#/lib/report-builder'
+import { buildReportDocx, reportDocxFilename } from '#/lib/report-builder-docx'
+import {
+  buildReportPdf,
+  downloadReportPdf,
+  reportPdfFilename,
+} from '#/lib/report-builder-pdf'
 
 export const Route = createFileRoute('/report-builder')({
   beforeLoad: async ({ context: rootContext }) => {
@@ -55,7 +79,16 @@ function ReportBuilderRoute() {
     null,
   )
   const [actionError, setActionError] = useState<string | null>(null)
-  const [outputFormat, setOutputFormat] = useState<OutputFormat>('html')
+  const [generatedOutput, setGeneratedOutput] =
+    useState<ReportGeneration | null>(null)
+  const [generatedDocx, setGeneratedDocx] = useState<Blob | null>(null)
+  const [generatedPdf, setGeneratedPdf] = useState<Blob | null>(null)
+  const [generatedPdfFilename, setGeneratedPdfFilename] = useState<
+    string | null
+  >(null)
+  const [generatedDocxFilename, setGeneratedDocxFilename] = useState<
+    string | null
+  >(null)
 
   const reportsQuery = useQuery({
     queryKey: reportBuilderQueryKeys.reports(workspaceId),
@@ -63,12 +96,12 @@ function ReportBuilderRoute() {
     enabled: Boolean(workspaceId),
   })
   const reports = reportsQuery.data ?? []
-  const selectedReport = useMemo(
-    () => reports.find((r) => r.id === selectedReportId) ?? null,
-    [reports, selectedReportId],
-  )
   const activeReportId =
     selectedReportId ?? (reports.length > 0 ? reports[0].id : '')
+  const activeReport = useMemo(
+    () => reports.find((report) => report.id === activeReportId) ?? null,
+    [activeReportId, reports],
+  )
 
   const sectionsQuery = useQuery({
     queryKey: reportBuilderQueryKeys.sections(activeReportId || 'none'),
@@ -83,6 +116,10 @@ function ReportBuilderRoute() {
 
   const sections = sectionsQuery.data ?? []
   const generations = generationsQuery.data ?? []
+  const selectedSection = useMemo(
+    () => sections.find((section) => section.id === selectedSectionId) ?? null,
+    [sections, selectedSectionId],
+  )
   const [validationReady, setValidationReady] = useState<{
     reportId: string
     sections: number
@@ -92,6 +129,10 @@ function ReportBuilderRoute() {
     locked: number
     ready: boolean
   } | null>(null)
+  const activeValidation =
+    validationReady && validationReady.reportId === activeReportId
+      ? validationReady
+      : null
 
   function invalidateReport(reportId: string | null = activeReportId) {
     void queryClient.invalidateQueries({
@@ -173,6 +214,33 @@ function ReportBuilderRoute() {
     onError: (cause) => setActionError(describeReportBuilderError(cause)),
   })
 
+  const updateSectionMutation = useMutation({
+    mutationFn: ({
+      title,
+      description,
+      sectionType,
+    }: {
+      title: string
+      description: string
+      sectionType: SectionType
+    }) => {
+      if (!selectedSectionId) throw new Error('No section selected.')
+      return updateReportSection(dataClient, {
+        workspaceId,
+        sectionId: selectedSectionId,
+        title,
+        description,
+        sectionType,
+      })
+    },
+    onSuccess: () => {
+      setActionError(null)
+      invalidateReport(activeReportId)
+      setSelectedSectionId(null)
+    },
+    onError: (cause) => setActionError(describeReportBuilderError(cause)),
+  })
+
   const validateMutation = useMutation({
     mutationFn: () => {
       if (!activeReportId) throw new Error('No report selected.')
@@ -190,16 +258,37 @@ function ReportBuilderRoute() {
   })
 
   const generateMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       if (!activeReportId) throw new Error('No report selected.')
-      return generateReport(dataClient, {
-        workspaceId,
-        reportId: activeReportId,
-        outputFormat,
-      })
+      if (!activeValidation?.ready)
+        throw new Error('Validate sources and resolve issues before exporting.')
+      if (!activeReport) throw new Error('No report selected.')
+      const [wire, pdf, docx] = await Promise.all([
+        generateReport(dataClient, {
+          workspaceId,
+          reportId: activeReportId,
+          outputFormat: 'html',
+        }),
+        buildReportPdf(activeReport, sections),
+        buildReportDocx(activeReport, sections),
+      ])
+      return {
+        wire,
+        pdf,
+        docx,
+        pdfFilename: reportPdfFilename(activeReport),
+        docxFilename: reportDocxFilename(activeReport),
+      }
     },
-    onSuccess: () => {
+    onSuccess: ({ wire, pdf, docx, pdfFilename, docxFilename }) => {
       setActionError(null)
+      const generation = toReportGeneration(wire)
+      downloadReportPdf(pdf, pdfFilename)
+      setGeneratedPdf(pdf)
+      setGeneratedDocx(docx)
+      setGeneratedPdfFilename(pdfFilename)
+      setGeneratedDocxFilename(docxFilename)
+      setGeneratedOutput(generation)
       invalidateReport(activeReportId)
     },
     onError: (cause) => setActionError(describeReportBuilderError(cause)),
@@ -218,48 +307,43 @@ function ReportBuilderRoute() {
     context: shellContext,
     breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Report Builder' }],
     fullBleed: true,
-    primaryAction: (
-      <Button
-        size="sm"
-        onClick={() => createReportMutation.mutate()}
-        disabled={createReportMutation.isPending}
-      >
-        <Plus className="size-4" /> New report
-      </Button>
-    ),
     inspectorLabel: 'Report',
     inspector: (
       <ReportDetails
-        report={selectedReport}
+        report={activeReport}
         generations={generations}
-        validation={
-          validationReady && validationReady.reportId === activeReportId
-            ? validationReady
-            : null
-        }
-        outputFormat={outputFormat}
-        onOutputFormatChange={setOutputFormat}
-        onValidate={() => validateMutation.mutate()}
-        onGenerate={() => generateMutation.mutate()}
-        isGenerating={generateMutation.isPending}
-        isValidating={validateMutation.isPending}
+        validation={activeValidation}
         timeZone={VIEW_TIMEZONE}
       />
     ),
   })
 
   return (
-    <>
-      <div className="flex h-[calc(100svh-3.5rem)] min-h-0 flex-col">
-        <div className="space-y-2 border-b border-border/60 px-4 py-2.5">
+    <div className="flex flex-1 min-h-0 flex-col">
+      <div className="px-4 pt-4">
+        <PageHeader
+          eyebrow={context.workspace?.name ?? undefined}
+          title="Report Builder"
+          description="Assemble frozen evidence into review-ready reports with deterministic generation and checksum audit."
+          className="border-0 pb-4"
+        >
+          <Button
+            size="sm"
+            onClick={() => createReportMutation.mutate()}
+            disabled={createReportMutation.isPending}
+          >
+            <Plus className="size-4" /> New report
+          </Button>
+        </PageHeader>
+        <div className="space-y-1.5 border-b border-border/60 pb-2.5">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="flex items-center gap-1.5 text-sm font-semibold">
-              <FileText className="size-4 text-muted-foreground" />
-              Report Builder
-            </h1>
-            {selectedReport ? (
+            <span className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+              <FileText className="size-4" />
+              Report
+            </span>
+            {activeReport ? (
               <span className="text-xs text-muted-foreground">
-                {selectedReport.documentIdentifier}
+                {activeReport.documentIdentifier}
               </span>
             ) : null}
             {actionError ? (
@@ -269,13 +353,18 @@ function ReportBuilderRoute() {
             ) : null}
           </div>
           {reports.length > 0 ? (
-            <select
+            <Select
               aria-label="Select report"
-              className="rounded border border-border bg-background px-2 py-1 text-sm"
+              className="max-w-sm"
               value={activeReportId}
               onChange={(e) => {
                 setSelectedReportId(e.target.value || null)
                 setSelectedSectionId(null)
+                setGeneratedOutput(null)
+                setGeneratedPdf(null)
+                setGeneratedDocx(null)
+                setGeneratedPdfFilename(null)
+                setGeneratedDocxFilename(null)
               }}
             >
               {reports.map((r) => (
@@ -283,12 +372,88 @@ function ReportBuilderRoute() {
                   {r.title} · {r.documentIdentifier}
                 </option>
               ))}
-            </select>
+            </Select>
           ) : null}
         </div>
+        <ReportWorkflowToolbar
+          report={activeReport}
+          validation={activeValidation}
+          isValidating={validateMutation.isPending}
+          isExporting={generateMutation.isPending}
+          onValidate={() => validateMutation.mutate()}
+          onExport={() => generateMutation.mutate()}
+        />
+      </div>
+
+      {reportsQuery.isLoading ? (
+        <div className="flex-1 space-y-4 p-4">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-4 w-64" />
+        </div>
+      ) : reportsQuery.error ? (
+        <Alert variant="destructive" className="m-6 max-w-md">
+          <AlertCircle className="size-4" />
+          <AlertTitle>Couldn't load reports</AlertTitle>
+          <AlertDescription className="flex flex-col gap-3">
+            <span>{describeReportBuilderError(reportsQuery.error)}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-fit"
+              onClick={() => void reportsQuery.refetch()}
+            >
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : reports.length === 0 ? (
+        <Empty className="flex-1 border-0 rounded-none">
+          <EmptyIcon>
+            <FileText className="size-5" />
+          </EmptyIcon>
+          <EmptyTitle>No reports yet</EmptyTitle>
+          <EmptyDescription>
+            Create a report, add titled sections for the content you need, then
+            validate frozen sources before downloading a review-ready Word
+            document.
+          </EmptyDescription>
+          <EmptyActions>
+            <Button
+              onClick={() => createReportMutation.mutate()}
+              size="sm"
+              disabled={createReportMutation.isPending}
+            >
+              <Plus className="size-4" /> New report
+            </Button>
+          </EmptyActions>
+        </Empty>
+      ) : (
         <div className="flex min-h-0 flex-1">
           <div className="w-72 shrink-0 overflow-auto border-r border-border/60">
-            {activeReportId ? (
+            {sectionsQuery.isLoading ? (
+              <div className="space-y-3 p-4">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-16 w-full" />
+              </div>
+            ) : sectionsQuery.error ? (
+              <Alert variant="destructive" className="m-4">
+                <AlertCircle className="size-4" />
+                <AlertDescription className="flex flex-col gap-2">
+                  <span>{describeReportBuilderError(sectionsQuery.error)}</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-fit"
+                    onClick={() => void sectionsQuery.refetch()}
+                  >
+                    Retry
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            ) : (
               <ReportOutline
                 sections={sections}
                 selectedSectionId={selectedSectionId}
@@ -298,26 +463,47 @@ function ReportBuilderRoute() {
                   moveSectionMutation.mutate({ sectionId: id, direction })
                 }
               />
-            ) : (
-              <div className="p-4 text-sm text-muted-foreground">
-                Create a report to start building its outline.
-              </div>
             )}
           </div>
           <div className="flex-1 overflow-auto">
-            <ReportPreview
-              report={selectedReport}
-              sections={sections}
-              validation={
-                validationReady && validationReady.reportId === activeReportId
-                  ? validationReady
-                  : null
-              }
-              generationsChecksum={generations[0]?.outputChecksum ?? null}
-            />
+            {sectionsQuery.isLoading ? (
+              <div className="space-y-4 p-5">
+                <Skeleton className="h-8 w-64" />
+                <Skeleton className="h-4 w-48" />
+                <Skeleton className="h-32 w-full" />
+                <Skeleton className="h-32 w-full" />
+              </div>
+            ) : (
+              <ReportPreview
+                report={activeReport}
+                sections={sections}
+                validation={activeValidation}
+                generationsChecksum={generations[0]?.outputChecksum ?? null}
+              />
+            )}
           </div>
         </div>
-      </div>
-    </>
+      )}
+      <SectionEditor
+        section={selectedSection}
+        isSaving={updateSectionMutation.isPending}
+        onClose={() => setSelectedSectionId(null)}
+        onSave={(input) => updateSectionMutation.mutate(input)}
+      />
+      <GeneratedOutputDialog
+        generation={generatedOutput}
+        pdf={generatedPdf}
+        docx={generatedDocx}
+        pdfFilename={generatedPdfFilename}
+        docxFilename={generatedDocxFilename}
+        onClose={() => {
+          setGeneratedOutput(null)
+          setGeneratedPdf(null)
+          setGeneratedDocx(null)
+          setGeneratedPdfFilename(null)
+          setGeneratedDocxFilename(null)
+        }}
+      />
+    </div>
   )
 }

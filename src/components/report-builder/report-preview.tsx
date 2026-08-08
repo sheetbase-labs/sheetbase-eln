@@ -2,22 +2,20 @@
 import { useMemo } from 'react'
 import { Badge } from '#/components/ui'
 import {
+  REPORT_STATUS_BADGE_VARIANT,
   REPORT_STATUS_LABELS,
-  REPORT_STATUS_TOKENS,
   SECTION_TYPE_LABELS,
   SOURCE_TYPE_LABELS,
+  VALIDATION_STATUS_BADGE_VARIANT,
   VALIDATION_STATUS_LABELS,
-  VALIDATION_STATUS_TOKENS,
   buildGenerationInputs,
   computeChecksum,
-  renderReportHtml,
 } from '#/lib/report-builder'
 import type {
   ReportDefinition,
   ReportSection,
   ValidationSummary,
 } from '#/lib/report-builder'
-import { cn } from '#/lib/utils'
 import { useAsync } from './use-async-checksum'
 
 export interface ReportPreviewProps {
@@ -36,10 +34,6 @@ export function ReportPreview({
   const ordered = useMemo(
     () => sections.slice().sort((a, b) => a.position - b.position),
     [sections],
-  )
-  const previewHtml = useMemo(
-    () => (report ? renderReportHtml(report, ordered) : ''),
-    [report, ordered],
   )
   const previewChecksum = useAsync(
     async () =>
@@ -65,8 +59,8 @@ export function ReportPreview({
     <div className="flex h-full flex-col">
       <header className="border-b border-border/60 px-5 py-3">
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-base font-semibold">{report.title}</h1>
-          <Badge className={cn(REPORT_STATUS_TOKENS[report.status])}>
+          <h2 className="text-base font-semibold">{report.title}</h2>
+          <Badge variant={REPORT_STATUS_BADGE_VARIANT[report.status]}>
             {REPORT_STATUS_LABELS[report.status]}
           </Badge>
           <span className="text-xs text-muted-foreground">
@@ -84,27 +78,15 @@ export function ReportPreview({
               {validation.valid}/{validation.sections} valid
             </span>
             {validation.missingSource > 0 ? (
-              <Badge variant="outline" className="text-destructive">
-                {validation.missingSource} missing
-              </Badge>
+              <Badge variant="danger">{validation.missingSource} missing</Badge>
             ) : null}
             {validation.stale > 0 ? (
-              <Badge variant="outline" className="text-warning-foreground">
-                {validation.stale} stale
-              </Badge>
+              <Badge variant="warning">{validation.stale} stale</Badge>
             ) : null}
             {validation.locked > 0 ? (
-              <Badge variant="outline" className="text-info">
-                {validation.locked} locked
-              </Badge>
+              <Badge variant="info">{validation.locked} locked</Badge>
             ) : null}
-            <Badge
-              className={cn(
-                validation.ready
-                  ? 'bg-success/10 text-success'
-                  : 'bg-warning/10 text-warning-foreground',
-              )}
-            >
+            <Badge variant={validation.ready ? 'success' : 'warning'}>
               {validation.ready ? 'Ready to export' : 'Not ready'}
             </Badge>
             {generationsChecksum ? (
@@ -123,13 +105,15 @@ export function ReportPreview({
           </div>
         ) : null}
       </header>
-      <div className="flex-1 overflow-auto bg-muted/20 p-5">
-        <div className="mx-auto max-w-2xl rounded-lg border bg-white p-6 shadow-sm">
+      <div className="flex-1 overflow-auto p-5">
+        <div className="mx-auto max-w-2xl">
           <h2 className="text-lg font-semibold">{report.title}</h2>
           {report.subtitle ? (
-            <p className="text-sm italic text-slate-500">{report.subtitle}</p>
+            <p className="text-sm italic text-muted-foreground">
+              {report.subtitle}
+            </p>
           ) : null}
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-muted-foreground">
             {report.documentIdentifier} · v{report.version}
           </p>
           <div className="mt-4 space-y-4">
@@ -141,13 +125,13 @@ export function ReportPreview({
               ordered.map((section, index) => (
                 <section
                   key={section.id}
-                  className="border-b border-slate-100 pb-3"
+                  className="border-b border-border/60 pb-3"
                 >
                   <h3 className="text-sm font-semibold">
                     {index + 1}. {section.title}
                   </h3>
                   {section.description ? (
-                    <p className="text-sm text-slate-600">
+                    <p className="text-sm text-muted-foreground">
                       {section.description}
                     </p>
                   ) : null}
@@ -159,23 +143,27 @@ export function ReportPreview({
                       {SOURCE_TYPE_LABELS[section.sourceType]}
                     </Badge>
                     {section.sourceRevisionId ? (
-                      <span className="text-slate-500">
+                      <span className="text-muted-foreground">
                         revision {section.sourceRevisionId.slice(0, 8)}
                       </span>
                     ) : (
-                      <span className="text-warning-foreground">no frozen source</span>
+                      <span className="text-warning-foreground">
+                        no frozen source
+                      </span>
                     )}
                     <Badge
-                      className={cn(
-                        'text-xs',
-                        VALIDATION_STATUS_TOKENS[section.validationStatus],
-                      )}
+                      variant={
+                        VALIDATION_STATUS_BADGE_VARIANT[
+                          section.validationStatus
+                        ]
+                      }
+                      className="text-xs"
                     >
                       {VALIDATION_STATUS_LABELS[section.validationStatus]}
                     </Badge>
                   </div>
                   {Object.keys(section.frozenPayload).length > 0 ? (
-                    <pre className="mt-2 max-h-48 overflow-auto rounded bg-slate-50 p-2 text-xs">
+                    <pre className="mt-2 max-h-48 overflow-auto rounded bg-muted/30 p-2 text-xs">
                       {JSON.stringify(section.frozenPayload, null, 2)}
                     </pre>
                   ) : null}
@@ -185,14 +173,6 @@ export function ReportPreview({
           </div>
         </div>
       </div>
-      <details className="border-t border-border/60 px-5 py-2 text-xs">
-        <summary className="cursor-pointer text-muted-foreground">
-          HTML source (PDF-ready, {previewHtml.length} bytes)
-        </summary>
-        <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words text-xs text-muted-foreground">
-          {previewHtml}
-        </pre>
-      </details>
     </div>
   )
 }

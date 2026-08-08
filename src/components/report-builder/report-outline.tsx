@@ -4,8 +4,8 @@ import { ArrowDown, ArrowUp, FileText, GripVertical, Plus } from 'lucide-react'
 import { Badge, Button } from '#/components/ui'
 import {
   SECTION_TYPE_LABELS,
+  VALIDATION_STATUS_BADGE_VARIANT,
   VALIDATION_STATUS_LABELS,
-  VALIDATION_STATUS_TOKENS,
 } from '#/lib/report-builder'
 import type { ReportSection } from '#/lib/report-builder'
 import { cn } from '#/lib/utils'
@@ -38,20 +38,22 @@ export function ReportOutline({
       </div>
       {ordered.length === 0 ? (
         <p className="px-3 py-6 text-sm text-muted-foreground">
-          No sections yet. Add a section to start building the report.
+          No sections yet. Each section is a titled part of the report; add one,
+          then edit its content and type before validating sources.
         </p>
       ) : (
         <ol className="flex-1 overflow-auto py-1">
           {ordered.map((section, index) => {
             const isSelected = section.id === selectedSectionId
             return (
-              <li key={section.id}>
+              <li key={section.id} className="flex items-stretch">
                 <button
                   type="button"
                   onClick={() => onSelectSection(section.id)}
+                  aria-label={`Edit ${section.title} section`}
                   aria-current={isSelected ? 'true' : undefined}
                   className={cn(
-                    'flex w-full items-start gap-2 border-l-2 px-3 py-2 text-left transition-colors',
+                    'flex min-w-0 flex-1 items-start gap-2 border-l-2 px-3 py-2 text-left transition-colors',
                     isSelected
                       ? 'border-primary bg-primary/5'
                       : 'border-transparent hover:bg-muted/40',
@@ -74,51 +76,44 @@ export function ReportOutline({
                       </span>
                     ) : null}
                     <span className="mt-1 flex flex-wrap items-center gap-1">
-                      <Badge
-                        variant="outline"
-                        className="text-xs font-normal"
-                      >
+                      <Badge variant="outline" className="text-xs font-normal">
                         {SECTION_TYPE_LABELS[section.sectionType]}
                       </Badge>
                       <Badge
-                        className={cn(
-                          'text-xs',
-                          VALIDATION_STATUS_TOKENS[section.validationStatus],
-                        )}
+                        variant={
+                          VALIDATION_STATUS_BADGE_VARIANT[
+                            section.validationStatus
+                          ]
+                        }
+                        className="text-xs"
                       >
                         {VALIDATION_STATUS_LABELS[section.validationStatus]}
                       </Badge>
                     </span>
                   </span>
-                  <span className="flex shrink-0 flex-col">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="size-5"
-                      aria-label={`Move ${section.title} up`}
-                      disabled={index === 0}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onMoveSection(section.id, 'up')
-                      }}
-                    >
-                      <ArrowUp className="size-3" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="size-5"
-                      aria-label={`Move ${section.title} down`}
-                      disabled={index === ordered.length - 1}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onMoveSection(section.id, 'down')
-                      }}
-                    >
-                      <ArrowDown className="size-3" />
-                    </Button>
-                  </span>
                 </button>
+                <span className="flex shrink-0 flex-col pr-2 pt-2">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-5"
+                    aria-label={`Move ${section.title} up`}
+                    disabled={index === 0}
+                    onClick={() => onMoveSection(section.id, 'up')}
+                  >
+                    <ArrowUp className="size-3" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-5"
+                    aria-label={`Move ${section.title} down`}
+                    disabled={index === ordered.length - 1}
+                    onClick={() => onMoveSection(section.id, 'down')}
+                  >
+                    <ArrowDown className="size-3" />
+                  </Button>
+                </span>
               </li>
             )
           })}

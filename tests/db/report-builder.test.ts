@@ -256,6 +256,27 @@ describe('OPS-007 bind_report_section_source (frozen evidence)', () => {
 })
 
 describe('OPS-007 validate_report', () => {
+  it('makes an all-free-text report ready to export', async () => {
+    const owner = await asAuthenticated(OWNER_A, WS_A)
+    const report = await createReport(owner, 'Ready report')
+    await addSection(owner, report.id, 'Executive summary')
+    await addSection(owner, report.id, 'Conclusions')
+
+    const { rows } = await owner.query(
+      `SELECT * FROM api.validate_report($1, $2)`,
+      [WS_A, report.id],
+    )
+    const summary = rows[0].validate_report
+    expect(summary).toMatchObject({
+      sections: 2,
+      valid: 2,
+      missingSource: 0,
+      stale: 0,
+      locked: 0,
+      ready: true,
+    })
+  })
+
   it('reports stale live references and missing sources', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
     const report = await createReport(owner, 'Validation report')
@@ -329,10 +350,11 @@ describe('OPS-007 generate_report (deterministic)', () => {
       `SELECT * FROM api.generate_report($1, $2, 'html')`,
       [WS_A, report.id],
     )
-    await owner.query(
-      `SELECT api.reorder_report_sections($1, $2, $3::jsonb)`,
-      [WS_A, report.id, JSON.stringify([s2.id, s1.id])],
-    )
+    await owner.query(`SELECT api.reorder_report_sections($1, $2, $3::jsonb)`, [
+      WS_A,
+      report.id,
+      JSON.stringify([s2.id, s1.id]),
+    ])
     const { rows: genB } = await owner.query(
       `SELECT * FROM api.generate_report($1, $2, 'html')`,
       [WS_A, report.id],

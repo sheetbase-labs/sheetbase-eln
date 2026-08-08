@@ -34,7 +34,6 @@ import {
   Settings,
   Sun,
   Snowflake,
-  FileText,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -345,7 +344,6 @@ export const defaultNavSections: AppShellNavSection[] = [
       { to: '/calendar', label: 'Lab Calendar', icon: CalendarDays },
       { to: '/planner', label: 'Planner', icon: GanttChart },
       { to: '/instrument-monitor', label: 'Instruments', icon: Gauge },
-      { to: '/report-builder', label: 'Report Builder', icon: FileText },
       {
         to: '/reviews',
         label: 'Reviews',

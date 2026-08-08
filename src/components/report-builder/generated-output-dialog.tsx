@@ -1,4 +1,4 @@
-/** OPS-007 — Confirm and re-download a genuine Word export and HTML audit source. */
+/** OPS-007 — Confirm and re-download frozen PDF, Word, and HTML exports. */
 import { Download } from 'lucide-react'
 
 import {
@@ -12,11 +12,14 @@ import {
 } from '#/components/ui'
 import type { ReportGeneration } from '#/lib/report-builder'
 import { downloadReportDocx } from '#/lib/report-builder-docx'
+import { downloadReportPdf } from '#/lib/report-builder-pdf'
 
 export interface GeneratedOutputDialogProps {
   generation: ReportGeneration | null
+  pdf: Blob | null
   docx: Blob | null
-  filename: string | null
+  pdfFilename: string | null
+  docxFilename: string | null
   onClose: () => void
 }
 
@@ -35,8 +38,10 @@ function downloadHtml(generation: ReportGeneration) {
 
 export function GeneratedOutputDialog({
   generation,
+  pdf,
   docx,
-  filename,
+  pdfFilename,
+  docxFilename,
   onClose,
 }: GeneratedOutputDialogProps) {
   const hasHtml = Boolean(generation?.outputHtml)
@@ -48,18 +53,18 @@ export function GeneratedOutputDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Word document ready</DialogTitle>
+          <DialogTitle>PDF document ready</DialogTitle>
           <DialogDescription>
-            A Word document was generated from the frozen evidence. HTML is
-            retained only as an audit/source artifact.
+            A PDF document was generated from frozen evidence. Word and HTML
+            remain secondary export and audit/source artifacts.
           </DialogDescription>
         </DialogHeader>
         {generation ? (
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
             <dt className="text-muted-foreground">Format</dt>
-            <dd className="font-medium">Word (.docx)</dd>
+            <dd className="font-medium">PDF (.pdf)</dd>
             <dt className="text-muted-foreground">Filename</dt>
-            <dd className="font-medium break-all">{filename ?? '—'}</dd>
+            <dd className="font-medium break-all">{pdfFilename ?? '—'}</dd>
             <dt className="text-muted-foreground">Generated</dt>
             <dd className="font-medium">
               {new Intl.DateTimeFormat(undefined, {
@@ -89,12 +94,22 @@ export function GeneratedOutputDialog({
           </Button>
           <Button
             type="button"
+            variant="outline"
             onClick={() =>
-              docx && filename && downloadReportDocx(docx, filename)
+              docx && docxFilename && downloadReportDocx(docx, docxFilename)
             }
-            disabled={!docx || !filename}
+            disabled={!docx || !docxFilename}
           >
-            <Download className="size-4" /> Download Word
+            Download Word
+          </Button>
+          <Button
+            type="button"
+            onClick={() =>
+              pdf && pdfFilename && downloadReportPdf(pdf, pdfFilename)
+            }
+            disabled={!pdf || !pdfFilename}
+          >
+            <Download className="size-4" /> Download PDF
           </Button>
         </DialogFooter>
       </DialogContent>

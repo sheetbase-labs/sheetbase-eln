@@ -1,4 +1,4 @@
-/** OPS-007 — Main-workspace Build → Validate → Download Word controls. */
+/** OPS-007 — Main-workspace Build → Validate → Download PDF controls. */
 import { Download, FileCheck2, PenLine } from 'lucide-react'
 
 import { Badge, Button } from '#/components/ui'
@@ -14,8 +14,8 @@ export interface ReportWorkflowToolbarProps {
 }
 
 function validationMessage(validation: ValidationSummary | null): string {
-  if (!validation) return 'Validate sources before downloading Word.'
-  if (validation.ready) return 'Sources validated. Word document is ready.'
+  if (!validation) return 'Validate sources before downloading PDF.'
+  if (validation.ready) return 'Sources validated. PDF document is ready.'
   const issues = validation.missingSource + validation.stale
   return `${issues} source ${issues === 1 ? 'issue' : 'issues'} must be resolved before export.`
 }
@@ -52,7 +52,7 @@ export function ReportWorkflowToolbar({
           <span className="text-muted-foreground">→</span>
           <span className="flex items-center gap-1.5 font-medium">
             <Download className="size-3.5 text-primary" />
-            3. Download Word
+            3. Download PDF
           </span>
           <Badge variant={canExport ? 'success' : 'warning'}>
             {canExport
@@ -81,7 +81,7 @@ export function ReportWorkflowToolbar({
           title={canExport ? undefined : message}
         >
           <Download className="size-4" />
-          {isExporting ? 'Preparing Word…' : 'Download Word'}
+          {isExporting ? 'Preparing PDF…' : 'Download PDF'}
         </Button>
       </div>
     </div>

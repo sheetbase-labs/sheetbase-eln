@@ -51,11 +51,12 @@ import {
   validateReport,
 } from '#/lib/report-builder'
 import type { ReportGeneration, SectionType } from '#/lib/report-builder'
+import { buildReportDocx, reportDocxFilename } from '#/lib/report-builder-docx'
 import {
-  buildReportDocx,
-  downloadReportDocx,
-  reportDocxFilename,
-} from '#/lib/report-builder-docx'
+  buildReportPdf,
+  downloadReportPdf,
+  reportPdfFilename,
+} from '#/lib/report-builder-pdf'
 
 export const Route = createFileRoute('/report-builder')({
   beforeLoad: async ({ context: rootContext }) => {
@@ -81,9 +82,13 @@ function ReportBuilderRoute() {
   const [generatedOutput, setGeneratedOutput] =
     useState<ReportGeneration | null>(null)
   const [generatedDocx, setGeneratedDocx] = useState<Blob | null>(null)
-  const [generatedFilename, setGeneratedFilename] = useState<string | null>(
-    null,
-  )
+  const [generatedPdf, setGeneratedPdf] = useState<Blob | null>(null)
+  const [generatedPdfFilename, setGeneratedPdfFilename] = useState<
+    string | null
+  >(null)
+  const [generatedDocxFilename, setGeneratedDocxFilename] = useState<
+    string | null
+  >(null)
 
   const reportsQuery = useQuery({
     queryKey: reportBuilderQueryKeys.reports(workspaceId),
@@ -258,22 +263,31 @@ function ReportBuilderRoute() {
       if (!activeValidation?.ready)
         throw new Error('Validate sources and resolve issues before exporting.')
       if (!activeReport) throw new Error('No report selected.')
-      const [wire, docx] = await Promise.all([
+      const [wire, pdf, docx] = await Promise.all([
         generateReport(dataClient, {
           workspaceId,
           reportId: activeReportId,
           outputFormat: 'html',
         }),
+        buildReportPdf(activeReport, sections),
         buildReportDocx(activeReport, sections),
       ])
-      return { wire, docx, filename: reportDocxFilename(activeReport) }
+      return {
+        wire,
+        pdf,
+        docx,
+        pdfFilename: reportPdfFilename(activeReport),
+        docxFilename: reportDocxFilename(activeReport),
+      }
     },
-    onSuccess: ({ wire, docx, filename }) => {
+    onSuccess: ({ wire, pdf, docx, pdfFilename, docxFilename }) => {
       setActionError(null)
       const generation = toReportGeneration(wire)
-      downloadReportDocx(docx, filename)
+      downloadReportPdf(pdf, pdfFilename)
+      setGeneratedPdf(pdf)
       setGeneratedDocx(docx)
-      setGeneratedFilename(filename)
+      setGeneratedPdfFilename(pdfFilename)
+      setGeneratedDocxFilename(docxFilename)
       setGeneratedOutput(generation)
       invalidateReport(activeReportId)
     },
@@ -347,8 +361,10 @@ function ReportBuilderRoute() {
                 setSelectedReportId(e.target.value || null)
                 setSelectedSectionId(null)
                 setGeneratedOutput(null)
+                setGeneratedPdf(null)
                 setGeneratedDocx(null)
-                setGeneratedFilename(null)
+                setGeneratedPdfFilename(null)
+                setGeneratedDocxFilename(null)
               }}
             >
               {reports.map((r) => (
@@ -476,12 +492,16 @@ function ReportBuilderRoute() {
       />
       <GeneratedOutputDialog
         generation={generatedOutput}
+        pdf={generatedPdf}
         docx={generatedDocx}
-        filename={generatedFilename}
+        pdfFilename={generatedPdfFilename}
+        docxFilename={generatedDocxFilename}
         onClose={() => {
           setGeneratedOutput(null)
+          setGeneratedPdf(null)
           setGeneratedDocx(null)
-          setGeneratedFilename(null)
+          setGeneratedPdfFilename(null)
+          setGeneratedDocxFilename(null)
         }}
       />
     </div>

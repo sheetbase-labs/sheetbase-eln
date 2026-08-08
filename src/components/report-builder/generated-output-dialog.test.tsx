@@ -36,13 +36,17 @@ describe('GeneratedOutputDialog', () => {
     render(
       <GeneratedOutputDialog
         generation={generation}
+        pdf={new Blob(['%PDF- genuine pdf'], { type: 'application/pdf' })}
         docx={new Blob(['PK genuine docx'], { type: 'application/zip' })}
-        filename="RPT-2026-0001-Stability-report.docx"
+        pdfFilename="RPT-2026-0001-Stability-report.pdf"
+        docxFilename="RPT-2026-0001-Stability-report.docx"
         onClose={vi.fn()}
       />,
     )
-    expect(screen.getByText('Word document ready')).toBeTruthy()
-    expect(screen.getByText('RPT-2026-0001-Stability-report.docx')).toBeTruthy()
+    expect(screen.getByText('PDF document ready')).toBeTruthy()
+    expect(screen.getByText('RPT-2026-0001-Stability-report.pdf')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Download PDF' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Download Word' })).toBeTruthy()
     fireEvent.click(
       screen.getByRole('button', { name: 'Download HTML source' }),
     )

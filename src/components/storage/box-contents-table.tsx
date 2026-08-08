@@ -32,15 +32,15 @@ export function BoxContentsTable({
         </h3>
         <p className="text-xs text-muted-foreground">{rows.length} samples</p>
       </div>
-      <Table>
+      <Table className="min-w-[44rem] table-fixed">
         <TableHeader>
           <TableRow>
-            <TableHead>Position</TableHead>
-            <TableHead>Sample identifier</TableHead>
-            <TableHead>Name</TableHead>
-            <TableHead>Type</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Volume</TableHead>
+            <TableHead className="w-16">Position</TableHead>
+            <TableHead className="w-40">Sample identifier</TableHead>
+            <TableHead className="w-52">Name</TableHead>
+            <TableHead className="w-36">Type</TableHead>
+            <TableHead className="w-28">Status</TableHead>
+            <TableHead className="w-20">Volume</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -70,11 +70,21 @@ export function BoxContentsTable({
                 }}
               >
                 <TableCell>{position.label}</TableCell>
-                <TableCell className="font-mono text-primary">
+                <TableCell
+                  className="truncate font-mono text-primary"
+                  title={sample.identifier}
+                >
                   {sample.identifier}
                 </TableCell>
-                <TableCell>{sample.title}</TableCell>
-                <TableCell>{sample.sampleType ?? '—'}</TableCell>
+                <TableCell className="truncate" title={sample.title}>
+                  {sample.title}
+                </TableCell>
+                <TableCell
+                  className="truncate"
+                  title={sample.sampleType ?? undefined}
+                >
+                  {sample.sampleType ?? '—'}
+                </TableCell>
                 <TableCell>
                   <Badge
                     variant={def.tone === 'neutral' ? 'outline' : def.tone}

@@ -62,8 +62,10 @@ describe('storage box summary', () => {
     expect(container.querySelector('.w-full')).toBeTruthy()
   })
 
-  it('exposes the complete occupied sample identity without expanding the grid cell', () => {
-    const occupiedPosition = positions.find((position) => position.label === 'A1')!
+  it('keeps the complete occupied sample identity compact without expanding the grid cell', () => {
+    const occupiedPosition = positions.find(
+      (position) => position.label === 'A1',
+    )!
     occupiedPosition.sample = {
       id: 'sample-1',
       identifier: 'SMP-2025-0020',
@@ -82,7 +84,7 @@ describe('storage box summary', () => {
     expect(cell.getAttribute('title')).toBe(
       'A1: SMP-2025-0020 — LVV-CAR-T retention aliquot',
     )
-    expect(cell.textContent).toContain('ID: SMP-2025-0020')
+    expect(cell.textContent).toContain('SMP-2025-0020')
   })
 
   it('accounts for each position status against total capacity', () => {

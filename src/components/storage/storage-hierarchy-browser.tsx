@@ -71,10 +71,11 @@ function TreeButton({
     <button
       type="button"
       className={cn(
-        'flex w-full items-start gap-1.5 rounded-md px-2 py-1.5 text-left hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'relative flex w-full items-start gap-1.5 rounded-md px-2 py-1.5 text-left hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        level > 0 &&
+          'before:absolute before:top-1/2 before:left-[-1rem] before:h-px before:w-4 before:bg-border',
         selected && 'bg-primary/10 text-primary',
       )}
-      style={{ paddingLeft: `${level * 14 + 8}px` }}
       aria-expanded={leaf ? undefined : expanded}
       aria-current={selected ? 'true' : undefined}
       onClick={onClick}
@@ -142,7 +143,7 @@ function Branch<T extends Node, TChild extends Node>(
             </AlertDescription>
           </Alert>
         ) : (
-          <ul>
+          <ul className="ml-4 border-l border-border">
             {query.data?.map((child) =>
               props.renderChild(child, props.level + 1),
             )}

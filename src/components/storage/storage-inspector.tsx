@@ -94,7 +94,7 @@ export function StorageInspector({
     <div className="h-full overflow-y-auto px-4 pb-6">
       <header className="space-y-2 py-3">
         <div className="min-w-0">
-          <div className="flex items-start justify-between gap-2">
+          <div className="flex items-start justify-between gap-4">
             <p className="pt-1 text-xs font-medium text-muted-foreground">
               Position {position.label}
             </p>
@@ -102,6 +102,7 @@ export function StorageInspector({
               <Button
                 size="sm"
                 variant="ghost"
+                className="shrink-0"
                 aria-label="Close inspector"
                 onClick={onClose}
               >

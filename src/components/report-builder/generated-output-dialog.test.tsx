@@ -33,8 +33,19 @@ describe('GeneratedOutputDialog', () => {
       .spyOn(HTMLAnchorElement.prototype, 'click')
       .mockImplementation(() => {})
 
-    render(<GeneratedOutputDialog generation={generation} onClose={vi.fn()} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Download HTML' }))
+    render(
+      <GeneratedOutputDialog
+        generation={generation}
+        docx={new Blob(['PK genuine docx'], { type: 'application/zip' })}
+        filename="RPT-2026-0001-Stability-report.docx"
+        onClose={vi.fn()}
+      />,
+    )
+    expect(screen.getByText('Word document ready')).toBeTruthy()
+    expect(screen.getByText('RPT-2026-0001-Stability-report.docx')).toBeTruthy()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Download HTML source' }),
+    )
 
     expect(createObjectURL).toHaveBeenCalledOnce()
     expect(anchorClick).toHaveBeenCalledOnce()

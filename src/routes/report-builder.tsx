@@ -51,6 +51,11 @@ import {
   validateReport,
 } from '#/lib/report-builder'
 import type { ReportGeneration, SectionType } from '#/lib/report-builder'
+import {
+  buildReportDocx,
+  downloadReportDocx,
+  reportDocxFilename,
+} from '#/lib/report-builder-docx'
 
 export const Route = createFileRoute('/report-builder')({
   beforeLoad: async ({ context: rootContext }) => {
@@ -75,6 +80,10 @@ function ReportBuilderRoute() {
   const [actionError, setActionError] = useState<string | null>(null)
   const [generatedOutput, setGeneratedOutput] =
     useState<ReportGeneration | null>(null)
+  const [generatedDocx, setGeneratedDocx] = useState<Blob | null>(null)
+  const [generatedFilename, setGeneratedFilename] = useState<string | null>(
+    null,
+  )
 
   const reportsQuery = useQuery({
     queryKey: reportBuilderQueryKeys.reports(workspaceId),
@@ -244,21 +253,28 @@ function ReportBuilderRoute() {
   })
 
   const generateMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       if (!activeReportId) throw new Error('No report selected.')
       if (!activeValidation?.ready)
         throw new Error('Validate sources and resolve issues before exporting.')
-      return generateReport(dataClient, {
-        workspaceId,
-        reportId: activeReportId,
-        outputFormat: 'html',
-      })
+      if (!activeReport) throw new Error('No report selected.')
+      const [wire, docx] = await Promise.all([
+        generateReport(dataClient, {
+          workspaceId,
+          reportId: activeReportId,
+          outputFormat: 'html',
+        }),
+        buildReportDocx(activeReport, sections),
+      ])
+      return { wire, docx, filename: reportDocxFilename(activeReport) }
     },
-    onSuccess: (wire) => {
+    onSuccess: ({ wire, docx, filename }) => {
       setActionError(null)
       const generation = toReportGeneration(wire)
-      if (generation.outputHtml) setGeneratedOutput(generation)
-      else setActionError('The server did not return downloadable HTML.')
+      downloadReportDocx(docx, filename)
+      setGeneratedDocx(docx)
+      setGeneratedFilename(filename)
+      setGeneratedOutput(generation)
       invalidateReport(activeReportId)
     },
     onError: (cause) => setActionError(describeReportBuilderError(cause)),
@@ -331,6 +347,8 @@ function ReportBuilderRoute() {
                 setSelectedReportId(e.target.value || null)
                 setSelectedSectionId(null)
                 setGeneratedOutput(null)
+                setGeneratedDocx(null)
+                setGeneratedFilename(null)
               }}
             >
               {reports.map((r) => (
@@ -381,8 +399,8 @@ function ReportBuilderRoute() {
           </EmptyIcon>
           <EmptyTitle>No reports yet</EmptyTitle>
           <EmptyDescription>
-            Create a report, add titled sections for the content you need,
-            then validate frozen sources before exporting a review-ready HTML
+            Create a report, add titled sections for the content you need, then
+            validate frozen sources before downloading a review-ready Word
             document.
           </EmptyDescription>
           <EmptyActions>
@@ -443,9 +461,7 @@ function ReportBuilderRoute() {
               <ReportPreview
                 report={activeReport}
                 sections={sections}
-                validation={
-                  activeValidation
-                }
+                validation={activeValidation}
                 generationsChecksum={generations[0]?.outputChecksum ?? null}
               />
             )}
@@ -460,7 +476,13 @@ function ReportBuilderRoute() {
       />
       <GeneratedOutputDialog
         generation={generatedOutput}
-        onClose={() => setGeneratedOutput(null)}
+        docx={generatedDocx}
+        filename={generatedFilename}
+        onClose={() => {
+          setGeneratedOutput(null)
+          setGeneratedDocx(null)
+          setGeneratedFilename(null)
+        }}
       />
     </div>
   )

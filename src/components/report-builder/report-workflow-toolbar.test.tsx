@@ -36,7 +36,7 @@ const readyValidation: ValidationSummary = {
 afterEach(() => cleanup())
 
 describe('ReportWorkflowToolbar', () => {
-  it('requires validation before HTML export is enabled', () => {
+  it('requires validation before Word download is enabled', () => {
     render(
       <ReportWorkflowToolbar
         report={report}
@@ -50,11 +50,11 @@ describe('ReportWorkflowToolbar', () => {
 
     expect(screen.getByText('1. Build')).toBeTruthy()
     expect(screen.getByText('2. Validate')).toBeTruthy()
-    expect(screen.getByText('3. Export')).toBeTruthy()
-    const exportButton = screen.getByRole('button', { name: 'Export HTML' })
+    expect(screen.getByText('3. Download Word')).toBeTruthy()
+    const exportButton = screen.getByRole('button', { name: 'Download Word' })
     expect(exportButton.hasAttribute('disabled')).toBe(true)
     expect(exportButton.getAttribute('title')).toBe(
-      'Validate sources before exporting.',
+      'Validate sources before downloading Word.',
     )
   })
 
@@ -73,7 +73,7 @@ describe('ReportWorkflowToolbar', () => {
     )
 
     fireEvent.click(screen.getByRole('button', { name: 'Validate sources' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Export HTML' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Download Word' }))
     expect(onValidate).toHaveBeenCalledOnce()
     expect(onExport).toHaveBeenCalledOnce()
   })

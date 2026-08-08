@@ -10,7 +10,6 @@ import {
   VALIDATION_STATUS_LABELS,
   buildGenerationInputs,
   computeChecksum,
-  renderReportHtml,
 } from '#/lib/report-builder'
 import type {
   ReportDefinition,
@@ -35,10 +34,6 @@ export function ReportPreview({
   const ordered = useMemo(
     () => sections.slice().sort((a, b) => a.position - b.position),
     [sections],
-  )
-  const previewHtml = useMemo(
-    () => (report ? renderReportHtml(report, ordered) : ''),
-    [report, ordered],
   )
   const previewChecksum = useAsync(
     async () =>
@@ -83,19 +78,13 @@ export function ReportPreview({
               {validation.valid}/{validation.sections} valid
             </span>
             {validation.missingSource > 0 ? (
-              <Badge variant="danger">
-                {validation.missingSource} missing
-              </Badge>
+              <Badge variant="danger">{validation.missingSource} missing</Badge>
             ) : null}
             {validation.stale > 0 ? (
-              <Badge variant="warning">
-                {validation.stale} stale
-              </Badge>
+              <Badge variant="warning">{validation.stale} stale</Badge>
             ) : null}
             {validation.locked > 0 ? (
-              <Badge variant="info">
-                {validation.locked} locked
-              </Badge>
+              <Badge variant="info">{validation.locked} locked</Badge>
             ) : null}
             <Badge variant={validation.ready ? 'success' : 'warning'}>
               {validation.ready ? 'Ready to export' : 'Not ready'}
@@ -158,7 +147,9 @@ export function ReportPreview({
                         revision {section.sourceRevisionId.slice(0, 8)}
                       </span>
                     ) : (
-                      <span className="text-warning-foreground">no frozen source</span>
+                      <span className="text-warning-foreground">
+                        no frozen source
+                      </span>
                     )}
                     <Badge
                       variant={
@@ -182,14 +173,6 @@ export function ReportPreview({
           </div>
         </div>
       </div>
-      <details className="border-t border-border/60 bg-muted/30 px-5 py-2 text-xs">
-        <summary className="cursor-pointer select-none font-medium text-muted-foreground">
-          HTML source (PDF-ready, {previewHtml.length} bytes)
-        </summary>
-        <pre className="mt-2 max-h-48 overflow-auto rounded bg-background p-3 whitespace-pre-wrap break-words text-xs text-muted-foreground">
-          {previewHtml}
-        </pre>
-      </details>
     </div>
   )
 }

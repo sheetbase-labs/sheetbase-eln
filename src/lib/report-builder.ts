@@ -552,7 +552,7 @@ const escapeHtml = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
 /**
- * Render an accessible, PDF-ready HTML document from frozen evidence only.
+ * Render an accessible HTML audit/source document from frozen evidence only.
  * The output is deterministic for identical inputs (no timestamps, sorted
  * sections). Section content is rendered from `frozenPayload`, never from
  * live data.

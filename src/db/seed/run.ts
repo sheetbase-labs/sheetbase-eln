@@ -1257,7 +1257,9 @@ export const demoSteps: Array<SeedStep> = [
         const superuserClient = new Client({ connectionString: poolCs })
         await superuserClient.connect()
         try {
-          await superuserClient.query("SET session_replication_role = 'replica'")
+          await superuserClient.query(
+            "SET session_replication_role = 'replica'",
+          )
           try {
             // Delete formula dependencies and definitions first.
             // These reference target_table_id/source_table_id (the
@@ -1279,7 +1281,9 @@ export const demoSteps: Array<SeedStep> = [
             // block this without the replica role).
             await superuserClient.query(`DELETE FROM api."${resourceName}"`)
           } finally {
-            await superuserClient.query("SET session_replication_role = 'origin'")
+            await superuserClient.query(
+              "SET session_replication_role = 'origin'",
+            )
           }
         } finally {
           await superuserClient.end()
@@ -1989,11 +1993,11 @@ export const demoSteps: Array<SeedStep> = [
     },
   },
   // -------------------------------------------------------------------------
-  // OPS-007: Report Builder demo data. Two reports with varied statuses and
-  // 4–5 sections each, exercising every validation status token. Created
-  // through the same RPCs the UI uses (create_report_definition,
+  // OPS-007: Report Builder demo data. The first report is deliberately ready
+  // to export; the second retains stale live references to exercise the export
+  // gate. Created through the same RPCs the UI uses (create_report_definition,
   // add_report_section) so invariants fire. Idempotent: lookup-or-create by
-  // document_identifier; sections added only when none exist.
+  // document_identifier and reconcile the seeded sections on every run.
   // -------------------------------------------------------------------------
   {
     name: 'demo OPS-007 report builder: reports and sections',
@@ -2013,16 +2017,13 @@ export const demoSteps: Array<SeedStep> = [
       await client.connect()
       try {
         await client.query('SET ROLE authenticated')
-        await client.query(
-          "SELECT set_config('request.jwt.claims',$1,false)",
-          [
-            JSON.stringify({
-              sub: FIXTURE_USER_ID,
-              workspace_id: FIXTURE_WORKSPACE_ID,
-              role: 'authenticated',
-            }),
-          ],
-        )
+        await client.query("SELECT set_config('request.jwt.claims',$1,false)", [
+          JSON.stringify({
+            sub: FIXTURE_USER_ID,
+            workspace_id: FIXTURE_WORKSPACE_ID,
+            role: 'authenticated',
+          }),
+        ])
 
         const rpc = async (name: string, params: unknown[]) => {
           const args = params.map((_, i) => `$${i + 1}`).join(',')
@@ -2073,17 +2074,17 @@ export const demoSteps: Array<SeedStep> = [
                 title: 'Stability Data — Titer Curve',
                 description:
                   'Frozen chart snapshot of vector genome copy number across the 28-day window.',
-                sectionType: 'chart',
-                sourceType: 'chart_block',
-                validationStatus: 'stale',
+                sectionType: 'text',
+                sourceType: 'free_text',
+                validationStatus: 'valid',
               },
               {
                 title: 'Raw Data References',
                 description:
                   'Links to the underlying qPCR export files and plate maps.',
-                sectionType: 'file',
-                sourceType: 'file_object',
-                validationStatus: 'missing_source',
+                sectionType: 'text',
+                sourceType: 'free_text',
+                validationStatus: 'valid',
               },
               {
                 title: 'Conclusions',
@@ -2091,7 +2092,7 @@ export const demoSteps: Array<SeedStep> = [
                   'The vector remains within potency specification through day 21 at 4 °C.',
                 sectionType: 'text',
                 sourceType: 'free_text',
-                validationStatus: 'pending',
+                validationStatus: 'valid',
               },
             ],
           },
@@ -2195,18 +2196,42 @@ export const demoSteps: Array<SeedStep> = [
             }
           }
 
-          // Apply varied validation statuses (idempotent — always refresh so
-          // reruns converge even if a prior run was interrupted mid-seed).
+          // Reconcile the seed fields on every run. This replaces stale source
+          // configuration from a previous demo seed instead of merely painting
+          // a validation status that validate_report will immediately reject.
           const sections = await client.query(
             'select id, title from api.report_sections where report_id=$1 order by position',
             [reportId],
           )
-          for (const [i, row] of sections.rows.entries()) {
-            if (i >= report.sections.length) break
-            const target = report.sections[i]
+          for (const [i, target] of report.sections.entries()) {
+            const row = sections.rows[i]
+            if (!row) break
             await client.query(
-              'update api.report_sections set validation_status=$1 where id=$2 and workspace_id=$3',
-              [target.validationStatus, row.id, FIXTURE_WORKSPACE_ID],
+              `update api.report_sections set
+                title=$1,
+                description=$2,
+                section_type=$3,
+                source_type=$4,
+                source_revision_id=null,
+                source_ref='{}'::jsonb,
+                frozen_payload=$5::jsonb,
+                validation_status=$6,
+                validation_detail='{}'::jsonb
+              where id=$7 and workspace_id=$8`,
+              [
+                target.title,
+                target.description,
+                target.sectionType,
+                target.sourceType,
+                JSON.stringify(
+                  target.sourceType === 'free_text'
+                    ? { text: target.description }
+                    : {},
+                ),
+                target.validationStatus,
+                row.id,
+                FIXTURE_WORKSPACE_ID,
+              ],
             )
           }
         }

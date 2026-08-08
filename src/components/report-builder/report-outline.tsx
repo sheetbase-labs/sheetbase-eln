@@ -38,8 +38,8 @@ export function ReportOutline({
       </div>
       {ordered.length === 0 ? (
         <p className="px-3 py-6 text-sm text-muted-foreground">
-          No sections yet. Each section is a titled part of the report; add
-          one, then edit its content and type before validating sources.
+          No sections yet. Each section is a titled part of the report; add one,
+          then edit its content and type before validating sources.
         </p>
       ) : (
         <ol className="flex-1 overflow-auto py-1">
@@ -50,6 +50,7 @@ export function ReportOutline({
                 <button
                   type="button"
                   onClick={() => onSelectSection(section.id)}
+                  aria-label={`Edit ${section.title} section`}
                   aria-current={isSelected ? 'true' : undefined}
                   className={cn(
                     'flex min-w-0 flex-1 items-start gap-2 border-l-2 px-3 py-2 text-left transition-colors',
@@ -75,10 +76,7 @@ export function ReportOutline({
                       </span>
                     ) : null}
                     <span className="mt-1 flex flex-wrap items-center gap-1">
-                      <Badge
-                        variant="outline"
-                        className="text-xs font-normal"
-                      >
+                      <Badge variant="outline" className="text-xs font-normal">
                         {SECTION_TYPE_LABELS[section.sectionType]}
                       </Badge>
                       <Badge

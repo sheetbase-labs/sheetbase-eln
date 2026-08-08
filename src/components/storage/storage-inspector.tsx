@@ -95,15 +95,18 @@ export function StorageInspector({
       <header className="space-y-2 py-3">
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
-            <h2 className="truncate text-lg font-semibold">
-              {box?.name ?? 'Storage box'}
+            <p className="text-xs font-medium text-muted-foreground">
+              Position {position.label}
+            </p>
+            <h2 className="break-words text-lg font-semibold">
+              {sample?.title ?? box?.name ?? 'Storage box'}
             </h2>
             <p className="font-mono text-xs text-muted-foreground">
-              {box?.code ?? '—'}
+              {sample ? `Storage box: ${box?.code ?? '—'}` : (box?.code ?? '—')}
             </p>
           </div>
           <Badge variant={def.tone === 'neutral' ? 'outline' : def.tone}>
-            {def.glyph} {def.label}
+            {def.glyph} Position: {def.label}
           </Badge>
           {onClose && (
             <Button
@@ -116,9 +119,20 @@ export function StorageInspector({
             </Button>
           )}
         </div>
-        <p className="text-xs text-muted-foreground">
-          {summary.occupied} samples · Position {position.label}
-        </p>
+        {sample ? (
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="font-mono text-muted-foreground">
+              Sample identifier: {sample.identifier}
+            </span>
+            <span className="text-muted-foreground">·</span>
+            <span className="text-muted-foreground">Sample availability:</span>
+            <StatusBadge domain="sample" status={sample.status} />
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            {summary.occupied} samples in this box
+          </p>
+        )}
       </header>
       <InspectorSection title="Environment">
         <div className="flex items-center gap-2">
@@ -144,12 +158,10 @@ export function StorageInspector({
       </InspectorSection>
       {sample && (
         <InspectorSection title="Sample details">
-          <div className="mb-2 flex items-center justify-between">
-            <span className="font-mono text-xs">{sample.identifier}</span>
-            <StatusBadge domain="sample" status={sample.status} />
-          </div>
-          <p className="mb-2 text-sm font-medium">{sample.title}</p>
           <PropertyList>
+            <Property label="Sample identifier" mono>
+              {sample.identifier}
+            </Property>
             <Property label="Barcode" mono>
               <span>
                 {sample.barcode ?? '—'}{' '}

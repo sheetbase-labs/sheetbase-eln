@@ -36,7 +36,7 @@ export function BoxContentsTable({
         <TableHeader>
           <TableRow>
             <TableHead>Position</TableHead>
-            <TableHead>Sample ID</TableHead>
+            <TableHead>Sample identifier</TableHead>
             <TableHead>Name</TableHead>
             <TableHead>Type</TableHead>
             <TableHead>Status</TableHead>

@@ -142,7 +142,7 @@ export function BoxGrid({
                     </span>
                     {position.sample && (
                       <span className="mt-1 block truncate font-mono">
-                        {position.sample.identifier}
+                        ID: {position.sample.identifier}
                       </span>
                     )}
                   </button>

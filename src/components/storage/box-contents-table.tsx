@@ -22,9 +22,14 @@ export function BoxContentsTable({
 }) {
   const rows = positions.filter((position) => position.sample)
   return (
-    <div className="min-w-0 overflow-auto rounded-lg border bg-card">
+    <section
+      className="min-w-0 overflow-auto rounded-lg border bg-card"
+      aria-labelledby="box-contents-title"
+    >
       <div className="border-b px-3 py-2">
-        <h3 className="text-sm font-semibold">Box contents</h3>
+        <h3 id="box-contents-title" className="text-sm font-semibold">
+          Box contents
+        </h3>
         <p className="text-xs text-muted-foreground">{rows.length} samples</p>
       </div>
       <Table>
@@ -49,13 +54,19 @@ export function BoxContentsTable({
               <TableRow
                 key={position.id}
                 tabIndex={0}
+                aria-current={
+                  selectedPositionId === position.id ? 'true' : undefined
+                }
                 className={cn(
                   'cursor-pointer',
                   selectedPositionId === position.id && 'bg-primary/10',
                 )}
                 onClick={() => onSelectPosition(position.id)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') onSelectPosition(position.id)
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    onSelectPosition(position.id)
+                  }
                 }}
               >
                 <TableCell>{position.label}</TableCell>
@@ -79,6 +90,6 @@ export function BoxContentsTable({
           })}
         </TableBody>
       </Table>
-    </div>
+    </section>
   )
 }

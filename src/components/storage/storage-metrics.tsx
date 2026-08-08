@@ -1,4 +1,3 @@
-import { Card, CardContent } from '#/components/ui'
 import type { BoxPositionWithSample, StorageBox } from '#/lib/storage'
 
 function properties(position: BoxPositionWithSample) {
@@ -51,21 +50,25 @@ export function StorageMetrics({
     ],
   ] as const
   return (
-    <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+    <section
+      aria-label="Box capacity summary"
+      className="grid divide-y overflow-hidden rounded-lg border bg-card sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-3 xl:grid-cols-6"
+    >
       {values.map(([label, value, tone]) => (
-        <Card key={label} className="overflow-hidden py-0">
-          <CardContent className="px-3 py-3">
-            <p className="text-xs text-muted-foreground">{label}</p>
-            <div className="mt-1 flex items-end justify-between">
-              <strong className="text-2xl">{value}</strong>
-              <span className="text-xs text-muted-foreground">
-                {total ? `${Math.round((value / total) * 100)}%` : '—'}
-              </span>
-            </div>
-          </CardContent>
-          <div className={`h-1 ${tone}`} aria-hidden />
-        </Card>
+        <div key={label} className="relative px-3 py-3">
+          <p className="text-xs text-muted-foreground">{label}</p>
+          <div className="mt-1 flex items-end justify-between gap-2">
+            <strong className="text-xl tabular-nums">{value}</strong>
+            <span className="text-xs text-muted-foreground">
+              {total ? `${Math.round((value / total) * 100)}%` : '—'}
+            </span>
+          </div>
+          <div
+            className={`absolute inset-x-0 bottom-0 h-0.5 ${tone}`}
+            aria-hidden
+          />
+        </div>
       ))}
-    </div>
+    </section>
   )
 }

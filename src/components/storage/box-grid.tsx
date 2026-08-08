@@ -1,29 +1,44 @@
-import { Skeleton } from '#/components/ui'
+import { Archive } from 'lucide-react'
+import {
+  Empty,
+  EmptyDescription,
+  EmptyIcon,
+  EmptyTitle,
+  Skeleton,
+} from '#/components/ui'
+import { boxOccupancy, positionStatusDef } from '#/lib/storage'
 import type { BoxPositionWithSample, StorageBox } from '#/lib/storage'
 import { cn } from '#/lib/utils'
 import { isExpiringSoon, isLowVolume } from './storage-metrics'
 
 function appearance(position: BoxPositionWithSample) {
+  const definition = positionStatusDef(position.status)
   if (position.status === 'quarantined')
-    return ['Quarantined', 'bg-pink-100 border-pink-300 text-pink-900']
+    return [
+      definition.label,
+      'bg-warning/15 border-warning/30 text-warning-foreground',
+    ]
   if (position.status === 'missing')
-    return ['Missing / Reserved', 'bg-slate-500 border-slate-600 text-white']
+    return [
+      definition.label,
+      'bg-destructive/10 border-destructive/30 text-destructive',
+    ]
   if (isLowVolume(position))
     return ['Low volume', 'bg-yellow-100 border-yellow-300 text-yellow-900']
   if (isExpiringSoon(position))
     return ['Expiring soon', 'bg-orange-100 border-orange-300 text-orange-900']
   if (position.status === 'occupied')
-    return ['In stock', 'bg-success/10 border-success/30 text-success']
-  return ['Empty', 'bg-slate-50 border-slate-200 text-slate-600']
+    return [definition.label, 'bg-info/10 border-info/30 text-info']
+  return [definition.label, 'bg-muted/40 border-border text-muted-foreground']
 }
 
 const legend = [
-  ['In stock', 'bg-success/20'],
-  ['Low volume', 'bg-yellow-200'],
+  ['Occupied', 'bg-info/20'],
+  ['Low volume', 'bg-warning/25'],
   ['Expiring soon', 'bg-orange-200'],
-  ['Quarantined', 'bg-pink-200'],
-  ['Empty', 'bg-slate-100'],
-  ['Reserved / Missing', 'bg-slate-500'],
+  ['Quarantined', 'bg-warning/25'],
+  ['Available', 'bg-muted'],
+  ['Missing', 'bg-destructive/20'],
 ]
 
 export function BoxGrid({
@@ -44,9 +59,15 @@ export function BoxGrid({
   if (loading) return <Skeleton className="m-6 h-64" />
   if (!box)
     return (
-      <div className="grid min-h-64 place-items-center text-sm text-muted-foreground">
-        Select a box to view its positions.
-      </div>
+      <Empty className="min-h-80 border-0 bg-card">
+        <EmptyIcon>
+          <Archive />
+        </EmptyIcon>
+        <EmptyTitle>Select a storage box</EmptyTitle>
+        <EmptyDescription>
+          Choose a box from the hierarchy or filters to inspect its positions.
+        </EmptyDescription>
+      </Empty>
     )
   const byCell = new Map(
     positions.map((position) => [
@@ -54,23 +75,27 @@ export function BoxGrid({
       position,
     ]),
   )
+  const summary = boxOccupancy(positions)
   return (
     <section
       className="min-w-0 rounded-lg border bg-card p-4"
       aria-label={`${box.name} contents`}
     >
-      <header className="mb-4">
+      <header className="mb-4 flex flex-wrap items-start justify-between gap-3 border-b pb-3">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="font-semibold">Open box: {box.name}</h2>
+            <h2 className="font-semibold">{box.name}</h2>
             <p className="text-xs text-muted-foreground">
               {context ?? 'Shelf / rack'} ·{' '}
               <span className="font-mono">{box.code}</span>
             </p>
           </div>
-          <span className="text-xs text-muted-foreground">
-            {box.rows} × {box.cols}
-          </span>
+        </div>
+        <div className="text-right text-xs text-muted-foreground">
+          <strong className="block text-sm font-semibold text-foreground">
+            {summary.occupied} / {box.capacity}
+          </strong>
+          occupied · {box.rows} × {box.cols}
         </div>
       </header>
       <div className="overflow-x-auto">
@@ -103,9 +128,10 @@ export function BoxGrid({
                     key={position.id}
                     type="button"
                     onClick={() => onSelectPosition(position.id)}
+                    aria-pressed={selectedPositionId === position.id}
                     aria-label={`${position.label}, ${label}${position.sample ? `, ${position.sample.identifier}, ${position.sample.title}` : ''}`}
                     className={cn(
-                      'min-h-16 rounded-md border p-1.5 text-left text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+                      'min-h-16 rounded-md border p-1.5 text-left text-xs transition-colors hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
                       tone,
                       selectedPositionId === position.id &&
                         'ring-2 ring-primary ring-offset-1',

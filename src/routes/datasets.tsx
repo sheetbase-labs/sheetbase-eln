@@ -49,8 +49,9 @@ import { Inspector } from '#/components/record/inspector'
 import {
   InspectorSection,
   LinkedRecordList,
+  Property,
+  PropertyList,
 } from '#/components/record/inspector-sections'
-import { Property, PropertyList } from '#/components/scientific/property-list'
 import { StatusBadge } from '#/components/scientific/status-badge'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import {
@@ -1237,19 +1238,15 @@ export function DatasetInspector({
             </p>
           ) : (
             <PropertyList>
-              <Property label="Row ID">
-                <span className="block break-all font-mono text-xs font-normal">
-                  {row.id}
-                </span>
+              <Property label="Row ID" mono stacked>
+                {row.id}
               </Property>
               <Property label="Version">
                 <span className="tabular-nums">{row.version}</span>
               </Property>
               {table.columns.map((column) => (
-                <Property key={column.id} label={column.label}>
-                  <span className="block break-words text-right font-normal">
-                    {rowCellValue(row, column)}
-                  </span>
+                <Property key={column.id} label={column.label} stacked>
+                  {rowCellValue(row, column)}
                 </Property>
               ))}
             </PropertyList>

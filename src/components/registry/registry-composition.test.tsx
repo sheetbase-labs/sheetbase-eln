@@ -163,7 +163,7 @@ describe('RegistryComposition server contracts', () => {
 describe('RegistryComposition interaction and states', () => {
   it('supports keyboard row navigation and preserves controlled selection after refresh', () => {
     const onSelectedIdChange = vi.fn()
-    const { rerender } = render(
+    const { container, rerender } = render(
       <RegistryComposition {...props({ onSelectedIdChange })} />,
     )
     const first = screen.getByRole('row', { name: /SMP-0001/ })
@@ -183,11 +183,12 @@ describe('RegistryComposition interaction and states', () => {
         })}
       />,
     )
-    expect(
-      screen
-        .getByRole('row', { name: /SMP-0002/ })
-        .getAttribute('aria-selected'),
-    ).toBe('true')
+    // Inspector Sheet opens on selection; Radix marks the rest inert,
+    // so query the DOM directly instead of using getByRole.
+    const selectedRow = container.querySelector(
+      'tr[data-registry-row-id="two"]',
+    )
+    expect(selectedRow?.getAttribute('aria-selected')).toBe('true')
     expect(screen.getByText('Inspecting SMP-0002')).toBeTruthy()
   })
 
@@ -265,19 +266,16 @@ describe('RegistryComposition interaction and states', () => {
     expect(within(table).getByText('1.2 µg/mL')).toBeTruthy()
   })
 
-  it('uses a generic labelled Sheet for the narrow-screen inspector', async () => {
+  it('uses a generic labelled Sheet for the inspector, opened by row selection', async () => {
     const user = userEvent.setup()
     render(
       <RegistryComposition
         {...props({ inspectorLabel: 'Record details', selectedId: 'one' })}
       />,
     )
-    await user.click(
-      screen.getByRole('button', { name: 'Open Record details' }),
-    )
+    // Inspector auto-opens when a row is selected
     expect(screen.getByRole('dialog', { name: 'Record details' })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Close' })).toBeNull()
-    expect(screen.getAllByText('Inspecting SMP-0001')).toHaveLength(2)
+    expect(screen.getAllByText('Inspecting SMP-0001')).toBeTruthy()
   })
 
   it('preserves an explicit custom renderer for numeric cells', () => {

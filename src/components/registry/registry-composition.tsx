@@ -15,7 +15,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Columns3,
-  PanelRight,
+  PanelRightClose,
+  Pin,
+  PinOff,
   Save,
   Search,
 } from 'lucide-react'
@@ -126,6 +128,22 @@ function resolveUpdater<T>(updater: Updater<T>, previous: T): T {
     : updater
 }
 
+/** Detect the xl breakpoint (1280px+) for inspector pin behaviour. */
+function useIsXl(): boolean {
+  const [isXl, setIsXl] = React.useState(false)
+  React.useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    const mq = window.matchMedia('(min-width: 1280px)')
+    setIsXl(mq.matches)
+    const handler = (e: MediaQueryListEvent) => setIsXl(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
+  return isXl
+}
+
+const PIN_KEY = (registryId: string) => `sheetbase-inspector-pinned-${registryId}`
+
 function viewId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
     return crypto.randomUUID()
@@ -167,7 +185,7 @@ export function RegistryComposition<TData>({
   emptyTitle = 'No records yet',
   noResultsTitle = 'No matching records',
   initialColumnVisibility = {},
-  initialDensity = 'comfortable',
+  initialDensity = 'compact',
   savedViewStore,
   actions,
 }: RegistryCompositionProps<TData>) {
@@ -186,9 +204,29 @@ export function RegistryComposition<TData>({
   const [density, setDensity] = React.useState<RegistryDensity>(initialDensity)
   const [uncontrolledInspectorOpen, setUncontrolledInspectorOpen] =
     React.useState(false)
+  const [inspectorPinned, setInspectorPinned] = React.useState(false)
+  const isXl = useIsXl()
   const [activeRowId, setActiveRowId] = React.useState<string | null>(
     selectedId ?? (rows[0] ? getRowId(rows[0]) : null),
   )
+
+  React.useEffect(() => {
+    try {
+      setInspectorPinned(localStorage.getItem(PIN_KEY(registryId)) === '1')
+    } catch {
+      /* ignore */
+    }
+  }, [registryId])
+
+  const togglePin = React.useCallback(() => {
+    const next = !inspectorPinned
+    try {
+      localStorage.setItem(PIN_KEY(registryId), next ? '1' : '0')
+    } catch {
+      /* ignore */
+    }
+    setInspectorPinned(next)
+  }, [inspectorPinned, registryId])
 
   React.useEffect(() => {
     setSavedViews(store.list())
@@ -204,6 +242,11 @@ export function RegistryComposition<TData>({
       setActiveRowId(rows[0] ? getRowId(rows[0]) : null)
     }
   }, [activeRowId, getRowId, rows, selectedId])
+
+  // Auto-open the inspector when a selection arrives (from row click, URL, etc.)
+  React.useEffect(() => {
+    if (selectedId) setInspectorOpen(true)
+  }, [selectedId])
 
   const sorting = query.sorting as SortingState
   const grouping = query.grouping
@@ -296,8 +339,11 @@ export function RegistryComposition<TData>({
         setUncontrolledInspectorOpen(open)
       }
       onInspectorOpenChange?.(open)
+      if (!open) {
+        onSelectedIdChange(null)
+      }
     },
-    [controlledInspectorOpen, onInspectorOpenChange],
+    [controlledInspectorOpen, onInspectorOpenChange, onSelectedIdChange],
   )
 
   const inspectorContent = renderInspector ? (
@@ -307,7 +353,40 @@ export function RegistryComposition<TData>({
         detail="Its selection is preserved while the record details are loaded."
       />
     ) : (
-      renderInspector(selectedRow)
+      <div className="flex h-full flex-col">
+        {/* Inspector controls: pin + close */}
+        <div className="flex shrink-0 items-center justify-end gap-1 border-b border-border px-2 py-1">
+          {isXl ? (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={togglePin}
+              aria-label={inspectorPinned ? 'Unpin inspector' : 'Pin inspector'}
+              aria-pressed={inspectorPinned}
+            >
+              {inspectorPinned ? (
+                <PinOff className="size-4" />
+              ) : (
+                <Pin className="size-4" />
+              )}
+            </Button>
+          ) : null}
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => {
+              setInspectorOpen(false)
+              onSelectedIdChange(null)
+            }}
+            aria-label="Close inspector"
+          >
+            <PanelRightClose className="size-4" />
+          </Button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-hidden">
+          {renderInspector(selectedRow)}
+        </div>
+      </div>
     )
   ) : null
 
@@ -411,6 +490,7 @@ export function RegistryComposition<TData>({
                 return (
                   <TableHead
                     key={header.id}
+                    className={density === 'compact' ? 'h-7 px-2.5 text-[0.65rem]' : undefined}
                     aria-sort={
                       sorted === 'asc'
                         ? 'ascending'
@@ -463,7 +543,10 @@ export function RegistryComposition<TData>({
                 tabIndex={id === activeRowId ? 0 : -1}
                 className="cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                 onFocus={() => setActiveRowId(id)}
-                onClick={() => onSelectedIdChange(id)}
+                onClick={() => {
+                  onSelectedIdChange(id)
+                  setInspectorOpen(true)
+                }}
                 onKeyDown={(event) => {
                   if (event.key === 'ArrowDown') {
                     event.preventDefault()
@@ -480,6 +563,7 @@ export function RegistryComposition<TData>({
                   } else if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault()
                     onSelectedIdChange(id)
+                    setInspectorOpen(true)
                   }
                 }}
               >
@@ -487,7 +571,9 @@ export function RegistryComposition<TData>({
                   <TableCell
                     key={cell.id}
                     className={cn(
-                      density === 'compact' && 'py-1.5',
+                      density === 'compact'
+                        ? 'px-2.5 py-1 text-xs'
+                        : 'px-3 py-2',
                       typeof cell.getValue() === 'number' &&
                         'scientific-nums text-right tabular-nums',
                     )}
@@ -700,43 +786,40 @@ export function RegistryComposition<TData>({
         </div>
       ) : null}
 
-      <div className={cn(renderInspector && 'flex min-w-0')}>
-        <div className="min-w-0 flex-1 overflow-hidden rounded-lg border bg-card">
-          {stateContent}
-        </div>
-        {renderInspector && !permissionDenied ? (
-          <aside
-            aria-label={inspectorLabel}
-            className="ml-4 hidden w-80 shrink-0 overflow-hidden border-l bg-background xl:block"
-          >
-            {inspectorContent}
-          </aside>
-        ) : null}
+      {/* Table + pinned inspector layout */}
+      <div className="flex min-w-0 gap-4">
+      {/* Table — always takes full width. Inspector slides over or pins. */}
+      <div className="min-w-0 flex-1 overflow-hidden rounded-lg border bg-card">
+        {stateContent}
       </div>
 
+      {/* Pinned inspector — docked aside on xl+ only */}
+      {renderInspector && !permissionDenied && inspectorPinned && inspectorOpen && isXl ? (
+        <aside
+          aria-label={inspectorLabel}
+          className="flex w-80 shrink-0 flex-col overflow-hidden rounded-lg border bg-background"
+        >
+          {inspectorContent}
+        </aside>
+      ) : null}
+      </div>
+
+      {/* Slide-over inspector — Sheet on all breakpoints when not pinned,
+          or below xl when pinned */}
       {renderInspector && !permissionDenied ? (
-        <>
-          <Button
-            variant="outline"
-            size="sm"
-            className="xl:hidden"
-            aria-label={`Open ${inspectorLabel}`}
-            aria-expanded={inspectorOpen}
-            onClick={() => setInspectorOpen(true)}
+        <Sheet
+          open={inspectorOpen && (!inspectorPinned || !isXl)}
+          onOpenChange={setInspectorOpen}
+        >
+          <SheetContent
+            side="right"
+            className="w-[min(24rem,92vw)] border-l p-0"
+            showClose={false}
           >
-            <PanelRight /> {inspectorLabel}
-          </Button>
-          <Sheet open={inspectorOpen} onOpenChange={setInspectorOpen}>
-            <SheetContent
-              side="right"
-              className="w-80 border-l p-0 xl:hidden"
-              showClose={false}
-            >
-              <SheetTitle className="sr-only">{inspectorLabel}</SheetTitle>
-              <div className="h-full">{inspectorContent}</div>
-            </SheetContent>
-          </Sheet>
-        </>
+            <SheetTitle className="sr-only">{inspectorLabel}</SheetTitle>
+            <div className="h-full">{inspectorContent}</div>
+          </SheetContent>
+        </Sheet>
       ) : null}
 
       {!permissionDenied ? (

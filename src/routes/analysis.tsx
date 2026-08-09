@@ -578,7 +578,7 @@ export function AnalysisControls({
                 role="radio"
                 aria-checked={spec.type === t}
                 onClick={() => setType(t)}
-                className="capitalize"
+                className="gap-1.5 capitalize"
               >
                 {t === 'line' ? (
                   <LineChartIcon className="size-3.5" aria-hidden="true" />
@@ -1463,10 +1463,10 @@ export function AnalysisPreview({
 
   return (
     <div
-      className="grid min-h-0 flex-1 grid-rows-[minmax(24rem,2fr)_minmax(12rem,1fr)] gap-3 overflow-hidden"
+      className="grid min-h-0 flex-1 grid-rows-[minmax(0,2fr)_minmax(0,1fr)] gap-3 overflow-hidden"
       data-analysis-chart
     >
-      <Card className="flex min-h-0 flex-col gap-2 overflow-hidden p-3">
+      <div className="flex min-h-0 flex-col gap-2 rounded-lg border bg-card p-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 text-sm font-semibold">
             <LineChartIcon
@@ -1535,14 +1535,14 @@ export function AnalysisPreview({
         ) : null}
 
         <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(0,1fr)_13rem]">
-          <div className="min-h-0 overflow-auto">
+          <div className="min-h-0 overflow-visible">
             <ChartRenderer
               title={`${table.name} — ${spec.type} chart`}
               spec={spec}
               materialised={analysisMaterialised}
               frozen={null}
               loading={datasetQuery.isLoading}
-              plotHeight={320}
+              plotHeight={280}
             />
           </div>
           <aside
@@ -1550,7 +1550,7 @@ export function AnalysisPreview({
             aria-label="Chart statistics"
           >
             {summaries.slice(0, 3).map((summary) => (
-              <Card key={summary.identifier} className="p-3 shadow-none">
+              <div key={summary.identifier} className="rounded-md border p-2.5">
                 <div className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                   <span
                     className="size-2 rounded-full"
@@ -1566,10 +1566,10 @@ export function AnalysisPreview({
                 <p className="mt-0.5 font-mono text-lg font-semibold tabular-nums">
                   {formatScientific(summary.lastMean)}
                 </p>
-              </Card>
+              </div>
             ))}
             {summaries[0]?.foldChange ? (
-              <Card className="border-violet-200 bg-violet-50/60 p-3 shadow-none dark:border-violet-900 dark:bg-violet-950/20">
+              <div className="rounded-md border border-violet-200 bg-violet-50/60 p-2.5 dark:border-violet-900 dark:bg-violet-950/20">
                 <p className="text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground">
                   Fold change (first → latest)
                 </p>
@@ -1579,11 +1579,11 @@ export function AnalysisPreview({
                 <p className="mt-1 text-xs text-muted-foreground">
                   {summaries[0].label}
                 </p>
-              </Card>
+              </div>
             ) : null}
           </aside>
         </div>
-      </Card>
+      </div>
 
       {/* Accessible data table that underlies every chart. */}
       <DataTableAlternative
@@ -1615,9 +1615,9 @@ export function DataTableAlternative({
     materialised.state.kind !== 'log_scale_invalid'
   ) {
     return (
-      <Card className="p-4 text-center text-xs text-muted-foreground">
+      <div className="rounded-lg border bg-card p-4 text-center text-xs text-muted-foreground">
         No plottable data table for the current state.
-      </Card>
+      </div>
     )
   }
   const chartRows = materialised.series.flatMap((s) =>
@@ -1647,8 +1647,8 @@ export function DataTableAlternative({
     ? materialised.rows.slice(0, 50)
     : chartRows
   return (
-    <Card
-      className="flex min-h-0 flex-col overflow-hidden p-0"
+    <div
+      className="flex min-h-0 flex-col overflow-hidden rounded-lg border bg-card"
       aria-labelledby="data-table-title"
     >
       <div className="flex shrink-0 items-center justify-between border-b px-3 py-2">
@@ -1709,7 +1709,7 @@ export function DataTableAlternative({
           </TableBody>
         </Table>
       </div>
-    </Card>
+    </div>
   )
 }
 

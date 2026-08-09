@@ -236,7 +236,7 @@ export function SampleInspector({
     size: fileSize(file.byteSize),
   }))
 
-  const content = (
+  const detailsContent = (
     <div className="space-y-4">
       <InspectorSection title="Details">
         <PropertyList>
@@ -259,7 +259,11 @@ export function SampleInspector({
           <Property label="Updated">{formatDate(sample.updatedAt)}</Property>
         </PropertyList>
       </InspectorSection>
+    </div>
+  )
 
+  const custodyContent = (
+    <div className="space-y-4">
       <InspectorSection title="Custody actions">
         {archived ? (
           <Button
@@ -525,7 +529,11 @@ export function SampleInspector({
           </ol>
         )}
       </InspectorSection>
+    </div>
+  )
 
+  const linksContent = (
+    <div className="space-y-4">
       <InspectorSection title="Linked experiments">
         {linksLoading ? (
           <p className="text-xs text-muted-foreground">Loading…</p>
@@ -559,7 +567,11 @@ export function SampleInspector({
       recordType="Sample"
       title={sample.title}
       status={<StatusBadge status={sample.status} domain="sample" />}
-      tabs={[{ id: 'details', label: 'Details', content }]}
+      tabs={[
+        { id: 'details', label: 'Details', content: detailsContent },
+        { id: 'custody', label: 'Custody', content: custodyContent },
+        { id: 'links', label: 'Links', content: linksContent },
+      ]}
       className={className}
     />
   )

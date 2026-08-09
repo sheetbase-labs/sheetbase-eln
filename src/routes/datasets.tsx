@@ -59,6 +59,8 @@ import {
   Button,
   ButtonGroup,
   Card,
+  Field,
+  FieldLabel,
   Input,
   Select,
   Skeleton,
@@ -306,7 +308,7 @@ export function DatasetExplorerHeader({
             Dataset Explorer
           </h1>
           <p className="truncate text-xs text-muted-foreground">
-            Browse scientific datasets, schemas, relationships and lineage.
+            Query, transform and visualise scientific dataset rows.
           </p>
         </div>
       </div>
@@ -561,50 +563,50 @@ export function DatasetDataTab({
             <RegistryComposition
               registryId={`dataset-${table.id}`}
               workspaceId={workspaceId}
-        userId={userId}
-        title={table.name}
-        description="Transform, review and export scientific data."
-        rows={rowsQuery.data?.rows ?? []}
-        totalCount={totalCount}
-        columns={columns}
-        query={query}
-        onQueryChange={setQuery}
-        getRowId={(row) => row.id}
-        selectedId={selectedRowId}
-        onSelectedIdChange={setSelectedRowId}
-        filterDefinitions={filterDefinitions}
-        groupingOptions={groupingOptions}
-        initialDensity="compact"
-        inspectorLabel="Dataset inspector"
-        loading={rowsQuery.isLoading}
-        error={rowsQuery.error}
-        emptyTitle="No rows yet"
-        noResultsTitle="No matching rows"
-        actions={
-          <ButtonGroup>
-            <Button variant="outline" size="sm">
-              <Plus /> New
-            </Button>
-            <Button variant="outline" size="sm">
-              <Save /> Save view
-            </Button>
-            <Button variant="outline" size="sm">
-              <Share2 /> Share
-            </Button>
-          </ButtonGroup>
-        }
-        renderInspector={(row) => (
-          <DatasetInspector
-            table={table}
-            row={row}
-            formulas={lineageQuery.data?.formulas ?? []}
-            dependencies={lineageQuery.data?.dependencies ?? []}
-            links={linksQuery.data ?? []}
-            lineageLoading={lineageQuery.isLoading}
-            lineageError={lineageQuery.error}
-          />
-        )}
-      />
+              userId={userId}
+              title={table.name}
+              description="Query, transform and visualise scientific dataset rows."
+              rows={rowsQuery.data?.rows ?? []}
+              totalCount={totalCount}
+              columns={columns}
+              query={query}
+              onQueryChange={setQuery}
+              getRowId={(row) => row.id}
+              selectedId={selectedRowId}
+              onSelectedIdChange={setSelectedRowId}
+              filterDefinitions={filterDefinitions}
+              groupingOptions={groupingOptions}
+              initialDensity="compact"
+              inspectorLabel="Dataset inspector"
+              loading={rowsQuery.isLoading}
+              error={rowsQuery.error}
+              emptyTitle="No rows yet"
+              noResultsTitle="No matching rows"
+              actions={
+                <ButtonGroup>
+                  <Button variant="outline" size="sm">
+                    <Plus /> New
+                  </Button>
+                  <Button variant="outline" size="sm">
+                    <Save /> Save view
+                  </Button>
+                  <Button variant="outline" size="sm">
+                    <Share2 /> Share
+                  </Button>
+                </ButtonGroup>
+              }
+              renderInspector={(row) => (
+                <DatasetInspector
+                  table={table}
+                  row={row}
+                  formulas={lineageQuery.data?.formulas ?? []}
+                  dependencies={lineageQuery.data?.dependencies ?? []}
+                  links={linksQuery.data ?? []}
+                  lineageLoading={lineageQuery.isLoading}
+                  lineageError={lineageQuery.error}
+                />
+              )}
+            />
           </div>
           <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t px-3 py-2 text-xs text-muted-foreground">
             <span>
@@ -621,57 +623,71 @@ export function DatasetDataTab({
             </span>
           </div>
         </div>
-      <Tabs value={previewTab} onValueChange={setPreviewTab} className="min-h-0">
-        <Card className="flex min-h-0 flex-col overflow-hidden p-0">
-          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3">
-            <TabsList className="h-9 bg-transparent p-0">
-              {['Preview', 'Summary', 'Distribution', 'Correlations'].map(
-                (label) => (
-                  <TabsTrigger key={label} value={label.toLowerCase()}>
-                    {label}
-                  </TabsTrigger>
-                ),
-              )}
-            </TabsList>
-            <ButtonGroup>
-              <Button variant="subtle" size="sm">
-                Line
-              </Button>
-              <Button variant="ghost" size="sm">
-                Log Y
-              </Button>
-              <Button variant="ghost" size="icon-sm" aria-label="Export chart">
-                <Download />
-              </Button>
-            </ButtonGroup>
-          </div>
-          <TabsContent value="preview" className="m-0 min-h-0 flex-1 overflow-auto p-3">
-            <ChartPreview
-              table={table}
-              chartSpec={chartSpec}
-              onChartSpecChange={setChartSpec}
-            />
-          </TabsContent>
-          <TabsContent value="summary" className="m-0 min-h-0 flex-1 overflow-auto p-6">
-            <PreviewExplanation
-              title="Column summary"
-              copy="Review completeness, central tendency and spread for each visible field."
-            />
-          </TabsContent>
-          <TabsContent value="distribution" className="m-0 min-h-0 flex-1 overflow-auto p-6">
-            <PreviewExplanation
-              title="Distribution"
-              copy="Select a numeric field to inspect its histogram and outliers."
-            />
-          </TabsContent>
-          <TabsContent value="correlations" className="m-0 min-h-0 flex-1 overflow-auto p-6">
-            <PreviewExplanation
-              title="Correlations"
-              copy="Compare numeric fields to identify relationships in this view."
-            />
-          </TabsContent>
-        </Card>
-      </Tabs>
+        <Tabs
+          value={previewTab}
+          onValueChange={setPreviewTab}
+          className="min-h-0"
+        >
+          <Card className="flex min-h-0 flex-col overflow-hidden p-0">
+            <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3">
+              <TabsList className="h-9 bg-transparent p-0">
+                {['Preview', 'Summary', 'Distribution', 'Correlations'].map(
+                  (label) => (
+                    <TabsTrigger key={label} value={label.toLowerCase()}>
+                      {label}
+                    </TabsTrigger>
+                  ),
+                )}
+              </TabsList>
+              <ButtonGroup>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Export chart"
+                >
+                  <Download />
+                </Button>
+              </ButtonGroup>
+            </div>
+            <TabsContent
+              value="preview"
+              className="m-0 min-h-0 flex-1 overflow-auto p-3"
+            >
+              <ChartPreview
+                table={table}
+                chartSpec={chartSpec}
+                onChartSpecChange={setChartSpec}
+              />
+            </TabsContent>
+            <TabsContent
+              value="summary"
+              className="m-0 min-h-0 flex-1 overflow-auto p-6"
+            >
+              <PreviewExplanation
+                title="Column summary"
+                copy="Review completeness, central tendency and spread for each visible field."
+              />
+            </TabsContent>
+            <TabsContent
+              value="distribution"
+              className="m-0 min-h-0 flex-1 overflow-auto p-6"
+            >
+              <PreviewExplanation
+                title="Distribution"
+                copy="Select a numeric field to inspect its histogram and outliers."
+              />
+            </TabsContent>
+            <TabsContent
+              value="correlations"
+              className="m-0 min-h-0 flex-1 overflow-auto p-6"
+            >
+              <PreviewExplanation
+                title="Correlations"
+                copy="Compare numeric fields to identify relationships in this view."
+              />
+            </TabsContent>
+          </Card>
+        </Tabs>
       </div>
     </div>
   )
@@ -990,6 +1006,25 @@ function ChartPreview({
     })
   }
 
+  function setX(columnId: string) {
+    const column = table.columns.find((c) => c.id === columnId)
+    if (!chartSpec || !column) return
+    onChartSpecChange({
+      ...chartSpec,
+      fields: {
+        ...chartSpec.fields,
+        x: { columnId, fieldName: column.field_name },
+      },
+      display: {
+        ...chartSpec.display,
+        axes: {
+          ...chartSpec.display.axes,
+          x: { ...chartSpec.display.axes.x, label: column.label },
+        },
+      },
+    })
+  }
+
   function setType(type: ChartType) {
     if (!chartSpec) return
     onChartSpecChange({ ...chartSpec, type })
@@ -1018,11 +1053,11 @@ function ChartPreview({
           <p className="ml-5 text-xs text-muted-foreground">Mean ± SD</p>
         </div>
         {chartSpec ? (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <label className="flex items-center gap-1">
-              Type
+          <div className="flex flex-wrap items-end gap-2">
+            <Field className="w-28 gap-1">
+              <FieldLabel htmlFor="dataset-chart-type">Chart type</FieldLabel>
               <Select
-                aria-label="Chart type"
+                id="dataset-chart-type"
                 value={chartSpec.type}
                 onChange={(e) => setType(e.target.value as ChartType)}
                 className="h-8 bg-background"
@@ -1033,11 +1068,26 @@ function ChartPreview({
                   </option>
                 ))}
               </Select>
-            </label>
-            <label className="flex items-center gap-1">
-              Y
+            </Field>
+            <Field className="w-36 gap-1">
+              <FieldLabel htmlFor="dataset-chart-x">X axis</FieldLabel>
               <Select
-                aria-label="Y axis field"
+                id="dataset-chart-x"
+                value={chartSpec.fields.x?.columnId ?? ''}
+                onChange={(e) => setX(e.target.value)}
+                className="h-8 bg-background"
+              >
+                {table.columns.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field className="w-36 gap-1">
+              <FieldLabel htmlFor="dataset-chart-y">Y axis</FieldLabel>
+              <Select
+                id="dataset-chart-y"
                 value={chartSpec.fields.y.columnId}
                 onChange={(e) => setY(e.target.value)}
                 className="h-8 bg-background"
@@ -1048,7 +1098,7 @@ function ChartPreview({
                   </option>
                 ))}
               </Select>
-            </label>
+            </Field>
           </div>
         ) : null}
       </div>
@@ -1397,28 +1447,26 @@ export function DatasetRelationshipsTab({
 }: DatasetRelationshipsTabProps) {
   const schemaId = table.dataset_schema_id ?? null
   const relationshipsQuery = useQuery({
-    queryKey: datasetExplorerQueryKeys.relationships,
+    queryKey: [...datasetExplorerQueryKeys.relationships, table.id],
     queryFn: () =>
       fetchDatasetRelationshipsFor(datasetExplorerDataClient, schemaId),
     enabled: Boolean(schemaId),
     staleTime: 30_000,
   })
+  const lineageQuery = useQuery({
+    queryKey: datasetExplorerQueryKeys.lineage(table.id),
+    queryFn: () => fetchDatasetLineage(datasetExplorerDataClient, table.id),
+    staleTime: 30_000,
+  })
 
   const relationships = relationshipsQuery.data ?? []
+  const dependencies = lineageQuery.data?.dependencies ?? []
+  const formulas = lineageQuery.data?.formulas ?? []
 
-  if (!schemaId) {
-    return (
-      <Card className="p-6 text-center text-sm text-muted-foreground">
-        This dataset is not bound to a schema, so schema relationships are not
-        available. Bind it to a dataset schema on the Schemas page to define
-        relationships.
-      </Card>
-    )
-  }
-  if (relationshipsQuery.isLoading) {
+  if (relationshipsQuery.isLoading || lineageQuery.isLoading) {
     return <Skeleton className="h-32 w-full" />
   }
-  if (relationshipsQuery.error) {
+  if (relationshipsQuery.error || lineageQuery.error) {
     return (
       <div
         role="alert"
@@ -1428,46 +1476,55 @@ export function DatasetRelationshipsTab({
       </div>
     )
   }
-  if (relationships.length === 0) {
+  if (
+    relationships.length === 0 &&
+    dependencies.length === 0 &&
+    formulas.length === 0
+  ) {
     return (
-      <Card className="p-6 text-center text-sm text-muted-foreground">
-        No relationships defined for this schema yet. Use the Schemas page to
-        connect it to other schemas.
+      <Card className="p-4">
+        <InspectorSection title="Column relationships">
+          <EmptyHint>
+            This dataset has no relationships defined. Relationships are created
+            when you join columns or add calculated columns that reference other
+            datasets.
+          </EmptyHint>
+        </InspectorSection>
       </Card>
     )
   }
   return (
     <Card className="p-4">
-      <h2 className="text-sm font-semibold">Schema relationships</h2>
-      <div className="mt-2 overflow-x-auto">
-        <Table aria-label="Dataset relationships">
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead>Type</TableHead>
-              <TableHead>Label</TableHead>
-              <TableHead>Cardinality</TableHead>
-              <TableHead>Target schema</TableHead>
-              <TableHead>Created</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {relationships.map((r) => (
-              <TableRow key={r.id}>
-                <TableCell className="font-mono text-xs">
-                  {r.relationship_type}
-                </TableCell>
-                <TableCell>{r.label || '—'}</TableCell>
-                <TableCell>{r.cardinality}</TableCell>
-                <TableCell className="font-mono text-xs">
-                  {r.target_schema_id === schemaId
-                    ? r.source_schema_id.slice(0, 8)
-                    : r.target_schema_id.slice(0, 8)}
-                </TableCell>
-                <TableCell>{formatRelativeTime(r.created_at)}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+      <div className="space-y-4">
+        <InspectorSection title="Joined datasets">
+          <LinkedRecordList
+            items={relationships.map((relationship) => ({
+              id: relationship.id,
+              type: relationship.relationship_type.replaceAll('_', ' '),
+              title: relationship.label || 'Schema relationship',
+              meta: `${relationship.cardinality.replaceAll('_', ' ')} · ${formatRelativeTime(relationship.created_at)}`,
+            }))}
+          />
+        </InspectorSection>
+        <InspectorSection title="Calculated column dependencies">
+          <LinkedRecordList
+            items={dependencies.map((dependency, index) => ({
+              id: `${dependency.formula_id}-${index}`,
+              type: 'Calculated column dependency',
+              title: `Column ${dependency.source_column_id.slice(0, 8)}`,
+              meta: `Dataset ${dependency.source_table_id.slice(0, 8)} · row ${dependency.source_row_id.slice(0, 8)}`,
+            }))}
+          />
+        </InspectorSection>
+        <InspectorSection title="Relationship summary">
+          <PropertyList>
+            <Property label="Schema joins">{relationships.length}</Property>
+            <Property label="Calculated columns">{formulas.length}</Property>
+            <Property label="Cross-dataset dependencies">
+              {dependencies.length}
+            </Property>
+          </PropertyList>
+        </InspectorSection>
       </div>
     </Card>
   )
@@ -1506,68 +1563,50 @@ export function DatasetLineageTab({ table }: DatasetLineageTabProps) {
   }
   if (formulas.length === 0 && dependencies.length === 0) {
     return (
-      <Card className="p-6 text-center text-sm text-muted-foreground">
-        No calculated columns or cross-sheet dependencies recorded for this
-        dataset. Formulas written in the notebook sheet appear here as
-        transformations.
+      <Card className="p-4">
+        <InspectorSection title="Transformation lineage">
+          <EmptyHint>
+            No transformations applied yet. Formula calculations and column
+            transforms will appear here.
+          </EmptyHint>
+        </InspectorSection>
       </Card>
     )
   }
   return (
-    <div className="space-y-3">
-      <Card className="p-4">
-        <h2 className="text-sm font-semibold">
-          Transformations ({formulas.length})
-        </h2>
-        {formulas.length === 0 ? (
-          <p className="mt-1 text-xs text-muted-foreground">
-            No formula definitions.
-          </p>
-        ) : (
-          <ul className="mt-2 space-y-2">
-            {formulas.map((f) => (
-              <li
-                key={f.id}
-                className="rounded-md border bg-muted/30 p-2 text-xs"
-              >
-                <p className="font-mono break-all">{f.source_expression}</p>
-                <p className="mt-1 text-muted-foreground">
-                  syntax {f.syntax_profile} · engine {f.engine_version} · status{' '}
-                  {f.status}
-                </p>
-                <p className="text-muted-foreground">
-                  target row {f.target_row_id.slice(0, 8)} · column{' '}
-                  {f.target_column_id.slice(0, 8)}
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
-      <Card className="p-4">
-        <h2 className="text-sm font-semibold">
-          Cross-sheet dependencies ({dependencies.length})
-        </h2>
-        {dependencies.length === 0 ? (
-          <p className="mt-1 text-xs text-muted-foreground">
-            No cross-sheet dependencies.
-          </p>
-        ) : (
-          <ul className="mt-2 space-y-1 text-xs">
-            {dependencies.map((d, i) => (
-              <li
-                key={`${d.formula_id}-${i}`}
-                className="rounded-md border bg-muted/30 p-2"
-              >
-                formula {d.formula_id.slice(0, 8)} ← source row{' '}
-                {d.source_row_id.slice(0, 8)} column{' '}
-                {d.source_column_id.slice(0, 8)}
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
-    </div>
+    <Card className="p-4">
+      <div className="space-y-4">
+        <InspectorSection title={`Transformations (${formulas.length})`}>
+          {formulas.length === 0 ? (
+            <EmptyHint>No formula calculations</EmptyHint>
+          ) : (
+            <PropertyList>
+              {formulas.map((f) => (
+                <Property key={f.id} label="Formula calculation" mono stacked>
+                  {f.source_expression}
+                </Property>
+              ))}
+            </PropertyList>
+          )}
+        </InspectorSection>
+        <InspectorSection
+          title={`Cross-dataset dependencies (${dependencies.length})`}
+        >
+          {dependencies.length === 0 ? (
+            <EmptyHint>No cross-dataset dependencies</EmptyHint>
+          ) : (
+            <LinkedRecordList
+              items={dependencies.map((dependency, index) => ({
+                id: `${dependency.formula_id}-${index}`,
+                type: 'Formula input',
+                title: `Column ${dependency.source_column_id.slice(0, 8)}`,
+                meta: `Dataset ${dependency.source_table_id.slice(0, 8)} · row ${dependency.source_row_id.slice(0, 8)}`,
+              }))}
+            />
+          )}
+        </InspectorSection>
+      </div>
+    </Card>
   )
 }
 

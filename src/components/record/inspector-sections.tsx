@@ -16,10 +16,20 @@ import { cn } from '#/lib/utils'
  * Reusable inspector sections — the building blocks that fill an Inspector
  * tab. Each is a small, typed, presentational component.
  *
- * The visual language follows the concept mockup: dense, visually rich
- * metadata with semantic colour, compact pills, file-type iconography and
- * clear status badges — never a flat grey text-only list.
+ * Inspector metadata is compact and flat: sections are divided rather than
+ * carded, while statuses and linked records retain their semantic treatment.
  */
+
+/** Owns the standard 16px cadence between inspector sections. */
+export function InspectorSectionStack({
+  children,
+  className,
+}: {
+  children: React.ReactNode
+  className?: string
+}) {
+  return <div className={cn('space-y-4', className)}>{children}</div>
+}
 
 /** A labelled section inside an inspector tab. */
 export function InspectorSection({
@@ -34,11 +44,14 @@ export function InspectorSection({
   className?: string
 }) {
   return (
-    <section className={cn('border-t border-border pt-2 first:border-t-0 first:pt-0', className)}>
+    <section
+      className={cn(
+        'border-t border-border pt-2 first:border-t-0 first:pt-0',
+        className,
+      )}
+    >
       <div className="mb-1.5 flex items-center justify-between">
-        <h3 className="text-xs font-semibold text-foreground">
-          {title}
-        </h3>
+        <h3 className="text-xs font-semibold text-foreground">{title}</h3>
         {action ? <div>{action}</div> : null}
       </div>
       {children}
@@ -57,26 +70,47 @@ export function PropertyList({
   return <dl className={cn('space-y-2', className)}>{children}</dl>
 }
 
+function CodeValue({ children }: { children: React.ReactNode }) {
+  if (typeof children !== 'string') return children
+
+  return children.split(/([,;/:=])/).map((part, index) => (
+    <React.Fragment key={`${part}-${index}`}>
+      {part}
+      {/^[,;/:=]$/.test(part) ? <wbr /> : null}
+    </React.Fragment>
+  ))
+}
+
 export function Property({
   label,
   children,
   mono,
+  stacked = false,
 }: {
   label: string
   children: React.ReactNode
   /** Render the value in the mono/scientific font (identifiers, numbers). */
   mono?: boolean
+  /** Preserve long meaningful values by placing the value beneath its label. */
+  stacked?: boolean
 }) {
   return (
-    <div className="flex items-center justify-between gap-2">
+    <div
+      className={cn(
+        'gap-2',
+        stacked ? 'grid' : 'flex items-center justify-between',
+      )}
+    >
       <dt className="shrink-0 text-xs text-muted-foreground">{label}</dt>
       <dd
         className={cn(
-          'min-w-0 truncate text-right text-xs font-medium text-foreground',
+          'min-w-0 text-xs font-medium text-foreground',
+          stacked ? 'break-words text-left' : 'truncate text-right',
           mono && 'font-mono tabular-nums',
+          stacked && mono && 'text-[0.6875rem] leading-4 tracking-[-0.015em]',
         )}
       >
-        {children}
+        {stacked && mono ? <CodeValue>{children}</CodeValue> : children}
       </dd>
     </div>
   )
@@ -153,9 +187,10 @@ export interface FileItem {
 }
 
 /** Pick a file-type icon + accent colour from the media type. */
-function fileTypeIcon(
-  mediaType?: string,
-): { icon: LucideIcon; className: string } {
+function fileTypeIcon(mediaType?: string): {
+  icon: LucideIcon
+  className: string
+} {
   const mt = (mediaType ?? '').toLowerCase()
   if (
     mt.includes('spreadsheet') ||
@@ -167,10 +202,7 @@ function fileTypeIcon(
   ) {
     return { icon: FileSpreadsheet, className: 'text-success' }
   }
-  if (
-    mt.includes('pdf') ||
-    mt.endsWith('.pdf')
-  ) {
+  if (mt.includes('pdf') || mt.endsWith('.pdf')) {
     return { icon: FileText, className: 'text-destructive' }
   }
   if (
@@ -184,11 +216,7 @@ function fileTypeIcon(
   ) {
     return { icon: FileImage, className: 'text-info' }
   }
-  if (
-    mt.includes('text') ||
-    mt.endsWith('.txt') ||
-    mt.endsWith('.md')
-  ) {
+  if (mt.includes('text') || mt.endsWith('.txt') || mt.endsWith('.md')) {
     return { icon: FileText, className: 'text-muted-foreground' }
   }
   return { icon: FileIcon, className: 'text-muted-foreground' }
@@ -204,7 +232,10 @@ export function FileList({ items }: { items: FileItem[] }) {
         )
         const body = (
           <>
-            <Icon className={cn('size-3.5 shrink-0', iconCls)} aria-hidden="true" />
+            <Icon
+              className={cn('size-3.5 shrink-0', iconCls)}
+              aria-hidden="true"
+            />
             <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
               {f.name}
             </span>
@@ -246,7 +277,10 @@ export interface CheckItem {
   detail?: string
 }
 
-const checkBadge: Record<CheckState, { label: string; variant: 'success' | 'danger' | 'outline' | 'warning' }> = {
+const checkBadge: Record<
+  CheckState,
+  { label: string; variant: 'success' | 'danger' | 'outline' | 'warning' }
+> = {
   pass: { label: 'Passed', variant: 'success' },
   fail: { label: 'Failed', variant: 'danger' },
   pending: { label: 'Pending', variant: 'outline' },
@@ -364,11 +398,7 @@ export function CommentList({ items }: { items: CommentItem[] }) {
 }
 
 export function EmptyHint({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="py-1 text-xs text-muted-foreground">
-      {children}
-    </p>
-  )
+  return <p className="py-1 text-xs text-muted-foreground">{children}</p>
 }
 
 // ---------------------------------------------------------------------------
@@ -437,11 +467,7 @@ export function TagPills({
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {tags.map((tag) => (
-        <Badge
-          key={tag}
-          variant="violet"
-          className="px-2 py-0 text-[0.65rem]"
-        >
+        <Badge key={tag} variant="violet" className="px-2 py-0 text-[0.65rem]">
           {tag}
         </Badge>
       ))}

@@ -141,10 +141,11 @@ describe('RegistryComposition server contracts', () => {
       sorting: [{ id: 'identifier', desc: false }],
     })
 
-    await user.selectOptions(
-      screen.getByLabelText('Filter by Status'),
-      'available',
+    await user.click(
+      screen.getByRole('button', { name: 'Status', expanded: false }),
     )
+    await user.click(screen.getByRole('menuitem', { name: 'Available' }))
+
     expect(onQueryChange).toHaveBeenCalledWith({
       ...query,
       pageIndex: 0,
@@ -309,11 +310,9 @@ describe('RegistryComposition saved views', () => {
     await user.click(screen.getByRole('menuitemcheckbox', { name: 'Status' }))
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('columnheader', { name: /Status/ })).toBeNull()
-    await user.type(
-      screen.getByLabelText('Saved view name'),
-      'Available compact',
-    )
+    const promptSpy1 = vi.spyOn(window, 'prompt').mockReturnValue('Available compact')
     await user.click(screen.getByRole('button', { name: 'Save current view' }))
+    promptSpy1.mockRestore()
 
     expect(screen.getByLabelText('Saved views').textContent).toContain(
       'Available compact',
@@ -387,10 +386,12 @@ describe('RegistryComposition saved views', () => {
     const user = userEvent.setup()
     render(<RegistryComposition {...props()} />)
 
-    await user.type(screen.getByLabelText('Saved view name'), 'QC ready')
+    const promptSpy = vi.spyOn(window, 'prompt')
+    promptSpy.mockReturnValueOnce('QC ready')
     await user.click(screen.getByRole('button', { name: 'Save current view' }))
-    await user.type(screen.getByLabelText('Saved view name'), 'QC-ready')
+    promptSpy.mockReturnValueOnce('QC-ready')
     await user.click(screen.getByRole('button', { name: 'Save current view' }))
+    promptSpy.mockRestore()
 
     expect(screen.getAllByRole('option', { name: /QC.?ready/i })).toHaveLength(
       2,

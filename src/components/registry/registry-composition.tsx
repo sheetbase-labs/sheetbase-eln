@@ -18,8 +18,8 @@ import {
   PanelRightClose,
   Pin,
   PinOff,
-  Save,
   Search,
+  X,
 } from 'lucide-react'
 
 import {
@@ -27,7 +27,9 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
   Input,
   Select,
@@ -197,7 +199,6 @@ export function RegistryComposition<TData>({
     [registryId, savedViewStore, userId, workspaceId],
   )
   const [savedViews, setSavedViews] = React.useState<RegistrySavedView[]>([])
-  const [savedViewName, setSavedViewName] = React.useState('')
   const [selectedViewId, setSelectedViewId] = React.useState('')
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>(initialColumnVisibility)
@@ -405,7 +406,7 @@ export function RegistryComposition<TData>({
   }
 
   function saveView() {
-    const name = savedViewName.trim()
+    const name = window.prompt('Save current view as…')?.trim()
     if (!name) return
     store.save({
       id: viewId(),
@@ -413,7 +414,6 @@ export function RegistryComposition<TData>({
       state: { query, columnVisibility, density },
     })
     setSavedViews(store.list())
-    setSavedViewName('')
   }
 
   function applyView(id: string) {
@@ -644,54 +644,103 @@ export function RegistryComposition<TData>({
       ) : null}
 
       {!permissionDenied ? (
-        <div className="flex flex-wrap items-end gap-2 rounded-md border bg-muted/20 p-2">
-          {filterDefinitions.map((filter) => (
-            <label
-              key={filter.id}
-              className="min-w-36 text-xs text-muted-foreground"
-            >
-              {filter.label}
-              {filter.options ? (
-                <Select
-                  aria-label={`Filter by ${filter.label}`}
-                  value={activeFilter(query, filter.id)}
-                  onChange={(event) => setFilter(filter.id, event.target.value)}
-                  className="mt-1 h-8 bg-background text-xs"
-                >
-                  <option value="">
-                    {filter.placeholder ?? `All ${filter.label.toLowerCase()}`}
-                  </option>
-                  {filter.options.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </Select>
-              ) : (
-                <span className="relative mt-1 block">
-                  <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2" />
-                  <Input
-                    aria-label={`Filter by ${filter.label}`}
-                    value={activeFilter(query, filter.id)}
-                    onChange={(event) =>
-                      setFilter(filter.id, event.target.value)
-                    }
-                    placeholder={filter.placeholder}
-                    className="h-8 bg-background pl-7 text-xs"
-                  />
-                </span>
-              )}
-            </label>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Search — prominent standalone input */}
+          {filterDefinitions.some((f) => f.id === 'search') ? (
+            <div className="relative min-w-48 flex-1 sm:max-w-64">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                aria-label="Search"
+                value={activeFilter(query, 'search')}
+                onChange={(event) => setFilter('search', event.target.value)}
+                placeholder={
+                  filterDefinitions.find((f) => f.id === 'search')
+                    ?.placeholder ?? 'Search…'
+                }
+                className="h-8 pl-8 text-sm"
+              />
+            </div>
+          ) : null}
 
-          {groupingOptions.length > 0 ? (
-            <label className="min-w-36 text-xs text-muted-foreground">
-              Group
+          {/* Filter pills — compact dropdown buttons for option-based filters */}
+          {filterDefinitions
+            .filter((f) => f.id !== 'search' && f.options)
+            .map((filter) => {
+              const active = activeFilter(query, filter.id)
+              return (
+                <DropdownMenu key={filter.id}>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant={active ? 'subtle' : 'outline'}
+                      size="sm"
+                      className="h-8 gap-1.5"
+                    >
+                      {filter.label}
+                      {active ? (
+                        <span className="size-1.5 rounded-full bg-primary" />
+                      ) : null}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuLabel>Filter by {filter.label}</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onSelect={() => setFilter(filter.id, '')}
+                    >
+                      All {filter.label.toLowerCase()}
+                    </DropdownMenuItem>
+                    {filter.options!.map((option) => (
+                      <DropdownMenuItem
+                        key={option.value}
+                        onSelect={() => setFilter(filter.id, option.value)}
+                      >
+                        {option.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )
+            })}
+
+          {/* Text filters — compact inputs for non-option, non-search filters */}
+          {filterDefinitions
+            .filter((f) => f.id !== 'search' && !f.options)
+            .map((filter) => (
+              <Input
+                key={filter.id}
+                aria-label={`Filter by ${filter.label}`}
+                value={activeFilter(query, filter.id)}
+                onChange={(event) =>
+                  setFilter(filter.id, event.target.value)
+                }
+                placeholder={filter.placeholder ?? filter.label}
+                className="h-8 w-32 text-sm"
+              />
+            ))}
+
+          {/* Clear filters */}
+          {query.filters.length > 0 ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 text-xs text-muted-foreground"
+              onClick={() =>
+                onQueryChange({ ...query, filters: [], pageIndex: 0 })
+              }
+            >
+              <X className="size-3.5" />
+              Clear
+            </Button>
+          ) : null}
+
+          <div className="ml-auto flex items-center gap-2">
+            {/* Group */}
+            {groupingOptions.length > 0 ? (
               <Select
                 aria-label="Group rows"
                 value={query.grouping[0] ?? ''}
                 onChange={(event) => setGrouping(event.target.value)}
-                className="mt-1 h-8 bg-background text-xs"
+                className="h-8 w-auto text-xs"
               >
                 <option value="">No grouping</option>
                 {groupingOptions.map((option) => (
@@ -700,61 +749,68 @@ export function RegistryComposition<TData>({
                   </option>
                 ))}
               </Select>
-            </label>
-          ) : null}
+            ) : null}
 
-          <label className="min-w-28 text-xs text-muted-foreground">
-            Density
+            {/* Density */}
             <Select
               aria-label="Table density"
               value={density}
               onChange={(event) =>
                 setDensity(event.target.value as RegistryDensity)
               }
-              className="mt-1 h-8 bg-background text-xs"
+              className="h-8 w-auto text-xs"
             >
               <option value="comfortable">Comfortable</option>
               <option value="compact">Compact</option>
             </Select>
-          </label>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                aria-label="Choose visible columns"
-              >
-                <Columns3 /> Columns
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Visible columns</DropdownMenuLabel>
-              {table.getAllLeafColumns().map((column) => (
-                <DropdownMenuCheckboxItem
-                  key={column.id}
-                  checked={column.getIsVisible()}
-                  disabled={!column.getCanHide()}
-                  onCheckedChange={(checked) =>
-                    column.toggleVisibility(Boolean(checked))
-                  }
+            {/* Columns */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8"
+                  aria-label="Choose visible columns"
                 >
-                  {typeof column.columnDef.header === 'string'
-                    ? column.columnDef.header
-                    : column.id}
-                </DropdownMenuCheckboxItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+                  <Columns3 className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Visible columns</DropdownMenuLabel>
+                {table.getAllLeafColumns().map((column) => (
+                  <DropdownMenuCheckboxItem
+                    key={column.id}
+                    checked={column.getIsVisible()}
+                    disabled={!column.getCanHide()}
+                    onCheckedChange={(checked) =>
+                      column.toggleVisibility(Boolean(checked))
+                    }
+                  >
+                    {typeof column.columnDef.header === 'string'
+                      ? column.columnDef.header
+                      : column.id}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-          <div className="ml-auto flex flex-wrap items-end gap-2">
-            <label className="min-w-36 text-xs text-muted-foreground">
-              Saved views
+            {/* Saved views */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8"
+              onClick={saveView}
+              aria-label="Save current view"
+            >
+              Save view
+            </Button>
+            {savedViews.length > 0 ? (
               <Select
                 aria-label="Saved views"
                 value={selectedViewId}
                 onChange={(event) => applyView(event.target.value)}
-                className="mt-1 h-8 bg-background text-xs"
+                className="h-8 w-auto text-xs"
               >
                 <option value="">Current view</option>
                 {savedViews.map((view) => (
@@ -763,25 +819,7 @@ export function RegistryComposition<TData>({
                   </option>
                 ))}
               </Select>
-            </label>
-            <label className="min-w-40 text-xs text-muted-foreground">
-              Saved view name
-              <Input
-                aria-label="Saved view name"
-                value={savedViewName}
-                onChange={(event) => setSavedViewName(event.target.value)}
-                className="mt-1 h-8 bg-background text-xs"
-              />
-            </label>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={saveView}
-              disabled={!savedViewName.trim()}
-              aria-label="Save current view"
-            >
-              <Save /> Save
-            </Button>
+            ) : null}
           </div>
         </div>
       ) : null}

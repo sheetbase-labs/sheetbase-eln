@@ -92,6 +92,8 @@ export interface DatasetRowQuery {
   pageSize: number
   /** Sort descriptors; mapped to PostgREST `order`. */
   sorting: Array<{ id: string; desc: boolean }>
+  /** Present for compatibility with the generic registry query contract. */
+  grouping: string[]
   /** Field-name → predicate value filters (eq semantics). */
   filters: Array<{ id: string; value: string }>
 }
@@ -278,6 +280,8 @@ function isDatasetRowQuery(value: unknown): value is DatasetRowQuery {
     )
   )
     return false
+  if (!Array.isArray(value.grouping)) return false
+  if (!value.grouping.every((group) => typeof group === 'string')) return false
   if (!Array.isArray(value.filters)) return false
   if (
     !value.filters.every(
@@ -339,6 +343,7 @@ export function sanitizeDatasetView(
         pageIndex: 0,
         pageSize,
         sorting,
+        grouping: [],
         filters,
       },
       hiddenFields,
@@ -419,15 +424,16 @@ export function buildDefaultChartSpec(
   const numeric = table.columns.filter(
     (c) => c.logical_type === 'decimal' || c.logical_type === 'integer',
   )
-  const [x, y = x] = numeric
-  if (!y) return null
+  if (numeric.length === 0) return null
+  const x = numeric[0]
+  const y = numeric[1] ?? x
   const series = table.columns.find((c) => c.logical_type === 'category')
   return {
     specVersion: CHART_SPEC_VERSION,
     type: 'scatter',
     datasets: [{ tableId: table.id }],
     fields: {
-      x: x ? { columnId: x.id, fieldName: x.field_name } : null,
+      x: { columnId: x.id, fieldName: x.field_name },
       y: { columnId: y.id, fieldName: y.field_name },
       series: series
         ? { columnId: series.id, fieldName: series.field_name }
@@ -439,7 +445,7 @@ export function buildDefaultChartSpec(
     transformations: [],
     display: {
       axes: {
-        x: { label: x?.label ?? 'Row', scale: 'linear' },
+        x: { label: x.label, scale: 'linear' },
         y: { label: y.label, scale: 'linear' },
       },
       series: [

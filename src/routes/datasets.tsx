@@ -15,36 +15,22 @@
  * goes through `/api/db`, and permission-denied / partial-data states are
  * surfaced honestly rather than blanked.
  */
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
+import type { ColumnDef } from '@tanstack/react-table'
 import {
-  flexRender,
-  getCoreRowModel,
-  useReactTable,
-} from '@tanstack/react-table'
-import type {
-  ColumnDef,
-  SortingState,
-  VisibilityState,
-} from '@tanstack/react-table'
-import {
-  ChevronLeft,
-  ChevronRight,
-  Columns3,
   Database,
   GitBranch,
   Layers,
   LineChart,
-  PanelRight,
-  Save,
-  Search,
   Table as TableIcon,
   Trash2,
   Workflow,
 } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
+import { RegistryComposition } from '#/components/registry/registry-composition'
 import { Inspector } from '#/components/record/inspector'
 import {
   InspectorSection,
@@ -56,13 +42,8 @@ import { StatusBadge } from '#/components/scientific/status-badge'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import {
   Badge,
-  Button,
   Card,
-  Input,
   Select,
-  Sheet,
-  SheetContent,
-  SheetTitle,
   Skeleton,
   Table,
   TableBody,
@@ -84,11 +65,8 @@ import {
 } from '#/lib/notebook-data'
 import {
   buildDefaultChartSpec,
-  createDatasetSavedViewStore,
   DATASET_DEFAULT_PAGE_SIZE,
   DATASET_MAX_FILTERS,
-  DATASET_PAGE_SIZES,
-  DATASET_QUERY_HARD_LIMIT,
   datasetExplorerDataClient,
   datasetExplorerQueryKeys,
   fetchDatasetLineage,
@@ -96,16 +74,9 @@ import {
   fetchDatasetRowPage,
   fetchDatasetSchemaDetail,
   fetchDatasetSummaries,
-  sanitizeDatasetView,
   validateTransformations,
 } from '#/lib/dataset-explorer-data'
-import type {
-  DatasetDensity,
-  DatasetRowQuery,
-  DatasetSavedView,
-  DatasetSavedViewStore,
-  DatasetViewSpec,
-} from '#/lib/dataset-explorer-data'
+import type { DatasetRowQuery } from '#/lib/dataset-explorer-data'
 import type {
   FormulaDefinitionWire,
   FormulaDependencyWire,
@@ -119,7 +90,6 @@ import type {
 } from '#/lib/dataset-schema-data'
 import type { ChartSpec, ChartType } from '#/lib/chart-spec'
 import { CHART_TYPES } from '#/lib/chart-spec'
-import { cn } from '#/lib/utils'
 
 export const Route = createFileRoute('/datasets')({
   beforeLoad: async ({ context: rootContext }) => {
@@ -134,14 +104,8 @@ const DEFAULT_DATASET_QUERY: DatasetRowQuery = {
   pageIndex: 0,
   pageSize: DATASET_DEFAULT_PAGE_SIZE,
   sorting: [],
+  grouping: [],
   filters: [],
-}
-
-function viewId(): string {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID()
-  }
-  return `view-${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
 function queryIdentity(query: DatasetRowQuery): string {
@@ -149,6 +113,7 @@ function queryIdentity(query: DatasetRowQuery): string {
     query.pageIndex,
     query.pageSize,
     query.sorting.map((s) => `${s.id}:${s.desc}`).join(','),
+    query.grouping.join(','),
     query.filters.map((f) => `${f.id}=${f.value}`).join(','),
   ].join('|')
 }
@@ -167,12 +132,6 @@ function rowCellValue(row: ScientificRowWire, column: ScientificColumnWire) {
  * narrower widths; they remain available through the Columns control and the
  * selected-row inspector.
  */
-function datasetColumnPriority(index: number): string {
-  if (index < 2) return ''
-  if (index < 4) return 'hidden md:table-cell'
-  return 'hidden lg:table-cell'
-}
-
 function toColumnDefs(
   columns: ScientificColumnWire[],
 ): ColumnDef<ScientificRowWire, unknown>[] {
@@ -184,16 +143,6 @@ function toColumnDefs(
     enableSorting: true,
     enableHiding: true,
   }))
-}
-
-function toVisibility(
-  columns: ScientificColumnWire[],
-  hiddenFields: string[],
-): VisibilityState {
-  const hidden = new Set(hiddenFields)
-  return Object.fromEntries(
-    columns.map((c) => [c.field_name, !hidden.has(c.field_name)]),
-  )
 }
 
 // ---------------------------------------------------------------------------
@@ -236,11 +185,6 @@ function DatasetExplorerRoute() {
     [datasets, selectedTableId],
   )
 
-  const viewStore = useMemo(
-    () => createDatasetSavedViewStore({ workspaceId, userId }),
-    [workspaceId, userId],
-  )
-
   const shellContext = {
     workspace: context.workspace ? { name: context.workspace.name } : null,
     user: {
@@ -271,7 +215,6 @@ function DatasetExplorerRoute() {
             table={selectedTable}
             workspaceId={workspaceId}
             userId={userId}
-            viewStore={viewStore}
             activeTab={activeTab}
             onTabChange={setActiveTab}
           />
@@ -362,7 +305,6 @@ interface DatasetTabsProps {
   table: ScientificTableWire
   workspaceId: string
   userId: string
-  viewStore: DatasetSavedViewStore
   activeTab: 'data' | 'schema' | 'relationships' | 'lineage'
   onTabChange: (tab: 'data' | 'schema' | 'relationships' | 'lineage') => void
 }
@@ -371,7 +313,6 @@ function DatasetTabs({
   table,
   workspaceId,
   userId,
-  viewStore,
   activeTab,
   onTabChange,
 }: DatasetTabsProps) {
@@ -405,7 +346,6 @@ function DatasetTabs({
           table={table}
           workspaceId={workspaceId}
           userId={userId}
-          viewStore={viewStore}
         />
       </TabsContent>
       <TabsContent
@@ -439,26 +379,17 @@ export interface DatasetDataTabProps {
   table: ScientificTableWire
   workspaceId: string
   userId: string
-  viewStore: DatasetSavedViewStore
 }
 
 export function DatasetDataTab({
   table,
   workspaceId,
   userId,
-  viewStore,
 }: DatasetDataTabProps) {
-  const queryClient = useQueryClient()
   const [query, setQuery] = useState<DatasetRowQuery>(DEFAULT_DATASET_QUERY)
-  const [hiddenFields, setHiddenFields] = useState<string[]>([])
-  const [density, setDensity] = useState<DatasetDensity>('comfortable')
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null)
-  const [savedViewName, setSavedViewName] = useState('')
-  const [selectedViewId, setSelectedViewId] = useState('')
-  const [savedViews, setSavedViews] = useState<DatasetSavedView[]>([])
-  const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false)
+  const [inspectorOpen, setInspectorOpen] = useState(false)
 
-  // Chart preview spec, persisted per dataset in local storage.
   const chartStorageKey = useMemo(
     () =>
       ['sheetbase-dataset-chart-v1', workspaceId, userId, table.id]
@@ -482,564 +413,103 @@ export function DatasetDataTab({
         }
       }
     } catch {
-      // ignore corrupt persisted spec
+      // Ignore corrupt persisted specifications.
     }
     return buildDefaultChartSpec(table)
   })
   useEffect(() => {
+    setQuery(DEFAULT_DATASET_QUERY)
+    setSelectedRowId(null)
+    setInspectorOpen(false)
+    setChartSpec(buildDefaultChartSpec(table))
+  }, [table.id])
+  useEffect(() => {
     try {
-      if (chartSpec) {
+      if (chartSpec)
         window.localStorage.setItem(chartStorageKey, JSON.stringify(chartSpec))
-      } else {
-        window.localStorage.removeItem(chartStorageKey)
-      }
+      else window.localStorage.removeItem(chartStorageKey)
     } catch {
-      // storage unavailable; preview still works in-memory
+      /* Preview remains available when storage is unavailable. */
     }
   }, [chartSpec, chartStorageKey])
 
-  // Reset view state when the dataset changes.
-  useEffect(() => {
-    setQuery(DEFAULT_DATASET_QUERY)
-    setHiddenFields([])
-    setDensity('comfortable')
-    setSelectedRowId(null)
-    setSelectedViewId('')
-    setSavedViews(viewStore.list(table.id))
-    setChartSpec(buildDefaultChartSpec(table))
-  }, [table.id, viewStore])
-
-  const qid = queryIdentity(query)
   const rowsQuery = useQuery({
-    queryKey: datasetExplorerQueryKeys.rows(table.id, qid),
+    queryKey: datasetExplorerQueryKeys.rows(table.id, queryIdentity(query)),
     queryFn: () => fetchDatasetRowPage(datasetExplorerDataClient, table, query),
-    placeholderData: (prev) => prev,
+    placeholderData: (previous) => previous,
     staleTime: 0,
   })
-
   const lineageQuery = useQuery({
     queryKey: datasetExplorerQueryKeys.lineage(table.id),
     queryFn: () => fetchDatasetLineage(datasetExplorerDataClient, table.id),
     staleTime: 30_000,
   })
-
-  const columns = useMemo(() => toColumnDefs(table.columns), [table.columns])
-  const columnVisibility = useMemo(
-    () => toVisibility(table.columns, hiddenFields),
-    [table.columns, hiddenFields],
-  )
-
-  const sorting = query.sorting as SortingState
-  const tableInstance = useReactTable({
-    data: rowsQuery.data?.rows ?? [],
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    manualPagination: true,
-    manualSorting: true,
-    manualFiltering: true,
-    rowCount: rowsQuery.data?.totalCount ?? 0,
-    state: {
-      pagination: { pageIndex: query.pageIndex, pageSize: query.pageSize },
-      sorting,
-      columnVisibility,
-    },
-    onPaginationChange: (updater) => {
-      const next =
-        typeof updater === 'function'
-          ? updater({
-              pageIndex: query.pageIndex,
-              pageSize: query.pageSize,
-            })
-          : updater
-      setQuery((q) => ({ ...q, ...next }))
-    },
-    onSortingChange: (updater) => {
-      const next = typeof updater === 'function' ? updater(sorting) : updater
-      setQuery((q) => ({
-        ...q,
-        pageIndex: 0,
-        sorting: next.map((s) => ({ id: s.id, desc: s.desc })),
-      }))
-    },
-    onColumnVisibilityChange: (updater) => {
-      const next =
-        typeof updater === 'function' ? updater(columnVisibility) : updater
-      setHiddenFields(
-        table.columns
-          .filter((c) => next[c.field_name] === false)
-          .map((c) => c.field_name),
-      )
-    },
-  })
-
-  const pageCount = Math.max(
-    1,
-    Math.ceil((rowsQuery.data?.totalCount ?? 0) / query.pageSize),
-  )
-
-  const selectedRow = useMemo(
-    () =>
-      selectedRowId
-        ? ((rowsQuery.data?.rows ?? []).find((r) => r.id === selectedRowId) ??
-          null)
-        : null,
-    [rowsQuery.data, selectedRowId],
-  )
-
-  function setFilter(id: string, value: string) {
-    setQuery((q) => {
-      const filters = q.filters.filter((f) => f.id !== id)
-      if (value) filters.push({ id, value })
-      return {
-        ...q,
-        pageIndex: 0,
-        filters: filters.slice(0, DATASET_MAX_FILTERS),
-      }
-    })
-  }
-
-  function saveView() {
-    const name = savedViewName.trim()
-    if (!name) return
-    const spec: DatasetViewSpec = { query, hiddenFields, density }
-    const saved = viewStore.save({
-      id: viewId(),
-      name,
-      tableId: table.id,
-      spec,
-    })
-    setSavedViews(viewStore.list(table.id))
-    setSavedViewName('')
-    setSelectedViewId(saved.id)
-  }
-
-  function applyView(id: string) {
-    setSelectedViewId(id)
-    const view = savedViews.find((v) => v.id === id)
-    if (!view) return
-    const safe = sanitizeDatasetView(view, table.columns)
-    setQuery(safe.spec.query)
-    setHiddenFields(safe.spec.hiddenFields)
-    setDensity(safe.spec.density)
-  }
-
-  function deleteView(id: string) {
-    viewStore.remove(table.id, id)
-    setSavedViews(viewStore.list(table.id))
-    if (selectedViewId === id) setSelectedViewId('')
-  }
-
-  // Linked records for the selected row (via the table's record_id).
   const recordId = table.record_id ?? null
   const linksQuery = useQuery({
     queryKey: datasetExplorerQueryKeys.links(recordId ?? 'none'),
-    queryFn: () => fetchLinksForRecord(notebookDataClient, recordId as string),
+    queryFn: () => fetchLinksForRecord(notebookDataClient, recordId!),
     enabled: Boolean(selectedRowId) && Boolean(recordId),
     staleTime: 30_000,
   })
-
-  const saveMutation = useMutation({
-    mutationFn: async () => saveView(),
-    onSuccess: () => queryClient.invalidateQueries(),
-  })
+  const columns = useMemo(() => toColumnDefs(table.columns), [table.columns])
 
   return (
-    <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(0,1fr)_22rem]">
-      <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
-        {/* Filter + view toolbar */}
-        <div className="flex flex-wrap items-end gap-x-2 gap-y-3 border-b bg-muted/20 px-2 py-2.5">
-          {table.columns.slice(0, DATASET_MAX_FILTERS).map((column) => (
-            <label
-              key={column.id}
-              className="min-w-32 text-xs text-muted-foreground"
-            >
-              {column.label}
-              <span className="relative mt-1 block">
-                <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2" />
-                <Input
-                  aria-label={`Filter by ${column.label}`}
-                  value={
-                    query.filters.find((f) => f.id === column.field_name)
-                      ?.value ?? ''
-                  }
-                  onChange={(e) => setFilter(column.field_name, e.target.value)}
-                  placeholder={`Filter ${column.label}`}
-                  className="h-8 bg-background pl-7 text-xs"
-                />
-              </span>
-            </label>
-          ))}
-          <label className="min-w-28 text-xs text-muted-foreground">
-            Density
-            <Select
-              aria-label="Table density"
-              value={density}
-              onChange={(e) => setDensity(e.target.value as DatasetDensity)}
-              className="mt-1 h-8 bg-background text-xs"
-            >
-              <option value="comfortable">Comfortable</option>
-              <option value="compact">Compact</option>
-            </Select>
-          </label>
-          <ColumnVisibilityMenu table={tableInstance} columns={table.columns} />
-          <Button
-            variant="outline"
-            size="sm"
-            className="xl:hidden"
-            onClick={() => setMobileInspectorOpen(true)}
-            aria-label="Open dataset inspector"
-          >
-            <PanelRight /> Inspector
-          </Button>
-          <div className="ml-auto flex flex-wrap items-end gap-2">
-            <label className="min-w-36 text-xs text-muted-foreground">
-              Saved views
-              <Select
-                aria-label="Saved views"
-                value={selectedViewId}
-                onChange={(e) => applyView(e.target.value)}
-                className="mt-1 h-8 bg-background text-xs"
-              >
-                <option value="">Current view</option>
-                {savedViews.map((view) => (
-                  <option key={view.id} value={view.id}>
-                    {view.name}
-                  </option>
-                ))}
-              </Select>
-            </label>
-            <label className="min-w-40 text-xs text-muted-foreground">
-              Saved view name
-              <Input
-                aria-label="Saved view name"
-                value={savedViewName}
-                onChange={(e) => setSavedViewName(e.target.value)}
-                className="mt-1 h-8 bg-background text-xs"
-              />
-            </label>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => saveMutation.mutate()}
-              disabled={!savedViewName.trim()}
-              aria-label="Save current view"
-            >
-              <Save /> Save
-            </Button>
-            {selectedViewId ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => deleteView(selectedViewId)}
-                aria-label="Delete saved view"
-              >
-                <Trash2 /> Delete
-              </Button>
-            ) : null}
-          </div>
-        </div>
-
-        {/* Data table */}
-        <div className="min-h-0 flex-1 overflow-auto border bg-card">
-          <DataTableView
-            table={tableInstance}
-            density={density}
-            loading={rowsQuery.isLoading}
-            error={rowsQuery.error}
-            rowCount={rowsQuery.data?.totalCount ?? 0}
-            selectedRowId={selectedRowId}
-            onSelectRow={setSelectedRowId}
-            emptyTitle={
-              query.filters.some((f) => f.value)
-                ? 'No matching rows'
-                : 'No rows yet'
-            }
-          />
-        </div>
-
-        {/* Chart preview */}
-        <div className="hidden shrink-0 xl:block">
-          <ChartPreview
+    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto">
+      <RegistryComposition
+        registryId={`dataset-${table.id}`}
+        workspaceId={workspaceId}
+        userId={userId}
+        title={table.name}
+        description="Dataset rows"
+        rows={rowsQuery.data?.rows ?? []}
+        totalCount={rowsQuery.data?.totalCount ?? 0}
+        columns={columns}
+        query={query}
+        onQueryChange={setQuery}
+        getRowId={(row) => row.id}
+        selectedId={selectedRowId}
+        onSelectedIdChange={setSelectedRowId}
+        filterDefinitions={table.columns
+          .slice(0, DATASET_MAX_FILTERS)
+          .map((column) => ({
+            id: column.field_name,
+            label: column.label,
+            placeholder: `Filter ${column.label}`,
+          }))}
+        inspectorLabel="Dataset inspector"
+        inspectorOpen={inspectorOpen}
+        onInspectorOpenChange={(open) => {
+          setInspectorOpen(open)
+          if (!open) setSelectedRowId(null)
+        }}
+        renderInspector={(row) => (
+          <DatasetInspector
             table={table}
-            chartSpec={chartSpec}
-            onChartSpecChange={setChartSpec}
-          />
-        </div>
-
-        {/* Pager */}
-        <footer className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-          <p>
-            {formatCount(rowsQuery.data?.totalCount ?? 0)}{' '}
-            {(rowsQuery.data?.totalCount ?? 0) === 1 ? 'row' : 'rows'}
-            {(rowsQuery.data?.totalCount ?? 0) >= DATASET_QUERY_HARD_LIMIT
-              ? ' (server limit reached)'
-              : ''}
-          </p>
-          <div className="flex items-center gap-2">
-            <label className="flex items-center gap-1">
-              Rows
-              <Select
-                aria-label="Rows per page"
-                value={String(query.pageSize)}
-                onChange={(e) =>
-                  setQuery((q) => ({
-                    ...q,
-                    pageIndex: 0,
-                    pageSize: Number(e.target.value),
-                  }))
-                }
-                className="h-8 w-20 bg-background text-xs"
-              >
-                {DATASET_PAGE_SIZES.map((size) => (
-                  <option key={size} value={size}>
-                    {size}
-                  </option>
-                ))}
-              </Select>
-            </label>
-            <span>
-              Page {query.pageIndex + 1} of {pageCount}
-            </span>
-            <Button
-              variant="outline"
-              size="icon-sm"
-              aria-label="Previous page"
-              disabled={query.pageIndex === 0 || rowsQuery.isFetching}
-              onClick={() => tableInstance.previousPage()}
-            >
-              <ChevronLeft />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon-sm"
-              aria-label="Next page"
-              disabled={
-                query.pageIndex >= pageCount - 1 || rowsQuery.isFetching
-              }
-              onClick={() => tableInstance.nextPage()}
-            >
-              <ChevronRight />
-            </Button>
-          </div>
-        </footer>
-      </div>
-
-      <DatasetInspectorPanel
-        table={table}
-        row={selectedRow}
-        formulas={lineageQuery.data?.formulas ?? []}
-        dependencies={lineageQuery.data?.dependencies ?? []}
-        links={linksQuery.data ?? []}
-        lineageLoading={lineageQuery.isLoading}
-        lineageError={lineageQuery.error}
-      />
-      <Sheet open={mobileInspectorOpen} onOpenChange={setMobileInspectorOpen}>
-        <SheetContent
-          side="right"
-          className="w-[min(24rem,92vw)] p-0 xl:hidden"
-        >
-          <SheetTitle className="sr-only">Dataset inspector</SheetTitle>
-          <DatasetInspectorPanel
-            table={table}
-            row={selectedRow}
+            row={row}
             formulas={lineageQuery.data?.formulas ?? []}
             dependencies={lineageQuery.data?.dependencies ?? []}
             links={linksQuery.data ?? []}
             lineageLoading={lineageQuery.isLoading}
             lineageError={lineageQuery.error}
-            mobile
-            className="h-full border-0"
+            onClose={() => {
+              setSelectedRowId(null)
+              setInspectorOpen(false)
+            }}
           />
-        </SheetContent>
-      </Sheet>
+        )}
+        loading={rowsQuery.isLoading}
+        error={rowsQuery.error}
+        emptyTitle="No rows yet"
+        noResultsTitle="No matching rows"
+      />
+      <div className="hidden shrink-0 xl:block">
+        <ChartPreview
+          table={table}
+          chartSpec={chartSpec}
+          onChartSpecChange={setChartSpec}
+        />
+      </div>
     </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Column visibility menu
-// ---------------------------------------------------------------------------
-
-function ColumnVisibilityMenu({
-  table,
-  columns,
-}: {
-  table: ReturnType<typeof useReactTable<ScientificRowWire>>
-  columns: ScientificColumnWire[]
-}) {
-  return (
-    <div className="relative">
-      <details className="group">
-        <summary className="flex h-8 cursor-pointer items-center gap-1 rounded-md border bg-background px-3 text-xs">
-          <Columns3 className="size-3.5" aria-hidden="true" /> Columns
-        </summary>
-        <div className="absolute right-0 z-20 mt-1 w-56 rounded-md border bg-card p-2 shadow-md">
-          <p className="px-1 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Visible columns
-          </p>
-          {columns.map((column) => {
-            const col = table.getColumn(column.field_name)
-            const visible = col ? col.getIsVisible() : true
-            return (
-              <label
-                key={column.id}
-                className="flex items-center gap-2 px-1 py-0.5 text-xs"
-              >
-                <input
-                  type="checkbox"
-                  checked={visible}
-                  onChange={(e) => col?.toggleVisibility(e.target.checked)}
-                />
-                {column.label}
-              </label>
-            )
-          })}
-        </div>
-      </details>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Data table view
-// ---------------------------------------------------------------------------
-
-interface DataTableViewProps {
-  table: ReturnType<typeof useReactTable<ScientificRowWire>>
-  density: DatasetDensity
-  loading: boolean
-  error: unknown
-  rowCount: number
-  selectedRowId: string | null
-  onSelectRow: (id: string | null) => void
-  emptyTitle: string
-}
-
-export function DataTableView({
-  table,
-  density,
-  loading,
-  error,
-  rowCount,
-  selectedRowId,
-  onSelectRow,
-  emptyTitle,
-}: DataTableViewProps) {
-  if (error) {
-    return (
-      <div
-        role="alert"
-        className="flex min-h-40 flex-col items-center justify-center gap-2 p-8 text-center text-sm text-destructive"
-      >
-        Could not load rows. Try again.
-      </div>
-    )
-  }
-  if (loading && rowCount === 0) {
-    return (
-      <div aria-busy="true" aria-label="Loading dataset rows">
-        <p className="sr-only">Loading dataset rows</p>
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="flex gap-4 border-b px-3 py-3 last:border-0">
-            {Array.from({ length: 4 }).map((__, j) => (
-              <Skeleton key={j} className="h-4 flex-1" />
-            ))}
-          </div>
-        ))}
-      </div>
-    )
-  }
-  if (rowCount === 0) {
-    return (
-      <div className="flex min-h-40 flex-col items-center justify-center gap-2 p-8 text-center text-sm text-muted-foreground">
-        {emptyTitle}
-      </div>
-    )
-  }
-  return (
-    <Table aria-label="Dataset rows" data-density={density}>
-      <TableHeader>
-        {table.getHeaderGroups().map((headerGroup) => (
-          <TableRow key={headerGroup.id} className="hover:bg-transparent">
-            {headerGroup.headers.map((header, index) => {
-              const sorted = header.column.getIsSorted()
-              const label =
-                typeof header.column.columnDef.header === 'string'
-                  ? header.column.columnDef.header
-                  : header.column.id
-              return (
-                <TableHead
-                  key={header.id}
-                  className={cn(datasetColumnPriority(index), 'max-w-48')}
-                  aria-sort={
-                    sorted === 'asc'
-                      ? 'ascending'
-                      : sorted === 'desc'
-                        ? 'descending'
-                        : 'none'
-                  }
-                >
-                  {header.isPlaceholder ? null : header.column.getCanSort() ? (
-                    <button
-                      type="button"
-                      className="inline-flex items-center gap-1 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      onClick={header.column.getToggleSortingHandler()}
-                      aria-label={`Sort by ${label} ${sorted === 'asc' ? 'descending' : 'ascending'}`}
-                    >
-                      <span className="truncate" title={label}>
-                        {flexRender(
-                          header.column.columnDef.header,
-                          header.getContext(),
-                        )}
-                      </span>
-                      <span aria-hidden>
-                        {sorted === 'asc' ? '↑' : sorted === 'desc' ? '↓' : '↕'}
-                      </span>
-                    </button>
-                  ) : (
-                    flexRender(
-                      header.column.columnDef.header,
-                      header.getContext(),
-                    )
-                  )}
-                </TableHead>
-              )
-            })}
-          </TableRow>
-        ))}
-      </TableHeader>
-      <TableBody>
-        {table.getRowModel().rows.map((row) => {
-          const id = row.original.id
-          const selected = id === selectedRowId
-          return (
-            <TableRow
-              key={id}
-              data-state={selected ? 'selected' : undefined}
-              aria-selected={selected}
-              className="cursor-pointer"
-              onClick={() => onSelectRow(selected ? null : id)}
-            >
-              {row.getVisibleCells().map((cell, index) => (
-                <TableCell
-                  key={cell.id}
-                  className={cn(
-                    datasetColumnPriority(index),
-                    'max-w-56 truncate',
-                    density === 'compact' && 'py-1.5',
-                    typeof cell.getValue() === 'number' &&
-                      'scientific-nums text-right tabular-nums',
-                  )}
-                  title={String(cell.getValue() ?? '—')}
-                >
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </TableCell>
-              ))}
-            </TableRow>
-          )
-        })}
-      </TableBody>
-    </Table>
   )
 }
 
@@ -1185,25 +655,7 @@ interface DatasetInspectorProps {
   }>
   lineageLoading: boolean
   lineageError: unknown
-}
-
-function DatasetInspectorPanel({
-  className,
-  mobile = false,
-  ...props
-}: DatasetInspectorProps & { className?: string; mobile?: boolean }) {
-  return (
-    <aside
-      aria-label="Dataset inspector"
-      className={cn(
-        'min-h-0 overflow-hidden border-l bg-card',
-        mobile ? 'block xl:hidden' : 'hidden xl:block',
-        className,
-      )}
-    >
-      <DatasetInspector {...props} />
-    </aside>
-  )
+  onClose?: () => void
 }
 
 export function DatasetInspector({
@@ -1214,6 +666,7 @@ export function DatasetInspector({
   links,
   lineageLoading,
   lineageError,
+  onClose,
 }: DatasetInspectorProps) {
   const rowFormulas = useMemo(
     () => (row ? formulas.filter((f) => f.target_row_id === row.id) : []),
@@ -1228,6 +681,7 @@ export function DatasetInspector({
     <Inspector
       recordType="Dataset row"
       title={row ? `Version ${row.version}` : 'Selected row'}
+      onClose={onClose}
       tabs={[
         {
           id: 'values',

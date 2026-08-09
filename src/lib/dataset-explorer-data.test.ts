@@ -70,6 +70,7 @@ describe('buildDatasetRowQuery', () => {
       pageIndex: 0,
       pageSize: 25,
       sorting: [],
+      grouping: [],
       filters: [],
     })
     expect(q).toContain('order=created_at.asc,id.asc')
@@ -82,6 +83,7 @@ describe('buildDatasetRowQuery', () => {
       pageIndex: 2,
       pageSize: 50,
       sorting: [{ id: 'col_beta', desc: true }],
+      grouping: [],
       filters: [],
     })
     expect(q).toContain('order=col_beta.desc')
@@ -98,6 +100,7 @@ describe('buildDatasetRowQuery', () => {
       pageIndex: 0,
       pageSize: 25,
       sorting: [],
+      grouping: [],
       filters,
     })
     // Only the first DATASET_MAX_FILTERS filters are emitted.
@@ -110,6 +113,7 @@ describe('buildDatasetRowQuery', () => {
       pageIndex: 0,
       pageSize: 9999,
       sorting: [],
+      grouping: [],
       filters: [],
     })
     expect(q).toContain(
@@ -129,6 +133,7 @@ describe('sanitizeDatasetView', () => {
           pageIndex: 3,
           pageSize: 25,
           sorting: [{ id: 'col_beta', desc: true }],
+          grouping: [],
           filters: [{ id: 'col_alpha', value: 'A1' }],
         },
         hiddenFields: ['col_alpha'],
@@ -159,6 +164,7 @@ describe('sanitizeDatasetView', () => {
           pageIndex: 9,
           pageSize: 999,
           sorting: [],
+          grouping: [],
           filters: [],
         },
       }),
@@ -276,6 +282,7 @@ describe('createDatasetSavedViewStore', () => {
           pageIndex: 0,
           pageSize: 25,
           sorting: [],
+          grouping: [],
           filters: [],
         },
         hiddenFields: [],

@@ -6,27 +6,23 @@
  * a DatasetDataTab smoke test with mocked queries so the TanStack Table,
  * filter toolbar, saved-view controls and chart preview render end-to-end.
  */
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { UseQueryResult } from '@tanstack/react-query'
 
 import { useQuery } from '@tanstack/react-query'
 import {
-  DataTableView,
   DatasetDataTab,
   DatasetExplorerHeader,
   DatasetInspector,
 } from './datasets'
 import type { DatasetDataTabProps } from './datasets'
-import { useReactTable, getCoreRowModel } from '@tanstack/react-table'
-import type { ColumnDef } from '@tanstack/react-table'
 import type {
   ScientificColumnWire,
   ScientificRowWire,
   ScientificTableWire,
 } from '#/lib/scientific-sheet-data'
-import type { DatasetSavedView } from '#/lib/dataset-explorer-data'
 
 // jsdom does not implement ResizeObserver; radix tabs read it on mount.
 globalThis.ResizeObserver = class {
@@ -181,120 +177,6 @@ describe('DatasetExplorerHeader', () => {
   })
 })
 
-// --- DataTableView --------------------------------------------------------
-
-function makeTableInstance(
-  rows: ScientificRowWire[],
-  columns: ScientificColumnWire[],
-) {
-  const defs: ColumnDef<ScientificRowWire, unknown>[] = columns.map((c) => ({
-    id: c.field_name,
-    accessorKey: c.field_name,
-    header: c.label,
-    cell: ({ row }) => String(row.original[c.field_name] ?? '—'),
-  }))
-  // useReactTable is a hook; wrap in a tiny component to capture the instance.
-  let instance: ReturnType<typeof useReactTable<ScientificRowWire>> | null =
-    null
-  function Harness() {
-    instance = useReactTable({
-      data: rows,
-      columns: defs,
-      getCoreRowModel: getCoreRowModel(),
-    })
-    return null
-  }
-  render(<Harness />)
-  return instance!
-}
-
-describe('DataTableView', () => {
-  it('shows a loading state before any rows arrive', () => {
-    const instance = makeTableInstance([], [column()])
-    render(
-      <DataTableView
-        table={instance}
-        density="comfortable"
-        loading
-        error={null}
-        rowCount={0}
-        selectedRowId={null}
-        onSelectRow={() => {}}
-        emptyTitle="No rows yet"
-      />,
-    )
-    expect(screen.getByLabelText('Loading dataset rows')).toBeTruthy()
-  })
-
-  it('shows the empty title when there are no rows', () => {
-    const instance = makeTableInstance([], [column()])
-    render(
-      <DataTableView
-        table={instance}
-        density="comfortable"
-        loading={false}
-        error={null}
-        rowCount={0}
-        selectedRowId={null}
-        onSelectRow={() => {}}
-        emptyTitle="No matching rows"
-      />,
-    )
-    expect(screen.getByText('No matching rows')).toBeTruthy()
-  })
-
-  it('shows an error alert on failure', () => {
-    const instance = makeTableInstance([], [column()])
-    render(
-      <DataTableView
-        table={instance}
-        density="comfortable"
-        loading={false}
-        error={new Error('boom')}
-        rowCount={0}
-        selectedRowId={null}
-        onSelectRow={() => {}}
-        emptyTitle="No rows yet"
-      />,
-    )
-    expect(screen.getByRole('alert')).toBeTruthy()
-  })
-
-  it('renders rows and selects a row on click', async () => {
-    const user = userEvent.setup()
-    let selected: string | null = null
-    const rows: ScientificRowWire[] = [
-      { id: 'r-1', version: 1, col_alpha: 'A1', col_beta: 7.4 },
-      { id: 'r-2', version: 1, col_alpha: 'A2', col_beta: 7.5 },
-    ]
-    const instance = makeTableInstance(rows, [
-      column({ id: 'col-1', field_name: 'col_alpha', label: 'Sample' }),
-      column({
-        id: 'col-2',
-        field_name: 'col_beta',
-        label: 'pH',
-        logical_type: 'decimal',
-      }),
-    ])
-    render(
-      <DataTableView
-        table={instance}
-        density="comfortable"
-        loading={false}
-        error={null}
-        rowCount={2}
-        selectedRowId={null}
-        onSelectRow={(id) => (selected = id)}
-        emptyTitle="No rows yet"
-      />,
-    )
-    expect(screen.getByText('A1')).toBeTruthy()
-    expect(screen.getByText('A2')).toBeTruthy()
-    await user.click(screen.getByText('A1').closest('tr')!)
-    expect(selected).toBe('r-1')
-  })
-})
-
 // --- DatasetInspector -----------------------------------------------------
 
 describe('DatasetInspector', () => {
@@ -407,11 +289,6 @@ describe('DatasetDataTab', () => {
       table: table(),
       workspaceId: 'ws-1',
       userId: 'u-1',
-      viewStore: {
-        list: () => [],
-        save: (v: DatasetSavedView) => v,
-        remove: () => {},
-      },
       ...overrides,
     }
   }
@@ -424,19 +301,25 @@ describe('DatasetDataTab', () => {
     expect(screen.getByLabelText('Saved view name')).toBeTruthy()
   })
 
-  it('opens the selected-row inspector in a sheet below the desktop breakpoint', async () => {
+  it('uses the generic inspector trigger and clears selection when closed', async () => {
     const user = userEvent.setup()
     mockQueries([{ id: 'r-1', version: 1, col_alpha: 'A1', col_beta: 7.4 }], 1)
     render(<DatasetDataTab {...props()} />)
 
-    await user.click(screen.getByLabelText('Open dataset inspector'))
+    const row = screen.getByRole('row', { name: /A1/ })
+    await user.click(row)
+    expect(row.getAttribute('aria-selected')).toBe('true')
+    await user.click(
+      screen.getByRole('button', { name: 'Open Dataset inspector' }),
+    )
 
-    expect(screen.getByRole('dialog')).toBeTruthy()
-    expect(
-      screen.getAllByText(
-        'Select a row to inspect its values, lineage and linked records.',
-      ).length,
-    ).toBeGreaterThan(0)
+    const dialog = screen.getByRole('dialog', { name: 'Dataset inspector' })
+    expect(within(dialog).getByText('Version 1')).toBeTruthy()
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Close inspector' }),
+    )
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(row.getAttribute('aria-selected')).toBe('false')
   })
 
   it('shows the empty state when no rows are returned', () => {

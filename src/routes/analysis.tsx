@@ -352,8 +352,8 @@ export function AnalysisStudioHeader({
             Analysis Studio
           </h1>
           <p className="truncate text-xs text-muted-foreground">
-            Build reproducible charts from typed specifications. Preview without
-            mutating sources; save, share and export with provenance.
+            Visualise scientific data, compare conditions, and export
+            publication-ready charts with provenance.
           </p>
         </div>
       </div>

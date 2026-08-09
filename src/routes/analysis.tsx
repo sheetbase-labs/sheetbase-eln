@@ -33,14 +33,18 @@ import {
 } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
+import { Inspector } from '#/components/record/inspector'
+import { InspectorSection } from '#/components/record/inspector-sections'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import {
   Badge,
   Button,
   Card,
+  Field,
+  FieldGroup,
+  FieldLabel,
   Input,
   Select,
-  Separator,
   Skeleton,
   Table,
   TableBody,
@@ -132,6 +136,8 @@ function AnalysisStudioRoute() {
   const [exportSettings, setExportSettings] = useState<ExportSettings>(
     DEFAULT_EXPORT_SETTINGS,
   )
+  const [selectedPoint, setSelectedPoint] =
+    useState<SelectedAnalysisPoint | null>(null)
 
   // Auto-select the first dataset once the list loads.
   useEffect(() => {
@@ -231,6 +237,30 @@ function AnalysisStudioRoute() {
     }
   }
 
+  const inspector =
+    selectedTable && spec ? (
+      <AnalysisInspector
+        table={selectedTable}
+        spec={spec}
+        onSpecChange={setSpec}
+        views={views}
+        selectedViewId={selectedViewId}
+        viewName={viewName}
+        onViewNameChange={setViewName}
+        onLoad={loadView}
+        onSave={() => saveMutation.mutate()}
+        onDelete={(id) => deleteMutation.mutate(id)}
+        saving={saveMutation.isPending}
+        canSave={Boolean(viewName.trim() && spec)}
+        settings={exportSettings}
+        onSettingsChange={setExportSettings}
+        datasets={datasets}
+        user={{ id: userId, name: context.user.name }}
+        materialised={analysisMaterialised}
+        selectedPoint={selectedPoint}
+      />
+    ) : undefined
+
   const shellContext = {
     workspace: context.workspace ? { name: context.workspace.name } : null,
     user: {
@@ -243,6 +273,9 @@ function AnalysisStudioRoute() {
   useShell({
     context: shellContext,
     breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Analysis' }],
+    inspector,
+    inspectorLabel: 'Analysis inspector',
+    inspectorCollapsible: true,
     fullBleed: true,
   })
 
@@ -257,47 +290,17 @@ function AnalysisStudioRoute() {
           onSelect={setSelectedTableId}
         />
         {selectedTable && spec ? (
-          <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[20rem_minmax(0,1fr)]">
-            <div className="flex min-h-0 flex-col gap-3 overflow-auto">
-              <AnalysisControls
-                table={selectedTable}
-                spec={spec}
-                onSpecChange={setSpec}
-              />
-              <SavedViewsPanel
-                views={views}
-                selectedViewId={selectedViewId}
-                viewName={viewName}
-                onViewNameChange={setViewName}
-                onLoad={loadView}
-                onSave={() => saveMutation.mutate()}
-                onDelete={(id) => deleteMutation.mutate(id)}
-                saving={saveMutation.isPending}
-                canSave={Boolean(viewName.trim() && spec)}
-              />
-              <ExportPanel
-                spec={spec}
-                settings={exportSettings}
-                onSettingsChange={setExportSettings}
-                table={selectedTable}
-                datasets={datasets}
-                viewName={viewName}
-                selectedViewId={selectedViewId}
-                views={views}
-                user={{ id: userId, name: context.user.name }}
-                materialised={analysisMaterialised}
-              />
-            </div>
-            <AnalysisPreview
-              table={selectedTable}
-              spec={spec}
-              datasets={datasets}
-              selectedViewId={selectedViewId}
-              views={views}
-              datasetQuery={datasetQuery}
-              materialised={analysisMaterialised}
-            />
-          </div>
+          <AnalysisPreview
+            table={selectedTable}
+            spec={spec}
+            datasets={datasets}
+            selectedViewId={selectedViewId}
+            views={views}
+            datasetQuery={datasetQuery}
+            materialised={analysisMaterialised}
+            selectedPoint={selectedPoint}
+            onSelectPoint={setSelectedPoint}
+          />
         ) : (
           <EmptyAnalysisState
             loading={summariesQuery.isLoading}
@@ -306,6 +309,135 @@ function AnalysisStudioRoute() {
         )}
       </div>
     </>
+  )
+}
+
+type SelectedAnalysisPoint = {
+  series: string
+  x: number | null
+  y: number | null
+  yError: number | null
+}
+
+function AnalysisInspector({
+  selectedPoint,
+  ...props
+}: {
+  table: ScientificTableWire
+  spec: ChartSpec
+  onSpecChange: (spec: ChartSpec) => void
+  views: AnalysisViewWire[]
+  selectedViewId: string | null
+  viewName: string
+  onViewNameChange: (name: string) => void
+  onLoad: (view: AnalysisViewWire) => void
+  onSave: () => void
+  onDelete: (id: string) => void
+  saving: boolean
+  canSave: boolean
+  settings: ExportSettings
+  onSettingsChange: (settings: ExportSettings) => void
+  datasets: ScientificTableWire[]
+  user: { id: string; name: string }
+  materialised: ReturnType<typeof materialiseLiveChart>
+  selectedPoint: SelectedAnalysisPoint | null
+}) {
+  return (
+    <Inspector
+      recordType="Analysis configuration"
+      title="Chart settings"
+      tabs={[
+        {
+          id: 'settings',
+          label: 'Settings',
+          content: (
+            <AnalysisControls
+              table={props.table}
+              spec={props.spec}
+              onSpecChange={props.onSpecChange}
+            />
+          ),
+        },
+        {
+          id: 'views',
+          label: 'Views',
+          badge: props.views.length || undefined,
+          content: (
+            <SavedViewsPanel
+              views={props.views}
+              selectedViewId={props.selectedViewId}
+              viewName={props.viewName}
+              onViewNameChange={props.onViewNameChange}
+              onLoad={props.onLoad}
+              onSave={props.onSave}
+              onDelete={props.onDelete}
+              saving={props.saving}
+              canSave={props.canSave}
+            />
+          ),
+        },
+        {
+          id: 'selection',
+          label: 'Selection',
+          content: <SelectionDetail point={selectedPoint} />,
+        },
+        {
+          id: 'export',
+          label: 'Export',
+          content: (
+            <ExportPanel
+              spec={props.spec}
+              settings={props.settings}
+              onSettingsChange={props.onSettingsChange}
+              table={props.table}
+              datasets={props.datasets}
+              viewName={props.viewName}
+              selectedViewId={props.selectedViewId}
+              views={props.views}
+              user={props.user}
+              materialised={props.materialised}
+            />
+          ),
+        },
+      ]}
+    />
+  )
+}
+
+function SelectionDetail({ point }: { point: SelectedAnalysisPoint | null }) {
+  return point ? (
+    <dl className="space-y-3 text-sm">
+      <div>
+        <dt className="text-xs text-muted-foreground">Series</dt>
+        <dd className="font-medium">{point.series}</dd>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <dt className="text-xs text-muted-foreground">X value</dt>
+          <dd className="scientific-nums font-mono tabular-nums">
+            {formatScientific(point.x)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">Y value</dt>
+          <dd className="scientific-nums font-mono tabular-nums">
+            {formatScientific(point.y)}
+          </dd>
+        </div>
+      </div>
+      {point.yError !== null ? (
+        <div>
+          <dt className="text-xs text-muted-foreground">Error</dt>
+          <dd className="scientific-nums font-mono tabular-nums">
+            {formatScientific(point.yError)}
+          </dd>
+        </div>
+      ) : null}
+    </dl>
+  ) : (
+    <p className="py-6 text-center text-xs text-muted-foreground">
+      Select a point in the data table to inspect its plotted values.
+    </p>
   )
 }
 
@@ -330,15 +462,15 @@ export function AnalysisStudioHeader({
 }: AnalysisStudioHeaderProps) {
   return (
     <header
-      className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3"
+      className="flex flex-wrap items-center justify-between gap-3 border-b px-1 pb-3"
       aria-labelledby="analysis-title"
     >
       <div className="flex min-w-0 items-center gap-2">
-        <LineChartIcon className="size-5 text-violet-500" aria-hidden="true" />
+        <LineChartIcon className="size-5 text-primary" aria-hidden="true" />
         <div className="min-w-0">
           <h1
             id="analysis-title"
-            className="text-lg font-semibold tracking-tight"
+            className="font-display text-lg font-semibold tracking-tight"
           >
             Analysis Studio
           </h1>
@@ -551,16 +683,8 @@ export function AnalysisControls({
   const currentErrorColumn = spec.overlays.errorBars?.columnId ?? ''
 
   return (
-    <Card className="space-y-3 p-4" aria-labelledby="controls-title">
-      <h2 id="controls-title" className="text-sm font-semibold">
-        Specification
-      </h2>
-
-      {/* Chart type */}
-      <fieldset className="space-y-1.5">
-        <legend className="text-xs font-medium text-muted-foreground">
-          Chart type
-        </legend>
+    <div className="space-y-4" aria-label="Chart specification">
+      <InspectorSection title="Chart type">
         <div className="flex gap-1.5" role="radiogroup" aria-label="Chart type">
           {CHART_TYPES.map((t) => (
             <button
@@ -572,7 +696,7 @@ export function AnalysisControls({
               className={cn(
                 'inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-md border text-xs capitalize',
                 spec.type === t
-                  ? 'border-violet-500 bg-violet-50 text-violet-700 dark:bg-violet-950/40'
+                  ? 'border-primary bg-primary/10 text-primary'
                   : 'bg-background text-muted-foreground hover:bg-muted/40',
               )}
             >
@@ -587,195 +711,209 @@ export function AnalysisControls({
             </button>
           ))}
         </div>
-      </fieldset>
+      </InspectorSection>
 
-      <Separator />
+      <InspectorSection title="Axis mapping">
+        <FieldGroup>
+          <Field>
+            <FieldLabel className="text-xs" htmlFor="analysis-x-axis">
+              X axis
+            </FieldLabel>
+            <Select
+              id="analysis-x-axis"
+              aria-label="X axis field"
+              value={spec.fields.x?.columnId ?? ''}
+              onChange={(e) => setField('x', e.target.value)}
+              className="h-8 bg-background"
+            >
+              <option value="">(none — row index)</option>
+              {plottableXColumns.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field>
+            <FieldLabel className="text-xs" htmlFor="analysis-y-axis">
+              Y axis
+            </FieldLabel>
+            <Select
+              id="analysis-y-axis"
+              aria-label="Y axis field"
+              value={spec.fields.y.columnId}
+              onChange={(e) => setField('y', e.target.value)}
+              className="h-8 bg-background"
+            >
+              {numericColumns.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <div className="grid grid-cols-2 gap-2">
+            <Field>
+              <FieldLabel className="text-xs" htmlFor="analysis-x-scale">
+                X scale
+              </FieldLabel>
+              <Select
+                id="analysis-x-scale"
+                aria-label="X axis scale"
+                value={spec.display.axes.x.scale}
+                onChange={(e) => setAxisScale('x', e.target.value as AxisScale)}
+                className="h-8 bg-background"
+              >
+                {AXIS_SCALES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field>
+              <FieldLabel className="text-xs" htmlFor="analysis-y-scale">
+                Y scale
+              </FieldLabel>
+              <Select
+                id="analysis-y-scale"
+                aria-label="Y axis scale"
+                value={spec.display.axes.y.scale}
+                onChange={(e) => setAxisScale('y', e.target.value as AxisScale)}
+                className="h-8 bg-background"
+              >
+                {AXIS_SCALES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+        </FieldGroup>
+      </InspectorSection>
 
-      {/* Axis mapping */}
-      <fieldset className="grid grid-cols-2 gap-2">
-        <legend className="col-span-2 text-xs font-medium text-muted-foreground">
-          Axis mapping
-        </legend>
-        <label className="space-y-1 text-xs">
-          <span className="text-muted-foreground">X axis</span>
+      <InspectorSection title="Grouping">
+        <Field>
+          <FieldLabel className="text-xs" htmlFor="analysis-series">
+            Series
+          </FieldLabel>
           <Select
-            aria-label="X axis field"
-            value={spec.fields.x?.columnId ?? ''}
-            onChange={(e) => setField('x', e.target.value)}
+            id="analysis-series"
+            aria-label="Group by series"
+            value={spec.fields.series?.columnId ?? ''}
+            onChange={(e) => setField('series', e.target.value)}
             className="h-8 bg-background"
           >
-            <option value="">(none — row index)</option>
-            {plottableXColumns.map((c) => (
+            <option value="">No grouping</option>
+            {categoryColumns.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.label}
               </option>
             ))}
           </Select>
-        </label>
-        <label className="space-y-1 text-xs">
-          <span className="text-muted-foreground">Y axis</span>
+        </Field>
+      </InspectorSection>
+
+      <InspectorSection title="Aggregation">
+        <Field>
+          <FieldLabel className="text-xs" htmlFor="analysis-aggregation">
+            Function
+          </FieldLabel>
           <Select
-            aria-label="Y axis field"
-            value={spec.fields.y.columnId}
-            onChange={(e) => setField('y', e.target.value)}
+            id="analysis-aggregation"
+            aria-label="Aggregation function"
+            value={
+              typeof aggregateTransform?.params.function === 'string'
+                ? aggregateTransform.params.function
+                : ''
+            }
+            onChange={(e) => setAggregate(e.target.value)}
             className="h-8 bg-background"
           >
-            {numericColumns.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
+            <option value="">None (raw rows)</option>
+            <option value="mean">Mean (by x)</option>
+            <option value="sum">Sum (by x)</option>
+            <option value="min">Min (by x)</option>
+            <option value="max">Max (by x)</option>
+            <option value="count">Count (by x)</option>
           </Select>
-        </label>
-        <label className="space-y-1 text-xs">
-          <span className="text-muted-foreground">X scale</span>
+        </Field>
+      </InspectorSection>
+
+      <InspectorSection title="Normalisation">
+        <Field>
+          <FieldLabel className="text-xs" htmlFor="analysis-normalisation">
+            Method
+          </FieldLabel>
           <Select
-            aria-label="X axis scale"
-            value={spec.display.axes.x.scale}
-            onChange={(e) => setAxisScale('x', e.target.value as AxisScale)}
+            id="analysis-normalisation"
+            aria-label="Normalisation method"
+            value={
+              typeof normaliseTransform?.params.method === 'string'
+                ? normaliseTransform.params.method
+                : ''
+            }
+            onChange={(e) => setNormalise(e.target.value)}
             className="h-8 bg-background"
           >
-            {AXIS_SCALES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
+            <option value="">None</option>
+            <option value="percent_of_max">Percent of max (per series)</option>
+            <option value="z_score">Z-score (per series)</option>
           </Select>
-        </label>
-        <label className="space-y-1 text-xs">
-          <span className="text-muted-foreground">Y scale</span>
-          <Select
-            aria-label="Y axis scale"
-            value={spec.display.axes.y.scale}
-            onChange={(e) => setAxisScale('y', e.target.value as AxisScale)}
-            className="h-8 bg-background"
-          >
-            {AXIS_SCALES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </Select>
-        </label>
-      </fieldset>
+        </Field>
+      </InspectorSection>
 
-      <Separator />
+      <InspectorSection title="Statistical overlay">
+        <FieldGroup>
+          <Field>
+            <FieldLabel className="text-xs" htmlFor="analysis-error-basis">
+              Error bars
+            </FieldLabel>
+            <Select
+              id="analysis-error-basis"
+              aria-label="Error bar basis"
+              value={currentErrorBasis}
+              onChange={(e) =>
+                setErrorBars(e.target.value as ErrorBarBasis | '')
+              }
+              className="h-8 bg-background"
+            >
+              <option value="">No error bars</option>
+              {ERROR_BAR_BASES.map((b) => (
+                <option key={b} value={b}>
+                  {b.toUpperCase()}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          {spec.overlays.errorBars ? (
+            <Field>
+              <FieldLabel className="text-xs" htmlFor="analysis-error-column">
+                Value column
+              </FieldLabel>
+              <Select
+                id="analysis-error-column"
+                aria-label="Error bar column"
+                value={currentErrorColumn}
+                onChange={(e) => setErrorBarColumn(e.target.value)}
+                className="h-8 bg-background"
+              >
+                {numericColumns.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          ) : null}
+        </FieldGroup>
+      </InspectorSection>
 
-      {/* Grouping */}
-      <fieldset className="space-y-1.5">
-        <legend className="text-xs font-medium text-muted-foreground">
-          Grouping (series)
-        </legend>
-        <Select
-          aria-label="Group by series"
-          value={spec.fields.series?.columnId ?? ''}
-          onChange={(e) => setField('series', e.target.value)}
-          className="h-8 bg-background"
-        >
-          <option value="">No grouping</option>
-          {categoryColumns.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.label}
-            </option>
-          ))}
-        </Select>
-      </fieldset>
-
-      <Separator />
-
-      {/* Aggregation */}
-      <fieldset className="space-y-1.5">
-        <legend className="text-xs font-medium text-muted-foreground">
-          Aggregation
-        </legend>
-        <Select
-          aria-label="Aggregation function"
-          value={
-            typeof aggregateTransform?.params.function === 'string'
-              ? aggregateTransform.params.function
-              : ''
-          }
-          onChange={(e) => setAggregate(e.target.value)}
-          className="h-8 bg-background"
-        >
-          <option value="">None (raw rows)</option>
-          <option value="mean">Mean (by x)</option>
-          <option value="sum">Sum (by x)</option>
-          <option value="min">Min (by x)</option>
-          <option value="max">Max (by x)</option>
-          <option value="count">Count (by x)</option>
-        </Select>
-      </fieldset>
-
-      <Separator />
-
-      {/* Normalisation */}
-      <fieldset className="space-y-1.5">
-        <legend className="text-xs font-medium text-muted-foreground">
-          Normalisation
-        </legend>
-        <Select
-          aria-label="Normalisation method"
-          value={
-            typeof normaliseTransform?.params.method === 'string'
-              ? normaliseTransform.params.method
-              : ''
-          }
-          onChange={(e) => setNormalise(e.target.value)}
-          className="h-8 bg-background"
-        >
-          <option value="">None</option>
-          <option value="percent_of_max">Percent of max (per series)</option>
-          <option value="z_score">Z-score (per series)</option>
-        </Select>
-      </fieldset>
-
-      <Separator />
-
-      {/* Statistical overlay */}
-      <fieldset className="space-y-1.5">
-        <legend className="text-xs font-medium text-muted-foreground">
-          Statistical overlay — error bars
-        </legend>
-        <Select
-          aria-label="Error bar basis"
-          value={currentErrorBasis}
-          onChange={(e) => setErrorBars(e.target.value as ErrorBarBasis | '')}
-          className="h-8 bg-background"
-        >
-          <option value="">No error bars</option>
-          {ERROR_BAR_BASES.map((b) => (
-            <option key={b} value={b}>
-              {b.toUpperCase()}
-            </option>
-          ))}
-        </Select>
-        {spec.overlays.errorBars ? (
-          <Select
-            aria-label="Error bar column"
-            value={currentErrorColumn}
-            onChange={(e) => setErrorBarColumn(e.target.value)}
-            className="h-8 bg-background"
-          >
-            {numericColumns.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </Select>
-        ) : null}
-      </fieldset>
-
-      <Separator />
-
-      {/* Filters */}
-      <fieldset className="space-y-1.5">
-        <legend className="text-xs font-medium text-muted-foreground">
-          Filters (up to {ANALYSIS_MAX_FILTERS})
-        </legend>
+      <InspectorSection title={`Filters (up to ${ANALYSIS_MAX_FILTERS})`}>
         <FilterControls table={table} spec={spec} onSpecChange={onSpecChange} />
-      </fieldset>
-    </Card>
+      </InspectorSection>
+    </div>
   )
 }
 
@@ -927,8 +1065,7 @@ export function SavedViewsPanel({
                 key={view.id}
                 className={cn(
                   'flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-xs',
-                  selected &&
-                    'border-violet-400 bg-violet-50 dark:bg-violet-950/30',
+                  selected && 'border-primary bg-primary/10',
                 )}
               >
                 <button
@@ -1148,6 +1285,8 @@ interface AnalysisPreviewProps {
   views: AnalysisViewWire[]
   datasetQuery: ReturnType<typeof useLiveChartDataset>['datasetQuery']
   materialised: ReturnType<typeof materialiseLiveChart>
+  selectedPoint: SelectedAnalysisPoint | null
+  onSelectPoint: (point: SelectedAnalysisPoint) => void
 }
 
 export function AnalysisPreview({
@@ -1158,6 +1297,8 @@ export function AnalysisPreview({
   views,
   datasetQuery,
   materialised: analysisMaterialised,
+  selectedPoint,
+  onSelectPoint,
 }: AnalysisPreviewProps) {
   const validation = useMemo(
     () => validateAnalysisSpec(spec, datasetQuery.data?.rows.length ?? 0),
@@ -1177,16 +1318,13 @@ export function AnalysisPreview({
 
   return (
     <div
-      className="flex min-h-0 flex-col gap-3 overflow-hidden"
+      className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden"
       data-analysis-chart
     >
       <Card className="flex min-h-0 flex-1 flex-col gap-2 p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 text-sm font-semibold">
-            <LineChartIcon
-              className="size-4 text-violet-500"
-              aria-hidden="true"
-            />
+            <LineChartIcon className="size-4 text-primary" aria-hidden="true" />
             Live preview
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -1263,6 +1401,8 @@ export function AnalysisPreview({
       <DataTableAlternative
         materialised={analysisMaterialised}
         loading={datasetQuery.isLoading}
+        selectedPoint={selectedPoint}
+        onSelectPoint={onSelectPoint}
       />
     </div>
   )
@@ -1277,9 +1417,13 @@ export function AnalysisPreview({
 export function DataTableAlternative({
   materialised,
   loading,
+  selectedPoint = null,
+  onSelectPoint,
 }: {
   materialised: ReturnType<typeof materialiseLiveChart>
   loading: boolean
+  selectedPoint?: SelectedAnalysisPoint | null
+  onSelectPoint?: (point: SelectedAnalysisPoint) => void
 }) {
   if (loading) {
     return <Skeleton className="h-32 w-full" />
@@ -1333,20 +1477,49 @@ export function DataTableAlternative({
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((r, i) => (
-                <TableRow key={i}>
-                  <TableCell>{r.series}</TableCell>
-                  <TableCell className="scientific-nums font-mono tabular-nums">
-                    {formatScientific(r.x)}
-                  </TableCell>
-                  <TableCell className="scientific-nums font-mono tabular-nums">
-                    {formatScientific(r.y)}
-                  </TableCell>
-                  <TableCell className="scientific-nums font-mono tabular-nums">
-                    {formatScientific(r.yError ?? null)}
-                  </TableCell>
-                </TableRow>
-              ))
+              rows.map((r, i) => {
+                const selected =
+                  selectedPoint?.series === r.series &&
+                  selectedPoint.x === r.x &&
+                  selectedPoint.y === r.y
+                return (
+                  <TableRow
+                    key={i}
+                    data-state={selected ? 'selected' : undefined}
+                  >
+                    <TableCell>
+                      {onSelectPoint ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onSelectPoint({
+                              series: r.series,
+                              x: r.x,
+                              y: r.y,
+                              yError: r.yError ?? null,
+                            })
+                          }
+                          className="text-left font-medium underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          aria-label={`Inspect ${r.series} at ${formatScientific(r.x)}`}
+                        >
+                          {r.series}
+                        </button>
+                      ) : (
+                        r.series
+                      )}
+                    </TableCell>
+                    <TableCell className="scientific-nums font-mono tabular-nums">
+                      {formatScientific(r.x)}
+                    </TableCell>
+                    <TableCell className="scientific-nums font-mono tabular-nums">
+                      {formatScientific(r.y)}
+                    </TableCell>
+                    <TableCell className="scientific-nums font-mono tabular-nums">
+                      {formatScientific(r.yError ?? null)}
+                    </TableCell>
+                  </TableRow>
+                )
+              })
             )}
           </TableBody>
         </Table>

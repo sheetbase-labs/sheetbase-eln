@@ -461,6 +461,40 @@ describe('DataTableAlternative', () => {
     expect(screen.getByText('2 points')).toBeTruthy()
     expect(screen.getByLabelText('Chart data table')).toBeTruthy()
   })
+
+  it('exposes an explicit point-inspection action when selection is enabled', async () => {
+    const selected: Array<{
+      series: string
+      x: number | null
+      y: number | null
+      yError: number | null
+    }> = []
+    render(
+      <DataTableAlternative
+        materialised={{
+          state: { kind: 'ok' },
+          columns: [],
+          rows: [],
+          series: [
+            {
+              identifier: 'HEPES',
+              label: 'HEPES',
+              color: '#006EDC',
+              points: [{ x: 24, y: 6.8, yError: null, label: 'HEPES' }],
+            },
+          ],
+          xLabel: 'Time (h)',
+          yLabel: 'pH',
+          xUnit: undefined,
+          yUnit: undefined,
+        }}
+        loading={false}
+        onSelectPoint={(point) => selected.push(point)}
+      />,
+    )
+    await userEvent.click(screen.getByLabelText('Inspect HEPES at 24'))
+    expect(selected).toEqual([{ series: 'HEPES', x: 24, y: 6.8, yError: null }])
+  })
 })
 
 // --- EmptyAnalysisState ---------------------------------------------------

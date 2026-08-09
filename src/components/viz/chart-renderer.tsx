@@ -121,7 +121,7 @@ function ChartPlot({
   const data = toRechartsData(materialised.series)
   const xScale = spec?.display.axes.x.scale ?? 'linear'
   const yScale = spec?.display.axes.y.scale ?? 'linear'
-  const margin = { top: 16, right: 16, bottom: 32, left: 64 }
+  const margin = { top: 16, right: 16, bottom: 32, left: 80 }
   const grid = <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
   const xAxis = (
     <XAxis
@@ -182,13 +182,9 @@ function ChartPlot({
           <Scatter
             key={series.identifier}
             name={series.label}
-            data={data.filter(
-              (row) =>
-                row[series.identifier] !== null &&
-                row[series.identifier] !== undefined,
-            )}
+            data={data.filter((row) => row[series.identifier] !== null)}
             dataKey={series.identifier}
-            fill="var(--popover)"
+            fill={series.color}
             stroke={series.color}
             strokeWidth={2}
           >
@@ -434,7 +430,7 @@ function ChartStateMessage({
 // ---------------------------------------------------------------------------
 
 function axisLabel(label: string, unit?: string) {
-  return unit ? `${label} (${unit})` : label
+  return unit && !label.includes('(') ? `${label} (${unit})` : label
 }
 
 function describeSeries(materialised: MaterialisedChart): string {

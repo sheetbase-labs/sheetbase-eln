@@ -265,6 +265,21 @@ describe('RegistryComposition interaction and states', () => {
     expect(within(table).getByText('1.2 µg/mL')).toBeTruthy()
   })
 
+  it('uses a generic labelled Sheet for the narrow-screen inspector', async () => {
+    const user = userEvent.setup()
+    render(
+      <RegistryComposition
+        {...props({ inspectorLabel: 'Record details', selectedId: 'one' })}
+      />,
+    )
+    await user.click(
+      screen.getByRole('button', { name: 'Open Record details' }),
+    )
+    expect(screen.getByRole('dialog', { name: 'Record details' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Close' })).toBeNull()
+    expect(screen.getAllByText('Inspecting SMP-0001')).toHaveLength(2)
+  })
+
   it('preserves an explicit custom renderer for numeric cells', () => {
     render(
       <RegistryComposition

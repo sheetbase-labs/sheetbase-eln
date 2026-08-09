@@ -11,7 +11,14 @@ import type {
   Updater,
   VisibilityState,
 } from '@tanstack/react-table'
-import { ChevronLeft, ChevronRight, Columns3, Save, Search } from 'lucide-react'
+import {
+  ChevronLeft,
+  ChevronRight,
+  Columns3,
+  PanelRight,
+  Save,
+  Search,
+} from 'lucide-react'
 
 import {
   Button,
@@ -22,6 +29,9 @@ import {
   DropdownMenuTrigger,
   Input,
   Select,
+  Sheet,
+  SheetContent,
+  SheetTitle,
   Skeleton,
   Table,
   TableBody,
@@ -92,6 +102,11 @@ export interface RegistryCompositionProps<TData> {
   filterDefinitions?: RegistryFilterDefinition[]
   groupingOptions?: RegistryGroupingOption[]
   renderInspector?: (row: TData | null) => React.ReactNode
+  /** Generic accessible label for the responsive inspector trigger and plane. */
+  inspectorLabel?: string
+  /** Controlled narrow-screen inspector state. Omit with its callback for local state. */
+  inspectorOpen?: boolean
+  onInspectorOpenChange?: (open: boolean) => void
   loading?: boolean
   error?: unknown
   permissionDenied?: boolean
@@ -141,6 +156,9 @@ export function RegistryComposition<TData>({
   filterDefinitions = [],
   groupingOptions = [],
   renderInspector,
+  inspectorLabel = 'Inspector',
+  inspectorOpen: controlledInspectorOpen,
+  onInspectorOpenChange,
   loading = false,
   error = null,
   permissionDenied = false,
@@ -166,6 +184,8 @@ export function RegistryComposition<TData>({
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>(initialColumnVisibility)
   const [density, setDensity] = React.useState<RegistryDensity>(initialDensity)
+  const [uncontrolledInspectorOpen, setUncontrolledInspectorOpen] =
+    React.useState(false)
   const [activeRowId, setActiveRowId] = React.useState<string | null>(
     selectedId ?? (rows[0] ? getRowId(rows[0]) : null),
   )
@@ -269,6 +289,27 @@ export function RegistryComposition<TData>({
         : null))
     : null
   const hasFilters = query.filters.some((filter) => filter.value !== '')
+  const inspectorOpen = controlledInspectorOpen ?? uncontrolledInspectorOpen
+  const setInspectorOpen = React.useCallback(
+    (open: boolean) => {
+      if (controlledInspectorOpen === undefined) {
+        setUncontrolledInspectorOpen(open)
+      }
+      onInspectorOpenChange?.(open)
+    },
+    [controlledInspectorOpen, onInspectorOpenChange],
+  )
+
+  const inspectorContent = renderInspector ? (
+    selectedId && !selectedRow ? (
+      <RegistryState
+        title="Selected record is outside this page"
+        detail="Its selection is preserved while the record details are loaded."
+      />
+    ) : (
+      renderInspector(selectedRow)
+    )
+  ) : null
 
   function setFilter(id: string, value: string) {
     const filters = query.filters.filter((filter) => filter.id !== id)
@@ -659,30 +700,44 @@ export function RegistryComposition<TData>({
         </div>
       ) : null}
 
-      <div
-        className={cn(
-          renderInspector && 'grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]',
-        )}
-      >
-        <div className="overflow-hidden rounded-lg border bg-card">
+      <div className={cn(renderInspector && 'flex min-w-0')}>
+        <div className="min-w-0 flex-1 overflow-hidden rounded-lg border bg-card">
           {stateContent}
         </div>
         {renderInspector && !permissionDenied ? (
           <aside
-            aria-label="Registry inspector"
-            className="min-h-72 overflow-hidden rounded-lg border bg-card"
+            aria-label={inspectorLabel}
+            className="ml-4 hidden w-80 shrink-0 overflow-hidden border-l bg-background xl:block"
           >
-            {selectedId && !selectedRow ? (
-              <RegistryState
-                title="Selected record is outside this page"
-                detail="Its selection is preserved while the record details are loaded."
-              />
-            ) : (
-              renderInspector(selectedRow)
-            )}
+            {inspectorContent}
           </aside>
         ) : null}
       </div>
+
+      {renderInspector && !permissionDenied ? (
+        <>
+          <Button
+            variant="outline"
+            size="sm"
+            className="xl:hidden"
+            aria-label={`Open ${inspectorLabel}`}
+            aria-expanded={inspectorOpen}
+            onClick={() => setInspectorOpen(true)}
+          >
+            <PanelRight /> {inspectorLabel}
+          </Button>
+          <Sheet open={inspectorOpen} onOpenChange={setInspectorOpen}>
+            <SheetContent
+              side="right"
+              className="w-80 border-l p-0 xl:hidden"
+              showClose={false}
+            >
+              <SheetTitle className="sr-only">{inspectorLabel}</SheetTitle>
+              <div className="h-full">{inspectorContent}</div>
+            </SheetContent>
+          </Sheet>
+        </>
+      ) : null}
 
       {!permissionDenied ? (
         <footer className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">

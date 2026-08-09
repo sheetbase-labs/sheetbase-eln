@@ -556,9 +556,11 @@ export function DatasetDataTab({
       />
       <FormulaBar table={table} />
       <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1.6fr)_minmax(0,1fr)] gap-3">
-        <RegistryComposition
-          registryId={`dataset-${table.id}`}
-          workspaceId={workspaceId}
+        <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border bg-card">
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <RegistryComposition
+              registryId={`dataset-${table.id}`}
+              workspaceId={workspaceId}
         userId={userId}
         title={table.name}
         description="Transform, review and export scientific data."
@@ -603,21 +605,22 @@ export function DatasetDataTab({
           />
         )}
       />
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t py-2 text-xs text-muted-foreground">
-        <span>
-          Showing {formatCount(startRow)} to {formatCount(endRow)} of{' '}
-          {formatCount(totalCount)} rows
-        </span>
-        <span className="flex flex-wrap items-center gap-3">
-          <span>{formatCount(totalCount)} rows</span>
-          <span>{visibleFieldCount} columns</span>
-          <span>No unsaved changes</span>
-          {totalCount >= DATASET_QUERY_HARD_LIMIT ? (
-            <Badge variant="warning">Server limit reached</Badge>
-          ) : null}
-        </span>
-      </div>
-      </div>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t px-3 py-2 text-xs text-muted-foreground">
+            <span>
+              Showing {formatCount(startRow)} to {formatCount(endRow)} of{' '}
+              {formatCount(totalCount)} rows
+            </span>
+            <span className="flex flex-wrap items-center gap-3">
+              <span>{formatCount(totalCount)} rows</span>
+              <span>{visibleFieldCount} columns</span>
+              <span>No unsaved changes</span>
+              {totalCount >= DATASET_QUERY_HARD_LIMIT ? (
+                <Badge variant="warning">Server limit reached</Badge>
+              ) : null}
+            </span>
+          </div>
+        </div>
       <Tabs value={previewTab} onValueChange={setPreviewTab} className="min-h-0">
         <Card className="flex min-h-0 flex-col overflow-hidden p-0">
           <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3">
@@ -669,6 +672,7 @@ export function DatasetDataTab({
           </TabsContent>
         </Card>
       </Tabs>
+      </div>
     </div>
   )
 }

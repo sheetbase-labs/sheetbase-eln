@@ -70,6 +70,17 @@ export function PropertyList({
   return <dl className={cn('space-y-2', className)}>{children}</dl>
 }
 
+function CodeValue({ children }: { children: React.ReactNode }) {
+  if (typeof children !== 'string') return children
+
+  return children.split(/([,;/:=])/).map((part, index) => (
+    <React.Fragment key={`${part}-${index}`}>
+      {part}
+      {/^[,;/:=]$/.test(part) ? <wbr /> : null}
+    </React.Fragment>
+  ))
+}
+
 export function Property({
   label,
   children,
@@ -99,7 +110,7 @@ export function Property({
           stacked && mono && 'text-[0.6875rem] leading-4 tracking-[-0.015em]',
         )}
       >
-        {children}
+        {stacked && mono ? <CodeValue>{children}</CodeValue> : children}
       </dd>
     </div>
   )

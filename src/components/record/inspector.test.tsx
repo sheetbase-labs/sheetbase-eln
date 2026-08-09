@@ -160,6 +160,7 @@ describe('Inspector sections', () => {
     expect(container.querySelector('dd')?.className).toContain(
       'text-[0.6875rem]',
     )
+    expect(container.querySelectorAll('wbr').length).toBeGreaterThan(0)
   })
 
   it('LinkedRecordList renders links and shows empty hint when empty', () => {

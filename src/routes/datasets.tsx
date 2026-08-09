@@ -1107,10 +1107,34 @@ export function DatasetInspector({
     [dependencies, row],
   )
 
+  // Build a short label from the first text/category column, falling back to
+  // a row number so the inspector title is meaningful (not a raw UUID).
+  const rowTitle = useMemo(() => {
+    if (!row) return 'No row selected'
+    const labelCol = table.columns.find(
+      (c) => c.logical_type === 'text' || c.logical_type === 'category',
+    )
+    if (labelCol && row[labelCol.field_name]) {
+      return String(row[labelCol.field_name])
+    }
+    const firstCol = table.columns[0]
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    if (firstCol && row[firstCol.field_name] != null) {
+      return String(row[firstCol.field_name])
+    }
+    return `Row ${row.version}`
+  }, [row, table.columns])
+
+  // Show at most 3 key column values as a quick summary, not every column.
+  const summaryColumns = useMemo(
+    () => table.columns.slice(0, 3),
+    [table.columns],
+  )
+
   return (
     <Inspector
       recordType="Dataset row"
-      title={row ? String(row.id) : 'No row selected'}
+      title={rowTitle}
       status={
         row ? <Badge variant="success">Version {row.version}</Badge> : null
       }
@@ -1118,41 +1142,25 @@ export function DatasetInspector({
       tabs={[
         {
           id: 'values',
-          label: 'Values',
+          label: 'Details',
           content: row ? (
             <div className="space-y-4">
-              <InspectorSection title="Row inspector">
+              <InspectorSection title="Row summary">
                 <PropertyList>
-                  <Property label="Row ID" mono stacked>
-                    {row.id}
-                  </Property>
-                  <Property label="Version" mono>
-                    {row.version}
-                  </Property>
-                  {table.columns.map((column) => (
+                  {summaryColumns.map((column) => (
                     <Property
                       key={column.id}
                       label={column.label}
                       mono={['decimal', 'integer'].includes(
                         column.logical_type,
                       )}
-                      stacked={String(row[column.field_name] ?? '').length > 28}
                     >
                       {rowCellValue(row, column)}
                     </Property>
                   ))}
                 </PropertyList>
               </InspectorSection>
-            </div>
-          ) : null,
-        },
-        {
-          id: 'lineage',
-          label: 'Lineage',
-          badge: rowFormulas.length + rowDependencies.length,
-          content: (
-            <div className="space-y-4">
-              <InspectorSection title="Provenance">
+              <InspectorSection title="Lineage">
                 {lineageError ? (
                   <p role="alert" className="text-xs text-destructive">
                     Could not load lineage.
@@ -1195,7 +1203,7 @@ export function DatasetInspector({
                 )}
               </InspectorSection>
             </div>
-          ),
+          ) : null,
         },
         {
           id: 'links',

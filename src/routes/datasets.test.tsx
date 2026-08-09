@@ -352,15 +352,15 @@ describe('DatasetInspector', () => {
         lineageError={null}
       />,
     )
-    expect(screen.getByText('A1')).toBeTruthy()
-    await user.click(screen.getByRole('tab', { name: /Lineage/ }))
+    // Inspector title uses the first text column value
+    expect(screen.getAllByText('A1').length).toBeGreaterThanOrEqual(1)
+    // Lineage content is now in the Details tab
     expect(screen.getByText('=col_alpha*2')).toBeTruthy()
     await user.click(screen.getByRole('tab', { name: /Links/ }))
     expect(screen.getByText('SMP-1')).toBeTruthy()
   })
 
-  it('surfaces a lineage error', async () => {
-    const user = userEvent.setup()
+  it('surfaces a lineage error', () => {
     render(
       <DatasetInspector
         table={table()}
@@ -372,7 +372,7 @@ describe('DatasetInspector', () => {
         lineageError={new Error('boom')}
       />,
     )
-    await user.click(screen.getByRole('tab', { name: /Lineage/ }))
+    // Lineage error is shown in the Details tab
     expect(screen.getByText('Could not load lineage.')).toBeTruthy()
   })
 })
@@ -423,7 +423,7 @@ describe('DatasetDataTab', () => {
     expect(screen.getByText('Valid')).toBeTruthy()
     expect(screen.getByText('Mean ± SD')).toBeTruthy()
     expect(screen.getByRole('tab', { name: 'Correlations' })).toBeTruthy()
-    expect(screen.getByLabelText('Saved view name')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Save current view' })).toBeTruthy()
   })
 
   it('shows the empty state when no rows are returned', () => {

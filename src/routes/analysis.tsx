@@ -561,7 +561,7 @@ export function AnalysisControls({
   const currentErrorColumn = spec.overlays.errorBars?.columnId ?? ''
 
   return (
-    <Card className="shrink-0 space-y-3 p-3" aria-labelledby="controls-title">
+    <div className="shrink-0 space-y-3 rounded-lg border bg-card p-3" aria-labelledby="controls-title">
       <h2 id="controls-title" className="sr-only">
         Chart configuration
       </h2>
@@ -760,7 +760,7 @@ export function AnalysisControls({
           />
         </Field>
       </FieldGroup>
-    </Card>
+    </div>
   )
 }
 

@@ -231,22 +231,7 @@ function SamplesRegistryRoute() {
 
   // ---- Columns with status + low-stock rendering ----
   const columns = useMemo(() => {
-    const cols = sampleColumns<SampleRecord>().filter(
-      (column) => column.id !== 'barcode',
-    )
-    const identifierIdx = cols.findIndex((column) => column.id === 'identifier')
-    if (identifierIdx >= 0) {
-      cols[identifierIdx] = {
-        accessorKey: 'identifier',
-        header: 'Sample ID',
-        enableHiding: false,
-        cell: ({ row }) => (
-          <span className="font-medium text-primary underline-offset-2 hover:underline">
-            {row.original.identifier}
-          </span>
-        ),
-      }
-    }
+    const cols = sampleColumns<SampleRecord>()
     // Replace the plain status column with a StatusBadge cell.
     const statusIdx = cols.findIndex((c) => c.id === 'status')
     if (statusIdx >= 0) {
@@ -269,22 +254,24 @@ function SamplesRegistryRoute() {
 
   const filterDefinitions = [
     {
-      id: 'status',
-      label: 'Status',
-      options: sampleStatusOptions(),
-    },
-    { id: 'storageLocation', label: 'Storage', placeholder: 'Filter storage' },
-    { id: 'sampleType', label: 'Type', placeholder: 'Filter type' },
-    { id: 'barcode', label: 'Barcode', placeholder: 'Filter barcode' },
-    {
       id: 'search',
       label: 'Search',
       placeholder: 'Identifier, title, barcode',
     },
     {
-      id: 'archived',
-      label: 'Archived',
-      options: [{ value: 'included', label: 'Include archived' }],
+      id: 'sampleType',
+      label: 'Type',
+      placeholder: 'All types',
+    },
+    {
+      id: 'status',
+      label: 'Status',
+      options: sampleStatusOptions(),
+    },
+    {
+      id: 'storageLocation',
+      label: 'Storage',
+      placeholder: 'All locations',
     },
   ]
 
@@ -336,7 +323,7 @@ function SamplesRegistryRoute() {
 
   return (
     <>
-      <div className="flex flex-col gap-4 p-4 md:p-6">
+      <div className="flex h-full flex-col gap-3 overflow-hidden p-4">
         <RegistryComposition
           registryId="samples"
           workspaceId={workspaceId}
@@ -358,6 +345,7 @@ function SamplesRegistryRoute() {
           renderInspector={inspector}
           inspectorLabel="Sample details"
           initialDensity="compact"
+          initialColumnVisibility={{ barcode: false }}
           loading={pageQuery.isLoading}
           error={pageQuery.error}
           onRetry={() => pageQuery.refetch()}

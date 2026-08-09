@@ -64,6 +64,8 @@ export interface RegistrySummary {
   label: string
   value: React.ReactNode
   hint?: string
+  /** Semantic tone for the hint text. */
+  tone?: 'positive' | 'warning' | 'danger' | 'neutral'
 }
 
 export interface RegistryFilterDefinition {
@@ -604,7 +606,7 @@ export function RegistryComposition<TData>({
     <section
       ref={compositionRef}
       aria-labelledby={`${registryId}-title`}
-      className="space-y-4"
+      className="flex min-h-0 flex-col gap-3"
     >
       {!hideHeader ? (
       <header className="flex flex-wrap items-start justify-between gap-3">
@@ -630,16 +632,24 @@ export function RegistryComposition<TData>({
           {summaries.map((summary) => (
             <div
               key={summary.label}
-              className="rounded-md border bg-card px-3 py-2"
+              className="rounded-md border bg-card px-3 py-2.5"
             >
-              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <dt className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
                 {summary.label}
               </dt>
-              <dd className="mt-0.5 text-lg font-semibold tabular-nums">
+              <dd className="mt-0.5 text-xl font-semibold tabular-nums leading-tight">
                 {summary.value}
               </dd>
               {summary.hint ? (
-                <dd className="text-xs text-muted-foreground">
+                <dd
+                  className={cn(
+                    'mt-0.5 text-xs font-medium',
+                    summary.tone === 'positive' && 'text-emerald-600',
+                    summary.tone === 'warning' && 'text-amber-600',
+                    summary.tone === 'danger' && 'text-red-600',
+                    (!summary.tone || summary.tone === 'neutral') && 'text-muted-foreground',
+                  )}
+                >
                   {summary.hint}
                 </dd>
               ) : null}
@@ -830,10 +840,12 @@ export function RegistryComposition<TData>({
       ) : null}
 
       {/* Table + pinned inspector layout */}
-      <div className="flex min-w-0 gap-4">
+      <div className="flex min-h-0 flex-1 min-w-0 gap-4">
       {/* Table — always takes full width. Inspector slides over or pins. */}
-      <div className="min-w-0 flex-1 overflow-hidden rounded-lg border bg-card">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border bg-card">
+        <div className="min-h-0 flex-1 overflow-auto">
         {stateContent}
+        </div>
       </div>
 
       {/* Pinned inspector — docked aside on xl+ only */}
@@ -866,7 +878,7 @@ export function RegistryComposition<TData>({
       ) : null}
 
       {!permissionDenied ? (
-        <footer className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+        <footer className="flex shrink-0 flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
           <p>
             {formatCount(totalCount)} {totalCount === 1 ? 'record' : 'records'}
           </p>

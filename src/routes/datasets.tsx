@@ -36,6 +36,7 @@ import {
   GitBranch,
   Layers,
   LineChart,
+  PanelRight,
   Save,
   Search,
   Table as TableIcon,
@@ -44,6 +45,12 @@ import {
 } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
+import { Inspector } from '#/components/record/inspector'
+import {
+  InspectorSection,
+  LinkedRecordList,
+} from '#/components/record/inspector-sections'
+import { Property, PropertyList } from '#/components/scientific/property-list'
 import { StatusBadge } from '#/components/scientific/status-badge'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import {
@@ -52,7 +59,9 @@ import {
   Card,
   Input,
   Select,
-  Separator,
+  Sheet,
+  SheetContent,
+  SheetTitle,
   Skeleton,
   Table,
   TableBody,
@@ -149,6 +158,18 @@ function rowCellValue(row: ScientificRowWire, column: ScientificColumnWire) {
   if (typeof value === 'boolean') return value ? 'true' : 'false'
   if (typeof value === 'number') return formatCount(value)
   return String(value)
+}
+
+/**
+ * Keep the identifier and the first scientific measurements visible in the
+ * constrained data plane. Remaining fields are deliberately progressive at
+ * narrower widths; they remain available through the Columns control and the
+ * selected-row inspector.
+ */
+function datasetColumnPriority(index: number): string {
+  if (index < 2) return ''
+  if (index < 4) return 'hidden md:table-cell'
+  return 'hidden lg:table-cell'
 }
 
 function toColumnDefs(
@@ -285,11 +306,11 @@ export function DatasetExplorerHeader({
 }: DatasetExplorerHeaderProps) {
   return (
     <header
-      className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3"
+      className="flex flex-wrap items-center justify-between gap-3 border-b bg-background px-1 pb-3"
       aria-labelledby="datasets-title"
     >
       <div className="flex min-w-0 items-center gap-2">
-        <Database className="size-5 text-violet-500" aria-hidden="true" />
+        <Database className="size-5 text-primary" aria-hidden="true" />
         <div className="min-w-0">
           <h1
             id="datasets-title"
@@ -297,7 +318,7 @@ export function DatasetExplorerHeader({
           >
             Dataset Explorer
           </h1>
-          <p className="truncate text-xs text-muted-foreground">
+          <p className="max-w-[34rem] truncate text-xs text-muted-foreground">
             Browse scientific datasets, schemas, relationships and lineage.
           </p>
         </div>
@@ -434,6 +455,7 @@ export function DatasetDataTab({
   const [savedViewName, setSavedViewName] = useState('')
   const [selectedViewId, setSelectedViewId] = useState('')
   const [savedViews, setSavedViews] = useState<DatasetSavedView[]>([])
+  const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false)
 
   // Chart preview spec, persisted per dataset in local storage.
   const chartStorageKey = useMemo(
@@ -624,7 +646,7 @@ export function DatasetDataTab({
     <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(0,1fr)_22rem]">
       <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
         {/* Filter + view toolbar */}
-        <div className="flex flex-wrap items-end gap-2 rounded-md border bg-muted/20 p-2">
+        <div className="flex flex-wrap items-end gap-x-2 gap-y-3 border-b bg-muted/20 px-2 py-2.5">
           {table.columns.slice(0, DATASET_MAX_FILTERS).map((column) => (
             <label
               key={column.id}
@@ -659,6 +681,15 @@ export function DatasetDataTab({
             </Select>
           </label>
           <ColumnVisibilityMenu table={tableInstance} columns={table.columns} />
+          <Button
+            variant="outline"
+            size="sm"
+            className="xl:hidden"
+            onClick={() => setMobileInspectorOpen(true)}
+            aria-label="Open dataset inspector"
+          >
+            <PanelRight /> Inspector
+          </Button>
           <div className="ml-auto flex flex-wrap items-end gap-2">
             <label className="min-w-36 text-xs text-muted-foreground">
               Saved views
@@ -708,7 +739,7 @@ export function DatasetDataTab({
         </div>
 
         {/* Data table */}
-        <div className="min-h-0 flex-1 overflow-auto rounded-lg border bg-card">
+        <div className="min-h-0 flex-1 overflow-auto border bg-card">
           <DataTableView
             table={tableInstance}
             density={density}
@@ -726,11 +757,13 @@ export function DatasetDataTab({
         </div>
 
         {/* Chart preview */}
-        <ChartPreview
-          table={table}
-          chartSpec={chartSpec}
-          onChartSpecChange={setChartSpec}
-        />
+        <div className="hidden shrink-0 xl:block">
+          <ChartPreview
+            table={table}
+            chartSpec={chartSpec}
+            onChartSpecChange={setChartSpec}
+          />
+        </div>
 
         {/* Pager */}
         <footer className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
@@ -790,21 +823,34 @@ export function DatasetDataTab({
         </footer>
       </div>
 
-      {/* Inspector */}
-      <aside
-        aria-label="Dataset inspector"
-        className="min-h-0 overflow-auto rounded-lg border bg-card p-4"
-      >
-        <DatasetInspector
-          table={table}
-          row={selectedRow}
-          formulas={lineageQuery.data?.formulas ?? []}
-          dependencies={lineageQuery.data?.dependencies ?? []}
-          links={linksQuery.data ?? []}
-          lineageLoading={lineageQuery.isLoading}
-          lineageError={lineageQuery.error}
-        />
-      </aside>
+      <DatasetInspectorPanel
+        table={table}
+        row={selectedRow}
+        formulas={lineageQuery.data?.formulas ?? []}
+        dependencies={lineageQuery.data?.dependencies ?? []}
+        links={linksQuery.data ?? []}
+        lineageLoading={lineageQuery.isLoading}
+        lineageError={lineageQuery.error}
+      />
+      <Sheet open={mobileInspectorOpen} onOpenChange={setMobileInspectorOpen}>
+        <SheetContent
+          side="right"
+          className="w-[min(24rem,92vw)] p-0 xl:hidden"
+        >
+          <SheetTitle className="sr-only">Dataset inspector</SheetTitle>
+          <DatasetInspectorPanel
+            table={table}
+            row={selectedRow}
+            formulas={lineageQuery.data?.formulas ?? []}
+            dependencies={lineageQuery.data?.dependencies ?? []}
+            links={linksQuery.data ?? []}
+            lineageLoading={lineageQuery.isLoading}
+            lineageError={lineageQuery.error}
+            mobile
+            className="h-full border-0"
+          />
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }
@@ -914,7 +960,7 @@ export function DataTableView({
       <TableHeader>
         {table.getHeaderGroups().map((headerGroup) => (
           <TableRow key={headerGroup.id} className="hover:bg-transparent">
-            {headerGroup.headers.map((header) => {
+            {headerGroup.headers.map((header, index) => {
               const sorted = header.column.getIsSorted()
               const label =
                 typeof header.column.columnDef.header === 'string'
@@ -923,6 +969,7 @@ export function DataTableView({
               return (
                 <TableHead
                   key={header.id}
+                  className={cn(datasetColumnPriority(index), 'max-w-48')}
                   aria-sort={
                     sorted === 'asc'
                       ? 'ascending'
@@ -938,10 +985,12 @@ export function DataTableView({
                       onClick={header.column.getToggleSortingHandler()}
                       aria-label={`Sort by ${label} ${sorted === 'asc' ? 'descending' : 'ascending'}`}
                     >
-                      {flexRender(
-                        header.column.columnDef.header,
-                        header.getContext(),
-                      )}
+                      <span className="truncate" title={label}>
+                        {flexRender(
+                          header.column.columnDef.header,
+                          header.getContext(),
+                        )}
+                      </span>
                       <span aria-hidden>
                         {sorted === 'asc' ? '↑' : sorted === 'desc' ? '↓' : '↕'}
                       </span>
@@ -970,14 +1019,17 @@ export function DataTableView({
               className="cursor-pointer"
               onClick={() => onSelectRow(selected ? null : id)}
             >
-              {row.getVisibleCells().map((cell) => (
+              {row.getVisibleCells().map((cell, index) => (
                 <TableCell
                   key={cell.id}
                   className={cn(
+                    datasetColumnPriority(index),
+                    'max-w-56 truncate',
                     density === 'compact' && 'py-1.5',
                     typeof cell.getValue() === 'number' &&
                       'scientific-nums text-right tabular-nums',
                   )}
+                  title={String(cell.getValue() ?? '—')}
                 >
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </TableCell>
@@ -1134,6 +1186,25 @@ interface DatasetInspectorProps {
   lineageError: unknown
 }
 
+function DatasetInspectorPanel({
+  className,
+  mobile = false,
+  ...props
+}: DatasetInspectorProps & { className?: string; mobile?: boolean }) {
+  return (
+    <aside
+      aria-label="Dataset inspector"
+      className={cn(
+        'min-h-0 overflow-hidden border-l bg-card',
+        mobile ? 'block xl:hidden' : 'hidden xl:block',
+        className,
+      )}
+    >
+      <DatasetInspector {...props} />
+    </aside>
+  )
+}
+
 export function DatasetInspector({
   table,
   row,
@@ -1153,108 +1224,111 @@ export function DatasetInspector({
   )
 
   return (
-    <div className="space-y-4 text-sm">
-      <section aria-labelledby="inspector-row">
-        <h2 id="inspector-row" className="text-sm font-semibold">
-          Selected row
-        </h2>
-        {!row ? (
-          <p className="mt-1 text-xs text-muted-foreground">
-            Select a row to inspect its values, lineage and linked records.
-          </p>
-        ) : (
-          <dl className="mt-2 space-y-1">
-            <div className="flex justify-between gap-2">
-              <dt className="text-muted-foreground">Row id</dt>
-              <dd className="break-all font-mono text-xs">{row.id}</dd>
-            </div>
-            <div className="flex justify-between gap-2">
-              <dt className="text-muted-foreground">Version</dt>
-              <dd className="tabular-nums">{row.version}</dd>
-            </div>
-            <Separator className="my-2" />
-            {table.columns.map((column) => (
-              <div key={column.id} className="flex justify-between gap-2">
-                <dt className="text-muted-foreground">{column.label}</dt>
-                <dd className="text-right">{rowCellValue(row, column)}</dd>
-              </div>
-            ))}
-          </dl>
-        )}
-      </section>
-
-      <Separator />
-
-      <section aria-labelledby="inspector-lineage">
-        <h2 id="inspector-lineage" className="text-sm font-semibold">
-          Lineage & transformations
-        </h2>
-        {lineageError ? (
-          <p role="alert" className="mt-1 text-xs text-destructive">
-            Could not load lineage.
-          </p>
-        ) : lineageLoading ? (
-          <Skeleton className="mt-2 h-16 w-full" />
-        ) : rowFormulas.length === 0 && rowDependencies.length === 0 ? (
-          <p className="mt-1 text-xs text-muted-foreground">
-            No calculated columns or cross-sheet dependencies touch this row.
-          </p>
-        ) : (
-          <ul className="mt-2 space-y-2">
-            {rowFormulas.map((f) => (
-              <li
-                key={f.id}
-                className="rounded-md border bg-muted/30 p-2 text-xs"
-              >
-                <p className="font-medium">{f.source_expression}</p>
-                <p className="text-muted-foreground">
-                  status: {f.status} · engine {f.engine_version}
-                </p>
-              </li>
-            ))}
-            {rowDependencies.map((d, i) => (
-              <li
-                key={`${d.formula_id}-${i}`}
-                className="rounded-md border bg-muted/30 p-2 text-xs"
-              >
-                <p className="font-medium">Cross-sheet dependency</p>
-                <p className="text-muted-foreground">
-                  source column {d.source_column_id.slice(0, 8)} → formula{' '}
-                  {d.formula_id.slice(0, 8)}
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <Separator />
-
-      <section aria-labelledby="inspector-links">
-        <h2 id="inspector-links" className="text-sm font-semibold">
-          Linked records
-        </h2>
-        {links.length === 0 ? (
-          <p className="mt-1 text-xs text-muted-foreground">
-            No outgoing record links from this dataset.
-          </p>
-        ) : (
-          <ul className="mt-2 space-y-1">
-            {links.map((link) => (
-              <li
-                key={link.id}
-                className="flex items-center justify-between gap-2 text-xs"
-              >
-                <span className="truncate font-mono">
-                  {link.targetIdentifier}
+    <Inspector
+      recordType="Dataset row"
+      title={row ? `Version ${row.version}` : 'Selected row'}
+      tabs={[
+        {
+          id: 'values',
+          label: 'Values',
+          content: !row ? (
+            <p className="text-xs text-muted-foreground">
+              Select a row to inspect its values, lineage and linked records.
+            </p>
+          ) : (
+            <PropertyList>
+              <Property label="Row ID">
+                <span className="block break-all font-mono text-xs font-normal">
+                  {row.id}
                 </span>
-                <Badge variant="outline">{link.linkType}</Badge>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </div>
+              </Property>
+              <Property label="Version">
+                <span className="tabular-nums">{row.version}</span>
+              </Property>
+              {table.columns.map((column) => (
+                <Property key={column.id} label={column.label}>
+                  <span className="block break-words text-right font-normal">
+                    {rowCellValue(row, column)}
+                  </span>
+                </Property>
+              ))}
+            </PropertyList>
+          ),
+        },
+        {
+          id: 'lineage',
+          label: 'Lineage',
+          content: (
+            <InspectorSection title="Transformations">
+              {lineageError ? (
+                <p role="alert" className="text-xs text-destructive">
+                  Could not load lineage.
+                </p>
+              ) : lineageLoading ? (
+                <Skeleton className="h-16 w-full" />
+              ) : rowFormulas.length === 0 && rowDependencies.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  No calculated columns or cross-sheet dependencies touch this
+                  row.
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {rowFormulas.map((formula) => (
+                    <li
+                      key={formula.id}
+                      className="rounded-md border border-border px-2 py-1.5 text-xs"
+                    >
+                      <p className="break-all font-medium">
+                        {formula.source_expression}
+                      </p>
+                      <p className="text-muted-foreground">
+                        status: {formula.status} · engine{' '}
+                        {formula.engine_version}
+                      </p>
+                    </li>
+                  ))}
+                  {rowDependencies.map((dependency, index) => (
+                    <li
+                      key={`${dependency.formula_id}-${index}`}
+                      className="rounded-md border border-border px-2 py-1.5 text-xs"
+                    >
+                      <p className="font-medium">Cross-sheet dependency</p>
+                      <p className="text-muted-foreground">
+                        source column {dependency.source_column_id.slice(0, 8)}{' '}
+                        → formula {dependency.formula_id.slice(0, 8)}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </InspectorSection>
+          ),
+        },
+        {
+          id: 'links',
+          label: 'Links',
+          badge: links.length,
+          content: (
+            <InspectorSection title="Linked records">
+              {links.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  No outgoing record links from this dataset.
+                </p>
+              ) : (
+                <LinkedRecordList
+                  items={links.map((link) => ({
+                    id: link.id,
+                    type: link.targetKind,
+                    title: link.targetIdentifier,
+                    meta: link.linkType,
+                  }))}
+                />
+              )}
+            </InspectorSection>
+          ),
+        },
+      ]}
+    />
   )
 }
 

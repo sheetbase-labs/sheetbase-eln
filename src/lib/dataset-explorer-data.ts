@@ -408,25 +408,19 @@ export function createDatasetSavedViewStore({
 
 /**
  * Build a default `ChartSpec` (SCI-004 model) from a dataset's columns so the
- * explorer can show a chart preview without a saved analysis. Picks the first
- * numeric column as y and the first categorical/date/text column as x; falls
- * back to a row-index x when no suitable x column exists. Returns null when
- * the dataset has no numeric column to plot.
+ * explorer can show a chart preview without a saved analysis. A scatter chart
+ * needs numeric coordinates, so it uses the first two numeric columns as x
+ * and y, while a categorical field remains the optional series split. Returns
+ * null when the dataset has no numeric column to plot.
  */
 export function buildDefaultChartSpec(
   table: ScientificTableWire,
 ): ChartSpec | null {
-  const numeric = table.columns.find(
+  const numeric = table.columns.filter(
     (c) => c.logical_type === 'decimal' || c.logical_type === 'integer',
   )
-  if (!numeric) return null
-  const x =
-    table.columns.find(
-      (c) =>
-        c.logical_type === 'category' ||
-        c.logical_type === 'date' ||
-        c.logical_type === 'text',
-    ) ?? null
+  const [x, y = x] = numeric
+  if (!y) return null
   const series = table.columns.find((c) => c.logical_type === 'category')
   return {
     specVersion: CHART_SPEC_VERSION,
@@ -434,7 +428,7 @@ export function buildDefaultChartSpec(
     datasets: [{ tableId: table.id }],
     fields: {
       x: x ? { columnId: x.id, fieldName: x.field_name } : null,
-      y: { columnId: numeric.id, fieldName: numeric.field_name },
+      y: { columnId: y.id, fieldName: y.field_name },
       series: series
         ? { columnId: series.id, fieldName: series.field_name }
         : null,
@@ -446,7 +440,7 @@ export function buildDefaultChartSpec(
     display: {
       axes: {
         x: { label: x?.label ?? 'Row', scale: 'linear' },
-        y: { label: numeric.label, scale: 'linear' },
+        y: { label: y.label, scale: 'linear' },
       },
       series: [
         {

@@ -317,7 +317,8 @@ describe('DatasetInspector', () => {
     ).toBeTruthy()
   })
 
-  it('shows row values, lineage and links for a selected row', () => {
+  it('shows row values, lineage and links for a selected row', async () => {
+    const user = userEvent.setup()
     render(
       <DatasetInspector
         table={table()}
@@ -355,11 +356,14 @@ describe('DatasetInspector', () => {
       />,
     )
     expect(screen.getByText('A1')).toBeTruthy()
+    await user.click(screen.getByRole('tab', { name: 'Lineage' }))
     expect(screen.getByText('=col_alpha*2')).toBeTruthy()
+    await user.click(screen.getByRole('tab', { name: /Links/ }))
     expect(screen.getByText('SMP-1')).toBeTruthy()
   })
 
-  it('surfaces a lineage error', () => {
+  it('surfaces a lineage error', async () => {
+    const user = userEvent.setup()
     render(
       <DatasetInspector
         table={table()}
@@ -371,6 +375,7 @@ describe('DatasetInspector', () => {
         lineageError={new Error('boom')}
       />,
     )
+    await user.click(screen.getByRole('tab', { name: 'Lineage' }))
     expect(screen.getByText('Could not load lineage.')).toBeTruthy()
   })
 })
@@ -417,6 +422,21 @@ describe('DatasetDataTab', () => {
     expect(screen.getByText('A1')).toBeTruthy()
     expect(screen.getByText('Chart preview')).toBeTruthy()
     expect(screen.getByLabelText('Saved view name')).toBeTruthy()
+  })
+
+  it('opens the selected-row inspector in a sheet below the desktop breakpoint', async () => {
+    const user = userEvent.setup()
+    mockQueries([{ id: 'r-1', version: 1, col_alpha: 'A1', col_beta: 7.4 }], 1)
+    render(<DatasetDataTab {...props()} />)
+
+    await user.click(screen.getByLabelText('Open dataset inspector'))
+
+    expect(screen.getByRole('dialog')).toBeTruthy()
+    expect(
+      screen.getAllByText(
+        'Select a row to inspect its values, lineage and linked records.',
+      ).length,
+    ).toBeGreaterThan(0)
   })
 
   it('shows the empty state when no rows are returned', () => {

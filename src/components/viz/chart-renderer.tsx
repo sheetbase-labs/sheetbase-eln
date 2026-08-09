@@ -434,7 +434,8 @@ function ChartStateMessage({
 // ---------------------------------------------------------------------------
 
 function axisLabel(label: string, unit?: string) {
-  return unit ? `${label} (${unit})` : label
+  if (!unit || label.includes(`(${unit})`)) return label
+  return `${label} (${unit})`
 }
 
 function describeSeries(materialised: MaterialisedChart): string {

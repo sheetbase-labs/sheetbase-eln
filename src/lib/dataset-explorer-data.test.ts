@@ -214,7 +214,7 @@ describe('buildDefaultChartSpec', () => {
     expect(buildDefaultChartSpec(table({ columns: [column()] }))).toBeNull()
   })
 
-  it('binds y to the first numeric column and x to the first category/date', () => {
+  it('binds scatter coordinates to numeric columns and preserves a category as series', () => {
     const t = table({
       columns: [
         column({
@@ -229,12 +229,18 @@ describe('buildDefaultChartSpec', () => {
           label: 'pH',
           logical_type: 'decimal',
         }),
+        column({
+          id: 'col-num-2',
+          field_name: 'col_num_2',
+          label: 'Titer',
+          logical_type: 'decimal',
+        }),
       ],
     })
     const spec = buildDefaultChartSpec(t)
     expect(spec).not.toBeNull()
-    expect(spec!.fields.y.columnId).toBe('col-num')
-    expect(spec!.fields.x?.columnId).toBe('col-cat')
+    expect(spec!.fields.x?.columnId).toBe('col-num')
+    expect(spec!.fields.y.columnId).toBe('col-num-2')
     expect(spec!.fields.series?.columnId).toBe('col-cat')
     expect(spec!.datasets[0].tableId).toBe(t.id)
   })

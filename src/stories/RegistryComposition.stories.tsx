@@ -4,6 +4,14 @@ import {
   RegistryComposition,
   DEFAULT_REGISTRY_QUERY,
 } from '#/components/registry/registry-composition'
+import { Inspector } from '#/components/record/inspector'
+import {
+  InspectorSection,
+  InspectorSectionStack,
+  Property,
+  PropertyList,
+} from '#/components/record/inspector-sections'
+import { Badge } from '#/components/ui/badge'
 
 type Row = {
   id: string
@@ -46,6 +54,52 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
+function renderInspector(record: unknown) {
+  const row = record as Row | null
+
+  return (
+    <Inspector
+      recordType="Sample"
+      title={row?.title ?? 'No sample selected'}
+      status={<Badge variant="success">{row?.status ?? 'Available'}</Badge>}
+      tabs={[
+        {
+          id: 'details',
+          label: 'Details',
+          content: (
+            <InspectorSectionStack>
+              <InspectorSection title="Record details">
+                <PropertyList>
+                  <Property label="Identifier" mono>
+                    {row?.identifier ?? '—'}
+                  </Property>
+                  <Property label="Concentration" mono>
+                    {row ? `${row.concentration} ng/µL` : '—'}
+                  </Property>
+                </PropertyList>
+              </InspectorSection>
+              <InspectorSection title="Analysis">
+                <PropertyList>
+                  <Property label="Formula" mono stacked>
+                    =IF(AND(A1&gt;0,B1&lt;10),"qualified","review")
+                  </Property>
+                </PropertyList>
+              </InspectorSection>
+            </InspectorSectionStack>
+          ),
+        },
+        {
+          id: 'history',
+          label: 'History',
+          badge: 2,
+          content: 'No changes today.',
+        },
+      ]}
+      className="h-full"
+    />
+  )
+}
+
 const baseArgs = {
   registryId: 'samples',
   workspaceId: 'ws',
@@ -60,6 +114,8 @@ const baseArgs = {
   getRowId: (r: unknown) => (r as Row).id,
   selectedId: '1',
   onSelectedIdChange: () => {},
+  inspectorLabel: 'Record details',
+  renderInspector,
   summaries: [
     { label: 'Total samples', value: 248 },
     { label: 'Frozen', value: 184 },

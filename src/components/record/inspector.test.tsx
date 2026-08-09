@@ -157,6 +157,9 @@ describe('Inspector sections', () => {
     expect(screen.getByText(formula)).toBeTruthy()
     expect(container.querySelector('dd')?.className).toContain('break-words')
     expect(container.querySelector('dd')?.className).not.toContain('truncate')
+    expect(container.querySelector('dd')?.className).toContain(
+      'text-[0.6875rem]',
+    )
   })
 
   it('LinkedRecordList renders links and shows empty hint when empty', () => {

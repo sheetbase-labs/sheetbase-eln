@@ -96,6 +96,7 @@ export function Property({
           'min-w-0 text-xs font-medium text-foreground',
           stacked ? 'break-words text-left' : 'truncate text-right',
           mono && 'font-mono tabular-nums',
+          stacked && mono && 'text-[0.6875rem] leading-4 tracking-[-0.015em]',
         )}
       >
         {children}

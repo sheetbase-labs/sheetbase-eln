@@ -457,8 +457,8 @@ describe('DataTableAlternative', () => {
         loading={false}
       />,
     )
-    expect(screen.getByText('Data table')).toBeTruthy()
-    expect(screen.getByText('2 points')).toBeTruthy()
+    expect(screen.getByText('Data preview')).toBeTruthy()
+    expect(screen.getByText('First 2 rows')).toBeTruthy()
     expect(screen.getByLabelText('Chart data table')).toBeTruthy()
   })
 })

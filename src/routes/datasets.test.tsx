@@ -310,14 +310,12 @@ describe('DatasetInspector', () => {
         lineageError={null}
       />,
     )
-    expect(
-      screen.getByText(
-        'Select a row to inspect its values, lineage and linked records.',
-      ),
-    ).toBeTruthy()
+    expect(screen.getByText('Nothing selected')).toBeTruthy()
+    expect(screen.getByText('Dataset row')).toBeTruthy()
   })
 
-  it('shows row values, lineage and links for a selected row', () => {
+  it('shows row values, lineage and links for a selected row', async () => {
+    const user = userEvent.setup()
     render(
       <DatasetInspector
         table={table()}
@@ -355,15 +353,18 @@ describe('DatasetInspector', () => {
       />,
     )
     expect(screen.getByText('A1')).toBeTruthy()
+    await user.click(screen.getByRole('tab', { name: /Lineage/ }))
     expect(screen.getByText('=col_alpha*2')).toBeTruthy()
+    await user.click(screen.getByRole('tab', { name: /Links/ }))
     expect(screen.getByText('SMP-1')).toBeTruthy()
   })
 
-  it('surfaces a lineage error', () => {
+  it('surfaces a lineage error', async () => {
+    const user = userEvent.setup()
     render(
       <DatasetInspector
         table={table()}
-        row={null}
+        row={{ id: 'r-1', version: 1, col_alpha: 'A1', col_beta: 7.4 }}
         formulas={[]}
         dependencies={[]}
         links={[]}
@@ -371,6 +372,7 @@ describe('DatasetInspector', () => {
         lineageError={new Error('boom')}
       />,
     )
+    await user.click(screen.getByRole('tab', { name: /Lineage/ }))
     expect(screen.getByText('Could not load lineage.')).toBeTruthy()
   })
 })
@@ -411,11 +413,16 @@ describe('DatasetDataTab', () => {
     }
   }
 
-  it('renders rows, filter toolbar and chart preview heading', () => {
+  it('renders rows, transformation tools, formula bar and chart preview', () => {
     mockQueries([{ id: 'r-1', version: 1, col_alpha: 'A1', col_beta: 7.4 }], 1)
     render(<DatasetDataTab {...props()} />)
     expect(screen.getByText('A1')).toBeTruthy()
-    expect(screen.getByText('Chart preview')).toBeTruthy()
+    expect(
+      screen.getByLabelText<HTMLInputElement>('Formula expression').value,
+    ).toBe('Titer (TU/mL) = [Vector genome (copies/mL)] / [Volume (mL)]')
+    expect(screen.getByText('Valid')).toBeTruthy()
+    expect(screen.getByText('Mean ± SD')).toBeTruthy()
+    expect(screen.getByRole('tab', { name: 'Correlations' })).toBeTruthy()
     expect(screen.getByLabelText('Saved view name')).toBeTruthy()
   })
 

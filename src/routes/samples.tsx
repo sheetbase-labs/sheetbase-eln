@@ -231,7 +231,22 @@ function SamplesRegistryRoute() {
 
   // ---- Columns with status + low-stock rendering ----
   const columns = useMemo(() => {
-    const cols = sampleColumns<SampleRecord>()
+    const cols = sampleColumns<SampleRecord>().filter(
+      (column) => column.id !== 'barcode',
+    )
+    const identifierIdx = cols.findIndex((column) => column.id === 'identifier')
+    if (identifierIdx >= 0) {
+      cols[identifierIdx] = {
+        accessorKey: 'identifier',
+        header: 'Sample ID',
+        enableHiding: false,
+        cell: ({ row }) => (
+          <span className="font-medium text-primary underline-offset-2 hover:underline">
+            {row.original.identifier}
+          </span>
+        ),
+      }
+    }
     // Replace the plain status column with a StatusBadge cell.
     const statusIdx = cols.findIndex((c) => c.id === 'status')
     if (statusIdx >= 0) {
@@ -322,45 +337,47 @@ function SamplesRegistryRoute() {
   return (
     <>
       <div className="flex flex-col gap-4 p-4 md:p-6">
-      <RegistryComposition
-        registryId="samples"
-        workspaceId={workspaceId}
-        userId={userId}
-        title="Samples"
-        description="Track sample identity, quantity, storage and chain of custody."
-        rows={rows}
-        totalCount={totalCount}
-        columns={columns}
-        query={query}
-        onQueryChange={setQuery}
-        getRowId={(row) => row.id}
-        selectedId={selectedId}
-        selectedRecord={selectedRecord}
-        onSelectedIdChange={setSelectedId}
-        summaries={summaries}
-        filterDefinitions={filterDefinitions}
-        groupingOptions={groupingOptions}
-        renderInspector={inspector}
-        loading={pageQuery.isLoading}
-        error={pageQuery.error}
-        onRetry={() => pageQuery.refetch()}
-        emptyTitle="No samples yet"
-        noResultsTitle="No matching samples"
-        actions={
-          <Button size="sm" onClick={() => setCreateOpen(true)}>
-            <PackagePlus className="size-3.5" /> New sample
-          </Button>
-        }
-      />
-      <CreateSampleDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        projects={projectsQuery.data ?? []}
-        projectsLoading={projectsQuery.isLoading}
-        pending={createMutation.isPending}
-        error={createError}
-        onCreate={(input) => createMutation.mutate(input)}
-      />
+        <RegistryComposition
+          registryId="samples"
+          workspaceId={workspaceId}
+          userId={userId}
+          title="Samples Registry"
+          description="Track sample identity, quantity, storage and chain of custody."
+          rows={rows}
+          totalCount={totalCount}
+          columns={columns}
+          query={query}
+          onQueryChange={setQuery}
+          getRowId={(row) => row.id}
+          selectedId={selectedId}
+          selectedRecord={selectedRecord}
+          onSelectedIdChange={setSelectedId}
+          summaries={summaries}
+          filterDefinitions={filterDefinitions}
+          groupingOptions={groupingOptions}
+          renderInspector={inspector}
+          inspectorLabel="Sample details"
+          initialDensity="compact"
+          loading={pageQuery.isLoading}
+          error={pageQuery.error}
+          onRetry={() => pageQuery.refetch()}
+          emptyTitle="No samples yet"
+          noResultsTitle="No matching samples"
+          actions={
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              <PackagePlus className="size-3.5" /> New sample
+            </Button>
+          }
+        />
+        <CreateSampleDialog
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          projects={projectsQuery.data ?? []}
+          projectsLoading={projectsQuery.isLoading}
+          pending={createMutation.isPending}
+          error={createError}
+          onCreate={(input) => createMutation.mutate(input)}
+        />
       </div>
     </>
   )

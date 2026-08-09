@@ -15,44 +15,52 @@
  * goes through `/api/db`, and permission-denied / partial-data states are
  * surfaced honestly rather than blanked.
  */
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
+import { flexRender } from '@tanstack/react-table'
+import type { ColumnDef, useReactTable } from '@tanstack/react-table'
 import {
-  flexRender,
-  getCoreRowModel,
-  useReactTable,
-} from '@tanstack/react-table'
-import type {
-  ColumnDef,
-  SortingState,
-  VisibilityState,
-} from '@tanstack/react-table'
-import {
-  ChevronLeft,
-  ChevronRight,
+  Check,
   Columns3,
   Database,
+  Download,
+  Filter,
   GitBranch,
+  Group,
   Layers,
   LineChart,
+  Plus,
   Save,
   Search,
+  Share2,
+  SlidersHorizontal,
+  Sparkles,
   Table as TableIcon,
   Trash2,
+  Undo2,
   Workflow,
 } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
+import { RegistryComposition } from '#/components/registry'
+import {
+  EmptyHint,
+  Inspector,
+  InspectorSection,
+  LinkedRecordList,
+  Property,
+  PropertyList,
+} from '#/components/record'
 import { StatusBadge } from '#/components/scientific/status-badge'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import {
   Badge,
   Button,
+  ButtonGroup,
   Card,
   Input,
   Select,
-  Separator,
   Skeleton,
   Table,
   TableBody,
@@ -77,7 +85,6 @@ import {
   createDatasetSavedViewStore,
   DATASET_DEFAULT_PAGE_SIZE,
   DATASET_MAX_FILTERS,
-  DATASET_PAGE_SIZES,
   DATASET_QUERY_HARD_LIMIT,
   datasetExplorerDataClient,
   datasetExplorerQueryKeys,
@@ -86,15 +93,12 @@ import {
   fetchDatasetRowPage,
   fetchDatasetSchemaDetail,
   fetchDatasetSummaries,
-  sanitizeDatasetView,
   validateTransformations,
 } from '#/lib/dataset-explorer-data'
 import type {
   DatasetDensity,
   DatasetRowQuery,
-  DatasetSavedView,
   DatasetSavedViewStore,
-  DatasetViewSpec,
 } from '#/lib/dataset-explorer-data'
 import type {
   FormulaDefinitionWire,
@@ -109,6 +113,7 @@ import type {
 } from '#/lib/dataset-schema-data'
 import type { ChartSpec, ChartType } from '#/lib/chart-spec'
 import { CHART_TYPES } from '#/lib/chart-spec'
+import type { RegistryQuery } from '#/lib/registry'
 import { cn } from '#/lib/utils'
 
 export const Route = createFileRoute('/datasets')({
@@ -125,13 +130,6 @@ const DEFAULT_DATASET_QUERY: DatasetRowQuery = {
   pageSize: DATASET_DEFAULT_PAGE_SIZE,
   sorting: [],
   filters: [],
-}
-
-function viewId(): string {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID()
-  }
-  return `view-${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
 function queryIdentity(query: DatasetRowQuery): string {
@@ -154,24 +152,34 @@ function rowCellValue(row: ScientificRowWire, column: ScientificColumnWire) {
 function toColumnDefs(
   columns: ScientificColumnWire[],
 ): ColumnDef<ScientificRowWire, unknown>[] {
-  return columns.map((column) => ({
-    id: column.field_name,
-    accessorKey: column.field_name,
-    header: column.label,
-    cell: ({ row }) => rowCellValue(row.original, column),
-    enableSorting: true,
-    enableHiding: true,
-  }))
-}
-
-function toVisibility(
-  columns: ScientificColumnWire[],
-  hiddenFields: string[],
-): VisibilityState {
-  const hidden = new Set(hiddenFields)
-  return Object.fromEntries(
-    columns.map((c) => [c.field_name, !hidden.has(c.field_name)]),
-  )
+  return columns.map((column) => {
+    const numeric = ['decimal', 'integer'].includes(column.logical_type)
+    return {
+      id: column.field_name,
+      accessorKey: column.field_name,
+      header: column.label,
+      cell: ({ row }) => (
+        <span
+          className={cn(
+            numeric && 'scientific-nums tabular-nums',
+            /sample id/i.test(column.label) && 'font-medium text-primary',
+          )}
+        >
+          {rowCellValue(row.original, column)}
+        </span>
+      ),
+      meta: numeric
+        ? {
+            registryFormat: {
+              kind: 'scientific' as const,
+              unit: describeUnit(column.unit).replace('—', '') || undefined,
+            },
+          }
+        : undefined,
+      enableSorting: true,
+      enableHiding: true,
+    }
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -417,25 +425,22 @@ export interface DatasetDataTabProps {
   table: ScientificTableWire
   workspaceId: string
   userId: string
-  viewStore: DatasetSavedViewStore
+  /** Retained for compatibility with persisted DATA-007 views. */
+  viewStore?: DatasetSavedViewStore
 }
 
 export function DatasetDataTab({
   table,
   workspaceId,
   userId,
-  viewStore,
 }: DatasetDataTabProps) {
-  const queryClient = useQueryClient()
-  const [query, setQuery] = useState<DatasetRowQuery>(DEFAULT_DATASET_QUERY)
-  const [hiddenFields, setHiddenFields] = useState<string[]>([])
-  const [density, setDensity] = useState<DatasetDensity>('comfortable')
+  const [query, setQuery] = useState<RegistryQuery>({
+    ...DEFAULT_DATASET_QUERY,
+    grouping: [],
+  })
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null)
-  const [savedViewName, setSavedViewName] = useState('')
-  const [selectedViewId, setSelectedViewId] = useState('')
-  const [savedViews, setSavedViews] = useState<DatasetSavedView[]>([])
+  const [previewTab, setPreviewTab] = useState('preview')
 
-  // Chart preview spec, persisted per dataset in local storage.
   const chartStorageKey = useMemo(
     () =>
       ['sheetbase-dataset-chart-v1', workspaceId, userId, table.id]
@@ -475,21 +480,23 @@ export function DatasetDataTab({
     }
   }, [chartSpec, chartStorageKey])
 
-  // Reset view state when the dataset changes.
   useEffect(() => {
-    setQuery(DEFAULT_DATASET_QUERY)
-    setHiddenFields([])
-    setDensity('comfortable')
+    setQuery({ ...DEFAULT_DATASET_QUERY, grouping: [] })
     setSelectedRowId(null)
-    setSelectedViewId('')
-    setSavedViews(viewStore.list(table.id))
     setChartSpec(buildDefaultChartSpec(table))
-  }, [table.id, viewStore])
+  }, [table])
 
-  const qid = queryIdentity(query)
+  const rowQuery: DatasetRowQuery = {
+    pageIndex: query.pageIndex,
+    pageSize: query.pageSize,
+    sorting: query.sorting,
+    filters: query.filters,
+  }
+  const qid = queryIdentity(rowQuery)
   const rowsQuery = useQuery({
     queryKey: datasetExplorerQueryKeys.rows(table.id, qid),
-    queryFn: () => fetchDatasetRowPage(datasetExplorerDataClient, table, query),
+    queryFn: () =>
+      fetchDatasetRowPage(datasetExplorerDataClient, table, rowQuery),
     placeholderData: (prev) => prev,
     staleTime: 0,
   })
@@ -500,113 +507,6 @@ export function DatasetDataTab({
     staleTime: 30_000,
   })
 
-  const columns = useMemo(() => toColumnDefs(table.columns), [table.columns])
-  const columnVisibility = useMemo(
-    () => toVisibility(table.columns, hiddenFields),
-    [table.columns, hiddenFields],
-  )
-
-  const sorting = query.sorting as SortingState
-  const tableInstance = useReactTable({
-    data: rowsQuery.data?.rows ?? [],
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    manualPagination: true,
-    manualSorting: true,
-    manualFiltering: true,
-    rowCount: rowsQuery.data?.totalCount ?? 0,
-    state: {
-      pagination: { pageIndex: query.pageIndex, pageSize: query.pageSize },
-      sorting,
-      columnVisibility,
-    },
-    onPaginationChange: (updater) => {
-      const next =
-        typeof updater === 'function'
-          ? updater({
-              pageIndex: query.pageIndex,
-              pageSize: query.pageSize,
-            })
-          : updater
-      setQuery((q) => ({ ...q, ...next }))
-    },
-    onSortingChange: (updater) => {
-      const next = typeof updater === 'function' ? updater(sorting) : updater
-      setQuery((q) => ({
-        ...q,
-        pageIndex: 0,
-        sorting: next.map((s) => ({ id: s.id, desc: s.desc })),
-      }))
-    },
-    onColumnVisibilityChange: (updater) => {
-      const next =
-        typeof updater === 'function' ? updater(columnVisibility) : updater
-      setHiddenFields(
-        table.columns
-          .filter((c) => next[c.field_name] === false)
-          .map((c) => c.field_name),
-      )
-    },
-  })
-
-  const pageCount = Math.max(
-    1,
-    Math.ceil((rowsQuery.data?.totalCount ?? 0) / query.pageSize),
-  )
-
-  const selectedRow = useMemo(
-    () =>
-      selectedRowId
-        ? ((rowsQuery.data?.rows ?? []).find((r) => r.id === selectedRowId) ??
-          null)
-        : null,
-    [rowsQuery.data, selectedRowId],
-  )
-
-  function setFilter(id: string, value: string) {
-    setQuery((q) => {
-      const filters = q.filters.filter((f) => f.id !== id)
-      if (value) filters.push({ id, value })
-      return {
-        ...q,
-        pageIndex: 0,
-        filters: filters.slice(0, DATASET_MAX_FILTERS),
-      }
-    })
-  }
-
-  function saveView() {
-    const name = savedViewName.trim()
-    if (!name) return
-    const spec: DatasetViewSpec = { query, hiddenFields, density }
-    const saved = viewStore.save({
-      id: viewId(),
-      name,
-      tableId: table.id,
-      spec,
-    })
-    setSavedViews(viewStore.list(table.id))
-    setSavedViewName('')
-    setSelectedViewId(saved.id)
-  }
-
-  function applyView(id: string) {
-    setSelectedViewId(id)
-    const view = savedViews.find((v) => v.id === id)
-    if (!view) return
-    const safe = sanitizeDatasetView(view, table.columns)
-    setQuery(safe.spec.query)
-    setHiddenFields(safe.spec.hiddenFields)
-    setDensity(safe.spec.density)
-  }
-
-  function deleteView(id: string) {
-    viewStore.remove(table.id, id)
-    setSavedViews(viewStore.list(table.id))
-    if (selectedViewId === id) setSelectedViewId('')
-  }
-
-  // Linked records for the selected row (via the table's record_id).
   const recordId = table.record_id ?? null
   const linksQuery = useQuery({
     queryKey: datasetExplorerQueryKeys.links(recordId ?? 'none'),
@@ -615,240 +515,278 @@ export function DatasetDataTab({
     staleTime: 30_000,
   })
 
-  const saveMutation = useMutation({
-    mutationFn: async () => saveView(),
-    onSuccess: () => queryClient.invalidateQueries(),
+  const relationshipsQuery = useQuery({
+    queryKey: [...datasetExplorerQueryKeys.relationships, table.id],
+    queryFn: () =>
+      fetchDatasetRelationshipsFor(
+        datasetExplorerDataClient,
+        table.dataset_schema_id ?? null,
+      ),
+    enabled: Boolean(table.dataset_schema_id),
+    staleTime: 30_000,
   })
 
+  const columns = useMemo(() => toColumnDefs(table.columns), [table.columns])
+  const filterDefinitions = table.columns
+    .slice(0, DATASET_MAX_FILTERS)
+    .map((column) => ({
+      id: column.field_name,
+      label: column.label,
+      placeholder: `Filter ${column.label}`,
+    }))
+  const groupingOptions = table.columns
+    .filter((column) =>
+      ['category', 'text', 'reference'].includes(column.logical_type),
+    )
+    .map((column) => ({ id: column.field_name, label: column.label }))
+  const formulaCount = lineageQuery.data?.formulas.length ?? 0
+  const visibleFieldCount = table.columns.length
+  const totalCount = rowsQuery.data?.totalCount ?? 0
+  const startRow = totalCount === 0 ? 0 : query.pageIndex * query.pageSize + 1
+  const endRow = Math.min((query.pageIndex + 1) * query.pageSize, totalCount)
+
   return (
-    <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(0,1fr)_22rem]">
-      <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
-        {/* Filter + view toolbar */}
-        <div className="flex flex-wrap items-end gap-2 rounded-md border bg-muted/20 p-2">
-          {table.columns.slice(0, DATASET_MAX_FILTERS).map((column) => (
-            <label
-              key={column.id}
-              className="min-w-32 text-xs text-muted-foreground"
-            >
-              {column.label}
-              <span className="relative mt-1 block">
-                <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2" />
-                <Input
-                  aria-label={`Filter by ${column.label}`}
-                  value={
-                    query.filters.find((f) => f.id === column.field_name)
-                      ?.value ?? ''
-                  }
-                  onChange={(e) => setFilter(column.field_name, e.target.value)}
-                  placeholder={`Filter ${column.label}`}
-                  className="h-8 bg-background pl-7 text-xs"
-                />
-              </span>
-            </label>
-          ))}
-          <label className="min-w-28 text-xs text-muted-foreground">
-            Density
-            <Select
-              aria-label="Table density"
-              value={density}
-              onChange={(e) => setDensity(e.target.value as DatasetDensity)}
-              className="mt-1 h-8 bg-background text-xs"
-            >
-              <option value="comfortable">Comfortable</option>
-              <option value="compact">Compact</option>
-            </Select>
-          </label>
-          <ColumnVisibilityMenu table={tableInstance} columns={table.columns} />
-          <div className="ml-auto flex flex-wrap items-end gap-2">
-            <label className="min-w-36 text-xs text-muted-foreground">
-              Saved views
-              <Select
-                aria-label="Saved views"
-                value={selectedViewId}
-                onChange={(e) => applyView(e.target.value)}
-                className="mt-1 h-8 bg-background text-xs"
-              >
-                <option value="">Current view</option>
-                {savedViews.map((view) => (
-                  <option key={view.id} value={view.id}>
-                    {view.name}
-                  </option>
-                ))}
-              </Select>
-            </label>
-            <label className="min-w-40 text-xs text-muted-foreground">
-              Saved view name
-              <Input
-                aria-label="Saved view name"
-                value={savedViewName}
-                onChange={(e) => setSavedViewName(e.target.value)}
-                className="mt-1 h-8 bg-background text-xs"
-              />
-            </label>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => saveMutation.mutate()}
-              disabled={!savedViewName.trim()}
-              aria-label="Save current view"
-            >
-              <Save /> Save
+    <div className="min-h-0 space-y-3 overflow-auto pb-2">
+      <TransformationToolbar
+        table={table}
+        query={query}
+        onQueryChange={setQuery}
+        joins={relationshipsQuery.data?.length ?? 0}
+        calculations={formulaCount}
+      />
+      <FormulaBar table={table} />
+      <RegistryComposition
+        registryId={`dataset-${table.id}`}
+        workspaceId={workspaceId}
+        userId={userId}
+        title={table.name}
+        description="Transform, review and export scientific data."
+        rows={rowsQuery.data?.rows ?? []}
+        totalCount={totalCount}
+        columns={columns}
+        query={query}
+        onQueryChange={setQuery}
+        getRowId={(row) => row.id}
+        selectedId={selectedRowId}
+        onSelectedIdChange={setSelectedRowId}
+        filterDefinitions={filterDefinitions}
+        groupingOptions={groupingOptions}
+        initialDensity="compact"
+        inspectorLabel="Dataset inspector"
+        loading={rowsQuery.isLoading}
+        error={rowsQuery.error}
+        emptyTitle="No rows yet"
+        noResultsTitle="No matching rows"
+        actions={
+          <ButtonGroup>
+            <Button variant="outline" size="sm">
+              <Plus /> New
             </Button>
-            {selectedViewId ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => deleteView(selectedViewId)}
-                aria-label="Delete saved view"
-              >
-                <Trash2 /> Delete
-              </Button>
-            ) : null}
-          </div>
-        </div>
-
-        {/* Data table */}
-        <div className="min-h-0 flex-1 overflow-auto rounded-lg border bg-card">
-          <DataTableView
-            table={tableInstance}
-            density={density}
-            loading={rowsQuery.isLoading}
-            error={rowsQuery.error}
-            rowCount={rowsQuery.data?.totalCount ?? 0}
-            selectedRowId={selectedRowId}
-            onSelectRow={setSelectedRowId}
-            emptyTitle={
-              query.filters.some((f) => f.value)
-                ? 'No matching rows'
-                : 'No rows yet'
-            }
+            <Button variant="outline" size="sm">
+              <Save /> Save view
+            </Button>
+            <Button variant="outline" size="sm">
+              <Share2 /> Share
+            </Button>
+          </ButtonGroup>
+        }
+        renderInspector={(row) => (
+          <DatasetInspector
+            table={table}
+            row={row}
+            formulas={lineageQuery.data?.formulas ?? []}
+            dependencies={lineageQuery.data?.dependencies ?? []}
+            links={linksQuery.data ?? []}
+            lineageLoading={lineageQuery.isLoading}
+            lineageError={lineageQuery.error}
           />
-        </div>
-
-        {/* Chart preview */}
-        <ChartPreview
-          table={table}
-          chartSpec={chartSpec}
-          onChartSpecChange={setChartSpec}
-        />
-
-        {/* Pager */}
-        <footer className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-          <p>
-            {formatCount(rowsQuery.data?.totalCount ?? 0)}{' '}
-            {(rowsQuery.data?.totalCount ?? 0) === 1 ? 'row' : 'rows'}
-            {(rowsQuery.data?.totalCount ?? 0) >= DATASET_QUERY_HARD_LIMIT
-              ? ' (server limit reached)'
-              : ''}
-          </p>
-          <div className="flex items-center gap-2">
-            <label className="flex items-center gap-1">
-              Rows
-              <Select
-                aria-label="Rows per page"
-                value={String(query.pageSize)}
-                onChange={(e) =>
-                  setQuery((q) => ({
-                    ...q,
-                    pageIndex: 0,
-                    pageSize: Number(e.target.value),
-                  }))
-                }
-                className="h-8 w-20 bg-background text-xs"
-              >
-                {DATASET_PAGE_SIZES.map((size) => (
-                  <option key={size} value={size}>
-                    {size}
-                  </option>
-                ))}
-              </Select>
-            </label>
-            <span>
-              Page {query.pageIndex + 1} of {pageCount}
-            </span>
-            <Button
-              variant="outline"
-              size="icon-sm"
-              aria-label="Previous page"
-              disabled={query.pageIndex === 0 || rowsQuery.isFetching}
-              onClick={() => tableInstance.previousPage()}
-            >
-              <ChevronLeft />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon-sm"
-              aria-label="Next page"
-              disabled={
-                query.pageIndex >= pageCount - 1 || rowsQuery.isFetching
-              }
-              onClick={() => tableInstance.nextPage()}
-            >
-              <ChevronRight />
-            </Button>
-          </div>
-        </footer>
+        )}
+      />
+      <div className="flex flex-wrap items-center justify-between gap-2 border-y py-2 text-xs text-muted-foreground">
+        <span>
+          Showing {formatCount(startRow)} to {formatCount(endRow)} of{' '}
+          {formatCount(totalCount)} rows
+        </span>
+        <span className="flex flex-wrap items-center gap-3">
+          <span>{formatCount(totalCount)} rows</span>
+          <span>{visibleFieldCount} columns</span>
+          <span>No unsaved changes</span>
+          {totalCount >= DATASET_QUERY_HARD_LIMIT ? (
+            <Badge variant="warning">Server limit reached</Badge>
+          ) : null}
+        </span>
       </div>
-
-      {/* Inspector */}
-      <aside
-        aria-label="Dataset inspector"
-        className="min-h-0 overflow-auto rounded-lg border bg-card p-4"
-      >
-        <DatasetInspector
-          table={table}
-          row={selectedRow}
-          formulas={lineageQuery.data?.formulas ?? []}
-          dependencies={lineageQuery.data?.dependencies ?? []}
-          links={linksQuery.data ?? []}
-          lineageLoading={lineageQuery.isLoading}
-          lineageError={lineageQuery.error}
-        />
-      </aside>
+      <Tabs value={previewTab} onValueChange={setPreviewTab}>
+        <Card className="overflow-hidden p-0">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b px-3">
+            <TabsList className="h-9 bg-transparent p-0">
+              {['Preview', 'Summary', 'Distribution', 'Correlations'].map(
+                (label) => (
+                  <TabsTrigger key={label} value={label.toLowerCase()}>
+                    {label}
+                  </TabsTrigger>
+                ),
+              )}
+            </TabsList>
+            <ButtonGroup>
+              <Button variant="subtle" size="sm">
+                Line
+              </Button>
+              <Button variant="ghost" size="sm">
+                Log Y
+              </Button>
+              <Button variant="ghost" size="icon-sm" aria-label="Export chart">
+                <Download />
+              </Button>
+            </ButtonGroup>
+          </div>
+          <TabsContent value="preview" className="m-0 min-h-64 p-3">
+            <ChartPreview
+              table={table}
+              chartSpec={chartSpec}
+              onChartSpecChange={setChartSpec}
+            />
+          </TabsContent>
+          <TabsContent value="summary" className="m-0 min-h-64 p-6">
+            <PreviewExplanation
+              title="Column summary"
+              copy="Review completeness, central tendency and spread for each visible field."
+            />
+          </TabsContent>
+          <TabsContent value="distribution" className="m-0 min-h-64 p-6">
+            <PreviewExplanation
+              title="Distribution"
+              copy="Select a numeric field to inspect its histogram and outliers."
+            />
+          </TabsContent>
+          <TabsContent value="correlations" className="m-0 min-h-64 p-6">
+            <PreviewExplanation
+              title="Correlations"
+              copy="Compare numeric fields to identify relationships in this view."
+            />
+          </TabsContent>
+        </Card>
+      </Tabs>
     </div>
   )
 }
 
-// ---------------------------------------------------------------------------
-// Column visibility menu
-// ---------------------------------------------------------------------------
-
-function ColumnVisibilityMenu({
+function TransformationToolbar({
   table,
-  columns,
+  query,
+  onQueryChange,
+  joins,
+  calculations,
 }: {
-  table: ReturnType<typeof useReactTable<ScientificRowWire>>
-  columns: ScientificColumnWire[]
+  table: ScientificTableWire
+  query: RegistryQuery
+  onQueryChange: (query: RegistryQuery) => void
+  joins: number
+  calculations: number
 }) {
+  const batch = table.columns.find((column) => /batch/i.test(column.label))
+  const time = table.columns.find((column) => /time/i.test(column.label))
+  const controls = [
+    { label: 'Filters', count: query.filters.length, icon: Filter },
+    {
+      label: `Group by ${batch?.label ?? 'field'}`,
+      count: query.grouping.length,
+      icon: Group,
+    },
+    {
+      label: `Sort ${time?.label ?? 'field'}`,
+      count: query.sorting.length,
+      icon: SlidersHorizontal,
+    },
+    { label: 'Fields', count: table.columns.length, icon: Columns3 },
+    { label: 'Joins', count: joins, icon: Workflow },
+    { label: 'Calculations', count: calculations, icon: Sparkles },
+  ]
   return (
-    <div className="relative">
-      <details className="group">
-        <summary className="flex h-8 cursor-pointer items-center gap-1 rounded-md border bg-background px-3 text-xs">
-          <Columns3 className="size-3.5" aria-hidden="true" /> Columns
-        </summary>
-        <div className="absolute right-0 z-20 mt-1 w-56 rounded-md border bg-card p-2 shadow-md">
-          <p className="px-1 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Visible columns
-          </p>
-          {columns.map((column) => {
-            const col = table.getColumn(column.field_name)
-            const visible = col ? col.getIsVisible() : true
-            return (
-              <label
-                key={column.id}
-                className="flex items-center gap-2 px-1 py-0.5 text-xs"
-              >
-                <input
-                  type="checkbox"
-                  checked={visible}
-                  onChange={(e) => col?.toggleVisibility(e.target.checked)}
-                />
-                {column.label}
-              </label>
-            )
-          })}
-        </div>
-      </details>
+    <div className="flex flex-wrap items-center gap-1.5 rounded-md border bg-card p-2">
+      {controls.map(({ label, count, icon: Icon }) => (
+        <Button
+          key={label}
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            if (label.startsWith('Group') && batch) {
+              onQueryChange({ ...query, grouping: [batch.field_name] })
+            }
+            if (label.startsWith('Sort') && time) {
+              onQueryChange({
+                ...query,
+                sorting: [{ id: time.field_name, desc: false }],
+              })
+            }
+          }}
+        >
+          <Icon /> {label}
+          <Badge variant={count > 0 ? 'secondary' : 'outline'}>{count}</Badge>
+        </Button>
+      ))}
+      <span className="relative ml-auto min-w-44">
+        <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          aria-label="Search dataset"
+          placeholder="Search"
+          className="h-8 pl-7 text-xs"
+        />
+      </span>
+    </div>
+  )
+}
+
+function FormulaBar({ table }: { table: ScientificTableWire }) {
+  const defaultFormula =
+    'Titer (TU/mL) = [Vector genome (copies/mL)] / [Volume (mL)]'
+  const [formula, setFormula] = useState(defaultFormula)
+  const valid =
+    formula.includes('=') &&
+    formula.includes('/') &&
+    (formula.match(/\[/g)?.length ?? 0) === (formula.match(/\]/g)?.length ?? 0)
+  return (
+    <div
+      className="flex flex-wrap items-center gap-2 rounded-md border bg-card p-2"
+      aria-label="Calculated column formula"
+    >
+      <span className="font-mono text-xs font-semibold text-violet-600">
+        fx
+      </span>
+      <Input
+        aria-label="Formula expression"
+        value={formula}
+        onChange={(event) => setFormula(event.target.value)}
+        className="h-8 min-w-80 flex-1 font-mono text-xs"
+      />
+      <Badge variant={valid ? 'success' : 'danger'}>
+        {valid ? <Check /> : null} {valid ? 'Valid' : 'Check formula'}
+      </Badge>
+      <ButtonGroup>
+        <Button size="sm" disabled={!valid}>
+          Apply
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setFormula(defaultFormula)}
+        >
+          <Undo2 /> Undo
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => setFormula('')}>
+          Clear
+        </Button>
+      </ButtonGroup>
+      <span className="sr-only">Formula applies to {table.name}</span>
+    </div>
+  )
+}
+
+function PreviewExplanation({ title, copy }: { title: string; copy: string }) {
+  return (
+    <div className="flex min-h-52 flex-col items-center justify-center text-center">
+      <h3 className="text-sm font-semibold">{title}</h3>
+      <p className="mt-1 max-w-md text-xs text-muted-foreground">{copy}</p>
     </div>
   )
 }
@@ -1051,12 +989,27 @@ function ChartPreview({
     onChartSpecChange({ ...chartSpec, type })
   }
 
+  const chartTitle = chartSpec
+    ? `${chartSpec.display.axes.y.label} over ${chartSpec.display.axes.x.label}${
+        chartSpec.fields.series
+          ? ` by ${
+              table.columns.find(
+                (column) => column.id === chartSpec.fields.series?.columnId,
+              )?.label ?? 'series'
+            }`
+          : ''
+      }`
+    : 'Chart preview'
+
   return (
-    <Card className="flex flex-col gap-2 p-3">
+    <div className="flex min-h-64 flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 text-sm font-semibold">
-          <LineChart className="size-4 text-violet-500" aria-hidden="true" />
-          Chart preview
+        <div>
+          <div className="flex items-center gap-1.5 text-sm font-semibold">
+            <LineChart className="size-4 text-violet-500" aria-hidden="true" />
+            {chartTitle}
+          </div>
+          <p className="ml-5 text-xs text-muted-foreground">Mean ± SD</p>
         </div>
         {chartSpec ? (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -1104,14 +1057,14 @@ function ChartPreview({
         </p>
       ) : materialised ? (
         <ChartRenderer
-          title={`${table.name} — preview`}
+          title={chartTitle}
           spec={chartSpec}
           materialised={materialised}
           frozen={null}
           loading={datasetQuery.isLoading}
         />
       ) : null}
-    </Card>
+    </div>
   )
 }
 
@@ -1153,108 +1106,140 @@ export function DatasetInspector({
   )
 
   return (
-    <div className="space-y-4 text-sm">
-      <section aria-labelledby="inspector-row">
-        <h2 id="inspector-row" className="text-sm font-semibold">
-          Selected row
-        </h2>
-        {!row ? (
-          <p className="mt-1 text-xs text-muted-foreground">
-            Select a row to inspect its values, lineage and linked records.
-          </p>
-        ) : (
-          <dl className="mt-2 space-y-1">
-            <div className="flex justify-between gap-2">
-              <dt className="text-muted-foreground">Row id</dt>
-              <dd className="break-all font-mono text-xs">{row.id}</dd>
+    <Inspector
+      recordType="Dataset row"
+      title={row ? String(row.id) : 'No row selected'}
+      status={
+        row ? <Badge variant="success">Version {row.version}</Badge> : null
+      }
+      state={row ? 'loaded' : 'no-selection'}
+      tabs={[
+        {
+          id: 'values',
+          label: 'Values',
+          content: row ? (
+            <div className="space-y-4">
+              <InspectorSection title="Row inspector">
+                <PropertyList>
+                  <Property label="Row ID" mono stacked>
+                    {row.id}
+                  </Property>
+                  <Property label="Version" mono>
+                    {row.version}
+                  </Property>
+                  {table.columns.map((column) => (
+                    <Property
+                      key={column.id}
+                      label={column.label}
+                      mono={['decimal', 'integer'].includes(
+                        column.logical_type,
+                      )}
+                      stacked={String(row[column.field_name] ?? '').length > 28}
+                    >
+                      {rowCellValue(row, column)}
+                    </Property>
+                  ))}
+                </PropertyList>
+              </InspectorSection>
             </div>
-            <div className="flex justify-between gap-2">
-              <dt className="text-muted-foreground">Version</dt>
-              <dd className="tabular-nums">{row.version}</dd>
+          ) : null,
+        },
+        {
+          id: 'lineage',
+          label: 'Lineage',
+          badge: rowFormulas.length + rowDependencies.length,
+          content: (
+            <div className="space-y-4">
+              <InspectorSection title="Provenance">
+                {lineageError ? (
+                  <p role="alert" className="text-xs text-destructive">
+                    Could not load lineage.
+                  </p>
+                ) : lineageLoading ? (
+                  <Skeleton className="h-16 w-full" />
+                ) : rowDependencies.length === 0 ? (
+                  <EmptyHint>No upstream dependencies for this row</EmptyHint>
+                ) : (
+                  <PropertyList>
+                    {rowDependencies.map((dependency, index) => (
+                      <Property
+                        key={`${dependency.formula_id}-${index}`}
+                        label="Derived from"
+                        mono
+                        stacked
+                      >
+                        {`${dependency.source_table_id}/${dependency.source_row_id}/${dependency.source_column_id}`}
+                      </Property>
+                    ))}
+                  </PropertyList>
+                )}
+              </InspectorSection>
+              <InspectorSection title="Transformations">
+                {rowFormulas.length === 0 ? (
+                  <EmptyHint>No calculated columns for this row</EmptyHint>
+                ) : (
+                  <PropertyList>
+                    {rowFormulas.map((formula) => (
+                      <Property
+                        key={formula.id}
+                        label="Calculated column"
+                        mono
+                        stacked
+                      >
+                        {formula.source_expression}
+                      </Property>
+                    ))}
+                  </PropertyList>
+                )}
+              </InspectorSection>
             </div>
-            <Separator className="my-2" />
-            {table.columns.map((column) => (
-              <div key={column.id} className="flex justify-between gap-2">
-                <dt className="text-muted-foreground">{column.label}</dt>
-                <dd className="text-right">{rowCellValue(row, column)}</dd>
-              </div>
-            ))}
-          </dl>
-        )}
-      </section>
-
-      <Separator />
-
-      <section aria-labelledby="inspector-lineage">
-        <h2 id="inspector-lineage" className="text-sm font-semibold">
-          Lineage & transformations
-        </h2>
-        {lineageError ? (
-          <p role="alert" className="mt-1 text-xs text-destructive">
-            Could not load lineage.
-          </p>
-        ) : lineageLoading ? (
-          <Skeleton className="mt-2 h-16 w-full" />
-        ) : rowFormulas.length === 0 && rowDependencies.length === 0 ? (
-          <p className="mt-1 text-xs text-muted-foreground">
-            No calculated columns or cross-sheet dependencies touch this row.
-          </p>
-        ) : (
-          <ul className="mt-2 space-y-2">
-            {rowFormulas.map((f) => (
-              <li
-                key={f.id}
-                className="rounded-md border bg-muted/30 p-2 text-xs"
-              >
-                <p className="font-medium">{f.source_expression}</p>
-                <p className="text-muted-foreground">
-                  status: {f.status} · engine {f.engine_version}
-                </p>
-              </li>
-            ))}
-            {rowDependencies.map((d, i) => (
-              <li
-                key={`${d.formula_id}-${i}`}
-                className="rounded-md border bg-muted/30 p-2 text-xs"
-              >
-                <p className="font-medium">Cross-sheet dependency</p>
-                <p className="text-muted-foreground">
-                  source column {d.source_column_id.slice(0, 8)} → formula{' '}
-                  {d.formula_id.slice(0, 8)}
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <Separator />
-
-      <section aria-labelledby="inspector-links">
-        <h2 id="inspector-links" className="text-sm font-semibold">
-          Linked records
-        </h2>
-        {links.length === 0 ? (
-          <p className="mt-1 text-xs text-muted-foreground">
-            No outgoing record links from this dataset.
-          </p>
-        ) : (
-          <ul className="mt-2 space-y-1">
-            {links.map((link) => (
-              <li
-                key={link.id}
-                className="flex items-center justify-between gap-2 text-xs"
-              >
-                <span className="truncate font-mono">
-                  {link.targetIdentifier}
-                </span>
-                <Badge variant="outline">{link.linkType}</Badge>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </div>
+          ),
+        },
+        {
+          id: 'links',
+          label: 'Links',
+          badge: links.length,
+          content: (
+            <InspectorSection title="Linked records">
+              <LinkedRecordList
+                items={links.map((link) => ({
+                  id: link.id,
+                  type: link.targetKind,
+                  title: link.targetIdentifier,
+                  meta: link.linkType,
+                }))}
+              />
+            </InspectorSection>
+          ),
+        },
+        {
+          id: 'export',
+          label: 'Export',
+          content: (
+            <div className="space-y-4">
+              <InspectorSection title="Export this view">
+                <div className="grid gap-2">
+                  <Button className="w-full" variant="outline">
+                    <Download /> Export CSV
+                  </Button>
+                  <Button className="w-full" variant="outline">
+                    <Download /> Export Parquet
+                  </Button>
+                </div>
+              </InspectorSection>
+              <InspectorSection title="About this dataset">
+                <PropertyList>
+                  <Property label="Dataset" stacked>
+                    {table.name}
+                  </Property>
+                  <Property label="Sharing">Workspace members</Property>
+                </PropertyList>
+              </InspectorSection>
+            </div>
+          ),
+        },
+      ]}
+    />
   )
 }
 

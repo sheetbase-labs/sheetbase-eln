@@ -37,11 +37,15 @@ import { ChartRenderer } from '#/components/viz/chart-renderer'
 import {
   Badge,
   Button,
+  ButtonGroup,
   Card,
+  Field,
+  FieldGroup,
+  FieldLabel,
   Input,
   Select,
-  Separator,
   Skeleton,
+  Switch,
   Table,
   TableBody,
   TableCell,
@@ -49,6 +53,13 @@ import {
   TableHeader,
   TableRow,
 } from '#/components/ui'
+import { Inspector } from '#/components/record/inspector'
+import {
+  InspectorSection,
+  InspectorSectionStack,
+  Property,
+  PropertyList,
+} from '#/components/record'
 import { materialiseLiveChart, useLiveChartDataset } from '#/lib/chart-data'
 import {
   AXIS_SCALES,
@@ -244,6 +255,29 @@ function AnalysisStudioRoute() {
     context: shellContext,
     breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Analysis' }],
     fullBleed: true,
+    inspectorCollapsible: true,
+    inspectorLabel: 'Chart settings',
+    inspector:
+      selectedTable && spec ? (
+        <AnalysisInspector
+          table={selectedTable}
+          spec={spec}
+          onSpecChange={setSpec}
+          views={views}
+          selectedViewId={selectedViewId}
+          viewName={viewName}
+          onViewNameChange={setViewName}
+          onLoad={loadView}
+          onSave={() => saveMutation.mutate()}
+          onDelete={(id) => deleteMutation.mutate(id)}
+          saving={saveMutation.isPending}
+          exportSettings={exportSettings}
+          onExportSettingsChange={setExportSettings}
+          datasets={datasets}
+          user={{ id: userId, name: context.user.name }}
+          materialised={analysisMaterialised}
+        />
+      ) : undefined,
   })
 
   return (
@@ -257,37 +291,12 @@ function AnalysisStudioRoute() {
           onSelect={setSelectedTableId}
         />
         {selectedTable && spec ? (
-          <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[20rem_minmax(0,1fr)]">
-            <div className="flex min-h-0 flex-col gap-3 overflow-auto">
-              <AnalysisControls
-                table={selectedTable}
-                spec={spec}
-                onSpecChange={setSpec}
-              />
-              <SavedViewsPanel
-                views={views}
-                selectedViewId={selectedViewId}
-                viewName={viewName}
-                onViewNameChange={setViewName}
-                onLoad={loadView}
-                onSave={() => saveMutation.mutate()}
-                onDelete={(id) => deleteMutation.mutate(id)}
-                saving={saveMutation.isPending}
-                canSave={Boolean(viewName.trim() && spec)}
-              />
-              <ExportPanel
-                spec={spec}
-                settings={exportSettings}
-                onSettingsChange={setExportSettings}
-                table={selectedTable}
-                datasets={datasets}
-                viewName={viewName}
-                selectedViewId={selectedViewId}
-                views={views}
-                user={{ id: userId, name: context.user.name }}
-                materialised={analysisMaterialised}
-              />
-            </div>
+          <div className="flex min-h-0 flex-1 flex-col gap-3">
+            <AnalysisControls
+              table={selectedTable}
+              spec={spec}
+              onSpecChange={setSpec}
+            />
             <AnalysisPreview
               table={selectedTable}
               spec={spec}
@@ -356,9 +365,10 @@ export function AnalysisStudioHeader({
         ) : datasets.length === 0 ? (
           <Badge variant="outline">No datasets</Badge>
         ) : (
-          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span>Data source</span>
+          <Field className="flex grid-cols-[auto_16rem] items-center gap-2">
+            <FieldLabel htmlFor="analysis-data-source">Data source</FieldLabel>
             <Select
+              id="analysis-data-source"
               aria-label="Select data source"
               value={selectedTableId ?? ''}
               onChange={(e) => onSelect(e.target.value)}
@@ -371,7 +381,7 @@ export function AnalysisStudioHeader({
                 </option>
               ))}
             </Select>
-          </label>
+          </Field>
         )}
       </div>
     </header>
@@ -551,54 +561,41 @@ export function AnalysisControls({
   const currentErrorColumn = spec.overlays.errorBars?.columnId ?? ''
 
   return (
-    <Card className="space-y-3 p-4" aria-labelledby="controls-title">
-      <h2 id="controls-title" className="text-sm font-semibold">
-        Specification
+    <Card className="shrink-0 space-y-3 p-3" aria-labelledby="controls-title">
+      <h2 id="controls-title" className="sr-only">
+        Chart configuration
       </h2>
-
-      {/* Chart type */}
-      <fieldset className="space-y-1.5">
-        <legend className="text-xs font-medium text-muted-foreground">
-          Chart type
-        </legend>
-        <div className="flex gap-1.5" role="radiogroup" aria-label="Chart type">
-          {CHART_TYPES.map((t) => (
-            <button
-              key={t}
-              type="button"
-              role="radio"
-              aria-checked={spec.type === t}
-              onClick={() => setType(t)}
-              className={cn(
-                'inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-md border text-xs capitalize',
-                spec.type === t
-                  ? 'border-violet-500 bg-violet-50 text-violet-700 dark:bg-violet-950/40'
-                  : 'bg-background text-muted-foreground hover:bg-muted/40',
-              )}
-            >
-              {t === 'line' ? (
-                <LineChartIcon className="size-3.5" aria-hidden="true" />
-              ) : t === 'scatter' ? (
-                <ScatterChart className="size-3.5" aria-hidden="true" />
-              ) : (
-                <BarChart3 className="size-3.5" aria-hidden="true" />
-              )}
-              {t}
-            </button>
-          ))}
-        </div>
-      </fieldset>
-
-      <Separator />
-
-      {/* Axis mapping */}
-      <fieldset className="grid grid-cols-2 gap-2">
-        <legend className="col-span-2 text-xs font-medium text-muted-foreground">
-          Axis mapping
-        </legend>
-        <label className="space-y-1 text-xs">
-          <span className="text-muted-foreground">X axis</span>
+      <FieldGroup className="flex flex-wrap items-end gap-3">
+        <Field className="min-w-64 flex-1">
+          <FieldLabel>Chart type</FieldLabel>
+          <ButtonGroup role="radiogroup" aria-label="Chart type">
+            {CHART_TYPES.map((t) => (
+              <Button
+                key={t}
+                type="button"
+                variant={spec.type === t ? 'default' : 'outline'}
+                size="sm"
+                role="radio"
+                aria-checked={spec.type === t}
+                onClick={() => setType(t)}
+                className="capitalize"
+              >
+                {t === 'line' ? (
+                  <LineChartIcon className="size-3.5" aria-hidden="true" />
+                ) : t === 'scatter' ? (
+                  <ScatterChart className="size-3.5" aria-hidden="true" />
+                ) : (
+                  <BarChart3 className="size-3.5" aria-hidden="true" />
+                )}
+                {t}
+              </Button>
+            ))}
+          </ButtonGroup>
+        </Field>
+        <Field className="min-w-40 flex-1">
+          <FieldLabel htmlFor="analysis-x-axis">X-axis</FieldLabel>
           <Select
+            id="analysis-x-axis"
             aria-label="X axis field"
             value={spec.fields.x?.columnId ?? ''}
             onChange={(e) => setField('x', e.target.value)}
@@ -611,10 +608,11 @@ export function AnalysisControls({
               </option>
             ))}
           </Select>
-        </label>
-        <label className="space-y-1 text-xs">
-          <span className="text-muted-foreground">Y axis</span>
+        </Field>
+        <Field className="min-w-40 flex-1">
+          <FieldLabel htmlFor="analysis-y-axis">Y-axis</FieldLabel>
           <Select
+            id="analysis-y-axis"
             aria-label="Y axis field"
             value={spec.fields.y.columnId}
             onChange={(e) => setField('y', e.target.value)}
@@ -626,155 +624,142 @@ export function AnalysisControls({
               </option>
             ))}
           </Select>
-        </label>
-        <label className="space-y-1 text-xs">
-          <span className="text-muted-foreground">X scale</span>
+        </Field>
+        <Field className="min-w-40 flex-1">
+          <FieldLabel htmlFor="analysis-colour">Colour by</FieldLabel>
           <Select
-            aria-label="X axis scale"
-            value={spec.display.axes.x.scale}
-            onChange={(e) => setAxisScale('x', e.target.value as AxisScale)}
+            id="analysis-colour"
+            aria-label="Colour by"
+            value={spec.fields.color?.columnId ?? ''}
+            onChange={(e) => setField('color', e.target.value)}
             className="h-8 bg-background"
           >
-            {AXIS_SCALES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </Select>
-        </label>
-        <label className="space-y-1 text-xs">
-          <span className="text-muted-foreground">Y scale</span>
-          <Select
-            aria-label="Y axis scale"
-            value={spec.display.axes.y.scale}
-            onChange={(e) => setAxisScale('y', e.target.value as AxisScale)}
-            className="h-8 bg-background"
-          >
-            {AXIS_SCALES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </Select>
-        </label>
-      </fieldset>
-
-      <Separator />
-
-      {/* Grouping */}
-      <fieldset className="space-y-1.5">
-        <legend className="text-xs font-medium text-muted-foreground">
-          Grouping (series)
-        </legend>
-        <Select
-          aria-label="Group by series"
-          value={spec.fields.series?.columnId ?? ''}
-          onChange={(e) => setField('series', e.target.value)}
-          className="h-8 bg-background"
-        >
-          <option value="">No grouping</option>
-          {categoryColumns.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.label}
-            </option>
-          ))}
-        </Select>
-      </fieldset>
-
-      <Separator />
-
-      {/* Aggregation */}
-      <fieldset className="space-y-1.5">
-        <legend className="text-xs font-medium text-muted-foreground">
-          Aggregation
-        </legend>
-        <Select
-          aria-label="Aggregation function"
-          value={
-            typeof aggregateTransform?.params.function === 'string'
-              ? aggregateTransform.params.function
-              : ''
-          }
-          onChange={(e) => setAggregate(e.target.value)}
-          className="h-8 bg-background"
-        >
-          <option value="">None (raw rows)</option>
-          <option value="mean">Mean (by x)</option>
-          <option value="sum">Sum (by x)</option>
-          <option value="min">Min (by x)</option>
-          <option value="max">Max (by x)</option>
-          <option value="count">Count (by x)</option>
-        </Select>
-      </fieldset>
-
-      <Separator />
-
-      {/* Normalisation */}
-      <fieldset className="space-y-1.5">
-        <legend className="text-xs font-medium text-muted-foreground">
-          Normalisation
-        </legend>
-        <Select
-          aria-label="Normalisation method"
-          value={
-            typeof normaliseTransform?.params.method === 'string'
-              ? normaliseTransform.params.method
-              : ''
-          }
-          onChange={(e) => setNormalise(e.target.value)}
-          className="h-8 bg-background"
-        >
-          <option value="">None</option>
-          <option value="percent_of_max">Percent of max (per series)</option>
-          <option value="z_score">Z-score (per series)</option>
-        </Select>
-      </fieldset>
-
-      <Separator />
-
-      {/* Statistical overlay */}
-      <fieldset className="space-y-1.5">
-        <legend className="text-xs font-medium text-muted-foreground">
-          Statistical overlay — error bars
-        </legend>
-        <Select
-          aria-label="Error bar basis"
-          value={currentErrorBasis}
-          onChange={(e) => setErrorBars(e.target.value as ErrorBarBasis | '')}
-          className="h-8 bg-background"
-        >
-          <option value="">No error bars</option>
-          {ERROR_BAR_BASES.map((b) => (
-            <option key={b} value={b}>
-              {b.toUpperCase()}
-            </option>
-          ))}
-        </Select>
-        {spec.overlays.errorBars ? (
-          <Select
-            aria-label="Error bar column"
-            value={currentErrorColumn}
-            onChange={(e) => setErrorBarColumn(e.target.value)}
-            className="h-8 bg-background"
-          >
-            {numericColumns.map((c) => (
+            <option value="">Automatic</option>
+            {categoryColumns.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.label}
               </option>
             ))}
           </Select>
+        </Field>
+        <Field className="min-w-40 flex-1">
+          <FieldLabel htmlFor="analysis-series">Split / facet</FieldLabel>
+          <Select
+            id="analysis-series"
+            aria-label="Group by series"
+            value={spec.fields.series?.columnId ?? ''}
+            onChange={(e) => setField('series', e.target.value)}
+            className="h-8 bg-background"
+          >
+            <option value="">No split</option>
+            {categoryColumns.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      </FieldGroup>
+      <FieldGroup className="flex flex-wrap items-end gap-3 border-t pt-3">
+        <Field className="min-w-36 flex-1">
+          <FieldLabel htmlFor="analysis-aggregation">Aggregation</FieldLabel>
+          <Select
+            id="analysis-aggregation"
+            aria-label="Aggregation function"
+            value={
+              typeof aggregateTransform?.params.function === 'string'
+                ? aggregateTransform.params.function
+                : ''
+            }
+            onChange={(e) => setAggregate(e.target.value)}
+            className="h-8 bg-background"
+          >
+            <option value="">None (raw rows)</option>
+            <option value="mean">Mean (by x)</option>
+            <option value="sum">Sum (by x)</option>
+            <option value="min">Minimum (by x)</option>
+            <option value="max">Maximum (by x)</option>
+            <option value="count">Count (by x)</option>
+          </Select>
+        </Field>
+        <Field className="min-w-36 flex-1">
+          <FieldLabel htmlFor="analysis-normalisation">
+            Normalisation
+          </FieldLabel>
+          <Select
+            id="analysis-normalisation"
+            aria-label="Normalisation method"
+            value={
+              typeof normaliseTransform?.params.method === 'string'
+                ? normaliseTransform.params.method
+                : ''
+            }
+            onChange={(e) => setNormalise(e.target.value)}
+            className="h-8 bg-background"
+          >
+            <option value="">None</option>
+            <option value="percent_of_max">Percent of maximum</option>
+            <option value="z_score">Z-score</option>
+          </Select>
+        </Field>
+        <Field className="min-w-40 flex-1">
+          <FieldLabel htmlFor="analysis-overlay">
+            Statistical overlay
+          </FieldLabel>
+          <Select
+            id="analysis-overlay"
+            aria-label="Error bar basis"
+            value={currentErrorBasis}
+            onChange={(e) => setErrorBars(e.target.value as ErrorBarBasis | '')}
+            className="h-8 bg-background"
+          >
+            <option value="">None</option>
+            {ERROR_BAR_BASES.map((b) => (
+              <option key={b} value={b}>
+                {b.toUpperCase()}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        {spec.overlays.errorBars ? (
+          <Field className="min-w-40 flex-1">
+            <FieldLabel htmlFor="analysis-error-column">
+              Error values
+            </FieldLabel>
+            <Select
+              id="analysis-error-column"
+              aria-label="Error bar column"
+              value={currentErrorColumn}
+              onChange={(e) => setErrorBarColumn(e.target.value)}
+              className="h-8 bg-background"
+            >
+              {numericColumns.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
         ) : null}
-      </fieldset>
-
-      <Separator />
-
-      {/* Filters */}
-      <fieldset className="space-y-1.5">
-        <legend className="text-xs font-medium text-muted-foreground">
-          Filters (up to {ANALYSIS_MAX_FILTERS})
-        </legend>
-        <FilterControls table={table} spec={spec} onSpecChange={onSpecChange} />
-      </fieldset>
+        <Field className="flex min-w-28 grid-cols-[1fr_auto] items-center gap-2 rounded-md border px-3 py-2">
+          <FieldLabel htmlFor="analysis-error-toggle">Error bars</FieldLabel>
+          <Switch
+            id="analysis-error-toggle"
+            checked={Boolean(spec.overlays.errorBars)}
+            onCheckedChange={(checked) => setErrorBars(checked ? 'sd' : '')}
+          />
+        </Field>
+        <Field className="flex min-w-28 grid-cols-[1fr_auto] items-center gap-2 rounded-md border px-3 py-2">
+          <FieldLabel htmlFor="analysis-log-toggle">Log scale</FieldLabel>
+          <Switch
+            id="analysis-log-toggle"
+            checked={spec.display.axes.y.scale === 'log'}
+            onCheckedChange={(checked) =>
+              setAxisScale('y', checked ? 'log' : 'linear')
+            }
+          />
+        </Field>
+      </FieldGroup>
     </Card>
   )
 }
@@ -829,13 +814,22 @@ export function FilterControls({
             <span className="flex-1 truncate text-xs text-muted-foreground">
               {column?.label ?? filter.fieldName}
             </span>
-            <Input
-              aria-label={`Filter value for ${column?.label ?? filter.fieldName}`}
-              value={String(filter.value ?? '')}
-              onChange={(e) => setFilter(i, e.target.value)}
-              placeholder="eq…"
-              className="h-7 w-24 bg-background text-xs"
-            />
+            <Field className="w-24">
+              <FieldLabel
+                className="sr-only"
+                htmlFor={`filter-${filter.columnId}-${i}`}
+              >
+                Filter value
+              </FieldLabel>
+              <Input
+                id={`filter-${filter.columnId}-${i}`}
+                aria-label={`Filter value for ${column?.label ?? filter.fieldName}`}
+                value={String(filter.value ?? '')}
+                onChange={(e) => setFilter(i, e.target.value)}
+                placeholder="eq…"
+                className="h-7 bg-background text-xs"
+              />
+            </Field>
             <Button
               variant="ghost"
               size="icon-sm"
@@ -853,6 +847,257 @@ export function FilterControls({
         </Button>
       ) : null}
     </div>
+  )
+}
+
+function AnalysisInspector({
+  table,
+  spec,
+  onSpecChange,
+  views,
+  selectedViewId,
+  viewName,
+  onViewNameChange,
+  onLoad,
+  onSave,
+  onDelete,
+  saving,
+  exportSettings,
+  onExportSettingsChange,
+  datasets,
+  user,
+  materialised,
+}: {
+  table: ScientificTableWire
+  spec: ChartSpec
+  onSpecChange: (spec: ChartSpec) => void
+  views: AnalysisViewWire[]
+  selectedViewId: string | null
+  viewName: string
+  onViewNameChange: (name: string) => void
+  onLoad: (view: AnalysisViewWire) => void
+  onSave: () => void
+  onDelete: (id: string) => void
+  saving: boolean
+  exportSettings: ExportSettings
+  onExportSettingsChange: (settings: ExportSettings) => void
+  datasets: ScientificTableWire[]
+  user: { id: string; name: string }
+  materialised: ReturnType<typeof materialiseLiveChart>
+}) {
+  function setScale(axis: 'x' | 'y', scale: AxisScale) {
+    onSpecChange({
+      ...spec,
+      display: {
+        ...spec.display,
+        axes: {
+          ...spec.display.axes,
+          [axis]: { ...spec.display.axes[axis], scale },
+        },
+      },
+    })
+  }
+
+  function setMean(checked: boolean) {
+    const transformations = spec.transformations.filter(
+      (item) => item.kind !== 'aggregate',
+    )
+    onSpecChange({
+      ...spec,
+      transformations: checked
+        ? [
+            ...transformations,
+            {
+              kind: 'aggregate',
+              params: {
+                function: 'mean',
+                xField: spec.fields.x?.fieldName ?? null,
+                yField: spec.fields.y.fieldName,
+                seriesField: spec.fields.series?.fieldName ?? null,
+              },
+            },
+          ]
+        : transformations,
+    })
+  }
+
+  function setStandardDeviation(checked: boolean) {
+    const numericColumn = table.columns.find(
+      (column) =>
+        (column.logical_type === 'decimal' ||
+          column.logical_type === 'integer') &&
+        column.id !== spec.fields.y.columnId,
+    )
+    onSpecChange({
+      ...spec,
+      overlays: {
+        ...spec.overlays,
+        errorBars:
+          checked && numericColumn
+            ? {
+                columnId: numericColumn.id,
+                fieldName: numericColumn.field_name,
+                basis: 'sd',
+              }
+            : null,
+      },
+    })
+  }
+
+  const settings = (
+    <InspectorSectionStack>
+      <InspectorSection title="Axis scaling">
+        <FieldGroup>
+          {(['x', 'y'] as const).map((axis) => (
+            <Field key={axis}>
+              <FieldLabel htmlFor={`inspector-${axis}-scale`}>
+                {axis.toUpperCase()}-axis scale
+              </FieldLabel>
+              <Select
+                id={`inspector-${axis}-scale`}
+                value={spec.display.axes[axis].scale}
+                onChange={(event) =>
+                  setScale(axis, event.target.value as AxisScale)
+                }
+              >
+                {AXIS_SCALES.map((scale) => (
+                  <option key={scale} value={scale}>
+                    {scale === 'log' ? 'Logarithmic' : 'Linear'}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          ))}
+        </FieldGroup>
+      </InspectorSection>
+      <InspectorSection title="Statistical overlay">
+        <FieldGroup className="gap-3">
+          <InspectorToggle
+            label="Show mean"
+            checked={spec.transformations.some(
+              (item) =>
+                item.kind === 'aggregate' && item.params.function === 'mean',
+            )}
+            onCheckedChange={setMean}
+          />
+          <InspectorToggle
+            label="Show SD"
+            checked={spec.overlays.errorBars?.basis === 'sd'}
+            onCheckedChange={setStandardDeviation}
+          />
+          <InspectorToggle label="Show 95% CI" checked={false} disabled />
+          <InspectorToggle
+            label="Show individual points"
+            checked={
+              !spec.transformations.some((item) => item.kind === 'aggregate')
+            }
+            onCheckedChange={(checked) => setMean(!checked)}
+          />
+        </FieldGroup>
+      </InspectorSection>
+      <InspectorSection title="Appearance">
+        <PropertyList>
+          <Property label="Palette">Publication</Property>
+          <Property label="Font">Instrument Sans</Property>
+          <Property label="Series">{materialised.series.length}</Property>
+        </PropertyList>
+      </InspectorSection>
+    </InspectorSectionStack>
+  )
+
+  return (
+    <Inspector
+      recordType="Analysis configuration"
+      title="Chart settings"
+      state="loaded"
+      tabs={[
+        { id: 'settings', label: 'Settings', content: settings },
+        {
+          id: 'views',
+          label: 'Views',
+          badge: views.length,
+          content: (
+            <SavedViewsPanel
+              views={views}
+              selectedViewId={selectedViewId}
+              viewName={viewName}
+              onViewNameChange={onViewNameChange}
+              onLoad={onLoad}
+              onSave={onSave}
+              onDelete={onDelete}
+              saving={saving}
+              canSave={Boolean(viewName.trim())}
+            />
+          ),
+        },
+        {
+          id: 'calculations',
+          label: 'Calculations',
+          content: (
+            <InspectorSectionStack>
+              <InspectorSection title="Filters">
+                <FilterControls
+                  table={table}
+                  spec={spec}
+                  onSpecChange={onSpecChange}
+                />
+              </InspectorSection>
+              <InspectorSection title="Summary">
+                <PropertyList>
+                  <Property label="Transformations">
+                    {spec.transformations.length}
+                  </Property>
+                  <Property label="Filters">{spec.filters.length}</Property>
+                </PropertyList>
+              </InspectorSection>
+            </InspectorSectionStack>
+          ),
+        },
+        {
+          id: 'export',
+          label: 'Export',
+          content: (
+            <ExportPanel
+              spec={spec}
+              settings={exportSettings}
+              onSettingsChange={onExportSettingsChange}
+              table={table}
+              datasets={datasets}
+              viewName={viewName}
+              selectedViewId={selectedViewId}
+              views={views}
+              user={user}
+              materialised={materialised}
+            />
+          ),
+        },
+      ]}
+    />
+  )
+}
+
+function InspectorToggle({
+  label,
+  checked,
+  onCheckedChange,
+  disabled = false,
+}: {
+  label: string
+  checked: boolean
+  onCheckedChange?: (checked: boolean) => void
+  disabled?: boolean
+}) {
+  const id = `analysis-${label.toLowerCase().replaceAll(' ', '-')}`
+  return (
+    <Field className="flex grid-cols-[1fr_auto] items-center gap-2">
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <Switch
+        id={id}
+        checked={checked}
+        onCheckedChange={onCheckedChange}
+        disabled={disabled}
+      />
+    </Field>
   )
 }
 
@@ -893,16 +1138,17 @@ export function SavedViewsPanel({
         were built against, so anyone in the workspace can reproduce them.
       </p>
       <div className="flex items-end gap-1.5">
-        <label className="flex-1 space-y-1 text-xs">
-          <span className="text-muted-foreground">Name</span>
+        <Field className="flex-1">
+          <FieldLabel htmlFor="analysis-view-name">Name</FieldLabel>
           <Input
+            id="analysis-view-name"
             aria-label="Analysis view name"
             value={viewName}
             onChange={(e) => onViewNameChange(e.target.value)}
             placeholder="e.g. pH vs stability"
             className="h-8 bg-background"
           />
-        </label>
+        </Field>
         <Button
           variant="outline"
           size="sm"
@@ -1044,9 +1290,10 @@ export function ExportPanel({
         Export
       </h2>
       <div className="grid grid-cols-2 gap-2 text-xs">
-        <label className="space-y-1">
-          <span className="text-muted-foreground">Format</span>
+        <Field>
+          <FieldLabel htmlFor="analysis-export-format">Format</FieldLabel>
           <Select
+            id="analysis-export-format"
             aria-label="Export format"
             value={settings.format}
             onChange={(e) =>
@@ -1058,10 +1305,11 @@ export function ExportPanel({
             <option value="csv">CSV (data table)</option>
             <option value="svg">SVG (chart image)</option>
           </Select>
-        </label>
-        <label className="space-y-1">
-          <span className="text-muted-foreground">Theme</span>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="analysis-export-theme">Theme</FieldLabel>
           <Select
+            id="analysis-export-theme"
             aria-label="Export theme"
             value={settings.theme}
             onChange={(e) =>
@@ -1072,10 +1320,11 @@ export function ExportPanel({
             <option value="light">Light</option>
             <option value="dark">Dark</option>
           </Select>
-        </label>
-        <label className="space-y-1">
-          <span className="text-muted-foreground">Width (px)</span>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="analysis-export-width">Width (px)</FieldLabel>
           <Input
+            id="analysis-export-width"
             aria-label="Export width"
             type="number"
             min={320}
@@ -1086,10 +1335,11 @@ export function ExportPanel({
             }
             className="h-8 bg-background"
           />
-        </label>
-        <label className="space-y-1">
-          <span className="text-muted-foreground">Height (px)</span>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="analysis-export-height">Height (px)</FieldLabel>
           <Input
+            id="analysis-export-height"
             aria-label="Export height"
             type="number"
             min={240}
@@ -1100,16 +1350,19 @@ export function ExportPanel({
             }
             className="h-8 bg-background"
           />
-        </label>
+        </Field>
       </div>
-      <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <Field className="flex grid-cols-[auto_1fr] items-center gap-2">
         <input
+          id="analysis-export-provenance"
           type="checkbox"
           checked={settings.includeProvenance}
           onChange={(e) => setSetting('includeProvenance', e.target.checked)}
         />
-        Include provenance metadata (owner, version, sources)
-      </label>
+        <FieldLabel htmlFor="analysis-export-provenance">
+          Include provenance metadata (owner, version, sources)
+        </FieldLabel>
+      </Field>
       <Button size="sm" onClick={doExport} className="w-full">
         <Download /> Export {settings.format.toUpperCase()}
       </Button>
@@ -1174,13 +1427,46 @@ export function AnalysisPreview({
 
   const resultRowCount = datasetQuery.data?.rows.length ?? 0
   const excessiveSize = resultRowCount > ANALYSIS_MAX_RESULT_ROWS
+  const summaries = useMemo(
+    () =>
+      analysisMaterialised.series.flatMap((series) => {
+        const valid = series.points.filter(
+          (point): point is typeof point & { x: number; y: number } =>
+            point.x !== null && point.y !== null,
+        )
+        if (valid.length === 0) return []
+        const firstX = Math.min(...valid.map((point) => point.x))
+        const lastX = Math.max(...valid.map((point) => point.x))
+        const first = valid.filter((point) => point.x === firstX)
+        const last = valid.filter((point) => point.x === lastX)
+        const firstMean =
+          first.reduce((sum, point) => sum + point.y, 0) / first.length
+        const lastMean =
+          last.reduce((sum, point) => sum + point.y, 0) / last.length
+        return [
+          {
+            identifier: series.identifier,
+            label: series.label,
+            colour: series.color,
+            lastX,
+            lastMean,
+            foldChange:
+              firstMean > 0 && lastMean > 0
+                ? Math.max(firstMean, lastMean) / Math.min(firstMean, lastMean)
+                : null,
+            direction: lastMean <= firstMean ? 'decrease' : 'increase',
+          },
+        ]
+      }),
+    [analysisMaterialised.series],
+  )
 
   return (
     <div
-      className="flex min-h-0 flex-col gap-3 overflow-hidden"
+      className="grid min-h-0 flex-1 grid-rows-[minmax(24rem,2fr)_minmax(12rem,1fr)] gap-3 overflow-hidden"
       data-analysis-chart
     >
-      <Card className="flex min-h-0 flex-1 flex-col gap-2 p-3">
+      <Card className="flex min-h-0 flex-col gap-2 overflow-hidden p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 text-sm font-semibold">
             <LineChartIcon
@@ -1248,14 +1534,54 @@ export function AnalysisPreview({
           </div>
         ) : null}
 
-        <div className="min-h-0 flex-1 overflow-auto">
-          <ChartRenderer
-            title={`${table.name} — ${spec.type} chart`}
-            spec={spec}
-            materialised={analysisMaterialised}
-            frozen={null}
-            loading={datasetQuery.isLoading}
-          />
+        <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(0,1fr)_13rem]">
+          <div className="min-h-0 overflow-auto">
+            <ChartRenderer
+              title={`${table.name} — ${spec.type} chart`}
+              spec={spec}
+              materialised={analysisMaterialised}
+              frozen={null}
+              loading={datasetQuery.isLoading}
+              plotHeight={320}
+            />
+          </div>
+          <aside
+            className="flex min-h-0 flex-col gap-2 overflow-auto"
+            aria-label="Chart statistics"
+          >
+            {summaries.slice(0, 3).map((summary) => (
+              <Card key={summary.identifier} className="p-3 shadow-none">
+                <div className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span
+                    className="size-2 rounded-full"
+                    style={{ backgroundColor: summary.colour }}
+                  />
+                  <span className="truncate">{summary.label}</span>
+                </div>
+                <p className="text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground">
+                  {Number.isFinite(summary.lastX)
+                    ? `${formatScientific(summary.lastX)} (Mean)`
+                    : 'Latest mean'}
+                </p>
+                <p className="mt-0.5 font-mono text-lg font-semibold tabular-nums">
+                  {formatScientific(summary.lastMean)}
+                </p>
+              </Card>
+            ))}
+            {summaries[0]?.foldChange ? (
+              <Card className="border-violet-200 bg-violet-50/60 p-3 shadow-none dark:border-violet-900 dark:bg-violet-950/20">
+                <p className="text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground">
+                  Fold change (first → latest)
+                </p>
+                <p className="mt-1 text-lg font-semibold">
+                  {summaries[0].foldChange.toFixed(1)}× {summaries[0].direction}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {summaries[0].label}
+                </p>
+              </Card>
+            ) : null}
+          </aside>
         </div>
       </Card>
 
@@ -1294,7 +1620,7 @@ export function DataTableAlternative({
       </Card>
     )
   }
-  const rows = materialised.series.flatMap((s) =>
+  const chartRows = materialised.series.flatMap((s) =>
     s.points.map((p) => ({
       series: s.label,
       x: p.x,
@@ -1302,49 +1628,81 @@ export function DataTableAlternative({
       yError: p.yError,
     })),
   )
+  const hasSourceRows =
+    materialised.columns.length > 0 && materialised.rows.length > 0
+  const columns = hasSourceRows
+    ? materialised.columns.map((column) => ({
+        key: column.fieldName,
+        label: column.unit
+          ? `${column.label} (${String(column.unit)})`
+          : column.label,
+      }))
+    : [
+        { key: 'series', label: 'Series' },
+        { key: 'x', label: materialised.xLabel },
+        { key: 'y', label: materialised.yLabel },
+        { key: 'yError', label: 'Error' },
+      ]
+  const rows: Record<string, unknown>[] = hasSourceRows
+    ? materialised.rows.slice(0, 50)
+    : chartRows
   return (
-    <Card className="overflow-hidden p-0" aria-labelledby="data-table-title">
-      <div className="flex items-center justify-between px-3 py-2">
+    <Card
+      className="flex min-h-0 flex-col overflow-hidden p-0"
+      aria-labelledby="data-table-title"
+    >
+      <div className="flex shrink-0 items-center justify-between border-b px-3 py-2">
         <h2 id="data-table-title" className="text-sm font-semibold">
-          Data table
+          Data preview
+          <span className="ml-2 font-normal text-muted-foreground">
+            First {Math.min(rows.length, 50)} rows
+          </span>
         </h2>
-        <span className="text-xs text-muted-foreground">
-          {formatCount(rows.length)} points
-        </span>
+        <div className="flex items-center gap-1">
+          <Button variant="link" size="sm">
+            Open in data table
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Download data preview"
+          >
+            <Download />
+          </Button>
+        </div>
       </div>
-      <div className="max-h-64 overflow-auto">
+      <div className="min-h-0 flex-1 overflow-auto">
         <Table aria-label="Chart data table" data-density="compact">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead>Series</TableHead>
-              <TableHead>{materialised.xLabel}</TableHead>
-              <TableHead>{materialised.yLabel}</TableHead>
-              <TableHead>Error</TableHead>
+              {columns.map((column) => (
+                <TableHead key={column.key}>{column.label}</TableHead>
+              ))}
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={4}
+                  colSpan={columns.length}
                   className="text-center text-xs text-muted-foreground"
                 >
                   No rows.
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((r, i) => (
+              rows.map((row, i) => (
                 <TableRow key={i}>
-                  <TableCell>{r.series}</TableCell>
-                  <TableCell className="scientific-nums font-mono tabular-nums">
-                    {formatScientific(r.x)}
-                  </TableCell>
-                  <TableCell className="scientific-nums font-mono tabular-nums">
-                    {formatScientific(r.y)}
-                  </TableCell>
-                  <TableCell className="scientific-nums font-mono tabular-nums">
-                    {formatScientific(r.yError ?? null)}
-                  </TableCell>
+                  {columns.map((column) => (
+                    <TableCell
+                      key={column.key}
+                      className="scientific-nums whitespace-nowrap font-mono tabular-nums"
+                    >
+                      {typeof row[column.key] === 'number'
+                        ? formatScientific(row[column.key] as number)
+                        : String(row[column.key] ?? '—')}
+                    </TableCell>
+                  ))}
                 </TableRow>
               ))
             )}

@@ -266,8 +266,7 @@ describe('RegistryComposition interaction and states', () => {
     expect(within(table).getByText('1.2 µg/mL')).toBeTruthy()
   })
 
-  it('uses a generic labelled Sheet for the inspector, opened by row selection', async () => {
-    const user = userEvent.setup()
+  it('uses a generic labelled Sheet for the inspector, opened by row selection', () => {
     render(
       <RegistryComposition
         {...props({ inspectorLabel: 'Record details', selectedId: 'one' })}

@@ -383,6 +383,11 @@ export const demoSteps: Array<SeedStep> = [
             batch: 'LVV-250601',
             concentration: 2.31e7,
             storage: '4 °C',
+            sampleType: 'Drug substance',
+            quantity: 4,
+            quantityUnit: 'mL',
+            storageLocation:
+              'Cambridge site / Cold room 1 / Refrigerator 4C-01',
           },
           createdByUserId: FIXTURE_USER_ID,
         })
@@ -397,6 +402,11 @@ export const demoSteps: Array<SeedStep> = [
               batch: 'LVV-250601',
               concentration: 2.31e7,
               storage: '4 °C',
+              sampleType: 'Drug substance',
+              quantity: 4,
+              quantityUnit: 'mL',
+              storageLocation:
+                'Cambridge site / Cold room 1 / Refrigerator 4C-01',
             },
             deletedAt: null,
             archivedAt: null,

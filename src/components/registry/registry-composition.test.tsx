@@ -191,6 +191,52 @@ describe('RegistryComposition interaction and states', () => {
     expect(screen.getByText('Inspecting SMP-0002')).toBeTruthy()
   })
 
+  it('connects a flat selected row to its persistent inspector', () => {
+    render(
+      <RegistryComposition
+        {...props({
+          selectedId: 'one',
+          presentation: 'flat',
+          inspectorBreakpoint: 'lg',
+        })}
+      />,
+    )
+
+    const selectedRow = screen.getByRole('row', { name: /SMP-0001/ })
+    expect(selectedRow.getAttribute('aria-controls')).toBe(
+      'test-records-inspector',
+    )
+    expect(selectedRow.className).toContain(
+      'data-[state=selected]:shadow-[inset_2px_0_0_var(--primary)]',
+    )
+    expect(screen.getByLabelText('Registry inspector').id).toBe(
+      'test-records-inspector',
+    )
+  })
+
+  it('opens the selected inspector in a narrow-screen sheet', async () => {
+    const originalMatchMedia = window.matchMedia
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })
+
+    try {
+      render(
+        <RegistryComposition
+          {...props({ selectedId: 'one', presentation: 'flat' })}
+        />,
+      )
+
+      expect(await screen.findByText('Inspecting SMP-0001')).toBeTruthy()
+      expect(screen.getByRole('dialog')).toBeTruthy()
+      expect(screen.getByRole('dialog').id).toBe('test-records-inspector')
+    } finally {
+      window.matchMedia = originalMatchMedia
+    }
+  })
+
   it('keeps a selected record visible when it is loaded outside the current page', () => {
     render(
       <RegistryComposition
@@ -263,21 +309,6 @@ describe('RegistryComposition interaction and states', () => {
     await user.selectOptions(screen.getByLabelText('Table density'), 'compact')
     expect(table.getAttribute('data-density')).toBe('compact')
     expect(within(table).getByText('1.2 µg/mL')).toBeTruthy()
-  })
-
-  it('uses a generic labelled Sheet for the narrow-screen inspector', async () => {
-    const user = userEvent.setup()
-    render(
-      <RegistryComposition
-        {...props({ inspectorLabel: 'Record details', selectedId: 'one' })}
-      />,
-    )
-    await user.click(
-      screen.getByRole('button', { name: 'Open Record details' }),
-    )
-    expect(screen.getByRole('dialog', { name: 'Record details' })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Close' })).toBeNull()
-    expect(screen.getAllByText('Inspecting SMP-0001')).toHaveLength(2)
   })
 
   it('preserves an explicit custom renderer for numeric cells', () => {

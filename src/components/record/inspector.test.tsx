@@ -10,7 +10,6 @@ import {
   CommentList,
   FileList,
   InspectorSection,
-  InspectorSectionStack,
   LinkedRecordList,
   Property,
   PropertyList,
@@ -56,18 +55,6 @@ describe('Inspector', () => {
     expect(screen.getByText('Experiment')).toBeTruthy()
     expect(screen.getByRole('tab', { name: /Properties/ })).toBeTruthy()
     expect(screen.getByRole('tab', { name: /Members/ })).toBeTruthy()
-  })
-
-  it('renders semantic status detail in the canonical identity row', () => {
-    render(
-      <Inspector
-        recordType="Sample"
-        title="SMP-001"
-        status={<span>Available</span>}
-        tabs={tabs}
-      />,
-    )
-    expect(screen.getByText('Available')).toBeTruthy()
   })
 
   it('shows the first tab content by default and switches on click', async () => {
@@ -143,24 +130,6 @@ describe('Inspector sections', () => {
     expect(screen.getByText('ID')).toBeTruthy()
     expect(screen.getByText('EXP-2025-0014')).toBeTruthy()
     expect(screen.getByText('Gareth')).toBeTruthy()
-  })
-
-  it('keeps long stacked property values fully available', () => {
-    const formula = '=IF(AND(A1>0,B1<10),"qualified","review")'
-    const { container } = render(
-      <PropertyList>
-        <Property label="Formula" mono stacked>
-          {formula}
-        </Property>
-      </PropertyList>,
-    )
-    expect(screen.getByText(formula)).toBeTruthy()
-    expect(container.querySelector('dd')?.className).toContain('break-words')
-    expect(container.querySelector('dd')?.className).not.toContain('truncate')
-    expect(container.querySelector('dd')?.className).toContain(
-      'text-[0.6875rem]',
-    )
-    expect(container.querySelectorAll('wbr').length).toBeGreaterThan(0)
   })
 
   it('LinkedRecordList renders links and shows empty hint when empty', () => {
@@ -250,15 +219,5 @@ describe('Inspector sections', () => {
     )
     expect(screen.getByText('Pinned links')).toBeTruthy()
     expect(screen.getByText('link')).toBeTruthy()
-  })
-
-  it('InspectorSectionStack owns the 16px section cadence', () => {
-    const { container } = render(
-      <InspectorSectionStack>
-        <InspectorSection title="First">one</InspectorSection>
-        <InspectorSection title="Second">two</InspectorSection>
-      </InspectorSectionStack>,
-    )
-    expect(container.firstElementChild?.className).toContain('space-y-4')
   })
 })

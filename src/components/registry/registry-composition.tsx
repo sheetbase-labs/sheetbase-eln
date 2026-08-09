@@ -11,14 +11,7 @@ import type {
   Updater,
   VisibilityState,
 } from '@tanstack/react-table'
-import {
-  ChevronLeft,
-  ChevronRight,
-  Columns3,
-  PanelRight,
-  Save,
-  Search,
-} from 'lucide-react'
+import { ChevronLeft, ChevronRight, Columns3, Save, Search } from 'lucide-react'
 
 import {
   Button,
@@ -31,7 +24,6 @@ import {
   Select,
   Sheet,
   SheetContent,
-  SheetTitle,
   Skeleton,
   Table,
   TableBody,
@@ -78,6 +70,10 @@ declare module '@tanstack/react-table' {
   interface ColumnMeta<TData, TValue> {
     /** Sheetbase-owned rendering contract for registry values. */
     registryFormat?: RegistryValueFormat
+    /** Hide lower-priority registry columns below the XL work-plane width. */
+    responsiveClass?: string
+    /** Keep long scientific values on one line; the complete value stays in title. */
+    truncate?: boolean
   }
 }
 
@@ -102,11 +98,6 @@ export interface RegistryCompositionProps<TData> {
   filterDefinitions?: RegistryFilterDefinition[]
   groupingOptions?: RegistryGroupingOption[]
   renderInspector?: (row: TData | null) => React.ReactNode
-  /** Generic accessible label for the responsive inspector trigger and plane. */
-  inspectorLabel?: string
-  /** Controlled narrow-screen inspector state. Omit with its callback for local state. */
-  inspectorOpen?: boolean
-  onInspectorOpenChange?: (open: boolean) => void
   loading?: boolean
   error?: unknown
   permissionDenied?: boolean
@@ -118,6 +109,10 @@ export interface RegistryCompositionProps<TData> {
   initialDensity?: RegistryDensity
   savedViewStore?: RegistrySavedViewStore
   actions?: React.ReactNode
+  /** Use the work-plane layout for a dense registry instead of card surfaces. */
+  presentation?: 'contained' | 'flat'
+  /** Width where a persistent inspector can sit beside the table. */
+  inspectorBreakpoint?: 'lg' | 'xl'
 }
 
 function resolveUpdater<T>(updater: Updater<T>, previous: T): T {
@@ -156,9 +151,6 @@ export function RegistryComposition<TData>({
   filterDefinitions = [],
   groupingOptions = [],
   renderInspector,
-  inspectorLabel = 'Inspector',
-  inspectorOpen: controlledInspectorOpen,
-  onInspectorOpenChange,
   loading = false,
   error = null,
   permissionDenied = false,
@@ -170,6 +162,8 @@ export function RegistryComposition<TData>({
   initialDensity = 'comfortable',
   savedViewStore,
   actions,
+  presentation = 'contained',
+  inspectorBreakpoint = 'xl',
 }: RegistryCompositionProps<TData>) {
   const compositionRef = React.useRef<HTMLElement>(null)
   const store = React.useMemo(
@@ -184,8 +178,8 @@ export function RegistryComposition<TData>({
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>(initialColumnVisibility)
   const [density, setDensity] = React.useState<RegistryDensity>(initialDensity)
-  const [uncontrolledInspectorOpen, setUncontrolledInspectorOpen] =
-    React.useState(false)
+  const [narrowInspectorOpen, setNarrowInspectorOpen] = React.useState(false)
+  const [isNarrowInspector, setIsNarrowInspector] = React.useState(false)
   const [activeRowId, setActiveRowId] = React.useState<string | null>(
     selectedId ?? (rows[0] ? getRowId(rows[0]) : null),
   )
@@ -204,6 +198,29 @@ export function RegistryComposition<TData>({
       setActiveRowId(rows[0] ? getRowId(rows[0]) : null)
     }
   }, [activeRowId, getRowId, rows, selectedId])
+
+  React.useEffect(() => {
+    if (
+      typeof window === 'undefined' ||
+      typeof window.matchMedia !== 'function'
+    )
+      return
+    const mediaQuery = window.matchMedia(
+      inspectorBreakpoint === 'lg'
+        ? '(max-width: 1023px)'
+        : '(max-width: 1279px)',
+    )
+    const update = () => setIsNarrowInspector(mediaQuery.matches)
+    update()
+    mediaQuery.addEventListener('change', update)
+    return () => mediaQuery.removeEventListener('change', update)
+  }, [inspectorBreakpoint])
+
+  React.useEffect(() => {
+    if (isNarrowInspector && selectedId && renderInspector) {
+      setNarrowInspectorOpen(true)
+    }
+  }, [isNarrowInspector, renderInspector, selectedId])
 
   const sorting = query.sorting as SortingState
   const grouping = query.grouping
@@ -289,27 +306,15 @@ export function RegistryComposition<TData>({
         : null))
     : null
   const hasFilters = query.filters.some((filter) => filter.value !== '')
-  const inspectorOpen = controlledInspectorOpen ?? uncontrolledInspectorOpen
-  const setInspectorOpen = React.useCallback(
-    (open: boolean) => {
-      if (controlledInspectorOpen === undefined) {
-        setUncontrolledInspectorOpen(open)
-      }
-      onInspectorOpenChange?.(open)
-    },
-    [controlledInspectorOpen, onInspectorOpenChange],
-  )
-
-  const inspectorContent = renderInspector ? (
-    selectedId && !selectedRow ? (
-      <RegistryState
-        title="Selected record is outside this page"
-        detail="Its selection is preserved while the record details are loaded."
-      />
-    ) : (
-      renderInspector(selectedRow)
-    )
-  ) : null
+  const flat = presentation === 'flat'
+  const inspectorGrid =
+    inspectorBreakpoint === 'lg'
+      ? 'lg:grid-cols-[minmax(0,1fr)_20rem]'
+      : 'xl:grid-cols-[minmax(0,1fr)_20rem]'
+  const inspectorSticky =
+    inspectorBreakpoint === 'lg'
+      ? 'lg:sticky lg:top-0 lg:max-h-[calc(100vh-1rem)]'
+      : 'xl:sticky xl:top-0 xl:max-h-[calc(100vh-1rem)]'
 
   function setFilter(id: string, value: string) {
     const filters = query.filters.filter((filter) => filter.id !== id)
@@ -411,6 +416,7 @@ export function RegistryComposition<TData>({
                 return (
                   <TableHead
                     key={header.id}
+                    className={header.column.columnDef.meta?.responsiveClass}
                     aria-sort={
                       sorted === 'asc'
                         ? 'ascending'
@@ -460,8 +466,15 @@ export function RegistryComposition<TData>({
                 data-registry-row-id={id}
                 data-state={selected ? 'selected' : undefined}
                 aria-selected={selected}
+                aria-controls={
+                  renderInspector ? `${registryId}-inspector` : undefined
+                }
                 tabIndex={id === activeRowId ? 0 : -1}
-                className="cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                className={cn(
+                  'cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
+                  flat &&
+                    'data-[state=selected]:bg-primary/10 data-[state=selected]:shadow-[inset_2px_0_0_var(--primary)]',
+                )}
                 onFocus={() => setActiveRowId(id)}
                 onClick={() => onSelectedIdChange(id)}
                 onKeyDown={(event) => {
@@ -490,17 +503,27 @@ export function RegistryComposition<TData>({
                       density === 'compact' && 'py-1.5',
                       typeof cell.getValue() === 'number' &&
                         'scientific-nums text-right tabular-nums',
+                      cell.column.columnDef.meta?.responsiveClass,
                     )}
                   >
-                    {cell.column.columnDef.meta?.registryFormat
-                      ? formatRegistryValue(
-                          cell.getValue(),
-                          cell.column.columnDef.meta.registryFormat,
-                        )
-                      : flexRender(
+                    {cell.column.columnDef.meta?.registryFormat ? (
+                      formatRegistryValue(
+                        cell.getValue(),
+                        cell.column.columnDef.meta.registryFormat,
+                      )
+                    ) : cell.column.columnDef.meta?.truncate ? (
+                      <span
+                        className="block truncate"
+                        title={String(cell.getValue() ?? '—')}
+                      >
+                        {flexRender(
                           cell.column.columnDef.cell,
                           cell.getContext(),
                         )}
+                      </span>
+                    ) : (
+                      flexRender(cell.column.columnDef.cell, cell.getContext())
+                    )}
                   </TableCell>
                 ))}
               </TableRow>
@@ -558,7 +581,13 @@ export function RegistryComposition<TData>({
       ) : null}
 
       {!permissionDenied ? (
-        <div className="flex flex-wrap items-end gap-2 rounded-md border bg-muted/20 p-2">
+        <div
+          className={cn(
+            'flex flex-wrap items-end gap-2 border bg-muted/20 p-2',
+            !flat && 'rounded-md',
+            flat && 'border-x-0',
+          )}
+        >
           {filterDefinitions.map((filter) => (
             <label
               key={filter.id}
@@ -700,43 +729,61 @@ export function RegistryComposition<TData>({
         </div>
       ) : null}
 
-      <div className={cn(renderInspector && 'flex min-w-0')}>
-        <div className="min-w-0 flex-1 overflow-hidden rounded-lg border bg-card">
+      <div
+        className={cn(
+          renderInspector && 'grid gap-4',
+          renderInspector && inspectorGrid,
+        )}
+      >
+        <div
+          className={cn(
+            'overflow-hidden border bg-card',
+            !flat && 'rounded-lg',
+            flat && 'border-x-0',
+          )}
+        >
           {stateContent}
         </div>
-        {renderInspector && !permissionDenied ? (
+        {renderInspector && !permissionDenied && !isNarrowInspector ? (
           <aside
-            aria-label={inspectorLabel}
-            className="ml-4 hidden w-80 shrink-0 overflow-hidden border-l bg-background xl:block"
+            id={`${registryId}-inspector`}
+            aria-label="Registry inspector"
+            className={cn(
+              'min-h-72 overflow-hidden border bg-card',
+              !flat && 'rounded-lg',
+              flat && 'border-x-0',
+              flat && inspectorSticky,
+            )}
           >
-            {inspectorContent}
+            {selectedId && !selectedRow ? (
+              <RegistryState
+                title="Selected record is outside this page"
+                detail="Its selection is preserved while the record details are loaded."
+              />
+            ) : (
+              renderInspector(selectedRow)
+            )}
           </aside>
         ) : null}
       </div>
 
-      {renderInspector && !permissionDenied ? (
-        <>
-          <Button
-            variant="outline"
-            size="sm"
-            className="xl:hidden"
-            aria-label={`Open ${inspectorLabel}`}
-            aria-expanded={inspectorOpen}
-            onClick={() => setInspectorOpen(true)}
+      {renderInspector && !permissionDenied && isNarrowInspector ? (
+        <Sheet open={narrowInspectorOpen} onOpenChange={setNarrowInspectorOpen}>
+          <SheetContent
+            id={`${registryId}-inspector`}
+            aria-label="Registry inspector"
+            className="w-[min(30rem,calc(100vw-2rem))] overflow-y-auto p-4"
           >
-            <PanelRight /> {inspectorLabel}
-          </Button>
-          <Sheet open={inspectorOpen} onOpenChange={setInspectorOpen}>
-            <SheetContent
-              side="right"
-              className="w-80 border-l p-0 xl:hidden"
-              showClose={false}
-            >
-              <SheetTitle className="sr-only">{inspectorLabel}</SheetTitle>
-              <div className="h-full">{inspectorContent}</div>
-            </SheetContent>
-          </Sheet>
-        </>
+            {selectedId && !selectedRow ? (
+              <RegistryState
+                title="Selected record is outside this page"
+                detail="Its selection is preserved while the record details are loaded."
+              />
+            ) : (
+              renderInspector(selectedRow)
+            )}
+          </SheetContent>
+        </Sheet>
       ) : null}
 
       {!permissionDenied ? (

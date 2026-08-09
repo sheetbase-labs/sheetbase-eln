@@ -15,6 +15,7 @@ import {
   computeSampleSummaries,
   isLowStock,
   parseSampleProperties,
+  sampleColumns,
   samplePropertiesPayload,
   toSampleRecord,
 } from './samples'
@@ -130,6 +131,13 @@ describe('computeSampleSummaries', () => {
       { label: 'Low stock', value: 1, hint: 'on this page' },
       { label: 'Consumed', value: 1, hint: 'on this page' },
     ])
+  })
+})
+
+describe('sampleColumns', () => {
+  it('uses the custom quantity cell so scientific units remain visible', () => {
+    const quantity = sampleColumns().find((column) => column.id === 'quantity')
+    expect(quantity?.meta?.registryFormat).toBeUndefined()
   })
 })
 

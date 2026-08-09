@@ -168,21 +168,6 @@ describe('AppShell', () => {
     expect(screen.getByText('Inspector body')).toBeTruthy()
   })
 
-  it('opens the generic narrow-screen inspector Sheet without a second close control', async () => {
-    const { user } = renderShell({
-      context: baseContext,
-      breadcrumbs: [{ label: 'Home' }],
-      inspectorLabel: 'Record details',
-      inspector: <div>Inspector body</div>,
-      children: null,
-    })
-    await user.click(
-      screen.getByRole('button', { name: 'Open Record details' }),
-    )
-    expect(screen.getByRole('dialog', { name: 'Record details' })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Close' })).toBeNull()
-  })
-
   it('opens the command palette with ⌘K and lists enabled nav items only', async () => {
     const items: AppShellNavItem[] = [
       { to: '/projects', label: 'Projects', icon: Folder },

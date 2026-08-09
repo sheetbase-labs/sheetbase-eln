@@ -736,18 +736,27 @@ export function sampleColumns<T extends SampleRecord>(): ColumnDef<
   unknown
 >[] {
   return [
-    { accessorKey: 'identifier', header: 'Identifier', enableHiding: false },
-    { accessorKey: 'title', header: 'Title' },
+    {
+      accessorKey: 'identifier',
+      header: 'Identifier',
+      enableHiding: false,
+      meta: { truncate: true },
+    },
+    {
+      accessorKey: 'title',
+      header: 'Title',
+      meta: { responsiveClass: 'hidden xl:table-cell', truncate: true },
+    },
     {
       id: 'sampleType',
       header: 'Type',
       accessorFn: (row) => row.sampleType,
+      meta: { truncate: true },
     },
     {
       id: 'quantity',
       header: 'Quantity',
       accessorFn: (row) => row.quantity,
-      meta: { registryFormat: { kind: 'scientific' } },
       cell: ({ row }) => {
         const q = row.original.quantity
         const unit = row.original.quantityUnit
@@ -759,18 +768,23 @@ export function sampleColumns<T extends SampleRecord>(): ColumnDef<
       id: 'storageLocation',
       header: 'Storage',
       accessorFn: (row) => row.storageLocation,
+      meta: { responsiveClass: 'hidden xl:table-cell', truncate: true },
     },
     {
       id: 'barcode',
       header: 'Barcode',
       accessorFn: (row) => row.barcode,
+      meta: { responsiveClass: 'hidden xl:table-cell', truncate: true },
     },
     { accessorKey: 'status', header: 'Status' },
     {
       id: 'updatedAt',
       header: 'Updated',
       accessorKey: 'updatedAt',
-      meta: { registryFormat: { kind: 'date' } },
+      meta: {
+        registryFormat: { kind: 'date' },
+        responsiveClass: 'hidden xl:table-cell',
+      },
     },
   ]
 }

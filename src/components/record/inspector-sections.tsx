@@ -16,20 +16,10 @@ import { cn } from '#/lib/utils'
  * Reusable inspector sections — the building blocks that fill an Inspector
  * tab. Each is a small, typed, presentational component.
  *
- * Inspector metadata is compact and flat: sections are divided rather than
- * carded, while statuses and linked records retain their semantic treatment.
+ * The visual language follows the concept mockup: dense, visually rich
+ * metadata with semantic colour, compact pills, file-type iconography and
+ * clear status badges — never a flat grey text-only list.
  */
-
-/** Owns the standard 16px cadence between inspector sections. */
-export function InspectorSectionStack({
-  children,
-  className,
-}: {
-  children: React.ReactNode
-  className?: string
-}) {
-  return <div className={cn('space-y-4', className)}>{children}</div>
-}
 
 /** A labelled section inside an inspector tab. */
 export function InspectorSection({
@@ -70,17 +60,6 @@ export function PropertyList({
   return <dl className={cn('space-y-2', className)}>{children}</dl>
 }
 
-function CodeValue({ children }: { children: React.ReactNode }) {
-  if (typeof children !== 'string') return children
-
-  return children.split(/([,;/:=])/).map((part, index) => (
-    <React.Fragment key={`${part}-${index}`}>
-      {part}
-      {/^[,;/:=]$/.test(part) ? <wbr /> : null}
-    </React.Fragment>
-  ))
-}
-
 export function Property({
   label,
   children,
@@ -91,26 +70,25 @@ export function Property({
   children: React.ReactNode
   /** Render the value in the mono/scientific font (identifiers, numbers). */
   mono?: boolean
-  /** Preserve long meaningful values by placing the value beneath its label. */
+  /** Keep long values readable beneath their label instead of truncating them. */
   stacked?: boolean
 }) {
   return (
     <div
       className={cn(
-        'gap-2',
-        stacked ? 'grid' : 'flex items-center justify-between',
+        'flex gap-2',
+        stacked ? 'flex-col items-start' : 'items-center justify-between',
       )}
     >
       <dt className="shrink-0 text-xs text-muted-foreground">{label}</dt>
       <dd
         className={cn(
           'min-w-0 text-xs font-medium text-foreground',
-          stacked ? 'break-words text-left' : 'truncate text-right',
+          stacked ? 'whitespace-normal text-left' : 'truncate text-right',
           mono && 'font-mono tabular-nums',
-          stacked && mono && 'text-[0.6875rem] leading-4 tracking-[-0.015em]',
         )}
       >
-        {stacked && mono ? <CodeValue>{children}</CodeValue> : children}
+        {children}
       </dd>
     </div>
   )
@@ -142,11 +120,11 @@ export function LinkedRecordList({ items }: { items: LinkedRecordItem[] }) {
                 {item.title}
               </span>
               {item.meta ? (
-                <span className="block truncate text-[0.65rem] text-muted-foreground">
+                <span className="block truncate text-xs text-muted-foreground">
                   {item.type} · {item.meta}
                 </span>
               ) : (
-                <span className="block truncate text-[0.65rem] text-muted-foreground">
+                <span className="block truncate text-xs text-muted-foreground">
                   {item.type}
                 </span>
               )}
@@ -240,7 +218,7 @@ export function FileList({ items }: { items: FileItem[] }) {
               {f.name}
             </span>
             {f.size ? (
-              <span className="shrink-0 text-[0.65rem] tabular-nums text-muted-foreground">
+              <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
                 {f.size}
               </span>
             ) : null}
@@ -302,13 +280,13 @@ export function CheckList({ items }: { items: CheckItem[] }) {
               {c.label}
             </span>
             {c.detail ? (
-              <span className="shrink-0 text-[0.65rem] text-muted-foreground">
+              <span className="shrink-0 text-xs text-muted-foreground">
                 {c.detail}
               </span>
             ) : null}
             <Badge
               variant={badge.variant}
-              className="shrink-0 px-1.5 py-0 text-[0.65rem]"
+              className="shrink-0 px-1.5 py-0 text-xs"
             >
               {badge.label}
             </Badge>
@@ -420,7 +398,7 @@ export function ContributorAvatars({
 }) {
   const visible = contributors.slice(0, max)
   const overflow = contributors.length - visible.length
-  const dim = size === 'sm' ? 'size-5 text-[0.6rem]' : 'size-6 text-xs'
+  const dim = size === 'sm' ? 'size-5 text-xs' : 'size-6 text-xs'
 
   if (contributors.length === 0) return null
 
@@ -467,7 +445,7 @@ export function TagPills({
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {tags.map((tag) => (
-        <Badge key={tag} variant="violet" className="px-2 py-0 text-[0.65rem]">
+        <Badge key={tag} variant="violet" className="px-2 py-0 text-xs">
           {tag}
         </Badge>
       ))}

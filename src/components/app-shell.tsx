@@ -9,10 +9,12 @@ import {
   useRouterState,
 } from '@tanstack/react-router'
 import {
+
   CalendarDays,
   CheckCircle2,
   ChevronRight,
   ChevronsUpDown,
+
   Database,
   FlaskConical,
   FolderOpen,
@@ -533,7 +535,10 @@ export function AppShell({
       <nav
         id={APP_SHELL_NAV_ID}
         aria-label="Primary"
-        className={cn('flex-1 overflow-y-auto px-2 pb-4', collapsed && 'px-2')}
+        className={cn(
+          'flex-1 overflow-y-auto px-2 pb-4',
+          collapsed && 'px-2',
+        )}
       >
         {navSections.map((section) => (
           <div key={section.label ?? 'section'} className="mb-2">
@@ -763,9 +768,7 @@ export function AppShell({
                   aria-label="Search records and samples"
                 >
                   <Search className="size-4 shrink-0" />
-                  <span className="flex-1 truncate">
-                    Search records, samples…
-                  </span>
+                  <span className="flex-1 truncate">Search records, samples…</span>
                   <Kbd>⌘K</Kbd>
                 </button>
                 <Button
@@ -782,14 +785,14 @@ export function AppShell({
 
                 {inspector && (
                   <Button
-                    variant="outline"
-                    size="sm"
+                    variant="ghost"
+                    size="icon-sm"
                     className="xl:hidden"
-                    aria-label={`Open ${inspectorLabel}`}
+                    aria-label={inspectorLabel}
                     aria-expanded={inspectorOpen}
                     onClick={() => setInspectorOpen(true)}
                   >
-                    <PanelRight /> {inspectorLabel}
+                    <PanelRight />
                   </Button>
                 )}
                 {inspector && inspectorCollapsible && (
@@ -800,9 +803,7 @@ export function AppShell({
                         size="icon-sm"
                         className="hidden xl:inline-flex"
                         aria-label={
-                          inspectorCollapsed
-                            ? 'Show inspector'
-                            : 'Hide inspector'
+                          inspectorCollapsed ? 'Show inspector' : 'Hide inspector'
                         }
                         aria-expanded={!inspectorCollapsed}
                         onClick={toggleInspectorCollapsed}
@@ -866,7 +867,7 @@ export function AppShell({
                     </Button>
                   </div>
                 ) : (
-                  <div className="sticky top-14 h-[calc(100svh-3.5rem)]">
+                  <div className="sticky top-14 h-[calc(100svh-3.5rem)] overflow-y-auto p-4">
                     {inspector}
                   </div>
                 )}
@@ -877,13 +878,9 @@ export function AppShell({
 
         {context && inspector && (
           <Sheet open={inspectorOpen} onOpenChange={setInspectorOpen}>
-            <SheetContent
-              side="right"
-              className="w-80 border-l p-0 xl:hidden"
-              showClose={false}
-            >
+            <SheetContent side="right" className="w-80 border-l p-0 xl:hidden">
               <SheetTitle className="sr-only">{inspectorLabel}</SheetTitle>
-              <div className="h-full">{inspector}</div>
+              <div className="h-full overflow-y-auto p-4">{inspector}</div>
             </SheetContent>
           </Sheet>
         )}

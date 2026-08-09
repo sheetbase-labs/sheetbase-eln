@@ -42,8 +42,6 @@ export interface InspectorProps {
   /** Record kind shown above the title. */
   recordType?: string
   title: string
-  /** Semantic detail shown beside the title, typically a status Badge. */
-  status?: React.ReactNode
   tabs: InspectorTab[]
   defaultTab?: string
   state?: InspectorState
@@ -76,7 +74,6 @@ function StateBlock({
 export function Inspector({
   recordType,
   title,
-  status,
   tabs,
   defaultTab,
   state = 'loaded',
@@ -103,12 +100,9 @@ export function Inspector({
                   {recordType}
                 </p>
               ) : null}
-              <div className="flex min-w-0 items-center gap-2">
-                <h2 className="truncate text-sm font-semibold leading-tight text-foreground">
-                  {title}
-                </h2>
-                {status ? <div className="shrink-0">{status}</div> : null}
-              </div>
+              <h2 className="text-sm font-semibold leading-tight text-foreground">
+                {title}
+              </h2>
             </div>
             {onClose ? (
               <Button
@@ -125,7 +119,7 @@ export function Inspector({
         </div>
       ) : null}
 
-      {/* The inspector owns the only scroll region; identity and tabs remain pinned. */}
+      {/* Scroll region: tabs + content */}
       <div className="min-h-0 flex-1 overflow-y-auto">
         {state === 'skeleton' ? (
           <div className="space-y-3 px-4 pb-4 pt-3">

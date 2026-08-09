@@ -37,7 +37,6 @@ import { notebookDataClient, notebookQueryKeys } from '#/lib/notebook-data'
 import {
   archiveSample,
   consumeSample,
-  computeSampleSummaries,
   createSample,
   describeSampleError,
   editSample,
@@ -89,11 +88,6 @@ function SamplesRegistryRoute() {
   })
 
   const { rows, totalCount } = pageQuery.data ?? { rows: [], totalCount: 0 }
-  const summaries = useMemo(
-    () => computeSampleSummaries(rows, totalCount),
-    [rows, totalCount],
-  )
-
   // ---- Selected sample detail (loaded independently of the page) ----
   const selectedInPage = selectedId
     ? (rows.find((r) => r.id === selectedId) ?? null)
@@ -322,45 +316,45 @@ function SamplesRegistryRoute() {
   return (
     <>
       <div className="flex flex-col gap-4 p-4 md:p-6">
-      <RegistryComposition
-        registryId="samples"
-        workspaceId={workspaceId}
-        userId={userId}
-        title="Samples"
-        description="Track sample identity, quantity, storage and chain of custody."
-        rows={rows}
-        totalCount={totalCount}
-        columns={columns}
-        query={query}
-        onQueryChange={setQuery}
-        getRowId={(row) => row.id}
-        selectedId={selectedId}
-        selectedRecord={selectedRecord}
-        onSelectedIdChange={setSelectedId}
-        summaries={summaries}
-        filterDefinitions={filterDefinitions}
-        groupingOptions={groupingOptions}
-        renderInspector={inspector}
-        loading={pageQuery.isLoading}
-        error={pageQuery.error}
-        onRetry={() => pageQuery.refetch()}
-        emptyTitle="No samples yet"
-        noResultsTitle="No matching samples"
-        actions={
-          <Button size="sm" onClick={() => setCreateOpen(true)}>
-            <PackagePlus className="size-3.5" /> New sample
-          </Button>
-        }
-      />
-      <CreateSampleDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        projects={projectsQuery.data ?? []}
-        projectsLoading={projectsQuery.isLoading}
-        pending={createMutation.isPending}
-        error={createError}
-        onCreate={(input) => createMutation.mutate(input)}
-      />
+        <RegistryComposition
+          registryId="samples"
+          workspaceId={workspaceId}
+          userId={userId}
+          title="Samples"
+          description="Track sample identity, quantity, storage and chain of custody."
+          rows={rows}
+          totalCount={totalCount}
+          columns={columns}
+          query={query}
+          onQueryChange={setQuery}
+          getRowId={(row) => row.id}
+          selectedId={selectedId}
+          selectedRecord={selectedRecord}
+          onSelectedIdChange={setSelectedId}
+          filterDefinitions={filterDefinitions}
+          groupingOptions={groupingOptions}
+          renderInspector={inspector}
+          presentation="flat"
+          loading={pageQuery.isLoading}
+          error={pageQuery.error}
+          onRetry={() => pageQuery.refetch()}
+          emptyTitle="No samples yet"
+          noResultsTitle="No matching samples"
+          actions={
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              <PackagePlus className="size-3.5" /> New sample
+            </Button>
+          }
+        />
+        <CreateSampleDialog
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          projects={projectsQuery.data ?? []}
+          projectsLoading={projectsQuery.isLoading}
+          pending={createMutation.isPending}
+          error={createError}
+          onCreate={(input) => createMutation.mutate(input)}
+        />
       </div>
     </>
   )

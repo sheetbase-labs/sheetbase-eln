@@ -29,7 +29,14 @@ import {
   EmptyHint,
 } from '#/components/record'
 import { StatusBadge } from '#/components/scientific/status-badge'
-import { Badge, Button, Input, Label, Textarea } from '#/components/ui'
+import {
+  Badge,
+  Button,
+  ButtonGroup,
+  Input,
+  Label,
+  Textarea,
+} from '#/components/ui'
 import { cn } from '#/lib/utils'
 import { formatDate } from '#/lib/notebook-data'
 import { isLowStock } from '#/lib/samples'
@@ -205,7 +212,7 @@ export function SampleInspector({
 
   return (
     <div className={cn('flex h-full flex-col', className)}>
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6">
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 pb-6">
         {/* Identity */}
         <header className="space-y-2 py-3">
           <div className="flex items-center gap-2">
@@ -238,7 +245,7 @@ export function SampleInspector({
             <Property label="Quantity" mono>
               {quantityLabel(sample)}
             </Property>
-            <Property label="Storage">
+            <Property label="Storage" stacked>
               {orDash(sample.storageLocation)}
             </Property>
             <Property label="Barcode" mono>
@@ -287,12 +294,13 @@ export function SampleInspector({
               </div>
               <Label className="text-xs text-muted-foreground">
                 Storage location
-                <Input
+                <Textarea
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  className="mt-1 h-8"
+                  className="mt-1 min-h-16 text-xs"
                   aria-label="Storage location"
                   placeholder="Freezer A, Shelf 2"
+                  title={location || undefined}
                 />
               </Label>
               <Label className="text-xs text-muted-foreground">
@@ -314,22 +322,24 @@ export function SampleInspector({
                   aria-label="Notes"
                 />
               </Label>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  size="sm"
-                  onClick={submitReceive}
-                  disabled={actionPending}
-                >
-                  <PackagePlus className="size-3.5" /> Receive
-                </Button>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={submitConsume}
-                  disabled={actionPending}
-                >
-                  <MinusCircle className="size-3.5" /> Consume
-                </Button>
+              <div className="grid grid-cols-2 gap-2">
+                <ButtonGroup className="col-span-2 w-full [&>*]:flex-1">
+                  <Button
+                    size="sm"
+                    onClick={submitReceive}
+                    disabled={actionPending}
+                  >
+                    <PackagePlus className="size-3.5" /> Receive
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={submitConsume}
+                    disabled={actionPending}
+                  >
+                    <MinusCircle className="size-3.5" /> Consume
+                  </Button>
+                </ButtonGroup>
                 <Button
                   size="sm"
                   variant="outline"
@@ -350,6 +360,7 @@ export function SampleInspector({
                 <Button
                   size="sm"
                   variant="outline"
+                  className="col-span-2"
                   onClick={() =>
                     onAction({ kind: 'archive', notes: notes || undefined })
                   }
@@ -360,7 +371,7 @@ export function SampleInspector({
               </div>
 
               {editing ? (
-                <div className="space-y-2 rounded-md border bg-muted/30 p-2">
+                <div className="space-y-2 border-t pt-3">
                   <Label className="text-xs text-muted-foreground">
                     Title
                     <Input
@@ -448,9 +459,11 @@ export function SampleInspector({
         )}
 
         {actionError ? (
-          <p role="alert" className="py-2 text-xs text-danger">
-            {actionError}
-          </p>
+          <InspectorSection title="Action status">
+            <p role="alert" className="text-xs text-danger">
+              {actionError}
+            </p>
+          </InspectorSection>
         ) : null}
 
         {/* Chain of custody */}
@@ -464,7 +477,7 @@ export function SampleInspector({
               {events.map((event) => (
                 <li
                   key={event.id}
-                  className="rounded-md border bg-card px-2.5 py-2 text-xs"
+                  className="border-l-2 border-primary/30 pl-2.5 text-xs"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-medium">

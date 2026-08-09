@@ -22,20 +22,11 @@ import { flexRender } from '@tanstack/react-table'
 import type { ColumnDef, useReactTable } from '@tanstack/react-table'
 import {
   Check,
-  Columns3,
   Database,
   Download,
-  Filter,
   GitBranch,
-  Group,
   Layers,
   LineChart,
-  Plus,
-  Save,
-  Search,
-  Share2,
-  SlidersHorizontal,
-  Sparkles,
   Table as TableIcon,
   Trash2,
   Undo2,
@@ -87,7 +78,6 @@ import {
   createDatasetSavedViewStore,
   DATASET_DEFAULT_PAGE_SIZE,
   DATASET_MAX_FILTERS,
-  DATASET_QUERY_HARD_LIMIT,
   datasetExplorerDataClient,
   datasetExplorerQueryKeys,
   fetchDatasetLineage,
@@ -517,17 +507,6 @@ export function DatasetDataTab({
     staleTime: 30_000,
   })
 
-  const relationshipsQuery = useQuery({
-    queryKey: [...datasetExplorerQueryKeys.relationships, table.id],
-    queryFn: () =>
-      fetchDatasetRelationshipsFor(
-        datasetExplorerDataClient,
-        table.dataset_schema_id ?? null,
-      ),
-    enabled: Boolean(table.dataset_schema_id),
-    staleTime: 30_000,
-  })
-
   const columns = useMemo(() => toColumnDefs(table.columns), [table.columns])
   const filterDefinitions = table.columns
     .slice(0, DATASET_MAX_FILTERS)
@@ -541,21 +520,10 @@ export function DatasetDataTab({
       ['category', 'text', 'reference'].includes(column.logical_type),
     )
     .map((column) => ({ id: column.field_name, label: column.label }))
-  const formulaCount = lineageQuery.data?.formulas.length ?? 0
-  const visibleFieldCount = table.columns.length
   const totalCount = rowsQuery.data?.totalCount ?? 0
-  const startRow = totalCount === 0 ? 0 : query.pageIndex * query.pageSize + 1
-  const endRow = Math.min((query.pageIndex + 1) * query.pageSize, totalCount)
 
   return (
     <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
-      <TransformationToolbar
-        table={table}
-        query={query}
-        onQueryChange={setQuery}
-        joins={relationshipsQuery.data?.length ?? 0}
-        calculations={formulaCount}
-      />
       <FormulaBar table={table} />
       <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1.6fr)_minmax(0,1fr)] gap-3">
         <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border bg-card">
@@ -565,7 +533,7 @@ export function DatasetDataTab({
               workspaceId={workspaceId}
               userId={userId}
               title={table.name}
-              description="Query, transform and visualise scientific dataset rows."
+              hideHeader
               rows={rowsQuery.data?.rows ?? []}
               totalCount={totalCount}
               columns={columns}
@@ -582,19 +550,6 @@ export function DatasetDataTab({
               error={rowsQuery.error}
               emptyTitle="No rows yet"
               noResultsTitle="No matching rows"
-              actions={
-                <ButtonGroup>
-                  <Button variant="outline" size="sm">
-                    <Plus /> New
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <Save /> Save view
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <Share2 /> Share
-                  </Button>
-                </ButtonGroup>
-              }
               renderInspector={(row) => (
                 <DatasetInspector
                   table={table}
@@ -607,20 +562,6 @@ export function DatasetDataTab({
                 />
               )}
             />
-          </div>
-          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t px-3 py-2 text-xs text-muted-foreground">
-            <span>
-              Showing {formatCount(startRow)} to {formatCount(endRow)} of{' '}
-              {formatCount(totalCount)} rows
-            </span>
-            <span className="flex flex-wrap items-center gap-3">
-              <span>{formatCount(totalCount)} rows</span>
-              <span>{visibleFieldCount} columns</span>
-              <span>No unsaved changes</span>
-              {totalCount >= DATASET_QUERY_HARD_LIMIT ? (
-                <Badge variant="warning">Server limit reached</Badge>
-              ) : null}
-            </span>
           </div>
         </div>
         <Tabs
@@ -693,72 +634,6 @@ export function DatasetDataTab({
   )
 }
 
-function TransformationToolbar({
-  table,
-  query,
-  onQueryChange,
-  joins,
-  calculations,
-}: {
-  table: ScientificTableWire
-  query: RegistryQuery
-  onQueryChange: (query: RegistryQuery) => void
-  joins: number
-  calculations: number
-}) {
-  const batch = table.columns.find((column) => /batch/i.test(column.label))
-  const time = table.columns.find((column) => /time/i.test(column.label))
-  const controls = [
-    { label: 'Filters', count: query.filters.length, icon: Filter },
-    {
-      label: `Group by ${batch?.label ?? 'field'}`,
-      count: query.grouping.length,
-      icon: Group,
-    },
-    {
-      label: `Sort ${time?.label ?? 'field'}`,
-      count: query.sorting.length,
-      icon: SlidersHorizontal,
-    },
-    { label: 'Fields', count: table.columns.length, icon: Columns3 },
-    { label: 'Joins', count: joins, icon: Workflow },
-    { label: 'Calculations', count: calculations, icon: Sparkles },
-  ]
-  return (
-    <div className="flex flex-wrap items-center gap-1.5 rounded-md border bg-card p-2">
-      {controls.map(({ label, count, icon: Icon }) => (
-        <Button
-          key={label}
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            if (label.startsWith('Group') && batch) {
-              onQueryChange({ ...query, grouping: [batch.field_name] })
-            }
-            if (label.startsWith('Sort') && time) {
-              onQueryChange({
-                ...query,
-                sorting: [{ id: time.field_name, desc: false }],
-              })
-            }
-          }}
-        >
-          <Icon /> {label}
-          <Badge variant={count > 0 ? 'secondary' : 'outline'}>{count}</Badge>
-        </Button>
-      ))}
-      <span className="relative ml-auto min-w-44">
-        <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          aria-label="Search dataset"
-          placeholder="Search"
-          className="h-8 pl-7 text-xs"
-        />
-      </span>
-    </div>
-  )
-}
-
 function FormulaBar({ table }: { table: ScientificTableWire }) {
   const defaultFormula =
     'Titer (TU/mL) = [Vector genome (copies/mL)] / [Volume (mL)]'
@@ -769,7 +644,7 @@ function FormulaBar({ table }: { table: ScientificTableWire }) {
     (formula.match(/\[/g)?.length ?? 0) === (formula.match(/\]/g)?.length ?? 0)
   return (
     <div
-      className="flex flex-wrap items-center gap-2 rounded-md border bg-card p-2"
+      className="flex shrink-0 items-center gap-2 rounded-md border bg-card px-3 py-1.5"
       aria-label="Calculated column formula"
     >
       <span className="font-mono text-xs font-semibold text-violet-600">
@@ -779,23 +654,23 @@ function FormulaBar({ table }: { table: ScientificTableWire }) {
         aria-label="Formula expression"
         value={formula}
         onChange={(event) => setFormula(event.target.value)}
-        className="h-8 min-w-80 flex-1 font-mono text-xs"
+        className="h-7 min-w-40 flex-1 font-mono text-xs"
       />
-      <Badge variant={valid ? 'success' : 'danger'}>
-        {valid ? <Check /> : null} {valid ? 'Valid' : 'Check formula'}
-      </Badge>
+      {valid ? (
+        <Check className="size-3.5 text-emerald-600" aria-hidden="true" />
+      ) : null}
       <ButtonGroup>
-        <Button size="sm" disabled={!valid}>
+        <Button size="sm" variant="outline" disabled={!valid}>
           Apply
         </Button>
         <Button
-          variant="outline"
+          variant="ghost"
           size="sm"
           onClick={() => setFormula(defaultFormula)}
         >
-          <Undo2 /> Undo
+          <Undo2 className="size-3.5" /> Undo
         </Button>
-        <Button variant="outline" size="sm" onClick={() => setFormula('')}>
+        <Button variant="ghost" size="sm" onClick={() => setFormula('')}>
           Clear
         </Button>
       </ButtonGroup>

@@ -420,7 +420,7 @@ describe('DatasetDataTab', () => {
     expect(
       screen.getByLabelText<HTMLInputElement>('Formula expression').value,
     ).toBe('Titer (TU/mL) = [Vector genome (copies/mL)] / [Volume (mL)]')
-    expect(screen.getByText('Valid')).toBeTruthy()
+    expect(screen.getByText('Apply')).toBeTruthy()
     expect(screen.getByText('Mean ± SD')).toBeTruthy()
     expect(screen.getByRole('tab', { name: 'Correlations' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Save current view' })).toBeTruthy()

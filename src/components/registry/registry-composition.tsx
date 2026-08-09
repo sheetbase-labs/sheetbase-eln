@@ -122,6 +122,8 @@ export interface RegistryCompositionProps<TData> {
   initialDensity?: RegistryDensity
   savedViewStore?: RegistrySavedViewStore
   actions?: React.ReactNode
+  /** Hide the built-in title/description header when the route supplies its own. */
+  hideHeader?: boolean
 }
 
 function resolveUpdater<T>(updater: Updater<T>, previous: T): T {
@@ -190,6 +192,7 @@ export function RegistryComposition<TData>({
   initialDensity = 'compact',
   savedViewStore,
   actions,
+  hideHeader = false,
 }: RegistryCompositionProps<TData>) {
   const compositionRef = React.useRef<HTMLElement>(null)
   const store = React.useMemo(
@@ -603,6 +606,7 @@ export function RegistryComposition<TData>({
       aria-labelledby={`${registryId}-title`}
       className="space-y-4"
     >
+      {!hideHeader ? (
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h1
@@ -619,6 +623,7 @@ export function RegistryComposition<TData>({
         </div>
         {permissionDenied ? null : actions}
       </header>
+      ) : null}
 
       {!permissionDenied && summaries.length > 0 ? (
         <dl className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">

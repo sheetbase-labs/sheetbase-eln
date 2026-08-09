@@ -416,25 +416,35 @@ export function createDatasetSavedViewStore({
 export function buildDefaultChartSpec(
   table: ScientificTableWire,
 ): ChartSpec | null {
-  const numeric = table.columns.find(
+  const numericColumns = table.columns.filter(
     (c) => c.logical_type === 'decimal' || c.logical_type === 'integer',
   )
-  if (!numeric) return null
+  if (numericColumns.length === 0) return null
+
+  // For scatter/line charts both axes must be numeric. Pick the first two
+  // numeric columns as X and Y so points actually render. Fall back to a
+  // category/date/text column for X only when there is a single numeric column.
   const x =
-    table.columns.find(
-      (c) =>
-        c.logical_type === 'category' ||
-        c.logical_type === 'date' ||
-        c.logical_type === 'text',
-    ) ?? null
-  const series = table.columns.find((c) => c.logical_type === 'category')
+    numericColumns.length >= 2
+      ? numericColumns[0]
+      : (table.columns.find(
+          (c) =>
+            c.logical_type === 'category' ||
+            c.logical_type === 'date' ||
+            c.logical_type === 'text',
+        ) ?? null)
+  const y = numericColumns[numericColumns.length >= 2 ? 1 : 0]
+  const series = table.columns.find(
+    (c) =>
+      c.logical_type === 'category' || c.logical_type === 'text',
+  )
   return {
     specVersion: CHART_SPEC_VERSION,
     type: 'scatter',
     datasets: [{ tableId: table.id }],
     fields: {
       x: x ? { columnId: x.id, fieldName: x.field_name } : null,
-      y: { columnId: numeric.id, fieldName: numeric.field_name },
+      y: { columnId: y.id, fieldName: y.field_name },
       series: series
         ? { columnId: series.id, fieldName: series.field_name }
         : null,
@@ -446,7 +456,7 @@ export function buildDefaultChartSpec(
     display: {
       axes: {
         x: { label: x?.label ?? 'Row', scale: 'linear' },
-        y: { label: numeric.label, scale: 'linear' },
+        y: { label: y.label, scale: 'linear' },
       },
       series: [
         {

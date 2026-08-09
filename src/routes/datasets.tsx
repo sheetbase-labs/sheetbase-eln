@@ -546,7 +546,7 @@ export function DatasetDataTab({
   const endRow = Math.min((query.pageIndex + 1) * query.pageSize, totalCount)
 
   return (
-    <div className="min-h-0 space-y-3 overflow-auto pb-2">
+    <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
       <TransformationToolbar
         table={table}
         query={query}
@@ -555,9 +555,10 @@ export function DatasetDataTab({
         calculations={formulaCount}
       />
       <FormulaBar table={table} />
-      <RegistryComposition
-        registryId={`dataset-${table.id}`}
-        workspaceId={workspaceId}
+      <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1.6fr)_minmax(0,1fr)] gap-3">
+        <RegistryComposition
+          registryId={`dataset-${table.id}`}
+          workspaceId={workspaceId}
         userId={userId}
         title={table.name}
         description="Transform, review and export scientific data."
@@ -602,7 +603,7 @@ export function DatasetDataTab({
           />
         )}
       />
-      <div className="flex flex-wrap items-center justify-between gap-2 border-y py-2 text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t py-2 text-xs text-muted-foreground">
         <span>
           Showing {formatCount(startRow)} to {formatCount(endRow)} of{' '}
           {formatCount(totalCount)} rows
@@ -616,9 +617,10 @@ export function DatasetDataTab({
           ) : null}
         </span>
       </div>
-      <Tabs value={previewTab} onValueChange={setPreviewTab}>
-        <Card className="overflow-hidden p-0">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b px-3">
+      </div>
+      <Tabs value={previewTab} onValueChange={setPreviewTab} className="min-h-0">
+        <Card className="flex min-h-0 flex-col overflow-hidden p-0">
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3">
             <TabsList className="h-9 bg-transparent p-0">
               {['Preview', 'Summary', 'Distribution', 'Correlations'].map(
                 (label) => (
@@ -640,26 +642,26 @@ export function DatasetDataTab({
               </Button>
             </ButtonGroup>
           </div>
-          <TabsContent value="preview" className="m-0 min-h-64 p-3">
+          <TabsContent value="preview" className="m-0 min-h-0 flex-1 overflow-auto p-3">
             <ChartPreview
               table={table}
               chartSpec={chartSpec}
               onChartSpecChange={setChartSpec}
             />
           </TabsContent>
-          <TabsContent value="summary" className="m-0 min-h-64 p-6">
+          <TabsContent value="summary" className="m-0 min-h-0 flex-1 overflow-auto p-6">
             <PreviewExplanation
               title="Column summary"
               copy="Review completeness, central tendency and spread for each visible field."
             />
           </TabsContent>
-          <TabsContent value="distribution" className="m-0 min-h-64 p-6">
+          <TabsContent value="distribution" className="m-0 min-h-0 flex-1 overflow-auto p-6">
             <PreviewExplanation
               title="Distribution"
               copy="Select a numeric field to inspect its histogram and outliers."
             />
           </TabsContent>
-          <TabsContent value="correlations" className="m-0 min-h-64 p-6">
+          <TabsContent value="correlations" className="m-0 min-h-0 flex-1 overflow-auto p-6">
             <PreviewExplanation
               title="Correlations"
               copy="Compare numeric fields to identify relationships in this view."

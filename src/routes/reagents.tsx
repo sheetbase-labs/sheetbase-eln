@@ -40,6 +40,7 @@ import { StatusBadge } from '#/components/scientific'
 import {
   Badge,
   Button,
+  ButtonGroup,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -47,9 +48,12 @@ import {
   DialogHeader,
   DialogTitle,
   Field,
+  FieldDescription,
+  FieldError,
   FieldGroup,
   FieldLabel,
   Input,
+  Textarea,
 } from '#/components/ui'
 import { createDataClient, DataClientError } from '#/lib/data-client'
 import { formatDate } from '#/lib/notebook-data'
@@ -266,82 +270,85 @@ function ReagentsRegistryRoute() {
   return (
     <>
       <div className="flex flex-col gap-4 p-4 md:p-6">
-      <RegistryComposition
-        registryId="reagents"
-        workspaceId={context.workspace?.id ?? 'unknown'}
-        userId={context.user.id}
-        title="Reagents"
-        description="Inventory registry for reagents across the workspace."
-        rows={rows}
-        totalCount={totalCount}
-        columns={columns}
-        query={query}
-        onQueryChange={setQuery}
-        getRowId={(row) => row.id}
-        selectedId={selectedId}
-        selectedRecord={selectedReagent}
-        onSelectedIdChange={setSelected}
-        summaries={summaries}
-        filterDefinitions={[
-          {
-            id: 'status',
-            label: 'Status',
-            placeholder: 'All statuses',
-            options: [
-              ...REAGENT_STATUS_OPTIONS,
-              { value: 'archived', label: 'archived' },
-            ],
-          },
-          {
-            id: 'storage',
-            label: 'Storage',
-            placeholder: 'All storage',
-            options: REAGENT_STORAGE_OPTIONS,
-          },
-          {
-            id: 'q',
-            label: 'Search',
-            placeholder: 'Identifier or title',
-          },
-        ]}
-        groupingOptions={[
-          { id: 'category', label: 'Category' },
-          { id: 'storage', label: 'Storage' },
-          { id: 'supplier', label: 'Supplier' },
-          { id: 'status', label: 'Status' },
-        ]}
-        loading={rowsQuery.isLoading}
-        error={rowsQuery.error}
-        permissionDenied={permissionDenied}
-        partialData={
-          rowsQuery.data !== undefined && countQuery.data === undefined
-        }
-        onRetry={() => rowsQuery.refetch()}
-        emptyTitle="No reagents yet"
-        noResultsTitle="No matching reagents"
-        renderInspector={(row) =>
-          row ? (
-            <ReagentInspector
-              reagent={row}
-              movements={movements}
-              usage={usage}
-              onMutated={handleMutated}
-            />
-          ) : selectedReagent ? (
-            <ReagentInspector
-              reagent={selectedReagent}
-              movements={movements}
-              usage={usage}
-              onMutated={handleMutated}
-            />
-          ) : (
-            <div className="p-4 text-sm text-muted-foreground">
-              Select a reagent to see its details, supplier and lot identity,
-              stock movements and usage.
-            </div>
-          )
-        }
-      />
+        <RegistryComposition
+          registryId="reagents"
+          workspaceId={context.workspace?.id ?? 'unknown'}
+          userId={context.user.id}
+          title="Reagents"
+          description="Inventory registry for reagents across the workspace."
+          rows={rows}
+          totalCount={totalCount}
+          columns={columns}
+          query={query}
+          onQueryChange={setQuery}
+          getRowId={(row) => row.id}
+          selectedId={selectedId}
+          selectedRecord={selectedReagent}
+          onSelectedIdChange={setSelected}
+          summaries={summaries}
+          filterDefinitions={[
+            {
+              id: 'status',
+              label: 'Status',
+              placeholder: 'All statuses',
+              options: [
+                ...REAGENT_STATUS_OPTIONS,
+                { value: 'archived', label: 'archived' },
+              ],
+            },
+            {
+              id: 'storage',
+              label: 'Storage',
+              placeholder: 'All storage',
+              options: REAGENT_STORAGE_OPTIONS,
+            },
+            {
+              id: 'q',
+              label: 'Search',
+              placeholder: 'Identifier or title',
+            },
+          ]}
+          groupingOptions={[
+            { id: 'category', label: 'Category' },
+            { id: 'storage', label: 'Storage' },
+            { id: 'supplier', label: 'Supplier' },
+            { id: 'status', label: 'Status' },
+          ]}
+          loading={rowsQuery.isLoading}
+          error={rowsQuery.error}
+          permissionDenied={permissionDenied}
+          partialData={
+            rowsQuery.data !== undefined && countQuery.data === undefined
+          }
+          onRetry={() => rowsQuery.refetch()}
+          emptyTitle="No reagents yet"
+          noResultsTitle="No matching reagents"
+          inspectorLabel="Reagent details"
+          renderInspector={(row) =>
+            row ? (
+              <ReagentInspector
+                reagent={row}
+                movements={movements}
+                usage={usage}
+                onMutated={handleMutated}
+                onClose={() => setSelected(null)}
+              />
+            ) : selectedReagent ? (
+              <ReagentInspector
+                reagent={selectedReagent}
+                movements={movements}
+                usage={usage}
+                onMutated={handleMutated}
+                onClose={() => setSelected(null)}
+              />
+            ) : (
+              <div className="p-4 text-sm text-muted-foreground">
+                Select a reagent to see its details, supplier and lot identity,
+                stock movements and usage.
+              </div>
+            )
+          }
+        />
       </div>
     </>
   )
@@ -357,7 +364,7 @@ function buildColumns(): ColumnDef<Reagent, unknown>[] {
       id: 'identifier',
       header: 'Identifier',
       cell: (info) => (
-        <span className="font-mono text-xs tabular-nums text-muted-foreground">
+        <span className="font-mono text-xs tabular-nums text-primary">
           {info.getValue()}
         </span>
       ),
@@ -365,10 +372,14 @@ function buildColumns(): ColumnDef<Reagent, unknown>[] {
     columnHelper.accessor('title', {
       id: 'title',
       header: 'Reagent',
+      cell: (info) => (
+        <TruncatedValue value={info.getValue()} className="font-medium" />
+      ),
     }),
     columnHelper.accessor('category', {
       id: 'category',
       header: 'Category',
+      meta: { responsiveClassName: 'max-xl:hidden' },
       cell: (info) => (
         <Badge variant="outline" className="text-xs">
           {info.getValue()}
@@ -378,17 +389,19 @@ function buildColumns(): ColumnDef<Reagent, unknown>[] {
     columnHelper.accessor('supplier', {
       id: 'supplier',
       header: 'Supplier',
-      cell: (info) => info.getValue() ?? '—',
+      meta: { responsiveClassName: 'max-xl:hidden' },
+      cell: (info) => <TruncatedValue value={info.getValue() ?? '—'} />,
     }),
     columnHelper.accessor('catalogNo', {
       id: 'catalogNo',
       header: 'Cat. No.',
-      cell: (info) => info.getValue() ?? '—',
+      meta: { responsiveClassName: 'max-xl:hidden' },
+      cell: (info) => <TruncatedValue value={info.getValue() ?? '—'} mono />,
     }),
     columnHelper.accessor('lot', {
       id: 'lot',
       header: 'Lot',
-      cell: (info) => info.getValue() ?? '—',
+      cell: (info) => <TruncatedValue value={info.getValue() ?? '—'} mono />,
     }),
     columnHelper.accessor('expiry', {
       id: 'expiry',
@@ -409,7 +422,7 @@ function buildColumns(): ColumnDef<Reagent, unknown>[] {
     columnHelper.accessor('storage', {
       id: 'storage',
       header: 'Storage',
-      cell: (info) => info.getValue() ?? '—',
+      cell: (info) => <TruncatedValue value={info.getValue() ?? '—'} />,
     }),
     columnHelper.accessor('status', {
       id: 'status',
@@ -420,9 +433,29 @@ function buildColumns(): ColumnDef<Reagent, unknown>[] {
       id: 'attention',
       header: 'Attention',
       enableSorting: false,
+      meta: { responsiveClassName: 'max-xl:hidden' },
       cell: (info) => <AttentionCell reagent={info.row.original} />,
     }),
   ] as ColumnDef<Reagent, unknown>[]
+}
+
+function TruncatedValue({
+  value,
+  className,
+  mono = false,
+}: {
+  value: string
+  className?: string
+  mono?: boolean
+}) {
+  return (
+    <span
+      className={`block max-w-44 truncate ${mono ? 'font-mono text-xs' : ''} ${className ?? ''}`}
+      title={value}
+    >
+      {value}
+    </span>
+  )
 }
 
 function AttentionCell({ reagent }: { reagent: Reagent }) {
@@ -493,11 +526,13 @@ function ReagentInspector({
   movements,
   usage,
   onMutated,
+  onClose,
 }: {
   reagent: Reagent
   movements: ReagentMovement[]
   usage: ReagentUsageLink[]
   onMutated: (reagentId: string) => void
+  onClose: () => void
 }) {
   const attention = reagentAttention(reagent)
   const isArchived = reagent.archivedAt !== null
@@ -505,28 +540,39 @@ function ReagentInspector({
     <Inspector
       recordType="Reagent"
       title={reagent.title}
+      status={<StatusBadge domain="reagent" status={reagent.status} />}
+      onClose={onClose}
       tabs={[
         {
           id: 'details',
           label: 'Details',
           content: (
-            <div className="space-y-0">
-              <PropertyList>
-                <Property label="Identifier" mono>
-                  {reagent.identifier}
-                </Property>
-                <Property label="Status">
-                  <StatusBadge domain="reagent" status={reagent.status} />
-                </Property>
-                <Property label="Attention">
-                  {attention.kind === 'ok' ? (
-                    <span className="text-muted-foreground">No attention</span>
-                  ) : (
-                    <AttentionCell reagent={reagent} />
-                  )}
-                </Property>
-                <Property label="Category">{reagent.category}</Property>
-              </PropertyList>
+            <div className="space-y-4">
+              <InspectorSection title="Identity">
+                <PropertyList>
+                  <Property label="Identifier" mono>
+                    {reagent.identifier}
+                  </Property>
+                  <Property label="Status">
+                    <StatusBadge domain="reagent" status={reagent.status} />
+                  </Property>
+                  <Property label="Attention">
+                    {attention.kind === 'ok' ? (
+                      <span className="text-muted-foreground">
+                        No attention
+                      </span>
+                    ) : (
+                      <AttentionCell reagent={reagent} />
+                    )}
+                  </Property>
+                </PropertyList>
+              </InspectorSection>
+
+              <InspectorSection title="Classification">
+                <PropertyList>
+                  <Property label="Category">{reagent.category}</Property>
+                </PropertyList>
+              </InspectorSection>
 
               <InspectorSection title="Supplier & lot">
                 <PropertyList>
@@ -738,30 +784,32 @@ function ReagentActions({
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-2">
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={!canReceive}
-          onClick={() => setDialog('receive')}
-        >
-          Receive
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={!canConsume}
-          onClick={() => setDialog('consume')}
-        >
-          Consume
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={!canQuarantine}
-          onClick={() => setDialog('quarantine')}
-        >
-          Quarantine
-        </Button>
+        <ButtonGroup>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!canReceive}
+            onClick={() => setDialog('receive')}
+          >
+            Receive
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!canConsume}
+            onClick={() => setDialog('consume')}
+          >
+            Consume
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!canQuarantine}
+            onClick={() => setDialog('quarantine')}
+          >
+            Quarantine
+          </Button>
+        </ButtonGroup>
         <Button
           size="sm"
           variant="outline"
@@ -855,7 +903,7 @@ function QuantityDialog({
           </DialogDescription>
         </DialogHeader>
         <FieldGroup>
-          <Field>
+          <Field className="max-w-48">
             <FieldLabel htmlFor="reagent-quantity">
               Quantity{reagent.unit ? ` (${reagent.unit})` : ''}
             </FieldLabel>
@@ -869,10 +917,15 @@ function QuantityDialog({
               onChange={(e) => setQuantity(e.target.value)}
               autoFocus
             />
+            <FieldDescription>
+              {operation === 'receive'
+                ? 'Enter the amount received into inventory.'
+                : 'Enter the amount consumed from inventory.'}
+            </FieldDescription>
           </Field>
           <Field>
             <FieldLabel htmlFor="reagent-reason">Reason (optional)</FieldLabel>
-            <Input
+            <Textarea
               id="reagent-reason"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
@@ -881,14 +934,11 @@ function QuantityDialog({
                   ? 'PO-1234, received from supplier'
                   : 'Used in EXP-2026-0001'
               }
+              className="min-h-20 resize-y"
             />
           </Field>
         </FieldGroup>
-        {errorMessage ? (
-          <p role="alert" className="text-sm text-destructive">
-            {errorMessage}
-          </p>
-        ) : null}
+        {errorMessage ? <FieldError>{errorMessage}</FieldError> : null}
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={onCancel}>
             Cancel

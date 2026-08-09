@@ -78,6 +78,8 @@ declare module '@tanstack/react-table' {
   interface ColumnMeta<TData, TValue> {
     /** Sheetbase-owned rendering contract for registry values. */
     registryFormat?: RegistryValueFormat
+    /** Hide lower-priority table fields below the specified product breakpoint. */
+    responsiveClassName?: string
   }
 }
 
@@ -411,6 +413,9 @@ export function RegistryComposition<TData>({
                 return (
                   <TableHead
                     key={header.id}
+                    className={
+                      header.column.columnDef.meta?.responsiveClassName
+                    }
                     aria-sort={
                       sorted === 'asc'
                         ? 'ascending'
@@ -490,6 +495,7 @@ export function RegistryComposition<TData>({
                       density === 'compact' && 'py-1.5',
                       typeof cell.getValue() === 'number' &&
                         'scientific-nums text-right tabular-nums',
+                      cell.column.columnDef.meta?.responsiveClassName,
                     )}
                   >
                     {cell.column.columnDef.meta?.registryFormat

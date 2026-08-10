@@ -2,16 +2,20 @@ import * as React from 'react'
 import {
   flexRender,
   getCoreRowModel,
+  getExpandedRowModel,
+  getGroupedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
 import type {
   ColumnDef,
   ColumnFiltersState,
+  ExpandedState,
   SortingState,
   Updater,
   VisibilityState,
 } from '@tanstack/react-table'
 import {
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Columns3,
@@ -256,6 +260,7 @@ export function RegistryComposition<TData>({
 
   const sorting = query.sorting as SortingState
   const grouping = query.grouping
+  const [expanded, setExpanded] = React.useState<ExpandedState>({})
   const columnFilters: ColumnFiltersState = query.filters
 
   const table = useReactTable({
@@ -263,15 +268,17 @@ export function RegistryComposition<TData>({
     columns,
     getRowId: (row) => getRowId(row),
     getCoreRowModel: getCoreRowModel(),
+    getGroupedRowModel: getGroupedRowModel(),
+    getExpandedRowModel: getExpandedRowModel(),
     manualPagination: true,
     manualSorting: true,
     manualFiltering: true,
-    manualGrouping: true,
     rowCount: totalCount,
     state: {
       pagination: { pageIndex: query.pageIndex, pageSize: query.pageSize },
       sorting,
       grouping,
+      expanded,
       columnFilters,
       columnVisibility,
     },
@@ -295,7 +302,9 @@ export function RegistryComposition<TData>({
         pageIndex: 0,
         grouping: resolveUpdater(updater, grouping),
       })
+      setExpanded(true)
     },
+    onExpandedChange: setExpanded,
     onColumnFiltersChange(updater) {
       const next = resolveUpdater(updater, columnFilters)
       onQueryChange({
@@ -537,6 +546,50 @@ export function RegistryComposition<TData>({
         </TableHeader>
         <TableBody>
           {table.getRowModel().rows.map((row, index) => {
+            if (row.getIsGrouped()) {
+              const groupVal = row.getValue(row.groupingColumnId!)
+              const colDef = columns.find((c) => c.id === row.groupingColumnId)
+              const groupLabel = colDef?.header
+                ? typeof colDef.header === 'string'
+                  ? colDef.header
+                  : String(groupVal ?? '—')
+                : String(groupVal ?? '—')
+              return (
+                <TableRow
+                  key={row.id}
+                  className="bg-muted/40 hover:bg-muted/60"
+                >
+                  <TableCell
+                    colSpan={row.getVisibleCells().length}
+                    className={cn(
+                      density === 'compact'
+                        ? 'px-2.5 py-1.5 text-xs'
+                        : 'px-3 py-2 text-sm',
+                      'font-semibold',
+                    )}
+                  >
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1.5"
+                      onClick={() => row.getToggleExpandedHandler()()}
+                      aria-label={`Toggle ${groupLabel} group`}
+                    >
+                      {row.getIsExpanded() ? (
+                        <ChevronDown className="size-3.5" />
+                      ) : (
+                        <ChevronRight className="size-3.5" />
+                      )}
+                      {groupLabel} {String(groupVal ?? '—')}
+                      <span className="ml-1 rounded-full bg-muted px-1.5 text-[0.65rem] font-medium text-muted-foreground">
+                        {row.subRows.length}
+                      </span>
+                    </button>
+                  </TableCell>
+                </TableRow>
+              )
+            }
+            // Aggregated placeholder rows — skip them.
+            if (row.depth > 0 && !row.original) return null
             const id = getRowId(row.original)
             const selected = id === selectedId
             return (

@@ -77,7 +77,10 @@ function SamplesRegistryRoute() {
   const workspaceId = context.workspace?.id ?? ''
   const userId = context.user.id
 
-  const [query, setQuery] = useState<RegistryQuery>(DEFAULT_REGISTRY_QUERY)
+  const [query, setQuery] = useState<RegistryQuery>({
+    ...DEFAULT_REGISTRY_QUERY,
+    pageSize: 50,
+  })
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [createOpen, setCreateOpen] = useState(false)

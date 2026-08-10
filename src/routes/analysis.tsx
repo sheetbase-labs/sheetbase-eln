@@ -282,7 +282,7 @@ function AnalysisStudioRoute() {
 
   return (
     <>
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4">
         <AnalysisStudioHeader
           datasets={datasets}
           loading={summariesQuery.isLoading}
@@ -339,7 +339,7 @@ export function AnalysisStudioHeader({
 }: AnalysisStudioHeaderProps) {
   return (
     <header
-      className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b px-4 py-2.5"
+      className="flex shrink-0 flex-wrap items-center justify-between gap-3"
       aria-labelledby="analysis-title"
     >
       <div className="flex min-w-0 items-center gap-2">
@@ -562,14 +562,14 @@ export function AnalysisControls({
 
   return (
     <div
-      className="shrink-0 space-y-2.5 border-b px-4 py-2.5"
+      className="shrink-0 space-y-2.5 border-b pb-3"
       aria-labelledby="controls-title"
     >
       <h2 id="controls-title" className="sr-only">
         Chart configuration
       </h2>
       <FieldGroup className="flex flex-wrap items-end gap-3">
-        <Field className="min-w-64 flex-1">
+        <Field className="min-w-fit shrink-0">
           <FieldLabel>Chart type</FieldLabel>
           <ButtonGroup role="radiogroup" aria-label="Chart type">
             {CHART_TYPES.map((t) => (
@@ -595,7 +595,7 @@ export function AnalysisControls({
             ))}
           </ButtonGroup>
         </Field>
-        <Field className="min-w-40 flex-1">
+        <Field className="min-w-36 flex-1">
           <FieldLabel htmlFor="analysis-x-axis">X-axis</FieldLabel>
           <Select
             id="analysis-x-axis"
@@ -612,7 +612,7 @@ export function AnalysisControls({
             ))}
           </Select>
         </Field>
-        <Field className="min-w-40 flex-1">
+        <Field className="min-w-36 flex-1">
           <FieldLabel htmlFor="analysis-y-axis">Y-axis</FieldLabel>
           <Select
             id="analysis-y-axis"
@@ -628,7 +628,7 @@ export function AnalysisControls({
             ))}
           </Select>
         </Field>
-        <Field className="min-w-40 flex-1">
+        <Field className="min-w-36 flex-1">
           <FieldLabel htmlFor="analysis-colour">Colour by</FieldLabel>
           <Select
             id="analysis-colour"
@@ -645,7 +645,7 @@ export function AnalysisControls({
             ))}
           </Select>
         </Field>
-        <Field className="min-w-40 flex-1">
+        <Field className="min-w-36 flex-1">
           <FieldLabel htmlFor="analysis-series">Split / facet</FieldLabel>
           <Select
             id="analysis-series"

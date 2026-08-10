@@ -232,7 +232,7 @@ function DatasetExplorerRoute() {
 
   return (
     <>
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4">
         <DatasetExplorerHeader
           datasets={datasets}
           loading={summariesQuery.isLoading}
@@ -281,7 +281,7 @@ export function DatasetExplorerHeader({
 }: DatasetExplorerHeaderProps) {
   return (
     <header
-      className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b px-4 py-2.5"
+      className="flex shrink-0 flex-wrap items-center justify-between gap-3"
       aria-labelledby="datasets-title"
     >
       <div className="flex min-w-0 items-center gap-2">
@@ -1243,7 +1243,7 @@ export function DatasetRelationshipsTab({
     formulas.length === 0
   ) {
     return (
-      <Card className="p-4">
+      <div className="max-w-3xl px-1 py-3">
         <InspectorSection title="Column relationships">
           <EmptyHint>
             This dataset has no relationships defined. Relationships are created
@@ -1251,11 +1251,11 @@ export function DatasetRelationshipsTab({
             datasets.
           </EmptyHint>
         </InspectorSection>
-      </Card>
+      </div>
     )
   }
   return (
-    <Card className="p-4">
+    <div className="max-w-3xl space-y-4 px-1 py-3">
       <div className="space-y-4">
         <InspectorSection title="Joined datasets">
           <LinkedRecordList
@@ -1272,8 +1272,8 @@ export function DatasetRelationshipsTab({
             items={dependencies.map((dependency, index) => ({
               id: `${dependency.formula_id}-${index}`,
               type: 'Calculated column dependency',
-              title: `Column ${dependency.source_column_id.slice(0, 8)}`,
-              meta: `Dataset ${dependency.source_table_id.slice(0, 8)} · row ${dependency.source_row_id.slice(0, 8)}`,
+              title: `Input ${index + 1}`,
+              meta: 'Cross-dataset source',
             }))}
           />
         </InspectorSection>
@@ -1287,7 +1287,7 @@ export function DatasetRelationshipsTab({
           </PropertyList>
         </InspectorSection>
       </div>
-    </Card>
+    </div>
   )
 }
 
@@ -1324,18 +1324,18 @@ export function DatasetLineageTab({ table }: DatasetLineageTabProps) {
   }
   if (formulas.length === 0 && dependencies.length === 0) {
     return (
-      <Card className="p-4">
+      <div className="max-w-3xl px-1 py-3">
         <InspectorSection title="Transformation lineage">
           <EmptyHint>
             No transformations applied yet. Formula calculations and column
             transforms will appear here.
           </EmptyHint>
         </InspectorSection>
-      </Card>
+      </div>
     )
   }
   return (
-    <Card className="p-4">
+    <div className="max-w-3xl space-y-4 px-1 py-3">
       <div className="space-y-4">
         <InspectorSection title={`Transformations (${formulas.length})`}>
           {formulas.length === 0 ? (
@@ -1360,14 +1360,14 @@ export function DatasetLineageTab({ table }: DatasetLineageTabProps) {
               items={dependencies.map((dependency, index) => ({
                 id: `${dependency.formula_id}-${index}`,
                 type: 'Formula input',
-                title: `Column ${dependency.source_column_id.slice(0, 8)}`,
-                meta: `Dataset ${dependency.source_table_id.slice(0, 8)} · row ${dependency.source_row_id.slice(0, 8)}`,
+                title: `Input ${index + 1}`,
+                meta: 'Cross-dataset source',
               }))}
             />
           )}
         </InspectorSection>
       </div>
-    </Card>
+    </div>
   )
 }
 

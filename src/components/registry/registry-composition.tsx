@@ -350,6 +350,9 @@ export function RegistryComposition<TData>({
         : null))
     : null
   const hasFilters = query.filters.some((filter) => filter.value !== '')
+  const searchFilter = filterDefinitions.find(
+    (filter) => filter.id === 'search' || filter.id === 'q',
+  )
   const inspectorOpen = controlledInspectorOpen ?? uncontrolledInspectorOpen
   const setInspectorOpen = React.useCallback(
     (open: boolean) => {
@@ -509,7 +512,7 @@ export function RegistryComposition<TData>({
                     key={header.id}
                     className={
                       density === 'compact'
-                        ? 'h-7 px-2.5 text-[0.65rem]'
+                        ? 'h-7 whitespace-nowrap px-2.5 text-[0.65rem]'
                         : undefined
                     }
                     aria-sort={
@@ -629,7 +632,7 @@ export function RegistryComposition<TData>({
                     key={cell.id}
                     className={cn(
                       density === 'compact'
-                        ? 'px-2.5 py-1 text-xs'
+                        ? 'whitespace-nowrap px-2.5 py-1 text-xs'
                         : 'px-3 py-2',
                       typeof cell.getValue() === 'number' &&
                         'scientific-nums text-right tabular-nums',
@@ -680,7 +683,7 @@ export function RegistryComposition<TData>({
       ) : null}
 
       {!permissionDenied && summaries.length > 0 ? (
-        <dl className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <dl className="grid grid-cols-[repeat(auto-fit,minmax(7.5rem,1fr))] gap-2">
           {summaries.map((summary) => (
             <div
               key={summary.label}
@@ -714,17 +717,16 @@ export function RegistryComposition<TData>({
       {!permissionDenied ? (
         <div className="flex flex-wrap items-center gap-2">
           {/* Search — prominent standalone input */}
-          {filterDefinitions.some((f) => f.id === 'search') ? (
+          {searchFilter ? (
             <div className="relative min-w-48 flex-1 sm:max-w-64">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 aria-label="Search"
-                value={activeFilter(query, 'search')}
-                onChange={(event) => setFilter('search', event.target.value)}
-                placeholder={
-                  filterDefinitions.find((f) => f.id === 'search')
-                    ?.placeholder ?? 'Search…'
+                value={activeFilter(query, searchFilter.id)}
+                onChange={(event) =>
+                  setFilter(searchFilter.id, event.target.value)
                 }
+                placeholder={searchFilter.placeholder ?? 'Search…'}
                 className="h-8 pl-8 text-sm"
               />
             </div>
@@ -732,7 +734,7 @@ export function RegistryComposition<TData>({
 
           {/* Filter pills — compact dropdown buttons for option-based filters */}
           {filterDefinitions
-            .filter((f) => f.id !== 'search' && f.options)
+            .filter((filter) => filter !== searchFilter && filter.options)
             .map((filter) => {
               const active = activeFilter(query, filter.id)
               return (
@@ -772,7 +774,7 @@ export function RegistryComposition<TData>({
 
           {/* Text filters — compact inputs for non-option, non-search filters */}
           {filterDefinitions
-            .filter((f) => f.id !== 'search' && !f.options)
+            .filter((filter) => filter !== searchFilter && !filter.options)
             .map((filter) => (
               <Input
                 key={filter.id}
@@ -893,7 +895,7 @@ export function RegistryComposition<TData>({
       {/* Table + pinned inspector layout */}
       <div className="flex min-h-0 flex-1 min-w-0 gap-4">
         {/* Table — always takes full width. Inspector slides over or pins. */}
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border bg-card">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-md border bg-card">
           <div className="min-h-0 flex-1 overflow-auto">{stateContent}</div>
         </div>
 

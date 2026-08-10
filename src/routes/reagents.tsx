@@ -246,7 +246,7 @@ function ReagentsRegistryRoute() {
 
   return (
     <>
-      <div className="flex flex-col gap-4 p-4 md:p-6">
+      <div className="flex flex-col gap-4 p-4">
         <RegistryComposition
           registryId="reagents"
           workspaceId={context.workspace?.id ?? 'unknown'}

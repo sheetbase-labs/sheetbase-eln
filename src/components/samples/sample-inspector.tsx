@@ -2,6 +2,11 @@
  * Sample details and custody controls rendered inside the registry inspector.
  * The route owns data fetching and mutations; this component owns only form
  * state and presentation.
+ *
+ * Designed to match the Samples Registry mockup: a single scrollable panel
+ * with identity, visual barcode, chain-of-custody timeline, linked
+ * experiments, files, notes, and compact custody actions — not a tabbed
+ * repeater of table columns.
  */
 import * as React from 'react'
 import {
@@ -49,6 +54,7 @@ import type {
   SampleEvent,
   SampleRecord,
 } from '#/lib/samples'
+import { cn } from '#/lib/utils'
 
 export type SampleCustodyAction =
   | {
@@ -114,6 +120,105 @@ function fileSize(bytes: number | null): string | undefined {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+// --------------------------------------------------------------------------- //
+// Visual barcode — CSS-based 1D barcode bars derived from the barcode string. //
+// --------------------------------------------------------------------------- //
+
+function VisualBarcode({ value }: { value: string }) {
+  const bars = React.useMemo(() => {
+    // Deterministic bar widths from char codes
+    const widths: number[] = []
+    for (const char of value) {
+      const code = char.charCodeAt(0)
+      widths.push((code % 3) + 1) // 1-3px black bar
+      widths.push(((code >> 2) % 2) + 1) // 1-2px gap
+    }
+    return widths
+  }, [value])
+
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <div className="flex h-10 items-center overflow-hidden rounded border bg-white px-2">
+        <div className="flex h-full items-stretch gap-0">
+          {bars.map((w, i) => (
+            <div
+              key={i}
+              className={cn(i % 2 === 0 ? 'bg-black' : 'bg-white')}
+              style={{ width: `${w}px` }}
+            />
+          ))}
+        </div>
+      </div>
+      <span className="font-mono text-[0.65rem] tracking-wide text-muted-foreground">
+        {value}
+      </span>
+    </div>
+  )
+}
+
+// --------------------------------------------------------------------------- //
+// Custody timeline — compact vertical timeline with operation, delta, date.  //
+// --------------------------------------------------------------------------- //
+
+function CustodyTimeline({
+  events,
+  loading,
+}: {
+  events: SampleEvent[]
+  loading: boolean
+}) {
+  if (loading) {
+    return <p className="text-xs text-muted-foreground">Loading…</p>
+  }
+  if (events.length === 0) {
+    return <EmptyHint>No custody events recorded yet.</EmptyHint>
+  }
+  const recent = events.slice(0, 5)
+  return (
+    <ol className="relative ml-1 space-y-2.5 border-l border-border pl-3">
+      {recent.map((event) => (
+        <li key={event.id} className="relative text-xs">
+          <span className="absolute -left-[0.45rem] top-1 size-1.5 rounded-full border border-primary bg-background" />
+          <div className="flex items-start justify-between gap-2">
+            <span className="font-medium">
+              {OPERATION_LABELS[event.operation] ?? event.operation}
+            </span>
+            <span className="shrink-0 text-[0.65rem] text-muted-foreground">
+              {formatDate(event.createdAt)}
+            </span>
+          </div>
+          {event.quantityDelta != null ? (
+            <p className="mt-0.5 tabular-nums text-muted-foreground">
+              {event.quantityDelta > 0 ? '+' : ''}
+              {event.quantityDelta}
+              {event.quantityUnit ? ` ${event.quantityUnit}` : ''} →{' '}
+              {event.quantityAfter}
+              {event.quantityUnit ? ` ${event.quantityUnit}` : ''}
+            </p>
+          ) : null}
+          {event.fromLocation || event.toLocation ? (
+            <p className="mt-0.5 text-muted-foreground">
+              {orDash(event.fromLocation)} → {orDash(event.toLocation)}
+            </p>
+          ) : null}
+          {event.notes ? (
+            <p className="mt-0.5 italic text-muted-foreground">{event.notes}</p>
+          ) : null}
+        </li>
+      ))}
+      {events.length > 5 ? (
+        <li className="text-[0.65rem] text-muted-foreground">
+          +{events.length - 5} more events
+        </li>
+      ) : null}
+    </ol>
+  )
+}
+
+// --------------------------------------------------------------------------- //
+// Main component                                                              //
+// --------------------------------------------------------------------------- //
+
 export function SampleInspector({
   sample,
   events,
@@ -138,6 +243,7 @@ export function SampleInspector({
   const [editStorage, setEditStorage] = React.useState('')
   const [editThreshold, setEditThreshold] = React.useState('')
   const [editUnit, setEditUnit] = React.useState('')
+  const [showActions, setShowActions] = React.useState(false)
 
   React.useEffect(() => {
     if (!sample) return
@@ -152,6 +258,7 @@ export function SampleInspector({
       sample.lowStockThreshold == null ? '' : String(sample.lowStockThreshold),
     )
     setEditUnit(sample.quantityUnit ?? '')
+    setShowActions(false)
   }, [sample])
 
   if (!sample) {
@@ -236,9 +343,11 @@ export function SampleInspector({
     size: fileSize(file.byteSize),
   }))
 
-  const detailsContent = (
-    <div className="space-y-4">
-      <InspectorSection title="Details">
+  // Single-panel content matching the mockup layout
+  const panelContent = (
+    <div className="space-y-0">
+      {/* Identity properties */}
+      <InspectorSection title="Identity">
         <PropertyList>
           <Property label="Sample ID" mono>
             {sample.identifier}
@@ -247,24 +356,84 @@ export function SampleInspector({
           <Property label="Quantity" mono>
             {quantityLabel(sample)}
           </Property>
-          <Property label="Storage">{orDash(sample.storageLocation)}</Property>
-          <Property label="Barcode" mono>
-            {orDash(sample.barcode)}
+          <Property label="Storage" stacked>
+            {orDash(sample.storageLocation)}
           </Property>
-          <Property label="Low-stock at" mono>
-            {sample.lowStockThreshold == null
-              ? '—'
-              : `${sample.lowStockThreshold}${sample.quantityUnit ? ` ${sample.quantityUnit}` : ''}`}
-          </Property>
+          {sample.lowStockThreshold != null ? (
+            <Property label="Low-stock at" mono>
+              {`${sample.lowStockThreshold}${sample.quantityUnit ? ` ${sample.quantityUnit}` : ''}`}
+            </Property>
+          ) : null}
           <Property label="Updated">{formatDate(sample.updatedAt)}</Property>
         </PropertyList>
       </InspectorSection>
-    </div>
-  )
 
-  const custodyContent = (
-    <div className="space-y-4">
-      <InspectorSection title="Custody actions">
+      {/* Visual barcode */}
+      {sample.barcode ? (
+        <InspectorSection title="Barcode">
+          <VisualBarcode value={sample.barcode} />
+        </InspectorSection>
+      ) : null}
+
+      {/* Chain of custody timeline */}
+      <InspectorSection title="Chain of custody">
+        <CustodyTimeline events={events} loading={eventsLoading ?? false} />
+      </InspectorSection>
+
+      {/* Linked experiments */}
+      <InspectorSection
+        title="Linked experiments"
+        action={
+          linkedExperiments.length > 0 ? (
+            <span className="text-[0.65rem] text-muted-foreground">
+              {linkedExperiments.length}
+            </span>
+          ) : null
+        }
+      >
+        {linksLoading ? (
+          <p className="text-xs text-muted-foreground">Loading…</p>
+        ) : (
+          <LinkedRecordList items={experimentItems} />
+        )}
+      </InspectorSection>
+
+      {/* Files */}
+      <InspectorSection
+        title="Files"
+        action={
+          linkedFiles.length > 0 ? (
+            <span className="text-[0.65rem] text-muted-foreground">
+              {linkedFiles.length}
+            </span>
+          ) : null
+        }
+      >
+        {linksLoading ? (
+          <p className="text-xs text-muted-foreground">Loading…</p>
+        ) : (
+          <FileList items={fileItems} />
+        )}
+      </InspectorSection>
+
+      {/* Notes */}
+      <InspectorSection title="Notes">
+        {sample.notes ? (
+          <p className="mb-2 whitespace-pre-wrap text-xs text-foreground">
+            {sample.notes}
+          </p>
+        ) : null}
+        <Textarea
+          value={notes}
+          onChange={(event) => setNotes(event.target.value)}
+          className="min-h-12 text-xs"
+          placeholder="Add a note…"
+          aria-label="Add a note"
+        />
+      </InspectorSection>
+
+      {/* Custody actions — compact, collapsible */}
+      <InspectorSection title="Actions">
         {archived ? (
           <Button
             size="sm"
@@ -277,287 +446,262 @@ export function SampleInspector({
             <RotateCcw className="size-3.5" /> Restore
           </Button>
         ) : (
-          <FieldGroup className="gap-3">
-            <div className="grid grid-cols-2 gap-2">
-              <Field>
-                <FieldLabel htmlFor="sample-custody-quantity">
-                  Quantity
-                </FieldLabel>
-                <Input
-                  id="sample-custody-quantity"
-                  type="number"
-                  inputMode="decimal"
-                  min="0"
-                  step="any"
-                  value={quantity}
-                  onChange={(event) => setQuantity(event.target.value)}
-                  className="h-8"
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="sample-custody-unit">Unit</FieldLabel>
-                <Input
-                  id="sample-custody-unit"
-                  value={unit}
-                  onChange={(event) => setUnit(event.target.value)}
-                  className="h-8"
-                  placeholder="mL, µg…"
-                />
-              </Field>
-            </div>
-            <Field>
-              <FieldLabel htmlFor="sample-custody-location">
-                Storage location
-              </FieldLabel>
-              <Input
-                id="sample-custody-location"
-                value={location}
-                onChange={(event) => setLocation(event.target.value)}
-                className="h-8"
-                placeholder="Freezer A, Shelf 2"
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="sample-custody-transfer">
-                Transfer to
-              </FieldLabel>
-              <Input
-                id="sample-custody-transfer"
-                value={toLocation}
-                onChange={(event) => setToLocation(event.target.value)}
-                className="h-8"
-                placeholder="Freezer B, Shelf 1"
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="sample-custody-notes">Notes</FieldLabel>
-              <Textarea
-                id="sample-custody-notes"
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-                className="min-h-16 text-xs"
-              />
-            </Field>
-            <div className="flex flex-wrap items-center gap-2">
-              <ButtonGroup>
-                <Button
-                  size="sm"
-                  onClick={submitReceive}
-                  disabled={actionPending}
-                >
-                  <PackagePlus className="size-3.5" /> Receive
-                </Button>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={submitConsume}
-                  disabled={actionPending}
-                >
-                  <MinusCircle className="size-3.5" /> Consume
-                </Button>
-              </ButtonGroup>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={submitTransfer}
-                disabled={actionPending || !toLocation.trim()}
-              >
-                <ArrowRightLeft className="size-3.5" /> Transfer
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setEditing((value) => !value)}
-                disabled={actionPending}
-                aria-expanded={editing}
-              >
-                <Pencil className="size-3.5" /> Edit
-              </Button>
-            </div>
-
-            {editing ? (
-              <FieldGroup className="gap-3 rounded-md border bg-muted/30 p-3">
-                <Field>
-                  <FieldLabel htmlFor="sample-edit-title">Title</FieldLabel>
-                  <Input
-                    id="sample-edit-title"
-                    value={editTitle}
-                    onChange={(event) => setEditTitle(event.target.value)}
-                    className="h-8"
-                  />
-                </Field>
-                <div className="grid grid-cols-2 gap-2">
-                  <Field>
-                    <FieldLabel htmlFor="sample-edit-type">Type</FieldLabel>
-                    <Input
-                      id="sample-edit-type"
-                      value={editSampleType}
-                      onChange={(event) =>
-                        setEditSampleType(event.target.value)
-                      }
-                      className="h-8"
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="sample-edit-barcode">
-                      Barcode
-                    </FieldLabel>
-                    <Input
-                      id="sample-edit-barcode"
-                      value={editBarcode}
-                      onChange={(event) => setEditBarcode(event.target.value)}
-                      className="h-8"
-                    />
-                  </Field>
-                </div>
-                <Field>
-                  <FieldLabel htmlFor="sample-edit-storage">
-                    Storage location
-                  </FieldLabel>
-                  <Input
-                    id="sample-edit-storage"
-                    value={editStorage}
-                    onChange={(event) => setEditStorage(event.target.value)}
-                    className="h-8"
-                  />
-                </Field>
-                <div className="grid grid-cols-2 gap-2">
-                  <Field>
-                    <FieldLabel htmlFor="sample-edit-threshold">
-                      Low-stock threshold
-                    </FieldLabel>
-                    <Input
-                      id="sample-edit-threshold"
-                      type="number"
-                      step="any"
-                      value={editThreshold}
-                      onChange={(event) => setEditThreshold(event.target.value)}
-                      className="h-8"
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="sample-edit-unit">Unit</FieldLabel>
-                    <Input
-                      id="sample-edit-unit"
-                      value={editUnit}
-                      onChange={(event) => setEditUnit(event.target.value)}
-                      className="h-8"
-                    />
-                  </Field>
-                </div>
-                <Button size="sm" onClick={submitEdit} disabled={actionPending}>
-                  Save edits
-                </Button>
-              </FieldGroup>
-            ) : null}
-
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
+          <div className="space-y-2">
+            {!showActions ? (
+              <div className="flex flex-wrap gap-1.5">
+                <ButtonGroup>
+                  <Button
+                    size="sm"
+                    onClick={submitReceive}
+                    disabled={actionPending}
+                  >
+                    <PackagePlus className="size-3.5" /> Receive
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={submitConsume}
+                    disabled={actionPending}
+                  >
+                    <MinusCircle className="size-3.5" /> Consume
+                  </Button>
+                </ButtonGroup>
                 <Button
                   size="sm"
                   variant="outline"
-                  className="w-fit text-destructive"
+                  onClick={() => setShowActions((v) => !v)}
                   disabled={actionPending}
+                  aria-expanded={showActions}
                 >
-                  <Archive className="size-3.5" /> Archive
+                  <Pencil className="size-3.5" /> More
                 </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Archive this sample?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    The sample will be removed from the active registry. It can
-                    be restored later.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={() =>
-                      onAction({ kind: 'archive', notes: notes || undefined })
-                    }
+              </div>
+            ) : (
+              <FieldGroup className="gap-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <Field>
+                    <FieldLabel htmlFor="sample-custody-quantity">
+                      Quantity
+                    </FieldLabel>
+                    <Input
+                      id="sample-custody-quantity"
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      step="any"
+                      value={quantity}
+                      onChange={(event) => setQuantity(event.target.value)}
+                      className="h-8"
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="sample-custody-unit">Unit</FieldLabel>
+                    <Input
+                      id="sample-custody-unit"
+                      value={unit}
+                      onChange={(event) => setUnit(event.target.value)}
+                      className="h-8"
+                      placeholder="mL, µg…"
+                    />
+                  </Field>
+                </div>
+                <Field>
+                  <FieldLabel htmlFor="sample-custody-location">
+                    Storage location
+                  </FieldLabel>
+                  <Input
+                    id="sample-custody-location"
+                    value={location}
+                    onChange={(event) => setLocation(event.target.value)}
+                    className="h-8"
+                    placeholder="Freezer A, Shelf 2"
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="sample-custody-transfer">
+                    Transfer to
+                  </FieldLabel>
+                  <Input
+                    id="sample-custody-transfer"
+                    value={toLocation}
+                    onChange={(event) => setToLocation(event.target.value)}
+                    className="h-8"
+                    placeholder="Freezer B, Shelf 1"
+                  />
+                </Field>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <ButtonGroup>
+                    <Button
+                      size="sm"
+                      onClick={submitReceive}
+                      disabled={actionPending}
+                    >
+                      <PackagePlus className="size-3.5" /> Receive
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={submitConsume}
+                      disabled={actionPending}
+                    >
+                      <MinusCircle className="size-3.5" /> Consume
+                    </Button>
+                  </ButtonGroup>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={submitTransfer}
+                    disabled={actionPending || !toLocation.trim()}
                   >
-                    Archive sample
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </FieldGroup>
+                    <ArrowRightLeft className="size-3.5" /> Transfer
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setEditing((value) => !value)
+                      setShowActions(false)
+                    }}
+                    disabled={actionPending}
+                  >
+                    <Pencil className="size-3.5" /> Edit
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setShowActions(false)}
+                  >
+                    Done
+                  </Button>
+                </div>
+
+                {editing ? (
+                  <FieldGroup className="gap-2 rounded-md border bg-muted/30 p-2.5">
+                    <Field>
+                      <FieldLabel htmlFor="sample-edit-title">Title</FieldLabel>
+                      <Input
+                        id="sample-edit-title"
+                        value={editTitle}
+                        onChange={(event) => setEditTitle(event.target.value)}
+                        className="h-8"
+                      />
+                    </Field>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Field>
+                        <FieldLabel htmlFor="sample-edit-type">Type</FieldLabel>
+                        <Input
+                          id="sample-edit-type"
+                          value={editSampleType}
+                          onChange={(event) =>
+                            setEditSampleType(event.target.value)
+                          }
+                          className="h-8"
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="sample-edit-barcode">
+                          Barcode
+                        </FieldLabel>
+                        <Input
+                          id="sample-edit-barcode"
+                          value={editBarcode}
+                          onChange={(event) =>
+                            setEditBarcode(event.target.value)
+                          }
+                          className="h-8"
+                        />
+                      </Field>
+                    </div>
+                    <Field>
+                      <FieldLabel htmlFor="sample-edit-storage">
+                        Storage location
+                      </FieldLabel>
+                      <Input
+                        id="sample-edit-storage"
+                        value={editStorage}
+                        onChange={(event) => setEditStorage(event.target.value)}
+                        className="h-8"
+                      />
+                    </Field>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Field>
+                        <FieldLabel htmlFor="sample-edit-threshold">
+                          Low-stock threshold
+                        </FieldLabel>
+                        <Input
+                          id="sample-edit-threshold"
+                          type="number"
+                          step="any"
+                          value={editThreshold}
+                          onChange={(event) =>
+                            setEditThreshold(event.target.value)
+                          }
+                          className="h-8"
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="sample-edit-unit">Unit</FieldLabel>
+                        <Input
+                          id="sample-edit-unit"
+                          value={editUnit}
+                          onChange={(event) => setEditUnit(event.target.value)}
+                          className="h-8"
+                        />
+                      </Field>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={submitEdit}
+                      disabled={actionPending}
+                    >
+                      Save edits
+                    </Button>
+                  </FieldGroup>
+                ) : null}
+
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-fit text-destructive"
+                      disabled={actionPending}
+                    >
+                      <Archive className="size-3.5" /> Archive
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Archive this sample?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        The sample will be removed from the active registry. It
+                        can be restored later.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() =>
+                          onAction({
+                            kind: 'archive',
+                            notes: notes || undefined,
+                          })
+                        }
+                      >
+                        Archive sample
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </FieldGroup>
+            )}
+          </div>
         )}
         {actionError ? (
           <p role="alert" className="mt-2 text-xs text-destructive">
             {actionError}
           </p>
         ) : null}
-      </InspectorSection>
-
-      <InspectorSection title="Chain of custody">
-        {eventsLoading ? (
-          <p className="text-xs text-muted-foreground">Loading…</p>
-        ) : events.length === 0 ? (
-          <EmptyHint>No custody events recorded yet.</EmptyHint>
-        ) : (
-          <ol className="relative ml-1 space-y-3 border-l border-border pl-4">
-            {events.map((event) => (
-              <li key={event.id} className="relative text-xs">
-                <span className="absolute -left-[1.2rem] top-1 size-2 rounded-full border border-primary bg-background" />
-                <div className="flex items-start justify-between gap-2">
-                  <span className="font-medium">
-                    {OPERATION_LABELS[event.operation] ?? event.operation}
-                  </span>
-                  <span className="shrink-0 text-muted-foreground">
-                    {formatDate(event.createdAt)}
-                  </span>
-                </div>
-                {event.quantityDelta != null ? (
-                  <p className="mt-0.5 tabular-nums text-muted-foreground">
-                    {event.quantityDelta > 0 ? '+' : ''}
-                    {event.quantityDelta}
-                    {event.quantityUnit ? ` ${event.quantityUnit}` : ''} →{' '}
-                    {event.quantityAfter}
-                    {event.quantityUnit ? ` ${event.quantityUnit}` : ''}
-                  </p>
-                ) : null}
-                {event.fromLocation || event.toLocation ? (
-                  <p className="mt-0.5 text-muted-foreground">
-                    {orDash(event.fromLocation)} → {orDash(event.toLocation)}
-                  </p>
-                ) : null}
-                {event.notes ? <p className="mt-1">{event.notes}</p> : null}
-              </li>
-            ))}
-          </ol>
-        )}
-      </InspectorSection>
-    </div>
-  )
-
-  const linksContent = (
-    <div className="space-y-4">
-      <InspectorSection title="Linked experiments">
-        {linksLoading ? (
-          <p className="text-xs text-muted-foreground">Loading…</p>
-        ) : (
-          <LinkedRecordList items={experimentItems} />
-        )}
-      </InspectorSection>
-
-      <InspectorSection title="Files">
-        {linksLoading ? (
-          <p className="text-xs text-muted-foreground">Loading…</p>
-        ) : (
-          <FileList items={fileItems} />
-        )}
-      </InspectorSection>
-
-      <InspectorSection title="Notes">
-        {sample.notes ? (
-          <p className="whitespace-pre-wrap text-xs text-foreground">
-            {sample.notes}
-          </p>
-        ) : (
-          <EmptyHint>No notes recorded.</EmptyHint>
-        )}
       </InspectorSection>
     </div>
   )
@@ -567,11 +711,7 @@ export function SampleInspector({
       recordType="Sample"
       title={sample.title}
       status={<StatusBadge status={sample.status} domain="sample" />}
-      tabs={[
-        { id: 'details', label: 'Details', content: detailsContent },
-        { id: 'custody', label: 'Custody', content: custodyContent },
-        { id: 'links', label: 'Links', content: linksContent },
-      ]}
+      tabs={[{ id: 'panel', label: 'Details', content: panelContent }]}
       className={className}
     />
   )

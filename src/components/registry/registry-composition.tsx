@@ -152,7 +152,8 @@ function useIsXl(): boolean {
   return isXl
 }
 
-const PIN_KEY = (registryId: string) => `sheetbase-inspector-pinned-${registryId}`
+const PIN_KEY = (registryId: string) =>
+  `sheetbase-inspector-pinned-${registryId}`
 
 function viewId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -260,7 +261,9 @@ export function RegistryComposition<TData>({
 
   const sorting = query.sorting as SortingState
   const grouping = query.grouping
-  const [expanded, setExpanded] = React.useState<ExpandedState>({})
+  const [expanded, setExpanded] = React.useState<ExpandedState>(
+    grouping.length > 0 ? true : {},
+  )
   const columnFilters: ColumnFiltersState = query.filters
 
   const table = useReactTable({
@@ -504,7 +507,11 @@ export function RegistryComposition<TData>({
                 return (
                   <TableHead
                     key={header.id}
-                    className={density === 'compact' ? 'h-7 px-2.5 text-[0.65rem]' : undefined}
+                    className={
+                      density === 'compact'
+                        ? 'h-7 px-2.5 text-[0.65rem]'
+                        : undefined
+                    }
                     aria-sort={
                       sorted === 'asc'
                         ? 'ascending'
@@ -548,12 +555,6 @@ export function RegistryComposition<TData>({
           {table.getRowModel().rows.map((row, index) => {
             if (row.getIsGrouped()) {
               const groupVal = row.getValue(row.groupingColumnId!)
-              const colDef = columns.find((c) => c.id === row.groupingColumnId)
-              const groupLabel = colDef?.header
-                ? typeof colDef.header === 'string'
-                  ? colDef.header
-                  : String(groupVal ?? '—')
-                : String(groupVal ?? '—')
               return (
                 <TableRow
                   key={row.id}
@@ -572,14 +573,14 @@ export function RegistryComposition<TData>({
                       type="button"
                       className="inline-flex items-center gap-1.5"
                       onClick={() => row.getToggleExpandedHandler()()}
-                      aria-label={`Toggle ${groupLabel} group`}
+                      aria-label={`Toggle group`}
                     >
                       {row.getIsExpanded() ? (
                         <ChevronDown className="size-3.5" />
                       ) : (
                         <ChevronRight className="size-3.5" />
                       )}
-                      {groupLabel} {String(groupVal ?? '—')}
+                      {String(groupVal ?? '—')}
                       <span className="ml-1 rounded-full bg-muted px-1.5 text-[0.65rem] font-medium text-muted-foreground">
                         {row.subRows.length}
                       </span>
@@ -662,22 +663,22 @@ export function RegistryComposition<TData>({
       className="flex min-h-0 flex-col gap-3"
     >
       {!hideHeader ? (
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1
-            id={`${registryId}-title`}
-            className="text-xl font-semibold tracking-tight"
-          >
-            {title}
-          </h1>
-          {description ? (
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              {description}
-            </p>
-          ) : null}
-        </div>
-        {permissionDenied ? null : actions}
-      </header>
+        <header className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1
+              id={`${registryId}-title`}
+              className="text-xl font-semibold tracking-tight"
+            >
+              {title}
+            </h1>
+            {description ? (
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                {description}
+              </p>
+            ) : null}
+          </div>
+          {permissionDenied ? null : actions}
+        </header>
       ) : null}
 
       {!permissionDenied && summaries.length > 0 ? (
@@ -700,7 +701,8 @@ export function RegistryComposition<TData>({
                     summary.tone === 'positive' && 'text-emerald-600',
                     summary.tone === 'warning' && 'text-amber-600',
                     summary.tone === 'danger' && 'text-red-600',
-                    (!summary.tone || summary.tone === 'neutral') && 'text-muted-foreground',
+                    (!summary.tone || summary.tone === 'neutral') &&
+                      'text-muted-foreground',
                   )}
                 >
                   {summary.hint}
@@ -750,11 +752,11 @@ export function RegistryComposition<TData>({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start">
-                    <DropdownMenuLabel>Filter by {filter.label}</DropdownMenuLabel>
+                    <DropdownMenuLabel>
+                      Filter by {filter.label}
+                    </DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onSelect={() => setFilter(filter.id, '')}
-                    >
+                    <DropdownMenuItem onSelect={() => setFilter(filter.id, '')}>
                       All {filter.label.toLowerCase()}
                     </DropdownMenuItem>
                     {filter.options!.map((option) => (
@@ -778,9 +780,7 @@ export function RegistryComposition<TData>({
                 key={filter.id}
                 aria-label={`Filter by ${filter.label}`}
                 value={activeFilter(query, filter.id)}
-                onChange={(event) =>
-                  setFilter(filter.id, event.target.value)
-                }
+                onChange={(event) => setFilter(filter.id, event.target.value)}
                 placeholder={filter.placeholder ?? filter.label}
                 className="h-8 w-32 text-sm"
               />
@@ -894,22 +894,24 @@ export function RegistryComposition<TData>({
 
       {/* Table + pinned inspector layout */}
       <div className="flex min-h-0 flex-1 min-w-0 gap-4">
-      {/* Table — always takes full width. Inspector slides over or pins. */}
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border bg-card">
-        <div className="min-h-0 flex-1 overflow-auto">
-        {stateContent}
+        {/* Table — always takes full width. Inspector slides over or pins. */}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border bg-card">
+          <div className="min-h-0 flex-1 overflow-auto">{stateContent}</div>
         </div>
-      </div>
 
-      {/* Pinned inspector — docked aside on xl+ only */}
-      {renderInspector && !permissionDenied && inspectorPinned && inspectorOpen && isXl ? (
-        <aside
-          aria-label={inspectorLabel}
-          className="flex w-80 shrink-0 flex-col overflow-hidden rounded-lg border bg-background"
-        >
-          {inspectorContent}
-        </aside>
-      ) : null}
+        {/* Pinned inspector — docked aside on xl+ only */}
+        {renderInspector &&
+        !permissionDenied &&
+        inspectorPinned &&
+        inspectorOpen &&
+        isXl ? (
+          <aside
+            aria-label={inspectorLabel}
+            className="flex w-80 shrink-0 flex-col overflow-hidden rounded-lg border bg-background"
+          >
+            {inspectorContent}
+          </aside>
+        ) : null}
       </div>
 
       {/* Slide-over inspector — Sheet on all breakpoints when not pinned,

@@ -80,6 +80,7 @@ function SamplesRegistryRoute() {
   const [query, setQuery] = useState<RegistryQuery>({
     ...DEFAULT_REGISTRY_QUERY,
     pageSize: 50,
+    grouping: ['sampleType'],
   })
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)

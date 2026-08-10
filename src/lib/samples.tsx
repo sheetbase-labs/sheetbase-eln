@@ -17,6 +17,7 @@
  */
 import type { ColumnDef } from '@tanstack/react-table'
 
+import { StatusBadge } from '#/components/scientific/status-badge'
 import type { DataClient } from './data-client'
 import { DataClientError } from './data-client'
 import type { NotebookRecord, RecordWire } from './notebook-data'
@@ -156,10 +157,30 @@ export function computeSampleSummaries(
   const consumed = rows.filter((r) => r.status === 'consumed').length
   const pct = totalCount > 0 ? Math.round((available / totalCount) * 100) : 0
   return [
-    { label: 'Total samples', value: totalCount, hint: `${rows.length} on this page`, tone: 'neutral' },
-    { label: 'Available', value: available, hint: `${pct}% of total`, tone: 'positive' },
-    { label: 'Low stock', value: lowStock, hint: lowStock > 0 ? 'Needs attention' : 'All healthy', tone: lowStock > 0 ? 'warning' : 'positive' },
-    { label: 'Consumed', value: consumed, hint: 'On this page', tone: 'neutral' },
+    {
+      label: 'Total samples',
+      value: totalCount,
+      hint: `${rows.length} on this page`,
+      tone: 'neutral',
+    },
+    {
+      label: 'Available',
+      value: available,
+      hint: `${pct}% of total`,
+      tone: 'positive',
+    },
+    {
+      label: 'Low stock',
+      value: lowStock,
+      hint: lowStock > 0 ? 'Needs attention' : 'All healthy',
+      tone: lowStock > 0 ? 'warning' : 'positive',
+    },
+    {
+      label: 'Consumed',
+      value: consumed,
+      hint: 'On this page',
+      tone: 'neutral',
+    },
   ]
 }
 
@@ -754,11 +775,14 @@ export function sampleColumns<T extends SampleRecord>(): ColumnDef<
       id: 'sampleType',
       header: 'Type',
       accessorFn: (row) => row.sampleType,
-      cell: ({ row }) => (
-        <span className="text-muted-foreground">
-          {row.original.sampleType ?? '—'}
-        </span>
-      ),
+      cell: ({ row }) =>
+        row.original.sampleType ? (
+          <span className="inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[0.65rem] font-medium text-primary">
+            {row.original.sampleType}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        ),
     },
     {
       id: 'quantity',
@@ -772,7 +796,9 @@ export function sampleColumns<T extends SampleRecord>(): ColumnDef<
         return (
           <span className="tabular-nums">
             {q}
-            {unit ? <span className="ml-0.5 text-muted-foreground">{unit}</span> : null}
+            {unit ? (
+              <span className="ml-0.5 text-muted-foreground">{unit}</span>
+            ) : null}
           </span>
         )
       },
@@ -792,7 +818,13 @@ export function sampleColumns<T extends SampleRecord>(): ColumnDef<
       header: 'Barcode',
       accessorFn: (row) => row.barcode,
     },
-    { accessorKey: 'status', header: 'Status' },
+    {
+      accessorKey: 'status',
+      header: 'Status',
+      cell: ({ row }) => (
+        <StatusBadge status={row.original.status} domain="sample" />
+      ),
+    },
     {
       id: 'updatedAt',
       header: 'Updated',

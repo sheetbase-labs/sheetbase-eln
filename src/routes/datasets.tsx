@@ -26,7 +26,6 @@ import {
   Download,
   GitBranch,
   Layers,
-  LineChart,
   Table as TableIcon,
   Trash2,
   Undo2,
@@ -50,8 +49,6 @@ import {
   Button,
   ButtonGroup,
   Card,
-  Field,
-  FieldLabel,
   Input,
   Select,
   Skeleton,
@@ -103,8 +100,7 @@ import type {
   DatasetSchemaFieldWire,
   DatasetSchemaWire,
 } from '#/lib/dataset-schema-data'
-import type { ChartSpec, ChartType } from '#/lib/chart-spec'
-import { CHART_TYPES } from '#/lib/chart-spec'
+import type { ChartSpec } from '#/lib/chart-spec'
 import type { RegistryQuery } from '#/lib/registry'
 import { cn } from '#/lib/utils'
 
@@ -236,7 +232,7 @@ function DatasetExplorerRoute() {
 
   return (
     <>
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <DatasetExplorerHeader
           datasets={datasets}
           loading={summariesQuery.isLoading}
@@ -285,22 +281,20 @@ export function DatasetExplorerHeader({
 }: DatasetExplorerHeaderProps) {
   return (
     <header
-      className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3"
+      className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b px-4 py-2.5"
       aria-labelledby="datasets-title"
     >
       <div className="flex min-w-0 items-center gap-2">
-        <Database className="size-5 text-violet-500" aria-hidden="true" />
-        <div className="min-w-0">
-          <h1
-            id="datasets-title"
-            className="text-lg font-semibold tracking-tight"
-          >
-            Dataset Explorer
-          </h1>
-          <p className="truncate text-xs text-muted-foreground">
-            Query, transform and visualise scientific dataset rows.
-          </p>
-        </div>
+        <Database className="size-4 text-violet-500" aria-hidden="true" />
+        <h1
+          id="datasets-title"
+          className="text-sm font-semibold tracking-tight"
+        >
+          Dataset Explorer
+        </h1>
+        <span className="text-xs text-muted-foreground">
+          Query, transform and visualise scientific dataset rows
+        </span>
       </div>
       <div className="flex items-center gap-2">
         {error ? (
@@ -523,10 +517,10 @@ export function DatasetDataTab({
   const totalCount = rowsQuery.data?.totalCount ?? 0
 
   return (
-    <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
+    <div className="flex min-h-0 flex-col overflow-hidden">
       <FormulaBar table={table} />
-      <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1.6fr)_minmax(0,1fr)] gap-3">
-        <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border bg-card">
+      <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1.6fr)_minmax(0,1fr)]">
+        <div className="flex min-h-0 flex-col overflow-hidden">
           <div className="min-h-0 flex-1 overflow-hidden">
             <RegistryComposition
               registryId={`dataset-${table.id}`}
@@ -569,9 +563,9 @@ export function DatasetDataTab({
           onValueChange={setPreviewTab}
           className="min-h-0"
         >
-          <Card className="flex min-h-0 flex-col overflow-hidden p-0">
-            <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3">
-              <TabsList className="h-9 bg-transparent p-0">
+          <div className="flex min-h-0 flex-col overflow-hidden">
+            <div className="flex shrink-0 items-center justify-between border-b px-3 py-1.5">
+              <TabsList className="h-8 bg-transparent p-0">
                 {['Preview', 'Summary', 'Distribution', 'Correlations'].map(
                   (label) => (
                     <TabsTrigger key={label} value={label.toLowerCase()}>
@@ -592,7 +586,7 @@ export function DatasetDataTab({
             </div>
             <TabsContent
               value="preview"
-              className="m-0 min-h-0 flex-1 overflow-auto p-3"
+              className="m-0 min-h-0 flex-1 overflow-hidden p-3"
             >
               <ChartPreview
                 table={table}
@@ -627,7 +621,7 @@ export function DatasetDataTab({
                 copy="Compare numeric fields to identify relationships in this view."
               />
             </TabsContent>
-          </Card>
+          </div>
         </Tabs>
       </div>
     </div>
@@ -835,14 +829,7 @@ interface ChartPreviewProps {
   onChartSpecChange: (spec: ChartSpec | null) => void
 }
 
-function ChartPreview({
-  table,
-  chartSpec,
-  onChartSpecChange,
-}: ChartPreviewProps) {
-  const numericColumns = table.columns.filter(
-    (c) => c.logical_type === 'decimal' || c.logical_type === 'integer',
-  )
+function ChartPreview({ table, chartSpec }: ChartPreviewProps) {
   const transformCheck = chartSpec
     ? validateTransformations(chartSpec.transformations)
     : { ok: true as const }
@@ -862,49 +849,6 @@ function ChartPreview({
     [chartSpec, datasetQuery.data, calcQuery.data],
   )
 
-  function setY(columnId: string) {
-    const column = table.columns.find((c) => c.id === columnId)
-    if (!chartSpec || !column) return
-    onChartSpecChange({
-      ...chartSpec,
-      fields: {
-        ...chartSpec.fields,
-        y: { columnId, fieldName: column.field_name },
-      },
-      display: {
-        ...chartSpec.display,
-        axes: {
-          ...chartSpec.display.axes,
-          y: { ...chartSpec.display.axes.y, label: column.label },
-        },
-      },
-    })
-  }
-
-  function setX(columnId: string) {
-    const column = table.columns.find((c) => c.id === columnId)
-    if (!chartSpec || !column) return
-    onChartSpecChange({
-      ...chartSpec,
-      fields: {
-        ...chartSpec.fields,
-        x: { columnId, fieldName: column.field_name },
-      },
-      display: {
-        ...chartSpec.display,
-        axes: {
-          ...chartSpec.display.axes,
-          x: { ...chartSpec.display.axes.x, label: column.label },
-        },
-      },
-    })
-  }
-
-  function setType(type: ChartType) {
-    if (!chartSpec) return
-    onChartSpecChange({ ...chartSpec, type })
-  }
-
   const chartTitle = chartSpec
     ? `${chartSpec.display.axes.y.label} over ${chartSpec.display.axes.x.label}${
         chartSpec.fields.series
@@ -918,65 +862,7 @@ function ChartPreview({
     : 'Chart preview'
 
   return (
-    <div className="flex min-h-64 flex-col gap-2">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <div className="flex items-center gap-1.5 text-sm font-semibold">
-            <LineChart className="size-4 text-violet-500" aria-hidden="true" />
-            {chartTitle}
-          </div>
-          <p className="ml-5 text-xs text-muted-foreground">Mean ± SD</p>
-        </div>
-        {chartSpec ? (
-          <div className="flex flex-wrap items-end gap-2">
-            <Field className="w-28 gap-1">
-              <FieldLabel htmlFor="dataset-chart-type">Chart type</FieldLabel>
-              <Select
-                id="dataset-chart-type"
-                value={chartSpec.type}
-                onChange={(e) => setType(e.target.value as ChartType)}
-                className="h-8 bg-background"
-              >
-                {CHART_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field className="w-36 gap-1">
-              <FieldLabel htmlFor="dataset-chart-x">X axis</FieldLabel>
-              <Select
-                id="dataset-chart-x"
-                value={chartSpec.fields.x?.columnId ?? ''}
-                onChange={(e) => setX(e.target.value)}
-                className="h-8 bg-background"
-              >
-                {table.columns.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.label}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field className="w-36 gap-1">
-              <FieldLabel htmlFor="dataset-chart-y">Y axis</FieldLabel>
-              <Select
-                id="dataset-chart-y"
-                value={chartSpec.fields.y.columnId}
-                onChange={(e) => setY(e.target.value)}
-                className="h-8 bg-background"
-              >
-                {numericColumns.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.label}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          </div>
-        ) : null}
-      </div>
+    <div className="flex min-h-0 flex-1 flex-col">
       {!chartSpec ? (
         <p className="py-6 text-center text-xs text-muted-foreground">
           No numeric column to plot. Add a decimal or integer column to this
@@ -993,6 +879,7 @@ function ChartPreview({
           materialised={materialised}
           frozen={null}
           loading={datasetQuery.isLoading}
+          className="h-full rounded-none border-0 bg-transparent shadow-none"
         />
       ) : null}
     </div>

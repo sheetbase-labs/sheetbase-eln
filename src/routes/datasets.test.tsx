@@ -421,9 +421,10 @@ describe('DatasetDataTab', () => {
       screen.getByLabelText<HTMLInputElement>('Formula expression').value,
     ).toBe('Titer (TU/mL) = [Vector genome (copies/mL)] / [Volume (mL)]')
     expect(screen.getByText('Apply')).toBeTruthy()
-    expect(screen.getByText('Mean ± SD')).toBeTruthy()
     expect(screen.getByRole('tab', { name: 'Correlations' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Save current view' })).toBeTruthy()
+    expect(
+      screen.getByRole('button', { name: 'Save current view' }),
+    ).toBeTruthy()
   })
 
   it('shows the empty state when no rows are returned', () => {

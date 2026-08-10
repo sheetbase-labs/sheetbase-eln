@@ -45,7 +45,6 @@ import {
   Input,
   Select,
   Skeleton,
-  Switch,
   Table,
   TableBody,
   TableCell,
@@ -66,14 +65,12 @@ import {
   CHART_PALETTE,
   CHART_SPEC_VERSION,
   CHART_TYPES,
-  ERROR_BAR_BASES,
   formatScientific,
 } from '#/lib/chart-spec'
 import type {
   AxisScale,
   ChartSpec,
   ChartType,
-  ErrorBarBasis,
   FieldBinding,
 } from '#/lib/chart-spec'
 import {
@@ -407,19 +404,19 @@ export function AnalysisControls({
   const numericColumns = table.columns.filter(
     (c) => c.logical_type === 'decimal' || c.logical_type === 'integer',
   )
-  const plottableXColumns = table.columns.filter(
-    (c) =>
-      c.logical_type === 'category' ||
-      c.logical_type === 'date' ||
-      c.logical_type === 'text' ||
-      c.logical_type === 'integer' ||
-      c.logical_type === 'decimal',
-  )
   const categoryColumns = table.columns.filter(
     (c) =>
       c.logical_type === 'category' ||
       c.logical_type === 'text' ||
       c.logical_type === 'boolean',
+  )
+  const errorColumns = numericColumns.filter(
+    (column) =>
+      column.id !== spec.fields.x?.columnId &&
+      column.id !== spec.fields.y.columnId &&
+      /\b(sd|se|sem|error|ci|confidence|deviation)\b/i.test(
+        `${column.label} ${column.field_name}`,
+      ),
   )
 
   function update(patch: Partial<ChartSpec>): void {
@@ -435,12 +432,40 @@ export function AnalysisControls({
       ? { columnId: column.id, fieldName: column.field_name }
       : null
     const fields = { ...spec.fields, [key]: binding }
+    const transformations = spec.transformations.map((transformation) => {
+      if (transformation.kind === 'aggregate') {
+        return {
+          ...transformation,
+          params: {
+            ...transformation.params,
+            xField: fields.x?.fieldName ?? null,
+            yField: fields.y.fieldName,
+            seriesField: fields.series?.fieldName ?? null,
+          },
+        }
+      }
+      if (transformation.kind === 'normalise') {
+        return {
+          ...transformation,
+          params: {
+            ...transformation.params,
+            yField: fields.y.fieldName,
+            seriesField: fields.series?.fieldName ?? null,
+          },
+        }
+      }
+      return transformation
+    })
     // Keep axis labels in sync with the mapped columns.
     const display = { ...spec.display }
-    if (key === 'x' && column) {
+    if (key === 'x') {
       display.axes = {
         ...display.axes,
-        x: { ...display.axes.x, label: column.label },
+        x: {
+          ...display.axes.x,
+          label: column?.label ?? 'Row',
+          unit: column ? display.axes.x.unit : undefined,
+        },
       }
     }
     if (key === 'y' && column) {
@@ -449,20 +474,13 @@ export function AnalysisControls({
         y: { ...display.axes.y, label: column.label },
       }
     }
-    onSpecChange({ ...spec, fields, display })
-  }
-
-  function setAxisScale(axis: 'x' | 'y', scale: AxisScale): void {
-    onSpecChange({
-      ...spec,
-      display: {
-        ...spec.display,
-        axes: {
-          ...spec.display.axes,
-          [axis]: { ...spec.display.axes[axis], scale },
-        },
-      },
-    })
+    const overlays =
+      spec.overlays.errorBars &&
+      (spec.overlays.errorBars.columnId === fields.x?.columnId ||
+        spec.overlays.errorBars.columnId === fields.y.columnId)
+        ? { ...spec.overlays, errorBars: null }
+        : spec.overlays
+    onSpecChange({ ...spec, fields, transformations, display, overlays })
   }
 
   function setType(type: ChartType): void {
@@ -520,44 +538,28 @@ export function AnalysisControls({
     })
   }
 
-  // --- Statistical overlay (error bars) ----------------------------------
-  function setErrorBars(basis: ErrorBarBasis | ''): void {
-    if (!basis) {
+  // Only explicit uncertainty columns can be used as error values. Choosing
+  // an arbitrary numeric measure (for example, Time) produces a valid but
+  // scientifically meaningless chart.
+  function setErrorBarColumn(columnId: string): void {
+    if (!columnId) {
       update({ overlays: { ...spec.overlays, errorBars: null } })
       return
     }
-    // Default to the first numeric column that is not the y field.
-    const candidate =
-      numericColumns.find((c) => c.id !== spec.fields.y.columnId) ??
-      numericColumns.at(0)
-    if (!candidate) return
-    update({
-      overlays: {
-        ...spec.overlays,
-        errorBars: {
-          columnId: candidate.id,
-          fieldName: candidate.field_name,
-          basis,
-          multiplier: basis === 'custom' ? 1 : undefined,
-        },
-      },
-    })
-  }
-
-  function setErrorBarColumn(columnId: string): void {
-    const eb = spec.overlays.errorBars
-    if (!eb) return
-    const column = table.columns.find((c) => c.id === columnId) ?? null
+    const column = errorColumns.find((candidate) => candidate.id === columnId)
     if (!column) return
     update({
       overlays: {
         ...spec.overlays,
-        errorBars: { ...eb, columnId, fieldName: column.field_name },
+        errorBars: {
+          columnId: column.id,
+          fieldName: column.field_name,
+          basis: 'custom',
+          multiplier: 1,
+        },
       },
     })
   }
-
-  const currentErrorBasis = spec.overlays.errorBars?.basis ?? ''
   const currentErrorColumn = spec.overlays.errorBars?.columnId ?? ''
 
   return (
@@ -605,7 +607,7 @@ export function AnalysisControls({
             className="h-8 bg-background"
           >
             <option value="">(none — row index)</option>
-            {plottableXColumns.map((c) => (
+            {numericColumns.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.label}
               </option>
@@ -629,24 +631,7 @@ export function AnalysisControls({
           </Select>
         </Field>
         <Field className="min-w-36 flex-1">
-          <FieldLabel htmlFor="analysis-colour">Colour by</FieldLabel>
-          <Select
-            id="analysis-colour"
-            aria-label="Colour by"
-            value={spec.fields.color?.columnId ?? ''}
-            onChange={(e) => setField('color', e.target.value)}
-            className="h-8 bg-background"
-          >
-            <option value="">Automatic</option>
-            {categoryColumns.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <Field className="min-w-36 flex-1">
-          <FieldLabel htmlFor="analysis-series">Split / facet</FieldLabel>
+          <FieldLabel htmlFor="analysis-series">Series</FieldLabel>
           <Select
             id="analysis-series"
             aria-label="Group by series"
@@ -705,30 +690,9 @@ export function AnalysisControls({
             <option value="z_score">Z-score</option>
           </Select>
         </Field>
-        <Field className="min-w-40 flex-1">
-          <FieldLabel htmlFor="analysis-overlay">
-            Statistical overlay
-          </FieldLabel>
-          <Select
-            id="analysis-overlay"
-            aria-label="Error bar basis"
-            value={currentErrorBasis}
-            onChange={(e) => setErrorBars(e.target.value as ErrorBarBasis | '')}
-            className="h-8 bg-background"
-          >
-            <option value="">None</option>
-            {ERROR_BAR_BASES.map((b) => (
-              <option key={b} value={b}>
-                {b.toUpperCase()}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        {spec.overlays.errorBars ? (
+        {errorColumns.length > 0 ? (
           <Field className="min-w-40 flex-1">
-            <FieldLabel htmlFor="analysis-error-column">
-              Error values
-            </FieldLabel>
+            <FieldLabel htmlFor="analysis-error-column">Error bars</FieldLabel>
             <Select
               id="analysis-error-column"
               aria-label="Error bar column"
@@ -736,7 +700,8 @@ export function AnalysisControls({
               onChange={(e) => setErrorBarColumn(e.target.value)}
               className="h-8 bg-background"
             >
-              {numericColumns.map((c) => (
+              <option value="">None</option>
+              {errorColumns.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.label}
                 </option>
@@ -744,24 +709,6 @@ export function AnalysisControls({
             </Select>
           </Field>
         ) : null}
-        <Field className="flex min-w-28 grid-cols-[1fr_auto] items-center gap-2 rounded-md border px-3 py-2">
-          <FieldLabel htmlFor="analysis-error-toggle">Error bars</FieldLabel>
-          <Switch
-            id="analysis-error-toggle"
-            checked={Boolean(spec.overlays.errorBars)}
-            onCheckedChange={(checked) => setErrorBars(checked ? 'sd' : '')}
-          />
-        </Field>
-        <Field className="flex min-w-28 grid-cols-[1fr_auto] items-center gap-2 rounded-md border px-3 py-2">
-          <FieldLabel htmlFor="analysis-log-toggle">Log scale</FieldLabel>
-          <Switch
-            id="analysis-log-toggle"
-            checked={spec.display.axes.y.scale === 'log'}
-            onCheckedChange={(checked) =>
-              setAxisScale('y', checked ? 'log' : 'linear')
-            }
-          />
-        </Field>
       </FieldGroup>
     </div>
   )
@@ -901,52 +848,6 @@ function AnalysisInspector({
     })
   }
 
-  function setMean(checked: boolean) {
-    const transformations = spec.transformations.filter(
-      (item) => item.kind !== 'aggregate',
-    )
-    onSpecChange({
-      ...spec,
-      transformations: checked
-        ? [
-            ...transformations,
-            {
-              kind: 'aggregate',
-              params: {
-                function: 'mean',
-                xField: spec.fields.x?.fieldName ?? null,
-                yField: spec.fields.y.fieldName,
-                seriesField: spec.fields.series?.fieldName ?? null,
-              },
-            },
-          ]
-        : transformations,
-    })
-  }
-
-  function setStandardDeviation(checked: boolean) {
-    const numericColumn = table.columns.find(
-      (column) =>
-        (column.logical_type === 'decimal' ||
-          column.logical_type === 'integer') &&
-        column.id !== spec.fields.y.columnId,
-    )
-    onSpecChange({
-      ...spec,
-      overlays: {
-        ...spec.overlays,
-        errorBars:
-          checked && numericColumn
-            ? {
-                columnId: numericColumn.id,
-                fieldName: numericColumn.field_name,
-                basis: 'sd',
-              }
-            : null,
-      },
-    })
-  }
-
   const settings = (
     <InspectorSectionStack>
       <InspectorSection title="Axis scaling">
@@ -973,31 +874,6 @@ function AnalysisInspector({
           ))}
         </FieldGroup>
       </InspectorSection>
-      <InspectorSection title="Statistical overlay">
-        <FieldGroup className="gap-3">
-          <InspectorToggle
-            label="Show mean"
-            checked={spec.transformations.some(
-              (item) =>
-                item.kind === 'aggregate' && item.params.function === 'mean',
-            )}
-            onCheckedChange={setMean}
-          />
-          <InspectorToggle
-            label="Show SD"
-            checked={spec.overlays.errorBars?.basis === 'sd'}
-            onCheckedChange={setStandardDeviation}
-          />
-          <InspectorToggle label="Show 95% CI" checked={false} disabled />
-          <InspectorToggle
-            label="Show individual points"
-            checked={
-              !spec.transformations.some((item) => item.kind === 'aggregate')
-            }
-            onCheckedChange={(checked) => setMean(!checked)}
-          />
-        </FieldGroup>
-      </InspectorSection>
       <InspectorSection title="Appearance">
         <PropertyList>
           <Property label="Palette">Publication</Property>
@@ -1018,7 +894,7 @@ function AnalysisInspector({
         {
           id: 'views',
           label: 'Views',
-          badge: views.length,
+          badge: views.length > 0 ? views.length : undefined,
           content: (
             <SavedViewsPanel
               views={views}
@@ -1079,31 +955,6 @@ function AnalysisInspector({
   )
 }
 
-function InspectorToggle({
-  label,
-  checked,
-  onCheckedChange,
-  disabled = false,
-}: {
-  label: string
-  checked: boolean
-  onCheckedChange?: (checked: boolean) => void
-  disabled?: boolean
-}) {
-  const id = `analysis-${label.toLowerCase().replaceAll(' ', '-')}`
-  return (
-    <Field className="flex grid-cols-[1fr_auto] items-center gap-2">
-      <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      <Switch
-        id={id}
-        checked={checked}
-        onCheckedChange={onCheckedChange}
-        disabled={disabled}
-      />
-    </Field>
-  )
-}
-
 // ---------------------------------------------------------------------------
 // Saved views panel
 // ---------------------------------------------------------------------------
@@ -1132,13 +983,13 @@ export function SavedViewsPanel({
   canSave,
 }: SavedViewsPanelProps) {
   return (
-    <Card className="space-y-2 p-4" aria-labelledby="saved-views-title">
+    <section className="space-y-3" aria-labelledby="saved-views-title">
       <h2 id="saved-views-title" className="text-sm font-semibold">
         Saved analysis views
       </h2>
       <p className="text-xs text-muted-foreground">
-        Saved views store the spec, owner, version and the source revisions they
-        were built against, so anyone in the workspace can reproduce them.
+        Save a named configuration with its source revisions so others can
+        reproduce the chart.
       </p>
       <div className="flex items-end gap-1.5">
         <Field className="flex-1">
@@ -1206,7 +1057,7 @@ export function SavedViewsPanel({
           })}
         </ul>
       )}
-    </Card>
+    </section>
   )
 }
 
@@ -1415,6 +1266,9 @@ export function AnalysisPreview({
   datasetQuery,
   materialised: analysisMaterialised,
 }: AnalysisPreviewProps) {
+  const [expanded, setExpanded] = useState(false)
+  const chartHeight = expanded ? 460 : 340
+  const plotHeight = expanded ? 390 : 270
   const validation = useMemo(
     () => validateAnalysisSpec(spec, datasetQuery.data?.rows.length ?? 0),
     [spec, datasetQuery.data],
@@ -1466,7 +1320,11 @@ export function AnalysisPreview({
 
   return (
     <div
-      className="grid min-h-0 flex-1 grid-rows-[minmax(0,2fr)_minmax(0,1fr)] overflow-hidden"
+      className="grid min-h-0 flex-1 overflow-hidden transition-[grid-template-rows]"
+      style={{
+        gridTemplateRows: `${chartHeight}px minmax(0, 1fr)`,
+      }}
+      data-preview-size={expanded ? 'expanded' : 'standard'}
       data-analysis-chart
     >
       <div className="flex min-h-0 flex-col overflow-hidden">
@@ -1558,7 +1416,9 @@ export function AnalysisPreview({
             materialised={analysisMaterialised}
             frozen={null}
             loading={datasetQuery.isLoading}
-            plotHeight={320}
+            plotHeight={plotHeight}
+            expanded={expanded}
+            onExpandedChange={setExpanded}
             className="h-full rounded-none border-0 bg-transparent shadow-none"
           />
         </div>

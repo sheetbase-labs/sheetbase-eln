@@ -1,5 +1,12 @@
 import * as React from 'react'
-import { Camera, Download, Expand, MoreHorizontal, Radio } from 'lucide-react'
+import {
+  Camera,
+  Download,
+  Expand,
+  Minimize2,
+  MoreHorizontal,
+  Radio,
+} from 'lucide-react'
 
 import { cn } from '#/lib/utils'
 import {
@@ -43,6 +50,8 @@ export interface ChartFrameProps {
    * and ChartFrame suppresses its own visual title. The title is still
    * used for the figure's aria-labelledby. */
   hideTitle?: boolean
+  expanded?: boolean
+  onExpandedChange?: (expanded: boolean) => void
 }
 
 export function ChartFrame({
@@ -57,6 +66,8 @@ export function ChartFrame({
   children,
   className,
   hideTitle = false,
+  expanded = false,
+  onExpandedChange,
 }: ChartFrameProps) {
   const titleId = React.useId()
   const altId = React.useId()
@@ -103,14 +114,18 @@ export function ChartFrame({
             >
               <Download />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Expand chart"
-              disabled={loading}
-            >
-              <Expand />
-            </Button>
+            {onExpandedChange ? (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={expanded ? 'Contract chart' : 'Expand chart'}
+                title={expanded ? 'Contract chart' : 'Expand chart'}
+                disabled={loading}
+                onClick={() => onExpandedChange(!expanded)}
+              >
+                {expanded ? <Minimize2 /> : <Expand />}
+              </Button>
+            ) : null}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button

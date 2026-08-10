@@ -1,5 +1,6 @@
 import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { ChartFrame } from './chart-frame'
 
@@ -74,5 +75,35 @@ describe('ChartFrame', () => {
     )
     expect(screen.queryByTestId('chart')).toBeNull()
     expect(document.querySelector('[aria-busy="true"]')).toBeTruthy()
+  })
+
+  it('only offers expansion when the containing workspace supports it', () => {
+    render(
+      <ChartFrame title="Trend">
+        <svg />
+      </ChartFrame>,
+    )
+
+    expect(screen.queryByLabelText('Expand chart')).toBeNull()
+  })
+
+  it('changes between expanded and contracted states', async () => {
+    const onExpandedChange = vi.fn()
+    const { rerender } = render(
+      <ChartFrame title="Trend" onExpandedChange={onExpandedChange}>
+        <svg />
+      </ChartFrame>,
+    )
+
+    await userEvent.click(screen.getByLabelText('Expand chart'))
+    expect(onExpandedChange).toHaveBeenCalledWith(true)
+
+    rerender(
+      <ChartFrame title="Trend" expanded onExpandedChange={onExpandedChange}>
+        <svg />
+      </ChartFrame>,
+    )
+    await userEvent.click(screen.getByLabelText('Contract chart'))
+    expect(onExpandedChange).toHaveBeenLastCalledWith(false)
   })
 })

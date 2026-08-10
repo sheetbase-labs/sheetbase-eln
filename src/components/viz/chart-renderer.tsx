@@ -57,6 +57,8 @@ export interface ChartRendererProps {
   hideTitle?: boolean
   /** Plot height in pixels. Analysis Studio uses a taller publication preview. */
   plotHeight?: number
+  expanded?: boolean
+  onExpandedChange?: (expanded: boolean) => void
 }
 
 export function ChartRenderer({
@@ -72,6 +74,8 @@ export function ChartRenderer({
   actions,
   hideTitle = false,
   plotHeight = 240,
+  expanded = false,
+  onExpandedChange,
 }: ChartRendererProps) {
   const mode = frozen ? 'snapshot' : 'live'
   const alt = describeChart(spec, materialised, frozen)
@@ -90,6 +94,8 @@ export function ChartRenderer({
       actions={actions}
       className={className}
       hideTitle={hideTitle}
+      expanded={expanded}
+      onExpandedChange={onExpandedChange}
     >
       {error ? (
         <ChartStateMessage tone="error">{error}</ChartStateMessage>

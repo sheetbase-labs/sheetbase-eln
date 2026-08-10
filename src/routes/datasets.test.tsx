@@ -36,6 +36,7 @@ globalThis.ResizeObserver = class {
   unobserve() {}
   disconnect() {}
 }
+Element.prototype.scrollIntoView = vi.fn()
 
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => () => ({ useRouteContext: () => ({}) }),
@@ -167,7 +168,42 @@ describe('DatasetExplorerHeader', () => {
     expect(screen.getByText('Could not load datasets')).toBeTruthy()
   })
 
-  it('renders a populated dataset selector', async () => {
+  it('searches and selects from a populated dataset picker', async () => {
+    const user = userEvent.setup()
+    const t = table()
+    const datasets = Array.from({ length: 120 }, (_, index) =>
+      table({ id: `process-${index}`, name: `Process dataset ${index + 1}` }),
+    )
+    const onSelect = vi.fn()
+    render(
+      <DatasetExplorerHeader
+        datasets={[t, ...datasets]}
+        loading={false}
+        error={null}
+        selectedTableId={t.id}
+        onSelect={onSelect}
+      />,
+    )
+
+    const trigger = screen.getByRole('combobox', { name: 'Select dataset' })
+    expect(trigger.textContent).toContain('Stability')
+
+    await user.click(trigger)
+    const search = screen.getByRole('combobox', { name: 'Search datasets' })
+    await user.type(search, 'Process dataset 117')
+
+    expect(screen.getByText('Process dataset 117')).toBeTruthy()
+    expect(screen.queryByText('Process dataset 3')).toBeNull()
+    await user.keyboard('{Enter}')
+
+    expect(onSelect).toHaveBeenCalledWith('process-116')
+    expect(
+      screen.queryByRole('combobox', { name: 'Search datasets' }),
+    ).toBeNull()
+  })
+
+  it('shows an empty result for an unmatched dataset search', async () => {
+    const user = userEvent.setup()
     const t = table()
     render(
       <DatasetExplorerHeader
@@ -178,8 +214,14 @@ describe('DatasetExplorerHeader', () => {
         onSelect={() => {}}
       />,
     )
-    const select = screen.getByLabelText('Select dataset')
-    expect((select as unknown as HTMLSelectElement).value).toBe(t.id)
+
+    await user.click(screen.getByRole('combobox', { name: 'Select dataset' }))
+    await user.type(
+      screen.getByRole('combobox', { name: 'Search datasets' }),
+      'unavailable assay',
+    )
+
+    expect(screen.getByText('No datasets match your search.')).toBeTruthy()
   })
 })
 

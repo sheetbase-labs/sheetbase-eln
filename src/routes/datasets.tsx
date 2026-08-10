@@ -22,6 +22,7 @@ import { flexRender } from '@tanstack/react-table'
 import type { ColumnDef, useReactTable } from '@tanstack/react-table'
 import {
   Check,
+  ChevronsUpDown,
   Database,
   Download,
   GitBranch,
@@ -48,8 +49,16 @@ import {
   Badge,
   Button,
   ButtonGroup,
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
   Input,
-  Select,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   Skeleton,
   Table,
   TableBody,
@@ -303,25 +312,103 @@ export function DatasetExplorerHeader({
         ) : datasets.length === 0 ? (
           <Badge variant="outline">No datasets</Badge>
         ) : (
-          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span>Dataset</span>
-            <Select
-              aria-label="Select dataset"
-              value={selectedTableId ?? ''}
-              onChange={(e) => onSelect(e.target.value)}
-              className="h-8 w-64 bg-background"
-            >
-              {datasets.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                  {d.dataset_schema ? ` · ${d.dataset_schema.slug}` : ''}
-                </option>
-              ))}
-            </Select>
-          </label>
+          <DatasetPicker
+            datasets={datasets}
+            selectedTableId={selectedTableId}
+            onSelect={onSelect}
+          />
         )}
       </div>
     </header>
+  )
+}
+
+interface DatasetPickerProps {
+  datasets: ScientificTableWire[]
+  selectedTableId: string | null
+  onSelect: (id: string) => void
+}
+
+function DatasetPicker({
+  datasets,
+  selectedTableId,
+  onSelect,
+}: DatasetPickerProps) {
+  const [open, setOpen] = useState(false)
+  const selected = datasets.find((dataset) => dataset.id === selectedTableId)
+
+  return (
+    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <span>Dataset</span>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            role="combobox"
+            aria-label="Select dataset"
+            aria-expanded={open}
+            className="w-64 justify-between bg-background font-normal"
+          >
+            <span className="truncate text-foreground">
+              {selected?.name ?? 'Choose a dataset'}
+            </span>
+            <ChevronsUpDown
+              className="shrink-0 text-muted-foreground"
+              aria-hidden="true"
+            />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-80 p-0">
+          <Command label="Search datasets" loop>
+            <CommandInput
+              aria-label="Search datasets"
+              placeholder="Search datasets…"
+            />
+            <CommandList className="max-h-72">
+              <CommandEmpty>No datasets match your search.</CommandEmpty>
+              <CommandGroup
+                heading={`${formatCount(datasets.length)} ${datasets.length === 1 ? 'dataset' : 'datasets'}`}
+              >
+                {datasets.map((dataset) => {
+                  const schema = dataset.dataset_schema
+                  return (
+                    <CommandItem
+                      key={dataset.id}
+                      value={`${dataset.name} ${schema?.name ?? ''} ${schema?.slug ?? ''}`}
+                      onSelect={() => {
+                        onSelect(dataset.id)
+                        setOpen(false)
+                      }}
+                    >
+                      <Check
+                        className={cn(
+                          'shrink-0',
+                          dataset.id === selectedTableId
+                            ? 'opacity-100'
+                            : 'opacity-0',
+                        )}
+                        aria-hidden="true"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-foreground">
+                          {dataset.name}
+                        </span>
+                        {schema ? (
+                          <span className="block truncate text-[0.7rem] text-muted-foreground">
+                            {schema.name}
+                          </span>
+                        ) : null}
+                      </span>
+                    </CommandItem>
+                  )
+                })}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
   )
 }
 

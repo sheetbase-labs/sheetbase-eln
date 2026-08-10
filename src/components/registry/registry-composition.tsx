@@ -523,7 +523,7 @@ export function RegistryComposition<TData>({
                     {header.isPlaceholder ? null : header.column.getCanSort() ? (
                       <button
                         type="button"
-                        className="inline-flex items-center gap-1 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="inline-flex items-center gap-0.5 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         onClick={header.column.getToggleSortingHandler()}
                         aria-label={`Sort by ${label} ${sorted === 'asc' ? 'descending' : 'ascending'}`}
                       >
@@ -531,13 +531,11 @@ export function RegistryComposition<TData>({
                           header.column.columnDef.header,
                           header.getContext(),
                         )}
-                        <span aria-hidden>
-                          {sorted === 'asc'
-                            ? '↑'
-                            : sorted === 'desc'
-                              ? '↓'
-                              : '↕'}
-                        </span>
+                        {sorted ? (
+                          <span aria-hidden className="text-muted-foreground">
+                            {sorted === 'asc' ? '↑' : '↓'}
+                          </span>
+                        ) : null}
                       </button>
                     ) : (
                       flexRender(
@@ -933,10 +931,10 @@ export function RegistryComposition<TData>({
       ) : null}
 
       {!permissionDenied ? (
-        <footer className="flex shrink-0 flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-          <p>
+        <footer className="flex shrink-0 flex-wrap items-center justify-between gap-2 py-1.5 text-xs text-muted-foreground">
+          <span className="leading-5">
             {formatCount(totalCount)} {totalCount === 1 ? 'record' : 'records'}
-          </p>
+          </span>
           <div className="flex items-center gap-2">
             <label className="flex items-center gap-1">
               Rows

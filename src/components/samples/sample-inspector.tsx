@@ -137,7 +137,7 @@ function VisualBarcode({ value }: { value: string }) {
   }, [value])
 
   return (
-    <div className="flex flex-col items-center gap-1">
+    <div className="flex flex-col items-start gap-1">
       <div className="flex h-10 items-center overflow-hidden rounded border bg-white px-2">
         <div className="flex h-full items-stretch gap-0">
           {bars.map((w, i) => (
@@ -178,8 +178,8 @@ function CustodyTimeline({
     <ol className="relative ml-1 space-y-2.5 border-l border-border pl-3">
       {recent.map((event) => (
         <li key={event.id} className="relative text-xs">
-          <span className="absolute -left-[0.45rem] top-1 size-1.5 rounded-full border border-primary bg-background" />
-          <div className="flex items-start justify-between gap-2">
+          <span className="absolute -left-[0.4rem] top-[0.15rem] size-1.5 rounded-full border border-primary bg-background" />
+          <div className="flex items-baseline justify-between gap-2">
             <span className="font-medium">
               {OPERATION_LABELS[event.operation] ?? event.operation}
             </span>
@@ -356,9 +356,7 @@ export function SampleInspector({
           <Property label="Quantity" mono>
             {quantityLabel(sample)}
           </Property>
-          <Property label="Storage" stacked>
-            {orDash(sample.storageLocation)}
-          </Property>
+          <Property label="Storage">{orDash(sample.storageLocation)}</Property>
           {sample.lowStockThreshold != null ? (
             <Property label="Low-stock at" mono>
               {`${sample.lowStockThreshold}${sample.quantityUnit ? ` ${sample.quantityUnit}` : ''}`}
@@ -385,7 +383,7 @@ export function SampleInspector({
         title="Linked experiments"
         action={
           linkedExperiments.length > 0 ? (
-            <span className="text-[0.65rem] text-muted-foreground">
+            <span className="text-[0.65rem] leading-none text-muted-foreground">
               {linkedExperiments.length}
             </span>
           ) : null
@@ -403,7 +401,7 @@ export function SampleInspector({
         title="Files"
         action={
           linkedFiles.length > 0 ? (
-            <span className="text-[0.65rem] text-muted-foreground">
+            <span className="text-[0.65rem] leading-none text-muted-foreground">
               {linkedFiles.length}
             </span>
           ) : null

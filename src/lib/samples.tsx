@@ -808,7 +808,10 @@ export function sampleColumns<T extends SampleRecord>(): ColumnDef<
       header: 'Storage',
       accessorFn: (row) => row.storageLocation,
       cell: ({ row }) => (
-        <span className="text-muted-foreground">
+        <span
+          className="inline-block max-w-[14rem] truncate align-middle text-muted-foreground"
+          title={row.original.storageLocation ?? undefined}
+        >
           {row.original.storageLocation ?? '—'}
         </span>
       ),

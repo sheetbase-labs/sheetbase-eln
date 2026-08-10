@@ -661,7 +661,7 @@ export function RegistryComposition<TData>({
     <section
       ref={compositionRef}
       aria-labelledby={`${registryId}-title`}
-      className="flex min-h-0 flex-col gap-3"
+      className="flex min-h-0 flex-1 flex-col gap-3"
     >
       {!hideHeader ? (
         <header className="flex flex-wrap items-start justify-between gap-3">

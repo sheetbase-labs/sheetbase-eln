@@ -26,6 +26,8 @@ import {
   Download,
   GitBranch,
   Layers,
+  Maximize2,
+  Minimize2,
   Table as TableIcon,
   Trash2,
   Undo2,
@@ -426,6 +428,7 @@ export function DatasetDataTab({
   })
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null)
   const [previewTab, setPreviewTab] = useState('preview')
+  const [previewSize, setPreviewSize] = useState(1)
 
   const chartStorageKey = useMemo(
     () =>
@@ -515,13 +518,21 @@ export function DatasetDataTab({
     )
     .map((column) => ({ id: column.field_name, label: column.label }))
   const totalCount = rowsQuery.data?.totalCount ?? 0
+  const previewHeights = [220, 320, 460] as const
+  const previewSizeLabels = ['compact', 'standard', 'expanded'] as const
 
   return (
-    <div className="flex min-h-0 flex-col overflow-hidden">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <FormulaBar table={table} />
-      <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)]">
+      <div
+        className="grid min-h-0 flex-1 transition-[grid-template-rows]"
+        style={{
+          gridTemplateRows: `minmax(0, 1fr) ${previewHeights[previewSize]}px`,
+        }}
+        data-preview-size={previewSizeLabels[previewSize]}
+      >
         <div className="flex min-h-0 flex-col overflow-hidden">
-          <div className="min-h-0 flex-1 overflow-hidden">
+          <div className="flex min-h-0 flex-1 overflow-hidden">
             <RegistryComposition
               registryId={`dataset-${table.id}`}
               workspaceId={workspaceId}
@@ -578,6 +589,32 @@ export function DatasetDataTab({
                 <Button
                   variant="ghost"
                   size="icon-sm"
+                  aria-label="Contract preview"
+                  title="Contract preview"
+                  disabled={previewSize === 0}
+                  onClick={() =>
+                    setPreviewSize((size) => Math.max(0, size - 1))
+                  }
+                >
+                  <Minimize2 />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Expand preview"
+                  title="Expand preview"
+                  disabled={previewSize === previewHeights.length - 1}
+                  onClick={() =>
+                    setPreviewSize((size) =>
+                      Math.min(previewHeights.length - 1, size + 1),
+                    )
+                  }
+                >
+                  <Maximize2 />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
                   aria-label="Export chart"
                 >
                   <Download />
@@ -596,11 +633,12 @@ export function DatasetDataTab({
             </TabsContent>
             <TabsContent
               value="summary"
-              className="m-0 min-h-0 flex-1 overflow-auto p-6"
+              className="m-0 min-h-0 flex-1 overflow-auto p-3"
             >
-              <PreviewExplanation
-                title="Column summary"
-                copy="Review completeness, central tendency and spread for each visible field."
+              <ColumnSummary
+                columns={table.columns}
+                rows={rowsQuery.data?.rows ?? []}
+                totalCount={totalCount}
               />
             </TabsContent>
             <TabsContent
@@ -679,6 +717,91 @@ function PreviewExplanation({ title, copy }: { title: string; copy: string }) {
       <h3 className="text-sm font-semibold">{title}</h3>
       <p className="mt-1 max-w-md text-xs text-muted-foreground">{copy}</p>
     </div>
+  )
+}
+
+export function ColumnSummary({
+  columns,
+  rows,
+  totalCount,
+}: {
+  columns: ScientificColumnWire[]
+  rows: ScientificRowWire[]
+  totalCount: number
+}) {
+  if (rows.length === 0) {
+    return <EmptyHint>No rows available to summarise.</EmptyHint>
+  }
+
+  return (
+    <section aria-labelledby="column-summary-title">
+      <div className="mb-3">
+        <h3 id="column-summary-title" className="text-sm font-semibold">
+          Column summary
+        </h3>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          Based on {formatCount(rows.length)} of {formatCount(totalCount)} rows
+          in the current result.
+        </p>
+      </div>
+      <div className="overflow-hidden rounded-md border">
+        <Table aria-label="Column summary">
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead>Field</TableHead>
+              <TableHead>Complete</TableHead>
+              <TableHead>Summary</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {columns.map((column) => {
+              const values = rows
+                .map((row) => row[column.field_name])
+                .filter(
+                  (value) =>
+                    value !== null && value !== undefined && value !== '',
+                )
+              const completeness = Math.round(
+                (values.length / rows.length) * 100,
+              )
+              const numericValues = values.filter(
+                (value): value is number =>
+                  typeof value === 'number' && Number.isFinite(value),
+              )
+              let summary: string
+              if (numericValues.length > 0) {
+                const mean =
+                  numericValues.reduce((sum, value) => sum + value, 0) /
+                  numericValues.length
+                summary = `Mean ${formatCount(mean)} · ${formatCount(
+                  Math.min(...numericValues),
+                )}–${formatCount(Math.max(...numericValues))}`
+              } else {
+                const unique = new Set(values.map(String)).size
+                summary = `${formatCount(unique)} unique value${unique === 1 ? '' : 's'}`
+              }
+
+              return (
+                <TableRow key={column.id}>
+                  <TableCell className="py-1.5">
+                    <span className="font-medium">{column.label}</span>
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      {column.logical_type}
+                    </span>
+                  </TableCell>
+                  <TableCell className="py-1.5 tabular-nums">
+                    {values.length}/{rows.length} ({completeness}%)
+                  </TableCell>
+                  <TableCell className="py-1.5 tabular-nums">
+                    {summary}
+                  </TableCell>
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
+      </div>
+    </section>
   )
 }
 

@@ -13,6 +13,7 @@ import type { UseQueryResult } from '@tanstack/react-query'
 
 import { useQuery } from '@tanstack/react-query'
 import {
+  ColumnSummary,
   DataTableView,
   DatasetDataTab,
   DatasetExplorerHeader,
@@ -295,6 +296,28 @@ describe('DataTableView', () => {
   })
 })
 
+describe('ColumnSummary', () => {
+  it('computes completeness and numeric summaries for the loaded rows', () => {
+    render(
+      <ColumnSummary
+        columns={table().columns}
+        rows={[
+          { id: 'r-1', version: 1, col_alpha: 'A1', col_beta: 7.2 },
+          { id: 'r-2', version: 1, col_alpha: 'A2', col_beta: 7.4 },
+        ]}
+        totalCount={12}
+      />,
+    )
+
+    expect(
+      screen.getByText('Based on 2 of 12 rows in the current result.'),
+    ).toBeTruthy()
+    expect(screen.getAllByText('2/2 (100%)')).toHaveLength(2)
+    expect(screen.getByText('Mean 7.3 · 7.2–7.4')).toBeTruthy()
+    expect(screen.getByText('2 unique values')).toBeTruthy()
+  })
+})
+
 // --- DatasetInspector -----------------------------------------------------
 
 describe('DatasetInspector', () => {
@@ -413,7 +436,8 @@ describe('DatasetDataTab', () => {
     }
   }
 
-  it('renders rows, transformation tools, formula bar and chart preview', () => {
+  it('renders rows, working summary and resizable chart preview', async () => {
+    const user = userEvent.setup()
     mockQueries([{ id: 'r-1', version: 1, col_alpha: 'A1', col_beta: 7.4 }], 1)
     render(<DatasetDataTab {...props()} />)
     expect(screen.getByText('A1')).toBeTruthy()
@@ -425,6 +449,20 @@ describe('DatasetDataTab', () => {
     expect(
       screen.getByRole('button', { name: 'Save current view' }),
     ).toBeTruthy()
+
+    const layout = document.querySelector('[data-preview-size]')
+    expect(layout?.getAttribute('data-preview-size')).toBe('standard')
+    await user.click(screen.getByRole('button', { name: 'Expand preview' }))
+    expect(layout?.getAttribute('data-preview-size')).toBe('expanded')
+    expect(
+      screen
+        .getByRole('button', { name: 'Expand preview' })
+        .hasAttribute('disabled'),
+    ).toBe(true)
+
+    await user.click(screen.getByRole('tab', { name: 'Summary' }))
+    expect(screen.getByRole('table', { name: 'Column summary' })).toBeTruthy()
+    expect(screen.getByText('Mean 7.4 · 7.4–7.4')).toBeTruthy()
   })
 
   it('shows the empty state when no rows are returned', () => {

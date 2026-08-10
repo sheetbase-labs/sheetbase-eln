@@ -473,14 +473,15 @@ describe('DatasetDataTab', () => {
     const separator = screen.getByRole('separator', {
       name: 'Resize dataset preview',
     })
-    expect(layout?.getAttribute('data-preview-height')).toBe('320')
+    expect(layout?.getAttribute('data-preview-height')).toBe('240')
     separator.focus()
     await user.keyboard('{ArrowUp}')
-    expect(layout?.getAttribute('data-preview-height')).toBe('336')
-    expect(separator.getAttribute('aria-valuenow')).toBe('336')
+    expect(layout?.getAttribute('data-preview-height')).toBe('256')
+    expect(separator.getAttribute('aria-valuenow')).toBe('256')
     expect(screen.queryByRole('button', { name: 'Expand preview' })).toBeNull()
+    expect(screen.queryByText(/Show data table/)).toBeNull()
 
-    await user.click(screen.getByRole('tab', { name: 'Summary' }))
+    await user.click(screen.getByRole('tab', { name: 'Column summary' }))
     expect(screen.getByRole('table', { name: 'Column summary' })).toBeTruthy()
     expect(screen.getByText('Mean 7.4 · 7.4–7.4')).toBeTruthy()
   })

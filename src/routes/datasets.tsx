@@ -425,7 +425,7 @@ export function DatasetDataTab({
   })
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null)
   const [previewTab, setPreviewTab] = useState('preview')
-  const [previewHeight, setPreviewHeight] = useState(320)
+  const [previewHeight, setPreviewHeight] = useState(240)
   const [layoutHeight, setLayoutHeight] = useState(640)
   const layoutRef = useRef<HTMLDivElement | null>(null)
   const resizeRef = useRef<{
@@ -514,7 +514,7 @@ export function DatasetDataTab({
     .map((column) => ({
       id: column.field_name,
       label: column.label,
-      placeholder: `Filter ${column.label}`,
+      placeholder: 'Exact value',
     }))
   const groupingOptions = table.columns
     .filter((column) =>
@@ -637,7 +637,7 @@ export function DatasetDataTab({
           onPointerCancel={() => {
             resizeRef.current = null
           }}
-          onDoubleClick={() => resizePreview(320)}
+          onDoubleClick={() => resizePreview(240)}
           onKeyDown={(event) => {
             if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
               event.preventDefault()
@@ -664,13 +664,16 @@ export function DatasetDataTab({
           <div className="flex h-full min-h-0 flex-col overflow-hidden">
             <div className="flex shrink-0 items-center justify-between border-b px-3 py-1.5">
               <TabsList className="h-8 bg-transparent p-0">
-                {['Preview', 'Summary', 'Distribution', 'Correlations'].map(
-                  (label) => (
-                    <TabsTrigger key={label} value={label.toLowerCase()}>
-                      {label}
-                    </TabsTrigger>
-                  ),
-                )}
+                {[
+                  { value: 'preview', label: 'Chart preview' },
+                  { value: 'summary', label: 'Column summary' },
+                  { value: 'distribution', label: 'Distribution' },
+                  { value: 'correlations', label: 'Correlations' },
+                ].map((tab) => (
+                  <TabsTrigger key={tab.value} value={tab.value}>
+                    {tab.label}
+                  </TabsTrigger>
+                ))}
               </TabsList>
               <Button variant="ghost" size="icon-sm" aria-label="Export chart">
                 <Download />
@@ -1046,8 +1049,8 @@ function ChartPreview({ table, chartSpec }: ChartPreviewProps) {
     if (!container) return
     const updatePlotHeight = () => {
       const nextHeight = Math.max(
-        140,
-        container.getBoundingClientRect().height - 72,
+        100,
+        container.getBoundingClientRect().height - 48,
       )
       setPlotHeight(nextHeight)
     }
@@ -1081,6 +1084,7 @@ function ChartPreview({ table, chartSpec }: ChartPreviewProps) {
           loading={datasetQuery.isLoading}
           hideTitle
           plotHeight={plotHeight}
+          showTableAlternative={false}
           className="h-full rounded-none border-0 bg-transparent shadow-none"
         />
       ) : null}

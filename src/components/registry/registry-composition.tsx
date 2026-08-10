@@ -716,6 +716,11 @@ export function RegistryComposition<TData>({
 
       {!permissionDenied ? (
         <div className="flex flex-wrap items-center gap-2">
+          {!searchFilter && filterDefinitions.length > 0 ? (
+            <span className="text-xs font-medium text-muted-foreground">
+              Filter rows
+            </span>
+          ) : null}
           {/* Search — prominent standalone input */}
           {searchFilter ? (
             <div className="relative min-w-48 flex-1 sm:max-w-64">
@@ -776,14 +781,21 @@ export function RegistryComposition<TData>({
           {filterDefinitions
             .filter((filter) => filter !== searchFilter && !filter.options)
             .map((filter) => (
-              <Input
+              <div
                 key={filter.id}
-                aria-label={`Filter by ${filter.label}`}
-                value={activeFilter(query, filter.id)}
-                onChange={(event) => setFilter(filter.id, event.target.value)}
-                placeholder={filter.placeholder ?? filter.label}
-                className="h-8 w-32 text-sm"
-              />
+                className="flex h-8 items-center overflow-hidden rounded-md border bg-background"
+              >
+                <span className="shrink-0 border-r bg-muted/40 px-2 text-xs font-medium text-muted-foreground">
+                  {filter.label} =
+                </span>
+                <Input
+                  aria-label={`Filter by ${filter.label}`}
+                  value={activeFilter(query, filter.id)}
+                  onChange={(event) => setFilter(filter.id, event.target.value)}
+                  placeholder={filter.placeholder ?? 'Exact value'}
+                  className="h-8 w-28 rounded-none border-0 text-sm shadow-none focus-visible:ring-0"
+                />
+              </div>
             ))}
 
           {/* Clear filters */}

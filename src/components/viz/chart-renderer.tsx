@@ -57,6 +57,8 @@ export interface ChartRendererProps {
   hideTitle?: boolean
   /** Plot height in pixels. Analysis Studio uses a taller publication preview. */
   plotHeight?: number
+  /** Hide the built-in table when the surrounding page already shows these rows. */
+  showTableAlternative?: boolean
   expanded?: boolean
   onExpandedChange?: (expanded: boolean) => void
 }
@@ -74,6 +76,7 @@ export function ChartRenderer({
   actions,
   hideTitle = false,
   plotHeight = 240,
+  showTableAlternative = true,
   expanded = false,
   onExpandedChange,
 }: ChartRendererProps) {
@@ -112,7 +115,9 @@ export function ChartRenderer({
           height={plotHeight}
         />
       )}
-      {materialised.state.kind === 'ok' && materialised.rows.length > 0 ? (
+      {showTableAlternative &&
+      materialised.state.kind === 'ok' &&
+      materialised.rows.length > 0 ? (
         <ChartTableAlternative materialised={materialised} />
       ) : null}
     </ChartFrame>

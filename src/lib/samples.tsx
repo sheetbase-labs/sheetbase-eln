@@ -777,7 +777,7 @@ export function sampleColumns<T extends SampleRecord>(): ColumnDef<
       accessorFn: (row) => row.sampleType,
       cell: ({ row }) =>
         row.original.sampleType ? (
-          <span className="inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[0.65rem] font-medium text-primary">
+          <span className="inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[0.65rem] font-medium leading-tight text-primary">
             {row.original.sampleType}
           </span>
         ) : (
@@ -825,7 +825,7 @@ export function sampleColumns<T extends SampleRecord>(): ColumnDef<
       accessorKey: 'status',
       header: 'Status',
       cell: ({ row }) => (
-        <StatusBadge status={row.original.status} domain="sample" />
+        <StatusBadge status={row.original.status} domain="sample" size="sm" />
       ),
     },
     {

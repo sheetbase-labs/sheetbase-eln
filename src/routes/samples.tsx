@@ -349,7 +349,7 @@ function SamplesRegistryRoute() {
           renderInspector={inspector}
           inspectorLabel="Sample details"
           initialDensity="compact"
-          initialColumnVisibility={{ barcode: false }}
+          initialColumnVisibility={{ barcode: false, sampleType: false }}
           loading={pageQuery.isLoading}
           error={pageQuery.error}
           onRetry={() => pageQuery.refetch()}

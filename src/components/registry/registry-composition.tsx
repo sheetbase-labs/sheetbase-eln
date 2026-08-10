@@ -556,30 +556,30 @@ export function RegistryComposition<TData>({
               return (
                 <TableRow
                   key={row.id}
-                  className="bg-muted/40 hover:bg-muted/60"
+                  className="border-b border-border bg-muted/40 hover:bg-muted/60"
                 >
                   <TableCell
                     colSpan={row.getVisibleCells().length}
                     className={cn(
                       density === 'compact'
-                        ? 'px-2.5 py-1.5 text-xs'
-                        : 'px-3 py-2 text-sm',
+                        ? 'px-2.5 py-1 text-xs'
+                        : 'px-3 py-1.5 text-sm',
                       'font-semibold',
                     )}
                   >
                     <button
                       type="button"
-                      className="inline-flex items-center gap-1.5"
+                      className="inline-flex items-center gap-1.5 leading-4"
                       onClick={() => row.getToggleExpandedHandler()()}
                       aria-label={`Toggle group`}
                     >
                       {row.getIsExpanded() ? (
-                        <ChevronDown className="size-3.5" />
+                        <ChevronDown className="size-3.5 shrink-0" />
                       ) : (
-                        <ChevronRight className="size-3.5" />
+                        <ChevronRight className="size-3.5 shrink-0" />
                       )}
                       {String(groupVal ?? '—')}
-                      <span className="ml-1 rounded-full bg-muted px-1.5 text-[0.65rem] font-medium text-muted-foreground">
+                      <span className="ml-0.5 inline-flex items-center rounded-full bg-muted px-1.5 text-[0.65rem] font-medium leading-[1.1rem] text-muted-foreground">
                         {row.subRows.length}
                       </span>
                     </button>

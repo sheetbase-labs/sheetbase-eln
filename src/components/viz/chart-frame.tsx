@@ -68,71 +68,71 @@ export function ChartFrame({
       aria-labelledby={hideTitle ? undefined : titleId}
       aria-describedby={alt ? altId : undefined}
     >
-      <figcaption className="flex items-start justify-between gap-3 border-b px-4 py-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            {hideTitle ? null : (
+      {hideTitle ? null : (
+        <figcaption className="flex items-start justify-between gap-3 border-b px-4 py-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
               <h3 id={titleId} className="truncate text-sm font-semibold">
                 {title}
               </h3>
-            )}
-            {mode === 'live' ? (
-              <Badge variant="success" className="shrink-0">
-                <Radio className="size-3" aria-hidden="true" />
-                Live
-              </Badge>
-            ) : (
-              <Badge variant="outline" className="shrink-0">
-                <Camera className="size-3" aria-hidden="true" />
-                Snapshot
-              </Badge>
-            )}
+              {mode === 'live' ? (
+                <Badge variant="success" className="shrink-0">
+                  <Radio className="size-3" aria-hidden="true" />
+                  Live
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="shrink-0">
+                  <Camera className="size-3" aria-hidden="true" />
+                  Snapshot
+                </Badge>
+              )}
+            </div>
+            {subtitle ? (
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                {subtitle}
+              </p>
+            ) : null}
           </div>
-          {subtitle ? (
-            <p className="mt-0.5 truncate text-xs text-muted-foreground">
-              {subtitle}
-            </p>
-          ) : null}
-        </div>
-        <div className="flex shrink-0 items-center gap-0.5">
-          {actions}
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Download chart"
-            disabled={loading}
-          >
-            <Download />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Expand chart"
-            disabled={loading}
-          >
-            <Expand />
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Chart actions"
-                disabled={loading}
-              >
-                <MoreHorizontal />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem disabled>Open in analysis</DropdownMenuItem>
-              <DropdownMenuItem disabled>Copy snapshot link</DropdownMenuItem>
-              <DropdownMenuItem disabled>Export data</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </figcaption>
+          <div className="flex shrink-0 items-center gap-0.5">
+            {actions}
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Download chart"
+              disabled={loading}
+            >
+              <Download />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Expand chart"
+              disabled={loading}
+            >
+              <Expand />
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Chart actions"
+                  disabled={loading}
+                >
+                  <MoreHorizontal />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem disabled>Open in analysis</DropdownMenuItem>
+                <DropdownMenuItem disabled>Copy snapshot link</DropdownMenuItem>
+                <DropdownMenuItem disabled>Export data</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </figcaption>
+      )}
 
-      <div className="p-4">
+      <div className={hideTitle ? 'h-full' : 'p-4'}>
         {loading ? (
           <div className="space-y-2" aria-busy="true" aria-live="polite">
             <Skeleton className="h-40 w-full" />

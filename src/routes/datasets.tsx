@@ -519,7 +519,7 @@ export function DatasetDataTab({
   return (
     <div className="flex min-h-0 flex-col overflow-hidden">
       <FormulaBar table={table} />
-      <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1.6fr)_minmax(0,1fr)]">
+      <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)]">
         <div className="flex min-h-0 flex-col overflow-hidden">
           <div className="min-h-0 flex-1 overflow-hidden">
             <RegistryComposition
@@ -879,6 +879,7 @@ function ChartPreview({ table, chartSpec }: ChartPreviewProps) {
           materialised={materialised}
           frozen={null}
           loading={datasetQuery.isLoading}
+          hideTitle
           className="h-full rounded-none border-0 bg-transparent shadow-none"
         />
       ) : null}
@@ -1191,9 +1192,7 @@ function describeUnit(unit: unknown) {
   const value = unit as { symbol?: unknown; code?: unknown }
   const symbol = typeof value.symbol === 'string' ? value.symbol : null
   const code = typeof value.code === 'string' ? value.code : null
-  return symbol && code && symbol !== code
-    ? `${symbol} (${code})`
-    : (symbol ?? code ?? '—')
+  return symbol ?? code ?? '—'
 }
 
 // ---------------------------------------------------------------------------

@@ -282,7 +282,7 @@ function AnalysisStudioRoute() {
 
   return (
     <>
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <AnalysisStudioHeader
           datasets={datasets}
           loading={summariesQuery.isLoading}
@@ -291,7 +291,7 @@ function AnalysisStudioRoute() {
           onSelect={setSelectedTableId}
         />
         {selectedTable && spec ? (
-          <div className="flex min-h-0 flex-1 flex-col gap-3">
+          <div className="flex min-h-0 flex-1 flex-col">
             <AnalysisControls
               table={selectedTable}
               spec={spec}
@@ -339,40 +339,40 @@ export function AnalysisStudioHeader({
 }: AnalysisStudioHeaderProps) {
   return (
     <header
-      className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3"
+      className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b px-4 py-2.5"
       aria-labelledby="analysis-title"
     >
       <div className="flex min-w-0 items-center gap-2">
-        <LineChartIcon className="size-5 text-violet-500" aria-hidden="true" />
-        <div className="min-w-0">
-          <h1
-            id="analysis-title"
-            className="text-lg font-semibold tracking-tight"
-          >
-            Analysis Studio
-          </h1>
-          <p className="truncate text-xs text-muted-foreground">
-            Visualise scientific data, compare conditions, and export
-            publication-ready charts with provenance.
-          </p>
-        </div>
+        <LineChartIcon className="size-4 text-violet-500" aria-hidden="true" />
+        <h1
+          id="analysis-title"
+          className="text-sm font-semibold tracking-tight"
+        >
+          Analysis Studio
+        </h1>
+        <span className="text-xs text-muted-foreground">
+          Visualise scientific data, compare conditions, and export
+          publication-ready charts
+        </span>
       </div>
       <div className="flex items-center gap-2">
         {error ? (
           <Badge variant="danger">Could not load datasets</Badge>
         ) : loading ? (
-          <Skeleton className="h-8 w-56" />
+          <Skeleton className="h-7 w-48" />
         ) : datasets.length === 0 ? (
           <Badge variant="outline">No datasets</Badge>
         ) : (
-          <Field className="flex grid-cols-[auto_16rem] items-center gap-2">
-            <FieldLabel htmlFor="analysis-data-source">Data source</FieldLabel>
+          <Field className="flex items-center gap-2">
+            <FieldLabel htmlFor="analysis-data-source" className="sr-only">
+              Data source
+            </FieldLabel>
             <Select
               id="analysis-data-source"
               aria-label="Select data source"
               value={selectedTableId ?? ''}
               onChange={(e) => onSelect(e.target.value)}
-              className="h-8 w-64 bg-background"
+              className="h-8 w-56 bg-background"
             >
               {datasets.map((d) => (
                 <option key={d.id} value={d.id}>
@@ -561,7 +561,10 @@ export function AnalysisControls({
   const currentErrorColumn = spec.overlays.errorBars?.columnId ?? ''
 
   return (
-    <div className="shrink-0 space-y-3 rounded-lg border bg-card p-3" aria-labelledby="controls-title">
+    <div
+      className="shrink-0 space-y-2.5 border-b px-4 py-2.5"
+      aria-labelledby="controls-title"
+    >
       <h2 id="controls-title" className="sr-only">
         Chart configuration
       </h2>
@@ -660,7 +663,7 @@ export function AnalysisControls({
           </Select>
         </Field>
       </FieldGroup>
-      <FieldGroup className="flex flex-wrap items-end gap-3 border-t pt-3">
+      <FieldGroup className="flex flex-wrap items-end gap-3 pt-2.5">
         <Field className="min-w-36 flex-1">
           <FieldLabel htmlFor="analysis-aggregation">Aggregation</FieldLabel>
           <Select
@@ -1463,23 +1466,16 @@ export function AnalysisPreview({
 
   return (
     <div
-      className="grid min-h-0 flex-1 grid-rows-[minmax(0,2fr)_minmax(0,1fr)] gap-3 overflow-hidden"
+      className="grid min-h-0 flex-1 grid-rows-[minmax(0,2fr)_minmax(0,1fr)] overflow-hidden"
       data-analysis-chart
     >
-      <div className="flex min-h-0 flex-col gap-2 rounded-lg border bg-card p-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 text-sm font-semibold">
-            <LineChartIcon
-              className="size-4 text-violet-500"
-              aria-hidden="true"
-            />
-            Live preview
-          </div>
+      <div className="flex min-h-0 flex-col overflow-hidden">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 px-4 py-2">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Badge variant="outline">
               {datasetQuery.isLoading
                 ? 'Loading…'
-                : `${formatCount(resultRowCount)} source rows`}
+                : `${formatCount(resultRowCount)} rows`}
             </Badge>
             {spec.transformations.length > 0 ? (
               <Badge variant="outline">
@@ -1488,6 +1484,27 @@ export function AnalysisPreview({
                 {spec.transformations.length === 1 ? '' : 's'}
               </Badge>
             ) : null}
+            {summaries.slice(0, 3).map((summary) => (
+              <span
+                key={summary.identifier}
+                className="inline-flex items-center gap-1 text-xs"
+              >
+                <span
+                  className="size-2 rounded-full"
+                  style={{ backgroundColor: summary.colour }}
+                />
+                <span className="truncate">{summary.label}</span>
+                <span className="font-mono font-semibold tabular-nums">
+                  {formatScientific(summary.lastMean)}
+                </span>
+              </span>
+            ))}
+            {summaries[0]?.foldChange ? (
+              <span className="text-xs text-muted-foreground">
+                Fold change: {summaries[0].foldChange.toFixed(1)}×{' '}
+                {summaries[0].direction}
+              </span>
+            ) : null}
           </div>
         </div>
 
@@ -1495,7 +1512,7 @@ export function AnalysisPreview({
         {!validation.ok ? (
           <div
             role="alert"
-            className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive"
+            className="mx-4 mb-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive"
           >
             <p className="font-semibold">Specification problems</p>
             <ul className="mt-1 list-disc pl-4">
@@ -1508,7 +1525,7 @@ export function AnalysisPreview({
         {staleDetail ? (
           <div
             role="status"
-            className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 p-3 text-xs"
+            className="mx-4 mb-2 flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 p-3 text-xs"
           >
             <TriangleAlert
               className="mt-0.5 size-4 text-warning"
@@ -1520,7 +1537,7 @@ export function AnalysisPreview({
         {excessiveSize ? (
           <div
             role="status"
-            className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 p-3 text-xs"
+            className="mx-4 mb-2 flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 p-3 text-xs"
           >
             <TriangleAlert
               className="mt-0.5 size-4 text-warning"
@@ -1534,54 +1551,16 @@ export function AnalysisPreview({
           </div>
         ) : null}
 
-        <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(0,1fr)_13rem]">
-          <div className="min-h-0 overflow-visible">
-            <ChartRenderer
-              title={`${table.name} — ${spec.type} chart`}
-              spec={spec}
-              materialised={analysisMaterialised}
-              frozen={null}
-              loading={datasetQuery.isLoading}
-              plotHeight={280}
-            />
-          </div>
-          <aside
-            className="flex min-h-0 flex-col gap-2 overflow-auto"
-            aria-label="Chart statistics"
-          >
-            {summaries.slice(0, 3).map((summary) => (
-              <div key={summary.identifier} className="rounded-md border p-2.5">
-                <div className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <span
-                    className="size-2 rounded-full"
-                    style={{ backgroundColor: summary.colour }}
-                  />
-                  <span className="truncate">{summary.label}</span>
-                </div>
-                <p className="text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground">
-                  {Number.isFinite(summary.lastX)
-                    ? `${formatScientific(summary.lastX)} (Mean)`
-                    : 'Latest mean'}
-                </p>
-                <p className="mt-0.5 font-mono text-lg font-semibold tabular-nums">
-                  {formatScientific(summary.lastMean)}
-                </p>
-              </div>
-            ))}
-            {summaries[0]?.foldChange ? (
-              <div className="rounded-md border border-violet-200 bg-violet-50/60 p-2.5 dark:border-violet-900 dark:bg-violet-950/20">
-                <p className="text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground">
-                  Fold change (first → latest)
-                </p>
-                <p className="mt-1 text-lg font-semibold">
-                  {summaries[0].foldChange.toFixed(1)}× {summaries[0].direction}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {summaries[0].label}
-                </p>
-              </div>
-            ) : null}
-          </aside>
+        <div className="min-h-0 flex-1 overflow-hidden px-4 pb-2">
+          <ChartRenderer
+            title={`${table.name} — ${spec.type} chart`}
+            spec={spec}
+            materialised={analysisMaterialised}
+            frozen={null}
+            loading={datasetQuery.isLoading}
+            plotHeight={320}
+            className="h-full rounded-none border-0 bg-transparent shadow-none"
+          />
         </div>
       </div>
 
@@ -1634,7 +1613,7 @@ export function DataTableAlternative({
     ? materialised.columns.map((column) => ({
         key: column.fieldName,
         label: column.unit
-          ? `${column.label} (${String(column.unit)})`
+          ? `${column.label} (${typeof column.unit === 'object' && 'symbol' in column.unit ? String((column.unit as { symbol: string }).symbol) : String(column.unit)})`
           : column.label,
       }))
     : [
@@ -1648,7 +1627,7 @@ export function DataTableAlternative({
     : chartRows
   return (
     <div
-      className="flex min-h-0 flex-col overflow-hidden rounded-lg border bg-card"
+      className="flex min-h-0 flex-col overflow-hidden border-t"
       aria-labelledby="data-table-title"
     >
       <div className="flex shrink-0 items-center justify-between border-b px-3 py-2">

@@ -583,7 +583,8 @@ export function RegistryComposition<TData>({
                       )}
                       {String(groupVal ?? '—')}
                       <span className="ml-0.5 text-muted-foreground">
-                        ({row.subRows.length})
+                        ({row.subRows.length}
+                        {pageCount > 1 ? ' on this page' : ''})
                       </span>
                     </button>
                   </TableCell>
@@ -952,6 +953,9 @@ export function RegistryComposition<TData>({
         <footer className="flex shrink-0 flex-wrap items-center justify-between gap-2 py-1.5 text-xs text-muted-foreground">
           <span className="leading-5">
             {formatCount(totalCount)} {totalCount === 1 ? 'record' : 'records'}
+            {query.grouping.length > 0 && pageCount > 1
+              ? ' · groups continue across pages'
+              : ''}
           </span>
           <div className="flex items-center gap-2">
             <label className="flex items-center gap-1">

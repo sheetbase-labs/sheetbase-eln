@@ -176,6 +176,22 @@ describe('RegistryComposition server contracts', () => {
       screen.getByRole('button', { name: /Status: Available/ }),
     ).toBeTruthy()
   })
+
+  it('makes page-local group counts explicit when results are paginated', () => {
+    render(
+      <RegistryComposition
+        {...props({
+          totalCount: 50,
+          query: { ...query, grouping: ['status'] },
+        })}
+      />,
+    )
+
+    expect(screen.getAllByText('(1 on this page)')).toHaveLength(2)
+    expect(
+      screen.getByText('50 records · groups continue across pages'),
+    ).toBeTruthy()
+  })
 })
 
 describe('RegistryComposition interaction and states', () => {

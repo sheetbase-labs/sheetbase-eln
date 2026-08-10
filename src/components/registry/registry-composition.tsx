@@ -14,6 +14,7 @@ import type {
   Updater,
   VisibilityState,
 } from '@tanstack/react-table'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   ChevronDown,
   ChevronLeft,
@@ -84,6 +85,17 @@ export interface RegistryGroupingOption {
   label: string
 }
 
+export interface RegistryIncrementalRows {
+  /** Whether the server reports that more matching rows can be loaded. */
+  hasMore: boolean
+  /** Whether the next batch is currently being fetched. */
+  loadingMore: boolean
+  /** Append the next server-owned batch to the loaded rows. */
+  onLoadMore: () => void
+  /** A failed append must not replace rows that are already available. */
+  loadError?: unknown
+}
+
 declare module '@tanstack/react-table' {
   interface ColumnMeta<TData, TValue> {
     /** Sheetbase-owned rendering contract for registry values. */
@@ -130,6 +142,12 @@ export interface RegistryCompositionProps<TData> {
   actions?: React.ReactNode
   /** Hide the built-in title/description header when the route supplies its own. */
   hideHeader?: boolean
+  /** Opt into virtualised, incrementally loaded rows instead of page controls. */
+  incrementalRows?: RegistryIncrementalRows
+  /** Allow users to drag column boundaries in wide data grids. */
+  resizableColumns?: boolean
+  /** Debounce server-owned text search. Defaults to immediate updates. */
+  searchDebounceMs?: number
 }
 
 function resolveUpdater<T>(updater: Updater<T>, previous: T): T {
@@ -166,6 +184,49 @@ function activeFilter(query: RegistryQuery, id: string): string {
   return query.filters.find((filter) => filter.id === id)?.value ?? ''
 }
 
+function RegistrySearchField({
+  value,
+  placeholder,
+  onValueChange,
+  debounceMs,
+}: {
+  value: string
+  placeholder: string
+  onValueChange: (value: string) => void
+  debounceMs: number
+}) {
+  const [draft, setDraft] = React.useState(value)
+  const onValueChangeRef = React.useRef(onValueChange)
+  onValueChangeRef.current = onValueChange
+
+  React.useEffect(() => setDraft(value), [value])
+  React.useEffect(() => {
+    if (debounceMs === 0 || draft === value) return
+    const timeout = window.setTimeout(
+      () => onValueChangeRef.current(draft),
+      debounceMs,
+    )
+    return () => window.clearTimeout(timeout)
+  }, [debounceMs, draft, value])
+
+  return (
+    <div className="relative min-w-48 flex-1 sm:max-w-64">
+      <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+      <Input
+        aria-label="Search"
+        value={draft}
+        onChange={(event) => {
+          const next = event.target.value
+          setDraft(next)
+          if (debounceMs === 0) onValueChangeRef.current(next)
+        }}
+        placeholder={placeholder}
+        className="h-8 pl-8 text-sm"
+      />
+    </div>
+  )
+}
+
 export function RegistryComposition<TData>({
   registryId,
   workspaceId,
@@ -200,8 +261,13 @@ export function RegistryComposition<TData>({
   savedViewStore,
   actions,
   hideHeader = false,
+  incrementalRows,
+  resizableColumns = false,
+  searchDebounceMs = 0,
 }: RegistryCompositionProps<TData>) {
   const compositionRef = React.useRef<HTMLElement>(null)
+  const scrollViewportRef = React.useRef<HTMLDivElement>(null)
+  const lastRequestedRowCountRef = React.useRef(-1)
   const store = React.useMemo(
     () =>
       savedViewStore ??
@@ -265,6 +331,11 @@ export function RegistryComposition<TData>({
     grouping.length > 0 ? true : {},
   )
   const columnFilters: ColumnFiltersState = query.filters
+  const groupingKey = grouping.join('\u0000')
+
+  React.useEffect(() => {
+    setExpanded(groupingKey ? true : {})
+  }, [groupingKey])
 
   const table = useReactTable({
     data: rows,
@@ -273,9 +344,12 @@ export function RegistryComposition<TData>({
     getCoreRowModel: getCoreRowModel(),
     getGroupedRowModel: getGroupedRowModel(),
     getExpandedRowModel: getExpandedRowModel(),
+    autoResetExpanded: false,
     manualPagination: true,
     manualSorting: true,
     manualFiltering: true,
+    enableColumnResizing: resizableColumns,
+    columnResizeMode: 'onChange',
     rowCount: totalCount,
     state: {
       pagination: { pageIndex: query.pageIndex, pageSize: query.pageSize },
@@ -321,6 +395,56 @@ export function RegistryComposition<TData>({
     },
     onColumnVisibilityChange: setColumnVisibility,
   })
+
+  const displayRows = table.getRowModel().rows
+  const navigableRows = displayRows.filter((row) => !row.getIsGrouped())
+  const rowVirtualizer = useVirtualizer({
+    count: incrementalRows ? displayRows.length : 0,
+    getScrollElement: () => scrollViewportRef.current,
+    estimateSize: () => (density === 'compact' ? 29 : 41),
+    overscan: 10,
+  })
+  const virtualItems = rowVirtualizer.getVirtualItems()
+  const incrementalEnabled = incrementalRows !== undefined
+  const queryGeneration = JSON.stringify({
+    pageSize: query.pageSize,
+    sorting: query.sorting,
+    grouping: query.grouping,
+    filters: query.filters,
+  })
+
+  React.useEffect(() => {
+    if (!incrementalEnabled) return
+    lastRequestedRowCountRef.current = -1
+    if (scrollViewportRef.current) scrollViewportRef.current.scrollTop = 0
+  }, [incrementalEnabled, queryGeneration])
+
+  React.useEffect(() => {
+    if (
+      !incrementalRows?.hasMore ||
+      incrementalRows.loadingMore ||
+      displayRows.length === 0 ||
+      (grouping.length > 0 && expanded !== true)
+    ) {
+      return
+    }
+    const lastVisible = virtualItems.at(-1)
+    if (
+      lastVisible &&
+      lastVisible.index >= displayRows.length - 10 &&
+      lastRequestedRowCountRef.current !== rows.length
+    ) {
+      lastRequestedRowCountRef.current = rows.length
+      incrementalRows.onLoadMore()
+    }
+  }, [
+    displayRows.length,
+    expanded,
+    grouping.length,
+    incrementalRows,
+    rows.length,
+    virtualItems,
+  ])
 
   const viewPolicy = React.useMemo(
     () => ({
@@ -447,14 +571,29 @@ export function RegistryComposition<TData>({
   }
 
   function focusRow(index: number) {
-    const row = rows[index]
-    if (!row) return
-    const id = getRowId(row)
+    const row = navigableRows[index]
+    const id = getRowId(row.original)
     setActiveRowId(id)
-    const elements = compositionRef.current?.querySelectorAll<HTMLElement>(
-      '[data-registry-row-id]',
+
+    const focusMountedRow = () => {
+      const elements = compositionRef.current?.querySelectorAll<HTMLElement>(
+        '[data-registry-row-id]',
+      )
+      Array.from(elements ?? [])
+        .find((element) => element.dataset.registryRowId === id)
+        ?.focus()
+    }
+
+    if (!incrementalRows) {
+      focusMountedRow()
+      return
+    }
+
+    const displayIndex = displayRows.indexOf(row)
+    rowVirtualizer.scrollToIndex(displayIndex, { align: 'auto' })
+    window.requestAnimationFrame(() =>
+      window.requestAnimationFrame(focusMountedRow),
     )
-    if (elements && index < elements.length) elements[index].focus()
   }
 
   const stateContent = permissionDenied ? (
@@ -477,7 +616,7 @@ export function RegistryComposition<TData>({
       }
       alert
     />
-  ) : totalCount === 0 ? (
+  ) : totalCount === 0 && rows.length === 0 ? (
     <RegistryState
       title={hasFilters ? noResultsTitle : emptyTitle}
       detail={
@@ -497,8 +636,15 @@ export function RegistryComposition<TData>({
           fields could not be returned; totals describe the server result.
         </div>
       ) : null}
-      <Table aria-label={title} data-density={density}>
-        <TableHeader>
+      <Table
+        aria-label={title}
+        data-density={density}
+        containerClassName={incrementalRows ? 'overflow-visible' : undefined}
+        style={resizableColumns ? { width: table.getTotalSize() } : undefined}
+      >
+        <TableHeader
+          className={incrementalRows ? 'sticky top-0 z-10 bg-card' : undefined}
+        >
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id} className="hover:bg-transparent">
               {headerGroup.headers.map((header) => {
@@ -510,10 +656,13 @@ export function RegistryComposition<TData>({
                 return (
                   <TableHead
                     key={header.id}
-                    className={
-                      density === 'compact'
-                        ? 'h-7 whitespace-nowrap px-2.5 text-[0.65rem]'
-                        : undefined
+                    className={cn(
+                      resizableColumns && 'relative',
+                      density === 'compact' &&
+                        'h-7 whitespace-nowrap px-2.5 text-[0.65rem]',
+                    )}
+                    style={
+                      resizableColumns ? { width: header.getSize() } : undefined
                     }
                     aria-sort={
                       sorted === 'asc'
@@ -546,6 +695,45 @@ export function RegistryComposition<TData>({
                         header.getContext(),
                       )
                     )}
+                    {resizableColumns && header.column.getCanResize() ? (
+                      <div
+                        role="separator"
+                        tabIndex={0}
+                        className="absolute inset-y-0 right-0 w-1 cursor-col-resize touch-none select-none bg-transparent hover:bg-primary/50 focus-visible:bg-primary focus-visible:outline-none"
+                        aria-label={`Resize ${label} column`}
+                        aria-orientation="vertical"
+                        aria-valuemin={header.column.columnDef.minSize ?? 20}
+                        aria-valuemax={header.column.columnDef.maxSize ?? 1000}
+                        aria-valuenow={header.getSize()}
+                        onDoubleClick={() => header.column.resetSize()}
+                        onMouseDown={header.getResizeHandler()}
+                        onTouchStart={header.getResizeHandler()}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Home') {
+                            event.preventDefault()
+                            header.column.resetSize()
+                            return
+                          }
+                          if (
+                            event.key !== 'ArrowLeft' &&
+                            event.key !== 'ArrowRight'
+                          ) {
+                            return
+                          }
+                          event.preventDefault()
+                          const delta = event.key === 'ArrowRight' ? 10 : -10
+                          const min = header.column.columnDef.minSize ?? 20
+                          const max = header.column.columnDef.maxSize ?? 1000
+                          table.setColumnSizing((previous) => ({
+                            ...previous,
+                            [header.column.id]: Math.min(
+                              max,
+                              Math.max(min, header.getSize() + delta),
+                            ),
+                          }))
+                        }}
+                      />
+                    ) : null}
                   </TableHead>
                 )
               })}
@@ -553,7 +741,22 @@ export function RegistryComposition<TData>({
           ))}
         </TableHeader>
         <TableBody>
-          {table.getRowModel().rows.map((row, index) => {
+          {incrementalRows && virtualItems[0]?.start ? (
+            <TableRow
+              aria-hidden="true"
+              className="border-0 hover:bg-transparent"
+            >
+              <TableCell
+                colSpan={table.getVisibleLeafColumns().length}
+                className="border-0 p-0"
+                style={{ height: virtualItems[0].start }}
+              />
+            </TableRow>
+          ) : null}
+          {(incrementalRows
+            ? virtualItems.map((item) => displayRows[item.index])
+            : displayRows
+          ).map((row) => {
             if (row.getIsGrouped()) {
               const groupVal = row.getValue(row.groupingColumnId!)
               return (
@@ -584,7 +787,14 @@ export function RegistryComposition<TData>({
                       {String(groupVal ?? '—')}
                       <span className="ml-0.5 text-muted-foreground">
                         ({row.subRows.length}
-                        {pageCount > 1 ? ' on this page' : ''})
+                        {incrementalRows
+                          ? incrementalRows.hasMore
+                            ? ' loaded'
+                            : ''
+                          : pageCount > 1
+                            ? ' on this page'
+                            : ''}
+                        )
                       </span>
                     </button>
                   </TableCell>
@@ -595,6 +805,7 @@ export function RegistryComposition<TData>({
             if (row.depth > 0 && !row.original) return null
             const id = getRowId(row.original)
             const selected = id === selectedId
+            const navigableIndex = navigableRows.indexOf(row)
             return (
               <TableRow
                 key={id}
@@ -611,16 +822,25 @@ export function RegistryComposition<TData>({
                 onKeyDown={(event) => {
                   if (event.key === 'ArrowDown') {
                     event.preventDefault()
-                    focusRow(Math.min(index + 1, rows.length - 1))
+                    if (
+                      navigableIndex === navigableRows.length - 1 &&
+                      incrementalRows?.hasMore
+                    ) {
+                      incrementalRows.onLoadMore()
+                    } else {
+                      focusRow(
+                        Math.min(navigableIndex + 1, navigableRows.length - 1),
+                      )
+                    }
                   } else if (event.key === 'ArrowUp') {
                     event.preventDefault()
-                    focusRow(Math.max(index - 1, 0))
+                    focusRow(Math.max(navigableIndex - 1, 0))
                   } else if (event.key === 'Home') {
                     event.preventDefault()
                     focusRow(0)
                   } else if (event.key === 'End') {
                     event.preventDefault()
-                    focusRow(rows.length - 1)
+                    focusRow(navigableRows.length - 1)
                   } else if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault()
                     onSelectedIdChange(id)
@@ -653,6 +873,24 @@ export function RegistryComposition<TData>({
               </TableRow>
             )
           })}
+          {incrementalRows && virtualItems.length > 0 ? (
+            <TableRow
+              aria-hidden="true"
+              className="border-0 hover:bg-transparent"
+            >
+              <TableCell
+                colSpan={table.getVisibleLeafColumns().length}
+                className="border-0 p-0"
+                style={{
+                  height: Math.max(
+                    0,
+                    rowVirtualizer.getTotalSize() -
+                      virtualItems[virtualItems.length - 1].end,
+                  ),
+                }}
+              />
+            </TableRow>
+          ) : null}
         </TableBody>
       </Table>
     </>
@@ -721,18 +959,12 @@ export function RegistryComposition<TData>({
           ) : null}
           {/* Search — prominent standalone input */}
           {searchFilter ? (
-            <div className="relative min-w-48 flex-1 sm:max-w-64">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                aria-label="Search"
-                value={activeFilter(query, searchFilter.id)}
-                onChange={(event) =>
-                  setFilter(searchFilter.id, event.target.value)
-                }
-                placeholder={searchFilter.placeholder ?? 'Search…'}
-                className="h-8 pl-8 text-sm"
-              />
-            </div>
+            <RegistrySearchField
+              value={activeFilter(query, searchFilter.id)}
+              onValueChange={(value) => setFilter(searchFilter.id, value)}
+              placeholder={searchFilter.placeholder ?? 'Search…'}
+              debounceMs={searchDebounceMs}
+            />
           ) : null}
 
           {/* Filter pills — compact dropdown buttons for option-based filters */}
@@ -913,7 +1145,13 @@ export function RegistryComposition<TData>({
       <div className="flex min-h-0 flex-1 min-w-0 gap-4">
         {/* Table — always takes full width. Inspector slides over or pins. */}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-md border bg-card">
-          <div className="min-h-0 flex-1 overflow-auto">{stateContent}</div>
+          <div
+            ref={scrollViewportRef}
+            data-registry-scroll-viewport=""
+            className="min-h-0 flex-1 overflow-auto"
+          >
+            {stateContent}
+          </div>
         </div>
 
         {/* Pinned inspector — docked aside on xl+ only */}
@@ -953,54 +1191,84 @@ export function RegistryComposition<TData>({
         <footer className="flex shrink-0 flex-wrap items-center justify-between gap-2 py-1.5 text-xs text-muted-foreground">
           <span className="leading-5">
             {formatCount(totalCount)} {totalCount === 1 ? 'record' : 'records'}
-            {query.grouping.length > 0 && pageCount > 1
-              ? ' · groups continue across pages'
+            {incrementalRows && rows.length < totalCount
+              ? ` · ${formatCount(rows.length)} loaded`
+              : ''}
+            {query.grouping.length > 0 &&
+            (incrementalRows?.hasMore || (!incrementalRows && pageCount > 1))
+              ? incrementalRows
+                ? ' · group counts describe loaded rows'
+                : ' · groups continue across pages'
               : ''}
           </span>
-          <div className="flex items-center gap-2">
-            <label className="flex items-center gap-1">
-              Rows
-              <Select
-                aria-label="Rows per page"
-                value={String(query.pageSize)}
-                onChange={(event) =>
-                  onQueryChange({
-                    ...query,
-                    pageIndex: 0,
-                    pageSize: Number(event.target.value),
-                  })
-                }
-                className="h-8 w-20 bg-background text-xs"
+          {incrementalRows ? (
+            <div className="flex items-center gap-2">
+              <span aria-live="polite">
+                {incrementalRows.loadError
+                  ? 'Could not load more records'
+                  : incrementalRows.loadingMore
+                    ? 'Loading more records…'
+                    : incrementalRows.hasMore
+                      ? 'Scroll for more'
+                      : 'All records loaded'}
+              </span>
+              {incrementalRows.hasMore ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={incrementalRows.loadingMore}
+                  onClick={incrementalRows.onLoadMore}
+                >
+                  {incrementalRows.loadError ? 'Try again' : 'Load more'}
+                </Button>
+              ) : null}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-1">
+                Rows
+                <Select
+                  aria-label="Rows per page"
+                  value={String(query.pageSize)}
+                  onChange={(event) =>
+                    onQueryChange({
+                      ...query,
+                      pageIndex: 0,
+                      pageSize: Number(event.target.value),
+                    })
+                  }
+                  className="h-8 w-20 bg-background text-xs"
+                >
+                  {[25, 50, 100].map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+              <span>
+                Page {query.pageIndex + 1} of {pageCount}
+              </span>
+              <Button
+                variant="outline"
+                size="icon-sm"
+                aria-label="Previous page"
+                disabled={query.pageIndex === 0 || loading}
+                onClick={() => table.previousPage()}
               >
-                {[25, 50, 100].map((size) => (
-                  <option key={size} value={size}>
-                    {size}
-                  </option>
-                ))}
-              </Select>
-            </label>
-            <span>
-              Page {query.pageIndex + 1} of {pageCount}
-            </span>
-            <Button
-              variant="outline"
-              size="icon-sm"
-              aria-label="Previous page"
-              disabled={query.pageIndex === 0 || loading}
-              onClick={() => table.previousPage()}
-            >
-              <ChevronLeft />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon-sm"
-              aria-label="Next page"
-              disabled={query.pageIndex >= pageCount - 1 || loading}
-              onClick={() => table.nextPage()}
-            >
-              <ChevronRight />
-            </Button>
-          </div>
+                <ChevronLeft />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon-sm"
+                aria-label="Next page"
+                disabled={query.pageIndex >= pageCount - 1 || loading}
+                onClick={() => table.nextPage()}
+              >
+                <ChevronRight />
+              </Button>
+            </div>
+          )}
         </footer>
       ) : null}
     </section>

@@ -3,6 +3,7 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -177,6 +178,51 @@ describe('RegistryComposition server contracts', () => {
     ).toBeTruthy()
   })
 
+  it('debounces server-owned text search updates', async () => {
+    const user = userEvent.setup()
+    const onQueryChange = vi.fn()
+    render(
+      <RegistryComposition
+        {...props({
+          onQueryChange,
+          searchDebounceMs: 300,
+          filterDefinitions: [
+            { id: 'q', label: 'Search', placeholder: 'Identifier or title' },
+          ],
+        })}
+      />,
+    )
+
+    await user.type(screen.getByRole('textbox', { name: 'Search' }), 'Anti')
+    expect(onQueryChange).not.toHaveBeenCalled()
+    await waitFor(() => expect(onQueryChange).toHaveBeenCalledOnce(), {
+      timeout: 600,
+    })
+    expect(onQueryChange).toHaveBeenCalledWith({
+      ...query,
+      filters: [{ id: 'q', value: 'Anti' }],
+    })
+  })
+
+  it('keeps text search immediate unless a consumer opts into debouncing', async () => {
+    const user = userEvent.setup()
+    const onQueryChange = vi.fn()
+    render(
+      <RegistryComposition
+        {...props({
+          onQueryChange,
+          filterDefinitions: [{ id: 'q', label: 'Search' }],
+        })}
+      />,
+    )
+
+    await user.type(screen.getByRole('textbox', { name: 'Search' }), 'A')
+    expect(onQueryChange).toHaveBeenCalledWith({
+      ...query,
+      filters: [{ id: 'q', value: 'A' }],
+    })
+  })
+
   it('makes page-local group counts explicit when results are paginated', () => {
     render(
       <RegistryComposition
@@ -191,6 +237,60 @@ describe('RegistryComposition server contracts', () => {
     expect(
       screen.getByText('50 records · groups continue across pages'),
     ).toBeTruthy()
+  })
+
+  it('reports incremental loading without page controls', async () => {
+    const user = userEvent.setup()
+    const onLoadMore = vi.fn()
+    render(
+      <RegistryComposition
+        {...props({
+          totalCount: 50,
+          incrementalRows: {
+            hasMore: true,
+            loadingMore: false,
+            onLoadMore,
+          },
+        })}
+      />,
+    )
+
+    expect(screen.getByText('50 records · 2 loaded')).toBeTruthy()
+    expect(screen.queryByLabelText('Rows per page')).toBeNull()
+    expect(screen.queryByLabelText('Next page')).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Load more' }))
+    expect(onLoadMore).toHaveBeenCalledOnce()
+  })
+
+  it('exposes accessible column resize handles when enabled', () => {
+    render(<RegistryComposition {...props({ resizableColumns: true })} />)
+
+    const handle = screen.getByRole('separator', {
+      name: 'Resize Identifier column',
+    })
+    const initialSize = Number(handle.getAttribute('aria-valuenow'))
+    fireEvent.keyDown(handle, { key: 'ArrowRight' })
+    expect(Number(handle.getAttribute('aria-valuenow'))).toBe(initialSize + 10)
+  })
+
+  it('preserves loaded rows when an incremental append fails', () => {
+    render(
+      <RegistryComposition
+        {...props({
+          totalCount: 50,
+          incrementalRows: {
+            hasMore: true,
+            loadingMore: false,
+            loadError: new Error('next page failed'),
+            onLoadMore: vi.fn(),
+          },
+        })}
+      />,
+    )
+
+    expect(screen.getByText('Could not load more records')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy()
+    expect(screen.getByText('50 records · 2 loaded')).toBeTruthy()
   })
 })
 
@@ -224,6 +324,21 @@ describe('RegistryComposition interaction and states', () => {
     )
     expect(selectedRow?.getAttribute('aria-selected')).toBe('true')
     expect(screen.getByText('Inspecting SMP-0002')).toBeTruthy()
+  })
+
+  it('navigates data rows across group headers', () => {
+    render(
+      <RegistryComposition
+        {...props({ query: { ...query, grouping: ['status'] } })}
+      />,
+    )
+
+    const first = screen.getByRole('row', { name: /SMP-0001/ })
+    first.focus()
+    fireEvent.keyDown(first, { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(
+      screen.getByRole('row', { name: /SMP-0002/ }),
+    )
   })
 
   it('keeps a selected record visible when it is loaded outside the current page', () => {

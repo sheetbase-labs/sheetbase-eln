@@ -346,8 +346,22 @@ describe('reagentListQuery / reagentCountQuery', () => {
     })
     expect(q).toContain('status=eq.available')
     expect(q).toContain('properties->>storage=eq.-20 °C')
-    expect(q).toContain('identifier=ilike.')
-    expect(q).toContain('title=ilike.')
+    expect(q).toContain(
+      'or=(identifier.ilike.%22acetonitrile*%22,title.ilike.%22acetonitrile*%22)',
+    )
+  })
+
+  it('quotes punctuation in logical search patterns', () => {
+    const q = decodeURIComponent(
+      reagentListQuery({
+        ...baseQuery,
+        filters: [{ id: 'q', value: 'Tris (1, "M"\\)' }],
+      }),
+    )
+
+    expect(q).toContain(
+      'or=(identifier.ilike."Tris (1, \\"M\\"\\\\)*",title.ilike."Tris (1, \\"M\\"\\\\)*")',
+    )
   })
 
   it('translates sorting to properties->>field for JSONB columns', () => {

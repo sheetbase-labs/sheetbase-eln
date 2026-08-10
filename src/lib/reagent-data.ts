@@ -337,6 +337,11 @@ function escapePostgrest(value: string): string {
   return value.replace(/[,&()*."\\]/g, ' ').trim()
 }
 
+function postgrestLogicPattern(value: string): string {
+  const escaped = value.replaceAll('\\', '\\\\').replaceAll('"', '\\"')
+  return encodeURIComponent(`"${escaped}*"`)
+}
+
 /**
  * Build the PostgREST query string for a reagent registry page. Always scopes
  * to non-soft-deleted reagents; archived rows are excluded by default and
@@ -356,8 +361,8 @@ export function reagentListQuery(query: RegistryQuery): string {
     } else if (filter.id === 'storage' && filter.value) {
       parts.push(`properties->>storage=eq.${escapePostgrest(filter.value)}`)
     } else if (filter.id === 'q' && filter.value) {
-      const enc = encodeURIComponent(`${filter.value}*`)
-      parts.push(`(identifier=ilike.${enc},title=ilike.${enc})`)
+      const enc = postgrestLogicPattern(filter.value)
+      parts.push(`or=(identifier.ilike.${enc},title.ilike.${enc})`)
     }
   }
 
@@ -400,6 +405,8 @@ export function reagentCountQuery(query: RegistryQuery): string {
 export const reagentQueryKeys = {
   list: (query: RegistryQuery) =>
     ['reg-003', 'reagents', 'list', query] as const,
+  infinite: (query: RegistryQuery) =>
+    ['reg-003', 'reagents', 'infinite', query] as const,
   count: (query: RegistryQuery) =>
     ['reg-003', 'reagents', 'count', query] as const,
   detail: (id: string) => ['reg-003', 'reagents', 'detail', id] as const,

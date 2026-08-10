@@ -16,7 +16,7 @@
  * surfaced honestly rather than blanked.
  */
 import { useQuery } from '@tanstack/react-query'
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { flexRender } from '@tanstack/react-table'
 import type { ColumnDef, useReactTable } from '@tanstack/react-table'
@@ -113,6 +113,9 @@ import type { RegistryQuery } from '#/lib/registry'
 import { cn } from '#/lib/utils'
 
 export const Route = createFileRoute('/datasets')({
+  validateSearch: (search: Record<string, unknown>) => ({
+    dataset: typeof search.dataset === 'string' ? search.dataset : '',
+  }),
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
     if (!context) throw redirect({ to: '/sign-in' })
@@ -184,6 +187,8 @@ function toColumnDefs(
 
 function DatasetExplorerRoute() {
   const { context } = Route.useRouteContext()
+  const search = Route.useSearch()
+  const navigate = useNavigate()
   const workspaceId = context.workspace?.id ?? 'no-workspace'
   const userId = context.user.id
 
@@ -194,29 +199,19 @@ function DatasetExplorerRoute() {
   })
 
   const datasets = summariesQuery.data ?? []
-  const [selectedTableId, setSelectedTableId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<
     'data' | 'schema' | 'relationships' | 'lineage'
   >('data')
 
-  // Auto-select the first dataset once the list loads.
-  useEffect(() => {
-    if (!selectedTableId && datasets.length > 0) {
-      setSelectedTableId(datasets[0].id)
-    }
-    if (
-      selectedTableId &&
-      datasets.length > 0 &&
-      !datasets.some((d) => d.id === selectedTableId)
-    ) {
-      setSelectedTableId(datasets[0].id)
-    }
-  }, [datasets, selectedTableId])
-
+  const requestedTableId = search.dataset || null
   const selectedTable = useMemo(
-    () => datasets.find((d) => d.id === selectedTableId) ?? null,
-    [datasets, selectedTableId],
+    () =>
+      datasets.find((dataset) => dataset.id === requestedTableId) ||
+      datasets.at(0) ||
+      null,
+    [datasets, requestedTableId],
   )
+  const selectedTableId = selectedTable?.id ?? null
 
   const viewStore = useMemo(
     () => createDatasetSavedViewStore({ workspaceId, userId }),
@@ -246,7 +241,13 @@ function DatasetExplorerRoute() {
           loading={summariesQuery.isLoading}
           error={summariesQuery.error}
           selectedTableId={selectedTableId}
-          onSelect={setSelectedTableId}
+          onSelect={(dataset) => {
+            void navigate({
+              to: '/datasets',
+              search: { dataset },
+              replace: false,
+            })
+          }}
         />
         {selectedTable ? (
           <DatasetTabs
@@ -348,7 +349,7 @@ function DatasetPicker({
             role="combobox"
             aria-label="Select dataset"
             aria-expanded={open}
-            className="w-64 justify-between bg-background font-normal"
+            className="h-7 w-56 justify-between bg-background px-2.5 text-xs font-normal"
           >
             <span className="truncate text-foreground">
               {selected?.name ?? 'Choose a dataset'}
@@ -359,13 +360,14 @@ function DatasetPicker({
             />
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="end" className="w-80 p-0">
+        <PopoverContent align="end" className="w-72 p-0">
           <Command label="Search datasets" loop>
             <CommandInput
               aria-label="Search datasets"
               placeholder="Search datasets…"
+              className="h-9 py-2 text-xs"
             />
-            <CommandList className="max-h-72">
+            <CommandList className="max-h-64">
               <CommandEmpty>No datasets match your search.</CommandEmpty>
               <CommandGroup
                 heading={`${formatCount(datasets.length)} ${datasets.length === 1 ? 'dataset' : 'datasets'}`}
@@ -380,6 +382,7 @@ function DatasetPicker({
                         onSelect(dataset.id)
                         setOpen(false)
                       }}
+                      className="py-1.5 text-xs"
                     >
                       <Check
                         className={cn(
@@ -395,7 +398,7 @@ function DatasetPicker({
                           {dataset.name}
                         </span>
                         {schema ? (
-                          <span className="block truncate text-[0.7rem] text-muted-foreground">
+                          <span className="block truncate text-[0.65rem] text-muted-foreground">
                             {schema.name}
                           </span>
                         ) : null}

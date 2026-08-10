@@ -50,7 +50,6 @@ import {
   Badge,
   Button,
   ButtonGroup,
-  Card,
   Input,
   Select,
   Skeleton,
@@ -1214,57 +1213,58 @@ export function DatasetSchemaTab({ table }: DatasetSchemaTabProps) {
   const fields: DatasetSchemaFieldWire[] = schemaQuery.data?.fields ?? []
 
   return (
-    <div className="space-y-3">
-      <Card className="p-4">
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <h2 className="text-sm font-semibold">Bound dataset schema</h2>
-            {schema ? (
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                <span className="font-mono">{schema.slug}</span> · revision{' '}
-                {schema.revision} ·{' '}
-                <StatusBadge
-                  status={schema.status}
-                  vocabulary={{
-                    draft: { label: 'Draft', tone: 'warning', icon: Layers },
-                    published: {
-                      label: 'Published',
-                      tone: 'success',
-                      icon: Database,
-                    },
-                    retired: {
-                      label: 'Retired',
-                      tone: 'neutral',
-                      icon: Trash2,
-                    },
-                  }}
-                  size="sm"
-                />
-              </p>
-            ) : (
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {schemaQuery.isLoading
-                  ? 'Loading…'
-                  : 'This sheet is not bound to a dataset schema (legacy ad-hoc columns).'}
-              </p>
-            )}
+    <div className="max-w-5xl space-y-4 py-3">
+      <section aria-labelledby="dataset-structure-title">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 id="dataset-structure-title" className="text-sm font-semibold">
+              Dataset structure
+            </h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {schemaQuery.isLoading
+                ? 'Loading structure…'
+                : schema
+                  ? `Fields are inherited from the reusable “${schema.slug}” schema, revision ${schema.revision}.`
+                  : 'Fields are defined directly in this dataset.'}
+            </p>
           </div>
+          {schema ? (
+            <StatusBadge
+              status={schema.status}
+              vocabulary={{
+                draft: { label: 'Draft', tone: 'warning', icon: Layers },
+                published: {
+                  label: 'Published',
+                  tone: 'success',
+                  icon: Database,
+                },
+                retired: {
+                  label: 'Retired',
+                  tone: 'neutral',
+                  icon: Trash2,
+                },
+              }}
+              size="sm"
+            />
+          ) : !schemaQuery.isLoading ? (
+            <Badge variant="outline">Local fields</Badge>
+          ) : null}
         </div>
-      </Card>
+      </section>
 
-      <Card className="p-4">
-        <h3 className="text-sm font-semibold">
-          {schema ? 'Schema fields' : 'Local columns'}
+      <section className="border-t pt-4" aria-labelledby="dataset-fields-title">
+        <h3 id="dataset-fields-title" className="text-sm font-semibold">
+          Dataset fields
         </h3>
         {schemaQuery.isLoading ? (
           <Skeleton className="mt-2 h-24 w-full" />
         ) : (
-          <div className="mt-2 overflow-x-auto">
+          <div className="mt-2 overflow-x-auto rounded-md border">
             <Table aria-label="Dataset fields">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead>Label</TableHead>
-                  <TableHead>Slug / field</TableHead>
+                  {schema ? <TableHead>Field key</TableHead> : null}
                   <TableHead>Type</TableHead>
                   <TableHead>Required</TableHead>
                   <TableHead>Unit</TableHead>
@@ -1292,9 +1292,11 @@ export function DatasetSchemaTab({ table }: DatasetSchemaTabProps) {
                   return (
                     <TableRow key={entry.id}>
                       <TableCell>{label}</TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {slug}
-                      </TableCell>
+                      {schema ? (
+                        <TableCell className="font-mono text-xs">
+                          {slug}
+                        </TableCell>
+                      ) : null}
                       <TableCell>{logicalType}</TableCell>
                       <TableCell>{nullable ? 'No' : 'Yes'}</TableCell>
                       <TableCell>{describeUnit(unit)}</TableCell>
@@ -1305,7 +1307,7 @@ export function DatasetSchemaTab({ table }: DatasetSchemaTabProps) {
             </Table>
           </div>
         )}
-      </Card>
+      </section>
     </div>
   )
 }

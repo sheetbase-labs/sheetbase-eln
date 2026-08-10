@@ -18,6 +18,7 @@ import {
   DatasetDataTab,
   DatasetExplorerHeader,
   DatasetInspector,
+  DatasetSchemaTab,
 } from './datasets'
 import type { DatasetDataTabProps } from './datasets'
 import { useReactTable, getCoreRowModel } from '@tanstack/react-table'
@@ -179,6 +180,24 @@ describe('DatasetExplorerHeader', () => {
     )
     const select = screen.getByLabelText('Select dataset')
     expect((select as unknown as HTMLSelectElement).value).toBe(t.id)
+  })
+})
+
+describe('DatasetSchemaTab', () => {
+  it('describes table-owned fields without legacy implementation language', () => {
+    vi.mocked(useQuery).mockReturnValue(
+      queryResult({ schema: null, fields: [] }),
+    )
+
+    render(<DatasetSchemaTab table={table()} />)
+
+    expect(screen.getByText('Dataset structure')).toBeTruthy()
+    expect(
+      screen.getByText('Fields are defined directly in this dataset.'),
+    ).toBeTruthy()
+    expect(screen.getByText('Local fields')).toBeTruthy()
+    expect(screen.queryByText(/legacy ad-hoc/i)).toBeNull()
+    expect(screen.queryByText('col_alpha')).toBeNull()
   })
 })
 

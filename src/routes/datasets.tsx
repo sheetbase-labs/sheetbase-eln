@@ -17,7 +17,7 @@
  */
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { flexRender } from '@tanstack/react-table'
 import type { ColumnDef, useReactTable } from '@tanstack/react-table'
 import {
@@ -26,8 +26,6 @@ import {
   Download,
   GitBranch,
   Layers,
-  Maximize2,
-  Minimize2,
   Table as TableIcon,
   Trash2,
   Undo2,
@@ -427,7 +425,14 @@ export function DatasetDataTab({
   })
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null)
   const [previewTab, setPreviewTab] = useState('preview')
-  const [previewSize, setPreviewSize] = useState(1)
+  const [previewHeight, setPreviewHeight] = useState(320)
+  const [layoutHeight, setLayoutHeight] = useState(640)
+  const layoutRef = useRef<HTMLDivElement | null>(null)
+  const resizeRef = useRef<{
+    pointerId: number
+    startY: number
+    startHeight: number
+  } | null>(null)
 
   const chartStorageKey = useMemo(
     () =>
@@ -517,18 +522,52 @@ export function DatasetDataTab({
     )
     .map((column) => ({ id: column.field_name, label: column.label }))
   const totalCount = rowsQuery.data?.totalCount ?? 0
-  const previewHeights = [220, 320, 460] as const
-  const previewSizeLabels = ['compact', 'standard', 'expanded'] as const
+  const minimumPaneHeight = 180
+  const splitterHeight = 8
+  const maximumPreviewHeight = Math.max(
+    minimumPaneHeight,
+    layoutHeight - minimumPaneHeight - splitterHeight,
+  )
+
+  useEffect(() => {
+    const layout = layoutRef.current
+    if (!layout) return
+    const updateLayoutHeight = () => {
+      const nextHeight = layout.getBoundingClientRect().height
+      if (nextHeight <= 0) return
+      setLayoutHeight(nextHeight)
+      setPreviewHeight((current) =>
+        Math.min(
+          Math.max(minimumPaneHeight, current),
+          Math.max(
+            minimumPaneHeight,
+            nextHeight - minimumPaneHeight - splitterHeight,
+          ),
+        ),
+      )
+    }
+    updateLayoutHeight()
+    const observer = new ResizeObserver(updateLayoutHeight)
+    observer.observe(layout)
+    return () => observer.disconnect()
+  }, [])
+
+  function resizePreview(nextHeight: number): void {
+    setPreviewHeight(
+      Math.min(Math.max(minimumPaneHeight, nextHeight), maximumPreviewHeight),
+    )
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <FormulaBar table={table} />
       <div
-        className="grid min-h-0 flex-1 transition-[grid-template-rows]"
+        ref={layoutRef}
+        className="grid min-h-0 flex-1"
         style={{
-          gridTemplateRows: `minmax(0, 1fr) ${previewHeights[previewSize]}px`,
+          gridTemplateRows: `minmax(0, 1fr) ${splitterHeight}px ${previewHeight}px`,
         }}
-        data-preview-size={previewSizeLabels[previewSize]}
+        data-preview-height={Math.round(previewHeight)}
       >
         <div className="flex min-h-0 flex-col overflow-hidden">
           <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -568,12 +607,61 @@ export function DatasetDataTab({
             />
           </div>
         </div>
+        <div
+          role="separator"
+          aria-label="Resize dataset preview"
+          aria-orientation="horizontal"
+          aria-valuemin={minimumPaneHeight}
+          aria-valuemax={Math.round(maximumPreviewHeight)}
+          aria-valuenow={Math.round(previewHeight)}
+          tabIndex={0}
+          className="group relative z-10 cursor-row-resize touch-none outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+          onPointerDown={(event) => {
+            resizeRef.current = {
+              pointerId: event.pointerId,
+              startY: event.clientY,
+              startHeight: previewHeight,
+            }
+            event.currentTarget.setPointerCapture(event.pointerId)
+          }}
+          onPointerMove={(event) => {
+            const resize = resizeRef.current
+            if (!resize || resize.pointerId !== event.pointerId) return
+            resizePreview(resize.startHeight + (resize.startY - event.clientY))
+          }}
+          onPointerUp={(event) => {
+            if (resizeRef.current?.pointerId !== event.pointerId) return
+            resizeRef.current = null
+            event.currentTarget.releasePointerCapture(event.pointerId)
+          }}
+          onPointerCancel={() => {
+            resizeRef.current = null
+          }}
+          onDoubleClick={() => resizePreview(320)}
+          onKeyDown={(event) => {
+            if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+              event.preventDefault()
+              resizePreview(
+                previewHeight + (event.key === 'ArrowUp' ? 16 : -16),
+              )
+            } else if (event.key === 'Home') {
+              event.preventDefault()
+              resizePreview(minimumPaneHeight)
+            } else if (event.key === 'End') {
+              event.preventDefault()
+              resizePreview(maximumPreviewHeight)
+            }
+          }}
+        >
+          <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-border transition-colors group-hover:bg-primary group-focus-visible:bg-primary" />
+          <span className="absolute left-1/2 top-1/2 h-1 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-muted-foreground/25 transition-colors group-hover:bg-primary/60 group-focus-visible:bg-primary/60" />
+        </div>
         <Tabs
           value={previewTab}
           onValueChange={setPreviewTab}
-          className="min-h-0"
+          className="h-full min-h-0"
         >
-          <div className="flex min-h-0 flex-col overflow-hidden">
+          <div className="flex h-full min-h-0 flex-col overflow-hidden">
             <div className="flex shrink-0 items-center justify-between border-b px-3 py-1.5">
               <TabsList className="h-8 bg-transparent p-0">
                 {['Preview', 'Summary', 'Distribution', 'Correlations'].map(
@@ -584,41 +672,9 @@ export function DatasetDataTab({
                   ),
                 )}
               </TabsList>
-              <ButtonGroup>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Contract preview"
-                  title="Contract preview"
-                  disabled={previewSize === 0}
-                  onClick={() =>
-                    setPreviewSize((size) => Math.max(0, size - 1))
-                  }
-                >
-                  <Minimize2 />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Expand preview"
-                  title="Expand preview"
-                  disabled={previewSize === previewHeights.length - 1}
-                  onClick={() =>
-                    setPreviewSize((size) =>
-                      Math.min(previewHeights.length - 1, size + 1),
-                    )
-                  }
-                >
-                  <Maximize2 />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Export chart"
-                >
-                  <Download />
-                </Button>
-              </ButtonGroup>
+              <Button variant="ghost" size="icon-sm" aria-label="Export chart">
+                <Download />
+              </Button>
             </div>
             <TabsContent
               value="preview"
@@ -952,6 +1008,8 @@ interface ChartPreviewProps {
 }
 
 function ChartPreview({ table, chartSpec }: ChartPreviewProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const [plotHeight, setPlotHeight] = useState(240)
   const transformCheck = chartSpec
     ? validateTransformations(chartSpec.transformations)
     : { ok: true as const }
@@ -983,8 +1041,28 @@ function ChartPreview({ table, chartSpec }: ChartPreviewProps) {
       }`
     : 'Chart preview'
 
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+    const updatePlotHeight = () => {
+      const nextHeight = Math.max(
+        140,
+        container.getBoundingClientRect().height - 72,
+      )
+      setPlotHeight(nextHeight)
+    }
+    updatePlotHeight()
+    const observer = new ResizeObserver(updatePlotHeight)
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [])
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div
+      ref={containerRef}
+      className="flex h-full min-h-0 flex-col"
+      data-chart-plot-height={Math.round(plotHeight)}
+    >
       {!chartSpec ? (
         <p className="py-6 text-center text-xs text-muted-foreground">
           No numeric column to plot. Add a decimal or integer column to this
@@ -1002,6 +1080,7 @@ function ChartPreview({ table, chartSpec }: ChartPreviewProps) {
           frozen={null}
           loading={datasetQuery.isLoading}
           hideTitle
+          plotHeight={plotHeight}
           className="h-full rounded-none border-0 bg-transparent shadow-none"
         />
       ) : null}

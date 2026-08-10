@@ -455,7 +455,7 @@ describe('DatasetDataTab', () => {
     }
   }
 
-  it('renders rows, working summary and resizable chart preview', async () => {
+  it('renders rows, working summary and a draggable chart preview', async () => {
     const user = userEvent.setup()
     mockQueries([{ id: 'r-1', version: 1, col_alpha: 'A1', col_beta: 7.4 }], 1)
     render(<DatasetDataTab {...props()} />)
@@ -469,15 +469,16 @@ describe('DatasetDataTab', () => {
       screen.getByRole('button', { name: 'Save current view' }),
     ).toBeTruthy()
 
-    const layout = document.querySelector('[data-preview-size]')
-    expect(layout?.getAttribute('data-preview-size')).toBe('standard')
-    await user.click(screen.getByRole('button', { name: 'Expand preview' }))
-    expect(layout?.getAttribute('data-preview-size')).toBe('expanded')
-    expect(
-      screen
-        .getByRole('button', { name: 'Expand preview' })
-        .hasAttribute('disabled'),
-    ).toBe(true)
+    const layout = document.querySelector('[data-preview-height]')
+    const separator = screen.getByRole('separator', {
+      name: 'Resize dataset preview',
+    })
+    expect(layout?.getAttribute('data-preview-height')).toBe('320')
+    separator.focus()
+    await user.keyboard('{ArrowUp}')
+    expect(layout?.getAttribute('data-preview-height')).toBe('336')
+    expect(separator.getAttribute('aria-valuenow')).toBe('336')
+    expect(screen.queryByRole('button', { name: 'Expand preview' })).toBeNull()
 
     await user.click(screen.getByRole('tab', { name: 'Summary' }))
     expect(screen.getByRole('table', { name: 'Column summary' })).toBeTruthy()

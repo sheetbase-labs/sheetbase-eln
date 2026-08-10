@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # .agents/resume — fast, idempotent; runs when an existing orb wakes from pause.
-# Only reconnect/repair; never install. Must finish within ~10 seconds.
+# Reconnect/repair only; never install. Must finish within ~10 seconds.
 set -euo pipefail
 
 # Start the local PostgreSQL 18 cluster if it is not already online.
@@ -11,3 +11,12 @@ if command -v pg_lsclusters >/dev/null 2>&1; then
 fi
 
 echo "resume: postgres is $(sudo -u postgres pg_isready 2>&1 || echo 'not ready')"
+
+# Restart PostgREST if the binary exists and the service is not already running.
+# orb services are killed on pause; they need to be restarted on resume.
+if command -v postgrest >/dev/null 2>&1; then
+  if ! amp orb service status postgrest >/dev/null 2>&1; then
+    amp orb service start postgrest --command './scripts/postgrest.sh' 2>/dev/null || true
+  fi
+  echo "resume: postgrest $(curl -sf http://127.0.0.1:3002/ready >/dev/null 2>&1 && echo 'ready' || echo 'not ready')"
+fi

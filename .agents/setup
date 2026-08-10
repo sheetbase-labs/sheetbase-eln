@@ -129,5 +129,39 @@ fi
 echo "==> Applying database migrations"
 pnpm db:migrate
 
+echo "==> Installing PostgREST v14.5 static binary"
+# .agents/setup does not ship PostgREST; install it here so the orb can serve
+# the API locally without Docker. Use the exact v14.5 release that the orb-setup
+# docs and compose.yaml specify — not v16, which has breaking config changes.
+if ! command -v postgrest >/dev/null 2>&1; then
+  curl -fL -o /tmp/postgrest.tar.xz \
+    https://github.com/PostgREST/postgrest/releases/download/v14.5/postgrest-v14.5-linux-static-x86-64.tar.xz
+  tar -xJf /tmp/postgrest.tar.xz -C /tmp
+  sudo install -m 0755 /tmp/postgrest /usr/local/bin/postgrest
+  rm -f /tmp/postgrest /tmp/postgrest.tar.xz
+fi
+echo "postgrest: $(postgrest --version)"
+
+echo "==> Enabling auth-free development mode"
+# SHEETBASE_DEV_AUTH_FREE creates a fixture session so you can browse the app
+# without GitHub OAuth. It is only safe in development and is validated by
+# deployment-config.ts to refuse to load outside SHEETBASE_ENV=development.
+if [ -f .env.local ]; then
+  sed -i 's/^SHEETBASE_DEV_AUTH_FREE=.*/SHEETBASE_DEV_AUTH_FREE=true/' .env.local
+else
+  echo "SHEETBASE_DEV_AUTH_FREE=true" >> .env.local
+fi
+
+echo "==> Fixing PGRST_DB_URI for local (non-Docker) connections"
+# .env.example ships with the Docker hostname `postgres`; the orb uses localhost.
+if [ -f .env.local ]; then
+  sed -i 's|@postgres:5432/|@localhost:5432/|g' .env.local
+fi
+
+echo "==> Seeding demo data"
+# The demo seed is idempotent and provides the sample/reagent/experiment
+# fixtures the UI needs to look populated.
+pnpm db:seed:demo || true
+
 echo "==> Setup complete."
-echo "node $(node -v) | pnpm $(pnpm -v) | postgres $(sudo -u postgres psql -tAc 'show server_version')"
+echo "node $(node -v) | pnpm $(pnpm -v) | postgres $(sudo -u postgres psql -tAc 'show server_version') | postgrest $(postgrest --version)"

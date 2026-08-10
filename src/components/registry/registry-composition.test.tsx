@@ -159,6 +159,23 @@ describe('RegistryComposition server contracts', () => {
       grouping: ['status'],
     })
   })
+
+  it('shows the active option value in a filter trigger', () => {
+    render(
+      <RegistryComposition
+        {...props({
+          query: {
+            ...query,
+            filters: [{ id: 'status', value: 'available' }],
+          },
+        })}
+      />,
+    )
+
+    expect(
+      screen.getByRole('button', { name: /Status: Available/ }),
+    ).toBeTruthy()
+  })
 })
 
 describe('RegistryComposition interaction and states', () => {
@@ -310,7 +327,9 @@ describe('RegistryComposition saved views', () => {
     await user.click(screen.getByRole('menuitemcheckbox', { name: 'Status' }))
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('columnheader', { name: /Status/ })).toBeNull()
-    const promptSpy1 = vi.spyOn(window, 'prompt').mockReturnValue('Available compact')
+    const promptSpy1 = vi
+      .spyOn(window, 'prompt')
+      .mockReturnValue('Available compact')
     await user.click(screen.getByRole('button', { name: 'Save current view' }))
     promptSpy1.mockRestore()
 

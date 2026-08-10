@@ -422,6 +422,25 @@ describe('Virus Stability demo fixtures', () => {
        WHERE id = '${DEMO_VIRUS_STABILITY_PROJECT_ID}'`,
     )
     expect(Number(proj[0]?.n)).toBe(1)
+
+    const { rows: reagents } = await migrator.query<{
+      n: string
+      statuses: string
+    }>(
+      `SELECT count(*)::text AS n,
+              count(DISTINCT status)::text AS statuses
+       FROM api.records
+       WHERE project_id = '${DEMO_VIRUS_STABILITY_PROJECT_ID}'
+         AND kind = 'reagent'`,
+    )
+    expect(Number(reagents[0]?.n)).toBe(26)
+    expect(Number(reagents[0]?.statuses)).toBe(5)
+
+    const { rows: reagentMovements } = await migrator.query<{ n: string }>(
+      `SELECT count(*)::text AS n FROM api.reagent_movements
+       WHERE reagent_record_id = '${DEMO_REAGENT_RECORD_ID}'`,
+    )
+    expect(Number(reagentMovements[0]?.n)).toBe(3)
   })
 
   it('seeded blocks cover every initial block type that the demo exercises', async () => {

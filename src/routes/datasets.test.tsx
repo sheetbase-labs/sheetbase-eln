@@ -13,10 +13,12 @@ import type { UseQueryResult } from '@tanstack/react-query'
 
 import { useQuery } from '@tanstack/react-query'
 import {
+  ColumnSummary,
   DataTableView,
   DatasetDataTab,
   DatasetExplorerHeader,
   DatasetInspector,
+  DatasetSchemaTab,
 } from './datasets'
 import type { DatasetDataTabProps } from './datasets'
 import { useReactTable, getCoreRowModel } from '@tanstack/react-table'
@@ -34,6 +36,7 @@ globalThis.ResizeObserver = class {
   unobserve() {}
   disconnect() {}
 }
+Element.prototype.scrollIntoView = vi.fn()
 
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => () => ({ useRouteContext: () => ({}) }),
@@ -165,7 +168,42 @@ describe('DatasetExplorerHeader', () => {
     expect(screen.getByText('Could not load datasets')).toBeTruthy()
   })
 
-  it('renders a populated dataset selector', async () => {
+  it('searches and selects from a populated dataset picker', async () => {
+    const user = userEvent.setup()
+    const t = table()
+    const datasets = Array.from({ length: 120 }, (_, index) =>
+      table({ id: `process-${index}`, name: `Process dataset ${index + 1}` }),
+    )
+    const onSelect = vi.fn()
+    render(
+      <DatasetExplorerHeader
+        datasets={[t, ...datasets]}
+        loading={false}
+        error={null}
+        selectedTableId={t.id}
+        onSelect={onSelect}
+      />,
+    )
+
+    const trigger = screen.getByRole('combobox', { name: 'Select dataset' })
+    expect(trigger.textContent).toContain('Stability')
+
+    await user.click(trigger)
+    const search = screen.getByRole('combobox', { name: 'Search datasets' })
+    await user.type(search, 'Process dataset 117')
+
+    expect(screen.getByText('Process dataset 117')).toBeTruthy()
+    expect(screen.queryByText('Process dataset 3')).toBeNull()
+    await user.keyboard('{Enter}')
+
+    expect(onSelect).toHaveBeenCalledWith('process-116')
+    expect(
+      screen.queryByRole('combobox', { name: 'Search datasets' }),
+    ).toBeNull()
+  })
+
+  it('shows an empty result for an unmatched dataset search', async () => {
+    const user = userEvent.setup()
     const t = table()
     render(
       <DatasetExplorerHeader
@@ -176,8 +214,32 @@ describe('DatasetExplorerHeader', () => {
         onSelect={() => {}}
       />,
     )
-    const select = screen.getByLabelText('Select dataset')
-    expect((select as unknown as HTMLSelectElement).value).toBe(t.id)
+
+    await user.click(screen.getByRole('combobox', { name: 'Select dataset' }))
+    await user.type(
+      screen.getByRole('combobox', { name: 'Search datasets' }),
+      'unavailable assay',
+    )
+
+    expect(screen.getByText('No datasets match your search.')).toBeTruthy()
+  })
+})
+
+describe('DatasetSchemaTab', () => {
+  it('describes table-owned fields without legacy implementation language', () => {
+    vi.mocked(useQuery).mockReturnValue(
+      queryResult({ schema: null, fields: [] }),
+    )
+
+    render(<DatasetSchemaTab table={table()} />)
+
+    expect(screen.getByText('Dataset structure')).toBeTruthy()
+    expect(
+      screen.getByText('Fields are defined directly in this dataset.'),
+    ).toBeTruthy()
+    expect(screen.getByText('Local fields')).toBeTruthy()
+    expect(screen.queryByText(/legacy ad-hoc/i)).toBeNull()
+    expect(screen.queryByText('col_alpha')).toBeNull()
   })
 })
 
@@ -295,6 +357,28 @@ describe('DataTableView', () => {
   })
 })
 
+describe('ColumnSummary', () => {
+  it('computes completeness and numeric summaries for the loaded rows', () => {
+    render(
+      <ColumnSummary
+        columns={table().columns}
+        rows={[
+          { id: 'r-1', version: 1, col_alpha: 'A1', col_beta: 7.2 },
+          { id: 'r-2', version: 1, col_alpha: 'A2', col_beta: 7.4 },
+        ]}
+        totalCount={12}
+      />,
+    )
+
+    expect(
+      screen.getByText('Based on 2 of 12 rows in the current result.'),
+    ).toBeTruthy()
+    expect(screen.getAllByText('2/2 (100%)')).toHaveLength(2)
+    expect(screen.getByText('Mean 7.3 · 7.2–7.4')).toBeTruthy()
+    expect(screen.getByText('2 unique values')).toBeTruthy()
+  })
+})
+
 // --- DatasetInspector -----------------------------------------------------
 
 describe('DatasetInspector', () => {
@@ -310,14 +394,12 @@ describe('DatasetInspector', () => {
         lineageError={null}
       />,
     )
-    expect(
-      screen.getByText(
-        'Select a row to inspect its values, lineage and linked records.',
-      ),
-    ).toBeTruthy()
+    expect(screen.getByText('Nothing selected')).toBeTruthy()
+    expect(screen.getByText('Dataset row')).toBeTruthy()
   })
 
-  it('shows row values, lineage and links for a selected row', () => {
+  it('shows row values, lineage and links for a selected row', async () => {
+    const user = userEvent.setup()
     render(
       <DatasetInspector
         table={table()}
@@ -354,8 +436,11 @@ describe('DatasetInspector', () => {
         lineageError={null}
       />,
     )
-    expect(screen.getByText('A1')).toBeTruthy()
+    // Inspector title uses the first text column value
+    expect(screen.getAllByText('A1').length).toBeGreaterThanOrEqual(1)
+    // Lineage content is now in the Details tab
     expect(screen.getByText('=col_alpha*2')).toBeTruthy()
+    await user.click(screen.getByRole('tab', { name: /Links/ }))
     expect(screen.getByText('SMP-1')).toBeTruthy()
   })
 
@@ -363,7 +448,7 @@ describe('DatasetInspector', () => {
     render(
       <DatasetInspector
         table={table()}
-        row={null}
+        row={{ id: 'r-1', version: 1, col_alpha: 'A1', col_beta: 7.4 }}
         formulas={[]}
         dependencies={[]}
         links={[]}
@@ -371,6 +456,7 @@ describe('DatasetInspector', () => {
         lineageError={new Error('boom')}
       />,
     )
+    // Lineage error is shown in the Details tab
     expect(screen.getByText('Could not load lineage.')).toBeTruthy()
   })
 })
@@ -411,12 +497,35 @@ describe('DatasetDataTab', () => {
     }
   }
 
-  it('renders rows, filter toolbar and chart preview heading', () => {
+  it('renders rows, working summary and a draggable chart preview', async () => {
+    const user = userEvent.setup()
     mockQueries([{ id: 'r-1', version: 1, col_alpha: 'A1', col_beta: 7.4 }], 1)
     render(<DatasetDataTab {...props()} />)
     expect(screen.getByText('A1')).toBeTruthy()
-    expect(screen.getByText('Chart preview')).toBeTruthy()
-    expect(screen.getByLabelText('Saved view name')).toBeTruthy()
+    expect(
+      screen.getByLabelText<HTMLInputElement>('Formula expression').value,
+    ).toBe('Titer (TU/mL) = [Vector genome (copies/mL)] / [Volume (mL)]')
+    expect(screen.getByText('Apply')).toBeTruthy()
+    expect(screen.getByRole('tab', { name: 'Correlations' })).toBeTruthy()
+    expect(
+      screen.getByRole('button', { name: 'Save current view' }),
+    ).toBeTruthy()
+
+    const layout = document.querySelector('[data-preview-height]')
+    const separator = screen.getByRole('separator', {
+      name: 'Resize dataset preview',
+    })
+    expect(layout?.getAttribute('data-preview-height')).toBe('240')
+    separator.focus()
+    await user.keyboard('{ArrowUp}')
+    expect(layout?.getAttribute('data-preview-height')).toBe('256')
+    expect(separator.getAttribute('aria-valuenow')).toBe('256')
+    expect(screen.queryByRole('button', { name: 'Expand preview' })).toBeNull()
+    expect(screen.queryByText(/Show data table/)).toBeNull()
+
+    await user.click(screen.getByRole('tab', { name: 'Column summary' }))
+    expect(screen.getByRole('table', { name: 'Column summary' })).toBeTruthy()
+    expect(screen.getByText('Mean 7.4 · 7.4–7.4')).toBeTruthy()
   })
 
   it('shows the empty state when no rows are returned', () => {

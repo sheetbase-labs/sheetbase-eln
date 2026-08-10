@@ -1568,7 +1568,9 @@ export function ScientificSheetBlock({
   localRowsRef.current = localRows
   // Track the source range of the last copy/cut so beforePaste can
   // translate relative A1 references by the row/column offset.
-  const copySourceRef = useRef<{ startRow: number; startCol: number } | null>(null)
+  const copySourceRef = useRef<{ startRow: number; startCol: number } | null>(
+    null,
+  )
   // Add Row: creates a provisional row optimistically in the query cache,
   // registers it with the coordinator for persistence, and selects its
   // first editable cell. The coordinator sends the insert RPC and swaps
@@ -1836,7 +1838,10 @@ export function ScientificSheetBlock({
       const start = coords.at(0)
       if (!start || !table) return
       // Record the source start for paste-time reference translation
-      copySourceRef.current = { startRow: start.startRow, startCol: start.startCol }
+      copySourceRef.current = {
+        startRow: start.startRow,
+        startCol: start.startCol,
+      }
       const rows = localRowsRef.current
       for (let rowOffset = 0; rowOffset < data.length; rowOffset++) {
         for (
@@ -2159,6 +2164,11 @@ export function ScientificSheetBlock({
               + Add row
             </Button>
           ) : null}
+          <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
+            <a href={`/datasets?dataset=${encodeURIComponent(tableId)}`}>
+              Explore dataset
+            </a>
+          </Button>
           {!readOnly ? (
             <Button
               type="button"

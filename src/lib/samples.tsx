@@ -17,6 +17,7 @@
  */
 import type { ColumnDef } from '@tanstack/react-table'
 
+import { StatusBadge } from '#/components/scientific/status-badge'
 import type { DataClient } from './data-client'
 import { DataClientError } from './data-client'
 import type { NotebookRecord, RecordWire } from './notebook-data'
@@ -143,6 +144,8 @@ export interface SampleSummary {
   label: string
   value: number
   hint?: string
+  /** Semantic tone for the hint text. */
+  tone?: 'positive' | 'warning' | 'danger' | 'neutral'
 }
 
 export function computeSampleSummaries(
@@ -150,13 +153,34 @@ export function computeSampleSummaries(
   totalCount: number,
 ): SampleSummary[] {
   const available = rows.filter((r) => r.status === 'available').length
-  const consumed = rows.filter((r) => r.status === 'consumed').length
   const lowStock = rows.filter((r) => isLowStock(r)).length
+  const consumed = rows.filter((r) => r.status === 'consumed').length
+  const pct = totalCount > 0 ? Math.round((available / totalCount) * 100) : 0
   return [
-    { label: 'Total samples', value: totalCount },
-    { label: 'Available', value: available, hint: 'on this page' },
-    { label: 'Low stock', value: lowStock, hint: 'on this page' },
-    { label: 'Consumed', value: consumed, hint: 'on this page' },
+    {
+      label: 'Total samples',
+      value: totalCount,
+      hint: `${rows.length} on this page`,
+      tone: 'neutral',
+    },
+    {
+      label: 'Available',
+      value: available,
+      hint: `${pct}% of total`,
+      tone: 'positive',
+    },
+    {
+      label: 'Low stock',
+      value: lowStock,
+      hint: lowStock > 0 ? 'Needs attention' : 'All healthy',
+      tone: lowStock > 0 ? 'warning' : 'positive',
+    },
+    {
+      label: 'Consumed',
+      value: consumed,
+      hint: 'On this page',
+      tone: 'neutral',
+    },
   ]
 }
 
@@ -736,12 +760,29 @@ export function sampleColumns<T extends SampleRecord>(): ColumnDef<
   unknown
 >[] {
   return [
-    { accessorKey: 'identifier', header: 'Identifier', enableHiding: false },
+    {
+      accessorKey: 'identifier',
+      header: 'Sample ID',
+      enableHiding: false,
+      cell: ({ row }) => (
+        <span className="font-medium text-primary">
+          {row.original.identifier}
+        </span>
+      ),
+    },
     { accessorKey: 'title', header: 'Title' },
     {
       id: 'sampleType',
       header: 'Type',
       accessorFn: (row) => row.sampleType,
+      cell: ({ row }) =>
+        row.original.sampleType ? (
+          <span className="inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[0.65rem] font-medium leading-tight text-primary">
+            {row.original.sampleType}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        ),
     },
     {
       id: 'quantity',
@@ -751,21 +792,42 @@ export function sampleColumns<T extends SampleRecord>(): ColumnDef<
       cell: ({ row }) => {
         const q = row.original.quantity
         const unit = row.original.quantityUnit
-        if (q == null) return '—'
-        return unit ? `${q} ${unit}` : String(q)
+        if (q == null) return <span className="text-muted-foreground">—</span>
+        return (
+          <span className="tabular-nums">
+            {q}
+            {unit ? (
+              <span className="ml-0.5 text-muted-foreground">{unit}</span>
+            ) : null}
+          </span>
+        )
       },
     },
     {
       id: 'storageLocation',
       header: 'Storage',
       accessorFn: (row) => row.storageLocation,
+      cell: ({ row }) => (
+        <span
+          className="inline-block max-w-[14rem] truncate align-middle text-muted-foreground"
+          title={row.original.storageLocation ?? undefined}
+        >
+          {row.original.storageLocation ?? '—'}
+        </span>
+      ),
     },
     {
       id: 'barcode',
       header: 'Barcode',
       accessorFn: (row) => row.barcode,
     },
-    { accessorKey: 'status', header: 'Status' },
+    {
+      accessorKey: 'status',
+      header: 'Status',
+      cell: ({ row }) => (
+        <StatusBadge status={row.original.status} domain="sample" size="sm" />
+      ),
+    },
     {
       id: 'updatedAt',
       header: 'Updated',

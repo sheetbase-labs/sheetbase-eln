@@ -1,5 +1,12 @@
 import * as React from 'react'
-import { Camera, Download, Expand, MoreHorizontal, Radio } from 'lucide-react'
+import {
+  Camera,
+  Download,
+  Expand,
+  Minimize2,
+  MoreHorizontal,
+  Radio,
+} from 'lucide-react'
 
 import { cn } from '#/lib/utils'
 import {
@@ -43,6 +50,8 @@ export interface ChartFrameProps {
    * and ChartFrame suppresses its own visual title. The title is still
    * used for the figure's aria-labelledby. */
   hideTitle?: boolean
+  expanded?: boolean
+  onExpandedChange?: (expanded: boolean) => void
 }
 
 export function ChartFrame({
@@ -57,6 +66,8 @@ export function ChartFrame({
   children,
   className,
   hideTitle = false,
+  expanded = false,
+  onExpandedChange,
 }: ChartFrameProps) {
   const titleId = React.useId()
   const altId = React.useId()
@@ -68,71 +79,75 @@ export function ChartFrame({
       aria-labelledby={hideTitle ? undefined : titleId}
       aria-describedby={alt ? altId : undefined}
     >
-      <figcaption className="flex items-start justify-between gap-3 border-b px-4 py-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            {hideTitle ? null : (
+      {hideTitle ? null : (
+        <figcaption className="flex items-start justify-between gap-3 border-b px-4 py-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
               <h3 id={titleId} className="truncate text-sm font-semibold">
                 {title}
               </h3>
-            )}
-            {mode === 'live' ? (
-              <Badge variant="success" className="shrink-0">
-                <Radio className="size-3" aria-hidden="true" />
-                Live
-              </Badge>
-            ) : (
-              <Badge variant="outline" className="shrink-0">
-                <Camera className="size-3" aria-hidden="true" />
-                Snapshot
-              </Badge>
-            )}
+              {mode === 'live' ? (
+                <Badge variant="success" className="shrink-0">
+                  <Radio className="size-3" aria-hidden="true" />
+                  Live
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="shrink-0">
+                  <Camera className="size-3" aria-hidden="true" />
+                  Snapshot
+                </Badge>
+              )}
+            </div>
+            {subtitle ? (
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                {subtitle}
+              </p>
+            ) : null}
           </div>
-          {subtitle ? (
-            <p className="mt-0.5 truncate text-xs text-muted-foreground">
-              {subtitle}
-            </p>
-          ) : null}
-        </div>
-        <div className="flex shrink-0 items-center gap-0.5">
-          {actions}
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Download chart"
-            disabled={loading}
-          >
-            <Download />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Expand chart"
-            disabled={loading}
-          >
-            <Expand />
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+          <div className="flex shrink-0 items-center gap-0.5">
+            {actions}
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Download chart"
+              disabled={loading}
+            >
+              <Download />
+            </Button>
+            {onExpandedChange ? (
               <Button
                 variant="ghost"
                 size="icon-sm"
-                aria-label="Chart actions"
+                aria-label={expanded ? 'Contract chart' : 'Expand chart'}
+                title={expanded ? 'Contract chart' : 'Expand chart'}
                 disabled={loading}
+                onClick={() => onExpandedChange(!expanded)}
               >
-                <MoreHorizontal />
+                {expanded ? <Minimize2 /> : <Expand />}
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem disabled>Open in analysis</DropdownMenuItem>
-              <DropdownMenuItem disabled>Copy snapshot link</DropdownMenuItem>
-              <DropdownMenuItem disabled>Export data</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </figcaption>
+            ) : null}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Chart actions"
+                  disabled={loading}
+                >
+                  <MoreHorizontal />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem disabled>Open in analysis</DropdownMenuItem>
+                <DropdownMenuItem disabled>Copy snapshot link</DropdownMenuItem>
+                <DropdownMenuItem disabled>Export data</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </figcaption>
+      )}
 
-      <div className="p-4">
+      <div className={hideTitle ? 'h-full' : 'p-4'}>
         {loading ? (
           <div className="space-y-2" aria-busy="true" aria-live="polite">
             <Skeleton className="h-40 w-full" />

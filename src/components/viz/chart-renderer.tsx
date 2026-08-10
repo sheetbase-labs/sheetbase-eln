@@ -55,6 +55,12 @@ export interface ChartRendererProps {
   actions?: React.ReactNode
   /** When true, suppress the visual title (parent renders it). */
   hideTitle?: boolean
+  /** Plot height in pixels. Analysis Studio uses a taller publication preview. */
+  plotHeight?: number
+  /** Hide the built-in table when the surrounding page already shows these rows. */
+  showTableAlternative?: boolean
+  expanded?: boolean
+  onExpandedChange?: (expanded: boolean) => void
 }
 
 export function ChartRenderer({
@@ -69,6 +75,10 @@ export function ChartRenderer({
   className,
   actions,
   hideTitle = false,
+  plotHeight = 240,
+  showTableAlternative = true,
+  expanded = false,
+  onExpandedChange,
 }: ChartRendererProps) {
   const mode = frozen ? 'snapshot' : 'live'
   const alt = describeChart(spec, materialised, frozen)
@@ -87,6 +97,8 @@ export function ChartRenderer({
       actions={actions}
       className={className}
       hideTitle={hideTitle}
+      expanded={expanded}
+      onExpandedChange={onExpandedChange}
     >
       {error ? (
         <ChartStateMessage tone="error">{error}</ChartStateMessage>
@@ -97,9 +109,15 @@ export function ChartRenderer({
       ) : materialised.series.length === 0 ? (
         <ChartStateMessage tone="muted">No plottable points.</ChartStateMessage>
       ) : (
-        <ChartPlot spec={spec} materialised={materialised} />
+        <ChartPlot
+          spec={spec}
+          materialised={materialised}
+          height={plotHeight}
+        />
       )}
-      {materialised.state.kind === 'ok' && materialised.rows.length > 0 ? (
+      {showTableAlternative &&
+      materialised.state.kind === 'ok' &&
+      materialised.rows.length > 0 ? (
         <ChartTableAlternative materialised={materialised} />
       ) : null}
     </ChartFrame>
@@ -113,9 +131,11 @@ export function ChartRenderer({
 function ChartPlot({
   spec,
   materialised,
+  height,
 }: {
   spec: ChartSpec | null
   materialised: MaterialisedChart
+  height: number
 }) {
   const type = spec?.type ?? 'line'
   const data = toRechartsData(materialised.series)
@@ -268,9 +288,10 @@ function ChartPlot({
     <div
       role="img"
       aria-label={`${materialised.xLabel} vs ${materialised.yLabel}. ${describeSeries(materialised)}`}
-      className="h-[240px] w-full"
+      className="w-full"
+      style={{ height }}
     >
-      <ResponsiveContainer width="100%" height={240}>
+      <ResponsiveContainer width="100%" height={height}>
         {chart}
       </ResponsiveContainer>
     </div>
@@ -278,7 +299,7 @@ function ChartPlot({
 }
 
 function toRechartsData(series: MaterialisedSeries[]) {
-  const xMap = new Map<number, Record<string, number | null>>()
+  const xMap = new Map<number, Record<string, number | null | undefined>>()
   for (const item of series) {
     for (const point of item.points) {
       if (point.x === null || point.y === null) continue

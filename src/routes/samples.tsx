@@ -77,7 +77,11 @@ function SamplesRegistryRoute() {
   const workspaceId = context.workspace?.id ?? ''
   const userId = context.user.id
 
-  const [query, setQuery] = useState<RegistryQuery>(DEFAULT_REGISTRY_QUERY)
+  const [query, setQuery] = useState<RegistryQuery>({
+    ...DEFAULT_REGISTRY_QUERY,
+    pageSize: 50,
+    grouping: ['sampleType'],
+  })
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
@@ -254,22 +258,24 @@ function SamplesRegistryRoute() {
 
   const filterDefinitions = [
     {
-      id: 'status',
-      label: 'Status',
-      options: sampleStatusOptions(),
-    },
-    { id: 'storageLocation', label: 'Storage', placeholder: 'Filter storage' },
-    { id: 'sampleType', label: 'Type', placeholder: 'Filter type' },
-    { id: 'barcode', label: 'Barcode', placeholder: 'Filter barcode' },
-    {
       id: 'search',
       label: 'Search',
       placeholder: 'Identifier, title, barcode',
     },
     {
-      id: 'archived',
-      label: 'Archived',
-      options: [{ value: 'included', label: 'Include archived' }],
+      id: 'sampleType',
+      label: 'Type',
+      placeholder: 'All types',
+    },
+    {
+      id: 'status',
+      label: 'Status',
+      options: sampleStatusOptions(),
+    },
+    {
+      id: 'storageLocation',
+      label: 'Storage',
+      placeholder: 'All locations',
     },
   ]
 
@@ -321,46 +327,49 @@ function SamplesRegistryRoute() {
 
   return (
     <>
-      <div className="flex flex-col gap-4 p-4 md:p-6">
-      <RegistryComposition
-        registryId="samples"
-        workspaceId={workspaceId}
-        userId={userId}
-        title="Samples"
-        description="Track sample identity, quantity, storage and chain of custody."
-        rows={rows}
-        totalCount={totalCount}
-        columns={columns}
-        query={query}
-        onQueryChange={setQuery}
-        getRowId={(row) => row.id}
-        selectedId={selectedId}
-        selectedRecord={selectedRecord}
-        onSelectedIdChange={setSelectedId}
-        summaries={summaries}
-        filterDefinitions={filterDefinitions}
-        groupingOptions={groupingOptions}
-        renderInspector={inspector}
-        loading={pageQuery.isLoading}
-        error={pageQuery.error}
-        onRetry={() => pageQuery.refetch()}
-        emptyTitle="No samples yet"
-        noResultsTitle="No matching samples"
-        actions={
-          <Button size="sm" onClick={() => setCreateOpen(true)}>
-            <PackagePlus className="size-3.5" /> New sample
-          </Button>
-        }
-      />
-      <CreateSampleDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        projects={projectsQuery.data ?? []}
-        projectsLoading={projectsQuery.isLoading}
-        pending={createMutation.isPending}
-        error={createError}
-        onCreate={(input) => createMutation.mutate(input)}
-      />
+      <div className="flex h-full flex-col gap-3 overflow-hidden p-4">
+        <RegistryComposition
+          registryId="samples"
+          workspaceId={workspaceId}
+          userId={userId}
+          title="Samples Registry"
+          description="Track sample identity, quantity, storage and chain of custody."
+          rows={rows}
+          totalCount={totalCount}
+          columns={columns}
+          query={query}
+          onQueryChange={setQuery}
+          getRowId={(row) => row.id}
+          selectedId={selectedId}
+          selectedRecord={selectedRecord}
+          onSelectedIdChange={setSelectedId}
+          summaries={summaries}
+          filterDefinitions={filterDefinitions}
+          groupingOptions={groupingOptions}
+          renderInspector={inspector}
+          inspectorLabel="Sample details"
+          initialDensity="compact"
+          initialColumnVisibility={{ barcode: false, sampleType: false }}
+          loading={pageQuery.isLoading}
+          error={pageQuery.error}
+          onRetry={() => pageQuery.refetch()}
+          emptyTitle="No samples yet"
+          noResultsTitle="No matching samples"
+          actions={
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              <PackagePlus className="size-3.5" /> New sample
+            </Button>
+          }
+        />
+        <CreateSampleDialog
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          projects={projectsQuery.data ?? []}
+          projectsLoading={projectsQuery.isLoading}
+          pending={createMutation.isPending}
+          error={createError}
+          onCreate={(input) => createMutation.mutate(input)}
+        />
       </div>
     </>
   )

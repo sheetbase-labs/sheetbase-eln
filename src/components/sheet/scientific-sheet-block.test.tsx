@@ -208,6 +208,18 @@ describe('ScientificSheetBlock', () => {
     expect(settings.columns[1].numericFormat.pattern).toBe('0.00')
   })
 
+  it('links a notebook sheet to its dataset explorer view', async () => {
+    mocks.table.mockResolvedValue(table)
+    mount()
+    await ready()
+
+    expect(
+      screen
+        .getByRole('link', { name: 'Explore dataset' })
+        .getAttribute('href'),
+    ).toBe('/datasets?dataset=table-1')
+  })
+
   it('applies numeric defaults and per-column format overrides', async () => {
     mocks.table.mockResolvedValue({
       ...table,

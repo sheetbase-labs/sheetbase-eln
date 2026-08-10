@@ -125,10 +125,10 @@ describe('computeSampleSummaries', () => {
     rows[2].status = 'consumed'
     const summaries = computeSampleSummaries(rows, 1234)
     expect(summaries).toEqual([
-      { label: 'Total samples', value: 1234 },
-      { label: 'Available', value: 2, hint: 'on this page' },
-      { label: 'Low stock', value: 1, hint: 'on this page' },
-      { label: 'Consumed', value: 1, hint: 'on this page' },
+      { label: 'Total samples', value: 1234, hint: '3 on this page', tone: 'neutral' },
+      { label: 'Available', value: 2, hint: '0% of total', tone: 'positive' },
+      { label: 'Low stock', value: 1, hint: 'Needs attention', tone: 'warning' },
+      { label: 'Consumed', value: 1, hint: 'On this page', tone: 'neutral' },
     ])
   })
 })

@@ -24,22 +24,17 @@ import { createColumnHelper } from '@tanstack/react-table'
 import type { ColumnDef } from '@tanstack/react-table'
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
-import { Archive, ShieldAlert, TriangleAlert } from 'lucide-react'
+import { Archive } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
+import { ReagentInspector } from '#/components/reagents/reagent-inspector'
 import { RegistryComposition } from '#/components/registry'
 import type { RegistrySummary } from '#/components/registry'
-import {
-  Inspector,
-  InspectorSection,
-  Property,
-  PropertyList,
-  EmptyHint,
-} from '#/components/record'
 import { StatusBadge } from '#/components/scientific'
 import {
   Badge,
   Button,
+  ButtonGroup,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -62,19 +57,12 @@ import {
   fetchReagentUsage,
   fetchReagentsCount,
   fetchReagentsPage,
-  MOVEMENT_LABELS,
   REAGENT_STATUS_OPTIONS,
   REAGENT_STORAGE_OPTIONS,
   recordReagentMovement,
-  reagentAttention,
   reagentQueryKeys,
 } from '#/lib/reagent-data'
-import type {
-  Reagent,
-  ReagentAttentionSummary,
-  ReagentMovement,
-  ReagentUsageLink,
-} from '#/lib/reagent-data'
+import type { Reagent, ReagentAttentionSummary } from '#/lib/reagent-data'
 import type { RegistryQuery } from '#/lib/registry'
 
 /**
@@ -115,13 +103,6 @@ export const Route = createFileRoute('/reagents')({
 const client = createDataClient()
 
 const columnHelper = createColumnHelper<Reagent>()
-
-const ATTENTION_LABELS: Record<string, string> = {
-  low_stock: 'Low stock',
-  near_expiry: 'Near expiry',
-  expired: 'Expired',
-  ok: 'OK',
-}
 
 /**
  * Build the server-owned RegistryQuery from the parsed URL search state.
@@ -265,83 +246,94 @@ function ReagentsRegistryRoute() {
 
   return (
     <>
-      <div className="flex flex-col gap-4 p-4 md:p-6">
-      <RegistryComposition
-        registryId="reagents"
-        workspaceId={context.workspace?.id ?? 'unknown'}
-        userId={context.user.id}
-        title="Reagents"
-        description="Inventory registry for reagents across the workspace."
-        rows={rows}
-        totalCount={totalCount}
-        columns={columns}
-        query={query}
-        onQueryChange={setQuery}
-        getRowId={(row) => row.id}
-        selectedId={selectedId}
-        selectedRecord={selectedReagent}
-        onSelectedIdChange={setSelected}
-        summaries={summaries}
-        filterDefinitions={[
-          {
-            id: 'status',
-            label: 'Status',
-            placeholder: 'All statuses',
-            options: [
-              ...REAGENT_STATUS_OPTIONS,
-              { value: 'archived', label: 'archived' },
-            ],
-          },
-          {
-            id: 'storage',
-            label: 'Storage',
-            placeholder: 'All storage',
-            options: REAGENT_STORAGE_OPTIONS,
-          },
-          {
-            id: 'q',
-            label: 'Search',
-            placeholder: 'Identifier or title',
-          },
-        ]}
-        groupingOptions={[
-          { id: 'category', label: 'Category' },
-          { id: 'storage', label: 'Storage' },
-          { id: 'supplier', label: 'Supplier' },
-          { id: 'status', label: 'Status' },
-        ]}
-        loading={rowsQuery.isLoading}
-        error={rowsQuery.error}
-        permissionDenied={permissionDenied}
-        partialData={
-          rowsQuery.data !== undefined && countQuery.data === undefined
-        }
-        onRetry={() => rowsQuery.refetch()}
-        emptyTitle="No reagents yet"
-        noResultsTitle="No matching reagents"
-        renderInspector={(row) =>
-          row ? (
-            <ReagentInspector
-              reagent={row}
-              movements={movements}
-              usage={usage}
-              onMutated={handleMutated}
-            />
-          ) : selectedReagent ? (
-            <ReagentInspector
-              reagent={selectedReagent}
-              movements={movements}
-              usage={usage}
-              onMutated={handleMutated}
-            />
-          ) : (
-            <div className="p-4 text-sm text-muted-foreground">
-              Select a reagent to see its details, supplier and lot identity,
-              stock movements and usage.
-            </div>
-          )
-        }
-      />
+      <div className="flex flex-col gap-4 p-4">
+        <RegistryComposition
+          registryId="reagents"
+          workspaceId={context.workspace?.id ?? 'unknown'}
+          userId={context.user.id}
+          title="Reagents Registry"
+          description="Central inventory of reagents, consumables and chemicals."
+          rows={rows}
+          totalCount={totalCount}
+          columns={columns}
+          query={query}
+          onQueryChange={setQuery}
+          getRowId={(row) => row.id}
+          selectedId={selectedId}
+          selectedRecord={selectedReagent}
+          onSelectedIdChange={setSelected}
+          inspectorLabel="Reagent details"
+          initialDensity="compact"
+          summaries={summaries}
+          filterDefinitions={[
+            {
+              id: 'status',
+              label: 'Status',
+              placeholder: 'All statuses',
+              options: [
+                ...REAGENT_STATUS_OPTIONS,
+                { value: 'archived', label: 'archived' },
+              ],
+            },
+            {
+              id: 'storage',
+              label: 'Storage',
+              placeholder: 'All storage',
+              options: REAGENT_STORAGE_OPTIONS,
+            },
+            {
+              id: 'q',
+              label: 'Search',
+              placeholder: 'Identifier or title',
+            },
+          ]}
+          groupingOptions={[
+            { id: 'category', label: 'Category' },
+            { id: 'storage', label: 'Storage' },
+            { id: 'supplier', label: 'Supplier' },
+            { id: 'status', label: 'Status' },
+          ]}
+          loading={rowsQuery.isLoading}
+          error={rowsQuery.error}
+          permissionDenied={permissionDenied}
+          partialData={
+            rowsQuery.data !== undefined && countQuery.data === undefined
+          }
+          onRetry={() => rowsQuery.refetch()}
+          emptyTitle="No reagents yet"
+          noResultsTitle="No matching reagents"
+          renderInspector={(row) =>
+            row ? (
+              <ReagentInspector
+                reagent={row}
+                movements={movements}
+                usage={usage}
+                onClose={() => setSelected(null)}
+                actions={
+                  <ReagentActions reagent={row} onMutated={handleMutated} />
+                }
+              />
+            ) : selectedReagent ? (
+              <ReagentInspector
+                reagent={selectedReagent}
+                movements={movements}
+                usage={usage}
+                onClose={() => setSelected(null)}
+                actions={
+                  <ReagentActions
+                    reagent={selectedReagent}
+                    onMutated={handleMutated}
+                  />
+                }
+              />
+            ) : (
+              <div className="p-4 text-sm text-muted-foreground">
+                Select a reagent to see its details, supplier and lot identity,
+                stock movements and usage.
+              </div>
+            )
+          }
+        />
       </div>
     </>
   )
@@ -355,25 +347,21 @@ function buildColumns(): ColumnDef<Reagent, unknown>[] {
   return [
     columnHelper.accessor('identifier', {
       id: 'identifier',
-      header: 'Identifier',
+      header: 'Reagent ID',
       cell: (info) => (
-        <span className="font-mono text-xs tabular-nums text-muted-foreground">
+        <span className="font-mono text-xs font-medium tabular-nums text-primary hover:underline">
           {info.getValue()}
         </span>
       ),
     }),
     columnHelper.accessor('title', {
       id: 'title',
-      header: 'Reagent',
+      header: 'Name',
     }),
     columnHelper.accessor('category', {
       id: 'category',
       header: 'Category',
-      cell: (info) => (
-        <Badge variant="outline" className="text-xs">
-          {info.getValue()}
-        </Badge>
-      ),
+      cell: (info) => <CategoryBadge category={info.getValue()} />,
     }),
     columnHelper.accessor('supplier', {
       id: 'supplier',
@@ -382,7 +370,7 @@ function buildColumns(): ColumnDef<Reagent, unknown>[] {
     }),
     columnHelper.accessor('catalogNo', {
       id: 'catalogNo',
-      header: 'Cat. No.',
+      header: 'Catalog No.',
       cell: (info) => info.getValue() ?? '—',
     }),
     columnHelper.accessor('lot', {
@@ -416,47 +404,26 @@ function buildColumns(): ColumnDef<Reagent, unknown>[] {
       header: 'Status',
       cell: (info) => <StatusBadge domain="reagent" status={info.getValue()} />,
     }),
-    columnHelper.display({
-      id: 'attention',
-      header: 'Attention',
-      enableSorting: false,
-      cell: (info) => <AttentionCell reagent={info.row.original} />,
+    columnHelper.accessor('updatedAt', {
+      id: 'updatedAt',
+      header: 'Updated',
+      meta: { registryFormat: { kind: 'date', dateStyle: 'short' } },
+      cell: (info) => formatDate(info.getValue()),
     }),
   ] as ColumnDef<Reagent, unknown>[]
 }
 
-function AttentionCell({ reagent }: { reagent: Reagent }) {
-  const attention = reagentAttention(reagent)
-  if (attention.kind === 'ok')
-    return <span className="text-muted-foreground">—</span>
-  const Icon =
-    attention.kind === 'expired'
-      ? ShieldAlert
-      : attention.kind === 'near_expiry'
-        ? TriangleAlert
-        : TriangleAlert
-  return (
-    <Badge
-      variant={
-        attention.kind === 'expired'
-          ? 'danger'
-          : attention.kind === 'near_expiry'
-            ? 'warning'
-            : 'warning'
-      }
-      className="text-xs"
-    >
-      <Icon className="size-3" aria-hidden="true" />
-      <span>{ATTENTION_LABELS[attention.kind]}</span>
-      {attention.daysToExpiry !== null && attention.kind !== 'low_stock' ? (
-        <span className="sr-only">
-          {attention.daysToExpiry < 0
-            ? `${Math.abs(attention.daysToExpiry)} days past expiry`
-            : `${attention.daysToExpiry} days to expiry`}
-        </span>
-      ) : null}
-    </Badge>
-  )
+function CategoryBadge({ category }: { category: string }) {
+  const normalised = category.toLowerCase()
+  const variant = normalised.includes('enzyme')
+    ? 'violet'
+    : normalised.includes('buffer') || normalised.includes('solution')
+      ? 'info'
+      : normalised.includes('chemical')
+        ? 'warning'
+        : 'outline'
+
+  return <Badge variant={variant}>{category}</Badge>
 }
 
 // ---------------------------------------------------------------------------
@@ -465,16 +432,21 @@ function AttentionCell({ reagent }: { reagent: Reagent }) {
 
 function buildSummaries(attention: ReagentAttentionSummary): RegistrySummary[] {
   return [
-    { label: 'Reagents', value: attention.total, hint: 'In inventory' },
+    { label: 'Active reagents', value: attention.total, hint: 'In inventory' },
     {
       label: 'Low stock',
       value: attention.lowStock,
       hint: attention.lowStock > 0 ? 'needs reorder' : undefined,
     },
     {
-      label: 'Near expiry',
+      label: 'Expiring soon',
       value: attention.nearExpiry,
       hint: attention.nearExpiry > 0 ? 'within 30 days' : undefined,
+    },
+    {
+      label: 'Expired',
+      value: attention.expired,
+      hint: attention.expired > 0 ? 'review required' : undefined,
     },
     {
       label: 'Quarantined',
@@ -482,193 +454,6 @@ function buildSummaries(attention: ReagentAttentionSummary): RegistrySummary[] {
       hint: attention.quarantined > 0 ? 'isolated' : undefined,
     },
   ]
-}
-
-// ---------------------------------------------------------------------------
-// Inspector.
-// ---------------------------------------------------------------------------
-
-function ReagentInspector({
-  reagent,
-  movements,
-  usage,
-  onMutated,
-}: {
-  reagent: Reagent
-  movements: ReagentMovement[]
-  usage: ReagentUsageLink[]
-  onMutated: (reagentId: string) => void
-}) {
-  const attention = reagentAttention(reagent)
-  const isArchived = reagent.archivedAt !== null
-  return (
-    <Inspector
-      recordType="Reagent"
-      title={reagent.title}
-      tabs={[
-        {
-          id: 'details',
-          label: 'Details',
-          content: (
-            <div className="space-y-0">
-              <PropertyList>
-                <Property label="Identifier" mono>
-                  {reagent.identifier}
-                </Property>
-                <Property label="Status">
-                  <StatusBadge domain="reagent" status={reagent.status} />
-                </Property>
-                <Property label="Attention">
-                  {attention.kind === 'ok' ? (
-                    <span className="text-muted-foreground">No attention</span>
-                  ) : (
-                    <AttentionCell reagent={reagent} />
-                  )}
-                </Property>
-                <Property label="Category">{reagent.category}</Property>
-              </PropertyList>
-
-              <InspectorSection title="Supplier & lot">
-                <PropertyList>
-                  <Property label="Supplier">
-                    {reagent.supplier ?? '—'}
-                  </Property>
-                  <Property label="Catalog No.">
-                    {reagent.catalogNo ?? '—'}
-                  </Property>
-                  <Property label="Lot">{reagent.lot ?? '—'}</Property>
-                  <Property label="Expiry">
-                    {reagent.expiry ? formatDate(reagent.expiry) : '—'}
-                  </Property>
-                </PropertyList>
-              </InspectorSection>
-
-              <InspectorSection title="Inventory">
-                <PropertyList>
-                  <Property label="Quantity">
-                    {reagent.quantity !== null
-                      ? `${reagent.quantity}${reagent.unit ? ` ${reagent.unit}` : ''}`
-                      : '—'}
-                  </Property>
-                  <Property label="Storage">{reagent.storage ?? '—'}</Property>
-                  {reagent.lowStockThreshold !== null ? (
-                    <Property label="Low-stock threshold">
-                      {reagent.lowStockThreshold}
-                      {reagent.unit ? ` ${reagent.unit}` : ''}
-                    </Property>
-                  ) : null}
-                  {reagent.expiryWarningDays !== null ? (
-                    <Property label="Expiry warning">
-                      {reagent.expiryWarningDays} days
-                    </Property>
-                  ) : null}
-                </PropertyList>
-              </InspectorSection>
-
-              {reagent.tags.length > 0 ? (
-                <InspectorSection title="Tags">
-                  <div className="flex flex-wrap gap-1">
-                    {reagent.tags.map((tag) => (
-                      <Badge key={tag} variant="outline">
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
-                </InspectorSection>
-              ) : null}
-
-              <InspectorSection title="Actions">
-                {isArchived ? (
-                  <EmptyHint>
-                    This reagent is archived. Restore it to record movements.
-                  </EmptyHint>
-                ) : (
-                  <ReagentActions reagent={reagent} onMutated={onMutated} />
-                )}
-              </InspectorSection>
-            </div>
-          ),
-        },
-        {
-          id: 'usage',
-          label: 'Usage',
-          content: (
-            <InspectorSection title="Used by experiments">
-              {usage.length === 0 ? (
-                <EmptyHint>
-                  No experiments, samples or protocols reference this reagent
-                  yet.
-                </EmptyHint>
-              ) : (
-                <ul className="space-y-1 text-xs">
-                  {usage.map((link) => (
-                    <li key={link.id} className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs">
-                        {link.sourceKind}
-                      </Badge>
-                      <span className="font-mono tabular-nums text-muted-foreground">
-                        {link.sourceIdentifier}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </InspectorSection>
-          ),
-        },
-        {
-          id: 'movements',
-          label: 'Movements',
-          content: (
-            <InspectorSection title="Recent stock movements">
-              {movements.length === 0 ? (
-                <EmptyHint>
-                  No stock movements recorded yet. Receive stock to start the
-                  audit trail.
-                </EmptyHint>
-              ) : (
-                <ul className="space-y-2 text-xs">
-                  {movements.map((m) => (
-                    <li
-                      key={m.id}
-                      className="rounded-md border border-border px-2 py-1.5"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-medium">
-                          {MOVEMENT_LABELS[m.operation]}
-                        </span>
-                        <span className="tabular-nums text-muted-foreground">
-                          {formatDate(m.createdAt)}
-                        </span>
-                      </div>
-                      <div className="mt-0.5 text-muted-foreground">
-                        {m.quantityDelta > 0 ? '+' : ''}
-                        {m.quantityDelta}
-                        {m.unit ? ` ${m.unit}` : ''} → {m.resultingQuantity}
-                        {m.unit ? ` ${m.unit}` : ''} in stock
-                      </div>
-                      {m.supplier || m.lot ? (
-                        <div className="mt-0.5 text-muted-foreground">
-                          {m.supplier ? `Supplier: ${m.supplier}` : ''}
-                          {m.supplier && m.lot ? ' · ' : ''}
-                          {m.lot ? `Lot: ${m.lot}` : ''}
-                        </div>
-                      ) : null}
-                      {m.reason ? (
-                        <div className="mt-0.5 italic text-muted-foreground">
-                          “{m.reason}”
-                        </div>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </InspectorSection>
-          ),
-        },
-      ]}
-    />
-  )
 }
 
 // ---------------------------------------------------------------------------
@@ -737,7 +522,7 @@ function ReagentActions({
 
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap gap-2">
+      <ButtonGroup className="flex-wrap">
         <Button
           size="sm"
           variant="outline"
@@ -771,7 +556,7 @@ function ReagentActions({
           <Archive className="size-3.5" />
           Archive
         </Button>
-      </div>
+      </ButtonGroup>
 
       {dialog === 'receive' || dialog === 'consume' ? (
         <QuantityDialog

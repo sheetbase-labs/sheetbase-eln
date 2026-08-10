@@ -141,10 +141,11 @@ describe('RegistryComposition server contracts', () => {
       sorting: [{ id: 'identifier', desc: false }],
     })
 
-    await user.selectOptions(
-      screen.getByLabelText('Filter by Status'),
-      'available',
+    await user.click(
+      screen.getByRole('button', { name: 'Status', expanded: false }),
     )
+    await user.click(screen.getByRole('menuitem', { name: 'Available' }))
+
     expect(onQueryChange).toHaveBeenCalledWith({
       ...query,
       pageIndex: 0,
@@ -163,7 +164,7 @@ describe('RegistryComposition server contracts', () => {
 describe('RegistryComposition interaction and states', () => {
   it('supports keyboard row navigation and preserves controlled selection after refresh', () => {
     const onSelectedIdChange = vi.fn()
-    const { rerender } = render(
+    const { container, rerender } = render(
       <RegistryComposition {...props({ onSelectedIdChange })} />,
     )
     const first = screen.getByRole('row', { name: /SMP-0001/ })
@@ -183,11 +184,12 @@ describe('RegistryComposition interaction and states', () => {
         })}
       />,
     )
-    expect(
-      screen
-        .getByRole('row', { name: /SMP-0002/ })
-        .getAttribute('aria-selected'),
-    ).toBe('true')
+    // Inspector Sheet opens on selection; Radix marks the rest inert,
+    // so query the DOM directly instead of using getByRole.
+    const selectedRow = container.querySelector(
+      'tr[data-registry-row-id="two"]',
+    )
+    expect(selectedRow?.getAttribute('aria-selected')).toBe('true')
     expect(screen.getByText('Inspecting SMP-0002')).toBeTruthy()
   })
 
@@ -265,19 +267,15 @@ describe('RegistryComposition interaction and states', () => {
     expect(within(table).getByText('1.2 µg/mL')).toBeTruthy()
   })
 
-  it('uses a generic labelled Sheet for the narrow-screen inspector', async () => {
-    const user = userEvent.setup()
+  it('uses a generic labelled Sheet for the inspector, opened by row selection', () => {
     render(
       <RegistryComposition
         {...props({ inspectorLabel: 'Record details', selectedId: 'one' })}
       />,
     )
-    await user.click(
-      screen.getByRole('button', { name: 'Open Record details' }),
-    )
+    // Inspector auto-opens when a row is selected
     expect(screen.getByRole('dialog', { name: 'Record details' })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Close' })).toBeNull()
-    expect(screen.getAllByText('Inspecting SMP-0001')).toHaveLength(2)
+    expect(screen.getAllByText('Inspecting SMP-0001')).toBeTruthy()
   })
 
   it('preserves an explicit custom renderer for numeric cells', () => {
@@ -312,11 +310,9 @@ describe('RegistryComposition saved views', () => {
     await user.click(screen.getByRole('menuitemcheckbox', { name: 'Status' }))
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('columnheader', { name: /Status/ })).toBeNull()
-    await user.type(
-      screen.getByLabelText('Saved view name'),
-      'Available compact',
-    )
+    const promptSpy1 = vi.spyOn(window, 'prompt').mockReturnValue('Available compact')
     await user.click(screen.getByRole('button', { name: 'Save current view' }))
+    promptSpy1.mockRestore()
 
     expect(screen.getByLabelText('Saved views').textContent).toContain(
       'Available compact',
@@ -390,10 +386,12 @@ describe('RegistryComposition saved views', () => {
     const user = userEvent.setup()
     render(<RegistryComposition {...props()} />)
 
-    await user.type(screen.getByLabelText('Saved view name'), 'QC ready')
+    const promptSpy = vi.spyOn(window, 'prompt')
+    promptSpy.mockReturnValueOnce('QC ready')
     await user.click(screen.getByRole('button', { name: 'Save current view' }))
-    await user.type(screen.getByLabelText('Saved view name'), 'QC-ready')
+    promptSpy.mockReturnValueOnce('QC-ready')
     await user.click(screen.getByRole('button', { name: 'Save current view' }))
+    promptSpy.mockRestore()
 
     expect(screen.getAllByRole('option', { name: /QC.?ready/i })).toHaveLength(
       2,

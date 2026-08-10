@@ -761,8 +761,8 @@ export function materialiseChart(
       configured?.color ?? CHART_PALETTE[i % CHART_PALETTE.length]
     ).toLowerCase()
     const label = configured?.label ?? key
-    const points: FrozenChartPoint[] = groups.get(key)!.map((row) => {
-      const x = xCol ? toNumber(row[xCol.fieldName]) : null
+    const points: FrozenChartPoint[] = groups.get(key)!.map((row, rowIndex) => {
+      const x = xCol ? toNumber(row[xCol.fieldName]) : rowIndex + 1
       const y = yCol ? toNumber(row[yCol.fieldName]) : null
       const yError = errorCol ? toNumber(row[errorCol.fieldName]) : undefined
       return { x, y, yError: yError ?? null, label: key }

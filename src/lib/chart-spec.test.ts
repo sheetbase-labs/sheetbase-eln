@@ -241,6 +241,18 @@ describe('materialiseChart', () => {
     expect(m.series[0].points).toHaveLength(2)
   })
 
+  it('uses one-based row positions when no X field is mapped', () => {
+    const spec = baseSpec({
+      fields: { ...baseSpec().fields, x: null, series: null },
+    })
+    const materialised = materialiseChart(spec, COLUMNS, ROWS)
+
+    expect(materialised.state.kind).toBe('ok')
+    expect(materialised.series[0]?.points.map((point) => point.x)).toEqual([
+      1, 2, 3, 4,
+    ])
+  })
+
   it('reports a missing_field state when a mapped column is gone', () => {
     const spec = baseSpec()
     const m = materialiseChart(spec, [], ROWS)

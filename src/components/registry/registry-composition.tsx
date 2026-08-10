@@ -2,22 +2,28 @@ import * as React from 'react'
 import {
   flexRender,
   getCoreRowModel,
+  getExpandedRowModel,
+  getGroupedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
 import type {
   ColumnDef,
   ColumnFiltersState,
+  ExpandedState,
   SortingState,
   Updater,
   VisibilityState,
 } from '@tanstack/react-table'
 import {
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Columns3,
-  PanelRight,
-  Save,
+  PanelRightClose,
+  Pin,
+  PinOff,
   Search,
+  X,
 } from 'lucide-react'
 
 import {
@@ -25,7 +31,9 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
   Input,
   Select,
@@ -60,6 +68,8 @@ export interface RegistrySummary {
   label: string
   value: React.ReactNode
   hint?: string
+  /** Semantic tone for the hint text. */
+  tone?: 'positive' | 'warning' | 'danger' | 'neutral'
 }
 
 export interface RegistryFilterDefinition {
@@ -118,6 +128,8 @@ export interface RegistryCompositionProps<TData> {
   initialDensity?: RegistryDensity
   savedViewStore?: RegistrySavedViewStore
   actions?: React.ReactNode
+  /** Hide the built-in title/description header when the route supplies its own. */
+  hideHeader?: boolean
 }
 
 function resolveUpdater<T>(updater: Updater<T>, previous: T): T {
@@ -125,6 +137,23 @@ function resolveUpdater<T>(updater: Updater<T>, previous: T): T {
     ? (updater as (old: T) => T)(previous)
     : updater
 }
+
+/** Detect the xl breakpoint (1280px+) for inspector pin behaviour. */
+function useIsXl(): boolean {
+  const [isXl, setIsXl] = React.useState(false)
+  React.useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    const mq = window.matchMedia('(min-width: 1280px)')
+    setIsXl(mq.matches)
+    const handler = (e: MediaQueryListEvent) => setIsXl(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
+  return isXl
+}
+
+const PIN_KEY = (registryId: string) =>
+  `sheetbase-inspector-pinned-${registryId}`
 
 function viewId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -167,9 +196,10 @@ export function RegistryComposition<TData>({
   emptyTitle = 'No records yet',
   noResultsTitle = 'No matching records',
   initialColumnVisibility = {},
-  initialDensity = 'comfortable',
+  initialDensity = 'compact',
   savedViewStore,
   actions,
+  hideHeader = false,
 }: RegistryCompositionProps<TData>) {
   const compositionRef = React.useRef<HTMLElement>(null)
   const store = React.useMemo(
@@ -179,16 +209,35 @@ export function RegistryComposition<TData>({
     [registryId, savedViewStore, userId, workspaceId],
   )
   const [savedViews, setSavedViews] = React.useState<RegistrySavedView[]>([])
-  const [savedViewName, setSavedViewName] = React.useState('')
   const [selectedViewId, setSelectedViewId] = React.useState('')
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>(initialColumnVisibility)
   const [density, setDensity] = React.useState<RegistryDensity>(initialDensity)
   const [uncontrolledInspectorOpen, setUncontrolledInspectorOpen] =
     React.useState(false)
+  const [inspectorPinned, setInspectorPinned] = React.useState(false)
+  const isXl = useIsXl()
   const [activeRowId, setActiveRowId] = React.useState<string | null>(
     selectedId ?? (rows[0] ? getRowId(rows[0]) : null),
   )
+
+  React.useEffect(() => {
+    try {
+      setInspectorPinned(localStorage.getItem(PIN_KEY(registryId)) === '1')
+    } catch {
+      /* ignore */
+    }
+  }, [registryId])
+
+  const togglePin = React.useCallback(() => {
+    const next = !inspectorPinned
+    try {
+      localStorage.setItem(PIN_KEY(registryId), next ? '1' : '0')
+    } catch {
+      /* ignore */
+    }
+    setInspectorPinned(next)
+  }, [inspectorPinned, registryId])
 
   React.useEffect(() => {
     setSavedViews(store.list())
@@ -205,8 +254,16 @@ export function RegistryComposition<TData>({
     }
   }, [activeRowId, getRowId, rows, selectedId])
 
+  // Auto-open the inspector when a selection arrives (from row click, URL, etc.)
+  React.useEffect(() => {
+    if (selectedId) setInspectorOpen(true)
+  }, [selectedId])
+
   const sorting = query.sorting as SortingState
   const grouping = query.grouping
+  const [expanded, setExpanded] = React.useState<ExpandedState>(
+    grouping.length > 0 ? true : {},
+  )
   const columnFilters: ColumnFiltersState = query.filters
 
   const table = useReactTable({
@@ -214,15 +271,17 @@ export function RegistryComposition<TData>({
     columns,
     getRowId: (row) => getRowId(row),
     getCoreRowModel: getCoreRowModel(),
+    getGroupedRowModel: getGroupedRowModel(),
+    getExpandedRowModel: getExpandedRowModel(),
     manualPagination: true,
     manualSorting: true,
     manualFiltering: true,
-    manualGrouping: true,
     rowCount: totalCount,
     state: {
       pagination: { pageIndex: query.pageIndex, pageSize: query.pageSize },
       sorting,
       grouping,
+      expanded,
       columnFilters,
       columnVisibility,
     },
@@ -246,7 +305,9 @@ export function RegistryComposition<TData>({
         pageIndex: 0,
         grouping: resolveUpdater(updater, grouping),
       })
+      setExpanded(true)
     },
+    onExpandedChange: setExpanded,
     onColumnFiltersChange(updater) {
       const next = resolveUpdater(updater, columnFilters)
       onQueryChange({
@@ -289,6 +350,9 @@ export function RegistryComposition<TData>({
         : null))
     : null
   const hasFilters = query.filters.some((filter) => filter.value !== '')
+  const searchFilter = filterDefinitions.find(
+    (filter) => filter.id === 'search' || filter.id === 'q',
+  )
   const inspectorOpen = controlledInspectorOpen ?? uncontrolledInspectorOpen
   const setInspectorOpen = React.useCallback(
     (open: boolean) => {
@@ -296,8 +360,11 @@ export function RegistryComposition<TData>({
         setUncontrolledInspectorOpen(open)
       }
       onInspectorOpenChange?.(open)
+      if (!open) {
+        onSelectedIdChange(null)
+      }
     },
-    [controlledInspectorOpen, onInspectorOpenChange],
+    [controlledInspectorOpen, onInspectorOpenChange, onSelectedIdChange],
   )
 
   const inspectorContent = renderInspector ? (
@@ -307,7 +374,40 @@ export function RegistryComposition<TData>({
         detail="Its selection is preserved while the record details are loaded."
       />
     ) : (
-      renderInspector(selectedRow)
+      <div className="flex h-full flex-col">
+        {/* Inspector controls: pin + close */}
+        <div className="flex shrink-0 items-center justify-end gap-1 border-b border-border px-2 py-1">
+          {isXl ? (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={togglePin}
+              aria-label={inspectorPinned ? 'Unpin inspector' : 'Pin inspector'}
+              aria-pressed={inspectorPinned}
+            >
+              {inspectorPinned ? (
+                <PinOff className="size-4" />
+              ) : (
+                <Pin className="size-4" />
+              )}
+            </Button>
+          ) : null}
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => {
+              setInspectorOpen(false)
+              onSelectedIdChange(null)
+            }}
+            aria-label="Close inspector"
+          >
+            <PanelRightClose className="size-4" />
+          </Button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-hidden">
+          {renderInspector(selectedRow)}
+        </div>
+      </div>
     )
   ) : null
 
@@ -326,7 +426,7 @@ export function RegistryComposition<TData>({
   }
 
   function saveView() {
-    const name = savedViewName.trim()
+    const name = window.prompt('Save current view as…')?.trim()
     if (!name) return
     store.save({
       id: viewId(),
@@ -334,7 +434,6 @@ export function RegistryComposition<TData>({
       state: { query, columnVisibility, density },
     })
     setSavedViews(store.list())
-    setSavedViewName('')
   }
 
   function applyView(id: string) {
@@ -411,6 +510,11 @@ export function RegistryComposition<TData>({
                 return (
                   <TableHead
                     key={header.id}
+                    className={
+                      density === 'compact'
+                        ? 'h-7 whitespace-nowrap px-2.5 text-[0.65rem]'
+                        : undefined
+                    }
                     aria-sort={
                       sorted === 'asc'
                         ? 'ascending'
@@ -422,7 +526,7 @@ export function RegistryComposition<TData>({
                     {header.isPlaceholder ? null : header.column.getCanSort() ? (
                       <button
                         type="button"
-                        className="inline-flex items-center gap-1 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="inline-flex items-center gap-0.5 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         onClick={header.column.getToggleSortingHandler()}
                         aria-label={`Sort by ${label} ${sorted === 'asc' ? 'descending' : 'ascending'}`}
                       >
@@ -430,13 +534,11 @@ export function RegistryComposition<TData>({
                           header.column.columnDef.header,
                           header.getContext(),
                         )}
-                        <span aria-hidden>
-                          {sorted === 'asc'
-                            ? '↑'
-                            : sorted === 'desc'
-                              ? '↓'
-                              : '↕'}
-                        </span>
+                        {sorted ? (
+                          <span aria-hidden className="text-muted-foreground">
+                            {sorted === 'asc' ? '↑' : '↓'}
+                          </span>
+                        ) : null}
                       </button>
                     ) : (
                       flexRender(
@@ -452,6 +554,44 @@ export function RegistryComposition<TData>({
         </TableHeader>
         <TableBody>
           {table.getRowModel().rows.map((row, index) => {
+            if (row.getIsGrouped()) {
+              const groupVal = row.getValue(row.groupingColumnId!)
+              return (
+                <TableRow
+                  key={row.id}
+                  className="border-b border-border bg-muted/40 hover:bg-muted/60"
+                >
+                  <TableCell
+                    colSpan={row.getVisibleCells().length}
+                    className="p-0"
+                  >
+                    <button
+                      type="button"
+                      className={cn(
+                        'flex w-full items-center gap-1.5 font-semibold',
+                        density === 'compact'
+                          ? 'h-8 px-2.5 text-xs'
+                          : 'h-10 px-3 text-sm',
+                      )}
+                      onClick={() => row.getToggleExpandedHandler()()}
+                      aria-label={`Toggle group`}
+                    >
+                      {row.getIsExpanded() ? (
+                        <ChevronDown className="size-3.5 shrink-0" />
+                      ) : (
+                        <ChevronRight className="size-3.5 shrink-0" />
+                      )}
+                      {String(groupVal ?? '—')}
+                      <span className="ml-0.5 text-muted-foreground">
+                        ({row.subRows.length})
+                      </span>
+                    </button>
+                  </TableCell>
+                </TableRow>
+              )
+            }
+            // Aggregated placeholder rows — skip them.
+            if (row.depth > 0 && !row.original) return null
             const id = getRowId(row.original)
             const selected = id === selectedId
             return (
@@ -463,7 +603,10 @@ export function RegistryComposition<TData>({
                 tabIndex={id === activeRowId ? 0 : -1}
                 className="cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                 onFocus={() => setActiveRowId(id)}
-                onClick={() => onSelectedIdChange(id)}
+                onClick={() => {
+                  onSelectedIdChange(id)
+                  setInspectorOpen(true)
+                }}
                 onKeyDown={(event) => {
                   if (event.key === 'ArrowDown') {
                     event.preventDefault()
@@ -480,6 +623,7 @@ export function RegistryComposition<TData>({
                   } else if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault()
                     onSelectedIdChange(id)
+                    setInspectorOpen(true)
                   }
                 }}
               >
@@ -487,7 +631,9 @@ export function RegistryComposition<TData>({
                   <TableCell
                     key={cell.id}
                     className={cn(
-                      density === 'compact' && 'py-1.5',
+                      density === 'compact'
+                        ? 'whitespace-nowrap px-2.5 py-1 text-xs'
+                        : 'px-3 py-2',
                       typeof cell.getValue() === 'number' &&
                         'scientific-nums text-right tabular-nums',
                     )}
@@ -515,40 +661,51 @@ export function RegistryComposition<TData>({
     <section
       ref={compositionRef}
       aria-labelledby={`${registryId}-title`}
-      className="space-y-4"
+      className="flex min-h-0 flex-1 flex-col gap-3"
     >
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1
-            id={`${registryId}-title`}
-            className="text-xl font-semibold tracking-tight"
-          >
-            {title}
-          </h1>
-          {description ? (
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              {description}
-            </p>
-          ) : null}
-        </div>
-        {permissionDenied ? null : actions}
-      </header>
+      {!hideHeader ? (
+        <header className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1
+              id={`${registryId}-title`}
+              className="text-xl font-semibold tracking-tight"
+            >
+              {title}
+            </h1>
+            {description ? (
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                {description}
+              </p>
+            ) : null}
+          </div>
+          {permissionDenied ? null : actions}
+        </header>
+      ) : null}
 
       {!permissionDenied && summaries.length > 0 ? (
-        <dl className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <dl className="grid grid-cols-[repeat(auto-fit,minmax(7.5rem,1fr))] gap-2">
           {summaries.map((summary) => (
             <div
               key={summary.label}
-              className="rounded-md border bg-card px-3 py-2"
+              className="rounded-md border bg-card px-3 py-2.5"
             >
-              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <dt className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
                 {summary.label}
               </dt>
-              <dd className="mt-0.5 text-lg font-semibold tabular-nums">
+              <dd className="mt-0.5 text-xl font-semibold tabular-nums leading-tight">
                 {summary.value}
               </dd>
               {summary.hint ? (
-                <dd className="text-xs text-muted-foreground">
+                <dd
+                  className={cn(
+                    'mt-0.5 text-xs font-medium',
+                    summary.tone === 'positive' && 'text-emerald-600',
+                    summary.tone === 'warning' && 'text-amber-600',
+                    summary.tone === 'danger' && 'text-red-600',
+                    (!summary.tone || summary.tone === 'neutral') &&
+                      'text-muted-foreground',
+                  )}
+                >
                   {summary.hint}
                 </dd>
               ) : null}
@@ -558,54 +715,112 @@ export function RegistryComposition<TData>({
       ) : null}
 
       {!permissionDenied ? (
-        <div className="flex flex-wrap items-end gap-2 rounded-md border bg-muted/20 p-2">
-          {filterDefinitions.map((filter) => (
-            <label
-              key={filter.id}
-              className="min-w-36 text-xs text-muted-foreground"
-            >
-              {filter.label}
-              {filter.options ? (
-                <Select
+        <div className="flex flex-wrap items-center gap-2">
+          {!searchFilter && filterDefinitions.length > 0 ? (
+            <span className="text-xs font-medium text-muted-foreground">
+              Filter rows
+            </span>
+          ) : null}
+          {/* Search — prominent standalone input */}
+          {searchFilter ? (
+            <div className="relative min-w-48 flex-1 sm:max-w-64">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                aria-label="Search"
+                value={activeFilter(query, searchFilter.id)}
+                onChange={(event) =>
+                  setFilter(searchFilter.id, event.target.value)
+                }
+                placeholder={searchFilter.placeholder ?? 'Search…'}
+                className="h-8 pl-8 text-sm"
+              />
+            </div>
+          ) : null}
+
+          {/* Filter pills — compact dropdown buttons for option-based filters */}
+          {filterDefinitions
+            .filter((filter) => filter !== searchFilter && filter.options)
+            .map((filter) => {
+              const active = activeFilter(query, filter.id)
+              return (
+                <DropdownMenu key={filter.id}>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant={active ? 'subtle' : 'outline'}
+                      size="sm"
+                      className="h-8 gap-1.5"
+                    >
+                      {filter.label}
+                      {active ? (
+                        <span className="size-1.5 rounded-full bg-primary" />
+                      ) : null}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuLabel>
+                      Filter by {filter.label}
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={() => setFilter(filter.id, '')}>
+                      All {filter.label.toLowerCase()}
+                    </DropdownMenuItem>
+                    {filter.options!.map((option) => (
+                      <DropdownMenuItem
+                        key={option.value}
+                        onSelect={() => setFilter(filter.id, option.value)}
+                      >
+                        {option.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )
+            })}
+
+          {/* Text filters — compact inputs for non-option, non-search filters */}
+          {filterDefinitions
+            .filter((filter) => filter !== searchFilter && !filter.options)
+            .map((filter) => (
+              <div
+                key={filter.id}
+                className="flex h-8 items-center overflow-hidden rounded-md border bg-background"
+              >
+                <span className="shrink-0 border-r bg-muted/40 px-2 text-xs font-medium text-muted-foreground">
+                  {filter.label} =
+                </span>
+                <Input
                   aria-label={`Filter by ${filter.label}`}
                   value={activeFilter(query, filter.id)}
                   onChange={(event) => setFilter(filter.id, event.target.value)}
-                  className="mt-1 h-8 bg-background text-xs"
-                >
-                  <option value="">
-                    {filter.placeholder ?? `All ${filter.label.toLowerCase()}`}
-                  </option>
-                  {filter.options.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </Select>
-              ) : (
-                <span className="relative mt-1 block">
-                  <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2" />
-                  <Input
-                    aria-label={`Filter by ${filter.label}`}
-                    value={activeFilter(query, filter.id)}
-                    onChange={(event) =>
-                      setFilter(filter.id, event.target.value)
-                    }
-                    placeholder={filter.placeholder}
-                    className="h-8 bg-background pl-7 text-xs"
-                  />
-                </span>
-              )}
-            </label>
-          ))}
+                  placeholder={filter.placeholder ?? 'Exact value'}
+                  className="h-8 w-28 rounded-none border-0 text-sm shadow-none focus-visible:ring-0"
+                />
+              </div>
+            ))}
 
-          {groupingOptions.length > 0 ? (
-            <label className="min-w-36 text-xs text-muted-foreground">
-              Group
+          {/* Clear filters */}
+          {query.filters.length > 0 ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 text-xs text-muted-foreground"
+              onClick={() =>
+                onQueryChange({ ...query, filters: [], pageIndex: 0 })
+              }
+            >
+              <X className="size-3.5" />
+              Clear
+            </Button>
+          ) : null}
+
+          <div className="ml-auto flex items-center gap-2">
+            {/* Group */}
+            {groupingOptions.length > 0 ? (
               <Select
                 aria-label="Group rows"
                 value={query.grouping[0] ?? ''}
                 onChange={(event) => setGrouping(event.target.value)}
-                className="mt-1 h-8 bg-background text-xs"
+                className="h-8 w-auto text-xs"
               >
                 <option value="">No grouping</option>
                 {groupingOptions.map((option) => (
@@ -614,61 +829,68 @@ export function RegistryComposition<TData>({
                   </option>
                 ))}
               </Select>
-            </label>
-          ) : null}
+            ) : null}
 
-          <label className="min-w-28 text-xs text-muted-foreground">
-            Density
+            {/* Density */}
             <Select
               aria-label="Table density"
               value={density}
               onChange={(event) =>
                 setDensity(event.target.value as RegistryDensity)
               }
-              className="mt-1 h-8 bg-background text-xs"
+              className="h-8 w-auto text-xs"
             >
               <option value="comfortable">Comfortable</option>
               <option value="compact">Compact</option>
             </Select>
-          </label>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                aria-label="Choose visible columns"
-              >
-                <Columns3 /> Columns
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Visible columns</DropdownMenuLabel>
-              {table.getAllLeafColumns().map((column) => (
-                <DropdownMenuCheckboxItem
-                  key={column.id}
-                  checked={column.getIsVisible()}
-                  disabled={!column.getCanHide()}
-                  onCheckedChange={(checked) =>
-                    column.toggleVisibility(Boolean(checked))
-                  }
+            {/* Columns */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8"
+                  aria-label="Choose visible columns"
                 >
-                  {typeof column.columnDef.header === 'string'
-                    ? column.columnDef.header
-                    : column.id}
-                </DropdownMenuCheckboxItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+                  <Columns3 className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Visible columns</DropdownMenuLabel>
+                {table.getAllLeafColumns().map((column) => (
+                  <DropdownMenuCheckboxItem
+                    key={column.id}
+                    checked={column.getIsVisible()}
+                    disabled={!column.getCanHide()}
+                    onCheckedChange={(checked) =>
+                      column.toggleVisibility(Boolean(checked))
+                    }
+                  >
+                    {typeof column.columnDef.header === 'string'
+                      ? column.columnDef.header
+                      : column.id}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-          <div className="ml-auto flex flex-wrap items-end gap-2">
-            <label className="min-w-36 text-xs text-muted-foreground">
-              Saved views
+            {/* Saved views */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8"
+              onClick={saveView}
+              aria-label="Save current view"
+            >
+              Save view
+            </Button>
+            {savedViews.length > 0 ? (
               <Select
                 aria-label="Saved views"
                 value={selectedViewId}
                 onChange={(event) => applyView(event.target.value)}
-                className="mt-1 h-8 bg-background text-xs"
+                className="h-8 w-auto text-xs"
               >
                 <option value="">Current view</option>
                 {savedViews.map((view) => (
@@ -677,73 +899,56 @@ export function RegistryComposition<TData>({
                   </option>
                 ))}
               </Select>
-            </label>
-            <label className="min-w-40 text-xs text-muted-foreground">
-              Saved view name
-              <Input
-                aria-label="Saved view name"
-                value={savedViewName}
-                onChange={(event) => setSavedViewName(event.target.value)}
-                className="mt-1 h-8 bg-background text-xs"
-              />
-            </label>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={saveView}
-              disabled={!savedViewName.trim()}
-              aria-label="Save current view"
-            >
-              <Save /> Save
-            </Button>
+            ) : null}
           </div>
         </div>
       ) : null}
 
-      <div className={cn(renderInspector && 'flex min-w-0')}>
-        <div className="min-w-0 flex-1 overflow-hidden rounded-lg border bg-card">
-          {stateContent}
+      {/* Table + pinned inspector layout */}
+      <div className="flex min-h-0 flex-1 min-w-0 gap-4">
+        {/* Table — always takes full width. Inspector slides over or pins. */}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-md border bg-card">
+          <div className="min-h-0 flex-1 overflow-auto">{stateContent}</div>
         </div>
-        {renderInspector && !permissionDenied ? (
+
+        {/* Pinned inspector — docked aside on xl+ only */}
+        {renderInspector &&
+        !permissionDenied &&
+        inspectorPinned &&
+        inspectorOpen &&
+        isXl ? (
           <aside
             aria-label={inspectorLabel}
-            className="ml-4 hidden w-80 shrink-0 overflow-hidden border-l bg-background xl:block"
+            className="flex w-80 shrink-0 flex-col overflow-hidden rounded-lg border bg-background"
           >
             {inspectorContent}
           </aside>
         ) : null}
       </div>
 
+      {/* Slide-over inspector — Sheet on all breakpoints when not pinned,
+          or below xl when pinned */}
       {renderInspector && !permissionDenied ? (
-        <>
-          <Button
-            variant="outline"
-            size="sm"
-            className="xl:hidden"
-            aria-label={`Open ${inspectorLabel}`}
-            aria-expanded={inspectorOpen}
-            onClick={() => setInspectorOpen(true)}
+        <Sheet
+          open={inspectorOpen && (!inspectorPinned || !isXl)}
+          onOpenChange={setInspectorOpen}
+        >
+          <SheetContent
+            side="right"
+            className="w-[min(24rem,92vw)] border-l p-0"
+            showClose={false}
           >
-            <PanelRight /> {inspectorLabel}
-          </Button>
-          <Sheet open={inspectorOpen} onOpenChange={setInspectorOpen}>
-            <SheetContent
-              side="right"
-              className="w-80 border-l p-0 xl:hidden"
-              showClose={false}
-            >
-              <SheetTitle className="sr-only">{inspectorLabel}</SheetTitle>
-              <div className="h-full">{inspectorContent}</div>
-            </SheetContent>
-          </Sheet>
-        </>
+            <SheetTitle className="sr-only">{inspectorLabel}</SheetTitle>
+            <div className="h-full">{inspectorContent}</div>
+          </SheetContent>
+        </Sheet>
       ) : null}
 
       {!permissionDenied ? (
-        <footer className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-          <p>
+        <footer className="flex shrink-0 flex-wrap items-center justify-between gap-2 py-1.5 text-xs text-muted-foreground">
+          <span className="leading-5">
             {formatCount(totalCount)} {totalCount === 1 ? 'record' : 'records'}
-          </p>
+          </span>
           <div className="flex items-center gap-2">
             <label className="flex items-center gap-1">
               Rows

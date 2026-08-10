@@ -221,7 +221,13 @@ describe('AnalysisControls', () => {
     expect(screen.getByLabelText('Group by series')).toBeTruthy()
     expect(screen.getByLabelText('Aggregation function')).toBeTruthy()
     expect(screen.getByLabelText('Normalisation method')).toBeTruthy()
-    expect(screen.getByLabelText('Error bar basis')).toBeTruthy()
+    expect(screen.getByLabelText('Error bar column')).toBeTruthy()
+    expect(screen.queryByLabelText('Colour by')).toBeNull()
+    expect(
+      screen
+        .getByLabelText<HTMLSelectElement>('X axis field')
+        .querySelector('option[value="aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa03"]'),
+    ).toBeNull()
   })
 
   it('changes the chart type when a type button is clicked', async () => {
@@ -260,7 +266,7 @@ describe('AnalysisControls', () => {
     ).toBe(true)
   })
 
-  it('enables error bars with a basis', async () => {
+  it('uses only an explicit uncertainty column for error bars', async () => {
     const changed: { spec: ChartSpec | null } = { spec: null }
     render(
       <AnalysisControls
@@ -272,11 +278,39 @@ describe('AnalysisControls', () => {
       />,
     )
     await userEvent.selectOptions(
-      screen.getByLabelText('Error bar basis'),
-      'sd',
+      screen.getByLabelText('Error bar column'),
+      'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa04',
     )
     expect(changed.spec?.overlays.errorBars).not.toBeNull()
-    expect(changed.spec?.overlays.errorBars?.basis).toBe('sd')
+    expect(changed.spec?.overlays.errorBars?.fieldName).toBe('ph_sd')
+    expect(changed.spec?.overlays.errorBars?.basis).toBe('custom')
+  })
+
+  it('rebinds transformations when the Y-axis changes', async () => {
+    const changed: { spec: ChartSpec | null } = { spec: null }
+    render(
+      <AnalysisControls
+        table={table()}
+        spec={spec({
+          transformations: [
+            {
+              kind: 'normalise',
+              params: { method: 'z_score', yField: 'ph' },
+            },
+          ],
+        })}
+        onSpecChange={(nextSpec) => {
+          changed.spec = nextSpec
+        }}
+      />,
+    )
+
+    await userEvent.selectOptions(
+      screen.getByLabelText('Y axis field'),
+      'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa04',
+    )
+
+    expect(changed.spec?.transformations[0]?.params.yField).toBe('ph_sd')
   })
 })
 
@@ -457,8 +491,8 @@ describe('DataTableAlternative', () => {
         loading={false}
       />,
     )
-    expect(screen.getByText('Data table')).toBeTruthy()
-    expect(screen.getByText('2 points')).toBeTruthy()
+    expect(screen.getByText('Data preview')).toBeTruthy()
+    expect(screen.getByText('First 2 rows')).toBeTruthy()
     expect(screen.getByLabelText('Chart data table')).toBeTruthy()
   })
 })

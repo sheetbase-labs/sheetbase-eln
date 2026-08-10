@@ -7,10 +7,11 @@
  * writes, optimistic concurrency, attention summary RPC) is covered by
  * tests/db/reagents.test.ts.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
   DEFAULT_EXPIRY_WARNING_DAYS,
+  fetchReagentUsage,
   projectReagentProperties,
   reagentAttention,
   reagentCountQuery,
@@ -18,6 +19,7 @@ import {
   toReagent,
 } from './reagent-data'
 import type { Reagent } from './reagent-data'
+import type { DataClient } from './data-client'
 import type { RegistryQuery } from './registry'
 
 function makeReagent(
@@ -133,6 +135,44 @@ describe('projectReagentProperties', () => {
 
   it('rejects non-numeric quantity strings', () => {
     expect(projectReagentProperties({ quantity: 'lots' }).quantity).toBeNull()
+  })
+})
+
+describe('fetchReagentUsage', () => {
+  it('resolves incoming link source records into inspector labels', async () => {
+    const list = vi
+      .fn()
+      .mockResolvedValueOnce([
+        {
+          id: 'link-1',
+          source_record_id: 'experiment-1',
+          link_type: 'reagent',
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: 'experiment-1',
+          kind: 'experiment',
+          identifier: 'EXP-2026-0001',
+        },
+      ])
+
+    await expect(
+      fetchReagentUsage({ list } as unknown as DataClient, 'RGT-2025-0001'),
+    ).resolves.toEqual([
+      {
+        id: 'link-1',
+        sourceRecordId: 'experiment-1',
+        sourceKind: 'experiment',
+        sourceIdentifier: 'EXP-2026-0001',
+        linkType: 'reagent',
+      },
+    ])
+    expect(list).toHaveBeenNthCalledWith(
+      2,
+      'records',
+      '?id=in.(experiment-1)&select=id,kind,identifier',
+    )
   })
 })
 
@@ -316,6 +356,15 @@ describe('reagentListQuery / reagentCountQuery', () => {
       sorting: [{ id: 'expiry', desc: true }],
     })
     expect(q).toContain('order=properties->>expiry.desc,identifier.asc')
+  })
+
+  it('orders server pages by the active grouping before row sorting', () => {
+    const q = reagentListQuery({
+      ...baseQuery,
+      grouping: ['category'],
+      sorting: [{ id: 'updatedAt', desc: true }],
+    })
+    expect(q).toContain('order=tags->>0.asc,updated_at.desc,identifier.asc')
   })
 
   it('paginates with limit and offset', () => {

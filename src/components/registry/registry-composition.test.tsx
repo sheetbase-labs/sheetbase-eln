@@ -159,6 +159,39 @@ describe('RegistryComposition server contracts', () => {
       grouping: ['status'],
     })
   })
+
+  it('shows the active option value in a filter trigger', () => {
+    render(
+      <RegistryComposition
+        {...props({
+          query: {
+            ...query,
+            filters: [{ id: 'status', value: 'available' }],
+          },
+        })}
+      />,
+    )
+
+    expect(
+      screen.getByRole('button', { name: /Status: Available/ }),
+    ).toBeTruthy()
+  })
+
+  it('makes page-local group counts explicit when results are paginated', () => {
+    render(
+      <RegistryComposition
+        {...props({
+          totalCount: 50,
+          query: { ...query, grouping: ['status'] },
+        })}
+      />,
+    )
+
+    expect(screen.getAllByText('(1 on this page)')).toHaveLength(2)
+    expect(
+      screen.getByText('50 records · groups continue across pages'),
+    ).toBeTruthy()
+  })
 })
 
 describe('RegistryComposition interaction and states', () => {
@@ -310,7 +343,9 @@ describe('RegistryComposition saved views', () => {
     await user.click(screen.getByRole('menuitemcheckbox', { name: 'Status' }))
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('columnheader', { name: /Status/ })).toBeNull()
-    const promptSpy1 = vi.spyOn(window, 'prompt').mockReturnValue('Available compact')
+    const promptSpy1 = vi
+      .spyOn(window, 'prompt')
+      .mockReturnValue('Available compact')
     await user.click(screen.getByRole('button', { name: 'Save current view' }))
     promptSpy1.mockRestore()
 

@@ -31,6 +31,13 @@ describe('StatusBadge', () => {
     expect(screen.getByText('Failed')).toBeTruthy()
   })
 
+  it('keeps warning statuses legible in dark mode', () => {
+    render(<StatusBadge domain="sample" status="quarantined" />)
+    expect(
+      screen.getByText('Quarantined').closest('[data-slot="badge"]')?.className,
+    ).toContain('dark:text-warning')
+  })
+
   it('uses a custom vocabulary when provided', () => {
     const vocab: StatusVocabulary = {
       queued: {

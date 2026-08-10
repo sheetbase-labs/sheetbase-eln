@@ -3,7 +3,6 @@ import type { ReactNode } from 'react'
 import {
   ActivityFeed,
   EmptyHint,
-  FileList,
   Inspector,
   InspectorSection,
   InspectorSectionStack,
@@ -105,10 +104,6 @@ export function ReagentInspector({
                       : `${reagent.lowStockThreshold}${reagent.unit ? ` ${reagent.unit}` : ''}`}
                   </Property>
                 </PropertyList>
-              </InspectorSection>
-
-              <InspectorSection title="Certificates & documents">
-                <FileList items={[]} />
               </InspectorSection>
 
               <InspectorSection title="Usage history">

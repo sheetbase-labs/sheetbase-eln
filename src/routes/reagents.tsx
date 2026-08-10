@@ -80,9 +80,9 @@ export const Route = createFileRoute('/reagents')({
       typeof search.pageSize === 'number' &&
       [25, 50, 100].includes(search.pageSize)
         ? search.pageSize
-        : 25,
+        : 50,
     sort: typeof search.sort === 'string' ? search.sort : '',
-    group: typeof search.group === 'string' ? search.group : '',
+    group: typeof search.group === 'string' ? search.group : 'category',
     status: typeof search.status === 'string' ? search.status : '',
     storage: typeof search.storage === 'string' ? search.storage : '',
     q: typeof search.q === 'string' ? search.q : '',
@@ -185,7 +185,6 @@ function ReagentsRegistryRoute() {
     queryFn: () =>
       fetchReagentAttentionSummary(client, DEFAULT_EXPIRY_WARNING_DAYS),
   })
-
   // Selected reagent detail + inspector data. Loaded independently of the
   // current page so selection persists across refreshes and pagination.
   const selectedQuery = useQuery({
@@ -246,7 +245,7 @@ function ReagentsRegistryRoute() {
 
   return (
     <>
-      <div className="flex flex-col gap-4 p-4">
+      <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden p-4">
         <RegistryComposition
           registryId="reagents"
           workspaceId={context.workspace?.id ?? 'unknown'}
@@ -272,7 +271,7 @@ function ReagentsRegistryRoute() {
               placeholder: 'All statuses',
               options: [
                 ...REAGENT_STATUS_OPTIONS,
-                { value: 'archived', label: 'archived' },
+                { value: 'archived', label: 'Archived' },
               ],
             },
             {
@@ -293,6 +292,7 @@ function ReagentsRegistryRoute() {
             { id: 'supplier', label: 'Supplier' },
             { id: 'status', label: 'Status' },
           ]}
+          initialColumnVisibility={{ updatedAt: false }}
           loading={rowsQuery.isLoading}
           error={rowsQuery.error}
           permissionDenied={permissionDenied}

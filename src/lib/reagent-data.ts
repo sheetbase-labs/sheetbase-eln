@@ -299,6 +299,13 @@ const SORTABLE_COLUMNS: Record<string, string> = {
   createdAt: 'created_at',
 }
 
+const GROUPABLE_COLUMNS: Record<string, string> = {
+  category: 'tags->>0',
+  storage: 'properties->>storage',
+  supplier: 'properties->>supplier',
+  status: 'status',
+}
+
 const FILTER_IDS = ['status', 'storage', 'q'] as const
 export type ReagentFilterId = (typeof FILTER_IDS)[number]
 
@@ -313,7 +320,9 @@ const STATUS_OPTIONS = [
 
 export const REAGENT_STATUS_OPTIONS = STATUS_OPTIONS.map((value) => ({
   value,
-  label: value.replace('_', ' '),
+  label: value
+    .replace('_', ' ')
+    .replace(/^./, (letter) => letter.toUpperCase()),
 }))
 export const REAGENT_STORAGE_OPTIONS = STORAGE_OPTIONS.map((value) => ({
   value,
@@ -353,9 +362,15 @@ export function reagentListQuery(query: RegistryQuery): string {
   }
 
   const order: string[] = []
+  for (const group of query.grouping) {
+    const col = GROUPABLE_COLUMNS[group]
+    if (col) order.push(`${col}.asc`)
+  }
   for (const sort of query.sorting) {
     const col = SORTABLE_COLUMNS[sort.id]
-    if (col) order.push(`${col}.${sort.desc ? 'desc' : 'asc'}`)
+    if (col && !order.some((item) => item.startsWith(`${col}.`))) {
+      order.push(`${col}.${sort.desc ? 'desc' : 'asc'}`)
+    }
   }
   // Deterministic secondary sort so pagination is stable.
   order.push('identifier.asc')
@@ -446,10 +461,14 @@ export interface ReagentUsageLink {
 
 interface UsageLinkWire {
   id: string
-  source_record_id: string | null
-  source_kind: string
-  source_identifier: string
+  source_record_id: string
   link_type: string
+}
+
+interface UsageSourceWire {
+  id: string
+  kind: string
+  identifier: string
 }
 
 /**
@@ -457,26 +476,39 @@ interface UsageLinkWire {
  * that reference it. Resolved by `target_identifier` so links to a
  * soft-deleted or archived reagent still render honestly.
  */
-export function fetchReagentUsage(
+export async function fetchReagentUsage(
   client: DataClient,
   identifier: string,
   limit = 25,
 ): Promise<ReagentUsageLink[]> {
-  return client
-    .list<UsageLinkWire>(
-      'record_links',
-      `?target_identifier=eq.${encodeURIComponent(identifier)}&link_type=eq.reagent&order=created_at.desc&limit=${limit}` +
-        `&select=id,source_record_id,source_kind,source_identifier,link_type`,
-    )
-    .then((rows) =>
-      rows.map((row) => ({
-        id: row.id,
-        sourceRecordId: row.source_record_id,
-        sourceKind: row.source_kind,
-        sourceIdentifier: row.source_identifier,
-        linkType: row.link_type,
-      })),
-    )
+  const links = await client.list<UsageLinkWire>(
+    'record_links',
+    `?target_identifier=eq.${encodeURIComponent(identifier)}&link_type=eq.reagent&order=created_at.desc&limit=${limit}` +
+      `&select=id,source_record_id,link_type`,
+  )
+  if (links.length === 0) return []
+
+  const sourceIds = [...new Set(links.map((link) => link.source_record_id))]
+  const sources = await client.list<UsageSourceWire>(
+    'records',
+    `?id=in.(${sourceIds.map(encodeURIComponent).join(',')})&select=id,kind,identifier`,
+  )
+  const sourceById = new Map(sources.map((source) => [source.id, source]))
+
+  return links.flatMap((link) => {
+    const source = sourceById.get(link.source_record_id)
+    return source
+      ? [
+          {
+            id: link.id,
+            sourceRecordId: source.id,
+            sourceKind: source.kind,
+            sourceIdentifier: source.identifier,
+            linkType: link.link_type,
+          },
+        ]
+      : []
+  })
 }
 
 export function fetchReagentAttentionSummary(

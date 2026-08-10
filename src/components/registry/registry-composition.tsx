@@ -583,7 +583,8 @@ export function RegistryComposition<TData>({
                       )}
                       {String(groupVal ?? '—')}
                       <span className="ml-0.5 text-muted-foreground">
-                        ({row.subRows.length})
+                        ({row.subRows.length}
+                        {pageCount > 1 ? ' on this page' : ''})
                       </span>
                     </button>
                   </TableCell>
@@ -683,12 +684,9 @@ export function RegistryComposition<TData>({
       ) : null}
 
       {!permissionDenied && summaries.length > 0 ? (
-        <dl className="grid grid-cols-[repeat(auto-fit,minmax(7.5rem,1fr))] gap-2">
+        <dl className="grid grid-cols-[repeat(auto-fit,minmax(7.5rem,1fr))] divide-x overflow-hidden rounded-md border bg-card">
           {summaries.map((summary) => (
-            <div
-              key={summary.label}
-              className="rounded-md border bg-card px-3 py-2.5"
-            >
+            <div key={summary.label} className="min-w-0 px-3 py-2">
               <dt className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
                 {summary.label}
               </dt>
@@ -742,6 +740,9 @@ export function RegistryComposition<TData>({
             .filter((filter) => filter !== searchFilter && filter.options)
             .map((filter) => {
               const active = activeFilter(query, filter.id)
+              const activeLabel = filter.options?.find(
+                (option) => option.value === active,
+              )?.label
               return (
                 <DropdownMenu key={filter.id}>
                   <DropdownMenuTrigger asChild>
@@ -750,7 +751,11 @@ export function RegistryComposition<TData>({
                       size="sm"
                       className="h-8 gap-1.5"
                     >
-                      {filter.label}
+                      <span className="max-w-40 truncate">
+                        {activeLabel
+                          ? `${filter.label}: ${activeLabel}`
+                          : filter.label}
+                      </span>
                       {active ? (
                         <span className="size-1.5 rounded-full bg-primary" />
                       ) : null}
@@ -948,6 +953,9 @@ export function RegistryComposition<TData>({
         <footer className="flex shrink-0 flex-wrap items-center justify-between gap-2 py-1.5 text-xs text-muted-foreground">
           <span className="leading-5">
             {formatCount(totalCount)} {totalCount === 1 ? 'record' : 'records'}
+            {query.grouping.length > 0 && pageCount > 1
+              ? ' · groups continue across pages'
+              : ''}
           </span>
           <div className="flex items-center gap-2">
             <label className="flex items-center gap-1">

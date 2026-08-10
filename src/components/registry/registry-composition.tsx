@@ -560,16 +560,16 @@ export function RegistryComposition<TData>({
                 >
                   <TableCell
                     colSpan={row.getVisibleCells().length}
-                    className={cn(
-                      density === 'compact'
-                        ? 'px-2.5 py-1 text-xs'
-                        : 'px-3 py-1.5 text-sm',
-                      'font-semibold',
-                    )}
+                    className="p-0"
                   >
                     <button
                       type="button"
-                      className="inline-flex items-center gap-1.5 leading-4"
+                      className={cn(
+                        'flex w-full items-center gap-1.5 font-semibold',
+                        density === 'compact'
+                          ? 'h-8 px-2.5 text-xs'
+                          : 'h-10 px-3 text-sm',
+                      )}
                       onClick={() => row.getToggleExpandedHandler()()}
                       aria-label={`Toggle group`}
                     >
@@ -579,8 +579,8 @@ export function RegistryComposition<TData>({
                         <ChevronRight className="size-3.5 shrink-0" />
                       )}
                       {String(groupVal ?? '—')}
-                      <span className="ml-0.5 inline-flex items-center rounded-full bg-muted px-1.5 text-[0.65rem] font-medium leading-[1.1rem] text-muted-foreground">
-                        {row.subRows.length}
+                      <span className="ml-0.5 text-muted-foreground">
+                        ({row.subRows.length})
                       </span>
                     </button>
                   </TableCell>

@@ -26,6 +26,8 @@ export function DataGridGrouping<TData>({
   const available = fields.filter(
     (field) => field.groupable && !grouping.includes(field.id),
   )
+  if (available.length === 0 && grouping.length === 0) return null
+
   return (
     <div
       className="flex flex-wrap items-center gap-2"

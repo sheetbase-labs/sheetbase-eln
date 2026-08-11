@@ -113,6 +113,69 @@ function isRegistryFilter(value: unknown): value is RegistryFilterValue {
   )
 }
 
+function encodeFilterScalar(value: RegistryScalar): string {
+  const type =
+    typeof value === 'number' ? 'n' : typeof value === 'boolean' ? 'b' : 's'
+  return `${type}:${encodeURIComponent(String(value))}`
+}
+
+/** Encode filters as compact, typed and independently readable URL state. */
+export function encodeRegistryFilters(filters: RegistryFilterValue[]): string {
+  return filters
+    .map(
+      (filter) =>
+        `${encodeURIComponent(filter.fieldId)}:${filter.operator}:${filter.values.map(encodeFilterScalar).join(',')}`,
+    )
+    .join('|')
+}
+
+/** Decode untrusted filter URL state using the registry query bounds. */
+export function decodeRegistryFilters(value: unknown): RegistryFilterValue[] {
+  if (typeof value !== 'string' || value.length === 0 || value.length > 4096)
+    return []
+  try {
+    const entries = value.split('|')
+    if (entries.length > 20) return []
+    const filters: RegistryFilterValue[] = entries.map((entry) => {
+      const fieldEnd = entry.indexOf(':')
+      const operatorEnd = entry.indexOf(':', fieldEnd + 1)
+      if (fieldEnd <= 0 || operatorEnd < 0) throw new Error('Invalid filter')
+      const values = entry.slice(operatorEnd + 1)
+      return {
+        fieldId: decodeURIComponent(entry.slice(0, fieldEnd)),
+        operator: entry.slice(
+          fieldEnd + 1,
+          operatorEnd,
+        ) as RegistryFilterOperator,
+        values: values
+          ? values.split(',').map((encoded): RegistryScalar => {
+              const type = encoded.slice(0, 1)
+              if (encoded.slice(1, 2) !== ':')
+                throw new Error('Invalid filter value')
+              const scalar = decodeURIComponent(encoded.slice(2))
+              if (type === 'n') {
+                const numeric = Number(scalar)
+                if (!Number.isFinite(numeric))
+                  throw new Error('Invalid numeric filter value')
+                return numeric
+              }
+              if (type === 'b') {
+                if (scalar !== 'true' && scalar !== 'false')
+                  throw new Error('Invalid boolean filter value')
+                return scalar === 'true'
+              }
+              if (type !== 's') throw new Error('Invalid filter value type')
+              return scalar
+            })
+          : [],
+      }
+    })
+    return filters.every(isRegistryFilter) ? filters : []
+  } catch {
+    return []
+  }
+}
+
 /** Versioned, database-agnostic URL representation of registry query state. */
 export function encodeRegistryQuery(query: RegistryQuery): string {
   return encodeURIComponent(JSON.stringify({ v: 1, q: query }))

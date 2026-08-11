@@ -2,12 +2,44 @@ import { describe, expect, it } from 'vitest'
 
 import {
   createRegistrySavedViewStore,
+  decodeRegistryFilters,
   decodeRegistryQuery,
+  encodeRegistryFilters,
   encodeRegistryQuery,
   formatRegistryValue,
   registrySavedViewStorageKey,
   sanitizeRegistryView,
 } from './registry'
+
+describe('registry URL filters', () => {
+  it('round-trips compact typed filter values', () => {
+    const filters = [
+      { fieldId: 'status', operator: 'eq' as const, values: ['available'] },
+      {
+        fieldId: 'quantity',
+        operator: 'gte' as const,
+        values: [10],
+      },
+      {
+        fieldId: 'archived',
+        operator: 'eq' as const,
+        values: [false],
+      },
+    ]
+
+    const encoded = encodeRegistryFilters(filters)
+
+    expect(encoded).toBe(
+      'status:eq:s:available|quantity:gte:n:10|archived:eq:b:false',
+    )
+    expect(decodeRegistryFilters(encoded)).toEqual(filters)
+  })
+
+  it('fails closed for malformed filter state', () => {
+    expect(decodeRegistryFilters('not-a-filter')).toEqual([])
+    expect(decodeRegistryFilters('status:eq:n:not-a-number')).toEqual([])
+  })
+})
 
 function memoryStorage(): Storage {
   const values = new Map<string, string>()

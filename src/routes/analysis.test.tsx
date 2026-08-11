@@ -164,43 +164,42 @@ describe('AnalysisStudioHeader', () => {
   it('renders a skeleton while loading', () => {
     render(
       <AnalysisStudioHeader
-        datasets={[]}
         loading
         error={null}
-        selectedTableId={null}
-        onSelect={() => {}}
+        sourceName={null}
+        onOpenDatasets={() => {}}
       />,
     )
-    expect(screen.getByText('Analysis Studio')).toBeTruthy()
+    expect(screen.getByText('Analysis')).toBeTruthy()
     expect(screen.queryByLabelText('Select data source')).toBeNull()
   })
 
   it('renders an error badge on failure', () => {
     render(
       <AnalysisStudioHeader
-        datasets={[]}
         loading={false}
         error={new Error('boom')}
-        selectedTableId={null}
-        onSelect={() => {}}
+        sourceName={null}
+        onOpenDatasets={() => {}}
       />,
     )
     expect(screen.getByText('Could not load datasets')).toBeTruthy()
   })
 
-  it('renders a populated data-source selector', () => {
-    const t = table()
+  it('renders read-only source context without a selector', () => {
     render(
       <AnalysisStudioHeader
-        datasets={[t]}
         loading={false}
         error={null}
-        selectedTableId={t.id}
-        onSelect={() => {}}
+        sourceName="Stability"
+        onOpenDatasets={() => {}}
       />,
     )
-    const select = screen.getByLabelText('Select data source')
-    expect((select as unknown as HTMLSelectElement).value).toBe(t.id)
+    expect(screen.getByText('Source: Stability')).toBeTruthy()
+    expect(screen.queryByLabelText('Select data source')).toBeNull()
+    expect(
+      screen.getByRole('button', { name: 'Dataset Explorer' }),
+    ).toBeTruthy()
   })
 })
 

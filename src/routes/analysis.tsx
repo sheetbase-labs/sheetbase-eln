@@ -1,29 +1,21 @@
 /**
- * ANALYSIS-001 — Analysis Studio route (`/analysis`).
+ * ANALYSIS-002 — Analysis route (`/analysis`).
  *
- * A reproducible chart-authoring surface built from typed ChartSpec controls
- * (SCI-004 decision 0029). The studio composes a data-source, chart-type,
- * axis, grouping, normalisation, aggregation and statistical-overlay
- * controls; a live preview that reads source data through the same `/api/db`
- * boundary and RLS as the rest of the application WITHOUT mutating the source
- * datasets; saved named analysis views (owner, version, source revisions)
- * persisted in `api.analysis_views`; and export with explicit format,
- * dimensions, theme and provenance metadata.
- *
- * Every chart has an accessible data-table alternative rendered beneath it.
- * Missing columns, stale sources, invalid log values and excessive result
- * sizes are surfaced as explicit, recoverable states rather than blank axes.
- *
- * PostgreSQL and RLS remain authoritative (decisions 0019/0029/0034).
+ * Dataset Explorer owns transient one-dataset exploration. This compatibility
+ * route promotes that work into a named analysis identity and immutable runs.
+ * Recorded Figure, Data and Methods views read the selected run snapshots;
+ * editing a draft explicitly returns to live source data. Source observations
+ * capture execution-time metadata, not a claim of historical dataset replay.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Database,
   Download,
   LineChart as LineChartIcon,
   Loader2,
+  Pencil,
   Save,
   Sigma,
   Trash2,
@@ -49,6 +41,10 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
 } from '#/components/ui'
 import { Inspector } from '#/components/record/inspector'
 import {
@@ -64,27 +60,31 @@ import {
   CHART_SPEC_VERSION,
   formatScientific,
 } from '#/lib/chart-spec'
-import type { AxisScale, ChartSpec } from '#/lib/chart-spec'
+import type { AxisScale, ChartSpec, FrozenChart } from '#/lib/chart-spec'
 import {
   ANALYSIS_MAX_FILTERS,
   ANALYSIS_MAX_RESULT_ROWS,
   analysisStudioDataClient,
   analysisStudioQueryKeys,
   buildExportProvenance,
+  canRecordAnalysis,
   captureSourceRevisions,
+  createAnalysisRun,
   DEFAULT_EXPORT_SETTINGS,
-  deleteAnalysisView,
   detectStaleSources,
   exportChartSvg,
   exportDataCsv,
   exportViewJson,
   fetchAnalysisViews,
+  fetchAnalysisRuns,
   fetchDatasetSummaries,
   materialiseAnalysisChart,
   saveAnalysisView,
+  selectRecordedRun,
   validateAnalysisSpec,
 } from '#/lib/analysis-studio-data'
 import type {
+  AnalysisRunWire,
   AnalysisViewWire,
   ExportSettings,
 } from '#/lib/analysis-studio-data'
@@ -94,6 +94,11 @@ import { formatCount } from '#/lib/format-numbers'
 import { cn } from '#/lib/utils'
 
 export const Route = createFileRoute('/analysis')({
+  validateSearch: (search: Record<string, unknown>) => ({
+    dataset: validUuid(search.dataset),
+    analysis: validUuid(search.analysis),
+    run: validUuid(search.run),
+  }),
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
     if (!context) throw redirect({ to: '/sign-in' })
@@ -102,12 +107,23 @@ export const Route = createFileRoute('/analysis')({
   component: AnalysisStudioRoute,
 })
 
+function validUuid(value: unknown): string {
+  return typeof value === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value,
+    )
+    ? value
+    : ''
+}
+
 // ---------------------------------------------------------------------------
 // Route component
 // ---------------------------------------------------------------------------
 
 function AnalysisStudioRoute() {
   const { context } = Route.useRouteContext()
+  const search = Route.useSearch()
+  const navigate = useNavigate()
   const workspaceId = context.workspace?.id ?? 'no-workspace'
   const userId = context.user.id
 
@@ -129,23 +145,37 @@ function AnalysisStudioRoute() {
   const [spec, setSpec] = useState<ChartSpec | null>(null)
   const [selectedViewId, setSelectedViewId] = useState<string | null>(null)
   const [viewName, setViewName] = useState('')
+  const [editingFigure, setEditingFigure] = useState(false)
+  const loadedTarget = useRef('')
   const [exportSettings, setExportSettings] = useState<ExportSettings>(
     DEFAULT_EXPORT_SETTINGS,
   )
 
-  // Auto-select the first dataset once the list loads.
+  // URL handoffs are authoritative. An empty route remains a library rather
+  // than silently turning the first available dataset into an analysis.
   useEffect(() => {
-    if (!selectedTableId && datasets.length > 0) {
-      setSelectedTableId(datasets[0].id)
+    const target = `${search.analysis}:${search.dataset}`
+    if (loadedTarget.current === target) return
+    if (search.analysis) {
+      const requested = views.find((view) => view.id === search.analysis)
+      if (requested) {
+        loadView(requested)
+        loadedTarget.current = target
+      } else if (!viewsQuery.isLoading) {
+        setSelectedViewId(null)
+        setSelectedTableId(null)
+        setSpec(null)
+        setViewName('')
+        loadedTarget.current = target
+      }
+      return
     }
-    if (
-      selectedTableId &&
-      datasets.length > 0 &&
-      !datasets.some((d) => d.id === selectedTableId)
-    ) {
-      setSelectedTableId(datasets[0].id)
+    if (search.dataset && datasets.some((d) => d.id === search.dataset)) {
+      setSelectedTableId(search.dataset)
+      setEditingFigure(true)
+      loadedTarget.current = target
     }
-  }, [datasets, selectedTableId])
+  }, [datasets, search.analysis, search.dataset, views, viewsQuery.isLoading])
 
   const selectedTable = useMemo(
     () => datasets.find((d) => d.id === selectedTableId) ?? null,
@@ -154,17 +184,21 @@ function AnalysisStudioRoute() {
 
   // Build a default spec when the dataset changes (or load a saved view).
   useEffect(() => {
-    if (selectedTable) {
+    if (selectedTable && !search.analysis) {
       setSpec(buildDefaultChartSpec(selectedTable))
       setSelectedViewId(null)
       setViewName('')
     }
-  }, [selectedTableId])
+  }, [selectedTableId, search.analysis])
 
   // Live preview resolution: read source data read-only (never mutate). The
   // materialised chart is lifted here so the preview and the export panel
   // share one authoritative materialisation.
-  const { datasetQuery, calcQuery } = useLiveChartDataset(spec)
+  // Saved views open in recorded mode. Passing null keeps both scientific
+  // source queries disabled; immutable run rendering does not re-read data.
+  const { datasetQuery, calcQuery } = useLiveChartDataset(
+    selectedViewId && !editingFigure ? null : spec,
+  )
   const liveMaterialised = useMemo(
     () =>
       spec
@@ -177,7 +211,8 @@ function AnalysisStudioRoute() {
     [spec, datasetQuery.data, calcQuery.data],
   )
   const analysisMaterialised = useMemo(() => {
-    if (!spec || !datasetQuery.data) return liveMaterialised
+    if (!spec || !datasetQuery.data || liveMaterialised.state.kind !== 'ok')
+      return liveMaterialised
     const columns = datasetQuery.data.columns.map((c) => ({
       id: c.id,
       fieldName: c.field_name,
@@ -190,33 +225,96 @@ function AnalysisStudioRoute() {
 
   const queryClient = useQueryClient()
 
-  const saveMutation = useMutation({
+  const runsQuery = useQuery({
+    queryKey: analysisStudioQueryKeys.runs(selectedViewId ?? ''),
+    queryFn: () => fetchAnalysisRuns(analysisStudioDataClient, selectedViewId!),
+    enabled: Boolean(selectedViewId),
+  })
+  const selectedRun = useMemo(
+    () => selectRecordedRun(runsQuery.data ?? [], search.run),
+    [runsQuery.data, search.run],
+  )
+  const recordedMode = Boolean(
+    search.analysis && selectedViewId === search.analysis && !editingFigure,
+  )
+  const recordedReady = Boolean(
+    recordedMode &&
+    selectedRun &&
+    (!search.run || selectedRun.id === search.run),
+  )
+  const analysisTargetMatches = Boolean(
+    !search.analysis || selectedViewId === search.analysis,
+  )
+  const recordedRequested = Boolean(search.analysis && !editingFigure)
+
+  useEffect(() => {
+    if (!selectedViewId || editingFigure || runsQuery.isLoading) return
+    const runs = runsQuery.data ?? []
+    if (runs.length > 0 && !search.run) {
+      void navigate({
+        to: '/analysis',
+        search: { analysis: selectedViewId, dataset: '', run: runs[0].id },
+        replace: true,
+      })
+    }
+  }, [
+    editingFigure,
+    navigate,
+    runsQuery.data,
+    runsQuery.isLoading,
+    search.run,
+    selectedRun,
+    selectedViewId,
+  ])
+
+  const runMutation = useMutation({
     mutationFn: async () => {
-      if (!spec || !viewName.trim()) return
-      const sourceRevisions = captureSourceRevisions(datasets, spec)
-      return saveAnalysisView(
+      if (!spec || !selectedTable || !datasetQuery.data || !viewName.trim()) {
+        throw new Error('The analysis is not ready to record.')
+      }
+      const validation = validateAnalysisSpec(
+        spec,
+        datasetQuery.data.rows.length,
+      )
+      if (!validation.ok || analysisMaterialised.state.kind !== 'ok') {
+        throw new Error('Resolve the figure problems before recording a run.')
+      }
+      const analysis = await saveAnalysisView(
         analysisStudioDataClient,
         {
           id: selectedViewId ?? undefined,
           name: viewName.trim(),
           spec,
-          source_revisions: sourceRevisions,
+          source_revisions: captureSourceRevisions(datasets, spec),
           export_settings: exportSettings,
         },
         workspaceId,
         userId,
       )
+      const run = await createAnalysisRun(analysisStudioDataClient, {
+        analysisViewId: analysis.id,
+        status: 'completed',
+        specSnapshot: spec,
+        resultSnapshot: analysisMaterialised,
+        warnings: [],
+        engineVersion: 'sheetbase-analysis/1',
+      })
+      return { analysis, run }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: analysisStudioQueryKeys.views })
-    },
-  })
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) =>
-      deleteAnalysisView(analysisStudioDataClient, id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: analysisStudioQueryKeys.views })
+    onSuccess: ({ analysis }) => {
+      setSelectedViewId(analysis.id)
+      setEditingFigure(false)
+      void queryClient.invalidateQueries({
+        queryKey: analysisStudioQueryKeys.views,
+      })
+      void queryClient.invalidateQueries({
+        queryKey: analysisStudioQueryKeys.runs(analysis.id),
+      })
+      void navigate({
+        to: '/analysis',
+        search: { analysis: analysis.id, dataset: '', run: '' },
+        replace: true,
+      })
     },
   })
 
@@ -224,6 +322,7 @@ function AnalysisStudioRoute() {
     setSelectedViewId(view.id)
     setViewName(view.name)
     setSpec(view.spec)
+    setEditingFigure(false)
     if (view.export_settings) setExportSettings(view.export_settings)
     const tableId = view.spec.datasets[0]?.tableId ?? null
     if (tableId && datasets.some((d) => d.id === tableId)) {
@@ -244,63 +343,252 @@ function AnalysisStudioRoute() {
     context: shellContext,
     breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Analysis' }],
     fullBleed: true,
-    inspectorCollapsible: true,
-    inspectorLabel: 'Chart settings',
-    inspector:
-      selectedTable && spec ? (
-        <AnalysisInspector
-          table={selectedTable}
-          spec={spec}
-          onSpecChange={setSpec}
-          views={views}
-          selectedViewId={selectedViewId}
-          viewName={viewName}
-          onViewNameChange={setViewName}
-          onLoad={loadView}
-          onSave={() => saveMutation.mutate()}
-          onDelete={(id) => deleteMutation.mutate(id)}
-          saving={saveMutation.isPending}
-          exportSettings={exportSettings}
-          onExportSettingsChange={setExportSettings}
-          datasets={datasets}
-          user={{ id: userId, name: context.user.name }}
-          materialised={analysisMaterialised}
-        />
-      ) : undefined,
   })
+
+  const validation = spec
+    ? validateAnalysisSpec(spec, datasetQuery.data?.rows.length ?? 0)
+    : { ok: false as const, errors: ['No specification selected.'] }
+  const isOwner =
+    !selectedViewId ||
+    views.find((view) => view.id === selectedViewId)?.owner_user_id === userId
+  const canRecord = Boolean(
+    selectedTable &&
+    spec &&
+    datasetQuery.data?.table.id === spec.datasets[0]?.tableId &&
+    canRecordAnalysis({
+      owner: isOwner,
+      named: Boolean(viewName.trim()),
+      datasetLoading: datasetQuery.isLoading,
+      datasetError: Boolean(datasetQuery.error),
+      calculationLoading: calcQuery.isLoading,
+      calculationError: Boolean(calcQuery.error),
+      validationOk: validation.ok,
+      materialised: analysisMaterialised,
+      pending: runMutation.isPending,
+    }),
+  )
+  const displaySpec = !analysisTargetMatches
+    ? null
+    : recordedRequested
+      ? recordedReady
+        ? (selectedRun?.spec_snapshot ?? null)
+        : null
+      : spec
+  const displayMaterialised = recordedReady
+    ? (selectedRun?.result_snapshot ?? missingDatasetChart())
+    : analysisMaterialised
+  const frozen: FrozenChart | null =
+    recordedMode && selectedRun
+      ? {
+          revisionId: null,
+          frozenAt: selectedRun.created_at,
+          frozenByUserId: selectedRun.actor_user_id,
+          datasetProvenance: [],
+          data: { columns: [], rows: [], series: [] },
+        }
+      : null
 
   return (
     <>
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4">
         <AnalysisStudioHeader
-          datasets={datasets}
-          loading={summariesQuery.isLoading}
-          error={summariesQuery.error}
-          selectedTableId={selectedTableId}
-          onSelect={setSelectedTableId}
+          loading={!recordedRequested && summariesQuery.isLoading}
+          error={recordedRequested ? null : summariesQuery.error}
+          sourceName={
+            recordedRequested
+              ? recordedReady
+                ? (selectedRun?.source_observations.sourceName ?? null)
+                : null
+              : (selectedTable?.name ?? null)
+          }
+          onOpenDatasets={() =>
+            void navigate({
+              to: '/datasets',
+              search: {
+                dataset: recordedMode
+                  ? (selectedRun?.source_observations.tableId ?? '')
+                  : (selectedTableId ?? ''),
+              },
+            })
+          }
         />
-        {selectedTable && spec ? (
-          <div className="flex min-h-0 flex-1 flex-col">
-            <ChartConfigurator
-              table={selectedTable}
-              spec={spec}
-              onSpecChange={setSpec}
-              idPrefix="analysis"
-            />
-            <AnalysisPreview
-              table={selectedTable}
-              spec={spec}
-              datasets={datasets}
-              selectedViewId={selectedViewId}
-              views={views}
-              datasetQuery={datasetQuery}
-              materialised={analysisMaterialised}
-            />
+        {displaySpec &&
+        analysisTargetMatches &&
+        (recordedRequested ? recordedReady : selectedTable) ? (
+          <div className="flex min-h-0 flex-1 flex-col gap-3">
+            <div className="flex flex-wrap items-end gap-3 border-b pb-3">
+              <Field className="w-full max-w-xl min-w-64 flex-1">
+                <FieldLabel htmlFor="analysis-name">Analysis name</FieldLabel>
+                <Input
+                  id="analysis-name"
+                  value={viewName}
+                  onChange={(e) => setViewName(e.target.value)}
+                  disabled={recordedMode || !isOwner}
+                  required
+                  placeholder="Name this scientific answer"
+                />
+              </Field>
+              <div className="flex h-9 items-center gap-2 self-end">
+                <Badge variant="outline">Exploratory · unreviewed</Badge>
+                {recordedMode && isOwner ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setEditingFigure(true)
+                      void navigate({
+                        to: '/analysis',
+                        search: {
+                          analysis: selectedViewId ?? '',
+                          dataset: '',
+                          run: '',
+                        },
+                        replace: true,
+                      })
+                    }}
+                  >
+                    <Pencil /> Edit draft
+                  </Button>
+                ) : null}
+                {!recordedMode ? (
+                  <Button
+                    onClick={() => runMutation.mutate()}
+                    disabled={!canRecord}
+                  >
+                    {runMutation.isPending ? (
+                      <Loader2 className="animate-spin" />
+                    ) : (
+                      <Save />
+                    )}
+                    Record analysis run
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+            {runMutation.error ? (
+              <p role="alert" className="text-sm text-destructive">
+                {runMutation.error.message}
+              </p>
+            ) : null}
+            {calcQuery.error && !recordedMode ? (
+              <p role="alert" className="text-sm text-destructive">
+                Calculation results could not be loaded. Recording is disabled.
+              </p>
+            ) : null}
+            <Tabs
+              defaultValue="figure"
+              className="flex min-h-0 flex-1 flex-col"
+            >
+              <TabsList className="h-8 w-full justify-start gap-5 rounded-none border-b bg-transparent p-0">
+                <TabsTrigger
+                  value="figure"
+                  className="h-8 rounded-none border-b-2 border-transparent px-0 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                >
+                  Figure
+                </TabsTrigger>
+                <TabsTrigger
+                  value="data"
+                  className="h-8 rounded-none border-b-2 border-transparent px-0 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                >
+                  Data
+                </TabsTrigger>
+                <TabsTrigger
+                  value="methods"
+                  className="h-8 rounded-none border-b-2 border-transparent px-0 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                >
+                  Methods
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent
+                value="figure"
+                className="min-h-0 flex-1 overflow-auto"
+              >
+                {!recordedMode && isOwner ? (
+                  <div className="mb-2 flex justify-end">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setEditingFigure((value) => !value)}
+                    >
+                      {editingFigure ? 'Close figure editor' : 'Edit figure'}
+                    </Button>
+                  </div>
+                ) : null}
+                {editingFigure && selectedTable ? (
+                  <ChartConfigurator
+                    table={selectedTable}
+                    spec={displaySpec}
+                    onSpecChange={setSpec}
+                    idPrefix="analysis"
+                  />
+                ) : null}
+                <ChartRenderer
+                  title={`${displaySpec.display.axes.y.label ?? displaySpec.fields.y.fieldName} over ${displaySpec.display.axes.x.label ?? displaySpec.fields.x?.fieldName ?? 'row'}`}
+                  spec={displaySpec}
+                  materialised={displayMaterialised}
+                  frozen={frozen}
+                  loading={!recordedMode && datasetQuery.isLoading}
+                  plotHeight={430}
+                  className="min-h-[30rem]"
+                />
+              </TabsContent>
+              <TabsContent
+                value="data"
+                className="min-h-0 flex-1 overflow-auto"
+              >
+                <DataTableAlternative
+                  materialised={displayMaterialised}
+                  loading={!recordedMode && datasetQuery.isLoading}
+                />
+              </TabsContent>
+              <TabsContent
+                value="methods"
+                className="min-h-0 flex-1 overflow-auto"
+              >
+                <AnalysisMethods
+                  spec={displaySpec}
+                  table={recordedMode ? null : selectedTable}
+                  rowCount={datasetQuery.data?.rows.length ?? null}
+                  runs={runsQuery.data ?? []}
+                  loadingRuns={runsQuery.isLoading}
+                  selectedRunId={selectedRun?.id ?? null}
+                  recordedObservation={
+                    recordedMode
+                      ? (selectedRun?.source_observations ?? null)
+                      : null
+                  }
+                  onSelectRun={(run) => {
+                    setEditingFigure(false)
+                    void navigate({
+                      to: '/analysis',
+                      search: {
+                        analysis: selectedViewId ?? '',
+                        dataset: '',
+                        run: run.id,
+                      },
+                    })
+                  }}
+                />
+              </TabsContent>
+            </Tabs>
           </div>
+        ) : search.analysis || search.dataset ? (
+          <p role="alert" className="m-auto text-sm text-muted-foreground">
+            {recordedMode && runsQuery.isLoading
+              ? 'Loading recorded analysis run…'
+              : 'The requested analysis, recorded run or dataset is unavailable.'}
+          </p>
         ) : (
-          <EmptyAnalysisState
-            loading={summariesQuery.isLoading}
-            error={summariesQuery.error}
+          <AnalysisLibrary
+            views={views}
+            loading={viewsQuery.isLoading}
+            error={viewsQuery.error ?? summariesQuery.error}
+            onLoad={(view) => {
+              loadView(view)
+              void navigate({
+                to: '/analysis',
+                search: { analysis: view.id, dataset: '', run: '' },
+              })
+            }}
           />
         )}
       </div>
@@ -313,19 +601,17 @@ function AnalysisStudioRoute() {
 // ---------------------------------------------------------------------------
 
 interface AnalysisStudioHeaderProps {
-  datasets: ScientificTableWire[]
   loading: boolean
   error: unknown
-  selectedTableId: string | null
-  onSelect: (id: string) => void
+  sourceName: string | null
+  onOpenDatasets: () => void
 }
 
 export function AnalysisStudioHeader({
-  datasets,
   loading,
   error,
-  selectedTableId,
-  onSelect,
+  sourceName,
+  onOpenDatasets,
 }: AnalysisStudioHeaderProps) {
   return (
     <header
@@ -338,11 +624,10 @@ export function AnalysisStudioHeader({
           id="analysis-title"
           className="text-sm font-semibold tracking-tight"
         >
-          Analysis Studio
+          Analysis
         </h1>
         <span className="text-xs text-muted-foreground">
-          Visualise scientific data, compare conditions, and export
-          publication-ready charts
+          Named scientific answers with immutable run history
         </span>
       </div>
       <div className="flex items-center gap-2">
@@ -350,31 +635,178 @@ export function AnalysisStudioHeader({
           <Badge variant="danger">Could not load datasets</Badge>
         ) : loading ? (
           <Skeleton className="h-7 w-48" />
-        ) : datasets.length === 0 ? (
-          <Badge variant="outline">No datasets</Badge>
-        ) : (
-          <Field className="flex items-center gap-2">
-            <FieldLabel htmlFor="analysis-data-source" className="sr-only">
-              Data source
-            </FieldLabel>
-            <Select
-              id="analysis-data-source"
-              aria-label="Select data source"
-              value={selectedTableId ?? ''}
-              onChange={(e) => onSelect(e.target.value)}
-              className="h-8 w-56 bg-background"
-            >
-              {datasets.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                  {d.dataset_schema ? ` · ${d.dataset_schema.slug}` : ''}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        )}
+        ) : sourceName ? (
+          <span className="text-sm text-muted-foreground">
+            Source: {sourceName}
+          </span>
+        ) : null}
+        <Button variant="outline" size="sm" onClick={onOpenDatasets}>
+          Dataset Explorer
+        </Button>
       </div>
     </header>
+  )
+}
+
+export function AnalysisLibrary({
+  views,
+  loading,
+  error,
+  onLoad,
+}: {
+  views: AnalysisViewWire[]
+  loading: boolean
+  error: unknown
+  onLoad: (view: AnalysisViewWire) => void
+}) {
+  if (error) {
+    return (
+      <p role="alert" className="p-8 text-center text-sm text-destructive">
+        Could not load analyses.
+      </p>
+    )
+  }
+  if (loading) return <Skeleton className="m-auto h-24 w-full max-w-xl" />
+  return (
+    <section
+      className="mx-auto w-full max-w-3xl py-10"
+      aria-labelledby="analysis-library-title"
+    >
+      <h2 id="analysis-library-title" className="text-lg font-semibold">
+        Analyses
+      </h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Named exploratory analyses available in this workspace.
+      </p>
+      {views.length === 0 ? (
+        <p className="mt-8 border-t py-8 text-sm text-muted-foreground">
+          No analyses yet. Start from a dataset in Dataset Explorer.
+        </p>
+      ) : (
+        <ul className="mt-5 divide-y border-y">
+          {views.map((view) => (
+            <li key={view.id}>
+              <button
+                type="button"
+                className="flex w-full items-center justify-between px-2 py-3 text-left hover:bg-muted/40"
+                onClick={() => onLoad(view)}
+              >
+                <span className="font-medium">{view.name}</span>
+                <span className="text-xs text-muted-foreground">
+                  Exploratory · unreviewed
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}
+
+export function AnalysisMethods({
+  spec,
+  table,
+  rowCount,
+  runs,
+  loadingRuns,
+  selectedRunId,
+  recordedObservation,
+  onSelectRun,
+}: {
+  spec: ChartSpec
+  table: ScientificTableWire | null
+  rowCount: number | null
+  runs: AnalysisRunWire[]
+  loadingRuns: boolean
+  selectedRunId: string | null
+  recordedObservation: AnalysisRunWire['source_observations'] | null
+  onSelectRun: (run: AnalysisRunWire) => void
+}) {
+  return (
+    <div className="w-full divide-y border-y text-sm">
+      <section className="grid grid-cols-[10rem_1fr] gap-3 py-3">
+        <h2 className="font-medium">Current source</h2>
+        <p className="text-muted-foreground">
+          {recordedObservation?.sourceName ??
+            table?.name ??
+            'Unavailable source'}{' '}
+          · schema v
+          {recordedObservation?.schemaVersion ??
+            table?.schema_version ??
+            'unknown'}{' '}
+          ·{' '}
+          {recordedObservation
+            ? `${formatCount(recordedObservation.rowCount)} rows and metadata observed at ${new Date(recordedObservation.observedAt).toLocaleString('en-GB')}`
+            : rowCount === null
+              ? 'row count loading'
+              : `${formatCount(rowCount)} currently loaded rows`}
+        </p>
+      </section>
+      <section className="grid grid-cols-[10rem_1fr] gap-3 py-3">
+        <h2 className="font-medium">Operations</h2>
+        <p className="text-muted-foreground">
+          {spec.transformations.length
+            ? `${spec.transformations.length} configured transformation${spec.transformations.length === 1 ? '' : 's'}`
+            : 'No transformations'}{' '}
+          ·{' '}
+          {spec.filters.length
+            ? `${spec.filters.length} filter${spec.filters.length === 1 ? '' : 's'}`
+            : 'No filters'}
+        </p>
+      </section>
+      <section className="py-3">
+        <h2 className="mb-2 font-medium">Run history</h2>
+        {loadingRuns ? (
+          <p className="text-muted-foreground">Loading runs…</p>
+        ) : runs.length === 0 ? (
+          <p className="text-muted-foreground">No recorded runs.</p>
+        ) : (
+          <ol className="divide-y">
+            <li className="grid grid-cols-[5rem_11rem_1fr_7rem] gap-3 pb-1 text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
+              <span>Run</span>
+              <span>Recorded</span>
+              <span>Source observation</span>
+              <span>Evidence digest</span>
+            </li>
+            {runs.map((run, index) => (
+              <li
+                key={run.id}
+                className={cn(
+                  'grid grid-cols-[5rem_11rem_1fr_7rem] gap-3 py-2 text-xs',
+                  run.id === selectedRunId && 'bg-muted/50',
+                )}
+              >
+                <button
+                  type="button"
+                  className="text-left font-medium underline-offset-2 hover:underline"
+                  aria-pressed={run.id === selectedRunId}
+                  onClick={() => onSelectRun(run)}
+                >
+                  Run {run.sequence}
+                </button>
+                <time dateTime={run.created_at}>
+                  {new Date(run.created_at).toLocaleString('en-GB')}
+                </time>
+                <span className="text-muted-foreground">
+                  Recorded · source observed{' '}
+                  {new Date(run.source_observations.observedAt).toLocaleString(
+                    'en-GB',
+                  )}{' '}
+                  · {run.source_observations.rowCount} rows
+                </span>
+                <span className="font-mono text-muted-foreground">
+                  {run.digest.slice(0, 10)}
+                </span>
+                {index === 0 ? (
+                  <span className="sr-only">Latest run</span>
+                ) : null}
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
+    </div>
   )
 }
 
@@ -468,7 +900,7 @@ export function FilterControls({
   )
 }
 
-function AnalysisInspector({
+export function AnalysisInspector({
   table,
   spec,
   onSpecChange,

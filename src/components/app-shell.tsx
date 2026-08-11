@@ -21,7 +21,6 @@ import {
   Grid3x3,
   Home as HomeIcon,
   LayoutTemplate,
-  LineChart as LineChartIcon,
   LogOut,
   Menu,
   Moon,
@@ -337,7 +336,6 @@ export const defaultNavSections: AppShellNavSection[] = [
   {
     label: 'Tools',
     items: [
-      { to: '/analysis', label: 'Analysis', icon: LineChartIcon },
       { to: '/plate-designer', label: 'Plate Designer', icon: Grid3x3 },
       { to: '/calendar', label: 'Lab Calendar', icon: CalendarDays },
       { to: '/planner', label: 'Planner', icon: GanttChart },

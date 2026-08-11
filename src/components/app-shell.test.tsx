@@ -100,6 +100,19 @@ describe('AppShell', () => {
     expect(screen.getByRole('link', { name: 'Skip to content' })).toBeTruthy()
   })
 
+  it('does not advertise Analysis as a global navigation tool', async () => {
+    const { user } = renderShell({
+      context: baseContext,
+      breadcrumbs: [{ label: 'Home' }],
+      children: <p>Hello</p>,
+    })
+    expect(screen.queryByRole('link', { name: 'Analysis' })).toBeNull()
+    await user.click(
+      screen.getByRole('button', { name: 'Search records and samples' }),
+    )
+    expect(screen.queryByText('Analysis')).toBeNull()
+  })
+
   it('marks the last breadcrumb as the current page', () => {
     renderShell({
       context: baseContext,

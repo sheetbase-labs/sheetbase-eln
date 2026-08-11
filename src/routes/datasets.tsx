@@ -21,6 +21,8 @@ import { flexRender } from '@tanstack/react-table'
 import type { ColumnDef, useReactTable } from '@tanstack/react-table'
 import {
   Check,
+  ChevronDown,
+  ChevronUp,
   ChevronsUpDown,
   Database,
   Layers,
@@ -124,7 +126,7 @@ const DEFAULT_DATASET_QUERY: DatasetRowQuery = {
   filters: [],
 }
 const MINIMUM_DATASET_GRID_HEIGHT = 220
-const PREFERRED_MINIMUM_PREVIEW_HEIGHT = 220
+const PREFERRED_MINIMUM_PREVIEW_HEIGHT = 180
 const DATASET_SPLITTER_HEIGHT = 8
 
 export function datasetPreviewBounds(layoutHeight: number): {
@@ -301,6 +303,9 @@ export function DatasetExplorerHeader({
   selectedTableId,
   onSelect,
 }: DatasetExplorerHeaderProps) {
+  const selected = datasets.find((dataset) => dataset.id === selectedTableId)
+  const fieldCount = selected?.columns.length ?? 0
+
   return (
     <header
       className="flex shrink-0 flex-wrap items-center justify-between gap-3"
@@ -312,14 +317,19 @@ export function DatasetExplorerHeader({
           aria-hidden="true"
         />
         <div className="min-w-0">
+          <p className="text-[0.65rem] font-semibold uppercase leading-4 tracking-wide text-muted-foreground">
+            Dataset Explorer
+          </p>
           <h1
             id="datasets-title"
-            className="text-base font-semibold leading-5 tracking-tight"
+            className="truncate text-base font-semibold leading-5 tracking-tight"
           >
-            Dataset Explorer
+            {selected?.name ?? 'Scientific datasets'}
           </h1>
           <p className="text-xs leading-4 text-muted-foreground">
-            Browse scientific rows and preview the current dataset
+            {selected
+              ? `${formatCount(fieldCount)} ${fieldCount === 1 ? 'field' : 'fields'}${selected.dataset_schema ? ` · ${selected.dataset_schema.name}` : ''}`
+              : 'Browse scientific rows and preview a dataset'}
           </p>
         </div>
       </div>
@@ -354,7 +364,6 @@ function DatasetPicker({
   onSelect,
 }: DatasetPickerProps) {
   const [open, setOpen] = useState(false)
-  const selected = datasets.find((dataset) => dataset.id === selectedTableId)
 
   return (
     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -370,7 +379,8 @@ function DatasetPicker({
             className="h-7 w-56 justify-between bg-background px-2.5 text-xs font-normal"
           >
             <span className="truncate text-foreground">
-              {selected?.name ?? 'Choose a dataset'}
+              Browse {formatCount(datasets.length)}{' '}
+              {datasets.length === 1 ? 'dataset' : 'datasets'}
             </span>
             <ChevronsUpDown
               className="shrink-0 text-muted-foreground"
@@ -514,6 +524,7 @@ export function DatasetDataTab({
   })
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null)
   const [previewTab, setPreviewTab] = useState('preview')
+  const [previewOpen, setPreviewOpen] = useState(false)
   const [previewHeight, setPreviewHeight] = useState(320)
   const [layoutHeight, setLayoutHeight] = useState(640)
   const layoutRef = useRef<HTMLDivElement | null>(null)
@@ -663,9 +674,12 @@ export function DatasetDataTab({
         ref={layoutRef}
         className="grid min-h-0 flex-1"
         style={{
-          gridTemplateRows: `minmax(0, 1fr) ${DATASET_SPLITTER_HEIGHT}px ${previewHeight}px`,
+          gridTemplateRows: previewOpen
+            ? `minmax(0, 1fr) ${DATASET_SPLITTER_HEIGHT}px ${previewHeight}px`
+            : 'minmax(0, 1fr) 0 36px',
         }}
         data-preview-height={Math.round(previewHeight)}
+        data-preview-open={previewOpen ? 'true' : 'false'}
       >
         <div className="flex min-h-0 flex-col overflow-hidden">
           <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -715,62 +729,68 @@ export function DatasetDataTab({
             />
           </div>
         </div>
-        <div
-          role="separator"
-          aria-label="Resize dataset preview"
-          aria-orientation="horizontal"
-          aria-valuemin={Math.round(previewBounds.minimum)}
-          aria-valuemax={Math.round(previewBounds.maximum)}
-          aria-valuenow={Math.round(previewHeight)}
-          tabIndex={0}
-          className="group relative z-10 cursor-row-resize touch-none outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-          onPointerDown={(event) => {
-            resizeRef.current = {
-              pointerId: event.pointerId,
-              startY: event.clientY,
-              startHeight: previewHeight,
-            }
-            event.currentTarget.setPointerCapture(event.pointerId)
-          }}
-          onPointerMove={(event) => {
-            const resize = resizeRef.current
-            if (!resize || resize.pointerId !== event.pointerId) return
-            resizePreview(resize.startHeight + (resize.startY - event.clientY))
-          }}
-          onPointerUp={(event) => {
-            if (resizeRef.current?.pointerId !== event.pointerId) return
-            resizeRef.current = null
-            event.currentTarget.releasePointerCapture(event.pointerId)
-          }}
-          onPointerCancel={() => {
-            resizeRef.current = null
-          }}
-          onDoubleClick={() => resizePreview(320)}
-          onKeyDown={(event) => {
-            if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-              event.preventDefault()
+        {previewOpen ? (
+          <div
+            role="separator"
+            aria-label="Resize dataset preview"
+            aria-orientation="horizontal"
+            aria-valuemin={Math.round(previewBounds.minimum)}
+            aria-valuemax={Math.round(previewBounds.maximum)}
+            aria-valuenow={Math.round(previewHeight)}
+            tabIndex={0}
+            className="group relative z-10 cursor-row-resize touch-none outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+            onPointerDown={(event) => {
+              resizeRef.current = {
+                pointerId: event.pointerId,
+                startY: event.clientY,
+                startHeight: previewHeight,
+              }
+              event.currentTarget.setPointerCapture(event.pointerId)
+            }}
+            onPointerMove={(event) => {
+              const resize = resizeRef.current
+              if (!resize || resize.pointerId !== event.pointerId) return
               resizePreview(
-                previewHeight + (event.key === 'ArrowUp' ? 16 : -16),
+                resize.startHeight + (resize.startY - event.clientY),
               )
-            } else if (event.key === 'Home') {
-              event.preventDefault()
-              resizePreview(previewBounds.minimum)
-            } else if (event.key === 'End') {
-              event.preventDefault()
-              resizePreview(previewBounds.maximum)
-            }
-          }}
-        >
-          <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-border transition-colors group-hover:bg-primary group-focus-visible:bg-primary" />
-          <span className="absolute left-1/2 top-1/2 h-1 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-muted-foreground/25 transition-colors group-hover:bg-primary/60 group-focus-visible:bg-primary/60" />
-        </div>
+            }}
+            onPointerUp={(event) => {
+              if (resizeRef.current?.pointerId !== event.pointerId) return
+              resizeRef.current = null
+              event.currentTarget.releasePointerCapture(event.pointerId)
+            }}
+            onPointerCancel={() => {
+              resizeRef.current = null
+            }}
+            onDoubleClick={() => resizePreview(320)}
+            onKeyDown={(event) => {
+              if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+                event.preventDefault()
+                resizePreview(
+                  previewHeight + (event.key === 'ArrowUp' ? 16 : -16),
+                )
+              } else if (event.key === 'Home') {
+                event.preventDefault()
+                resizePreview(previewBounds.minimum)
+              } else if (event.key === 'End') {
+                event.preventDefault()
+                resizePreview(previewBounds.maximum)
+              }
+            }}
+          >
+            <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-border transition-colors group-hover:bg-primary group-focus-visible:bg-primary" />
+            <span className="absolute left-1/2 top-1/2 h-1 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-muted-foreground/25 transition-colors group-hover:bg-primary/60 group-focus-visible:bg-primary/60" />
+          </div>
+        ) : (
+          <div />
+        )}
         <Tabs
           value={previewTab}
           onValueChange={setPreviewTab}
           className="h-full min-h-0"
         >
           <div className="flex h-full min-h-0 flex-col overflow-hidden">
-            <div className="flex h-9 shrink-0 items-center border-b">
+            <div className="flex h-9 shrink-0 items-center justify-between border-b">
               <TabsList className="h-9 gap-5 rounded-none bg-transparent p-0">
                 {[
                   { value: 'preview', label: 'Chart preview' },
@@ -785,27 +805,44 @@ export function DatasetDataTab({
                   </TabsTrigger>
                 ))}
               </TabsList>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={() => setPreviewOpen((open) => !open)}
+                aria-expanded={previewOpen}
+                aria-controls="dataset-preview-content"
+              >
+                {previewOpen ? <ChevronDown /> : <ChevronUp />}
+                {previewOpen ? 'Hide preview' : 'Show preview'}
+              </Button>
             </div>
-            <TabsContent
-              value="preview"
-              className="m-0 min-h-0 flex-1 overflow-hidden p-3"
-            >
-              <ChartPreview
-                table={table}
-                chartSpec={chartSpec}
-                onChartSpecChange={setChartSpec}
-              />
-            </TabsContent>
-            <TabsContent
-              value="summary"
-              className="m-0 min-h-0 flex-1 overflow-auto p-3"
-            >
-              <ColumnSummary
-                columns={table.columns}
-                rows={rows}
-                totalCount={totalCount}
-              />
-            </TabsContent>
+            <div id="dataset-preview-content" className="min-h-0 flex-1">
+              {previewOpen ? (
+                <>
+                  <TabsContent
+                    value="preview"
+                    className="m-0 h-full min-h-0 overflow-hidden p-3"
+                  >
+                    <ChartPreview
+                      table={table}
+                      chartSpec={chartSpec}
+                      onChartSpecChange={setChartSpec}
+                    />
+                  </TabsContent>
+                  <TabsContent
+                    value="summary"
+                    className="m-0 h-full min-h-0 overflow-auto p-3"
+                  >
+                    <ColumnSummary
+                      columns={table.columns}
+                      rows={rows}
+                      totalCount={totalCount}
+                    />
+                  </TabsContent>
+                </>
+              ) : null}
+            </div>
           </div>
         </Tabs>
       </div>

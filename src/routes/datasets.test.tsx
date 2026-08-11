@@ -153,6 +153,9 @@ describe('DatasetExplorerHeader', () => {
       />,
     )
     expect(screen.getByText('Dataset Explorer')).toBeTruthy()
+    expect(
+      screen.getByRole('heading', { name: 'Scientific datasets' }),
+    ).toBeTruthy()
     // No select while loading.
     expect(screen.queryByLabelText('Select dataset')).toBeNull()
   })
@@ -188,7 +191,8 @@ describe('DatasetExplorerHeader', () => {
     )
 
     const trigger = screen.getByRole('combobox', { name: 'Select dataset' })
-    expect(trigger.textContent).toContain('Stability')
+    expect(trigger.textContent).toContain('Browse 121 datasets')
+    expect(screen.getByRole('heading', { name: 'Stability' })).toBeTruthy()
 
     await user.click(trigger)
     const search = screen.getByRole('combobox', { name: 'Search datasets' })
@@ -477,7 +481,7 @@ describe('DatasetInspector', () => {
 describe('DatasetDataTab', () => {
   it('preserves the data-grid minimum in short layouts', () => {
     expect(datasetPreviewBounds(400)).toEqual({ minimum: 172, maximum: 172 })
-    expect(datasetPreviewBounds(679)).toEqual({ minimum: 220, maximum: 451 })
+    expect(datasetPreviewBounds(679)).toEqual({ minimum: 180, maximum: 451 })
   })
 
   function mockQueries(
@@ -538,9 +542,15 @@ describe('DatasetDataTab', () => {
     expect(screen.queryByRole('tab', { name: 'Distribution' })).toBeNull()
     expect(screen.queryByRole('tab', { name: 'Correlations' })).toBeNull()
     const layout = document.querySelector('[data-preview-height]')
+    expect(layout?.getAttribute('data-preview-open')).toBe('false')
+    expect(
+      screen.queryByRole('separator', { name: 'Resize dataset preview' }),
+    ).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Show preview' }))
     const separator = screen.getByRole('separator', {
       name: 'Resize dataset preview',
     })
+    expect(layout?.getAttribute('data-preview-open')).toBe('true')
     expect(layout?.getAttribute('data-preview-height')).toBe('320')
     separator.focus()
     await user.keyboard('{ArrowUp}')

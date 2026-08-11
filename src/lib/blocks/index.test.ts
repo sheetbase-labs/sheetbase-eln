@@ -275,6 +275,11 @@ describe('block payload validation (ELN-002)', () => {
         },
         provenance: 'Analysis Studio',
       },
+      analysis_reference: {
+        analysisId: '0198d970-e266-4000-8000-000000000030',
+        runId: '0198d970-e266-4000-8000-000000000031',
+        title: 'Titration analysis',
+      },
       plate_map: {
         title: 'qPCR titration plate',
         spec: {
@@ -349,6 +354,38 @@ describe('block payload validation (ELN-002)', () => {
     for (const type of KNOWN_BLOCK_TYPES) {
       expect(validateBlock({ type, payload: samples[type] }).ok).toBe(true)
     }
+  })
+
+  it('validates analysis reference drafts and exact configured pairs', () => {
+    expect(validateBlock({ type: 'analysis_reference', payload: {} }).ok).toBe(
+      true,
+    )
+    expect(
+      validateBlock({
+        type: 'analysis_reference',
+        payload: {
+          analysisId: '0198d970-e266-4000-8000-000000000030',
+          runId: '0198d970-e266-4000-8000-000000000031',
+          title: 'Recorded assay',
+        },
+      }).ok,
+    ).toBe(true)
+    for (const payload of [
+      {
+        analysisId: 'not-a-uuid',
+        runId: '0198d970-e266-4000-8000-000000000031',
+      },
+      { analysisId: '0198d970-e266-4000-8000-000000000030' },
+      { runId: '0198d970-e266-4000-8000-000000000031' },
+      {
+        analysisId: '0198d970-e266-4000-8000-000000000030',
+        runId: '0198d970-e266-4000-8000-000000000031',
+        spec: {},
+      },
+    ])
+      expect(validateBlock({ type: 'analysis_reference', payload }).ok).toBe(
+        false,
+      )
   })
 
   it('validates execution state separately from a reusable procedure definition', () => {

@@ -4,6 +4,7 @@
  * undo, and read-only behaviour for archived notebooks. Mutation callbacks
  * are stubbed so no RPC or QueryClient context is required.
  */
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -101,6 +102,33 @@ describe('NotebookDocument — rendering', () => {
 
     fireEvent.click(container.querySelector('#block-b1')!)
     expect(screen.getByRole('textbox', { name: 'Text content' })).toBeTruthy()
+  })
+
+  it('opens the analysis result picker when an analysis reference is selected', () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { enabled: false } },
+    })
+    const analysisReference: NotebookBlock = {
+      ...richTextBlock('analysis-1', ''),
+      type: 'analysis_reference',
+      payload: {},
+    }
+    const { container } = render(
+      <QueryClientProvider client={client}>
+        <NotebookDocument
+          record={record}
+          blocks={[analysisReference]}
+          onSaveBlock={vi.fn()}
+          onInsertBlock={vi.fn()}
+          onDuplicateBlock={vi.fn()}
+          onDeleteBlock={vi.fn()}
+        />
+      </QueryClientProvider>,
+    )
+
+    expect(screen.getByText('No analysis result selected.')).toBeTruthy()
+    fireEvent.click(container.querySelector('#block-analysis-1')!)
+    expect(screen.getByRole('combobox', { name: 'Analysis' })).toBeTruthy()
   })
 
   it('renders an honest, labelled frozen chart preview', () => {

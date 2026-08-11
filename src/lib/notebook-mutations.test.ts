@@ -284,5 +284,6 @@ describe('defaultPayloadFor', () => {
 
   it('returns an empty object for unknown types', () => {
     expect(defaultPayloadFor('chart')).toEqual({})
+    expect(defaultPayloadFor('analysis_reference')).toEqual({})
   })
 })

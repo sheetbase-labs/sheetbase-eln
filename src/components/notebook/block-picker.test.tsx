@@ -23,6 +23,7 @@ describe('BlockPicker', () => {
       'materials',
       'file',
       'chart',
+      'analysis_reference',
       'plate_map',
     ])
     expect(BLOCK_PICKER_OPTIONS.map((o) => o.label)).toEqual([
@@ -34,9 +35,19 @@ describe('BlockPicker', () => {
       'Materials',
       'File',
       'Chart',
+      'Analysis result',
       'Plate map',
     ])
     expect(types).not.toContain('heading')
+  })
+
+  it('inserts an immutable analysis result reference', async () => {
+    const user = userEvent.setup()
+    const onInsert = vi.fn()
+    render(<BlockPicker onInsert={onInsert} />)
+    await user.click(screen.getByRole('button', { name: /Add block/ }))
+    await user.click(screen.getByRole('menuitem', { name: /Analysis result/ }))
+    expect(onInsert).toHaveBeenCalledWith('analysis_reference')
   })
 
   it('calls onInsert with the chosen type', async () => {

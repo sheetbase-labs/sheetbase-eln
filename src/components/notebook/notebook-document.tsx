@@ -129,6 +129,7 @@ const EDITABLE_TYPES = new Set([
   'materials',
   'file',
   'chart',
+  'analysis_reference',
 ])
 
 export function NotebookDocument(props: NotebookDocumentProps) {
@@ -702,18 +703,19 @@ function NotebookDocumentContent({
               <NotebookBlock
                 label={blockLabel(block)}
                 title={
-                  // Chart and plate_map render their own payload.title
-                  // internally (ChartFrame header, plate map caption).
+                  // Chart, analysis_reference and plate_map render their own
+                  // payload.title internally (chart header or caption).
                   // Suppress the wrapper title to avoid duplication.
                   block.type !== 'chart' &&
+                  block.type !== 'analysis_reference' &&
                   block.type !== 'plate_map' &&
-                  typeof block.payload?.title === 'string' &&
+                  typeof block.payload.title === 'string' &&
                   block.payload.title.trim()
                     ? block.payload.title
                     : undefined
                 }
                 onTitleChange={
-                  editable && !isReadOnly && !isPayloadImmutable(block)
+                  editable && !isPayloadImmutable(block)
                     ? (newTitle) =>
                         onSaveBlock(block, {
                           ...block.payload,
@@ -798,9 +800,13 @@ function NotebookDocumentContent({
                     }
                     readOnly={isReadOnly}
                     autoFocus={isSelected}
-                    onSlashCommand={(type) => void handleSlashCommand(block, type)}
+                    onSlashCommand={(type) =>
+                      void handleSlashCommand(block, type)
+                    }
                     onEnterAtEnd={() => void handleEnterAtEnd(block)}
-                    onBackspaceAtStart={() => void handleBackspaceAtStart(block)}
+                    onBackspaceAtStart={() =>
+                      void handleBackspaceAtStart(block)
+                    }
                     onArrowUpFromStart={() => handleArrowUpFromStart(block)}
                     onArrowDownFromEnd={() => handleArrowDownFromEnd(block)}
                   />
@@ -931,10 +937,10 @@ function NotebookDocumentContent({
  */
 function isPayloadImmutable(block: NotebookBlockData): boolean {
   if (block.type === 'protocol_reference') {
-    return Boolean(block.payload?.protocolRecordId)
+    return Boolean(block.payload.protocolRecordId)
   }
   if (block.type === 'chart') {
-    return Boolean(block.payload?.frozen)
+    return Boolean(block.payload.frozen)
   }
   return false
 }

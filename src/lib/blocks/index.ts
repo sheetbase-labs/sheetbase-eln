@@ -73,6 +73,7 @@ export type BlockType =
   | 'table'
   | 'sheet'
   | 'chart'
+  | 'analysis_reference'
   | 'plate_map'
   | 'file'
   | 'metric'
@@ -96,6 +97,7 @@ export const KNOWN_BLOCK_TYPES: readonly BlockType[] = [
   'table',
   'sheet',
   'chart',
+  'analysis_reference',
   'plate_map',
   'file',
   'metric',
@@ -174,6 +176,46 @@ function isTimestamp(v: unknown): v is string {
 
 function isNonEmptyString(v: unknown): v is string {
   return isString(v) && v.trim().length > 0
+}
+
+function validateAnalysisReference(payload: unknown): FieldErrors {
+  if (!isObject(payload)) {
+    return [
+      { code: 'invalid_payload_shape', message: 'payload must be an object' },
+    ]
+  }
+  if (Object.keys(payload).length === 0) return []
+  const errors: FieldErrors = []
+  if (!isUuid(payload.analysisId)) {
+    errors.push({
+      code: 'invalid_field_value',
+      field: 'analysisId',
+      message: 'analysisId must be a UUID',
+    })
+  }
+  if (!isUuid(payload.runId)) {
+    errors.push({
+      code: 'invalid_field_value',
+      field: 'runId',
+      message: 'runId must be a UUID',
+    })
+  }
+  if (!isNonEmptyString(payload.title)) {
+    errors.push({
+      code: 'invalid_field_value',
+      field: 'title',
+      message: 'title must be a non-empty recorded label',
+    })
+  }
+  const allowed = new Set(['analysisId', 'runId', 'title'])
+  if (Object.keys(payload).some((key) => !allowed.has(key))) {
+    errors.push({
+      code: 'invalid_payload_shape',
+      message:
+        'analysis references may only contain analysisId, runId and title',
+    })
+  }
+  return errors
 }
 
 function validateSheet(payload: unknown): FieldErrors {
@@ -772,6 +814,7 @@ const validators: Record<BlockType, (payload: unknown) => FieldErrors> = {
   table: validateTable,
   sheet: validateSheet,
   chart: validateChart,
+  analysis_reference: validateAnalysisReference,
   plate_map: validatePlateMap,
   file: validateFile,
   metric: validateMetric,

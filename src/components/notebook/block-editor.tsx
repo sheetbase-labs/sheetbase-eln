@@ -102,6 +102,12 @@ import type {
   WellAssignment,
 } from '#/lib/plate-map'
 import type { ScientificRecordKind } from '#/lib/scientific-records'
+import {
+  analysisStudioDataClient,
+  analysisStudioQueryKeys,
+  fetchAnalysisRuns,
+  fetchAnalysisViews,
+} from '#/lib/analysis-studio-data'
 
 export type { AutosaveStatus, SaveResult }
 
@@ -167,6 +173,8 @@ export function BlockEditor(props: BlockEditorProps) {
       return <FileBlockEditor {...props} />
     case 'chart':
       return <ChartBlockEditor {...props} />
+    case 'analysis_reference':
+      return <AnalysisReferenceEditor {...props} />
     case 'plate_map':
       return <PlateMapBlockEditor {...props} />
     default:
@@ -174,6 +182,123 @@ export function BlockEditor(props: BlockEditorProps) {
         <UnsupportedEditor block={props.block} className={props.className} />
       )
   }
+}
+
+function AnalysisReferenceEditor(props: BlockEditorProps) {
+  const { block, readOnly } = props
+  const initial = block.payload as {
+    analysisId?: string
+    runId?: string
+    title?: string
+  }
+  const a = useBlockAutosave(
+    block,
+    initial,
+    props.save,
+    props.offline,
+    props.onStatusChange,
+  )
+  const viewsQuery = useQuery({
+    queryKey: analysisStudioQueryKeys.views,
+    queryFn: () => fetchAnalysisViews(analysisStudioDataClient),
+  })
+  const [analysisId, setAnalysisId] = React.useState(initial.analysisId ?? '')
+  const runsQuery = useQuery({
+    queryKey: analysisStudioQueryKeys.runs(analysisId),
+    queryFn: () => fetchAnalysisRuns(analysisStudioDataClient, analysisId),
+    enabled: Boolean(analysisId),
+  })
+  const completedRuns = (runsQuery.data ?? []).filter(
+    (run) => run.status === 'completed',
+  )
+
+  if (readOnly) {
+    const view = viewsQuery.data?.find((item) => item.id === initial.analysisId)
+    const run = completedRuns.find((item) => item.id === initial.runId)
+    return (
+      <p className="text-sm text-muted-foreground">
+        {view && run
+          ? `${initial.title ?? view.name} — recorded run ${run.sequence}`
+          : 'No analysis result selected.'}
+      </p>
+    )
+  }
+
+  return (
+    <div className="relative space-y-3 pb-7">
+      <Field label="Analysis" htmlFor={`analysis-${block.id}`}>
+        <Select
+          id={`analysis-${block.id}`}
+          value={analysisId}
+          disabled={viewsQuery.isLoading || Boolean(viewsQuery.error)}
+          onChange={(event) => setAnalysisId(event.target.value)}
+        >
+          <option value="">Select an analysis</option>
+          {(viewsQuery.data ?? []).map((view) => (
+            <option key={view.id} value={view.id}>
+              {view.name}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      {viewsQuery.isLoading ? <p>Loading analyses…</p> : null}
+      {viewsQuery.error ? (
+        <Alert variant="destructive">Analyses could not be loaded.</Alert>
+      ) : null}
+      {!viewsQuery.isLoading &&
+      !viewsQuery.error &&
+      viewsQuery.data?.length === 0 ? (
+        <p>No named analyses are available.</p>
+      ) : null}
+      {analysisId ? (
+        <Field label="Recorded result" htmlFor={`run-${block.id}`}>
+          <Select
+            id={`run-${block.id}`}
+            value={a.draft.runId ?? ''}
+            disabled={runsQuery.isLoading || Boolean(runsQuery.error)}
+            onChange={(event) => {
+              const run = completedRuns.find(
+                (item) => item.id === event.target.value,
+              )
+              const view = viewsQuery.data?.find(
+                (item) => item.id === analysisId,
+              )
+              if (!run || !view) return
+              a.setTouched(true)
+              a.setDraft({ analysisId, runId: run.id, title: view.name })
+            }}
+          >
+            <option value="">Select a completed run</option>
+            {completedRuns.map((run) => (
+              <option key={run.id} value={run.id}>
+                Run {run.sequence} —{' '}
+                {new Date(run.created_at).toLocaleString('en-GB')}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      ) : null}
+      {analysisId && runsQuery.isLoading ? <p>Loading recorded runs…</p> : null}
+      {analysisId && runsQuery.error ? (
+        <Alert variant="destructive">Recorded runs could not be loaded.</Alert>
+      ) : null}
+      {analysisId &&
+      !runsQuery.isLoading &&
+      !runsQuery.error &&
+      completedRuns.length === 0 ? (
+        <p>This analysis has no completed runs.</p>
+      ) : null}
+      <AutosaveFooter
+        status={a.status}
+        error={a.error}
+        validationErrors={a.validationErrors}
+        serverPreview="Analysis result reference"
+        onUseServer={() => a.discardDraft()}
+        onKeepLocal={() => a.retry()}
+        retrying={a.status === 'saving'}
+      />
+    </div>
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -395,13 +520,10 @@ function ChecklistEditor({
   autoFocus,
   className,
 }: BlockEditorProps) {
-  const initialDraft = React.useMemo<ChecklistDraft>(
-    () => {
-      const initial = block.payload as { items?: ChecklistItem[] }
-      return { items: Array.isArray(initial.items) ? initial.items : [] }
-    },
-    [block.payload],
-  )
+  const initialDraft = React.useMemo<ChecklistDraft>(() => {
+    const initial = block.payload as { items?: ChecklistItem[] }
+    return { items: Array.isArray(initial.items) ? initial.items : [] }
+  }, [block.payload])
   const a = useBlockAutosave(block, initialDraft, save, offline, onStatusChange)
 
   function update(i: number, patch: Partial<ChecklistItem>) {
@@ -549,23 +671,20 @@ function LinkedRecordEditor({
   autoFocus,
   className,
 }: BlockEditorProps) {
-  const initialDraft = React.useMemo<LinkedRecordDraft>(
-    () => {
-      const initial = block.payload as {
-        targetKind?: string
-        targetIdentifier?: string
-        linkType?: string
-        label?: string
-      }
-      return {
-        targetKind: initial.targetKind ?? 'experiment',
-        targetIdentifier: initial.targetIdentifier ?? '',
-        linkType: initial.linkType ?? 'general',
-        label: initial.label ?? '',
-      }
-    },
-    [block.payload],
-  )
+  const initialDraft = React.useMemo<LinkedRecordDraft>(() => {
+    const initial = block.payload as {
+      targetKind?: string
+      targetIdentifier?: string
+      linkType?: string
+      label?: string
+    }
+    return {
+      targetKind: initial.targetKind ?? 'experiment',
+      targetIdentifier: initial.targetIdentifier ?? '',
+      linkType: initial.linkType ?? 'general',
+      label: initial.label ?? '',
+    }
+  }, [block.payload])
   const a = useBlockAutosave(block, initialDraft, save, offline, onStatusChange)
 
   if (readOnly) {

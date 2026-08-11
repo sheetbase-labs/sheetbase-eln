@@ -220,6 +220,8 @@ export function defaultPayloadFor(type: string): Record<string, unknown> {
     // opens immediately; the user picks a dataset, fields and chart type.
     case 'chart':
       return {}
+    case 'analysis_reference':
+      return {}
     // SCI-005: a plate map starts as an empty draft `{}` (valid) so the
     // editor opens immediately; the user sets dimensions and assigns wells.
     case 'plate_map':

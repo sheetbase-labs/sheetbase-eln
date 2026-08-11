@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 import {
   Check,
   CheckCircle2,
@@ -36,14 +37,18 @@ import {
   formatCellValue,
   formatMetricValue,
 } from '#/lib/format-numbers'
-import { Badge } from '#/components/ui'
+import { Alert, Badge } from '#/components/ui'
 import {
   materialiseFrozenChart,
   materialiseLiveChart,
   useLiveChartDataset,
 } from '#/lib/chart-data'
 import { CHART_SPEC_VERSION } from '#/lib/chart-spec'
-import type { ChartBlockPayload, ChartSpec } from '#/lib/chart-spec'
+import type {
+  ChartBlockPayload,
+  ChartSpec,
+  FrozenChart,
+} from '#/lib/chart-spec'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import { PlateMap } from '#/components/viz/plate-map'
 import type {
@@ -52,6 +57,12 @@ import type {
 } from '#/components/viz/plate-map'
 import { PLATE_MAP_SPEC_VERSION, ROLE_STYLES } from '#/lib/plate-map'
 import type { PlateMapSpec, WellAssignment } from '#/lib/plate-map'
+import {
+  analysisStudioDataClient,
+  analysisStudioQueryKeys,
+  fetchAnalysisRuns,
+  fetchAnalysisViews,
+} from '#/lib/analysis-studio-data'
 import {
   scientificDataClient,
   scientificQueryKeys,
@@ -124,6 +135,8 @@ function renderPayload(type: string, payload: unknown): React.ReactNode {
       return <SheetBlockPreview payload={payload} />
     case 'chart':
       return <ChartBlockPreview payload={payload} />
+    case 'analysis_reference':
+      return <AnalysisReferencePreview payload={payload} />
     case 'plate_map':
       return <PlateMapBlockPreview payload={payload} />
     case 'file':
@@ -131,6 +144,90 @@ function renderPayload(type: string, payload: unknown): React.ReactNode {
     default:
       return renderUnsupported(type, payload)
   }
+}
+
+function AnalysisReferencePreview({ payload }: { payload: unknown }) {
+  const obj = asObject(payload)
+  const analysisId = asString(obj?.analysisId)
+  const runId = asString(obj?.runId)
+  const title = asString(obj?.title)
+  const empty = obj !== null && Object.keys(obj).length === 0
+  const viewsQuery = useQuery({
+    queryKey: analysisStudioQueryKeys.views,
+    queryFn: () => fetchAnalysisViews(analysisStudioDataClient),
+    enabled: !empty && Boolean(analysisId && runId),
+  })
+  const runsQuery = useQuery({
+    queryKey: analysisStudioQueryKeys.runs(analysisId ?? ''),
+    queryFn: () =>
+      fetchAnalysisRuns(analysisStudioDataClient, analysisId ?? ''),
+    enabled: !empty && Boolean(analysisId && runId),
+  })
+  if (empty)
+    return <p className="text-muted-foreground">No analysis result selected.</p>
+  if (!analysisId || !runId || !title)
+    return (
+      <Alert variant="destructive">
+        This analysis result reference is malformed.
+      </Alert>
+    )
+  if (viewsQuery.isLoading || runsQuery.isLoading)
+    return <p>Loading recorded analysis result…</p>
+  if (viewsQuery.error || runsQuery.error)
+    return (
+      <Alert variant="destructive">
+        The recorded analysis result could not be loaded.
+      </Alert>
+    )
+  const view = viewsQuery.data?.find((item) => item.id === analysisId)
+  const run = runsQuery.data?.find(
+    (item) =>
+      item.id === runId &&
+      item.analysis_view_id === analysisId &&
+      item.status === 'completed',
+  )
+  if (!view || !run)
+    return (
+      <Alert variant="destructive">
+        The referenced analysis or completed run is missing or inaccessible.
+      </Alert>
+    )
+  const frozen: FrozenChart = {
+    revisionId: null,
+    frozenAt: run.created_at,
+    frozenByUserId: run.actor_user_id,
+    datasetProvenance: [],
+    data: { columns: [], rows: [], series: [] },
+  }
+  return (
+    <section className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <strong>{title}</strong>
+        <Badge variant="secondary">Recorded run {run.sequence}</Badge>
+        <Badge variant="outline">Exploratory · unreviewed</Badge>
+        <time
+          className="text-xs text-muted-foreground"
+          dateTime={run.created_at}
+        >
+          {new Date(run.created_at).toLocaleString('en-GB')}
+        </time>
+        <Link
+          to="/analysis"
+          search={{ analysis: analysisId, dataset: '', run: runId }}
+          className="text-xs text-primary underline"
+        >
+          Open analysis
+        </Link>
+      </div>
+      <ChartRenderer
+        title={title}
+        spec={run.spec_snapshot}
+        materialised={run.result_snapshot}
+        frozen={frozen}
+        hideTitle
+      />
+    </section>
+  )
 }
 
 function renderRichText(payload: unknown): React.ReactNode {
@@ -425,17 +522,19 @@ function MaterialsPreview({ payload }: { payload: unknown }) {
                   </span>
                 ) : null}
                 {alerts.map((alert) => (
-                <Badge
-                  key={alert.kind}
-                  variant={alert.kind === 'unavailable' ? 'danger' : 'warning'}
-                >
-                  {alert.label}
-                </Badge>
-              ))}
+                  <Badge
+                    key={alert.kind}
+                    variant={
+                      alert.kind === 'unavailable' ? 'danger' : 'warning'
+                    }
+                  >
+                    {alert.label}
+                  </Badge>
+                ))}
+              </div>
             </div>
-          </div>
-        )
-      })}
+          )
+        })}
       </div>
     </div>
   )
@@ -1007,9 +1106,7 @@ function PlateMapBlockPreview({ payload }: { payload: unknown }) {
     // In compact/read-only mode, show only the well code (A1, B2) inside
     // the circle — full sample identifiers overflow the tiny wells. The
     // complete info (sample ID, role, replicate) is in the tooltip/title.
-    const displayLabel = w.role === 'empty'
-      ? ''
-      : w.wellCode
+    const displayLabel = w.role === 'empty' ? '' : w.wellCode
     return {
       row: w.row,
       col: w.col,

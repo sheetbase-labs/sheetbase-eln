@@ -9,6 +9,7 @@ import {
   Sheet,
   Paperclip,
   LineChart,
+  ChartNoAxesCombined,
   Grid3x3,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -91,6 +92,12 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     description:
       'A line, scatter or bar chart from a saved dataset, with a live or frozen snapshot.',
     icon: LineChart,
+  },
+  {
+    type: 'analysis_reference',
+    label: 'Analysis result',
+    description: 'Reference an exact recorded analysis result.',
+    icon: ChartNoAxesCombined,
   },
   {
     type: 'plate_map',

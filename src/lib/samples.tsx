@@ -762,7 +762,7 @@ export function describeSampleError(error: unknown): string {
 // Column definitions for the registry composition.
 //
 // Exported as a factory so the route can pass its row type through. Columns
-// use the Sheetbase-owned `registryFormat` meta so the composition formats
+// use the Sheetbase-owned `dataGridFormat` meta so the shared grid formats
 // numeric/unit cells consistently without a custom cell renderer.
 // ---------------------------------------------------------------------------
 
@@ -799,7 +799,7 @@ export function sampleColumns<T extends SampleRecord>(): ColumnDef<
       id: 'quantity',
       header: 'Quantity',
       accessorFn: (row) => row.quantity,
-      meta: { registryFormat: { kind: 'scientific' } },
+      meta: { dataGridFormat: { kind: 'scientific' } },
       cell: ({ row }) => {
         const q = row.original.quantity
         const unit = row.original.quantityUnit
@@ -843,7 +843,7 @@ export function sampleColumns<T extends SampleRecord>(): ColumnDef<
       id: 'updatedAt',
       header: 'Updated',
       accessorKey: 'updatedAt',
-      meta: { registryFormat: { kind: 'date' } },
+      meta: { dataGridFormat: { kind: 'date' } },
     },
   ]
 }

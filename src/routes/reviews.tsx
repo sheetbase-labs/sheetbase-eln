@@ -41,10 +41,8 @@ import {
 
 import { useShell } from '#/components/app-shell'
 import { RegistryComposition } from '#/components/registry/registry-composition'
-import type {
-  RegistryField,
-  RegistrySummary,
-} from '#/components/registry/registry-composition'
+import type { DataGridField } from '#/components/data-grid'
+import type { RegistrySummary } from '#/components/registry/registry-composition'
 import { StatusBadge } from '#/components/scientific/status-badge'
 import type { StatusVocabulary } from '#/components/scientific/status-badge'
 import { Badge, Button } from '#/components/ui'
@@ -585,7 +583,7 @@ function ReviewsRoute() {
       placeholder: 'Identifier, title, submitter…',
     },
   ]
-  const fields: RegistryField<ReviewItem>[] = columns.map((column) => {
+  const fields: DataGridField<ReviewItem>[] = columns.map((column) => {
     const id = String(column.id)
     const definition = filterDefinitions.find(
       (candidate) => candidate.id === id,

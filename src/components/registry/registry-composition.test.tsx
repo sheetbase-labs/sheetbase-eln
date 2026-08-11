@@ -13,6 +13,7 @@ import { useState } from 'react'
 
 import { RegistryComposition } from './registry-composition'
 import type { RegistryCompositionProps } from './registry-composition'
+import { DataGridGrouping } from '#/components/data-grid'
 import type { RegistryQuery } from '#/lib/registry'
 
 interface Row {
@@ -33,7 +34,7 @@ const columns: ColumnDef<Row, unknown>[] = [
   {
     accessorKey: 'value',
     header: 'Concentration',
-    meta: { registryFormat: { kind: 'scientific', unit: 'µg/mL' } },
+    meta: { dataGridFormat: { kind: 'scientific', unit: 'µg/mL' } },
   },
   {
     id: 'actions',
@@ -101,6 +102,41 @@ afterEach(() => {
 })
 
 describe('RegistryComposition server contracts', () => {
+  it('adds ordered grouping fields and removes each active grouping', async () => {
+    const user = userEvent.setup()
+    const fields = [
+      { id: 'status', label: 'Status', groupable: true },
+      { id: 'identifier', label: 'Identifier', groupable: true },
+    ]
+
+    function GroupingHarness() {
+      const [controlledQuery, setControlledQuery] = useState(query)
+      return (
+        <DataGridGrouping
+          fields={fields}
+          grouping={controlledQuery.grouping}
+          onGroupingChange={(grouping) =>
+            setControlledQuery({ ...controlledQuery, grouping })
+          }
+        />
+      )
+    }
+
+    render(<GroupingHarness />)
+    await user.click(screen.getByRole('button', { name: 'Add grouping' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Status' }))
+    await user.click(screen.getByRole('button', { name: 'Add grouping' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Identifier' }))
+
+    const grouping = screen.getByLabelText('Row grouping')
+    expect(grouping.textContent).toContain('Group: StatusGroup: Identifier')
+    await user.click(
+      screen.getByRole('button', { name: 'Remove Status grouping' }),
+    )
+    expect(grouping.textContent).not.toContain('Group: Status')
+    expect(grouping.textContent).toContain('Group: Identifier')
+  })
+
   it('uses the reported total for pagination without loading all rows', async () => {
     const user = userEvent.setup()
     const onQueryChange = vi.fn()
@@ -143,7 +179,8 @@ describe('RegistryComposition server contracts', () => {
       filters: [{ fieldId: 'status', operator: 'eq', values: ['available'] }],
     })
 
-    await user.selectOptions(screen.getByLabelText('Group rows'), 'status')
+    await user.click(screen.getByRole('button', { name: 'Add grouping' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Status' }))
     expect(onQueryChange).toHaveBeenCalledWith({
       ...query,
       pageIndex: 0,
@@ -312,6 +349,23 @@ describe('RegistryComposition server contracts', () => {
     expect(Number(handle.getAttribute('aria-valuenow'))).toBe(initialSize + 10)
   })
 
+  it('uses the shared column selector to hide eligible columns', async () => {
+    const user = userEvent.setup()
+    render(<RegistryComposition {...props()} />)
+
+    await user.click(
+      screen.getByRole('button', { name: 'Choose visible columns' }),
+    )
+    await user.click(
+      screen.getByRole('menuitemcheckbox', { name: 'Identifier' }),
+    )
+
+    expect(
+      screen.queryByRole('columnheader', { name: 'Identifier' }),
+    ).toBeNull()
+    expect(screen.getByRole('columnheader', { name: 'Actions' })).toBeTruthy()
+  })
+
   it('preserves loaded rows when an incremental append fails', () => {
     render(
       <RegistryComposition
@@ -358,9 +412,7 @@ describe('RegistryComposition interaction and states', () => {
     )
     // Inspector Sheet opens on selection; Radix marks the rest inert,
     // so query the DOM directly instead of using getByRole.
-    const selectedRow = container.querySelector(
-      'tr[data-registry-row-id="two"]',
-    )
+    const selectedRow = container.querySelector('tr[data-grid-row-id="two"]')
     expect(selectedRow?.getAttribute('aria-selected')).toBe('true')
     expect(screen.getByText('Inspecting SMP-0002')).toBeTruthy()
   })

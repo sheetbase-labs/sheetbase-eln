@@ -16,7 +16,7 @@ import { PackagePlus } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
 import { RegistryComposition } from '#/components/registry/registry-composition'
-import type { RegistryField } from '#/components/registry/registry-composition'
+import type { DataGridField } from '#/components/data-grid'
 import { SampleInspector } from '#/components/samples/sample-inspector'
 import type { SampleCustodyAction } from '#/components/samples/sample-inspector'
 import { StatusBadge } from '#/components/scientific/status-badge'
@@ -255,7 +255,7 @@ function SamplesRegistryRoute() {
     return cols
   }, [])
 
-  const fields: RegistryField<SampleRecord>[] = columns.map((column) => {
+  const fields: DataGridField<SampleRecord>[] = columns.map((column) => {
     const id = String(
       column.id ?? ('accessorKey' in column ? column.accessorKey : ''),
     )

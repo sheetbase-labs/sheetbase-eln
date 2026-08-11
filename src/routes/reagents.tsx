@@ -34,7 +34,8 @@ import { Archive } from 'lucide-react'
 import { useShell } from '#/components/app-shell'
 import { ReagentInspector } from '#/components/reagents/reagent-inspector'
 import { RegistryComposition } from '#/components/registry'
-import type { RegistryField, RegistrySummary } from '#/components/registry'
+import type { DataGridField } from '#/components/data-grid'
+import type { RegistrySummary } from '#/components/registry'
 import { StatusBadge } from '#/components/scientific'
 import {
   Badge,
@@ -397,7 +398,7 @@ function buildColumns(): ColumnDef<Reagent, unknown>[] {
       header: 'Expiry',
       size: 104,
       minSize: 92,
-      meta: { registryFormat: { kind: 'date', dateStyle: 'short' } },
+      meta: { dataGridFormat: { kind: 'date', dateStyle: 'short' } },
       cell: (info) => (info.getValue() ? formatDate(info.getValue()) : '—'),
     }),
     columnHelper.accessor((row) => row.quantity, {
@@ -431,7 +432,7 @@ function buildColumns(): ColumnDef<Reagent, unknown>[] {
       header: 'Updated',
       size: 104,
       minSize: 92,
-      meta: { registryFormat: { kind: 'date', dateStyle: 'short' } },
+      meta: { dataGridFormat: { kind: 'date', dateStyle: 'short' } },
       cell: (info) => formatDate(info.getValue()),
     }),
   ] as ColumnDef<Reagent, unknown>[]
@@ -439,7 +440,7 @@ function buildColumns(): ColumnDef<Reagent, unknown>[] {
 
 function buildFields(
   columns: ColumnDef<Reagent, unknown>[],
-): RegistryField<Reagent>[] {
+): DataGridField<Reagent>[] {
   const labels: Record<string, string> = {
     identifier: 'Reagent ID',
     title: 'Name',
@@ -458,7 +459,7 @@ function buildFields(
     placeholder,
     operators: [{ value: 'contains' as const, label: 'contains' }],
   })
-  const filters: Record<string, RegistryField<Reagent>['filter']> = {
+  const filters: Record<string, DataGridField<Reagent>['filter']> = {
     category: textFilter('Category contains'),
     supplier: textFilter('Supplier contains'),
     catalogNo: textFilter('Catalogue number contains'),
@@ -479,7 +480,7 @@ function buildFields(
       ],
     },
   }
-  const fields: RegistryField<Reagent>[] = columns.map((column) => {
+  const fields: DataGridField<Reagent>[] = columns.map((column) => {
     const id = String(
       column.id ?? ('accessorKey' in column ? column.accessorKey : ''),
     )

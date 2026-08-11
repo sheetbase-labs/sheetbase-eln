@@ -1,4 +1,11 @@
-import { formatCount } from './format-numbers'
+import type {
+  DataGridFilterOperator,
+  DataGridFilterValue,
+  DataGridScalar,
+} from './data-grid'
+
+export { formatDataGridValue as formatRegistryValue } from './data-grid'
+export type { DataGridValueFormat as RegistryValueFormat } from './data-grid'
 
 export type RegistryDensity = 'comfortable' | 'compact'
 
@@ -7,27 +14,9 @@ export interface RegistrySort {
   desc: boolean
 }
 
-export type RegistryScalar = string | number | boolean
-export type RegistryFilterOperator =
-  | 'eq'
-  | 'contains'
-  | 'neq'
-  | 'startsWith'
-  | 'lt'
-  | 'lte'
-  | 'gt'
-  | 'gte'
-  | 'between'
-  | 'in'
-  | 'notIn'
-  | 'isNull'
-  | 'isNotNull'
-
-export interface RegistryFilterValue {
-  fieldId: string
-  operator: RegistryFilterOperator
-  values: RegistryScalar[]
-}
+export type RegistryScalar = DataGridScalar
+export type RegistryFilterOperator = DataGridFilterOperator
+export type RegistryFilterValue = DataGridFilterValue
 
 /**
  * The complete server-owned query contract for a registry result page.
@@ -311,32 +300,4 @@ export function createRegistrySavedViewStore({
       write(list().filter((view) => view.id !== id))
     },
   }
-}
-
-export type RegistryValueFormat =
-  | { kind: 'text' }
-  | { kind: 'scientific'; unit?: string }
-  | { kind: 'date'; dateStyle?: 'short' | 'medium' | 'long' }
-
-/** Sheetbase-owned formatting used by registry column definitions. */
-export function formatRegistryValue(
-  value: unknown,
-  format: RegistryValueFormat = { kind: 'text' },
-): string {
-  if (value === null || value === undefined || value === '') return '—'
-  if (format.kind === 'scientific') {
-    const numeric = typeof value === 'number' ? value : Number(value)
-    const rendered = Number.isFinite(numeric)
-      ? formatCount(numeric)
-      : String(value)
-    return format.unit ? `${rendered} ${format.unit}` : rendered
-  }
-  if (format.kind === 'date') {
-    const date = value instanceof Date ? value : new Date(String(value))
-    if (Number.isNaN(date.getTime())) return String(value)
-    return new Intl.DateTimeFormat('en-GB', {
-      dateStyle: format.dateStyle ?? 'medium',
-    }).format(date)
-  }
-  return String(value)
 }

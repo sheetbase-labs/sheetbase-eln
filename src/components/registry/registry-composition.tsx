@@ -1,101 +1,51 @@
 import * as React from 'react'
 import {
-  flexRender,
   getCoreRowModel,
   getExpandedRowModel,
   getGroupedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
 import type {
-  ColumnDef,
   ColumnFiltersState,
   ExpandedState,
   SortingState,
   Updater,
   VisibilityState,
 } from '@tanstack/react-table'
-import { useVirtualizer } from '@tanstack/react-virtual'
 import {
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Columns3,
   PanelRightClose,
   Pin,
   PinOff,
-  X,
 } from 'lucide-react'
 
 import {
   Button,
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
   Select,
   Sheet,
   SheetContent,
   SheetTitle,
   Skeleton,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
 } from '#/components/ui'
 import { formatCount } from '#/lib/format-numbers'
-import { Filters } from '#/components/reui/filters'
-import type { Filter as ReuiFilter } from '#/components/reui/filters'
-import { DEFAULT_REGISTRY_QUERY, formatRegistryValue } from '#/lib/registry'
-import type {
-  RegistryFilterOperator,
-  RegistryQuery,
-  RegistryScalar,
-  RegistryValueFormat,
-} from '#/lib/registry'
+import { DEFAULT_REGISTRY_QUERY } from '#/lib/registry'
+import type { RegistryQuery, RegistryScalar } from '#/lib/registry'
 import { cn } from '#/lib/utils'
+import type {
+  DataGridField,
+  DataGridIncrementalRows,
+} from '#/components/data-grid/data-grid-types'
+import { DataGridFilters } from '#/components/data-grid/data-grid-filters'
+import { DataGridGrouping } from '#/components/data-grid/data-grid-grouping'
+import { DataGridColumnSelector } from '#/components/data-grid/data-grid-column-selector'
+import { DataGrid } from '#/components/data-grid/data-grid'
 
 export interface RegistrySummary {
   label: string
   value: React.ReactNode
   hint?: string
-  /** Semantic tone for the hint text. */
   tone?: 'positive' | 'warning' | 'danger' | 'neutral'
-}
-
-export interface RegistryFieldFilter {
-  type: 'text' | 'select'
-  placeholder?: string
-  operators: { value: RegistryFilterOperator; label: string }[]
-  options?: { value: RegistryScalar; label: string }[]
-}
-
-export interface RegistryField<TData> {
-  id: string
-  label: string
-  column?: ColumnDef<TData, unknown> | false
-  filter?: RegistryFieldFilter
-  groupable: boolean
-}
-
-export interface RegistryIncrementalRows {
-  /** Whether the server reports that more matching rows can be loaded. */
-  hasMore: boolean
-  /** Whether the next batch is currently being fetched. */
-  loadingMore: boolean
-  /** Append the next server-owned batch to the loaded rows. */
-  onLoadMore: () => void
-  /** A failed append must not replace rows that are already available. */
-  loadError?: unknown
-}
-
-declare module '@tanstack/react-table' {
-  interface ColumnMeta<TData, TValue> {
-    /** Sheetbase-owned rendering contract for registry values. */
-    registryFormat?: RegistryValueFormat
-  }
 }
 
 export interface RegistryCompositionProps<TData> {
@@ -105,7 +55,7 @@ export interface RegistryCompositionProps<TData> {
   rows: TData[]
   /** Authoritative server total, never inferred from the current page. */
   totalCount: number
-  fields: RegistryField<TData>[]
+  fields: DataGridField<TData>[]
   query: RegistryQuery
   onQueryChange: (query: RegistryQuery) => void
   getRowId: (row: TData) => string
@@ -132,7 +82,7 @@ export interface RegistryCompositionProps<TData> {
   /** Hide the built-in title/description header when the route supplies its own. */
   hideHeader?: boolean
   /** Opt into virtualised, incrementally loaded rows instead of page controls. */
-  incrementalRows?: RegistryIncrementalRows
+  incrementalRows?: DataGridIncrementalRows
   /** Allow users to drag column boundaries in wide data grids. */
   resizableColumns?: boolean
   /** Debounce server-owned text search. Defaults to immediate updates. */
@@ -165,98 +115,6 @@ function useIsXl(): boolean {
 
 const PIN_KEY = (registryId: string) =>
   `sheetbase-inspector-pinned-${registryId}`
-
-function RegistryFilters<TData>({
-  definitions,
-  query,
-  onQueryChange,
-  debounceMs,
-}: {
-  definitions: RegistryField<TData>[]
-  query: RegistryQuery
-  onQueryChange: (query: RegistryQuery) => void
-  debounceMs: number
-}) {
-  const fromQuery = React.useCallback(
-    (): ReuiFilter<RegistryScalar>[] =>
-      query.filters.map((filter, index) => ({
-        id: `registry-filter-${index}`,
-        field: filter.fieldId,
-        operator: filter.operator,
-        values: filter.values,
-      })),
-    [query.filters],
-  )
-  const [filters, setFilters] = React.useState(fromQuery)
-  const timeoutRef = React.useRef<number | undefined>(undefined)
-
-  React.useEffect(() => setFilters(fromQuery()), [fromQuery])
-  React.useEffect(() => () => window.clearTimeout(timeoutRef.current), [])
-
-  function emit(next: ReuiFilter<RegistryScalar>[]) {
-    const routeFilters = next
-      .filter(
-        (filter) =>
-          filter.values.length > 0 ||
-          filter.operator === 'isNull' ||
-          filter.operator === 'isNotNull',
-      )
-      .map((filter) => ({
-        fieldId: filter.field,
-        operator: filter.operator as RegistryFilterOperator,
-        values: filter.values,
-      }))
-    const unchanged =
-      routeFilters.length === query.filters.length &&
-      routeFilters.every(
-        (filter, index) =>
-          filter.fieldId === query.filters[index]?.fieldId &&
-          filter.operator === query.filters[index]?.operator &&
-          JSON.stringify(filter.values) ===
-            JSON.stringify(query.filters[index]?.values),
-      )
-    if (unchanged) return
-    onQueryChange({ ...query, pageIndex: 0, filters: routeFilters })
-  }
-
-  function handleChange(next: ReuiFilter<RegistryScalar>[]) {
-    const previous = filters
-    setFilters(next)
-    window.clearTimeout(timeoutRef.current)
-    const changed = next.find(
-      (filter) =>
-        filter.values[0] !==
-        previous.find((candidate) => candidate.id === filter.id)?.values[0],
-    )
-    const definition = definitions.find(
-      (candidate) => candidate.id === changed?.field,
-    )
-    if (changed && definition?.filter?.type === 'text' && debounceMs > 0) {
-      timeoutRef.current = window.setTimeout(() => emit(next), debounceMs)
-    } else {
-      emit(next)
-    }
-  }
-
-  return (
-    <Filters
-      filters={filters}
-      fields={definitions.map((definition) => ({
-        key: definition.id,
-        label: definition.label,
-        placeholder: definition.filter?.placeholder,
-        type: definition.filter?.type,
-        options: definition.filter?.options,
-        operators: definition.filter?.operators,
-        defaultOperator: definition.filter?.operators[0]?.value,
-      }))}
-      onChange={handleChange}
-      allowMultiple={false}
-      size="sm"
-      i18n={{ addFilter: 'Add filter' }}
-    />
-  )
-}
 
 export function RegistryComposition<TData>({
   registryId,
@@ -299,18 +157,12 @@ export function RegistryComposition<TData>({
   )
   const filterDefinitions = fields.filter((field) => field.filter)
   const groupingOptions = fields.filter((field) => field.groupable)
-  const compositionRef = React.useRef<HTMLElement>(null)
-  const scrollViewportRef = React.useRef<HTMLDivElement>(null)
-  const lastRequestedRowCountRef = React.useRef(-1)
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>(initialColumnVisibility)
   const [uncontrolledInspectorOpen, setUncontrolledInspectorOpen] =
     React.useState(false)
   const [inspectorPinned, setInspectorPinned] = React.useState(false)
   const isXl = useIsXl()
-  const [activeRowId, setActiveRowId] = React.useState<string | null>(
-    selectedId ?? (rows[0] ? getRowId(rows[0]) : null),
-  )
 
   React.useEffect(() => {
     try {
@@ -329,16 +181,6 @@ export function RegistryComposition<TData>({
     }
     setInspectorPinned(next)
   }, [inspectorPinned, registryId])
-
-  React.useEffect(() => {
-    if (selectedId && rows.some((row) => getRowId(row) === selectedId)) {
-      setActiveRowId(selectedId)
-      return
-    }
-    if (!activeRowId || !rows.some((row) => getRowId(row) === activeRowId)) {
-      setActiveRowId(rows[0] ? getRowId(rows[0]) : null)
-    }
-  }, [activeRowId, getRowId, rows, selectedId])
 
   // Auto-open the inspector when a selection arrives (from row click, URL, etc.)
   React.useEffect(() => {
@@ -421,56 +263,12 @@ export function RegistryComposition<TData>({
     },
     onColumnVisibilityChange: setColumnVisibility,
   })
-
-  const displayRows = table.getRowModel().rows
-  const navigableRows = displayRows.filter((row) => !row.getIsGrouped())
-  const rowVirtualizer = useVirtualizer({
-    count: incrementalRows ? displayRows.length : 0,
-    getScrollElement: () => scrollViewportRef.current,
-    estimateSize: () => 29,
-    overscan: 10,
-  })
-  const virtualItems = rowVirtualizer.getVirtualItems()
-  const incrementalEnabled = incrementalRows !== undefined
   const queryGeneration = JSON.stringify({
     pageSize: query.pageSize,
     sorting: query.sorting,
     grouping: query.grouping,
     filters: query.filters,
   })
-
-  React.useEffect(() => {
-    if (!incrementalEnabled) return
-    lastRequestedRowCountRef.current = -1
-    if (scrollViewportRef.current) scrollViewportRef.current.scrollTop = 0
-  }, [incrementalEnabled, queryGeneration])
-
-  React.useEffect(() => {
-    if (
-      !incrementalRows?.hasMore ||
-      incrementalRows.loadingMore ||
-      displayRows.length === 0 ||
-      (grouping.length > 0 && expanded !== true)
-    ) {
-      return
-    }
-    const lastVisible = virtualItems.at(-1)
-    if (
-      lastVisible &&
-      lastVisible.index >= displayRows.length - 10 &&
-      lastRequestedRowCountRef.current !== rows.length
-    ) {
-      lastRequestedRowCountRef.current = rows.length
-      incrementalRows.onLoadMore()
-    }
-  }, [
-    displayRows.length,
-    expanded,
-    grouping.length,
-    incrementalRows,
-    rows.length,
-    virtualItems,
-  ])
 
   const pageCount = Math.max(1, Math.ceil(totalCount / query.pageSize))
   const selectedRow = selectedId
@@ -538,41 +336,7 @@ export function RegistryComposition<TData>({
     )
   ) : null
 
-  function setGrouping(id: string) {
-    onQueryChange({
-      ...query,
-      pageIndex: 0,
-      grouping: id ? [id] : [],
-    })
-  }
-
-  function focusRow(index: number) {
-    const row = navigableRows[index]
-    const id = getRowId(row.original)
-    setActiveRowId(id)
-
-    const focusMountedRow = () => {
-      const elements = compositionRef.current?.querySelectorAll<HTMLElement>(
-        '[data-registry-row-id]',
-      )
-      Array.from(elements ?? [])
-        .find((element) => element.dataset.registryRowId === id)
-        ?.focus()
-    }
-
-    if (!incrementalRows) {
-      focusMountedRow()
-      return
-    }
-
-    const displayIndex = displayRows.indexOf(row)
-    rowVirtualizer.scrollToIndex(displayIndex, { align: 'auto' })
-    window.requestAnimationFrame(() =>
-      window.requestAnimationFrame(focusMountedRow),
-    )
-  }
-
-  const stateContent = permissionDenied ? (
+  const gridFallback = permissionDenied ? (
     <RegistryState
       title="Permission denied"
       detail="You do not have access to this registry."
@@ -601,272 +365,10 @@ export function RegistryComposition<TData>({
           : 'Records will appear here when they are available.'
       }
     />
-  ) : (
-    <>
-      {partialData ? (
-        <div
-          role="status"
-          className="border-b border-warning/30 bg-warning/10 px-3 py-2 text-xs text-foreground"
-        >
-          <span className="font-semibold">Partial data.</span> Some rows or
-          fields could not be returned; totals describe the server result.
-        </div>
-      ) : null}
-      <Table
-        aria-label={title}
-        data-density="compact"
-        containerClassName={incrementalRows ? 'overflow-visible' : undefined}
-        style={resizableColumns ? { width: table.getTotalSize() } : undefined}
-      >
-        <TableHeader
-          className={incrementalRows ? 'sticky top-0 z-10 bg-card' : undefined}
-        >
-          {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id} className="hover:bg-transparent">
-              {headerGroup.headers.map((header) => {
-                const sorted = header.column.getIsSorted()
-                const label =
-                  typeof header.column.columnDef.header === 'string'
-                    ? header.column.columnDef.header
-                    : header.column.id
-                return (
-                  <TableHead
-                    key={header.id}
-                    className={cn(
-                      resizableColumns && 'relative',
-                      'h-7 whitespace-nowrap px-2.5 text-[0.65rem]',
-                    )}
-                    style={
-                      resizableColumns ? { width: header.getSize() } : undefined
-                    }
-                    aria-sort={
-                      sorted === 'asc'
-                        ? 'ascending'
-                        : sorted === 'desc'
-                          ? 'descending'
-                          : 'none'
-                    }
-                  >
-                    {header.isPlaceholder ? null : header.column.getCanSort() ? (
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-0.5 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        onClick={header.column.getToggleSortingHandler()}
-                        aria-label={`Sort by ${label} ${sorted === 'asc' ? 'descending' : 'ascending'}`}
-                      >
-                        {flexRender(
-                          header.column.columnDef.header,
-                          header.getContext(),
-                        )}
-                        {sorted ? (
-                          <span aria-hidden className="text-muted-foreground">
-                            {sorted === 'asc' ? '↑' : '↓'}
-                          </span>
-                        ) : null}
-                      </button>
-                    ) : (
-                      flexRender(
-                        header.column.columnDef.header,
-                        header.getContext(),
-                      )
-                    )}
-                    {resizableColumns && header.column.getCanResize() ? (
-                      <div
-                        role="separator"
-                        tabIndex={0}
-                        className="absolute inset-y-0 right-0 w-1 cursor-col-resize touch-none select-none bg-transparent hover:bg-primary/50 focus-visible:bg-primary focus-visible:outline-none"
-                        aria-label={`Resize ${label} column`}
-                        aria-orientation="vertical"
-                        aria-valuemin={header.column.columnDef.minSize ?? 20}
-                        aria-valuemax={header.column.columnDef.maxSize ?? 1000}
-                        aria-valuenow={header.getSize()}
-                        onDoubleClick={() => header.column.resetSize()}
-                        onMouseDown={header.getResizeHandler()}
-                        onTouchStart={header.getResizeHandler()}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Home') {
-                            event.preventDefault()
-                            header.column.resetSize()
-                            return
-                          }
-                          if (
-                            event.key !== 'ArrowLeft' &&
-                            event.key !== 'ArrowRight'
-                          ) {
-                            return
-                          }
-                          event.preventDefault()
-                          const delta = event.key === 'ArrowRight' ? 10 : -10
-                          const min = header.column.columnDef.minSize ?? 20
-                          const max = header.column.columnDef.maxSize ?? 1000
-                          table.setColumnSizing((previous) => ({
-                            ...previous,
-                            [header.column.id]: Math.min(
-                              max,
-                              Math.max(min, header.getSize() + delta),
-                            ),
-                          }))
-                        }}
-                      />
-                    ) : null}
-                  </TableHead>
-                )
-              })}
-            </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {incrementalRows && virtualItems[0]?.start ? (
-            <TableRow
-              aria-hidden="true"
-              className="border-0 hover:bg-transparent"
-            >
-              <TableCell
-                colSpan={table.getVisibleLeafColumns().length}
-                className="border-0 p-0"
-                style={{ height: virtualItems[0].start }}
-              />
-            </TableRow>
-          ) : null}
-          {(incrementalRows
-            ? virtualItems.map((item) => displayRows[item.index])
-            : displayRows
-          ).map((row) => {
-            if (row.getIsGrouped()) {
-              const groupVal = row.getValue(row.groupingColumnId!)
-              return (
-                <TableRow
-                  key={row.id}
-                  className="border-b border-border bg-muted/40 hover:bg-muted/60"
-                >
-                  <TableCell
-                    colSpan={row.getVisibleCells().length}
-                    className="p-0"
-                  >
-                    <button
-                      type="button"
-                      className="flex h-8 w-full items-center gap-1.5 px-2.5 text-xs font-semibold"
-                      onClick={() => row.getToggleExpandedHandler()()}
-                      aria-label={`Toggle group`}
-                    >
-                      {row.getIsExpanded() ? (
-                        <ChevronDown className="size-3.5 shrink-0" />
-                      ) : (
-                        <ChevronRight className="size-3.5 shrink-0" />
-                      )}
-                      {String(groupVal ?? '—')}
-                      <span className="ml-0.5 text-muted-foreground">
-                        ({row.subRows.length}
-                        {incrementalRows
-                          ? incrementalRows.hasMore
-                            ? ' loaded'
-                            : ''
-                          : pageCount > 1
-                            ? ' on this page'
-                            : ''}
-                        )
-                      </span>
-                    </button>
-                  </TableCell>
-                </TableRow>
-              )
-            }
-            // Aggregated placeholder rows — skip them.
-            if (row.depth > 0 && !row.original) return null
-            const id = getRowId(row.original)
-            const selected = id === selectedId
-            const navigableIndex = navigableRows.indexOf(row)
-            return (
-              <TableRow
-                key={id}
-                data-registry-row-id={id}
-                data-state={selected ? 'selected' : undefined}
-                aria-selected={selected}
-                tabIndex={id === activeRowId ? 0 : -1}
-                className="cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-                onFocus={() => setActiveRowId(id)}
-                onClick={() => {
-                  onSelectedIdChange(id)
-                  setInspectorOpen(true)
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === 'ArrowDown') {
-                    event.preventDefault()
-                    if (
-                      navigableIndex === navigableRows.length - 1 &&
-                      incrementalRows?.hasMore
-                    ) {
-                      incrementalRows.onLoadMore()
-                    } else {
-                      focusRow(
-                        Math.min(navigableIndex + 1, navigableRows.length - 1),
-                      )
-                    }
-                  } else if (event.key === 'ArrowUp') {
-                    event.preventDefault()
-                    focusRow(Math.max(navigableIndex - 1, 0))
-                  } else if (event.key === 'Home') {
-                    event.preventDefault()
-                    focusRow(0)
-                  } else if (event.key === 'End') {
-                    event.preventDefault()
-                    focusRow(navigableRows.length - 1)
-                  } else if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault()
-                    onSelectedIdChange(id)
-                    setInspectorOpen(true)
-                  }
-                }}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell
-                    key={cell.id}
-                    className={cn(
-                      'whitespace-nowrap px-2.5 py-1 text-xs',
-                      typeof cell.getValue() === 'number' &&
-                        'scientific-nums text-right tabular-nums',
-                    )}
-                  >
-                    {cell.column.columnDef.meta?.registryFormat
-                      ? formatRegistryValue(
-                          cell.getValue(),
-                          cell.column.columnDef.meta.registryFormat,
-                        )
-                      : flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext(),
-                        )}
-                  </TableCell>
-                ))}
-              </TableRow>
-            )
-          })}
-          {incrementalRows && virtualItems.length > 0 ? (
-            <TableRow
-              aria-hidden="true"
-              className="border-0 hover:bg-transparent"
-            >
-              <TableCell
-                colSpan={table.getVisibleLeafColumns().length}
-                className="border-0 p-0"
-                style={{
-                  height: Math.max(
-                    0,
-                    rowVirtualizer.getTotalSize() -
-                      virtualItems[virtualItems.length - 1].end,
-                  ),
-                }}
-              />
-            </TableRow>
-          ) : null}
-        </TableBody>
-      </Table>
-    </>
-  )
+  ) : undefined
 
   return (
     <section
-      ref={compositionRef}
       aria-labelledby={`${registryId}-title`}
       className="flex min-h-0 flex-1 flex-col gap-3"
     >
@@ -921,77 +423,30 @@ export function RegistryComposition<TData>({
       {!permissionDenied ? (
         <div className="flex flex-wrap items-center gap-2">
           {filterDefinitions.length > 0 ? (
-            <RegistryFilters
-              definitions={filterDefinitions}
-              query={query}
-              onQueryChange={onQueryChange}
+            <DataGridFilters
+              fields={filterDefinitions}
+              filters={query.filters}
+              onFiltersChange={(filters) =>
+                onQueryChange({ ...query, pageIndex: 0, filters })
+              }
               debounceMs={searchDebounceMs}
             />
           ) : null}
 
-          {/* Clear filters */}
-          {query.filters.length > 0 ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 text-xs text-muted-foreground"
-              onClick={() =>
-                onQueryChange({ ...query, filters: [], pageIndex: 0 })
-              }
-            >
-              <X className="size-3.5" />
-              Clear all
-            </Button>
-          ) : null}
-
           <div className="ml-auto flex items-center gap-2">
-            {/* Group */}
-            {groupingOptions.length > 0 ? (
-              <Select
-                aria-label="Group rows"
-                value={query.grouping[0] ?? ''}
-                onChange={(event) => setGrouping(event.target.value)}
-                className="h-8 w-auto text-xs"
-              >
-                <option value="">No grouping</option>
-                {groupingOptions.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    Group: {option.label}
-                  </option>
-                ))}
-              </Select>
-            ) : null}
+            <DataGridGrouping
+              fields={groupingOptions}
+              grouping={query.grouping}
+              onGroupingChange={(nextGrouping) =>
+                onQueryChange({
+                  ...query,
+                  pageIndex: 0,
+                  grouping: nextGrouping,
+                })
+              }
+            />
 
-            {/* Columns */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8"
-                  aria-label="Choose visible columns"
-                >
-                  <Columns3 className="size-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Visible columns</DropdownMenuLabel>
-                {table.getAllLeafColumns().map((column) => (
-                  <DropdownMenuCheckboxItem
-                    key={column.id}
-                    checked={column.getIsVisible()}
-                    disabled={!column.getCanHide()}
-                    onCheckedChange={(checked) =>
-                      column.toggleVisibility(Boolean(checked))
-                    }
-                  >
-                    {typeof column.columnDef.header === 'string'
-                      ? column.columnDef.header
-                      : column.id}
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <DataGridColumnSelector table={table} />
           </div>
         </div>
       ) : null}
@@ -999,15 +454,22 @@ export function RegistryComposition<TData>({
       {/* Table + pinned inspector layout */}
       <div className="flex min-h-0 flex-1 min-w-0 gap-4">
         {/* Table — always takes full width. Inspector slides over or pins. */}
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-md border bg-card">
-          <div
-            ref={scrollViewportRef}
-            data-registry-scroll-viewport=""
-            className="min-h-0 flex-1 overflow-auto"
-          >
-            {stateContent}
-          </div>
-        </div>
+        <DataGrid
+          table={table}
+          title={title}
+          getRowId={getRowId}
+          selectedId={selectedId}
+          onRowOpen={(id) => {
+            onSelectedIdChange(id)
+            setInspectorOpen(true)
+          }}
+          fallback={gridFallback}
+          partialData={partialData}
+          incrementalRows={incrementalRows}
+          resizableColumns={resizableColumns}
+          resetKey={queryGeneration}
+          pageCount={pageCount}
+        />
 
         {/* Pinned inspector — docked aside on xl+ only */}
         {renderInspector &&

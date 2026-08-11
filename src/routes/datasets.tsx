@@ -35,7 +35,7 @@ import {
 
 import { useShell } from '#/components/app-shell'
 import { RegistryComposition } from '#/components/registry'
-import type { RegistryField } from '#/components/registry'
+import type { DataGridField } from '#/components/data-grid'
 import {
   EmptyHint,
   Inspector,
@@ -172,7 +172,7 @@ function toColumnDefs(
       ),
       meta: numeric
         ? {
-            registryFormat: {
+            dataGridFormat: {
               kind: 'scientific' as const,
               unit: describeUnit(column.unit).replace('—', '') || undefined,
             },
@@ -601,7 +601,7 @@ export function DatasetDataTab({
     staleTime: 30_000,
   })
 
-  const fields = useMemo<RegistryField<ScientificRowWire>[]>(() => {
+  const fields = useMemo<DataGridField<ScientificRowWire>[]>(() => {
     const defs = toColumnDefs(table.columns)
     return table.columns.map((column, index) => ({
       id: column.field_name,

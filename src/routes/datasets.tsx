@@ -7,7 +7,7 @@
  * Handsontable stays the edit surface inside notebook sheets. Filters,
  * sorting, field selection and grouping stay within the safe limits defined
  * in `dataset-explorer-data`. The full-size chart tab uses the same `ChartSpec`
- * model (SCI-004) as Analysis Studio without duplicating its authoring controls.
+ * model and shared chart configuration controls (SCI-004) as Analysis Studio.
  *
  * PostgreSQL and RLS remain authoritative (decisions 0019/0034): every read
  * goes through `/api/db`, and permission-denied / partial-data states are
@@ -40,6 +40,7 @@ import {
   PropertyList,
 } from '#/components/record'
 import { StatusBadge } from '#/components/scientific/status-badge'
+import { ChartConfigurator } from '#/components/viz/chart-configurator'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import {
   Badge,
@@ -754,8 +755,8 @@ export function DataTableView({
 // Chart tab
 // ---------------------------------------------------------------------------
 
-function DatasetChartTab({ table }: { table: ScientificTableWire }) {
-  const chartSpec = useMemo(() => {
+export function DatasetChartTab({ table }: { table: ScientificTableWire }) {
+  const defaultSpec = useMemo(() => {
     const spec = buildDefaultChartSpec(table)
     if (!spec) return null
     const xColumn = table.columns.find(
@@ -765,7 +766,25 @@ function DatasetChartTab({ table }: { table: ScientificTableWire }) {
       ? { ...spec, type: 'line' as const }
       : spec
   }, [table])
-  return <ChartPreview table={table} chartSpec={chartSpec} />
+  const [chartSpec, setChartSpec] = useState(defaultSpec)
+
+  useEffect(() => setChartSpec(defaultSpec), [defaultSpec])
+
+  return (
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      {chartSpec ? (
+        <ChartConfigurator
+          table={table}
+          spec={chartSpec}
+          onSpecChange={setChartSpec}
+          idPrefix="dataset-chart"
+        />
+      ) : null}
+      <div className="min-h-0 flex-1">
+        <ChartPreview table={table} chartSpec={chartSpec} />
+      </div>
+    </div>
+  )
 }
 
 interface ChartPreviewProps {

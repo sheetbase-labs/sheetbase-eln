@@ -13,13 +13,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { useQuery } from '@tanstack/react-query'
 import {
-  AnalysisControls,
   AnalysisStudioHeader,
   DataTableAlternative,
   EmptyAnalysisState,
   ExportPanel,
   SavedViewsPanel,
 } from './analysis'
+import { ChartConfigurator } from '#/components/viz/chart-configurator'
 import { CHART_SPEC_VERSION } from '#/lib/chart-spec'
 import type { ChartSpec } from '#/lib/chart-spec'
 import { DEFAULT_EXPORT_SETTINGS } from '#/lib/analysis-studio-data'
@@ -204,12 +204,12 @@ describe('AnalysisStudioHeader', () => {
   })
 })
 
-// --- AnalysisControls -----------------------------------------------------
+// --- Shared chart configuration ------------------------------------------
 
-describe('AnalysisControls', () => {
+describe('ChartConfigurator', () => {
   it('renders chart-type, axis, grouping and overlay controls', () => {
     render(
-      <AnalysisControls
+      <ChartConfigurator
         table={table()}
         spec={spec()}
         onSpecChange={() => {}}
@@ -233,7 +233,7 @@ describe('AnalysisControls', () => {
   it('changes the chart type when a type button is clicked', async () => {
     const changed: { spec: ChartSpec | null } = { spec: null }
     render(
-      <AnalysisControls
+      <ChartConfigurator
         table={table()}
         spec={spec()}
         onSpecChange={(s) => {
@@ -249,7 +249,7 @@ describe('AnalysisControls', () => {
   it('adds an aggregation transformation', async () => {
     const changed: { spec: ChartSpec | null } = { spec: null }
     render(
-      <AnalysisControls
+      <ChartConfigurator
         table={table()}
         spec={spec()}
         onSpecChange={(s) => {
@@ -269,7 +269,7 @@ describe('AnalysisControls', () => {
   it('uses only an explicit uncertainty column for error bars', async () => {
     const changed: { spec: ChartSpec | null } = { spec: null }
     render(
-      <AnalysisControls
+      <ChartConfigurator
         table={table()}
         spec={spec()}
         onSpecChange={(s) => {
@@ -289,7 +289,7 @@ describe('AnalysisControls', () => {
   it('rebinds transformations when the Y-axis changes', async () => {
     const changed: { spec: ChartSpec | null } = { spec: null }
     render(
-      <AnalysisControls
+      <ChartConfigurator
         table={table()}
         spec={spec({
           transformations: [

@@ -16,6 +16,7 @@ import {
   DataTableView,
   DatasetDataTab,
   DatasetExplorerHeader,
+  DatasetChartTab,
   DatasetInspector,
   DatasetSchemaTab,
 } from './datasets'
@@ -75,6 +76,40 @@ afterEach(() => {
   cleanup()
   vi.mocked(useInfiniteQuery).mockReset()
   vi.mocked(useQuery).mockReset()
+})
+
+describe('DatasetChartTab', () => {
+  it('updates the shared chart spec without making a network request', async () => {
+    render(
+      <DatasetChartTab
+        table={table({
+          columns: [
+            column({
+              id: 'col-time',
+              field_name: 'time',
+              label: 'Time',
+              logical_type: 'integer',
+            }),
+            column({
+              id: 'col-ph',
+              field_name: 'ph',
+              label: 'pH',
+              logical_type: 'decimal',
+            }),
+          ],
+        })}
+      />,
+    )
+
+    expect(
+      screen.getByRole('radio', { name: /line/i }).getAttribute('aria-checked'),
+    ).toBe('true')
+    await userEvent.click(screen.getByRole('radio', { name: /bar/i }))
+    expect(
+      screen.getByRole('radio', { name: /bar/i }).getAttribute('aria-checked'),
+    ).toBe('true')
+    expect(useQuery).not.toHaveBeenCalled()
+  })
 })
 
 function column(

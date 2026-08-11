@@ -20,24 +20,22 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  BarChart3,
   Database,
   Download,
   LineChart as LineChartIcon,
   Loader2,
   Save,
-  ScatterChart,
   Sigma,
   Trash2,
   TriangleAlert,
 } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
+import { ChartConfigurator } from '#/components/viz/chart-configurator'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import {
   Badge,
   Button,
-  ButtonGroup,
   Card,
   Field,
   FieldGroup,
@@ -64,15 +62,9 @@ import {
   AXIS_SCALES,
   CHART_PALETTE,
   CHART_SPEC_VERSION,
-  CHART_TYPES,
   formatScientific,
 } from '#/lib/chart-spec'
-import type {
-  AxisScale,
-  ChartSpec,
-  ChartType,
-  FieldBinding,
-} from '#/lib/chart-spec'
+import type { AxisScale, ChartSpec } from '#/lib/chart-spec'
 import {
   ANALYSIS_MAX_FILTERS,
   ANALYSIS_MAX_RESULT_ROWS,
@@ -289,10 +281,11 @@ function AnalysisStudioRoute() {
         />
         {selectedTable && spec ? (
           <div className="flex min-h-0 flex-1 flex-col">
-            <AnalysisControls
+            <ChartConfigurator
               table={selectedTable}
               spec={spec}
               onSpecChange={setSpec}
+              idPrefix="analysis"
             />
             <AnalysisPreview
               table={selectedTable}
@@ -386,333 +379,8 @@ export function AnalysisStudioHeader({
 }
 
 // ---------------------------------------------------------------------------
-// Controls — data-source, chart-type, axis, grouping, normalisation,
-// aggregation and statistical-overlay controls from typed specifications.
+// Filters
 // ---------------------------------------------------------------------------
-
-interface AnalysisControlsProps {
-  table: ScientificTableWire
-  spec: ChartSpec
-  onSpecChange: (spec: ChartSpec) => void
-}
-
-export function AnalysisControls({
-  table,
-  spec,
-  onSpecChange,
-}: AnalysisControlsProps) {
-  const numericColumns = table.columns.filter(
-    (c) => c.logical_type === 'decimal' || c.logical_type === 'integer',
-  )
-  const categoryColumns = table.columns.filter(
-    (c) =>
-      c.logical_type === 'category' ||
-      c.logical_type === 'text' ||
-      c.logical_type === 'boolean',
-  )
-  const errorColumns = numericColumns.filter(
-    (column) =>
-      column.id !== spec.fields.x?.columnId &&
-      column.id !== spec.fields.y.columnId &&
-      /\b(sd|se|sem|error|ci|confidence|deviation)\b/i.test(
-        `${column.label} ${column.field_name}`,
-      ),
-  )
-
-  function update(patch: Partial<ChartSpec>): void {
-    onSpecChange({ ...spec, ...patch })
-  }
-
-  function setField(
-    key: 'x' | 'y' | 'series' | 'color' | 'size',
-    columnId: string,
-  ): void {
-    const column = table.columns.find((c) => c.id === columnId) ?? null
-    const binding: FieldBinding | null = column
-      ? { columnId: column.id, fieldName: column.field_name }
-      : null
-    const fields = { ...spec.fields, [key]: binding }
-    const transformations = spec.transformations.map((transformation) => {
-      if (transformation.kind === 'aggregate') {
-        return {
-          ...transformation,
-          params: {
-            ...transformation.params,
-            xField: fields.x?.fieldName ?? null,
-            yField: fields.y.fieldName,
-            seriesField: fields.series?.fieldName ?? null,
-          },
-        }
-      }
-      if (transformation.kind === 'normalise') {
-        return {
-          ...transformation,
-          params: {
-            ...transformation.params,
-            yField: fields.y.fieldName,
-            seriesField: fields.series?.fieldName ?? null,
-          },
-        }
-      }
-      return transformation
-    })
-    // Keep axis labels in sync with the mapped columns.
-    const display = { ...spec.display }
-    if (key === 'x') {
-      display.axes = {
-        ...display.axes,
-        x: {
-          ...display.axes.x,
-          label: column?.label ?? 'Row',
-          unit: column ? display.axes.x.unit : undefined,
-        },
-      }
-    }
-    if (key === 'y' && column) {
-      display.axes = {
-        ...display.axes,
-        y: { ...display.axes.y, label: column.label },
-      }
-    }
-    const overlays =
-      spec.overlays.errorBars &&
-      (spec.overlays.errorBars.columnId === fields.x?.columnId ||
-        spec.overlays.errorBars.columnId === fields.y.columnId)
-        ? { ...spec.overlays, errorBars: null }
-        : spec.overlays
-    onSpecChange({ ...spec, fields, transformations, display, overlays })
-  }
-
-  function setType(type: ChartType): void {
-    onSpecChange({ ...spec, type })
-  }
-
-  // --- Aggregation + normalisation transformations -----------------------
-  const aggregateTransform = spec.transformations.find(
-    (t) => t.kind === 'aggregate',
-  )
-  const normaliseTransform = spec.transformations.find(
-    (t) => t.kind === 'normalise',
-  )
-
-  function setAggregate(fn: string): void {
-    const others = spec.transformations.filter((t) => t.kind !== 'aggregate')
-    if (!fn) {
-      update({ transformations: others })
-      return
-    }
-    update({
-      transformations: [
-        ...others,
-        {
-          kind: 'aggregate',
-          params: {
-            function: fn,
-            xField: spec.fields.x?.fieldName ?? null,
-            yField: spec.fields.y.fieldName,
-            seriesField: spec.fields.series?.fieldName ?? null,
-          },
-        },
-      ],
-    })
-  }
-
-  function setNormalise(method: string): void {
-    const others = spec.transformations.filter((t) => t.kind !== 'normalise')
-    if (!method) {
-      update({ transformations: others })
-      return
-    }
-    update({
-      transformations: [
-        ...others,
-        {
-          kind: 'normalise',
-          params: {
-            method,
-            yField: spec.fields.y.fieldName,
-            seriesField: spec.fields.series?.fieldName ?? null,
-          },
-        },
-      ],
-    })
-  }
-
-  // Only explicit uncertainty columns can be used as error values. Choosing
-  // an arbitrary numeric measure (for example, Time) produces a valid but
-  // scientifically meaningless chart.
-  function setErrorBarColumn(columnId: string): void {
-    if (!columnId) {
-      update({ overlays: { ...spec.overlays, errorBars: null } })
-      return
-    }
-    const column = errorColumns.find((candidate) => candidate.id === columnId)
-    if (!column) return
-    update({
-      overlays: {
-        ...spec.overlays,
-        errorBars: {
-          columnId: column.id,
-          fieldName: column.field_name,
-          basis: 'custom',
-          multiplier: 1,
-        },
-      },
-    })
-  }
-  const currentErrorColumn = spec.overlays.errorBars?.columnId ?? ''
-
-  return (
-    <div
-      className="shrink-0 space-y-2.5 border-b pb-3"
-      aria-labelledby="controls-title"
-    >
-      <h2 id="controls-title" className="sr-only">
-        Chart configuration
-      </h2>
-      <FieldGroup className="flex flex-wrap items-end gap-3">
-        <Field className="min-w-fit shrink-0">
-          <FieldLabel>Chart type</FieldLabel>
-          <ButtonGroup role="radiogroup" aria-label="Chart type">
-            {CHART_TYPES.map((t) => (
-              <Button
-                key={t}
-                type="button"
-                variant={spec.type === t ? 'default' : 'outline'}
-                size="sm"
-                role="radio"
-                aria-checked={spec.type === t}
-                onClick={() => setType(t)}
-                className="gap-1.5 capitalize"
-              >
-                {t === 'line' ? (
-                  <LineChartIcon className="size-3.5" aria-hidden="true" />
-                ) : t === 'scatter' ? (
-                  <ScatterChart className="size-3.5" aria-hidden="true" />
-                ) : (
-                  <BarChart3 className="size-3.5" aria-hidden="true" />
-                )}
-                {t}
-              </Button>
-            ))}
-          </ButtonGroup>
-        </Field>
-        <Field className="min-w-36 flex-1">
-          <FieldLabel htmlFor="analysis-x-axis">X-axis</FieldLabel>
-          <Select
-            id="analysis-x-axis"
-            aria-label="X axis field"
-            value={spec.fields.x?.columnId ?? ''}
-            onChange={(e) => setField('x', e.target.value)}
-            className="h-8 bg-background"
-          >
-            <option value="">(none — row index)</option>
-            {numericColumns.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <Field className="min-w-36 flex-1">
-          <FieldLabel htmlFor="analysis-y-axis">Y-axis</FieldLabel>
-          <Select
-            id="analysis-y-axis"
-            aria-label="Y axis field"
-            value={spec.fields.y.columnId}
-            onChange={(e) => setField('y', e.target.value)}
-            className="h-8 bg-background"
-          >
-            {numericColumns.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <Field className="min-w-36 flex-1">
-          <FieldLabel htmlFor="analysis-series">Series</FieldLabel>
-          <Select
-            id="analysis-series"
-            aria-label="Group by series"
-            value={spec.fields.series?.columnId ?? ''}
-            onChange={(e) => setField('series', e.target.value)}
-            className="h-8 bg-background"
-          >
-            <option value="">No split</option>
-            {categoryColumns.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </Select>
-        </Field>
-      </FieldGroup>
-      <FieldGroup className="flex flex-wrap items-end gap-3 pt-2.5">
-        <Field className="min-w-36 flex-1">
-          <FieldLabel htmlFor="analysis-aggregation">Aggregation</FieldLabel>
-          <Select
-            id="analysis-aggregation"
-            aria-label="Aggregation function"
-            value={
-              typeof aggregateTransform?.params.function === 'string'
-                ? aggregateTransform.params.function
-                : ''
-            }
-            onChange={(e) => setAggregate(e.target.value)}
-            className="h-8 bg-background"
-          >
-            <option value="">None (raw rows)</option>
-            <option value="mean">Mean (by x)</option>
-            <option value="sum">Sum (by x)</option>
-            <option value="min">Minimum (by x)</option>
-            <option value="max">Maximum (by x)</option>
-            <option value="count">Count (by x)</option>
-          </Select>
-        </Field>
-        <Field className="min-w-36 flex-1">
-          <FieldLabel htmlFor="analysis-normalisation">
-            Normalisation
-          </FieldLabel>
-          <Select
-            id="analysis-normalisation"
-            aria-label="Normalisation method"
-            value={
-              typeof normaliseTransform?.params.method === 'string'
-                ? normaliseTransform.params.method
-                : ''
-            }
-            onChange={(e) => setNormalise(e.target.value)}
-            className="h-8 bg-background"
-          >
-            <option value="">None</option>
-            <option value="percent_of_max">Percent of maximum</option>
-            <option value="z_score">Z-score</option>
-          </Select>
-        </Field>
-        {errorColumns.length > 0 ? (
-          <Field className="min-w-40 flex-1">
-            <FieldLabel htmlFor="analysis-error-column">Error bars</FieldLabel>
-            <Select
-              id="analysis-error-column"
-              aria-label="Error bar column"
-              value={currentErrorColumn}
-              onChange={(e) => setErrorBarColumn(e.target.value)}
-              className="h-8 bg-background"
-            >
-              <option value="">None</option>
-              {errorColumns.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.label}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        ) : null}
-      </FieldGroup>
-    </div>
-  )
-}
 
 export function FilterControls({
   table,

@@ -48,11 +48,11 @@ interface FiltersProps<T = unknown> {
   fields: FilterFieldConfig<T>[]
   onChange: (filters: Filter<T>[]) => void
   allowMultiple?: boolean
-  size?: 'sm' | 'default' | 'lg'
+  size?: 'xs' | 'sm' | 'default' | 'lg'
   i18n?: { addFilter?: string; clear?: string }
 }
 
-/** The ReUI controlled filter builder, trimmed to the text/select field types used by registries. */
+/** The ReUI controlled filter builder for text and select fields. */
 export function Filters<T = unknown>({
   filters,
   fields,
@@ -72,13 +72,16 @@ export function Filters<T = unknown>({
         filter.id === id ? { ...filter, ...updates } : filter,
       ),
     )
+  const buttonSize = size === 'xs' ? 'xs' : size === 'sm' ? 'sm' : 'default'
+  const iconButtonSize =
+    size === 'xs' ? 'icon-xs' : size === 'sm' ? 'icon-sm' : 'icon'
 
   return (
     <div className="flex flex-wrap items-center gap-2">
       {available.length > 0 ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size={size === 'sm' ? 'sm' : 'default'}>
+            <Button variant="outline" size={buttonSize}>
               <Plus />
               {i18n?.addFilter ?? 'Add filter'}
             </Button>
@@ -118,17 +121,18 @@ export function Filters<T = unknown>({
           <ButtonGroup key={filter.id}>
             <ButtonGroupText
               className={
-                size === 'sm' ? 'h-8 px-3 text-xs font-medium' : undefined
+                size === 'xs'
+                  ? 'h-7 px-2.5 text-xs font-medium'
+                  : size === 'sm'
+                    ? 'h-8 px-3 text-xs font-medium'
+                    : undefined
               }
             >
               {field.label}
             </ButtonGroupText>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size={size === 'sm' ? 'sm' : 'default'}
-                >
+                <Button variant="outline" size={buttonSize}>
                   {operators.find((item) => item.value === filter.operator)
                     ?.label ?? filter.operator}
                 </Button>
@@ -150,10 +154,7 @@ export function Filters<T = unknown>({
             {field.type === 'select' ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size={size === 'sm' ? 'sm' : 'default'}
-                  >
+                  <Button variant="outline" size={buttonSize}>
                     {field.options?.find(
                       (option) => option.value === filter.values[0],
                     )?.label ??
@@ -178,14 +179,24 @@ export function Filters<T = unknown>({
             ) : (
               <InputGroup
                 className={
-                  size === 'sm' ? 'h-8 w-40 rounded-none' : 'w-40 rounded-none'
+                  size === 'xs'
+                    ? 'h-7 w-40 rounded-none'
+                    : size === 'sm'
+                      ? 'h-8 w-40 rounded-none'
+                      : 'w-40 rounded-none'
                 }
               >
                 <InputGroupInput
                   aria-label={field.label}
                   value={String(filter.values[0] ?? '')}
                   placeholder={field.placeholder}
-                  className={size === 'sm' ? 'h-8 text-xs' : undefined}
+                  className={
+                    size === 'xs'
+                      ? 'h-7 text-xs'
+                      : size === 'sm'
+                        ? 'h-8 text-xs'
+                        : undefined
+                  }
                   onChange={(event) =>
                     update(filter.id, { values: [event.target.value as T] })
                   }
@@ -194,7 +205,7 @@ export function Filters<T = unknown>({
             )}
             <Button
               variant="outline"
-              size={size === 'sm' ? 'icon-sm' : 'icon'}
+              size={iconButtonSize}
               aria-label={`Remove ${field.label} filter`}
               onClick={() =>
                 onChange(

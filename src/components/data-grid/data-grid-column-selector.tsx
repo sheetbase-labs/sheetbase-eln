@@ -19,8 +19,7 @@ export function DataGridColumnSelector<TData>({
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
-          size="sm"
-          className="h-8"
+          size="icon-xs"
           aria-label="Choose visible columns"
         >
           <Columns3 className="size-4" />

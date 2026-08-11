@@ -92,14 +92,14 @@ export function DataGridFilters<TData>({
         }))}
         onChange={handleChange}
         allowMultiple={false}
-        size="sm"
+        size="xs"
         i18n={{ addFilter: 'Add filter' }}
       />
       {controlledFilters.length > 0 ? (
         <Button
           variant="ghost"
-          size="sm"
-          className="h-8 text-xs text-muted-foreground"
+          size="xs"
+          className="text-muted-foreground"
           onClick={() => onFiltersChange([])}
         >
           <X className="size-3.5" />

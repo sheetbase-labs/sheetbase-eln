@@ -34,7 +34,7 @@ export function DataGridGrouping<TData>({
       {available.length ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" aria-label="Add grouping">
+            <Button variant="outline" size="xs" aria-label="Add grouping">
               <Plus />
               Add grouping
             </Button>
@@ -57,12 +57,12 @@ export function DataGridGrouping<TData>({
         const field = fields.find((candidate) => candidate.id === id)
         return field ? (
           <ButtonGroup key={id}>
-            <ButtonGroupText className="h-8 px-3 text-xs font-medium">
+            <ButtonGroupText className="h-7 px-2.5 text-xs font-medium">
               Group: {field.label}
             </ButtonGroupText>
             <Button
               variant="outline"
-              size="icon-sm"
+              size="icon-xs"
               aria-label={`Remove ${field.label} grouping`}
               onClick={() =>
                 onGroupingChange(grouping.filter((active) => active !== id))

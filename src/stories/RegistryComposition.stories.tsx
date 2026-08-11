@@ -243,8 +243,6 @@ function renderInspector(record: unknown) {
 
 const baseArgs = {
   registryId: 'samples',
-  workspaceId: 'ws',
-  userId: 'user',
   title: 'Sample registry',
   description: 'Biological samples and aliquots',
   rows,

@@ -663,8 +663,6 @@ export function DatasetDataTab({
           <div className="flex min-h-0 flex-1 overflow-hidden">
             <RegistryComposition
               registryId={`dataset-${table.id}`}
-              workspaceId={workspaceId}
-              userId={userId}
               title={table.name}
               hideHeader
               rows={rowsQuery.data?.rows ?? []}
@@ -677,7 +675,6 @@ export function DatasetDataTab({
               onSelectedIdChange={setSelectedRowId}
               filterDefinitions={filterDefinitions}
               groupingOptions={groupingOptions}
-              initialDensity="compact"
               inspectorLabel="Dataset inspector"
               loading={rowsQuery.isLoading}
               error={rowsQuery.error}

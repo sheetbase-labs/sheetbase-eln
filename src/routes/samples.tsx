@@ -74,8 +74,6 @@ const dataClient = createDataClient()
 function SamplesRegistryRoute() {
   const { context } = Route.useRouteContext()
   const queryClient = useQueryClient()
-  const workspaceId = context.workspace?.id ?? ''
-  const userId = context.user.id
 
   const [query, setQuery] = useState<RegistryQuery>({
     ...DEFAULT_REGISTRY_QUERY,
@@ -330,8 +328,6 @@ function SamplesRegistryRoute() {
       <div className="flex h-full flex-col gap-3 overflow-hidden p-4">
         <RegistryComposition
           registryId="samples"
-          workspaceId={workspaceId}
-          userId={userId}
           title="Samples Registry"
           description="Track sample identity, quantity, storage and chain of custody."
           rows={rows}
@@ -348,7 +344,6 @@ function SamplesRegistryRoute() {
           groupingOptions={groupingOptions}
           renderInspector={inspector}
           inspectorLabel="Sample details"
-          initialDensity="compact"
           initialColumnVisibility={{ barcode: false, sampleType: false }}
           loading={pageQuery.isLoading}
           error={pageQuery.error}

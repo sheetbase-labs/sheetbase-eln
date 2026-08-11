@@ -356,7 +356,6 @@ function ReviewsRoute() {
   const search = useSearch({ from: '/reviews' })
 
   const currentUserId = context.user.id
-  const workspaceId = context.workspace?.id ?? 'workspace'
 
   const query = useMemo(() => queryFromSearch(search), [search])
   const selectedId = search.selected ?? null
@@ -615,8 +614,6 @@ function ReviewsRoute() {
       <div className="flex flex-col gap-4 p-4 md:p-6">
       <RegistryComposition<ReviewItem>
         registryId="reviews"
-        workspaceId={workspaceId}
-        userId={currentUserId}
         title="Review inbox"
         description="Central queue for items requiring scientific or QA review."
         rows={rows}

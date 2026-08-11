@@ -23,7 +23,6 @@ import {
   PanelRightClose,
   Pin,
   PinOff,
-  Search,
   X,
 } from 'lucide-react'
 
@@ -32,11 +31,8 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
-  Input,
   Select,
   Sheet,
   SheetContent,
@@ -50,19 +46,10 @@ import {
   TableRow,
 } from '#/components/ui'
 import { formatCount } from '#/lib/format-numbers'
-import {
-  createRegistrySavedViewStore,
-  DEFAULT_REGISTRY_QUERY,
-  formatRegistryValue,
-  sanitizeRegistryView,
-} from '#/lib/registry'
-import type {
-  RegistryDensity,
-  RegistryQuery,
-  RegistrySavedView,
-  RegistrySavedViewStore,
-  RegistryValueFormat,
-} from '#/lib/registry'
+import { Filters } from '#/components/reui/filters'
+import type { Filter as ReuiFilter } from '#/components/reui/filters'
+import { DEFAULT_REGISTRY_QUERY, formatRegistryValue } from '#/lib/registry'
+import type { RegistryQuery, RegistryValueFormat } from '#/lib/registry'
 import { cn } from '#/lib/utils'
 
 export interface RegistrySummary {
@@ -105,8 +92,6 @@ declare module '@tanstack/react-table' {
 
 export interface RegistryCompositionProps<TData> {
   registryId: string
-  workspaceId: string
-  userId: string
   title: string
   description?: string
   rows: TData[]
@@ -137,8 +122,6 @@ export interface RegistryCompositionProps<TData> {
   emptyTitle?: string
   noResultsTitle?: string
   initialColumnVisibility?: VisibilityState
-  initialDensity?: RegistryDensity
-  savedViewStore?: RegistrySavedViewStore
   actions?: React.ReactNode
   /** Hide the built-in title/description header when the route supplies its own. */
   hideHeader?: boolean
@@ -160,7 +143,11 @@ function resolveUpdater<T>(updater: Updater<T>, previous: T): T {
 function useIsXl(): boolean {
   const [isXl, setIsXl] = React.useState(false)
   React.useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return
+    if (
+      typeof window === 'undefined' ||
+      typeof window.matchMedia !== 'function'
+    )
+      return
     const mq = window.matchMedia('(min-width: 1280px)')
     setIsXl(mq.matches)
     const handler = (e: MediaQueryListEvent) => setIsXl(e.matches)
@@ -173,64 +160,89 @@ function useIsXl(): boolean {
 const PIN_KEY = (registryId: string) =>
   `sheetbase-inspector-pinned-${registryId}`
 
-function viewId(): string {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID()
-  }
-  return `view-${Date.now()}-${Math.random().toString(36).slice(2)}`
-}
-
-function activeFilter(query: RegistryQuery, id: string): string {
-  return query.filters.find((filter) => filter.id === id)?.value ?? ''
-}
-
-function RegistrySearchField({
-  value,
-  placeholder,
-  onValueChange,
+function RegistryFilters({
+  definitions,
+  query,
+  onQueryChange,
   debounceMs,
 }: {
-  value: string
-  placeholder: string
-  onValueChange: (value: string) => void
+  definitions: RegistryFilterDefinition[]
+  query: RegistryQuery
+  onQueryChange: (query: RegistryQuery) => void
   debounceMs: number
 }) {
-  const [draft, setDraft] = React.useState(value)
-  const onValueChangeRef = React.useRef(onValueChange)
-  onValueChangeRef.current = onValueChange
+  const fromQuery = React.useCallback(
+    (): ReuiFilter<string>[] =>
+      query.filters.map((filter) => ({
+        id: filter.id,
+        field: filter.id,
+        operator: 'is',
+        values: [filter.value],
+      })),
+    [query.filters],
+  )
+  const [filters, setFilters] = React.useState(fromQuery)
+  const timeoutRef = React.useRef<number | undefined>(undefined)
 
-  React.useEffect(() => setDraft(value), [value])
-  React.useEffect(() => {
-    if (debounceMs === 0 || draft === value) return
-    const timeout = window.setTimeout(
-      () => onValueChangeRef.current(draft),
-      debounceMs,
+  React.useEffect(() => setFilters(fromQuery()), [fromQuery])
+  React.useEffect(() => () => window.clearTimeout(timeoutRef.current), [])
+
+  function emit(next: ReuiFilter<string>[]) {
+    const routeFilters = next
+      .filter((filter) => filter.values[0])
+      .map((filter) => ({ id: filter.field, value: filter.values[0] }))
+    const unchanged =
+      routeFilters.length === query.filters.length &&
+      routeFilters.every(
+        (filter, index) =>
+          filter.id === query.filters[index]?.id &&
+          filter.value === query.filters[index]?.value,
+      )
+    if (unchanged) return
+    onQueryChange({ ...query, pageIndex: 0, filters: routeFilters })
+  }
+
+  function handleChange(next: ReuiFilter<string>[]) {
+    const previous = filters
+    setFilters(next)
+    window.clearTimeout(timeoutRef.current)
+    const changed = next.find(
+      (filter) =>
+        filter.values[0] !==
+        previous.find((candidate) => candidate.id === filter.id)?.values[0],
     )
-    return () => window.clearTimeout(timeout)
-  }, [debounceMs, draft, value])
+    const definition = definitions.find(
+      (candidate) => candidate.id === changed?.field,
+    )
+    if (changed && !definition?.options && debounceMs > 0) {
+      timeoutRef.current = window.setTimeout(() => emit(next), debounceMs)
+    } else {
+      emit(next)
+    }
+  }
 
   return (
-    <div className="relative min-w-48 flex-1 sm:max-w-64">
-      <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-      <Input
-        aria-label="Search"
-        value={draft}
-        onChange={(event) => {
-          const next = event.target.value
-          setDraft(next)
-          if (debounceMs === 0) onValueChangeRef.current(next)
-        }}
-        placeholder={placeholder}
-        className="h-8 pl-8 text-sm"
-      />
-    </div>
+    <Filters
+      filters={filters}
+      fields={definitions.map((definition) => ({
+        key: definition.id,
+        label: definition.label,
+        placeholder: definition.placeholder,
+        type: definition.options ? ('select' as const) : ('text' as const),
+        options: definition.options,
+        operators: [{ value: 'is', label: 'is' }],
+        defaultOperator: 'is',
+      }))}
+      onChange={handleChange}
+      allowMultiple={false}
+      size="sm"
+      i18n={{ addFilter: 'Add filter' }}
+    />
   )
 }
 
 export function RegistryComposition<TData>({
   registryId,
-  workspaceId,
-  userId,
   title,
   description,
   rows,
@@ -257,8 +269,6 @@ export function RegistryComposition<TData>({
   emptyTitle = 'No records yet',
   noResultsTitle = 'No matching records',
   initialColumnVisibility = {},
-  initialDensity = 'compact',
-  savedViewStore,
   actions,
   hideHeader = false,
   incrementalRows,
@@ -268,17 +278,8 @@ export function RegistryComposition<TData>({
   const compositionRef = React.useRef<HTMLElement>(null)
   const scrollViewportRef = React.useRef<HTMLDivElement>(null)
   const lastRequestedRowCountRef = React.useRef(-1)
-  const store = React.useMemo(
-    () =>
-      savedViewStore ??
-      createRegistrySavedViewStore({ registryId, workspaceId, userId }),
-    [registryId, savedViewStore, userId, workspaceId],
-  )
-  const [savedViews, setSavedViews] = React.useState<RegistrySavedView[]>([])
-  const [selectedViewId, setSelectedViewId] = React.useState('')
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>(initialColumnVisibility)
-  const [density, setDensity] = React.useState<RegistryDensity>(initialDensity)
   const [uncontrolledInspectorOpen, setUncontrolledInspectorOpen] =
     React.useState(false)
   const [inspectorPinned, setInspectorPinned] = React.useState(false)
@@ -304,11 +305,6 @@ export function RegistryComposition<TData>({
     }
     setInspectorPinned(next)
   }, [inspectorPinned, registryId])
-
-  React.useEffect(() => {
-    setSavedViews(store.list())
-    setSelectedViewId('')
-  }, [store])
 
   React.useEffect(() => {
     if (selectedId && rows.some((row) => getRowId(row) === selectedId)) {
@@ -401,7 +397,7 @@ export function RegistryComposition<TData>({
   const rowVirtualizer = useVirtualizer({
     count: incrementalRows ? displayRows.length : 0,
     getScrollElement: () => scrollViewportRef.current,
-    estimateSize: () => (density === 'compact' ? 29 : 41),
+    estimateSize: () => 29,
     overscan: 10,
   })
   const virtualItems = rowVirtualizer.getVirtualItems()
@@ -446,26 +442,6 @@ export function RegistryComposition<TData>({
     virtualItems,
   ])
 
-  const viewPolicy = React.useMemo(
-    () => ({
-      sortColumnIds: table
-        .getAllLeafColumns()
-        .filter((column) => column.getCanSort())
-        .map((column) => column.id),
-      visibilityColumnIds: table
-        .getAllLeafColumns()
-        .filter((column) => column.getCanHide())
-        .map((column) => column.id),
-      filterIds: filterDefinitions.map((filter) => filter.id),
-      groupingIds: groupingOptions.map((group) => group.id),
-      pageSizes: [25, 50, 100],
-      fallbackPageSize: [25, 50, 100].includes(query.pageSize)
-        ? query.pageSize
-        : DEFAULT_REGISTRY_QUERY.pageSize,
-    }),
-    [filterDefinitions, groupingOptions, query.pageSize, table],
-  )
-
   const pageCount = Math.max(1, Math.ceil(totalCount / query.pageSize))
   const selectedRow = selectedId
     ? (rows.find((row) => getRowId(row) === selectedId) ??
@@ -474,9 +450,6 @@ export function RegistryComposition<TData>({
         : null))
     : null
   const hasFilters = query.filters.some((filter) => filter.value !== '')
-  const searchFilter = filterDefinitions.find(
-    (filter) => filter.id === 'search' || filter.id === 'q',
-  )
   const inspectorOpen = controlledInspectorOpen ?? uncontrolledInspectorOpen
   const setInspectorOpen = React.useCallback(
     (open: boolean) => {
@@ -535,39 +508,12 @@ export function RegistryComposition<TData>({
     )
   ) : null
 
-  function setFilter(id: string, value: string) {
-    const filters = query.filters.filter((filter) => filter.id !== id)
-    if (value) filters.push({ id, value })
-    onQueryChange({ ...query, pageIndex: 0, filters })
-  }
-
   function setGrouping(id: string) {
     onQueryChange({
       ...query,
       pageIndex: 0,
       grouping: id ? [id] : [],
     })
-  }
-
-  function saveView() {
-    const name = window.prompt('Save current view as…')?.trim()
-    if (!name) return
-    store.save({
-      id: viewId(),
-      name,
-      state: { query, columnVisibility, density },
-    })
-    setSavedViews(store.list())
-  }
-
-  function applyView(id: string) {
-    setSelectedViewId(id)
-    const view = savedViews.find((candidate) => candidate.id === id)
-    if (!view) return
-    const safeView = sanitizeRegistryView(view, viewPolicy)
-    onQueryChange(safeView.state.query)
-    setColumnVisibility(safeView.state.columnVisibility)
-    setDensity(safeView.state.density)
   }
 
   function focusRow(index: number) {
@@ -638,7 +584,7 @@ export function RegistryComposition<TData>({
       ) : null}
       <Table
         aria-label={title}
-        data-density={density}
+        data-density="compact"
         containerClassName={incrementalRows ? 'overflow-visible' : undefined}
         style={resizableColumns ? { width: table.getTotalSize() } : undefined}
       >
@@ -658,8 +604,7 @@ export function RegistryComposition<TData>({
                     key={header.id}
                     className={cn(
                       resizableColumns && 'relative',
-                      density === 'compact' &&
-                        'h-7 whitespace-nowrap px-2.5 text-[0.65rem]',
+                      'h-7 whitespace-nowrap px-2.5 text-[0.65rem]',
                     )}
                     style={
                       resizableColumns ? { width: header.getSize() } : undefined
@@ -770,12 +715,7 @@ export function RegistryComposition<TData>({
                   >
                     <button
                       type="button"
-                      className={cn(
-                        'flex w-full items-center gap-1.5 font-semibold',
-                        density === 'compact'
-                          ? 'h-8 px-2.5 text-xs'
-                          : 'h-10 px-3 text-sm',
-                      )}
+                      className="flex h-8 w-full items-center gap-1.5 px-2.5 text-xs font-semibold"
                       onClick={() => row.getToggleExpandedHandler()()}
                       aria-label={`Toggle group`}
                     >
@@ -852,9 +792,7 @@ export function RegistryComposition<TData>({
                   <TableCell
                     key={cell.id}
                     className={cn(
-                      density === 'compact'
-                        ? 'whitespace-nowrap px-2.5 py-1 text-xs'
-                        : 'px-3 py-2',
+                      'whitespace-nowrap px-2.5 py-1 text-xs',
                       typeof cell.getValue() === 'number' &&
                         'scientific-nums text-right tabular-nums',
                     )}
@@ -952,88 +890,14 @@ export function RegistryComposition<TData>({
 
       {!permissionDenied ? (
         <div className="flex flex-wrap items-center gap-2">
-          {!searchFilter && filterDefinitions.length > 0 ? (
-            <span className="text-xs font-medium text-muted-foreground">
-              Filter rows
-            </span>
-          ) : null}
-          {/* Search — prominent standalone input */}
-          {searchFilter ? (
-            <RegistrySearchField
-              value={activeFilter(query, searchFilter.id)}
-              onValueChange={(value) => setFilter(searchFilter.id, value)}
-              placeholder={searchFilter.placeholder ?? 'Search…'}
+          {filterDefinitions.length > 0 ? (
+            <RegistryFilters
+              definitions={filterDefinitions}
+              query={query}
+              onQueryChange={onQueryChange}
               debounceMs={searchDebounceMs}
             />
           ) : null}
-
-          {/* Filter pills — compact dropdown buttons for option-based filters */}
-          {filterDefinitions
-            .filter((filter) => filter !== searchFilter && filter.options)
-            .map((filter) => {
-              const active = activeFilter(query, filter.id)
-              const activeLabel = filter.options?.find(
-                (option) => option.value === active,
-              )?.label
-              return (
-                <DropdownMenu key={filter.id}>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant={active ? 'subtle' : 'outline'}
-                      size="sm"
-                      className="h-8 gap-1.5"
-                    >
-                      <span className="max-w-40 truncate">
-                        {activeLabel
-                          ? `${filter.label}: ${activeLabel}`
-                          : filter.label}
-                      </span>
-                      {active ? (
-                        <span className="size-1.5 rounded-full bg-primary" />
-                      ) : null}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
-                    <DropdownMenuLabel>
-                      Filter by {filter.label}
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onSelect={() => setFilter(filter.id, '')}>
-                      All {filter.label.toLowerCase()}
-                    </DropdownMenuItem>
-                    {filter.options!.map((option) => (
-                      <DropdownMenuItem
-                        key={option.value}
-                        onSelect={() => setFilter(filter.id, option.value)}
-                      >
-                        {option.label}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )
-            })}
-
-          {/* Text filters — compact inputs for non-option, non-search filters */}
-          {filterDefinitions
-            .filter((filter) => filter !== searchFilter && !filter.options)
-            .map((filter) => (
-              <div
-                key={filter.id}
-                className="flex h-8 items-center overflow-hidden rounded-md border bg-background"
-              >
-                <span className="shrink-0 border-r bg-muted/40 px-2 text-xs font-medium text-muted-foreground">
-                  {filter.label} =
-                </span>
-                <Input
-                  aria-label={`Filter by ${filter.label}`}
-                  value={activeFilter(query, filter.id)}
-                  onChange={(event) => setFilter(filter.id, event.target.value)}
-                  placeholder={filter.placeholder ?? 'Exact value'}
-                  className="h-8 w-28 rounded-none border-0 text-sm shadow-none focus-visible:ring-0"
-                />
-              </div>
-            ))}
 
           {/* Clear filters */}
           {query.filters.length > 0 ? (
@@ -1046,7 +910,7 @@ export function RegistryComposition<TData>({
               }
             >
               <X className="size-3.5" />
-              Clear
+              Clear all
             </Button>
           ) : null}
 
@@ -1062,24 +926,11 @@ export function RegistryComposition<TData>({
                 <option value="">No grouping</option>
                 {groupingOptions.map((option) => (
                   <option key={option.id} value={option.id}>
-                    {option.label}
+                    Group: {option.label}
                   </option>
                 ))}
               </Select>
             ) : null}
-
-            {/* Density */}
-            <Select
-              aria-label="Table density"
-              value={density}
-              onChange={(event) =>
-                setDensity(event.target.value as RegistryDensity)
-              }
-              className="h-8 w-auto text-xs"
-            >
-              <option value="comfortable">Comfortable</option>
-              <option value="compact">Compact</option>
-            </Select>
 
             {/* Columns */}
             <DropdownMenu>
@@ -1111,32 +962,6 @@ export function RegistryComposition<TData>({
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-
-            {/* Saved views */}
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8"
-              onClick={saveView}
-              aria-label="Save current view"
-            >
-              Save view
-            </Button>
-            {savedViews.length > 0 ? (
-              <Select
-                aria-label="Saved views"
-                value={selectedViewId}
-                onChange={(event) => applyView(event.target.value)}
-                className="h-8 w-auto text-xs"
-              >
-                <option value="">Current view</option>
-                {savedViews.map((view) => (
-                  <option key={view.id} value={view.id}>
-                    {view.name}
-                  </option>
-                ))}
-              </Select>
-            ) : null}
           </div>
         </div>
       ) : null}

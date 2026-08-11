@@ -261,8 +261,6 @@ function ReagentsRegistryRoute() {
       <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden p-4">
         <RegistryComposition
           registryId="reagents"
-          workspaceId={context.workspace?.id ?? 'unknown'}
-          userId={context.user.id}
           title="Reagents Registry"
           description="Central inventory of reagents, consumables and chemicals."
           rows={rows}
@@ -275,7 +273,6 @@ function ReagentsRegistryRoute() {
           selectedRecord={selectedReagent}
           onSelectedIdChange={setSelected}
           inspectorLabel="Reagent details"
-          initialDensity="compact"
           summaries={summaries}
           filterDefinitions={[
             {

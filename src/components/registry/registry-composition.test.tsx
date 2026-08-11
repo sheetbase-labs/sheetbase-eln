@@ -9,11 +9,11 @@ import {
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ColumnDef } from '@tanstack/react-table'
+import { useState } from 'react'
 
 import { RegistryComposition } from './registry-composition'
 import type { RegistryCompositionProps } from './registry-composition'
 import type { RegistryQuery } from '#/lib/registry'
-import { createRegistrySavedViewStore } from '#/lib/registry'
 
 interface Row {
   id: string
@@ -52,27 +52,11 @@ const query: RegistryQuery = {
   filters: [],
 }
 
-function memoryStorage(): Storage {
-  const values = new Map<string, string>()
-  return {
-    get length() {
-      return values.size
-    },
-    clear: () => values.clear(),
-    getItem: (key) => values.get(key) ?? null,
-    key: (index) => Array.from(values.keys())[index] ?? null,
-    removeItem: (key) => values.delete(key),
-    setItem: (key, value) => values.set(key, value),
-  }
-}
-
 function props(
   overrides: Partial<RegistryCompositionProps<Row>> = {},
 ): RegistryCompositionProps<Row> {
   return {
     registryId: 'test-records',
-    workspaceId: 'workspace-a',
-    userId: 'user-a',
     title: 'Test records',
     description: 'Reusable registry proof.',
     rows,
@@ -98,12 +82,6 @@ function props(
     renderInspector: (row) => (
       <div>{row ? `Inspecting ${row.identifier}` : 'Nothing selected'}</div>
     ),
-    savedViewStore: createRegistrySavedViewStore({
-      registryId: 'test-records',
-      workspaceId: 'workspace-a',
-      userId: 'user-a',
-      storage: memoryStorage(),
-    }),
     ...overrides,
   }
 }
@@ -142,10 +120,12 @@ describe('RegistryComposition server contracts', () => {
       sorting: [{ id: 'identifier', desc: false }],
     })
 
+    await user.click(screen.getByRole('button', { name: 'Add filter' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Status' }))
+    await user.click(screen.getByRole('button', { name: 'Select' }))
     await user.click(
-      screen.getByRole('button', { name: 'Status', expanded: false }),
+      screen.getByRole('menuitemcheckbox', { name: 'Available' }),
     )
-    await user.click(screen.getByRole('menuitem', { name: 'Available' }))
 
     expect(onQueryChange).toHaveBeenCalledWith({
       ...query,
@@ -173,9 +153,29 @@ describe('RegistryComposition server contracts', () => {
       />,
     )
 
-    expect(
-      screen.getByRole('button', { name: /Status: Available/ }),
-    ).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Available' })).toBeTruthy()
+  })
+
+  it('keeps a newly added filter open until the user selects a value', async () => {
+    const user = userEvent.setup()
+
+    function ControlledRegistry() {
+      const [controlledQuery, setControlledQuery] = useState(query)
+      return (
+        <RegistryComposition
+          {...props({
+            query: controlledQuery,
+            onQueryChange: setControlledQuery,
+          })}
+        />
+      )
+    }
+
+    render(<ControlledRegistry />)
+    await user.click(screen.getByRole('button', { name: 'Add filter' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Status' }))
+
+    expect(screen.getByRole('button', { name: 'Select' })).toBeTruthy()
   })
 
   it('debounces server-owned text search updates', async () => {
@@ -193,6 +193,8 @@ describe('RegistryComposition server contracts', () => {
       />,
     )
 
+    await user.click(screen.getByRole('button', { name: 'Add filter' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Search' }))
     await user.type(screen.getByRole('textbox', { name: 'Search' }), 'Anti')
     expect(onQueryChange).not.toHaveBeenCalled()
     await waitFor(() => expect(onQueryChange).toHaveBeenCalledOnce(), {
@@ -216,6 +218,8 @@ describe('RegistryComposition server contracts', () => {
       />,
     )
 
+    await user.click(screen.getByRole('button', { name: 'Add filter' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Search' }))
     await user.type(screen.getByRole('textbox', { name: 'Search' }), 'A')
     expect(onQueryChange).toHaveBeenCalledWith({
       ...query,
@@ -403,15 +407,14 @@ describe('RegistryComposition interaction and states', () => {
     expect(screen.queryByLabelText('Registry inspector')).toBeNull()
   })
 
-  it('has accessible column headers and Sheetbase density controls', async () => {
-    const user = userEvent.setup()
+  it('has accessible column headers and a fixed compact density', () => {
     render(<RegistryComposition {...props()} />)
     const table = screen.getByRole('table', { name: 'Test records' })
     expect(
       within(table).getByRole('columnheader', { name: /Identifier/ }),
     ).toBeTruthy()
-    await user.selectOptions(screen.getByLabelText('Table density'), 'compact')
     expect(table.getAttribute('data-density')).toBe('compact')
+    expect(screen.queryByLabelText('Table density')).toBeNull()
     expect(within(table).getByText('1.2 µg/mL')).toBeTruthy()
   })
 
@@ -442,109 +445,5 @@ describe('RegistryComposition interaction and states', () => {
     )
 
     expect(screen.getByText('Custom 1.2')).toBeTruthy()
-  })
-})
-
-describe('RegistryComposition saved views', () => {
-  it('saves and reapplies the query, columns and density for this user/workspace', async () => {
-    const user = userEvent.setup()
-    const onQueryChange = vi.fn()
-    render(<RegistryComposition {...props({ onQueryChange })} />)
-
-    await user.selectOptions(screen.getByLabelText('Table density'), 'compact')
-    await user.click(
-      screen.getByRole('button', { name: 'Choose visible columns' }),
-    )
-    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Status' }))
-    await user.keyboard('{Escape}')
-    expect(screen.queryByRole('columnheader', { name: /Status/ })).toBeNull()
-    const promptSpy1 = vi
-      .spyOn(window, 'prompt')
-      .mockReturnValue('Available compact')
-    await user.click(screen.getByRole('button', { name: 'Save current view' }))
-    promptSpy1.mockRestore()
-
-    expect(screen.getByLabelText('Saved views').textContent).toContain(
-      'Available compact',
-    )
-
-    await user.click(
-      screen.getByRole('button', { name: 'Choose visible columns' }),
-    )
-    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Status' }))
-    await user.keyboard('{Escape}')
-    expect(screen.getByRole('columnheader', { name: /Status/ })).toBeTruthy()
-
-    await user.selectOptions(screen.getByLabelText('Saved views'), [
-      screen.getByRole('option', { name: 'Available compact' }),
-    ])
-    expect(onQueryChange).toHaveBeenLastCalledWith(query)
-    expect(screen.getByRole('table').getAttribute('data-density')).toBe(
-      'compact',
-    )
-    expect(screen.queryByRole('columnheader', { name: /Status/ })).toBeNull()
-  })
-
-  it('sanitises persisted queries against the current registry contract', async () => {
-    const user = userEvent.setup()
-    const onQueryChange = vi.fn()
-    const store = createRegistrySavedViewStore({
-      registryId: 'test-records',
-      workspaceId: 'workspace-a',
-      userId: 'user-a',
-      storage: memoryStorage(),
-    })
-    store.save({
-      id: 'unsafe',
-      name: 'Stale view',
-      state: {
-        query: {
-          pageIndex: 99,
-          pageSize: 999,
-          sorting: [
-            { id: 'identifier', desc: false },
-            { id: 'actions', desc: false },
-            { id: 'secret', desc: true },
-          ],
-          grouping: ['secret', 'status'],
-          filters: [
-            { id: 'secret', value: 'leak' },
-            { id: 'status', value: 'available' },
-          ],
-        },
-        columnVisibility: { identifier: true, actions: false, secret: true },
-        density: 'compact',
-      },
-    })
-    render(
-      <RegistryComposition
-        {...props({ savedViewStore: store, onQueryChange })}
-      />,
-    )
-
-    await user.selectOptions(screen.getByLabelText('Saved views'), 'unsafe')
-    expect(onQueryChange).toHaveBeenLastCalledWith({
-      pageIndex: 0,
-      pageSize: 25,
-      sorting: [{ id: 'identifier', desc: false }],
-      grouping: ['status'],
-      filters: [{ id: 'status', value: 'available' }],
-    })
-  })
-
-  it('keeps distinct saved views whose names normalise the same way', async () => {
-    const user = userEvent.setup()
-    render(<RegistryComposition {...props()} />)
-
-    const promptSpy = vi.spyOn(window, 'prompt')
-    promptSpy.mockReturnValueOnce('QC ready')
-    await user.click(screen.getByRole('button', { name: 'Save current view' }))
-    promptSpy.mockReturnValueOnce('QC-ready')
-    await user.click(screen.getByRole('button', { name: 'Save current view' }))
-    promptSpy.mockRestore()
-
-    expect(screen.getAllByRole('option', { name: /QC.?ready/i })).toHaveLength(
-      2,
-    )
   })
 })

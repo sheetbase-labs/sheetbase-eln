@@ -122,6 +122,7 @@ export function buildDatasetRowQuery(
         throw new Error(`Unsupported dataset sort field: ${sort.id}`)
       return `${encodeURIComponent(sort.id)}.${sort.desc ? 'desc' : 'asc'}`
     })
+    if (!query.sorting.some((sort) => sort.id === 'id')) sorting.push('id.asc')
     parts.push(`order=${sorting.join(',')}`)
   } else {
     parts.push('order=created_at.asc,id.asc')
@@ -155,6 +156,7 @@ export async function fetchDatasetRowPage(
   client: DataClient,
   table: ScientificTableWire,
   query: DatasetRowQuery,
+  includeCount = true,
 ): Promise<DatasetRowPage> {
   const resource = encodeURIComponent(table.resource_name)
   const rowQuery = buildDatasetRowQuery(query, table.columns)
@@ -168,11 +170,28 @@ export async function fetchDatasetRowPage(
         !part.startsWith('offset='),
     )
   const countQuery = filters.length ? `?select=id&${filters.join('&')}` : ''
+  const rowsPromise = client.list<ScientificRowWire>(resource, rowQuery)
+  if (!includeCount) {
+    return { rows: await rowsPromise, totalCount: 0 }
+  }
   const [rows, totalCount] = await Promise.all([
-    client.list<ScientificRowWire>(resource, rowQuery),
+    rowsPromise,
     countQuery ? client.count(resource, countQuery) : client.count(resource),
   ])
   return { rows, totalCount }
+}
+
+/** Determine the next offset page from the authoritative first-page count. */
+export function getNextDatasetPageParam(
+  lastPage: DatasetRowPage,
+  pages: DatasetRowPage[],
+  pageSize: number,
+): number | undefined {
+  const loaded = pages.reduce((count, page) => count + page.rows.length, 0)
+  const total = pages[0]?.totalCount ?? 0
+  return lastPage.rows.length < pageSize || loaded >= total
+    ? undefined
+    : pages.length
 }
 
 // --- Schema + relationships ----------------------------------------------

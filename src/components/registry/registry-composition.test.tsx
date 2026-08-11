@@ -448,6 +448,7 @@ describe('RegistryComposition interaction and states', () => {
 
   it.each([
     ['loading', { loading: true }, 'Loading Test records'],
+    ['error', { error: new Error('boom') }, 'Could not load records'],
     ['permission', { permissionDenied: true }, 'Permission denied'],
     ['empty', { rows: [], totalCount: 0 }, 'No records yet'],
     [
@@ -462,13 +463,16 @@ describe('RegistryComposition interaction and states', () => {
       },
       'No matching records',
     ],
-  ] as const)('renders the %s state', (_name, overrides, expected) => {
+  ] as const)('renders the %s state', (name, overrides, expected) => {
     render(
       <RegistryComposition
         {...props(overrides as Partial<RegistryCompositionProps<Row>>)}
       />,
     )
     expect(screen.getByText(expected)).toBeTruthy()
+    if (name === 'loading' || name === 'error') {
+      expect(screen.queryByText('2 records')).toBeNull()
+    }
   })
 
   it('labels partial result pages without hiding returned rows', () => {

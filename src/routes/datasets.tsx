@@ -1,21 +1,20 @@
 /**
  * DATA-007 — Dataset Explorer route (`/datasets`).
  *
- * A read-only browsing surface over real scientific-table metadata. Four tabs
- * — Data, Schema, Relationships, Lineage — share a dataset selector and a
- * row inspector. The Data tab uses TanStack Table (not Handsontable) for
- * paged query and review; Handsontable stays the edit surface inside
- * notebook sheets. Filters, sorting, field selection and grouping stay within
- * the safe limits defined in `dataset-explorer-data`. Named views persist
- * their query specification in local storage. A chart preview is built from
- * the same `ChartSpec` model (SCI-004) Analysis Studio will use, so a saved
- * chart stays reproducible from the same specification.
+ * A read-only browsing surface over real scientific-table metadata. Data and
+ * Schema tabs share a searchable dataset selector and a row inspector. The
+ * Data tab uses the shared virtualised grid for incremental query and review;
+ * Handsontable stays the edit surface inside notebook sheets. Filters,
+ * sorting, field selection and grouping stay within the safe limits defined
+ * in `dataset-explorer-data`. A resizable chart preview uses the same
+ * `ChartSpec` model (SCI-004) as Analysis Studio without duplicating its
+ * authoring controls.
  *
  * PostgreSQL and RLS remain authoritative (decisions 0019/0034): every read
  * goes through `/api/db`, and permission-denied / partial-data states are
  * surfaced honestly rather than blanked.
  */
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { flexRender } from '@tanstack/react-table'
@@ -24,13 +23,9 @@ import {
   Check,
   ChevronsUpDown,
   Database,
-  Download,
-  GitBranch,
   Layers,
   Table as TableIcon,
   Trash2,
-  Undo2,
-  Workflow,
 } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
@@ -49,14 +44,12 @@ import { ChartRenderer } from '#/components/viz/chart-renderer'
 import {
   Badge,
   Button,
-  ButtonGroup,
   Command,
   CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
-  Input,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -75,13 +68,12 @@ import {
 import { materialiseLiveChart, useLiveChartDataset } from '#/lib/chart-data'
 import { formatCount } from '#/lib/format-numbers'
 import {
-  formatRelativeTime,
   fetchLinksForRecord,
+  formatRelativeTime,
   notebookDataClient,
 } from '#/lib/notebook-data'
 import {
   buildDefaultChartSpec,
-  createDatasetSavedViewStore,
   DATASET_DEFAULT_PAGE_SIZE,
   DATASET_MAX_FILTERS,
   datasetExplorerDataClient,
@@ -91,12 +83,12 @@ import {
   fetchDatasetRowPage,
   fetchDatasetSchemaDetail,
   fetchDatasetSummaries,
+  getNextDatasetPageParam,
   validateTransformations,
 } from '#/lib/dataset-explorer-data'
 import type {
   DatasetDensity,
   DatasetRowQuery,
-  DatasetSavedViewStore,
 } from '#/lib/dataset-explorer-data'
 import type {
   FormulaDefinitionWire,
@@ -131,10 +123,26 @@ const DEFAULT_DATASET_QUERY: DatasetRowQuery = {
   sorting: [],
   filters: [],
 }
+const MINIMUM_DATASET_GRID_HEIGHT = 220
+const PREFERRED_MINIMUM_PREVIEW_HEIGHT = 220
+const DATASET_SPLITTER_HEIGHT = 8
+
+export function datasetPreviewBounds(layoutHeight: number): {
+  minimum: number
+  maximum: number
+} {
+  const maximum = Math.max(
+    0,
+    layoutHeight - MINIMUM_DATASET_GRID_HEIGHT - DATASET_SPLITTER_HEIGHT,
+  )
+  return {
+    minimum: Math.min(PREFERRED_MINIMUM_PREVIEW_HEIGHT, maximum),
+    maximum,
+  }
+}
 
 function queryIdentity(query: DatasetRowQuery): string {
   return [
-    query.pageIndex,
     query.pageSize,
     query.sorting.map((s) => `${s.id}:${s.desc}`).join(','),
     query.filters
@@ -202,9 +210,7 @@ function DatasetExplorerRoute() {
   })
 
   const datasets = summariesQuery.data ?? []
-  const [activeTab, setActiveTab] = useState<
-    'data' | 'schema' | 'relationships' | 'lineage'
-  >('data')
+  const [activeTab, setActiveTab] = useState<'data' | 'schema'>('data')
 
   const requestedTableId = search.dataset || null
   const selectedTable = useMemo(
@@ -216,10 +222,14 @@ function DatasetExplorerRoute() {
   )
   const selectedTableId = selectedTable?.id ?? null
 
-  const viewStore = useMemo(
-    () => createDatasetSavedViewStore({ workspaceId, userId }),
-    [workspaceId, userId],
-  )
+  useEffect(() => {
+    if (!selectedTableId || selectedTableId === requestedTableId) return
+    void navigate({
+      to: '/datasets',
+      search: { dataset: selectedTableId },
+      replace: true,
+    })
+  }, [navigate, requestedTableId, selectedTableId])
 
   const shellContext = {
     workspace: context.workspace ? { name: context.workspace.name } : null,
@@ -254,10 +264,10 @@ function DatasetExplorerRoute() {
         />
         {selectedTable ? (
           <DatasetTabs
+            key={selectedTable.id}
             table={selectedTable}
             workspaceId={workspaceId}
             userId={userId}
-            viewStore={viewStore}
             activeTab={activeTab}
             onTabChange={setActiveTab}
           />
@@ -296,17 +306,22 @@ export function DatasetExplorerHeader({
       className="flex shrink-0 flex-wrap items-center justify-between gap-3"
       aria-labelledby="datasets-title"
     >
-      <div className="flex min-w-0 items-center gap-2">
-        <Database className="size-4 text-violet-500" aria-hidden="true" />
-        <h1
-          id="datasets-title"
-          className="text-sm font-semibold tracking-tight"
-        >
-          Dataset Explorer
-        </h1>
-        <span className="text-xs text-muted-foreground">
-          Query, transform and visualise scientific dataset rows
-        </span>
+      <div className="flex min-w-0 items-start gap-2.5">
+        <Database
+          className="mt-0.5 size-4 shrink-0 text-violet-500"
+          aria-hidden="true"
+        />
+        <div className="min-w-0">
+          <h1
+            id="datasets-title"
+            className="text-base font-semibold leading-5 tracking-tight"
+          >
+            Dataset Explorer
+          </h1>
+          <p className="text-xs leading-4 text-muted-foreground">
+            Browse scientific rows and preview the current dataset
+          </p>
+        </div>
       </div>
       <div className="flex items-center gap-2">
         {error ? (
@@ -426,85 +441,66 @@ interface DatasetTabsProps {
   table: ScientificTableWire
   workspaceId: string
   userId: string
-  viewStore: DatasetSavedViewStore
-  activeTab: 'data' | 'schema' | 'relationships' | 'lineage'
-  onTabChange: (tab: 'data' | 'schema' | 'relationships' | 'lineage') => void
+  activeTab: 'data' | 'schema'
+  onTabChange: (tab: 'data' | 'schema') => void
 }
 
 function DatasetTabs({
   table,
   workspaceId,
   userId,
-  viewStore,
   activeTab,
   onTabChange,
 }: DatasetTabsProps) {
   return (
     <Tabs
       value={activeTab}
-      onValueChange={(v) =>
-        onTabChange(v as 'data' | 'schema' | 'relationships' | 'lineage')
-      }
+      onValueChange={(v) => onTabChange(v as 'data' | 'schema')}
       className="relative min-h-0 flex-1 overflow-hidden"
     >
-      <TabsList className="w-fit">
-        <TabsTrigger value="data">
+      <TabsList className="h-8 w-full justify-start gap-5 rounded-none border-b bg-transparent p-0">
+        <TabsTrigger
+          value="data"
+          className="h-8 gap-1.5 rounded-none border-b-2 border-transparent px-0 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+        >
           <TableIcon className="size-3.5" aria-hidden="true" /> Data
         </TabsTrigger>
-        <TabsTrigger value="schema">
+        <TabsTrigger
+          value="schema"
+          className="h-8 gap-1.5 rounded-none border-b-2 border-transparent px-0 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+        >
           <Layers className="size-3.5" aria-hidden="true" /> Schema
-        </TabsTrigger>
-        <TabsTrigger value="relationships">
-          <Workflow className="size-3.5" aria-hidden="true" /> Relationships
-        </TabsTrigger>
-        <TabsTrigger value="lineage">
-          <GitBranch className="size-3.5" aria-hidden="true" /> Lineage
         </TabsTrigger>
       </TabsList>
       <TabsContent
         value="data"
-        className="absolute inset-x-0 bottom-0 top-10 flex min-h-0 flex-col gap-3"
+        className="absolute inset-x-0 bottom-0 top-8 flex min-h-0 flex-col"
       >
         <DatasetDataTab
           table={table}
           workspaceId={workspaceId}
           userId={userId}
-          viewStore={viewStore}
         />
       </TabsContent>
       <TabsContent
         value="schema"
-        className="absolute inset-x-0 bottom-0 top-10 flex min-h-0 flex-col gap-3 overflow-auto"
+        className="absolute inset-x-0 bottom-0 top-8 flex min-h-0 flex-col overflow-auto"
       >
         <DatasetSchemaTab table={table} />
-      </TabsContent>
-      <TabsContent
-        value="relationships"
-        className="absolute inset-x-0 bottom-0 top-10 flex min-h-0 flex-col gap-3 overflow-auto"
-      >
-        <DatasetRelationshipsTab table={table} />
-      </TabsContent>
-      <TabsContent
-        value="lineage"
-        className="absolute inset-x-0 bottom-0 top-10 flex min-h-0 flex-col gap-3 overflow-auto"
-      >
-        <DatasetLineageTab table={table} />
       </TabsContent>
     </Tabs>
   )
 }
 
 // ---------------------------------------------------------------------------
-// Data tab — TanStack Table, paged query, filters, sorting, saved views,
-// inspector, chart preview.
+// Data tab — virtualised incremental query, filters, sorting, inspector and
+// a secondary resizable chart preview.
 // ---------------------------------------------------------------------------
 
 export interface DatasetDataTabProps {
   table: ScientificTableWire
   workspaceId: string
   userId: string
-  /** Retained for compatibility with persisted DATA-007 views. */
-  viewStore?: DatasetSavedViewStore
 }
 
 export function DatasetDataTab({
@@ -518,7 +514,7 @@ export function DatasetDataTab({
   })
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null)
   const [previewTab, setPreviewTab] = useState('preview')
-  const [previewHeight, setPreviewHeight] = useState(240)
+  const [previewHeight, setPreviewHeight] = useState(320)
   const [layoutHeight, setLayoutHeight] = useState(640)
   const layoutRef = useRef<HTMLDivElement | null>(null)
   const resizeRef = useRef<{
@@ -566,26 +562,35 @@ export function DatasetDataTab({
     }
   }, [chartSpec, chartStorageKey])
 
-  useEffect(() => {
-    setQuery({ ...DEFAULT_DATASET_QUERY, grouping: [] })
-    setSelectedRowId(null)
-    setChartSpec(buildDefaultChartSpec(table))
-  }, [table])
-
   const rowQuery: DatasetRowQuery = {
-    pageIndex: query.pageIndex,
+    pageIndex: 0,
     pageSize: query.pageSize,
     sorting: query.sorting,
     filters: query.filters,
   }
   const qid = queryIdentity(rowQuery)
-  const rowsQuery = useQuery({
+  const rowsQuery = useInfiniteQuery({
     queryKey: datasetExplorerQueryKeys.rows(table.id, qid),
-    queryFn: () =>
-      fetchDatasetRowPage(datasetExplorerDataClient, table, rowQuery),
-    placeholderData: (prev) => prev,
+    initialPageParam: 0,
+    queryFn: ({ pageParam }) =>
+      fetchDatasetRowPage(
+        datasetExplorerDataClient,
+        table,
+        { ...rowQuery, pageIndex: pageParam },
+        pageParam === 0,
+      ),
+    getNextPageParam: (lastPage, pages) =>
+      getNextDatasetPageParam(lastPage, pages, rowQuery.pageSize),
     staleTime: 0,
   })
+
+  const rows = useMemo(() => {
+    const byId = new Map<string, ScientificRowWire>()
+    for (const page of rowsQuery.data?.pages ?? []) {
+      for (const row of page.rows) byId.set(row.id, row)
+    }
+    return Array.from(byId.values())
+  }, [rowsQuery.data])
 
   const lineageQuery = useQuery({
     queryKey: datasetExplorerQueryKeys.lineage(table.id),
@@ -620,13 +625,10 @@ export function DatasetDataTab({
       ),
     }))
   }, [table.columns])
-  const totalCount = rowsQuery.data?.totalCount ?? 0
-  const minimumPaneHeight = 180
-  const splitterHeight = 8
-  const maximumPreviewHeight = Math.max(
-    minimumPaneHeight,
-    layoutHeight - minimumPaneHeight - splitterHeight,
-  )
+  const totalCount = rowsQuery.data?.pages[0]?.totalCount ?? 0
+  const previewBounds = datasetPreviewBounds(layoutHeight)
+
+  useEffect(() => setSelectedRowId(null), [qid])
 
   useEffect(() => {
     const layout = layoutRef.current
@@ -635,14 +637,9 @@ export function DatasetDataTab({
       const nextHeight = layout.getBoundingClientRect().height
       if (nextHeight <= 0) return
       setLayoutHeight(nextHeight)
+      const nextBounds = datasetPreviewBounds(nextHeight)
       setPreviewHeight((current) =>
-        Math.min(
-          Math.max(minimumPaneHeight, current),
-          Math.max(
-            minimumPaneHeight,
-            nextHeight - minimumPaneHeight - splitterHeight,
-          ),
-        ),
+        Math.min(Math.max(nextBounds.minimum, current), nextBounds.maximum),
       )
     }
     updateLayoutHeight()
@@ -653,18 +650,20 @@ export function DatasetDataTab({
 
   function resizePreview(nextHeight: number): void {
     setPreviewHeight(
-      Math.min(Math.max(minimumPaneHeight, nextHeight), maximumPreviewHeight),
+      Math.min(
+        Math.max(previewBounds.minimum, nextHeight),
+        previewBounds.maximum,
+      ),
     )
   }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <FormulaBar table={table} />
       <div
         ref={layoutRef}
         className="grid min-h-0 flex-1"
         style={{
-          gridTemplateRows: `minmax(0, 1fr) ${splitterHeight}px ${previewHeight}px`,
+          gridTemplateRows: `minmax(0, 1fr) ${DATASET_SPLITTER_HEIGHT}px ${previewHeight}px`,
         }}
         data-preview-height={Math.round(previewHeight)}
       >
@@ -674,7 +673,7 @@ export function DatasetDataTab({
               registryId={`dataset-${table.id}`}
               title={table.name}
               hideHeader
-              rows={rowsQuery.data?.rows ?? []}
+              rows={rows}
               totalCount={totalCount}
               fields={fields}
               query={query}
@@ -684,7 +683,22 @@ export function DatasetDataTab({
               onSelectedIdChange={setSelectedRowId}
               inspectorLabel="Dataset inspector"
               loading={rowsQuery.isLoading}
-              error={rowsQuery.error}
+              error={
+                rowsQuery.isLoadingError || rowsQuery.isRefetchError
+                  ? rowsQuery.error
+                  : null
+              }
+              onRetry={() => void rowsQuery.refetch()}
+              incrementalRows={{
+                hasMore: rowsQuery.hasNextPage,
+                loadingMore: rowsQuery.isFetchingNextPage,
+                onLoadMore: () =>
+                  void rowsQuery.fetchNextPage({ cancelRefetch: false }),
+                loadError: rowsQuery.isFetchNextPageError
+                  ? rowsQuery.error
+                  : undefined,
+              }}
+              searchDebounceMs={300}
               emptyTitle="No rows yet"
               noResultsTitle="No matching rows"
               renderInspector={(row) => (
@@ -705,8 +719,8 @@ export function DatasetDataTab({
           role="separator"
           aria-label="Resize dataset preview"
           aria-orientation="horizontal"
-          aria-valuemin={minimumPaneHeight}
-          aria-valuemax={Math.round(maximumPreviewHeight)}
+          aria-valuemin={Math.round(previewBounds.minimum)}
+          aria-valuemax={Math.round(previewBounds.maximum)}
           aria-valuenow={Math.round(previewHeight)}
           tabIndex={0}
           className="group relative z-10 cursor-row-resize touch-none outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
@@ -731,7 +745,7 @@ export function DatasetDataTab({
           onPointerCancel={() => {
             resizeRef.current = null
           }}
-          onDoubleClick={() => resizePreview(240)}
+          onDoubleClick={() => resizePreview(320)}
           onKeyDown={(event) => {
             if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
               event.preventDefault()
@@ -740,10 +754,10 @@ export function DatasetDataTab({
               )
             } else if (event.key === 'Home') {
               event.preventDefault()
-              resizePreview(minimumPaneHeight)
+              resizePreview(previewBounds.minimum)
             } else if (event.key === 'End') {
               event.preventDefault()
-              resizePreview(maximumPreviewHeight)
+              resizePreview(previewBounds.maximum)
             }
           }}
         >
@@ -756,22 +770,21 @@ export function DatasetDataTab({
           className="h-full min-h-0"
         >
           <div className="flex h-full min-h-0 flex-col overflow-hidden">
-            <div className="flex shrink-0 items-center justify-between border-b px-3 py-1.5">
-              <TabsList className="h-8 bg-transparent p-0">
+            <div className="flex h-9 shrink-0 items-center border-b">
+              <TabsList className="h-9 gap-5 rounded-none bg-transparent p-0">
                 {[
                   { value: 'preview', label: 'Chart preview' },
                   { value: 'summary', label: 'Column summary' },
-                  { value: 'distribution', label: 'Distribution' },
-                  { value: 'correlations', label: 'Correlations' },
                 ].map((tab) => (
-                  <TabsTrigger key={tab.value} value={tab.value}>
+                  <TabsTrigger
+                    key={tab.value}
+                    value={tab.value}
+                    className="h-9 rounded-none border-b-2 border-transparent px-0 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                  >
                     {tab.label}
                   </TabsTrigger>
                 ))}
               </TabsList>
-              <Button variant="ghost" size="icon-sm" aria-label="Export chart">
-                <Download />
-              </Button>
             </div>
             <TabsContent
               value="preview"
@@ -789,85 +802,13 @@ export function DatasetDataTab({
             >
               <ColumnSummary
                 columns={table.columns}
-                rows={rowsQuery.data?.rows ?? []}
+                rows={rows}
                 totalCount={totalCount}
-              />
-            </TabsContent>
-            <TabsContent
-              value="distribution"
-              className="m-0 min-h-0 flex-1 overflow-auto p-6"
-            >
-              <PreviewExplanation
-                title="Distribution"
-                copy="Select a numeric field to inspect its histogram and outliers."
-              />
-            </TabsContent>
-            <TabsContent
-              value="correlations"
-              className="m-0 min-h-0 flex-1 overflow-auto p-6"
-            >
-              <PreviewExplanation
-                title="Correlations"
-                copy="Compare numeric fields to identify relationships in this view."
               />
             </TabsContent>
           </div>
         </Tabs>
       </div>
-    </div>
-  )
-}
-
-function FormulaBar({ table }: { table: ScientificTableWire }) {
-  const defaultFormula =
-    'Titer (TU/mL) = [Vector genome (copies/mL)] / [Volume (mL)]'
-  const [formula, setFormula] = useState(defaultFormula)
-  const valid =
-    formula.includes('=') &&
-    formula.includes('/') &&
-    (formula.match(/\[/g)?.length ?? 0) === (formula.match(/\]/g)?.length ?? 0)
-  return (
-    <div
-      className="flex shrink-0 items-center gap-2 rounded-md border bg-card px-3 py-1.5"
-      aria-label="Calculated column formula"
-    >
-      <span className="font-mono text-xs font-semibold text-violet-600">
-        fx
-      </span>
-      <Input
-        aria-label="Formula expression"
-        value={formula}
-        onChange={(event) => setFormula(event.target.value)}
-        className="h-7 min-w-40 flex-1 font-mono text-xs"
-      />
-      {valid ? (
-        <Check className="size-3.5 text-emerald-600" aria-hidden="true" />
-      ) : null}
-      <ButtonGroup>
-        <Button size="sm" variant="outline" disabled={!valid}>
-          Apply
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setFormula(defaultFormula)}
-        >
-          <Undo2 className="size-3.5" /> Undo
-        </Button>
-        <Button variant="ghost" size="sm" onClick={() => setFormula('')}>
-          Clear
-        </Button>
-      </ButtonGroup>
-      <span className="sr-only">Formula applies to {table.name}</span>
-    </div>
-  )
-}
-
-function PreviewExplanation({ title, copy }: { title: string; copy: string }) {
-  return (
-    <div className="flex min-h-52 flex-col items-center justify-center text-center">
-      <h3 className="text-sm font-semibold">{title}</h3>
-      <p className="mt-1 max-w-md text-xs text-muted-foreground">{copy}</p>
     </div>
   )
 }
@@ -1276,25 +1217,31 @@ export function DatasetInspector({
                   ))}
                 </PropertyList>
               </InspectorSection>
-              <InspectorSection title="Lineage">
+              <InspectorSection title="Downstream uses">
                 {lineageError ? (
                   <p role="alert" className="text-xs text-destructive">
-                    Could not load lineage.
+                    Could not load formula usage.
                   </p>
                 ) : lineageLoading ? (
                   <Skeleton className="h-16 w-full" />
                 ) : rowDependencies.length === 0 ? (
-                  <EmptyHint>No upstream dependencies for this row</EmptyHint>
+                  <EmptyHint>
+                    This row is not used by a calculated column
+                  </EmptyHint>
                 ) : (
                   <PropertyList>
                     {rowDependencies.map((dependency, index) => (
                       <Property
                         key={`${dependency.formula_id}-${index}`}
-                        label="Derived from"
-                        mono
+                        label={`Calculated formula ${index + 1}`}
                         stacked
                       >
-                        {`${dependency.source_table_id}/${dependency.source_row_id}/${dependency.source_column_id}`}
+                        {`Uses ${
+                          table.columns.find(
+                            (column) =>
+                              column.id === dependency.source_column_id,
+                          )?.label ?? 'a field in this dataset'
+                        } as an input`}
                       </Property>
                     ))}
                   </PropertyList>
@@ -1336,32 +1283,6 @@ export function DatasetInspector({
                 }))}
               />
             </InspectorSection>
-          ),
-        },
-        {
-          id: 'export',
-          label: 'Export',
-          content: (
-            <div className="space-y-4">
-              <InspectorSection title="Export this view">
-                <div className="grid gap-2">
-                  <Button className="w-full" variant="outline">
-                    <Download /> Export CSV
-                  </Button>
-                  <Button className="w-full" variant="outline">
-                    <Download /> Export Parquet
-                  </Button>
-                </div>
-              </InspectorSection>
-              <InspectorSection title="About this dataset">
-                <PropertyList>
-                  <Property label="Dataset" stacked>
-                    {table.name}
-                  </Property>
-                  <Property label="Sharing">Workspace members</Property>
-                </PropertyList>
-              </InspectorSection>
-            </div>
           ),
         },
       ]}

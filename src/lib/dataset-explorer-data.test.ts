@@ -15,6 +15,7 @@ import {
   DATASET_MAX_FILTERS,
   DATASET_MAX_TRANSFORMATIONS,
   DATASET_PAGE_SIZES,
+  getNextDatasetPageParam,
   sanitizeDatasetView,
   validateTransformations,
 } from './dataset-explorer-data'
@@ -117,7 +118,7 @@ describe('buildDatasetRowQuery', () => {
       },
       table().columns,
     )
-    expect(q).toContain('order=col_beta.desc')
+    expect(q).toContain('order=col_beta.desc,id.asc')
     expect(q).toContain('limit=50')
     expect(q).toContain('offset=100')
   })
@@ -157,6 +158,33 @@ describe('buildDatasetRowQuery', () => {
     expect(q).toContain(
       `limit=${DATASET_PAGE_SIZES[DATASET_PAGE_SIZES.length - 1]}`,
     )
+  })
+})
+
+describe('incremental dataset pages', () => {
+  const rows = (count: number, offset = 0) =>
+    Array.from({ length: count }, (_, index) => ({
+      id: `row-${offset + index}`,
+      version: 1,
+    }))
+
+  it('continues through full pages until the authoritative total is loaded', () => {
+    const first = { rows: rows(50), totalCount: 120 }
+    const second = { rows: rows(50, 50), totalCount: 0 }
+    const third = { rows: rows(20, 100), totalCount: 0 }
+
+    expect(getNextDatasetPageParam(first, [first], 50)).toBe(1)
+    expect(getNextDatasetPageParam(second, [first, second], 50)).toBe(2)
+    expect(
+      getNextDatasetPageParam(third, [first, second, third], 50),
+    ).toBeUndefined()
+  })
+
+  it('stops on an exact full final page', () => {
+    const first = { rows: rows(50), totalCount: 100 }
+    const second = { rows: rows(50, 50), totalCount: 0 }
+
+    expect(getNextDatasetPageParam(second, [first, second], 50)).toBeUndefined()
   })
 })
 

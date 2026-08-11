@@ -504,7 +504,7 @@ export function RegistryComposition<TData>({
         </Sheet>
       ) : null}
 
-      {!permissionDenied ? (
+      {!permissionDenied && !loading && !error ? (
         <footer className="flex shrink-0 flex-wrap items-center justify-between gap-2 py-1.5 text-xs text-muted-foreground">
           <span className="leading-5">
             {formatCount(totalCount)} {totalCount === 1 ? 'record' : 'records'}

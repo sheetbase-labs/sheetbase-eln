@@ -188,6 +188,8 @@ export function DataGrid<TData>({
                           className={cn(
                             resizableColumns && 'relative',
                             'h-7 whitespace-nowrap px-2.5 text-[0.65rem]',
+                            header.column.columnDef.meta?.dataGridFormat
+                              ?.kind === 'scientific' && 'text-right',
                           )}
                           style={
                             resizableColumns
@@ -205,7 +207,12 @@ export function DataGrid<TData>({
                           {header.isPlaceholder ? null : header.column.getCanSort() ? (
                             <button
                               type="button"
-                              className="inline-flex items-center gap-0.5 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              className={cn(
+                                'inline-flex items-center gap-0.5 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                                header.column.columnDef.meta?.dataGridFormat
+                                  ?.kind === 'scientific' &&
+                                  'w-full justify-end text-right',
+                              )}
                               onClick={header.column.getToggleSortingHandler()}
                               aria-label={`Sort by ${label} ${sorted === 'asc' ? 'descending' : 'ascending'}`}
                             >
@@ -353,7 +360,8 @@ export function DataGrid<TData>({
                           event.preventDefault()
                           if (
                             navigableIndex === navigableRows.length - 1 &&
-                            incrementalRows?.hasMore
+                            incrementalRows?.hasMore &&
+                            !incrementalRows.loadingMore
                           ) {
                             incrementalRows.onLoadMore()
                           } else {

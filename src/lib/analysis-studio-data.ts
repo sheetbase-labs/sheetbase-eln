@@ -49,6 +49,7 @@ export const analysisStudioQueryKeys = {
   views: ['analysis-views'] as const,
   datasets: ['analysis-datasets'] as const,
   view: (id: string) => ['analysis-view', id] as const,
+  runs: (analysisViewId: string) => ['analysis-runs', analysisViewId] as const,
 }
 
 // --- Source revision capture ---------------------------------------------
@@ -58,6 +59,17 @@ export interface SourceRevision {
   schemaVersion: number
   datasetSchemaId: string | null
   datasetSchemaRevision: number | null
+}
+
+/**
+ * Metadata observed about the one source dataset when a run was executed.
+ * This is deliberately an observation, not a claim that the mutable dataset
+ * has a historical revision that can be reconstructed exactly.
+ */
+export interface SourceObservation extends SourceRevision {
+  sourceName: string
+  observedAt: string
+  rowCount: number
 }
 
 /**
@@ -150,6 +162,169 @@ export interface SaveAnalysisViewInput {
   export_settings: ExportSettings | null
 }
 
+export interface AnalysisRunWire {
+  id: string
+  workspace_id: string
+  analysis_view_id: string
+  sequence: number
+  actor_user_id: string
+  status: 'completed' | 'failed'
+  spec_snapshot: ChartSpec
+  source_observations: SourceObservation
+  result_snapshot: MaterialisedChart
+  warnings: unknown[]
+  engine_version: string
+  /** SHA-256 of the server's canonical jsonb run payload. */
+  digest: string
+  created_at: string
+}
+
+export interface CreateAnalysisRunInput {
+  analysisViewId: string
+  status: 'completed'
+  specSnapshot: ChartSpec
+  resultSnapshot: MaterialisedChart
+  warnings?: unknown[]
+  engineVersion: string
+}
+
+/** Create an immutable run; actor, workspace, sequence and digest are server-owned. */
+export async function createAnalysisRun(
+  client: DataClient,
+  input: CreateAnalysisRunInput,
+): Promise<AnalysisRunWire> {
+  return client.rpc<AnalysisRunWire>('create_analysis_run', {
+    p_analysis_view_id: input.analysisViewId,
+    p_status: input.status,
+    p_spec_snapshot: input.specSnapshot,
+    p_result_snapshot: input.resultSnapshot,
+    p_warnings: input.warnings ?? [],
+    p_engine_version: input.engineVersion,
+  })
+}
+
+/** Fetch visible runs for one named analysis, newest sequence first. */
+export async function fetchAnalysisRuns(
+  client: DataClient,
+  analysisViewId: string,
+): Promise<AnalysisRunWire[]> {
+  const rows = await client.list<
+    Omit<AnalysisRunWire, 'spec_snapshot' | 'result_snapshot'> & {
+      spec_snapshot: unknown
+      result_snapshot: unknown
+    }
+  >(
+    'analysis_runs',
+    `?analysis_view_id=eq.${encodeURIComponent(analysisViewId)}&order=sequence.desc`,
+  )
+  return rows.map((row) => ({
+    ...row,
+    spec_snapshot: parseAnalysisChartSpec(row.spec_snapshot),
+    result_snapshot: parseMaterialisedChart(row.result_snapshot),
+  }))
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/** Runtime defence for immutable chart specifications returned by PostgREST. */
+export function parseAnalysisChartSpec(value: unknown): ChartSpec {
+  if (validateChartSpec(value).length > 0) {
+    throw new Error('Invalid analysis specification snapshot.')
+  }
+  return value as ChartSpec
+}
+
+/** Runtime boundary for immutable run JSON returned by PostgREST. */
+export function parseMaterialisedChart(value: unknown): MaterialisedChart {
+  if (!isRecord(value) || !isRecord(value.state)) {
+    throw new Error('Invalid analysis result snapshot: missing state.')
+  }
+  const kind = value.state.kind
+  const validState =
+    kind === 'ok' ||
+    kind === 'missing_dataset' ||
+    kind === 'empty_dataset' ||
+    (kind === 'missing_field' && Array.isArray(value.state.fields)) ||
+    (kind === 'log_scale_invalid' &&
+      (value.state.axis === 'x' || value.state.axis === 'y') &&
+      typeof value.state.invalidCount === 'number') ||
+    (kind === 'stale' && typeof value.state.detail === 'string')
+  if (
+    !validState ||
+    !Array.isArray(value.columns) ||
+    !value.columns.every(
+      (column) =>
+        isRecord(column) &&
+        typeof column.id === 'string' &&
+        typeof column.fieldName === 'string' &&
+        typeof column.label === 'string' &&
+        typeof column.logicalType === 'string',
+    ) ||
+    !Array.isArray(value.rows) ||
+    !value.rows.every(isRecord) ||
+    !Array.isArray(value.series) ||
+    !value.series.every(
+      (series) =>
+        isRecord(series) &&
+        typeof series.identifier === 'string' &&
+        typeof series.label === 'string' &&
+        typeof series.color === 'string' &&
+        Array.isArray(series.points) &&
+        series.points.every(
+          (point) =>
+            isRecord(point) &&
+            (typeof point.x === 'number' || point.x === null) &&
+            (typeof point.y === 'number' || point.y === null) &&
+            (point.yError === undefined ||
+              typeof point.yError === 'number' ||
+              point.yError === null) &&
+            (point.label === undefined || typeof point.label === 'string'),
+        ),
+    ) ||
+    typeof value.xLabel !== 'string' ||
+    typeof value.yLabel !== 'string' ||
+    (value.xUnit !== undefined && typeof value.xUnit !== 'string') ||
+    (value.yUnit !== undefined && typeof value.yUnit !== 'string')
+  ) {
+    throw new Error('Invalid analysis result snapshot structure.')
+  }
+  return value as unknown as MaterialisedChart
+}
+
+export function canRecordAnalysis(input: {
+  owner: boolean
+  named: boolean
+  datasetLoading: boolean
+  datasetError: boolean
+  calculationLoading: boolean
+  calculationError: boolean
+  validationOk: boolean
+  materialised: MaterialisedChart
+  pending: boolean
+}): boolean {
+  return (
+    input.owner &&
+    input.named &&
+    !input.datasetLoading &&
+    !input.datasetError &&
+    !input.calculationLoading &&
+    !input.calculationError &&
+    input.validationOk &&
+    input.materialised.state.kind === 'ok' &&
+    !input.pending
+  )
+}
+
+/** Resolve only an explicitly selected immutable run; never fall back silently. */
+export function selectRecordedRun(
+  runs: AnalysisRunWire[],
+  runId: string,
+): AnalysisRunWire | null {
+  return runs.find((run) => run.id === runId) ?? null
+}
+
 /**
  * Fetch every analysis view the caller can see in the active workspace. RLS
  * scopes the result; the caller never filters by workspace client-side.
@@ -174,7 +349,7 @@ export async function createAnalysisView(
   workspaceId: string,
   userId: string,
 ): Promise<AnalysisViewWire> {
-  return client.insert<AnalysisViewWire>('analysis_views', {
+  const created = await client.insert<AnalysisViewWire[]>('analysis_views', {
     workspace_id: workspaceId,
     owner_user_id: userId,
     name: input.name,
@@ -182,6 +357,8 @@ export async function createAnalysisView(
     source_revisions: input.source_revisions,
     export_settings: input.export_settings,
   })
+  if (!created[0]) throw new Error('Analysis identity was not returned.')
+  return created[0]
 }
 
 /**

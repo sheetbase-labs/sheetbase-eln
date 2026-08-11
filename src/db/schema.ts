@@ -629,7 +629,7 @@ export const blocks = api.table(
   (table) => [
     check(
       'chk_blocks_type',
-      sql`${table.type} IN ('rich_text', 'checklist', 'linked_record', 'callout', 'table', 'sheet', 'chart', 'plate_map', 'file', 'metric', 'procedure_step', 'protocol_reference', 'materials')`,
+      sql`${table.type} IN ('rich_text', 'checklist', 'linked_record', 'callout', 'table', 'sheet', 'chart', 'analysis_reference', 'plate_map', 'file', 'metric', 'procedure_step', 'protocol_reference', 'materials')`,
     ),
     index('idx_blocks_record_id').on(table.recordId),
     // (record_id, order) is the hot loading path for notebook render.
@@ -2988,7 +2988,12 @@ export const analysisViews = api.table(
       table.ownerUserId,
       table.name,
     ),
+    unique('uq_analysis_views_workspace_id').on(table.workspaceId, table.id),
     check('chk_analysis_views_version', sql`${table.version} > 0`),
+    check(
+      'chk_analysis_views_name',
+      sql`length(btrim(${table.name})) BETWEEN 1 AND 100`,
+    ),
     index('idx_analysis_views_workspace').on(table.workspaceId),
     index('idx_analysis_views_owner').on(table.workspaceId, table.ownerUserId),
   ],
@@ -3001,6 +3006,74 @@ export const analysisViewsRelations = relations(analysisViews, ({ one }) => ({
   }),
   owner: one(user, {
     fields: [analysisViews.ownerUserId],
+    references: [user.id],
+  }),
+}))
+
+// Immutable execution/result evidence for an analysis view. The mutable view
+// remains the analysis identity and draft; each run freezes what was executed,
+// what was observed about its single source dataset, and the resulting output.
+export const analysisRuns = api.table(
+  'analysis_runs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    analysisViewId: uuid('analysis_view_id')
+      .notNull()
+      .references(() => analysisViews.id, { onDelete: 'restrict' }),
+    sequence: integer('sequence').notNull(),
+    actorUserId: text('actor_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    status: text('status').notNull(),
+    specSnapshot: jsonb('spec_snapshot').notNull(),
+    sourceObservations: jsonb('source_observations').notNull(),
+    resultSnapshot: jsonb('result_snapshot').notNull(),
+    warnings: jsonb('warnings')
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    engineVersion: text('engine_version').notNull(),
+    digest: text('digest').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('uq_analysis_runs_view_sequence').on(
+      table.analysisViewId,
+      table.sequence,
+    ),
+    foreignKey({
+      columns: [table.workspaceId, table.analysisViewId],
+      foreignColumns: [analysisViews.workspaceId, analysisViews.id],
+      name: 'analysis_runs_workspace_view_fk',
+    }).onDelete('restrict'),
+    check('chk_analysis_runs_sequence', sql`${table.sequence} > 0`),
+    check(
+      'chk_analysis_runs_status',
+      sql`${table.status} IN ('completed', 'failed')`,
+    ),
+    index('idx_analysis_runs_workspace').on(table.workspaceId),
+    index('idx_analysis_runs_view_sequence').on(
+      table.analysisViewId,
+      table.sequence,
+    ),
+  ],
+)
+
+export const analysisRunsRelations = relations(analysisRuns, ({ one }) => ({
+  workspace: one(workspaces, {
+    fields: [analysisRuns.workspaceId],
+    references: [workspaces.id],
+  }),
+  analysisView: one(analysisViews, {
+    fields: [analysisRuns.analysisViewId],
+    references: [analysisViews.id],
+  }),
+  actor: one(user, {
+    fields: [analysisRuns.actorUserId],
     references: [user.id],
   }),
 }))

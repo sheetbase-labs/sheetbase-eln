@@ -6,7 +6,7 @@
  * rebuilding a chart from a stored specification yields the same
  * materialisation as the original.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { CHART_SPEC_VERSION } from './chart-spec'
 import type { ChartSpec } from './chart-spec'
@@ -14,15 +14,23 @@ import {
   ANALYSIS_MAX_RESULT_ROWS,
   applyTransformations,
   buildExportProvenance,
+  canRecordAnalysis,
   captureSourceRevisions,
+  createAnalysisView,
+  createAnalysisRun,
   DEFAULT_EXPORT_SETTINGS,
   detectStaleSources,
   exportDataCsv,
   exportViewJson,
+  fetchAnalysisRuns,
   materialiseAnalysisChart,
+  parseAnalysisChartSpec,
+  parseMaterialisedChart,
+  selectRecordedRun,
   validateAnalysisSpec,
 } from './analysis-studio-data'
-import type { SourceRevision } from './analysis-studio-data'
+import type { AnalysisRunWire, SourceRevision } from './analysis-studio-data'
+import type { DataClient } from './data-client'
 import type { ScientificTableWire } from './scientific-sheet-data'
 
 function table(
@@ -155,6 +163,131 @@ const columns = [
     logicalType: 'decimal',
   },
 ]
+
+describe('canonical analysis run persistence boundary', () => {
+  it('unwraps the PostgREST representation returned when creating an analysis', async () => {
+    const created = {
+      id: '22222222-2222-4222-8222-222222222222',
+      workspace_id: '33333333-3333-4333-8333-333333333333',
+      owner_user_id: 'user-1',
+      name: 'Stability comparison',
+      version: 1,
+      spec: spec(),
+      source_revisions: [],
+      export_settings: null,
+      created_at: '2026-08-11T18:00:00.000Z',
+      updated_at: '2026-08-11T18:00:00.000Z',
+    }
+    const insert = vi.fn().mockResolvedValue([created])
+    const result = await createAnalysisView(
+      { insert } as unknown as DataClient,
+      {
+        name: created.name,
+        spec: created.spec,
+        source_revisions: [],
+        export_settings: null,
+      },
+      created.workspace_id,
+      created.owner_user_id,
+    )
+
+    expect(result).toBe(created)
+    expect(insert).toHaveBeenCalledWith(
+      'analysis_views',
+      expect.objectContaining({ name: created.name }),
+    )
+  })
+
+  it('rejects malformed result snapshots at the fetch boundary', () => {
+    expect(() => parseMaterialisedChart({})).toThrow(/snapshot/)
+    expect(() =>
+      parseMaterialisedChart({
+        state: { kind: 'ok' },
+        columns: [],
+        rows: [],
+        series: [],
+      }),
+    ).toThrow(/structure/)
+  })
+
+  it('rejects malformed specification snapshots at the fetch boundary', () => {
+    expect(() => parseAnalysisChartSpec({ datasets: [] })).toThrow(
+      /specification snapshot/,
+    )
+    expect(parseAnalysisChartSpec(spec())).toEqual(spec())
+  })
+
+  it('accepts the MaterialisedChart structure and preserves immutable values', () => {
+    const snapshot = materialiseAnalysisChart(spec(), columns, rows)
+    expect(parseMaterialisedChart(snapshot)).toBe(snapshot)
+  })
+
+  it('selects only the requested immutable run and never substitutes another', () => {
+    const runs = [{ id: 'run-2' }, { id: 'run-1' }] as AnalysisRunWire[]
+    expect(selectRecordedRun(runs, 'run-1')).toBe(runs[1])
+    expect(selectRecordedRun(runs, 'unknown')).toBeNull()
+  })
+
+  it.each([
+    { calculationLoading: true },
+    { calculationError: true },
+    {
+      materialised: {
+        ...materialiseAnalysisChart(spec(), columns, rows),
+        state: { kind: 'stale' as const, detail: 'stale' },
+      },
+    },
+  ])('prevents recording for unresolved calculation state %#', (override) => {
+    expect(
+      canRecordAnalysis({
+        owner: true,
+        named: true,
+        datasetLoading: false,
+        datasetError: false,
+        calculationLoading: false,
+        calculationError: false,
+        validationOk: true,
+        materialised: materialiseAnalysisChart(spec(), columns, rows),
+        pending: false,
+        ...override,
+      }),
+    ).toBe(false)
+  })
+
+  it('sends observations and snapshots to the RPC without actor, workspace, sequence, or digest', async () => {
+    const rpc = vi.fn().mockResolvedValue({ id: 'run-1', sequence: 1 })
+    const client = { rpc } as unknown as DataClient
+    await createAnalysisRun(client, {
+      analysisViewId: 'analysis-1',
+      status: 'completed',
+      specSnapshot: spec(),
+      resultSnapshot: materialiseAnalysisChart(spec(), columns, rows),
+      engineVersion: 'analysis-engine/1',
+    })
+
+    expect(rpc).toHaveBeenCalledWith('create_analysis_run', {
+      p_analysis_view_id: 'analysis-1',
+      p_status: 'completed',
+      p_spec_snapshot: spec(),
+      p_result_snapshot: materialiseAnalysisChart(spec(), columns, rows),
+      p_warnings: [],
+      p_engine_version: 'analysis-engine/1',
+    })
+    expect(rpc.mock.calls[0][1]).not.toHaveProperty('workspace_id')
+    expect(rpc.mock.calls[0][1]).not.toHaveProperty('actor_user_id')
+    expect(rpc.mock.calls[0][1]).not.toHaveProperty('digest')
+  })
+
+  it('fetches one analysis run history in descending sequence order', async () => {
+    const list = vi.fn().mockResolvedValue([])
+    const client = { list } as unknown as DataClient
+    await fetchAnalysisRuns(client, 'analysis/id')
+    expect(list).toHaveBeenCalledWith(
+      'analysis_runs',
+      '?analysis_view_id=eq.analysis%2Fid&order=sequence.desc',
+    )
+  })
+})
 
 describe('applyTransformations — aggregate', () => {
   it('groups by x + series and reduces y by mean', () => {

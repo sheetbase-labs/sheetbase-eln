@@ -400,6 +400,13 @@
       "when": 1785153600000,
       "tag": "0056_calc_006_drop_stale_v1_profile_constraint",
       "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1786464000000,
+      "tag": "0057_analysis_002_analysis_runs",
+      "breakpoints": true
     }
   ]
 }

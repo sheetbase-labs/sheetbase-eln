@@ -316,6 +316,49 @@ describe('reagentAttention', () => {
 })
 
 describe('reagentListQuery / reagentCountQuery', () => {
+  it('fails closed for unknown fields and operators', () => {
+    expect(() =>
+      reagentListQuery({
+        ...baseQuery,
+        filters: [{ fieldId: 'expiry', operator: 'eq', values: ['today'] }],
+      }),
+    ).toThrow('Unsupported reagent filter')
+    expect(() =>
+      reagentListQuery({
+        ...baseQuery,
+        filters: [{ fieldId: 'supplier', operator: 'eq', values: ['Acme'] }],
+      }),
+    ).toThrow('Unsupported reagent filter')
+  })
+
+  it('uses every expanded filter identically for list and count', () => {
+    const query = {
+      ...baseQuery,
+      filters: [
+        {
+          fieldId: 'category',
+          operator: 'contains' as const,
+          values: ['enzyme'],
+        },
+        {
+          fieldId: 'supplier',
+          operator: 'contains' as const,
+          values: ['Acme'],
+        },
+        {
+          fieldId: 'catalogNo',
+          operator: 'contains' as const,
+          values: ['CAT-1'],
+        },
+        { fieldId: 'lot', operator: 'contains' as const, values: ['LOT-1'] },
+      ],
+    }
+    const listFilters = reagentListQuery(query).replace(
+      /&(?:order|limit|offset)=[^&]+/g,
+      '',
+    )
+    expect(reagentCountQuery(query)).toBe(listFilters)
+  })
   it('scopes to non-archived, non-deleted reagents by default', () => {
     const q = reagentListQuery(baseQuery)
     expect(q).toContain('kind=eq.reagent')
@@ -329,7 +372,7 @@ describe('reagentListQuery / reagentCountQuery', () => {
   it('includes archived rows only when status filter is archived', () => {
     const q = reagentListQuery({
       ...baseQuery,
-      filters: [{ id: 'status', value: 'archived' }],
+      filters: [{ fieldId: 'status', operator: 'eq', values: ['archived'] }],
     })
     expect(q).toContain('archived_at=is.not.null')
     expect(q).not.toContain('status=eq.archived')
@@ -339,28 +382,31 @@ describe('reagentListQuery / reagentCountQuery', () => {
     const q = reagentListQuery({
       ...baseQuery,
       filters: [
-        { id: 'status', value: 'available' },
-        { id: 'storage', value: '-20 °C' },
-        { id: 'q', value: 'acetonitrile' },
+        { fieldId: 'status', operator: 'eq', values: ['available'] },
+        { fieldId: 'storage', operator: 'eq', values: ['-20 °C'] },
+        { fieldId: 'q', operator: 'contains', values: ['acetonitrile'] },
       ],
     })
     expect(q).toContain('status=eq.available')
     expect(q).toContain('properties->>storage=eq.-20 °C')
-    expect(q).toContain(
-      'or=(identifier.ilike.%22acetonitrile*%22,title.ilike.%22acetonitrile*%22)',
-    )
+    expect(q).toContain('or=(identifier.ilike.%22acetonitrile*%22')
+    expect(q).toContain('properties->>supplier.ilike.%22acetonitrile*%22')
+    expect(q).toContain('properties->>catalog_no.ilike.%22acetonitrile*%22')
+    expect(q).toContain('properties->>lot.ilike.%22acetonitrile*%22')
   })
 
   it('quotes punctuation in logical search patterns', () => {
     const q = decodeURIComponent(
       reagentListQuery({
         ...baseQuery,
-        filters: [{ id: 'q', value: 'Tris (1, "M"\\)' }],
+        filters: [
+          { fieldId: 'q', operator: 'contains', values: ['Tris (1, "M"\\)'] },
+        ],
       }),
     )
 
     expect(q).toContain(
-      'or=(identifier.ilike."Tris (1, \\"M\\"\\\\)*",title.ilike."Tris (1, \\"M\\"\\\\)*")',
+      'or=(identifier.ilike."Tris (1, \\"M\\"\\\\)*",title.ilike."Tris (1, \\"M\\"\\\\)*"',
     )
   })
 
@@ -397,7 +443,7 @@ describe('reagentListQuery / reagentCountQuery', () => {
       pageIndex: 2,
       pageSize: 50,
       sorting: [{ id: 'title', desc: false }],
-      filters: [{ id: 'status', value: 'available' }],
+      filters: [{ fieldId: 'status', operator: 'eq', values: ['available'] }],
     })
     expect(q).not.toMatch(/limit=/)
     expect(q).not.toMatch(/offset=/)

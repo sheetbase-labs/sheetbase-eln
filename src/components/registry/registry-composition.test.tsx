@@ -61,24 +61,34 @@ function props(
     description: 'Reusable registry proof.',
     rows,
     totalCount: 2,
-    columns,
+    fields: columns.map((column) => {
+      const id = String(
+        column.id ?? ('accessorKey' in column ? column.accessorKey : ''),
+      )
+      return {
+        id,
+        label: id === 'status' ? 'Status' : id,
+        column,
+        groupable: id === 'status',
+        filter:
+          id === 'status'
+            ? {
+                type: 'select' as const,
+                operators: [{ value: 'eq' as const, label: 'is' }],
+                options: [
+                  { value: 'available', label: 'Available' },
+                  { value: 'reserved', label: 'Reserved' },
+                ],
+              }
+            : undefined,
+      }
+    }),
     query,
     onQueryChange: vi.fn(),
     getRowId: (row) => row.id,
     selectedId: null,
     onSelectedIdChange: vi.fn(),
     summaries: [{ label: 'Total', value: '1.25m' }],
-    filterDefinitions: [
-      {
-        id: 'status',
-        label: 'Status',
-        options: [
-          { value: 'available', label: 'Available' },
-          { value: 'reserved', label: 'Reserved' },
-        ],
-      },
-    ],
-    groupingOptions: [{ id: 'status', label: 'Status' }],
     renderInspector: (row) => (
       <div>{row ? `Inspecting ${row.identifier}` : 'Nothing selected'}</div>
     ),
@@ -130,7 +140,7 @@ describe('RegistryComposition server contracts', () => {
     expect(onQueryChange).toHaveBeenCalledWith({
       ...query,
       pageIndex: 0,
-      filters: [{ id: 'status', value: 'available' }],
+      filters: [{ fieldId: 'status', operator: 'eq', values: ['available'] }],
     })
 
     await user.selectOptions(screen.getByLabelText('Group rows'), 'status')
@@ -147,7 +157,9 @@ describe('RegistryComposition server contracts', () => {
         {...props({
           query: {
             ...query,
-            filters: [{ id: 'status', value: 'available' }],
+            filters: [
+              { fieldId: 'status', operator: 'eq', values: ['available'] },
+            ],
           },
         })}
       />,
@@ -186,8 +198,19 @@ describe('RegistryComposition server contracts', () => {
         {...props({
           onQueryChange,
           searchDebounceMs: 300,
-          filterDefinitions: [
-            { id: 'q', label: 'Search', placeholder: 'Identifier or title' },
+          fields: [
+            ...props().fields,
+            {
+              id: 'q',
+              label: 'Search',
+              column: false,
+              groupable: false,
+              filter: {
+                type: 'text',
+                placeholder: 'Identifier or title',
+                operators: [{ value: 'contains', label: 'contains' }],
+              },
+            },
           ],
         })}
       />,
@@ -202,7 +225,7 @@ describe('RegistryComposition server contracts', () => {
     })
     expect(onQueryChange).toHaveBeenCalledWith({
       ...query,
-      filters: [{ id: 'q', value: 'Anti' }],
+      filters: [{ fieldId: 'q', operator: 'contains', values: ['Anti'] }],
     })
   })
 
@@ -213,7 +236,19 @@ describe('RegistryComposition server contracts', () => {
       <RegistryComposition
         {...props({
           onQueryChange,
-          filterDefinitions: [{ id: 'q', label: 'Search' }],
+          fields: [
+            ...props().fields,
+            {
+              id: 'q',
+              label: 'Search',
+              column: false,
+              groupable: false,
+              filter: {
+                type: 'text',
+                operators: [{ value: 'contains', label: 'contains' }],
+              },
+            },
+          ],
         })}
       />,
     )
@@ -223,7 +258,7 @@ describe('RegistryComposition server contracts', () => {
     await user.type(screen.getByRole('textbox', { name: 'Search' }), 'A')
     expect(onQueryChange).toHaveBeenCalledWith({
       ...query,
-      filters: [{ id: 'q', value: 'A' }],
+      filters: [{ fieldId: 'q', operator: 'contains', values: ['A'] }],
     })
   })
 
@@ -368,7 +403,10 @@ describe('RegistryComposition interaction and states', () => {
       {
         rows: [],
         totalCount: 0,
-        query: { ...query, filters: [{ id: 'status', value: 'missing' }] },
+        query: {
+          ...query,
+          filters: [{ fieldId: 'status', operator: 'eq', values: ['missing'] }],
+        },
       },
       'No matching records',
     ],
@@ -433,11 +471,16 @@ describe('RegistryComposition interaction and states', () => {
     render(
       <RegistryComposition
         {...props({
-          columns: [
+          fields: [
             {
-              accessorKey: 'value',
-              header: 'Progress',
-              cell: ({ getValue }) => `Custom ${getValue<number>()}`,
+              id: 'value',
+              label: 'Progress',
+              groupable: false,
+              column: {
+                accessorKey: 'value',
+                header: 'Progress',
+                cell: ({ getValue }) => `Custom ${getValue()}`,
+              },
             },
           ],
         })}

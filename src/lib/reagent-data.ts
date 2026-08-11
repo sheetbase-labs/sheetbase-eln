@@ -306,7 +306,18 @@ const GROUPABLE_COLUMNS: Record<string, string> = {
   status: 'status',
 }
 
-const FILTER_IDS = ['status', 'storage', 'q'] as const
+export const REAGENT_FILTER_CAPABILITIES = {
+  q: ['contains'],
+  category: ['contains'],
+  status: ['eq'],
+  storage: ['eq'],
+  supplier: ['contains'],
+  catalogNo: ['contains'],
+  lot: ['contains'],
+} as const
+const FILTER_IDS = Object.keys(REAGENT_FILTER_CAPABILITIES) as Array<
+  keyof typeof REAGENT_FILTER_CAPABILITIES
+>
 export type ReagentFilterId = (typeof FILTER_IDS)[number]
 
 const STORAGE_OPTIONS = ['-80 °C', '-20 °C', '4 °C', 'ambient']
@@ -351,18 +362,45 @@ export function reagentListQuery(query: RegistryQuery): string {
   const parts: string[] = ['kind=eq.reagent', 'deleted_at=is.null']
 
   const archived = query.filters.find(
-    (f) => f.id === 'status' && f.value === 'archived',
+    (f) => f.fieldId === 'status' && f.values[0] === 'archived',
   )
   parts.push(archived ? 'archived_at=is.not.null' : 'archived_at=is.null')
 
   for (const filter of query.filters) {
-    if (filter.id === 'status' && filter.value && filter.value !== 'archived') {
-      parts.push(`status=eq.${escapePostgrest(filter.value)}`)
-    } else if (filter.id === 'storage' && filter.value) {
-      parts.push(`properties->>storage=eq.${escapePostgrest(filter.value)}`)
-    } else if (filter.id === 'q' && filter.value) {
-      const enc = postgrestLogicPattern(filter.value)
-      parts.push(`or=(identifier.ilike.${enc},title.ilike.${enc})`)
+    if (!(filter.fieldId in REAGENT_FILTER_CAPABILITIES)) {
+      throw new Error(
+        `Unsupported reagent filter: ${filter.fieldId}/${filter.operator}`,
+      )
+    }
+    const capabilities =
+      REAGENT_FILTER_CAPABILITIES[filter.fieldId as ReagentFilterId]
+    if (!(capabilities as readonly string[]).includes(filter.operator)) {
+      throw new Error(
+        `Unsupported reagent filter: ${filter.fieldId}/${filter.operator}`,
+      )
+    }
+    const raw = filter.values[0]
+    if (typeof raw !== 'string' || !raw) continue
+    if (filter.fieldId === 'status') {
+      if (raw !== 'archived') parts.push(`status=eq.${escapePostgrest(raw)}`)
+    } else if (filter.fieldId === 'storage') {
+      parts.push(`properties->>storage=eq.${escapePostgrest(raw)}`)
+    } else if (filter.fieldId === 'q') {
+      const enc = postgrestLogicPattern(raw)
+      parts.push(
+        `or=(identifier.ilike.${enc},title.ilike.${enc},properties->>supplier.ilike.${enc},properties->>catalog_no.ilike.${enc},properties->>lot.ilike.${enc})`,
+      )
+    } else if (filter.fieldId === 'category') {
+      parts.push(`tags->>0=ilike.${postgrestLogicPattern(raw)}`)
+    } else {
+      const property = {
+        supplier: 'supplier',
+        catalogNo: 'catalog_no',
+        lot: 'lot',
+      }[filter.fieldId]
+      if (!property)
+        throw new Error(`Unsupported reagent filter field: ${filter.fieldId}`)
+      parts.push(`properties->>${property}=ilike.${postgrestLogicPattern(raw)}`)
     }
   }
 

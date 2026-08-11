@@ -156,7 +156,12 @@ function inboxProps(
     title: 'Review inbox',
     rows: [reviewItem({ id: 'sub-1' })],
     totalCount: 1,
-    columns: buildReviewColumns((id) => id),
+    fields: buildReviewColumns((id) => id).map((column) => ({
+      id: String(column.id),
+      label: String(column.id),
+      column,
+      groupable: false,
+    })),
     query,
     onQueryChange: vi.fn(),
     getRowId: (row) => row.id,
@@ -299,7 +304,9 @@ describe('review inbox registry integration', () => {
           totalCount: 0,
           query: {
             ...query,
-            filters: [{ id: 'status', value: 'withdrawn' }],
+            filters: [
+              { fieldId: 'status', operator: 'eq', values: ['withdrawn'] },
+            ],
           },
         })}
       />,

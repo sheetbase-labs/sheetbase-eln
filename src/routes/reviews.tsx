@@ -41,7 +41,10 @@ import {
 
 import { useShell } from '#/components/app-shell'
 import { RegistryComposition } from '#/components/registry/registry-composition'
-import type { RegistrySummary } from '#/components/registry/registry-composition'
+import type {
+  RegistryField,
+  RegistrySummary,
+} from '#/components/registry/registry-composition'
 import { StatusBadge } from '#/components/scientific/status-badge'
 import type { StatusVocabulary } from '#/components/scientific/status-badge'
 import { Badge, Button } from '#/components/ui'
@@ -151,11 +154,28 @@ const PAGE_SIZE_FALLBACK = 25
 
 function queryFromSearch(search: ReviewsSearch): RegistryQuery {
   const filters: RegistryFilterValue[] = []
-  if (search.status) filters.push({ id: 'status', value: search.status })
-  if (search.type) filters.push({ id: 'type', value: search.type })
-  if (search.assignee) filters.push({ id: 'assignee', value: search.assignee })
-  if (search.overdue) filters.push({ id: 'overdue', value: search.overdue })
-  if (search.q) filters.push({ id: 'search', value: search.q })
+  if (search.status)
+    filters.push({ fieldId: 'status', operator: 'eq', values: [search.status] })
+  if (search.type)
+    filters.push({ fieldId: 'type', operator: 'eq', values: [search.type] })
+  if (search.assignee)
+    filters.push({
+      fieldId: 'assignee',
+      operator: 'eq',
+      values: [search.assignee],
+    })
+  if (search.overdue)
+    filters.push({
+      fieldId: 'overdue',
+      operator: 'eq',
+      values: [search.overdue],
+    })
+  if (search.q)
+    filters.push({
+      fieldId: 'search',
+      operator: 'contains',
+      values: [search.q],
+    })
   const sorting =
     search.sort !== undefined
       ? [{ id: search.sort, desc: search.dir === 'desc' }]
@@ -174,7 +194,7 @@ function searchFromQuery(
   selectedId: string | null,
 ): ReviewsSearch {
   const get = (id: string) =>
-    query.filters.find((f) => f.id === id)?.value ?? ''
+    String(query.filters.find((f) => f.fieldId === id)?.values[0] ?? '')
   return {
     selected: selectedId ?? undefined,
     status: get('status') || undefined,
@@ -235,114 +255,118 @@ function buildColumns(
   userLabel: (userId: string) => string,
 ): ColumnDef<ReviewItem, unknown>[] {
   return [
-  {
-    id: 'entry',
-    header: 'Entry',
-    accessorFn: (row) => row.recordIdentifier,
-    cell: ({ row }) => (
-      <div className="min-w-0 py-0.5">
-        <p className="truncate text-sm font-medium text-foreground">
-          {row.original.recordIdentifier}
-        </p>
-        <p className="truncate text-xs leading-tight text-muted-foreground">
-          {row.original.recordTitle}
-        </p>
-      </div>
-    ),
-  },
-  {
-    id: 'type',
-    header: 'Type',
-    accessorFn: (row) => recordKindLabel(row.recordKind),
-    cell: ({ row }) => (
-      <Badge
-        variant={TYPE_BADGE_VARIANT[row.original.recordKind] ?? 'outline'}
-        className="text-xs"
-      >
-        {recordKindLabel(row.original.recordKind)}
-      </Badge>
-    ),
-  },
-  {
-    id: 'project',
-    header: 'Project',
-    accessorFn: (row) => row.projectTitle ?? '',
-    cell: ({ row }) =>
-      row.original.projectTitle ? (
-        <span className="truncate text-sm text-foreground">
-          {row.original.projectTitle}
-        </span>
-      ) : (
-        <span className="text-sm text-muted-foreground">—</span>
+    {
+      id: 'entry',
+      header: 'Entry',
+      accessorFn: (row) => row.recordIdentifier,
+      cell: ({ row }) => (
+        <div className="min-w-0 py-0.5">
+          <p className="truncate text-sm font-medium text-foreground">
+            {row.original.recordIdentifier}
+          </p>
+          <p className="truncate text-xs leading-tight text-muted-foreground">
+            {row.original.recordTitle}
+          </p>
+        </div>
       ),
-  },
-  {
-    id: 'submitter',
-    header: 'Requested by',
-    accessorFn: (row) => userLabel(row.submittedByUserId),
-    cell: ({ row }) => (
-      <span className="text-sm text-muted-foreground">
-        {userLabel(row.original.submittedByUserId)}
-      </span>
-    ),
-  },
-  {
-    id: 'step',
-    header: 'Current step',
-    accessorFn: (row) => row.currentStep.label,
-    cell: ({ row }) => (
-      <div className="flex items-center gap-1.5 py-0.5">
-        <StatusBadge
-          status={row.original.status}
-          vocabulary={inboxStatusVocabulary}
-          size="sm"
-        />
-        <span className="truncate text-xs text-muted-foreground">
-          {row.original.currentStep.label}
-        </span>
-      </div>
-    ),
-  },
-  {
-    id: 'submitted',
-    header: 'Submitted',
-    accessorFn: (row) => row.submittedAt,
-    cell: ({ row }) => {
-      const item = row.original
-      const overdue = item.isOverdue
-      return (
-        <span
-          className={cn(
-            'text-xs tabular-nums whitespace-nowrap',
-            overdue
-              ? 'font-semibold text-red-600 dark:text-red-400'
-              : 'text-muted-foreground',
-          )}
+    },
+    {
+      id: 'type',
+      header: 'Type',
+      accessorFn: (row) => recordKindLabel(row.recordKind),
+      cell: ({ row }) => (
+        <Badge
+          variant={TYPE_BADGE_VARIANT[row.original.recordKind] ?? 'outline'}
+          className="text-xs"
         >
-          {formatDate(item.submittedAt)}
-          {!overdue && (
-            <span className="ml-1 text-muted-foreground/70">
-              {formatRelativeTime(item.submittedAt)}
-            </span>
-          )}
-          {overdue && <span className="ml-1 text-red-600 dark:text-red-400">· Overdue</span>}
-        </span>
-      )
+          {recordKindLabel(row.original.recordKind)}
+        </Badge>
+      ),
     },
-  },
-  {
-    id: 'priority',
-    header: 'Priority',
-    accessorFn: (row) => row.priority,
-    cell: ({ row }) => {
-      const meta = PRIORITY_META[row.original.priority]
-      return (
-        <span className={cn('text-xs font-semibold capitalize', meta)}>
-          {row.original.priority}
-        </span>
-      )
+    {
+      id: 'project',
+      header: 'Project',
+      accessorFn: (row) => row.projectTitle ?? '',
+      cell: ({ row }) =>
+        row.original.projectTitle ? (
+          <span className="truncate text-sm text-foreground">
+            {row.original.projectTitle}
+          </span>
+        ) : (
+          <span className="text-sm text-muted-foreground">—</span>
+        ),
     },
-  },
+    {
+      id: 'submitter',
+      header: 'Requested by',
+      accessorFn: (row) => userLabel(row.submittedByUserId),
+      cell: ({ row }) => (
+        <span className="text-sm text-muted-foreground">
+          {userLabel(row.original.submittedByUserId)}
+        </span>
+      ),
+    },
+    {
+      id: 'step',
+      header: 'Current step',
+      accessorFn: (row) => row.currentStep.label,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-1.5 py-0.5">
+          <StatusBadge
+            status={row.original.status}
+            vocabulary={inboxStatusVocabulary}
+            size="sm"
+          />
+          <span className="truncate text-xs text-muted-foreground">
+            {row.original.currentStep.label}
+          </span>
+        </div>
+      ),
+    },
+    {
+      id: 'submitted',
+      header: 'Submitted',
+      accessorFn: (row) => row.submittedAt,
+      cell: ({ row }) => {
+        const item = row.original
+        const overdue = item.isOverdue
+        return (
+          <span
+            className={cn(
+              'text-xs tabular-nums whitespace-nowrap',
+              overdue
+                ? 'font-semibold text-red-600 dark:text-red-400'
+                : 'text-muted-foreground',
+            )}
+          >
+            {formatDate(item.submittedAt)}
+            {!overdue && (
+              <span className="ml-1 text-muted-foreground/70">
+                {formatRelativeTime(item.submittedAt)}
+              </span>
+            )}
+            {overdue && (
+              <span className="ml-1 text-red-600 dark:text-red-400">
+                · Overdue
+              </span>
+            )}
+          </span>
+        )
+      },
+    },
+    {
+      id: 'priority',
+      header: 'Priority',
+      accessorFn: (row) => row.priority,
+      cell: ({ row }) => {
+        const meta = PRIORITY_META[row.original.priority]
+        return (
+          <span className={cn('text-xs font-semibold capitalize', meta)}>
+            {row.original.priority}
+          </span>
+        )
+      },
+    },
   ]
 }
 
@@ -425,21 +449,26 @@ function ReviewsRoute() {
 
   const filters = useMemo<ReviewFilterInput>(
     () => ({
-      status:
-        query.filters.find((f) => f.id === 'status')?.value ??
-        DEFAULT_REVIEW_FILTERS.status,
-      type:
-        query.filters.find((f) => f.id === 'type')?.value ??
-        DEFAULT_REVIEW_FILTERS.type,
-      assignee:
-        query.filters.find((f) => f.id === 'assignee')?.value ??
-        DEFAULT_REVIEW_FILTERS.assignee,
-      overdue:
-        query.filters.find((f) => f.id === 'overdue')?.value ??
-        DEFAULT_REVIEW_FILTERS.overdue,
-      search:
-        query.filters.find((f) => f.id === 'search')?.value ??
-        DEFAULT_REVIEW_FILTERS.search,
+      status: String(
+        query.filters.find((f) => f.fieldId === 'status')?.values[0] ??
+          DEFAULT_REVIEW_FILTERS.status,
+      ),
+      type: String(
+        query.filters.find((f) => f.fieldId === 'type')?.values[0] ??
+          DEFAULT_REVIEW_FILTERS.type,
+      ),
+      assignee: String(
+        query.filters.find((f) => f.fieldId === 'assignee')?.values[0] ??
+          DEFAULT_REVIEW_FILTERS.assignee,
+      ),
+      overdue: String(
+        query.filters.find((f) => f.fieldId === 'overdue')?.values[0] ??
+          DEFAULT_REVIEW_FILTERS.overdue,
+      ),
+      search: String(
+        query.filters.find((f) => f.fieldId === 'search')?.values[0] ??
+          DEFAULT_REVIEW_FILTERS.search,
+      ),
     }),
     [query.filters],
   )
@@ -556,6 +585,61 @@ function ReviewsRoute() {
       placeholder: 'Identifier, title, submitter…',
     },
   ]
+  const fields: RegistryField<ReviewItem>[] = columns.map((column) => {
+    const id = String(column.id)
+    const definition = filterDefinitions.find(
+      (candidate) => candidate.id === id,
+    )
+    return {
+      id,
+      label: definition?.label ?? id,
+      column,
+      groupable: false,
+      filter: definition
+        ? {
+            type: definition.options ? 'select' : 'text',
+            placeholder: definition.placeholder,
+            operators: [
+              {
+                value: definition.options ? 'eq' : 'contains',
+                label: definition.options ? 'is' : 'contains',
+              },
+            ],
+            options: definition.options,
+          }
+        : undefined,
+    }
+  })
+  const searchDefinition = filterDefinitions.find(
+    (candidate) => candidate.id === 'search',
+  )!
+  fields.push({
+    id: 'search',
+    label: searchDefinition.label,
+    column: false,
+    groupable: false,
+    filter: {
+      type: 'text',
+      placeholder: searchDefinition.placeholder,
+      operators: [{ value: 'contains', label: 'contains' }],
+    },
+  })
+  for (const definition of filterDefinitions.filter(
+    (candidate) => !fields.some((field) => field.id === candidate.id),
+  )) {
+    fields.push({
+      id: definition.id,
+      label: definition.label,
+      column: false,
+      groupable: false,
+      filter: {
+        type: 'select',
+        placeholder: definition.placeholder,
+        operators: [{ value: 'eq', label: 'is' }],
+        options: definition.options,
+      },
+    })
+  }
 
   // --- Inspector ----------------------------------------------------------
 
@@ -612,45 +696,44 @@ function ReviewsRoute() {
   return (
     <>
       <div className="flex flex-col gap-4 p-4 md:p-6">
-      <RegistryComposition<ReviewItem>
-        registryId="reviews"
-        title="Review inbox"
-        description="Central queue for items requiring scientific or QA review."
-        rows={rows}
-        totalCount={totalCount}
-        columns={columns}
-        query={query}
-        onQueryChange={handleQueryChange}
-        getRowId={(row) => row.id}
-        selectedId={selectedId}
-        selectedRecord={selectedRecord}
-        onSelectedIdChange={handleSelectedIdChange}
-        summaries={summaries}
-        filterDefinitions={filterDefinitions}
-        renderInspector={renderInspector}
-        loading={loading}
-        error={submissionsQuery.error ?? recordsQuery.error}
-        permissionDenied={permissionDenied}
-        onRetry={() => {
-          void submissionsQuery.refetch()
-          void recordsQuery.refetch()
-        }}
-        emptyTitle="No reviews yet"
-        noResultsTitle="No matching reviews"
-        actions={
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              void submissionsQuery.refetch()
-              void recordsQuery.refetch()
-              void projectsQuery.refetch()
-            }}
-          >
-            Refresh
-          </Button>
-        }
-      />
+        <RegistryComposition<ReviewItem>
+          registryId="reviews"
+          title="Review inbox"
+          description="Central queue for items requiring scientific or QA review."
+          rows={rows}
+          totalCount={totalCount}
+          fields={fields}
+          query={query}
+          onQueryChange={handleQueryChange}
+          getRowId={(row) => row.id}
+          selectedId={selectedId}
+          selectedRecord={selectedRecord}
+          onSelectedIdChange={handleSelectedIdChange}
+          summaries={summaries}
+          renderInspector={renderInspector}
+          loading={loading}
+          error={submissionsQuery.error ?? recordsQuery.error}
+          permissionDenied={permissionDenied}
+          onRetry={() => {
+            void submissionsQuery.refetch()
+            void recordsQuery.refetch()
+          }}
+          emptyTitle="No reviews yet"
+          noResultsTitle="No matching reviews"
+          actions={
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                void submissionsQuery.refetch()
+                void recordsQuery.refetch()
+                void projectsQuery.refetch()
+              }}
+            >
+              Refresh
+            </Button>
+          }
+        />
       </div>
     </>
   )
@@ -738,9 +821,7 @@ export function ReviewInspector({
             {row.projectTitle ?? '—'}
           </InspectorProp>
           <InspectorProp label="Requested by">
-            <span className="text-xs text-foreground">
-              {submitterLabel}
-            </span>
+            <span className="text-xs text-foreground">{submitterLabel}</span>
           </InspectorProp>
           <InspectorProp label="Submitted">
             {formatDate(row.submittedAt)}

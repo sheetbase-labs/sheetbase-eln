@@ -7,9 +7,26 @@ export interface RegistrySort {
   desc: boolean
 }
 
+export type RegistryScalar = string | number | boolean
+export type RegistryFilterOperator =
+  | 'eq'
+  | 'contains'
+  | 'neq'
+  | 'startsWith'
+  | 'lt'
+  | 'lte'
+  | 'gt'
+  | 'gte'
+  | 'between'
+  | 'in'
+  | 'notIn'
+  | 'isNull'
+  | 'isNotNull'
+
 export interface RegistryFilterValue {
-  id: string
-  value: string
+  fieldId: string
+  operator: RegistryFilterOperator
+  values: RegistryScalar[]
 }
 
 /**
@@ -75,6 +92,84 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
+const FILTER_OPERATORS = new Set<RegistryFilterOperator>([
+  'eq',
+  'contains',
+  'neq',
+  'startsWith',
+  'lt',
+  'lte',
+  'gt',
+  'gte',
+  'between',
+  'in',
+  'notIn',
+  'isNull',
+  'isNotNull',
+])
+
+function isRegistryFilter(value: unknown): value is RegistryFilterValue {
+  return (
+    isRecord(value) &&
+    typeof value.fieldId === 'string' &&
+    FILTER_OPERATORS.has(value.operator as RegistryFilterOperator) &&
+    Array.isArray(value.values) &&
+    value.values.length <= 20 &&
+    value.values.every(
+      (item) =>
+        typeof item === 'string' ||
+        typeof item === 'number' ||
+        typeof item === 'boolean',
+    )
+  )
+}
+
+/** Versioned, database-agnostic URL representation of registry query state. */
+export function encodeRegistryQuery(query: RegistryQuery): string {
+  return encodeURIComponent(JSON.stringify({ v: 1, q: query }))
+}
+
+/** Decode untrusted URL state with deliberately small syntactic bounds. */
+export function decodeRegistryQuery(value: unknown): RegistryQuery | null {
+  if (typeof value !== 'string' || value.length === 0 || value.length > 4096)
+    return null
+  try {
+    const envelope: unknown = JSON.parse(decodeURIComponent(value))
+    if (!isRecord(envelope) || envelope.v !== 1 || !isRecord(envelope.q))
+      return null
+    const query = envelope.q
+    if (
+      !Number.isInteger(query.pageIndex) ||
+      Number(query.pageIndex) < 0 ||
+      Number(query.pageIndex) > 10_000 ||
+      !Number.isInteger(query.pageSize) ||
+      Number(query.pageSize) < 1 ||
+      Number(query.pageSize) > 500 ||
+      !Array.isArray(query.sorting) ||
+      query.sorting.length > 4 ||
+      !query.sorting.every(
+        (sort) =>
+          isRecord(sort) &&
+          typeof sort.id === 'string' &&
+          sort.id.length <= 100 &&
+          typeof sort.desc === 'boolean',
+      ) ||
+      !Array.isArray(query.grouping) ||
+      query.grouping.length > 4 ||
+      !query.grouping.every(
+        (group) => typeof group === 'string' && group.length <= 100,
+      ) ||
+      !Array.isArray(query.filters) ||
+      query.filters.length > 20 ||
+      !query.filters.every(isRegistryFilter)
+    )
+      return null
+    return query as unknown as RegistryQuery
+  } catch {
+    return null
+  }
+}
+
 function isSavedView(value: unknown): value is RegistrySavedView {
   if (
     !isRecord(value) ||
@@ -100,12 +195,7 @@ function isSavedView(value: unknown): value is RegistrySavedView {
     query.grouping.every((group) => typeof group === 'string')
   const filtersValid =
     Array.isArray(query.filters) &&
-    query.filters.every(
-      (filter) =>
-        isRecord(filter) &&
-        typeof filter.id === 'string' &&
-        typeof filter.value === 'string',
-    )
+    query.filters.every((filter) => isRegistryFilter(filter))
   const visibilityValid = Object.values(state.columnVisibility).every(
     (visible) => typeof visible === 'boolean',
   )
@@ -154,7 +244,7 @@ export function sanitizeRegistryView(
           groups.has(group),
         ),
         filters: view.state.query.filters.filter((filter) =>
-          filters.has(filter.id),
+          filters.has(filter.fieldId),
         ),
       },
       columnVisibility: Object.fromEntries(

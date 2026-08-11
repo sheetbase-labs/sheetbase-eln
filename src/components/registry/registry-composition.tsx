@@ -49,7 +49,12 @@ import { formatCount } from '#/lib/format-numbers'
 import { Filters } from '#/components/reui/filters'
 import type { Filter as ReuiFilter } from '#/components/reui/filters'
 import { DEFAULT_REGISTRY_QUERY, formatRegistryValue } from '#/lib/registry'
-import type { RegistryQuery, RegistryValueFormat } from '#/lib/registry'
+import type {
+  RegistryFilterOperator,
+  RegistryQuery,
+  RegistryScalar,
+  RegistryValueFormat,
+} from '#/lib/registry'
 import { cn } from '#/lib/utils'
 
 export interface RegistrySummary {
@@ -60,16 +65,19 @@ export interface RegistrySummary {
   tone?: 'positive' | 'warning' | 'danger' | 'neutral'
 }
 
-export interface RegistryFilterDefinition {
-  id: string
-  label: string
+export interface RegistryFieldFilter {
+  type: 'text' | 'select'
   placeholder?: string
-  options?: { value: string; label: string }[]
+  operators: { value: RegistryFilterOperator; label: string }[]
+  options?: { value: RegistryScalar; label: string }[]
 }
 
-export interface RegistryGroupingOption {
+export interface RegistryField<TData> {
   id: string
   label: string
+  column?: ColumnDef<TData, unknown> | false
+  filter?: RegistryFieldFilter
+  groupable: boolean
 }
 
 export interface RegistryIncrementalRows {
@@ -97,7 +105,7 @@ export interface RegistryCompositionProps<TData> {
   rows: TData[]
   /** Authoritative server total, never inferred from the current page. */
   totalCount: number
-  columns: ColumnDef<TData, unknown>[]
+  fields: RegistryField<TData>[]
   query: RegistryQuery
   onQueryChange: (query: RegistryQuery) => void
   getRowId: (row: TData) => string
@@ -106,8 +114,6 @@ export interface RegistryCompositionProps<TData> {
   selectedRecord?: TData | null
   onSelectedIdChange: (id: string | null) => void
   summaries?: RegistrySummary[]
-  filterDefinitions?: RegistryFilterDefinition[]
-  groupingOptions?: RegistryGroupingOption[]
   renderInspector?: (row: TData | null) => React.ReactNode
   /** Generic accessible label for the responsive inspector trigger and plane. */
   inspectorLabel?: string
@@ -160,24 +166,24 @@ function useIsXl(): boolean {
 const PIN_KEY = (registryId: string) =>
   `sheetbase-inspector-pinned-${registryId}`
 
-function RegistryFilters({
+function RegistryFilters<TData>({
   definitions,
   query,
   onQueryChange,
   debounceMs,
 }: {
-  definitions: RegistryFilterDefinition[]
+  definitions: RegistryField<TData>[]
   query: RegistryQuery
   onQueryChange: (query: RegistryQuery) => void
   debounceMs: number
 }) {
   const fromQuery = React.useCallback(
-    (): ReuiFilter<string>[] =>
-      query.filters.map((filter) => ({
-        id: filter.id,
-        field: filter.id,
-        operator: 'is',
-        values: [filter.value],
+    (): ReuiFilter<RegistryScalar>[] =>
+      query.filters.map((filter, index) => ({
+        id: `registry-filter-${index}`,
+        field: filter.fieldId,
+        operator: filter.operator,
+        values: filter.values,
       })),
     [query.filters],
   )
@@ -187,22 +193,33 @@ function RegistryFilters({
   React.useEffect(() => setFilters(fromQuery()), [fromQuery])
   React.useEffect(() => () => window.clearTimeout(timeoutRef.current), [])
 
-  function emit(next: ReuiFilter<string>[]) {
+  function emit(next: ReuiFilter<RegistryScalar>[]) {
     const routeFilters = next
-      .filter((filter) => filter.values[0])
-      .map((filter) => ({ id: filter.field, value: filter.values[0] }))
+      .filter(
+        (filter) =>
+          filter.values.length > 0 ||
+          filter.operator === 'isNull' ||
+          filter.operator === 'isNotNull',
+      )
+      .map((filter) => ({
+        fieldId: filter.field,
+        operator: filter.operator as RegistryFilterOperator,
+        values: filter.values,
+      }))
     const unchanged =
       routeFilters.length === query.filters.length &&
       routeFilters.every(
         (filter, index) =>
-          filter.id === query.filters[index]?.id &&
-          filter.value === query.filters[index]?.value,
+          filter.fieldId === query.filters[index]?.fieldId &&
+          filter.operator === query.filters[index]?.operator &&
+          JSON.stringify(filter.values) ===
+            JSON.stringify(query.filters[index]?.values),
       )
     if (unchanged) return
     onQueryChange({ ...query, pageIndex: 0, filters: routeFilters })
   }
 
-  function handleChange(next: ReuiFilter<string>[]) {
+  function handleChange(next: ReuiFilter<RegistryScalar>[]) {
     const previous = filters
     setFilters(next)
     window.clearTimeout(timeoutRef.current)
@@ -214,7 +231,7 @@ function RegistryFilters({
     const definition = definitions.find(
       (candidate) => candidate.id === changed?.field,
     )
-    if (changed && !definition?.options && debounceMs > 0) {
+    if (changed && definition?.filter?.type === 'text' && debounceMs > 0) {
       timeoutRef.current = window.setTimeout(() => emit(next), debounceMs)
     } else {
       emit(next)
@@ -227,11 +244,11 @@ function RegistryFilters({
       fields={definitions.map((definition) => ({
         key: definition.id,
         label: definition.label,
-        placeholder: definition.placeholder,
-        type: definition.options ? ('select' as const) : ('text' as const),
-        options: definition.options,
-        operators: [{ value: 'is', label: 'is' }],
-        defaultOperator: 'is',
+        placeholder: definition.filter?.placeholder,
+        type: definition.filter?.type,
+        options: definition.filter?.options,
+        operators: definition.filter?.operators,
+        defaultOperator: definition.filter?.operators[0]?.value,
       }))}
       onChange={handleChange}
       allowMultiple={false}
@@ -247,7 +264,7 @@ export function RegistryComposition<TData>({
   description,
   rows,
   totalCount,
-  columns,
+  fields,
   query,
   onQueryChange,
   getRowId,
@@ -255,8 +272,6 @@ export function RegistryComposition<TData>({
   selectedRecord,
   onSelectedIdChange,
   summaries = [],
-  filterDefinitions = [],
-  groupingOptions = [],
   renderInspector,
   inspectorLabel = 'Inspector',
   inspectorOpen: controlledInspectorOpen,
@@ -275,6 +290,15 @@ export function RegistryComposition<TData>({
   resizableColumns = false,
   searchDebounceMs = 0,
 }: RegistryCompositionProps<TData>) {
+  const columns = React.useMemo(
+    () =>
+      fields.flatMap((field) =>
+        field.column ? [{ ...field.column, id: field.id }] : [],
+      ),
+    [fields],
+  )
+  const filterDefinitions = fields.filter((field) => field.filter)
+  const groupingOptions = fields.filter((field) => field.groupable)
   const compositionRef = React.useRef<HTMLElement>(null)
   const scrollViewportRef = React.useRef<HTMLDivElement>(null)
   const lastRequestedRowCountRef = React.useRef(-1)
@@ -326,7 +350,10 @@ export function RegistryComposition<TData>({
   const [expanded, setExpanded] = React.useState<ExpandedState>(
     grouping.length > 0 ? true : {},
   )
-  const columnFilters: ColumnFiltersState = query.filters
+  const columnFilters: ColumnFiltersState = query.filters.map((filter) => ({
+    id: filter.fieldId,
+    value: filter.values,
+  }))
   const groupingKey = grouping.join('\u0000')
 
   React.useEffect(() => {
@@ -384,8 +411,11 @@ export function RegistryComposition<TData>({
         ...query,
         pageIndex: 0,
         filters: next.map((filter) => ({
-          id: filter.id,
-          value: String(filter.value ?? ''),
+          fieldId: filter.id,
+          operator: 'eq',
+          values: Array.isArray(filter.value)
+            ? (filter.value as RegistryScalar[])
+            : [String(filter.value ?? '')],
         })),
       })
     },
@@ -449,7 +479,7 @@ export function RegistryComposition<TData>({
         ? selectedRecord
         : null))
     : null
-  const hasFilters = query.filters.some((filter) => filter.value !== '')
+  const hasFilters = query.filters.some((filter) => filter.values.length > 0)
   const inspectorOpen = controlledInspectorOpen ?? uncontrolledInspectorOpen
   const setInspectorOpen = React.useCallback(
     (open: boolean) => {

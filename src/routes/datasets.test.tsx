@@ -507,10 +507,6 @@ describe('DatasetDataTab', () => {
     ).toBe('Titer (TU/mL) = [Vector genome (copies/mL)] / [Volume (mL)]')
     expect(screen.getByText('Apply')).toBeTruthy()
     expect(screen.getByRole('tab', { name: 'Correlations' })).toBeTruthy()
-    expect(
-      screen.getByRole('button', { name: 'Save current view' }),
-    ).toBeTruthy()
-
     const layout = document.querySelector('[data-preview-height]')
     const separator = screen.getByRole('separator', {
       name: 'Resize dataset preview',

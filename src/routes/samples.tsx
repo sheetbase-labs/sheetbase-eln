@@ -16,6 +16,7 @@ import { PackagePlus } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
 import { RegistryComposition } from '#/components/registry/registry-composition'
+import type { RegistryField } from '#/components/registry/registry-composition'
 import { SampleInspector } from '#/components/samples/sample-inspector'
 import type { SampleCustodyAction } from '#/components/samples/sample-inspector'
 import { StatusBadge } from '#/components/scientific/status-badge'
@@ -254,34 +255,53 @@ function SamplesRegistryRoute() {
     return cols
   }, [])
 
-  const filterDefinitions = [
-    {
-      id: 'search',
-      label: 'Search',
+  const fields: RegistryField<SampleRecord>[] = columns.map((column) => {
+    const id = String(
+      column.id ?? ('accessorKey' in column ? column.accessorKey : ''),
+    )
+    const labels: Record<string, string> = {
+      identifier: 'Sample ID',
+      title: 'Title',
+      sampleType: 'Type',
+      quantity: 'Quantity',
+      storageLocation: 'Storage',
+      barcode: 'Barcode',
+      status: 'Status',
+      updatedAt: 'Updated',
+    }
+    const filter =
+      id === 'status'
+        ? {
+            type: 'select' as const,
+            operators: [{ value: 'eq' as const, label: 'is' }],
+            options: sampleStatusOptions(),
+          }
+        : ['sampleType', 'storageLocation', 'barcode'].includes(id)
+          ? {
+              type: 'text' as const,
+              placeholder: `All ${labels[id].toLowerCase()}`,
+              operators: [{ value: 'contains' as const, label: 'contains' }],
+            }
+          : undefined
+    return {
+      id,
+      label: labels[id] ?? id,
+      column,
+      filter,
+      groupable: ['status', 'sampleType', 'storageLocation'].includes(id),
+    }
+  })
+  fields.push({
+    id: 'search',
+    label: 'Search',
+    column: false,
+    groupable: false,
+    filter: {
+      type: 'text',
       placeholder: 'Identifier, title, barcode',
+      operators: [{ value: 'contains', label: 'contains' }],
     },
-    {
-      id: 'sampleType',
-      label: 'Type',
-      placeholder: 'All types',
-    },
-    {
-      id: 'status',
-      label: 'Status',
-      options: sampleStatusOptions(),
-    },
-    {
-      id: 'storageLocation',
-      label: 'Storage',
-      placeholder: 'All locations',
-    },
-  ]
-
-  const groupingOptions = [
-    { id: 'status', label: 'Status' },
-    { id: 'sampleType', label: 'Type' },
-    { id: 'storageLocation', label: 'Storage' },
-  ]
+  })
 
   const shellContext = {
     workspace: context.workspace ? { name: context.workspace.name } : null,
@@ -332,7 +352,7 @@ function SamplesRegistryRoute() {
           description="Track sample identity, quantity, storage and chain of custody."
           rows={rows}
           totalCount={totalCount}
-          columns={columns}
+          fields={fields}
           query={query}
           onQueryChange={setQuery}
           getRowId={(row) => row.id}
@@ -340,8 +360,6 @@ function SamplesRegistryRoute() {
           selectedRecord={selectedRecord}
           onSelectedIdChange={setSelectedId}
           summaries={summaries}
-          filterDefinitions={filterDefinitions}
-          groupingOptions={groupingOptions}
           renderInspector={inspector}
           inspectorLabel="Sample details"
           initialColumnVisibility={{ barcode: false, sampleType: false }}

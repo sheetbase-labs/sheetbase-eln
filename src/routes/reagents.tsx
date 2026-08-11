@@ -34,7 +34,7 @@ import { Archive } from 'lucide-react'
 import { useShell } from '#/components/app-shell'
 import { ReagentInspector } from '#/components/reagents/reagent-inspector'
 import { RegistryComposition } from '#/components/registry'
-import type { RegistrySummary } from '#/components/registry'
+import type { RegistryField, RegistrySummary } from '#/components/registry'
 import { StatusBadge } from '#/components/scientific'
 import {
   Badge,
@@ -68,6 +68,7 @@ import {
   reagentQueryKeys,
 } from '#/lib/reagent-data'
 import type { Reagent, ReagentAttentionSummary } from '#/lib/reagent-data'
+import { decodeRegistryQuery, encodeRegistryQuery } from '#/lib/registry'
 import type { RegistryQuery } from '#/lib/registry'
 
 /**
@@ -77,6 +78,7 @@ import type { RegistryQuery } from '#/lib/registry'
  */
 export const Route = createFileRoute('/reagents')({
   validateSearch: (search: Record<string, unknown>) => ({
+    rq: typeof search.rq === 'string' ? search.rq : '',
     sort: typeof search.sort === 'string' ? search.sort : '',
     group: typeof search.group === 'string' ? search.group : 'category',
     status: typeof search.status === 'string' ? search.status : '',
@@ -106,21 +108,31 @@ const columnHelper = createColumnHelper<Reagent>()
  * composition's filter bar stay aligned.
  */
 function queryFromSearch(search: {
+  rq: string
   sort: string
   group: string
   status: string
   storage: string
   q: string
 }): RegistryQuery {
+  const decoded = decodeRegistryQuery(search.rq)
+  if (decoded) return { ...decoded, pageIndex: 0, pageSize: 50 }
   const sorting: RegistryQuery['sorting'] = []
   if (search.sort) {
     const [id, desc] = search.sort.split(',')
     if (id) sorting.push({ id, desc: desc === 'desc' })
   }
   const filters: RegistryQuery['filters'] = []
-  if (search.status) filters.push({ id: 'status', value: search.status })
-  if (search.storage) filters.push({ id: 'storage', value: search.storage })
-  if (search.q) filters.push({ id: 'q', value: search.q })
+  if (search.status)
+    filters.push({ fieldId: 'status', operator: 'eq', values: [search.status] })
+  if (search.storage)
+    filters.push({
+      fieldId: 'storage',
+      operator: 'eq',
+      values: [search.storage],
+    })
+  if (search.q)
+    filters.push({ fieldId: 'q', operator: 'contains', values: [search.q] })
   return {
     pageIndex: 0,
     pageSize: 50,
@@ -143,13 +155,12 @@ function ReagentsRegistryRoute() {
     void navigate({
       to: '/reagents',
       search: {
-        sort: next.sorting[0]
-          ? `${next.sorting[0].id},${next.sorting[0].desc ? 'desc' : 'asc'}`
-          : '',
-        group: next.grouping[0] ?? '',
-        status: next.filters.find((f) => f.id === 'status')?.value ?? '',
-        storage: next.filters.find((f) => f.id === 'storage')?.value ?? '',
-        q: next.filters.find((f) => f.id === 'q')?.value ?? '',
+        rq: encodeRegistryQuery({ ...next, pageIndex: 0 }),
+        sort: '',
+        group: '',
+        status: '',
+        storage: '',
+        q: '',
         selected: selectedId ?? '',
       },
       replace: false,
@@ -237,7 +248,7 @@ function ReagentsRegistryRoute() {
     ? buildSummaries(attention)
     : []
 
-  const columns = buildColumns()
+  const fields = useMemo(() => buildFields(buildColumns()), [])
 
   const shellContext = {
     workspace: context.workspace ? { name: context.workspace.name } : null,
@@ -265,7 +276,7 @@ function ReagentsRegistryRoute() {
           description="Central inventory of reagents, consumables and chemicals."
           rows={rows}
           totalCount={totalCount}
-          columns={columns}
+          fields={fields}
           query={query}
           onQueryChange={setQuery}
           getRowId={(row) => row.id}
@@ -274,34 +285,6 @@ function ReagentsRegistryRoute() {
           onSelectedIdChange={setSelected}
           inspectorLabel="Reagent details"
           summaries={summaries}
-          filterDefinitions={[
-            {
-              id: 'status',
-              label: 'Status',
-              placeholder: 'All statuses',
-              options: [
-                ...REAGENT_STATUS_OPTIONS,
-                { value: 'archived', label: 'Archived' },
-              ],
-            },
-            {
-              id: 'storage',
-              label: 'Storage',
-              placeholder: 'All storage',
-              options: REAGENT_STORAGE_OPTIONS,
-            },
-            {
-              id: 'q',
-              label: 'Search',
-              placeholder: 'Identifier or title',
-            },
-          ]}
-          groupingOptions={[
-            { id: 'category', label: 'Category' },
-            { id: 'storage', label: 'Storage' },
-            { id: 'supplier', label: 'Supplier' },
-            { id: 'status', label: 'Status' },
-          ]}
           initialColumnVisibility={{ updatedAt: false }}
           loading={rowsQuery.isLoading || countQuery.isLoading}
           error={initialError}
@@ -452,6 +435,70 @@ function buildColumns(): ColumnDef<Reagent, unknown>[] {
       cell: (info) => formatDate(info.getValue()),
     }),
   ] as ColumnDef<Reagent, unknown>[]
+}
+
+function buildFields(
+  columns: ColumnDef<Reagent, unknown>[],
+): RegistryField<Reagent>[] {
+  const labels: Record<string, string> = {
+    identifier: 'Reagent ID',
+    title: 'Name',
+    category: 'Category',
+    supplier: 'Supplier',
+    catalogNo: 'Catalogue number',
+    lot: 'Lot',
+    expiry: 'Expiry',
+    quantity: 'Quantity',
+    storage: 'Storage',
+    status: 'Status',
+    updatedAt: 'Updated',
+  }
+  const textFilter = (placeholder: string) => ({
+    type: 'text' as const,
+    placeholder,
+    operators: [{ value: 'contains' as const, label: 'contains' }],
+  })
+  const filters: Record<string, RegistryField<Reagent>['filter']> = {
+    category: textFilter('Category contains'),
+    supplier: textFilter('Supplier contains'),
+    catalogNo: textFilter('Catalogue number contains'),
+    lot: textFilter('Lot contains'),
+    storage: {
+      type: 'select',
+      placeholder: 'All storage',
+      operators: [{ value: 'eq', label: 'is' }],
+      options: REAGENT_STORAGE_OPTIONS,
+    },
+    status: {
+      type: 'select',
+      placeholder: 'All statuses',
+      operators: [{ value: 'eq', label: 'is' }],
+      options: [
+        ...REAGENT_STATUS_OPTIONS,
+        { value: 'archived', label: 'Archived' },
+      ],
+    },
+  }
+  const fields: RegistryField<Reagent>[] = columns.map((column) => {
+    const id = String(
+      column.id ?? ('accessorKey' in column ? column.accessorKey : ''),
+    )
+    return {
+      id,
+      label: labels[id] ?? id,
+      column,
+      filter: filters[id],
+      groupable: ['category', 'storage', 'supplier', 'status'].includes(id),
+    }
+  })
+  fields.push({
+    id: 'q',
+    label: 'Search',
+    column: false,
+    filter: textFilter('ID, name, supplier, catalogue number or lot'),
+    groupable: false,
+  })
+  return fields
 }
 
 function CategoryBadge({ category }: { category: string }) {

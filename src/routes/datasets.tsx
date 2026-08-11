@@ -35,6 +35,7 @@ import {
 
 import { useShell } from '#/components/app-shell'
 import { RegistryComposition } from '#/components/registry'
+import type { RegistryField } from '#/components/registry'
 import {
   EmptyHint,
   Inspector,
@@ -136,7 +137,9 @@ function queryIdentity(query: DatasetRowQuery): string {
     query.pageIndex,
     query.pageSize,
     query.sorting.map((s) => `${s.id}:${s.desc}`).join(','),
-    query.filters.map((f) => `${f.id}=${f.value}`).join(','),
+    query.filters
+      .map((f) => `${f.fieldId}:${f.operator}=${f.values.join(',')}`)
+      .join(','),
   ].join('|')
 }
 
@@ -598,19 +601,25 @@ export function DatasetDataTab({
     staleTime: 30_000,
   })
 
-  const columns = useMemo(() => toColumnDefs(table.columns), [table.columns])
-  const filterDefinitions = table.columns
-    .slice(0, DATASET_MAX_FILTERS)
-    .map((column) => ({
+  const fields = useMemo<RegistryField<ScientificRowWire>[]>(() => {
+    const defs = toColumnDefs(table.columns)
+    return table.columns.map((column, index) => ({
       id: column.field_name,
       label: column.label,
-      placeholder: 'Exact value',
+      column: defs[index],
+      filter:
+        index < DATASET_MAX_FILTERS
+          ? {
+              type: 'text',
+              placeholder: 'Exact value',
+              operators: [{ value: 'eq', label: 'is' }],
+            }
+          : undefined,
+      groupable: ['category', 'text', 'reference'].includes(
+        column.logical_type,
+      ),
     }))
-  const groupingOptions = table.columns
-    .filter((column) =>
-      ['category', 'text', 'reference'].includes(column.logical_type),
-    )
-    .map((column) => ({ id: column.field_name, label: column.label }))
+  }, [table.columns])
   const totalCount = rowsQuery.data?.totalCount ?? 0
   const minimumPaneHeight = 180
   const splitterHeight = 8
@@ -667,14 +676,12 @@ export function DatasetDataTab({
               hideHeader
               rows={rowsQuery.data?.rows ?? []}
               totalCount={totalCount}
-              columns={columns}
+              fields={fields}
               query={query}
               onQueryChange={setQuery}
               getRowId={(row) => row.id}
               selectedId={selectedRowId}
               onSelectedIdChange={setSelectedRowId}
-              filterDefinitions={filterDefinitions}
-              groupingOptions={groupingOptions}
               inspectorLabel="Dataset inspector"
               loading={rowsQuery.isLoading}
               error={rowsQuery.error}

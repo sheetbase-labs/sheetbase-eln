@@ -252,9 +252,18 @@ export function buildSamplesFilter(filters: RegistryFilterValue[]): string[] {
   const clauses: string[] = ['kind=eq.sample', 'deleted_at=is.null']
   let includeArchived = false
   for (const filter of filters) {
-    const value = filter.value.trim()
+    const raw = filter.values[0]
+    const value = typeof raw === 'string' ? raw.trim() : ''
     if (!value) continue
-    switch (filter.id) {
+    const expected =
+      filter.fieldId === 'status' || filter.fieldId === 'archived'
+        ? 'eq'
+        : 'contains'
+    if (filter.operator !== expected)
+      throw new Error(
+        `Unsupported sample filter: ${filter.fieldId}/${filter.operator}`,
+      )
+    switch (filter.fieldId) {
       case 'status':
         clauses.push(`status=eq.${value}`)
         break
@@ -279,6 +288,8 @@ export function buildSamplesFilter(filters: RegistryFilterValue[]): string[] {
       case 'archived':
         if (value === 'included') includeArchived = true
         break
+      default:
+        throw new Error(`Unsupported sample filter field: ${filter.fieldId}`)
     }
   }
   if (!includeArchived) clauses.push('archived_at=is.null')

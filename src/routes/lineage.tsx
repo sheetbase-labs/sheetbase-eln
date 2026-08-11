@@ -190,11 +190,7 @@ function LineageExplorerRoute() {
 
   useShell({
     context: shellContext,
-    breadcrumbs: [
-      { label: 'Home', to: '/' },
-      { label: 'Analysis', to: '/analysis' },
-      { label: 'Lineage Explorer' },
-    ],
+    breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Lineage Explorer' }],
     fullBleed: true,
     inspector: inspector,
     inspectorLabel: 'Lineage inspector',
@@ -750,9 +746,7 @@ function LineageNodeComponent({ data }: NodeProps<LineageRFNode>) {
         {node.status &&
           node.status !== 'missing' &&
           node.status !== 'restricted' && (
-            <span className="text-xs text-muted-foreground">
-              {node.status}
-            </span>
+            <span className="text-xs text-muted-foreground">{node.status}</span>
           )}
       </div>
       <Handle

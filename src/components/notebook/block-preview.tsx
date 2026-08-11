@@ -1,6 +1,5 @@
 import * as React from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
 import {
   Check,
   CheckCircle2,
@@ -211,13 +210,6 @@ function AnalysisReferencePreview({ payload }: { payload: unknown }) {
         >
           {new Date(run.created_at).toLocaleString('en-GB')}
         </time>
-        <Link
-          to="/analysis"
-          search={{ analysis: analysisId, dataset: '', run: runId }}
-          className="text-xs text-primary underline"
-        >
-          Open analysis
-        </Link>
       </div>
       <ChartRenderer
         title={title}

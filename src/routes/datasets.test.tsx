@@ -175,27 +175,6 @@ function queryResult<T>(
 // --- DatasetExplorerHeader ------------------------------------------------
 
 describe('DatasetExplorerHeader', () => {
-  it('offers analysis for the selected dataset without exposing its ID', async () => {
-    const onAnalyse = vi.fn()
-    const t = table()
-    render(
-      <DatasetExplorerHeader
-        datasets={[t]}
-        loading={false}
-        error={null}
-        selectedTableId={t.id}
-        onSelect={() => {}}
-        onAnalyse={onAnalyse}
-      />,
-    )
-
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Analyse this dataset' }),
-    )
-    expect(onAnalyse).toHaveBeenCalledOnce()
-    expect(screen.queryByText(t.id)).toBeNull()
-  })
-
   it('renders a skeleton while loading', () => {
     render(
       <DatasetExplorerHeader

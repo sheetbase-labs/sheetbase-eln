@@ -245,13 +245,6 @@ function DatasetExplorerRoute() {
               replace: false,
             })
           }}
-          onAnalyse={() => {
-            if (!selectedTableId) return
-            void navigate({
-              to: '/analysis',
-              search: { dataset: selectedTableId, analysis: '', run: '' },
-            })
-          }}
         />
         {selectedTable ? (
           <DatasetTabs
@@ -281,7 +274,6 @@ interface DatasetExplorerHeaderProps {
   error: unknown
   selectedTableId: string | null
   onSelect: (id: string) => void
-  onAnalyse?: () => void
 }
 
 export function DatasetExplorerHeader({
@@ -290,7 +282,6 @@ export function DatasetExplorerHeader({
   error,
   selectedTableId,
   onSelect,
-  onAnalyse,
 }: DatasetExplorerHeaderProps) {
   const selected = datasets.find((dataset) => dataset.id === selectedTableId)
   const fieldCount = selected?.columns.length ?? 0
@@ -336,12 +327,6 @@ export function DatasetExplorerHeader({
             onSelect={onSelect}
           />
         )}
-        {selectedTableId && onAnalyse ? (
-          <Button variant="outline" size="sm" onClick={onAnalyse}>
-            <BarChart3 aria-hidden="true" />
-            Analyse this dataset
-          </Button>
-        ) : null}
       </div>
     </header>
   )

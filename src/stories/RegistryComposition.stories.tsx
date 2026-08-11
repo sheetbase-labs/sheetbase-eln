@@ -243,13 +243,32 @@ function renderInspector(record: unknown) {
 
 const baseArgs = {
   registryId: 'samples',
-  workspaceId: 'ws',
-  userId: 'user',
   title: 'Sample registry',
   description: 'Biological samples and aliquots',
   rows,
   totalCount: 248,
-  columns,
+  fields: columns.map((column, index) => {
+    const id = String(
+      column.id ?? ['identifier', 'title', 'status', 'quantity'][index],
+    )
+    return {
+      id,
+      label: id,
+      column,
+      groupable: id === 'status',
+      filter:
+        id === 'status'
+          ? {
+              type: 'select' as const,
+              operators: [{ value: 'eq' as const, label: 'is' }],
+              options: [
+                { value: 'frozen', label: 'Frozen' },
+                { value: 'quarantined', label: 'Quarantined' },
+              ],
+            }
+          : undefined,
+    }
+  }),
   query: DEFAULT_REGISTRY_QUERY,
   onQueryChange: () => {},
   getRowId: (r: unknown) => (r as Row).id,
@@ -261,17 +280,6 @@ const baseArgs = {
     { label: 'Total samples', value: 248 },
     { label: 'Frozen', value: 184 },
     { label: 'Quarantined', value: 7 },
-  ],
-  filterDefinitions: [
-    { id: 'title', label: 'Search', placeholder: 'Identifier or title…' },
-    {
-      id: 'status',
-      label: 'Status',
-      options: [
-        { value: 'frozen', label: 'Frozen' },
-        { value: 'quarantined', label: 'Quarantined' },
-      ],
-    },
   ],
 }
 

@@ -3,16 +3,18 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ColumnDef } from '@tanstack/react-table'
+import { useState } from 'react'
 
 import { RegistryComposition } from './registry-composition'
 import type { RegistryCompositionProps } from './registry-composition'
+import { DataGridGrouping } from '#/components/data-grid'
 import type { RegistryQuery } from '#/lib/registry'
-import { createRegistrySavedViewStore } from '#/lib/registry'
 
 interface Row {
   id: string
@@ -32,7 +34,7 @@ const columns: ColumnDef<Row, unknown>[] = [
   {
     accessorKey: 'value',
     header: 'Concentration',
-    meta: { registryFormat: { kind: 'scientific', unit: 'µg/mL' } },
+    meta: { dataGridFormat: { kind: 'scientific', unit: 'µg/mL' } },
   },
   {
     id: 'actions',
@@ -51,58 +53,46 @@ const query: RegistryQuery = {
   filters: [],
 }
 
-function memoryStorage(): Storage {
-  const values = new Map<string, string>()
-  return {
-    get length() {
-      return values.size
-    },
-    clear: () => values.clear(),
-    getItem: (key) => values.get(key) ?? null,
-    key: (index) => Array.from(values.keys())[index] ?? null,
-    removeItem: (key) => values.delete(key),
-    setItem: (key, value) => values.set(key, value),
-  }
-}
-
 function props(
   overrides: Partial<RegistryCompositionProps<Row>> = {},
 ): RegistryCompositionProps<Row> {
   return {
     registryId: 'test-records',
-    workspaceId: 'workspace-a',
-    userId: 'user-a',
     title: 'Test records',
     description: 'Reusable registry proof.',
     rows,
     totalCount: 2,
-    columns,
+    fields: columns.map((column) => {
+      const id = String(
+        column.id ?? ('accessorKey' in column ? column.accessorKey : ''),
+      )
+      return {
+        id,
+        label: id === 'status' ? 'Status' : id,
+        column,
+        groupable: id === 'status',
+        filter:
+          id === 'status'
+            ? {
+                type: 'select' as const,
+                operators: [{ value: 'eq' as const, label: 'is' }],
+                options: [
+                  { value: 'available', label: 'Available' },
+                  { value: 'reserved', label: 'Reserved' },
+                ],
+              }
+            : undefined,
+      }
+    }),
     query,
     onQueryChange: vi.fn(),
     getRowId: (row) => row.id,
     selectedId: null,
     onSelectedIdChange: vi.fn(),
     summaries: [{ label: 'Total', value: '1.25m' }],
-    filterDefinitions: [
-      {
-        id: 'status',
-        label: 'Status',
-        options: [
-          { value: 'available', label: 'Available' },
-          { value: 'reserved', label: 'Reserved' },
-        ],
-      },
-    ],
-    groupingOptions: [{ id: 'status', label: 'Status' }],
     renderInspector: (row) => (
       <div>{row ? `Inspecting ${row.identifier}` : 'Nothing selected'}</div>
     ),
-    savedViewStore: createRegistrySavedViewStore({
-      registryId: 'test-records',
-      workspaceId: 'workspace-a',
-      userId: 'user-a',
-      storage: memoryStorage(),
-    }),
     ...overrides,
   }
 }
@@ -112,6 +102,41 @@ afterEach(() => {
 })
 
 describe('RegistryComposition server contracts', () => {
+  it('adds ordered grouping fields and removes each active grouping', async () => {
+    const user = userEvent.setup()
+    const fields = [
+      { id: 'status', label: 'Status', groupable: true },
+      { id: 'identifier', label: 'Identifier', groupable: true },
+    ]
+
+    function GroupingHarness() {
+      const [controlledQuery, setControlledQuery] = useState(query)
+      return (
+        <DataGridGrouping
+          fields={fields}
+          grouping={controlledQuery.grouping}
+          onGroupingChange={(grouping) =>
+            setControlledQuery({ ...controlledQuery, grouping })
+          }
+        />
+      )
+    }
+
+    render(<GroupingHarness />)
+    await user.click(screen.getByRole('button', { name: 'Add grouping' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Status' }))
+    await user.click(screen.getByRole('button', { name: 'Add grouping' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Identifier' }))
+
+    const grouping = screen.getByLabelText('Row grouping')
+    expect(grouping.textContent).toContain('Group: StatusGroup: Identifier')
+    await user.click(
+      screen.getByRole('button', { name: 'Remove Status grouping' }),
+    )
+    expect(grouping.textContent).not.toContain('Group: Status')
+    expect(grouping.textContent).toContain('Group: Identifier')
+  })
+
   it('uses the reported total for pagination without loading all rows', async () => {
     const user = userEvent.setup()
     const onQueryChange = vi.fn()
@@ -141,18 +166,21 @@ describe('RegistryComposition server contracts', () => {
       sorting: [{ id: 'identifier', desc: false }],
     })
 
+    await user.click(screen.getByRole('button', { name: 'Add filter' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Status' }))
+    await user.click(screen.getByRole('button', { name: 'Select' }))
     await user.click(
-      screen.getByRole('button', { name: 'Status', expanded: false }),
+      screen.getByRole('menuitemcheckbox', { name: 'Available' }),
     )
-    await user.click(screen.getByRole('menuitem', { name: 'Available' }))
 
     expect(onQueryChange).toHaveBeenCalledWith({
       ...query,
       pageIndex: 0,
-      filters: [{ id: 'status', value: 'available' }],
+      filters: [{ fieldId: 'status', operator: 'eq', values: ['available'] }],
     })
 
-    await user.selectOptions(screen.getByLabelText('Group rows'), 'status')
+    await user.click(screen.getByRole('button', { name: 'Add grouping' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Status' }))
     expect(onQueryChange).toHaveBeenCalledWith({
       ...query,
       pageIndex: 0,
@@ -166,15 +194,109 @@ describe('RegistryComposition server contracts', () => {
         {...props({
           query: {
             ...query,
-            filters: [{ id: 'status', value: 'available' }],
+            filters: [
+              { fieldId: 'status', operator: 'eq', values: ['available'] },
+            ],
           },
         })}
       />,
     )
 
-    expect(
-      screen.getByRole('button', { name: /Status: Available/ }),
-    ).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Available' })).toBeTruthy()
+  })
+
+  it('keeps a newly added filter open until the user selects a value', async () => {
+    const user = userEvent.setup()
+
+    function ControlledRegistry() {
+      const [controlledQuery, setControlledQuery] = useState(query)
+      return (
+        <RegistryComposition
+          {...props({
+            query: controlledQuery,
+            onQueryChange: setControlledQuery,
+          })}
+        />
+      )
+    }
+
+    render(<ControlledRegistry />)
+    await user.click(screen.getByRole('button', { name: 'Add filter' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Status' }))
+
+    expect(screen.getByRole('button', { name: 'Select' })).toBeTruthy()
+  })
+
+  it('debounces server-owned text search updates', async () => {
+    const user = userEvent.setup()
+    const onQueryChange = vi.fn()
+    render(
+      <RegistryComposition
+        {...props({
+          onQueryChange,
+          searchDebounceMs: 300,
+          fields: [
+            ...props().fields,
+            {
+              id: 'q',
+              label: 'Search',
+              column: false,
+              groupable: false,
+              filter: {
+                type: 'text',
+                placeholder: 'Identifier or title',
+                operators: [{ value: 'contains', label: 'contains' }],
+              },
+            },
+          ],
+        })}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Add filter' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Search' }))
+    await user.type(screen.getByRole('textbox', { name: 'Search' }), 'Anti')
+    expect(onQueryChange).not.toHaveBeenCalled()
+    await waitFor(() => expect(onQueryChange).toHaveBeenCalledOnce(), {
+      timeout: 600,
+    })
+    expect(onQueryChange).toHaveBeenCalledWith({
+      ...query,
+      filters: [{ fieldId: 'q', operator: 'contains', values: ['Anti'] }],
+    })
+  })
+
+  it('keeps text search immediate unless a consumer opts into debouncing', async () => {
+    const user = userEvent.setup()
+    const onQueryChange = vi.fn()
+    render(
+      <RegistryComposition
+        {...props({
+          onQueryChange,
+          fields: [
+            ...props().fields,
+            {
+              id: 'q',
+              label: 'Search',
+              column: false,
+              groupable: false,
+              filter: {
+                type: 'text',
+                operators: [{ value: 'contains', label: 'contains' }],
+              },
+            },
+          ],
+        })}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Add filter' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Search' }))
+    await user.type(screen.getByRole('textbox', { name: 'Search' }), 'A')
+    expect(onQueryChange).toHaveBeenCalledWith({
+      ...query,
+      filters: [{ fieldId: 'q', operator: 'contains', values: ['A'] }],
+    })
   })
 
   it('makes page-local group counts explicit when results are paginated', () => {
@@ -191,6 +313,77 @@ describe('RegistryComposition server contracts', () => {
     expect(
       screen.getByText('50 records · groups continue across pages'),
     ).toBeTruthy()
+  })
+
+  it('reports incremental loading without page controls', async () => {
+    const user = userEvent.setup()
+    const onLoadMore = vi.fn()
+    render(
+      <RegistryComposition
+        {...props({
+          totalCount: 50,
+          incrementalRows: {
+            hasMore: true,
+            loadingMore: false,
+            onLoadMore,
+          },
+        })}
+      />,
+    )
+
+    expect(screen.getByText('50 records · 2 loaded')).toBeTruthy()
+    expect(screen.queryByLabelText('Rows per page')).toBeNull()
+    expect(screen.queryByLabelText('Next page')).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Load more' }))
+    expect(onLoadMore).toHaveBeenCalledOnce()
+  })
+
+  it('exposes accessible column resize handles when enabled', () => {
+    render(<RegistryComposition {...props({ resizableColumns: true })} />)
+
+    const handle = screen.getByRole('separator', {
+      name: 'Resize Identifier column',
+    })
+    const initialSize = Number(handle.getAttribute('aria-valuenow'))
+    fireEvent.keyDown(handle, { key: 'ArrowRight' })
+    expect(Number(handle.getAttribute('aria-valuenow'))).toBe(initialSize + 10)
+  })
+
+  it('uses the shared column selector to hide eligible columns', async () => {
+    const user = userEvent.setup()
+    render(<RegistryComposition {...props()} />)
+
+    await user.click(
+      screen.getByRole('button', { name: 'Choose visible columns' }),
+    )
+    await user.click(
+      screen.getByRole('menuitemcheckbox', { name: 'Identifier' }),
+    )
+
+    expect(
+      screen.queryByRole('columnheader', { name: 'Identifier' }),
+    ).toBeNull()
+    expect(screen.getByRole('columnheader', { name: 'Actions' })).toBeTruthy()
+  })
+
+  it('preserves loaded rows when an incremental append fails', () => {
+    render(
+      <RegistryComposition
+        {...props({
+          totalCount: 50,
+          incrementalRows: {
+            hasMore: true,
+            loadingMore: false,
+            loadError: new Error('next page failed'),
+            onLoadMore: vi.fn(),
+          },
+        })}
+      />,
+    )
+
+    expect(screen.getByText('Could not load more records')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy()
+    expect(screen.getByText('50 records · 2 loaded')).toBeTruthy()
   })
 })
 
@@ -219,11 +412,24 @@ describe('RegistryComposition interaction and states', () => {
     )
     // Inspector Sheet opens on selection; Radix marks the rest inert,
     // so query the DOM directly instead of using getByRole.
-    const selectedRow = container.querySelector(
-      'tr[data-registry-row-id="two"]',
-    )
+    const selectedRow = container.querySelector('tr[data-grid-row-id="two"]')
     expect(selectedRow?.getAttribute('aria-selected')).toBe('true')
     expect(screen.getByText('Inspecting SMP-0002')).toBeTruthy()
+  })
+
+  it('navigates data rows across group headers', () => {
+    render(
+      <RegistryComposition
+        {...props({ query: { ...query, grouping: ['status'] } })}
+      />,
+    )
+
+    const first = screen.getByRole('row', { name: /SMP-0001/ })
+    first.focus()
+    fireEvent.keyDown(first, { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(
+      screen.getByRole('row', { name: /SMP-0002/ }),
+    )
   })
 
   it('keeps a selected record visible when it is loaded outside the current page', () => {
@@ -242,6 +448,7 @@ describe('RegistryComposition interaction and states', () => {
 
   it.each([
     ['loading', { loading: true }, 'Loading Test records'],
+    ['error', { error: new Error('boom') }, 'Could not load records'],
     ['permission', { permissionDenied: true }, 'Permission denied'],
     ['empty', { rows: [], totalCount: 0 }, 'No records yet'],
     [
@@ -249,17 +456,23 @@ describe('RegistryComposition interaction and states', () => {
       {
         rows: [],
         totalCount: 0,
-        query: { ...query, filters: [{ id: 'status', value: 'missing' }] },
+        query: {
+          ...query,
+          filters: [{ fieldId: 'status', operator: 'eq', values: ['missing'] }],
+        },
       },
       'No matching records',
     ],
-  ] as const)('renders the %s state', (_name, overrides, expected) => {
+  ] as const)('renders the %s state', (name, overrides, expected) => {
     render(
       <RegistryComposition
         {...props(overrides as Partial<RegistryCompositionProps<Row>>)}
       />,
     )
     expect(screen.getByText(expected)).toBeTruthy()
+    if (name === 'loading' || name === 'error') {
+      expect(screen.queryByText('2 records')).toBeNull()
+    }
   })
 
   it('labels partial result pages without hiding returned rows', () => {
@@ -288,15 +501,14 @@ describe('RegistryComposition interaction and states', () => {
     expect(screen.queryByLabelText('Registry inspector')).toBeNull()
   })
 
-  it('has accessible column headers and Sheetbase density controls', async () => {
-    const user = userEvent.setup()
+  it('has accessible column headers and a fixed compact density', () => {
     render(<RegistryComposition {...props()} />)
     const table = screen.getByRole('table', { name: 'Test records' })
     expect(
       within(table).getByRole('columnheader', { name: /Identifier/ }),
     ).toBeTruthy()
-    await user.selectOptions(screen.getByLabelText('Table density'), 'compact')
     expect(table.getAttribute('data-density')).toBe('compact')
+    expect(screen.queryByLabelText('Table density')).toBeNull()
     expect(within(table).getByText('1.2 µg/mL')).toBeTruthy()
   })
 
@@ -315,11 +527,16 @@ describe('RegistryComposition interaction and states', () => {
     render(
       <RegistryComposition
         {...props({
-          columns: [
+          fields: [
             {
-              accessorKey: 'value',
-              header: 'Progress',
-              cell: ({ getValue }) => `Custom ${getValue<number>()}`,
+              id: 'value',
+              label: 'Progress',
+              groupable: false,
+              column: {
+                accessorKey: 'value',
+                header: 'Progress',
+                cell: ({ getValue }) => `Custom ${getValue()}`,
+              },
             },
           ],
         })}
@@ -327,109 +544,5 @@ describe('RegistryComposition interaction and states', () => {
     )
 
     expect(screen.getByText('Custom 1.2')).toBeTruthy()
-  })
-})
-
-describe('RegistryComposition saved views', () => {
-  it('saves and reapplies the query, columns and density for this user/workspace', async () => {
-    const user = userEvent.setup()
-    const onQueryChange = vi.fn()
-    render(<RegistryComposition {...props({ onQueryChange })} />)
-
-    await user.selectOptions(screen.getByLabelText('Table density'), 'compact')
-    await user.click(
-      screen.getByRole('button', { name: 'Choose visible columns' }),
-    )
-    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Status' }))
-    await user.keyboard('{Escape}')
-    expect(screen.queryByRole('columnheader', { name: /Status/ })).toBeNull()
-    const promptSpy1 = vi
-      .spyOn(window, 'prompt')
-      .mockReturnValue('Available compact')
-    await user.click(screen.getByRole('button', { name: 'Save current view' }))
-    promptSpy1.mockRestore()
-
-    expect(screen.getByLabelText('Saved views').textContent).toContain(
-      'Available compact',
-    )
-
-    await user.click(
-      screen.getByRole('button', { name: 'Choose visible columns' }),
-    )
-    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Status' }))
-    await user.keyboard('{Escape}')
-    expect(screen.getByRole('columnheader', { name: /Status/ })).toBeTruthy()
-
-    await user.selectOptions(screen.getByLabelText('Saved views'), [
-      screen.getByRole('option', { name: 'Available compact' }),
-    ])
-    expect(onQueryChange).toHaveBeenLastCalledWith(query)
-    expect(screen.getByRole('table').getAttribute('data-density')).toBe(
-      'compact',
-    )
-    expect(screen.queryByRole('columnheader', { name: /Status/ })).toBeNull()
-  })
-
-  it('sanitises persisted queries against the current registry contract', async () => {
-    const user = userEvent.setup()
-    const onQueryChange = vi.fn()
-    const store = createRegistrySavedViewStore({
-      registryId: 'test-records',
-      workspaceId: 'workspace-a',
-      userId: 'user-a',
-      storage: memoryStorage(),
-    })
-    store.save({
-      id: 'unsafe',
-      name: 'Stale view',
-      state: {
-        query: {
-          pageIndex: 99,
-          pageSize: 999,
-          sorting: [
-            { id: 'identifier', desc: false },
-            { id: 'actions', desc: false },
-            { id: 'secret', desc: true },
-          ],
-          grouping: ['secret', 'status'],
-          filters: [
-            { id: 'secret', value: 'leak' },
-            { id: 'status', value: 'available' },
-          ],
-        },
-        columnVisibility: { identifier: true, actions: false, secret: true },
-        density: 'compact',
-      },
-    })
-    render(
-      <RegistryComposition
-        {...props({ savedViewStore: store, onQueryChange })}
-      />,
-    )
-
-    await user.selectOptions(screen.getByLabelText('Saved views'), 'unsafe')
-    expect(onQueryChange).toHaveBeenLastCalledWith({
-      pageIndex: 0,
-      pageSize: 25,
-      sorting: [{ id: 'identifier', desc: false }],
-      grouping: ['status'],
-      filters: [{ id: 'status', value: 'available' }],
-    })
-  })
-
-  it('keeps distinct saved views whose names normalise the same way', async () => {
-    const user = userEvent.setup()
-    render(<RegistryComposition {...props()} />)
-
-    const promptSpy = vi.spyOn(window, 'prompt')
-    promptSpy.mockReturnValueOnce('QC ready')
-    await user.click(screen.getByRole('button', { name: 'Save current view' }))
-    promptSpy.mockReturnValueOnce('QC-ready')
-    await user.click(screen.getByRole('button', { name: 'Save current view' }))
-    promptSpy.mockRestore()
-
-    expect(screen.getAllByRole('option', { name: /QC.?ready/i })).toHaveLength(
-      2,
-    )
   })
 })

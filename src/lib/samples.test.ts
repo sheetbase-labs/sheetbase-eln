@@ -125,9 +125,19 @@ describe('computeSampleSummaries', () => {
     rows[2].status = 'consumed'
     const summaries = computeSampleSummaries(rows, 1234)
     expect(summaries).toEqual([
-      { label: 'Total samples', value: 1234, hint: '3 on this page', tone: 'neutral' },
+      {
+        label: 'Total samples',
+        value: 1234,
+        hint: '3 on this page',
+        tone: 'neutral',
+      },
       { label: 'Available', value: 2, hint: '0% of total', tone: 'positive' },
-      { label: 'Low stock', value: 1, hint: 'Needs attention', tone: 'warning' },
+      {
+        label: 'Low stock',
+        value: 1,
+        hint: 'Needs attention',
+        tone: 'warning',
+      },
       { label: 'Consumed', value: 1, hint: 'On this page', tone: 'neutral' },
     ])
   })
@@ -142,20 +152,28 @@ describe('buildSamplesFilter', () => {
   })
 
   it('includes archived rows only when the archived filter is set', () => {
-    const clauses = buildSamplesFilter([{ id: 'archived', value: 'included' }])
+    const clauses = buildSamplesFilter([
+      { fieldId: 'archived', operator: 'eq', values: ['included'] },
+    ])
     expect(clauses).not.toContain('archived_at=is.null')
   })
 
   it('maps status to an equality filter', () => {
-    const clauses = buildSamplesFilter([{ id: 'status', value: 'available' }])
+    const clauses = buildSamplesFilter([
+      { fieldId: 'status', operator: 'eq', values: ['available'] },
+    ])
     expect(clauses).toContain('status=eq.available')
   })
 
   it('maps storage/type/barcode to ilike on the JSONB property', () => {
     const clauses = buildSamplesFilter([
-      { id: 'storageLocation', value: 'Freezer A' },
-      { id: 'sampleType', value: 'plasma' },
-      { id: 'barcode', value: 'BC-1' },
+      {
+        fieldId: 'storageLocation',
+        operator: 'contains',
+        values: ['Freezer A'],
+      },
+      { fieldId: 'sampleType', operator: 'contains', values: ['plasma'] },
+      { fieldId: 'barcode', operator: 'contains', values: ['BC-1'] },
     ])
     expect(clauses).toContain('properties->>storageLocation=ilike.*Freezer+A*')
     expect(clauses).toContain('properties->>sampleType=ilike.*plasma*')
@@ -163,7 +181,9 @@ describe('buildSamplesFilter', () => {
   })
 
   it('strips PostgREST wildcards from search terms', () => {
-    const clauses = buildSamplesFilter([{ id: 'search', value: '50%_off' }])
+    const clauses = buildSamplesFilter([
+      { fieldId: 'search', operator: 'contains', values: ['50%_off'] },
+    ])
     const search = clauses.find((c) => c.startsWith('('))
     expect(search).toBeDefined()
     expect(search).not.toContain('%')
@@ -193,7 +213,7 @@ describe('buildSamplesOrder and buildSamplesQuery', () => {
       pageSize: 50,
       sorting: [{ id: 'title', desc: false }],
       grouping: [],
-      filters: [{ id: 'status', value: 'available' }],
+      filters: [{ fieldId: 'status', operator: 'eq', values: ['available'] }],
     }
     const built = buildSamplesQuery(q)
     expect(built.startsWith('?')).toBe(true)
@@ -210,7 +230,7 @@ describe('buildSamplesOrder and buildSamplesQuery', () => {
       ...baseQuery,
       pageIndex: 3,
       pageSize: 100,
-      filters: [{ id: 'status', value: 'consumed' }],
+      filters: [{ fieldId: 'status', operator: 'eq', values: ['consumed'] }],
     }
     const built = buildSamplesCountQuery(q)
     expect(built).toContain('status=eq.consumed')

@@ -15,6 +15,7 @@ import {
   DATASET_MAX_FILTERS,
   DATASET_MAX_TRANSFORMATIONS,
   DATASET_PAGE_SIZES,
+  getNextDatasetPageParam,
   sanitizeDatasetView,
   validateTransformations,
 } from './dataset-explorer-data'
@@ -65,56 +66,125 @@ function table(
 }
 
 describe('buildDatasetRowQuery', () => {
+  it('rejects a sort field absent from current table metadata', () => {
+    expect(() =>
+      buildDatasetRowQuery(
+        {
+          pageIndex: 0,
+          pageSize: 25,
+          sorting: [{ id: 'not_a_column', desc: false }],
+          filters: [],
+        },
+        table().columns,
+      ),
+    ).toThrow('Unsupported dataset sort field')
+  })
+
+  it('rejects a filter field absent from current table metadata', () => {
+    expect(() =>
+      buildDatasetRowQuery(
+        {
+          pageIndex: 0,
+          pageSize: 25,
+          sorting: [],
+          filters: [{ fieldId: 'not_a_column', operator: 'eq', values: ['x'] }],
+        },
+        table().columns,
+      ),
+    ).toThrow('Unsupported dataset filter')
+  })
   it('uses stable insertion order when no sort is set', () => {
-    const q = buildDatasetRowQuery({
-      pageIndex: 0,
-      pageSize: 25,
-      sorting: [],
-      filters: [],
-    })
+    const q = buildDatasetRowQuery(
+      {
+        pageIndex: 0,
+        pageSize: 25,
+        sorting: [],
+        filters: [],
+      },
+      table().columns,
+    )
     expect(q).toContain('order=created_at.asc,id.asc')
     expect(q).toContain('limit=25')
     expect(q).toContain('offset=0')
   })
 
   it('maps sorting to the PostgREST order param', () => {
-    const q = buildDatasetRowQuery({
-      pageIndex: 2,
-      pageSize: 50,
-      sorting: [{ id: 'col_beta', desc: true }],
-      filters: [],
-    })
-    expect(q).toContain('order=col_beta.desc')
+    const q = buildDatasetRowQuery(
+      {
+        pageIndex: 2,
+        pageSize: 50,
+        sorting: [{ id: 'col_beta', desc: true }],
+        filters: [],
+      },
+      table().columns,
+    )
+    expect(q).toContain('order=col_beta.desc,id.asc')
     expect(q).toContain('limit=50')
     expect(q).toContain('offset=100')
   })
 
   it('maps filters to eq predicates and respects the filter cap', () => {
     const filters = Array.from({ length: DATASET_MAX_FILTERS + 2 }, (_, i) => ({
-      id: `col_${i}`,
-      value: `v${i}`,
+      fieldId: `col_${i}`,
+      operator: 'eq' as const,
+      values: [`v${i}`],
     }))
-    const q = buildDatasetRowQuery({
-      pageIndex: 0,
-      pageSize: 25,
-      sorting: [],
-      filters,
-    })
+    const q = buildDatasetRowQuery(
+      {
+        pageIndex: 0,
+        pageSize: 25,
+        sorting: [],
+        filters,
+      },
+      Array.from({ length: DATASET_MAX_FILTERS + 2 }, (_, i) =>
+        column({ field_name: `col_${i}` }),
+      ),
+    )
     // Only the first DATASET_MAX_FILTERS filters are emitted.
     const matches = q.match(/col_\d+=eq\./g) ?? []
     expect(matches.length).toBe(DATASET_MAX_FILTERS)
   })
 
   it('clamps page size to the safe maximum', () => {
-    const q = buildDatasetRowQuery({
-      pageIndex: 0,
-      pageSize: 9999,
-      sorting: [],
-      filters: [],
-    })
+    const q = buildDatasetRowQuery(
+      {
+        pageIndex: 0,
+        pageSize: 9999,
+        sorting: [],
+        filters: [],
+      },
+      table().columns,
+    )
     expect(q).toContain(
       `limit=${DATASET_PAGE_SIZES[DATASET_PAGE_SIZES.length - 1]}`,
     )
+  })
+})
+
+describe('incremental dataset pages', () => {
+  const rows = (count: number, offset = 0) =>
+    Array.from({ length: count }, (_, index) => ({
+      id: `row-${offset + index}`,
+      version: 1,
+    }))
+
+  it('continues through full pages until the authoritative total is loaded', () => {
+    const first = { rows: rows(50), totalCount: 120 }
+    const second = { rows: rows(50, 50), totalCount: 0 }
+    const third = { rows: rows(20, 100), totalCount: 0 }
+
+    expect(getNextDatasetPageParam(first, [first], 50)).toBe(1)
+    expect(getNextDatasetPageParam(second, [first, second], 50)).toBe(2)
+    expect(
+      getNextDatasetPageParam(third, [first, second, third], 50),
+    ).toBeUndefined()
+  })
+
+  it('stops on an exact full final page', () => {
+    const first = { rows: rows(50), totalCount: 100 }
+    const second = { rows: rows(50, 50), totalCount: 0 }
+
+    expect(getNextDatasetPageParam(second, [first, second], 50)).toBeUndefined()
   })
 })
 
@@ -129,7 +199,7 @@ describe('sanitizeDatasetView', () => {
           pageIndex: 3,
           pageSize: 25,
           sorting: [{ id: 'col_beta', desc: true }],
-          filters: [{ id: 'col_alpha', value: 'A1' }],
+          filters: [{ fieldId: 'col_alpha', operator: 'eq', values: ['A1'] }],
         },
         hiddenFields: ['col_alpha'],
         density: 'compact',
@@ -172,7 +242,9 @@ describe('sanitizeDatasetView', () => {
     const t = table()
     const safe = sanitizeDatasetView(view(), t.columns)
     expect(safe.spec.query.sorting).toEqual([{ id: 'col_beta', desc: true }])
-    expect(safe.spec.query.filters).toEqual([{ id: 'col_alpha', value: 'A1' }])
+    expect(safe.spec.query.filters).toEqual([
+      { fieldId: 'col_alpha', operator: 'eq', values: ['A1'] },
+    ])
     expect(safe.spec.hiddenFields).toEqual(['col_alpha'])
     expect(safe.spec.density).toBe('compact')
   })

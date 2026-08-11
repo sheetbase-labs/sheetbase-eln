@@ -38,6 +38,7 @@ import type {
 import { fetchDatasetSchemaFields } from './dataset-schema-data'
 import { CHART_SPEC_VERSION } from './chart-spec'
 import type { ChartSpec } from './chart-spec'
+import type { RegistryFilterValue } from './registry'
 
 // --- Safe limits ----------------------------------------------------------
 //
@@ -93,7 +94,7 @@ export interface DatasetRowQuery {
   /** Sort descriptors; mapped to PostgREST `order`. */
   sorting: Array<{ id: string; desc: boolean }>
   /** Field-name → predicate value filters (eq semantics). */
-  filters: Array<{ id: string; value: string }>
+  filters: RegistryFilterValue[]
 }
 
 export interface DatasetRowPage {
@@ -107,23 +108,39 @@ export interface DatasetRowPage {
  * `<field>=eq.<value>` predicates; sorting maps to `order=<field>.<dir>`.
  * The default order keeps insertion order stable when no sort is set.
  */
-export function buildDatasetRowQuery(query: DatasetRowQuery): string {
+export function buildDatasetRowQuery(
+  query: DatasetRowQuery,
+  columns: readonly ScientificColumnWire[],
+): string {
+  const fields = new Set(columns.map((column) => column.field_name))
   const limit = Math.min(Math.max(1, query.pageSize), DATASET_MAX_PAGE_SIZE)
   const offset = Math.max(0, query.pageIndex) * limit
   const parts: string[] = ['select=*']
   if (query.sorting.length > 0) {
-    parts.push(
-      `order=${query.sorting
-        .map((s) => `${encodeURIComponent(s.id)}.${s.desc ? 'desc' : 'asc'}`)
-        .join(',')}`,
-    )
+    const sorting = query.sorting.map((sort) => {
+      if (!fields.has(sort.id))
+        throw new Error(`Unsupported dataset sort field: ${sort.id}`)
+      return `${encodeURIComponent(sort.id)}.${sort.desc ? 'desc' : 'asc'}`
+    })
+    if (!query.sorting.some((sort) => sort.id === 'id')) sorting.push('id.asc')
+    parts.push(`order=${sorting.join(',')}`)
   } else {
     parts.push('order=created_at.asc,id.asc')
   }
   for (const filter of query.filters.slice(0, DATASET_MAX_FILTERS)) {
-    if (!filter.value) continue
+    if (
+      !fields.has(filter.fieldId) ||
+      filter.operator !== 'eq' ||
+      filter.values.length !== 1
+    ) {
+      throw new Error(
+        `Unsupported dataset filter: ${filter.fieldId}/${filter.operator}`,
+      )
+    }
+    const value = filter.values[0]
+    if (value === '') continue
     parts.push(
-      `${encodeURIComponent(filter.id)}=eq.${encodeURIComponent(filter.value)}`,
+      `${encodeURIComponent(filter.fieldId)}=eq.${encodeURIComponent(String(value))}`,
     )
   }
   parts.push(`limit=${limit}`, `offset=${offset}`)
@@ -139,24 +156,42 @@ export async function fetchDatasetRowPage(
   client: DataClient,
   table: ScientificTableWire,
   query: DatasetRowQuery,
+  includeCount = true,
 ): Promise<DatasetRowPage> {
   const resource = encodeURIComponent(table.resource_name)
-  const activeFilters = query.filters
-    .slice(0, DATASET_MAX_FILTERS)
-    .filter((f) => f.value)
-  const filterQuery = activeFilters.length
-    ? `?select=${activeFilters
-        .map(
-          (f) =>
-            `${encodeURIComponent(f.id)}=eq.${encodeURIComponent(f.value)}`,
-        )
-        .join('&')}`
-    : ''
+  const rowQuery = buildDatasetRowQuery(query, table.columns)
+  const filters = rowQuery
+    .split('&')
+    .filter(
+      (part) =>
+        !part.startsWith('?select=') &&
+        !part.startsWith('order=') &&
+        !part.startsWith('limit=') &&
+        !part.startsWith('offset='),
+    )
+  const countQuery = filters.length ? `?select=id&${filters.join('&')}` : ''
+  const rowsPromise = client.list<ScientificRowWire>(resource, rowQuery)
+  if (!includeCount) {
+    return { rows: await rowsPromise, totalCount: 0 }
+  }
   const [rows, totalCount] = await Promise.all([
-    client.list<ScientificRowWire>(resource, buildDatasetRowQuery(query)),
-    filterQuery ? client.count(resource, filterQuery) : client.count(resource),
+    rowsPromise,
+    countQuery ? client.count(resource, countQuery) : client.count(resource),
   ])
   return { rows, totalCount }
+}
+
+/** Determine the next offset page from the authoritative first-page count. */
+export function getNextDatasetPageParam(
+  lastPage: DatasetRowPage,
+  pages: DatasetRowPage[],
+  pageSize: number,
+): number | undefined {
+  const loaded = pages.reduce((count, page) => count + page.rows.length, 0)
+  const total = pages[0]?.totalCount ?? 0
+  return lastPage.rows.length < pageSize || loaded >= total
+    ? undefined
+    : pages.length
 }
 
 // --- Schema + relationships ----------------------------------------------
@@ -282,7 +317,16 @@ function isDatasetRowQuery(value: unknown): value is DatasetRowQuery {
   if (
     !value.filters.every(
       (f) =>
-        isRecord(f) && typeof f.id === 'string' && typeof f.value === 'string',
+        isRecord(f) &&
+        typeof f.fieldId === 'string' &&
+        f.operator === 'eq' &&
+        Array.isArray(f.values) &&
+        f.values.every(
+          (item) =>
+            typeof item === 'string' ||
+            typeof item === 'number' ||
+            typeof item === 'boolean',
+        ),
     )
   )
     return false
@@ -324,7 +368,10 @@ export function sanitizeDatasetView(
     .filter((s) => fieldNames.has(s.id))
     .slice(0, 4)
   const filters = view.spec.query.filters
-    .filter((f) => fieldNames.has(f.id) && f.value !== '')
+    .filter(
+      (f) =>
+        fieldNames.has(f.fieldId) && f.operator === 'eq' && f.values[0] !== '',
+    )
     .slice(0, DATASET_MAX_FILTERS)
   const hiddenFields = view.spec.hiddenFields.filter((f) => fieldNames.has(f))
   const pageSize = (DATASET_PAGE_SIZES as readonly number[]).includes(
@@ -435,8 +482,7 @@ export function buildDefaultChartSpec(
         ) ?? null)
   const y = numericColumns[numericColumns.length >= 2 ? 1 : 0]
   const series = table.columns.find(
-    (c) =>
-      c.logical_type === 'category' || c.logical_type === 'text',
+    (c) => c.logical_type === 'category' || c.logical_type === 'text',
   )
   return {
     specVersion: CHART_SPEC_VERSION,

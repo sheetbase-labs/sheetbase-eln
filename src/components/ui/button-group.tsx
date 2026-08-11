@@ -13,4 +13,20 @@ function ButtonGroup({ className, ...props }: React.ComponentProps<'div'>) {
     />
   )
 }
-export { ButtonGroup }
+
+function ButtonGroupText({
+  className,
+  ...props
+}: React.ComponentProps<'span'>) {
+  return (
+    <span
+      className={cn(
+        'flex h-9 items-center gap-1.5 border border-input bg-muted/40 px-3 text-sm text-muted-foreground',
+        className,
+      )}
+      {...props}
+    />
+  )
+}
+
+export { ButtonGroup, ButtonGroupText }

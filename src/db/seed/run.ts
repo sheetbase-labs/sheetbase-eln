@@ -2353,6 +2353,45 @@ export const demoSteps: Array<SeedStep> = [
           `UPDATE api.blocks SET payload=$2::jsonb WHERE id=$1`,
           [DEMO_BLOCK_IDS.stabilitySheet, JSON.stringify({ tableId })],
         )
+
+        // Keep the demonstration dataset broad enough to exercise dense
+        // browsing, filtering, grouping and scientific value formatting.
+        // Existing local databases converge by adding any missing fields.
+        const additionalColumns = [
+          { label: 'Batch', logicalType: 'text', unit: null },
+          {
+            label: 'Recovery',
+            logicalType: 'decimal',
+            unit: { code: '%', symbol: '%' },
+          },
+          {
+            label: 'Potency',
+            logicalType: 'decimal',
+            unit: { code: '%', symbol: '%' },
+          },
+        ] as const
+        for (const column of additionalColumns) {
+          const existingColumn = await client.query(
+            `SELECT 1 FROM api.scientific_columns WHERE table_id=$1 AND label=$2 AND lifecycle='active'`,
+            [tableId, column.label],
+          )
+          if (existingColumn.rowCount) continue
+          const version = await client.query(
+            `SELECT schema_version FROM api.scientific_tables WHERE id=$1`,
+            [tableId],
+          )
+          await client.query(
+            `SELECT api.add_scientific_column($1,$2,$3,$4,true,NULL,$5::jsonb,'{}'::jsonb,NULL)`,
+            [
+              tableId,
+              version.rows[0].schema_version,
+              column.label,
+              column.logicalType,
+              column.unit ? JSON.stringify(column.unit) : null,
+            ],
+          )
+        }
+
         const cols = await client.query(
           `SELECT id, field_name, label FROM api.scientific_columns WHERE table_id=$1 AND lifecycle='active' ORDER BY display_order`,
           [tableId],
@@ -2361,6 +2400,9 @@ export const demoSteps: Array<SeedStep> = [
         const timeField = byLabel['Time (days)'].field_name
         const recoveryField = byLabel['Log titer'].field_name
         const conditionField = byLabel['Condition'].field_name
+        const batchField = byLabel['Batch'].field_name
+        const percentageRecoveryField = byLabel['Recovery'].field_name
+        const potencyField = byLabel['Potency'].field_name
         const timeColumnId = byLabel['Time (days)'].id
         const recoveryColumnId = byLabel['Log titer'].id
         const conditionColumnId = byLabel['Condition'].id
@@ -2416,20 +2458,65 @@ export const demoSteps: Array<SeedStep> = [
         } finally {
           await superuserClient.end()
         }
-        const rows = [
-          [0, 7.2, '4 °C'],
-          [7, 7.0, '4 °C'],
-          [14, 6.6, '4 °C'],
-          [28, 5.9, '4 °C'],
-          [0, 7.1, '−20 °C'],
-          [7, 6.9, '−20 °C'],
-          [14, 6.7, '−20 °C'],
-          [28, 6.4, '−20 °C'],
+        const timePoints = [0, 3, 7, 14, 21, 28, 42, 56] as const
+        const stabilityProfiles = [
+          {
+            condition: 'Control',
+            batch: 'AAV-24-017',
+            start: 7.26,
+            losses: [0, 0.04, 0.1, 0.22, 0.36, 0.51, 0.79, 1.08],
+          },
+          {
+            condition: '5% sucrose',
+            batch: 'AAV-24-021',
+            start: 7.24,
+            losses: [0, 0.02, 0.05, 0.1, 0.16, 0.23, 0.36, 0.51],
+          },
+          {
+            condition: '5% trehalose',
+            batch: 'AAV-24-026',
+            start: 7.27,
+            losses: [0, 0.01, 0.03, 0.07, 0.11, 0.16, 0.25, 0.34],
+          },
+          {
+            condition: '0.01% poloxamer',
+            batch: 'AAV-24-031',
+            start: 7.23,
+            losses: [0, 0.02, 0.04, 0.08, 0.13, 0.19, 0.29, 0.41],
+          },
         ] as const
-        for (const [t, logTiter, condition] of rows) {
+        const rows = stabilityProfiles.flatMap((profile) =>
+          timePoints.map((time, index) => {
+            const logTiter = Number(
+              (profile.start - profile.losses[index]).toFixed(2),
+            )
+            const recovery = Number(
+              (100 * 10 ** -profile.losses[index]).toFixed(1),
+            )
+            const potency = Number(
+              Math.max(0, 98 - profile.losses[index] * 48).toFixed(1),
+            )
+            return [
+              time,
+              logTiter,
+              profile.condition,
+              profile.batch,
+              recovery,
+              potency,
+            ] as const
+          }),
+        )
+        for (const [
+          time,
+          logTiter,
+          condition,
+          batch,
+          recovery,
+          potency,
+        ] of rows) {
           await client.query(
-            `INSERT INTO api."${resourceName}" ("${timeField}","${recoveryField}","${conditionField}") VALUES ($1,$2,$3)`,
-            [t, logTiter, condition],
+            `INSERT INTO api."${resourceName}" ("${timeField}","${recoveryField}","${conditionField}","${batchField}","${percentageRecoveryField}","${potencyField}") VALUES ($1,$2,$3,$4,$5,$6)`,
+            [time, logTiter, condition, batch, recovery, potency],
           )
         }
 
@@ -2452,8 +2539,22 @@ export const demoSteps: Array<SeedStep> = [
               y: { label: 'Log titer', scale: 'log' as const, unit: 'log₁₀' },
             },
             series: [
-              { identifier: '4 °C', label: '4 °C', color: '#006EDC' },
-              { identifier: '−20 °C', label: '−20 °C', color: '#00A659' },
+              { identifier: 'Control', label: 'Control', color: '#006EDC' },
+              {
+                identifier: '5% sucrose',
+                label: '5% sucrose',
+                color: '#00A659',
+              },
+              {
+                identifier: '5% trehalose',
+                label: '5% trehalose',
+                color: '#9B61EA',
+              },
+              {
+                identifier: '0.01% poloxamer',
+                label: '0.01% poloxamer',
+                color: '#00A3BB',
+              },
             ],
             legend: { visible: true },
           },

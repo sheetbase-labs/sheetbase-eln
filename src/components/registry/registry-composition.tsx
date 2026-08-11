@@ -1,13 +1,11 @@
 import * as React from 'react'
 import {
-  flexRender,
   getCoreRowModel,
   getExpandedRowModel,
   getGroupedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
 import type {
-  ColumnDef,
   ColumnFiltersState,
   ExpandedState,
   SortingState,
@@ -15,92 +13,49 @@ import type {
   VisibilityState,
 } from '@tanstack/react-table'
 import {
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Columns3,
   PanelRightClose,
   Pin,
   PinOff,
-  Search,
-  X,
 } from 'lucide-react'
 
 import {
   Button,
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  Input,
   Select,
   Sheet,
   SheetContent,
   SheetTitle,
   Skeleton,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
 } from '#/components/ui'
 import { formatCount } from '#/lib/format-numbers'
-import {
-  createRegistrySavedViewStore,
-  DEFAULT_REGISTRY_QUERY,
-  formatRegistryValue,
-  sanitizeRegistryView,
-} from '#/lib/registry'
-import type {
-  RegistryDensity,
-  RegistryQuery,
-  RegistrySavedView,
-  RegistrySavedViewStore,
-  RegistryValueFormat,
-} from '#/lib/registry'
+import { DEFAULT_REGISTRY_QUERY } from '#/lib/registry'
+import type { RegistryQuery, RegistryScalar } from '#/lib/registry'
 import { cn } from '#/lib/utils'
+import type {
+  DataGridField,
+  DataGridIncrementalRows,
+} from '#/components/data-grid/data-grid-types'
+import { DataGridFilters } from '#/components/data-grid/data-grid-filters'
+import { DataGridGrouping } from '#/components/data-grid/data-grid-grouping'
+import { DataGridColumnSelector } from '#/components/data-grid/data-grid-column-selector'
+import { DataGrid } from '#/components/data-grid/data-grid'
 
 export interface RegistrySummary {
   label: string
   value: React.ReactNode
   hint?: string
-  /** Semantic tone for the hint text. */
   tone?: 'positive' | 'warning' | 'danger' | 'neutral'
-}
-
-export interface RegistryFilterDefinition {
-  id: string
-  label: string
-  placeholder?: string
-  options?: { value: string; label: string }[]
-}
-
-export interface RegistryGroupingOption {
-  id: string
-  label: string
-}
-
-declare module '@tanstack/react-table' {
-  interface ColumnMeta<TData, TValue> {
-    /** Sheetbase-owned rendering contract for registry values. */
-    registryFormat?: RegistryValueFormat
-  }
 }
 
 export interface RegistryCompositionProps<TData> {
   registryId: string
-  workspaceId: string
-  userId: string
   title: string
   description?: string
   rows: TData[]
   /** Authoritative server total, never inferred from the current page. */
   totalCount: number
-  columns: ColumnDef<TData, unknown>[]
+  fields: DataGridField<TData>[]
   query: RegistryQuery
   onQueryChange: (query: RegistryQuery) => void
   getRowId: (row: TData) => string
@@ -109,8 +64,6 @@ export interface RegistryCompositionProps<TData> {
   selectedRecord?: TData | null
   onSelectedIdChange: (id: string | null) => void
   summaries?: RegistrySummary[]
-  filterDefinitions?: RegistryFilterDefinition[]
-  groupingOptions?: RegistryGroupingOption[]
   renderInspector?: (row: TData | null) => React.ReactNode
   /** Generic accessible label for the responsive inspector trigger and plane. */
   inspectorLabel?: string
@@ -125,11 +78,15 @@ export interface RegistryCompositionProps<TData> {
   emptyTitle?: string
   noResultsTitle?: string
   initialColumnVisibility?: VisibilityState
-  initialDensity?: RegistryDensity
-  savedViewStore?: RegistrySavedViewStore
   actions?: React.ReactNode
   /** Hide the built-in title/description header when the route supplies its own. */
   hideHeader?: boolean
+  /** Opt into virtualised, incrementally loaded rows instead of page controls. */
+  incrementalRows?: DataGridIncrementalRows
+  /** Allow users to drag column boundaries in wide data grids. */
+  resizableColumns?: boolean
+  /** Debounce server-owned text search. Defaults to immediate updates. */
+  searchDebounceMs?: number
 }
 
 function resolveUpdater<T>(updater: Updater<T>, previous: T): T {
@@ -142,7 +99,11 @@ function resolveUpdater<T>(updater: Updater<T>, previous: T): T {
 function useIsXl(): boolean {
   const [isXl, setIsXl] = React.useState(false)
   React.useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return
+    if (
+      typeof window === 'undefined' ||
+      typeof window.matchMedia !== 'function'
+    )
+      return
     const mq = window.matchMedia('(min-width: 1280px)')
     setIsXl(mq.matches)
     const handler = (e: MediaQueryListEvent) => setIsXl(e.matches)
@@ -155,26 +116,13 @@ function useIsXl(): boolean {
 const PIN_KEY = (registryId: string) =>
   `sheetbase-inspector-pinned-${registryId}`
 
-function viewId(): string {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID()
-  }
-  return `view-${Date.now()}-${Math.random().toString(36).slice(2)}`
-}
-
-function activeFilter(query: RegistryQuery, id: string): string {
-  return query.filters.find((filter) => filter.id === id)?.value ?? ''
-}
-
 export function RegistryComposition<TData>({
   registryId,
-  workspaceId,
-  userId,
   title,
   description,
   rows,
   totalCount,
-  columns,
+  fields,
   query,
   onQueryChange,
   getRowId,
@@ -182,8 +130,6 @@ export function RegistryComposition<TData>({
   selectedRecord,
   onSelectedIdChange,
   summaries = [],
-  filterDefinitions = [],
-  groupingOptions = [],
   renderInspector,
   inspectorLabel = 'Inspector',
   inspectorOpen: controlledInspectorOpen,
@@ -196,30 +142,27 @@ export function RegistryComposition<TData>({
   emptyTitle = 'No records yet',
   noResultsTitle = 'No matching records',
   initialColumnVisibility = {},
-  initialDensity = 'compact',
-  savedViewStore,
   actions,
   hideHeader = false,
+  incrementalRows,
+  resizableColumns = false,
+  searchDebounceMs = 0,
 }: RegistryCompositionProps<TData>) {
-  const compositionRef = React.useRef<HTMLElement>(null)
-  const store = React.useMemo(
+  const columns = React.useMemo(
     () =>
-      savedViewStore ??
-      createRegistrySavedViewStore({ registryId, workspaceId, userId }),
-    [registryId, savedViewStore, userId, workspaceId],
+      fields.flatMap((field) =>
+        field.column ? [{ ...field.column, id: field.id }] : [],
+      ),
+    [fields],
   )
-  const [savedViews, setSavedViews] = React.useState<RegistrySavedView[]>([])
-  const [selectedViewId, setSelectedViewId] = React.useState('')
+  const filterDefinitions = fields.filter((field) => field.filter)
+  const groupingOptions = fields.filter((field) => field.groupable)
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>(initialColumnVisibility)
-  const [density, setDensity] = React.useState<RegistryDensity>(initialDensity)
   const [uncontrolledInspectorOpen, setUncontrolledInspectorOpen] =
     React.useState(false)
   const [inspectorPinned, setInspectorPinned] = React.useState(false)
   const isXl = useIsXl()
-  const [activeRowId, setActiveRowId] = React.useState<string | null>(
-    selectedId ?? (rows[0] ? getRowId(rows[0]) : null),
-  )
 
   React.useEffect(() => {
     try {
@@ -239,21 +182,6 @@ export function RegistryComposition<TData>({
     setInspectorPinned(next)
   }, [inspectorPinned, registryId])
 
-  React.useEffect(() => {
-    setSavedViews(store.list())
-    setSelectedViewId('')
-  }, [store])
-
-  React.useEffect(() => {
-    if (selectedId && rows.some((row) => getRowId(row) === selectedId)) {
-      setActiveRowId(selectedId)
-      return
-    }
-    if (!activeRowId || !rows.some((row) => getRowId(row) === activeRowId)) {
-      setActiveRowId(rows[0] ? getRowId(rows[0]) : null)
-    }
-  }, [activeRowId, getRowId, rows, selectedId])
-
   // Auto-open the inspector when a selection arrives (from row click, URL, etc.)
   React.useEffect(() => {
     if (selectedId) setInspectorOpen(true)
@@ -264,7 +192,15 @@ export function RegistryComposition<TData>({
   const [expanded, setExpanded] = React.useState<ExpandedState>(
     grouping.length > 0 ? true : {},
   )
-  const columnFilters: ColumnFiltersState = query.filters
+  const columnFilters: ColumnFiltersState = query.filters.map((filter) => ({
+    id: filter.fieldId,
+    value: filter.values,
+  }))
+  const groupingKey = grouping.join('\u0000')
+
+  React.useEffect(() => {
+    setExpanded(groupingKey ? true : {})
+  }, [groupingKey])
 
   const table = useReactTable({
     data: rows,
@@ -273,9 +209,12 @@ export function RegistryComposition<TData>({
     getCoreRowModel: getCoreRowModel(),
     getGroupedRowModel: getGroupedRowModel(),
     getExpandedRowModel: getExpandedRowModel(),
+    autoResetExpanded: false,
     manualPagination: true,
     manualSorting: true,
     manualFiltering: true,
+    enableColumnResizing: resizableColumns,
+    columnResizeMode: 'onChange',
     rowCount: totalCount,
     state: {
       pagination: { pageIndex: query.pageIndex, pageSize: query.pageSize },
@@ -314,33 +253,22 @@ export function RegistryComposition<TData>({
         ...query,
         pageIndex: 0,
         filters: next.map((filter) => ({
-          id: filter.id,
-          value: String(filter.value ?? ''),
+          fieldId: filter.id,
+          operator: 'eq',
+          values: Array.isArray(filter.value)
+            ? (filter.value as RegistryScalar[])
+            : [String(filter.value ?? '')],
         })),
       })
     },
     onColumnVisibilityChange: setColumnVisibility,
   })
-
-  const viewPolicy = React.useMemo(
-    () => ({
-      sortColumnIds: table
-        .getAllLeafColumns()
-        .filter((column) => column.getCanSort())
-        .map((column) => column.id),
-      visibilityColumnIds: table
-        .getAllLeafColumns()
-        .filter((column) => column.getCanHide())
-        .map((column) => column.id),
-      filterIds: filterDefinitions.map((filter) => filter.id),
-      groupingIds: groupingOptions.map((group) => group.id),
-      pageSizes: [25, 50, 100],
-      fallbackPageSize: [25, 50, 100].includes(query.pageSize)
-        ? query.pageSize
-        : DEFAULT_REGISTRY_QUERY.pageSize,
-    }),
-    [filterDefinitions, groupingOptions, query.pageSize, table],
-  )
+  const queryGeneration = JSON.stringify({
+    pageSize: query.pageSize,
+    sorting: query.sorting,
+    grouping: query.grouping,
+    filters: query.filters,
+  })
 
   const pageCount = Math.max(1, Math.ceil(totalCount / query.pageSize))
   const selectedRow = selectedId
@@ -349,10 +277,7 @@ export function RegistryComposition<TData>({
         ? selectedRecord
         : null))
     : null
-  const hasFilters = query.filters.some((filter) => filter.value !== '')
-  const searchFilter = filterDefinitions.find(
-    (filter) => filter.id === 'search' || filter.id === 'q',
-  )
+  const hasFilters = query.filters.some((filter) => filter.values.length > 0)
   const inspectorOpen = controlledInspectorOpen ?? uncontrolledInspectorOpen
   const setInspectorOpen = React.useCallback(
     (open: boolean) => {
@@ -411,53 +336,7 @@ export function RegistryComposition<TData>({
     )
   ) : null
 
-  function setFilter(id: string, value: string) {
-    const filters = query.filters.filter((filter) => filter.id !== id)
-    if (value) filters.push({ id, value })
-    onQueryChange({ ...query, pageIndex: 0, filters })
-  }
-
-  function setGrouping(id: string) {
-    onQueryChange({
-      ...query,
-      pageIndex: 0,
-      grouping: id ? [id] : [],
-    })
-  }
-
-  function saveView() {
-    const name = window.prompt('Save current view as…')?.trim()
-    if (!name) return
-    store.save({
-      id: viewId(),
-      name,
-      state: { query, columnVisibility, density },
-    })
-    setSavedViews(store.list())
-  }
-
-  function applyView(id: string) {
-    setSelectedViewId(id)
-    const view = savedViews.find((candidate) => candidate.id === id)
-    if (!view) return
-    const safeView = sanitizeRegistryView(view, viewPolicy)
-    onQueryChange(safeView.state.query)
-    setColumnVisibility(safeView.state.columnVisibility)
-    setDensity(safeView.state.density)
-  }
-
-  function focusRow(index: number) {
-    const row = rows[index]
-    if (!row) return
-    const id = getRowId(row)
-    setActiveRowId(id)
-    const elements = compositionRef.current?.querySelectorAll<HTMLElement>(
-      '[data-registry-row-id]',
-    )
-    if (elements && index < elements.length) elements[index].focus()
-  }
-
-  const stateContent = permissionDenied ? (
+  const gridFallback = permissionDenied ? (
     <RegistryState
       title="Permission denied"
       detail="You do not have access to this registry."
@@ -477,7 +356,7 @@ export function RegistryComposition<TData>({
       }
       alert
     />
-  ) : totalCount === 0 ? (
+  ) : totalCount === 0 && rows.length === 0 ? (
     <RegistryState
       title={hasFilters ? noResultsTitle : emptyTitle}
       detail={
@@ -486,181 +365,10 @@ export function RegistryComposition<TData>({
           : 'Records will appear here when they are available.'
       }
     />
-  ) : (
-    <>
-      {partialData ? (
-        <div
-          role="status"
-          className="border-b border-warning/30 bg-warning/10 px-3 py-2 text-xs text-foreground"
-        >
-          <span className="font-semibold">Partial data.</span> Some rows or
-          fields could not be returned; totals describe the server result.
-        </div>
-      ) : null}
-      <Table aria-label={title} data-density={density}>
-        <TableHeader>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id} className="hover:bg-transparent">
-              {headerGroup.headers.map((header) => {
-                const sorted = header.column.getIsSorted()
-                const label =
-                  typeof header.column.columnDef.header === 'string'
-                    ? header.column.columnDef.header
-                    : header.column.id
-                return (
-                  <TableHead
-                    key={header.id}
-                    className={
-                      density === 'compact'
-                        ? 'h-7 whitespace-nowrap px-2.5 text-[0.65rem]'
-                        : undefined
-                    }
-                    aria-sort={
-                      sorted === 'asc'
-                        ? 'ascending'
-                        : sorted === 'desc'
-                          ? 'descending'
-                          : 'none'
-                    }
-                  >
-                    {header.isPlaceholder ? null : header.column.getCanSort() ? (
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-0.5 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        onClick={header.column.getToggleSortingHandler()}
-                        aria-label={`Sort by ${label} ${sorted === 'asc' ? 'descending' : 'ascending'}`}
-                      >
-                        {flexRender(
-                          header.column.columnDef.header,
-                          header.getContext(),
-                        )}
-                        {sorted ? (
-                          <span aria-hidden className="text-muted-foreground">
-                            {sorted === 'asc' ? '↑' : '↓'}
-                          </span>
-                        ) : null}
-                      </button>
-                    ) : (
-                      flexRender(
-                        header.column.columnDef.header,
-                        header.getContext(),
-                      )
-                    )}
-                  </TableHead>
-                )
-              })}
-            </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {table.getRowModel().rows.map((row, index) => {
-            if (row.getIsGrouped()) {
-              const groupVal = row.getValue(row.groupingColumnId!)
-              return (
-                <TableRow
-                  key={row.id}
-                  className="border-b border-border bg-muted/40 hover:bg-muted/60"
-                >
-                  <TableCell
-                    colSpan={row.getVisibleCells().length}
-                    className="p-0"
-                  >
-                    <button
-                      type="button"
-                      className={cn(
-                        'flex w-full items-center gap-1.5 font-semibold',
-                        density === 'compact'
-                          ? 'h-8 px-2.5 text-xs'
-                          : 'h-10 px-3 text-sm',
-                      )}
-                      onClick={() => row.getToggleExpandedHandler()()}
-                      aria-label={`Toggle group`}
-                    >
-                      {row.getIsExpanded() ? (
-                        <ChevronDown className="size-3.5 shrink-0" />
-                      ) : (
-                        <ChevronRight className="size-3.5 shrink-0" />
-                      )}
-                      {String(groupVal ?? '—')}
-                      <span className="ml-0.5 text-muted-foreground">
-                        ({row.subRows.length}
-                        {pageCount > 1 ? ' on this page' : ''})
-                      </span>
-                    </button>
-                  </TableCell>
-                </TableRow>
-              )
-            }
-            // Aggregated placeholder rows — skip them.
-            if (row.depth > 0 && !row.original) return null
-            const id = getRowId(row.original)
-            const selected = id === selectedId
-            return (
-              <TableRow
-                key={id}
-                data-registry-row-id={id}
-                data-state={selected ? 'selected' : undefined}
-                aria-selected={selected}
-                tabIndex={id === activeRowId ? 0 : -1}
-                className="cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-                onFocus={() => setActiveRowId(id)}
-                onClick={() => {
-                  onSelectedIdChange(id)
-                  setInspectorOpen(true)
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === 'ArrowDown') {
-                    event.preventDefault()
-                    focusRow(Math.min(index + 1, rows.length - 1))
-                  } else if (event.key === 'ArrowUp') {
-                    event.preventDefault()
-                    focusRow(Math.max(index - 1, 0))
-                  } else if (event.key === 'Home') {
-                    event.preventDefault()
-                    focusRow(0)
-                  } else if (event.key === 'End') {
-                    event.preventDefault()
-                    focusRow(rows.length - 1)
-                  } else if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault()
-                    onSelectedIdChange(id)
-                    setInspectorOpen(true)
-                  }
-                }}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell
-                    key={cell.id}
-                    className={cn(
-                      density === 'compact'
-                        ? 'whitespace-nowrap px-2.5 py-1 text-xs'
-                        : 'px-3 py-2',
-                      typeof cell.getValue() === 'number' &&
-                        'scientific-nums text-right tabular-nums',
-                    )}
-                  >
-                    {cell.column.columnDef.meta?.registryFormat
-                      ? formatRegistryValue(
-                          cell.getValue(),
-                          cell.column.columnDef.meta.registryFormat,
-                        )
-                      : flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext(),
-                        )}
-                  </TableCell>
-                ))}
-              </TableRow>
-            )
-          })}
-        </TableBody>
-      </Table>
-    </>
-  )
+  ) : undefined
 
   return (
     <section
-      ref={compositionRef}
       aria-labelledby={`${registryId}-title`}
       className="flex min-h-0 flex-1 flex-col gap-3"
     >
@@ -714,197 +422,31 @@ export function RegistryComposition<TData>({
 
       {!permissionDenied ? (
         <div className="flex flex-wrap items-center gap-2">
-          {!searchFilter && filterDefinitions.length > 0 ? (
-            <span className="text-xs font-medium text-muted-foreground">
-              Filter rows
-            </span>
-          ) : null}
-          {/* Search — prominent standalone input */}
-          {searchFilter ? (
-            <div className="relative min-w-48 flex-1 sm:max-w-64">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                aria-label="Search"
-                value={activeFilter(query, searchFilter.id)}
-                onChange={(event) =>
-                  setFilter(searchFilter.id, event.target.value)
-                }
-                placeholder={searchFilter.placeholder ?? 'Search…'}
-                className="h-8 pl-8 text-sm"
-              />
-            </div>
-          ) : null}
-
-          {/* Filter pills — compact dropdown buttons for option-based filters */}
-          {filterDefinitions
-            .filter((filter) => filter !== searchFilter && filter.options)
-            .map((filter) => {
-              const active = activeFilter(query, filter.id)
-              const activeLabel = filter.options?.find(
-                (option) => option.value === active,
-              )?.label
-              return (
-                <DropdownMenu key={filter.id}>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant={active ? 'subtle' : 'outline'}
-                      size="sm"
-                      className="h-8 gap-1.5"
-                    >
-                      <span className="max-w-40 truncate">
-                        {activeLabel
-                          ? `${filter.label}: ${activeLabel}`
-                          : filter.label}
-                      </span>
-                      {active ? (
-                        <span className="size-1.5 rounded-full bg-primary" />
-                      ) : null}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
-                    <DropdownMenuLabel>
-                      Filter by {filter.label}
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onSelect={() => setFilter(filter.id, '')}>
-                      All {filter.label.toLowerCase()}
-                    </DropdownMenuItem>
-                    {filter.options!.map((option) => (
-                      <DropdownMenuItem
-                        key={option.value}
-                        onSelect={() => setFilter(filter.id, option.value)}
-                      >
-                        {option.label}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )
-            })}
-
-          {/* Text filters — compact inputs for non-option, non-search filters */}
-          {filterDefinitions
-            .filter((filter) => filter !== searchFilter && !filter.options)
-            .map((filter) => (
-              <div
-                key={filter.id}
-                className="flex h-8 items-center overflow-hidden rounded-md border bg-background"
-              >
-                <span className="shrink-0 border-r bg-muted/40 px-2 text-xs font-medium text-muted-foreground">
-                  {filter.label} =
-                </span>
-                <Input
-                  aria-label={`Filter by ${filter.label}`}
-                  value={activeFilter(query, filter.id)}
-                  onChange={(event) => setFilter(filter.id, event.target.value)}
-                  placeholder={filter.placeholder ?? 'Exact value'}
-                  className="h-8 w-28 rounded-none border-0 text-sm shadow-none focus-visible:ring-0"
-                />
-              </div>
-            ))}
-
-          {/* Clear filters */}
-          {query.filters.length > 0 ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 text-xs text-muted-foreground"
-              onClick={() =>
-                onQueryChange({ ...query, filters: [], pageIndex: 0 })
+          {filterDefinitions.length > 0 ? (
+            <DataGridFilters
+              fields={filterDefinitions}
+              filters={query.filters}
+              onFiltersChange={(filters) =>
+                onQueryChange({ ...query, pageIndex: 0, filters })
               }
-            >
-              <X className="size-3.5" />
-              Clear
-            </Button>
+              debounceMs={searchDebounceMs}
+            />
           ) : null}
 
-          <div className="ml-auto flex items-center gap-2">
-            {/* Group */}
-            {groupingOptions.length > 0 ? (
-              <Select
-                aria-label="Group rows"
-                value={query.grouping[0] ?? ''}
-                onChange={(event) => setGrouping(event.target.value)}
-                className="h-8 w-auto text-xs"
-              >
-                <option value="">No grouping</option>
-                {groupingOptions.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </Select>
-            ) : null}
-
-            {/* Density */}
-            <Select
-              aria-label="Table density"
-              value={density}
-              onChange={(event) =>
-                setDensity(event.target.value as RegistryDensity)
+          <div className="flex items-center gap-2">
+            <DataGridGrouping
+              fields={groupingOptions}
+              grouping={query.grouping}
+              onGroupingChange={(nextGrouping) =>
+                onQueryChange({
+                  ...query,
+                  pageIndex: 0,
+                  grouping: nextGrouping,
+                })
               }
-              className="h-8 w-auto text-xs"
-            >
-              <option value="comfortable">Comfortable</option>
-              <option value="compact">Compact</option>
-            </Select>
+            />
 
-            {/* Columns */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8"
-                  aria-label="Choose visible columns"
-                >
-                  <Columns3 className="size-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Visible columns</DropdownMenuLabel>
-                {table.getAllLeafColumns().map((column) => (
-                  <DropdownMenuCheckboxItem
-                    key={column.id}
-                    checked={column.getIsVisible()}
-                    disabled={!column.getCanHide()}
-                    onCheckedChange={(checked) =>
-                      column.toggleVisibility(Boolean(checked))
-                    }
-                  >
-                    {typeof column.columnDef.header === 'string'
-                      ? column.columnDef.header
-                      : column.id}
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            {/* Saved views */}
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8"
-              onClick={saveView}
-              aria-label="Save current view"
-            >
-              Save view
-            </Button>
-            {savedViews.length > 0 ? (
-              <Select
-                aria-label="Saved views"
-                value={selectedViewId}
-                onChange={(event) => applyView(event.target.value)}
-                className="h-8 w-auto text-xs"
-              >
-                <option value="">Current view</option>
-                {savedViews.map((view) => (
-                  <option key={view.id} value={view.id}>
-                    {view.name}
-                  </option>
-                ))}
-              </Select>
-            ) : null}
+            <DataGridColumnSelector table={table} />
           </div>
         </div>
       ) : null}
@@ -912,9 +454,22 @@ export function RegistryComposition<TData>({
       {/* Table + pinned inspector layout */}
       <div className="flex min-h-0 flex-1 min-w-0 gap-4">
         {/* Table — always takes full width. Inspector slides over or pins. */}
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-md border bg-card">
-          <div className="min-h-0 flex-1 overflow-auto">{stateContent}</div>
-        </div>
+        <DataGrid
+          table={table}
+          title={title}
+          getRowId={getRowId}
+          selectedId={selectedId}
+          onRowOpen={(id) => {
+            onSelectedIdChange(id)
+            setInspectorOpen(true)
+          }}
+          fallback={gridFallback}
+          partialData={partialData}
+          incrementalRows={incrementalRows}
+          resizableColumns={resizableColumns}
+          resetKey={queryGeneration}
+          pageCount={pageCount}
+        />
 
         {/* Pinned inspector — docked aside on xl+ only */}
         {renderInspector &&
@@ -949,58 +504,88 @@ export function RegistryComposition<TData>({
         </Sheet>
       ) : null}
 
-      {!permissionDenied ? (
+      {!permissionDenied && !loading && !error ? (
         <footer className="flex shrink-0 flex-wrap items-center justify-between gap-2 py-1.5 text-xs text-muted-foreground">
           <span className="leading-5">
             {formatCount(totalCount)} {totalCount === 1 ? 'record' : 'records'}
-            {query.grouping.length > 0 && pageCount > 1
-              ? ' · groups continue across pages'
+            {incrementalRows && rows.length < totalCount
+              ? ` · ${formatCount(rows.length)} loaded`
+              : ''}
+            {query.grouping.length > 0 &&
+            (incrementalRows?.hasMore || (!incrementalRows && pageCount > 1))
+              ? incrementalRows
+                ? ' · group counts describe loaded rows'
+                : ' · groups continue across pages'
               : ''}
           </span>
-          <div className="flex items-center gap-2">
-            <label className="flex items-center gap-1">
-              Rows
-              <Select
-                aria-label="Rows per page"
-                value={String(query.pageSize)}
-                onChange={(event) =>
-                  onQueryChange({
-                    ...query,
-                    pageIndex: 0,
-                    pageSize: Number(event.target.value),
-                  })
-                }
-                className="h-8 w-20 bg-background text-xs"
+          {incrementalRows ? (
+            <div className="flex items-center gap-2">
+              <span aria-live="polite">
+                {incrementalRows.loadError
+                  ? 'Could not load more records'
+                  : incrementalRows.loadingMore
+                    ? 'Loading more records…'
+                    : incrementalRows.hasMore
+                      ? 'Scroll for more'
+                      : 'All records loaded'}
+              </span>
+              {incrementalRows.hasMore ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={incrementalRows.loadingMore}
+                  onClick={incrementalRows.onLoadMore}
+                >
+                  {incrementalRows.loadError ? 'Try again' : 'Load more'}
+                </Button>
+              ) : null}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-1">
+                Rows
+                <Select
+                  aria-label="Rows per page"
+                  value={String(query.pageSize)}
+                  onChange={(event) =>
+                    onQueryChange({
+                      ...query,
+                      pageIndex: 0,
+                      pageSize: Number(event.target.value),
+                    })
+                  }
+                  className="h-8 w-20 bg-background text-xs"
+                >
+                  {[25, 50, 100].map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+              <span>
+                Page {query.pageIndex + 1} of {pageCount}
+              </span>
+              <Button
+                variant="outline"
+                size="icon-sm"
+                aria-label="Previous page"
+                disabled={query.pageIndex === 0 || loading}
+                onClick={() => table.previousPage()}
               >
-                {[25, 50, 100].map((size) => (
-                  <option key={size} value={size}>
-                    {size}
-                  </option>
-                ))}
-              </Select>
-            </label>
-            <span>
-              Page {query.pageIndex + 1} of {pageCount}
-            </span>
-            <Button
-              variant="outline"
-              size="icon-sm"
-              aria-label="Previous page"
-              disabled={query.pageIndex === 0 || loading}
-              onClick={() => table.previousPage()}
-            >
-              <ChevronLeft />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon-sm"
-              aria-label="Next page"
-              disabled={query.pageIndex >= pageCount - 1 || loading}
-              onClick={() => table.nextPage()}
-            >
-              <ChevronRight />
-            </Button>
-          </div>
+                <ChevronLeft />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon-sm"
+                aria-label="Next page"
+                disabled={query.pageIndex >= pageCount - 1 || loading}
+                onClick={() => table.nextPage()}
+              >
+                <ChevronRight />
+              </Button>
+            </div>
+          )}
         </footer>
       ) : null}
     </section>

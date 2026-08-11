@@ -9,10 +9,13 @@ import { cn } from '#/lib/utils'
  */
 function Table({
   className,
+  containerClassName,
   ...props
-}: React.TableHTMLAttributes<HTMLTableElement>) {
+}: React.TableHTMLAttributes<HTMLTableElement> & {
+  containerClassName?: string
+}) {
   return (
-    <div className="relative w-full overflow-auto">
+    <div className={cn('relative w-full overflow-auto', containerClassName)}>
       <table
         data-slot="table"
         className={cn('w-full caption-bottom text-sm', className)}

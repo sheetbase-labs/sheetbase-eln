@@ -10,12 +10,13 @@
  * location integrity.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createFileRoute, redirect } from '@tanstack/react-router'
-import { useMemo, useState } from 'react'
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
+import { useEffect, useMemo, useState } from 'react'
 import { PackagePlus } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
 import { RegistryComposition } from '#/components/registry/registry-composition'
+import type { DataGridField } from '#/components/data-grid'
 import { SampleInspector } from '#/components/samples/sample-inspector'
 import type { SampleCustodyAction } from '#/components/samples/sample-inspector'
 import { StatusBadge } from '#/components/scientific/status-badge'
@@ -55,10 +56,55 @@ import {
   transferSample,
 } from '#/lib/samples'
 import type { SampleRecord } from '#/lib/samples'
-import { DEFAULT_REGISTRY_QUERY } from '#/lib/registry'
+import {
+  decodeRegistryFilters,
+  decodeRegistryQuery,
+  DEFAULT_REGISTRY_QUERY,
+  encodeRegistryFilters,
+} from '#/lib/registry'
 import type { RegistryQuery } from '#/lib/registry'
 
+const DEFAULT_SAMPLES_QUERY: RegistryQuery = {
+  ...DEFAULT_REGISTRY_QUERY,
+  pageSize: 50,
+  grouping: ['sampleType'],
+}
+
+function searchFromSamplesQuery(query: RegistryQuery) {
+  return {
+    page: query.pageIndex > 0 ? query.pageIndex : undefined,
+    size:
+      query.pageSize !== DEFAULT_SAMPLES_QUERY.pageSize
+        ? query.pageSize
+        : undefined,
+    sort:
+      query.sorting.length > 0
+        ? query.sorting
+            .map(({ id, desc }) => `${id}:${desc ? 'desc' : 'asc'}`)
+            .join(',')
+        : undefined,
+    group: query.grouping.join(','),
+    filters: encodeRegistryFilters(query.filters) || undefined,
+    rq: undefined,
+  }
+}
+
 export const Route = createFileRoute('/samples')({
+  validateSearch: (search: Record<string, unknown>) => {
+    const page = Number(search.page)
+    const size = Number(search.size)
+    return {
+      page: Number.isInteger(page) && page > 0 ? page : undefined,
+      size:
+        Number.isInteger(size) && size > 0 && size <= 500 && size !== 50
+          ? size
+          : undefined,
+      sort: typeof search.sort === 'string' ? search.sort : undefined,
+      group: typeof search.group === 'string' ? search.group : 'sampleType',
+      filters: typeof search.filters === 'string' ? search.filters : undefined,
+      rq: typeof search.rq === 'string' ? search.rq : undefined,
+    }
+  },
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
     if (!context) {
@@ -73,18 +119,54 @@ const dataClient = createDataClient()
 
 function SamplesRegistryRoute() {
   const { context } = Route.useRouteContext()
+  const search = Route.useSearch()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const workspaceId = context.workspace?.id ?? ''
-  const userId = context.user.id
 
-  const [query, setQuery] = useState<RegistryQuery>({
-    ...DEFAULT_REGISTRY_QUERY,
-    pageSize: 50,
-    grouping: ['sampleType'],
-  })
+  const query = useMemo(
+    (): RegistryQuery =>
+      decodeRegistryQuery(search.rq) ?? {
+        pageIndex: search.page ?? 0,
+        pageSize: search.size ?? DEFAULT_SAMPLES_QUERY.pageSize,
+        sorting: (search.sort ?? '')
+          .split(',')
+          .filter(Boolean)
+          .map((entry) => {
+            const [id, direction] = entry.split(':')
+            return { id, desc: direction === 'desc' }
+          }),
+        grouping: search.group ? search.group.split(',').filter(Boolean) : [],
+        filters: decodeRegistryFilters(search.filters),
+      },
+    [
+      search.filters,
+      search.group,
+      search.page,
+      search.rq,
+      search.size,
+      search.sort,
+    ],
+  )
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
+
+  function setQuery(next: RegistryQuery) {
+    void navigate({
+      to: '/samples',
+      search: searchFromSamplesQuery(next),
+      replace: false,
+    })
+  }
+
+  useEffect(() => {
+    if (!search.rq) return
+    void navigate({
+      to: '/samples',
+      search: searchFromSamplesQuery(query),
+      replace: true,
+    })
+  }, [navigate, query, search.rq])
 
   // ---- Registry page query ----
   const pageQuery = useQuery({
@@ -256,34 +338,53 @@ function SamplesRegistryRoute() {
     return cols
   }, [])
 
-  const filterDefinitions = [
-    {
-      id: 'search',
-      label: 'Search',
+  const fields: DataGridField<SampleRecord>[] = columns.map((column) => {
+    const id = String(
+      column.id ?? ('accessorKey' in column ? column.accessorKey : ''),
+    )
+    const labels: Record<string, string> = {
+      identifier: 'Sample ID',
+      title: 'Title',
+      sampleType: 'Type',
+      quantity: 'Quantity',
+      storageLocation: 'Storage',
+      barcode: 'Barcode',
+      status: 'Status',
+      updatedAt: 'Updated',
+    }
+    const filter =
+      id === 'status'
+        ? {
+            type: 'select' as const,
+            operators: [{ value: 'eq' as const, label: 'is' }],
+            options: sampleStatusOptions(),
+          }
+        : ['sampleType', 'storageLocation', 'barcode'].includes(id)
+          ? {
+              type: 'text' as const,
+              placeholder: `All ${labels[id].toLowerCase()}`,
+              operators: [{ value: 'contains' as const, label: 'contains' }],
+            }
+          : undefined
+    return {
+      id,
+      label: labels[id] ?? id,
+      column,
+      filter,
+      groupable: ['status', 'sampleType', 'storageLocation'].includes(id),
+    }
+  })
+  fields.push({
+    id: 'search',
+    label: 'Search',
+    column: false,
+    groupable: false,
+    filter: {
+      type: 'text',
       placeholder: 'Identifier, title, barcode',
+      operators: [{ value: 'contains', label: 'contains' }],
     },
-    {
-      id: 'sampleType',
-      label: 'Type',
-      placeholder: 'All types',
-    },
-    {
-      id: 'status',
-      label: 'Status',
-      options: sampleStatusOptions(),
-    },
-    {
-      id: 'storageLocation',
-      label: 'Storage',
-      placeholder: 'All locations',
-    },
-  ]
-
-  const groupingOptions = [
-    { id: 'status', label: 'Status' },
-    { id: 'sampleType', label: 'Type' },
-    { id: 'storageLocation', label: 'Storage' },
-  ]
+  })
 
   const shellContext = {
     workspace: context.workspace ? { name: context.workspace.name } : null,
@@ -330,13 +431,11 @@ function SamplesRegistryRoute() {
       <div className="flex h-full flex-col gap-3 overflow-hidden p-4">
         <RegistryComposition
           registryId="samples"
-          workspaceId={workspaceId}
-          userId={userId}
           title="Samples Registry"
           description="Track sample identity, quantity, storage and chain of custody."
           rows={rows}
           totalCount={totalCount}
-          columns={columns}
+          fields={fields}
           query={query}
           onQueryChange={setQuery}
           getRowId={(row) => row.id}
@@ -344,11 +443,8 @@ function SamplesRegistryRoute() {
           selectedRecord={selectedRecord}
           onSelectedIdChange={setSelectedId}
           summaries={summaries}
-          filterDefinitions={filterDefinitions}
-          groupingOptions={groupingOptions}
           renderInspector={inspector}
           inspectorLabel="Sample details"
-          initialDensity="compact"
           initialColumnVisibility={{ barcode: false, sampleType: false }}
           loading={pageQuery.isLoading}
           error={pageQuery.error}

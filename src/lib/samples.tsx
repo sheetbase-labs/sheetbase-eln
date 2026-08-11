@@ -252,9 +252,18 @@ export function buildSamplesFilter(filters: RegistryFilterValue[]): string[] {
   const clauses: string[] = ['kind=eq.sample', 'deleted_at=is.null']
   let includeArchived = false
   for (const filter of filters) {
-    const value = filter.value.trim()
+    const raw = filter.values[0]
+    const value = typeof raw === 'string' ? raw.trim() : ''
     if (!value) continue
-    switch (filter.id) {
+    const expected =
+      filter.fieldId === 'status' || filter.fieldId === 'archived'
+        ? 'eq'
+        : 'contains'
+    if (filter.operator !== expected)
+      throw new Error(
+        `Unsupported sample filter: ${filter.fieldId}/${filter.operator}`,
+      )
+    switch (filter.fieldId) {
       case 'status':
         clauses.push(`status=eq.${value}`)
         break
@@ -279,6 +288,8 @@ export function buildSamplesFilter(filters: RegistryFilterValue[]): string[] {
       case 'archived':
         if (value === 'included') includeArchived = true
         break
+      default:
+        throw new Error(`Unsupported sample filter field: ${filter.fieldId}`)
     }
   }
   if (!includeArchived) clauses.push('archived_at=is.null')
@@ -751,7 +762,7 @@ export function describeSampleError(error: unknown): string {
 // Column definitions for the registry composition.
 //
 // Exported as a factory so the route can pass its row type through. Columns
-// use the Sheetbase-owned `registryFormat` meta so the composition formats
+// use the Sheetbase-owned `dataGridFormat` meta so the shared grid formats
 // numeric/unit cells consistently without a custom cell renderer.
 // ---------------------------------------------------------------------------
 
@@ -788,7 +799,7 @@ export function sampleColumns<T extends SampleRecord>(): ColumnDef<
       id: 'quantity',
       header: 'Quantity',
       accessorFn: (row) => row.quantity,
-      meta: { registryFormat: { kind: 'scientific' } },
+      meta: { dataGridFormat: { kind: 'scientific' } },
       cell: ({ row }) => {
         const q = row.original.quantity
         const unit = row.original.quantityUnit
@@ -832,7 +843,7 @@ export function sampleColumns<T extends SampleRecord>(): ColumnDef<
       id: 'updatedAt',
       header: 'Updated',
       accessorKey: 'updatedAt',
-      meta: { registryFormat: { kind: 'date' } },
+      meta: { dataGridFormat: { kind: 'date' } },
     },
   ]
 }

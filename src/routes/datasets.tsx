@@ -1,40 +1,36 @@
 /**
  * DATA-007 — Dataset Explorer route (`/datasets`).
  *
- * A read-only browsing surface over real scientific-table metadata. Four tabs
- * — Data, Schema, Relationships, Lineage — share a dataset selector and a
- * row inspector. The Data tab uses TanStack Table (not Handsontable) for
- * paged query and review; Handsontable stays the edit surface inside
- * notebook sheets. Filters, sorting, field selection and grouping stay within
- * the safe limits defined in `dataset-explorer-data`. Named views persist
- * their query specification in local storage. A chart preview is built from
- * the same `ChartSpec` model (SCI-004) Analysis Studio will use, so a saved
- * chart stays reproducible from the same specification.
+ * A read-only browsing surface over real scientific-table metadata. Data,
+ * Chart and Schema tabs share a searchable dataset selector. The
+ * Data tab uses the shared virtualised grid for incremental query and review;
+ * Handsontable stays the edit surface inside notebook sheets. Filters,
+ * sorting, field selection and grouping stay within the safe limits defined
+ * in `dataset-explorer-data`. The full-size chart tab uses the same `ChartSpec`
+ * model and shared chart configuration controls (SCI-004) as Analysis Studio.
  *
  * PostgreSQL and RLS remain authoritative (decisions 0019/0034): every read
  * goes through `/api/db`, and permission-denied / partial-data states are
  * surfaced honestly rather than blanked.
  */
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { flexRender } from '@tanstack/react-table'
 import type { ColumnDef, useReactTable } from '@tanstack/react-table'
 import {
+  BarChart3,
   Check,
   ChevronsUpDown,
   Database,
-  Download,
-  GitBranch,
   Layers,
   Table as TableIcon,
   Trash2,
-  Undo2,
-  Workflow,
 } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
 import { RegistryComposition } from '#/components/registry'
+import type { DataGridField } from '#/components/data-grid'
 import {
   EmptyHint,
   Inspector,
@@ -44,18 +40,17 @@ import {
   PropertyList,
 } from '#/components/record'
 import { StatusBadge } from '#/components/scientific/status-badge'
+import { ChartConfigurator } from '#/components/viz/chart-configurator'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import {
   Badge,
   Button,
-  ButtonGroup,
   Command,
   CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
-  Input,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -74,13 +69,12 @@ import {
 import { materialiseLiveChart, useLiveChartDataset } from '#/lib/chart-data'
 import { formatCount } from '#/lib/format-numbers'
 import {
-  formatRelativeTime,
   fetchLinksForRecord,
+  formatRelativeTime,
   notebookDataClient,
 } from '#/lib/notebook-data'
 import {
   buildDefaultChartSpec,
-  createDatasetSavedViewStore,
   DATASET_DEFAULT_PAGE_SIZE,
   DATASET_MAX_FILTERS,
   datasetExplorerDataClient,
@@ -90,12 +84,12 @@ import {
   fetchDatasetRowPage,
   fetchDatasetSchemaDetail,
   fetchDatasetSummaries,
+  getNextDatasetPageParam,
   validateTransformations,
 } from '#/lib/dataset-explorer-data'
 import type {
   DatasetDensity,
   DatasetRowQuery,
-  DatasetSavedViewStore,
 } from '#/lib/dataset-explorer-data'
 import type {
   FormulaDefinitionWire,
@@ -133,10 +127,11 @@ const DEFAULT_DATASET_QUERY: DatasetRowQuery = {
 
 function queryIdentity(query: DatasetRowQuery): string {
   return [
-    query.pageIndex,
     query.pageSize,
     query.sorting.map((s) => `${s.id}:${s.desc}`).join(','),
-    query.filters.map((f) => `${f.id}=${f.value}`).join(','),
+    query.filters
+      .map((f) => `${f.fieldId}:${f.operator}=${f.values.join(',')}`)
+      .join(','),
   ].join('|')
 }
 
@@ -169,7 +164,7 @@ function toColumnDefs(
       ),
       meta: numeric
         ? {
-            registryFormat: {
+            dataGridFormat: {
               kind: 'scientific' as const,
               unit: describeUnit(column.unit).replace('—', '') || undefined,
             },
@@ -189,8 +184,6 @@ function DatasetExplorerRoute() {
   const { context } = Route.useRouteContext()
   const search = Route.useSearch()
   const navigate = useNavigate()
-  const workspaceId = context.workspace?.id ?? 'no-workspace'
-  const userId = context.user.id
 
   const summariesQuery = useQuery({
     queryKey: datasetExplorerQueryKeys.summaries,
@@ -199,9 +192,9 @@ function DatasetExplorerRoute() {
   })
 
   const datasets = summariesQuery.data ?? []
-  const [activeTab, setActiveTab] = useState<
-    'data' | 'schema' | 'relationships' | 'lineage'
-  >('data')
+  const [activeTab, setActiveTab] = useState<'data' | 'chart' | 'schema'>(
+    'data',
+  )
 
   const requestedTableId = search.dataset || null
   const selectedTable = useMemo(
@@ -213,10 +206,14 @@ function DatasetExplorerRoute() {
   )
   const selectedTableId = selectedTable?.id ?? null
 
-  const viewStore = useMemo(
-    () => createDatasetSavedViewStore({ workspaceId, userId }),
-    [workspaceId, userId],
-  )
+  useEffect(() => {
+    if (!selectedTableId || selectedTableId === requestedTableId) return
+    void navigate({
+      to: '/datasets',
+      search: { dataset: selectedTableId },
+      replace: true,
+    })
+  }, [navigate, requestedTableId, selectedTableId])
 
   const shellContext = {
     workspace: context.workspace ? { name: context.workspace.name } : null,
@@ -251,10 +248,8 @@ function DatasetExplorerRoute() {
         />
         {selectedTable ? (
           <DatasetTabs
+            key={selectedTable.id}
             table={selectedTable}
-            workspaceId={workspaceId}
-            userId={userId}
-            viewStore={viewStore}
             activeTab={activeTab}
             onTabChange={setActiveTab}
           />
@@ -288,22 +283,35 @@ export function DatasetExplorerHeader({
   selectedTableId,
   onSelect,
 }: DatasetExplorerHeaderProps) {
+  const selected = datasets.find((dataset) => dataset.id === selectedTableId)
+  const fieldCount = selected?.columns.length ?? 0
+
   return (
     <header
       className="flex shrink-0 flex-wrap items-center justify-between gap-3"
       aria-labelledby="datasets-title"
     >
-      <div className="flex min-w-0 items-center gap-2">
-        <Database className="size-4 text-violet-500" aria-hidden="true" />
-        <h1
-          id="datasets-title"
-          className="text-sm font-semibold tracking-tight"
-        >
-          Dataset Explorer
-        </h1>
-        <span className="text-xs text-muted-foreground">
-          Query, transform and visualise scientific dataset rows
-        </span>
+      <div className="flex min-w-0 items-start gap-2.5">
+        <Database
+          className="mt-0.5 size-4 shrink-0 text-violet-500"
+          aria-hidden="true"
+        />
+        <div className="min-w-0">
+          <p className="text-[0.65rem] font-semibold uppercase leading-4 tracking-wide text-muted-foreground">
+            Dataset Explorer
+          </p>
+          <h1
+            id="datasets-title"
+            className="truncate text-base font-semibold leading-5 tracking-tight"
+          >
+            {selected?.name ?? 'Scientific datasets'}
+          </h1>
+          <p className="text-xs leading-4 text-muted-foreground">
+            {selected
+              ? `${formatCount(fieldCount)} ${fieldCount === 1 ? 'field' : 'fields'}${selected.dataset_schema ? ` · ${selected.dataset_schema.name}` : ''}`
+              : 'Browse scientific rows and preview a dataset'}
+          </p>
+        </div>
       </div>
       <div className="flex items-center gap-2">
         {error ? (
@@ -336,7 +344,6 @@ function DatasetPicker({
   onSelect,
 }: DatasetPickerProps) {
   const [open, setOpen] = useState(false)
-  const selected = datasets.find((dataset) => dataset.id === selectedTableId)
 
   return (
     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -352,7 +359,8 @@ function DatasetPicker({
             className="h-7 w-56 justify-between bg-background px-2.5 text-xs font-normal"
           >
             <span className="truncate text-foreground">
-              {selected?.name ?? 'Choose a dataset'}
+              Browse {formatCount(datasets.length)}{' '}
+              {datasets.length === 1 ? 'dataset' : 'datasets'}
             </span>
             <ChevronsUpDown
               className="shrink-0 text-muted-foreground"
@@ -421,168 +429,103 @@ function DatasetPicker({
 
 interface DatasetTabsProps {
   table: ScientificTableWire
-  workspaceId: string
-  userId: string
-  viewStore: DatasetSavedViewStore
-  activeTab: 'data' | 'schema' | 'relationships' | 'lineage'
-  onTabChange: (tab: 'data' | 'schema' | 'relationships' | 'lineage') => void
+  activeTab: 'data' | 'chart' | 'schema'
+  onTabChange: (tab: 'data' | 'chart' | 'schema') => void
 }
 
-function DatasetTabs({
-  table,
-  workspaceId,
-  userId,
-  viewStore,
-  activeTab,
-  onTabChange,
-}: DatasetTabsProps) {
+function DatasetTabs({ table, activeTab, onTabChange }: DatasetTabsProps) {
   return (
     <Tabs
       value={activeTab}
-      onValueChange={(v) =>
-        onTabChange(v as 'data' | 'schema' | 'relationships' | 'lineage')
-      }
+      onValueChange={(v) => onTabChange(v as 'data' | 'chart' | 'schema')}
       className="relative min-h-0 flex-1 overflow-hidden"
     >
-      <TabsList className="w-fit">
-        <TabsTrigger value="data">
+      <TabsList className="h-8 w-full justify-start gap-5 rounded-none border-b bg-transparent p-0">
+        <TabsTrigger
+          value="data"
+          className="h-8 gap-1.5 rounded-none border-b-2 border-transparent px-0 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+        >
           <TableIcon className="size-3.5" aria-hidden="true" /> Data
         </TabsTrigger>
-        <TabsTrigger value="schema">
+        <TabsTrigger
+          value="chart"
+          className="h-8 gap-1.5 rounded-none border-b-2 border-transparent px-0 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+        >
+          <BarChart3 className="size-3.5" aria-hidden="true" /> Chart
+        </TabsTrigger>
+        <TabsTrigger
+          value="schema"
+          className="h-8 gap-1.5 rounded-none border-b-2 border-transparent px-0 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+        >
           <Layers className="size-3.5" aria-hidden="true" /> Schema
-        </TabsTrigger>
-        <TabsTrigger value="relationships">
-          <Workflow className="size-3.5" aria-hidden="true" /> Relationships
-        </TabsTrigger>
-        <TabsTrigger value="lineage">
-          <GitBranch className="size-3.5" aria-hidden="true" /> Lineage
         </TabsTrigger>
       </TabsList>
       <TabsContent
         value="data"
-        className="absolute inset-x-0 bottom-0 top-10 flex min-h-0 flex-col gap-3"
+        className="absolute inset-x-0 bottom-0 top-8 flex min-h-0 flex-col"
       >
-        <DatasetDataTab
-          table={table}
-          workspaceId={workspaceId}
-          userId={userId}
-          viewStore={viewStore}
-        />
+        <DatasetDataTab table={table} />
+      </TabsContent>
+      <TabsContent
+        value="chart"
+        className="absolute inset-x-0 bottom-0 top-8 min-h-0 overflow-hidden p-3"
+      >
+        <DatasetChartTab table={table} />
       </TabsContent>
       <TabsContent
         value="schema"
-        className="absolute inset-x-0 bottom-0 top-10 flex min-h-0 flex-col gap-3 overflow-auto"
+        className="absolute inset-x-0 bottom-0 top-8 flex min-h-0 flex-col overflow-auto"
       >
         <DatasetSchemaTab table={table} />
-      </TabsContent>
-      <TabsContent
-        value="relationships"
-        className="absolute inset-x-0 bottom-0 top-10 flex min-h-0 flex-col gap-3 overflow-auto"
-      >
-        <DatasetRelationshipsTab table={table} />
-      </TabsContent>
-      <TabsContent
-        value="lineage"
-        className="absolute inset-x-0 bottom-0 top-10 flex min-h-0 flex-col gap-3 overflow-auto"
-      >
-        <DatasetLineageTab table={table} />
       </TabsContent>
     </Tabs>
   )
 }
 
 // ---------------------------------------------------------------------------
-// Data tab — TanStack Table, paged query, filters, sorting, saved views,
-// inspector, chart preview.
+// Data tab — virtualised incremental query, filters, sorting and inspector.
 // ---------------------------------------------------------------------------
 
 export interface DatasetDataTabProps {
   table: ScientificTableWire
-  workspaceId: string
-  userId: string
-  /** Retained for compatibility with persisted DATA-007 views. */
-  viewStore?: DatasetSavedViewStore
 }
 
-export function DatasetDataTab({
-  table,
-  workspaceId,
-  userId,
-}: DatasetDataTabProps) {
+export function DatasetDataTab({ table }: DatasetDataTabProps) {
   const [query, setQuery] = useState<RegistryQuery>({
     ...DEFAULT_DATASET_QUERY,
     grouping: [],
   })
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null)
-  const [previewTab, setPreviewTab] = useState('preview')
-  const [previewHeight, setPreviewHeight] = useState(240)
-  const [layoutHeight, setLayoutHeight] = useState(640)
-  const layoutRef = useRef<HTMLDivElement | null>(null)
-  const resizeRef = useRef<{
-    pointerId: number
-    startY: number
-    startHeight: number
-  } | null>(null)
-
-  const chartStorageKey = useMemo(
-    () =>
-      ['sheetbase-dataset-chart-v1', workspaceId, userId, table.id]
-        .map(encodeURIComponent)
-        .join(':'),
-    [workspaceId, userId, table.id],
-  )
-  const [chartSpec, setChartSpec] = useState<ChartSpec | null>(() => {
-    if (typeof window === 'undefined') return buildDefaultChartSpec(table)
-    try {
-      const raw = window.localStorage.getItem(chartStorageKey)
-      if (raw) {
-        const parsed = JSON.parse(raw) as unknown
-        if (
-          parsed &&
-          typeof parsed === 'object' &&
-          'specVersion' in parsed &&
-          'datasets' in parsed
-        ) {
-          return parsed as ChartSpec
-        }
-      }
-    } catch {
-      // ignore corrupt persisted spec
-    }
-    return buildDefaultChartSpec(table)
-  })
-  useEffect(() => {
-    try {
-      if (chartSpec) {
-        window.localStorage.setItem(chartStorageKey, JSON.stringify(chartSpec))
-      } else {
-        window.localStorage.removeItem(chartStorageKey)
-      }
-    } catch {
-      // storage unavailable; preview still works in-memory
-    }
-  }, [chartSpec, chartStorageKey])
-
-  useEffect(() => {
-    setQuery({ ...DEFAULT_DATASET_QUERY, grouping: [] })
-    setSelectedRowId(null)
-    setChartSpec(buildDefaultChartSpec(table))
-  }, [table])
 
   const rowQuery: DatasetRowQuery = {
-    pageIndex: query.pageIndex,
+    pageIndex: 0,
     pageSize: query.pageSize,
     sorting: query.sorting,
     filters: query.filters,
   }
   const qid = queryIdentity(rowQuery)
-  const rowsQuery = useQuery({
+  const rowsQuery = useInfiniteQuery({
     queryKey: datasetExplorerQueryKeys.rows(table.id, qid),
-    queryFn: () =>
-      fetchDatasetRowPage(datasetExplorerDataClient, table, rowQuery),
-    placeholderData: (prev) => prev,
+    initialPageParam: 0,
+    queryFn: ({ pageParam }) =>
+      fetchDatasetRowPage(
+        datasetExplorerDataClient,
+        table,
+        { ...rowQuery, pageIndex: pageParam },
+        pageParam === 0,
+      ),
+    getNextPageParam: (lastPage, pages) =>
+      getNextDatasetPageParam(lastPage, pages, rowQuery.pageSize),
     staleTime: 0,
   })
+
+  const rows = useMemo(() => {
+    const byId = new Map<string, ScientificRowWire>()
+    for (const page of rowsQuery.data?.pages ?? []) {
+      for (const row of page.rows) byId.set(row.id, row)
+    }
+    return Array.from(byId.values())
+  }, [rowsQuery.data])
 
   const lineageQuery = useQuery({
     queryKey: datasetExplorerQueryKeys.lineage(table.id),
@@ -598,358 +541,76 @@ export function DatasetDataTab({
     staleTime: 30_000,
   })
 
-  const columns = useMemo(() => toColumnDefs(table.columns), [table.columns])
-  const filterDefinitions = table.columns
-    .slice(0, DATASET_MAX_FILTERS)
-    .map((column) => ({
+  const fields = useMemo<DataGridField<ScientificRowWire>[]>(() => {
+    const defs = toColumnDefs(table.columns)
+    return table.columns.map((column, index) => ({
       id: column.field_name,
       label: column.label,
-      placeholder: 'Exact value',
+      column: defs[index],
+      filter:
+        index < DATASET_MAX_FILTERS
+          ? {
+              type: 'text',
+              placeholder: 'Exact value',
+              operators: [{ value: 'eq', label: 'is' }],
+            }
+          : undefined,
+      groupable: ['category', 'text', 'reference'].includes(
+        column.logical_type,
+      ),
     }))
-  const groupingOptions = table.columns
-    .filter((column) =>
-      ['category', 'text', 'reference'].includes(column.logical_type),
-    )
-    .map((column) => ({ id: column.field_name, label: column.label }))
-  const totalCount = rowsQuery.data?.totalCount ?? 0
-  const minimumPaneHeight = 180
-  const splitterHeight = 8
-  const maximumPreviewHeight = Math.max(
-    minimumPaneHeight,
-    layoutHeight - minimumPaneHeight - splitterHeight,
-  )
+  }, [table.columns])
+  const totalCount = rowsQuery.data?.pages[0]?.totalCount ?? 0
 
-  useEffect(() => {
-    const layout = layoutRef.current
-    if (!layout) return
-    const updateLayoutHeight = () => {
-      const nextHeight = layout.getBoundingClientRect().height
-      if (nextHeight <= 0) return
-      setLayoutHeight(nextHeight)
-      setPreviewHeight((current) =>
-        Math.min(
-          Math.max(minimumPaneHeight, current),
-          Math.max(
-            minimumPaneHeight,
-            nextHeight - minimumPaneHeight - splitterHeight,
-          ),
-        ),
-      )
-    }
-    updateLayoutHeight()
-    const observer = new ResizeObserver(updateLayoutHeight)
-    observer.observe(layout)
-    return () => observer.disconnect()
-  }, [])
-
-  function resizePreview(nextHeight: number): void {
-    setPreviewHeight(
-      Math.min(Math.max(minimumPaneHeight, nextHeight), maximumPreviewHeight),
-    )
-  }
+  useEffect(() => setSelectedRowId(null), [qid])
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <FormulaBar table={table} />
-      <div
-        ref={layoutRef}
-        className="grid min-h-0 flex-1"
-        style={{
-          gridTemplateRows: `minmax(0, 1fr) ${splitterHeight}px ${previewHeight}px`,
+    <div className="flex min-h-0 flex-1 overflow-hidden">
+      <RegistryComposition
+        registryId={`dataset-${table.id}`}
+        title={table.name}
+        hideHeader
+        rows={rows}
+        totalCount={totalCount}
+        fields={fields}
+        query={query}
+        onQueryChange={setQuery}
+        getRowId={(row) => row.id}
+        selectedId={selectedRowId}
+        onSelectedIdChange={setSelectedRowId}
+        inspectorLabel="Dataset inspector"
+        loading={rowsQuery.isLoading}
+        error={
+          rowsQuery.isLoadingError || rowsQuery.isRefetchError
+            ? rowsQuery.error
+            : null
+        }
+        onRetry={() => void rowsQuery.refetch()}
+        incrementalRows={{
+          hasMore: rowsQuery.hasNextPage,
+          loadingMore: rowsQuery.isFetchingNextPage,
+          onLoadMore: () =>
+            void rowsQuery.fetchNextPage({ cancelRefetch: false }),
+          loadError: rowsQuery.isFetchNextPageError
+            ? rowsQuery.error
+            : undefined,
         }}
-        data-preview-height={Math.round(previewHeight)}
-      >
-        <div className="flex min-h-0 flex-col overflow-hidden">
-          <div className="flex min-h-0 flex-1 overflow-hidden">
-            <RegistryComposition
-              registryId={`dataset-${table.id}`}
-              workspaceId={workspaceId}
-              userId={userId}
-              title={table.name}
-              hideHeader
-              rows={rowsQuery.data?.rows ?? []}
-              totalCount={totalCount}
-              columns={columns}
-              query={query}
-              onQueryChange={setQuery}
-              getRowId={(row) => row.id}
-              selectedId={selectedRowId}
-              onSelectedIdChange={setSelectedRowId}
-              filterDefinitions={filterDefinitions}
-              groupingOptions={groupingOptions}
-              initialDensity="compact"
-              inspectorLabel="Dataset inspector"
-              loading={rowsQuery.isLoading}
-              error={rowsQuery.error}
-              emptyTitle="No rows yet"
-              noResultsTitle="No matching rows"
-              renderInspector={(row) => (
-                <DatasetInspector
-                  table={table}
-                  row={row}
-                  formulas={lineageQuery.data?.formulas ?? []}
-                  dependencies={lineageQuery.data?.dependencies ?? []}
-                  links={linksQuery.data ?? []}
-                  lineageLoading={lineageQuery.isLoading}
-                  lineageError={lineageQuery.error}
-                />
-              )}
-            />
-          </div>
-        </div>
-        <div
-          role="separator"
-          aria-label="Resize dataset preview"
-          aria-orientation="horizontal"
-          aria-valuemin={minimumPaneHeight}
-          aria-valuemax={Math.round(maximumPreviewHeight)}
-          aria-valuenow={Math.round(previewHeight)}
-          tabIndex={0}
-          className="group relative z-10 cursor-row-resize touch-none outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-          onPointerDown={(event) => {
-            resizeRef.current = {
-              pointerId: event.pointerId,
-              startY: event.clientY,
-              startHeight: previewHeight,
-            }
-            event.currentTarget.setPointerCapture(event.pointerId)
-          }}
-          onPointerMove={(event) => {
-            const resize = resizeRef.current
-            if (!resize || resize.pointerId !== event.pointerId) return
-            resizePreview(resize.startHeight + (resize.startY - event.clientY))
-          }}
-          onPointerUp={(event) => {
-            if (resizeRef.current?.pointerId !== event.pointerId) return
-            resizeRef.current = null
-            event.currentTarget.releasePointerCapture(event.pointerId)
-          }}
-          onPointerCancel={() => {
-            resizeRef.current = null
-          }}
-          onDoubleClick={() => resizePreview(240)}
-          onKeyDown={(event) => {
-            if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-              event.preventDefault()
-              resizePreview(
-                previewHeight + (event.key === 'ArrowUp' ? 16 : -16),
-              )
-            } else if (event.key === 'Home') {
-              event.preventDefault()
-              resizePreview(minimumPaneHeight)
-            } else if (event.key === 'End') {
-              event.preventDefault()
-              resizePreview(maximumPreviewHeight)
-            }
-          }}
-        >
-          <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-border transition-colors group-hover:bg-primary group-focus-visible:bg-primary" />
-          <span className="absolute left-1/2 top-1/2 h-1 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-muted-foreground/25 transition-colors group-hover:bg-primary/60 group-focus-visible:bg-primary/60" />
-        </div>
-        <Tabs
-          value={previewTab}
-          onValueChange={setPreviewTab}
-          className="h-full min-h-0"
-        >
-          <div className="flex h-full min-h-0 flex-col overflow-hidden">
-            <div className="flex shrink-0 items-center justify-between border-b px-3 py-1.5">
-              <TabsList className="h-8 bg-transparent p-0">
-                {[
-                  { value: 'preview', label: 'Chart preview' },
-                  { value: 'summary', label: 'Column summary' },
-                  { value: 'distribution', label: 'Distribution' },
-                  { value: 'correlations', label: 'Correlations' },
-                ].map((tab) => (
-                  <TabsTrigger key={tab.value} value={tab.value}>
-                    {tab.label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-              <Button variant="ghost" size="icon-sm" aria-label="Export chart">
-                <Download />
-              </Button>
-            </div>
-            <TabsContent
-              value="preview"
-              className="m-0 min-h-0 flex-1 overflow-hidden p-3"
-            >
-              <ChartPreview
-                table={table}
-                chartSpec={chartSpec}
-                onChartSpecChange={setChartSpec}
-              />
-            </TabsContent>
-            <TabsContent
-              value="summary"
-              className="m-0 min-h-0 flex-1 overflow-auto p-3"
-            >
-              <ColumnSummary
-                columns={table.columns}
-                rows={rowsQuery.data?.rows ?? []}
-                totalCount={totalCount}
-              />
-            </TabsContent>
-            <TabsContent
-              value="distribution"
-              className="m-0 min-h-0 flex-1 overflow-auto p-6"
-            >
-              <PreviewExplanation
-                title="Distribution"
-                copy="Select a numeric field to inspect its histogram and outliers."
-              />
-            </TabsContent>
-            <TabsContent
-              value="correlations"
-              className="m-0 min-h-0 flex-1 overflow-auto p-6"
-            >
-              <PreviewExplanation
-                title="Correlations"
-                copy="Compare numeric fields to identify relationships in this view."
-              />
-            </TabsContent>
-          </div>
-        </Tabs>
-      </div>
-    </div>
-  )
-}
-
-function FormulaBar({ table }: { table: ScientificTableWire }) {
-  const defaultFormula =
-    'Titer (TU/mL) = [Vector genome (copies/mL)] / [Volume (mL)]'
-  const [formula, setFormula] = useState(defaultFormula)
-  const valid =
-    formula.includes('=') &&
-    formula.includes('/') &&
-    (formula.match(/\[/g)?.length ?? 0) === (formula.match(/\]/g)?.length ?? 0)
-  return (
-    <div
-      className="flex shrink-0 items-center gap-2 rounded-md border bg-card px-3 py-1.5"
-      aria-label="Calculated column formula"
-    >
-      <span className="font-mono text-xs font-semibold text-violet-600">
-        fx
-      </span>
-      <Input
-        aria-label="Formula expression"
-        value={formula}
-        onChange={(event) => setFormula(event.target.value)}
-        className="h-7 min-w-40 flex-1 font-mono text-xs"
+        searchDebounceMs={300}
+        emptyTitle="No rows yet"
+        noResultsTitle="No matching rows"
+        renderInspector={(row) => (
+          <DatasetInspector
+            table={table}
+            row={row}
+            formulas={lineageQuery.data?.formulas ?? []}
+            dependencies={lineageQuery.data?.dependencies ?? []}
+            links={linksQuery.data ?? []}
+            lineageLoading={lineageQuery.isLoading}
+            lineageError={lineageQuery.error}
+          />
+        )}
       />
-      {valid ? (
-        <Check className="size-3.5 text-emerald-600" aria-hidden="true" />
-      ) : null}
-      <ButtonGroup>
-        <Button size="sm" variant="outline" disabled={!valid}>
-          Apply
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setFormula(defaultFormula)}
-        >
-          <Undo2 className="size-3.5" /> Undo
-        </Button>
-        <Button variant="ghost" size="sm" onClick={() => setFormula('')}>
-          Clear
-        </Button>
-      </ButtonGroup>
-      <span className="sr-only">Formula applies to {table.name}</span>
     </div>
-  )
-}
-
-function PreviewExplanation({ title, copy }: { title: string; copy: string }) {
-  return (
-    <div className="flex min-h-52 flex-col items-center justify-center text-center">
-      <h3 className="text-sm font-semibold">{title}</h3>
-      <p className="mt-1 max-w-md text-xs text-muted-foreground">{copy}</p>
-    </div>
-  )
-}
-
-export function ColumnSummary({
-  columns,
-  rows,
-  totalCount,
-}: {
-  columns: ScientificColumnWire[]
-  rows: ScientificRowWire[]
-  totalCount: number
-}) {
-  if (rows.length === 0) {
-    return <EmptyHint>No rows available to summarise.</EmptyHint>
-  }
-
-  return (
-    <section aria-labelledby="column-summary-title">
-      <div className="mb-3">
-        <h3 id="column-summary-title" className="text-sm font-semibold">
-          Column summary
-        </h3>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          Based on {formatCount(rows.length)} of {formatCount(totalCount)} rows
-          in the current result.
-        </p>
-      </div>
-      <div className="overflow-hidden rounded-md border">
-        <Table aria-label="Column summary">
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead>Field</TableHead>
-              <TableHead>Complete</TableHead>
-              <TableHead>Summary</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {columns.map((column) => {
-              const values = rows
-                .map((row) => row[column.field_name])
-                .filter(
-                  (value) =>
-                    value !== null && value !== undefined && value !== '',
-                )
-              const completeness = Math.round(
-                (values.length / rows.length) * 100,
-              )
-              const numericValues = values.filter(
-                (value): value is number =>
-                  typeof value === 'number' && Number.isFinite(value),
-              )
-              let summary: string
-              if (numericValues.length > 0) {
-                const mean =
-                  numericValues.reduce((sum, value) => sum + value, 0) /
-                  numericValues.length
-                summary = `Mean ${formatCount(mean)} · ${formatCount(
-                  Math.min(...numericValues),
-                )}–${formatCount(Math.max(...numericValues))}`
-              } else {
-                const unique = new Set(values.map(String)).size
-                summary = `${formatCount(unique)} unique value${unique === 1 ? '' : 's'}`
-              }
-
-              return (
-                <TableRow key={column.id}>
-                  <TableCell className="py-1.5">
-                    <span className="font-medium">{column.label}</span>
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      {column.logical_type}
-                    </span>
-                  </TableCell>
-                  <TableCell className="py-1.5 tabular-nums">
-                    {values.length}/{rows.length} ({completeness}%)
-                  </TableCell>
-                  <TableCell className="py-1.5 tabular-nums">
-                    {summary}
-                  </TableCell>
-                </TableRow>
-              )
-            })}
-          </TableBody>
-        </Table>
-      </div>
-    </section>
   )
 }
 
@@ -1091,13 +752,44 @@ export function DataTableView({
 }
 
 // ---------------------------------------------------------------------------
-// Chart preview
+// Chart tab
 // ---------------------------------------------------------------------------
+
+export function DatasetChartTab({ table }: { table: ScientificTableWire }) {
+  const defaultSpec = useMemo(() => {
+    const spec = buildDefaultChartSpec(table)
+    if (!spec) return null
+    const xColumn = table.columns.find(
+      (column) => column.id === spec.fields.x?.columnId,
+    )
+    return /time|day|date/i.test(xColumn?.label ?? '')
+      ? { ...spec, type: 'line' as const }
+      : spec
+  }, [table])
+  const [chartSpec, setChartSpec] = useState(defaultSpec)
+
+  useEffect(() => setChartSpec(defaultSpec), [defaultSpec])
+
+  return (
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      {chartSpec ? (
+        <ChartConfigurator
+          table={table}
+          spec={chartSpec}
+          onSpecChange={setChartSpec}
+          idPrefix="dataset-chart"
+        />
+      ) : null}
+      <div className="min-h-0 flex-1">
+        <ChartPreview table={table} chartSpec={chartSpec} />
+      </div>
+    </div>
+  )
+}
 
 interface ChartPreviewProps {
   table: ScientificTableWire
   chartSpec: ChartSpec | null
-  onChartSpecChange: (spec: ChartSpec | null) => void
 }
 
 function ChartPreview({ table, chartSpec }: ChartPreviewProps) {
@@ -1175,7 +867,7 @@ function ChartPreview({ table, chartSpec }: ChartPreviewProps) {
           hideTitle
           plotHeight={plotHeight}
           showTableAlternative={false}
-          className="h-full rounded-none border-0 bg-transparent shadow-none"
+          className="flex h-full min-h-0 flex-col rounded-none border-0 bg-transparent shadow-none [&>div:first-of-type]:min-h-0 [&>div:first-of-type]:flex-1"
         />
       ) : null}
     </div>
@@ -1272,25 +964,31 @@ export function DatasetInspector({
                   ))}
                 </PropertyList>
               </InspectorSection>
-              <InspectorSection title="Lineage">
+              <InspectorSection title="Downstream uses">
                 {lineageError ? (
                   <p role="alert" className="text-xs text-destructive">
-                    Could not load lineage.
+                    Could not load formula usage.
                   </p>
                 ) : lineageLoading ? (
                   <Skeleton className="h-16 w-full" />
                 ) : rowDependencies.length === 0 ? (
-                  <EmptyHint>No upstream dependencies for this row</EmptyHint>
+                  <EmptyHint>
+                    This row is not used by a calculated column
+                  </EmptyHint>
                 ) : (
                   <PropertyList>
                     {rowDependencies.map((dependency, index) => (
                       <Property
                         key={`${dependency.formula_id}-${index}`}
-                        label="Derived from"
-                        mono
+                        label={`Calculated formula ${index + 1}`}
                         stacked
                       >
-                        {`${dependency.source_table_id}/${dependency.source_row_id}/${dependency.source_column_id}`}
+                        {`Uses ${
+                          table.columns.find(
+                            (column) =>
+                              column.id === dependency.source_column_id,
+                          )?.label ?? 'a field in this dataset'
+                        } as an input`}
                       </Property>
                     ))}
                   </PropertyList>
@@ -1332,32 +1030,6 @@ export function DatasetInspector({
                 }))}
               />
             </InspectorSection>
-          ),
-        },
-        {
-          id: 'export',
-          label: 'Export',
-          content: (
-            <div className="space-y-4">
-              <InspectorSection title="Export this view">
-                <div className="grid gap-2">
-                  <Button className="w-full" variant="outline">
-                    <Download /> Export CSV
-                  </Button>
-                  <Button className="w-full" variant="outline">
-                    <Download /> Export Parquet
-                  </Button>
-                </div>
-              </InspectorSection>
-              <InspectorSection title="About this dataset">
-                <PropertyList>
-                  <Property label="Dataset" stacked>
-                    {table.name}
-                  </Property>
-                  <Property label="Sharing">Workspace members</Property>
-                </PropertyList>
-              </InspectorSection>
-            </div>
           ),
         },
       ]}

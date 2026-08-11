@@ -2,10 +2,44 @@ import { describe, expect, it } from 'vitest'
 
 import {
   createRegistrySavedViewStore,
+  decodeRegistryFilters,
+  decodeRegistryQuery,
+  encodeRegistryFilters,
+  encodeRegistryQuery,
   formatRegistryValue,
   registrySavedViewStorageKey,
   sanitizeRegistryView,
 } from './registry'
+
+describe('registry URL filters', () => {
+  it('round-trips compact typed filter values', () => {
+    const filters = [
+      { fieldId: 'status', operator: 'eq' as const, values: ['available'] },
+      {
+        fieldId: 'quantity',
+        operator: 'gte' as const,
+        values: [10],
+      },
+      {
+        fieldId: 'archived',
+        operator: 'eq' as const,
+        values: [false],
+      },
+    ]
+
+    const encoded = encodeRegistryFilters(filters)
+
+    expect(encoded).toBe(
+      'status:eq:s:available|quantity:gte:n:10|archived:eq:b:false',
+    )
+    expect(decodeRegistryFilters(encoded)).toEqual(filters)
+  })
+
+  it('fails closed for malformed filter state', () => {
+    expect(decodeRegistryFilters('not-a-filter')).toEqual([])
+    expect(decodeRegistryFilters('status:eq:n:not-a-number')).toEqual([])
+  })
+})
 
 function memoryStorage(): Storage {
   const values = new Map<string, string>()
@@ -27,7 +61,9 @@ const viewState = {
     pageSize: 50,
     sorting: [{ id: 'identifier', desc: false }],
     grouping: ['status'],
-    filters: [{ id: 'status', value: 'available' }],
+    filters: [
+      { fieldId: 'status', operator: 'eq' as const, values: ['available'] },
+    ],
   },
   columnVisibility: { owner: false },
   density: 'compact' as const,
@@ -118,7 +154,10 @@ describe('registry saved views', () => {
             ...viewState.query,
             pageSize: 999,
             sorting: [...viewState.query.sorting, { id: 'secret', desc: true }],
-            filters: [...viewState.query.filters, { id: 'secret', value: 'x' }],
+            filters: [
+              ...viewState.query.filters,
+              { fieldId: 'secret', operator: 'eq', values: ['x'] },
+            ],
           },
           columnVisibility: { owner: false, secret: true },
         },
@@ -137,9 +176,35 @@ describe('registry saved views', () => {
       pageIndex: 0,
       pageSize: 25,
       sorting: [{ id: 'identifier', desc: false }],
-      filters: [{ id: 'status', value: 'available' }],
+      filters: [{ fieldId: 'status', operator: 'eq', values: ['available'] }],
     })
     expect(safe.state.columnVisibility).toEqual({ owner: false })
+  })
+})
+
+describe('registry query URL codec', () => {
+  it('round-trips typed operators and every value', () => {
+    const query = {
+      ...viewState.query,
+      filters: [
+        {
+          fieldId: 'status',
+          operator: 'in' as const,
+          values: ['available', 'reserved', true],
+        },
+      ],
+    }
+    expect(decodeRegistryQuery(encodeRegistryQuery(query))).toEqual(query)
+  })
+
+  it('rejects malformed, oversized and unknown-version state', () => {
+    expect(decodeRegistryQuery('%7Bbad')).toBeNull()
+    expect(decodeRegistryQuery('x'.repeat(4097))).toBeNull()
+    expect(
+      decodeRegistryQuery(
+        encodeURIComponent(JSON.stringify({ v: 2, q: viewState.query })),
+      ),
+    ).toBeNull()
   })
 })
 

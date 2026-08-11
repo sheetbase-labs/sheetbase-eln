@@ -19,16 +19,22 @@
  * storage, status, attention, usage (incoming links), linked protocols and
  * documents (outgoing links) and recent movements (orders).
  */
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import { createColumnHelper } from '@tanstack/react-table'
 import type { ColumnDef } from '@tanstack/react-table'
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Archive } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
 import { ReagentInspector } from '#/components/reagents/reagent-inspector'
 import { RegistryComposition } from '#/components/registry'
+import type { DataGridField } from '#/components/data-grid'
 import type { RegistrySummary } from '#/components/registry'
 import { StatusBadge } from '#/components/scientific'
 import {
@@ -63,6 +69,7 @@ import {
   reagentQueryKeys,
 } from '#/lib/reagent-data'
 import type { Reagent, ReagentAttentionSummary } from '#/lib/reagent-data'
+import { decodeRegistryQuery, encodeRegistryQuery } from '#/lib/registry'
 import type { RegistryQuery } from '#/lib/registry'
 
 /**
@@ -72,15 +79,7 @@ import type { RegistryQuery } from '#/lib/registry'
  */
 export const Route = createFileRoute('/reagents')({
   validateSearch: (search: Record<string, unknown>) => ({
-    pageIndex:
-      Number.isInteger(search.pageIndex) && (search.pageIndex as number) >= 0
-        ? (search.pageIndex as number)
-        : 0,
-    pageSize:
-      typeof search.pageSize === 'number' &&
-      [25, 50, 100].includes(search.pageSize)
-        ? search.pageSize
-        : 50,
+    rq: typeof search.rq === 'string' ? search.rq : '',
     sort: typeof search.sort === 'string' ? search.sort : '',
     group: typeof search.group === 'string' ? search.group : 'category',
     status: typeof search.status === 'string' ? search.status : '',
@@ -110,26 +109,34 @@ const columnHelper = createColumnHelper<Reagent>()
  * composition's filter bar stay aligned.
  */
 function queryFromSearch(search: {
-  pageIndex: number
-  pageSize: number
+  rq: string
   sort: string
   group: string
   status: string
   storage: string
   q: string
 }): RegistryQuery {
+  const decoded = decodeRegistryQuery(search.rq)
+  if (decoded) return { ...decoded, pageIndex: 0, pageSize: 50 }
   const sorting: RegistryQuery['sorting'] = []
   if (search.sort) {
     const [id, desc] = search.sort.split(',')
     if (id) sorting.push({ id, desc: desc === 'desc' })
   }
   const filters: RegistryQuery['filters'] = []
-  if (search.status) filters.push({ id: 'status', value: search.status })
-  if (search.storage) filters.push({ id: 'storage', value: search.storage })
-  if (search.q) filters.push({ id: 'q', value: search.q })
+  if (search.status)
+    filters.push({ fieldId: 'status', operator: 'eq', values: [search.status] })
+  if (search.storage)
+    filters.push({
+      fieldId: 'storage',
+      operator: 'eq',
+      values: [search.storage],
+    })
+  if (search.q)
+    filters.push({ fieldId: 'q', operator: 'contains', values: [search.q] })
   return {
-    pageIndex: search.pageIndex,
-    pageSize: search.pageSize,
+    pageIndex: 0,
+    pageSize: 50,
     sorting,
     grouping: search.group ? [search.group] : [],
     filters,
@@ -149,15 +156,12 @@ function ReagentsRegistryRoute() {
     void navigate({
       to: '/reagents',
       search: {
-        pageIndex: next.pageIndex,
-        pageSize: next.pageSize,
-        sort: next.sorting[0]
-          ? `${next.sorting[0].id},${next.sorting[0].desc ? 'desc' : 'asc'}`
-          : '',
-        group: next.grouping[0] ?? '',
-        status: next.filters.find((f) => f.id === 'status')?.value ?? '',
-        storage: next.filters.find((f) => f.id === 'storage')?.value ?? '',
-        q: next.filters.find((f) => f.id === 'q')?.value ?? '',
+        rq: encodeRegistryQuery({ ...next, pageIndex: 0 }),
+        sort: '',
+        group: '',
+        status: '',
+        storage: '',
+        q: '',
         selected: selectedId ?? '',
       },
       replace: false,
@@ -172,13 +176,25 @@ function ReagentsRegistryRoute() {
     })
   }
 
-  const rowsQuery = useQuery({
-    queryKey: reagentQueryKeys.list(query),
-    queryFn: () => fetchReagentsPage(client, query),
-  })
   const countQuery = useQuery({
     queryKey: reagentQueryKeys.count(query),
     queryFn: () => fetchReagentsCount(client, query),
+  })
+  const rowsQuery = useInfiniteQuery({
+    queryKey: reagentQueryKeys.infinite(query),
+    initialPageParam: 0,
+    queryFn: ({ pageParam }) =>
+      fetchReagentsPage(client, { ...query, pageIndex: pageParam }),
+    getNextPageParam: (lastPage, pages) => {
+      const loaded = pages.reduce((count, page) => count + page.length, 0)
+      if (
+        lastPage.length < query.pageSize ||
+        (countQuery.data !== undefined && loaded >= countQuery.data)
+      ) {
+        return undefined
+      }
+      return pages.length
+    },
   })
   const attentionQuery = useQuery({
     queryKey: reagentQueryKeys.attention(DEFAULT_EXPIRY_WARNING_DAYS),
@@ -209,22 +225,31 @@ function ReagentsRegistryRoute() {
     enabled: !!selectedId && !!selectedQuery.data,
   })
 
-  const rows = rowsQuery.data ?? []
+  const rows = useMemo(() => {
+    const byId = new Map<string, Reagent>()
+    for (const page of rowsQuery.data?.pages ?? []) {
+      for (const reagent of page) byId.set(reagent.id, reagent)
+    }
+    return Array.from(byId.values())
+  }, [rowsQuery.data])
   const totalCount = countQuery.data ?? 0
   const attention = attentionQuery.data ?? null
   const selectedReagent = selectedQuery.data ?? null
   const movements = movementsQuery.data ?? []
   const usage = usageQuery.data ?? []
 
+  const initialError = rowsQuery.isLoadingError
+    ? rowsQuery.error
+    : countQuery.error
   const permissionDenied =
-    rowsQuery.error instanceof DataClientError &&
-    rowsQuery.error.code === 'permission_denied'
+    initialError instanceof DataClientError &&
+    initialError.code === 'permission_denied'
 
   const summaries: RegistrySummary[] = attention
     ? buildSummaries(attention)
     : []
 
-  const columns = buildColumns()
+  const fields = useMemo(() => buildFields(buildColumns()), [])
 
   const shellContext = {
     workspace: context.workspace ? { name: context.workspace.name } : null,
@@ -248,13 +273,11 @@ function ReagentsRegistryRoute() {
       <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden p-4">
         <RegistryComposition
           registryId="reagents"
-          workspaceId={context.workspace?.id ?? 'unknown'}
-          userId={context.user.id}
           title="Reagents Registry"
           description="Central inventory of reagents, consumables and chemicals."
           rows={rows}
           totalCount={totalCount}
-          columns={columns}
+          fields={fields}
           query={query}
           onQueryChange={setQuery}
           getRowId={(row) => row.id}
@@ -262,44 +285,24 @@ function ReagentsRegistryRoute() {
           selectedRecord={selectedReagent}
           onSelectedIdChange={setSelected}
           inspectorLabel="Reagent details"
-          initialDensity="compact"
           summaries={summaries}
-          filterDefinitions={[
-            {
-              id: 'status',
-              label: 'Status',
-              placeholder: 'All statuses',
-              options: [
-                ...REAGENT_STATUS_OPTIONS,
-                { value: 'archived', label: 'Archived' },
-              ],
-            },
-            {
-              id: 'storage',
-              label: 'Storage',
-              placeholder: 'All storage',
-              options: REAGENT_STORAGE_OPTIONS,
-            },
-            {
-              id: 'q',
-              label: 'Search',
-              placeholder: 'Identifier or title',
-            },
-          ]}
-          groupingOptions={[
-            { id: 'category', label: 'Category' },
-            { id: 'storage', label: 'Storage' },
-            { id: 'supplier', label: 'Supplier' },
-            { id: 'status', label: 'Status' },
-          ]}
           initialColumnVisibility={{ updatedAt: false }}
-          loading={rowsQuery.isLoading}
-          error={rowsQuery.error}
+          loading={rowsQuery.isLoading || countQuery.isLoading}
+          error={initialError}
           permissionDenied={permissionDenied}
-          partialData={
-            rowsQuery.data !== undefined && countQuery.data === undefined
-          }
-          onRetry={() => rowsQuery.refetch()}
+          onRetry={() => {
+            void Promise.all([rowsQuery.refetch(), countQuery.refetch()])
+          }}
+          incrementalRows={{
+            hasMore: rowsQuery.hasNextPage,
+            loadingMore: rowsQuery.isFetchingNextPage,
+            onLoadMore: () => void rowsQuery.fetchNextPage(),
+            loadError: rowsQuery.isFetchNextPageError
+              ? rowsQuery.error
+              : undefined,
+          }}
+          resizableColumns
+          searchDebounceMs={300}
           emptyTitle="No reagents yet"
           noResultsTitle="No matching reagents"
           renderInspector={(row) =>
@@ -348,6 +351,8 @@ function buildColumns(): ColumnDef<Reagent, unknown>[] {
     columnHelper.accessor('identifier', {
       id: 'identifier',
       header: 'Reagent ID',
+      size: 112,
+      minSize: 96,
       cell: (info) => (
         <span className="font-mono text-xs font-medium tabular-nums text-primary hover:underline">
           {info.getValue()}
@@ -357,36 +362,50 @@ function buildColumns(): ColumnDef<Reagent, unknown>[] {
     columnHelper.accessor('title', {
       id: 'title',
       header: 'Name',
+      size: 194,
+      minSize: 160,
     }),
     columnHelper.accessor('category', {
       id: 'category',
       header: 'Category',
+      size: 128,
+      minSize: 104,
       cell: (info) => <CategoryBadge category={info.getValue()} />,
     }),
     columnHelper.accessor('supplier', {
       id: 'supplier',
       header: 'Supplier',
+      size: 144,
+      minSize: 112,
       cell: (info) => info.getValue() ?? '—',
     }),
     columnHelper.accessor('catalogNo', {
       id: 'catalogNo',
       header: 'Catalog No.',
+      size: 112,
+      minSize: 96,
       cell: (info) => info.getValue() ?? '—',
     }),
     columnHelper.accessor('lot', {
       id: 'lot',
       header: 'Lot',
+      size: 104,
+      minSize: 88,
       cell: (info) => info.getValue() ?? '—',
     }),
     columnHelper.accessor('expiry', {
       id: 'expiry',
       header: 'Expiry',
-      meta: { registryFormat: { kind: 'date', dateStyle: 'short' } },
+      size: 104,
+      minSize: 92,
+      meta: { dataGridFormat: { kind: 'date', dateStyle: 'short' } },
       cell: (info) => (info.getValue() ? formatDate(info.getValue()) : '—'),
     }),
     columnHelper.accessor((row) => row.quantity, {
       id: 'quantity',
       header: 'Quantity',
+      size: 104,
+      minSize: 88,
       enableSorting: false,
       cell: (info) => {
         const row = info.row.original
@@ -397,20 +416,90 @@ function buildColumns(): ColumnDef<Reagent, unknown>[] {
     columnHelper.accessor('storage', {
       id: 'storage',
       header: 'Storage',
+      size: 96,
+      minSize: 80,
       cell: (info) => info.getValue() ?? '—',
     }),
     columnHelper.accessor('status', {
       id: 'status',
       header: 'Status',
+      size: 128,
+      minSize: 112,
       cell: (info) => <StatusBadge domain="reagent" status={info.getValue()} />,
     }),
     columnHelper.accessor('updatedAt', {
       id: 'updatedAt',
       header: 'Updated',
-      meta: { registryFormat: { kind: 'date', dateStyle: 'short' } },
+      size: 104,
+      minSize: 92,
+      meta: { dataGridFormat: { kind: 'date', dateStyle: 'short' } },
       cell: (info) => formatDate(info.getValue()),
     }),
   ] as ColumnDef<Reagent, unknown>[]
+}
+
+function buildFields(
+  columns: ColumnDef<Reagent, unknown>[],
+): DataGridField<Reagent>[] {
+  const labels: Record<string, string> = {
+    identifier: 'Reagent ID',
+    title: 'Name',
+    category: 'Category',
+    supplier: 'Supplier',
+    catalogNo: 'Catalogue number',
+    lot: 'Lot',
+    expiry: 'Expiry',
+    quantity: 'Quantity',
+    storage: 'Storage',
+    status: 'Status',
+    updatedAt: 'Updated',
+  }
+  const textFilter = (placeholder: string) => ({
+    type: 'text' as const,
+    placeholder,
+    operators: [{ value: 'contains' as const, label: 'contains' }],
+  })
+  const filters: Record<string, DataGridField<Reagent>['filter']> = {
+    category: textFilter('Category contains'),
+    supplier: textFilter('Supplier contains'),
+    catalogNo: textFilter('Catalogue number contains'),
+    lot: textFilter('Lot contains'),
+    storage: {
+      type: 'select',
+      placeholder: 'All storage',
+      operators: [{ value: 'eq', label: 'is' }],
+      options: REAGENT_STORAGE_OPTIONS,
+    },
+    status: {
+      type: 'select',
+      placeholder: 'All statuses',
+      operators: [{ value: 'eq', label: 'is' }],
+      options: [
+        ...REAGENT_STATUS_OPTIONS,
+        { value: 'archived', label: 'Archived' },
+      ],
+    },
+  }
+  const fields: DataGridField<Reagent>[] = columns.map((column) => {
+    const id = String(
+      column.id ?? ('accessorKey' in column ? column.accessorKey : ''),
+    )
+    return {
+      id,
+      label: labels[id] ?? id,
+      column,
+      filter: filters[id],
+      groupable: ['category', 'storage', 'supplier', 'status'].includes(id),
+    }
+  })
+  fields.push({
+    id: 'q',
+    label: 'Search',
+    column: false,
+    filter: textFilter('ID, name, supplier, catalogue number or lot'),
+    groupable: false,
+  })
+  return fields
 }
 
 function CategoryBadge({ category }: { category: string }) {

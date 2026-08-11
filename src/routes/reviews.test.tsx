@@ -17,12 +17,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { RegistryComposition } from '#/components/registry/registry-composition'
 import type { RegistryCompositionProps } from '#/components/registry/registry-composition'
 import type { RegistryQuery } from '#/lib/registry'
-import { createRegistrySavedViewStore } from '#/lib/registry'
 import { toReviewItem, workflowStepsFor } from '#/lib/reviews'
 import type { ReviewItem, ReviewSubmissionWire } from '#/lib/reviews'
 import type { RecordWire } from '#/lib/notebook-data'
 
-import { buildReviewSummaries, ReviewInspector, buildReviewColumns } from './reviews'
+import {
+  buildReviewSummaries,
+  ReviewInspector,
+  buildReviewColumns,
+} from './reviews'
 
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => () => ({ useRouteContext: () => ({}) }),
@@ -59,20 +62,6 @@ globalThis.ResizeObserver = class {
   observe() {}
   unobserve() {}
   disconnect() {}
-}
-
-function memoryStorage(): Storage {
-  const values = new Map<string, string>()
-  return {
-    get length() {
-      return values.size
-    },
-    clear: () => values.clear(),
-    getItem: (key) => values.get(key) ?? null,
-    key: (index) => Array.from(values.keys())[index] ?? null,
-    removeItem: (key) => values.delete(key),
-    setItem: (key, value) => values.set(key, value),
-  }
 }
 
 function submission(
@@ -164,12 +153,15 @@ function inboxProps(
 ): RegistryCompositionProps<ReviewItem> {
   return {
     registryId: 'reviews',
-    workspaceId: 'ws-1',
-    userId: 'user-a',
     title: 'Review inbox',
     rows: [reviewItem({ id: 'sub-1' })],
     totalCount: 1,
-    columns: buildReviewColumns((id) => id),
+    fields: buildReviewColumns((id) => id).map((column) => ({
+      id: String(column.id),
+      label: String(column.id),
+      column,
+      groupable: false,
+    })),
     query,
     onQueryChange: vi.fn(),
     getRowId: (row) => row.id,
@@ -188,12 +180,6 @@ function inboxProps(
       ) : (
         <p>No review selected</p>
       ),
-    savedViewStore: createRegistrySavedViewStore({
-      registryId: 'reviews',
-      workspaceId: 'ws-1',
-      userId: 'user-a',
-      storage: memoryStorage(),
-    }),
     emptyTitle: 'No reviews yet',
     noResultsTitle: 'No matching reviews',
     ...overrides,
@@ -318,7 +304,9 @@ describe('review inbox registry integration', () => {
           totalCount: 0,
           query: {
             ...query,
-            filters: [{ id: 'status', value: 'withdrawn' }],
+            filters: [
+              { fieldId: 'status', operator: 'eq', values: ['withdrawn'] },
+            ],
           },
         })}
       />,

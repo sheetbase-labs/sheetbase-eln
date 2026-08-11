@@ -1,14 +1,13 @@
 /**
  * DATA-007 — Dataset Explorer route (`/datasets`).
  *
- * A read-only browsing surface over real scientific-table metadata. Data and
- * Schema tabs share a searchable dataset selector and a row inspector. The
+ * A read-only browsing surface over real scientific-table metadata. Data,
+ * Chart and Schema tabs share a searchable dataset selector. The
  * Data tab uses the shared virtualised grid for incremental query and review;
  * Handsontable stays the edit surface inside notebook sheets. Filters,
  * sorting, field selection and grouping stay within the safe limits defined
- * in `dataset-explorer-data`. A resizable chart preview uses the same
- * `ChartSpec` model (SCI-004) as Analysis Studio without duplicating its
- * authoring controls.
+ * in `dataset-explorer-data`. The full-size chart tab uses the same `ChartSpec`
+ * model (SCI-004) as Analysis Studio without duplicating its authoring controls.
  *
  * PostgreSQL and RLS remain authoritative (decisions 0019/0034): every read
  * goes through `/api/db`, and permission-denied / partial-data states are
@@ -20,9 +19,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { flexRender } from '@tanstack/react-table'
 import type { ColumnDef, useReactTable } from '@tanstack/react-table'
 import {
+  BarChart3,
   Check,
-  ChevronDown,
-  ChevronUp,
   ChevronsUpDown,
   Database,
   Layers,
@@ -125,23 +123,6 @@ const DEFAULT_DATASET_QUERY: DatasetRowQuery = {
   sorting: [],
   filters: [],
 }
-const MINIMUM_DATASET_GRID_HEIGHT = 220
-const PREFERRED_MINIMUM_PREVIEW_HEIGHT = 180
-const DATASET_SPLITTER_HEIGHT = 8
-
-export function datasetPreviewBounds(layoutHeight: number): {
-  minimum: number
-  maximum: number
-} {
-  const maximum = Math.max(
-    0,
-    layoutHeight - MINIMUM_DATASET_GRID_HEIGHT - DATASET_SPLITTER_HEIGHT,
-  )
-  return {
-    minimum: Math.min(PREFERRED_MINIMUM_PREVIEW_HEIGHT, maximum),
-    maximum,
-  }
-}
 
 function queryIdentity(query: DatasetRowQuery): string {
   return [
@@ -202,8 +183,6 @@ function DatasetExplorerRoute() {
   const { context } = Route.useRouteContext()
   const search = Route.useSearch()
   const navigate = useNavigate()
-  const workspaceId = context.workspace?.id ?? 'no-workspace'
-  const userId = context.user.id
 
   const summariesQuery = useQuery({
     queryKey: datasetExplorerQueryKeys.summaries,
@@ -212,7 +191,9 @@ function DatasetExplorerRoute() {
   })
 
   const datasets = summariesQuery.data ?? []
-  const [activeTab, setActiveTab] = useState<'data' | 'schema'>('data')
+  const [activeTab, setActiveTab] = useState<'data' | 'chart' | 'schema'>(
+    'data',
+  )
 
   const requestedTableId = search.dataset || null
   const selectedTable = useMemo(
@@ -268,8 +249,6 @@ function DatasetExplorerRoute() {
           <DatasetTabs
             key={selectedTable.id}
             table={selectedTable}
-            workspaceId={workspaceId}
-            userId={userId}
             activeTab={activeTab}
             onTabChange={setActiveTab}
           />
@@ -449,23 +428,15 @@ function DatasetPicker({
 
 interface DatasetTabsProps {
   table: ScientificTableWire
-  workspaceId: string
-  userId: string
-  activeTab: 'data' | 'schema'
-  onTabChange: (tab: 'data' | 'schema') => void
+  activeTab: 'data' | 'chart' | 'schema'
+  onTabChange: (tab: 'data' | 'chart' | 'schema') => void
 }
 
-function DatasetTabs({
-  table,
-  workspaceId,
-  userId,
-  activeTab,
-  onTabChange,
-}: DatasetTabsProps) {
+function DatasetTabs({ table, activeTab, onTabChange }: DatasetTabsProps) {
   return (
     <Tabs
       value={activeTab}
-      onValueChange={(v) => onTabChange(v as 'data' | 'schema')}
+      onValueChange={(v) => onTabChange(v as 'data' | 'chart' | 'schema')}
       className="relative min-h-0 flex-1 overflow-hidden"
     >
       <TabsList className="h-8 w-full justify-start gap-5 rounded-none border-b bg-transparent p-0">
@@ -474,6 +445,12 @@ function DatasetTabs({
           className="h-8 gap-1.5 rounded-none border-b-2 border-transparent px-0 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
         >
           <TableIcon className="size-3.5" aria-hidden="true" /> Data
+        </TabsTrigger>
+        <TabsTrigger
+          value="chart"
+          className="h-8 gap-1.5 rounded-none border-b-2 border-transparent px-0 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+        >
+          <BarChart3 className="size-3.5" aria-hidden="true" /> Chart
         </TabsTrigger>
         <TabsTrigger
           value="schema"
@@ -486,11 +463,13 @@ function DatasetTabs({
         value="data"
         className="absolute inset-x-0 bottom-0 top-8 flex min-h-0 flex-col"
       >
-        <DatasetDataTab
-          table={table}
-          workspaceId={workspaceId}
-          userId={userId}
-        />
+        <DatasetDataTab table={table} />
+      </TabsContent>
+      <TabsContent
+        value="chart"
+        className="absolute inset-x-0 bottom-0 top-8 min-h-0 overflow-hidden p-3"
+      >
+        <DatasetChartTab table={table} />
       </TabsContent>
       <TabsContent
         value="schema"
@@ -503,75 +482,19 @@ function DatasetTabs({
 }
 
 // ---------------------------------------------------------------------------
-// Data tab — virtualised incremental query, filters, sorting, inspector and
-// a secondary resizable chart preview.
+// Data tab — virtualised incremental query, filters, sorting and inspector.
 // ---------------------------------------------------------------------------
 
 export interface DatasetDataTabProps {
   table: ScientificTableWire
-  workspaceId: string
-  userId: string
 }
 
-export function DatasetDataTab({
-  table,
-  workspaceId,
-  userId,
-}: DatasetDataTabProps) {
+export function DatasetDataTab({ table }: DatasetDataTabProps) {
   const [query, setQuery] = useState<RegistryQuery>({
     ...DEFAULT_DATASET_QUERY,
     grouping: [],
   })
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null)
-  const [previewTab, setPreviewTab] = useState('preview')
-  const [previewOpen, setPreviewOpen] = useState(false)
-  const [previewHeight, setPreviewHeight] = useState(320)
-  const [layoutHeight, setLayoutHeight] = useState(640)
-  const layoutRef = useRef<HTMLDivElement | null>(null)
-  const resizeRef = useRef<{
-    pointerId: number
-    startY: number
-    startHeight: number
-  } | null>(null)
-
-  const chartStorageKey = useMemo(
-    () =>
-      ['sheetbase-dataset-chart-v1', workspaceId, userId, table.id]
-        .map(encodeURIComponent)
-        .join(':'),
-    [workspaceId, userId, table.id],
-  )
-  const [chartSpec, setChartSpec] = useState<ChartSpec | null>(() => {
-    if (typeof window === 'undefined') return buildDefaultChartSpec(table)
-    try {
-      const raw = window.localStorage.getItem(chartStorageKey)
-      if (raw) {
-        const parsed = JSON.parse(raw) as unknown
-        if (
-          parsed &&
-          typeof parsed === 'object' &&
-          'specVersion' in parsed &&
-          'datasets' in parsed
-        ) {
-          return parsed as ChartSpec
-        }
-      }
-    } catch {
-      // ignore corrupt persisted spec
-    }
-    return buildDefaultChartSpec(table)
-  })
-  useEffect(() => {
-    try {
-      if (chartSpec) {
-        window.localStorage.setItem(chartStorageKey, JSON.stringify(chartSpec))
-      } else {
-        window.localStorage.removeItem(chartStorageKey)
-      }
-    } catch {
-      // storage unavailable; preview still works in-memory
-    }
-  }, [chartSpec, chartStorageKey])
 
   const rowQuery: DatasetRowQuery = {
     pageIndex: 0,
@@ -637,301 +560,56 @@ export function DatasetDataTab({
     }))
   }, [table.columns])
   const totalCount = rowsQuery.data?.pages[0]?.totalCount ?? 0
-  const previewBounds = datasetPreviewBounds(layoutHeight)
 
   useEffect(() => setSelectedRowId(null), [qid])
 
-  useEffect(() => {
-    const layout = layoutRef.current
-    if (!layout) return
-    const updateLayoutHeight = () => {
-      const nextHeight = layout.getBoundingClientRect().height
-      if (nextHeight <= 0) return
-      setLayoutHeight(nextHeight)
-      const nextBounds = datasetPreviewBounds(nextHeight)
-      setPreviewHeight((current) =>
-        Math.min(Math.max(nextBounds.minimum, current), nextBounds.maximum),
-      )
-    }
-    updateLayoutHeight()
-    const observer = new ResizeObserver(updateLayoutHeight)
-    observer.observe(layout)
-    return () => observer.disconnect()
-  }, [])
-
-  function resizePreview(nextHeight: number): void {
-    setPreviewHeight(
-      Math.min(
-        Math.max(previewBounds.minimum, nextHeight),
-        previewBounds.maximum,
-      ),
-    )
-  }
-
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div
-        ref={layoutRef}
-        className="grid min-h-0 flex-1"
-        style={{
-          gridTemplateRows: previewOpen
-            ? `minmax(0, 1fr) ${DATASET_SPLITTER_HEIGHT}px ${previewHeight}px`
-            : 'minmax(0, 1fr) 0 36px',
+    <div className="flex min-h-0 flex-1 overflow-hidden">
+      <RegistryComposition
+        registryId={`dataset-${table.id}`}
+        title={table.name}
+        hideHeader
+        rows={rows}
+        totalCount={totalCount}
+        fields={fields}
+        query={query}
+        onQueryChange={setQuery}
+        getRowId={(row) => row.id}
+        selectedId={selectedRowId}
+        onSelectedIdChange={setSelectedRowId}
+        inspectorLabel="Dataset inspector"
+        loading={rowsQuery.isLoading}
+        error={
+          rowsQuery.isLoadingError || rowsQuery.isRefetchError
+            ? rowsQuery.error
+            : null
+        }
+        onRetry={() => void rowsQuery.refetch()}
+        incrementalRows={{
+          hasMore: rowsQuery.hasNextPage,
+          loadingMore: rowsQuery.isFetchingNextPage,
+          onLoadMore: () =>
+            void rowsQuery.fetchNextPage({ cancelRefetch: false }),
+          loadError: rowsQuery.isFetchNextPageError
+            ? rowsQuery.error
+            : undefined,
         }}
-        data-preview-height={Math.round(previewHeight)}
-        data-preview-open={previewOpen ? 'true' : 'false'}
-      >
-        <div className="flex min-h-0 flex-col overflow-hidden">
-          <div className="flex min-h-0 flex-1 overflow-hidden">
-            <RegistryComposition
-              registryId={`dataset-${table.id}`}
-              title={table.name}
-              hideHeader
-              rows={rows}
-              totalCount={totalCount}
-              fields={fields}
-              query={query}
-              onQueryChange={setQuery}
-              getRowId={(row) => row.id}
-              selectedId={selectedRowId}
-              onSelectedIdChange={setSelectedRowId}
-              inspectorLabel="Dataset inspector"
-              loading={rowsQuery.isLoading}
-              error={
-                rowsQuery.isLoadingError || rowsQuery.isRefetchError
-                  ? rowsQuery.error
-                  : null
-              }
-              onRetry={() => void rowsQuery.refetch()}
-              incrementalRows={{
-                hasMore: rowsQuery.hasNextPage,
-                loadingMore: rowsQuery.isFetchingNextPage,
-                onLoadMore: () =>
-                  void rowsQuery.fetchNextPage({ cancelRefetch: false }),
-                loadError: rowsQuery.isFetchNextPageError
-                  ? rowsQuery.error
-                  : undefined,
-              }}
-              searchDebounceMs={300}
-              emptyTitle="No rows yet"
-              noResultsTitle="No matching rows"
-              renderInspector={(row) => (
-                <DatasetInspector
-                  table={table}
-                  row={row}
-                  formulas={lineageQuery.data?.formulas ?? []}
-                  dependencies={lineageQuery.data?.dependencies ?? []}
-                  links={linksQuery.data ?? []}
-                  lineageLoading={lineageQuery.isLoading}
-                  lineageError={lineageQuery.error}
-                />
-              )}
-            />
-          </div>
-        </div>
-        {previewOpen ? (
-          <div
-            role="separator"
-            aria-label="Resize dataset preview"
-            aria-orientation="horizontal"
-            aria-valuemin={Math.round(previewBounds.minimum)}
-            aria-valuemax={Math.round(previewBounds.maximum)}
-            aria-valuenow={Math.round(previewHeight)}
-            tabIndex={0}
-            className="group relative z-10 cursor-row-resize touch-none outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-            onPointerDown={(event) => {
-              resizeRef.current = {
-                pointerId: event.pointerId,
-                startY: event.clientY,
-                startHeight: previewHeight,
-              }
-              event.currentTarget.setPointerCapture(event.pointerId)
-            }}
-            onPointerMove={(event) => {
-              const resize = resizeRef.current
-              if (!resize || resize.pointerId !== event.pointerId) return
-              resizePreview(
-                resize.startHeight + (resize.startY - event.clientY),
-              )
-            }}
-            onPointerUp={(event) => {
-              if (resizeRef.current?.pointerId !== event.pointerId) return
-              resizeRef.current = null
-              event.currentTarget.releasePointerCapture(event.pointerId)
-            }}
-            onPointerCancel={() => {
-              resizeRef.current = null
-            }}
-            onDoubleClick={() => resizePreview(320)}
-            onKeyDown={(event) => {
-              if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-                event.preventDefault()
-                resizePreview(
-                  previewHeight + (event.key === 'ArrowUp' ? 16 : -16),
-                )
-              } else if (event.key === 'Home') {
-                event.preventDefault()
-                resizePreview(previewBounds.minimum)
-              } else if (event.key === 'End') {
-                event.preventDefault()
-                resizePreview(previewBounds.maximum)
-              }
-            }}
-          >
-            <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-border transition-colors group-hover:bg-primary group-focus-visible:bg-primary" />
-            <span className="absolute left-1/2 top-1/2 h-1 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-muted-foreground/25 transition-colors group-hover:bg-primary/60 group-focus-visible:bg-primary/60" />
-          </div>
-        ) : (
-          <div />
+        searchDebounceMs={300}
+        emptyTitle="No rows yet"
+        noResultsTitle="No matching rows"
+        renderInspector={(row) => (
+          <DatasetInspector
+            table={table}
+            row={row}
+            formulas={lineageQuery.data?.formulas ?? []}
+            dependencies={lineageQuery.data?.dependencies ?? []}
+            links={linksQuery.data ?? []}
+            lineageLoading={lineageQuery.isLoading}
+            lineageError={lineageQuery.error}
+          />
         )}
-        <Tabs
-          value={previewTab}
-          onValueChange={setPreviewTab}
-          className="h-full min-h-0"
-        >
-          <div className="flex h-full min-h-0 flex-col overflow-hidden">
-            <div className="flex h-9 shrink-0 items-center justify-between border-b">
-              <TabsList className="h-9 gap-5 rounded-none bg-transparent p-0">
-                {[
-                  { value: 'preview', label: 'Chart preview' },
-                  { value: 'summary', label: 'Column summary' },
-                ].map((tab) => (
-                  <TabsTrigger
-                    key={tab.value}
-                    value={tab.value}
-                    className="h-9 rounded-none border-b-2 border-transparent px-0 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-                  >
-                    {tab.label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-xs"
-                onClick={() => setPreviewOpen((open) => !open)}
-                aria-expanded={previewOpen}
-                aria-controls="dataset-preview-content"
-              >
-                {previewOpen ? <ChevronDown /> : <ChevronUp />}
-                {previewOpen ? 'Hide preview' : 'Show preview'}
-              </Button>
-            </div>
-            <div id="dataset-preview-content" className="min-h-0 flex-1">
-              {previewOpen ? (
-                <>
-                  <TabsContent
-                    value="preview"
-                    className="m-0 h-full min-h-0 overflow-hidden p-3"
-                  >
-                    <ChartPreview
-                      table={table}
-                      chartSpec={chartSpec}
-                      onChartSpecChange={setChartSpec}
-                    />
-                  </TabsContent>
-                  <TabsContent
-                    value="summary"
-                    className="m-0 h-full min-h-0 overflow-auto p-3"
-                  >
-                    <ColumnSummary
-                      columns={table.columns}
-                      rows={rows}
-                      totalCount={totalCount}
-                    />
-                  </TabsContent>
-                </>
-              ) : null}
-            </div>
-          </div>
-        </Tabs>
-      </div>
+      />
     </div>
-  )
-}
-
-export function ColumnSummary({
-  columns,
-  rows,
-  totalCount,
-}: {
-  columns: ScientificColumnWire[]
-  rows: ScientificRowWire[]
-  totalCount: number
-}) {
-  if (rows.length === 0) {
-    return <EmptyHint>No rows available to summarise.</EmptyHint>
-  }
-
-  return (
-    <section aria-labelledby="column-summary-title">
-      <div className="mb-3">
-        <h3 id="column-summary-title" className="text-sm font-semibold">
-          Column summary
-        </h3>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          Based on {formatCount(rows.length)} of {formatCount(totalCount)} rows
-          in the current result.
-        </p>
-      </div>
-      <div className="overflow-hidden rounded-md border">
-        <Table aria-label="Column summary">
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead>Field</TableHead>
-              <TableHead>Complete</TableHead>
-              <TableHead>Summary</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {columns.map((column) => {
-              const values = rows
-                .map((row) => row[column.field_name])
-                .filter(
-                  (value) =>
-                    value !== null && value !== undefined && value !== '',
-                )
-              const completeness = Math.round(
-                (values.length / rows.length) * 100,
-              )
-              const numericValues = values.filter(
-                (value): value is number =>
-                  typeof value === 'number' && Number.isFinite(value),
-              )
-              let summary: string
-              if (numericValues.length > 0) {
-                const mean =
-                  numericValues.reduce((sum, value) => sum + value, 0) /
-                  numericValues.length
-                summary = `Mean ${formatCount(mean)} · ${formatCount(
-                  Math.min(...numericValues),
-                )}–${formatCount(Math.max(...numericValues))}`
-              } else {
-                const unique = new Set(values.map(String)).size
-                summary = `${formatCount(unique)} unique value${unique === 1 ? '' : 's'}`
-              }
-
-              return (
-                <TableRow key={column.id}>
-                  <TableCell className="py-1.5">
-                    <span className="font-medium">{column.label}</span>
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      {column.logical_type}
-                    </span>
-                  </TableCell>
-                  <TableCell className="py-1.5 tabular-nums">
-                    {values.length}/{rows.length} ({completeness}%)
-                  </TableCell>
-                  <TableCell className="py-1.5 tabular-nums">
-                    {summary}
-                  </TableCell>
-                </TableRow>
-              )
-            })}
-          </TableBody>
-        </Table>
-      </div>
-    </section>
   )
 }
 
@@ -1073,13 +751,26 @@ export function DataTableView({
 }
 
 // ---------------------------------------------------------------------------
-// Chart preview
+// Chart tab
 // ---------------------------------------------------------------------------
+
+function DatasetChartTab({ table }: { table: ScientificTableWire }) {
+  const chartSpec = useMemo(() => {
+    const spec = buildDefaultChartSpec(table)
+    if (!spec) return null
+    const xColumn = table.columns.find(
+      (column) => column.id === spec.fields.x?.columnId,
+    )
+    return /time|day|date/i.test(xColumn?.label ?? '')
+      ? { ...spec, type: 'line' as const }
+      : spec
+  }, [table])
+  return <ChartPreview table={table} chartSpec={chartSpec} />
+}
 
 interface ChartPreviewProps {
   table: ScientificTableWire
   chartSpec: ChartSpec | null
-  onChartSpecChange: (spec: ChartSpec | null) => void
 }
 
 function ChartPreview({ table, chartSpec }: ChartPreviewProps) {
@@ -1157,7 +848,7 @@ function ChartPreview({ table, chartSpec }: ChartPreviewProps) {
           hideTitle
           plotHeight={plotHeight}
           showTableAlternative={false}
-          className="h-full rounded-none border-0 bg-transparent shadow-none"
+          className="flex h-full min-h-0 flex-col rounded-none border-0 bg-transparent shadow-none [&>div:first-of-type]:min-h-0 [&>div:first-of-type]:flex-1"
         />
       ) : null}
     </div>

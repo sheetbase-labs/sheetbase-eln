@@ -4,7 +4,7 @@
  * Covers the header states, the data table view (loading/empty/error/
  * populated + selection), the inspector (row, lineage, linked records), and
  * a DatasetDataTab smoke test with mocked queries so the incremental grid,
- * filter toolbar and chart preview render end-to-end.
+ * filter toolbar and failure states render end-to-end.
  */
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -13,13 +13,11 @@ import type { UseQueryResult } from '@tanstack/react-query'
 
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import {
-  ColumnSummary,
   DataTableView,
   DatasetDataTab,
   DatasetExplorerHeader,
   DatasetInspector,
   DatasetSchemaTab,
-  datasetPreviewBounds,
 } from './datasets'
 import type { DatasetDataTabProps } from './datasets'
 import { useReactTable, getCoreRowModel } from '@tanstack/react-table'
@@ -363,28 +361,6 @@ describe('DataTableView', () => {
   })
 })
 
-describe('ColumnSummary', () => {
-  it('computes completeness and numeric summaries for the loaded rows', () => {
-    render(
-      <ColumnSummary
-        columns={table().columns}
-        rows={[
-          { id: 'r-1', version: 1, col_alpha: 'A1', col_beta: 7.2 },
-          { id: 'r-2', version: 1, col_alpha: 'A2', col_beta: 7.4 },
-        ]}
-        totalCount={12}
-      />,
-    )
-
-    expect(
-      screen.getByText('Based on 2 of 12 rows in the current result.'),
-    ).toBeTruthy()
-    expect(screen.getAllByText('2/2 (100%)')).toHaveLength(2)
-    expect(screen.getByText('Mean 7.3 · 7.2–7.4')).toBeTruthy()
-    expect(screen.getByText('2 unique values')).toBeTruthy()
-  })
-})
-
 // --- DatasetInspector -----------------------------------------------------
 
 describe('DatasetInspector', () => {
@@ -479,11 +455,6 @@ describe('DatasetInspector', () => {
 // --- DatasetDataTab (smoke) ----------------------------------------------
 
 describe('DatasetDataTab', () => {
-  it('preserves the data-grid minimum in short layouts', () => {
-    expect(datasetPreviewBounds(400)).toEqual({ minimum: 172, maximum: 172 })
-    expect(datasetPreviewBounds(679)).toEqual({ minimum: 180, maximum: 451 })
-  })
-
   function mockQueries(
     rows: ScientificRowWire[],
     totalCount: number,
@@ -525,14 +496,11 @@ describe('DatasetDataTab', () => {
   ): DatasetDataTabProps {
     return {
       table: table(),
-      workspaceId: 'ws-1',
-      userId: 'u-1',
       ...overrides,
     }
   }
 
-  it('renders incremental rows, a working summary and a draggable chart preview', async () => {
-    const user = userEvent.setup()
+  it('renders incremental rows without pagination or secondary previews', () => {
     mockQueries([{ id: 'r-1', version: 1, col_alpha: 'A1', col_beta: 7.4 }], 1)
     render(<DatasetDataTab {...props()} />)
     expect(screen.getByText('All records loaded')).toBeTruthy()
@@ -541,27 +509,10 @@ describe('DatasetDataTab', () => {
     expect(screen.queryByLabelText('Formula expression')).toBeNull()
     expect(screen.queryByRole('tab', { name: 'Distribution' })).toBeNull()
     expect(screen.queryByRole('tab', { name: 'Correlations' })).toBeNull()
-    const layout = document.querySelector('[data-preview-height]')
-    expect(layout?.getAttribute('data-preview-open')).toBe('false')
     expect(
       screen.queryByRole('separator', { name: 'Resize dataset preview' }),
     ).toBeNull()
-    await user.click(screen.getByRole('button', { name: 'Show preview' }))
-    const separator = screen.getByRole('separator', {
-      name: 'Resize dataset preview',
-    })
-    expect(layout?.getAttribute('data-preview-open')).toBe('true')
-    expect(layout?.getAttribute('data-preview-height')).toBe('320')
-    separator.focus()
-    await user.keyboard('{ArrowUp}')
-    expect(layout?.getAttribute('data-preview-height')).toBe('336')
-    expect(separator.getAttribute('aria-valuenow')).toBe('336')
-    expect(screen.queryByRole('button', { name: 'Expand preview' })).toBeNull()
-    expect(screen.queryByText(/Show data table/)).toBeNull()
-
-    await user.click(screen.getByRole('tab', { name: 'Column summary' }))
-    expect(screen.getByRole('table', { name: 'Column summary' })).toBeTruthy()
-    expect(screen.getByText('Mean 7.4 · 7.4–7.4')).toBeTruthy()
+    expect(screen.queryByText('Column summary')).toBeNull()
   })
 
   it('shows the empty state when no rows are returned', () => {

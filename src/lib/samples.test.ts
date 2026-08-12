@@ -29,7 +29,10 @@ const baseQuery: RegistryQuery = {
   filters: [],
 }
 
-function wire(props: Record<string, unknown> = {}): RecordWire {
+function wire(
+  props: Record<string, unknown> = {},
+  customFields: Record<string, unknown> = {},
+): RecordWire {
   return {
     id: 's1',
     workspace_id: 'ws',
@@ -49,6 +52,7 @@ function wire(props: Record<string, unknown> = {}): RecordWire {
     created_by_user_id: 'u1',
     updated_by_user_id: null,
     properties: props,
+    custom_fields: customFields,
     locked_at: null,
     locked_by_revision_id: null,
   }
@@ -86,6 +90,12 @@ describe('parseSampleProperties and toSampleRecord', () => {
   it('rejects non-numeric quantities without throwing', () => {
     const rec = toSampleRecord(wire({ quantity: 'lots' }))
     expect(rec.quantity).toBeNull()
+  })
+
+  it('keeps workspace model fields separate from system properties', () => {
+    const rec = toSampleRecord(wire({ quantity: 2 }, { study_arm: 'treated' }))
+    expect(rec.quantity).toBe(2)
+    expect(rec.customFields).toEqual({ study_arm: 'treated' })
   })
 })
 
@@ -189,6 +199,24 @@ describe('buildSamplesFilter', () => {
     expect(search).not.toContain('%')
     expect(search).not.toContain('_')
   })
+
+  it('filters administrator-defined fields through custom_fields', () => {
+    expect(
+      buildSamplesFilter([
+        { fieldId: 'custom:study_arm', operator: 'eq', values: ['treated'] },
+        {
+          fieldId: 'custom:assay_name',
+          operator: 'contains',
+          values: ['ELISA'],
+        },
+      ]),
+    ).toEqual(
+      expect.arrayContaining([
+        'custom_fields->>study_arm=eq.treated',
+        'custom_fields->>assay_name=ilike.*ELISA*',
+      ]),
+    )
+  })
 })
 
 describe('buildSamplesOrder and buildSamplesQuery', () => {
@@ -204,6 +232,18 @@ describe('buildSamplesOrder and buildSamplesQuery', () => {
     }
     expect(buildSamplesOrder(q)).toBe(
       'order=status.asc,(properties->>quantity)::numeric.desc,identifier.asc',
+    )
+  })
+
+  it('sorts and groups by validated model-field keys', () => {
+    expect(
+      buildSamplesOrder({
+        ...baseQuery,
+        grouping: ['custom:study_arm'],
+        sorting: [{ id: 'custom:assay_name', desc: true }],
+      }),
+    ).toBe(
+      'order=custom_fields->study_arm.asc,custom_fields->assay_name.desc,identifier.asc',
     )
   })
 
@@ -223,6 +263,7 @@ describe('buildSamplesOrder and buildSamplesQuery', () => {
     expect(built).toContain('limit=50')
     expect(built).toContain('offset=100')
     expect(built).toContain('select=id,workspace_id')
+    expect(built).toContain('custom_fields')
   })
 
   it('count query excludes pagination, order and select', () => {

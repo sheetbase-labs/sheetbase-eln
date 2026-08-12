@@ -6,19 +6,25 @@ import { ShellProvider } from '#/components/app-shell'
 import { Route } from './admin'
 
 const AdminRoute = Route.options.component as React.ComponentType
+let pathname = '/admin/users'
+let model: string | undefined
+const navigate = vi.fn()
 
 vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () =>
-    (config: Record<string, unknown>) => ({
-      useRouteContext: () => ({
-        context: {
-          workspace: { id: 'workspace-1', name: 'Test workspace', role: 'owner' },
-          user: { name: 'Test User', email: 'test@example.com' },
-        },
-      }),
-      options: config,
+  createFileRoute: () => (config: Record<string, unknown>) => ({
+    useRouteContext: () => ({
+      context: {
+        workspace: { id: 'workspace-1', name: 'Test workspace', role: 'owner' },
+        user: { name: 'Test User', email: 'test@example.com' },
+      },
     }),
+    useSearch: () => ({ model }),
+    options: config,
+  }),
   redirect: (options: unknown) => options,
+  useNavigate: () => navigate,
+  useRouterState: ({ select }: { select: (state: unknown) => unknown }) =>
+    select({ location: { pathname } }),
   Link: ({
     to,
     children,
@@ -52,7 +58,15 @@ vi.mock('@tanstack/react-query', () => ({
 vi.mock('#/components/app-shell', async () => {
   const React = await import('react')
   const ctx = React.createContext({ setConfig: (_c: any) => {} })
-  const AppShell = ({ children, inspector, primaryAction }: { children: React.ReactNode; inspector: React.ReactNode; primaryAction: React.ReactNode }) => (
+  const AppShell = ({
+    children,
+    inspector,
+    primaryAction,
+  }: {
+    children: React.ReactNode
+    inspector: React.ReactNode
+    primaryAction: React.ReactNode
+  }) => (
     <div>
       <div data-testid="primary-action">{primaryAction}</div>
       <main>{children}</main>
@@ -60,17 +74,30 @@ vi.mock('#/components/app-shell', async () => {
     </div>
   )
   const ShellProvider = ({ children }: { children: React.ReactNode }) => {
-    const [config, setConfig] = React.useState<{ context: unknown | null; [k: string]: unknown }>({ context: null })
+    const [config, setConfig] = React.useState<{
+      context: unknown | null
+      [k: string]: unknown
+    }>({ context: null })
     const value = React.useMemo(
-      () => ({ setConfig: (c: Partial<typeof config>) => setConfig((prev) => ({ ...prev, ...c })) }),
+      () => ({
+        setConfig: (c: Partial<typeof config>) =>
+          setConfig((prev) => ({ ...prev, ...c })),
+      }),
       [],
     )
-    if (!config.context) return React.createElement(ctx.Provider, { value }, children as any)
-    return React.createElement(ctx.Provider, { value }, React.createElement(AppShell, config as any, children) as any)
+    if (!config.context)
+      return React.createElement(ctx.Provider, { value }, children as any)
+    return React.createElement(
+      ctx.Provider,
+      { value },
+      React.createElement(AppShell, config as any, children) as any,
+    )
   }
   const useShell = (config: Record<string, unknown>) => {
     const { setConfig } = React.useContext(ctx)
-    React.useLayoutEffect(() => { setConfig(config) }, [])
+    React.useLayoutEffect(() => {
+      setConfig(config)
+    }, [])
   }
   return { AppShell, ShellProvider, useShell }
 })
@@ -81,38 +108,78 @@ globalThis.ResizeObserver = class {
   disconnect() {}
 }
 
-afterEach(() => cleanup())
+afterEach(() => {
+  cleanup()
+  pathname = '/admin/users'
+  model = undefined
+  navigate.mockReset()
+})
 
 describe('AdminRoute', () => {
-  it('renders the Workspace Settings & Permissions title', () => {
-    render(<ShellProvider><AdminRoute /></ShellProvider>)
-    expect(screen.getByText('Workspace Settings & Permissions')).toBeTruthy()
+  it('renders the dedicated Administration workspace', () => {
+    render(
+      <ShellProvider>
+        <AdminRoute />
+      </ShellProvider>,
+    )
+    expect(screen.getByRole('heading', { name: 'Administration' })).toBeTruthy()
+    expect(screen.getByLabelText('Administration sections')).toBeTruthy()
   })
 
-  it('renders the Users tab by default', () => {
-    render(<ShellProvider><AdminRoute /></ShellProvider>)
+  it('renders the Users subpage by default', () => {
+    render(
+      <ShellProvider>
+        <AdminRoute />
+      </ShellProvider>,
+    )
     expect(
-      screen.getByRole('tab', { name: 'Users' }).getAttribute('data-state'),
-    ).toBe('active')
+      screen.getByRole('link', { name: 'Users' }).getAttribute('aria-current'),
+    ).toBe('page')
+    expect(screen.getByRole('heading', { name: 'Users' })).toBeTruthy()
   })
 
-  it('renders the Export audit log primary action', () => {
-    render(<ShellProvider><AdminRoute /></ShellProvider>)
+  it('renders the audit export action on the Activity subpage', () => {
+    pathname = '/admin/activity'
+    render(
+      <ShellProvider>
+        <AdminRoute />
+      </ShellProvider>,
+    )
     expect(screen.getByTestId('primary-action').textContent).toContain(
       'Export audit log',
     )
   })
 
-  it('renders all tab labels', () => {
-    render(<ShellProvider><AdminRoute /></ShellProvider>)
+  it('renders addressable links for every administration subpage', () => {
+    render(
+      <ShellProvider>
+        <AdminRoute />
+      </ShellProvider>,
+    )
     for (const label of [
       'Users',
-      'Project Access',
+      'Project access',
       'Sessions',
       'Activity',
-      'Settings',
+      'Workspace settings',
+      'Model fields',
     ]) {
-      expect(screen.getByRole('tab', { name: label })).toBeTruthy()
+      expect(screen.getByRole('link', { name: label })).toBeTruthy()
     }
+  })
+
+  it('passes URL model state to the Model fields page', async () => {
+    pathname = '/admin/model-fields'
+    model = 'report'
+    render(
+      <ShellProvider>
+        <AdminRoute />
+      </ShellProvider>,
+    )
+    expect(
+      await screen.findByRole('combobox', {
+        name: 'Model',
+      }),
+    ).toHaveProperty('value', 'report')
   })
 })

@@ -12,16 +12,15 @@ import { Route } from './report-builder'
 const ReportBuilderRoute = Route.options.component as React.ComponentType
 
 vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () =>
-    (config: Record<string, unknown>) => ({
-      useRouteContext: () => ({
-        context: {
-          workspace: { id: 'workspace-1', name: 'Test workspace', role: 'owner' },
-          user: { name: 'Test User', email: 'test@example.com' },
-        },
-      }),
-      options: config,
+  createFileRoute: () => (config: Record<string, unknown>) => ({
+    useRouteContext: () => ({
+      context: {
+        workspace: { id: 'workspace-1', name: 'Test workspace', role: 'owner' },
+        user: { name: 'Test User', email: 'test@example.com' },
+      },
     }),
+    options: config,
+  }),
   redirect: (options: unknown) => options,
   Link: ({
     to,
@@ -49,10 +48,12 @@ let sectionsByReport: Record<string, ReportSection[]> = {}
 
 vi.mock('@tanstack/react-query', () => ({
   useQuery: ({ queryKey }: { queryKey: readonly string[] }) => {
-    if (queryKey[1] === 'reports')
-      return { data: reportData, isLoading: false }
+    if (queryKey[1] === 'reports') return { data: reportData, isLoading: false }
     if (queryKey[1] === 'sections')
-      return { data: sectionsByReport[queryKey[2]] ?? emptyData, isLoading: false }
+      return {
+        data: sectionsByReport[queryKey[2]] ?? emptyData,
+        isLoading: false,
+      }
     return { data: emptyData, isLoading: false }
   },
   useMutation: () => ({
@@ -66,7 +67,15 @@ vi.mock('@tanstack/react-query', () => ({
 vi.mock('#/components/app-shell', async () => {
   const React = await import('react')
   const ctx = React.createContext({ setConfig: (_c: any) => {} })
-  const AppShell = ({ children, inspector, primaryAction }: { children: React.ReactNode; inspector: React.ReactNode; primaryAction: React.ReactNode }) => (
+  const AppShell = ({
+    children,
+    inspector,
+    primaryAction,
+  }: {
+    children: React.ReactNode
+    inspector: React.ReactNode
+    primaryAction: React.ReactNode
+  }) => (
     <div>
       <div data-testid="primary-action">{primaryAction}</div>
       <main>{children}</main>
@@ -74,17 +83,30 @@ vi.mock('#/components/app-shell', async () => {
     </div>
   )
   const MockShellProvider = ({ children }: { children: React.ReactNode }) => {
-    const [config, setConfig] = React.useState<{ context: unknown | null; [k: string]: unknown }>({ context: null })
+    const [config, setConfig] = React.useState<{
+      context: unknown | null
+      [k: string]: unknown
+    }>({ context: null })
     const value = React.useMemo(
-      () => ({ setConfig: (c: Partial<typeof config>) => setConfig((prev) => ({ ...prev, ...c })) }),
+      () => ({
+        setConfig: (c: Partial<typeof config>) =>
+          setConfig((prev) => ({ ...prev, ...c })),
+      }),
       [],
     )
-    if (!config.context) return React.createElement(ctx.Provider, { value }, children as any)
-    return React.createElement(ctx.Provider, { value }, React.createElement(AppShell, config as any, children) as any)
+    if (!config.context)
+      return React.createElement(ctx.Provider, { value }, children as any)
+    return React.createElement(
+      ctx.Provider,
+      { value },
+      React.createElement(AppShell, config as any, children) as any,
+    )
   }
   const useShell = (config: Record<string, unknown>) => {
     const { setConfig } = React.useContext(ctx)
-    React.useLayoutEffect(() => { setConfig(config) }, [])
+    React.useLayoutEffect(() => {
+      setConfig(config)
+    }, [])
   }
   return { AppShell, ShellProvider: MockShellProvider, useShell }
 })
@@ -164,22 +186,40 @@ function section(reportId: string, title: string): ReportSection {
 
 describe('ReportBuilderRoute', () => {
   it('renders the Report Builder title', () => {
-    render(<ShellProvider><ReportBuilderRoute /></ShellProvider>)
+    render(
+      <ShellProvider>
+        <ReportBuilderRoute />
+      </ShellProvider>,
+    )
     expect(screen.getByText('Report Builder')).toBeTruthy()
   })
 
   it('renders the New report button', () => {
-    render(<ShellProvider><ReportBuilderRoute /></ShellProvider>)
-    expect(screen.getAllByRole('button', { name: /New report/i }).length).toBeGreaterThan(0)
+    render(
+      <ShellProvider>
+        <ReportBuilderRoute />
+      </ShellProvider>,
+    )
+    expect(
+      screen.getAllByRole('button', { name: /New report/i }).length,
+    ).toBeGreaterThan(0)
   })
 
   it('shows the empty state when no reports exist', () => {
-    render(<ShellProvider><ReportBuilderRoute /></ShellProvider>)
+    render(
+      <ShellProvider>
+        <ReportBuilderRoute />
+      </ShellProvider>,
+    )
     expect(screen.getByText('No reports yet')).toBeTruthy()
   })
 
   it('shows the empty inspector hint when no report is selected', () => {
-    render(<ShellProvider><ReportBuilderRoute /></ShellProvider>)
+    render(
+      <ShellProvider>
+        <ReportBuilderRoute />
+      </ShellProvider>,
+    )
     expect(screen.getByText('No report selected.')).toBeTruthy()
   })
 
@@ -190,7 +230,11 @@ describe('ReportBuilderRoute', () => {
       'report-2': [section('report-2', 'Second report section')],
     }
 
-    render(<ShellProvider><ReportBuilderRoute /></ShellProvider>)
+    render(
+      <ShellProvider>
+        <ReportBuilderRoute />
+      </ShellProvider>,
+    )
 
     expect(screen.getAllByText('First report').length).toBeGreaterThan(0)
     expect(
@@ -208,7 +252,11 @@ describe('ReportBuilderRoute', () => {
       'report-2': [section('report-2', 'Second report section')],
     }
 
-    render(<ShellProvider><ReportBuilderRoute /></ShellProvider>)
+    render(
+      <ShellProvider>
+        <ReportBuilderRoute />
+      </ShellProvider>,
+    )
     fireEvent.change(screen.getByLabelText('Select report'), {
       target: { value: 'report-2' },
     })

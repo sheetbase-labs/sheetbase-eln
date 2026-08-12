@@ -48,6 +48,7 @@ export interface RecordWire {
   created_by_user_id: string
   updated_by_user_id: string | null
   properties: Record<string, unknown> | null
+  custom_fields?: Record<string, unknown> | null
   // SIGN-002: lock state. locked_at is set when an approve-for-record
   // signature locks the record; locked_by_revision_id pins the approved
   // revision that caused the lock. Both null when the record is editable.
@@ -135,6 +136,7 @@ export interface NotebookRecord {
   createdByUserId: string
   updatedByUserId: string | null
   properties: Record<string, unknown>
+  customFields?: Record<string, unknown>
   // SIGN-002: lock state. lockedAt is set when an approve-for-record
   // signature locks the record; lockedByRevisionId pins the approved
   // revision that caused the lock. Both null when the record is editable.
@@ -195,6 +197,7 @@ export function toRecord(row: RecordWire): NotebookRecord {
     createdByUserId: row.created_by_user_id,
     updatedByUserId: row.updated_by_user_id,
     properties: row.properties ?? {},
+    customFields: row.custom_fields ?? {},
     lockedAt: row.locked_at ?? null,
     lockedByRevisionId: row.locked_by_revision_id ?? null,
   }
@@ -413,6 +416,7 @@ export const RECORD_KIND_LABELS: Record<string, string> = {
   sample: 'Sample',
   reagent: 'Reagent',
   file: 'File',
+  study: 'Study',
 }
 
 export function recordKindLabel(kind: string): string {

@@ -29,6 +29,7 @@ import { Route as SearchRouteImport } from './routes/search'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as StorageRouteImport } from './routes/storage'
 import { Route as TemplatesRouteImport } from './routes/templates'
+import { Route as AdminSectionRouteImport } from './routes/admin/$section'
 import { Route as ApiCalculationsRouteImport } from './routes/api/calculations'
 import { Route as ApiEventsRouteImport } from './routes/api/events'
 import { Route as ApiFormulasRouteImport } from './routes/api/formulas'
@@ -145,6 +146,11 @@ const TemplatesRoute = TemplatesRouteImport.update({
   path: '/templates',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminSectionRoute = AdminSectionRouteImport.update({
+  id: '/$section',
+  path: '/$section',
+  getParentRoute: () => AdminRoute,
+} as any)
 const ApiCalculationsRoute = ApiCalculationsRouteImport.update({
   id: '/api/calculations',
   path: '/api/calculations',
@@ -225,7 +231,7 @@ const ProjectsProjectIdExperimentsRecordIdOverviewRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/analysis': typeof AnalysisRoute
   '/calendar': typeof CalendarRoute
   '/datasets': typeof DatasetsRoute
@@ -244,6 +250,7 @@ export interface FileRoutesByFullPath {
   '/sign-in': typeof SignInRoute
   '/storage': typeof StorageRoute
   '/templates': typeof TemplatesRoute
+  '/admin/$section': typeof AdminSectionRoute
   '/api/calculations': typeof ApiCalculationsRoute
   '/api/events': typeof ApiEventsRoute
   '/api/formulas': typeof ApiFormulasRoute
@@ -262,7 +269,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/analysis': typeof AnalysisRoute
   '/calendar': typeof CalendarRoute
   '/datasets': typeof DatasetsRoute
@@ -281,6 +288,7 @@ export interface FileRoutesByTo {
   '/sign-in': typeof SignInRoute
   '/storage': typeof StorageRoute
   '/templates': typeof TemplatesRoute
+  '/admin/$section': typeof AdminSectionRoute
   '/api/calculations': typeof ApiCalculationsRoute
   '/api/events': typeof ApiEventsRoute
   '/api/formulas': typeof ApiFormulasRoute
@@ -300,7 +308,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/analysis': typeof AnalysisRoute
   '/calendar': typeof CalendarRoute
   '/datasets': typeof DatasetsRoute
@@ -319,6 +327,7 @@ export interface FileRoutesById {
   '/sign-in': typeof SignInRoute
   '/storage': typeof StorageRoute
   '/templates': typeof TemplatesRoute
+  '/admin/$section': typeof AdminSectionRoute
   '/api/calculations': typeof ApiCalculationsRoute
   '/api/events': typeof ApiEventsRoute
   '/api/formulas': typeof ApiFormulasRoute
@@ -358,6 +367,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/storage'
     | '/templates'
+    | '/admin/$section'
     | '/api/calculations'
     | '/api/events'
     | '/api/formulas'
@@ -395,6 +405,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/storage'
     | '/templates'
+    | '/admin/$section'
     | '/api/calculations'
     | '/api/events'
     | '/api/formulas'
@@ -432,6 +443,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/storage'
     | '/templates'
+    | '/admin/$section'
     | '/api/calculations'
     | '/api/events'
     | '/api/formulas'
@@ -451,7 +463,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AdminRoute: typeof AdminRoute
+  AdminRoute: typeof AdminRouteWithChildren
   AnalysisRoute: typeof AnalysisRoute
   CalendarRoute: typeof CalendarRoute
   DatasetsRoute: typeof DatasetsRoute
@@ -625,6 +637,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TemplatesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/$section': {
+      id: '/admin/$section'
+      path: '/$section'
+      fullPath: '/admin/$section'
+      preLoaderRoute: typeof AdminSectionRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/api/calculations': {
       id: '/api/calculations'
       path: '/api/calculations'
@@ -733,6 +752,16 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AdminRouteChildren {
+  AdminSectionRoute: typeof AdminSectionRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminSectionRoute: AdminSectionRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
 interface ProjectsProjectIdExperimentsRecordIdRouteChildren {
   ProjectsProjectIdExperimentsRecordIdOverviewRoute: typeof ProjectsProjectIdExperimentsRecordIdOverviewRoute
 }
@@ -785,7 +814,7 @@ const ReviewsRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AdminRoute: AdminRoute,
+  AdminRoute: AdminRouteWithChildren,
   AnalysisRoute: AnalysisRoute,
   CalendarRoute: CalendarRoute,
   DatasetsRoute: DatasetsRoute,

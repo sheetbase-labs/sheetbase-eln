@@ -214,18 +214,9 @@ export const demoSteps: Array<SeedStep> = [
     },
   },
   {
-    name: 'demo field definitions: sample and reagent properties',
+    name: 'demo model field definitions: sample and report extensions',
     run: async (db) => {
       const defs = [
-        {
-          id: DEMO_FIELD_DEFINITION_IDS.protocolVersion,
-          kind: 'protocol_template' as const,
-          fieldName: 'version',
-          label: 'Version',
-          displayOrder: 1,
-          logicalType: 'text' as const,
-          nullable: false,
-        },
         {
           id: DEMO_FIELD_DEFINITION_IDS.sampleConstruct,
           kind: 'sample' as const,
@@ -233,7 +224,7 @@ export const demoSteps: Array<SeedStep> = [
           label: 'Construct',
           displayOrder: 1,
           logicalType: 'text' as const,
-          nullable: false,
+          nullable: true,
         },
         {
           id: DEMO_FIELD_DEFINITION_IDS.sampleBatch,
@@ -242,7 +233,7 @@ export const demoSteps: Array<SeedStep> = [
           label: 'Batch',
           displayOrder: 2,
           logicalType: 'text' as const,
-          nullable: false,
+          nullable: true,
         },
         {
           id: DEMO_FIELD_DEFINITION_IDS.sampleConcentration,
@@ -258,92 +249,29 @@ export const demoSteps: Array<SeedStep> = [
           id: DEMO_FIELD_DEFINITION_IDS.sampleStorage,
           kind: 'sample' as const,
           fieldName: 'storage',
-          label: 'Storage',
+          label: 'Storage category',
           displayOrder: 4,
           logicalType: 'category' as const,
           nullable: true,
           validation: { enum: ['-80 °C', '-20 °C', '4 °C', 'ambient'] },
         },
         {
-          id: DEMO_FIELD_DEFINITION_IDS.reagentSupplier,
-          kind: 'reagent' as const,
-          fieldName: 'supplier',
-          label: 'Supplier',
+          id: DEMO_FIELD_DEFINITION_IDS.reportProgramme,
+          kind: 'report' as const,
+          fieldName: 'programme',
+          label: 'Programme',
           displayOrder: 1,
           logicalType: 'text' as const,
           nullable: true,
         },
         {
-          id: DEMO_FIELD_DEFINITION_IDS.reagentCatalogNo,
-          kind: 'reagent' as const,
-          fieldName: 'catalog_no',
-          label: 'Catalog No.',
+          id: DEMO_FIELD_DEFINITION_IDS.reportPeriodEnd,
+          kind: 'report' as const,
+          fieldName: 'reporting_period_end',
+          label: 'Reporting period end',
           displayOrder: 2,
-          logicalType: 'text' as const,
-          nullable: true,
-        },
-        {
-          id: DEMO_FIELD_DEFINITION_IDS.reagentLot,
-          kind: 'reagent' as const,
-          fieldName: 'lot',
-          label: 'Lot',
-          displayOrder: 3,
-          logicalType: 'text' as const,
-          nullable: true,
-        },
-        {
-          id: DEMO_FIELD_DEFINITION_IDS.reagentExpiry,
-          kind: 'reagent' as const,
-          fieldName: 'expiry',
-          label: 'Expiry',
-          displayOrder: 4,
           logicalType: 'date' as const,
           nullable: true,
-        },
-        {
-          id: DEMO_FIELD_DEFINITION_IDS.reagentQuantity,
-          kind: 'reagent' as const,
-          fieldName: 'quantity',
-          label: 'Quantity',
-          displayOrder: 5,
-          logicalType: 'decimal' as const,
-          nullable: true,
-        },
-        {
-          id: DEMO_FIELD_DEFINITION_IDS.reagentUnit,
-          kind: 'reagent' as const,
-          fieldName: 'unit',
-          label: 'Unit',
-          displayOrder: 6,
-          logicalType: 'category' as const,
-          nullable: true,
-          validation: {
-            enum: [
-              'mL',
-              'µL',
-              'mg',
-              'µg',
-              'nmol',
-              'reactions',
-              'tests',
-              'columns',
-              'preps',
-              'vials',
-              'assays',
-              'tablets',
-              'cartridges',
-            ],
-          },
-        },
-        {
-          id: DEMO_FIELD_DEFINITION_IDS.reagentStorage,
-          kind: 'reagent' as const,
-          fieldName: 'storage',
-          label: 'Storage',
-          displayOrder: 7,
-          logicalType: 'category' as const,
-          nullable: true,
-          validation: { enum: ['-80 °C', '-20 °C', '4 °C', 'ambient'] },
         },
       ] as const
 
@@ -361,6 +289,7 @@ export const demoSteps: Array<SeedStep> = [
             nullable: def.nullable,
             unit: 'unit' in def ? def.unit : null,
             validation: 'validation' in def ? def.validation : {},
+            lifecycle: 'active',
             createdByUserId: FIXTURE_USER_ID,
           })
           .onConflictDoUpdate({
@@ -379,6 +308,26 @@ export const demoSteps: Array<SeedStep> = [
               lifecycle: 'active',
             },
           })
+
+        if ('validation' in def && 'enum' in def.validation) {
+          for (const [index, option] of def.validation.enum.entries()) {
+            await db
+              .insert(schema.modelFieldOptions)
+              .values({
+                definitionId: def.id,
+                key: option,
+                label: option,
+                displayOrder: index + 1,
+              })
+              .onConflictDoUpdate({
+                target: [
+                  schema.modelFieldOptions.definitionId,
+                  schema.modelFieldOptions.key,
+                ],
+                set: { label: option, displayOrder: index + 1 },
+              })
+          }
+        }
       }
     },
   },
@@ -396,7 +345,8 @@ export const demoSteps: Array<SeedStep> = [
           title: 'LVV-CAR-T drug substance',
           status: 'available',
           tags: ['LVV-CAR-T', 'drug-substance'],
-          properties: {
+          properties: {},
+          customFields: {
             construct: 'LVV-CAR-T',
             batch: 'LVV-250601',
             concentration: 2.31e7,
@@ -410,7 +360,7 @@ export const demoSteps: Array<SeedStep> = [
             title: 'LVV-CAR-T drug substance',
             status: 'available',
             tags: ['LVV-CAR-T', 'drug-substance'],
-            properties: {
+            customFields: {
               construct: 'LVV-CAR-T',
               batch: 'LVV-250601',
               concentration: 2.31e7,
@@ -440,7 +390,8 @@ export const demoSteps: Array<SeedStep> = [
           title: 'LVV reference lot (expired)',
           status: 'expired',
           tags: ['LVV-CAR-T', 'reference'],
-          properties: {
+          properties: {},
+          customFields: {
             construct: 'LVV-CAR-T',
             batch: 'LVV-240118',
             storage: '-80 °C',
@@ -453,7 +404,7 @@ export const demoSteps: Array<SeedStep> = [
             title: 'LVV reference lot (expired)',
             status: 'expired',
             tags: ['LVV-CAR-T', 'reference'],
-            properties: {
+            customFields: {
               construct: 'LVV-CAR-T',
               batch: 'LVV-240118',
               storage: '-80 °C',
@@ -876,8 +827,6 @@ export const demoSteps: Array<SeedStep> = [
       for (const sample of samples) {
         const properties = {
           sampleType: sample.sampleType,
-          construct: sample.construct,
-          batch: sample.batch,
           quantity: sample.quantity,
           quantityUnit: sample.quantityUnit,
           storageLocation: sample.storageLocation,
@@ -901,6 +850,10 @@ export const demoSteps: Array<SeedStep> = [
             title: sample.title,
             status: sample.status,
             properties,
+            customFields: {
+              construct: sample.construct,
+              batch: sample.batch,
+            },
             createdByUserId: FIXTURE_USER_ID,
             createdAt,
             updatedAt,
@@ -910,7 +863,10 @@ export const demoSteps: Array<SeedStep> = [
             set: {
               title: sample.title,
               status: sample.status,
-              properties,
+              customFields: {
+                construct: sample.construct,
+                batch: sample.batch,
+              },
               updatedAt,
               deletedAt: null,
               archivedAt: null,
@@ -936,15 +892,17 @@ export const demoSteps: Array<SeedStep> = [
             status: 'available',
             tags: ['LVV-CAR-T', 'retention'],
             properties: {
-              construct: 'LVV-CAR-T',
-              batch: 'LVV-250601',
-              storage: '-80 °C',
               quantity: 4,
               expiryDate: '2027-06-30',
               barcode: 'SMP-LVV-0020',
               sampleType: 'Drug substance',
               storageLocation:
                 'Cambridge site / Cold room 1 / Freezer FZ-80-01 / Shelf 2 / Rack 3 / BX-LVV-07 / A1',
+            },
+            customFields: {
+              construct: 'LVV-CAR-T',
+              batch: 'LVV-250601',
+              storage: '-80 °C',
             },
             createdByUserId: FIXTURE_USER_ID,
           },
@@ -958,15 +916,17 @@ export const demoSteps: Array<SeedStep> = [
             status: 'available',
             tags: ['LVV-CAR-T', 'stability'],
             properties: {
-              construct: 'LVV-CAR-T',
-              batch: 'LVV-250601',
-              storage: '-80 °C',
               quantity: 1,
               expiryDate: '2026-08-20',
               barcode: 'SMP-LVV-0021',
               sampleType: 'Stability sample',
               storageLocation:
                 'Cambridge site / Cold room 1 / Freezer FZ-80-01 / Shelf 2 / Rack 3 / BX-LVV-07 / A2',
+            },
+            customFields: {
+              construct: 'LVV-CAR-T',
+              batch: 'LVV-250601',
+              storage: '-80 °C',
             },
             createdByUserId: FIXTURE_USER_ID,
           },
@@ -2407,56 +2367,82 @@ export const demoSteps: Array<SeedStep> = [
         const recoveryColumnId = byLabel['Log titer'].id
         const conditionColumnId = byLabel['Condition'].id
 
-        // Idempotent dataset rows: wipe and re-insert the stability series.
-        // Clear any formulas from prior test sessions first.
-        //
-        // DATABASE_URL connects as POSTGRES_USER, which is the PostgreSQL
-        // superuser (created by the Docker postgres image). Only superusers
-        // can reliably SET session_replication_role = 'replica' to bypass
-        // all triggers. The migrator role is non-superuser and cannot
-        // disable triggers. The superuser also bypasses RLS (no FORCE RLS
-        // is set), so it has full access to formula tables.
-        //
-        // session_replication_role = 'replica' disables all non-ALWAYS
-        // triggers for the session, including the scientific_row_before
-        // BEFORE DELETE trigger (which blocks deleting rows with
-        // formula_column_ids or incoming formula dependencies). This is
-        // the PostgreSQL-standard way to bypass triggers for maintenance
-        // operations. The finally block resets to 'origin' before the
-        // subsequent INSERT operations (which need triggers enabled).
-        const superuserClient = new Client({ connectionString: poolCs })
-        await superuserClient.connect()
+        // Idempotent dataset rows: remove formulas through the same trusted
+        // database capability used by the application, then delete and
+        // reinsert the stability series with every integrity trigger active.
+        // This works for the non-superuser migrator used by integration tests
+        // and avoids a maintenance-only bypass of formula provenance.
+        const configuredFormulaUrl = process.env.FORMULA_DATABASE_URL
+        if (!configuredFormulaUrl)
+          throw new Error('FORMULA_DATABASE_URL is required for SCI-004 seed')
+        const formulaCredentials = new URL(configuredFormulaUrl)
+        const formulaWriteUrl = new URL(poolCs)
+        formulaWriteUrl.username = formulaCredentials.username
+        formulaWriteUrl.password = formulaCredentials.password
+        const formulaMetadataClient = new Client({ connectionString: poolCs })
+        const formulaWriteClient = new Client({
+          connectionString: formulaWriteUrl.toString(),
+        })
+        await Promise.all([
+          formulaMetadataClient.connect(),
+          formulaWriteClient.connect(),
+        ])
         try {
-          await superuserClient.query(
-            "SET session_replication_role = 'replica'",
+          const formulas = await formulaMetadataClient.query<{
+            id: string
+            target_table_id: string
+            target_row_id: string
+            target_column_id: string
+            version: string
+            schema_version: number
+            resource_name: string
+          }>(
+            `SELECT DISTINCT f.id,f.target_table_id,f.target_row_id,
+                    f.target_column_id,f.version,t.schema_version,t.resource_name
+               FROM api.formula_definitions f
+               JOIN api.scientific_tables t ON t.id=f.target_table_id
+               LEFT JOIN api.formula_dependencies d ON d.formula_id=f.id
+              WHERE f.target_table_id=$1 OR d.source_table_id=$1
+              ORDER BY f.id`,
+            [tableId],
           )
-          try {
-            // Delete formula dependencies and definitions first.
-            // These reference target_table_id/source_table_id (the
-            // scientific_tables UUID), not the resource table directly.
-            await superuserClient.query(
-              `DELETE FROM api.formula_dependencies WHERE source_table_id = $1`,
-              [tableId],
+          for (const formula of formulas.rows) {
+            const row = await formulaMetadataClient.query<{ version: string }>(
+              `SELECT version FROM api."${formula.resource_name}" WHERE id=$1`,
+              [formula.target_row_id],
             )
-            await superuserClient.query(
-              `DELETE FROM api.formula_definitions WHERE target_table_id = $1`,
-              [tableId],
-            )
-            // Clear formula_column_ids on resource rows (the before-update
-            // trigger would block this without the replica role).
-            await superuserClient.query(
-              `UPDATE api."${resourceName}" SET formula_column_ids = '{}' WHERE cardinality(formula_column_ids) > 0`,
-            )
-            // Delete all resource rows (the before-delete trigger would
-            // block this without the replica role).
-            await superuserClient.query(`DELETE FROM api."${resourceName}"`)
-          } finally {
-            await superuserClient.query(
-              "SET session_replication_role = 'origin'",
-            )
+            if (!row.rowCount) continue
+            const write = {
+              operation: 'remove',
+              target: {
+                tableId: formula.target_table_id,
+                rowId: formula.target_row_id,
+                columnId: formula.target_column_id,
+              },
+              expectedSchemaVersion: formula.schema_version,
+              expectedRowVersion: Number(row.rows[0].version),
+              expectedFormulaVersion: Number(formula.version),
+              replacement: null,
+            }
+            await formulaWriteClient.query('BEGIN')
+            try {
+              await formulaWriteClient.query('SET LOCAL ROLE formula_writer')
+              await formulaWriteClient.query(
+                `SELECT internal.apply_trusted_formula_write($1,$2::jsonb)`,
+                [FIXTURE_USER_ID, JSON.stringify(write)],
+              )
+              await formulaWriteClient.query('COMMIT')
+            } catch (error) {
+              await formulaWriteClient.query('ROLLBACK')
+              throw error
+            }
           }
+          await formulaMetadataClient.query(`DELETE FROM api."${resourceName}"`)
         } finally {
-          await superuserClient.end()
+          await Promise.all([
+            formulaMetadataClient.end(),
+            formulaWriteClient.end(),
+          ])
         }
         const timePoints = [0, 3, 7, 14, 21, 28, 42, 56] as const
         const stabilityProfiles = [
@@ -3265,6 +3251,7 @@ export const demoSteps: Array<SeedStep> = [
           docId: string
           status: 'draft' | 'in_review'
           projectId: string
+          customFields: Record<string, unknown>
           sections: Array<{
             title: string
             description: string
@@ -3282,6 +3269,10 @@ export const demoSteps: Array<SeedStep> = [
             docId: 'RPT-2026-0001',
             status: 'in_review',
             projectId: DEMO_VIRUS_STABILITY_PROJECT_ID,
+            customFields: {
+              programme: 'Lentivector stability',
+              reporting_period_end: '2026-09-30',
+            },
             sections: [
               {
                 title: 'Executive Summary',
@@ -3332,6 +3323,10 @@ export const demoSteps: Array<SeedStep> = [
             docId: 'RPT-2026-0002',
             status: 'draft',
             projectId: DEMO_VIRUS_STABILITY_PROJECT_ID,
+            customFields: {
+              programme: 'Quality control',
+              reporting_period_end: '2026-09-30',
+            },
             sections: [
               {
                 title: 'Overview',
@@ -3386,25 +3381,29 @@ export const demoSteps: Array<SeedStep> = [
               report.projectId,
             ])
             reportId = res.rows[0].id as string
-            // Pin the stable document_identifier (RPC auto-generates one).
-            await client.query(
-              'update api.report_definitions set document_identifier=$1 where id=$2',
-              [report.docId, reportId],
-            )
           }
 
           // Refresh title, subtitle, and status so reruns converge even if a
           // prior deployment created a report with the same auto-generated
           // identifier (e.g. via the UI "New report" button).
+          await rpc('update_report_definition', [
+            FIXTURE_WORKSPACE_ID,
+            reportId,
+            report.title,
+            report.subtitle,
+            report.status,
+          ])
+
+          // Populate the canonical record through a normal authenticated
+          // write so the model-field trigger validates these demo values.
           await client.query(
-            'update api.report_definitions set title=$1, subtitle=$2, status=$3 where id=$4 and workspace_id=$5',
-            [
-              report.title,
-              report.subtitle,
-              report.status,
-              reportId,
-              FIXTURE_WORKSPACE_ID,
-            ],
+            `update api.records
+                set custom_fields = custom_fields || $2::jsonb
+              where id = (
+                select record_id from api.report_definitions where id = $1
+              )
+                and not (custom_fields @> $2::jsonb)`,
+            [reportId, JSON.stringify(report.customFields)],
           )
 
           // Add sections only if none exist yet.

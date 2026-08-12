@@ -509,6 +509,7 @@ describe('SEARCHABLE_KINDS', () => {
       'reagent',
       'file',
       'notebook_template',
+      'study',
     ])
   })
 })

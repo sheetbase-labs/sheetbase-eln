@@ -105,6 +105,7 @@ export const SEARCHABLE_KINDS = [
   'reagent',
   'file',
   'notebook_template',
+  'study',
 ] as const
 
 export type SearchableKind = (typeof SEARCHABLE_KINDS)[number]

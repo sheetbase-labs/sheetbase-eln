@@ -20,6 +20,7 @@ import type { DataGridField } from '#/components/data-grid'
 import { SampleInspector } from '#/components/samples/sample-inspector'
 import type { SampleCustodyAction } from '#/components/samples/sample-inspector'
 import { StatusBadge } from '#/components/scientific/status-badge'
+import { ModelFieldInput } from '#/components/scientific/model-field-input'
 import {
   Button,
   Dialog,
@@ -34,6 +35,12 @@ import {
   Textarea,
 } from '#/components/ui'
 import { createDataClient } from '#/lib/data-client'
+import {
+  fetchModelFields,
+  modelFieldValuesFromInput,
+  modelFieldColumnId,
+} from '#/lib/model-fields'
+import type { ModelFieldDefinition } from '#/lib/model-fields'
 import { notebookDataClient, notebookQueryKeys } from '#/lib/notebook-data'
 import {
   archiveSample,
@@ -175,6 +182,11 @@ function SamplesRegistryRoute() {
   })
 
   const { rows, totalCount } = pageQuery.data ?? { rows: [], totalCount: 0 }
+  const modelFieldsQuery = useQuery({
+    queryKey: ['model-fields', 'sample'],
+    queryFn: () => fetchModelFields(notebookDataClient, 'sample'),
+  })
+  const modelFields = modelFieldsQuery.data ?? []
   const summaries = useMemo(
     () => computeSampleSummaries(rows, totalCount),
     [rows, totalCount],
@@ -231,6 +243,7 @@ function SamplesRegistryRoute() {
       projectId: string
       title: string
       properties: CreateSampleForm
+      customFields: Record<string, unknown>
     }) => {
       const qty =
         input.properties.quantity === ''
@@ -252,6 +265,7 @@ function SamplesRegistryRoute() {
           lowStockThreshold: threshold,
           notes: input.properties.notes || undefined,
         },
+        customFields: input.customFields,
       })
     },
     onSuccess: (record) => {
@@ -317,7 +331,7 @@ function SamplesRegistryRoute() {
 
   // ---- Columns with status + low-stock rendering ----
   const columns = useMemo(() => {
-    const cols = sampleColumns<SampleRecord>()
+    const cols = sampleColumns<SampleRecord>(modelFields)
     // Replace the plain status column with a StatusBadge cell.
     const statusIdx = cols.findIndex((c) => c.id === 'status')
     if (statusIdx >= 0) {
@@ -336,13 +350,13 @@ function SamplesRegistryRoute() {
       }
     }
     return cols
-  }, [])
+  }, [modelFields])
 
   const fields: DataGridField<SampleRecord>[] = columns.map((column) => {
     const id = String(
       column.id ?? ('accessorKey' in column ? column.accessorKey : ''),
     )
-    const labels: Record<string, string> = {
+    const labels: Partial<Record<string, string>> = {
       identifier: 'Sample ID',
       title: 'Title',
       sampleType: 'Type',
@@ -352,6 +366,11 @@ function SamplesRegistryRoute() {
       status: 'Status',
       updatedAt: 'Updated',
     }
+    const customOperator: 'contains' | 'eq' =
+      modelFields.find((field) => modelFieldColumnId(field.fieldName) === id)
+        ?.logicalType === 'text'
+        ? 'contains'
+        : 'eq'
     const filter =
       id === 'status'
         ? {
@@ -359,19 +378,36 @@ function SamplesRegistryRoute() {
             operators: [{ value: 'eq' as const, label: 'is' }],
             options: sampleStatusOptions(),
           }
-        : ['sampleType', 'storageLocation', 'barcode'].includes(id)
+        : id.startsWith('custom:')
           ? {
               type: 'text' as const,
-              placeholder: `All ${labels[id].toLowerCase()}`,
-              operators: [{ value: 'contains' as const, label: 'contains' }],
+              placeholder: `All ${(labels[id] ?? id).toLowerCase()}`,
+              operators: [
+                {
+                  value: customOperator,
+                  label: 'is',
+                },
+              ],
             }
-          : undefined
+          : ['sampleType', 'storageLocation', 'barcode'].includes(id)
+            ? {
+                type: 'text' as const,
+                placeholder: `All ${(labels[id] ?? id).toLowerCase()}`,
+                operators: [{ value: 'contains' as const, label: 'contains' }],
+              }
+            : undefined
     return {
       id,
-      label: labels[id] ?? id,
+      label:
+        labels[id] ??
+        modelFields.find((field) => modelFieldColumnId(field.fieldName) === id)
+          ?.label ??
+        id,
       column,
       filter,
-      groupable: ['status', 'sampleType', 'storageLocation'].includes(id),
+      groupable:
+        ['status', 'sampleType', 'storageLocation'].includes(id) ||
+        id.startsWith('custom:'),
     }
   })
   fields.push({
@@ -409,6 +445,7 @@ function SamplesRegistryRoute() {
         onAction={(action) =>
           custodyMutation.mutate({ recordId: row.id, ...action })
         }
+        modelFields={modelFields}
       />
     ) : (
       <SampleInspector
@@ -417,6 +454,7 @@ function SamplesRegistryRoute() {
         linkedExperiments={[]}
         linkedFiles={[]}
         onAction={() => {}}
+        modelFields={modelFields}
       />
     )
 
@@ -465,6 +503,7 @@ function SamplesRegistryRoute() {
           pending={createMutation.isPending}
           error={createError}
           onCreate={(input) => createMutation.mutate(input)}
+          modelFields={modelFields}
         />
       </div>
     </>
@@ -507,6 +546,7 @@ function CreateSampleDialog({
   pending,
   error,
   onCreate,
+  modelFields,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -518,9 +558,14 @@ function CreateSampleDialog({
     projectId: string
     title: string
     properties: CreateSampleForm
+    customFields: Record<string, unknown>
   }) => void
+  modelFields: ModelFieldDefinition[]
 }) {
   const [form, setForm] = useState<CreateSampleForm>(EMPTY_FORM)
+  const [customFields, setCustomFields] = useState<
+    Record<string, string | boolean>
+  >({})
 
   function update(field: keyof CreateSampleForm, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -532,9 +577,17 @@ function CreateSampleDialog({
       projectId: form.projectId,
       title: form.title.trim(),
       properties: form,
+      customFields: modelFieldValuesFromInput(modelFields, customFields, true),
     })
     setForm(EMPTY_FORM)
   }
+
+  const missingRequiredModelField = modelFields.some(
+    (definition) =>
+      !definition.nullable &&
+      definition.defaultValue == null &&
+      (customFields[definition.fieldName] ?? '') === '',
+  )
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -566,6 +619,31 @@ function CreateSampleDialog({
               ))}
             </Select>
           </Label>
+          {modelFields.length > 0 ? (
+            <div className="grid gap-3 border-t pt-3">
+              <p className="text-xs font-medium">Workspace fields</p>
+              {modelFields.map((definition) => (
+                <ModelFieldInput
+                  key={definition.id}
+                  definition={definition}
+                  value={
+                    customFields[definition.fieldName] ??
+                    (typeof definition.defaultValue === 'boolean'
+                      ? definition.defaultValue
+                      : definition.defaultValue == null
+                        ? ''
+                        : String(definition.defaultValue))
+                  }
+                  onChange={(value) =>
+                    setCustomFields((current) => ({
+                      ...current,
+                      [definition.fieldName]: value,
+                    }))
+                  }
+                />
+              ))}
+            </div>
+          ) : null}
           <Label className="text-xs text-muted-foreground">
             Title
             <Input
@@ -664,7 +742,12 @@ function CreateSampleDialog({
           </Button>
           <Button
             onClick={submit}
-            disabled={pending || !form.projectId || !form.title.trim()}
+            disabled={
+              pending ||
+              !form.projectId ||
+              !form.title.trim() ||
+              missingRequiredModelField
+            }
           >
             Create sample
           </Button>

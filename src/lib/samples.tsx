@@ -23,6 +23,8 @@ import { DataClientError } from './data-client'
 import type { NotebookRecord, RecordWire } from './notebook-data'
 import { toRecord } from './notebook-data'
 import type { RegistryFilterValue, RegistryQuery } from './registry'
+import type { ModelFieldDefinition } from './model-fields'
+import { displayModelFieldValue, modelFieldColumnId } from './model-fields'
 
 // ---------------------------------------------------------------------------
 // Sample properties (records.properties JSONB).
@@ -75,6 +77,7 @@ export function parseSampleProperties(
 }
 
 export interface SampleRecord extends NotebookRecord {
+  customFields: Record<string, unknown>
   sampleType: string | null
   quantity: number | null
   quantityUnit: string | null
@@ -89,6 +92,7 @@ export function toSampleRecord(row: RecordWire): SampleRecord {
   const props = parseSampleProperties(row.properties ?? {})
   return {
     ...base,
+    customFields: row.custom_fields ?? {},
     sampleType: props.sampleType ?? null,
     quantity: props.quantity ?? null,
     quantityUnit: props.quantityUnit ?? null,
@@ -254,7 +258,21 @@ export function buildSamplesFilter(filters: RegistryFilterValue[]): string[] {
   for (const filter of filters) {
     const raw = filter.values[0]
     const value = typeof raw === 'string' ? raw.trim() : ''
-    if (!value) continue
+    if (!value && typeof raw !== 'boolean') continue
+    if (filter.fieldId.startsWith('custom:')) {
+      const key = filter.fieldId.slice('custom:'.length)
+      if (!/^[a-z][a-z0-9_]{0,62}$/.test(key)) {
+        throw new Error(`Unsupported model field: ${key}`)
+      }
+      if (filter.operator === 'eq') {
+        clauses.push(`custom_fields->>${key}=eq.${escapeIlike(String(raw))}`)
+      } else if (filter.operator === 'contains') {
+        clauses.push(`custom_fields->>${key}=ilike.*${escapeIlike(value)}*`)
+      } else {
+        throw new Error(`Unsupported model-field filter: ${filter.operator}`)
+      }
+      continue
+    }
     const expected =
       filter.fieldId === 'status' || filter.fieldId === 'archived'
         ? 'eq'
@@ -302,11 +320,11 @@ export function buildSamplesOrder(query: RegistryQuery): string {
   // Grouping is a display concern; ordering by the group column first keeps
   // clustered rows together under manual grouping.
   for (const group of query.grouping) {
-    const field = SAMPLE_SORT_FIELDS[group]
+    const field = sampleSortField(group)
     if (field) parts.push(`${field}.asc`)
   }
   for (const sort of query.sorting) {
-    const field = SAMPLE_SORT_FIELDS[sort.id]
+    const field = sampleSortField(sort.id)
     if (field) parts.push(`${field}.${sort.desc ? 'desc' : 'asc'}`)
   }
   if (parts.length === 0) parts.push('identifier.asc')
@@ -319,6 +337,16 @@ export function buildSamplesOrder(query: RegistryQuery): string {
   return `order=${parts.join(',')}`
 }
 
+function sampleSortField(id: string): string | undefined {
+  if (id.startsWith('custom:')) {
+    const key = id.slice('custom:'.length)
+    return /^[a-z][a-z0-9_]{0,62}$/.test(key)
+      ? `custom_fields->${key}`
+      : undefined
+  }
+  return SAMPLE_SORT_FIELDS[id]
+}
+
 /** Full PostgREST query string (with leading `?`) for a registry page list. */
 export function buildSamplesQuery(query: RegistryQuery): string {
   const clauses = buildSamplesFilter(query.filters)
@@ -326,7 +354,7 @@ export function buildSamplesQuery(query: RegistryQuery): string {
   clauses.push(`limit=${query.pageSize}`)
   clauses.push(`offset=${query.pageIndex * query.pageSize}`)
   clauses.push(
-    'select=id,workspace_id,project_id,kind,identifier,title,status,tags,structure_version,metadata_version,created_at,updated_at,archived_at,deleted_at,created_by_user_id,updated_by_user_id,properties',
+    'select=id,workspace_id,project_id,kind,identifier,title,status,tags,structure_version,metadata_version,created_at,updated_at,archived_at,deleted_at,created_by_user_id,updated_by_user_id,properties,custom_fields',
   )
   return `?${clauses.join('&')}`
 }
@@ -459,7 +487,7 @@ export async function fetchSample(
 ): Promise<SampleRecord | null> {
   const rows = await client.list<RecordWire>(
     'records',
-    `?id=eq.${recordId}&kind=eq.sample&select=id,workspace_id,project_id,kind,identifier,title,status,tags,structure_version,metadata_version,created_at,updated_at,archived_at,deleted_at,created_by_user_id,updated_by_user_id,properties`,
+    `?id=eq.${recordId}&kind=eq.sample&select=id,workspace_id,project_id,kind,identifier,title,status,tags,structure_version,metadata_version,created_at,updated_at,archived_at,deleted_at,created_by_user_id,updated_by_user_id,properties,custom_fields`,
   )
   return rows.length > 0 ? toSampleRecord(rows[0]) : null
 }
@@ -587,19 +615,21 @@ export interface CreateSampleInput {
   status?: string
   tags?: string[]
   properties: SampleProperties
+  customFields?: Record<string, unknown>
 }
 
 export async function createSample(
   client: DataClient,
   input: CreateSampleInput,
 ): Promise<SampleRecord> {
-  const row = await client.rpc<RecordWire>('create_record', {
+  const row = await client.rpc<RecordWire>('create_model_record', {
     p_project_id: input.projectId,
     p_kind: 'sample',
     p_title: input.title,
     p_status: input.status ?? 'available',
     p_tags: input.tags ?? [],
     p_properties: samplePropertiesPayload(input.properties),
+    p_custom_fields: input.customFields ?? {},
   })
   return toSampleRecord(row)
 }
@@ -675,6 +705,7 @@ export interface EditSampleInput {
   properties?: Partial<SampleProperties>
   tags?: string[]
   notes?: string
+  customFields?: Record<string, unknown>
 }
 
 export async function editSample(
@@ -690,6 +721,7 @@ export async function editSample(
       : null,
     p_tags: input.tags ?? null,
     p_notes: input.notes ?? null,
+    p_custom_fields: input.customFields ?? null,
   })
   return toSampleRecord(row)
 }
@@ -766,11 +798,10 @@ export function describeSampleError(error: unknown): string {
 // numeric/unit cells consistently without a custom cell renderer.
 // ---------------------------------------------------------------------------
 
-export function sampleColumns<T extends SampleRecord>(): ColumnDef<
-  T,
-  unknown
->[] {
-  return [
+export function sampleColumns<T extends SampleRecord>(
+  modelFields: ModelFieldDefinition[] = [],
+): ColumnDef<T, unknown>[] {
+  const columns: ColumnDef<T, unknown>[] = [
     {
       accessorKey: 'identifier',
       header: 'Sample ID',
@@ -846,4 +877,22 @@ export function sampleColumns<T extends SampleRecord>(): ColumnDef<
       meta: { dataGridFormat: { kind: 'date' } },
     },
   ]
+  for (const definition of modelFields) {
+    columns.push({
+      id: modelFieldColumnId(definition.fieldName),
+      header: definition.label,
+      accessorFn: (row) => row.customFields[definition.fieldName],
+      cell: ({ row }) =>
+        displayModelFieldValue(
+          definition,
+          row.original.customFields[definition.fieldName],
+        ),
+      meta:
+        definition.logicalType === 'integer' ||
+        definition.logicalType === 'decimal'
+          ? { dataGridFormat: { kind: 'scientific' } }
+          : undefined,
+    })
+  }
+  return columns
 }

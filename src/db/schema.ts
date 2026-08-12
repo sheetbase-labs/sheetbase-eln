@@ -419,6 +419,9 @@ export const projects = api.table(
     key: text('key').notNull(),
     title: text('title').notNull(),
     status: text('status').notNull().default('active'),
+    customFields: jsonb('custom_fields')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     ...timestamps,
     archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
   },
@@ -514,6 +517,11 @@ export const records = api.table(
     properties: jsonb('properties')
       .notNull()
       .default(sql`'{}'`),
+    // Administrator-defined model fields. `properties` remains the legacy
+    // registry/system payload and is deliberately not repurposed.
+    customFields: jsonb('custom_fields')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     // Typed tags array; UI renders as badges.
     tags: text('tags')
       .array()
@@ -571,7 +579,7 @@ export const records = api.table(
     ),
     check(
       'chk_records_kind',
-      sql`${table.kind} IN ('experiment', 'protocol_template', 'report', 'sample', 'reagent', 'file', 'notebook_template')`,
+      sql`${table.kind} IN ('experiment', 'protocol_template', 'report', 'sample', 'reagent', 'file', 'notebook_template', 'study')`,
     ),
     index('idx_records_workspace_id').on(table.workspaceId),
     index('idx_records_project_id').on(table.projectId),
@@ -1312,12 +1320,39 @@ export const revisionFileObjects = internal.table(
 )
 
 /**
- * record_field_definitions (SCI-001) define the configurable, typed property
- * schema for a record kind within a workspace. The values live in
- * records.properties as a flat JSONB object keyed by field_name. Reuses the
- * Phase 4 scientific type vocabulary (decision 0019) for logical_type, unit
- * and validation. Workspace-owned and admin-managed (owner-only writes via
- * RLS); all members read. Retiring a field does not delete historical values.
+ * System-owned model registry. Request roles may select these rows but all
+ * writes are migration-owned; capabilities are descriptive, never SQL.
+ */
+export const modelKinds = api.table('model_kinds', {
+  key: text('key').primaryKey(),
+  label: text('label').notNull(),
+  identityTable: text('identity_table').notNull(),
+  customFieldStrategy: text('custom_field_strategy').notNull(),
+  capabilities: jsonb('capabilities')
+    .notNull()
+    .default(sql`'{}'::jsonb`),
+  recordKind: text('record_kind'),
+})
+
+export const modelBaseFields = api.table(
+  'model_base_fields',
+  {
+    modelKey: text('model_key')
+      .notNull()
+      .references(() => modelKinds.key, { onDelete: 'cascade' }),
+    fieldKey: text('field_key').notNull(),
+    label: text('label').notNull(),
+    presentation: jsonb('presentation')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+  },
+  (table) => [primaryKey({ columns: [table.modelKey, table.fieldKey] })],
+)
+
+/**
+ * Workspace model-field definitions. The physical `kind` column is retained
+ * to preserve IDs/data and now stores a model_kinds.key (model key). Values
+ * live in each model host's custom_fields JSON object, not records.properties.
  */
 export const recordFieldDefinitions = api.table(
   'record_field_definitions',
@@ -1326,11 +1361,12 @@ export const recordFieldDefinitions = api.table(
     workspaceId: uuid('workspace_id')
       .notNull()
       .references(() => workspaces.id, { onDelete: 'cascade' }),
-    // sample | reagent | protocol_template | future kinds. The record kind
-    // whose properties this definition describes.
-    kind: text('kind').notNull(),
-    // Stable slug; the key in records.properties. Immutable once active rows
-    // reference it (guarded by trigger); rename the label, not the field_name.
+    // Compatibility name: this is the model key.
+    kind: text('kind')
+      .notNull()
+      .references(() => modelKinds.key, { onDelete: 'restrict' }),
+    // Stable slug; the key in the model host's custom_fields object. Immutable
+    // once active rows reference it; rename the label, not the field_name.
     fieldName: text('field_name').notNull(),
     label: text('label').notNull(),
     description: text('description'),
@@ -1343,7 +1379,7 @@ export const recordFieldDefinitions = api.table(
     validation: jsonb('validation')
       .notNull()
       .default(sql`'{}'`),
-    lifecycle: text('lifecycle').notNull().default('active'),
+    lifecycle: text('lifecycle').notNull().default('draft'),
     ...timestamps,
     createdByUserId: text('created_by_user_id')
       .notNull()
@@ -1356,20 +1392,41 @@ export const recordFieldDefinitions = api.table(
       table.fieldName,
     ),
     check(
-      'chk_record_field_definitions_kind',
-      sql`${table.kind} IN ('sample', 'reagent', 'protocol_template', 'notebook_template')`,
-    ),
-    check(
       'chk_record_field_definitions_type',
-      sql`${table.logicalType} IN ('text','integer','decimal','boolean','date','timestamp','category')`,
+      sql`${table.logicalType} IN ('text','integer','decimal','boolean','date','timestamp','category','reference')`,
     ),
     check(
       'chk_record_field_definitions_lifecycle',
-      sql`${table.lifecycle} IN ('active', 'retired')`,
+      sql`${table.lifecycle} IN ('draft','backfilling','active','retired')`,
     ),
     index('idx_record_field_definitions_workspace_kind').on(
       table.workspaceId,
       table.kind,
+    ),
+  ],
+)
+
+export const modelFieldOptions = api.table(
+  'model_field_options',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    definitionId: uuid('definition_id')
+      .notNull()
+      .references(() => recordFieldDefinitions.id, { onDelete: 'cascade' }),
+    key: text('key').notNull(),
+    label: text('label').notNull(),
+    displayOrder: integer('display_order').notNull(),
+    lifecycle: text('lifecycle').notNull().default('active'),
+    ...timestamps,
+  },
+  (table) => [
+    unique('uq_model_field_options_definition_key').on(
+      table.definitionId,
+      table.key,
+    ),
+    check(
+      'chk_model_field_options_lifecycle',
+      sql`${table.lifecycle} IN ('active','retired')`,
     ),
   ],
 )
@@ -1825,6 +1882,9 @@ export const datasetSchemas = api.table(
     // Immutable once published; starts at 1. Each revision is a separate row.
     revision: integer('revision').notNull().default(1),
     status: text('status').notNull().default('draft'),
+    customFields: jsonb('custom_fields')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     ...timestamps,
     createdByUserId: text('created_by_user_id').references(() => user.id, {
       onDelete: 'set null',
@@ -1985,6 +2045,9 @@ export const scientificTables = api.table(
       .default(sql`'{}'`),
     lifecycle: text('lifecycle').notNull().default('active'),
     schemaVersion: integer('schema_version').notNull().default(1),
+    customFields: jsonb('custom_fields')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     // SCI-010: nullable binding to the dataset schema registry. null = legacy
     // unbound sheet (migration 0013 behaviour preserved).
     datasetSchemaId: uuid('dataset_schema_id').references(
@@ -2450,7 +2513,7 @@ export const changeEvents = api.table(
     ),
     check(
       'chk_change_events_entity_type',
-      sql`${table.entityType} IN ('project', 'folder', 'record', 'block', 'record_link', 'scientific_table', 'scientific_row', 'formula', 'calculation', 'record_field_definition', 'file', 'dataset_schema', 'dataset_schema_field', 'dataset_schema_relationship', 'sample_event', 'comment', 'review_submission', 'signature', 'storage_site', 'storage_room', 'storage_unit', 'storage_shelf', 'storage_rack', 'storage_box', 'storage_position', 'storage_movement', 'plate_design', 'plate_well', 'plate_layout_template', 'calendar_resource', 'calendar_booking', 'calendar_booking_participant', 'calendar_booking_sample', 'study_workstream', 'study_task', 'study_task_dependency', 'study_task_assignment', 'study_task_resource', 'study_deliverable', 'instrument', 'instrument_run', 'instrument_run_stage', 'instrument_observation', 'instrument_plate_snapshot', 'instrument_qc_check', 'instrument_raw_file', 'instrument_run_link', 'report_definition', 'report_section', 'report_generation', 'workspace_invitation', 'workspace_settings', 'project_access')`,
+      sql`${table.entityType} IN ('project', 'folder', 'record', 'block', 'record_link', 'scientific_table', 'scientific_row', 'formula', 'calculation', 'record_field_definition', 'model_field_option', 'file', 'dataset_schema', 'dataset_schema_field', 'dataset_schema_relationship', 'sample_event', 'comment', 'review_submission', 'signature', 'storage_site', 'storage_room', 'storage_unit', 'storage_shelf', 'storage_rack', 'storage_box', 'storage_position', 'storage_movement', 'plate_design', 'plate_well', 'plate_layout_template', 'calendar_resource', 'calendar_booking', 'calendar_booking_participant', 'calendar_booking_sample', 'study_workstream', 'study_task', 'study_task_dependency', 'study_task_assignment', 'study_task_resource', 'study_deliverable', 'study_project', 'study_experiment', 'study_plan_snapshot', 'instrument', 'instrument_run', 'instrument_run_stage', 'instrument_observation', 'instrument_plate_snapshot', 'instrument_qc_check', 'instrument_raw_file', 'instrument_run_link', 'report_definition', 'report_section', 'report_generation', 'workspace_invitation', 'workspace_settings', 'project_access')`,
     ),
     check(
       'chk_change_events_operation',
@@ -3031,6 +3094,9 @@ export const plateDesigns = api.table(
       .default(sql`'{}'`),
     status: text('status').notNull().default('draft'),
     metadataVersion: integer('metadata_version').notNull().default(1),
+    customFields: jsonb('custom_fields')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     ...timestamps,
     createdByUserId: text('created_by_user_id').references(() => user.id, {
       onDelete: 'set null',
@@ -3488,6 +3554,126 @@ export const calendarBookingSamplesRelations = relations(
 // resources so circular-dependency and overbooking checks are always enforced.
 // ---------------------------------------------------------------------------
 
+export const studies = api.table(
+  'studies',
+  {
+    recordId: uuid('record_id')
+      .primaryKey()
+      .references(() => records.id, { onDelete: 'cascade' }),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    summary: text('summary'),
+    startsOn: date('starts_on', { mode: 'string' }),
+    endsOn: date('ends_on', { mode: 'string' }),
+    planVersion: integer('plan_version').notNull().default(1),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    check(
+      'chk_studies_date_range',
+      sql`${table.endsOn} IS NULL OR ${table.startsOn} IS NULL OR ${table.endsOn} >= ${table.startsOn}`,
+    ),
+    check('chk_studies_plan_version', sql`${table.planVersion} > 0`),
+    index('idx_studies_workspace').on(table.workspaceId),
+  ],
+)
+
+export const studyProjects = api.table(
+  'study_projects',
+  {
+    studyRecordId: uuid('study_record_id')
+      .notNull()
+      .references(() => studies.recordId, { onDelete: 'cascade' }),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    relationship: text('relationship').notNull().default('participating'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.studyRecordId, table.projectId] }),
+    check(
+      'chk_study_projects_relationship',
+      sql`${table.relationship} IN ('home','participating')`,
+    ),
+    index('idx_study_projects_project').on(table.projectId),
+  ],
+)
+
+export const studyExperiments = api.table(
+  'study_experiments',
+  {
+    studyRecordId: uuid('study_record_id')
+      .notNull()
+      .references(() => studies.recordId, { onDelete: 'cascade' }),
+    experimentRecordId: uuid('experiment_record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'restrict' }),
+    relationship: text('relationship').notNull().default('member'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.studyRecordId, table.experimentRecordId] }),
+    check(
+      'chk_study_experiments_relationship',
+      sql`${table.relationship} IN ('member','primary','control')`,
+    ),
+    index('idx_study_experiments_experiment').on(table.experimentRecordId),
+  ],
+)
+
+export const studyPlanSnapshots = api.table(
+  'study_plan_snapshots',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    studyRecordId: uuid('study_record_id')
+      .notNull()
+      .references(() => studies.recordId, { onDelete: 'restrict' }),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    planVersion: integer('plan_version').notNull(),
+    snapshot: jsonb('snapshot').notNull(),
+    checksum: text('checksum').notNull(),
+    reason: text('reason'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+  },
+  (table) => [
+    unique('uq_study_plan_snapshots_version').on(
+      table.studyRecordId,
+      table.planVersion,
+    ),
+    check('chk_study_plan_snapshots_version', sql`${table.planVersion} > 0`),
+    check(
+      'chk_study_plan_snapshots_checksum',
+      sql`${table.checksum} ~ '^[0-9a-f]{64}$'`,
+    ),
+    index('idx_study_plan_snapshots_workspace').on(table.workspaceId),
+  ],
+)
+
 export const studyWorkstreams = api.table(
   'study_workstreams',
   {
@@ -3496,6 +3682,9 @@ export const studyWorkstreams = api.table(
       .notNull()
       .references(() => workspaces.id, { onDelete: 'cascade' }),
     projectId: uuid('project_id').references(() => projects.id, {
+      onDelete: 'set null',
+    }),
+    studyRecordId: uuid('study_record_id').references(() => studies.recordId, {
       onDelete: 'set null',
     }),
     name: text('name').notNull(),
@@ -3522,6 +3711,7 @@ export const studyWorkstreams = api.table(
     check('chk_study_workstreams_position', sql`${table.position} >= 0`),
     index('idx_study_workstreams_workspace').on(table.workspaceId),
     index('idx_study_workstreams_project').on(table.projectId),
+    index('idx_study_workstreams_study').on(table.studyRecordId),
     index('idx_study_workstreams_workspace_position').on(
       table.workspaceId,
       table.position,
@@ -3540,6 +3730,9 @@ export const studyTasks = api.table(
       onDelete: 'set null',
     }),
     projectId: uuid('project_id').references(() => projects.id, {
+      onDelete: 'set null',
+    }),
+    studyRecordId: uuid('study_record_id').references(() => studies.recordId, {
       onDelete: 'set null',
     }),
     title: text('title').notNull(),
@@ -3603,6 +3796,7 @@ export const studyTasks = api.table(
     index('idx_study_tasks_workspace').on(table.workspaceId),
     index('idx_study_tasks_workstream').on(table.workstreamId),
     index('idx_study_tasks_project').on(table.projectId),
+    index('idx_study_tasks_study').on(table.studyRecordId),
     index('idx_study_tasks_workspace_position').on(
       table.workspaceId,
       table.position,
@@ -3793,6 +3987,9 @@ export const instruments = api.table(
       .notNull()
       .default(sql`'{}'::jsonb`),
     position: integer('position').notNull().default(0),
+    customFields: jsonb('custom_fields')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     ...timestamps,
     createdByUserId: text('created_by_user_id').references(() => user.id, {
       onDelete: 'set null',
@@ -3857,6 +4054,9 @@ export const instrumentRuns = api.table(
       .array()
       .notNull()
       .default(sql`'{}'::text[]`),
+    customFields: jsonb('custom_fields')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     ...timestamps,
     createdByUserId: text('created_by_user_id').references(() => user.id, {
       onDelete: 'set null',
@@ -4425,9 +4625,10 @@ export const reportDefinitions = api.table(
     projectId: uuid('project_id').references(() => projects.id, {
       onDelete: 'set null',
     }),
-    recordId: uuid('record_id').references(() => records.id, {
-      onDelete: 'set null',
-    }),
+    recordId: uuid('record_id')
+      .notNull()
+      .unique()
+      .references(() => records.id, { onDelete: 'cascade' }),
     templateRecordId: uuid('template_record_id').references(() => records.id, {
       onDelete: 'set null',
     }),
@@ -4474,6 +4675,7 @@ export const reportDefinitions = api.table(
       table.status,
     ),
     index('idx_report_definitions_project').on(table.projectId),
+    index('idx_report_definitions_record').on(table.recordId),
   ],
 )
 

@@ -3,6 +3,7 @@
  * in the builder workspace so this remains secondary/audit information. */
 import { History } from 'lucide-react'
 
+import { ModelProperties } from '#/components/scientific/model-properties'
 import { Badge } from '#/components/ui'
 import {
   REPORT_STATUS_BADGE_VARIANT,
@@ -13,12 +14,20 @@ import type {
   ReportGeneration,
   ValidationSummary,
 } from '#/lib/report-builder'
+import type {
+  ModelFieldDefinition,
+  ModelFieldRecordValues,
+} from '#/lib/model-fields'
 
 export interface ReportDetailsProps {
   report: ReportDefinition | null
   generations: ReportGeneration[]
   validation: ValidationSummary | null
   timeZone: string
+  modelFields: ModelFieldDefinition[]
+  modelFieldValues: ModelFieldRecordValues | null
+  modelFieldsSaving?: boolean
+  onSaveModelFields?: (values: Record<string, unknown>) => void
 }
 
 function formatDate(value: string | null, timeZone: string): string {
@@ -36,6 +45,10 @@ export function ReportDetails({
   generations,
   validation,
   timeZone,
+  modelFields,
+  modelFieldValues,
+  modelFieldsSaving,
+  onSaveModelFields,
 }: ReportDetailsProps) {
   if (!report)
     return (
@@ -50,32 +63,50 @@ export function ReportDetails({
     <div className="flex h-full flex-col overflow-auto">
       <section className="border-b border-border/60 p-4">
         <h2 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
-          Document
+          Properties
         </h2>
-        <dl className="space-y-1.5 text-sm">
-          <Row label="Title" value={report.title} />
-          <Row label="Subtitle" value={report.subtitle ?? '—'} />
-          <Row label="Document ID" value={report.documentIdentifier} />
-          <Row
-            label="Status"
-            value={
-              <Badge variant={REPORT_STATUS_BADGE_VARIANT[report.status]}>
-                {REPORT_STATUS_LABELS[report.status]}
-              </Badge>
-            }
-          />
-          <Row label="Version" value={`v${report.version}`} />
-          <Row
-            label="Template"
-            value={report.templateRecordId ? 'Linked template' : 'None'}
-          />
-          <Row
-            label="Review"
-            value={
-              report.reviewSubmissionId ? 'Linked submission' : 'Not submitted'
-            }
-          />
-        </dl>
+        <ModelProperties
+          lockedProperties={[
+            { key: 'title', label: 'Title', value: report.title },
+            {
+              key: 'subtitle',
+              label: 'Subtitle',
+              value: report.subtitle ?? '—',
+            },
+            {
+              key: 'identifier',
+              label: 'Document ID',
+              value: report.documentIdentifier,
+            },
+            {
+              key: 'status',
+              label: 'Status',
+              value: (
+                <Badge variant={REPORT_STATUS_BADGE_VARIANT[report.status]}>
+                  {REPORT_STATUS_LABELS[report.status]}
+                </Badge>
+              ),
+            },
+            { key: 'version', label: 'Version', value: `v${report.version}` },
+            {
+              key: 'template',
+              label: 'Template',
+              value: report.templateRecordId ? 'Linked template' : 'None',
+            },
+            {
+              key: 'review',
+              label: 'Review',
+              value: report.reviewSubmissionId
+                ? 'Linked submission'
+                : 'Not submitted',
+            },
+          ]}
+          definitions={modelFields}
+          values={modelFieldValues?.customFields ?? {}}
+          recordLocked={modelFieldValues?.locked ?? false}
+          saving={modelFieldsSaving}
+          onSave={onSaveModelFields}
+        />
       </section>
 
       <section className="border-b border-border/60 p-4">
@@ -118,10 +149,7 @@ export function ReportDetails({
               label="Generated"
               value={formatDate(latest.generatedAt, timeZone)}
             />
-            <Row
-              label="Format"
-              value={latest.outputFormat.toUpperCase()}
-            />
+            <Row label="Format" value={latest.outputFormat.toUpperCase()} />
             <Row label="Actor" value={latest.actorUserId} />
             <Row
               label="Checksum"
@@ -147,7 +175,6 @@ export function ReportDetails({
           </p>
         ) : null}
       </section>
-
     </div>
   )
 }

@@ -91,6 +91,8 @@ export const DEMO_FIELD_DEFINITION_IDS = {
   reagentQuantity: '00000000-0000-4000-8000-000000000145',
   reagentUnit: '00000000-0000-4000-8000-000000000146',
   reagentStorage: '00000000-0000-4000-8000-000000000147',
+  reportProgramme: '00000000-0000-4000-8000-000000000148',
+  reportPeriodEnd: '00000000-0000-4000-8000-000000000149',
 } as const
 
 // SCI-003 file attachment fixtures (Virus Stability). Four file records

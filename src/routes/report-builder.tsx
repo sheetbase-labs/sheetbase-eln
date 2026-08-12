@@ -53,6 +53,11 @@ import {
 import type { ReportGeneration, SectionType } from '#/lib/report-builder'
 import { buildReportDocx, reportDocxFilename } from '#/lib/report-builder-docx'
 import {
+  fetchModelFields,
+  fetchRecordModelFieldValues,
+  updateRecordModelFieldValues,
+} from '#/lib/model-fields'
+import {
   buildReportPdf,
   downloadReportPdf,
   reportPdfFilename,
@@ -102,6 +107,17 @@ function ReportBuilderRoute() {
     () => reports.find((report) => report.id === activeReportId) ?? null,
     [activeReportId, reports],
   )
+  const reportModelFieldsQuery = useQuery({
+    queryKey: ['model-fields', 'report'],
+    queryFn: () => fetchModelFields(dataClient, 'report'),
+    enabled: Boolean(workspaceId),
+  })
+  const reportModelValuesQuery = useQuery({
+    queryKey: ['model-field-values', activeReport?.recordId ?? 'none'],
+    queryFn: () =>
+      fetchRecordModelFieldValues(dataClient, activeReport?.recordId ?? ''),
+    enabled: Boolean(activeReport?.recordId),
+  })
 
   const sectionsQuery = useQuery({
     queryKey: reportBuilderQueryKeys.sections(activeReportId || 'none'),
@@ -241,6 +257,24 @@ function ReportBuilderRoute() {
     onError: (cause) => setActionError(describeReportBuilderError(cause)),
   })
 
+  const updateModelFieldsMutation = useMutation({
+    mutationFn: (values: Record<string, unknown>) => {
+      if (!activeReport?.recordId || !reportModelValuesQuery.data)
+        throw new Error('No report selected.')
+      return updateRecordModelFieldValues(
+        dataClient,
+        activeReport.recordId,
+        reportModelValuesQuery.data.metadataVersion,
+        values,
+      )
+    },
+    onSuccess: () => {
+      setActionError(null)
+      void reportModelValuesQuery.refetch()
+    },
+    onError: (cause) => setActionError(describeReportBuilderError(cause)),
+  })
+
   const validateMutation = useMutation({
     mutationFn: () => {
       if (!activeReportId) throw new Error('No report selected.')
@@ -314,6 +348,14 @@ function ReportBuilderRoute() {
         generations={generations}
         validation={activeValidation}
         timeZone={VIEW_TIMEZONE}
+        modelFields={reportModelFieldsQuery.data ?? []}
+        modelFieldValues={reportModelValuesQuery.data ?? null}
+        modelFieldsSaving={updateModelFieldsMutation.isPending}
+        onSaveModelFields={
+          reportModelValuesQuery.data
+            ? (values) => updateModelFieldsMutation.mutate(values)
+            : undefined
+        }
       />
     ),
   })

@@ -25,9 +25,8 @@ import {
   FileList,
   InspectorSection,
   LinkedRecordList,
-  Property,
-  PropertyList,
 } from '#/components/record'
+import { ModelProperties } from '#/components/scientific/model-properties'
 import { StatusBadge } from '#/components/scientific/status-badge'
 import {
   AlertDialog,
@@ -48,6 +47,7 @@ import {
   Textarea,
 } from '#/components/ui'
 import { formatDate } from '#/lib/notebook-data'
+import type { ModelFieldDefinition } from '#/lib/model-fields'
 import type {
   LinkedExperiment,
   LinkedFile,
@@ -75,6 +75,7 @@ export type SampleCustodyAction =
       lowStockThreshold?: number
       quantityUnit?: string
       notes?: string
+      customFields?: Record<string, unknown>
     }
   | { kind: 'archive'; notes?: string }
   | { kind: 'restore'; notes?: string }
@@ -89,6 +90,7 @@ export interface SampleInspectorProps {
   actionPending?: boolean
   actionError?: string | null
   onAction: (action: SampleCustodyAction) => void
+  modelFields: ModelFieldDefinition[]
   className?: string
 }
 
@@ -229,6 +231,7 @@ export function SampleInspector({
   actionPending,
   actionError,
   onAction,
+  modelFields,
   className,
 }: SampleInspectorProps) {
   const [quantity, setQuantity] = React.useState('')
@@ -346,24 +349,54 @@ export function SampleInspector({
   // Single-panel content matching the mockup layout
   const panelContent = (
     <div className="space-y-0">
-      {/* Identity properties */}
-      <InspectorSection title="Identity">
-        <PropertyList>
-          <Property label="Sample ID" mono>
-            {sample.identifier}
-          </Property>
-          <Property label="Type">{orDash(sample.sampleType)}</Property>
-          <Property label="Quantity" mono>
-            {quantityLabel(sample)}
-          </Property>
-          <Property label="Storage">{orDash(sample.storageLocation)}</Property>
-          {sample.lowStockThreshold != null ? (
-            <Property label="Low-stock at" mono>
-              {`${sample.lowStockThreshold}${sample.quantityUnit ? ` ${sample.quantityUnit}` : ''}`}
-            </Property>
-          ) : null}
-          <Property label="Updated">{formatDate(sample.updatedAt)}</Property>
-        </PropertyList>
+      <InspectorSection title="Properties">
+        <ModelProperties
+          lockedProperties={[
+            {
+              key: 'identifier',
+              label: 'Sample ID',
+              value: <span className="font-mono">{sample.identifier}</span>,
+            },
+            {
+              key: 'status',
+              label: 'Status',
+              value: <StatusBadge status={sample.status} />,
+            },
+            { key: 'type', label: 'Type', value: orDash(sample.sampleType) },
+            {
+              key: 'quantity',
+              label: 'Quantity',
+              value: <span className="font-mono">{quantityLabel(sample)}</span>,
+            },
+            {
+              key: 'storage',
+              label: 'Storage',
+              value: orDash(sample.storageLocation),
+            },
+            {
+              key: 'low-stock',
+              label: 'Low-stock at',
+              value:
+                sample.lowStockThreshold == null
+                  ? '—'
+                  : `${sample.lowStockThreshold}${sample.quantityUnit ? ` ${sample.quantityUnit}` : ''}`,
+            },
+            {
+              key: 'updated',
+              label: 'Updated',
+              value: formatDate(sample.updatedAt),
+            },
+          ]}
+          definitions={modelFields}
+          values={sample.customFields}
+          recordLocked={sample.lockedAt != null || archived}
+          saving={actionPending}
+          onSave={
+            archived
+              ? undefined
+              : (customFields) => onAction({ kind: 'edit', customFields })
+          }
+        />
       </InspectorSection>
 
       {/* Visual barcode */}

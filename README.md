@@ -32,71 +32,48 @@ pnpm db:migrate
 pnpm dev
 ```
 
-The app runs at `http://localhost:3000`. The PostgREST API runs at
-`http://localhost:3001` (admin/health on 3002). Service credentials and
-secrets live in `.env.local`; privileged database credentials never reach the
-browser.
+The app runs at `http://localhost:3000`. The PostgREST API runs at `http://localhost:3001` (admin/health on 3002). Service credentials and secrets live in `.env.local`; privileged database credentials never reach the browser.
 
 ## Commands
 
-Everything a new developer needs, without reading source:
+| Task | Command |
+| --- | --- |
+| Start local services (PostgreSQL + PostgREST) | `pnpm services:up` |
+| Stop local services | `pnpm services:down` |
+| Inspect service status | `pnpm services:ps` |
+| Follow service logs | `pnpm services:logs` |
+| Recreate services from scratch | `pnpm services:recreate` |
+| Start the app (dev) | `pnpm dev` |
+| Build an immutable deployment artifact | `pnpm artifact:build` |
+| Validate and print a deployment plan | `pnpm deploy:plan` |
+| Run all tests | `pnpm test` |
+| Run database integration tests | `pnpm test:db` |
+| Generate a migration after schema edits | `pnpm db:generate` |
+| Apply migrations | `pnpm db:migrate` |
+| Seed minimal fixtures | `pnpm db:seed` |
+| Seed fixtures + demonstration data | `pnpm db:seed:demo` |
+| Reset the local database (guarded) | `pnpm db:reset` |
+| Fresh database: reset + migrate + seed | `pnpm db:fresh` |
+| Format code | `pnpm format` |
+| Full quality gate | `pnpm validate` |
 
-| Task                                                 | Command                  |
-| ---------------------------------------------------- | ------------------------ |
-| Start local services (PostgreSQL + PostgREST)        | `pnpm services:up`       |
-| Stop local services                                  | `pnpm services:down`     |
-| Inspect service status                               | `pnpm services:ps`       |
-| Follow service logs                                  | `pnpm services:logs`     |
-| Recreate services from scratch                       | `pnpm services:recreate` |
-| Start the app (dev)                                  | `pnpm dev`               |
-| Build an immutable deployment artifact               | `pnpm artifact:build`    |
-| Validate and print a deployment plan                 | `pnpm deploy:plan`       |
-| Run all tests                                        | `pnpm test`              |
-| Run database integration tests                       | `pnpm test:db`           |
-| Generate a migration after schema edits              | `pnpm db:generate`       |
-| Apply migrations                                     | `pnpm db:migrate`        |
-| Seed minimal fixtures                                | `pnpm db:seed`           |
-| Seed fixtures + demonstration data                   | `pnpm db:seed:demo`      |
-| Reset the local database (guarded)                   | `pnpm db:reset`          |
-| Fresh database: reset + migrate + seed               | `pnpm db:fresh`          |
-| Format code                                          | `pnpm format`            |
-| Full quality gate (check, lint, types, tests, build) | `pnpm validate`          |
-
-See `docs/migrations.md` before changing schema, including how to verify
-against a fresh database. See `docs/testing.md` for the test layers and
-`docs/seeds.md` for fixture and seed conventions. Handsontable's required
-commercial licence setup and client-only integration boundary are documented
-in `docs/handsontable.md`. Environment separation, immutable artifacts,
-managed-secret injection, promotion and rollback are documented in
-`docs/deployment.md`.
+See `docs/migrations.md` before changing schema, `docs/testing.md` for test layers, `docs/seeds.md` for fixtures/seeds, `docs/handsontable.md` for the Handsontable integration boundary and `docs/deployment.md` for environment/deployment guidance.
 
 ## Repository boundaries
 
 - `src/` is the production application — the only code that ships.
-- `Concepts/sheetbase-ui-system-v2/` is the current UI-system study. It is
-  reference material: read it, port reviewed pieces from it, never import or
-  depend on it from `src/`.
-- `Mockups/` contains the approved product mockups and the product
-  specification PDF. Reference only.
-- `docs/` holds working conventions, the active Core continuation pack and
-  durable architectural decision records (`docs/decisions/`).
-- `docs/core/` defines the current core product/architecture programme and
-  supersedes older assumptions where they conflict with its compositional
-  Sheet model.
-- `docs/archive/` contains explicit pointers to superseded planning material.
-  Archived material is historical evidence only and is not implementation guidance.
+- `Concepts/sheetbase-ui-system-v2/` is the current UI-system study. It is reference material: read it, port reviewed pieces from it, never import or depend on it from `src/`.
+- `Mockups/` contains approved product mockups and the product specification PDF. Reference only.
+- `docs/core/` defines the current core product/architecture programme and is the first stop for architectural/domain work.
+- `docs/references/` contains dated research/reference material. It explains influences and alternatives but is not normative.
+- `docs/references/eln-competitors/` captures the 13 August 2026 review of Benchling, Dotmatics, Signals Notebook, SciNote, Labguru and Sapio plus cross-product patterns.
+- `docs/archive/` identifies superseded planning material and where its immutable Git history can be recovered. Archived plans are not implementation guidance.
+- `docs/decisions/` contains durable ADRs.
 - `PRODUCT.md` and `DESIGN.md` describe broader product and design intent.
-- `docs/dev-environment.md` describes the disposable auth-free development
-  surface at `dev.sheetbase.co.uk`.
-- `ROADMAP.md` gives the active high-level epics. Detailed sequencing and
-  continuation rules are in `docs/core/CORE_MIGRATION.md`.
+- `docs/dev-environment.md` describes the disposable auth-free development surface at `dev.sheetbase.co.uk`.
+- `ROADMAP.md` gives the active high-level epics. The pre-Core root `TODO.md` has been removed from the active tree so agents cannot mistake obsolete unchecked tickets for current requirements.
 
-Product components should be added through shadcn's source-owned pattern and
-then reconciled with the concept system. Copying the concept catalogue
-wholesale would preserve decisions that are still under review. Naming rules
-for database objects, REST resources, domain identifiers and event types —
-plus when to use TanStack Table vs Handsontable — are in
-`docs/conventions.md`.
+Product components should be added through shadcn's source-owned pattern and then reconciled with the concept system. Naming rules for database objects, REST resources, domain identifiers and event types — plus when to use TanStack Table vs Handsontable — are in `docs/conventions.md`.
 
 ## Current core mental model
 

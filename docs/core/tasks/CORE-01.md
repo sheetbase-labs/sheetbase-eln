@@ -1,7 +1,7 @@
 # CORE-01 — Common Schema Kernel
 
-**Status:** Active  
-**Current task:** CORE-01.3  
+**Status:** Complete (2026-08-13)
+**Hand-off:** CORE-02.1
 **Normative decisions:** ADRs 0021, 0025, 0026 plus `src/lib/field-definition.ts`.
 
 ## Epic goal
@@ -255,6 +255,36 @@ implies schema authority.
 
 ## CORE-01.7 — Epic proof and CORE-02 hand-off
 
-**Status:** Planned
+**Status:** Complete (2026-08-13)
 
-Prove text, quantity, category and Record-reference semantics through the production Model path, confirm Dataset Schema can consume the same kernel, merge required ADRs/tests, then refine CORE-02 from actual evidence and advance `NEXT.md`.
+The production Model path proves text, quantity, category, and Record-reference
+semantics while preserving PostgreSQL validation, RLS, protected fields,
+retired values, reference edges, manifests, and public RPCs. Dataset Schema
+projects its registry and relationship edges through that same kernel without
+starting Dataset physical storage. No new ADR was needed: the implementation
+follows the accepted identity, quantity, and relationship decisions.
+
+**Completion evidence:**
+
+- `tests/db/model-fields.test.ts` proves representative text, quantity,
+  category, and Record-reference field behaviour, server validation, RLS,
+  protected fields, retired values, reference integrity, and revision
+  manifests. It also proves the schema capability boundary.
+- `src/lib/dataset-schema-data.test.ts` proves the same kernel projects text,
+  legacy-unspecified quantity metadata, embedded category, and explicit
+  reference semantics for Dataset Schema fields and preserves stable active
+  row-shape identities.
+- `src/lib/field-definition.test.ts` proves the shared contract admits the
+  explicit quantity/category/reference forms and never infers scientific
+  semantics from a legacy unit string.
+- Focused contract tests pass 20/20; focused Model and Dataset registry DB
+  tests pass 31/31.
+- `pnpm validate` passes formatting, lint, typecheck, 141 test files / 1,702
+  tests, and the production build.
+- `docs/core/tasks/CORE-02.md` is refined for the implemented shared kernel;
+  CORE-02.1 is unblocked and remains an evidence-only persistence audit before
+  any Dataset physical-storage decision.
+
+**Exit:** The CORE-01 exit gate is met. Models and Dataset Schemas consume the
+same canonical semantic kernel without a parallel schema system; CORE-02 can
+begin its persistence audit without redefining field meaning.

@@ -8,9 +8,9 @@
 
 ## Active task
 
-**CORE-01.7 — Epic proof and CORE-02 hand-off**
+**CORE-02.1 — Audit current scientific table/Dataset persistence**
 
-Task: [`tasks/CORE-01.md`](./tasks/CORE-01.md#core-017--epic-proof-and-core-02-hand-off)
+Task: [`tasks/CORE-02.md`](./tasks/CORE-02.md#core-021--audit-current-scientific-tabledataset-persistence)
 
 ## Completed in this PR
 
@@ -20,6 +20,7 @@ Task: [`tasks/CORE-01.md`](./tasks/CORE-01.md#core-017--epic-proof-and-core-02-h
 - CORE-01.4 — Dataset Schema fields defined through the canonical kernel
 - CORE-01.5 — Field rendering/editor selection converged on canonical semantics
 - CORE-01.6 — Initial server-enforced schema capability boundary
+- CORE-01.7 — Epic proof and CORE-02 hand-off
 - product/architecture reset and accepted ADRs 0020–0026
 
 ## Required reading
@@ -35,22 +36,21 @@ Task: [`tasks/CORE-01.md`](./tasks/CORE-01.md#core-017--epic-proof-and-core-02-h
 
 ## Implement now
 
-Prove text, quantity, category and Record-reference semantics through the
-production Model path, confirm Dataset Schema can consume the same kernel, and
-prepare the CORE-02 hand-off from implemented evidence.
+Document the current scientific table/Dataset persistence from implementation
+evidence before selecting a physical Dataset strategy.
 
 This is **real production coding**, not another architecture pass.
 
 Key targets:
 
-- consolidate evidence from CORE-01.1 through CORE-01.6;
-- prove required Model and Dataset contract paths with focused tests;
-- run the full validation gate and document the CORE-02 hand-off.
+- trace tables, migrations, RLS, APIs, formulas, and Explorer consumers;
+- record row/column identity, write/bulk behaviour, and scale assumptions;
+- recommend retain/adapt/deprecate candidates without choosing storage.
 
 ## Do not
 
 - do not redesign the architecture already settled by ADRs 0020–0026;
-- do not start Dataset storage (CORE-02);
+- do not create migrations or select Dataset physical storage;
 - do not build the full unit-conversion or vocabulary-management product yet;
 - do not weaken RLS/server validation;
 - do not broaden paused specialist workspaces.

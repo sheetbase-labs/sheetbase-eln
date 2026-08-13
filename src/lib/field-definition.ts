@@ -49,6 +49,11 @@ export type FieldCategorySource =
   | { kind: 'embedded'; options: FieldOption[] }
   | { kind: 'vocabulary'; vocabularyId: string }
 
+/** Source metadata persisted by the current Model storage. Embedded options
+ * remain in `model_field_options`, so they are joined by the projection. */
+export type PersistedModelFieldCategorySource =
+  { kind: 'embedded' } | { kind: 'vocabulary'; vocabularyId: string }
+
 export type FieldRelationshipTarget =
   | { kind: 'model'; modelKey: string }
   | { kind: 'dataset-schema'; schemaId: string }
@@ -59,8 +64,7 @@ export interface FieldRelationship {
 }
 
 export type FieldComputation =
-  | { mode: 'stored' }
-  | { mode: 'computed'; expressionId?: string }
+  { mode: 'stored' } | { mode: 'computed'; expressionId?: string }
 
 /**
  * Canonical semantic field contract shared by Models and Dataset Schemas.
@@ -97,7 +101,11 @@ export interface ExistingModelFieldLike {
   nullable: boolean
   defaultValue: unknown
   unit: Record<string, unknown> | null
+  quantity?: FieldQuantityDefinition | null
   validation: Record<string, unknown>
+  cardinality?: FieldCardinality
+  categorySource?: PersistedModelFieldCategorySource | null
+  relationship?: FieldRelationship | null
   lifecycle: FieldLifecycle
   options: FieldOption[]
 }
@@ -186,6 +194,7 @@ export function fieldDefinitionFromModelField(
   field: ExistingModelFieldLike,
 ): FieldDefinition {
   const targetModelKey = field.validation.targetModelKey
+  const cardinality = field.cardinality ?? 'one'
   return {
     fieldId: field.id,
     key: field.fieldName,
@@ -194,20 +203,25 @@ export function fieldDefinitionFromModelField(
     logicalType: field.logicalType,
     nullable: field.nullable,
     defaultValue: field.defaultValue,
-    cardinality: 'one',
-    quantity: quantityFromLegacyUnit(field.unit),
+    cardinality,
+    quantity: field.quantity ?? quantityFromLegacyUnit(field.unit),
     validation: asValidation(field.validation),
     category:
       field.logicalType === 'category'
-        ? { kind: 'embedded', options: field.options }
+        ? field.categorySource?.kind === 'vocabulary'
+          ? field.categorySource
+          : { kind: 'embedded', options: field.options }
         : null,
     relationship:
-      field.logicalType === 'reference' && typeof targetModelKey === 'string'
-        ? {
-            target: { kind: 'model', modelKey: targetModelKey },
-            cardinality: 'one',
-          }
-        : null,
+      field.logicalType === 'reference' && field.relationship !== undefined
+        ? field.relationship
+        : field.logicalType === 'reference' &&
+            typeof targetModelKey === 'string'
+          ? {
+              target: { kind: 'model', modelKey: targetModelKey },
+              cardinality,
+            }
+          : null,
     computation: { mode: 'stored' },
     lifecycle: field.lifecycle,
   }
@@ -238,7 +252,8 @@ export function validateFieldDefinition(
   ) {
     issues.push({
       path: 'quantity',
-      message: 'Quantity semantics are only valid for integer or decimal fields.',
+      message:
+        'Quantity semantics are only valid for integer or decimal fields.',
     })
   }
 
@@ -272,7 +287,11 @@ export function validateFieldDefinition(
     const optionIds = new Set<string>()
     const optionKeys = new Set<string>()
     for (const option of field.category.options) {
-      if (!nonBlank(option.id) || !nonBlank(option.key) || !nonBlank(option.label)) {
+      if (
+        !nonBlank(option.id) ||
+        !nonBlank(option.key) ||
+        !nonBlank(option.label)
+      ) {
         issues.push({
           path: 'category',
           message: 'Category option id, key and label must be non-empty.',
@@ -282,7 +301,8 @@ export function validateFieldDefinition(
       if (optionIds.has(option.id) || optionKeys.has(option.key)) {
         issues.push({
           path: 'category',
-          message: 'Category option ids and keys must be unique within a field.',
+          message:
+            'Category option ids and keys must be unique within a field.',
         })
         break
       }

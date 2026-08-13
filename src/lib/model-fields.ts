@@ -1,22 +1,18 @@
 import type { DataClient } from '#/lib/data-client'
+import { fieldDefinitionFromModelField } from '#/lib/field-definition'
+import type {
+  FieldCardinality,
+  FieldDefinition,
+  FieldLogicalType,
+  FieldOption,
+  PersistedModelFieldCategorySource,
+  FieldQuantityDefinition,
+  FieldRelationship,
+} from '#/lib/field-definition'
 
-export type ModelFieldLogicalType =
-  | 'text'
-  | 'integer'
-  | 'decimal'
-  | 'boolean'
-  | 'date'
-  | 'timestamp'
-  | 'category'
-  | 'reference'
+export type ModelFieldLogicalType = FieldLogicalType
 
-export interface ModelFieldOption {
-  id: string
-  key: string
-  label: string
-  displayOrder: number
-  lifecycle: 'active' | 'retired'
-}
+export type ModelFieldOption = FieldOption
 
 export interface ModelFieldDefinition {
   id: string
@@ -29,9 +25,15 @@ export interface ModelFieldDefinition {
   nullable: boolean
   defaultValue: unknown
   unit: Record<string, unknown> | null
+  quantity?: FieldQuantityDefinition | null
   validation: Record<string, unknown>
+  cardinality?: FieldCardinality
+  categorySource?: PersistedModelFieldCategorySource | null
+  relationship?: FieldRelationship | null
   lifecycle: 'draft' | 'backfilling' | 'active' | 'retired'
   options: ModelFieldOption[]
+  /** Canonical semantic projection of this persisted Model field. */
+  definition?: FieldDefinition
 }
 
 export interface ModelKind {
@@ -57,7 +59,11 @@ interface DefinitionWire {
   nullable: boolean
   default_value: unknown
   unit: Record<string, unknown> | null
+  quantity: FieldQuantityDefinition | null
   validation: Record<string, unknown>
+  cardinality: FieldCardinality
+  category_source: PersistedModelFieldCategorySource | null
+  relationship: FieldRelationship | null
   lifecycle: ModelFieldDefinition['lifecycle']
 }
 
@@ -92,27 +98,37 @@ export async function fetchModelFields(
       option,
     ])
   }
-  return definitions.map((definition) => ({
-    id: definition.id,
-    modelKey: definition.kind,
-    fieldName: definition.field_name,
-    label: definition.label,
-    description: definition.description,
-    displayOrder: definition.display_order,
-    logicalType: definition.logical_type,
-    nullable: definition.nullable,
-    defaultValue: definition.default_value,
-    unit: definition.unit,
-    validation: definition.validation,
-    lifecycle: definition.lifecycle,
-    options: (optionsByDefinition.get(definition.id) ?? []).map((option) => ({
-      id: option.id,
-      key: option.key,
-      label: option.label,
-      displayOrder: option.display_order,
-      lifecycle: option.lifecycle,
-    })),
-  }))
+  return definitions.map((definition) => {
+    const modelField = {
+      id: definition.id,
+      modelKey: definition.kind,
+      fieldName: definition.field_name,
+      label: definition.label,
+      description: definition.description,
+      displayOrder: definition.display_order,
+      logicalType: definition.logical_type,
+      nullable: definition.nullable,
+      defaultValue: definition.default_value,
+      unit: definition.unit,
+      quantity: definition.quantity,
+      validation: definition.validation,
+      cardinality: definition.cardinality,
+      categorySource: definition.category_source,
+      relationship: definition.relationship,
+      lifecycle: definition.lifecycle,
+      options: (optionsByDefinition.get(definition.id) ?? []).map((option) => ({
+        id: option.id,
+        key: option.key,
+        label: option.label,
+        displayOrder: option.display_order,
+        lifecycle: option.lifecycle,
+      })),
+    }
+    return {
+      ...modelField,
+      definition: fieldDefinitionFromModelField(modelField),
+    }
+  })
 }
 
 export function fetchModelKinds(client: DataClient): Promise<ModelKind[]> {

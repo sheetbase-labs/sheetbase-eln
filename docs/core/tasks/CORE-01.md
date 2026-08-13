@@ -46,8 +46,8 @@ No production Model persistence is migrated by this task.
 
 ## CORE-01.3 — Converge existing Model fields onto the kernel
 
-**Status:** NEXT / implementation-ready  
-**Blocked by:** CORE-01.1, CORE-01.2.
+**Status:** Implementation complete — repository validation gate pending
+**Blocked by:** Repository-wide pre-existing check, lint, and UI test failures.
 
 ### Goal
 
@@ -144,9 +144,36 @@ Only add a new ADR if implementation reveals a durable choice not already settle
 
 Existing production Models/Records use the canonical semantic kernel without loss of identity/data/security/validation, and future Dataset Schema work can consume the same field semantics rather than inventing a second type system.
 
-### Completion evidence
+### Implementation evidence
 
-_To be completed by the coding agent._
+- Added `drizzle/0060_core_013_model_field_definition_kernel.sql`: additive
+  `quantity`, `cardinality`, `category_source`, and `relationship` semantics;
+  legacy `targetModelKey` is projected into the explicit relationship and
+  remains authoritative for existing reference validation and edges.
+- `src/lib/model-fields.ts` now imports the canonical logical-type and semantic
+  types and exposes a canonical `definition` projection for every fetched Model
+  field. `src/lib/field-definition.ts` consumes persisted explicit semantics
+  first and retains the legacy unit projection as `legacy-unspecified`.
+- Added adapter and DB regression coverage in
+  `src/lib/field-definition.test.ts` and `tests/db/model-fields.test.ts`.
+- Updated `.agents/setup` to install PostgreSQL 18 from PGDG when absent. A
+  fresh isolated `sheetbase_test` database migrated successfully, then the
+  idempotent demo seed completed 29 steps; `pnpm exec vitest run --config vitest.db.config.ts
+tests/db/model-fields.test.ts` passes 12/12 tests, including RLS,
+  representative text/category/quantity/reference validation and reference
+  integrity.
+- `pnpm typecheck`, the canonical and adapter unit tests (14/14), `pnpm build`,
+  `pnpm db:generate` (no schema changes), and `git diff --check` pass.
+- `pnpm validate` was run and remains blocked before typecheck/tests by 114
+  pre-existing Prettier violations. Independently, `pnpm lint` has 10
+  pre-existing errors in unrelated notebook, Gantt, and experiment-overview
+  files; `pnpm test` has five stale UI expectations in
+  `scientific-record-linker` and the experiment inspector. These are outside
+  CORE-01.3 and must be repaired before this task can be marked complete.
+
+CORE-01.3 must not be marked complete or advance `NEXT.md` until the fresh
+database migration/seed, DB regression suite, and a clean `pnpm validate` run
+are recorded.
 
 ---
 

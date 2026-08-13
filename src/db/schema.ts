@@ -1375,6 +1375,12 @@ export const recordFieldDefinitions = api.table(
     logicalType: text('logical_type').notNull(),
     nullable: boolean('nullable').notNull().default(true),
     defaultValue: jsonb('default_value'),
+    // Canonical semantic metadata. Legacy unit/validation columns remain
+    // readable for API compatibility and are projected when these are null.
+    quantity: jsonb('quantity'),
+    cardinality: text('cardinality').notNull().default('one'),
+    categorySource: jsonb('category_source'),
+    relationship: jsonb('relationship'),
     unit: jsonb('unit'),
     validation: jsonb('validation')
       .notNull()
@@ -1398,6 +1404,10 @@ export const recordFieldDefinitions = api.table(
     check(
       'chk_record_field_definitions_lifecycle',
       sql`${table.lifecycle} IN ('draft','backfilling','active','retired')`,
+    ),
+    check(
+      'chk_record_field_definitions_cardinality',
+      sql`${table.cardinality} IN ('one', 'many')`,
     ),
     index('idx_record_field_definitions_workspace_kind').on(
       table.workspaceId,

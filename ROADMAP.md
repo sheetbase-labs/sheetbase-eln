@@ -1,168 +1,260 @@
 # Sheetbase roadmap
 
+> **Active programme:** Core Data Workspace.  
+> **Canonical core definitions:** [`docs/core/README.md`](./docs/core/README.md), [`PRODUCT_CORE.md`](./docs/core/PRODUCT_CORE.md), [`CORE_ARCHITECTURE.md`](./docs/core/CORE_ARCHITECTURE.md), [`CORE_MIGRATION.md`](./docs/core/CORE_MIGRATION.md).
+
 ## Destination
 
-The first destination is a trustworthy single-user alpha in which a scientist can sign in with GitHub, create a project and experiment notebook, write a mixed block document, work with a real editable PostgreSQL-backed sheet using Handsontable and HyperFormula, and understand how every visible object maps to an authenticated REST API.
+Sheetbase is a scientific data workspace in which the notebook provides scientific context and Excel-like Sheets provide the primary structured-data interaction surface, while PostgreSQL remains authoritative.
 
-This alpha establishes the product architecture. The remaining mockup surfaces should then be built as compositions over the same records, relationships, tables, calculations, events and UI components rather than as independent applications.
+A Sheet is not limited to one database table. It can compose multiple Datasets and Model Records together with local and calculated columns, explicit row identity, joins, provenance and unambiguous write-back. Scientists must be able to link and create Records directly from Sheets.
+
+The product architecture should converge specialist surfaces onto shared Models, Records, Field Definitions, Datasets, Sheets, Views, Calculations, Policies and later Pipelines rather than creating independent applications or sources of truth.
 
 ## Principles that govern the route
 
-- The notebook remains the centre of gravity; registries and specialist workspaces support it.
+- The notebook remains the centre of scientific context; registries and specialist workspaces support it.
+- Sheets are the primary structured-data workspace and should feel familiar to Excel users without inheriting spreadsheet ambiguity as the data model.
 - PostgreSQL is authoritative. PostgREST exposes safe CRUD and controlled RPCs, while row-level security remains the access-control boundary.
-- The browser uses an authenticated application proxy. External clients use scoped API credentials, and both reach the same PostgREST contract.
-- Handsontable is for spreadsheet-like scientific editing. TanStack Table is for registries, queues and read-oriented operational views.
+- Models and Dataset Schemas share a common semantic field language even when their physical storage differs.
+- Handsontable is for spreadsheet-like scientific editing. TanStack Table/virtualised registry grids are for registries, queues and read-oriented operational views.
 - HyperFormula formulas are durable definitions. Calculated values may be cached for display and querying, but they are never the sole authoritative representation of a calculation.
-- The mockups and concept system are the approved visual direction. Components are improved in place rather than replaced with a different aesthetic.
+- Every durable dependency uses stable identities rather than labels, visual row positions or A1 coordinates.
+- Every displayed Sheet value has inspectable provenance; every writable value has exactly one authoritative write target.
+- Configuration is capability-based. Record editing, schema configuration, workflow authoring, review and workspace administration are distinct authorities.
+- Information density, clarity, keyboard fluency and large-data performance are product requirements.
+- AI is assistive, reviewable and attributable, and must use the same typed operations, permissions and provenance model as humans and code.
+- The mockups and concept system remain the approved visual direction. Components are improved in place rather than replaced with a different aesthetic.
 - Traceability, accessibility and failure states are designed with the normal workflow, not added after it.
 
-## Roadmap
+## Current state
 
-### 0. Product and project baseline — complete
+The repository has already established substantial foundations:
 
-The repository has the TanStack Start scaffold, TanStack Query, DB and Table dependencies, Drizzle, PostgreSQL development services, Tailwind and shadcn foundations, product guidance, design tokens and the source mockups. Validation currently covers formatting, linting, types, tests and a production build.
+- TanStack Start/React application and production UI system;
+- PostgreSQL, Drizzle, PostgREST, Better Auth, external API credentials and RLS;
+- notebook/domain foundations;
+- Handsontable scientific Sheets and HyperFormula calculation persistence;
+- Excel-like formula editing/reference picking and a curated scientific function library;
+- shared dense registries, filters and inspectors;
+- an extensible PostgreSQL-authoritative Model framework with protected base fields and workspace fields;
+- several specialist workspaces that can be retained as future consumers of the core.
 
-The next phase starts from this baseline; it should not implement screens before the application and data boundaries are proven.
+The next task is **convergence**, not a rewrite and not continued feature breadth.
 
-### 1. Runtime, identity and authenticated API spine
+---
 
-Establish the smallest secure path through the complete system:
+# Active programme — Core Data Workspace
 
-- run the application, PostgreSQL and its own PostgREST service locally;
-- add migration and seed workflows with repeatable development bootstrap;
-- integrate Better Auth with GitHub sign-in and sign-up;
-- make the first user the owner of the initial workspace while retaining a membership model that can support invitations later;
-- define the browser session-to-PostgREST JWT bridge and scoped external API credentials;
-- establish row-level security, safe CRUD roles and controlled RPC conventions;
-- add request correlation, structured errors and health checks at service boundaries;
-- prove one authenticated workspace and project resource through REST and the application.
+## CORE-01 — Common Schema Kernel
 
-**Exit gate:** a fresh checkout can be started predictably; GitHub authentication creates a user and workspace membership; an authenticated browser request and an external API request can read the same project through PostgREST; anonymous and cross-workspace access tests fail correctly.
+Unify the semantic language used by Model fields and Dataset fields.
 
-### 2. Productionise the concept UI system
+Deliver:
 
-Bring the existing visual system into the application without building complete product screens:
+- stable Field Definition identity;
+- common value types;
+- units and unit dimensions;
+- validation constraints;
+- controlled vocabularies;
+- Record relationships and cardinality;
+- lifecycle/version semantics;
+- compatibility with the existing extensible Model framework;
+- initial schema-configuration capability boundary;
+- dependency discovery foundation.
 
-- port and normalise the approved tokens, typography, icons, density and application chrome;
-- harden the shadcn primitives and existing scientific components for keyboard use, focus, disabled, loading, empty, error and permission states;
-- add the stable application shell: workspace navigation, project tree, top bar, central canvas and reusable right inspector;
-- deepen `StatusBadge`, `PropertyList`, `RecordLink`, `NotebookBlock`, `ChartFrame`, `PlateMap`, `AuditTrail` and `ApprovalStepper` as composable, data-independent components;
-- define responsive behaviour, including inspectors becoming sheets on narrow screens;
-- keep a local component gallery for visual and interaction review.
+**Exit gate:** a Model property and Dataset field can use the same semantic type/constraint vocabulary without maintaining incompatible definitions.
 
-**Exit gate:** the shell and core components reproduce the concept direction at production quality, meet the WCAG 2.2 AA baseline, and can be composed without screen-specific styling forks.
+## CORE-02 — Dataset Primitive
 
-### 3. Notebook domain model and live document vertical slice
+Make Dataset the durable rectangular data object independent of Sheet presentation.
 
-Build the first real ELN workflow around stable, addressable records and blocks:
+Deliver:
 
-- model workspaces, projects, folders, notebooks, experiments, blocks, links and revisions;
-- define typed block payload schemas and forward-compatible versioning;
-- implement the notebook record header, continuous document canvas and contextual inspector;
-- support text, headings, checklists and linked-record blocks first;
-- implement autosave, optimistic updates, conflict detection and durable change events;
-- use PostgreSQL change records and notifications with replayable server-sent events for multi-tab liveness;
-- expose notebooks, blocks and record links through approachable REST resources.
+- Dataset and Dataset Schema identities;
+- stable row and field IDs;
+- PostgreSQL physical-storage ADR and implementation;
+- API resources and RLS;
+- bulk validation/write operations;
+- provenance/lifecycle;
+- representative large-data performance tests.
 
-**Exit gate:** a user can create and edit an experiment notebook, reorder blocks, link records, reload without losing state and observe coherent changes in a second browser tab. Each block has a stable API identity, revision history and audit attribution.
+**Exit gate:** a Dataset can be created, queried, bulk-written and addressed through the API without a Sheet being present.
 
-### 4. Scientific sheet and calculation engine
+## CORE-03 — Compositional Sheet
 
-Make the spreadsheet experience a first-class notebook block rather than an embedded file:
+Evolve the existing scientific Sheet into a composition over governed sources.
 
-- add the Handsontable sheet block with scientific column types, units, validation, copy/paste, fill, import and export;
-- create real PostgreSQL-backed data tables with explicit schemas and stable row identities;
-- scope a HyperFormula workbook to each notebook and a calculation sheet to each sheet block;
-- persist literals, formula definitions, dependencies, errors and optional cached results separately;
-- support safe cross-sheet references, recalculation, circular-reference reporting and schema changes;
-- add an API inspector that shows resource names, fields, types, endpoint paths and usable request examples next to the configured table;
-- ensure direct REST edits, UI edits and recalculation produce the same liveness and audit events.
+Deliver:
 
-**Exit gate:** a user can configure a sheet, enter data and formulas, reference another notebook sheet, inspect the corresponding REST API, edit through that API and see the result update live in Handsontable with calculation provenance intact.
+- durable Sheet object;
+- multiple Dataset and Model bindings;
+- explicit source/composite/local row identity;
+- constrained joins with cardinality checks;
+- Dataset, Model, relationship, local and calculated columns;
+- durable local values;
+- source/provenance inspection;
+- explicit write-back targets;
+- View state separated from data/schema;
+- existing Excel-like interaction preserved.
 
-### 5. Complete the useful notebook loop
+**Exit gate:** one Sheet combines at least two Datasets plus a Model and a local/calculated column, while edits reach the correct authoritative sources and provenance remains reconstructable.
 
-Expand the notebook from a technical vertical slice into a useful scientific record:
+## CORE-04 — Records from Sheets
 
-- protocol and reusable template blocks;
-- chart blocks driven by saved dataset and transformation specifications;
-- file and instrument-output attachments with a deliberate object-storage boundary;
-- materials, sample, reagent and dataset links;
-- plate-map blocks and notebook validation checks;
-- experiment overview as a curated read view over the same notebook data;
-- search indexing for records, block text, structured fields and relationships.
+Make Sheets a first-class Record registration and linking surface.
 
-**Exit gate:** the Virus Stability concept can be recreated as a working record from real data, including its protocol, experimental design sheet, calculations, chart, linked samples and files, without bespoke data hidden in the screen.
+Deliver:
 
-### 6. Review, signatures and record integrity
+- typed Record-reference cells;
+- existing-Record search/link;
+- inline Record creation;
+- bulk Record creation from pasted/selected rows;
+- validate → preview → commit operation;
+- row/field validation errors rendered in the grid;
+- uniqueness/duplicate handling;
+- permission-aware creation/update behaviour.
 
-Build review only after revisions and calculations have stable semantics:
+**Exit gate:** a scientist can paste a realistic table, resolve existing Records, create missing Records in bulk and continue working without leaving the Sheet.
 
-- immutable submitted versions and meaningful text, table and formula diffs;
-- anchored comments, reviewer checklists and resolution state;
-- configurable approval steps and reviewer assignments;
-- explicit signing intent, re-authentication, signature records and record locking;
-- calculation, data-integrity and completeness checks against the submitted version;
-- readable audit trail, lineage and exportable evidence;
-- careful product language that supports regulated use without claiming compliance by feature presence.
+## CORE-05 — Schema Evolution, Views and Role-aware Configuration
 
-**Exit gate:** a submitted experiment can be reviewed against a fixed version, returned for changes or signed and locked, and its full history can be reconstructed without mutable evidence.
+Make the core safely configurable by delegated roles.
 
-### 7. Data, analysis and traceability workspaces
+Deliver:
 
-Compose the next product surfaces from the proven platform:
+- draft/publish/deprecate/retire schema lifecycle;
+- safe add/rename/retire operations;
+- dependency/impact inspection;
+- local-column promotion into governed schemas;
+- saved user/team Views;
+- initial capability-based schema/data configuration;
+- role-specific defaults without divergent underlying data.
 
-1. Samples and reagents registries, using TanStack Table with selected-record inspectors.
-2. Dataset Explorer, using Handsontable only for editable modes and TanStack Table for query and review modes.
-3. Analysis Studio, with saved transformations, chart specifications and accessible data alternatives.
-4. Lineage Explorer, derived from real record links, transformations, revisions and approvals.
-5. Knowledge Search and Template Library, using the same object and permission model.
+**Exit gate:** a Data Steward can safely evolve a schema while a Scientist sees only permitted configuration, and historical data/dependencies remain interpretable.
 
-**Exit gate:** these workspaces read and mutate the same REST-addressable objects used by notebooks, and no surface requires a parallel source of truth.
+## CORE-06 — Notebook Integration and Frozen Evidence
 
-### 8. Planning and laboratory operations
+Make compositional Sheets native Notebook objects with explicit live/pinned semantics.
 
-Add the operational surfaces once the core record model has real usage to inform them:
+Deliver:
 
-- project and personal dashboards;
-- freezer and storage maps;
-- plate designer workflow;
-- lab calendar and study planner;
-- instrument run monitoring and ingestion;
-- reports and report builder;
-- workspace permissions and administrative configuration.
+- Notebook Sheet-block references to durable Sheet objects;
+- live versus pinned/frozen state;
+- Notebook/template integration;
+- submitted-version pinning rules;
+- chart/data consumers using stable Sheet/Dataset identities;
+- provenance reconstruction for submitted evidence.
 
-Each should begin with a narrow workflow and reuse the shell, inspectors, tables, record links, statuses and audit events already established.
+**Exit gate:** a Notebook can contain a live working compositional Sheet and later produce an immutable submitted state that can be reconstructed exactly.
 
-**Exit gate:** the remaining concept screens are supported by shared domain capabilities and components, with integrations isolated behind stable interfaces.
+---
 
-### 9. Operational hardening and release readiness
+# Automation programme — follows stable Core Data Workspace
 
-Harden the product continuously, with a formal release gate after the principal workflows exist:
+## AUTO-01 — Pipeline Foundation
 
-- backup, restore and migration rehearsal;
-- observability, audit-event integrity and operational diagnostics;
-- security and threat-model review, dependency scanning and secret handling;
-- browser, accessibility, performance and large-dataset testing;
-- offline and degraded-connection behaviour for active notebook edits;
-- tenancy isolation and invitation controls before adding users beyond the initial owner;
-- deployment documentation and reproducible environment promotion.
+Introduce versioned typed transformations only after the data substrate is stable.
 
-**Exit gate:** the application has evidence-backed recovery, security, accessibility and performance characteristics for its intended initial deployment.
+Deliver:
 
-## Decisions to lock before their phase starts
+- Pipeline Definition and Pipeline Run contracts;
+- typed input/output ports;
+- parameters and schema expectations;
+- configured transformations;
+- SQL/Python execution boundary;
+- immutable run provenance/logging;
+- permission, draft/publish and run lifecycle;
+- Dataset outputs.
 
-These decisions are deliberately deferred until the preceding vertical slice provides enough evidence:
+**Exit gate:** a versioned transformation consumes pinned input Dataset versions and reproducibly produces a traceable output Dataset version.
 
-- the precise block persistence and revision granularity before notebook implementation;
-- the generated-table naming, schema migration and REST discovery contract before scientific sheets;
-- the supported HyperFormula function set, calculation trust boundary and recalculation policy before formula work;
-- the file and instrument-data storage boundary before attachments;
-- the signature assurance level and validation obligations before regulated review claims;
-- the order of operational workspaces after the first notebook workflows reveal actual daily priorities.
+## AUTO-02 — Agent-authored Operations
 
-## Delivery rhythm
+Allow agents to propose governed transformations and configuration through ordinary platform contracts.
 
-Each phase should be delivered as a narrow end-to-end slice with migrations, API contract tests, UI interaction tests and a demonstrable workflow. A phase is complete only when its exit gate works from a fresh environment; installing a dependency or rendering a static screen is not completion.
+Deliver:
 
-The roadmap should be revisited at every exit gate. Newly learned constraints may change later phases, but they should not weaken the destination or create a second source of truth.
+- structured proposed plans;
+- capability/schema validation;
+- human-readable change/impact preview;
+- draft Pipeline/schema authoring;
+- approval policy;
+- execution through normal APIs/Pipeline runner;
+- agent/model/tool provenance.
+
+**Exit gate:** an agent can propose a useful data transformation, a user can inspect and approve it, and execution produces the same evidence as a human-authored Pipeline.
+
+---
+
+# Golden programme workflow
+
+Use one representative workflow as the cross-epic acceptance test:
+
+**Lentivector purification experiment Notebook**
+
+The Notebook contains a Sheet combining:
+
+- Sample Model Records;
+- an Upstream Results Dataset;
+- a Purification Results Dataset;
+- a local Observation column;
+- a calculated Recovery column.
+
+The completed core workflow should allow the scientist to:
+
+1. insert the Sheet into the Notebook;
+2. bind the Sample Model and two Datasets;
+3. use Sample ID as row identity;
+4. join both Datasets by Sample;
+5. paste substantial data;
+6. link existing Samples;
+7. create missing Samples inline and in bulk;
+8. calculate Recovery;
+9. add local observations;
+10. edit source-backed values with correct write-back;
+11. filter, sort and save a View;
+12. inspect provenance and API identity;
+13. reload with no hidden client-only truth;
+14. pin/freeze the structured evidence for submission/review.
+
+This workflow is a higher priority than adding unrelated specialist screens.
+
+# Work intentionally de-emphasised during early Core epics
+
+Until CORE-01 through CORE-04 are substantially proven, avoid broad feature expansion in:
+
+- Analysis Studio;
+- Planner;
+- Calendar;
+- Instrument Monitor;
+- Report Builder;
+- Storage/freezer;
+- Plate Designer;
+- new dashboard surfaces.
+
+Keep existing work. Bug fixes, security fixes and changes that converge these surfaces onto core primitives are appropriate.
+
+The open immutable-analysis work should be reviewed against Dataset versions, future Pipeline Runs and Notebook frozen evidence before it is allowed to establish a separate long-term transformation architecture.
+
+# Operational hardening
+
+Security, recovery, accessibility and performance are continuous requirements rather than a final polish phase.
+
+Maintain and extend:
+
+- backup/restore and migration rehearsal;
+- observability and audit-event integrity;
+- threat-model/security review and dependency scanning;
+- browser/accessibility/performance tests;
+- tenancy isolation;
+- reproducible environment promotion;
+- large-Dataset and bulk-operation testing as the Core programme introduces them.
+
+# Delivery rhythm
+
+Each epic is delivered as narrow end-to-end slices with migrations, API/RLS contract tests, UI interaction tests and a demonstrable workflow.
+
+A capability is not complete because a table, component or route exists. The authoritative data contract, permissions, failure behaviour and reconstruction/provenance story must work from a fresh environment.
+
+When implementation evidence settles a durable deferred contract, record it in `docs/decisions/` before later work depends on it.

@@ -13,11 +13,19 @@ export type FieldLogicalType = (typeof FIELD_LOGICAL_TYPES)[number]
 export type FieldLifecycle = 'draft' | 'backfilling' | 'active' | 'retired'
 export type FieldCardinality = 'one' | 'many'
 
-export interface FieldUnitDefinition {
-  symbol?: string
-  dimension?: string
-  canonicalUnit?: string
-  allowedUnits?: string[]
+/**
+ * Scientific quantity semantics for numeric fields.
+ *
+ * `kind` preserves scientific meaning (for example viability vs MOI), while
+ * `dimension` supports dimensional/unit compatibility. Governed values are
+ * persisted in one canonical storage unit; input/display units may differ.
+ */
+export interface FieldQuantityDefinition {
+  kind: string
+  dimension: string
+  storageUnit: string
+  allowedInputUnits?: string[]
+  preferredDisplayUnit?: string
 }
 
 export interface FieldValidation {
@@ -37,6 +45,10 @@ export interface FieldOption {
   lifecycle: 'active' | 'retired'
 }
 
+export type FieldCategorySource =
+  | { kind: 'embedded'; options: FieldOption[] }
+  | { kind: 'vocabulary'; vocabularyId: string }
+
 export type FieldRelationshipTarget =
   | { kind: 'model'; modelKey: string }
   | { kind: 'dataset-schema'; schemaId: string }
@@ -51,9 +63,9 @@ export type FieldComputation =
   | { mode: 'computed'; expressionId?: string }
 
 /**
- * Canonical semantic field contract shared by Models, Dataset schemas and
- * sheet columns. Durable dependencies bind to fieldId. key is the stable
- * human-facing API/storage key; label is presentation-only.
+ * Canonical semantic field contract shared by Models and Dataset Schemas.
+ * Durable dependencies bind to fieldId. key is the stable API/storage key;
+ * label is presentation-only.
  *
  * Compatibility rule: defaultValue === null means no explicit default in the
  * current Model/scientific storage contracts.
@@ -67,14 +79,15 @@ export interface FieldDefinition {
   nullable: boolean
   defaultValue: unknown
   cardinality: FieldCardinality
-  unit: FieldUnitDefinition | null
+  quantity: FieldQuantityDefinition | null
   validation: FieldValidation
-  options: FieldOption[]
+  category: FieldCategorySource | null
   relationship: FieldRelationship | null
   computation: FieldComputation
   lifecycle: FieldLifecycle
 }
 
+/** Current production Model-field shape used by the compatibility adapter. */
 export interface ExistingModelFieldLike {
   id: string
   fieldName: string
@@ -90,7 +103,7 @@ export interface ExistingModelFieldLike {
 }
 
 export interface FieldContractIssue {
-  path: keyof FieldDefinition | 'options'
+  path: keyof FieldDefinition | 'category'
   message: string
 }
 
@@ -98,19 +111,53 @@ function nonBlank(value: string): boolean {
   return value.trim().length > 0
 }
 
-function asUnit(value: Record<string, unknown> | null): FieldUnitDefinition | null {
+/**
+ * Compatibility projection for the current opaque Model `unit` JSON.
+ * CORE-01.3 may improve production storage, but existing values are not
+ * reinterpreted silently. Missing semantic metadata is preserved as an
+ * intentionally weak legacy projection until explicitly configured.
+ */
+function quantityFromLegacyUnit(
+  value: Record<string, unknown> | null,
+): FieldQuantityDefinition | null {
   if (!value) return null
-  const unit: FieldUnitDefinition = {}
-  if (typeof value.symbol === 'string') unit.symbol = value.symbol
-  if (typeof value.dimension === 'string') unit.dimension = value.dimension
-  if (typeof value.canonicalUnit === 'string') unit.canonicalUnit = value.canonicalUnit
+
+  const symbol = typeof value.symbol === 'string' ? value.symbol : null
+  const storageUnit =
+    typeof value.storageUnit === 'string'
+      ? value.storageUnit
+      : typeof value.canonicalUnit === 'string'
+        ? value.canonicalUnit
+        : symbol
+  if (!storageUnit) return null
+
+  const dimension =
+    typeof value.dimension === 'string' ? value.dimension : 'legacy-unspecified'
+  const kind = typeof value.kind === 'string' ? value.kind : dimension
+
+  const quantity: FieldQuantityDefinition = {
+    kind,
+    dimension,
+    storageUnit,
+  }
+
   if (
+    Array.isArray(value.allowedInputUnits) &&
+    value.allowedInputUnits.every((item) => typeof item === 'string')
+  ) {
+    quantity.allowedInputUnits = value.allowedInputUnits
+  } else if (
     Array.isArray(value.allowedUnits) &&
     value.allowedUnits.every((item) => typeof item === 'string')
   ) {
-    unit.allowedUnits = value.allowedUnits
+    quantity.allowedInputUnits = value.allowedUnits
   }
-  return unit
+
+  if (typeof value.preferredDisplayUnit === 'string') {
+    quantity.preferredDisplayUnit = value.preferredDisplayUnit
+  }
+
+  return quantity
 }
 
 function asValidation(value: Record<string, unknown>): FieldValidation {
@@ -134,7 +181,7 @@ function asValidation(value: Record<string, unknown>): FieldValidation {
   return validation
 }
 
-/** Lossless semantic adapter for the current Model-field contract. */
+/** Lossless-as-possible semantic adapter for the current Model-field contract. */
 export function fieldDefinitionFromModelField(
   field: ExistingModelFieldLike,
 ): FieldDefinition {
@@ -148,9 +195,12 @@ export function fieldDefinitionFromModelField(
     nullable: field.nullable,
     defaultValue: field.defaultValue,
     cardinality: 'one',
-    unit: asUnit(field.unit),
+    quantity: quantityFromLegacyUnit(field.unit),
     validation: asValidation(field.validation),
-    options: field.options,
+    category:
+      field.logicalType === 'category'
+        ? { kind: 'embedded', options: field.options }
+        : null,
     relationship:
       field.logicalType === 'reference' && typeof targetModelKey === 'string'
         ? {
@@ -182,42 +232,73 @@ export function validateFieldDefinition(
   }
 
   if (
-    field.unit !== null &&
+    field.quantity !== null &&
     field.logicalType !== 'integer' &&
     field.logicalType !== 'decimal'
   ) {
     issues.push({
-      path: 'unit',
-      message: 'Units are only valid for integer or decimal fields.',
+      path: 'quantity',
+      message: 'Quantity semantics are only valid for integer or decimal fields.',
     })
   }
 
-  if (field.logicalType !== 'category' && field.options.length > 0) {
+  if (field.quantity !== null) {
+    if (
+      !nonBlank(field.quantity.kind) ||
+      !nonBlank(field.quantity.dimension) ||
+      !nonBlank(field.quantity.storageUnit)
+    ) {
+      issues.push({
+        path: 'quantity',
+        message: 'Quantity kind, dimension and storageUnit must be non-empty.',
+      })
+    }
+  }
+
+  if (field.logicalType === 'category' && field.category === null) {
     issues.push({
-      path: 'options',
-      message: 'Controlled vocabulary options require logicalType=category.',
+      path: 'category',
+      message: 'Category fields require embedded options or a vocabulary.',
+    })
+  }
+  if (field.logicalType !== 'category' && field.category !== null) {
+    issues.push({
+      path: 'category',
+      message: 'Only category fields may define a category source.',
     })
   }
 
-  const optionIds = new Set<string>()
-  const optionKeys = new Set<string>()
-  for (const option of field.options) {
-    if (!nonBlank(option.id) || !nonBlank(option.key) || !nonBlank(option.label)) {
-      issues.push({
-        path: 'options',
-        message: 'Category option id, key and label must be non-empty.',
-      })
-      break
+  if (field.category?.kind === 'embedded') {
+    const optionIds = new Set<string>()
+    const optionKeys = new Set<string>()
+    for (const option of field.category.options) {
+      if (!nonBlank(option.id) || !nonBlank(option.key) || !nonBlank(option.label)) {
+        issues.push({
+          path: 'category',
+          message: 'Category option id, key and label must be non-empty.',
+        })
+        break
+      }
+      if (optionIds.has(option.id) || optionKeys.has(option.key)) {
+        issues.push({
+          path: 'category',
+          message: 'Category option ids and keys must be unique within a field.',
+        })
+        break
+      }
+      optionIds.add(option.id)
+      optionKeys.add(option.key)
     }
-    if (optionIds.has(option.id) || optionKeys.has(option.key)) {
-      issues.push({
-        path: 'options',
-        message: 'Category option ids and keys must be unique within a field.',
-      })
-      break
-    }
-    optionIds.add(option.id)
-    optionKeys.add(option.key)
+  }
+
+  if (
+    field.category?.kind === 'vocabulary' &&
+    !nonBlank(field.category.vocabularyId)
+  ) {
+    issues.push({
+      path: 'category',
+      message: 'Vocabulary-backed categories require a vocabularyId.',
+    })
   }
 
   if (field.logicalType === 'reference' && field.relationship === null) {

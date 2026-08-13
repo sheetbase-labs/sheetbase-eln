@@ -1,7 +1,9 @@
 # CORE-02 — Dataset Primitive
 
-**Status:** Planned / substantially elaborated  
-**Refinement gate:** CORE-01.7 must review this file against the implemented common schema kernel before CORE-02.1 begins.
+**Status:** Ready for CORE-02.1
+**Refinement evidence:** CORE-01.7 confirmed that Models and Dataset Schemas
+already consume the shared `FieldDefinition` kernel. CORE-02 therefore starts
+with persistence evidence, not another field-type design.
 
 ## Epic goal
 
@@ -21,11 +23,29 @@ Make Dataset the durable, API-addressable rectangular data object independent of
 
 # CORE-02.1 — Audit current scientific table/Dataset persistence
 
-**Blocked by:** CORE-01.7.
+**Blocked by:** Nothing.
 
 ## Goal
 
 Document the current physical/logical persistence used by scientific Sheets/tables/Dataset Explorer and identify what can be retained for the Dataset primitive.
+
+## Why
+
+CORE-01 settled shared field meaning but intentionally did not select Dataset
+physical storage. The storage/versioning decision must account for the current
+scientific-table write path, formula provenance, RLS, and Explorer behaviour.
+
+## Existing implementation to inspect
+
+- `src/db/schema.ts` and migrations `0013_data_002_scientific_tables.sql`,
+  `0014_data_003_scientific_rest.sql`, `0035_sci_010_dataset_schema_registry.sql`,
+  and `0036_sci_011_schema_relationships.sql`;
+- `src/lib/scientific-sheet-data.ts`, `src/lib/dataset-schema-data.ts`,
+  `src/lib/dataset-explorer-data.ts`, and formula/dependency modules;
+- controlled scientific-table RPCs, RLS policies, and PostgREST resources;
+- `src/components/sheet/`, Dataset Explorer routes/components, and focused DB
+  tests including `tests/db/scientific-*.test.ts` and
+  `tests/db/dataset-schema-registry.test.ts`.
 
 ## Deliverables
 
@@ -45,9 +65,30 @@ Create `docs/core/audits/DATASET_PERSISTENCE_AUDIT.md` covering:
 
 None.
 
+## Must preserve
+
+- CORE-01 `FieldDefinition` identity and semantics;
+- current workspace isolation and server-authoritative validation;
+- formula/dependency identity and reconstructable evidence;
+- existing scientific Sheets while a later migration path is selected.
+
 ## Do not
 
 Create migrations or pick the final physical strategy in this task.
+
+## Tests / evidence
+
+- Reproduce representative create/edit/schema-evolution/formula flows against
+  the existing DB tests and record their current contracts in the audit.
+- Document actual scale fixtures and query behaviour; state when evidence is
+  absent rather than guessing.
+- No migration or implementation validation is required beyond the focused
+  evidence used to ground the audit.
+
+## ADR trigger
+
+CORE-02.2 must record the durable physical-storage/versioning decision after
+this audit compares viable alternatives.
 
 ## Exit gate
 

@@ -16,9 +16,14 @@ function field(overrides: Partial<FieldDefinition> = {}): FieldDefinition {
     nullable: true,
     defaultValue: null,
     cardinality: 'one',
-    unit: { symbol: 'mg/mL', dimension: 'concentration' },
+    quantity: {
+      kind: 'mass_concentration',
+      dimension: 'mass/volume',
+      storageUnit: 'mg/mL',
+      allowedInputUnits: ['mg/mL', 'g/L'],
+    },
     validation: { min: 0 },
-    options: [],
+    category: null,
     relationship: null,
     computation: { mode: 'stored' },
     lifecycle: 'active',
@@ -27,41 +32,51 @@ function field(overrides: Partial<FieldDefinition> = {}): FieldDefinition {
 }
 
 describe('canonical FieldDefinition contract', () => {
-  it('accepts a representative numeric field with units and validation', () => {
+  it('accepts a representative scientific quantity', () => {
     expect(validateFieldDefinition(field())).toEqual([])
   })
 
-  it('requires category options to live on category fields', () => {
-    const issues = validateFieldDefinition(
-      field({
-        options: [
-          {
-            id: 'option-1',
-            key: 'clinical',
-            label: 'Clinical',
-            displayOrder: 1,
-            lifecycle: 'active',
+  it('rejects quantity semantics on non-numeric fields', () => {
+    expect(validateFieldDefinition(field({ logicalType: 'text' }))).toContainEqual({
+      path: 'quantity',
+      message: 'Quantity semantics are only valid for integer or decimal fields.',
+    })
+  })
+
+  it('supports embedded and governed category sources', () => {
+    expect(
+      validateFieldDefinition(
+        field({
+          logicalType: 'category',
+          quantity: null,
+          category: {
+            kind: 'embedded',
+            options: [
+              {
+                id: 'option-1',
+                key: 'pass',
+                label: 'Pass',
+                displayOrder: 1,
+                lifecycle: 'active',
+              },
+            ],
           },
-        ],
-      }),
-    )
-    expect(issues).toContainEqual({
-      path: 'options',
-      message: 'Controlled vocabulary options require logicalType=category.',
-    })
+        }),
+      ),
+    ).toEqual([])
+
+    expect(
+      validateFieldDefinition(
+        field({
+          logicalType: 'category',
+          quantity: null,
+          category: { kind: 'vocabulary', vocabularyId: 'qc-outcome' },
+        }),
+      ),
+    ).toEqual([])
   })
 
-  it('requires reference fields to declare an explicit target', () => {
-    const issues = validateFieldDefinition(
-      field({ logicalType: 'reference', unit: null }),
-    )
-    expect(issues).toContainEqual({
-      path: 'relationship',
-      message: 'Reference fields require an explicit relationship target.',
-    })
-  })
-
-  it('maps the existing Model field contract without changing durable identity', () => {
+  it('maps existing Model fields without changing durable identity', () => {
     const mapped = fieldDefinitionFromModelField({
       id: 'f-123',
       fieldName: 'source_sample',
@@ -71,10 +86,7 @@ describe('canonical FieldDefinition contract', () => {
       nullable: false,
       defaultValue: null,
       unit: null,
-      validation: {
-        targetModelKey: 'sample',
-        requiredState: 'released',
-      },
+      validation: { targetModelKey: 'sample', requiredState: 'released' },
       lifecycle: 'active',
       options: [],
     })
@@ -82,19 +94,39 @@ describe('canonical FieldDefinition contract', () => {
     expect(mapped).toMatchObject({
       fieldId: 'f-123',
       key: 'source_sample',
-      logicalType: 'reference',
-      cardinality: 'one',
+      quantity: null,
       relationship: {
         target: { kind: 'model', modelKey: 'sample' },
         cardinality: 'one',
       },
       validation: { extensions: { requiredState: 'released' } },
-      computation: { mode: 'stored' },
     })
     expect(validateFieldDefinition(mapped)).toEqual([])
   })
 
-  it('separates durable key identity from presentation labels', () => {
+  it('projects legacy unit metadata without inventing scientific meaning', () => {
+    const mapped = fieldDefinitionFromModelField({
+      id: 'f-quantity',
+      fieldName: 'titre',
+      label: 'Titre',
+      description: null,
+      logicalType: 'decimal',
+      nullable: true,
+      defaultValue: null,
+      unit: { symbol: 'TU/mL' },
+      validation: {},
+      lifecycle: 'active',
+      options: [],
+    })
+
+    expect(mapped.quantity).toEqual({
+      kind: 'legacy-unspecified',
+      dimension: 'legacy-unspecified',
+      storageUnit: 'TU/mL',
+    })
+  })
+
+  it('keeps durable key identity separate from labels', () => {
     const original = field({ key: 'vector_copy_number', label: 'VCN' })
     const renamed = { ...original, label: 'Vector copy number' }
 

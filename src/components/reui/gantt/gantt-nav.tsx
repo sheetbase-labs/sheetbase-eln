@@ -1,25 +1,25 @@
-"use client"
+'use client'
 
 import {
   useState,
   type ButtonHTMLAttributes,
   type HTMLAttributes,
   type ReactNode,
-} from "react"
+} from 'react'
 import {
   useGanttNavigation,
   useGanttScale,
   useGanttSettings,
   useGanttViewConfig,
-} from "#/components/reui/gantt/gantt"
-import { toZoned } from "#/components/reui/gantt/gantt-lib"
-import type { GanttScale } from "#/components/reui/gantt/gantt-types"
-import { format } from "date-fns"
-import { Slot } from "radix-ui"
+} from '#/components/reui/gantt/gantt'
+import { toZoned } from '#/components/reui/gantt/gantt-lib'
+import type { GanttScale } from '#/components/reui/gantt/gantt-types'
+import { format } from 'date-fns'
+import { Slot } from 'radix-ui'
 
-import { cn } from "#/lib/utils"
-import { Button } from "#/components/ui/button"
-import { Calendar } from "#/components/ui/calendar"
+import { cn } from '#/lib/utils'
+import { Button } from '#/components/ui/button'
+import { Calendar } from '#/components/ui/calendar'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,39 +27,44 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
-} from "#/components/ui/dropdown-menu"
+} from '#/components/ui/dropdown-menu'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "#/components/ui/popover"
+} from '#/components/ui/popover'
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "#/components/ui/tooltip"
-import { ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon, CalendarIcon } from "lucide-react"
+} from '#/components/ui/tooltip'
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ChevronDownIcon,
+  CalendarIcon,
+} from 'lucide-react'
 
-const GANTT_SCALES: GanttScale[] = ["day", "week", "month", "quarter", "year"]
+const GANTT_SCALES: GanttScale[] = ['day', 'week', 'month', 'quarter', 'year']
 
 /** Configured nav button variant/size (viewConfig.navButtonVariant/Size). */
 function useNavButtonProps(): {
-  variant: "ghost" | "outline" | "secondary" | "default"
-  size: "sm" | "default"
-  iconSize: "icon-sm" | "icon"
+  variant: 'ghost' | 'outline' | 'secondary' | 'default'
+  size: 'sm' | 'default'
+  iconSize: 'icon-sm' | 'icon'
 } {
   const viewConfig = useGanttViewConfig()
   return {
     variant: viewConfig.navButtonVariant,
     size: viewConfig.navButtonSize,
-    iconSize: viewConfig.navButtonSize === "sm" ? "icon-sm" : "icon",
+    iconSize: viewConfig.navButtonSize === 'sm' ? 'icon-sm' : 'icon',
   }
 }
 
 type NavButtonProps = Omit<
   ButtonHTMLAttributes<HTMLButtonElement>,
-  "children"
+  'children'
 > & {
   children?: ReactNode
   /**
@@ -105,7 +110,7 @@ function GanttNavToday({
   const defaultTooltip = format(
     toZoned(new Date(), settings.timeZone),
     settings.i18n.formats.dayTitle,
-    { locale: settings.locale }
+    { locale: settings.locale },
   )
   return (
     <NavTooltip content={tooltip === undefined ? defaultTooltip : tooltip}>
@@ -149,9 +154,7 @@ function GanttNavPrev({
         asChild={asChild}
         {...props}
       >
-        {children ?? (
-          <ChevronLeftIcon className="size-4" aria-hidden="true" />
-        )}
+        {children ?? <ChevronLeftIcon className="size-4" aria-hidden="true" />}
       </Button>
     </NavTooltip>
   )
@@ -181,9 +184,7 @@ function GanttNavNext({
         asChild={asChild}
         {...props}
       >
-        {children ?? (
-          <ChevronRightIcon className="size-4" aria-hidden="true" />
-        )}
+        {children ?? <ChevronRightIcon className="size-4" aria-hidden="true" />}
       </Button>
     </NavTooltip>
   )
@@ -202,12 +203,12 @@ function GanttTitle({
   ...props
 }: GanttTitleProps) {
   const { title } = useGanttNavigation()
-  const Comp = asChild ? Slot.Root : "div"
+  const Comp = asChild ? Slot.Root : 'div'
   return (
     <Comp
       data-slot="gantt-title"
       aria-live="polite"
-      className={cn("min-w-0 truncate text-sm font-semibold", className)}
+      className={cn('min-w-0 truncate text-sm font-semibold', className)}
       {...props}
     >
       {children ?? formatTitle?.({ title }) ?? title}
@@ -217,7 +218,7 @@ function GanttTitle({
 
 interface GanttScaleSwitcherProps extends Omit<
   ButtonHTMLAttributes<HTMLButtonElement>,
-  "children"
+  'children'
 > {
   children?: ReactNode
   /** Hover/focus-visible hint; defaults to the "Select view" label. Pass
@@ -279,13 +280,16 @@ function GanttScaleSwitcher({
               size={nav.size}
               data-slot="gantt-scale-switcher"
               aria-label={labels.selectView}
-              className={cn("gap-1", className)}
+              className={cn('gap-1', className)}
               {...props}
             >
               {children ?? (
                 <>
                   {labels.scales[scale]}
-                  <ChevronDownIcon className="size-4 opacity-60" aria-hidden="true" />
+                  <ChevronDownIcon
+                    className="size-4 opacity-60"
+                    aria-hidden="true"
+                  />
                 </>
               )}
             </Button>
@@ -377,14 +381,14 @@ function GanttToolbar({
   ...props
 }: GanttToolbarProps) {
   const viewConfig = useGanttViewConfig()
-  const Comp = asChild ? Slot.Root : "div"
+  const Comp = asChild ? Slot.Root : 'div'
   return (
     <Comp
       data-slot="gantt-toolbar"
       className={cn(
-        "flex items-center gap-2",
+        'flex items-center gap-2',
         viewConfig.classNames?.toolbar,
-        className
+        className,
       )}
       {...props}
     >
@@ -409,17 +413,17 @@ function GanttNav({
   ...props
 }: GanttNavProps) {
   const viewConfig = useGanttViewConfig()
-  const Comp = asChild ? Slot.Root : "div"
+  const Comp = asChild ? Slot.Root : 'div'
   return (
     <Comp
       data-slot="gantt-nav"
       className={cn(
         // px so the toolbar controls do not hug the container edge; border-b
         // separates the toolbar from the column header below it
-        "flex min-w-0 flex-wrap items-center gap-2 border-b px-3 py-2",
-        viewConfig.stickyNav && "bg-background sticky top-0 z-30",
+        'flex min-w-0 flex-wrap items-center gap-2 border-b px-3 py-2',
+        viewConfig.stickyNav && 'bg-background sticky top-0 z-30',
         viewConfig.classNames?.nav,
-        className
+        className,
       )}
       {...props}
     >

@@ -204,9 +204,7 @@ export function CommentPanel({
               Add comment
             </Button>
             {createMutation.isPending ? (
-              <span className="text-xs text-muted-foreground">
-                Sending…
-              </span>
+              <span className="text-xs text-muted-foreground">Sending…</span>
             ) : null}
           </div>
         </form>

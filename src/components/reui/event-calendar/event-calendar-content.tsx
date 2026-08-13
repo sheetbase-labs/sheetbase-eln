@@ -1,20 +1,20 @@
-import { type ComponentType, type HTMLAttributes, type ReactNode } from "react"
+import { type ComponentType, type HTMLAttributes, type ReactNode } from 'react'
 import {
   useEventCalendarSelector,
   useEventCalendarViewConfig,
-} from "#/components/reui/event-calendar/event-calendar.tsx"
-import { EventCalendarAgendaView } from "#/components/reui/event-calendar/event-calendar-agenda-view.tsx"
-import { EventCalendarMonthView } from "#/components/reui/event-calendar/event-calendar-month-view.tsx"
-import { EventCalendarResourceView } from "#/components/reui/event-calendar/event-calendar-resource-view.tsx"
+} from '#/components/reui/event-calendar/event-calendar.tsx'
+import { EventCalendarAgendaView } from '#/components/reui/event-calendar/event-calendar-agenda-view.tsx'
+import { EventCalendarMonthView } from '#/components/reui/event-calendar/event-calendar-month-view.tsx'
+import { EventCalendarResourceView } from '#/components/reui/event-calendar/event-calendar-resource-view.tsx'
 import {
   EventCalendarDaysView,
   EventCalendarDayView,
   EventCalendarWeekView,
-} from "#/components/reui/event-calendar/event-calendar-time-grid.tsx"
-import type { CalendarView } from "#/components/reui/event-calendar/event-calendar-types.tsx"
-import { Slot } from "radix-ui"
+} from '#/components/reui/event-calendar/event-calendar-time-grid.tsx'
+import type { CalendarView } from '#/components/reui/event-calendar/event-calendar-types.tsx'
+import { Slot } from 'radix-ui'
 
-import { cn } from "#/lib/utils.ts"
+import { cn } from '#/lib/utils.ts'
 
 const DEFAULT_VIEW_COMPONENTS: Record<CalendarView, ComponentType> = {
   month: EventCalendarMonthView,
@@ -53,7 +53,7 @@ function EventCalendarContent({
   // ? ProMonth : undefined }}` would erase the default and render <undefined />.
   const ActiveView = resolved[view] ?? DEFAULT_VIEW_COMPONENTS[view]
 
-  const Comp = asChild ? Slot.Root : "div"
+  const Comp = asChild ? Slot.Root : 'div'
 
   return (
     <Comp
@@ -61,10 +61,10 @@ function EventCalendarContent({
       data-view={view}
       data-loading={loading || undefined}
       className={cn(
-        "relative flex min-h-0 min-w-0 flex-1 flex-col",
-        "data-loading:pointer-events-none data-loading:opacity-60",
+        'relative flex min-h-0 min-w-0 flex-1 flex-col',
+        'data-loading:pointer-events-none data-loading:opacity-60',
         viewConfig.classNames?.content,
-        className
+        className,
       )}
       {...props}
     >

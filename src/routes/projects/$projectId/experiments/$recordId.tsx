@@ -240,22 +240,22 @@ function ExperimentNotebookRoute() {
       }
     >
       <div className="flex-1 overflow-y-auto px-4 pb-16 md:px-6">
-          <StickyRecordHeader
-            record={record}
-            projectName={project?.title ?? null}
-            projectId={projectId}
-          />
-          {isArchived ? <ArchivedBanner /> : null}
-          {record.lockedAt ? <LockedBanner record={record} /> : null}
-          <NotebookCanvas
-              record={record}
-              blocks={blocks}
-              isLoading={blocksQuery.isLoading}
-              error={blocksQuery.error}
-              onRetry={() => blocksQuery.refetch()}
-              client={notebookDataClient}
-              queryClient={queryClient}
-            />
+        <StickyRecordHeader
+          record={record}
+          projectName={project?.title ?? null}
+          projectId={projectId}
+        />
+        {isArchived ? <ArchivedBanner /> : null}
+        {record.lockedAt ? <LockedBanner record={record} /> : null}
+        <NotebookCanvas
+          record={record}
+          blocks={blocks}
+          isLoading={blocksQuery.isLoading}
+          error={blocksQuery.error}
+          onRetry={() => blocksQuery.refetch()}
+          client={notebookDataClient}
+          queryClient={queryClient}
+        />
       </div>
     </RouteShell>
   )
@@ -814,7 +814,11 @@ function EditableNotebook({
     afterBlockId?: string,
     options?: { datasetSchemaId?: string },
   ) {
-    const res = await insertMutation.mutateAsync({ type, afterBlockId, options })
+    const res = await insertMutation.mutateAsync({
+      type,
+      afterBlockId,
+      options,
+    })
     return res.block.id
   }
 

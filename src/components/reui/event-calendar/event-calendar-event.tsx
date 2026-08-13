@@ -5,54 +5,54 @@ import {
   type ButtonHTMLAttributes,
   type CSSProperties,
   type ReactNode,
-} from "react"
+} from 'react'
 import {
   useEventCalendar,
   useEventCalendarSelector,
   useEventCalendarViewConfig,
   useEventCalendarViewContext,
-} from "#/components/reui/event-calendar/event-calendar.tsx"
+} from '#/components/reui/event-calendar/event-calendar.tsx'
 import {
   markChipPress,
   useEventCalendarGestures,
   wasRecentDrag,
-} from "#/components/reui/event-calendar/event-calendar-dnd.tsx"
+} from '#/components/reui/event-calendar/event-calendar-dnd.tsx'
 import {
   spansMultipleDays,
   toZoned,
   zonedStartOfDay,
-} from "#/components/reui/event-calendar/event-calendar-lib.tsx"
+} from '#/components/reui/event-calendar/event-calendar-lib.tsx'
 import type {
   EventCalendarOccurrence,
   EventCalendarSegment,
-} from "#/components/reui/event-calendar/event-calendar-types.tsx"
-import { addDays, format } from "date-fns"
-import { Slot } from "radix-ui"
+} from '#/components/reui/event-calendar/event-calendar-types.tsx'
+import { addDays, format } from 'date-fns'
+import { Slot } from 'radix-ui'
 
-import { cn } from "#/lib/utils.ts"
+import { cn } from '#/lib/utils.ts'
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "#/components/ui/tooltip.tsx"
-import { RepeatIcon } from "lucide-react"
+} from '#/components/ui/tooltip.tsx'
+import { RepeatIcon } from 'lucide-react'
 
 /**
  * Effective Tailwind palette presets for event colors; every entry works on
  * light and dark surfaces through the chip's alpha background + accent border.
  */
 const EVENT_CALENDAR_COLORS: Array<{ name: string; value: string }> = [
-  { name: "Blue", value: "var(--color-blue-500)" },
-  { name: "Emerald", value: "var(--color-emerald-500)" },
-  { name: "Violet", value: "var(--color-violet-500)" },
-  { name: "Rose", value: "var(--color-rose-500)" },
-  { name: "Amber", value: "var(--color-amber-500)" },
-  { name: "Cyan", value: "var(--color-cyan-500)" },
-  { name: "Orange", value: "var(--color-orange-500)" },
-  { name: "Pink", value: "var(--color-pink-500)" },
-  { name: "Teal", value: "var(--color-teal-500)" },
-  { name: "Indigo", value: "var(--color-indigo-500)" },
+  { name: 'Blue', value: 'var(--color-blue-500)' },
+  { name: 'Emerald', value: 'var(--color-emerald-500)' },
+  { name: 'Violet', value: 'var(--color-violet-500)' },
+  { name: 'Rose', value: 'var(--color-rose-500)' },
+  { name: 'Amber', value: 'var(--color-amber-500)' },
+  { name: 'Cyan', value: 'var(--color-cyan-500)' },
+  { name: 'Orange', value: 'var(--color-orange-500)' },
+  { name: 'Pink', value: 'var(--color-pink-500)' },
+  { name: 'Teal', value: 'var(--color-teal-500)' },
+  { name: 'Indigo', value: 'var(--color-indigo-500)' },
 ]
 
 /**
@@ -69,13 +69,13 @@ const EVENT_CALENDAR_COLORS: Array<{ name: string; value: string }> = [
  *   a cursor-following validation hint.
  */
 const EVENT_CALENDAR_GHOST = {
-  move: "rounded-sm border border-dashed border-(--ec-event-color)/50 bg-(--ec-event-color)/8",
+  move: 'rounded-sm border border-dashed border-(--ec-event-color)/50 bg-(--ec-event-color)/8',
   resize:
-    "rounded-sm border border-dashed border-(--ec-event-color)/70 overflow-hidden",
-  invalid: "border-destructive/70 bg-destructive/10",
-  invalidResize: "border-destructive/70",
+    'rounded-sm border border-dashed border-(--ec-event-color)/70 overflow-hidden',
+  invalid: 'border-destructive/70 bg-destructive/10',
+  invalidResize: 'border-destructive/70',
   /** Applied to the clone inside an invalid resize ghost. */
-  invalidContent: "opacity-60",
+  invalidContent: 'opacity-60',
 } as const
 
 /**
@@ -89,7 +89,7 @@ const EVENT_CALENDAR_GHOST = {
  * can import and reuse it.
  */
 const EVENT_CALENDAR_FADE_TRUNCATE =
-  "w-full truncate @max-[10rem]:text-clip @max-[10rem]:[mask-image:linear-gradient(to_right,#000_calc(100%-0.75rem),transparent)] @max-[10rem]:rtl:[mask-image:linear-gradient(to_left,#000_calc(100%-0.75rem),transparent)]"
+  'w-full truncate @max-[10rem]:text-clip @max-[10rem]:[mask-image:linear-gradient(to_right,#000_calc(100%-0.75rem),transparent)] @max-[10rem]:rtl:[mask-image:linear-gradient(to_left,#000_calc(100%-0.75rem),transparent)]'
 
 interface EventCalendarChipContextValue<TData = unknown> {
   occurrence: EventCalendarOccurrence<TData>
@@ -109,7 +109,7 @@ function useEventCalendarEventChip<
   const ctx = useContext(EventCalendarChipContext)
   if (!ctx) {
     throw new Error(
-      "useEventCalendarEventChip must be used within <EventCalendarEvent>"
+      'useEventCalendarEventChip must be used within <EventCalendarEvent>',
     )
   }
   return ctx as EventCalendarChipContextValue<TData>
@@ -117,7 +117,7 @@ function useEventCalendarEventChip<
 
 interface EventCalendarEventProps<TData = unknown> extends Omit<
   ButtonHTMLAttributes<HTMLButtonElement>,
-  "children"
+  'children'
 > {
   segment: EventCalendarSegment<TData>
   /** Replaces the default chip CONTENT; the wrapper stays calendar-owned. */
@@ -159,17 +159,17 @@ function EventCalendarEvent<TData = unknown>({
 
   const isSelectedRaw = useEventCalendarSelector<TData, boolean>(
     (state) => state.selection.eventKeys.includes(occurrence.key),
-    { calendar: instance }
+    { calendar: instance },
   )
   const isDraggingRaw = useEventCalendarSelector<TData, boolean>(
     (state) => state.drag?.occurrence.key === occurrence.key,
-    { calendar: instance }
+    { calendar: instance },
   )
   // reactive, unlike gestures.canResize: api.setInteractions({ resize })
   // must add/remove the handles without waiting for an unrelated re-render
   const resizeOn = useEventCalendarSelector<TData, boolean>(
     (state) => state.interactions.resize,
-    { calendar: instance }
+    { calendar: instance },
   )
   // A preview clone must never inherit the source's selected/dragging state
   // (the drag key matches, which would dim the clone itself).
@@ -179,8 +179,8 @@ function EventCalendarEvent<TData = unknown>({
   const isBar =
     occurrence.allDay || spansMultipleDays(occurrence, settings.timeZone)
   const inTimeGrid =
-    view === "week" || view === "day" || view === "days" || view === "resource"
-  const interactive = view !== "agenda" && !preview
+    view === 'week' || view === 'day' || view === 'days' || view === 'resource'
+  const interactive = view !== 'agenda' && !preview
   const timedBlock = inTimeGrid && !isBar
   const horizontalBar = isBar && !inTimeGrid
   // >= compactEventMinutes renders the stacked (title over time) layout;
@@ -206,12 +206,15 @@ function EventCalendarEvent<TData = unknown>({
         />
       )}
       {occurrence.isRecurring && (
-        <RepeatIcon className="size-2.5 shrink-0 opacity-70" aria-hidden="true" />
+        <RepeatIcon
+          className="size-2.5 shrink-0 opacity-70"
+          aria-hidden="true"
+        />
       )}
       <span
         className={cn(
-          "font-medium",
-          stackedBlock ? EVENT_CALENDAR_FADE_TRUNCATE : "truncate"
+          'font-medium',
+          stackedBlock ? EVENT_CALENDAR_FADE_TRUNCATE : 'truncate',
         )}
       >
         {event.title}
@@ -220,26 +223,26 @@ function EventCalendarEvent<TData = unknown>({
           the title readable; grid views show the full range */}
       {!occurrence.allDay &&
         segment.isStart &&
-        (view === "month" ? (
+        (view === 'month' ? (
           <span className="text-muted-foreground shrink-0">
             {format(
               toZoned(occurrence.start, settings.timeZone),
               settings.i18n.formats.eventTime,
-              { locale: settings.locale }
+              { locale: settings.locale },
             )}
           </span>
         ) : (
           <span
             className={cn(
-              "text-muted-foreground hidden @[8rem]:inline",
-              stackedBlock ? EVENT_CALENDAR_FADE_TRUNCATE : "truncate"
+              'text-muted-foreground hidden @[8rem]:inline',
+              stackedBlock ? EVENT_CALENDAR_FADE_TRUNCATE : 'truncate',
             )}
           >
             {settings.i18n.functions.formatEventTime(
               toZoned(occurrence.start, settings.timeZone),
               toZoned(occurrence.end, settings.timeZone),
               occurrence.allDay,
-              { locale: settings.locale }
+              { locale: settings.locale },
             )}
           </span>
         ))}
@@ -251,7 +254,7 @@ function EventCalendarEvent<TData = unknown>({
   // Boundaries derive from the occurrence vs segment.day (never the packing
   // flags - lane merging rewrites those on shared segment objects).
   const agendaTimeText = (() => {
-    if (view !== "agenda") return ""
+    if (view !== 'agenda') return ''
     if (occurrence.allDay) return settings.i18n.labels.allDay
     const dayStart = zonedStartOfDay(segment.day, settings.timeZone)
     const dayEnd = addDays(toZoned(dayStart, settings.timeZone), 1)
@@ -263,8 +266,8 @@ function EventCalendarEvent<TData = unknown>({
         format(
           toZoned(occurrence.start, settings.timeZone),
           settings.i18n.formats.eventTime,
-          { locale: settings.locale }
-        )
+          { locale: settings.locale },
+        ),
       )
     }
     if (startsBefore) {
@@ -272,15 +275,15 @@ function EventCalendarEvent<TData = unknown>({
         format(
           toZoned(occurrence.end, settings.timeZone),
           settings.i18n.formats.eventTime,
-          { locale: settings.locale }
-        )
+          { locale: settings.locale },
+        ),
       )
     }
     return settings.i18n.functions.formatEventTime(
       toZoned(occurrence.start, settings.timeZone),
       toZoned(occurrence.end, settings.timeZone),
       false,
-      { locale: settings.locale }
+      { locale: settings.locale },
     )
   })()
 
@@ -297,7 +300,10 @@ function EventCalendarEvent<TData = unknown>({
       />
       <span className="truncate text-sm">{event.title}</span>
       {occurrence.isRecurring && (
-        <RepeatIcon className="text-muted-foreground size-2.5 shrink-0" aria-hidden="true" />
+        <RepeatIcon
+          className="text-muted-foreground size-2.5 shrink-0"
+          aria-hidden="true"
+        />
       )}
     </>
   )
@@ -310,7 +316,7 @@ function EventCalendarEvent<TData = unknown>({
   // plus the render fns (all stable during an internal drag).
   const customContent = useMemo(() => {
     const renderProps = { occurrence, segment, view, isDragging, isSelected }
-    return view === "agenda"
+    return view === 'agenda'
       ? viewConfig.renderAgendaEvent?.(renderProps)
       : viewConfig.renderEvent?.(renderProps)
   }, [
@@ -325,13 +331,13 @@ function EventCalendarEvent<TData = unknown>({
   const content =
     children ??
     customContent ??
-    (view === "agenda" ? agendaDefaultContent : defaultContent)
+    (view === 'agenda' ? agendaDefaultContent : defaultContent)
 
   const timeLabel = settings.i18n.functions.formatEventTime(
     toZoned(occurrence.start, settings.timeZone),
     toZoned(occurrence.end, settings.timeZone),
     occurrence.allDay,
-    { locale: settings.locale }
+    { locale: settings.locale },
   )
   // native hover tooltip text; a consumer formatter returning undefined
   // drops the title attribute entirely (e.g. when it renders its own tooltip)
@@ -346,7 +352,7 @@ function EventCalendarEvent<TData = unknown>({
   // the `false`/"" that `cond && <node>` yields) falls back to the label, and
   // an empty label (i18n opt-out) leaves no content so the tooltip is skipped.
   const tooltipOpts =
-    typeof viewConfig.eventTooltip === "object" ? viewConfig.eventTooltip : null
+    typeof viewConfig.eventTooltip === 'object' ? viewConfig.eventTooltip : null
   const tooltipContent =
     !preview && viewConfig.eventTooltip
       ? viewConfig.renderEventTooltip?.({
@@ -370,9 +376,9 @@ function EventCalendarEvent<TData = unknown>({
       aria-hidden
       data-slot="event-calendar-resize-grip"
       className={cn(
-        "bg-foreground/40 rounded-full",
-        timedBlock ? "h-0.5 w-2.5" : "h-2.5 w-0.5",
-        viewConfig.classNames?.resizeGrip
+        'bg-foreground/40 rounded-full',
+        timedBlock ? 'h-0.5 w-2.5' : 'h-2.5 w-0.5',
+        viewConfig.classNames?.resizeGrip,
       )}
     />
   )
@@ -383,10 +389,10 @@ function EventCalendarEvent<TData = unknown>({
           data-slot="event-calendar-resize-handle"
           data-edge="start"
           className={cn(
-            "absolute inset-x-1 top-0 flex h-1.5 cursor-ns-resize items-center justify-center opacity-0 transition-opacity duration-150 group-hover/ec-event:opacity-100",
-            viewConfig.classNames?.resizeHandle
+            'absolute inset-x-1 top-0 flex h-1.5 cursor-ns-resize items-center justify-center opacity-0 transition-opacity duration-150 group-hover/ec-event:opacity-100',
+            viewConfig.classNames?.resizeHandle,
           )}
-          onPointerDown={(e) => gestures.beginResize(e, segment, "start")}
+          onPointerDown={(e) => gestures.beginResize(e, segment, 'start')}
         >
           {grip}
         </span>
@@ -396,10 +402,10 @@ function EventCalendarEvent<TData = unknown>({
           data-slot="event-calendar-resize-handle"
           data-edge="end"
           className={cn(
-            "absolute inset-x-1 bottom-0 flex h-1.5 cursor-ns-resize items-center justify-center opacity-0 transition-opacity duration-150 group-hover/ec-event:opacity-100",
-            viewConfig.classNames?.resizeHandle
+            'absolute inset-x-1 bottom-0 flex h-1.5 cursor-ns-resize items-center justify-center opacity-0 transition-opacity duration-150 group-hover/ec-event:opacity-100',
+            viewConfig.classNames?.resizeHandle,
           )}
-          onPointerDown={(e) => gestures.beginResize(e, segment, "end")}
+          onPointerDown={(e) => gestures.beginResize(e, segment, 'end')}
         >
           {grip}
         </span>
@@ -409,10 +415,10 @@ function EventCalendarEvent<TData = unknown>({
           data-slot="event-calendar-resize-handle"
           data-edge="start"
           className={cn(
-            "absolute inset-y-0 start-0 flex w-2 cursor-ew-resize items-center justify-center opacity-0 transition-opacity duration-150 group-hover/ec-event:opacity-100",
-            viewConfig.classNames?.resizeHandle
+            'absolute inset-y-0 start-0 flex w-2 cursor-ew-resize items-center justify-center opacity-0 transition-opacity duration-150 group-hover/ec-event:opacity-100',
+            viewConfig.classNames?.resizeHandle,
           )}
-          onPointerDown={(e) => gestures.beginResize(e, segment, "start")}
+          onPointerDown={(e) => gestures.beginResize(e, segment, 'start')}
         >
           {grip}
         </span>
@@ -422,10 +428,10 @@ function EventCalendarEvent<TData = unknown>({
           data-slot="event-calendar-resize-handle"
           data-edge="end"
           className={cn(
-            "absolute inset-y-0 end-0 flex w-2 cursor-ew-resize items-center justify-center opacity-0 transition-opacity duration-150 group-hover/ec-event:opacity-100",
-            viewConfig.classNames?.resizeHandle
+            'absolute inset-y-0 end-0 flex w-2 cursor-ew-resize items-center justify-center opacity-0 transition-opacity duration-150 group-hover/ec-event:opacity-100',
+            viewConfig.classNames?.resizeHandle,
           )}
-          onPointerDown={(e) => gestures.beginResize(e, segment, "end")}
+          onPointerDown={(e) => gestures.beginResize(e, segment, 'end')}
         >
           {grip}
         </span>
@@ -433,7 +439,7 @@ function EventCalendarEvent<TData = unknown>({
     </>
   )
 
-  const Comp = asChild ? Slot.Root : "button"
+  const Comp = asChild ? Slot.Root : 'button'
 
   const chip = (
     <Comp
@@ -453,12 +459,12 @@ function EventCalendarEvent<TData = unknown>({
         settings.i18n.functions.formatEventAriaLabel?.(
           event.title,
           timeLabel,
-          segment.continuesBefore || segment.continuesAfter
+          segment.continuesBefore || segment.continuesAfter,
         ) ??
         `${event.title}, ${timeLabel}${
           segment.continuesBefore || segment.continuesAfter
             ? `, ${settings.i18n.labels.continues}`
-            : ""
+            : ''
         }`
       }
       // Selection is otherwise conveyed by a background tint alone; the chip is a
@@ -472,7 +478,7 @@ function EventCalendarEvent<TData = unknown>({
       // gets this for free through mergeProps)
       style={
         {
-          "--ec-event-color": event.color ?? "var(--color-primary)",
+          '--ec-event-color': event.color ?? 'var(--color-primary)',
           ...style,
         } as CSSProperties
       }
@@ -495,7 +501,7 @@ function EventCalendarEvent<TData = unknown>({
         // (e.g. click = open dialog only, no selected tint)
         settings.onEventClick?.(occurrence, e)
         // the agenda is a read-only list: a click never selects/focuses a row
-        if (e.defaultPrevented || view === "agenda") return
+        if (e.defaultPrevented || view === 'agenda') return
         instance.api.selectEvent(occurrence.key)
       }}
       onDoubleClick={(e: React.MouseEvent<HTMLButtonElement>) => {
@@ -504,32 +510,32 @@ function EventCalendarEvent<TData = unknown>({
         settings.onEventDoubleClick?.(occurrence, e)
       }}
       className={cn(
-        "group/ec-event text-foreground relative flex w-full min-w-0 cursor-pointer touch-none items-center overflow-hidden text-start select-none",
-        "focus-visible:ring-ring/50 outline-none focus-visible:ring-2",
-        preview && "pointer-events-none",
-        view === "agenda"
+        'group/ec-event text-foreground relative flex w-full min-w-0 cursor-pointer touch-none items-center overflow-hidden text-start select-none',
+        'focus-visible:ring-ring/50 outline-none focus-visible:ring-2',
+        preview && 'pointer-events-none',
+        view === 'agenda'
           ? // plain list row: color lives in the dot badge, not a tinted pill;
             // hover AND selection surfaces are owned by the agenda row wrapper
-            "gap-3 rounded-md text-sm"
+            'gap-3 rounded-md text-sm'
           : cn(
               // @container removes intrinsic sizing; only grid chips are containers
               // py-1: room above/below inline badges (attendee pill etc.)
-              "@container gap-1.5 rounded-sm px-1.5 py-1 leading-normal",
+              '@container gap-1.5 rounded-sm px-1.5 py-1 leading-normal',
               // soft tint + hairline inset ring: color reads from the surface
               // itself (no accent border), stays legible in light and dark
-              "bg-(--ec-event-color)/15 hover:bg-(--ec-event-color)/25",
+              'bg-(--ec-event-color)/15 hover:bg-(--ec-event-color)/25',
               // a flat tint reads darker over a dark surface, so lift it a
               // little in dark mode to keep a lighter, softer chip tone
-              "dark:bg-(--ec-event-color)/20 dark:hover:bg-(--ec-event-color)/30",
-              "inset-ring inset-ring-(--ec-event-color)/15",
-              "transition-[background-color,box-shadow] duration-150",
-              "data-dragging:opacity-40",
-              "data-selected:bg-(--ec-event-color)/30 data-selected:inset-ring-(--ec-event-color)/40",
-              segment.continuesBefore && "rounded-s-none",
-              segment.continuesAfter && "rounded-e-none"
+              'dark:bg-(--ec-event-color)/20 dark:hover:bg-(--ec-event-color)/30',
+              'inset-ring inset-ring-(--ec-event-color)/15',
+              'transition-[background-color,box-shadow] duration-150',
+              'data-dragging:opacity-40',
+              'data-selected:bg-(--ec-event-color)/30 data-selected:inset-ring-(--ec-event-color)/40',
+              segment.continuesBefore && 'rounded-s-none',
+              segment.continuesAfter && 'rounded-e-none',
             ),
         viewConfig.classNames?.event,
-        className
+        className,
       )}
       {...props}
     >
@@ -547,7 +553,7 @@ function EventCalendarEvent<TData = unknown>({
           <Tooltip>
             <TooltipTrigger asChild>{chip}</TooltipTrigger>
             <TooltipContent
-              side={tooltipOpts?.side ?? "top"}
+              side={tooltipOpts?.side ?? 'top'}
               className={viewConfig.classNames?.eventTooltip}
             >
               {tooltipContent}

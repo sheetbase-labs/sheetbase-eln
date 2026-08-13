@@ -46,8 +46,7 @@ No production Model persistence is migrated by this task.
 
 ## CORE-01.3 — Converge existing Model fields onto the kernel
 
-**Status:** Implementation complete — repository validation gate pending
-**Blocked by:** Repository-wide pre-existing check, lint, and UI test failures.
+**Status:** COMPLETE
 
 ### Goal
 
@@ -144,7 +143,7 @@ Only add a new ADR if implementation reveals a durable choice not already settle
 
 Existing production Models/Records use the canonical semantic kernel without loss of identity/data/security/validation, and future Dataset Schema work can consume the same field semantics rather than inventing a second type system.
 
-### Implementation evidence
+### Completion evidence
 
 - Added `drizzle/0060_core_013_model_field_definition_kernel.sql`: additive
   `quantity`, `cardinality`, `category_source`, and `relationship` semantics;
@@ -164,23 +163,15 @@ tests/db/model-fields.test.ts` passes 12/12 tests, including RLS,
   integrity.
 - `pnpm typecheck`, the canonical and adapter unit tests (14/14), `pnpm build`,
   `pnpm db:generate` (no schema changes), and `git diff --check` pass.
-- `pnpm validate` was run and remains blocked before typecheck/tests by 114
-  pre-existing Prettier violations. Independently, `pnpm lint` has 10
-  pre-existing errors in unrelated notebook, Gantt, and experiment-overview
-  files; `pnpm test` has five stale UI expectations in
-  `scientific-record-linker` and the experiment inspector. These are outside
-  CORE-01.3 and must be repaired before this task can be marked complete.
-
-CORE-01.3 must not be marked complete or advance `NEXT.md` until the fresh
-database migration/seed, DB regression suite, and a clean `pnpm validate` run
-are recorded.
+- `pnpm validate` passes: formatting, lint, typecheck, 139 test files / 1,685
+  tests, and production build. Lint emits 19 non-failing warnings in copied
+  calendar/Gantt code and test shadowing, but has no errors.
 
 ---
 
 ## CORE-01.4 — Define Dataset Schema field semantics
 
-**Status:** Planned  
-**Blocked by:** CORE-01.3.
+**Status:** Planned
 
 Define how Dataset fields consume the same kernel plus Dataset-specific row/shape semantics. No physical Dataset storage yet.
 

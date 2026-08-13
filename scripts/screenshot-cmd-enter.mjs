@@ -12,18 +12,40 @@ const signed = `${TOKEN}.${createHmac('sha256', SECRET).update(TOKEN).digest('ba
 
 async function main() {
   const browser = await chromium.launch({ headless: true })
-  const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, locale: 'en-GB', deviceScaleFactor: 2 })
+  const context = await browser.newContext({
+    viewport: { width: 1280, height: 900 },
+    locale: 'en-GB',
+    deviceScaleFactor: 2,
+  })
   await context.addCookies([
-    { name: '__Secure-better-auth.session_token', value: signed, domain: 'app.sheetbase.co.uk', path: '/', secure: true, sameSite: 'None', httpOnly: true },
+    {
+      name: '__Secure-better-auth.session_token',
+      value: signed,
+      domain: 'app.sheetbase.co.uk',
+      path: '/',
+      secure: true,
+      sameSite: 'None',
+      httpOnly: true,
+    },
   ])
   const page = await context.newPage()
-  await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(() => {})
+  await page
+    .goto(URL, { waitUntil: 'domcontentloaded', timeout: 45000 })
+    .catch(() => {})
   await page.waitForTimeout(2800)
-  if (page.url().includes('sign-in')) { console.log('SIGN-IN REDIRECT'); await browser.close(); process.exit(2) }
+  if (page.url().includes('sign-in')) {
+    console.log('SIGN-IN REDIRECT')
+    await browser.close()
+    process.exit(2)
+  }
 
   await page.locator('#notebook-add-block').first().click()
   await page.waitForTimeout(400)
-  await page.locator('[role="menuitem"]').filter({ hasText: 'Sheet' }).first().click()
+  await page
+    .locator('[role="menuitem"]')
+    .filter({ hasText: 'Sheet' })
+    .first()
+    .click()
   await page.waitForTimeout(800)
   await page.getByRole('button', { name: 'Create schema on the fly' }).click()
   await page.waitForTimeout(600)
@@ -34,10 +56,16 @@ async function main() {
 
   // add 3 fields
   const addField = page.getByRole('button', { name: 'Add field' })
-  for (let i = 0; i < 3; i++) { await addField.first().click(); await page.waitForTimeout(90) }
+  for (let i = 0; i < 3; i++) {
+    await addField.first().click()
+    await page.waitForTimeout(90)
+  }
   const labels = ['replicate', 'titer_iu_ml', 'pass_fail']
   const li = page.locator('input[aria-label^="Field"][aria-label$="name"]')
-  for (let i = 0; i < labels.length; i++) { await li.nth(i).fill(labels[i]); await page.waitForTimeout(60) }
+  for (let i = 0; i < labels.length; i++) {
+    await li.nth(i).fill(labels[i])
+    await page.waitForTimeout(60)
+  }
   await page.waitForTimeout(200)
 
   // screenshot showing the ⌘↵ hint
@@ -46,4 +74,7 @@ async function main() {
 
   await browser.close()
 }
-main().catch((e) => { console.error(e); process.exit(1) })
+main().catch((e) => {
+  console.error(e)
+  process.exit(1)
+})

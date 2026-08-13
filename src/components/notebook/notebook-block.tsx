@@ -197,9 +197,7 @@ export function NotebookBlock({
                     >
                       {item.label}
                     </DropdownMenuItem>
-                    {item.separatorAfter ? (
-                      <DropdownMenuSeparator />
-                    ) : null}
+                    {item.separatorAfter ? <DropdownMenuSeparator /> : null}
                   </React.Fragment>
                 ))}
               </DropdownMenuContent>
@@ -225,9 +223,7 @@ export function NotebookBlock({
           className="mb-1 w-full border-0 bg-transparent p-0 font-display text-sm font-semibold text-foreground outline-none placeholder:text-muted-foreground/40 focus:ring-0"
         />
       ) : title ? (
-        <h3 className="mb-1 font-display text-sm font-semibold">
-          {title}
-        </h3>
+        <h3 className="mb-1 font-display text-sm font-semibold">{title}</h3>
       ) : null}
 
       {loading ? (

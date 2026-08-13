@@ -102,11 +102,9 @@ beforeEach(() => {
 })
 
 describe('ScientificRecordLinker', () => {
-  it('renders a collapsed "Link scientific record" button by default', () => {
+  it('renders a collapsed "Link record" button by default', () => {
     mount()
-    expect(
-      screen.getByRole('button', { name: /link scientific record/i }),
-    ).toBeTruthy()
+    expect(screen.getByRole('button', { name: /link record/i })).toBeTruthy()
     // Picker is not mounted until opened.
     expect(screen.queryByPlaceholderText(/search samples/i)).toBeNull()
   })
@@ -115,9 +113,7 @@ describe('ScientificRecordLinker', () => {
     const user = userEvent.setup()
     const list = vi.fn().mockResolvedValue([sampleWire()])
     mount({ client: mockClient({ list }) })
-    await user.click(
-      screen.getByRole('button', { name: /link scientific record/i }),
-    )
+    await user.click(screen.getByRole('button', { name: /link record/i }))
     const input = await screen.findByPlaceholderText(
       /search samples by identifier or title/i,
     )
@@ -143,9 +139,7 @@ describe('ScientificRecordLinker', () => {
     ])
     const rpc = vi.fn().mockResolvedValue({})
     mount({ client: mockClient({ list, rpc }) })
-    await user.click(
-      screen.getByRole('button', { name: /link scientific record/i }),
-    )
+    await user.click(screen.getByRole('button', { name: /link record/i }))
     // Switch to the Protocol kind tab.
     await user.click(screen.getByRole('tab', { name: 'Protocol' }))
     await screen.findByText('Virus stability protocol')
@@ -170,9 +164,7 @@ describe('ScientificRecordLinker', () => {
         new DataClientError('SB002', 'record link crosses workspaces', 422),
       )
     mount({ client: mockClient({ list, rpc }) })
-    await user.click(
-      screen.getByRole('button', { name: /link scientific record/i }),
-    )
+    await user.click(screen.getByRole('button', { name: /link record/i }))
     await screen.findByText('Virus stock A')
     await user.click(screen.getByText('Virus stock A'))
     expect(await screen.findByRole('alert')).toBeTruthy()

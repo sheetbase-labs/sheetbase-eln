@@ -12,16 +12,15 @@ import { Route } from './planner'
 const PlannerRoute = Route.options.component as React.ComponentType
 
 vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () =>
-    (config: Record<string, unknown>) => ({
-      useRouteContext: () => ({
-        context: {
-          workspace: { id: 'workspace-1', name: 'Test workspace', role: 'owner' },
-          user: { name: 'Test User', email: 'test@example.com' },
-        },
-      }),
-      options: config,
+  createFileRoute: () => (config: Record<string, unknown>) => ({
+    useRouteContext: () => ({
+      context: {
+        workspace: { id: 'workspace-1', name: 'Test workspace', role: 'owner' },
+        user: { name: 'Test User', email: 'test@example.com' },
+      },
     }),
+    options: config,
+  }),
   redirect: (options: unknown) => options,
   Link: ({
     to,
@@ -46,7 +45,12 @@ vi.mock('@tanstack/react-start', () => ({
 const emptyData: never[] = []
 
 vi.mock('@tanstack/react-query', () => ({
-  useQuery: () => ({ data: emptyData, isLoading: false, error: null, refetch: vi.fn() }),
+  useQuery: () => ({
+    data: emptyData,
+    isLoading: false,
+    error: null,
+    refetch: vi.fn(),
+  }),
   useMutation: () => ({
     mutate: vi.fn(),
     mutateAsync: vi.fn(),
@@ -58,7 +62,15 @@ vi.mock('@tanstack/react-query', () => ({
 vi.mock('#/components/app-shell', async () => {
   const React = await import('react')
   const ctx = React.createContext({ setConfig: (_c: any) => {} })
-  const AppShell = ({ children, inspector, primaryAction }: { children: React.ReactNode; inspector: React.ReactNode; primaryAction: React.ReactNode }) => (
+  const AppShell = ({
+    children,
+    inspector,
+    primaryAction,
+  }: {
+    children: React.ReactNode
+    inspector: React.ReactNode
+    primaryAction: React.ReactNode
+  }) => (
     <div>
       <div data-testid="primary-action">{primaryAction}</div>
       <main>{children}</main>
@@ -66,17 +78,30 @@ vi.mock('#/components/app-shell', async () => {
     </div>
   )
   const ShellProvider = ({ children }: { children: React.ReactNode }) => {
-    const [config, setConfig] = React.useState<{ context: unknown | null; [k: string]: unknown }>({ context: null })
+    const [config, setConfig] = React.useState<{
+      context: unknown | null
+      [k: string]: unknown
+    }>({ context: null })
     const value = React.useMemo(
-      () => ({ setConfig: (c: Partial<typeof config>) => setConfig((prev) => ({ ...prev, ...c })) }),
+      () => ({
+        setConfig: (c: Partial<typeof config>) =>
+          setConfig((prev) => ({ ...prev, ...c })),
+      }),
       [],
     )
-    if (!config.context) return React.createElement(ctx.Provider, { value }, children as any)
-    return React.createElement(ctx.Provider, { value }, React.createElement(AppShell, config as any, children) as any)
+    if (!config.context)
+      return React.createElement(ctx.Provider, { value }, children as any)
+    return React.createElement(
+      ctx.Provider,
+      { value },
+      React.createElement(AppShell, config as any, children) as any,
+    )
   }
   const useShell = (config: Record<string, unknown>) => {
     const { setConfig } = React.useContext(ctx)
-    React.useLayoutEffect(() => { setConfig(config) }, [])
+    React.useLayoutEffect(() => {
+      setConfig(config)
+    }, [])
   }
   return { AppShell, ShellProvider, useShell }
 })
@@ -91,7 +116,11 @@ afterEach(() => cleanup())
 
 describe('PlannerRoute', () => {
   it('renders the Study Planner title and Add task action', () => {
-    render(<ShellProvider><PlannerRoute /></ShellProvider>)
+    render(
+      <ShellProvider>
+        <PlannerRoute />
+      </ShellProvider>,
+    )
 
     // "Add task" appears in the PageHeader and the empty-state actions.
     const addTaskButtons = screen.getAllByRole('button', { name: 'Add task' })
@@ -100,7 +129,11 @@ describe('PlannerRoute', () => {
   })
 
   it('renders the Timeline, List and Workload view tabs', () => {
-    render(<ShellProvider><PlannerRoute /></ShellProvider>)
+    render(
+      <ShellProvider>
+        <PlannerRoute />
+      </ShellProvider>,
+    )
 
     // View switcher uses Tabs (role="tab") with underline active indicator.
     expect(screen.getByRole('tab', { name: 'Timeline' })).toBeTruthy()
@@ -110,7 +143,11 @@ describe('PlannerRoute', () => {
 
   it('renders the Today navigation button for non-timeline views', async () => {
     const user = userEvent.setup()
-    render(<ShellProvider><PlannerRoute /></ShellProvider>)
+    render(
+      <ShellProvider>
+        <PlannerRoute />
+      </ShellProvider>,
+    )
 
     // Switch to workload view which has the date nav
     await user.click(screen.getByRole('tab', { name: 'Workload' }))
@@ -121,7 +158,11 @@ describe('PlannerRoute', () => {
   })
 
   it('renders the filter controls', () => {
-    render(<ShellProvider><PlannerRoute /></ShellProvider>)
+    render(
+      <ShellProvider>
+        <PlannerRoute />
+      </ShellProvider>,
+    )
 
     expect(screen.getByLabelText('Status')).toBeTruthy()
     expect(screen.getByLabelText('Priority')).toBeTruthy()
@@ -131,14 +172,22 @@ describe('PlannerRoute', () => {
   })
 
   it('shows the empty inspector hint when no task is selected', () => {
-    render(<ShellProvider><PlannerRoute /></ShellProvider>)
+    render(
+      <ShellProvider>
+        <PlannerRoute />
+      </ShellProvider>,
+    )
 
     expect(screen.getByText('No task selected')).toBeTruthy()
   })
 
   it('switches to the list view when List tab is clicked', async () => {
     const user = userEvent.setup()
-    render(<ShellProvider><PlannerRoute /></ShellProvider>)
+    render(
+      <ShellProvider>
+        <PlannerRoute />
+      </ShellProvider>,
+    )
 
     const listTab = screen.getByRole('tab', { name: 'List' })
     await user.click(listTab)
@@ -149,7 +198,11 @@ describe('PlannerRoute', () => {
 
   it('switches to the workload view when Workload tab is clicked', async () => {
     const user = userEvent.setup()
-    render(<ShellProvider><PlannerRoute /></ShellProvider>)
+    render(
+      <ShellProvider>
+        <PlannerRoute />
+      </ShellProvider>,
+    )
 
     const workloadTab = screen.getByRole('tab', { name: 'Workload' })
     await user.click(workloadTab)

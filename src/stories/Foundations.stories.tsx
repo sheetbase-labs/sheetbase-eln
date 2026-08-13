@@ -47,9 +47,8 @@ export const Colour: Story = {
           Semantic colour tokens
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Sheetbase themes are expressed through semantic CSS variables.
-          Status, chart and sidebar tokens extend the base palette per the
-          Brand Guide.
+          Sheetbase themes are expressed through semantic CSS variables. Status,
+          chart and sidebar tokens extend the base palette per the Brand Guide.
         </p>
       </div>
 

@@ -45,10 +45,7 @@ export function useUserNames(
   }, [currentUser, query.data])
 
   function userLabel(userId: string): string {
-    return (
-      names[userId] ??
-      (userId.length <= 8 ? userId : userId.slice(0, 8))
-    )
+    return names[userId] ?? (userId.length <= 8 ? userId : userId.slice(0, 8))
   }
 
   return { names, userLabel }

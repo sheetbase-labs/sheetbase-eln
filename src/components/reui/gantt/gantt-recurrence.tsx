@@ -4,21 +4,21 @@ import type {
   GanttOccurrence,
   GanttRecurrenceRule,
   GanttWeekday,
-} from "#/components/reui/gantt/gantt-types"
-import { TZDate } from "@date-fns/tz"
-import { addDays, addMonths, addWeeks, addYears } from "date-fns"
+} from '#/components/reui/gantt/gantt-types'
+import { TZDate } from '@date-fns/tz'
+import { addDays, addMonths, addWeeks, addYears } from 'date-fns'
 
 /** Guard: max occurrences per event per expansion. */
 const MAX_OCCURRENCES = 1000
 
-const WEEKDAYS: GanttWeekday[] = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"]
+const WEEKDAYS: GanttWeekday[] = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA']
 
 class GanttRecurrenceError extends Error {
   constructor(part: string) {
     super(
-      `Unsupported recurrence part: ${part}. Use the getOccurrences prop to plug a full RRULE engine for exotic rules.`
+      `Unsupported recurrence part: ${part}. Use the getOccurrences prop to plug a full RRULE engine for exotic rules.`,
     )
-    this.name = "GanttRecurrenceError"
+    this.name = 'GanttRecurrenceError'
   }
 }
 
@@ -29,55 +29,55 @@ class GanttRecurrenceError extends Error {
  */
 function parseRRuleString(
   input: string,
-  timeZone?: string
+  timeZone?: string,
 ): GanttRecurrenceRule {
-  const body = input.trim().replace(/^RRULE:/i, "")
+  const body = input.trim().replace(/^RRULE:/i, '')
   const rule: Partial<GanttRecurrenceRule> = {}
 
-  for (const pair of body.split(";")) {
+  for (const pair of body.split(';')) {
     if (!pair) continue
-    const [rawKey, rawValue] = pair.split("=")
+    const [rawKey, rawValue] = pair.split('=')
     const key = rawKey?.toUpperCase()
-    const value = rawValue ?? ""
+    const value = rawValue ?? ''
 
     switch (key) {
-      case "FREQ": {
+      case 'FREQ': {
         const freq = value.toLowerCase()
         if (
-          freq !== "daily" &&
-          freq !== "weekly" &&
-          freq !== "monthly" &&
-          freq !== "yearly"
+          freq !== 'daily' &&
+          freq !== 'weekly' &&
+          freq !== 'monthly' &&
+          freq !== 'yearly'
         ) {
           throw new GanttRecurrenceError(`FREQ=${value}`)
         }
         rule.freq = freq
         break
       }
-      case "INTERVAL":
+      case 'INTERVAL':
         rule.interval = Math.max(1, parseInt(value, 10) || 1)
         break
-      case "COUNT":
+      case 'COUNT':
         rule.count = Math.max(1, parseInt(value, 10) || 1)
         break
-      case "UNTIL":
+      case 'UNTIL':
         rule.until = parseRRuleDate(value, timeZone)
         break
-      case "BYDAY":
-        rule.byWeekday = value.split(",").map((token) => {
+      case 'BYDAY':
+        rule.byWeekday = value.split(',').map((token) => {
           const match = /^(-?\d+)?(SU|MO|TU|WE|TH|FR|SA)$/.exec(token.trim())
           if (!match) throw new GanttRecurrenceError(`BYDAY=${token}`)
           const day = match[2] as GanttWeekday
           return match[1] ? { day, ordinal: parseInt(match[1], 10) } : day
         })
         break
-      case "BYMONTHDAY":
-        rule.byMonthDay = value.split(",").map((v) => parseInt(v, 10))
+      case 'BYMONTHDAY':
+        rule.byMonthDay = value.split(',').map((v) => parseInt(v, 10))
         break
-      case "BYMONTH":
-        rule.byMonth = value.split(",").map((v) => parseInt(v, 10))
+      case 'BYMONTH':
+        rule.byMonth = value.split(',').map((v) => parseInt(v, 10))
         break
-      case "WKST": {
+      case 'WKST': {
         if (!WEEKDAYS.includes(value as GanttWeekday)) {
           throw new GanttRecurrenceError(`WKST=${value}`)
         }
@@ -89,23 +89,23 @@ function parseRRuleString(
     }
   }
 
-  if (!rule.freq) throw new GanttRecurrenceError("missing FREQ")
+  if (!rule.freq) throw new GanttRecurrenceError('missing FREQ')
   return rule as GanttRecurrenceRule
 }
 
 function parseRRuleDate(value: string, timeZone?: string): Date {
   // RFC 5545 basic formats: YYYYMMDD or YYYYMMDDTHHMMSS(Z)
   const match = /^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})(Z)?)?$/.exec(
-    value
+    value,
   )
   if (!match) throw new GanttRecurrenceError(`UNTIL=${value}`)
-  const [, y, m, d, hh = "23", mm = "59", ss = "59", z] = match
+  const [, y, m, d, hh = '23', mm = '59', ss = '59', z] = match
   // Floating (non-Z) boundaries resolve in the DISPLAY zone when known -
   // local-zone parsing would shift the series end per visitor machine.
   const date =
     !z && timeZone
       ? new TZDate(+y, +m - 1, +d, +hh, +mm, +ss, timeZone)
-      : new Date(`${y}-${m}-${d}T${hh}:${mm}:${ss}${z ? "Z" : ""}`)
+      : new Date(`${y}-${m}-${d}T${hh}:${mm}:${ss}${z ? 'Z' : ''}`)
   if (Number.isNaN(date.getTime())) {
     throw new GanttRecurrenceError(`UNTIL=${value}`)
   }
@@ -120,30 +120,30 @@ function formatRRuleString(rule: GanttRecurrenceRule): string {
   if (rule.count) parts.push(`COUNT=${rule.count}`)
   if (rule.until) {
     const u = rule.until
-    const pad = (n: number) => String(n).padStart(2, "0")
+    const pad = (n: number) => String(n).padStart(2, '0')
     parts.push(
-      `UNTIL=${u.getUTCFullYear()}${pad(u.getUTCMonth() + 1)}${pad(u.getUTCDate())}T${pad(u.getUTCHours())}${pad(u.getUTCMinutes())}${pad(u.getUTCSeconds())}Z`
+      `UNTIL=${u.getUTCFullYear()}${pad(u.getUTCMonth() + 1)}${pad(u.getUTCDate())}T${pad(u.getUTCHours())}${pad(u.getUTCMinutes())}${pad(u.getUTCSeconds())}Z`,
     )
   }
   if (rule.byWeekday?.length) {
     parts.push(
       `BYDAY=${rule.byWeekday
-        .map((d) => (typeof d === "string" ? d : `${d.ordinal}${d.day}`))
-        .join(",")}`
+        .map((d) => (typeof d === 'string' ? d : `${d.ordinal}${d.day}`))
+        .join(',')}`,
     )
   }
   if (rule.byMonthDay?.length)
-    parts.push(`BYMONTHDAY=${rule.byMonthDay.join(",")}`)
-  if (rule.byMonth?.length) parts.push(`BYMONTH=${rule.byMonth.join(",")}`)
+    parts.push(`BYMONTHDAY=${rule.byMonthDay.join(',')}`)
+  if (rule.byMonth?.length) parts.push(`BYMONTH=${rule.byMonth.join(',')}`)
   if (rule.weekStart) parts.push(`WKST=${rule.weekStart}`)
-  return parts.join(";")
+  return parts.join(';')
 }
 
 function resolveRule(
   recurrence: GanttRecurrenceRule | string,
-  timeZone?: string
+  timeZone?: string,
 ): GanttRecurrenceRule {
-  return typeof recurrence === "string"
+  return typeof recurrence === 'string'
     ? parseRRuleString(recurrence, timeZone)
     : recurrence
 }
@@ -167,7 +167,7 @@ function resolveRule(
 function expandRecurrence<TData>(
   event: GanttEvent<TData>,
   range: GanttDateRange,
-  ctx: { timeZone: string }
+  ctx: { timeZone: string },
 ): GanttOccurrence<TData>[] {
   const allDay = event.allDay ?? false
 
@@ -190,10 +190,10 @@ function expandRecurrence<TData>(
 
   const rule = resolveRule(event.recurrence, ctx.timeZone)
   // Loud contract: silently ignoring a filter would emit WRONG occurrences.
-  if (rule.byMonthDay?.length) throw new GanttRecurrenceError("BYMONTHDAY")
-  if (rule.byMonth?.length) throw new GanttRecurrenceError("BYMONTH")
-  if (rule.byWeekday?.length && rule.freq !== "weekly") {
-    throw new GanttRecurrenceError("BYDAY outside FREQ=WEEKLY")
+  if (rule.byMonthDay?.length) throw new GanttRecurrenceError('BYMONTHDAY')
+  if (rule.byMonth?.length) throw new GanttRecurrenceError('BYMONTH')
+  if (rule.byWeekday?.length && rule.freq !== 'weekly') {
+    throw new GanttRecurrenceError('BYDAY outside FREQ=WEEKLY')
   }
   const interval = Math.max(1, rule.interval ?? 1)
   const durationMs = event.end.getTime() - event.start.getTime()
@@ -203,11 +203,11 @@ function expandRecurrence<TData>(
   const exTimes = new Set((rule.exDates ?? []).map((d) => d.getTime()))
 
   const weeklyDays: number[] | null =
-    rule.freq === "weekly" && rule.byWeekday?.length
+    rule.freq === 'weekly' && rule.byWeekday?.length
       ? rule.byWeekday.map((d) => {
-          if (typeof d !== "string") {
+          if (typeof d !== 'string') {
             throw new GanttRecurrenceError(
-              "BYDAY ordinal outside monthly/yearly"
+              'BYDAY ordinal outside monthly/yearly',
             )
           }
           return WEEKDAYS.indexOf(d)
@@ -220,11 +220,11 @@ function expandRecurrence<TData>(
   let cursor = zonedStart
 
   const advance = (from: TZDate, steps: number): TZDate =>
-    rule.freq === "daily"
+    rule.freq === 'daily'
       ? addDays(from, steps * interval)
-      : rule.freq === "weekly"
+      : rule.freq === 'weekly'
         ? addWeeks(from, steps * interval)
-        : rule.freq === "monthly"
+        : rule.freq === 'monthly'
           ? addMonths(from, steps * interval)
           : addYears(from, steps * interval)
 
@@ -242,16 +242,16 @@ function expandRecurrence<TData>(
   // the 31st, while a single jump from the anchor clamps at most once. Jumping
   // those would make the same occurrence render on a different day depending on
   // which window the viewer scrolled in from, so they always iterate.
-  const canFastForward = rule.freq === "daily" || rule.freq === "weekly"
+  const canFastForward = rule.freq === 'daily' || rule.freq === 'weekly'
   // weekly BYDAY emits across the cursor's whole Sunday week
   const weekSlackMs = weeklyDays ? 6 * 86_400_000 : 0
   // divide by the LONGEST possible step so the jump can never overshoot
   const maxStepMs =
-    (rule.freq === "daily"
+    (rule.freq === 'daily'
       ? 24
-      : rule.freq === "weekly"
+      : rule.freq === 'weekly'
         ? 7 * 24
-        : rule.freq === "monthly"
+        : rule.freq === 'monthly'
           ? 31 * 24
           : 366 * 24) *
       3_600_000 *
@@ -320,7 +320,7 @@ function expandRecurrence<TData>(
       break
     }
 
-    if (rule.freq === "weekly" && weeklyDays) {
+    if (rule.freq === 'weekly' && weeklyDays) {
       // Emit each selected weekday within the cursor's week
       for (let d = 0; d < 7; d++) {
         const candidate = addDays(cursor, d - cursor.getDay())

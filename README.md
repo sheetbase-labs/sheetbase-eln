@@ -36,26 +36,26 @@ The app runs at `http://localhost:3000`. The PostgREST API runs at `http://local
 
 ## Commands
 
-| Task | Command |
-| --- | --- |
-| Start local services (PostgreSQL + PostgREST) | `pnpm services:up` |
-| Stop local services | `pnpm services:down` |
-| Inspect service status | `pnpm services:ps` |
-| Follow service logs | `pnpm services:logs` |
-| Recreate services from scratch | `pnpm services:recreate` |
-| Start the app (dev) | `pnpm dev` |
-| Build an immutable deployment artifact | `pnpm artifact:build` |
-| Validate and print a deployment plan | `pnpm deploy:plan` |
-| Run all tests | `pnpm test` |
-| Run database integration tests | `pnpm test:db` |
-| Generate a migration after schema edits | `pnpm db:generate` |
-| Apply migrations | `pnpm db:migrate` |
-| Seed minimal fixtures | `pnpm db:seed` |
-| Seed fixtures + demonstration data | `pnpm db:seed:demo` |
-| Reset the local database (guarded) | `pnpm db:reset` |
-| Fresh database: reset + migrate + seed | `pnpm db:fresh` |
-| Format code | `pnpm format` |
-| Full quality gate | `pnpm validate` |
+| Task                                          | Command                  |
+| --------------------------------------------- | ------------------------ |
+| Start local services (PostgreSQL + PostgREST) | `pnpm services:up`       |
+| Stop local services                           | `pnpm services:down`     |
+| Inspect service status                        | `pnpm services:ps`       |
+| Follow service logs                           | `pnpm services:logs`     |
+| Recreate services from scratch                | `pnpm services:recreate` |
+| Start the app (dev)                           | `pnpm dev`               |
+| Build an immutable deployment artifact        | `pnpm artifact:build`    |
+| Validate and print a deployment plan          | `pnpm deploy:plan`       |
+| Run all tests                                 | `pnpm test`              |
+| Run database integration tests                | `pnpm test:db`           |
+| Generate a migration after schema edits       | `pnpm db:generate`       |
+| Apply migrations                              | `pnpm db:migrate`        |
+| Seed minimal fixtures                         | `pnpm db:seed`           |
+| Seed fixtures + demonstration data            | `pnpm db:seed:demo`      |
+| Reset the local database (guarded)            | `pnpm db:reset`          |
+| Fresh database: reset + migrate + seed        | `pnpm db:fresh`          |
+| Format code                                   | `pnpm format`            |
+| Full quality gate                             | `pnpm validate`          |
 
 See `docs/migrations.md` before changing schema, `docs/testing.md` for test layers, `docs/seeds.md` for fixtures/seeds, `docs/handsontable.md` for the Handsontable integration boundary and `docs/deployment.md` for environment/deployment guidance.
 

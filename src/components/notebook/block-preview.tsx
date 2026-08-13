@@ -425,17 +425,19 @@ function MaterialsPreview({ payload }: { payload: unknown }) {
                   </span>
                 ) : null}
                 {alerts.map((alert) => (
-                <Badge
-                  key={alert.kind}
-                  variant={alert.kind === 'unavailable' ? 'danger' : 'warning'}
-                >
-                  {alert.label}
-                </Badge>
-              ))}
+                  <Badge
+                    key={alert.kind}
+                    variant={
+                      alert.kind === 'unavailable' ? 'danger' : 'warning'
+                    }
+                  >
+                    {alert.label}
+                  </Badge>
+                ))}
+              </div>
             </div>
-          </div>
-        )
-      })}
+          )
+        })}
       </div>
     </div>
   )
@@ -1007,9 +1009,7 @@ function PlateMapBlockPreview({ payload }: { payload: unknown }) {
     // In compact/read-only mode, show only the well code (A1, B2) inside
     // the circle — full sample identifiers overflow the tiny wells. The
     // complete info (sample ID, role, replicate) is in the tooltip/title.
-    const displayLabel = w.role === 'empty'
-      ? ''
-      : w.wellCode
+    const displayLabel = w.role === 'empty' ? '' : w.wellCode
     return {
       row: w.row,
       col: w.col,

@@ -8,14 +8,15 @@
 
 ## Active task
 
-**CORE-01.3 — Converge existing Model fields onto the canonical Field Definition kernel**
+**CORE-01.4 — Define Dataset Schema field semantics**
 
-Task: [`tasks/CORE-01.md`](./tasks/CORE-01.md#core-013--converge-existing-model-fields-onto-the-kernel)
+Task: [`tasks/CORE-01.md`](./tasks/CORE-01.md#core-014--define-dataset-schema-field-semantics)
 
 ## Completed in this PR
 
 - CORE-01.1 — current field/schema audit
 - CORE-01.2 — executable canonical `FieldDefinition` contract and tests
+- CORE-01.3 — Model fields converged on the canonical kernel
 - product/architecture reset and accepted ADRs 0020–0026
 
 ## Required reading
@@ -31,30 +32,25 @@ Task: [`tasks/CORE-01.md`](./tasks/CORE-01.md#core-013--converge-existing-model-
 
 ## Implement now
 
-Make the existing PostgreSQL-authoritative Model framework consume canonical `FieldDefinition` semantics while preserving existing IDs, data, RLS, validation, reference integrity and public behaviour.
+Define how Dataset Schema fields consume the canonical `FieldDefinition` kernel, including Dataset-specific row and shape semantics. Do not implement Dataset physical storage yet.
 
 This is **real production coding**, not another architecture pass.
 
 Key targets:
 
-- remove/reduce duplicated Model logical-type semantics;
-- add a production projection/adapter from persisted Model fields to `FieldDefinition`;
-- align relationship/cardinality semantics without breaking legacy `targetModelKey` data;
-- preserve current embedded category option identities/lifecycle while leaving room for governed vocabularies;
-- align unit metadata with ADR 0025 quantity semantics without silently inventing meaning for legacy values;
-- add additive migration(s) only if current production storage cannot represent required semantics safely;
-- add focused DB/API/application tests and run the full validation gate.
+- use the same canonical logical types, quantity, category, relationship,
+  cardinality, lifecycle, and validation semantics as Models;
+- define only Dataset-specific schema/row-shape concerns needed by CORE-02;
+- add focused contract tests and run the full validation gate.
 
 ## Do not
 
 - do not redesign the architecture already settled by ADRs 0020–0026;
 - do not start Dataset storage (CORE-02);
-- do not infer scientific quantity meaning from legacy unit strings;
 - do not build the full unit-conversion or vocabulary-management product yet;
-- do not replace `record_field_definitions` or recreate durable IDs;
 - do not weaken RLS/server validation;
 - do not broaden paused specialist workspaces.
 
 ## Hand-off
 
-When CORE-01.3 is complete, record concrete completion evidence in `tasks/CORE-01.md` and advance this file to CORE-01.4 unless implementation exposes a genuinely new durable architectural fork requiring an ADR.
+When CORE-01.4 is complete, record concrete completion evidence in `tasks/CORE-01.md` and advance this file to CORE-01.5 unless implementation exposes a genuinely new durable architectural fork requiring an ADR.

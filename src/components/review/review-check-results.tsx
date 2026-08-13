@@ -60,10 +60,7 @@ function itemIcon(status: CheckItemResult['status']) {
     )
   }
   return (
-    <XCircle
-      className="size-4 shrink-0 text-destructive"
-      aria-hidden="true"
-    />
+    <XCircle className="size-4 shrink-0 text-destructive" aria-hidden="true" />
   )
 }
 
@@ -98,8 +95,7 @@ function CheckResultItem({ item }: { item: CheckItemResult }) {
               'bg-destructive/10 text-destructive',
             item.severity === 'warning' &&
               'bg-warning/10 text-warning-foreground',
-            item.severity === 'informational' &&
-              'bg-info/10 text-info',
+            item.severity === 'informational' && 'bg-info/10 text-info',
           )}
         >
           {severityLabel[item.severity]}

@@ -1,31 +1,31 @@
-"use client"
+'use client'
 
-import { useMemo, type HTMLAttributes } from "react"
+import { useMemo, type HTMLAttributes } from 'react'
 import {
   EventCalendarViewContext,
   useEventCalendar,
   useEventCalendarSelector,
   useEventCalendarSettings,
   useEventCalendarViewConfig,
-} from "#/components/reui/event-calendar/event-calendar.tsx"
-import { EventCalendarEvent } from "#/components/reui/event-calendar/event-calendar-event.tsx"
+} from '#/components/reui/event-calendar/event-calendar.tsx'
+import { EventCalendarEvent } from '#/components/reui/event-calendar/event-calendar-event.tsx'
 import {
   getDayKey,
   getRangeKey,
   toZoned,
   zonedStartOfDay,
-} from "#/components/reui/event-calendar/event-calendar-lib.tsx"
+} from '#/components/reui/event-calendar/event-calendar-lib.tsx'
 import type {
   EventCalendarDateRange,
   EventCalendarSegment,
-} from "#/components/reui/event-calendar/event-calendar-types.tsx"
-import { IconStack } from "#/components/reui/icon-stack.tsx"
-import { addDays, format } from "date-fns"
-import { Slot } from "radix-ui"
+} from '#/components/reui/event-calendar/event-calendar-types.tsx'
+import { IconStack } from '#/components/reui/icon-stack.tsx'
+import { addDays, format } from 'date-fns'
+import { Slot } from 'radix-ui'
 
-import { cn } from "#/lib/utils.ts"
-import { ScrollArea } from "#/components/ui/scroll-area.tsx"
-import { CalendarIcon } from "lucide-react"
+import { cn } from '#/lib/utils.ts'
+import { ScrollArea } from '#/components/ui/scroll-area.tsx'
+import { CalendarIcon } from 'lucide-react'
 
 // The agenda window length is the agendaDayCount SETTING (the store derives
 // visibleRange from it); a per-view prop here would silently disagree.
@@ -57,7 +57,7 @@ function EventCalendarAgendaView({
       result.push(cursor)
       cursor = zonedStartOfDay(
         addDays(toZoned(cursor, settings.timeZone), 1),
-        settings.timeZone
+        settings.timeZone,
       )
     }
     return result
@@ -79,7 +79,7 @@ function EventCalendarAgendaView({
     getDayKey(day, settings.timeZone) ===
     getDayKey(new Date(), settings.timeZone)
 
-  const native = viewConfig.scrollbars === "native"
+  const native = viewConfig.scrollbars === 'native'
 
   const body = (
     <>
@@ -87,8 +87,8 @@ function EventCalendarAgendaView({
         <div
           data-slot="event-calendar-no-events"
           className={cn(
-            "flex min-h-72 flex-col items-center justify-center gap-4 py-16",
-            viewConfig.classNames?.noEvents
+            'flex min-h-72 flex-col items-center justify-center gap-4 py-16',
+            viewConfig.classNames?.noEvents,
           )}
         >
           {viewConfig.renderNoEvents?.() ?? (
@@ -111,8 +111,8 @@ function EventCalendarAgendaView({
           {groups.map(({ day, bucket }) => {
             const items = [...(bucket?.allDay ?? []), ...(bucket?.timed ?? [])]
             const zoned = toZoned(day, settings.timeZone)
-            const weekday = format(zoned, "EEEE", { locale: settings.locale })
-            const dayDate = format(zoned, "MMMM d, yyyy", {
+            const weekday = format(zoned, 'EEEE', { locale: settings.locale })
+            const dayDate = format(zoned, 'MMMM d, yyyy', {
               locale: settings.locale,
             })
             return (
@@ -134,7 +134,7 @@ function EventCalendarAgendaView({
                   role="heading"
                   aria-level={3}
                   className={cn(
-                    "bg-muted/60 sticky top-0 z-10 flex items-baseline justify-between gap-4 border-b px-4 py-2",
+                    'bg-muted/60 sticky top-0 z-10 flex items-baseline justify-between gap-4 border-b px-4 py-2',
                     // The custom ScrollArea's overlay scrollbar (w-2.5 = 10px)
                     // is painted UNDER this sticky, z-10, opaque header, so the
                     // thumb vanishes behind the day bar at the top of the view.
@@ -142,14 +142,14 @@ function EventCalendarAgendaView({
                     // stops before the scrollbar instead of covering it. Native
                     // scrollbars already sit outside the content box, so this
                     // only applies to the custom-scrollbar path.
-                    !native && "me-2.5",
-                    viewConfig.classNames?.agendaDayHeader
+                    !native && 'me-2.5',
+                    viewConfig.classNames?.agendaDayHeader,
                   )}
                 >
                   <span
                     className={cn(
-                      "text-foreground font-semibold",
-                      isToday(day) && "text-primary"
+                      'text-foreground font-semibold',
+                      isToday(day) && 'text-primary',
                     )}
                   >
                     {weekday}
@@ -172,10 +172,10 @@ function EventCalendarAgendaView({
     </>
   )
 
-  const Comp = asChild ? Slot.Root : "div"
+  const Comp = asChild ? Slot.Root : 'div'
 
   return (
-    <EventCalendarViewContext.Provider value={{ view: "agenda" }}>
+    <EventCalendarViewContext.Provider value={{ view: 'agenda' }}>
       <Comp
         data-slot="event-calendar-agenda-view"
         data-view="agenda"
@@ -187,9 +187,9 @@ function EventCalendarAgendaView({
           locale: settings.locale,
         })}
         className={cn(
-          "flex min-h-0 flex-1 flex-col overflow-hidden border-t",
+          'flex min-h-0 flex-1 flex-col overflow-hidden border-t',
           viewConfig.classNames?.agendaView,
-          className
+          className,
         )}
         {...props}
       >
@@ -225,8 +225,8 @@ function EventCalendarAgendaItem({
       segment={segment}
       className={cn(
         // read-only list: hover only, no selected/focused styling on click
-        "hover:bg-accent/40 gap-3 rounded-none border-b px-4 py-2.5 transition-colors",
-        viewConfig.classNames?.agendaItem
+        'hover:bg-accent/40 gap-3 rounded-none border-b px-4 py-2.5 transition-colors',
+        viewConfig.classNames?.agendaItem,
       )}
     />
   )

@@ -254,9 +254,7 @@ function FoundationsPage() {
                       className="rounded-sm bg-primary/20"
                       style={{ width: v, height: v }}
                     />
-                    <span className="text-xs text-muted-foreground">
-                      {v}
-                    </span>
+                    <span className="text-xs text-muted-foreground">{v}</span>
                   </div>
                 ))}
               </div>
@@ -269,9 +267,7 @@ function FoundationsPage() {
                       className="size-14 border bg-muted/50"
                       style={{ borderRadius: v }}
                     />
-                    <span className="text-xs text-muted-foreground">
-                      {v}px
-                    </span>
+                    <span className="text-xs text-muted-foreground">{v}px</span>
                   </div>
                 ))}
               </div>
@@ -345,9 +341,7 @@ function FoundationsPage() {
                 className="flex aspect-square flex-col items-center justify-center gap-2 rounded-lg border bg-card"
               >
                 <Icon className="size-5" />
-                <span className="text-xs text-muted-foreground">
-                  16–20px
-                </span>
+                <span className="text-xs text-muted-foreground">16–20px</span>
               </div>
             ))}
           </div>

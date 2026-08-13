@@ -266,7 +266,10 @@ const FUNCTION_NAME_TRIGGERS = new Set([
  * `(` (a completed call) or when it could be a cell reference (starts with a
  * letter followed by digits without a dot).
  */
-export function extractFunctionPrefix(text: string, cursor: number): string | null {
+export function extractFunctionPrefix(
+  text: string,
+  cursor: number,
+): string | null {
   if (cursor < 0 || cursor > text.length) return null
   // Walk backwards from the cursor collecting identifier characters.
   const end = cursor

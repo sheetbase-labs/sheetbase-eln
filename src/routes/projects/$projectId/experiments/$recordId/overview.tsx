@@ -1,8 +1,4 @@
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link, useSearch } from '@tanstack/react-router'
 import { FileWarning } from 'lucide-react'
 import type { ReactNode } from 'react'
@@ -502,18 +498,12 @@ function InspectorFileList({ blocks }: { blocks: NotebookBlock[] }) {
   const items = blocks.map((block) => {
     const payload = block.payload
     const displayName =
-      payload &&
-      typeof payload.displayName === 'string'
-        ? payload.displayName
-        : 'File'
+      typeof payload.displayName === 'string' ? payload.displayName : 'File'
     const mediaType =
-      payload && typeof payload.mediaType === 'string' ? payload.mediaType : ''
-    const byteSize =
-      payload && typeof payload.byteSize === 'number' ? payload.byteSize : 0
+      typeof payload.mediaType === 'string' ? payload.mediaType : ''
+    const byteSize = typeof payload.byteSize === 'number' ? payload.byteSize : 0
     const fileRecordId =
-      payload && typeof payload.fileRecordId === 'string'
-        ? payload.fileRecordId
-        : ''
+      typeof payload.fileRecordId === 'string' ? payload.fileRecordId : ''
     const fileObj = fileRecordId ? fileMap.data?.get(fileRecordId) : undefined
     return {
       id: block.id,

@@ -207,10 +207,9 @@ describe('GridOperationCoordinator', () => {
     expect(applyChanges).toHaveBeenCalledTimes(1)
     expect(applyChanges.mock.calls[0][3]).toHaveLength(2)
     expect(mutateFormula).toHaveBeenCalledTimes(2)
-    expect(mutateFormula.mock.calls.map(([write]) => write.target.rowId)).toEqual([
-      'row-1',
-      'row-2',
-    ])
+    expect(
+      mutateFormula.mock.calls.map(([write]) => write.target.rowId),
+    ).toEqual(['row-1', 'row-2'])
   })
 
   it('writes multiple formulas in one batch with each row version', async () => {
@@ -367,9 +366,9 @@ describe('GridOperationCoordinator', () => {
     ])
     await elapseCoalescingWindow()
 
-    expect(mutateFormula.mock.calls.map(([write]) => write.expectedRowVersion)).toEqual([
-      2, 3,
-    ])
+    expect(
+      mutateFormula.mock.calls.map(([write]) => write.expectedRowVersion),
+    ).toEqual([2, 3])
   })
 
   it('preserves HyperFormula-translated formula strings from autofill (relative, absolute, mixed)', async () => {

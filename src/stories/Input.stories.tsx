@@ -26,7 +26,12 @@ export const States: Story = {
         <label htmlFor="disabled-input" className="text-sm font-medium">
           Disabled
         </label>
-        <Input id="disabled-input" disabled value="Unavailable value" readOnly />
+        <Input
+          id="disabled-input"
+          disabled
+          value="Unavailable value"
+          readOnly
+        />
       </div>
       <div className="grid gap-1.5">
         <label htmlFor="invalid-input" className="text-sm font-medium">

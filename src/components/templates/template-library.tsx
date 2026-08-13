@@ -330,7 +330,10 @@ function FavouriteToggle({
       )}
     >
       <Star
-        className={cn('size-4', favourited && 'fill-amber-400 text-warning-foreground')}
+        className={cn(
+          'size-4',
+          favourited && 'fill-amber-400 text-warning-foreground',
+        )}
         aria-hidden="true"
       />
     </button>

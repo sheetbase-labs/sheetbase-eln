@@ -1,88 +1,97 @@
 # CORE-03 — Compositional Sheet
 
 **Status:** Planned / task skeletons  
-**Refinement gate:** CORE-02.8 must expand these tasks to implementation-ready detail using the implemented Dataset contracts.
+**Refinement gate:** CORE-02.8 must elaborate these tasks using implemented Dataset contracts.  
+**Normative reuse decision:** `docs/decisions/0020-sheet-definitions-instances-and-template-reuse.md`.
 
 ## Epic goal
 
-Evolve the existing scientific Sheet into an Excel-like composition over one or more Datasets and Model Records plus local and calculated columns, with explicit row identity, provenance and write-back.
+Implement the Sheet layer as two separate primitives:
 
-## Non-negotiable constraints
+1. **Sheet Definition** — reusable, versioned composition/configuration.
+2. **Sheet Instance** — working spreadsheet with resolved sources, local values and provenance.
 
-- preserve existing Excel-like Handsontable interaction and HyperFormula trust/provenance work;
-- a Sheet is not one Dataset;
-- every source is an explicit binding;
-- row identity is explicit;
-- joins are constrained and cardinality-aware;
-- every writable value has exactly one authoritative target;
-- local values are durable, typed data, not React/Handsontable-only state;
-- calculations bind to stable semantic identities beneath A1 presentation;
-- large-source behaviour must not require full browser materialisation by default.
+A Sheet Instance can combine multiple Datasets and Model Records plus local and calculated columns.
+
+## Invariants
+
+- Definitions never own experiment-specific local values.
+- Datasets remain independently reusable.
+- Multiple Notebook Templates may reference the same Definition version.
+- Creating two Instances from one Definition does not share local values.
+- Existing Instances remain pinned to their source Definition version unless explicitly upgraded.
+- Template references are pinned to Definition versions by default.
+- Shared live Instances are explicit, not accidental.
+- Row identity, joins and write-back are explicit.
+- Every writable value has one authoritative target.
+- Formula dependencies use stable semantic identities beneath A1 display.
 
 ## Planned tasks
 
-### CORE-03.1 — Audit current Sheet persistence and interaction contracts
+### CORE-03.1 — Audit current Sheet and Template persistence
 
-Map current Sheet block/table persistence, schema configuration, Handsontable integration, workbook/formula binding, save coordination and API behaviour to the target Sheet object.
+Map current Sheet blocks/tables, Templates, Handsontable state, formula binding and persistence into Definition versus Instance responsibilities.
 
-**Output:** `docs/core/audits/SHEET_COMPOSITION_AUDIT.md` and exact migration/refactor map.
+**Output:** `docs/core/audits/SHEET_COMPOSITION_AUDIT.md`.
 
-### CORE-03.2 — Introduce durable Sheet, Binding and View identities
+### CORE-03.2 — Sheet Definition identity and versioning
 
-Create the minimal Sheet metadata object and explicit Dataset/Model bindings while preserving existing single-source Sheet behaviour as the first compatibility path.
+Implement durable versioned Definitions containing input/binding specifications, row identity, joins, columns, calculations, write-back rules and configured actions.
 
-**Exit concept:** an existing scientific Sheet can be represented as a Sheet with one Dataset binding rather than special legacy semantics.
+### CORE-03.3 — Sheet Instance identity and resolved bindings
 
-### CORE-03.3 — Implement row identity
+Implement working Instances with optional source Definition/version, Notebook/project context, resolved Dataset/Model bindings, local fields/values and provenance.
 
-Support source, composite and local row-identity specifications. Validate uniqueness/determinism and use stable identities for local values, joins and write-back.
+### CORE-03.4 — Parameterised bindings
 
-**Do not:** use visible row position as durable identity.
+Allow a Definition to require compatible inputs, such as a Dataset using a specified Dataset Schema, rather than hard-coding a Dataset instance.
 
-### CORE-03.4 — Implement constrained multi-source joins
+### CORE-03.5 — Row identity
 
-Start with explicit equality joins and cardinality expectations. Detect ambiguous/unexpected many-to-many expansion rather than silently multiplying rows.
+Implement source, composite and local row identities. Visual row positions are never durable identities.
 
-**Exit concept:** Sample Model + two Datasets can compose by Sample ID.
+### CORE-03.6 — Constrained joins
 
-### CORE-03.5 — Implement bound Dataset/Model columns and provenance inspection
+Implement explicit equality joins and cardinality checks. Unexpected many-to-many expansion must be surfaced.
 
-A Sheet column can project Dataset fields, Model fields and relationships while retaining source identity. Column headers/inspector should allow users to discover source/write target without cluttering every cell.
+### CORE-03.7 — Bound columns and provenance
 
-### CORE-03.6 — Implement durable local columns
+Resolve Definition columns against Instance sources while keeping source, Definition/version and write target inspectable.
 
-Support typed Sheet-local fields and values associated with composed row identity. Preserve API/audit semantics and design for later promotion into governed schemas.
+### CORE-03.8 — Instance-local columns
 
-### CORE-03.7 — Adapt calculations to composed Sheets
+Persist typed local fields/values on the Instance. Definitions may predefine local-column semantics, but values remain Instance-specific. Support later promotion into governed/reusable definitions.
 
-Ensure formulas operate over the composed grid while dependencies resolve to stable Sheet/source identities. Preserve current deterministic function profile and calculation evidence.
+### CORE-03.9 — Calculations
 
-**Do not:** persist A1 coordinates as the semantic dependency key.
+Resolve Definition-configured calculations against Instance sources/row identity while preserving existing deterministic HyperFormula and provenance guarantees.
 
-### CORE-03.8 — Implement explicit write-back
+### CORE-03.10 — Write-back
 
-Route edits from bound Dataset fields, Model fields and local fields to exactly one authoritative target. Calculated fields remain read-only unless an explicit materialisation operation exists later.
+Route Dataset, Model and Instance-local edits to exactly one authoritative target. Calculated fields are read-only unless explicitly materialised.
 
-**Exit concept:** editing a displayed value never leaves the system guessing which source should change.
+### CORE-03.11 — Views
 
-### CORE-03.9 — Separate saved View state
+Keep mutable filters, sorts, grouping, widths/order/visibility/freeze/density as View state over Dataset or Sheet Instance, not Definition semantics.
 
-Persist filters, sorts, grouping, widths/order/visibility/freeze/density as View/presentation state rather than Dataset/field semantics. Prepare for user/team defaults.
+### CORE-03.12 — Template reference contract
 
-### CORE-03.10 — Multi-source golden workflow proof
+Notebook Templates reference a pinned Sheet Definition version with an explicit policy:
 
-Demonstrate a Notebook Sheet combining:
+- `create_instance` — default;
+- `reference_shared_instance` — deliberate live sharing;
+- `pinned_snapshot` — frozen/read-only state.
 
-- Sample Records;
-- Upstream Results Dataset;
-- Purification Results Dataset;
-- local Observation;
-- calculated Recovery.
+Full Template UX remains primarily CORE-06 work.
 
-Prove reload, provenance, correct write-back, filter/sort/View state and representative performance.
+### CORE-03.13 — Reuse/version safety proof
 
-**Hand-off:** refine CORE-04 tasks and move `NEXT.md` only after the exit gate passes.
+Prove that one Definition can be reused by multiple Template configurations; independent Instances do not share local values; the same Dataset can be reused independently; publishing a new Definition version does not mutate existing Instances; and upgrades are explicit.
 
-## Epic exit gate
+### CORE-03.14 — Golden workflow proof
 
-One Sheet combines at least two Datasets plus a Model and local/calculated columns, with explicit row identity/joins, stable formula semantics, durable local data, correct write-back, saved View separation and reconstructable provenance.
+Use a reusable Definition to create a Notebook Sheet Instance combining Sample Records, Upstream Results, Purification Results, local Observation and calculated Recovery. Prove reload, provenance, correct write-back and View state.
+
+## Exit gate
+
+A versioned Sheet Definition creates independent Sheet Instances; an Instance can compose multiple governed sources and local/calculated columns; Template and Dataset reuse are safe and explicit; no Definition/version change silently alters existing scientific work.

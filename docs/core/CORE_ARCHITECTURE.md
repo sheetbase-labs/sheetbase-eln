@@ -2,27 +2,16 @@
 
 > **Status:** Target architecture and implementation constraints for the Core Data Workspace programme.  
 > **Product semantics:** `PRODUCT_CORE.md` is authoritative for product meaning.  
+> **Durable Sheet decision:** ADR 0020 is authoritative for Definition/Instance/Template reuse semantics.  
 > **Migration:** see `CORE_MIGRATION.md` for how current code maps to this target.
 
 ## 1. Architectural objective
 
-Converge Sheetbase onto a small set of durable primitives so notebooks, registries, datasets, analysis, reporting, instruments and future automation operate on the same identities and contracts.
+Converge Sheetbase onto a small set of durable primitives so Notebooks, Templates, registries, Datasets, analysis, reporting, instruments and future automation operate on the same identities and contracts.
 
-The architecture must preserve the existing strengths:
-
-- PostgreSQL authority;
-- PostgREST as the primary data API;
-- row-level security as the access boundary;
-- Handsontable for spreadsheet interaction;
-- HyperFormula for deterministic spreadsheet calculation;
-- stable formula/provenance semantics;
-- dense shared UI primitives and inspectors.
-
-The work is convergence, not a rewrite.
+Preserve PostgreSQL authority, PostgREST, RLS, Handsontable, HyperFormula, stable formula/provenance semantics and the shared dense UI system. This is convergence, not a rewrite.
 
 ## 2. Dependency direction
-
-The intended dependency direction is:
 
 ```text
 Field semantics / policy
@@ -31,108 +20,36 @@ Models + Dataset Schemas
         ↓
 Records + Datasets
         ↓
-Sheet bindings / composition
+Sheet Definitions
         ↓
-Calculations
+Sheet Instances + Views + Calculations
         ↓
-Notebook embedding / Views
+Notebook / Notebook Template composition
         ↓
-Pipeline definitions + runs
+Pipeline Definitions + Runs
         ↓
 Analysis / reporting / agents / specialist workspaces
 ```
 
-Higher-level surfaces may compose lower-level primitives. They should not create competing definitions of them.
+Higher-level surfaces compose lower-level primitives; they must not create competing definitions or hidden copies of them.
 
 ## 3. Common field kernel
 
-Introduce or evolve toward one semantic field contract used by Model fields and Dataset Schema fields.
+Models and Dataset Schemas consume one canonical semantic field contract. The executable TypeScript contract lives in `src/lib/field-definition.ts` and is grounded by `docs/core/audits/FIELD_SCHEMA_AUDIT.md`.
 
-Conceptual shape:
-
-```text
-FieldDefinition
-  id                  immutable
-  workspace_id
-  key                 stable machine-facing key under controlled rename rules
-  label               human-facing
-  description
-  value_type
-  nullable
-  cardinality
-  unit_dimension?
-  allowed_units?
-  default_value?
-  validation?
-  vocabulary_id?
-  relationship_target_model_id?
-  computed             boolean
-  sensitivity_class?
-  lifecycle_state
-  created_at/by
-  updated_at/by
-```
-
-Initial value types should remain deliberately small:
-
-- text;
-- integer;
-- decimal;
-- boolean;
-- date;
-- datetime;
-- duration;
-- categorical;
-- record reference;
-- file reference;
-- structured/JSON only where a richer first-class type is not justified.
-
-Scientific specialisation should normally be metadata over these primitives: unit dimensions, concentration, sequence metadata, ontology references, plate/well semantics, etc.
-
-### Constraint
-
-Semantic unification does **not** require one physical EAV table. System models, extension properties and large scientific datasets may use different physical PostgreSQL strategies.
+Semantic unification does **not** require one physical EAV table. System Models, extension properties and large scientific Datasets may use different PostgreSQL strategies while sharing stable semantic IDs/types/constraints.
 
 ## 4. Model contracts
 
-The existing model registry is the starting point.
+The existing Model registry remains the foundation.
 
-A Model Definition requires:
+A Model Definition requires immutable identity, protected/base fields, workspace extension fields, field lifecycle, relationship definitions, PostgreSQL-boundary validation, configuration capabilities, dependency discovery and auditable configuration changes.
 
-- immutable model identity;
-- protected/base field registry;
-- workspace extension fields;
-- field lifecycle;
-- relationship definitions;
-- validation at the PostgreSQL boundary;
-- explicit schema/configuration capabilities;
-- dependency discovery before breaking change;
-- auditable configuration changes.
-
-### Schema lifecycle
-
-Use explicit lifecycle semantics. A useful initial vocabulary is:
-
-- `draft`;
-- `published` / `active`;
-- `deprecated`;
-- `retired`.
-
-Classify changes as:
-
-- presentation-only;
-- backward-compatible;
-- validation-affecting;
-- migration-required;
-- breaking.
-
-Historical values must remain interpretable after field retirement.
+Historical values remain interpretable after field retirement. Schema changes are explicit and classified by compatibility/impact.
 
 ## 5. Dataset contracts
 
-A Dataset is an addressable data object, not a Sheet.
-
-Conceptual shape:
+A Dataset is an independently addressable rectangular data object, not a Sheet and not owned by a Template.
 
 ```text
 Dataset
@@ -148,62 +65,109 @@ Dataset
   updated_at/by
 ```
 
-A Dataset requires stable row identity. Do not use visual row number as identity.
+Datasets require stable row and field identities independent of visual position or label. Physical storage is selected by ADR based on RLS, API discoverability, bulk writes, schema evolution, query performance, large-data behaviour and future calculation/Pipeline references.
 
-Dataset fields require stable IDs independent of display order and label.
+## 6. Sheet Definition contracts
 
-### Dataset storage
-
-Do not prematurely mandate one physical strategy for all datasets. Evaluate relational tables, controlled generated relations/partitions and metadata-driven storage against:
-
-- PostgREST discoverability;
-- RLS;
-- bulk writes;
-- schema evolution;
-- query performance;
-- large datasets;
-- formula and pipeline references.
-
-Whichever strategy is selected, external contracts bind to stable semantic IDs.
-
-## 6. Sheet contracts
-
-A Sheet is a composition over sources.
-
-Conceptual shape:
+A `SheetDefinition` is reusable, versioned composition/configuration.
 
 ```text
-Sheet
+SheetDefinition
+  id
+  workspace_id
+  name
+  version
+  lifecycle_state
+  input_parameters[]
+  bindings[]
+  row_identity_spec
+  joins[]
+  columns[]
+  calculations[]
+  writeback_rules[]
+  record_actions[]
+  default_view_definition?
+  created_at/by
+```
+
+A Definition may bind directly to stable global/configuration sources (for example `Model(Sample)`) or declare parameters that must be resolved at instantiation.
+
+Example parameter:
+
+```text
+InputParameter
+  key: results_dataset
+  source_kind: dataset
+  compatibility:
+    dataset_schema_id: assay_results
+    minimum_schema_version?: 2
+```
+
+A Sheet Definition does not store experiment-specific local values.
+
+### 6.1 Definition versions
+
+Definitions are immutable-by-version for dependency purposes. Publishing a change creates a new version. Existing Templates and Instances remain pinned to their prior version until explicitly updated/upgraded.
+
+A future compatible-follow policy may exist, but it must be explicit; silent propagation is prohibited.
+
+## 7. Sheet Instance contracts
+
+A `SheetInstance` is the working spreadsheet object.
+
+```text
+SheetInstance
   id
   workspace_id
   notebook_id?
-  name
-  row_identity_spec
-  bindings[]
-  joins[]
-  columns[]
-  writeback_rules[]
-  record_actions[]
-  default_view_id?
-  lifecycle/status
+  project_id?
+  definition_id?
+  definition_version?
+  resolved_bindings[]
+  local_field_definitions[]
+  lifecycle_state
+  provenance
+  created_at/by
 ```
 
-### 6.1 Binding
+An Instance can be created:
+
+- from a versioned Sheet Definition;
+- ad hoc, where product policy permits;
+- by a Notebook Template instantiation;
+- later, from a Pipeline/automation composition operation.
+
+When created from a Definition it records the exact `definition_id` + version.
+
+Instance-specific local data belongs to the Instance. Reusing the Definition never shares these values.
+
+## 8. Binding contracts
+
+Definitions contain binding specifications; Instances contain resolved bindings.
 
 ```text
-SheetBinding
+SheetBindingSpec
   id
-  sheet_id
   alias
   source_kind          dataset | model
-  source_id
+  source_id?           fixed source where appropriate
+  parameter_key?       parameterised source
   source_version_policy live | pinned
-  pinned_version?
+  compatibility?
 ```
 
-Bindings are explicit and addressable. A Sheet may contain multiple bindings.
+```text
+ResolvedSheetBinding
+  binding_spec_id
+  source_kind
+  source_id
+  resolved_version?
+  resolution_provenance
+```
 
-### 6.2 Row identity
+A Definition may therefore be reusable across many Datasets that satisfy the same expected Dataset Schema.
+
+## 9. Row identity and joins
 
 ```text
 RowIdentitySpec
@@ -211,18 +175,9 @@ RowIdentitySpec
   source_fields[]
 ```
 
-Examples:
+Rows may represent Sample IDs, `[Sample, Timepoint]`, `[Plate, Well]`, or local UUIDs.
 
-- Sample record ID;
-- `[sample_id, timepoint]`;
-- `[plate_id, well]`;
-- Sheet-local UUID.
-
-A Sheet configuration is invalid if its joins cannot produce deterministic row identity under the selected semantics.
-
-### 6.3 Joins
-
-Initial joins should remain intentionally constrained and explainable.
+Joins begin constrained and explainable:
 
 ```text
 SheetJoin
@@ -234,94 +189,81 @@ SheetJoin
   cardinality_expectation
 ```
 
-Start with equality joins and explicit cardinality expectations. Do not attempt to recreate arbitrary SQL in the Sheet configuration UI.
+Unexpected many-to-many expansion must be surfaced rather than silently multiplying rows.
 
-Ambiguous many-to-many expansion should require explicit handling rather than silently multiplying rows.
+## 10. Column contracts
 
-### 6.4 Columns
+Definition-level column configuration is distinct from Instance-local state.
 
 ```text
-SheetColumn
+SheetColumnDefinition
   id
-  sheet_id
   label
   source_kind          dataset_field | model_field | relationship | local | calculated
-  binding_id?
+  binding_spec_id?
   source_field_id?
   local_field_definition?
-  calculation_id?
+  calculation_definition?
   writable
   writeback_target?
-  display_config
+  display_defaults?
   position
 ```
 
-### 6.5 Local columns
+For `local` columns, the Definition defines the field semantics while the Instance owns the values.
 
-Local column values are durable Sheet-owned data, not browser-only state.
+An ad hoc Instance may add new local fields not present in the source Definition. Promotion into a reusable Definition is a separate controlled operation.
 
-They need:
+## 11. Write-back
 
-- stable row association;
-- typed values;
-- validation;
-- API access where appropriate;
-- audit/change behaviour;
-- promotion path into governed schemas.
-
-### 6.6 Write-back
-
-Every writable column/cell resolves to exactly one target:
+Every writable displayed value resolves to exactly one target:
 
 ```text
 WritebackTarget
-  target_kind          dataset_field | model_field | sheet_local
-  binding_id?
+  target_kind          dataset_field | model_field | sheet_instance_local
+  binding_spec_id?
   field_id
 ```
 
-Calculated values are read-only unless an explicit materialisation operation creates a new governed output.
+A Definition specifies the rule; an Instance resolves it through its actual bindings.
 
-### 6.7 Record actions
+Calculated values are read-only unless an explicit materialisation operation creates a governed output.
 
-Initial record operations:
+## 12. Record actions
 
-```text
-RecordAction
-  link_existing
-  create_inline
-  create_bulk
-  update_bound_record
-```
+A Definition may configure allowed/default actions such as:
 
-Bulk creation should be implemented as validate/preview/commit rather than row-at-a-time network calls.
+- link existing Record;
+- create Record inline;
+- bulk-create Records;
+- update bound Record;
+- append Dataset row;
+- later run Pipeline.
 
-The server must return structured row/field errors suitable for rendering directly in the grid.
+The Instance executes actions using resolved bindings and normal server-side capability/validation contracts.
 
-## 7. Calculation contracts
+## 13. Calculation contracts
 
-Preserve the existing direction:
+Preserve existing formula guarantees:
 
-- formula definitions are durable;
-- evaluated values may be cached;
-- formula references resolve to stable semantic identities underneath the Excel-like A1 representation;
-- volatile/non-reproducible behaviour remains deliberately constrained;
-- dependency graphs are explicit;
-- errors are stored/represented without destroying definitions.
+- durable definitions;
+- cached evaluated values are not sole authority;
+- stable semantic dependency IDs beneath A1 presentation;
+- deterministic function profile;
+- explicit dependency graphs;
+- stored errors without destroying formulas.
 
-Multi-source Sheets mean formula resolution must operate against the composed Sheet row/column model while retaining source provenance.
+Formula configuration may originate in a Sheet Definition; Instance execution resolves it against bound sources and Instance row identities.
 
-Do not make display coordinates the persistent dependency key.
+## 14. View contracts
 
-## 8. View contracts
-
-Separate presentation from Sheet composition and data.
+Views are presentation/query state over a Dataset or Sheet Instance, not a Definition's semantic identity.
 
 ```text
 View
   id
-  owner_scope          user | team/workspace | template
-  target_kind          sheet | dataset
+  owner_scope          user | team/workspace | template_default
+  target_kind          sheet_instance | dataset
   target_id
   filters
   sorts
@@ -334,226 +276,132 @@ View
   display_options
 ```
 
-A View must not mutate field semantics or write-back rules.
+A Sheet Definition may nominate default View configuration, but Instance/user Views remain independently mutable.
 
-Role-specific default views can later be assigned through configuration/policy.
+## 15. Notebook Template contracts
 
-## 9. Notebook embedding
-
-Notebook blocks should reference durable objects rather than duplicate them.
-
-For a Sheet block, persist at minimum:
-
-- Sheet identity;
-- live versus pinned policy;
-- optional View identity;
-- block-specific display options.
-
-A submitted Notebook version must be able to reconstruct the exact data/calculation state it claims to contain. This may require pinning Dataset/Sheet/Pipeline versions at submission rather than relying on live references.
-
-## 10. Permissions and capability architecture
-
-RLS remains the data boundary. Expand the product permission vocabulary beyond the current coarse membership roles.
-
-Target capability families:
+A Notebook Template is a versioned composition of block instructions. A predefined Sheet block references either a versioned Sheet Definition or an explicit existing shared Sheet Instance.
 
 ```text
-data.read
- data.create
- data.update
- data.archive
- data.export
-
-schema.read
- schema.create
- schema.edit
- schema.publish
- schema.retire
-
-dataset.create
- dataset.bulk_edit
- dataset.schema_edit
-
-calculation.author
- calculation.use
-
-pipeline.run
- pipeline.author
- pipeline.publish
- pipeline.schedule
- pipeline.approve
-
-agent.use
- agent.propose_write
- agent.execute_write
- agent.configure
-
-review.comment
- review.submit
- review.approve
- review.sign
-
-workspace.manage_users
- workspace.manage_roles
- workspace.manage_integrations
- workspace.manage_credentials
+TemplateSheetBlock
+  sheet_definition_id?
+  sheet_definition_version?
+  shared_sheet_instance_id?
+  instantiation_policy
+  parameter_bindings[]
+  default_view_config?
 ```
 
-Do not implement the entire vocabulary in one migration. Introduce capability primitives with the first Core Data Workspace needs and keep the namespace extensible.
+Initial `instantiation_policy` values:
 
-## 11. Pipeline boundary
+- `create_instance` — default; instantiate a new Sheet Instance from the pinned Definition version;
+- `reference_shared_instance` — deliberately reference an existing live Sheet Instance;
+- `pinned_snapshot` — reference a frozen state for evidence/read-only use.
 
-Pipeline semantics should be specified before a workflow-builder UI.
+### 15.1 Template dependency rules
+
+- Templates pin Sheet Definition versions by default.
+- Publishing a new Definition version does not change existing Template versions.
+- Updating a Template dependency is explicit and impact-aware.
+- Existing Notebooks/Sheet Instances are not altered when a Template is updated.
+- A Template owns instructions/composition, not authoritative Dataset or Instance-local scientific values.
+
+## 16. Notebook embedding and frozen evidence
+
+A Notebook block referencing a normal working Sheet stores the Sheet Instance identity and View/display state required to render it.
+
+Submitted Notebook evidence must reconstruct exact structured state. Submission may therefore pin Dataset versions, Sheet Instance state, Definition versions, Calculation definitions/results and later Pipeline Run evidence rather than relying on live references.
+
+Shared live instances remain valid during working state but must become explicitly frozen/pinned where submission semantics require immutability.
+
+## 17. Reuse matrix
+
+| Reused object | What is shared | What is not implicitly shared |
+|---|---|---|
+| Dataset | authoritative rectangular data | Sheet composition/local values |
+| Sheet Definition | composition/configuration | resolved bindings, local values, working lifecycle |
+| Sheet Instance | all working state of that Instance | other independent Instances |
+| Notebook Template | composition/instantiation instructions | Notebook content or newly created Instance-local data |
+| View | presentation/query state according to sharing scope | underlying data semantics |
+
+This matrix is an invariant, not merely UI guidance.
+
+## 18. Permissions and capabilities
+
+RLS remains the data boundary. Capability vocabulary must eventually distinguish:
+
+- data read/create/update/archive/export;
+- schema read/create/edit/publish/retire;
+- Dataset create/bulk-edit/schema-edit;
+- Sheet Definition read/create/edit/publish;
+- Sheet Instance create/edit/share/upgrade;
+- Template read/create/edit/publish;
+- calculation author/use;
+- Pipeline run/author/publish/schedule/approve;
+- agent use/propose-write/execute-write/configure;
+- review/comment/submit/approve/sign;
+- workspace administration.
+
+Introduce these incrementally rather than in one migration.
+
+## 19. Pipeline boundary
+
+Pipelines operate primarily on typed data inputs/outputs, not Notebook Template internals.
+
+A future operation may:
 
 ```text
-PipelineDefinition
-  id
-  name
-  version
-  implementation_type
-  input_ports[]
-  output_ports[]
-  parameter_schema
-  implementation_reference
-  execution_policy
-  permissions
-  lifecycle_state
+Pipeline Run → Output Dataset
+             → instantiate SheetDefinition X with output_dataset = Output Dataset
 ```
 
-```text
-PipelineRun
-  id
-  definition_id
-  definition_version
-  input_versions[]
-  parameters
-  initiated_by
-  execution_identity
-  started_at
-  completed_at
-  status
-  output_versions[]
-  logs_reference
-  evidence_digest
-```
+This keeps computation, presentation and Notebook composition separately reusable.
 
-Initial implementation types should probably be configured transform, SQL and Python. This is a later epic, not a prerequisite for compositional Sheets.
+## 20. Agent boundary
 
-## 12. Agent boundary
+Agents use ordinary platform contracts. They may later propose Sheet Definitions, Template dependency changes or Pipeline Definitions, but such changes begin as drafts and pass normal permission, validation, impact and approval flows.
 
-Agent operations use ordinary platform contracts.
+## 21. API requirements
 
-Target consequential-write lifecycle:
+Every important primitive requires stable API identity: Model, Record, Dataset, Dataset Schema, Sheet Definition/version, Sheet Instance, View, Notebook Template/version, Calculation, Pipeline Definition/Run.
 
-```text
-intent
-  ↓
-structured proposed plan
-  ↓
-permission + schema validation
-  ↓
-human-visible diff/impact
-  ↓
-approval if policy requires
-  ↓
-normal mutation or Pipeline execution
-  ↓
-recorded provenance
-```
-
-Agent-generated schema or Pipeline definitions begin as drafts.
-
-## 13. API requirements
-
-Every important primitive should have a stable API identity.
-
-The UI and external clients should operate on the same authoritative resources wherever practical.
-
-Bulk Sheet operations need purpose-built controlled RPCs where direct CRUD would be inefficient or unable to express atomic validation/commit semantics.
-
-Candidate operations include:
-
-- validate bulk Dataset writes;
-- commit bulk Dataset writes;
-- validate bulk Record creation;
-- commit bulk Record creation;
-- apply schema change;
-- promote local field;
-- publish schema version.
+Controlled RPCs are appropriate for atomic/bulk operations such as bulk Dataset writes, Record creation, schema publication, local-field promotion and Definition/Template upgrades.
 
 Do not expose privileged generic SQL execution.
 
-## 14. Performance requirements
+## 22. Performance requirements
 
-The Sheet UX must not imply that all data is resident in browser memory.
+The spreadsheet UX must not imply all source data is resident in browser memory. Use virtualisation, windowed access, server-side filtering/sorting/grouping, bulk mutations and explicit whole-Dataset versus loaded-window semantics.
 
-Use:
+Reusable Definitions must not require duplicating source data merely to instantiate another Sheet.
 
-- Handsontable rendering virtualisation;
-- incremental/windowed data access where feasible;
-- server-side filter/sort/group operations for large sources;
-- bulk mutation endpoints;
-- bounded formula/materialisation policies;
-- explicit operation limits where full-dataset semantics are required;
-- performance tests using representative scientific datasets.
+## 23. Provenance requirements
 
-The user must be told when an operation applies to a loaded window versus the complete Dataset; silent partial semantics are unacceptable.
+For a displayed value, Sheetbase should be able to answer:
 
-## 15. Provenance requirements
+- which Sheet Instance and column produced/displayed it;
+- which Sheet Definition/version configured it, if applicable;
+- which resolved Dataset/Record/local value is authoritative;
+- what row identity it belongs to;
+- what Calculation produced it, if derived;
+- who/what changed the authoritative value;
+- whether the current Notebook view is live, shared-live or pinned.
 
-At minimum, Sheetbase should be able to answer for a displayed value:
+## 24. Required ADRs during implementation
 
-- what object/field produced it;
-- whether it is live, local or calculated;
-- what Record/Dataset row it belongs to;
-- what calculation definition produced it, if derived;
-- who/what last changed the authoritative value;
-- whether the Notebook is showing live or pinned state.
+ADR 0020 already locks Sheet Definition/Instance/Template reuse semantics.
 
-Pipeline outputs later extend this chain with definition/run/input versions.
+Further ADRs are still required as implementation evidence settles:
 
-## 16. Configuration UI architecture
-
-The Model/Dataset configuration experience should use a shared pattern:
-
-- catalogue/navigation on the left;
-- dense field/schema work plane in the centre;
-- semantic/dependency inspector on the right;
-- draft/published state and impact summary in the header.
-
-The inspector should expose type, units, validation, relationships, permissions, dependencies and history.
-
-Before a breaking change, show usage such as:
-
-```text
-Used by
-  4 datasets
-  2 sheets
-  1 calculation
-  1 pipeline
-```
-
-## 17. Engineering constraints
-
-1. Prefer migrations that converge existing structures rather than replacing working systems.
-2. Preserve current API/RLS guarantees.
-3. Preserve stable formula IDs and calculation evidence.
-4. Do not merge semantic schema and UI display metadata merely for convenience.
-5. Add ADRs for durable decisions about Dataset physical storage, row identity, Sheet joins/write-back and schema versioning.
-6. Each epic should deliver a narrow end-to-end demonstrable workflow.
-7. No new specialist workspace should introduce a parallel source of truth.
-
-## 18. Required ADRs during implementation
-
-Create ADRs as these decisions are settled by implementation evidence:
-
-- common field kernel and compatibility with current `model_fields`;
-- Dataset physical storage strategy;
-- Dataset schema versioning/migration;
-- Sheet binding and row-identity semantics;
-- Sheet local-column storage;
-- Sheet join/cardinality policy;
-- bulk validation/commit RPC contract;
-- multi-source formula reference semantics;
+- common field kernel compatibility;
+- Dataset physical storage and versioning;
+- Sheet Definition/version persistence;
+- Sheet Instance/local-value persistence;
+- binding parameter compatibility/resolution;
+- row identity and join/cardinality semantics;
+- Definition-to-Instance upgrade/migration behaviour;
+- Template dependency/version updates;
+- bulk validation/commit RPCs;
+- multi-source formula resolution;
 - capability/policy storage and RLS mapping;
-- Pipeline execution isolation and artifact/provenance model.
+- Pipeline execution/provenance.

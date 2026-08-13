@@ -65,6 +65,49 @@ afterAll(async () => {
 })
 
 describe('model field registry and controlled writes', () => {
+  it('separates schema capabilities from ordinary workspace membership', async () => {
+    const owner = await actor(OWNER)
+    const admin = await actor(ADMIN)
+    const member = await actor(MEMBER)
+
+    await expect(
+      owner.query(
+        `select api.has_schema_capability($1,'model_field.manage') allowed`,
+        [WS],
+      ),
+    ).resolves.toMatchObject({ rows: [{ allowed: true }] })
+    await expect(
+      admin.query(
+        `select api.has_schema_capability($1,'model_field.manage') allowed`,
+        [WS],
+      ),
+    ).resolves.toMatchObject({ rows: [{ allowed: true }] })
+    await expect(
+      member.query(
+        `select api.has_schema_capability($1,'model_field.manage') allowed`,
+        [WS],
+      ),
+    ).resolves.toMatchObject({ rows: [{ allowed: false }] })
+    await expect(
+      owner.query(
+        `select api.has_schema_capability($1,'dataset_schema.publish') allowed`,
+        [WS],
+      ),
+    ).resolves.toMatchObject({ rows: [{ allowed: true }] })
+    await expect(
+      admin.query(
+        `select api.has_schema_capability($1,'dataset_schema.publish') allowed`,
+        [WS],
+      ),
+    ).resolves.toMatchObject({ rows: [{ allowed: false }] })
+    await expect(
+      owner.query(
+        `select api.has_schema_capability($1,'unrecognised.capability') allowed`,
+        [WS],
+      ),
+    ).resolves.toMatchObject({ rows: [{ allowed: false }] })
+  })
+
   it('seeds the exact canonical registry and protects snake/camel aliases', async () => {
     const { rows } = await migrator.query(
       `select key from api.model_kinds order by key`,

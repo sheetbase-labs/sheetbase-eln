@@ -1,260 +1,136 @@
 # Sheetbase roadmap
 
 > **Active programme:** Core Data Workspace.  
-> **Canonical core definitions:** [`docs/core/README.md`](./docs/core/README.md), [`PRODUCT_CORE.md`](./docs/core/PRODUCT_CORE.md), [`CORE_ARCHITECTURE.md`](./docs/core/CORE_ARCHITECTURE.md), [`CORE_MIGRATION.md`](./docs/core/CORE_MIGRATION.md).
+> **Canonical:** `docs/core/` and accepted ADRs 0020–0024.
 
 ## Destination
 
-Sheetbase is a scientific data workspace in which the notebook provides scientific context and Excel-like Sheets provide the primary structured-data interaction surface, while PostgreSQL remains authoritative.
+Sheetbase is a scientific data workspace where the Notebook provides scientific context and Excel-like Sheet Instances provide the primary structured-data interaction surface while PostgreSQL remains authoritative.
 
-A Sheet is not limited to one database table. It can compose multiple Datasets and Model Records together with local and calculated columns, explicit row identity, joins, provenance and unambiguous write-back. Scientists must be able to link and create Records directly from Sheets.
+Reusable organisational configuration (Models, Dataset Schemas, Sheet Definitions, Notebook Templates, vocabularies) is separate from project/workspace scientific working state (Records, Datasets, Notebooks, Sheet Instances).
 
-The product architecture should converge specialist surfaces onto shared Models, Records, Field Definitions, Datasets, Sheets, Views, Calculations, Policies and later Pipelines rather than creating independent applications or sources of truth.
+A Sheet Instance can compose multiple Datasets and Model Records with local and calculated columns. Every value has provenance and every writable value has one authoritative write target.
 
-## Principles that govern the route
+## Active epics
 
-- The notebook remains the centre of scientific context; registries and specialist workspaces support it.
-- Sheets are the primary structured-data workspace and should feel familiar to Excel users without inheriting spreadsheet ambiguity as the data model.
-- PostgreSQL is authoritative. PostgREST exposes safe CRUD and controlled RPCs, while row-level security remains the access-control boundary.
-- Models and Dataset Schemas share a common semantic field language even when their physical storage differs.
-- Handsontable is for spreadsheet-like scientific editing. TanStack Table/virtualised registry grids are for registries, queues and read-oriented operational views.
-- HyperFormula formulas are durable definitions. Calculated values may be cached for display and querying, but they are never the sole authoritative representation of a calculation.
-- Every durable dependency uses stable identities rather than labels, visual row positions or A1 coordinates.
-- Every displayed Sheet value has inspectable provenance; every writable value has exactly one authoritative write target.
-- Configuration is capability-based. Record editing, schema configuration, workflow authoring, review and workspace administration are distinct authorities.
-- Information density, clarity, keyboard fluency and large-data performance are product requirements.
-- AI is assistive, reviewable and attributable, and must use the same typed operations, permissions and provenance model as humans and code.
-- The mockups and concept system remain the approved visual direction. Components are improved in place rather than replaced with a different aesthetic.
-- Traceability, accessibility and failure states are designed with the normal workflow, not added after it.
+### CORE-01 — Common Schema Kernel
 
-## Current state
+Unify semantic Field Definition identity/types/units/validation/vocabulary/relationships/lifecycle across Models and Dataset Schemas while preserving the existing Model framework.
 
-The repository has already established substantial foundations:
+**Exit:** Models and future Dataset Schemas consume one coherent semantic field language and schema authority is distinct from ordinary Record editing.
 
-- TanStack Start/React application and production UI system;
-- PostgreSQL, Drizzle, PostgREST, Better Auth, external API credentials and RLS;
-- notebook/domain foundations;
-- Handsontable scientific Sheets and HyperFormula calculation persistence;
-- Excel-like formula editing/reference picking and a curated scientific function library;
-- shared dense registries, filters and inspectors;
-- an extensible PostgreSQL-authoritative Model framework with protected base fields and workspace fields;
-- several specialist workspaces that can be retained as future consumers of the core.
+### CORE-02 — Dataset Primitive and Versioning
 
-The next task is **convergence**, not a rewrite and not continued feature breadth.
+Make Dataset durable rectangular data independent of Sheet presentation.
 
----
+Deliver Dataset/Dataset Schema identity, explicit Schema versions, stable rows/fields, live mutable state plus meaningful immutable Dataset Versions, PostgreSQL storage/RLS/API, bulk validation/write and representative performance evidence.
 
-# Active programme — Core Data Workspace
+**Exit:** a Dataset exists independently, is API-addressable and bulk-writable, and can produce an immutable version suitable for frozen evidence/Pipeline input.
 
-## CORE-01 — Common Schema Kernel
+### CORE-03 — Sheet Definition and Compositional Sheet Instance
 
-Unify the semantic language used by Model fields and Dataset fields.
+Implement separate reusable versioned Sheet Definitions and working Sheet Instances.
 
-Deliver:
+Deliver typed parameters/binding contracts, multiple Dataset/Model sources, explicit row identity/joins, bound/local/calculated columns, durable Instance-local values, explicit write-back, calculation scopes, persisted presentation state, save-Instance-as-Definition and explicit data-preserving Definition upgrades.
 
-- stable Field Definition identity;
-- common value types;
-- units and unit dimensions;
-- validation constraints;
-- controlled vocabularies;
-- Record relationships and cardinality;
-- lifecycle/version semantics;
-- compatibility with the existing extensible Model framework;
-- initial schema-configuration capability boundary;
-- dependency discovery foundation.
+Composition remains virtual unless explicitly materialised.
 
-**Exit gate:** a Model property and Dataset field can use the same semantic type/constraint vocabulary without maintaining incompatible definitions.
+**Exit:** one reusable Definition can create independent Instances; an Instance combines at least two Datasets plus a Model and local/calculated columns with correct provenance/write-back; Definition changes do not silently mutate existing work.
 
-## CORE-02 — Dataset Primitive
+### CORE-04 — Records from Sheets
 
-Make Dataset the durable rectangular data object independent of Sheet presentation.
+Make Sheet Instances first-class Record linking/registration surfaces.
 
-Deliver:
+Deliver typed Record references, existing-Record search/link, inline creation, validated bulk creation from pasted/selected rows, duplicate/uniqueness handling and permission-aware operations.
 
-- Dataset and Dataset Schema identities;
-- stable row and field IDs;
-- PostgreSQL physical-storage ADR and implementation;
-- API resources and RLS;
-- bulk validation/write operations;
-- provenance/lifecycle;
-- representative large-data performance tests.
+**Exit:** a scientist can paste realistic data, resolve/create Records and continue without leaving the Sheet.
 
-**Exit gate:** a Dataset can be created, queried, bulk-written and addressed through the API without a Sheet being present.
+### CORE-05 — Schema Evolution and Role-aware Configuration
 
-## CORE-03 — Compositional Sheet
+Make configuration safely delegable.
 
-Evolve the existing scientific Sheet into a composition over governed sources.
+Deliver schema lifecycle/version impact handling, safe field evolution, local-field/calculation promotion, capability-based configuration and dependency inspection. Persist Sheet presentation state; named saved Views are optional future enhancement rather than a Core requirement.
 
-Deliver:
+**Exit:** a Data Steward can evolve governed definitions safely while Scientists see only permitted configuration and historical semantics remain interpretable.
 
-- durable Sheet object;
-- multiple Dataset and Model bindings;
-- explicit source/composite/local row identity;
-- constrained joins with cardinality checks;
-- Dataset, Model, relationship, local and calculated columns;
-- durable local values;
-- source/provenance inspection;
-- explicit write-back targets;
-- View state separated from data/schema;
-- existing Excel-like interaction preserved.
+### CORE-06 — Notebook Templates, Sharing and Frozen Evidence
 
-**Exit gate:** one Sheet combines at least two Datasets plus a Model and a local/calculated column, while edits reach the correct authoritative sources and provenance remains reconstructable.
+Make Sheet Instances native Notebook objects and Notebook Templates reusable organisational composition.
 
-## CORE-04 — Records from Sheets
+Deliver pinned Sheet Definition references, normal independent instantiation, explicit shared-live Instance references, explicit snapshots, Template parameter flow, archive/retire/dependency behaviour, and submitted evidence that reconstructs Dataset Versions, semantic manifests, Definition versions, Instance-local state and calculations.
 
-Make Sheets a first-class Record registration and linking surface.
+No Template inheritance; future repeated content uses explicit reusable Sections if needed.
 
-Deliver:
+**Exit:** multiple Templates can reuse one Definition safely, shared live work is obvious, and submitted Notebooks reconstruct exact structured evidence.
 
-- typed Record-reference cells;
-- existing-Record search/link;
-- inline Record creation;
-- bulk Record creation from pasted/selected rows;
-- validate → preview → commit operation;
-- row/field validation errors rendered in the grid;
-- uniqueness/duplicate handling;
-- permission-aware creation/update behaviour.
+### AUTO-01 — Pipeline Foundation
 
-**Exit gate:** a scientist can paste a realistic table, resolve existing Records, create missing Records in bulk and continue working without leaving the Sheet.
+Introduce broader typed transformations after the Core data substrate is stable.
 
-## CORE-05 — Schema Evolution, Views and Role-aware Configuration
+Deliver shared typed parameters, versioned Pipeline Definitions/Runs, immutable inputs, configured transforms, SQL/Python execution boundary, Dataset outputs and run provenance.
 
-Make the core safely configurable by delegated roles.
+**Exit:** a versioned transformation consumes immutable input Dataset Versions and reproducibly produces traceable output Dataset state.
 
-Deliver:
+### AUTO-02 — Agent-authored Operations
 
-- draft/publish/deprecate/retire schema lifecycle;
-- safe add/rename/retire operations;
-- dependency/impact inspection;
-- local-column promotion into governed schemas;
-- saved user/team Views;
-- initial capability-based schema/data configuration;
-- role-specific defaults without divergent underlying data.
+Allow agents to propose governed schema/Definition/Pipeline operations through normal platform contracts.
 
-**Exit gate:** a Data Steward can safely evolve a schema while a Scientist sees only permitted configuration, and historical data/dependencies remain interpretable.
+**Exit:** users can inspect/approve agent-authored changes and execution produces the same evidence as human/code-authored operations.
 
-## CORE-06 — Notebook Integration and Frozen Evidence
+## Golden workflow
 
-Make compositional Sheets native Notebook objects with explicit live/pinned semantics.
+Use a Lentivector purification Notebook throughout:
 
-Deliver:
+```text
+Organisation configuration
+  Model: Sample
+  Dataset Schemas: Upstream Results, Purification Results
+  Sheet Definition: Purification Summary
 
-- Notebook Sheet-block references to durable Sheet objects;
-- live versus pinned/frozen state;
-- Notebook/template integration;
-- submitted-version pinning rules;
-- chart/data consumers using stable Sheet/Dataset identities;
-- provenance reconstruction for submitted evidence.
+Project working state
+  Upstream Dataset
+  Purification Dataset
+  Notebook
+    `-- Sheet Instance
+          +-- Sample Records
+          +-- both Datasets
+          +-- local Observation
+          `-- calculated Recovery
+```
 
-**Exit gate:** a Notebook can contain a live working compositional Sheet and later produce an immutable submitted state that can be reconstructed exactly.
+The completed Core proves data paste, Record linking/creation, explicit row identity/joins, correct write-back, durable local values, calculation, reload, presentation state, provenance, Definition reuse, explicit materialisation and frozen submission evidence.
 
----
+## Sequencing
 
-# Automation programme — follows stable Core Data Workspace
-
-## AUTO-01 — Pipeline Foundation
-
-Introduce versioned typed transformations only after the data substrate is stable.
-
-Deliver:
-
-- Pipeline Definition and Pipeline Run contracts;
-- typed input/output ports;
-- parameters and schema expectations;
-- configured transformations;
-- SQL/Python execution boundary;
-- immutable run provenance/logging;
-- permission, draft/publish and run lifecycle;
-- Dataset outputs.
-
-**Exit gate:** a versioned transformation consumes pinned input Dataset versions and reproducibly produces a traceable output Dataset version.
-
-## AUTO-02 — Agent-authored Operations
-
-Allow agents to propose governed transformations and configuration through ordinary platform contracts.
-
-Deliver:
-
-- structured proposed plans;
-- capability/schema validation;
-- human-readable change/impact preview;
-- draft Pipeline/schema authoring;
-- approval policy;
-- execution through normal APIs/Pipeline runner;
-- agent/model/tool provenance.
-
-**Exit gate:** an agent can propose a useful data transformation, a user can inspect and approve it, and execution produces the same evidence as a human-authored Pipeline.
-
----
-
-# Golden programme workflow
-
-Use one representative workflow as the cross-epic acceptance test:
-
-**Lentivector purification experiment Notebook**
-
-The Notebook contains a Sheet combining:
-
-- Sample Model Records;
-- an Upstream Results Dataset;
-- a Purification Results Dataset;
-- a local Observation column;
-- a calculated Recovery column.
-
-The completed core workflow should allow the scientist to:
-
-1. insert the Sheet into the Notebook;
-2. bind the Sample Model and two Datasets;
-3. use Sample ID as row identity;
-4. join both Datasets by Sample;
-5. paste substantial data;
-6. link existing Samples;
-7. create missing Samples inline and in bulk;
-8. calculate Recovery;
-9. add local observations;
-10. edit source-backed values with correct write-back;
-11. filter, sort and save a View;
-12. inspect provenance and API identity;
-13. reload with no hidden client-only truth;
-14. pin/freeze the structured evidence for submission/review.
-
-This workflow is a higher priority than adding unrelated specialist screens.
-
-# Work intentionally de-emphasised during early Core epics
-
-Until CORE-01 through CORE-04 are substantially proven, avoid broad feature expansion in:
-
-- Analysis Studio;
-- Planner;
-- Calendar;
-- Instrument Monitor;
-- Report Builder;
-- Storage/freezer;
-- Plate Designer;
-- new dashboard surfaces.
-
-Keep existing work. Bug fixes, security fixes and changes that converge these surfaces onto core primitives are appropriate.
-
-The open immutable-analysis work should be reviewed against Dataset versions, future Pipeline Runs and Notebook frozen evidence before it is allowed to establish a separate long-term transformation architecture.
-
-# Operational hardening
-
-Security, recovery, accessibility and performance are continuous requirements rather than a final polish phase.
-
-Maintain and extend:
-
-- backup/restore and migration rehearsal;
-- observability and audit-event integrity;
-- threat-model/security review and dependency scanning;
-- browser/accessibility/performance tests;
-- tenancy isolation;
-- reproducible environment promotion;
-- large-Dataset and bulk-operation testing as the Core programme introduces them.
-
-# Delivery rhythm
-
-Each epic is delivered as narrow end-to-end slices with migrations, API/RLS contract tests, UI interaction tests and a demonstrable workflow.
-
-A capability is not complete because a table, component or route exists. The authoritative data contract, permissions, failure behaviour and reconstruction/provenance story must work from a fresh environment.
-
-When implementation evidence settles a durable deferred contract, record it in `docs/decisions/` before later work depends on it.
+1. CORE-01
+2. CORE-02
+3. CORE-03
+4. CORE-04
+5. CORE-05
+6. CORE-06
+7. AUTO-01
+8. AUTO-02
+
+Do not start with a visual Pipeline builder.
+
+## Work de-emphasised during early Core epics
+
+Preserve but avoid broad feature expansion in Analysis Studio, Planner, Calendar, Instrument Monitor, Report Builder, Storage/freezer, Plate Designer and new dashboard surfaces until the early Core substrate is proven. Bug/security fixes and convergence changes remain appropriate.
+
+Review the open immutable-analysis work against Dataset Versions, Pipeline Runs and Notebook frozen evidence before allowing it to establish a separate transformation architecture.
+
+## Delivery rules
+
+- Build narrow end-to-end slices through DB/RLS/API/UI/tests.
+- Migrations are additive; never rewrite applied history.
+- Stable semantic IDs back dependencies.
+- Audit history is not a substitute for immutable scientific versions.
+- Archive/retire rather than destructively deleting referenced scientific objects.
+- Hard deletion is dependency-aware and blocked by immutable evidence.
+- Shared Sheet Instances are explicit.
+- Sheet duplication does not implicitly duplicate Datasets.
+- Reuse uses composition, not Definition/Template inheritance.
+- Sheet composition is virtual until explicitly materialised.
+- Materialisation records provenance and aligns with future Pipeline semantics.
+- AI never bypasses ordinary permissions/validation/provenance.
+- Add implementation ADRs only when evidence exposes a real durable fork not already settled by ADRs 0020–0024.

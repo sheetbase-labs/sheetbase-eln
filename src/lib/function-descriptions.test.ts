@@ -9,7 +9,10 @@ import { SCIENTIFIC_CORE_FUNCTIONS } from '#/lib/hyperformula-profile'
 describe('FUNCTION_DESCRIPTIONS', () => {
   it('has a description for every allowed function', () => {
     for (const id of SCIENTIFIC_CORE_FUNCTIONS) {
-      expect(FUNCTION_DESCRIPTIONS[id], `missing description for ${id}`).toBeDefined()
+      expect(
+        FUNCTION_DESCRIPTIONS[id],
+        `missing description for ${id}`,
+      ).toBeDefined()
     }
   })
 

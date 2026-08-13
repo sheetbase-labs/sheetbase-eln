@@ -29,13 +29,11 @@ interface RouterContext {
 // The dynamic imports inside the handler are server-only — TanStack
 // Start's import protection allows them because the handler never runs
 // in the client bundle.
-const getAuthContextFn = createServerFn({ method: 'GET' }).handler(
-  async () => {
-    const { getRequestHeaders } = await import('@tanstack/react-start/server')
-    const { getCurrentContext } = await import('#/lib/current-user')
-    return getCurrentContext(getRequestHeaders())
-  },
-)
+const getAuthContextFn = createServerFn({ method: 'GET' }).handler(async () => {
+  const { getRequestHeaders } = await import('@tanstack/react-start/server')
+  const { getCurrentContext } = await import('#/lib/current-user')
+  return getCurrentContext(getRequestHeaders())
+})
 
 export const Route = createRootRouteWithContext<RouterContext>()({
   head: () => ({
@@ -93,9 +91,7 @@ function RootRouteComponent() {
   // content appeared but the sidebar was missing.
   const shellContext = auth
     ? {
-        workspace: auth.workspace
-          ? { name: auth.workspace.name }
-          : null,
+        workspace: auth.workspace ? { name: auth.workspace.name } : null,
         user: {
           name: auth.user.name,
           email: auth.user.email,

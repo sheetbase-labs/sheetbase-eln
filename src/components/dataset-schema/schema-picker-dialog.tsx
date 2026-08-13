@@ -96,7 +96,11 @@ interface TypeMeta {
 const TYPE_META: Record<ScientificLogicalType, TypeMeta> = {
   text: { label: 'Text', icon: TypeIcon, description: 'Free-form strings' },
   integer: { label: 'Integer', icon: Hash, description: 'Whole numbers' },
-  decimal: { label: 'Decimal', icon: Hash, description: 'Numeric measurements' },
+  decimal: {
+    label: 'Decimal',
+    icon: Hash,
+    description: 'Numeric measurements',
+  },
   boolean: { label: 'Boolean', icon: ToggleLeft, description: 'True or false' },
   date: { label: 'Date', icon: Calendar, description: 'Calendar dates' },
   timestamp: { label: 'Timestamp', icon: Clock, description: 'Date and time' },
@@ -219,9 +223,7 @@ export function SchemaPickerDialog({
 
   function updateFieldSlug(index: number, slug: string) {
     setFields((prev) =>
-      prev.map((f, i) =>
-        i === index ? { ...f, slug, slugEdited: true } : f,
-      ),
+      prev.map((f, i) => (i === index ? { ...f, slug, slugEdited: true } : f)),
     )
   }
 
@@ -260,8 +262,7 @@ export function SchemaPickerDialog({
           setLoading(false)
           return
         }
-        const slug =
-          schemaSlug.trim() || deriveSlug(schemaName)
+        const slug = schemaSlug.trim() || deriveSlug(schemaName)
         if (!slug.match(/^[a-z][a-z0-9_]{0,59}$/)) {
           setError(
             'Slug must start with a letter and contain only lowercase letters, numbers, and underscores.',

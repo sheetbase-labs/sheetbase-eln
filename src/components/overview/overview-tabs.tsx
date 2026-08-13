@@ -188,7 +188,8 @@ function FilesView({ blocks }: { blocks: NotebookBlock[] }) {
 
   const fileObjectsQuery = useQuery({
     queryKey: notebookQueryKeys.fileObjects(fileRecordIds),
-    queryFn: () => fetchFileObjectsByRecordIds(notebookDataClient, fileRecordIds),
+    queryFn: () =>
+      fetchFileObjectsByRecordIds(notebookDataClient, fileRecordIds),
     enabled: fileRecordIds.length > 0,
   })
 

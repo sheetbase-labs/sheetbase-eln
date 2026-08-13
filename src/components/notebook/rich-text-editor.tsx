@@ -163,14 +163,12 @@ export function RichTextEditor({
             event.preventDefault()
             const filtered = slashCommandFilteredOptions(menu.query)
             const selected = filtered[menu.index]
-            if (selected) {
-              if (selected.type === 'rich_text') {
-                // Stay in the same block — just remove the /query text.
-                removeSlashQuery(view)
-              } else {
-                // Block will be replaced — no need to clean up editor text.
-                cb.onSlashCommand?.(selected.type)
-              }
+            if (selected.type === 'rich_text') {
+              // Stay in the same block — just remove the /query text.
+              removeSlashQuery(view)
+            } else {
+              // Block will be replaced — no need to clean up editor text.
+              cb.onSlashCommand?.(selected.type)
             }
             setSlashMenu(SLASH_MENU_CLOSED)
             return true
@@ -189,11 +187,7 @@ export function RichTextEditor({
           const isCollapsed = selection.from === selection.to
 
           // Enter at end of the last top-level paragraph/heading → new block
-          if (
-            event.key === 'Enter' &&
-            !event.shiftKey &&
-            isCollapsed
-          ) {
+          if (event.key === 'Enter' && !event.shiftKey && isCollapsed) {
             const isAtDocEnd = selection.to === doc.content.size
             const $from = selection.$from
             const isTopLevel = $from.depth === 1
@@ -222,8 +216,7 @@ export function RichTextEditor({
           // ArrowUp at start of first paragraph → previous block
           if (event.key === 'ArrowUp' && !event.shiftKey && isCollapsed) {
             const $from = selection.$from
-            const isFirstTopLevel =
-              $from.depth === 1 && $from.index(0) === 0
+            const isFirstTopLevel = $from.depth === 1 && $from.index(0) === 0
             if ($from.parentOffset === 0 && isFirstTopLevel) {
               event.preventDefault()
               cb.onArrowUpFromStart?.()
@@ -235,8 +228,7 @@ export function RichTextEditor({
           if (event.key === 'ArrowDown' && !event.shiftKey && isCollapsed) {
             const $from = selection.$from
             const isLastTopLevel =
-              $from.depth === 1 &&
-              $from.index(0) === doc.content.childCount - 1
+              $from.depth === 1 && $from.index(0) === doc.content.childCount - 1
             const isAtParaEnd = $from.parentOffset === $from.parent.content.size
             if (isAtParaEnd && isLastTopLevel) {
               event.preventDefault()

@@ -232,7 +232,9 @@ export function PlannerInspector({
             <div className="flex items-center gap-4 text-xs">
               <span>
                 Required{' '}
-                <span className="font-semibold text-warning-foreground">(1)</span>
+                <span className="font-semibold text-warning-foreground">
+                  (1)
+                </span>
               </span>
               <span>
                 Approved{' '}

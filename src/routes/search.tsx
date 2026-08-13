@@ -194,20 +194,23 @@ function useRecentSearches() {
     setRecent(loadRecentSearches())
   }, [])
 
-  const add = useCallback((q: string) => {
-    const query = q.trim()
-    if (!query) return
-    const next = [
-      { q: query, ts: Date.now() },
-      ...recent.filter((r) => r.q !== query),
-    ].slice(0, RECENT_MAX)
-    setRecent(next)
-    try {
-      localStorage.setItem(RECENT_KEY, JSON.stringify(next))
-    } catch {
-      /* ignore: private mode / disabled storage */
-    }
-  }, [recent])
+  const add = useCallback(
+    (q: string) => {
+      const query = q.trim()
+      if (!query) return
+      const next = [
+        { q: query, ts: Date.now() },
+        ...recent.filter((r) => r.q !== query),
+      ].slice(0, RECENT_MAX)
+      setRecent(next)
+      try {
+        localStorage.setItem(RECENT_KEY, JSON.stringify(next))
+      } catch {
+        /* ignore: private mode / disabled storage */
+      }
+    },
+    [recent],
+  )
 
   const clear = useCallback(() => {
     setRecent([])

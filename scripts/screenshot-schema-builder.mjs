@@ -7,7 +7,9 @@ mkdirSync(ART, { recursive: true })
 
 const BASE = process.env.BASE_URL || 'https://app.sheetbase.co.uk'
 const TOKEN = process.env.SESSION_TOKEN || 'wu1yGQvp5Ftw27nZCPKXDhN9g5NpzZVF'
-const SECRET = process.env.AUTH_SECRET || 'dev-only-insecure-auth-secret-replace-me-0123456789'
+const SECRET =
+  process.env.AUTH_SECRET ||
+  'dev-only-insecure-auth-secret-replace-me-0123456789'
 const PROJECT = '00000000-0000-4000-8000-000000000202'
 const EXPERIMENT = '00000000-0000-4000-8000-000000000317'
 const URL = `${BASE}/projects/${PROJECT}/experiments/${EXPERIMENT}`
@@ -22,14 +24,35 @@ async function main() {
     locale: 'en-GB',
   })
   await context.addCookies([
-    { name: '__Secure-better-auth.session_token', value: signed, domain: 'app.sheetbase.co.uk', path: '/', secure: true, sameSite: 'None', httpOnly: true },
-    { name: 'better-auth.session_token', value: signed, domain: 'app.sheetbase.co.uk', path: '/', secure: false, sameSite: 'Lax', httpOnly: true },
+    {
+      name: '__Secure-better-auth.session_token',
+      value: signed,
+      domain: 'app.sheetbase.co.uk',
+      path: '/',
+      secure: true,
+      sameSite: 'None',
+      httpOnly: true,
+    },
+    {
+      name: 'better-auth.session_token',
+      value: signed,
+      domain: 'app.sheetbase.co.uk',
+      path: '/',
+      secure: false,
+      sameSite: 'Lax',
+      httpOnly: true,
+    },
   ])
   const page = await context.newPage()
-  page.on('console', (m) => { if (m.type() === 'error') console.log('console.error:', m.text().slice(0, 160)) })
+  page.on('console', (m) => {
+    if (m.type() === 'error')
+      console.log('console.error:', m.text().slice(0, 160))
+  })
 
   console.log('navigating to', URL)
-  await page.goto(URL, { waitUntil: 'networkidle', timeout: 45000 }).catch((e) => console.log('goto warn:', e.message))
+  await page
+    .goto(URL, { waitUntil: 'networkidle', timeout: 45000 })
+    .catch((e) => console.log('goto warn:', e.message))
   await page.waitForTimeout(2800)
 
   if (page.url().includes('sign-in')) {
@@ -44,15 +67,24 @@ async function main() {
   const addBtn = page.locator('#notebook-add-block')
   console.log('add-block count:', await addBtn.count())
   if (await addBtn.count()) {
-    await addBtn.first().scrollIntoViewIfNeeded().catch(() => {})
+    await addBtn
+      .first()
+      .scrollIntoViewIfNeeded()
+      .catch(() => {})
     await addBtn.first().click()
     await page.waitForTimeout(500)
-    await page.locator('[role="menuitem"]').filter({ hasText: 'Sheet' }).first().click()
+    await page
+      .locator('[role="menuitem"]')
+      .filter({ hasText: 'Sheet' })
+      .first()
+      .click()
     await page.waitForTimeout(900)
   }
 
   // Click "Create schema on the fly".
-  const createOpt = page.getByRole('button', { name: 'Create schema on the fly' })
+  const createOpt = page.getByRole('button', {
+    name: 'Create schema on the fly',
+  })
   console.log('create-opt count:', await createOpt.count())
   if (await createOpt.count()) {
     await createOpt.click()
@@ -73,8 +105,16 @@ async function main() {
     await addField.first().click()
     await page.waitForTimeout(120)
   }
-  const labels = ['replicate', 'titer_iu_ml', 'pass_fail', 'sample_id', 'operator']
-  const labelInputs = page.locator('input[aria-label^="Field"][aria-label$="name"]')
+  const labels = [
+    'replicate',
+    'titer_iu_ml',
+    'pass_fail',
+    'sample_id',
+    'operator',
+  ]
+  const labelInputs = page.locator(
+    'input[aria-label^="Field"][aria-label$="name"]',
+  )
   for (let i = 0; i < labels.length; i++) {
     await labelInputs.nth(i).fill(labels[i])
     await page.waitForTimeout(80)
@@ -93,7 +133,9 @@ async function main() {
   await page.waitForTimeout(300)
 
   // Simulate 20-field state via Enter on last label
-  const lastLabel = page.locator('input[aria-label^="Field"][aria-label$="name"]').last()
+  const lastLabel = page
+    .locator('input[aria-label^="Field"][aria-label$="name"]')
+    .last()
   for (let i = 0; i < 15; i++) {
     await lastLabel.press('Enter')
     await page.waitForTimeout(60)
@@ -106,4 +148,7 @@ async function main() {
   console.log('done')
 }
 
-main().catch((e) => { console.error(e); process.exit(1) })
+main().catch((e) => {
+  console.error(e)
+  process.exit(1)
+})

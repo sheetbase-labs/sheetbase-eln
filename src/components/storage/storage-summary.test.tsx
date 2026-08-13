@@ -110,7 +110,9 @@ describe('storage box summary', () => {
       <StorageMetrics box={box} positions={incompletePositions} />,
     )
 
-    const summary = container.querySelector('[aria-label="Box capacity summary"]')
+    const summary = container.querySelector(
+      '[aria-label="Box capacity summary"]',
+    )
     if (!summary) throw new Error('Expected box capacity summary')
     expect(summary.textContent).toContain('Total capacity12')
     expect(summary.textContent).toContain('Occupied2')

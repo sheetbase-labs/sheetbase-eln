@@ -30,8 +30,7 @@ export type StudyDependencyType =
 export type StudyDeliverableStatus =
   'planned' | 'in_progress' | 'delivered' | 'overdue'
 export type StudyWorkstreamStatus = 'active' | 'archived'
-export type PlannerView =
-  'timeline' | 'list' | 'workload'
+export type PlannerView = 'timeline' | 'list' | 'workload'
 
 export interface StudyWorkstreamWire {
   id: string

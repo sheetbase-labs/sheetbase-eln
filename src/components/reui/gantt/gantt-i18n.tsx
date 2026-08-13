@@ -1,14 +1,14 @@
 import type {
   GanttDateRange,
   GanttScale,
-} from "#/components/reui/gantt/gantt-types"
+} from '#/components/reui/gantt/gantt-types'
 import {
   format,
   isSameMonth,
   isSameYear,
   subMilliseconds,
   type Locale,
-} from "date-fns"
+} from 'date-fns'
 
 interface GanttI18nConfig {
   labels: {
@@ -67,13 +67,13 @@ interface GanttI18nConfig {
         activeRange: GanttDateRange
         visibleRange: GanttDateRange
         locale?: Locale
-      }
+      },
     ) => string
     formatEventTime: (
       start: Date,
       end: Date,
       allDay: boolean,
-      locale?: Locale
+      locale?: Locale,
     ) => string
     formatDayRange: (range: GanttDateRange, locale?: Locale) => string
     /** Composes the bar's screen-reader label from its localized parts. */
@@ -87,44 +87,44 @@ interface GanttI18nConfig {
   }
 }
 
-const DEFAULT_LABELS: GanttI18nConfig["labels"] = {
-  today: "Today",
-  previous: "Previous",
-  next: "Next",
-  addEvent: "Add event",
-  addTask: "Add task",
-  allDay: "All day",
-  loading: "Loading events",
-  event: "event",
-  events: (count) => (count === 1 ? "1 event" : `${count} events`),
+const DEFAULT_LABELS: GanttI18nConfig['labels'] = {
+  today: 'Today',
+  previous: 'Previous',
+  next: 'Next',
+  addEvent: 'Add event',
+  addTask: 'Add task',
+  allDay: 'All day',
+  loading: 'Loading events',
+  event: 'event',
+  events: (count) => (count === 1 ? '1 event' : `${count} events`),
   week: (weekNumber) => `W${weekNumber}`,
-  resources: "Resources",
-  goToDate: "Go to date",
-  scheduleHint: "Click to add a schedule",
-  scheduleHintDrag: "Click or drag to add a schedule",
-  reorder: "Reorder",
-  selectView: "Select view",
-  zoomIn: "Zoom in",
-  zoomOut: "Zoom out",
-  resizePanel: "Resize panel",
+  resources: 'Resources',
+  goToDate: 'Go to date',
+  scheduleHint: 'Click to add a schedule',
+  scheduleHintDrag: 'Click or drag to add a schedule',
+  reorder: 'Reorder',
+  selectView: 'Select view',
+  zoomIn: 'Zoom in',
+  zoomOut: 'Zoom out',
+  resizePanel: 'Resize panel',
   jumpToBar: (title) => `Scroll to "${title}"`,
   progress: (percent) => `${percent}% complete`,
-  durationDays: (days) => (days === 1 ? "1 day" : `${days} days`),
-  continues: "continues",
+  durationDays: (days) => (days === 1 ? '1 day' : `${days} days`),
+  continues: 'continues',
   scales: {
-    day: "Day",
-    week: "Week",
-    month: "Month",
-    quarter: "Quarter",
-    year: "Year",
+    day: 'Day',
+    week: 'Week',
+    month: 'Month',
+    quarter: 'Quarter',
+    year: 'Year',
   },
 }
 
-const DEFAULT_FORMATS: GanttI18nConfig["formats"] = {
-  monthTitle: "MMMM yyyy",
-  dayTitle: "EEEE, MMMM d, yyyy",
-  timeGutter: "h a",
-  eventTime: "h:mm a",
+const DEFAULT_FORMATS: GanttI18nConfig['formats'] = {
+  monthTitle: 'MMMM yyyy',
+  dayTitle: 'EEEE, MMMM d, yyyy',
+  timeGutter: 'h a',
+  eventTime: 'h:mm a',
 }
 
 /**
@@ -133,22 +133,22 @@ const DEFAULT_FORMATS: GanttI18nConfig["formats"] = {
  * formats.eventTime without replacing formatEventTime still sees it applied).
  */
 function makeDefaultGanttFunctions(
-  cfg: Pick<GanttI18nConfig, "labels" | "formats">
-): GanttI18nConfig["functions"] {
+  cfg: Pick<GanttI18nConfig, 'labels' | 'formats'>,
+): GanttI18nConfig['functions'] {
   return {
     formatTitle: (scale, { date, activeRange, locale }) => {
       const opts = { locale }
-      if (scale === "day") {
+      if (scale === 'day') {
         return format(date, cfg.formats.dayTitle, opts)
       }
-      if (scale === "month") {
+      if (scale === 'month') {
         return format(date, cfg.formats.monthTitle, opts)
       }
-      if (scale === "quarter") {
-        return format(date, "QQQ yyyy", opts)
+      if (scale === 'quarter') {
+        return format(date, 'QQQ yyyy', opts)
       }
-      if (scale === "year") {
-        return format(date, "yyyy", opts)
+      if (scale === 'year') {
+        return format(date, 'yyyy', opts)
       }
       // week: smart range label, last day is activeRange.end - 1ms.
       // subMilliseconds keeps the zoned date type (a plain new Date(ms)
@@ -156,12 +156,12 @@ function makeDefaultGanttFunctions(
       const rangeEnd = subMilliseconds(activeRange.end, 1)
       const start = activeRange.start
       if (isSameMonth(start, rangeEnd)) {
-        return `${format(start, "MMMM d", opts)} - ${format(rangeEnd, "d, yyyy", opts)}`
+        return `${format(start, 'MMMM d', opts)} - ${format(rangeEnd, 'd, yyyy', opts)}`
       }
       if (isSameYear(start, rangeEnd)) {
-        return `${format(start, "MMM d", opts)} - ${format(rangeEnd, "MMM d, yyyy", opts)}`
+        return `${format(start, 'MMM d', opts)} - ${format(rangeEnd, 'MMM d, yyyy', opts)}`
       }
-      return `${format(start, "MMM d, yyyy", opts)} - ${format(rangeEnd, "MMM d, yyyy", opts)}`
+      return `${format(start, 'MMM d, yyyy', opts)} - ${format(rangeEnd, 'MMM d, yyyy', opts)}`
     },
     formatEventTime: (start, end, allDay, locale) => {
       const opts = { locale }
@@ -172,12 +172,12 @@ function makeDefaultGanttFunctions(
         const last =
           end.getTime() - 1 >= start.getTime() ? subMilliseconds(end, 1) : start
         const sameDay =
-          format(start, "yyyy-MM-dd") === format(last, "yyyy-MM-dd")
-        if (sameDay) return format(start, "MMM d, yyyy", opts)
+          format(start, 'yyyy-MM-dd') === format(last, 'yyyy-MM-dd')
+        if (sameDay) return format(start, 'MMM d, yyyy', opts)
         if (isSameYear(start, last)) {
-          return `${format(start, "MMM d", opts)} - ${format(last, "MMM d, yyyy", opts)}`
+          return `${format(start, 'MMM d', opts)} - ${format(last, 'MMM d, yyyy', opts)}`
         }
-        return `${format(start, "MMM d, yyyy", opts)} - ${format(last, "MMM d, yyyy", opts)}`
+        return `${format(start, 'MMM d, yyyy', opts)} - ${format(last, 'MMM d, yyyy', opts)}`
       }
       const fmt = cfg.formats.eventTime
       // Multi-day timed events carry the date on both sides. Compare calendar
@@ -186,7 +186,7 @@ function makeDefaultGanttFunctions(
       // exactly-24h bar and a DST day that only runs 23 hours.
       const lastInstant =
         end.getTime() - 1 >= start.getTime() ? subMilliseconds(end, 1) : start
-      if (format(start, "yyyy-MM-dd") !== format(lastInstant, "yyyy-MM-dd")) {
+      if (format(start, 'yyyy-MM-dd') !== format(lastInstant, 'yyyy-MM-dd')) {
         return `${format(start, `MMM d, ${fmt}`, opts)} - ${format(end, `MMM d, ${fmt}`, opts)}`
       }
       return `${format(start, fmt, opts)} - ${format(end, fmt, opts)}`
@@ -194,7 +194,7 @@ function makeDefaultGanttFunctions(
     formatDayRange: (range, locale) => {
       const opts = { locale }
       const rangeEnd = subMilliseconds(range.end, 1)
-      return `${format(range.start, "MMM d", opts)} - ${format(rangeEnd, "MMM d", opts)}`
+      return `${format(range.start, 'MMM d', opts)} - ${format(rangeEnd, 'MMM d', opts)}`
     },
     formatEventAriaLabel: ({
       title,
@@ -211,7 +211,7 @@ function makeDefaultGanttFunctions(
         continues ? cfg.labels.continues : undefined,
       ]
         .filter(Boolean)
-        .join(", "),
+        .join(', '),
   }
 }
 
@@ -226,11 +226,11 @@ const DEFAULT_GANTT_I18N: GanttI18nConfig = {
 
 /** Deep-partial override shape: replace individual keys, never sections. */
 interface GanttI18nOverrides {
-  labels?: Partial<Omit<GanttI18nConfig["labels"], "scales">> & {
-    scales?: Partial<GanttI18nConfig["labels"]["scales"]>
+  labels?: Partial<Omit<GanttI18nConfig['labels'], 'scales'>> & {
+    scales?: Partial<GanttI18nConfig['labels']['scales']>
   }
-  formats?: Partial<GanttI18nConfig["formats"]>
-  functions?: Partial<GanttI18nConfig["functions"]>
+  formats?: Partial<GanttI18nConfig['formats']>
+  functions?: Partial<GanttI18nConfig['functions']>
 }
 
 /**

@@ -300,7 +300,9 @@ function StorageRoute() {
             </form>
             {pendingSample ? (
               <Badge variant="info">
-                Pending move: {canonicalStorageIdentifier(pendingSample.identifier)} — {pendingSample.title}
+                Pending move:{' '}
+                {canonicalStorageIdentifier(pendingSample.identifier)} —{' '}
+                {pendingSample.title}
                 <button
                   type="button"
                   className="ml-2"

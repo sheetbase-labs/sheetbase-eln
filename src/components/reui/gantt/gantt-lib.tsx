@@ -1,4 +1,4 @@
-import { expandRecurrence } from "#/components/reui/gantt/gantt-recurrence"
+import { expandRecurrence } from '#/components/reui/gantt/gantt-recurrence'
 import type {
   GanttDateRange,
   GanttEvent,
@@ -7,8 +7,8 @@ import type {
   GanttResource,
   GanttScale,
   GanttSegment,
-} from "#/components/reui/gantt/gantt-types"
-import { TZDate } from "@date-fns/tz"
+} from '#/components/reui/gantt/gantt-types'
+import { TZDate } from '@date-fns/tz'
 import {
   addDays,
   addMonths,
@@ -21,7 +21,7 @@ import {
   startOfQuarter,
   startOfWeek,
   startOfYear,
-} from "date-fns"
+} from 'date-fns'
 
 type WeekStartsOn = 0 | 1 | 2 | 3 | 4 | 5 | 6
 
@@ -45,14 +45,14 @@ function zonedStartOfDay(date: Date, timeZone: string): TZDate {
 
 /** Stable per-day key in the display time zone. */
 function getDayKey(date: Date, timeZone: string): string {
-  return format(toZoned(date, timeZone), "yyyy-MM-dd")
+  return format(toZoned(date, timeZone), 'yyyy-MM-dd')
 }
 
 /** Day length in minutes; 1380/1500 on DST transition days - never assume 1440. */
 function getDayTotalMinutes(dayStart: Date, timeZone: string): number {
   const next = zonedStartOfDay(
     addDays(toZoned(dayStart, timeZone), 1),
-    timeZone
+    timeZone,
   )
   return differenceInMinutes(next, dayStart)
 }
@@ -75,23 +75,23 @@ interface ViewDateRanges {
 function getGanttDateRange(
   scale: GanttScale,
   date: Date,
-  opts: ViewRangeOptions
+  opts: ViewRangeOptions,
 ): ViewDateRanges {
   const { timeZone, weekStartsOn } = opts
   const zoned = toZoned(date, timeZone)
 
-  if (scale === "week") {
+  if (scale === 'week') {
     const start = startOfWeek(zoned, { weekStartsOn })
     const range = { start, end: addWeeks(start, 1) }
     return { activeRange: range, visibleRange: range }
   }
-  if (scale === "month") {
+  if (scale === 'month') {
     // exact month: no outside days on the horizontal axis
     const start = startOfMonth(zoned)
     const range = { start, end: startOfMonth(addMonths(zoned, 1)) }
     return { activeRange: range, visibleRange: range }
   }
-  if (scale === "quarter") {
+  if (scale === 'quarter') {
     // week-aligned so the axis partitions into uniform week units
     const quarterStart = startOfQuarter(zoned)
     const quarterEnd = startOfQuarter(addMonths(zoned, 3))
@@ -103,7 +103,7 @@ function getGanttDateRange(
       visibleRange: { start, end },
     }
   }
-  if (scale === "year") {
+  if (scale === 'year') {
     const start = startOfYear(zoned)
     const range = { start, end: startOfYear(addYears(zoned, 1)) }
     return { activeRange: range, visibleRange: range }
@@ -118,13 +118,13 @@ function stepGanttDate(
   scale: GanttScale,
   date: Date,
   direction: 1 | -1,
-  opts: Pick<ViewRangeOptions, "timeZone">
+  opts: Pick<ViewRangeOptions, 'timeZone'>,
 ): Date {
   const zoned = toZoned(date, opts.timeZone)
-  if (scale === "week") return addWeeks(zoned, direction)
-  if (scale === "month") return addMonths(zoned, direction)
-  if (scale === "quarter") return addMonths(zoned, direction * 3)
-  if (scale === "year") return addYears(zoned, direction)
+  if (scale === 'week') return addWeeks(zoned, direction)
+  if (scale === 'month') return addMonths(zoned, direction)
+  if (scale === 'quarter') return addMonths(zoned, direction * 3)
+  if (scale === 'year') return addYears(zoned, direction)
   return addDays(zoned, direction)
 }
 
@@ -134,7 +134,7 @@ function rangesIntersect(a: GanttDateRange, b: GanttDateRange): boolean {
 
 function eventsOverlap(
   a: { start: Date; end: Date },
-  b: { start: Date; end: Date }
+  b: { start: Date; end: Date },
 ): boolean {
   return a.start < b.end && a.end > b.start
 }
@@ -183,7 +183,7 @@ interface PackOptions {
    */
   preferredLanes?: Map<string, GanttLaneMemo>
   /** "single" collapses the row to one track; see GanttScheduleMode. */
-  mode?: "single" | "multiple"
+  mode?: 'single' | 'multiple'
 }
 
 /**
@@ -193,11 +193,11 @@ interface PackOptions {
  */
 function packTimedSegments<TData>(
   segments: GanttSegment<TData>[],
-  options: PackOptions = {}
+  options: PackOptions = {},
 ): void {
   if (segments.length === 0) return
 
-  if (options.mode === "single") {
+  if (options.mode === 'single') {
     // one track: every schedule shares lane 0 and the row never grows
     for (const seg of segments) {
       seg.column = 0
@@ -233,7 +233,7 @@ function packTimedSegments<TData>(
       (a, b) =>
         a.startMin - b.startMin ||
         b.effEnd - b.startMin - (a.effEnd - a.startMin) ||
-        a.seg.occurrence.key.localeCompare(b.seg.occurrence.key)
+        a.seg.occurrence.key.localeCompare(b.seg.occurrence.key),
     )
 
   // Sweep into connected clusters
@@ -257,7 +257,7 @@ function packTimedSegments<TData>(
     const laneIntervals: Array<Array<{ from: number; to: number }>> = []
     const isFree = (lane: number, item: Working) =>
       !(laneIntervals[lane] ?? []).some(
-        (iv) => iv.from < item.effEnd && iv.to > item.startMin
+        (iv) => iv.from < item.effEnd && iv.to > item.startMin,
       )
     const claim = (lane: number, item: Working) => {
       while (laneIntervals.length <= lane) laneIntervals.push([])
@@ -304,7 +304,7 @@ function packTimedSegments<TData>(
     // that is genuinely free, means two schedules can never trade places -
     // so an edit still moves at most the schedule it touched.
     const byLane = [...cluster].sort(
-      (a, b) => a.lane - b.lane || a.startMin - b.startMin
+      (a, b) => a.lane - b.lane || a.startMin - b.startMin,
     )
     for (const item of byLane) {
       if (item.lane === 0) continue
@@ -322,7 +322,7 @@ function packTimedSegments<TData>(
   // order survives, so nothing reshuffles, but the row cannot creep taller
   // than the lanes it actually needs.
   const used = [...new Set(items.map((item) => item.lane))].sort(
-    (a, b) => a - b
+    (a, b) => a - b,
   )
   const compacted = new Map(used.map((lane, index) => [lane, index]))
   const columnCount = used.length
@@ -342,7 +342,7 @@ function packTimedSegments<TData>(
             other !== item &&
             other.lane === item.lane + span &&
             other.startMin < item.effEnd &&
-            other.effEnd > item.startMin
+            other.effEnd > item.startMin,
         )
         if (blocked) break
         span++
@@ -368,7 +368,7 @@ interface BuildIndexOptions<TData = unknown> {
   getOccurrences?: (
     event: GanttEvent<TData>,
     range: GanttDateRange,
-    ctx: { timeZone: string }
+    ctx: { timeZone: string },
   ) => Array<{ start: Date; end: Date }> | null | undefined
   eventOrder?: (a: GanttOccurrence<TData>, b: GanttOccurrence<TData>) => number
 }
@@ -380,7 +380,7 @@ interface GanttIndex<TData = unknown> {
 function buildEventIndex<TData>(
   events: GanttEvent<TData>[],
   visibleRange: GanttDateRange,
-  opts: BuildIndexOptions<TData>
+  opts: BuildIndexOptions<TData>,
 ): GanttIndex<TData> {
   const { timeZone } = opts
   const order = opts.eventOrder ?? defaultEventOrder
@@ -423,7 +423,7 @@ function buildEventIndex<TData>(
     occurrences.push(
       ...(replaced
         ? expanded.filter((occ) => !replaced.has(occ.start.getTime()))
-        : expanded)
+        : expanded),
     )
   }
   occurrences.sort(order)
@@ -438,7 +438,7 @@ function getRangeKey(range: GanttDateRange): string {
 /** Depth-first flatten of the resource tree (parents included). */
 function flattenResources(
   resources: GanttResource[],
-  depth = 0
+  depth = 0,
 ): Array<{ resource: GanttResource; depth: number }> {
   const rows: Array<{ resource: GanttResource; depth: number }> = []
   for (const resource of resources) {
@@ -453,7 +453,7 @@ function flattenResources(
 /** Depth-first lookup of one node in the tree. */
 function findResource(
   resources: GanttResource[],
-  id: string
+  id: string,
 ): GanttResource | null {
   for (const resource of resources) {
     if (resource.id === id) return resource
@@ -475,7 +475,7 @@ function reorderResources(
   resources: GanttResource[],
   resourceId: string,
   parentId: string | null,
-  index: number
+  index: number,
 ): GanttResource[] | null {
   let moved: GanttResource | null = null
 
@@ -508,7 +508,7 @@ function reorderResources(
         children.splice(
           Math.min(Math.max(index, 0), children.length),
           0,
-          moved!
+          moved!,
         )
         return { ...node, children }
       }
@@ -532,7 +532,7 @@ const DEFAULT_WEEKEND_DAYS = [0, 6]
 function resolveOffDay(
   day: Date,
   timeZone: string,
-  config: boolean | GanttOffDaysConfig | undefined
+  config: boolean | GanttOffDaysConfig | undefined,
 ): boolean {
   if (!config) return false
   const resolved: GanttOffDaysConfig = config === true ? {} : config

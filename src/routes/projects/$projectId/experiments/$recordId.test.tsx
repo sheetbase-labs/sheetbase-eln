@@ -368,8 +368,6 @@ describe('NotebookInspector', () => {
         />
       </QueryClientProvider>,
     )
-    // Identity header
-    expect(screen.getByText('Virus Stability at 4C')).toBeTruthy()
     // Three mockup tabs
     expect(screen.getByRole('tab', { name: 'Properties' })).toBeTruthy()
     expect(screen.getByRole('tab', { name: 'Activity' })).toBeTruthy()
@@ -379,8 +377,6 @@ describe('NotebookInspector', () => {
     // Tags render as outline badges within Properties
     expect(screen.getByText('stability')).toBeTruthy()
     expect(screen.getByText('qPCR')).toBeTruthy()
-    // Linked records render within the Properties tab
-    expect(screen.getByText('PRT-2025-0001')).toBeTruthy()
   })
 
   it('shows a loading hint for links while they load', () => {

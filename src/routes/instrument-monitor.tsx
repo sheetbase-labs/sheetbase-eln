@@ -381,8 +381,8 @@ function InstrumentMonitorRoute() {
             </EmptyIcon>
             <EmptyTitle>No instrument runs yet</EmptyTitle>
             <EmptyDescription>
-              Simulate a qPCR run to populate the queue with stages,
-              telemetry, and plate snapshots for live monitoring.
+              Simulate a qPCR run to populate the queue with stages, telemetry,
+              and plate snapshots for live monitoring.
             </EmptyDescription>
             <EmptyActions>
               <Button
@@ -398,48 +398,62 @@ function InstrumentMonitorRoute() {
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5 bg-muted/30 px-4 py-2.5 text-sm">
               <span className="font-medium" aria-label="Live runs">
-                Live <span className="tabular-nums text-info">{summaryMetrics.liveRuns}</span>
+                Live{' '}
+                <span className="tabular-nums text-info">
+                  {summaryMetrics.liveRuns}
+                </span>
               </span>
               <Separator orientation="vertical" className="h-4" />
               <span aria-label="Queued runs">
                 <span className="text-muted-foreground">Queued</span>{' '}
-                <span className="tabular-nums">{summaryMetrics.queuedRuns}</span>
+                <span className="tabular-nums">
+                  {summaryMetrics.queuedRuns}
+                </span>
               </span>
               <Separator orientation="vertical" className="h-4" />
               <span aria-label="Completed today">
                 <span className="text-muted-foreground">Completed</span>{' '}
-                <span className="tabular-nums text-success">{summaryMetrics.completedToday}</span>
+                <span className="tabular-nums text-success">
+                  {summaryMetrics.completedToday}
+                </span>
               </span>
               <Separator orientation="vertical" className="h-4" />
               <span aria-label="Failed runs">
                 <span className="text-muted-foreground">Failed</span>{' '}
-                <span className={`tabular-nums ${summaryMetrics.failedRuns > 0 ? 'text-destructive' : ''}`}>{summaryMetrics.failedRuns}</span>
+                <span
+                  className={`tabular-nums ${summaryMetrics.failedRuns > 0 ? 'text-destructive' : ''}`}
+                >
+                  {summaryMetrics.failedRuns}
+                </span>
               </span>
               <Separator orientation="vertical" className="h-4" />
               <span aria-label="Instruments online">
                 <span className="text-muted-foreground">Online</span>{' '}
-                <span className="tabular-nums">{summaryMetrics.instrumentsOnline}/{summaryMetrics.instrumentsTotal}</span>
+                <span className="tabular-nums">
+                  {summaryMetrics.instrumentsOnline}/
+                  {summaryMetrics.instrumentsTotal}
+                </span>
               </span>
             </div>
             <div className="flex min-h-0 flex-1">
-            <div className="w-72 overflow-auto border-r border-border/60">
-              <RunQueue
-                runs={filteredRuns}
-                instruments={instruments}
-                selectedRunId={selectedRunId}
-                onSelectRun={setSelectedRunId}
-              />
-            </div>
-            <div className="flex-1 overflow-auto">
-              <RunDetail
-                run={selectedRun}
-                instrument={selectedInstrument}
-                stages={stagesQuery.data ?? []}
-                observations={observationsQuery.data ?? []}
-                plateSnapshots={snapshotsQuery.data ?? []}
-                timeZone={VIEW_TIMEZONE}
-              />
-            </div>
+              <div className="w-72 overflow-auto border-r border-border/60">
+                <RunQueue
+                  runs={filteredRuns}
+                  instruments={instruments}
+                  selectedRunId={selectedRunId}
+                  onSelectRun={setSelectedRunId}
+                />
+              </div>
+              <div className="flex-1 overflow-auto">
+                <RunDetail
+                  run={selectedRun}
+                  instrument={selectedInstrument}
+                  stages={stagesQuery.data ?? []}
+                  observations={observationsQuery.data ?? []}
+                  plateSnapshots={snapshotsQuery.data ?? []}
+                  timeZone={VIEW_TIMEZONE}
+                />
+              </div>
             </div>
           </div>
         )}

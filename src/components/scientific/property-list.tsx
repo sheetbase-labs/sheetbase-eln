@@ -29,7 +29,9 @@ function Property({ label, children }: PropertyProps) {
   return (
     <div className="grid grid-cols-[8rem_1fr] items-baseline gap-3">
       <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 text-sm font-medium text-foreground">{children}</dd>
+      <dd className="min-w-0 text-sm font-medium text-foreground">
+        {children}
+      </dd>
     </div>
   )
 }

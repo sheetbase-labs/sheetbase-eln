@@ -69,7 +69,9 @@ function meanFluorescence(payload: JsonObject): number | undefined {
   return values.reduce((a, b) => a + b, 0) / values.length
 }
 
-function totalCyclesFromStages(stages: InstrumentRunStage[]): number | undefined {
+function totalCyclesFromStages(
+  stages: InstrumentRunStage[],
+): number | undefined {
   const cycling = stages.find((s) => s.stageType === 'cycling')
   return cycling?.cycleCount ?? undefined
 }
@@ -131,7 +133,8 @@ function deriveSnapshotStats(
       )
       if (ntcCheck) {
         const ct = (ntcCheck as Record<string, unknown>).checkType
-        ntcStatus = ct === 'pass' ? 'Clean' : ct === 'fail' ? 'Contaminated' : 'Check'
+        ntcStatus =
+          ct === 'pass' ? 'Clean' : ct === 'fail' ? 'Contaminated' : 'Check'
       } else {
         ntcStatus = ntcAmplified ? 'Contaminated' : 'Clean'
       }
@@ -164,10 +167,12 @@ export function RunDetail({
 
   const telemetry = latestTelemetry(observations)
   const telPayload = telemetry?.payload ?? {}
-  const blockTemp = num(telPayload.blockTemperature) ?? num(telPayload.temperature)
+  const blockTemp =
+    num(telPayload.blockTemperature) ?? num(telPayload.temperature)
   const sampleTemp = num(telPayload.sampleTemperature)
   const cycle = num(telPayload.cycle)
-  const totalCycles = num(telPayload.totalCycles) ?? totalCyclesFromStages(stages)
+  const totalCycles =
+    num(telPayload.totalCycles) ?? totalCyclesFromStages(stages)
   const rfu = num(telPayload.fluorescence) ?? meanFluorescence(telPayload)
   const baseline = num(telPayload.baseline)
   const snapshotStats = deriveSnapshotStats(plateSnapshots, observations)
@@ -246,27 +251,45 @@ export function RunDetail({
           <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5 rounded-lg bg-muted/30 px-4 py-2.5 text-sm">
             <span aria-label="Block temperature">
               <span className="text-muted-foreground">Block</span>{' '}
-              <span className="tabular-nums font-medium">{blockTemp !== undefined ? `${blockTemp.toFixed(1)}°C` : '—'}</span>
+              <span className="tabular-nums font-medium">
+                {blockTemp !== undefined ? `${blockTemp.toFixed(1)}°C` : '—'}
+              </span>
             </span>
             <Separator orientation="vertical" className="h-4" />
             <span aria-label="Sample temperature">
               <span className="text-muted-foreground">Sample</span>{' '}
-              <span className={`tabular-nums font-medium ${sampleTemp === undefined ? 'text-muted-foreground/50' : ''}`}>{sampleTemp !== undefined ? `${sampleTemp.toFixed(1)}°C` : '—'}</span>
+              <span
+                className={`tabular-nums font-medium ${sampleTemp === undefined ? 'text-muted-foreground/50' : ''}`}
+              >
+                {sampleTemp !== undefined ? `${sampleTemp.toFixed(1)}°C` : '—'}
+              </span>
             </span>
             <Separator orientation="vertical" className="h-4" />
             <span aria-label="Cycle">
               <span className="text-muted-foreground">Cycle</span>{' '}
-              <span className="tabular-nums font-medium">{cycle !== undefined ? (totalCycles !== undefined ? `${cycle}/${totalCycles}` : `${cycle}`) : '—'}</span>
+              <span className="tabular-nums font-medium">
+                {cycle !== undefined
+                  ? totalCycles !== undefined
+                    ? `${cycle}/${totalCycles}`
+                    : `${cycle}`
+                  : '—'}
+              </span>
             </span>
             <Separator orientation="vertical" className="h-4" />
             <span aria-label="Fluorescence RFU">
               <span className="text-muted-foreground">RFU</span>{' '}
-              <span className="tabular-nums font-medium">{rfu !== undefined ? rfu.toFixed(3) : '—'}</span>
+              <span className="tabular-nums font-medium">
+                {rfu !== undefined ? rfu.toFixed(3) : '—'}
+              </span>
             </span>
             <Separator orientation="vertical" className="h-4" />
             <span aria-label="Baseline">
               <span className="text-muted-foreground">Baseline</span>{' '}
-              <span className={`tabular-nums font-medium ${baseline === undefined ? 'text-muted-foreground/50' : ''}`}>{baseline !== undefined ? baseline.toFixed(3) : '—'}</span>
+              <span
+                className={`tabular-nums font-medium ${baseline === undefined ? 'text-muted-foreground/50' : ''}`}
+              >
+                {baseline !== undefined ? baseline.toFixed(3) : '—'}
+              </span>
             </span>
           </div>
         </section>
@@ -309,17 +332,29 @@ export function RunDetail({
             <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5 rounded-lg bg-muted/30 px-4 py-2.5 text-sm">
               <span aria-label="Wells complete">
                 <span className="text-muted-foreground">Wells</span>{' '}
-                <span className="tabular-nums font-medium">{snapshotStats.wellsComplete}/{snapshotStats.wellsTotal}</span>
+                <span className="tabular-nums font-medium">
+                  {snapshotStats.wellsComplete}/{snapshotStats.wellsTotal}
+                </span>
               </span>
               <Separator orientation="vertical" className="h-4" />
               <span aria-label="Mean Ct">
                 <span className="text-muted-foreground">Mean Ct</span>{' '}
-                <span className={`tabular-nums font-medium ${snapshotStats.meanCt === undefined ? 'text-muted-foreground/50' : ''}`}>{snapshotStats.meanCt !== undefined ? snapshotStats.meanCt.toFixed(2) : '—'}</span>
+                <span
+                  className={`tabular-nums font-medium ${snapshotStats.meanCt === undefined ? 'text-muted-foreground/50' : ''}`}
+                >
+                  {snapshotStats.meanCt !== undefined
+                    ? snapshotStats.meanCt.toFixed(2)
+                    : '—'}
+                </span>
               </span>
               <Separator orientation="vertical" className="h-4" />
               <span aria-label="NTC status">
                 <span className="text-muted-foreground">NTC</span>{' '}
-                <span className={`font-medium ${snapshotStats.ntcStatus === 'Clean' ? 'text-success' : snapshotStats.ntcStatus === 'Contaminated' ? 'text-destructive' : 'text-warning-foreground'}`}>{snapshotStats.ntcStatus}</span>
+                <span
+                  className={`font-medium ${snapshotStats.ntcStatus === 'Clean' ? 'text-success' : snapshotStats.ntcStatus === 'Contaminated' ? 'text-destructive' : 'text-warning-foreground'}`}
+                >
+                  {snapshotStats.ntcStatus}
+                </span>
               </span>
             </div>
           </section>

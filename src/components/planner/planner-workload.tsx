@@ -76,8 +76,7 @@ export function PlannerWorkload({
     // first lane where it doesn't overlap with any existing task.
     for (const row of map.values()) {
       const sorted = [...row.tasks].sort(
-        (a, b) =>
-          taskStartDate(a).getTime() - taskStartDate(b).getTime(),
+        (a, b) => taskStartDate(a).getTime() - taskStartDate(b).getTime(),
       )
       const lanes: StudyTask[][] = []
       for (const task of sorted) {
@@ -110,9 +109,7 @@ export function PlannerWorkload({
       row.lanes = lanes
     }
 
-    return Array.from(map.values()).sort((a, b) =>
-      a.name.localeCompare(b.name),
-    )
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name))
   }, [tasks])
 
   function dayOffset(date: Date): number {
@@ -173,9 +170,7 @@ export function PlannerWorkload({
                 className="shrink-0 px-3 py-2"
                 style={{ width: leftColWidth }}
               >
-                <span className="truncate text-sm font-medium">
-                  {row.name}
-                </span>
+                <span className="truncate text-sm font-medium">{row.name}</span>
                 <span className="ml-2 text-xs text-muted-foreground">
                   {row.tasks.length}
                 </span>

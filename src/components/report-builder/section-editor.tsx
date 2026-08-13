@@ -17,10 +17,7 @@ import {
   Select,
   Textarea,
 } from '#/components/ui'
-import {
-  SECTION_TYPE_LABELS,
-  SOURCE_TYPE_LABELS,
-} from '#/lib/report-builder'
+import { SECTION_TYPE_LABELS, SOURCE_TYPE_LABELS } from '#/lib/report-builder'
 import type { ReportSection, SectionType } from '#/lib/report-builder'
 
 const sectionTypes: SectionType[] = [

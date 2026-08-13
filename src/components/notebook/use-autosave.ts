@@ -243,7 +243,9 @@ export function useAutosave<T>({
 
   function setDraft(next: React.SetStateAction<T>) {
     const resolved =
-      typeof next === 'function' ? (next as (prev: T) => T)(draftRef.current) : next
+      typeof next === 'function'
+        ? (next as (prev: T) => T)(draftRef.current)
+        : next
     draftRef.current = resolved
     revisionRef.current += 1
     // Editing clears a permanent validation failure if the new draft

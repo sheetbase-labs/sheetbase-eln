@@ -129,9 +129,7 @@ function ChangeValue({
         {exactText(value)}
       </pre>
       {unit ? (
-        <p className="mt-1 font-mono text-xs text-muted-foreground">
-          {unit}
-        </p>
+        <p className="mt-1 font-mono text-xs text-muted-foreground">{unit}</p>
       ) : null}
     </div>
   )

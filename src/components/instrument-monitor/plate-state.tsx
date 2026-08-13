@@ -7,11 +7,11 @@
 import * as React from 'react'
 
 import { PlateMap } from '#/components/viz/plate-map'
-import type { PlateWell, PlateMapRoleLegendEntry } from '#/components/viz/plate-map'
-import {
-  WELL_COLS,
-  WELL_ROWS,
-} from '#/lib/instrument-monitor'
+import type {
+  PlateWell,
+  PlateMapRoleLegendEntry,
+} from '#/components/viz/plate-map'
+import { WELL_COLS, WELL_ROWS } from '#/lib/instrument-monitor'
 import type {
   InstrumentPlateSnapshot,
   RunStatus,
@@ -64,8 +64,7 @@ export function PlateState({ snapshots, runStatus }: PlateStateProps) {
     snapshots.length > 0
       ? [...snapshots].sort(
           (a, b) =>
-            new Date(b.capturedAt).getTime() -
-            new Date(a.capturedAt).getTime(),
+            new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime(),
         )[0]
       : null
 
@@ -79,9 +78,7 @@ export function PlateState({ snapshots, runStatus }: PlateStateProps) {
         const status = wellStatus(value)
         const sample =
           value && typeof value === 'object'
-            ? String(
-                (value as Record<string, unknown>).sample ?? '',
-              )
+            ? String((value as Record<string, unknown>).sample ?? '')
             : ''
         result.push({
           row: row.charCodeAt(0) - 65,

@@ -23,9 +23,7 @@ import {
   GanttTitle,
   GanttToolbar,
 } from '#/components/reui/gantt/gantt-nav'
-import {
-  GanttView,
-} from '#/components/reui/gantt/gantt-view'
+import { GanttView } from '#/components/reui/gantt/gantt-view'
 import type {
   StudyTask,
   StudyTaskDependency,

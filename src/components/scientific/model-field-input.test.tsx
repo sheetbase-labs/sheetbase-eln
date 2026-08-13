@@ -108,4 +108,24 @@ describe('ModelFieldInput', () => {
     fireEvent.change(input, { target: { value: '2.75' } })
     expect(onChange).toHaveBeenLastCalledWith('2.75')
   })
+
+  it('renders a Record reference as a text input rather than an invalid HTML type', () => {
+    render(
+      <ModelFieldInput
+        definition={field({
+          logicalType: 'reference',
+          label: 'Source sample',
+          validation: { targetModelKey: 'sample' },
+        })}
+        value=""
+        onChange={vi.fn()}
+      />,
+    )
+
+    expect(
+      screen
+        .getByRole('textbox', { name: 'Source sample' })
+        .getAttribute('type'),
+    ).toBe('text')
+  })
 })

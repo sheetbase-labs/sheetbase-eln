@@ -1,5 +1,10 @@
 import type { ModelFieldDefinition } from '#/lib/model-fields'
 import { Checkbox, Input, Label, Select } from '#/components/ui'
+import { fieldDefinitionFromModelField } from '#/lib/field-definition'
+import {
+  fieldEditorPresentation,
+  selectableFieldOptions,
+} from '#/lib/field-presentation'
 
 export function ModelFieldInput({
   definition,
@@ -12,7 +17,11 @@ export function ModelFieldInput({
   onChange: (value: string | boolean) => void
   showLabel?: boolean
 }) {
-  if (definition.logicalType === 'boolean') {
+  const field =
+    definition.definition ?? fieldDefinitionFromModelField(definition)
+  const presentation = fieldEditorPresentation(field.logicalType)
+
+  if (presentation.kind === 'checkbox') {
     return (
       <Label
         className={`flex items-center gap-2 text-xs ${showLabel ? '' : 'justify-end'}`}
@@ -27,7 +36,7 @@ export function ModelFieldInput({
     )
   }
 
-  if (definition.logicalType === 'category') {
+  if (presentation.kind === 'category-select') {
     return (
       <Label className="text-xs text-muted-foreground">
         {showLabel ? definition.label : null}
@@ -39,34 +48,24 @@ export function ModelFieldInput({
           aria-label={definition.label}
         >
           {definition.nullable ? <option value="">Not set</option> : null}
-          {definition.options
-            .filter(
-              (option) => option.lifecycle === 'active' || option.key === value,
-            )
-            .map((option) => (
-              <option key={option.id} value={option.key}>
-                {option.label}
-              </option>
-            ))}
+          {selectableFieldOptions(field, value).map((option) => (
+            <option key={option.id} value={option.key}>
+              {option.label}
+            </option>
+          ))}
         </Select>
       </Label>
     )
   }
 
-  const type =
-    definition.logicalType === 'integer' || definition.logicalType === 'decimal'
-      ? 'number'
-      : definition.logicalType === 'timestamp'
-        ? 'datetime-local'
-        : definition.logicalType
   return (
     <Label className="text-xs text-muted-foreground">
       {showLabel ? definition.label : null}
       {showLabel && !definition.nullable ? ' *' : ''}
       <Input
         className={`${showLabel ? 'mt-1' : ''} h-8 text-xs`}
-        type={type}
-        step={definition.logicalType === 'decimal' ? 'any' : undefined}
+        type={presentation.inputType ?? 'text'}
+        step={presentation.step}
         value={String(value)}
         onChange={(event) => onChange(event.target.value)}
         aria-label={definition.label}

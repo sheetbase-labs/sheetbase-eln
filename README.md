@@ -83,13 +83,13 @@ managed-secret injection, promotion and rollback are documented in
 - `docs/core/` defines the current core product/architecture programme and
   supersedes older assumptions where they conflict with its compositional
   Sheet model.
+- `docs/archive/` contains explicit pointers to superseded planning material.
+  Archived material is historical evidence only and is not implementation guidance.
 - `PRODUCT.md` and `DESIGN.md` describe broader product and design intent.
 - `docs/dev-environment.md` describes the disposable auth-free development
   surface at `dev.sheetbase.co.uk`.
-- `ROADMAP.md` gives the high-level active epics. `TODO.md` contains historical
-  and executable implementation detail; new Core tickets should follow the
-  sequencing in `docs/core/CORE_MIGRATION.md` rather than blindly continuing
-  older phase order.
+- `ROADMAP.md` gives the active high-level epics. Detailed sequencing and
+  continuation rules are in `docs/core/CORE_MIGRATION.md`.
 
 Product components should be added through shadcn's source-owned pattern and
 then reconciled with the concept system. Copying the concept catalogue

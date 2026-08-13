@@ -110,6 +110,26 @@ export interface ExistingModelFieldLike {
   options: FieldOption[]
 }
 
+/** Current Dataset-schema field shape used by the compatibility adapter.
+ * Dataset relationship edges remain the source of reference targets. */
+export interface ExistingDatasetSchemaFieldLike {
+  id: string
+  slug: string
+  label: string
+  description: string | null
+  logicalType: FieldLogicalType
+  nullable: boolean
+  defaultValue: unknown
+  unit: Record<string, unknown> | null
+  quantity?: FieldQuantityDefinition | null
+  validation: Record<string, unknown>
+  cardinality?: FieldCardinality
+  categorySource?: FieldCategorySource | null
+  relationship?: FieldRelationship | null
+  lifecycle: 'active' | 'retired'
+  options?: FieldOption[]
+}
+
 export interface FieldContractIssue {
   path: keyof FieldDefinition | 'category'
   message: string
@@ -125,7 +145,7 @@ function nonBlank(value: string): boolean {
  * reinterpreted silently. Missing semantic metadata is preserved as an
  * intentionally weak legacy projection until explicitly configured.
  */
-function quantityFromLegacyUnit(
+export function fieldQuantityFromPersistedUnit(
   value: Record<string, unknown> | null,
 ): FieldQuantityDefinition | null {
   if (!value) return null
@@ -179,7 +199,10 @@ function asValidation(value: Record<string, unknown>): FieldValidation {
       typeof item === 'number'
     ) {
       validation[key] = item
-    } else if (key === 'pattern' && typeof item === 'string') {
+    } else if (
+      (key === 'pattern' || key === 'regex') &&
+      typeof item === 'string'
+    ) {
       validation.pattern = item
     } else if (key !== 'targetModelKey') {
       extensions[key] = item
@@ -204,7 +227,7 @@ export function fieldDefinitionFromModelField(
     nullable: field.nullable,
     defaultValue: field.defaultValue,
     cardinality,
-    quantity: field.quantity ?? quantityFromLegacyUnit(field.unit),
+    quantity: field.quantity ?? fieldQuantityFromPersistedUnit(field.unit),
     validation: asValidation(field.validation),
     category:
       field.logicalType === 'category'
@@ -222,6 +245,41 @@ export function fieldDefinitionFromModelField(
               cardinality,
             }
           : null,
+    computation: { mode: 'stored' },
+    lifecycle: field.lifecycle,
+  }
+}
+
+/**
+ * Compatibility projection for the Dataset-schema registry. A Dataset field
+ * uses `slug` as its durable row-shape key. Reference targets are supplied
+ * from the registry's first-class relationship edge rather than inferred from
+ * an opaque validation property. Current Dataset rows are scalar, so the
+ * projection deliberately keeps their cardinality at `one`.
+ */
+export function fieldDefinitionFromDatasetSchemaField(
+  field: ExistingDatasetSchemaFieldLike,
+): FieldDefinition {
+  return {
+    fieldId: field.id,
+    key: field.slug,
+    label: field.label,
+    description: field.description,
+    logicalType: field.logicalType,
+    nullable: field.nullable,
+    defaultValue: field.defaultValue,
+    cardinality: field.cardinality ?? 'one',
+    quantity: field.quantity ?? fieldQuantityFromPersistedUnit(field.unit),
+    validation: asValidation(field.validation),
+    category:
+      field.logicalType === 'category'
+        ? (field.categorySource ?? {
+            kind: 'embedded',
+            options: field.options ?? [],
+          })
+        : null,
+    relationship:
+      field.logicalType === 'reference' ? (field.relationship ?? null) : null,
     computation: { mode: 'stored' },
     lifecycle: field.lifecycle,
   }

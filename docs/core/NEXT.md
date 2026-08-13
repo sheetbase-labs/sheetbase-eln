@@ -8,15 +8,16 @@
 
 ## Active task
 
-**CORE-01.4 — Define Dataset Schema field semantics**
+**CORE-01.5 — Unify field rendering/editing semantics**
 
-Task: [`tasks/CORE-01.md`](./tasks/CORE-01.md#core-014--define-dataset-schema-field-semantics)
+Task: [`tasks/CORE-01.md`](./tasks/CORE-01.md#core-015--unify-field-renderingediting-semantics)
 
 ## Completed in this PR
 
 - CORE-01.1 — current field/schema audit
 - CORE-01.2 — executable canonical `FieldDefinition` contract and tests
 - CORE-01.3 — Model fields converged on the canonical kernel
+- CORE-01.4 — Dataset Schema fields defined through the canonical kernel
 - product/architecture reset and accepted ADRs 0020–0026
 
 ## Required reading
@@ -32,16 +33,16 @@ Task: [`tasks/CORE-01.md`](./tasks/CORE-01.md#core-014--define-dataset-schema-fi
 
 ## Implement now
 
-Define how Dataset Schema fields consume the canonical `FieldDefinition` kernel, including Dataset-specific row and shape semantics. Do not implement Dataset physical storage yet.
+Converge semantic renderer/editor selection across Model and future
+Dataset/Sheet contexts without building one giant universal UI component.
 
 This is **real production coding**, not another architecture pass.
 
 Key targets:
 
-- use the same canonical logical types, quantity, category, relationship,
-  cardinality, lifecycle, and validation semantics as Models;
-- define only Dataset-specific schema/row-shape concerns needed by CORE-02;
-- add focused contract tests and run the full validation gate.
+- use the canonical logical types and `FieldDefinition` semantics;
+- share renderer/editor selection without changing storage or server authority;
+- add focused regression coverage and run the full validation gate.
 
 ## Do not
 
@@ -53,4 +54,5 @@ Key targets:
 
 ## Hand-off
 
-When CORE-01.4 is complete, record concrete completion evidence in `tasks/CORE-01.md` and advance this file to CORE-01.5 unless implementation exposes a genuinely new durable architectural fork requiring an ADR.
+When CORE-01.5 is complete, record concrete completion evidence in
+`tasks/CORE-01.md` and advance this file to the next unblocked CORE-01 task.

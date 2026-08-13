@@ -171,9 +171,36 @@ tests/db/model-fields.test.ts` passes 12/12 tests, including RLS,
 
 ## CORE-01.4 — Define Dataset Schema field semantics
 
-**Status:** Planned
+**Status:** Complete (2026-08-13)
 
-Define how Dataset fields consume the same kernel plus Dataset-specific row/shape semantics. No physical Dataset storage yet.
+Dataset Schema fields now project through the same canonical `FieldDefinition`
+kernel as Models. `datasetSchemaDefinitionFromWire` makes the Dataset-specific
+contract explicit: a schema revision has canonical fields and an active
+`dataset-row` shape mapping stable field slugs to durable field IDs. The
+projection reads reference targets from the existing first-class
+`dataset_schema_relationships` edge; graph cardinality is not silently treated
+as cell cardinality, because existing Dataset fields are scalar and `many`
+requires CORE-02 storage.
+
+Legacy Dataset unit metadata projects as `legacy-unspecified` unless explicit
+semantic metadata exists. Category fields retain the embedded category shape
+and the shared kernel continues to admit future `vocabularyId` sources; no
+vocabulary product or Dataset physical storage was added.
+
+**Completion evidence:**
+
+- Changed `src/lib/field-definition.ts`, `src/lib/dataset-schema-data.ts`,
+  `src/lib/scientific-sheet-data.ts`, and `src/routes/schemas.tsx` to remove
+  duplicated logical-type declarations and add the production Dataset adapter.
+- Added `src/lib/dataset-schema-data.test.ts` covering text, legacy quantity,
+  category, Record-reference, unresolved-reference rejection, retired fields,
+  schema revision, and row shape.
+- No migration was required: this task projects the existing registry,
+  relationships, and scalar row contract without changing persisted values or
+  starting Dataset physical storage.
+- `pnpm db:generate` reports no schema changes; focused Dataset DB/RLS and
+  relationship tests pass (34/34); `pnpm validate` passes formatting, lint,
+  typecheck, 140 test files / 1,691 tests, and the production build.
 
 **Exit:** CORE-02 can design Dataset persistence without redefining field meaning.
 

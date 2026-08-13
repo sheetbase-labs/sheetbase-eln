@@ -231,10 +231,25 @@ type. Server validation and reference integrity remain authoritative.
 
 ## CORE-01.6 — Establish initial schema capability boundary
 
-**Status:** Planned  
-**Blocked by:** CORE-01.3.
+**Status:** Complete (2026-08-13)
 
-Separate schema-edit/publish authority from ordinary Record editing through server-enforced capability primitives while preserving current RLS.
+Added the server-enforced `api.has_schema_capability(workspace, capability)`
+primitive. The initial mapping preserves accepted current authority: workspace
+owners/admins manage Model fields, while Dataset schema publication/retirement
+and relationship retirement remain owner-only. Existing Model RPCs now reach
+this boundary through `api.is_model_field_admin`; ordinary Record editing never
+implies schema authority.
+
+**Completion evidence:**
+
+- Added `drizzle/0061_core_016_schema_capabilities.sql` and journal entry.
+- DB regression coverage proves owner/admin/member and Dataset-publish
+  capability separation, including fail-closed unknown capabilities; Model
+  field DB suite passes 13/13.
+- `pnpm db:fresh --demo` applied the complete migration history and completed
+  all 29 idempotent demo seed steps; a second `pnpm db:seed:demo` completed
+  successfully without changing identities.
+- `pnpm validate` passes formatting, lint, typecheck, tests, and build.
 
 ---
 

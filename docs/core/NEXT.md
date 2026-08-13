@@ -8,9 +8,9 @@
 
 ## Active task
 
-**CORE-01.6 — Establish initial schema capability boundary**
+**CORE-01.7 — Epic proof and CORE-02 hand-off**
 
-Task: [`tasks/CORE-01.md`](./tasks/CORE-01.md#core-016--establish-initial-schema-capability-boundary)
+Task: [`tasks/CORE-01.md`](./tasks/CORE-01.md#core-017--epic-proof-and-core-02-hand-off)
 
 ## Completed in this PR
 
@@ -19,6 +19,7 @@ Task: [`tasks/CORE-01.md`](./tasks/CORE-01.md#core-016--establish-initial-schema
 - CORE-01.3 — Model fields converged on the canonical kernel
 - CORE-01.4 — Dataset Schema fields defined through the canonical kernel
 - CORE-01.5 — Field rendering/editor selection converged on canonical semantics
+- CORE-01.6 — Initial server-enforced schema capability boundary
 - product/architecture reset and accepted ADRs 0020–0026
 
 ## Required reading
@@ -34,16 +35,17 @@ Task: [`tasks/CORE-01.md`](./tasks/CORE-01.md#core-016--establish-initial-schema
 
 ## Implement now
 
-Separate schema-edit/publish authority from ordinary Record editing through
-server-enforced capability primitives while preserving current RLS.
+Prove text, quantity, category and Record-reference semantics through the
+production Model path, confirm Dataset Schema can consume the same kernel, and
+prepare the CORE-02 hand-off from implemented evidence.
 
 This is **real production coding**, not another architecture pass.
 
 Key targets:
 
-- define a server-enforced schema capability boundary;
-- preserve existing RLS and owner/admin protections;
-- add focused DB/API regression coverage and run the full validation gate.
+- consolidate evidence from CORE-01.1 through CORE-01.6;
+- prove required Model and Dataset contract paths with focused tests;
+- run the full validation gate and document the CORE-02 hand-off.
 
 ## Do not
 
@@ -55,5 +57,5 @@ Key targets:
 
 ## Hand-off
 
-When CORE-01.6 is complete, record concrete completion evidence in
+When CORE-01.7 is complete, record concrete completion evidence in
 `tasks/CORE-01.md` and advance this file to the next unblocked CORE-01 task.

@@ -18,7 +18,7 @@ Implementation task specifications live in [`tasks/`](./tasks/README.md). Do not
 6. Repository [`PRODUCT.md`](../../PRODUCT.md) — broader product/design intent that remains valid.
 7. Repository [`DESIGN.md`](../../DESIGN.md) — visual/product design system.
 8. Repository [`ROADMAP.md`](../../ROADMAP.md) — high-level delivery sequence.
-9. Relevant ADRs in `docs/decisions/` before changing settled architectural contracts.
+9. Relevant ADRs in `docs/decisions/` before changing settled architectural contracts. **ADR 0020 is mandatory reading before Sheet/Template architecture work.**
 10. [`docs/references/eln-competitors/`](../references/eln-competitors/README.md) when product/architecture work would benefit from established ELN patterns.
 
 Competitor material is **reference evidence, not normative specification**. If it conflicts with `docs/core/`, the Core documents win.
@@ -38,32 +38,27 @@ High-level epics:
 7. **AUTO-01 — Pipeline Foundation**
 8. **AUTO-02 — Agent-authored Operations**
 
-## Task detail policy
-
-Planning uses progressive elaboration:
-
-- CORE-01 is fully implementation-ready;
-- CORE-02 is substantially decomposed and must be reviewed at the CORE-01 exit gate;
-- CORE-03 has constrained task skeletons and must be elaborated using CORE-02 evidence;
-- CORE-04 through AUTO-02 intentionally contain outcomes/constraints rather than speculative low-level tasks.
-
-This avoids both under-specifying the next agent task and creating a stale long-range backlog based on assumptions that early implementation may invalidate.
-
 ## One-sentence architecture
 
-**A Sheet is an Excel-like compositional workspace over one or more Datasets and Model Records, plus local and calculated columns; every value has provenance and every writable value has one authoritative write target.**
+**A reusable versioned Sheet Definition describes composition; a Sheet Instance is the working Excel-like surface over one or more independently reusable Datasets and Model Records plus local/calculated columns. Templates reference pinned Definition versions by default, and every writable Instance value has one authoritative write target.**
+
+## Sheet and Template reuse — locked decision
+
+ADR 0020 establishes these invariants:
+
+- Sheet Definition and Sheet Instance are separate first-class concepts;
+- multiple Notebook Templates can reuse the same Sheet Definition;
+- multiple independent Sheet Instances can be created from one Definition without sharing local values;
+- the same Dataset can be reused in many Definitions/Instances/Templates without becoming owned by them;
+- Template references pin Definition versions by default;
+- publishing a new Definition version does not silently change existing Templates or Instances;
+- shared live Sheet Instances and pinned snapshots are supported only through explicit policies.
 
 ## Golden workflow
 
-The programme acceptance workflow is a Notebook Sheet that combines:
+The programme acceptance workflow is a Notebook Sheet Instance that combines Sample Records, an Upstream Results Dataset, a Purification Results Dataset, a local Observation column and a calculated Recovery column, with inline/bulk Sample creation, correct write-back, saved Views, provenance and eventual frozen submission evidence.
 
-- Sample Records;
-- an Upstream Results Dataset;
-- a Purification Results Dataset;
-- a local Observation column;
-- a calculated Recovery column;
-
-and supports inline/bulk Sample creation, correct write-back, saved Views, provenance and eventual frozen submission evidence.
+CORE-03 must additionally prove reuse/version safety for Sheet Definitions and Notebook Template references.
 
 ## Important existing work to preserve
 
@@ -78,8 +73,6 @@ and supports inline/bulk Sample creation, correct write-back, saved Views, prove
 
 The dated competitor research in `docs/references/eln-competitors/` covers Benchling, Dotmatics, Revvity Signals Notebook, SciNote, Labguru and Sapio Sciences, plus cross-product patterns around structured capture, Models/schemas, Templates, permissions, workflows, APIs and AI.
 
-Use it to understand established scientific-informatics patterns and why Sheetbase intentionally separates Model/Dataset/Sheet/Template/Pipeline concepts.
-
 ## Work temporarily de-emphasised
 
-Feature expansion in Analysis, Planner, Calendar, Instrument Monitor, Report Builder, Storage and Plate Designer should normally wait until the early Core epics are proven. Bug/security fixes and changes that help convergence are still appropriate.
+Feature expansion in Analysis, Planner, Calendar, Instrument Monitor, Report Builder, Storage and Plate Designer should normally wait until the early Core epics are proven. Bug/security fixes and convergence changes are still appropriate.

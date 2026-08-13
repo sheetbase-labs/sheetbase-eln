@@ -37,9 +37,12 @@ describe('canonical FieldDefinition contract', () => {
   })
 
   it('rejects quantity semantics on non-numeric fields', () => {
-    expect(validateFieldDefinition(field({ logicalType: 'text' }))).toContainEqual({
+    expect(
+      validateFieldDefinition(field({ logicalType: 'text' })),
+    ).toContainEqual({
       path: 'quantity',
-      message: 'Quantity semantics are only valid for integer or decimal fields.',
+      message:
+        'Quantity semantics are only valid for integer or decimal fields.',
     })
   })
 
@@ -123,6 +126,34 @@ describe('canonical FieldDefinition contract', () => {
       kind: 'legacy-unspecified',
       dimension: 'legacy-unspecified',
       storageUnit: 'TU/mL',
+    })
+  })
+
+  it('uses explicit persisted semantics ahead of legacy compatibility metadata', () => {
+    const mapped = fieldDefinitionFromModelField({
+      id: 'f-explicit',
+      fieldName: 'input_sample',
+      label: 'Input sample',
+      description: null,
+      logicalType: 'reference',
+      nullable: true,
+      defaultValue: null,
+      unit: null,
+      quantity: null,
+      validation: { targetModelKey: 'sample' },
+      cardinality: 'one',
+      categorySource: null,
+      relationship: {
+        target: { kind: 'model', modelKey: 'sample' },
+        cardinality: 'one',
+      },
+      lifecycle: 'active',
+      options: [],
+    })
+
+    expect(mapped.relationship).toEqual({
+      target: { kind: 'model', modelKey: 'sample' },
+      cardinality: 'one',
     })
   })
 

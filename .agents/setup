@@ -24,6 +24,19 @@ corepack prepare pnpm@11.9.0 --activate
 echo "pnpm: $(pnpm -v)"
 
 echo "==> Starting PostgreSQL 18 (preinstalled via PGDG)"
+if ! command -v pg_ctlcluster >/dev/null 2>&1 || ! apt-cache show postgresql-18 >/dev/null 2>&1; then
+  echo "==> Installing PostgreSQL 18 from PGDG"
+  sudo apt-get update
+  sudo apt-get install -y --no-install-recommends ca-certificates curl gnupg
+  sudo install -d -m 0755 /usr/share/keyrings
+  curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+    | gpg --dearmor \
+    | sudo tee /usr/share/keyrings/postgresql-pgdg.gpg >/dev/null
+  echo "deb [signed-by=/usr/share/keyrings/postgresql-pgdg.gpg] https://apt.postgresql.org/pub/repos/apt $(. /etc/os-release && echo "$VERSION_CODENAME")-pgdg main" \
+    | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+  sudo apt-get update
+  sudo apt-get install -y --no-install-recommends postgresql-18 postgresql-client-18
+fi
 PG_CONF=/etc/postgresql/18/main/postgresql.conf
 # Tune for speed over durability: this is an ephemeral dev/test orb.
 sudo sed -i 's/^#\?\s*fsync\s*=.*/fsync = off/' "$PG_CONF"

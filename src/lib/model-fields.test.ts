@@ -25,9 +25,14 @@ function field(
     nullable: true,
     defaultValue: null,
     unit: null,
+    quantity: null,
     validation: {},
+    cardinality: 'one',
+    categorySource: null,
+    relationship: null,
     lifecycle: 'active',
     options: [],
+    definition: undefined,
     ...overrides,
   }
 }

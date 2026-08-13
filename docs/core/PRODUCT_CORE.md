@@ -1,326 +1,234 @@
 # Sheetbase Core Product Model
 
-> **Status:** Canonical product direction for the Sheetbase core.  
-> **Audience:** Product contributors, engineers, design agents and implementation agents.  
-> **Read with:** `CORE_ARCHITECTURE.md`, `CORE_MIGRATION.md`, `ROADMAP.md`, and ADR 0020.
+> **Status:** Canonical product direction.  
+> **Durable decisions:** ADRs 0020–0024.  
+> **Read with:** `CORE_ARCHITECTURE.md`, `CORE_MIGRATION.md`, `ROADMAP.md`.
 
-## 1. Product thesis
+## Product thesis
 
-Sheetbase is a scientific data workspace with an ELN as its contextual record and an Excel-like Sheet as its primary structured-data interaction surface.
+Sheetbase is a scientific data workspace with an ELN as its contextual record and Excel-like Sheets as its primary structured-data interaction surface.
 
 Scientists should be able to work naturally in Sheets without giving up typed data, durable identities, provenance, APIs, permissions, model governance, reusable configuration or future automation.
 
-The product combines four ideas:
+## Locked principles
 
-1. **Notebook context** — narrative scientific work remains coherent and reconstructable.
-2. **Spreadsheet fluency** — repeated scientific data entry and calculation should feel familiar to Excel users.
-3. **Database integrity** — durable structured data is PostgreSQL-authoritative, typed and API-addressable.
-4. **Composable automation and reuse** — reusable Sheet Definitions, calculations and future Pipelines operate on the same Models and Datasets rather than creating parallel data systems.
+### Notebook context
 
-## 2. Principles that are now locked
+The Notebook is the narrative scientific record. It embeds/references structured objects but does not become a parallel owner of their data.
 
-### 2.1 The notebook remains the centre of scientific context
+### Sheet Definition and Sheet Instance are separate
 
-A Notebook contains the narrative, methods, reasoning, embedded working surfaces and evidence that explain an experiment or body of work.
+- **Sheet Definition** — reusable, versioned composition/configuration.
+- **Sheet Instance** — actual working spreadsheet state with resolved sources, local values and provenance.
 
-The Notebook is not the sole owner of all data displayed inside it. It can embed live or frozen views of Records, Datasets, Sheet Instances, calculations, charts and later Pipeline results.
+One Definition may be reused by many Notebook Templates and Instances. Reusing a Definition never implies sharing working data.
 
-### 2.2 Sheets are the primary structured-data workspace
+### Sheet Instances are compositional
 
-A working Sheet is **not** synonymous with a database table and is **not** limited to one Dataset.
+A Sheet Instance can combine multiple Datasets and Model Records plus local/ad hoc and calculated columns.
 
-A Sheet Instance is an Excel-like compositional data workspace that can:
+Every displayed value has inspectable provenance. Every writable value has exactly one authoritative write target.
 
-- project one Dataset;
-- combine multiple Datasets;
-- include Model/Record fields;
-- join sources using explicit semantic keys;
-- contain Sheet-local/ad hoc columns;
-- contain calculated columns;
-- link existing Records;
-- create Records inline or in bulk;
-- write edits back to explicit authoritative targets.
+### Datasets are independent data objects
 
-Every displayed value should have inspectable provenance. Every writable value must have exactly one authoritative write target.
+A Dataset belongs to neither a Sheet nor Template merely because it is referenced there. It has mutable live working state and immutable Dataset Versions at meaningful scientific boundaries.
 
-### 2.3 Reusable Sheet structure is separate from working Sheet state
+Audit history records individual changes; Dataset Versions identify exact data states used by evidence, publication and Pipelines.
 
-Sheetbase distinguishes:
+### Dataset Schemas are versioned
 
-- **Sheet Definition** — reusable, versioned configuration describing composition and expected inputs;
-- **Sheet Instance** — an instantiated working Sheet with resolved bindings, local values, lifecycle and provenance.
+Dataset Schemas have stable identity plus explicit immutable versions. Breaking semantic changes require a new version and explicit migration/transformation; stored values are never silently reinterpreted.
 
-A Sheet Definition can be reused by many Notebook Templates and many Sheet Instances. Reuse of a Definition does not imply sharing working data.
+### Models have stable identity and evolving fields
 
-Existing Sheet Instances remain associated with the exact Definition version from which they were created unless an explicit upgrade/migration is performed.
+A Model such as `Lentivector` remains one durable Model identity. Field Definitions evolve through stable identities and lifecycle/history. Records retain stable identity as Models evolve; historical semantic manifests preserve interpretation.
 
-### 2.4 Datasets are independently reusable
+### Ad hoc means locally governed, not ephemeral
 
-A Dataset belongs to neither a Sheet Definition, Sheet Instance nor Notebook Template merely because it is referenced there.
+Sheet-local columns are durable, typed data owned by the Sheet Instance. They do not automatically alter bound Dataset/Model schemas.
 
-The same Dataset may be displayed or combined in multiple Sheet Definitions, Sheet Instances, Notebook Templates or future Pipeline/result surfaces, subject to permissions and live/pinned policy.
+A useful local field may be explicitly promoted into a reusable Sheet Definition or governed Dataset/Model field with permission, validation and impact handling.
 
-### 2.5 Templates describe composition and instantiation, not hidden ownership
+### Templates describe composition, not hidden ownership
 
-A Notebook Template may contain predefined Sheet blocks by referencing a **versioned Sheet Definition**.
+A Notebook Template may reference a pinned Sheet Definition version. Normal instantiation creates a new independent Sheet Instance.
 
-The default behaviour is to create a new Sheet Instance from that Definition when a Notebook is instantiated.
+Explicit alternatives are deliberate shared-live Instance references or pinned snapshots. Publishing new Definition versions never silently changes Templates or existing Instances.
 
-Other behaviours, such as intentionally referencing an existing shared live Sheet Instance or a pinned snapshot, must be explicit and inspectable.
+### Reuse uses composition, not inheritance
 
-Templates must not silently own or mutate authoritative scientific data.
+Sheet Definitions do not inherit from Sheet Definitions. Notebook Templates do not inherit from Notebook Templates.
 
-### 2.6 Excel familiarity is an interaction goal, not a data model
+If reusable substructures become valuable, use explicit versioned fragments/Template Sections rather than parent-child inheritance.
 
-Sheetbase should support familiar spreadsheet behaviours such as keyboard navigation, copy/paste, fill, formulas, A1 display, range selection, undo/redo, resizing and filtering.
+### Reusable configuration is organisational
 
-It must not inherit spreadsheet ambiguity where that would undermine scientific data integrity.
+Models, Dataset Schemas, Sheet Definitions, Notebook Templates and vocabularies are reusable organisational/tenant configuration objects governed by permissions.
 
-Examples:
+Projects/workspaces contain and organise scientific working data such as Notebooks, Datasets, Records and Sheet Instances.
 
-- column labels are not durable identities;
-- A1 coordinates are not semantic identities;
-- inserting a governed column is a schema/configuration operation;
-- deleting a governed field must respect dependencies and lifecycle;
-- bulk paste must be validated at the server boundary;
-- calculations must remain reconstructable.
+Do not introduce a package/install system for normal intra-organisation reuse in the Core.
 
-### 2.7 Models are explicit and user-extensible
+### Workspace lifecycle ownership
 
-A Model defines an addressable scientific or business object such as Sample, Reagent, Lentivector, Study, Instrument or Batch.
+Durable scientific working objects have Workspace/tenant lifecycle ownership, not individual-user ownership. Users remain attributable creators/editors.
 
-Models combine protected platform fields with workspace-configured fields. Authorised users can evolve workspace definitions without application developers adding every scientific property.
+Archive is normal removal; retirement prevents new use of Definitions while preserving dependants; hard deletion is exceptional and dependency-aware. Immutable evidence blocks normal hard deletion.
 
-Schema authority is distinct from Record-edit authority.
+### Shared live Sheet Instances are explicit
 
-### 2.8 Models and Datasets share a schema language
+The same Sheet Instance may deliberately appear in multiple places. The UI must make shared state obvious. Local data belongs to the Instance, so all embeddings see the same local values.
 
-Model fields and Dataset columns do not have to use identical physical PostgreSQL storage, but they share a common semantic field kernel: stable IDs, types, units, constraints, controlled vocabularies, relationships, cardinality and lifecycle.
+Submitted Notebooks snapshot/pin shared Instance state rather than relying on continuing live evidence.
 
-This allows Sheets, APIs, calculations, filters, Pipelines and future agents to reason about fields consistently.
+### Duplication does not imply data duplication
 
-### 2.9 Configuration is capability-based
+Duplicating a Sheet Instance creates an independent Instance but does not copy bound Datasets or Records. Dataset duplication is a separate explicit action.
 
-Different users require different configuration authority.
+### One typed Parameter concept
 
-A Scientist may create data and add local Sheet columns while being unable to publish a Model or Sheet Definition. A Data Steward may manage Model and Dataset schemas without being a security administrator. A Workflow Builder may author Pipelines without managing users.
+Sheet Definitions, Notebook Templates and future Pipelines share one typed parameter language. Parameters may flow through compositions rather than being repeatedly requested.
 
-Do not collapse all configuration into `member` versus `admin`.
+### Presentation state stays lightweight
 
-### 2.10 PostgreSQL remains authoritative
+The Core persists Sheet presentation state such as filters, sorting, column order/visibility/width and freezing. Named reusable Views may be introduced later if useful; they are not a major Core primitive now.
 
-Client state, Handsontable state, calculated caches and optimistic updates are projections.
+### Calculations have explicit scope
 
-Durable writes must pass the PostgreSQL/API boundary for authentication, authorisation, validation, constraints and audit/event behaviour.
+A calculation may be:
 
-### 2.11 Information density is a product requirement
+1. local to one Sheet Instance;
+2. reusable in a Sheet Definition;
+3. a governed Dataset Schema derived field.
 
-Sheetbase is for sustained scientific work on information-rich screens.
+Promotion between scopes is explicit. Pipelines remain a separate primitive for broader input-to-output transformations.
 
-Default product behaviour should be compact, legible and keyboard-efficient. The main work plane should dominate. Inspectors should reveal contextual detail rather than duplicate the work plane in cards.
+### Composition is virtual until materialised
 
-Large data must remain performant through virtualisation, incremental loading and server-side operations where appropriate.
+Combining sources/calculations in a Sheet does not automatically create a Dataset. Materialisation is an explicit operation that creates a new Dataset with source/calculation provenance and is designed to align with future Pipeline Run semantics.
 
-### 2.12 AI is assistive and uses normal platform contracts
+### PostgreSQL remains authoritative
 
-Future agents do not receive a privileged data path.
+Handsontable/client state and calculated caches are projections. Durable mutation passes the server/database boundary for authentication, authorisation, validation, constraints and audit behaviour.
 
-Agent-authored changes should resolve to the same typed schema, Record, Dataset, Sheet Definition and Pipeline operations available to humans and code, with normal permissions, validation, provenance and approval policy.
+### Configuration is capability-based
 
-## 3. Core product primitives
+Data editing, schema configuration, Definition/Template publication, workflow authoring, review and administration are distinct authorities.
 
-### 3.1 Model
+### Information density and scale are requirements
 
-Defines a durable type of addressable object. Examples: Sample, Reagent, Lentivector, Study, Instrument, Batch.
+Default UI is compact, legible and keyboard-efficient. Large data uses virtualisation/windowed access/server operations rather than assuming complete browser materialisation.
 
-### 3.2 Record
+### AI uses normal contracts
 
-One instance of a Model. Records have stable identities and can appear in registries, Sheet cells, Notebook links, relationships, Datasets, storage views, reports and Pipeline inputs/outputs.
+Future agents use the same typed operations, permissions, validation, provenance and approval paths as humans/code. There is no agent-only data plane.
 
-### 3.3 Field Definition
+## Core objects
 
-A stable semantic definition consumed by Models and Dataset Schemas, including stable identity, type, units, validation, vocabulary, relationship/cardinality and lifecycle semantics.
+### Model / Record / Field Definition
 
-### 3.4 Dataset
+Models define durable scientific/business object types. Records are stable instances. Field Definitions provide shared semantic identity, type, units, validation, vocabulary, relationships/cardinality and lifecycle.
 
-A durable, addressable rectangular data object with an explicit Dataset Schema. It is independent of how it is displayed and independently reusable.
+### Dataset / Dataset Schema / Dataset Version
 
-### 3.5 Dataset Schema
+A Dataset is durable rectangular data independent of presentation. Dataset Schemas define typed shape and are explicitly versioned. Dataset Versions freeze exact meaningful data states.
 
-Defines the durable columns, types, constraints and relationships for a Dataset using the common Field Definition language.
+### Sheet Definition
 
-### 3.6 Sheet Definition
+Reusable versioned configuration containing typed parameters/binding requirements, row identity, joins, columns, calculations, write-back rules, actions and presentation defaults.
 
-A reusable, versioned definition of how a Sheet should be composed.
+A Definition never owns experiment-specific local values.
 
-A Sheet Definition may own/reference input parameters, expected Dataset Schema or Model compatibility, row identity, joins, column definitions, calculated columns, write-back rules, configured actions and default View references.
+### Sheet Instance
 
-A Sheet Definition does **not** own experiment-specific local values or authoritative source Dataset values.
+Working Excel-like composition. It records source Definition/version when applicable, resolved bindings, local fields/values, calculations/overrides, presentation state, lifecycle and provenance.
 
-Definitions have durable IDs and explicit versions. Updating a Definition creates a new version; it does not silently alter existing Sheet Instances or pinned Template references.
+An ad hoc Instance may later be saved as a Definition by extracting reusable structure, parameterising concrete sources and excluding working values.
 
-### 3.7 Sheet Instance
+### Notebook / Notebook Template
 
-An instantiated Excel-like working Sheet.
+A Notebook is scientific narrative/context. A Notebook Template is reusable versioned composition/instructions and may reference pinned Sheet Definition versions.
 
-A Sheet Instance may be created from a Sheet Definition or created ad hoc and later promoted into reusable configuration where supported.
+### Calculation
 
-It owns/references stable identity, exact source Definition/version when applicable, resolved Dataset/Model bindings, Notebook/project context, local fields/values, allowed overrides, lifecycle/provenance and Views.
+A deterministic derived value with durable definition and provenance, scoped to Instance, Definition or Dataset Schema as appropriate.
 
-### 3.8 Sheet Binding
+### Pipeline / Pipeline Run
 
-Connects a Sheet Definition or Sheet Instance to a source or input parameter. A Definition may require “a Dataset compatible with Assay Results v2” rather than hard-code one Dataset ID; an Instance resolves that requirement to an actual permitted Dataset.
+A Pipeline is a versioned broader transformation between declared inputs/outputs. Pipeline Runs are immutable execution evidence and consume immutable input state where required.
 
-### 3.9 Sheet Column
+### Policy / Capability
 
-A column visible in a Sheet. Initial kinds are `dataset_field`, `model_field`, `relationship`, `local`, and `calculated`. Column identity is independent of display label and visual position.
+Defines who may read, mutate, configure, publish, instantiate, upgrade, run, approve or administer each class of action.
 
-### 3.10 Row Identity
-
-Defines what one composed Sheet row represents, such as `Sample.id`, `[Sample.id, Timepoint]`, `[Plate.id, Well]`, or a Sheet-local row ID.
-
-### 3.11 View
-
-Saved presentation/query state over a Sheet Instance or Dataset. Views do not change data or Sheet Definition semantics.
-
-### 3.12 Calculation
-
-A deterministic derived value or transformation with durable definition and provenance.
-
-### 3.13 Pipeline / Pipeline Run
-
-A Pipeline is a versioned transformation from declared inputs to outputs. A Pipeline Run is immutable evidence of one execution.
-
-### 3.14 Notebook
-
-The narrative scientific record and context surface. A Notebook can contain prose, protocols, Sheet Instances, Dataset Views, Model/Record links, files, charts, calculations, comments, review state and later Pipeline results.
-
-### 3.15 Notebook Template
-
-A reusable, versioned composition describing Notebook structure.
-
-A Notebook Template may reference versioned Sheet Definitions, protocol definitions, Views and other governed building blocks rather than duplicating them invisibly.
-
-For a predefined Sheet block, the Template specifies an explicit instantiation policy:
-
-- `create_instance` — default; create a new independent Sheet Instance from the pinned Sheet Definition version;
-- `reference_shared_instance` — intentionally reference an existing shared live Sheet Instance;
-- `pinned_snapshot` — embed a frozen Sheet state for evidence/read-only use.
-
-The default Template → Sheet Definition version policy is **pinned**. Silent automatic upgrade is prohibited.
-
-### 3.16 Policy / Capability
-
-Defines who may read, mutate, configure, publish, instantiate, upgrade, run, approve or administer each class of object/action.
-
-## 4. Reuse and instantiation contract
-
-A reusable Definition may look like:
+## Reuse example
 
 ```text
-SheetDefinition: Purification Summary v3
+Organisation
+|
++-- Model: Sample
++-- Dataset Schema: Purification Results
++-- Sheet Definition: Purification Summary v3
+|       |
+|       +-- parameter: purification_results
+|       +-- calculation: Recovery
+|       `-- local column definition: Observation
+|
++-- Notebook Template A --+
+|                          +--> Purification Summary v3
++-- Notebook Template B --+
 
-Inputs
-  upstream:
-    requires DatasetSchema(Upstream Results)
-  purification:
-    requires DatasetSchema(Purification Results)
-
-Bindings
-  samples       -> Model(Sample)
-  upstream      -> $upstream
-  purification  -> $purification
-
-Row identity
-  Sample.id
-
-Columns
-  Sample               -> samples.name
-  Starting titre       -> upstream.titre
-  Final titre          -> purification.titre
-  Recovery             -> calculated
-  Scientist comment    -> local
+Project
+|
++-- Dataset: Run 17 Purification Results
++-- Notebook 001
+|    `-- Sheet Instance 91 -- binds Run 17 Dataset
+|                             owns local observations
+`-- Notebook 002
+     `-- Sheet Instance 92 -- may bind same/different Dataset
+                             owns independent local observations
 ```
 
-The same Definition can be referenced by multiple Notebook Templates. Instantiating those Templates normally creates independent Sheet Instances with independently resolved compatible Datasets and independently owned local values.
-
-Publishing `Purification Summary v4` does not silently alter Templates pinned to v3 or existing Instances created from v3. Upgrades require an explicit impact-aware action.
-
-Shared live Sheet Instances remain supported for deliberate cases such as a project Sample manifest, but the shared semantics must be explicit and inspectable.
-
-Pinned snapshots remain available for reconstructable evidence.
-
-## 5. Ad hoc columns and promotion
-
-Sheet-Instance-local columns are first-class because scientific work is exploratory.
-
-A local column may later be promoted, subject to permission and validation, into a Dataset Schema field, Model field, reusable Sheet Definition column, reusable calculated field or Pipeline output where appropriate.
-
-This supports **ad hoc → useful → governed → reusable**.
-
-## 6. Record creation from Sheets
-
-Record creation is a core Sheet Instance capability, not an import workaround. Users can link existing Records, create missing Records inline and bulk-create Records from pasted/selected rows through validated server operations.
-
-A Sheet Definition may configure permitted/default actions; a Sheet Instance executes them through normal permissions and validation.
-
-## 7. Write-back rule
-
-A Sheet Instance may display values from many sources, but **every writable cell has exactly one authoritative write target**.
-
-Ambiguous write-back is invalid configuration. Calculated values are read-only unless explicitly materialised into a governed output.
-
-## 8. Live and snapshot semantics
-
-Every embedded structured object must explicitly identify whether it is live data, a live saved View, a shared live Sheet Instance, a pinned/frozen Dataset/Sheet state, a recorded Calculation/Pipeline result, or part of a submitted immutable Notebook version.
-
-## 9. Product hierarchy
+## Save as Definition
 
 ```text
-Workspace
-├── Models
-│   ├── Model Definitions
-│   ├── Records
-│   └── Relationships
-├── Data
-│   ├── Datasets / Dataset Schemas
-│   ├── Sheet Definitions
-│   ├── Sheet Instances / Views
-│   └── Calculations
-├── Work
-│   ├── Projects
-│   ├── Studies
-│   ├── Notebooks
-│   ├── Notebook Templates
-│   └── Reviews
-├── Automation
-│   ├── Pipeline Definitions
-│   └── Pipeline Runs
-└── Configuration
-    ├── Roles / policies
-    ├── Vocabularies
-    ├── Integrations
-    └── Audit / administration
+Useful ad hoc Sheet Instance
+        |
+        | Save as Definition
+        v
+extract reusable structure
+parameterise concrete sources
+exclude working/local values
+        |
+        v
+new Sheet Definition version
 ```
 
-## 10. What not to do
+## Definition upgrade
+
+Upgrading an Instance is explicit and data-preserving. It conceptually compares the original Definition version, Instance changes and target Definition version. Conflicts require resolution; Instance-owned data is never silently discarded.
+
+## Record creation from Sheets
+
+Sheet Instances support linking existing Records, creating Records inline and bulk creation from pasted/selected rows through validated server operations.
+
+## Frozen evidence
+
+Submitted evidence must reconstruct exact relevant state, including immutable Dataset Versions, Model/Field semantic manifests, Sheet Definition versions, Sheet Instance snapshots/local values and Calculation evidence.
+
+## What not to do
 
 Do not:
 
-- make a Sheet Instance equal one physical database table;
-- make a Dataset equal one visual grid;
-- make a Sheet Definition own experiment-specific local values;
-- make a Notebook Template silently own authoritative Sheet/Dataset data;
-- silently update existing Sheet Instances when a Definition changes;
-- silently update Template dependencies to a newer Definition version;
-- assume reuse of a Definition means shared data;
-- assume reuse of a Dataset means shared Sheet working state;
-- use labels, row positions or A1 coordinates as durable semantic identities;
-- create an agent-only mutation path;
-- build a visual Pipeline DAG editor before Pipeline Definition/Run semantics exist.
-
-## 11. Definition of the next successful product slice
-
-The next core slice is successful when an authorised scientist can create or select a Notebook; insert a Sheet Instance either ad hoc or from a reusable Sheet Definition; bind multiple Datasets and a Model; define row identity and joins; add local/calculated columns; paste data; link/create Records; write values back correctly; save Views; inspect provenance and Definition/version identity; and reload without hidden client-only truth.
-
-A later Template acceptance slice must prove that one versioned Sheet Definition can be referenced by multiple Notebook Templates, normally producing independent Sheet Instances with independently resolved compatible Datasets/local values, while explicit shared-instance and pinned-snapshot policies behave as declared.
+- equate Sheet Instance with a database table;
+- equate Dataset with a visual grid;
+- make Templates/Definitions own experiment-specific values;
+- silently upgrade Templates or Instances;
+- use Definition/Template inheritance;
+- make ad hoc/local values client-only;
+- silently promote local fields/calculations;
+- infer compatibility only from labels;
+- automatically materialise Sheet composition;
+- make named Views a prerequisite for the Core;
+- hard-delete objects needed by immutable evidence;
+- create an agent-only mutation path.

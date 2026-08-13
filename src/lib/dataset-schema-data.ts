@@ -12,7 +12,15 @@
 
 import { createDataClient } from './data-client'
 import type { DataClient } from './data-client'
-import type { ScientificLogicalType } from './scientific-sheet-data'
+import {
+  fieldDefinitionFromDatasetSchemaField,
+  validateFieldDefinition,
+} from './field-definition'
+import type {
+  FieldDefinition,
+  FieldLogicalType,
+  FieldRelationship,
+} from './field-definition'
 
 // --- Wire types (PostgREST snake_case) ----------------------------------
 
@@ -24,7 +32,7 @@ export interface DatasetSchemaFieldWire {
   label: string
   description: string | null
   display_order: number
-  logical_type: ScientificLogicalType
+  logical_type: FieldLogicalType
   nullable: boolean
   default_value: unknown
   unit: unknown
@@ -50,6 +58,25 @@ export interface DatasetSchemaWire {
 export interface DatasetSchemaWithFields {
   schema: DatasetSchemaWire
   fields: DatasetSchemaFieldWire[]
+}
+
+/**
+ * Dataset-specific semantics on top of canonical fields. Dataset rows use
+ * field slugs as their stable shape keys; physical storage is intentionally
+ * outside this registry contract and belongs to CORE-02.
+ */
+export interface DatasetRowShape {
+  kind: 'dataset-row'
+  fieldsByKey: Record<string, string>
+}
+
+export interface DatasetSchemaDefinition {
+  schemaId: string
+  schemaKey: string
+  revision: number
+  lifecycle: 'draft' | 'active' | 'retired'
+  fields: FieldDefinition[]
+  rowShape: DatasetRowShape
 }
 
 export interface DatasetQueryRow {
@@ -94,7 +121,7 @@ export interface CreateSchemaRelationshipInput {
 export interface DatasetSchemaFieldInput {
   slug: string
   label: string
-  logical_type: ScientificLogicalType
+  logical_type: FieldLogicalType
   nullable?: boolean
   default_value?: unknown
   unit?: Record<string, unknown>
@@ -109,6 +136,98 @@ export interface CreateDatasetSchemaInput {
   name: string
   description?: string
   fields: DatasetSchemaFieldInput[]
+}
+
+function schemaLifecycle(
+  status: DatasetSchemaWire['status'],
+): DatasetSchemaDefinition['lifecycle'] {
+  if (status === 'draft') return 'draft'
+  if (status === 'published') return 'active'
+  return 'retired'
+}
+
+/**
+ * Projects a persisted Dataset field through the shared kernel. The existing
+ * schema-relationship edge is the authoritative reference target. Its graph
+ * cardinality is deliberately not treated as a row-cell cardinality: current
+ * Dataset fields persist scalar values, and `many` awaits CORE-02 storage.
+ */
+export function datasetFieldDefinitionFromWire(
+  field: DatasetSchemaFieldWire,
+  relationships: DatasetSchemaRelationshipWire[],
+): FieldDefinition {
+  const referenceEdges = relationships.filter(
+    (relationship) =>
+      relationship.lifecycle === 'active' &&
+      relationship.relationship_type === 'references' &&
+      relationship.source_field_id === field.id,
+  )
+  if (referenceEdges.length > 1) {
+    throw new Error(
+      `Dataset field ${field.id} has multiple active reference targets.`,
+    )
+  }
+
+  const relationship: FieldRelationship | null = referenceEdges[0]
+    ? {
+        target: {
+          kind: 'dataset-schema',
+          schemaId: referenceEdges[0].target_schema_id,
+        },
+        cardinality: 'one',
+      }
+    : null
+  const definition = fieldDefinitionFromDatasetSchemaField({
+    id: field.id,
+    slug: field.slug,
+    label: field.label,
+    description: field.description,
+    logicalType: field.logical_type,
+    nullable: field.nullable,
+    defaultValue: field.default_value,
+    unit:
+      field.unit !== null && typeof field.unit === 'object'
+        ? (field.unit as Record<string, unknown>)
+        : null,
+    validation: field.validation,
+    relationship,
+    lifecycle: field.lifecycle,
+  })
+  const issues = validateFieldDefinition(definition)
+  if (issues.length > 0) {
+    throw new Error(
+      `Invalid Dataset field ${field.id}: ${issues.map((issue) => issue.message).join(' ')}`,
+    )
+  }
+  return definition
+}
+
+export function datasetSchemaDefinitionFromWire(
+  schema: DatasetSchemaWire,
+  fields: DatasetSchemaFieldWire[],
+  relationships: DatasetSchemaRelationshipWire[],
+): DatasetSchemaDefinition {
+  const definitions = fields.map((field) =>
+    datasetFieldDefinitionFromWire(field, relationships),
+  )
+  const fieldsByKey: Record<string, string> = {}
+  for (const field of definitions) {
+    if (field.lifecycle !== 'active') continue
+    if (fieldsByKey[field.key]) {
+      throw new Error(
+        `Dataset schema ${schema.id} has duplicate field key ${field.key}.`,
+      )
+    }
+    fieldsByKey[field.key] = field.fieldId
+  }
+  return {
+    schemaId: schema.id,
+    schemaKey: schema.slug,
+    revision: schema.revision,
+    lifecycle: schemaLifecycle(schema.status),
+    fields: definitions,
+    rowShape: { kind: 'dataset-row', fieldsByKey },
+  }
 }
 
 // --- Query keys ----------------------------------------------------------
@@ -152,6 +271,23 @@ export async function fetchDatasetSchemaFields(
     'dataset_schema_fields',
     `?schema_id=eq.${encodeURIComponent(schemaId)}&order=display_order.asc`,
   )
+}
+
+/** Fetch the canonical Dataset schema contract used by future Dataset work. */
+export async function fetchDatasetSchemaDefinition(
+  client: DataClient,
+  schemaId: string,
+): Promise<DatasetSchemaDefinition> {
+  const [schemas, fields, relationships] = await Promise.all([
+    client.list<DatasetSchemaWire>(
+      'dataset_schemas',
+      `?id=eq.${encodeURIComponent(schemaId)}`,
+    ),
+    fetchDatasetSchemaFields(client, schemaId),
+    fetchDatasetSchemaRelationships(client),
+  ])
+  if (schemas.length === 0) throw new Error('Dataset schema not found.')
+  return datasetSchemaDefinitionFromWire(schemas[0], fields, relationships)
 }
 
 export async function createDatasetSchema(

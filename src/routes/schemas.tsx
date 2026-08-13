@@ -90,7 +90,8 @@ import type {
   RelationshipCardinality,
   RelationshipType,
 } from '#/lib/dataset-schema-data'
-import type { ScientificLogicalType } from '#/lib/scientific-sheet-data'
+import { FIELD_LOGICAL_TYPES } from '#/lib/field-definition'
+import type { FieldLogicalType } from '#/lib/field-definition'
 import { cn } from '#/lib/utils'
 
 export const Route = createFileRoute('/schemas')({
@@ -104,16 +105,8 @@ export const Route = createFileRoute('/schemas')({
 
 const dataClient = createDataClient()
 
-const logicalTypes: ScientificLogicalType[] = [
-  'text',
-  'integer',
-  'decimal',
-  'boolean',
-  'date',
-  'timestamp',
-  'category',
-  'reference',
-]
+const logicalTypes = FIELD_LOGICAL_TYPES
+type ScientificLogicalType = FieldLogicalType
 
 const typeIcon: Record<ScientificLogicalType, LucideIcon> = {
   text: TypeIcon,

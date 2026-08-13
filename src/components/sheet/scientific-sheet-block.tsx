@@ -68,6 +68,7 @@ import {
   scientificQueryKeys,
   updateScientificColumnDisplay,
 } from '#/lib/scientific-sheet-data'
+import { fieldEditorPresentation } from '#/lib/field-presentation'
 import type {
   ScientificColumnWire,
   FormulaDependencyWire,
@@ -883,6 +884,7 @@ function columnSettings(
   readOnly: boolean,
 ): ColumnSettings {
   const base: ColumnSettings = { data: column.field_name }
+  const presentation = fieldEditorPresentation(column.logical_type)
   // Use the formula reference editor for editable columns so users can
   // point-and-click cell references while entering formulas (type =, click a
   // cell → its A1 reference is inserted). Read-only mode keeps the default
@@ -890,7 +892,7 @@ function columnSettings(
   // name) to bypass Handsontable's global editor registry, which may not
   // resolve correctly across dynamically-imported bundles.
   const formulaEditor = !readOnly ? { editor: FormulaReferenceEditor } : {}
-  if (column.logical_type === 'integer' || column.logical_type === 'decimal')
+  if (presentation.kind === 'number')
     return {
       ...base,
       type: 'numeric',
@@ -900,15 +902,15 @@ function columnSettings(
       },
       ...formulaEditor,
     }
-  if (column.logical_type === 'boolean') return { ...base, type: 'checkbox' }
-  if (column.logical_type === 'date')
+  if (presentation.kind === 'checkbox') return { ...base, type: 'checkbox' }
+  if (presentation.kind === 'date')
     return {
       ...base,
       type: 'date',
       dateFormat: 'YYYY-MM-DD',
       correctFormat: false,
     }
-  if (column.logical_type === 'category')
+  if (presentation.kind === 'category-select')
     return {
       ...base,
       type: 'dropdown',

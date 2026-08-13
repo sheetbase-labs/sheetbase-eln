@@ -8,9 +8,9 @@
 
 ## Active task
 
-**CORE-01.5 — Unify field rendering/editing semantics**
+**CORE-01.6 — Establish initial schema capability boundary**
 
-Task: [`tasks/CORE-01.md`](./tasks/CORE-01.md#core-015--unify-field-renderingediting-semantics)
+Task: [`tasks/CORE-01.md`](./tasks/CORE-01.md#core-016--establish-initial-schema-capability-boundary)
 
 ## Completed in this PR
 
@@ -18,6 +18,7 @@ Task: [`tasks/CORE-01.md`](./tasks/CORE-01.md#core-015--unify-field-renderingedi
 - CORE-01.2 — executable canonical `FieldDefinition` contract and tests
 - CORE-01.3 — Model fields converged on the canonical kernel
 - CORE-01.4 — Dataset Schema fields defined through the canonical kernel
+- CORE-01.5 — Field rendering/editor selection converged on canonical semantics
 - product/architecture reset and accepted ADRs 0020–0026
 
 ## Required reading
@@ -33,16 +34,16 @@ Task: [`tasks/CORE-01.md`](./tasks/CORE-01.md#core-015--unify-field-renderingedi
 
 ## Implement now
 
-Converge semantic renderer/editor selection across Model and future
-Dataset/Sheet contexts without building one giant universal UI component.
+Separate schema-edit/publish authority from ordinary Record editing through
+server-enforced capability primitives while preserving current RLS.
 
 This is **real production coding**, not another architecture pass.
 
 Key targets:
 
-- use the canonical logical types and `FieldDefinition` semantics;
-- share renderer/editor selection without changing storage or server authority;
-- add focused regression coverage and run the full validation gate.
+- define a server-enforced schema capability boundary;
+- preserve existing RLS and owner/admin protections;
+- add focused DB/API regression coverage and run the full validation gate.
 
 ## Do not
 
@@ -54,5 +55,5 @@ Key targets:
 
 ## Hand-off
 
-When CORE-01.5 is complete, record concrete completion evidence in
+When CORE-01.6 is complete, record concrete completion evidence in
 `tasks/CORE-01.md` and advance this file to the next unblocked CORE-01 task.

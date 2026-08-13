@@ -17,20 +17,17 @@ import {
   recordScientificExport,
   scientificDataClient,
 } from '#/lib/scientific-sheet-data'
+import { FIELD_LOGICAL_TYPES } from '#/lib/field-definition'
 import type {
   ScientificLogicalType,
   ScientificRowWire,
   ScientificTableWire,
 } from '#/lib/scientific-sheet-data'
 
-const logicalTypes: ScientificLogicalType[] = [
-  'text',
-  'integer',
-  'decimal',
-  'boolean',
-  'date',
-  'timestamp',
-]
+const logicalTypes = FIELD_LOGICAL_TYPES.filter(
+  (type): type is ScientificLogicalType =>
+    type !== 'category' && type !== 'reference',
+)
 
 async function sha256(buffer: ArrayBuffer) {
   const digest = await crypto.subtle.digest('SHA-256', buffer)

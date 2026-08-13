@@ -208,10 +208,24 @@ vocabulary product or Dataset physical storage was added.
 
 ## CORE-01.5 — Unify field rendering/editing semantics
 
-**Status:** Planned  
-**Blocked by:** CORE-01.3, CORE-01.4.
+**Status:** Complete (2026-08-13)
 
-Converge semantic renderer/editor selection across Model and future Dataset/Sheet contexts without building one giant universal UI component.
+`src/lib/field-presentation.ts` now owns the small shared editor-selection
+contract. It maps canonical logical types to controls and preserves selected
+retired embedded options without making a universal form component. Model
+property inputs consume their persisted canonical projection; scientific Sheet
+columns and transfer type choices consume the same logical-type source.
+
+Reference fields now render as text entry rather than an invalid HTML input
+type. Server validation and reference integrity remain authoritative.
+
+**Completion evidence:**
+
+- Added `src/lib/field-presentation.ts` and tests for every canonical logical
+  type, numeric precision, and retired category options.
+- Updated `ModelFieldInput`, scientific Sheet editor selection, and CSV type
+  choices to consume shared semantics.
+- `pnpm validate` passes formatting, lint, typecheck, tests, and build.
 
 ---
 

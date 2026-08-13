@@ -2,18 +2,26 @@
 
 This directory defines the current Sheetbase core reset and should be read before substantial new product/domain work.
 
+## If you are here to implement something
+
+Start with [`NEXT.md`](./NEXT.md). It identifies the **single active task**, required reading, explicit non-goals and hand-off procedure.
+
+Implementation task specifications live in [`tasks/`](./tasks/README.md). Do not select work merely because it appears later in the roadmap.
+
 ## Canonical reading order
 
-1. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md) — what the core product means and the primitives users interact with.
-2. [`CORE_ARCHITECTURE.md`](./CORE_ARCHITECTURE.md) — target technical contracts and constraints.
-3. [`CORE_MIGRATION.md`](./CORE_MIGRATION.md) — how the current repository maps to the target, including epics, pauses and immediate implementation order.
-4. Repository [`PRODUCT.md`](../../PRODUCT.md) — broader product/design intent that remains valid.
-5. Repository [`DESIGN.md`](../../DESIGN.md) — visual/product design system.
-6. Repository [`ROADMAP.md`](../../ROADMAP.md) — high-level delivery sequence.
-7. Relevant ADRs in `docs/decisions/` before changing settled architectural contracts.
-8. [`docs/references/eln-competitors/`](../references/eln-competitors/README.md) when product/architecture work would benefit from understanding the established ELN patterns that informed this reset.
+1. [`NEXT.md`](./NEXT.md) — exactly what an implementation agent should do now.
+2. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md) — what the core product means and the primitives users interact with.
+3. [`CORE_ARCHITECTURE.md`](./CORE_ARCHITECTURE.md) — target technical contracts and constraints.
+4. [`CORE_MIGRATION.md`](./CORE_MIGRATION.md) — how the current repository maps to the target, including epics, pauses and implementation order.
+5. [`tasks/README.md`](./tasks/README.md) and the active epic task file — executable planning and completion evidence.
+6. Repository [`PRODUCT.md`](../../PRODUCT.md) — broader product/design intent that remains valid.
+7. Repository [`DESIGN.md`](../../DESIGN.md) — visual/product design system.
+8. Repository [`ROADMAP.md`](../../ROADMAP.md) — high-level delivery sequence.
+9. Relevant ADRs in `docs/decisions/` before changing settled architectural contracts.
+10. [`docs/references/eln-competitors/`](../references/eln-competitors/README.md) when product/architecture work would benefit from established ELN patterns.
 
-The competitor material is **reference evidence, not normative specification**. If it conflicts with `docs/core/`, the Core documents win. It is deliberately retained so an agent can understand the reasoning behind the current direction rather than infer it from requirements alone.
+Competitor material is **reference evidence, not normative specification**. If it conflicts with `docs/core/`, the Core documents win.
 
 ## Current programme
 
@@ -30,15 +38,20 @@ High-level epics:
 7. **AUTO-01 — Pipeline Foundation**
 8. **AUTO-02 — Agent-authored Operations**
 
-See `CORE_MIGRATION.md` for exit gates and implementation order.
+## Task detail policy
+
+Planning uses progressive elaboration:
+
+- CORE-01 is fully implementation-ready;
+- CORE-02 is substantially decomposed and must be reviewed at the CORE-01 exit gate;
+- CORE-03 has constrained task skeletons and must be elaborated using CORE-02 evidence;
+- CORE-04 through AUTO-02 intentionally contain outcomes/constraints rather than speculative low-level tasks.
+
+This avoids both under-specifying the next agent task and creating a stale long-range backlog based on assumptions that early implementation may invalidate.
 
 ## One-sentence architecture
 
 **A Sheet is an Excel-like compositional workspace over one or more Datasets and Model Records, plus local and calculated columns; every value has provenance and every writable value has one authoritative write target.**
-
-## Current engineering priority
-
-Do not broaden specialist workspaces as the default next task. Converge existing work onto Models, Records, Datasets, Sheets, Views, Calculations and capabilities first.
 
 ## Golden workflow
 
@@ -50,7 +63,7 @@ The programme acceptance workflow is a Notebook Sheet that combines:
 - a local Observation column;
 - a calculated Recovery column;
 
-and supports inline/bulk Sample creation, correct write-back, saved views, provenance and eventual frozen submission evidence.
+and supports inline/bulk Sample creation, correct write-back, saved Views, provenance and eventual frozen submission evidence.
 
 ## Important existing work to preserve
 
@@ -63,17 +76,9 @@ and supports inline/bulk Sample creation, correct write-back, saved views, prove
 
 ## Product/market references
 
-The dated competitor research in `docs/references/eln-competitors/` covers:
+The dated competitor research in `docs/references/eln-competitors/` covers Benchling, Dotmatics, Revvity Signals Notebook, SciNote, Labguru and Sapio Sciences, plus cross-product patterns around structured capture, Models/schemas, Templates, permissions, workflows, APIs and AI.
 
-- Benchling;
-- Dotmatics;
-- Revvity Signals Notebook;
-- SciNote;
-- Labguru;
-- Sapio Sciences;
-- cross-product patterns around structured capture, Models/schemas, Templates, permissions, workflows, APIs and AI.
-
-Use it when evaluating whether a proposed interaction follows an established scientific-informatics pattern, where Sheetbase intentionally differs, or why the Core architecture separates Model/Dataset/Sheet/Template/Pipeline concepts.
+Use it to understand established scientific-informatics patterns and why Sheetbase intentionally separates Model/Dataset/Sheet/Template/Pipeline concepts.
 
 ## Work temporarily de-emphasised
 

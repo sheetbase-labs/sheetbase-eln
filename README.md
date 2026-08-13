@@ -1,6 +1,8 @@
 # Sheetbase
 
-Sheetbase is a document-first electronic laboratory notebook for scientific work. This repository currently contains the product foundation and the source material that will guide the application UI.
+Sheetbase is a scientific data workspace and electronic laboratory notebook. The notebook provides scientific context; Excel-like Sheets are the primary structured-data interaction surface; PostgreSQL remains authoritative.
+
+> **Current development programme:** Core Data Workspace. Before substantial domain or product work, read [`docs/core/README.md`](./docs/core/README.md). It links the canonical core product model, target architecture, migration map, epics and agent continuation guidance.
 
 ## Stack
 
@@ -8,7 +10,10 @@ Sheetbase is a document-first electronic laboratory notebook for scientific work
 - TanStack Query for server-state fetching and caching.
 - TanStack DB with query-backed collections for optimistic, live client views.
 - TanStack Table for headless tables and data grids.
+- Handsontable for Excel-like scientific Sheet interaction.
+- HyperFormula for deterministic spreadsheet calculation.
 - PostgreSQL with Drizzle ORM and migrations.
+- PostgREST for the primary data API with PostgreSQL row-level security.
 - Tailwind CSS 4 and shadcn/ui's source-owned component convention.
 - Vitest, Testing Library, ESLint, Prettier, and strict TypeScript.
 
@@ -73,13 +78,18 @@ managed-secret injection, promotion and rollback are documented in
   depend on it from `src/`.
 - `Mockups/` contains the approved product mockups and the product
   specification PDF. Reference only.
-- `docs/` holds working conventions (`conventions.md`, `migrations.md`,
-  `testing.md`, `seeds.md`, `database-access.md`, `authentication.md`) and
+- `docs/` holds working conventions, the active Core continuation pack and
   durable architectural decision records (`docs/decisions/`).
-- `PRODUCT.md` and `DESIGN.md` describe product and design intent;
+- `docs/core/` defines the current core product/architecture programme and
+  supersedes older assumptions where they conflict with its compositional
+  Sheet model.
+- `PRODUCT.md` and `DESIGN.md` describe broader product and design intent.
 - `docs/dev-environment.md` describes the disposable auth-free development
-  surface at `dev.sheetbase.co.uk`;
-- `ROADMAP.md` and `TODO.md` govern what gets built and in what order.
+  surface at `dev.sheetbase.co.uk`.
+- `ROADMAP.md` gives the high-level active epics. `TODO.md` contains historical
+  and executable implementation detail; new Core tickets should follow the
+  sequencing in `docs/core/CORE_MIGRATION.md` rather than blindly continuing
+  older phase order.
 
 Product components should be added through shadcn's source-owned pattern and
 then reconciled with the concept system. Copying the concept catalogue
@@ -87,3 +97,13 @@ wholesale would preserve decisions that are still under review. Naming rules
 for database objects, REST resources, domain identifiers and event types —
 plus when to use TanStack Table vs Handsontable — are in
 `docs/conventions.md`.
+
+## Current core mental model
+
+The durable product primitives are:
+
+**Model → Record → Dataset → Sheet/View → Calculation → Notebook → Pipeline**
+
+with Field Definitions and Policies/Capabilities shared across them.
+
+A Sheet can combine multiple Datasets and Model Records plus local and calculated columns. Every displayed value has inspectable provenance and every writable value has one authoritative write target. Sheets must support linking and creating Records directly, including bulk creation from pasted rows.

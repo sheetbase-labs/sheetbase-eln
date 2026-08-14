@@ -102,7 +102,7 @@ Implement reusable versioned Sheet Definitions and working Sheet Instances over 
   presentation defaults. Both TypeScript and PostgreSQL validate stable UUID
   uniqueness and required internal references. `sheet-definition-data.ts`
   exposes only RLS table reads and controlled RPC writes.
-- Focused proof passes: Sheet Definition domain/data tests 59/59, DB/RLS tests
+- Focused proof passes: Sheet Definition domain/data tests 61/61, DB/RLS tests
   10/10 and live PostgREST API tests 2/2. The shared TypeScript/public-DB
   parity matrix covers the non-nil RFC UUID dialect, strict calendar-aware
   RFC3339 timestamps and one-to-one calculation outputs. Compatibility DB
@@ -111,7 +111,7 @@ Implement reusable versioned Sheet Definitions and working Sheet Instances over 
   tests.
 - All 73 migrations (`0000`–`0072`) apply on a fresh database; the demo seed
   and a second idempotent demo seed pass. `pnpm validate` passes 143 files /
-  1,777 tests and the production build with
+  1,779 tests and the production build with
   zero lint errors (the existing warnings remain).
 - Existing scientific Sheet, Notebook, Template, formula and frozen-evidence
   persistence was not changed or adopted. No Sheet Instance, composition,

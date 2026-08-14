@@ -27,7 +27,9 @@ const isoDate = z
   .string()
   .regex(/^(\d{4})-(\d{2})-(\d{2})$/)
   .refine((value) => {
-    const [, year, month, day] = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)!
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+    if (!match) return false
+    const [, year, month, day] = match
     return isCalendarDate(Number(year), Number(month), Number(day))
   }, 'Invalid calendar date.')
 const isoTimestamp = z
@@ -39,7 +41,8 @@ const isoTimestamp = z
     const match =
       /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-](\d{2}):(\d{2}))$/.exec(
         value,
-      )!
+      )
+    if (!match) return false
     const [, year, month, day, hour, minute, second, offsetHour, offsetMinute] =
       match
     return (

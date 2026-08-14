@@ -277,6 +277,20 @@ export const sheetDefinitionInvalidCases: Array<{
       (value.columns[0].source.sourceFieldId =
         '00000000-0000-0000-0000-000000000000'),
   },
+  {
+    name: 'malformed date scalar',
+    mutate: (value) => {
+      value.parameters[0].type = { kind: 'scalar', valueType: 'date' }
+      value.parameters[0].defaultValue = 'not-a-date'
+    },
+  },
+  {
+    name: 'malformed timestamp scalar',
+    mutate: (value) => {
+      value.parameters[0].type = { kind: 'scalar', valueType: 'timestamp' }
+      value.parameters[0].defaultValue = 'not-a-timestamp'
+    },
+  },
   ...[
     ['February 30 timestamp', '2026-02-30T12:30:00Z'],
     ['non-leap February 29 timestamp', '2025-02-29T12:30:00Z'],

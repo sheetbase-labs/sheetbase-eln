@@ -435,6 +435,20 @@
       "when": 1786719600000,
       "tag": "0061_core_016_schema_capabilities",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1786694278456,
+      "tag": "0062_shallow_energizer",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1786695113021,
+      "tag": "0063_productive_the_captain",
+      "breakpoints": true
     }
   ]
 }

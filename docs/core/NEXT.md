@@ -8,9 +8,9 @@
 
 ## Active task
 
-**CORE-02.1 — Audit current scientific table/Dataset persistence**
+**CORE-02.2 — Decide Dataset physical storage and versioning**
 
-Task: [`tasks/CORE-02.md`](./tasks/CORE-02.md#core-021--audit-current-scientific-tabledataset-persistence)
+Task: [`tasks/CORE-02.md`](./tasks/CORE-02.md#core-022--decide-dataset-physical-storage-and-versioning)
 
 ## Completed in this PR
 
@@ -36,26 +36,27 @@ Task: [`tasks/CORE-02.md`](./tasks/CORE-02.md#core-021--audit-current-scientific
 
 ## Implement now
 
-Document the current scientific table/Dataset persistence from implementation
-evidence before selecting a physical Dataset strategy.
+Select Dataset physical storage and versioning from the CORE-02.1 evidence,
+then record the durable decision before implementation begins.
 
 This is **real production coding**, not another architecture pass.
 
 Key targets:
 
-- trace tables, migrations, RLS, APIs, formulas, and Explorer consumers;
-- record row/column identity, write/bulk behaviour, and scale assumptions;
-- recommend retain/adapt/deprecate candidates without choosing storage.
+- compare realistic PostgreSQL storage alternatives;
+- settle identity, live-state, immutable-version, schema-version, RLS, query,
+  bulk and formula/provenance contracts;
+- record the decision in an ADR.
 
 ## Do not
 
 - do not redesign the architecture already settled by ADRs 0020–0026;
-- do not create migrations or select Dataset physical storage;
+- do not implement Dataset storage before the ADR is accepted;
 - do not build the full unit-conversion or vocabulary-management product yet;
 - do not weaken RLS/server validation;
 - do not broaden paused specialist workspaces.
 
 ## Hand-off
 
-When CORE-01.7 is complete, record concrete completion evidence in
-`tasks/CORE-01.md` and advance this file to the next unblocked CORE-01 task.
+When CORE-02.2 is complete, record concrete completion evidence in
+`tasks/CORE-02.md` and advance this file to CORE-02.3.

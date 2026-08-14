@@ -24,6 +24,7 @@ Make Dataset the durable, API-addressable rectangular data object independent of
 # CORE-02.1 — Audit current scientific table/Dataset persistence
 
 **Blocked by:** Nothing.
+**Status:** Complete (2026-08-14).
 
 ## Goal
 
@@ -93,6 +94,14 @@ this audit compares viable alternatives.
 ## Exit gate
 
 The Dataset storage ADR can be written from evidence rather than assumptions.
+
+## Completion evidence
+
+- Added `docs/core/audits/DATASET_PERSISTENCE_AUDIT.md`, grounded in current
+  migrations, schema, RPC/RLS, formulas, Explorer/API consumers and tests.
+- The audit identifies generated table-per-sheet persistence as a compatibility
+  source rather than the independent Dataset primitive, and records the
+  identity, versioning, query and migration constraints for CORE-02.2.
 
 ---
 

@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {
   sheetDefinitionInvalidCases,
+  sheetDefinitionValidCases,
   validSheetDefinitionConfiguration,
 } from '../fixtures/sheet-definition'
 import { prepareTestDatabase } from './helpers'
@@ -241,14 +242,29 @@ describe('Sheet Definition persistence and authority', () => {
     }
   })
 
+  it('accepts the shared valid UUID and timestamp parity matrix at the public DB boundary', async () => {
+    const owner = await actor(OWNER_A, WS_A)
+    for (const [index, testCase] of sheetDefinitionValidCases.entries()) {
+      const configuration = structuredClone(validSheetDefinitionConfiguration())
+      testCase.mutate(configuration)
+      await expect(
+        owner.query(
+          `select api.create_sheet_definition($1,$2,'Valid parity matrix',null,$3::jsonb)`,
+          [WS_A, `valid_matrix_${index}`, JSON.stringify(configuration)],
+        ),
+        testCase.name,
+      ).resolves.toMatchObject({ rowCount: 1 })
+    }
+  })
+
   it('keeps guard triggers enabled and internal validators unavailable to API roles', async () => {
     const owner = await actor(OWNER_A, WS_A)
     const triggers = await migrator.query(
-      `select bool_and(tgenabled='O') enabled
+      `select count(*)::integer trigger_count,bool_and(tgenabled='O') enabled
        from pg_trigger
        where tgname in ('guard_sheet_definition','guard_sheet_definition_version')`,
     )
-    expect(triggers.rows[0].enabled).toBe(true)
+    expect(triggers.rows[0]).toEqual({ trigger_count: 2, enabled: true })
     await expect(
       owner.query(
         `select internal.validate_sheet_definition_configuration($1::jsonb)`,

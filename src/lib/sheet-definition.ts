@@ -7,15 +7,50 @@ import {
 
 export const SHEET_DEFINITION_CONFIGURATION_FORMAT_VERSION = 1 as const
 
-const uuid = z.uuid()
+const uuid = z
+  .string()
+  .regex(
+    /^(?!00000000-0000-0000-0000-000000000000$)[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+  )
 const key = z.string().regex(/^[a-z][a-z0-9_]{0,59}$/)
 const label = z.string().trim().min(1).max(200)
 const jsonObject = z.record(z.string(), z.unknown())
-const isoDate = z.iso.date()
+
+function isCalendarDate(year: number, month: number, day: number) {
+  if (year < 1 || month < 1 || month > 12 || day < 1) return false
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)
+  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+  return day <= days[month - 1]
+}
+
+const isoDate = z
+  .string()
+  .regex(/^(\d{4})-(\d{2})-(\d{2})$/)
+  .refine((value) => {
+    const [, year, month, day] = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)!
+    return isCalendarDate(Number(year), Number(month), Number(day))
+  }, 'Invalid calendar date.')
 const isoTimestamp = z
   .string()
-  .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/)
-  .refine((value) => !Number.isNaN(Date.parse(value)), 'Invalid timestamp.')
+  .regex(
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-](\d{2}):(\d{2}))$/,
+  )
+  .refine((value) => {
+    const match =
+      /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-](\d{2}):(\d{2}))$/.exec(
+        value,
+      )!
+    const [, year, month, day, hour, minute, second, offsetHour, offsetMinute] =
+      match
+    return (
+      isCalendarDate(Number(year), Number(month), Number(day)) &&
+      Number(hour) <= 23 &&
+      Number(minute) <= 59 &&
+      Number(second) <= 59 &&
+      (value.endsWith('Z') ||
+        (Number(offsetHour) <= 23 && Number(offsetMinute) <= 59))
+    )
+  }, 'Invalid RFC3339 timestamp.')
 
 function scalarValueSchema(valueType: (typeof FIELD_LOGICAL_TYPES)[number]) {
   switch (valueType) {
@@ -526,12 +561,15 @@ const configurationSchema = z
         ['calculations', index, 'outputColumnId'],
         'Unknown output column ID.',
       )
-      const output = columnsById.get(item.outputColumnId)
+      const outputs = configuration.columns.filter(
+        (column) =>
+          column.source.kind === 'calculated' &&
+          column.source.calculationId === item.id,
+      )
       requireRef(
-        output?.source.kind === 'calculated' &&
-          output.source.calculationId === item.id,
+        outputs.length === 1 && outputs[0].id === item.outputColumnId,
         ['calculations', index, 'outputColumnId'],
-        'Calculation output must be its corresponding calculated column.',
+        'Calculation must have exactly one corresponding output column.',
       )
       item.inputColumnIds.forEach((id) =>
         requireRef(

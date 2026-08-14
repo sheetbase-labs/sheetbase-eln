@@ -253,6 +253,85 @@ export const sheetDefinitionInvalidCases: Array<{
       }
     },
   },
+  {
+    name: 'UUID version 0',
+    mutate: (value) =>
+      (value.columns[0].source.sourceFieldId =
+        'a0000000-0000-0000-8000-000000000001'),
+  },
+  {
+    name: 'UUID version 9',
+    mutate: (value) =>
+      (value.columns[0].source.sourceFieldId =
+        'a0000000-0000-9000-8000-000000000001'),
+  },
+  {
+    name: 'UUID version f',
+    mutate: (value) =>
+      (value.columns[0].source.sourceFieldId =
+        'a0000000-0000-f000-8000-000000000001'),
+  },
+  {
+    name: 'nil UUID',
+    mutate: (value) =>
+      (value.columns[0].source.sourceFieldId =
+        '00000000-0000-0000-0000-000000000000'),
+  },
+  ...[
+    ['February 30 timestamp', '2026-02-30T12:30:00Z'],
+    ['non-leap February 29 timestamp', '2025-02-29T12:30:00Z'],
+    ['24-hour timestamp', '2026-08-14T24:00:00Z'],
+    ['invalid timestamp minute', '2026-08-14T12:60:00Z'],
+    ['invalid timestamp second', '2026-08-14T12:30:60Z'],
+    ['out-of-range timestamp offset hour', '2026-08-14T12:30:00+24:00'],
+    ['out-of-range timestamp offset minute', '2026-08-14T12:30:00+12:60'],
+  ].map(([name, timestamp]) => ({
+    name,
+    mutate: (value: any) => {
+      value.parameters[0].type = { kind: 'scalar', valueType: 'timestamp' }
+      value.parameters[0].defaultValue = timestamp
+    },
+  })),
+  {
+    name: 'one calculation referenced by two calculated columns',
+    mutate: (value) => {
+      const duplicate = structuredClone(value.columns[2])
+      duplicate.id = '30000000-0000-4000-8000-000000000004'
+      duplicate.field.fieldId = duplicate.id
+      duplicate.field.key = 'second_summary'
+      value.columns.push(duplicate)
+      value.presentation.columnOrder.push(duplicate.id)
+    },
+  },
+]
+
+export const sheetDefinitionValidCases: Array<{
+  name: string
+  mutate: (value: any) => void
+}> = [
+  {
+    name: 'UUID version 7',
+    mutate: (value) =>
+      (value.columns[0].source.sourceFieldId =
+        'a0000000-0000-7000-8000-000000000001'),
+  },
+  {
+    name: 'UUID version 8',
+    mutate: (value) =>
+      (value.columns[0].source.sourceFieldId =
+        'a0000000-0000-8000-b000-000000000001'),
+  },
+  ...[
+    ['leap-day timestamp', '2024-02-29T23:59:59Z'],
+    ['Z timestamp', '2026-08-14T12:30:00.123Z'],
+    ['offset timestamp', '2026-08-14T12:30:00-23:59'],
+  ].map(([name, timestamp]) => ({
+    name,
+    mutate: (value: any) => {
+      value.parameters[0].type = { kind: 'scalar', valueType: 'timestamp' }
+      value.parameters[0].defaultValue = timestamp
+    },
+  })),
 ]
 
 export { ids as sheetDefinitionFixtureIds }

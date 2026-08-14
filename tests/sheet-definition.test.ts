@@ -11,6 +11,7 @@ import { safeParseSheetDefinitionConfiguration } from '#/lib/sheet-definition'
 import {
   sheetDefinitionFixtureIds as ids,
   sheetDefinitionInvalidCases,
+  sheetDefinitionValidCases,
   validSheetDefinitionConfiguration,
 } from './fixtures/sheet-definition'
 
@@ -126,14 +127,16 @@ describe('Sheet Definition configuration contract', () => {
     },
   )
 
-  it('accepts RFC UUID variants beyond versions 1–5', () => {
-    const configuration = structuredClone(validSheetDefinitionConfiguration())
-    configuration.columns[0].source.sourceFieldId =
-      'a0000000-0000-7000-8000-000000000003'
-    expect(safeParseSheetDefinitionConfiguration(configuration).success).toBe(
-      true,
-    )
-  })
+  it.each(sheetDefinitionValidCases)(
+    'accepts $name identically at the typed boundary',
+    ({ mutate }) => {
+      const configuration = structuredClone(validSheetDefinitionConfiguration())
+      mutate(configuration)
+      expect(safeParseSheetDefinitionConfiguration(configuration).success).toBe(
+        true,
+      )
+    },
+  )
 })
 
 describe('Sheet Definition data boundary', () => {

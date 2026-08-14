@@ -61,11 +61,11 @@ async function cleanup() {
 
 async function expectGuardsEnabled() {
   const result = await admin.query(
-    `select bool_and(tgenabled='O') enabled
+    `select count(*)::integer trigger_count,bool_and(tgenabled='O') enabled
      from pg_trigger
      where tgname in ('guard_sheet_definition','guard_sheet_definition_version')`,
   )
-  expect(result.rows[0].enabled).toBe(true)
+  expect(result.rows[0]).toEqual({ trigger_count: 2, enabled: true })
 }
 
 beforeAll(async () => {

@@ -4,10 +4,32 @@
 CREATE OR REPLACE FUNCTION internal.sheet_definition_uuid(p_value text, p_path text)
 RETURNS uuid LANGUAGE plpgsql IMMUTABLE SET search_path='' AS $$
 BEGIN
-  IF p_value IS NULL OR p_value !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' THEN
+  IF p_value IS NULL OR p_value='00000000-0000-0000-0000-000000000000' OR p_value !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' THEN
     RAISE EXCEPTION 'invalid Sheet Definition UUID at %',p_path USING ERRCODE='SB071';
   END IF;
   RETURN p_value::uuid;
+END $$;
+
+CREATE OR REPLACE FUNCTION internal.sheet_definition_date_matches(p_value text)
+RETURNS boolean LANGUAGE plpgsql IMMUTABLE SET search_path='' AS $$
+DECLARE parts text[]; year integer; month integer; day integer; max_day integer;
+BEGIN
+  parts:=regexp_match(p_value,'^([0-9]{4})-([0-9]{2})-([0-9]{2})$');
+  IF parts IS NULL THEN RETURN false; END IF;
+  year:=parts[1]::integer; month:=parts[2]::integer; day:=parts[3]::integer;
+  IF year<1 OR month NOT BETWEEN 1 AND 12 OR day<1 THEN RETURN false; END IF;
+  max_day:=CASE month WHEN 2 THEN CASE WHEN year%4=0 AND (year%100<>0 OR year%400=0) THEN 29 ELSE 28 END WHEN 4 THEN 30 WHEN 6 THEN 30 WHEN 9 THEN 30 WHEN 11 THEN 30 ELSE 31 END;
+  RETURN day<=max_day;
+END $$;
+
+CREATE OR REPLACE FUNCTION internal.sheet_definition_timestamp_matches(p_value text)
+RETURNS boolean LANGUAGE plpgsql IMMUTABLE SET search_path='' AS $$
+DECLARE parts text[];
+BEGIN
+  parts:=regexp_match(p_value,'^([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2}):([0-9]{2}):([0-9]{2})(\.[0-9]+)?(Z|[+-]([0-9]{2}):([0-9]{2}))$');
+  IF parts IS NULL OR NOT internal.sheet_definition_date_matches(parts[1]||'-'||parts[2]||'-'||parts[3]) THEN RETURN false; END IF;
+  RETURN parts[4]::integer<=23 AND parts[5]::integer<=59 AND parts[6]::integer<=59
+    AND (parts[8]='Z' OR (parts[9]::integer<=23 AND parts[10]::integer<=59));
 END $$;
 
 CREATE OR REPLACE FUNCTION internal.sheet_definition_scalar_matches(p_type text,p_value jsonb)
@@ -25,11 +47,9 @@ BEGIN
     PERFORM value_text::double precision; RETURN true;
   ELSIF p_type='boolean' THEN RETURN jsonb_typeof(p_value)='boolean';
   ELSIF p_type='date' THEN
-    IF jsonb_typeof(p_value)<>'string' OR value_text !~ '^\d{4}-\d{2}-\d{2}$' THEN RETURN false; END IF;
-    RETURN to_char(value_text::date,'YYYY-MM-DD')=value_text;
+    RETURN jsonb_typeof(p_value)='string' AND internal.sheet_definition_date_matches(value_text);
   ELSIF p_type='timestamp' THEN
-    IF jsonb_typeof(p_value)<>'string' OR value_text !~ '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$' THEN RETURN false; END IF;
-    PERFORM value_text::timestamptz; RETURN true;
+    RETURN jsonb_typeof(p_value)='string' AND internal.sheet_definition_timestamp_matches(value_text);
   ELSIF p_type IN ('category','reference') THEN
     IF jsonb_typeof(p_value)<>'string' THEN RETURN false; END IF;
     PERFORM internal.sheet_definition_uuid(value_text,'scalar'); RETURN true;
@@ -212,7 +232,8 @@ BEGIN
     IF id=ANY(calculation_ids) OR item->>'key'=ANY(calculation_keys) OR item->>'key' !~ '^[a-z][a-z0-9_]{0,59}$' OR length(btrim(item->>'label')) NOT BETWEEN 1 AND 200
        OR internal.sheet_definition_uuid(item->>'outputColumnId','calculations.outputColumnId')::text<>ALL(column_ids)
        OR jsonb_typeof(item->'inputColumnIds')<>'array' OR jsonb_array_length(item->'inputColumnIds')>64 THEN RAISE EXCEPTION 'invalid or unresolved Sheet Definition calculation' USING ERRCODE='SB071'; END IF;
-    IF NOT EXISTS(SELECT 1 FROM jsonb_array_elements(p_config->'columns') column_item WHERE column_item->>'id'=item->>'outputColumnId' AND column_item->'source'->>'kind'='calculated' AND column_item->'source'->>'calculationId'=id) THEN RAISE EXCEPTION 'calculation output must be its corresponding calculated column' USING ERRCODE='SB071'; END IF;
+    IF (SELECT count(*) FROM jsonb_array_elements(p_config->'columns') column_item WHERE column_item->'source'->>'kind'='calculated' AND column_item->'source'->>'calculationId'=id)<>1
+       OR NOT EXISTS(SELECT 1 FROM jsonb_array_elements(p_config->'columns') column_item WHERE column_item->>'id'=item->>'outputColumnId' AND column_item->'source'->>'kind'='calculated' AND column_item->'source'->>'calculationId'=id) THEN RAISE EXCEPTION 'calculation must have exactly one corresponding output column' USING ERRCODE='SB071'; END IF;
     FOR nested IN SELECT value FROM jsonb_array_elements(item->'inputColumnIds') LOOP IF internal.sheet_definition_uuid(nested#>>'{}','calculations.inputColumnIds')::text<>ALL(column_ids) THEN RAISE EXCEPTION 'calculation references unknown input column' USING ERRCODE='SB071'; END IF; END LOOP;
     PERFORM internal.assert_sheet_definition_object(item->'expression',ARRAY['language','source'],ARRAY['language','source'],'calculations.expression');
     IF item->'expression'->>'language'<>'sheetbase-formula-v1' OR length(btrim(item->'expression'->>'source')) NOT BETWEEN 1 AND 8192 THEN RAISE EXCEPTION 'invalid calculation expression' USING ERRCODE='SB071'; END IF;
@@ -299,7 +320,7 @@ BEGIN
 END $$;
 CREATE TRIGGER guard_sheet_definition_version BEFORE INSERT OR UPDATE OR DELETE ON api.sheet_definition_versions FOR EACH ROW EXECUTE FUNCTION internal.guard_sheet_definition_version();
 
-REVOKE EXECUTE ON FUNCTION internal.sheet_definition_uuid(text,text),internal.sheet_definition_scalar_matches(text,jsonb),internal.assert_sheet_definition_object(jsonb,text[],text[],text),internal.validate_sheet_field_definition(jsonb,text),internal.validate_sheet_definition_configuration(jsonb),internal.guard_sheet_definition(),internal.guard_sheet_definition_version() FROM PUBLIC,authenticated,api_client;
+REVOKE EXECUTE ON FUNCTION internal.sheet_definition_uuid(text,text),internal.sheet_definition_date_matches(text),internal.sheet_definition_timestamp_matches(text),internal.sheet_definition_scalar_matches(text,jsonb),internal.assert_sheet_definition_object(jsonb,text[],text[],text),internal.validate_sheet_field_definition(jsonb,text),internal.validate_sheet_definition_configuration(jsonb),internal.guard_sheet_definition(),internal.guard_sheet_definition_version() FROM PUBLIC,authenticated,api_client;
 
 ALTER TABLE api.sheet_definitions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE api.sheet_definition_versions ENABLE ROW LEVEL SECURITY;

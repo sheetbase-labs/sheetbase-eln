@@ -197,6 +197,7 @@ A Dataset and its Schema can exist and be addressed through the authenticated AP
 # CORE-02.4 — Implement stable rows, fields and typed validation
 
 **Blocked by:** CORE-02.3.
+**Status:** Complete (2026-08-14).
 
 ## Goal
 
@@ -221,6 +222,16 @@ Treat a failed client validator as sufficient enforcement.
 ## Exit gate
 
 Valid rows persist; invalid typed values are rejected with precise field/row errors; IDs survive reorder/rename operations.
+
+## Completion evidence
+
+- Added `dataset_rows` and typed `dataset_row_values` in migration
+  `0064_neat_mimic.sql`, retaining stable row/field IDs and indexed numeric,
+  category and reference access paths.
+- PostgreSQL trigger validation rejects unknown/retired fields, multiple value
+  slots and logical-type mismatches before persistence.
+- `tests/db/datasets.test.ts` proves typed numeric persistence, type rejection
+  and workspace isolation.
 
 ---
 

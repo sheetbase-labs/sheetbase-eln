@@ -11,6 +11,8 @@ const OWNER_B = 'dataset-owner-b'
 let migrator: Client
 let asRole: (role: 'authenticator') => Promise<Client>
 const clients: Client[] = []
+let datasetId: string
+let titreFieldId: string
 
 async function actor(userId: string, workspaceId: string) {
   const client = await asRole('authenticator')
@@ -59,9 +61,9 @@ describe('canonical Dataset metadata', () => {
         [schema.id, OWNER_A],
       )
     ).rows[0]
-    await owner.query(
+    const field = await owner.query(
       `insert into api.dataset_schema_version_fields(schema_version_id,field_id,key,label,logical_type,display_order)
-       values($1,gen_random_uuid(),'titre','Titre','decimal',1)`,
+       values($1,gen_random_uuid(),'titre','Titre','decimal',1) returning field_id`,
       [version.id],
     )
     const dataset = await owner.query(
@@ -74,6 +76,8 @@ describe('canonical Dataset metadata', () => {
       revision: '1',
       lifecycle: 'active',
     })
+    datasetId = dataset.rows[0].id
+    titreFieldId = field.rows[0].field_id
     expect(
       await owner.query(
         `select f.key from api.datasets d
@@ -83,6 +87,24 @@ describe('canonical Dataset metadata', () => {
         [dataset.rows[0].id],
       ),
     ).toMatchObject({ rows: [{ key: 'titre' }] })
+  })
+
+  it('persists stable typed values and rejects mismatched storage types', async () => {
+    const owner = await actor(OWNER_A, WS_A)
+    const row = await owner.query(
+      `insert into api.dataset_rows(dataset_id,workspace_id) values($1,$2) returning id`,
+      [datasetId, WS_A],
+    )
+    await owner.query(
+      `insert into api.dataset_row_values(row_id,field_id,numeric_value) values($1,$2,100000000)`,
+      [row.rows[0].id, titreFieldId],
+    )
+    await expect(
+      owner.query(
+        `insert into api.dataset_row_values(row_id,field_id,text_value) values($1,$2,'not numeric')`,
+        [row.rows[0].id, titreFieldId],
+      ),
+    ).rejects.toMatchObject({ code: '22023' })
   })
 
   it('keeps Dataset and schema metadata workspace-isolated', async () => {

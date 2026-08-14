@@ -8,9 +8,9 @@
 
 ## Active task
 
-**CORE-02.4 — Implement stable rows, fields and typed validation**
+**CORE-02.5 — Add atomic bulk validate/commit operations**
 
-Task: [`tasks/CORE-02.md`](./tasks/CORE-02.md#core-024--implement-stable-rows-fields-and-typed-validation)
+Task: [`tasks/CORE-02.md`](./tasks/CORE-02.md#core-025--add-atomic-bulk-validatecommit-operations)
 
 ## Completed in this PR
 
@@ -36,26 +36,26 @@ Task: [`tasks/CORE-02.md`](./tasks/CORE-02.md#core-024--implement-stable-rows-fi
 
 ## Implement now
 
-Implement stable typed Dataset rows and values with PostgreSQL-authoritative
-canonical FieldDefinition validation.
+Add controlled, idempotent atomic bulk validation and commit operations for
+Dataset rows.
 
 This is **real production coding**, not another architecture pass.
 
 Key targets:
 
-- add stable row and typed-value persistence;
-- validate canonical field types, categories, references and quantities;
-- return structured validation errors.
+- validate realistic multi-row payloads;
+- return structured row/field errors without partial writes;
+- preserve optimistic concurrency and retry safety.
 
 ## Do not
 
 - do not redesign the architecture already settled by ADRs 0020–0026;
-- do not build bulk commit or Sheet UI yet;
+- do not build Sheet UI yet;
 - do not build the full unit-conversion or vocabulary-management product yet;
 - do not weaken RLS/server validation;
 - do not broaden paused specialist workspaces.
 
 ## Hand-off
 
-When CORE-02.4 is complete, record concrete completion evidence in
-`tasks/CORE-02.md` and advance this file to CORE-02.5.
+When CORE-02.5 is complete, record concrete completion evidence in
+`tasks/CORE-02.md` and advance this file to CORE-02.6.

@@ -2124,6 +2124,64 @@ export const datasets = api.table(
   ],
 )
 
+export const datasetRows = api.table(
+  'dataset_rows',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    datasetId: uuid('dataset_id')
+      .notNull()
+      .references(() => datasets.id, { onDelete: 'cascade' }),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    revision: bigint('revision', { mode: 'bigint' })
+      .notNull()
+      .default(sql`1`),
+    ...timestamps,
+  },
+  (table) => [
+    check('chk_dataset_rows_revision', sql`${table.revision} > 0`),
+    index('idx_dataset_rows_dataset').on(table.datasetId),
+    index('idx_dataset_rows_workspace').on(table.workspaceId),
+  ],
+)
+
+export const datasetRowValues = api.table(
+  'dataset_row_values',
+  {
+    rowId: uuid('row_id')
+      .notNull()
+      .references(() => datasetRows.id, { onDelete: 'cascade' }),
+    fieldId: uuid('field_id').notNull(),
+    textValue: text('text_value'),
+    integerValue: bigint('integer_value', { mode: 'bigint' }),
+    numericValue: numeric('numeric_value'),
+    booleanValue: boolean('boolean_value'),
+    dateValue: date('date_value'),
+    timestampValue: timestamp('timestamp_value', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    categoryOptionId: uuid('category_option_id'),
+    referenceId: uuid('reference_id'),
+  },
+  (table) => [
+    primaryKey({ columns: [table.rowId, table.fieldId] }),
+    index('idx_dataset_row_values_field_numeric').on(
+      table.fieldId,
+      table.numericValue,
+    ),
+    index('idx_dataset_row_values_field_reference').on(
+      table.fieldId,
+      table.referenceId,
+    ),
+    index('idx_dataset_row_values_field_category').on(
+      table.fieldId,
+      table.categoryOptionId,
+    ),
+  ],
+)
+
 // SCI-011: typed, directed relationships between dataset schemas (decision
 // 0035). Slug-level (not revision-level): source/target point to the latest
 // published revision and are repointed on publish. Soft-deleted via lifecycle.

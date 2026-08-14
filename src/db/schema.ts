@@ -1970,6 +1970,160 @@ export const datasetSchemaFields = api.table(
   ],
 )
 
+// CORE-02: canonical Dataset Schema identity is separate from the legacy
+// revision-row registry above. Versions carry immutable FieldDefinition
+// metadata; existing scientific tables remain a compatibility source.
+export const datasetSchemaDefinitions = api.table(
+  'dataset_schema_definitions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    key: text('key').notNull(),
+    name: text('name').notNull(),
+    description: text('description'),
+    lifecycle: text('lifecycle').notNull().default('draft'),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    unique('uq_dataset_schema_definitions_workspace_key').on(
+      table.workspaceId,
+      table.key,
+    ),
+    check(
+      'chk_dataset_schema_definitions_key',
+      sql`${table.key} ~ '^[a-z][a-z0-9_]{0,59}$'`,
+    ),
+    check(
+      'chk_dataset_schema_definitions_lifecycle',
+      sql`${table.lifecycle} IN ('draft','active','retired')`,
+    ),
+    index('idx_dataset_schema_definitions_workspace').on(table.workspaceId),
+  ],
+)
+
+export const datasetSchemaVersions = api.table(
+  'dataset_schema_versions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    schemaId: uuid('schema_id')
+      .notNull()
+      .references(() => datasetSchemaDefinitions.id, { onDelete: 'cascade' }),
+    version: integer('version').notNull(),
+    lifecycle: text('lifecycle').notNull().default('draft'),
+    ...timestamps,
+    publishedAt: timestamp('published_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    unique('uq_dataset_schema_versions_schema_version').on(
+      table.schemaId,
+      table.version,
+    ),
+    check('chk_dataset_schema_versions_version', sql`${table.version} > 0`),
+    check(
+      'chk_dataset_schema_versions_lifecycle',
+      sql`${table.lifecycle} IN ('draft','active','retired')`,
+    ),
+    index('idx_dataset_schema_versions_schema').on(table.schemaId),
+  ],
+)
+
+export const datasetSchemaVersionFields = api.table(
+  'dataset_schema_version_fields',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    schemaVersionId: uuid('schema_version_id')
+      .notNull()
+      .references(() => datasetSchemaVersions.id, { onDelete: 'cascade' }),
+    fieldId: uuid('field_id').notNull(),
+    key: text('key').notNull(),
+    label: text('label').notNull(),
+    description: text('description'),
+    logicalType: text('logical_type').notNull(),
+    nullable: boolean('nullable').notNull().default(true),
+    defaultValue: jsonb('default_value'),
+    quantity: jsonb('quantity'),
+    validation: jsonb('validation')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    category: jsonb('category'),
+    relationship: jsonb('relationship'),
+    cardinality: text('cardinality').notNull().default('one'),
+    lifecycle: text('lifecycle').notNull().default('active'),
+    displayOrder: integer('display_order').notNull(),
+  },
+  (table) => [
+    unique('uq_dataset_schema_version_fields_version_key').on(
+      table.schemaVersionId,
+      table.key,
+    ),
+    unique('uq_dataset_schema_version_fields_version_field').on(
+      table.schemaVersionId,
+      table.fieldId,
+    ),
+    check(
+      'chk_dataset_schema_version_fields_type',
+      sql`${table.logicalType} IN ('text','integer','decimal','boolean','date','timestamp','category','reference')`,
+    ),
+    check(
+      'chk_dataset_schema_version_fields_cardinality',
+      sql`${table.cardinality} IN ('one','many')`,
+    ),
+    check(
+      'chk_dataset_schema_version_fields_lifecycle',
+      sql`${table.lifecycle} IN ('active','retired')`,
+    ),
+    index('idx_dataset_schema_version_fields_version').on(
+      table.schemaVersionId,
+    ),
+  ],
+)
+
+export const datasets = api.table(
+  'datasets',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    primaryProjectId: uuid('primary_project_id').references(() => projects.id, {
+      onDelete: 'set null',
+    }),
+    schemaVersionId: uuid('schema_version_id')
+      .notNull()
+      .references(() => datasetSchemaVersions.id, { onDelete: 'restrict' }),
+    name: text('name').notNull(),
+    description: text('description'),
+    lifecycle: text('lifecycle').notNull().default('active'),
+    revision: bigint('revision', { mode: 'bigint' })
+      .notNull()
+      .default(sql`1`),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    check(
+      'chk_datasets_lifecycle',
+      sql`${table.lifecycle} IN ('active','archived')`,
+    ),
+    check('chk_datasets_revision', sql`${table.revision} > 0`),
+    index('idx_datasets_workspace').on(table.workspaceId),
+    index('idx_datasets_schema_version').on(table.schemaVersionId),
+  ],
+)
+
 // SCI-011: typed, directed relationships between dataset schemas (decision
 // 0035). Slug-level (not revision-level): source/target point to the latest
 // published revision and are repointed on publish. Soft-deleted via lifecycle.

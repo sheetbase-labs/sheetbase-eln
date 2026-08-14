@@ -8,9 +8,9 @@
 
 ## Active task
 
-**CORE-02.3 — Implement Dataset and Dataset Schema metadata**
+**CORE-02.4 — Implement stable rows, fields and typed validation**
 
-Task: [`tasks/CORE-02.md`](./tasks/CORE-02.md#core-023--implement-dataset-and-dataset-schema-metadata)
+Task: [`tasks/CORE-02.md`](./tasks/CORE-02.md#core-024--implement-stable-rows-fields-and-typed-validation)
 
 ## Completed in this PR
 
@@ -36,26 +36,26 @@ Task: [`tasks/CORE-02.md`](./tasks/CORE-02.md#core-023--implement-dataset-and-da
 
 ## Implement now
 
-Implement independently addressable Dataset and Dataset Schema metadata from
-ADR 0037 without building Sheet UI.
+Implement stable typed Dataset rows and values with PostgreSQL-authoritative
+canonical FieldDefinition validation.
 
 This is **real production coding**, not another architecture pass.
 
 Key targets:
 
-- add additive metadata/RLS migration(s) and typed domain/API contracts;
-- make Dataset independently addressable without a Sheet;
-- prove lifecycle and workspace isolation.
+- add stable row and typed-value persistence;
+- validate canonical field types, categories, references and quantities;
+- return structured validation errors.
 
 ## Do not
 
 - do not redesign the architecture already settled by ADRs 0020–0026;
-- do not build rows/values, bulk mutation or Sheet UI yet;
+- do not build bulk commit or Sheet UI yet;
 - do not build the full unit-conversion or vocabulary-management product yet;
 - do not weaken RLS/server validation;
 - do not broaden paused specialist workspaces.
 
 ## Hand-off
 
-When CORE-02.3 is complete, record concrete completion evidence in
-`tasks/CORE-02.md` and advance this file to CORE-02.4.
+When CORE-02.4 is complete, record concrete completion evidence in
+`tasks/CORE-02.md` and advance this file to CORE-02.5.

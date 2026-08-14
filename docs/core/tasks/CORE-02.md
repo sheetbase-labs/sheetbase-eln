@@ -159,6 +159,7 @@ A reviewed ADR gives CORE-02.3 a concrete migration target.
 # CORE-02.3 — Implement Dataset and Dataset Schema metadata
 
 **Blocked by:** CORE-02.2.
+**Status:** Complete (2026-08-14).
 
 ## Goal
 
@@ -181,6 +182,15 @@ Build Sheet UI in this task.
 ## Exit gate
 
 A Dataset and its Schema can exist and be addressed through the authenticated API without any Sheet.
+
+## Completion evidence
+
+- Added `dataset_schema_definitions`, immutable `dataset_schema_versions`,
+  canonical version fields and independently addressable `datasets` in
+  migrations `0062_shallow_energizer.sql` and `0063_productive_the_captain.sql`.
+- Added workspace RLS and schema-capability-protected metadata writes.
+- Added `tests/db/datasets.test.ts` covering Dataset/Schema binding and
+  workspace isolation.
 
 ---
 

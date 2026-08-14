@@ -1,0 +1,233 @@
+# CORE-06 — Notebook Templates, Sharing and Frozen Evidence
+
+**Status:** Planned / implementation-ready after CORE-05  
+**Blocked by:** CORE-05 epic exit gate.  
+**Normative decisions:** ADRs 0020–0024 and existing Notebook revision/signature architecture.
+
+## Epic goal
+
+Make Sheet Instances native Notebook working objects, make Notebook Templates safely reusable, and make submitted/reviewed Notebook evidence reconstruct exact structured state.
+
+## Invariants
+
+- Notebook is context, not hidden owner of all embedded data.
+- Template composition does not use inheritance.
+- Templates pin Sheet Definition versions by default.
+- Normal Template instantiation creates independent Sheet Instances.
+- Shared live Instances are deliberate and visibly shared.
+- Submitted evidence never depends on mutable live state.
+- Dataset evidence resolves to immutable Dataset Versions.
+- Model/Field semantic manifests remain reconstructable.
+- Existing revision/signature/audit guarantees are preserved.
+
+---
+
+## CORE-06.1 — Audit Notebook, Template, revision and submission persistence
+
+**Goal:** Map current Notebook blocks, Templates, revision envelopes, signatures/review state, Sheet/table blocks, charts/files and submission flow to the target semantics.
+
+**Deliverables:** `docs/core/audits/NOTEBOOK_EVIDENCE_AUDIT.md`; exact files/tables/RPCs; current live/copy/snapshot behaviour; keep/adapt/deprecate map; evidence gaps.
+
+**Data/API changes:** None.
+
+**Exit gate:** frozen-evidence implementation is grounded in existing revision/signature contracts.
+
+---
+
+## CORE-06.2 — Make Notebook Sheet blocks reference durable Sheet Instances
+
+**Blocked by:** CORE-06.1, CORE-03.
+
+**Goal:** Ensure a Notebook Sheet block embeds/references a Sheet Instance rather than owning a parallel scientific table truth.
+
+**Deliverables:** block contract; Instance identity; presentation/embed state; load/error/permission states; migration/compatibility for existing Sheet blocks.
+
+**Must preserve:** existing Notebook layout/editor behaviour and Sheet data.
+
+**Do not:** copy Dataset/local values into block JSON as authoritative state.
+
+**Tests:** create/embed/reload/move block; deleted/archived permission states; existing Notebook migration.
+
+**Exit gate:** Notebook and standalone/shared contexts render the same durable Sheet Instance.
+
+---
+
+## CORE-06.3 — Implement organisation-level Notebook Template versions
+
+**Blocked by:** CORE-06.1, CORE-05 capabilities.
+
+**Goal:** Make Notebook Templates reusable versioned organisational configuration.
+
+**Deliverables:** stable Template identity; immutable published versions; draft/publish/retire; block instructions; parameters; pinned dependency references; RLS/capabilities/API.
+
+**Do not:** use Template inheritance; store experiment-specific working values.
+
+**Tests:** version pinning, publish/retire, permission, historical Template version resolution.
+
+**Exit gate:** a published Template version is a stable composition dependency.
+
+---
+
+## CORE-06.4 — Implement Template parameter flow
+
+**Blocked by:** CORE-06.3 and shared Parameter contract.
+
+**Goal:** Resolve Template parameters once and pass them to nested Sheet Definitions/other blocks where compatible.
+
+**Deliverables:** parameter declaration/binding; defaults; required prompts; nested mapping; validation; resolution provenance.
+
+**Do not:** create a separate Template-only parameter language.
+
+**Tests:** Study Record passed to Sheet Definition; Dataset parameter; missing/incompatible parameter; default.
+
+**Exit gate:** reusable Templates can instantiate meaningful scientific work without hard-coded project data.
+
+---
+
+## CORE-06.5 — Implement default `create_instance` Sheet Template blocks
+
+**Blocked by:** CORE-06.2–06.4.
+
+**Goal:** Instantiate independent Sheet Instances from pinned Sheet Definition versions during Notebook creation.
+
+**Deliverables:** atomic/compensating Template instantiation semantics; resolved parameters/bindings; source Definition/version provenance; independent local values; failure reporting.
+
+**Tests:** two Notebooks from one Template create independent Instances; same Dataset may be reused; failed required binding does not leave misleading partial state.
+
+**Exit gate:** standard Template use never accidentally shares working Sheet state.
+
+---
+
+## CORE-06.6 — Implement explicit shared-live Sheet blocks
+
+**Blocked by:** CORE-06.2, CORE-03 sharing/lifecycle.
+
+**Goal:** Allow deliberate embedding of an existing live Sheet Instance in multiple locations.
+
+**Deliverables:** `reference_shared_instance` contract; permission check; obvious shared-state indicator/location count where practical; edit semantics; archive/lifecycle state.
+
+**UX:** users must reasonably understand that editing here changes the same Sheet elsewhere.
+
+**Tests:** two Notebooks see same local edit; permissions differ; archive behaviour.
+
+**Exit gate:** shared working state is useful but never accidental/hidden.
+
+---
+
+## CORE-06.7 — Define and implement structured evidence snapshot contract
+
+**Blocked by:** CORE-06.1/06.2 and CORE-02/03 versioning.
+
+**Goal:** Capture exactly the structured state required for reconstructable Notebook submission/review.
+
+**Snapshot must reference/capture as relevant:** Dataset Versions; Model/Field semantic manifests; Sheet Definition versions; Sheet Instance local-field definitions/values; resolved bindings; calculations and required results/evidence; presentation state only where evidentially relevant; File Artifact identities/checksums where applicable.
+
+**ADR trigger:** physical snapshot storage/dedup strategy if multiple viable durable approaches exist.
+
+**Do not:** rely on replaying the audit log to reconstruct exact evidence; retain live Dataset pointers as sole evidence.
+
+**Tests:** mutate live sources after snapshot and prove submitted state remains unchanged/reconstructable.
+
+**Exit gate:** a structured evidence package can reconstruct the submitted Sheet semantics/data independently of later live edits.
+
+---
+
+## CORE-06.8 — Integrate snapshotting with Notebook submission/review/signature flow
+
+**Blocked by:** CORE-06.7.
+
+**Goal:** Make frozen structured evidence part of the existing controlled Notebook revision/submission lifecycle.
+
+**Deliverables:** submission transaction/orchestration; snapshot IDs/manifests attached to Notebook revision; review/signature sees frozen revision; failure prevents false submitted state; audit events.
+
+**Must preserve:** current revision/signature semantics.
+
+**Tests:** successful submission; snapshot failure; post-submission live edit; reviewer sees frozen state; signature/revision linkage.
+
+**Exit gate:** submission creates immutable reconstructable evidence rather than merely changing status.
+
+---
+
+## CORE-06.9 — Implement pinned-snapshot Sheet blocks/read-only rendering
+
+**Blocked by:** CORE-06.7.
+
+**Goal:** Render frozen Sheet state intentionally, including historical/submitted contexts.
+
+**Deliverables:** `pinned_snapshot` reference; read-only grid; Definition/schema/version provenance; archived/retired source independence; clear frozen-state UI.
+
+**Tests:** render old snapshot after live Dataset/Definition changes; no mutation path; permission to historical evidence.
+
+**Exit gate:** users can inspect exactly what was submitted without confusing it with current live data.
+
+---
+
+## CORE-06.10 — Template dependency update and impact flow
+
+**Blocked by:** CORE-06.3 and CORE-03 Definition upgrades.
+
+**Goal:** Update a Template to a newer Sheet Definition version explicitly and safely.
+
+**Deliverables:** dependency diff/impact; parameter compatibility; new Template version publication; existing Template versions/Notebooks unchanged.
+
+**Do not:** silently follow latest Definition.
+
+**Tests:** compatible update; incompatible parameter/binding; existing Notebook unchanged.
+
+**Exit gate:** reusable Templates evolve without retroactively changing scientific work.
+
+---
+
+## CORE-06.11 — Reusable Template Section boundary (architecture only unless needed)
+
+**Blocked by:** CORE-06.3.
+
+**Goal:** Ensure Template persistence can later support explicit reusable versioned Sections without introducing inheritance now.
+
+**Deliverables:** verify block/reference model does not prevent future Section references; document deferred contract if no immediate use case.
+
+**Do not:** build a Section management product solely to satisfy this task.
+
+**Exit gate:** no architectural dead-end forces Template inheritance for future reuse.
+
+---
+
+## CORE-06.12 — Charts/files/other consumers use stable structured identities
+
+**Blocked by:** CORE-06.2/06.7.
+
+**Goal:** Ensure important Notebook consumers reference canonical Dataset/Sheet/File Artifact identities rather than hidden copied data where feasible.
+
+**Deliverables:** adapt core chart/data/file relationships needed for golden workflow; preserve raw File Artifact identity/checksum direction; document deferred specialist consumers.
+
+**Do not:** broaden into full Report Builder/Analysis rewrite.
+
+**Exit gate:** the Notebook evidence graph points to stable canonical objects.
+
+---
+
+## CORE-06.13 — Golden Template and frozen-evidence proof
+
+**Blocked by:** CORE-06.2–06.12.
+
+**Goal:** Prove reuse and submission end to end.
+
+**Workflow:** publish `Purification Summary` Definition; reference it from at least two Notebook Template configurations; create independent Notebooks/Instances; optionally embed one deliberate shared Instance elsewhere; perform scientific work; submit one Notebook; mutate live Dataset/shared Sheet/Definition afterwards; reconstruct submitted state unchanged.
+
+**Evidence:** DB/RLS/API/UI tests, fresh migration/seed, `pnpm validate`, documented snapshot manifest.
+
+**Exit gate:** Template reuse, shared-live behaviour and immutable submission evidence all behave exactly as ADRs require.
+
+---
+
+## CORE-06.14 — Core programme exit and AUTO-01 hand-off
+
+**Blocked by:** CORE-06.13.
+
+**Goal:** Verify the Core Data Workspace broadening gate and prepare Pipeline work without prematurely implementing it.
+
+**Deliverables:** run golden programme workflow; confirm common fields, Dataset versions, compositional Sheets, Record creation, schema capabilities, Templates and frozen evidence; update Core completion evidence; reconcile AUTO-01 skeleton with implemented contracts; update `NEXT.md` to AUTO-01.1 only if Core exit gate passes.
+
+## Epic exit gate
+
+A Notebook can contain live compositional Sheet work, reusable Templates safely instantiate/pin/share as declared, and submission produces immutable structured evidence that remains reconstructable after live data/definitions continue evolving.

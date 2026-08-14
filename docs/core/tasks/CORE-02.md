@@ -1,6 +1,6 @@
 # CORE-02 — Dataset Primitive
 
-**Status:** In progress — CORE-02.3–02.5 hardening
+**Status:** In progress — CORE-02.9 epic proof
 **Refinement evidence:** CORE-01.7 confirmed that Models and Dataset Schemas
 already consume the shared `FieldDefinition` kernel. CORE-02 therefore starts
 with persistence evidence, not another field-type design.
@@ -302,7 +302,7 @@ A client can validate and commit a substantial Dataset batch efficiently and rec
 # CORE-02.6 — Query, filtering and large-data behaviour
 
 **Blocked by:** CORE-02.4.
-**Status:** In progress — ADR 0037 composition, aggregation and bulk scale evidence missing.
+**Status:** Complete (2026-08-14).
 
 ## Goal
 
@@ -329,7 +329,7 @@ Require the browser to load the full Dataset for routine sorting/filtering.
 
 Representative large Dataset reads/filter/sort operations meet documented baseline expectations and expose semantics CORE-03 can consume.
 
-## Current evidence
+## Completion evidence
 
 - Added `api.query_dataset_rows(dataset_id, query, limit, offset)` in migration
   `0066_core_026_dataset_query.sql`. It returns stable row/field IDs, typed
@@ -338,17 +338,24 @@ Representative large Dataset reads/filter/sort operations meet documented baseli
 - Filters and sorts use only active canonical field IDs; supported typed
   equality/range predicates are server-validated. The caller never supplies
   SQL, labels, generated resource names, or physical column names.
-- Added date/timestamp value indexes and
-  `scripts/benchmark-dataset-query.ts`, a reproducible 100k-row/10-field
-  performance fixture. Evidence is recorded in
-  `audits/DATASET_QUERY_PERFORMANCE.md`: a 10,000-row numeric-filter match,
-  date sort, and 200-row window measured 79.6 ms then 67.4/65.5 ms locally.
+- Added date/timestamp value indexes and a deterministic, fixed-ID,
+  repeatable/self-cleaning performance gate in
+  `scripts/benchmark-dataset-query.ts`. It creates independent 100k-row and
+  80k-row Datasets with 14 mixed fields each, 2.16M populated values and
+  100,000 stable Sample Record references.
 - `tests/db/datasets.test.ts` proves typed range filtering, sorting, bounded
   windows, totals, unsupported-operator rejection, `many` membership and
   deterministic ordinal-first sorting.
-- The current fixture does not yet cover the required 80k-row second Dataset,
-  stable Sample-reference composition, 12-field projection, numeric aggregate,
-  or substantial bulk insert/update measurements. The exit gate remains open.
+- Fresh PostgreSQL 18.6 evidence in
+  `audits/DATASET_QUERY_PERFORMANCE.md` covers cold-ish/warm numeric-range +
+  date-sort windows, QC filtering, authoritative totals and offsets, a
+  12-field projection, an 80,000-match stable Sample-reference composition,
+  a 20,000-value numeric aggregate and canonical 1,000-row bulk creates and
+  updates with validation, revisions and exact idempotent retry.
+- The benchmark captures and thresholds JSON explain-plan summaries and fails
+  nonzero on correctness or local-baseline regressions. Existing numeric,
+  category, reference, date, row and row-value indexes met the gate; no new
+  index, projection API or composition API was justified.
 
 ---
 

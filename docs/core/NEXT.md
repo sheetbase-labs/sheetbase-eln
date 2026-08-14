@@ -8,9 +8,9 @@
 
 ## Active task
 
-**CORE-02.6 — Dataset query, composition and scale evidence**
+**CORE-02.9 — Epic proof and CORE-03 refinement**
 
-Task: [`tasks/CORE-02.md`](./tasks/CORE-02.md#core-026--query-filtering-and-large-data-behaviour)
+Task: [`tasks/CORE-02.md`](./tasks/CORE-02.md#core-029--epic-proof-and-core-03-refinement)
 
 ## Completed in this PR
 
@@ -23,7 +23,8 @@ Task: [`tasks/CORE-02.md`](./tasks/CORE-02.md#core-026--query-filtering-and-larg
 - CORE-01.7 — Epic proof and CORE-02 hand-off
 - CORE-02.1–02.5 — Dataset persistence, metadata, typed rows and controlled
   bulk validation/commit
-- CORE-02.7 — canonical Dataset Explorer consumption
+- CORE-02.6–02.7 — representative scale evidence and canonical Dataset
+  Explorer consumption
 - CORE-02.8 — immutable Dataset Version snapshot/query semantics
 - product/architecture reset and accepted ADRs 0020–0026
 
@@ -40,20 +41,12 @@ Task: [`tasks/CORE-02.md`](./tasks/CORE-02.md#core-026--query-filtering-and-larg
 
 ## Implement now
 
-Close the remaining ADR 0037 evidence gate before CORE-02 epic proof. Expand
-the deterministic fixture to cover a 100k-row Dataset composed with an
-80k-row Dataset through stable Sample references, 10–30 mixed fields and a
-12-field projected window. Measure numeric range and aggregation, QC/category
-filtering, date sort, paging/windowing, and substantial bulk inserts and
-updates. Record fixture shape, query plans, timings, thresholds and justified
-indexes. Re-run the canonical Dataset Explorer contract against the final
-query behavior.
-
-This is **real production coding**, not another architecture pass.
-
-The next unit may add the smallest query/RPC/index changes required by measured
-evidence, including numeric aggregation. It must not begin Sheet composition;
-the 100k/80k join is Dataset-layer evidence for the future consumer contract.
+Run CORE-02.9's epic-wide fresh proof: exercise the supported Dataset/Schema
+creation path, realistic controlled bulk writes, canonical query/filter/sort,
+stable identity, RLS isolation, immutable Versions and Dataset Explorer
+consumption. Run the full validation gate and refine CORE-03 only where the
+completed implementation evidence requires it. Do not begin CORE-03
+implementation in the CORE-02.9 unit.
 
 ## Do not
 
@@ -79,6 +72,10 @@ Controller verification after fresh setup/migration:
 - typecheck and formatting pass;
 - lint: no errors, 19 existing warnings.
 
-The existing 100k/10-field query measurement is useful baseline evidence but
-does not satisfy ADR 0037's required 100k+80k composition, aggregation or bulk
-write scenarios. Do not begin CORE-03 until CORE-02.6 and CORE-02.9 pass.
+CORE-02.6 now passes ADR 0037's deterministic 100k+80k scale gate. The final
+fresh PostgreSQL 18.6 run measured the authenticated numeric/date window at
+97.6 ms cold-ish and 72.0/72.1 ms warm; the 80,000-match stable Sample join at
+36.4 ms; the 12-field projection at 33.2 ms; the 20,000-value aggregate at
+56.0 ms; and canonical 1,000-row create/update commits at 721.0/365.7 ms.
+Focused Dataset DB tests pass 19/19 and Dataset Explorer + FieldDefinition
+tests pass 27/27. CORE-02.9 remains open; do not begin CORE-03 until it passes.

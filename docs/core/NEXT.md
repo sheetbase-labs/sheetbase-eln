@@ -37,7 +37,7 @@ Task: [`tasks/CORE-02.md`](./tasks/CORE-02.md#core-029--epic-proof-and-core-03-r
 5. [`audits/DATASET_QUERY_PERFORMANCE.md`](./audits/DATASET_QUERY_PERFORMANCE.md)
 6. [`../decisions/0037-dataset-primitive-storage-and-versioning.md`](../decisions/0037-dataset-primitive-storage-and-versioning.md)
 7. `scripts/benchmark-dataset-query.ts`
-8. migrations `0064` through `0069` and `tests/db/datasets.test.ts`
+8. migrations `0064` through `0070` and `tests/db/datasets.test.ts`
 
 ## Implement now
 
@@ -78,4 +78,17 @@ fresh PostgreSQL 18.6 run measured the authenticated numeric/date window at
 36.4 ms; the 12-field projection at 33.2 ms; the 20,000-value aggregate at
 56.0 ms; and canonical 1,000-row create/update commits at 721.0/365.7 ms.
 Focused Dataset DB tests pass 19/19 and Dataset Explorer + FieldDefinition
-tests pass 27/27. CORE-02.9 remains open; do not begin CORE-03 until it passes.
+tests pass 27/27.
+
+The CORE-02.9 verification pass added migration `0070` so live canonical query
+windows contain complete active fields only, plus direct metadata lifecycle and
+field-identity proof. Fresh migrate/demo seed and idempotent reseed pass;
+`pnpm validate` passes 142 files / 1,718 tests and the production build, with
+zero lint errors and 19 existing warnings. Focused Dataset DB tests pass 20/20
+and Explorer + FieldDefinition + benchmark-safety tests pass 41/41.
+
+The required full DB gate remains red independently of Dataset behavior: 47/51
+files and 593 tests pass, while four legacy suites contain 13 failures and one
+setup failure skips eight tests. See CORE-02.9's matrix for the exact stale
+Record/schema, revision-permission and auth-session contracts. CORE-02.9 stays
+open and CORE-03 must not begin until that programme-wide DB gate is restored.

@@ -29,7 +29,7 @@ Implement reusable versioned Sheet Definitions and working Sheet Instances over 
 
 **Goal:** Map the existing scientific Sheet, Notebook block, Handsontable, formula and Template implementation into Definition versus Instance responsibilities.
 
-**Inspect:** current Sheet/table migrations and Drizzle schema; `src/components/sheet/`; scientific Sheet data modules; Notebook block persistence/rendering; Template code; HyperFormula workbook/dependency persistence; save coordination; Dataset Explorer interactions; focused DB/UI tests.
+**Inspect:** current Sheet/table migrations and Drizzle schema; `src/components/sheet/`; scientific Sheet data modules; Notebook block persistence/rendering; Template code; HyperFormula workbook/dependency persistence; save coordination; Dataset Explorer interactions; focused DB/UI tests. Treat `api.query_dataset_rows` as a bounded complete active-field window with authoritative total/window state: it has no public field-projection, join, composition or aggregate API. Record `many` values are arrays ordered by persisted ordinal, not repeated scalar columns.
 
 **Deliverables:** `docs/core/audits/SHEET_COMPOSITION_AUDIT.md` with exact files/tables/RPCs, current ownership of schema/data/presentation/formulas, keep/adapt/deprecate map, compatibility path for existing Sheets, and implementation ADR questions.
 
@@ -123,7 +123,7 @@ Implement reusable versioned Sheet Definitions and working Sheet Instances over 
 
 **Goal:** Compose multiple Dataset/Model bindings predictably.
 
-**Deliverables:** explicit equality joins; supported join types documented; cardinality expectation; server/query execution strategy; clear missing/unmatched states; detection of unexpected many-to-many expansion.
+**Deliverables:** explicit equality joins over stable reference/Record identities (never labels or row position); supported join types documented; cardinality expectation; server/query execution strategy beyond the existing single-Dataset query RPC; clear missing/unmatched states; detection of unexpected many-to-many expansion.
 
 **Must preserve:** source row identities and provenance.
 
@@ -193,7 +193,7 @@ Implement reusable versioned Sheet Definitions and working Sheet Instances over 
 
 **Goal:** Route every editable cell to exactly one authoritative source.
 
-**Deliverables:** resolved write-back targets for Dataset, Model and local fields; server validation/errors mapped back to cells; optimistic/save-state behaviour; calculated fields read-only; permission enforcement.
+**Deliverables:** resolved write-back targets for Dataset, Model and local fields; Dataset writes routed through the controlled bounded bulk contract with expected Dataset/row revisions and actor-scoped idempotency; server validation/errors mapped back to cells; optimistic/save-state behaviour; calculated fields read-only; permission enforcement.
 
 **Do not:** infer write target from displayed label/position; allow ambiguous configuration.
 
@@ -259,7 +259,7 @@ Implement reusable versioned Sheet Definitions and working Sheet Instances over 
 
 **Goal:** Create a durable Dataset from a composed Sheet result only when explicitly requested.
 
-**Deliverables:** materialisation preview; output Dataset Schema derivation/selection; immutable source-version pinning for reproducibility; output Dataset creation; provenance linking source versions, Sheet Definition/Instance, calculations and actor/time; safe retry/idempotency.
+**Deliverables:** materialisation preview; output Dataset Schema derivation/selection; immutable source-version pinning for reproducibility; output Dataset creation through controlled bulk/revision/idempotency contracts; provenance linking source versions, Sheet Definition/Instance, calculations and actor/time; safe retry/idempotency. The CORE-02 100k+80k storage join/projection/aggregate benchmark is feasibility evidence only and does not provide Sheet composition or materialisation APIs.
 
 **Do not:** automatically materialise ordinary composition; treat materialisation as a hidden client export.
 

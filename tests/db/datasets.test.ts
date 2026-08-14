@@ -668,6 +668,15 @@ describe('canonical Dataset metadata', () => {
         )
       ).rows,
     ).toEqual([{ category_option_id: active }])
+    const window = (
+      await owner.query(`select api.query_dataset_rows($1,'{}',10,0) result`, [
+        dataset.id,
+      ])
+    ).rows[0].result
+    expect(window.rows[0].values).toEqual({
+      [category.field_id]: active,
+    })
+    expect(window.rows[0].values).not.toHaveProperty(retiredField.field_id)
     const invalid = (
       await owner.query(
         `select api.validate_dataset_row_batch($1,2,$2::jsonb) result`,
@@ -1222,6 +1231,126 @@ describe('canonical Dataset metadata', () => {
     expect(
       (await owner.query(`select * from api.dataset_schema_definitions`)).rows,
     ).toHaveLength(17)
+  })
+
+  it('preserves draft field IDs through label/order changes and supports Dataset metadata lifecycle', async () => {
+    const owner = await actor(OWNER_A, WS_A)
+    const schema = (
+      await owner.query(
+        `insert into api.dataset_schema_definitions(workspace_id,key,name)
+         values($1,$2,'Lifecycle schema') returning id`,
+        [
+          WS_A,
+          `lifecycle_${crypto.randomUUID().replaceAll('-', '').slice(0, 12)}`,
+        ],
+      )
+    ).rows[0]
+    const version = (
+      await owner.query(
+        `insert into api.dataset_schema_versions(schema_id,version)
+         values($1,1) returning id`,
+        [schema.id],
+      )
+    ).rows[0]
+    const fields = (
+      await owner.query(
+        `insert into api.dataset_schema_version_fields
+           (schema_version_id,field_id,key,label,logical_type,display_order)
+         values
+           ($1,gen_random_uuid(),'sample','Sample','text',1),
+           ($1,gen_random_uuid(),'result','Result','decimal',2)
+         returning field_id,key`,
+        [version.id],
+      )
+    ).rows
+    const fieldIds = Object.fromEntries(
+      fields.map((field) => [field.key, field.field_id]),
+    ) as Record<string, string>
+    await owner.query(
+      `update api.dataset_schema_version_fields
+       set label=case key when 'sample' then 'Sample identifier' else 'Result value' end,
+           display_order=case key when 'sample' then 2 else 1 end
+       where schema_version_id=$1`,
+      [version.id],
+    )
+    await owner.query(
+      `update api.dataset_schema_versions
+       set lifecycle='active',published_at=now() where id=$1`,
+      [version.id],
+    )
+    expect(
+      (
+        await owner.query(
+          `select field_id,key,label,display_order
+           from api.dataset_schema_version_fields
+           where schema_version_id=$1 order by display_order`,
+          [version.id],
+        )
+      ).rows,
+    ).toEqual([
+      {
+        field_id: fieldIds.result,
+        key: 'result',
+        label: 'Result value',
+        display_order: 1,
+      },
+      {
+        field_id: fieldIds.sample,
+        key: 'sample',
+        label: 'Sample identifier',
+        display_order: 2,
+      },
+    ])
+
+    const dataset = (
+      await owner.query(
+        `insert into api.datasets(workspace_id,schema_version_id,name)
+         values($1,$2,'Lifecycle dataset') returning id`,
+        [WS_A, version.id],
+      )
+    ).rows[0]
+    const updated = (
+      await owner.query(
+        `update api.datasets
+         set name='Renamed lifecycle dataset',description='Metadata update proof'
+         where id=$1 returning id,name,description,lifecycle`,
+        [dataset.id],
+      )
+    ).rows[0]
+    expect(updated).toEqual({
+      id: dataset.id,
+      name: 'Renamed lifecycle dataset',
+      description: 'Metadata update proof',
+      lifecycle: 'active',
+    })
+    expect(
+      (
+        await owner.query(
+          `update api.datasets set lifecycle='archived' where id=$1
+           returning id,name,description,lifecycle`,
+          [dataset.id],
+        )
+      ).rows[0],
+    ).toEqual({ ...updated, lifecycle: 'archived' })
+    const archivedWrite = (
+      await owner.query(
+        `select api.validate_dataset_row_batch($1,1,$2::jsonb) result`,
+        [
+          dataset.id,
+          JSON.stringify([
+            {
+              operation: 'create',
+              rowId: crypto.randomUUID(),
+              values: { [fieldIds.result]: 1.5 },
+            },
+          ]),
+        ],
+      )
+    ).rows[0].result
+    expect(archivedWrite).toEqual({
+      ok: false,
+      errors: [{ code: 'dataset_archived' }],
+    })
   })
 
   it('rejects cross-workspace Dataset schema, row, and primary-project bindings at the database boundary', async () => {

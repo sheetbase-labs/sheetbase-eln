@@ -1,6 +1,6 @@
 # CORE-02 — Dataset Primitive
 
-**Status:** In progress — CORE-02.9 epic proof
+**Status:** In progress — CORE-02.9 full-suite gate blocked
 **Refinement evidence:** CORE-01.7 confirmed that Models and Dataset Schemas
 already consume the shared `FieldDefinition` kernel. CORE-02 therefore starts
 with persistence evidence, not another field-type design.
@@ -108,7 +108,7 @@ The Dataset storage ADR can be written from evidence rather than assumptions.
 # CORE-02.2 — Decide Dataset physical storage and versioning
 
 **Blocked by:** CORE-02.1.
-**Status:** Complete (2026-08-14), subject to the reopened CORE-02.6 evidence gate.
+**Status:** Complete (2026-08-14).
 
 ## Goal
 
@@ -193,8 +193,8 @@ A Dataset and its Schema can exist and be addressed through the authenticated AP
   workspaces for Dataset/Schema, Dataset/project and Dataset/row bindings, and
   makes active/retired Schema Versions and their fields immutable.
 - `tests/db/datasets.test.ts` proves authenticated independent Dataset access,
-  workspace isolation, cross-workspace relationship rejection and published
-  Schema Version immutability.
+  metadata update/archive lifecycle, workspace isolation, cross-workspace
+  relationship rejection and published Schema Version immutability.
 
 ---
 
@@ -240,8 +240,9 @@ Valid rows persist; invalid typed values are rejected with precise field/row err
 - Authenticated direct row/value mutation is revoked; controlled validation
   returns stable row-index/row-ID/field-ID error codes.
 - `tests/db/datasets.test.ts` proves scalar/category/reference/default/required
-  success and failure matrices, stable IDs, ordered replacement and workspace
-  isolation against a freshly migrated database.
+  success and failure matrices, field IDs surviving allowed draft label/order
+  changes, ordered replacement and workspace isolation against a freshly
+  migrated database.
 
 ---
 
@@ -346,6 +347,9 @@ Representative large Dataset reads/filter/sort operations meet documented baseli
 - `tests/db/datasets.test.ts` proves typed range filtering, sorting, bounded
   windows, totals, unsupported-operator rejection, `many` membership and
   deterministic ordinal-first sorting.
+- Migration `0070_core_029_dataset_active_query_fields.sql` closes an epic-proof
+  discrepancy by excluding retired fields from live reconstructed windows;
+  immutable versions still preserve their pinned historical values.
 - Fresh PostgreSQL 18.6 evidence in
   `audits/DATASET_QUERY_PERFORMANCE.md` covers cold-ish/warm numeric-range +
   date-sort windows, QC filtering, authoritative totals and offsets, a
@@ -437,7 +441,7 @@ Dataset edits, without audit-log reconstruction.
 # CORE-02.9 — Epic proof and CORE-03 refinement
 
 **Blocked by:** CORE-02.3 through CORE-02.8.
-**Status:** Not started.
+**Status:** In progress — CORE-02 contracts pass; full DB suite does not.
 
 ## Goal
 
@@ -459,13 +463,45 @@ Prove Dataset exists independently and refine compositional Sheet tasks using im
 
 Dataset is a durable rectangular-data primitive independent of Sheet presentation, with typed schema, bulk operations, stable identity, API access and evidence of acceptable representative performance.
 
-## Completion evidence
+## Exit-gate matrix and current evidence (2026-08-14)
 
-- Fresh migrate and demo seed pass with the complete Core-02 migration chain.
-- `pnpm validate` passes: 141 test files / 1,704 tests, lint with 19 existing
-  warnings and no errors, typecheck, formatting, and production build.
-- Canonical Dataset DB tests prove typed values, bulk atomicity/idempotency,
-  optimistic concurrency, range query/filter/sort windows and workspace
-  isolation. Explorer tests prove it requests only canonical resources/RPCs.
-- CORE-03 remains implementation-ready as written; no refinement changed its
-  Definition/Instance contracts. Its initial audit is the next task.
+| Task | Outcome     | Independently checked evidence                                                                                                                                                                                                                                                                    |
+| ---- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 02.1 | Pass        | Persistence audit matches the retained legacy Sheet tables, canonical Dataset migration target and compatibility boundary.                                                                                                                                                                        |
+| 02.2 | Pass        | Accepted ADR 0037 matches migrations `0062`–`0070`, stable identities, typed relational storage, explicit snapshots and measured 100k+80k evidence.                                                                                                                                               |
+| 02.3 | Pass        | Authenticated metadata create/read/update/archive, independent Dataset addressing, RLS/cross-workspace rejection and immutable publication are executable in `datasets.test.ts`.                                                                                                                  |
+| 02.4 | Pass        | Canonical publication and typed scalar/`many` enforcement pass; field UUIDs survive allowed draft label/order changes, while published versions reject mutation.                                                                                                                                  |
+| 02.5 | Pass        | Controlled 1–1,000-row validation/commit proves atomicity, structured errors, revisions, deterministic conflicts and exact idempotent retry.                                                                                                                                                      |
+| 02.6 | Pass        | Canonical active-field windows expose authoritative total/offset/`hasMore`, filtering and sorting. The accepted guarded benchmark supplies the 100k+80k performance, projection, stable-reference join, aggregate, bulk and zero-residue evidence; it was consistency-reviewed rather than rerun. |
+| 02.7 | Pass        | Explorer tests prove canonical summaries use `datasets` plus immutable version fields and rows use only `query_dataset_rows`; canonical views explicitly refuse legacy generated-resource fallback.                                                                                               |
+| 02.8 | Pass        | Explicit schema-pinned Dataset Versions retain stable row/field IDs, scalar and ordinal-ordered `many` values after later live edits, with DB-level mutation protection.                                                                                                                          |
+| 02.9 | **Blocked** | Dataset proof is 20/20 and `pnpm validate` passes, but the required full DB suite is not green.                                                                                                                                                                                                   |
+
+Fresh `pnpm db:fresh --demo` applied all 71 migrations (`0000`–`0070`) to an
+empty PostgreSQL 18.6 database and completed all 29 seed steps. A subsequent
+`pnpm db:seed:demo` completed the same 29 steps idempotently. The benchmark
+fixture has zero residue and both Schema immutability triggers remain enabled.
+
+`pnpm validate` passes formatting, typecheck, 142 unit/UI test files with 1,718
+tests, and the production client/SSR build. Lint has zero errors and the same 19
+existing warnings. Focused Dataset tests pass 20/20; Dataset Explorer,
+`FieldDefinition` and benchmark-safety tests pass 41/41.
+
+The fresh full `pnpm test:db` run passes 47/51 files and 593 tests, but fails 4
+unrelated legacy suites (13 failed tests; 8 additional tests skipped after a
+setup failure): `scientific-records` and `submitted-revisions` still write
+legacy Record properties/direct schema tables rejected by the CORE-01 kernel,
+`chart-blocks` directly inserts a revision without permission, and
+`auth-session` receives no user ID for its directly inserted session fixture.
+The latter requires separate diagnosis; no cause is claimed here. These
+failures reproduce from the requested base and are not caused by migration
+`0070`; they remain a programme exit blocker rather than being weakened or
+broadened into CORE-02 changes.
+
+API/browser suites were not required for this proof: the supported Dataset
+creation and mutation contracts are authenticated PostgREST table/RPC
+contracts exercised with the `authenticated` role, and there is no canonical
+Dataset create UI. Explorer canonical-only behavior is covered at its data
+boundary and route unit tests are included in `pnpm validate`. CORE-02.9 and
+the epic remain open until the full DB gate is restored; `NEXT.md` therefore
+must not advance to CORE-03.1.

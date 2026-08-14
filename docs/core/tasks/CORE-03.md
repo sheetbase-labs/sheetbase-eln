@@ -1,7 +1,7 @@
 # CORE-03 — Sheet Definition and Compositional Sheet Instance
 
-**Status:** Planned / implementation-ready after CORE-02  
-**Blocked by:** CORE-02 epic exit gate.  
+**Status:** In progress — CORE-03.1 complete (2026-08-14)
+**Blocked by:** CORE-02 epic exit gate (met).
 **Normative decisions:** ADRs 0020–0026.
 
 ## Epic goal
@@ -27,6 +27,8 @@ Implement reusable versioned Sheet Definitions and working Sheet Instances over 
 
 ## CORE-03.1 — Audit current Sheet and Template persistence
 
+**Status:** Complete (2026-08-14).
+
 **Goal:** Map the existing scientific Sheet, Notebook block, Handsontable, formula and Template implementation into Definition versus Instance responsibilities.
 
 **Inspect:** current Sheet/table migrations and Drizzle schema; `src/components/sheet/`; scientific Sheet data modules; Notebook block persistence/rendering; Template code; HyperFormula workbook/dependency persistence; save coordination; Dataset Explorer interactions; focused DB/UI tests. Treat `api.query_dataset_rows` as a bounded complete active-field window with authoritative total/window state: it has no public field-projection, join, composition or aggregate API. Record `many` values are arrays ordered by persisted ordinal, not repeated scalar columns.
@@ -42,6 +44,22 @@ Implement reusable versioned Sheet Definitions and working Sheet Instances over 
 **Evidence:** reproduce representative existing Sheet create/edit/formula/reload flows and record current contracts.
 
 **Exit gate:** CORE-03.2/03.3 can be implemented without rediscovering where current Sheet truth lives.
+
+## Completion evidence
+
+- Added `docs/core/audits/SHEET_COMPOSITION_AUDIT.md`, mapping exact
+  PostgreSQL, Notebook block, Handsontable, formula/workbook, Template and
+  Dataset Explorer ownership into Definition versus Instance responsibilities.
+- The audit records all retained legacy identities and version/provenance
+  boundaries, the Template Sheet-reference seam, a data-preserving
+  compatibility/termination path, and only the unresolved mappings CORE-03.2
+  and CORE-03.3 must settle. It confirms that no new ADR is warranted before
+  implementation exposes a durable physical-layout fork.
+- Representative Sheet/data/workbook/Template/Explorer unit and component
+  contracts pass in the full configured Vitest run: 142 files and 1,718 tests.
+  Focused scientific-table, Sheet-block, formula-persistence and Template DB
+  contracts pass: 4 files and 32 tests. `pnpm check` and broader
+  documentation-only validation results are recorded in the audit.
 
 ---
 

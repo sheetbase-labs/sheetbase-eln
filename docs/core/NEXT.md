@@ -8,9 +8,9 @@
 
 ## Active task
 
-**CORE-03.1 — Audit current Sheet and Template persistence**
+**CORE-03.2 — Implement Sheet Definition identity and immutable versions**
 
-Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-031--audit-current-sheet-and-template-persistence)
+Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-032--implement-sheet-definition-identity-and-immutable-versions)
 
 ## Completed in this PR
 
@@ -27,28 +27,32 @@ Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-031--audit-current-sheet-and-
   Explorer consumption
 - CORE-02.8 — immutable Dataset Version snapshot/query semantics
 - CORE-02.9 — epic proof, full DB exit gate and CORE-03 refinement
+- CORE-03.1 — current Sheet and Template persistence audit
 - product/architecture reset and accepted ADRs 0020–0026
 
 ## Required reading
 
-1. [`tasks/CORE-03.md`](./tasks/CORE-03.md), CORE-03.1 only
+1. [`tasks/CORE-03.md`](./tasks/CORE-03.md), CORE-03.2 only
 2. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md), Dataset and Sheet sections
 3. [`CORE_ARCHITECTURE.md`](./CORE_ARCHITECTURE.md), sections 4–9 and 12–13
-4. [`audits/DATASET_PERSISTENCE_AUDIT.md`](./audits/DATASET_PERSISTENCE_AUDIT.md), compatibility boundary only
-5. Current Sheet/Template migrations, data modules, components and focused tests named by CORE-03.1
+4. [`audits/SHEET_COMPOSITION_AUDIT.md`](./audits/SHEET_COMPOSITION_AUDIT.md)
+5. ADRs 0020–0026, especially Definition/Instance identity, lifecycle,
+   parameters and Template reuse
 
 ## Implement now
 
-Produce `docs/core/audits/SHEET_COMPOSITION_AUDIT.md`. Map current ownership of
-Sheet schema, data, presentation, formulas, Notebook blocks and Template state
-into future Definition versus Instance responsibilities. Reproduce the
-representative existing create/edit/formula/reload contracts. Record exact
-keep/adapt/deprecate seams and only the durable questions CORE-03.2/03.3 must
-settle; make no data, API or UI changes.
+Implement durable reusable Sheet Definition identity and immutable published
+versions as specified by CORE-03.2. Preserve existing scientific Sheets through
+the audit's compatibility boundary, keep local values out of Definitions, and
+add the required persistence, RLS/API/domain contracts and focused proof. Write
+an ADR only if implementation presents a durable physical-layout fork not
+already settled by ADR 0020/0022.
 
 ## Do not
 
-- do not implement Sheet Definition, Instance, composition or migration work;
+- do not implement Sheet Instance, composition, write-back or materialisation;
+- do not put Instance-local values in Definitions or silently update pinned
+  dependants;
 - do not redesign architecture already settled by ADRs 0020–0026;
 - do not build the full unit-conversion or vocabulary-management product yet;
 - do not weaken RLS/server validation;
@@ -95,3 +99,13 @@ bounded complete active-field windows, not public projection/composition/
 aggregate APIs; `many` values are ordinal-ordered arrays; joins must bind
 stable reference identities; write-back must retain bulk/revision/idempotency
 contracts; and the 100k+80k proof does not implement Sheet composition.
+
+CORE-03.1 is complete. `audits/SHEET_COMPOSITION_AUDIT.md` identifies the
+current record/block-owned scientific-table cluster, stable table/row/column/
+formula identities, browser-only projection state, formula reconstruction and
+cache boundaries, Template `{tableId}` copying seam, Explorer handoff mismatch,
+and the exact compatibility termination boundary. Representative unit/component
+contracts pass 142 files / 1,718 tests; focused scientific-table, Sheet-block,
+formula and Template DB contracts pass 4 files / 32 tests. CORE-03.2 starts with
+Definition identity/version persistence; it must not rediscover or reinterpret
+legacy ownership.

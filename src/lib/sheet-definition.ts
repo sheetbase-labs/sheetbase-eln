@@ -11,6 +11,31 @@ const uuid = z.uuid()
 const key = z.string().regex(/^[a-z][a-z0-9_]{0,59}$/)
 const label = z.string().trim().min(1).max(200)
 const jsonObject = z.record(z.string(), z.unknown())
+const isoDate = z.iso.date()
+const isoTimestamp = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/)
+  .refine((value) => !Number.isNaN(Date.parse(value)), 'Invalid timestamp.')
+
+function scalarValueSchema(valueType: (typeof FIELD_LOGICAL_TYPES)[number]) {
+  switch (valueType) {
+    case 'text':
+      return z.string()
+    case 'integer':
+      return z.number().int().safe()
+    case 'decimal':
+      return z.number().finite()
+    case 'boolean':
+      return z.boolean()
+    case 'date':
+      return isoDate
+    case 'timestamp':
+      return isoTimestamp
+    case 'category':
+    case 'reference':
+      return uuid
+  }
+}
 
 const optionSchema = z
   .object({
@@ -102,6 +127,95 @@ const fieldDefinitionSchema = z
         message: 'Category option IDs and keys must be unique.',
       })
     }
+    if (
+      field.validation.min !== undefined &&
+      field.validation.max !== undefined &&
+      field.validation.min > field.validation.max
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['validation'],
+        message: 'Validation min must not exceed max.',
+      })
+    }
+    if (
+      field.validation.minLength !== undefined &&
+      field.validation.maxLength !== undefined &&
+      field.validation.minLength > field.validation.maxLength
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['validation'],
+        message: 'Validation minLength must not exceed maxLength.',
+      })
+    }
+    if (field.validation.pattern !== undefined) {
+      try {
+        new RegExp(field.validation.pattern)
+      } catch {
+        context.addIssue({
+          code: 'custom',
+          path: ['validation', 'pattern'],
+          message: 'Validation pattern must be a valid regular expression.',
+        })
+      }
+    }
+    if (field.quantity?.allowedInputUnits) {
+      const units = field.quantity.allowedInputUnits
+      if (new Set(units).size !== units.length) {
+        context.addIssue({
+          code: 'custom',
+          path: ['quantity', 'allowedInputUnits'],
+          message: 'Allowed input units must be unique.',
+        })
+      }
+      if (
+        field.quantity.preferredDisplayUnit !== undefined &&
+        field.quantity.preferredDisplayUnit !== field.quantity.storageUnit &&
+        !units.includes(field.quantity.preferredDisplayUnit)
+      ) {
+        context.addIssue({
+          code: 'custom',
+          path: ['quantity', 'preferredDisplayUnit'],
+          message: 'Preferred display unit must be a storage or input unit.',
+        })
+      }
+    } else if (
+      field.quantity?.preferredDisplayUnit !== undefined &&
+      field.quantity.preferredDisplayUnit !== field.quantity.storageUnit
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['quantity', 'preferredDisplayUnit'],
+        message: 'Preferred display unit must be the storage unit.',
+      })
+    }
+    if (
+      field.defaultValue !== null &&
+      !scalarValueSchema(field.logicalType).safeParse(field.defaultValue)
+        .success
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['defaultValue'],
+        message: 'Default value must match the field logical type.',
+      })
+    }
+    if (
+      field.defaultValue !== null &&
+      field.logicalType === 'category' &&
+      field.category?.kind === 'embedded' &&
+      !field.category.options.some(
+        (option) =>
+          option.id === field.defaultValue && option.lifecycle === 'active',
+      )
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['defaultValue'],
+        message: 'Category default must name an active embedded option.',
+      })
+    }
   })
 
 const datasetContractSchema = z.discriminatedUnion('mode', [
@@ -109,7 +223,13 @@ const datasetContractSchema = z.discriminatedUnion('mode', [
   z
     .object({
       mode: z.literal('semantic'),
-      requiredFieldIds: z.array(uuid).min(1).max(64),
+      requiredFieldIds: z
+        .array(uuid)
+        .min(1)
+        .max(64)
+        .refine((ids) => new Set(ids).size === ids.length, {
+          message: 'Required field IDs must be unique.',
+        }),
     })
     .strict(),
 ])
@@ -151,6 +271,19 @@ const parameterSchema = z
         code: 'custom',
         path: ['defaultValue'],
         message: 'Only scalar parameters may define defaults.',
+      })
+    }
+    if (
+      parameter.defaultValue !== undefined &&
+      parameter.type.kind === 'scalar' &&
+      !scalarValueSchema(parameter.type.valueType).safeParse(
+        parameter.defaultValue,
+      ).success
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['defaultValue'],
+        message: 'Scalar default must match its declared value type.',
       })
     }
   })
@@ -275,6 +408,15 @@ const configurationSchema = z
         })
       }
     }
+    const uniqueKeys = (items: Array<{ key: string }>, path: string) => {
+      if (new Set(items.map((item) => item.key)).size !== items.length) {
+        context.addIssue({
+          code: 'custom',
+          path: [path],
+          message: `${path} keys must be unique.`,
+        })
+      }
+    }
     unique(configuration.parameters, 'parameters')
     unique(configuration.bindings, 'bindings')
     unique(configuration.joins, 'joins')
@@ -282,6 +424,14 @@ const configurationSchema = z
     unique(configuration.calculations, 'calculations')
     unique(configuration.writeBackRules, 'writeBackRules')
     unique(configuration.actions, 'actions')
+    uniqueKeys(configuration.parameters, 'parameters')
+    uniqueKeys(configuration.bindings, 'bindings')
+    uniqueKeys(
+      configuration.columns.map((column) => column.field),
+      'columns',
+    )
+    uniqueKeys(configuration.calculations, 'calculations')
+    uniqueKeys(configuration.actions, 'actions')
 
     const parameterIds = new Set(
       configuration.parameters.map((item) => item.id),
@@ -290,6 +440,9 @@ const configurationSchema = z
     const columnIds = new Set(configuration.columns.map((item) => item.id))
     const calculationIds = new Set(
       configuration.calculations.map((item) => item.id),
+    )
+    const columnsById = new Map(
+      configuration.columns.map((column) => [column.id, column]),
     )
     const requireRef = (
       ok: boolean,
@@ -345,6 +498,8 @@ const configurationSchema = z
         )
     })
     configuration.joins.forEach((item, index) => {
+      const leftColumn = columnsById.get(item.leftColumnId)
+      const rightColumn = columnsById.get(item.rightColumnId)
       requireRef(
         bindingIds.has(item.leftBindingId) &&
           bindingIds.has(item.rightBindingId),
@@ -356,12 +511,27 @@ const configurationSchema = z
         ['joins', index],
         'Join references an unknown column ID.',
       )
+      requireRef(
+        leftColumn?.source.kind === 'bound' &&
+          leftColumn.source.bindingId === item.leftBindingId &&
+          rightColumn?.source.kind === 'bound' &&
+          rightColumn.source.bindingId === item.rightBindingId,
+        ['joins', index],
+        'Join columns must belong to their corresponding bindings.',
+      )
     })
     configuration.calculations.forEach((item, index) => {
       requireRef(
         columnIds.has(item.outputColumnId),
         ['calculations', index, 'outputColumnId'],
         'Unknown output column ID.',
+      )
+      const output = columnsById.get(item.outputColumnId)
+      requireRef(
+        output?.source.kind === 'calculated' &&
+          output.source.calculationId === item.id,
+        ['calculations', index, 'outputColumnId'],
+        'Calculation output must be its corresponding calculated column.',
       )
       item.inputColumnIds.forEach((id) =>
         requireRef(

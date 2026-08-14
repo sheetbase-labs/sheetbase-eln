@@ -158,4 +158,101 @@ export function validSheetDefinitionConfiguration() {
   })
 }
 
+export const sheetDefinitionInvalidCases: Array<{
+  name: string
+  mutate: (value: any) => void
+}> = [
+  {
+    name: 'string format version',
+    mutate: (value) => (value.formatVersion = '1'),
+  },
+  {
+    name: 'string minimum length',
+    mutate: (value) => (value.columns[0].field.validation.minLength = '1'),
+  },
+  {
+    name: 'duplicate parameter key',
+    mutate: (value) => (value.parameters[1].key = value.parameters[0].key),
+  },
+  {
+    name: 'duplicate binding key',
+    mutate: (value) => (value.bindings[1].key = value.bindings[0].key),
+  },
+  {
+    name: 'duplicate semantic required field ID',
+    mutate: (value) =>
+      value.parameters[1].type.contract.requiredFieldIds.push(
+        value.parameters[1].type.contract.requiredFieldIds[0],
+      ),
+  },
+  {
+    name: 'duplicate column semantic key',
+    mutate: (value) =>
+      (value.columns[1].field.key = value.columns[0].field.key),
+  },
+  {
+    name: 'calculation output mismatch',
+    mutate: (value) =>
+      (value.calculations[0].outputColumnId = value.columns[0].id),
+  },
+  {
+    name: 'join column and binding mismatch',
+    mutate: (value) => (value.joins[0].leftColumnId = value.columns[1].id),
+  },
+  {
+    name: 'integer scalar string default',
+    mutate: (value) => {
+      value.parameters[0].type = { kind: 'scalar', valueType: 'integer' }
+      value.parameters[0].defaultValue = '12'
+    },
+  },
+  {
+    name: 'integer scalar array default',
+    mutate: (value) => {
+      value.parameters[0].type = { kind: 'scalar', valueType: 'integer' }
+      value.parameters[0].defaultValue = [12]
+    },
+  },
+  {
+    name: 'FieldDefinition default type mismatch',
+    mutate: (value) => (value.columns[0].field.defaultValue = 12),
+  },
+  {
+    name: 'reversed numeric validation bounds',
+    mutate: (value) => {
+      value.columns[0].field.validation.min = 2
+      value.columns[0].field.validation.max = 1
+    },
+  },
+  {
+    name: 'invalid validation regex',
+    mutate: (value) => (value.columns[0].field.validation.pattern = '['),
+  },
+  {
+    name: 'duplicate quantity input unit',
+    mutate: (value) => {
+      value.columns[0].field.logicalType = 'decimal'
+      value.columns[0].field.quantity = {
+        kind: 'mass',
+        dimension: 'mass',
+        storageUnit: 'mg',
+        allowedInputUnits: ['g', 'g'],
+      }
+    },
+  },
+  {
+    name: 'unknown preferred display unit',
+    mutate: (value) => {
+      value.columns[0].field.logicalType = 'decimal'
+      value.columns[0].field.quantity = {
+        kind: 'mass',
+        dimension: 'mass',
+        storageUnit: 'mg',
+        allowedInputUnits: ['g'],
+        preferredDisplayUnit: 'kg',
+      }
+    },
+  },
+]
+
 export { ids as sheetDefinitionFixtureIds }

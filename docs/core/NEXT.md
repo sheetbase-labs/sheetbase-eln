@@ -117,11 +117,11 @@ Definition identities and immutable, explicitly versioned configuration
 documents with stable nested UUIDs. Owner/admin controlled RPCs, member-read
 RLS, optimistic revisions, monotonic versions, publication/retirement guards,
 typed domain parsers and supported data-client contracts are executable.
-Focused domain/data, DB/RLS and live API tests pass 19/19, 6/6 and 2/2;
+Focused domain/data, DB/RLS and live API tests pass 43/43, 9/9 and 2/2;
 legacy Sheet/Template/formula/frozen-evidence compatibility proof passes 5
-files / 40 tests; the full DB gate passes 52 files / 620 tests. Fresh demo
-migration/seed and idempotent reseed pass, and `pnpm validate` passes 143 files
-/ 1,737 tests plus production build. No existing scientific data was adopted
+files / 40 tests; the full DB gate passes 52 files / 623 tests. All 73
+migrations (`0000`–`0072`), fresh demo seed and idempotent reseed pass, and
+`pnpm validate` passes 143 files / 1,761 tests plus production build. No existing scientific data was adopted
 or migrated, and no ADR was needed. CORE-03.3 starts with independent Instance
 identity and resolved binding persistence over these pinned Definition-version
 targets.

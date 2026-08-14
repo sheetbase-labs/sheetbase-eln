@@ -10,6 +10,7 @@ import {
 import { safeParseSheetDefinitionConfiguration } from '#/lib/sheet-definition'
 import {
   sheetDefinitionFixtureIds as ids,
+  sheetDefinitionInvalidCases,
   validSheetDefinitionConfiguration,
 } from './fixtures/sheet-definition'
 
@@ -87,6 +88,50 @@ describe('Sheet Definition configuration contract', () => {
     mutate(configuration)
     expect(safeParseSheetDefinitionConfiguration(configuration).success).toBe(
       false,
+    )
+  })
+
+  it.each(sheetDefinitionInvalidCases)(
+    'rejects $name identically at the typed boundary',
+    ({ mutate }) => {
+      const configuration = structuredClone(validSheetDefinitionConfiguration())
+      mutate(configuration)
+      expect(safeParseSheetDefinitionConfiguration(configuration).success).toBe(
+        false,
+      )
+    },
+  )
+
+  it.each([
+    ['text', 'result'],
+    ['integer', 12],
+    ['decimal', 12.5],
+    ['boolean', true],
+    ['date', '2026-08-14'],
+    ['timestamp', '2026-08-14T12:30:00Z'],
+    ['category', 'a0000000-0000-7000-8000-000000000001'],
+    ['reference', 'a0000000-0000-7000-8000-000000000002'],
+  ] as const)(
+    'accepts a typed %s scalar default',
+    (valueType, defaultValue) => {
+      const configuration = structuredClone(validSheetDefinitionConfiguration())
+      configuration.parameters[0] = {
+        ...configuration.parameters[0],
+        type: { kind: 'scalar', valueType },
+        defaultValue,
+      }
+      expect(safeParseSheetDefinitionConfiguration(configuration).success).toBe(
+        true,
+      )
+    },
+  )
+
+  it('accepts RFC UUID variants beyond versions 1–5', () => {
+    const configuration = structuredClone(validSheetDefinitionConfiguration())
+    configuration.columns[0].source.sourceFieldId =
+      'a0000000-0000-7000-8000-000000000003'
+    expect(safeParseSheetDefinitionConfiguration(configuration).success).toBe(
+      true,
     )
   })
 })

@@ -4,10 +4,38 @@
 CREATE OR REPLACE FUNCTION internal.sheet_definition_uuid(p_value text, p_path text)
 RETURNS uuid LANGUAGE plpgsql IMMUTABLE SET search_path='' AS $$
 BEGIN
-  IF p_value IS NULL OR p_value !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' THEN
+  IF p_value IS NULL OR p_value !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' THEN
     RAISE EXCEPTION 'invalid Sheet Definition UUID at %',p_path USING ERRCODE='SB071';
   END IF;
   RETURN p_value::uuid;
+END $$;
+
+CREATE OR REPLACE FUNCTION internal.sheet_definition_scalar_matches(p_type text,p_value jsonb)
+RETURNS boolean LANGUAGE plpgsql IMMUTABLE SET search_path='' AS $$
+DECLARE value_text text;
+BEGIN
+  IF p_value IS NULL THEN RETURN false; END IF;
+  value_text:=p_value#>>'{}';
+  IF p_type='text' THEN RETURN jsonb_typeof(p_value)='string';
+  ELSIF p_type='integer' THEN
+    RETURN jsonb_typeof(p_value)='number' AND value_text::numeric=trunc(value_text::numeric)
+      AND value_text::numeric BETWEEN -9007199254740991 AND 9007199254740991;
+  ELSIF p_type='decimal' THEN
+    IF jsonb_typeof(p_value)<>'number' THEN RETURN false; END IF;
+    PERFORM value_text::double precision; RETURN true;
+  ELSIF p_type='boolean' THEN RETURN jsonb_typeof(p_value)='boolean';
+  ELSIF p_type='date' THEN
+    IF jsonb_typeof(p_value)<>'string' OR value_text !~ '^\d{4}-\d{2}-\d{2}$' THEN RETURN false; END IF;
+    RETURN to_char(value_text::date,'YYYY-MM-DD')=value_text;
+  ELSIF p_type='timestamp' THEN
+    IF jsonb_typeof(p_value)<>'string' OR value_text !~ '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$' THEN RETURN false; END IF;
+    PERFORM value_text::timestamptz; RETURN true;
+  ELSIF p_type IN ('category','reference') THEN
+    IF jsonb_typeof(p_value)<>'string' THEN RETURN false; END IF;
+    PERFORM internal.sheet_definition_uuid(value_text,'scalar'); RETURN true;
+  END IF;
+  RETURN false;
+EXCEPTION WHEN others THEN RETURN false;
 END $$;
 
 CREATE OR REPLACE FUNCTION internal.assert_sheet_definition_object(
@@ -23,7 +51,7 @@ END $$;
 
 CREATE OR REPLACE FUNCTION internal.validate_sheet_field_definition(p_field jsonb, p_path text)
 RETURNS void LANGUAGE plpgsql IMMUTABLE SET search_path='' AS $$
-DECLARE option jsonb; ids text[]:='{}'; keys text[]:='{}'; target jsonb;
+DECLARE option jsonb; unit jsonb; ids text[]:='{}'; keys text[]:='{}'; units text[]:='{}'; target jsonb;
 BEGIN
   PERFORM internal.assert_sheet_definition_object(p_field,
     ARRAY['fieldId','key','label','description','logicalType','nullable','defaultValue','cardinality','quantity','validation','category','relationship','computation','lifecycle'],
@@ -38,21 +66,39 @@ BEGIN
   IF jsonb_typeof(p_field->'validation')<>'object' OR (p_field->'validation') - ARRAY['min','max','minLength','maxLength','pattern','extensions'] <> '{}'::jsonb THEN
     RAISE EXCEPTION 'invalid FieldDefinition validation at %',p_path USING ERRCODE='SB071';
   END IF;
+  BEGIN
   IF (p_field->'validation' ? 'min' AND jsonb_typeof(p_field->'validation'->'min')<>'number')
      OR (p_field->'validation' ? 'max' AND jsonb_typeof(p_field->'validation'->'max')<>'number')
-     OR (p_field->'validation' ? 'minLength' AND coalesce((p_field->'validation'->>'minLength') ~ '^[0-9]+$',false) IS NOT TRUE)
-     OR (p_field->'validation' ? 'maxLength' AND coalesce((p_field->'validation'->>'maxLength') ~ '^[0-9]+$',false) IS NOT TRUE)
+     OR (p_field->'validation' ? 'min' AND p_field->'validation' ? 'max' AND (p_field->'validation'->>'min')::numeric>(p_field->'validation'->>'max')::numeric)
+     OR (p_field->'validation' ? 'minLength' AND (jsonb_typeof(p_field->'validation'->'minLength')<>'number' OR (p_field->'validation'->>'minLength')::numeric<>trunc((p_field->'validation'->>'minLength')::numeric) OR (p_field->'validation'->>'minLength')::numeric NOT BETWEEN 0 AND 100000))
+     OR (p_field->'validation' ? 'maxLength' AND (jsonb_typeof(p_field->'validation'->'maxLength')<>'number' OR (p_field->'validation'->>'maxLength')::numeric<>trunc((p_field->'validation'->>'maxLength')::numeric) OR (p_field->'validation'->>'maxLength')::numeric NOT BETWEEN 0 AND 100000))
+     OR (p_field->'validation' ? 'minLength' AND p_field->'validation' ? 'maxLength' AND (p_field->'validation'->>'minLength')::integer>(p_field->'validation'->>'maxLength')::integer)
      OR (p_field->'validation' ? 'pattern' AND (jsonb_typeof(p_field->'validation'->'pattern')<>'string' OR length(p_field->'validation'->>'pattern')>1000))
      OR (p_field->'validation' ? 'extensions' AND jsonb_typeof(p_field->'validation'->'extensions')<>'object')
   THEN RAISE EXCEPTION 'invalid FieldDefinition validation at %',p_path USING ERRCODE='SB071'; END IF;
+  IF p_field->'validation' ? 'min' THEN PERFORM (p_field->'validation'->>'min')::double precision; END IF;
+  IF p_field->'validation' ? 'max' THEN PERFORM (p_field->'validation'->>'max')::double precision; END IF;
+  IF p_field->'validation' ? 'pattern' THEN PERFORM '' ~ (p_field->'validation'->>'pattern'); END IF;
+  EXCEPTION WHEN invalid_regular_expression OR invalid_text_representation OR numeric_value_out_of_range THEN
+    RAISE EXCEPTION 'invalid FieldDefinition validation at %',p_path USING ERRCODE='SB071';
+  END;
   IF p_field->'quantity'<>'null'::jsonb THEN
     PERFORM internal.assert_sheet_definition_object(p_field->'quantity',ARRAY['kind','dimension','storageUnit'],ARRAY['kind','dimension','storageUnit','allowedInputUnits','preferredDisplayUnit'],p_path||'.quantity');
     IF p_field->>'logicalType' NOT IN ('integer','decimal') OR length(btrim(p_field->'quantity'->>'kind')) NOT BETWEEN 1 AND 200
        OR length(btrim(p_field->'quantity'->>'dimension')) NOT BETWEEN 1 AND 200 OR length(btrim(p_field->'quantity'->>'storageUnit')) NOT BETWEEN 1 AND 200
        OR (p_field->'quantity' ? 'allowedInputUnits' AND (jsonb_typeof(p_field->'quantity'->'allowedInputUnits')<>'array' OR jsonb_array_length(p_field->'quantity'->'allowedInputUnits')>32))
+       OR (p_field->'quantity' ? 'preferredDisplayUnit' AND (jsonb_typeof(p_field->'quantity'->'preferredDisplayUnit')<>'string' OR length(btrim(p_field->'quantity'->>'preferredDisplayUnit')) NOT BETWEEN 1 AND 200))
     THEN RAISE EXCEPTION 'invalid FieldDefinition quantity at %',p_path USING ERRCODE='SB071'; END IF;
+    IF p_field->'quantity' ? 'allowedInputUnits' THEN
+      FOR unit IN SELECT value FROM jsonb_array_elements(p_field->'quantity'->'allowedInputUnits') LOOP
+        IF jsonb_typeof(unit)<>'string' OR length(btrim(unit#>>'{}')) NOT BETWEEN 1 AND 200 OR unit#>>'{}'=ANY(units) THEN RAISE EXCEPTION 'invalid or duplicate FieldDefinition input unit' USING ERRCODE='SB071'; END IF;
+        units:=array_append(units,unit#>>'{}');
+      END LOOP;
+    END IF;
+    IF p_field->'quantity' ? 'preferredDisplayUnit' AND p_field->'quantity'->>'preferredDisplayUnit'<>p_field->'quantity'->>'storageUnit' AND p_field->'quantity'->>'preferredDisplayUnit'<>ALL(units) THEN RAISE EXCEPTION 'preferred display unit must be a storage or input unit' USING ERRCODE='SB071'; END IF;
   END IF;
   IF p_field->>'cardinality'='many' AND p_field->'defaultValue'<>'null'::jsonb THEN RAISE EXCEPTION 'many FieldDefinitions cannot have defaults' USING ERRCODE='SB071'; END IF;
+  IF p_field->'defaultValue'<>'null'::jsonb AND NOT internal.sheet_definition_scalar_matches(p_field->>'logicalType',p_field->'defaultValue') THEN RAISE EXCEPTION 'FieldDefinition default does not match logical type' USING ERRCODE='SB071'; END IF;
   IF p_field->>'logicalType'='category' THEN
     IF jsonb_typeof(p_field->'category')<>'object' OR p_field->'category'->>'kind' NOT IN ('embedded','vocabulary') THEN RAISE EXCEPTION 'category FieldDefinition requires a source' USING ERRCODE='SB071'; END IF;
     IF p_field->'category'->>'kind'='embedded' THEN
@@ -62,10 +108,11 @@ BEGIN
         PERFORM internal.assert_sheet_definition_object(option,ARRAY['id','key','label','displayOrder','lifecycle'],ARRAY['id','key','label','displayOrder','lifecycle'],p_path||'.category.options');
         PERFORM internal.sheet_definition_uuid(option->>'id',p_path||'.category.options.id');
         IF option->>'id'=ANY(ids) OR option->>'key'=ANY(keys) OR option->>'key' !~ '^[a-z][a-z0-9_]{0,59}$'
-           OR length(btrim(option->>'label')) NOT BETWEEN 1 AND 200 OR coalesce((option->>'displayOrder') ~ '^[0-9]+$',false) IS NOT TRUE
+           OR length(btrim(option->>'label')) NOT BETWEEN 1 AND 200 OR jsonb_typeof(option->'displayOrder')<>'number' OR (option->>'displayOrder')::numeric<>trunc((option->>'displayOrder')::numeric) OR (option->>'displayOrder')::numeric NOT BETWEEN 0 AND 10000
            OR option->>'lifecycle' NOT IN ('active','retired') THEN RAISE EXCEPTION 'invalid or duplicate embedded category option' USING ERRCODE='SB071'; END IF;
         ids:=array_append(ids,option->>'id'); keys:=array_append(keys,option->>'key');
       END LOOP;
+      IF p_field->'defaultValue'<>'null'::jsonb AND NOT EXISTS(SELECT 1 FROM jsonb_array_elements(p_field->'category'->'options') value WHERE value->>'id'=p_field->>'defaultValue' AND value->>'lifecycle'='active') THEN RAISE EXCEPTION 'category default must name an active option' USING ERRCODE='SB071'; END IF;
     ELSE
       PERFORM internal.assert_sheet_definition_object(p_field->'category',ARRAY['kind','vocabularyId'],ARRAY['kind','vocabularyId'],p_path||'.category');
       PERFORM internal.sheet_definition_uuid(p_field->'category'->>'vocabularyId',p_path||'.category.vocabularyId');
@@ -96,13 +143,13 @@ END $$;
 CREATE OR REPLACE FUNCTION internal.validate_sheet_definition_configuration(p_config jsonb)
 RETURNS void LANGUAGE plpgsql IMMUTABLE SET search_path='' AS $$
 DECLARE item jsonb; nested jsonb; id text; source jsonb; field jsonb; type_spec jsonb; contract jsonb;
-  parameter_ids text[]:='{}'; binding_ids text[]:='{}'; column_ids text[]:='{}'; calculation_ids text[]:='{}'; section_ids text[]; order_ids text[]:='{}';
+  parameter_ids text[]:='{}'; parameter_keys text[]:='{}'; binding_ids text[]:='{}'; binding_keys text[]:='{}'; column_ids text[]:='{}'; column_keys text[]:='{}'; calculation_ids text[]:='{}'; calculation_keys text[]:='{}'; action_keys text[]:='{}'; section_ids text[]; order_ids text[]:='{}';
 BEGIN
   IF octet_length(p_config::text)>1048576 THEN RAISE EXCEPTION 'Sheet Definition configuration exceeds 1 MiB' USING ERRCODE='SB071'; END IF;
   PERFORM internal.assert_sheet_definition_object(p_config,
     ARRAY['formatVersion','parameters','bindings','rowIdentity','joins','columns','calculations','writeBackRules','actions','presentation'],
     ARRAY['formatVersion','parameters','bindings','rowIdentity','joins','columns','calculations','writeBackRules','actions','presentation'],'configuration');
-  IF p_config->>'formatVersion' IS DISTINCT FROM '1' THEN RAISE EXCEPTION 'unsupported Sheet Definition configuration format' USING ERRCODE='SB071'; END IF;
+  IF jsonb_typeof(p_config->'formatVersion') IS DISTINCT FROM 'number' OR p_config->'formatVersion'<>'1'::jsonb THEN RAISE EXCEPTION 'unsupported Sheet Definition configuration format' USING ERRCODE='SB071'; END IF;
   IF jsonb_typeof(p_config->'parameters')<>'array' OR jsonb_array_length(p_config->'parameters')>64
      OR jsonb_typeof(p_config->'bindings')<>'array' OR jsonb_array_length(p_config->'bindings')>64
      OR jsonb_typeof(p_config->'joins')<>'array' OR jsonb_array_length(p_config->'joins')>16
@@ -115,13 +162,14 @@ BEGIN
   FOR item IN SELECT value FROM jsonb_array_elements(p_config->'parameters') LOOP
     PERFORM internal.assert_sheet_definition_object(item,ARRAY['id','key','label','required','type','constraints'],ARRAY['id','key','label','required','type','defaultValue','constraints'],'parameters');
     id:=internal.sheet_definition_uuid(item->>'id','parameters.id')::text;
-    IF id=ANY(parameter_ids) OR item->>'key' !~ '^[a-z][a-z0-9_]{0,59}$' OR length(btrim(item->>'label')) NOT BETWEEN 1 AND 200
+    IF id=ANY(parameter_ids) OR item->>'key'=ANY(parameter_keys) OR item->>'key' !~ '^[a-z][a-z0-9_]{0,59}$' OR length(btrim(item->>'label')) NOT BETWEEN 1 AND 200
        OR jsonb_typeof(item->'required')<>'boolean' OR jsonb_typeof(item->'constraints')<>'object' THEN RAISE EXCEPTION 'invalid or duplicate Sheet Definition parameter' USING ERRCODE='SB071'; END IF;
-    parameter_ids:=array_append(parameter_ids,id); type_spec:=item->'type';
+    parameter_ids:=array_append(parameter_ids,id); parameter_keys:=array_append(parameter_keys,item->>'key'); type_spec:=item->'type';
     IF jsonb_typeof(type_spec)<>'object' OR type_spec->>'kind' NOT IN ('scalar','record','dataset','dataset-version') THEN RAISE EXCEPTION 'invalid Sheet Definition parameter type' USING ERRCODE='SB071'; END IF;
     IF type_spec->>'kind'='scalar' THEN
       PERFORM internal.assert_sheet_definition_object(type_spec,ARRAY['kind','valueType'],ARRAY['kind','valueType'],'parameters.type');
       IF type_spec->>'valueType' NOT IN ('text','integer','decimal','boolean','date','timestamp','category','reference') THEN RAISE EXCEPTION 'invalid scalar parameter type' USING ERRCODE='SB071'; END IF;
+      IF item ? 'defaultValue' AND NOT internal.sheet_definition_scalar_matches(type_spec->>'valueType',item->'defaultValue') THEN RAISE EXCEPTION 'scalar parameter default does not match its value type' USING ERRCODE='SB071'; END IF;
     ELSIF type_spec->>'kind'='record' THEN
       PERFORM internal.assert_sheet_definition_object(type_spec,ARRAY['kind','modelKey'],ARRAY['kind','modelKey'],'parameters.type');
       IF type_spec->>'modelKey' !~ '^[a-z][a-z0-9_]{0,59}$' THEN RAISE EXCEPTION 'invalid Record parameter model' USING ERRCODE='SB071'; END IF;
@@ -141,8 +189,8 @@ BEGIN
 
   FOR item IN SELECT value FROM jsonb_array_elements(p_config->'bindings') LOOP
     PERFORM internal.assert_sheet_definition_object(item,ARRAY['id','key','parameterId'],ARRAY['id','key','parameterId'],'bindings'); id:=internal.sheet_definition_uuid(item->>'id','bindings.id')::text;
-    IF id=ANY(binding_ids) OR item->>'key' !~ '^[a-z][a-z0-9_]{0,59}$' OR internal.sheet_definition_uuid(item->>'parameterId','bindings.parameterId')::text<>ALL(parameter_ids) THEN RAISE EXCEPTION 'invalid, duplicate or unresolved Sheet Definition binding' USING ERRCODE='SB071'; END IF;
-    binding_ids:=array_append(binding_ids,id);
+    IF id=ANY(binding_ids) OR item->>'key'=ANY(binding_keys) OR item->>'key' !~ '^[a-z][a-z0-9_]{0,59}$' OR internal.sheet_definition_uuid(item->>'parameterId','bindings.parameterId')::text<>ALL(parameter_ids) THEN RAISE EXCEPTION 'invalid, duplicate or unresolved Sheet Definition binding' USING ERRCODE='SB071'; END IF;
+    binding_ids:=array_append(binding_ids,id); binding_keys:=array_append(binding_keys,item->>'key');
   END LOOP;
 
   section_ids:='{}';
@@ -150,24 +198,25 @@ BEGIN
     PERFORM internal.assert_sheet_definition_object(item,ARRAY['id','field','source'],ARRAY['id','field','source'],'columns'); id:=internal.sheet_definition_uuid(item->>'id','columns.id')::text;
     IF id=ANY(column_ids) THEN RAISE EXCEPTION 'duplicate Sheet Definition column ID' USING ERRCODE='SB071'; END IF;
     field:=item->'field'; PERFORM internal.validate_sheet_field_definition(field,'columns.field');
-    IF field->>'fieldId'<>id THEN RAISE EXCEPTION 'column and FieldDefinition IDs must match' USING ERRCODE='SB071'; END IF;
+    IF field->>'fieldId'<>id OR field->>'key'=ANY(column_keys) THEN RAISE EXCEPTION 'column FieldDefinition identity or key is duplicate' USING ERRCODE='SB071'; END IF;
     source:=item->'source';
     IF jsonb_typeof(source)<>'object' OR source->>'kind' NOT IN ('declared','bound','calculated') THEN RAISE EXCEPTION 'invalid Sheet Definition column source' USING ERRCODE='SB071'; END IF;
     IF source->>'kind'='declared' THEN PERFORM internal.assert_sheet_definition_object(source,ARRAY['kind'],ARRAY['kind'],'columns.source'); IF field->'computation'->>'mode'<>'stored' THEN RAISE EXCEPTION 'declared columns must use stored FieldDefinition semantics' USING ERRCODE='SB071'; END IF;
     ELSIF source->>'kind'='bound' THEN PERFORM internal.assert_sheet_definition_object(source,ARRAY['kind','bindingId','sourceFieldId'],ARRAY['kind','bindingId','sourceFieldId'],'columns.source'); IF internal.sheet_definition_uuid(source->>'bindingId','columns.source.bindingId')::text<>ALL(binding_ids) THEN RAISE EXCEPTION 'bound column references unknown binding' USING ERRCODE='SB071'; END IF; PERFORM internal.sheet_definition_uuid(source->>'sourceFieldId','columns.source.sourceFieldId'); IF field->'computation'->>'mode'<>'stored' THEN RAISE EXCEPTION 'bound columns must use stored FieldDefinition semantics' USING ERRCODE='SB071'; END IF;
     ELSE PERFORM internal.assert_sheet_definition_object(source,ARRAY['kind','calculationId'],ARRAY['kind','calculationId'],'columns.source'); section_ids:=array_append(section_ids,internal.sheet_definition_uuid(source->>'calculationId','columns.source.calculationId')::text); IF field->'computation'->>'mode'<>'computed' OR field->'computation'->>'expressionId'<>source->>'calculationId' THEN RAISE EXCEPTION 'calculated column FieldDefinition must reference its calculation' USING ERRCODE='SB071'; END IF; END IF;
-    column_ids:=array_append(column_ids,id);
+    column_ids:=array_append(column_ids,id); column_keys:=array_append(column_keys,field->>'key');
   END LOOP;
 
   FOR item IN SELECT value FROM jsonb_array_elements(p_config->'calculations') LOOP
     PERFORM internal.assert_sheet_definition_object(item,ARRAY['id','key','label','outputColumnId','inputColumnIds','expression'],ARRAY['id','key','label','outputColumnId','inputColumnIds','expression'],'calculations'); id:=internal.sheet_definition_uuid(item->>'id','calculations.id')::text;
-    IF id=ANY(calculation_ids) OR item->>'key' !~ '^[a-z][a-z0-9_]{0,59}$' OR length(btrim(item->>'label')) NOT BETWEEN 1 AND 200
+    IF id=ANY(calculation_ids) OR item->>'key'=ANY(calculation_keys) OR item->>'key' !~ '^[a-z][a-z0-9_]{0,59}$' OR length(btrim(item->>'label')) NOT BETWEEN 1 AND 200
        OR internal.sheet_definition_uuid(item->>'outputColumnId','calculations.outputColumnId')::text<>ALL(column_ids)
        OR jsonb_typeof(item->'inputColumnIds')<>'array' OR jsonb_array_length(item->'inputColumnIds')>64 THEN RAISE EXCEPTION 'invalid or unresolved Sheet Definition calculation' USING ERRCODE='SB071'; END IF;
+    IF NOT EXISTS(SELECT 1 FROM jsonb_array_elements(p_config->'columns') column_item WHERE column_item->>'id'=item->>'outputColumnId' AND column_item->'source'->>'kind'='calculated' AND column_item->'source'->>'calculationId'=id) THEN RAISE EXCEPTION 'calculation output must be its corresponding calculated column' USING ERRCODE='SB071'; END IF;
     FOR nested IN SELECT value FROM jsonb_array_elements(item->'inputColumnIds') LOOP IF internal.sheet_definition_uuid(nested#>>'{}','calculations.inputColumnIds')::text<>ALL(column_ids) THEN RAISE EXCEPTION 'calculation references unknown input column' USING ERRCODE='SB071'; END IF; END LOOP;
     PERFORM internal.assert_sheet_definition_object(item->'expression',ARRAY['language','source'],ARRAY['language','source'],'calculations.expression');
     IF item->'expression'->>'language'<>'sheetbase-formula-v1' OR length(btrim(item->'expression'->>'source')) NOT BETWEEN 1 AND 8192 THEN RAISE EXCEPTION 'invalid calculation expression' USING ERRCODE='SB071'; END IF;
-    calculation_ids:=array_append(calculation_ids,id);
+    calculation_ids:=array_append(calculation_ids,id); calculation_keys:=array_append(calculation_keys,item->>'key');
   END LOOP;
   IF EXISTS(SELECT 1 FROM unnest(section_ids) x WHERE x<>ALL(calculation_ids)) THEN RAISE EXCEPTION 'calculated column references unknown calculation' USING ERRCODE='SB071'; END IF;
 
@@ -181,6 +230,8 @@ BEGIN
     IF id=ANY(section_ids) OR internal.sheet_definition_uuid(item->>'leftBindingId','joins.leftBindingId')::text<>ALL(binding_ids) OR internal.sheet_definition_uuid(item->>'rightBindingId','joins.rightBindingId')::text<>ALL(binding_ids)
        OR internal.sheet_definition_uuid(item->>'leftColumnId','joins.leftColumnId')::text<>ALL(column_ids) OR internal.sheet_definition_uuid(item->>'rightColumnId','joins.rightColumnId')::text<>ALL(column_ids)
        OR item->>'joinType' NOT IN ('inner','left') OR item->>'cardinality' NOT IN ('one-to-one','many-to-one') THEN RAISE EXCEPTION 'invalid, duplicate or unresolved Sheet Definition join' USING ERRCODE='SB071'; END IF; section_ids:=array_append(section_ids,id);
+    IF NOT EXISTS(SELECT 1 FROM jsonb_array_elements(p_config->'columns') column_item WHERE column_item->>'id'=item->>'leftColumnId' AND column_item->'source'->>'kind'='bound' AND column_item->'source'->>'bindingId'=item->>'leftBindingId')
+       OR NOT EXISTS(SELECT 1 FROM jsonb_array_elements(p_config->'columns') column_item WHERE column_item->>'id'=item->>'rightColumnId' AND column_item->'source'->>'kind'='bound' AND column_item->'source'->>'bindingId'=item->>'rightBindingId') THEN RAISE EXCEPTION 'join columns must belong to their corresponding bindings' USING ERRCODE='SB071'; END IF;
   END LOOP;
 
   section_ids:='{}';
@@ -194,19 +245,19 @@ BEGIN
   section_ids:='{}';
   FOR item IN SELECT value FROM jsonb_array_elements(p_config->'actions') LOOP
     PERFORM internal.assert_sheet_definition_object(item,ARRAY['id','key','label','kind'],ARRAY['id','key','label','kind','bindingId','parameterId'],'actions'); id:=internal.sheet_definition_uuid(item->>'id','actions.id')::text;
-    IF id=ANY(section_ids) OR item->>'key' !~ '^[a-z][a-z0-9_]{0,59}$' OR length(btrim(item->>'label')) NOT BETWEEN 1 AND 200 OR item->>'kind' NOT IN ('create-record','link-record','open-record') THEN RAISE EXCEPTION 'invalid configured action' USING ERRCODE='SB071'; END IF;
+    IF id=ANY(section_ids) OR item->>'key'=ANY(action_keys) OR item->>'key' !~ '^[a-z][a-z0-9_]{0,59}$' OR length(btrim(item->>'label')) NOT BETWEEN 1 AND 200 OR item->>'kind' NOT IN ('create-record','link-record','open-record') THEN RAISE EXCEPTION 'invalid configured action' USING ERRCODE='SB071'; END IF;
     IF item ? 'bindingId' AND internal.sheet_definition_uuid(item->>'bindingId','actions.bindingId')::text<>ALL(binding_ids) THEN RAISE EXCEPTION 'action references unknown binding' USING ERRCODE='SB071'; END IF;
-    IF item ? 'parameterId' AND internal.sheet_definition_uuid(item->>'parameterId','actions.parameterId')::text<>ALL(parameter_ids) THEN RAISE EXCEPTION 'action references unknown parameter' USING ERRCODE='SB071'; END IF; section_ids:=array_append(section_ids,id);
+    IF item ? 'parameterId' AND internal.sheet_definition_uuid(item->>'parameterId','actions.parameterId')::text<>ALL(parameter_ids) THEN RAISE EXCEPTION 'action references unknown parameter' USING ERRCODE='SB071'; END IF; section_ids:=array_append(section_ids,id); action_keys:=array_append(action_keys,item->>'key');
   END LOOP;
 
   PERFORM internal.assert_sheet_definition_object(p_config->'presentation',ARRAY['columnOrder','hiddenColumnIds','columnWidths','frozenColumnCount','density'],ARRAY['columnOrder','hiddenColumnIds','columnWidths','frozenColumnCount','density'],'presentation');
   IF jsonb_typeof(p_config->'presentation'->'columnOrder')<>'array' OR jsonb_array_length(p_config->'presentation'->'columnOrder')<>cardinality(column_ids)
      OR jsonb_typeof(p_config->'presentation'->'hiddenColumnIds')<>'array' OR jsonb_array_length(p_config->'presentation'->'hiddenColumnIds')>256
-     OR jsonb_typeof(p_config->'presentation'->'columnWidths')<>'object' OR coalesce((p_config->'presentation'->>'frozenColumnCount') ~ '^[0-9]+$',false) IS NOT TRUE
-     OR (p_config->'presentation'->>'frozenColumnCount')::integer>256 OR p_config->'presentation'->>'density' NOT IN ('compact','standard','comfortable') THEN RAISE EXCEPTION 'invalid Sheet Definition presentation defaults' USING ERRCODE='SB071'; END IF;
+     OR jsonb_typeof(p_config->'presentation'->'columnWidths')<>'object' OR jsonb_typeof(p_config->'presentation'->'frozenColumnCount')<>'number' OR (p_config->'presentation'->>'frozenColumnCount')::numeric<>trunc((p_config->'presentation'->>'frozenColumnCount')::numeric)
+     OR (p_config->'presentation'->>'frozenColumnCount')::numeric NOT BETWEEN 0 AND 256 OR p_config->'presentation'->>'density' NOT IN ('compact','standard','comfortable') THEN RAISE EXCEPTION 'invalid Sheet Definition presentation defaults' USING ERRCODE='SB071'; END IF;
   FOR id IN SELECT value FROM jsonb_array_elements_text(p_config->'presentation'->'columnOrder') LOOP IF id=ANY(order_ids) OR internal.sheet_definition_uuid(id,'presentation.columnOrder')::text<>ALL(column_ids) THEN RAISE EXCEPTION 'column order must contain every column exactly once' USING ERRCODE='SB071'; END IF; order_ids:=array_append(order_ids,id); END LOOP;
   order_ids:='{}'; FOR id IN SELECT value FROM jsonb_array_elements_text(p_config->'presentation'->'hiddenColumnIds') LOOP IF id=ANY(order_ids) OR internal.sheet_definition_uuid(id,'presentation.hiddenColumnIds')::text<>ALL(column_ids) THEN RAISE EXCEPTION 'invalid hidden column reference' USING ERRCODE='SB071'; END IF; order_ids:=array_append(order_ids,id); END LOOP;
-  FOR id,nested IN SELECT key,value FROM jsonb_each(p_config->'presentation'->'columnWidths') LOOP IF internal.sheet_definition_uuid(id,'presentation.columnWidths')::text<>ALL(column_ids) OR jsonb_typeof(nested)<>'number' OR (nested#>>'{}')::numeric NOT BETWEEN 40 AND 1000 OR (nested#>>'{}') !~ '^[0-9]+$' THEN RAISE EXCEPTION 'invalid column width default' USING ERRCODE='SB071'; END IF; END LOOP;
+  FOR id,nested IN SELECT key,value FROM jsonb_each(p_config->'presentation'->'columnWidths') LOOP IF internal.sheet_definition_uuid(id,'presentation.columnWidths')::text<>ALL(column_ids) OR jsonb_typeof(nested)<>'number' OR (nested#>>'{}')::numeric NOT BETWEEN 40 AND 1000 OR (nested#>>'{}')::numeric<>trunc((nested#>>'{}')::numeric) THEN RAISE EXCEPTION 'invalid column width default' USING ERRCODE='SB071'; END IF; END LOOP;
 END $$;
 
 CREATE OR REPLACE FUNCTION internal.guard_sheet_definition() RETURNS trigger
@@ -247,6 +298,8 @@ BEGIN
   RETURN NEW;
 END $$;
 CREATE TRIGGER guard_sheet_definition_version BEFORE INSERT OR UPDATE OR DELETE ON api.sheet_definition_versions FOR EACH ROW EXECUTE FUNCTION internal.guard_sheet_definition_version();
+
+REVOKE EXECUTE ON FUNCTION internal.sheet_definition_uuid(text,text),internal.sheet_definition_scalar_matches(text,jsonb),internal.assert_sheet_definition_object(jsonb,text[],text[],text),internal.validate_sheet_field_definition(jsonb,text),internal.validate_sheet_definition_configuration(jsonb),internal.guard_sheet_definition(),internal.guard_sheet_definition_version() FROM PUBLIC,authenticated,api_client;
 
 ALTER TABLE api.sheet_definitions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE api.sheet_definition_versions ENABLE ROW LEVEL SECURITY;

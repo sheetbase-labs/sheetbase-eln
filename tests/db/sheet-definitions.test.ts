@@ -1,7 +1,10 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { validSheetDefinitionConfiguration } from '../fixtures/sheet-definition'
+import {
+  sheetDefinitionInvalidCases,
+  validSheetDefinitionConfiguration,
+} from '../fixtures/sheet-definition'
 import { prepareTestDatabase } from './helpers'
 
 const WS_A = '11000000-0000-4000-8000-000000000001'
@@ -192,6 +195,66 @@ describe('Sheet Definition persistence and authority', () => {
         ),
       ).rejects.toMatchObject({ code: 'SB071' })
     }
+  })
+
+  it('matches typed shape, key, default, FieldDefinition and structural-reference rejection at the public DB boundary', async () => {
+    const owner = await actor(OWNER_A, WS_A)
+    for (const [index, testCase] of sheetDefinitionInvalidCases.entries()) {
+      const invalid = structuredClone(validSheetDefinitionConfiguration())
+      testCase.mutate(invalid)
+      await expect(
+        owner.query(
+          `select api.create_sheet_definition($1,$2,'Invalid parity',null,$3::jsonb)`,
+          [WS_A, `invalid_parity_${index}`, JSON.stringify(invalid)],
+        ),
+        testCase.name,
+      ).rejects.toMatchObject({ code: 'SB071' })
+    }
+  })
+
+  it('accepts all typed scalar defaults and RFC UUID versions at both public boundaries', async () => {
+    const owner = await actor(OWNER_A, WS_A)
+    const defaults = [
+      ['text', 'result'],
+      ['integer', 12],
+      ['decimal', 12.5],
+      ['boolean', true],
+      ['date', '2026-08-14'],
+      ['timestamp', '2026-08-14T12:30:00Z'],
+      ['category', 'a0000000-0000-7000-8000-000000000001'],
+      ['reference', 'a0000000-0000-7000-8000-000000000002'],
+    ] as const
+    for (const [index, [valueType, defaultValue]] of defaults.entries()) {
+      const configuration: any = structuredClone(
+        validSheetDefinitionConfiguration(),
+      )
+      configuration.parameters[0].type = { kind: 'scalar', valueType }
+      configuration.parameters[0].defaultValue = defaultValue
+      configuration.columns[0].source.sourceFieldId =
+        'a0000000-0000-7000-8000-000000000003'
+      await expect(
+        owner.query(
+          `select api.create_sheet_definition($1,$2,'Valid parity',null,$3::jsonb)`,
+          [WS_A, `valid_parity_${index}`, JSON.stringify(configuration)],
+        ),
+      ).resolves.toMatchObject({ rowCount: 1 })
+    }
+  })
+
+  it('keeps guard triggers enabled and internal validators unavailable to API roles', async () => {
+    const owner = await actor(OWNER_A, WS_A)
+    const triggers = await migrator.query(
+      `select bool_and(tgenabled='O') enabled
+       from pg_trigger
+       where tgname in ('guard_sheet_definition','guard_sheet_definition_version')`,
+    )
+    expect(triggers.rows[0].enabled).toBe(true)
+    await expect(
+      owner.query(
+        `select internal.validate_sheet_definition_configuration($1::jsonb)`,
+        [JSON.stringify(validSheetDefinitionConfiguration())],
+      ),
+    ).rejects.toMatchObject({ code: '42501' })
   })
 
   it('enforces stable IDs, explicit monotonic versions and optimistic conflicts', async () => {

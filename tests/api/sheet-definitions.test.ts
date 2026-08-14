@@ -32,23 +32,40 @@ function request(path: string, init: RequestInit = {}) {
 }
 
 async function cleanup() {
-  await admin.query(
-    `alter table api.sheet_definition_versions disable trigger user`,
+  await admin.query('begin')
+  try {
+    await admin.query(
+      `alter table api.sheet_definition_versions disable trigger user`,
+    )
+    await admin.query(`alter table api.sheet_definitions disable trigger user`)
+    await admin.query(
+      `delete from api.sheet_definition_versions where definition_id in (select id from api.sheet_definitions where workspace_id=$1)`,
+      [WS],
+    )
+    await admin.query(
+      `delete from api.sheet_definitions where workspace_id=$1`,
+      [WS],
+    )
+    await admin.query(`alter table api.sheet_definitions enable trigger user`)
+    await admin.query(
+      `alter table api.sheet_definition_versions enable trigger user`,
+    )
+    await admin.query(`delete from api.workspaces where id=$1`, [WS])
+    await admin.query(`delete from internal."user" where id=$1`, [OWNER])
+    await admin.query('commit')
+  } catch (error) {
+    await admin.query('rollback').catch(() => undefined)
+    throw error
+  }
+}
+
+async function expectGuardsEnabled() {
+  const result = await admin.query(
+    `select bool_and(tgenabled='O') enabled
+     from pg_trigger
+     where tgname in ('guard_sheet_definition','guard_sheet_definition_version')`,
   )
-  await admin.query(`alter table api.sheet_definitions disable trigger user`)
-  await admin.query(
-    `delete from api.sheet_definition_versions where definition_id in (select id from api.sheet_definitions where workspace_id=$1)`,
-    [WS],
-  )
-  await admin.query(`delete from api.sheet_definitions where workspace_id=$1`, [
-    WS,
-  ])
-  await admin.query(`alter table api.sheet_definitions enable trigger user`)
-  await admin.query(
-    `alter table api.sheet_definition_versions enable trigger user`,
-  )
-  await admin.query(`delete from api.workspaces where id=$1`, [WS])
-  await admin.query(`delete from internal."user" where id=$1`, [OWNER])
+  expect(result.rows[0].enabled).toBe(true)
 }
 
 beforeAll(async () => {
@@ -72,8 +89,12 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (admin) {
-    await cleanup()
-    await admin.end()
+    try {
+      await cleanup()
+      await expectGuardsEnabled()
+    } finally {
+      await admin.end()
+    }
   }
 })
 

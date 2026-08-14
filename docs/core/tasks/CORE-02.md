@@ -108,6 +108,7 @@ The Dataset storage ADR can be written from evidence rather than assumptions.
 # CORE-02.2 — Decide Dataset physical storage and versioning
 
 **Blocked by:** CORE-02.1.
+**Status:** Complete (2026-08-14).
 
 ## Goal
 
@@ -143,6 +144,15 @@ Existing calculation identity/provenance guarantees and workspace isolation.
 ## Exit gate
 
 A reviewed ADR gives CORE-02.3 a concrete migration target.
+
+## Completion evidence
+
+- Added ADR 0037, selecting typed relational row/value storage and explicit
+  immutable Dataset snapshots with stable Dataset, Schema, row, field and
+  version IDs.
+- The ADR compares typed tables, EAV, JSONB and the selected hybrid against
+  versions, schema evolution, quantity queries, bulk/RLS/API, formula
+  compatibility, migration and future compositional reads.
 
 ---
 

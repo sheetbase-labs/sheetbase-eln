@@ -2089,6 +2089,106 @@ export const datasetSchemaVersionFields = api.table(
   ],
 )
 
+// CORE-03: reusable Sheet configuration is a workspace-owned identity with
+// explicit immutable versions. Working/local values belong to future Sheet
+// Instances and must never be stored in either of these tables.
+export const sheetDefinitions = api.table(
+  'sheet_definitions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    key: text('key').notNull(),
+    name: text('name').notNull(),
+    description: text('description'),
+    lifecycle: text('lifecycle').notNull().default('active'),
+    revision: bigint('revision', { mode: 'bigint' })
+      .notNull()
+      .default(sql`1`),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    unique('uq_sheet_definitions_workspace_key').on(
+      table.workspaceId,
+      table.key,
+    ),
+    check(
+      'chk_sheet_definitions_key',
+      sql`${table.key} ~ '^[a-z][a-z0-9_]{0,59}$'`,
+    ),
+    check(
+      'chk_sheet_definitions_lifecycle',
+      sql`${table.lifecycle} IN ('active','retired')`,
+    ),
+    check('chk_sheet_definitions_revision', sql`${table.revision} > 0`),
+    index('idx_sheet_definitions_workspace').on(table.workspaceId),
+  ],
+)
+
+export const sheetDefinitionVersions = api.table(
+  'sheet_definition_versions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    definitionId: uuid('definition_id')
+      .notNull()
+      .references(() => sheetDefinitions.id, { onDelete: 'restrict' }),
+    version: integer('version').notNull(),
+    lifecycle: text('lifecycle').notNull().default('draft'),
+    configurationFormatVersion: integer('configuration_format_version')
+      .notNull()
+      .default(1),
+    configuration: jsonb('configuration').notNull(),
+    revision: bigint('revision', { mode: 'bigint' })
+      .notNull()
+      .default(sql`1`),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    publishedAt: timestamp('published_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    publishedByUserId: text('published_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    retiredAt: timestamp('retired_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    retiredByUserId: text('retired_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    unique('uq_sheet_definition_versions_definition_version').on(
+      table.definitionId,
+      table.version,
+    ),
+    check('chk_sheet_definition_versions_version', sql`${table.version} > 0`),
+    check(
+      'chk_sheet_definition_versions_lifecycle',
+      sql`${table.lifecycle} IN ('draft','published','retired')`,
+    ),
+    check(
+      'chk_sheet_definition_versions_format',
+      sql`${table.configurationFormatVersion} = 1`,
+    ),
+    check('chk_sheet_definition_versions_revision', sql`${table.revision} > 0`),
+    index('idx_sheet_definition_versions_definition').on(table.definitionId),
+  ],
+)
+
 export const datasets = api.table(
   'datasets',
   {

@@ -1,0 +1,445 @@
+import { z } from 'zod'
+
+import {
+  FIELD_LOGICAL_TYPES,
+  validateFieldDefinition,
+} from './field-definition'
+
+export const SHEET_DEFINITION_CONFIGURATION_FORMAT_VERSION = 1 as const
+
+const uuid = z.uuid()
+const key = z.string().regex(/^[a-z][a-z0-9_]{0,59}$/)
+const label = z.string().trim().min(1).max(200)
+const jsonObject = z.record(z.string(), z.unknown())
+
+const optionSchema = z
+  .object({
+    id: uuid,
+    key,
+    label,
+    displayOrder: z.number().int().min(0).max(10_000),
+    lifecycle: z.enum(['active', 'retired']),
+  })
+  .strict()
+
+const categorySchema = z.discriminatedUnion('kind', [
+  z
+    .object({
+      kind: z.literal('embedded'),
+      options: z.array(optionSchema).max(256),
+    })
+    .strict(),
+  z.object({ kind: z.literal('vocabulary'), vocabularyId: uuid }).strict(),
+])
+
+const relationshipSchema = z
+  .object({
+    target: z.discriminatedUnion('kind', [
+      z.object({ kind: z.literal('model'), modelKey: key }).strict(),
+      z.object({ kind: z.literal('dataset-schema'), schemaId: uuid }).strict(),
+    ]),
+    cardinality: z.enum(['one', 'many']),
+  })
+  .strict()
+
+const fieldDefinitionSchema = z
+  .object({
+    fieldId: uuid,
+    key,
+    label,
+    description: z.string().max(2_000).nullable(),
+    logicalType: z.enum(FIELD_LOGICAL_TYPES),
+    nullable: z.boolean(),
+    defaultValue: z.unknown(),
+    cardinality: z.enum(['one', 'many']),
+    quantity: z
+      .object({
+        kind: label,
+        dimension: label,
+        storageUnit: label,
+        allowedInputUnits: z.array(label).max(32).optional(),
+        preferredDisplayUnit: label.optional(),
+      })
+      .strict()
+      .nullable(),
+    validation: z
+      .object({
+        min: z.number().finite().optional(),
+        max: z.number().finite().optional(),
+        minLength: z.number().int().min(0).max(100_000).optional(),
+        maxLength: z.number().int().min(0).max(100_000).optional(),
+        pattern: z.string().max(1_000).optional(),
+        extensions: jsonObject.optional(),
+      })
+      .strict(),
+    category: categorySchema.nullable(),
+    relationship: relationshipSchema.nullable(),
+    computation: z.discriminatedUnion('mode', [
+      z.object({ mode: z.literal('stored') }).strict(),
+      z.object({ mode: z.literal('computed'), expressionId: uuid }).strict(),
+    ]),
+    lifecycle: z.enum(['draft', 'backfilling', 'active', 'retired']),
+  })
+  .strict()
+  .superRefine((field, context) => {
+    for (const issue of validateFieldDefinition(field)) {
+      context.addIssue({
+        code: 'custom',
+        path: [issue.path],
+        message: issue.message,
+      })
+    }
+    if (
+      field.category?.kind === 'embedded' &&
+      (new Set(field.category.options.map((item) => item.id)).size !==
+        field.category.options.length ||
+        new Set(field.category.options.map((item) => item.key)).size !==
+          field.category.options.length)
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['category'],
+        message: 'Category option IDs and keys must be unique.',
+      })
+    }
+  })
+
+const datasetContractSchema = z.discriminatedUnion('mode', [
+  z.object({ mode: z.literal('exact'), schemaVersionId: uuid }).strict(),
+  z
+    .object({
+      mode: z.literal('semantic'),
+      requiredFieldIds: z.array(uuid).min(1).max(64),
+    })
+    .strict(),
+])
+
+const parameterSchema = z
+  .object({
+    id: uuid,
+    key,
+    label,
+    required: z.boolean(),
+    type: z.discriminatedUnion('kind', [
+      z
+        .object({
+          kind: z.literal('scalar'),
+          valueType: z.enum(FIELD_LOGICAL_TYPES),
+        })
+        .strict(),
+      z.object({ kind: z.literal('record'), modelKey: key }).strict(),
+      z
+        .object({ kind: z.literal('dataset'), contract: datasetContractSchema })
+        .strict(),
+      z
+        .object({
+          kind: z.literal('dataset-version'),
+          contract: datasetContractSchema,
+        })
+        .strict(),
+    ]),
+    defaultValue: z.unknown().optional(),
+    constraints: jsonObject,
+  })
+  .strict()
+  .superRefine((parameter, context) => {
+    if (
+      parameter.defaultValue !== undefined &&
+      parameter.type.kind !== 'scalar'
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['defaultValue'],
+        message: 'Only scalar parameters may define defaults.',
+      })
+    }
+  })
+
+const configurationSchema = z
+  .object({
+    formatVersion: z.literal(SHEET_DEFINITION_CONFIGURATION_FORMAT_VERSION),
+    parameters: z.array(parameterSchema).max(64),
+    bindings: z
+      .array(z.object({ id: uuid, key, parameterId: uuid }).strict())
+      .max(64),
+    rowIdentity: z
+      .object({
+        kind: z.enum(['source', 'composite', 'local']),
+        columnIds: z.array(uuid).min(1).max(8),
+      })
+      .strict(),
+    joins: z
+      .array(
+        z
+          .object({
+            id: uuid,
+            leftBindingId: uuid,
+            rightBindingId: uuid,
+            leftColumnId: uuid,
+            rightColumnId: uuid,
+            joinType: z.enum(['inner', 'left']),
+            cardinality: z.enum(['one-to-one', 'many-to-one']),
+          })
+          .strict(),
+      )
+      .max(16),
+    columns: z
+      .array(
+        z
+          .object({
+            id: uuid,
+            field: fieldDefinitionSchema,
+            source: z.discriminatedUnion('kind', [
+              z.object({ kind: z.literal('declared') }).strict(),
+              z
+                .object({
+                  kind: z.literal('bound'),
+                  bindingId: uuid,
+                  sourceFieldId: uuid,
+                })
+                .strict(),
+              z
+                .object({ kind: z.literal('calculated'), calculationId: uuid })
+                .strict(),
+            ]),
+          })
+          .strict(),
+      )
+      .max(256),
+    calculations: z
+      .array(
+        z
+          .object({
+            id: uuid,
+            key,
+            label,
+            outputColumnId: uuid,
+            inputColumnIds: z.array(uuid).max(64),
+            expression: z
+              .object({
+                language: z.literal('sheetbase-formula-v1'),
+                source: z.string().trim().min(1).max(8_192),
+              })
+              .strict(),
+          })
+          .strict(),
+      )
+      .max(128),
+    writeBackRules: z
+      .array(
+        z
+          .object({
+            id: uuid,
+            bindingId: uuid,
+            mode: z.literal('update'),
+            mappings: z
+              .array(z.object({ columnId: uuid, targetFieldId: uuid }).strict())
+              .min(1)
+              .max(128),
+          })
+          .strict(),
+      )
+      .max(64),
+    actions: z
+      .array(
+        z
+          .object({
+            id: uuid,
+            key,
+            label,
+            kind: z.enum(['create-record', 'link-record', 'open-record']),
+            bindingId: uuid.optional(),
+            parameterId: uuid.optional(),
+          })
+          .strict(),
+      )
+      .max(64),
+    presentation: z
+      .object({
+        columnOrder: z.array(uuid).max(256),
+        hiddenColumnIds: z.array(uuid).max(256),
+        columnWidths: z.record(uuid, z.number().int().min(40).max(1_000)),
+        frozenColumnCount: z.number().int().min(0).max(256),
+        density: z.enum(['compact', 'standard', 'comfortable']),
+      })
+      .strict(),
+  })
+  .strict()
+  .superRefine((configuration, context) => {
+    const unique = (items: Array<{ id: string }>, path: string) => {
+      if (new Set(items.map((item) => item.id)).size !== items.length) {
+        context.addIssue({
+          code: 'custom',
+          path: [path],
+          message: `${path} IDs must be unique.`,
+        })
+      }
+    }
+    unique(configuration.parameters, 'parameters')
+    unique(configuration.bindings, 'bindings')
+    unique(configuration.joins, 'joins')
+    unique(configuration.columns, 'columns')
+    unique(configuration.calculations, 'calculations')
+    unique(configuration.writeBackRules, 'writeBackRules')
+    unique(configuration.actions, 'actions')
+
+    const parameterIds = new Set(
+      configuration.parameters.map((item) => item.id),
+    )
+    const bindingIds = new Set(configuration.bindings.map((item) => item.id))
+    const columnIds = new Set(configuration.columns.map((item) => item.id))
+    const calculationIds = new Set(
+      configuration.calculations.map((item) => item.id),
+    )
+    const requireRef = (
+      ok: boolean,
+      path: (string | number)[],
+      message: string,
+    ) => {
+      if (!ok) context.addIssue({ code: 'custom', path, message })
+    }
+
+    configuration.bindings.forEach((item, index) =>
+      requireRef(
+        parameterIds.has(item.parameterId),
+        ['bindings', index, 'parameterId'],
+        'Unknown parameter ID.',
+      ),
+    )
+    configuration.rowIdentity.columnIds.forEach((id, index) =>
+      requireRef(
+        columnIds.has(id),
+        ['rowIdentity', 'columnIds', index],
+        'Unknown column ID.',
+      ),
+    )
+    configuration.columns.forEach((item, index) => {
+      requireRef(
+        item.id === item.field.fieldId,
+        ['columns', index, 'field', 'fieldId'],
+        'Column and FieldDefinition IDs must match.',
+      )
+      if (item.source.kind === 'bound')
+        requireRef(
+          bindingIds.has(item.source.bindingId),
+          ['columns', index, 'source', 'bindingId'],
+          'Unknown binding ID.',
+        )
+      if (item.source.kind === 'calculated') {
+        requireRef(
+          calculationIds.has(item.source.calculationId),
+          ['columns', index, 'source', 'calculationId'],
+          'Unknown calculation ID.',
+        )
+        requireRef(
+          item.field.computation.mode === 'computed' &&
+            item.field.computation.expressionId === item.source.calculationId,
+          ['columns', index, 'field', 'computation'],
+          'Calculated fields must reference their calculation ID.',
+        )
+      } else
+        requireRef(
+          item.field.computation.mode === 'stored',
+          ['columns', index, 'field', 'computation'],
+          'Non-calculated fields must use stored computation semantics.',
+        )
+    })
+    configuration.joins.forEach((item, index) => {
+      requireRef(
+        bindingIds.has(item.leftBindingId) &&
+          bindingIds.has(item.rightBindingId),
+        ['joins', index],
+        'Join references an unknown binding ID.',
+      )
+      requireRef(
+        columnIds.has(item.leftColumnId) && columnIds.has(item.rightColumnId),
+        ['joins', index],
+        'Join references an unknown column ID.',
+      )
+    })
+    configuration.calculations.forEach((item, index) => {
+      requireRef(
+        columnIds.has(item.outputColumnId),
+        ['calculations', index, 'outputColumnId'],
+        'Unknown output column ID.',
+      )
+      item.inputColumnIds.forEach((id) =>
+        requireRef(
+          columnIds.has(id),
+          ['calculations', index, 'inputColumnIds'],
+          'Unknown input column ID.',
+        ),
+      )
+    })
+    configuration.writeBackRules.forEach((item, index) => {
+      requireRef(
+        bindingIds.has(item.bindingId),
+        ['writeBackRules', index, 'bindingId'],
+        'Unknown binding ID.',
+      )
+      item.mappings.forEach((mapping) =>
+        requireRef(
+          columnIds.has(mapping.columnId),
+          ['writeBackRules', index, 'mappings'],
+          'Unknown column ID.',
+        ),
+      )
+    })
+    configuration.actions.forEach((item, index) => {
+      if (item.bindingId)
+        requireRef(
+          bindingIds.has(item.bindingId),
+          ['actions', index, 'bindingId'],
+          'Unknown binding ID.',
+        )
+      if (item.parameterId)
+        requireRef(
+          parameterIds.has(item.parameterId),
+          ['actions', index, 'parameterId'],
+          'Unknown parameter ID.',
+        )
+    })
+    for (const [path, ids] of [
+      ['columnOrder', configuration.presentation.columnOrder],
+      ['hiddenColumnIds', configuration.presentation.hiddenColumnIds],
+    ] as const) {
+      requireRef(
+        new Set(ids).size === ids.length,
+        ['presentation', path],
+        'Column IDs must be unique.',
+      )
+      ids.forEach((id) =>
+        requireRef(
+          columnIds.has(id),
+          ['presentation', path],
+          'Unknown column ID.',
+        ),
+      )
+    }
+    Object.keys(configuration.presentation.columnWidths).forEach((id) =>
+      requireRef(
+        columnIds.has(id),
+        ['presentation', 'columnWidths'],
+        'Unknown column ID.',
+      ),
+    )
+    requireRef(
+      configuration.presentation.columnOrder.length ===
+        configuration.columns.length &&
+        configuration.presentation.columnOrder.every((id) => columnIds.has(id)),
+      ['presentation', 'columnOrder'],
+      'Column order must contain every column exactly once.',
+    )
+  })
+
+export type SheetDefinitionConfiguration = z.infer<typeof configurationSchema>
+
+export function parseSheetDefinitionConfiguration(
+  value: unknown,
+): SheetDefinitionConfiguration {
+  return configurationSchema.parse(value)
+}
+
+export function safeParseSheetDefinitionConfiguration(value: unknown) {
+  return configurationSchema.safeParse(value)
+}

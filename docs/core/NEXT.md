@@ -8,9 +8,9 @@
 
 ## Active task
 
-**CORE-03.2 — Implement Sheet Definition identity and immutable versions**
+**CORE-03.3 — Implement Sheet Instance identity and resolved bindings**
 
-Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-032--implement-sheet-definition-identity-and-immutable-versions)
+Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-033--implement-sheet-instance-identity-and-resolved-bindings)
 
 ## Completed in this PR
 
@@ -28,11 +28,12 @@ Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-032--implement-sheet-definiti
 - CORE-02.8 — immutable Dataset Version snapshot/query semantics
 - CORE-02.9 — epic proof, full DB exit gate and CORE-03 refinement
 - CORE-03.1 — current Sheet and Template persistence audit
+- CORE-03.2 — durable Sheet Definition identity and immutable versions
 - product/architecture reset and accepted ADRs 0020–0026
 
 ## Required reading
 
-1. [`tasks/CORE-03.md`](./tasks/CORE-03.md), CORE-03.2 only
+1. [`tasks/CORE-03.md`](./tasks/CORE-03.md), CORE-03.3 only
 2. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md), Dataset and Sheet sections
 3. [`CORE_ARCHITECTURE.md`](./CORE_ARCHITECTURE.md), sections 4–9 and 12–13
 4. [`audits/SHEET_COMPOSITION_AUDIT.md`](./audits/SHEET_COMPOSITION_AUDIT.md)
@@ -41,18 +42,19 @@ Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-032--implement-sheet-definiti
 
 ## Implement now
 
-Implement durable reusable Sheet Definition identity and immutable published
-versions as specified by CORE-03.2. Preserve existing scientific Sheets through
-the audit's compatibility boundary, keep local values out of Definitions, and
-add the required persistence, RLS/API/domain contracts and focused proof. Write
-an ADR only if implementation presents a durable physical-layout fork not
-already settled by ADR 0020/0022.
+Implement durable working Sheet Instance identity and explicitly resolved
+bindings as specified by CORE-03.3. Preserve the Definition/Instance boundary,
+keep each Instance's local values and working state independent, retain pinned
+source Definition/version provenance, and preserve existing scientific Sheets
+through the audit's compatibility boundary.
 
 ## Do not
 
-- do not implement Sheet Instance, composition, write-back or materialisation;
-- do not put Instance-local values in Definitions or silently update pinned
-  dependants;
+- do not implement composition execution, write-back execution or
+  materialisation;
+- do not share Instance-local values between Instances or silently update
+  pinned Definition versions;
+- do not equate Notebook block identity with Sheet Instance identity;
 - do not redesign architecture already settled by ADRs 0020–0026;
 - do not build the full unit-conversion or vocabulary-management product yet;
 - do not weaken RLS/server validation;
@@ -109,3 +111,17 @@ contracts pass 142 files / 1,718 tests; focused scientific-table, Sheet-block,
 formula and Template DB contracts pass 4 files / 32 tests. CORE-03.2 starts with
 Definition identity/version persistence; it must not rediscover or reinterpret
 legacy ownership.
+
+CORE-03.2 is complete. Migrations `0071`/`0072` add workspace-owned Sheet
+Definition identities and immutable, explicitly versioned configuration
+documents with stable nested UUIDs. Owner/admin controlled RPCs, member-read
+RLS, optimistic revisions, monotonic versions, publication/retirement guards,
+typed domain parsers and supported data-client contracts are executable.
+Focused domain/data, DB/RLS and live API tests pass 19/19, 6/6 and 2/2;
+legacy Sheet/Template/formula/frozen-evidence compatibility proof passes 5
+files / 40 tests; the full DB gate passes 52 files / 620 tests. Fresh demo
+migration/seed and idempotent reseed pass, and `pnpm validate` passes 143 files
+/ 1,737 tests plus production build. No existing scientific data was adopted
+or migrated, and no ADR was needed. CORE-03.3 starts with independent Instance
+identity and resolved binding persistence over these pinned Definition-version
+targets.

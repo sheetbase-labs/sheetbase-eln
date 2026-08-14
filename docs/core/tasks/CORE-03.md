@@ -1,6 +1,6 @@
 # CORE-03 — Sheet Definition and Compositional Sheet Instance
 
-**Status:** In progress — CORE-03.1 complete (2026-08-14)
+**Status:** In progress — CORE-03.2 complete (2026-08-14)
 **Blocked by:** CORE-02 epic exit gate (met).
 **Normative decisions:** ADRs 0020–0026.
 
@@ -65,6 +65,8 @@ Implement reusable versioned Sheet Definitions and working Sheet Instances over 
 
 ## CORE-03.2 — Implement Sheet Definition identity and immutable versions
 
+**Status:** Complete (2026-08-14).
+
 **Blocked by:** CORE-03.1.
 
 **Goal:** Add durable reusable Sheet Definition/version persistence.
@@ -80,6 +82,38 @@ Implement reusable versioned Sheet Definitions and working Sheet Instances over 
 **ADR trigger:** only if physical Definition/version persistence presents a durable fork not settled by ADR 0020/0022.
 
 **Exit gate:** a versioned Definition can exist independently of a Notebook/Instance and published versions are immutable dependency targets.
+
+## Completion evidence
+
+- Migrations `0071_thankful_warlock.sql` and
+  `0072_core_032_sheet_definitions.sql` add workspace-owned Definition
+  identities and explicit monotonic Definition Versions. Each version owns one
+  format-versioned configuration document; stable machine keys, version
+  identity and publication content are protected by database triggers.
+- The controlled API provides owner/admin create, metadata update, new-version,
+  draft update, publish and retirement RPCs. RLS permits workspace-member reads,
+  denies cross-workspace reads and grants no ordinary authenticated table
+  mutation. Published and retired targets remain readable; retiring a
+  Definition blocks further draft configuration, publication and version
+  creation.
+- `src/lib/sheet-definition.ts` defines and parses the bounded configuration
+  contract for typed parameters, bindings, row identity, joins, canonical
+  `FieldDefinition` columns, calculations, write-back rules, actions and
+  presentation defaults. Both TypeScript and PostgreSQL validate stable UUID
+  uniqueness and required internal references. `sheet-definition-data.ts`
+  exposes only RLS table reads and controlled RPC writes.
+- Focused proof passes: Sheet Definition domain/data tests 19/19, DB/RLS tests
+  6/6 and live PostgREST API tests 2/2. Compatibility DB proof for scientific
+  tables, Sheet blocks, formulas, Templates and submitted envelopes passes
+  5 files / 40 tests. The full DB gate passes 52 files / 620 tests.
+- Fresh migration plus demo seed and a second idempotent demo seed pass.
+  `pnpm validate` passes 143 files / 1,737 tests and the production build with
+  zero lint errors (the existing warnings remain).
+- Existing scientific Sheet, Notebook, Template, formula and frozen-evidence
+  persistence was not changed or adopted. No Sheet Instance, composition,
+  execution or legacy migration was added. The implemented normalized
+  identity/version layout is the controller-selected ADR 0020/0022 design, so
+  no new ADR was required.
 
 ---
 

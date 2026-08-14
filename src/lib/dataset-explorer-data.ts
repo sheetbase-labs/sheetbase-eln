@@ -71,22 +71,79 @@ export const datasetExplorerQueryKeys = {
   links: (recordId: string) => ['dataset-explorer-links', recordId] as const,
 }
 
-// --- Dataset listing ------------------------------------------------------
-
-/**
- * List every scientific table the caller can see. Calls
- * `scientific_table_metadata` with no id, which returns all RLS-visible
- * active tables with their columns and category options.
- */
-export async function fetchDatasetSummaries(
-  client: DataClient = datasetExplorerDataClient,
-): Promise<ScientificTableWire[]> {
-  return client.rpc<ScientificTableWire[]>('scientific_table_metadata', {
-    p_table_id: null,
-  })
+export interface CanonicalDatasetWire extends ScientificTableWire {
+  workspace_id?: string
+  schema_version_id?: string
+  description?: string | null
+  revision?: number
 }
 
-// --- Paged row query over a physical resource -----------------------------
+interface DatasetResourceWire {
+  id: string
+  workspace_id: string
+  schema_version_id: string
+  name: string
+  description: string | null
+  lifecycle: 'active' | 'archived'
+  revision: number
+}
+
+interface DatasetVersionFieldWire {
+  field_id: string
+  schema_version_id: string
+  key: string
+  label: string
+  logical_type: ScientificColumnWire['logical_type']
+  nullable: boolean
+  quantity: unknown
+  validation: Record<string, unknown>
+  lifecycle: 'active' | 'retired'
+  display_order: number
+}
+
+// --- Dataset listing ------------------------------------------------------
+
+/** List canonical Datasets and the active fields pinned to each version. */
+export async function fetchDatasetSummaries(
+  client: DataClient = datasetExplorerDataClient,
+): Promise<CanonicalDatasetWire[]> {
+  const datasets = await client.list<DatasetResourceWire>(
+    'datasets',
+    '?lifecycle=eq.active&order=created_at.desc',
+  )
+  const versionIds = [
+    ...new Set(datasets.map((item) => item.schema_version_id)),
+  ]
+  const fields = versionIds.length
+    ? await client.list<DatasetVersionFieldWire>(
+        'dataset_schema_version_fields',
+        `?schema_version_id=in.(${versionIds.map(encodeURIComponent).join(',')})&lifecycle=eq.active&order=display_order.asc`,
+      )
+    : []
+  return datasets.map((dataset) => ({
+    ...dataset,
+    resource_name: '',
+    schema_version: 1,
+    dataset_schema_id: null,
+    record_id: undefined,
+    columns: fields
+      .filter((field) => field.schema_version_id === dataset.schema_version_id)
+      .map((field) => ({
+        id: field.field_id,
+        field_name: field.field_id,
+        label: field.label,
+        display_order: field.display_order,
+        logical_type: field.logical_type,
+        nullable: field.nullable,
+        unit: field.quantity,
+        validation: field.validation,
+        width: null,
+        options: [],
+      })),
+  }))
+}
+
+// --- Paged canonical Dataset row query ------------------------------------
 
 export interface DatasetRowQuery {
   pageIndex: number
@@ -147,38 +204,52 @@ export function buildDatasetRowQuery(
   return `?${parts.join('&')}`
 }
 
-/**
- * Fetch one page of rows plus the authoritative server total for the same
- * filter. The total uses `Prefer: count=exact` with a 0-0 range so at most
- * one row transfers; the page fetch returns the rows to render.
- */
+/** Fetch one canonical page. No generated physical resource is consulted. */
 export async function fetchDatasetRowPage(
   client: DataClient,
-  table: ScientificTableWire,
+  table: CanonicalDatasetWire,
   query: DatasetRowQuery,
   includeCount = true,
 ): Promise<DatasetRowPage> {
-  const resource = encodeURIComponent(table.resource_name)
-  const rowQuery = buildDatasetRowQuery(query, table.columns)
-  const filters = rowQuery
-    .split('&')
-    .filter(
-      (part) =>
-        !part.startsWith('?select=') &&
-        !part.startsWith('order=') &&
-        !part.startsWith('limit=') &&
-        !part.startsWith('offset='),
-    )
-  const countQuery = filters.length ? `?select=id&${filters.join('&')}` : ''
-  const rowsPromise = client.list<ScientificRowWire>(resource, rowQuery)
-  if (!includeCount) {
-    return { rows: await rowsPromise, totalCount: 0 }
+  const fieldIds = new Set(table.columns.map((field) => field.id))
+  for (const filter of query.filters.slice(0, DATASET_MAX_FILTERS)) {
+    if (!fieldIds.has(filter.fieldId) || filter.values.length !== 1)
+      throw new Error(`Unsupported dataset filter: ${filter.fieldId}`)
   }
-  const [rows, totalCount] = await Promise.all([
-    rowsPromise,
-    countQuery ? client.count(resource, countQuery) : client.count(resource),
-  ])
-  return { rows, totalCount }
+  const sort = query.sorting.at(0)
+  if (sort && !fieldIds.has(sort.id))
+    throw new Error(`Unsupported dataset sort field: ${sort.id}`)
+  const limit = Math.min(Math.max(1, query.pageSize), DATASET_MAX_PAGE_SIZE)
+  const result = await client.rpc<{
+    rows: Array<{
+      rowId: string
+      revision: number
+      values: Record<string, unknown>
+    }>
+    totalCount: number
+  }>('query_dataset_rows', {
+    p_dataset_id: table.id,
+    p_query: {
+      filters: query.filters.slice(0, DATASET_MAX_FILTERS).map((filter) => ({
+        fieldId: filter.fieldId,
+        operator: filter.operator,
+        value: filter.values[0],
+      })),
+      ...(sort
+        ? { sort: { fieldId: sort.id, direction: sort.desc ? 'desc' : 'asc' } }
+        : {}),
+    },
+    p_limit: limit,
+    p_offset: Math.max(0, query.pageIndex) * limit,
+  })
+  return {
+    rows: result.rows.map((row) => ({
+      id: row.rowId,
+      version: row.revision,
+      ...row.values,
+    })),
+    totalCount: includeCount ? result.totalCount : 0,
+  }
 }
 
 /** Determine the next offset page from the authoritative first-page count. */

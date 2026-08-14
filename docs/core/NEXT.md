@@ -8,9 +8,9 @@
 
 ## Active task
 
-**CORE-02.5 — Add atomic bulk validate/commit operations**
+**CORE-02.3–02.5 — Dataset integrity and canonical validation hardening**
 
-Task: [`tasks/CORE-02.md`](./tasks/CORE-02.md#core-025--add-atomic-bulk-validatecommit-operations)
+Task: [`tasks/CORE-02.md`](./tasks/CORE-02.md#core-023--implement-dataset-and-dataset-schema-metadata)
 
 ## Completed in this PR
 
@@ -36,26 +36,56 @@ Task: [`tasks/CORE-02.md`](./tasks/CORE-02.md#core-025--add-atomic-bulk-validate
 
 ## Implement now
 
-Add controlled, idempotent atomic bulk validation and commit operations for
-Dataset rows.
+Close the reviewed CORE-02 integrity and validation gates before starting
+CORE-03. PostgreSQL must enforce workspace-consistent Dataset relationships,
+immutable published Schema Versions, canonical `FieldDefinition` validation,
+required-field completeness at the controlled bulk commit boundary, and
+physical `many` cardinality. Add and implement an explicit immutable Dataset
+Version snapshot task. Expand the ADR 0037 performance fixture to the required
+100k/80k composition and bulk scenarios.
 
 This is **real production coding**, not another architecture pass.
 
 Key targets:
 
-- validate realistic multi-row payloads;
-- return structured row/field errors without partial writes;
-- preserve optimistic concurrency and retry safety.
+- make no data/API changes in this audit;
+- map current ownership and compatibility risks precisely;
+- use the audit to implement CORE-03.2 without rediscovery.
 
 ## Do not
 
 - do not redesign the architecture already settled by ADRs 0020–0026;
-- do not build Sheet UI yet;
+- do not begin compositional Sheet work yet;
 - do not build the full unit-conversion or vocabulary-management product yet;
 - do not weaken RLS/server validation;
 - do not broaden paused specialist workspaces.
 
-## Hand-off
+## Corrected hand-off
 
-When CORE-02.5 is complete, record concrete completion evidence in
-`tasks/CORE-02.md` and advance this file to CORE-02.6.
+`0065_core_025_dataset_bulk_operations.sql` provides a useful initial bulk
+commit slice, but CORE-02.5 remains in progress because it does not yet cover
+all canonical semantics or prevent direct mutation-path bypass. It adds bounded
+(1–1,000 row) typed validate/commit RPCs. Client-generated stable
+row UUIDs support retry-safe creates; updates require row revisions. Commits
+are all-or-nothing, lock target rows deterministically, increment Dataset and
+row revisions, and persist actor-scoped idempotency receipts. Structured
+row/field errors are returned without writing invalid batches.
+
+Focused DB validation: `pnpm exec vitest run --config vitest.db.config.ts
+tests/db/datasets.test.ts` (5/5).
+
+`0066_core_026_dataset_query.sql` provides
+typed field-ID filtering/sorting, bounded windows and authoritative totals for
+canonical Dataset rows. The reproducible 100k-row/10-field fixture records a
+10,000-match, 200-row window in 65.5–79.6 ms locally; see
+`audits/DATASET_QUERY_PERFORMANCE.md`.
+
+Explorer work exists but cannot close CORE-02.7 until the canonical write and
+query contracts are hardened. It lists canonical Datasets and Schema Version
+fields, and reads page/filter/sort windows exclusively through
+`query_dataset_rows`; it deliberately does not fall back to generated legacy
+Sheet resources.
+
+Do not begin CORE-03. CORE-02.3 and CORE-02.4 are reopened; CORE-02.5 is the
+active hardening slice; CORE-02.6 requires expanded performance evidence; an
+explicit Dataset Version task must pass before epic proof.

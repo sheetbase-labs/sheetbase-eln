@@ -16,9 +16,12 @@ import {
   DATASET_MAX_TRANSFORMATIONS,
   DATASET_PAGE_SIZES,
   getNextDatasetPageParam,
+  fetchDatasetRowPage,
+  fetchDatasetSummaries,
   sanitizeDatasetView,
   validateTransformations,
 } from './dataset-explorer-data'
+import type { DataClient } from './data-client'
 import type { DatasetSavedView, DatasetViewSpec } from './dataset-explorer-data'
 import type {
   ScientificColumnWire,
@@ -158,6 +161,89 @@ describe('buildDatasetRowQuery', () => {
     expect(q).toContain(
       `limit=${DATASET_PAGE_SIZES[DATASET_PAGE_SIZES.length - 1]}`,
     )
+  })
+})
+
+describe('canonical Dataset Explorer reads', () => {
+  it('lists api.datasets and attaches stable schema-version field UUIDs', async () => {
+    const calls: string[] = []
+    const client = {
+      list: async (resource: string) => {
+        calls.push(resource)
+        if (resource === 'datasets')
+          return [
+            {
+              id: 'd1',
+              workspace_id: 'w1',
+              schema_version_id: 'v1',
+              name: 'Assays',
+              description: null,
+              lifecycle: 'active',
+              revision: 2,
+            },
+          ]
+        return [
+          {
+            field_id: 'f1',
+            schema_version_id: 'v1',
+            key: 'ph',
+            label: 'pH',
+            logical_type: 'decimal',
+            nullable: false,
+            quantity: null,
+            validation: {},
+            lifecycle: 'active',
+            display_order: 0,
+          },
+        ]
+      },
+    } as unknown as DataClient
+    const result = await fetchDatasetSummaries(client)
+    expect(calls).toEqual(['datasets', 'dataset_schema_version_fields'])
+    expect(result[0].columns[0]).toMatchObject({
+      id: 'f1',
+      field_name: 'f1',
+      label: 'pH',
+    })
+  })
+
+  it('pages, filters and sorts only through query_dataset_rows', async () => {
+    let call: { name: string; args: Record<string, unknown> } | undefined
+    const client = {
+      rpc: async (name: string, args: Record<string, unknown>) => {
+        call = { name, args }
+        return {
+          totalCount: 1,
+          rows: [{ rowId: 'r1', revision: 3, values: { f1: 7.2 } }],
+        }
+      },
+    } as unknown as DataClient
+    const canonical = table({
+      id: 'd1',
+      columns: [column({ id: 'f1', field_name: 'f1' })],
+    })
+    const page = await fetchDatasetRowPage(client, canonical, {
+      pageIndex: 2,
+      pageSize: 25,
+      sorting: [{ id: 'f1', desc: true }],
+      filters: [{ fieldId: 'f1', operator: 'eq', values: [7.2] }],
+    })
+    expect(call).toEqual({
+      name: 'query_dataset_rows',
+      args: {
+        p_dataset_id: 'd1',
+        p_query: {
+          filters: [{ fieldId: 'f1', operator: 'eq', value: 7.2 }],
+          sort: { fieldId: 'f1', direction: 'desc' },
+        },
+        p_limit: 25,
+        p_offset: 50,
+      },
+    })
+    expect(page).toEqual({
+      totalCount: 1,
+      rows: [{ id: 'r1', version: 3, f1: 7.2 }],
+    })
   })
 })
 

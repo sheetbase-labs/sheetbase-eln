@@ -456,6 +456,34 @@
       "when": 1786695301874,
       "tag": "0064_neat_mimic",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1786723200000,
+      "tag": "0065_core_025_dataset_bulk_operations",
+      "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1786726800000,
+      "tag": "0066_core_026_dataset_query",
+      "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1786730400000,
+      "tag": "0067_core_025_dataset_integrity_hardening",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1786734000000,
+      "tag": "0068_core_028_dataset_versions",
+      "breakpoints": true
     }
   ]
 }

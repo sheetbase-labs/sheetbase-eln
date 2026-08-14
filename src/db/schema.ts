@@ -2153,6 +2153,7 @@ export const datasetRowValues = api.table(
       .notNull()
       .references(() => datasetRows.id, { onDelete: 'cascade' }),
     fieldId: uuid('field_id').notNull(),
+    ordinal: integer('ordinal').notNull().default(0),
     textValue: text('text_value'),
     integerValue: bigint('integer_value', { mode: 'bigint' }),
     numericValue: numeric('numeric_value'),
@@ -2166,7 +2167,8 @@ export const datasetRowValues = api.table(
     referenceId: uuid('reference_id'),
   },
   (table) => [
-    primaryKey({ columns: [table.rowId, table.fieldId] }),
+    primaryKey({ columns: [table.rowId, table.fieldId, table.ordinal] }),
+    check('chk_dataset_row_values_ordinal', sql`${table.ordinal} >= 0`),
     index('idx_dataset_row_values_field_numeric').on(
       table.fieldId,
       table.numericValue,
@@ -2179,6 +2181,57 @@ export const datasetRowValues = api.table(
       table.fieldId,
       table.categoryOptionId,
     ),
+    index('idx_dataset_row_values_field_date').on(
+      table.fieldId,
+      table.dateValue,
+    ),
+    index('idx_dataset_row_values_field_timestamp').on(
+      table.fieldId,
+      table.timestampValue,
+    ),
+  ],
+)
+
+/**
+ * Durable receipts for canonical Dataset bulk commits. The unique actor/key
+ * pair makes a retried spreadsheet paste return its original result instead
+ * of creating another set of rows.
+ */
+export const datasetBulkCommits = api.table(
+  'dataset_bulk_commits',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    datasetId: uuid('dataset_id')
+      .notNull()
+      .references(() => datasets.id, { onDelete: 'cascade' }),
+    actorUserId: text('actor_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    idempotencyKey: text('idempotency_key').notNull(),
+    requestDigest: text('request_digest').notNull(),
+    result: jsonb('result').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('uq_dataset_bulk_commits_actor_idempotency').on(
+      table.workspaceId,
+      table.actorUserId,
+      table.idempotencyKey,
+    ),
+    check(
+      'chk_dataset_bulk_commits_idempotency_key',
+      sql`length(${table.idempotencyKey}) BETWEEN 1 AND 128`,
+    ),
+    check(
+      'chk_dataset_bulk_commits_request_digest',
+      sql`${table.requestDigest} ~ '^[0-9a-f]{64}$'`,
+    ),
+    index('idx_dataset_bulk_commits_dataset').on(table.datasetId),
   ],
 )
 

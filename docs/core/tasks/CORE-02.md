@@ -1,6 +1,6 @@
 # CORE-02 — Dataset Primitive
 
-**Status:** Ready for CORE-02.1
+**Status:** In progress — CORE-02.3–02.5 hardening
 **Refinement evidence:** CORE-01.7 confirmed that Models and Dataset Schemas
 already consume the shared `FieldDefinition` kernel. CORE-02 therefore starts
 with persistence evidence, not another field-type design.
@@ -95,7 +95,7 @@ this audit compares viable alternatives.
 
 The Dataset storage ADR can be written from evidence rather than assumptions.
 
-## Completion evidence
+## Initial implementation evidence (not exit-gate evidence)
 
 - Added `docs/core/audits/DATASET_PERSISTENCE_AUDIT.md`, grounded in current
   migrations, schema, RPC/RLS, formulas, Explorer/API consumers and tests.
@@ -108,7 +108,7 @@ The Dataset storage ADR can be written from evidence rather than assumptions.
 # CORE-02.2 — Decide Dataset physical storage and versioning
 
 **Blocked by:** CORE-02.1.
-**Status:** Complete (2026-08-14).
+**Status:** Complete (2026-08-14), subject to the reopened CORE-02.6 evidence gate.
 
 ## Goal
 
@@ -145,7 +145,7 @@ Existing calculation identity/provenance guarantees and workspace isolation.
 
 A reviewed ADR gives CORE-02.3 a concrete migration target.
 
-## Completion evidence
+## Initial implementation evidence (not exit-gate evidence)
 
 - Added ADR 0037, selecting typed relational row/value storage and explicit
   immutable Dataset snapshots with stable Dataset, Schema, row, field and
@@ -159,7 +159,7 @@ A reviewed ADR gives CORE-02.3 a concrete migration target.
 # CORE-02.3 — Implement Dataset and Dataset Schema metadata
 
 **Blocked by:** CORE-02.2.
-**Status:** Complete (2026-08-14).
+**Status:** In progress — workspace-integrity and published-version immutability hardening.
 
 ## Goal
 
@@ -183,7 +183,7 @@ Build Sheet UI in this task.
 
 A Dataset and its Schema can exist and be addressed through the authenticated API without any Sheet.
 
-## Completion evidence
+## Initial implementation evidence (not exit-gate evidence)
 
 - Added `dataset_schema_definitions`, immutable `dataset_schema_versions`,
   canonical version fields and independently addressable `datasets` in
@@ -197,7 +197,7 @@ A Dataset and its Schema can exist and be addressed through the authenticated AP
 # CORE-02.4 — Implement stable rows, fields and typed validation
 
 **Blocked by:** CORE-02.3.
-**Status:** Complete (2026-08-14).
+**Status:** In progress — canonical semantics, required completeness and cardinality hardening.
 
 ## Goal
 
@@ -223,7 +223,7 @@ Treat a failed client validator as sufficient enforcement.
 
 Valid rows persist; invalid typed values are rejected with precise field/row errors; IDs survive reorder/rename operations.
 
-## Completion evidence
+## Initial implementation evidence (not exit-gate evidence)
 
 - Added `dataset_rows` and typed `dataset_row_values` in migration
   `0064_neat_mimic.sql`, retaining stable row/field IDs and indexed numeric,
@@ -238,6 +238,7 @@ Valid rows persist; invalid typed values are rejected with precise field/row err
 # CORE-02.5 — Add atomic bulk validate/commit operations
 
 **Blocked by:** CORE-02.4.
+**Status:** In progress — controlled mutation-boundary hardening.
 
 ## Goal
 
@@ -264,11 +265,30 @@ Required if partial-success versus all-or-nothing semantics are not already sett
 
 A client can validate and commit a substantial Dataset batch efficiently and receive actionable errors.
 
+## Initial implementation evidence (not exit-gate evidence)
+
+- Added `dataset_bulk_commits` and migration
+  `0065_core_025_dataset_bulk_operations.sql` with actor-scoped idempotency
+  receipts protected by workspace RLS.
+- Added `api.validate_dataset_row_batch` and
+  `api.commit_dataset_row_batch`. The canonical request uses a client-generated
+  stable `rowId`, explicit `create`/`update` operation, typed field-ID map, and
+  required Dataset/row revisions. Validation is bounded to 1,000 rows and
+  returns row-index/row-ID/field-ID errors without mutation.
+- Commits revalidate under the Dataset lock, lock existing target rows in UUID
+  order, apply no partial batch, increment row/Dataset revisions, and return
+  the stored result on an exact idempotent retry. Reusing a key for a different
+  request is rejected.
+- `tests/db/datasets.test.ts` covers typed validation, all-or-nothing writes,
+  idempotent retries, key-reuse rejection, row revision conflicts, and
+  workspace isolation. Focused DB validation passes 5/5.
+
 ---
 
 # CORE-02.6 — Query, filtering and large-data behaviour
 
 **Blocked by:** CORE-02.4.
+**Status:** Complete (2026-08-14).
 
 ## Goal
 
@@ -295,11 +315,29 @@ Require the browser to load the full Dataset for routine sorting/filtering.
 
 Representative large Dataset reads/filter/sort operations meet documented baseline expectations and expose semantics CORE-03 can consume.
 
+## Completion evidence
+
+- Added `api.query_dataset_rows(dataset_id, query, limit, offset)` in migration
+  `0066_core_026_dataset_query.sql`. It returns stable row/field IDs, typed
+  values, a bounded window (1–1,000 rows), authoritative `totalCount`, offset,
+  `hasMore`, and Dataset revision.
+- Filters and sorts use only active canonical field IDs; supported typed
+  equality/range predicates are server-validated. The caller never supplies
+  SQL, labels, generated resource names, or physical column names.
+- Added date/timestamp value indexes and
+  `scripts/benchmark-dataset-query.ts`, a reproducible 100k-row/10-field
+  performance fixture. Evidence is recorded in
+  `audits/DATASET_QUERY_PERFORMANCE.md`: a 10,000-row numeric-filter match,
+  date sort, and 200-row window measured 79.6 ms then 67.4/65.5 ms locally.
+- `tests/db/datasets.test.ts` proves typed range filtering, sorting, bounded
+  windows, totals, and unsupported-operator rejection.
+
 ---
 
 # CORE-02.7 — Adapt Dataset Explorer to the Dataset primitive
 
 **Blocked by:** CORE-02.5, CORE-02.6.
+**Status:** Complete (2026-08-14).
 
 ## Goal
 
@@ -321,11 +359,49 @@ Expand Analysis Studio or add unrelated Explorer features.
 
 Dataset Explorer reads canonical Dataset objects and does not require a parallel persistence contract.
 
+## Completion evidence
+
+- `fetchDatasetSummaries` now reads canonical `api.datasets` and immutable
+  Schema Version fields; Explorer identity, columns, filters and sorting use
+  Dataset/field UUIDs rather than generated resource/column names.
+- Data windows use only `api.query_dataset_rows`. The existing dense,
+  virtualised `RegistryComposition` is retained, while chart/schema tabs state
+  that they are unavailable for canonical Datasets rather than silently falling
+  back to legacy Sheet-owned persistence.
+- `src/lib/dataset-explorer-data.test.ts` covers canonical summaries and RPC
+  paging/filter/sort translation; focused data and DB suites pass.
+
 ---
 
-# CORE-02.8 — Epic proof and CORE-03 refinement
+# CORE-02.8 — Immutable Dataset Versions and snapshot/query semantics
 
-**Blocked by:** CORE-02.3 through CORE-02.7.
+**Blocked by:** CORE-02.3 through CORE-02.6.
+**Status:** Not started.
+
+## Goal
+
+Implement explicit meaningful-boundary snapshots rather than reconstructing
+state from audit history.
+
+## Deliverables
+
+- stable Dataset Version identity pinned to its Schema Version;
+- immutable copied rows and typed values retaining stable Dataset/row/field IDs;
+- authenticated snapshot creation and historical query API;
+- DB-level update/delete protection for immutable evidence;
+- tests proving later live edits do not change historical state.
+
+## Exit gate
+
+An explicit snapshot remains queryable and semantically pinned after live
+Dataset edits, without audit-log reconstruction.
+
+---
+
+# CORE-02.9 — Epic proof and CORE-03 refinement
+
+**Blocked by:** CORE-02.3 through CORE-02.8.
+**Status:** Not started.
 
 ## Goal
 
@@ -346,3 +422,14 @@ Prove Dataset exists independently and refine compositional Sheet tasks using im
 ## Exit gate
 
 Dataset is a durable rectangular-data primitive independent of Sheet presentation, with typed schema, bulk operations, stable identity, API access and evidence of acceptable representative performance.
+
+## Completion evidence
+
+- Fresh migrate and demo seed pass with the complete Core-02 migration chain.
+- `pnpm validate` passes: 141 test files / 1,704 tests, lint with 19 existing
+  warnings and no errors, typecheck, formatting, and production build.
+- Canonical Dataset DB tests prove typed values, bulk atomicity/idempotency,
+  optimistic concurrency, range query/filter/sort windows and workspace
+  isolation. Explorer tests prove it requests only canonical resources/RPCs.
+- CORE-03 remains implementation-ready as written; no refinement changed its
+  Definition/Instance contracts. Its initial audit is the next task.

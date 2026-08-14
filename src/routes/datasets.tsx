@@ -88,6 +88,7 @@ import {
   validateTransformations,
 } from '#/lib/dataset-explorer-data'
 import type {
+  CanonicalDatasetWire,
   DatasetDensity,
   DatasetRowQuery,
 } from '#/lib/dataset-explorer-data'
@@ -269,7 +270,7 @@ function DatasetExplorerRoute() {
 // ---------------------------------------------------------------------------
 
 interface DatasetExplorerHeaderProps {
-  datasets: ScientificTableWire[]
+  datasets: CanonicalDatasetWire[]
   loading: boolean
   error: unknown
   selectedTableId: string | null
@@ -428,7 +429,7 @@ function DatasetPicker({
 // ---------------------------------------------------------------------------
 
 interface DatasetTabsProps {
-  table: ScientificTableWire
+  table: CanonicalDatasetWire
   activeTab: 'data' | 'chart' | 'schema'
   onTabChange: (tab: 'data' | 'chart' | 'schema') => void
 }
@@ -470,15 +471,24 @@ function DatasetTabs({ table, activeTab, onTabChange }: DatasetTabsProps) {
         value="chart"
         className="absolute inset-x-0 bottom-0 top-8 min-h-0 overflow-hidden p-3"
       >
-        <DatasetChartTab table={table} />
+        <UnsupportedCanonicalView name="Chart" />
       </TabsContent>
       <TabsContent
         value="schema"
         className="absolute inset-x-0 bottom-0 top-8 flex min-h-0 flex-col overflow-auto"
       >
-        <DatasetSchemaTab table={table} />
+        <UnsupportedCanonicalView name="Schema" />
       </TabsContent>
     </Tabs>
+  )
+}
+
+function UnsupportedCanonicalView({ name }: { name: string }) {
+  return (
+    <EmptyHint>
+      {name} is not yet available for canonical Datasets. The Explorer will not
+      read legacy physical sheet resources as a fallback.
+    </EmptyHint>
   )
 }
 
@@ -487,7 +497,7 @@ function DatasetTabs({ table, activeTab, onTabChange }: DatasetTabsProps) {
 // ---------------------------------------------------------------------------
 
 export interface DatasetDataTabProps {
-  table: ScientificTableWire
+  table: CanonicalDatasetWire
 }
 
 export function DatasetDataTab({ table }: DatasetDataTabProps) {

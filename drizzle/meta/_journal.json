@@ -484,6 +484,13 @@
       "when": 1786734000000,
       "tag": "0068_core_028_dataset_versions",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1786813200000,
+      "tag": "0069_core_024_dataset_canonical_values",
+      "breakpoints": true
     }
   ]
 }

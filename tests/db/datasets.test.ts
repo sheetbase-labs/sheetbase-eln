@@ -14,6 +14,56 @@ const clients: Client[] = []
 let datasetId: string
 let titreFieldId: string
 
+async function createScalarFixture(owner: Client) {
+  const key = `scalar_${crypto.randomUUID().replaceAll('-', '').slice(0, 12)}`
+  const schema = (
+    await owner.query(
+      `insert into api.dataset_schema_definitions(workspace_id,key,name)
+       values($1,$2,'Scalar fixture') returning id`,
+      [WS_A, key],
+    )
+  ).rows[0]
+  const version = (
+    await owner.query(
+      `insert into api.dataset_schema_versions(schema_id,version) values($1,1) returning id`,
+      [schema.id],
+    )
+  ).rows[0]
+  const fields = (
+    await owner.query(
+      `insert into api.dataset_schema_version_fields(schema_version_id,field_id,key,label,logical_type,nullable,default_value,validation,display_order)
+       values
+       ($1,gen_random_uuid(),'text','Text','text',true,null,'{"minLength":3,"maxLength":5,"pattern":"^[A-Z]+$"}',1),
+       ($1,gen_random_uuid(),'integer','Integer','integer',true,null,'{"min":2,"max":4}',2),
+       ($1,gen_random_uuid(),'decimal','Decimal','decimal',true,null,'{}',3),
+       ($1,gen_random_uuid(),'boolean','Boolean','boolean',true,null,'{}',4),
+       ($1,gen_random_uuid(),'date','Date','date',true,null,'{}',5),
+       ($1,gen_random_uuid(),'timestamp','Timestamp','timestamp',true,null,'{}',6),
+       ($1,gen_random_uuid(),'required','Required','text',false,'"DEFAULT"'::jsonb,'{"pattern":"^[A-Z]+$"}',7),
+       ($1,gen_random_uuid(),'required_no_default','Required no default','text',false,null,'{"pattern":"^[A-Z]+$"}',8),
+       ($1,gen_random_uuid(),'nullable_default','Nullable default','text',true,'"OPTIONAL"'::jsonb,'{"pattern":"^[A-Z]+$"}',9)
+       returning field_id,key`,
+      [version.id],
+    )
+  ).rows
+  await owner.query(
+    `update api.dataset_schema_versions set lifecycle='active',published_at=now() where id=$1`,
+    [version.id],
+  )
+  const dataset = (
+    await owner.query(
+      `insert into api.datasets(workspace_id,schema_version_id,name) values($1,$2,'Scalar fixture') returning id`,
+      [WS_A, version.id],
+    )
+  ).rows[0]
+  return {
+    datasetId: dataset.id as string,
+    fields: Object.fromEntries(
+      fields.map((field) => [field.key, field.field_id]),
+    ) as Record<string, string>,
+  }
+}
+
 async function actor(userId: string, workspaceId: string) {
   const client = await asRole('authenticator')
   clients.push(client)
@@ -45,6 +95,112 @@ afterAll(async () => {
 })
 
 describe('canonical Dataset metadata', () => {
+  it('rejects invalid draft FieldDefinition metadata when publishing while allowing a valid canonical field', async () => {
+    const owner = await actor(OWNER_A, WS_A)
+    const create = async (key: string, fieldSql: string) => {
+      const schema = (
+        await owner.query(
+          `insert into api.dataset_schema_definitions(workspace_id,key,name) values($1,$2,$2) returning id`,
+          [WS_A, key],
+        )
+      ).rows[0]
+      const version = (
+        await owner.query(
+          `insert into api.dataset_schema_versions(schema_id,version) values($1,1) returning id`,
+          [schema.id],
+        )
+      ).rows[0]
+      await owner.query(fieldSql, [version.id])
+      return version.id as string
+    }
+    const valid = await create(
+      'canonical_valid',
+      `insert into api.dataset_schema_version_fields(schema_version_id,field_id,key,label,logical_type,default_value,quantity,display_order) values($1,gen_random_uuid(),'count','Count','integer','2'::jsonb,'{"kind":"count","dimension":"count","storageUnit":"each"}'::jsonb,1)`,
+    )
+    await owner.query(
+      `update api.dataset_schema_versions set lifecycle='active',published_at=now() where id=$1`,
+      [valid],
+    )
+    const invalidMany = await create(
+      'canonical_invalid_many',
+      `insert into api.dataset_schema_version_fields(schema_version_id,field_id,key,label,logical_type,cardinality,default_value,display_order) values($1,gen_random_uuid(),'tags','Tags','text','many','"x"'::jsonb,1)`,
+    )
+    await expect(
+      owner.query(
+        `update api.dataset_schema_versions set lifecycle='active' where id=$1`,
+        [invalidMany],
+      ),
+    ).rejects.toMatchObject({ code: 'SB071' })
+    const invalidCategory = await create(
+      'canonical_invalid_category',
+      `insert into api.dataset_schema_version_fields(schema_version_id,field_id,key,label,logical_type,category,display_order) values($1,gen_random_uuid(),'qc','QC','category','{"kind":"vocabulary","vocabularyId":"qc"}'::jsonb,1)`,
+    )
+    await expect(
+      owner.query(
+        `update api.dataset_schema_versions set lifecycle='active' where id=$1`,
+        [invalidCategory],
+      ),
+    ).rejects.toMatchObject({ code: 'SB071' })
+    const invalidRelationship = await create(
+      'canonical_invalid_relationship',
+      `insert into api.dataset_schema_version_fields(schema_version_id,field_id,key,label,logical_type,relationship,display_order) values($1,gen_random_uuid(),'sample','Sample','reference','{"target":{"kind":"model","modelKey":"sample"},"cardinality":"many"}'::jsonb,1)`,
+    )
+    await expect(
+      owner.query(
+        `update api.dataset_schema_versions set lifecycle='active' where id=$1`,
+        [invalidRelationship],
+      ),
+    ).rejects.toMatchObject({ code: 'SB071' })
+    const invalidDefault = await create(
+      'canonical_invalid_default',
+      `insert into api.dataset_schema_version_fields(schema_version_id,field_id,key,label,logical_type,default_value,validation,display_order) values($1,gen_random_uuid(),'count','Count','integer','1'::jsonb,'{"min":2}',1)`,
+    )
+    await expect(
+      owner.query(
+        `update api.dataset_schema_versions set lifecycle='active' where id=$1`,
+        [invalidDefault],
+      ),
+    ).rejects.toMatchObject({ code: 'SB071' })
+  })
+
+  it('rejects malformed validation and embedded option metadata at publication', async () => {
+    const owner = await actor(OWNER_A, WS_A)
+    for (const [key, logicalType, validation, category] of [
+      ['bad_validation', 'text', '[]', null],
+      ['bad_bounds', 'integer', '{"min":4,"max":2}', null],
+      ['bad_pattern', 'text', '{"pattern":"["}', null],
+      [
+        'bad_option',
+        'category',
+        '{}',
+        '{"kind":"embedded","options":[{"id":"not-a-uuid","key":"x","label":"X","lifecycle":"active"}]}',
+      ],
+    ]) {
+      const schema = (
+        await owner.query(
+          `insert into api.dataset_schema_definitions(workspace_id,key,name) values($1,$2,$2) returning id`,
+          [WS_A, `${key}_${crypto.randomUUID().slice(0, 8)}`],
+        )
+      ).rows[0]
+      const version = (
+        await owner.query(
+          `insert into api.dataset_schema_versions(schema_id,version) values($1,1) returning id`,
+          [schema.id],
+        )
+      ).rows[0]
+      await owner.query(
+        `insert into api.dataset_schema_version_fields(schema_version_id,field_id,key,label,logical_type,validation,category,display_order) values($1,gen_random_uuid(),'field','Field',$2,$3::jsonb,$4::jsonb,1)`,
+        [version.id, logicalType, validation, category],
+      )
+      await expect(
+        owner.query(
+          `update api.dataset_schema_versions set lifecycle='active' where id=$1`,
+          [version.id],
+        ),
+      ).rejects.toMatchObject({ code: 'SB071' })
+    }
+  })
+
   it('creates an independently addressable Dataset bound to an immutable schema version', async () => {
     const owner = await actor(OWNER_A, WS_A)
     const schema = (
@@ -156,9 +312,12 @@ describe('canonical Dataset metadata', () => {
       ]),
     )
     expect(
-      (await owner.query(`select * from api.dataset_rows where dataset_id=$1`, [
-        datasetId,
-      ])).rows,
+      (
+        await owner.query(
+          `select * from api.dataset_rows where dataset_id=$1`,
+          [datasetId],
+        )
+      ).rows,
     ).toHaveLength(1)
 
     const committed = (
@@ -192,7 +351,11 @@ describe('canonical Dataset metadata', () => {
         [datasetId, 1, JSON.stringify(batch), 'paste-001'],
       )
     ).rows[0].result
-    expect(retried).toMatchObject({ ok: true, datasetRevision: 2, idempotent: true })
+    expect(retried).toMatchObject({
+      ok: true,
+      datasetRevision: 2,
+      idempotent: true,
+    })
     await expect(
       owner.query(`select api.commit_dataset_row_batch($1,$2,$3::jsonb,$4)`, [
         datasetId,
@@ -201,6 +364,694 @@ describe('canonical Dataset metadata', () => {
         'paste-001',
       ]),
     ).rejects.toMatchObject({ code: '23505' })
+  })
+
+  it('persists scalar types and applies required scalar defaults through controlled commits', async () => {
+    const owner = await actor(OWNER_A, WS_A)
+    const fixture = await createScalarFixture(owner)
+    const rowId = '02000000-0000-4000-8000-000000000157'
+    const create = {
+      operation: 'create',
+      rowId,
+      values: {
+        [fixture.fields.text]: 'ABCD',
+        [fixture.fields.integer]: 3,
+        [fixture.fields.decimal]: 1.25,
+        [fixture.fields.boolean]: true,
+        [fixture.fields.date]: '2026-08-14',
+        [fixture.fields.timestamp]: '2026-08-14T12:00:00Z',
+        [fixture.fields.required_no_default]: 'REQUIRED',
+      },
+    }
+    await owner.query(
+      `select api.commit_dataset_row_batch($1,1,$2::jsonb,'scalar-create')`,
+      [fixture.datasetId, JSON.stringify([create])],
+    )
+    const read = (
+      await owner.query(`select api.query_dataset_rows($1,'{}',10,0) result`, [
+        fixture.datasetId,
+      ])
+    ).rows[0].result
+    expect(read.rows[0].values).toMatchObject({
+      [fixture.fields.text]: 'ABCD',
+      [fixture.fields.integer]: 3,
+      [fixture.fields.decimal]: 1.25,
+      [fixture.fields.boolean]: true,
+      [fixture.fields.date]: '2026-08-14',
+      [fixture.fields.required]: 'DEFAULT',
+      [fixture.fields.nullable_default]: 'OPTIONAL',
+    })
+    await owner.query(
+      `select api.commit_dataset_row_batch($1,2,$2::jsonb,'scalar-null')`,
+      [
+        fixture.datasetId,
+        JSON.stringify([
+          {
+            operation: 'update',
+            rowId,
+            expectedRevision: 1,
+            values: { [fixture.fields.required]: null },
+          },
+        ]),
+      ],
+    )
+    const afterNull = (
+      await owner.query(
+        `select text_value from api.dataset_row_values where row_id=$1 and field_id=$2`,
+        [rowId, fixture.fields.required],
+      )
+    ).rows
+    expect(afterNull).toEqual([{ text_value: 'DEFAULT' }])
+    await owner.query(
+      `select api.commit_dataset_row_batch($1,3,$2::jsonb,'scalar-omit')`,
+      [
+        fixture.datasetId,
+        JSON.stringify([
+          {
+            operation: 'update',
+            rowId,
+            expectedRevision: 2,
+            values: { [fixture.fields.text]: 'ABCDE' },
+          },
+        ]),
+      ],
+    )
+    expect(
+      (
+        await owner.query(
+          `select text_value from api.dataset_row_values where row_id=$1 and field_id=$2`,
+          [rowId, fixture.fields.required],
+        )
+      ).rows,
+    ).toEqual([{ text_value: 'DEFAULT' }])
+    await owner.query(
+      `select api.commit_dataset_row_batch($1,4,$2::jsonb,'scalar-nullable-null')`,
+      [
+        fixture.datasetId,
+        JSON.stringify([
+          {
+            operation: 'update',
+            rowId,
+            expectedRevision: 3,
+            values: { [fixture.fields.nullable_default]: null },
+          },
+        ]),
+      ],
+    )
+    expect(
+      (
+        await owner.query(
+          `select * from api.dataset_row_values where row_id=$1 and field_id=$2`,
+          [rowId, fixture.fields.nullable_default],
+        )
+      ).rows,
+    ).toEqual([])
+  })
+
+  it('returns structured scalar constraint and required errors', async () => {
+    const owner = await actor(OWNER_A, WS_A)
+    const fixture = await createScalarFixture(owner)
+    const rowId = '02000000-0000-4000-8000-000000000158'
+    const result = (
+      await owner.query(
+        `select api.validate_dataset_row_batch($1,1,$2::jsonb) result`,
+        [
+          fixture.datasetId,
+          JSON.stringify([
+            {
+              operation: 'create',
+              rowId,
+              values: {
+                [fixture.fields.text]: 'ab',
+                [fixture.fields.integer]: 9,
+              },
+            },
+          ]),
+        ],
+      )
+    ).rows[0].result
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          rowIndex: 1,
+          rowId,
+          fieldId: fixture.fields.text,
+          code: 'text_validation',
+        }),
+        expect.objectContaining({
+          rowIndex: 1,
+          rowId,
+          fieldId: fixture.fields.integer,
+          code: 'numeric_validation',
+        }),
+      ]),
+    )
+    expect(
+      result.errors.filter(
+        (error: { fieldId: string }) =>
+          error.fieldId === fixture.fields.required_no_default,
+      ),
+    ).toEqual([
+      expect.objectContaining({ rowIndex: 1, rowId, code: 'required_value' }),
+    ])
+    const explicit = (
+      await owner.query(
+        `select api.validate_dataset_row_batch($1,1,$2::jsonb) result`,
+        [
+          fixture.datasetId,
+          JSON.stringify([
+            {
+              operation: 'create',
+              rowId: '02000000-0000-4000-8000-000000000159',
+              values: { [fixture.fields.required_no_default]: 'bad' },
+            },
+          ]),
+        ],
+      )
+    ).rows[0].result
+    expect(
+      explicit.errors.filter(
+        (error: { fieldId: string }) =>
+          error.fieldId === fixture.fields.required_no_default,
+      ),
+    ).toEqual([expect.objectContaining({ code: 'text_validation' })])
+  })
+
+  it('reports global row UUID conflicts structurally and commits no companion row', async () => {
+    const owner = await actor(OWNER_A, WS_A)
+    const first = await createScalarFixture(owner)
+    const second = await createScalarFixture(owner)
+    const rowId = '02000000-0000-4000-8000-000000000160'
+    await owner.query(
+      `select api.commit_dataset_row_batch($1,1,$2::jsonb,'global-row-first')`,
+      [
+        first.datasetId,
+        JSON.stringify([
+          {
+            operation: 'create',
+            rowId,
+            values: { [first.fields.required_no_default]: 'FIRST' },
+          },
+        ]),
+      ],
+    )
+    const companion = '02000000-0000-4000-8000-000000000161'
+    const rows = [
+      {
+        operation: 'create',
+        rowId,
+        values: { [second.fields.required_no_default]: 'DUPLICATE' },
+      },
+      {
+        operation: 'create',
+        rowId: companion,
+        values: { [second.fields.required_no_default]: 'COMPANION' },
+      },
+    ]
+    const validation = (
+      await owner.query(
+        `select api.validate_dataset_row_batch($1,1,$2::jsonb) result`,
+        [second.datasetId, JSON.stringify(rows)],
+      )
+    ).rows[0].result
+    expect(validation).toMatchObject({ ok: false })
+    expect(
+      validation.errors.filter(
+        (error: { code: string }) => error.code === 'row_id_exists',
+      ),
+    ).toEqual([expect.objectContaining({ rowIndex: 1, rowId })])
+    const committed = (
+      await owner.query(
+        `select api.commit_dataset_row_batch($1,1,$2::jsonb,'global-row-second') result`,
+        [second.datasetId, JSON.stringify(rows)],
+      )
+    ).rows[0].result
+    expect(committed).toMatchObject({ ok: false, idempotent: false })
+    expect(
+      (
+        await owner.query(`select * from api.dataset_rows where id=$1`, [
+          companion,
+        ])
+      ).rows,
+    ).toEqual([])
+  })
+
+  it('enforces active embedded category option UUIDs and retired field lifecycle', async () => {
+    const owner = await actor(OWNER_A, WS_A)
+    const schema = (
+      await owner.query(
+        `insert into api.dataset_schema_definitions(workspace_id,key,name) values($1,$2,'Category fixture') returning id`,
+        [
+          WS_A,
+          `category_${crypto.randomUUID().replaceAll('-', '').slice(0, 12)}`,
+        ],
+      )
+    ).rows[0]
+    const version = (
+      await owner.query(
+        `insert into api.dataset_schema_versions(schema_id,version) values($1,1) returning id`,
+        [schema.id],
+      )
+    ).rows[0]
+    const active = '02000000-0000-4000-8000-000000000301'
+    const retired = '02000000-0000-4000-8000-000000000302'
+    const category = (
+      await owner.query(
+        `insert into api.dataset_schema_version_fields(schema_version_id,field_id,key,label,logical_type,category,display_order) values($1,gen_random_uuid(),'qc','QC','category',$2::jsonb,1) returning field_id`,
+        [
+          version.id,
+          JSON.stringify({
+            kind: 'embedded',
+            options: [
+              { id: active, key: 'pass', label: 'Pass', lifecycle: 'active' },
+              { id: retired, key: 'old', label: 'Old', lifecycle: 'retired' },
+            ],
+          }),
+        ],
+      )
+    ).rows[0]
+    const retiredField = (
+      await owner.query(
+        `insert into api.dataset_schema_version_fields(schema_version_id,field_id,key,label,logical_type,lifecycle,display_order) values($1,gen_random_uuid(),'old','Old','text','retired',2) returning field_id`,
+        [version.id],
+      )
+    ).rows[0]
+    await owner.query(
+      `update api.dataset_schema_versions set lifecycle='active' where id=$1`,
+      [version.id],
+    )
+    const dataset = (
+      await owner.query(
+        `insert into api.datasets(workspace_id,schema_version_id,name) values($1,$2,'Category fixture') returning id`,
+        [WS_A, version.id],
+      )
+    ).rows[0]
+    const rowId = '02000000-0000-4000-8000-000000000303'
+    await owner.query(
+      `select api.commit_dataset_row_batch($1,1,$2::jsonb,'category-valid')`,
+      [
+        dataset.id,
+        JSON.stringify([
+          {
+            operation: 'create',
+            rowId,
+            values: { [category.field_id]: active },
+          },
+        ]),
+      ],
+    )
+    expect(
+      (
+        await owner.query(
+          `select category_option_id from api.dataset_row_values where row_id=$1`,
+          [rowId],
+        )
+      ).rows,
+    ).toEqual([{ category_option_id: active }])
+    const invalid = (
+      await owner.query(
+        `select api.validate_dataset_row_batch($1,2,$2::jsonb) result`,
+        [
+          dataset.id,
+          JSON.stringify([
+            {
+              operation: 'update',
+              rowId,
+              expectedRevision: 1,
+              values: {
+                [category.field_id]: retired,
+                [retiredField.field_id]: 'x',
+              },
+            },
+          ]),
+        ],
+      )
+    ).rows[0].result
+    expect(invalid.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          rowIndex: 1,
+          rowId,
+          fieldId: category.field_id,
+          code: 'invalid_category_option',
+        }),
+        expect.objectContaining({
+          rowIndex: 1,
+          rowId,
+          fieldId: retiredField.field_id,
+          code: 'unknown_field',
+        }),
+      ]),
+    )
+    const unknown = (
+      await owner.query(
+        `select api.validate_dataset_row_batch($1,2,$2::jsonb) result`,
+        [
+          dataset.id,
+          JSON.stringify([
+            {
+              operation: 'update',
+              rowId,
+              expectedRevision: 1,
+              values: {
+                [category.field_id]: '02000000-0000-4000-8000-000000000399',
+              },
+            },
+          ]),
+        ],
+      )
+    ).rows[0].result
+    expect(unknown.errors).toContainEqual(
+      expect.objectContaining({
+        rowIndex: 1,
+        rowId,
+        fieldId: category.field_id,
+        code: 'invalid_category_option',
+      }),
+    )
+  })
+
+  it('enforces compatible same-workspace Model Record references', async () => {
+    const owner = await actor(OWNER_A, WS_A)
+    const schema = (
+      await owner.query(
+        `insert into api.dataset_schema_definitions(workspace_id,key,name) values($1,$2,'Reference fixture') returning id`,
+        [
+          WS_A,
+          `reference_${crypto.randomUUID().replaceAll('-', '').slice(0, 12)}`,
+        ],
+      )
+    ).rows[0]
+    const version = (
+      await owner.query(
+        `insert into api.dataset_schema_versions(schema_id,version) values($1,1) returning id`,
+        [schema.id],
+      )
+    ).rows[0]
+    const field = (
+      await owner.query(
+        `insert into api.dataset_schema_version_fields(schema_version_id,field_id,key,label,logical_type,relationship,display_order) values($1,gen_random_uuid(),'sample','Sample','reference','{"target":{"kind":"model","modelKey":"sample"},"cardinality":"one"}',1) returning field_id`,
+        [version.id],
+      )
+    ).rows[0]
+    await owner.query(
+      `update api.dataset_schema_versions set lifecycle='active' where id=$1`,
+      [version.id],
+    )
+    const dataset = (
+      await owner.query(
+        `insert into api.datasets(workspace_id,schema_version_id,name) values($1,$2,'Reference fixture') returning id`,
+        [WS_A, version.id],
+      )
+    ).rows[0]
+    const records = (
+      await migrator.query(
+        `insert into api.records(workspace_id,kind,identifier,title,created_by_user_id,deleted_at) values ($1,'sample','S-1','Sample',$2,null),($1,'experiment','E-1','Experiment',$2,null),($1,'sample','S-2','Deleted',$2,now()),($3,'sample','S-3','Other',$4,null) returning id,kind,workspace_id,deleted_at`,
+        [WS_A, OWNER_A, WS_B, OWNER_B],
+      )
+    ).rows
+    const good = records.find(
+      (record) =>
+        record.kind === 'sample' &&
+        record.workspace_id === WS_A &&
+        !record.deleted_at,
+    )!.id
+    const wrong = records.find((record) => record.kind === 'experiment')!.id
+    const deleted = records.find((record) => record.deleted_at)!.id
+    const cross = records.find((record) => record.workspace_id === WS_B)!.id
+    const rowId = '02000000-0000-4000-8000-000000000401'
+    await owner.query(
+      `select api.commit_dataset_row_batch($1,1,$2::jsonb,'reference-valid')`,
+      [
+        dataset.id,
+        JSON.stringify([
+          { operation: 'create', rowId, values: { [field.field_id]: good } },
+        ]),
+      ],
+    )
+    expect(
+      (
+        await owner.query(
+          `select reference_id from api.dataset_row_values where row_id=$1`,
+          [rowId],
+        )
+      ).rows,
+    ).toEqual([{ reference_id: good }])
+    const invalid = (
+      await owner.query(
+        `select api.validate_dataset_row_batch($1,2,$2::jsonb) result`,
+        [
+          dataset.id,
+          JSON.stringify([
+            {
+              operation: 'update',
+              rowId,
+              expectedRevision: 1,
+              values: { [field.field_id]: wrong },
+            },
+            {
+              operation: 'create',
+              rowId: '02000000-0000-4000-8000-000000000402',
+              values: { [field.field_id]: cross },
+            },
+            {
+              operation: 'create',
+              rowId: '02000000-0000-4000-8000-000000000403',
+              values: { [field.field_id]: deleted },
+            },
+          ]),
+        ],
+      )
+    ).rows[0].result
+    expect(invalid.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          rowIndex: 1,
+          rowId,
+          fieldId: field.field_id,
+          code: 'invalid_reference',
+        }),
+        expect.objectContaining({
+          rowIndex: 2,
+          fieldId: field.field_id,
+          code: 'invalid_reference',
+        }),
+        expect.objectContaining({
+          rowIndex: 3,
+          fieldId: field.field_id,
+          code: 'invalid_reference',
+        }),
+      ]),
+    )
+  })
+
+  it('persists, queries, replaces, and snapshots ordered many values', async () => {
+    const owner = await actor(OWNER_A, WS_A)
+    const schema = (
+      await owner.query(
+        `insert into api.dataset_schema_definitions(workspace_id,key,name) values($1,$2,'Many fixture') returning id`,
+        [WS_A, `many_${crypto.randomUUID().replaceAll('-', '').slice(0, 12)}`],
+      )
+    ).rows[0]
+    const version = (
+      await owner.query(
+        `insert into api.dataset_schema_versions(schema_id,version) values($1,1) returning id`,
+        [schema.id],
+      )
+    ).rows[0]
+    const fields = (
+      await owner.query(
+        `insert into api.dataset_schema_version_fields(schema_version_id,field_id,key,label,logical_type,cardinality,display_order) values($1,gen_random_uuid(),'tags','Tags','text','many',1),($1,gen_random_uuid(),'rank','Rank','integer','one',2) returning field_id,key`,
+        [version.id],
+      )
+    ).rows
+    const ids = Object.fromEntries(
+      fields.map((field) => [field.key, field.field_id]),
+    ) as Record<string, string>
+    await owner.query(
+      `update api.dataset_schema_versions set lifecycle='active' where id=$1`,
+      [version.id],
+    )
+    const dataset = (
+      await owner.query(
+        `insert into api.datasets(workspace_id,schema_version_id,name) values($1,$2,'Many fixture') returning id`,
+        [WS_A, version.id],
+      )
+    ).rows[0]
+    const one = '02000000-0000-4000-8000-000000000501'
+    const multi = '02000000-0000-4000-8000-000000000502'
+    const tie = '02000000-0000-4000-8000-000000000503'
+    const absent = '02000000-0000-4000-8000-000000000504'
+    const invalid = (
+      await owner.query(
+        `select api.validate_dataset_row_batch($1,1,$2::jsonb) result`,
+        [
+          dataset.id,
+          JSON.stringify([
+            {
+              operation: 'create',
+              rowId: one,
+              values: { [ids.tags]: [], [ids.rank]: [1] },
+            },
+          ]),
+        ],
+      )
+    ).rows[0].result
+    expect(invalid.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          rowIndex: 1,
+          rowId: one,
+          fieldId: ids.tags,
+          code: 'invalid_cardinality',
+        }),
+        expect.objectContaining({
+          fieldId: ids.rank,
+          code: 'invalid_cardinality',
+        }),
+      ]),
+    )
+    await owner.query(
+      `select api.commit_dataset_row_batch($1,1,$2::jsonb,'many-create')`,
+      [
+        dataset.id,
+        JSON.stringify([
+          {
+            operation: 'create',
+            rowId: one,
+            values: { [ids.tags]: ['only'], [ids.rank]: 2 },
+          },
+          {
+            operation: 'create',
+            rowId: multi,
+            values: { [ids.tags]: ['z', 'a', 'm'], [ids.rank]: 1 },
+          },
+          {
+            operation: 'create',
+            rowId: tie,
+            values: { [ids.tags]: ['z', 'x'], [ids.rank]: 3 },
+          },
+          { operation: 'create', rowId: absent, values: {} },
+        ]),
+      ],
+    )
+    let live = (
+      await owner.query(
+        `select api.query_dataset_rows($1,$2::jsonb,10,0) result`,
+        [
+          dataset.id,
+          JSON.stringify({
+            filters: [{ fieldId: ids.tags, operator: 'eq', value: 'a' }],
+            sort: { fieldId: ids.tags, direction: 'asc' },
+          }),
+        ],
+      )
+    ).rows[0].result
+    expect(live).toMatchObject({ totalCount: 1, hasMore: false })
+    expect(live.rows[0].values[ids.tags]).toEqual(['z', 'a', 'm'])
+    live = (
+      await owner.query(
+        `select api.query_dataset_rows($1,$2::jsonb,1,0) result`,
+        [
+          dataset.id,
+          JSON.stringify({
+            filters: [{ fieldId: ids.tags, operator: 'eq', value: 'z' }],
+            sort: { fieldId: ids.tags, direction: 'asc' },
+          }),
+        ],
+      )
+    ).rows[0].result
+    expect(live).toMatchObject({ totalCount: 2, hasMore: true })
+    expect(live.rows.map((row: { rowId: string }) => row.rowId)).toEqual([
+      multi,
+    ])
+    const absentRow = (
+      await owner.query(`select api.query_dataset_rows($1,'{}',10,0) result`, [
+        dataset.id,
+      ])
+    ).rows[0].result.rows.find((row: { rowId: string }) => row.rowId === absent)
+    expect(absentRow.values).toMatchObject({ [ids.tags]: [], [ids.rank]: null })
+    const oneLive = (
+      await owner.query(`select api.query_dataset_rows($1,'{}',10,0) result`, [
+        dataset.id,
+      ])
+    ).rows[0].result.rows.find((row: { rowId: string }) => row.rowId === one)
+    expect(oneLive.values[ids.tags]).toEqual(['only'])
+    const snapshot = (
+      await owner.query(
+        `select (api.snapshot_dataset($1,2,'many snapshot')).*`,
+        [dataset.id],
+      )
+    ).rows[0]
+    await owner.query(
+      `select api.commit_dataset_row_batch($1,2,$2::jsonb,'many-replace')`,
+      [
+        dataset.id,
+        JSON.stringify([
+          {
+            operation: 'update',
+            rowId: multi,
+            expectedRevision: 1,
+            values: { [ids.tags]: ['m', 'z'] },
+          },
+        ]),
+      ],
+    )
+    live = (
+      await owner.query(`select api.query_dataset_rows($1,'{}',10,0) result`, [
+        dataset.id,
+      ])
+    ).rows[0].result
+    expect(
+      live.rows.find((row: { rowId: string }) => row.rowId === multi).values[
+        ids.tags
+      ],
+    ).toEqual(['m', 'z'])
+    expect(
+      (
+        await owner.query(
+          `select ordinal,text_value from api.dataset_row_values where row_id=$1 and field_id=$2 order by ordinal`,
+          [multi, ids.tags],
+        )
+      ).rows,
+    ).toEqual([
+      { ordinal: 0, text_value: 'm' },
+      { ordinal: 1, text_value: 'z' },
+    ])
+    const historical = (
+      await owner.query(
+        `select api.query_dataset_version_rows($1,10,0) result`,
+        [snapshot.id],
+      )
+    ).rows[0].result
+    expect(
+      historical.rows.find((row: { rowId: string }) => row.rowId === multi)
+        .values[ids.tags],
+    ).toEqual(['z', 'a', 'm'])
+    expect(
+      historical.rows.find((row: { rowId: string }) => row.rowId === one)
+        .values[ids.tags],
+    ).toEqual(['only'])
+    await expect(
+      owner.query(`select api.query_dataset_rows($1,$2::jsonb,10,0)`, [
+        dataset.id,
+        JSON.stringify({
+          filters: Array.from({ length: 9 }, () => ({
+            fieldId: ids.rank,
+            operator: 'eq',
+            value: 1,
+          })),
+        }),
+      ]),
+    ).rejects.toMatchObject({ code: '22023' })
+    await expect(
+      owner.query(`select api.query_dataset_rows($1,$2::jsonb,10,0)`, [
+        dataset.id,
+        JSON.stringify({
+          filters: [{ fieldId: ids.rank, operator: 'eq', value: 'bad' }],
+        }),
+      ]),
+    ).rejects.toMatchObject({ code: '22023' })
   })
 
   it('rejects stale row writes without changing another row in the batch', async () => {
@@ -243,6 +1094,44 @@ describe('canonical Dataset metadata', () => {
         )
       ).rows,
     ).toEqual([{ numeric_value: '125000000' }])
+  })
+
+  it('rejects malformed batch conflict shapes before the controlled write boundary', async () => {
+    const owner = await actor(OWNER_A, WS_A)
+    const row = '02000000-0000-4000-8000-000000000199'
+    const call = (rows: unknown) =>
+      owner.query(`select api.validate_dataset_row_batch($1,$2,$3::jsonb)`, [
+        datasetId,
+        2,
+        JSON.stringify(rows),
+      ])
+
+    await expect(
+      call([
+        { operation: 'create', rowId: row, values: { [titreFieldId]: 1 } },
+        { operation: 'create', rowId: row, values: { [titreFieldId]: 2 } },
+      ]),
+    ).rejects.toMatchObject({ code: '22023' })
+    await expect(
+      call([
+        {
+          operation: 'create',
+          rowId: '02000000-0000-4000-8000-000000000198',
+          expectedRevision: 1,
+          values: { [titreFieldId]: 1 },
+        },
+      ]),
+    ).rejects.toMatchObject({ code: '22023' })
+    await expect(
+      call([
+        {
+          operation: 'update',
+          rowId: '02000000-0000-4000-8000-000000000101',
+          expectedRevision: 0,
+          values: { [titreFieldId]: 1 },
+        },
+      ]),
+    ).rejects.toMatchObject({ code: '22023' })
   })
 
   it('returns a bounded canonical Dataset window with typed field filtering', async () => {
@@ -291,6 +1180,27 @@ describe('canonical Dataset metadata', () => {
     ).rejects.toMatchObject({ code: '22023' })
   })
 
+  it('rejects malformed canonical query payloads before execution', async () => {
+    const owner = await actor(OWNER_A, WS_A)
+    const invalid = [
+      null,
+      1,
+      { extra: true },
+      { filters: [{ fieldId: titreFieldId, operator: 'eq' }] },
+      { filters: [{ fieldId: titreFieldId, operator: 'contains', value: 1 }] },
+      { sort: { fieldId: titreFieldId, direction: 'sideways' } },
+      { sort: { fieldId: titreFieldId, direction: 'asc', extra: true } },
+    ]
+    for (const query of invalid) {
+      await expect(
+        owner.query(`select api.query_dataset_rows($1,$2::jsonb,10,0)`, [
+          datasetId,
+          JSON.stringify(query),
+        ]),
+      ).rejects.toMatchObject({ code: '22023' })
+    }
+  })
+
   it('keeps Dataset and schema metadata workspace-isolated', async () => {
     const owner = await actor(OWNER_A, WS_A)
     const member = await actor(MEMBER_A, WS_A)
@@ -298,7 +1208,7 @@ describe('canonical Dataset metadata', () => {
 
     expect(
       (await member.query(`select * from api.datasets`)).rows,
-    ).toHaveLength(1)
+    ).toHaveLength(8)
     expect((await outsider.query(`select * from api.datasets`)).rows).toEqual(
       [],
     )
@@ -311,7 +1221,7 @@ describe('canonical Dataset metadata', () => {
     ).rejects.toMatchObject({ code: '42501' })
     expect(
       (await owner.query(`select * from api.dataset_schema_definitions`)).rows,
-    ).toHaveLength(1)
+    ).toHaveLength(17)
   })
 
   it('rejects cross-workspace Dataset schema, row, and primary-project bindings at the database boundary', async () => {
@@ -384,10 +1294,11 @@ describe('canonical Dataset metadata', () => {
     const owner = await actor(OWNER_A, WS_A)
     const label = `Submission evidence ${crypto.randomUUID()}`
     const snapshot = (
-      await owner.query(
-        `select (api.snapshot_dataset($1,$2,$3)).*`,
-        [datasetId, 2, label],
-      )
+      await owner.query(`select (api.snapshot_dataset($1,$2,$3)).*`, [
+        datasetId,
+        2,
+        label,
+      ])
     ).rows[0]
     expect(snapshot).toMatchObject({
       dataset_id: datasetId,
@@ -412,9 +1323,10 @@ describe('canonical Dataset metadata', () => {
       ],
     )
     const historical = (
-      await owner.query(`select api.query_dataset_version_rows($1,100,0) result`, [
-        snapshot.id,
-      ])
+      await owner.query(
+        `select api.query_dataset_version_rows($1,100,0) result`,
+        [snapshot.id],
+      )
     ).rows[0].result
     expect(historical).toMatchObject({
       datasetVersionId: snapshot.id,
@@ -430,9 +1342,10 @@ describe('canonical Dataset metadata', () => {
       ]),
     )
     await expect(
-      migrator.query(`update api.dataset_versions set label='changed' where id=$1`, [
-        snapshot.id,
-      ]),
+      migrator.query(
+        `update api.dataset_versions set label='changed' where id=$1`,
+        [snapshot.id],
+      ),
     ).rejects.toMatchObject({ code: 'SB072' })
   })
 })

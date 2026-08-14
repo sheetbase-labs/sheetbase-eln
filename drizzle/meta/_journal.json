@@ -519,6 +519,13 @@
       "when": 1786741054402,
       "tag": "0073_confused_fabian_cortez",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1786742400000,
+      "tag": "0074_core_033_sheet_instance_controls",
+      "breakpoints": true
     }
   ]
 }

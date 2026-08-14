@@ -123,6 +123,8 @@ Implement reusable versioned Sheet Definitions and working Sheet Instances over 
 
 ## CORE-03.3 — Implement Sheet Instance identity and resolved bindings
 
+**Status:** Complete (2026-08-14).
+
 **Blocked by:** CORE-03.2.
 
 **Goal:** Add the durable working Sheet object.
@@ -136,6 +138,29 @@ Implement reusable versioned Sheet Definitions and working Sheet Instances over 
 **Tests:** independent Instances from one Definition; duplicate semantics; archive/read; RLS; reload.
 
 **Exit gate:** two Instances from one Definition are independently durable while retaining source Definition/version provenance.
+
+## Completion evidence
+
+- Migrations `0073`/`0074` add workspace-owned Sheet Instance identity with an
+  immutable optional published Definition Version pin, independent bounded
+  working state, optimistic revision, archive lifecycle and controlled
+  ad-hoc/from-Definition/update/archive/duplicate operations.
+- TypeScript and PostgreSQL share the accepted UUID dialect and canonical
+  `FieldDefinition` boundary. Resolved Dataset/Record references, Dataset
+  Version ownership, workspace context, source publication and pinned
+  Definition binding/parameter identity are enforced before persistence.
+- Focused domain/data tests pass 18/18 and DB/RLS lifecycle tests pass 5/5.
+  Direct table mutation is denied, the guard is enabled, helper execution is
+  revoked, member reads are workspace-scoped, and migrator writes still require
+  the narrow transaction-local RPC guard value.
+- Duplication creates a new Instance identity and deep-copied JSON working
+  state while preserving concrete reference IDs; subsequent mutation remains
+  isolated. Archive remains readable and blocks updates, repeat archive and
+  duplication. Existing scientific Sheet/Notebook/Template/formula/submitted
+  evidence persistence remains unchanged.
+- Fresh migration plus demo seed, focused legacy compatibility, formatting,
+  typecheck, changed-file lint and `git diff --check` pass. CORE-03.4 remains
+  responsible for semantic binding compatibility and row-identity execution.
 
 ---
 

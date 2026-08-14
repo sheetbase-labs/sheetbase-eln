@@ -8,9 +8,9 @@
 
 ## Active task
 
-**CORE-03.3 — Implement Sheet Instance identity and resolved bindings**
+**CORE-03.4 — Implement shared typed parameters and binding compatibility**
 
-Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-033--implement-sheet-instance-identity-and-resolved-bindings)
+Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-034--implement-shared-typed-parameters-and-binding-compatibility)
 
 ## Completed in this PR
 
@@ -29,6 +29,7 @@ Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-033--implement-sheet-instance
 - CORE-02.9 — epic proof, full DB exit gate and CORE-03 refinement
 - CORE-03.1 — current Sheet and Template persistence audit
 - CORE-03.2 — durable Sheet Definition identity and immutable versions
+- CORE-03.3 — durable Sheet Instance identity and resolved binding persistence
 - product/architecture reset and accepted ADRs 0020–0026
 
 ## Required reading

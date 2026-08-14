@@ -2216,7 +2216,9 @@ export const sheetInstances = api.table(
     revision: bigint('revision', { mode: 'bigint' })
       .notNull()
       .default(sql`1`),
-    state: jsonb('state').notNull().default(sql`'{}'::jsonb`),
+    state: jsonb('state')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     duplicatedFromInstanceId: uuid('duplicated_from_instance_id').references(
       (): AnyPgColumn => sheetInstances.id,
       { onDelete: 'restrict' },
@@ -2234,9 +2236,19 @@ export const sheetInstances = api.table(
       'chk_sheet_instances_lifecycle',
       sql`${table.lifecycle} IN ('active','archived')`,
     ),
+    check(
+      'chk_sheet_instances_name',
+      sql`length(btrim(${table.name})) BETWEEN 1 AND 200`,
+    ),
+    check(
+      'chk_sheet_instances_description',
+      sql`${table.description} IS NULL OR length(${table.description}) <= 2000`,
+    ),
     check('chk_sheet_instances_revision', sql`${table.revision} > 0`),
     index('idx_sheet_instances_workspace').on(table.workspaceId),
-    index('idx_sheet_instances_source_version').on(table.sourceDefinitionVersionId),
+    index('idx_sheet_instances_source_version').on(
+      table.sourceDefinitionVersionId,
+    ),
   ],
 )
 

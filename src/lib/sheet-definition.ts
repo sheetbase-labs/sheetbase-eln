@@ -7,11 +7,12 @@ import {
 
 export const SHEET_DEFINITION_CONFIGURATION_FORMAT_VERSION = 1 as const
 
-const uuid = z
+export const sheetDefinitionUuidSchema = z
   .string()
   .regex(
     /^(?!00000000-0000-0000-0000-000000000000$)[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
   )
+const uuid = sheetDefinitionUuidSchema
 const key = z.string().regex(/^[a-z][a-z0-9_]{0,59}$/)
 const label = z.string().trim().min(1).max(200)
 const jsonObject = z.record(z.string(), z.unknown())
@@ -105,9 +106,9 @@ const relationshipSchema = z
   })
   .strict()
 
-const fieldDefinitionSchema = z
+export const sheetFieldDefinitionSchema = z
   .object({
-    fieldId: uuid,
+    fieldId: sheetDefinitionUuidSchema,
     key,
     label,
     description: z.string().max(2_000).nullable(),
@@ -359,7 +360,7 @@ const configurationSchema = z
         z
           .object({
             id: uuid,
-            field: fieldDefinitionSchema,
+            field: sheetFieldDefinitionSchema,
             source: z.discriminatedUnion('kind', [
               z.object({ kind: z.literal('declared') }).strict(),
               z

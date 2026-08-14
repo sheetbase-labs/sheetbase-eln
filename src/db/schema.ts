@@ -2189,6 +2189,57 @@ export const sheetDefinitionVersions = api.table(
   ],
 )
 
+// CORE-03.3: a working Sheet is deliberately separate from a reusable
+// Definition.  All mutable working configuration is contained in `state`;
+// the optional source is an immutable Definition Version, never a writable
+// Definition pointer.
+export const sheetInstances = api.table(
+  'sheet_instances',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    projectId: uuid('project_id').references(() => projects.id, {
+      onDelete: 'restrict',
+    }),
+    notebookRecordId: uuid('notebook_record_id').references(() => records.id, {
+      onDelete: 'restrict',
+    }),
+    sourceDefinitionVersionId: uuid('source_definition_version_id').references(
+      () => sheetDefinitionVersions.id,
+      { onDelete: 'restrict' },
+    ),
+    name: text('name').notNull(),
+    description: text('description'),
+    lifecycle: text('lifecycle').notNull().default('active'),
+    revision: bigint('revision', { mode: 'bigint' })
+      .notNull()
+      .default(sql`1`),
+    state: jsonb('state').notNull().default(sql`'{}'::jsonb`),
+    duplicatedFromInstanceId: uuid('duplicated_from_instance_id').references(
+      (): AnyPgColumn => sheetInstances.id,
+      { onDelete: 'restrict' },
+    ),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    check(
+      'chk_sheet_instances_lifecycle',
+      sql`${table.lifecycle} IN ('active','archived')`,
+    ),
+    check('chk_sheet_instances_revision', sql`${table.revision} > 0`),
+    index('idx_sheet_instances_workspace').on(table.workspaceId),
+    index('idx_sheet_instances_source_version').on(table.sourceDefinitionVersionId),
+  ],
+)
+
 export const datasets = api.table(
   'datasets',
   {

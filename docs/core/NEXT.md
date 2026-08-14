@@ -8,9 +8,9 @@
 
 ## Active task
 
-**CORE-02.9 — Epic proof and CORE-03 refinement**
+**CORE-03.1 — Audit current Sheet and Template persistence**
 
-Task: [`tasks/CORE-02.md`](./tasks/CORE-02.md#core-029--epic-proof-and-core-03-refinement)
+Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-031--audit-current-sheet-and-template-persistence)
 
 ## Completed in this PR
 
@@ -26,32 +26,30 @@ Task: [`tasks/CORE-02.md`](./tasks/CORE-02.md#core-029--epic-proof-and-core-03-r
 - CORE-02.6–02.7 — representative scale evidence and canonical Dataset
   Explorer consumption
 - CORE-02.8 — immutable Dataset Version snapshot/query semantics
+- CORE-02.9 — epic proof, full DB exit gate and CORE-03 refinement
 - product/architecture reset and accepted ADRs 0020–0026
 
 ## Required reading
 
-1. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md)
-2. [`CORE_ARCHITECTURE.md`](./CORE_ARCHITECTURE.md)
-3. [`CORE_MIGRATION.md`](./CORE_MIGRATION.md)
-4. [`tasks/CORE-02.md`](./tasks/CORE-02.md)
-5. [`audits/DATASET_QUERY_PERFORMANCE.md`](./audits/DATASET_QUERY_PERFORMANCE.md)
-6. [`../decisions/0037-dataset-primitive-storage-and-versioning.md`](../decisions/0037-dataset-primitive-storage-and-versioning.md)
-7. `scripts/benchmark-dataset-query.ts`
-8. migrations `0064` through `0070` and `tests/db/datasets.test.ts`
+1. [`tasks/CORE-03.md`](./tasks/CORE-03.md), CORE-03.1 only
+2. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md), Dataset and Sheet sections
+3. [`CORE_ARCHITECTURE.md`](./CORE_ARCHITECTURE.md), sections 4–9 and 12–13
+4. [`audits/DATASET_PERSISTENCE_AUDIT.md`](./audits/DATASET_PERSISTENCE_AUDIT.md), compatibility boundary only
+5. Current Sheet/Template migrations, data modules, components and focused tests named by CORE-03.1
 
 ## Implement now
 
-Run CORE-02.9's epic-wide fresh proof: exercise the supported Dataset/Schema
-creation path, realistic controlled bulk writes, canonical query/filter/sort,
-stable identity, RLS isolation, immutable Versions and Dataset Explorer
-consumption. Run the full validation gate and refine CORE-03 only where the
-completed implementation evidence requires it. Do not begin CORE-03
-implementation in the CORE-02.9 unit.
+Produce `docs/core/audits/SHEET_COMPOSITION_AUDIT.md`. Map current ownership of
+Sheet schema, data, presentation, formulas, Notebook blocks and Template state
+into future Definition versus Instance responsibilities. Reproduce the
+representative existing create/edit/formula/reload contracts. Record exact
+keep/adapt/deprecate seams and only the durable questions CORE-03.2/03.3 must
+settle; make no data, API or UI changes.
 
 ## Do not
 
-- do not redesign the architecture already settled by ADRs 0020–0026;
-- do not begin compositional Sheet work yet;
+- do not implement Sheet Definition, Instance, composition or migration work;
+- do not redesign architecture already settled by ADRs 0020–0026;
 - do not build the full unit-conversion or vocabulary-management product yet;
 - do not weaken RLS/server validation;
 - do not broaden paused specialist workspaces.
@@ -87,8 +85,13 @@ field-identity proof. Fresh migrate/demo seed and idempotent reseed pass;
 zero lint errors and 19 existing warnings. Focused Dataset DB tests pass 20/20
 and Explorer + FieldDefinition + benchmark-safety tests pass 41/41.
 
-The required full DB gate remains red independently of Dataset behavior: 47/51
-files and 593 tests pass, while four legacy suites contain 13 failures and one
-setup failure skips eight tests. See CORE-02.9's matrix for the exact stale
-Record/schema, revision-permission and auth-session contracts. CORE-02.9 stays
-open and CORE-03 must not begin until that programme-wide DB gate is restored.
+The legacy Scientific Record, submitted-revision and chart fixtures now use the
+accepted controlled configuration/revision contracts. Better Auth session
+tests inject the same database used for fixture setup. Their focused suites
+pass 45/45; the full DB gate passes 51/51 files and 614/614 tests.
+
+CORE-02 is complete. CORE-03.1 is audit-only: canonical Dataset queries expose
+bounded complete active-field windows, not public projection/composition/
+aggregate APIs; `many` values are ordinal-ordered arrays; joins must bind
+stable reference identities; write-back must retain bulk/revision/idempotency
+contracts; and the 100k+80k proof does not implement Sheet composition.

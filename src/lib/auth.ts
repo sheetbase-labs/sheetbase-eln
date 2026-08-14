@@ -15,7 +15,7 @@ import type { AppSession } from '#/lib/dev-auth'
 
 const authSchema = { user, session, account, verification }
 
-export function createAuth(_databaseUrl: string) {
+export function createAuth(database: typeof db = db) {
   const socialProviders =
     env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET
       ? {
@@ -29,7 +29,7 @@ export function createAuth(_databaseUrl: string) {
   return betterAuth({
     baseURL: env.BETTER_AUTH_URL,
     secret: env.BETTER_AUTH_SECRET,
-    database: drizzleAdapter(db, { provider: 'pg', schema: authSchema }),
+    database: drizzleAdapter(database, { provider: 'pg', schema: authSchema }),
     socialProviders,
     databaseHooks: {
       user: {
@@ -38,7 +38,7 @@ export function createAuth(_databaseUrl: string) {
           // Failure must not orphan the user: if this throws, Better Auth
           // rolls the user creation back inside its own transaction.
           after: async (createdUser) => {
-            await bootstrapWorkspaceForUser(db, {
+            await bootstrapWorkspaceForUser(database, {
               id: createdUser.id,
               name: createdUser.name,
             })
@@ -65,7 +65,7 @@ export function createAuth(_databaseUrl: string) {
   })
 }
 
-export const auth = createAuth(env.DATABASE_URL)
+export const auth = createAuth()
 
 /**
  * Resolve the application session, or the fixed seeded development identity

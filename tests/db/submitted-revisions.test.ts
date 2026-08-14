@@ -19,6 +19,7 @@ const FILE_OBJECT_A = '94000000-0000-4000-8000-000000000001'
 const FILE_STORAGE_KEY_A = `${WS_A}/${FILE_OBJECT_A}/${'a'.repeat(32)}`
 const FILE_CHECKSUM_A = 'b'.repeat(64)
 const OWNER_A = 'rev-owner-a'
+const CONFIG_ADMIN_A = 'rev-config-admin-a'
 const REVIEWER_A = 'rev-reviewer-a'
 const OWNER_B = 'rev-owner-b'
 
@@ -83,9 +84,10 @@ beforeAll(async () => {
   await migrator!.query(
     `INSERT INTO internal."user" (id,name,email,"emailVerified") VALUES
        ($1,'Owner A','owner-a@rev.test',true),
-       ($2,'Reviewer A','reviewer-a@rev.test',true),
-       ($3,'Owner B','owner-b@rev.test',true)`,
-    [OWNER_A, REVIEWER_A, OWNER_B],
+       ($2,'Config Admin A','config-admin-a@rev.test',true),
+       ($3,'Reviewer A','reviewer-a@rev.test',true),
+       ($4,'Owner B','owner-b@rev.test',true)`,
+    [OWNER_A, CONFIG_ADMIN_A, REVIEWER_A, OWNER_B],
   )
   await migrator!.query(
     `INSERT INTO api.workspaces(id,slug,name) VALUES
@@ -94,17 +96,25 @@ beforeAll(async () => {
   )
   await migrator!.query(
     `INSERT INTO api.workspace_memberships(workspace_id,user_id,role) VALUES
-       ($1,$2,'owner'),($1,$3,'member'),($4,$5,'owner')`,
-    [WS_A, OWNER_A, REVIEWER_A, WS_B, OWNER_B],
+       ($1,$2,'owner'),($1,$3,'admin'),($1,$4,'member'),($5,$6,'owner')`,
+    [WS_A, OWNER_A, CONFIG_ADMIN_A, REVIEWER_A, WS_B, OWNER_B],
   )
   await migrator!.query(
     `INSERT INTO api.projects(id,workspace_id,key,title) VALUES
        ($1,$2,'REV-A','Revision A'),($3,$4,'REV-B','Revision B')`,
     [PROJECT_A, WS_A, PROJECT_B, WS_B],
   )
+  const configAdmin = await authenticated(CONFIG_ADMIN_A, WS_A)
+  await configAdmin.query(
+    `SELECT api.create_and_activate_model_field(
+       $1,'experiment','temperature','Temperature','integer',true,null,
+       '{}'::jsonb,'[]'::jsonb
+     )`,
+    [WS_A],
+  )
   await migrator!.query(
     `INSERT INTO api.records
-       (id,workspace_id,project_id,kind,identifier,title,status,properties,tags,created_by_user_id)
+       (id,workspace_id,project_id,kind,identifier,title,status,custom_fields,tags,created_by_user_id)
      VALUES
        ($1,$2,$3,'experiment','EXP-REV-A','Submitted experiment','draft',
         '{"temperature":4}',ARRAY['stability'],$4),
@@ -251,7 +261,7 @@ describe('REV-002 submitted revision contract', () => {
     const source = await preview(owner)
 
     await concurrent.query(
-      `UPDATE api.records SET properties='{"temperature":8}',metadata_version=metadata_version+1
+      `UPDATE api.records SET custom_fields='{"temperature":8}',metadata_version=metadata_version+1
        WHERE id=$1`,
       [RECORD_A],
     )

@@ -29,6 +29,7 @@ async function authenticated(user: string, workspace: string): Promise<Client> {
       sub: user,
       workspace_id: workspace,
       role: 'authenticated',
+      session_id: `session-${user}`,
     }),
   ])
   return client
@@ -547,18 +548,24 @@ describe('SCI-004 chart freeze lifecycle', () => {
       chart.version,
     ])
     chart = frozen.rows[0]
-    // Bind the freeze to a revision for the same record, then unfreeze must be rejected.
-    const rev = await a.query(
-      `INSERT INTO api.revisions(record_id,structure_version,metadata_version,metadata_snapshot,block_snapshot,reason,created_by_user_id)
-       VALUES($1,$2,1,$3::jsonb,'[]'::jsonb,'submit',$4) RETURNING id`,
+    // Create immutable evidence through the submission contract, then bind
+    // this freeze to that revision through the chart lifecycle contract.
+    const preview = await a.query(
+      'SELECT api.preview_submission_digest($1) result',
+      [chart.record_id],
+    )
+    const submitted = await a.query(
+      `SELECT api.submit_record_revision(
+         $1,$2,'default-scientific-review',1,ARRAY[$3]::text[],true,$4
+       ) result`,
       [
         chart.record_id,
-        experiment.structure_version,
-        JSON.stringify({ title: 'Submit run' }),
+        preview.rows[0].result.sourceDigest,
         USER_A,
+        'chart-freeze-lifecycle',
       ],
     )
-    const revId = rev.rows[0].id
+    const revId = submitted.rows[0].result.revision.id
     const bound = await a.query(
       'SELECT * FROM api.bind_chart_revision($1,$2,$3)',
       [chart.id, revId, chart.version],

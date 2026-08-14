@@ -8,9 +8,9 @@
 
 ## Active task
 
-**CORE-02.3–02.5 — Dataset integrity and canonical validation hardening**
+**CORE-02.6 — Dataset query, composition and scale evidence**
 
-Task: [`tasks/CORE-02.md`](./tasks/CORE-02.md#core-023--implement-dataset-and-dataset-schema-metadata)
+Task: [`tasks/CORE-02.md`](./tasks/CORE-02.md#core-026--query-filtering-and-large-data-behaviour)
 
 ## Completed in this PR
 
@@ -21,6 +21,10 @@ Task: [`tasks/CORE-02.md`](./tasks/CORE-02.md#core-023--implement-dataset-and-da
 - CORE-01.5 — Field rendering/editor selection converged on canonical semantics
 - CORE-01.6 — Initial server-enforced schema capability boundary
 - CORE-01.7 — Epic proof and CORE-02 hand-off
+- CORE-02.1–02.5 — Dataset persistence, metadata, typed rows and controlled
+  bulk validation/commit
+- CORE-02.7 — canonical Dataset Explorer consumption
+- CORE-02.8 — immutable Dataset Version snapshot/query semantics
 - product/architecture reset and accepted ADRs 0020–0026
 
 ## Required reading
@@ -28,29 +32,28 @@ Task: [`tasks/CORE-02.md`](./tasks/CORE-02.md#core-023--implement-dataset-and-da
 1. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md)
 2. [`CORE_ARCHITECTURE.md`](./CORE_ARCHITECTURE.md)
 3. [`CORE_MIGRATION.md`](./CORE_MIGRATION.md)
-4. [`audits/FIELD_SCHEMA_AUDIT.md`](./audits/FIELD_SCHEMA_AUDIT.md)
-5. [`tasks/CORE-01.md`](./tasks/CORE-01.md)
-6. ADRs `0020` through `0026` in `docs/decisions/`
-7. `src/lib/field-definition.ts` and its tests
-8. the actual existing Model DB/API/UI implementation identified by the audit
+4. [`tasks/CORE-02.md`](./tasks/CORE-02.md)
+5. [`audits/DATASET_QUERY_PERFORMANCE.md`](./audits/DATASET_QUERY_PERFORMANCE.md)
+6. [`../decisions/0037-dataset-primitive-storage-and-versioning.md`](../decisions/0037-dataset-primitive-storage-and-versioning.md)
+7. `scripts/benchmark-dataset-query.ts`
+8. migrations `0064` through `0069` and `tests/db/datasets.test.ts`
 
 ## Implement now
 
-Close the reviewed CORE-02 integrity and validation gates before starting
-CORE-03. PostgreSQL must enforce workspace-consistent Dataset relationships,
-immutable published Schema Versions, canonical `FieldDefinition` validation,
-required-field completeness at the controlled bulk commit boundary, and
-physical `many` cardinality. Add and implement an explicit immutable Dataset
-Version snapshot task. Expand the ADR 0037 performance fixture to the required
-100k/80k composition and bulk scenarios.
+Close the remaining ADR 0037 evidence gate before CORE-02 epic proof. Expand
+the deterministic fixture to cover a 100k-row Dataset composed with an
+80k-row Dataset through stable Sample references, 10–30 mixed fields and a
+12-field projected window. Measure numeric range and aggregation, QC/category
+filtering, date sort, paging/windowing, and substantial bulk inserts and
+updates. Record fixture shape, query plans, timings, thresholds and justified
+indexes. Re-run the canonical Dataset Explorer contract against the final
+query behavior.
 
 This is **real production coding**, not another architecture pass.
 
-Key targets:
-
-- make no data/API changes in this audit;
-- map current ownership and compatibility risks precisely;
-- use the audit to implement CORE-03.2 without rediscovery.
+The next unit may add the smallest query/RPC/index changes required by measured
+evidence, including numeric aggregation. It must not begin Sheet composition;
+the 100k/80k join is Dataset-layer evidence for the future consumer contract.
 
 ## Do not
 
@@ -60,32 +63,22 @@ Key targets:
 - do not weaken RLS/server validation;
 - do not broaden paused specialist workspaces.
 
-## Corrected hand-off
+## Hand-off evidence
 
-`0065_core_025_dataset_bulk_operations.sql` provides a useful initial bulk
-commit slice, but CORE-02.5 remains in progress because it does not yet cover
-all canonical semantics or prevent direct mutation-path bypass. It adds bounded
-(1–1,000 row) typed validate/commit RPCs. Client-generated stable
-row UUIDs support retry-safe creates; updates require row revisions. Commits
-are all-or-nothing, lock target rows deterministically, increment Dataset and
-row revisions, and persist actor-scoped idempotency receipts. Structured
-row/field errors are returned without writing invalid batches.
+Migration `0069_core_024_dataset_canonical_values.sql` closes canonical
+publication/value/default/reference/category/required/cardinality enforcement,
+ordered `many` persistence, cardinality-aware live/version reads, membership
+filtering and deterministic ordinal-first sorting. The controlled bulk path
+retains atomicity, revisions, deterministic locks, bounded batches and
+idempotency. Direct authenticated row/value mutation remains revoked.
 
-Focused DB validation: `pnpm exec vitest run --config vitest.db.config.ts
-tests/db/datasets.test.ts` (5/5).
+Controller verification after fresh setup/migration:
 
-`0066_core_026_dataset_query.sql` provides
-typed field-ID filtering/sorting, bounded windows and authoritative totals for
-canonical Dataset rows. The reproducible 100k-row/10-field fixture records a
-10,000-match, 200-row window in 65.5–79.6 ms locally; see
-`audits/DATASET_QUERY_PERFORMANCE.md`.
+- `tests/db/datasets.test.ts`: 19/19;
+- Dataset Explorer + `FieldDefinition`: 27/27;
+- typecheck and formatting pass;
+- lint: no errors, 19 existing warnings.
 
-Explorer work exists but cannot close CORE-02.7 until the canonical write and
-query contracts are hardened. It lists canonical Datasets and Schema Version
-fields, and reads page/filter/sort windows exclusively through
-`query_dataset_rows`; it deliberately does not fall back to generated legacy
-Sheet resources.
-
-Do not begin CORE-03. CORE-02.3 and CORE-02.4 are reopened; CORE-02.5 is the
-active hardening slice; CORE-02.6 requires expanded performance evidence; an
-explicit Dataset Version task must pass before epic proof.
+The existing 100k/10-field query measurement is useful baseline evidence but
+does not satisfy ADR 0037's required 100k+80k composition, aggregation or bulk
+write scenarios. Do not begin CORE-03 until CORE-02.6 and CORE-02.9 pass.

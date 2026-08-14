@@ -159,7 +159,7 @@ A reviewed ADR gives CORE-02.3 a concrete migration target.
 # CORE-02.3 — Implement Dataset and Dataset Schema metadata
 
 **Blocked by:** CORE-02.2.
-**Status:** In progress — workspace-integrity and published-version immutability hardening.
+**Status:** Complete (2026-08-14).
 
 ## Goal
 
@@ -183,21 +183,25 @@ Build Sheet UI in this task.
 
 A Dataset and its Schema can exist and be addressed through the authenticated API without any Sheet.
 
-## Initial implementation evidence (not exit-gate evidence)
+## Completion evidence
 
 - Added `dataset_schema_definitions`, immutable `dataset_schema_versions`,
   canonical version fields and independently addressable `datasets` in
   migrations `0062_shallow_energizer.sql` and `0063_productive_the_captain.sql`.
 - Added workspace RLS and schema-capability-protected metadata writes.
-- Added `tests/db/datasets.test.ts` covering Dataset/Schema binding and
-  workspace isolation.
+- Migration `0067_core_025_dataset_integrity_hardening.sql` enforces matching
+  workspaces for Dataset/Schema, Dataset/project and Dataset/row bindings, and
+  makes active/retired Schema Versions and their fields immutable.
+- `tests/db/datasets.test.ts` proves authenticated independent Dataset access,
+  workspace isolation, cross-workspace relationship rejection and published
+  Schema Version immutability.
 
 ---
 
 # CORE-02.4 — Implement stable rows, fields and typed validation
 
 **Blocked by:** CORE-02.3.
-**Status:** In progress — canonical semantics, required completeness and cardinality hardening.
+**Status:** Complete (2026-08-14).
 
 ## Goal
 
@@ -223,22 +227,28 @@ Treat a failed client validator as sufficient enforcement.
 
 Valid rows persist; invalid typed values are rejected with precise field/row errors; IDs survive reorder/rename operations.
 
-## Initial implementation evidence (not exit-gate evidence)
+## Completion evidence
 
 - Added `dataset_rows` and typed `dataset_row_values` in migration
   `0064_neat_mimic.sql`, retaining stable row/field IDs and indexed numeric,
   category and reference access paths.
-- PostgreSQL trigger validation rejects unknown/retired fields, multiple value
-  slots and logical-type mismatches before persistence.
-- `tests/db/datasets.test.ts` proves typed numeric persistence, type rejection
-  and workspace isolation.
+- Migrations `0067` and `0069_core_024_dataset_canonical_values.sql` enforce
+  canonical Schema publication metadata, all supported scalar slots and
+  constraints, required/default behavior, embedded active category options,
+  compatible active Model Record references, retired fields and physical
+  ordered `many` cardinality.
+- Authenticated direct row/value mutation is revoked; controlled validation
+  returns stable row-index/row-ID/field-ID error codes.
+- `tests/db/datasets.test.ts` proves scalar/category/reference/default/required
+  success and failure matrices, stable IDs, ordered replacement and workspace
+  isolation against a freshly migrated database.
 
 ---
 
 # CORE-02.5 — Add atomic bulk validate/commit operations
 
 **Blocked by:** CORE-02.4.
-**Status:** In progress — controlled mutation-boundary hardening.
+**Status:** Complete (2026-08-14).
 
 ## Goal
 
@@ -265,7 +275,7 @@ Required if partial-success versus all-or-nothing semantics are not already sett
 
 A client can validate and commit a substantial Dataset batch efficiently and receive actionable errors.
 
-## Initial implementation evidence (not exit-gate evidence)
+## Completion evidence
 
 - Added `dataset_bulk_commits` and migration
   `0065_core_025_dataset_bulk_operations.sql` with actor-scoped idempotency
@@ -279,16 +289,20 @@ A client can validate and commit a substantial Dataset batch efficiently and rec
   order, apply no partial batch, increment row/Dataset revisions, and return
   the stored result on an exact idempotent retry. Reusing a key for a different
   request is rejected.
+- Migration `0069` closes required/default, category/reference, retired-field,
+  `many`, malformed request and global row-ID conflict behavior while
+  preserving the bounded atomic/idempotent contract.
 - `tests/db/datasets.test.ts` covers typed validation, all-or-nothing writes,
-  idempotent retries, key-reuse rejection, row revision conflicts, and
-  workspace isolation. Focused DB validation passes 5/5.
+  global and in-batch duplicates, idempotent retries, key-reuse rejection, row
+  revision conflicts, actionable error context and workspace isolation.
+- Fresh focused DB validation passes 19/19.
 
 ---
 
 # CORE-02.6 — Query, filtering and large-data behaviour
 
 **Blocked by:** CORE-02.4.
-**Status:** Complete (2026-08-14).
+**Status:** In progress — ADR 0037 composition, aggregation and bulk scale evidence missing.
 
 ## Goal
 
@@ -315,7 +329,7 @@ Require the browser to load the full Dataset for routine sorting/filtering.
 
 Representative large Dataset reads/filter/sort operations meet documented baseline expectations and expose semantics CORE-03 can consume.
 
-## Completion evidence
+## Current evidence
 
 - Added `api.query_dataset_rows(dataset_id, query, limit, offset)` in migration
   `0066_core_026_dataset_query.sql`. It returns stable row/field IDs, typed
@@ -330,7 +344,11 @@ Representative large Dataset reads/filter/sort operations meet documented baseli
   `audits/DATASET_QUERY_PERFORMANCE.md`: a 10,000-row numeric-filter match,
   date sort, and 200-row window measured 79.6 ms then 67.4/65.5 ms locally.
 - `tests/db/datasets.test.ts` proves typed range filtering, sorting, bounded
-  windows, totals, and unsupported-operator rejection.
+  windows, totals, unsupported-operator rejection, `many` membership and
+  deterministic ordinal-first sorting.
+- The current fixture does not yet cover the required 80k-row second Dataset,
+  stable Sample-reference composition, 12-field projection, numeric aggregate,
+  or substantial bulk insert/update measurements. The exit gate remains open.
 
 ---
 
@@ -376,7 +394,7 @@ Dataset Explorer reads canonical Dataset objects and does not require a parallel
 # CORE-02.8 — Immutable Dataset Versions and snapshot/query semantics
 
 **Blocked by:** CORE-02.3 through CORE-02.6.
-**Status:** Not started.
+**Status:** Complete (2026-08-14).
 
 ## Goal
 
@@ -395,6 +413,17 @@ state from audit history.
 
 An explicit snapshot remains queryable and semantically pinned after live
 Dataset edits, without audit-log reconstruction.
+
+## Completion evidence
+
+- Migration `0068_core_028_dataset_versions.sql` adds Schema-Version-pinned
+  Dataset Versions, copied stable rows/typed values, workspace RLS,
+  authenticated snapshot/query RPCs and DB-level update/delete protection.
+- Migration `0069` reconstructs historical scalar/`many` values from pinned
+  schema cardinality and preserved ordinals.
+- `tests/db/datasets.test.ts` proves later live scalar and ordered `many`
+  replacement cannot alter historical query results, including a one-item
+  `many` value remaining an array.
 
 ---
 

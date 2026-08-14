@@ -10,104 +10,57 @@ CORE_ARCHITECTURE.md  target technical contracts
 ROADMAP.md            high-level programme / epic order
 CORE_MIGRATION.md     current-state migration strategy
 NEXT.md               exactly what an agent should do now
- tasks/*.md            implementation-ready and progressively elaborated tasks
-ADRs                  durable decisions settled through implementation
+tasks/*.md            granular Core implementation tasks
+ADRs                   durable decisions
 ```
 
-If documents appear to conflict, do not guess. Product semantics in `PRODUCT_CORE.md` are authoritative; architectural constraints in `CORE_ARCHITECTURE.md` follow them. `NEXT.md` identifies the active task. Raise/update documentation when implementation evidence reveals a genuine conflict.
+If documents appear to conflict, do not guess. Accepted ADRs and canonical Core semantics govern; `NEXT.md` identifies the active task. Implementation evidence may refine later task mechanics but must not silently overturn settled product semantics.
 
-## Progressive elaboration
+## Detail policy
 
-Do not pretend distant work is implementation-ready.
+All **Core Data Workspace epics are now granularly decomposed**:
 
-Current detail policy:
+- `CORE-01.md` — Common Schema Kernel (completed/active evidence as recorded there).
+- `CORE-02.md` — Dataset Primitive and Versioning.
+- `CORE-03.md` — Sheet Definition and Compositional Sheet Instance.
+- `CORE-04.md` — Records from Sheets.
+- `CORE-05.md` — Schema Evolution and Role-aware Configuration.
+- `CORE-06.md` — Notebook Templates, Sharing and Frozen Evidence.
 
-- **CORE-01:** fully decomposed and implementation-ready.
-- **CORE-02:** substantially decomposed; refine after CORE-01 evidence.
-- **CORE-03:** task skeletons plus strong acceptance constraints; refine during CORE-02.
-- **CORE-04 to CORE-06:** epic-level implementation notes and non-negotiable outcomes only.
-- **AUTO-01 / AUTO-02:** architecture and exit-gate level only until the Core substrate is stable.
+Later tasks remain subject to evidence-based refinement at the preceding epic exit gate. Refinement means adding concrete paths/tests/implementation details learned from the code; it does **not** mean reopening ADR 0020–0026 decisions without a genuinely new contradiction.
 
-At the end of each epic, review the next epic and promote its task specifications to implementation-ready status.
+`LATER_EPICS.md` is retained only for AUTO-01/AUTO-02 high-level planning; its former CORE-04–06 summaries are superseded by the dedicated files above.
 
-## Required task structure
+## Required implementation-task contract
 
-Implementation-ready tasks should contain:
+Each task should make the following explicit where relevant: Goal; dependencies; implementation to inspect; deliverables; Data/API impact; UX behaviour; guarantees to preserve; prohibited shortcuts; tests/evidence; ADR trigger; objective exit gate; completion evidence.
 
-### Goal
-
-One clear outcome. Avoid combining unrelated architectural decisions.
-
-### Why
-
-The product/architecture reason the task exists.
-
-### Blocked by
-
-Explicit dependencies. `Nothing` if genuinely independent.
-
-### Existing implementation to inspect
-
-Concrete files, migrations, tables, functions, components, tests or ADRs that should be read before changing behaviour. If exact paths are not yet known, the first task in an epic should discover and record them.
-
-### Deliverables
-
-Concrete artefacts/behaviours required for completion.
-
-### Data/API changes
-
-Expected database, RLS, RPC, REST or public-contract impact. State `None` when the task is intentionally analysis-only.
-
-### UX behaviour
-
-Expected user behaviour where applicable. Do not prescribe visual implementation unnecessarily when the design system already governs it.
-
-### Must preserve
-
-Existing guarantees that must survive the change.
-
-### Do not
-
-Likely shortcuts or architecture mistakes that are explicitly out of scope/prohibited.
-
-### Tests / evidence
-
-Automated tests, fresh-database proof, browser evidence, performance evidence or audit artefacts required.
-
-### ADR trigger
-
-A decision that must be documented before implementation proceeds if the task discovers competing durable approaches.
-
-### Exit gate
-
-Objective conditions for marking the task complete.
-
-### Completion evidence
-
-Initially blank. When completed, record commit/PR, key files, ADRs and test evidence so the next agent does not have to rediscover what happened.
+The audit task at the start of an epic is deliberately evidence-first. It should discover exact implementation paths and current behaviour before the following coding tasks modify them.
 
 ## General definition of done
 
-Unless a task explicitly says it is analysis/documentation-only:
+Unless explicitly analysis/documentation-only:
 
-- migrations are additive and verified on a fresh database;
+- migrations are additive and verified on a fresh database when changed;
 - PostgreSQL/RLS remains authoritative;
 - API validation and stable error behaviour exist;
-- success and important failure/isolation paths are tested;
-- relevant UI has loading/error/permission states and keyboard/accessibility consideration;
+- success plus important failure/isolation paths are tested;
+- relevant UI covers loading/error/permission states and keyboard/accessibility behaviour;
+- representative scale/performance is tested where the task affects large data;
 - `pnpm validate` passes;
-- documentation and ADRs are updated;
-- the golden workflow is not made harder or less reconstructable.
+- documentation/ADRs/completion evidence are updated;
+- the golden workflow remains reconstructable.
 
 ## Agent rules
 
-1. Work only the task identified by `NEXT.md` unless explicitly asked to take a larger scope.
-2. Inspect existing implementation before designing replacement abstractions.
+1. Work the task identified by `NEXT.md` unless explicitly given a larger scope.
+2. Inspect existing implementation before replacing abstractions.
 3. Prefer convergence over parallel systems.
 4. Stable IDs, not labels/positions, back dependencies.
 5. Never make Handsontable/client state authoritative.
 6. Never weaken RLS/security to simplify a vertical slice.
-7. Never create an agent-only data mutation path.
+7. Never create an agent-only mutation path.
 8. Do not broaden specialist surfaces during early Core work.
-9. If a task uncovers a durable architectural fork, stop and write/propose the ADR rather than silently choosing.
-10. Update completion evidence and `NEXT.md` as part of the hand-off.
+9. Use accepted ADRs 0020–0026 as settled product semantics.
+10. Create a new ADR only for a genuinely new durable fork exposed by implementation evidence.
+11. Record completion evidence and advance `NEXT.md` as part of hand-off.

@@ -34,28 +34,29 @@ Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-034--implement-shared-typed-p
 
 ## Required reading
 
-1. [`tasks/CORE-03.md`](./tasks/CORE-03.md), CORE-03.3 only
+1. [`tasks/CORE-03.md`](./tasks/CORE-03.md), CORE-03.4 only
 2. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md), Dataset and Sheet sections
-3. [`CORE_ARCHITECTURE.md`](./CORE_ARCHITECTURE.md), sections 4–9 and 12–13
-4. [`audits/SHEET_COMPOSITION_AUDIT.md`](./audits/SHEET_COMPOSITION_AUDIT.md)
-5. ADRs 0020–0026, especially Definition/Instance identity, lifecycle,
-   parameters and Template reuse
+3. [`CORE_ARCHITECTURE.md`](./CORE_ARCHITECTURE.md), sections 4–9
+4. ADR 0025 (shared typed parameters), with ADRs 0020–0024 for the settled
+   identity and compatibility boundaries
 
 ## Implement now
 
-Implement durable working Sheet Instance identity and explicitly resolved
-bindings as specified by CORE-03.3. Preserve the Definition/Instance boundary,
-keep each Instance's local values and working state independent, retain pinned
-source Definition/version provenance, and preserve existing scientific Sheets
-through the audit's compatibility boundary.
+Implement the reusable typed Parameter contract and binding-resolution boundary
+specified by CORE-03.4. Resolve permitted concrete Dataset, Dataset Version,
+Record and scalar inputs with exact, lineage-compatible and
+semantic/structural Dataset compatibility, explicit errors and resolution
+provenance. Reuse the canonical field/schema semantics and preserve the settled
+Definition/Instance identity boundary.
 
 ## Do not
 
-- do not implement composition execution, write-back execution or
-  materialisation;
-- do not share Instance-local values between Instances or silently update
-  pinned Definition versions;
-- do not equate Notebook block identity with Sheet Instance identity;
+- do not implement composition execution, row-identity execution, write-back
+  execution or materialisation;
+- do not add typed Instance-local-value behavior (CORE-03.8) or broaden the
+  completed CORE-03.3 persistence contract without a concrete defect;
+- do not silently coerce incompatible bindings or weaken exact version,
+  lineage, quantity, vocabulary or stable semantic identity checks;
 - do not redesign architecture already settled by ADRs 0020–0026;
 - do not build the full unit-conversion or vocabulary-management product yet;
 - do not weaken RLS/server validation;
@@ -126,3 +127,15 @@ migrations (`0000`–`0072`), fresh demo seed and idempotent reseed pass, and
 or migrated, and no ADR was needed. CORE-03.3 starts with independent Instance
 identity and resolved binding persistence over these pinned Definition-version
 targets.
+
+CORE-03.3 is complete. Migrations `0073`/`0074` add independently durable,
+workspace-owned Sheet Instances with optional published Definition Version,
+project and Notebook context, resolved reference persistence, bounded working
+state, optimistic revisions, archive and duplication. Focused domain/data tests
+pass 18/18 and focused DB/RLS tests pass 10/10, including executable
+cross-workspace/nonexistent context and binding rejection, Dataset Version
+ownership, pinned binding/parameter pairs, public nested-state validation,
+direct-write denial and exact trigger/helper ACL proof. Focused legacy
+compatibility remains 5 files / 40 tests. CORE-03.4 is intentionally not
+implemented and now owns typed Parameter compatibility and resolution
+provenance.

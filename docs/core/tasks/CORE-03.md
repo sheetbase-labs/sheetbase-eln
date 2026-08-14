@@ -149,7 +149,7 @@ Implement reusable versioned Sheet Definitions and working Sheet Instances over 
   `FieldDefinition` boundary. Resolved Dataset/Record references, Dataset
   Version ownership, workspace context, source publication and pinned
   Definition binding/parameter identity are enforced before persistence.
-- Focused domain/data tests pass 18/18 and DB/RLS lifecycle tests pass 5/5.
+- Focused domain/data tests pass 18/18 and DB/RLS lifecycle tests pass 10/10.
   Direct table mutation is denied, the guard is enabled, helper execution is
   revoked, member reads are workspace-scoped, and migrator writes still require
   the narrow transaction-local RPC guard value.

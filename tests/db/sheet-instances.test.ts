@@ -9,6 +9,10 @@ const WS_B = '13000000-0000-4000-8000-000000000002'
 const OWNER = 'sheet-instance-owner'
 const MEMBER = 'sheet-instance-member'
 const OUTSIDER = 'sheet-instance-outsider'
+const PROJECT_A = '13000000-0000-4000-8000-000000000020'
+const PROJECT_B = '13000000-0000-4000-8000-000000000021'
+const RECORD_A = '13000000-0000-4000-8000-000000000030'
+const RECORD_B = '13000000-0000-4000-8000-000000000031'
 let migrator: Client
 let asRole: (role: 'authenticator') => Promise<Client>
 const clients: Client[] = []
@@ -71,6 +75,32 @@ async function create(client: Client, value = 'one') {
   ).rows[0].result
 }
 
+function bindingState(binding: Record<string, unknown>) {
+  return { ...state(), bindings: [binding] }
+}
+
+async function createDatasetFixture(workspaceId: string, name: string) {
+  const key = `sheet_instance_${crypto.randomUUID().replaceAll('-', '')}`
+  const schema = (
+    await migrator.query(
+      `insert into api.dataset_schema_definitions(workspace_id,key,name) values($1,$2,$3) returning id`,
+      [workspaceId, key, name],
+    )
+  ).rows[0]
+  const schemaVersion = (
+    await migrator.query(
+      `insert into api.dataset_schema_versions(schema_id,version,lifecycle,published_at) values($1,1,'active',now()) returning id`,
+      [schema.id],
+    )
+  ).rows[0]
+  return (
+    await migrator.query(
+      `insert into api.datasets(workspace_id,schema_version_id,name) values($1,$2,$3) returning id`,
+      [workspaceId, schemaVersion.id, name],
+    )
+  ).rows[0].id as string
+}
+
 beforeAll(async () => {
   ;({ migrator, asRole } = await prepareTestDatabase())
   await migrator.query(
@@ -85,6 +115,14 @@ beforeAll(async () => {
     `insert into api.workspace_memberships(workspace_id,user_id,role) values ($1,$3,'owner'),($1,$4,'member'),($2,$5,'owner')`,
     [WS_A, WS_B, OWNER, MEMBER, OUTSIDER],
   )
+  await migrator.query(
+    `insert into api.projects(id,workspace_id,key,title) values ($1,$3,'si-project-a','A'),($2,$4,'si-project-b','B')`,
+    [PROJECT_A, PROJECT_B, WS_A, WS_B],
+  )
+  await migrator.query(
+    `insert into api.records(id,workspace_id,project_id,kind,identifier,title,created_by_user_id) values ($1,$3,$5,'experiment','SI-A','A',$7),($2,$4,$6,'experiment','SI-B','B',$8)`,
+    [RECORD_A, RECORD_B, WS_A, WS_B, PROJECT_A, PROJECT_B, OWNER, OUTSIDER],
+  )
 })
 
 afterAll(async () => {
@@ -93,6 +131,122 @@ afterAll(async () => {
 })
 
 describe('Sheet Instance durability and authority', () => {
+  it('rejects cross-workspace project and Notebook context while keeping Record and Instance identities distinct', async () => {
+    const owner = await actor(OWNER, WS_A)
+    const createWithContext = (projectId: string | null, recordId: string | null) =>
+      owner.query(
+        `select to_jsonb(api.create_sheet_instance($1,'Context',null,null,$2,$3,$4::jsonb)) result`,
+        [WS_A, projectId, recordId, JSON.stringify(state())],
+      )
+    await expect(createWithContext(PROJECT_B, null)).rejects.toMatchObject({
+      code: 'SB073',
+    })
+    await expect(createWithContext(PROJECT_A, RECORD_B)).rejects.toMatchObject({
+      code: 'SB073',
+    })
+    const instance = (await createWithContext(PROJECT_A, RECORD_A)).rows[0].result
+    expect(instance.notebook_record_id).toBe(RECORD_A)
+    expect(instance.id).not.toBe(RECORD_A)
+  })
+
+  it('rejects nonexistent/cross-workspace Dataset and Record bindings and mismatched Dataset Versions', async () => {
+    const owner = await actor(OWNER, WS_A)
+    const datasetA = await createDatasetFixture(WS_A, 'Dataset A')
+    const otherDatasetA = await createDatasetFixture(WS_A, 'Other Dataset A')
+    const datasetB = await createDatasetFixture(WS_B, 'Dataset B')
+    const versionA = (
+      await owner.query(`select to_jsonb(api.snapshot_dataset($1,1,'Version A')) result`, [
+        datasetA,
+      ])
+    ).rows[0].result.id
+    const createBound = (binding: Record<string, unknown>) =>
+      owner.query(
+        `select api.create_sheet_instance($1,'Bound',null,null,null,null,$2::jsonb)`,
+        [WS_A, JSON.stringify(bindingState(binding))],
+      )
+    const datasetBinding = (datasetId: string, datasetVersionId?: string) => ({
+      bindingId: crypto.randomUUID(),
+      parameterId: crypto.randomUUID(),
+      kind: 'dataset',
+      datasetId,
+      policy: datasetVersionId
+        ? { mode: 'version', datasetVersionId }
+        : { mode: 'live' },
+    })
+    for (const id of [datasetB, crypto.randomUUID()]) {
+      await expect(createBound(datasetBinding(id))).rejects.toMatchObject({
+        code: 'SB073',
+      })
+    }
+    for (const id of [RECORD_B, crypto.randomUUID()]) {
+      await expect(
+        createBound({
+          bindingId: crypto.randomUUID(),
+          parameterId: crypto.randomUUID(),
+          kind: 'record',
+          recordId: id,
+          policy: 'live',
+        }),
+      ).rejects.toMatchObject({ code: 'SB073' })
+    }
+    await expect(
+      createBound(datasetBinding(otherDatasetA, versionA)),
+    ).rejects.toMatchObject({ code: 'SB073' })
+  })
+
+  it('accepts only the matching binding/parameter pair from a published source Definition Version', async () => {
+    const owner = await actor(OWNER, WS_A)
+    const configuration = validSheetDefinitionConfiguration()
+    const definition = (
+      await owner.query(
+        `select api.create_sheet_definition($1,'binding_source','Binding source',null,$2::jsonb) result`,
+        [WS_A, JSON.stringify(configuration)],
+      )
+    ).rows[0].result
+    await owner.query(`select api.publish_sheet_definition_version($1,1)`, [
+      definition.version.id,
+    ])
+    const datasetId = await createDatasetFixture(WS_A, 'Pinned binding')
+    const createPinned = (parameterId: string) =>
+      owner.query(
+        `select api.create_sheet_instance($1,'Pinned binding',null,$2,null,null,$3::jsonb)`,
+        [
+          WS_A,
+          definition.version.id,
+          JSON.stringify(
+            bindingState({
+              bindingId: configuration.bindings[0].id,
+              parameterId,
+              kind: 'dataset',
+              datasetId,
+              policy: { mode: 'live' },
+            }),
+          ),
+        ],
+      )
+    await expect(createPinned(configuration.bindings[0].parameterId)).resolves.toBeDefined()
+    await expect(createPinned(configuration.bindings[1].parameterId)).rejects.toMatchObject({
+      code: 'SB073',
+    })
+  })
+
+  it('rejects malformed and oversized nested state at the public DB boundary', async () => {
+    const owner = await actor(OWNER, WS_A)
+    const createState = (value: unknown) =>
+      owner.query(
+        `select api.create_sheet_instance($1,'Invalid state',null,null,null,null,$2::jsonb)`,
+        [WS_A, JSON.stringify(value)],
+      )
+    await expect(
+      createState({ ...state(), presentation: { density: 'standard' } }),
+    ).rejects.toMatchObject({ code: 'SB073' })
+    const oversized = state()
+    oversized.localValues[Object.keys(oversized.localValues)[0]] = Object.fromEntries(
+      Array.from({ length: 257 }, (_, index) => [crypto.randomUUID(), index]),
+    )
+    await expect(createState(oversized)).rejects.toMatchObject({ code: 'SB073' })
+  })
+
   it('pins two independent Instances to one exact published Definition Version despite a later version', async () => {
     const owner = await actor(OWNER, WS_A)
     const definition = (
@@ -214,7 +368,7 @@ describe('Sheet Instance durability and authority', () => {
     ).rejects.toMatchObject({ code: 'SB073' })
   })
 
-  it('permits member reads, hides rows from non-members, denies direct writes and protects helper ACL/trigger', async () => {
+  it('permits member reads, hides rows from non-members, and denies every direct uncontrolled write', async () => {
     const owner = await actor(OWNER, WS_A)
     const row = await create(owner)
     const member = await actor(MEMBER, WS_A)
@@ -234,26 +388,44 @@ describe('Sheet Instance durability and authority', () => {
       ).rowCount,
     ).toBe(0)
     await expect(
+      member.query(
+        `insert into api.sheet_instances(workspace_id,name,state) values($1,'Bypass',$2::jsonb)`,
+        [WS_A, JSON.stringify(state())],
+      ),
+    ).rejects.toMatchObject({ code: '42501' })
+    await expect(
       member.query(`update api.sheet_instances set name='Bypass' where id=$1`, [
         row.id,
       ]),
     ).rejects.toMatchObject({ code: '42501' })
     await expect(
+      member.query(`delete from api.sheet_instances where id=$1`, [row.id]),
+    ).rejects.toMatchObject({ code: '42501' })
+    await expect(
       migrator.query(`delete from api.sheet_instances where id=$1`, [row.id]),
     ).rejects.toMatchObject({ code: '42501' })
+  })
+
+  it('has exactly one named enabled guard trigger and revokes both helper ACLs from all public roles', async () => {
     expect(
       (
         await migrator.query(
-          `select tgenabled from pg_trigger where tgrelid='api.sheet_instances'::regclass and tgname='guard_sheet_instance'`,
+          `select tgname,tgenabled,count(*)::integer count from pg_trigger where tgrelid='api.sheet_instances'::regclass and not tgisinternal group by tgname,tgenabled`,
         )
       ).rows,
-    ).toEqual([{ tgenabled: 'O' }])
+    ).toEqual([{ tgname: 'guard_sheet_instance', tgenabled: 'O', count: 1 }])
     expect(
       (
         await migrator.query(
-          `select has_function_privilege('authenticated','internal.validate_sheet_instance_state(jsonb)','execute') allowed`,
+          `select p.oid::regprocedure::text function_name,coalesce(r.rolname,'PUBLIC') role_name
+           from pg_proc p
+           cross join lateral aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) acl
+           left join pg_roles r on r.oid=acl.grantee
+           where p.oid=any(array['internal.validate_sheet_instance_state(jsonb)'::regprocedure,'internal.guard_sheet_instance()'::regprocedure])
+             and acl.privilege_type='EXECUTE'
+             and (acl.grantee=0 or r.rolname in ('authenticated','api_client'))`,
         )
-      ).rows[0].allowed,
-    ).toBe(false)
+      ).rows,
+    ).toEqual([])
   })
 })

@@ -8,9 +8,9 @@
 
 ## Active task
 
-**CORE-02.2 — Decide Dataset physical storage and versioning**
+**CORE-02.3 — Implement Dataset and Dataset Schema metadata**
 
-Task: [`tasks/CORE-02.md`](./tasks/CORE-02.md#core-022--decide-dataset-physical-storage-and-versioning)
+Task: [`tasks/CORE-02.md`](./tasks/CORE-02.md#core-023--implement-dataset-and-dataset-schema-metadata)
 
 ## Completed in this PR
 
@@ -36,27 +36,26 @@ Task: [`tasks/CORE-02.md`](./tasks/CORE-02.md#core-022--decide-dataset-physical-
 
 ## Implement now
 
-Select Dataset physical storage and versioning from the CORE-02.1 evidence,
-then record the durable decision before implementation begins.
+Implement independently addressable Dataset and Dataset Schema metadata from
+ADR 0037 without building Sheet UI.
 
 This is **real production coding**, not another architecture pass.
 
 Key targets:
 
-- compare realistic PostgreSQL storage alternatives;
-- settle identity, live-state, immutable-version, schema-version, RLS, query,
-  bulk and formula/provenance contracts;
-- record the decision in an ADR.
+- add additive metadata/RLS migration(s) and typed domain/API contracts;
+- make Dataset independently addressable without a Sheet;
+- prove lifecycle and workspace isolation.
 
 ## Do not
 
 - do not redesign the architecture already settled by ADRs 0020–0026;
-- do not implement Dataset storage before the ADR is accepted;
+- do not build rows/values, bulk mutation or Sheet UI yet;
 - do not build the full unit-conversion or vocabulary-management product yet;
 - do not weaken RLS/server validation;
 - do not broaden paused specialist workspaces.
 
 ## Hand-off
 
-When CORE-02.2 is complete, record concrete completion evidence in
-`tasks/CORE-02.md` and advance this file to CORE-02.3.
+When CORE-02.3 is complete, record concrete completion evidence in
+`tasks/CORE-02.md` and advance this file to CORE-02.4.

@@ -8,9 +8,9 @@
 
 ## Active task
 
-**CORE-05.4 — Implement dependency discovery service**
+**CORE-05.5 — Implement Model field evolution with impact preview**
 
-Status: CORE-05.2/05.3 complete. Do not start CORE-06.
+Status: CORE-05.4/05.10 complete. Do not start CORE-06.
 
 Task: [`tasks/CORE-05.md`](./tasks/CORE-05.md#core-054--implement-dependency-discovery-service)
 
@@ -67,7 +67,8 @@ Canonical schema ADR: [`0038-canonical-dataset-schema-definitions.md`](../decisi
 - CORE-04.11 — Sample golden proof and composed-Sheet browser surface
 - CORE-05.1 — capability/schema/dependency audit
 - CORE-05.2 — capability vocabulary, `steward` role, role mapping
-- CORE-05.3 — server capability enforcement and CORE-02 schema RPCs
+- CORE-05.4 — stable-ID dependency discovery
+- CORE-05.10 — archive/restore and protected hard-delete
 - product/architecture reset and accepted ADRs 0020–0026
 
 ## Required reading
@@ -81,10 +82,9 @@ Canonical schema ADR: [`0038-canonical-dataset-schema-definitions.md`](../decisi
 
 ## Implement now
 
-CORE-05.2 and CORE-05.3 are complete. Next is CORE-05.4 dependency discovery
-over stable IDs, then CORE-05.10 lifecycle alignment. Do not start CORE-06.
-Do not add governed versioning to SCI-010. Do not persist per-user capability
-grants or put capabilities in JWT claims.
+CORE-05.4 and CORE-05.10 are complete. Next is CORE-05.5–05.8 governed
+evolution and explicit promotion on the canonical CORE-02 path. Do not start
+CORE-06.
 
 CORE-04.11 exit evidence: `pnpm validate` 166 files / 1,893 tests, zero lint
 errors, production client/SSR build; `pnpm test:db` 61 files / 679 tests.

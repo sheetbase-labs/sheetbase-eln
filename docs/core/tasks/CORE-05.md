@@ -1,6 +1,6 @@
 # CORE-05 — Schema Evolution and Role-aware Configuration
 
-**Status:** CORE-05.1–05.3 complete; remaining tasks blocked as specified.
+**Status:** CORE-05.1–05.4 and CORE-05.10 complete; remaining tasks blocked as specified.
 **Blocked by:** CORE-05.1 epic-start audit (complete). Remaining tasks blocked as specified.
 **Normative decisions:** ADRs 0021, 0023, 0025, 0026, 0038 plus CORE architecture.
 
@@ -96,7 +96,7 @@ Make Model, Dataset Schema and reusable Definition configuration safely delegabl
 
 ## CORE-05.4 — Implement dependency discovery service
 
-**Blocked by:** CORE-05.1; benefits from CORE-03/04 stable identities.
+**Status:** Complete (2026-08-15)
 
 **Goal:** Answer “what uses this?” before schema/Definition changes.
 
@@ -107,6 +107,32 @@ Make Model, Dataset Schema and reusable Definition configuration safely delegabl
 **Tests:** field→formula, schema→Definition, Definition→Template/Instance, retired/historical references.
 
 **Exit gate:** a proposed breaking change can enumerate affected durable objects.
+
+### Completion evidence
+
+- `api.discover_object_dependencies` scans stable UUIDs in CORE-02 FKs and Sheet Definition JSON (`schemaVersionId`, `sourceFieldId`, `requiredFieldIds`, `targetFieldId`).
+- Each edge records `liveness` (`active`/`historical`) and `effect` (`blocks_deletion`/`requires_migration`/`informational`).
+- Model field impact remains usage-count informational; SCI-010 is not indexed as a second governed graph.
+
+---
+
+## CORE-05.10 — Lifecycle/archive/retirement integration
+
+**Status:** Complete (2026-08-15)
+
+**Goal:** Apply ADR 0023 consistently across configurable objects.
+
+**Deliverables:** archive/restore working objects; retire Definitions/schemas; dependency warnings; block hard-delete when protected; selectors exclude archived/retired objects for new use while existing references resolve.
+
+**Tests:** retired Definition existing Instance; archived Dataset existing consumer; protected evidence delete block; restore.
+
+**Exit gate:** cleanup/lifecycle operations never silently break scientific references.
+
+### Completion evidence
+
+- Dataset archive/restore RPCs; Sheet Instance restore; Sheet Definition and CORE-02 schema restore.
+- `preview_hard_delete` / `execute_hard_delete` block protected dependents (`SB072`). Unused draft schema definitions may be removed.
+- New Dataset bindings already require `lifecycle='active'` (0075); existing Instances still read archived Datasets (0090).
 
 ---
 
@@ -191,20 +217,6 @@ Make Model, Dataset Schema and reusable Definition configuration safely delegabl
 **Tests:** key workflows, keyboard/accessibility, denied actions, impact review.
 
 **Exit gate:** delegated schema configuration is practical without requiring direct database/admin intervention.
-
----
-
-## CORE-05.10 — Lifecycle/archive/retirement integration
-
-**Blocked by:** CORE-05.4.
-
-**Goal:** Apply ADR 0023 consistently across configurable objects.
-
-**Deliverables:** archive/restore working objects; retire Definitions/schemas; dependency warnings; block hard-delete when protected; selectors exclude archived/retired objects for new use while existing references resolve.
-
-**Tests:** retired Definition existing Instance; archived Dataset existing consumer; protected evidence delete block; restore.
-
-**Exit gate:** cleanup/lifecycle operations never silently break scientific references.
 
 ---
 

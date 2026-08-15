@@ -666,6 +666,13 @@
       "when": 1786812000000,
       "tag": "0094_core_052_capabilities",
       "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1786813000000,
+      "tag": "0095_core_054_dependency_lifecycle",
+      "breakpoints": true
     }
   ]
 }

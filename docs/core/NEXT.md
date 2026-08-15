@@ -8,11 +8,11 @@
 
 ## Active task
 
-**CORE-05.9 — Build dense schema/configuration workspace**
+**CORE-06.1 — Audit Notebook, Template, revision and submission persistence**
 
-Status: CORE-05.5–05.8 complete. Do not start CORE-06.
+Status: CORE-05 complete. Do not start CORE-06.2.
 
-Task: [`tasks/CORE-05.md`](./tasks/CORE-05.md#core-059--build-dense-schemaconfiguration-workspace)
+Task: [`tasks/CORE-06.md`](./tasks/CORE-06.md#core-061--audit-notebook-template-revision-and-submission-persistence)
 
 Audit: [`audits/SCHEMA_CAPABILITY_AUDIT.md`](./audits/SCHEMA_CAPABILITY_AUDIT.md)
 
@@ -73,21 +73,28 @@ Canonical schema ADR: [`0038-canonical-dataset-schema-definitions.md`](../decisi
 - CORE-05.6 — CORE-02 Dataset Schema version evolution
 - CORE-05.7 — explicit local-field promotion
 - CORE-05.8 — explicit calculation promotion
+- CORE-05.9 — dense steward configuration workspace
+- CORE-05.11 — Scientist/Steward/Admin proof and CORE-06 hand-off
 - product/architecture reset and accepted ADRs 0020–0026
 
 ## Required reading
 
-1. [`audits/SCHEMA_CAPABILITY_AUDIT.md`](./audits/SCHEMA_CAPABILITY_AUDIT.md)
-2. [`tasks/CORE-05.md`](./tasks/CORE-05.md) CORE-05.4 / 05.10
+1. [`tasks/CORE-06.md`](./tasks/CORE-06.md) CORE-06.1
+2. [`tasks/CORE-05.md`](./tasks/CORE-05.md) completion evidence
 3. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md)
 4. [`CORE_ARCHITECTURE.md`](./CORE_ARCHITECTURE.md)
-5. CORE-04 completion evidence in [`tasks/CORE-04.md`](./tasks/CORE-04.md)
-6. ADRs [`0021-data-history-and-schema-versioning.md`](../decisions/0021-data-history-and-schema-versioning.md) and [`0038-canonical-dataset-schema-definitions.md`](../decisions/0038-canonical-dataset-schema-definitions.md)
+5. ADRs [`0020-sheet-definitions-instances-and-template-reuse.md`](../decisions/0020-sheet-definitions-instances-and-template-reuse.md), [`0022-reuse-semantics.md`](../decisions/0022-reuse-semantics.md) and [`0023-object-lifecycle-and-shared-instances.md`](../decisions/0023-object-lifecycle-and-shared-instances.md)
 
 ## Implement now
 
-CORE-05.5–05.8 are complete. Next is CORE-05.9/05.11 steward configuration
-workspace and role proof. Do not start CORE-06.
+CORE-05 is complete. Next is CORE-06.1 — audit Notebook, Template, revision
+and submission persistence. Do not start CORE-06.2.
+
+CORE-05.11 exit evidence: `pnpm db:fresh --demo` applied migrations `0000`–
+`0096` and 29 idempotent demo seed steps (reseed also 29/29). `pnpm test:db`
+65 files / 692 tests. `pnpm validate` 172 files / 1,905 tests, zero lint
+errors (21 existing warnings), production client/SSR build. The CORE-02.6
+100k+80k Dataset benchmark was not rerun.
 
 CORE-04.11 exit evidence: `pnpm validate` 166 files / 1,893 tests, zero lint
 errors, production client/SSR build; `pnpm test:db` 61 files / 679 tests.

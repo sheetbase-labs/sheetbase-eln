@@ -1,7 +1,8 @@
 # CORE-05 — Schema Evolution and Role-aware Configuration
 
-**Status:** CORE-05.1–05.8 and CORE-05.10 complete; remaining tasks blocked as specified.
-**Blocked by:** CORE-05.1 epic-start audit (complete). Remaining tasks blocked as specified.
+**Status:** Complete (2026-08-15)
+
+**Blocked by:** CORE-05.1 epic-start audit (complete).
 **Normative decisions:** ADRs 0021, 0023, 0025, 0026, 0038 plus CORE architecture.
 
 ## Epic goal
@@ -228,7 +229,7 @@ Make Model, Dataset Schema and reusable Definition configuration safely delegabl
 
 ## CORE-05.9 — Build dense schema/configuration workspace
 
-**Blocked by:** CORE-05.3–05.8.
+**Status:** Complete (2026-08-15)
 
 **Goal:** Provide an immersive high-density configuration surface suitable for Data Stewards.
 
@@ -242,11 +243,19 @@ Make Model, Dataset Schema and reusable Definition configuration safely delegabl
 
 **Exit gate:** delegated schema configuration is practical without requiring direct database/admin intervention.
 
+### Completion evidence
+
+- `/configure` is a three-pane workspace: catalogue, field/schema plane, capability/impact inspector.
+- Model fields reuse `AdminModelFields`. Canonical Dataset Schema Definitions use CORE-02 RPCs. SCI-010 `/schemas` remains the compatibility editor.
+- Scientists see the same objects with publish/evolve/promote disabled. Stewards can publish without `workspace.admin`. Owners keep schema authority plus Administration.
+- Local-field promotion is an explicit plane; historical Instance values stay local.
+- Nav: Configure in the app shell. Route tree regenerated.
+
 ---
 
 ## CORE-05.11 — Role-specific configuration proof and CORE-06 hand-off
 
-**Blocked by:** CORE-05.2–05.10.
+**Status:** Complete (2026-08-15)
 
 **Goal:** Prove Scientist, Data Steward and Admin experiences against the same underlying data.
 
@@ -255,6 +264,15 @@ Make Model, Dataset Schema and reusable Definition configuration safely delegabl
 **Validation:** DB/RLS/API/UI tests, fresh migration/seed, `pnpm validate`.
 
 **Hand-off:** update `NEXT.md` to CORE-06.1.
+
+### Completion evidence
+
+- `tests/db/configuration-roles.test.ts`: scientist cannot publish/evolve CORE-02 schemas; steward publishes without `workspace.admin` and cannot invite members (`SB061`); admin can create/publish the next version; scientist can still create a Sheet Instance for local work.
+- UI: `configuration-workspace.test.tsx` disables Publish evolution for scientists and enables it for stewards; capability inspector shows allowed/denied.
+- Fresh `pnpm db:fresh --demo`: migrations `0000`–`0096`; 29 demo seed steps; idempotent reseed 29/29.
+- `pnpm test:db`: 65 files / 692 tests.
+- `pnpm validate`: 172 files / 1,905 tests, zero lint errors, 21 existing warnings, production client/SSR build.
+- `NEXT.md` now points at CORE-06.1. CORE-06 implementation was not started.
 
 ## Epic exit gate
 

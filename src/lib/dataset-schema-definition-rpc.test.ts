@@ -72,7 +72,7 @@ describe('canonical Dataset Schema Definition RPCs', () => {
         listed.push(resource)
         return []
       },
-    } as DataClient
+    } as unknown as DataClient
     await listCanonicalDatasetSchemaDefinitions(c)
     await listCanonicalDatasetSchemaVersions(c, 'def-1')
     await listCanonicalDatasetSchemaVersionFields(c, 'ver-1')

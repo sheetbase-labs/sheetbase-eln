@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AnalysisRouteImport } from './routes/analysis'
 import { Route as CalendarRouteImport } from './routes/calendar'
+import { Route as ConfigureRouteImport } from './routes/configure'
 import { Route as DatasetsRouteImport } from './routes/datasets'
 import { Route as FoundationsRouteImport } from './routes/foundations'
 import { Route as InstrumentMonitorRouteImport } from './routes/instrument-monitor'
@@ -66,6 +67,11 @@ const AnalysisRoute = AnalysisRouteImport.update({
 const CalendarRoute = CalendarRouteImport.update({
   id: '/calendar',
   path: '/calendar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConfigureRoute = ConfigureRouteImport.update({
+  id: '/configure',
+  path: '/configure',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DatasetsRoute = DatasetsRouteImport.update({
@@ -246,6 +252,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteWithChildren
   '/analysis': typeof AnalysisRoute
   '/calendar': typeof CalendarRoute
+  '/configure': typeof ConfigureRoute
   '/datasets': typeof DatasetsRoute
   '/foundations': typeof FoundationsRoute
   '/instrument-monitor': typeof InstrumentMonitorRoute
@@ -286,6 +293,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRouteWithChildren
   '/analysis': typeof AnalysisRoute
   '/calendar': typeof CalendarRoute
+  '/configure': typeof ConfigureRoute
   '/datasets': typeof DatasetsRoute
   '/foundations': typeof FoundationsRoute
   '/instrument-monitor': typeof InstrumentMonitorRoute
@@ -327,6 +335,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteWithChildren
   '/analysis': typeof AnalysisRoute
   '/calendar': typeof CalendarRoute
+  '/configure': typeof ConfigureRoute
   '/datasets': typeof DatasetsRoute
   '/foundations': typeof FoundationsRoute
   '/instrument-monitor': typeof InstrumentMonitorRoute
@@ -369,6 +378,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/analysis'
     | '/calendar'
+    | '/configure'
     | '/datasets'
     | '/foundations'
     | '/instrument-monitor'
@@ -409,6 +419,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/analysis'
     | '/calendar'
+    | '/configure'
     | '/datasets'
     | '/foundations'
     | '/instrument-monitor'
@@ -449,6 +460,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/analysis'
     | '/calendar'
+    | '/configure'
     | '/datasets'
     | '/foundations'
     | '/instrument-monitor'
@@ -490,6 +502,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRouteWithChildren
   AnalysisRoute: typeof AnalysisRoute
   CalendarRoute: typeof CalendarRoute
+  ConfigureRoute: typeof ConfigureRoute
   DatasetsRoute: typeof DatasetsRoute
   FoundationsRoute: typeof FoundationsRoute
   InstrumentMonitorRoute: typeof InstrumentMonitorRoute
@@ -549,6 +562,13 @@ declare module '@tanstack/react-router' {
       path: '/calendar'
       fullPath: '/calendar'
       preLoaderRoute: typeof CalendarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/configure': {
+      id: '/configure'
+      path: '/configure'
+      fullPath: '/configure'
+      preLoaderRoute: typeof ConfigureRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/datasets': {
@@ -857,6 +877,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRouteWithChildren,
   AnalysisRoute: AnalysisRoute,
   CalendarRoute: CalendarRoute,
+  ConfigureRoute: ConfigureRoute,
   DatasetsRoute: DatasetsRoute,
   FoundationsRoute: FoundationsRoute,
   InstrumentMonitorRoute: InstrumentMonitorRoute,

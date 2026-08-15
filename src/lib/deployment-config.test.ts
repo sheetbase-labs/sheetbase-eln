@@ -80,7 +80,7 @@ describe('validateDeploymentConfig', () => {
       validateDeploymentConfig({
         ...productionConfig,
         SHEETBASE_ENV: 'preview',
-      } as DeploymentInput),
+      } as unknown as DeploymentInput),
     ).toThrow(/invalid_enum_value|Invalid option/)
   })
 

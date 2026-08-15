@@ -8,9 +8,9 @@
 
 ## Active task
 
-**CORE-03.5 — Implement row identity**
+**CORE-03.6 — Implement constrained multi-source joins**
 
-Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-035--implement-row-identity)
+Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-036--implement-constrained-multi-source-joins)
 
 ## Completed in this PR
 
@@ -31,6 +31,7 @@ Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-035--implement-row-identity)
 - CORE-03.2 — durable Sheet Definition identity and immutable versions
 - CORE-03.3 — durable Sheet Instance identity and resolved binding persistence
 - CORE-03.4 — shared typed parameters and binding compatibility
+- CORE-03.5 — stable row identity
 - product/architecture reset and accepted ADRs 0020–0026
 
 ## Required reading

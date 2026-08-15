@@ -104,6 +104,54 @@ const resolutionProvenance = z
   })
   .strict()
 
+const resolvedRowIdentity = z
+  .object({
+    formatVersion: z.literal(1),
+    kind: z.enum(['source', 'composite', 'local']),
+    columnIds: z.array(uuid).min(1).max(8),
+    logicalTypes: z
+      .array(
+        z.enum([
+          'text',
+          'integer',
+          'decimal',
+          'boolean',
+          'date',
+          'timestamp',
+          'category',
+          'reference',
+        ]),
+      )
+      .min(1)
+      .max(8),
+    sourceBindingId: uuid.nullable(),
+    sourceFieldId: uuid.nullable(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const expected = value.kind === 'composite' ? [2, 8] : [1, 1]
+    if (
+      value.columnIds.length < expected[0] ||
+      value.columnIds.length > expected[1] ||
+      value.columnIds.length !== value.logicalTypes.length ||
+      new Set(value.columnIds).size !== value.columnIds.length ||
+      (value.kind === 'local' && value.logicalTypes[0] !== 'reference')
+    )
+      context.addIssue({
+        code: 'custom',
+        message: 'Invalid resolved row identity columns.',
+      })
+    if (
+      value.kind === 'source'
+        ? value.sourceBindingId === null || value.sourceFieldId === null
+        : value.sourceBindingId !== null || value.sourceFieldId !== null
+    )
+      context.addIssue({
+        code: 'custom',
+        message: 'Invalid resolved row identity provenance.',
+      })
+  })
+
 export const sheetInstanceStateSchema = z
   .object({
     bindings: z.array(binding).max(64),
@@ -148,6 +196,7 @@ export const sheetInstanceStateSchema = z
         .strict(),
     ]),
     resolutionProvenance: resolutionProvenance.optional(),
+    resolvedRowIdentity: resolvedRowIdentity.optional(),
   })
   .strict()
   .superRefine((value, context) => {

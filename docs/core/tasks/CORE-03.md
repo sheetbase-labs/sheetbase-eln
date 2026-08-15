@@ -238,6 +238,14 @@ Implement reusable versioned Sheet Definitions and working Sheet Instances over 
 
 **Tests:** Sample ID; `[Sample, Timepoint]`; local UUID; reorder/filter stability; duplicate-key failure.
 
+**Completion evidence (CORE-03.5):** `sb-row-v1` is a SHA-256 key over ordered
+stable column UUIDs and type-tagged scalar values; missing, unsupported and
+duplicate values return structured batch errors before any caller mutation.
+Pinned Instances persist only their authoritative resolved identity spec and
+source binding/field provenance via a revision-checked RPC. Local identities
+use a persisted non-nil UUID address. No join, projection, local-value mutation
+or write-back executor is included.
+
 **Exit gate:** local values, joins and write-back can target rows without relying on grid position.
 
 ---

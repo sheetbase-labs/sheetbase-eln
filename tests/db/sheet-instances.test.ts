@@ -92,7 +92,49 @@ function definitionWithoutParameters() {
   configuration.calculations = []
   configuration.writeBackRules = []
   configuration.actions = []
+  column.field.logicalType = 'reference'
+  column.field.relationship = {
+    target: { kind: 'model', modelKey: 'sample' },
+    cardinality: 'one',
+  }
+  configuration.rowIdentity = { kind: 'local', columnIds: [column.id] }
+  configuration.presentation = {
+    columnOrder: [column.id],
+    hiddenColumnIds: [],
+    columnWidths: {},
+    frozenColumnCount: 0,
+    density: 'standard',
+  }
+  return configuration
+}
+
+function sourceDefinition() {
+  const configuration: any = structuredClone(
+    validSheetDefinitionConfiguration(),
+  )
+  const column = configuration.columns[0]
+  configuration.parameters = [
+    {
+      id: configuration.parameters[0].id,
+      key: 'source_name',
+      label: 'Source name',
+      required: true,
+      type: { kind: 'scalar', valueType: 'text' },
+      constraints: {},
+    },
+  ]
+  configuration.bindings = [
+    {
+      ...configuration.bindings[0],
+      parameterId: configuration.parameters[0].id,
+    },
+  ]
+  configuration.columns = [column]
   configuration.rowIdentity = { kind: 'source', columnIds: [column.id] }
+  configuration.joins = []
+  configuration.calculations = []
+  configuration.writeBackRules = []
+  configuration.actions = []
   configuration.presentation = {
     columnOrder: [column.id],
     hiddenColumnIds: [],
@@ -364,6 +406,32 @@ describe('Sheet Instance durability and authority', () => {
       )
     const first = (await createPinned()).rows[0].result
     const second = (await createPinned()).rows[0].result
+    const resolved = (
+      await owner.query(
+        `select to_jsonb(api.resolve_sheet_instance_row_identity($1,1)) result`,
+        [first.id],
+      )
+    ).rows[0].result
+    expect(resolved.state.resolvedRowIdentity).toMatchObject({
+      formatVersion: 1,
+      kind: 'local',
+      columnIds: [definitionWithoutParameters().columns[0].id],
+      logicalTypes: ['reference'],
+      sourceBindingId: null,
+      sourceFieldId: null,
+    })
+    await expect(
+      owner.query(`select api.resolve_sheet_instance_row_identity($1,1)`, [
+        first.id,
+      ]),
+    ).rejects.toMatchObject({ code: 'SB073' })
+    const repeated = (
+      await owner.query(
+        `select to_jsonb(api.resolve_sheet_instance_row_identity($1,2)) result`,
+        [first.id],
+      )
+    ).rows[0].result
+    expect(repeated.revision).toBe(2)
     await owner.query(
       `select api.create_sheet_definition_version($1,1,$2::jsonb)`,
       [definition.definition.id, JSON.stringify(definitionWithoutParameters())],
@@ -377,6 +445,48 @@ describe('Sheet Instance durability and authority', () => {
         )
       ).rows,
     ).toEqual([{ source_definition_version_id: definition.version.id }])
+  })
+
+  it('persists immutable source binding provenance through the controlled resolver', async () => {
+    const owner = await actor(OWNER, WS_A)
+    const config = sourceDefinition()
+    const definition = (
+      await owner.query(
+        `select api.create_sheet_definition($1,'source_identity','Source identity',null,$2::jsonb) result`,
+        [WS_A, JSON.stringify(config)],
+      )
+    ).rows[0].result
+    await owner.query(`select api.publish_sheet_definition_version($1,1)`, [
+      definition.version.id,
+    ])
+    const instance = (
+      await owner.query(
+        `select to_jsonb(api.create_sheet_instance_from_definition($1,'Source',null,$2,null,null,$3::jsonb,$4::jsonb)) result`,
+        [
+          WS_A,
+          definition.version.id,
+          JSON.stringify(state()),
+          JSON.stringify([
+            {
+              parameterId: config.parameters[0].id,
+              kind: 'scalar',
+              value: 'source',
+            },
+          ]),
+        ],
+      )
+    ).rows[0].result
+    const resolved = (
+      await owner.query(
+        `select to_jsonb(api.resolve_sheet_instance_row_identity($1,1)) result`,
+        [instance.id],
+      )
+    ).rows[0].result
+    expect(resolved.state.resolvedRowIdentity).toMatchObject({
+      kind: 'source',
+      sourceBindingId: config.bindings[0].id,
+      sourceFieldId: config.columns[0].source.sourceFieldId,
+    })
   })
 
   it('creates independent durable identities, updates one with optimistic revision, and reloads isolation', async () => {

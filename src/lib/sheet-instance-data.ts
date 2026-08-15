@@ -162,6 +162,18 @@ export async function updateSheetInstance(
   return sheetInstanceFromWire(row)
 }
 
+export async function resolveSheetInstanceRowIdentity(
+  id: string,
+  expectedRevision: number,
+  client = sheetInstanceDataClient,
+) {
+  const row = await client.rpc<unknown>('resolve_sheet_instance_row_identity', {
+    p_instance_id: id,
+    p_expected_revision: expectedRevision,
+  })
+  return sheetInstanceFromWire(row)
+}
+
 export async function archiveSheetInstance(
   id: string,
   expectedRevision: number,

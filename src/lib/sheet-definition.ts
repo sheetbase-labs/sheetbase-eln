@@ -458,6 +458,41 @@ const configurationSchema = z
         'Unknown column ID.',
       ),
     )
+    const identityColumns = configuration.rowIdentity.columnIds.map((id) =>
+      columnsById.get(id),
+    )
+    const stableIdentityColumn = (
+      column: (typeof configuration.columns)[number] | undefined,
+    ) =>
+      column?.field.computation.mode === 'stored' &&
+      column.field.cardinality === 'one' &&
+      column.source.kind !== 'calculated'
+    requireRef(
+      new Set(configuration.rowIdentity.columnIds).size ===
+        configuration.rowIdentity.columnIds.length,
+      ['rowIdentity', 'columnIds'],
+      'Row identity column IDs must be unique.',
+    )
+    requireRef(
+      (configuration.rowIdentity.kind === 'source' &&
+        identityColumns.length === 1 &&
+        identityColumns[0]?.source.kind === 'bound' &&
+        stableIdentityColumn(identityColumns[0])) ||
+        (configuration.rowIdentity.kind === 'composite' &&
+          identityColumns.length >= 2 &&
+          identityColumns.length <= 8 &&
+          identityColumns.every(
+            (column) =>
+              column?.source.kind === 'bound' && stableIdentityColumn(column),
+          )) ||
+        (configuration.rowIdentity.kind === 'local' &&
+          identityColumns.length === 1 &&
+          identityColumns[0]?.source.kind === 'declared' &&
+          identityColumns[0]?.field.logicalType === 'reference' &&
+          stableIdentityColumn(identityColumns[0])),
+      ['rowIdentity'],
+      'Source identity requires one bound scalar column; composite requires 2–8 bound scalar columns; local requires one declared stored reference UUID column.',
+    )
     configuration.columns.forEach((item, index) => {
       requireRef(
         item.id === item.field.fieldId,

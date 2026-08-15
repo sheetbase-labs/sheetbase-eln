@@ -213,4 +213,44 @@ describe('Sheet Definition data boundary', () => {
       ['rpc', 'publish_sheet_definition_version'],
     ])
   })
+
+  it.each([
+    [
+      'source with two columns',
+      (value: any) =>
+        (value.rowIdentity = {
+          kind: 'source',
+          columnIds: [value.columns[0].id, value.columns[1].id],
+        }),
+    ],
+    [
+      'composite with a calculated column',
+      (value: any) =>
+        (value.rowIdentity = {
+          kind: 'composite',
+          columnIds: [value.columns[0].id, value.columns[2].id],
+        }),
+    ],
+    [
+      'local bound identity',
+      (value: any) =>
+        (value.rowIdentity = {
+          kind: 'local',
+          columnIds: [value.columns[0].id],
+        }),
+    ],
+    [
+      'local non-UUID field',
+      (value: any) => {
+        value.columns[0].source = { kind: 'declared' }
+        value.rowIdentity = { kind: 'local', columnIds: [value.columns[0].id] }
+      },
+    ],
+  ])('rejects invalid row identity: %s', (_name, mutate) => {
+    const configuration = structuredClone(validSheetDefinitionConfiguration())
+    mutate(configuration)
+    expect(safeParseSheetDefinitionConfiguration(configuration).success).toBe(
+      false,
+    )
+  })
 })

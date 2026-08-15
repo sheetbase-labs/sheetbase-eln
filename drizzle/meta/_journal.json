@@ -533,6 +533,13 @@
       "when": 1786828800000,
       "tag": "0075_core_034_parameter_resolution",
       "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1786915200000,
+      "tag": "0076_core_035_row_identity",
+      "breakpoints": true
     }
   ]
 }

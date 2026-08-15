@@ -77,6 +77,10 @@ CORE-04 is complete. Start CORE-05.1 as a documentation-only audit of roles,
 schema mutations and dependency information. Do not implement capability
 RPCs until that audit is reviewed.
 
+CORE-04.11 exit evidence: `pnpm validate` 166 files / 1,893 tests, zero lint
+errors, production client/SSR build; `pnpm test:db` 61 files / 679 tests.
+The CORE-02.6 100k+80k Dataset benchmark was not rerun.
+
 ## Do not
 
 - do not persist Record ID or Name as relationship identity;

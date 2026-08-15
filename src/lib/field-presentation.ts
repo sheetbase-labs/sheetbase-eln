@@ -1,12 +1,26 @@
-import type { FieldDefinition, FieldLogicalType } from './field-definition'
+import type {
+  FieldDefinition,
+  FieldLogicalType,
+  FieldRelationshipTarget,
+} from './field-definition'
 
 /**
  * UI selection semantics shared by Model fields and future Dataset fields.
  * This intentionally selects controls rather than owning a universal form
  * component; each surface remains responsible for its layout and save flow.
+ *
+ * A Record-reference cell (`record-picker`) is selected only when the field
+ * relationship target is a Model. Legacy callers that pass only
+ * `logicalType` keep the text editor so scientific sheets are unchanged.
  */
 export type FieldEditorKind =
-  'checkbox' | 'category-select' | 'number' | 'date' | 'datetime-local' | 'text'
+  | 'checkbox'
+  | 'category-select'
+  | 'number'
+  | 'date'
+  | 'datetime-local'
+  | 'text'
+  | 'record-picker'
 
 export interface FieldEditorPresentation {
   kind: FieldEditorKind
@@ -14,8 +28,13 @@ export interface FieldEditorPresentation {
   step?: '1' | 'any'
 }
 
+export interface FieldEditorPresentationOptions {
+  relationshipTarget?: FieldRelationshipTarget['kind'] | null
+}
+
 export function fieldEditorPresentation(
   logicalType: FieldLogicalType,
+  options?: FieldEditorPresentationOptions,
 ): FieldEditorPresentation {
   switch (logicalType) {
     case 'boolean':
@@ -31,6 +50,10 @@ export function fieldEditorPresentation(
     case 'timestamp':
       return { kind: 'datetime-local', inputType: 'datetime-local' }
     case 'reference':
+      if (options?.relationshipTarget === 'model') {
+        return { kind: 'record-picker', inputType: 'text' }
+      }
+      return { kind: 'text', inputType: 'text' }
     case 'text':
       return { kind: 'text', inputType: 'text' }
   }

@@ -63,6 +63,17 @@ describe('field editor presentation', () => {
     },
   )
 
+  it('selects a Record-reference picker only for Model relationship targets', () => {
+    expect(
+      fieldEditorPresentation('reference', { relationshipTarget: 'model' }),
+    ).toMatchObject({ kind: 'record-picker', inputType: 'text' })
+    expect(
+      fieldEditorPresentation('reference', {
+        relationshipTarget: 'dataset-schema',
+      }),
+    ).toMatchObject({ kind: 'text', inputType: 'text' })
+  })
+
   it('distinguishes integer and decimal entry precision', () => {
     expect(fieldEditorPresentation('integer').step).toBe('1')
     expect(fieldEditorPresentation('decimal').step).toBe('any')

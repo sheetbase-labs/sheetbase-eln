@@ -36,6 +36,7 @@ import { Route as ApiFormulasRouteImport } from './routes/api/formulas'
 import { Route as ApiSheetCalculationsRouteImport } from './routes/api/sheet-calculations'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects/$projectId'
 import { Route as ReviewsRevisionIdRouteImport } from './routes/reviews/$revisionId'
+import { Route as SheetsInstanceIdRouteImport } from './routes/sheets/$instanceId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiDbSplatRouteImport } from './routes/api/db/$'
 import { Route as ApiFilesUploadAuthorizeRouteImport } from './routes/api/files/upload-authorize'
@@ -182,6 +183,11 @@ const ReviewsRevisionIdRoute = ReviewsRevisionIdRouteImport.update({
   path: '/$revisionId',
   getParentRoute: () => ReviewsRoute,
 } as any)
+const SheetsInstanceIdRoute = SheetsInstanceIdRouteImport.update({
+  id: '/sheets/$instanceId',
+  path: '/sheets/$instanceId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -263,6 +269,7 @@ export interface FileRoutesByFullPath {
   '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
   '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
+  '/sheets/$instanceId': typeof SheetsInstanceIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/db/$': typeof ApiDbSplatRoute
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
@@ -302,6 +309,7 @@ export interface FileRoutesByTo {
   '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
   '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
+  '/sheets/$instanceId': typeof SheetsInstanceIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/db/$': typeof ApiDbSplatRoute
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
@@ -342,6 +350,7 @@ export interface FileRoutesById {
   '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
   '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
+  '/sheets/$instanceId': typeof SheetsInstanceIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/db/$': typeof ApiDbSplatRoute
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
@@ -383,6 +392,7 @@ export interface FileRouteTypes {
     | '/api/sheet-calculations'
     | '/projects/$projectId'
     | '/reviews/$revisionId'
+    | '/sheets/$instanceId'
     | '/api/auth/$'
     | '/api/db/$'
     | '/api/files/upload-authorize'
@@ -422,6 +432,7 @@ export interface FileRouteTypes {
     | '/api/sheet-calculations'
     | '/projects/$projectId'
     | '/reviews/$revisionId'
+    | '/sheets/$instanceId'
     | '/api/auth/$'
     | '/api/db/$'
     | '/api/files/upload-authorize'
@@ -461,6 +472,7 @@ export interface FileRouteTypes {
     | '/api/sheet-calculations'
     | '/projects/$projectId'
     | '/reviews/$revisionId'
+    | '/sheets/$instanceId'
     | '/api/auth/$'
     | '/api/db/$'
     | '/api/files/upload-authorize'
@@ -498,6 +510,7 @@ export interface RootRouteChildren {
   ApiEventsRoute: typeof ApiEventsRoute
   ApiFormulasRoute: typeof ApiFormulasRoute
   ApiSheetCalculationsRoute: typeof ApiSheetCalculationsRoute
+  SheetsInstanceIdRoute: typeof SheetsInstanceIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiDbSplatRoute: typeof ApiDbSplatRoute
   ApiFilesUploadAuthorizeRoute: typeof ApiFilesUploadAuthorizeRoute
@@ -699,6 +712,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReviewsRevisionIdRouteImport
       parentRoute: typeof ReviewsRoute
     }
+    '/sheets/$instanceId': {
+      id: '/sheets/$instanceId'
+      path: '/sheets/$instanceId'
+      fullPath: '/sheets/$instanceId'
+      preLoaderRoute: typeof SheetsInstanceIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -857,6 +877,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiEventsRoute: ApiEventsRoute,
   ApiFormulasRoute: ApiFormulasRoute,
   ApiSheetCalculationsRoute: ApiSheetCalculationsRoute,
+  SheetsInstanceIdRoute: SheetsInstanceIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiDbSplatRoute: ApiDbSplatRoute,
   ApiFilesUploadAuthorizeRoute: ApiFilesUploadAuthorizeRoute,
@@ -869,3 +890,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}

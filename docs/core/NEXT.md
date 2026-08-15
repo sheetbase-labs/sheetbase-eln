@@ -8,9 +8,11 @@
 
 ## Active task
 
-**CORE-04.1 — Audit existing Record selection/creation/import flows**
+**CORE-05.1 — Audit current roles, schema mutations and dependency information**
 
-Task: [`tasks/CORE-04.md`](./tasks/CORE-04.md#core-041--audit-existing-record-selectioncreationimport-flows)
+Status: CORE-04 complete. Start CORE-05 with a capability/schema audit.
+
+Task: [`tasks/CORE-05.md`](./tasks/CORE-05.md#core-051--audit-current-roles-schema-mutations-and-dependency-information)
 
 ## Completed in this PR
 
@@ -48,22 +50,45 @@ Task: [`tasks/CORE-04.md`](./tasks/CORE-04.md#core-041--audit-existing-record-se
   immutable Dataset Version
 - CORE-03.15 — end-to-end reuse, sharing, duplication and lifecycle proof
 - CORE-03.16 — Purification Summary golden workflow and CORE-04 hand-off
+- CORE-04.1 — Record selection/creation/import audit (accepted)
+- CORE-04.2 — typed Record-reference cell contract
+- CORE-04.3 — Model-scoped search, picker, and UUID write-back link
+- CORE-04.5 — explicit Sheet row → Record mapping
+- CORE-04.6 — validate-without-commit RPC
+- CORE-04.4 — atomic inline create+link
+- CORE-04.7 — all-or-nothing bulk Record commit
+- CORE-04.8 — in-grid validation/error navigation
+- CORE-04.9 — Definition Record actions hide/disable
+- CORE-04.10 — Model-owned generated Record ID policy seam
+- CORE-04.11 — Sample golden proof and composed-Sheet browser surface
 - product/architecture reset and accepted ADRs 0020–0026
 
 ## Required reading
 
-1. [`tasks/CORE-04.md`](./tasks/CORE-04.md), CORE-04.1 only
-2. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md), Record and Sheet sections
-3. [`CORE_ARCHITECTURE.md`](./CORE_ARCHITECTURE.md), sections 4–9
-4. CORE-03 completion evidence in [`tasks/CORE-03.md`](./tasks/CORE-03.md)
+1. [`tasks/CORE-05.md`](./tasks/CORE-05.md), CORE-05.1 only
+2. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md)
+3. [`CORE_ARCHITECTURE.md`](./CORE_ARCHITECTURE.md)
+4. CORE-04 completion evidence in [`tasks/CORE-04.md`](./tasks/CORE-04.md)
+5. ADR [`0021-canonical-field-and-schema-kernel.md`](../decisions/0021-canonical-field-and-schema-kernel.md)
 
 ## Implement now
 
-Audit the existing Record selection, creation and import paths that CORE-04
-will reuse. Do not implement Record actions until the audit closes.
+CORE-04 is complete. Start CORE-05.1 as a documentation-only audit of roles,
+schema mutations and dependency information. Do not implement capability
+RPCs until that audit is reviewed.
+
+CORE-04.11 exit evidence: `pnpm validate` 166 files / 1,893 tests, zero lint
+errors, production client/SSR build; `pnpm test:db` 61 files / 679 tests.
+The CORE-02.6 100k+80k Dataset benchmark was not rerun.
 
 ## Do not
 
+- do not persist Record ID or Name as relationship identity;
+- do not auto-create notebook `record_link` from Sheet cell link/create;
+- do not invent a Sheet-specific Record ID generator or user-supplied IDs;
+- do not add `create_model_record` / `update_record_custom_fields` to the
+  external API allowlist;
+- do not invent a link-only vs create-capable permission subsystem (CORE-05);
 - do not broaden presentation persistence into a general View subsystem;
 - do not make presentation state semantic identity;
 - do not implement full Pipeline semantics;
@@ -76,8 +101,16 @@ will reuse. Do not implement Record actions until the audit closes.
 - do not weaken RLS/server validation;
 - do not broaden paused specialist workspaces.
 
-CORE-03 is complete. CORE-03.16's focused DB proof names the `Purification
-Summary` Definition, its notebook-linked Instance, Sample/Upstream/Purification
+CORE-04 is complete. Binding product decisions were honoured: UUID write-back
+only; notebook `create_record_link` stays separate; Model-generated
+`PREFIX-YYYY-NNNN`; all-or-nothing bulk commit; atomic inline create+link;
+minimal composed-Sheet grid at `/sheets/$instanceId`; Sample-only golden
+workflow; Definition actions hide/disable in the UI while RLS remains the
+server boundary (richer capabilities are CORE-05); no external API allowlist
+expansion.
+
+CORE-03 is complete. CORE-03.16's focused DB proof names the Purification
+Summary Definition, its notebook-linked Instance, Sample/Upstream/Purification
 sources, durable local Observation, calculated Recovery, persisted filter and
 optional immutable materialisation with authenticated provenance. The current
 composition contract remains a bounded 200-row virtual window. There is no

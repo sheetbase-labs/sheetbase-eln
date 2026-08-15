@@ -103,7 +103,9 @@ export function projectBoundColumns(input: {
       key: column.field.key,
       label: column.field.label,
       field: column.field,
-      presentation: fieldEditorPresentation(column.field.logicalType),
+      presentation: fieldEditorPresentation(column.field.logicalType, {
+        relationshipTarget: column.field.relationship?.target.kind,
+      }),
       source: column.source,
       permission: {
         read: true,

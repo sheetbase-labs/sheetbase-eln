@@ -1,7 +1,7 @@
 # CORE-05 — Schema Evolution and Role-aware Configuration
 
-**Status:** Planned / implementation-ready after CORE-04  
-**Blocked by:** CORE-04 epic exit gate.  
+**Status:** CORE-05.1 complete; CORE-05.2 blocked on audit decisions
+**Blocked by:** CORE-05.1 epic-start audit (complete). Remaining tasks blocked as specified.
 **Normative decisions:** ADRs 0021, 0023, 0025, 0026 plus CORE architecture.
 
 ## Epic goal
@@ -23,6 +23,8 @@ Make Model, Dataset Schema and reusable Definition configuration safely delegabl
 
 ## CORE-05.1 — Audit current roles, schema mutations and dependency information
 
+**Status:** Complete (2026-08-15)
+
 **Goal:** Map owner/admin/member checks, RLS, schema-management RPCs, Model Fields UI, Dataset Schema mutation paths, formula dependencies and Template/Definition dependencies.
 
 **Deliverables:** `docs/core/audits/SCHEMA_CAPABILITY_AUDIT.md`; exact checks/claims/RPCs; current dependency sources; keep/adapt/deprecate map; migration risks.
@@ -30,6 +32,16 @@ Make Model, Dataset Schema and reusable Definition configuration safely delegabl
 **Data/API changes:** None.
 
 **Exit gate:** capability/storage changes are grounded in current security implementation.
+
+### Completion evidence
+
+- `docs/core/audits/SCHEMA_CAPABILITY_AUDIT.md` records the authority
+  matrix, KEEP/ADAPT/CONVERGE/DEPRECATE map, unused membership roles,
+  dual Dataset Schema stacks, dependency catalogue, lifecycle gaps, and
+  capability-storage options without implementing them.
+- No product behaviour, migrations, RLS, or RPCs changed.
+- Stale `NEXT.md` ADR 0021 filename corrected to
+  `0021-data-history-and-schema-versioning.md`.
 
 ---
 

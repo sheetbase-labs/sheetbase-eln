@@ -8,11 +8,15 @@
 
 ## Active task
 
-**CORE-05.1 — Audit current roles, schema mutations and dependency information**
+**CORE-05.2 — Define minimum capability vocabulary and role mapping**
 
-Status: CORE-04 complete. Start CORE-05 with a capability/schema audit.
+Status: CORE-05.1 complete. Do not implement CORE-05.2 until the
+capability-storage, unused-role, dual Dataset Schema, and Instance-upgrade
+decisions in the audit are confirmed.
 
-Task: [`tasks/CORE-05.md`](./tasks/CORE-05.md#core-051--audit-current-roles-schema-mutations-and-dependency-information)
+Task: [`tasks/CORE-05.md`](./tasks/CORE-05.md#core-052--define-minimum-capability-vocabulary-and-role-mapping)
+
+Audit: [`audits/SCHEMA_CAPABILITY_AUDIT.md`](./audits/SCHEMA_CAPABILITY_AUDIT.md)
 
 ## Completed in this PR
 
@@ -61,21 +65,24 @@ Task: [`tasks/CORE-05.md`](./tasks/CORE-05.md#core-051--audit-current-roles-sche
 - CORE-04.9 — Definition Record actions hide/disable
 - CORE-04.10 — Model-owned generated Record ID policy seam
 - CORE-04.11 — Sample golden proof and composed-Sheet browser surface
+- CORE-05.1 — capability/schema/dependency audit
 - product/architecture reset and accepted ADRs 0020–0026
 
 ## Required reading
 
-1. [`tasks/CORE-05.md`](./tasks/CORE-05.md), CORE-05.1 only
-2. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md)
-3. [`CORE_ARCHITECTURE.md`](./CORE_ARCHITECTURE.md)
-4. CORE-04 completion evidence in [`tasks/CORE-04.md`](./tasks/CORE-04.md)
-5. ADR [`0021-canonical-field-and-schema-kernel.md`](../decisions/0021-canonical-field-and-schema-kernel.md)
+1. [`audits/SCHEMA_CAPABILITY_AUDIT.md`](./audits/SCHEMA_CAPABILITY_AUDIT.md)
+2. [`tasks/CORE-05.md`](./tasks/CORE-05.md), CORE-05.2 only after audit
+   decisions are confirmed
+3. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md)
+4. [`CORE_ARCHITECTURE.md`](./CORE_ARCHITECTURE.md)
+5. CORE-04 completion evidence in [`tasks/CORE-04.md`](./tasks/CORE-04.md)
+6. ADR [`0021-data-history-and-schema-versioning.md`](../decisions/0021-data-history-and-schema-versioning.md)
 
 ## Implement now
 
-CORE-04 is complete. Start CORE-05.1 as a documentation-only audit of roles,
-schema mutations and dependency information. Do not implement capability
-RPCs until that audit is reviewed.
+CORE-05.1 is complete. Do not implement capability RPCs, role remapping,
+SCI-010/CORE-02 convergence, or Instance-upgrade tightening until the
+audit recommendations are reviewed.
 
 CORE-04.11 exit evidence: `pnpm validate` 166 files / 1,893 tests, zero lint
 errors, production client/SSR build; `pnpm test:db` 61 files / 679 tests.

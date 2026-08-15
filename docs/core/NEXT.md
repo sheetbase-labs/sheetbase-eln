@@ -8,9 +8,9 @@
 
 ## Active task
 
-**CORE-03.11 — Persist presentation state**
+**CORE-03.12 — Implement Save Instance as Definition**
 
-Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-0311--persist-presentation-state)
+Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-0312--implement-save-instance-as-definition)
 
 ## Completed in this PR
 
@@ -38,6 +38,8 @@ Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-0311--persist-presentation-st
 - CORE-03.9 — authoritative calculation scopes over composed governed and
   Instance-local values
 - CORE-03.10 — unambiguous composed Sheet write-back targets
+- CORE-03.11 — bounded persisted Definition defaults and Instance presentation
+  overrides
 - product/architecture reset and accepted ADRs 0020–0026
 
 ## Required reading
@@ -50,9 +52,8 @@ Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-0311--persist-presentation-st
 
 ## Implement now
 
-Persist bounded presentation state without making it semantic identity or
-building a broad View subsystem. Preserve CORE-03.10 write ownership and the
-Definition-default/Instance-override boundary.
+Extract useful ad hoc Sheet structure into a reusable Definition without
+copying Instance-local values or broadening into materialisation/Pipelines.
 
 ## Do not
 
@@ -239,3 +240,19 @@ with typecheck. The focused DB contract passes 6/6 after migration, covering
 SQL-validator parity, authoritative provenance, exact Dataset retry payloads,
 invalid/stale/conflict handling, controlled writes and ACLs. No Sheet editing
 UI or CORE-03.11 implementation was added.
+
+CORE-03.11 is complete. Migration `0085` extends mutable Instance presentation
+state with up to 32 equality/empty filters and eight ordered sorts; immutable
+Definition defaults support the same bounded query preferences alongside column
+layout, freezing and density. Grouping is not stored because the current bounded
+composition query has no grouped-result contract. A Definition-derived Instance
+may omit presentation and receives those defaults, then owns its mutable
+override through the existing revision-CAS update RPC.
+Presentation IDs are checked against the pinned Definition columns plus local
+and Instance-calculation columns; unsupported keys, invalid IDs and bounds are
+rejected. Presentation changes preserve bindings, row identity, provenance and
+local/calculation ownership. Focused TypeScript domain/data proof passes 24/24.
+The focused Instance DB suite passes 13/13 after a fresh migration, covering
+reload, defaults/overrides, stale revision, invalid IDs and helper ACLs. No
+grouping execution, UI, View subsystem, materialisation or write-back ownership
+changes were added.

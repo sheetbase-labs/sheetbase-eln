@@ -13,6 +13,23 @@ const jsonScalar = z.union([
   z.null(),
 ])
 const localValue = z.union([jsonScalar, z.array(jsonScalar).min(1).max(1_000)])
+const presentationFilter = z
+  .object({
+    columnId: uuid,
+    operator: z.enum(['equals', 'not-equals', 'is-empty', 'is-not-empty']),
+    value: jsonScalar.optional(),
+  })
+  .strict()
+  .superRefine((filter, context) => {
+    if (
+      (filter.operator === 'is-empty' || filter.operator === 'is-not-empty') !==
+      (filter.value === undefined)
+    )
+      context.addIssue({
+        code: 'custom',
+        message: 'Only equality filters require a value.',
+      })
+  })
 export const composedRowKeySchema = z.string().regex(/^sb-row-v1:[0-9a-f]{64}$/)
 const localRow = z
   .record(uuid, localValue)
@@ -190,6 +207,15 @@ export const sheetInstanceStateSchema = z
         columnWidths: z.record(uuid, z.number().int().min(40).max(2_000)),
         frozenColumnCount: z.number().int().min(0).max(512),
         density: z.enum(['compact', 'standard', 'comfortable']),
+        filters: z.array(presentationFilter).max(32).default([]),
+        sorts: z
+          .array(
+            z
+              .object({ columnId: uuid, direction: z.enum(['asc', 'desc']) })
+              .strict(),
+          )
+          .max(8)
+          .default([]),
       })
       .strict(),
     provenance: z.discriminatedUnion('createdFrom', [

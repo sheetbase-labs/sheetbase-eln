@@ -14,6 +14,29 @@ const uuid = parameterUuidSchema
 const key = z.string().regex(/^[a-z][a-z0-9_]{0,59}$/)
 const label = z.string().trim().min(1).max(200)
 const jsonObject = z.record(z.string(), z.unknown())
+const presentationFilterSchema = z
+  .object({
+    columnId: uuid,
+    operator: z.enum(['equals', 'not-equals', 'is-empty', 'is-not-empty']),
+    value: z
+      .union([
+        z.string().max(10_000),
+        z.number().finite(),
+        z.boolean(),
+        z.null(),
+      ])
+      .optional(),
+  })
+  .strict()
+  .refine(
+    (value) =>
+      (value.operator === 'is-empty' || value.operator === 'is-not-empty') ===
+      (value.value === undefined),
+    'Only equality filters require a value.',
+  )
+const presentationSortSchema = z
+  .object({ columnId: uuid, direction: z.enum(['asc', 'desc']) })
+  .strict()
 
 function isCalendarDate(year: number, month: number, day: number) {
   if (year < 1 || month < 1 || month > 12 || day < 1) return false
@@ -361,6 +384,8 @@ const configurationSchema = z
         columnWidths: z.record(uuid, z.number().int().min(40).max(1_000)),
         frozenColumnCount: z.number().int().min(0).max(256),
         density: z.enum(['compact', 'standard', 'comfortable']),
+        filters: z.array(presentationFilterSchema).max(32).default([]),
+        sorts: z.array(presentationSortSchema).max(8).default([]),
       })
       .strict(),
   })

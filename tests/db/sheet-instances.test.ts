@@ -404,6 +404,86 @@ describe('Sheet Instance durability and authority', () => {
     })
   })
 
+  it('applies immutable Definition presentation defaults, persists an Instance override, and preserves composition state', async () => {
+    const owner = await actor(OWNER, WS_A)
+    const configuration = definitionWithoutParameters()
+    const columnId = configuration.columns[0].id
+    configuration.presentation.filters = [
+      { columnId, operator: 'is-not-empty' },
+    ]
+    configuration.presentation.sorts = [{ columnId, direction: 'asc' }]
+    const definition = (
+      await owner.query(
+        `select api.create_sheet_definition($1,'presentation_default','Presentation default',null,$2::jsonb) result`,
+        [WS_A, JSON.stringify(configuration)],
+      )
+    ).rows[0].result
+    await owner.query(`select api.publish_sheet_definition_version($1,1)`, [
+      definition.version.id,
+    ])
+    const initialState: any = { ...state(), localValues: {} }
+    delete initialState.presentation
+    const instance = (
+      await owner.query(
+        `select to_jsonb(api.create_sheet_instance_from_definition($1,'Presentation',null,$2,null,null,$3::jsonb,'[]'::jsonb)) result`,
+        [WS_A, definition.version.id, JSON.stringify(initialState)],
+      )
+    ).rows[0].result
+    expect(instance.state.presentation).toMatchObject(
+      configuration.presentation,
+    )
+    const override = structuredClone(instance.state)
+    override.presentation.filters = [
+      { columnId, operator: 'equals', value: 'kept' },
+    ]
+    override.presentation.sorts = [{ columnId, direction: 'desc' }]
+    override.presentation.density = 'compact'
+    const updated = (
+      await owner.query(
+        `select to_jsonb(api.update_sheet_instance($1,1,$2::jsonb)) result`,
+        [instance.id, JSON.stringify(override)],
+      )
+    ).rows[0].result
+    const reloaded = (
+      await owner.query(
+        `select to_jsonb(s) result from api.sheet_instances s where id=$1`,
+        [instance.id],
+      )
+    ).rows[0].result
+    expect(reloaded.state.presentation).toEqual(updated.state.presentation)
+    expect(reloaded.state.provenance).toEqual(instance.state.provenance)
+    expect(reloaded.state.bindings).toEqual(instance.state.bindings)
+    expect(reloaded.state.resolvedRowIdentity).toEqual(
+      instance.state.resolvedRowIdentity,
+    )
+    const invalid = structuredClone(updated.state)
+    invalid.presentation.sorts = [
+      { columnId: crypto.randomUUID(), direction: 'asc' },
+    ]
+    await expect(
+      owner.query(`select api.update_sheet_instance($1,2,$2::jsonb)`, [
+        instance.id,
+        JSON.stringify(invalid),
+      ]),
+    ).rejects.toMatchObject({ code: 'SB073' })
+    await expect(
+      owner.query(`select api.update_sheet_instance($1,1,$2::jsonb)`, [
+        instance.id,
+        JSON.stringify(updated.state),
+      ]),
+    ).rejects.toMatchObject({ code: 'SB073' })
+    const invalidAdHoc = state()
+    invalidAdHoc.presentation.sorts = [
+      { columnId: crypto.randomUUID(), direction: 'asc' },
+    ]
+    await expect(
+      owner.query(
+        `select api.create_sheet_instance($1,'Invalid',null,null,null,null,$2::jsonb)`,
+        [WS_A, JSON.stringify(invalidAdHoc)],
+      ),
+    ).rejects.toMatchObject({ code: 'SB073' })
+  })
+
   it('pins two independent Instances to one exact published Definition Version despite a later version', async () => {
     const owner = await actor(OWNER, WS_A)
     const definition = (

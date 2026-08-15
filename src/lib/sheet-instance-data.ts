@@ -103,6 +103,12 @@ type CreateInput = {
   state: SheetInstanceState
 }
 
+type DefinitionCreateInput = Omit<CreateInput, 'state'> & {
+  state: Omit<SheetInstanceState, 'presentation'> & {
+    presentation?: SheetInstanceState['presentation']
+  }
+}
+
 async function create(
   input: CreateInput,
   sourceVersionId: string | null,
@@ -128,7 +134,7 @@ export function createAdHocSheetInstance(
 }
 
 export function createSheetInstanceFromDefinition(
-  input: CreateInput & {
+  input: DefinitionCreateInput & {
     sourceDefinitionVersionId: string
     parameterInputs: SheetParameterInput[]
   },

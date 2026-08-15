@@ -462,6 +462,23 @@ UI was added.
 
 **Exit gate:** a scientist returns to a useful working layout without underlying data/schema semantics changing.
 
+## Completion evidence
+
+- Migration `0085_core_0311_sheet_presentation.sql` adds bounded equality/empty
+  filters and ordered sorts to mutable Instance presentation state and immutable
+  Definition defaults, alongside column order/visibility/width, freezing and
+  density. Grouping is deliberately unsupported: no grouped-result
+  contract exists on the bounded composition RPC.
+- Definition Versions retain immutable presentation defaults. Creating a
+  Definition-derived Instance without presentation copies those defaults into
+  the mutable Instance state; a supplied or later revision-CAS update is an
+  Instance-only override. Presentation validation is bounded and checks stable
+  IDs against Definition, local and Instance-calculation columns.
+- Focused TypeScript domain/data tests pass 24/24. The focused Instance DB suite
+  passes 13/13 after a fresh migration, covering reload, defaults/overrides,
+  invalid IDs, stale revisions and helper ACLs while preserving bindings,
+  provenance and row identity.
+
 ---
 
 ## CORE-03.12 — Implement Save Instance as Definition

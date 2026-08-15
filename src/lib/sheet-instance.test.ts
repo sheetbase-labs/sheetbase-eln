@@ -50,6 +50,10 @@ export function validSheetInstanceState() {
       columnWidths: { [ids.field]: 180 },
       frozenColumnCount: 0,
       density: 'standard',
+      filters: [
+        { columnId: ids.field, operator: 'equals', value: 'independent value' },
+      ],
+      sorts: [{ columnId: ids.field, direction: 'asc' }],
     },
     provenance: { createdFrom: 'ad_hoc' },
   })
@@ -90,6 +94,18 @@ describe('Sheet Instance working-state contract', () => {
     [
       'unknown presentation key',
       (value: any) => (value.presentation.filter = {}),
+    ],
+    [
+      'valueless equality presentation filter',
+      (value: any) =>
+        (value.presentation.filters[0] = {
+          columnId: ids.field,
+          operator: 'equals',
+        }),
+    ],
+    [
+      'unsupported presentation grouping',
+      (value: any) => (value.presentation.grouping = []),
     ],
     [
       'malformed override',

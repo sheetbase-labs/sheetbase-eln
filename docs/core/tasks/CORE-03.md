@@ -1,6 +1,6 @@
 # CORE-03 — Sheet Definition and Compositional Sheet Instance
 
-**Status:** In progress — CORE-03.2 complete (2026-08-14)
+**Status:** In progress — CORE-03.6 complete (2026-08-15)
 **Blocked by:** CORE-02 epic exit gate (met).
 **Normative decisions:** ADRs 0020–0026.
 
@@ -265,6 +265,32 @@ or write-back executor is included.
 **Tests:** one-to-one, many-to-one, unmatched, expected one-to-many if supported, rejected unexpected many-to-many.
 
 **Exit gate:** Sample + two result Datasets can compose by stable Sample identity with explainable cardinality.
+
+## Completion evidence
+
+- Migration `0077_core_036_sheet_composition.sql` adds the bounded,
+  authenticated `api.query_sheet_instance_rows` RPC. It composes only active,
+  Definition-pinned, server-resolved Dataset bindings and accepts a maximum
+  200-row window with an offset capped at 10,000.
+- Equality keys must be scalar `reference` fields with identical stable
+  relationship contracts. The executor preserves the left Dataset row and
+  every joined source row, revision, Dataset binding and complete active-field
+  value map. It returns an explicit unmatched source state for left joins and
+  rejects missing/stale resolution, non-Dataset sources, unsupported join
+  topology and duplicate right identities with structured PostgreSQL errors.
+- The execution boundary is intentionally virtual and source-oriented:
+  bound-column rendering, local fields, calculations, write-back and
+  materialisation remain out of scope for CORE-03.7 and later.
+- Initial execution deliberately supports a bounded star topology: every
+  declared join shares one left Dataset binding, so Sample plus multiple result
+  Datasets remains explainable without recursive intermediate multiplication.
+  Definitions that require chained joins fail explicitly rather than receiving
+  a silently different plan.
+- `tests/db/sheet-composition.test.ts` is the compact executable DB contract
+  for the Sample-plus-two-results exit gate, cardinality and unmatched states,
+  deterministic root paging/provenance, lifecycle/topology/bounds failures and
+  RPC/helper ACLs. The focused suite passes 3/3 after migration `0077`; the
+  composition client, row-identity and Definition suites pass 79/79.
 
 ---
 

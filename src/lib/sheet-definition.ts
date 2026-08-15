@@ -467,6 +467,25 @@ const configurationSchema = z
       column?.field.computation.mode === 'stored' &&
       column.field.cardinality === 'one' &&
       column.source.kind !== 'calculated'
+    const sameReferenceRelationship = (
+      left: (typeof configuration.columns)[number] | undefined,
+      right: (typeof configuration.columns)[number] | undefined,
+    ) => {
+      const leftRelationship = left?.field.relationship
+      const rightRelationship = right?.field.relationship
+      if (!leftRelationship || !rightRelationship) return false
+      return (
+        leftRelationship.cardinality === rightRelationship.cardinality &&
+        leftRelationship.target.kind === rightRelationship.target.kind &&
+        (leftRelationship.target.kind === 'model'
+          ? rightRelationship.target.kind === 'model' &&
+            leftRelationship.target.modelKey ===
+              rightRelationship.target.modelKey
+          : rightRelationship.target.kind === 'dataset-schema' &&
+            leftRelationship.target.schemaId ===
+              rightRelationship.target.schemaId)
+      )
+    }
     requireRef(
       new Set(configuration.rowIdentity.columnIds).size ===
         configuration.rowIdentity.columnIds.length,
@@ -545,6 +564,15 @@ const configurationSchema = z
           rightColumn.source.bindingId === item.rightBindingId,
         ['joins', index],
         'Join columns must belong to their corresponding bindings.',
+      )
+      requireRef(
+        leftColumn?.field.logicalType === 'reference' &&
+          rightColumn?.field.logicalType === 'reference' &&
+          leftColumn.field.cardinality === 'one' &&
+          rightColumn.field.cardinality === 'one' &&
+          sameReferenceRelationship(leftColumn, rightColumn),
+        ['joins', index],
+        'Join keys must be scalar references with the same stable relationship contract.',
       )
     })
     configuration.calculations.forEach((item, index) => {

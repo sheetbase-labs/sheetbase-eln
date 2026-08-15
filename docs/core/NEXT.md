@@ -8,9 +8,9 @@
 
 ## Active task
 
-**CORE-03.6 — Implement constrained multi-source joins**
+**CORE-03.7 — Implement bound columns and provenance inspection**
 
-Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-036--implement-constrained-multi-source-joins)
+Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-037--implement-bound-columns-and-provenance-inspection)
 
 ## Completed in this PR
 
@@ -32,11 +32,12 @@ Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-036--implement-constrained-mu
 - CORE-03.3 — durable Sheet Instance identity and resolved binding persistence
 - CORE-03.4 — shared typed parameters and binding compatibility
 - CORE-03.5 — stable row identity
+- CORE-03.6 — constrained multi-source joins
 - product/architecture reset and accepted ADRs 0020–0026
 
 ## Required reading
 
-1. [`tasks/CORE-03.md`](./tasks/CORE-03.md), CORE-03.5 only
+1. [`tasks/CORE-03.md`](./tasks/CORE-03.md), CORE-03.7 only plus CORE-03.6 boundary
 2. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md), Dataset and Sheet sections
 3. [`CORE_ARCHITECTURE.md`](./CORE_ARCHITECTURE.md), sections 4–9
 4. ADR 0024 (shared typed parameters), with ADRs 0020–0023 and 0025 for the settled
@@ -44,13 +45,13 @@ Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-036--implement-constrained-mu
 
 ## Implement now
 
-Implement stable semantic row identity for resolved Sheet Instance bindings as
-specified by CORE-03.5. Keep source row identity and provenance explicit and do
-not begin multi-source composition execution.
+Project bound Dataset/Model/relationship fields from the bounded CORE-03.6
+composition result. Keep source field, binding and Definition provenance
+inspectable without making a rendered grid authoritative.
 
 ## Do not
 
-- do not implement composition execution, write-back execution or
+- do not implement local fields, calculations, write-back execution or
   materialisation;
 - do not add typed Instance-local-value behavior (CORE-03.8) or broaden the
   completed CORE-03.3 persistence contract without a concrete defect;
@@ -151,3 +152,14 @@ migrations and the 29-step demo seed pass from fresh, as do formatting,
 typecheck, changed source-file lint and `git diff --check`. No conversion,
 vocabulary-management, regex-dialect translation, row-identity or composition
 execution was added.
+
+CORE-03.6 is complete. Migration `0077` provides an authenticated bounded
+virtual composition RPC over active pinned, resolved Dataset bindings. It
+executes Definition-declared scalar reference equality joins only, keeps the
+root source and joined row/binding/revision/value provenance explicit, returns
+left-join unmatched states, and fails duplicate right keys or unsupported,
+unresolved and stale state rather than multiplying rows. `sheet-composition-data`
+derives the existing `sb-row-v1` keys from the immutable resolved identity
+spec; it does not render bound columns. CORE-03.7 owns that projection and UI.
+The focused DB composition contract passes 3/3 after migration `0077`; focused
+composition-client, row-identity and Definition contracts pass 79/79.

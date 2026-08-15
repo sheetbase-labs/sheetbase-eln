@@ -21,20 +21,23 @@ function field(
   fieldId: string,
   key: string,
   computation: { mode: 'stored' } | { mode: 'computed'; expressionId: string },
+  reference = false,
 ) {
   return {
     fieldId,
     key,
     label: key,
     description: null,
-    logicalType: 'text' as const,
+    logicalType: reference ? ('reference' as const) : ('text' as const),
     nullable: true,
     defaultValue: null,
     cardinality: 'one' as const,
     quantity: null,
     validation: {},
     category: null,
-    relationship: null,
+    relationship: reference
+      ? { target: { kind: 'model', modelKey: 'sample' }, cardinality: 'one' }
+      : null,
     computation,
     lifecycle: 'active' as const,
   }
@@ -92,7 +95,7 @@ export function validSheetDefinitionConfiguration() {
     columns: [
       {
         id: ids.columnA,
-        field: field(ids.columnA, 'sample', { mode: 'stored' }),
+        field: field(ids.columnA, 'sample', { mode: 'stored' }, true),
         source: {
           kind: 'bound',
           bindingId: ids.bindingA,
@@ -101,7 +104,7 @@ export function validSheetDefinitionConfiguration() {
       },
       {
         id: ids.columnB,
-        field: field(ids.columnB, 'comparison', { mode: 'stored' }),
+        field: field(ids.columnB, 'comparison', { mode: 'stored' }, true),
         source: {
           kind: 'bound',
           bindingId: ids.bindingB,

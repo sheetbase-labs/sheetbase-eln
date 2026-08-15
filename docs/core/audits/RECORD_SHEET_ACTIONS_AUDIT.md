@@ -27,8 +27,35 @@ import architecture.
 Exit gate: subsequent tasks can reuse Model validation and Record CRUD rather
 than inventing parallel flows.
 
-**Do not start CORE-04.2 until this audit and the bundle plan below are
-approved.**
+## Accepted review decisions (binding)
+
+CORE-04.1 and the four-bundle plan are accepted. Binding product decisions:
+
+1. Write the Record UUID only to the column's authoritative Sheet write-back
+   target (Dataset reference field, Instance-local field, or Model reference
+   field). Do not add a second persistence location for the cell type, and do
+   not auto-duplicate the UUID.
+2. Notebook `create_record_link` stays a separate contextual concern. Sheet
+   cell link/create must not create a notebook `record_link` as a side effect.
+3. CORE-04.10 uses the existing generated `PREFIX-YYYY-NNNN` Model policy.
+   No user-supplied/override IDs and no Sheet-specific generator.
+4. Bulk Record commit is all-or-nothing. Validate may return mixed
+   per-row/per-field errors; commit must not partially create.
+5. Inline create + link is one transaction. Failed write-back must not leave
+   a newly created Record behind.
+6. CORE-04 adds a minimal composed-Sheet browser/grid (Handsontable + existing
+   CORE-03 composition/write-back). Prove the workflow; do not redesign Sheets.
+7. Golden workflow is Sample-only. Stay Model-generic; no dedicated Reagent
+   create product flow.
+8. Keep current Record RLS/membership. Definition `actions` still configure
+   create/link/open in the UI. Richer link-only vs create-capable server
+   capabilities belong in CORE-05.
+9. Do not add `create_model_record` or `update_record_custom_fields` to the
+   external API allowlist.
+10. CORE-04.11 requires a fully green `pnpm validate` / full DB gate.
+
+Three CORE-03 Sheet Definition DB failures were corrected before CORE-04.2
+(migration `0091` and aligned test fixtures).
 
 ---
 
@@ -544,9 +571,10 @@ Sheet cell (Record reference)
 
 ## Proposed implementation bundles (CORE-04.2–04.11)
 
-Do not start Bundle 2 until this audit is approved. Each bundle is one
-reviewable commit after focused validation. No `pnpm validate` until the
-designated epic gate (Bundle 5) unless a change requires an earlier broad
+The four-bundle plan is accepted. Adjust within a bundle if implementation
+evidence makes that sensible. No further planning checkpoint before CORE-04.2.
+Each bundle is one reviewable commit after focused validation. No
+`pnpm validate` until CORE-04.11 unless a change requires an earlier broad
 check. Do not rerun the CORE-02.6 100k+80k benchmark.
 
 ### Bundle 2 — Record-action contract and persistence foundation

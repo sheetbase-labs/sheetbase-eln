@@ -142,7 +142,7 @@ describe('projectBoundColumns', () => {
     ).toEqual([
       [ids.datasetColumn, 'text', 'read-only'],
       [ids.modelColumn, 'text', 'read-only'],
-      [ids.relationshipColumn, 'text', 'read-only'],
+      [ids.relationshipColumn, 'record-picker', 'read-only'],
     ])
     expect(projection.rows[0].values[ids.datasetColumn]).toMatchObject({
       kind: 'present',

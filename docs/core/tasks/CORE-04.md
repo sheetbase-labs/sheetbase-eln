@@ -21,7 +21,7 @@ Make the normal compositional Sheet a first-class Record search/link/create/upda
 
 ## CORE-04.1 — Audit existing Record selection/creation/import flows
 
-**Status:** Complete (2026-08-15), pending review before CORE-04.2.
+**Status:** Complete (2026-08-15). Accepted in review; CORE-04.2 may proceed.
 
 **Goal:** Map Samples/Reagents/other registries, reference editors, imports and Model management operations to reusable Record actions.
 
@@ -45,13 +45,15 @@ Make the normal compositional Sheet a first-class Record search/link/create/upda
 - Explicit gaps: Record-reference cell editor; column→Model mapping; bulk
   validate/commit; idempotency; create+link atomicity; Model Record-ID policy
   beyond generated `PREFIX-YYYY-NNNN`. Scientific CSV is not a Record-import
-  path. `NEXT.md` remains on CORE-04.1 until the audit is approved.
+  path. Review later accepted the audit and four-bundle plan.
 
 ---
 
 ## CORE-04.2 — Define typed Record-reference cell contract
 
 **Blocked by:** CORE-04.1.
+
+**Status:** Complete (2026-08-15).
 
 **Goal:** Make Record references a canonical Sheet cell/editor type.
 
@@ -62,6 +64,19 @@ Make the normal compositional Sheet a first-class Record search/link/create/upda
 **Tests:** render/select/reload/rename target Record; invalid Model target; missing/archived target behaviour.
 
 **Exit gate:** a Sheet cell can safely represent a Record relationship independent of a registry page.
+
+### Completion evidence
+
+- Typed contract in `src/lib/record-reference-cell.ts`: persist Record UUID
+  only; display identifier + title; empty/present/archived/missing/invalid-
+  Model states; select/clear; write-target kind `dataset` | `local` | `model`.
+  Does not create notebook `record_link`.
+- `fieldEditorPresentation('reference', { relationshipTarget: 'model' })`
+  selects `record-picker`. Legacy `fieldEditorPresentation('reference')`
+  remains text so scientific sheets are unchanged.
+- Bound Model-reference columns project `record-picker` presentation.
+- `ModelFieldInput` accepts a UUID and refuses generated Record IDs as
+  identity. Search picker remains CORE-04.3.
 
 ---
 
@@ -181,6 +196,8 @@ Make the normal compositional Sheet a first-class Record search/link/create/upda
 
 **Blocked by:** CORE-04.1; coordinate with existing Model capabilities.
 
+**Status:** Complete (2026-08-15) for the current generated policy.
+
 **Goal:** Ensure Sheet creation flows honour Model-configured human Record-ID rules without conflating them with UUID identity.
 
 **Deliverables:** generated/user-supplied/override behaviour supported to the extent the Model system implements it; uniqueness scope enforced server-side; display/search uses Record ID appropriately.
@@ -188,6 +205,14 @@ Make the normal compositional Sheet a first-class Record search/link/create/upda
 **Do not:** make CORE-04 invent a second ID generator if Model infrastructure already owns it.
 
 **Exit gate:** Record creation from Sheets produces the same identifiers as creation elsewhere.
+
+### Completion evidence
+
+- `src/lib/record-id-policy.ts` documents `CURRENT_RECORD_ID_POLICY`:
+  generated `PREFIX-YYYY-NNNN`, project uniqueness, owner
+  `api.create_model_record`. No Sheet-specific generator and no
+  user-supplied/override IDs. `mode` is the seam for future Model-
+  configurable policies.
 
 ---
 

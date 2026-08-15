@@ -8,11 +8,13 @@
 
 ## Active task
 
-**CORE-04.1 — Audit existing Record selection/creation/import flows**
+**CORE-04.3 — Implement existing-Record search and linking**
+(Bundle 2 with CORE-04.5 / 04.6)
 
-Status: audit complete; **awaiting review before CORE-04.2**.
+Status: CORE-04.2 and CORE-04.10 complete; next bundle is search/link,
+mapping, and validate-without-commit.
 
-Task: [`tasks/CORE-04.md`](./tasks/CORE-04.md#core-041--audit-existing-record-selectioncreationimport-flows)
+Task: [`tasks/CORE-04.md`](./tasks/CORE-04.md#core-043--implement-existing-record-search-and-linking)
 
 Audit: [`audits/RECORD_SHEET_ACTIONS_AUDIT.md`](./audits/RECORD_SHEET_ACTIONS_AUDIT.md)
 
@@ -52,12 +54,16 @@ Audit: [`audits/RECORD_SHEET_ACTIONS_AUDIT.md`](./audits/RECORD_SHEET_ACTIONS_AU
   immutable Dataset Version
 - CORE-03.15 — end-to-end reuse, sharing, duplication and lifecycle proof
 - CORE-03.16 — Purification Summary golden workflow and CORE-04 hand-off
+- CORE-04.1 — Record selection/creation/import audit (accepted)
+- CORE-04.2 — typed Record-reference cell contract
+- CORE-04.10 — Model-owned generated Record ID policy seam
 - product/architecture reset and accepted ADRs 0020–0026
 
 ## Required reading
 
-1. [`tasks/CORE-04.md`](./tasks/CORE-04.md), CORE-04.1 only
+1. [`tasks/CORE-04.md`](./tasks/CORE-04.md), CORE-04.3 / 04.5 / 04.6
 2. [`audits/RECORD_SHEET_ACTIONS_AUDIT.md`](./audits/RECORD_SHEET_ACTIONS_AUDIT.md)
+   accepted decisions
 3. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md), Record and Sheet sections
 4. [`CORE_ARCHITECTURE.md`](./CORE_ARCHITECTURE.md), sections 4–9 and 24–25
 5. CORE-03 completion evidence in [`tasks/CORE-03.md`](./tasks/CORE-03.md)
@@ -65,12 +71,25 @@ Audit: [`audits/RECORD_SHEET_ACTIONS_AUDIT.md`](./audits/RECORD_SHEET_ACTIONS_AU
 
 ## Implement now
 
-Stop. CORE-04.1 is documentation-only and closed pending review. Do **not**
-implement Record actions, cell contracts, or bulk RPCs until the audit and
-the four remaining bundles in that file are approved.
+Bundle 1 (CORE-04.2 + 04.10) is complete. Implement Bundle 2:
+
+- CORE-04.3 existing-Record search and linking (Sheet write-back UUID only;
+  no notebook `record_link` side effect)
+- CORE-04.5 bulk row-to-Record mapping
+- CORE-04.6 validate-without-commit
+
+Do not start inline create or bulk commit until this bundle's focused tests
+are green. CORE-04.11 still requires a fully green `pnpm validate` / full DB
+gate.
 
 ## Do not
 
+- do not persist Record ID or Name as relationship identity;
+- do not auto-create notebook `record_link` from Sheet cell link/create;
+- do not invent a Sheet-specific Record ID generator or user-supplied IDs;
+- do not add `create_model_record` / `update_record_custom_fields` to the
+  external API allowlist;
+- do not invent a link-only vs create-capable permission subsystem (CORE-05);
 - do not broaden presentation persistence into a general View subsystem;
 - do not make presentation state semantic identity;
 - do not implement full Pipeline semantics;
@@ -83,17 +102,20 @@ the four remaining bundles in that file are approved.
 - do not weaken RLS/server validation;
 - do not broaden paused specialist workspaces.
 
-CORE-04.1 is complete pending review. Deliverable:
-[`audits/RECORD_SHEET_ACTIONS_AUDIT.md`](./audits/RECORD_SHEET_ACTIONS_AUDIT.md).
+CORE-04.1 is accepted. Binding product decisions: write the Record UUID only
+to the column's authoritative Sheet write-back target; keep notebook
+`create_record_link` separate; honour Model-generated `PREFIX-YYYY-NNNN`;
+bulk commit is all-or-nothing; inline create+link is one transaction (no
+orphan Records); add a minimal composed-Sheet grid in later bundles; golden
+workflow is Sample-only; richer capabilities wait for CORE-05; no external
+API allowlist expansion; CORE-04.11 requires a fully green validation gate.
+Three CORE-03 Sheet Definition DB failures were corrected in migration
+`0091` before this bundle.
+
 Primary reuse targets: `api.create_model_record`,
-`api.update_record_custom_fields`, `api.create_record_link`, Model
-`custom_fields` validation (`0057`), `RecordPicker`/search, and Dataset bulk
-idempotency as the pattern for 04.6–04.7. Gaps: no Record bulk
-validate/commit, no create idempotency tokens, no user-supplied/override
-Record-ID policy, no create+link atomicity helper, no Record-reference cell
-editor, and scientific CSV is not a Record-import path. Proposed remaining
-bundles (04.2+04.10 foundation; 04.3/04.5/04.6; 04.4/04.7; 04.8/04.9/04.11)
-are in the audit. Do not start CORE-04.2 until approved.
+`api.update_record_custom_fields`, Model `custom_fields` validation (`0057`),
+`RecordPicker`/search, and Dataset bulk idempotency as the pattern for
+04.6–04.7. Do not reuse notebook `create_record_link` as Sheet identity.
 
 CORE-03 is complete. CORE-03.16's focused DB proof names the Purification
 Summary Definition, its notebook-linked Instance, Sample/Upstream/Purification

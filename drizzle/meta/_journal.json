@@ -526,6 +526,13 @@
       "when": 1786742400000,
       "tag": "0074_core_033_sheet_instance_controls",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1786828800000,
+      "tag": "0075_core_034_parameter_resolution",
+      "breakpoints": true
     }
   ]
 }

@@ -58,11 +58,12 @@ describe('Sheet Instance data boundary', () => {
     await createAdHocSheetInstance(input, client)
     const sourceDefinitionVersionId = id()
     await createSheetInstanceFromDefinition(
-      { ...input, sourceDefinitionVersionId },
+      { ...input, sourceDefinitionVersionId, parameterInputs: [] },
       client,
     )
     expect(
       rpc.mock.calls.map((call) => call[1].p_source_definition_version_id),
     ).toEqual([null, sourceDefinitionVersionId])
+    expect(rpc.mock.calls[1][0]).toBe('create_sheet_instance_from_definition')
   })
 })

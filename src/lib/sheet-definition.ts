@@ -4,15 +4,13 @@ import {
   FIELD_LOGICAL_TYPES,
   validateFieldDefinition,
 } from './field-definition'
+import { parameterSchema, parameterUuidSchema } from './parameter'
+
+export { parameterUuidSchema as sheetDefinitionUuidSchema } from './parameter'
 
 export const SHEET_DEFINITION_CONFIGURATION_FORMAT_VERSION = 1 as const
 
-export const sheetDefinitionUuidSchema = z
-  .string()
-  .regex(
-    /^(?!00000000-0000-0000-0000-000000000000$)[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
-  )
-const uuid = sheetDefinitionUuidSchema
+const uuid = parameterUuidSchema
 const key = z.string().regex(/^[a-z][a-z0-9_]{0,59}$/)
 const label = z.string().trim().min(1).max(200)
 const jsonObject = z.record(z.string(), z.unknown())
@@ -108,7 +106,7 @@ const relationshipSchema = z
 
 export const sheetFieldDefinitionSchema = z
   .object({
-    fieldId: sheetDefinitionUuidSchema,
+    fieldId: parameterUuidSchema,
     key,
     label,
     description: z.string().max(2_000).nullable(),
@@ -253,76 +251,6 @@ export const sheetFieldDefinitionSchema = z
         code: 'custom',
         path: ['defaultValue'],
         message: 'Category default must name an active embedded option.',
-      })
-    }
-  })
-
-const datasetContractSchema = z.discriminatedUnion('mode', [
-  z.object({ mode: z.literal('exact'), schemaVersionId: uuid }).strict(),
-  z
-    .object({
-      mode: z.literal('semantic'),
-      requiredFieldIds: z
-        .array(uuid)
-        .min(1)
-        .max(64)
-        .refine((ids) => new Set(ids).size === ids.length, {
-          message: 'Required field IDs must be unique.',
-        }),
-    })
-    .strict(),
-])
-
-const parameterSchema = z
-  .object({
-    id: uuid,
-    key,
-    label,
-    required: z.boolean(),
-    type: z.discriminatedUnion('kind', [
-      z
-        .object({
-          kind: z.literal('scalar'),
-          valueType: z.enum(FIELD_LOGICAL_TYPES),
-        })
-        .strict(),
-      z.object({ kind: z.literal('record'), modelKey: key }).strict(),
-      z
-        .object({ kind: z.literal('dataset'), contract: datasetContractSchema })
-        .strict(),
-      z
-        .object({
-          kind: z.literal('dataset-version'),
-          contract: datasetContractSchema,
-        })
-        .strict(),
-    ]),
-    defaultValue: z.unknown().optional(),
-    constraints: jsonObject,
-  })
-  .strict()
-  .superRefine((parameter, context) => {
-    if (
-      parameter.defaultValue !== undefined &&
-      parameter.type.kind !== 'scalar'
-    ) {
-      context.addIssue({
-        code: 'custom',
-        path: ['defaultValue'],
-        message: 'Only scalar parameters may define defaults.',
-      })
-    }
-    if (
-      parameter.defaultValue !== undefined &&
-      parameter.type.kind === 'scalar' &&
-      !scalarValueSchema(parameter.type.valueType).safeParse(
-        parameter.defaultValue,
-      ).success
-    ) {
-      context.addIssue({
-        code: 'custom',
-        path: ['defaultValue'],
-        message: 'Scalar default must match its declared value type.',
       })
     }
   })

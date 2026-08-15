@@ -214,6 +214,13 @@ export const sheetDefinitionInvalidCases: Array<{
     },
   },
   {
+    name: 'reversed Parameter constraint bounds',
+    mutate: (value) => {
+      value.parameters[0].type = { kind: 'scalar', valueType: 'decimal' }
+      value.parameters[0].constraints = { min: 2, max: 1 }
+    },
+  },
+  {
     name: 'FieldDefinition default type mismatch',
     mutate: (value) => (value.columns[0].field.defaultValue = 12),
   },
@@ -323,6 +330,14 @@ export const sheetDefinitionValidCases: Array<{
   name: string
   mutate: (value: any) => void
 }> = [
+  {
+    name: 'compatible-lineage Dataset contract',
+    mutate: (value) =>
+      (value.parameters[0].type.contract = {
+        mode: 'lineage',
+        baselineSchemaVersionId: ids.schemaVersion,
+      }),
+  },
   {
     name: 'UUID version 7',
     mutate: (value) =>

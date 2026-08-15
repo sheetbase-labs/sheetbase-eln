@@ -166,6 +166,8 @@ Implement reusable versioned Sheet Definitions and working Sheet Instances over 
 
 ## CORE-03.4 — Implement shared typed parameters and binding compatibility
 
+**Status:** Complete (2026-08-15).
+
 **Blocked by:** CORE-03.2, CORE-02 schema/version contracts.
 
 **Goal:** Resolve Definition inputs to permitted concrete sources using the common Parameter concept.
@@ -179,6 +181,43 @@ Implement reusable versioned Sheet Definitions and working Sheet Instances over 
 **Tests:** exact/compatible/incompatible Dataset bindings; missing required parameter; Record<Model> parameter; quantity mismatch.
 
 **Exit gate:** one Definition can safely instantiate against multiple compatible Datasets without hard-coded Dataset IDs.
+
+## Completion evidence
+
+- `src/lib/parameter.ts` owns the reusable scalar, `Record<Model>`, Dataset and
+  Dataset Version Parameter contract. Sheet Definition validation consumes it,
+  and TypeScript/PostgreSQL parity includes exact, compatible-lineage and
+  semantic contracts plus typed defaults and scalar constraints.
+- Migration `0075_core_034_parameter_resolution.sql` adds a controlled
+  Definition-instantiation RPC. It resolves supplied values server-side,
+  validates stable Record Model identity and Dataset ownership/lifecycle, pins
+  live or immutable source Schema Versions, and persists canonical bindings,
+  scalar values and immutable resolution provenance. Legacy client-authored
+  Definition bindings and direct/helper access remain denied.
+- Exact compatibility requires the same Schema Version. Lineage compatibility
+  requires one Schema identity and preservation of every baseline active field.
+  Semantic compatibility permits other Schema identities but requires stable
+  field UUIDs and compatible logical type, cardinality, quantity, embedded
+  option/vocabulary identity and relationship semantics. Labels are ignored.
+  Compatibility is conservative: no unit conversion or vocabulary alias engine
+  is inferred.
+- Focused executable proof covers two Datasets resolved by one Definition,
+  exact/version failures, lineage and cross-Schema semantic success/failure,
+  quantity/category/reference mismatches, Dataset Version provenance, scalar
+  defaults/constraints, unknown/duplicate/missing inputs, `Record<Model>`,
+  forged provenance, duplicate/reload durability and helper/direct-write ACLs.
+  CORE-03.5 composition execution is not included.
+- Final verification passes: shared domain/data 84/84, focused Definition,
+  Instance and resolution DB/RLS 28/28, live API 2/2, and focused legacy
+  Sheet/Template/formula/frozen-evidence compatibility 40/40. All 76 migrations
+  (`0000`–`0075`) apply on a fresh database and the 29-step demo seed passes;
+  formatting, typecheck, changed source-file lint and `git diff --check` pass.
+- Current canonical Dataset Schema publication supports embedded category
+  options only. The compatibility helper already compares governed vocabulary
+  UUID identity and rejects mismatches, but no vocabulary-management or unit
+  conversion engine is introduced by this task. Dataset fields also remain
+  stored-field contracts, so there is no separate persisted Dataset computation
+  semantic to compare yet.
 
 ---
 

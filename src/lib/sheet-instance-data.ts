@@ -34,6 +34,15 @@ export const sheetInstanceWireSchema = z
   .strict()
 
 export type SheetInstanceWire = z.input<typeof sheetInstanceWireSchema>
+export type SheetParameterInput =
+  | { parameterId: string; kind: 'scalar'; value: unknown }
+  | { parameterId: string; kind: 'record'; recordId: string }
+  | { parameterId: string; kind: 'dataset'; datasetId: string }
+  | {
+      parameterId: string
+      kind: 'dataset-version'
+      datasetVersionId: string
+    }
 export interface SheetInstance {
   id: string
   workspaceId: string
@@ -119,10 +128,24 @@ export function createAdHocSheetInstance(
 }
 
 export function createSheetInstanceFromDefinition(
-  input: CreateInput & { sourceDefinitionVersionId: string },
+  input: CreateInput & {
+    sourceDefinitionVersionId: string
+    parameterInputs: SheetParameterInput[]
+  },
   client = sheetInstanceDataClient,
 ) {
-  return create(input, input.sourceDefinitionVersionId, client)
+  return client
+    .rpc<unknown>('create_sheet_instance_from_definition', {
+      p_workspace_id: input.workspaceId,
+      p_name: input.name,
+      p_description: input.description ?? null,
+      p_source_definition_version_id: input.sourceDefinitionVersionId,
+      p_project_id: input.projectId ?? null,
+      p_notebook_record_id: input.notebookRecordId ?? null,
+      p_state: input.state,
+      p_parameter_inputs: input.parameterInputs,
+    })
+    .then(sheetInstanceFromWire)
 }
 
 export async function updateSheetInstance(

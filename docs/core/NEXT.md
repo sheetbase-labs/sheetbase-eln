@@ -8,9 +8,9 @@
 
 ## Active task
 
-**CORE-03.4 — Implement shared typed parameters and binding compatibility**
+**CORE-03.5 — Implement row identity**
 
-Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-034--implement-shared-typed-parameters-and-binding-compatibility)
+Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-035--implement-row-identity)
 
 ## Completed in this PR
 
@@ -30,29 +30,27 @@ Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-034--implement-shared-typed-p
 - CORE-03.1 — current Sheet and Template persistence audit
 - CORE-03.2 — durable Sheet Definition identity and immutable versions
 - CORE-03.3 — durable Sheet Instance identity and resolved binding persistence
+- CORE-03.4 — shared typed parameters and binding compatibility
 - product/architecture reset and accepted ADRs 0020–0026
 
 ## Required reading
 
-1. [`tasks/CORE-03.md`](./tasks/CORE-03.md), CORE-03.4 only
+1. [`tasks/CORE-03.md`](./tasks/CORE-03.md), CORE-03.5 only
 2. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md), Dataset and Sheet sections
 3. [`CORE_ARCHITECTURE.md`](./CORE_ARCHITECTURE.md), sections 4–9
-4. ADR 0025 (shared typed parameters), with ADRs 0020–0024 for the settled
+4. ADR 0024 (shared typed parameters), with ADRs 0020–0023 and 0025 for the settled
    identity and compatibility boundaries
 
 ## Implement now
 
-Implement the reusable typed Parameter contract and binding-resolution boundary
-specified by CORE-03.4. Resolve permitted concrete Dataset, Dataset Version,
-Record and scalar inputs with exact, lineage-compatible and
-semantic/structural Dataset compatibility, explicit errors and resolution
-provenance. Reuse the canonical field/schema semantics and preserve the settled
-Definition/Instance identity boundary.
+Implement stable semantic row identity for resolved Sheet Instance bindings as
+specified by CORE-03.5. Keep source row identity and provenance explicit and do
+not begin multi-source composition execution.
 
 ## Do not
 
-- do not implement composition execution, row-identity execution, write-back
-  execution or materialisation;
+- do not implement composition execution, write-back execution or
+  materialisation;
 - do not add typed Instance-local-value behavior (CORE-03.8) or broaden the
   completed CORE-03.3 persistence contract without a concrete defect;
 - do not silently coerce incompatible bindings or weaken exact version,
@@ -139,3 +137,15 @@ direct-write denial and exact trigger/helper ACL proof. Focused legacy
 compatibility remains 5 files / 40 tests. CORE-03.4 is intentionally not
 implemented and now owns typed Parameter compatibility and resolution
 provenance.
+
+CORE-03.4 is complete. `src/lib/parameter.ts` is the shared typed Parameter
+contract consumed by Sheet Definitions. Migration `0075` adds authoritative
+scalar, `Record<Model>`, live Dataset and immutable Dataset Version resolution,
+with exact, same-lineage semantic-preservation and stable-field semantic
+compatibility plus persisted immutable provenance. One Definition resolves two
+compatible Datasets without hard-coded Dataset IDs. Focused domain/data tests
+pass 84/84; Definition, Instance and resolver DB/RLS tests pass 28/28; live API
+tests pass 2/2; and legacy compatibility remains 5 files / 40 tests. All 76
+migrations and the 29-step demo seed pass from fresh, as do formatting,
+typecheck, changed source-file lint and `git diff --check`. No conversion,
+vocabulary-management, row-identity or composition execution was added.

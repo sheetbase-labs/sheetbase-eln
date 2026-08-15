@@ -79,6 +79,30 @@ function bindingState(binding: Record<string, unknown>) {
   return { ...state(), bindings: [binding] }
 }
 
+function definitionWithoutParameters() {
+  const configuration: any = structuredClone(
+    validSheetDefinitionConfiguration(),
+  )
+  const column = configuration.columns[0]
+  column.source = { kind: 'declared' }
+  configuration.parameters = []
+  configuration.bindings = []
+  configuration.joins = []
+  configuration.columns = [column]
+  configuration.calculations = []
+  configuration.writeBackRules = []
+  configuration.actions = []
+  configuration.rowIdentity = { kind: 'source', columnIds: [column.id] }
+  configuration.presentation = {
+    columnOrder: [column.id],
+    hiddenColumnIds: [],
+    columnWidths: {},
+    frozenColumnCount: 0,
+    density: 'standard',
+  }
+  return configuration
+}
+
 async function createDatasetFixture(workspaceId: string, name: string) {
   const key = `sheet_instance_${crypto.randomUUID().replaceAll('-', '')}`
   const schema = (
@@ -133,7 +157,10 @@ afterAll(async () => {
 describe('Sheet Instance durability and authority', () => {
   it('rejects cross-workspace project and Notebook context while keeping Record and Instance identities distinct', async () => {
     const owner = await actor(OWNER, WS_A)
-    const createWithContext = (projectId: string | null, recordId: string | null) =>
+    const createWithContext = (
+      projectId: string | null,
+      recordId: string | null,
+    ) =>
       owner.query(
         `select to_jsonb(api.create_sheet_instance($1,'Context',null,null,$2,$3,$4::jsonb)) result`,
         [WS_A, projectId, recordId, JSON.stringify(state())],
@@ -144,7 +171,8 @@ describe('Sheet Instance durability and authority', () => {
     await expect(createWithContext(PROJECT_A, RECORD_B)).rejects.toMatchObject({
       code: 'SB073',
     })
-    const instance = (await createWithContext(PROJECT_A, RECORD_A)).rows[0].result
+    const instance = (await createWithContext(PROJECT_A, RECORD_A)).rows[0]
+      .result
     expect(instance.notebook_record_id).toBe(RECORD_A)
     expect(instance.id).not.toBe(RECORD_A)
   })
@@ -155,9 +183,10 @@ describe('Sheet Instance durability and authority', () => {
     const otherDatasetA = await createDatasetFixture(WS_A, 'Other Dataset A')
     const datasetB = await createDatasetFixture(WS_B, 'Dataset B')
     const versionA = (
-      await owner.query(`select to_jsonb(api.snapshot_dataset($1,1,'Version A')) result`, [
-        datasetA,
-      ])
+      await owner.query(
+        `select to_jsonb(api.snapshot_dataset($1,1,'Version A')) result`,
+        [datasetA],
+      )
     ).rows[0].result.id
     const createBound = (binding: Record<string, unknown>) =>
       owner.query(
@@ -194,7 +223,7 @@ describe('Sheet Instance durability and authority', () => {
     ).rejects.toMatchObject({ code: 'SB073' })
   })
 
-  it('accepts only the matching binding/parameter pair from a published source Definition Version', async () => {
+  it('rejects the legacy client-authored Definition binding path', async () => {
     const owner = await actor(OWNER, WS_A)
     const configuration = validSheetDefinitionConfiguration()
     const definition = (
@@ -224,10 +253,9 @@ describe('Sheet Instance durability and authority', () => {
           ),
         ],
       )
-    await expect(createPinned(configuration.bindings[0].parameterId)).resolves.toBeDefined()
-    await expect(createPinned(configuration.bindings[1].parameterId)).rejects.toMatchObject({
-      code: 'SB073',
-    })
+    await expect(
+      createPinned(configuration.bindings[0].parameterId),
+    ).rejects.toMatchObject({ code: 'SB074' })
   })
 
   it('rejects malformed and oversized nested state at the public DB boundary', async () => {
@@ -241,10 +269,13 @@ describe('Sheet Instance durability and authority', () => {
       createState({ ...state(), presentation: { density: 'standard' } }),
     ).rejects.toMatchObject({ code: 'SB073' })
     const oversized = state()
-    oversized.localValues[Object.keys(oversized.localValues)[0]] = Object.fromEntries(
-      Array.from({ length: 257 }, (_, index) => [crypto.randomUUID(), index]),
-    )
-    await expect(createState(oversized)).rejects.toMatchObject({ code: 'SB073' })
+    oversized.localValues[Object.keys(oversized.localValues)[0]] =
+      Object.fromEntries(
+        Array.from({ length: 257 }, (_, index) => [crypto.randomUUID(), index]),
+      )
+    await expect(createState(oversized)).rejects.toMatchObject({
+      code: 'SB073',
+    })
   })
 
   it('pins two independent Instances to one exact published Definition Version despite a later version', async () => {
@@ -252,7 +283,7 @@ describe('Sheet Instance durability and authority', () => {
     const definition = (
       await owner.query(
         `select api.create_sheet_definition($1,'instance_source','Instance source',null,$2::jsonb) result`,
-        [WS_A, JSON.stringify(validSheetDefinitionConfiguration())],
+        [WS_A, JSON.stringify(definitionWithoutParameters())],
       )
     ).rows[0].result
     await owner.query(`select api.publish_sheet_definition_version($1,1)`, [
@@ -260,17 +291,14 @@ describe('Sheet Instance durability and authority', () => {
     ])
     const createPinned = () =>
       owner.query(
-        `select to_jsonb(api.create_sheet_instance($1,'Pinned',null,$2,null,null,$3::jsonb)) result`,
+        `select to_jsonb(api.create_sheet_instance_from_definition($1,'Pinned',null,$2,null,null,$3::jsonb,'[]'::jsonb)) result`,
         [WS_A, definition.version.id, JSON.stringify(state())],
       )
     const first = (await createPinned()).rows[0].result
     const second = (await createPinned()).rows[0].result
     await owner.query(
       `select api.create_sheet_definition_version($1,1,$2::jsonb)`,
-      [
-        definition.definition.id,
-        JSON.stringify(validSheetDefinitionConfiguration()),
-      ],
+      [definition.definition.id, JSON.stringify(definitionWithoutParameters())],
     )
     expect(first.id).not.toBe(second.id)
     expect(

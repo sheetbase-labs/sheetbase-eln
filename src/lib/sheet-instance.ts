@@ -18,6 +18,15 @@ const localRow = z
     'A local row may contain at most 256 values.',
   )
 
+const datasetResolution = z
+  .object({
+    compatibilityMode: z.enum(['exact', 'lineage', 'semantic']),
+    candidateSchemaVersionId: uuid,
+    baselineSchemaVersionId: uuid.nullable(),
+    requiredFieldIds: z.array(uuid).max(64),
+  })
+  .strict()
+
 const binding = z.discriminatedUnion('kind', [
   z
     .object({
@@ -25,6 +34,7 @@ const binding = z.discriminatedUnion('kind', [
       parameterId: uuid,
       kind: z.literal('dataset'),
       datasetId: uuid,
+      resolution: datasetResolution.optional(),
       policy: z.discriminatedUnion('mode', [
         z.object({ mode: z.literal('live') }).strict(),
         z
@@ -39,14 +49,65 @@ const binding = z.discriminatedUnion('kind', [
       parameterId: uuid,
       kind: z.literal('record'),
       recordId: uuid,
+      modelKey: z
+        .string()
+        .regex(/^[a-z][a-z0-9_]{0,59}$/)
+        .optional(),
       policy: z.literal('live'),
     })
     .strict(),
 ])
 
+const parameterValue = z
+  .object({
+    parameterId: uuid,
+    kind: z.literal('scalar'),
+    valueType: z.enum([
+      'text',
+      'integer',
+      'decimal',
+      'boolean',
+      'date',
+      'timestamp',
+      'category',
+      'reference',
+    ]),
+    value: jsonScalar,
+    source: z.enum(['supplied', 'default']),
+  })
+  .strict()
+
+const resolutionProvenance = z
+  .object({
+    sourceDefinitionVersionId: uuid,
+    resolvedAt: z.string().datetime({ offset: true }),
+    resolvedByUserId: z.string().min(1).max(1_000),
+    parameters: z
+      .array(
+        z
+          .object({
+            parameterId: uuid,
+            bindingId: uuid.nullable(),
+            kind: z.enum(['scalar', 'record', 'dataset', 'dataset-version']),
+            compatibilityMode: z
+              .enum(['exact', 'lineage', 'semantic'])
+              .nullable(),
+            datasetId: uuid.nullable(),
+            datasetVersionId: uuid.nullable(),
+            candidateSchemaVersionId: uuid.nullable(),
+            baselineSchemaVersionId: uuid.nullable(),
+            requiredFieldIds: z.array(uuid).max(64),
+          })
+          .strict(),
+      )
+      .max(64),
+  })
+  .strict()
+
 export const sheetInstanceStateSchema = z
   .object({
     bindings: z.array(binding).max(64),
+    parameterValues: z.array(parameterValue).max(64).optional(),
     localFields: z.array(sheetFieldDefinitionSchema).max(256),
     localValues: z
       .record(uuid, localRow)
@@ -86,12 +147,17 @@ export const sheetInstanceStateSchema = z
         })
         .strict(),
     ]),
+    resolutionProvenance: resolutionProvenance.optional(),
   })
   .strict()
   .superRefine((value, context) => {
     for (const [path, values] of [
       ['bindings.bindingId', value.bindings.map((item) => item.bindingId)],
       ['bindings.parameterId', value.bindings.map((item) => item.parameterId)],
+      [
+        'parameterValues.parameterId',
+        value.parameterValues?.map((item) => item.parameterId) ?? [],
+      ],
       ['localFields.fieldId', value.localFields.map((item) => item.fieldId)],
     ] as const) {
       if (new Set(values).size !== values.length)

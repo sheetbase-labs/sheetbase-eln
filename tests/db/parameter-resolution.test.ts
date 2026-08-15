@@ -166,7 +166,19 @@ function configuration(
   value.columns = [
     {
       id: COLUMN_ID,
-      field: canonicalField(field),
+      field: canonicalField(
+        objectParameter
+          ? field
+          : {
+              fieldId: COLUMN_ID,
+              key: 'row',
+              logicalType: 'reference',
+              relationship: {
+                target: { kind: 'model', modelKey: 'sample' },
+                cardinality: 'one',
+              },
+            },
+      ),
       source: objectParameter
         ? {
             kind: 'bound',
@@ -176,7 +188,10 @@ function configuration(
         : { kind: 'declared' },
     },
   ]
-  value.rowIdentity = { kind: 'source', columnIds: [COLUMN_ID] }
+  value.rowIdentity = {
+    kind: objectParameter ? 'source' : 'local',
+    columnIds: [COLUMN_ID],
+  }
   value.joins = []
   value.calculations = []
   value.writeBackRules = []

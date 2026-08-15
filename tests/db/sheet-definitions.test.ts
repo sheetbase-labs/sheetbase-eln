@@ -249,8 +249,9 @@ describe('Sheet Definition persistence and authority', () => {
       )
       configuration.parameters[0].type = { kind: 'scalar', valueType }
       configuration.parameters[0].defaultValue = defaultValue
-      configuration.columns[0].source.sourceFieldId =
-        'a0000000-0000-7000-8000-000000000003'
+      const sourceFieldId = 'a0000000-0000-7000-8000-000000000003'
+      configuration.columns[0].source.sourceFieldId = sourceFieldId
+      configuration.writeBackRules[0].mappings[0].targetFieldId = sourceFieldId
       await expect(
         owner.query(
           `select api.create_sheet_definition($1,$2,'Valid parity',null,$3::jsonb)`,

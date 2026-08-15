@@ -620,6 +620,8 @@ UI was added.
 
 ## CORE-03.15 — Reuse, sharing, duplication and lifecycle proof
 
+**Status:** Complete (2026-08-15).
+
 **Blocked by:** CORE-03.2–03.14.
 
 **Goal:** Prove ADR 0020–0024 invariants end to end.
@@ -627,6 +629,20 @@ UI was added.
 **Evidence:** multiple Instances from one Definition; same Dataset reused in independent Instances; deliberate shared Instance reflects same local data; duplicate Sheet does not duplicate Dataset; retired Definition blocks new instantiation but existing Instance works; archived source remains resolvable to existing consumers; no silent upgrades.
 
 **Exit gate:** reuse/lifecycle behaviour is predictable and tested.
+
+## Completion evidence
+
+- Focused DB proof passes 4/4: multiple independent Instances remain pinned to
+  one Definition Version and reuse one Dataset; deliberate references to one
+  Instance observe the same durable local state; duplication copies only
+  Instance-owned state and retains the Dataset reference; publishing a newer
+  Version never silently upgrades existing Instances.
+- Migration `0090` closes the lifecycle gaps exposed by that proof. A retired
+  Definition blocks new instantiation, while existing Instances remain valid.
+  New live parameter resolution still requires active Datasets, but an existing
+  resolved Instance can continue reading an archived same-workspace Dataset.
+  The existing controlled creation, composition and ACL boundaries remain in
+  force.
 
 ---
 

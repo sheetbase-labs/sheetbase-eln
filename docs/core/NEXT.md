@@ -8,9 +8,9 @@
 
 ## Active task
 
-**CORE-03.15 — Reuse, sharing, duplication and lifecycle proof**
+**CORE-03.16 — Golden workflow and CORE-04 hand-off**
 
-Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-0315--reuse-sharing-duplication-and-lifecycle-proof)
+Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-0316--golden-workflow-and-core-04-hand-off)
 
 ## Completed in this PR
 
@@ -46,11 +46,12 @@ Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-0315--reuse-sharing-duplicati
   retain/map/defer reconciliation and durable provenance
 - CORE-03.14 — explicit traceable composed-Sheet materialisation into an
   immutable Dataset Version
+- CORE-03.15 — end-to-end reuse, sharing, duplication and lifecycle proof
 - product/architecture reset and accepted ADRs 0020–0026
 
 ## Required reading
 
-1. [`tasks/CORE-03.md`](./tasks/CORE-03.md), CORE-03.15 only plus CORE-03.14 boundary
+1. [`tasks/CORE-03.md`](./tasks/CORE-03.md), CORE-03.16 only plus CORE-03.15 boundary
 2. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md), Dataset and Sheet sections
 3. [`CORE_ARCHITECTURE.md`](./CORE_ARCHITECTURE.md), sections 4–9
 4. ADR 0024 (shared typed parameters), with ADRs 0020–0023 and 0025 for the settled
@@ -58,8 +59,8 @@ Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-0315--reuse-sharing-duplicati
 
 ## Implement now
 
-Prove the settled Sheet reuse, sharing, duplication and lifecycle invariants end
-to end without adding new product behavior.
+Prove the full Purification Summary golden workflow and complete the evidence-led
+CORE-04 hand-off.
 
 ## Do not
 
@@ -75,17 +76,13 @@ to end without adding new product behavior.
 - do not weaken RLS/server validation;
 - do not broaden paused specialist workspaces.
 
-CORE-03.14 is complete. Migration `0089` adds explicit preview-confirmed
-materialisation of bounded composed Sheet results through canonical Dataset
-bulk commit and immutable snapshot contracts. Output manifests include governed
-Definition columns, Instance-local fields and Instance calculations. Live
-inputs become exact snapshots, pinned inputs retain their Dataset Versions, and
-append-only provenance records source/Definition/Instance/calculation identity,
-revision and actor/time. Retry is request-digest-bound; selected schemas require
-exact compatibility; ordinary composition remains virtual. Focused DB proof
-passes 7/7, including bound + local + calculated output and immutable reload;
-focused TypeScript tests pass 2/2 with typecheck. CORE-03.15 owns invariant proof
-only.
+CORE-03.15 is complete. Focused DB proof passes 4/4 for independent Instances,
+shared Instance state, Dataset reuse without duplication, exact Definition
+Version pinning and lifecycle behavior. Migration `0090` blocks new
+instantiation from retired Definitions while preserving existing consumers, and
+allows existing resolved Instances to read archived same-workspace Dataset
+sources without weakening active-only new parameter resolution. CORE-03.16 owns
+the golden workflow and CORE-04 hand-off only.
 
 ## Hand-off evidence
 

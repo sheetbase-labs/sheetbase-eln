@@ -8,9 +8,9 @@
 
 ## Active task
 
-**CORE-03.7 — Implement bound columns and provenance inspection**
+**CORE-03.8 — Implement durable local/ad hoc fields and values**
 
-Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-037--implement-bound-columns-and-provenance-inspection)
+Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-038--implement-durable-localad-hoc-fields-and-values)
 
 ## Completed in this PR
 
@@ -33,6 +33,7 @@ Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-037--implement-bound-columns-
 - CORE-03.4 — shared typed parameters and binding compatibility
 - CORE-03.5 — stable row identity
 - CORE-03.6 — constrained multi-source joins
+- CORE-03.7 — bound-column projection and provenance inspection
 - product/architecture reset and accepted ADRs 0020–0026
 
 ## Required reading
@@ -45,16 +46,15 @@ Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-037--implement-bound-columns-
 
 ## Implement now
 
-Project bound Dataset/Model/relationship fields from the bounded CORE-03.6
-composition result. Keep source field, binding and Definition provenance
-inspectable without making a rendered grid authoritative.
+Implement canonical Instance-local fields and values keyed by composed row
+identity. Preserve the CORE-03.7 governed projection as read-only; do not
+reimplement bound field semantics or source provenance.
 
 ## Do not
 
-- do not implement local fields, calculations, write-back execution or
-  materialisation;
-- do not add typed Instance-local-value behavior (CORE-03.8) or broaden the
-  completed CORE-03.3 persistence contract without a concrete defect;
+- do not implement calculations, write-back execution or materialisation;
+- do not alter the completed CORE-03.3 persistence contract beyond the
+  concrete durable local-field/value behavior required here;
 - do not silently coerce incompatible bindings or weaken exact version,
   lineage, quantity, vocabulary or stable semantic identity checks;
 - do not redesign architecture already settled by ADRs 0020–0026;
@@ -163,3 +163,11 @@ derives the existing `sb-row-v1` keys from the immutable resolved identity
 spec; it does not render bound columns. CORE-03.7 owns that projection and UI.
 The focused DB composition contract passes 3/3 after migration `0077`; focused
 composition-client, row-identity and Definition contracts pass 79/79.
+
+CORE-03.7 is complete. Migration `0078` keeps the bounded composition core
+private and returns its pinned immutable Definition configuration plus
+same-workspace active Record sources. The reusable bound-column projection
+resolves only stable binding/field UUIDs, distinguishes Dataset-row and Record
+provenance, exposes present-null versus unmatched states, and remains
+read-only. Focused DB and projection/client suites pass 4/4 each. No placeholder
+composed-Sheet route or write path was added; CORE-03.8 owns durable local data.

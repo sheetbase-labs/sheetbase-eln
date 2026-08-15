@@ -29,6 +29,7 @@ describe('fetchComposedSheetRows', () => {
               identityValues: [ROW],
               sources: [
                 {
+                  sourceKind: 'dataset',
                   bindingId: ID,
                   datasetId: ID,
                   rowId: ROW,

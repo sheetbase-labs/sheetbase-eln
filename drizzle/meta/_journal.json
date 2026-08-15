@@ -547,6 +547,13 @@
       "when": 1787001600000,
       "tag": "0077_core_036_sheet_composition",
       "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1787088000000,
+      "tag": "0078_core_037_bound_column_projection",
+      "breakpoints": true
     }
   ]
 }

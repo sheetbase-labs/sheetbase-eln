@@ -1,6 +1,6 @@
 # CORE-03 — Sheet Definition and Compositional Sheet Instance
 
-**Status:** In progress — CORE-03.6 complete (2026-08-15)
+**Status:** In progress — CORE-03.7 complete (2026-08-15)
 **Blocked by:** CORE-02 epic exit gate (met).
 **Normative decisions:** ADRs 0020–0026.
 
@@ -307,6 +307,34 @@ or write-back executor is included.
 **Tests:** Dataset field, Model field, relationship, permission/read-only, rename/reorder stability.
 
 **Exit gate:** a user can identify where a displayed governed value came from and its authoritative target.
+
+## Completion evidence
+
+- Migration `0078` retains the bounded CORE-03.6 composition function as a
+  private implementation and returns the pinned immutable Definition
+  configuration with the authenticated composition response. It does not alter
+  join cardinality, row/source provenance, bounds, RLS or create a write path.
+- `sheet-bound-columns.ts` projects only `bound` Definition columns by stable
+  binding and source-field UUID. Each result exposes its canonical
+  `FieldDefinition`, editor presentation, stable ID/key/label, explicit
+  Definition/binding/Dataset/row/revision/field provenance and an honest
+  authenticated-membership read-only capability state. An unmatched join is a
+  distinct value state from a present `null`.
+- Resolved `Record<Model>` bindings are revalidated as active same-workspace
+  Records for every bounded query and contribute a constant `record` source
+  using active canonical `record_field_definitions`/`custom_fields`; they do
+  not participate in or expand Dataset joins. Dataset and Record provenance are
+  discriminated, so a Dataset row UUID is never represented as a Record ID.
+- There is no canonical composed-Sheet route yet, so the reusable projection
+  and inspector schema are the UI boundary. Existing scientific Sheet and
+  Dataset Explorer surfaces remain unchanged; no placeholder grid, local
+  fields, calculations or write-back was introduced.
+- Focused projection tests cover Dataset, Model and relationship values,
+  null-versus-unmatched, read-only state, rename/reorder row-key stability and
+  malformed binding/source maps. The existing composition client contract
+  remains compatible. Migration `0078` applies successfully; focused DB
+  composition/Record projection passes 4/4 and projection/client tests pass
+  4/4.
 
 ---
 

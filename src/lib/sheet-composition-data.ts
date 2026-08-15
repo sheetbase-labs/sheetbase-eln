@@ -3,10 +3,15 @@ import { z } from 'zod'
 import { createDataClient } from './data-client'
 import type { DataClient } from './data-client'
 import { rowIdentityKey } from './row-identity'
-import { sheetDefinitionUuidSchema as uuid } from './sheet-definition'
+import { projectBoundColumns } from './sheet-bound-columns'
+import {
+  parseSheetDefinitionConfiguration,
+  sheetDefinitionUuidSchema as uuid,
+} from './sheet-definition'
 
-const sourceSchema = z
+const datasetSourceSchema = z
   .object({
+    sourceKind: z.literal('dataset'),
     bindingId: uuid,
     datasetId: uuid,
     rowId: uuid.nullable(),
@@ -16,9 +21,26 @@ const sourceSchema = z
   })
   .strict()
 
+const recordSourceSchema = z
+  .object({
+    sourceKind: z.literal('record'),
+    bindingId: uuid,
+    recordId: uuid,
+    matched: z.literal(true),
+    values: z.record(z.string(), z.unknown()),
+  })
+  .strict()
+
+const sourceSchema = z.discriminatedUnion('sourceKind', [
+  datasetSourceSchema,
+  recordSourceSchema,
+])
+
 const wireSchema = z
   .object({
     instanceId: uuid,
+    definitionVersionId: uuid.optional(),
+    definitionConfiguration: z.unknown().optional(),
     revision: z.number().int().positive(),
     offset: z.number().int().min(0),
     limit: z.number().int().min(1).max(200),
@@ -59,7 +81,12 @@ export type ComposedSheetRow = z.infer<typeof wireSchema>['rows'][number] & {
   rowKey: string
 }
 
-/** Bounded virtual composition; this deliberately does not project Sheet columns. */
+/**
+ * Bounded server-authoritative composition with the pinned Definition's bound
+ * column projection. Source rows remain available for existing CORE-03.6
+ * consumers; the `boundProjection` adds canonical display metadata and value
+ * provenance without adding a write path.
+ */
 export async function fetchComposedSheetRows(
   instanceId: string,
   options: { limit?: number; offset?: number } = {},
@@ -77,8 +104,20 @@ export async function fetchComposedSheetRows(
   // implementation rather than duplicating its encoding in SQL.
   const rowKey = (row: z.infer<typeof wireSchema>['rows'][number]) =>
     rowIdentityKey(result.identity, row.identityValues)
+  const rows = result.rows.map((row) => ({ ...row, rowKey: rowKey(row) }))
   return {
     ...result,
-    rows: result.rows.map((row) => ({ ...row, rowKey: rowKey(row) })),
+    rows,
+    ...(result.definitionVersionId && result.definitionConfiguration
+      ? {
+          boundProjection: projectBoundColumns({
+            definitionVersionId: result.definitionVersionId,
+            configuration: parseSheetDefinitionConfiguration(
+              result.definitionConfiguration,
+            ),
+            rows,
+          }),
+        }
+      : {}),
   }
 }

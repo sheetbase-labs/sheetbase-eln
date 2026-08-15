@@ -281,6 +281,13 @@ describe('server-authoritative Parameter resolution', () => {
     const first = await dataset(WS_A, fixture.versions[0])
     const second = await dataset(WS_A, fixture.versions[0])
     const wrong = await dataset(WS_A, fixture.versions[1])
+    const inactive = await dataset(WS_A, fixture.versions[0])
+    await migrator.query(
+      `update api.datasets set lifecycle='archived' where id=$1`,
+      [inactive],
+    )
+    const otherWorkspaceSchema = await schema(WS_B, [baselineFields()])
+    const otherWorkspace = await dataset(WS_B, otherWorkspaceSchema.versions[0])
     const definition = await publish(
       owner,
       configuration({
@@ -308,6 +315,13 @@ describe('server-authoritative Parameter resolution', () => {
         { parameterId: PARAMETER_ID, kind: 'dataset', datasetId: wrong },
       ]),
     ).rejects.toMatchObject({ code: 'SB074' })
+    for (const datasetId of [inactive, otherWorkspace]) {
+      await expect(
+        instantiate(owner, definition, [
+          { parameterId: PARAMETER_ID, kind: 'dataset', datasetId },
+        ]),
+      ).rejects.toMatchObject({ code: 'SB074' })
+    }
   })
 
   it('accepts compatible lineage and rejects removed/type/cardinality/quantity/category/reference changes', async () => {
@@ -475,6 +489,51 @@ describe('server-authoritative Parameter resolution', () => {
       ],
     )
     expect(result.rows[0]).toEqual({ renamed: true, mismatched: false })
+  })
+
+  it('preserves embedded category option IDs and machine keys while allowing labels and active supersets', async () => {
+    const baseline = baselineFields()[1].category
+    const baselineOption = (
+      baseline?.options as Array<Record<string, unknown>>
+    )[0]
+    const renamed = {
+      ...baseline,
+      options: [{ ...baselineOption, label: 'Renamed label' }],
+    }
+    const changedKey = {
+      ...baseline,
+      options: [{ ...baselineOption, key: 'changed_key' }],
+    }
+    const superset = {
+      ...renamed,
+      options: [
+        ...(renamed.options as Array<Record<string, unknown>>),
+        {
+          id: OTHER_OPTION_ID,
+          key: 'review',
+          label: 'Review',
+          displayOrder: 1,
+          lifecycle: 'active',
+        },
+      ],
+    }
+    const result = await migrator.query(
+      `select
+        internal.category_semantics_compatible($1::jsonb,$2::jsonb) renamed,
+        internal.category_semantics_compatible($1::jsonb,$3::jsonb) changed_key,
+        internal.category_semantics_compatible($1::jsonb,$4::jsonb) superset`,
+      [
+        JSON.stringify(baseline),
+        JSON.stringify(renamed),
+        JSON.stringify(changedKey),
+        JSON.stringify(superset),
+      ],
+    )
+    expect(result.rows[0]).toEqual({
+      renamed: true,
+      changed_key: false,
+      superset: true,
+    })
   })
 
   it('pins Dataset Version schema provenance and does not admit it to a live Dataset parameter', async () => {
@@ -650,10 +709,20 @@ describe('server-authoritative Parameter resolution', () => {
     expect(instance.state.resolutionProvenance.resolvedByUserId).not.toBe(
       'forged',
     )
+    const updated = (
+      await owner.query(
+        `select to_jsonb(api.update_sheet_instance($1,1,$2::jsonb)) result`,
+        [instance.id, JSON.stringify(emptyState())],
+      )
+    ).rows[0].result
+    expect(updated.state.bindings).toEqual(instance.state.bindings)
+    expect(updated.state.resolutionProvenance).toEqual(
+      instance.state.resolutionProvenance,
+    )
     const duplicate = (
       await owner.query(
-        `select to_jsonb(api.duplicate_sheet_instance($1,1,'Copy')) result`,
-        [instance.id],
+        `select to_jsonb(api.duplicate_sheet_instance($1,2,'Copy')) result`,
+        [updated.id],
       )
     ).rows[0].result
     expect(duplicate.state.resolutionProvenance).toEqual(
@@ -667,6 +736,22 @@ describe('server-authoritative Parameter resolution', () => {
         )
       ).rows[0].provenance,
     ).toEqual(instance.state.resolutionProvenance)
+    await migrator.query('begin')
+    try {
+      await migrator.query(
+        `select set_config('sheetbase.sheet_instance_write','rpc-v1',true)`,
+      )
+      await expect(
+        migrator.query(
+          `update api.sheet_instances
+           set state=jsonb_set(state,'{resolutionProvenance,parameters}','[{"parameterId":"not-a-uuid"}]'::jsonb)
+           where id=$1`,
+          [instance.id],
+        ),
+      ).rejects.toMatchObject({ code: 'SB073' })
+    } finally {
+      await migrator.query('rollback')
+    }
     await expect(
       owner.query(
         `select internal.resolve_sheet_parameters($1,$2,'[]'::jsonb)`,

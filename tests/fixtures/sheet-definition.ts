@@ -221,6 +221,50 @@ export const sheetDefinitionInvalidCases: Array<{
     },
   },
   {
+    name: 'invalid Parameter regex',
+    mutate: (value) => {
+      value.parameters[0].type = { kind: 'scalar', valueType: 'text' }
+      value.parameters[0].constraints = { pattern: '[' }
+    },
+  },
+  {
+    name: 'numeric Parameter with ignored text constraint',
+    mutate: (value) => {
+      value.parameters[0].type = { kind: 'scalar', valueType: 'decimal' }
+      value.parameters[0].constraints = { minLength: 1 }
+    },
+  },
+  {
+    name: 'text Parameter with ignored numeric constraint',
+    mutate: (value) => {
+      value.parameters[0].type = { kind: 'scalar', valueType: 'text' }
+      value.parameters[0].constraints = { min: 1 }
+    },
+  },
+  {
+    name: 'Parameter default outside numeric constraint',
+    mutate: (value) => {
+      value.parameters[0].type = { kind: 'scalar', valueType: 'integer' }
+      value.parameters[0].defaultValue = 11
+      value.parameters[0].constraints = { max: 10 }
+    },
+  },
+  {
+    name: 'Parameter default outside allowed values',
+    mutate: (value) => {
+      value.parameters[0].type = { kind: 'scalar', valueType: 'boolean' }
+      value.parameters[0].defaultValue = true
+      value.parameters[0].constraints = { allowedValues: [false] }
+    },
+  },
+  {
+    name: 'baseline-free semantic field missing its bound column',
+    mutate: (value) =>
+      (value.parameters[1].type.contract.requiredFieldIds = [
+        '40000000-0000-4000-8000-000000000099',
+      ]),
+  },
+  {
     name: 'FieldDefinition default type mismatch',
     mutate: (value) => (value.columns[0].field.defaultValue = 12),
   },

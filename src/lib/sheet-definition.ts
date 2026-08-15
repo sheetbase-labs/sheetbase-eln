@@ -426,6 +426,31 @@ const configurationSchema = z
         'Unknown parameter ID.',
       ),
     )
+    configuration.parameters.forEach((parameter, parameterIndex) => {
+      if (
+        (parameter.type.kind === 'dataset' ||
+          parameter.type.kind === 'dataset-version') &&
+        parameter.type.contract.mode === 'semantic' &&
+        parameter.type.contract.baselineSchemaVersionId === undefined
+      ) {
+        const parameterBindings = configuration.bindings.filter(
+          (binding) => binding.parameterId === parameter.id,
+        )
+        requireRef(
+          parameterBindings.length === 1 &&
+            parameter.type.contract.requiredFieldIds.every((fieldId) =>
+              configuration.columns.some(
+                (column) =>
+                  column.source.kind === 'bound' &&
+                  column.source.bindingId === parameterBindings[0]?.id &&
+                  column.source.sourceFieldId === fieldId,
+              ),
+            ),
+          ['parameters', parameterIndex, 'type', 'contract'],
+          'Semantic contracts without a baseline require one binding and a bound column for every required field ID.',
+        )
+      }
+    })
     configuration.rowIdentity.columnIds.forEach((id, index) =>
       requireRef(
         columnIds.has(id),

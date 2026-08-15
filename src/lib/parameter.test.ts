@@ -46,10 +46,23 @@ describe('shared Parameter contract', () => {
     }
   })
 
-  it('rejects invalid constraints, typed defaults and object defaults', () => {
+  it('rejects invalid, inapplicable and unsatisfied constraints', () => {
     const invalid = [
       { ...scalar(), constraints: { min: 2, max: 1 } },
       { ...scalar(), defaultValue: '1.5' },
+      { ...scalar(), defaultValue: 11, constraints: { max: 10 } },
+      {
+        ...scalar(),
+        defaultValue: 1.5,
+        constraints: { allowedValues: [2] },
+      },
+      { ...scalar(), constraints: { minLength: 1 } },
+      {
+        ...scalar(),
+        type: { kind: 'scalar', valueType: 'text' },
+        defaultValue: 'abc',
+        constraints: { min: 1 },
+      },
       {
         ...scalar(),
         type: { kind: 'record', modelKey: 'sample' },
@@ -57,6 +70,7 @@ describe('shared Parameter contract', () => {
         constraints: {},
       },
       { ...scalar(), constraints: { pattern: '[' } },
+      { ...scalar(), constraints: { min: Number.POSITIVE_INFINITY } },
     ]
     expect(invalid.every((value) => !safeParseParameter(value).success)).toBe(
       true,

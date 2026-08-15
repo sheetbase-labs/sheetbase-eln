@@ -7,6 +7,22 @@
 ALTER FUNCTION internal.validate_sheet_definition_configuration(jsonb)
   RENAME TO validate_sheet_definition_configuration_core032;
 
+CREATE FUNCTION internal.scalar_parameter_satisfies(p_type text,p_value jsonb,p_constraints jsonb)
+RETURNS boolean LANGUAGE plpgsql IMMUTABLE SET search_path='' AS $$
+DECLARE text_value text;
+BEGIN
+  IF NOT internal.sheet_definition_scalar_matches(p_type,p_value) THEN RETURN false; END IF;
+  text_value:=p_value#>>'{}';
+  IF p_constraints?'allowedValues' AND NOT p_constraints->'allowedValues' @> jsonb_build_array(p_value) THEN RETURN false; END IF;
+  IF p_constraints?'min' AND p_type IN ('integer','decimal') AND text_value::numeric<(p_constraints->>'min')::numeric THEN RETURN false; END IF;
+  IF p_constraints?'max' AND p_type IN ('integer','decimal') AND text_value::numeric>(p_constraints->>'max')::numeric THEN RETURN false; END IF;
+  IF p_constraints?'minLength' AND p_type='text' AND length(text_value)<(p_constraints->>'minLength')::integer THEN RETURN false; END IF;
+  IF p_constraints?'maxLength' AND p_type='text' AND length(text_value)>(p_constraints->>'maxLength')::integer THEN RETURN false; END IF;
+  IF p_constraints?'pattern' AND p_type='text' AND text_value !~ (p_constraints->>'pattern') THEN RETURN false; END IF;
+  RETURN true;
+EXCEPTION WHEN others THEN RETURN false;
+END $$;
+
 CREATE FUNCTION internal.validate_parameter(p_parameter jsonb)
 RETURNS void LANGUAGE plpgsql IMMUTABLE SET search_path='' AS $$
 DECLARE type_spec jsonb; contract jsonb; constraints jsonb; value_type text; item jsonb;
@@ -29,15 +45,25 @@ BEGIN
     IF value_type NOT IN ('text','integer','decimal','boolean','date','timestamp','category','reference')
     THEN RAISE EXCEPTION 'invalid scalar Parameter type' USING ERRCODE='SB071'; END IF;
     PERFORM internal.assert_sheet_definition_object(constraints,'{}',ARRAY['min','max','minLength','maxLength','pattern','allowedValues'],'parameter.constraints');
-    IF (constraints?'min' AND jsonb_typeof(constraints->'min')<>'number') OR (constraints?'max' AND jsonb_typeof(constraints->'max')<>'number')
+    IF (constraints?'min' AND NOT internal.sheet_definition_scalar_matches('decimal',constraints->'min')) OR (constraints?'max' AND NOT internal.sheet_definition_scalar_matches('decimal',constraints->'max'))
        OR (constraints?'minLength' AND (jsonb_typeof(constraints->'minLength')<>'number' OR (constraints->>'minLength')::numeric<>trunc((constraints->>'minLength')::numeric) OR (constraints->>'minLength')::numeric NOT BETWEEN 0 AND 100000))
        OR (constraints?'maxLength' AND (jsonb_typeof(constraints->'maxLength')<>'number' OR (constraints->>'maxLength')::numeric<>trunc((constraints->>'maxLength')::numeric) OR (constraints->>'maxLength')::numeric NOT BETWEEN 0 AND 100000))
        OR (constraints?'pattern' AND (jsonb_typeof(constraints->'pattern')<>'string' OR length(constraints->>'pattern')>1000))
        OR (constraints?'allowedValues' AND (jsonb_typeof(constraints->'allowedValues')<>'array' OR jsonb_array_length(constraints->'allowedValues')>256))
     THEN RAISE EXCEPTION 'invalid scalar Parameter constraints' USING ERRCODE='SB071'; END IF;
+    IF value_type NOT IN ('integer','decimal') AND (constraints?'min' OR constraints?'max')
+       OR value_type<>'text' AND (constraints?'minLength' OR constraints?'maxLength' OR constraints?'pattern')
+    THEN RAISE EXCEPTION 'scalar Parameter constraint does not apply to its type' USING ERRCODE='SB071'; END IF;
     IF constraints?'min' AND constraints?'max' AND (constraints->>'min')::numeric>(constraints->>'max')::numeric
        OR constraints?'minLength' AND constraints?'maxLength' AND (constraints->>'minLength')::integer>(constraints->>'maxLength')::integer
     THEN RAISE EXCEPTION 'invalid scalar Parameter constraint bounds' USING ERRCODE='SB071'; END IF;
+    IF constraints?'pattern' THEN
+      BEGIN
+        PERFORM '' ~ (constraints->>'pattern');
+      EXCEPTION WHEN invalid_regular_expression THEN
+        RAISE EXCEPTION 'invalid scalar Parameter regular expression' USING ERRCODE='SB071';
+      END;
+    END IF;
     IF p_parameter?'defaultValue' AND NOT internal.sheet_definition_scalar_matches(value_type,p_parameter->'defaultValue')
     THEN RAISE EXCEPTION 'scalar Parameter default does not match its type' USING ERRCODE='SB071'; END IF;
     IF constraints?'allowedValues' THEN
@@ -45,6 +71,8 @@ BEGIN
         IF NOT internal.sheet_definition_scalar_matches(value_type,item) THEN RAISE EXCEPTION 'allowed scalar value does not match its type' USING ERRCODE='SB071'; END IF;
       END LOOP;
     END IF;
+    IF p_parameter?'defaultValue' AND NOT internal.scalar_parameter_satisfies(value_type,p_parameter->'defaultValue',constraints)
+    THEN RAISE EXCEPTION 'scalar Parameter default violates its constraints' USING ERRCODE='SB071'; END IF;
   ELSIF type_spec->>'kind'='record' THEN
     PERFORM internal.assert_sheet_definition_object(type_spec,ARRAY['kind','modelKey'],ARRAY['kind','modelKey'],'parameter.type');
     IF type_spec->>'modelKey' !~ '^[a-z][a-z0-9_]{0,59}$' THEN RAISE EXCEPTION 'invalid Record Model contract' USING ERRCODE='SB071'; END IF;
@@ -72,7 +100,7 @@ END $$;
 
 CREATE FUNCTION internal.validate_sheet_definition_configuration(p_config jsonb)
 RETURNS void LANGUAGE plpgsql IMMUTABLE SET search_path='' AS $$
-DECLARE parameter_item jsonb; transformed jsonb; transformed_parameters jsonb;
+DECLARE parameter_item jsonb; transformed jsonb; transformed_parameters jsonb; binding_id text; field_id text;
 BEGIN
   IF jsonb_typeof(p_config->'parameters') IS DISTINCT FROM 'array' THEN
     PERFORM internal.validate_sheet_definition_configuration_core032(p_config);
@@ -92,6 +120,21 @@ BEGIN
   FROM jsonb_array_elements(p_config->'parameters') element;
   transformed:=jsonb_set(p_config,'{parameters}',transformed_parameters);
   PERFORM internal.validate_sheet_definition_configuration_core032(transformed);
+  FOR parameter_item IN SELECT value FROM jsonb_array_elements(p_config->'parameters') LOOP
+    IF parameter_item->'type'->'contract'->>'mode'='semantic' AND NOT (parameter_item->'type'->'contract'?'baselineSchemaVersionId') THEN
+      IF (SELECT count(*) FROM jsonb_array_elements(p_config->'bindings') binding WHERE binding->>'parameterId'=parameter_item->>'id')<>1
+      THEN RAISE EXCEPTION 'baseline-free semantic contract requires exactly one binding' USING ERRCODE='SB071'; END IF;
+      SELECT binding->>'id' INTO binding_id FROM jsonb_array_elements(p_config->'bindings') binding WHERE binding->>'parameterId'=parameter_item->>'id';
+      FOR field_id IN SELECT value FROM jsonb_array_elements_text(parameter_item->'type'->'contract'->'requiredFieldIds') LOOP
+        IF NOT EXISTS(
+          SELECT 1 FROM jsonb_array_elements(p_config->'columns') column_item
+          WHERE column_item->'source'->>'kind'='bound'
+            AND column_item->'source'->>'bindingId'=binding_id
+            AND column_item->'source'->>'sourceFieldId'=field_id)
+        THEN RAISE EXCEPTION 'baseline-free semantic field requires a bound column' USING ERRCODE='SB071'; END IF;
+      END LOOP;
+    END IF;
+  END LOOP;
 END $$;
 
 CREATE FUNCTION internal.category_semantics_compatible(p_baseline jsonb,p_candidate jsonb)
@@ -104,7 +147,7 @@ RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path='' AS $$
       SELECT 1 FROM jsonb_array_elements(coalesce(p_baseline->'options','[]'::jsonb)) option
       WHERE option->>'lifecycle'='active'
         AND NOT EXISTS(SELECT 1 FROM jsonb_array_elements(coalesce(p_candidate->'options','[]'::jsonb)) candidate
-          WHERE candidate->>'id'=option->>'id' AND candidate->>'lifecycle'='active'))
+          WHERE candidate->>'id'=option->>'id' AND candidate->>'key'=option->>'key' AND candidate->>'lifecycle'='active'))
     ELSE false
   END
 $$;
@@ -173,28 +216,12 @@ BEGIN
   RETURN jsonb_build_object('compatibilityMode',mode,'candidateSchemaVersionId',p_candidate_version,'baselineSchemaVersionId',baseline,'requiredFieldIds',required_ids);
 END $$;
 
-CREATE FUNCTION internal.scalar_parameter_satisfies(p_type text,p_value jsonb,p_constraints jsonb)
-RETURNS boolean LANGUAGE plpgsql IMMUTABLE SET search_path='' AS $$
-DECLARE text_value text;
-BEGIN
-  IF NOT internal.sheet_definition_scalar_matches(p_type,p_value) THEN RETURN false; END IF;
-  text_value:=p_value#>>'{}';
-  IF p_constraints?'allowedValues' AND NOT p_constraints->'allowedValues' @> jsonb_build_array(p_value) THEN RETURN false; END IF;
-  IF p_constraints?'min' AND p_type IN ('integer','decimal') AND text_value::numeric<(p_constraints->>'min')::numeric THEN RETURN false; END IF;
-  IF p_constraints?'max' AND p_type IN ('integer','decimal') AND text_value::numeric>(p_constraints->>'max')::numeric THEN RETURN false; END IF;
-  IF p_constraints?'minLength' AND p_type='text' AND length(text_value)<(p_constraints->>'minLength')::integer THEN RETURN false; END IF;
-  IF p_constraints?'maxLength' AND p_type='text' AND length(text_value)>(p_constraints->>'maxLength')::integer THEN RETURN false; END IF;
-  IF p_constraints?'pattern' AND p_type='text' AND text_value !~ (p_constraints->>'pattern') THEN RETURN false; END IF;
-  RETURN true;
-EXCEPTION WHEN others THEN RETURN false;
-END $$;
-
 ALTER FUNCTION internal.validate_sheet_instance_state(jsonb)
   RENAME TO validate_sheet_instance_state_core033;
 
 CREATE FUNCTION internal.validate_sheet_instance_state(p_state jsonb)
 RETURNS void LANGUAGE plpgsql SET search_path='' AS $$
-DECLARE legacy jsonb; stripped_bindings jsonb; item jsonb; ids text[]:='{}'; provenance jsonb;
+DECLARE legacy jsonb; stripped_bindings jsonb; item jsonb; nested jsonb; ids text[]:='{}'; provenance jsonb; field_id text; uuid_key text;
 BEGIN
   SELECT coalesce(jsonb_agg(value-'resolution'-'modelKey'),'[]'::jsonb) INTO stripped_bindings FROM jsonb_array_elements(coalesce(p_state->'bindings','[]'::jsonb));
   legacy:=(p_state-'parameterValues'-'resolutionProvenance')||jsonb_build_object('bindings',stripped_bindings);
@@ -208,11 +235,44 @@ BEGIN
     END LOOP;
   END IF;
   IF p_state?'resolutionProvenance' THEN
+    BEGIN
     provenance:=p_state->'resolutionProvenance';
     PERFORM internal.assert_sheet_definition_object(provenance,ARRAY['sourceDefinitionVersionId','resolvedAt','resolvedByUserId','parameters'],ARRAY['sourceDefinitionVersionId','resolvedAt','resolvedByUserId','parameters'],'resolutionProvenance');
+    IF jsonb_typeof(provenance->'sourceDefinitionVersionId')<>'string' OR jsonb_typeof(provenance->'resolvedAt')<>'string' OR jsonb_typeof(provenance->'resolvedByUserId')<>'string'
+    THEN RAISE EXCEPTION 'invalid resolution provenance metadata types' USING ERRCODE='SB073'; END IF;
     PERFORM internal.sheet_definition_uuid(provenance->>'sourceDefinitionVersionId','resolutionProvenance.sourceDefinitionVersionId');
-    PERFORM (provenance->>'resolvedAt')::timestamptz;
-    IF length(provenance->>'resolvedByUserId') NOT BETWEEN 1 AND 1000 OR jsonb_typeof(provenance->'parameters')<>'array' OR jsonb_array_length(provenance->'parameters')>64 THEN RAISE EXCEPTION 'invalid resolution provenance' USING ERRCODE='SB073'; END IF;
+    IF NOT internal.sheet_definition_timestamp_matches(provenance->>'resolvedAt') OR length(provenance->>'resolvedByUserId') NOT BETWEEN 1 AND 1000 OR jsonb_typeof(provenance->'parameters')<>'array' OR jsonb_array_length(provenance->'parameters')>64
+    THEN RAISE EXCEPTION 'invalid resolution provenance' USING ERRCODE='SB073'; END IF;
+    FOR nested IN SELECT value FROM jsonb_array_elements(provenance->'parameters') LOOP
+      PERFORM internal.assert_sheet_definition_object(
+        nested,
+        ARRAY['parameterId','bindingId','kind','compatibilityMode','datasetId','datasetVersionId','candidateSchemaVersionId','baselineSchemaVersionId','requiredFieldIds'],
+        ARRAY['parameterId','bindingId','kind','compatibilityMode','datasetId','datasetVersionId','candidateSchemaVersionId','baselineSchemaVersionId','requiredFieldIds'],
+        'resolutionProvenance.parameters');
+      IF jsonb_typeof(nested->'parameterId')<>'string' OR jsonb_typeof(nested->'kind')<>'string' OR nested->>'kind' NOT IN ('scalar','record','dataset','dataset-version')
+         OR jsonb_typeof(nested->'bindingId') NOT IN ('string','null')
+         OR jsonb_typeof(nested->'compatibilityMode') NOT IN ('string','null')
+         OR (jsonb_typeof(nested->'compatibilityMode')='string' AND nested->>'compatibilityMode' NOT IN ('exact','lineage','semantic'))
+         OR jsonb_typeof(nested->'datasetId') NOT IN ('string','null')
+         OR jsonb_typeof(nested->'datasetVersionId') NOT IN ('string','null')
+         OR jsonb_typeof(nested->'candidateSchemaVersionId') NOT IN ('string','null')
+         OR jsonb_typeof(nested->'baselineSchemaVersionId') NOT IN ('string','null')
+         OR jsonb_typeof(nested->'requiredFieldIds')<>'array'
+         OR jsonb_array_length(nested->'requiredFieldIds')>64
+      THEN RAISE EXCEPTION 'invalid resolution provenance parameter shape' USING ERRCODE='SB073'; END IF;
+      PERFORM internal.sheet_definition_uuid(nested->>'parameterId','resolutionProvenance.parameters.parameterId');
+      FOREACH uuid_key IN ARRAY ARRAY['bindingId','datasetId','datasetVersionId','candidateSchemaVersionId','baselineSchemaVersionId'] LOOP
+        IF jsonb_typeof(nested->uuid_key)='string' THEN
+          PERFORM internal.sheet_definition_uuid(nested->>uuid_key,'resolutionProvenance.parameters.'||uuid_key);
+        END IF;
+      END LOOP;
+      FOR field_id IN SELECT value FROM jsonb_array_elements_text(nested->'requiredFieldIds') LOOP
+        PERFORM internal.sheet_definition_uuid(field_id,'resolutionProvenance.parameters.requiredFieldIds');
+      END LOOP;
+    END LOOP;
+    EXCEPTION WHEN SQLSTATE 'SB071' THEN
+      RAISE EXCEPTION 'invalid nested resolution provenance' USING ERRCODE='SB073';
+    END;
   END IF;
 END $$;
 
@@ -297,24 +357,30 @@ END $$;
 
 CREATE OR REPLACE FUNCTION api.create_sheet_instance(p_workspace_id uuid,p_name text,p_description text,p_source_definition_version_id uuid,p_project_id uuid,p_notebook_record_id uuid,p_state jsonb)
 RETURNS api.sheet_instances LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
-DECLARE result api.sheet_instances; actor text:=api.current_user_id();
+DECLARE result api.sheet_instances; actor text:=api.current_user_id(); stripped_bindings jsonb;
 BEGIN
  IF p_source_definition_version_id IS NOT NULL THEN RAISE EXCEPTION 'Definition-derived Instances require authoritative parameter resolution' USING ERRCODE='SB074'; END IF;
  IF NOT api.is_workspace_member(p_workspace_id) THEN RAISE EXCEPTION 'workspace member required' USING ERRCODE='42501'; END IF;
  IF length(btrim(p_name)) NOT BETWEEN 1 AND 200 OR (p_description IS NOT NULL AND length(p_description)>2000) THEN RAISE EXCEPTION 'invalid Sheet Instance name or description' USING ERRCODE='SB073'; END IF;
- p_state:=jsonb_set(p_state-'parameterValues'-'resolutionProvenance','{provenance}',jsonb_build_object('createdFrom','ad_hoc'),true);
+ SELECT coalesce(jsonb_agg(value-'resolution'-'modelKey'),'[]'::jsonb) INTO stripped_bindings FROM jsonb_array_elements(coalesce(p_state->'bindings','[]'::jsonb));
+ p_state:=jsonb_set((p_state-'parameterValues'-'resolutionProvenance')||jsonb_build_object('bindings',stripped_bindings),'{provenance}',jsonb_build_object('createdFrom','ad_hoc'),true);
  PERFORM internal.validate_sheet_instance_state(p_state); PERFORM set_config('sheetbase.sheet_instance_write','rpc-v1',true);
  INSERT INTO api.sheet_instances(workspace_id,name,description,project_id,notebook_record_id,state,created_by_user_id,updated_by_user_id) VALUES(p_workspace_id,btrim(p_name),nullif(btrim(p_description),''),p_project_id,p_notebook_record_id,p_state,actor,actor) RETURNING * INTO result; RETURN result;
 END $$;
 
 CREATE OR REPLACE FUNCTION api.update_sheet_instance(p_instance_id uuid,p_expected_revision bigint,p_state jsonb)
 RETURNS api.sheet_instances LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
-DECLARE result api.sheet_instances; actor text:=api.current_user_id();
+DECLARE result api.sheet_instances; actor text:=api.current_user_id(); stripped_bindings jsonb;
 BEGIN
  SELECT * INTO result FROM api.sheet_instances WHERE id=p_instance_id FOR UPDATE; IF result.id IS NULL OR NOT api.is_workspace_member(result.workspace_id) THEN RAISE EXCEPTION 'workspace member required' USING ERRCODE='42501'; END IF;
  IF result.lifecycle<>'active' THEN RAISE EXCEPTION 'Sheet Instance is archived' USING ERRCODE='SB073'; END IF; IF result.revision<>p_expected_revision THEN RAISE EXCEPTION 'Sheet Instance revision conflict' USING ERRCODE='SB073'; END IF;
  p_state:=jsonb_set(p_state,'{provenance}',result.state->'provenance',true);
- IF result.source_definition_version_id IS NOT NULL THEN p_state:=(p_state-'bindings'-'parameterValues'-'resolutionProvenance')||jsonb_build_object('bindings',result.state->'bindings','parameterValues',coalesce(result.state->'parameterValues','[]'::jsonb),'resolutionProvenance',result.state->'resolutionProvenance'); END IF;
+ IF result.source_definition_version_id IS NOT NULL THEN
+   p_state:=(p_state-'bindings'-'parameterValues'-'resolutionProvenance')||jsonb_build_object('bindings',result.state->'bindings','parameterValues',coalesce(result.state->'parameterValues','[]'::jsonb),'resolutionProvenance',result.state->'resolutionProvenance');
+ ELSE
+   SELECT coalesce(jsonb_agg(value-'resolution'-'modelKey'),'[]'::jsonb) INTO stripped_bindings FROM jsonb_array_elements(coalesce(p_state->'bindings','[]'::jsonb));
+   p_state:=(p_state-'parameterValues'-'resolutionProvenance')||jsonb_build_object('bindings',stripped_bindings);
+ END IF;
  PERFORM internal.validate_sheet_instance_state(p_state); PERFORM set_config('sheetbase.sheet_instance_write','rpc-v1',true);
  UPDATE api.sheet_instances SET state=p_state,revision=revision+1,updated_at=now(),updated_by_user_id=actor WHERE id=result.id RETURNING * INTO result; RETURN result;
 END $$;

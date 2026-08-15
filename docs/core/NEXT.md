@@ -144,8 +144,9 @@ scalar, `Record<Model>`, live Dataset and immutable Dataset Version resolution,
 with exact, same-lineage semantic-preservation and stable-field semantic
 compatibility plus persisted immutable provenance. One Definition resolves two
 compatible Datasets without hard-coded Dataset IDs. Focused domain/data tests
-pass 84/84; Definition, Instance and resolver DB/RLS tests pass 28/28; live API
-tests pass 2/2; and legacy compatibility remains 5 files / 40 tests. All 76
+pass 90/90; Definition, Instance and resolver DB/RLS tests pass 31/31; live API
+tests pass 3/3; and legacy compatibility remains 5 files / 40 tests. All 76
 migrations and the 29-step demo seed pass from fresh, as do formatting,
 typecheck, changed source-file lint and `git diff --check`. No conversion,
-vocabulary-management, row-identity or composition execution was added.
+vocabulary-management, regex-dialect translation, row-identity or composition
+execution was added.

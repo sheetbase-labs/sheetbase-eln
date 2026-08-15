@@ -213,6 +213,24 @@ describe('Sheet Definition persistence and authority', () => {
     }
   })
 
+  it('rejects PostgreSQL-only unbounded numeric Parameter metadata', async () => {
+    const owner = await actor(OWNER_A, WS_A)
+    const configuration = structuredClone(validSheetDefinitionConfiguration())
+    configuration.parameters[0].type = {
+      kind: 'scalar',
+      valueType: 'decimal',
+    }
+    configuration.parameters[0].constraints = {}
+    await expect(
+      owner.query(
+        `select api.create_sheet_definition(
+          $1,'unbounded_parameter','Invalid',null,
+          jsonb_set($2::jsonb,'{parameters,0,constraints}','{"min":1e400}'::jsonb))`,
+        [WS_A, JSON.stringify(configuration)],
+      ),
+    ).rejects.toMatchObject({ code: 'SB071' })
+  })
+
   it('accepts all typed scalar defaults and RFC UUID versions at both public boundaries', async () => {
     const owner = await actor(OWNER_A, WS_A)
     const defaults = [

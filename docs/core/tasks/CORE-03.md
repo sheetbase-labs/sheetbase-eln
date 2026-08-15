@@ -193,7 +193,8 @@ Implement reusable versioned Sheet Definitions and working Sheet Instances over 
   validates stable Record Model identity and Dataset ownership/lifecycle, pins
   live or immutable source Schema Versions, and persists canonical bindings,
   scalar values and immutable resolution provenance. Legacy client-authored
-  Definition bindings and direct/helper access remain denied.
+  Definition bindings and direct/helper access remain denied; ad hoc create and
+  update strip reserved resolution and Record-model metadata.
 - Exact compatibility requires the same Schema Version. Lineage compatibility
   requires one Schema identity and preservation of every baseline active field.
   Semantic compatibility permits other Schema identities but requires stable
@@ -205,10 +206,11 @@ Implement reusable versioned Sheet Definitions and working Sheet Instances over 
   exact/version failures, lineage and cross-Schema semantic success/failure,
   quantity/category/reference mismatches, Dataset Version provenance, scalar
   defaults/constraints, unknown/duplicate/missing inputs, `Record<Model>`,
-  forged provenance, duplicate/reload durability and helper/direct-write ACLs.
-  CORE-03.5 composition execution is not included.
-- Final verification passes: shared domain/data 84/84, focused Definition,
-  Instance and resolution DB/RLS 28/28, live API 2/2, and focused legacy
+  cross-workspace/inactive Datasets, forged provenance, duplicate/reload
+  durability, the live Definition-instantiation API and helper/direct-write
+  ACLs. CORE-03.5 composition execution is not included.
+- Final verification passes: shared domain/data 90/90, focused Definition,
+  Instance and resolution DB/RLS 31/31, live API 3/3, and focused legacy
   Sheet/Template/formula/frozen-evidence compatibility 40/40. All 76 migrations
   (`0000`–`0075`) apply on a fresh database and the 29-step demo seed passes;
   formatting, typecheck, changed source-file lint and `git diff --check` pass.
@@ -218,6 +220,9 @@ Implement reusable versioned Sheet Definitions and working Sheet Instances over 
   conversion engine is introduced by this task. Dataset fields also remain
   stored-field contracts, so there is no separate persisted Dataset computation
   semantic to compare yet.
+- Parameter patterns are syntax-checked by both JavaScript and PostgreSQL.
+  Their regular-expression dialects are not identical, so configurations must
+  use the common portable subset; no regex translation engine is introduced.
 
 ---
 

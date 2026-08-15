@@ -223,6 +223,74 @@ describe('Sheet Instance durability and authority', () => {
     ).rejects.toMatchObject({ code: 'SB073' })
   })
 
+  it('strips forged resolution and Record model metadata from ad hoc create and update', async () => {
+    const owner = await actor(OWNER, WS_A)
+    const datasetId = await createDatasetFixture(WS_A, 'Ad hoc metadata')
+    const forgedBindings = [
+      {
+        bindingId: crypto.randomUUID(),
+        parameterId: crypto.randomUUID(),
+        kind: 'dataset',
+        datasetId,
+        policy: { mode: 'live' },
+        resolution: {
+          compatibilityMode: 'exact',
+          candidateSchemaVersionId: crypto.randomUUID(),
+          baselineSchemaVersionId: crypto.randomUUID(),
+          requiredFieldIds: [],
+        },
+      },
+      {
+        bindingId: crypto.randomUUID(),
+        parameterId: crypto.randomUUID(),
+        kind: 'record',
+        recordId: RECORD_A,
+        modelKey: 'sample',
+        policy: 'live',
+      },
+    ]
+    const forgedState = {
+      ...state(),
+      bindings: forgedBindings,
+      parameterValues: [
+        {
+          parameterId: crypto.randomUUID(),
+          kind: 'scalar',
+          valueType: 'text',
+          value: 'forged',
+          source: 'supplied',
+        },
+      ],
+      resolutionProvenance: {
+        sourceDefinitionVersionId: crypto.randomUUID(),
+        resolvedAt: new Date().toISOString(),
+        resolvedByUserId: 'forged',
+        parameters: [],
+      },
+    }
+    const created = (
+      await owner.query(
+        `select to_jsonb(api.create_sheet_instance($1,'Ad hoc metadata',null,null,null,null,$2::jsonb)) result`,
+        [WS_A, JSON.stringify(forgedState)],
+      )
+    ).rows[0].result
+    expect(created.state).not.toHaveProperty('parameterValues')
+    expect(created.state).not.toHaveProperty('resolutionProvenance')
+    expect(created.state.bindings[0]).not.toHaveProperty('resolution')
+    expect(created.state.bindings[1]).not.toHaveProperty('modelKey')
+
+    const updated = (
+      await owner.query(
+        `select to_jsonb(api.update_sheet_instance($1,1,$2::jsonb)) result`,
+        [created.id, JSON.stringify({ ...forgedState, localValues: {} })],
+      )
+    ).rows[0].result
+    expect(updated.state).not.toHaveProperty('parameterValues')
+    expect(updated.state).not.toHaveProperty('resolutionProvenance')
+    expect(updated.state.bindings[0]).not.toHaveProperty('resolution')
+    expect(updated.state.bindings[1]).not.toHaveProperty('modelKey')
+  })
+
   it('rejects the legacy client-authored Definition binding path', async () => {
     const owner = await actor(OWNER, WS_A)
     const configuration = validSheetDefinitionConfiguration()

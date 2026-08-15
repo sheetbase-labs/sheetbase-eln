@@ -109,6 +109,44 @@ const constraintsSchema = z
   })
   .strict()
 
+type ParameterConstraints = z.infer<typeof constraintsSchema>
+
+function scalarSatisfiesConstraints(
+  valueType: (typeof FIELD_LOGICAL_TYPES)[number],
+  value: unknown,
+  constraints: ParameterConstraints,
+) {
+  if (!scalarParameterValueSchema(valueType).safeParse(value).success)
+    return false
+  if (
+    constraints.allowedValues !== undefined &&
+    !constraints.allowedValues.some((allowed) => allowed === value)
+  )
+    return false
+  if (typeof value === 'number') {
+    if (constraints.min !== undefined && value < constraints.min) return false
+    if (constraints.max !== undefined && value > constraints.max) return false
+  }
+  if (typeof value === 'string' && valueType === 'text') {
+    if (
+      constraints.minLength !== undefined &&
+      value.length < constraints.minLength
+    )
+      return false
+    if (
+      constraints.maxLength !== undefined &&
+      value.length > constraints.maxLength
+    )
+      return false
+    if (
+      constraints.pattern !== undefined &&
+      !new RegExp(constraints.pattern).test(value)
+    )
+      return false
+  }
+  return true
+}
+
 export const parameterSchema = z
   .object({
     id: parameterUuidSchema,
@@ -159,6 +197,30 @@ export const parameterSchema = z
     }
 
     const scalar = scalarParameterValueSchema(parameter.type.valueType)
+    const numeric = ['integer', 'decimal'].includes(parameter.type.valueType)
+    const text = parameter.type.valueType === 'text'
+    if (
+      !numeric &&
+      (parameter.constraints.min !== undefined ||
+        parameter.constraints.max !== undefined)
+    )
+      context.addIssue({
+        code: 'custom',
+        path: ['constraints'],
+        message: 'Min and max constraints apply only to numeric parameters.',
+      })
+    if (
+      !text &&
+      (parameter.constraints.minLength !== undefined ||
+        parameter.constraints.maxLength !== undefined ||
+        parameter.constraints.pattern !== undefined)
+    )
+      context.addIssue({
+        code: 'custom',
+        path: ['constraints'],
+        message:
+          'Length and pattern constraints apply only to text parameters.',
+      })
     if (
       parameter.defaultValue !== undefined &&
       !scalar.safeParse(parameter.defaultValue).success
@@ -207,6 +269,27 @@ export const parameterSchema = z
           path: ['constraints', 'pattern'],
           message: 'Constraint pattern must be a valid regular expression.',
         })
+      }
+    }
+    if (
+      parameter.defaultValue !== undefined &&
+      scalar.safeParse(parameter.defaultValue).success
+    ) {
+      try {
+        if (
+          !scalarSatisfiesConstraints(
+            parameter.type.valueType,
+            parameter.defaultValue,
+            parameter.constraints,
+          )
+        )
+          context.addIssue({
+            code: 'custom',
+            path: ['defaultValue'],
+            message: 'Scalar default must satisfy its declared constraints.',
+          })
+      } catch {
+        // The invalid pattern issue above owns malformed regular expressions.
       }
     }
   })

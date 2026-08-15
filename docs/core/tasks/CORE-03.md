@@ -483,6 +483,8 @@ UI was added.
 
 ## CORE-03.12 — Implement Save Instance as Definition
 
+**Status:** Complete (2026-08-15).
+
 **Blocked by:** CORE-03.3–03.11.
 
 **Goal:** Turn useful ad hoc work into reusable configuration.
@@ -496,6 +498,32 @@ UI was added.
 **Tests:** ad hoc → Definition → new independent Instance; source parameterisation; no value leakage.
 
 **Exit gate:** useful exploratory Sheet structure can become reusable safely.
+
+## Completion evidence
+
+- Migration `0086_core_0312_sheet_definition_extraction.sql` adds member-readable
+  revision-CAS preview and owner/admin-only draft extraction RPCs. The source
+  Instance is locked only for a consistent read and is never updated. Extraction
+  creates a new Definition identity and version 1 draft; publication remains the
+  existing separate controlled operation.
+- The explicit selection supplies stable binding, Parameter, source-column,
+  join, local-field, calculation and row-identity IDs. Concrete Dataset/Record
+  sources are checked against the supplied settled Parameter contracts, then
+  omitted. No labels or presentation state infer identity or compatibility.
+- The preview returns the validated Definition configuration plus a strict
+  reusable/excluded manifest. Selected local FieldDefinitions become empty
+  declared columns, and selected active Instance calculations retain only
+  selected stable dependencies. Local values, concrete binding values,
+  calculation overrides/results, value-derived row identities, write-back,
+  actions and equality-filter values are excluded. Optional presentation
+  defaults retain only bounded selected-column layout, sorts and value-free
+  empty-state filters.
+- Focused TypeScript contract/data tests pass 3/3 and typecheck passes. The
+  focused DB proof passes 3/3 after migration, covering preview/exclusions, Dataset
+  parameterisation, permissions, invalid selection, stale revision, draft-only
+  creation, explicit publication and an independent value-free Instance.
+- No Definition schema duplicate, automatic publication, source mutation,
+  upgrade semantics, materialisation, Pipeline or broad Sheet UI was added.
 
 ---
 

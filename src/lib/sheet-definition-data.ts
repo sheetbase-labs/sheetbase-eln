@@ -1,5 +1,13 @@
 import { createDataClient } from './data-client'
 import type { DataClient } from './data-client'
+import {
+  parseSheetDefinitionExtractionPreview,
+  parseSheetDefinitionExtractionSelection,
+} from './sheet-definition-extraction'
+import type {
+  SheetDefinitionExtractionPreview,
+  SheetDefinitionExtractionSelection,
+} from './sheet-definition-extraction'
 import { parseSheetDefinitionConfiguration } from './sheet-definition'
 import type { SheetDefinitionConfiguration } from './sheet-definition'
 
@@ -62,6 +70,10 @@ export interface SheetDefinitionVersion {
 interface MutationWire {
   definition: SheetDefinitionWire
   version?: SheetDefinitionVersionWire
+}
+
+interface ExtractionWire extends MutationWire {
+  preview: unknown
 }
 
 export const sheetDefinitionDataClient = createDataClient()
@@ -234,4 +246,56 @@ export async function retireSheetDefinitionVersion(
     { p_version_id: versionId, p_expected_revision: expectedRevision },
   )
   return sheetDefinitionVersionFromWire(result)
+}
+
+export async function previewSheetDefinitionExtraction(
+  instanceId: string,
+  expectedInstanceRevision: number,
+  selection: SheetDefinitionExtractionSelection,
+  client: DataClient = sheetDefinitionDataClient,
+): Promise<SheetDefinitionExtractionPreview> {
+  const result = await client.rpc<unknown>(
+    'preview_sheet_definition_extraction',
+    {
+      p_instance_id: instanceId,
+      p_expected_instance_revision: expectedInstanceRevision,
+      p_selection: parseSheetDefinitionExtractionSelection(selection),
+    },
+  )
+  return parseSheetDefinitionExtractionPreview(result)
+}
+
+export async function extractSheetDefinitionDraft(
+  input: {
+    instanceId: string
+    expectedInstanceRevision: number
+    key: string
+    name: string
+    description?: string | null
+    selection: SheetDefinitionExtractionSelection
+  },
+  client: DataClient = sheetDefinitionDataClient,
+): Promise<{
+  definition: SheetDefinition
+  version: SheetDefinitionVersion
+  preview: SheetDefinitionExtractionPreview
+}> {
+  const result = await client.rpc<ExtractionWire>(
+    'extract_sheet_definition_draft',
+    {
+      p_instance_id: input.instanceId,
+      p_expected_instance_revision: input.expectedInstanceRevision,
+      p_key: input.key,
+      p_name: input.name,
+      p_description: input.description ?? null,
+      p_selection: parseSheetDefinitionExtractionSelection(input.selection),
+    },
+  )
+  if (!result.version)
+    throw new Error('Sheet Definition extraction returned no draft version.')
+  return {
+    definition: sheetDefinitionFromWire(result.definition),
+    version: sheetDefinitionVersionFromWire(result.version),
+    preview: parseSheetDefinitionExtractionPreview(result.preview),
+  }
 }

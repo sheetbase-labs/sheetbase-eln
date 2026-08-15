@@ -8,9 +8,9 @@
 
 ## Active task
 
-**CORE-03.12 — Implement Save Instance as Definition**
+**CORE-03.13 — Implement explicit Definition upgrade semantics**
 
-Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-0312--implement-save-instance-as-definition)
+Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-0313--implement-explicit-definition-upgrade-semantics)
 
 ## Completed in this PR
 
@@ -40,11 +40,13 @@ Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-0312--implement-save-instance
 - CORE-03.10 — unambiguous composed Sheet write-back targets
 - CORE-03.11 — bounded persisted Definition defaults and Instance presentation
   overrides
+- CORE-03.12 — explicit value-free Instance structure extraction into a new
+  Definition draft
 - product/architecture reset and accepted ADRs 0020–0026
 
 ## Required reading
 
-1. [`tasks/CORE-03.md`](./tasks/CORE-03.md), CORE-03.11 only plus CORE-03.10 boundary
+1. [`tasks/CORE-03.md`](./tasks/CORE-03.md), CORE-03.13 only plus CORE-03.12 boundary
 2. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md), Dataset and Sheet sections
 3. [`CORE_ARCHITECTURE.md`](./CORE_ARCHITECTURE.md), sections 4–9
 4. ADR 0024 (shared typed parameters), with ADRs 0020–0023 and 0025 for the settled
@@ -52,8 +54,8 @@ Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-0312--implement-save-instance
 
 ## Implement now
 
-Extract useful ad hoc Sheet structure into a reusable Definition without
-copying Instance-local values or broadening into materialisation/Pipelines.
+Implement explicit, previewed Definition Version upgrades without silently
+following latest or losing Instance-owned state.
 
 ## Do not
 
@@ -68,6 +70,20 @@ copying Instance-local values or broadening into materialisation/Pipelines.
   unit-conversion/vocabulary-management product yet;
 - do not weaken RLS/server validation;
 - do not broaden paused specialist workspaces.
+
+CORE-03.12 is complete. Migration `0086` adds explicit member preview and
+owner/admin draft extraction over optimistic Instance revision. Stable selected
+bindings receive caller-supplied settled Parameter contracts and concrete
+Dataset/Record sources are compatibility-checked but excluded. Selected local
+FieldDefinitions become empty declared columns; selected Instance calculations
+retain selected stable dependencies; optional presentation defaults retain only
+bounded selected-column layout, sorts and value-free empty-state filters. The
+strict manifest names reusable IDs and excluded concrete bindings, local-value
+counts, overrides/results, row identities derived from values, write-back,
+actions and value-bearing filters. Extraction creates only a new Definition and
+version 1 draft, never mutates the source or publishes. Focused TypeScript tests
+pass 3/3 with typecheck, and the focused DB proof passes 3/3 after migration.
+CORE-03.13 owns explicit upgrade only.
 
 ## Hand-off evidence
 

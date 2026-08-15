@@ -21,9 +21,14 @@ if ! node -v 2>/dev/null | grep -qE '^v(2[2-9]|[3-9])\.'; then
 fi
 echo "node: $(node -v)"
 
-echo "==> Activating pnpm@11.9.0 via corepack"
-sudo corepack enable
-corepack prepare pnpm@11.9.0 --activate
+echo "==> Ensuring pnpm@11.9.0 via corepack"
+# The base image may already ship the pinned pnpm (e.g. via nvm's corepack
+# shims). Only (re)activate when the version does not match. Try a userspace
+# `corepack enable` first and fall back to sudo; tolerate either being absent.
+if ! pnpm -v 2>/dev/null | grep -qx '11.9.0'; then
+  corepack enable >/dev/null 2>&1 || sudo corepack enable >/dev/null 2>&1 || true
+  corepack prepare pnpm@11.9.0 --activate
+fi
 echo "pnpm: $(pnpm -v)"
 
 echo "==> Ensuring PostgreSQL 18 is installed (PGDG)"

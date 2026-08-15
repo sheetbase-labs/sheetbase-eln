@@ -8,12 +8,14 @@ import {
   parseSheetDefinitionConfiguration,
   sheetDefinitionUuidSchema as uuid,
 } from './sheet-definition'
+import type { SheetDefinitionConfiguration } from './sheet-definition'
 
 const datasetSourceSchema = z
   .object({
     sourceKind: z.literal('dataset'),
     bindingId: uuid,
     datasetId: uuid,
+    datasetRevision: z.number().int().positive(),
     rowId: uuid.nullable(),
     revision: z.number().int().nullable(),
     matched: z.boolean(),
@@ -26,6 +28,8 @@ const recordSourceSchema = z
     sourceKind: z.literal('record'),
     bindingId: uuid,
     recordId: uuid,
+    metadataVersion: z.number().int().positive(),
+    fieldNames: z.record(z.string(), z.string()),
     matched: z.literal(true),
     values: z.record(z.string(), z.unknown()),
   })
@@ -36,7 +40,7 @@ const sourceSchema = z.discriminatedUnion('sourceKind', [
   recordSourceSchema,
 ])
 
-const wireSchema = z
+export const composedSheetWireSchema = z
   .object({
     instanceId: uuid,
     definitionVersionId: uuid.optional(),
@@ -45,6 +49,7 @@ const wireSchema = z
     offset: z.number().int().min(0),
     limit: z.number().int().min(1).max(200),
     hasMore: z.boolean(),
+    localFieldIds: z.array(uuid).max(256),
     identity: z
       .object({
         kind: z.enum(['source', 'composite', 'local']),
@@ -77,9 +82,20 @@ const wireSchema = z
   })
   .strict()
 
-export type ComposedSheetRow = z.infer<typeof wireSchema>['rows'][number] & {
+export type ComposedSheetRow = z.infer<
+  typeof composedSheetWireSchema
+>['rows'][number] & {
   rowKey: string
   compositionOffset?: number
+}
+
+export interface ComposedSheetSnapshot extends Omit<
+  z.infer<typeof composedSheetWireSchema>,
+  'definitionConfiguration' | 'rows'
+> {
+  definitionConfiguration?: SheetDefinitionConfiguration
+  rows: ComposedSheetRow[]
+  boundProjection?: ReturnType<typeof projectBoundColumns>
 }
 
 /**
@@ -92,8 +108,8 @@ export async function fetchComposedSheetRows(
   instanceId: string,
   options: { limit?: number; offset?: number } = {},
   client: DataClient = createDataClient(),
-) {
-  const result = wireSchema.parse(
+): Promise<ComposedSheetSnapshot> {
+  const result = composedSheetWireSchema.parse(
     await client.rpc<unknown>('query_sheet_instance_rows', {
       p_instance_id: instanceId,
       p_limit: options.limit ?? 50,
@@ -103,23 +119,27 @@ export async function fetchComposedSheetRows(
   // All output rows use the Instance's immutable resolved identity spec. The
   // RPC returns only typed values; hashing remains exactly CORE-03.5's shared
   // implementation rather than duplicating its encoding in SQL.
-  const rowKey = (row: z.infer<typeof wireSchema>['rows'][number]) =>
-    rowIdentityKey(result.identity, row.identityValues)
+  const rowKey = (
+    row: z.infer<typeof composedSheetWireSchema>['rows'][number],
+  ) => rowIdentityKey(result.identity, row.identityValues)
   const rows = result.rows.map((row) => ({
     ...row,
     rowKey: rowKey(row),
     compositionOffset: result.offset,
   }))
+  const configuration = result.definitionConfiguration
+    ? parseSheetDefinitionConfiguration(result.definitionConfiguration)
+    : undefined
+  const { definitionConfiguration: _, ...authoritative } = result
   return {
-    ...result,
+    ...authoritative,
+    ...(configuration ? { definitionConfiguration: configuration } : {}),
     rows,
-    ...(result.definitionVersionId && result.definitionConfiguration
+    ...(result.definitionVersionId && configuration
       ? {
           boundProjection: projectBoundColumns({
             definitionVersionId: result.definitionVersionId,
-            configuration: parseSheetDefinitionConfiguration(
-              result.definitionConfiguration,
-            ),
+            configuration,
             rows,
           }),
         }

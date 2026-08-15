@@ -19,6 +19,7 @@ describe('fetchComposedSheetRows', () => {
           offset: 3,
           limit: 25,
           hasMore: true,
+          localFieldIds: [],
           identity: {
             kind: 'source',
             columnIds: [ID],
@@ -32,6 +33,7 @@ describe('fetchComposedSheetRows', () => {
                   sourceKind: 'dataset',
                   bindingId: ID,
                   datasetId: ID,
+                  datasetRevision: 1,
                   rowId: ROW,
                   revision: 1,
                   matched: true,

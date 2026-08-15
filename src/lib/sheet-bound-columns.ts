@@ -22,10 +22,13 @@ export type BoundColumnProvenance =
       sourceDatasetId: string
       sourceRowId: string | null
       sourceRevision: number | null
+      sourceDatasetRevision: number
     })
   | (BoundColumnDefinitionProvenance & {
       sourceKind: 'record'
       sourceRecordId: string
+      sourceMetadataVersion: number
+      sourceFieldName: string
     })
 
 export type BoundValueState =
@@ -41,9 +44,11 @@ export interface ProjectedBoundColumn {
   source: BoundDefinitionColumn['source']
   permission: {
     read: true
-    editability: 'read-only'
+    editability: 'editable' | 'read-only'
     evidence: 'authenticated-composition-membership'
-    reason: 'Governed bound values are authoritative source projections; write-back is not implemented.'
+    reason:
+      | 'Exact validated write-back mapping.'
+      | 'No exact validated write-back mapping.'
   }
 }
 
@@ -57,8 +62,8 @@ function structuralError(message: string): never {
 }
 
 /**
- * Projects only Definition `bound` columns. It deliberately has no local
- * values, calculations, editor mutation, or write-back path.
+ * Projects only Definition `bound` columns. Write permission is configuration
+ * evidence only; row-level resolution still rejects unmatched provenance.
  */
 export function projectBoundColumns(input: {
   definitionVersionId: string
@@ -78,6 +83,19 @@ export function projectBoundColumns(input: {
       )
     }
   }
+  const writableColumns = new Set(
+    input.configuration.writeBackRules.flatMap((rule) =>
+      rule.mappings
+        .filter((mapping) => {
+          const column = columns.find(({ id }) => id === mapping.columnId)
+          return (
+            column?.source.bindingId === rule.bindingId &&
+            column.source.sourceFieldId === mapping.targetFieldId
+          )
+        })
+        .map(({ columnId }) => columnId),
+    ),
+  )
 
   return {
     columns: columns.map((column) => ({
@@ -89,10 +107,11 @@ export function projectBoundColumns(input: {
       source: column.source,
       permission: {
         read: true,
-        editability: 'read-only',
+        editability: writableColumns.has(column.id) ? 'editable' : 'read-only',
         evidence: 'authenticated-composition-membership',
-        reason:
-          'Governed bound values are authoritative source projections; write-back is not implemented.',
+        reason: writableColumns.has(column.id)
+          ? 'Exact validated write-back mapping.'
+          : 'No exact validated write-back mapping.',
       },
     })),
     rows: input.rows.map((row) => ({
@@ -107,6 +126,14 @@ export function projectBoundColumns(input: {
               `row ${row.rowKey} is missing binding ${column.source.bindingId}`,
             )
           }
+          if (
+            source.sourceKind === 'record' &&
+            !Object.hasOwn(source.fieldNames, column.source.sourceFieldId)
+          ) {
+            structuralError(
+              `row ${row.rowKey} binding ${source.bindingId} lacks stable field-name mapping ${column.source.sourceFieldId}`,
+            )
+          }
           const provenance: BoundColumnProvenance =
             source.sourceKind === 'dataset'
               ? {
@@ -117,6 +144,7 @@ export function projectBoundColumns(input: {
                   sourceDatasetId: source.datasetId,
                   sourceRowId: source.rowId,
                   sourceRevision: source.revision,
+                  sourceDatasetRevision: source.datasetRevision,
                   sourceFieldId: column.source.sourceFieldId,
                 }
               : {
@@ -125,6 +153,9 @@ export function projectBoundColumns(input: {
                   bindingId: column.source.bindingId,
                   sourceKind: 'record',
                   sourceRecordId: source.recordId,
+                  sourceMetadataVersion: source.metadataVersion,
+                  sourceFieldName:
+                    source.fieldNames[column.source.sourceFieldId],
                   sourceFieldId: column.source.sourceFieldId,
                 }
           if (!source.matched) {
@@ -165,12 +196,15 @@ const provenanceSchema = z.discriminatedUnion('sourceKind', [
       sourceDatasetId: z.string().uuid(),
       sourceRowId: z.string().uuid().nullable(),
       sourceRevision: z.number().int().nullable(),
+      sourceDatasetRevision: z.number().int().positive(),
     })
     .strict(),
   definitionProvenanceSchema
     .extend({
       sourceKind: z.literal('record'),
       sourceRecordId: z.string().uuid(),
+      sourceMetadataVersion: z.number().int().positive(),
+      sourceFieldName: z.string().min(1),
     })
     .strict(),
 ])

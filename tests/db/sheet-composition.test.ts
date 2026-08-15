@@ -233,7 +233,22 @@ function configuration(
         : []),
     ],
     calculations: [],
-    writeBackRules: [],
+    writeBackRules: bindings.map((binding, index) => ({
+      id: crypto.randomUUID(),
+      bindingId: binding.id,
+      mode: 'update',
+      mappings: [
+        {
+          columnId: index < fields.length ? fields[index] : RECORD_COLUMN,
+          targetFieldId:
+            index === 0
+              ? SAMPLE_FIELD
+              : index < fields.length
+                ? RESULT_FIELD
+                : recordFieldId,
+        },
+      ],
+    })),
     actions: [],
     presentation: {
       columnOrder: recordFieldId ? [...fields, RECORD_COLUMN] : fields,
@@ -414,6 +429,9 @@ describe('bounded Sheet Instance composition RPC', () => {
     ).rows[0].state
     expect(committed.state.localValues[rowKey][localField]).toBe('durable')
     expect(reloaded.localValues[rowKey][localField]).toBe('durable')
+    expect((await query(owner, fixture.instance.id)).localFieldIds).toEqual([
+      localField,
+    ])
   })
 
   it('composes Sample plus two result Datasets, preserving source provenance and stable root paging', async () => {
@@ -456,6 +474,99 @@ describe('bounded Sheet Instance composition RPC', () => {
         expect.objectContaining({ matched: true }),
       ]),
     )
+    const rootSource = all.rows
+      .flatMap(
+        (item: {
+          sources: Array<{
+            rowId?: string
+            revision?: number
+            datasetRevision?: number
+          }>
+        }) => item.sources,
+      )
+      .find((source: { rowId?: string }) => source.rowId === rootA)
+    expect(rootSource).toMatchObject({ datasetRevision: 1, revision: 1 })
+    if (
+      rootSource?.datasetRevision === undefined ||
+      rootSource.revision === undefined
+    )
+      throw new Error('missing authoritative Dataset provenance')
+    const retryToken = crypto.randomUUID()
+    const replacement = await sampleRecord()
+    const payload = [
+      {
+        operation: 'update',
+        rowId: rootA,
+        expectedRevision: rootSource.revision,
+        values: { [SAMPLE_FIELD]: replacement },
+      },
+    ]
+    const invalid = (
+      await owner.query(
+        `select api.commit_dataset_row_batch($1,$2,$3::jsonb,$4) result`,
+        [
+          fixture.sources[0],
+          rootSource.datasetRevision,
+          JSON.stringify([
+            { ...payload[0], values: { [SAMPLE_FIELD]: 123 } },
+          ]),
+          crypto.randomUUID(),
+        ],
+      )
+    ).rows[0].result
+    expect(invalid).toMatchObject({
+      ok: false,
+      errors: [expect.objectContaining({ code: 'invalid_value_type' })],
+    })
+    const committed = (
+      await owner.query(
+        `select api.commit_dataset_row_batch($1,$2,$3::jsonb,$4) result`,
+        [
+          fixture.sources[0],
+          rootSource.datasetRevision,
+          JSON.stringify(payload),
+          retryToken,
+        ],
+      )
+    ).rows[0].result
+    const retried = (
+      await owner.query(
+        `select api.commit_dataset_row_batch($1,$2,$3::jsonb,$4) result`,
+        [
+          fixture.sources[0],
+          rootSource.datasetRevision,
+          JSON.stringify(payload),
+          retryToken,
+        ],
+      )
+    ).rows[0].result
+    expect(committed).toMatchObject({ datasetRevision: 2, idempotent: false })
+    expect(retried).toMatchObject({ datasetRevision: 2, idempotent: true })
+    const stale = (
+      await owner.query(
+        `select api.commit_dataset_row_batch($1,$2,$3::jsonb,$4) result`,
+        [
+          fixture.sources[0],
+          rootSource.datasetRevision,
+          JSON.stringify(payload),
+          crypto.randomUUID(),
+        ],
+      )
+    ).rows[0].result
+    expect(stale).toMatchObject({
+      ok: false,
+      errors: [expect.objectContaining({ code: 'stale_dataset_revision' })],
+    })
+    await expect(
+      owner.query(`select api.commit_dataset_row_batch($1,$2,$3::jsonb,$4)`, [
+        fixture.sources[0],
+        rootSource.datasetRevision,
+        JSON.stringify([
+          { ...payload[0], values: { [SAMPLE_FIELD]: sampleA } },
+        ]),
+        retryToken,
+      ]),
+    ).rejects.toMatchObject({ code: '23505' })
     expect(second.rows).toHaveLength(1)
     expect(reload.rows).toEqual(first.rows)
     expect(
@@ -463,7 +574,7 @@ describe('bounded Sheet Instance composition RPC', () => {
         (item: { identityValues: string[] }) =>
           item.identityValues[0] === sampleA,
       ),
-    ).toHaveLength(2)
+    ).toHaveLength(1)
   })
 
   it('implements inner exclusion, left unmatched state, and rejects all cardinality/topology/state failures', async () => {
@@ -593,10 +704,39 @@ describe('bounded Sheet Instance composition RPC', () => {
           sourceKind: 'record',
           bindingId: RECORD_BINDING,
           recordId: record,
+          metadataVersion: 1,
+          fieldNames: { [field.id]: 'composition_note' },
           values: { [field.id]: null },
         }),
       ]),
     )
+    const recordSource = result.rows[0].sources.find(
+      (source: { sourceKind: string }) => source.sourceKind === 'record',
+    )
+    if (!recordSource)
+      throw new Error('missing authoritative Record provenance')
+    const fieldName = recordSource.fieldNames[field.id]
+    const updated = (
+      await owner.query(
+        `select to_jsonb(api.update_record_custom_fields($1,$2,$3::jsonb)) result`,
+        [
+          recordSource.recordId,
+          recordSource.metadataVersion,
+          JSON.stringify({ [fieldName]: 'written through controlled RPC' }),
+        ],
+      )
+    ).rows[0].result
+    expect(updated).toMatchObject({
+      metadata_version: 2,
+      custom_fields: { composition_note: 'written through controlled RPC' },
+    })
+    await expect(
+      owner.query(`select api.update_record_custom_fields($1,$2,$3::jsonb)`, [
+        recordSource.recordId,
+        recordSource.metadataVersion,
+        '{}',
+      ]),
+    ).rejects.toMatchObject({ code: 'SB001' })
     await migrator.query(
       `update api.records set deleted_at=now() where id=$1`,
       [record],
@@ -606,19 +746,73 @@ describe('bounded Sheet Instance composition RPC', () => {
     })
   })
 
+  it('keeps SQL write-back validation exact and unambiguous', async () => {
+    const owner = await actor(OWNER, WS)
+    const fixture = await instance(owner)
+    const configuration = (
+      await migrator.query(
+        `select configuration from api.sheet_definition_versions where id=$1`,
+        [fixture.instance.source_definition_version_id],
+      )
+    ).rows[0].configuration
+    const create = (candidate: unknown) =>
+      owner.query(
+        `select api.create_sheet_definition($1,$2,'Invalid mapping',null,$3::jsonb)`,
+        [
+          WS,
+          `invalid_mapping_${crypto.randomUUID().replaceAll('-', '')}`,
+          JSON.stringify(candidate),
+        ],
+      )
+
+    const duplicate = structuredClone(configuration)
+    duplicate.writeBackRules[0].mappings.push(
+      duplicate.writeBackRules[0].mappings[0],
+    )
+    await expect(create(duplicate)).rejects.toMatchObject({ code: 'SB071' })
+
+    const nonExact = structuredClone(configuration)
+    nonExact.writeBackRules[0].mappings[0].targetFieldId = crypto.randomUUID()
+    await expect(create(nonExact)).rejects.toMatchObject({ code: 'SB071' })
+  })
+
   it('enforces workspace and execution ACLs', async () => {
     const owner = await actor(OWNER, WS)
     const outsider = await actor(OUTSIDER, OTHER_WS)
     const fixture = await instance(owner)
+    const sample = await sampleRecord()
+    const rootRow = await row(fixture.sources[0], SAMPLE_FIELD, sample)
     await expect(query(outsider, fixture.instance.id)).rejects.toMatchObject({
       code: '42501',
     })
+    await expect(
+      outsider.query(`select api.commit_dataset_row_batch($1,1,$2::jsonb,$3)`, [
+        fixture.sources[0],
+        JSON.stringify([
+          {
+            operation: 'update',
+            rowId: rootRow,
+            expectedRevision: 1,
+            values: { [SAMPLE_FIELD]: sample },
+          },
+        ]),
+        crypto.randomUUID(),
+      ]),
+    ).rejects.toMatchObject({ code: '42501' })
     expect(
       (
         await migrator.query(
-          `select has_function_privilege('authenticated','api.query_sheet_instance_rows(uuid,integer,integer)','EXECUTE') allowed,has_function_privilege('public','api.query_sheet_instance_rows(uuid,integer,integer)','EXECUTE') public,has_function_privilege('authenticated','api.query_sheet_instance_rows_core036(uuid,integer,integer)','EXECUTE') core036,has_function_privilege('authenticated','internal.sheet_composition_source_values(uuid,uuid)','EXECUTE') helper`,
+          `select has_function_privilege('authenticated','api.query_sheet_instance_rows(uuid,integer,integer)','EXECUTE') allowed,has_function_privilege('public','api.query_sheet_instance_rows(uuid,integer,integer)','EXECUTE') public,has_function_privilege('authenticated','api.query_sheet_instance_rows_core036(uuid,integer,integer)','EXECUTE') core036,has_function_privilege('authenticated','api.query_sheet_instance_rows_core037(uuid,integer,integer)','EXECUTE') core037,has_function_privilege('authenticated','internal.validate_sheet_definition_configuration_core039(jsonb)','EXECUTE') validator039,has_function_privilege('authenticated','internal.validate_sheet_definition_configuration(jsonb)','EXECUTE') validator,has_function_privilege('authenticated','internal.sheet_composition_source_values(uuid,uuid)','EXECUTE') helper`,
         )
       ).rows[0],
-    ).toEqual({ allowed: true, public: false, core036: false, helper: false })
+    ).toEqual({
+      allowed: true,
+      public: false,
+      core036: false,
+      core037: false,
+      validator039: false,
+      validator: false,
+      helper: false,
+    })
   })
 })

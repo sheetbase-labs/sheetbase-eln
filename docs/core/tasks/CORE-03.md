@@ -430,6 +430,22 @@ Sheet Instance embedding seam.
 
 **Exit gate:** editing a composed Sheet never leaves source ownership ambiguous.
 
+**Implementation evidence:** Migration `0084` requires each configured
+write-back mapping to name one exact bound column/source field and rejects
+duplicate columns or authoritative targets. Authenticated composition carries
+the current Dataset revision, Record metadata version and stable
+field-ID-to-storage-name map, plus active Instance-local field IDs. The public
+TypeScript boundary resolves stable row/column IDs from that parsed snapshot
+before dispatching through the existing controlled Dataset, Record or local
+RPC; Dataset writes retain Dataset/row CAS and actor-scoped exact retries.
+Calculated, unmapped, unmatched, unresolved and ambiguous cells remain
+non-writable, and projected editability comes only from an exact validated
+rule. Focused projection/wire/resolve/dispatch tests pass 9/9. The focused DB
+contract passes 6/6 after migration, covering validator parity, authoritative
+provenance, controlled target writes, retries, stale/invalid/conflict outcomes
+and ACLs. This is the data/domain write-back boundary; no broad Sheet editing
+UI was added.
+
 ---
 
 ## CORE-03.11 — Persist presentation state

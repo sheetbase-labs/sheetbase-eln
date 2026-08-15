@@ -8,9 +8,9 @@
 
 ## Active task
 
-**CORE-03.10 — Implement unambiguous write-back**
+**CORE-03.11 — Persist presentation state**
 
-Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-0310--implement-unambiguous-write-back)
+Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-0311--persist-presentation-state)
 
 ## Completed in this PR
 
@@ -37,11 +37,12 @@ Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-0310--implement-unambiguous-w
 - CORE-03.8 — durable canonical Instance-local fields and typed values
 - CORE-03.9 — authoritative calculation scopes over composed governed and
   Instance-local values
+- CORE-03.10 — unambiguous composed Sheet write-back targets
 - product/architecture reset and accepted ADRs 0020–0026
 
 ## Required reading
 
-1. [`tasks/CORE-03.md`](./tasks/CORE-03.md), CORE-03.10 only plus CORE-03.9 boundary
+1. [`tasks/CORE-03.md`](./tasks/CORE-03.md), CORE-03.11 only plus CORE-03.10 boundary
 2. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md), Dataset and Sheet sections
 3. [`CORE_ARCHITECTURE.md`](./CORE_ARCHITECTURE.md), sections 4–9
 4. ADR 0024 (shared typed parameters), with ADRs 0020–0023 and 0025 for the settled
@@ -49,15 +50,16 @@ Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-0310--implement-unambiguous-w
 
 ## Implement now
 
-Implement unambiguous write-back. Preserve CORE-03.9 calculated read-only
-outputs, CORE-03.8 local mutation ownership and CORE-03.7 governed provenance.
+Persist bounded presentation state without making it semantic identity or
+building a broad View subsystem. Preserve CORE-03.10 write ownership and the
+Definition-default/Instance-override boundary.
 
 ## Do not
 
-- do not make calculated outputs writable;
-- do not infer write targets from labels or visual position;
+- do not broaden presentation persistence into a general View subsystem;
+- do not make presentation state semantic identity;
 - do not implement materialisation or full Pipeline semantics;
-- do not alter the completed CORE-03.8/03.9 persistence contracts;
+- do not alter the completed CORE-03.8–03.10 persistence contracts;
 - do not silently coerce incompatible bindings or weaken exact version,
   lineage, quantity, vocabulary or stable semantic identity checks;
 - do not redesign architecture already settled by ADRs 0020–0026;
@@ -220,3 +222,20 @@ read-only. Focused unit proof passes 8/8, and the focused DB contract passes
 4/4 after a fresh migration. The submitted envelope remains unchanged and
 still has no Sheet Instance embedding seam. CORE-03.10 owns write-back and must
 preserve calculated read-only state.
+
+CORE-03.10 is complete. Migration `0084` validates that every configured
+write-back mapping names one exact bound column/source field and rejects
+duplicate columns or authoritative targets. The authenticated composition RPC
+now emits current Dataset revisions, Record metadata versions and stable
+field-ID-to-storage-name maps, plus active Instance-local field IDs. The public
+TypeScript orchestration accepts that parsed authoritative snapshot and stable
+row/column IDs, resolves exactly one Dataset, Record or direct local-field
+target, and only then dispatches through `commit_dataset_row_batch`,
+`update_record_custom_fields` or `mutate_sheet_instance_local_state`.
+Calculated, unmapped, unmatched, unresolved and ambiguous cells remain
+non-writable; projected bound-column editability is derived only from exact
+validated rules. Focused unit projection/wire/resolve/dispatch proof passes 9/9
+with typecheck. The focused DB contract passes 6/6 after migration, covering
+SQL-validator parity, authoritative provenance, exact Dataset retry payloads,
+invalid/stale/conflict handling, controlled writes and ACLs. No Sheet editing
+UI or CORE-03.11 implementation was added.

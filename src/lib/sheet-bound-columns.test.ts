@@ -86,6 +86,7 @@ const configuration = {
       },
     },
   ],
+  writeBackRules: [],
 } as unknown as SheetDefinitionConfiguration
 
 const row: ComposedSheetRow = {
@@ -96,6 +97,7 @@ const row: ComposedSheetRow = {
       sourceKind: 'dataset',
       bindingId: ids.rootBinding,
       datasetId: ids.rootDataset,
+      datasetRevision: 8,
       rowId: ids.rootRow,
       revision: 7,
       matched: true,
@@ -105,6 +107,7 @@ const row: ComposedSheetRow = {
       sourceKind: 'dataset',
       bindingId: ids.joinedBinding,
       datasetId: ids.joinedDataset,
+      datasetRevision: 8,
       rowId: null,
       revision: null,
       matched: false,
@@ -114,6 +117,8 @@ const row: ComposedSheetRow = {
       sourceKind: 'record',
       bindingId: ids.recordBinding,
       recordId: ids.record,
+      metadataVersion: 3,
+      fieldNames: { [ids.modelField]: 'model_value' },
       matched: true,
       values: { [ids.modelField]: 'model-value' },
     },
@@ -212,6 +217,40 @@ describe('projectBoundColumns', () => {
         sourceFieldId: ids.modelField,
       },
     })
+  })
+
+  it('marks only an exactly mapped bound column editable', () => {
+    const projection = projectBoundColumns({
+      definitionVersionId: ids.version,
+      configuration: {
+        ...configuration,
+        writeBackRules: [
+          {
+            id: ids.version,
+            bindingId: ids.rootBinding,
+            mode: 'update',
+            mappings: [
+              {
+                columnId: ids.datasetColumn,
+                targetFieldId: ids.datasetField,
+              },
+            ],
+          },
+        ],
+      },
+      rows: [row],
+    })
+
+    expect(
+      projection.columns.map(({ id, permission }) => [
+        id,
+        permission.editability,
+      ]),
+    ).toEqual([
+      [ids.datasetColumn, 'editable'],
+      [ids.modelColumn, 'read-only'],
+      [ids.relationshipColumn, 'read-only'],
+    ])
   })
 
   it('fails structurally for unknown bindings and matched sources missing their field map', () => {

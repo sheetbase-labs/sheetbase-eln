@@ -599,19 +599,42 @@ const configurationSchema = z
         ),
       )
     })
+    const writeBackColumns = new Set<string>()
+    const writeBackTargets = new Set<string>()
     configuration.writeBackRules.forEach((item, index) => {
       requireRef(
         bindingIds.has(item.bindingId),
         ['writeBackRules', index, 'bindingId'],
         'Unknown binding ID.',
       )
-      item.mappings.forEach((mapping) =>
+      item.mappings.forEach((mapping) => {
+        const column = columnsById.get(mapping.columnId)
         requireRef(
-          columnIds.has(mapping.columnId),
+          column !== undefined,
           ['writeBackRules', index, 'mappings'],
           'Unknown column ID.',
-        ),
-      )
+        )
+        requireRef(
+          !writeBackColumns.has(mapping.columnId),
+          ['writeBackRules', index, 'mappings'],
+          'Each editable column must have exactly one write-back mapping.',
+        )
+        writeBackColumns.add(mapping.columnId)
+        const target = `${item.bindingId}:${mapping.targetFieldId}`
+        requireRef(
+          !writeBackTargets.has(target),
+          ['writeBackRules', index, 'mappings'],
+          'Each authoritative source field may have only one write-back mapping.',
+        )
+        writeBackTargets.add(target)
+        requireRef(
+          column?.source.kind === 'bound' &&
+            column.source.bindingId === item.bindingId &&
+            column.source.sourceFieldId === mapping.targetFieldId,
+          ['writeBackRules', index, 'mappings'],
+          'Write-back must target the bound column’s exact stable source field.',
+        )
+      })
     })
     configuration.actions.forEach((item, index) => {
       if (item.bindingId)

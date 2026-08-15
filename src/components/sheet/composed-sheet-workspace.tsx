@@ -229,10 +229,15 @@ export function ComposedSheetWorkspace({
             rowHeaders: true,
             stretchH: 'all',
             height: '100%',
-            afterSelectionEnd: (row) => {
+            afterSelectionEnd: (row: number) => {
               if (row >= 0) setSelectedRowIndex(row)
             },
-            afterChange: (changes, source) => {
+            afterChange: (
+              changes: Array<
+                [number, string | number, unknown, unknown]
+              > | null,
+              source: string,
+            ) => {
               if (!changes || source === 'loadData') return
               setPendingValues((current) => {
                 const next = { ...current }

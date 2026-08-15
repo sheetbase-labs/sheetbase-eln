@@ -182,7 +182,8 @@ export function clearRecordReference(
       'Record reference is read-only.',
     )
   }
-  return parsePersistedRecordReference(null, contract)
+  parsePersistedRecordReference(null, contract)
+  return null
 }
 
 export function recordReferenceWriteTargetFromColumnSource(

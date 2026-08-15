@@ -6,7 +6,9 @@ import {
   type SheetWriteTarget,
 } from './sheet-write-back'
 
-export type SheetRecordWriteTarget = Omit<SheetWriteTarget, 'columnId'> & {
+type WithoutColumnId<T> = T extends unknown ? Omit<T, 'columnId'> : never
+
+export type SheetRecordWriteTarget = WithoutColumnId<SheetWriteTarget> & {
   rowKey?: string
   identityValues?: unknown[]
   compositionOffset?: number

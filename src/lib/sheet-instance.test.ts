@@ -62,6 +62,17 @@ describe('Sheet Instance working-state contract', () => {
     )
   })
 
+  it('accepts ordered many values and deterministic composed row keys', () => {
+    const value: any = structuredClone(validSheetInstanceState())
+    value.localFields[0].cardinality = 'many'
+    value.localValues = {
+      [`sb-row-v1:${'a'.repeat(64)}`]: { [ids.field]: ['first', 'second'] },
+    }
+    expect(safeParseSheetInstanceState(value).success).toBe(true)
+    value.localValues[`sb-row-v1:${'a'.repeat(64)}`][ids.field] = 'scalar'
+    expect(safeParseSheetInstanceState(value).success).toBe(false)
+  })
+
   it.each([
     [
       'nil UUID',

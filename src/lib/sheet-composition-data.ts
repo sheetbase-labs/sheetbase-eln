@@ -79,6 +79,7 @@ const wireSchema = z
 
 export type ComposedSheetRow = z.infer<typeof wireSchema>['rows'][number] & {
   rowKey: string
+  compositionOffset?: number
 }
 
 /**
@@ -104,7 +105,11 @@ export async function fetchComposedSheetRows(
   // implementation rather than duplicating its encoding in SQL.
   const rowKey = (row: z.infer<typeof wireSchema>['rows'][number]) =>
     rowIdentityKey(result.identity, row.identityValues)
-  const rows = result.rows.map((row) => ({ ...row, rowKey: rowKey(row) }))
+  const rows = result.rows.map((row) => ({
+    ...row,
+    rowKey: rowKey(row),
+    compositionOffset: result.offset,
+  }))
   return {
     ...result,
     rows,

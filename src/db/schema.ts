@@ -2252,6 +2252,53 @@ export const sheetInstances = api.table(
   ],
 )
 
+export const sheetInstanceLocalMutations = api.table(
+  'sheet_instance_local_mutations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    instanceId: uuid('instance_id')
+      .notNull()
+      .references(() => sheetInstances.id, { onDelete: 'restrict' }),
+    retryToken: uuid('retry_token').notNull(),
+    requestDigest: text('request_digest').notNull(),
+    resultRevision: bigint('result_revision', { mode: 'bigint' }).notNull(),
+    result: jsonb('result').notNull(),
+    actorUserId: text('actor_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    operation: text('operation').notNull(),
+    affected: jsonb('affected').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('sheet_instance_local_mutations_instance_id_retry_token_unique').on(
+      table.instanceId,
+      table.retryToken,
+    ),
+    check(
+      'sheet_instance_local_mutations_request_digest_check',
+      sql`${table.requestDigest} ~ '^[0-9a-f]{64}$'`,
+    ),
+    check(
+      'sheet_instance_local_mutations_result_revision_check',
+      sql`${table.resultRevision} > 0`,
+    ),
+    check(
+      'sheet_instance_local_mutations_operation_check',
+      sql`${table.operation} = 'local_mutation'`,
+    ),
+    index('idx_sheet_instance_local_mutations_instance').on(
+      table.instanceId,
+      table.createdAt,
+    ),
+  ],
+)
+
 export const datasets = api.table(
   'datasets',
   {

@@ -324,7 +324,14 @@ describe('Sheet Instance durability and authority', () => {
     const updated = (
       await owner.query(
         `select to_jsonb(api.update_sheet_instance($1,1,$2::jsonb)) result`,
-        [created.id, JSON.stringify({ ...forgedState, localValues: {} })],
+        [
+          created.id,
+          JSON.stringify({
+            ...forgedState,
+            localFields: created.state.localFields,
+            localValues: created.state.localValues,
+          }),
+        ],
       )
     ).rows[0].result
     expect(updated.state).not.toHaveProperty('parameterValues')
@@ -384,6 +391,15 @@ describe('Sheet Instance durability and authority', () => {
         Array.from({ length: 257 }, (_, index) => [crypto.randomUUID(), index]),
       )
     await expect(createState(oversized)).rejects.toMatchObject({
+      code: 'SB073',
+    })
+    const forgedComposed = state()
+    forgedComposed.localValues = {
+      [`sb-row-v1:${'a'.repeat(64)}`]: {
+        '13000000-0000-4000-8000-000000000010': 'forged',
+      },
+    }
+    await expect(createState(forgedComposed)).rejects.toMatchObject({
       code: 'SB073',
     })
   })
@@ -465,7 +481,7 @@ describe('Sheet Instance durability and authority', () => {
         [
           WS_A,
           definition.version.id,
-          JSON.stringify(state()),
+          JSON.stringify({ ...state(), localValues: {} }),
           JSON.stringify([
             {
               parameterId: config.parameters[0].id,
@@ -494,17 +510,22 @@ describe('Sheet Instance durability and authority', () => {
     const first = await create(owner)
     const second = await create(owner)
     expect(first.id).not.toBe(second.id)
+    const changedState = state()
+    changedState.presentation.density = 'compact'
     await owner.query(`select api.update_sheet_instance($1,1,$2::jsonb)`, [
       first.id,
-      JSON.stringify(state('changed')),
+      JSON.stringify(changedState),
     ])
     const rows = (
       await owner.query(
-        `select id,revision,state#>>'{localValues,13000000-0000-4000-8000-000000000011,13000000-0000-4000-8000-000000000010}' value from api.sheet_instances where id=any($1) order by id`,
+        `select id,revision,state#>>'{presentation,density}' density from api.sheet_instances where id=any($1) order by id`,
         [[first.id, second.id]],
       )
     ).rows
-    expect(rows.map((row) => row.value).sort()).toEqual(['changed', 'one'])
+    expect(rows.map((row) => row.density).sort()).toEqual([
+      'compact',
+      'standard',
+    ])
     await expect(
       owner.query(`select api.update_sheet_instance($1,1,$2::jsonb)`, [
         first.id,
@@ -528,9 +549,11 @@ describe('Sheet Instance durability and authority', () => {
       createdFrom: 'duplicate',
       duplicatedFromInstanceId: source.id,
     })
+    const changedCopy = state()
+    changedCopy.presentation.density = 'compact'
     await owner.query(`select api.update_sheet_instance($1,1,$2::jsonb)`, [
       copy.id,
-      JSON.stringify(state('copy changed')),
+      JSON.stringify(changedCopy),
     ])
     expect(
       (

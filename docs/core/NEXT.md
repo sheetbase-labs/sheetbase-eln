@@ -8,9 +8,9 @@
 
 ## Active task
 
-**CORE-03.8 — Implement durable local/ad hoc fields and values**
+**CORE-03.9 — Implement calculation scopes on composed Sheets**
 
-Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-038--implement-durable-localad-hoc-fields-and-values)
+Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-039--implement-calculation-scopes-on-composed-sheets)
 
 ## Completed in this PR
 
@@ -34,11 +34,12 @@ Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-038--implement-durable-locala
 - CORE-03.5 — stable row identity
 - CORE-03.6 — constrained multi-source joins
 - CORE-03.7 — bound-column projection and provenance inspection
+- CORE-03.8 — durable canonical Instance-local fields and typed values
 - product/architecture reset and accepted ADRs 0020–0026
 
 ## Required reading
 
-1. [`tasks/CORE-03.md`](./tasks/CORE-03.md), CORE-03.7 only plus CORE-03.6 boundary
+1. [`tasks/CORE-03.md`](./tasks/CORE-03.md), CORE-03.9 only plus CORE-03.8 boundary
 2. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md), Dataset and Sheet sections
 3. [`CORE_ARCHITECTURE.md`](./CORE_ARCHITECTURE.md), sections 4–9
 4. ADR 0024 (shared typed parameters), with ADRs 0020–0023 and 0025 for the settled
@@ -46,19 +47,20 @@ Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-038--implement-durable-locala
 
 ## Implement now
 
-Implement canonical Instance-local fields and values keyed by composed row
-identity. Preserve the CORE-03.7 governed projection as read-only; do not
-reimplement bound field semantics or source provenance.
+Implement calculation scopes on composed Sheets. Preserve CORE-03.8 local
+field/value ownership and CORE-03.7 governed projection read-only boundaries.
 
 ## Do not
 
-- do not implement calculations, write-back execution or materialisation;
-- do not alter the completed CORE-03.3 persistence contract beyond the
-  concrete durable local-field/value behavior required here;
+- do not persist A1 coordinates as semantic dependencies;
+- do not implement write-back execution, materialisation or full Pipeline
+  semantics;
+- do not alter the completed CORE-03.8 local persistence contract;
 - do not silently coerce incompatible bindings or weaken exact version,
   lineage, quantity, vocabulary or stable semantic identity checks;
 - do not redesign architecture already settled by ADRs 0020–0026;
-- do not build the full unit-conversion or vocabulary-management product yet;
+- do not infer unsafe scientific unit equivalence or build the full
+  unit-conversion/vocabulary-management product yet;
 - do not weaken RLS/server validation;
 - do not broaden paused specialist workspaces.
 
@@ -171,3 +173,30 @@ resolves only stable binding/field UUIDs, distinguishes Dataset-row and Record
 provenance, exposes present-null versus unmatched states, and remains
 read-only. Focused DB and projection/client suites pass 4/4 each. No placeholder
 composed-Sheet route or write path was added; CORE-03.8 owns durable local data.
+
+CORE-03.8 is complete. Generated migration `0079` plus custom migrations
+`0079_core_038_prepare_generated_schema`/`0081` keep canonical local
+FieldDefinitions and ordered typed values in bounded Instance state, while
+adding a controlled atomic mutation RPC and actor/time/address audit ledger. Mutations require an
+optimistic Instance revision and digest-bound retry token; exact retries return
+the original committed revision and conflicting token reuse fails. Composed
+addresses carry a bounded current composition offset plus canonical identity
+values: the server derives the `sb-row-v1` key and proves that exact row in the
+current controlled composition. Local-identity Instances may write only an
+already-persisted UUID row, so legacy UUID syntax is not an identity bypass.
+Generic Instance updates cannot bypass this mutation boundary.
+
+Canonical scalar and ordered `many` validation shares the strict UUID,
+calendar and RFC3339 semantics used by Sheet Definitions, including
+null/default, constraints, active embedded category options and active
+same-workspace compatible Record references. Stable add/edit/retire lifecycle,
+history preservation, populated semantic immutability, duplicate-address
+rejection, atomic failure, RLS/direct-write/helper ACLs and the single enabled
+Instance guard have focused executable tests. All 82 migrations through `0081`
+apply from fresh; affected Instance/composition/local DB suites pass 22/22 and
+focused domain/data suites pass 29/29.
+
+The submitted-revision envelope remains unchanged: Sheet Instances are not yet
+embedded by the current submission architecture. The focused contract records
+that limitation rather than inventing a snapshot owner; the future embedding
+seam must include immutable Instance state/local-value evidence.

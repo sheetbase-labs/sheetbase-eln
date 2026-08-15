@@ -1,6 +1,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { rowIdentityKey } from '../../src/lib/row-identity'
 import { prepareTestDatabase } from './helpers'
 
 const WS = '18000000-0000-4000-8000-000000000001'
@@ -352,6 +353,69 @@ afterAll(async () => {
 })
 
 describe('bounded Sheet Instance composition RPC', () => {
+  it('writes only server-proven current composed identities and keeps values attached across reload/reorder', async () => {
+    const owner = await actor(OWNER, WS)
+    const fixture = await instance(owner)
+    const sample = await sampleRecord()
+    await row(fixture.sources[0], SAMPLE_FIELD, sample)
+    const composed = await query(owner, fixture.instance.id)
+    const identityValues = composed.rows[0].identityValues
+    const rowKey = rowIdentityKey(composed.identity, identityValues)
+    const localField = crypto.randomUUID()
+    const definition = {
+      fieldId: localField,
+      key: 'observation',
+      label: 'Observation',
+      description: null,
+      logicalType: 'text',
+      nullable: true,
+      defaultValue: null,
+      cardinality: 'one',
+      quantity: null,
+      validation: {},
+      category: null,
+      relationship: null,
+      computation: { mode: 'stored' },
+      lifecycle: 'active',
+    }
+    const mutate = (key: string, values: unknown[], offset = 0) =>
+      owner.query(
+        `select to_jsonb(api.mutate_sheet_instance_local_state($1,2,$2,$3::jsonb,$4::jsonb,$5::jsonb)) result`,
+        [
+          fixture.instance.id,
+          crypto.randomUUID(),
+          JSON.stringify([{ operation: 'add', field: definition }]),
+          JSON.stringify([
+            {
+              kind: 'composed',
+              rowKey: key,
+              identityValues: values,
+              compositionOffset: offset,
+            },
+          ]),
+          JSON.stringify([
+            { rowKey: key, fieldId: localField, value: 'durable' },
+          ]),
+        ],
+      )
+    await expect(
+      mutate(`sb-row-v1:${'a'.repeat(64)}`, identityValues),
+    ).rejects.toMatchObject({ code: 'SB073' })
+    const absentIdentity = [crypto.randomUUID()]
+    await expect(
+      mutate(rowIdentityKey(composed.identity, absentIdentity), absentIdentity),
+    ).rejects.toMatchObject({ code: 'SB073' })
+    const committed = (await mutate(rowKey, identityValues)).rows[0].result
+    await row(fixture.sources[0], SAMPLE_FIELD, await sampleRecord())
+    const reloaded = (
+      await owner.query(`select state from api.sheet_instances where id=$1`, [
+        fixture.instance.id,
+      ])
+    ).rows[0].state
+    expect(committed.state.localValues[rowKey][localField]).toBe('durable')
+    expect(reloaded.localValues[rowKey][localField]).toBe('durable')
+  })
+
   it('composes Sample plus two result Datasets, preserving source provenance and stable root paging', async () => {
     const owner = await actor(OWNER, WS)
     const fixture = await instance(owner)

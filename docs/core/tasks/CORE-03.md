@@ -1,6 +1,6 @@
 # CORE-03 — Sheet Definition and Compositional Sheet Instance
 
-**Status:** In progress — CORE-03.7 complete (2026-08-15)
+**Status:** In progress — CORE-03.8 complete (2026-08-15)
 **Blocked by:** CORE-02 epic exit gate (met).
 **Normative decisions:** ADRs 0020–0026.
 
@@ -353,6 +353,24 @@ or write-back executor is included.
 **Tests:** reload, sharing same Instance, independent Instances, row reorder, typed validation, retired local field history.
 
 **Exit gate:** local Observation-style data survives reload/share and remains correctly attached to semantic rows.
+
+**Implementation evidence:** Generated migration `0079` and custom migrations
+`0079_core_038_prepare_generated_schema`/`0081` add the ledger and bounded
+controlled local mutation RPC, canonical typed/default/category/reference enforcement,
+digest-bound exact retry results and actor/time/affected-address audit ledger.
+The server derives every composed `sb-row-v1` address from supplied canonical
+identity values and proves it at a bounded offset in the current controlled
+composition; local identity writes require an already-persisted UUID row.
+Stable field add/edit/retire, populated semantic immutability, ordered `many`,
+atomic duplicate/malformed rejection, reload/reorder/share and Instance
+isolation, RLS/direct-write/helper ACLs and the sole enabled Instance guard have
+focused executable domain/data and DB tests. The submitted-revision envelope is
+intentionally unchanged because current submission storage has no Sheet
+Instance embedding seam; a future embedding owner must freeze Instance state
+and local values rather than this task inventing submission architecture.
+All 82 migrations through `0081` apply from fresh; affected
+Instance/composition/local DB suites pass 22/22 and focused domain/data suites
+pass 29/29.
 
 ---
 

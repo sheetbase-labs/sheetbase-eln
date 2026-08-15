@@ -11,8 +11,10 @@ const jsonScalar = z.union([
   z.boolean(),
   z.null(),
 ])
+const localValue = z.union([jsonScalar, z.array(jsonScalar).min(1).max(1_000)])
+export const composedRowKeySchema = z.string().regex(/^sb-row-v1:[0-9a-f]{64}$/)
 const localRow = z
-  .record(uuid, jsonScalar)
+  .record(uuid, localValue)
   .refine(
     (value) => Object.keys(value).length <= 256,
     'A local row may contain at most 256 values.',
@@ -158,7 +160,7 @@ export const sheetInstanceStateSchema = z
     parameterValues: z.array(parameterValue).max(64).optional(),
     localFields: z.array(sheetFieldDefinitionSchema).max(256),
     localValues: z
-      .record(uuid, localRow)
+      .record(z.union([uuid, composedRowKeySchema]), localRow)
       .refine((value) => Object.keys(value).length <= 10_000),
     calculationOverrides: z
       .record(
@@ -216,14 +218,23 @@ export const sheetInstanceStateSchema = z
           message: `${path} must be unique.`,
         })
     }
-    const localFieldIds = new Set(value.localFields.map((item) => item.fieldId))
+    const localFields = new Map(
+      value.localFields.map((item) => [item.fieldId, item]),
+    )
     for (const [rowId, row] of Object.entries(value.localValues)) {
       for (const fieldId of Object.keys(row)) {
-        if (!localFieldIds.has(fieldId))
+        const field = localFields.get(fieldId)
+        if (!field)
           context.addIssue({
             code: 'custom',
             path: ['localValues', rowId, fieldId],
             message: 'Local value references an unknown local field.',
+          })
+        else if ((field.cardinality === 'many') !== Array.isArray(row[fieldId]))
+          context.addIssue({
+            code: 'custom',
+            path: ['localValues', rowId, fieldId],
+            message: 'Local value does not match field cardinality.',
           })
       }
     }

@@ -8,13 +8,12 @@
 
 ## Active task
 
-**CORE-04.3 — Implement existing-Record search and linking**
-(Bundle 2 with CORE-04.5 / 04.6)
+**CORE-04.4 / CORE-04.7 — Inline create and bulk commit**
 
-Status: CORE-04.2 and CORE-04.10 complete; next bundle is search/link,
-mapping, and validate-without-commit.
+Status: Bundle 2 (CORE-04.3 / 04.5 / 04.6) complete; next is atomic
+create+link and all-or-nothing bulk commit with idempotency.
 
-Task: [`tasks/CORE-04.md`](./tasks/CORE-04.md#core-043--implement-existing-record-search-and-linking)
+Task: [`tasks/CORE-04.md`](./tasks/CORE-04.md#core-044--implement-inline-single-record-creation)
 
 Audit: [`audits/RECORD_SHEET_ACTIONS_AUDIT.md`](./audits/RECORD_SHEET_ACTIONS_AUDIT.md)
 
@@ -56,12 +55,15 @@ Audit: [`audits/RECORD_SHEET_ACTIONS_AUDIT.md`](./audits/RECORD_SHEET_ACTIONS_AU
 - CORE-03.16 — Purification Summary golden workflow and CORE-04 hand-off
 - CORE-04.1 — Record selection/creation/import audit (accepted)
 - CORE-04.2 — typed Record-reference cell contract
+- CORE-04.3 — Model-scoped search, picker, and UUID write-back link
+- CORE-04.5 — explicit Sheet row → Record mapping
+- CORE-04.6 — validate-without-commit RPC
 - CORE-04.10 — Model-owned generated Record ID policy seam
 - product/architecture reset and accepted ADRs 0020–0026
 
 ## Required reading
 
-1. [`tasks/CORE-04.md`](./tasks/CORE-04.md), CORE-04.3 / 04.5 / 04.6
+1. [`tasks/CORE-04.md`](./tasks/CORE-04.md), CORE-04.4 / 04.7
 2. [`audits/RECORD_SHEET_ACTIONS_AUDIT.md`](./audits/RECORD_SHEET_ACTIONS_AUDIT.md)
    accepted decisions
 3. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md), Record and Sheet sections
@@ -71,16 +73,14 @@ Audit: [`audits/RECORD_SHEET_ACTIONS_AUDIT.md`](./audits/RECORD_SHEET_ACTIONS_AU
 
 ## Implement now
 
-Bundle 1 (CORE-04.2 + 04.10) is complete. Implement Bundle 2:
+Bundle 2 is complete. Implement Bundle 3:
 
-- CORE-04.3 existing-Record search and linking (Sheet write-back UUID only;
-  no notebook `record_link` side effect)
-- CORE-04.5 bulk row-to-Record mapping
-- CORE-04.6 validate-without-commit
+- CORE-04.4 inline create + link in one transaction (no orphan Records)
+- CORE-04.7 all-or-nothing bulk commit with idempotency
 
-Do not start inline create or bulk commit until this bundle's focused tests
-are green. CORE-04.11 still requires a fully green `pnpm validate` / full DB
-gate.
+Do not start the composed-Sheet grid or CORE-04.11 until this bundle's
+focused tests are green. CORE-04.11 still requires a fully green
+`pnpm validate` / full DB gate.
 
 ## Do not
 

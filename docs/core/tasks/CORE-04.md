@@ -84,6 +84,8 @@ Make the normal compositional Sheet a first-class Record search/link/create/upda
 
 **Blocked by:** CORE-04.2.
 
+**Status:** Complete (2026-08-15).
+
 **Goal:** Let scientists efficiently resolve existing permitted Records from the grid.
 
 **Deliverables:** server-backed search by Record ID/Name/relevant configured fields; Model-scoped results; keyboard-first picker; archived/permission handling; link write-back; no full registry load.
@@ -91,6 +93,14 @@ Make the normal compositional Sheet a first-class Record search/link/create/upda
 **Tests:** search scale, RLS isolation, exact Record ID, fuzzy/name search as supported, keyboard selection, link/unlink.
 
 **Exit gate:** users can link existing Records without leaving the Sheet.
+
+### Completion evidence
+
+- `api.search_sheet_records` is Model-scoped, INVOKER/RLS, capped at 50,
+  and granted only to `authenticated`.
+- `SheetRecordPicker` reuses `RecordPicker`; selection identity is UUID.
+- `linkSheetRecordReference` / `unlinkSheetRecordReference` write the UUID
+  through existing Sheet write-back and never call `create_record_link`.
 
 ---
 
@@ -116,6 +126,8 @@ Make the normal compositional Sheet a first-class Record search/link/create/upda
 
 **Blocked by:** CORE-04.1/04.2.
 
+**Status:** Complete (2026-08-15).
+
 **Goal:** Map pasted/selected Sheet rows into prospective Records deterministically.
 
 **Deliverables:** column→Model-field mapping; constants/defaults; Record ID policy; existing-record matching key; required-field completeness; local/calculated-field eligibility rules; preview representation.
@@ -126,11 +138,20 @@ Make the normal compositional Sheet a first-class Record search/link/create/upda
 
 **Exit gate:** Sheetbase can explain exactly what each row would create/link before writing.
 
+### Completion evidence
+
+- `src/lib/sheet-record-mapping.ts` maps Definition column UUIDs to title,
+  Model fields, or constants. Labels cannot infer targets. Calculated
+  sources are ineligible. Preview reports missing/incompatible/quantity/
+  category/reference/duplicate issues. Record IDs stay Model-generated.
+
 ---
 
 ## CORE-04.6 — Implement bulk validate operation
 
 **Blocked by:** CORE-04.5.
+
+**Status:** Complete (2026-08-15).
 
 **Goal:** Validate a proposed bulk Record operation without mutation.
 
@@ -139,6 +160,13 @@ Make the normal compositional Sheet a first-class Record search/link/create/upda
 **Tests:** mixed valid/invalid rows, duplicates, existing matches, RLS, large realistic batch.
 
 **Exit gate:** users receive actionable in-grid errors before commit.
+
+### Completion evidence
+
+- `api.validate_sheet_record_batch` (DEFINER, membership recheck) returns
+  mixed per-row create/link/existing/invalid results, reuses
+  `internal.validate_model_fields`, never mutates, bounds 1–1000 rows, and
+  is not granted to `api_client`.
 
 ---
 

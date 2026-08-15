@@ -1,6 +1,6 @@
 # CORE-04 — Records from Sheets
 
-**Status:** Implementation complete pending `pnpm validate` (CORE-04.11).  
+**Status:** Complete (2026-08-15).  
 **Blocked by:** CORE-03 epic exit gate.  
 **Normative decisions:** ADRs 0020–0026.
 
@@ -306,7 +306,10 @@ Make the normal compositional Sheet a first-class Record search/link/create/upda
 - DB proof: create+link UUID write-back, no notebook `record_link`, stale
   write-back leaves no orphan; bulk commit maps UUIDs, retries idempotently,
   rolls back on stale write-back, isolates outsiders.
-- `pnpm validate` is the epic exit gate (filled after the run).
+- Focused DB file `tests/db/sheet-record-actions.test.ts` 6/6. Full DB gate
+  `pnpm test:db` 61 files / 679 tests. `pnpm validate` 166 files / 1,893 tests,
+  zero lint errors, production client/SSR build. CORE-02.6 100k+80k benchmark
+  was not rerun.
 
 ## Epic exit gate
 

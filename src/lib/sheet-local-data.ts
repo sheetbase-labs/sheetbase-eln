@@ -175,3 +175,38 @@ export async function mutateSheetLocalState(
 
 export const sheetLocalAddressedRowSchema = addressedRow
 export const sheetLocalCellSchema = cell
+
+export async function mutateSheetInstanceCalculations(
+  input: {
+    instanceId: string
+    expectedRevision: number
+    retryToken: string
+    changes: unknown[]
+  },
+  client: DataClient = createDataClient(),
+) {
+  const result = await client.rpc<unknown>(
+    'mutate_sheet_instance_calculations',
+    {
+      p_instance_id: uuid.parse(input.instanceId),
+      p_expected_revision: input.expectedRevision,
+      p_retry_token: uuid.parse(input.retryToken),
+      p_changes: input.changes,
+    },
+  )
+  return sheetInstanceFromWire(result)
+}
+
+export async function readSheetInstanceCalculationResults(
+  instanceId: string,
+  rowKeys: string[],
+  client: DataClient = createDataClient(),
+) {
+  return client.rpc<unknown>('read_sheet_instance_calculation_results', {
+    p_instance_id: uuid.parse(instanceId),
+    p_row_keys: z
+      .array(z.union([uuid, composedRowKeySchema]))
+      .max(200)
+      .parse(rowKeys),
+  })
+}

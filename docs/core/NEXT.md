@@ -8,9 +8,9 @@
 
 ## Active task
 
-**CORE-03.9 — Implement calculation scopes on composed Sheets**
+**CORE-03.10 — Implement unambiguous write-back**
 
-Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-039--implement-calculation-scopes-on-composed-sheets)
+Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-0310--implement-unambiguous-write-back)
 
 ## Completed in this PR
 
@@ -35,11 +35,13 @@ Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-039--implement-calculation-sc
 - CORE-03.6 — constrained multi-source joins
 - CORE-03.7 — bound-column projection and provenance inspection
 - CORE-03.8 — durable canonical Instance-local fields and typed values
+- CORE-03.9 — authoritative calculation scopes over composed governed and
+  Instance-local values
 - product/architecture reset and accepted ADRs 0020–0026
 
 ## Required reading
 
-1. [`tasks/CORE-03.md`](./tasks/CORE-03.md), CORE-03.9 only plus CORE-03.8 boundary
+1. [`tasks/CORE-03.md`](./tasks/CORE-03.md), CORE-03.10 only plus CORE-03.9 boundary
 2. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md), Dataset and Sheet sections
 3. [`CORE_ARCHITECTURE.md`](./CORE_ARCHITECTURE.md), sections 4–9
 4. ADR 0024 (shared typed parameters), with ADRs 0020–0023 and 0025 for the settled
@@ -47,15 +49,15 @@ Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-039--implement-calculation-sc
 
 ## Implement now
 
-Implement calculation scopes on composed Sheets. Preserve CORE-03.8 local
-field/value ownership and CORE-03.7 governed projection read-only boundaries.
+Implement unambiguous write-back. Preserve CORE-03.9 calculated read-only
+outputs, CORE-03.8 local mutation ownership and CORE-03.7 governed provenance.
 
 ## Do not
 
-- do not persist A1 coordinates as semantic dependencies;
-- do not implement write-back execution, materialisation or full Pipeline
-  semantics;
-- do not alter the completed CORE-03.8 local persistence contract;
+- do not make calculated outputs writable;
+- do not infer write targets from labels or visual position;
+- do not implement materialisation or full Pipeline semantics;
+- do not alter the completed CORE-03.8/03.9 persistence contracts;
 - do not silently coerce incompatible bindings or weaken exact version,
   lineage, quantity, vocabulary or stable semantic identity checks;
 - do not redesign architecture already settled by ADRs 0020–0026;
@@ -200,3 +202,21 @@ The submitted-revision envelope remains unchanged: Sheet Instances are not yet
 embedded by the current submission architecture. The focused contract records
 that limitation rather than inventing a snapshot owner; the future embedding
 seam must include immutable Instance state/local-value evidence.
+
+CORE-03.9 is complete. Generated migration `0082` and custom migration `0083`
+add audited, optimistic and idempotent Instance-local calculation-definition
+mutation plus trusted revision-bound result/error persistence and bounded
+read. Immutable Definition Version calculations and durable Instance-local
+calculations resolve stable Definition-column, local-field and calculation UUID
+dependencies per semantic row; A1 is only a current dependency-slot projection.
+Initial Instance creation cannot bypass the controlled calculation-definition
+ledger, and cross-scope dependencies are checked against the pinned Definition.
+The trusted Node worker reuses the existing parser, HyperFormula 3.3.0 and
+scientific-core-v2 profile for bounded deterministic scalar arithmetic. Exact
+quantity metadata is enforced without conversion. Result provenance includes
+the pinned Definition Version, Instance revision, source Dataset-row revisions
+and dependency addresses; stale values are hidden and calculated output is
+read-only. Focused unit proof passes 8/8, and the focused DB contract passes
+4/4 after a fresh migration. The submitted envelope remains unchanged and
+still has no Sheet Instance embedding seam. CORE-03.10 owns write-back and must
+preserve calculated read-only state.

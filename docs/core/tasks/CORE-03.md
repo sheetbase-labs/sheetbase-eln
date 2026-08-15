@@ -390,6 +390,30 @@ pass 29/29.
 
 **Exit gate:** calculations work across the golden composed Sheet without losing stable dependency/provenance semantics.
 
+**Implementation evidence:** Generated migration `0082` and custom migration
+`0083` add durable revision-bound calculation results and an audited,
+idempotent controlled Instance-calculation mutation contract. Definition
+calculations remain pinned in immutable Definition Versions; Instance-local
+definitions use stable calculation/local-field/Definition-column UUID
+dependencies, while A1 survives only as a dependency-slot UI expression. The
+trusted Node worker reuses the existing formula parser, HyperFormula 3.3.0 and
+`scientific-core-v2` runtime under a deliberately bounded scalar-arithmetic
+profile. It resolves each semantic `sb-row-v1` from the governed 03.7
+projection plus 03.8 local values, records exact Dataset-row revisions and
+dependency provenance, and persists structured missing, unmatched, type,
+quantity, divide-by-zero and evaluation errors without replacing definitions.
+Exact quantity metadata is required and no unit conversion or equivalence is
+inferred. Read results are explicitly read-only and hide stale values after an
+Instance or recorded Dataset-row revision changes. Focused unit proof covers
+cross-source Recovery, stable identity across label/order changes, strict
+quantity handling and error-to-success recalculation (8/8). Focused DB proof
+for CAS/idempotency, cache/provenance, stale/read-only results, bounds,
+RLS/direct/helper ACLs, governed composition, cross-scope dependencies,
+creation-bypass rejection and the frozen-evidence boundary passes 4/4 in
+`tests/db/sheet-calculations.test.ts` after a fresh migration. The existing
+submitted envelope remains unchanged: current revision storage still has no
+Sheet Instance embedding seam.
+
 ---
 
 ## CORE-03.10 — Implement unambiguous write-back

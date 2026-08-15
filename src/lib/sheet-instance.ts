@@ -4,6 +4,7 @@ import {
   sheetDefinitionUuidSchema as uuid,
   sheetFieldDefinitionSchema,
 } from './sheet-definition'
+import { sheetInstanceCalculationSchema } from './sheet-calculation'
 
 const jsonScalar = z.union([
   z.string().max(100_000),
@@ -178,6 +179,10 @@ export const sheetInstanceStateSchema = z
           .strict(),
       )
       .refine((value) => Object.keys(value).length <= 128),
+    instanceCalculations: z
+      .array(sheetInstanceCalculationSchema)
+      .max(128)
+      .optional(),
     presentation: z
       .object({
         columnOrder: z.array(uuid).max(512),
@@ -210,6 +215,10 @@ export const sheetInstanceStateSchema = z
         value.parameterValues?.map((item) => item.parameterId) ?? [],
       ],
       ['localFields.fieldId', value.localFields.map((item) => item.fieldId)],
+      [
+        'instanceCalculations.id',
+        value.instanceCalculations?.map((item) => item.id) ?? [],
+      ],
     ] as const) {
       if (new Set(values).size !== values.length)
         context.addIssue({

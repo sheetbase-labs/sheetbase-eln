@@ -2299,6 +2299,111 @@ export const sheetInstanceLocalMutations = api.table(
   ],
 )
 
+export const sheetInstanceCalculationMutations = api.table(
+  'sheet_instance_calculation_mutations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    instanceId: uuid('instance_id')
+      .notNull()
+      .references(() => sheetInstances.id, { onDelete: 'restrict' }),
+    retryToken: uuid('retry_token').notNull(),
+    requestDigest: text('request_digest').notNull(),
+    operation: text('operation').notNull(),
+    resultRevision: bigint('result_revision', { mode: 'bigint' }).notNull(),
+    result: jsonb('result').notNull(),
+    actorUserId: text('actor_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('uq_sheet_calculation_mutation_retry').on(
+      table.instanceId,
+      table.retryToken,
+    ),
+    check(
+      'chk_sheet_calculation_mutation_digest',
+      sql`${table.requestDigest} ~ '^[0-9a-f]{64}$'`,
+    ),
+    check(
+      'chk_sheet_calculation_mutation_operation',
+      sql`${table.operation} IN ('definition_mutation','recalculate')`,
+    ),
+    check(
+      'chk_sheet_calculation_mutation_revision',
+      sql`${table.resultRevision} > 0`,
+    ),
+    index('idx_sheet_calculation_mutations_instance').on(
+      table.instanceId,
+      table.createdAt,
+    ),
+  ],
+)
+
+export const sheetInstanceCalculationResults = internal.table(
+  'sheet_instance_calculation_results',
+  {
+    instanceId: uuid('instance_id')
+      .notNull()
+      .references(() => sheetInstances.id, { onDelete: 'restrict' }),
+    calculationId: uuid('calculation_id').notNull(),
+    rowKey: text('row_key').notNull(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    scope: text('scope').notNull(),
+    definitionVersionId: uuid('definition_version_id').references(
+      () => sheetDefinitionVersions.id,
+      { onDelete: 'restrict' },
+    ),
+    instanceRevision: bigint('instance_revision', { mode: 'bigint' }).notNull(),
+    expression: jsonb('expression').notNull(),
+    dependencies: jsonb('dependencies').notNull(),
+    outputField: jsonb('output_field').notNull(),
+    sourceRevisions: jsonb('source_revisions').notNull(),
+    dependencyProvenance: jsonb('dependency_provenance').notNull(),
+    resultKind: text('result_kind').notNull(),
+    value: jsonb('value'),
+    errorCode: text('error_code'),
+    diagnostic: text('diagnostic'),
+    engineVersion: text('engine_version').notNull(),
+    functionProfile: text('function_profile').notNull(),
+    calculatedAt: timestamp('calculated_at', {
+      withTimezone: true,
+      mode: 'date',
+    })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.instanceId, table.calculationId, table.rowKey],
+    }),
+    check(
+      'chk_sheet_calculation_result_row_key',
+      sql`${table.rowKey} ~ '^sb-row-v1:[0-9a-f]{64}$' OR ${table.rowKey} ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'`,
+    ),
+    check(
+      'chk_sheet_calculation_result_scope',
+      sql`${table.scope} IN ('definition','instance')`,
+    ),
+    check(
+      'chk_sheet_calculation_result_kind',
+      sql`${table.resultKind} IN ('value','error')`,
+    ),
+    check(
+      'chk_sheet_calculation_result_profile',
+      sql`${table.engineVersion} = '3.3.0' AND ${table.functionProfile} = 'scientific-core-v2'`,
+    ),
+    index('idx_sheet_calculation_results_instance').on(table.instanceId),
+  ],
+)
+
 export const datasets = api.table(
   'datasets',
   {

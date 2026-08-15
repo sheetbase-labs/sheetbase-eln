@@ -20,7 +20,6 @@ It is a disposable demo surface, not a staging or production environment.
   volume `sheetbase-dev-object-storage`. These are separate from production.
 - The dev database and files are intentionally disposable. Anyone with the
   URL can alter them; never put real research data or credentials there.
-- The PR-preview deployment scope is not changed by this environment.
 
 ## One-time operator setup
 

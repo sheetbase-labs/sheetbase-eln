@@ -16,8 +16,6 @@
     "artifact:build": "node --import tsx scripts/build-artifact.ts",
     "deploy:plan": "node --import tsx scripts/deploy.ts --plan",
     "deploy:apply": "node --import tsx scripts/deploy.ts --apply",
-    "preview:deploy": "node --import tsx scripts/deploy-preview.ts --deploy",
-    "preview:cleanup": "node --import tsx scripts/deploy-preview.ts --cleanup",
     "preview": "vite preview",
     "test": "vitest run",
     "screenshot:gallery": "tsx scripts/screenshot-gallery.mts",

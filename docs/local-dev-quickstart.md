@@ -1,11 +1,12 @@
 # Local dev quick-start (orb)
 
 This is the cheat-sheet for getting the app running locally in an orb so you
-can iterate visually without waiting for PR preview deployments.
+can iterate visually without waiting for a hosted development deploy.
 
 ## Prerequisites
 
 `.agents/setup` (runs automatically on fresh orb creation) handles:
+
 - Node.js 22, pnpm 11
 - PostgreSQL 18 cluster + roles + migrations
 - PostgREST v14.5 binary
@@ -90,19 +91,19 @@ amp orb service start dev --command 'pnpm dev'
 
 ## Common issues
 
-| Symptom | Fix |
-| --- | --- |
-| App redirects to `/sign-in` | `SHEETBASE_DEV_AUTH_FREE` is not `true` in `.env.local`; restart dev server after fixing |
-| PostgREST `permission denied for table` | Normal for anon role without auth; the app proxies with its own client role |
-| `Port 3000 is in use` | A stale Vite process survived; kill it (`kill <pid>`) or just use the port Vite picked (check logs) |
-| No data on pages | Run `pnpm db:seed:demo` to populate fixture data |
-| `postgrest: command not found` | Run `.agents/setup` or install manually per `docs/orb-setup.md` |
-| PostgREST `resource busy (Address in use)` | Another process holds port 3001/3002; stop it then restart the service |
+| Symptom                                    | Fix                                                                                                 |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| App redirects to `/sign-in`                | `SHEETBASE_DEV_AUTH_FREE` is not `true` in `.env.local`; restart dev server after fixing            |
+| PostgREST `permission denied for table`    | Normal for anon role without auth; the app proxies with its own client role                         |
+| `Port 3000 is in use`                      | A stale Vite process survived; kill it (`kill <pid>`) or just use the port Vite picked (check logs) |
+| No data on pages                           | Run `pnpm db:seed:demo` to populate fixture data                                                    |
+| `postgrest: command not found`             | Run `.agents/setup` or install manually per `docs/orb-setup.md`                                     |
+| PostgREST `resource busy (Address in use)` | Another process holds port 3001/3002; stop it then restart the service                              |
 
 ## What NOT to do
 
 - Do not use `nohup`, `setsid`, `&`, or tmux to keep servers alive — they are
   killed when the Amp CLI updates. Always use `amp orb service start`.
-- Do not wait for GitHub Actions PR preview deployments for normal visual
-  iteration — local dev + Playwright screenshots are much faster.
+- Do not wait for a hosted development deploy for normal visual iteration —
+  local dev + Playwright screenshots are much faster.
 - Do not commit `.env.local` — it contains dev secrets.

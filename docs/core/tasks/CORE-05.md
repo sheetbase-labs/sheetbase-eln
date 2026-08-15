@@ -1,6 +1,6 @@
 # CORE-05 — Schema Evolution and Role-aware Configuration
 
-**Status:** CORE-05.1–05.4 and CORE-05.10 complete; remaining tasks blocked as specified.
+**Status:** CORE-05.1–05.8 and CORE-05.10 complete; remaining tasks blocked as specified.
 **Blocked by:** CORE-05.1 epic-start audit (complete). Remaining tasks blocked as specified.
 **Normative decisions:** ADRs 0021, 0023, 0025, 0026, 0038 plus CORE architecture.
 
@@ -138,7 +138,7 @@ Make Model, Dataset Schema and reusable Definition configuration safely delegabl
 
 ## CORE-05.5 — Implement Model field evolution with impact preview
 
-**Blocked by:** CORE-05.3/05.4.
+**Status:** Complete (2026-08-15)
 
 **Goal:** Make add/label-change/description-change/validation-change/retire operations safe and understandable.
 
@@ -152,11 +152,17 @@ Make Model, Dataset Schema and reusable Definition configuration safely delegabl
 
 **Exit gate:** authorised stewards can evolve Models without corrupting history/dependencies.
 
+### Completion evidence
+
+- `api.preview_model_field_evolution` / `api.apply_model_field_evolution` classify compatible metadata, require confirmation for retirement, and block identity/type/active-contract changes (`SB072`).
+- Impact uses `discover_object_dependencies('model_field', …)`. Historical values remain on Records; retirement does not delete stored values.
+- TypeScript client: `src/lib/schema-evolution.ts`. Focused proof: `tests/db/schema-evolution.test.ts`.
+
 ---
 
 ## CORE-05.6 — Implement Dataset Schema version evolution and migration planning
 
-**Blocked by:** CORE-05.3/05.4 and CORE-02 versioning.
+**Status:** Complete (2026-08-15)
 
 **Goal:** Publish explicit new Dataset Schema versions with compatibility classification.
 
@@ -166,11 +172,17 @@ Make Model, Dataset Schema and reusable Definition configuration safely delegabl
 
 **Exit gate:** breaking Dataset Schema evolution creates an explicit version/migration boundary.
 
+### Completion evidence
+
+- `internal.classify_dataset_schema_fields` ranks optional add as compatible, required add / validation tightening as migration-requiring, and type/cardinality/quantity/relationship/removal as breaking.
+- `apply_dataset_schema_evolution` publishes a new CORE-02 version and does **not** rebind live Datasets (`advancesLiveDatasets=false`). Idempotent retries use `api.configuration_change_log`.
+- SCI-010 is unused. Quantity/relationship changes are breaking, not silently converted.
+
 ---
 
 ## CORE-05.7 — Implement local-field promotion
 
-**Blocked by:** CORE-03 local fields, CORE-05.3/05.5/05.6.
+**Status:** Complete (2026-08-15)
 
 **Goal:** Promote useful Sheet-local fields into reusable/governed configuration safely.
 
@@ -184,11 +196,17 @@ Make Model, Dataset Schema and reusable Definition configuration safely delegabl
 
 **Exit gate:** exploratory data can become governed without losing provenance/history.
 
+### Completion evidence
+
+- `preview_local_field_promotion` / `promote_local_field` require `schema.edit`. Members are denied (`42501`).
+- Dataset Schema target creates a next CORE-02 version reusing the local `fieldId`. Model target creates a Model field.
+- Existing Instance `localValues` remain local (`historicalValuesRemainLocal=true`; `copiesValues=false`). Invalid values fail preview before apply.
+
 ---
 
 ## CORE-05.8 — Implement calculation promotion
 
-**Blocked by:** CORE-03 calculation scopes, CORE-05.3/05.4.
+**Status:** Complete (2026-08-15)
 
 **Goal:** Move a useful calculation between explicit scopes without conflating Sheet analysis and Dataset semantics.
 
@@ -199,6 +217,12 @@ Make Model, Dataset Schema and reusable Definition configuration safely delegabl
 **Tests:** Recovery Instance formula → Definition; governed derived field; incompatible dependency/quantity failure.
 
 **Exit gate:** calculation reuse/governance follows the same deliberate promotion philosophy as fields.
+
+### Completion evidence
+
+- Local-field or Instance-calculation dependencies fail with `incompatible_local_dependency` (`SB071` on apply).
+- `sheet_definition` target writes a new Definition Version draft/version with a matching calculated column; the Instance stays pinned to its previous version.
+- `dataset_schema` target adds a stored CORE-02 field (`storesFormula=false`) and does not copy the formula into Dataset semantics.
 
 ---
 

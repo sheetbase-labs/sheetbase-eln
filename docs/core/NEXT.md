@@ -8,11 +8,11 @@
 
 ## Active task
 
-**CORE-05.5 — Implement Model field evolution with impact preview**
+**CORE-05.9 — Build dense schema/configuration workspace**
 
-Status: CORE-05.4/05.10 complete. Do not start CORE-06.
+Status: CORE-05.5–05.8 complete. Do not start CORE-06.
 
-Task: [`tasks/CORE-05.md`](./tasks/CORE-05.md#core-054--implement-dependency-discovery-service)
+Task: [`tasks/CORE-05.md`](./tasks/CORE-05.md#core-059--build-dense-schemaconfiguration-workspace)
 
 Audit: [`audits/SCHEMA_CAPABILITY_AUDIT.md`](./audits/SCHEMA_CAPABILITY_AUDIT.md)
 
@@ -69,6 +69,10 @@ Canonical schema ADR: [`0038-canonical-dataset-schema-definitions.md`](../decisi
 - CORE-05.2 — capability vocabulary, `steward` role, role mapping
 - CORE-05.4 — stable-ID dependency discovery
 - CORE-05.10 — archive/restore and protected hard-delete
+- CORE-05.5 — Model field evolution with impact preview
+- CORE-05.6 — CORE-02 Dataset Schema version evolution
+- CORE-05.7 — explicit local-field promotion
+- CORE-05.8 — explicit calculation promotion
 - product/architecture reset and accepted ADRs 0020–0026
 
 ## Required reading
@@ -82,9 +86,8 @@ Canonical schema ADR: [`0038-canonical-dataset-schema-definitions.md`](../decisi
 
 ## Implement now
 
-CORE-05.4 and CORE-05.10 are complete. Next is CORE-05.5–05.8 governed
-evolution and explicit promotion on the canonical CORE-02 path. Do not start
-CORE-06.
+CORE-05.5–05.8 are complete. Next is CORE-05.9/05.11 steward configuration
+workspace and role proof. Do not start CORE-06.
 
 CORE-04.11 exit evidence: `pnpm validate` 166 files / 1,893 tests, zero lint
 errors, production client/SSR build; `pnpm test:db` 61 files / 679 tests.

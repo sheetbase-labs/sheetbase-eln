@@ -3,6 +3,9 @@ import { describe, expect, it } from 'vitest'
 import {
   createDatasetSchemaDefinition,
   createNextDatasetSchemaVersion,
+  listCanonicalDatasetSchemaDefinitions,
+  listCanonicalDatasetSchemaVersionFields,
+  listCanonicalDatasetSchemaVersions,
   listWorkspaceCapabilities,
   publishDatasetSchemaVersion,
   replaceDatasetSchemaVersionFields,
@@ -60,5 +63,23 @@ describe('canonical Dataset Schema Definition RPCs', () => {
       p_key: 'stability_result',
       p_fields: [{ key: 'titre', logical_type: 'decimal' }],
     })
+  })
+
+  it('lists canonical Dataset Schema identities through PostgREST', async () => {
+    const listed: string[] = []
+    const c = {
+      list: async (resource: string) => {
+        listed.push(resource)
+        return []
+      },
+    } as DataClient
+    await listCanonicalDatasetSchemaDefinitions(c)
+    await listCanonicalDatasetSchemaVersions(c, 'def-1')
+    await listCanonicalDatasetSchemaVersionFields(c, 'ver-1')
+    expect(listed).toEqual([
+      'dataset_schema_definitions',
+      'dataset_schema_versions',
+      'dataset_schema_version_fields',
+    ])
   })
 })

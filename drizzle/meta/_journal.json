@@ -673,6 +673,13 @@
       "when": 1786813000000,
       "tag": "0095_core_054_dependency_lifecycle",
       "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1786814000000,
+      "tag": "0096_core_055_evolution_promotion",
+      "breakpoints": true
     }
   ]
 }

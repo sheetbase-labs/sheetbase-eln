@@ -21,7 +21,7 @@ export interface DatasetSchemaDefinitionCreated {
   schema_version_id: string
 }
 
-function fieldWire(field: DatasetSchemaFieldInput) {
+export function fieldWire(field: DatasetSchemaFieldInput) {
   return {
     field_id: field.fieldId ?? null,
     key: field.key,
@@ -100,4 +100,63 @@ export async function listWorkspaceCapabilities(
   workspaceId: string,
 ): Promise<string[]> {
   return client.rpc('list_capabilities', { p_workspace_id: workspaceId })
+}
+
+export interface CanonicalDatasetSchemaDefinition {
+  id: string
+  key: string
+  name: string
+  description: string | null
+  lifecycle: string
+  created_at: string
+  updated_at: string
+}
+
+export interface CanonicalDatasetSchemaVersion {
+  id: string
+  schema_id: string
+  version: number
+  lifecycle: string
+  published_at: string | null
+}
+
+export interface CanonicalDatasetSchemaField {
+  field_id: string
+  key: string
+  label: string
+  description: string | null
+  logical_type: string
+  nullable: boolean
+  cardinality: string
+  lifecycle: string
+  display_order: number
+}
+
+export async function listCanonicalDatasetSchemaDefinitions(
+  client: DataClient,
+): Promise<CanonicalDatasetSchemaDefinition[]> {
+  return client.list(
+    'dataset_schema_definitions',
+    '?select=id,key,name,description,lifecycle,created_at,updated_at&order=name.asc',
+  )
+}
+
+export async function listCanonicalDatasetSchemaVersions(
+  client: DataClient,
+  schemaDefinitionId: string,
+): Promise<CanonicalDatasetSchemaVersion[]> {
+  return client.list(
+    'dataset_schema_versions',
+    `?schema_id=eq.${schemaDefinitionId}&select=id,schema_id,version,lifecycle,published_at&order=version.desc`,
+  )
+}
+
+export async function listCanonicalDatasetSchemaVersionFields(
+  client: DataClient,
+  schemaVersionId: string,
+): Promise<CanonicalDatasetSchemaField[]> {
+  return client.list(
+    'dataset_schema_version_fields',
+    `?schema_version_id=eq.${schemaVersionId}&select=field_id,key,label,description,logical_type,nullable,cardinality,lifecycle,display_order&order=display_order.asc`,
+  )
 }

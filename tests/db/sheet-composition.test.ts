@@ -1,7 +1,10 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import type { DataClient } from '../../src/lib/data-client'
 import { rowIdentityKey } from '../../src/lib/row-identity'
+import { calculateSheetSnapshot } from '../../src/lib/sheet-calculation.server'
+import { fetchComposedSheetRows } from '../../src/lib/sheet-composition-data'
 import { prepareTestDatabase } from './helpers'
 
 const WS = '18000000-0000-4000-8000-000000000001'
@@ -813,6 +816,274 @@ describe('bounded Sheet Instance composition RPC', () => {
       validator039: false,
       validator: false,
       helper: false,
+    })
+  })
+
+  it('materializes an explicitly previewed composition through Dataset bulk, source snapshots, and retry provenance', async () => {
+    const owner = await actor(OWNER, WS)
+    const fixture = await instance(owner)
+    const sample = await sampleRecord()
+    await row(fixture.sources[0], SAMPLE_FIELD, sample)
+    await row(fixture.sources[1], RESULT_FIELD, sample)
+    await row(fixture.sources[2], RESULT_FIELD, sample)
+    const rawComposition = await query(owner, fixture.instance.id)
+    const rowKey = rowIdentityKey(
+      rawComposition.identity,
+      rawComposition.rows[0].identityValues,
+    )
+    const localFieldId = crypto.randomUUID()
+    const calculationId = crypto.randomUUID()
+    const localField = {
+      fieldId: localFieldId,
+      key: 'local_yield',
+      label: 'Local yield',
+      description: null,
+      logicalType: 'decimal',
+      nullable: true,
+      defaultValue: null,
+      cardinality: 'one',
+      quantity: null,
+      validation: {},
+      category: null,
+      relationship: null,
+      computation: { mode: 'stored' },
+      lifecycle: 'active',
+    }
+    const local = (
+      await owner.query(
+        `select to_jsonb(api.mutate_sheet_instance_local_state($1,$2,$3,$4::jsonb,$5::jsonb,$6::jsonb)) result`,
+        [
+          fixture.instance.id,
+          fixture.instance.revision,
+          crypto.randomUUID(),
+          JSON.stringify([{ operation: 'add', field: localField }]),
+          JSON.stringify([
+            {
+              kind: 'composed',
+              rowKey,
+              identityValues: rawComposition.rows[0].identityValues,
+              compositionOffset: 0,
+            },
+          ]),
+          JSON.stringify([{ rowKey, fieldId: localFieldId, value: 5 }]),
+        ],
+      )
+    ).rows[0].result
+    const calculation = {
+      id: calculationId,
+      key: 'calculated_yield',
+      label: 'Calculated yield',
+      lifecycle: 'active',
+      outputField: {
+        ...localField,
+        fieldId: calculationId,
+        key: 'calculated_yield',
+        label: 'Calculated yield',
+        computation: { mode: 'computed', expressionId: calculationId },
+      },
+      dependencies: [{ kind: 'local-field', id: localFieldId }],
+      expression: { language: 'sheetbase-formula-v1', source: '=A1*2' },
+    }
+    const configured = (
+      await owner.query(
+        `select to_jsonb(api.mutate_sheet_instance_calculations($1,$2,$3,$4::jsonb)) result`,
+        [
+          fixture.instance.id,
+          local.revision,
+          crypto.randomUUID(),
+          JSON.stringify([{ operation: 'add', calculation }]),
+        ],
+      )
+    ).rows[0].result
+    const calculationComposition = await fetchComposedSheetRows(
+      fixture.instance.id,
+      { limit: 200, offset: 0 },
+      {
+        rpc: async <T>() => rawComposition as T,
+        list: async () => [],
+        count: async () => 0,
+        insert: async () => {
+          throw new Error('unsupported')
+        },
+        patch: async () => [],
+        remove: async () => [],
+      } satisfies DataClient,
+    )
+    const calculationResults = calculateSheetSnapshot({
+      instanceId: fixture.instance.id,
+      workspaceId: WS,
+      definitionVersionId: configured.source_definition_version_id,
+      revision: configured.revision,
+      state: configured.state,
+      composition: calculationComposition,
+    })
+    expect(calculationResults).toEqual([
+      expect.objectContaining({
+        calculationId,
+        rowKey,
+        resultKind: 'value',
+        value: 10,
+      }),
+    ])
+    await migrator.query('begin')
+    await migrator.query('set local role formula_writer')
+    await migrator.query(
+      `select internal.apply_trusted_sheet_calculation($1,$2,$3,$4,$5::jsonb)`,
+      [
+        OWNER,
+        fixture.instance.id,
+        configured.revision,
+        crypto.randomUUID(),
+        JSON.stringify(calculationResults),
+      ],
+    )
+    await migrator.query('commit')
+    const preview = (
+      await owner.query(
+        `select api.preview_sheet_materialization($1,$2,null) result`,
+        [fixture.instance.id, configured.revision],
+      )
+    ).rows[0].result
+    expect(preview).toMatchObject({
+      instanceId: fixture.instance.id,
+      derivedOutputFields: expect.any(Array),
+      sourceVersions: expect.arrayContaining([
+        expect.objectContaining({ datasetId: fixture.sources[0] }),
+      ]),
+    })
+    expect(preview.derivedOutputFields).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: localFieldId, kind: 'local-field' }),
+        expect.objectContaining({
+          id: calculationId,
+          kind: 'instance-calculation',
+        }),
+      ]),
+    )
+    const retry = crypto.randomUUID()
+    const materialized = (
+      await owner.query(
+        `select api.materialize_sheet_instance($1,$2,'Materialized composition',null,$3,$4) result`,
+        [
+          fixture.instance.id,
+          configured.revision,
+          preview.previewDigest,
+          retry,
+        ],
+      )
+    ).rows[0].result
+    const repeated = (
+      await owner.query(
+        `select api.materialize_sheet_instance($1,$2,'Materialized composition',null,$3,$4) result`,
+        [
+          fixture.instance.id,
+          configured.revision,
+          preview.previewDigest,
+          retry,
+        ],
+      )
+    ).rows[0].result
+    expect(materialized).toMatchObject({ idempotent: false })
+    expect(repeated).toMatchObject({
+      idempotent: true,
+      datasetId: materialized.datasetId,
+      datasetVersionId: materialized.datasetVersionId,
+    })
+    await expect(
+      owner.query(
+        `select api.materialize_sheet_instance($1,$2,'Different output',null,$3,$4)`,
+        [
+          fixture.instance.id,
+          configured.revision,
+          preview.previewDigest,
+          retry,
+        ],
+      ),
+    ).rejects.toMatchObject({ code: '23505' })
+    await expect(
+      owner.query(
+        `select api.preview_sheet_materialization($1,$2,$3)`,
+        [
+          fixture.instance.id,
+          configured.revision,
+          preview.sourceVersions[0].schemaVersionId,
+        ],
+      ),
+    ).rejects.toMatchObject({ code: 'SB089' })
+    expect(
+      (
+        await owner.query(
+          `select source_versions,output_dataset_id,output_dataset_version_id,definition_version_id,instance_id,actor_user_id from api.sheet_materializations where id=$1`,
+          [materialized.materializationId],
+        )
+      ).rows[0],
+    ).toMatchObject({
+      output_dataset_id: materialized.datasetId,
+      output_dataset_version_id: materialized.datasetVersionId,
+      definition_version_id: fixture.instance.source_definition_version_id,
+      instance_id: fixture.instance.id,
+      actor_user_id: OWNER,
+    })
+    const output = (
+      await owner.query(
+        `select api.query_dataset_version_rows($1,200,0) result`,
+        [materialized.datasetVersionId],
+      )
+    ).rows[0].result
+    expect(output.rows).toHaveLength(1)
+    expect(output.rows[0].values).toMatchObject({
+      [localFieldId]: 5,
+      [calculationId]: 10,
+    })
+    const beforeMutation = structuredClone(output.rows)
+    const sourceRow = (
+      await owner.query(
+        `select id,revision from api.dataset_rows where dataset_id=$1 limit 1`,
+        [fixture.sources[0]],
+      )
+    ).rows[0]
+    const replacement = await sampleRecord()
+    await owner.query(
+      `select api.commit_dataset_row_batch($1,1,$2::jsonb,$3)`,
+      [
+        fixture.sources[0],
+        JSON.stringify([
+          {
+            operation: 'update',
+            rowId: sourceRow.id,
+            expectedRevision: Number(sourceRow.revision),
+            values: { [SAMPLE_FIELD]: replacement },
+          },
+        ]),
+        crypto.randomUUID(),
+      ],
+    )
+    expect(
+      (
+        await owner.query(
+          `select api.query_dataset_version_rows($1,200,0) result`,
+          [materialized.datasetVersionId],
+        )
+      ).rows[0].result.rows,
+    ).toEqual(beforeMutation)
+    const outsider = await actor(OUTSIDER, OTHER_WS)
+    await expect(
+      outsider.query(`select api.preview_sheet_materialization($1,$2,null)`, [
+        fixture.instance.id,
+        configured.revision,
+      ]),
+    ).rejects.toMatchObject({ code: '42501' })
+    expect(
+      (
+        await migrator.query(
+          `select has_function_privilege('authenticated','api.preview_sheet_materialization(uuid,bigint,uuid)','EXECUTE') preview,has_function_privilege('authenticated','api.materialize_sheet_instance(uuid,bigint,text,uuid,text,uuid)','EXECUTE') materialize,has_function_privilege('authenticated','internal.sheet_materialization_preview(api.sheet_instances,uuid)','EXECUTE') helper,has_table_privilege('authenticated','api.sheet_materializations','INSERT') direct_insert`,
+        )
+      ).rows[0],
+    ).toEqual({
+      preview: true,
+      materialize: true,
+      helper: false,
+      direct_insert: false,
     })
   })
 })

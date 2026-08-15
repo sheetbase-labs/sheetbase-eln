@@ -582,6 +582,8 @@ UI was added.
 
 ## CORE-03.14 — Implement explicit materialisation
 
+**Status:** Complete (2026-08-15).
+
 **Blocked by:** CORE-03.6–03.10, CORE-02 Dataset creation/versioning.
 
 **Goal:** Create a durable Dataset from a composed Sheet result only when explicitly requested.
@@ -593,6 +595,26 @@ UI was added.
 **Tests:** golden composition → output Dataset; reproducibility; retry; provenance.
 
 **Exit gate:** a composed result can become a traceable Dataset using semantics compatible with future Pipeline Runs.
+
+## Completion evidence
+
+- Migration `0089` adds an explicit preview-digest-confirmed materialisation
+  RPC and a member-readable, append-only provenance ledger. The manifest covers
+  governed Definition columns, active Instance-local fields and active Instance
+  calculations with stable typed identities; selected output schemas must be
+  exactly compatible, while derived schemas retain canonical field semantics.
+- Live Dataset inputs are locked and snapshotted; already version-pinned inputs
+  retain their exact Dataset Version. The output is written through the
+  controlled Dataset bulk/revision/idempotency contract and immediately
+  snapshotted. Provenance records the Sheet Instance/revision, pinned Definition
+  Version, exact source Versions, calculation evidence and actor/time. Retry
+  tokens are request-digest-bound.
+- Focused DB proof passes 7/7 after migration, including a golden bound, local
+  and calculated composition, immutable output reload after source mutation,
+  selected-schema rejection, payload-bound retry, RLS and helper/direct-write
+  ACLs. Focused TypeScript parser/data tests pass 2/2 with typecheck.
+- Materialisation deliberately rejects results beyond the current bounded
+  200-row composition window rather than silently exporting a partial result.
 
 ---
 

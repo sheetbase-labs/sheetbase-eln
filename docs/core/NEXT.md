@@ -8,9 +8,9 @@
 
 ## Active task
 
-**CORE-03.14 — Implement explicit materialisation**
+**CORE-03.15 — Reuse, sharing, duplication and lifecycle proof**
 
-Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-0314--implement-explicit-materialisation)
+Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-0315--reuse-sharing-duplication-and-lifecycle-proof)
 
 ## Completed in this PR
 
@@ -44,11 +44,13 @@ Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-0314--implement-explicit-mate
   Definition draft
 - CORE-03.13 — explicit previewed Definition Version upgrade with controlled
   retain/map/defer reconciliation and durable provenance
+- CORE-03.14 — explicit traceable composed-Sheet materialisation into an
+  immutable Dataset Version
 - product/architecture reset and accepted ADRs 0020–0026
 
 ## Required reading
 
-1. [`tasks/CORE-03.md`](./tasks/CORE-03.md), CORE-03.14 only plus CORE-03.13 boundary
+1. [`tasks/CORE-03.md`](./tasks/CORE-03.md), CORE-03.15 only plus CORE-03.14 boundary
 2. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md), Dataset and Sheet sections
 3. [`CORE_ARCHITECTURE.md`](./CORE_ARCHITECTURE.md), sections 4–9
 4. ADR 0024 (shared typed parameters), with ADRs 0020–0023 and 0025 for the settled
@@ -56,8 +58,8 @@ Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-0314--implement-explicit-mate
 
 ## Implement now
 
-Implement explicit Sheet materialisation into a durable Dataset without making
-virtual composition persistence the default.
+Prove the settled Sheet reuse, sharing, duplication and lifecycle invariants end
+to end without adding new product behavior.
 
 ## Do not
 
@@ -73,19 +75,16 @@ virtual composition persistence the default.
 - do not weaken RLS/server validation;
 - do not broaden paused specialist workspaces.
 
-CORE-03.13 is complete. Migrations `0087`/`0088` add a bounded three-way impact
-preview, exact stable-ID conflict decisions and one controlled revision-CAS
-transition to an explicitly selected newer published Version in the same
-Definition lineage. Compatible additions/label renames are automatic;
-retain-local preserves populated local identity/state, and exact compatible
-column/parameter maps materially reconcile dependencies, presentation and
-binding provenance. Unsupported binding/join/calculation/write-back/action or
-incompatible identity reconciliation can only defer; arbitrary maps are
-rejected. Successful transitions append source/target, decisions, actor/time
-and resulting revision provenance; deferred or failed transitions do not mutate
-the Instance. Journal timestamps are monotonic after `0086`; fresh PostgreSQL
-18 migration hashes prove `0086`–`0088` applied in order. Focused TypeScript and
-DB tests pass 3/3 each with typecheck. CORE-03.14 owns explicit materialisation
+CORE-03.14 is complete. Migration `0089` adds explicit preview-confirmed
+materialisation of bounded composed Sheet results through canonical Dataset
+bulk commit and immutable snapshot contracts. Output manifests include governed
+Definition columns, Instance-local fields and Instance calculations. Live
+inputs become exact snapshots, pinned inputs retain their Dataset Versions, and
+append-only provenance records source/Definition/Instance/calculation identity,
+revision and actor/time. Retry is request-digest-bound; selected schemas require
+exact compatibility; ordinary composition remains virtual. Focused DB proof
+passes 7/7, including bound + local + calculated output and immutable reload;
+focused TypeScript tests pass 2/2 with typecheck. CORE-03.15 owns invariant proof
 only.
 
 ## Hand-off evidence

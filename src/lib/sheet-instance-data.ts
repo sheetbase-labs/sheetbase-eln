@@ -3,6 +3,14 @@ import { z } from 'zod'
 import { createDataClient } from './data-client'
 import type { DataClient } from './data-client'
 import { sheetDefinitionUuidSchema as uuid } from './sheet-definition'
+import {
+  parseSheetDefinitionUpgradeDecisions,
+  parseSheetDefinitionUpgradePreview,
+} from './sheet-definition-upgrade'
+import type {
+  SheetDefinitionUpgradeDecision,
+  SheetDefinitionUpgradePreview,
+} from './sheet-definition-upgrade'
 import { sheetInstanceStateSchema } from './sheet-instance'
 import type { SheetInstanceState } from './sheet-instance'
 
@@ -204,4 +212,88 @@ export async function duplicateSheetInstance(
     p_name: name,
   })
   return sheetInstanceFromWire(row)
+}
+
+export async function previewSheetInstanceDefinitionUpgrade(
+  instanceId: string,
+  expectedRevision: number,
+  targetDefinitionVersionId: string,
+  client = sheetInstanceDataClient,
+): Promise<SheetDefinitionUpgradePreview> {
+  const result = await client.rpc<unknown>(
+    'preview_sheet_instance_definition_upgrade',
+    {
+      p_instance_id: uuid.parse(instanceId),
+      p_expected_instance_revision: expectedRevision,
+      p_target_definition_version_id: uuid.parse(targetDefinitionVersionId),
+    },
+  )
+  return parseSheetDefinitionUpgradePreview(result)
+}
+
+export async function applySheetInstanceDefinitionUpgrade(
+  input: {
+    instanceId: string
+    expectedRevision: number
+    targetDefinitionVersionId: string
+    decisions: SheetDefinitionUpgradeDecision[]
+    parameterInputs?: SheetParameterInput[]
+  },
+  client = sheetInstanceDataClient,
+): Promise<
+  | { status: 'deferred'; preview: SheetDefinitionUpgradePreview }
+  | {
+      status: 'applied'
+      preview: SheetDefinitionUpgradePreview
+      instance: SheetInstance
+      provenance: {
+        sourceDefinitionVersionId: string
+        targetDefinitionVersionId: string
+        sourceInstanceRevision: number
+        resultingInstanceRevision: number
+        actorUserId: string
+        upgradedAt: string
+        decisions: SheetDefinitionUpgradeDecision[]
+      }
+    }
+> {
+  const decisions = parseSheetDefinitionUpgradeDecisions(input.decisions)
+  const result = await client.rpc<any>(
+    'apply_sheet_instance_definition_upgrade',
+    {
+      p_instance_id: uuid.parse(input.instanceId),
+      p_expected_instance_revision: input.expectedRevision,
+      p_target_definition_version_id: uuid.parse(
+        input.targetDefinitionVersionId,
+      ),
+      p_decisions: decisions,
+      p_parameter_inputs: input.parameterInputs ?? [],
+    },
+  )
+  const preview = parseSheetDefinitionUpgradePreview(result.preview)
+  if (result.status === 'deferred') return { status: 'deferred', preview }
+  if (result.status !== 'applied')
+    throw new Error('Unknown Sheet Definition upgrade result status.')
+  return {
+    status: 'applied',
+    preview,
+    instance: sheetInstanceFromWire(result.instance),
+    provenance: {
+      sourceDefinitionVersionId: uuid.parse(
+        result.provenance.sourceDefinitionVersionId,
+      ),
+      targetDefinitionVersionId: uuid.parse(
+        result.provenance.targetDefinitionVersionId,
+      ),
+      sourceInstanceRevision: revision.parse(
+        result.provenance.sourceInstanceRevision,
+      ),
+      resultingInstanceRevision: revision.parse(
+        result.provenance.resultingInstanceRevision,
+      ),
+      actorUserId: z.string().min(1).parse(result.provenance.actorUserId),
+      upgradedAt: timestamp.parse(result.provenance.upgradedAt),
+      decisions,
+    },
+  }
 }

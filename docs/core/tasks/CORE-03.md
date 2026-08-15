@@ -529,6 +529,8 @@ UI was added.
 
 ## CORE-03.13 — Implement explicit Definition upgrade semantics
 
+**Status:** Complete (2026-08-15).
+
 **Blocked by:** CORE-03.2/03.3.
 
 **Goal:** Upgrade an existing Instance to a newer Definition version without silently losing Instance-owned state.
@@ -540,6 +542,41 @@ UI was added.
 **Tests:** added column; renamed label; removed populated local column conflict; changed binding requirement; failed/deferred upgrade.
 
 **Exit gate:** Definition evolution is safe for existing scientific work.
+
+## Completion evidence
+
+- Generated migration `0087` and controlled migration `0088` add an
+  append-only, member-readable upgrade ledger plus separate member preview and
+  revision-CAS apply RPCs. A target must be an explicitly named newer published
+  Version in the Instance's exact Definition lineage; latest is never inferred,
+  and the existing immutable Version rows are never changed.
+- The bounded three-way impact manifest compares the pinned source
+  configuration, exact Instance-owned references/state and target
+  configuration by stable UUID. Added columns and label-only renames are
+  compatible; removed or incompatible columns, parameters/bindings, identity,
+  dependencies, calculations and write targets are explicit conflicts.
+- Apply requires one current decision per conflict. `retain-local` preserves a
+  removed declared field's old local identity, values, calculation references
+  and presentation. `map` is offered only for an exact compatible column or a
+  parameter whose current concrete value resolves against the target; column
+  maps materially rewrite dependencies and presentation, while parameter maps
+  re-resolve the target binding/provenance. A populated locally owned declared
+  column cannot be mapped, and binding/join/calculation/write-back/action or
+  incompatible identity conflicts support only `defer`. Arbitrary candidates
+  are rejected against the current preview. `defer` returns without mutation.
+  Successful apply preserves local fields/values and Instance
+  calculations/overrides, keeps semantic row identity and target write
+  ownership, and records source/target Versions, decisions, actor/time and
+  resulting revision. Existing calculation result rows are retained and become
+  stale through the new Instance revision rather than being deleted.
+- The journal timestamps for `0087`/`0088` are strictly monotonic after `0086`.
+  A fresh PostgreSQL 18 test database applied `0086`, `0087` and `0088` in that
+  order with matching migration hashes. Focused DB proof passes 3/3 for exact
+  compatible candidates, arbitrary/incompatible map rejection, populated
+  retain-local versus structural column map behavior, parameter map behavior,
+  byte-exact defer/failure, CAS, RLS, lifecycle/lineage, provenance and reload.
+  Focused TypeScript contract/data tests pass 3/3 with typecheck, formatting,
+  changed-source lint and diff checks.
 
 ---
 

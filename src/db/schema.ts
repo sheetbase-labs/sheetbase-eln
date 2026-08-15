@@ -2345,6 +2345,59 @@ export const sheetInstanceCalculationMutations = api.table(
   ],
 )
 
+export const sheetInstanceDefinitionUpgrades = api.table(
+  'sheet_instance_definition_upgrades',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    instanceId: uuid('instance_id')
+      .notNull()
+      .references(() => sheetInstances.id, { onDelete: 'restrict' }),
+    sourceDefinitionVersionId: uuid('source_definition_version_id')
+      .notNull()
+      .references(() => sheetDefinitionVersions.id, { onDelete: 'restrict' }),
+    targetDefinitionVersionId: uuid('target_definition_version_id')
+      .notNull()
+      .references(() => sheetDefinitionVersions.id, { onDelete: 'restrict' }),
+    sourceInstanceRevision: bigint('source_instance_revision', {
+      mode: 'bigint',
+    }).notNull(),
+    resultingInstanceRevision: bigint('resulting_instance_revision', {
+      mode: 'bigint',
+    }).notNull(),
+    decisionManifest: jsonb('decision_manifest').notNull(),
+    actorUserId: text('actor_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    upgradedAt: timestamp('upgraded_at', {
+      withTimezone: true,
+      mode: 'date',
+    })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'chk_sheet_instance_definition_upgrade_revisions',
+      sql`${table.sourceInstanceRevision} > 0 AND ${table.resultingInstanceRevision} = ${table.sourceInstanceRevision} + 1`,
+    ),
+    check(
+      'chk_sheet_instance_definition_upgrade_versions',
+      sql`${table.sourceDefinitionVersionId} <> ${table.targetDefinitionVersionId}`,
+    ),
+    unique('uq_sheet_instance_definition_upgrade_revision').on(
+      table.instanceId,
+      table.resultingInstanceRevision,
+    ),
+    index('idx_sheet_instance_definition_upgrades_instance').on(
+      table.instanceId,
+      table.upgradedAt,
+    ),
+  ],
+)
+
 export const sheetInstanceCalculationResults = internal.table(
   'sheet_instance_calculation_results',
   {

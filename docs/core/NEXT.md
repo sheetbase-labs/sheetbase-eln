@@ -8,9 +8,9 @@
 
 ## Active task
 
-**CORE-03.13 — Implement explicit Definition upgrade semantics**
+**CORE-03.14 — Implement explicit materialisation**
 
-Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-0313--implement-explicit-definition-upgrade-semantics)
+Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-0314--implement-explicit-materialisation)
 
 ## Completed in this PR
 
@@ -42,11 +42,13 @@ Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-0313--implement-explicit-defi
   overrides
 - CORE-03.12 — explicit value-free Instance structure extraction into a new
   Definition draft
+- CORE-03.13 — explicit previewed Definition Version upgrade with controlled
+  retain/map/defer reconciliation and durable provenance
 - product/architecture reset and accepted ADRs 0020–0026
 
 ## Required reading
 
-1. [`tasks/CORE-03.md`](./tasks/CORE-03.md), CORE-03.13 only plus CORE-03.12 boundary
+1. [`tasks/CORE-03.md`](./tasks/CORE-03.md), CORE-03.14 only plus CORE-03.13 boundary
 2. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md), Dataset and Sheet sections
 3. [`CORE_ARCHITECTURE.md`](./CORE_ARCHITECTURE.md), sections 4–9
 4. ADR 0024 (shared typed parameters), with ADRs 0020–0023 and 0025 for the settled
@@ -54,14 +56,14 @@ Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-0313--implement-explicit-defi
 
 ## Implement now
 
-Implement explicit, previewed Definition Version upgrades without silently
-following latest or losing Instance-owned state.
+Implement explicit Sheet materialisation into a durable Dataset without making
+virtual composition persistence the default.
 
 ## Do not
 
 - do not broaden presentation persistence into a general View subsystem;
 - do not make presentation state semantic identity;
-- do not implement materialisation or full Pipeline semantics;
+- do not implement full Pipeline semantics;
 - do not alter the completed CORE-03.8–03.10 persistence contracts;
 - do not silently coerce incompatible bindings or weaken exact version,
   lineage, quantity, vocabulary or stable semantic identity checks;
@@ -71,19 +73,20 @@ following latest or losing Instance-owned state.
 - do not weaken RLS/server validation;
 - do not broaden paused specialist workspaces.
 
-CORE-03.12 is complete. Migration `0086` adds explicit member preview and
-owner/admin draft extraction over optimistic Instance revision. Stable selected
-bindings receive caller-supplied settled Parameter contracts and concrete
-Dataset/Record sources are compatibility-checked but excluded. Selected local
-FieldDefinitions become empty declared columns; selected Instance calculations
-retain selected stable dependencies; optional presentation defaults retain only
-bounded selected-column layout, sorts and value-free empty-state filters. The
-strict manifest names reusable IDs and excluded concrete bindings, local-value
-counts, overrides/results, row identities derived from values, write-back,
-actions and value-bearing filters. Extraction creates only a new Definition and
-version 1 draft, never mutates the source or publishes. Focused TypeScript tests
-pass 3/3 with typecheck, and the focused DB proof passes 3/3 after migration.
-CORE-03.13 owns explicit upgrade only.
+CORE-03.13 is complete. Migrations `0087`/`0088` add a bounded three-way impact
+preview, exact stable-ID conflict decisions and one controlled revision-CAS
+transition to an explicitly selected newer published Version in the same
+Definition lineage. Compatible additions/label renames are automatic;
+retain-local preserves populated local identity/state, and exact compatible
+column/parameter maps materially reconcile dependencies, presentation and
+binding provenance. Unsupported binding/join/calculation/write-back/action or
+incompatible identity reconciliation can only defer; arbitrary maps are
+rejected. Successful transitions append source/target, decisions, actor/time
+and resulting revision provenance; deferred or failed transitions do not mutate
+the Instance. Journal timestamps are monotonic after `0086`; fresh PostgreSQL
+18 migration hashes prove `0086`–`0088` applied in order. Focused TypeScript and
+DB tests pass 3/3 each with typecheck. CORE-03.14 owns explicit materialisation
+only.
 
 ## Hand-off evidence
 

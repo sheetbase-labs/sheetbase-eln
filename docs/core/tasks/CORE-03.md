@@ -688,6 +688,11 @@ UI was added.
   parser behavior was unchanged. Final `pnpm validate` passes with 155 test
   files / 1,869 tests, zero lint errors (20 existing warnings), typecheck and
   the production client/SSR build.
+- Corrective follow-up: migration `0091` stops presentation query stripping
+  from raising PostgreSQL `22023` when `presentation` is not an object, so
+  malformed Definition documents fail as `SB071`. Parameter-resolution scalar
+  fixtures now use local row identity. The remaining UUID v7 write-back
+  fixture keeps `targetFieldId` aligned with the bound `sourceFieldId`.
 
 ## Epic exit gate
 

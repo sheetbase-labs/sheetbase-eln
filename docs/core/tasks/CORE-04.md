@@ -21,6 +21,8 @@ Make the normal compositional Sheet a first-class Record search/link/create/upda
 
 ## CORE-04.1 — Audit existing Record selection/creation/import flows
 
+**Status:** Complete (2026-08-15), pending review before CORE-04.2.
+
 **Goal:** Map Samples/Reagents/other registries, reference editors, imports and Model management operations to reusable Record actions.
 
 **Deliverables:** `docs/core/audits/RECORD_SHEET_ACTIONS_AUDIT.md` with exact UI/data/RPC/test paths, duplication/uniqueness rules, current Record-ID behaviour, and keep/adapt/deprecate map.
@@ -28,6 +30,22 @@ Make the normal compositional Sheet a first-class Record search/link/create/upda
 **Data/API changes:** None.
 
 **Exit gate:** subsequent tasks can reuse existing Model validation and Record CRUD rather than inventing parallel flows.
+
+### Completion evidence
+
+- Added [`docs/core/audits/RECORD_SHEET_ACTIONS_AUDIT.md`](../audits/RECORD_SHEET_ACTIONS_AUDIT.md)
+  covering registry create/link/search, Model admin, Definition `actions`,
+  CORE-03 Record vs Dataset composition seams, Record ID policy, RLS/allowlist,
+  CSV/import/coercion (ADR 0024 is table-row import), Dataset bulk
+  idempotency as the pattern to mirror, keep/adapt/deprecate, and four
+  proposed implementation bundles for CORE-04.2–04.11.
+- Samples create: `CreateSampleDialog` / `createSample` → `create_model_record`.
+  Reagents: movements-only UI (no create). Link: `RecordPicker` +
+  `create_record_link`. Field update/write-back: `update_record_custom_fields`.
+- Explicit gaps: Record-reference cell editor; column→Model mapping; bulk
+  validate/commit; idempotency; create+link atomicity; Model Record-ID policy
+  beyond generated `PREFIX-YYYY-NNNN`. Scientific CSV is not a Record-import
+  path. `NEXT.md` remains on CORE-04.1 until the audit is approved.
 
 ---
 

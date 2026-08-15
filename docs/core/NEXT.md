@@ -10,7 +10,11 @@
 
 **CORE-04.1 — Audit existing Record selection/creation/import flows**
 
+Status: audit complete; **awaiting review before CORE-04.2**.
+
 Task: [`tasks/CORE-04.md`](./tasks/CORE-04.md#core-041--audit-existing-record-selectioncreationimport-flows)
+
+Audit: [`audits/RECORD_SHEET_ACTIONS_AUDIT.md`](./audits/RECORD_SHEET_ACTIONS_AUDIT.md)
 
 ## Completed in this PR
 
@@ -53,14 +57,17 @@ Task: [`tasks/CORE-04.md`](./tasks/CORE-04.md#core-041--audit-existing-record-se
 ## Required reading
 
 1. [`tasks/CORE-04.md`](./tasks/CORE-04.md), CORE-04.1 only
-2. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md), Record and Sheet sections
-3. [`CORE_ARCHITECTURE.md`](./CORE_ARCHITECTURE.md), sections 4–9
-4. CORE-03 completion evidence in [`tasks/CORE-03.md`](./tasks/CORE-03.md)
+2. [`audits/RECORD_SHEET_ACTIONS_AUDIT.md`](./audits/RECORD_SHEET_ACTIONS_AUDIT.md)
+3. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md), Record and Sheet sections
+4. [`CORE_ARCHITECTURE.md`](./CORE_ARCHITECTURE.md), sections 4–9 and 24–25
+5. CORE-03 completion evidence in [`tasks/CORE-03.md`](./tasks/CORE-03.md)
+6. ADR [`0026-project-record-and-file-semantics.md`](../decisions/0026-project-record-and-file-semantics.md)
 
 ## Implement now
 
-Audit the existing Record selection, creation and import paths that CORE-04
-will reuse. Do not implement Record actions until the audit closes.
+Stop. CORE-04.1 is documentation-only and closed pending review. Do **not**
+implement Record actions, cell contracts, or bulk RPCs until the audit and
+the four remaining bundles in that file are approved.
 
 ## Do not
 
@@ -76,8 +83,20 @@ will reuse. Do not implement Record actions until the audit closes.
 - do not weaken RLS/server validation;
 - do not broaden paused specialist workspaces.
 
-CORE-03 is complete. CORE-03.16's focused DB proof names the `Purification
-Summary` Definition, its notebook-linked Instance, Sample/Upstream/Purification
+CORE-04.1 is complete pending review. Deliverable:
+[`audits/RECORD_SHEET_ACTIONS_AUDIT.md`](./audits/RECORD_SHEET_ACTIONS_AUDIT.md).
+Primary reuse targets: `api.create_model_record`,
+`api.update_record_custom_fields`, `api.create_record_link`, Model
+`custom_fields` validation (`0057`), `RecordPicker`/search, and Dataset bulk
+idempotency as the pattern for 04.6–04.7. Gaps: no Record bulk
+validate/commit, no create idempotency tokens, no user-supplied/override
+Record-ID policy, no create+link atomicity helper, no Record-reference cell
+editor, and scientific CSV is not a Record-import path. Proposed remaining
+bundles (04.2+04.10 foundation; 04.3/04.5/04.6; 04.4/04.7; 04.8/04.9/04.11)
+are in the audit. Do not start CORE-04.2 until approved.
+
+CORE-03 is complete. CORE-03.16's focused DB proof names the Purification
+Summary Definition, its notebook-linked Instance, Sample/Upstream/Purification
 sources, durable local Observation, calculated Recovery, persisted filter and
 optional immutable materialisation with authenticated provenance. The current
 composition contract remains a bounded 200-row virtual window. There is no

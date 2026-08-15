@@ -49,7 +49,8 @@ async function dataset(name: string) {
       [schema],
     )
   ).rows[0].id as string
-  const field = name === 'sample' ? SAMPLE_FIELD : RESULT_FIELD
+  const field =
+    name === 'sample' || name === 'Sample Records' ? SAMPLE_FIELD : RESULT_FIELD
   await migrator.query(
     `insert into api.dataset_schema_version_fields(schema_version_id,field_id,key,label,logical_type,cardinality,relationship,lifecycle,display_order)
      values($1,$2,'sample','Sample','reference','one',$3::jsonb,'active',0)`,
@@ -269,18 +270,25 @@ async function instance(
   cardinality: 'one-to-one' | 'many-to-one' = 'many-to-one',
   chained = false,
   record?: { id: string; fieldId: string },
+  options: {
+    definitionName?: string
+    instanceName?: string
+    notebookRecordId?: string
+    sourceNames?: [string, string, string]
+  } = {},
 ) {
   const sources: Array<{ datasetId: string; version: string }> = []
-  for (const name of ['sample', 'first', 'second'])
+  for (const name of options.sourceNames ?? ['sample', 'first', 'second'])
     sources.push(await dataset(name))
   const datasetIds = sources.map((source) => source.datasetId)
   const versions = sources.map((source) => source.version)
   const definition = (
     await owner.query(
-      `select api.create_sheet_definition($1,$2,'Composition',null,$3::jsonb) result`,
+      `select api.create_sheet_definition($1,$2,$3,null,$4::jsonb) result`,
       [
         WS,
         `composition_${crypto.randomUUID().replaceAll('-', '')}`,
+        options.definitionName ?? 'Composition',
         JSON.stringify(
           configuration(
             versions,
@@ -323,10 +331,12 @@ async function instance(
   }
   const created = (
     await owner.query(
-      `select to_jsonb(api.create_sheet_instance_from_definition($1,'Composition',null,$2,null,null,$3::jsonb,$4::jsonb)) result`,
+      `select to_jsonb(api.create_sheet_instance_from_definition($1,$2,null,$3,null,$4,$5::jsonb,$6::jsonb)) result`,
       [
         WS,
+        options.instanceName ?? 'Composition',
         definition.version.id,
+        options.notebookRecordId ?? null,
         JSON.stringify(state),
         JSON.stringify(inputs),
       ],
@@ -510,9 +520,7 @@ describe('bounded Sheet Instance composition RPC', () => {
         [
           fixture.sources[0],
           rootSource.datasetRevision,
-          JSON.stringify([
-            { ...payload[0], values: { [SAMPLE_FIELD]: 123 } },
-          ]),
+          JSON.stringify([{ ...payload[0], values: { [SAMPLE_FIELD]: 123 } }]),
           crypto.randomUUID(),
         ],
       )
@@ -819,9 +827,36 @@ describe('bounded Sheet Instance composition RPC', () => {
     })
   })
 
-  it('materializes an explicitly previewed composition through Dataset bulk, source snapshots, and retry provenance', async () => {
+  it('proves the Purification Summary golden workflow through virtual composition, durable local/calculated state, and optional materialisation', async () => {
     const owner = await actor(OWNER, WS)
-    const fixture = await instance(owner)
+    const notebookRecordId = (
+      await migrator.query(
+        `insert into api.records(workspace_id,kind,identifier,title,created_by_user_id)
+         values($1,'experiment',$2,'Purification notebook',$3) returning id`,
+        [WS, `PUR-${crypto.randomUUID()}`, OWNER],
+      )
+    ).rows[0].id as string
+    const fixture = await instance(
+      owner,
+      'left',
+      'many-to-one',
+      false,
+      undefined,
+      {
+        definitionName: 'Purification Summary',
+        instanceName: 'Purification Summary — Notebook Sheet',
+        notebookRecordId,
+        sourceNames: [
+          'Sample Records',
+          'Upstream Results',
+          'Purification Results',
+        ],
+      },
+    )
+    expect(fixture.instance).toMatchObject({
+      name: 'Purification Summary — Notebook Sheet',
+      notebook_record_id: notebookRecordId,
+    })
     const sample = await sampleRecord()
     await row(fixture.sources[0], SAMPLE_FIELD, sample)
     await row(fixture.sources[1], RESULT_FIELD, sample)
@@ -835,8 +870,8 @@ describe('bounded Sheet Instance composition RPC', () => {
     const calculationId = crypto.randomUUID()
     const localField = {
       fieldId: localFieldId,
-      key: 'local_yield',
-      label: 'Local yield',
+      key: 'observation',
+      label: 'Observation',
       description: null,
       logicalType: 'decimal',
       nullable: true,
@@ -871,14 +906,14 @@ describe('bounded Sheet Instance composition RPC', () => {
     ).rows[0].result
     const calculation = {
       id: calculationId,
-      key: 'calculated_yield',
-      label: 'Calculated yield',
+      key: 'recovery',
+      label: 'Recovery',
       lifecycle: 'active',
       outputField: {
         ...localField,
         fieldId: calculationId,
-        key: 'calculated_yield',
-        label: 'Calculated yield',
+        key: 'recovery',
+        label: 'Recovery',
         computation: { mode: 'computed', expressionId: calculationId },
       },
       dependencies: [{ kind: 'local-field', id: localFieldId }],
@@ -1001,14 +1036,11 @@ describe('bounded Sheet Instance composition RPC', () => {
       ),
     ).rejects.toMatchObject({ code: '23505' })
     await expect(
-      owner.query(
-        `select api.preview_sheet_materialization($1,$2,$3)`,
-        [
-          fixture.instance.id,
-          configured.revision,
-          preview.sourceVersions[0].schemaVersionId,
-        ],
-      ),
+      owner.query(`select api.preview_sheet_materialization($1,$2,$3)`, [
+        fixture.instance.id,
+        configured.revision,
+        preview.sourceVersions[0].schemaVersionId,
+      ]),
     ).rejects.toMatchObject({ code: 'SB089' })
     expect(
       (
@@ -1066,6 +1098,43 @@ describe('bounded Sheet Instance composition RPC', () => {
         )
       ).rows[0].result.rows,
     ).toEqual(beforeMutation)
+    const filtered = (
+      await owner.query(
+        `select to_jsonb(api.update_sheet_instance($1,$2,$3::jsonb)) result`,
+        [
+          fixture.instance.id,
+          configured.revision,
+          JSON.stringify({
+            ...configured.state,
+            presentation: {
+              ...configured.state.presentation,
+              filters: [
+                {
+                  columnId: localFieldId,
+                  operator: 'equals',
+                  value: 5,
+                },
+              ],
+            },
+          }),
+        ],
+      )
+    ).rows[0].result
+    const reloaded = (
+      await owner.query(
+        `select state,revision from api.sheet_instances where id=$1`,
+        [fixture.instance.id],
+      )
+    ).rows[0]
+    expect(filtered.revision).toBe(configured.revision + 1)
+    expect(reloaded).toMatchObject({
+      state: {
+        presentation: {
+          filters: [{ columnId: localFieldId, operator: 'equals', value: 5 }],
+        },
+      },
+    })
+    expect(Number(reloaded.revision)).toBe(filtered.revision)
     const outsider = await actor(OUTSIDER, OTHER_WS)
     await expect(
       outsider.query(`select api.preview_sheet_materialization($1,$2,null)`, [

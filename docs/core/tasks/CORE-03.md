@@ -1,6 +1,6 @@
 # CORE-03 — Sheet Definition and Compositional Sheet Instance
 
-**Status:** In progress — CORE-03.8 complete (2026-08-15)
+**Status:** Complete (2026-08-15)
 **Blocked by:** CORE-02 epic exit gate (met).
 **Normative decisions:** ADRs 0020–0026.
 
@@ -648,6 +648,8 @@ UI was added.
 
 ## CORE-03.16 — Golden workflow and CORE-04 hand-off
 
+**Status:** Complete (2026-08-15).
+
 **Blocked by:** CORE-03.15.
 
 **Goal:** Prove the full compositional Sheet slice and promote CORE-04 based on implementation evidence.
@@ -657,6 +659,35 @@ UI was added.
 **Evidence:** DB/API/UI tests, fresh migration/seed where relevant, representative performance, `pnpm validate`.
 
 **Hand-off:** record completion evidence and update `NEXT.md` to CORE-04.1.
+
+## Completion evidence
+
+- `tests/db/sheet-composition.test.ts` now names and proves the bounded
+  `Purification Summary` workflow: a published Definition creates a named,
+  notebook-linked Instance over `Sample Records`, `Upstream Results` and
+  `Purification Results`; the stable Sample reference joins the virtual rows.
+  The controlled local-state mutation records an `Observation`, the trusted
+  calculation path persists a read-only `Recovery`, and source, calculation and
+  materialisation provenance is inspected through the authenticated contracts.
+- The proof exercises controlled edit/retry and reload durability, persists a
+  bounded local-field equality filter, and confirms explicit preview-digest
+  materialisation creates an immutable Dataset Version that remains unchanged
+  after source mutation. It does not claim a new UI surface: the current
+  product has no canonical composed-Sheet route, so paste/edit/filter are
+  server-contract and persisted-presentation proof rather than browser-grid
+  acceptance coverage.
+- Composition remains bounded to 200 rows. No new benchmark was run: the
+  representative CORE-02.6 100k+80k Dataset feasibility evidence remains the
+  applicable storage/query evidence and is not a Sheet-composition benchmark.
+- CORE-04.1 is ready to audit existing Record selection, creation and import
+  flows. CORE-03 deliberately leaves the current scientific Sheet UI, Notebook
+  block ownership and submitted-envelope seam unchanged; CORE-04 must reuse
+  those paths rather than treating this bounded proof as a new grid route.
+- Focused DB and TypeScript proof passes. Two stale UUID v7/v8 fixtures were
+  corrected to preserve their required source-field/write-back cross-reference;
+  parser behavior was unchanged. Final `pnpm validate` passes with 155 test
+  files / 1,869 tests, zero lint errors (20 existing warnings), typecheck and
+  the production client/SSR build.
 
 ## Epic exit gate
 

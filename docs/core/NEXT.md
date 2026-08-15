@@ -8,9 +8,9 @@
 
 ## Active task
 
-**CORE-03.16 — Golden workflow and CORE-04 hand-off**
+**CORE-04.1 — Audit existing Record selection/creation/import flows**
 
-Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-0316--golden-workflow-and-core-04-hand-off)
+Task: [`tasks/CORE-04.md`](./tasks/CORE-04.md#core-041--audit-existing-record-selectioncreationimport-flows)
 
 ## Completed in this PR
 
@@ -47,20 +47,20 @@ Task: [`tasks/CORE-03.md`](./tasks/CORE-03.md#core-0316--golden-workflow-and-cor
 - CORE-03.14 — explicit traceable composed-Sheet materialisation into an
   immutable Dataset Version
 - CORE-03.15 — end-to-end reuse, sharing, duplication and lifecycle proof
+- CORE-03.16 — Purification Summary golden workflow and CORE-04 hand-off
 - product/architecture reset and accepted ADRs 0020–0026
 
 ## Required reading
 
-1. [`tasks/CORE-03.md`](./tasks/CORE-03.md), CORE-03.16 only plus CORE-03.15 boundary
-2. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md), Dataset and Sheet sections
+1. [`tasks/CORE-04.md`](./tasks/CORE-04.md), CORE-04.1 only
+2. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md), Record and Sheet sections
 3. [`CORE_ARCHITECTURE.md`](./CORE_ARCHITECTURE.md), sections 4–9
-4. ADR 0024 (shared typed parameters), with ADRs 0020–0023 and 0025 for the settled
-   identity and compatibility boundaries
+4. CORE-03 completion evidence in [`tasks/CORE-03.md`](./tasks/CORE-03.md)
 
 ## Implement now
 
-Prove the full Purification Summary golden workflow and complete the evidence-led
-CORE-04 hand-off.
+Audit the existing Record selection, creation and import paths that CORE-04
+will reuse. Do not implement Record actions until the audit closes.
 
 ## Do not
 
@@ -75,6 +75,17 @@ CORE-04 hand-off.
   unit-conversion/vocabulary-management product yet;
 - do not weaken RLS/server validation;
 - do not broaden paused specialist workspaces.
+
+CORE-03 is complete. CORE-03.16's focused DB proof names the `Purification
+Summary` Definition, its notebook-linked Instance, Sample/Upstream/Purification
+sources, durable local Observation, calculated Recovery, persisted filter and
+optional immutable materialisation with authenticated provenance. The current
+composition contract remains a bounded 200-row virtual window. There is no
+canonical composed-Sheet route, so this is server/API contract proof and not a
+browser-grid acceptance claim. The representative CORE-02.6 100k+80k Dataset
+benchmark remains feasibility evidence; no Sheet-composition benchmark was run.
+Focused DB and TypeScript suites pass. Final `pnpm validate` passes with 155
+test files / 1,869 tests, zero lint errors and the production client/SSR build.
 
 CORE-03.15 is complete. Focused DB proof passes 4/4 for independent Instances,
 shared Instance state, Dataset reuse without duplication, exact Definition

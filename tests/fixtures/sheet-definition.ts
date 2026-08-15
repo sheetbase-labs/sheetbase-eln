@@ -387,15 +387,19 @@ export const sheetDefinitionValidCases: Array<{
   },
   {
     name: 'UUID version 7',
-    mutate: (value) =>
-      (value.columns[0].source.sourceFieldId =
-        'a0000000-0000-7000-8000-000000000001'),
+    mutate: (value) => {
+      const id = 'a0000000-0000-7000-8000-000000000001'
+      value.columns[0].source.sourceFieldId = id
+      value.writeBackRules[0].mappings[0].targetFieldId = id
+    },
   },
   {
     name: 'UUID version 8',
-    mutate: (value) =>
-      (value.columns[0].source.sourceFieldId =
-        'a0000000-0000-8000-b000-000000000001'),
+    mutate: (value) => {
+      const id = 'a0000000-0000-8000-b000-000000000001'
+      value.columns[0].source.sourceFieldId = id
+      value.writeBackRules[0].mappings[0].targetFieldId = id
+    },
   },
   ...[
     ['leap-day timestamp', '2024-02-29T23:59:59Z'],

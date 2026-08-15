@@ -1,0 +1,17 @@
+{
+  "name": "Sheetbase ELN",
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/start.sh",
+  "terminals": [
+    {
+      "name": "dev-server",
+      "command": "pnpm dev",
+      "description": "Vite SSR dev server for the Sheetbase ELN app on port 3000."
+    }
+  ],
+  "ports": [
+    { "name": "app", "port": 3000 },
+    { "name": "postgrest", "port": 3001 },
+    { "name": "postgrest-admin", "port": 3002 }
+  ]
+}

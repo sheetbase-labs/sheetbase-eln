@@ -208,7 +208,7 @@ Implement reusable versioned Sheet Definitions and working Sheet Instances over 
   defaults/constraints, unknown/duplicate/missing inputs, `Record<Model>`,
   cross-workspace/inactive Datasets, forged provenance, duplicate/reload
   durability, the live Definition-instantiation API and helper/direct-write
-  ACLs. CORE-03.5 composition execution is not included.
+  ACLs. CORE-03.5 row-identity execution is not included.
 - Final verification passes: shared domain/data 90/90, focused Definition,
   Instance and resolution DB/RLS 31/31, live API 3/3, and focused legacy
   Sheet/Template/formula/frozen-evidence compatibility 40/40. All 76 migrations

@@ -8,10 +8,8 @@
 import { z } from 'zod'
 
 import type { FieldDefinition, FieldLogicalType } from './field-definition'
-import {
-  CURRENT_RECORD_ID_POLICY,
-  type RecordIdPolicy,
-} from './record-id-policy'
+import type { RecordIdPolicy } from './record-id-policy'
+import { CURRENT_RECORD_ID_POLICY } from './record-id-policy'
 import { parsePersistedRecordReference } from './record-reference-cell'
 
 export const SHEET_RECORD_MAPPING_FORMAT = 'sb-sheet-record-map-v1' as const
@@ -132,7 +130,10 @@ export function parseSheetRecordMapping(value: unknown): SheetRecordMapping {
   ) {
     throw new Error('title may be mapped at most once')
   }
-  if (parsed.recordIdPolicy.owner !== CURRENT_RECORD_ID_POLICY.owner) {
+  if (
+    (parsed.recordIdPolicy as { owner: string }).owner !==
+    CURRENT_RECORD_ID_POLICY.owner
+  ) {
     throw new Error('Sheet Record mapping must use the Model Record ID policy')
   }
   return parsed

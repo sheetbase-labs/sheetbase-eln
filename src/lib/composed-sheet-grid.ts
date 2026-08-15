@@ -30,7 +30,7 @@ export function composedSheetGridMatrix(
     data: rows.map((row) =>
       columns.map((column) => {
         const value = row.values[column.id]
-        return value?.kind === 'present' ? value.value : null
+        return value.kind === 'present' ? value.value : null
       }),
     ),
   }

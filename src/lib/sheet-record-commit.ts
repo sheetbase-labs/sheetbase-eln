@@ -1,10 +1,8 @@
 import type { DataClient } from './data-client'
 import { createDataClient } from './data-client'
 import type { ComposedSheetSnapshot } from './sheet-composition-data'
-import {
-  resolveSheetWriteTarget,
-  type SheetWriteTarget,
-} from './sheet-write-back'
+import type { SheetWriteTarget } from './sheet-write-back'
+import { resolveSheetWriteTarget } from './sheet-write-back'
 
 type WithoutColumnId<T> = T extends unknown ? Omit<T, 'columnId'> : never
 
@@ -53,10 +51,12 @@ export function composedSheetRecordLinkBatchRows(
   )
   if (!picker) return []
   return (composition.boundProjection?.rows ?? []).flatMap((row) => {
-    const pending = pendingValues[row.rowKey]?.[picker.id]
+    const pending = Object.hasOwn(pendingValues, row.rowKey)
+      ? pendingValues[row.rowKey][picker.id]
+      : undefined
     const projected = row.values[picker.id]
     const raw =
-      pending ?? (projected?.kind === 'present' ? projected.value : null)
+      pending ?? (projected.kind === 'present' ? projected.value : null)
     if (typeof raw !== 'string' || !RECORD_UUID.test(raw)) return []
     try {
       const resolved = resolveSheetWriteTarget({

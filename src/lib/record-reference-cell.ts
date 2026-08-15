@@ -150,12 +150,6 @@ export function selectRecordReference(input: {
       'Record reference is read-only.',
     )
   }
-  if (input.contract.cardinality !== 'one') {
-    throw new RecordReferenceCellError(
-      'cardinality',
-      'Sheet Record-reference cells persist one Record UUID.',
-    )
-  }
   if (input.record.deleted) {
     throw new RecordReferenceCellError(
       'invalid-model',

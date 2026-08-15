@@ -278,7 +278,7 @@ export const workspaceMemberships = api.table(
     ),
     check(
       'chk_workspace_memberships_role',
-      sql`${table.role} IN ('owner', 'admin', 'member', 'scientist', 'analyst', 'reviewer', 'viewer')`,
+      sql`${table.role} IN ('owner', 'admin', 'member', 'steward', 'scientist', 'analyst', 'reviewer', 'viewer')`,
     ),
     index('idx_workspace_memberships_user_id').on(table.userId),
     index('idx_workspace_memberships_suspended_at').on(table.suspendedAt),
@@ -321,7 +321,7 @@ export const workspaceInvitations = api.table(
     ),
     check(
       'chk_workspace_invitations_role',
-      sql`${table.role} IN ('owner', 'admin', 'member', 'scientist', 'analyst', 'reviewer', 'viewer')`,
+      sql`${table.role} IN ('owner', 'admin', 'member', 'steward', 'scientist', 'analyst', 'reviewer', 'viewer')`,
     ),
     check(
       'chk_workspace_invitations_email',

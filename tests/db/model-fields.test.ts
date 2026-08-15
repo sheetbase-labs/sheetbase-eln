@@ -99,7 +99,7 @@ describe('model field registry and controlled writes', () => {
         `select api.has_schema_capability($1,'dataset_schema.publish') allowed`,
         [WS],
       ),
-    ).resolves.toMatchObject({ rows: [{ allowed: false }] })
+    ).resolves.toMatchObject({ rows: [{ allowed: true }] })
     await expect(
       owner.query(
         `select api.has_schema_capability($1,'unrecognised.capability') allowed`,

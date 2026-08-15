@@ -1,8 +1,8 @@
 # CORE-05 — Schema Evolution and Role-aware Configuration
 
-**Status:** CORE-05.1 complete; CORE-05.2 blocked on audit decisions
+**Status:** CORE-05.1–05.3 complete; remaining tasks blocked as specified.
 **Blocked by:** CORE-05.1 epic-start audit (complete). Remaining tasks blocked as specified.
-**Normative decisions:** ADRs 0021, 0023, 0025, 0026 plus CORE architecture.
+**Normative decisions:** ADRs 0021, 0023, 0025, 0026, 0038 plus CORE architecture.
 
 ## Epic goal
 
@@ -47,7 +47,7 @@ Make Model, Dataset Schema and reusable Definition configuration safely delegabl
 
 ## CORE-05.2 — Define minimum capability vocabulary and role mapping
 
-**Blocked by:** CORE-05.1.
+**Status:** Complete (2026-08-15)
 
 **Goal:** Introduce a small extensible capability model for Core configuration.
 
@@ -61,11 +61,20 @@ Make Model, Dataset Schema and reusable Definition configuration safely delegabl
 
 **Exit gate:** schema authority can be granted independently of workspace administration and is enforceable server-side.
 
+### Completion evidence
+
+- Vocabulary: `workspace.admin`, `schema.edit`, `schema.publish`, `schema.retire`, `record.link`, `record.create`, `instance.upgrade`.
+- Storage: role-mapped resolution from `workspace_memberships`. No persisted grants. No JWT capability claims.
+- First-class `steward` role receives governed schema capabilities and not `workspace.admin`.
+- Unused `viewer`/`scientist`/`analyst`/`reviewer` keep current member-class data behaviour and are not remapped.
+- TypeScript mapping in `src/lib/capability.ts` mirrors `api.has_capability`.
+- ADR [`0038-canonical-dataset-schema-definitions.md`](../../decisions/0038-canonical-dataset-schema-definitions.md).
+
 ---
 
 ## CORE-05.3 — Enforce capabilities in PostgreSQL/RPC/API boundaries
 
-**Blocked by:** CORE-05.2.
+**Status:** Complete (2026-08-15)
 
 **Goal:** Move configuration enforcement beyond owner/admin assumptions while preserving RLS.
 
@@ -74,6 +83,14 @@ Make Model, Dataset Schema and reusable Definition configuration safely delegabl
 **Tests:** allowed/denied per capability, workspace isolation, direct PostgREST/RPC attempts, regression of current roles.
 
 **Exit gate:** hiding a button is no longer the only protection for configuration actions.
+
+### Completion evidence
+
+- Migration `0094_core_052_capabilities.sql` adds `api.has_capability` / `require_capability` / `list_capabilities`, `steward` CHECKs, CORE-02 management RPCs, and call-site enforcement.
+- `has_schema_capability`, `is_model_field_admin`, and `is_sheet_definition_admin` are compatibility wrappers.
+- Record RPCs distinguish `record.link` vs `record.create`; Instance upgrade uses `instance.upgrade` without tightening member behaviour.
+- Denied operations raise `42501` with `capability required: <name>` (workspace admin RPCs keep SB050–SB061).
+- Focused proof: `tests/db/capabilities.test.ts`.
 
 ---
 

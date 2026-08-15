@@ -8,15 +8,15 @@
 
 ## Active task
 
-**CORE-05.2 — Define minimum capability vocabulary and role mapping**
+**CORE-05.4 — Implement dependency discovery service**
 
-Status: CORE-05.1 complete. Do not implement CORE-05.2 until the
-capability-storage, unused-role, dual Dataset Schema, and Instance-upgrade
-decisions in the audit are confirmed.
+Status: CORE-05.2/05.3 complete. Do not start CORE-06.
 
-Task: [`tasks/CORE-05.md`](./tasks/CORE-05.md#core-052--define-minimum-capability-vocabulary-and-role-mapping)
+Task: [`tasks/CORE-05.md`](./tasks/CORE-05.md#core-054--implement-dependency-discovery-service)
 
 Audit: [`audits/SCHEMA_CAPABILITY_AUDIT.md`](./audits/SCHEMA_CAPABILITY_AUDIT.md)
+
+Canonical schema ADR: [`0038-canonical-dataset-schema-definitions.md`](../decisions/0038-canonical-dataset-schema-definitions.md)
 
 ## Completed in this PR
 
@@ -66,23 +66,25 @@ Audit: [`audits/SCHEMA_CAPABILITY_AUDIT.md`](./audits/SCHEMA_CAPABILITY_AUDIT.md
 - CORE-04.10 — Model-owned generated Record ID policy seam
 - CORE-04.11 — Sample golden proof and composed-Sheet browser surface
 - CORE-05.1 — capability/schema/dependency audit
+- CORE-05.2 — capability vocabulary, `steward` role, role mapping
+- CORE-05.3 — server capability enforcement and CORE-02 schema RPCs
 - product/architecture reset and accepted ADRs 0020–0026
 
 ## Required reading
 
 1. [`audits/SCHEMA_CAPABILITY_AUDIT.md`](./audits/SCHEMA_CAPABILITY_AUDIT.md)
-2. [`tasks/CORE-05.md`](./tasks/CORE-05.md), CORE-05.2 only after audit
-   decisions are confirmed
+2. [`tasks/CORE-05.md`](./tasks/CORE-05.md) CORE-05.4 / 05.10
 3. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md)
 4. [`CORE_ARCHITECTURE.md`](./CORE_ARCHITECTURE.md)
 5. CORE-04 completion evidence in [`tasks/CORE-04.md`](./tasks/CORE-04.md)
-6. ADR [`0021-data-history-and-schema-versioning.md`](../decisions/0021-data-history-and-schema-versioning.md)
+6. ADRs [`0021-data-history-and-schema-versioning.md`](../decisions/0021-data-history-and-schema-versioning.md) and [`0038-canonical-dataset-schema-definitions.md`](../decisions/0038-canonical-dataset-schema-definitions.md)
 
 ## Implement now
 
-CORE-05.1 is complete. Do not implement capability RPCs, role remapping,
-SCI-010/CORE-02 convergence, or Instance-upgrade tightening until the
-audit recommendations are reviewed.
+CORE-05.2 and CORE-05.3 are complete. Next is CORE-05.4 dependency discovery
+over stable IDs, then CORE-05.10 lifecycle alignment. Do not start CORE-06.
+Do not add governed versioning to SCI-010. Do not persist per-user capability
+grants or put capabilities in JWT claims.
 
 CORE-04.11 exit evidence: `pnpm validate` 166 files / 1,893 tests, zero lint
 errors, production client/SSR build; `pnpm test:db` 61 files / 679 tests.
@@ -95,7 +97,8 @@ The CORE-02.6 100k+80k Dataset benchmark was not rerun.
 - do not invent a Sheet-specific Record ID generator or user-supplied IDs;
 - do not add `create_model_record` / `update_record_custom_fields` to the
   external API allowlist;
-- do not invent a link-only vs create-capable permission subsystem (CORE-05);
+- do not persist per-user capability grants or put capabilities in JWT claims;
+- do not add governed schema/version behaviour to SCI-010;
 - do not broaden presentation persistence into a general View subsystem;
 - do not make presentation state semantic identity;
 - do not implement full Pipeline semantics;

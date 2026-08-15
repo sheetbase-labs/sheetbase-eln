@@ -26,9 +26,10 @@ const KIND_LABEL: Record<SheetRecordActionKind, string> = {
 }
 
 /**
- * CORE-04.9: UI visibility follows Definition `actions`. Server Record
- * operations still use existing RLS/membership. Link-only vs create-capable
- * server capabilities are deferred to CORE-05.
+ * CORE-04.9 / CORE-05.3: UI visibility follows Definition `actions`.
+ * Server Record RPCs distinguish `record.link` (search / batch link) from
+ * `record.create` (inline create and batch create). Current role mapping
+ * still grants both to every unsuspended member.
  */
 export function resolveSheetRecordActions(
   configuration:
@@ -59,4 +60,4 @@ export function resolveSheetRecordActions(
 }
 
 export const SHEET_RECORD_CAPABILITY_LIMITATION =
-  'CORE-04 hides Definition actions in the UI only. Any workspace member can still call Record RPCs permitted by current RLS. Richer link-only vs create-capable server capabilities belong in CORE-05.'
+  'Definition actions hide or disable Record create/link in the UI. Server RPCs now require record.link versus record.create. The initial role mapping still grants both to unsuspended members so Scientist behaviour is unchanged.'

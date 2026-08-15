@@ -1,13 +1,8 @@
 /**
- * SCI-010: Dataset schema registry data layer. Thin, typed wrappers around
- * the PostgREST RPCs and resources for the workspace-level dataset schema
- * registry (decision 0034). All functions go through the same /api/db
- * boundary and RLS as every other resource.
- *
- * The registry provides stable schema + field identities so that sheets
- * measuring the same thing share a durable join key. Cross-sheet queries
- * (query_dataset) union rows by stable field slug, never physical column
- * name.
+ * SCI-010 compatibility Dataset schema registry (decision 0034, ADR 0038).
+ * Canonical governed Dataset Schema management is CORE-02
+ * (`api.dataset_schema_definitions` and `src/lib/dataset-schema-definition-rpc.ts`).
+ * Do not add new governed version semantics here.
  */
 
 import { createDataClient } from './data-client'

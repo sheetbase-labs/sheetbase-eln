@@ -27,6 +27,6 @@ describe('Sheet Record Definition actions', () => {
     expect(
       resolved.find((action) => action.kind === 'create-record'),
     ).toMatchObject({ enabled: false })
-    expect(SHEET_RECORD_CAPABILITY_LIMITATION).toMatch(/CORE-05/)
+    expect(SHEET_RECORD_CAPABILITY_LIMITATION).toMatch(/record\.link/)
   })
 })

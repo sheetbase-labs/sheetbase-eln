@@ -16,7 +16,14 @@ import { DataClientError } from './data-client'
 export type JsonObject = Record<string, unknown>
 
 export type WorkspaceRole =
-  'owner' | 'admin' | 'member' | 'scientist' | 'analyst' | 'reviewer' | 'viewer'
+  | 'owner'
+  | 'admin'
+  | 'member'
+  | 'steward'
+  | 'scientist'
+  | 'analyst'
+  | 'reviewer'
+  | 'viewer'
 export type InvitationStatus = 'pending' | 'accepted' | 'revoked' | 'expired'
 export type RegistrationMode = 'open' | 'invitation_only'
 export type ProjectAccessLevel = 'owner' | 'editor' | 'viewer'
@@ -506,6 +513,7 @@ export const WORKSPACE_ROLE_LABELS: Record<WorkspaceRole, string> = {
   owner: 'Workspace Admin',
   admin: 'Admin',
   member: 'Member',
+  steward: 'Data Steward',
   scientist: 'Scientist',
   analyst: 'Analyst',
   reviewer: 'Reviewer',
@@ -516,6 +524,7 @@ export const WORKSPACE_ROLE_TOKENS: Record<WorkspaceRole, string> = {
   owner: 'bg-purple-100 text-purple-700',
   admin: 'bg-blue-100 text-blue-700',
   member: 'bg-slate-100 text-slate-700',
+  steward: 'bg-teal-100 text-teal-800',
   scientist: 'bg-emerald-100 text-emerald-700',
   analyst: 'bg-cyan-100 text-cyan-700',
   reviewer: 'bg-amber-100 text-amber-700',

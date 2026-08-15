@@ -298,6 +298,22 @@ sudo journalctl -u cloudflared -f
 curl -sS https://app.sheetbase.co.uk/api/health/ready | jq .
 ```
 
+## Retired PR preview infrastructure
+
+PR-specific preview hosts (`pr-<number>.sheetbase.co.uk`) are no longer
+deployed. After this change is on `main`, remove leftover preview resources
+without touching production or development:
+
+1. Stop and disable the preview router:
+   `sudo systemctl disable --now sheetbase-preview-router`.
+2. Remove leftover Compose projects named `sheetbase-pr-*` with
+   `docker compose down --volumes --remove-orphans`.
+3. Delete `/opt/sheetbase-preview` and the GitHub Actions `preview`
+   environment, including `PREVIEW_COMMENT_TOKEN`.
+4. Remove the Cloudflare Tunnel wildcard ingress for `*.sheetbase.co.uk`
+   while keeping `app.sheetbase.co.uk` → `127.0.0.1:3000` and
+   `dev.sheetbase.co.uk` → `127.0.0.1:3100`.
+
 ## Secret rotation
 
 See `docs/deployment.md` → "Secret management and rotation" for the full

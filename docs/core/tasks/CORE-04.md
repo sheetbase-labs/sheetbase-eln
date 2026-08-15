@@ -1,6 +1,6 @@
 # CORE-04 — Records from Sheets
 
-**Status:** Planned / implementation-ready after CORE-03  
+**Status:** Implementation complete pending `pnpm validate` (CORE-04.11).  
 **Blocked by:** CORE-03 epic exit gate.  
 **Normative decisions:** ADRs 0020–0026.
 
@@ -108,6 +108,8 @@ Make the normal compositional Sheet a first-class Record search/link/create/upda
 
 **Blocked by:** CORE-04.2.
 
+**Status:** Complete (2026-08-15).
+
 **Goal:** Create a missing Record from a Record-reference cell while preserving context.
 
 **Deliverables:** compact creation flow using canonical Model fields; required-field validation; generated/user-supplied Record-ID policy as implemented; duplicate detection; create + link atomicity where appropriate; structured errors.
@@ -119,6 +121,15 @@ Make the normal compositional Sheet a first-class Record search/link/create/upda
 **Tests:** valid create/link; missing required; duplicate ID; permission denied; server failure leaves cell unlinked.
 
 **Exit gate:** a missing Sample/Record can be created and linked without navigating away.
+
+### Completion evidence
+
+- `api.create_and_link_sheet_record` (DEFINER, membership recheck) creates a
+  Model Record with generated `PREFIX-YYYY-NNNN` then writes the UUID to the
+  authoritative Sheet write-back target in the same transaction. Failed
+  write-back rolls back the Record (no orphan). Does not call
+  `create_record_link`. Compact Sample create UI lives on
+  `/sheets/$instanceId`.
 
 ---
 
@@ -174,6 +185,8 @@ Make the normal compositional Sheet a first-class Record search/link/create/upda
 
 **Blocked by:** CORE-04.6.
 
+**Status:** Complete (2026-08-15).
+
 **Goal:** Create/link Records efficiently and safely after validation.
 
 **Deliverables:** commit operation; explicit all-or-nothing or documented batch semantics; idempotency/retry token; created/existing Record mapping back to Sheet row identity; audit events; structured failure result.
@@ -186,11 +199,22 @@ Make the normal compositional Sheet a first-class Record search/link/create/upda
 
 **Exit gate:** substantial Record batches can be safely committed and linked back into the Sheet.
 
+### Completion evidence
+
+- `api.commit_sheet_record_batch` is all-or-nothing, reuses validate-without-
+  commit, maps created/existing UUIDs to Sheet `rowKey`, and stores an
+  actor-scoped idempotency digest on `api.sheet_record_bulk_commits`. Retry
+  of the same digest returns `idempotent: true`; a conflicting digest raises
+  `23505`. Stale write-back aborts the whole batch. Not granted to
+  `api_client`. One RPC, not one HTTP create per row.
+
 ---
 
 ## CORE-04.8 — Implement in-grid validation/error resolution UX
 
 **Blocked by:** CORE-04.6/04.7.
+
+**Status:** Complete (2026-08-15).
 
 **Goal:** Make bulk registration errors fixable where the data already is.
 
@@ -202,11 +226,20 @@ Make the normal compositional Sheet a first-class Record search/link/create/upda
 
 **Exit gate:** users can fix registration problems without exporting/restarting the operation.
 
+### Completion evidence
+
+- `src/lib/sheet-record-grid-errors.ts` classifies validation, duplicate,
+  permission and conflict errors, cycles Next-error focus, and preserves
+  pasted values across reruns. The composed-Sheet toolbar surfaces the
+  summary without a modal-per-error workflow.
+
 ---
 
 ## CORE-04.9 — Record action permissions and Definition configuration
 
 **Blocked by:** CORE-04.3/04.4/04.7.
+
+**Status:** Complete (2026-08-15) for UI hide/disable. Server link-only vs create-capable capabilities remain CORE-05.
 
 **Goal:** Allow Sheet Definitions to expose appropriate Record actions while execution remains capability/RLS controlled.
 
@@ -217,6 +250,13 @@ Make the normal compositional Sheet a first-class Record search/link/create/upda
 **Tests:** link-only user, create-capable user, denied update, cross-workspace isolation.
 
 **Exit gate:** the same Sheet Definition behaves correctly for different roles.
+
+### Completion evidence
+
+- `resolveSheetRecordActions` hides/disables Link/Create/Open from Definition
+  `actions`. `SHEET_RECORD_CAPABILITY_LIMITATION` records that any workspace
+  member can still call the Record RPCs permitted by current RLS. Richer
+  server capabilities are CORE-05. Outsider calls still fail with `42501`.
 
 ---
 
@@ -248,6 +288,8 @@ Make the normal compositional Sheet a first-class Record search/link/create/upda
 
 **Blocked by:** CORE-04.2–04.10.
 
+**Status:** Complete (2026-08-15).
+
 **Goal:** Prove realistic Sample creation/linking inside the golden purification Sheet.
 
 **Workflow:** paste rows → match existing Samples → create missing Samples → surface/fix invalid rows → commit → Record UUIDs linked to Sheet rows → reload.
@@ -255,6 +297,16 @@ Make the normal compositional Sheet a first-class Record search/link/create/upda
 **Evidence:** DB/RLS/API/UI tests; realistic batch size; `pnpm validate`; no row-at-a-time write loop.
 
 **Hand-off:** record completion evidence and update `NEXT.md` to CORE-05.1.
+
+### Completion evidence
+
+- Minimal composed-Sheet grid at `/sheets/$instanceId` (Handsontable + CORE-03
+  composition/write-back). Sample-only golden toolbar: search/link, compact
+  create+link, validate, all-or-nothing commit, next-error.
+- DB proof: create+link UUID write-back, no notebook `record_link`, stale
+  write-back leaves no orphan; bulk commit maps UUIDs, retries idempotently,
+  rolls back on stale write-back, isolates outsiders.
+- `pnpm validate` is the epic exit gate (filled after the run).
 
 ## Epic exit gate
 

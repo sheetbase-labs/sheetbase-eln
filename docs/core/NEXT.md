@@ -8,14 +8,11 @@
 
 ## Active task
 
-**CORE-04.4 / CORE-04.7 — Inline create and bulk commit**
+**CORE-05.1 — Audit current roles, schema mutations and dependency information**
 
-Status: Bundle 2 (CORE-04.3 / 04.5 / 04.6) complete; next is atomic
-create+link and all-or-nothing bulk commit with idempotency.
+Status: CORE-04 complete. Start CORE-05 with a capability/schema audit.
 
-Task: [`tasks/CORE-04.md`](./tasks/CORE-04.md#core-044--implement-inline-single-record-creation)
-
-Audit: [`audits/RECORD_SHEET_ACTIONS_AUDIT.md`](./audits/RECORD_SHEET_ACTIONS_AUDIT.md)
+Task: [`tasks/CORE-05.md`](./tasks/CORE-05.md#core-051--audit-current-roles-schema-mutations-and-dependency-information)
 
 ## Completed in this PR
 
@@ -58,29 +55,27 @@ Audit: [`audits/RECORD_SHEET_ACTIONS_AUDIT.md`](./audits/RECORD_SHEET_ACTIONS_AU
 - CORE-04.3 — Model-scoped search, picker, and UUID write-back link
 - CORE-04.5 — explicit Sheet row → Record mapping
 - CORE-04.6 — validate-without-commit RPC
+- CORE-04.4 — atomic inline create+link
+- CORE-04.7 — all-or-nothing bulk Record commit
+- CORE-04.8 — in-grid validation/error navigation
+- CORE-04.9 — Definition Record actions hide/disable
 - CORE-04.10 — Model-owned generated Record ID policy seam
+- CORE-04.11 — Sample golden proof and composed-Sheet browser surface
 - product/architecture reset and accepted ADRs 0020–0026
 
 ## Required reading
 
-1. [`tasks/CORE-04.md`](./tasks/CORE-04.md), CORE-04.4 / 04.7
-2. [`audits/RECORD_SHEET_ACTIONS_AUDIT.md`](./audits/RECORD_SHEET_ACTIONS_AUDIT.md)
-   accepted decisions
-3. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md), Record and Sheet sections
-4. [`CORE_ARCHITECTURE.md`](./CORE_ARCHITECTURE.md), sections 4–9 and 24–25
-5. CORE-03 completion evidence in [`tasks/CORE-03.md`](./tasks/CORE-03.md)
-6. ADR [`0026-project-record-and-file-semantics.md`](../decisions/0026-project-record-and-file-semantics.md)
+1. [`tasks/CORE-05.md`](./tasks/CORE-05.md), CORE-05.1 only
+2. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md)
+3. [`CORE_ARCHITECTURE.md`](./CORE_ARCHITECTURE.md)
+4. CORE-04 completion evidence in [`tasks/CORE-04.md`](./tasks/CORE-04.md)
+5. ADR [`0021-canonical-field-and-schema-kernel.md`](../decisions/0021-canonical-field-and-schema-kernel.md)
 
 ## Implement now
 
-Bundle 2 is complete. Implement Bundle 3:
-
-- CORE-04.4 inline create + link in one transaction (no orphan Records)
-- CORE-04.7 all-or-nothing bulk commit with idempotency
-
-Do not start the composed-Sheet grid or CORE-04.11 until this bundle's
-focused tests are green. CORE-04.11 still requires a fully green
-`pnpm validate` / full DB gate.
+CORE-04 is complete. Start CORE-05.1 as a documentation-only audit of roles,
+schema mutations and dependency information. Do not implement capability
+RPCs until that audit is reviewed.
 
 ## Do not
 
@@ -102,20 +97,13 @@ focused tests are green. CORE-04.11 still requires a fully green
 - do not weaken RLS/server validation;
 - do not broaden paused specialist workspaces.
 
-CORE-04.1 is accepted. Binding product decisions: write the Record UUID only
-to the column's authoritative Sheet write-back target; keep notebook
-`create_record_link` separate; honour Model-generated `PREFIX-YYYY-NNNN`;
-bulk commit is all-or-nothing; inline create+link is one transaction (no
-orphan Records); add a minimal composed-Sheet grid in later bundles; golden
-workflow is Sample-only; richer capabilities wait for CORE-05; no external
-API allowlist expansion; CORE-04.11 requires a fully green validation gate.
-Three CORE-03 Sheet Definition DB failures were corrected in migration
-`0091` before this bundle.
-
-Primary reuse targets: `api.create_model_record`,
-`api.update_record_custom_fields`, Model `custom_fields` validation (`0057`),
-`RecordPicker`/search, and Dataset bulk idempotency as the pattern for
-04.6–04.7. Do not reuse notebook `create_record_link` as Sheet identity.
+CORE-04 is complete. Binding product decisions were honoured: UUID write-back
+only; notebook `create_record_link` stays separate; Model-generated
+`PREFIX-YYYY-NNNN`; all-or-nothing bulk commit; atomic inline create+link;
+minimal composed-Sheet grid at `/sheets/$instanceId`; Sample-only golden
+workflow; Definition actions hide/disable in the UI while RLS remains the
+server boundary (richer capabilities are CORE-05); no external API allowlist
+expansion.
 
 CORE-03 is complete. CORE-03.16's focused DB proof names the Purification
 Summary Definition, its notebook-linked Instance, Sample/Upstream/Purification

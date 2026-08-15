@@ -7,6 +7,7 @@
  */
 import type { DataClient } from './data-client'
 import { createDataClient } from './data-client'
+import type { NotebookRecord } from './notebook-data'
 
 export const SHEET_RECORD_SEARCH_LIMIT = 50
 
@@ -37,4 +38,30 @@ export function searchSheetRecords(
     ),
     p_include_archived: input.includeArchived ?? false,
   })
+}
+
+export function sheetRecordSearchHitsAsNotebookRecords(
+  hits: SheetRecordSearchHit[],
+  projectId: string,
+): NotebookRecord[] {
+  return hits.map((hit) => ({
+    id: hit.id,
+    projectId,
+    kind: hit.kind,
+    identifier: hit.identifier,
+    title: hit.title,
+    status: hit.status,
+    tags: [],
+    structureVersion: 1,
+    metadataVersion: 1,
+    createdAt: '',
+    updatedAt: '',
+    archivedAt: hit.archived ? '2026-01-01T00:00:00Z' : null,
+    deletedAt: null,
+    createdByUserId: '',
+    updatedByUserId: null,
+    properties: {},
+    lockedAt: null,
+    lockedByRevisionId: null,
+  }))
 }

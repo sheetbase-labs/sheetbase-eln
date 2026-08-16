@@ -722,6 +722,13 @@
       "when": 1786820000000,
       "tag": "0102_core_068_adhoc_sheet_local_rows",
       "breakpoints": true
+    },
+    {
+      "idx": 103,
+      "version": "7",
+      "when": 1786821000000,
+      "tag": "0103_core_h1_capability_mask",
+      "breakpoints": true
     }
   ]
 }

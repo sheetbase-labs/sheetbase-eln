@@ -373,31 +373,46 @@ describe('CORE-05 schema.edit cannot direct-publish', () => {
         [WS],
       )
     ).rows[0].result
-    await steward.query(
+    await migrator.query(`select set_config('request.jwt.claims',$1,false)`, [
+      JSON.stringify({
+        sub: STEWARD_A,
+        workspace_id: WS,
+        role: 'authenticated',
+      }),
+    ])
+    await migrator.query(
       `select set_config('sheetbase.capability_mask','schema.edit',false)`,
     )
-    expect(
-      (
-        await steward.query(`select api.has_capability($1,'schema.edit') edit`, [
-          WS,
-        ])
-      ).rows[0].edit,
-    ).toBe(true)
-    expect(
-      (
-        await steward.query(
-          `select api.has_capability($1,'schema.publish') publish`,
-          [WS],
-        )
-      ).rows[0].publish,
-    ).toBe(false)
-    await expectDenied(
-      steward.query(
-        `update api.dataset_schema_versions set lifecycle='active', published_at=now() where id=$1`,
-        [created.schema_version_id],
-      ),
-      '42501',
-    )
+    try {
+      expect(
+        (
+          await migrator.query(
+            `select session_user as login, api.has_capability($1,'schema.edit') edit`,
+            [WS],
+          )
+        ).rows[0],
+      ).toMatchObject({ login: 'migrator', edit: true })
+      expect(
+        (
+          await migrator.query(
+            `select api.has_capability($1,'schema.publish') publish`,
+            [WS],
+          )
+        ).rows[0].publish,
+      ).toBe(false)
+      await expectDenied(
+        migrator.query(
+          `update api.dataset_schema_versions set lifecycle='active', published_at=now() where id=$1`,
+          [created.schema_version_id],
+        ),
+        '42501',
+      )
+    } finally {
+      await migrator.query(
+        `select set_config('sheetbase.capability_mask','',false)`,
+      )
+      await migrator.query(`select set_config('request.jwt.claims','',false)`)
+    }
     const stillDraft = (
       await steward.query(
         `select lifecycle from api.dataset_schema_versions where id=$1`,
@@ -405,7 +420,6 @@ describe('CORE-05 schema.edit cannot direct-publish', () => {
       )
     ).rows[0]
     expect(stillDraft.lifecycle).toBe('draft')
-    await steward.query(`select set_config('sheetbase.capability_mask','',false)`)
     const published = (
       await steward.query(
         `select lifecycle from api.publish_dataset_schema_version($1)`,

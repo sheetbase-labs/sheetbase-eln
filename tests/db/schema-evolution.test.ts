@@ -400,6 +400,12 @@ describe('CORE-05 governed evolution and promotion', () => {
     ).rows[0].result
     expect(promoted.ok).toBe(true)
     expect(promoted.historicalValuesRemainLocal).toBe(true)
+    const promoDraft = (
+      await steward.query(
+        `select revision from api.dataset_schema_versions where id=$1`,
+        [promoted.schemaVersionId],
+      )
+    ).rows[0]
     const stillLocal = (
       await steward.query(
         `select state->'localValues'->$1->$2 as value from api.sheet_instances where id=$3`,
@@ -482,8 +488,14 @@ describe('CORE-05 governed evolution and promotion', () => {
     expect(datasetPreview.ok).toBe(true)
     const derived = (
       await steward.query(
-        `select api.promote_calculation($1,$2,'dataset_schema',$3,'calc-ds-1') result`,
-        [created.id, DEF_CALC_ID, schema.schema_definition_id],
+        `select api.promote_calculation($1,$2,'dataset_schema',$3,'calc-ds-1',$4,$5) result`,
+        [
+          created.id,
+          DEF_CALC_ID,
+          schema.schema_definition_id,
+          promoted.schemaVersionId,
+          promoDraft.revision,
+        ],
       )
     ).rows[0].result
     expect(derived.ok).toBe(true)

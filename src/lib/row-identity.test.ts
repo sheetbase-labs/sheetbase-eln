@@ -1,6 +1,7 @@
+import { createHash } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 
-import { resolveRowIdentityBatch } from './row-identity'
+import { resolveRowIdentityBatch, rowIdentityKey } from './row-identity'
 
 const sample = '10000000-0000-4000-8000-000000000001'
 const timepoint = '10000000-0000-4000-8000-000000000002'
@@ -137,5 +138,25 @@ describe('stable row identity', () => {
         [],
       ),
     ).toMatchObject({ ok: false, errors: [{ code: 'invalid' }] })
+  })
+
+  it('hashes identity with SHA-256 matching Node crypto', () => {
+    const spec = {
+      kind: 'source' as const,
+      columnIds: [sample],
+      logicalTypes: ['text'] as const,
+    }
+    const values = ['hello']
+    const key = rowIdentityKey(spec, values)
+    const canonical = JSON.stringify({
+      v: 1,
+      kind: spec.kind,
+      columns: spec.columnIds,
+      types: spec.logicalTypes,
+      values,
+    })
+    expect(key).toBe(
+      `sb-row-v1:${createHash('sha256').update(canonical).digest('hex')}`,
+    )
   })
 })

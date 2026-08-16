@@ -85,12 +85,12 @@ Canonical schema ADR: [`0038-canonical-dataset-schema-definitions.md`](../decisi
 - CORE-06.7 / 06.8 / 06.9 / 06.12 / 06.13 — frozen Sheet evidence in the
   REV-002 envelope (`0101`), historical render, file checksums unchanged,
   Purification Summary golden proof
-- CORE-06.14 — Core exit gate (`db:fresh --demo`, `test:db`); AUTO-01 is not
-  started
+- CORE-06.14 — CORE-06 exit gate (`db:fresh --demo`, `test:db`, `validate`);
+  AUTO-01 is not started and is not the next task
 
 ## Required reading
 
-1. [`tasks/CORE-06.md`](./tasks/CORE-06.md) CORE-06.2
+1. [`tasks/CORE-06.md`](./tasks/CORE-06.md) (complete; do not start AUTO-01)
 2. [`tasks/CORE-05.md`](./tasks/CORE-05.md) completion evidence
 3. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md)
 4. [`CORE_ARCHITECTURE.md`](./CORE_ARCHITECTURE.md)
@@ -103,7 +103,9 @@ inside the existing REV-002 transaction. Do **not** start AUTO-01.
 
 CORE-06.14 exit evidence: `pnpm db:fresh --demo` applied migrations `0000`–
 `0101` and 29 idempotent demo seed steps (reseed also 29/29). `pnpm test:db`
-70 files / 707 tests.
+70 files / 707 tests. `pnpm validate` 176 files / 1,916 tests, zero lint
+errors (21 existing warnings), production client/SSR build. The CORE-02.6
+100k+80k Dataset benchmark was not rerun.
 
 CORE-05.11 exit evidence: `pnpm db:fresh --demo` applied migrations `0000`–
 `0096` and 29 idempotent demo seed steps (reseed also 29/29). `pnpm test:db`

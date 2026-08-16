@@ -44,7 +44,8 @@ Projects/workspaces organise scientific working state such as Records, Datasets,
 6. **CORE-06 — Notebook Templates, Sharing and Frozen Evidence** — complete;
    pinned Definition references, explicit shared Instances, parameter flow and
    reconstructable evidence. AUTO-01 is not started.
-7. **AUTO-01 — Pipeline Foundation** — broader typed transformations over immutable inputs/outputs.
+7. **AUTO-01 — Pipeline Foundation** — not started. Do not begin from CORE-06
+   completion. Broader typed transformations over immutable inputs/outputs.
 8. **AUTO-02 — Agent-authored Operations** — agents propose drafts/plans and execute through normal contracts.
 
 ## Golden workflow

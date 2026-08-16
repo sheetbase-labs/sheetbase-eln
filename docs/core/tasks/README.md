@@ -25,7 +25,8 @@ All **Core Data Workspace epics are now granularly decomposed**:
 - `CORE-03.md` — Sheet Definition and Compositional Sheet Instance.
 - `CORE-04.md` — Records from Sheets.
 - `CORE-05.md` — Schema Evolution and Role-aware Configuration.
-- `CORE-06.md` — Notebook Templates, Sharing and Frozen Evidence.
+- `CORE-06.md` — Notebook Templates, Sharing and Frozen Evidence (complete).
+  Do not start AUTO-01 from this file.
 
 Later tasks remain subject to evidence-based refinement at the preceding epic exit gate. Refinement means adding concrete paths/tests/implementation details learned from the code; it does **not** mean reopening ADR 0020–0026 decisions without a genuinely new contradiction.
 

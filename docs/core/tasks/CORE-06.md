@@ -270,18 +270,26 @@ from `sheetEvidence`.
 
 ---
 
-## CORE-06.14 — Core programme exit and AUTO-01 hand-off
+## CORE-06.14 — CORE-06 exit gate
 
 **Blocked by:** CORE-06.13.
 
-**Goal:** Verify the Core Data Workspace broadening gate and prepare Pipeline work without prematurely implementing it.
+**Goal:** Prove CORE-06 on a fresh database, focused DB suite and full validate
+gate. Do not start AUTO-01 or any Pipeline work.
 
-**Deliverables:** run golden programme workflow; confirm common fields, Dataset versions, compositional Sheets, Record creation, schema capabilities, Templates and frozen evidence; update Core completion evidence; reconcile AUTO-01 skeleton with implemented contracts; update `NEXT.md` to AUTO-01.1 only if Core exit gate passes.
+**Deliverables:** `pnpm db:fresh --demo`; `pnpm test:db` covering instantiate,
+share, freeze and upgrade isolation; `pnpm validate` excluding the out-of-scope
+CORE-02.6 100k benchmark; Core completion evidence in `NEXT.md` that stays on
+completed CORE-06.
+
+**Do not:** create `docs/core/tasks/AUTO-01.md`; point `NEXT.md` at AUTO-01.1;
+reconcile or start Pipeline contracts.
 
 **Status:** Exit gate passed. `pnpm db:fresh --demo` applied migrations
 `0000`–`0101` and 29 idempotent demo seed steps (reseed also 29/29).
-`pnpm test:db` 70 files / 707 tests. AUTO-01 is **not** started; `NEXT.md`
-stays on completed CORE-06.
+`pnpm test:db` 70 files / 707 tests. `pnpm validate` 176 files / 1,916 tests,
+zero lint errors (21 existing warnings), production client/SSR build.
+AUTO-01 is **not** started; `NEXT.md` stays on completed CORE-06.
 
 ---
 

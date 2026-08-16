@@ -64,4 +64,5 @@ Unless explicitly analysis/documentation-only:
 8. Do not broaden specialist surfaces during early Core work.
 9. Use accepted ADRs 0020–0026 as settled product semantics.
 10. Create a new ADR only for a genuinely new durable fork exposed by implementation evidence.
-11. Record completion evidence and advance `NEXT.md` as part of hand-off.
+11. Record completion evidence and advance `NEXT.md` as part of Core
+    hand-off. Completing CORE-06 must not point `NEXT.md` at AUTO-01.

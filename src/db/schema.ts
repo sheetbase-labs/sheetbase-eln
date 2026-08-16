@@ -2330,6 +2330,67 @@ export const notebookTemplateVersions = api.table(
   ],
 )
 
+export const notebookTemplateInstantiations = api.table(
+  'notebook_template_instantiations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    actorUserId: text('actor_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    idempotencyKey: text('idempotency_key').notNull(),
+    templateVersionId: uuid('template_version_id')
+      .notNull()
+      .references(() => notebookTemplateVersions.id, { onDelete: 'restrict' }),
+    recordId: uuid('record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'restrict' }),
+    result: jsonb('result').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('uq_notebook_template_instantiations_actor_key').on(
+      table.workspaceId,
+      table.actorUserId,
+      table.idempotencyKey,
+    ),
+    check(
+      'chk_notebook_template_instantiations_key',
+      sql`length(${table.idempotencyKey}) BETWEEN 1 AND 128`,
+    ),
+  ],
+)
+
+export const notebookTemplateUpgrades = api.table(
+  'notebook_template_upgrades',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    recordId: uuid('record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'restrict' }),
+    sourceVersionId: uuid('source_version_id')
+      .notNull()
+      .references(() => notebookTemplateVersions.id, { onDelete: 'restrict' }),
+    targetVersionId: uuid('target_version_id')
+      .notNull()
+      .references(() => notebookTemplateVersions.id, { onDelete: 'restrict' }),
+    decisions: jsonb('decisions').notNull(),
+    actorUserId: text('actor_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+)
+
 // CORE-03.3: a working Sheet is deliberately separate from a reusable
 // Definition.  All mutable working configuration is contained in `state`;
 // the optional source is an immutable Definition Version, never a writable

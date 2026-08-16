@@ -8,11 +8,11 @@
 
 ## Active task
 
-**CORE-06.3 / 06.4 / 06.11 — Versioned Notebook Templates**
+**CORE-06.5 / 06.6 / 06.10 — Instantiate, share and upgrade**
 
-Status: CORE-06.3/06.4/06.11 implemented. Next is CORE-06.5 instantiation.
+Status: CORE-06.5/06.6/06.10 implemented. Next is CORE-06.7 frozen evidence.
 
-Task: [`tasks/CORE-06.md`](./tasks/CORE-06.md#core-063--implement-organisation-level-notebook-template-versions)
+Task: [`tasks/CORE-06.md`](./tasks/CORE-06.md#core-065--implement-default-create_instance-sheet-template-blocks)
 
 Audit: [`audits/NOTEBOOK_EVIDENCE_AUDIT.md`](./audits/NOTEBOOK_EVIDENCE_AUDIT.md)
 
@@ -80,6 +80,8 @@ Canonical schema ADR: [`0038-canonical-dataset-schema-definitions.md`](../decisi
   (`0098_core_062_sheet_instance_blocks`); legacy `{tableId}` still renders
 - CORE-06.3 / 06.4 / 06.11 — dedicated Notebook Template versions, CORE-03
   parameter mappings, section-placeholder boundary (`0099`)
+- CORE-06.5 / 06.6 / 06.10 — instantiate independent Instances, explicit
+  shared embeddings, Template retarget and Notebook upgrade (`0100`)
 
 ## Required reading
 
@@ -91,10 +93,10 @@ Canonical schema ADR: [`0038-canonical-dataset-schema-definitions.md`](../decisi
 
 ## Implement now
 
-CORE-06.3/06.4/06.11 are implemented: dedicated Notebook Template versions
-pin Sheet Definition Versions and map CORE-03 parameters by stable IDs.
-Do not start CORE-06.5 until this commit is on the branch. Instantiation
-is the next bundle.
+CORE-06.5/06.6/06.10 are implemented: published Template Versions instantiate
+independent Sheet Instances; shared live embeddings are explicit; Template
+v2 publication does not mutate v1 Notebooks. Do not start CORE-06.7 until
+this commit is on the branch. Frozen structured evidence is the next bundle.
 
 CORE-05.11 exit evidence: `pnpm db:fresh --demo` applied migrations `0000`–
 `0096` and 29 idempotent demo seed steps (reseed also 29/29). `pnpm test:db`

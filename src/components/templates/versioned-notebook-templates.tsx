@@ -1,10 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/ui'
+import type { TemplateProject } from '#/components/templates/template-library'
 import {
   createNotebookTemplate,
   fetchNotebookTemplates,
   fetchNotebookTemplateVersions,
+  instantiateNotebookTemplateVersion,
   notebookTemplateDataClient,
   publishNotebookTemplateVersion,
 } from '#/lib/notebook-template-data'
@@ -29,9 +31,11 @@ const EMPTY_CONFIGURATION: NotebookTemplateConfiguration = {
 export function VersionedNotebookTemplatePanel({
   workspaceId,
   canEdit,
+  projects,
 }: {
   workspaceId: string
   canEdit: boolean
+  projects: TemplateProject[]
 }) {
   const queryClient = useQueryClient()
   const templates = useQuery({
@@ -79,6 +83,7 @@ export function VersionedNotebookTemplatePanel({
               templateId={template.id}
               name={template.name}
               canPublish={canEdit}
+              projects={projects}
             />
           ))}
         </ul>
@@ -96,10 +101,12 @@ function VersionedTemplateRow({
   templateId,
   name,
   canPublish,
+  projects,
 }: {
   templateId: string
   name: string
   canPublish: boolean
+  projects: TemplateProject[]
 }) {
   const queryClient = useQueryClient()
   const versions = useQuery({
@@ -113,6 +120,14 @@ function VersionedTemplateRow({
     onSuccess: () =>
       queryClient.invalidateQueries({
         queryKey: ['notebook-template-versions', templateId],
+      }),
+  })
+  const instantiate = useMutation({
+    mutationFn: (versionId: string) =>
+      instantiateNotebookTemplateVersion({
+        versionId,
+        targetProjectId: projects[0]?.id ?? '',
+        idempotencyKey: crypto.randomUUID(),
       }),
   })
 
@@ -129,18 +144,34 @@ function VersionedTemplateRow({
                 ? ` · ${version.configuration.placements.filter((p) => p.kind === 'sheet').length} sheet placement(s)`
                 : ''}
             </span>
-            {canPublish && version.lifecycle === 'draft' ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  publish.mutate({ id: version.id, revision: version.revision })
-                }
-              >
-                Publish
-              </Button>
-            ) : null}
+            <span className="flex gap-1">
+              {canPublish && version.lifecycle === 'draft' ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    publish.mutate({
+                      id: version.id,
+                      revision: version.revision,
+                    })
+                  }
+                >
+                  Publish
+                </Button>
+              ) : null}
+              {version.lifecycle === 'published' && projects[0] ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={instantiate.isPending}
+                  onClick={() => instantiate.mutate(version.id)}
+                >
+                  Create notebook
+                </Button>
+              ) : null}
+            </span>
           </li>
         ))}
       </ul>

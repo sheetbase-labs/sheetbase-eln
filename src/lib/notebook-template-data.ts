@@ -177,3 +177,95 @@ export async function createNotebookTemplateVersion(
   })
   return notebookTemplateVersionFromWire(row)
 }
+
+export async function instantiateNotebookTemplateVersion(
+  input: {
+    versionId: string
+    targetProjectId: string
+    title?: string
+    parameterInputs?: unknown[]
+    idempotencyKey: string
+  },
+  client: DataClient = notebookTemplateDataClient,
+) {
+  return client.rpc<{
+    record: { id: string; project_id: string | null; identifier: string }
+    templateVersionId: string
+    idempotent: boolean
+  }>('instantiate_notebook_template_version', {
+    p_version_id: input.versionId,
+    p_target_project_id: input.targetProjectId,
+    p_title: input.title ?? null,
+    p_parameter_inputs: input.parameterInputs ?? [],
+    p_idempotency_key: input.idempotencyKey,
+  })
+}
+
+export async function fetchSheetInstanceNotebookEmbeddings(
+  instanceId: string,
+  client: DataClient = notebookTemplateDataClient,
+) {
+  return client.rpc<{
+    instanceId: string
+    count: number
+    embeddings: Array<{
+      blockId: string
+      recordId: string
+      identifier: string
+      title: string
+    }>
+  }>('sheet_instance_notebook_embeddings', {
+    p_instance_id: instanceId,
+  })
+}
+
+export async function previewNotebookTemplateUpgrade(
+  recordId: string,
+  targetVersionId: string,
+  client: DataClient = notebookTemplateDataClient,
+) {
+  return client.rpc<unknown>('preview_notebook_template_upgrade', {
+    p_record_id: recordId,
+    p_target_version_id: targetVersionId,
+  })
+}
+
+export async function applyNotebookTemplateUpgrade(
+  input: {
+    recordId: string
+    expectedStructureVersion: number
+    targetVersionId: string
+    decisions?: unknown[]
+    parameterInputs?: unknown[]
+  },
+  client: DataClient = notebookTemplateDataClient,
+) {
+  return client.rpc<unknown>('apply_notebook_template_upgrade', {
+    p_record_id: input.recordId,
+    p_expected_structure_version: input.expectedStructureVersion,
+    p_target_version_id: input.targetVersionId,
+    p_decisions: input.decisions ?? [],
+    p_parameter_inputs: input.parameterInputs ?? [],
+  })
+}
+
+export async function retargetNotebookTemplateSheetPlacement(
+  input: {
+    versionId: string
+    expectedRevision: number
+    placementId: string
+    targetDefinitionVersionId: string
+  },
+  client: DataClient = notebookTemplateDataClient,
+) {
+  const row = await client.rpc<unknown>(
+    'retarget_notebook_template_sheet_placement',
+    {
+      p_version_id: input.versionId,
+      p_expected_revision: input.expectedRevision,
+      p_placement_id: input.placementId,
+      p_target_definition_version_id: input.targetDefinitionVersionId,
+    },
+  )
+  return notebookTemplateVersionFromWire(row)
+}

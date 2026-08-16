@@ -68,6 +68,12 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     icon: Sheet,
   },
   {
+    type: 'sheet_shared',
+    label: 'Shared Sheet',
+    description: 'Embed an existing live Sheet Instance. Edits are shared.',
+    icon: Sheet,
+  },
+  {
     type: 'protocol_reference',
     label: 'Protocol',
     description: 'Pin an exact protocol version and its procedure.',

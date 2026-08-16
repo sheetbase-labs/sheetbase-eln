@@ -4,6 +4,10 @@ import { ComposedSheetWorkspace } from '#/components/sheet/composed-sheet-worksp
 import { ScientificSheetBlock } from '#/components/sheet/scientific-sheet-block'
 import type { NotebookBlock, NotebookRecord } from '#/lib/notebook-data'
 import {
+  fetchSheetInstanceNotebookEmbeddings,
+  notebookTemplateDataClient,
+} from '#/lib/notebook-template-data'
+import {
   fetchSheetInstance,
   sheetInstanceDataClient,
 } from '#/lib/sheet-instance-data'
@@ -41,6 +45,14 @@ function NotebookInstanceSheetEmbed({
     queryKey: ['sheet-instance', instanceId],
     queryFn: () => fetchSheetInstance(instanceId, sheetInstanceDataClient),
   })
+  const embeddings = useQuery({
+    queryKey: ['sheet-instance-embeddings', instanceId],
+    queryFn: () =>
+      fetchSheetInstanceNotebookEmbeddings(
+        instanceId,
+        notebookTemplateDataClient,
+      ),
+  })
 
   if (instance.isLoading) {
     return (
@@ -67,6 +79,18 @@ function NotebookInstanceSheetEmbed({
 
   return (
     <div className="flex min-h-[24rem] flex-col gap-2">
+      {embeddings.data && embeddings.data.count > 1 ? (
+        <p className="text-xs text-amber-800 dark:text-amber-200" role="status">
+          Shared live Sheet. Editing here changes the same Instance in{' '}
+          {embeddings.data.count} Notebook placements
+          {embeddings.data.embeddings.length
+            ? ` (${embeddings.data.embeddings
+                .map((item) => item.identifier)
+                .join(', ')})`
+            : ''}
+          .
+        </p>
+      ) : null}
       {instance.data.lifecycle === 'archived' ? (
         <p className="text-xs text-muted-foreground" role="status">
           This Sheet Instance is archived. Existing references remain

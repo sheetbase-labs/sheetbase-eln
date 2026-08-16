@@ -35,7 +35,16 @@ import {
   EmptyHint,
 } from '#/components/record'
 import { ScientificRecordLinker, StatusBadge } from '#/components/scientific'
-import { Badge } from '#/components/ui'
+import {
+  Badge,
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '#/components/ui'
 import { DataClientError } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
 import {
@@ -66,6 +75,10 @@ import {
   moveBlock,
   updateBlockPayload,
 } from '#/lib/notebook-mutations'
+import {
+  fetchSheetInstances,
+  sheetInstanceDataClient,
+} from '#/lib/sheet-instance-data'
 import { freezeChart, unfreezeChart } from '#/lib/chart-data'
 import { validateBlock } from '#/lib/blocks'
 import { pinProtocolReference } from '#/lib/protocol-materials'
@@ -539,6 +552,16 @@ function EditableNotebook({
   // the document. The router blocker uses `withResolver` so we can show
   // a comprehensible confirmation rather than blocking silently.
   const [hasUnsavedWork, setHasUnsavedWork] = useState(false)
+  const [embedOpen, setEmbedOpen] = useState(false)
+  const [embedAfterBlockId, setEmbedAfterBlockId] = useState<
+    string | undefined
+  >()
+  const [embedInstanceId, setEmbedInstanceId] = useState('')
+  const embedCandidates = useQuery({
+    queryKey: ['sheet-instances', 'embed-picker', record.id],
+    queryFn: () => fetchSheetInstances(sheetInstanceDataClient),
+    enabled: embedOpen,
+  })
   const blocker = useBlocker({
     shouldBlockFn: () => hasUnsavedWork,
     enableBeforeUnload: false,
@@ -611,15 +634,16 @@ function EditableNotebook({
     }: {
       type: string
       afterBlockId?: string
-      options?: { datasetSchemaId?: string }
+      options?: { datasetSchemaId?: string; instanceId?: string }
     }) => {
       const current = queryClient.getQueryData<NotebookRecord | null>(recordKey)
-      if (type === 'sheet') {
+      if (type === 'sheet' || type === 'sheet_shared') {
         return insertSheetInstanceBlock(client, {
           recordId: record.id,
           afterBlockId,
           expectedStructureVersion:
             current?.structureVersion ?? record.structureVersion,
+          instanceId: options?.instanceId,
         })
       }
       const payload = defaultPayloadFor(type)
@@ -812,8 +836,14 @@ function EditableNotebook({
   async function handleInsert(
     type: string,
     afterBlockId?: string,
-    options?: { datasetSchemaId?: string },
+    options?: { datasetSchemaId?: string; instanceId?: string },
   ) {
+    if (type === 'sheet_shared' && !options?.instanceId) {
+      setEmbedAfterBlockId(afterBlockId)
+      setEmbedInstanceId('')
+      setEmbedOpen(true)
+      return undefined
+    }
     const res = await insertMutation.mutateAsync({
       type,
       afterBlockId,
@@ -958,24 +988,70 @@ function EditableNotebook({
   }
 
   return (
-    <NotebookDocument
-      record={record}
-      blocks={blocks}
-      onSaveBlock={handleSave}
-      offline={offline}
-      onUnsavedWorkChange={setHasUnsavedWork}
-      onInsertBlock={handleInsert}
-      onPinProtocol={handlePinProtocol}
-      onAttachFile={handleAttachFile}
-      onFreezeChart={handleFreezeChart}
-      onUnfreezeChart={handleUnfreezeChart}
-      onDuplicateBlock={handleDuplicate}
-      onConvertLegacySheetBlock={handleConvertLegacySheet}
-      onDeleteBlock={handleDelete}
-      onUndoDelete={handleUndoDelete}
-      onMoveBlock={handleMove}
-      onReplaceBlock={handleReplaceBlock}
-    />
+    <>
+      <NotebookDocument
+        record={record}
+        blocks={blocks}
+        onSaveBlock={handleSave}
+        offline={offline}
+        onUnsavedWorkChange={setHasUnsavedWork}
+        onInsertBlock={handleInsert}
+        onPinProtocol={handlePinProtocol}
+        onAttachFile={handleAttachFile}
+        onFreezeChart={handleFreezeChart}
+        onUnfreezeChart={handleUnfreezeChart}
+        onDuplicateBlock={handleDuplicate}
+        onConvertLegacySheetBlock={handleConvertLegacySheet}
+        onDeleteBlock={handleDelete}
+        onUndoDelete={handleUndoDelete}
+        onMoveBlock={handleMove}
+        onReplaceBlock={handleReplaceBlock}
+      />
+      <Dialog open={embedOpen} onOpenChange={setEmbedOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Embed an existing Sheet Instance</DialogTitle>
+            <DialogDescription>
+              This Notebook will show the same live Sheet. Editing it here
+              changes every other placement of that Instance.
+            </DialogDescription>
+          </DialogHeader>
+          <label className="grid gap-1 text-sm">
+            <span>Sheet Instance</span>
+            <select
+              className="rounded-md border bg-background px-2 py-1.5"
+              value={embedInstanceId}
+              onChange={(event) => setEmbedInstanceId(event.target.value)}
+            >
+              <option value="">Select an Instance</option>
+              {(embedCandidates.data ?? [])
+                .filter((instance) => instance.lifecycle === 'active')
+                .map((instance) => (
+                  <option key={instance.id} value={instance.id}>
+                    {instance.name}
+                  </option>
+                ))}
+            </select>
+          </label>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setEmbedOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={!embedInstanceId || insertMutation.isPending}
+              onClick={() => {
+                void handleInsert('sheet_shared', embedAfterBlockId, {
+                  instanceId: embedInstanceId,
+                }).then(() => setEmbedOpen(false))
+              }}
+            >
+              Embed shared Sheet
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
 

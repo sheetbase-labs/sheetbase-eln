@@ -1,6 +1,6 @@
 # CORE-06 — Notebook Templates, Sharing and Frozen Evidence
 
-**Status:** CORE-06.3/06.4/06.11 in progress after CORE-06.2.  
+**Status:** CORE-06.5/06.6/06.10 in progress after CORE-06.3/06.4/06.11.  
 **Blocked by:** CORE-05 complete.  
 **Normative decisions:** ADRs 0020–0024 and existing Notebook revision/signature architecture.
 
@@ -107,6 +107,10 @@ and map to Sheet Definition parameters by stable IDs.
 
 **Exit gate:** standard Template use never accidentally shares working Sheet state.
 
+**Status:** Implemented. `instantiate_notebook_template_version` creates a
+new experiment Notebook and independent Sheet Instances from pinned
+Definition Versions. Failed required parameters roll back the transaction.
+
 ---
 
 ## CORE-06.6 — Implement explicit shared-live Sheet blocks
@@ -122,6 +126,11 @@ and map to Sheet Definition parameters by stable IDs.
 **Tests:** two Notebooks see same local edit; permissions differ; archive behaviour.
 
 **Exit gate:** shared working state is useful but never accidental/hidden.
+
+**Status:** Implemented. Embedding an existing Instance is
+`insert_sheet_instance_block(..., instance_id)`.
+`sheet_instance_notebook_embeddings` reports placement count. Deleting one
+block does not archive the Instance.
 
 ---
 
@@ -186,6 +195,11 @@ and map to Sheet Definition parameters by stable IDs.
 **Tests:** compatible update; incompatible parameter/binding; existing Notebook unchanged.
 
 **Exit gate:** reusable Templates evolve without retroactively changing scientific work.
+
+**Status:** Implemented. Draft `retarget_notebook_template_sheet_placement`
+pins a newer Definition Version. Publishing Template v2 does not mutate
+Notebooks created from v1. Explicit `preview_notebook_template_upgrade` /
+`apply_notebook_template_upgrade` is required.
 
 ---
 

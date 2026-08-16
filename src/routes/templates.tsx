@@ -504,6 +504,7 @@ function TemplateLibraryRoute() {
           canEdit={
             role === 'owner' || role === 'admin' || role === 'steward'
           }
+          projects={projects}
         />
 
         <TemplateFilters

@@ -11,8 +11,8 @@ Source review: [`CORE_01_06_IMPLEMENTATION_REVIEW.md`](./CORE_01_06_IMPLEMENTATI
 | ------ | ------------------------------ | ----------- |
 | H1     | Security + green baseline      | complete    |
 | H2     | Ad-hoc → composed lifecycle    | complete    |
-| H3     | Frozen composed evidence       | in progress |
-| H4     | Legacy write-path closure      | pending     |
+| H3     | Frozen composed evidence       | complete    |
+| H4     | Legacy write-path closure      | in progress |
 | H5     | Template catalogue convergence | pending     |
 
 ## H1 Security + green baseline
@@ -52,7 +52,21 @@ Source review: [`CORE_01_06_IMPLEMENTATION_REVIEW.md`](./CORE_01_06_IMPLEMENTATI
 
 ## H3 Frozen composed evidence
 
-- **Status:** pending
+- **Status:** complete
+- **Implementation:** `revision_sheet_evidence.composed_grid` is the
+  authoritative historical Sheet render contract. Submit snapshots live
+  Dataset bindings into Dataset Versions (reusing an existing Version when
+  the binding is already version-pinned) and stores a denormalised grid from
+  those Versions plus frozen Instance state. The REV-002 envelope is not
+  rewritten after digest. Historical notebook render reads the side table.
+- **Migrations:** `0105_core_h3_frozen_composed_grid`
+- **Tests:** `tests/db/core-h3-frozen-composed-evidence.test.ts`;
+  `src/lib/frozen-sheet-grid.test.ts`
+- **Limitations:** review-workspace envelope render still falls back to local
+  Instance JSON when the side table is absent (pre-H3 revisions)
+- **Completion evidence:** submitted composed Sample values survive later live
+  Dataset and Instance mutation; side-table updates are rejected; envelope has
+  no post-digest `composedGrid`
 
 ## H4 Legacy write-path closure
 

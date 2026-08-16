@@ -16,7 +16,7 @@ import {
   TableRow,
 } from '#/components/ui'
 import { DataClientError } from '#/lib/data-client'
-import { frozenSheetGridFromState } from '#/lib/frozen-sheet-grid'
+import { frozenSheetGridFromEvidence } from '#/lib/frozen-sheet-grid'
 import type { NotebookBlock, NotebookRecord } from '#/lib/notebook-data'
 import {
   fetchSheetInstanceNotebookEmbeddings,
@@ -69,7 +69,7 @@ export function FrozenSheetEvidencePanel({
 }: {
   evidence: FrozenSheetEvidence
 }) {
-  const grid = frozenSheetGridFromState(evidence.instanceState)
+  const grid = frozenSheetGridFromEvidence(evidence)
   const origin =
     evidence.sourceDefinitionVersionId === null
       ? 'Ad hoc Sheet'

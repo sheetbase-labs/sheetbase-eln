@@ -5,6 +5,41 @@ export type FrozenSheetEvidence = {
   sourceDefinitionVersionId: string | null
   instanceState: Record<string, unknown>
   datasetBindings: Array<Record<string, unknown>>
+  composedGrid?: {
+    columns?: Array<{ id?: unknown; label?: unknown }>
+    rows?: unknown
+  } | null
+}
+
+export function sheetEvidenceFromRevisionRows(
+  rows: Array<{
+    block_id: string
+    instance_id: string
+    instance_revision: number | string
+    source_definition_version_id: string | null
+    instance_state: Record<string, unknown> | null
+    dataset_versions: unknown
+    composed_grid: unknown
+  }>,
+): Map<string, FrozenSheetEvidence> {
+  const map = new Map<string, FrozenSheetEvidence>()
+  for (const row of rows) {
+    map.set(row.block_id, {
+      blockId: row.block_id,
+      instanceId: row.instance_id,
+      instanceRevision: Number(row.instance_revision ?? 0),
+      sourceDefinitionVersionId: row.source_definition_version_id,
+      instanceState: row.instance_state ?? {},
+      datasetBindings: Array.isArray(row.dataset_versions)
+        ? (row.dataset_versions as Array<Record<string, unknown>>)
+        : [],
+      composedGrid:
+        row.composed_grid && typeof row.composed_grid === 'object'
+          ? (row.composed_grid as FrozenSheetEvidence['composedGrid'])
+          : null,
+    })
+  }
+  return map
 }
 
 export function sheetEvidenceFromEnvelope(
@@ -34,6 +69,10 @@ export function sheetEvidenceFromEnvelope(
       datasetBindings: Array.isArray(row.datasetBindings)
         ? (row.datasetBindings as Array<Record<string, unknown>>)
         : [],
+      composedGrid:
+        row.composedGrid && typeof row.composedGrid === 'object'
+          ? (row.composedGrid as FrozenSheetEvidence['composedGrid'])
+          : null,
     })
   }
   return map

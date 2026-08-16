@@ -58,6 +58,7 @@ import {
   fetchProject,
   fetchRecord,
   fetchRevision,
+  fetchRevisionSheetEvidence,
   formatDate,
   formatNotebookDateTime,
   formatRelativeTime,
@@ -91,7 +92,10 @@ import {
   sheetInstanceDataClient,
 } from '#/lib/sheet-instance-data'
 import { freezeChart, unfreezeChart } from '#/lib/chart-data'
-import { sheetEvidenceFromEnvelope } from '#/lib/sheet-evidence'
+import {
+  sheetEvidenceFromEnvelope,
+  sheetEvidenceFromRevisionRows,
+} from '#/lib/sheet-evidence'
 import { toCanonicalEnvelope } from '#/lib/review-workspace'
 import { validateBlock } from '#/lib/blocks'
 import { pinProtocolReference } from '#/lib/protocol-materials'
@@ -1081,9 +1085,17 @@ function LockedNotebook({
         ? fetchRevision(client, record.lockedByRevisionId)
         : fetchLatestRevisionForRecord(client, record.id),
   })
-  const frozenSheetEvidence = sheetEvidenceFromEnvelope(
-    revision.data ? toCanonicalEnvelope(revision.data) : null,
-  )
+  const revisionId = revision.data?.id ?? record.lockedByRevisionId
+  const storedEvidence = useQuery({
+    queryKey: ['revision-sheet-evidence-rows', revisionId],
+    enabled: Boolean(revisionId),
+    queryFn: () => fetchRevisionSheetEvidence(client, revisionId!),
+  })
+  const frozenSheetEvidence = storedEvidence.data?.length
+    ? sheetEvidenceFromRevisionRows(storedEvidence.data)
+    : sheetEvidenceFromEnvelope(
+        revision.data ? toCanonicalEnvelope(revision.data) : null,
+      )
   return (
     <NotebookDocument
       record={record}

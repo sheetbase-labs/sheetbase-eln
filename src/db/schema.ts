@@ -2412,6 +2412,9 @@ export const revisionSheetEvidence = api.table(
     instanceRevision: bigint('instance_revision', { mode: 'bigint' }).notNull(),
     instanceState: jsonb('instance_state').notNull(),
     datasetVersions: jsonb('dataset_versions').notNull().default([]),
+    composedGrid: jsonb('composed_grid')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
       .notNull()
       .defaultNow(),

@@ -736,6 +736,13 @@
       "when": 1786822000000,
       "tag": "0104_core_h2_composition_adoption",
       "breakpoints": true
+    },
+    {
+      "idx": 105,
+      "version": "7",
+      "when": 1786823000000,
+      "tag": "0105_core_h3_frozen_composed_grid",
+      "breakpoints": true
     }
   ]
 }

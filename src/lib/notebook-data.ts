@@ -607,6 +607,26 @@ export function fetchLatestRevisionForRecord(
     .then((rows) => (rows.length > 0 ? rows[0] : null))
 }
 
+export type RevisionSheetEvidenceWire = {
+  block_id: string
+  instance_id: string
+  instance_revision: number | string
+  source_definition_version_id: string | null
+  instance_state: Record<string, unknown> | null
+  dataset_versions: unknown
+  composed_grid: unknown
+}
+
+export function fetchRevisionSheetEvidence(
+  client: DataClient,
+  revisionId: string,
+) {
+  return client.list<RevisionSheetEvidenceWire>(
+    'revision_sheet_evidence',
+    `?revision_id=eq.${encodeURIComponent(revisionId)}&select=block_id,instance_id,instance_revision,source_definition_version_id,instance_state,dataset_versions,composed_grid`,
+  )
+}
+
 /**
  * Update a record's `properties` JSONB through a direct PATCH. Used by the
  * overview to persist `properties.overview.excludedBlockIds`. The existing

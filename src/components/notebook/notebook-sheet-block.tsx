@@ -236,7 +236,7 @@ function NotebookInstanceSheetEmbed({
       fetchSheetDefinition(definitionId!, sheetDefinitionDataClient),
   })
 
-  if (instance.isLoading) {
+  if (instance.isPending) {
     return (
       <p className="p-3 text-sm text-muted-foreground" role="status">
         Loading Sheet…

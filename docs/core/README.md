@@ -25,9 +25,11 @@ Competitor material is **reference evidence, not normative specification**. If i
 
 ## Current programme
 
-The active programme is **Core Data Workspace**.
+**Core Data Workspace** CORE-01–06 and Core Hardening are complete.
 
-High-level epics:
+Next: **Product Consolidation / Workflow Validation**. AUTO-01 is deferred.
+
+High-level Core epics (all complete):
 
 1. **CORE-01 — Common Schema Kernel**
 2. **CORE-02 — Dataset Primitive**
@@ -35,8 +37,8 @@ High-level epics:
 4. **CORE-04 — Records from Sheets**
 5. **CORE-05 — Schema Evolution and Role-aware Configuration**
 6. **CORE-06 — Notebook Integration and Frozen Evidence**
-7. **AUTO-01 — Pipeline Foundation**
-8. **AUTO-02 — Agent-authored Operations**
+
+Later (not next): AUTO-01 Pipeline Foundation; AUTO-02 Agent-authored Operations.
 
 ## One-sentence architecture
 
@@ -58,7 +60,7 @@ ADR 0020 establishes these invariants:
 
 The programme acceptance workflow is a Notebook Sheet Instance that combines Sample Records, an Upstream Results Dataset, a Purification Results Dataset, a local Observation column and a calculated Recovery column, with inline/bulk Sample creation, correct write-back, saved Views, provenance and eventual frozen submission evidence.
 
-CORE-03 must additionally prove reuse/version safety for Sheet Definitions and Notebook Template references.
+CORE-03 additionally proved reuse/version safety for Sheet Definitions and Notebook Template references.
 
 ## Important existing work to preserve
 
@@ -73,6 +75,6 @@ CORE-03 must additionally prove reuse/version safety for Sheet Definitions and N
 
 The dated competitor research in `docs/references/eln-competitors/` covers Benchling, Dotmatics, Revvity Signals Notebook, SciNote, Labguru and Sapio Sciences, plus cross-product patterns around structured capture, Models/schemas, Templates, permissions, workflows, APIs and AI.
 
-## Work temporarily de-emphasised
+## Work de-emphasised until Product Consolidation
 
-Feature expansion in Analysis, Planner, Calendar, Instrument Monitor, Report Builder, Storage and Plate Designer should normally wait until the early Core epics are proven. Bug/security fixes and convergence changes are still appropriate.
+Feature expansion in Analysis, Planner, Calendar, Instrument Monitor, Report Builder, Storage and Plate Designer should normally wait until Product Consolidation / Workflow Validation. Bug/security fixes and convergence changes are still appropriate.

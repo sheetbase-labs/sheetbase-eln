@@ -34,7 +34,7 @@ Reusable definitions/configuration are organisation/tenant-level concepts: Model
 
 Projects/workspaces organise scientific working state such as Records, Datasets, Notebooks and Sheet Instances. Project context does not redefine scientific identity or require duplication for cross-project reuse when permissions allow.
 
-## Active epics
+## Programme status
 
 1. **CORE-01 — Common Schema Kernel** — complete.
 2. **CORE-02 — Dataset Primitive and Versioning** — complete; live Dataset state, schema versions, immutable meaningful Dataset Versions.
@@ -43,10 +43,13 @@ Projects/workspaces organise scientific working state such as Records, Datasets,
 5. **CORE-05 — Schema Evolution and Role-aware Configuration** — complete.
 6. **CORE-06 — Notebook Templates, Sharing and Frozen Evidence** — complete;
    pinned Definition references, explicit shared Instances, parameter flow and
-   reconstructable evidence. AUTO-01 is not started.
-7. **AUTO-01 — Pipeline Foundation** — not started. Do not begin from CORE-06
-   completion. Broader typed transformations over immutable inputs/outputs.
-8. **AUTO-02 — Agent-authored Operations** — agents propose drafts/plans and execute through normal contracts.
+   reconstructable evidence.
+7. **Core Hardening H1–H5** — complete.
+8. **Product Consolidation / Workflow Validation** — next. Not started in this
+   programme branch.
+9. **AUTO-01 — Pipeline Foundation** — deferred. Do not begin from CORE-06
+   completion.
+10. **AUTO-02 — Agent-authored Operations** — later.
 
 ## Golden workflow
 
@@ -92,10 +95,11 @@ The Core ultimately proves data paste, Record creation/linking, row identity/joi
 17. Files should converge on one durable File Artifact identity rather than per-module attachment stores.
 18. AI has no privileged mutation path.
 
-## Work de-emphasised during early Core work
+## Work de-emphasised until Product Consolidation
 
 Preserve but avoid broad feature expansion in Analysis Studio, Planner, Calendar, Instrument Monitor, Report Builder, Storage/freezer, Plate Designer and new dashboard surfaces except for defects or Core convergence.
 
 ## Broadening gate
 
-Resume broad specialist development when common field semantics are stable; Dataset is independent/versionable; Definition/Instance split and multi-source Sheets work; local/calculated data is durable/scoped; Records can be created from Sheets; core capability/schema lifecycle exists; reusable Templates/Definitions are safe; and Notebook evidence can freeze/reconstruct relevant data and semantics.
+The Core substrate listed below is in place. Resume broad specialist
+development through Product Consolidation / Workflow Validation, not AUTO-01.

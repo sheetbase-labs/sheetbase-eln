@@ -8,15 +8,12 @@
 
 ## Active task
 
-**Core Hardening complete. Legacy SCI-010 / scientific-table / notebook-template
-record compatibility removed.**
+**Product Consolidation / Workflow Validation** (not started).
 
-Next phase: Product Consolidation / Workflow Validation.
+CORE-01–06 complete. Core Hardening H1–H5 complete. Legacy SCI-010 /
+scientific-table / notebook-template record compatibility removed.
 
-AUTO-01 deferred.
-
-Status: CORE-06 complete. Core Hardening complete. Do not start AUTO-01.
-Do not start Product Consolidation in this programme.
+AUTO-01 remains deferred. Do not start Pipeline work from this hand-off.
 
 Review: [`CORE_01_06_IMPLEMENTATION_REVIEW.md`](./CORE_01_06_IMPLEMENTATION_REVIEW.md)
 
@@ -96,8 +93,8 @@ Canonical schema ADR: [`0038-canonical-dataset-schema-definitions.md`](../decisi
 
 ## Required reading
 
-1. [`tasks/CORE-06.md`](./tasks/CORE-06.md) (complete; do not start AUTO-01)
-2. [`tasks/CORE-05.md`](./tasks/CORE-05.md) completion evidence
+1. [`CORE_HARDENING.md`](./CORE_HARDENING.md)
+2. [`CORE_01_06_IMPLEMENTATION_REVIEW.md`](./CORE_01_06_IMPLEMENTATION_REVIEW.md)
 3. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md)
 4. [`CORE_ARCHITECTURE.md`](./CORE_ARCHITECTURE.md)
 5. ADRs [`0020-sheet-definitions-instances-and-template-reuse.md`](../decisions/0020-sheet-definitions-instances-and-template-reuse.md), [`0022-reuse-semantics.md`](../decisions/0022-reuse-semantics.md) and [`0023-object-lifecycle-and-shared-instances.md`](../decisions/0023-object-lifecycle-and-shared-instances.md)
@@ -107,8 +104,11 @@ Canonical schema ADR: [`0038-canonical-dataset-schema-definitions.md`](../decisi
 Core Hardening is complete. Next phase is Product Consolidation / Workflow
 Validation. Do **not** start AUTO-01.
 
+Core programme migrations: `0060`–`0110` (`0110` is a snapshot checkpoint
+with no DDL). Latest generate baseline: `drizzle/meta/0110_snapshot.json`.
+
 Core Hardening exit evidence: `pnpm db:fresh --demo` applied migrations
-`0000`–`0108` and 29 idempotent demo seed steps (reseed also 29/29).
+`0000`–`0109` and 27 idempotent demo seed steps (reseed also 27/27).
 `pnpm test:db` 75 files / 721 tests. `pnpm validate` 179 files / 1,940 tests,
 zero lint errors (21 existing warnings), production client/SSR build. The
 CORE-02.6 100k+80k Dataset benchmark was not rerun.

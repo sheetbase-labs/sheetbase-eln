@@ -146,3 +146,6 @@ deferred.
 - `pnpm validate` is green: Prettier, ESLint with 0 errors and 21 existing
   warnings, typecheck, 173 files / 1,835 tests, production client/SSR build.
 - The CORE-02.6 100k+80k Dataset benchmark was not rerun.
+
+A later snapshot checkpoint `0110_core_schema_snapshot_checkpoint` records the
+current `schema.ts` generate baseline and performs no DDL.

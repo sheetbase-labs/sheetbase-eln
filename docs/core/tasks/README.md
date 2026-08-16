@@ -20,11 +20,11 @@ If documents appear to conflict, do not guess. Accepted ADRs and canonical Core 
 
 All **Core Data Workspace epics are now granularly decomposed**:
 
-- `CORE-01.md` — Common Schema Kernel (completed/active evidence as recorded there).
-- `CORE-02.md` — Dataset Primitive and Versioning.
-- `CORE-03.md` — Sheet Definition and Compositional Sheet Instance.
-- `CORE-04.md` — Records from Sheets.
-- `CORE-05.md` — Schema Evolution and Role-aware Configuration.
+- `CORE-01.md` — Common Schema Kernel (complete).
+- `CORE-02.md` — Dataset Primitive and Versioning (complete).
+- `CORE-03.md` — Sheet Definition and Compositional Sheet Instance (complete).
+- `CORE-04.md` — Records from Sheets (complete).
+- `CORE-05.md` — Schema Evolution and Role-aware Configuration (complete).
 - `CORE-06.md` — Notebook Templates, Sharing and Frozen Evidence (complete).
   Do not start AUTO-01 from this file.
 
@@ -66,3 +66,5 @@ Unless explicitly analysis/documentation-only:
 10. Create a new ADR only for a genuinely new durable fork exposed by implementation evidence.
 11. Record completion evidence and advance `NEXT.md` as part of Core
     hand-off. Completing CORE-06 must not point `NEXT.md` at AUTO-01.
+    The current `NEXT.md` pointer is Product Consolidation / Workflow
+    Validation.

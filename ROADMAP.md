@@ -1,7 +1,8 @@
 # Sheetbase roadmap
 
-> **Active programme:** Core Data Workspace.  
-> **Canonical:** `docs/core/` and accepted ADRs 0020–0024.
+> **Core Data Workspace:** CORE-01–06 and Core Hardening are complete.  
+> **Next:** Product Consolidation / Workflow Validation. AUTO-01 is deferred.  
+> **Canonical:** `docs/core/` and accepted ADRs 0020–0026.
 
 ## Destination
 
@@ -11,15 +12,22 @@ Reusable organisational configuration (Models, Dataset Schemas, Sheet Definition
 
 A Sheet Instance can compose multiple Datasets and Model Records with local and calculated columns. Every value has provenance and every writable value has one authoritative write target.
 
-## Active epics
+## Core epics
+
+CORE-01–06 are complete. Core Hardening H1–H5 is complete. The next programme
+phase is Product Consolidation / Workflow Validation. AUTO-01 is deferred.
 
 ### CORE-01 — Common Schema Kernel
+
+**Status:** complete.
 
 Unify semantic Field Definition identity/types/units/validation/vocabulary/relationships/lifecycle across Models and Dataset Schemas while preserving the existing Model framework.
 
 **Exit:** Models and future Dataset Schemas consume one coherent semantic field language and schema authority is distinct from ordinary Record editing.
 
 ### CORE-02 — Dataset Primitive and Versioning
+
+**Status:** complete.
 
 Make Dataset durable rectangular data independent of Sheet presentation.
 
@@ -28,6 +36,8 @@ Deliver Dataset/Dataset Schema identity, explicit Schema versions, stable rows/f
 **Exit:** a Dataset exists independently, is API-addressable and bulk-writable, and can produce an immutable version suitable for frozen evidence/Pipeline input.
 
 ### CORE-03 — Sheet Definition and Compositional Sheet Instance
+
+**Status:** complete.
 
 Implement separate reusable versioned Sheet Definitions and working Sheet Instances.
 
@@ -39,6 +49,8 @@ Composition remains virtual unless explicitly materialised.
 
 ### CORE-04 — Records from Sheets
 
+**Status:** complete.
+
 Make Sheet Instances first-class Record linking/registration surfaces.
 
 Deliver typed Record references, existing-Record search/link, inline creation, validated bulk creation from pasted/selected rows, duplicate/uniqueness handling and permission-aware operations.
@@ -47,6 +59,8 @@ Deliver typed Record references, existing-Record search/link, inline creation, v
 
 ### CORE-05 — Schema Evolution and Role-aware Configuration
 
+**Status:** complete.
+
 Make configuration safely delegable.
 
 Deliver schema lifecycle/version impact handling, safe field evolution, local-field/calculation promotion, capability-based configuration and dependency inspection. Persist Sheet presentation state; named saved Views are optional future enhancement rather than a Core requirement.
@@ -54,6 +68,8 @@ Deliver schema lifecycle/version impact handling, safe field evolution, local-fi
 **Exit:** a Data Steward can evolve governed definitions safely while Scientists see only permitted configuration and historical semantics remain interpretable.
 
 ### CORE-06 — Notebook Templates, Sharing and Frozen Evidence
+
+**Status:** complete.
 
 Make Sheet Instances native Notebook objects and Notebook Templates reusable organisational composition.
 
@@ -64,6 +80,8 @@ No Template inheritance; future repeated content uses explicit reusable Sections
 **Exit:** multiple Templates can reuse one Definition safely, shared live work is obvious, and submitted Notebooks reconstruct exact structured evidence.
 
 ### AUTO-01 — Pipeline Foundation
+
+**Status:** deferred. Do not start from Core completion.
 
 Introduce broader typed transformations after the Core data substrate is stable.
 
@@ -102,20 +120,17 @@ The completed Core proves data paste, Record linking/creation, explicit row iden
 
 ## Sequencing
 
-1. CORE-01
-2. CORE-02
-3. CORE-03
-4. CORE-04
-5. CORE-05
-6. CORE-06
-7. AUTO-01
-8. AUTO-02
+1. CORE-01–06 — complete
+2. Core Hardening H1–H5 — complete
+3. Product Consolidation / Workflow Validation — next
+4. AUTO-01 — deferred
+5. AUTO-02
 
 Do not start with a visual Pipeline builder.
 
-## Work de-emphasised during early Core epics
+## Work de-emphasised until Product Consolidation
 
-Preserve but avoid broad feature expansion in Analysis Studio, Planner, Calendar, Instrument Monitor, Report Builder, Storage/freezer, Plate Designer and new dashboard surfaces until the early Core substrate is proven. Bug/security fixes and convergence changes remain appropriate.
+Preserve but avoid broad feature expansion in Analysis Studio, Planner, Calendar, Instrument Monitor, Report Builder, Storage/freezer, Plate Designer and new dashboard surfaces until Product Consolidation / Workflow Validation. Bug/security fixes and convergence changes remain appropriate.
 
 Review the open immutable-analysis work against Dataset Versions, Pipeline Runs and Notebook frozen evidence before allowing it to establish a separate transformation architecture.
 

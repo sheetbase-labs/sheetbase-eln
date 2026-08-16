@@ -44,6 +44,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Field,
+  FieldLabel,
+  SearchableSelect,
 } from '#/components/ui'
 import { DataClientError } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
@@ -70,7 +73,6 @@ import type {
   RecordActivityItem,
 } from '#/lib/notebook-data'
 import {
-  convertLegacySheetBlock,
   defaultPayloadFor,
   deleteBlock,
   duplicateBlock,
@@ -953,18 +955,6 @@ function EditableNotebook({
     await duplicateMutation.mutateAsync(block)
   }
 
-  async function handleConvertLegacySheet(block: NotebookBlockDomain) {
-    const currentBlocks =
-      queryClient.getQueryData<NotebookBlockDomain[]>(blocksKey) ?? blocks
-    const currentBlock =
-      currentBlocks.find((item) => item.id === block.id) ?? block
-    const res = await convertLegacySheetBlock(client, {
-      blockId: currentBlock.id,
-      expectedVersion: currentBlock.version,
-    })
-    upsertBlock(res.block)
-  }
-
   async function handleDelete(block: NotebookBlockDomain) {
     await deleteMutation.mutateAsync(block)
   }
@@ -1014,7 +1004,6 @@ function EditableNotebook({
         onFreezeChart={handleFreezeChart}
         onUnfreezeChart={handleUnfreezeChart}
         onDuplicateBlock={handleDuplicate}
-        onConvertLegacySheetBlock={handleConvertLegacySheet}
         onDeleteBlock={handleDelete}
         onUndoDelete={handleUndoDelete}
         onMoveBlock={handleMove}
@@ -1029,24 +1018,27 @@ function EditableNotebook({
               changes it everywhere it is used.
             </DialogDescription>
           </DialogHeader>
-          <label className="grid gap-1 text-sm">
-            <span>Sheet</span>
-            <select
-              className="rounded-md border bg-background px-2 py-1.5"
+          <Field>
+            <FieldLabel htmlFor="link-sheet-instance">Sheet</FieldLabel>
+            <SearchableSelect
+              id="link-sheet-instance"
+              items={(embedCandidates.data ?? []).filter(
+                (instance) => instance.lifecycle === 'active',
+              )}
               value={embedInstanceId}
-              onChange={(event) => setEmbedInstanceId(event.target.value)}
-            >
-              <option value="">Select a Sheet</option>
-              {(embedCandidates.data ?? [])
-                .filter((instance) => instance.lifecycle === 'active')
-                .map((instance) => (
-                  <option key={instance.id} value={instance.id}>
-                    {instance.name}
-                    {instance.sourceDefinitionVersionId ? '' : ' · Ad hoc'}
-                  </option>
-                ))}
-            </select>
-          </label>
+              onChange={setEmbedInstanceId}
+              getId={(instance) => instance.id}
+              getLabel={(instance) => instance.name}
+              getDescription={(instance) =>
+                instance.sourceDefinitionVersionId
+                  ? 'From a Sheet Definition'
+                  : 'Ad hoc Sheet'
+              }
+              placeholder="Search Sheets by name"
+              triggerLabel="Select a Sheet"
+              emptyLabel="No Sheets match that search."
+            />
+          </Field>
           <DialogFooter>
             <Button
               type="button"

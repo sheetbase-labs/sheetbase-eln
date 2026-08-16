@@ -233,9 +233,7 @@ export function NotebookBlock({
           <Skeleton className="h-20 w-full" />
         </div>
       ) : (
-        <div className={cn(readOnly && 'pointer-events-none select-none')}>
-          {children}
-        </div>
+        <div className={cn(readOnly && 'select-none')}>{children}</div>
       )}
     </div>
   )

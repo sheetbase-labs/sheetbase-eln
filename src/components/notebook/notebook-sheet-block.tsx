@@ -2,10 +2,11 @@ import { useQuery } from '@tanstack/react-query'
 import { ZodError } from 'zod'
 
 import { ComposedSheetWorkspace } from '#/components/sheet/composed-sheet-workspace'
-import { ScientificSheetBlock } from '#/components/sheet/scientific-sheet-block'
 import {
   Badge,
-  Button,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   Table,
   TableBody,
   TableCell,
@@ -35,33 +36,19 @@ import {
 export function NotebookSheetBlock({
   block,
   record,
-  readOnly,
   frozenEvidence,
-  onConvertLegacy,
 }: {
   block: NotebookBlock
   record: NotebookRecord
   readOnly?: boolean
   frozenEvidence?: FrozenSheetEvidence
-  onConvertLegacy?: () => void
 }) {
   const instanceId = sheetBlockInstanceId(block.payload)
   if (!instanceId) {
     return (
-      <div className="flex min-h-[12rem] flex-col">
-        {onConvertLegacy && !readOnly ? (
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/30 px-3 py-2">
-            <p className="text-xs text-muted-foreground">
-              This Sheet still uses the older table format. Convert it to a
-              Sheet Instance to share it across Notebooks.
-            </p>
-            <Button type="button" size="sm" onClick={onConvertLegacy}>
-              Convert to Sheet Instance
-            </Button>
-          </div>
-        ) : null}
-        <ScientificSheetBlock block={block} readOnly={readOnly} />
-      </div>
+      <p className="p-3 text-sm text-muted-foreground" role="status">
+        This block has no Sheet Instance.
+      </p>
     )
   }
   if (frozenEvidence) {
@@ -149,25 +136,6 @@ export function FrozenSheetEvidencePanel({
           </TableBody>
         </Table>
       )}
-      <details className="rounded-md border bg-muted/20 px-3 py-2 text-xs">
-        <summary className="cursor-pointer font-medium text-foreground">
-          Technical detail
-        </summary>
-        <dl className="mt-2 grid gap-1 text-muted-foreground">
-          <div>
-            <dt className="inline font-medium text-foreground">Instance</dt>{' '}
-            <dd className="inline font-mono">{evidence.instanceId}</dd>
-          </div>
-          <div>
-            <dt className="inline font-medium text-foreground">
-              Definition version
-            </dt>{' '}
-            <dd className="inline font-mono">
-              {evidence.sourceDefinitionVersionId ?? 'none'}
-            </dd>
-          </div>
-        </dl>
-      </details>
     </div>
   )
 }
@@ -254,7 +222,7 @@ function NotebookInstanceSheetEmbed({
   const others =
     embeddings.data?.embeddings.filter((item) => item.recordId !== recordId) ??
     []
-  const isShared = (embeddings.data?.count ?? 0) > 1
+  const sharedCount = embeddings.data?.count ?? 0
   const definitionLabel = instance.data.sourceDefinitionVersionId
     ? definition.data
       ? `${definition.data.name} · version ${definitionVersion.data?.version ?? ''}`
@@ -268,13 +236,8 @@ function NotebookInstanceSheetEmbed({
           {instance.data.name}
         </h3>
         <span className="text-xs text-muted-foreground">{definitionLabel}</span>
-        {isShared ? (
-          <Badge variant="info" className="text-xs">
-            Shared
-            {others.length
-              ? ` · also in ${others.map((item) => item.identifier).join(', ')}`
-              : ''}
-          </Badge>
+        {sharedCount > 1 ? (
+          <SharedNotebooksBadge others={others} total={sharedCount} />
         ) : null}
         {instance.data.lifecycle === 'archived' ? (
           <Badge variant="outline" className="text-xs">
@@ -296,5 +259,43 @@ function NotebookInstanceSheetEmbed({
         />
       </div>
     </div>
+  )
+}
+
+function SharedNotebooksBadge({
+  others,
+  total,
+}: {
+  others: Array<{ identifier: string; title: string; recordId: string }>
+  total: number
+}) {
+  const extra = Math.max(0, total - 1)
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex"
+          aria-label={`Shared with ${extra} other Notebook${extra === 1 ? '' : 's'}`}
+        >
+          <Badge variant="info" className="cursor-pointer text-xs">
+            Shared · {extra} other Notebook{extra === 1 ? '' : 's'}
+          </Badge>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-80 p-0">
+        <p className="border-b px-3 py-2 text-xs font-medium">Also used in</p>
+        <ul className="max-h-64 overflow-y-auto py-1">
+          {others.map((item) => (
+            <li key={item.recordId} className="px-3 py-1.5 text-sm">
+              <span className="font-mono text-xs text-muted-foreground">
+                {item.identifier}
+              </span>
+              <span className="mt-0.5 block truncate">{item.title}</span>
+            </li>
+          ))}
+        </ul>
+      </PopoverContent>
+    </Popover>
   )
 }

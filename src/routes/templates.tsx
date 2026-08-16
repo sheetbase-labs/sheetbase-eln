@@ -36,19 +36,11 @@ import {
   instantiateTemplate,
   templateQueryKeys,
 } from '#/lib/templates'
-import type { TemplateKind, TargetKind } from '#/lib/templates'
+import type { TargetKind } from '#/lib/templates'
 
 /**
- * TPL-001: Template Library. Lists notebook and protocol templates with
- * grid/list views, type/status/ownership/favourites filters, a preview
- * inspector with version / author / usage / linked records / approvals /
- * actions, and a use-template action that instantiates a new record from
- * the selected template version.
- *
- * Templates are ordinary records (kind `protocol_template` or
- * `notebook_template`). The list, filters, preview, actions and
- * instantiation all go through the same `/api/db` boundary and RLS as every
- * other record.
+ * Template Library. Versioned notebook templates are the notebook catalogue.
+ * Protocol templates remain a separate pin-into-Notebook catalogue (TPL-001).
  */
 
 const getTemplateContext = createServerFn({ method: 'GET' }).handler(
@@ -81,7 +73,6 @@ function TemplateLibraryRoute() {
   const workspaceId = context.workspace?.id ?? 'no-workspace'
 
   // Filters
-  const [kindFilter, setKindFilter] = useState<'all' | TemplateKind>('all')
   const [statusFilter, setStatusFilter] = useState('all')
   const [search, setSearch] = useState('')
   const [ownership, setOwnership] = useState<TemplateOwnershipFilter>('all')
@@ -114,14 +105,14 @@ function TemplateLibraryRoute() {
   // Template list query
   const templatesQuery = useQuery({
     queryKey: templateQueryKeys.list({
-      kind: kindFilter !== 'all' ? kindFilter : undefined,
+      kind: 'protocol_template',
       status: statusFilter !== 'all' ? statusFilter : undefined,
       search,
       includeArchived: true,
     }),
     queryFn: async () => {
       return fetchTemplates(notebookDataClient, {
-        kind: kindFilter !== 'all' ? kindFilter : undefined,
+        kind: 'protocol_template',
         status: statusFilter !== 'all' ? statusFilter : undefined,
         search,
         includeArchived: true,
@@ -494,8 +485,8 @@ function TemplateLibraryRoute() {
             </h1>
           </div>
           <p className="text-sm text-muted-foreground">
-            Create Notebooks from published notebook templates. Legacy record
-            templates remain listed below for older work.
+            Create Notebooks from published templates. Protocol templates live
+            below.
           </p>
         </header>
 
@@ -507,15 +498,12 @@ function TemplateLibraryRoute() {
 
         <section className="space-y-4">
           <div className="space-y-1">
-            <h2 className="text-sm font-semibold">Legacy record templates</h2>
+            <h2 className="text-sm font-semibold">Protocol templates</h2>
             <p className="text-xs text-muted-foreground">
-              Older notebook and protocol templates stored as records. Prefer
-              notebook templates above for new work.
+              Pin a protocol version into a Notebook from this catalogue.
             </p>
           </div>
           <TemplateFilters
-            kindFilter={kindFilter}
-            onKindChange={setKindFilter}
             statusFilter={statusFilter}
             onStatusChange={setStatusFilter}
             search={search}

@@ -105,15 +105,13 @@ describe('NotebookBlock', () => {
     expect(onDelete).toHaveBeenCalledTimes(1)
   })
 
-  it('keeps read-only content non-interactive', () => {
-    const { container } = render(
+  it('lets read-only content stay usable for inspection and copy', () => {
+    render(
       <NotebookBlock label="Paragraph" state="read-only">
         <button type="button">inner</button>
       </NotebookBlock>,
     )
     const inner = screen.getByRole('button', { name: 'inner' })
-    // pointer-events-none is applied to the read-only body wrapper.
-    expect(inner.parentElement?.className).toContain('pointer-events-none')
-    void container
+    expect(inner.parentElement?.className).not.toContain('pointer-events-none')
   })
 })

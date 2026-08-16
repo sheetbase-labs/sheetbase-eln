@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 
+import { SearchableSelect } from '#/components/ui/searchable-select'
 import {
+  Badge,
   Button,
   Dialog,
   DialogContent,
@@ -13,18 +15,25 @@ import {
   Field,
   FieldLabel,
   Input,
-  Select,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from '#/components/ui'
 import type { TemplateProject } from '#/components/templates/template-library'
+import { formatDate } from '#/lib/notebook-data'
 import {
   createNotebookTemplate,
+  fetchAllNotebookTemplateVersions,
   fetchNotebookTemplates,
-  fetchNotebookTemplateVersions,
   instantiateNotebookTemplateVersion,
   notebookTemplateDataClient,
   publishNotebookTemplateVersion,
 } from '#/lib/notebook-template-data'
 import type { NotebookTemplateConfiguration } from '#/lib/notebook-template'
+import type { NotebookTemplateVersion } from '#/lib/notebook-template-data'
 
 function emptyNotebookTemplateConfiguration(): NotebookTemplateConfiguration {
   return {
@@ -64,12 +73,35 @@ export function VersionedNotebookTemplatePanel({
   projects: TemplateProject[]
 }) {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
+  const [search, setSearch] = useState('')
   const [draftOpen, setDraftOpen] = useState(false)
   const [draftName, setDraftName] = useState('')
+  const [createOpen, setCreateOpen] = useState(false)
+  const [createTitle, setCreateTitle] = useState('')
+  const [createProjectId, setCreateProjectId] = useState(projects[0]?.id ?? '')
+  const [createVersionId, setCreateVersionId] = useState<string | null>(null)
   const templates = useQuery({
-    queryKey: ['notebook-templates', workspaceId],
-    queryFn: () => fetchNotebookTemplates(notebookTemplateDataClient),
+    queryKey: ['notebook-templates', workspaceId, search],
+    queryFn: () =>
+      fetchNotebookTemplates(notebookTemplateDataClient, {
+        search,
+        limit: 100,
+      }),
   })
+  const versions = useQuery({
+    queryKey: ['notebook-template-versions'],
+    queryFn: () => fetchAllNotebookTemplateVersions(notebookTemplateDataClient),
+  })
+  const versionsByTemplate = useMemo(() => {
+    const map = new Map<string, NotebookTemplateVersion[]>()
+    for (const version of versions.data ?? []) {
+      const list = map.get(version.templateId) ?? []
+      list.push(version)
+      map.set(version.templateId, list)
+    }
+    return map
+  }, [versions.data])
   const create = useMutation({
     mutationFn: (name: string) =>
       createNotebookTemplate({
@@ -80,19 +112,48 @@ export function VersionedNotebookTemplatePanel({
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notebook-templates'] })
+      queryClient.invalidateQueries({
+        queryKey: ['notebook-template-versions'],
+      })
       setDraftOpen(false)
       setDraftName('')
     },
   })
+  const publish = useMutation({
+    mutationFn: (input: { id: string; revision: number }) =>
+      publishNotebookTemplateVersion(input.id, input.revision),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: ['notebook-template-versions'],
+      }),
+  })
+  const instantiate = useMutation({
+    mutationFn: () =>
+      instantiateNotebookTemplateVersion({
+        versionId: createVersionId ?? '',
+        targetProjectId: createProjectId,
+        title: createTitle.trim() || undefined,
+        idempotencyKey: crypto.randomUUID(),
+      }),
+    onSuccess: (result) => {
+      const project = result.record.project_id
+      if (!project) return
+      setCreateOpen(false)
+      void navigate({
+        to: '/projects/$projectId/experiments/$recordId',
+        params: { projectId: project, recordId: result.record.id },
+      })
+    },
+  })
 
   return (
-    <section className="mb-8 rounded-lg border p-4">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <div>
+    <section className="space-y-3">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="space-y-1">
           <h2 className="text-sm font-semibold">Notebook templates</h2>
           <p className="text-xs text-muted-foreground">
-            Published versions create a new Notebook. Existing Notebooks stay on
-            the version they were created from.
+            Search the catalogue, then create a Notebook from a published
+            version.
           </p>
         </div>
         {canEdit ? (
@@ -106,34 +167,127 @@ export function VersionedNotebookTemplatePanel({
           </Button>
         ) : null}
       </div>
-      {templates.isLoading ? (
+      <label htmlFor="notebook-template-search" className="sr-only">
+        Search notebook templates
+      </label>
+      <Input
+        id="notebook-template-search"
+        value={search}
+        onChange={(event) => setSearch(event.target.value)}
+        placeholder="Search by name or key"
+        className="max-w-md"
+      />
+      {templates.isLoading || versions.isLoading ? (
         <p className="text-sm text-muted-foreground" role="status">
           Loading notebook templates…
         </p>
       ) : templates.data?.length ? (
-        <ul className="space-y-3">
-          {templates.data.map((template) => (
-            <VersionedTemplateRow
-              key={template.id}
-              templateId={template.id}
-              name={template.name}
-              canPublish={canEdit}
-              projects={projects}
-            />
-          ))}
-        </ul>
+        <Table containerClassName="rounded-md border">
+          <TableHeader>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>Latest</TableHead>
+              <TableHead>Updated</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {templates.data.map((template) => {
+              const templateVersions = versionsByTemplate.get(template.id) ?? []
+              const published = templateVersions.find(
+                (version) => version.lifecycle === 'published',
+              )
+              const draft = templateVersions.find(
+                (version) => version.lifecycle === 'draft',
+              )
+              return (
+                <TableRow key={template.id}>
+                  <TableCell>
+                    <p className="font-medium">{template.name}</p>
+                    <p className="font-mono text-xs text-muted-foreground">
+                      {template.key}
+                    </p>
+                  </TableCell>
+                  <TableCell>
+                    {templateVersions.length === 0 ? (
+                      '—'
+                    ) : (
+                      <span className="inline-flex items-center gap-2">
+                        <span>v{templateVersions[0].version}</span>
+                        <Badge
+                          variant={
+                            templateVersions[0].lifecycle === 'published'
+                              ? 'success'
+                              : 'outline'
+                          }
+                          className="text-xs"
+                        >
+                          {templateVersions[0].lifecycle}
+                        </Badge>
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {formatDate(template.updatedAt)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <span className="inline-flex justify-end gap-1">
+                      {canEdit && draft ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            publish.mutate({
+                              id: draft.id,
+                              revision: draft.revision,
+                            })
+                          }
+                        >
+                          Publish
+                        </Button>
+                      ) : null}
+                      {published && projects.length > 0 ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setCreateVersionId(published.id)
+                            setCreateTitle(template.name)
+                            setCreateProjectId(projects[0]?.id ?? '')
+                            setCreateOpen(true)
+                          }}
+                        >
+                          Create notebook
+                        </Button>
+                      ) : null}
+                    </span>
+                  </TableCell>
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
       ) : (
         <p className="text-sm text-muted-foreground">
-          No notebook templates yet. Create a draft to start the catalogue.
+          No notebook templates match that search.
         </p>
       )}
+      {templates.data && templates.data.length === 100 ? (
+        <p className="text-xs text-muted-foreground">
+          Showing the first 100 matches. Narrow the search to find a specific
+          template.
+        </p>
+      ) : null}
+
       <Dialog open={draftOpen} onOpenChange={setDraftOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>New notebook template</DialogTitle>
             <DialogDescription>
-              Name the template. You can publish a version when it is ready to
-              create Notebooks.
+              Name the template. Publish a version when it is ready to create
+              Notebooks.
             </DialogDescription>
           </DialogHeader>
           <Field>
@@ -168,146 +322,37 @@ export function VersionedNotebookTemplatePanel({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </section>
-  )
-}
 
-function VersionedTemplateRow({
-  templateId,
-  name,
-  canPublish,
-  projects,
-}: {
-  templateId: string
-  name: string
-  canPublish: boolean
-  projects: TemplateProject[]
-}) {
-  const queryClient = useQueryClient()
-  const navigate = useNavigate()
-  const [createOpen, setCreateOpen] = useState(false)
-  const [versionId, setVersionId] = useState<string | null>(null)
-  const [title, setTitle] = useState('')
-  const [projectId, setProjectId] = useState(projects[0]?.id ?? '')
-  const versions = useQuery({
-    queryKey: ['notebook-template-versions', templateId],
-    queryFn: () =>
-      fetchNotebookTemplateVersions(templateId, notebookTemplateDataClient),
-  })
-  const publish = useMutation({
-    mutationFn: (input: { id: string; revision: number }) =>
-      publishNotebookTemplateVersion(input.id, input.revision),
-    onSuccess: () =>
-      queryClient.invalidateQueries({
-        queryKey: ['notebook-template-versions', templateId],
-      }),
-  })
-  const instantiate = useMutation({
-    mutationFn: () =>
-      instantiateNotebookTemplateVersion({
-        versionId: versionId ?? '',
-        targetProjectId: projectId,
-        title: title.trim() || undefined,
-        idempotencyKey: crypto.randomUUID(),
-      }),
-    onSuccess: (result) => {
-      const project = result.record.project_id
-      if (!project) return
-      setCreateOpen(false)
-      void navigate({
-        to: '/projects/$projectId/experiments/$recordId',
-        params: { projectId: project, recordId: result.record.id },
-      })
-    },
-  })
-
-  return (
-    <li className="rounded-md border px-3 py-2">
-      <p className="text-sm font-medium">{name}</p>
-      <ul className="mt-1 space-y-1 text-xs text-muted-foreground">
-        {versions.isLoading ? (
-          <li role="status">Loading versions…</li>
-        ) : (
-          versions.data?.map((version) => (
-            <li key={version.id} className="flex items-center justify-between">
-              <span>
-                Version {version.version} · {version.lifecycle}
-                {version.configuration.placements.filter(
-                  (placement) => placement.kind === 'sheet',
-                ).length
-                  ? ` · ${version.configuration.placements.filter((placement) => placement.kind === 'sheet').length} sheet placement(s)`
-                  : ''}
-              </span>
-              <span className="flex gap-1">
-                {canPublish && version.lifecycle === 'draft' ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() =>
-                      publish.mutate({
-                        id: version.id,
-                        revision: version.revision,
-                      })
-                    }
-                  >
-                    Publish
-                  </Button>
-                ) : null}
-                {version.lifecycle === 'published' && projects.length > 0 ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setVersionId(version.id)
-                      setTitle(name)
-                      setProjectId(projects[0]?.id ?? '')
-                      setCreateOpen(true)
-                    }}
-                  >
-                    Create notebook
-                  </Button>
-                ) : null}
-              </span>
-            </li>
-          ))
-        )}
-      </ul>
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create notebook from template</DialogTitle>
             <DialogDescription>
-              Choose a project and a title. You will open the new Notebook when
-              it is ready.
+              Search for a project, name the Notebook, then open it.
             </DialogDescription>
           </DialogHeader>
           <Field>
-            <FieldLabel htmlFor={`notebook-title-${templateId}`}>
-              Notebook title
-            </FieldLabel>
+            <FieldLabel htmlFor="notebook-title">Notebook title</FieldLabel>
             <Input
-              id={`notebook-title-${templateId}`}
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
+              id="notebook-title"
+              value={createTitle}
+              onChange={(event) => setCreateTitle(event.target.value)}
             />
           </Field>
           <Field>
-            <FieldLabel htmlFor={`notebook-project-${templateId}`}>
-              Project
-            </FieldLabel>
-            <Select
-              id={`notebook-project-${templateId}`}
-              value={projectId}
-              onChange={(event) => setProjectId(event.target.value)}
-            >
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.title}
-                </option>
-              ))}
-            </Select>
+            <FieldLabel htmlFor="notebook-project">Project</FieldLabel>
+            <SearchableSelect
+              id="notebook-project"
+              items={projects}
+              value={createProjectId}
+              onChange={setCreateProjectId}
+              getId={(project) => project.id}
+              getLabel={(project) => project.title}
+              getDescription={(project) => project.key}
+              placeholder="Search projects"
+              triggerLabel="Select a project"
+              emptyLabel="No projects match that search."
+            />
           </Field>
           {instantiate.error ? (
             <p className="text-sm text-destructive" role="alert">
@@ -324,7 +369,9 @@ function VersionedTemplateRow({
             </Button>
             <Button
               type="button"
-              disabled={!projectId || !versionId || instantiate.isPending}
+              disabled={
+                !createProjectId || !createVersionId || instantiate.isPending
+              }
               onClick={() => instantiate.mutate()}
             >
               Create and open
@@ -332,6 +379,6 @@ function VersionedTemplateRow({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </li>
+    </section>
   )
 }

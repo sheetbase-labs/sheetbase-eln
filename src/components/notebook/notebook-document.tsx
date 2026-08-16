@@ -19,7 +19,7 @@ import { NotebookBlock } from './notebook-block'
 import { BlockPreview } from './block-preview'
 import { BlockEditor } from './block-editor'
 import type { AutosaveStatus, SaveResult } from './block-editor'
-import { isCanonicalSheetBlock, isLegacySheetBlock } from '#/lib/sheet-block'
+import { isCanonicalSheetBlock } from '#/lib/sheet-block'
 import type { FrozenSheetEvidence } from '#/lib/sheet-evidence'
 import { BlockPicker } from './block-picker'
 import { NotebookSheetBlock } from './notebook-sheet-block'
@@ -84,11 +84,6 @@ export interface NotebookDocumentProps {
   onUnfreezeChart?: (block: NotebookBlockData) => Promise<void>
   /** Duplicate an existing block (same type/payload, inserted after it). */
   onDuplicateBlock: (block: NotebookBlockData) => Promise<void>
-  /**
-   * Convert a legacy scientific-table Sheet block into a canonical
-   * Sheet Instance reference. The scientific table is left in place.
-   */
-  onConvertLegacySheetBlock?: (block: NotebookBlockData) => Promise<void>
   /** Delete a block. */
   onDeleteBlock: (block: NotebookBlockData) => Promise<void>
   /** Re-insert a previously deleted block (undo). */
@@ -157,7 +152,6 @@ function NotebookDocumentContent({
   onFreezeChart,
   onUnfreezeChart,
   onDuplicateBlock,
-  onConvertLegacySheetBlock,
   onDeleteBlock,
   onUndoDelete,
   onMoveBlock,
@@ -287,19 +281,6 @@ function NotebookDocumentContent({
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Could not duplicate the block.'
-      setErrorById((prev) => ({ ...prev, [block.id]: message }))
-    }
-  }
-
-  async function handleConvertLegacySheet(block: NotebookBlockData) {
-    if (!onConvertLegacySheetBlock) return
-    try {
-      await onConvertLegacySheetBlock(block)
-    } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : 'Could not convert the Sheet block.'
       setErrorById((prev) => ({ ...prev, [block.id]: message }))
     }
   }
@@ -743,36 +724,17 @@ function NotebookDocumentContent({
                               },
                             ]
                           : []),
-                        ...(block.type === 'sheet' &&
-                        isLegacySheetBlock(block.payload)
-                          ? onConvertLegacySheetBlock
-                            ? [
-                                {
-                                  id: 'convert-sheet-instance',
-                                  label: 'Convert to Sheet Instance',
-                                  onSelect: () =>
-                                    void handleConvertLegacySheet(block),
-                                },
-                              ]
-                            : []
-                          : [
-                              {
-                                id: 'duplicate',
-                                label: 'Duplicate',
-                                onSelect: () => handleDuplicate(block),
-                              },
-                            ]),
-                        ...(block.type === 'sheet' &&
-                        isLegacySheetBlock(block.payload)
-                          ? []
-                          : [
-                              {
-                                id: 'delete',
-                                label: 'Delete',
-                                onSelect: () => setConfirmDelete(block),
-                                separatorAfter: true,
-                              },
-                            ]),
+                        {
+                          id: 'duplicate',
+                          label: 'Duplicate',
+                          onSelect: () => handleDuplicate(block),
+                        },
+                        {
+                          id: 'delete',
+                          label: 'Delete',
+                          onSelect: () => setConfirmDelete(block),
+                          separatorAfter: true,
+                        },
                       ]
                 }
               >
@@ -782,13 +744,6 @@ function NotebookDocumentContent({
                     record={record}
                     readOnly={isReadOnly}
                     frozenEvidence={frozenSheetEvidence?.get(block.id)}
-                    onConvertLegacy={
-                      !isReadOnly &&
-                      isLegacySheetBlock(block.payload) &&
-                      onConvertLegacySheetBlock
-                        ? () => void handleConvertLegacySheet(block)
-                        : undefined
-                    }
                   />
                 ) : editable && isSelected ? (
                   <BlockEditor

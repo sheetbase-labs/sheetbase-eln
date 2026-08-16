@@ -43,7 +43,7 @@ import {
   InspectorSection,
 } from '#/components/record'
 import { StatusBadge } from '#/components/scientific'
-import { Badge, Button, Skeleton } from '#/components/ui'
+import { Badge, Button, SearchableSelect, Skeleton } from '#/components/ui'
 import { cn } from '#/lib/utils'
 import {
   archiveDependencyWarning,
@@ -52,7 +52,6 @@ import {
   isTemplateKind,
   TEMPLATE_KIND_LABEL,
 } from '#/lib/templates'
-import type { TemplateKind } from '#/lib/templates'
 import type { NotebookBlock, NotebookRecord } from '#/lib/notebook-data'
 
 export interface TemplateProject {
@@ -131,8 +130,6 @@ export function isFeatured(
 // ---------------------------------------------------------------------------
 
 export function TemplateFilters({
-  kindFilter,
-  onKindChange,
   statusFilter,
   onStatusChange,
   search,
@@ -145,8 +142,6 @@ export function TemplateFilters({
   view = 'list',
   onViewChange,
 }: {
-  kindFilter: 'all' | TemplateKind
-  onKindChange: (value: 'all' | TemplateKind) => void
   statusFilter: string
   onStatusChange: (value: string) => void
   search: string
@@ -183,20 +178,6 @@ export function TemplateFilters({
         />
       </div>
 
-      <label htmlFor="template-kind" className="sr-only">
-        Filter by type
-      </label>
-      <select
-        id="template-kind"
-        value={kindFilter}
-        onChange={(e) => onKindChange(e.target.value as 'all' | TemplateKind)}
-        className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <option value="all">All types</option>
-        <option value="protocol_template">Protocol</option>
-        <option value="notebook_template">Notebook</option>
-      </select>
-
       <label htmlFor="template-status" className="sr-only">
         Filter by status
       </label>
@@ -209,7 +190,6 @@ export function TemplateFilters({
         <option value="all">All statuses</option>
         <option value="draft">Draft</option>
         <option value="active">Active</option>
-        <option value="validated">Validated</option>
         <option value="under_review">Under review</option>
       </select>
 
@@ -625,11 +605,6 @@ export function TemplateList({
                   </span>
                 </span>
                 <span className="flex shrink-0 items-center gap-2">
-                  {kind ? (
-                    <Badge variant="outline" className="text-xs">
-                      {TEMPLATE_KIND_LABEL[kind]}
-                    </Badge>
-                  ) : null}
                   <StatusBadge
                     status={template.status}
                     domain={
@@ -743,11 +718,6 @@ function TemplateGridCard({
         <TemplateThumbnail blocks={previewBlocks} />
         <div className="mt-auto flex items-center justify-between gap-2 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">
-            {kind ? (
-              <Badge variant="outline" className="text-xs">
-                {TEMPLATE_KIND_LABEL[kind]}
-              </Badge>
-            ) : null}
             <StatusBadge
               status={template.status}
               domain={
@@ -1132,22 +1102,21 @@ export function TemplateInspector({
                 >
                   Target project
                 </label>
-                <select
-                  id="instantiate-project"
-                  value={projectId}
-                  onChange={(e) => setProjectId(e.target.value)}
-                  className="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  disabled={isInstantiating}
-                >
-                  <option value="" disabled>
-                    Select a project…
-                  </option>
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.title} ({p.key})
-                    </option>
-                  ))}
-                </select>
+                <div className="mt-1">
+                  <SearchableSelect
+                    id="instantiate-project"
+                    items={projects}
+                    value={projectId}
+                    onChange={setProjectId}
+                    getId={(project) => project.id}
+                    getLabel={(project) => project.title}
+                    getDescription={(project) => project.key}
+                    placeholder="Search projects"
+                    triggerLabel="Select a project"
+                    emptyLabel="No projects match that search."
+                    disabled={isInstantiating}
+                  />
+                </div>
               </div>
               {instantiationError ? (
                 <p role="alert" className="text-sm text-destructive">

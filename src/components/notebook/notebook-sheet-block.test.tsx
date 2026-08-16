@@ -1,6 +1,5 @@
 import { cleanup, render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import { DataClientError } from '#/lib/data-client'
 import type { FrozenSheetEvidence } from '#/lib/sheet-evidence'
@@ -11,10 +10,6 @@ import {
   NotebookSheetBlock,
   sheetInstanceEmbedErrorMessage,
 } from './notebook-sheet-block'
-
-vi.mock('#/components/sheet/scientific-sheet-block', () => ({
-  ScientificSheetBlock: () => <div>Legacy scientific sheet</div>,
-}))
 
 afterEach(() => cleanup())
 
@@ -56,7 +51,7 @@ const frozen: FrozenSheetEvidence = {
 }
 
 describe('FrozenSheetEvidencePanel', () => {
-  it('renders a labelled read-only grid and keeps UUIDs in technical detail', () => {
+  it('renders a labelled read-only grid without Instance UUIDs', () => {
     render(<FrozenSheetEvidencePanel evidence={frozen} />)
     expect(
       screen.getByRole('region', { name: 'Frozen Sheet evidence' }),
@@ -68,35 +63,26 @@ describe('FrozenSheetEvidencePanel', () => {
     expect(screen.getByRole('status').textContent).not.toContain(
       frozen.instanceId,
     )
-    const technical = screen.getByText('Technical detail').closest('details')
-    expect(technical?.textContent).toContain(frozen.instanceId)
+    expect(screen.queryByText('Technical detail')).toBeNull()
   })
 })
 
-describe('NotebookSheetBlock — legacy convert', () => {
-  it('shows an in-block convert action for legacy table Sheets', async () => {
-    const user = userEvent.setup()
-    const onConvertLegacy = vi.fn()
+describe('NotebookSheetBlock', () => {
+  it('does not offer a conversion path when the block has no Instance', () => {
     const block: NotebookBlock = {
       id: 'b1',
       recordId: record.id,
       type: 'sheet',
-      payload: { tableId: '30000000-0000-4000-8000-000000000001' },
+      payload: {},
       payloadSchemaVersion: 1,
       order: 1,
       version: 1,
     }
-    render(
-      <NotebookSheetBlock
-        block={block}
-        record={record}
-        onConvertLegacy={onConvertLegacy}
-      />,
-    )
-    await user.click(
-      screen.getByRole('button', { name: 'Convert to Sheet Instance' }),
-    )
-    expect(onConvertLegacy).toHaveBeenCalledOnce()
+    render(<NotebookSheetBlock block={block} record={record} />)
+    expect(screen.getByText('This block has no Sheet Instance.')).toBeTruthy()
+    expect(
+      screen.queryByRole('button', { name: 'Convert to Sheet Instance' }),
+    ).toBeNull()
   })
 })
 

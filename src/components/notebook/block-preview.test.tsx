@@ -110,9 +110,16 @@ describe('BlockPreview table (canonical string-array payload)', () => {
 })
 
 describe('BlockPreview sheet (read-only preview)', () => {
-  it('shows a not-configured hint when tableId is absent', () => {
-    renderWithQuery(<BlockPreview block={block('sheet', {})} />)
-    expect(screen.getByText(/not configured yet/i)).toBeTruthy()
+  it('does not preview scientific-table payloads', () => {
+    renderWithQuery(
+      <BlockPreview
+        block={block('sheet', {
+          tableId: '00000000-0000-4000-8000-000000000170',
+        })}
+      />,
+    )
+    expect(screen.getByText(/no Sheet Instance/i)).toBeTruthy()
+    expect(screen.queryByText(/scientific sheet/i)).toBeNull()
   })
 })
 

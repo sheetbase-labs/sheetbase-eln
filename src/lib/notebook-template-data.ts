@@ -105,10 +105,20 @@ export function notebookTemplateVersionFromWire(
 
 export async function fetchNotebookTemplates(
   client: DataClient = notebookTemplateDataClient,
+  options: { search?: string; limit?: number } = {},
 ) {
+  const limit = options.limit ?? 100
+  const terms: string[] = [`order=updated_at.desc,name.asc`, `limit=${limit}`]
+  const search = options.search?.trim()
+  if (search) {
+    const needle = `*${search.replace(/[,*()]/g, ' ').trim()}*`
+    terms.push(
+      `or=(name.ilike.${encodeURIComponent(needle)},key.ilike.${encodeURIComponent(needle)})`,
+    )
+  }
   const rows = await client.list<unknown>(
     'notebook_templates',
-    '?order=name.asc,id.asc',
+    `?${terms.join('&')}`,
   )
   return rows.map(notebookTemplateFromWire)
 }
@@ -144,6 +154,16 @@ export async function fetchNotebookTemplateVersions(
   const rows = await client.list<unknown>(
     'notebook_template_versions',
     `?template_id=eq.${encodeURIComponent(templateId)}&order=version.asc`,
+  )
+  return rows.map(notebookTemplateVersionFromWire)
+}
+
+export async function fetchAllNotebookTemplateVersions(
+  client: DataClient = notebookTemplateDataClient,
+) {
+  const rows = await client.list<unknown>(
+    'notebook_template_versions',
+    '?order=template_id.asc,version.desc&limit=2000',
   )
   return rows.map(notebookTemplateVersionFromWire)
 }

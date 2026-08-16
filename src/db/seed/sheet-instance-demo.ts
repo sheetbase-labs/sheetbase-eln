@@ -143,10 +143,10 @@ export async function seedAdHocSheetGrid(
     lifecycle: string
   }>
   const active = existingFields.filter((field) => field.lifecycle === 'active')
-  const first = active[0]
-  if (!first) {
+  if (active.length === 0) {
     throw new Error('ad-hoc Sheet Instance is missing its default local field')
   }
+  const first = active[0]
 
   const existingKeys = new Set(active.map((field) => field.key))
   const alreadyConfigured = input.fields.every((field) =>

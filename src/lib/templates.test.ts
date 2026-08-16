@@ -252,16 +252,16 @@ describe('TPL-001 archiveTemplate / duplicateTemplate RPC wiring', () => {
     })
   })
 
-  it('refuses to duplicate a legacy notebook template record', async () => {
+  it('refuses to duplicate a legacy notebook template record', () => {
     const rpc = vi.fn()
-    await expect(
+    expect(() =>
       duplicateTemplate({ rpc } as never, {
         template: record({ status: 'validated' }),
         blocks: sampleBlocks,
         targetProjectId: 'p-1',
         title: 'Copy',
       }),
-    ).rejects.toThrow(/createNotebookTemplate/)
+    ).toThrow(/createNotebookTemplate/)
     expect(rpc).not.toHaveBeenCalled()
   })
 

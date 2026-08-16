@@ -106,6 +106,12 @@ Canonical schema ADR: [`0038-canonical-dataset-schema-definitions.md`](../decisi
 Core Hardening is complete. Next phase is Product Consolidation / Workflow
 Validation. Do **not** start AUTO-01.
 
+Core Hardening exit evidence: `pnpm db:fresh --demo` applied migrations
+`0000`–`0108` and 29 idempotent demo seed steps (reseed also 29/29).
+`pnpm test:db` 75 files / 721 tests. `pnpm validate` 179 files / 1,940 tests,
+zero lint errors (21 existing warnings), production client/SSR build. The
+CORE-02.6 100k+80k Dataset benchmark was not rerun.
+
 CORE-06.14 exit evidence: `pnpm db:fresh --demo` applied migrations `0000`–
 `0101` and 29 idempotent demo seed steps (reseed also 29/29). `pnpm test:db`
 70 files / 707 tests. `pnpm validate` 176 files / 1,916 tests, zero lint

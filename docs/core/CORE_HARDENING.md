@@ -120,3 +120,12 @@ Source review: [`CORE_01_06_IMPLEMENTATION_REVIEW.md`](./CORE_01_06_IMPLEMENTATI
 
 Core Hardening H1–H5 is complete. Next phase is Product Consolidation /
 Workflow Validation. AUTO-01 remains deferred.
+
+## Exit gate
+
+- `pnpm db:fresh --demo` applies `0000`–`0108` (including journaled `0106`)
+  and 29 idempotent demo seed steps; reseed is also 29/29.
+- `pnpm test:db` 75 files / 721 tests after that fresh migrate.
+- `pnpm validate` is green: Prettier, ESLint with 0 errors and 21 existing
+  warnings, typecheck, 179 files / 1,940 tests, production client/SSR build.
+- The CORE-02.6 100k+80k Dataset benchmark was not rerun.

@@ -18,11 +18,9 @@ import {
 import { NotebookBlock } from './notebook-block'
 import { BlockPreview } from './block-preview'
 import { BlockEditor } from './block-editor'
-import type { AutosaveStatus, SaveResult } from './block-editor'
+import { isCanonicalSheetBlock, isLegacySheetBlock } from '#/lib/sheet-block'
 import { BlockPicker } from './block-picker'
-import { ScientificSheetBlock } from '#/components/sheet/scientific-sheet-block'
-import { SchemaPickerDialog } from '#/components/dataset-schema/schema-picker-dialog'
-import type { SchemaPickerResult } from '#/components/dataset-schema/schema-picker-dialog'
+import { NotebookSheetBlock } from './notebook-sheet-block'
 import { ScientificWorkbookProvider } from './scientific-workbook-provider'
 
 export type { AutosaveStatus, SaveResult }
@@ -84,6 +82,11 @@ export interface NotebookDocumentProps {
   onUnfreezeChart?: (block: NotebookBlockData) => Promise<void>
   /** Duplicate an existing block (same type/payload, inserted after it). */
   onDuplicateBlock: (block: NotebookBlockData) => Promise<void>
+  /**
+   * Convert a legacy scientific-table Sheet block into a canonical
+   * Sheet Instance reference. The scientific table is left in place.
+   */
+  onConvertLegacySheetBlock?: (block: NotebookBlockData) => Promise<void>
   /** Delete a block. */
   onDeleteBlock: (block: NotebookBlockData) => Promise<void>
   /** Re-insert a previously deleted block (undo). */
@@ -151,6 +154,7 @@ function NotebookDocumentContent({
   onFreezeChart,
   onUnfreezeChart,
   onDuplicateBlock,
+  onConvertLegacySheetBlock,
   onDeleteBlock,
   onUndoDelete,
   onMoveBlock,
@@ -159,13 +163,6 @@ function NotebookDocumentContent({
   className,
 }: NotebookDocumentProps) {
   const [selectedId, setSelectedId] = React.useState<string | null>(null)
-  // SCI-010: schema picker dialog state for sheet block creation.
-  const [schemaPickerOpen, setSchemaPickerOpen] = React.useState(false)
-  const [schemaPickerAfterBlockId, setSchemaPickerAfterBlockId] =
-    React.useState<string | null>(null)
-  // When the slash command opens the sheet schema picker, this ref holds the
-  // id of the original text block to delete after the sheet is inserted.
-  const slashReplaceBlockId = React.useRef<string | null>(null)
   // Per-block error messages for insert / duplicate / delete (ELN-005).
   // Save errors are owned per-editor by `useAutosave` (ELN-007).
   const [errorById, setErrorById] = React.useState<Record<string, string>>({})
@@ -271,14 +268,6 @@ function NotebookDocumentContent({
 
   async function handleInsert(type: string, afterBlockId?: string) {
     try {
-      // SCI-010: when inserting a sheet, show the schema picker dialog
-      // so the user can choose a published schema, create one on the fly,
-      // or continue ad-hoc.
-      if (type === 'sheet' && !isReadOnly) {
-        setSchemaPickerAfterBlockId(afterBlockId ?? null)
-        setSchemaPickerOpen(true)
-        return
-      }
       await onInsertBlock(type, afterBlockId)
       setUndo(null)
     } catch (err) {
@@ -294,6 +283,19 @@ function NotebookDocumentContent({
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Could not duplicate the block.'
+      setErrorById((prev) => ({ ...prev, [block.id]: message }))
+    }
+  }
+
+  async function handleConvertLegacySheet(block: NotebookBlockData) {
+    if (!onConvertLegacySheetBlock) return
+    try {
+      await onConvertLegacySheetBlock(block)
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'Could not convert the Sheet block.'
       setErrorById((prev) => ({ ...prev, [block.id]: message }))
     }
   }
@@ -464,16 +466,6 @@ function NotebookDocumentContent({
   async function handleSlashCommand(block: NotebookBlockData, type: string) {
     if (type === 'rich_text') return // handled in the editor itself
     try {
-      if (type === 'sheet' && !isReadOnly) {
-        // Open the schema picker; the replace (delete old block) happens
-        // after the sheet is created via the dialog's onSelect.
-        setSchemaPickerAfterBlockId(block.id)
-        setSchemaPickerOpen(true)
-        // Track that we need to delete the original block after the sheet
-        // is inserted.
-        slashReplaceBlockId.current = block.id
-        return
-      }
       const newId = onReplaceBlock
         ? await onReplaceBlock(block, type)
         : await onInsertBlock(type, block.id)
@@ -747,8 +739,18 @@ function NotebookDocumentContent({
                               },
                             ]
                           : []),
-                        ...(block.type === 'sheet'
-                          ? []
+                        ...(block.type === 'sheet' &&
+                        isLegacySheetBlock(block.payload)
+                          ? onConvertLegacySheetBlock
+                            ? [
+                                {
+                                  id: 'convert-sheet-instance',
+                                  label: 'Convert to Sheet Instance',
+                                  onSelect: () =>
+                                    void handleConvertLegacySheet(block),
+                                },
+                              ]
+                            : []
                           : [
                               {
                                 id: 'duplicate',
@@ -756,7 +758,8 @@ function NotebookDocumentContent({
                                 onSelect: () => handleDuplicate(block),
                               },
                             ]),
-                        ...(block.type === 'sheet'
+                        ...(block.type === 'sheet' &&
+                        isLegacySheetBlock(block.payload)
                           ? []
                           : [
                               {
@@ -770,7 +773,11 @@ function NotebookDocumentContent({
                 }
               >
                 {block.type === 'sheet' ? (
-                  <ScientificSheetBlock block={block} readOnly={isReadOnly} />
+                  <NotebookSheetBlock
+                    block={block}
+                    record={record}
+                    readOnly={isReadOnly}
+                  />
                 ) : editable && isSelected ? (
                   <BlockEditor
                     block={block}
@@ -850,34 +857,6 @@ function NotebookDocumentContent({
         </div>
       )}
 
-      {/* SCI-010: schema picker dialog for sheet block creation. */}
-      <SchemaPickerDialog
-        open={schemaPickerOpen}
-        onOpenChange={(open) => {
-          setSchemaPickerOpen(open)
-          if (!open) slashReplaceBlockId.current = null
-        }}
-        onSelect={async (result: SchemaPickerResult) => {
-          const datasetSchemaId =
-            result.mode === 'ad-hoc' ? undefined : result.schemaId
-          const newId = await onInsertBlock(
-            'sheet',
-            schemaPickerAfterBlockId ?? undefined,
-            datasetSchemaId ? { datasetSchemaId } : undefined,
-          )
-          // If this came from a slash command replace, delete the original
-          // text block now that the sheet has been inserted after it.
-          const replaceId = slashReplaceBlockId.current
-          slashReplaceBlockId.current = null
-          if (replaceId) {
-            const original = blockById.get(replaceId)
-            if (original) await onDeleteBlock(original)
-          }
-          if (newId) selectAndFocus(newId)
-          setUndo(null)
-        }}
-      />
-
       {undo ? (
         <div
           role="status"
@@ -906,8 +885,11 @@ function NotebookDocumentContent({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this block?</AlertDialogTitle>
             <AlertDialogDescription>
-              The block will be removed from the notebook. You can undo
-              immediately after deleting.
+              {confirmDelete &&
+              confirmDelete.type === 'sheet' &&
+              isCanonicalSheetBlock(confirmDelete.payload)
+                ? 'The block will be removed from the notebook. The Sheet Instance is not archived or deleted, and you can undo immediately after deleting.'
+                : 'The block will be removed from the notebook. You can undo immediately after deleting.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

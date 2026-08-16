@@ -1,7 +1,7 @@
 # CORE-06 — Notebook Templates, Sharing and Frozen Evidence
 
-**Status:** Planned / implementation-ready after CORE-05  
-**Blocked by:** CORE-05 complete. Start with CORE-06.1 only.  
+**Status:** CORE-06.1 accepted. CORE-06.2 implemented; pending review before CORE-06.3.  
+**Blocked by:** CORE-05 complete.  
 **Normative decisions:** ADRs 0020–0024 and existing Notebook revision/signature architecture.
 
 ## Epic goal
@@ -49,6 +49,11 @@ Make Sheet Instances native Notebook working objects, make Notebook Templates sa
 **Tests:** create/embed/reload/move block; deleted/archived permission states; existing Notebook migration.
 
 **Exit gate:** Notebook and standalone/shared contexts render the same durable Sheet Instance.
+
+**Status:** Implemented in Bundle B. Canonical payload is `{ instanceId }`;
+legacy `{ tableId }` remains valid. New inserts use
+`insert_sheet_instance_block`. Explicit conversion is
+`convert_legacy_sheet_block`. Do not start CORE-06.3 until review.
 
 ---
 

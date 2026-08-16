@@ -58,6 +58,11 @@ import {
   fetchScientificTable,
   fetchScientificRows,
 } from '#/lib/scientific-sheet-data'
+import {
+  fetchSheetInstance,
+  sheetInstanceDataClient,
+} from '#/lib/sheet-instance-data'
+import { sheetBlockInstanceId, sheetBlockTableId } from '#/lib/sheet-block'
 
 /**
  * Read-only preview of a block's typed payload (ELN-004). Renders the
@@ -539,6 +544,56 @@ function renderTable(payload: unknown): React.ReactNode {
   )
 }
 
+function SheetBlockPreview({ payload }: { payload: unknown }) {
+  const obj = asObject(payload)
+  const instanceId = obj ? sheetBlockInstanceId(obj) : null
+  if (instanceId) {
+    return <CanonicalSheetBlockPreview instanceId={instanceId} />
+  }
+  const tableId = obj ? sheetBlockTableId(obj) : null
+  return <LegacySheetBlockPreview tableId={tableId} />
+}
+
+function CanonicalSheetBlockPreview({ instanceId }: { instanceId: string }) {
+  const instanceQuery = useQuery({
+    queryKey: ['sheet-instance', instanceId],
+    queryFn: () => fetchSheetInstance(instanceId, sheetInstanceDataClient),
+  })
+  if (instanceQuery.isLoading) {
+    return (
+      <div className="rounded-lg border p-3 text-sm text-muted-foreground">
+        Loading Sheet Instance…
+      </div>
+    )
+  }
+  if (instanceQuery.error || instanceQuery.data === null) {
+    return (
+      <div className="rounded-lg border border-dashed border-warning/30 bg-warning/10 p-3 text-xs">
+        <p className="font-medium text-foreground">
+          Sheet Instance unavailable
+        </p>
+        <p className="mt-1 text-muted-foreground">
+          The Sheet could not be loaded. It may have been archived from this
+          workspace or you may not have access.
+        </p>
+      </div>
+    )
+  }
+  const instance = instanceQuery.data
+  return (
+    <div className="rounded-lg border p-3">
+      <p className="text-xs font-medium text-muted-foreground">
+        {instance.name}
+        {instance.lifecycle === 'archived' ? ' · archived' : ''}
+      </p>
+      <p className="mt-1 text-sm text-foreground">
+        Compositional Sheet Instance. Open the Notebook block to edit rows,
+        bindings and local values.
+      </p>
+    </div>
+  )
+}
+
 /**
  * Read-only preview of a scientific sheet block (SCI-003).  Fetches the
  * table metadata and first page of rows via the same data client the
@@ -546,9 +601,7 @@ function renderTable(payload: unknown): React.ReactNode {
  * or Handsontable — the preview is intentionally lightweight for the
  * overview and read-only contexts.
  */
-function SheetBlockPreview({ payload }: { payload: unknown }) {
-  const obj = asObject(payload)
-  const tableId = obj ? asString(obj.tableId) : null
+function LegacySheetBlockPreview({ tableId }: { tableId: string | null }) {
   const tableQuery = useQuery({
     queryKey: scientificQueryKeys.table(tableId ?? ''),
     queryFn: () => fetchScientificTable(scientificDataClient, tableId!),

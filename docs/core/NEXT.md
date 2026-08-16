@@ -8,12 +8,11 @@
 
 ## Active task
 
-**CORE-06.1 — Audit Notebook, Template, revision and submission persistence**
+**CORE-06.2 — Canonical Notebook Sheet-block embedding**
 
-Status: CORE-05 complete. CORE-06.1 audit written; do not start CORE-06.2
-until review.
+Status: CORE-06.2 implemented; stop for review. Do not start CORE-06.3.
 
-Task: [`tasks/CORE-06.md`](./tasks/CORE-06.md#core-061--audit-notebook-template-revision-and-submission-persistence)
+Task: [`tasks/CORE-06.md`](./tasks/CORE-06.md#core-062--make-notebook-sheet-blocks-reference-durable-sheet-instances)
 
 Audit: [`audits/NOTEBOOK_EVIDENCE_AUDIT.md`](./audits/NOTEBOOK_EVIDENCE_AUDIT.md)
 
@@ -76,11 +75,13 @@ Canonical schema ADR: [`0038-canonical-dataset-schema-definitions.md`](../decisi
 - CORE-05.8 — explicit calculation promotion
 - CORE-05.9 — dense steward configuration workspace
 - CORE-05.11 — Scientist/Steward/Admin proof and CORE-06 hand-off
-- product/architecture reset and accepted ADRs 0020–0026
+- CORE-06.1 — Notebook / Template / revision / evidence audit
+- CORE-06.2 — canonical Notebook Sheet blocks reference Sheet Instances
+  (`0098_core_062_sheet_instance_blocks`); legacy `{tableId}` still renders
 
 ## Required reading
 
-1. [`tasks/CORE-06.md`](./tasks/CORE-06.md) CORE-06.1
+1. [`tasks/CORE-06.md`](./tasks/CORE-06.md) CORE-06.2
 2. [`tasks/CORE-05.md`](./tasks/CORE-05.md) completion evidence
 3. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md)
 4. [`CORE_ARCHITECTURE.md`](./CORE_ARCHITECTURE.md)
@@ -88,8 +89,13 @@ Canonical schema ADR: [`0038-canonical-dataset-schema-definitions.md`](../decisi
 
 ## Implement now
 
-CORE-05 is complete. Next is CORE-06.1 — audit Notebook, Template, revision
-and submission persistence. Do not start CORE-06.2.
+CORE-05 is complete. CORE-06.1 is accepted. CORE-06.2 is implemented:
+canonical Notebook Sheet blocks store `payload.instanceId`; legacy
+`payload.tableId` remains renderable; conversion is explicit via
+`convert_legacy_sheet_block`. Do not start CORE-06.3 until review.
+
+Migration `0098` is the CORE-06.2 contract. The CORE-02.6 100k+80k Dataset
+benchmark was not rerun.
 
 CORE-05.11 exit evidence: `pnpm db:fresh --demo` applied migrations `0000`–
 `0096` and 29 idempotent demo seed steps (reseed also 29/29). `pnpm test:db`

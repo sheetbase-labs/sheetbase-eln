@@ -92,6 +92,18 @@ export function sheetInstanceFromWire(wire: unknown): SheetInstance {
   }
 }
 
+export async function fetchSheetInstance(
+  id: string,
+  client: DataClient = sheetInstanceDataClient,
+) {
+  const rows = await client.list<unknown>(
+    'sheet_instances',
+    `?id=eq.${encodeURIComponent(id)}&limit=1`,
+  )
+  const row = rows[0]
+  return row === undefined ? null : sheetInstanceFromWire(row)
+}
+
 export async function fetchSheetInstances(
   client: DataClient = sheetInstanceDataClient,
 ) {

@@ -64,7 +64,7 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
   {
     type: 'sheet',
     label: 'Sheet',
-    description: 'A PostgreSQL-backed scientific table.',
+    description: 'A compositional Sheet Instance for Dataset and local work.',
     icon: Sheet,
   },
   {

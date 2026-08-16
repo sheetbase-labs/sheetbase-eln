@@ -57,11 +57,12 @@ import type {
   RecordActivityItem,
 } from '#/lib/notebook-data'
 import {
+  convertLegacySheetBlock,
   defaultPayloadFor,
   deleteBlock,
   duplicateBlock,
   insertBlock,
-  insertSheetBlock,
+  insertSheetInstanceBlock,
   moveBlock,
   updateBlockPayload,
 } from '#/lib/notebook-mutations'
@@ -614,12 +615,11 @@ function EditableNotebook({
     }) => {
       const current = queryClient.getQueryData<NotebookRecord | null>(recordKey)
       if (type === 'sheet') {
-        return insertSheetBlock(client, {
+        return insertSheetInstanceBlock(client, {
           recordId: record.id,
           afterBlockId,
           expectedStructureVersion:
             current?.structureVersion ?? record.structureVersion,
-          datasetSchemaId: options?.datasetSchemaId,
         })
       }
       const payload = defaultPayloadFor(type)
@@ -910,6 +910,18 @@ function EditableNotebook({
     await duplicateMutation.mutateAsync(block)
   }
 
+  async function handleConvertLegacySheet(block: NotebookBlockDomain) {
+    const currentBlocks =
+      queryClient.getQueryData<NotebookBlockDomain[]>(blocksKey) ?? blocks
+    const currentBlock =
+      currentBlocks.find((item) => item.id === block.id) ?? block
+    const res = await convertLegacySheetBlock(client, {
+      blockId: currentBlock.id,
+      expectedVersion: currentBlock.version,
+    })
+    upsertBlock(res.block)
+  }
+
   async function handleDelete(block: NotebookBlockDomain) {
     await deleteMutation.mutateAsync(block)
   }
@@ -958,6 +970,7 @@ function EditableNotebook({
       onFreezeChart={handleFreezeChart}
       onUnfreezeChart={handleUnfreezeChart}
       onDuplicateBlock={handleDuplicate}
+      onConvertLegacySheetBlock={handleConvertLegacySheet}
       onDeleteBlock={handleDelete}
       onUndoDelete={handleUndoDelete}
       onMoveBlock={handleMove}

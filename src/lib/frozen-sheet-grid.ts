@@ -94,7 +94,7 @@ export function frozenSheetGridFromEvidence(evidence: {
   const grid = evidence.composedGrid
   if (grid && Array.isArray(grid.columns) && grid.columns.length > 0) {
     const columns = grid.columns.flatMap((column) => {
-      if (!column || typeof column.id !== 'string') return []
+      if (typeof column.id !== 'string') return []
       const label =
         typeof column.label === 'string' && column.label.trim()
           ? column.label

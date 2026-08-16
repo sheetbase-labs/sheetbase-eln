@@ -11,6 +11,30 @@ export type FrozenSheetEvidence = {
   } | null
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function parseComposedGrid(
+  value: unknown,
+): FrozenSheetEvidence['composedGrid'] {
+  if (!isRecord(value)) return null
+  return {
+    columns: Array.isArray(value.columns)
+      ? value.columns.map((column) => {
+          if (!isRecord(column)) return {}
+          return { id: column.id, label: column.label }
+        })
+      : undefined,
+    rows: value.rows,
+  }
+}
+
+function parseBindings(value: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(value)) return []
+  return value.filter(isRecord)
+}
+
 export function sheetEvidenceFromRevisionRows(
   rows: Array<{
     block_id: string
@@ -27,16 +51,11 @@ export function sheetEvidenceFromRevisionRows(
     map.set(row.block_id, {
       blockId: row.block_id,
       instanceId: row.instance_id,
-      instanceRevision: Number(row.instance_revision ?? 0),
+      instanceRevision: Number(row.instance_revision),
       sourceDefinitionVersionId: row.source_definition_version_id,
       instanceState: row.instance_state ?? {},
-      datasetBindings: Array.isArray(row.dataset_versions)
-        ? (row.dataset_versions as Array<Record<string, unknown>>)
-        : [],
-      composedGrid:
-        row.composed_grid && typeof row.composed_grid === 'object'
-          ? (row.composed_grid as FrozenSheetEvidence['composedGrid'])
-          : null,
+      datasetBindings: parseBindings(row.dataset_versions),
+      composedGrid: parseComposedGrid(row.composed_grid),
     })
   }
   return map
@@ -49,30 +68,24 @@ export function sheetEvidenceFromEnvelope(
   const map = new Map<string, FrozenSheetEvidence>()
   if (!Array.isArray(items)) return map
   for (const item of items) {
-    if (!item || typeof item !== 'object') continue
-    const row = item as Record<string, unknown>
-    if (typeof row.blockId !== 'string' || typeof row.instanceId !== 'string') {
+    if (!isRecord(item)) continue
+    if (
+      typeof item.blockId !== 'string' ||
+      typeof item.instanceId !== 'string'
+    ) {
       continue
     }
-    map.set(row.blockId, {
-      blockId: row.blockId,
-      instanceId: row.instanceId,
-      instanceRevision: Number(row.instanceRevision ?? 0),
+    map.set(item.blockId, {
+      blockId: item.blockId,
+      instanceId: item.instanceId,
+      instanceRevision: Number(item.instanceRevision ?? 0),
       sourceDefinitionVersionId:
-        typeof row.sourceDefinitionVersionId === 'string'
-          ? row.sourceDefinitionVersionId
+        typeof item.sourceDefinitionVersionId === 'string'
+          ? item.sourceDefinitionVersionId
           : null,
-      instanceState:
-        row.instanceState && typeof row.instanceState === 'object'
-          ? (row.instanceState as Record<string, unknown>)
-          : {},
-      datasetBindings: Array.isArray(row.datasetBindings)
-        ? (row.datasetBindings as Array<Record<string, unknown>>)
-        : [],
-      composedGrid:
-        row.composedGrid && typeof row.composedGrid === 'object'
-          ? (row.composedGrid as FrozenSheetEvidence['composedGrid'])
-          : null,
+      instanceState: isRecord(item.instanceState) ? item.instanceState : {},
+      datasetBindings: parseBindings(item.datasetBindings),
+      composedGrid: parseComposedGrid(item.composedGrid),
     })
   }
   return map

@@ -28,7 +28,8 @@ const isoDate = z
     )
   }, 'Invalid calendar date.')
 
-const isoTimestamp = z
+/** RFC3339 timestamps, including Postgres six-digit fractional seconds. */
+export const rfc3339TimestampSchema = z
   .string()
   .regex(
     /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-](\d{2}):(\d{2}))$/,
@@ -66,7 +67,7 @@ export function scalarParameterValueSchema(
     case 'date':
       return isoDate
     case 'timestamp':
-      return isoTimestamp
+      return rfc3339TimestampSchema
     case 'category':
     case 'reference':
       return parameterUuidSchema

@@ -13,7 +13,13 @@ const config = defineConfig({
     // The Amp orb exposes the dev server through portal hostnames
     // (*.onamp.dev and the e2b.app sandbox host). Allow them so the
     // portal URL can reach Vite without a "Blocked request" error.
-    allowedHosts: ['.onamp.dev', '.e2b.app', '.sheetbase.co.uk'],
+    // *.trycloudflare.com is used for throwaway Cloud Agent quick tunnels.
+    allowedHosts: [
+      '.onamp.dev',
+      '.e2b.app',
+      '.sheetbase.co.uk',
+      '.trycloudflare.com',
+    ],
   },
   build: {
     rollupOptions: {

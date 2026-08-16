@@ -687,6 +687,41 @@
       "when": 1786815000000,
       "tag": "0097_core_05_idempotency_draft_publish",
       "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "7",
+      "when": 1786816000000,
+      "tag": "0098_core_062_sheet_instance_blocks",
+      "breakpoints": true
+    },
+    {
+      "idx": 99,
+      "version": "7",
+      "when": 1786817000000,
+      "tag": "0099_core_063_notebook_template_versions",
+      "breakpoints": true
+    },
+    {
+      "idx": 100,
+      "version": "7",
+      "when": 1786818000000,
+      "tag": "0100_core_065_template_instantiate",
+      "breakpoints": true
+    },
+    {
+      "idx": 101,
+      "version": "7",
+      "when": 1786819000000,
+      "tag": "0101_core_067_sheet_evidence",
+      "breakpoints": true
+    },
+    {
+      "idx": 102,
+      "version": "7",
+      "when": 1786820000000,
+      "tag": "0102_core_068_adhoc_sheet_local_rows",
+      "breakpoints": true
     }
   ]
 }

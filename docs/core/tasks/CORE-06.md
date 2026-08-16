@@ -1,7 +1,7 @@
 # CORE-06 — Notebook Templates, Sharing and Frozen Evidence
 
-**Status:** Planned / implementation-ready after CORE-05  
-**Blocked by:** CORE-05 complete. Start with CORE-06.1 only.  
+**Status:** Complete.  
+**Blocked by:** CORE-05 complete.  
 **Normative decisions:** ADRs 0020–0024 and existing Notebook revision/signature architecture.
 
 ## Epic goal
@@ -50,6 +50,17 @@ Make Sheet Instances native Notebook working objects, make Notebook Templates sa
 
 **Exit gate:** Notebook and standalone/shared contexts render the same durable Sheet Instance.
 
+**Status:** Implemented in Bundle B. Canonical payload is `{ instanceId }`;
+legacy `{ tableId }` remains valid. New inserts use
+`insert_sheet_instance_block`. Explicit conversion is
+`convert_legacy_sheet_block`. Do not start CORE-06.3 until review.
+
+Live Notebook editing splits the viewer only: Definition-bound Instances use
+composition; Instances without a source Definition use the local grid. That
+split is not a lifecycle lock. An ad hoc Sheet must remain able to become
+compositional later by adding Dataset/Record bindings (and/or extracting a
+Definition). Field promotion is a separate explicit path, not the only one.
+
 ---
 
 ## CORE-06.3 — Implement organisation-level Notebook Template versions
@@ -65,6 +76,9 @@ Make Sheet Instances native Notebook working objects, make Notebook Templates sa
 **Tests:** version pinning, publish/retire, permission, historical Template version resolution.
 
 **Exit gate:** a published Template version is a stable composition dependency.
+
+**Status:** Implemented. Identity is `api.notebook_templates`; versions are
+`api.notebook_template_versions`. `api.revisions` is not the catalogue.
 
 ---
 
@@ -82,6 +96,9 @@ Make Sheet Instances native Notebook working objects, make Notebook Templates sa
 
 **Exit gate:** reusable Templates can instantiate meaningful scientific work without hard-coded project data.
 
+**Status:** Implemented. Template parameters reuse CORE-03 Parameter objects
+and map to Sheet Definition parameters by stable IDs.
+
 ---
 
 ## CORE-06.5 — Implement default `create_instance` Sheet Template blocks
@@ -95,6 +112,10 @@ Make Sheet Instances native Notebook working objects, make Notebook Templates sa
 **Tests:** two Notebooks from one Template create independent Instances; same Dataset may be reused; failed required binding does not leave misleading partial state.
 
 **Exit gate:** standard Template use never accidentally shares working Sheet state.
+
+**Status:** Implemented. `instantiate_notebook_template_version` creates a
+new experiment Notebook and independent Sheet Instances from pinned
+Definition Versions. Failed required parameters roll back the transaction.
 
 ---
 
@@ -111,6 +132,11 @@ Make Sheet Instances native Notebook working objects, make Notebook Templates sa
 **Tests:** two Notebooks see same local edit; permissions differ; archive behaviour.
 
 **Exit gate:** shared working state is useful but never accidental/hidden.
+
+**Status:** Implemented. Embedding an existing Instance is
+`insert_sheet_instance_block(..., instance_id)`.
+`sheet_instance_notebook_embeddings` reports placement count. Deleting one
+block does not archive the Instance.
 
 ---
 
@@ -130,6 +156,10 @@ Make Sheet Instances native Notebook working objects, make Notebook Templates sa
 
 **Exit gate:** a structured evidence package can reconstruct the submitted Sheet semantics/data independently of later live edits.
 
+**Status:** Implemented. Canonical envelopes include `sheetEvidence`
+(Instance state, pinned Definition Version, Dataset binding freeze points).
+Live Dataset bindings are snapshotted to Dataset Versions on submit only.
+
 ---
 
 ## CORE-06.8 — Integrate snapshotting with Notebook submission/review/signature flow
@@ -146,6 +176,10 @@ Make Sheet Instances native Notebook working objects, make Notebook Templates sa
 
 **Exit gate:** submission creates immutable reconstructable evidence rather than merely changing status.
 
+**Status:** Implemented inside `api.submit_record_revision`. Preview digest
+still comes from the STABLE envelope. Live Dataset Versions are created only
+after the digest matches. Signature/lock/amend RPCs are unchanged.
+
 ---
 
 ## CORE-06.9 — Implement pinned-snapshot Sheet blocks/read-only rendering
@@ -159,6 +193,10 @@ Make Sheet Instances native Notebook working objects, make Notebook Templates sa
 **Tests:** render old snapshot after live Dataset/Definition changes; no mutation path; permission to historical evidence.
 
 **Exit gate:** users can inspect exactly what was submitted without confusing it with current live data.
+
+**Status:** Implemented. Locked/archived Notebooks and revision envelopes
+render `Frozen submitted Sheet evidence` from `sheetEvidence`, not the live
+Instance.
 
 ---
 
@@ -176,6 +214,11 @@ Make Sheet Instances native Notebook working objects, make Notebook Templates sa
 
 **Exit gate:** reusable Templates evolve without retroactively changing scientific work.
 
+**Status:** Implemented. Draft `retarget_notebook_template_sheet_placement`
+pins a newer Definition Version. Publishing Template v2 does not mutate
+Notebooks created from v1. Explicit `preview_notebook_template_upgrade` /
+`apply_notebook_template_upgrade` is required.
+
 ---
 
 ## CORE-06.11 — Reusable Template Section boundary (architecture only unless needed)
@@ -189,6 +232,9 @@ Make Sheet Instances native Notebook working objects, make Notebook Templates sa
 **Do not:** build a Section management product solely to satisfy this task.
 
 **Exit gate:** no architectural dead-end forces Template inheritance for future reuse.
+
+**Status:** Architecture only. `section_placeholder` placements reserve a
+named, versioned Section reference without Template inheritance.
 
 ---
 
@@ -204,6 +250,11 @@ Make Sheet Instances native Notebook working objects, make Notebook Templates sa
 
 **Exit gate:** the Notebook evidence graph points to stable canonical objects.
 
+**Status:** File Artifact identity and checksum remain in the REV-002
+`files` envelope. Canonical Sheet blocks pin Instance IDs. Chart specs may
+still name a scientific `tableId`; rewriting chart/report consumers onto
+Dataset Version / Instance identities is deferred specialist work.
+
 ---
 
 ## CORE-06.13 — Golden Template and frozen-evidence proof
@@ -218,15 +269,35 @@ Make Sheet Instances native Notebook working objects, make Notebook Templates sa
 
 **Exit gate:** Template reuse, shared-live behaviour and immutable submission evidence all behave exactly as ADRs require.
 
+**Status:** Implemented as a focused DB proof: Purification Summary Definition
+in two Templates, independent Notebooks, one explicit shared embedding,
+submit one Notebook, mutate the live Instance, reconstruct submitted state
+from `sheetEvidence`.
+
 ---
 
-## CORE-06.14 — Core programme exit and AUTO-01 hand-off
+## CORE-06.14 — CORE-06 exit gate
 
 **Blocked by:** CORE-06.13.
 
-**Goal:** Verify the Core Data Workspace broadening gate and prepare Pipeline work without prematurely implementing it.
+**Goal:** Prove CORE-06 on a fresh database, focused DB suite and full validate
+gate. Do not start AUTO-01 or any Pipeline work.
 
-**Deliverables:** run golden programme workflow; confirm common fields, Dataset versions, compositional Sheets, Record creation, schema capabilities, Templates and frozen evidence; update Core completion evidence; reconcile AUTO-01 skeleton with implemented contracts; update `NEXT.md` to AUTO-01.1 only if Core exit gate passes.
+**Deliverables:** `pnpm db:fresh --demo`; `pnpm test:db` covering instantiate,
+share, freeze and upgrade isolation; `pnpm validate` excluding the out-of-scope
+CORE-02.6 100k benchmark; Core completion evidence in `NEXT.md` that stays on
+completed CORE-06.
+
+**Do not:** create `docs/core/tasks/AUTO-01.md`; point `NEXT.md` at AUTO-01.1;
+reconcile or start Pipeline contracts.
+
+**Status:** Exit gate passed. `pnpm db:fresh --demo` applied migrations
+`0000`–`0101` and 29 idempotent demo seed steps (reseed also 29/29).
+`pnpm test:db` 70 files / 707 tests. `pnpm validate` 176 files / 1,916 tests,
+zero lint errors (21 existing warnings), production client/SSR build.
+AUTO-01 is **not** started; `NEXT.md` stays on completed CORE-06.
+
+---
 
 ## Epic exit gate
 

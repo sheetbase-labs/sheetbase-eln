@@ -22,7 +22,7 @@
 - Embedded categories → preserve, while allowing future governed vocabularies.
 - Scientific table/Dataset concepts → Dataset + Dataset Schema + immutable Dataset Version.
 - Sheet/table blocks → Sheet Definition + Sheet Instance.
-- Local columns → durable Instance-local fields with explicit promotion.
+- Local columns → durable Instance-local fields. Explicit promotion into Dataset Schema or Model fields is one later path; ad hoc Instances must also remain able to become compositional by adding Dataset/Record bindings.
 - Calculations → explicit Instance / Definition / Dataset-derived scope.
 - Template behaviour → reusable versioned Notebook Templates referencing pinned Sheet Definition versions.
 - Coarse role checks → incremental capabilities.
@@ -40,9 +40,12 @@ Projects/workspaces organise scientific working state such as Records, Datasets,
 2. **CORE-02 — Dataset Primitive and Versioning** — complete; live Dataset state, schema versions, immutable meaningful Dataset Versions.
 3. **CORE-03 — Sheet Definition and Compositional Sheet Instance** — complete; reusable Definitions, typed parameters, multi-source Instances, local/calculated data, write-back, materialisation.
 4. **CORE-04 — Records from Sheets** — complete; link/search/create/bulk-create Records through normal Model validation.
-5. **CORE-05 — Schema Evolution and Role-aware Configuration** — active; CORE-05.1 audit complete; CORE-05.2 waits on audit decisions.
-6. **CORE-06 — Notebook Templates, Sharing and Frozen Evidence** — pinned Definition references, explicit shared Instances, parameter flow and reconstructable evidence.
-7. **AUTO-01 — Pipeline Foundation** — broader typed transformations over immutable inputs/outputs.
+5. **CORE-05 — Schema Evolution and Role-aware Configuration** — complete.
+6. **CORE-06 — Notebook Templates, Sharing and Frozen Evidence** — complete;
+   pinned Definition references, explicit shared Instances, parameter flow and
+   reconstructable evidence. AUTO-01 is not started.
+7. **AUTO-01 — Pipeline Foundation** — not started. Do not begin from CORE-06
+   completion. Broader typed transformations over immutable inputs/outputs.
 8. **AUTO-02 — Agent-authored Operations** — agents propose drafts/plans and execute through normal contracts.
 
 ## Golden workflow

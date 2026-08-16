@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import type { DataClient } from './data-client'
 import type { FieldDefinition } from './field-definition'
-import { mutateSheetLocalState, sheetLocalValueError } from './sheet-local-data'
+import { mutateSheetLocalState, createAdHocTextField, sheetLocalValueError } from './sheet-local-data'
 import { validSheetInstanceState } from './sheet-instance.test'
 
 const field = (
@@ -27,6 +27,14 @@ const field = (
 })
 
 describe('canonical Sheet local values', () => {
+  it('builds unique ad-hoc text fields from a column label', () => {
+    const first = createAdHocTextField('Yield %', ['yield'])
+    expect(first.key).toBe('yield_2')
+    expect(first.logicalType).toBe('text')
+    expect(first.nullable).toBe(true)
+    expect(first.lifecycle).toBe('active')
+  })
+
   it('sends the bounded authoritative row-address contract to the local mutation RPC', async () => {
     const instanceId = crypto.randomUUID()
     const retryToken = crypto.randomUUID()

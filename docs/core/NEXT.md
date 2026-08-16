@@ -8,13 +8,13 @@
 
 ## Active task
 
-**CORE-06.1 — Audit Notebook, Template, revision and submission persistence**
+**CORE-06 — Notebook Templates, Sharing and Frozen Evidence**
 
-Status: CORE-05 complete. Do not start CORE-06.2.
+Status: CORE-06 complete. Do not start AUTO-01.
 
-Task: [`tasks/CORE-06.md`](./tasks/CORE-06.md#core-061--audit-notebook-template-revision-and-submission-persistence)
+Task: [`tasks/CORE-06.md`](./tasks/CORE-06.md)
 
-Audit: [`audits/SCHEMA_CAPABILITY_AUDIT.md`](./audits/SCHEMA_CAPABILITY_AUDIT.md)
+Audit: [`audits/NOTEBOOK_EVIDENCE_AUDIT.md`](./audits/NOTEBOOK_EVIDENCE_AUDIT.md)
 
 Canonical schema ADR: [`0038-canonical-dataset-schema-definitions.md`](../decisions/0038-canonical-dataset-schema-definitions.md)
 
@@ -75,11 +75,22 @@ Canonical schema ADR: [`0038-canonical-dataset-schema-definitions.md`](../decisi
 - CORE-05.8 — explicit calculation promotion
 - CORE-05.9 — dense steward configuration workspace
 - CORE-05.11 — Scientist/Steward/Admin proof and CORE-06 hand-off
-- product/architecture reset and accepted ADRs 0020–0026
+- CORE-06.1 — Notebook / Template / revision / evidence audit
+- CORE-06.2 — canonical Notebook Sheet blocks reference Sheet Instances
+  (`0098_core_062_sheet_instance_blocks`); legacy `{tableId}` still renders
+- CORE-06.3 / 06.4 / 06.11 — dedicated Notebook Template versions, CORE-03
+  parameter mappings, section-placeholder boundary (`0099`)
+- CORE-06.5 / 06.6 / 06.10 — instantiate independent Instances, explicit
+  shared embeddings, Template retarget and Notebook upgrade (`0100`)
+- CORE-06.7 / 06.8 / 06.9 / 06.12 / 06.13 — frozen Sheet evidence in the
+  REV-002 envelope (`0101`), historical render, file checksums unchanged,
+  Purification Summary golden proof
+- CORE-06.14 — CORE-06 exit gate (`db:fresh --demo`, `test:db`, `validate`);
+  AUTO-01 is not started and is not the next task
 
 ## Required reading
 
-1. [`tasks/CORE-06.md`](./tasks/CORE-06.md) CORE-06.1
+1. [`tasks/CORE-06.md`](./tasks/CORE-06.md) (complete; do not start AUTO-01)
 2. [`tasks/CORE-05.md`](./tasks/CORE-05.md) completion evidence
 3. [`PRODUCT_CORE.md`](./PRODUCT_CORE.md)
 4. [`CORE_ARCHITECTURE.md`](./CORE_ARCHITECTURE.md)
@@ -87,8 +98,14 @@ Canonical schema ADR: [`0038-canonical-dataset-schema-definitions.md`](../decisi
 
 ## Implement now
 
-CORE-05 is complete. Next is CORE-06.1 — audit Notebook, Template, revision
-and submission persistence. Do not start CORE-06.2.
+CORE-06 is complete. Submit freezes reconstructable Sheet Instance state
+inside the existing REV-002 transaction. Do **not** start AUTO-01.
+
+CORE-06.14 exit evidence: `pnpm db:fresh --demo` applied migrations `0000`–
+`0101` and 29 idempotent demo seed steps (reseed also 29/29). `pnpm test:db`
+70 files / 707 tests. `pnpm validate` 176 files / 1,916 tests, zero lint
+errors (21 existing warnings), production client/SSR build. The CORE-02.6
+100k+80k Dataset benchmark was not rerun.
 
 CORE-05.11 exit evidence: `pnpm db:fresh --demo` applied migrations `0000`–
 `0096` and 29 idempotent demo seed steps (reseed also 29/29). `pnpm test:db`
@@ -112,6 +129,7 @@ The CORE-02.6 100k+80k Dataset benchmark was not rerun.
 - do not broaden presentation persistence into a general View subsystem;
 - do not make presentation state semantic identity;
 - do not implement full Pipeline semantics;
+- do not start AUTO-01;
 - do not alter the completed CORE-03.8–03.10 persistence contracts;
 - do not silently coerce incompatible bindings or weaken exact version,
   lineage, quantity, vocabulary or stable semantic identity checks;

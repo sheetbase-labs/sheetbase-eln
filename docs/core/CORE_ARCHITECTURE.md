@@ -186,9 +186,11 @@ Instances may be created from a Definition, ad hoc, or by Template instantiation
 
 Local/ad hoc fields are durable typed Instance-owned data. `ad hoc` means locally governed, not ephemeral.
 
+An ad hoc Instance may later add Dataset and Record bindings and become compositional without first promoting local fields. Promotion remains an explicit, optional later step for individual fields.
+
 ## 10. Save Instance as Definition
 
-A useful ad hoc Instance can be converted into reusable configuration by extracting structure rather than copying working values.
+A useful ad hoc Instance can be converted into reusable configuration by extracting structure rather than copying working values. That extraction is one reuse path; adding Dataset/Record bindings on the same Instance is another.
 
 Concrete source bindings can become typed parameters; local field definitions may become empty predefined local columns; reusable calculations may be retained; presentation state may become defaults.
 

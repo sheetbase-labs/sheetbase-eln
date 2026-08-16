@@ -10,6 +10,7 @@ import {
   TemplateInspector,
   TemplateList,
 } from '#/components/templates/template-library'
+import { VersionedNotebookTemplatePanel } from '#/components/templates/versioned-notebook-templates'
 import type {
   TemplateLinkedRecord,
   TemplateOwnershipFilter,
@@ -35,19 +36,11 @@ import {
   instantiateTemplate,
   templateQueryKeys,
 } from '#/lib/templates'
-import type { TemplateKind, TargetKind } from '#/lib/templates'
+import type { TargetKind } from '#/lib/templates'
 
 /**
- * TPL-001: Template Library. Lists notebook and protocol templates with
- * grid/list views, type/status/ownership/favourites filters, a preview
- * inspector with version / author / usage / linked records / approvals /
- * actions, and a use-template action that instantiates a new record from
- * the selected template version.
- *
- * Templates are ordinary records (kind `protocol_template` or
- * `notebook_template`). The list, filters, preview, actions and
- * instantiation all go through the same `/api/db` boundary and RLS as every
- * other record.
+ * Template Library. Versioned notebook templates are the notebook catalogue.
+ * Protocol templates remain a separate pin-into-Notebook catalogue (TPL-001).
  */
 
 const getTemplateContext = createServerFn({ method: 'GET' }).handler(
@@ -80,7 +73,6 @@ function TemplateLibraryRoute() {
   const workspaceId = context.workspace?.id ?? 'no-workspace'
 
   // Filters
-  const [kindFilter, setKindFilter] = useState<'all' | TemplateKind>('all')
   const [statusFilter, setStatusFilter] = useState('all')
   const [search, setSearch] = useState('')
   const [ownership, setOwnership] = useState<TemplateOwnershipFilter>('all')
@@ -113,14 +105,14 @@ function TemplateLibraryRoute() {
   // Template list query
   const templatesQuery = useQuery({
     queryKey: templateQueryKeys.list({
-      kind: kindFilter !== 'all' ? kindFilter : undefined,
+      kind: 'protocol_template',
       status: statusFilter !== 'all' ? statusFilter : undefined,
       search,
       includeArchived: true,
     }),
     queryFn: async () => {
       return fetchTemplates(notebookDataClient, {
-        kind: kindFilter !== 'all' ? kindFilter : undefined,
+        kind: 'protocol_template',
         status: statusFilter !== 'all' ? statusFilter : undefined,
         search,
         includeArchived: true,
@@ -493,42 +485,54 @@ function TemplateLibraryRoute() {
             </h1>
           </div>
           <p className="text-sm text-muted-foreground">
-            Browse validated notebook and protocol templates. Use a template to
-            create a new record with pre-filled content.
+            Create Notebooks from published templates. Protocol templates live
+            below.
           </p>
         </header>
 
-        <TemplateFilters
-          kindFilter={kindFilter}
-          onKindChange={setKindFilter}
-          statusFilter={statusFilter}
-          onStatusChange={setStatusFilter}
-          search={search}
-          onSearchChange={setSearch}
-          count={templates.length}
-          favouritesOnly={favouritesOnly}
-          onFavouritesOnlyChange={setFavouritesOnly}
-          ownership={ownership}
-          onOwnershipChange={setOwnership}
-          view={view}
-          onViewChange={setView}
+        <VersionedNotebookTemplatePanel
+          workspaceId={workspaceId}
+          canEdit={role === 'owner' || role === 'admin' || role === 'steward'}
+          projects={projects}
         />
 
-        <TemplateList
-          templates={templates}
-          isLoading={templatesQuery.isLoading}
-          error={templatesQuery.error}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-          onRetry={() => templatesQuery.refetch()}
-          blockCounts={blockCounts}
-          usageCounts={usageCounts}
-          view={view}
-          favourites={favourites}
-          onToggleFavourite={toggleFavourite}
-          currentUserId={currentUserId}
-          blockPreviews={blockPreviews}
-        />
+        <section className="space-y-4">
+          <div className="space-y-1">
+            <h2 className="text-sm font-semibold">Protocol templates</h2>
+            <p className="text-xs text-muted-foreground">
+              Pin a protocol version into a Notebook from this catalogue.
+            </p>
+          </div>
+          <TemplateFilters
+            statusFilter={statusFilter}
+            onStatusChange={setStatusFilter}
+            search={search}
+            onSearchChange={setSearch}
+            count={templates.length}
+            favouritesOnly={favouritesOnly}
+            onFavouritesOnlyChange={setFavouritesOnly}
+            ownership={ownership}
+            onOwnershipChange={setOwnership}
+            view={view}
+            onViewChange={setView}
+          />
+
+          <TemplateList
+            templates={templates}
+            isLoading={templatesQuery.isLoading}
+            error={templatesQuery.error}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            onRetry={() => templatesQuery.refetch()}
+            blockCounts={blockCounts}
+            usageCounts={usageCounts}
+            view={view}
+            favourites={favourites}
+            onToggleFavourite={toggleFavourite}
+            currentUserId={currentUserId}
+            blockPreviews={blockPreviews}
+          />
+        </section>
       </div>
     </>
   )

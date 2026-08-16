@@ -126,7 +126,7 @@ describe('TemplateList', () => {
         onRetry={vi.fn()}
       />,
     )
-    expect(screen.getByText(/no templates found/i)).toBeTruthy()
+    expect(screen.getByText(/no protocol templates found/i)).toBeTruthy()
   })
 
   it('shows an error state with a retry button', () => {
@@ -171,7 +171,6 @@ describe('TemplateList', () => {
     )
     expect(screen.getByText('Stability Study')).toBeTruthy()
     expect(screen.getByText('NBK-2026-0001')).toBeTruthy()
-    expect(screen.getAllByText('Notebook').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('Ready')).toBeTruthy()
     expect(screen.getByText('Cell Viability')).toBeTruthy()
   })
@@ -249,11 +248,9 @@ describe('TemplateList', () => {
 })
 
 describe('TemplateFilters', () => {
-  it('renders accessible search, type and status controls', () => {
+  it('renders accessible search and status controls', () => {
     render(
       <TemplateFilters
-        kindFilter="all"
-        onKindChange={vi.fn()}
         statusFilter="all"
         onStatusChange={vi.fn()}
         search=""
@@ -261,7 +258,7 @@ describe('TemplateFilters', () => {
       />,
     )
     expect(screen.getByLabelText(/search templates/i)).toBeTruthy()
-    expect(screen.getByLabelText(/filter by type/i)).toBeTruthy()
+    expect(screen.queryByLabelText(/filter by type/i)).toBeNull()
     expect(screen.getByLabelText(/filter by status/i)).toBeTruthy()
   })
 
@@ -270,8 +267,6 @@ describe('TemplateFilters', () => {
     const onSearchChange = vi.fn()
     render(
       <TemplateFilters
-        kindFilter="all"
-        onKindChange={vi.fn()}
         statusFilter="all"
         onStatusChange={vi.fn()}
         search=""
@@ -465,8 +460,6 @@ describe('TPL-001 TemplateFilters — view, favourites and ownership', () => {
   it('renders a grid/list view toggle', () => {
     render(
       <TemplateFilters
-        kindFilter="all"
-        onKindChange={vi.fn()}
         statusFilter="all"
         onStatusChange={vi.fn()}
         search=""
@@ -486,8 +479,6 @@ describe('TPL-001 TemplateFilters — view, favourites and ownership', () => {
     const onViewChange = vi.fn()
     render(
       <TemplateFilters
-        kindFilter="all"
-        onKindChange={vi.fn()}
         statusFilter="all"
         onStatusChange={vi.fn()}
         search=""
@@ -503,8 +494,6 @@ describe('TPL-001 TemplateFilters — view, favourites and ownership', () => {
   it('renders an ownership filter and a favourites toggle', () => {
     render(
       <TemplateFilters
-        kindFilter="all"
-        onKindChange={vi.fn()}
         statusFilter="all"
         onStatusChange={vi.fn()}
         search=""
@@ -524,8 +513,6 @@ describe('TPL-001 TemplateFilters — view, favourites and ownership', () => {
     const onFavouritesOnlyChange = vi.fn()
     render(
       <TemplateFilters
-        kindFilter="all"
-        onKindChange={vi.fn()}
         statusFilter="all"
         onStatusChange={vi.fn()}
         search=""
@@ -547,8 +534,6 @@ describe('TPL-001 TemplateFilters — view, favourites and ownership', () => {
     const onOwnershipChange = vi.fn()
     render(
       <TemplateFilters
-        kindFilter="all"
-        onKindChange={vi.fn()}
         statusFilter="all"
         onStatusChange={vi.fn()}
         search=""

@@ -9,8 +9,6 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 const args = {
-  kindFilter: 'all' as const,
-  onKindChange: () => undefined,
   statusFilter: 'all',
   onStatusChange: () => undefined,
   search: '',

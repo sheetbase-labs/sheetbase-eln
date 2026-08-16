@@ -37,6 +37,7 @@ import {
   formatMetricValue,
 } from '#/lib/format-numbers'
 import { Badge } from '#/components/ui'
+import { sheetInstanceEmbedErrorMessage } from './notebook-sheet-block'
 import {
   materialiseFrozenChart,
   materialiseLiveChart,
@@ -53,11 +54,10 @@ import type {
 import { PLATE_MAP_SPEC_VERSION, ROLE_STYLES } from '#/lib/plate-map'
 import type { PlateMapSpec, WellAssignment } from '#/lib/plate-map'
 import {
-  scientificDataClient,
-  scientificQueryKeys,
-  fetchScientificTable,
-  fetchScientificRows,
-} from '#/lib/scientific-sheet-data'
+  fetchSheetInstance,
+  sheetInstanceDataClient,
+} from '#/lib/sheet-instance-data'
+import { sheetBlockInstanceId } from '#/lib/sheet-block'
 
 /**
  * Read-only preview of a block's typed payload (ELN-004). Renders the
@@ -539,106 +539,57 @@ function renderTable(payload: unknown): React.ReactNode {
   )
 }
 
-/**
- * Read-only preview of a scientific sheet block (SCI-003).  Fetches the
- * table metadata and first page of rows via the same data client the
- * notebook editor uses, then renders a compact HTML table.  No HyperFormula
- * or Handsontable — the preview is intentionally lightweight for the
- * overview and read-only contexts.
- */
 function SheetBlockPreview({ payload }: { payload: unknown }) {
   const obj = asObject(payload)
-  const tableId = obj ? asString(obj.tableId) : null
-  const tableQuery = useQuery({
-    queryKey: scientificQueryKeys.table(tableId ?? ''),
-    queryFn: () => fetchScientificTable(scientificDataClient, tableId!),
-    enabled: !!tableId,
-  })
-  const table = tableQuery.data
-  const rowsQuery = useQuery({
-    queryKey: scientificQueryKeys.rows(tableId ?? '', 0),
-    queryFn: () => fetchScientificRows(scientificDataClient, table!, 0),
-    enabled: !!table,
-  })
-
-  if (!tableId) {
-    return (
-      <div className="rounded-lg border border-muted-foreground/30 p-3 text-xs text-muted-foreground">
-        Scientific sheet not configured yet.
-      </div>
-    )
+  const instanceId = obj ? sheetBlockInstanceId(obj) : null
+  if (instanceId) {
+    return <CanonicalSheetBlockPreview instanceId={instanceId} />
   }
-  if (tableQuery.isLoading) {
+  return (
+    <p className="p-3 text-sm text-muted-foreground" role="status">
+      This block has no Sheet Instance.
+    </p>
+  )
+}
+
+function CanonicalSheetBlockPreview({ instanceId }: { instanceId: string }) {
+  const instanceQuery = useQuery({
+    queryKey: ['sheet-instance', instanceId],
+    queryFn: () => fetchSheetInstance(instanceId, sheetInstanceDataClient),
+  })
+  if (instanceQuery.isLoading) {
     return (
       <div className="rounded-lg border p-3 text-sm text-muted-foreground">
-        Preparing scientific sheet…
+        Loading Sheet…
       </div>
     )
   }
-  if (tableQuery.error || !table) {
+  if (instanceQuery.error || !instanceQuery.data) {
     return (
-      <div className="rounded-lg border border-dashed border-warning/30 bg-warning/10 p-3 text-xs">
-        <p className="font-medium text-foreground">
-          Scientific sheet unavailable
-        </p>
+      <div
+        className="rounded-lg border border-dashed border-destructive/30 bg-destructive/5 p-3 text-xs"
+        role="alert"
+      >
+        <p className="font-medium text-foreground">Sheet unavailable</p>
         <p className="mt-1 text-muted-foreground">
-          The sheet data could not be loaded. It may have been deleted or you
-          may not have access.
+          {sheetInstanceEmbedErrorMessage(
+            instanceQuery.error,
+            !instanceQuery.data,
+          )}
         </p>
       </div>
     )
   }
-
-  const columns = [...table.columns].sort(
-    (a, b) => a.display_order - b.display_order,
-  )
-  const rows = rowsQuery.data ?? []
-
+  const instance = instanceQuery.data
   return (
-    <div className="space-y-1.5">
-      <p className="text-xs font-medium text-muted-foreground">{table.name}</p>
-      <div className="overflow-hidden rounded-md border border-border">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border bg-muted/40">
-              {columns.map((col) => (
-                <th
-                  key={col.id}
-                  scope="col"
-                  className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-                >
-                  {col.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {rows.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={columns.length}
-                  className="px-3 py-2 text-muted-foreground"
-                >
-                  No rows yet.
-                </td>
-              </tr>
-            ) : (
-              rows.map((row) => (
-                <tr key={row.id} className="bg-background">
-                  {columns.map((col) => (
-                    <td
-                      key={col.id}
-                      className="px-3 py-2 font-mono tabular-nums text-foreground"
-                    >
-                      {formatCellValue(row[col.field_name])}
-                    </td>
-                  ))}
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+    <div className="rounded-lg border p-3">
+      <p className="text-xs font-medium text-foreground">{instance.name}</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        {instance.sourceDefinitionVersionId
+          ? 'Sheet from a Definition. Open the block to edit.'
+          : 'Ad hoc Sheet. Open the block to edit.'}
+        {instance.lifecycle === 'archived' ? ' This Sheet is archived.' : ''}
+      </p>
     </div>
   )
 }

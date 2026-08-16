@@ -552,6 +552,9 @@ export const records = api.table(
     // revisions.supersededByRevisionId and avoids a circular type-inference
     // cycle between records and revisions.
     lockedByRevisionId: uuid('locked_by_revision_id'),
+    sourceNotebookTemplateVersionId: uuid(
+      'source_notebook_template_version_id',
+    ),
     ...timestamps,
     archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
     deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
@@ -2224,6 +2227,200 @@ export const sheetDefinitionVersions = api.table(
     ),
     check('chk_sheet_definition_versions_revision', sql`${table.revision} > 0`),
     index('idx_sheet_definition_versions_definition').on(table.definitionId),
+  ],
+)
+
+export const notebookTemplates = api.table(
+  'notebook_templates',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    key: text('key').notNull(),
+    name: text('name').notNull(),
+    description: text('description'),
+    lifecycle: text('lifecycle').notNull().default('active'),
+    revision: bigint('revision', { mode: 'bigint' })
+      .notNull()
+      .default(sql`1`),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    unique('uq_notebook_templates_workspace_key').on(
+      table.workspaceId,
+      table.key,
+    ),
+    check(
+      'chk_notebook_templates_key',
+      sql`${table.key} ~ '^[a-z][a-z0-9_]{0,59}$'`,
+    ),
+    check(
+      'chk_notebook_templates_lifecycle',
+      sql`${table.lifecycle} IN ('active','retired')`,
+    ),
+    check('chk_notebook_templates_revision', sql`${table.revision} > 0`),
+    index('idx_notebook_templates_workspace').on(table.workspaceId),
+  ],
+)
+
+export const notebookTemplateVersions = api.table(
+  'notebook_template_versions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    templateId: uuid('template_id')
+      .notNull()
+      .references(() => notebookTemplates.id, { onDelete: 'restrict' }),
+    version: integer('version').notNull(),
+    lifecycle: text('lifecycle').notNull().default('draft'),
+    configurationFormatVersion: integer('configuration_format_version')
+      .notNull()
+      .default(1),
+    configuration: jsonb('configuration').notNull(),
+    revision: bigint('revision', { mode: 'bigint' })
+      .notNull()
+      .default(sql`1`),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    publishedAt: timestamp('published_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    publishedByUserId: text('published_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    retiredAt: timestamp('retired_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    retiredByUserId: text('retired_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    unique('uq_notebook_template_versions_template_version').on(
+      table.templateId,
+      table.version,
+    ),
+    check('chk_notebook_template_versions_version', sql`${table.version} > 0`),
+    check(
+      'chk_notebook_template_versions_lifecycle',
+      sql`${table.lifecycle} IN ('draft','published','retired')`,
+    ),
+    check(
+      'chk_notebook_template_versions_format',
+      sql`${table.configurationFormatVersion} = 1`,
+    ),
+    check(
+      'chk_notebook_template_versions_revision',
+      sql`${table.revision} > 0`,
+    ),
+    index('idx_notebook_template_versions_template').on(table.templateId),
+  ],
+)
+
+export const notebookTemplateInstantiations = api.table(
+  'notebook_template_instantiations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    actorUserId: text('actor_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    idempotencyKey: text('idempotency_key').notNull(),
+    templateVersionId: uuid('template_version_id')
+      .notNull()
+      .references(() => notebookTemplateVersions.id, { onDelete: 'restrict' }),
+    recordId: uuid('record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'restrict' }),
+    result: jsonb('result').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('uq_notebook_template_instantiations_actor_key').on(
+      table.workspaceId,
+      table.actorUserId,
+      table.idempotencyKey,
+    ),
+    check(
+      'chk_notebook_template_instantiations_key',
+      sql`length(${table.idempotencyKey}) BETWEEN 1 AND 128`,
+    ),
+  ],
+)
+
+export const notebookTemplateUpgrades = api.table(
+  'notebook_template_upgrades',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    recordId: uuid('record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'restrict' }),
+    sourceVersionId: uuid('source_version_id')
+      .notNull()
+      .references(() => notebookTemplateVersions.id, { onDelete: 'restrict' }),
+    targetVersionId: uuid('target_version_id')
+      .notNull()
+      .references(() => notebookTemplateVersions.id, { onDelete: 'restrict' }),
+    decisions: jsonb('decisions').notNull(),
+    actorUserId: text('actor_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+)
+
+export const revisionSheetEvidence = api.table(
+  'revision_sheet_evidence',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    revisionId: uuid('revision_id')
+      .notNull()
+      .references(() => revisions.id, { onDelete: 'restrict' }),
+    blockId: uuid('block_id').notNull(),
+    instanceId: uuid('instance_id')
+      .notNull()
+      .references(() => sheetInstances.id, { onDelete: 'restrict' }),
+    sourceDefinitionVersionId: uuid('source_definition_version_id').references(
+      () => sheetDefinitionVersions.id,
+      { onDelete: 'restrict' },
+    ),
+    instanceRevision: bigint('instance_revision', { mode: 'bigint' }).notNull(),
+    instanceState: jsonb('instance_state').notNull(),
+    datasetVersions: jsonb('dataset_versions').notNull().default([]),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('uq_revision_sheet_evidence_revision_block').on(
+      table.revisionId,
+      table.blockId,
+    ),
   ],
 )
 

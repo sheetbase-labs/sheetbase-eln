@@ -125,7 +125,7 @@ describe('LockedBanner', () => {
     const status = screen.getByRole('status')
     expect(status.textContent).toContain('locked')
     expect(status.textContent).toContain('frozen')
-    expect(status.textContent).toContain('rev-abcd')
+    expect(status.textContent).not.toContain('rev-abcd')
   })
 })
 
@@ -377,6 +377,22 @@ describe('NotebookInspector', () => {
     // Tags render as outline badges within Properties
     expect(screen.getByText('stability')).toBeTruthy()
     expect(screen.getByText('qPCR')).toBeTruthy()
+  })
+
+  it('shows frozen review status when the record is locked', () => {
+    const queryClient = new QueryClient()
+    render(
+      <QueryClientProvider client={queryClient}>
+        <NotebookInspector
+          record={lockedRecord}
+          links={[]}
+          linksLoading={false}
+          defaultTab="properties"
+        />
+      </QueryClientProvider>,
+    )
+    expect(screen.getByText('Locked — evidence frozen')).toBeTruthy()
+    expect(screen.queryByText('Not submitted')).toBeNull()
   })
 
   it('shows a loading hint for links while they load', () => {

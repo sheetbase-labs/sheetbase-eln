@@ -1,10 +1,15 @@
 import { z } from 'zod'
 
+import { rfc3339TimestampSchema } from './parameter'
+import { sheetInstanceCalculationSchema } from './sheet-calculation'
 import {
   sheetDefinitionUuidSchema as uuid,
   sheetFieldDefinitionSchema,
 } from './sheet-definition'
-import { sheetInstanceCalculationSchema } from './sheet-calculation'
+
+function utf8ByteLength(text: string): number {
+  return new TextEncoder().encode(text).byteLength
+}
 
 const jsonScalar = z.union([
   z.string().max(100_000),
@@ -100,7 +105,7 @@ const parameterValue = z
 const resolutionProvenance = z
   .object({
     sourceDefinitionVersionId: uuid,
-    resolvedAt: z.string().datetime({ offset: true }),
+    resolvedAt: rfc3339TimestampSchema,
     resolvedByUserId: z.string().min(1).max(1_000),
     parameters: z
       .array(
@@ -273,7 +278,7 @@ export const sheetInstanceStateSchema = z
           })
       }
     }
-    if (Buffer.byteLength(JSON.stringify(value), 'utf8') > 1_048_576)
+    if (utf8ByteLength(JSON.stringify(value)) > 1_048_576)
       context.addIssue({
         code: 'custom',
         message: 'Sheet Instance state exceeds 1 MiB.',

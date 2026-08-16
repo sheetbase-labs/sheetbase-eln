@@ -11,10 +11,11 @@ import type {
   SheetDefinitionUpgradeDecision,
   SheetDefinitionUpgradePreview,
 } from './sheet-definition-upgrade'
+import { rfc3339TimestampSchema } from './parameter'
 import { sheetInstanceStateSchema } from './sheet-instance'
 import type { SheetInstanceState } from './sheet-instance'
 
-const timestamp = z.string().datetime({ offset: true })
+const timestamp = rfc3339TimestampSchema
 const nullableUuid = uuid.nullable()
 const revision = z
   .union([z.number(), z.string().regex(/^\d+$/)])
@@ -90,6 +91,18 @@ export function sheetInstanceFromWire(wire: unknown): SheetInstance {
     createdByUserId: parsed.created_by_user_id,
     updatedByUserId: parsed.updated_by_user_id,
   }
+}
+
+export async function fetchSheetInstance(
+  id: string,
+  client: DataClient = sheetInstanceDataClient,
+) {
+  const rows = await client.list<unknown>(
+    'sheet_instances',
+    `?id=eq.${encodeURIComponent(id)}&limit=1`,
+  )
+  const row = rows[0]
+  return row === undefined ? null : sheetInstanceFromWire(row)
 }
 
 export async function fetchSheetInstances(

@@ -8,7 +8,8 @@
 
 ## Active task
 
-**Core Hardening complete.**
+**Core Hardening complete. Legacy SCI-010 / scientific-table / notebook-template
+record compatibility removed.**
 
 Next phase: Product Consolidation / Workflow Validation.
 

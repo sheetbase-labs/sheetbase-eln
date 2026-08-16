@@ -241,14 +241,7 @@ export async function handleProxyRequest(
   return stampRequestId(finalResponse, requestId)
 }
 
-const SCHEMA_READINESS_RPCS = new Set([
-  'insert_sheet_block',
-  'create_scientific_table',
-  'add_scientific_column',
-  'convert_scientific_column',
-  // SCI-010: schema-bound sheet instantiation creates a generated table.
-  'instantiate_dataset_schema',
-])
+const SCHEMA_READINESS_RPCS = new Set<string>()
 
 /**
  * DDL commits before PostgREST receives the transaction's schema-reload

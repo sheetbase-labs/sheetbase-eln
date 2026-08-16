@@ -588,12 +588,6 @@ const QUICK_ACTIONS: QuickAction[] = [
     hint: 'Govern Models and Dataset Schema versions',
   },
   {
-    label: 'Legacy schemas',
-    to: '/schemas',
-    icon: Database,
-    hint: 'Compatibility view of SCI-010 schemas',
-  },
-  {
     label: 'Datasets',
     to: '/datasets',
     icon: Database,

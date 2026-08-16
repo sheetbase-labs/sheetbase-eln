@@ -21,16 +21,12 @@ export interface AppSession {
 }
 
 /**
- * Auth-free access is deliberately opt-in. Ordinary development uses the
- * development flag; PR previews use their separately named demo flag. The
- * deployment validator rejects either flag in the wrong environment as a
- * second boundary against accidentally publishing an open environment.
+ * Auth-free access is deliberately opt-in for the disposable development
+ * surface. The deployment validator rejects this flag outside development
+ * as a second boundary against accidentally publishing an open environment.
  */
 export function isDevAuthFreeEnabled(): boolean {
-  return (
-    (env.SHEETBASE_ENV === 'development' && env.SHEETBASE_DEV_AUTH_FREE) ||
-    (env.SHEETBASE_ENV === 'preview' && env.SHEETBASE_PREVIEW_DEMO)
-  )
+  return env.SHEETBASE_ENV === 'development' && env.SHEETBASE_DEV_AUTH_FREE
 }
 
 export function getDevSession(): AppSession {

@@ -1,7 +1,7 @@
 # Local dev quick-start (orb)
 
 This is the cheat-sheet for getting the app running locally in an orb so you
-can iterate visually without waiting for PR preview deployments.
+can iterate visually without waiting for a hosted development deploy.
 
 ## Prerequisites
 
@@ -104,6 +104,6 @@ amp orb service start dev --command 'pnpm dev'
 
 - Do not use `nohup`, `setsid`, `&`, or tmux to keep servers alive — they are
   killed when the Amp CLI updates. Always use `amp orb service start`.
-- Do not wait for GitHub Actions PR preview deployments for normal visual
-  iteration — local dev + Playwright screenshots are much faster.
+- Do not wait for a hosted development deploy for normal visual iteration —
+  local dev + Playwright screenshots are much faster.
 - Do not commit `.env.local` — it contains dev secrets.

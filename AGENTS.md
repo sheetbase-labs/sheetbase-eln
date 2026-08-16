@@ -102,22 +102,21 @@ Set `SHEETBASE_APP_IMAGE` to a previous `@sha256` digest and run
 
 ## Environments and automated delivery
 
-The Hostinger VPS is the shared delivery target. It has three separate Docker
+The Hostinger VPS is the shared delivery target. It has two separate Docker
 surfaces; do not combine their Compose projects, databases, volumes, or
 environment files.
 
-| Surface     | Public URL                            | Purpose                                     | How it deploys                                                                  |
-| ----------- | ------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------- |
-| Production  | `https://app.sheetbase.co.uk`         | Real authenticated app                      | Automatically from `main` via `.github/workflows/deploy.yml`                    |
-| Development | `https://dev.sheetbase.co.uk`         | Disposable, auth-free demo environment      | Manual, deliberate dispatch of `.github/workflows/deploy-dev.yml`               |
-| PR preview  | `https://pr-<number>.sheetbase.co.uk` | Isolated review environment for one open PR | Automatically on PR open, update, or reopen via `.github/workflows/preview.yml` |
+| Surface     | Public URL                    | Purpose                                | How it deploys                                                    |
+| ----------- | ----------------------------- | -------------------------------------- | ----------------------------------------------------------------- |
+| Production  | `https://app.sheetbase.co.uk` | Real authenticated app                 | Automatically from `main` via `.github/workflows/deploy.yml`      |
+| Development | `https://dev.sheetbase.co.uk` | Disposable, auth-free demo environment | Manual, deliberate dispatch of `.github/workflows/deploy-dev.yml` |
 
 ### Development environment
 
 - The development app is a **non-production** demo surface. It uses
   `SHEETBASE_ENV=development` and `SHEETBASE_DEV_AUTH_FREE=true` to create an
   explicit auth-free fixture session. Never enable either setting in
-  production or a PR preview.
+  production.
 - Its VPS checkout is `/opt/sheetbase-dev`, its secret file is
   `/opt/sheetbase-dev/.env.development`, and it runs `compose.dev.yaml` on
   loopback port `3100`.
@@ -131,51 +130,23 @@ environment files.
   `DEV_VPS_SSH_PRIVATE_KEY`, `DEV_VPS_TAILSCALE_IP`, and
   `DEV_TAILSCALE_AUTH_KEY`.
 
-### Pull-request previews
-
-- Every same-repository PR automatically gets a fully isolated preview at
-  `https://pr-<number>.sheetbase.co.uk`. Each preview has its own Compose
-  project, PostgreSQL volume, object-storage volume, loopback port, and seeded
-  demo data.
-- The trusted workflow first builds PR code without deployment credentials,
-  then publishes immutable images and deploys from trusted `main` workflow
-  code. This is intentional: never move VPS, Cloudflare, GHCR, OAuth, or
-  production secrets into AMP, an Orb, or PR-controlled workflow code.
-- On successful deployment, the workflow creates or updates one marked PR
-  comment containing the preview URL and `Last updated` timestamp. It uses the
-  repository secret `PREVIEW_COMMENT_TOKEN`, a fine-grained token limited to
-  this repository with **Pull requests: read/write**. Do not replace it with a
-  broad personal token or expose its value.
-- When a PR closes, the workflow tears down that preview and updates the same
-  marked comment to say the preview was removed. It does not affect production
-  or development.
-- Cloudflare Tunnel routes `*.sheetbase.co.uk` to the VPS preview router on
-  `127.0.0.1:31000`. This wildcard route and the preview-router system service
-  are one-time infrastructure; agents should not edit them for ordinary PRs.
-- Preview Actions secrets belong to the `preview` GitHub environment:
-  `VPS_SSH_PRIVATE_KEY`, `VPS_TAILSCALE_IP`, and `TAILSCALE_AUTH_KEY`.
-  `PREVIEW_COMMENT_TOKEN` is a **repository** Actions secret because the
-  comment jobs do not declare that environment.
-
 ### Agent / AMP delivery workflow
 
 1. Work in a normal branch and open or update a PR. AMP only needs GitHub
    access; it must not receive VPS, Tailscale, Cloudflare, OAuth, or secret
    values.
-2. Wait for the `PR preview` workflow and use the URL in its marked PR comment
-   for review. If it fails, inspect the failed Action job and fix the actual
-   branch-related cause before retrying; do not guess at infrastructure changes.
-3. Merge an approved PR to `main`. The normal production deployment workflow
-   then performs the immutable-image VPS deploy automatically.
-4. Use the development workflow only when an intentional shared demo update is
-   wanted; it is not a substitute for PR previews and it is not automatic on
-   every branch push.
-5. Close unneeded PRs so their preview resources are cleaned up automatically.
+2. Review the PR locally or in an orb. Use the shared development environment
+   at `https://dev.sheetbase.co.uk` only when a deployed demo of a chosen ref
+   is wanted.
+3. Merge an approved PR to `main`. The production deployment workflow then
+   performs the immutable-image VPS deploy automatically.
+4. Use the development workflow only for an intentional shared demo update; it
+   is not automatic on every branch push.
 
-**Required rules:** keep image references digest-pinned; keep development,
-preview, and production data isolated; never put `.env` values in GitHub
-issues, PR comments, logs, code, or agent messages; and validate
-`/api/health/ready` after any deployment change.
+**Required rules:** keep image references digest-pinned; keep development and
+production data isolated; never put `.env` values in GitHub issues, PR
+comments, logs, code, or agent messages; and validate `/api/health/ready`
+after any deployment change.
 
 ## Orb / local development
 

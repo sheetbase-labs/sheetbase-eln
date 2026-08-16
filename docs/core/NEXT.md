@@ -8,10 +8,14 @@
 
 ## Active task
 
-**Core Hardening — H5 Template catalogue convergence**
+**Core Hardening complete.**
 
-Status: CORE-06 complete. Core Hardening in progress. Do not start AUTO-01.
-Do not start Product Consolidation until H1–H5 are complete.
+Next phase: Product Consolidation / Workflow Validation.
+
+AUTO-01 deferred.
+
+Status: CORE-06 complete. Core Hardening complete. Do not start AUTO-01.
+Do not start Product Consolidation in this programme.
 
 Review: [`CORE_01_06_IMPLEMENTATION_REVIEW.md`](./CORE_01_06_IMPLEMENTATION_REVIEW.md)
 
@@ -99,9 +103,8 @@ Canonical schema ADR: [`0038-canonical-dataset-schema-definitions.md`](../decisi
 
 ## Implement now
 
-Core Hardening H5 is active: converge new Notebook Template work onto the
-CORE-06 versioned catalogue. Then run the hardening exit gate. Do **not**
-start AUTO-01. Do **not** start Product Consolidation.
+Core Hardening is complete. Next phase is Product Consolidation / Workflow
+Validation. Do **not** start AUTO-01.
 
 CORE-06.14 exit evidence: `pnpm db:fresh --demo` applied migrations `0000`–
 `0101` and 29 idempotent demo seed steps (reseed also 29/29). `pnpm test:db`

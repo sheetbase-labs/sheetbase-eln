@@ -296,6 +296,11 @@ export function duplicateTemplate(
     title: string
   },
 ): Promise<DuplicateTemplateResult> {
+  if (params.template.kind === 'notebook_template') {
+    throw new Error(
+      'Legacy notebook template records cannot be duplicated. Use createNotebookTemplate.',
+    )
+  }
   const blocks = params.blocks
     .slice()
     .sort((a, b) => a.order - b.order)

@@ -252,17 +252,33 @@ describe('TPL-001 archiveTemplate / duplicateTemplate RPC wiring', () => {
     })
   })
 
+  it('refuses to duplicate a legacy notebook template record', async () => {
+    const rpc = vi.fn()
+    await expect(
+      duplicateTemplate({ rpc } as never, {
+        template: record({ status: 'validated' }),
+        blocks: sampleBlocks,
+        targetProjectId: 'p-1',
+        title: 'Copy',
+      }),
+    ).rejects.toThrow(/createNotebookTemplate/)
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
   it('calls create_record_with_blocks with ordered blocks and draft status', async () => {
     const rpc = vi.fn().mockResolvedValue({ record: record(), blocks: [] })
     await duplicateTemplate({ rpc } as never, {
-      template: record({ status: 'validated' }),
+      template: record({
+        kind: 'protocol_template',
+        identifier: 'PRT-2026-0001',
+      }),
       blocks: sampleBlocks,
       targetProjectId: 'p-1',
       title: 'Copy',
     })
     expect(rpc).toHaveBeenCalledWith('create_record_with_blocks', {
       p_project_id: 'p-1',
-      p_kind: 'notebook_template',
+      p_kind: 'protocol_template',
       p_title: 'Copy',
       p_status: 'draft',
       p_tags: ['stability'],

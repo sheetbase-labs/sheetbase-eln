@@ -745,10 +745,10 @@
       "breakpoints": true
     },
     {
-      "idx": 106,
+      "idx": 107,
       "version": "7",
-      "when": 1786824000000,
-      "tag": "0106_core_h4_close_legacy_writes",
+      "when": 1786825000000,
+      "tag": "0107_core_h5_notebook_template_catalogue",
       "breakpoints": true
     }
   ]

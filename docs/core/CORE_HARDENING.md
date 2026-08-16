@@ -13,7 +13,7 @@ Source review: [`CORE_01_06_IMPLEMENTATION_REVIEW.md`](./CORE_01_06_IMPLEMENTATI
 | H2     | Ad-hoc → composed lifecycle    | complete    |
 | H3     | Frozen composed evidence       | complete    |
 | H4     | Legacy write-path closure      | complete    |
-| H5     | Template catalogue convergence | pending     |
+| H5     | Template catalogue convergence | complete    |
 
 ## H1 Security + green baseline
 
@@ -97,4 +97,25 @@ Source review: [`CORE_01_06_IMPLEMENTATION_REVIEW.md`](./CORE_01_06_IMPLEMENTATI
 
 ## H5 Template catalogue convergence
 
-- **Status:** pending
+- **Status:** complete
+- **Implementation:** `create_record` / `create_record_with_blocks` reject
+  `kind = notebook_template` unless the login role is `migrator`.
+  `instantiate_template` likewise refuses legacy notebook template records for
+  application roles. Protocol templates are unchanged. The Template Library
+  already lists CORE-06 versioned Notebook Templates for new work and Protocol
+  templates separately. Product `duplicateTemplate` refuses legacy notebook
+  records. Historical `records.kind = notebook_template` rows remain readable
+  and migrator-creatable for fixtures.
+- **Migrations:** `0107_core_h5_notebook_template_catalogue`
+- **Tests:** `tests/db/core-h5-notebook-templates.test.ts`; SCI-006 suites
+  create legacy notebook records as migrator
+- **Limitations:** no automatic migration of historical template records into
+  `notebook_templates`; provenance `record_link` rows remain
+- **Completion evidence:** scientist/owner cannot create or instantiate legacy
+  notebook template records; CORE-06 `create_notebook_template` still works;
+  protocol templates still create
+
+## Programme status
+
+Core Hardening H1–H5 is complete. Next phase is Product Consolidation /
+Workflow Validation. AUTO-01 remains deferred.

@@ -7,7 +7,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { prepareTestDatabase } from './helpers'
+import { expectDenied, prepareTestDatabase } from './helpers'
 
 const WS_A = '00000000-0000-4000-8000-00000000310a'
 const WS_B = '00000000-0000-4000-8000-00000000310b'
@@ -41,7 +41,16 @@ async function createRecord(
   status = 'draft',
   properties: Record<string, unknown> = {},
 ): Promise<Record<string, any>> {
-  const { rows } = await client.query(
+  const runner = kind === 'notebook_template' ? migrator : client
+  if (kind === 'notebook_template') {
+    const jwt = await client.query(
+      `select current_setting('request.jwt.claims', true) as claims`,
+    )
+    await migrator.query(`select set_config('request.jwt.claims',$1,false)`, [
+      jwt.rows[0].claims,
+    ])
+  }
+  const { rows } = await runner.query(
     `SELECT * FROM api.create_record($1::uuid, $2, $3, $4, ARRAY[]::text[], $5::jsonb)`,
     [project, kind, title, status, JSON.stringify(properties)],
   )
@@ -70,7 +79,15 @@ async function instantiate(
   targetKind: string,
   title?: string,
 ): Promise<Record<string, any>> {
-  const { rows } = await client.query(
+  const jwt = await client.query(
+    `select current_setting('request.jwt.claims', true) as claims`,
+  )
+  if (jwt.rows[0].claims) {
+    await migrator.query(`select set_config('request.jwt.claims',$1,false)`, [
+      jwt.rows[0].claims,
+    ])
+  }
+  const { rows } = await migrator.query(
     `SELECT api.instantiate_template($1, $2, $3, $4) AS result`,
     [templateId, projectId, targetKind, title ?? null],
   )
@@ -104,6 +121,13 @@ afterAll(async () => {
 describe('SCI-006 template identity, lifecycle and instantiation', () => {
   it('creates notebook templates with NBK identifiers and protocol templates with PRT identifiers', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
+    await expectDenied(
+      owner.query(
+        `SELECT * FROM api.create_record($1::uuid, 'notebook_template', 'Blocked', 'draft', ARRAY[]::text[], '{}'::jsonb)`,
+        [PROJ_A],
+      ),
+      '42501',
+    )
     const notebook = await createRecord(owner, PROJ_A, 'notebook_template', 'Stability Study')
     const protocol = await createRecord(owner, PROJ_A, 'protocol_template', 'Titration Assay', 'draft', { version: '1.0' })
     expect(notebook.identifier).toMatch(/^NBK-\d{4}-0001$/)

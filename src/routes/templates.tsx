@@ -485,8 +485,10 @@ function TemplateLibraryRoute() {
             </h1>
           </div>
           <p className="text-sm text-muted-foreground">
-            Create Notebooks from published templates. Protocol templates live
-            below.
+            Create Notebooks from published CORE-06 templates. Protocol
+            templates remain a separate pin-into-Notebook catalogue. Historical
+            notebook template records stay readable but are not used for new
+            work.
           </p>
         </header>
 

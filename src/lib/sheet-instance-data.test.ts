@@ -44,6 +44,15 @@ describe('Sheet Instance data boundary', () => {
     ).toThrow()
   })
 
+  it('accepts Postgres timestamptz with six fractional digits', () => {
+    const parsed = sheetInstanceFromWire({
+      ...wire(),
+      created_at: '2026-08-16T10:02:23.661876+00:00',
+      updated_at: '2026-08-16T10:02:23.661876+00:00',
+    })
+    expect(parsed.createdAt).toBe('2026-08-16T10:02:23.661876+00:00')
+  })
+
   it('uses explicit ad-hoc and exact Definition Version RPC payloads', async () => {
     const rpc = vi.fn().mockImplementation(async (_name, payload) => ({
       ...wire(),

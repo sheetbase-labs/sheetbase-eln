@@ -4,10 +4,10 @@ import { createDataClient } from './data-client'
 import type { DataClient } from './data-client'
 import { parseNotebookTemplateConfiguration } from './notebook-template'
 import type { NotebookTemplateConfiguration } from './notebook-template'
-import { parameterUuidSchema } from './parameter'
+import { parameterUuidSchema, rfc3339TimestampSchema } from './parameter'
 
 const uuid = parameterUuidSchema
-const timestamp = z.string().datetime({ offset: true })
+const timestamp = rfc3339TimestampSchema
 const revision = z
   .union([z.number(), z.string().regex(/^\d+$/)])
   .transform(Number)
@@ -111,6 +111,30 @@ export async function fetchNotebookTemplates(
     '?order=name.asc,id.asc',
   )
   return rows.map(notebookTemplateFromWire)
+}
+
+export async function fetchNotebookTemplate(
+  templateId: string,
+  client: DataClient = notebookTemplateDataClient,
+) {
+  const rows = await client.list<unknown>(
+    'notebook_templates',
+    `?id=eq.${encodeURIComponent(templateId)}&limit=1`,
+  )
+  const row = rows[0]
+  return row === undefined ? null : notebookTemplateFromWire(row)
+}
+
+export async function fetchNotebookTemplateVersion(
+  versionId: string,
+  client: DataClient = notebookTemplateDataClient,
+) {
+  const rows = await client.list<unknown>(
+    'notebook_template_versions',
+    `?id=eq.${encodeURIComponent(versionId)}&limit=1`,
+  )
+  const row = rows[0]
+  return row === undefined ? null : notebookTemplateVersionFromWire(row)
 }
 
 export async function fetchNotebookTemplateVersions(

@@ -36,10 +36,13 @@ const GOLDEN_MODEL_KEY = 'sample'
 export function ComposedSheetWorkspace({
   instanceId,
   projectId,
+  readOnly = false,
 }: {
   instanceId: string
-  projectId: string
+  projectId: string | null
+  readOnly?: boolean
 }) {
+  const canWrite = Boolean(projectId) && !readOnly
   const queryClient = useQueryClient()
   const composition = useQuery({
     queryKey: ['composed-sheet', instanceId],
@@ -123,7 +126,8 @@ export function ComposedSheetWorkspace({
 
   const create = useMutation({
     mutationFn: async () => {
-      if (!composition.data || !selectedColumn || !selectedRowKey) return
+      if (!composition.data || !selectedColumn || !selectedRowKey || !projectId)
+        return
       const resolved = resolveSheetWriteTarget({
         composition: composition.data,
         rowKey: selectedRowKey,
@@ -166,57 +170,67 @@ export function ComposedSheetWorkspace({
 
   return (
     <div className="flex h-full flex-col">
-      <ComposedSheetRecordToolbar
-        actions={actions}
-        errors={errors}
-        onLink={() => setPickerOpen(true)}
-        onCreate={() => setCreateOpen(true)}
-        onValidate={async () => {
-          const rows = composedSheetRecordLinkBatchRows(snapshot, pendingValues)
-          if (rows.length === 0) {
-            setErrors([])
-            setErrorCursor(null)
-            return
-          }
-          const result = await validateSheetRecordBatch(
-            { projectId, modelKey: GOLDEN_MODEL_KEY, rows },
-            client,
-          )
-          const next = sheetRecordGridErrorsFromValidation(
-            result as {
-              rows?: Array<{
-                rowKey: string
-                errors?: Array<{
-                  code?: string
-                  fieldName?: string
-                  message?: string
+      {canWrite ? (
+        <ComposedSheetRecordToolbar
+          actions={actions}
+          errors={errors}
+          onLink={() => setPickerOpen(true)}
+          onCreate={() => setCreateOpen(true)}
+          onValidate={async () => {
+            if (!projectId) return
+            const rows = composedSheetRecordLinkBatchRows(
+              snapshot,
+              pendingValues,
+            )
+            if (rows.length === 0) {
+              setErrors([])
+              setErrorCursor(null)
+              return
+            }
+            const result = await validateSheetRecordBatch(
+              { projectId, modelKey: GOLDEN_MODEL_KEY, rows },
+              client,
+            )
+            const next = sheetRecordGridErrorsFromValidation(
+              result as {
+                rows?: Array<{
+                  rowKey: string
+                  errors?: Array<{
+                    code?: string
+                    fieldName?: string
+                    message?: string
+                  }>
                 }>
-              }>
-            },
-          )
-          setErrors(next)
-          setErrorCursor(next[0] ?? null)
-        }}
-        onCommit={async () => {
-          const rows = composedSheetRecordLinkBatchRows(snapshot, pendingValues)
-          if (rows.length === 0) return
-          await commitSheetRecordBatch(
-            {
-              projectId,
-              modelKey: GOLDEN_MODEL_KEY,
-              rows,
-              idempotencyKey: crypto.randomUUID(),
-            },
-            client,
-          )
-          await queryClient.invalidateQueries({
-            queryKey: ['composed-sheet', instanceId],
-          })
-        }}
-        onNextError={() =>
-          setErrorCursor(nextSheetRecordGridError(errors, errorCursor))
-        }
-      />
+              },
+            )
+            setErrors(next)
+            setErrorCursor(next[0] ?? null)
+          }}
+          onCommit={async () => {
+            if (!projectId) return
+            const rows = composedSheetRecordLinkBatchRows(
+              snapshot,
+              pendingValues,
+            )
+            if (rows.length === 0) return
+            await commitSheetRecordBatch(
+              {
+                projectId,
+                modelKey: GOLDEN_MODEL_KEY,
+                rows,
+                idempotencyKey: crypto.randomUUID(),
+              },
+              client,
+            )
+            await queryClient.invalidateQueries({
+              queryKey: ['composed-sheet', instanceId],
+            })
+          }}
+          onNextError={() =>
+            setErrorCursor(nextSheetRecordGridError(errors, errorCursor))
+          }
+        />
+      ) : null}
       <div className="min-h-0 flex-1">
         <SheetbaseGrid
           ariaLabel="Composed Sheet"
@@ -224,7 +238,7 @@ export function ComposedSheetWorkspace({
             data: matrix.data,
             colHeaders: matrix.columns.map((column) => column.label),
             columns: matrix.columns.map((column) => ({
-              readOnly: !column.editable,
+              readOnly: !canWrite || !column.editable,
             })),
             rowHeaders: true,
             stretchH: 'all',
@@ -238,7 +252,7 @@ export function ComposedSheetWorkspace({
               > | null,
               source: string,
             ) => {
-              if (!changes || source === 'loadData') return
+              if (!changes || source === 'loadData' || !canWrite) return
               setPendingValues((current) => {
                 const next = { ...current }
                 for (const change of changes) {
@@ -258,13 +272,13 @@ export function ComposedSheetWorkspace({
           {errorCursor.rowKey}: {errorCursor.message}
         </p>
       ) : null}
-      {pickerOpen ? (
+      {canWrite && pickerOpen ? (
         <div className="border-t">
           <SheetRecordPicker
             modelKey={GOLDEN_MODEL_KEY}
             results={sheetRecordSearchHitsAsNotebookRecords(
               search.data ?? [],
-              projectId,
+              projectId ?? '',
             )}
             loading={search.isLoading}
             onSearch={setQuery}
@@ -275,7 +289,7 @@ export function ComposedSheetWorkspace({
           />
         </div>
       ) : null}
-      {createOpen ? (
+      {canWrite && createOpen ? (
         <form
           className="space-y-2 border-t px-3 py-2"
           onSubmit={(event) => {

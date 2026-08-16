@@ -494,8 +494,8 @@ function TemplateLibraryRoute() {
             </h1>
           </div>
           <p className="text-sm text-muted-foreground">
-            Browse validated notebook and protocol templates. Use a template to
-            create a new record with pre-filled content.
+            Create Notebooks from published notebook templates. Legacy record
+            templates remain listed below for older work.
           </p>
         </header>
 
@@ -505,37 +505,46 @@ function TemplateLibraryRoute() {
           projects={projects}
         />
 
-        <TemplateFilters
-          kindFilter={kindFilter}
-          onKindChange={setKindFilter}
-          statusFilter={statusFilter}
-          onStatusChange={setStatusFilter}
-          search={search}
-          onSearchChange={setSearch}
-          count={templates.length}
-          favouritesOnly={favouritesOnly}
-          onFavouritesOnlyChange={setFavouritesOnly}
-          ownership={ownership}
-          onOwnershipChange={setOwnership}
-          view={view}
-          onViewChange={setView}
-        />
+        <section className="space-y-4">
+          <div className="space-y-1">
+            <h2 className="text-sm font-semibold">Legacy record templates</h2>
+            <p className="text-xs text-muted-foreground">
+              Older notebook and protocol templates stored as records. Prefer
+              notebook templates above for new work.
+            </p>
+          </div>
+          <TemplateFilters
+            kindFilter={kindFilter}
+            onKindChange={setKindFilter}
+            statusFilter={statusFilter}
+            onStatusChange={setStatusFilter}
+            search={search}
+            onSearchChange={setSearch}
+            count={templates.length}
+            favouritesOnly={favouritesOnly}
+            onFavouritesOnlyChange={setFavouritesOnly}
+            ownership={ownership}
+            onOwnershipChange={setOwnership}
+            view={view}
+            onViewChange={setView}
+          />
 
-        <TemplateList
-          templates={templates}
-          isLoading={templatesQuery.isLoading}
-          error={templatesQuery.error}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-          onRetry={() => templatesQuery.refetch()}
-          blockCounts={blockCounts}
-          usageCounts={usageCounts}
-          view={view}
-          favourites={favourites}
-          onToggleFavourite={toggleFavourite}
-          currentUserId={currentUserId}
-          blockPreviews={blockPreviews}
-        />
+          <TemplateList
+            templates={templates}
+            isLoading={templatesQuery.isLoading}
+            error={templatesQuery.error}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            onRetry={() => templatesQuery.refetch()}
+            blockCounts={blockCounts}
+            usageCounts={usageCounts}
+            view={view}
+            favourites={favourites}
+            onToggleFavourite={toggleFavourite}
+            currentUserId={currentUserId}
+            blockPreviews={blockPreviews}
+          />
+        </section>
       </div>
     </>
   )

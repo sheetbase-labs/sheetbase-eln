@@ -133,6 +133,30 @@ export async function fetchSheetDefinitionVersions(
   return rows.map(sheetDefinitionVersionFromWire)
 }
 
+export async function fetchSheetDefinition(
+  definitionId: string,
+  client: DataClient = sheetDefinitionDataClient,
+): Promise<SheetDefinition | null> {
+  const rows = await client.list<SheetDefinitionWire>(
+    'sheet_definitions',
+    `?id=eq.${encodeURIComponent(definitionId)}&limit=1`,
+  )
+  if (rows.length === 0) return null
+  return sheetDefinitionFromWire(rows[0])
+}
+
+export async function fetchSheetDefinitionVersion(
+  versionId: string,
+  client: DataClient = sheetDefinitionDataClient,
+): Promise<SheetDefinitionVersion | null> {
+  const rows = await client.list<SheetDefinitionVersionWire>(
+    'sheet_definition_versions',
+    `?id=eq.${encodeURIComponent(versionId)}&limit=1`,
+  )
+  if (rows.length === 0) return null
+  return sheetDefinitionVersionFromWire(rows[0])
+}
+
 export async function createSheetDefinition(
   input: {
     workspaceId: string

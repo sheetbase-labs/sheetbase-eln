@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { rfc3339TimestampSchema } from './parameter'
 import {
   sheetDefinitionUuidSchema as uuid,
   sheetFieldDefinitionSchema,
@@ -100,7 +101,7 @@ const parameterValue = z
 const resolutionProvenance = z
   .object({
     sourceDefinitionVersionId: uuid,
-    resolvedAt: z.string().datetime({ offset: true }),
+    resolvedAt: rfc3339TimestampSchema,
     resolvedByUserId: z.string().min(1).max(1_000),
     parameters: z
       .array(

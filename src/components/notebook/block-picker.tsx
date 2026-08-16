@@ -64,14 +64,15 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
   {
     type: 'sheet',
     label: 'Sheet',
-    description: 'A compositional Sheet Instance for Dataset and local work.',
+    description: 'Start a new Sheet on this Notebook.',
     icon: Sheet,
   },
   {
     type: 'sheet_shared',
-    label: 'Shared Sheet',
-    description: 'Embed an existing live Sheet Instance. Edits are shared.',
-    icon: Sheet,
+    label: 'Link existing Sheet',
+    description:
+      'Show a Sheet that already exists. Edits stay shared with every Notebook that uses it.',
+    icon: Link2,
   },
   {
     type: 'protocol_reference',

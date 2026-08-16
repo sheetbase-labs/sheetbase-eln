@@ -31,7 +31,7 @@ describe('BlockPicker', () => {
       'Checklist',
       'Linked record',
       'Sheet',
-      'Shared Sheet',
+      'Link existing Sheet',
       'Protocol',
       'Materials',
       'File',

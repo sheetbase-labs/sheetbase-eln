@@ -11,10 +11,11 @@ import type {
   SheetDefinitionUpgradeDecision,
   SheetDefinitionUpgradePreview,
 } from './sheet-definition-upgrade'
+import { rfc3339TimestampSchema } from './parameter'
 import { sheetInstanceStateSchema } from './sheet-instance'
 import type { SheetInstanceState } from './sheet-instance'
 
-const timestamp = z.string().datetime({ offset: true })
+const timestamp = rfc3339TimestampSchema
 const nullableUuid = uuid.nullable()
 const revision = z
   .union([z.number(), z.string().regex(/^\d+$/)])

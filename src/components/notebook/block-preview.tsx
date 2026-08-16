@@ -37,6 +37,7 @@ import {
   formatMetricValue,
 } from '#/lib/format-numbers'
 import { Badge } from '#/components/ui'
+import { sheetInstanceEmbedErrorMessage } from './notebook-sheet-block'
 import {
   materialiseFrozenChart,
   materialiseLiveChart,
@@ -562,19 +563,22 @@ function CanonicalSheetBlockPreview({ instanceId }: { instanceId: string }) {
   if (instanceQuery.isLoading) {
     return (
       <div className="rounded-lg border p-3 text-sm text-muted-foreground">
-        Loading Sheet Instance…
+        Loading Sheet…
       </div>
     )
   }
   if (instanceQuery.error || !instanceQuery.data) {
     return (
-      <div className="rounded-lg border border-dashed border-warning/30 bg-warning/10 p-3 text-xs">
-        <p className="font-medium text-foreground">
-          Sheet Instance unavailable
-        </p>
+      <div
+        className="rounded-lg border border-dashed border-destructive/30 bg-destructive/5 p-3 text-xs"
+        role="alert"
+      >
+        <p className="font-medium text-foreground">Sheet unavailable</p>
         <p className="mt-1 text-muted-foreground">
-          The Sheet could not be loaded. It may have been archived from this
-          workspace or you may not have access.
+          {sheetInstanceEmbedErrorMessage(
+            instanceQuery.error,
+            !instanceQuery.data,
+          )}
         </p>
       </div>
     )
@@ -582,13 +586,12 @@ function CanonicalSheetBlockPreview({ instanceId }: { instanceId: string }) {
   const instance = instanceQuery.data
   return (
     <div className="rounded-lg border p-3">
-      <p className="text-xs font-medium text-muted-foreground">
-        {instance.name}
-        {instance.lifecycle === 'archived' ? ' · archived' : ''}
-      </p>
-      <p className="mt-1 text-sm text-foreground">
-        Compositional Sheet Instance. Open the Notebook block to edit rows,
-        bindings and local values.
+      <p className="text-xs font-medium text-foreground">{instance.name}</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        {instance.sourceDefinitionVersionId
+          ? 'Sheet from a Definition. Open the block to edit.'
+          : 'Ad hoc Sheet. Open the block to edit.'}
+        {instance.lifecycle === 'archived' ? ' This Sheet is archived.' : ''}
       </p>
     </div>
   )

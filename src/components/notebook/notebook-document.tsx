@@ -782,6 +782,13 @@ function NotebookDocumentContent({
                     record={record}
                     readOnly={isReadOnly}
                     frozenEvidence={frozenSheetEvidence?.get(block.id)}
+                    onConvertLegacy={
+                      !isReadOnly &&
+                      isLegacySheetBlock(block.payload) &&
+                      onConvertLegacySheetBlock
+                        ? () => void handleConvertLegacySheet(block)
+                        : undefined
+                    }
                   />
                 ) : editable && isSelected ? (
                   <BlockEditor

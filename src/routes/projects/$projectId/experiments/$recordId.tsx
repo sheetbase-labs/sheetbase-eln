@@ -55,6 +55,8 @@ import {
   fetchProject,
   fetchRecord,
   fetchRevision,
+  formatDate,
+  formatNotebookDateTime,
   formatRelativeTime,
   notebookDataClient,
   notebookQueryKeys,
@@ -77,6 +79,11 @@ import {
   moveBlock,
   updateBlockPayload,
 } from '#/lib/notebook-mutations'
+import {
+  fetchNotebookTemplate,
+  fetchNotebookTemplateVersion,
+  notebookTemplateDataClient,
+} from '#/lib/notebook-template-data'
 import {
   fetchSheetInstances,
   sheetInstanceDataClient,
@@ -374,14 +381,14 @@ export function StickyRecordHeader({
         <span>
           Created{' '}
           <span className="text-foreground">
-            {new Date(record.createdAt).toLocaleDateString()}
+            {formatDate(record.createdAt)}
           </span>
         </span>
         <span className="text-muted-foreground/50">·</span>
         <span>
           Updated{' '}
           <span className="text-foreground">
-            {new Date(record.updatedAt).toLocaleDateString()}
+            {formatDate(record.updatedAt)}
           </span>
         </span>
         {projectName ? (
@@ -429,13 +436,12 @@ export function LockedBanner({
         aria-hidden="true"
       />
       <span className="text-foreground">
-        This record is locked by an approved signature. Scientific evidence is
-        frozen — start an amendment to edit again.
-        {record.lockedByRevisionId ? (
-          <span className="ml-1 font-mono text-muted-foreground">
-            (revision {record.lockedByRevisionId.slice(0, 8)})
-          </span>
-        ) : null}
+        This record is locked
+        {record.lockedAt
+          ? ` since ${formatNotebookDateTime(record.lockedAt)}`
+          : ''}
+        . Scientific evidence is frozen for this record — start an amendment to
+        edit again.
       </span>
     </div>
   )
@@ -1017,25 +1023,26 @@ function EditableNotebook({
       <Dialog open={embedOpen} onOpenChange={setEmbedOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Embed an existing Sheet Instance</DialogTitle>
+            <DialogTitle>Link an existing Sheet</DialogTitle>
             <DialogDescription>
               This Notebook will show the same live Sheet. Editing it here
-              changes every other placement of that Instance.
+              changes it everywhere it is used.
             </DialogDescription>
           </DialogHeader>
           <label className="grid gap-1 text-sm">
-            <span>Sheet Instance</span>
+            <span>Sheet</span>
             <select
               className="rounded-md border bg-background px-2 py-1.5"
               value={embedInstanceId}
               onChange={(event) => setEmbedInstanceId(event.target.value)}
             >
-              <option value="">Select an Instance</option>
+              <option value="">Select a Sheet</option>
               {(embedCandidates.data ?? [])
                 .filter((instance) => instance.lifecycle === 'active')
                 .map((instance) => (
                   <option key={instance.id} value={instance.id}>
                     {instance.name}
+                    {instance.sourceDefinitionVersionId ? '' : ' · Ad hoc'}
                   </option>
                 ))}
             </select>
@@ -1057,7 +1064,7 @@ function EditableNotebook({
                 }).then(() => setEmbedOpen(false))
               }}
             >
-              Embed shared Sheet
+              Link Sheet
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1365,6 +1372,39 @@ function linkCountsByKind(
   }))
 }
 
+function NotebookTemplateVersionLabel({ versionId }: { versionId: string }) {
+  const version = useQuery({
+    queryKey: ['notebook-template-version', versionId],
+    queryFn: () =>
+      fetchNotebookTemplateVersion(versionId, notebookTemplateDataClient),
+  })
+  const template = useQuery({
+    queryKey: ['notebook-template', version.data?.templateId],
+    enabled: Boolean(version.data?.templateId),
+    queryFn: () =>
+      fetchNotebookTemplate(
+        version.data!.templateId,
+        notebookTemplateDataClient,
+      ),
+  })
+  if (version.isLoading || template.isLoading) {
+    return (
+      <span className="text-xs text-muted-foreground" role="status">
+        Loading template…
+      </span>
+    )
+  }
+  if (!version.data) {
+    return <span className="text-xs">Notebook template</span>
+  }
+  const name = template.data?.name ?? 'Notebook template'
+  return (
+    <span className="text-right text-xs">
+      {name} · version {version.data.version}
+    </span>
+  )
+}
+
 export function NotebookInspector({
   record,
   projectName,
@@ -1398,15 +1438,7 @@ export function NotebookInspector({
     currentUserId,
   )
   const linkCounts = linkCountsByKind(links)
-  const fmtDateTime = (iso: string) =>
-    new Date(iso).toLocaleString('en-CA', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    })
+  const fmtDateTime = (iso: string) => formatNotebookDateTime(iso)
 
   return (
     <Inspector
@@ -1464,10 +1496,26 @@ export function NotebookInspector({
                 <span className="shrink-0 text-xs text-muted-foreground">
                   Review status
                 </span>
-                <Badge variant="outline" className="text-xs">
-                  Not submitted
-                </Badge>
+                {record.lockedAt ? (
+                  <Badge variant="success" className="text-xs">
+                    Locked — evidence frozen
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-xs">
+                    Not submitted
+                  </Badge>
+                )}
               </div>
+              {record.sourceNotebookTemplateVersionId ? (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    Template
+                  </span>
+                  <NotebookTemplateVersionLabel
+                    versionId={record.sourceNotebookTemplateVersionId}
+                  />
+                </div>
+              ) : null}
 
               {/* Tags — coloured pills, always visible */}
               <InspectorSection title="Tags">

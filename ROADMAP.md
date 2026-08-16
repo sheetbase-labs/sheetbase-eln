@@ -2,7 +2,8 @@
 
 > **Core Data Workspace:** CORE-01–06 and Core Hardening are complete.  
 > **Next:** Product Consolidation / Workflow Validation. AUTO-01 is deferred.  
-> **Canonical:** `docs/core/` and accepted ADRs 0020–0026.
+> **Post-Core master roadmap:** [`docs/POST_CORE_ROADMAP.md`](./docs/POST_CORE_ROADMAP.md) covers product, APIs/SDKs, interoperability, governance, collaboration, scientific analysis, integrations, platform operations and later automation.  
+> **Canonical Core:** `docs/core/` and accepted ADRs 0020–0026.
 
 ## Destination
 

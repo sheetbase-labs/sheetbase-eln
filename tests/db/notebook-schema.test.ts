@@ -403,6 +403,21 @@ describe('Virus Stability demo fixtures', () => {
     // linked_record block. Total 16.
     expect(Number(rows[0]?.n)).toBe(16)
 
+    const { rows: sheet } = await migrator.query<{
+      fields: string
+      rows: string
+    }>(
+      `SELECT jsonb_array_length(i.state->'localFields')::text AS fields,
+              (SELECT count(*)::text FROM jsonb_object_keys(i.state->'localValues')) AS rows
+         FROM api.sheet_instances i
+         JOIN api.blocks b ON b.payload->>'instanceId' = i.id::text
+        WHERE b.record_id = '${DEMO_VIRUS_STABILITY_RECORD_ID}'
+          AND b.type = 'sheet'
+          AND i.lifecycle = 'active'`,
+    )
+    expect(Number(sheet[0]?.fields)).toBe(6)
+    expect(Number(sheet[0]?.rows)).toBe(32)
+
     const { rows: links } = await migrator.query<{ n: string }>(
       `SELECT count(*)::text AS n FROM api.record_links
        WHERE source_record_id = '${DEMO_VIRUS_STABILITY_RECORD_ID}'`,

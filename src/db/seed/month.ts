@@ -8,6 +8,11 @@ import type { QueryResultRow } from 'pg'
 import * as schema from '../schema'
 import { eq, sql } from 'drizzle-orm'
 import type { SeedStep } from './run'
+import {
+  monthShowcaseSheetFields,
+  monthShowcaseSheetRows,
+  seedNotebookSheetGrid,
+} from './sheet-instance-demo'
 
 const WORKSPACE = '798f250c-99bb-4460-9a2a-e9ec98fbecab'
 // Resolved at seed time to the actual workspace owner (the logged-in user).
@@ -1579,18 +1584,10 @@ async function upsertShowcaseNotebook(db: Parameters<SeedStep['run']>[0]) {
         .onConflictDoNothing({ target: schema.blocks.id })
     }
 
-    const existingSheet = await auth.client.query(
-      `SELECT 1 FROM api.blocks WHERE record_id=$1 AND type='sheet' AND payload ? 'instanceId'`,
-      [SHOWCASE_RECORD],
-    )
-    if (!existingSheet.rowCount) {
-      await auth.rpc('insert_sheet_instance_block', [
-        SHOWCASE_RECORD,
-        null,
-        null,
-        null,
-      ])
-    }
+    await seedNotebookSheetGrid(auth.client, SHOWCASE_RECORD, {
+      fields: monthShowcaseSheetFields(),
+      rows: monthShowcaseSheetRows(),
+    })
   } finally {
     await auth.close()
   }

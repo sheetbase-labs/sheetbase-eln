@@ -52,7 +52,7 @@ export const DEMO_BLOCK_IDS = {
   protocolStep2: '00000000-0000-4000-8000-00000000011e',
   copiedStep1: '00000000-0000-4000-8000-00000000011f',
   copiedStep2: '00000000-0000-4000-8000-000000000120',
-  // SCI-004 chart fixtures: a Sheet Instance block plus live/frozen charts.
+  // CORE-03 Sheet Instance block plus leftover chart placeholder ids.
   // 0x170–0x17f.
   stabilitySheet: '00000000-0000-4000-8000-000000000170',
   stabilityChartFrozen: '00000000-0000-4000-8000-000000000171',

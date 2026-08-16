@@ -12,7 +12,10 @@ using the stable identities in `src/db/seed/identities.ts`.
 
 **Demonstration data** (`pnpm db:seed:demo`) — the richer Virus Stability
 example used to explore and demo the product. Lives in `demoSteps`, separate
-from fixtures, and only applied when explicitly requested.
+from fixtures, and only applied when explicitly requested. The demo Sheet is
+a CORE-03 ad-hoc Sheet Instance with six local fields and 32 stability rows,
+created through `insert_sheet_instance_block` and
+`mutate_sheet_instance_local_state`. It is not a scientific table.
 
 Rules:
 

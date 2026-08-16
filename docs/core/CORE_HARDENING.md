@@ -77,8 +77,8 @@ Source review: [`CORE_01_06_IMPLEMENTATION_REVIEW.md`](./CORE_01_06_IMPLEMENTATI
   upgrade RPCs. Migrator retains EXECUTE for fixtures and conversion.
   Product helpers throw instead of calling those RPCs. `/schemas` is a
   compatibility catalogue (no create/publish). External API allowlist keeps
-  `bind_legacy_sheet` only. Demo/month seed uses the migrator login for
-  remaining scientific-table fixtures.
+  `bind_legacy_sheet` only. Demo and month seeds create CORE-03 Sheet
+  Instances with local grids; they do not write scientific tables.
 - **Migrations:** `0106_core_h4_close_legacy_writes`,
   `0108_core_h4_legacy_write_guard`
 - **Tests:** `tests/db/core-h4-legacy-writes.test.ts`; existing scientific-
@@ -122,7 +122,11 @@ legacy notebook-template record compatibility surface.
 - Scientific-table and SCI-010 RPCs raise or have EXECUTE revoked for every
   role, including migrator
 - External API no longer allowlists scientific-table resources
-- Demo seed uses Sheet Instances, not scientific tables
+- Demo seed uses Sheet Instances, not scientific tables. Virus Stability
+  seeds a six-column, 32-row ad-hoc local grid (Control / sucrose /
+  trehalose / poloxamer × eight timepoints). Month showcase seeds an
+  eight-row transduction grid. Chart blocks stay empty placeholders
+  because chart specs still require a scientific-table `tableId`.
 
 Physical `scientific_tables` / generated `sheet_*` relations are not dropped
 in this migration (FK/formula cluster). They have no product write or

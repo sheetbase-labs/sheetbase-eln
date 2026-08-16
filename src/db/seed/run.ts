@@ -21,6 +21,11 @@ import * as schema from '../schema'
 import { resolveDevUserIdentity } from '#/lib/dev-identity'
 import { monthSteps } from './month'
 import {
+  seedNotebookSheetGrid,
+  virusStabilitySheetFields,
+  virusStabilitySheetRows,
+} from './sheet-instance-demo'
+import {
   DEMO_BLOCK_IDS,
   DEMO_ARCHIVED_SAMPLE_IDENTIFIER,
   DEMO_ARCHIVED_SAMPLE_RECORD_ID,
@@ -1829,8 +1834,8 @@ export const demoSteps: Array<SeedStep> = [
         {
           id: DEMO_BLOCK_IDS.resultsChart,
           type: 'chart',
-          // Draft placeholder; the SCI-004 scientific-table step populates
-          // this with a valid chart specification once its dataset exists.
+          // Placeholder. Chart specs still require a scientific-table
+          // `tableId`; CORE-03 Instances are the demo Sheet path instead.
           payload: {},
           order: 6,
         },
@@ -2245,16 +2250,10 @@ export const demoSteps: Array<SeedStep> = [
             role: 'authenticated',
           }),
         ])
-        const existing = await client.query(
-          `SELECT 1 FROM api.blocks WHERE record_id=$1 AND type='sheet' AND payload ? 'instanceId'`,
-          [DEMO_VIRUS_STABILITY_RECORD_ID],
-        )
-        if (!existing.rowCount) {
-          await client.query(
-            `SELECT api.insert_sheet_instance_block($1,NULL,NULL,NULL)`,
-            [DEMO_VIRUS_STABILITY_RECORD_ID],
-          )
-        }
+        await seedNotebookSheetGrid(client, DEMO_VIRUS_STABILITY_RECORD_ID, {
+          fields: virusStabilitySheetFields(),
+          rows: virusStabilitySheetRows(),
+        })
         await client.query('RESET ROLE')
       } finally {
         await client.end()

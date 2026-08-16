@@ -160,7 +160,10 @@ export async function duplicateBlock(
       'Sheet blocks cannot be duplicated without copying their table.',
     )
   }
-  if (args.block.type === 'sheet' && isCanonicalSheetBlock(args.block.payload)) {
+  if (
+    args.block.type === 'sheet' &&
+    isCanonicalSheetBlock(args.block.payload)
+  ) {
     const res = await client.rpc<{
       block: BlockWire
       instance: { id: string }

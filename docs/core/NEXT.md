@@ -8,11 +8,11 @@
 
 ## Active task
 
-**CORE-06.7–06.14 — Frozen evidence and Core exit**
+**CORE-06 — Notebook Templates, Sharing and Frozen Evidence**
 
-Status: CORE-06.7–06.13 implemented. CORE-06.14 validate gate follows.
+Status: CORE-06 complete. Do not start AUTO-01.
 
-Task: [`tasks/CORE-06.md`](./tasks/CORE-06.md#core-067--define-and-implement-structured-evidence-snapshot-contract)
+Task: [`tasks/CORE-06.md`](./tasks/CORE-06.md)
 
 Audit: [`audits/NOTEBOOK_EVIDENCE_AUDIT.md`](./audits/NOTEBOOK_EVIDENCE_AUDIT.md)
 
@@ -85,6 +85,8 @@ Canonical schema ADR: [`0038-canonical-dataset-schema-definitions.md`](../decisi
 - CORE-06.7 / 06.8 / 06.9 / 06.12 / 06.13 — frozen Sheet evidence in the
   REV-002 envelope (`0101`), historical render, file checksums unchanged,
   Purification Summary golden proof
+- CORE-06.14 — Core exit gate (`db:fresh --demo`, `test:db`); AUTO-01 is not
+  started
 
 ## Required reading
 
@@ -96,9 +98,12 @@ Canonical schema ADR: [`0038-canonical-dataset-schema-definitions.md`](../decisi
 
 ## Implement now
 
-CORE-06.7–06.13 are implemented: submit freezes reconstructable Sheet
-Instance state inside the existing REV-002 transaction. Do not start AUTO-01
-until CORE-06.14 `pnpm validate` passes.
+CORE-06 is complete. Submit freezes reconstructable Sheet Instance state
+inside the existing REV-002 transaction. Do **not** start AUTO-01.
+
+CORE-06.14 exit evidence: `pnpm db:fresh --demo` applied migrations `0000`–
+`0101` and 29 idempotent demo seed steps (reseed also 29/29). `pnpm test:db`
+70 files / 707 tests.
 
 CORE-05.11 exit evidence: `pnpm db:fresh --demo` applied migrations `0000`–
 `0096` and 29 idempotent demo seed steps (reseed also 29/29). `pnpm test:db`
@@ -122,6 +127,7 @@ The CORE-02.6 100k+80k Dataset benchmark was not rerun.
 - do not broaden presentation persistence into a general View subsystem;
 - do not make presentation state semantic identity;
 - do not implement full Pipeline semantics;
+- do not start AUTO-01;
 - do not alter the completed CORE-03.8–03.10 persistence contracts;
 - do not silently coerce incompatible bindings or weaken exact version,
   lineage, quantity, vocabulary or stable semantic identity checks;

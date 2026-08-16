@@ -504,13 +504,7 @@ export function NotebookCanvas({
     // anchors match the editable state. SIGN-002: a locked record's
     // scientific evidence is frozen until an amendment unlocks it.
     if ((record.archivedAt || record.lockedAt) && client && queryClient) {
-      return (
-        <LockedNotebook
-          record={record}
-          blocks={blocks}
-          client={client}
-        />
-      )
+      return <LockedNotebook record={record} blocks={blocks} client={client} />
     }
     return (
       <NotebookDocument
@@ -1047,7 +1041,11 @@ function EditableNotebook({
             </select>
           </label>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setEmbedOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setEmbedOpen(false)}
+            >
               Cancel
             </Button>
             <Button

@@ -1,6 +1,6 @@
 # CORE-06 — Notebook Templates, Sharing and Frozen Evidence
 
-**Status:** CORE-06.7–06.14 in progress after CORE-06.5/06.6/06.10.  
+**Status:** Complete.  
 **Blocked by:** CORE-05 complete.  
 **Normative decisions:** ADRs 0020–0024 and existing Notebook revision/signature architecture.
 
@@ -277,6 +277,13 @@ from `sheetEvidence`.
 **Goal:** Verify the Core Data Workspace broadening gate and prepare Pipeline work without prematurely implementing it.
 
 **Deliverables:** run golden programme workflow; confirm common fields, Dataset versions, compositional Sheets, Record creation, schema capabilities, Templates and frozen evidence; update Core completion evidence; reconcile AUTO-01 skeleton with implemented contracts; update `NEXT.md` to AUTO-01.1 only if Core exit gate passes.
+
+**Status:** Exit gate passed. `pnpm db:fresh --demo` applied migrations
+`0000`–`0101` and 29 idempotent demo seed steps (reseed also 29/29).
+`pnpm test:db` 70 files / 707 tests. AUTO-01 is **not** started; `NEXT.md`
+stays on completed CORE-06.
+
+---
 
 ## Epic exit gate
 

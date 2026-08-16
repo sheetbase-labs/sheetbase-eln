@@ -101,13 +101,13 @@ DEPRECATE map below is implementation-ready.
 
 ## Pre-flight
 
-| Check | Result |
-| ----- | ------ |
-| Branch base | `gwp/core-06-notebook-evidence-d947` from `origin/agent/core-programme` `1ef4b30` |
-| CORE-05 integrated | Yes. Tip commit is PR #34. |
-| `NEXT.md` active task | CORE-06.1 |
-| CORE-05.11 exit | Documented: `pnpm db:fresh --demo` migrations `0000`–`0096`, 29 seed steps; `pnpm test:db` 65/692; `pnpm validate` 172/1,905. Review corrections added migration `0097`. |
-| Production changes | None in this task |
+| Check                 | Result                                                                                                                                                                   |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Branch base           | `gwp/core-06-notebook-evidence-d947` from `origin/agent/core-programme` `1ef4b30`                                                                                        |
+| CORE-05 integrated    | Yes. Tip commit is PR #34.                                                                                                                                               |
+| `NEXT.md` active task | CORE-06.1                                                                                                                                                                |
+| CORE-05.11 exit       | Documented: `pnpm db:fresh --demo` migrations `0000`–`0096`, 29 seed steps; `pnpm test:db` 65/692; `pnpm validate` 172/1,905. Review corrections added migration `0097`. |
+| Production changes    | None in this task                                                                                                                                                        |
 
 ---
 
@@ -115,41 +115,41 @@ DEPRECATE map below is implementation-ready.
 
 ### 1.1 Notebook (working scientific document)
 
-| Concern | Authority | Contract |
-| ------- | --------- | -------- |
-| Notebook identity | `api.records` | UUID PK; kind `experiment` (also `report`, `study`, …). Stable public id `EXP-YYYY-NNNN` (project-scoped). ADR 0015: the notebook **is** the ordered blocks. |
-| Project/folder | `records.project_id`, `folder_id` | Project is required for experiments; Templates use `project_id IS NULL`. |
-| Workspace ownership | `records.workspace_id` | Workspace is the tenancy/lifecycle owner (ADR 0023). Users are actors, not owners. |
-| Structure concurrency | `records.structure_version` | Bumped on insert/move/delete of blocks. CAS via expected version (`SB001`). |
-| Metadata concurrency | `records.metadata_version` | Title/status/tags/folder. |
-| Block content concurrency | `blocks.version` | Payload edits only. ADR 0018 autosave. |
-| Block identity | `blocks.id` | Stable UUID for comments, deep links, review anchors. |
-| Block order | `blocks.order` | Fractional real; `move_block` rebalances. |
-| Block types | `chk_blocks_type` | `rich_text`, `checklist`, `linked_record`, `callout`, `table`, `sheet`, `chart`, `plate_map`, `file`, `metric`, `procedure_step`, `protocol_reference`, `materials`. |
-| Narrative | `rich_text` payload | Tiptap JSON; ADR 0025. |
-| Sheet block | `sheet` payload | `{ tableId, presentation? }` only (`src/lib/blocks/index.ts`). `tableId` is `scientific_tables.id`. **No Sheet Instance id.** |
-| Record links | `api.record_links` | Typed outgoing links; `link_type` includes `template`. Template links require `link_metadata.template_revision_id`. |
-| Files | `api.file_objects` 1:1 with `file` records | Checksum, storage key, size. `internal.revision_file_objects` pins those identities into a submitted revision. |
-| Lifecycle | `archived_at`, `deleted_at` | Archive/restore RPCs. Soft-delete tombstone. Revisions `ON DELETE restrict` so evidence outlives the live row. |
-| Lock | `locked_at`, `locked_by_revision_id` | Set by approve-for-record signature (SIGN-002). Ordinary evidence CRUD rejected until `create_amendment`. |
-| Calculation input rev | `calculation_input_revision` | Legacy formula/scientific-table calculation generation, not Sheet Instance calculations. |
+| Concern                   | Authority                                  | Contract                                                                                                                                                             |
+| ------------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Notebook identity         | `api.records`                              | UUID PK; kind `experiment` (also `report`, `study`, …). Stable public id `EXP-YYYY-NNNN` (project-scoped). ADR 0015: the notebook **is** the ordered blocks.         |
+| Project/folder            | `records.project_id`, `folder_id`          | Project is required for experiments; Templates use `project_id IS NULL`.                                                                                             |
+| Workspace ownership       | `records.workspace_id`                     | Workspace is the tenancy/lifecycle owner (ADR 0023). Users are actors, not owners.                                                                                   |
+| Structure concurrency     | `records.structure_version`                | Bumped on insert/move/delete of blocks. CAS via expected version (`SB001`).                                                                                          |
+| Metadata concurrency      | `records.metadata_version`                 | Title/status/tags/folder.                                                                                                                                            |
+| Block content concurrency | `blocks.version`                           | Payload edits only. ADR 0018 autosave.                                                                                                                               |
+| Block identity            | `blocks.id`                                | Stable UUID for comments, deep links, review anchors.                                                                                                                |
+| Block order               | `blocks.order`                             | Fractional real; `move_block` rebalances.                                                                                                                            |
+| Block types               | `chk_blocks_type`                          | `rich_text`, `checklist`, `linked_record`, `callout`, `table`, `sheet`, `chart`, `plate_map`, `file`, `metric`, `procedure_step`, `protocol_reference`, `materials`. |
+| Narrative                 | `rich_text` payload                        | Tiptap JSON; ADR 0025.                                                                                                                                               |
+| Sheet block               | `sheet` payload                            | `{ tableId, presentation? }` only (`src/lib/blocks/index.ts`). `tableId` is `scientific_tables.id`. **No Sheet Instance id.**                                        |
+| Record links              | `api.record_links`                         | Typed outgoing links; `link_type` includes `template`. Template links require `link_metadata.template_revision_id`.                                                  |
+| Files                     | `api.file_objects` 1:1 with `file` records | Checksum, storage key, size. `internal.revision_file_objects` pins those identities into a submitted revision.                                                       |
+| Lifecycle                 | `archived_at`, `deleted_at`                | Archive/restore RPCs. Soft-delete tombstone. Revisions `ON DELETE restrict` so evidence outlives the live row.                                                       |
+| Lock                      | `locked_at`, `locked_by_revision_id`       | Set by approve-for-record signature (SIGN-002). Ordinary evidence CRUD rejected until `create_amendment`.                                                            |
+| Calculation input rev     | `calculation_input_revision`               | Legacy formula/scientific-table calculation generation, not Sheet Instance calculations.                                                                             |
 
 Direct table writes: notebook RPCs are mostly **SECURITY INVOKER** (`create_record`, `insert_block`, `delete_block`, `move_block`, `update_block_payload`) so RLS still applies. Template instantiate, submission, signature, chart freeze and Sheet Instance mutation are **SECURITY DEFINER** with explicit membership/capability checks.
 
 ### 1.2 Template persistence
 
-| Concern | Authority | Contract |
-| ------- | --------- | -------- |
-| Identity | `api.records` kinds `notebook_template` (`NBK-`) and `protocol_template` (`PRT-`) | ADR 0031. No dedicated Template table (unlike Sheet Definitions). |
-| Scope | `project_id IS NULL` + partial unique `(workspace_id, identifier)` | Migration `0034`. Organisation/workspace configuration, instantiated into a project. |
-| Version | `api.revisions` row with `reason = 'validate'` created **at instantiate time** | Not a published immutable Template version catalog. Later Template edits do not rewrite the revision or the copied blocks. |
-| Status | `records.status` | Notebook Template: `draft` ↔ `validated` (instantiable when `validated` and not archived). Protocol Template: `draft` / `under_review` / `active` (instantiable when `active`). |
-| Instantiate | `api.instantiate_template` SECURITY DEFINER | Snapshot template → `create_record` → deep-copy blocks (skip `protocol_reference`; rewrite `procedure_step`) → `record_link` `{template_revision_id}`. |
-| Duplicate | Client `duplicateTemplate` → `create_record_with_blocks` | Copies payloads as-is into a new **draft**. Shares no block row ids; **does share `tableId` if a sheet payload is copied**. |
-| Archive | `archive_record` | Existing instantiations keep their copied blocks + revision. UI warns on usage count; server does not require a Template capability. |
-| Parameters | **Absent** on Templates | `records.properties` / `custom_fields` exist but are not the CORE-03 Parameter contract. |
-| Sheet instructions | **Absent** | No `create_instance` / `reference_shared_instance` / `pinned_snapshot` policy. No pinned `sheet_definition_version_id`. |
-| UI | `/templates`, `src/lib/templates.ts` | Library, instantiate, archive, duplicate, export JSON, usage inspector. `canManageTemplate` is UI-only (author or owner/admin). |
+| Concern            | Authority                                                                         | Contract                                                                                                                                                                        |
+| ------------------ | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Identity           | `api.records` kinds `notebook_template` (`NBK-`) and `protocol_template` (`PRT-`) | ADR 0031. No dedicated Template table (unlike Sheet Definitions).                                                                                                               |
+| Scope              | `project_id IS NULL` + partial unique `(workspace_id, identifier)`                | Migration `0034`. Organisation/workspace configuration, instantiated into a project.                                                                                            |
+| Version            | `api.revisions` row with `reason = 'validate'` created **at instantiate time**    | Not a published immutable Template version catalog. Later Template edits do not rewrite the revision or the copied blocks.                                                      |
+| Status             | `records.status`                                                                  | Notebook Template: `draft` ↔ `validated` (instantiable when `validated` and not archived). Protocol Template: `draft` / `under_review` / `active` (instantiable when `active`). |
+| Instantiate        | `api.instantiate_template` SECURITY DEFINER                                       | Snapshot template → `create_record` → deep-copy blocks (skip `protocol_reference`; rewrite `procedure_step`) → `record_link` `{template_revision_id}`.                          |
+| Duplicate          | Client `duplicateTemplate` → `create_record_with_blocks`                          | Copies payloads as-is into a new **draft**. Shares no block row ids; **does share `tableId` if a sheet payload is copied**.                                                     |
+| Archive            | `archive_record`                                                                  | Existing instantiations keep their copied blocks + revision. UI warns on usage count; server does not require a Template capability.                                            |
+| Parameters         | **Absent** on Templates                                                           | `records.properties` / `custom_fields` exist but are not the CORE-03 Parameter contract.                                                                                        |
+| Sheet instructions | **Absent**                                                                        | No `create_instance` / `reference_shared_instance` / `pinned_snapshot` policy. No pinned `sheet_definition_version_id`.                                                         |
+| UI                 | `/templates`, `src/lib/templates.ts`                                              | Library, instantiate, archive, duplicate, export JSON, usage inspector. `canManageTemplate` is UI-only (author or owner/admin).                                                 |
 
 ### 1.3 Sheet integration (two parallel systems)
 
@@ -173,43 +173,43 @@ Direct table writes: notebook RPCs are mostly **SECURITY INVOKER** (`create_reco
 
 ### 1.4 Submission / evidence persistence
 
-| Object | Role |
-| ------ | ---- |
-| `api.revisions` | Immutable snapshot. `canonical_snapshot` + SHA-256 `integrity_digest`. Reasons: `submit`, `sign`, `manual`, `validate`, `amend`. Direct INSERT/UPDATE/DELETE revoked from `authenticated` / `api_client` (`0037`). |
-| `internal.build_revision_envelope` | Wrapper chain `0037` → `0057` (customFields + Model-field manifest) → `0059` (report structure). |
-| `api.review_submissions` | Binds one revision to a workflow version and first-step reviewers. States: `submitted`, `returned`, `rejected`, `approved`, `withdrawn`. Actor idempotency key. |
-| `api.review_check_results` | Write-once checks against frozen digest. |
-| `api.review_decisions` | Append-only decisions pinning the digest. |
-| `api.signatures` | `approve-for-record` / `witness`; pins digest, session, role, auth method, confirmation phrase. Unique (submission, signer). |
-| `api.comments` | Anchored to revision + target (`revision` / `block` / `table_region` / `diff`). |
-| `internal.revision_file_objects` | Pins file storage identity/checksum/size so later uploads cannot replace evidence. |
-| RPCs | `preview_submission_digest`, `submit_record_revision` (idempotent), review transitions, `sign_revision`, `create_amendment`. |
+| Object                             | Role                                                                                                                                                                                                               |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `api.revisions`                    | Immutable snapshot. `canonical_snapshot` + SHA-256 `integrity_digest`. Reasons: `submit`, `sign`, `manual`, `validate`, `amend`. Direct INSERT/UPDATE/DELETE revoked from `authenticated` / `api_client` (`0037`). |
+| `internal.build_revision_envelope` | Wrapper chain `0037` → `0057` (customFields + Model-field manifest) → `0059` (report structure).                                                                                                                   |
+| `api.review_submissions`           | Binds one revision to a workflow version and first-step reviewers. States: `submitted`, `returned`, `rejected`, `approved`, `withdrawn`. Actor idempotency key.                                                    |
+| `api.review_check_results`         | Write-once checks against frozen digest.                                                                                                                                                                           |
+| `api.review_decisions`             | Append-only decisions pinning the digest.                                                                                                                                                                          |
+| `api.signatures`                   | `approve-for-record` / `witness`; pins digest, session, role, auth method, confirmation phrase. Unique (submission, signer).                                                                                       |
+| `api.comments`                     | Anchored to revision + target (`revision` / `block` / `table_region` / `diff`).                                                                                                                                    |
+| `internal.revision_file_objects`   | Pins file storage identity/checksum/size so later uploads cannot replace evidence.                                                                                                                                 |
+| RPCs                               | `preview_submission_digest`, `submit_record_revision` (idempotent), review transitions, `sign_revision`, `create_amendment`.                                                                                       |
 
 ### 1.5 Canonical data that submission does not own
 
-| Object | Persistence | Relation to Notebook today |
-| ------ | ----------- | -------------------------- |
-| Dataset | `api.datasets` + rows/values | Independent. Sheet Instance bindings reference `datasetId`. Not in revision envelope. |
-| Dataset Version | `api.dataset_versions` (+ rows/values), migration `0068` | Immutable. Created at explicit snapshot / materialisation. **Not** created by Notebook submit. Drizzle `schema.ts` currently has no `datasetVersions` export (SQL-only). |
-| Sheet Instance | `api.sheet_instances.state` JSONB | Optional `notebook_record_id`. Not snapshotted. |
-| Sheet Definition Version | `api.sheet_definition_versions` | Pinned by Instance `source_definition_version_id`. Not snapshotted by submit. |
-| Model fields | `record_field_definitions` | Manifest **is** included in the envelope (`0057`). Live Record rows linked by `record_links` are **not** copied (ADR 0036 live context). |
+| Object                   | Persistence                                              | Relation to Notebook today                                                                                                                                               |
+| ------------------------ | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Dataset                  | `api.datasets` + rows/values                             | Independent. Sheet Instance bindings reference `datasetId`. Not in revision envelope.                                                                                    |
+| Dataset Version          | `api.dataset_versions` (+ rows/values), migration `0068` | Immutable. Created at explicit snapshot / materialisation. **Not** created by Notebook submit. Drizzle `schema.ts` currently has no `datasetVersions` export (SQL-only). |
+| Sheet Instance           | `api.sheet_instances.state` JSONB                        | Optional `notebook_record_id`. Not snapshotted.                                                                                                                          |
+| Sheet Definition Version | `api.sheet_definition_versions`                          | Pinned by Instance `source_definition_version_id`. Not snapshotted by submit.                                                                                            |
+| Model fields             | `record_field_definitions`                               | Manifest **is** included in the envelope (`0057`). Live Record rows linked by `record_links` are **not** copied (ADR 0036 live context).                                 |
 
 ---
 
 ## 2. Current authority / RLS map
 
-| Surface | Write path | Read | Cross-workspace | Notes |
-| ------- | ---------- | ---- | --------------- | ----- |
-| records/blocks/links | Invoker RPCs + RLS | Workspace members | Denied (`42501`) | Locked records reject scientific writes. |
-| revisions / submissions / signatures / checks / decisions | SECURITY DEFINER RPCs only | Member SELECT | Denied | No direct DML for request roles. |
-| scientific_tables / generated rows | Invoker + table RLS; schema RPCs | Members | Denied | `insert_sheet_block` authenticated-only. |
-| sheet_definitions / versions | Admin/capability RPCs (`schema.publish` after CORE-05) | Member SELECT | Denied | Retired Definitions cannot instantiate (`0090`). |
-| sheet_instances | SECURITY DEFINER RPCs; `guard_sheet_instance` blocks direct UPDATE | Member SELECT | Denied | Optimistic `revision` CAS (`SB073`). |
-| datasets / versions | Controlled Dataset RPCs; versions immutable | Member SELECT | Denied | Versions have mutation-prevent triggers. |
-| Templates | Same as records + `instantiate_template` DEFINER | Members | Explicit same-workspace check in RPC | UI manage ≠ server capability. |
-| Capabilities | `api.has_capability` from membership role | `list_capabilities` | Fail-closed | Vocabulary: `workspace.admin`, `schema.edit/publish/retire`, `record.link`, `record.create`, `instance.upgrade`. **No** `template.publish`, `instance.share`, `evidence.submit`. Not in JWT. |
-| External API | `projects:write` allowlist includes `instantiate_template`, block CRUD | scoped | — | `submit_record_revision` / `sign_revision` are **not** on the external allowlist. |
+| Surface                                                   | Write path                                                             | Read                | Cross-workspace                      | Notes                                                                                                                                                                                        |
+| --------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------- | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| records/blocks/links                                      | Invoker RPCs + RLS                                                     | Workspace members   | Denied (`42501`)                     | Locked records reject scientific writes.                                                                                                                                                     |
+| revisions / submissions / signatures / checks / decisions | SECURITY DEFINER RPCs only                                             | Member SELECT       | Denied                               | No direct DML for request roles.                                                                                                                                                             |
+| scientific_tables / generated rows                        | Invoker + table RLS; schema RPCs                                       | Members             | Denied                               | `insert_sheet_block` authenticated-only.                                                                                                                                                     |
+| sheet_definitions / versions                              | Admin/capability RPCs (`schema.publish` after CORE-05)                 | Member SELECT       | Denied                               | Retired Definitions cannot instantiate (`0090`).                                                                                                                                             |
+| sheet_instances                                           | SECURITY DEFINER RPCs; `guard_sheet_instance` blocks direct UPDATE     | Member SELECT       | Denied                               | Optimistic `revision` CAS (`SB073`).                                                                                                                                                         |
+| datasets / versions                                       | Controlled Dataset RPCs; versions immutable                            | Member SELECT       | Denied                               | Versions have mutation-prevent triggers.                                                                                                                                                     |
+| Templates                                                 | Same as records + `instantiate_template` DEFINER                       | Members             | Explicit same-workspace check in RPC | UI manage ≠ server capability.                                                                                                                                                               |
+| Capabilities                                              | `api.has_capability` from membership role                              | `list_capabilities` | Fail-closed                          | Vocabulary: `workspace.admin`, `schema.edit/publish/retire`, `record.link`, `record.create`, `instance.upgrade`. **No** `template.publish`, `instance.share`, `evidence.submit`. Not in JWT. |
+| External API                                              | `projects:write` allowlist includes `instantiate_template`, block CRUD | scoped              | —                                    | `submit_record_revision` / `sign_revision` are **not** on the external allowlist.                                                                                                            |
 
 PostgreSQL remains authoritative. Client caches and Handsontable state are not the evidence boundary.
 
@@ -219,17 +219,17 @@ PostgreSQL remains authoritative. Client caches and Handsontable state are not t
 
 There are several version axes; they must not be conflated:
 
-| Axis | What it versions | Mutable? | Evidence? |
-| ---- | ---------------- | -------- | --------- |
-| `records.structure_version` / `metadata_version` / `blocks.version` | Live notebook editing CAS | Yes | No — concurrency only |
-| `api.revisions` | Immutable notebook envelope | No | **Yes** — current scientific evidence unit |
-| Template `validate` revision | Template document at instantiate | No | Provenance of “which Template document was copied”, not published Template catalog |
-| Sheet Definition `version` + `revision` | Published configuration document | Version immutable; identity revision CAS | Needed by CORE-06 snapshots |
-| Sheet Instance `revision` | Working Instance CAS | Yes | Must be snapshotted at submit |
-| Dataset `revision` | Live Dataset CAS | Yes | Not evidence |
-| Dataset Version | Immutable Dataset rows/values | No | Required evidence for Dataset-backed Sheets |
-| SCI-010 `scientific_tables.schema_version` + row `version` | Legacy table | Yes until submit copies rows into envelope | Copied into envelope today |
-| Model field lifecycle | Field identity + retire | Definitions evolve | Manifest in envelope |
+| Axis                                                                | What it versions                 | Mutable?                                   | Evidence?                                                                          |
+| ------------------------------------------------------------------- | -------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------- |
+| `records.structure_version` / `metadata_version` / `blocks.version` | Live notebook editing CAS        | Yes                                        | No — concurrency only                                                              |
+| `api.revisions`                                                     | Immutable notebook envelope      | No                                         | **Yes** — current scientific evidence unit                                         |
+| Template `validate` revision                                        | Template document at instantiate | No                                         | Provenance of “which Template document was copied”, not published Template catalog |
+| Sheet Definition `version` + `revision`                             | Published configuration document | Version immutable; identity revision CAS   | Needed by CORE-06 snapshots                                                        |
+| Sheet Instance `revision`                                           | Working Instance CAS             | Yes                                        | Must be snapshotted at submit                                                      |
+| Dataset `revision`                                                  | Live Dataset CAS                 | Yes                                        | Not evidence                                                                       |
+| Dataset Version                                                     | Immutable Dataset rows/values    | No                                         | Required evidence for Dataset-backed Sheets                                        |
+| SCI-010 `scientific_tables.schema_version` + row `version`          | Legacy table                     | Yes until submit copies rows into envelope | Copied into envelope today                                                         |
+| Model field lifecycle                                               | Field identity + retire          | Definitions evolve                         | Manifest in envelope                                                               |
 
 ADR 0021 remains the product rule: audit events answer “what changed?”; Dataset Versions / structured snapshots answer “what exact state was used?”.
 
@@ -237,17 +237,17 @@ ADR 0021 remains the product rule: audit events answer “what changed?”; Data
 
 ## 4. Template semantics versus ADRs 0020–0023
 
-| ADR requirement | Today | Gap |
-| --------------- | ----- | --- |
+| ADR requirement                                               | Today                                                             | Gap                                                                          |
+| ------------------------------------------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | Templates are reusable versioned organisational configuration | Records with workspace scope; version = instantiate-time revision | No draft/publish/retire **Template version** identity like Sheet Definitions |
-| Pin Sheet Definition versions | Not referenced | Must add |
-| Default `create_instance` | Deep-copy JSON; no Instance created | Must add; current copy is the opposite for sheet payloads |
-| Explicit `reference_shared_instance` | Accidental share via copied `tableId` | Must replace accident with explicit policy + UI |
-| `pinned_snapshot` | Chart `freeze_chart` only; no Sheet snapshot block | CORE-06.7/06.9 |
-| No Template inheritance | Honoured | Keep; CORE-06.11 only checks Section-shaped references |
-| Template evolution does not rewrite Notebooks | Honoured for copied blocks | Keep; add explicit Template-version upgrade (CORE-06.10) |
-| Parameters flow into nested Definitions | CORE-03 Parameter contract exists on Definitions only | Reuse `src/lib/parameter.ts`; do not invent a Template language |
-| Capabilities, not a new permission system | Membership + `has_capability` | Smallest new verbs if Template publish must not equal `schema.publish` |
+| Pin Sheet Definition versions                                 | Not referenced                                                    | Must add                                                                     |
+| Default `create_instance`                                     | Deep-copy JSON; no Instance created                               | Must add; current copy is the opposite for sheet payloads                    |
+| Explicit `reference_shared_instance`                          | Accidental share via copied `tableId`                             | Must replace accident with explicit policy + UI                              |
+| `pinned_snapshot`                                             | Chart `freeze_chart` only; no Sheet snapshot block                | CORE-06.7/06.9                                                               |
+| No Template inheritance                                       | Honoured                                                          | Keep; CORE-06.11 only checks Section-shaped references                       |
+| Template evolution does not rewrite Notebooks                 | Honoured for copied blocks                                        | Keep; add explicit Template-version upgrade (CORE-06.10)                     |
+| Parameters flow into nested Definitions                       | CORE-03 Parameter contract exists on Definitions only             | Reuse `src/lib/parameter.ts`; do not invent a Template language              |
+| Capabilities, not a new permission system                     | Membership + `has_capability`                                     | Smallest new verbs if Template publish must not equal `schema.publish`       |
 
 **Duplicate concepts to converge, not extend:**
 
@@ -287,14 +287,14 @@ embedded). For scientific tables, block delete is restrict-blocked.
 
 ## 6. Sharing semantics
 
-| Mechanism | Behaviour |
-| --------- | --------- |
-| Two Notebooks from one Template | Independent record/block rows. Sheet payloads would share `tableId` if present. |
-| Two Instances from one Definition | Independent Instance state; Dataset bindings may name the same Dataset (CORE-03.15). |
-| Same Instance in two UIs | Possible only by opening `/sheets/$id` twice. No Notebook multi-embed, no location count, no shared-state badge. |
-| `notebook_record_id` | Optional context; many Instances may point at one record; one Instance cannot record multiple Notebook locations. |
-| Permissions | Workspace membership. No per-embedding permission overlay. A shared Instance would use the same RLS for every viewer. |
-| Dataset reuse | Already correct at Instance layer: reference, do not copy rows. |
+| Mechanism                         | Behaviour                                                                                                             |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Two Notebooks from one Template   | Independent record/block rows. Sheet payloads would share `tableId` if present.                                       |
+| Two Instances from one Definition | Independent Instance state; Dataset bindings may name the same Dataset (CORE-03.15).                                  |
+| Same Instance in two UIs          | Possible only by opening `/sheets/$id` twice. No Notebook multi-embed, no location count, no shared-state badge.      |
+| `notebook_record_id`              | Optional context; many Instances may point at one record; one Instance cannot record multiple Notebook locations.     |
+| Permissions                       | Workspace membership. No per-embedding permission overlay. A shared Instance would use the same RLS for every viewer. |
+| Dataset reuse                     | Already correct at Instance layer: reference, do not copy rows.                                                       |
 
 ADR 0023: submitted Notebooks must snapshot shared Instance state rather than
 retain a live evidence pointer. That snapshot does not exist yet.
@@ -331,29 +331,29 @@ signature/check/decision rows, no in-place evidence repair.
 
 ## 8. Immutable vs mutable object map
 
-| Object | Classification | Notes |
-| ------ | -------------- | ----- |
-| `records` / `blocks` live rows | Mutable working state | Continue after submit |
-| `records.status` / lock columns | Mutable working state + control flags | Lock is not itself the snapshot |
-| Template records | Configuration (mutable document) | Instantiation copies out |
-| Template `validate` revision | Immutable version (document copy) | Not a published version sequence |
-| Sheet Definition identity | Configuration | Archive/retire |
-| Sheet Definition Version | Immutable version | Pin from Templates/Instances |
-| Sheet Instance | Mutable working state | Needs snapshot at evidence boundary |
-| Instance local fields/values/calcs | Mutable working state | Belong to Instance (ADR 0023) |
-| Instance presentation | Mutable; evidentially optional | Persist on Instance; snapshot only if evidentially relevant (CORE-06.7) |
-| Dataset | Mutable working state | |
-| Dataset Version | Immutable version | Required for Dataset-backed evidence |
-| Dataset Schema Version | Immutable version | Interpretation pin |
-| Model field definitions | Configuration with lifecycle | Manifest at submit (`0057`) |
-| Sample/reagent Records | Mutable working state | Envelope stores link identities; values remain live unless copied into a block/table |
-| `scientific_tables` live | Mutable working state | Copied into envelope at submit |
-| Envelope `canonical_snapshot` | Immutable evidence snapshot | Current authority for review |
-| File bytes + `revision_file_objects` | Immutable evidence (bytes retained) | |
-| Chart `frozen` payload | Immutable evidence snapshot (optional, per block) | Live charts at submit are **not** data-frozen |
-| Signatures / checks / decisions | Immutable evidence metadata | |
-| `change_events` | Contextual audit | Not reconstruction |
-| Workflow definition version | Configuration pin | Stored on submission |
+| Object                               | Classification                                    | Notes                                                                                |
+| ------------------------------------ | ------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `records` / `blocks` live rows       | Mutable working state                             | Continue after submit                                                                |
+| `records.status` / lock columns      | Mutable working state + control flags             | Lock is not itself the snapshot                                                      |
+| Template records                     | Configuration (mutable document)                  | Instantiation copies out                                                             |
+| Template `validate` revision         | Immutable version (document copy)                 | Not a published version sequence                                                     |
+| Sheet Definition identity            | Configuration                                     | Archive/retire                                                                       |
+| Sheet Definition Version             | Immutable version                                 | Pin from Templates/Instances                                                         |
+| Sheet Instance                       | Mutable working state                             | Needs snapshot at evidence boundary                                                  |
+| Instance local fields/values/calcs   | Mutable working state                             | Belong to Instance (ADR 0023)                                                        |
+| Instance presentation                | Mutable; evidentially optional                    | Persist on Instance; snapshot only if evidentially relevant (CORE-06.7)              |
+| Dataset                              | Mutable working state                             |                                                                                      |
+| Dataset Version                      | Immutable version                                 | Required for Dataset-backed evidence                                                 |
+| Dataset Schema Version               | Immutable version                                 | Interpretation pin                                                                   |
+| Model field definitions              | Configuration with lifecycle                      | Manifest at submit (`0057`)                                                          |
+| Sample/reagent Records               | Mutable working state                             | Envelope stores link identities; values remain live unless copied into a block/table |
+| `scientific_tables` live             | Mutable working state                             | Copied into envelope at submit                                                       |
+| Envelope `canonical_snapshot`        | Immutable evidence snapshot                       | Current authority for review                                                         |
+| File bytes + `revision_file_objects` | Immutable evidence (bytes retained)               |                                                                                      |
+| Chart `frozen` payload               | Immutable evidence snapshot (optional, per block) | Live charts at submit are **not** data-frozen                                        |
+| Signatures / checks / decisions      | Immutable evidence metadata                       |                                                                                      |
+| `change_events`                      | Contextual audit                                  | Not reconstruction                                                                   |
+| Workflow definition version          | Configuration pin                                 | Stored on submission                                                                 |
 
 ---
 
@@ -362,23 +362,23 @@ signature/check/decision rows, no in-place evidence repair.
 Paths through which **submitted** scientific evidence can still change, or
 appear to change, after submission:
 
-| # | Path | After submit? | Severity | Why |
-| - | ---- | ------------- | -------- | --- |
-| 1 | Live Dataset bound to a Sheet Instance | **Yes, if that Instance is the scientist’s Sheet** | Critical for CORE-06 | Submit does not snapshot Instances or create Dataset Versions. The Notebook UI does not even embed Instances yet; once 06.2 lands without 06.7/06.8, this becomes the default hole. |
-| 2 | Live Sheet Instance local values / calculations | **Yes** | Critical | Envelope has no Instance embedding seam (executable proof in `sheet-local-values.test.ts`). |
-| 3 | Later Sheet Definition version | Indirect | High | Existing Instances stay pinned (CORE-03). A Notebook that only stored “latest Definition” would drift; today Notebooks do not store Definition ids at all. |
-| 4 | Later Template edits | **No** for copied blocks | OK | Instantiate-time revision + deep copy. Exception: copied `tableId` still names live shared tables (path 6). |
-| 5 | Live `scientific_tables` rows | **No** for objects copied into `canonical_snapshot.scientificTables` | OK for legacy sheets | Envelope copies schema + rows at submit. |
-| 6 | Copied `{tableId}` shared across Notebooks | Live table mutates for **unsubmitted** copies; submitted copies are frozen in *their* envelopes | High for working state; OK for already-submitted legacy envelopes | Accidental sharing. |
-| 7 | Live linked Records (sample/study) | **Yes** (by design in ADR 0036) | Product decision | CORE-06 asks to audit Record/evidence semantics before inventing snapshots. Current contract: identity + Model-field **manifest** are frozen; Record **values** stay live unless copied into a submitted table/block. |
-| 8 | Model field label/option changes | Partially mitigated | Medium | `0057` adds active/retired field+option manifest. Confirm CORE-06.7 still wants this plus Dataset Schema manifests. |
-| 9 | Live chart (`frozen: null`) at submit | **Yes** if review re-resolves live `tableId` | High for charts | ADR 0029: freeze for reproducible review. Envelope stores the payload (live spec) but not necessarily materialised series. |
-| 10 | Frozen chart | **No** | OK | Renders from `frozen.data`. |
-| 11 | File replacement | **No** if `revision_file_objects` retained | OK | Bytes must remain; operational retention is part of ADR 0036. |
-| 12 | SCI-010 schema registry evolution | Indirect for new bound sheets | Medium | Legacy binding ids in live tables; submitted envelope copied columns. Do not broaden SCI-010 unless compatibility for existing blocks requires it (CORE-06.2 migration). |
-| 13 | Presentation-only Instance filters | Only if treated as evidence | Low | ADR 0024: presentation is not semantic identity. Snapshot if the submitted view must include filters. |
-| 14 | Reconstructing from `change_events` | Must not | — | Already not used as envelope source. Do not regress. |
-| 15 | Reviewer UI reading live Notebook instead of revision | Process/UI risk | High | Routes must keep review on `canonical_snapshot` (existing review inbox / `$revisionId`). CORE-06.9 must not load live Instance grids for submitted contexts. |
+| #   | Path                                                  | After submit?                                                                                   | Severity                                                          | Why                                                                                                                                                                                                                   |
+| --- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Live Dataset bound to a Sheet Instance                | **Yes, if that Instance is the scientist’s Sheet**                                              | Critical for CORE-06                                              | Submit does not snapshot Instances or create Dataset Versions. The Notebook UI does not even embed Instances yet; once 06.2 lands without 06.7/06.8, this becomes the default hole.                                   |
+| 2   | Live Sheet Instance local values / calculations       | **Yes**                                                                                         | Critical                                                          | Envelope has no Instance embedding seam (executable proof in `sheet-local-values.test.ts`).                                                                                                                           |
+| 3   | Later Sheet Definition version                        | Indirect                                                                                        | High                                                              | Existing Instances stay pinned (CORE-03). A Notebook that only stored “latest Definition” would drift; today Notebooks do not store Definition ids at all.                                                            |
+| 4   | Later Template edits                                  | **No** for copied blocks                                                                        | OK                                                                | Instantiate-time revision + deep copy. Exception: copied `tableId` still names live shared tables (path 6).                                                                                                           |
+| 5   | Live `scientific_tables` rows                         | **No** for objects copied into `canonical_snapshot.scientificTables`                            | OK for legacy sheets                                              | Envelope copies schema + rows at submit.                                                                                                                                                                              |
+| 6   | Copied `{tableId}` shared across Notebooks            | Live table mutates for **unsubmitted** copies; submitted copies are frozen in _their_ envelopes | High for working state; OK for already-submitted legacy envelopes | Accidental sharing.                                                                                                                                                                                                   |
+| 7   | Live linked Records (sample/study)                    | **Yes** (by design in ADR 0036)                                                                 | Product decision                                                  | CORE-06 asks to audit Record/evidence semantics before inventing snapshots. Current contract: identity + Model-field **manifest** are frozen; Record **values** stay live unless copied into a submitted table/block. |
+| 8   | Model field label/option changes                      | Partially mitigated                                                                             | Medium                                                            | `0057` adds active/retired field+option manifest. Confirm CORE-06.7 still wants this plus Dataset Schema manifests.                                                                                                   |
+| 9   | Live chart (`frozen: null`) at submit                 | **Yes** if review re-resolves live `tableId`                                                    | High for charts                                                   | ADR 0029: freeze for reproducible review. Envelope stores the payload (live spec) but not necessarily materialised series.                                                                                            |
+| 10  | Frozen chart                                          | **No**                                                                                          | OK                                                                | Renders from `frozen.data`.                                                                                                                                                                                           |
+| 11  | File replacement                                      | **No** if `revision_file_objects` retained                                                      | OK                                                                | Bytes must remain; operational retention is part of ADR 0036.                                                                                                                                                         |
+| 12  | SCI-010 schema registry evolution                     | Indirect for new bound sheets                                                                   | Medium                                                            | Legacy binding ids in live tables; submitted envelope copied columns. Do not broaden SCI-010 unless compatibility for existing blocks requires it (CORE-06.2 migration).                                              |
+| 13  | Presentation-only Instance filters                    | Only if treated as evidence                                                                     | Low                                                               | ADR 0024: presentation is not semantic identity. Snapshot if the submitted view must include filters.                                                                                                                 |
+| 14  | Reconstructing from `change_events`                   | Must not                                                                                        | —                                                                 | Already not used as envelope source. Do not regress.                                                                                                                                                                  |
+| 15  | Reviewer UI reading live Notebook instead of revision | Process/UI risk                                                                                 | High                                                              | Routes must keep review on `canonical_snapshot` (existing review inbox / `$revisionId`). CORE-06.9 must not load live Instance grids for submitted contexts.                                                          |
 
 **Record/evidence recommendation:** keep ADR 0036’s live linked-record context
 for inspector/inventory-style references. Where a Sheet cell or block cites a
@@ -402,15 +402,15 @@ snapshots rather than snapshotting entire Record rows by default.
 
 **Not represented (CORE-06 must extend):**
 
-| Required path | Today |
-| ------------- | ----- |
-| Template → Sheet Definition Version | No Template configuration document |
-| Notebook → Template Version | `record_links.template` + `template_revision_id` (instantiate-time revision, not published Template version) |
-| Notebook block → Sheet Instance | No; `tableId` → scientific table only |
-| Sheet Instance → Dataset Version | Only if binding policy `mode=version`; discovery walks `datasetId`, not version policy |
-| Submission → Notebook revision | `review_submissions.revision_id` (exists; not in `discover_object_dependencies`) |
-| Evidence → Dataset Version / Sheet snapshot / files | Envelope JSON; no first-class dependency rows |
-| Hard-delete protection for revisions | Revisions restrict-delete; `execute_hard_delete` does not cover Notebooks/Templates/revisions |
+| Required path                                       | Today                                                                                                        |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Template → Sheet Definition Version                 | No Template configuration document                                                                           |
+| Notebook → Template Version                         | `record_links.template` + `template_revision_id` (instantiate-time revision, not published Template version) |
+| Notebook block → Sheet Instance                     | No; `tableId` → scientific table only                                                                        |
+| Sheet Instance → Dataset Version                    | Only if binding policy `mode=version`; discovery walks `datasetId`, not version policy                       |
+| Submission → Notebook revision                      | `review_submissions.revision_id` (exists; not in `discover_object_dependencies`)                             |
+| Evidence → Dataset Version / Sheet snapshot / files | Envelope JSON; no first-class dependency rows                                                                |
+| Hard-delete protection for revisions                | Revisions restrict-delete; `execute_hard_delete` does not cover Notebooks/Templates/revisions                |
 
 CORE-05 lifecycle (archive/restore, retire Definitions, protected hard-delete)
 should be reused, not forked.
@@ -439,24 +439,24 @@ should be reused, not forked.
 
 ## 12. KEEP / ADAPT / CONVERGE / DEPRECATE
 
-| Item | Action | Notes |
-| ---- | ------ | ----- |
-| `api.records` as Notebook | KEEP | Do not add a parallel notebooks table. |
-| `notebook_template` / `protocol_template` as records | ADAPT | Add immutable published Template **versions** (new tables or a disciplined version of `revisions`). Prefer Sheet Definition–like identity+version tables if Template parameters/block instructions cannot honestly live in live `blocks` rows without mixing draft and published state. |
-| `instantiate_template` deep-copy of narrative/checklist/callout | KEEP | Correct for configuration that is not shared live state. |
-| `instantiate_template` copy of `sheet` `{tableId}` | DEPRECATE / replace | Replace with `create_instance` / explicit share / pinned snapshot. |
-| `insert_sheet_block` + `scientific_tables` as the Notebook Sheet | CONVERGE | CORE-06.2: block references Instance. Compatibility migrate existing tables (see risks). |
-| `/sheets/$instanceId` | KEEP | Same Instance renderer as Notebook embed. |
-| SCI-010 `insert_sheet_block(..., dataset_schema_id)` | DEPRECATE for new work | Do not expand. Migrate only as required to preserve existing Notebook data. |
-| Envelope `scientificTables` | ADAPT | Keep for historical revisions; new submits must add Instance/Dataset Version snapshots. |
-| Linked-record live context | KEEP | Do not snapshot entire registries. |
-| Chart `tableId` | CONVERGE in 06.12 | Point at Dataset / Instance / File Artifact identities. |
-| `records.properties` as Template parameters | DEPRECATE for that role | Reuse Parameter contract. |
-| `notebook_record_id` | ADAPT | Keep as primary-context hint; add explicit embedding/share rows or block payload policy so location count is possible. |
-| Template UI manage vs server membership | ADAPT | Smallest capability if publish must be steward-grade. |
-| Section inheritance | DEPRECATE | CORE-06.11: ensure block/reference model can later point at a versioned Section id; do not build Sections now. |
-| Audit-log reconstruction | DEPRECATE as evidence | Already not used. |
-| Per-edit Dataset Versions | DEPRECATE | ADR 0021. Create Versions at submit/materialise boundaries only. |
+| Item                                                             | Action                  | Notes                                                                                                                                                                                                                                                                                   |
+| ---------------------------------------------------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `api.records` as Notebook                                        | KEEP                    | Do not add a parallel notebooks table.                                                                                                                                                                                                                                                  |
+| `notebook_template` / `protocol_template` as records             | ADAPT                   | Add immutable published Template **versions** (new tables or a disciplined version of `revisions`). Prefer Sheet Definition–like identity+version tables if Template parameters/block instructions cannot honestly live in live `blocks` rows without mixing draft and published state. |
+| `instantiate_template` deep-copy of narrative/checklist/callout  | KEEP                    | Correct for configuration that is not shared live state.                                                                                                                                                                                                                                |
+| `instantiate_template` copy of `sheet` `{tableId}`               | DEPRECATE / replace     | Replace with `create_instance` / explicit share / pinned snapshot.                                                                                                                                                                                                                      |
+| `insert_sheet_block` + `scientific_tables` as the Notebook Sheet | CONVERGE                | CORE-06.2: block references Instance. Compatibility migrate existing tables (see risks).                                                                                                                                                                                                |
+| `/sheets/$instanceId`                                            | KEEP                    | Same Instance renderer as Notebook embed.                                                                                                                                                                                                                                               |
+| SCI-010 `insert_sheet_block(..., dataset_schema_id)`             | DEPRECATE for new work  | Do not expand. Migrate only as required to preserve existing Notebook data.                                                                                                                                                                                                             |
+| Envelope `scientificTables`                                      | ADAPT                   | Keep for historical revisions; new submits must add Instance/Dataset Version snapshots.                                                                                                                                                                                                 |
+| Linked-record live context                                       | KEEP                    | Do not snapshot entire registries.                                                                                                                                                                                                                                                      |
+| Chart `tableId`                                                  | CONVERGE in 06.12       | Point at Dataset / Instance / File Artifact identities.                                                                                                                                                                                                                                 |
+| `records.properties` as Template parameters                      | DEPRECATE for that role | Reuse Parameter contract.                                                                                                                                                                                                                                                               |
+| `notebook_record_id`                                             | ADAPT                   | Keep as primary-context hint; add explicit embedding/share rows or block payload policy so location count is possible.                                                                                                                                                                  |
+| Template UI manage vs server membership                          | ADAPT                   | Smallest capability if publish must be steward-grade.                                                                                                                                                                                                                                   |
+| Section inheritance                                              | DEPRECATE               | CORE-06.11: ensure block/reference model can later point at a versioned Section id; do not build Sections now.                                                                                                                                                                          |
+| Audit-log reconstruction                                         | DEPRECATE as evidence   | Already not used.                                                                                                                                                                                                                                                                       |
+| Per-edit Dataset Versions                                        | DEPRECATE               | ADR 0021. Create Versions at submit/materialise boundaries only.                                                                                                                                                                                                                        |
 
 ---
 
@@ -512,7 +512,7 @@ should be reused, not forked.
 8. **Template reuse?** Each instantiate creates a new record and new block
    rows; sheet `tableId` would be reused (shared table).
 9. **Can one Sheet Instance appear in multiple Notebooks?** Not as an
-   embedding. API allows many `notebook_record_id` pointers *to* a record
+   embedding. API allows many `notebook_record_id` pointers _to_ a record
    from many Instances, not many Notebooks to one Instance.
 10. **What does submission freeze?** The REV-002 envelope (metadata, blocks,
     links, scientific tables/rows, formulas/results, files, Model
@@ -775,22 +775,22 @@ the skeleton if the Core exit gate passes.
 
 ## 18. Bundle traceability
 
-| Task | Bundle |
-| ---- | ------ |
-| 06.1 Audit | A |
-| 06.2 Sheet block → Instance | B |
-| 06.3 Template versions | C |
-| 06.4 Template parameters | C |
-| 06.5 `create_instance` | D |
-| 06.6 `reference_shared_instance` | D |
-| 06.7 Structured snapshot | E |
-| 06.8 Submit/review/signature integration | E |
-| 06.9 `pinned_snapshot` rendering | E |
-| 06.10 Template dependency update | D |
-| 06.11 Section boundary (architecture) | C |
-| 06.12 Charts/files stable identities | E |
-| 06.13 Golden proof | E |
-| 06.14 Core exit / AUTO-01 hand-off | E |
+| Task                                     | Bundle |
+| ---------------------------------------- | ------ |
+| 06.1 Audit                               | A      |
+| 06.2 Sheet block → Instance              | B      |
+| 06.3 Template versions                   | C      |
+| 06.4 Template parameters                 | C      |
+| 06.5 `create_instance`                   | D      |
+| 06.6 `reference_shared_instance`         | D      |
+| 06.7 Structured snapshot                 | E      |
+| 06.8 Submit/review/signature integration | E      |
+| 06.9 `pinned_snapshot` rendering         | E      |
+| 06.10 Template dependency update         | D      |
+| 06.11 Section boundary (architecture)    | C      |
+| 06.12 Charts/files stable identities     | E      |
+| 06.13 Golden proof                       | E      |
+| 06.14 Core exit / AUTO-01 hand-off       | E      |
 
 Dependency order inside implementation: **B before D and E**; **C before D**;
 **D’s instantiate before E’s golden path**; **06.7 before 06.8/06.9**.

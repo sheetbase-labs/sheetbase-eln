@@ -58,10 +58,12 @@ export function VersionedNotebookTemplatePanel({
     <section className="mb-8 rounded-lg border p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold">Versioned notebook templates</h2>
+          <h2 className="text-sm font-semibold">
+            Versioned notebook templates
+          </h2>
           <p className="text-xs text-muted-foreground">
-            Published versions pin Sheet Definition Versions. Existing
-            Notebooks stay on the version they were created from.
+            Published versions pin Sheet Definition Versions. Existing Notebooks
+            stay on the version they were created from.
           </p>
         </div>
         {canEdit ? (
@@ -139,8 +141,9 @@ function VersionedTemplateRow({
           <li key={version.id} className="flex items-center justify-between">
             <span>
               Version {version.version} · {version.lifecycle}
-              {version.configuration.placements.filter((p) => p.kind === 'sheet')
-                .length
+              {version.configuration.placements.filter(
+                (p) => p.kind === 'sheet',
+              ).length
                 ? ` · ${version.configuration.placements.filter((p) => p.kind === 'sheet').length} sheet placement(s)`
                 : ''}
             </span>

@@ -17,7 +17,9 @@ export function sheetBlockTableId(
   return typeof payload.tableId === 'string' ? payload.tableId : null
 }
 
-export function isCanonicalSheetBlock(payload: Record<string, unknown>): boolean {
+export function isCanonicalSheetBlock(
+  payload: Record<string, unknown>,
+): boolean {
   return sheetBlockInstanceId(payload) !== null
 }
 

@@ -47,7 +47,11 @@ function FrozenSheetEvidencePanel({
 }) {
   const localValues = evidence.instanceState.localValues
   return (
-    <div className="space-y-2 p-3" role="region" aria-label="Frozen Sheet evidence">
+    <div
+      className="space-y-2 p-3"
+      role="region"
+      aria-label="Frozen Sheet evidence"
+    >
       <p className="text-xs font-medium" role="status">
         Frozen submitted Sheet evidence. This view is reconstructed from the
         revision snapshot, not the live Sheet Instance.
@@ -78,7 +82,9 @@ function FrozenSheetEvidencePanel({
           <dd className="inline">
             {evidence.datasetBindings.length
               ? evidence.datasetBindings
-                  .map((binding) => String(binding.datasetVersionId ?? binding.datasetId ?? ''))
+                  .map((binding) =>
+                    String(binding.datasetVersionId ?? binding.datasetId ?? ''),
+                  )
                   .join(', ')
               : 'none'}
           </dd>
@@ -150,8 +156,7 @@ function NotebookInstanceSheetEmbed({
       ) : null}
       {instance.data.lifecycle === 'archived' ? (
         <p className="text-xs text-muted-foreground" role="status">
-          This Sheet Instance is archived. Existing references remain
-          readable.
+          This Sheet Instance is archived. Existing references remain readable.
         </p>
       ) : null}
       <div className="min-h-0 flex-1">

@@ -2405,9 +2405,10 @@ export const revisionSheetEvidence = api.table(
     instanceId: uuid('instance_id')
       .notNull()
       .references(() => sheetInstances.id, { onDelete: 'restrict' }),
-    sourceDefinitionVersionId: uuid(
-      'source_definition_version_id',
-    ).references(() => sheetDefinitionVersions.id, { onDelete: 'restrict' }),
+    sourceDefinitionVersionId: uuid('source_definition_version_id').references(
+      () => sheetDefinitionVersions.id,
+      { onDelete: 'restrict' },
+    ),
     instanceRevision: bigint('instance_revision', { mode: 'bigint' }).notNull(),
     instanceState: jsonb('instance_state').notNull(),
     datasetVersions: jsonb('dataset_versions').notNull().default([]),

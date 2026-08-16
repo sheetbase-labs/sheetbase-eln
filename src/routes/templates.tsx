@@ -501,9 +501,7 @@ function TemplateLibraryRoute() {
 
         <VersionedNotebookTemplatePanel
           workspaceId={workspaceId}
-          canEdit={
-            role === 'owner' || role === 'admin' || role === 'steward'
-          }
+          canEdit={role === 'owner' || role === 'admin' || role === 'steward'}
           projects={projects}
         />
 

@@ -10,6 +10,7 @@ import {
   TemplateInspector,
   TemplateList,
 } from '#/components/templates/template-library'
+import { VersionedNotebookTemplatePanel } from '#/components/templates/versioned-notebook-templates'
 import type {
   TemplateLinkedRecord,
   TemplateOwnershipFilter,
@@ -497,6 +498,13 @@ function TemplateLibraryRoute() {
             create a new record with pre-filled content.
           </p>
         </header>
+
+        <VersionedNotebookTemplatePanel
+          workspaceId={workspaceId}
+          canEdit={
+            role === 'owner' || role === 'admin' || role === 'steward'
+          }
+        />
 
         <TemplateFilters
           kindFilter={kindFilter}

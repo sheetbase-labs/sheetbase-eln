@@ -8,11 +8,11 @@
 
 ## Active task
 
-**CORE-06.2 — Canonical Notebook Sheet-block embedding**
+**CORE-06.3 / 06.4 / 06.11 — Versioned Notebook Templates**
 
-Status: CORE-06.2 implemented; stop for review. Do not start CORE-06.3.
+Status: CORE-06.3/06.4/06.11 implemented. Next is CORE-06.5 instantiation.
 
-Task: [`tasks/CORE-06.md`](./tasks/CORE-06.md#core-062--make-notebook-sheet-blocks-reference-durable-sheet-instances)
+Task: [`tasks/CORE-06.md`](./tasks/CORE-06.md#core-063--implement-organisation-level-notebook-template-versions)
 
 Audit: [`audits/NOTEBOOK_EVIDENCE_AUDIT.md`](./audits/NOTEBOOK_EVIDENCE_AUDIT.md)
 
@@ -78,6 +78,8 @@ Canonical schema ADR: [`0038-canonical-dataset-schema-definitions.md`](../decisi
 - CORE-06.1 — Notebook / Template / revision / evidence audit
 - CORE-06.2 — canonical Notebook Sheet blocks reference Sheet Instances
   (`0098_core_062_sheet_instance_blocks`); legacy `{tableId}` still renders
+- CORE-06.3 / 06.4 / 06.11 — dedicated Notebook Template versions, CORE-03
+  parameter mappings, section-placeholder boundary (`0099`)
 
 ## Required reading
 
@@ -89,13 +91,10 @@ Canonical schema ADR: [`0038-canonical-dataset-schema-definitions.md`](../decisi
 
 ## Implement now
 
-CORE-05 is complete. CORE-06.1 is accepted. CORE-06.2 is implemented:
-canonical Notebook Sheet blocks store `payload.instanceId`; legacy
-`payload.tableId` remains renderable; conversion is explicit via
-`convert_legacy_sheet_block`. Do not start CORE-06.3 until review.
-
-Migration `0098` is the CORE-06.2 contract. The CORE-02.6 100k+80k Dataset
-benchmark was not rerun.
+CORE-06.3/06.4/06.11 are implemented: dedicated Notebook Template versions
+pin Sheet Definition Versions and map CORE-03 parameters by stable IDs.
+Do not start CORE-06.5 until this commit is on the branch. Instantiation
+is the next bundle.
 
 CORE-05.11 exit evidence: `pnpm db:fresh --demo` applied migrations `0000`–
 `0096` and 29 idempotent demo seed steps (reseed also 29/29). `pnpm test:db`

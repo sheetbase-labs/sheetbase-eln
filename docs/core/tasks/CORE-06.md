@@ -1,6 +1,6 @@
 # CORE-06 — Notebook Templates, Sharing and Frozen Evidence
 
-**Status:** CORE-06.1 accepted. CORE-06.2 implemented; pending review before CORE-06.3.  
+**Status:** CORE-06.3/06.4/06.11 in progress after CORE-06.2.  
 **Blocked by:** CORE-05 complete.  
 **Normative decisions:** ADRs 0020–0024 and existing Notebook revision/signature architecture.
 
@@ -71,6 +71,9 @@ legacy `{ tableId }` remains valid. New inserts use
 
 **Exit gate:** a published Template version is a stable composition dependency.
 
+**Status:** Implemented. Identity is `api.notebook_templates`; versions are
+`api.notebook_template_versions`. `api.revisions` is not the catalogue.
+
 ---
 
 ## CORE-06.4 — Implement Template parameter flow
@@ -86,6 +89,9 @@ legacy `{ tableId }` remains valid. New inserts use
 **Tests:** Study Record passed to Sheet Definition; Dataset parameter; missing/incompatible parameter; default.
 
 **Exit gate:** reusable Templates can instantiate meaningful scientific work without hard-coded project data.
+
+**Status:** Implemented. Template parameters reuse CORE-03 Parameter objects
+and map to Sheet Definition parameters by stable IDs.
 
 ---
 
@@ -194,6 +200,9 @@ legacy `{ tableId }` remains valid. New inserts use
 **Do not:** build a Section management product solely to satisfy this task.
 
 **Exit gate:** no architectural dead-end forces Template inheritance for future reuse.
+
+**Status:** Architecture only. `section_placeholder` placements reserve a
+named, versioned Section reference without Template inheritance.
 
 ---
 

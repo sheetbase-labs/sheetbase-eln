@@ -36,11 +36,11 @@ Projects/workspaces organise scientific working state such as Records, Datasets,
 
 ## Active epics
 
-1. **CORE-01 — Common Schema Kernel** — active; current task CORE-01.3.
-2. **CORE-02 — Dataset Primitive and Versioning** — live Dataset state, schema versions, immutable meaningful Dataset Versions.
-3. **CORE-03 — Sheet Definition and Compositional Sheet Instance** — reusable Definitions, typed parameters, multi-source Instances, local/calculated data, write-back, materialisation.
-4. **CORE-04 — Records from Sheets** — link/search/create/bulk-create Records through normal Model validation.
-5. **CORE-05 — Schema Evolution and Role-aware Configuration** — lifecycle, promotion, impact/dependencies, capabilities.
+1. **CORE-01 — Common Schema Kernel** — complete.
+2. **CORE-02 — Dataset Primitive and Versioning** — complete; live Dataset state, schema versions, immutable meaningful Dataset Versions.
+3. **CORE-03 — Sheet Definition and Compositional Sheet Instance** — complete; reusable Definitions, typed parameters, multi-source Instances, local/calculated data, write-back, materialisation.
+4. **CORE-04 — Records from Sheets** — complete; link/search/create/bulk-create Records through normal Model validation.
+5. **CORE-05 — Schema Evolution and Role-aware Configuration** — active; CORE-05.1 audit complete; CORE-05.2 waits on audit decisions.
 6. **CORE-06 — Notebook Templates, Sharing and Frozen Evidence** — pinned Definition references, explicit shared Instances, parameter flow and reconstructable evidence.
 7. **AUTO-01 — Pipeline Foundation** — broader typed transformations over immutable inputs/outputs.
 8. **AUTO-02 — Agent-authored Operations** — agents propose drafts/plans and execute through normal contracts.

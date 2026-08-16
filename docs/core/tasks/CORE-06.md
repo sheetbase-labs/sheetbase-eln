@@ -1,7 +1,7 @@
 # CORE-06 — Notebook Templates, Sharing and Frozen Evidence
 
 **Status:** Planned / implementation-ready after CORE-05  
-**Blocked by:** CORE-05 epic exit gate.  
+**Blocked by:** CORE-05 complete. Start with CORE-06.1 only.  
 **Normative decisions:** ADRs 0020–0024 and existing Notebook revision/signature architecture.
 
 ## Epic goal

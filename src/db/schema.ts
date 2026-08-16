@@ -278,7 +278,7 @@ export const workspaceMemberships = api.table(
     ),
     check(
       'chk_workspace_memberships_role',
-      sql`${table.role} IN ('owner', 'admin', 'member', 'scientist', 'analyst', 'reviewer', 'viewer')`,
+      sql`${table.role} IN ('owner', 'admin', 'member', 'steward', 'scientist', 'analyst', 'reviewer', 'viewer')`,
     ),
     index('idx_workspace_memberships_user_id').on(table.userId),
     index('idx_workspace_memberships_suspended_at').on(table.suspendedAt),
@@ -321,7 +321,7 @@ export const workspaceInvitations = api.table(
     ),
     check(
       'chk_workspace_invitations_role',
-      sql`${table.role} IN ('owner', 'admin', 'member', 'scientist', 'analyst', 'reviewer', 'viewer')`,
+      sql`${table.role} IN ('owner', 'admin', 'member', 'steward', 'scientist', 'analyst', 'reviewer', 'viewer')`,
     ),
     check(
       'chk_workspace_invitations_email',
@@ -2015,6 +2015,9 @@ export const datasetSchemaVersions = api.table(
       .references(() => datasetSchemaDefinitions.id, { onDelete: 'cascade' }),
     version: integer('version').notNull(),
     lifecycle: text('lifecycle').notNull().default('draft'),
+    revision: bigint('revision', { mode: 'bigint' })
+      .notNull()
+      .default(sql`1`),
     ...timestamps,
     publishedAt: timestamp('published_at', {
       withTimezone: true,
@@ -2030,6 +2033,7 @@ export const datasetSchemaVersions = api.table(
       table.version,
     ),
     check('chk_dataset_schema_versions_version', sql`${table.version} > 0`),
+    check('chk_dataset_schema_versions_revision', sql`${table.revision} > 0`),
     check(
       'chk_dataset_schema_versions_lifecycle',
       sql`${table.lifecycle} IN ('draft','active','retired')`,
@@ -2085,6 +2089,40 @@ export const datasetSchemaVersionFields = api.table(
     ),
     index('idx_dataset_schema_version_fields_version').on(
       table.schemaVersionId,
+    ),
+  ],
+)
+
+export const configurationChangeLog = api.table(
+  'configuration_change_log',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    actorUserId: text('actor_user_id').notNull(),
+    kind: text('kind').notNull(),
+    idempotencyKey: text('idempotency_key').notNull(),
+    requestDigest: text('request_digest').notNull(),
+    result: jsonb('result').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('uq_configuration_change_log_actor_key').on(
+      table.workspaceId,
+      table.actorUserId,
+      table.kind,
+      table.idempotencyKey,
+    ),
+    check(
+      'chk_configuration_change_log_kind',
+      sql`${table.kind} IN ('model_field_evolution','dataset_schema_evolution','local_field_promotion','calculation_promotion')`,
+    ),
+    check(
+      'chk_configuration_change_log_idempotency_key',
+      sql`length(${table.idempotencyKey}) BETWEEN 1 AND 128`,
     ),
   ],
 )

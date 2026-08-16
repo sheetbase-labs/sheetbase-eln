@@ -28,6 +28,7 @@ import {
 } from '#/components/workspace-admin'
 import { AdminModelFields } from '#/components/workspace-admin/admin-model-fields'
 import { Button } from '#/components/ui'
+import { hasCapability } from '#/lib/capability'
 import { createDataClient } from '#/lib/data-client'
 import {
   adminQueryKeys,
@@ -131,8 +132,10 @@ function AdminRoute() {
   const queryClient = useQueryClient()
   const workspaceId = context.workspace?.id ?? ''
   const isOwner = context.workspace?.role === 'owner'
-  const canManageModelFields =
-    context.workspace?.role === 'owner' || context.workspace?.role === 'admin'
+  const canManageModelFields = hasCapability(
+    context.workspace?.role,
+    'schema.edit',
+  )
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })

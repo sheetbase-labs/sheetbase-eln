@@ -33,7 +33,7 @@ High-level epics:
 2. **CORE-02 — Dataset Primitive**
 3. **CORE-03 — Compositional Sheet**
 4. **CORE-04 — Records from Sheets**
-5. **CORE-05 — Schema Evolution, Views and Role-aware Configuration**
+5. **CORE-05 — Schema Evolution and Role-aware Configuration**
 6. **CORE-06 — Notebook Integration and Frozen Evidence**
 7. **AUTO-01 — Pipeline Foundation**
 8. **AUTO-02 — Agent-authored Operations**

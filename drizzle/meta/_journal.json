@@ -659,6 +659,34 @@
       "when": 1786810900000,
       "tag": "0093_core_047_commit_sheet_record_batch",
       "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "7",
+      "when": 1786812000000,
+      "tag": "0094_core_052_capabilities",
+      "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1786813000000,
+      "tag": "0095_core_054_dependency_lifecycle",
+      "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1786814000000,
+      "tag": "0096_core_055_evolution_promotion",
+      "breakpoints": true
+    },
+    {
+      "idx": 97,
+      "version": "7",
+      "when": 1786815000000,
+      "tag": "0097_core_05_idempotency_draft_publish",
+      "breakpoints": true
     }
   ]
 }

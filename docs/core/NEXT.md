@@ -10,11 +10,12 @@
 
 **CORE-06.1 — Audit Notebook, Template, revision and submission persistence**
 
-Status: CORE-05 complete. Do not start CORE-06.2.
+Status: CORE-05 complete. CORE-06.1 audit written; do not start CORE-06.2
+until review.
 
 Task: [`tasks/CORE-06.md`](./tasks/CORE-06.md#core-061--audit-notebook-template-revision-and-submission-persistence)
 
-Audit: [`audits/SCHEMA_CAPABILITY_AUDIT.md`](./audits/SCHEMA_CAPABILITY_AUDIT.md)
+Audit: [`audits/NOTEBOOK_EVIDENCE_AUDIT.md`](./audits/NOTEBOOK_EVIDENCE_AUDIT.md)
 
 Canonical schema ADR: [`0038-canonical-dataset-schema-definitions.md`](../decisions/0038-canonical-dataset-schema-definitions.md)
 

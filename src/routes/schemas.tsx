@@ -24,7 +24,6 @@ import {
   Hash,
   Layers,
   Link2,
-  Plus,
   Tag,
   ToggleLeft,
   Trash2,

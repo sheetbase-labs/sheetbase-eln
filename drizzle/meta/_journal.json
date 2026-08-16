@@ -745,6 +745,13 @@
       "breakpoints": true
     },
     {
+      "idx": 106,
+      "version": "7",
+      "when": 1786824000000,
+      "tag": "0106_core_h4_close_legacy_writes",
+      "breakpoints": true
+    },
+    {
       "idx": 107,
       "version": "7",
       "when": 1786825000000,

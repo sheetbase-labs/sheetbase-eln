@@ -13,14 +13,20 @@ class IntersectionObserverStub {
   observe() {}
   unobserve() {}
   disconnect() {}
-  takeRecords() { return [] }
+  takeRecords() {
+    return []
+  }
 }
 globalThis.ResizeObserver = ResizeObserverStub
 globalThis.IntersectionObserver = IntersectionObserverStub as any
 
 registerAllModules()
 
-function makeGrid(containerId: string, engine: HyperFormula, sheetName: string) {
+function makeGrid(
+  containerId: string,
+  engine: HyperFormula,
+  sheetName: string,
+) {
   document.body.innerHTML = `<div id="${containerId}"></div>`
   const container = document.getElementById(containerId)!
   return new Handsontable(container, {

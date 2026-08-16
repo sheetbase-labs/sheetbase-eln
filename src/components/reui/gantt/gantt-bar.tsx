@@ -1,4 +1,4 @@
-"use client"
+'use client'
 
 import {
   createContext,
@@ -8,55 +8,52 @@ import {
   type ButtonHTMLAttributes,
   type CSSProperties,
   type ReactNode,
-} from "react"
+} from 'react'
 import {
   useGantt,
   useGanttSelector,
   useGanttViewConfig,
-} from "#/components/reui/gantt/gantt"
+} from '#/components/reui/gantt/gantt'
 import {
   useGanttGestures,
   wasRecentDrag,
-} from "#/components/reui/gantt/gantt-dnd"
-import {
-  flattenResources,
-  toZoned,
-} from "#/components/reui/gantt/gantt-lib"
+} from '#/components/reui/gantt/gantt-dnd'
+import { flattenResources, toZoned } from '#/components/reui/gantt/gantt-lib'
 import type {
   GanttOccurrence,
   GanttSegment,
-} from "#/components/reui/gantt/gantt-types"
-import { Slot } from "radix-ui"
+} from '#/components/reui/gantt/gantt-types'
+import { Slot } from 'radix-ui'
 
-import { cn } from "#/lib/utils"
+import { cn } from '#/lib/utils'
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuTrigger,
-} from "#/components/ui/context-menu"
+} from '#/components/ui/context-menu'
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "#/components/ui/tooltip"
-import { RepeatIcon, CheckIcon } from "lucide-react"
+} from '#/components/ui/tooltip'
+import { RepeatIcon, CheckIcon } from 'lucide-react'
 
 /**
  * Effective Tailwind palette presets for bar colors; every entry works on
  * light and dark surfaces through the bar's alpha background + accent border.
  */
 const GANTT_COLORS: Array<{ name: string; value: string }> = [
-  { name: "Blue", value: "var(--color-blue-500)" },
-  { name: "Emerald", value: "var(--color-emerald-500)" },
-  { name: "Violet", value: "var(--color-violet-500)" },
-  { name: "Rose", value: "var(--color-rose-500)" },
-  { name: "Amber", value: "var(--color-amber-500)" },
-  { name: "Cyan", value: "var(--color-cyan-500)" },
-  { name: "Orange", value: "var(--color-orange-500)" },
-  { name: "Pink", value: "var(--color-pink-500)" },
-  { name: "Teal", value: "var(--color-teal-500)" },
-  { name: "Indigo", value: "var(--color-indigo-500)" },
+  { name: 'Blue', value: 'var(--color-blue-500)' },
+  { name: 'Emerald', value: 'var(--color-emerald-500)' },
+  { name: 'Violet', value: 'var(--color-violet-500)' },
+  { name: 'Rose', value: 'var(--color-rose-500)' },
+  { name: 'Amber', value: 'var(--color-amber-500)' },
+  { name: 'Cyan', value: 'var(--color-cyan-500)' },
+  { name: 'Orange', value: 'var(--color-orange-500)' },
+  { name: 'Pink', value: 'var(--color-pink-500)' },
+  { name: 'Teal', value: 'var(--color-teal-500)' },
+  { name: 'Indigo', value: 'var(--color-indigo-500)' },
 ]
 
 interface GanttBarContextValue<TData = unknown> {
@@ -74,14 +71,14 @@ const GanttBarContext =
 function useGanttBarContext<TData = unknown>(): GanttBarContextValue<TData> {
   const ctx = useContext(GanttBarContext)
   if (!ctx) {
-    throw new Error("useGanttBarContext must be used within <GanttBar>")
+    throw new Error('useGanttBarContext must be used within <GanttBar>')
   }
   return ctx as GanttBarContextValue<TData>
 }
 
 interface GanttBarProps<TData = unknown> extends Omit<
   ButtonHTMLAttributes<HTMLButtonElement>,
-  "children"
+  'children'
 > {
   segment: GanttSegment<TData>
   /** Replaces the default bar CONTENT; the wrapper stays gantt-owned. */
@@ -122,11 +119,11 @@ function GanttBar<TData = unknown>({
 
   const isSelected = useGanttSelector<TData, boolean>(
     (state) => state.selection.eventKeys.includes(occurrence.key),
-    { calendar: instance }
+    { calendar: instance },
   )
   const isDragging = useGanttSelector<TData, boolean>(
     (state) => state.drag?.occurrence.key === occurrence.key,
-    { calendar: instance }
+    { calendar: instance },
   )
   // Which gesture owns this bar: a move hides the original (the smooth clone
   // stands in for it); a resize keeps it as a faint placeholder behind the
@@ -134,7 +131,7 @@ function GanttBar<TData = unknown>({
   const dragKind = useGanttSelector<TData, string | null>(
     (state) =>
       state.drag?.occurrence.key === occurrence.key ? state.drag.kind : null,
-    { calendar: instance }
+    { calendar: instance },
   )
   // Hover-only range tooltip. Focus opens are ignored (the known button+
   // tooltip flash: clicking a bar opens a dialog, focus returns, and a
@@ -144,18 +141,21 @@ function GanttBar<TData = unknown>({
   // false, so gesture start/end doesn't re-render every mounted bar.
   const anyInteracting = useGanttSelector<TData, boolean>(
     (state) => tipOpen && (state.drag !== null || state.slotDraft !== null),
-    { calendar: instance }
+    { calendar: instance },
   )
 
   const progress =
-    typeof event.progress === "number"
+    typeof event.progress === 'number'
       ? Math.min(Math.max(Math.round(event.progress), 0), 100)
       : null
 
   const defaultContent = (
     <>
       {occurrence.isRecurring && (
-        <RepeatIcon className="size-2.5 shrink-0 opacity-70" aria-hidden="true" />
+        <RepeatIcon
+          className="size-2.5 shrink-0 opacity-70"
+          aria-hidden="true"
+        />
       )}
       <span className="truncate font-medium">{event.title}</span>
       {!occurrence.allDay && segment.isStart && (
@@ -164,7 +164,7 @@ function GanttBar<TData = unknown>({
             toZoned(occurrence.start, settings.timeZone),
             toZoned(occurrence.end, settings.timeZone),
             occurrence.allDay,
-            settings.locale
+            settings.locale,
           )}
         </span>
       )}
@@ -185,7 +185,7 @@ function GanttBar<TData = unknown>({
     toZoned(occurrence.start, settings.timeZone),
     toZoned(occurrence.end, settings.timeZone),
     occurrence.allDay,
-    settings.locale
+    settings.locale,
   )
   // name the row too: the split-pane layout carries no grid semantics.
   // The prop path is O(1); the lookup fallback is memoized so external
@@ -194,10 +194,10 @@ function GanttBar<TData = unknown>({
     () =>
       rowTitleProp === undefined && event.resourceId
         ? flattenResources(settings.resources).find(
-            ({ resource }) => resource.id === event.resourceId
+            ({ resource }) => resource.id === event.resourceId,
           )?.resource.title
         : undefined,
-    [rowTitleProp, event.resourceId, settings.resources]
+    [rowTitleProp, event.resourceId, settings.resources],
   )
   const rowTitle = rowTitleProp ?? fallbackRowTitle
 
@@ -212,7 +212,7 @@ function GanttBar<TData = unknown>({
           // indicator reads as "resize this end", not a centered pill.
           // pointer-coarse keeps it visible on touch, where hover never fires
           className="absolute inset-y-0 start-0.5 flex w-2 cursor-ew-resize items-center justify-start opacity-0 group-hover/gantt-bar-group:opacity-100 pointer-coarse:opacity-100"
-          onPointerDown={(e) => gestures.beginResize(e, segment, "start")}
+          onPointerDown={(e) => gestures.beginResize(e, segment, 'start')}
         >
           <span
             aria-hidden
@@ -228,7 +228,7 @@ function GanttBar<TData = unknown>({
           // indicator reads as "resize this end", not a centered pill.
           // pointer-coarse keeps it visible on touch, where hover never fires
           className="absolute inset-y-0 end-0.5 flex w-2 cursor-ew-resize items-center justify-end opacity-0 group-hover/gantt-bar-group:opacity-100 pointer-coarse:opacity-100"
-          onPointerDown={(e) => gestures.beginResize(e, segment, "end")}
+          onPointerDown={(e) => gestures.beginResize(e, segment, 'end')}
         >
           <span
             aria-hidden
@@ -239,7 +239,7 @@ function GanttBar<TData = unknown>({
     </>
   )
 
-  const Comp = asChild ? Slot.Root : "button"
+  const Comp = asChild ? Slot.Root : 'button'
 
   const barButton = (
     <Comp
@@ -266,7 +266,7 @@ function GanttBar<TData = unknown>({
       })}
       style={
         {
-          "--gantt-event-color": event.color ?? "var(--color-primary)",
+          '--gantt-event-color': event.color ?? 'var(--color-primary)',
         } as CSSProperties
       }
       onPointerDown={(e: React.PointerEvent) => {
@@ -284,21 +284,21 @@ function GanttBar<TData = unknown>({
         settings.onEventDoubleClick?.(occurrence, e)
       }}
       className={cn(
-        "group/gantt-bar-group text-foreground @container relative flex w-full min-w-0 cursor-pointer touch-none items-center gap-1.5 overflow-hidden rounded-sm px-1.5 py-0.5 text-start leading-normal select-none",
-        "focus-visible:ring-ring/50 outline-none focus-visible:ring-2",
+        'group/gantt-bar-group text-foreground @container relative flex w-full min-w-0 cursor-pointer touch-none items-center gap-1.5 overflow-hidden rounded-sm px-1.5 py-0.5 text-start leading-normal select-none',
+        'focus-visible:ring-ring/50 outline-none focus-visible:ring-2',
         // the unfilled remainder has to be legible on its own - at /12 a bar
         // with a progress fill read as a floating segment with no basement
-        "bg-(--gantt-event-color)/20 hover:bg-(--gantt-event-color)/30",
+        'bg-(--gantt-event-color)/20 hover:bg-(--gantt-event-color)/30',
         // move: hide the original (the smooth cursor clone represents it)
-        "data-[drag-kind=move]:opacity-0",
+        'data-[drag-kind=move]:opacity-0',
         // resize: keep the original event exactly, just fade it to a soft
         // placeholder behind the dashed preview - no dramatic restyle
-        "data-[drag-kind=resize-end]:opacity-40 data-[drag-kind=resize-start]:opacity-40",
-        "data-selected:bg-(--gantt-event-color)/30",
-        segment.continuesBefore && "rounded-s-none",
-        segment.continuesAfter && "rounded-e-none",
+        'data-[drag-kind=resize-end]:opacity-40 data-[drag-kind=resize-start]:opacity-40',
+        'data-selected:bg-(--gantt-event-color)/30',
+        segment.continuesBefore && 'rounded-s-none',
+        segment.continuesAfter && 'rounded-e-none',
         viewConfig.classNames?.event,
-        className
+        className,
       )}
       {...props}
     >
@@ -318,7 +318,10 @@ function GanttBar<TData = unknown>({
       {progress === 100 && !consumerOwnsContent && (
         // done mark: completion chrome like the fill itself, so it shows
         // for outside-label bars too (where the inner content is empty)
-        <CheckIcon className="relative size-2.5 shrink-0 opacity-80" aria-hidden="true" />
+        <CheckIcon
+          className="relative size-2.5 shrink-0 opacity-80"
+          aria-hidden="true"
+        />
       )}
       {content}
       {resizeHandles}

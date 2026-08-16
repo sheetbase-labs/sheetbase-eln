@@ -57,6 +57,32 @@ pnpm db:generate   # must produce no new migration
 If step 6 generates a new migration, the committed history and the declared
 schema disagree. Fix before marking the ticket complete.
 
+## Snapshots
+
+`pnpm db:migrate` applies `_journal.json` plus `{tag}.sql`. It does not read
+`drizzle/meta/*_snapshot.json`.
+
+`pnpm db:generate` diffs `src/db/schema.ts` against the **latest** snapshot.
+Kit writes a full-database JSON file on each generate, so intermediate
+snapshots are optional copies, not runtime history.
+
+This repository:
+
+- commits SQL for every journal entry (required);
+- commits `_journal.json` (required);
+- keeps a sparse snapshot chain: historical pre-CORE files through `0023`,
+  the last Kit generate at `0087`, and the current schema checkpoint
+  `0110_snapshot.json`;
+- does **not** keep a snapshot per custom SQL migration (`0088`–`0109`).
+
+`0110_core_schema_snapshot_checkpoint.sql` is a no-op. It exists so the
+journal and the current generate baseline stay aligned after CORE custom SQL
+that Kit did not snapshot. Do not replace it with `CREATE TABLE` for objects
+those migrations already created.
+
+When `schema.ts` changes, run `pnpm db:generate` as usual. The new snapshot
+will chain from `0110`.
+
 ## Rollback and recovery notes
 
 Drizzle migrations are forward-only. For any migration that drops or

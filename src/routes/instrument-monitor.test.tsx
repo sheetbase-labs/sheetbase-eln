@@ -11,16 +11,15 @@ import { Route } from './instrument-monitor'
 const InstrumentMonitorRoute = Route.options.component as React.ComponentType
 
 vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () =>
-    (config: Record<string, unknown>) => ({
-      useRouteContext: () => ({
-        context: {
-          workspace: { id: 'workspace-1', name: 'Test workspace', role: 'owner' },
-          user: { name: 'Test User', email: 'test@example.com' },
-        },
-      }),
-      options: config,
+  createFileRoute: () => (config: Record<string, unknown>) => ({
+    useRouteContext: () => ({
+      context: {
+        workspace: { id: 'workspace-1', name: 'Test workspace', role: 'owner' },
+        user: { name: 'Test User', email: 'test@example.com' },
+      },
     }),
+    options: config,
+  }),
   redirect: (options: unknown) => options,
   Link: ({
     to,
@@ -45,7 +44,12 @@ vi.mock('@tanstack/react-start', () => ({
 const emptyData: never[] = []
 
 vi.mock('@tanstack/react-query', () => ({
-  useQuery: () => ({ data: emptyData, isLoading: false, error: null, refetch: vi.fn() }),
+  useQuery: () => ({
+    data: emptyData,
+    isLoading: false,
+    error: null,
+    refetch: vi.fn(),
+  }),
   useMutation: () => ({
     mutate: vi.fn(),
     mutateAsync: vi.fn(),
@@ -57,7 +61,15 @@ vi.mock('@tanstack/react-query', () => ({
 vi.mock('#/components/app-shell', async () => {
   const React = await import('react')
   const ctx = React.createContext({ setConfig: (_c: any) => {} })
-  const AppShell = ({ children, inspector, primaryAction }: { children: React.ReactNode; inspector: React.ReactNode; primaryAction: React.ReactNode }) => (
+  const AppShell = ({
+    children,
+    inspector,
+    primaryAction,
+  }: {
+    children: React.ReactNode
+    inspector: React.ReactNode
+    primaryAction: React.ReactNode
+  }) => (
     <div>
       <div data-testid="primary-action">{primaryAction}</div>
       <main>{children}</main>
@@ -65,17 +77,30 @@ vi.mock('#/components/app-shell', async () => {
     </div>
   )
   const ShellProvider = ({ children }: { children: React.ReactNode }) => {
-    const [config, setConfig] = React.useState<{ context: unknown | null; [k: string]: unknown }>({ context: null })
+    const [config, setConfig] = React.useState<{
+      context: unknown | null
+      [k: string]: unknown
+    }>({ context: null })
     const value = React.useMemo(
-      () => ({ setConfig: (c: Partial<typeof config>) => setConfig((prev) => ({ ...prev, ...c })) }),
+      () => ({
+        setConfig: (c: Partial<typeof config>) =>
+          setConfig((prev) => ({ ...prev, ...c })),
+      }),
       [],
     )
-    if (!config.context) return React.createElement(ctx.Provider, { value }, children as any)
-    return React.createElement(ctx.Provider, { value }, React.createElement(AppShell, config as any, children) as any)
+    if (!config.context)
+      return React.createElement(ctx.Provider, { value }, children as any)
+    return React.createElement(
+      ctx.Provider,
+      { value },
+      React.createElement(AppShell, config as any, children) as any,
+    )
   }
   const useShell = (config: Record<string, unknown>) => {
     const { setConfig } = React.useContext(ctx)
-    React.useLayoutEffect(() => { setConfig(config) }, [])
+    React.useLayoutEffect(() => {
+      setConfig(config)
+    }, [])
   }
   return { AppShell, ShellProvider, useShell }
 })
@@ -90,13 +115,21 @@ afterEach(() => cleanup())
 
 describe('InstrumentMonitorRoute', () => {
   it('renders the Instrument Run Monitor title', () => {
-    render(<ShellProvider><InstrumentMonitorRoute /></ShellProvider>)
+    render(
+      <ShellProvider>
+        <InstrumentMonitorRoute />
+      </ShellProvider>,
+    )
 
     expect(screen.getByText('Instrument Run Monitor')).toBeTruthy()
   })
 
   it('renders the Simulate run action', () => {
-    render(<ShellProvider><InstrumentMonitorRoute /></ShellProvider>)
+    render(
+      <ShellProvider>
+        <InstrumentMonitorRoute />
+      </ShellProvider>,
+    )
 
     // "Simulate run" appears in the PageHeader and the empty-state actions.
     const simulateButtons = screen.getAllByRole('button', {
@@ -106,19 +139,31 @@ describe('InstrumentMonitorRoute', () => {
   })
 
   it('renders the route-level empty state when no runs exist', () => {
-    render(<ShellProvider><InstrumentMonitorRoute /></ShellProvider>)
+    render(
+      <ShellProvider>
+        <InstrumentMonitorRoute />
+      </ShellProvider>,
+    )
 
     expect(screen.getByText('No instrument runs yet')).toBeTruthy()
   })
 
   it('shows the empty inspector hint when no run is selected', () => {
-    render(<ShellProvider><InstrumentMonitorRoute /></ShellProvider>)
+    render(
+      <ShellProvider>
+        <InstrumentMonitorRoute />
+      </ShellProvider>,
+    )
 
     expect(screen.getByText('No run selected')).toBeTruthy()
   })
 
   it('renders the run queue empty hint within the route empty state', () => {
-    render(<ShellProvider><InstrumentMonitorRoute /></ShellProvider>)
+    render(
+      <ShellProvider>
+        <InstrumentMonitorRoute />
+      </ShellProvider>,
+    )
 
     expect(
       screen.getByText('No instrument runs', { exact: false }),

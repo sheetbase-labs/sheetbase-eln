@@ -54,6 +54,7 @@ export interface RecordWire {
   // revision that caused the lock. Both null when the record is editable.
   locked_at: string | null
   locked_by_revision_id: string | null
+  source_notebook_template_version_id?: string | null
 }
 
 export interface BlockWire {
@@ -142,6 +143,7 @@ export interface NotebookRecord {
   // revision that caused the lock. Both null when the record is editable.
   lockedAt: string | null
   lockedByRevisionId: string | null
+  sourceNotebookTemplateVersionId?: string | null
 }
 
 export interface NotebookBlock {
@@ -200,6 +202,8 @@ export function toRecord(row: RecordWire): NotebookRecord {
     customFields: row.custom_fields ?? {},
     lockedAt: row.locked_at ?? null,
     lockedByRevisionId: row.locked_by_revision_id ?? null,
+    sourceNotebookTemplateVersionId:
+      row.source_notebook_template_version_id ?? null,
   }
 }
 
@@ -471,15 +475,30 @@ export function formatRelativeTime(iso: string | null | undefined): string {
   return formatDate(iso)
 }
 
+const ukDate: Intl.DateTimeFormatOptions = {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+}
+
 /** Stable absolute date label for dense tables and metadata strips. */
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return '—'
   const parsed = Date.parse(iso)
   if (Number.isNaN(parsed)) return '—'
-  return new Date(parsed).toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
+  return new Date(parsed).toLocaleDateString('en-GB', ukDate)
+}
+
+/** Absolute date and time for notebook headers and the inspector. */
+export function formatNotebookDateTime(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const parsed = Date.parse(iso)
+  if (Number.isNaN(parsed)) return '—'
+  return new Date(parsed).toLocaleString('en-GB', {
+    ...ukDate,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
   })
 }
 
@@ -574,6 +593,38 @@ export function fetchRevision(client: DataClient, revisionId: string) {
   return client
     .list<RevisionWire>('revisions', `?id=eq.${revisionId}&limit=1`)
     .then((rows) => (rows.length > 0 ? rows[0] : null))
+}
+
+export function fetchLatestRevisionForRecord(
+  client: DataClient,
+  recordId: string,
+) {
+  return client
+    .list<RevisionWire>(
+      'revisions',
+      `?record_id=eq.${encodeURIComponent(recordId)}&order=created_at.desc,id.desc&limit=1`,
+    )
+    .then((rows) => (rows.length > 0 ? rows[0] : null))
+}
+
+export type RevisionSheetEvidenceWire = {
+  block_id: string
+  instance_id: string
+  instance_revision: number | string
+  source_definition_version_id: string | null
+  instance_state: Record<string, unknown> | null
+  dataset_versions: unknown
+  composed_grid: unknown
+}
+
+export function fetchRevisionSheetEvidence(
+  client: DataClient,
+  revisionId: string,
+) {
+  return client.list<RevisionSheetEvidenceWire>(
+    'revision_sheet_evidence',
+    `?revision_id=eq.${encodeURIComponent(revisionId)}&select=block_id,instance_id,instance_revision,source_definition_version_id,instance_state,dataset_versions,composed_grid`,
+  )
 }
 
 /**

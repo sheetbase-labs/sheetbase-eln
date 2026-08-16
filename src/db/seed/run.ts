@@ -21,6 +21,11 @@ import * as schema from '../schema'
 import { resolveDevUserIdentity } from '#/lib/dev-identity'
 import { monthSteps } from './month'
 import {
+  seedNotebookSheetGrid,
+  virusStabilitySheetFields,
+  virusStabilitySheetRows,
+} from './sheet-instance-demo'
+import {
   DEMO_BLOCK_IDS,
   DEMO_ARCHIVED_SAMPLE_IDENTIFIER,
   DEMO_ARCHIVED_SAMPLE_RECORD_ID,
@@ -1829,8 +1834,8 @@ export const demoSteps: Array<SeedStep> = [
         {
           id: DEMO_BLOCK_IDS.resultsChart,
           type: 'chart',
-          // Draft placeholder; the SCI-004 scientific-table step populates
-          // this with a valid chart specification once its dataset exists.
+          // Placeholder. Chart specs still require a scientific-table
+          // `tableId`; CORE-03 Instances are the demo Sheet path instead.
           payload: {},
           order: 6,
         },
@@ -2219,49 +2224,24 @@ export const demoSteps: Array<SeedStep> = [
     },
   },
   {
-    name: 'demo SCI-004 chart specifications: Virus Stability',
+    name: 'demo SCI-004 Sheet Instance: Virus Stability',
     run: async (db) => {
-      // A scientific 'sheet' block backs the stability dataset; a live chart
-      // references it and a second chart is frozen to exercise both lifecycle
-      // states. The scientific table is created through the same RPC the UI
-      // uses (create_scientific_table), so no parallel identity path exists.
-      // The drizzle connection handles the plain sheet-block upsert. The
-      // authenticated RPCs (create_scientific_table, freeze_chart) require a
-      // session that can SET ROLE authenticated with JWT claims, so a short
-      // pg.Client is opened as the authenticator role against the SAME
-      // database the drizzle pool targets (parsed from the pool's connection
-      // string). This keeps dev seeds and integration tests isolated to their
-      // own database without ever reading DATABASE_URL directly.
       const poolCs = db.$client.options.connectionString
-      if (!poolCs)
+      if (!poolCs) {
         throw new Error(
           'drizzle pool connection string is required for SCI-004 seed',
         )
-      const poolUrl = new URL(poolCs)
+      }
       const pgrst = new URL(process.env.PGRST_DB_URI ?? '')
-      const authUrl = new URL(poolUrl.toString())
+      if (!pgrst.username) {
+        throw new Error('PGRST_DB_URI is required for SCI-004 seed')
+      }
+      const authUrl = new URL(poolCs)
       authUrl.username = pgrst.username
       authUrl.password = pgrst.password
-      if (!pgrst.username)
-        throw new Error('PGRST_DB_URI is required for SCI-004 seed')
       const client = new Client({ connectionString: authUrl.toString() })
       await client.connect()
       try {
-        await db
-          .insert(schema.blocks)
-          .values({
-            id: DEMO_BLOCK_IDS.stabilitySheet,
-            recordId: DEMO_VIRUS_STABILITY_RECORD_ID,
-            type: 'sheet',
-            payload: {},
-            order: 22,
-            createdByUserId: FIXTURE_USER_ID,
-          })
-          .onConflictDoUpdate({
-            target: schema.blocks.id,
-            set: { type: 'sheet', payload: {}, order: 22 },
-          })
-
         await client.query('SET ROLE authenticated')
         await client.query("SELECT set_config('request.jwt.claims',$1,false)", [
           JSON.stringify({
@@ -2270,331 +2250,10 @@ export const demoSteps: Array<SeedStep> = [
             role: 'authenticated',
           }),
         ])
-
-        // Reuse an existing scientific table for the sheet block; create one
-        // on first seed. The table id and generated column names are not
-        // stable across fresh environments, so look them up each run.
-        let tableId: string
-        let resourceName: string
-        const existing = await client.query(
-          `SELECT t.id, t.resource_name FROM api.scientific_tables t WHERE t.block_id=$1 AND t.lifecycle='active'`,
-          [DEMO_BLOCK_IDS.stabilitySheet],
-        )
-        if (existing.rows.length > 0) {
-          tableId = existing.rows[0].id
-          resourceName = existing.rows[0].resource_name
-        } else {
-          const created = await client.query(
-            `SELECT api.create_scientific_table($1,$2,$3::jsonb) result`,
-            [
-              DEMO_BLOCK_IDS.stabilitySheet,
-              'Stability readings (qPCR)',
-              JSON.stringify([
-                {
-                  label: 'Time (days)',
-                  logical_type: 'decimal',
-                  unit: { code: 'd', symbol: 'd' },
-                },
-                {
-                  label: 'Log titer',
-                  logical_type: 'decimal',
-                  unit: { code: 'log10', symbol: 'log₁₀' },
-                },
-                { label: 'Condition', logical_type: 'text' },
-              ]),
-            ],
-          )
-          tableId = created.rows[0].result.table.id
-          resourceName = created.rows[0].result.table.resource_name
-        }
-        // Pin the sheet block payload to the scientific table id so the block
-        // validates at the application boundary and renders its dataset.
-        await client.query(
-          `UPDATE api.blocks SET payload=$2::jsonb WHERE id=$1`,
-          [DEMO_BLOCK_IDS.stabilitySheet, JSON.stringify({ tableId })],
-        )
-
-        // Keep the demonstration dataset broad enough to exercise dense
-        // browsing, filtering, grouping and scientific value formatting.
-        // Existing local databases converge by adding any missing fields.
-        const additionalColumns = [
-          { label: 'Batch', logicalType: 'text', unit: null },
-          {
-            label: 'Recovery',
-            logicalType: 'decimal',
-            unit: { code: '%', symbol: '%' },
-          },
-          {
-            label: 'Potency',
-            logicalType: 'decimal',
-            unit: { code: '%', symbol: '%' },
-          },
-        ] as const
-        for (const column of additionalColumns) {
-          const existingColumn = await client.query(
-            `SELECT 1 FROM api.scientific_columns WHERE table_id=$1 AND label=$2 AND lifecycle='active'`,
-            [tableId, column.label],
-          )
-          if (existingColumn.rowCount) continue
-          const version = await client.query(
-            `SELECT schema_version FROM api.scientific_tables WHERE id=$1`,
-            [tableId],
-          )
-          await client.query(
-            `SELECT api.add_scientific_column($1,$2,$3,$4,true,NULL,$5::jsonb,'{}'::jsonb,NULL)`,
-            [
-              tableId,
-              version.rows[0].schema_version,
-              column.label,
-              column.logicalType,
-              column.unit ? JSON.stringify(column.unit) : null,
-            ],
-          )
-        }
-
-        const cols = await client.query(
-          `SELECT id, field_name, label FROM api.scientific_columns WHERE table_id=$1 AND lifecycle='active' ORDER BY display_order`,
-          [tableId],
-        )
-        const byLabel = Object.fromEntries(cols.rows.map((c) => [c.label, c]))
-        const timeField = byLabel['Time (days)'].field_name
-        const recoveryField = byLabel['Log titer'].field_name
-        const conditionField = byLabel['Condition'].field_name
-        const batchField = byLabel['Batch'].field_name
-        const percentageRecoveryField = byLabel['Recovery'].field_name
-        const potencyField = byLabel['Potency'].field_name
-        const timeColumnId = byLabel['Time (days)'].id
-        const recoveryColumnId = byLabel['Log titer'].id
-        const conditionColumnId = byLabel['Condition'].id
-
-        // Idempotent dataset rows: remove formulas through the same trusted
-        // database capability used by the application, then delete and
-        // reinsert the stability series with every integrity trigger active.
-        // This works for the non-superuser migrator used by integration tests
-        // and avoids a maintenance-only bypass of formula provenance.
-        const configuredFormulaUrl = process.env.FORMULA_DATABASE_URL
-        if (!configuredFormulaUrl)
-          throw new Error('FORMULA_DATABASE_URL is required for SCI-004 seed')
-        const formulaCredentials = new URL(configuredFormulaUrl)
-        const formulaWriteUrl = new URL(poolCs)
-        formulaWriteUrl.username = formulaCredentials.username
-        formulaWriteUrl.password = formulaCredentials.password
-        const formulaMetadataClient = new Client({ connectionString: poolCs })
-        const formulaWriteClient = new Client({
-          connectionString: formulaWriteUrl.toString(),
+        await seedNotebookSheetGrid(client, DEMO_VIRUS_STABILITY_RECORD_ID, {
+          fields: virusStabilitySheetFields(),
+          rows: virusStabilitySheetRows(),
         })
-        await Promise.all([
-          formulaMetadataClient.connect(),
-          formulaWriteClient.connect(),
-        ])
-        try {
-          const formulas = await formulaMetadataClient.query<{
-            id: string
-            target_table_id: string
-            target_row_id: string
-            target_column_id: string
-            version: string
-            schema_version: number
-            resource_name: string
-          }>(
-            `SELECT DISTINCT f.id,f.target_table_id,f.target_row_id,
-                    f.target_column_id,f.version,t.schema_version,t.resource_name
-               FROM api.formula_definitions f
-               JOIN api.scientific_tables t ON t.id=f.target_table_id
-               LEFT JOIN api.formula_dependencies d ON d.formula_id=f.id
-              WHERE f.target_table_id=$1 OR d.source_table_id=$1
-              ORDER BY f.id`,
-            [tableId],
-          )
-          for (const formula of formulas.rows) {
-            const row = await formulaMetadataClient.query<{ version: string }>(
-              `SELECT version FROM api."${formula.resource_name}" WHERE id=$1`,
-              [formula.target_row_id],
-            )
-            if (!row.rowCount) continue
-            const write = {
-              operation: 'remove',
-              target: {
-                tableId: formula.target_table_id,
-                rowId: formula.target_row_id,
-                columnId: formula.target_column_id,
-              },
-              expectedSchemaVersion: formula.schema_version,
-              expectedRowVersion: Number(row.rows[0].version),
-              expectedFormulaVersion: Number(formula.version),
-              replacement: null,
-            }
-            await formulaWriteClient.query('BEGIN')
-            try {
-              await formulaWriteClient.query('SET LOCAL ROLE formula_writer')
-              await formulaWriteClient.query(
-                `SELECT internal.apply_trusted_formula_write($1,$2::jsonb)`,
-                [FIXTURE_USER_ID, JSON.stringify(write)],
-              )
-              await formulaWriteClient.query('COMMIT')
-            } catch (error) {
-              await formulaWriteClient.query('ROLLBACK')
-              throw error
-            }
-          }
-          await formulaMetadataClient.query(`DELETE FROM api."${resourceName}"`)
-        } finally {
-          await Promise.all([
-            formulaMetadataClient.end(),
-            formulaWriteClient.end(),
-          ])
-        }
-        const timePoints = [0, 3, 7, 14, 21, 28, 42, 56] as const
-        const stabilityProfiles = [
-          {
-            condition: 'Control',
-            batch: 'AAV-24-017',
-            start: 7.26,
-            losses: [0, 0.04, 0.1, 0.22, 0.36, 0.51, 0.79, 1.08],
-          },
-          {
-            condition: '5% sucrose',
-            batch: 'AAV-24-021',
-            start: 7.24,
-            losses: [0, 0.02, 0.05, 0.1, 0.16, 0.23, 0.36, 0.51],
-          },
-          {
-            condition: '5% trehalose',
-            batch: 'AAV-24-026',
-            start: 7.27,
-            losses: [0, 0.01, 0.03, 0.07, 0.11, 0.16, 0.25, 0.34],
-          },
-          {
-            condition: '0.01% poloxamer',
-            batch: 'AAV-24-031',
-            start: 7.23,
-            losses: [0, 0.02, 0.04, 0.08, 0.13, 0.19, 0.29, 0.41],
-          },
-        ] as const
-        const rows = stabilityProfiles.flatMap((profile) =>
-          timePoints.map((time, index) => {
-            const logTiter = Number(
-              (profile.start - profile.losses[index]).toFixed(2),
-            )
-            const recovery = Number(
-              (100 * 10 ** -profile.losses[index]).toFixed(1),
-            )
-            const potency = Number(
-              Math.max(0, 98 - profile.losses[index] * 48).toFixed(1),
-            )
-            return [
-              time,
-              logTiter,
-              profile.condition,
-              profile.batch,
-              recovery,
-              potency,
-            ] as const
-          }),
-        )
-        for (const [
-          time,
-          logTiter,
-          condition,
-          batch,
-          recovery,
-          potency,
-        ] of rows) {
-          await client.query(
-            `INSERT INTO api."${resourceName}" ("${timeField}","${recoveryField}","${conditionField}","${batchField}","${percentageRecoveryField}","${potencyField}") VALUES ($1,$2,$3,$4,$5,$6)`,
-            [time, logTiter, condition, batch, recovery, potency],
-          )
-        }
-
-        const chartSpec = {
-          specVersion: 1,
-          type: 'line' as const,
-          datasets: [{ tableId }],
-          fields: {
-            x: { columnId: timeColumnId, fieldName: timeField },
-            y: { columnId: recoveryColumnId, fieldName: recoveryField },
-            series: { columnId: conditionColumnId, fieldName: conditionField },
-            color: null,
-            size: null,
-          },
-          filters: [],
-          transformations: [],
-          display: {
-            axes: {
-              x: { label: 'Time (days)', scale: 'linear' as const, unit: 'd' },
-              y: { label: 'Log titer', scale: 'log' as const, unit: 'log₁₀' },
-            },
-            series: [
-              { identifier: 'Control', label: 'Control', color: '#006EDC' },
-              {
-                identifier: '5% sucrose',
-                label: '5% sucrose',
-                color: '#00A659',
-              },
-              {
-                identifier: '5% trehalose',
-                label: '5% trehalose',
-                color: '#9B61EA',
-              },
-              {
-                identifier: '0.01% poloxamer',
-                label: '0.01% poloxamer',
-                color: '#00A3BB',
-              },
-            ],
-            legend: { visible: true },
-          },
-          overlays: { errorBars: null },
-        }
-
-        // Live chart block: upsert the spec onto the placeholder block.
-        await client.query(
-          `UPDATE api.blocks SET payload=$2::jsonb, version=version+1 WHERE id=$1`,
-          [
-            DEMO_BLOCK_IDS.resultsChart,
-            JSON.stringify({
-              title: 'Vector genome copy number (qPCR)',
-              spec: chartSpec,
-              provenance: 'Stability readings (qPCR)',
-              frozen: null,
-            }),
-          ],
-        )
-
-        // Frozen chart block: recreate each run so the frozen snapshot always
-        // reflects the current dataset. Remove any prior block at this slot
-        // (including orphans left by an interrupted run), insert a draft with
-        // the stable fixture id, populate it, then freeze through the
-        // transactional RPC so the snapshot/provenance are authoritative.
-        await client.query(
-          `DELETE FROM api.blocks WHERE record_id=$1 AND "order"=23`,
-          [DEMO_VIRUS_STABILITY_RECORD_ID],
-        )
-        await client.query(
-          `INSERT INTO api.blocks(id,record_id,type,payload,"order",created_by_user_id) VALUES($1,$2,'chart','{}'::jsonb,23,$3)`,
-          [
-            DEMO_BLOCK_IDS.stabilityChartFrozen,
-            DEMO_VIRUS_STABILITY_RECORD_ID,
-            FIXTURE_USER_ID,
-          ],
-        )
-        const populated = await client.query(
-          `UPDATE api.blocks SET payload=$2::jsonb, version=version+1 WHERE id=$1 RETURNING version`,
-          [
-            DEMO_BLOCK_IDS.stabilityChartFrozen,
-            JSON.stringify({
-              title: 'Frozen stability snapshot (qPCR)',
-              spec: chartSpec,
-              provenance: 'Stability readings (qPCR)',
-              frozen: null,
-            }),
-          ],
-        )
-        await client.query('SELECT * FROM api.freeze_chart($1,$2)', [
-          DEMO_BLOCK_IDS.stabilityChartFrozen,
-          populated.rows[0].version,
-        ])
-
         await client.query('RESET ROLE')
       } finally {
         await client.end()
@@ -2781,194 +2440,6 @@ export const demoSteps: Array<SeedStep> = [
   // instantiated from the validated template with a source-template link.
   // -------------------------------------------------------------------------
   {
-    name: 'demo SCI-006 notebook template: Stability Study (ICH)',
-    run: async (db) => {
-      const blocks = [
-        {
-          id: DEMO_TEMPLATE_IDS.notebookTemplateBlock1,
-          type: 'rich_text',
-          payload: {
-            doc: {
-              type: 'doc',
-              content: [
-                {
-                  type: 'heading',
-                  attrs: { level: 2 },
-                  content: [{ type: 'text', text: 'Objective' }],
-                },
-                {
-                  type: 'paragraph',
-                  content: [
-                    {
-                      type: 'text',
-                      text: 'Evaluate the stability of the drug substance under ICH-accelerated conditions (40 °C / 75% RH) over 6 months.',
-                    },
-                  ],
-                },
-              ],
-            },
-          },
-          order: 1,
-        },
-        {
-          id: DEMO_TEMPLATE_IDS.notebookTemplateBlock2,
-          type: 'checklist',
-          payload: {
-            items: [
-              {
-                text: 'Prepare stability chambers at 40 °C / 75% RH',
-                checked: false,
-              },
-              {
-                text: 'Assign time points: T=0, 1, 2, 3, 6 months',
-                checked: false,
-              },
-              {
-                text: 'Define acceptance criteria (potency ≥ 90%, impurities ≤ 5%)',
-                checked: false,
-              },
-            ],
-          },
-          order: 2,
-        },
-        {
-          id: DEMO_TEMPLATE_IDS.notebookTemplateBlock3,
-          type: 'callout',
-          payload: {
-            text: 'Follow ICH Q1A(R2) guidelines for accelerated stability testing.',
-            variant: 'info',
-          },
-          order: 3,
-        },
-      ]
-      await db
-        .insert(schema.records)
-        .values({
-          id: DEMO_TEMPLATE_IDS.notebookTemplateValidated,
-          workspaceId: FIXTURE_WORKSPACE_ID,
-          projectId: null,
-          kind: 'notebook_template',
-          identifier: DEMO_TEMPLATE_IDS.notebookTemplateValidatedIdentifier,
-          title: 'Stability Study (ICH)',
-          status: 'validated',
-          createdByUserId: FIXTURE_USER_ID,
-        })
-        .onConflictDoUpdate({
-          target: schema.records.id,
-          set: {
-            title: 'Stability Study (ICH)',
-            status: 'validated',
-            archivedAt: null,
-            deletedAt: null,
-          },
-        })
-      for (const block of blocks) {
-        await db
-          .insert(schema.blocks)
-          .values({
-            id: block.id,
-            recordId: DEMO_TEMPLATE_IDS.notebookTemplateValidated,
-            type: block.type,
-            payload: block.payload,
-            order: block.order,
-            createdByUserId: FIXTURE_USER_ID,
-          })
-          .onConflictDoUpdate({
-            target: schema.blocks.id,
-            set: {
-              type: block.type,
-              payload: block.payload,
-              order: block.order,
-            },
-          })
-      }
-    },
-  },
-  {
-    name: 'demo SCI-006 draft notebook template: Cell Viability Assay',
-    run: async (db) => {
-      await db
-        .insert(schema.records)
-        .values({
-          id: DEMO_TEMPLATE_IDS.notebookTemplateDraft,
-          workspaceId: FIXTURE_WORKSPACE_ID,
-          projectId: null,
-          kind: 'notebook_template',
-          identifier: DEMO_TEMPLATE_IDS.notebookTemplateDraftIdentifier,
-          title: 'Cell Viability Assay',
-          status: 'draft',
-          createdByUserId: FIXTURE_USER_ID,
-        })
-        .onConflictDoUpdate({
-          target: schema.records.id,
-          set: {
-            title: 'Cell Viability Assay',
-            status: 'draft',
-            archivedAt: null,
-            deletedAt: null,
-          },
-        })
-      await db
-        .insert(schema.blocks)
-        .values({
-          id: DEMO_TEMPLATE_IDS.notebookTemplateDraftBlock1,
-          recordId: DEMO_TEMPLATE_IDS.notebookTemplateDraft,
-          type: 'rich_text',
-          payload: {
-            doc: {
-              type: 'doc',
-              content: [
-                {
-                  type: 'heading',
-                  attrs: { level: 2 },
-                  content: [{ type: 'text', text: 'Overview' }],
-                },
-                {
-                  type: 'paragraph',
-                  content: [
-                    {
-                      type: 'text',
-                      text: 'Draft template for measuring cell viability using MTT assay. Work in progress.',
-                    },
-                  ],
-                },
-              ],
-            },
-          },
-          order: 1,
-          createdByUserId: FIXTURE_USER_ID,
-        })
-        .onConflictDoUpdate({
-          target: schema.blocks.id,
-          set: {
-            type: 'rich_text',
-            payload: {
-              doc: {
-                type: 'doc',
-                content: [
-                  {
-                    type: 'heading',
-                    attrs: { level: 2 },
-                    content: [{ type: 'text', text: 'Overview' }],
-                  },
-                  {
-                    type: 'paragraph',
-                    content: [
-                      {
-                        type: 'text',
-                        text: 'Draft template for measuring cell viability using MTT assay. Work in progress.',
-                      },
-                    ],
-                  },
-                ],
-              },
-            },
-            order: 1,
-          },
-        })
-    },
-  },
-  {
     name: 'demo SCI-006 archived protocol template: ELISA Protocol',
     run: async (db) => {
       await db
@@ -3022,7 +2493,7 @@ export const demoSteps: Array<SeedStep> = [
     },
   },
   {
-    name: 'demo SCI-006 instantiated record from template with source link',
+    name: 'demo SCI-006 additional experiment notebook',
     run: async (db) => {
       // Create the instantiated experiment record
       await db
@@ -3126,85 +2597,6 @@ export const demoSteps: Array<SeedStep> = [
             },
           })
       }
-
-      // Immutable revision of the template at instantiation time
-      await db
-        .insert(schema.revisions)
-        .values({
-          id: DEMO_TEMPLATE_IDS.templateRevision,
-          recordId: DEMO_TEMPLATE_IDS.notebookTemplateValidated,
-          structureVersion: 1,
-          metadataVersion: 1,
-          metadataSnapshot: {
-            id: DEMO_TEMPLATE_IDS.notebookTemplateValidated,
-            identifier: DEMO_TEMPLATE_IDS.notebookTemplateValidatedIdentifier,
-            title: 'Stability Study (ICH)',
-            status: 'validated',
-            properties: {},
-            tags: [],
-            metadataVersion: 1,
-            kind: 'notebook_template',
-          },
-          blockSnapshot: [
-            {
-              id: DEMO_TEMPLATE_IDS.notebookTemplateBlock1,
-              type: 'rich_text',
-              payload: copiedBlocks[0].payload,
-              payload_schema_version: 1,
-              order: 1,
-              version: 1,
-            },
-            {
-              id: DEMO_TEMPLATE_IDS.notebookTemplateBlock2,
-              type: 'checklist',
-              payload: copiedBlocks[1].payload,
-              payload_schema_version: 1,
-              order: 2,
-              version: 1,
-            },
-            {
-              id: DEMO_TEMPLATE_IDS.notebookTemplateBlock3,
-              type: 'callout',
-              payload: copiedBlocks[2].payload,
-              payload_schema_version: 1,
-              order: 3,
-              version: 1,
-            },
-          ],
-          reason: 'validate',
-          createdByUserId: FIXTURE_USER_ID,
-        })
-        .onConflictDoNothing({ target: schema.revisions.id })
-
-      // Source-template link with revision provenance
-      await db
-        .insert(schema.recordLinks)
-        .values({
-          id: DEMO_TEMPLATE_IDS.templateLink,
-          sourceRecordId: DEMO_TEMPLATE_IDS.instantiatedRecord,
-          targetRecordId: DEMO_TEMPLATE_IDS.notebookTemplateValidated,
-          targetKind: 'notebook_template',
-          targetIdentifier:
-            DEMO_TEMPLATE_IDS.notebookTemplateValidatedIdentifier,
-          linkType: 'template',
-          linkMetadata: {
-            template_revision_id: DEMO_TEMPLATE_IDS.templateRevision,
-          },
-          createdByUserId: FIXTURE_USER_ID,
-        })
-        .onConflictDoUpdate({
-          target: schema.recordLinks.id,
-          set: {
-            targetRecordId: DEMO_TEMPLATE_IDS.notebookTemplateValidated,
-            targetKind: 'notebook_template',
-            targetIdentifier:
-              DEMO_TEMPLATE_IDS.notebookTemplateValidatedIdentifier,
-            linkType: 'template',
-            linkMetadata: {
-              template_revision_id: DEMO_TEMPLATE_IDS.templateRevision,
-            },
-          },
-        })
     },
   },
   // -------------------------------------------------------------------------

@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AnalysisRouteImport } from './routes/analysis'
 import { Route as CalendarRouteImport } from './routes/calendar'
+import { Route as ConfigureRouteImport } from './routes/configure'
 import { Route as DatasetsRouteImport } from './routes/datasets'
 import { Route as FoundationsRouteImport } from './routes/foundations'
 import { Route as InstrumentMonitorRouteImport } from './routes/instrument-monitor'
@@ -24,7 +25,6 @@ import { Route as ReagentsRouteImport } from './routes/reagents'
 import { Route as ReportBuilderRouteImport } from './routes/report-builder'
 import { Route as ReviewsRouteImport } from './routes/reviews'
 import { Route as SamplesRouteImport } from './routes/samples'
-import { Route as SchemasRouteImport } from './routes/schemas'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as StorageRouteImport } from './routes/storage'
@@ -33,8 +33,10 @@ import { Route as AdminSectionRouteImport } from './routes/admin/$section'
 import { Route as ApiCalculationsRouteImport } from './routes/api/calculations'
 import { Route as ApiEventsRouteImport } from './routes/api/events'
 import { Route as ApiFormulasRouteImport } from './routes/api/formulas'
+import { Route as ApiSheetCalculationsRouteImport } from './routes/api/sheet-calculations'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects/$projectId'
 import { Route as ReviewsRevisionIdRouteImport } from './routes/reviews/$revisionId'
+import { Route as SheetsInstanceIdRouteImport } from './routes/sheets/$instanceId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiDbSplatRouteImport } from './routes/api/db/$'
 import { Route as ApiFilesUploadAuthorizeRouteImport } from './routes/api/files/upload-authorize'
@@ -64,6 +66,11 @@ const AnalysisRoute = AnalysisRouteImport.update({
 const CalendarRoute = CalendarRouteImport.update({
   id: '/calendar',
   path: '/calendar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConfigureRoute = ConfigureRouteImport.update({
+  id: '/configure',
+  path: '/configure',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DatasetsRoute = DatasetsRouteImport.update({
@@ -121,11 +128,6 @@ const SamplesRoute = SamplesRouteImport.update({
   path: '/samples',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SchemasRoute = SchemasRouteImport.update({
-  id: '/schemas',
-  path: '/schemas',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const SearchRoute = SearchRouteImport.update({
   id: '/search',
   path: '/search',
@@ -166,6 +168,11 @@ const ApiFormulasRoute = ApiFormulasRouteImport.update({
   path: '/api/formulas',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSheetCalculationsRoute = ApiSheetCalculationsRouteImport.update({
+  id: '/api/sheet-calculations',
+  path: '/api/sheet-calculations',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
   id: '/$projectId',
   path: '/$projectId',
@@ -175,6 +182,11 @@ const ReviewsRevisionIdRoute = ReviewsRevisionIdRouteImport.update({
   id: '/$revisionId',
   path: '/$revisionId',
   getParentRoute: () => ReviewsRoute,
+} as any)
+const SheetsInstanceIdRoute = SheetsInstanceIdRouteImport.update({
+  id: '/sheets/$instanceId',
+  path: '/sheets/$instanceId',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
@@ -234,6 +246,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteWithChildren
   '/analysis': typeof AnalysisRoute
   '/calendar': typeof CalendarRoute
+  '/configure': typeof ConfigureRoute
   '/datasets': typeof DatasetsRoute
   '/foundations': typeof FoundationsRoute
   '/instrument-monitor': typeof InstrumentMonitorRoute
@@ -245,7 +258,6 @@ export interface FileRoutesByFullPath {
   '/report-builder': typeof ReportBuilderRoute
   '/reviews': typeof ReviewsRouteWithChildren
   '/samples': typeof SamplesRoute
-  '/schemas': typeof SchemasRoute
   '/search': typeof SearchRoute
   '/sign-in': typeof SignInRoute
   '/storage': typeof StorageRoute
@@ -254,8 +266,10 @@ export interface FileRoutesByFullPath {
   '/api/calculations': typeof ApiCalculationsRoute
   '/api/events': typeof ApiEventsRoute
   '/api/formulas': typeof ApiFormulasRoute
+  '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
   '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
+  '/sheets/$instanceId': typeof SheetsInstanceIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/db/$': typeof ApiDbSplatRoute
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
@@ -272,6 +286,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRouteWithChildren
   '/analysis': typeof AnalysisRoute
   '/calendar': typeof CalendarRoute
+  '/configure': typeof ConfigureRoute
   '/datasets': typeof DatasetsRoute
   '/foundations': typeof FoundationsRoute
   '/instrument-monitor': typeof InstrumentMonitorRoute
@@ -283,7 +298,6 @@ export interface FileRoutesByTo {
   '/report-builder': typeof ReportBuilderRoute
   '/reviews': typeof ReviewsRouteWithChildren
   '/samples': typeof SamplesRoute
-  '/schemas': typeof SchemasRoute
   '/search': typeof SearchRoute
   '/sign-in': typeof SignInRoute
   '/storage': typeof StorageRoute
@@ -292,8 +306,10 @@ export interface FileRoutesByTo {
   '/api/calculations': typeof ApiCalculationsRoute
   '/api/events': typeof ApiEventsRoute
   '/api/formulas': typeof ApiFormulasRoute
+  '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
   '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
+  '/sheets/$instanceId': typeof SheetsInstanceIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/db/$': typeof ApiDbSplatRoute
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
@@ -311,6 +327,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteWithChildren
   '/analysis': typeof AnalysisRoute
   '/calendar': typeof CalendarRoute
+  '/configure': typeof ConfigureRoute
   '/datasets': typeof DatasetsRoute
   '/foundations': typeof FoundationsRoute
   '/instrument-monitor': typeof InstrumentMonitorRoute
@@ -322,7 +339,6 @@ export interface FileRoutesById {
   '/report-builder': typeof ReportBuilderRoute
   '/reviews': typeof ReviewsRouteWithChildren
   '/samples': typeof SamplesRoute
-  '/schemas': typeof SchemasRoute
   '/search': typeof SearchRoute
   '/sign-in': typeof SignInRoute
   '/storage': typeof StorageRoute
@@ -331,8 +347,10 @@ export interface FileRoutesById {
   '/api/calculations': typeof ApiCalculationsRoute
   '/api/events': typeof ApiEventsRoute
   '/api/formulas': typeof ApiFormulasRoute
+  '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
   '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
+  '/sheets/$instanceId': typeof SheetsInstanceIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/db/$': typeof ApiDbSplatRoute
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
@@ -351,6 +369,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/analysis'
     | '/calendar'
+    | '/configure'
     | '/datasets'
     | '/foundations'
     | '/instrument-monitor'
@@ -362,7 +381,6 @@ export interface FileRouteTypes {
     | '/report-builder'
     | '/reviews'
     | '/samples'
-    | '/schemas'
     | '/search'
     | '/sign-in'
     | '/storage'
@@ -371,8 +389,10 @@ export interface FileRouteTypes {
     | '/api/calculations'
     | '/api/events'
     | '/api/formulas'
+    | '/api/sheet-calculations'
     | '/projects/$projectId'
     | '/reviews/$revisionId'
+    | '/sheets/$instanceId'
     | '/api/auth/$'
     | '/api/db/$'
     | '/api/files/upload-authorize'
@@ -389,6 +409,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/analysis'
     | '/calendar'
+    | '/configure'
     | '/datasets'
     | '/foundations'
     | '/instrument-monitor'
@@ -400,7 +421,6 @@ export interface FileRouteTypes {
     | '/report-builder'
     | '/reviews'
     | '/samples'
-    | '/schemas'
     | '/search'
     | '/sign-in'
     | '/storage'
@@ -409,8 +429,10 @@ export interface FileRouteTypes {
     | '/api/calculations'
     | '/api/events'
     | '/api/formulas'
+    | '/api/sheet-calculations'
     | '/projects/$projectId'
     | '/reviews/$revisionId'
+    | '/sheets/$instanceId'
     | '/api/auth/$'
     | '/api/db/$'
     | '/api/files/upload-authorize'
@@ -427,6 +449,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/analysis'
     | '/calendar'
+    | '/configure'
     | '/datasets'
     | '/foundations'
     | '/instrument-monitor'
@@ -438,7 +461,6 @@ export interface FileRouteTypes {
     | '/report-builder'
     | '/reviews'
     | '/samples'
-    | '/schemas'
     | '/search'
     | '/sign-in'
     | '/storage'
@@ -447,8 +469,10 @@ export interface FileRouteTypes {
     | '/api/calculations'
     | '/api/events'
     | '/api/formulas'
+    | '/api/sheet-calculations'
     | '/projects/$projectId'
     | '/reviews/$revisionId'
+    | '/sheets/$instanceId'
     | '/api/auth/$'
     | '/api/db/$'
     | '/api/files/upload-authorize'
@@ -466,6 +490,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRouteWithChildren
   AnalysisRoute: typeof AnalysisRoute
   CalendarRoute: typeof CalendarRoute
+  ConfigureRoute: typeof ConfigureRoute
   DatasetsRoute: typeof DatasetsRoute
   FoundationsRoute: typeof FoundationsRoute
   InstrumentMonitorRoute: typeof InstrumentMonitorRoute
@@ -477,7 +502,6 @@ export interface RootRouteChildren {
   ReportBuilderRoute: typeof ReportBuilderRoute
   ReviewsRoute: typeof ReviewsRouteWithChildren
   SamplesRoute: typeof SamplesRoute
-  SchemasRoute: typeof SchemasRoute
   SearchRoute: typeof SearchRoute
   SignInRoute: typeof SignInRoute
   StorageRoute: typeof StorageRoute
@@ -485,6 +509,8 @@ export interface RootRouteChildren {
   ApiCalculationsRoute: typeof ApiCalculationsRoute
   ApiEventsRoute: typeof ApiEventsRoute
   ApiFormulasRoute: typeof ApiFormulasRoute
+  ApiSheetCalculationsRoute: typeof ApiSheetCalculationsRoute
+  SheetsInstanceIdRoute: typeof SheetsInstanceIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiDbSplatRoute: typeof ApiDbSplatRoute
   ApiFilesUploadAuthorizeRoute: typeof ApiFilesUploadAuthorizeRoute
@@ -523,6 +549,13 @@ declare module '@tanstack/react-router' {
       path: '/calendar'
       fullPath: '/calendar'
       preLoaderRoute: typeof CalendarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/configure': {
+      id: '/configure'
+      path: '/configure'
+      fullPath: '/configure'
+      preLoaderRoute: typeof ConfigureRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/datasets': {
@@ -602,13 +635,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SamplesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/schemas': {
-      id: '/schemas'
-      path: '/schemas'
-      fullPath: '/schemas'
-      preLoaderRoute: typeof SchemasRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/search': {
       id: '/search'
       path: '/search'
@@ -665,6 +691,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiFormulasRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/sheet-calculations': {
+      id: '/api/sheet-calculations'
+      path: '/api/sheet-calculations'
+      fullPath: '/api/sheet-calculations'
+      preLoaderRoute: typeof ApiSheetCalculationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/projects/$projectId': {
       id: '/projects/$projectId'
       path: '/$projectId'
@@ -678,6 +711,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/reviews/$revisionId'
       preLoaderRoute: typeof ReviewsRevisionIdRouteImport
       parentRoute: typeof ReviewsRoute
+    }
+    '/sheets/$instanceId': {
+      id: '/sheets/$instanceId'
+      path: '/sheets/$instanceId'
+      fullPath: '/sheets/$instanceId'
+      preLoaderRoute: typeof SheetsInstanceIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/auth/$': {
       id: '/api/auth/$'
@@ -817,6 +857,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRouteWithChildren,
   AnalysisRoute: AnalysisRoute,
   CalendarRoute: CalendarRoute,
+  ConfigureRoute: ConfigureRoute,
   DatasetsRoute: DatasetsRoute,
   FoundationsRoute: FoundationsRoute,
   InstrumentMonitorRoute: InstrumentMonitorRoute,
@@ -828,7 +869,6 @@ const rootRouteChildren: RootRouteChildren = {
   ReportBuilderRoute: ReportBuilderRoute,
   ReviewsRoute: ReviewsRouteWithChildren,
   SamplesRoute: SamplesRoute,
-  SchemasRoute: SchemasRoute,
   SearchRoute: SearchRoute,
   SignInRoute: SignInRoute,
   StorageRoute: StorageRoute,
@@ -836,6 +876,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiCalculationsRoute: ApiCalculationsRoute,
   ApiEventsRoute: ApiEventsRoute,
   ApiFormulasRoute: ApiFormulasRoute,
+  ApiSheetCalculationsRoute: ApiSheetCalculationsRoute,
+  SheetsInstanceIdRoute: SheetsInstanceIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiDbSplatRoute: ApiDbSplatRoute,
   ApiFilesUploadAuthorizeRoute: ApiFilesUploadAuthorizeRoute,

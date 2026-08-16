@@ -35,15 +35,32 @@ import {
   EmptyHint,
 } from '#/components/record'
 import { ScientificRecordLinker, StatusBadge } from '#/components/scientific'
-import { Badge } from '#/components/ui'
+import {
+  Badge,
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Field,
+  FieldLabel,
+  SearchableSelect,
+} from '#/components/ui'
 import { DataClientError } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
 import {
   fetchBlocksForRecord,
   fetchChangeEventsForRecord,
+  fetchLatestRevisionForRecord,
   fetchLinksForRecord,
   fetchProject,
   fetchRecord,
+  fetchRevision,
+  fetchRevisionSheetEvidence,
+  formatDate,
+  formatNotebookDateTime,
   formatRelativeTime,
   notebookDataClient,
   notebookQueryKeys,
@@ -61,11 +78,25 @@ import {
   deleteBlock,
   duplicateBlock,
   insertBlock,
-  insertSheetBlock,
+  insertSheetInstanceBlock,
   moveBlock,
   updateBlockPayload,
 } from '#/lib/notebook-mutations'
+import {
+  fetchNotebookTemplate,
+  fetchNotebookTemplateVersion,
+  notebookTemplateDataClient,
+} from '#/lib/notebook-template-data'
+import {
+  fetchSheetInstances,
+  sheetInstanceDataClient,
+} from '#/lib/sheet-instance-data'
 import { freezeChart, unfreezeChart } from '#/lib/chart-data'
+import {
+  sheetEvidenceFromEnvelope,
+  sheetEvidenceFromRevisionRows,
+} from '#/lib/sheet-evidence'
+import { toCanonicalEnvelope } from '#/lib/review-workspace'
 import { validateBlock } from '#/lib/blocks'
 import { pinProtocolReference } from '#/lib/protocol-materials'
 import { attachFileToBlock, AttachFileError } from '#/lib/file-attach'
@@ -240,22 +271,22 @@ function ExperimentNotebookRoute() {
       }
     >
       <div className="flex-1 overflow-y-auto px-4 pb-16 md:px-6">
-          <StickyRecordHeader
-            record={record}
-            projectName={project?.title ?? null}
-            projectId={projectId}
-          />
-          {isArchived ? <ArchivedBanner /> : null}
-          {record.lockedAt ? <LockedBanner record={record} /> : null}
-          <NotebookCanvas
-              record={record}
-              blocks={blocks}
-              isLoading={blocksQuery.isLoading}
-              error={blocksQuery.error}
-              onRetry={() => blocksQuery.refetch()}
-              client={notebookDataClient}
-              queryClient={queryClient}
-            />
+        <StickyRecordHeader
+          record={record}
+          projectName={project?.title ?? null}
+          projectId={projectId}
+        />
+        {isArchived ? <ArchivedBanner /> : null}
+        {record.lockedAt ? <LockedBanner record={record} /> : null}
+        <NotebookCanvas
+          record={record}
+          blocks={blocks}
+          isLoading={blocksQuery.isLoading}
+          error={blocksQuery.error}
+          onRetry={() => blocksQuery.refetch()}
+          client={notebookDataClient}
+          queryClient={queryClient}
+        />
       </div>
     </RouteShell>
   )
@@ -356,14 +387,14 @@ export function StickyRecordHeader({
         <span>
           Created{' '}
           <span className="text-foreground">
-            {new Date(record.createdAt).toLocaleDateString()}
+            {formatDate(record.createdAt)}
           </span>
         </span>
         <span className="text-muted-foreground/50">·</span>
         <span>
           Updated{' '}
           <span className="text-foreground">
-            {new Date(record.updatedAt).toLocaleDateString()}
+            {formatDate(record.updatedAt)}
           </span>
         </span>
         {projectName ? (
@@ -411,13 +442,12 @@ export function LockedBanner({
         aria-hidden="true"
       />
       <span className="text-foreground">
-        This record is locked by an approved signature. Scientific evidence is
-        frozen — start an amendment to edit again.
-        {record.lockedByRevisionId ? (
-          <span className="ml-1 font-mono text-muted-foreground">
-            (revision {record.lockedByRevisionId.slice(0, 8)})
-          </span>
-        ) : null}
+        This record is locked
+        {record.lockedAt
+          ? ` since ${formatNotebookDateTime(record.lockedAt)}`
+          : ''}
+        . Scientific evidence is frozen for this record — start an amendment to
+        edit again.
       </span>
     </div>
   )
@@ -485,6 +515,9 @@ export function NotebookCanvas({
     // read-only through the same document component so the visual frame and
     // anchors match the editable state. SIGN-002: a locked record's
     // scientific evidence is frozen until an amendment unlocks it.
+    if ((record.archivedAt || record.lockedAt) && client && queryClient) {
+      return <LockedNotebook record={record} blocks={blocks} client={client} />
+    }
     return (
       <NotebookDocument
         record={record}
@@ -538,6 +571,16 @@ function EditableNotebook({
   // the document. The router blocker uses `withResolver` so we can show
   // a comprehensible confirmation rather than blocking silently.
   const [hasUnsavedWork, setHasUnsavedWork] = useState(false)
+  const [embedOpen, setEmbedOpen] = useState(false)
+  const [embedAfterBlockId, setEmbedAfterBlockId] = useState<
+    string | undefined
+  >()
+  const [embedInstanceId, setEmbedInstanceId] = useState('')
+  const embedCandidates = useQuery({
+    queryKey: ['sheet-instances', 'embed-picker', record.id],
+    queryFn: () => fetchSheetInstances(sheetInstanceDataClient),
+    enabled: embedOpen,
+  })
   const blocker = useBlocker({
     shouldBlockFn: () => hasUnsavedWork,
     enableBeforeUnload: false,
@@ -610,16 +653,16 @@ function EditableNotebook({
     }: {
       type: string
       afterBlockId?: string
-      options?: { datasetSchemaId?: string }
+      options?: { datasetSchemaId?: string; instanceId?: string }
     }) => {
       const current = queryClient.getQueryData<NotebookRecord | null>(recordKey)
-      if (type === 'sheet') {
-        return insertSheetBlock(client, {
+      if (type === 'sheet' || type === 'sheet_shared') {
+        return insertSheetInstanceBlock(client, {
           recordId: record.id,
           afterBlockId,
           expectedStructureVersion:
             current?.structureVersion ?? record.structureVersion,
-          datasetSchemaId: options?.datasetSchemaId,
+          instanceId: options?.instanceId,
         })
       }
       const payload = defaultPayloadFor(type)
@@ -812,9 +855,19 @@ function EditableNotebook({
   async function handleInsert(
     type: string,
     afterBlockId?: string,
-    options?: { datasetSchemaId?: string },
+    options?: { datasetSchemaId?: string; instanceId?: string },
   ) {
-    const res = await insertMutation.mutateAsync({ type, afterBlockId, options })
+    if (type === 'sheet_shared' && !options?.instanceId) {
+      setEmbedAfterBlockId(afterBlockId)
+      setEmbedInstanceId('')
+      setEmbedOpen(true)
+      return undefined
+    }
+    const res = await insertMutation.mutateAsync({
+      type,
+      afterBlockId,
+      options,
+    })
     return res.block.id
   }
 
@@ -942,22 +995,117 @@ function EditableNotebook({
   }
 
   return (
+    <>
+      <NotebookDocument
+        record={record}
+        blocks={blocks}
+        onSaveBlock={handleSave}
+        offline={offline}
+        onUnsavedWorkChange={setHasUnsavedWork}
+        onInsertBlock={handleInsert}
+        onPinProtocol={handlePinProtocol}
+        onAttachFile={handleAttachFile}
+        onFreezeChart={handleFreezeChart}
+        onUnfreezeChart={handleUnfreezeChart}
+        onDuplicateBlock={handleDuplicate}
+        onDeleteBlock={handleDelete}
+        onUndoDelete={handleUndoDelete}
+        onMoveBlock={handleMove}
+        onReplaceBlock={handleReplaceBlock}
+      />
+      <Dialog open={embedOpen} onOpenChange={setEmbedOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Link an existing Sheet</DialogTitle>
+            <DialogDescription>
+              This Notebook will show the same live Sheet. Editing it here
+              changes it everywhere it is used.
+            </DialogDescription>
+          </DialogHeader>
+          <Field>
+            <FieldLabel htmlFor="link-sheet-instance">Sheet</FieldLabel>
+            <SearchableSelect
+              id="link-sheet-instance"
+              items={(embedCandidates.data ?? []).filter(
+                (instance) => instance.lifecycle === 'active',
+              )}
+              value={embedInstanceId}
+              onChange={setEmbedInstanceId}
+              getId={(instance) => instance.id}
+              getLabel={(instance) => instance.name}
+              getDescription={(instance) =>
+                instance.sourceDefinitionVersionId
+                  ? 'From a Sheet Definition'
+                  : 'Ad hoc Sheet'
+              }
+              placeholder="Search Sheets by name"
+              triggerLabel="Select a Sheet"
+              emptyLabel="No Sheets match that search."
+            />
+          </Field>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setEmbedOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={!embedInstanceId || insertMutation.isPending}
+              onClick={() => {
+                void handleInsert('sheet_shared', embedAfterBlockId, {
+                  instanceId: embedInstanceId,
+                }).then(() => setEmbedOpen(false))
+              }}
+            >
+              Link Sheet
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
+
+function LockedNotebook({
+  record,
+  blocks,
+  client,
+}: {
+  record: NotebookRecord
+  blocks: NotebookBlockDomain[]
+  client: DataClient
+}) {
+  const revision = useQuery({
+    queryKey: ['revision-sheet-evidence', record.id, record.lockedByRevisionId],
+    queryFn: () =>
+      record.lockedByRevisionId
+        ? fetchRevision(client, record.lockedByRevisionId)
+        : fetchLatestRevisionForRecord(client, record.id),
+  })
+  const revisionId = revision.data?.id ?? record.lockedByRevisionId
+  const storedEvidence = useQuery({
+    queryKey: ['revision-sheet-evidence-rows', revisionId],
+    enabled: Boolean(revisionId),
+    queryFn: () => fetchRevisionSheetEvidence(client, revisionId!),
+  })
+  const frozenSheetEvidence = storedEvidence.data?.length
+    ? sheetEvidenceFromRevisionRows(storedEvidence.data)
+    : sheetEvidenceFromEnvelope(
+        revision.data ? toCanonicalEnvelope(revision.data) : null,
+      )
+  return (
     <NotebookDocument
       record={record}
       blocks={blocks}
-      onSaveBlock={handleSave}
-      offline={offline}
-      onUnsavedWorkChange={setHasUnsavedWork}
-      onInsertBlock={handleInsert}
-      onPinProtocol={handlePinProtocol}
-      onAttachFile={handleAttachFile}
-      onFreezeChart={handleFreezeChart}
-      onUnfreezeChart={handleUnfreezeChart}
-      onDuplicateBlock={handleDuplicate}
-      onDeleteBlock={handleDelete}
-      onUndoDelete={handleUndoDelete}
-      onMoveBlock={handleMove}
-      onReplaceBlock={handleReplaceBlock}
+      readOnly
+      frozenSheetEvidence={frozenSheetEvidence}
+      onSaveBlock={async () => ({ ok: true })}
+      onInsertBlock={async () => undefined}
+      onDuplicateBlock={async () => undefined}
+      onDeleteBlock={async () => undefined}
     />
   )
 }
@@ -1228,6 +1376,39 @@ function linkCountsByKind(
   }))
 }
 
+function NotebookTemplateVersionLabel({ versionId }: { versionId: string }) {
+  const version = useQuery({
+    queryKey: ['notebook-template-version', versionId],
+    queryFn: () =>
+      fetchNotebookTemplateVersion(versionId, notebookTemplateDataClient),
+  })
+  const template = useQuery({
+    queryKey: ['notebook-template', version.data?.templateId],
+    enabled: Boolean(version.data?.templateId),
+    queryFn: () =>
+      fetchNotebookTemplate(
+        version.data!.templateId,
+        notebookTemplateDataClient,
+      ),
+  })
+  if (version.isLoading || template.isLoading) {
+    return (
+      <span className="text-xs text-muted-foreground" role="status">
+        Loading template…
+      </span>
+    )
+  }
+  if (!version.data) {
+    return <span className="text-xs">Notebook template</span>
+  }
+  const name = template.data?.name ?? 'Notebook template'
+  return (
+    <span className="text-right text-xs">
+      {name} · version {version.data.version}
+    </span>
+  )
+}
+
 export function NotebookInspector({
   record,
   projectName,
@@ -1261,15 +1442,7 @@ export function NotebookInspector({
     currentUserId,
   )
   const linkCounts = linkCountsByKind(links)
-  const fmtDateTime = (iso: string) =>
-    new Date(iso).toLocaleString('en-CA', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    })
+  const fmtDateTime = (iso: string) => formatNotebookDateTime(iso)
 
   return (
     <Inspector
@@ -1327,10 +1500,26 @@ export function NotebookInspector({
                 <span className="shrink-0 text-xs text-muted-foreground">
                   Review status
                 </span>
-                <Badge variant="outline" className="text-xs">
-                  Not submitted
-                </Badge>
+                {record.lockedAt ? (
+                  <Badge variant="success" className="text-xs">
+                    Locked — evidence frozen
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-xs">
+                    Not submitted
+                  </Badge>
+                )}
               </div>
+              {record.sourceNotebookTemplateVersionId ? (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    Template
+                  </span>
+                  <NotebookTemplateVersionLabel
+                    versionId={record.sourceNotebookTemplateVersionId}
+                  />
+                </div>
+              ) : null}
 
               {/* Tags — coloured pills, always visible */}
               <InspectorSection title="Tags">

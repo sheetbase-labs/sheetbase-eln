@@ -1,7 +1,7 @@
 type GanttBarId = string
 
 /** Horizontal time scale of the gantt axis. */
-type GanttScale = "day" | "week" | "month" | "quarter" | "year"
+type GanttScale = 'day' | 'week' | 'month' | 'quarter' | 'year'
 
 /** Proposal emitted when a timeline resource row is drag-reordered. */
 interface GanttResourceReorder {
@@ -21,7 +21,7 @@ interface GanttResourceReorder {
  *   would create a concurrent schedule is refused.
  * - "multiple": concurrent schedules stack into stable lanes and the row grows.
  */
-type GanttScheduleMode = "single" | "multiple"
+type GanttScheduleMode = 'single' | 'multiple'
 
 /**
  * Drop policy for a gesture that would overlap another schedule in the SAME
@@ -30,10 +30,10 @@ type GanttScheduleMode = "single" | "multiple"
  * - "clamp": the gesture stops at the neighbour's edge.
  * - "reject": the gesture is marked invalid and never commits.
  */
-type GanttOverlapPolicy = "allow" | "reject" | "clamp"
+type GanttOverlapPolicy = 'allow' | 'reject' | 'clamp'
 
 /** Vertical placement of a row's content when the node holds several lanes. */
-type GanttRowAlign = "start" | "center"
+type GanttRowAlign = 'start' | 'center'
 
 /**
  * One node of the gantt tree: a generic item that carries a title, consumer
@@ -61,10 +61,10 @@ interface GanttDateRange {
   end: Date
 }
 
-type GanttWeekday = "MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU"
+type GanttWeekday = 'MO' | 'TU' | 'WE' | 'TH' | 'FR' | 'SA' | 'SU'
 
 interface GanttRecurrenceRule {
-  freq: "daily" | "weekly" | "monthly" | "yearly"
+  freq: 'daily' | 'weekly' | 'monthly' | 'yearly'
   interval?: number
   count?: number
   /** Inclusive instant. */
@@ -155,7 +155,7 @@ interface GanttInteractions {
 }
 
 interface GanttDragState<TData = unknown> {
-  kind: "move" | "resize-start" | "resize-end"
+  kind: 'move' | 'resize-start' | 'resize-end'
   occurrence: GanttOccurrence<TData>
   proposedStart: Date
   proposedEnd: Date
@@ -218,14 +218,12 @@ interface GanttProposedUpdate<TData = unknown> {
   allDay: boolean
   /** The bar's own resource (moves stay in-row); set on create/api. */
   resourceId?: string
-  source: "drag" | "resize-start" | "resize-end" | "keyboard" | "api"
+  source: 'drag' | 'resize-start' | 'resize-end' | 'keyboard' | 'api'
 }
 
 /** false = reject/revert; void or true = accept; object = accept with adjustment. */
 type GanttUpdateResult =
-  | boolean
-  | void
-  | { start?: Date; end?: Date; allDay?: boolean }
+  boolean | void | { start?: Date; end?: Date; allDay?: boolean }
 
 /** A click is a point, not a range; `end` is reserved for future gestures. */
 interface GanttSlotInfo {
@@ -261,7 +259,7 @@ interface GanttOffDaysConfig {
 interface GanttDataAdapter<TData = unknown> {
   getEvents(
     range: GanttDateRange,
-    signal?: AbortSignal
+    signal?: AbortSignal,
   ): Promise<GanttEvent<TData>[]>
 }
 

@@ -44,7 +44,13 @@ export function shiftFormulaReferences(
   if (rowOffset === 0 && colOffset === 0) return formula
   return formula.replace(
     /(\$?)([A-Z]{1,3})(\$?)(\d+)(?![\d(])/g,
-    (match, colDollar: string, letters: string, rowDollar: string, rowStr: string) => {
+    (
+      match,
+      colDollar: string,
+      letters: string,
+      rowDollar: string,
+      rowStr: string,
+    ) => {
       const col = letterToColumn(letters)
       const row = parseInt(rowStr, 10) - 1 // convert to 0-indexed
       const newCol = colDollar ? col : col + colOffset

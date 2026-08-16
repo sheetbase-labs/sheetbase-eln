@@ -604,10 +604,7 @@ export function RecordListSection({
           const owner =
             row.original.updatedByUserId ?? row.original.createdByUserId
           return (
-            <span
-              className="text-xs text-muted-foreground"
-              title={owner}
-            >
+            <span className="text-xs text-muted-foreground" title={owner}>
               {owner ? userLabel(owner) : '—'}
             </span>
           )
@@ -999,7 +996,12 @@ export function ProjectSidebar({
                   Sample
                 </Link>
               </Button>
-              <Button asChild variant="outline" size="sm" className="col-span-2">
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="col-span-2"
+              >
                 <Link to="/templates" className="no-underline">
                   <Upload className="size-3.5" aria-hidden="true" />
                   Upload file

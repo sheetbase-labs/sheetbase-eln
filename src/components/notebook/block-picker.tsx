@@ -64,8 +64,15 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
   {
     type: 'sheet',
     label: 'Sheet',
-    description: 'A PostgreSQL-backed scientific table.',
+    description: 'Start a new Sheet on this Notebook.',
     icon: Sheet,
+  },
+  {
+    type: 'sheet_shared',
+    label: 'Link existing Sheet',
+    description:
+      'Show a Sheet that already exists. Edits stay shared with every Notebook that uses it.',
+    icon: Link2,
   },
   {
     type: 'protocol_reference',

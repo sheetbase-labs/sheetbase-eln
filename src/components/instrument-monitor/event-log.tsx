@@ -271,7 +271,11 @@ function groupByRecency(
 /* Component                                                          */
 /* ------------------------------------------------------------------ */
 
-export function EventLog({ observations, timeZone, isLive = false }: EventLogProps) {
+export function EventLog({
+  observations,
+  timeZone,
+  isLive = false,
+}: EventLogProps) {
   const [activeFilter, setActiveFilter] = useState<FilterKey>('all')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -316,7 +320,10 @@ export function EventLog({ observations, timeZone, isLive = false }: EventLogPro
       const config = EVENT_TYPE_CONFIG[event.observationType] ?? DEFAULT_CONFIG
       if (config.severity === 'error' || config.severity === 'warning')
         counts.errors++
-      if (event.observationType === 'stage_start' || event.observationType === 'stage_complete')
+      if (
+        event.observationType === 'stage_start' ||
+        event.observationType === 'stage_complete'
+      )
         counts.stages++
       if (event.observationType === 'qc_result') counts.qc++
       if (config.severity === 'routine') counts.heartbeats++

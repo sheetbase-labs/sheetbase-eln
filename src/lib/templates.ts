@@ -3,9 +3,8 @@
  * status vocabularies, lifecycle rules, instantiation helpers, archive /
  * duplicate / export helpers, favourites persistence, and query keys.
  *
- * Templates are records (kind `protocol_template` or `notebook_template`).
- * This module provides the application-boundary validation and DataClient
- * helpers; PostgreSQL/RLS remain the authoritative access-control boundary.
+ * Templates are protocol records (`protocol_template`). Notebook Templates
+ * use the CORE-06 `notebook_templates` catalogue, not record kinds.
  */
 import type { DataClient } from './data-client'
 import type { NotebookBlock, NotebookRecord, RecordWire } from './notebook-data'
@@ -15,25 +14,22 @@ import { toRecord } from './notebook-data'
 // Template kinds and identifiers
 // ---------------------------------------------------------------------------
 
-export type TemplateKind = 'protocol_template' | 'notebook_template'
+export type TemplateKind = 'protocol_template'
 
 export const TEMPLATE_KINDS: readonly TemplateKind[] = [
   'protocol_template',
-  'notebook_template',
 ] as const
 
 export function isTemplateKind(kind: string): kind is TemplateKind {
-  return kind === 'protocol_template' || kind === 'notebook_template'
+  return kind === 'protocol_template'
 }
 
 export const TEMPLATE_KIND_PREFIX: Record<TemplateKind, string> = {
   protocol_template: 'PRT',
-  notebook_template: 'NBK',
 }
 
 export const TEMPLATE_KIND_LABEL: Record<TemplateKind, string> = {
   protocol_template: 'Protocol',
-  notebook_template: 'Notebook',
 }
 
 // ---------------------------------------------------------------------------
@@ -49,7 +45,6 @@ export type TemplateStatus = ProtocolTemplateStatus | NotebookTemplateStatus
 /** Statuses from which instantiation is allowed. */
 export const INSTANTIABLE_STATUSES: Record<TemplateKind, readonly string[]> = {
   protocol_template: ['active'],
-  notebook_template: ['validated'],
 }
 
 export function isInstantiable(
@@ -73,10 +68,6 @@ export const TEMPLATE_TRANSITIONS: Record<
     draft: ['active', 'under_review'],
     under_review: ['active', 'draft'],
     active: ['draft'],
-  },
-  notebook_template: {
-    draft: ['validated'],
-    validated: ['draft'],
   },
 }
 
@@ -107,7 +98,6 @@ export const INSTANTIABLE_TARGET_KINDS: Record<
   readonly TargetKind[]
 > = {
   protocol_template: ['experiment', 'protocol_template'],
-  notebook_template: ['experiment'],
 }
 
 // ---------------------------------------------------------------------------
@@ -168,7 +158,7 @@ export function fetchTemplates(
   } = {},
 ): Promise<NotebookRecord[]> {
   const parts: string[] = [
-    'kind=in.(protocol_template,notebook_template)',
+    'kind=eq.protocol_template',
     'deleted_at=is.null',
     'order=archived_at.asc,identifier.asc',
   ]
@@ -296,6 +286,11 @@ export function duplicateTemplate(
     title: string
   },
 ): Promise<DuplicateTemplateResult> {
+  if (params.template.kind === 'notebook_template') {
+    throw new Error(
+      'Legacy notebook template records cannot be duplicated. Use createNotebookTemplate.',
+    )
+  }
   const blocks = params.blocks
     .slice()
     .sort((a, b) => a.order - b.order)

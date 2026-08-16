@@ -97,7 +97,8 @@ export function PlannerResourceView({
   }
 
   function heatClass(pct: number): string {
-    if (pct > 90) return 'bg-destructive/20 text-destructive border-destructive/40'
+    if (pct > 90)
+      return 'bg-destructive/20 text-destructive border-destructive/40'
     if (pct >= 70)
       return 'bg-warning/20 text-warning-foreground border-warning/40'
     return 'bg-success/20 text-success border-success/40'

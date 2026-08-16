@@ -178,6 +178,7 @@ describe('workspace-admin labels', () => {
       owner: 'Workspace Admin',
       admin: 'Admin',
       member: 'Member',
+      steward: 'Data Steward',
       scientist: 'Scientist',
       analyst: 'Analyst',
       reviewer: 'Reviewer',

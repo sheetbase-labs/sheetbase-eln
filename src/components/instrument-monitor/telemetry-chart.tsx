@@ -6,10 +6,7 @@
  */
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import { CHART_PALETTE } from '#/lib/chart-spec'
-import type {
-  MaterialisedChart,
-  MaterialisedSeries,
-} from '#/lib/chart-spec'
+import type { MaterialisedChart, MaterialisedSeries } from '#/lib/chart-spec'
 import type { InstrumentObservation } from '#/lib/instrument-monitor'
 
 export interface TelemetryChartProps {

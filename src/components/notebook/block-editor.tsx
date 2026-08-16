@@ -395,13 +395,10 @@ function ChecklistEditor({
   autoFocus,
   className,
 }: BlockEditorProps) {
-  const initialDraft = React.useMemo<ChecklistDraft>(
-    () => {
-      const initial = block.payload as { items?: ChecklistItem[] }
-      return { items: Array.isArray(initial.items) ? initial.items : [] }
-    },
-    [block.payload],
-  )
+  const initialDraft = React.useMemo<ChecklistDraft>(() => {
+    const initial = block.payload as { items?: ChecklistItem[] }
+    return { items: Array.isArray(initial.items) ? initial.items : [] }
+  }, [block.payload])
   const a = useBlockAutosave(block, initialDraft, save, offline, onStatusChange)
 
   function update(i: number, patch: Partial<ChecklistItem>) {
@@ -549,23 +546,20 @@ function LinkedRecordEditor({
   autoFocus,
   className,
 }: BlockEditorProps) {
-  const initialDraft = React.useMemo<LinkedRecordDraft>(
-    () => {
-      const initial = block.payload as {
-        targetKind?: string
-        targetIdentifier?: string
-        linkType?: string
-        label?: string
-      }
-      return {
-        targetKind: initial.targetKind ?? 'experiment',
-        targetIdentifier: initial.targetIdentifier ?? '',
-        linkType: initial.linkType ?? 'general',
-        label: initial.label ?? '',
-      }
-    },
-    [block.payload],
-  )
+  const initialDraft = React.useMemo<LinkedRecordDraft>(() => {
+    const initial = block.payload as {
+      targetKind?: string
+      targetIdentifier?: string
+      linkType?: string
+      label?: string
+    }
+    return {
+      targetKind: initial.targetKind ?? 'experiment',
+      targetIdentifier: initial.targetIdentifier ?? '',
+      linkType: initial.linkType ?? 'general',
+      label: initial.label ?? '',
+    }
+  }, [block.payload])
   const a = useBlockAutosave(block, initialDraft, save, offline, onStatusChange)
 
   if (readOnly) {

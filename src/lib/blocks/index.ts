@@ -182,25 +182,29 @@ function validateSheet(payload: unknown): FieldErrors {
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
     ]
   const keys = Object.keys(payload)
-  if (keys.some((key) => !['tableId', 'presentation'].includes(key))) {
+  if (keys.some((key) => !['instanceId', 'presentation'].includes(key))) {
     return [
       {
         code: 'invalid_field_value',
-        message: 'sheet payload may only contain tableId and presentation',
+        message: 'sheet payload may only contain instanceId and presentation',
       },
     ]
   }
-  if (
-    typeof payload.tableId !== 'string' ||
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-      payload.tableId,
-    )
-  ) {
+  if (payload.instanceId === undefined) {
+    return [
+      {
+        code: 'missing_required_field',
+        field: 'instanceId',
+        message: 'sheet block must reference instanceId',
+      },
+    ]
+  }
+  if (!isUuid(payload.instanceId)) {
     return [
       {
         code: 'invalid_field_value',
-        field: 'tableId',
-        message: 'tableId must be a UUID',
+        field: 'instanceId',
+        message: 'instanceId must be a UUID',
       },
     ]
   }

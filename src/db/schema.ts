@@ -278,7 +278,7 @@ export const workspaceMemberships = api.table(
     ),
     check(
       'chk_workspace_memberships_role',
-      sql`${table.role} IN ('owner', 'admin', 'member', 'scientist', 'analyst', 'reviewer', 'viewer')`,
+      sql`${table.role} IN ('owner', 'admin', 'member', 'steward', 'scientist', 'analyst', 'reviewer', 'viewer')`,
     ),
     index('idx_workspace_memberships_user_id').on(table.userId),
     index('idx_workspace_memberships_suspended_at').on(table.suspendedAt),
@@ -321,7 +321,7 @@ export const workspaceInvitations = api.table(
     ),
     check(
       'chk_workspace_invitations_role',
-      sql`${table.role} IN ('owner', 'admin', 'member', 'scientist', 'analyst', 'reviewer', 'viewer')`,
+      sql`${table.role} IN ('owner', 'admin', 'member', 'steward', 'scientist', 'analyst', 'reviewer', 'viewer')`,
     ),
     check(
       'chk_workspace_invitations_email',
@@ -552,6 +552,9 @@ export const records = api.table(
     // revisions.supersededByRevisionId and avoids a circular type-inference
     // cycle between records and revisions.
     lockedByRevisionId: uuid('locked_by_revision_id'),
+    sourceNotebookTemplateVersionId: uuid(
+      'source_notebook_template_version_id',
+    ),
     ...timestamps,
     archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
     deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
@@ -1375,6 +1378,12 @@ export const recordFieldDefinitions = api.table(
     logicalType: text('logical_type').notNull(),
     nullable: boolean('nullable').notNull().default(true),
     defaultValue: jsonb('default_value'),
+    // Canonical semantic metadata. Legacy unit/validation columns remain
+    // readable for API compatibility and are projected when these are null.
+    quantity: jsonb('quantity'),
+    cardinality: text('cardinality').notNull().default('one'),
+    categorySource: jsonb('category_source'),
+    relationship: jsonb('relationship'),
     unit: jsonb('unit'),
     validation: jsonb('validation')
       .notNull()
@@ -1398,6 +1407,10 @@ export const recordFieldDefinitions = api.table(
     check(
       'chk_record_field_definitions_lifecycle',
       sql`${table.lifecycle} IN ('draft','backfilling','active','retired')`,
+    ),
+    check(
+      'chk_record_field_definitions_cardinality',
+      sql`${table.cardinality} IN ('one', 'many')`,
     ),
     index('idx_record_field_definitions_workspace_kind').on(
       table.workspaceId,
@@ -1957,6 +1970,874 @@ export const datasetSchemaFields = api.table(
     ),
     index('idx_dataset_schema_fields_schema').on(table.schemaId),
     index('idx_dataset_schema_fields_workspace').on(table.workspaceId),
+  ],
+)
+
+// CORE-02: canonical Dataset Schema identity is separate from the legacy
+// revision-row registry above. Versions carry immutable FieldDefinition
+// metadata; existing scientific tables remain a compatibility source.
+export const datasetSchemaDefinitions = api.table(
+  'dataset_schema_definitions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    key: text('key').notNull(),
+    name: text('name').notNull(),
+    description: text('description'),
+    lifecycle: text('lifecycle').notNull().default('draft'),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    unique('uq_dataset_schema_definitions_workspace_key').on(
+      table.workspaceId,
+      table.key,
+    ),
+    check(
+      'chk_dataset_schema_definitions_key',
+      sql`${table.key} ~ '^[a-z][a-z0-9_]{0,59}$'`,
+    ),
+    check(
+      'chk_dataset_schema_definitions_lifecycle',
+      sql`${table.lifecycle} IN ('draft','active','retired')`,
+    ),
+    index('idx_dataset_schema_definitions_workspace').on(table.workspaceId),
+  ],
+)
+
+export const datasetSchemaVersions = api.table(
+  'dataset_schema_versions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    schemaId: uuid('schema_id')
+      .notNull()
+      .references(() => datasetSchemaDefinitions.id, { onDelete: 'cascade' }),
+    version: integer('version').notNull(),
+    lifecycle: text('lifecycle').notNull().default('draft'),
+    revision: bigint('revision', { mode: 'bigint' })
+      .notNull()
+      .default(sql`1`),
+    ...timestamps,
+    publishedAt: timestamp('published_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    unique('uq_dataset_schema_versions_schema_version').on(
+      table.schemaId,
+      table.version,
+    ),
+    check('chk_dataset_schema_versions_version', sql`${table.version} > 0`),
+    check('chk_dataset_schema_versions_revision', sql`${table.revision} > 0`),
+    check(
+      'chk_dataset_schema_versions_lifecycle',
+      sql`${table.lifecycle} IN ('draft','active','retired')`,
+    ),
+    index('idx_dataset_schema_versions_schema').on(table.schemaId),
+  ],
+)
+
+export const datasetSchemaVersionFields = api.table(
+  'dataset_schema_version_fields',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    schemaVersionId: uuid('schema_version_id')
+      .notNull()
+      .references(() => datasetSchemaVersions.id, { onDelete: 'cascade' }),
+    fieldId: uuid('field_id').notNull(),
+    key: text('key').notNull(),
+    label: text('label').notNull(),
+    description: text('description'),
+    logicalType: text('logical_type').notNull(),
+    nullable: boolean('nullable').notNull().default(true),
+    defaultValue: jsonb('default_value'),
+    quantity: jsonb('quantity'),
+    validation: jsonb('validation')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    category: jsonb('category'),
+    relationship: jsonb('relationship'),
+    cardinality: text('cardinality').notNull().default('one'),
+    lifecycle: text('lifecycle').notNull().default('active'),
+    displayOrder: integer('display_order').notNull(),
+  },
+  (table) => [
+    unique('uq_dataset_schema_version_fields_version_key').on(
+      table.schemaVersionId,
+      table.key,
+    ),
+    unique('uq_dataset_schema_version_fields_version_field').on(
+      table.schemaVersionId,
+      table.fieldId,
+    ),
+    check(
+      'chk_dataset_schema_version_fields_type',
+      sql`${table.logicalType} IN ('text','integer','decimal','boolean','date','timestamp','category','reference')`,
+    ),
+    check(
+      'chk_dataset_schema_version_fields_cardinality',
+      sql`${table.cardinality} IN ('one','many')`,
+    ),
+    check(
+      'chk_dataset_schema_version_fields_lifecycle',
+      sql`${table.lifecycle} IN ('active','retired')`,
+    ),
+    index('idx_dataset_schema_version_fields_version').on(
+      table.schemaVersionId,
+    ),
+  ],
+)
+
+export const configurationChangeLog = api.table(
+  'configuration_change_log',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    actorUserId: text('actor_user_id').notNull(),
+    kind: text('kind').notNull(),
+    idempotencyKey: text('idempotency_key').notNull(),
+    requestDigest: text('request_digest').notNull(),
+    result: jsonb('result').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('uq_configuration_change_log_actor_key').on(
+      table.workspaceId,
+      table.actorUserId,
+      table.kind,
+      table.idempotencyKey,
+    ),
+    check(
+      'chk_configuration_change_log_kind',
+      sql`${table.kind} IN ('model_field_evolution','dataset_schema_evolution','local_field_promotion','calculation_promotion')`,
+    ),
+    check(
+      'chk_configuration_change_log_idempotency_key',
+      sql`length(${table.idempotencyKey}) BETWEEN 1 AND 128`,
+    ),
+  ],
+)
+
+// CORE-03: reusable Sheet configuration is a workspace-owned identity with
+// explicit immutable versions. Working/local values belong to future Sheet
+// Instances and must never be stored in either of these tables.
+export const sheetDefinitions = api.table(
+  'sheet_definitions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    key: text('key').notNull(),
+    name: text('name').notNull(),
+    description: text('description'),
+    lifecycle: text('lifecycle').notNull().default('active'),
+    revision: bigint('revision', { mode: 'bigint' })
+      .notNull()
+      .default(sql`1`),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    unique('uq_sheet_definitions_workspace_key').on(
+      table.workspaceId,
+      table.key,
+    ),
+    check(
+      'chk_sheet_definitions_key',
+      sql`${table.key} ~ '^[a-z][a-z0-9_]{0,59}$'`,
+    ),
+    check(
+      'chk_sheet_definitions_lifecycle',
+      sql`${table.lifecycle} IN ('active','retired')`,
+    ),
+    check('chk_sheet_definitions_revision', sql`${table.revision} > 0`),
+    index('idx_sheet_definitions_workspace').on(table.workspaceId),
+  ],
+)
+
+export const sheetDefinitionVersions = api.table(
+  'sheet_definition_versions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    definitionId: uuid('definition_id')
+      .notNull()
+      .references(() => sheetDefinitions.id, { onDelete: 'restrict' }),
+    version: integer('version').notNull(),
+    lifecycle: text('lifecycle').notNull().default('draft'),
+    configurationFormatVersion: integer('configuration_format_version')
+      .notNull()
+      .default(1),
+    configuration: jsonb('configuration').notNull(),
+    revision: bigint('revision', { mode: 'bigint' })
+      .notNull()
+      .default(sql`1`),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    publishedAt: timestamp('published_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    publishedByUserId: text('published_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    retiredAt: timestamp('retired_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    retiredByUserId: text('retired_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    unique('uq_sheet_definition_versions_definition_version').on(
+      table.definitionId,
+      table.version,
+    ),
+    check('chk_sheet_definition_versions_version', sql`${table.version} > 0`),
+    check(
+      'chk_sheet_definition_versions_lifecycle',
+      sql`${table.lifecycle} IN ('draft','published','retired')`,
+    ),
+    check(
+      'chk_sheet_definition_versions_format',
+      sql`${table.configurationFormatVersion} = 1`,
+    ),
+    check('chk_sheet_definition_versions_revision', sql`${table.revision} > 0`),
+    index('idx_sheet_definition_versions_definition').on(table.definitionId),
+  ],
+)
+
+export const notebookTemplates = api.table(
+  'notebook_templates',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    key: text('key').notNull(),
+    name: text('name').notNull(),
+    description: text('description'),
+    lifecycle: text('lifecycle').notNull().default('active'),
+    revision: bigint('revision', { mode: 'bigint' })
+      .notNull()
+      .default(sql`1`),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    unique('uq_notebook_templates_workspace_key').on(
+      table.workspaceId,
+      table.key,
+    ),
+    check(
+      'chk_notebook_templates_key',
+      sql`${table.key} ~ '^[a-z][a-z0-9_]{0,59}$'`,
+    ),
+    check(
+      'chk_notebook_templates_lifecycle',
+      sql`${table.lifecycle} IN ('active','retired')`,
+    ),
+    check('chk_notebook_templates_revision', sql`${table.revision} > 0`),
+    index('idx_notebook_templates_workspace').on(table.workspaceId),
+  ],
+)
+
+export const notebookTemplateVersions = api.table(
+  'notebook_template_versions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    templateId: uuid('template_id')
+      .notNull()
+      .references(() => notebookTemplates.id, { onDelete: 'restrict' }),
+    version: integer('version').notNull(),
+    lifecycle: text('lifecycle').notNull().default('draft'),
+    configurationFormatVersion: integer('configuration_format_version')
+      .notNull()
+      .default(1),
+    configuration: jsonb('configuration').notNull(),
+    revision: bigint('revision', { mode: 'bigint' })
+      .notNull()
+      .default(sql`1`),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    publishedAt: timestamp('published_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    publishedByUserId: text('published_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    retiredAt: timestamp('retired_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    retiredByUserId: text('retired_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    unique('uq_notebook_template_versions_template_version').on(
+      table.templateId,
+      table.version,
+    ),
+    check('chk_notebook_template_versions_version', sql`${table.version} > 0`),
+    check(
+      'chk_notebook_template_versions_lifecycle',
+      sql`${table.lifecycle} IN ('draft','published','retired')`,
+    ),
+    check(
+      'chk_notebook_template_versions_format',
+      sql`${table.configurationFormatVersion} = 1`,
+    ),
+    check(
+      'chk_notebook_template_versions_revision',
+      sql`${table.revision} > 0`,
+    ),
+    index('idx_notebook_template_versions_template').on(table.templateId),
+  ],
+)
+
+export const notebookTemplateInstantiations = api.table(
+  'notebook_template_instantiations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    actorUserId: text('actor_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    idempotencyKey: text('idempotency_key').notNull(),
+    templateVersionId: uuid('template_version_id')
+      .notNull()
+      .references(() => notebookTemplateVersions.id, { onDelete: 'restrict' }),
+    recordId: uuid('record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'restrict' }),
+    result: jsonb('result').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('uq_notebook_template_instantiations_actor_key').on(
+      table.workspaceId,
+      table.actorUserId,
+      table.idempotencyKey,
+    ),
+    check(
+      'chk_notebook_template_instantiations_key',
+      sql`length(${table.idempotencyKey}) BETWEEN 1 AND 128`,
+    ),
+  ],
+)
+
+export const notebookTemplateUpgrades = api.table(
+  'notebook_template_upgrades',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    recordId: uuid('record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'restrict' }),
+    sourceVersionId: uuid('source_version_id')
+      .notNull()
+      .references(() => notebookTemplateVersions.id, { onDelete: 'restrict' }),
+    targetVersionId: uuid('target_version_id')
+      .notNull()
+      .references(() => notebookTemplateVersions.id, { onDelete: 'restrict' }),
+    decisions: jsonb('decisions').notNull(),
+    actorUserId: text('actor_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+)
+
+export const revisionSheetEvidence = api.table(
+  'revision_sheet_evidence',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    revisionId: uuid('revision_id')
+      .notNull()
+      .references(() => revisions.id, { onDelete: 'restrict' }),
+    blockId: uuid('block_id').notNull(),
+    instanceId: uuid('instance_id')
+      .notNull()
+      .references(() => sheetInstances.id, { onDelete: 'restrict' }),
+    sourceDefinitionVersionId: uuid('source_definition_version_id').references(
+      () => sheetDefinitionVersions.id,
+      { onDelete: 'restrict' },
+    ),
+    instanceRevision: bigint('instance_revision', { mode: 'bigint' }).notNull(),
+    instanceState: jsonb('instance_state').notNull(),
+    datasetVersions: jsonb('dataset_versions').notNull().default([]),
+    composedGrid: jsonb('composed_grid')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('uq_revision_sheet_evidence_revision_block').on(
+      table.revisionId,
+      table.blockId,
+    ),
+  ],
+)
+
+// CORE-03.3: a working Sheet is deliberately separate from a reusable
+// Definition.  All mutable working configuration is contained in `state`;
+// the optional source is an immutable Definition Version, never a writable
+// Definition pointer.
+export const sheetInstances = api.table(
+  'sheet_instances',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    projectId: uuid('project_id').references(() => projects.id, {
+      onDelete: 'restrict',
+    }),
+    notebookRecordId: uuid('notebook_record_id').references(() => records.id, {
+      onDelete: 'restrict',
+    }),
+    sourceDefinitionVersionId: uuid('source_definition_version_id').references(
+      () => sheetDefinitionVersions.id,
+      { onDelete: 'restrict' },
+    ),
+    name: text('name').notNull(),
+    description: text('description'),
+    lifecycle: text('lifecycle').notNull().default('active'),
+    revision: bigint('revision', { mode: 'bigint' })
+      .notNull()
+      .default(sql`1`),
+    state: jsonb('state')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    duplicatedFromInstanceId: uuid('duplicated_from_instance_id').references(
+      (): AnyPgColumn => sheetInstances.id,
+      { onDelete: 'restrict' },
+    ),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    check(
+      'chk_sheet_instances_lifecycle',
+      sql`${table.lifecycle} IN ('active','archived')`,
+    ),
+    check(
+      'chk_sheet_instances_name',
+      sql`length(btrim(${table.name})) BETWEEN 1 AND 200`,
+    ),
+    check(
+      'chk_sheet_instances_description',
+      sql`${table.description} IS NULL OR length(${table.description}) <= 2000`,
+    ),
+    check('chk_sheet_instances_revision', sql`${table.revision} > 0`),
+    index('idx_sheet_instances_workspace').on(table.workspaceId),
+    index('idx_sheet_instances_source_version').on(
+      table.sourceDefinitionVersionId,
+    ),
+  ],
+)
+
+export const sheetInstanceLocalMutations = api.table(
+  'sheet_instance_local_mutations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    instanceId: uuid('instance_id')
+      .notNull()
+      .references(() => sheetInstances.id, { onDelete: 'restrict' }),
+    retryToken: uuid('retry_token').notNull(),
+    requestDigest: text('request_digest').notNull(),
+    resultRevision: bigint('result_revision', { mode: 'bigint' }).notNull(),
+    result: jsonb('result').notNull(),
+    actorUserId: text('actor_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    operation: text('operation').notNull(),
+    affected: jsonb('affected').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('sheet_instance_local_mutations_instance_id_retry_token_unique').on(
+      table.instanceId,
+      table.retryToken,
+    ),
+    check(
+      'sheet_instance_local_mutations_request_digest_check',
+      sql`${table.requestDigest} ~ '^[0-9a-f]{64}$'`,
+    ),
+    check(
+      'sheet_instance_local_mutations_result_revision_check',
+      sql`${table.resultRevision} > 0`,
+    ),
+    check(
+      'sheet_instance_local_mutations_operation_check',
+      sql`${table.operation} = 'local_mutation'`,
+    ),
+    index('idx_sheet_instance_local_mutations_instance').on(
+      table.instanceId,
+      table.createdAt,
+    ),
+  ],
+)
+
+export const sheetInstanceCalculationMutations = api.table(
+  'sheet_instance_calculation_mutations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    instanceId: uuid('instance_id')
+      .notNull()
+      .references(() => sheetInstances.id, { onDelete: 'restrict' }),
+    retryToken: uuid('retry_token').notNull(),
+    requestDigest: text('request_digest').notNull(),
+    operation: text('operation').notNull(),
+    resultRevision: bigint('result_revision', { mode: 'bigint' }).notNull(),
+    result: jsonb('result').notNull(),
+    actorUserId: text('actor_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('uq_sheet_calculation_mutation_retry').on(
+      table.instanceId,
+      table.retryToken,
+    ),
+    check(
+      'chk_sheet_calculation_mutation_digest',
+      sql`${table.requestDigest} ~ '^[0-9a-f]{64}$'`,
+    ),
+    check(
+      'chk_sheet_calculation_mutation_operation',
+      sql`${table.operation} IN ('definition_mutation','recalculate')`,
+    ),
+    check(
+      'chk_sheet_calculation_mutation_revision',
+      sql`${table.resultRevision} > 0`,
+    ),
+    index('idx_sheet_calculation_mutations_instance').on(
+      table.instanceId,
+      table.createdAt,
+    ),
+  ],
+)
+
+export const sheetInstanceDefinitionUpgrades = api.table(
+  'sheet_instance_definition_upgrades',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    instanceId: uuid('instance_id')
+      .notNull()
+      .references(() => sheetInstances.id, { onDelete: 'restrict' }),
+    sourceDefinitionVersionId: uuid('source_definition_version_id')
+      .notNull()
+      .references(() => sheetDefinitionVersions.id, { onDelete: 'restrict' }),
+    targetDefinitionVersionId: uuid('target_definition_version_id')
+      .notNull()
+      .references(() => sheetDefinitionVersions.id, { onDelete: 'restrict' }),
+    sourceInstanceRevision: bigint('source_instance_revision', {
+      mode: 'bigint',
+    }).notNull(),
+    resultingInstanceRevision: bigint('resulting_instance_revision', {
+      mode: 'bigint',
+    }).notNull(),
+    decisionManifest: jsonb('decision_manifest').notNull(),
+    actorUserId: text('actor_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    upgradedAt: timestamp('upgraded_at', {
+      withTimezone: true,
+      mode: 'date',
+    })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'chk_sheet_instance_definition_upgrade_revisions',
+      sql`${table.sourceInstanceRevision} > 0 AND ${table.resultingInstanceRevision} = ${table.sourceInstanceRevision} + 1`,
+    ),
+    check(
+      'chk_sheet_instance_definition_upgrade_versions',
+      sql`${table.sourceDefinitionVersionId} <> ${table.targetDefinitionVersionId}`,
+    ),
+    unique('uq_sheet_instance_definition_upgrade_revision').on(
+      table.instanceId,
+      table.resultingInstanceRevision,
+    ),
+    index('idx_sheet_instance_definition_upgrades_instance').on(
+      table.instanceId,
+      table.upgradedAt,
+    ),
+  ],
+)
+
+export const sheetInstanceCalculationResults = internal.table(
+  'sheet_instance_calculation_results',
+  {
+    instanceId: uuid('instance_id')
+      .notNull()
+      .references(() => sheetInstances.id, { onDelete: 'restrict' }),
+    calculationId: uuid('calculation_id').notNull(),
+    rowKey: text('row_key').notNull(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    scope: text('scope').notNull(),
+    definitionVersionId: uuid('definition_version_id').references(
+      () => sheetDefinitionVersions.id,
+      { onDelete: 'restrict' },
+    ),
+    instanceRevision: bigint('instance_revision', { mode: 'bigint' }).notNull(),
+    expression: jsonb('expression').notNull(),
+    dependencies: jsonb('dependencies').notNull(),
+    outputField: jsonb('output_field').notNull(),
+    sourceRevisions: jsonb('source_revisions').notNull(),
+    dependencyProvenance: jsonb('dependency_provenance').notNull(),
+    resultKind: text('result_kind').notNull(),
+    value: jsonb('value'),
+    errorCode: text('error_code'),
+    diagnostic: text('diagnostic'),
+    engineVersion: text('engine_version').notNull(),
+    functionProfile: text('function_profile').notNull(),
+    calculatedAt: timestamp('calculated_at', {
+      withTimezone: true,
+      mode: 'date',
+    })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.instanceId, table.calculationId, table.rowKey],
+    }),
+    check(
+      'chk_sheet_calculation_result_row_key',
+      sql`${table.rowKey} ~ '^sb-row-v1:[0-9a-f]{64}$' OR ${table.rowKey} ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'`,
+    ),
+    check(
+      'chk_sheet_calculation_result_scope',
+      sql`${table.scope} IN ('definition','instance')`,
+    ),
+    check(
+      'chk_sheet_calculation_result_kind',
+      sql`${table.resultKind} IN ('value','error')`,
+    ),
+    check(
+      'chk_sheet_calculation_result_profile',
+      sql`${table.engineVersion} = '3.3.0' AND ${table.functionProfile} = 'scientific-core-v2'`,
+    ),
+    index('idx_sheet_calculation_results_instance').on(table.instanceId),
+  ],
+)
+
+export const datasets = api.table(
+  'datasets',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    primaryProjectId: uuid('primary_project_id').references(() => projects.id, {
+      onDelete: 'set null',
+    }),
+    schemaVersionId: uuid('schema_version_id')
+      .notNull()
+      .references(() => datasetSchemaVersions.id, { onDelete: 'restrict' }),
+    name: text('name').notNull(),
+    description: text('description'),
+    lifecycle: text('lifecycle').notNull().default('active'),
+    revision: bigint('revision', { mode: 'bigint' })
+      .notNull()
+      .default(sql`1`),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    check(
+      'chk_datasets_lifecycle',
+      sql`${table.lifecycle} IN ('active','archived')`,
+    ),
+    check('chk_datasets_revision', sql`${table.revision} > 0`),
+    index('idx_datasets_workspace').on(table.workspaceId),
+    index('idx_datasets_schema_version').on(table.schemaVersionId),
+  ],
+)
+
+export const datasetRows = api.table(
+  'dataset_rows',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    datasetId: uuid('dataset_id')
+      .notNull()
+      .references(() => datasets.id, { onDelete: 'cascade' }),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    revision: bigint('revision', { mode: 'bigint' })
+      .notNull()
+      .default(sql`1`),
+    ...timestamps,
+  },
+  (table) => [
+    check('chk_dataset_rows_revision', sql`${table.revision} > 0`),
+    index('idx_dataset_rows_dataset').on(table.datasetId),
+    index('idx_dataset_rows_workspace').on(table.workspaceId),
+  ],
+)
+
+export const datasetRowValues = api.table(
+  'dataset_row_values',
+  {
+    rowId: uuid('row_id')
+      .notNull()
+      .references(() => datasetRows.id, { onDelete: 'cascade' }),
+    fieldId: uuid('field_id').notNull(),
+    ordinal: integer('ordinal').notNull().default(0),
+    textValue: text('text_value'),
+    integerValue: bigint('integer_value', { mode: 'bigint' }),
+    numericValue: numeric('numeric_value'),
+    booleanValue: boolean('boolean_value'),
+    dateValue: date('date_value'),
+    timestampValue: timestamp('timestamp_value', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    categoryOptionId: uuid('category_option_id'),
+    referenceId: uuid('reference_id'),
+  },
+  (table) => [
+    primaryKey({ columns: [table.rowId, table.fieldId, table.ordinal] }),
+    check('chk_dataset_row_values_ordinal', sql`${table.ordinal} >= 0`),
+    index('idx_dataset_row_values_field_numeric').on(
+      table.fieldId,
+      table.numericValue,
+    ),
+    index('idx_dataset_row_values_field_reference').on(
+      table.fieldId,
+      table.referenceId,
+    ),
+    index('idx_dataset_row_values_field_category').on(
+      table.fieldId,
+      table.categoryOptionId,
+    ),
+    index('idx_dataset_row_values_field_date').on(
+      table.fieldId,
+      table.dateValue,
+    ),
+    index('idx_dataset_row_values_field_timestamp').on(
+      table.fieldId,
+      table.timestampValue,
+    ),
+  ],
+)
+
+/**
+ * Durable receipts for canonical Dataset bulk commits. The unique actor/key
+ * pair makes a retried spreadsheet paste return its original result instead
+ * of creating another set of rows.
+ */
+export const datasetBulkCommits = api.table(
+  'dataset_bulk_commits',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    datasetId: uuid('dataset_id')
+      .notNull()
+      .references(() => datasets.id, { onDelete: 'cascade' }),
+    actorUserId: text('actor_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    idempotencyKey: text('idempotency_key').notNull(),
+    requestDigest: text('request_digest').notNull(),
+    result: jsonb('result').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('uq_dataset_bulk_commits_actor_idempotency').on(
+      table.workspaceId,
+      table.actorUserId,
+      table.idempotencyKey,
+    ),
+    check(
+      'chk_dataset_bulk_commits_idempotency_key',
+      sql`length(${table.idempotencyKey}) BETWEEN 1 AND 128`,
+    ),
+    check(
+      'chk_dataset_bulk_commits_request_digest',
+      sql`${table.requestDigest} ~ '^[0-9a-f]{64}$'`,
+    ),
+    index('idx_dataset_bulk_commits_dataset').on(table.datasetId),
   ],
 )
 

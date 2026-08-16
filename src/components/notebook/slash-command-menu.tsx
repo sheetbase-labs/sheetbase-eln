@@ -105,8 +105,7 @@ export function slashCommandFilteredOptions(query: string) {
   if (!q) return BLOCK_PICKER_OPTIONS
   return BLOCK_PICKER_OPTIONS.filter(
     (opt) =>
-      opt.label.toLowerCase().includes(q) ||
-      opt.type.toLowerCase().includes(q),
+      opt.label.toLowerCase().includes(q) || opt.type.toLowerCase().includes(q),
   )
 }
 

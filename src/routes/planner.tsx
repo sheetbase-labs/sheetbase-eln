@@ -407,7 +407,11 @@ function PlannerRoute() {
             <AlertCircle className="size-4" />
             <AlertTitle>Couldn't load planner</AlertTitle>
             <AlertDescription className="flex flex-col gap-3">
-              <span>{describePlannerError(tasksQuery.error ?? workstreamsQuery.error)}</span>
+              <span>
+                {describePlannerError(
+                  tasksQuery.error ?? workstreamsQuery.error,
+                )}
+              </span>
               <Button
                 variant="outline"
                 size="sm"

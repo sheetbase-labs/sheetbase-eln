@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react'
 import {
   extractFunctionPrefix,
   getFunctionSuggestions,
@@ -81,7 +87,8 @@ export function useFunctionAutocomplete({
   // Scroll the active item into view when navigating.
   useEffect(() => {
     if (activeIndex < 0 || !listRef.current) return
-    const item = listRef.current.children[activeIndex] as HTMLElement | undefined
+    const item = listRef.current.children[activeIndex] as
+      HTMLElement | undefined
     item?.scrollIntoView({ block: 'nearest' })
   }, [activeIndex])
 
@@ -118,9 +125,7 @@ export function useFunctionAutocomplete({
           break
         case 'ArrowUp':
           event.preventDefault()
-          setActiveIndex((i) =>
-            i <= 0 ? suggestions.length - 1 : i - 1,
-          )
+          setActiveIndex((i) => (i <= 0 ? suggestions.length - 1 : i - 1))
           break
         case 'Tab':
         case 'Enter':
@@ -139,7 +144,14 @@ export function useFunctionAutocomplete({
     [suggestions, activeIndex, acceptSuggestion],
   )
 
-  return { isOpen, suggestions, activeIndex, handleKeyDown, selectSuggestion: acceptSuggestion, listRef }
+  return {
+    isOpen,
+    suggestions,
+    activeIndex,
+    handleKeyDown,
+    selectSuggestion: acceptSuggestion,
+    listRef,
+  }
 }
 
 /**

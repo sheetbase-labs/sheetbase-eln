@@ -228,10 +228,7 @@ export function PlateMap({
       >
         {/* Column header row */}
         <div role="row" className={cn('flex', gap)}>
-          <span
-            className={cn('shrink-0', labelSize)}
-            aria-hidden="true"
-          />
+          <span className={cn('shrink-0', labelSize)} aria-hidden="true" />
           {Array.from({ length: cols }, (_, c) => (
             <span
               key={c}

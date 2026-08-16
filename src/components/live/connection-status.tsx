@@ -37,12 +37,7 @@ const STATUS_META: Record<
   live: {
     label: 'Live',
     dot: 'bg-success',
-    icon: (
-      <Wifi
-        className="size-3 text-success"
-        aria-hidden="true"
-      />
-    ),
+    icon: <Wifi className="size-3 text-success" aria-hidden="true" />,
     tip: 'Changes from other tabs arrive automatically.',
   },
   connecting: {
@@ -70,12 +65,7 @@ const STATUS_META: Record<
   offline: {
     label: 'Offline',
     dot: 'bg-destructive',
-    icon: (
-      <WifiOff
-        className="size-3 text-destructive"
-        aria-hidden="true"
-      />
-    ),
+    icon: <WifiOff className="size-3 text-destructive" aria-hidden="true" />,
     tip: 'Live updates are paused. Saved work syncs when you reconnect.',
   },
 }

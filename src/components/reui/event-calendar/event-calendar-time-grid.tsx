@@ -6,7 +6,7 @@ import {
   type CSSProperties,
   type HTMLAttributes,
   type ReactNode,
-} from "react"
+} from 'react'
 import {
   EventCalendarViewContext,
   useEventCalendar,
@@ -16,16 +16,16 @@ import {
   useEventCalendarViewConfig,
   useEventCalendarViewContext,
   useEventCalendarViewSettings,
-} from "#/components/reui/event-calendar/event-calendar.tsx"
+} from '#/components/reui/event-calendar/event-calendar.tsx'
 import {
   useEventCalendarGestures,
   wasRecentChipPress,
   wasRecentDrag,
-} from "#/components/reui/event-calendar/event-calendar-dnd.tsx"
+} from '#/components/reui/event-calendar/event-calendar-dnd.tsx'
 import {
   EVENT_CALENDAR_GHOST,
   EventCalendarEvent,
-} from "#/components/reui/event-calendar/event-calendar-event.tsx"
+} from '#/components/reui/event-calendar/event-calendar-event.tsx'
 import {
   getDayKey,
   getDayTotalMinutes,
@@ -35,18 +35,18 @@ import {
   snapMinutes,
   toZoned,
   zonedStartOfDay,
-} from "#/components/reui/event-calendar/event-calendar-lib.tsx"
+} from '#/components/reui/event-calendar/event-calendar-lib.tsx'
 import type {
   CalendarView,
   EventCalendarDateRange,
   EventCalendarDragState,
   EventCalendarSegment,
-} from "#/components/reui/event-calendar/event-calendar-types.tsx"
-import { addDays, addMinutes, differenceInMinutes, format } from "date-fns"
-import { Slot } from "radix-ui"
+} from '#/components/reui/event-calendar/event-calendar-types.tsx'
+import { addDays, addMinutes, differenceInMinutes, format } from 'date-fns'
+import { Slot } from 'radix-ui'
 
-import { cn } from "#/lib/utils.ts"
-import { ScrollArea } from "#/components/ui/scroll-area.tsx"
+import { cn } from '#/lib/utils.ts'
+import { ScrollArea } from '#/components/ui/scroll-area.tsx'
 
 /** Current time, refreshed on an interval and on tab focus. */
 function useNow(intervalMs = 30_000): Date {
@@ -54,12 +54,12 @@ function useNow(intervalMs = 30_000): Date {
   useEffect(() => {
     const tick = () => setNow(new Date())
     const id = setInterval(tick, intervalMs)
-    document.addEventListener("visibilitychange", tick)
-    window.addEventListener("focus", tick)
+    document.addEventListener('visibilitychange', tick)
+    window.addEventListener('focus', tick)
     return () => {
       clearInterval(id)
-      document.removeEventListener("visibilitychange", tick)
-      window.removeEventListener("focus", tick)
+      document.removeEventListener('visibilitychange', tick)
+      window.removeEventListener('focus', tick)
     }
   }, [intervalMs])
   return now
@@ -68,7 +68,7 @@ function useNow(intervalMs = 30_000): Date {
 const EMPTY_ALL_DAY_SEGMENTS: EventCalendarSegment[] = []
 
 interface EventCalendarTimeGridProps extends HTMLAttributes<HTMLDivElement> {
-  view: Extract<CalendarView, "week" | "day" | "days">
+  view: Extract<CalendarView, 'week' | 'day' | 'days'>
   dayStartHour?: number
   dayEndHour?: number
   showAllDay?: boolean
@@ -102,9 +102,9 @@ function EventCalendarTimeGrid({
   const endHour = dayEndHour ?? settings.dayEndHour
   const interval = Math.min(
     Math.max(intervalProp ?? viewConfig.interval, 5),
-    240
+    240,
   )
-  const contained = viewConfig.scrollMode !== "page"
+  const contained = viewConfig.scrollMode !== 'page'
 
   const { effective } = useEventCalendarViewSettings()
   const days = useMemo(() => {
@@ -114,15 +114,17 @@ function EventCalendarTimeGrid({
       result.push(cursor)
       cursor = zonedStartOfDay(
         addDays(toZoned(cursor, settings.timeZone), 1),
-        settings.timeZone
+        settings.timeZone,
       )
     }
-    if (effective.weekends || view === "day") return result
+    if (effective.weekends || view === 'day') return result
     // Same weekend definition the month view filters on, so the toggle cannot
     // hide one set of days here and another one there.
     const filtered = result.filter(
       (day) =>
-        !settings.weekendDays.includes(toZoned(day, settings.timeZone).getDay())
+        !settings.weekendDays.includes(
+          toZoned(day, settings.timeZone).getDay(),
+        ),
     )
     // A short N-days window landing entirely on the weekend would otherwise
     // filter to nothing and emit an invalid repeat(0, ...) track.
@@ -142,11 +144,11 @@ function EventCalendarTimeGrid({
     const el = scrollRef.current
     if (!el) return
     const viewport = el.querySelector<HTMLElement>(
-      "[data-slot=scroll-area-viewport]"
+      '[data-slot=scroll-area-viewport]',
     )
     // Measure a rendered slot row - the CSS var is in rem, rects are in px.
     const slotRow = el.querySelector<HTMLElement>(
-      "[data-slot=event-calendar-time-gutter] > div"
+      '[data-slot=event-calendar-time-gutter] > div',
     )
     const slotPx = slotRow?.getBoundingClientRect().height || 64
     const pxPerMinute = slotPx / interval
@@ -159,7 +161,7 @@ function EventCalendarTimeGrid({
     scrollTo(viewConfig.scrollToHour * 60)
     instance.internals.registerScrollHandler((time) => {
       const minutes =
-        typeof time === "number"
+        typeof time === 'number'
           ? time
           : toZoned(time, settings.timeZone).getHours() * 60 +
             toZoned(time, settings.timeZone).getMinutes()
@@ -171,12 +173,12 @@ function EventCalendarTimeGrid({
     // 0px for overlay scrollbars and the custom ScrollArea, so both modes
     // lay out identically.
     const root = el.closest<HTMLElement>(
-      "[data-slot=event-calendar-time-grid], [data-slot=event-calendar-resource-view]"
+      '[data-slot=event-calendar-time-grid], [data-slot=event-calendar-resource-view]',
     )
     const syncScrollbarGutter = () => {
       root?.style.setProperty(
-        "--ec-scrollbar-w",
-        `${viewport ? viewport.offsetWidth - viewport.clientWidth : 0}px`
+        '--ec-scrollbar-w',
+        `${viewport ? viewport.offsetWidth - viewport.clientWidth : 0}px`,
       )
     }
     syncScrollbarGutter()
@@ -220,7 +222,7 @@ function EventCalendarTimeGrid({
       if (!viewConfig.renderAllDaySection) return EMPTY_ALL_DAY_SEGMENTS
       const byDay = instance.internals.getIndex().byDay
       const result = days.flatMap(
-        (day) => byDay.get(getDayKey(day, settings.timeZone))?.allDay ?? []
+        (day) => byDay.get(getDayKey(day, settings.timeZone))?.allDay ?? [],
       )
       return result.length ? result : EMPTY_ALL_DAY_SEGMENTS
     },
@@ -228,7 +230,7 @@ function EventCalendarTimeGrid({
       isEqual: (a, b) =>
         a === b ||
         (a.length === b.length && a.every((segment, i) => segment === b[i])),
-    }
+    },
   )
 
   const gridTemplateColumns = `repeat(${days.length}, minmax(var(--ec-day-col-min,0px), 1fr))`
@@ -262,7 +264,7 @@ function EventCalendarTimeGrid({
     </div>
   )
 
-  const Comp = asChild ? Slot.Root : "div"
+  const Comp = asChild ? Slot.Root : 'div'
 
   return (
     <EventCalendarViewContext.Provider value={{ view }}>
@@ -270,24 +272,24 @@ function EventCalendarTimeGrid({
         data-slot="event-calendar-time-grid"
         data-view={view}
         className={cn(
-          "flex flex-col border-t",
-          contained && "min-h-0 flex-1 overflow-hidden",
+          'flex flex-col border-t',
+          contained && 'min-h-0 flex-1 overflow-hidden',
           viewConfig.classNames?.timeGrid,
-          className
+          className,
         )}
         // merged, not spread: every measurement in the timed track is a
         // calc() on --ec-hour-height, so a consumer style prop must not
         // replace it (base gets this for free through mergeProps)
-        style={{ "--ec-hour-height": "4rem", ...style } as CSSProperties}
+        style={{ '--ec-hour-height': '4rem', ...style } as CSSProperties}
         {...props}
       >
         {/* Day-header row (sticky below the nav in page scroll mode) */}
         <div
           className={cn(
-            "flex border-b pe-(--ec-scrollbar-w,0px)",
+            'flex border-b pe-(--ec-scrollbar-w,0px)',
             !contained &&
-              "bg-background sticky top-(--ec-sticky-offset,0px) z-20",
-            viewConfig.classNames?.timeGridHeader
+              'bg-background sticky top-(--ec-sticky-offset,0px) z-20',
+            viewConfig.classNames?.timeGridHeader,
           )}
         >
           <div className="w-(--ec-gutter-width,4.5rem) shrink-0 border-e" />
@@ -306,8 +308,8 @@ function EventCalendarTimeGrid({
           <div
             data-slot="event-calendar-all-day-section"
             className={cn(
-              "flex border-b pe-(--ec-scrollbar-w,0px)",
-              viewConfig.classNames?.allDaySection
+              'flex border-b pe-(--ec-scrollbar-w,0px)',
+              viewConfig.classNames?.allDaySection,
             )}
           >
             {viewConfig.renderAllDaySection?.({
@@ -321,8 +323,8 @@ function EventCalendarTimeGrid({
                     // is one bar-row tall and centers the label so it sits on
                     // the SAME baseline as the first all-day chip and stays top-
                     // aligned when the chips wrap onto more lanes
-                    "text-muted-foreground w-(--ec-gutter-width,4.5rem) shrink-0 border-e ps-2 pe-2.5 pt-1.5",
-                    viewConfig.classNames?.allDayLabel
+                    'text-muted-foreground w-(--ec-gutter-width,4.5rem) shrink-0 border-e ps-2 pe-2.5 pt-1.5',
+                    viewConfig.classNames?.allDayLabel,
                   )}
                 >
                   <span className="flex h-[calc(var(--ec-month-bar-h,1.625rem)-0.125rem)] items-center justify-end">
@@ -340,7 +342,7 @@ function EventCalendarTimeGrid({
         {/* Time track: internal scroll (contained) or document flow (page) */}
         {contained ? (
           <div ref={scrollRef} className="min-h-0 flex-1">
-            {viewConfig.scrollbars === "native" ? (
+            {viewConfig.scrollbars === 'native' ? (
               <div
                 data-slot="scroll-area-viewport"
                 data-ec-native-scroll=""
@@ -375,15 +377,15 @@ function EventCalendarDayHeader({
       data-slot="event-calendar-day-header"
       data-today={isToday || undefined}
       className={cn(
-        "data-today:text-primary min-w-0 truncate border-e px-2 py-1.5 font-medium last:border-e-0",
-        isToday && viewConfig.todayClassName
+        'data-today:text-primary min-w-0 truncate border-e px-2 py-1.5 font-medium last:border-e-0',
+        isToday && viewConfig.todayClassName,
       )}
     >
       {viewConfig.renderDayHeader?.({ day, view, isToday }) ??
         format(
           toZoned(day, settings.timeZone),
           settings.i18n.formats.timeGridDayHeader,
-          { locale: settings.locale }
+          { locale: settings.locale },
         )}
     </div>
   )
@@ -440,7 +442,7 @@ function useEventCalendarAllDayBars(days: Date[]): {
         (a, b) =>
           a.colStart - b.colStart ||
           b.colEnd - b.colStart - (a.colEnd - a.colStart) ||
-          a.seg.occurrence.key.localeCompare(b.seg.occurrence.key)
+          a.seg.occurrence.key.localeCompare(b.seg.occurrence.key),
       )
       const lanes: boolean[][] = []
       for (const bar of packed) {
@@ -496,7 +498,7 @@ function useEventCalendarAllDayBars(days: Date[]): {
             s.isEnd === o.isEnd
           )
         }),
-    }
+    },
   )
 }
 
@@ -520,7 +522,7 @@ function EventCalendarAllDayBars({
     unknown,
     | (Pick<
         EventCalendarDragState,
-        "kind" | "valid" | "occurrence" | "proposedStart" | "proposedEnd"
+        'kind' | 'valid' | 'occurrence' | 'proposedStart' | 'proposedEnd'
       > & {
         colStart: number
         colSpan: number
@@ -537,7 +539,7 @@ function EventCalendarAllDayBars({
       const startMs = zonedStartOfDay(drag.proposedStart, tz).getTime()
       const lastMs = zonedStartOfDay(
         new Date(drag.proposedEnd.getTime() - 1),
-        tz
+        tz,
       ).getTime()
       let colStart = -1
       let colEnd = -1
@@ -573,7 +575,7 @@ function EventCalendarAllDayBars({
           a.kind === b.kind &&
           a.proposedStart.getTime() === b.proposedStart.getTime() &&
           a.proposedEnd.getTime() === b.proposedEnd.getTime()),
-    }
+    },
   )
   const ghostLane = dragGhost
     ? (bars.find((s) => s.occurrence.key === dragGhost.occurrence.key)?.lane ??
@@ -603,15 +605,15 @@ function EventCalendarAllDayBars({
           className="pointer-events-none absolute inset-x-0 top-0 grid pt-1.5"
           style={{
             gridTemplateColumns,
-            gridAutoRows: "var(--ec-month-bar-h, 1.625rem)",
+            gridAutoRows: 'var(--ec-month-bar-h, 1.625rem)',
           }}
         >
           {bars.map((segment) => (
             <div
               key={segment.occurrence.key}
               className={cn(
-                "pointer-events-auto min-w-0 px-1",
-                viewConfig.classNames?.monthBar
+                'pointer-events-auto min-w-0 px-1',
+                viewConfig.classNames?.monthBar,
               )}
               style={{
                 gridColumn: `${(segment.colStart ?? 0) + 1} / span ${segment.colSpan ?? 1}`,
@@ -627,7 +629,7 @@ function EventCalendarAllDayBars({
           {dragGhost && (
             <div
               aria-hidden
-              className={cn("min-w-0 px-1", viewConfig.classNames?.monthBar)}
+              className={cn('min-w-0 px-1', viewConfig.classNames?.monthBar)}
               style={{
                 gridColumn: `${dragGhost.colStart + 1} / span ${dragGhost.colSpan}`,
                 gridRow: ghostLane + 1,
@@ -638,26 +640,26 @@ function EventCalendarAllDayBars({
                 data-kind={dragGhost.kind}
                 data-drop-invalid={!dragGhost.valid || undefined}
                 className={cn(
-                  "h-[calc(var(--ec-month-bar-h,1.625rem)-0.125rem)]",
-                  dragGhost.kind === "move"
+                  'h-[calc(var(--ec-month-bar-h,1.625rem)-0.125rem)]',
+                  dragGhost.kind === 'move'
                     ? cn(
                         EVENT_CALENDAR_GHOST.move,
-                        !dragGhost.valid && EVENT_CALENDAR_GHOST.invalid
+                        !dragGhost.valid && EVENT_CALENDAR_GHOST.invalid,
                       )
                     : cn(
                         EVENT_CALENDAR_GHOST.resize,
-                        !dragGhost.valid && EVENT_CALENDAR_GHOST.invalidResize
+                        !dragGhost.valid && EVENT_CALENDAR_GHOST.invalidResize,
                       ),
-                  viewConfig.classNames?.dragGhost
+                  viewConfig.classNames?.dragGhost,
                 )}
                 style={
                   {
-                    "--ec-event-color":
-                      dragGhost.color ?? "var(--color-primary)",
+                    '--ec-event-color':
+                      dragGhost.color ?? 'var(--color-primary)',
                   } as CSSProperties
                 }
               >
-                {dragGhost.kind !== "move" && (
+                {dragGhost.kind !== 'move' && (
                   <EventCalendarEvent
                     preview
                     segment={{
@@ -673,8 +675,8 @@ function EventCalendarAllDayBars({
                       continuesAfter: !dragGhost.isEnd,
                     }}
                     className={cn(
-                      "h-full inset-ring-0",
-                      !dragGhost.valid && EVENT_CALENDAR_GHOST.invalidContent
+                      'h-full inset-ring-0',
+                      !dragGhost.valid && EVENT_CALENDAR_GHOST.invalidContent,
                     )}
                   />
                 )}
@@ -699,25 +701,25 @@ function EventCalendarAllDayCell({ day }: { day: Date }) {
     day,
     settings.timeZone,
     effective.offDays
-      ? typeof viewConfig.offDays === "object"
+      ? typeof viewConfig.offDays === 'object'
         ? viewConfig.offDays
         : true
       : false,
-    settings.weekendDays
+    settings.weekendDays,
   )
   const offClassName =
-    (typeof viewConfig.offDays === "object" && viewConfig.offDays.className) ||
-    "bg-muted/25"
+    (typeof viewConfig.offDays === 'object' && viewConfig.offDays.className) ||
+    'bg-muted/25'
 
   const isDropTarget = useEventCalendarSelector<
     unknown,
-    "valid" | "invalid" | null
+    'valid' | 'invalid' | null
   >((state) => {
     const drag = state.drag
     if (!drag || !drag.proposedDayGranular) return null
     const covered = drag.proposedStart < dayEnd && drag.proposedEnd > dayStart
     if (!covered) return null
-    return drag.valid ? "valid" : "invalid"
+    return drag.valid ? 'valid' : 'invalid'
   })
   const inDraft = useEventCalendarSelector<
     unknown,
@@ -739,7 +741,7 @@ function EventCalendarAllDayCell({ day }: { day: Date }) {
           b !== null &&
           a.isStart === b.isStart &&
           a.isEnd === b.isEnd),
-    }
+    },
   )
 
   return (
@@ -749,13 +751,13 @@ function EventCalendarAllDayCell({ day }: { day: Date }) {
       data-drop-target={isDropTarget ?? undefined}
       data-off={isOff || undefined}
       className={cn(
-        "relative flex min-w-0 flex-col gap-0.5 border-e px-1 py-1.5 last:border-e-0",
+        'relative flex min-w-0 flex-col gap-0.5 border-e px-1 py-1.5 last:border-e-0',
         isOff && offClassName,
         viewConfig.dayClassName?.(day),
         // No drop-target bg fill on move/resize (see month view) - a subtle
         // dashed inset outline below marks the target instead.
-        inDraft && cn("bg-primary/10", viewConfig.classNames?.slotDraft),
-        viewConfig.classNames?.allDayCell
+        inDraft && cn('bg-primary/10', viewConfig.classNames?.slotDraft),
+        viewConfig.classNames?.allDayCell,
       )}
       onPointerDown={(e) => {
         if (e.target === e.currentTarget) gestures.beginCreate(e, day, true)
@@ -795,14 +797,14 @@ function EventCalendarTimeGutter({
     <div
       data-slot="event-calendar-time-gutter"
       className={cn(
-        "relative w-(--ec-gutter-width,4.5rem) shrink-0 border-e",
-        viewConfig.classNames?.timeGutter
+        'relative w-(--ec-gutter-width,4.5rem) shrink-0 border-e',
+        viewConfig.classNames?.timeGutter,
       )}
     >
       {slots.map((minutes) => {
         const time = addMinutes(
           zonedStartOfDay(referenceDay, settings.timeZone),
-          minutes
+          minutes,
         )
         // Always consult renderTimeGutterSlot (a consumer may label the first
         // slot); only the DEFAULT label is suppressed at the day-start edge.
@@ -824,8 +826,8 @@ function EventCalendarTimeGutter({
             {label != null && (
               <span
                 className={cn(
-                  "text-muted-foreground absolute end-2.5 -top-2",
-                  viewConfig.classNames?.timeGutterLabel
+                  'text-muted-foreground absolute end-2.5 -top-2',
+                  viewConfig.classNames?.timeGutterLabel,
                 )}
               >
                 {label}
@@ -842,7 +844,7 @@ function EventCalendarTimeGutter({
 function minuteBlockStyle(
   startMin: number,
   endMin: number,
-  boundsStartMin: number
+  boundsStartMin: number,
 ): CSSProperties {
   const top = (startMin - boundsStartMin) / 60
   const height = Math.max((endMin - startMin) / 60, 0.25)
@@ -873,15 +875,15 @@ function EventCalendarDayColumn({
     day,
     settings.timeZone,
     effective.offDays
-      ? typeof viewConfig.offDays === "object"
+      ? typeof viewConfig.offDays === 'object'
         ? viewConfig.offDays
         : true
       : false,
-    settings.weekendDays
+    settings.weekendDays,
   )
   const offClassName =
-    (typeof viewConfig.offDays === "object" && viewConfig.offDays.className) ||
-    "bg-muted/25"
+    (typeof viewConfig.offDays === 'object' && viewConfig.offDays.className) ||
+    'bg-muted/25'
 
   const timeZone = settings.timeZone
   const dayStart = zonedStartOfDay(day, timeZone)
@@ -896,11 +898,11 @@ function EventCalendarDayColumn({
     if (start >= dayEnd || end <= dayStart) return null
     const from = Math.max(
       differenceInMinutes(start > dayStart ? start : dayStart, dayStart),
-      boundsStartMin
+      boundsStartMin,
     )
     const to = Math.min(
       differenceInMinutes(end < dayEnd ? end : dayEnd, dayStart),
-      boundsEndMin
+      boundsEndMin,
     )
     return to > from ? [from, to] : null
   }
@@ -909,7 +911,7 @@ function EventCalendarDayColumn({
     unknown,
     | (Pick<
         EventCalendarDragState,
-        "valid" | "kind" | "occurrence" | "proposedStart" | "proposedEnd"
+        'valid' | 'kind' | 'occurrence' | 'proposedStart' | 'proposedEnd'
       > & {
         window: [number, number]
         color?: string
@@ -944,7 +946,7 @@ function EventCalendarDayColumn({
           a.kind === b.kind &&
           a.proposedStart.getTime() === b.proposedStart.getTime() &&
           a.proposedEnd.getTime() === b.proposedEnd.getTime()),
-    }
+    },
   )
 
   const draftWindow = useEventCalendarSelector<
@@ -959,7 +961,7 @@ function EventCalendarDayColumn({
     {
       isEqual: (a, b) =>
         a === b || (a !== null && b !== null && a[0] === b[0] && a[1] === b[1]),
-    }
+    },
   )
 
   // Segments the day bounds clip away still occupy a column in the shared
@@ -973,7 +975,7 @@ function EventCalendarDayColumn({
     })
     if (visible.length === segments.timed.length) return segments.timed
     const clones = visible.map(
-      (segment) => ({ ...segment }) as EventCalendarSegment
+      (segment) => ({ ...segment }) as EventCalendarSegment,
     )
     packTimedSegments(clones)
     return clones
@@ -984,11 +986,11 @@ function EventCalendarDayColumn({
     const pxPerMinute = rect.height / boundsMinutes
     const minutes = snapMinutes(
       boundsStartMin + (e.clientY - rect.top) / pxPerMinute,
-      settings.snapDuration
+      settings.snapDuration,
     )
     const clamped = Math.min(
       Math.max(minutes, boundsStartMin),
-      boundsEndMin - settings.slotDuration
+      boundsEndMin - settings.slotDuration,
     )
     return {
       date: addMinutes(dayStart, clamped),
@@ -1008,16 +1010,16 @@ function EventCalendarDayColumn({
       aria-label={format(
         toZoned(day, timeZone),
         settings.i18n.formats.dayAria,
-        { locale: settings.locale }
+        { locale: settings.locale },
       )}
       className={cn(
-        "relative min-w-0 border-e last:border-e-0",
+        'relative min-w-0 border-e last:border-e-0',
         isOff && offClassName,
         // time grid keeps today's column on the normal background (the header
         // marks today); only a consumer todayClassName can tint it
         isToday && viewConfig.todayClassName,
         viewConfig.dayClassName?.(day),
-        viewConfig.classNames?.dayColumn
+        viewConfig.classNames?.dayColumn,
       )}
       style={{
         height: `calc(var(--ec-hour-height) * ${boundsMinutes / 60})`,
@@ -1070,20 +1072,20 @@ function EventCalendarDayColumn({
                 ...minuteBlockStyle(startMin, endMin, boundsStartMin),
                 left: `${column * colPct}%`,
                 width: `${span * colPct}%`,
-                "--ec-z": zIndex,
+                '--ec-z': zIndex,
               } as CSSProperties
             }
           >
             <EventCalendarEvent
               segment={segment}
               className={cn(
-                columnCount > 1 && "ring-background ring-1",
+                columnCount > 1 && 'ring-background ring-1',
                 // short chips: single centered row, exact-fit line height so
                 // the title never slices mid-glyph
                 endMin - startMin < viewConfig.compactEventMinutes
-                  ? "h-full gap-1 py-0 leading-4"
-                  : "h-full flex-col items-start justify-start gap-0 py-1",
-                viewConfig.classNames?.timedChip
+                  ? 'h-full gap-1 py-0 leading-4'
+                  : 'h-full flex-col items-start justify-start gap-0 py-1',
+                viewConfig.classNames?.timedChip,
               )}
             />
           </div>
@@ -1099,30 +1101,30 @@ function EventCalendarDayColumn({
           data-kind={dragGhost.kind}
           data-drop-invalid={!dragGhost.valid || undefined}
           className={cn(
-            "pointer-events-none absolute inset-x-0.5 z-50 min-h-(--ec-event-min-h,1.5rem)",
-            dragGhost.kind === "move"
+            'pointer-events-none absolute inset-x-0.5 z-50 min-h-(--ec-event-min-h,1.5rem)',
+            dragGhost.kind === 'move'
               ? cn(
                   EVENT_CALENDAR_GHOST.move,
-                  !dragGhost.valid && EVENT_CALENDAR_GHOST.invalid
+                  !dragGhost.valid && EVENT_CALENDAR_GHOST.invalid,
                 )
               : cn(
                   EVENT_CALENDAR_GHOST.resize,
-                  !dragGhost.valid && EVENT_CALENDAR_GHOST.invalidResize
+                  !dragGhost.valid && EVENT_CALENDAR_GHOST.invalidResize,
                 ),
-            viewConfig.classNames?.dragGhost
+            viewConfig.classNames?.dragGhost,
           )}
           style={
             {
               ...minuteBlockStyle(
                 dragGhost.window[0],
                 dragGhost.window[1],
-                boundsStartMin
+                boundsStartMin,
               ),
-              "--ec-event-color": dragGhost.color ?? "var(--color-primary)",
+              '--ec-event-color': dragGhost.color ?? 'var(--color-primary)',
             } as CSSProperties
           }
         >
-          {dragGhost.kind !== "move" && (
+          {dragGhost.kind !== 'move' && (
             <EventCalendarEvent
               preview
               segment={{
@@ -1143,11 +1145,11 @@ function EventCalendarDayColumn({
               className={cn(
                 dragGhost.window[1] - dragGhost.window[0] <
                   viewConfig.compactEventMinutes
-                  ? "h-full gap-1 py-0 leading-4"
-                  : "h-full flex-col items-start justify-start gap-0 py-1",
+                  ? 'h-full gap-1 py-0 leading-4'
+                  : 'h-full flex-col items-start justify-start gap-0 py-1',
                 viewConfig.classNames?.timedChip,
-                "inset-ring-0",
-                !dragGhost.valid && EVENT_CALENDAR_GHOST.invalidContent
+                'inset-ring-0',
+                !dragGhost.valid && EVENT_CALENDAR_GHOST.invalidContent,
               )}
             />
           )}
@@ -1158,13 +1160,13 @@ function EventCalendarDayColumn({
         <div
           data-slot="event-calendar-slot-draft"
           className={cn(
-            "border-primary/40 bg-primary/5 pointer-events-none absolute inset-x-0.5 z-40 rounded-sm border border-dashed",
-            viewConfig.classNames?.slotDraft
+            'border-primary/40 bg-primary/5 pointer-events-none absolute inset-x-0.5 z-40 rounded-sm border border-dashed',
+            viewConfig.classNames?.slotDraft,
           )}
           style={minuteBlockStyle(
             draftWindow[0],
             draftWindow[1],
-            boundsStartMin
+            boundsStartMin,
           )}
         />
       )}
@@ -1188,7 +1190,7 @@ function EventCalendarNowIndicator({
   const timeZone = settings.timeZone
   const todayKey = getDayKey(now, timeZone)
   const todayIndex = days.findIndex(
-    (day) => getDayKey(day, timeZone) === todayKey
+    (day) => getDayKey(day, timeZone) === todayKey,
   )
   if (todayIndex === -1) return null
 
@@ -1236,7 +1238,7 @@ function EventCalendarNowIndicator({
   )
 }
 
-type TimeGridViewProps = Omit<EventCalendarTimeGridProps, "view">
+type TimeGridViewProps = Omit<EventCalendarTimeGridProps, 'view'>
 
 function EventCalendarWeekView(props: TimeGridViewProps) {
   return <EventCalendarTimeGrid view="week" {...props} />

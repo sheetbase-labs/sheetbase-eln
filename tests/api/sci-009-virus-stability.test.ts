@@ -20,6 +20,7 @@ import { composeSections } from '#/lib/overview'
 import { toBlock, type BlockWire } from '#/lib/notebook-data'
 import { handleProxyRequest } from '#/lib/postgrest-proxy'
 import { mintPostgrestToken } from '#/lib/postgrest-token'
+import { createScientificTableAsMigrator } from '../db/helpers'
 import {
   LocalFileStorage,
   setObjectStorageForTesting,
@@ -562,10 +563,13 @@ beforeAll(async () => {
   experiment.structure_version = json.structure_version
   allBlockIds.push(json.block.id)
 
-  const tableRes = await rpc('create_scientific_table', USER_A, WS_A, {
-    p_block_id: sheetBlock.id,
-    p_name: 'Stability readings (qPCR)',
-    p_columns: [
+  const built = await createScientificTableAsMigrator(
+    admin,
+    USER_A,
+    WS_A,
+    sheetBlock.id,
+    'Stability readings (qPCR)',
+    [
       {
         label: 'Time (days)',
         logical_type: 'decimal',
@@ -578,9 +582,7 @@ beforeAll(async () => {
       },
       { label: 'Condition', logical_type: 'text' },
     ],
-  })
-  expect(tableRes.status).toBe(200)
-  const built = await tableRes.json()
+  )
   sheetTable = built.table
   const byLabel = Object.fromEntries(
     built.columns.map((c: any) => [c.label, c]),

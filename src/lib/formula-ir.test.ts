@@ -12,9 +12,7 @@ describe('normalizeExponentiation', () => {
     expect(normalizeExponentiation('="pattern ** here"')).toBe(
       '="pattern ** here"',
     )
-    expect(normalizeExponentiation('="a" & "b ** c"')).toBe(
-      '="a" & "b ** c"',
-    )
+    expect(normalizeExponentiation('="a" & "b ** c"')).toBe('="a" & "b ** c"')
   })
 
   it('handles escaped quotes inside string literals', () => {

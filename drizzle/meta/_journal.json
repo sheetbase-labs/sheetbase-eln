@@ -421,6 +421,363 @@
       "when": 1786665600000,
       "tag": "0059_report_identity",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1786716000000,
+      "tag": "0060_core_013_model_field_definition_kernel",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1786719600000,
+      "tag": "0061_core_016_schema_capabilities",
+      "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1786694278456,
+      "tag": "0062_shallow_energizer",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1786695113021,
+      "tag": "0063_productive_the_captain",
+      "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1786695301874,
+      "tag": "0064_neat_mimic",
+      "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1786723200000,
+      "tag": "0065_core_025_dataset_bulk_operations",
+      "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1786726800000,
+      "tag": "0066_core_026_dataset_query",
+      "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1786730400000,
+      "tag": "0067_core_025_dataset_integrity_hardening",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1786734000000,
+      "tag": "0068_core_028_dataset_versions",
+      "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1786813200000,
+      "tag": "0069_core_024_dataset_canonical_values",
+      "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1786731333111,
+      "tag": "0070_core_029_dataset_active_query_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1786735570595,
+      "tag": "0071_thankful_warlock",
+      "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1786737600000,
+      "tag": "0072_core_032_sheet_definitions",
+      "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1786741054402,
+      "tag": "0073_confused_fabian_cortez",
+      "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1786742400000,
+      "tag": "0074_core_033_sheet_instance_controls",
+      "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1786828800000,
+      "tag": "0075_core_034_parameter_resolution",
+      "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1786915200000,
+      "tag": "0076_core_035_row_identity",
+      "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1787001600000,
+      "tag": "0077_core_036_sheet_composition",
+      "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1787088000000,
+      "tag": "0078_core_037_bound_column_projection",
+      "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1787174400000,
+      "tag": "0079_core_038_prepare_generated_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1787174401000,
+      "tag": "0079_nebulous_proudstar",
+      "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1787174402000,
+      "tag": "0081_core_038_sheet_local_values",
+      "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1786789260798,
+      "tag": "0082_magenta_cable",
+      "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "7",
+      "when": 1786789260799,
+      "tag": "0083_core_039_sheet_calculations",
+      "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1787260800000,
+      "tag": "0084_core_0310_sheet_write_back",
+      "breakpoints": true
+    },
+    {
+      "idx": 85,
+      "version": "7",
+      "when": 1787260801000,
+      "tag": "0085_core_0311_sheet_presentation",
+      "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1787347200000,
+      "tag": "0086_core_0312_sheet_definition_extraction",
+      "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1787347201000,
+      "tag": "0087_sharp_angel",
+      "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "7",
+      "when": 1787347202000,
+      "tag": "0088_core_0313_sheet_definition_upgrade",
+      "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1787347203000,
+      "tag": "0089_core_0314_sheet_materialisation",
+      "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1787443200000,
+      "tag": "0090_core_0315_sheet_reuse_lifecycle",
+      "breakpoints": true
+    },
+    {
+      "idx": 91,
+      "version": "7",
+      "when": 1786810500000,
+      "tag": "0091_core_03_sheet_definition_presentation_null",
+      "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "7",
+      "when": 1786810800000,
+      "tag": "0092_core_046_validate_sheet_record_batch",
+      "breakpoints": true
+    },
+    {
+      "idx": 93,
+      "version": "7",
+      "when": 1786810900000,
+      "tag": "0093_core_047_commit_sheet_record_batch",
+      "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "7",
+      "when": 1786812000000,
+      "tag": "0094_core_052_capabilities",
+      "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1786813000000,
+      "tag": "0095_core_054_dependency_lifecycle",
+      "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1786814000000,
+      "tag": "0096_core_055_evolution_promotion",
+      "breakpoints": true
+    },
+    {
+      "idx": 97,
+      "version": "7",
+      "when": 1786815000000,
+      "tag": "0097_core_05_idempotency_draft_publish",
+      "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "7",
+      "when": 1786816000000,
+      "tag": "0098_core_062_sheet_instance_blocks",
+      "breakpoints": true
+    },
+    {
+      "idx": 99,
+      "version": "7",
+      "when": 1786817000000,
+      "tag": "0099_core_063_notebook_template_versions",
+      "breakpoints": true
+    },
+    {
+      "idx": 100,
+      "version": "7",
+      "when": 1786818000000,
+      "tag": "0100_core_065_template_instantiate",
+      "breakpoints": true
+    },
+    {
+      "idx": 101,
+      "version": "7",
+      "when": 1786819000000,
+      "tag": "0101_core_067_sheet_evidence",
+      "breakpoints": true
+    },
+    {
+      "idx": 102,
+      "version": "7",
+      "when": 1786820000000,
+      "tag": "0102_core_068_adhoc_sheet_local_rows",
+      "breakpoints": true
+    },
+    {
+      "idx": 103,
+      "version": "7",
+      "when": 1786821000000,
+      "tag": "0103_core_h1_capability_mask",
+      "breakpoints": true
+    },
+    {
+      "idx": 104,
+      "version": "7",
+      "when": 1786822000000,
+      "tag": "0104_core_h2_composition_adoption",
+      "breakpoints": true
+    },
+    {
+      "idx": 105,
+      "version": "7",
+      "when": 1786823000000,
+      "tag": "0105_core_h3_frozen_composed_grid",
+      "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "7",
+      "when": 1786824000000,
+      "tag": "0106_core_h4_close_legacy_writes",
+      "breakpoints": true
+    },
+    {
+      "idx": 107,
+      "version": "7",
+      "when": 1786825000000,
+      "tag": "0107_core_h5_notebook_template_catalogue",
+      "breakpoints": true
+    },
+    {
+      "idx": 108,
+      "version": "7",
+      "when": 1786826000000,
+      "tag": "0108_core_h4_legacy_write_guard",
+      "breakpoints": true
+    },
+    {
+      "idx": 109,
+      "version": "7",
+      "when": 1786827000000,
+      "tag": "0109_remove_legacy_compatibility",
+      "breakpoints": true
+    },
+    {
+      "idx": 110,
+      "version": "7",
+      "when": 1786912272918,
+      "tag": "0110_core_schema_snapshot_checkpoint",
+      "breakpoints": true
     }
   ]
 }

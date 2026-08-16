@@ -240,7 +240,7 @@ describe('block payload validation (ELN-002)', () => {
       },
       callout: { text: 'Include NTC.', variant: 'warning' },
       table: { columns: ['Time', 'Value'], rows: [[0, 1.2]] },
-      sheet: { tableId: '0198d970-e266-4000-8000-000000000001' },
+      sheet: { instanceId: '0198d970-e266-4000-8000-000000000001' },
       chart: {
         title: 'Assay',
         spec: {
@@ -405,5 +405,35 @@ describe('block payload validation (ELN-002)', () => {
         'items[1].id',
       ]),
     )
+  })
+
+  it('accepts a canonical Sheet Instance payload and rejects mixed identities', () => {
+    expect(
+      isBlockPayloadValid({
+        type: 'sheet',
+        payload: { instanceId: '0198d970-e266-4000-8000-000000000001' },
+      }),
+    ).toBe(true)
+    expect(
+      isBlockPayloadValid({
+        type: 'sheet',
+        payload: { tableId: '0198d970-e266-4000-8000-000000000001' },
+      }),
+    ).toBe(false)
+    expect(
+      isBlockPayloadValid({
+        type: 'sheet',
+        payload: {
+          instanceId: '0198d970-e266-4000-8000-000000000001',
+          tableId: '0198d970-e266-4000-8000-000000000002',
+        },
+      }),
+    ).toBe(false)
+    expect(
+      isBlockPayloadValid({
+        type: 'sheet',
+        payload: {},
+      }),
+    ).toBe(false)
   })
 })

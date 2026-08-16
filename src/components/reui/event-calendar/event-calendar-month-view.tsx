@@ -1,4 +1,4 @@
-"use client"
+'use client'
 
 import {
   useCallback,
@@ -11,7 +11,7 @@ import {
   type CSSProperties,
   type HTMLAttributes,
   type Ref,
-} from "react"
+} from 'react'
 import {
   EventCalendarViewContext,
   useEventCalendar,
@@ -21,45 +21,45 @@ import {
   useEventCalendarViewConfig,
   useEventCalendarViewSettings,
   useEventCalendarWeek,
-} from "#/components/reui/event-calendar/event-calendar.tsx"
+} from '#/components/reui/event-calendar/event-calendar.tsx'
 import {
   useEventCalendarGestures,
   wasRecentChipPress,
   wasRecentDrag,
-} from "#/components/reui/event-calendar/event-calendar-dnd.tsx"
+} from '#/components/reui/event-calendar/event-calendar-dnd.tsx'
 import {
   EVENT_CALENDAR_GHOST,
   EventCalendarEvent,
-} from "#/components/reui/event-calendar/event-calendar-event.tsx"
+} from '#/components/reui/event-calendar/event-calendar-event.tsx'
 import {
   getDayKey,
   getRangeKey,
   resolveOffDay,
   toZoned,
   zonedStartOfDay,
-} from "#/components/reui/event-calendar/event-calendar-lib.tsx"
+} from '#/components/reui/event-calendar/event-calendar-lib.tsx'
 import type {
   EventCalendarDateRange,
   EventCalendarDragState,
   EventCalendarEventId,
   EventCalendarSegment,
-} from "#/components/reui/event-calendar/event-calendar-types.tsx"
-import { addDays, format, getWeek } from "date-fns"
-import { Slot } from "radix-ui"
+} from '#/components/reui/event-calendar/event-calendar-types.tsx'
+import { addDays, format, getWeek } from 'date-fns'
+import { Slot } from 'radix-ui'
 
-import { cn } from "#/lib/utils.ts"
+import { cn } from '#/lib/utils.ts'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "#/components/ui/popover.tsx"
-import { ScrollArea } from "#/components/ui/scroll-area.tsx"
-import { PlusIcon } from "lucide-react"
+} from '#/components/ui/popover.tsx'
+import { ScrollArea } from '#/components/ui/scroll-area.tsx'
+import { PlusIcon } from 'lucide-react'
 
 // Layout-effect on the client (measure before paint, no flash), plain effect on
 // the server (never runs there) to avoid the SSR useLayoutEffect warning.
 const useIsoLayoutEffect =
-  typeof window !== "undefined" ? useLayoutEffect : useEffect
+  typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
 // An occurrence key encodes the start instant and is also the chip's React key,
 // so committing a move re-keys the chip: React remounts it and the browser
@@ -76,7 +76,7 @@ let focusedChip: {
 /** Give focus back to the recorded chip's replacement, if `root` renders it. */
 function restoreChipFocus(
   root: HTMLElement | null,
-  segments: EventCalendarSegment[]
+  segments: EventCalendarSegment[],
 ) {
   const pending = focusedChip
   // Only a chip removed WHILE focused needs help: a node still in the tree, or
@@ -87,11 +87,11 @@ function restoreChipFocus(
   const index = segments.findIndex(
     (segment) =>
       segment.occurrence.eventId === pending.eventId &&
-      segment.occurrence.recurrenceIndex === pending.recurrenceIndex
+      segment.occurrence.recurrenceIndex === pending.recurrenceIndex,
   )
   if (index < 0) return
   const chip = root.querySelectorAll<HTMLElement>(
-    "[data-slot=event-calendar-event]"
+    '[data-slot=event-calendar-event]',
   )[index]
   if (!chip) return
   // cleared first: focus() re-records through the new chip's own onFocus
@@ -100,7 +100,7 @@ function restoreChipFocus(
 }
 
 interface EventCalendarMonthViewProps extends HTMLAttributes<HTMLDivElement> {
-  maxEventsPerCell?: number | "auto"
+  maxEventsPerCell?: number | 'auto'
   asChild?: boolean
 }
 
@@ -129,7 +129,7 @@ function EventCalendarMonthView({
       days.push(cursor)
       cursor = zonedStartOfDay(
         addDays(toZoned(cursor, settings.timeZone), 1),
-        settings.timeZone
+        settings.timeZone,
       )
     }
     const rows: Date[][] = []
@@ -139,9 +139,9 @@ function EventCalendarMonthView({
       row.filter(
         (day) =>
           !settings.weekendDays.includes(
-            toZoned(day, settings.timeZone).getDay()
-          )
-      )
+            toZoned(day, settings.timeZone).getDay(),
+          ),
+      ),
     )
   }, [
     visibleRange,
@@ -151,21 +151,21 @@ function EventCalendarMonthView({
   ])
 
   const headerDays = weeks[0] ?? []
-  const title = settings.i18n.functions.formatTitle("month", {
+  const title = settings.i18n.functions.formatTitle('month', {
     date: toZoned(anchorDate, settings.timeZone),
     activeRange: instance.api.getActiveRange(),
     visibleRange,
     locale: settings.locale,
   })
 
-  const gridTemplateColumns = `${effective.weekNumbers ? "var(--ec-week-number-w, 2.75rem) " : ""}repeat(${headerDays.length}, minmax(0, 1fr))`
+  const gridTemplateColumns = `${effective.weekNumbers ? 'var(--ec-week-number-w, 2.75rem) ' : ''}repeat(${headerDays.length}, minmax(0, 1fr))`
   const cap = maxEventsPerCell ?? viewConfig.maxEventsPerCell
-  const contained = viewConfig.scrollMode !== "page"
+  const contained = viewConfig.scrollMode !== 'page'
 
   // "auto" fits as many event rows as the cell height allows and rolls the rest
   // into "+N more". Only the contained mode gives a cell a bounded height to
   // measure; page mode grows to fit, so "auto" there keeps the fixed fallback.
-  const autoFit = cap === "auto" && contained
+  const autoFit = cap === 'auto' && contained
   // slotProbe resolves the event-row height (--ec-month-bar-h) to px, honoring
   // the current font size and any consumer override; contentProbe is the first
   // cell's flex-1 content area, whose height is the event space per cell.
@@ -190,29 +190,29 @@ function EventCalendarMonthView({
       return
     }
     const content = contentProbeRef.current
-    if (!content || typeof ResizeObserver === "undefined") return
+    if (!content || typeof ResizeObserver === 'undefined') return
     measureCap()
     const observer = new ResizeObserver(measureCap)
     observer.observe(content)
     return () => observer.disconnect()
     // re-observe the first cell after a re-layout (row count or month change)
   }, [autoFit, measureCap, weeks.length, anchorDate])
-  const resolvedCap = cap === "auto" ? (autoFit ? (autoCap ?? 3) : 3) : cap
+  const resolvedCap = cap === 'auto' ? (autoFit ? (autoCap ?? 3) : 3) : cap
 
-  const Comp = asChild ? Slot.Root : "div"
+  const Comp = asChild ? Slot.Root : 'div'
 
   return (
-    <EventCalendarViewContext.Provider value={{ view: "month" }}>
+    <EventCalendarViewContext.Provider value={{ view: 'month' }}>
       <Comp
         data-slot="event-calendar-month-view"
         data-view="month"
         role="grid"
         aria-label={title}
         className={cn(
-          "flex flex-col border-t",
-          contained && "min-h-0 flex-1 overflow-hidden",
+          'flex flex-col border-t',
+          contained && 'min-h-0 flex-1 overflow-hidden',
           viewConfig.classNames?.monthView,
-          className
+          className,
         )}
         {...props}
       >
@@ -221,8 +221,8 @@ function EventCalendarMonthView({
           data-slot="event-calendar-month-header"
           // @container scopes the narrow-label breakpoint to the header row
           className={cn(
-            "@container grid border-b",
-            viewConfig.classNames?.monthHeader
+            '@container grid border-b',
+            viewConfig.classNames?.monthHeader,
           )}
           style={{ gridTemplateColumns }}
         >
@@ -231,8 +231,8 @@ function EventCalendarMonthView({
               role="columnheader"
               aria-hidden
               className={cn(
-                "border-e px-2 py-1.5",
-                viewConfig.classNames?.weekNumber
+                'border-e px-2 py-1.5',
+                viewConfig.classNames?.weekNumber,
               )}
             />
           )}
@@ -241,13 +241,13 @@ function EventCalendarMonthView({
               key={day.getTime()}
               role="columnheader"
               className={cn(
-                "text-muted-foreground truncate px-2 py-1.5 font-medium",
-                viewConfig.classNames?.monthDayHeader
+                'text-muted-foreground truncate px-2 py-1.5 font-medium',
+                viewConfig.classNames?.monthDayHeader,
               )}
             >
               {viewConfig.renderDayHeader?.({
                 day,
-                view: "month",
+                view: 'month',
                 isToday:
                   getDayKey(day, settings.timeZone) ===
                   getDayKey(new Date(), settings.timeZone),
@@ -257,14 +257,14 @@ function EventCalendarMonthView({
                     {format(
                       toZoned(day, settings.timeZone),
                       settings.i18n.formats.monthDayHeader,
-                      { locale: settings.locale }
+                      { locale: settings.locale },
                     )}
                   </span>
                   <span className="hidden @max-[36rem]:inline">
                     {format(
                       toZoned(day, settings.timeZone),
                       settings.i18n.formats.monthDayHeaderNarrow,
-                      { locale: settings.locale }
+                      { locale: settings.locale },
                     )}
                   </span>
                 </>
@@ -275,9 +275,9 @@ function EventCalendarMonthView({
         <div
           data-slot="event-calendar-month-body"
           className={cn(
-            "grid",
-            contained && "min-h-0 flex-1",
-            viewConfig.classNames?.monthBody
+            'grid',
+            contained && 'min-h-0 flex-1',
+            viewConfig.classNames?.monthBody,
           )}
           style={{
             gridTemplateRows: contained
@@ -340,14 +340,14 @@ function EventCalendarMonthWeek({
   const dayMs = 86400000
   const rowStartMs = zonedStartOfDay(
     rowStart ?? week[0],
-    settings.timeZone
+    settings.timeZone,
   ).getTime()
   // Day offsets from the TRUE row start (0-6) for each visible column, so a
   // weekends-hidden month still places bars on the right days.
   const offsets = week.map((d) =>
     Math.round(
-      (zonedStartOfDay(d, settings.timeZone).getTime() - rowStartMs) / dayMs
-    )
+      (zonedStartOfDay(d, settings.timeZone).getTime() - rowStartMs) / dayMs,
+    ),
   )
   /** Clamp a day-offset span onto the visible columns; null = fully hidden. */
   const gridPos = (colStart: number, colSpan: number) => {
@@ -375,8 +375,8 @@ function EventCalendarMonthWeek({
       new Set(
         bars
           .filter((b) => (b.lane ?? 0) >= cap && covers(b, offsets[col]))
-          .map((b) => b.occurrence.key)
-      )
+          .map((b) => b.occurrence.key),
+      ),
   )
 
   // Live move/resize ghost at the PROPOSED day span. Standardized treatment
@@ -387,12 +387,12 @@ function EventCalendarMonthWeek({
     unknown,
     | (Pick<
         EventCalendarDragState,
-        | "kind"
-        | "valid"
-        | "occurrence"
-        | "proposedStart"
-        | "proposedEnd"
-        | "proposedAllDay"
+        | 'kind'
+        | 'valid'
+        | 'occurrence'
+        | 'proposedStart'
+        | 'proposedEnd'
+        | 'proposedAllDay'
       > & {
         colStart: number
         colSpan: number
@@ -408,17 +408,17 @@ function EventCalendarMonthWeek({
       const rowEndMs = rowStartMs + 7 * dayMs
       const startDayMs = zonedStartOfDay(
         drag.proposedStart,
-        settings.timeZone
+        settings.timeZone,
       ).getTime()
       // exclusive end -> the last covered day
       const lastDayMs = zonedStartOfDay(
         new Date(drag.proposedEnd.getTime() - 1),
-        settings.timeZone
+        settings.timeZone,
       ).getTime()
       if (startDayMs >= rowEndMs || lastDayMs < rowStartMs) return null
       const startCol = Math.max(
         0,
-        Math.round((startDayMs - rowStartMs) / dayMs)
+        Math.round((startDayMs - rowStartMs) / dayMs),
       )
       const endCol = Math.min(6, Math.round((lastDayMs - rowStartMs) / dayMs))
       if (endCol < startCol) return null
@@ -448,7 +448,7 @@ function EventCalendarMonthWeek({
           a.proposedAllDay === b.proposedAllDay &&
           a.proposedStart.getTime() === b.proposedStart.getTime() &&
           a.proposedEnd.getTime() === b.proposedEnd.getTime()),
-    }
+    },
   )
   const ghostPos = dragGhost
     ? gridPos(dragGhost.colStart, dragGhost.colSpan)
@@ -463,7 +463,7 @@ function EventCalendarMonthWeek({
   // render the overlay ghost. Bars = all-day or multi-day (span > 1 day).
   const ghostIsBar =
     !!dragGhost &&
-    (dragGhost.kind !== "move" ||
+    (dragGhost.kind !== 'move' ||
       dragGhost.proposedAllDay ||
       dragGhost.proposedEnd.getTime() - dragGhost.proposedStart.getTime() >
         dayMs)
@@ -473,8 +473,8 @@ function EventCalendarMonthWeek({
       role="row"
       data-slot="event-calendar-month-row"
       className={cn(
-        "relative grid min-h-0 border-b last:border-b-0",
-        viewConfig.classNames?.monthRow
+        'relative grid min-h-0 border-b last:border-b-0',
+        viewConfig.classNames?.monthRow,
       )}
       style={{ gridTemplateColumns }}
     >
@@ -483,8 +483,8 @@ function EventCalendarMonthWeek({
           role="rowheader"
           data-slot="event-calendar-week-number"
           className={cn(
-            "text-muted-foreground border-e px-2 pt-1 tabular-nums",
-            viewConfig.classNames?.weekNumber
+            'text-muted-foreground border-e px-2 pt-1 tabular-nums',
+            viewConfig.classNames?.weekNumber,
           )}
         >
           {settings.i18n.labels.week(
@@ -495,7 +495,7 @@ function EventCalendarMonthWeek({
               // keeps matching the rendered grid
               locale: settings.locale,
               weekStartsOn: settings.weekStartsOn,
-            })
+            }),
           )}
         </div>
       )}
@@ -511,7 +511,7 @@ function EventCalendarMonthWeek({
           reservedLanes={visibleBars.reduce(
             (max, b) =>
               covers(b, offsets[col]) ? Math.max(max, (b.lane ?? 0) + 1) : max,
-            0
+            0,
           )}
           hiddenBarKeys={hiddenBarKeysByCol[col]}
           isLast={col === week.length - 1}
@@ -527,12 +527,12 @@ function EventCalendarMonthWeek({
         <div
           data-slot="event-calendar-month-bar-overlay"
           className={cn(
-            "pointer-events-none absolute inset-x-0 top-0 z-10 grid pt-1.5",
-            viewConfig.classNames?.monthBarOverlay
+            'pointer-events-none absolute inset-x-0 top-0 z-10 grid pt-1.5',
+            viewConfig.classNames?.monthBarOverlay,
           )}
           style={{
             gridTemplateColumns,
-            gridAutoRows: "var(--ec-month-bar-h, 1.75rem)",
+            gridAutoRows: 'var(--ec-month-bar-h, 1.75rem)',
           }}
         >
           {visibleBars.map((bar) => {
@@ -542,8 +542,8 @@ function EventCalendarMonthWeek({
               <div
                 key={bar.occurrence.key}
                 className={cn(
-                  "pointer-events-auto min-w-0 px-1",
-                  viewConfig.classNames?.monthBar
+                  'pointer-events-auto min-w-0 px-1',
+                  viewConfig.classNames?.monthBar,
                 )}
                 style={{
                   gridColumn: `${colOffset + pos.col + 1} / span ${pos.span}`,
@@ -561,7 +561,7 @@ function EventCalendarMonthWeek({
           {dragGhost && ghostPos && ghostIsBar && (
             <div
               aria-hidden
-              className={cn("min-w-0 px-1", viewConfig.classNames?.monthBar)}
+              className={cn('min-w-0 px-1', viewConfig.classNames?.monthBar)}
               style={{
                 gridColumn: `${colOffset + ghostPos.col + 1} / span ${ghostPos.span}`,
                 gridRow: ghostLane + 1,
@@ -572,28 +572,28 @@ function EventCalendarMonthWeek({
                 data-kind={dragGhost.kind}
                 data-drop-invalid={!dragGhost.valid || undefined}
                 className={cn(
-                  "h-[calc(var(--ec-month-bar-h,1.75rem)-0.125rem)]",
-                  dragGhost.kind === "move"
+                  'h-[calc(var(--ec-month-bar-h,1.75rem)-0.125rem)]',
+                  dragGhost.kind === 'move'
                     ? // faint drop placeholder only: the cursor-attached
                       // carry clone owns the visual during moves
                       cn(
                         EVENT_CALENDAR_GHOST.move,
-                        !dragGhost.valid && EVENT_CALENDAR_GHOST.invalid
+                        !dragGhost.valid && EVENT_CALENDAR_GHOST.invalid,
                       )
                     : cn(
                         EVENT_CALENDAR_GHOST.resize,
-                        !dragGhost.valid && EVENT_CALENDAR_GHOST.invalidResize
+                        !dragGhost.valid && EVENT_CALENDAR_GHOST.invalidResize,
                       ),
-                  viewConfig.classNames?.dragGhost
+                  viewConfig.classNames?.dragGhost,
                 )}
                 style={
                   {
-                    "--ec-event-color":
-                      dragGhost.color ?? "var(--color-primary)",
+                    '--ec-event-color':
+                      dragGhost.color ?? 'var(--color-primary)',
                   } as CSSProperties
                 }
               >
-                {dragGhost.kind !== "move" && (
+                {dragGhost.kind !== 'move' && (
                   <EventCalendarEvent
                     preview
                     segment={{
@@ -609,8 +609,8 @@ function EventCalendarMonthWeek({
                       continuesAfter: !dragGhost.isEnd,
                     }}
                     className={cn(
-                      "h-full inset-ring-0",
-                      !dragGhost.valid && EVENT_CALENDAR_GHOST.invalidContent
+                      'h-full inset-ring-0',
+                      !dragGhost.valid && EVENT_CALENDAR_GHOST.invalidContent,
                     )}
                   />
                 )}
@@ -662,25 +662,25 @@ function EventCalendarMonthCell({
     day,
     settings.timeZone,
     effective.offDays
-      ? typeof viewConfig.offDays === "object"
+      ? typeof viewConfig.offDays === 'object'
         ? viewConfig.offDays
         : true
       : false,
-    settings.weekendDays
+    settings.weekendDays,
   )
   const offClassName =
-    (typeof viewConfig.offDays === "object" && viewConfig.offDays.className) ||
-    "bg-muted/25"
+    (typeof viewConfig.offDays === 'object' && viewConfig.offDays.className) ||
+    'bg-muted/25'
 
   const isDropTarget = useEventCalendarSelector<
     unknown,
-    "valid" | "invalid" | null
+    'valid' | 'invalid' | null
   >((state) => {
     const drag = state.drag
     if (!drag) return null
     const covered = drag.proposedStart < dayEnd && drag.proposedEnd > dayStart
     if (!covered) return null
-    return drag.valid ? "valid" : "invalid"
+    return drag.valid ? 'valid' : 'invalid'
   })
   // Hide hover affordances mid-gesture: the only intent is the drop target.
   // Gated on the one thing that reads it: a plain global boolean flips for all
@@ -689,7 +689,7 @@ function EventCalendarMonthCell({
   const isInteracting = useEventCalendarSelector<unknown, boolean>((state) =>
     viewConfig.showDayAddButton
       ? state.drag !== null || state.slotDraft !== null
-      : false
+      : false,
   )
   const inDraft = useEventCalendarSelector<
     unknown,
@@ -711,7 +711,7 @@ function EventCalendarMonthCell({
           b !== null &&
           a.isStart === b.isStart &&
           a.isEnd === b.isEnd),
-    }
+    },
   )
   // A single-day timed MOVE landing on THIS day: expose the proposed
   // minute-of-day (+ color/validity) so the cell can render a drop placeholder
@@ -725,12 +725,12 @@ function EventCalendarMonthCell({
   >(
     (state) => {
       const drag = state.drag
-      if (!drag || drag.kind !== "move" || drag.proposedAllDay) return null
+      if (!drag || drag.kind !== 'move' || drag.proposedAllDay) return null
       if (drag.proposedEnd.getTime() - drag.proposedStart.getTime() > 86400000)
         return null
       const dropDayMs = zonedStartOfDay(
         drag.proposedStart,
-        settings.timeZone
+        settings.timeZone,
       ).getTime()
       if (dropDayMs !== dayStart.getTime()) return null
       if (
@@ -752,14 +752,14 @@ function EventCalendarMonthCell({
           a.min === b.min &&
           a.valid === b.valid &&
           a.color === b.color),
-    }
+    },
   )
 
   // Bars (allDay/multi-day) are drawn by the week-row overlay; the cell renders
   // only single-day timed events, below the reserved bar lanes.
   const extraHidden = hiddenBarKeys.size
   const hiddenBarSegs = segments.allDay.filter((s) =>
-    hiddenBarKeys.has(s.occurrence.key)
+    hiddenBarKeys.has(s.occurrence.key),
   )
   const m = segments.timed.length
   const timedSlots = Math.max(0, cap - reservedLanes)
@@ -796,7 +796,7 @@ function EventCalendarMonthCell({
     // rank of the dragged chip in the resulting time-sorted list (chips are
     // time-ordered, so this is the count starting at or before its time)
     const insertRank = segments.timed.filter(
-      (s) => (s.startMin ?? 0) <= inlineDrop.min
+      (s) => (s.startMin ?? 0) <= inlineDrop.min,
     ).length
     const dropOverflow = extraHidden > 0 || m + 1 > timedSlots
     // rows for timed items INCLUDING the phantom, before the "+N more" row
@@ -832,16 +832,16 @@ function EventCalendarMonthCell({
       data-slot="event-calendar-drop-placeholder"
       data-drop-invalid={!inlineDrop.valid || undefined}
       className={cn(
-        "shrink-0 rounded-sm border border-dashed",
+        'shrink-0 rounded-sm border border-dashed',
         inlineDrop.valid
-          ? "border-(--ec-event-color)/50 bg-(--ec-event-color)/8"
-          : "border-destructive/70 bg-destructive/10",
-        viewConfig.classNames?.dragGhost
+          ? 'border-(--ec-event-color)/50 bg-(--ec-event-color)/8'
+          : 'border-destructive/70 bg-destructive/10',
+        viewConfig.classNames?.dragGhost,
       )}
       style={
         {
-          "--ec-event-color": inlineDrop.color ?? "var(--color-primary)",
-          height: "calc(var(--ec-month-bar-h, 1.75rem) - 0.125rem)",
+          '--ec-event-color': inlineDrop.color ?? 'var(--color-primary)',
+          height: 'calc(var(--ec-month-bar-h, 1.75rem) - 0.125rem)',
         } as CSSProperties
       }
     />
@@ -856,8 +856,8 @@ function EventCalendarMonthCell({
           // below; changing the gap requires renderMonthCell
           // px-1 matches the all-day bar wrapper inset so single-day chips and
           // multi-day bars line up on the same left/right edge in a cell
-          "flex min-h-0 flex-1 flex-col gap-0.5 overflow-hidden px-1 pt-1.5",
-          viewConfig.classNames?.monthCellContent
+          'flex min-h-0 flex-1 flex-col gap-0.5 overflow-hidden px-1 pt-1.5',
+          viewConfig.classNames?.monthCellContent,
         )}
       >
         {reservedLanes > 0 && (
@@ -919,8 +919,8 @@ function EventCalendarMonthCell({
       {/* Day number + add affordance, bottom-right (Notion-style) */}
       <div
         className={cn(
-          "flex items-center justify-end gap-1 px-2 pb-1.5",
-          viewConfig.classNames?.monthCellFooter
+          'flex items-center justify-end gap-1 px-2 pb-1.5',
+          viewConfig.classNames?.monthCellFooter,
         )}
       >
         {viewConfig.showDayAddButton && !isInteracting && (
@@ -930,14 +930,14 @@ function EventCalendarMonthCell({
             aria-label={settings.i18n.labels.addEvent}
             // a different icon/markup is a renderMonthCell job
             className={cn(
-              "bg-primary text-primary-foreground flex size-5 cursor-pointer items-center justify-center rounded-sm opacity-0 transition-opacity group-hover/ec-cell:opacity-100 focus-visible:opacity-100",
-              viewConfig.classNames?.dayAddButton
+              'bg-primary text-primary-foreground flex size-5 cursor-pointer items-center justify-center rounded-sm opacity-0 transition-opacity group-hover/ec-cell:opacity-100 focus-visible:opacity-100',
+              viewConfig.classNames?.dayAddButton,
             )}
             onClick={(e) => {
               e.stopPropagation()
               settings.onSlotClick?.(
-                { date: day, allDay: true, view: "month" },
-                e
+                { date: day, allDay: true, view: 'month' },
+                e,
               )
             }}
           >
@@ -947,21 +947,21 @@ function EventCalendarMonthCell({
         <span
           data-slot="event-calendar-month-day-number"
           className={cn(
-            "flex size-5 items-center justify-center rounded-full",
-            isOutside && "text-muted-foreground",
+            'flex size-5 items-center justify-center rounded-full',
+            isOutside && 'text-muted-foreground',
             // the filled circle already marks today; keep the number the same
             // weight/size as the other days so it does not read as larger
             // Same font-size as every other day; a lighter weight cancels the
             // way white digits on the filled circle read bolder/larger than the
             // dark-on-light numbers around them.
-            isToday && "bg-primary text-primary-foreground font-light",
-            viewConfig.classNames?.monthDayNumber
+            isToday && 'bg-primary text-primary-foreground font-light',
+            viewConfig.classNames?.monthDayNumber,
           )}
         >
           {format(
             toZoned(day, settings.timeZone),
             settings.i18n.formats.monthCellDay,
-            { locale: settings.locale }
+            { locale: settings.locale },
           )}
         </span>
       </div>
@@ -987,44 +987,44 @@ function EventCalendarMonthCell({
       data-outside={isOutside || undefined}
       data-weekend={
         settings.weekendDays.includes(
-          toZoned(day, settings.timeZone).getDay()
+          toZoned(day, settings.timeZone).getDay(),
         ) || undefined
       }
       data-ec-day={dayStart.getTime()}
       data-drop-target={isDropTarget ?? undefined}
       data-off={isOff || undefined}
-      data-draft={inDraft ? "" : undefined}
+      data-draft={inDraft ? '' : undefined}
       aria-label={format(
         toZoned(day, settings.timeZone),
         settings.i18n.formats.monthCellAriaLabel,
-        { locale: settings.locale }
+        { locale: settings.locale },
       )}
       className={cn(
-        "group/ec-cell relative flex min-h-0 min-w-0 flex-col overflow-hidden",
-        !isLast && "border-e",
-        isOutside && !settings.showOutsideDays && "invisible",
+        'group/ec-cell relative flex min-h-0 min-w-0 flex-col overflow-hidden',
+        !isLast && 'border-e',
+        isOutside && !settings.showOutsideDays && 'invisible',
         isOff && offClassName,
         isToday &&
           cn(
-            "bg-primary/3 border-b-primary/40 relative border-b-2",
-            viewConfig.todayClassName
+            'bg-primary/3 border-b-primary/40 relative border-b-2',
+            viewConfig.todayClassName,
           ),
         viewConfig.dayClassName?.(day),
         // No drop-target bg fill on move/resize - the dragged bar + not-allowed
         // cursor carry the feedback; a cell-wide color wash is too distracting.
         // data-drop-target stays as an opt-in styling hook.
-        inDraft && "bg-primary/5",
-        viewConfig.classNames?.monthCell
+        inDraft && 'bg-primary/5',
+        viewConfig.classNames?.monthCell,
       )}
       onPointerDown={(e) => {
         const target = e.target as HTMLElement
-        if (target.closest("[data-slot=event-calendar-event]")) return
-        if (target.closest("[data-slot=event-calendar-more]")) return
+        if (target.closest('[data-slot=event-calendar-event]')) return
+        if (target.closest('[data-slot=event-calendar-more]')) return
         gestures.beginCreate(e, day, true)
       }}
       onClick={(e) => {
         if (wasRecentDrag() || wasRecentChipPress()) return
-        settings.onSlotClick?.({ date: day, allDay: true, view: "month" }, e)
+        settings.onSlotClick?.({ date: day, allDay: true, view: 'month' }, e)
       }}
     >
       {inDraft && (
@@ -1032,10 +1032,10 @@ function EventCalendarMonthCell({
           aria-hidden
           data-slot="event-calendar-slot-draft"
           className={cn(
-            "border-primary/40 pointer-events-none absolute inset-0 z-10 border-y border-dashed",
-            inDraft.isStart && "border-s",
-            inDraft.isEnd && "border-e",
-            viewConfig.classNames?.slotDraft
+            'border-primary/40 pointer-events-none absolute inset-0 z-10 border-y border-dashed',
+            inDraft.isStart && 'border-s',
+            inDraft.isEnd && 'border-e',
+            viewConfig.classNames?.slotDraft,
           )}
         />
       )}
@@ -1074,7 +1074,7 @@ function EventCalendarMoreIndicator({
   // Grabbing a chip from this list starts a drag; close the popover so it does
   // not sit over the drop target while the event is carried to another day.
   const isDragging = useEventCalendarSelector<unknown, boolean>(
-    (state) => state.drag !== null
+    (state) => state.drag !== null,
   )
   useEffect(() => {
     if (isDragging) setOpen(false)
@@ -1084,27 +1084,27 @@ function EventCalendarMoreIndicator({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         data-slot="event-calendar-more"
-        data-drop-into={dropInto ? "" : undefined}
-        data-drop-invalid={dropInto && !dropInto.valid ? "" : undefined}
+        data-drop-into={dropInto ? '' : undefined}
+        data-drop-invalid={dropInto && !dropInto.valid ? '' : undefined}
         className={cn(
-          "text-muted-foreground hover:text-foreground cursor-pointer truncate rounded-sm px-1.5 text-start",
+          'text-muted-foreground hover:text-foreground cursor-pointer truncate rounded-sm px-1.5 text-start',
           // While a dragged chip will land in this overflow bucket, the "+N more"
           // link itself becomes the drop placeholder: dashed, event-tinted, one
           // chip tall, so the drop target is unmistakable.
           dropInto &&
             cn(
-              "flex shrink-0 items-center border border-dashed",
+              'flex shrink-0 items-center border border-dashed',
               dropInto.valid
-                ? "text-foreground border-(--ec-event-color)/50 bg-(--ec-event-color)/8"
-                : "border-destructive/70 bg-destructive/10 text-destructive"
+                ? 'text-foreground border-(--ec-event-color)/50 bg-(--ec-event-color)/8'
+                : 'border-destructive/70 bg-destructive/10 text-destructive',
             ),
-          viewConfig.classNames?.moreIndicator
+          viewConfig.classNames?.moreIndicator,
         )}
         style={
           dropInto
             ? ({
-                "--ec-event-color": dropInto.color ?? "var(--color-primary)",
-                height: "calc(var(--ec-month-bar-h, 1.75rem) - 0.125rem)",
+                '--ec-event-color': dropInto.color ?? 'var(--color-primary)',
+                height: 'calc(var(--ec-month-bar-h, 1.75rem) - 0.125rem)',
               } as CSSProperties)
             : undefined
         }
@@ -1113,7 +1113,7 @@ function EventCalendarMoreIndicator({
           const verdict = settings.onMoreClick?.(
             day,
             segments.map((segment) => segment.occurrence),
-            e
+            e,
           )
           if (verdict === false) {
             e.preventDefault()
@@ -1137,7 +1137,7 @@ function EventCalendarMoreIndicator({
             ? format(
                 toZoned(day, settings.timeZone),
                 settings.i18n.formats.moreDayHeader,
-                { locale: settings.locale }
+                { locale: settings.locale },
               )
             : undefined
         }
@@ -1145,8 +1145,8 @@ function EventCalendarMoreIndicator({
         // text-xs re-establishes the calendar's base type here because this
         // content is portaled out of the root subtree and cannot inherit it.
         className={cn(
-          "w-64 gap-1! p-2! text-xs",
-          viewConfig.classNames?.morePopover
+          'w-64 gap-1! p-2! text-xs',
+          viewConfig.classNames?.morePopover,
         )}
         onClick={(e: React.MouseEvent) => e.stopPropagation()}
       >
@@ -1186,14 +1186,14 @@ function EventCalendarMoreDefaultContent({
       <div
         id={headerId}
         className={cn(
-          "text-muted-foreground px-1 py-1 text-xs font-medium",
-          viewConfig.classNames?.morePopoverHeader
+          'text-muted-foreground px-1 py-1 text-xs font-medium',
+          viewConfig.classNames?.morePopoverHeader,
         )}
       >
         {format(
           toZoned(day, settings.timeZone),
           settings.i18n.formats.moreDayHeader,
-          { locale: settings.locale }
+          { locale: settings.locale },
         )}
       </div>
       {/* The scroll region breaks out of the popover's right padding (-me-2)
@@ -1201,7 +1201,7 @@ function EventCalendarMoreDefaultContent({
             back (ps-1 aligns with the header, pe-4 clears the ~10px bar with a
             gap) and adds py-1 so the first/last focus ring is not clipped by
             the overflow. Layout is identical with or without a scrollbar. */}
-      {viewConfig.scrollbars === "native" ? (
+      {viewConfig.scrollbars === 'native' ? (
         <div
           data-ec-native-scroll=""
           className="-me-2 max-h-(--ec-more-max-height,16rem) min-h-0 overflow-y-auto"

@@ -36,7 +36,9 @@ for (const envFile of ['.env.local', '.env']) {
   }
 }
 
-const serverModule = await import(resolve(__dirname, '..', 'dist', 'server', 'server.js'))
+const serverModule = await import(
+  resolve(__dirname, '..', 'dist', 'server', 'server.js')
+)
 const handler = serverModule.default
 
 const port = Number(process.env.PORT) || 3000
@@ -52,7 +54,8 @@ function tryServeStatic(req, res, url) {
   // proxy that would otherwise block Storybook's internal iframe via CSP.
   if (pathname === '/storybook' || pathname.startsWith('/storybook/')) {
     const storybookDir = resolve(__dirname, '..', 'storybook-static')
-    const subPath = pathname === '/storybook' ? '' : pathname.slice('/storybook/'.length)
+    const subPath =
+      pathname === '/storybook' ? '' : pathname.slice('/storybook/'.length)
     // Empty subpath or trailing slash -> serve index.html
     if (subPath === '' || subPath === '/') {
       const indexPath = join(storybookDir, 'index.html')

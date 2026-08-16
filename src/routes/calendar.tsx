@@ -73,7 +73,9 @@ const BOOKING_COLOR_TO_CSS: Record<string, string> = {
   orange: 'var(--color-orange-500)',
 }
 
-function toCalendarEvent(booking: CalendarBooking): CalendarEvent<CalendarBooking> {
+function toCalendarEvent(
+  booking: CalendarBooking,
+): CalendarEvent<CalendarBooking> {
   return {
     id: booking.id,
     title: booking.title,
@@ -87,7 +89,9 @@ function toCalendarEvent(booking: CalendarBooking): CalendarEvent<CalendarBookin
   }
 }
 
-function toEventCalendarResource(resource: CalendarResource): EventCalendarResource {
+function toEventCalendarResource(
+  resource: CalendarResource,
+): EventCalendarResource {
   return {
     id: resource.id,
     title: resource.name,
@@ -172,9 +176,8 @@ function CalendarRoute() {
 
   // Controlled events state: synced from the query, updated optimistically
   // by onEventsChange when a drag/resize is accepted.
-  const [events, setEvents] = useState<CalendarEvent<CalendarBooking>[]>(
-    queryEvents,
-  )
+  const [events, setEvents] =
+    useState<CalendarEvent<CalendarBooking>[]>(queryEvents)
   useEffect(() => {
     setEvents(queryEvents)
   }, [queryEvents])
@@ -316,11 +319,7 @@ function CalendarRoute() {
     setDialogDefaults({})
     setDialogOpen(true)
   }
-  function openCreateFromSlot(
-    start: Date,
-    end: Date,
-    resourceId?: string,
-  ) {
+  function openCreateFromSlot(start: Date, end: Date, resourceId?: string) {
     setEditingBooking(null)
     setDialogError(null)
     setDialogDefaults({
@@ -414,16 +413,12 @@ function CalendarRoute() {
             defaultView="week"
             timeZone={VIEW_TIMEZONE}
             resources={eventResources}
-            loading={
-              resourcesQuery.isLoading || bookingsQuery.isLoading
-            }
+            loading={resourcesQuery.isLoading || bookingsQuery.isLoading}
             onEventClick={(occurrence) =>
               setSelectedBookingId(occurrence.eventId)
             }
             onSlotClick={(slot) => {
-              const end =
-                slot.end ??
-                new Date(slot.date.getTime() + 3_600_000)
+              const end = slot.end ?? new Date(slot.date.getTime() + 3_600_000)
               openCreateFromSlot(slot.date, end, slot.resourceId)
             }}
             onSelectSlot={(slot) => {

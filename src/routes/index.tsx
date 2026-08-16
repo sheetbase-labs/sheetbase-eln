@@ -17,6 +17,7 @@ import {
   FlaskConical,
   Folder,
   Inbox,
+  Layers,
   LayoutTemplate,
   Pin,
   Plus,
@@ -581,10 +582,10 @@ const QUICK_ACTIONS: QuickAction[] = [
     hint: 'Open the review and approvals queue',
   },
   {
-    label: 'Schemas',
-    to: '/schemas',
-    icon: Database,
-    hint: 'Manage dataset schemas',
+    label: 'Configure',
+    to: '/configure',
+    icon: Layers,
+    hint: 'Govern Models and Dataset Schema versions',
   },
   {
     label: 'Datasets',

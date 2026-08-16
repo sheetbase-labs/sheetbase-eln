@@ -1,15 +1,8 @@
 import { createDataClient } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
+import type { FieldLogicalType } from '#/lib/field-definition'
 
-export type ScientificLogicalType =
-  | 'text'
-  | 'integer'
-  | 'decimal'
-  | 'boolean'
-  | 'date'
-  | 'timestamp'
-  | 'category'
-  | 'reference'
+export type ScientificLogicalType = FieldLogicalType
 export interface ScientificOptionWire {
   id: string
   label: string

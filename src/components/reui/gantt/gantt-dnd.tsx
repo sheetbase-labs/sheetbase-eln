@@ -1,22 +1,22 @@
-import { useCallback, useEffect } from "react"
+import { useCallback, useEffect } from 'react'
 import {
   resolveScheduleMode,
   useGantt,
   useGanttViewConfig,
   type GanttInstance,
-} from "#/components/reui/gantt/gantt"
+} from '#/components/reui/gantt/gantt'
 import {
   findResource,
   snapMinutes,
   toZoned,
   zonedStartOfDay,
-} from "#/components/reui/gantt/gantt-lib"
+} from '#/components/reui/gantt/gantt-lib'
 import type {
   GanttProposedUpdate,
   GanttScheduleMode,
   GanttSegment,
-} from "#/components/reui/gantt/gantt-types"
-import { addDays, differenceInCalendarDays } from "date-fns"
+} from '#/components/reui/gantt/gantt-types'
+import { addDays, differenceInCalendarDays } from 'date-fns'
 
 /**
  * Activation policy (dnd-kit parity where proven):
@@ -31,7 +31,7 @@ const GANTT_ACTIVATION = {
   touchTolerancePx: 5,
 } as const
 
-type GestureKind = "move" | "resize-start" | "resize-end" | "create"
+type GestureKind = 'move' | 'resize-start' | 'resize-end' | 'create'
 
 interface GanttSurface {
   rect: DOMRect
@@ -100,25 +100,25 @@ function useGanttGestureTeardown(): void {
  * per-frame GPU transform.
  */
 function snapToPixel(value: number): number {
-  const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1
+  const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
   return Math.round(value * dpr) / dpr
 }
 
 function collectSurface(root: HTMLElement | null): GanttSurface | null {
   if (!root) return null
-  const axis = root.querySelector<HTMLElement>("[data-gantt-axis]")
+  const axis = root.querySelector<HTMLElement>('[data-gantt-axis]')
   if (!axis) return null
   return {
     rect: axis.getBoundingClientRect(),
     rangeStart: Number(axis.dataset.ganttRangeStart),
     rangeEnd: Number(axis.dataset.ganttRangeEnd),
     snapMin: Number(axis.dataset.ganttSnap) || 15,
-    isRtl: getComputedStyle(axis).direction === "rtl",
-    rows: [...root.querySelectorAll<HTMLElement>("[data-gantt-row]")]
+    isRtl: getComputedStyle(axis).direction === 'rtl',
+    rows: [...root.querySelectorAll<HTMLElement>('[data-gantt-row]')]
       // static rows (parents that aggregate their subtree) take no drops
       .filter((row) => row.dataset.ganttRowStatic === undefined)
       .map((row) => ({
-        resourceId: row.dataset.ganttResource ?? "",
+        resourceId: row.dataset.ganttResource ?? '',
         rect: row.getBoundingClientRect(),
       })),
   }
@@ -154,10 +154,10 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
   const startY = startEvent.clientY
   const pointerId = startEvent.pointerId
   // stable ancestors: bar nodes may be replaced by re-renders mid-gesture
-  const viewRoot = origin.closest<HTMLElement>("[data-slot=gantt-view]")
-  const ganttRoot = origin.closest<HTMLElement>("[data-slot=gantt]")
+  const viewRoot = origin.closest<HTMLElement>('[data-slot=gantt-view]')
+  const ganttRoot = origin.closest<HTMLElement>('[data-slot=gantt]')
   const announcer = ganttRoot?.querySelector<HTMLElement>(
-    "[data-slot=gantt-announcer]"
+    '[data-slot=gantt-announcer]',
   )
 
   /**
@@ -182,13 +182,13 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
     el.style.direction = rootStyle.direction
   }
 
-  const isTouch = startEvent.pointerType === "touch"
+  const isTouch = startEvent.pointerType === 'touch'
   // resize activates immediately on precise pointers; on touch it waits for
   // the same long-press as a move, so a stray brush over a bar edge can
   // never start an accidental resize
-  let active = kind.startsWith("resize") && !isTouch
+  let active = kind.startsWith('resize') && !isTouch
   let surface: GanttSurface | null = active ? collectSurface(viewRoot) : null
-  let lastProposalKey = ""
+  let lastProposalKey = ''
   let touchTimer: ReturnType<typeof setTimeout> | null = null
   let lastPointer: PointerEvent = startEvent
 
@@ -201,24 +201,24 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
   const nodeId = occurrence?.event.resourceId
   const nodeMode = resolveScheduleMode(
     nodeId === undefined ? null : findResource(settings.resources, nodeId),
-    config.scheduleMode
+    config.scheduleMode,
   )
   const overlapPolicy =
-    nodeMode === "single" ? ("reject" as const) : settings.overlap
+    nodeMode === 'single' ? ('reject' as const) : settings.overlap
   // Read once per gesture: the gantt never mutates events mid-drag, so the
   // neighbours cannot move under us.
   let neighbourCache: Array<{ start: number; end: number }> | null = null
   const getNeighbours = () => {
     if (neighbourCache) return neighbourCache
     neighbourCache =
-      !occurrence || nodeId === undefined || overlapPolicy === "allow"
+      !occurrence || nodeId === undefined || overlapPolicy === 'allow'
         ? []
         : api
             .getOccurrences()
             .filter(
               (other) =>
                 other.event.resourceId === nodeId &&
-                other.key !== occurrence.key
+                other.key !== occurrence.key,
             )
             .map((other) => ({
               start: other.start.getTime(),
@@ -228,7 +228,7 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
   }
   const overlapsNeighbour = (start: Date, end: Date) =>
     getNeighbours().some(
-      (other) => other.start < end.getTime() && other.end > start.getTime()
+      (other) => other.start < end.getTime() && other.end > start.getTime(),
     )
   /**
    * Stop the gesture at the neighbour's edge. Runs AFTER snapping so the
@@ -237,9 +237,9 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
    */
   const clampToNeighbours = (
     start: Date,
-    end: Date
+    end: Date,
   ): { start: Date; end: Date } => {
-    if (overlapPolicy !== "clamp" || !occurrence) return { start, end }
+    if (overlapPolicy !== 'clamp' || !occurrence) return { start, end }
     const anchorStart = occurrence.start.getTime()
     const anchorEnd = occurrence.end.getTime()
     let floor = -Infinity
@@ -252,9 +252,9 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
     if (floor === -Infinity && ceiling === Infinity) return { start, end }
     let from = start.getTime()
     let to = end.getTime()
-    if (kind === "resize-start") {
+    if (kind === 'resize-start') {
       from = Math.min(Math.max(from, floor), to)
-    } else if (kind === "resize-end") {
+    } else if (kind === 'resize-end') {
       to = Math.max(Math.min(to, ceiling), from)
     } else {
       // a move keeps its duration and parks against whichever edge it meets
@@ -290,31 +290,31 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
   let barHeight = 0
 
   const createMoveOverlay = () => {
-    if (kind !== "move" || !occurrence || overlay || barWidth === 0) return
+    if (kind !== 'move' || !occurrence || overlay || barWidth === 0) return
     // consumer-rendered preview (renderDragPreview): the view mounts it from
     // drag state; positionOverlay adopts it lazily and only writes transforms
     if (customMoveOverlay) return
-    const color = occurrence.event.color ?? "var(--color-primary)"
-    overlay = document.createElement("div")
-    overlay.setAttribute("data-slot", "gantt-drag-overlay")
+    const color = occurrence.event.color ?? 'var(--color-primary)'
+    overlay = document.createElement('div')
+    overlay.setAttribute('data-slot', 'gantt-drag-overlay')
     // container: the bar + its label ride together; the label stays OUTSIDE
     // the bar (to the right), matching the resting look - no in-bar text
     overlay.className =
       // physical left-0 anchor: the clone is positioned by translate3d from
       // raw clientX, which is physical - a logical start-0 anchor would pin
       // it to the RIGHT edge in RTL and fling the clone off screen
-      "pointer-events-none fixed top-0 left-0 z-100 flex items-center gap-2 will-change-transform"
+      'pointer-events-none fixed top-0 left-0 z-100 flex items-center gap-2 will-change-transform'
     adoptRootTypography(overlay)
     overlay.style.height = `${barHeight}px`
-    const barEl = document.createElement("div")
-    barEl.className = "shrink-0 rounded-sm shadow-lg"
+    const barEl = document.createElement('div')
+    barEl.className = 'shrink-0 rounded-sm shadow-lg'
     barEl.style.width = `${barWidth}px`
-    barEl.style.height = "100%"
+    barEl.style.height = '100%'
     barEl.style.background = `color-mix(in oklab, ${color} 22%, var(--color-background))`
     barEl.style.outline = `1px solid color-mix(in oklab, ${color} 55%, transparent)`
     overlay.appendChild(barEl)
-    const label = document.createElement("span")
-    label.className = "text-foreground truncate font-medium whitespace-nowrap"
+    const label = document.createElement('span')
+    label.className = 'text-foreground truncate font-medium whitespace-nowrap'
     label.textContent = occurrence.event.title
     overlay.appendChild(label)
     document.body.appendChild(overlay)
@@ -322,11 +322,11 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
   }
 
   const positionOverlay = (e: PointerEvent) => {
-    if (!overlay && customMoveOverlay && active && kind === "move") {
+    if (!overlay && customMoveOverlay && active && kind === 'move') {
       overlay = document.querySelector<HTMLDivElement>(
-        "[data-slot=gantt-drag-overlay][data-custom]"
+        '[data-slot=gantt-drag-overlay][data-custom]',
       )
-      if (overlay) overlay.style.visibility = "visible"
+      if (overlay) overlay.style.visibility = 'visible'
     }
     if (!overlay) return
     // x follows the pointer freely (smooth); y stays on the bar's own row
@@ -343,64 +343,64 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
   let resizeDuration: HTMLSpanElement | null = null
 
   const positionResizeOverlay = (e: PointerEvent) => {
-    if (!resizeOverlay && customResizeOverlay && kind.startsWith("resize")) {
+    if (!resizeOverlay && customResizeOverlay && kind.startsWith('resize')) {
       resizeOverlay = document.querySelector<HTMLDivElement>(
-        "[data-slot=gantt-resize-indicator][data-custom]"
+        '[data-slot=gantt-resize-indicator][data-custom]',
       )
-      if (resizeOverlay) resizeOverlay.style.visibility = "visible"
+      if (resizeOverlay) resizeOverlay.style.visibility = 'visible'
     }
     if (!resizeOverlay || !surface) return
     // x follows the pointer freely (clamped to the track); y stays on the bar
     const x = Math.min(
       Math.max(e.clientX, surface.rect.left),
-      surface.rect.right
+      surface.rect.right,
     )
     resizeOverlay.style.transform = `translate3d(${snapToPixel(x)}px, ${snapToPixel(barTop)}px, 0)`
   }
 
   const createResizeOverlay = () => {
-    if (!kind.startsWith("resize") || !occurrence || resizeOverlay) return
-    const barEl = origin.closest<HTMLElement>("[data-slot=gantt-bar]")
+    if (!kind.startsWith('resize') || !occurrence || resizeOverlay) return
+    const barEl = origin.closest<HTMLElement>('[data-slot=gantt-bar]')
     const rect = (barEl ?? origin).getBoundingClientRect()
     barTop = rect.top
     barHeight = rect.height
     // consumer-rendered indicator: rect capture above still runs (the engine
     // positions the consumer's wrapper), only the default DOM is skipped
     if (customResizeOverlay) return
-    const color = occurrence.event.color ?? "var(--color-primary)"
-    resizeOverlay = document.createElement("div")
-    resizeOverlay.setAttribute("data-slot", "gantt-resize-indicator")
+    const color = occurrence.event.color ?? 'var(--color-primary)'
+    resizeOverlay = document.createElement('div')
+    resizeOverlay.setAttribute('data-slot', 'gantt-resize-indicator')
     resizeOverlay.className =
       // physical left-0 anchor, same reason as the move clone above
-      "pointer-events-none fixed top-0 left-0 z-100 will-change-transform"
+      'pointer-events-none fixed top-0 left-0 z-100 will-change-transform'
     adoptRootTypography(resizeOverlay)
     resizeOverlay.style.height = `${barHeight}px`
-    resizeLine = document.createElement("div")
-    resizeLine.className = "h-full w-0.5 -translate-x-1/2 rounded-full"
+    resizeLine = document.createElement('div')
+    resizeLine.className = 'h-full w-0.5 -translate-x-1/2 rounded-full'
     resizeLine.style.background = color
     resizeOverlay.appendChild(resizeLine)
-    const chip = document.createElement("div")
+    const chip = document.createElement('div')
     chip.className =
       // physical left-0: centered with a physical translate on a physical anchor
       // no text size of its own: it inherits the root scale adopted above, so
       // the chip tracks a consumer rescale instead of pinning itself to 12px
-      "bg-foreground text-background absolute bottom-full left-0 mb-1.5 flex -translate-x-1/2 items-center gap-1.5 rounded-md px-2 py-1 font-medium whitespace-nowrap"
-    resizeRange = document.createElement("span")
+      'bg-foreground text-background absolute bottom-full left-0 mb-1.5 flex -translate-x-1/2 items-center gap-1.5 rounded-md px-2 py-1 font-medium whitespace-nowrap'
+    resizeRange = document.createElement('span')
     chip.appendChild(resizeRange)
-    resizeDot = document.createElement("span")
-    resizeDot.className = "bg-background/40 size-1 shrink-0 rounded-full"
-    resizeDot.setAttribute("aria-hidden", "true")
+    resizeDot = document.createElement('span')
+    resizeDot.className = 'bg-background/40 size-1 shrink-0 rounded-full'
+    resizeDot.setAttribute('aria-hidden', 'true')
     chip.appendChild(resizeDot)
-    resizeDuration = document.createElement("span")
+    resizeDuration = document.createElement('span')
     chip.appendChild(resizeDuration)
     // The arrow. Every other bubble in the gantt has one pointing at what it
     // describes; this chip had none, so a resize looked like a different
     // component from the hover hint. Physical left-1/2 to match the chip's own
     // physical anchor, and out of flow so the chip's flex gap ignores it.
-    const chipArrow = document.createElement("span")
-    chipArrow.setAttribute("aria-hidden", "true")
+    const chipArrow = document.createElement('span')
+    chipArrow.setAttribute('aria-hidden', 'true')
     chipArrow.className =
-      "bg-foreground absolute -bottom-1 left-1/2 size-2.5 -translate-x-1/2 rotate-45 rounded-[2px]"
+      'bg-foreground absolute -bottom-1 left-1/2 size-2.5 -translate-x-1/2 rotate-45 rounded-[2px]'
     chip.appendChild(chipArrow)
     resizeOverlay.appendChild(chip)
     document.body.appendChild(resizeOverlay)
@@ -410,16 +410,16 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
       toZoned(occurrence.start, settings.timeZone),
       toZoned(occurrence.end, settings.timeZone),
       occurrence.allDay ?? false,
-      settings.locale
+      settings.locale,
     )
     const days = Math.round(
-      (occurrence.end.getTime() - occurrence.start.getTime()) / 86_400_000
+      (occurrence.end.getTime() - occurrence.start.getTime()) / 86_400_000,
     )
     if (days >= 1) {
       resizeDuration.textContent = settings.i18n.labels.durationDays(days)
     } else {
-      resizeDot.style.display = "none"
-      resizeDuration.style.display = "none"
+      resizeDot.style.display = 'none'
+      resizeDuration.style.display = 'none'
     }
     positionResizeOverlay(startEvent)
   }
@@ -428,20 +428,20 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
   if (active) createResizeOverlay()
 
   const activationDistance =
-    kind === "create" ? activation.createDistancePx : activation.moveDistancePx
+    kind === 'create' ? activation.createDistancePx : activation.moveDistancePx
 
   // Each gesture keeps its own cursor: a resize must stay ew-resize for the
   // whole drag (flipping to grabbing reads as a move), a move grabs.
-  const gestureCursor = kind.startsWith("resize") ? "ew-resize" : "grabbing"
+  const gestureCursor = kind.startsWith('resize') ? 'ew-resize' : 'grabbing'
   const setBodyDragging = (on: boolean, invalid = false) => {
-    document.body.classList.toggle("gantt-dragging", on)
+    document.body.classList.toggle('gantt-dragging', on)
     document.body.style.cursor = on
       ? invalid
-        ? "not-allowed"
+        ? 'not-allowed'
         : gestureCursor
-      : ""
-    document.body.style.userSelect = on ? "none" : ""
-    if (!on) document.body.style.removeProperty("-webkit-user-select")
+      : ''
+    document.body.style.userSelect = on ? 'none' : ''
+    if (!on) document.body.style.removeProperty('-webkit-user-select')
   }
 
   const activate = () => {
@@ -452,7 +452,7 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
     // so its indicator mounts now; the guard inside makes this a no-op for
     // every other path
     createResizeOverlay()
-    if (kind === "move" && occurrence && surface) {
+    if (kind === 'move' && occurrence && surface) {
       const pointerMin = surfaceMinutesAt(surface, startX)
       // TRUE start, never clamped to the range: a bar that begins before the
       // visible window (negative minutes) must keep its real grab offset, or
@@ -471,7 +471,7 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
   }
 
   const computeProposal = (
-    e: PointerEvent
+    e: PointerEvent,
   ): {
     start: Date
     end: Date
@@ -490,7 +490,7 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
       const dayStart = zonedStartOfDay(new Date(ms), settings.timeZone)
       const dayEnd = zonedStartOfDay(
         addDays(toZoned(new Date(ms), settings.timeZone), 1),
-        settings.timeZone
+        settings.timeZone,
       )
       const snapped =
         ms - dayStart.getTime() < dayEnd.getTime() - ms ? dayStart : dayEnd
@@ -512,7 +512,7 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
     }
     const at = (minutes: number) => new Date(tl.rangeStart + minutes * 60000)
 
-    if (kind === "create") {
+    if (kind === 'create') {
       const anchorMin = snapMin(minutesAt(startX))
       const curMin = snapMin(minutesAt(e.clientX))
       const lo = Math.min(anchorMin, curMin)
@@ -520,7 +520,7 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
       const hi = Math.max(
         anchorMin,
         curMin,
-        lo + Math.max(tl.snapMin, settings.slotDuration)
+        lo + Math.max(tl.snapMin, settings.slotDuration),
       )
       return {
         start: at(lo),
@@ -532,7 +532,7 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
     if (!occurrence) return null
     const midnightAligned = (d: Date) =>
       zonedStartOfDay(d, settings.timeZone).getTime() === d.getTime()
-    if (kind === "move") {
+    if (kind === 'move') {
       // x-axis only: the bar slides along its OWN row, never across rows.
       // The proposal preserves the pointer DELTA - no clamping to the visible
       // range, or bars crossing the window edge would teleport to it.
@@ -551,18 +551,18 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
         const daySpan = Math.max(
           differenceInCalendarDays(
             toZoned(occurrence.end, settings.timeZone),
-            toZoned(occurrence.start, settings.timeZone)
+            toZoned(occurrence.start, settings.timeZone),
           ),
-          1
+          1,
         )
         end = zonedStartOfDay(
           addDays(toZoned(start, settings.timeZone), daySpan),
-          settings.timeZone
+          settings.timeZone,
         )
       } else {
         end = new Date(
           start.getTime() +
-            (occurrence.end.getTime() - occurrence.start.getTime())
+            (occurrence.end.getTime() - occurrence.start.getTime()),
         )
       }
       const bounded = clampToNeighbours(start, end)
@@ -574,7 +574,7 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
       }
     }
     const min = snapMin(minutesAt(e.clientX))
-    if (kind === "resize-start") {
+    if (kind === 'resize-start') {
       const endMin = (occurrence.end.getTime() - tl.rangeStart) / 60000
       // Minimum length = one snap unit; on day grids that unit is the LAST
       // zoned midnight before the end (raw 1440-minute arithmetic lands off
@@ -585,7 +585,7 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
               midnightAligned(occurrence.end)
                 ? addDays(toZoned(occurrence.end, settings.timeZone), -1)
                 : occurrence.end,
-              settings.timeZone
+              settings.timeZone,
             ).getTime() -
               tl.rangeStart) /
             60000
@@ -606,7 +606,7 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
       tl.snapMin >= 24 * 60
         ? (zonedStartOfDay(
             addDays(toZoned(occurrence.start, settings.timeZone), 1),
-            settings.timeZone
+            settings.timeZone,
           ).getTime() -
             tl.rangeStart) /
           60000
@@ -624,11 +624,11 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
   const applyProposal = (e: PointerEvent) => {
     const proposal = computeProposal(e)
     if (!proposal) return
-    const key = `${proposal.start.getTime()}-${proposal.end.getTime()}-${proposal.allDay}-${proposal.resourceId ?? ""}`
+    const key = `${proposal.start.getTime()}-${proposal.end.getTime()}-${proposal.allDay}-${proposal.resourceId ?? ''}`
     if (key === lastProposalKey) return
     lastProposalKey = key
 
-    if (kind === "create") {
+    if (kind === 'create') {
       const draft = { ...proposal }
       if (settings.canSelectSlot && !settings.canSelectSlot(draft)) return
       internals.setSlotDraft(draft)
@@ -639,12 +639,12 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
       occurrence: occurrence!,
       ...proposal,
       source:
-        kind === "move" ? "drag" : (kind as "resize-start" | "resize-end"),
+        kind === 'move' ? 'drag' : (kind as 'resize-start' | 'resize-end'),
     }
     // "reject" is the one veto the engine owns: it both styles the ghost AND
     // blocks the commit below. canDropEvent stays advisory, as documented.
     overlapRejected =
-      overlapPolicy === "reject" &&
+      overlapPolicy === 'reject' &&
       overlapsNeighbour(proposal.start, proposal.end)
     const valid =
       !overlapRejected &&
@@ -656,26 +656,26 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
         toZoned(proposal.start, settings.timeZone),
         toZoned(proposal.end, settings.timeZone),
         proposal.allDay,
-        settings.locale
+        settings.locale,
       )
       const days = Math.round(
-        (proposal.end.getTime() - proposal.start.getTime()) / 86_400_000
+        (proposal.end.getTime() - proposal.start.getTime()) / 86_400_000,
       )
       const showDays = days >= 1
-      resizeDot.style.display = showDays ? "" : "none"
-      resizeDuration.style.display = showDays ? "" : "none"
+      resizeDot.style.display = showDays ? '' : 'none'
+      resizeDuration.style.display = showDays ? '' : 'none'
       if (showDays) {
         resizeDuration.textContent = settings.i18n.labels.durationDays(days)
       }
     }
     if (resizeLine) {
       resizeLine.style.background = valid
-        ? (occurrence!.event.color ?? "var(--color-primary)")
-        : "var(--color-destructive)"
+        ? (occurrence!.event.color ?? 'var(--color-primary)')
+        : 'var(--color-destructive)'
     }
     setBodyDragging(true, !valid)
     internals.setDrag({
-      kind: kind === "move" ? "move" : (kind as "resize-start" | "resize-end"),
+      kind: kind === 'move' ? 'move' : (kind as 'resize-start' | 'resize-end'),
       occurrence: occurrence!,
       proposedStart: proposal.start,
       proposedEnd: proposal.end,
@@ -696,7 +696,7 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
   const AUTO_SCROLL_MAX_SPEED = 14
   let autoScrollRaf = 0
   const timelineViewport = viewRoot?.querySelector<HTMLElement>(
-    "[data-slot=gantt-timeline-pane] [data-slot=scroll-area-viewport]"
+    '[data-slot=gantt-timeline-pane] [data-slot=scroll-area-viewport]',
   )
   const autoScrollTick = () => {
     autoScrollRaf = 0
@@ -717,7 +717,7 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
     const before = timelineViewport.scrollLeft
     timelineViewport.scrollLeft = before + speed
     if (timelineViewport.scrollLeft === before) return // parked on the end
-    const axis = viewRoot?.querySelector<HTMLElement>("[data-gantt-axis]")
+    const axis = viewRoot?.querySelector<HTMLElement>('[data-gantt-axis]')
     if (axis) surface.rect = axis.getBoundingClientRect()
     applyProposal(lastPointer)
     positionResizeOverlay(lastPointer)
@@ -740,11 +740,11 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
     } catch {
       // capture already released (pointer gone or origin detached)
     }
-    window.removeEventListener("pointermove", onPointerMove)
-    window.removeEventListener("pointerup", onPointerUp)
-    window.removeEventListener("pointercancel", onCancel)
-    window.removeEventListener("blur", onWindowBlur)
-    window.removeEventListener("keydown", onKeyDown, true)
+    window.removeEventListener('pointermove', onPointerMove)
+    window.removeEventListener('pointerup', onPointerUp)
+    window.removeEventListener('pointercancel', onCancel)
+    window.removeEventListener('blur', onWindowBlur)
+    window.removeEventListener('keydown', onKeyDown, true)
     if (touchTimer) clearTimeout(touchTimer)
     // consumer-rendered overlays are React-owned: they unmount when the drag
     // state clears, so the engine must never removeChild them itself
@@ -765,7 +765,7 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
   }
 
   const onKeyDown = (e: KeyboardEvent) => {
-    if (e.key === "Escape") {
+    if (e.key === 'Escape') {
       e.stopPropagation()
       cancel()
     }
@@ -801,7 +801,7 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
     lastGestureEndedAt = performance.now()
 
     const state = instance.getState()
-    if (kind === "create") {
+    if (kind === 'create') {
       const draft = state.slotDraft
       internals.setSlotDraft(null)
       if (draft) {
@@ -833,14 +833,14 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
       allDay: drag.proposedAllDay,
       resourceId: drag.proposedResourceId,
       source:
-        kind === "move" ? "drag" : (kind as "resize-start" | "resize-end"),
+        kind === 'move' ? 'drag' : (kind as 'resize-start' | 'resize-end'),
     })
     if (accepted && announcer) {
       announcer.textContent = `${occurrence.event.title}, ${settings.i18n.functions.formatEventTime(
         toZoned(drag.proposedStart, settings.timeZone),
         toZoned(drag.proposedEnd, settings.timeZone),
         drag.proposedAllDay,
-        settings.locale
+        settings.locale,
       )}`
     }
   }
@@ -850,11 +850,11 @@ function beginGesture<TData>(config: BeginGestureConfig<TData>) {
     cancel()
   }
 
-  window.addEventListener("pointermove", onPointerMove)
-  window.addEventListener("pointerup", onPointerUp)
-  window.addEventListener("pointercancel", onCancel)
-  window.addEventListener("blur", onWindowBlur)
-  window.addEventListener("keydown", onKeyDown, true)
+  window.addEventListener('pointermove', onPointerMove)
+  window.addEventListener('pointerup', onPointerUp)
+  window.addEventListener('pointercancel', onCancel)
+  window.addEventListener('blur', onWindowBlur)
+  window.addEventListener('keydown', onKeyDown, true)
   activeGestureCancels.add(cancel)
 
   // Capture the pointer so a release OUTSIDE the OS window still delivers
@@ -893,7 +893,7 @@ function useGanttGestures<TData = unknown>() {
       const event = segment.occurrence.event
       return interactions.drag && !event.readOnly && event.draggable !== false
     },
-    [instance]
+    [instance],
   )
 
   const beginMove = useCallback(
@@ -901,7 +901,7 @@ function useGanttGestures<TData = unknown>() {
       if (e.button !== 0 || !canDrag(segment)) return
       beginGesture({
         instance,
-        kind: "move",
+        kind: 'move',
         origin: e.currentTarget as HTMLElement,
         startEvent: e.nativeEvent,
         segment,
@@ -909,7 +909,7 @@ function useGanttGestures<TData = unknown>() {
         scheduleMode: viewConfig.scheduleMode,
       })
     },
-    [instance, canDrag, customMoveOverlay, viewConfig.scheduleMode]
+    [instance, canDrag, customMoveOverlay, viewConfig.scheduleMode],
   )
 
   const canResize = useCallback(
@@ -918,21 +918,21 @@ function useGanttGestures<TData = unknown>() {
       const event = segment.occurrence.event
       return interactions.resize && !event.readOnly && event.resizable !== false
     },
-    [instance]
+    [instance],
   )
 
   const beginResize = useCallback(
     (
       e: React.PointerEvent,
       segment: GanttSegment<TData>,
-      edge: "start" | "end"
+      edge: 'start' | 'end',
     ) => {
       if (e.button !== 0 || !canResize(segment)) return
       e.stopPropagation()
       e.preventDefault()
       beginGesture({
         instance,
-        kind: edge === "start" ? "resize-start" : "resize-end",
+        kind: edge === 'start' ? 'resize-start' : 'resize-end',
         origin: e.currentTarget as HTMLElement,
         startEvent: e.nativeEvent,
         segment,
@@ -940,7 +940,7 @@ function useGanttGestures<TData = unknown>() {
         scheduleMode: viewConfig.scheduleMode,
       })
     },
-    [instance, canResize, customResizeOverlay, viewConfig.scheduleMode]
+    [instance, canResize, customResizeOverlay, viewConfig.scheduleMode],
   )
 
   const beginCreate = useCallback(
@@ -949,12 +949,12 @@ function useGanttGestures<TData = unknown>() {
       if (!instance.getState().interactions.selectSlot) return
       beginGesture({
         instance,
-        kind: "create",
+        kind: 'create',
         origin: e.currentTarget as HTMLElement,
         startEvent: e.nativeEvent,
       })
     },
-    [instance]
+    [instance],
   )
 
   return { beginMove, beginResize, beginCreate, canDrag, canResize }

@@ -38,11 +38,13 @@ async function createRecord(
   kind: string,
   title: string,
   status = 'draft',
-  properties: Record<string, unknown> = {},
+  customFields: Record<string, unknown> = {},
 ): Promise<Record<string, any>> {
   const { rows } = await client.query(
-    `SELECT * FROM api.create_record($1::uuid, $2, $3, $4, ARRAY[]::text[], $5::jsonb)`,
-    [project, kind, title, status, JSON.stringify(properties)],
+    `SELECT * FROM api.create_model_record(
+       $1::uuid, $2, $3, $4, ARRAY[]::text[], '{}'::jsonb, $5::jsonb
+     )`,
+    [project, kind, title, status, JSON.stringify(customFields)],
   )
   return rows[0]
 }
@@ -53,13 +55,27 @@ async function addDefinition(
   logicalType: string,
   nullable = true,
   validation: Record<string, unknown> = {},
+  kind = 'sample',
 ): Promise<Record<string, any>> {
+  const options =
+    logicalType === 'category' && Array.isArray(validation.enum)
+      ? validation.enum.map((key) => ({ key, label: key }))
+      : []
+  const canonicalValidation =
+    logicalType === 'category' ? {} : validation
   const { rows } = await client.query(
-    `INSERT INTO api.record_field_definitions
-       (workspace_id, kind, field_name, label, display_order, logical_type,
-        nullable, validation, created_by_user_id)
-     VALUES ($1, 'sample', $2, $2, 1, $3, $4, $5, $6) RETURNING *`,
-    [WS_A, fieldName, logicalType, nullable, validation, OWNER_A],
+    `SELECT * FROM api.create_and_activate_model_field(
+       $1,$2,$3,$3,$4,$5,null,$6::jsonb,$7::jsonb
+     )`,
+    [
+      WS_A,
+      kind,
+      fieldName,
+      logicalType,
+      nullable,
+      JSON.stringify(canonicalValidation),
+      JSON.stringify(options),
+    ],
   )
   return rows[0]
 }
@@ -82,6 +98,8 @@ beforeAll(async () => {
       ('${PROJ_A2}', '${WS_A}', 'sci-a2', 'SCI A2'),
       ('${PROJ_B}', '${WS_B}', 'sci-b', 'SCI B')`,
   )
+  const owner = await asAuthenticated(OWNER_A, WS_A)
+  await addDefinition(owner, 'required_text', 'text', false)
 })
 
 afterAll(async () => {
@@ -90,17 +108,18 @@ afterAll(async () => {
 })
 
 describe('scientific record creation and properties', () => {
-  it('creates project-scoped sequential sample and reagent identifiers and stores properties', async () => {
+  it('creates project-scoped sequential identifiers and stores canonical custom fields', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const sample1 = await createRecord(owner, PROJ_A, 'sample', 'Sample 1', 'available', { note: 'cold' })
-    const sample2 = await createRecord(owner, PROJ_A, 'sample', 'Sample 2', 'available')
-    const reagent = await createRecord(owner, PROJ_A, 'reagent', 'Reagent', 'available', { lot: 'L1' })
-    const otherProject = await createRecord(owner, PROJ_A2, 'sample', 'Other project', 'available')
+    await addDefinition(owner, 'note', 'text')
+    const sample1 = await createRecord(owner, PROJ_A, 'sample', 'Sample 1', 'available', { required_text: 'tube', note: 'cold' })
+    const sample2 = await createRecord(owner, PROJ_A, 'sample', 'Sample 2', 'available', { required_text: 'tube' })
+    const reagent = await createRecord(owner, PROJ_A, 'reagent', 'Reagent', 'available')
+    const otherProject = await createRecord(owner, PROJ_A2, 'sample', 'Other project', 'available', { required_text: 'tube' })
     expect(sample1.identifier).toMatch(/^SMP-\d{4}-0001$/)
     expect(sample2.identifier).toMatch(/^SMP-\d{4}-0002$/)
     expect(reagent.identifier).toMatch(/^RGT-\d{4}-0001$/)
     expect(otherProject.identifier).toMatch(/^SMP-\d{4}-0001$/)
-    expect(sample1.properties).toEqual({ note: 'cold' })
+    expect(sample1.custom_fields).toEqual({ note: 'cold', required_text: 'tube' })
   })
 
   it('rejects unsupported kinds and projects in another workspace', async () => {
@@ -111,14 +130,13 @@ describe('scientific record creation and properties', () => {
 
   it('authoritatively validates missing, typed, category, date, and direct-update values', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    await addDefinition(owner, 'required_text', 'text', false)
     await addDefinition(owner, 'count', 'integer')
     await addDefinition(owner, 'mass', 'decimal')
     await addDefinition(owner, 'approved', 'boolean')
     await addDefinition(owner, 'state', 'category', true, { enum: ['fresh', 'old'] })
     await addDefinition(owner, 'made_on', 'date')
 
-    await expect(createRecord(owner, PROJ_A, 'sample', 'Missing', 'available')).rejects.toMatchObject({ code: 'SB005' })
+    await expect(createRecord(owner, PROJ_A, 'sample', 'Missing', 'available')).rejects.toMatchObject({ code: 'SB071' })
     for (const invalid of [
       { required_text: 'x', count: '1' },
       { required_text: 'x', mass: 'heavy' },
@@ -126,25 +144,31 @@ describe('scientific record creation and properties', () => {
       { required_text: 'x', state: 'unknown' },
       { required_text: 'x', made_on: '21 July' },
     ]) {
-      await expect(createRecord(owner, PROJ_A, 'sample', 'Invalid', 'available', invalid)).rejects.toMatchObject({ code: 'SB005' })
+      await expect(createRecord(owner, PROJ_A, 'sample', 'Invalid', 'available', invalid)).rejects.toMatchObject({ code: 'SB071' })
     }
     const valid = await createRecord(owner, PROJ_A, 'sample', 'Valid', 'available', {
       required_text: 'tube', count: 2, mass: 1.5, approved: true,
       state: 'fresh', made_on: '2026-07-21',
     })
-    await expect(owner.query(`UPDATE api.records SET properties='{"required_text":"x","count":"bad"}' WHERE id=$1`, [valid.id])).rejects.toMatchObject({ code: 'SB005' })
+    await expect(owner.query(`UPDATE api.records SET custom_fields='{"required_text":"x","count":"bad"}' WHERE id=$1`, [valid.id])).rejects.toMatchObject({ code: 'SB071' })
   })
 
-  it('skips validation for experiment/report and preserves retired-field values', async () => {
+  it('validates configured experiment/report fields and preserves retired-field values', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const experiment = await createRecord(owner, PROJ_A, 'experiment', 'Free form', 'draft', { anything: [1] })
-    const report = await createRecord(owner, PROJ_A, 'report', 'Free report', 'draft', { count: 'not integer' })
+    await addDefinition(owner, 'note', 'text', true, {}, 'experiment')
+    await addDefinition(owner, 'count', 'integer', true, {}, 'report')
+    const experiment = await createRecord(owner, PROJ_A, 'experiment', 'Configured experiment', 'draft', { note: 'observed' })
+    const report = await createRecord(owner, PROJ_A, 'report', 'Configured report', 'draft', { count: 3 })
     const retired = await addDefinition(owner, 'legacy', 'integer')
-    await owner.query(`UPDATE api.record_field_definitions SET lifecycle='retired' WHERE id=$1`, [retired.id])
-    const sample = await createRecord(owner, PROJ_A, 'sample', 'Legacy', 'available', { required_text: 'x', legacy: 'preserved' })
-    expect(experiment.properties).toEqual({ anything: [1] })
-    expect(report.properties.count).toBe('not integer')
-    expect(sample.properties.legacy).toBe('preserved')
+    const sample = await createRecord(owner, PROJ_A, 'sample', 'Legacy', 'available', { required_text: 'x', legacy: 7 })
+    await owner.query(`SELECT api.retire_model_field($1)`, [retired.id])
+    const preserved = await owner.query(
+      `UPDATE api.records SET title='Legacy retained' WHERE id=$1 RETURNING custom_fields`,
+      [sample.id],
+    )
+    expect(experiment.custom_fields).toEqual({ note: 'observed' })
+    expect(report.custom_fields.count).toBe(3)
+    expect(preserved.rows[0].custom_fields.legacy).toBe(7)
   })
 })
 
@@ -154,24 +178,25 @@ describe('record field definitions', () => {
     const member = await asAuthenticated(MEMBER_A, WS_A)
     const other = await asAuthenticated(OWNER_B, WS_B)
     const def = await addDefinition(owner, 'owner_field', 'text')
-    await owner.query(`UPDATE api.record_field_definitions SET label='Owner label' WHERE id=$1`, [def.id])
+    await owner.query(`SELECT api.update_model_field($1,'{"label":"Owner label"}')`, [def.id])
     expect((await member.query(`SELECT id FROM api.record_field_definitions WHERE id=$1`, [def.id])).rows).toHaveLength(1)
     await expect(addDefinition(member, 'member_field', 'text')).rejects.toMatchObject({ code: '42501' })
     expect((await other.query(`SELECT id FROM api.record_field_definitions WHERE id=$1`, [def.id])).rows).toHaveLength(0)
-    await expect(other.query(`UPDATE api.record_field_definitions SET label='cross' WHERE id=$1`, [def.id])).resolves.toMatchObject({ rowCount: 0 })
-    await expect(other.query(`INSERT INTO api.record_field_definitions (workspace_id,kind,field_name,label,display_order,logical_type,created_by_user_id) VALUES ($1,'sample','cross','Cross',1,'text',$2)`, [WS_A, OWNER_B])).rejects.toMatchObject({ code: '42501' })
+    await expect(other.query(`SELECT api.update_model_field($1,'{"label":"cross"}')`, [def.id])).rejects.toMatchObject({ code: '42501' })
+    await expect(addDefinition(other, 'cross', 'text')).rejects.toMatchObject({ code: '42501' })
   })
 
-  it('keeps definition identity immutable while allowing label updates', async () => {
+  it('keeps definition identity stable through supported presentation updates', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
     const def = await addDefinition(owner, 'immutable_field', 'text')
-    for (const sql of [
-      `UPDATE api.record_field_definitions SET workspace_id='${WS_B}' WHERE id=$1`,
-      `UPDATE api.record_field_definitions SET kind='reagent' WHERE id=$1`,
-      `UPDATE api.record_field_definitions SET field_name='renamed' WHERE id=$1`,
-    ]) await expect(owner.query(sql, [def.id])).rejects.toMatchObject({ code: '23514' })
-    const { rows } = await owner.query(`UPDATE api.record_field_definitions SET label='Allowed' WHERE id=$1 RETURNING label`, [def.id])
-    expect(rows[0].label).toBe('Allowed')
+    const { rows } = await owner.query(
+      `SELECT * FROM api.update_model_field($1,'{"label":"Allowed","displayOrder":9}')`,
+      [def.id],
+    )
+    expect(rows[0]).toMatchObject({ id: def.id, field_name: 'immutable_field', label: 'Allowed', display_order: 9 })
+    await expect(
+      owner.query(`SELECT api.update_model_field($1,'{"fieldName":"renamed"}')`, [def.id]),
+    ).rejects.toMatchObject({ code: 'SB071' })
   })
 })
 

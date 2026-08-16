@@ -24,7 +24,7 @@ const sessionToken = 'session-test-token'
 beforeAll(async () => {
   ;({ migrator } = await prepareTestDatabase())
   db = drizzle(migratorUrl(), { schema })
-  auth = createAuth(migratorUrl())
+  auth = createAuth(db)
 
   await db.insert(schema.user).values({
     id: userId,

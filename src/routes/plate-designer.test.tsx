@@ -14,16 +14,15 @@ const PlateDesignerRoute = Route.options.component as React.ComponentType
 const emptyQueryData: never[] = []
 
 vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () =>
-    (config: Record<string, unknown>) => ({
-      useRouteContext: () => ({
-        context: {
-          workspace: { id: 'workspace-1', name: 'Test workspace', role: 'owner' },
-          user: { name: 'Test User', email: 'test@example.com' },
-        },
-      }),
-      options: config,
+  createFileRoute: () => (config: Record<string, unknown>) => ({
+    useRouteContext: () => ({
+      context: {
+        workspace: { id: 'workspace-1', name: 'Test workspace', role: 'owner' },
+        user: { name: 'Test User', email: 'test@example.com' },
+      },
     }),
+    options: config,
+  }),
   redirect: (options: unknown) => options,
   Link: ({
     to,
@@ -56,7 +55,15 @@ vi.mock('@tanstack/react-query', () => ({
 vi.mock('#/components/app-shell', async () => {
   const React = await import('react')
   const ctx = React.createContext({ setConfig: (_c: any) => {} })
-  const AppShell = ({ children, inspector, primaryAction }: { children: React.ReactNode; inspector: React.ReactNode; primaryAction: React.ReactNode }) => (
+  const AppShell = ({
+    children,
+    inspector,
+    primaryAction,
+  }: {
+    children: React.ReactNode
+    inspector: React.ReactNode
+    primaryAction: React.ReactNode
+  }) => (
     <div>
       <div data-testid="primary-action">{primaryAction}</div>
       <main>{children}</main>
@@ -64,17 +71,30 @@ vi.mock('#/components/app-shell', async () => {
     </div>
   )
   const ShellProvider = ({ children }: { children: React.ReactNode }) => {
-    const [config, setConfig] = React.useState<{ context: unknown | null; [k: string]: unknown }>({ context: null })
+    const [config, setConfig] = React.useState<{
+      context: unknown | null
+      [k: string]: unknown
+    }>({ context: null })
     const value = React.useMemo(
-      () => ({ setConfig: (c: Partial<typeof config>) => setConfig((prev) => ({ ...prev, ...c })) }),
+      () => ({
+        setConfig: (c: Partial<typeof config>) =>
+          setConfig((prev) => ({ ...prev, ...c })),
+      }),
       [],
     )
-    if (!config.context) return React.createElement(ctx.Provider, { value }, children as any)
-    return React.createElement(ctx.Provider, { value }, React.createElement(AppShell, config as any, children) as any)
+    if (!config.context)
+      return React.createElement(ctx.Provider, { value }, children as any)
+    return React.createElement(
+      ctx.Provider,
+      { value },
+      React.createElement(AppShell, config as any, children) as any,
+    )
   }
   const useShell = (config: Record<string, unknown>) => {
     const { setConfig } = React.useContext(ctx)
-    React.useLayoutEffect(() => { setConfig(config) }, [])
+    React.useLayoutEffect(() => {
+      setConfig(config)
+    }, [])
   }
   return { AppShell, ShellProvider, useShell }
 })
@@ -90,7 +110,11 @@ afterEach(() => cleanup())
 
 describe('PlateDesignerRoute', () => {
   it('renders the plate designer title and header copy', () => {
-    render(<ShellProvider><PlateDesignerRoute /></ShellProvider>)
+    render(
+      <ShellProvider>
+        <PlateDesignerRoute />
+      </ShellProvider>,
+    )
 
     expect(screen.getByRole('heading', { name: 'Plate Designer' })).toBeTruthy()
     expect(
@@ -99,7 +123,11 @@ describe('PlateDesignerRoute', () => {
   })
 
   it('renders all 96 wells in an 8 by 12 plate grid', () => {
-    render(<ShellProvider><PlateDesignerRoute /></ShellProvider>)
+    render(
+      <ShellProvider>
+        <PlateDesignerRoute />
+      </ShellProvider>,
+    )
 
     const grid = screen.getByRole('grid', { name: '8 by 12 plate' })
     expect(grid.querySelectorAll('button[data-cell]')).toHaveLength(96)
@@ -109,7 +137,11 @@ describe('PlateDesignerRoute', () => {
 
   it('renders the toolbar with an interactive Auto-fill button', async () => {
     const user = userEvent.setup()
-    render(<ShellProvider><PlateDesignerRoute /></ShellProvider>)
+    render(
+      <ShellProvider>
+        <PlateDesignerRoute />
+      </ShellProvider>,
+    )
 
     const autoFill = screen.getByRole('button', { name: 'Auto-fill' })
     expect(autoFill).toBeTruthy()
@@ -118,13 +150,21 @@ describe('PlateDesignerRoute', () => {
   })
 
   it('shows the empty inspector hint when no well is selected', () => {
-    render(<ShellProvider><PlateDesignerRoute /></ShellProvider>)
+    render(
+      <ShellProvider>
+        <PlateDesignerRoute />
+      </ShellProvider>,
+    )
 
     expect(screen.getByText('Select a well to see details')).toBeTruthy()
   })
 
   it('renders role assignment controls and the role legend', () => {
-    render(<ShellProvider><PlateDesignerRoute /></ShellProvider>)
+    render(
+      <ShellProvider>
+        <PlateDesignerRoute />
+      </ShellProvider>,
+    )
 
     expect(screen.getByText('Assign selected')).toBeTruthy()
     expect(screen.getAllByText('Sample').length).toBeGreaterThanOrEqual(2)

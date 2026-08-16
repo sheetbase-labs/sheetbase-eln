@@ -105,7 +105,11 @@ export function SheetbaseGrid({
       </p>
       {ClientGrid ? (
         <GridBoundary>
-          <ClientGrid licenseKey={licenseKey} settings={settings} onReady={onReady} />
+          <ClientGrid
+            licenseKey={licenseKey}
+            settings={settings}
+            onReady={onReady}
+          />
         </GridBoundary>
       ) : (
         <div

@@ -5,6 +5,10 @@ import { Client } from 'pg'
 
 import { mintApiClientToken } from '#/lib/api-credentials'
 import { buildPersistedFormulaArtifact, parseFormula } from '#/lib/formula-ir'
+import {
+  createScientificTableAsMigrator,
+  openMigratorWriter,
+} from '../db/helpers'
 
 config({ path: ['.env.local', '.env'] })
 
@@ -108,46 +112,50 @@ test.beforeAll(async () => {
   await admin.query(`SELECT set_config('request.jwt.claims',$1,false)`, [
     JSON.stringify({ role: 'authenticated', sub: USER, workspace_id: WS }),
   ])
-  source = (
-    await admin.query(
-      `SELECT api.create_scientific_table($1,'Raw stability data',$2::jsonb) result`,
-      [
-        SOURCE_BLOCK,
-        JSON.stringify([
-          {
-            label: 'Input titer',
-            logical_type: 'decimal',
-            nullable: false,
-            default: 1,
-            unit: { code: 'PFU/mL', symbol: 'PFU/mL' },
-            validation: { min: 0 },
-          },
-          {
-            label: 'Projected titer',
-            logical_type: 'decimal',
-            nullable: true,
-            unit: { code: 'PFU/mL', symbol: 'PFU/mL' },
-          },
-        ]),
-      ],
-    )
-  ).rows[0].result
-  const summary = (
-    await admin.query(
-      `SELECT api.create_scientific_table($1,'Stability summary',$2::jsonb) result`,
-      [
-        SUMMARY_BLOCK,
-        JSON.stringify([
-          {
-            label: 'Combined titer',
-            logical_type: 'decimal',
-            nullable: true,
-            unit: { code: 'PFU/mL', symbol: 'PFU/mL' },
-          },
-        ]),
-      ],
-    )
-  ).rows[0].result
+  const writer = await openMigratorWriter(
+    process.env.DATABASE_URL ?? '',
+    USER,
+    WS,
+  )
+  source = await createScientificTableAsMigrator(
+    writer,
+    USER,
+    WS,
+    SOURCE_BLOCK,
+    'Raw stability data',
+    [
+      {
+        label: 'Input titer',
+        logical_type: 'decimal',
+        nullable: false,
+        default: 1,
+        unit: { code: 'PFU/mL', symbol: 'PFU/mL' },
+        validation: { min: 0 },
+      },
+      {
+        label: 'Projected titer',
+        logical_type: 'decimal',
+        nullable: true,
+        unit: { code: 'PFU/mL', symbol: 'PFU/mL' },
+      },
+    ],
+  )
+  const summary = await createScientificTableAsMigrator(
+    writer,
+    USER,
+    WS,
+    SUMMARY_BLOCK,
+    'Stability summary',
+    [
+      {
+        label: 'Combined titer',
+        logical_type: 'decimal',
+        nullable: true,
+        unit: { code: 'PFU/mL', symbol: 'PFU/mL' },
+      },
+    ],
+  )
+  await writer.end()
   sourceRow = (
     await admin.query(
       `INSERT INTO api.${source.table.resource_name} (${source.columns[0].field_name}) VALUES (5) RETURNING *`,

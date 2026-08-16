@@ -108,4 +108,58 @@ describe('ModelFieldInput', () => {
     fireEvent.change(input, { target: { value: '2.75' } })
     expect(onChange).toHaveBeenLastCalledWith('2.75')
   })
+
+  it('renders a Record reference as a text input rather than an invalid HTML type', () => {
+    render(
+      <ModelFieldInput
+        definition={field({
+          logicalType: 'reference',
+          label: 'Source sample',
+          validation: { targetModelKey: 'sample' },
+        })}
+        value=""
+        onChange={vi.fn()}
+      />,
+    )
+
+    expect(
+      screen
+        .getByRole('textbox', { name: 'Source sample' })
+        .getAttribute('type'),
+    ).toBe('text')
+    expect(
+      screen.getByText(
+        'Persists the Record UUID. Record ID and Name are display only.',
+      ),
+    ).toBeTruthy()
+  })
+
+  it('accepts a Record UUID and refuses a generated Record ID as identity', async () => {
+    const onChange = vi.fn()
+    render(
+      <ModelFieldInput
+        definition={field({
+          logicalType: 'reference',
+          label: 'Source sample',
+          validation: { targetModelKey: 'sample' },
+        })}
+        value=""
+        onChange={onChange}
+      />,
+    )
+    const input = screen.getByRole('textbox', { name: 'Source sample' })
+    fireEvent.change(input, { target: { value: 'SMP-2026-0001' } })
+    expect(onChange).not.toHaveBeenCalled()
+    expect(
+      screen.getByText(
+        'Record reference identity is the Record UUID, not the Record ID or Name.',
+      ),
+    ).toBeTruthy()
+    fireEvent.change(input, {
+      target: { value: '11111111-1111-4111-8111-111111111111' },
+    })
+    expect(onChange).toHaveBeenCalledWith(
+      '11111111-1111-4111-8111-111111111111',
+    )
+  })
 })

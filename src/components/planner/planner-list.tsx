@@ -8,7 +8,15 @@
 import { useMemo } from 'react'
 
 import { cn } from '#/lib/utils'
-import { Badge, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#/components/ui'
+import {
+  Badge,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '#/components/ui'
 import type {
   StudyTask,
   StudyTaskDependency,
@@ -66,14 +74,28 @@ export function PlannerList({
         <TableHeader>
           <TableRow className="text-left text-xs text-muted-foreground">
             <TableHead className="min-w-[200px] font-medium">Title</TableHead>
-            <TableHead className="whitespace-nowrap font-medium">Workstream</TableHead>
-            <TableHead className="whitespace-nowrap font-medium">Status</TableHead>
-            <TableHead className="whitespace-nowrap font-medium">Priority</TableHead>
-            <TableHead className="min-w-[120px] font-medium">Assignee</TableHead>
-            <TableHead className="whitespace-nowrap font-medium">Start</TableHead>
+            <TableHead className="whitespace-nowrap font-medium">
+              Workstream
+            </TableHead>
+            <TableHead className="whitespace-nowrap font-medium">
+              Status
+            </TableHead>
+            <TableHead className="whitespace-nowrap font-medium">
+              Priority
+            </TableHead>
+            <TableHead className="min-w-[120px] font-medium">
+              Assignee
+            </TableHead>
+            <TableHead className="whitespace-nowrap font-medium">
+              Start
+            </TableHead>
             <TableHead className="whitespace-nowrap font-medium">Due</TableHead>
-            <TableHead className="whitespace-nowrap font-medium">Progress</TableHead>
-            <TableHead className="whitespace-nowrap font-medium">Deps</TableHead>
+            <TableHead className="whitespace-nowrap font-medium">
+              Progress
+            </TableHead>
+            <TableHead className="whitespace-nowrap font-medium">
+              Deps
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>

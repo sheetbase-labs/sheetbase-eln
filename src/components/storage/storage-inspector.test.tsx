@@ -83,7 +83,8 @@ describe('StorageInspector', () => {
     expect(
       screen
         .getAllByText(
-          (_content, element) => element?.textContent === '● Position: Occupied',
+          (_content, element) =>
+            element?.textContent === '● Position: Occupied',
         )
         .some((element) => element.tagName === 'SPAN'),
     ).toBe(true)

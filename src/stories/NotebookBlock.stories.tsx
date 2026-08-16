@@ -14,7 +14,10 @@ const payloads: any = {
         {
           type: 'paragraph',
           content: [
-            { type: 'text', text: 'Cells were incubated at 37 °C for 24 hours.' },
+            {
+              type: 'text',
+              text: 'Cells were incubated at 37 °C for 24 hours.',
+            },
           ],
         },
       ],
@@ -89,9 +92,7 @@ export const States: Story = {
         ] as const
       ).map((state) => (
         <NotebookBlock key={state} label="Text" title={state} state={state}>
-          <p className="text-sm text-foreground">
-            Scientific notebook content
-          </p>
+          <p className="text-sm text-foreground">Scientific notebook content</p>
         </NotebookBlock>
       ))}
     </div>

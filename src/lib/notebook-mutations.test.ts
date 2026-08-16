@@ -11,6 +11,7 @@ import {
   deleteBlock,
   duplicateBlock,
   insertBlock,
+  insertSheetInstanceBlock,
   moveBlock,
   updateBlockPayload,
 } from './notebook-mutations'
@@ -158,6 +159,53 @@ describe('duplicateBlock', () => {
     })
     expect(res.block.id).toBe('b2')
     expect(res.structureVersion).toBe(3)
+  })
+
+  it('duplicates canonical Sheet blocks via duplicate_sheet_instance_block', async () => {
+    const client = makeClient(() => ({
+      block: { ...blockWire, id: 'b2', type: 'sheet' },
+      instance: { id: 'i2' },
+      structure_version: 4,
+    }))
+    const source: NotebookBlock = {
+      id: 'b1',
+      recordId: 'r1',
+      type: 'sheet',
+      payload: { instanceId: '0198d970-e266-4000-8000-000000000001' },
+      payloadSchemaVersion: 1,
+      order: 1,
+      version: 1,
+    }
+    await duplicateBlock(client, {
+      block: source,
+      expectedStructureVersion: 3,
+    })
+    expect(client.rpc).toHaveBeenCalledWith('duplicate_sheet_instance_block', {
+      p_block_id: 'b1',
+      p_expected_structure_version: 3,
+    })
+  })
+})
+
+describe('insertSheetInstanceBlock', () => {
+  it('calls insert_sheet_instance_block and returns the Instance id', async () => {
+    const client = makeClient(() => ({
+      block: { ...blockWire, type: 'sheet' },
+      instance: { id: 'i1' },
+      structure_version: 2,
+    }))
+    const res = await insertSheetInstanceBlock(client, {
+      recordId: 'r1',
+      expectedStructureVersion: 1,
+    })
+    expect(client.rpc).toHaveBeenCalledWith('insert_sheet_instance_block', {
+      p_record_id: 'r1',
+      p_after_block_id: null,
+      p_expected_structure_version: 1,
+      p_instance_id: null,
+    })
+    expect(res.instanceId).toBe('i1')
+    expect(res.structureVersion).toBe(2)
   })
 })
 

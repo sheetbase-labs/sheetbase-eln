@@ -1,6 +1,6 @@
 type EventCalendarEventId = string
 
-type CalendarView = "month" | "week" | "day" | "days" | "agenda" | "resource"
+type CalendarView = 'month' | 'week' | 'day' | 'days' | 'agenda' | 'resource'
 
 /**
  * A bookable resource (room, person, equipment). Nesting via children renders
@@ -21,10 +21,10 @@ interface EventCalendarDateRange {
   end: Date
 }
 
-type EventCalendarWeekday = "MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU"
+type EventCalendarWeekday = 'MO' | 'TU' | 'WE' | 'TH' | 'FR' | 'SA' | 'SU'
 
 interface EventCalendarRecurrenceRule {
-  freq: "daily" | "weekly" | "monthly" | "yearly"
+  freq: 'daily' | 'weekly' | 'monthly' | 'yearly'
   interval?: number
   count?: number
   /** Inclusive instant. */
@@ -124,7 +124,7 @@ interface EventCalendarInteractions {
 }
 
 interface EventCalendarDragState<TData = unknown> {
-  kind: "move" | "resize-start" | "resize-end"
+  kind: 'move' | 'resize-start' | 'resize-end'
   occurrence: EventCalendarOccurrence<TData>
   proposedStart: Date
   proposedEnd: Date
@@ -205,14 +205,12 @@ interface EventCalendarProposedUpdate<TData = unknown> {
   allDay: boolean
   /** Proposed resource when the gesture crossed resource columns/rows. */
   resourceId?: string
-  source: "drag" | "resize-start" | "resize-end" | "keyboard" | "api"
+  source: 'drag' | 'resize-start' | 'resize-end' | 'keyboard' | 'api'
 }
 
 /** false = reject/revert; void or true = accept; object = accept with adjustment. */
 type EventCalendarUpdateResult =
-  | boolean
-  | void
-  | { start?: Date; end?: Date; allDay?: boolean }
+  boolean | void | { start?: Date; end?: Date; allDay?: boolean }
 
 /** A click is a point, not a range; `end` is present for timed slots. */
 interface EventCalendarSlotInfo {
@@ -249,7 +247,7 @@ interface EventCalendarOffDaysConfig {
 interface EventCalendarDataAdapter<TData = unknown> {
   getEvents(
     range: EventCalendarDateRange,
-    signal?: AbortSignal
+    signal?: AbortSignal,
   ): Promise<CalendarEvent<TData>[]>
 }
 

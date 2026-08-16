@@ -43,10 +43,10 @@ function template(overrides: Partial<NotebookRecord> = {}): NotebookRecord {
   return {
     id: 't-1',
     projectId: 'p-1',
-    kind: 'notebook_template',
-    identifier: 'NBK-2026-0001',
+    kind: 'protocol_template',
+    identifier: 'PRT-2026-0001',
     title: 'Stability Study',
-    status: 'validated',
+    status: 'active',
     tags: [],
     structureVersion: 1,
     metadataVersion: 1,
@@ -126,7 +126,7 @@ describe('TemplateList', () => {
         onRetry={vi.fn()}
       />,
     )
-    expect(screen.getByText(/no templates found/i)).toBeTruthy()
+    expect(screen.getByText(/no protocol templates found/i)).toBeTruthy()
   })
 
   it('shows an error state with a retry button', () => {
@@ -153,11 +153,11 @@ describe('TemplateList', () => {
           template({
             id: 't-1',
             title: 'Stability Study',
-            status: 'validated',
+            status: 'active',
           }),
           template({
             id: 't-2',
-            identifier: 'NBK-2026-0002',
+            identifier: 'PRT-2026-0002',
             title: 'Cell Viability',
             status: 'draft',
           }),
@@ -170,8 +170,7 @@ describe('TemplateList', () => {
       />,
     )
     expect(screen.getByText('Stability Study')).toBeTruthy()
-    expect(screen.getByText('NBK-2026-0001')).toBeTruthy()
-    expect(screen.getAllByText('Notebook').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByText('PRT-2026-0001')).toBeTruthy()
     expect(screen.getByText('Ready')).toBeTruthy()
     expect(screen.getByText('Cell Viability')).toBeTruthy()
   })
@@ -249,11 +248,9 @@ describe('TemplateList', () => {
 })
 
 describe('TemplateFilters', () => {
-  it('renders accessible search, type and status controls', () => {
+  it('renders accessible search and status controls', () => {
     render(
       <TemplateFilters
-        kindFilter="all"
-        onKindChange={vi.fn()}
         statusFilter="all"
         onStatusChange={vi.fn()}
         search=""
@@ -261,7 +258,7 @@ describe('TemplateFilters', () => {
       />,
     )
     expect(screen.getByLabelText(/search templates/i)).toBeTruthy()
-    expect(screen.getByLabelText(/filter by type/i)).toBeTruthy()
+    expect(screen.queryByLabelText(/filter by type/i)).toBeNull()
     expect(screen.getByLabelText(/filter by status/i)).toBeTruthy()
   })
 
@@ -270,8 +267,6 @@ describe('TemplateFilters', () => {
     const onSearchChange = vi.fn()
     render(
       <TemplateFilters
-        kindFilter="all"
-        onKindChange={vi.fn()}
         statusFilter="all"
         onStatusChange={vi.fn()}
         search=""
@@ -300,13 +295,13 @@ describe('TemplateInspector', () => {
     expect(
       screen.getByRole('heading', { name: 'Stability Study' }),
     ).toBeTruthy()
-    expect(screen.getAllByText('Notebook').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('Protocol').length).toBeGreaterThanOrEqual(1)
   })
 
   it('shows details and a use-template form on the Details tab for an instantiable template', () => {
     render(
       <TemplateInspector
-        template={template({ id: 't-1', status: 'validated' })}
+        template={template({ id: 't-1', status: 'active' })}
         blocks={blocks}
         blocksLoading={false}
         projects={projects}
@@ -318,7 +313,7 @@ describe('TemplateInspector', () => {
     )
     expect(screen.getByRole('tab', { name: /details/i })).toBeTruthy()
     expect(screen.getByRole('tab', { name: /preview/i })).toBeTruthy()
-    expect(screen.getByText('NBK-2026-0001')).toBeTruthy()
+    expect(screen.getByText('PRT-2026-0001')).toBeTruthy()
     expect(screen.getByLabelText(/new record title/i)).toBeTruthy()
     expect(screen.getByLabelText(/target project/i)).toBeTruthy()
   })
@@ -336,7 +331,7 @@ describe('TemplateInspector', () => {
         instantiationSuccess={null}
       />,
     )
-    expect(screen.getByText(/must be validated/i)).toBeTruthy()
+    expect(screen.getByText(/must be active/i)).toBeTruthy()
     expect(screen.queryByLabelText(/new record title/i)).toBeNull()
   })
 
@@ -345,7 +340,7 @@ describe('TemplateInspector', () => {
       <TemplateInspector
         template={template({
           id: 't-1',
-          status: 'validated',
+          status: 'active',
           archivedAt: '2026-02-01T00:00:00Z',
         })}
         blocks={blocks}
@@ -368,7 +363,7 @@ describe('TemplateInspector', () => {
     const onInstantiate = vi.fn()
     render(
       <TemplateInspector
-        template={template({ id: 't-1', status: 'validated' })}
+        template={template({ id: 't-1', status: 'active' })}
         blocks={blocks}
         blocksLoading={false}
         projects={projects}
@@ -385,7 +380,7 @@ describe('TemplateInspector', () => {
   it('shows an instantiation error in an alert', () => {
     render(
       <TemplateInspector
-        template={template({ id: 't-1', status: 'validated' })}
+        template={template({ id: 't-1', status: 'active' })}
         blocks={blocks}
         blocksLoading={false}
         projects={projects}
@@ -465,8 +460,6 @@ describe('TPL-001 TemplateFilters — view, favourites and ownership', () => {
   it('renders a grid/list view toggle', () => {
     render(
       <TemplateFilters
-        kindFilter="all"
-        onKindChange={vi.fn()}
         statusFilter="all"
         onStatusChange={vi.fn()}
         search=""
@@ -486,8 +479,6 @@ describe('TPL-001 TemplateFilters — view, favourites and ownership', () => {
     const onViewChange = vi.fn()
     render(
       <TemplateFilters
-        kindFilter="all"
-        onKindChange={vi.fn()}
         statusFilter="all"
         onStatusChange={vi.fn()}
         search=""
@@ -503,8 +494,6 @@ describe('TPL-001 TemplateFilters — view, favourites and ownership', () => {
   it('renders an ownership filter and a favourites toggle', () => {
     render(
       <TemplateFilters
-        kindFilter="all"
-        onKindChange={vi.fn()}
         statusFilter="all"
         onStatusChange={vi.fn()}
         search=""
@@ -524,8 +513,6 @@ describe('TPL-001 TemplateFilters — view, favourites and ownership', () => {
     const onFavouritesOnlyChange = vi.fn()
     render(
       <TemplateFilters
-        kindFilter="all"
-        onKindChange={vi.fn()}
         statusFilter="all"
         onStatusChange={vi.fn()}
         search=""
@@ -547,8 +534,6 @@ describe('TPL-001 TemplateFilters — view, favourites and ownership', () => {
     const onOwnershipChange = vi.fn()
     render(
       <TemplateFilters
-        kindFilter="all"
-        onKindChange={vi.fn()}
         statusFilter="all"
         onStatusChange={vi.fn()}
         search=""
@@ -573,7 +558,7 @@ describe('TPL-001 TemplateList — grid view, favourites and ownership', () => {
           template({ id: 't-1', title: 'Grid One' }),
           template({
             id: 't-2',
-            identifier: 'NBK-2026-0002',
+            identifier: 'PRT-2026-0002',
             title: 'Grid Two',
           }),
         ]}
@@ -687,7 +672,7 @@ describe('TPL-001 TemplateActions — permissions and dependencies', () => {
   ) {
     return (
       <TemplateActions
-        template={template({ id: 't-1', status: 'validated' })}
+        template={template({ id: 't-1', status: 'active' })}
         usageCount={0}
         canManage
         isArchiving={false}
@@ -722,7 +707,7 @@ describe('TPL-001 TemplateActions — permissions and dependencies', () => {
       actions({
         template: template({
           id: 't-arch',
-          status: 'validated',
+          status: 'active',
           archivedAt: '2026-02-01T00:00:00Z',
         }),
       }),
@@ -786,7 +771,7 @@ describe('TPL-001 TemplateInspector — version, author, usage, links, pinning',
   ) {
     return (
       <TemplateInspector
-        template={template({ id: 't-1', status: 'validated' })}
+        template={template({ id: 't-1', status: 'active' })}
         blocks={blocks}
         blocksLoading={false}
         projects={projects}
@@ -814,7 +799,7 @@ describe('TPL-001 TemplateInspector — version, author, usage, links, pinning',
       inspector({
         template: template({
           id: 't-1',
-          status: 'validated',
+          status: 'active',
           metadataVersion: 4,
           structureVersion: 2,
         }),
@@ -867,7 +852,7 @@ describe('TPL-001 TemplateInspector — version, author, usage, links, pinning',
       inspector({
         template: template({
           id: 't-1',
-          status: 'validated',
+          status: 'active',
           metadataVersion: 3,
         }),
       }),
@@ -880,7 +865,7 @@ describe('TPL-001 TemplateInspector — version, author, usage, links, pinning',
       inspector({
         template: template({
           id: 't-1',
-          status: 'validated',
+          status: 'active',
           archivedAt: '2026-02-01T00:00:00Z',
         }),
       }),
@@ -926,10 +911,8 @@ describe('TPL-001 TemplateInspector — version, author, usage, links, pinning',
     ).toBe(false)
   })
 
-  it('marks scientific review as approved for a validated template', () => {
-    render(
-      inspector({ template: template({ id: 't-1', status: 'validated' }) }),
-    )
+  it('marks scientific review as approved for an active template', () => {
+    render(inspector({ template: template({ id: 't-1', status: 'active' }) }))
     expect(screen.getByText('Approved')).toBeTruthy()
   })
 })

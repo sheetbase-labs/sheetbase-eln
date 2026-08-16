@@ -750,9 +750,7 @@ function LineageNodeComponent({ data }: NodeProps<LineageRFNode>) {
         {node.status &&
           node.status !== 'missing' &&
           node.status !== 'restricted' && (
-            <span className="text-xs text-muted-foreground">
-              {node.status}
-            </span>
+            <span className="text-xs text-muted-foreground">{node.status}</span>
           )}
       </div>
       <Handle

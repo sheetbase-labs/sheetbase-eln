@@ -65,6 +65,49 @@ afterAll(async () => {
 })
 
 describe('model field registry and controlled writes', () => {
+  it('separates schema capabilities from ordinary workspace membership', async () => {
+    const owner = await actor(OWNER)
+    const admin = await actor(ADMIN)
+    const member = await actor(MEMBER)
+
+    await expect(
+      owner.query(
+        `select api.has_schema_capability($1,'model_field.manage') allowed`,
+        [WS],
+      ),
+    ).resolves.toMatchObject({ rows: [{ allowed: true }] })
+    await expect(
+      admin.query(
+        `select api.has_schema_capability($1,'model_field.manage') allowed`,
+        [WS],
+      ),
+    ).resolves.toMatchObject({ rows: [{ allowed: true }] })
+    await expect(
+      member.query(
+        `select api.has_schema_capability($1,'model_field.manage') allowed`,
+        [WS],
+      ),
+    ).resolves.toMatchObject({ rows: [{ allowed: false }] })
+    await expect(
+      owner.query(
+        `select api.has_schema_capability($1,'dataset_schema.publish') allowed`,
+        [WS],
+      ),
+    ).resolves.toMatchObject({ rows: [{ allowed: true }] })
+    await expect(
+      admin.query(
+        `select api.has_schema_capability($1,'dataset_schema.publish') allowed`,
+        [WS],
+      ),
+    ).resolves.toMatchObject({ rows: [{ allowed: true }] })
+    await expect(
+      owner.query(
+        `select api.has_schema_capability($1,'unrecognised.capability') allowed`,
+        [WS],
+      ),
+    ).resolves.toMatchObject({ rows: [{ allowed: false }] })
+  })
+
   it('seeds the exact canonical registry and protects snake/camel aliases', async () => {
     const { rows } = await migrator.query(
       `select key from api.model_kinds order by key`,
@@ -135,6 +178,67 @@ describe('model field registry and controlled writes', () => {
     await expect(
       owner.query(`select api.activate_model_field($1)`, [rows[0].id]),
     ).resolves.toBeDefined()
+  })
+
+  it('persists canonical quantity and relationship projections without inferring legacy units', async () => {
+    const owner = await actor(OWNER)
+    const quantity = await field(
+      owner,
+      'project',
+      'configured_amount',
+      'decimal',
+    )
+    await owner.query(
+      `select api.configure_model_field_semantics(
+        $1,
+        '{"kind":"assay_amount","dimension":"legacy-unspecified","storageUnit":"TU/mL"}',
+        'one', null, null
+      )`,
+      [quantity.id],
+    )
+    const reference = await field(
+      owner,
+      'experiment',
+      'canonical_source',
+      'reference',
+    )
+    await owner.query(
+      `select api.configure_model_field_semantics(
+        $1, null, 'one', null,
+        '{"target":{"kind":"model","modelKey":"sample"},"cardinality":"one"}'
+      )`,
+      [reference.id],
+    )
+    const { rows } = await migrator.query(
+      `select quantity, cardinality, relationship, validation
+       from api.record_field_definitions where id in ($1,$2) order by id`,
+      [quantity.id, reference.id],
+    )
+    expect(rows).toContainEqual(
+      expect.objectContaining({
+        quantity: {
+          kind: 'assay_amount',
+          dimension: 'legacy-unspecified',
+          storageUnit: 'TU/mL',
+        },
+        cardinality: 'one',
+      }),
+    )
+    expect(rows).toContainEqual(
+      expect.objectContaining({
+        relationship: {
+          target: { kind: 'model', modelKey: 'sample' },
+          cardinality: 'one',
+        },
+        validation: { targetModelKey: 'sample' },
+      }),
+    )
+    await expect(
+      owner.query(
+        `select api.configure_model_field_semantics($1,null,'many',null,null)`,
+        [quantity.id],
+      ),
+    ).rejects.toMatchObject({ code: 'SB071' })
   })
 
   it('validates all scalar types, category options, required defaults and unknown keys', async () => {
@@ -332,7 +436,7 @@ describe('model field registry and controlled writes', () => {
     ).toBe(1)
     await expect(
       migrator.query(`delete from api.records where id=$1`, [targets[0].id]),
-    ).rejects.toMatchObject({ code: '23503' })
+    ).rejects.toMatchObject({ code: '23001' })
     await migrator.query(
       `update api.records set deleted_at=now() where id=$1`,
       [targets[0].id],

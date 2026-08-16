@@ -22,6 +22,7 @@ export interface CanonicalRevisionEnvelope {
   scientificTables: CanonicalRevisionEntity[]
   formulas: CanonicalRevisionEntity[]
   files: CanonicalRevisionEntity[]
+  sheetEvidence?: CanonicalRevisionEntity[]
 }
 
 export interface RevisionChange {

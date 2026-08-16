@@ -53,9 +53,7 @@ vi.mock('#/lib/notebook-data', () => ({
     fileObjects: (ids: readonly string[]) =>
       ['notebook', 'file-objects', ids.join(',')] as const,
   },
-  fetchFileObjectsByRecordIds: vi
-    .fn()
-    .mockResolvedValue(new Map()),
+  fetchFileObjectsByRecordIds: vi.fn().mockResolvedValue(new Map()),
 }))
 
 function makeBlock(

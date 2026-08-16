@@ -198,7 +198,11 @@ export async function handleCalculation(
       status: result.status === 'failed' ? 500 : 200,
     })
   } catch (error) {
-    const candidate = error as { code?: string; status?: number; stage?: string }
+    const candidate = error as {
+      code?: string
+      status?: number
+      stage?: string
+    }
     if (candidate.code === 'SB001')
       return errorResponse(
         409,
@@ -208,7 +212,8 @@ export async function handleCalculation(
     if (candidate.code === '42501' || candidate.status === 403)
       return errorResponse(403, 'forbidden', 'Notebook is unavailable.')
     const stage = error instanceof CalculationError ? error.stage : 'unknown'
-    const errorCode = error instanceof CalculationError ? error.code : candidate.code
+    const errorCode =
+      error instanceof CalculationError ? error.code : candidate.code
     console.error(
       `[calculation] failed at stage "${stage}" for record`,
       parsed.data.recordId,

@@ -22,7 +22,7 @@
 - Embedded categories → preserve, while allowing future governed vocabularies.
 - Scientific table/Dataset concepts → Dataset + Dataset Schema + immutable Dataset Version.
 - Sheet/table blocks → Sheet Definition + Sheet Instance.
-- Local columns → durable Instance-local fields with explicit promotion.
+- Local columns → durable Instance-local fields. Explicit promotion into Dataset Schema or Model fields is one later path; ad hoc Instances must also remain able to become compositional by adding Dataset/Record bindings.
 - Calculations → explicit Instance / Definition / Dataset-derived scope.
 - Template behaviour → reusable versioned Notebook Templates referencing pinned Sheet Definition versions.
 - Coarse role checks → incremental capabilities.

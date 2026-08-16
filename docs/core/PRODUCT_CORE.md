@@ -47,6 +47,8 @@ A Model such as `Lentivector` remains one durable Model identity. Field Definiti
 
 Sheet-local columns are durable, typed data owned by the Sheet Instance. They do not automatically alter bound Dataset/Model schemas.
 
+An ad hoc Sheet Instance (no source Definition yet) is still a durable Instance. It may later become compositional by adding Dataset and Record bindings. It may also be saved as a Definition by extracting reusable structure. Explicit local-field promotion into a Dataset Schema or Model field is a separate, permissioned path — not the only way an ad hoc Sheet becomes governed or compositional.
+
 A useful local field may be explicitly promoted into a reusable Sheet Definition or governed Dataset/Model field with permission, validation and impact handling.
 
 ### Templates describe composition, not hidden ownership
@@ -143,7 +145,7 @@ A Definition never owns experiment-specific local values.
 
 Working Excel-like composition. It records source Definition/version when applicable, resolved bindings, local fields/values, calculations/overrides, presentation state, lifecycle and provenance.
 
-An ad hoc Instance may later be saved as a Definition by extracting reusable structure, parameterising concrete sources and excluding working values.
+An ad hoc Instance may later become compositional by adding Dataset and Record bindings. It may also be saved as a Definition by extracting reusable structure, parameterising concrete sources and excluding working values. Field promotion is not required for either path.
 
 ### Notebook / Notebook Template
 

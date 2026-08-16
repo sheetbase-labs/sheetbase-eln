@@ -55,6 +55,12 @@ legacy `{ tableId }` remains valid. New inserts use
 `insert_sheet_instance_block`. Explicit conversion is
 `convert_legacy_sheet_block`. Do not start CORE-06.3 until review.
 
+Live Notebook editing splits the viewer only: Definition-bound Instances use
+composition; Instances without a source Definition use the local grid. That
+split is not a lifecycle lock. An ad hoc Sheet must remain able to become
+compositional later by adding Dataset/Record bindings (and/or extracting a
+Definition). Field promotion is a separate explicit path, not the only one.
+
 ---
 
 ## CORE-06.3 — Implement organisation-level Notebook Template versions

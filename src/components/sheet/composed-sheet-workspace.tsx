@@ -158,8 +158,8 @@ export function ComposedSheetWorkspace({
   if (composition.error) {
     return (
       <p role="alert">
-        This Sheet could not be composed from its Dataset bindings. Open the
-        Sheet Definition, or use an ad-hoc Sheet to enter values directly.
+        This Sheet could not be composed from its Dataset or Record bindings.
+        Inspect the bound sources on the Sheet Definition.
       </p>
     )
   }

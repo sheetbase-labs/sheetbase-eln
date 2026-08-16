@@ -253,6 +253,9 @@ function NotebookInstanceSheetEmbed({
         </p>
       ) : null}
       <div className="min-h-0 flex-1">
+        {/* Viewer split only. An ad hoc Instance stays a local grid until it
+            gains Dataset/Record bindings or a Definition; promotion is not
+            required for that later compositional step. */}
         {instance.data.sourceDefinitionVersionId ? (
           <ComposedSheetWorkspace
             instanceId={instanceId}

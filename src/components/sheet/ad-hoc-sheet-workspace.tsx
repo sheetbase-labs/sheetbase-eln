@@ -1,3 +1,9 @@
+/**
+ * Local grid for Instances that currently have no source Definition.
+ * This is the current editor, not a lifecycle lock: the same Instance may
+ * later add Dataset/Record bindings and compose, or be extracted as a
+ * Definition. Field promotion is a separate explicit path, not required.
+ */
 import { useMemo, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 

@@ -729,6 +729,13 @@
       "when": 1786821000000,
       "tag": "0103_core_h1_capability_mask",
       "breakpoints": true
+    },
+    {
+      "idx": 104,
+      "version": "7",
+      "when": 1786822000000,
+      "tag": "0104_core_h2_composition_adoption",
+      "breakpoints": true
     }
   ]
 }

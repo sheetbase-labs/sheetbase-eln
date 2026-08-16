@@ -8,7 +8,7 @@
 
 ## Active task
 
-**Core Hardening — H2 Ad-hoc → composed lifecycle**
+**Core Hardening — H3 Frozen composed evidence**
 
 Status: CORE-06 complete. Core Hardening in progress. Do not start AUTO-01.
 Do not start Product Consolidation until H1–H5 are complete.
@@ -99,9 +99,9 @@ Canonical schema ADR: [`0038-canonical-dataset-schema-definitions.md`](../decisi
 
 ## Implement now
 
-Core Hardening H2 is active: an ad-hoc Sheet Instance must be able to adopt a
-published Definition in place. Then continue H3–H5 in the same programme. Do
-**not** start AUTO-01. Do **not** start Product Consolidation.
+Core Hardening H3 is active: submitted composed Sheets must reconstruct from
+immutable Dataset Versions and frozen Instance evidence. Then continue H4–H5.
+Do **not** start AUTO-01. Do **not** start Product Consolidation.
 
 CORE-06.14 exit evidence: `pnpm db:fresh --demo` applied migrations `0000`–
 `0101` and 29 idempotent demo seed steps (reseed also 29/29). `pnpm test:db`

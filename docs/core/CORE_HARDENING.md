@@ -10,8 +10,8 @@ Source review: [`CORE_01_06_IMPLEMENTATION_REVIEW.md`](./CORE_01_06_IMPLEMENTATI
 | Bundle | Title                          | Status      |
 | ------ | ------------------------------ | ----------- |
 | H1     | Security + green baseline      | complete    |
-| H2     | Ad-hoc → composed lifecycle    | in progress |
-| H3     | Frozen composed evidence       | pending     |
+| H2     | Ad-hoc → composed lifecycle    | complete    |
+| H3     | Frozen composed evidence       | in progress |
 | H4     | Legacy write-path closure      | pending     |
 | H5     | Template catalogue convergence | pending     |
 
@@ -35,7 +35,20 @@ Source review: [`CORE_01_06_IMPLEMENTATION_REVIEW.md`](./CORE_01_06_IMPLEMENTATI
 
 ## H2 Ad-hoc → composed lifecycle
 
-- **Status:** pending
+- **Status:** complete
+- **Implementation:** `preview_sheet_instance_composition_adoption` /
+  `apply_sheet_instance_composition_adoption` pin a published Definition
+  Version onto the same ad-hoc Instance. Local fields, values, calculations,
+  presentation and the Notebook `instanceId` block are kept. Unmatched local
+  UUID rows remain as local-only keys when row identity becomes Dataset-backed.
+  Binding a Dataset is still parameter resolution, not field promotion.
+- **Migrations:** `0104_core_h2_composition_adoption`
+- **Tests:** `tests/db/core-h2-composition-adoption.test.ts`
+- **Limitations:** no product UI for the transition; scientists must call the
+  RPCs until Product Consolidation
+- **Completion evidence:** focused DB 1/1 covering identity, Notebook block,
+  Dataset composition, local/calculation survival, stale revision, incompatible
+  binding, retry, cross-workspace rejection and atomic failure
 
 ## H3 Frozen composed evidence
 

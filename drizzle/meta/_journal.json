@@ -750,6 +750,13 @@
       "when": 1786825000000,
       "tag": "0107_core_h5_notebook_template_catalogue",
       "breakpoints": true
+    },
+    {
+      "idx": 108,
+      "version": "7",
+      "when": 1786826000000,
+      "tag": "0108_core_h4_legacy_write_guard",
+      "breakpoints": true
     }
   ]
 }

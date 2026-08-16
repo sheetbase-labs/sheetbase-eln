@@ -79,7 +79,8 @@ Source review: [`CORE_01_06_IMPLEMENTATION_REVIEW.md`](./CORE_01_06_IMPLEMENTATI
   compatibility catalogue (no create/publish). External API allowlist keeps
   `bind_legacy_sheet` only. Demo/month seed uses the migrator login for
   remaining scientific-table fixtures.
-- **Migrations:** `0106_core_h4_close_legacy_writes`
+- **Migrations:** `0106_core_h4_close_legacy_writes`,
+  `0108_core_h4_legacy_write_guard`
 - **Tests:** `tests/db/core-h4-legacy-writes.test.ts`; existing scientific-
   table and SCI-010 suites create fixtures as migrator
 - **Classification:**

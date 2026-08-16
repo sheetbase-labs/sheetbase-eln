@@ -389,7 +389,7 @@ function TemplateListHeader() {
     >
       <span className="w-28 shrink-0">Identifier</span>
       <span className="min-w-0 flex-1">Title</span>
-      <span className="shrink-0">Type · Status</span>
+      <span className="shrink-0">Status</span>
       <span className="hidden w-24 shrink-0 text-right md:inline">Updated</span>
       <span className="hidden w-20 shrink-0 text-right md:inline">Blocks</span>
       <span className="w-16 shrink-0 text-right">State</span>
@@ -511,8 +511,8 @@ export function TemplateList({
     return (
       <div className="rounded-md border border-dashed border-border p-8 text-center">
         <p className="text-sm text-muted-foreground">
-          No templates found. Create a protocol or notebook template, validate
-          it, and it will appear here.
+          No protocol templates found. Active protocols appear here so they can
+          be pinned into a Notebook.
         </p>
       </div>
     )

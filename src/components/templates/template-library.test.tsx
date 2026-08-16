@@ -126,7 +126,7 @@ describe('TemplateList', () => {
         onRetry={vi.fn()}
       />,
     )
-    expect(screen.getByText(/no templates found/i)).toBeTruthy()
+    expect(screen.getByText(/no protocol templates found/i)).toBeTruthy()
   })
 
   it('shows an error state with a retry button', () => {

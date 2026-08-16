@@ -39,12 +39,14 @@ export async function applyDatasetSchemaEvolution(
     schemaVersionId: string
     fields: DatasetSchemaFieldInput[]
     idempotencyKey: string
+    expectedRevision?: number | null
   },
 ): Promise<EvolutionResult> {
   return client.rpc('apply_dataset_schema_evolution', {
     p_schema_version_id: input.schemaVersionId,
     p_fields: input.fields.map(fieldWire),
     p_idempotency_key: input.idempotencyKey,
+    p_expected_revision: input.expectedRevision ?? null,
   })
 }
 
@@ -87,6 +89,7 @@ export async function previewLocalFieldPromotion(
     fieldId: string
     target: 'dataset_schema' | 'model_field'
     schemaDefinitionId?: string | null
+    modelKey?: string | null
   },
 ): Promise<EvolutionPreview> {
   return client.rpc('preview_local_field_promotion', {
@@ -94,6 +97,7 @@ export async function previewLocalFieldPromotion(
     p_field_id: input.fieldId,
     p_target: input.target,
     p_schema_definition_id: input.schemaDefinitionId ?? null,
+    p_model_key: input.modelKey ?? null,
   })
 }
 
@@ -104,6 +108,9 @@ export async function promoteLocalField(
     fieldId: string
     target: 'dataset_schema' | 'model_field'
     schemaDefinitionId?: string | null
+    modelKey?: string | null
+    schemaVersionId?: string | null
+    expectedRevision?: number | null
     idempotencyKey: string
   },
 ): Promise<EvolutionResult> {
@@ -113,6 +120,9 @@ export async function promoteLocalField(
     p_target: input.target,
     p_schema_definition_id: input.schemaDefinitionId ?? null,
     p_idempotency_key: input.idempotencyKey,
+    p_model_key: input.modelKey ?? null,
+    p_schema_version_id: input.schemaVersionId ?? null,
+    p_expected_revision: input.expectedRevision ?? null,
   })
 }
 

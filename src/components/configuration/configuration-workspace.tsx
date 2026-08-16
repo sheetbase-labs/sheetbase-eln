@@ -355,6 +355,7 @@ function CanonicalSchemaPlane({
         schemaVersionId: currentVersion.id,
         fields: nextFields,
         idempotencyKey: crypto.randomUUID(),
+        expectedRevision: Number(currentVersion.revision),
       })
     },
     onSuccess: invalidate,
@@ -500,6 +501,7 @@ function PromotionPlane({
   const [target, setTarget] = useState<'dataset_schema' | 'model_field'>(
     'dataset_schema',
   )
+  const [modelKey, setModelKey] = useState('sample')
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const preview = useMutation({
@@ -509,6 +511,7 @@ function PromotionPlane({
         fieldId,
         target,
         schemaDefinitionId: schemaId || null,
+        modelKey: target === 'model_field' ? modelKey : null,
       }),
     onSuccess: (result) =>
       setMessage(
@@ -526,6 +529,7 @@ function PromotionPlane({
         fieldId,
         target,
         schemaDefinitionId: schemaId || null,
+        modelKey: target === 'model_field' ? modelKey : null,
         idempotencyKey: crypto.randomUUID(),
       }),
     onSuccess: () =>
@@ -585,7 +589,17 @@ function PromotionPlane({
             onChange={(event) => setSchemaId(event.target.value)}
           />
         </Label>
-      ) : null}
+      ) : (
+        <Label className="text-xs">
+          Target Model key
+          <Input
+            className="mt-1 font-mono"
+            value={modelKey}
+            disabled={!canEdit}
+            onChange={(event) => setModelKey(event.target.value)}
+          />
+        </Label>
+      )}
       <div className="flex gap-2">
         <Button
           variant="outline"

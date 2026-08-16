@@ -29,6 +29,7 @@ describe('governed evolution client', () => {
       schemaVersionId: 'ver-1',
       fields: [{ key: 'titre', label: 'Titre', logicalType: 'decimal' }],
       idempotencyKey: 'evo-1',
+      expectedRevision: 1,
     })
     await previewModelFieldEvolution(client, {
       definitionId: 'field-1',
@@ -50,6 +51,7 @@ describe('governed evolution client', () => {
       instanceId: 'inst-1',
       fieldId: 'lf-1',
       target: 'model_field',
+      modelKey: 'sample',
       idempotencyKey: 'promo-1',
     })
     await previewCalculationPromotion(client, {
@@ -77,6 +79,16 @@ describe('governed evolution client', () => {
     expect(calls[0]?.args).toMatchObject({
       p_schema_version_id: 'ver-1',
       p_fields: [{ key: 'titre', logical_type: 'decimal' }],
+    })
+    expect(calls[1]?.args).toMatchObject({
+      p_schema_version_id: 'ver-1',
+      p_idempotency_key: 'evo-1',
+      p_expected_revision: 1,
+    })
+    expect(calls[5]?.args).toMatchObject({
+      p_target: 'model_field',
+      p_model_key: 'sample',
+      p_idempotency_key: 'promo-1',
     })
     expect(calls[3]?.args).toMatchObject({
       p_action: 'retire',

@@ -41,6 +41,7 @@ function fakeClient(): DataClient {
             id: 'ver-1',
             schema_id: 'schema-1',
             version: 1,
+            revision: 1,
             lifecycle: 'active',
             published_at: '2026-01-01T00:00:00Z',
           },

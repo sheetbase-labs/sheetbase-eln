@@ -116,6 +116,7 @@ export interface CanonicalDatasetSchemaVersion {
   id: string
   schema_id: string
   version: number
+  revision: number
   lifecycle: string
   published_at: string | null
 }
@@ -147,7 +148,7 @@ export async function listCanonicalDatasetSchemaVersions(
 ): Promise<CanonicalDatasetSchemaVersion[]> {
   return client.list(
     'dataset_schema_versions',
-    `?schema_id=eq.${schemaDefinitionId}&select=id,schema_id,version,lifecycle,published_at&order=version.desc`,
+    `?schema_id=eq.${schemaDefinitionId}&select=id,schema_id,version,revision,lifecycle,published_at&order=version.desc`,
   )
 }
 

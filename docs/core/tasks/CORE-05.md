@@ -200,7 +200,7 @@ Make Model, Dataset Schema and reusable Definition configuration safely delegabl
 ### Completion evidence
 
 - `preview_local_field_promotion` / `promote_local_field` require `schema.edit`. Members are denied (`42501`).
-- Dataset Schema target creates a next CORE-02 version reusing the local `fieldId`. Model target creates a Model field.
+- Dataset Schema target creates a next CORE-02 version reusing the local `fieldId`. Model target requires an explicit Model key and creates the field on that Model.
 - Existing Instance `localValues` remain local (`historicalValuesRemainLocal=true`; `copiesValues=false`). Invalid values fail preview before apply.
 
 ---
@@ -273,6 +273,20 @@ Make Model, Dataset Schema and reusable Definition configuration safely delegabl
 - `pnpm test:db`: 65 files / 692 tests.
 - `pnpm validate`: 172 files / 1,905 tests, zero lint errors, 21 existing warnings, production client/SSR build.
 - `NEXT.md` now points at CORE-06.1. CORE-06 implementation was not started.
+
+## CORE-05 review corrections
+
+**Status:** Complete (2026-08-16)
+
+Migration `0097_core_05_idempotency_draft_publish.sql` keeps CORE-05 architecture and closes the review gaps:
+
+- Configuration mutations replay on `(workspace_id, actor_user_id, kind, idempotency_key)`. Same digest returns the previous result; a different digest raises `23505`. Distinct actors never share a log row.
+- `create_next_dataset_schema_version` creates a new draft boundary and fails (`SB072`) when a draft already exists. Evolution/promotion that would otherwise reuse that draft also fail unless the caller names the draft version and supplies a matching `revision` (`SB001` on stale/missing revision).
+- `promote_local_field` / `preview_local_field_promotion` require an explicit `p_model_key` for `model_field` targets. The key is validated against `api.model_kinds`, included in the request digest, and returned on preview/result.
+- Direct table writes to CORE-02 schema tables require `schema.edit`. Publication (`draft` → `active`, or inserting a non-draft) requires `schema.publish` via trigger. Compatibility direct publish remains available to actors who already have `schema.publish`.
+- `sheetbase.capability_mask` is a fail-closed test overlay used to prove `schema.edit` without `schema.publish`. Production must not set it.
+
+Focused proof: `tests/db/core-05-corrections.test.ts`.
 
 ## Epic exit gate
 

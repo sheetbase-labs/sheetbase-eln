@@ -680,6 +680,13 @@
       "when": 1786814000000,
       "tag": "0096_core_055_evolution_promotion",
       "breakpoints": true
+    },
+    {
+      "idx": 97,
+      "version": "7",
+      "when": 1786815000000,
+      "tag": "0097_core_05_idempotency_draft_publish",
+      "breakpoints": true
     }
   ]
 }

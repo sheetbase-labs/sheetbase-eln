@@ -50,9 +50,11 @@ import type { DataClient } from '#/lib/data-client'
 import {
   fetchBlocksForRecord,
   fetchChangeEventsForRecord,
+  fetchLatestRevisionForRecord,
   fetchLinksForRecord,
   fetchProject,
   fetchRecord,
+  fetchRevision,
   formatRelativeTime,
   notebookDataClient,
   notebookQueryKeys,
@@ -80,6 +82,8 @@ import {
   sheetInstanceDataClient,
 } from '#/lib/sheet-instance-data'
 import { freezeChart, unfreezeChart } from '#/lib/chart-data'
+import { sheetEvidenceFromEnvelope } from '#/lib/sheet-evidence'
+import { toCanonicalEnvelope } from '#/lib/review-workspace'
 import { validateBlock } from '#/lib/blocks'
 import { pinProtocolReference } from '#/lib/protocol-materials'
 import { attachFileToBlock, AttachFileError } from '#/lib/file-attach'
@@ -499,6 +503,15 @@ export function NotebookCanvas({
     // read-only through the same document component so the visual frame and
     // anchors match the editable state. SIGN-002: a locked record's
     // scientific evidence is frozen until an amendment unlocks it.
+    if ((record.archivedAt || record.lockedAt) && client && queryClient) {
+      return (
+        <LockedNotebook
+          record={record}
+          blocks={blocks}
+          client={client}
+        />
+      )
+    }
     return (
       <NotebookDocument
         record={record}
@@ -1052,6 +1065,39 @@ function EditableNotebook({
         </DialogContent>
       </Dialog>
     </>
+  )
+}
+
+function LockedNotebook({
+  record,
+  blocks,
+  client,
+}: {
+  record: NotebookRecord
+  blocks: NotebookBlockDomain[]
+  client: DataClient
+}) {
+  const revision = useQuery({
+    queryKey: ['revision-sheet-evidence', record.id, record.lockedByRevisionId],
+    queryFn: () =>
+      record.lockedByRevisionId
+        ? fetchRevision(client, record.lockedByRevisionId)
+        : fetchLatestRevisionForRecord(client, record.id),
+  })
+  const frozenSheetEvidence = sheetEvidenceFromEnvelope(
+    revision.data ? toCanonicalEnvelope(revision.data) : null,
+  )
+  return (
+    <NotebookDocument
+      record={record}
+      blocks={blocks}
+      readOnly
+      frozenSheetEvidence={frozenSheetEvidence}
+      onSaveBlock={async () => ({ ok: true })}
+      onInsertBlock={async () => undefined}
+      onDuplicateBlock={async () => undefined}
+      onDeleteBlock={async () => undefined}
+    />
   )
 }
 

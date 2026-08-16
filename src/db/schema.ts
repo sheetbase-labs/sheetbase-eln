@@ -2391,6 +2391,38 @@ export const notebookTemplateUpgrades = api.table(
   },
 )
 
+export const revisionSheetEvidence = api.table(
+  'revision_sheet_evidence',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    revisionId: uuid('revision_id')
+      .notNull()
+      .references(() => revisions.id, { onDelete: 'restrict' }),
+    blockId: uuid('block_id').notNull(),
+    instanceId: uuid('instance_id')
+      .notNull()
+      .references(() => sheetInstances.id, { onDelete: 'restrict' }),
+    sourceDefinitionVersionId: uuid(
+      'source_definition_version_id',
+    ).references(() => sheetDefinitionVersions.id, { onDelete: 'restrict' }),
+    instanceRevision: bigint('instance_revision', { mode: 'bigint' }).notNull(),
+    instanceState: jsonb('instance_state').notNull(),
+    datasetVersions: jsonb('dataset_versions').notNull().default([]),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('uq_revision_sheet_evidence_revision_block').on(
+      table.revisionId,
+      table.blockId,
+    ),
+  ],
+)
+
 // CORE-03.3: a working Sheet is deliberately separate from a reusable
 // Definition.  All mutable working configuration is contained in `state`;
 // the optional source is an immutable Definition Version, never a writable

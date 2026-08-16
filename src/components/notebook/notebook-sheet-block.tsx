@@ -11,26 +11,83 @@ import {
   fetchSheetInstance,
   sheetInstanceDataClient,
 } from '#/lib/sheet-instance-data'
+import type { FrozenSheetEvidence } from '#/lib/sheet-evidence'
 import { sheetBlockInstanceId } from '#/lib/sheet-block'
 
 export function NotebookSheetBlock({
   block,
   record,
   readOnly,
+  frozenEvidence,
 }: {
   block: NotebookBlock
   record: NotebookRecord
   readOnly?: boolean
+  frozenEvidence?: FrozenSheetEvidence
 }) {
   const instanceId = sheetBlockInstanceId(block.payload)
   if (!instanceId) {
     return <ScientificSheetBlock block={block} readOnly={readOnly} />
+  }
+  if (frozenEvidence) {
+    return <FrozenSheetEvidencePanel evidence={frozenEvidence} />
   }
   return (
     <NotebookInstanceSheetEmbed
       instanceId={instanceId}
       projectId={record.projectId}
     />
+  )
+}
+
+function FrozenSheetEvidencePanel({
+  evidence,
+}: {
+  evidence: FrozenSheetEvidence
+}) {
+  const localValues = evidence.instanceState.localValues
+  return (
+    <div className="space-y-2 p-3" role="region" aria-label="Frozen Sheet evidence">
+      <p className="text-xs font-medium" role="status">
+        Frozen submitted Sheet evidence. This view is reconstructed from the
+        revision snapshot, not the live Sheet Instance.
+      </p>
+      <dl className="grid gap-1 text-xs text-muted-foreground">
+        <div>
+          <dt className="inline font-medium text-foreground">Instance</dt>{' '}
+          <dd className="inline font-mono">{evidence.instanceId}</dd>
+        </div>
+        <div>
+          <dt className="inline font-medium text-foreground">
+            Definition version
+          </dt>{' '}
+          <dd className="inline font-mono">
+            {evidence.sourceDefinitionVersionId ?? 'ad hoc'}
+          </dd>
+        </div>
+        <div>
+          <dt className="inline font-medium text-foreground">
+            Instance revision
+          </dt>{' '}
+          <dd className="inline">{evidence.instanceRevision}</dd>
+        </div>
+        <div>
+          <dt className="inline font-medium text-foreground">
+            Dataset bindings
+          </dt>{' '}
+          <dd className="inline">
+            {evidence.datasetBindings.length
+              ? evidence.datasetBindings
+                  .map((binding) => String(binding.datasetVersionId ?? binding.datasetId ?? ''))
+                  .join(', ')
+              : 'none'}
+          </dd>
+        </div>
+      </dl>
+      <pre className="max-h-64 overflow-auto rounded-md bg-muted p-2 text-xs">
+        {JSON.stringify(localValues ?? {}, null, 2)}
+      </pre>
+    </div>
   )
 }
 

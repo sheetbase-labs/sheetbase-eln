@@ -19,6 +19,7 @@ import { NotebookBlock } from './notebook-block'
 import { BlockPreview } from './block-preview'
 import { BlockEditor } from './block-editor'
 import { isCanonicalSheetBlock, isLegacySheetBlock } from '#/lib/sheet-block'
+import type { FrozenSheetEvidence } from '#/lib/sheet-evidence'
 import { BlockPicker } from './block-picker'
 import { NotebookSheetBlock } from './notebook-sheet-block'
 import { ScientificWorkbookProvider } from './scientific-workbook-provider'
@@ -120,6 +121,7 @@ export interface NotebookDocumentProps {
     options?: { datasetSchemaId?: string },
   ) => Promise<string | undefined>
   readOnly?: boolean
+  frozenSheetEvidence?: Map<string, FrozenSheetEvidence>
   className?: string
 }
 
@@ -160,6 +162,7 @@ function NotebookDocumentContent({
   onMoveBlock,
   onReplaceBlock,
   readOnly,
+  frozenSheetEvidence,
   className,
 }: NotebookDocumentProps) {
   const [selectedId, setSelectedId] = React.useState<string | null>(null)
@@ -777,6 +780,7 @@ function NotebookDocumentContent({
                     block={block}
                     record={record}
                     readOnly={isReadOnly}
+                    frozenEvidence={frozenSheetEvidence?.get(block.id)}
                   />
                 ) : editable && isSelected ? (
                   <BlockEditor

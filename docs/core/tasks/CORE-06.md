@@ -1,6 +1,6 @@
 # CORE-06 — Notebook Templates, Sharing and Frozen Evidence
 
-**Status:** CORE-06.5/06.6/06.10 in progress after CORE-06.3/06.4/06.11.  
+**Status:** CORE-06.7–06.14 in progress after CORE-06.5/06.6/06.10.  
 **Blocked by:** CORE-05 complete.  
 **Normative decisions:** ADRs 0020–0024 and existing Notebook revision/signature architecture.
 
@@ -150,6 +150,10 @@ block does not archive the Instance.
 
 **Exit gate:** a structured evidence package can reconstruct the submitted Sheet semantics/data independently of later live edits.
 
+**Status:** Implemented. Canonical envelopes include `sheetEvidence`
+(Instance state, pinned Definition Version, Dataset binding freeze points).
+Live Dataset bindings are snapshotted to Dataset Versions on submit only.
+
 ---
 
 ## CORE-06.8 — Integrate snapshotting with Notebook submission/review/signature flow
@@ -166,6 +170,10 @@ block does not archive the Instance.
 
 **Exit gate:** submission creates immutable reconstructable evidence rather than merely changing status.
 
+**Status:** Implemented inside `api.submit_record_revision`. Preview digest
+still comes from the STABLE envelope. Live Dataset Versions are created only
+after the digest matches. Signature/lock/amend RPCs are unchanged.
+
 ---
 
 ## CORE-06.9 — Implement pinned-snapshot Sheet blocks/read-only rendering
@@ -179,6 +187,10 @@ block does not archive the Instance.
 **Tests:** render old snapshot after live Dataset/Definition changes; no mutation path; permission to historical evidence.
 
 **Exit gate:** users can inspect exactly what was submitted without confusing it with current live data.
+
+**Status:** Implemented. Locked/archived Notebooks and revision envelopes
+render `Frozen submitted Sheet evidence` from `sheetEvidence`, not the live
+Instance.
 
 ---
 
@@ -232,6 +244,11 @@ named, versioned Section reference without Template inheritance.
 
 **Exit gate:** the Notebook evidence graph points to stable canonical objects.
 
+**Status:** File Artifact identity and checksum remain in the REV-002
+`files` envelope. Canonical Sheet blocks pin Instance IDs. Chart specs may
+still name a scientific `tableId`; rewriting chart/report consumers onto
+Dataset Version / Instance identities is deferred specialist work.
+
 ---
 
 ## CORE-06.13 — Golden Template and frozen-evidence proof
@@ -245,6 +262,11 @@ named, versioned Section reference without Template inheritance.
 **Evidence:** DB/RLS/API/UI tests, fresh migration/seed, `pnpm validate`, documented snapshot manifest.
 
 **Exit gate:** Template reuse, shared-live behaviour and immutable submission evidence all behave exactly as ADRs require.
+
+**Status:** Implemented as a focused DB proof: Purification Summary Definition
+in two Templates, independent Notebooks, one explicit shared embedding,
+submit one Notebook, mutate the live Instance, reconstruct submitted state
+from `sheetEvidence`.
 
 ---
 

@@ -18,13 +18,14 @@ import {
 import { NotebookBlock } from './notebook-block'
 import { BlockPreview } from './block-preview'
 import { BlockEditor } from './block-editor'
+import type { AutosaveStatus, SaveResult } from './block-editor'
 import { isCanonicalSheetBlock, isLegacySheetBlock } from '#/lib/sheet-block'
 import type { FrozenSheetEvidence } from '#/lib/sheet-evidence'
 import { BlockPicker } from './block-picker'
 import { NotebookSheetBlock } from './notebook-sheet-block'
 import { ScientificWorkbookProvider } from './scientific-workbook-provider'
 
-export type { AutosaveStatus, SaveResult }
+export type { AutosaveStatus, SaveResult } from './block-editor'
 
 /**
  * The editable notebook document (ELN-005). Owns the per-block editing,

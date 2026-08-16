@@ -566,7 +566,7 @@ function CanonicalSheetBlockPreview({ instanceId }: { instanceId: string }) {
       </div>
     )
   }
-  if (instanceQuery.error || instanceQuery.data === null) {
+  if (instanceQuery.error || !instanceQuery.data) {
     return (
       <div className="rounded-lg border border-dashed border-warning/30 bg-warning/10 p-3 text-xs">
         <p className="font-medium text-foreground">

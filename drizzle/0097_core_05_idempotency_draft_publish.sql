@@ -342,6 +342,8 @@ AS $$
 DECLARE
   workspace uuid;
 BEGIN
+  -- Fixture and migration writes run as migrator without a JWT. Application
+  -- sessions (authenticator → authenticated) still require schema.publish.
   IF session_user = 'migrator' THEN
     RETURN NEW;
   END IF;

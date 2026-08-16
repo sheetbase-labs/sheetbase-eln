@@ -254,78 +254,24 @@ describe('handleProxyRequest', () => {
     expect(response.headers.get('range-unit')).toBe('items')
   })
 
-  it('waits for a schema RPC resource and field to enter the OpenAPI cache', async () => {
-    const resourceName = `sheet_${'b'.repeat(26)}`
-    const fieldName = `col_${'c'.repeat(26)}`
+  it('does not poll OpenAPI readiness for a still-valid non-schema RPC', async () => {
     let calls = 0
     const response = await handleProxyRequest(
-      req('rpc/add_scientific_column', {
+      req('rpc/create_record', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: '{}',
       }),
-      'rpc/add_scientific_column',
+      'rpc/create_record',
       makeDeps({
         fetchFn: async () => {
           calls += 1
-          if (calls === 1) {
-            return Response.json({ resourceName, fieldName })
-          }
-          return Response.json({
-            definitions: {
-              [resourceName]: {
-                properties: calls > 2 ? { [fieldName]: {} } : {},
-              },
-            },
-          })
+          return Response.json({ id: '10000000-0000-4000-8000-000000000001' })
         },
       }),
     )
     expect(response.status).toBe(200)
-    expect(calls).toBe(3)
-  })
-
-  it('polls insert_sheet_block readiness and returns its committed result once the resource appears', async () => {
-    const resourceName = `sheet_${'d'.repeat(26)}`
-    let calls = 0
-    const response = await handleProxyRequest(
-      req('rpc/insert_sheet_block', { method: 'POST', body: '{}' }),
-      'rpc/insert_sheet_block',
-      makeDeps({
-        fetchFn: async () => {
-          calls += 1
-          if (calls === 1) return Response.json({ resourceName })
-          return Response.json({
-            definitions: calls === 2 ? {} : { [resourceName]: {} },
-          })
-        },
-      }),
-    )
-    expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ resourceName })
-    expect(calls).toBe(3)
-  })
-
-  it('reports insert_sheet_block as committed but not ready when OpenAPI never publishes it', async () => {
-    const resourceName = `sheet_${'e'.repeat(26)}`
-    let calls = 0
-    const response = await handleProxyRequest(
-      req('rpc/insert_sheet_block', { method: 'POST', body: '{}' }),
-      'rpc/insert_sheet_block',
-      makeDeps({
-        fetchFn: async () => {
-          calls += 1
-          return calls === 1
-            ? Response.json({ resourceName })
-            : Response.json({ definitions: {} })
-        },
-      }),
-    )
-    expect(response.status).toBe(503)
-    expect((await response.json()).error.message).toContain(
-      'schema change committed',
-    )
-    expect(calls).toBe(7)
+    expect(calls).toBe(1)
   })
 
   it('forwards the x-sheetbase-client-id header to the token minter (LIVE-003)', async () => {

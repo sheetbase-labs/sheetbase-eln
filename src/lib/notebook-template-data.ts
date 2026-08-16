@@ -2,10 +2,8 @@ import { z } from 'zod'
 
 import { createDataClient } from './data-client'
 import type { DataClient } from './data-client'
-import {
-  parseNotebookTemplateConfiguration,
-  type NotebookTemplateConfiguration,
-} from './notebook-template'
+import { parseNotebookTemplateConfiguration } from './notebook-template'
+import type { NotebookTemplateConfiguration } from './notebook-template'
 import { parameterUuidSchema } from './parameter'
 
 const uuid = parameterUuidSchema

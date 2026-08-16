@@ -118,7 +118,7 @@ function NotebookInstanceSheetEmbed({
       </p>
     )
   }
-  if (instance.error || instance.data === null) {
+  if (instance.error || !instance.data) {
     return (
       <p className="p-3 text-sm text-destructive" role="alert">
         Sheet Instance is unavailable or you do not have permission to view it.

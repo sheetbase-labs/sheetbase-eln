@@ -286,88 +286,58 @@ export async function fetchDatasetSchemaDefinition(
 }
 
 export async function createDatasetSchema(
-  client: DataClient,
-  input: CreateDatasetSchemaInput,
+  _client: DataClient,
+  _input: CreateDatasetSchemaInput,
 ): Promise<DatasetSchemaWithFields> {
-  // Map frontend field keys to the keys compile_scientific_column expects.
-  // The backend strips 'slug' and 'display_order' before delegating to
-  // compile_scientific_column, which accepts: label, description,
-  // logical_type, nullable, default, unit, validation, width, options.
-  const mappedFields = input.fields.map((f) => {
-    const mapped: Record<string, unknown> = {
-      slug: f.slug,
-      label: f.label,
-      logical_type: f.logical_type,
-      nullable: f.nullable ?? true,
-      validation: f.validation ?? {},
-    }
-    if (f.description) mapped.description = f.description
-    if (f.default_value !== null && f.default_value !== undefined)
-      mapped.default = f.default_value
-    if (f.unit && Object.keys(f.unit).length > 0) mapped.unit = f.unit
-    return mapped
-  })
-  return client.rpc<DatasetSchemaWithFields>('create_dataset_schema', {
-    p_slug: input.slug,
-    p_name: input.name,
-    p_description: input.description ?? null,
-    p_fields: mappedFields,
-  })
+  throw new Error(
+    'SCI-010 Dataset Schema writes are closed. Use createDatasetSchemaDefinition on /configure.',
+  )
 }
 
 export async function addDatasetSchemaField(
-  client: DataClient,
-  schemaId: string,
-  field: Omit<DatasetSchemaFieldInput, 'slug'> & { slug: string },
+  _client: DataClient,
+  _schemaId: string,
+  _field: Omit<DatasetSchemaFieldInput, 'slug'> & { slug: string },
 ): Promise<DatasetSchemaFieldWire> {
-  return client.rpc<DatasetSchemaFieldWire>('add_dataset_schema_field', {
-    p_schema_id: schemaId,
-    p_slug: field.slug,
-    p_label: field.label,
-    p_logical_type: field.logical_type,
-    p_nullable: field.nullable ?? true,
-    p_default: field.default_value ?? null,
-    p_unit: field.unit ?? null,
-    p_validation: field.validation ?? {},
-    p_description: field.description ?? null,
-  })
+  throw new Error(
+    'SCI-010 Dataset Schema writes are closed. Use CORE-02 Dataset Schema versions on /configure.',
+  )
 }
 
 export async function retireDatasetSchemaField(
-  client: DataClient,
-  fieldId: string,
+  _client: DataClient,
+  _fieldId: string,
 ): Promise<{ retired: boolean; fieldId: string }> {
-  return client.rpc('retire_dataset_schema_field', {
-    p_schema_field_id: fieldId,
-  })
+  throw new Error(
+    'SCI-010 Dataset Schema writes are closed. Use CORE-02 Dataset Schema versions on /configure.',
+  )
 }
 
 export async function publishDatasetSchema(
-  client: DataClient,
-  schemaId: string,
+  _client: DataClient,
+  _schemaId: string,
 ): Promise<{ published: boolean; schemaId: string; revision: number }> {
-  return client.rpc('publish_dataset_schema', { p_schema_id: schemaId })
+  throw new Error(
+    'SCI-010 Dataset Schema writes are closed. Use publishDatasetSchemaVersion on /configure.',
+  )
 }
 
 export async function instantiateDatasetSchema(
-  client: DataClient,
-  blockId: string,
-  schemaId: string,
-  name?: string,
-  description?: string,
+  _client: DataClient,
+  _blockId: string,
+  _schemaId: string,
+  _name?: string,
+  _description?: string,
 ): Promise<unknown> {
-  return client.rpc('instantiate_dataset_schema', {
-    p_block_id: blockId,
-    p_schema_id: schemaId,
-    p_name: name ?? null,
-    p_description: description ?? null,
-  })
+  throw new Error(
+    'SCI-010 sheet instantiation is closed. Use insertSheetInstanceBlock.',
+  )
 }
 
 export async function upgradeScientificSchema(
-  client: DataClient,
-  tableId: string,
-  targetRevision: number,
+  _client: DataClient,
+  _tableId: string,
+  _targetRevision: number,
 ): Promise<{
   upgraded: boolean
   tableId: string
@@ -375,10 +345,9 @@ export async function upgradeScientificSchema(
   toRevision: number
   addedColumnIds: string[]
 }> {
-  return client.rpc('upgrade_scientific_schema', {
-    p_table_id: tableId,
-    p_target_revision: targetRevision,
-  })
+  throw new Error(
+    'SCI-010 schema upgrades are closed. Convert the sheet or use CORE-02 Dataset Schemas.',
+  )
 }
 
 export async function bindLegacySheet(

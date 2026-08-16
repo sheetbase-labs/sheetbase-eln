@@ -2246,6 +2246,13 @@ export const demoSteps: Array<SeedStep> = [
         throw new Error('PGRST_DB_URI is required for SCI-004 seed')
       const client = new Client({ connectionString: authUrl.toString() })
       await client.connect()
+      const migratorUrl = new URL(authUrl.toString())
+      migratorUrl.username = 'migrator'
+      migratorUrl.password = process.env.MIGRATION_DATABASE_URL
+        ? new URL(process.env.MIGRATION_DATABASE_URL).password
+        : pgrst.password
+      const writer = new Client({ connectionString: migratorUrl.toString() })
+      await writer.connect()
       try {
         await db
           .insert(schema.blocks)
@@ -2262,13 +2269,17 @@ export const demoSteps: Array<SeedStep> = [
             set: { type: 'sheet', payload: {}, order: 22 },
           })
 
+        const jwt = JSON.stringify({
+          sub: FIXTURE_USER_ID,
+          workspace_id: FIXTURE_WORKSPACE_ID,
+          role: 'authenticated',
+        })
         await client.query('SET ROLE authenticated')
         await client.query("SELECT set_config('request.jwt.claims',$1,false)", [
-          JSON.stringify({
-            sub: FIXTURE_USER_ID,
-            workspace_id: FIXTURE_WORKSPACE_ID,
-            role: 'authenticated',
-          }),
+          jwt,
+        ])
+        await writer.query("SELECT set_config('request.jwt.claims',$1,false)", [
+          jwt,
         ])
 
         // Reuse an existing scientific table for the sheet block; create one
@@ -2284,7 +2295,7 @@ export const demoSteps: Array<SeedStep> = [
           tableId = existing.rows[0].id
           resourceName = existing.rows[0].resource_name
         } else {
-          const created = await client.query(
+          const created = await writer.query(
             `SELECT api.create_scientific_table($1,$2,$3::jsonb) result`,
             [
               DEMO_BLOCK_IDS.stabilitySheet,
@@ -2340,7 +2351,7 @@ export const demoSteps: Array<SeedStep> = [
             `SELECT schema_version FROM api.scientific_tables WHERE id=$1`,
             [tableId],
           )
-          await client.query(
+          await writer.query(
             `SELECT api.add_scientific_column($1,$2,$3,$4,true,NULL,$5::jsonb,'{}'::jsonb,NULL)`,
             [
               tableId,
@@ -2597,6 +2608,7 @@ export const demoSteps: Array<SeedStep> = [
 
         await client.query('RESET ROLE')
       } finally {
+        await writer.end()
         await client.end()
       }
     },

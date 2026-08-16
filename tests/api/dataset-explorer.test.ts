@@ -24,6 +24,7 @@ import {
   DATASET_QUERY_HARD_LIMIT,
   validateTransformations,
 } from '#/lib/dataset-explorer-data'
+import { openMigratorWriter } from '../db/helpers'
 
 config({ path: ['.env.local', '.env'] })
 
@@ -188,43 +189,32 @@ beforeAll(async () => {
     role: 'owner',
   })
 
-  // Create + publish a dataset schema, then instantiate a bound sheet in WS A.
-  const createRes = await rpc(
-    'create_dataset_schema',
-    {
-      p_slug: 'stability_result',
-      p_name: 'Stability Result',
-      p_description: 'DATA-007 contract dataset',
-      p_fields: [
+  const writer = await openMigratorWriter(
+    process.env.DATABASE_URL ?? '',
+    OWNER_A,
+    WS_A,
+  )
+  const createdRes = await writer.query(
+    `SELECT api.create_dataset_schema($1,$2,$3,$4::jsonb) result`,
+    [
+      'stability_result',
+      'Stability Result',
+      'DATA-007 contract dataset',
+      JSON.stringify([
         { slug: 'titer', label: 'Titer', logical_type: 'decimal' },
         { slug: 'timepoint', label: 'Timepoint', logical_type: 'integer' },
-      ],
-    },
-    tokenA,
-    OWNER_A,
-    WS_A,
+      ]),
+    ],
   )
-  expect(createRes.status).toBe(200)
-  const created = await createRes.json()
-  schemaId = created.schema.id
-  const publishRes = await rpc(
-    'publish_dataset_schema',
-    { p_schema_id: schemaId },
-    tokenA,
-    OWNER_A,
-    WS_A,
-  )
-  expect(publishRes.status).toBe(200)
-
-  const instantiateRes = await rpc(
-    'instantiate_dataset_schema',
-    { p_block_id: BLOCK_A, p_schema_id: schemaId, p_name: 'Stability A' },
-    tokenA,
-    OWNER_A,
-    WS_A,
-  )
-  expect(instantiateRes.status).toBe(200)
-  const instantiated = await instantiateRes.json()
+  schemaId = createdRes.rows[0].result.schema.id
+  await writer.query(`SELECT api.publish_dataset_schema($1)`, [schemaId])
+  const instantiated = (
+    await writer.query(
+      `SELECT api.instantiate_dataset_schema($1,$2,$3) result`,
+      [BLOCK_A, schemaId, 'Stability A'],
+    )
+  ).rows[0].result
+  await writer.end()
   tableResource = instantiated.table.resource_name
   const cols: Array<{ field_name: string; dataset_schema_field_id: string | null }> =
     instantiated.columns

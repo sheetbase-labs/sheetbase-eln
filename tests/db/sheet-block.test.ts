@@ -1,7 +1,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { expectDenied, prepareTestDatabase } from './helpers'
+import { expectDenied, prepareTestDatabase, setActorJwt } from './helpers'
 
 const WS = '72000000-0000-4000-8000-000000000001'
 const OTHER_WS = '72000000-0000-4000-8000-000000000002'
@@ -67,6 +67,7 @@ beforeAll(async () => {
   )
 
   auth = await authenticated(prepared, OWNER, WS)
+  await setActorJwt(migrator, OWNER, WS)
   otherAuth = await authenticated(prepared, OTHER, OTHER_WS)
   apiClient = await prepared.asRole('authenticator')
   await apiClient.query('SET ROLE api_client')
@@ -92,7 +93,7 @@ afterAll(async () => {
 describe('SHEET-002 sheet block database boundary', () => {
   it('atomically creates one canonical block, owning table and generated relation with one structure bump', async () => {
     const result = (
-      await auth.query(`SELECT api.insert_sheet_block($1,NULL,$2) result`, [
+      await migrator.query(`SELECT api.insert_sheet_block($1,NULL,$2) result`, [
         RECORD,
         1,
       ])
@@ -146,7 +147,7 @@ describe('SHEET-002 sheet block database boundary', () => {
       )
     ).rows[0]
     await expect(
-      auth.query(`SELECT api.insert_sheet_block($1,NULL,$2)`, [RECORD, 1]),
+      migrator.query(`SELECT api.insert_sheet_block($1,NULL,$2)`, [RECORD, 1]),
     ).rejects.toMatchObject({ code: 'SB001' })
     const after = (
       await migrator.query(
@@ -188,7 +189,7 @@ describe('SHEET-002 sheet block database boundary', () => {
       FOR EACH ROW EXECUTE FUNCTION internal.sheet_002_test_failure()`)
     try {
       await expect(
-        auth.query(`SELECT api.insert_sheet_block($1,NULL,$2)`, [RECORD, 2]),
+        migrator.query(`SELECT api.insert_sheet_block($1,NULL,$2)`, [RECORD, 2]),
       ).rejects.toMatchObject({ code: '23514' })
     } finally {
       await migrator.query(
@@ -210,8 +211,7 @@ describe('SHEET-002 sheet block database boundary', () => {
 
   it('applies one existing-row edit and one insert and returns both canonical rows', async () => {
     const added = (
-      await auth.query(
-        `SELECT api.add_scientific_column($1,$2,'Value','integer',true,NULL,NULL,$3::jsonb) result`,
+      await migrator.query(`SELECT api.add_scientific_column($1,$2,'Value','integer',true,NULL,NULL,$3::jsonb) result`,
         [table.id, table.schema_version, JSON.stringify({ min: 0, max: 10 })],
       )
     ).rows[0].result

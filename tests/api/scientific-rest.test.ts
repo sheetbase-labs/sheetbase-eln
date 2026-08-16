@@ -8,6 +8,7 @@ import { mintApiClientToken } from '#/lib/api-credentials'
 import { resolveExternalToken } from '#/lib/external-token'
 import { mintPostgrestToken } from '#/lib/postgrest-token'
 import { handleProxyRequest } from '#/lib/postgrest-proxy'
+import { createScientificTableAsMigrator, openMigratorWriter } from '../db/helpers'
 import { buildScientificApiExamples } from '#/components/sheet/scientific-api-inspector'
 
 config({ path: ['.env.local', '.env'] })
@@ -155,27 +156,20 @@ beforeAll(async () => {
     scopes: ['projects:read'],
   })
 
-  const create = await proxy(
-    request('rpc/create_scientific_table', null, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        prefer: 'return=representation',
-      },
-      body: JSON.stringify({
-        p_block_id: BLOCK,
-        p_name: 'HTTP measurements',
-        p_columns: [
-          { label: 'Sample', logical_type: 'text', nullable: false },
-          { label: 'Result', logical_type: 'integer' },
-        ],
-      }),
-    }),
-    'rpc/create_scientific_table',
+  const writer = await openMigratorWriter(process.env.DATABASE_URL ?? '', OWNER, WS)
+  const created = await createScientificTableAsMigrator(
+    writer,
+    OWNER,
+    WS,
+    BLOCK,
+    'HTTP measurements',
+    [
+      { label: 'Sample', logical_type: 'text', nullable: false },
+      { label: 'Result', logical_type: 'integer' },
+    ],
   )
-  expect(create.status).toBe(200)
-  const created = await create.json()
-  resource = created.resourceName
+  await writer.end()
+  resource = created.resourceName ?? created.table.resource_name
   tableId = created.table.id
   schemaVersion = created.table.schema_version
   textField = created.columns[0].field_name

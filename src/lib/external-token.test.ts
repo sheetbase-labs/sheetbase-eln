@@ -99,15 +99,27 @@ describe('requiredScopes', () => {
     expect(
       requiredScopes('POST', {
         kind: 'rpc',
-        resource: 'add_scientific_column',
+        resource: 'bind_legacy_sheet',
       }),
     ).toEqual(['scientific:schema'])
-    expect(
+    expect(() =>
+      requiredScopes('POST', {
+        kind: 'rpc',
+        resource: 'add_scientific_column',
+      }),
+    ).toThrow(ExternalTokenError)
+    expect(() =>
+      requiredScopes('POST', {
+        kind: 'rpc',
+        resource: 'create_dataset_schema',
+      }),
+    ).toThrow(ExternalTokenError)
+    expect(() =>
       requiredScopes('POST', {
         kind: 'rpc',
         resource: 'update_scientific_table_display',
       }),
-    ).toEqual(['scientific:schema'])
+    ).toThrow(ExternalTokenError)
   })
 
   it('fails closed for unknown external resources', () => {

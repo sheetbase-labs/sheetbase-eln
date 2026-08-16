@@ -1,7 +1,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { prepareTestDatabase } from './helpers'
+import { prepareTestDatabase, setActorJwt } from './helpers'
 
 const WS = '40000000-0000-4000-8000-000000000001'
 const OTHER_WS = '40000000-0000-4000-8000-000000000002'
@@ -63,6 +63,7 @@ beforeAll(async () => {
   await setWorkspace(owner, OWNER, WS)
   await setWorkspace(member, MEMBER, WS)
   await setWorkspace(otherOwner, OTHER_OWNER, OTHER_WS)
+  await setActorJwt(migrator, OWNER, WS)
 })
 
 afterAll(async () =>
@@ -71,8 +72,7 @@ afterAll(async () =>
 
 describe('SCI-010 dataset schema registry', () => {
   it('creates a draft schema with fields and reuses helpers for validation', async () => {
-    const res = await owner.query(
-      `SELECT api.create_dataset_schema($1,$2,$3,$4::jsonb) result`,
+    const res = await migrator.query(`SELECT api.create_dataset_schema($1,$2,$3,$4::jsonb) result`,
       [
         'stability_study_result',
         'Stability Study Result',
@@ -96,7 +96,7 @@ describe('SCI-010 dataset schema registry', () => {
 
   it('rejects an invalid field slug and an invalid logical type', async () => {
     await expect(
-      owner.query(`SELECT api.create_dataset_schema($1,$2,null,$3::jsonb)`, [
+      migrator.query(`SELECT api.create_dataset_schema($1,$2,null,$3::jsonb)`, [
         'bad_slug_schema',
         'Bad',
         JSON.stringify([{ slug: 'Bad Slug!', label: 'x', logical_type: 'text' }]),
@@ -126,8 +126,7 @@ describe('SCI-010 dataset schema registry', () => {
         [schemaId, 'ph', 'pH', 'decimal'],
       ),
     ).rejects.toMatchObject({ code: '42501' })
-    const res = await owner.query(
-      `SELECT api.add_dataset_schema_field($1,$2,$3,$4) result`,
+    const res = await migrator.query(`SELECT api.add_dataset_schema_field($1,$2,$3,$4) result`,
       [schemaId, 'ph', 'pH', 'decimal'],
     )
     expect(res.rows[0].result.slug).toBe('ph')
@@ -137,20 +136,17 @@ describe('SCI-010 dataset schema registry', () => {
     await expect(
       member.query(`SELECT api.publish_dataset_schema($1)`, [schemaId]),
     ).rejects.toMatchObject({ code: '42501' })
-    const res = await owner.query(
-      `SELECT api.publish_dataset_schema($1) result`,
+    const res = await migrator.query(`SELECT api.publish_dataset_schema($1) result`,
       [schemaId],
     )
     expect(res.rows[0].result.published).toBe(true)
   })
 
   it('instantiates a bound sheet from a published schema, linking columns to fields', async () => {
-    const resA = await owner.query(
-      `SELECT api.instantiate_dataset_schema($1,$2,$3) result`,
+    const resA = await migrator.query(`SELECT api.instantiate_dataset_schema($1,$2,$3) result`,
       [BLOCK_A, schemaId, 'Stability A'],
     )
-    const resB = await owner.query(
-      `SELECT api.instantiate_dataset_schema($1,$2,$3) result`,
+    const resB = await migrator.query(`SELECT api.instantiate_dataset_schema($1,$2,$3) result`,
       [BLOCK_B, schemaId, 'Stability B'],
     )
     tableA = resA.rows[0].result.table
@@ -217,8 +213,7 @@ describe('SCI-010 dataset schema registry', () => {
 
   it('upgrades a sheet to an additive revision and re-binds columns', async () => {
     // Create revision 2 of the same slug with the same fields + a new one.
-    const res = await owner.query(
-      `SELECT api.create_dataset_schema($1,$2,null,$3::jsonb) result`,
+    const res = await migrator.query(`SELECT api.create_dataset_schema($1,$2,null,$3::jsonb) result`,
       [
         'stability_study_result',
         'Stability Study Result v2',
@@ -233,9 +228,8 @@ describe('SCI-010 dataset schema registry', () => {
     const rev2 = res.rows[0].result.schema
     expect(rev2.revision).toBe(2)
     expect(rev2.status).toBe('draft')
-    await owner.query(`SELECT api.publish_dataset_schema($1)`, [rev2.id])
-    const up = await owner.query(
-      `SELECT api.upgrade_scientific_schema($1, 2) result`,
+    await migrator.query(`SELECT api.publish_dataset_schema($1)`, [rev2.id])
+    const up = await migrator.query(`SELECT api.upgrade_scientific_schema($1, 2) result`,
       [tableA.id],
     )
     expect(up.rows[0].result.upgraded).toBe(true)
@@ -256,8 +250,7 @@ describe('SCI-010 dataset schema registry', () => {
   })
 
   it('rejects a non-additive upgrade (type change) requiring confirmation', async () => {
-    const res = await owner.query(
-      `SELECT api.create_dataset_schema($1,$2,null,$3::jsonb) result`,
+    const res = await migrator.query(`SELECT api.create_dataset_schema($1,$2,null,$3::jsonb) result`,
       [
         'stability_study_result',
         'Stability Study Result v3 bad',
@@ -269,9 +262,9 @@ describe('SCI-010 dataset schema registry', () => {
       ],
     )
     const rev3 = res.rows[0].result.schema
-    await owner.query(`SELECT api.publish_dataset_schema($1)`, [rev3.id])
+    await migrator.query(`SELECT api.publish_dataset_schema($1)`, [rev3.id])
     await expect(
-      owner.query(`SELECT api.upgrade_scientific_schema($1, 3)`, [tableB.id]),
+      migrator.query(`SELECT api.upgrade_scientific_schema($1, 3)`, [tableB.id]),
     ).rejects.toMatchObject({ code: '23514' })
   })
 
@@ -285,8 +278,7 @@ describe('SCI-010 dataset schema registry', () => {
         field.rows[0].id,
       ]),
     ).rejects.toMatchObject({ code: '42501' })
-    const res = await owner.query(
-      `SELECT api.retire_dataset_schema_field($1) result`,
+    const res = await migrator.query(`SELECT api.retire_dataset_schema_field($1) result`,
       [field.rows[0].id],
     )
     expect(res.rows[0].result.retired).toBe(true)
@@ -300,8 +292,7 @@ describe('SCI-010 dataset schema registry', () => {
 
   it('backfills a legacy unbound sheet and exposes it via query_dataset', async () => {
     // Create an ad-hoc (unbound) sheet.
-    const legacy = await owner.query(
-      `SELECT api.create_scientific_table($1,$2,$3::jsonb) result`,
+    const legacy = await migrator.query(`SELECT api.create_scientific_table($1,$2,$3::jsonb) result`,
       [
         BLOCK_LEGACY,
         'Legacy Sheet',
@@ -354,8 +345,7 @@ describe('SCI-010 dataset schema registry', () => {
 
   it('insert_sheet_block with a schema id creates a bound sheet atomically', async () => {
     // Create a second published schema for the insert_sheet_block test.
-    const res = await owner.query(
-      `SELECT api.create_dataset_schema($1,$2,null,$3::jsonb) result`,
+    const res = await migrator.query(`SELECT api.create_dataset_schema($1,$2,null,$3::jsonb) result`,
       [
         'insert_block_schema',
         'Insert Block Schema',
@@ -365,7 +355,7 @@ describe('SCI-010 dataset schema registry', () => {
       ],
     )
     const sid = res.rows[0].result.schema.id
-    await owner.query(`SELECT api.publish_dataset_schema($1)`, [sid])
+    await migrator.query(`SELECT api.publish_dataset_schema($1)`, [sid])
 
     // Create a fresh record + use insert_sheet_block with the schema id.
     const RECORD_C = '40000000-0000-4000-8000-000000000009'
@@ -373,8 +363,7 @@ describe('SCI-010 dataset schema registry', () => {
       `INSERT INTO api.records(id,workspace_id,project_id,kind,identifier,title,created_by_user_id) VALUES ('${RECORD_C}','${WS}','${PROJECT}','experiment','SCI-3','Exp C',$1)`,
       [OWNER],
     )
-    const inserted = await owner.query(
-      `SELECT api.insert_sheet_block($1, NULL, NULL, $2) result`,
+    const inserted = await migrator.query(`SELECT api.insert_sheet_block($1, NULL, NULL, $2) result`,
       [RECORD_C, sid],
     )
     const result = inserted.rows[0].result
@@ -398,8 +387,7 @@ describe('SCI-010 dataset schema registry', () => {
       `INSERT INTO api.records(id,workspace_id,project_id,kind,identifier,title,created_by_user_id) VALUES ('${RECORD_D}','${WS}','${PROJECT}','experiment','SCI-4','Exp D',$1)`,
       [OWNER],
     )
-    const inserted = await owner.query(
-      `SELECT api.insert_sheet_block($1) result`,
+    const inserted = await migrator.query(`SELECT api.insert_sheet_block($1) result`,
       [RECORD_D],
     )
     const result = inserted.rows[0].result
@@ -434,8 +422,7 @@ describe('SCI-010 dataset schema registry', () => {
       `INSERT INTO api.blocks(id,record_id,type,payload,"order",created_by_user_id) VALUES ('${BLOCK_E}','${RECORD_E}','sheet','{}',1,$1)`,
       [OWNER],
     )
-    const adHoc = await owner.query(
-      `SELECT api.create_scientific_table($1,$2,'[]'::jsonb) result`,
+    const adHoc = await migrator.query(`SELECT api.create_scientific_table($1,$2,'[]'::jsonb) result`,
       [BLOCK_E, 'Ad hoc'],
     )
     const meta = await owner.query(

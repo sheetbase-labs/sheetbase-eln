@@ -1,7 +1,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { prepareTestDatabase } from './helpers'
+import { prepareTestDatabase, setActorJwt } from './helpers'
 
 const WS = '41000000-0000-4000-8000-000000000001'
 const OTHER_WS = '41000000-0000-4000-8000-000000000002'
@@ -68,6 +68,7 @@ beforeAll(async () => {
   await setWorkspace(owner, OWNER, WS)
   await setWorkspace(member, MEMBER, WS)
   await setWorkspace(otherOwner, OTHER_OWNER, OTHER_WS)
+  await setActorJwt(migrator, OWNER, WS)
 })
 
 afterAll(async () =>
@@ -81,8 +82,7 @@ afterAll(async () =>
 
 describe('SCI-011 dataset schema relationships', () => {
   it('creates a published sample schema with a text field', async () => {
-    const res = await owner.query(
-      `SELECT api.create_dataset_schema($1,$2,null,$3::jsonb) result`,
+    const res = await migrator.query(`SELECT api.create_dataset_schema($1,$2,null,$3::jsonb) result`,
       [
         'sample',
         'Sample',
@@ -94,12 +94,11 @@ describe('SCI-011 dataset schema relationships', () => {
     sampleSchemaId = res.rows[0].result.schema.id
     sampleFieldId = res.rows[0].result.fields[0].id
     expect(res.rows[0].result.schema.status).toBe('draft')
-    await owner.query(`SELECT api.publish_dataset_schema($1)`, [sampleSchemaId])
+    await migrator.query(`SELECT api.publish_dataset_schema($1)`, [sampleSchemaId])
   })
 
   it('creates a published assay schema with a decimal + reference field', async () => {
-    const res = await owner.query(
-      `SELECT api.create_dataset_schema($1,$2,null,$3::jsonb) result`,
+    const res = await migrator.query(`SELECT api.create_dataset_schema($1,$2,null,$3::jsonb) result`,
       [
         'assay',
         'Assay',
@@ -113,18 +112,16 @@ describe('SCI-011 dataset schema relationships', () => {
     assayRefFieldId = res.rows[0].result.fields.find(
       (f: { slug: string }) => f.slug === 'sample_ref',
     ).id
-    await owner.query(`SELECT api.publish_dataset_schema($1)`, [assaySchemaId])
+    await migrator.query(`SELECT api.publish_dataset_schema($1)`, [assaySchemaId])
   })
 
   it('instantiates bound sheets for both schemas and inserts a referenced row', async () => {
-    const sa = await owner.query(
-      `SELECT api.instantiate_dataset_schema($1,$2,$3) result`,
+    const sa = await migrator.query(`SELECT api.instantiate_dataset_schema($1,$2,$3) result`,
       [BLOCK_SAMPLE, sampleSchemaId, 'Samples sheet'],
     )
     sampleTable = sa.rows[0].result.table
     sampleCols = sa.rows[0].result.columns
-    const sb = await owner.query(
-      `SELECT api.instantiate_dataset_schema($1,$2,$3) result`,
+    const sb = await migrator.query(`SELECT api.instantiate_dataset_schema($1,$2,$3) result`,
       [BLOCK_ASSAY, assaySchemaId, 'Assays sheet'],
     )
     assayTable = sb.rows[0].result.table
@@ -171,7 +168,8 @@ describe('SCI-011 dataset schema relationships', () => {
 
   it('rejects a cross-workspace relationship', async () => {
     // Other owner has no schemas in WS; create one in OTHER_WS first.
-    const res = await otherOwner.query(
+    await setActorJwt(migrator, OTHER_OWNER, OTHER_WS)
+    const res = await migrator.query(
       `SELECT api.create_dataset_schema($1,$2,null,$3::jsonb) result`,
       [
         'other_schema',
@@ -180,6 +178,7 @@ describe('SCI-011 dataset schema relationships', () => {
       ],
     )
     const otherId = res.rows[0].result.schema.id
+    await setActorJwt(migrator, OWNER, WS)
     await expect(
       owner.query(
         `SELECT api.create_schema_relationship($1,$2,'references')`,
@@ -309,8 +308,7 @@ describe('SCI-011 dataset schema relationships', () => {
 
   it('repoints relationships to the latest published revision on publish', async () => {
     // Create revision 2 of the sample schema and publish it.
-    const res = await owner.query(
-      `SELECT api.create_dataset_schema($1,$2,null,$3::jsonb) result`,
+    const res = await migrator.query(`SELECT api.create_dataset_schema($1,$2,null,$3::jsonb) result`,
       [
         'sample',
         'Sample v2',
@@ -320,7 +318,7 @@ describe('SCI-011 dataset schema relationships', () => {
       ],
     )
     const rev2Id = res.rows[0].result.schema.id
-    await owner.query(`SELECT api.publish_dataset_schema($1)`, [rev2Id])
+    await migrator.query(`SELECT api.publish_dataset_schema($1)`, [rev2Id])
     // The references relationship target should now point to rev2.
     const rel = await owner.query(
       `SELECT target_schema_id FROM api.dataset_schema_relationships

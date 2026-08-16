@@ -103,19 +103,6 @@ const SCIENTIFIC_METADATA = new Set([
   'dataset_schema_fields',
 ])
 const SCIENTIFIC_SCHEMA_RPCS = new Set([
-  'create_scientific_table',
-  'update_scientific_table_display',
-  'add_scientific_column',
-  'update_scientific_column_display',
-  'retire_scientific_column',
-  'convert_scientific_column',
-  // SCI-010: dataset schema registry lifecycle and binding RPCs.
-  'create_dataset_schema',
-  'add_dataset_schema_field',
-  'retire_dataset_schema_field',
-  'publish_dataset_schema',
-  'instantiate_dataset_schema',
-  'upgrade_scientific_schema',
   'bind_legacy_sheet',
 ])
 const PROJECT_DOMAIN_RESOURCES = new Set([

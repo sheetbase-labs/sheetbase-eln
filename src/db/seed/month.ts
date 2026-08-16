@@ -32,16 +32,24 @@ export async function authClient(db: Parameters<SeedStep['run']>[0]) {
     throw new Error('PGRST_DB_URI is required for month seed')
   poolUrl.username = pgrst.username
   poolUrl.password = pgrst.password
+  const jwt = JSON.stringify({
+    sub: GARETH,
+    workspace_id: WORKSPACE,
+    role: 'authenticated',
+  })
   const client = new Client({ connectionString: poolUrl.toString() })
   await client.connect()
   await client.query('SET ROLE authenticated')
-  await client.query("SELECT set_config('request.jwt.claims',$1,false)", [
-    JSON.stringify({
-      sub: GARETH,
-      workspace_id: WORKSPACE,
-      role: 'authenticated',
-    }),
-  ])
+  await client.query("SELECT set_config('request.jwt.claims',$1,false)", [jwt])
+
+  const migratorUrl = new URL(poolUrl.toString())
+  migratorUrl.username = 'migrator'
+  migratorUrl.password = process.env.MIGRATION_DATABASE_URL
+    ? new URL(process.env.MIGRATION_DATABASE_URL).password
+    : pgrst.password
+  const writer = new Client({ connectionString: migratorUrl.toString() })
+  await writer.connect()
+  await writer.query("SELECT set_config('request.jwt.claims',$1,false)", [jwt])
   return {
     client,
     rpc: async <T extends QueryResultRow = Record<string, unknown>>(
@@ -52,7 +60,18 @@ export async function authClient(db: Parameters<SeedStep['run']>[0]) {
       const args = params.map((_, i) => `$${i + 1}`).join(',')
       return client.query<T>(`select * from api.${name}(${args})`, params)
     },
-    close: () => client.end(),
+    migratorRpc: async <T extends QueryResultRow = Record<string, unknown>>(
+      name: string,
+      params: unknown[],
+    ) => {
+      if (!/^[a-z_]+$/.test(name)) throw new Error(`Unsafe RPC name: ${name}`)
+      const args = params.map((_, i) => `$${i + 1}`).join(',')
+      return writer.query<T>(`select * from api.${name}(${args})`, params)
+    },
+    close: async () => {
+      await client.end()
+      await writer.end()
+    },
   }
 }
 
@@ -1596,7 +1615,7 @@ async function upsertShowcaseNotebook(db: Parameters<SeedStep['run']>[0]) {
       { label: 'Ct Mean', logical_type: 'decimal', nullable: true },
       { label: 'Ct SD', logical_type: 'decimal', nullable: true },
     ])
-    const result = await auth.rpc('create_scientific_table', [
+    const result = await auth.migratorRpc('create_scientific_table', [
       sheetBlockId,
       'Stability Timecourse Data',
       columnsJson,

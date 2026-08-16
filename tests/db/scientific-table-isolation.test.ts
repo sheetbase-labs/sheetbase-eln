@@ -1,7 +1,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { prepareTestDatabase } from './helpers'
+import { prepareTestDatabase, setActorJwt } from './helpers'
 
 const A = {
   workspace: '42000000-0000-4000-8000-000000000001',
@@ -130,14 +130,16 @@ beforeAll(async () => {
     },
     { label: 'Amount', logical_type: 'integer' },
   ]
+  await setActorJwt(migrator, A.user, A.workspace)
   sheetA = (
-    await clientA.query(
+    await migrator.query(
       `SELECT api.create_scientific_table($1,'A',$2::jsonb) result`,
       [A.block, JSON.stringify(specsA)],
     )
   ).rows[0].result
+  await setActorJwt(migrator, B.user, B.workspace)
   sheetB = (
-    await clientB.query(
+    await migrator.query(
       `SELECT api.create_scientific_table($1,'B',$2::jsonb) result`,
       [B.block, JSON.stringify(specsB)],
     )
@@ -302,8 +304,9 @@ describe('DATA-002 scientific table workspace isolation', () => {
       `CREATE TABLE api.scientific_isolation_sentinel(value text); INSERT INTO api.scientific_isolation_sentinel VALUES ('safe')`,
     )
     const malicious = `x'); DELETE FROM api.scientific_isolation_sentinel; --`
+    await setActorJwt(migrator, A.user, A.workspace)
     await expect(
-      clientA.query(`SELECT api.create_scientific_table($1,$2,$3::jsonb)`, [
+      migrator.query(`SELECT api.create_scientific_table($1,$2,$3::jsonb)`, [
         NON_SHEET,
         malicious,
         JSON.stringify([

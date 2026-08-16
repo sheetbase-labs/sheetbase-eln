@@ -1,7 +1,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { prepareTestDatabase } from './helpers'
+import { prepareTestDatabase, setActorJwt } from './helpers'
 
 const WS = '72000000-0000-4000-8000-000000000001'
 const PROJECT = '72000000-0000-4000-8000-000000000002'
@@ -133,6 +133,7 @@ beforeAll(async () => {
   await auth.query(`SELECT set_config('request.jwt.claims',$1,false)`, [
     JSON.stringify({ role: 'authenticated', sub: USER, workspace_id: WS }),
   ])
+  await setActorJwt(migrator, USER, WS)
   apiClient = await prepared.asRole('authenticator')
   await apiClient.query('SET ROLE api_client')
   await apiClient.query(`SELECT set_config('request.jwt.claims',$1,false)`, [
@@ -144,8 +145,7 @@ beforeAll(async () => {
     }),
   ])
   const made = (
-    await auth.query(
-      `SELECT api.create_scientific_table($1,'Formula table',$2::jsonb) result`,
+    await migrator.query(`SELECT api.create_scientific_table($1,'Formula table',$2::jsonb) result`,
       [
         BLOCK,
         JSON.stringify([
@@ -173,8 +173,7 @@ beforeAll(async () => {
     )
   ).rows
   const madeSource = (
-    await auth.query(
-      `SELECT api.create_scientific_table($1,'Source sheet',$2::jsonb) result`,
+    await migrator.query(`SELECT api.create_scientific_table($1,'Source sheet',$2::jsonb) result`,
       [
         SOURCE_BLOCK,
         JSON.stringify([

@@ -743,6 +743,13 @@
       "when": 1786823000000,
       "tag": "0105_core_h3_frozen_composed_grid",
       "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "7",
+      "when": 1786824000000,
+      "tag": "0106_core_h4_close_legacy_writes",
+      "breakpoints": true
     }
   ]
 }

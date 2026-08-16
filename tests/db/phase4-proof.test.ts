@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { buildPersistedFormulaArtifact, parseFormula } from '#/lib/formula-ir'
 import { buildScientificWorkbook } from '#/lib/scientific-workbook'
-import { prepareTestDatabase } from './helpers'
+import { prepareTestDatabase, setActorJwt } from './helpers'
 
 const WS = '74000000-0000-4000-8000-000000000001'
 const PROJECT = '74000000-0000-4000-8000-000000000002'
@@ -69,6 +69,7 @@ beforeAll(async () => {
   await browser.query(`SELECT set_config('request.jwt.claims',$1,false)`, [
     JSON.stringify({ role: 'authenticated', sub: USER, workspace_id: WS }),
   ])
+  await setActorJwt(migrator, USER, WS)
   external = await prepared.asRole('authenticator')
   await external.query('SET ROLE api_client')
   await external.query(`SELECT set_config('request.jwt.claims',$1,false)`, [
@@ -88,7 +89,7 @@ afterAll(async () =>
 describe('DATA-006 Phase 4 database acceptance proof', () => {
   it('preserves stable scientific and calculation identity through the complete workflow', async () => {
     const raw = (
-      await browser.query(
+      await migrator.query(
         `SELECT api.create_scientific_table($1,'Raw stability data',$2::jsonb) result`,
         [
           RAW_BLOCK,
@@ -118,7 +119,7 @@ describe('DATA-006 Phase 4 database acceptance proof', () => {
       )
     ).rows[0].result
     const result = (
-      await browser.query(
+      await migrator.query(
         `SELECT api.create_scientific_table($1,'Stability summary',$2::jsonb) result`,
         [
           RESULT_BLOCK,

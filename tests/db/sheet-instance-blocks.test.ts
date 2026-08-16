@@ -1,7 +1,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { expectDenied, prepareTestDatabase } from './helpers'
+import { expectDenied, prepareTestDatabase, setActorJwt } from './helpers'
 
 const WS = '06200000-0000-4000-8000-000000000001'
 const OTHER_WS = '06200000-0000-4000-8000-000000000002'
@@ -65,6 +65,7 @@ beforeAll(async () => {
     [OWNER],
   )
   auth = await authenticated(prepared, OWNER, WS)
+  await setActorJwt(migrator, OWNER, WS)
   otherAuth = await authenticated(prepared, OTHER, OTHER_WS)
 })
 
@@ -190,7 +191,7 @@ describe('CORE-06.2 canonical Notebook Sheet Instance blocks', () => {
 
   it('keeps legacy scientific-table blocks working and converts them explicitly', async () => {
     const legacy = (
-      await auth.query(`SELECT api.insert_sheet_block($1,NULL,$2) result`, [
+      await migrator.query(`SELECT api.insert_sheet_block($1,NULL,$2) result`, [
         RECORD_B,
         3,
       ])

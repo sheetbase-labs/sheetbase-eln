@@ -76,27 +76,15 @@ export async function insertBlock(
 }
 
 export async function insertSheetBlock(
-  client: DataClient,
-  args: Pick<
+  _client: DataClient,
+  _args: Pick<
     InsertBlockArgs,
     'recordId' | 'afterBlockId' | 'expectedStructureVersion'
   > & { datasetSchemaId?: string },
 ): Promise<InsertBlockResult & { tableId: string }> {
-  const res = await client.rpc<{
-    block: BlockWire
-    table: { id: string }
-    structure_version: number
-  }>('insert_sheet_block', {
-    p_record_id: args.recordId,
-    p_after_block_id: args.afterBlockId ?? null,
-    p_expected_structure_version: args.expectedStructureVersion ?? null,
-    p_dataset_schema_id: args.datasetSchemaId ?? null,
-  })
-  return {
-    block: toBlock(res.block),
-    tableId: res.table.id,
-    structureVersion: res.structure_version,
-  }
+  throw new Error(
+    'Legacy scientific-table Sheet creation is closed. Use insertSheetInstanceBlock.',
+  )
 }
 
 export async function insertSheetInstanceBlock(

@@ -7,7 +7,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { prepareTestDatabase } from './helpers'
+import { prepareTestDatabase, setActorJwt } from './helpers'
 
 const WS_A = '00000000-0000-4000-8000-00000000040a'
 const WS_B = '00000000-0000-4000-8000-00000000040b'
@@ -62,12 +62,14 @@ async function createSheetBlock(
 }
 
 async function createScientificTable(
-  client: Client,
+  user: string,
+  workspace: string,
   sheetBlockId: string,
   name: string,
   specs: unknown[],
 ): Promise<{ table: Record<string, any>; columns: Record<string, any>[] }> {
-  const { rows } = await client.query(
+  await setActorJwt(migrator, user, workspace)
+  const { rows } = await migrator.query(
     `SELECT api.create_scientific_table($1,$2,$3::jsonb) result`,
     [sheetBlockId, name, JSON.stringify(specs)],
   )
@@ -191,7 +193,8 @@ describe('SCI-004 chart blocks', () => {
 
     const sheetA = await createSheetBlock(a, experimentA.id, 1)
     const builtA = await createScientificTable(
-      a,
+      USER_A,
+      WS_A,
       sheetA.id,
       'Stability readings',
       [
@@ -231,7 +234,12 @@ describe('SCI-004 chart blocks', () => {
     )
 
     const sheetB = await createSheetBlock(b, experimentB.id, 1)
-    const builtB = await createScientificTable(b, sheetB.id, 'Other readings', [
+    const builtB = await createScientificTable(
+      USER_B,
+      WS_B,
+      sheetB.id,
+      'Other readings',
+      [
       { label: 'Time', logical_type: 'decimal' },
       { label: 'Recovery', logical_type: 'decimal' },
     ])
@@ -389,7 +397,12 @@ describe('SCI-004 chart freeze lifecycle', () => {
       'Freeze lifecycle',
     )
     const sheet = await createSheetBlock(a, experiment.id, 1)
-    const built = await createScientificTable(a, sheet.id, 'Freeze readings', [
+    const built = await createScientificTable(
+      USER_A,
+      WS_A,
+      sheet.id,
+      'Freeze readings',
+      [
       {
         label: 'Time',
         logical_type: 'decimal',
@@ -580,7 +593,12 @@ describe('SCI-004 chart freeze lifecycle', () => {
   it('rejects freezing a chart whose dataset is empty', async () => {
     const exp2 = await createRecord(a, PROJECT_A, 'experiment', 'Empty dataset')
     const sheet = await createSheetBlock(a, exp2.id, 1)
-    const built = await createScientificTable(a, sheet.id, 'Empty readings', [
+    const built = await createScientificTable(
+      USER_A,
+      WS_A,
+      sheet.id,
+      'Empty readings',
+      [
       { label: 'Time', logical_type: 'decimal' },
       { label: 'Recovery', logical_type: 'decimal' },
     ])

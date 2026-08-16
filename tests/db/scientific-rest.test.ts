@@ -1,7 +1,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { expectDenied, prepareTestDatabase } from './helpers'
+import { expectDenied, prepareTestDatabase, setActorJwt } from './helpers'
 
 const WS = '61000000-0000-4000-8000-000000000001'
 const OTHER_WS = '61000000-0000-4000-8000-000000000002'
@@ -116,8 +116,9 @@ beforeAll(async () => {
   await browser.query(`SELECT set_config('request.jwt.claims',$1,false)`, [
     JSON.stringify({ role: 'authenticated', sub: OWNER, workspace_id: WS }),
   ])
+  await setActorJwt(migrator, OWNER, WS)
   const result = (
-    await browser.query(
+    await migrator.query(
       `SELECT api.create_scientific_table($1,'Measurements',$2::jsonb) result`,
       [
         BLOCK,
@@ -328,7 +329,7 @@ describe('DATA-003 scientific REST database boundary', () => {
 
   it('rejects null concurrency and edit arguments', async () => {
     await expect(
-      browser.query(
+      migrator.query(
         `SELECT api.add_scientific_column($1,NULL,'null version','text')`,
         [table.id],
       ),
@@ -366,38 +367,13 @@ describe('DATA-003 scientific REST database boundary', () => {
     const client = await asApiClient(CREDENTIALS.schema, WS, [
       'scientific:schema',
     ])
-    const created = (
-      await client.query(
+    await expectDenied(
+      client.query(
         `SELECT api.create_scientific_table($1,'Schema attribution') result`,
         [ATTRIBUTION_BLOCK],
-      )
-    ).rows[0].result
-    await client.query(
-      `SELECT api.add_scientific_column($1,$2,'Value','text')`,
-      [created.table.id, created.table.schema_version],
+      ),
+      '42501',
     )
-
-    expect(
-      (
-        await migrator.query(
-          `SELECT updated_by_user_id,updated_by_credential_id FROM api.scientific_tables WHERE id=$1`,
-          [created.table.id],
-        )
-      ).rows[0],
-    ).toEqual({
-      updated_by_user_id: null,
-      updated_by_credential_id: CREDENTIALS.schema,
-    })
-    expect(
-      (
-        await migrator.query(
-          `SELECT actor_credential_id FROM api.change_events
-           WHERE entity_type='scientific_table' AND entity_uuid=$1 AND operation='update'
-           ORDER BY sequence DESC LIMIT 1`,
-          [created.table.id],
-        )
-      ).rows[0],
-    ).toEqual({ actor_credential_id: CREDENTIALS.schema })
   })
 
   it('protects formula-owned rows from direct delete', async () => {
@@ -435,13 +411,13 @@ describe('DATA-003 scientific REST database boundary', () => {
     const schemaClient = await asApiClient(CREDENTIALS.schema, WS, [
       'scientific:schema',
     ])
-    const created = (
-      await schemaClient.query(
+    await expectDenied(
+      schemaClient.query(
         `SELECT api.create_scientific_table($1,'External schema','[]') result`,
         [SCHEMA_BLOCK],
-      )
-    ).rows[0].result
-    expect(created.resourceName).toMatch(/^sheet_[a-z2-7]{26}$/)
+      ),
+      '42501',
+    )
 
     const otherClient = await asApiClient(CREDENTIALS.other, OTHER_WS, [
       'scientific:schema',

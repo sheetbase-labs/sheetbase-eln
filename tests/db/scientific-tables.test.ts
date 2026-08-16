@@ -1,7 +1,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { prepareTestDatabase } from './helpers'
+import { prepareTestDatabase, setActorJwt } from './helpers'
 
 const WS = '10000000-0000-4000-8000-000000000001'
 const OTHER_WS = '10000000-0000-4000-8000-000000000002'
@@ -45,6 +45,7 @@ beforeAll(async () => {
   await auth.query(`SELECT set_config('request.jwt.claims',$1,false)`, [
     JSON.stringify({ role: 'authenticated', sub: USER, workspace_id: WS }),
   ])
+  await setActorJwt(migrator, USER, WS)
   apiClient = await prepared.asRole('authenticator')
   await apiClient.query('SET ROLE api_client')
   await apiClient.query(`SELECT set_config('request.jwt.claims',$1,false)`, [
@@ -99,8 +100,7 @@ describe('DATA-002 scientific tables', () => {
         options: [{ label: 'One' }, { label: 'Two' }],
       },
     ]
-    const result = await auth.query(
-      `SELECT api.create_scientific_table($1,$2,$3::jsonb) result`,
+    const result = await migrator.query(`SELECT api.create_scientific_table($1,$2,$3::jsonb) result`,
       [BLOCK, 'Unsafe "; -- name', JSON.stringify(specs)],
     )
     table = result.rows[0].result.table
@@ -143,7 +143,7 @@ describe('DATA-002 scientific tables', () => {
       [block2, USER],
     )
     await expect(
-      auth.query(`SELECT api.create_scientific_table($1,'bad',$2::jsonb)`, [
+      migrator.query(`SELECT api.create_scientific_table($1,'bad',$2::jsonb)`, [
         block2,
         JSON.stringify([
           {
@@ -163,8 +163,7 @@ describe('DATA-002 scientific tables', () => {
       ).rows[0].n,
     ).toBe(0)
     await expect(
-      auth.query(
-        `SELECT api.add_scientific_column($1,1,'required','integer',false)`,
+      migrator.query(`SELECT api.add_scientific_column($1,1,'required','integer',false)`,
         [table.id],
       ),
     ).rejects.toMatchObject({ code: '23514' })
@@ -216,7 +215,7 @@ describe('DATA-002 scientific tables', () => {
         `SELECT (SELECT count(*) FROM api.scientific_tables) tables,(SELECT count(*) FROM api.change_events) events,(SELECT count(*) FROM pg_class WHERE relnamespace='api'::regnamespace) classes`,
       )
       await expect(
-        auth.query(`SELECT api.create_scientific_table($1,'invalid',$2)`, [
+        migrator.query(`SELECT api.create_scientific_table($1,'invalid',$2)`, [
           block,
           JSON.stringify([spec]),
         ]),
@@ -235,8 +234,7 @@ describe('DATA-002 scientific tables', () => {
       [block, RECORD, USER],
     )
     const result = (
-      await auth.query(
-        `SELECT api.create_scientific_table($1,'percent',$2) result`,
+      await migrator.query(`SELECT api.create_scientific_table($1,'percent',$2) result`,
         [
           block,
           JSON.stringify([
@@ -271,8 +269,7 @@ describe('DATA-002 scientific tables', () => {
         .n,
     )
     await expect(
-      auth.query(
-        `SELECT api.add_scientific_column($1,$2,'null default','integer',false,'null'::jsonb)`,
+      migrator.query(`SELECT api.add_scientific_column($1,$2,'null default','integer',false,'null'::jsonb)`,
         [table.id, version],
       ),
     ).rejects.toBeTruthy()
@@ -283,8 +280,7 @@ describe('DATA-002 scientific tables', () => {
       ),
     ).toBe(beforeEvents)
     const added = (
-      await auth.query(
-        `SELECT api.add_scientific_column($1,$2,'required default','integer',false,'7'::jsonb) result`,
+      await migrator.query(`SELECT api.add_scientific_column($1,$2,'required default','integer',false,'7'::jsonb) result`,
         [table.id, version],
       )
     ).rows[0].result

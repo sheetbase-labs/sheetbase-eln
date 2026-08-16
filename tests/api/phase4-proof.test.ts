@@ -10,6 +10,7 @@ import { resolveExternalToken } from '#/lib/external-token'
 import { buildPersistedFormulaArtifact, parseFormula } from '#/lib/formula-ir'
 import { mintPostgrestToken } from '#/lib/postgrest-token'
 import { handleProxyRequest } from '#/lib/postgrest-proxy'
+import { createScientificTableAsMigrator, openMigratorWriter } from '../db/helpers'
 
 config({ path: ['.env.local', '.env'] })
 
@@ -113,25 +114,24 @@ beforeAll(async () => {
     credentialId: CREDENTIAL,
     scopes: ['scientific:read', 'scientific:write'],
   })
-  const created = await proxy('rpc/create_scientific_table', null, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      p_block_id: BLOCK,
-      p_name: 'External edit proof',
-      p_columns: [
-        {
-          label: 'Input',
-          logical_type: 'decimal',
-          nullable: false,
-          default: 1,
-        },
-        { label: 'Double', logical_type: 'decimal', nullable: true },
-      ],
-    }),
-  })
-  expect(created.status).toBe(200)
-  table = await created.json()
+  const writer = await openMigratorWriter(process.env.DATABASE_URL ?? '', USER, WS)
+  table = await createScientificTableAsMigrator(
+    writer,
+    USER,
+    WS,
+    BLOCK,
+    'External edit proof',
+    [
+      {
+        label: 'Input',
+        logical_type: 'decimal',
+        nullable: false,
+        default: 1,
+      },
+      { label: 'Double', logical_type: 'decimal', nullable: true },
+    ],
+  )
+  await writer.end()
   const inserted = await proxy(table.resourceName, token, {
     method: 'POST',
     headers: {

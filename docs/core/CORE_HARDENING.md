@@ -12,7 +12,7 @@ Source review: [`CORE_01_06_IMPLEMENTATION_REVIEW.md`](./CORE_01_06_IMPLEMENTATI
 | H1     | Security + green baseline      | complete    |
 | H2     | Ad-hoc → composed lifecycle    | complete    |
 | H3     | Frozen composed evidence       | complete    |
-| H4     | Legacy write-path closure      | in progress |
+| H4     | Legacy write-path closure      | complete    |
 | H5     | Template catalogue convergence | pending     |
 
 ## H1 Security + green baseline
@@ -70,7 +70,30 @@ Source review: [`CORE_01_06_IMPLEMENTATION_REVIEW.md`](./CORE_01_06_IMPLEMENTATI
 
 ## H4 Legacy write-path closure
 
-- **Status:** pending
+- **Status:** complete
+- **Implementation:** Authenticated and `api_client` EXECUTE grants are
+  revoked for `insert_sheet_block`, `create_scientific_table`,
+  `add_scientific_column`, and SCI-010 schema create/publish/instantiate/
+  upgrade RPCs. Migrator retains EXECUTE for fixtures and conversion.
+  Product helpers throw instead of calling those RPCs. `/schemas` is a
+  compatibility catalogue (no create/publish). External API allowlist keeps
+  `bind_legacy_sheet` only. Demo/month seed uses the migrator login for
+  remaining scientific-table fixtures.
+- **Migrations:** `0106_core_h4_close_legacy_writes`
+- **Tests:** `tests/db/core-h4-legacy-writes.test.ts`; existing scientific-
+  table and SCI-010 suites create fixtures as migrator
+- **Classification:**
+  - READ COMPATIBILITY — scientific table metadata, generated sheets,
+    `query_dataset`, historical Notebook `{tableId}` render
+  - CONVERT/MIGRATE — `convert_legacy_sheet_block`, `bind_legacy_sheet`,
+    `apply_scientific_row_edits`
+  - NEW WRITE — DISABLE — `insert_sheet_block`, `create_scientific_table`,
+    `add_scientific_column`, SCI-010 create/publish/instantiate/upgrade
+  - MIGRATOR/INTERNAL ONLY — the same write RPCs, demo seed, tests
+- **Limitations:** existing scientific-table row edits remain; no bulk
+  historical migration; Configure remains the CORE-02 schema surface
+- **Completion evidence:** focused H4 DB contract plus rewritten fixture
+  paths; scientist/owner/api_client cannot self-create SCI-010/sheet state
 
 ## H5 Template catalogue convergence
 

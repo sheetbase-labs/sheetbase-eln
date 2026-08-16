@@ -339,11 +339,8 @@ function SchemaManagementRoute() {
     onSuccess: () => void refreshRelationships(),
   })
 
-  const isOwner = context.workspace?.role === 'owner'
-  const canAddToSelected = Boolean(
-    selected?.status === 'draft' &&
-    (isOwner || selected.created_by_user_id === context.user.id),
-  )
+  const isOwner = false
+  const canAddToSelected = false
 
   function resetDraft() {
     setDraftName('')
@@ -367,14 +364,6 @@ function SchemaManagementRoute() {
       setDraftSlug(generated)
     }
   }, [draftName, slugTouched, mode])
-
-  function startCreate() {
-    resetDraft()
-    setPendingField(null)
-    setSelectedFieldId(null)
-    setMode('create')
-    setViewMode('zoom')
-  }
 
   function selectSchema(id: string) {
     setMode('view')
@@ -438,7 +427,7 @@ function SchemaManagementRoute() {
     context: shellContext,
     breadcrumbs: [
       { label: 'Home', to: '/' },
-      { label: 'Data Models' },
+      { label: 'Legacy schemas' },
       ...(headerTitle ? [{ label: headerTitle }] : []),
     ],
     fullBleed: true,
@@ -446,21 +435,18 @@ function SchemaManagementRoute() {
 
   return (
     <>
+      <div className="border-b bg-muted/40 px-4 py-2 text-sm text-muted-foreground">
+        Compatibility view of historical SCI-010 schemas. New Dataset Schemas
+        are created in Configure. This page does not create or publish SCI-010
+        schemas.
+      </div>
       <div className="flex min-h-0 flex-1 gap-0 overflow-hidden">
         {/* Schema registry — collapsible */}
         {registryOpen ? (
           <div className="flex h-full min-h-0 w-60 shrink-0 flex-col border-r">
             <div className="flex items-center justify-between border-b px-3 py-2.5">
-              <h2 className="text-sm font-semibold">Schemas</h2>
+              <h2 className="text-sm font-semibold">Legacy schemas</h2>
               <div className="flex items-center gap-1">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={startCreate}
-                  className="px-1.5"
-                >
-                  <Plus className="size-4" aria-hidden="true" />
-                </Button>
                 <Button
                   size="sm"
                   variant="ghost"
@@ -486,16 +472,9 @@ function SchemaManagementRoute() {
               {!schemasQuery.isLoading && schemas.length === 0 && (
                 <div className="px-2 py-4">
                   <p className="text-sm text-muted-foreground">
-                    No schemas yet.
+                    No SCI-010 schemas in this workspace. Create governed
+                    Dataset Schemas from Configure.
                   </p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="mt-2"
-                    onClick={startCreate}
-                  >
-                    <Plus className="size-3.5" aria-hidden="true" /> New schema
-                  </Button>
                 </div>
               )}
               <div className="space-y-4">
@@ -621,7 +600,6 @@ function SchemaManagementRoute() {
               onDeleteRelationship={(id) =>
                 deleteRelationshipMutation.mutate(id)
               }
-              onStartCreate={startCreate}
             />
           ) : selected ? (
             <SchemaEditor
@@ -660,7 +638,7 @@ function SchemaManagementRoute() {
               onToggleInspector={() => setInspectorOpen((v) => !v)}
             />
           ) : (
-            <EmptyState onStartCreate={startCreate} />
+            <EmptyState />
           )}
         </div>
       </div>
@@ -672,19 +650,15 @@ function SchemaManagementRoute() {
 /* Empty state                                                                */
 /* -------------------------------------------------------------------------- */
 
-function EmptyState({ onStartCreate }: { onStartCreate: () => void }) {
+function EmptyState() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3 p-10 text-center">
       <Database className="size-8 text-muted-foreground" aria-hidden="true" />
       <h2 className="text-lg font-semibold">No schema selected</h2>
       <p className="max-w-md text-sm text-muted-foreground">
-        Dataset schemas are reusable, versioned definitions of the columns a
-        sheet measures. Define fields once here, then bind sheets to a schema so
-        cross-sheet queries union rows by stable field slug.
+        This is a compatibility catalogue of historical SCI-010 Dataset
+        Schemas. New governed schemas live under Configure.
       </p>
-      <Button onClick={onStartCreate}>
-        <Plus className="size-4" aria-hidden="true" /> New schema
-      </Button>
     </div>
   )
 }
@@ -1316,7 +1290,6 @@ interface SchemaGraphCanvasProps {
   onSelectSchema: (id: string) => void
   onCreateRelationship: (input: CreateSchemaRelationshipInput) => void
   onDeleteRelationship: (id: string) => void
-  onStartCreate: () => void
 }
 
 function SchemaGraphCanvas({
@@ -1332,7 +1305,6 @@ function SchemaGraphCanvas({
   onSelectSchema,
   onCreateRelationship,
   onDeleteRelationship,
-  onStartCreate,
 }: SchemaGraphCanvasProps) {
   // One node per slug — latest revision wins (ADR 0035: slug-level graph).
   const latestPerSlug = useMemo(() => {
@@ -1508,9 +1480,6 @@ function SchemaGraphCanvas({
             relationship{visibleEdges.length === 1 ? '' : 's'}
           </span>
         </div>
-        <Button size="sm" onClick={onStartCreate}>
-          <Plus className="size-3.5" aria-hidden="true" /> New schema
-        </Button>
       </div>
 
       <div className="relative min-h-0 flex-1 overflow-hidden">
@@ -1531,12 +1500,8 @@ function SchemaGraphCanvas({
               aria-hidden="true"
             />
             <p className="max-w-md text-sm text-muted-foreground">
-              No schemas yet. Create your first dataset schema to start building
-              a relationship graph.
+              No historical SCI-010 schemas in this workspace.
             </p>
-            <Button size="sm" onClick={onStartCreate}>
-              <Plus className="size-3.5" aria-hidden="true" /> New schema
-            </Button>
           </div>
         )}
         <div className="absolute inset-0">

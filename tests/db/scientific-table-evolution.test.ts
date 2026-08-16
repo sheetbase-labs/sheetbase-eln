@@ -1,7 +1,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { prepareTestDatabase } from './helpers'
+import { prepareTestDatabase, setActorJwt } from './helpers'
 
 const WS = '31000000-0000-4000-8000-000000000001'
 const PROJECT = '31000000-0000-4000-8000-000000000002'
@@ -50,6 +50,7 @@ beforeAll(async () => {
   await auth.query(`SELECT set_config('request.jwt.claims',$1,false)`, [
     JSON.stringify({ role: 'authenticated', sub: USER, workspace_id: WS }),
   ])
+  await setActorJwt(migrator, USER, WS)
 })
 
 afterAll(async () => Promise.all([migrator?.end(), auth?.end()]))
@@ -61,8 +62,7 @@ async function createSheet(columns: unknown[]): Promise<Sheet> {
     [block, RECORD, nextBlock, USER],
   )
   return (
-    await auth.query(
-      `SELECT api.create_scientific_table($1,'Evolution fixture',$2::jsonb) result`,
+    await migrator.query(`SELECT api.create_scientific_table($1,'Evolution fixture',$2::jsonb) result`,
       [block, JSON.stringify(columns)],
     )
   ).rows[0].result
@@ -135,8 +135,7 @@ describe('scientific table migration evolution', () => {
     const first = '31000000-0000-4000-8000-000000000101'
     const second = '31000000-0000-4000-8000-000000000102'
     const added = (
-      await auth.query(
-        `SELECT api.add_scientific_column($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb,$9::jsonb) result`,
+      await migrator.query(`SELECT api.add_scientific_column($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb,$9::jsonb) result`,
         [
           sheet.table.id,
           1,
@@ -219,8 +218,7 @@ describe('scientific table migration evolution', () => {
       events: (await tableEvents(other.table.id)).length,
     }
     await expect(
-      auth.query(
-        `SELECT api.add_scientific_column($1,$2,'Bad','category',false,$3::jsonb,NULL,'{}',$4::jsonb)`,
+      migrator.query(`SELECT api.add_scientific_column($1,$2,'Bad','category',false,$3::jsonb,NULL,'{}',$4::jsonb)`,
         [
           other.table.id,
           1,

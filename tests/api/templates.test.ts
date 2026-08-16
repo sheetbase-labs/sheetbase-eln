@@ -27,6 +27,8 @@ let admin: Client
 async function clean(): Promise<void> {
   await admin.query(
     `DELETE FROM api.record_links WHERE source_record_id IN
+      (SELECT id FROM api.records WHERE workspace_id IN ($1,$2))
+      OR target_record_id IN
       (SELECT id FROM api.records WHERE workspace_id IN ($1,$2))`,
     [WS_A, WS_B],
   )
@@ -148,7 +150,10 @@ function json(res: Response): Promise<any> {
 
 beforeAll(async () => {
   if (!SECRET) throw new Error('PGRST_JWT_SECRET is required for API tests.')
-  admin = new Client({ connectionString: process.env.DATABASE_URL })
+  admin = new Client({
+    connectionString:
+      process.env.MIGRATION_DATABASE_URL ?? process.env.DATABASE_URL,
+  })
   await admin.connect()
   await clean()
   await admin.query(

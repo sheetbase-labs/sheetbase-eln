@@ -266,4 +266,32 @@ describe('CORE-06.2 canonical Notebook Sheet Instance blocks', () => {
       'SB001',
     )
   })
+
+  it('lets an ad-hoc Notebook Sheet add a local row without Dataset composition', async () => {
+    const inserted = (
+      await auth.query(
+        `SELECT api.insert_sheet_instance_block($1,NULL,NULL,NULL) result`,
+        [RECORD_B],
+      )
+    ).rows[0].result
+    const instanceId = inserted.instance.id as string
+    const fieldId = inserted.instance.state.localFields[0].fieldId as string
+    expect(inserted.instance.state.localFields[0].key).toBe('column_1')
+    const rowKey = '06200000-0000-4000-8000-0000000000aa'
+    const updated = (
+      await auth.query(
+        `SELECT to_jsonb(api.mutate_sheet_instance_local_state($1,$2,$3,'[]'::jsonb,$4::jsonb,$5::jsonb)) result`,
+        [
+          instanceId,
+          inserted.instance.revision,
+          crypto.randomUUID(),
+          JSON.stringify([{ kind: 'local', rowKey }]),
+          JSON.stringify([{ rowKey, fieldId, value: 'first observation' }]),
+        ],
+      )
+    ).rows[0].result
+    expect(updated.state.localValues[rowKey][fieldId]).toBe(
+      'first observation',
+    )
+  })
 })

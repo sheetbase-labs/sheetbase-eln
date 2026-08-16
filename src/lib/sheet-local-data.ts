@@ -176,6 +176,42 @@ export async function mutateSheetLocalState(
 export const sheetLocalAddressedRowSchema = addressedRow
 export const sheetLocalCellSchema = cell
 
+export function createAdHocTextField(
+  label: string,
+  existingKeys: string[] = [],
+) {
+  const trimmed = label.trim() || 'Column'
+  let key = trimmed
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 40)
+  if (!/^[a-z]/.test(key)) key = `column_${key || '1'}`
+  const used = new Set(existingKeys)
+  let candidate = key
+  let n = 2
+  while (used.has(candidate)) {
+    candidate = `${key}_${n}`
+    n += 1
+  }
+  return {
+    fieldId: crypto.randomUUID(),
+    key: candidate,
+    label: trimmed,
+    description: null,
+    logicalType: 'text' as const,
+    nullable: true,
+    defaultValue: null,
+    cardinality: 'one' as const,
+    quantity: null,
+    validation: {},
+    category: null,
+    relationship: null,
+    computation: { mode: 'stored' as const },
+    lifecycle: 'active' as const,
+  }
+}
+
 export async function mutateSheetInstanceCalculations(
   input: {
     instanceId: string

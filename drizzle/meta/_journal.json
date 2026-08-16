@@ -715,6 +715,13 @@
       "when": 1786819000000,
       "tag": "0101_core_067_sheet_evidence",
       "breakpoints": true
+    },
+    {
+      "idx": 102,
+      "version": "7",
+      "when": 1786820000000,
+      "tag": "0102_core_068_adhoc_sheet_local_rows",
+      "breakpoints": true
     }
   ]
 }

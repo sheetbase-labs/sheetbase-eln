@@ -158,9 +158,8 @@ export function ComposedSheetWorkspace({
   if (composition.error) {
     return (
       <p role="alert">
-        {composition.error instanceof Error
-          ? composition.error.message
-          : 'Unable to load composed Sheet.'}
+        This Sheet could not be composed from its Dataset bindings. Open the
+        Sheet Definition, or use an ad-hoc Sheet to enter values directly.
       </p>
     )
   }

@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ZodError } from 'zod'
 
 import { ComposedSheetWorkspace } from '#/components/sheet/composed-sheet-workspace'
+import { AdHocSheetWorkspace } from '#/components/sheet/ad-hoc-sheet-workspace'
 import {
   Badge,
   Popover,
@@ -252,11 +253,18 @@ function NotebookInstanceSheetEmbed({
         </p>
       ) : null}
       <div className="min-h-0 flex-1">
-        <ComposedSheetWorkspace
-          instanceId={instanceId}
-          projectId={projectId}
-          readOnly={!projectId}
-        />
+        {instance.data.sourceDefinitionVersionId ? (
+          <ComposedSheetWorkspace
+            instanceId={instanceId}
+            projectId={projectId}
+            readOnly={!projectId}
+          />
+        ) : (
+          <AdHocSheetWorkspace
+            instance={instance.data}
+            readOnly={!projectId || instance.data.lifecycle !== 'active'}
+          />
+        )}
       </div>
     </div>
   )

@@ -37,7 +37,7 @@ BEGIN
     def := regexp_replace(
       def,
       E'\nBEGIN\n',
-      E'\nBEGIN\n  PERFORM internal.reject_new_legacy_notebook_template(p_kind);\n',
+      E'\nBEGIN\n  PERFORM "internal"."reject_new_legacy_notebook_template"(p_kind);\n',
       1
     );
     EXECUTE def;

@@ -342,6 +342,9 @@ AS $$
 DECLARE
   workspace uuid;
 BEGIN
+  IF session_user = 'migrator' THEN
+    RETURN NEW;
+  END IF;
   IF TG_TABLE_NAME = 'dataset_schema_versions' THEN
     SELECT s.workspace_id INTO workspace
       FROM api.dataset_schema_definitions s WHERE s.id = NEW.schema_id;

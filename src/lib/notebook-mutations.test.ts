@@ -11,9 +11,7 @@ import {
   deleteBlock,
   duplicateBlock,
   insertBlock,
-  insertSheetBlock,
   insertSheetInstanceBlock,
-  convertLegacySheetBlock,
   moveBlock,
   updateBlockPayload,
 } from './notebook-mutations'
@@ -187,33 +185,6 @@ describe('duplicateBlock', () => {
       p_expected_structure_version: 3,
     })
   })
-
-  it('refuses to duplicate legacy scientific-table Sheet blocks', async () => {
-    const client = makeClient(() => ({}))
-    const source: NotebookBlock = {
-      id: 'b1',
-      recordId: 'r1',
-      type: 'sheet',
-      payload: { tableId: '0198d970-e266-4000-8000-000000000001' },
-      payloadSchemaVersion: 1,
-      order: 1,
-      version: 1,
-    }
-    await expect(
-      duplicateBlock(client, { block: source, expectedStructureVersion: 2 }),
-    ).rejects.toThrow(/cannot be duplicated/)
-    expect(client.rpc).not.toHaveBeenCalled()
-  })
-})
-
-describe('insertSheetBlock', () => {
-  it('refuses legacy scientific-table Sheet creation', async () => {
-    const client = makeClient(() => ({}))
-    await expect(insertSheetBlock(client, { recordId: 'r1' })).rejects.toThrow(
-      /insertSheetInstanceBlock/,
-    )
-    expect(client.rpc).not.toHaveBeenCalled()
-  })
 })
 
 describe('insertSheetInstanceBlock', () => {
@@ -235,25 +206,6 @@ describe('insertSheetInstanceBlock', () => {
     })
     expect(res.instanceId).toBe('i1')
     expect(res.structureVersion).toBe(2)
-  })
-})
-
-describe('convertLegacySheetBlock', () => {
-  it('calls convert_legacy_sheet_block with the block version', async () => {
-    const client = makeClient(() => ({
-      block: { ...blockWire, type: 'sheet', version: 2 },
-      instance: { id: 'i9' },
-    }))
-    const res = await convertLegacySheetBlock(client, {
-      blockId: 'b1',
-      expectedVersion: 1,
-    })
-    expect(client.rpc).toHaveBeenCalledWith('convert_legacy_sheet_block', {
-      p_block_id: 'b1',
-      p_expected_version: 1,
-    })
-    expect(res.instanceId).toBe('i9')
-    expect(res.block.version).toBe(2)
   })
 })
 

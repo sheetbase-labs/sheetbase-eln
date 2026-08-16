@@ -11,7 +11,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { mintPostgrestToken } from '#/lib/postgrest-token'
 import { handleProxyRequest } from '#/lib/postgrest-proxy'
-import { openMigratorWriter } from '../db/helpers'
 
 config({ path: ['.env.local', '.env'] })
 
@@ -28,6 +27,8 @@ let admin: Client
 async function clean(): Promise<void> {
   await admin.query(
     `DELETE FROM api.record_links WHERE source_record_id IN
+      (SELECT id FROM api.records WHERE workspace_id IN ($1,$2))
+      OR target_record_id IN
       (SELECT id FROM api.records WHERE workspace_id IN ($1,$2))`,
     [WS_A, WS_B],
   )
@@ -109,25 +110,16 @@ async function createRecord(
   status = 'draft',
   properties: Record<string, unknown> = {},
 ) {
-  if (kind === 'notebook_template') {
-    const writer = await openMigratorWriter(
-      process.env.DATABASE_URL ?? '',
-      user,
-      workspace,
-    )
-    const { rows } = await writer.query(
-      `SELECT * FROM api.create_record($1::uuid,$2,$3,$4,ARRAY[]::text[],$5::jsonb)`,
-      [project, kind, title, status, JSON.stringify(properties)],
-    )
-    await writer.end()
-    return rows[0]
-  }
+  const payload =
+    kind === 'protocol_template' && Object.keys(properties).length === 0
+      ? { version: '1.0' }
+      : properties
   const response = await rpc('create_record', user, workspace, {
     p_project_id: project,
     p_kind: kind,
     p_title: title,
     p_status: status,
-    p_properties: properties,
+    p_properties: payload,
   })
   expect(response.status).toBe(200)
   return response.json()
@@ -158,7 +150,10 @@ function json(res: Response): Promise<any> {
 
 beforeAll(async () => {
   if (!SECRET) throw new Error('PGRST_JWT_SECRET is required for API tests.')
-  admin = new Client({ connectionString: process.env.DATABASE_URL })
+  admin = new Client({
+    connectionString:
+      process.env.MIGRATION_DATABASE_URL ?? process.env.DATABASE_URL,
+  })
   await admin.connect()
   await clean()
   await admin.query(
@@ -192,16 +187,16 @@ afterAll(async () => {
 })
 
 describe('SCI-006 template REST contract', () => {
-  it('creates a notebook template through create_record with an NBK identifier', async () => {
+  it('creates a protocol template through create_record with a PRT identifier', async () => {
     const record = await createRecord(
       USER_A,
       WS_A,
       PROJ_A,
-      'notebook_template',
-      'API notebook template',
+      'protocol_template',
+      'API protocol template',
     )
-    expect(record.identifier).toMatch(/^NBK-\d{4}-\d{4}$/)
-    expect(record.kind).toBe('notebook_template')
+    expect(record.identifier).toMatch(/^PRT-\d{4}-\d{4}$/)
+    expect(record.kind).toBe('protocol_template')
     expect(record.created_by_user_id).toBe(USER_A)
   })
 
@@ -210,51 +205,47 @@ describe('SCI-006 template REST contract', () => {
       USER_A,
       WS_A,
       PROJ_A,
-      'notebook_template',
-      'Another notebook template',
+      'protocol_template',
+      'Another protocol template',
     )
     const res = await proxy(
-      'records?kind=eq.notebook_template&order=identifier.asc',
+      'records?kind=eq.protocol_template&order=identifier.asc',
       USER_A,
       WS_A,
     )
     expect(res.status).toBe(200)
     const rows = await json(res)
     expect(rows.length).toBeGreaterThanOrEqual(2)
-    expect(rows.every((r: any) => r.kind === 'notebook_template')).toBe(true)
+    expect(rows.every((r: any) => r.kind === 'protocol_template')).toBe(true)
   })
 
-  it('lists all templates with kind=in filter', async () => {
+  it('lists protocol templates with kind=in filter', async () => {
     const res = await proxy(
-      'records?kind=in.(protocol_template,notebook_template)&order=identifier.asc',
+      'records?kind=in.(protocol_template)&order=identifier.asc',
       USER_A,
       WS_A,
     )
     expect(res.status).toBe(200)
     const rows = await json(res)
-    expect(
-      rows.every((r: any) =>
-        ['protocol_template', 'notebook_template'].includes(r.kind),
-      ),
-    ).toBe(true)
+    expect(rows.every((r: any) => r.kind === 'protocol_template')).toBe(true)
   })
 
-  it('validates a notebook template through the lifecycle RPC', async () => {
+  it('activates a protocol template through the lifecycle RPC', async () => {
     const template = await createRecord(
       USER_A,
       WS_A,
       PROJ_A,
-      'notebook_template',
-      'Validate via API',
+      'protocol_template',
+      'Activate via API',
     )
     const res = await rpc('transition_record_status', USER_A, WS_A, {
       p_record_id: template.id,
-      p_target_status: 'validated',
+      p_target_status: 'active',
       p_expected_metadata_version: template.metadata_version,
     })
     expect(res.status).toBe(200)
     const body = await json(res)
-    expect(body.status).toBe('validated')
+    expect(body.status).toBe('active')
     expect(body.updated_by_user_id).toBe(USER_A)
   })
 
@@ -263,24 +254,24 @@ describe('SCI-006 template REST contract', () => {
       USER_A,
       WS_A,
       PROJ_A,
-      'notebook_template',
+      'protocol_template',
       'Bad transition',
     )
     const res = await rpc('transition_record_status', USER_A, WS_A, {
       p_record_id: template.id,
-      p_target_status: 'active',
+      p_target_status: 'validated',
       p_expected_metadata_version: template.metadata_version,
     })
     expect(res.status).toBe(422)
     expect((await json(res)).error.category).toBe('invalid_transition')
   })
 
-  it('instantiates a notebook template into an experiment through the RPC', async () => {
+  it('instantiates a protocol template into an experiment through the RPC', async () => {
     const template = await createRecord(
       USER_A,
       WS_A,
       PROJ_A,
-      'notebook_template',
+      'protocol_template',
       'Instantiate via API',
     )
     await insertBlock(
@@ -303,7 +294,7 @@ describe('SCI-006 template REST contract', () => {
     )
     await rpc('transition_record_status', USER_A, WS_A, {
       p_record_id: template.id,
-      p_target_status: 'validated',
+      p_target_status: 'active',
       p_expected_metadata_version: template.metadata_version,
     })
     const res = await rpc('instantiate_template', USER_A, WS_A, {
@@ -312,7 +303,10 @@ describe('SCI-006 template REST contract', () => {
       p_target_kind: 'experiment',
       p_title: 'API instantiated run',
     })
-    expect(res.status).toBeGreaterThanOrEqual(400)
+    expect(res.status).toBe(200)
+    const body = await json(res)
+    expect(body.record.kind).toBe('experiment')
+    expect(body.record.title).toBe('API instantiated run')
   })
 
   it('rejects instantiation from a draft template with template_not_instantiable (422)', async () => {
@@ -320,7 +314,7 @@ describe('SCI-006 template REST contract', () => {
       USER_A,
       WS_A,
       PROJ_A,
-      'notebook_template',
+      'protocol_template',
       'Draft no instantiate',
     )
     const res = await rpc('instantiate_template', USER_A, WS_A, {
@@ -328,24 +322,23 @@ describe('SCI-006 template REST contract', () => {
       p_target_project_id: PROJ_A,
       p_target_kind: 'experiment',
     })
-    expect(res.status).toBeGreaterThanOrEqual(400)
+    expect(res.status).toBe(422)
+    expect((await json(res)).error.category).toBe('template_not_instantiable')
   })
 
   it('rejects cross-workspace instantiation with permission_denied (403)', async () => {
-    // Workspace B creates and validates a template.
     const template = await createRecord(
       USER_B,
       WS_B,
       PROJ_B,
-      'notebook_template',
+      'protocol_template',
       'B only template',
     )
     await rpc('transition_record_status', USER_B, WS_B, {
       p_record_id: template.id,
-      p_target_status: 'validated',
+      p_target_status: 'active',
       p_expected_metadata_version: template.metadata_version,
     })
-    // Workspace A cannot instantiate it.
     const res = await rpc('instantiate_template', USER_A, WS_A, {
       p_template_record_id: template.id,
       p_target_project_id: PROJ_A,
@@ -360,10 +353,10 @@ describe('SCI-006 template REST contract', () => {
       USER_B,
       WS_B,
       PROJ_B,
-      'notebook_template',
+      'protocol_template',
       'B secret template',
     )
-    const res = await proxy('records?kind=eq.notebook_template', USER_A, WS_A)
+    const res = await proxy('records?kind=eq.protocol_template', USER_A, WS_A)
     const rows = await json(res)
     expect(rows.every((r: any) => r.title !== 'B secret template')).toBe(true)
   })
@@ -373,7 +366,7 @@ describe('SCI-006 template REST contract', () => {
       USER_A,
       WS_A,
       PROJ_A,
-      'notebook_template',
+      'protocol_template',
       'Event parity',
     )
     await insertBlock(
@@ -388,7 +381,7 @@ describe('SCI-006 template REST contract', () => {
     )
     await rpc('transition_record_status', USER_A, WS_A, {
       p_record_id: template.id,
-      p_target_status: 'validated',
+      p_target_status: 'active',
       p_expected_metadata_version: template.metadata_version,
     })
     const res = await rpc('instantiate_template', USER_A, WS_A, {
@@ -396,7 +389,10 @@ describe('SCI-006 template REST contract', () => {
       p_target_project_id: PROJ_A,
       p_target_kind: 'experiment',
     })
-    expect(res.status).toBeGreaterThanOrEqual(400)
+    expect(res.status).toBe(200)
+    const body = await json(res)
+    expect(body.record.created_by_user_id).toBe(USER_A)
+    expect(body.link.created_by_user_id).toBe(USER_A)
   })
 
   it('rejects an unauthenticated REST request at the proxy boundary', async () => {

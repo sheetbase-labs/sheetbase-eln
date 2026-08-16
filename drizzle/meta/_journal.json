@@ -764,6 +764,13 @@
       "when": 1786826000000,
       "tag": "0108_core_h4_legacy_write_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 109,
+      "version": "7",
+      "when": 1786827000000,
+      "tag": "0109_remove_legacy_compatibility",
+      "breakpoints": true
     }
   ]
 }

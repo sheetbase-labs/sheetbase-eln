@@ -102,12 +102,14 @@ describe('H4 legacy scientific-table and SCI-010 writes are closed', () => {
     )
   })
 
-  it('migrator can still create a scientific table for fixtures and conversion', async () => {
+  it('migrator cannot create scientific tables either', async () => {
     await setActorJwt(migrator, OWNER, WS)
-    const created = await migrator.query(
-      `SELECT api.create_scientific_table($1,'H4 fixture','[]'::jsonb) result`,
-      [BLOCK],
+    await expectDenied(
+      migrator.query(
+        `SELECT api.create_scientific_table($1,'H4 fixture','[]'::jsonb)`,
+        [BLOCK],
+      ),
+      '42501',
     )
-    expect(created.rows[0].result.table.resource_name).toMatch(/^sheet_/)
   })
 })

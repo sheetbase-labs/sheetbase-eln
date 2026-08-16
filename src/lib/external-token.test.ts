@@ -58,68 +58,46 @@ describe('requiredScopes', () => {
     expect(requiredScopes('POST', rpcPath)).toEqual(['projects:write'])
   })
 
-  it('classifies scientific metadata, rows, bulk edits and schema RPCs', () => {
+  it('denies scientific-table and SCI-010 resources as insufficient_scope', () => {
     const resource = `sheet_${'a'.repeat(26)}`
-    expect(requiredScopes('GET', { kind: 'table', resource })).toEqual([
-      'scientific:read',
-    ])
-    expect(requiredScopes('POST', { kind: 'table', resource })).toEqual([
-      'scientific:write',
-    ])
-    expect(requiredScopes('PATCH', { kind: 'table', resource })).toEqual([
-      'scientific:read',
-      'scientific:write',
-    ])
-    for (const metadata of [
-      'formula_definitions',
-      'formula_dependencies',
-      'formula_results',
-    ])
-      expect(
-        requiredScopes('GET', { kind: 'table', resource: metadata }),
-      ).toEqual(['scientific:read'])
-    expect(
-      requiredScopes('POST', {
-        kind: 'rpc',
-        resource: 'scientific_table_metadata',
-      }),
-    ).toEqual(['scientific:read'])
-    expect(
-      requiredScopes('POST', {
-        kind: 'rpc',
-        resource: 'apply_scientific_row_edits',
-      }),
-    ).toEqual(['scientific:read', 'scientific:write'])
-    expect(
-      requiredScopes('POST', {
-        kind: 'rpc',
-        resource: 'apply_scientific_row_changes',
-      }),
-    ).toEqual(['scientific:read', 'scientific:write'])
-    expect(
-      requiredScopes('POST', {
-        kind: 'rpc',
-        resource: 'bind_legacy_sheet',
-      }),
-    ).toEqual(['scientific:schema'])
-    expect(() =>
-      requiredScopes('POST', {
-        kind: 'rpc',
-        resource: 'add_scientific_column',
-      }),
-    ).toThrow(ExternalTokenError)
-    expect(() =>
-      requiredScopes('POST', {
-        kind: 'rpc',
-        resource: 'create_dataset_schema',
-      }),
-    ).toThrow(ExternalTokenError)
-    expect(() =>
-      requiredScopes('POST', {
-        kind: 'rpc',
-        resource: 'update_scientific_table_display',
-      }),
-    ).toThrow(ExternalTokenError)
+    const denied = [
+      { method: 'GET', path: { kind: 'table' as const, resource } },
+      { method: 'POST', path: { kind: 'table' as const, resource } },
+      { method: 'PATCH', path: { kind: 'table' as const, resource } },
+      {
+        method: 'GET',
+        path: { kind: 'table' as const, resource: 'scientific_tables' },
+      },
+      {
+        method: 'POST',
+        path: { kind: 'rpc' as const, resource: 'bind_legacy_sheet' },
+      },
+      {
+        method: 'POST',
+        path: { kind: 'rpc' as const, resource: 'query_dataset' },
+      },
+      {
+        method: 'POST',
+        path: { kind: 'rpc' as const, resource: 'scientific_table_metadata' },
+      },
+      {
+        method: 'POST',
+        path: { kind: 'rpc' as const, resource: 'apply_scientific_row_edits' },
+      },
+      {
+        method: 'POST',
+        path: { kind: 'rpc' as const, resource: 'add_scientific_column' },
+      },
+    ]
+    for (const { method, path } of denied) {
+      expect(() => requiredScopes(method, path)).toThrow(ExternalTokenError)
+      try {
+        requiredScopes(method, path)
+      } catch (error) {
+        expect(error).toBeInstanceOf(ExternalTokenError)
+        expect((error as ExternalTokenError).code).toBe('insufficient_scope')
+      }
+    }
   })
 
   it('fails closed for unknown external resources', () => {

@@ -43,8 +43,8 @@ afterAll(async () => {
   await migrator?.end()
 })
 
-describe('H5 legacy notebook template records are compatibility-only', () => {
-  it('authenticated cannot create or instantiate legacy notebook template records', async () => {
+describe('H5 notebook template records are removed from the product', () => {
+  it('no role can create or instantiate notebook_template records', async () => {
     const owner = await actor(OWNER)
     await expectDenied(
       owner.query(
@@ -54,18 +54,10 @@ describe('H5 legacy notebook template records are compatibility-only', () => {
       '42501',
     )
     await setActorJwt(migrator, OWNER, WS)
-    const created = await migrator.query(
-      `SELECT * FROM api.create_record($1::uuid,'notebook_template','Legacy','draft',ARRAY[]::text[],'{}'::jsonb)`,
-      [PROJECT],
-    )
-    await migrator.query(
-      `SELECT * FROM api.transition_record_status($1,'validated',$2)`,
-      [created.rows[0].id, created.rows[0].metadata_version],
-    )
     await expectDenied(
-      owner.query(
-        `SELECT api.instantiate_template($1,$2,'experiment','Nope')`,
-        [created.rows[0].id, PROJECT],
+      migrator.query(
+        `SELECT * FROM api.create_record($1::uuid,'notebook_template','Legacy','draft',ARRAY[]::text[],'{}'::jsonb)`,
+        [PROJECT],
       ),
       '42501',
     )

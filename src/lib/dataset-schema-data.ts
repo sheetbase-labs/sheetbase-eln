@@ -351,39 +351,27 @@ export async function upgradeScientificSchema(
 }
 
 export async function bindLegacySheet(
-  client: DataClient,
-  tableId: string,
-  schemaName?: string,
-): Promise<{
-  bound: boolean
-  tableId: string
-  schemaId: string
-  slug: string
-  revision: number
-}> {
-  return client.rpc('bind_legacy_sheet', {
-    p_table_id: tableId,
-    p_schema_name: schemaName ?? null,
-  })
+  _client: DataClient,
+  _tableId: string,
+  _schemaName?: string,
+): Promise<never> {
+  throw new Error(
+    'SCI-010 bind_legacy_sheet is removed. Use CORE-02 Datasets and CORE-03 Sheet Instances.',
+  )
 }
 
 export async function queryDataset(
-  client: DataClient,
-  schemaId: string,
-  revision: number,
-  filters?: Record<string, unknown>,
-  limit?: number,
-  offset?: number,
-  expand?: Record<string, { depth: number }>,
+  _client: DataClient,
+  _schemaId: string,
+  _revision: number,
+  _filters?: Record<string, unknown>,
+  _limit?: number,
+  _offset?: number,
+  _expand?: Record<string, { depth: number }>,
 ): Promise<DatasetQueryRow[]> {
-  return client.rpc<DatasetQueryRow[]>('query_dataset', {
-    p_schema_id: schemaId,
-    p_revision: revision,
-    p_filters: filters ?? {},
-    p_limit: limit ?? 200,
-    p_offset: offset ?? 0,
-    p_expand: expand ?? {},
-  })
+  throw new Error(
+    'SCI-010 query_dataset is removed. Use query_dataset_rows on CORE-02 Datasets.',
+  )
 }
 
 // --- Relationship functions (SCI-011) ------------------------------------

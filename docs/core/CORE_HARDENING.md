@@ -77,20 +77,19 @@ Source review: [`CORE_01_06_IMPLEMENTATION_REVIEW.md`](./CORE_01_06_IMPLEMENTATI
   upgrade RPCs. Migrator retains EXECUTE for fixtures and conversion.
   Product helpers throw instead of calling those RPCs. `/schemas` is a
   compatibility catalogue (no create/publish). External API allowlist keeps
-  `bind_legacy_sheet` only. Demo/month seed uses the migrator login for
-  remaining scientific-table fixtures.
+  `bind_legacy_sheet` only. Demo and month seeds create CORE-03 Sheet
+  Instances with local grids; they do not write scientific tables.
 - **Migrations:** `0106_core_h4_close_legacy_writes`,
   `0108_core_h4_legacy_write_guard`
 - **Tests:** `tests/db/core-h4-legacy-writes.test.ts`; existing scientific-
   table and SCI-010 suites create fixtures as migrator
 - **Classification:**
-  - READ COMPATIBILITY — scientific table metadata, generated sheets,
-    `query_dataset`, historical Notebook `{tableId}` render
-  - CONVERT/MIGRATE — `convert_legacy_sheet_block`, `bind_legacy_sheet`,
-    `apply_scientific_row_edits`
-  - NEW WRITE — DISABLE — `insert_sheet_block`, `create_scientific_table`,
-    `add_scientific_column`, SCI-010 create/publish/instantiate/upgrade
-  - MIGRATOR/INTERNAL ONLY — the same write RPCs, demo seed, tests
+  - REMOVED — `insert_sheet_block`, `create_scientific_table`,
+    `add_scientific_column`, SCI-010 create/publish/instantiate/upgrade,
+    `convert_legacy_sheet_block`, `bind_legacy_sheet`, `/schemas`, external
+    scientific-table allowlist
+  - KEEP — CORE-02 Dataset Schema Definitions, CORE-03 Sheet Instances,
+    historical Notebook `{instanceId}` render, protocol templates
 - **Limitations:** existing scientific-table row edits remain; no bulk
   historical migration; Configure remains the CORE-02 schema surface
 - **Completion evidence:** focused H4 DB contract plus rewritten fixture
@@ -98,34 +97,52 @@ Source review: [`CORE_01_06_IMPLEMENTATION_REVIEW.md`](./CORE_01_06_IMPLEMENTATI
 
 ## H5 Template catalogue convergence
 
-- **Status:** complete
-- **Implementation:** `create_record` / `create_record_with_blocks` reject
-  `kind = notebook_template` unless the login role is `migrator`.
-  `instantiate_template` likewise refuses legacy notebook template records for
-  application roles. Protocol templates are unchanged. The Template Library
-  already lists CORE-06 versioned Notebook Templates for new work and Protocol
-  templates separately. Product `duplicateTemplate` refuses legacy notebook
-  records. Historical `records.kind = notebook_template` rows remain readable
-  and migrator-creatable for fixtures.
-- **Migrations:** `0107_core_h5_notebook_template_catalogue`
-- **Tests:** `tests/db/core-h5-notebook-templates.test.ts`; SCI-006 suites
-  create legacy notebook records as migrator
-- **Limitations:** no automatic migration of historical template records into
-  `notebook_templates`; provenance `record_link` rows remain
-- **Completion evidence:** scientist/owner cannot create or instantiate legacy
-  notebook template records; CORE-06 `create_notebook_template` still works;
-  protocol templates still create
+- **Status:** complete, then superseded
+- **Implementation:** Compatibility is removed. `records.kind =
+notebook_template` cannot be created or instantiated by any role, including
+  migrator. Existing notebook_template records are deleted by migration
+  `0109`. Protocol templates and CORE-06 `notebook_templates` remain.
+- **Migrations:** `0107_core_h5_notebook_template_catalogue`,
+  `0109_remove_legacy_compatibility`
+- **Tests:** `tests/db/core-h5-notebook-templates.test.ts`
+- **Limitations:** leftover `notebook_template` is still listed on the records
+  kind check constraint so historical dumps can load; new rows cannot be
+  created through RPCs
+- **Completion evidence:** no role can create notebook_template records;
+  CORE-06 `create_notebook_template` still works; protocol templates still
+  create
+
+## Compatibility removal
+
+Product owner decision: no SCI-010 / scientific-table / `{tableId}` Sheet /
+legacy notebook-template record compatibility surface.
+
+- `/schemas` removed from routing and navigation
+- `convert_legacy_sheet_block` and `bind_legacy_sheet` dropped
+- Scientific-table and SCI-010 RPCs raise or have EXECUTE revoked for every
+  role, including migrator
+- External API no longer allowlists scientific-table resources
+- Demo seed uses Sheet Instances, not scientific tables. Virus Stability
+  seeds a six-column, 32-row ad-hoc local grid (Control / sucrose /
+  trehalose / poloxamer × eight timepoints). Month showcase seeds an
+  eight-row transduction grid. Chart blocks stay empty placeholders
+  because chart specs still require a scientific-table `tableId`.
+
+Physical `scientific_tables` / generated `sheet_*` relations are not dropped
+in this migration (FK/formula cluster). They have no product write or
+external API path.
 
 ## Programme status
 
-Core Hardening H1–H5 is complete. Next phase is Product Consolidation /
-Workflow Validation. AUTO-01 remains deferred.
+Core Hardening H1–H5 is complete. Legacy compatibility is removed.
+Next phase is Product Consolidation / Workflow Validation. AUTO-01 remains
+deferred.
 
 ## Exit gate
 
-- `pnpm db:fresh --demo` applies `0000`–`0108` (including journaled `0106`)
-  and 29 idempotent demo seed steps; reseed is also 29/29.
-- `pnpm test:db` 75 files / 721 tests after that fresh migrate.
+- `pnpm db:fresh --demo` applies `0000`–`0109` and 27 idempotent demo seed
+  steps (reseed also 27/27).
+- `pnpm test:db` 65 files / 620 tests after that fresh migrate.
 - `pnpm validate` is green: Prettier, ESLint with 0 errors and 21 existing
-  warnings, typecheck, 179 files / 1,940 tests, production client/SSR build.
+  warnings, typecheck, 173 files / 1,835 tests, production client/SSR build.
 - The CORE-02.6 100k+80k Dataset benchmark was not rerun.

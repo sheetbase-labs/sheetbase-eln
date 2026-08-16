@@ -89,20 +89,7 @@ export async function verifyApiClientToken(
   }
 }
 
-const GENERATED_SHEET = /^sheet_[a-z2-7]{26}$/
-const SCIENTIFIC_METADATA = new Set([
-  'scientific_tables',
-  'scientific_columns',
-  'scientific_category_options',
-  'scientific_transfers',
-  'formula_definitions',
-  'formula_dependencies',
-  'formula_results',
-  // SCI-010: dataset schema registry metadata (workspace-level).
-  'dataset_schemas',
-  'dataset_schema_fields',
-])
-const SCIENTIFIC_SCHEMA_RPCS = new Set(['bind_legacy_sheet'])
+const SCIENTIFIC_METADATA = new Set<string>()
 const PROJECT_DOMAIN_RESOURCES = new Set([
   'projects',
   'folders',
@@ -139,21 +126,6 @@ const PROJECT_DOMAIN_RPCS = new Set([
 export function requiredScopes(method: string, path: ProxyPath): Scope[] {
   if (path.kind === 'rpc') {
     if (PROJECT_DOMAIN_RPCS.has(path.resource)) return ['projects:write']
-    if (path.resource === 'scientific_table_metadata') {
-      return ['scientific:read']
-    }
-    if (
-      path.resource === 'apply_scientific_row_edits' ||
-      path.resource === 'apply_scientific_row_changes' ||
-      path.resource === 'import_scientific_rows'
-    ) {
-      return ['scientific:read', 'scientific:write']
-    }
-    if (path.resource === 'record_scientific_export') return ['scientific:read']
-    if (path.resource === 'query_dataset') return ['scientific:read']
-    if (SCIENTIFIC_SCHEMA_RPCS.has(path.resource)) {
-      return ['scientific:schema']
-    }
     throw new ExternalTokenError(
       'insufficient_scope',
       'External credentials cannot access this resource.',
@@ -167,10 +139,7 @@ export function requiredScopes(method: string, path: ProxyPath): Scope[] {
         : 'projects:write',
     ]
   }
-  if (
-    SCIENTIFIC_METADATA.has(path.resource) ||
-    GENERATED_SHEET.test(path.resource)
-  ) {
+  if (SCIENTIFIC_METADATA.has(path.resource)) {
     if (method === 'GET' || method === 'HEAD') return ['scientific:read']
     if (method === 'POST') return ['scientific:write']
     return ['scientific:read', 'scientific:write']

@@ -182,52 +182,29 @@ function validateSheet(payload: unknown): FieldErrors {
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
     ]
   const keys = Object.keys(payload)
-  if (
-    keys.some((key) => !['instanceId', 'tableId', 'presentation'].includes(key))
-  ) {
+  if (keys.some((key) => !['instanceId', 'presentation'].includes(key))) {
     return [
       {
         code: 'invalid_field_value',
-        message:
-          'sheet payload may only contain instanceId, tableId and presentation',
+        message: 'sheet payload may only contain instanceId and presentation',
       },
     ]
   }
-  const hasInstance = payload.instanceId !== undefined
-  const hasTable = payload.tableId !== undefined
-  if (hasInstance && hasTable) {
-    return [
-      {
-        code: 'invalid_field_value',
-        message:
-          'sheet block cannot reference both a Sheet Instance and a scientific table',
-      },
-    ]
-  }
-  if (!hasInstance && !hasTable) {
+  if (payload.instanceId === undefined) {
     return [
       {
         code: 'missing_required_field',
         field: 'instanceId',
-        message: 'sheet block must reference instanceId or tableId',
+        message: 'sheet block must reference instanceId',
       },
     ]
   }
-  if (hasInstance && !isUuid(payload.instanceId)) {
+  if (!isUuid(payload.instanceId)) {
     return [
       {
         code: 'invalid_field_value',
         field: 'instanceId',
         message: 'instanceId must be a UUID',
-      },
-    ]
-  }
-  if (hasTable && !isUuid(payload.tableId)) {
-    return [
-      {
-        code: 'invalid_field_value',
-        field: 'tableId',
-        message: 'tableId must be a UUID',
       },
     ]
   }

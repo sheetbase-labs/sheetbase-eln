@@ -332,7 +332,6 @@ export const defaultNavSections: AppShellNavSection[] = [
       { to: '/samples', label: 'Samples', icon: FlaskConical },
       { to: '/datasets', label: 'Datasets', icon: Database },
       { to: '/configure', label: 'Configure', icon: Layers },
-      { to: '/schemas', label: 'Schemas', icon: Database },
       { to: '/storage', label: 'Storage', icon: Snowflake },
     ],
   },

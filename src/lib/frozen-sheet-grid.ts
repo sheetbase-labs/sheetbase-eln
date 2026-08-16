@@ -13,6 +13,11 @@ export type FrozenSheetGrid = {
   rows: string[][]
 }
 
+export type FrozenComposedGrid = {
+  columns?: Array<{ id?: unknown; label?: unknown }>
+  rows?: unknown
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -80,4 +85,30 @@ export function frozenSheetGridFromState(
     return columns.map((column) => formatFrozenCell(row[column.id]))
   })
   return { columns, rows }
+}
+
+export function frozenSheetGridFromEvidence(evidence: {
+  instanceState: Record<string, unknown>
+  composedGrid?: FrozenComposedGrid | null
+}): FrozenSheetGrid {
+  const grid = evidence.composedGrid
+  if (grid && Array.isArray(grid.columns) && grid.columns.length > 0) {
+    const columns = grid.columns.flatMap((column) => {
+      if (typeof column.id !== 'string') return []
+      const label =
+        typeof column.label === 'string' && column.label.trim()
+          ? column.label
+          : 'Column'
+      return [{ id: column.id, label }]
+    })
+    const rows = Array.isArray(grid.rows)
+      ? grid.rows.map((row) =>
+          Array.isArray(row)
+            ? row.map((cell) => formatFrozenCell(cell))
+            : columns.map(() => ''),
+        )
+      : []
+    return { columns, rows }
+  }
+  return frozenSheetGridFromState(evidence.instanceState)
 }

@@ -19,7 +19,6 @@ import {
   Calendar,
   Clock,
   Database,
-  FilePlus,
   Hash,
   Info,
   Layers,
@@ -367,14 +366,8 @@ export function SchemaPickerDialog({
             <ChooseOption
               icon={Database}
               title="Select published schema"
-              description="Instantiate a sheet from a workspace dataset schema."
+              description="Compatibility: bind an existing SCI-010 schema. New schemas are created in Configure."
               onClick={() => setMode('published')}
-            />
-            <ChooseOption
-              icon={FilePlus}
-              title="Create schema on the fly"
-              description="Define a new schema and start a sheet from it."
-              onClick={() => setMode('create')}
             />
             <ChooseOption
               icon={PencilLine}

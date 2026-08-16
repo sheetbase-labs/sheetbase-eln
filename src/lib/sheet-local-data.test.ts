@@ -2,7 +2,11 @@ import { describe, expect, it, vi } from 'vitest'
 
 import type { DataClient } from './data-client'
 import type { FieldDefinition } from './field-definition'
-import { mutateSheetLocalState, createAdHocTextField, sheetLocalValueError } from './sheet-local-data'
+import {
+  mutateSheetLocalState,
+  createAdHocTextField,
+  sheetLocalValueError,
+} from './sheet-local-data'
 import { validSheetInstanceState } from './sheet-instance.test'
 
 const field = (

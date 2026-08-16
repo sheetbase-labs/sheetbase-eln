@@ -1,7 +1,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { expectDenied, prepareTestDatabase } from './helpers'
+import { expectDenied, prepareTestDatabase, setActorJwt } from './helpers'
 
 const WS = '06200000-0000-4000-8000-000000000001'
 const OTHER_WS = '06200000-0000-4000-8000-000000000002'
@@ -65,6 +65,7 @@ beforeAll(async () => {
     [OWNER],
   )
   auth = await authenticated(prepared, OWNER, WS)
+  await setActorJwt(migrator, OWNER, WS)
   otherAuth = await authenticated(prepared, OTHER, OTHER_WS)
 })
 
@@ -186,62 +187,6 @@ describe('CORE-06.2 canonical Notebook Sheet Instance blocks', () => {
         .filter((item) => item.kind === 'notebook_block')
         .map((item) => item.id),
     ).toContain(shared.block.id)
-  })
-
-  it('keeps legacy scientific-table blocks working and converts them explicitly', async () => {
-    const legacy = (
-      await auth.query(`SELECT api.insert_sheet_block($1,NULL,$2) result`, [
-        RECORD_B,
-        3,
-      ])
-    ).rows[0].result
-    const tableId = legacy.table.id as string
-    expect(legacy.block.payload).toEqual({ tableId })
-
-    await expectDenied(
-      auth.query(
-        `SELECT api.update_block_payload($1,$2::jsonb,$3,1)`,
-        [
-          legacy.block.id,
-          JSON.stringify({ instanceId: crypto.randomUUID() }),
-          legacy.block.version,
-        ],
-      ),
-      '23514',
-    )
-
-    const converted = (
-      await auth.query(
-        `SELECT api.convert_legacy_sheet_block($1,$2) result`,
-        [legacy.block.id, legacy.block.version],
-      )
-    ).rows[0].result
-    expect(converted.block.payload.instanceId).toBe(converted.instance.id)
-    expect(converted.block.payload.tableId).toBeUndefined()
-    const table = (
-      await auth.query(`SELECT id FROM api.scientific_tables WHERE id=$1`, [
-        tableId,
-      ])
-    ).rows[0]
-    expect(table.id).toBe(tableId)
-
-    await auth.query(
-      `SELECT api.archive_sheet_instance($1,$2)`,
-      [converted.instance.id, converted.instance.revision],
-    )
-    const archived = (
-      await auth.query(
-        `SELECT lifecycle FROM api.sheet_instances WHERE id=$1`,
-        [converted.instance.id],
-      )
-    ).rows[0]
-    expect(archived.lifecycle).toBe('archived')
-    const payload = (
-      await auth.query(`SELECT payload FROM api.blocks WHERE id=$1`, [
-        converted.block.id,
-      ])
-    ).rows[0]
-    expect(payload.payload.instanceId).toBe(converted.instance.id)
   })
 
   it('rejects mixed payload identities and stale structure versions', async () => {

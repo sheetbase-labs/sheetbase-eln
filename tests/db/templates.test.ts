@@ -7,7 +7,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { prepareTestDatabase } from './helpers'
+import { expectDenied, prepareTestDatabase } from './helpers'
 
 const WS_A = '00000000-0000-4000-8000-00000000310a'
 const WS_B = '00000000-0000-4000-8000-00000000310b'
@@ -102,48 +102,51 @@ afterAll(async () => {
 })
 
 describe('SCI-006 template identity, lifecycle and instantiation', () => {
-  it('creates notebook templates with NBK identifiers and protocol templates with PRT identifiers', async () => {
+  it('creates protocol templates with PRT identifiers and denies notebook_template records', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const notebook = await createRecord(owner, PROJ_A, 'notebook_template', 'Stability Study')
+    await expectDenied(
+      owner.query(
+        `SELECT * FROM api.create_record($1::uuid, 'notebook_template', 'Blocked', 'draft', ARRAY[]::text[], '{}'::jsonb)`,
+        [PROJ_A],
+      ),
+      '42501',
+    )
     const protocol = await createRecord(owner, PROJ_A, 'protocol_template', 'Titration Assay', 'draft', { version: '1.0' })
-    expect(notebook.identifier).toMatch(/^NBK-\d{4}-0001$/)
-    expect(notebook.kind).toBe('notebook_template')
-    expect(notebook.status).toBe('draft')
-    expect(notebook.created_by_user_id).toBe(OWNER_A)
     expect(protocol.identifier).toMatch(/^PRT-\d{4}-0001$/)
+    expect(protocol.kind).toBe('protocol_template')
+    expect(protocol.status).toBe('draft')
+    expect(protocol.created_by_user_id).toBe(OWNER_A)
   })
 
-  it('validates a notebook template (draft → validated) and rejects invalid transitions', async () => {
+  it('activates a protocol template (draft → active) and rejects invalid transitions', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const template = await createRecord(owner, PROJ_A, 'notebook_template', 'Validate me')
-    const { rows: [validated] } = await owner.query(
-      `SELECT * FROM api.transition_record_status($1, 'validated', $2)`,
+    const template = await createRecord(owner, PROJ_A, 'protocol_template', 'Activate me', 'draft', { version: '1.0' })
+    const { rows: [active] } = await owner.query(
+      `SELECT * FROM api.transition_record_status($1, 'active', $2)`,
       [template.id, template.metadata_version],
     )
-    expect(validated.status).toBe('validated')
-    expect(validated.metadata_version).toBe(template.metadata_version + 1)
-    expect(validated.updated_by_user_id).toBe(OWNER_A)
+    expect(active.status).toBe('active')
+    expect(active.metadata_version).toBe(template.metadata_version + 1)
+    expect(active.updated_by_user_id).toBe(OWNER_A)
 
-    // notebook_template:validated → active is not a valid transition.
     await expect(
-      owner.query(`SELECT * FROM api.transition_record_status($1, 'active', $2)`, [
-        validated.id,
-        validated.metadata_version,
+      owner.query(`SELECT * FROM api.transition_record_status($1, 'validated', $2)`, [
+        active.id,
+        active.metadata_version,
       ]),
     ).rejects.toMatchObject({ code: 'SB004' })
   })
 
-  it('instantiates a notebook template into an experiment with deep-copied blocks, revision and provenance link', async () => {
+  it('instantiates a protocol template into an experiment with deep-copied blocks, revision and provenance link', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const template = await createRecord(owner, PROJ_A, 'notebook_template', 'Instantiate me')
+    const template = await createRecord(owner, PROJ_A, 'protocol_template', 'Instantiate me', 'draft', { version: '1.0' })
     await insertBlock(owner, template.id, 'rich_text', {
       doc: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Objective text' }] }] },
     }, 1)
     await insertBlock(owner, template.id, 'checklist', {
       items: [{ text: 'Step A', checked: false }, { text: 'Step B', checked: false }],
     }, 2)
-    // Validate the template so it is instantiable.
-    await owner.query(`SELECT * FROM api.transition_record_status($1, 'validated', $2)`, [
+    await owner.query(`SELECT * FROM api.transition_record_status($1, 'active', $2)`, [
       template.id,
       template.metadata_version,
     ])
@@ -157,21 +160,17 @@ describe('SCI-006 template identity, lifecycle and instantiation', () => {
     expect(result.blocks[0].type).toBe('rich_text')
     expect(result.blocks[1].type).toBe('checklist')
 
-    // Immutable revision captures the template version.
     expect(result.revision.reason).toBe('validate')
     expect(result.revision.record_id).toBe(template.id)
     expect(result.revision.created_by_user_id).toBe(OWNER_A)
 
-    // Provenance link points back to the template with the revision id.
     expect(result.link.link_type).toBe('template')
     expect(result.link.target_record_id).toBe(template.id)
     expect(result.link.link_metadata.template_revision_id).toBe(result.revision.id)
     expect(result.link.created_by_user_id).toBe(OWNER_A)
 
-    // The new record's structure_version was bumped by the copied blocks.
     expect(result.record.structure_version).toBeGreaterThanOrEqual(1)
 
-    // The copied block ids differ from the template block ids (no shared mutable content).
     const { rows: templateBlocks } = await owner.query(
       `SELECT id FROM api.blocks WHERE record_id=$1 ORDER BY "order"`, [template.id],
     )
@@ -181,17 +180,16 @@ describe('SCI-006 template identity, lifecycle and instantiation', () => {
 
   it('keeps instantiated records independent of later template edits', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const template = await createRecord(owner, PROJ_A, 'notebook_template', 'Edit later')
+    const template = await createRecord(owner, PROJ_A, 'protocol_template', 'Edit later', 'draft', { version: '1.0' })
     await insertBlock(owner, template.id, 'rich_text', {
       doc: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Original' }] }] },
     }, 1)
-    await owner.query(`SELECT * FROM api.transition_record_status($1, 'validated', $2)`, [
+    await owner.query(`SELECT * FROM api.transition_record_status($1, 'active', $2)`, [
       template.id,
       template.metadata_version,
     ])
     const result = await instantiate(owner, template.id, PROJ_A, 'experiment')
 
-    // Mutate the template's live block after instantiation.
     const { rows: [liveBlock] } = await owner.query(
       `SELECT id FROM api.blocks WHERE record_id=$1 AND type='rich_text' LIMIT 1`, [template.id],
     )
@@ -200,22 +198,20 @@ describe('SCI-006 template identity, lifecycle and instantiation', () => {
       JSON.stringify({ doc: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Mutated' }] }] } }),
     ])
 
-    // The instantiated record's block is unchanged.
     const { rows: [copied] } = await owner.query(
       `SELECT payload FROM api.blocks WHERE id=$1`, [result.blocks[0].id],
     )
     expect(copied.payload.doc.content[0].content[0].text).toBe('Original')
 
-    // The immutable revision is unchanged.
     const { rows: [revBlock] } = await owner.query(
       `SELECT block_snapshot FROM api.revisions WHERE id=$1`, [result.revision.id],
     )
     expect(revBlock.block_snapshot[0].payload.doc.content[0].content[0].text).toBe('Original')
   })
 
-  it('rejects instantiation from a draft notebook template (SB006)', async () => {
+  it('rejects instantiation from a draft protocol template (SB006)', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const template = await createRecord(owner, PROJ_A, 'notebook_template', 'Still draft')
+    const template = await createRecord(owner, PROJ_A, 'protocol_template', 'Still draft', 'draft', { version: '1.0' })
     await insertBlock(owner, template.id, 'rich_text', {
       doc: { type: 'doc', content: [{ type: 'paragraph' }] },
     }, 1)
@@ -226,16 +222,15 @@ describe('SCI-006 template identity, lifecycle and instantiation', () => {
 
   it('rejects instantiation from an archived template (SB006)', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const template = await createRecord(owner, PROJ_A, 'notebook_template', 'Will archive')
+    const template = await createRecord(owner, PROJ_A, 'protocol_template', 'Will archive', 'draft', { version: '1.0' })
     await insertBlock(owner, template.id, 'rich_text', {
       doc: { type: 'doc', content: [{ type: 'paragraph' }] },
     }, 1)
-    const { rows: [validated] } = await owner.query(
-      `SELECT * FROM api.transition_record_status($1, 'validated', $2)`, [template.id, template.metadata_version],
+    const { rows: [active] } = await owner.query(
+      `SELECT * FROM api.transition_record_status($1, 'active', $2)`, [template.id, template.metadata_version],
     )
-    await owner.query(`SELECT * FROM api.archive_record($1, $2)`, [validated.id, validated.metadata_version])
+    await owner.query(`SELECT * FROM api.archive_record($1, $2)`, [active.id, active.metadata_version])
 
-    // Archived template is still readable.
     const { rows: [visible] } = await owner.query(`SELECT archived_at FROM api.records WHERE id=$1`, [template.id])
     expect(visible.archived_at).not.toBeNull()
 
@@ -246,12 +241,12 @@ describe('SCI-006 template identity, lifecycle and instantiation', () => {
 
   it('rejects lifecycle transitions on archived templates (frozen until restored)', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const template = await createRecord(owner, PROJ_A, 'notebook_template', 'Frozen')
-    const { rows: [validated] } = await owner.query(
-      `SELECT * FROM api.transition_record_status($1, 'validated', $2)`, [template.id, template.metadata_version],
+    const template = await createRecord(owner, PROJ_A, 'protocol_template', 'Frozen', 'draft', { version: '1.0' })
+    const { rows: [active] } = await owner.query(
+      `SELECT * FROM api.transition_record_status($1, 'active', $2)`, [template.id, template.metadata_version],
     )
     const { rows: [archived] } = await owner.query(
-      `SELECT * FROM api.archive_record($1, $2)`, [validated.id, validated.metadata_version],
+      `SELECT * FROM api.archive_record($1, $2)`, [active.id, active.metadata_version],
     )
     await expect(
       owner.query(`SELECT * FROM api.transition_record_status($1, 'draft', $2)`, [
@@ -264,22 +259,19 @@ describe('SCI-006 template identity, lifecycle and instantiation', () => {
   it('rejects cross-workspace instantiation at the database boundary (42501)', async () => {
     const ownerA = await asAuthenticated(OWNER_A, WS_A)
     const ownerB = await asAuthenticated(OWNER_B, WS_B)
-    const template = await createRecord(ownerA, PROJ_A, 'notebook_template', 'Cross ws')
+    const template = await createRecord(ownerA, PROJ_A, 'protocol_template', 'Cross ws', 'draft', { version: '1.0' })
     await insertBlock(ownerA, template.id, 'rich_text', {
       doc: { type: 'doc', content: [{ type: 'paragraph' }] },
     }, 1)
-    await ownerA.query(`SELECT * FROM api.transition_record_status($1, 'validated', $2)`, [
+    await ownerA.query(`SELECT * FROM api.transition_record_status($1, 'active', $2)`, [
       template.id,
       template.metadata_version,
     ])
-    // Owner B cannot even see the template (RLS).
     const { rows: invisible } = await ownerB.query(`SELECT id FROM api.records WHERE id=$1`, [template.id])
     expect(invisible).toHaveLength(0)
-    // Direct RPC call from workspace B targeting workspace A's template is rejected.
     await expect(instantiate(ownerB, template.id, PROJ_B, 'experiment')).rejects.toMatchObject({
       code: '42501',
     })
-    // Owner A cannot instantiate into workspace B's project.
     await expect(instantiate(ownerA, template.id, PROJ_B, 'experiment')).rejects.toMatchObject({
       code: '42501',
     })
@@ -306,31 +298,31 @@ describe('SCI-006 template identity, lifecycle and instantiation', () => {
 
   it('enforces the template-link metadata CHECK at the DB boundary', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const template = await createRecord(owner, PROJ_A, 'notebook_template', 'Link check')
+    const template = await createRecord(owner, PROJ_A, 'protocol_template', 'Link check', 'draft', { version: '1.0' })
     const experiment = await createRecord(owner, PROJ_A, 'experiment', 'Link check run')
     // A template link without template_revision_id must be rejected.
     await expect(
       owner.query(
         `INSERT INTO api.record_links
            (source_record_id, target_record_id, target_kind, target_identifier, link_type, link_metadata, created_by_user_id)
-         VALUES ($1, $2, 'notebook_template', $3, 'template', '{}'::jsonb, api.current_user_id())`,
+         VALUES ($1, $2, 'protocol_template', $3, 'template', '{}'::jsonb, api.current_user_id())`,
         [experiment.id, template.id, template.identifier],
       ),
     ).rejects.toMatchObject({ code: '23514' })
   })
 
-  it('emits durable change events for template create, validate, archive and instantiation', async () => {
+  it('emits durable change events for template create, activate, archive and instantiation', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const template = await createRecord(owner, PROJ_A, 'notebook_template', 'Event proof')
+    const template = await createRecord(owner, PROJ_A, 'protocol_template', 'Event proof', 'draft', { version: '1.0' })
     await insertBlock(owner, template.id, 'rich_text', {
       doc: { type: 'doc', content: [{ type: 'paragraph' }] },
     }, 1)
-    const { rows: [validated] } = await owner.query(
-      `SELECT * FROM api.transition_record_status($1, 'validated', $2)`, [template.id, template.metadata_version],
+    const { rows: [active] } = await owner.query(
+      `SELECT * FROM api.transition_record_status($1, 'active', $2)`, [template.id, template.metadata_version],
     )
     const result = await instantiate(owner, template.id, PROJ_A, 'experiment')
-    const { rows: [archived] } = await owner.query(
-      `SELECT * FROM api.archive_record($1, $2)`, [validated.id, validated.metadata_version],
+    await owner.query(
+      `SELECT * FROM api.archive_record($1, $2)`, [active.id, active.metadata_version],
     )
 
     const { rows: events } = await owner.query(
@@ -359,15 +351,13 @@ describe('SCI-006 template identity, lifecycle and instantiation', () => {
     const ownerA = await asAuthenticated(OWNER_A, WS_A)
     const ownerB = await asAuthenticated(OWNER_B, WS_B)
     const memberA = await asAuthenticated(MEMBER_A, WS_A)
-    await createRecord(ownerB, PROJ_B, 'notebook_template', 'Workspace B secret')
-    // Member A sees only workspace A templates.
+    await createRecord(ownerB, PROJ_B, 'protocol_template', 'Workspace B secret', 'draft', { version: '1.0' })
     const { rows: visible } = await memberA.query(
-      `SELECT title FROM api.records WHERE kind = 'notebook_template' AND title = 'Workspace B secret'`,
+      `SELECT title FROM api.records WHERE kind = 'protocol_template' AND title = 'Workspace B secret'`,
     )
     expect(visible).toHaveLength(0)
-    // Owner A also cannot see it.
     const { rows: aVisible } = await ownerA.query(
-      `SELECT title FROM api.records WHERE kind = 'notebook_template' AND title = 'Workspace B secret'`,
+      `SELECT title FROM api.records WHERE kind = 'protocol_template' AND title = 'Workspace B secret'`,
     )
     expect(aVisible).toHaveLength(0)
   })

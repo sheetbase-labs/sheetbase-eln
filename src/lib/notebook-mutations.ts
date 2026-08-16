@@ -14,7 +14,7 @@ import type { DataClient } from '#/lib/data-client'
 import { toBlock } from '#/lib/notebook-data'
 import type { BlockWire, NotebookBlock } from '#/lib/notebook-data'
 import { EMPTY_RICH_TEXT_PAYLOAD, PAYLOAD_SCHEMA_VERSION } from '#/lib/blocks'
-import { isCanonicalSheetBlock, isLegacySheetBlock } from '#/lib/sheet-block'
+import { isCanonicalSheetBlock } from '#/lib/sheet-block'
 
 export interface UpdateBlockArgs {
   blockId: string
@@ -75,30 +75,6 @@ export async function insertBlock(
   }
 }
 
-export async function insertSheetBlock(
-  client: DataClient,
-  args: Pick<
-    InsertBlockArgs,
-    'recordId' | 'afterBlockId' | 'expectedStructureVersion'
-  > & { datasetSchemaId?: string },
-): Promise<InsertBlockResult & { tableId: string }> {
-  const res = await client.rpc<{
-    block: BlockWire
-    table: { id: string }
-    structure_version: number
-  }>('insert_sheet_block', {
-    p_record_id: args.recordId,
-    p_after_block_id: args.afterBlockId ?? null,
-    p_expected_structure_version: args.expectedStructureVersion ?? null,
-    p_dataset_schema_id: args.datasetSchemaId ?? null,
-  })
-  return {
-    block: toBlock(res.block),
-    tableId: res.table.id,
-    structureVersion: res.structure_version,
-  }
-}
-
 export async function insertSheetInstanceBlock(
   client: DataClient,
   args: Pick<
@@ -123,23 +99,6 @@ export async function insertSheetInstanceBlock(
   }
 }
 
-export async function convertLegacySheetBlock(
-  client: DataClient,
-  args: { blockId: string; expectedVersion: number },
-): Promise<{ block: NotebookBlock; instanceId: string }> {
-  const res = await client.rpc<{
-    block: BlockWire
-    instance: { id: string }
-  }>('convert_legacy_sheet_block', {
-    p_block_id: args.blockId,
-    p_expected_version: args.expectedVersion,
-  })
-  return {
-    block: toBlock(res.block),
-    instanceId: res.instance.id,
-  }
-}
-
 export interface DuplicateBlockArgs {
   block: NotebookBlock
   expectedStructureVersion: number
@@ -148,18 +107,12 @@ export interface DuplicateBlockArgs {
 /**
  * Duplicate a block by inserting a copy with the same type and payload
  * immediately after the source. Canonical Sheet Instance blocks duplicate
- * the Instance independently rather than sharing it. Legacy scientific-table
- * blocks cannot be duplicated without copying their table.
+ * the Instance independently rather than sharing it.
  */
 export async function duplicateBlock(
   client: DataClient,
   args: DuplicateBlockArgs,
 ): Promise<InsertBlockResult> {
-  if (args.block.type === 'sheet' && isLegacySheetBlock(args.block.payload)) {
-    throw new Error(
-      'Sheet blocks cannot be duplicated without copying their table.',
-    )
-  }
   if (
     args.block.type === 'sheet' &&
     isCanonicalSheetBlock(args.block.payload)

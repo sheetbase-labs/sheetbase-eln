@@ -98,3 +98,64 @@ export async function expectDenied(
 ): Promise<void> {
   await expect(promise).rejects.toMatchObject({ code })
 }
+
+/** JWT claims used by SECURITY DEFINER RPCs to resolve the actor workspace. */
+export async function setActorJwt(
+  client: Client,
+  userId: string,
+  workspaceId: string,
+  extra: Record<string, unknown> = {},
+): Promise<void> {
+  await client.query(`SELECT set_config('request.jwt.claims',$1,false)`, [
+    JSON.stringify({
+      role: 'authenticated',
+      sub: userId,
+      workspace_id: workspaceId,
+      ...extra,
+    }),
+  ])
+}
+
+/** Migrator login against the same database as an application URL. */
+export function migratorUrlForDatabase(databaseUrl: string): string {
+  const app = new URL(databaseUrl)
+  const mig = new URL(
+    process.env.MIGRATION_DATABASE_URL ?? required('MIGRATION_DATABASE_URL'),
+  )
+  mig.pathname = app.pathname
+  mig.search = app.search
+  return mig.toString()
+}
+
+export async function createScientificTableAsMigrator(
+  client: Client,
+  userId: string,
+  workspaceId: string,
+  blockId: string,
+  name: string,
+  columns: unknown[],
+): Promise<{
+  table: { id: string; resource_name: string; schema_version: number }
+  columns: Array<{ id: string; field_name: string; label?: string }>
+  resourceName?: string
+}> {
+  await setActorJwt(client, userId, workspaceId)
+  const { rows } = await client.query(
+    `SELECT api.create_scientific_table($1,$2,$3::jsonb) result`,
+    [blockId, name, JSON.stringify(columns)],
+  )
+  return rows[0].result
+}
+
+export async function openMigratorWriter(
+  databaseUrl: string,
+  userId: string,
+  workspaceId: string,
+): Promise<Client> {
+  const client = new Client({
+    connectionString: migratorUrlForDatabase(databaseUrl),
+  })
+  await client.connect()
+  await setActorJwt(client, userId, workspaceId)
+  return client
+}

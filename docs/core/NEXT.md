@@ -8,13 +8,19 @@
 
 ## Active task
 
-**CORE-06 — Notebook Templates, Sharing and Frozen Evidence**
+**Core Hardening complete. Legacy SCI-010 / scientific-table / notebook-template
+record compatibility removed.**
 
-Status: CORE-06 complete. Do not start AUTO-01.
+Next phase: Product Consolidation / Workflow Validation.
 
-Task: [`tasks/CORE-06.md`](./tasks/CORE-06.md)
+AUTO-01 deferred.
 
-Audit: [`audits/NOTEBOOK_EVIDENCE_AUDIT.md`](./audits/NOTEBOOK_EVIDENCE_AUDIT.md)
+Status: CORE-06 complete. Core Hardening complete. Do not start AUTO-01.
+Do not start Product Consolidation in this programme.
+
+Review: [`CORE_01_06_IMPLEMENTATION_REVIEW.md`](./CORE_01_06_IMPLEMENTATION_REVIEW.md)
+
+Hardening log: [`CORE_HARDENING.md`](./CORE_HARDENING.md)
 
 Canonical schema ADR: [`0038-canonical-dataset-schema-definitions.md`](../decisions/0038-canonical-dataset-schema-definitions.md)
 
@@ -98,8 +104,14 @@ Canonical schema ADR: [`0038-canonical-dataset-schema-definitions.md`](../decisi
 
 ## Implement now
 
-CORE-06 is complete. Submit freezes reconstructable Sheet Instance state
-inside the existing REV-002 transaction. Do **not** start AUTO-01.
+Core Hardening is complete. Next phase is Product Consolidation / Workflow
+Validation. Do **not** start AUTO-01.
+
+Core Hardening exit evidence: `pnpm db:fresh --demo` applied migrations
+`0000`–`0108` and 29 idempotent demo seed steps (reseed also 29/29).
+`pnpm test:db` 75 files / 721 tests. `pnpm validate` 179 files / 1,940 tests,
+zero lint errors (21 existing warnings), production client/SSR build. The
+CORE-02.6 100k+80k Dataset benchmark was not rerun.
 
 CORE-06.14 exit evidence: `pnpm db:fresh --demo` applied migrations `0000`–
 `0101` and 29 idempotent demo seed steps (reseed also 29/29). `pnpm test:db`

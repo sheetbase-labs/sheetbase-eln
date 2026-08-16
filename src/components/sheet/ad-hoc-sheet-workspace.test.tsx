@@ -4,20 +4,16 @@ import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { mutateSheetLocalState } from '#/lib/sheet-local-data'
 import { validSheetInstanceState } from '#/lib/sheet-instance.test'
 import type { SheetInstance } from '#/lib/sheet-instance-data'
 
 import { AdHocSheetWorkspace } from './ad-hoc-sheet-workspace'
 
-vi.mock('#/lib/sheet-local-data', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('#/lib/sheet-local-data')>()
-  return {
-    ...actual,
-    mutateSheetLocalState: vi.fn(),
-  }
-})
-
-import { mutateSheetLocalState } from '#/lib/sheet-local-data'
+vi.mock('#/lib/sheet-local-data', async (importOriginal) => ({
+  ...(await importOriginal()),
+  mutateSheetLocalState: vi.fn(),
+}))
 
 afterEach(() => cleanup())
 
@@ -45,9 +41,7 @@ function renderWorkspace(ui: ReactNode) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
-  return render(
-    <QueryClientProvider client={client}>{ui}</QueryClientProvider>,
-  )
+  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
 }
 
 describe('AdHocSheetWorkspace', () => {
@@ -55,7 +49,9 @@ describe('AdHocSheetWorkspace', () => {
     const user = userEvent.setup()
     vi.mocked(mutateSheetLocalState).mockResolvedValue(instance())
     renderWorkspace(<AdHocSheetWorkspace instance={instance()} />)
-    expect(screen.getByRole('columnheader', { name: 'Observation' })).toBeTruthy()
+    expect(
+      screen.getByRole('columnheader', { name: 'Observation' }),
+    ).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Add row' }))
     expect(mutateSheetLocalState).toHaveBeenCalledWith(
       expect.objectContaining({

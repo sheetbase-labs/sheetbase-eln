@@ -722,6 +722,55 @@
       "when": 1786820000000,
       "tag": "0102_core_068_adhoc_sheet_local_rows",
       "breakpoints": true
+    },
+    {
+      "idx": 103,
+      "version": "7",
+      "when": 1786821000000,
+      "tag": "0103_core_h1_capability_mask",
+      "breakpoints": true
+    },
+    {
+      "idx": 104,
+      "version": "7",
+      "when": 1786822000000,
+      "tag": "0104_core_h2_composition_adoption",
+      "breakpoints": true
+    },
+    {
+      "idx": 105,
+      "version": "7",
+      "when": 1786823000000,
+      "tag": "0105_core_h3_frozen_composed_grid",
+      "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "7",
+      "when": 1786824000000,
+      "tag": "0106_core_h4_close_legacy_writes",
+      "breakpoints": true
+    },
+    {
+      "idx": 107,
+      "version": "7",
+      "when": 1786825000000,
+      "tag": "0107_core_h5_notebook_template_catalogue",
+      "breakpoints": true
+    },
+    {
+      "idx": 108,
+      "version": "7",
+      "when": 1786826000000,
+      "tag": "0108_core_h4_legacy_write_guard",
+      "breakpoints": true
+    },
+    {
+      "idx": 109,
+      "version": "7",
+      "when": 1786827000000,
+      "tag": "0109_remove_legacy_compatibility",
+      "breakpoints": true
     }
   ]
 }

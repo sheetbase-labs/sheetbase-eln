@@ -11,6 +11,11 @@ import { createHmac } from 'node:crypto'
 import { Client } from 'pg'
 import { expect, test } from 'playwright/test'
 
+import {
+  createScientificTableAsMigrator,
+  openMigratorWriter,
+} from '../db/helpers'
+
 config({ path: ['.env.local', '.env'] })
 
 const WS = '65000000-0000-4000-8000-000000000701'
@@ -91,27 +96,32 @@ test.beforeAll(async () => {
   await admin.query(`SELECT set_config('request.jwt.claims',$1,false)`, [
     JSON.stringify({ role: 'authenticated', sub: USER, workspace_id: WS }),
   ])
-  const built = (
-    await admin.query(
-      `SELECT api.create_scientific_table($1,'Stability readings (qPCR)',$2::jsonb) result`,
-      [
-        BLOCK,
-        JSON.stringify([
-          {
-            label: 'Time (days)',
-            logical_type: 'decimal',
-            unit: { code: 'd', symbol: 'd' },
-          },
-          {
-            label: 'Log titer',
-            logical_type: 'decimal',
-            unit: { code: 'log10', symbol: 'log₁₀' },
-          },
-          { label: 'Condition', logical_type: 'text' },
-        ]),
-      ],
-    )
-  ).rows[0].result
+  const writer = await openMigratorWriter(
+    process.env.DATABASE_URL ?? '',
+    USER,
+    WS,
+  )
+  const built = await createScientificTableAsMigrator(
+    writer,
+    USER,
+    WS,
+    BLOCK,
+    'Stability readings (qPCR)',
+    [
+      {
+        label: 'Time (days)',
+        logical_type: 'decimal',
+        unit: { code: 'd', symbol: 'd' },
+      },
+      {
+        label: 'Log titer',
+        logical_type: 'decimal',
+        unit: { code: 'log10', symbol: 'log₁₀' },
+      },
+      { label: 'Condition', logical_type: 'text' },
+    ],
+  )
+  await writer.end()
   sheetTable = built.table
   sheetCols = built.columns
   const x = sheetCols[0]

@@ -11,6 +11,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { handleProxyRequest } from '#/lib/postgrest-proxy'
 import { mintPostgrestToken } from '#/lib/postgrest-token'
+import { createScientificTableAsMigrator } from '../db/helpers'
 
 config({ path: ['.env.local', '.env'] })
 
@@ -262,10 +263,13 @@ describe('SCI-004 chart blocks REST contract', () => {
     expect(sheetRes.status).toBe(200)
     const sheetJson = await sheetRes.json()
     const sheet = sheetJson.block
-    const tableRes = await rpc('create_scientific_table', user, workspace, {
-      p_block_id: sheet.id,
-      p_name: 'Stability readings',
-      p_columns: [
+    const built = await createScientificTableAsMigrator(
+      admin,
+      user,
+      workspace,
+      sheet.id,
+      'Stability readings',
+      [
         {
           label: 'Time',
           logical_type: 'decimal',
@@ -278,9 +282,7 @@ describe('SCI-004 chart blocks REST contract', () => {
         },
         { label: 'Condition', logical_type: 'text' },
       ],
-    })
-    expect(tableRes.status).toBe(200)
-    const built = await tableRes.json()
+    )
     table = built.table
     const byLabel = Object.fromEntries(
       built.columns.map((c: any) => [c.label, c]),
@@ -385,10 +387,13 @@ describe('SCI-004 chart blocks REST contract', () => {
     )
     const sheetRes = await insertBlock(USER_B, WS_B, recB, 'sheet', {})
     const sheet = (await sheetRes.json()).block
-    const tableRes = await rpc('create_scientific_table', USER_B, WS_B, {
-      p_block_id: sheet.id,
-      p_name: 'WS B readings',
-      p_columns: [
+    const builtB = await createScientificTableAsMigrator(
+      admin,
+      USER_B,
+      WS_B,
+      sheet.id,
+      'WS B readings',
+      [
         {
           label: 'Time',
           logical_type: 'decimal',
@@ -401,8 +406,7 @@ describe('SCI-004 chart blocks REST contract', () => {
         },
         { label: 'Condition', logical_type: 'text' },
       ],
-    })
-    const builtB = await tableRes.json()
+    )
     const colsB = {
       x: builtB.columns[0],
       y: builtB.columns[1],

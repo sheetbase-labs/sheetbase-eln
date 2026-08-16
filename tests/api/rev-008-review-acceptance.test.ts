@@ -24,6 +24,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { handleProxyRequest } from '#/lib/postgrest-proxy'
 import { mintPostgrestToken } from '#/lib/postgrest-token'
+import { createScientificTableAsMigrator } from '../db/helpers'
 import { toCanonicalEnvelope } from '#/lib/review-workspace'
 import { diffRevisionEnvelopes } from '#/lib/revision-diff'
 import type { RevisionWire } from '#/lib/notebook-data'
@@ -373,10 +374,13 @@ beforeAll(async () => {
     {},
   )
   experiment.structure_version = sheetJson.structure_version
-  const tableRes = await asOwner('create_scientific_table', {
-    p_block_id: sheetJson.block.id,
-    p_name: 'Stability readings (qPCR)',
-    p_columns: [
+  const built = await createScientificTableAsMigrator(
+    admin,
+    OWNER,
+    WS,
+    sheetJson.block.id,
+    'Stability readings (qPCR)',
+    [
       {
         label: 'Time (days)',
         logical_type: 'decimal',
@@ -389,9 +393,7 @@ beforeAll(async () => {
       },
       { label: 'Condition', logical_type: 'text' },
     ],
-  })
-  expect(tableRes.status).toBe(200)
-  const built = await tableRes.json()
+  )
   sheetTable = built.table
   const byLabel = Object.fromEntries(
     built.columns.map((c: any) => [c.label, c]),

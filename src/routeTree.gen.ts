@@ -25,7 +25,6 @@ import { Route as ReagentsRouteImport } from './routes/reagents'
 import { Route as ReportBuilderRouteImport } from './routes/report-builder'
 import { Route as ReviewsRouteImport } from './routes/reviews'
 import { Route as SamplesRouteImport } from './routes/samples'
-import { Route as SchemasRouteImport } from './routes/schemas'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as StorageRouteImport } from './routes/storage'
@@ -127,11 +126,6 @@ const ReviewsRoute = ReviewsRouteImport.update({
 const SamplesRoute = SamplesRouteImport.update({
   id: '/samples',
   path: '/samples',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SchemasRoute = SchemasRouteImport.update({
-  id: '/schemas',
-  path: '/schemas',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SearchRoute = SearchRouteImport.update({
@@ -264,7 +258,6 @@ export interface FileRoutesByFullPath {
   '/report-builder': typeof ReportBuilderRoute
   '/reviews': typeof ReviewsRouteWithChildren
   '/samples': typeof SamplesRoute
-  '/schemas': typeof SchemasRoute
   '/search': typeof SearchRoute
   '/sign-in': typeof SignInRoute
   '/storage': typeof StorageRoute
@@ -305,7 +298,6 @@ export interface FileRoutesByTo {
   '/report-builder': typeof ReportBuilderRoute
   '/reviews': typeof ReviewsRouteWithChildren
   '/samples': typeof SamplesRoute
-  '/schemas': typeof SchemasRoute
   '/search': typeof SearchRoute
   '/sign-in': typeof SignInRoute
   '/storage': typeof StorageRoute
@@ -347,7 +339,6 @@ export interface FileRoutesById {
   '/report-builder': typeof ReportBuilderRoute
   '/reviews': typeof ReviewsRouteWithChildren
   '/samples': typeof SamplesRoute
-  '/schemas': typeof SchemasRoute
   '/search': typeof SearchRoute
   '/sign-in': typeof SignInRoute
   '/storage': typeof StorageRoute
@@ -390,7 +381,6 @@ export interface FileRouteTypes {
     | '/report-builder'
     | '/reviews'
     | '/samples'
-    | '/schemas'
     | '/search'
     | '/sign-in'
     | '/storage'
@@ -431,7 +421,6 @@ export interface FileRouteTypes {
     | '/report-builder'
     | '/reviews'
     | '/samples'
-    | '/schemas'
     | '/search'
     | '/sign-in'
     | '/storage'
@@ -472,7 +461,6 @@ export interface FileRouteTypes {
     | '/report-builder'
     | '/reviews'
     | '/samples'
-    | '/schemas'
     | '/search'
     | '/sign-in'
     | '/storage'
@@ -514,7 +502,6 @@ export interface RootRouteChildren {
   ReportBuilderRoute: typeof ReportBuilderRoute
   ReviewsRoute: typeof ReviewsRouteWithChildren
   SamplesRoute: typeof SamplesRoute
-  SchemasRoute: typeof SchemasRoute
   SearchRoute: typeof SearchRoute
   SignInRoute: typeof SignInRoute
   StorageRoute: typeof StorageRoute
@@ -646,13 +633,6 @@ declare module '@tanstack/react-router' {
       path: '/samples'
       fullPath: '/samples'
       preLoaderRoute: typeof SamplesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/schemas': {
-      id: '/schemas'
-      path: '/schemas'
-      fullPath: '/schemas'
-      preLoaderRoute: typeof SchemasRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/search': {
@@ -889,7 +869,6 @@ const rootRouteChildren: RootRouteChildren = {
   ReportBuilderRoute: ReportBuilderRoute,
   ReviewsRoute: ReviewsRouteWithChildren,
   SamplesRoute: SamplesRoute,
-  SchemasRoute: SchemasRoute,
   SearchRoute: SearchRoute,
   SignInRoute: SignInRoute,
   StorageRoute: StorageRoute,

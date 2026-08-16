@@ -7,13 +7,13 @@ Source review: [`CORE_01_06_IMPLEMENTATION_REVIEW.md`](./CORE_01_06_IMPLEMENTATI
 
 ## Status
 
-| Bundle | Title                          | Status      |
-| ------ | ------------------------------ | ----------- |
-| H1     | Security + green baseline      | complete    |
-| H2     | Ad-hoc → composed lifecycle    | complete    |
-| H3     | Frozen composed evidence       | complete    |
-| H4     | Legacy write-path closure      | complete    |
-| H5     | Template catalogue convergence | complete    |
+| Bundle | Title                          | Status   |
+| ------ | ------------------------------ | -------- |
+| H1     | Security + green baseline      | complete |
+| H2     | Ad-hoc → composed lifecycle    | complete |
+| H3     | Frozen composed evidence       | complete |
+| H4     | Legacy write-path closure      | complete |
+| H5     | Template catalogue convergence | complete |
 
 ## H1 Security + green baseline
 

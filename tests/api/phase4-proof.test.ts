@@ -10,7 +10,10 @@ import { resolveExternalToken } from '#/lib/external-token'
 import { buildPersistedFormulaArtifact, parseFormula } from '#/lib/formula-ir'
 import { mintPostgrestToken } from '#/lib/postgrest-token'
 import { handleProxyRequest } from '#/lib/postgrest-proxy'
-import { createScientificTableAsMigrator, openMigratorWriter } from '../db/helpers'
+import {
+  createScientificTableAsMigrator,
+  openMigratorWriter,
+} from '../db/helpers'
 
 config({ path: ['.env.local', '.env'] })
 
@@ -114,7 +117,11 @@ beforeAll(async () => {
     credentialId: CREDENTIAL,
     scopes: ['scientific:read', 'scientific:write'],
   })
-  const writer = await openMigratorWriter(process.env.DATABASE_URL ?? '', USER, WS)
+  const writer = await openMigratorWriter(
+    process.env.DATABASE_URL ?? '',
+    USER,
+    WS,
+  )
   table = await createScientificTableAsMigrator(
     writer,
     USER,

@@ -96,7 +96,9 @@ describe('H5 legacy notebook template records are compatibility-only', () => {
               kind: 'narrative',
               order: 1,
               blockType: 'rich_text',
-              payload: { doc: { type: 'doc', content: [{ type: 'paragraph' }] } },
+              payload: {
+                doc: { type: 'doc', content: [{ type: 'paragraph' }] },
+              },
             },
           ],
         }),

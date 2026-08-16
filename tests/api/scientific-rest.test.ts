@@ -8,7 +8,10 @@ import { mintApiClientToken } from '#/lib/api-credentials'
 import { resolveExternalToken } from '#/lib/external-token'
 import { mintPostgrestToken } from '#/lib/postgrest-token'
 import { handleProxyRequest } from '#/lib/postgrest-proxy'
-import { createScientificTableAsMigrator, openMigratorWriter } from '../db/helpers'
+import {
+  createScientificTableAsMigrator,
+  openMigratorWriter,
+} from '../db/helpers'
 import { buildScientificApiExamples } from '#/components/sheet/scientific-api-inspector'
 
 config({ path: ['.env.local', '.env'] })
@@ -156,7 +159,11 @@ beforeAll(async () => {
     scopes: ['projects:read'],
   })
 
-  const writer = await openMigratorWriter(process.env.DATABASE_URL ?? '', OWNER, WS)
+  const writer = await openMigratorWriter(
+    process.env.DATABASE_URL ?? '',
+    OWNER,
+    WS,
+  )
   const created = await createScientificTableAsMigrator(
     writer,
     OWNER,

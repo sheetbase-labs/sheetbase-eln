@@ -209,9 +209,9 @@ describe('duplicateBlock', () => {
 describe('insertSheetBlock', () => {
   it('refuses legacy scientific-table Sheet creation', async () => {
     const client = makeClient(() => ({}))
-    await expect(
-      insertSheetBlock(client, { recordId: 'r1' }),
-    ).rejects.toThrow(/insertSheetInstanceBlock/)
+    await expect(insertSheetBlock(client, { recordId: 'r1' })).rejects.toThrow(
+      /insertSheetInstanceBlock/,
+    )
     expect(client.rpc).not.toHaveBeenCalled()
   })
 })

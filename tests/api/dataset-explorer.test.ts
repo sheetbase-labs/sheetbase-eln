@@ -68,10 +68,10 @@ async function clean(): Promise<void> {
       (SELECT id FROM api.records WHERE workspace_id IN ($1,$2))`,
     [WS_A, WS_B],
   )
-  await admin.query(
-    `DELETE FROM api.records WHERE workspace_id IN ($1,$2)`,
-    [WS_A, WS_B],
-  )
+  await admin.query(`DELETE FROM api.records WHERE workspace_id IN ($1,$2)`, [
+    WS_A,
+    WS_B,
+  ])
   await admin.query(`DELETE FROM api.projects WHERE workspace_id IN ($1,$2)`, [
     WS_A,
     WS_B,
@@ -216,8 +216,10 @@ beforeAll(async () => {
   ).rows[0].result
   await writer.end()
   tableResource = instantiated.table.resource_name
-  const cols: Array<{ field_name: string; dataset_schema_field_id: string | null }> =
-    instantiated.columns
+  const cols: Array<{
+    field_name: string
+    dataset_schema_field_id: string | null
+  }> = instantiated.columns
   numericField = cols.find(
     (c) => c.dataset_schema_field_id !== null,
   )!.field_name
@@ -246,7 +248,11 @@ describe('DATA-007 Dataset Explorer contract', () => {
     expect(res.status).toBe(200)
     const tables = await res.json()
     expect(Array.isArray(tables)).toBe(true)
-    expect(tables.some((t: { resource_name: string }) => t.resource_name === tableResource)).toBe(true)
+    expect(
+      tables.some(
+        (t: { resource_name: string }) => t.resource_name === tableResource,
+      ),
+    ).toBe(true)
   })
 
   it('pages rows from the physical resource with a server total', async () => {

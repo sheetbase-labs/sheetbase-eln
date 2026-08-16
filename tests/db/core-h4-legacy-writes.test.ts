@@ -68,9 +68,10 @@ describe('H4 legacy scientific-table and SCI-010 writes are closed', () => {
       '42501',
     )
     await expectDenied(
-      owner.query(`SELECT api.create_scientific_table($1,'closed','[]'::jsonb)`, [
-        BLOCK,
-      ]),
+      owner.query(
+        `SELECT api.create_scientific_table($1,'closed','[]'::jsonb)`,
+        [BLOCK],
+      ),
       '42501',
     )
   })
@@ -78,10 +79,10 @@ describe('H4 legacy scientific-table and SCI-010 writes are closed', () => {
   it('authenticated cannot create or publish SCI-010 dataset schemas', async () => {
     const owner = await actor(OWNER)
     await expectDenied(
-      owner.query(
-        `SELECT api.create_dataset_schema($1,$2,null,'[]'::jsonb)`,
-        ['h4_closed', 'H4 closed'],
-      ),
+      owner.query(`SELECT api.create_dataset_schema($1,$2,null,'[]'::jsonb)`, [
+        'h4_closed',
+        'H4 closed',
+      ]),
       '42501',
     )
   })

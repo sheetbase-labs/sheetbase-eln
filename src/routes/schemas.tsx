@@ -656,8 +656,8 @@ function EmptyState() {
       <Database className="size-8 text-muted-foreground" aria-hidden="true" />
       <h2 className="text-lg font-semibold">No schema selected</h2>
       <p className="max-w-md text-sm text-muted-foreground">
-        This is a compatibility catalogue of historical SCI-010 Dataset
-        Schemas. New governed schemas live under Configure.
+        This is a compatibility catalogue of historical SCI-010 Dataset Schemas.
+        New governed schemas live under Configure.
       </p>
     </div>
   )

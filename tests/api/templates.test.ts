@@ -41,18 +41,35 @@ async function clean(): Promise<void> {
       (SELECT id FROM api.records WHERE workspace_id IN ($1,$2))`,
     [WS_A, WS_B],
   )
-  await admin.query(`DELETE FROM api.records WHERE workspace_id IN ($1,$2)`, [WS_A, WS_B])
-  await admin.query(`DELETE FROM api.projects WHERE workspace_id IN ($1,$2)`, [WS_A, WS_B])
-  await admin.query(`DELETE FROM api.workspace_memberships WHERE workspace_id IN ($1,$2)`, [
+  await admin.query(`DELETE FROM api.records WHERE workspace_id IN ($1,$2)`, [
     WS_A,
     WS_B,
   ])
-  await admin.query(`DELETE FROM api.workspaces WHERE id IN ($1,$2)`, [WS_A, WS_B])
-  await admin.query(`DELETE FROM internal."user" WHERE id IN ($1,$2)`, [USER_A, USER_B])
+  await admin.query(`DELETE FROM api.projects WHERE workspace_id IN ($1,$2)`, [
+    WS_A,
+    WS_B,
+  ])
+  await admin.query(
+    `DELETE FROM api.workspace_memberships WHERE workspace_id IN ($1,$2)`,
+    [WS_A, WS_B],
+  )
+  await admin.query(`DELETE FROM api.workspaces WHERE id IN ($1,$2)`, [
+    WS_A,
+    WS_B,
+  ])
+  await admin.query(`DELETE FROM internal."user" WHERE id IN ($1,$2)`, [
+    USER_A,
+    USER_B,
+  ])
   await admin.query(`SELECT pg_notify('pgrst', 'reload schema')`)
 }
 
-function proxy(path: string, userId: string, workspaceId: string, init: RequestInit = {}) {
+function proxy(
+  path: string,
+  userId: string,
+  workspaceId: string,
+  init: RequestInit = {},
+) {
   const headers = new Headers(init.headers)
   return handleProxyRequest(
     new Request(`http://sheetbase.test/api/db/${path}`, { ...init, headers }),
@@ -70,7 +87,12 @@ function proxy(path: string, userId: string, workspaceId: string, init: RequestI
   )
 }
 
-async function rpc(path: string, user: string, workspace: string, body: unknown): Promise<Response> {
+async function rpc(
+  path: string,
+  user: string,
+  workspace: string,
+  body: unknown,
+): Promise<Response> {
   return proxy(`rpc/${path}`, user, workspace, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -78,7 +100,15 @@ async function rpc(path: string, user: string, workspace: string, body: unknown)
   })
 }
 
-async function createRecord(user: string, workspace: string, project: string, kind: string, title: string, status = 'draft', properties: Record<string, unknown> = {}) {
+async function createRecord(
+  user: string,
+  workspace: string,
+  project: string,
+  kind: string,
+  title: string,
+  status = 'draft',
+  properties: Record<string, unknown> = {},
+) {
   if (kind === 'notebook_template') {
     const writer = await openMigratorWriter(
       process.env.DATABASE_URL ?? '',
@@ -103,7 +133,14 @@ async function createRecord(user: string, workspace: string, project: string, ki
   return response.json()
 }
 
-async function insertBlock(user: string, workspace: string, recordId: string, type: string, payload: unknown, structureVersion: number) {
+async function insertBlock(
+  user: string,
+  workspace: string,
+  recordId: string,
+  type: string,
+  payload: unknown,
+  structureVersion: number,
+) {
   const response = await rpc('insert_block', user, workspace, {
     p_record_id: recordId,
     p_type: type,
@@ -156,15 +193,31 @@ afterAll(async () => {
 
 describe('SCI-006 template REST contract', () => {
   it('creates a notebook template through create_record with an NBK identifier', async () => {
-    const record = await createRecord(USER_A, WS_A, PROJ_A, 'notebook_template', 'API notebook template')
+    const record = await createRecord(
+      USER_A,
+      WS_A,
+      PROJ_A,
+      'notebook_template',
+      'API notebook template',
+    )
     expect(record.identifier).toMatch(/^NBK-\d{4}-\d{4}$/)
     expect(record.kind).toBe('notebook_template')
     expect(record.created_by_user_id).toBe(USER_A)
   })
 
   it('lists templates filtered by kind through the records resource', async () => {
-    await createRecord(USER_A, WS_A, PROJ_A, 'notebook_template', 'Another notebook template')
-    const res = await proxy('records?kind=eq.notebook_template&order=identifier.asc', USER_A, WS_A)
+    await createRecord(
+      USER_A,
+      WS_A,
+      PROJ_A,
+      'notebook_template',
+      'Another notebook template',
+    )
+    const res = await proxy(
+      'records?kind=eq.notebook_template&order=identifier.asc',
+      USER_A,
+      WS_A,
+    )
     expect(res.status).toBe(200)
     const rows = await json(res)
     expect(rows.length).toBeGreaterThanOrEqual(2)
@@ -179,11 +232,21 @@ describe('SCI-006 template REST contract', () => {
     )
     expect(res.status).toBe(200)
     const rows = await json(res)
-    expect(rows.every((r: any) => ['protocol_template', 'notebook_template'].includes(r.kind))).toBe(true)
+    expect(
+      rows.every((r: any) =>
+        ['protocol_template', 'notebook_template'].includes(r.kind),
+      ),
+    ).toBe(true)
   })
 
   it('validates a notebook template through the lifecycle RPC', async () => {
-    const template = await createRecord(USER_A, WS_A, PROJ_A, 'notebook_template', 'Validate via API')
+    const template = await createRecord(
+      USER_A,
+      WS_A,
+      PROJ_A,
+      'notebook_template',
+      'Validate via API',
+    )
     const res = await rpc('transition_record_status', USER_A, WS_A, {
       p_record_id: template.id,
       p_target_status: 'validated',
@@ -196,7 +259,13 @@ describe('SCI-006 template REST contract', () => {
   })
 
   it('rejects an invalid status transition with invalid_transition (422)', async () => {
-    const template = await createRecord(USER_A, WS_A, PROJ_A, 'notebook_template', 'Bad transition')
+    const template = await createRecord(
+      USER_A,
+      WS_A,
+      PROJ_A,
+      'notebook_template',
+      'Bad transition',
+    )
     const res = await rpc('transition_record_status', USER_A, WS_A, {
       p_record_id: template.id,
       p_target_status: 'active',
@@ -207,10 +276,31 @@ describe('SCI-006 template REST contract', () => {
   })
 
   it('instantiates a notebook template into an experiment through the RPC', async () => {
-    const template = await createRecord(USER_A, WS_A, PROJ_A, 'notebook_template', 'Instantiate via API')
-    await insertBlock(USER_A, WS_A, template.id, 'rich_text', {
-      doc: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'API objective' }] }] },
-    }, template.structure_version)
+    const template = await createRecord(
+      USER_A,
+      WS_A,
+      PROJ_A,
+      'notebook_template',
+      'Instantiate via API',
+    )
+    await insertBlock(
+      USER_A,
+      WS_A,
+      template.id,
+      'rich_text',
+      {
+        doc: {
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [{ type: 'text', text: 'API objective' }],
+            },
+          ],
+        },
+      },
+      template.structure_version,
+    )
     await rpc('transition_record_status', USER_A, WS_A, {
       p_record_id: template.id,
       p_target_status: 'validated',
@@ -226,7 +316,13 @@ describe('SCI-006 template REST contract', () => {
   })
 
   it('rejects instantiation from a draft template with template_not_instantiable (422)', async () => {
-    const template = await createRecord(USER_A, WS_A, PROJ_A, 'notebook_template', 'Draft no instantiate')
+    const template = await createRecord(
+      USER_A,
+      WS_A,
+      PROJ_A,
+      'notebook_template',
+      'Draft no instantiate',
+    )
     const res = await rpc('instantiate_template', USER_A, WS_A, {
       p_template_record_id: template.id,
       p_target_project_id: PROJ_A,
@@ -237,7 +333,13 @@ describe('SCI-006 template REST contract', () => {
 
   it('rejects cross-workspace instantiation with permission_denied (403)', async () => {
     // Workspace B creates and validates a template.
-    const template = await createRecord(USER_B, WS_B, PROJ_B, 'notebook_template', 'B only template')
+    const template = await createRecord(
+      USER_B,
+      WS_B,
+      PROJ_B,
+      'notebook_template',
+      'B only template',
+    )
     await rpc('transition_record_status', USER_B, WS_B, {
       p_record_id: template.id,
       p_target_status: 'validated',
@@ -254,17 +356,36 @@ describe('SCI-006 template REST contract', () => {
   })
 
   it('isolates templates across workspaces (cross-workspace read returns nothing)', async () => {
-    await createRecord(USER_B, WS_B, PROJ_B, 'notebook_template', 'B secret template')
+    await createRecord(
+      USER_B,
+      WS_B,
+      PROJ_B,
+      'notebook_template',
+      'B secret template',
+    )
     const res = await proxy('records?kind=eq.notebook_template', USER_A, WS_A)
     const rows = await json(res)
     expect(rows.every((r: any) => r.title !== 'B secret template')).toBe(true)
   })
 
   it('emits a durable change event attributed to the acting user on instantiation', async () => {
-    const template = await createRecord(USER_A, WS_A, PROJ_A, 'notebook_template', 'Event parity')
-    await insertBlock(USER_A, WS_A, template.id, 'rich_text', {
-      doc: { type: 'doc', content: [{ type: 'paragraph' }] },
-    }, template.structure_version)
+    const template = await createRecord(
+      USER_A,
+      WS_A,
+      PROJ_A,
+      'notebook_template',
+      'Event parity',
+    )
+    await insertBlock(
+      USER_A,
+      WS_A,
+      template.id,
+      'rich_text',
+      {
+        doc: { type: 'doc', content: [{ type: 'paragraph' }] },
+      },
+      template.structure_version,
+    )
     await rpc('transition_record_status', USER_A, WS_A, {
       p_record_id: template.id,
       p_target_status: 'validated',

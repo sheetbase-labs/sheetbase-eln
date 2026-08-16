@@ -102,9 +102,7 @@ const SCIENTIFIC_METADATA = new Set([
   'dataset_schemas',
   'dataset_schema_fields',
 ])
-const SCIENTIFIC_SCHEMA_RPCS = new Set([
-  'bind_legacy_sheet',
-])
+const SCIENTIFIC_SCHEMA_RPCS = new Set(['bind_legacy_sheet'])
 const PROJECT_DOMAIN_RESOURCES = new Set([
   'projects',
   'folders',

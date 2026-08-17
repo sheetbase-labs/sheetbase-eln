@@ -1,14 +1,13 @@
 # Sheetbase Post-Core Roadmap
 
 > **Status:** active planning authority after CORE-01–06 and Core Hardening  
-> **Current phase:** Product & Platform Consolidation  
-> **Automation:** deliberately deferred until human-facing product and platform contracts are proven
+> **Current phase:** Product & Platform Consolidation
 
 ## Purpose
 
 This folder is the canonical planning home for Sheetbase after the completed Core Data Workspace programme.
 
-`docs/core/` remains the architectural and implementation record for CORE-01–06. This folder describes what Sheetbase builds next: the scientist-facing product, public platform, interoperability, governance, collaboration, scientific analysis, integrations, operational maturity and eventually automation.
+`docs/core/` remains the architectural and implementation record for CORE-01–06. This folder describes what Sheetbase builds next: the scientist-facing product, public platform, interoperability, governance, collaboration, scientific analysis, integrations, operational maturity and automation.
 
 ## Start here
 
@@ -56,14 +55,12 @@ The roadmap is deliberately not a single long queue. Several capability tracks c
               |             |       |
               v             v       v
            COLLAB           SCI     INT
-              \             |      /
-               +------------+-----+
                             |
                             v
                            AUTO
 ```
 
-This is a dependency shape, not a mandate that every programme must finish before another starts.
+This is a dependency shape, not a mandate that every programme must finish before another starts. AUTO is a normal later workstream, just as INT and SCI are sequenced according to the capabilities they build upon.
 
 ## Current planning rule
 

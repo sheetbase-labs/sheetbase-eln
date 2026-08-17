@@ -1,6 +1,6 @@
 # GOV — Identity, Administration & Governance
 
-**Status:** planned; refine after PC-00.
+**Status:** planned; GOV-01 should decide `viewer` semantics before tightening enforcement.
 
 ## Programme goal
 
@@ -9,6 +9,8 @@ Make Sheetbase governable at organisational scale while keeping normal scientifi
 ## GOV-01 — Role & Capability Productisation
 
 Clarify role semantics; make viewer genuinely meaningful when deliberately changed; role/capability UI; effective-permission inspection; invitation role selection; permission-denied UX; capability documentation; tests across browser/API.
+
+PC-00: `viewer` is a member-class data actor (`record.create` / `record.link` / `instance.upgrade`). `schema.edit` and `schema.publish` share steward/admin/owner. Do not silently tighten during PC-01.
 
 Do not jump directly to arbitrary custom RBAC policy languages.
 

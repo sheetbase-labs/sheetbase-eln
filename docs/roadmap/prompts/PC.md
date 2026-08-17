@@ -6,7 +6,7 @@ Work on the active **PC — Product Consolidation** epic in `phlohouse/sheetbase
 
 - Branch from current `main` unless `docs/roadmap/NEXT.md` says otherwise.
 - Verify exact HEAD and read `NEXT.md` first.
-- Read `docs/roadmap/tasks/PC.md`, the PC-00 audit, relevant Core task/evidence docs and ADRs.
+- Read `docs/roadmap/tasks/PC.md`, `docs/roadmap/audits/PC-00.md`, relevant Core task/evidence docs and ADRs.
 - Implement only the active PC epic identified by `NEXT.md`; do not opportunistically implement later PC epics.
 
 ## Product objective

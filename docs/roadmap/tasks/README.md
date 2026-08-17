@@ -13,10 +13,10 @@ These files are the detailed planning contracts for the post-Core programmes.
 
 | Programme | Task file | Status |
 | --- | --- | --- |
-| Product Consolidation | [`PC.md`](./PC.md) | PC-00 active; implementation not started |
-| API & Developer Platform | [`API.md`](./API.md) | planned; refine after PC-00 |
-| Data Interoperability | [`DATA.md`](./DATA.md) | planned; refine after PC-00 |
-| Governance | [`GOV.md`](./GOV.md) | planned; refine after PC-00 |
+| Product Consolidation | [`PC.md`](./PC.md) | PC-00 complete; PC-01 active |
+| API & Developer Platform | [`API.md`](./API.md) | planned; API-01 parallel with PC-01 |
+| Data Interoperability | [`DATA.md`](./DATA.md) | planned; DATA-01 after PC-01 paste |
+| Governance | [`GOV.md`](./GOV.md) | planned; GOV-01 `viewer` decision |
 | Collaboration | [`COLLAB.md`](./COLLAB.md) | planned |
 | Scientific Analysis | [`SCI.md`](./SCI.md) | planned |
 | Integrations | [`INT.md`](./INT.md) | planned |

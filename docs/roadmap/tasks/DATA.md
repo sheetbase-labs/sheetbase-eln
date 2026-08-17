@@ -1,12 +1,16 @@
 # DATA — Data Interoperability
 
-**Status:** planned; refine after PC-00.
+**Status:** PC-00 complete; DATA-01 follows canonical Sheet paste (PC-01).
 
 ## Programme goal
 
 Make scientific data easy to bring into Sheetbase, move out in useful formats, attach as durable files and find again without weakening schema, provenance or evidence semantics.
 
 ## DATA-01 — Import Framework
+
+### Current state (PC-00)
+
+No Dataset/Sheet CSV/XLSX/JSON import framework. Ad-hoc Sheets cannot multi-cell paste. Composed Handsontable paste is not a mapping/validation import. Plate CSV and leftover scientific CSV are not the canonical path.
 
 ### Scope
 

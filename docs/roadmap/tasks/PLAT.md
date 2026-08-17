@@ -1,6 +1,6 @@
 # PLAT — Platform, Operations & Security
 
-**Status:** continuous; refine priority after PC-00.
+**Status:** continuous; PC-00: health/ready exist; next useful slices are stale-docs/security headers, not a greenfield observability rewrite.
 
 ## Programme goal
 
@@ -16,11 +16,15 @@ Environment separation; immutable artifacts; migration strategy; deployment gate
 
 Structured logs; metrics; traces where useful; request correlation; DB/RPC latency; error rates; background/integration run visibility; health/readiness; alerts; SLOs after usage data exists.
 
+PC-00: `/api/health/live` and `/ready`, request ids, JSON logs with redaction already exist (`docs/observability.md`). Do not rebuild that. Add metrics when traffic justifies them. Rewrite `docs/external-api.md` as part of API-01/PLAT docs hygiene.
+
 **Exit:** failures can be detected and diagnosed without reproducing them interactively.
 
 ## PLAT-03 — Security Hardening
 
 CSP/security headers; rate limits; secret management; dependency/vulnerability scanning; SAST; auth/session review; API abuse controls; backup encryption; audit of SECURITY DEFINER/RLS/grants; penetration testing at appropriate maturity.
+
+PC-00: no CSP/security-header implementation found in app code. Credential exchange is rate-limited; general API is not. H1 capability-mask is already fail-closed for `authenticated`.
 
 **Exit:** major application/platform security controls are deliberate, tested and observable.
 

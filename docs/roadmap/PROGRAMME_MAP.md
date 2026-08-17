@@ -46,8 +46,8 @@ This diagram communicates likely sequencing and dependencies, not a strict water
 
 ### PC — Product Consolidation
 
-- `PC-00` Product & Platform Consolidation Audit
-- `PC-01` Canonical Sheet Experience
+- `PC-00` Product & Platform Consolidation Audit (complete — `audits/PC-00.md`)
+- `PC-01` Canonical Sheet Experience (active)
 - `PC-02` Dataset & Record Product Workflows
 - `PC-03` Notebook Experience
 - `PC-04` Templates & Reusable Science
@@ -115,16 +115,17 @@ This diagram communicates likely sequencing and dependencies, not a strict water
 
 ## Suggested near-term parallelisation
 
-PC-00 should happen first because it establishes the real current state. After its findings are accepted, a likely early parallel shape is:
+PC-00 is complete (`audits/PC-00.md`). Evidence-based early parallel shape:
 
 ```text
 PC-01  Canonical Sheet UX
-API-01 Public API contract
-DATA-01 Import framework
-PLAT-02 Observability/reliability gaps
+PC-03  Thin slice: blank experiment create + submit
+API-01 Public API contract (allowlist Core RPCs; rewrite stale external-api docs)
+DATA-01 Import after PC-01 paste exists
+PLAT-03 Security headers (small, continuous)
 ```
 
-This is provisional. PC-00 owns refinement.
+Do not activate COLLAB, SCI, INT or AUTO from this hand-off.
 
 ## Later streams
 

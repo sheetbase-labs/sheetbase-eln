@@ -8,68 +8,45 @@
 
 ## Active task
 
-**PC-00 — Product & Platform Consolidation Audit**
+**PC-01 — Canonical Sheet Experience**
 
-Task: [`tasks/PC-00.md`](./tasks/PC-00.md)  
-Agent prompt: [`prompts/PC-00.md`](./prompts/PC-00.md)
+Task: [`tasks/PC.md`](./tasks/PC.md) (section PC-01)  
+Agent prompt: [`prompts/PC.md`](./prompts/PC.md)
 
-CORE-01–06 and Core Hardening are complete. Do not reopen settled Core architecture without concrete implementation evidence.
+PC-00 is complete. Audit: [`audits/PC-00.md`](./audits/PC-00.md).
 
-## Goal of PC-00
+CORE-01–06 and Core Hardening remain closed. Do not reopen settled Core architecture without concrete implementation evidence.
 
-Establish what Sheetbase can actually do today across product and platform surfaces, identify missing or duplicate paths, and turn the master roadmap into an evidence-based first implementation sequence.
+## Goal of PC-01
 
-The audit must cover more than UI. It should inspect:
-
-- Sheet, Dataset, Record, Notebook, Template and configuration workflows;
-- public/external API surface and credentials;
-- import/export and files;
-- search;
-- governance and administration;
-- collaboration;
-- charts and analysis;
-- integrations;
-- deployment, observability and security posture;
-- developer experience;
-- existing but hidden Core capabilities;
-- legacy or duplicate product surfaces;
-- representative end-to-end workflows.
+One spreadsheet-native Sheet experience spanning ad-hoc and composed states, exposing existing CORE-03/H2 RPCs (paste, types, calculations, bind/adopt, Record link/create, extract/upgrade/materialise) instead of inventing a second Sheet system.
 
 ## Required reading
 
 1. [`README.md`](./README.md)
 2. [`PRODUCT_DIRECTION.md`](./PRODUCT_DIRECTION.md)
 3. [`PROGRAMME_MAP.md`](./PROGRAMME_MAP.md)
-4. [`tasks/PC-00.md`](./tasks/PC-00.md)
-5. [`prompts/PC-00.md`](./prompts/PC-00.md)
-6. [`../core/CORE_01_06_IMPLEMENTATION_REVIEW.md`](../core/CORE_01_06_IMPLEMENTATION_REVIEW.md)
+4. [`audits/PC-00.md`](./audits/PC-00.md)
+5. [`tasks/PC.md`](./tasks/PC.md)
+6. [`prompts/PC.md`](./prompts/PC.md)
 7. [`../core/CORE_HARDENING.md`](../core/CORE_HARDENING.md)
-8. relevant accepted ADRs
+8. relevant accepted ADRs (especially 0020, 0037, 0038)
 
 ## Do now
 
-Complete PC-00 as an audit/planning checkpoint. Refine priorities and task boundaries from evidence before beginning implementation work in the roadmap streams.
+Implement PC-01 from evidence in the PC-00 audit. Prefer existing RPCs. A thin PC-03 slice (blank experiment create + submit) may proceed in parallel because workflows A and F are otherwise unreachable.
 
 ## Do not
 
-- do not implement another roadmap epic during PC-00;
+- do not start AUTO;
+- do not build a visual Pipeline designer;
 - do not create an AI-specific data or permission model;
-- do not reopen the FieldDefinition, Dataset, Definition/Instance, Template version or frozen-evidence architecture without evidence of a real defect;
+- do not reopen FieldDefinition, Dataset, Definition/Instance, Template version or frozen-evidence architecture without a real defect;
 - do not create another Dataset, Sheet, Template or capability system;
 - do not treat the browser as the only future client;
-- do not make compatibility/legacy surfaces primary again;
-- do not broaden specialist workspaces merely because old code exists;
-- do not turn PC-00 into implementation.
+- do not restore SCI-010 / scientific-table / legacy notebook-template surfaces;
+- do not broaden specialist workspaces merely because old code exists.
 
 ## Expected hand-off
 
-PC-00 should leave:
-
-1. an inventory of current product/platform surfaces;
-2. canonical / duplicate / missing classifications;
-3. end-to-end workflow findings;
-4. security/API/data-interoperability gaps;
-5. a prioritised P0–P3 gap list;
-6. refined scopes for the first PC/API/DATA/GOV/PLAT epics and any other streams materially affected by the audit;
-7. a recommended parallelisation plan;
-8. this file updated to the first approved implementation task.
+PC-01 should leave a scientist able to work in one Sheet experience from a Notebook, with Core reuse actions reachable, and `NEXT.md` pointing at the next approved task (likely continuing PC-01 slices, the PC-03 submit/create slice, or parallel API-01 — see the audit parallelisation plan).

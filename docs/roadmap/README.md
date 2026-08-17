@@ -66,7 +66,7 @@ This is a dependency shape, not a mandate that every programme must finish befor
 
 Do not start large post-Core implementation from an old summary. Begin with `NEXT.md`, then follow the relevant task file and matching prompt.
 
-The immediate task is **PC-00 — Product & Platform Consolidation Audit**. Its job is to establish the actual post-Core product/platform state and refine the first implementation epics from evidence.
+The immediate task is **PC-01 — Canonical Sheet Experience**. PC-00 established the post-Core product/platform state (`audits/PC-00.md`).
 
 ## Relationship to root `ROADMAP.md`
 

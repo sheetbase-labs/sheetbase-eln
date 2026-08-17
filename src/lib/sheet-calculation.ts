@@ -101,8 +101,7 @@ export function sheetCalculationDependenciesFromExpression(input: {
   rowCount?: number
 }): SheetCalculationDependency[] {
   const source = input.source.trim()
-  if (!source.startsWith('='))
-    throw new Error('A formula must begin with =.')
+  if (!source.startsWith('=')) throw new Error('A formula must begin with =.')
   const parsed = parseFormula(source, {
     tableId: DEPENDENCY_MAP_TABLE_ID,
     rowIds: dummyRowIds(input.rowCount ?? 32),

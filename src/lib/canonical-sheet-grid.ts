@@ -69,7 +69,8 @@ export function parseSheetCellInput(
   if (!field) return raw
   if (field.logicalType === 'boolean') {
     if (typeof raw === 'boolean') return raw
-    if (raw === 'true' || raw === 'TRUE' || raw === 1 || raw === '1') return true
+    if (raw === 'true' || raw === 'TRUE' || raw === 1 || raw === '1')
+      return true
     if (raw === 'false' || raw === 'FALSE' || raw === 0 || raw === '0')
       return false
     return raw
@@ -82,7 +83,11 @@ export function parseSheetCellInput(
   }
   if (field.logicalType === 'decimal') {
     if (typeof raw === 'number' && Number.isFinite(raw)) return raw
-    if (typeof raw === 'string' && raw.trim() !== '' && !Number.isNaN(Number(raw)))
+    if (
+      typeof raw === 'string' &&
+      raw.trim() !== '' &&
+      !Number.isNaN(Number(raw))
+    )
       return Number(raw)
     return raw
   }
@@ -127,7 +132,9 @@ export function canonicalSheetGridMatrix(input: {
       return columns.map((column) => {
         if (column.origin === 'bound' && composedRow) {
           const sourceIndex = boundIndex.get(column.id)
-          return sourceIndex === undefined ? null : (composedRow[sourceIndex] ?? null)
+          return sourceIndex === undefined
+            ? null
+            : (composedRow[sourceIndex] ?? null)
         }
         if (column.origin === 'calculation') {
           return (

@@ -16,11 +16,7 @@ vi.mock('#/lib/sheet-local-data', async (importOriginal) => ({
 }))
 
 vi.mock('./sheetbase-grid', () => ({
-  SheetbaseGrid: ({
-    settings,
-  }: {
-    settings: { colHeaders?: string[] }
-  }) => (
+  SheetbaseGrid: ({ settings }: { settings: { colHeaders?: string[] } }) => (
     <table>
       <thead>
         <tr>

@@ -52,7 +52,9 @@ describe('SubmitNotebookDialog', () => {
       screen.getByRole('button', { name: 'Submit and freeze' }),
     ).toHaveProperty('disabled', true)
     await user.click(screen.getByRole('button', { name: 'Preview digest' }))
-    expect(await screen.findByText(/Evidence digest: abc123digest/)).toBeTruthy()
+    expect(
+      await screen.findByText(/Evidence digest: abc123digest/),
+    ).toBeTruthy()
     expect(
       screen.getByRole('button', { name: 'Submit and freeze' }),
     ).toHaveProperty('disabled', false)

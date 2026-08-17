@@ -3,15 +3,18 @@
  * golden `sample` key. Falls back only when no Model relationship is present.
  */
 export function sheetRecordTargetModelKey(
-  configuration: {
-    columns: Array<{
-      field: {
-        relationship?: {
-          target?: { kind?: string; modelKey?: string }
-        } | null
+  configuration:
+    | {
+        columns: Array<{
+          field: {
+            relationship?: {
+              target?: { kind?: string; modelKey?: string }
+            } | null
+          }
+        }>
       }
-    }>
-  } | null | undefined,
+    | null
+    | undefined,
 ): string | null {
   if (!configuration) return null
   for (const column of configuration.columns) {

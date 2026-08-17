@@ -1014,11 +1014,7 @@ export function ProjectSidebar({
           {/* Quick actions — compact side-by-side */}
           <InspectorSection title="Quick actions">
             <div className="grid grid-cols-2 gap-1.5">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onCreateExperiment}
-              >
+              <Button variant="outline" size="sm" onClick={onCreateExperiment}>
                 <FlaskConical className="size-3.5" aria-hidden="true" />
                 Experiment
               </Button>

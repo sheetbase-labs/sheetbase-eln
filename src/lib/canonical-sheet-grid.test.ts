@@ -64,9 +64,9 @@ describe('parseSheetCellInput', () => {
 describe('validateCanonicalCell', () => {
   it('rejects invalid integers for typed local fields', () => {
     const field = instance().state.localFields[0]
-    expect(validateCanonicalCell({ ...field, logicalType: 'integer' }, 'x')).toBe(
-      'invalid_value',
-    )
+    expect(
+      validateCanonicalCell({ ...field, logicalType: 'integer' }, 'x'),
+    ).toBe('invalid_value')
     expect(validateCanonicalCell(field, 'ok')).toBeNull()
     expect(fieldId).toHaveLength(36)
   })

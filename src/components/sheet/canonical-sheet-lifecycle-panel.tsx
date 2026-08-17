@@ -316,8 +316,8 @@ export function CanonicalSheetLifecyclePanel({
               Bind Dataset / adopt Definition
             </legend>
             <p className="text-xs text-muted-foreground">
-              Adoption composes this Instance with a published Definition. It
-              is not field promotion.
+              Adoption composes this Instance with a published Definition. It is
+              not field promotion.
             </p>
             <Label className="space-y-1 text-xs">
               <span>Sheet Definition</span>

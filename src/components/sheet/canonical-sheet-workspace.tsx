@@ -66,7 +66,12 @@ function errorText(error: unknown) {
 
 function handsontableType(column: {
   presentation: { kind: string }
-  field: { category?: { kind: string; options?: Array<{ key: string; lifecycle: string }> } | null } | null
+  field: {
+    category?: {
+      kind: string
+      options?: Array<{ key: string; lifecycle: string }>
+    } | null
+  } | null
 }): { type: string; dateFormat?: string; source?: string[] } {
   const kind = column.presentation.kind
   if (kind === 'checkbox') return { type: 'checkbox' }
@@ -153,9 +158,9 @@ export function CanonicalSheetEditor({
   const [errors, setErrors] = useState(
     sheetRecordGridErrorsFromValidation({ rows: [] }),
   )
-  const [errorCursor, setErrorCursor] = useState<(typeof errors)[number] | null>(
-    null,
-  )
+  const [errorCursor, setErrorCursor] = useState<
+    (typeof errors)[number] | null
+  >(null)
 
   const composition = useQuery({
     queryKey: ['composed-sheet', instance.id],
@@ -169,7 +174,12 @@ export function CanonicalSheetEditor({
   }, [composition.data, instance.state.localValues])
 
   const calculations = useQuery({
-    queryKey: ['sheet-calc-results', instance.id, instance.revision, rowKeysForCalc],
+    queryKey: [
+      'sheet-calc-results',
+      instance.id,
+      instance.revision,
+      rowKeysForCalc,
+    ],
     enabled: rowKeysForCalc.length > 0,
     queryFn: async () => {
       const raw = await readSheetInstanceCalculationResults(
@@ -177,16 +187,17 @@ export function CanonicalSheetEditor({
         rowKeysForCalc,
         client,
       )
-      const rows = (
-        raw as {
-          results?: Array<{
-            calculationId: string
-            rowKey: string
-            calculatedValue: unknown
-            calculationStatus?: string
-          }>
-        }
-      ).results ?? []
+      const rows =
+        (
+          raw as {
+            results?: Array<{
+              calculationId: string
+              rowKey: string
+              calculatedValue: unknown
+              calculationStatus?: string
+            }>
+          }
+        ).results ?? []
       const mapped: Record<string, Record<string, unknown>> = {}
       for (const row of rows) {
         mapped[row.rowKey] ??= {}
@@ -456,7 +467,9 @@ export function CanonicalSheetEditor({
       )
     },
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ['composed-sheet', instance.id] }),
+      queryClient.invalidateQueries({
+        queryKey: ['composed-sheet', instance.id],
+      }),
   })
 
   const create = useMutation({
@@ -488,7 +501,9 @@ export function CanonicalSheetEditor({
       )
     },
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ['composed-sheet', instance.id] }),
+      queryClient.invalidateQueries({
+        queryKey: ['composed-sheet', instance.id],
+      }),
   })
 
   const addRowRef = useRef(addRow)
@@ -690,7 +705,9 @@ export function CanonicalSheetEditor({
             <Button
               type="button"
               size="sm"
-              disabled={writeBack.isPending || Object.keys(pendingValues).length === 0}
+              disabled={
+                writeBack.isPending || Object.keys(pendingValues).length === 0
+              }
               onClick={() => writeBack.mutate()}
             >
               Write back
@@ -778,11 +795,11 @@ export function CanonicalSheetEditor({
       )}
       <div className="space-y-1 border-t px-3 py-2 text-xs text-muted-foreground">
         {staleCalc ? (
-          <p role="status">Calculation results are stale. Recalculate after edits.</p>
+          <p role="status">
+            Calculation results are stale. Recalculate after edits.
+          </p>
         ) : null}
-        {writeStatus ? (
-          <p role="status">{writeStatus}</p>
-        ) : null}
+        {writeStatus ? <p role="status">{writeStatus}</p> : null}
         {errorText(localMutate.error) || errorText(addCalculation.error) ? (
           <p className="text-destructive" role="alert">
             {errorText(localMutate.error) ?? errorText(addCalculation.error)}
@@ -796,7 +813,9 @@ export function CanonicalSheetEditor({
         {selectedColumn ? (
           <p role="status">
             {selectedColumn.label}
-            {selectedColumn.origin === 'bound' ? ' · governed' : ` · ${selectedColumn.origin}`}
+            {selectedColumn.origin === 'bound'
+              ? ' · governed'
+              : ` · ${selectedColumn.origin}`}
             {provenance && 'kind' in provenance
               ? provenance.kind === 'present'
                 ? ` · ${provenance.provenance.sourceKind} provenance`

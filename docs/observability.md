@@ -156,3 +156,6 @@ preserved when present because it is intended for clients.
   add a redaction test. Never log raw request bodies, query strings, cookies
   or authorization headers — the proxy deliberately logs only safe
   resource labels.
+
+CSP and related browser security headers are documented in
+`docs/security-headers.md`.

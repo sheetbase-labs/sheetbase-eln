@@ -1,6 +1,6 @@
 # DATA — Data Interoperability
 
-**Status:** PC-00 complete; DATA-01 follows canonical Sheet paste (PC-01).
+**Status:** PC-00 complete; DATA-01 is **low** and follows canonical Sheet paste (PC-01, medium).
 
 ## Programme goal
 

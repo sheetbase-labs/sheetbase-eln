@@ -15,6 +15,8 @@ Agent prompt: [`prompts/PC.md`](./prompts/PC.md)
 
 PC-00 is complete. Audit: [`audits/PC-00.md`](./audits/PC-00.md).
 
+Delivery priority: **medium** (PC-01, and a thin PC-03 create/submit slice). Parallel API/DATA/PLAT follow-ups are **low**. Do not queue work as high.
+
 CORE-01–06 and Core Hardening remain closed. Do not reopen settled Core architecture without concrete implementation evidence.
 
 ## Goal of PC-01

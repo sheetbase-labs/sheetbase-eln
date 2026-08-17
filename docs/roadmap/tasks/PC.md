@@ -39,7 +39,7 @@ A prioritised gap map, surface inventory, workflow findings, refined PC/API/DATA
 
 ## PC-01 — Canonical Sheet Experience
 
-**Priority:** highest product priority after PC-00. **Active.**
+**Priority:** medium. **Active.** Delivery priority is only medium or low; nothing is high.
 
 ### Goal
 
@@ -119,7 +119,7 @@ Make Notebook the clear scientific-context and evidence container around narrati
 
 ### PC-00 note
 
-P1 blockers: no blank experiment create (home/project CTAs all go to `/templates`); `submitRecordRevision` has no UI caller. Reviews already work once a revision exists. Land **create + submit** as the first PC-03 slice in parallel with PC-01.
+PC-00 P1 gaps, queued as **medium**: no blank experiment create (home/project CTAs all go to `/templates`); `submitRecordRevision` has no UI caller. Reviews already work once a revision exists. Land **create + submit** as the first PC-03 slice in parallel with PC-01.
 
 ### Scope
 

@@ -115,14 +115,14 @@ This diagram communicates likely sequencing and dependencies, not a strict water
 
 ## Suggested near-term parallelisation
 
-PC-00 is complete (`audits/PC-00.md`). Evidence-based early parallel shape:
+PC-00 is complete (`audits/PC-00.md`). Delivery priority is only **medium** or **low** (nothing high).
 
 ```text
-PC-01  Canonical Sheet UX
-PC-03  Thin slice: blank experiment create + submit
-API-01 Public API contract (allowlist Core RPCs; rewrite stale external-api docs)
-DATA-01 Import after PC-01 paste exists
-PLAT-03 Security headers (small, continuous)
+medium  PC-01  Canonical Sheet UX
+medium  PC-03  Thin slice: blank experiment create + submit
+low     API-01 Public API contract (allowlist Core RPCs; rewrite stale external-api docs)
+low     DATA-01 Import after PC-01 paste exists
+low     PLAT-03 Security headers (small, continuous)
 ```
 
 Do not activate COLLAB, SCI, INT or AUTO from this hand-off.

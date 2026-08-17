@@ -1,6 +1,6 @@
 # API — API & Developer Platform
 
-**Status:** PC-00 complete; first epic is API-01 in parallel with PC-01.
+**Status:** PC-00 complete; API-01 is **low** and may run in parallel with medium PC-01.
 
 ## Programme goal
 

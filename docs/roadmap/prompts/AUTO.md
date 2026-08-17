@@ -1,42 +1,35 @@
 # Prompt — AUTO Automation
 
-> **DEFERRED. Do not use this prompt unless `docs/roadmap/NEXT.md` explicitly activates AUTO work.**
+Work on the active **AUTO — Automation** epic in `phlohouse/sheetbase-eln`.
 
-Work on the active **AUTO — Automation** epic in `phlohouse/sheetbase-eln` only after the roadmap's automation readiness gate has been satisfied.
+## Authority
 
-## Prerequisites
-
-Before editing, prove from current roadmap evidence that:
-
-- canonical human Sheet/Notebook workflows are mature;
-- public API/domain operations are stable;
-- immutable Dataset Versions are practical inputs;
-- credentials/service identities exist;
-- import/export/files and provenance are mature enough;
-- operational observability/retry controls exist;
-- governance/capability boundaries are established.
-
-If those are not true, stop and report the unmet prerequisites.
+Branch from current `main` unless `docs/roadmap/NEXT.md` specifies another base. Read `NEXT.md`, `tasks/AUTO.md`, relevant earlier roadmap evidence and the canonical Dataset/API/governance/operations contracts used by the active epic before editing.
 
 ## Objective
 
-Build deterministic automation first, then agent-assisted operations later, using the same canonical domain contracts as humans and external clients.
+Build deterministic Pipeline capabilities and later agent-assisted operations using the same canonical Sheetbase domain contracts as humans and external clients.
 
 ## Principles
 
 - Pipeline Definitions and Runs have stable/versioned identity;
-- consequential inputs are immutable or explicitly version-pinned;
-- outputs are canonical Datasets/Versions/Records/files, not Pipeline-only storage;
+- inputs and outputs are explicit and use canonical Dataset/Version/Record/file contracts;
+- consequential inputs are immutable or explicitly version-pinned where reproducibility requires it;
 - runs preserve code/config/input/output/environment provenance;
 - retries/idempotency/concurrency are explicit;
 - Python/SQL execution is sandboxed and governed;
-- agents propose/execute ordinary authorised operations and never bypass permissions/validation/provenance;
+- schedules and event triggers use normal platform event/service-identity contracts;
+- agents propose/execute ordinary authorised operations and never bypass permissions, validation or provenance;
 - approval gates are available for consequential agent-authored changes.
+
+## Working method
+
+Implement only the active AUTO epic. Inspect current API, Dataset Version, event, service identity, execution and observability capabilities before editing. Reuse them rather than creating Pipeline-specific substitutes. Add reproducibility, retry, isolation, permission and provenance tests appropriate to the active task.
 
 ## Do not
 
-Do not start with a visual DAG builder. Do not create an AI-specific data model, permission model or evidence model. Do not let agents mutate PostgreSQL directly outside normal domain operations.
+Do not create an AI-specific data, permission or evidence model. Do not let Pipelines or agents mutate PostgreSQL outside normal governed domain operations. Do not assume a visual DAG builder is required unless product evidence supports it.
 
 ## Completion
 
-Meet the active AUTO task exit criteria and report reproducibility, execution isolation, provenance, retry semantics, permissions, approval behaviour, tests and remaining risks.
+Meet the active AUTO task exit criteria and report user/platform outcome, execution/reproducibility semantics, provenance, retry/concurrency behaviour, permissions, tests and remaining risks.

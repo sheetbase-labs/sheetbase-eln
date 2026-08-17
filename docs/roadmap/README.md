@@ -17,20 +17,23 @@ This folder is the canonical planning home for Sheetbase after the completed Cor
 3. [`PROGRAMME_MAP.md`](./PROGRAMME_MAP.md) — programme-level sequencing and dependencies.
 4. [`tasks/README.md`](./tasks/README.md) — epic index and status.
 5. The relevant task file under [`tasks/`](./tasks/) before implementing an epic.
+6. [`prompts/README.md`](./prompts/README.md) — reusable agent starting prompts for each programme.
 
 ## Programmes
 
-| Prefix | Programme | Relative timing |
-| --- | --- | --- |
-| `PC` | Product Consolidation | Now |
-| `API` | API & Developer Platform | Early / parallel with PC |
-| `DATA` | Data Interoperability | Early / parallel with PC |
-| `GOV` | Identity, Administration & Governance | Early–mid |
-| `COLLAB` | Collaboration | Mid |
-| `SCI` | Scientific Analysis & Visualisation | Mid, after core Sheet UX stabilises |
-| `INT` | Integrations | Mid–late |
-| `PLAT` | Platform, Operations & Security | Continuous |
-| `AUTO` | Automation | Later |
+| Prefix | Programme | Relative timing | Agent prompt |
+| --- | --- | --- | --- |
+| `PC` | Product Consolidation | Now | [`prompts/PC.md`](./prompts/PC.md) |
+| `API` | API & Developer Platform | Early / parallel with PC | [`prompts/API.md`](./prompts/API.md) |
+| `DATA` | Data Interoperability | Early / parallel with PC | [`prompts/DATA.md`](./prompts/DATA.md) |
+| `GOV` | Identity, Administration & Governance | Early–mid | [`prompts/GOV.md`](./prompts/GOV.md) |
+| `COLLAB` | Collaboration | Mid | [`prompts/COLLAB.md`](./prompts/COLLAB.md) |
+| `SCI` | Scientific Analysis & Visualisation | Mid, after core Sheet UX stabilises | [`prompts/SCI.md`](./prompts/SCI.md) |
+| `INT` | Integrations | Mid–late | [`prompts/INT.md`](./prompts/INT.md) |
+| `PLAT` | Platform, Operations & Security | Continuous | [`prompts/PLAT.md`](./prompts/PLAT.md) |
+| `AUTO` | Automation | Later | [`prompts/AUTO.md`](./prompts/AUTO.md) |
+
+PC-00 has its own audit prompt: [`prompts/PC-00.md`](./prompts/PC-00.md).
 
 ## Planning model
 
@@ -64,7 +67,7 @@ This is a dependency shape, not a mandate that every programme must finish befor
 
 ## Current planning rule
 
-Do not start large post-Core implementation from the old monolithic roadmap. Begin with `NEXT.md`, then follow the relevant task file.
+Do not start large post-Core implementation from an old summary. Begin with `NEXT.md`, then follow the relevant task file and matching prompt.
 
 The immediate task is **PC-00 — Product & Platform Consolidation Audit**. Its job is to establish the actual post-Core product/platform state and refine the first implementation epics from evidence.
 

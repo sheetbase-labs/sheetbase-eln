@@ -64,9 +64,9 @@ This is a dependency shape, not a mandate that every programme must finish befor
 
 ## Current planning rule
 
-Do not start large post-Core implementation from an old summary. Begin with `NEXT.md`, then follow the relevant task file and matching prompt.
+Do not start large post-Core implementation from an old summary. Begin with `NEXT.md`, then follow the **assigned** stream's task file and matching prompt. Ready streams may run in parallel; one agent does not own every Ready row.
 
-The immediate task is **PC-01 — Canonical Sheet Experience**. PC-00 established the post-Core product/platform state (`audits/PC-00.md`).
+PC-00 is accepted (`audits/PC-00.md`). Immediate Ready work is **PC-01** (medium) and **API-01** (low, contract-only).
 
 ## Relationship to root `ROADMAP.md`
 

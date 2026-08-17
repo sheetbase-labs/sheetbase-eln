@@ -1,6 +1,8 @@
 # Prompt — DATA Data Interoperability
 
-Work on the active **DATA — Data Interoperability** epic in `phlohouse/sheetbase-eln`.
+Work on the **assigned DATA stream** in `phlohouse/sheetbase-eln`. Read `docs/roadmap/NEXT.md` first.
+
+DATA-01 is **waiting on PC-01**. Do not start import/paste framework work until the canonical Sheet interaction exists. When assigned, refine the contract against that Sheet experience.
 
 Read `docs/roadmap/NEXT.md`, `tasks/DATA.md`, PC-00 evidence, canonical Dataset/Record/Notebook contracts and existing import/export/file/search code before implementation.
 

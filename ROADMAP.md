@@ -50,9 +50,7 @@ The active hand-off is [`docs/roadmap/NEXT.md`](./docs/roadmap/NEXT.md).
 
 ## Current next step
 
-**PC-00 — Product & Platform Consolidation Audit.**
-
-Before starting large post-Core implementation, audit the actual current product/platform, exercise realistic workflows and refine the first PC/API/DATA/GOV/PLAT implementation epics from evidence.
+See [`docs/roadmap/NEXT.md`](./docs/roadmap/NEXT.md). PC-00 is accepted. Immediate Ready streams are **PC-01** (medium) and **API-01** (low, contract-only). DATA-01 waits on PC-01. GOV-01 and PLAT-03 are queued.
 
 ## Golden workflow
 

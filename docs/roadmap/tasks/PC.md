@@ -1,6 +1,6 @@
 # PC — Product Consolidation
 
-**Status:** PC-00 complete; PC-01 is the active implementation epic. Later PC epics remain evidence-refined, not started.
+**Status:** PC-00 accepted; PC-01 is the Medium Ready stream. Full PC-03 remains later.
 
 ## Programme goal
 
@@ -8,7 +8,7 @@ Turn CORE-01–06 into one coherent scientist-facing product. A scientist should
 
 ## PC-00 — Product & Platform Consolidation Audit
 
-**Status:** COMPLETE — [`../audits/PC-00.md`](../audits/PC-00.md)
+**Status:** COMPLETE and accepted — [`../audits/PC-00.md`](../audits/PC-00.md)
 
 ### Goal
 
@@ -39,7 +39,7 @@ A prioritised gap map, surface inventory, workflow findings, refined PC/API/DATA
 
 ## PC-01 — Canonical Sheet Experience
 
-**Priority:** medium. **Active.** Delivery priority is only medium or low; nothing is high.
+**Priority:** medium. **Status:** Ready (primary PC stream).
 
 ### Goal
 
@@ -51,7 +51,20 @@ PC-00 found two live Sheet products (HTML ad-hoc grid vs Handsontable composed g
 
 ### Dependencies
 
-CORE-01–06 and Hardening H1–H5. A Notebook container is required: if blank experiment create is still missing, land the PC-03 create slice in parallel (PC-00 P1-S1).
+CORE-01–06 and Hardening H1–H5.
+
+### Thin PC-03 enabling slice (in PC-01, not full PC-03)
+
+Required so the canonical Sheet workflow can be exercised end-to-end:
+
+- create a blank experiment/Notebook without instantiating a Template;
+- submit the Notebook through the existing revision/evidence contract (`preview_submission_digest`, `submit_record_revision`).
+
+Do **not** take on the rest of PC-03 (print/export package, slash UX overhaul, Template designer, amendment-from-Notebook, rich history chrome).
+
+### Specialist navigation (in PC-01)
+
+Demote specialist tools from **default** navigation: Analysis, Planner, Calendar, Storage, Instruments, Plate Designer. Do not delete routes. Keep them accessible as secondary (for example a More group, hidden nav, or direct URL). Lineage and Report Builder stay out of primary nav.
 
 ### Scope
 
@@ -79,13 +92,15 @@ Do not expose "ad-hoc Sheet" and "composed Sheet" as separate products. They are
 
 Call existing RPCs. Do not invent a parallel writer. UI hide is not authorisation. External API allowlisting of the same RPCs is API-01, not a PC-01 rewrite.
 
+**Do not** make `viewer` read-only here — that is GOV-01.
+
 ### Exit
 
-A scientist can start (or open) a Notebook Sheet, work freely, add governed sources on the same Instance, create/link Records, calculate, extract/upgrade/materialise, and understand errors — without leaving the canonical Sheet experience.
+A scientist can create a blank Notebook, work in one Sheet experience, add governed sources on the same Instance, create/link Records, calculate, extract/upgrade/materialise, submit through the existing evidence contract, and understand errors. Specialist tools are no longer in default nav.
 
 ### Principal risks
 
-Confusing adoption with promotion; performance at scientific scale; Record actions remaining sample-only.
+Confusing adoption with promotion; performance at scientific scale; Record actions remaining sample-only; expanding the enabling Notebook slice into full PC-03.
 
 ---
 
@@ -119,7 +134,7 @@ Make Notebook the clear scientific-context and evidence container around narrati
 
 ### PC-00 note
 
-PC-00 P1 gaps, queued as **medium**: no blank experiment create (home/project CTAs all go to `/templates`); `submitRecordRevision` has no UI caller. Reviews already work once a revision exists. Land **create + submit** as the first PC-03 slice in parallel with PC-01.
+Blank create and submit are **in PC-01** as an enabling slice only. This epic remains the full Notebook product and must not be started from the current hand-off.
 
 ### Scope
 

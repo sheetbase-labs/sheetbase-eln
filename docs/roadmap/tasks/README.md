@@ -4,24 +4,25 @@ These files are the detailed planning contracts for the post-Core programmes.
 
 ## Authority
 
-- [`../NEXT.md`](../NEXT.md) identifies the active task.
+- [`../NEXT.md`](../NEXT.md) identifies **active work per stream**. Agents take one assigned stream/task, not every Ready row.
 - This folder defines epic goals, scope and exit criteria.
 - [`../PRODUCT_DIRECTION.md`](../PRODUCT_DIRECTION.md) defines cross-programme product principles.
 - Accepted ADRs remain authoritative for durable architecture.
+- PC-00 accepted decisions: [`../audits/PC-00.md`](../audits/PC-00.md).
 
 ## Status
 
 | Programme | Task file | Status |
 | --- | --- | --- |
-| Product Consolidation | [`PC.md`](./PC.md) | PC-00 complete; PC-01 active (medium) |
-| API & Developer Platform | [`API.md`](./API.md) | planned; API-01 low, parallel with PC-01 |
-| Data Interoperability | [`DATA.md`](./DATA.md) | planned; DATA-01 low, after PC-01 paste |
-| Governance | [`GOV.md`](./GOV.md) | planned; GOV-01 `viewer` decision |
+| Product Consolidation | [`PC.md`](./PC.md) | PC-00 accepted; PC-01 Ready (medium) |
+| API & Developer Platform | [`API.md`](./API.md) | API-01 Ready (low, parallel, contract-only) |
+| Data Interoperability | [`DATA.md`](./DATA.md) | Waiting on PC-01 |
+| Governance | [`GOV.md`](./GOV.md) | GOV-01 queued (low initially; `viewer` read-only) |
 | Collaboration | [`COLLAB.md`](./COLLAB.md) | planned |
 | Scientific Analysis | [`SCI.md`](./SCI.md) | planned |
 | Integrations | [`INT.md`](./INT.md) | planned |
-| Platform & Operations | [`PLAT.md`](./PLAT.md) | planned; some work may run continuously |
-| Automation | [`AUTO.md`](./AUTO.md) | planned; later |
+| Platform & Operations | [`PLAT.md`](./PLAT.md) | PLAT-03 queued (low initially) |
+| Automation | [`AUTO.md`](./AUTO.md) | planned later |
 
 ## Task-file convention
 

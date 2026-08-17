@@ -1,6 +1,10 @@
 # Prompt — GOV Identity, Administration & Governance
 
-Work on the active **GOV — Identity, Administration & Governance** epic in `phlohouse/sheetbase-eln`.
+Work on the **assigned GOV stream** in `phlohouse/sheetbase-eln`. Read `docs/roadmap/NEXT.md` first.
+
+GOV-01 is **queued**. Do not start it from a PC-01 or API-01 session.
+
+When GOV-01 is assigned: **`viewer` means read-only.** Cover migration of existing viewers, RLS/`has_capability` semantics and permission regression tests across browser and API. Do not silently tighten from another epic.
 
 Read `docs/roadmap/NEXT.md`, `tasks/GOV.md`, PC-00 findings, CORE-05 capability evidence, CORE-06 evidence/signature contracts and relevant security/lifecycle ADRs first.
 

@@ -47,7 +47,7 @@ This diagram communicates likely sequencing and dependencies, not a strict water
 ### PC — Product Consolidation
 
 - `PC-00` Product & Platform Consolidation Audit (complete — `audits/PC-00.md`)
-- `PC-01` Canonical Sheet Experience (active)
+- `PC-01` Canonical Sheet Experience (Ready, medium; includes Notebook enabling slice)
 - `PC-02` Dataset & Record Product Workflows
 - `PC-03` Notebook Experience
 - `PC-04` Templates & Reusable Science
@@ -56,7 +56,7 @@ This diagram communicates likely sequencing and dependencies, not a strict water
 
 ### API — API & Developer Platform
 
-- `API-01` Public API Contract
+- `API-01` Public API Contract (Ready, low, parallel)
 - `API-02` API Credentials & Service Identity
 - `API-03` OpenAPI & Documentation
 - `API-04` Python SDK
@@ -72,7 +72,7 @@ This diagram communicates likely sequencing and dependencies, not a strict water
 
 ### GOV — Identity, Administration & Governance
 
-- `GOV-01` Role & Capability Productisation
+- `GOV-01` Role & Capability Productisation (Queued; `viewer` = read-only)
 - `GOV-02` Organisation Model
 - `GOV-03` Audit & History Experience
 - `GOV-04` Electronic Records, Review & Signatures
@@ -101,7 +101,7 @@ This diagram communicates likely sequencing and dependencies, not a strict water
 
 - `PLAT-01` Deployment & Environment Maturity
 - `PLAT-02` Observability & Reliability
-- `PLAT-03` Security Hardening
+- `PLAT-03` Security Hardening (Queued, low initially)
 - `PLAT-04` Platform Administration
 - `PLAT-05` Performance & Scale
 
@@ -115,14 +115,15 @@ This diagram communicates likely sequencing and dependencies, not a strict water
 
 ## Suggested near-term parallelisation
 
-PC-00 is complete (`audits/PC-00.md`). Delivery priority is only **medium** or **low** (nothing high).
+PC-00 is complete (`audits/PC-00.md`) and **accepted**. Delivery priority is only **medium** or **low**. Agents take one assigned stream from `NEXT.md`.
 
 ```text
-medium  PC-01  Canonical Sheet UX
-medium  PC-03  Thin slice: blank experiment create + submit
-low     API-01 Public API contract (allowlist Core RPCs; rewrite stale external-api docs)
-low     DATA-01 Import after PC-01 paste exists
-low     PLAT-03 Security headers (small, continuous)
+medium  PC-01  Canonical Sheet UX + blank Notebook + submit enabling slices
+               + demote specialist tools from default nav
+low     API-01 Public API contract (parallel; stop at contract boundary)
+queued  GOV-01 viewer = read-only (do not implement in PC-01)
+queued  PLAT-03 Security hardening
+wait    DATA-01 until PC-01 Sheet interaction exists
 ```
 
 Do not activate COLLAB, SCI, INT or AUTO from this hand-off.

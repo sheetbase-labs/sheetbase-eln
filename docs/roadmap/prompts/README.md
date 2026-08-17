@@ -15,14 +15,14 @@ This folder contains reusable starting prompts for the post-Core roadmap program
 | Prompt | Programme |
 | --- | --- |
 | [`PC-00.md`](./PC-00.md) | Product & Platform Consolidation Audit (complete) |
-| [`PC.md`](./PC.md) | Product Consolidation (Ready: PC-01) |
-| [`API.md`](./API.md) | API & Developer Platform (Ready: API-01, low) |
+| [`PC.md`](./PC.md) | Product Consolidation (Ready: PC-02; PC-01 merge-ready) |
+| [`API.md`](./API.md) | API & Developer Platform (API-01 merge-ready; API-02 waits) |
 | [`DATA.md`](./DATA.md) | Data Interoperability |
 | [`GOV.md`](./GOV.md) | Identity, Administration & Governance |
 | [`COLLAB.md`](./COLLAB.md) | Collaboration |
 | [`SCI.md`](./SCI.md) | Scientific Analysis & Visualisation |
 | [`INT.md`](./INT.md) | Integrations |
-| [`PLAT.md`](./PLAT.md) | Platform, Operations & Security |
+| [`PLAT.md`](./PLAT.md) | Platform, Operations & Security (Ready: PLAT-03 headers, low) |
 | [`AUTO.md`](./AUTO.md) | Automation |
 
 ## Shared operating rules

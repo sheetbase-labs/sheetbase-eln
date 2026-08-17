@@ -1,6 +1,6 @@
 # PC — Product Consolidation
 
-**Status:** PC-00 accepted; PC-01 is the Medium Ready stream. Full PC-03 remains later.
+**Status:** PC-00 accepted; PC-01 is merge-ready (#41). PC-02 is the Medium Ready stream. Full PC-03 remains later.
 
 ## Programme goal
 
@@ -39,7 +39,7 @@ A prioritised gap map, surface inventory, workflow findings, refined PC/API/DATA
 
 ## PC-01 — Canonical Sheet Experience
 
-**Priority:** medium. **Status:** Ready (primary PC stream).
+**Priority:** medium. **Status:** Merge-ready — [#41](https://github.com/phlohouse/sheetbase-eln/pull/41).
 
 ### Goal
 
@@ -106,7 +106,9 @@ Confusing adoption with promotion; performance at scientific scale; Record actio
 
 ## PC-02 — Dataset & Record Product Workflows
 
-PC-00: `/datasets` is read-only; Dataset create/snapshot/live edit RPCs exist; reagent create UI is missing while sample create exists.
+**Priority:** medium. **Status:** Ready (from current `main`; do not restack on #41).
+
+PC-00: `/datasets` is read-only; Dataset create/snapshot/live edit RPCs exist; reagent create UI is missing while sample create exists. Do **not** implement DATA-01 import (CSV/XLSX mapping). Do **not** change `viewer` (GOV-01).
 
 ### Goal
 

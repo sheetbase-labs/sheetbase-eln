@@ -1,6 +1,6 @@
 # PLAT — Platform, Operations & Security
 
-**Status:** continuous; PLAT-03 is **Low initially** and **Queued**. Do not implement from the current PC/API hand-off. Health/ready already exist.
+**Status:** continuous; PLAT-03 **headers slice** is **Low** and **Ready**. Full hardening beyond headers stays queued if it needs Medium work. Health/ready already exist.
 
 ## Programme goal
 
@@ -22,7 +22,9 @@ PC-00: `/api/health/live` and `/ready`, request ids, JSON logs with redaction al
 
 ## PLAT-03 — Security Hardening
 
-**Priority:** low initially. **Status:** Queued.
+**Priority:** low (headers slice). **Status:** Ready.
+
+**This round:** CSP/security headers in app code, with tests. Stop at the Low boundary. Queue general API rate limits, SAST, backup encryption and SECURITY DEFINER audit if they require Medium architecture. `viewer` remains GOV-01. External-API docs remain API-01.
 
 CSP/security headers; rate limits; secret management; dependency/vulnerability scanning; SAST; auth/session review; API abuse controls; backup encryption; audit of SECURITY DEFINER/RLS/grants; penetration testing at appropriate maturity.
 

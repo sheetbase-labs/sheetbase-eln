@@ -1,6 +1,6 @@
 # DATA — Data Interoperability
 
-**Status:** waiting on PC-01. Do not start DATA-01 from the current hand-off.
+**Status:** waiting on PC-01 merge (#41). Do not start DATA-01 until the canonical Sheet is on `main`.
 
 ## Programme goal
 

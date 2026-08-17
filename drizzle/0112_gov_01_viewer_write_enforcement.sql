@@ -89,9 +89,9 @@ END
 $gov01_rls$;
 
 -- SECURITY DEFINER data-plane mutators still authorise with membership only.
--- Replace the 1-argument is_workspace_member gate with has_capability
--- (record.create). Leave 2-argument owner checks alone. Do not patch
--- read/preview/query/export/admin RPCs.
+-- Replace "NOT is_workspace_member(x)" write gates with has_capability
+-- (record.create). Do not rewrite is_workspace_member inside format()
+-- strings (legacy scientific table policy DDL).
 DO $gov01_rpc$
 DECLARE
   fn record;
@@ -124,7 +124,6 @@ BEGIN
          'edit_study',
          'finalize_file_upload',
          'freeze_chart',
-         'instantiate_dataset_schema',
          'instantiate_notebook_template_version',
          'instantiate_template',
          'link_study_experiment',
@@ -155,14 +154,14 @@ BEGIN
     def := pg_get_functiondef(fn.oid);
     new_def := regexp_replace(
       def,
-      '"api"\."is_workspace_member"\(([A-Za-z0-9_.]+)\)',
-      'api.has_capability(\1, ''record.create'')',
+      'NOT "api"\."is_workspace_member"\(([A-Za-z0-9_.]+)\)',
+      'NOT api.has_capability(\1, ''record.create'')',
       'g'
     );
     new_def := regexp_replace(
       new_def,
-      'api\.is_workspace_member\(([A-Za-z0-9_.]+)\)',
-      'api.has_capability(\1, ''record.create'')',
+      'NOT api\.is_workspace_member\(([A-Za-z0-9_.]+)\)',
+      'NOT api.has_capability(\1, ''record.create'')',
       'g'
     );
     IF new_def IS NOT DISTINCT FROM def THEN

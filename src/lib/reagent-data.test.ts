@@ -11,6 +11,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   DEFAULT_EXPIRY_WARNING_DAYS,
+  createReagent,
   fetchReagentUsage,
   projectReagentProperties,
   reagentAttention,
@@ -457,3 +458,51 @@ describe('DEFAULT_EXPIRY_WARNING_DAYS', () => {
     expect(DEFAULT_EXPIRY_WARNING_DAYS).toBe(30)
   })
 })
+
+describe('createReagent and editReagent', () => {
+  it('creates through create_model_record', async () => {
+    const rpc = vi.fn(async () => ({
+      id: 'r-new',
+      workspace_id: 'ws',
+      project_id: 'p1',
+      kind: 'reagent',
+      identifier: 'RGT-2026-0002',
+      title: 'Acetonitrile',
+      status: 'available',
+      tags: ['solvent'],
+      structure_version: 1,
+      metadata_version: 1,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+      archived_at: null,
+      deleted_at: null,
+      created_by_user_id: 'u1',
+      updated_by_user_id: null,
+      properties: { supplier: 'Sigma', catalog_no: 'A123' },
+      custom_fields: {},
+      locked_at: null,
+      locked_by_revision_id: null,
+    }))
+    const created = await createReagent(
+      { rpc } as unknown as DataClient,
+      {
+        projectId: 'p1',
+        title: 'Acetonitrile',
+        tags: ['solvent'],
+        properties: { supplier: 'Sigma', catalogNo: 'A123' },
+      },
+    )
+    expect(rpc).toHaveBeenCalledWith('create_model_record', {
+      p_project_id: 'p1',
+      p_kind: 'reagent',
+      p_title: 'Acetonitrile',
+      p_status: 'available',
+      p_tags: ['solvent'],
+      p_properties: { supplier: 'Sigma', catalog_no: 'A123' },
+      p_custom_fields: {},
+    })
+    expect(created.identifier).toBe('RGT-2026-0002')
+    expect(created.catalogNo).toBe('A123')
+  })
+})
+

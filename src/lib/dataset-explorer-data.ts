@@ -59,7 +59,8 @@ export const DATASET_QUERY_HARD_LIMIT = 5000
 export const datasetExplorerDataClient = createDataClient()
 
 export const datasetExplorerQueryKeys = {
-  summaries: ['dataset-explorer-summaries'] as const,
+  summaries: (includeArchived = false) =>
+    ['dataset-explorer-summaries', includeArchived] as const,
   rows: (tableId: string, queryId: string) =>
     ['dataset-explorer-rows', tableId, queryId] as const,
   rowCount: (tableId: string, queryId: string) =>
@@ -69,6 +70,12 @@ export const datasetExplorerQueryKeys = {
   relationships: ['dataset-explorer-relationships'] as const,
   lineage: (tableId: string) => ['dataset-explorer-lineage', tableId] as const,
   links: (recordId: string) => ['dataset-explorer-links', recordId] as const,
+  versions: (datasetId: string) =>
+    ['dataset-explorer-versions', datasetId] as const,
+  dependencies: (datasetId: string) =>
+    ['dataset-explorer-dependencies', datasetId] as const,
+  schemaContext: (schemaVersionId: string) =>
+    ['dataset-explorer-schema-context', schemaVersionId] as const,
 }
 
 export interface CanonicalDatasetWire extends ScientificTableWire {
@@ -76,6 +83,8 @@ export interface CanonicalDatasetWire extends ScientificTableWire {
   schema_version_id?: string
   description?: string | null
   revision?: number
+  schema_definition_id?: string | null
+  schema_version_number?: number | null
 }
 
 interface DatasetResourceWire {
@@ -106,41 +115,84 @@ interface DatasetVersionFieldWire {
 /** List canonical Datasets and the active fields pinned to each version. */
 export async function fetchDatasetSummaries(
   client: DataClient = datasetExplorerDataClient,
+  options: { includeArchived?: boolean } = {},
 ): Promise<CanonicalDatasetWire[]> {
+  const lifecycleFilter = options.includeArchived
+    ? ''
+    : 'lifecycle=eq.active&'
   const datasets = await client.list<DatasetResourceWire>(
     'datasets',
-    '?lifecycle=eq.active&order=created_at.desc',
+    `?${lifecycleFilter}order=created_at.desc`,
   )
   const versionIds = [
     ...new Set(datasets.map((item) => item.schema_version_id)),
   ]
-  const fields = versionIds.length
-    ? await client.list<DatasetVersionFieldWire>(
-        'dataset_schema_version_fields',
-        `?schema_version_id=in.(${versionIds.map(encodeURIComponent).join(',')})&lifecycle=eq.active&order=display_order.asc`,
+  const [fields, versions] = await Promise.all([
+    versionIds.length
+      ? client.list<DatasetVersionFieldWire>(
+          'dataset_schema_version_fields',
+          `?schema_version_id=in.(${versionIds.map(encodeURIComponent).join(',')})&lifecycle=eq.active&order=display_order.asc`,
+        )
+      : Promise.resolve([]),
+    versionIds.length
+      ? client.list<{
+          id: string
+          schema_id: string
+          version: number
+        }>(
+          'dataset_schema_versions',
+          `?id=in.(${versionIds.map(encodeURIComponent).join(',')})&select=id,schema_id,version`,
+        )
+      : Promise.resolve([]),
+  ])
+  const definitionIds = [...new Set(versions.map((item) => item.schema_id))]
+  const definitions = definitionIds.length
+    ? await client.list<{ id: string; name: string; key: string }>(
+        'dataset_schema_definitions',
+        `?id=in.(${definitionIds.map(encodeURIComponent).join(',')})&select=id,name,key`,
       )
     : []
-  return datasets.map((dataset) => ({
-    ...dataset,
-    resource_name: '',
-    schema_version: 1,
-    dataset_schema_id: null,
-    record_id: undefined,
-    columns: fields
-      .filter((field) => field.schema_version_id === dataset.schema_version_id)
-      .map((field) => ({
-        id: field.field_id,
-        field_name: field.field_id,
-        label: field.label,
-        display_order: field.display_order,
-        logical_type: field.logical_type,
-        nullable: field.nullable,
-        unit: field.quantity,
-        validation: field.validation,
-        width: null,
-        options: [],
-      })),
-  }))
+  const versionById = new Map(versions.map((item) => [item.id, item]))
+  const definitionById = new Map(definitions.map((item) => [item.id, item]))
+  return datasets.map((dataset) => {
+    const version = versionById.get(dataset.schema_version_id)
+    const definition = version
+      ? definitionById.get(version.schema_id)
+      : undefined
+    return {
+      ...dataset,
+      resource_name: '',
+      schema_version: version?.version ?? 1,
+      schema_definition_id: version?.schema_id ?? null,
+      schema_version_number: version?.version ?? null,
+      dataset_schema_id: version?.schema_id ?? null,
+      record_id: undefined,
+      dataset_schema: definition
+        ? {
+            id: definition.id,
+            slug: definition.key,
+            name: definition.name,
+            revision: version?.version ?? 1,
+            status: 'published',
+            latest_published_revision: version?.version ?? null,
+          }
+        : null,
+      columns: fields
+        .filter((field) => field.schema_version_id === dataset.schema_version_id)
+        .map((field) => ({
+          id: field.field_id,
+          field_name: field.field_id,
+          label: field.label,
+          display_order: field.display_order,
+          logical_type: field.logical_type,
+          nullable: field.nullable,
+          unit: field.quantity,
+          validation: field.validation,
+          width: null,
+          options: [],
+        })),
+    }
+  })
 }
 
 // --- Paged canonical Dataset row query ------------------------------------

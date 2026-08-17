@@ -40,6 +40,7 @@ Element.prototype.scrollIntoView = vi.fn()
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => () => ({ useRouteContext: () => ({}) }),
   redirect: (options: unknown) => options,
+  Link: ({ children }: { children: unknown }) => <a>{children}</a>,
 }))
 
 // Mock react-query so the data tab never hits the network. `useQuery`
@@ -182,10 +183,12 @@ describe('DatasetExplorerHeader', () => {
         loading
         error={null}
         selectedTableId={null}
+        includeArchived={false}
+        onToggleArchived={() => {}}
         onSelect={() => {}}
       />,
     )
-    expect(screen.getByText('Dataset Explorer')).toBeTruthy()
+    expect(screen.getByText('Datasets')).toBeTruthy()
     expect(
       screen.getByRole('heading', { name: 'Scientific datasets' }),
     ).toBeTruthy()
@@ -200,6 +203,8 @@ describe('DatasetExplorerHeader', () => {
         loading={false}
         error={new Error('boom')}
         selectedTableId={null}
+        includeArchived={false}
+        onToggleArchived={() => {}}
         onSelect={() => {}}
       />,
     )
@@ -219,6 +224,8 @@ describe('DatasetExplorerHeader', () => {
         loading={false}
         error={null}
         selectedTableId={t.id}
+        includeArchived={false}
+        onToggleArchived={() => {}}
         onSelect={onSelect}
       />,
     )
@@ -250,6 +257,8 @@ describe('DatasetExplorerHeader', () => {
         loading={false}
         error={null}
         selectedTableId={t.id}
+        includeArchived={false}
+        onToggleArchived={() => {}}
         onSelect={() => {}}
       />,
     )
@@ -265,18 +274,12 @@ describe('DatasetExplorerHeader', () => {
 })
 
 describe('DatasetSchemaTab', () => {
-  it('describes table-owned fields without legacy implementation language', () => {
-    vi.mocked(useQuery).mockReturnValue(
-      queryResult({ schema: null, fields: [] }),
-    )
-
+  it('shows pinned Schema Version fields without legacy schema language', () => {
     render(<DatasetSchemaTab table={table()} />)
 
-    expect(screen.getByText('Dataset structure')).toBeTruthy()
-    expect(
-      screen.getByText('Fields are defined directly in this dataset.'),
-    ).toBeTruthy()
-    expect(screen.getByText('Local fields')).toBeTruthy()
+    expect(screen.getByText('Schema Version')).toBeTruthy()
+    expect(screen.getByText('Pinned fields')).toBeTruthy()
+    expect(screen.getByText('Sample')).toBeTruthy()
     expect(screen.queryByText(/legacy ad-hoc/i)).toBeNull()
     expect(screen.queryByText('col_alpha')).toBeNull()
   })
@@ -400,6 +403,7 @@ describe('DataTableView', () => {
 
 describe('DatasetInspector', () => {
   it('prompts to select a row when none is selected', () => {
+    vi.mocked(useQuery).mockReturnValue(queryResult([]))
     render(
       <DatasetInspector
         table={table()}
@@ -416,6 +420,7 @@ describe('DatasetInspector', () => {
   })
 
   it('shows row values, lineage and links for a selected row', async () => {
+    vi.mocked(useQuery).mockReturnValue(queryResult([]))
     const user = userEvent.setup()
     render(
       <DatasetInspector

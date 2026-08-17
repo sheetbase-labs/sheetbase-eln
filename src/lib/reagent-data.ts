@@ -619,3 +619,85 @@ export function archiveReagent(
     p_expected_metadata_version: expectedMetadataVersion,
   })
 }
+
+export interface CreateReagentInput {
+  projectId: string
+  title: string
+  status?: string
+  tags?: string[]
+  properties: Partial<ReagentProperties>
+  customFields?: Record<string, unknown>
+}
+
+function reagentPropertiesPayload(
+  properties: Partial<ReagentProperties>,
+): Record<string, unknown> {
+  const payload: Record<string, unknown> = {}
+  if (properties.supplier !== undefined) payload.supplier = properties.supplier
+  if (properties.catalogNo !== undefined) payload.catalog_no = properties.catalogNo
+  if (properties.lot !== undefined) payload.lot = properties.lot
+  if (properties.expiry !== undefined) payload.expiry = properties.expiry
+  if (properties.quantity !== undefined) payload.quantity = properties.quantity
+  if (properties.unit !== undefined) payload.unit = properties.unit
+  if (properties.storage !== undefined) payload.storage = properties.storage
+  if (properties.lowStockThreshold !== undefined) {
+    payload.low_stock_threshold = properties.lowStockThreshold
+  }
+  if (properties.expiryWarningDays !== undefined) {
+    payload.expiry_warning_days = properties.expiryWarningDays
+  }
+  return payload
+}
+
+export async function createReagent(
+  client: DataClient,
+  input: CreateReagentInput,
+): Promise<Reagent> {
+  const row = await client.rpc<RecordWire>('create_model_record', {
+    p_project_id: input.projectId,
+    p_kind: 'reagent',
+    p_title: input.title,
+    p_status: input.status ?? 'available',
+    p_tags: input.tags ?? [],
+    p_properties: reagentPropertiesPayload(input.properties),
+    p_custom_fields: input.customFields ?? {},
+  })
+  return toReagentFromWire(row)
+}
+
+export interface EditReagentInput {
+  recordId: string
+  expectedMetadataVersion: number
+  title?: string
+  tags?: string[]
+  properties?: Partial<ReagentProperties>
+  customFields?: Record<string, unknown>
+}
+
+export async function editReagent(
+  client: DataClient,
+  input: EditReagentInput,
+): Promise<Reagent> {
+  const patch: Record<string, unknown> = {}
+  if (input.title !== undefined) patch.title = input.title
+  if (input.tags !== undefined) patch.tags = input.tags
+  if (input.properties !== undefined) {
+    patch.properties = reagentPropertiesPayload(input.properties)
+  }
+  const rows = await client.patch<RecordWire>(
+    'records',
+    `?id=eq.${encodeURIComponent(input.recordId)}&metadata_version=eq.${input.expectedMetadataVersion}`,
+    patch,
+  )
+  const row = rows[0]
+  if (!row) throw new Error('Reagent was not updated. Refresh and try again.')
+  if (input.customFields) {
+    const updated = await client.rpc<RecordWire>('update_record_custom_fields', {
+      p_record_id: input.recordId,
+      p_expected_metadata_version: row.metadata_version,
+      p_values: input.customFields,
+    })
+    return toReagentFromWire(updated)
+  }
+  return toReagentFromWire(row)
+}

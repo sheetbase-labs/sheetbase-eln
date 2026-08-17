@@ -29,7 +29,7 @@ import { createColumnHelper } from '@tanstack/react-table'
 import type { ColumnDef } from '@tanstack/react-table'
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
-import { Archive } from 'lucide-react'
+import { Archive, FlaskConical } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
 import { ReagentInspector } from '#/components/reagents/reagent-inspector'
@@ -51,11 +51,21 @@ import {
   FieldGroup,
   FieldLabel,
   Input,
+  Label,
+  Select,
 } from '#/components/ui'
 import { createDataClient, DataClientError } from '#/lib/data-client'
-import { formatDate } from '#/lib/notebook-data'
+import { formatDate, notebookDataClient } from '#/lib/notebook-data'
+import {
+  fetchModelFields,
+  modelFieldValuesFromInput,
+} from '#/lib/model-fields'
+import type { ModelFieldDefinition } from '#/lib/model-fields'
+import { ModelFieldInput } from '#/components/scientific/model-field-input'
 import {
   archiveReagent,
+  createReagent,
+  editReagent,
   DEFAULT_EXPIRY_WARNING_DAYS,
   fetchReagent,
   fetchReagentAttentionSummary,
@@ -256,11 +266,77 @@ function ReagentsRegistryRoute() {
     user: { name: context.user.name, email: context.user.email },
   }
 
+  const [createOpen, setCreateOpen] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
+
+  const projectsQuery = useQuery({
+    queryKey: ['reg-003', 'projects'],
+    queryFn: () =>
+      client.list<{ id: string; key: string; title: string }>(
+        'projects',
+        '?order=created_at.desc&select=id,key,title',
+      ),
+  })
+  const modelFieldsQuery = useQuery({
+    queryKey: ['reg-003', 'reagent-fields'],
+    queryFn: () => fetchModelFields(notebookDataClient, 'reagent'),
+  })
+  const modelFields = modelFieldsQuery.data ?? []
+
   function handleMutated() {
     void queryClient.invalidateQueries({
       queryKey: ['reg-003', 'reagents'],
     })
   }
+
+  const createMutation = useMutation({
+    mutationFn: async (input: {
+      projectId: string
+      title: string
+      category: string
+      properties: {
+        supplier: string
+        catalogNo: string
+        lot: string
+        expiry: string
+        quantity: string
+        unit: string
+        storage: string
+      }
+      customFields: Record<string, unknown>
+    }) => {
+      const quantity =
+        input.properties.quantity === ''
+          ? undefined
+          : Number(input.properties.quantity)
+      return createReagent(client, {
+        projectId: input.projectId,
+        title: input.title,
+        tags: input.category ? [input.category] : [],
+        properties: {
+          supplier: input.properties.supplier || undefined,
+          catalogNo: input.properties.catalogNo || undefined,
+          lot: input.properties.lot || undefined,
+          expiry: input.properties.expiry || undefined,
+          quantity,
+          unit: input.properties.unit || undefined,
+          storage: input.properties.storage || undefined,
+        },
+        customFields: input.customFields,
+      })
+    },
+    onSuccess: (reagent) => {
+      setCreateError(null)
+      setCreateOpen(false)
+      handleMutated()
+      setSelected(reagent.id)
+    },
+    onError: (error) => {
+      setCreateError(
+        error instanceof Error ? error.message : 'Could not create reagent.',
+      )
+    },
+  })
 
   useShell({
     fullBleed: true,
@@ -305,6 +381,11 @@ function ReagentsRegistryRoute() {
           searchDebounceMs={300}
           emptyTitle="No reagents yet"
           noResultsTitle="No matching reagents"
+          actions={
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              <FlaskConical className="size-3.5" /> New reagent
+            </Button>
+          }
           renderInspector={(row) =>
             row ? (
               <ReagentInspector
@@ -336,6 +417,16 @@ function ReagentsRegistryRoute() {
               </div>
             )
           }
+        />
+        <CreateReagentDialog
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          projects={projectsQuery.data ?? []}
+          projectsLoading={projectsQuery.isLoading}
+          pending={createMutation.isPending}
+          error={createError}
+          modelFields={modelFields}
+          onCreate={(input) => createMutation.mutate(input)}
         />
       </div>
     </>
@@ -559,7 +650,7 @@ function ReagentActions({
   onMutated: (reagentId: string) => void
 }) {
   const [dialog, setDialog] = useState<
-    null | 'receive' | 'consume' | 'quarantine' | 'archive'
+    null | 'receive' | 'consume' | 'quarantine' | 'archive' | 'edit'
   >(null)
 
   const movementMutation = useMutation({
@@ -589,6 +680,29 @@ function ReagentActions({
       setDialog(null)
     },
   })
+  const editMutation = useMutation({
+    mutationFn: async (input: { title: string; supplier: string; catalogNo: string; lot: string }) =>
+      editReagent(client, {
+        recordId: reagent.id,
+        expectedMetadataVersion: reagent.metadataVersion,
+        title: input.title,
+        properties: {
+          supplier: input.supplier || null,
+          catalogNo: input.catalogNo || null,
+          lot: input.lot || null,
+          expiry: reagent.expiry,
+          quantity: reagent.quantity,
+          unit: reagent.unit,
+          storage: reagent.storage,
+          lowStockThreshold: reagent.lowStockThreshold,
+          expiryWarningDays: reagent.expiryWarningDays,
+        },
+      }),
+    onSuccess: () => {
+      onMutated(reagent.id)
+      setDialog(null)
+    },
+  })
 
   const error =
     (movementMutation.error instanceof DataClientError
@@ -596,9 +710,15 @@ function ReagentActions({
       : null) ??
     (archiveMutation.error instanceof DataClientError
       ? archiveMutation.error
+      : null) ??
+    (editMutation.error instanceof DataClientError
+      ? editMutation.error
       : null)
   const errorMessage = error ? describeMovementError(error) : null
-  const pending = movementMutation.isPending || archiveMutation.isPending
+  const pending =
+    movementMutation.isPending ||
+    archiveMutation.isPending ||
+    editMutation.isPending
 
   // Disable actions that the RPC will reject for the current status, so the
   // UI hints honestly rather than offering an impossible operation.
@@ -612,6 +732,13 @@ function ReagentActions({
   return (
     <div className="space-y-2">
       <ButtonGroup className="flex-wrap">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setDialog('edit')}
+        >
+          Edit
+        </Button>
         <Button
           size="sm"
           variant="outline"
@@ -685,6 +812,16 @@ function ReagentActions({
           errorMessage={errorMessage}
           onCancel={() => setDialog(null)}
           onConfirm={() => archiveMutation.mutate()}
+        />
+      ) : null}
+
+      {dialog === 'edit' ? (
+        <EditReagentDialog
+          reagent={reagent}
+          pending={pending}
+          errorMessage={errorMessage}
+          onCancel={() => setDialog(null)}
+          onSubmit={(input) => editMutation.mutate(input)}
         />
       ) : null}
     </div>
@@ -843,4 +980,333 @@ function describeMovementError(error: DataClientError): string {
     default:
       return error.message || 'Could not record the movement. Try again.'
   }
+}
+
+function CreateReagentDialog({
+  open,
+  onOpenChange,
+  projects,
+  projectsLoading,
+  pending,
+  error,
+  modelFields,
+  onCreate,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  projects: { id: string; key: string; title: string }[]
+  projectsLoading: boolean
+  pending: boolean
+  error: string | null
+  modelFields: ModelFieldDefinition[]
+  onCreate: (input: {
+    projectId: string
+    title: string
+    category: string
+    properties: {
+      supplier: string
+      catalogNo: string
+      lot: string
+      expiry: string
+      quantity: string
+      unit: string
+      storage: string
+    }
+    customFields: Record<string, unknown>
+  }) => void
+}) {
+  const [projectId, setProjectId] = useState('')
+  const [title, setTitle] = useState('')
+  const [category, setCategory] = useState('')
+  const [supplier, setSupplier] = useState('')
+  const [catalogNo, setCatalogNo] = useState('')
+  const [lot, setLot] = useState('')
+  const [expiry, setExpiry] = useState('')
+  const [quantity, setQuantity] = useState('')
+  const [unit, setUnit] = useState('')
+  const [storage, setStorage] = useState('')
+  const [customFields, setCustomFields] = useState<
+    Record<string, string | boolean>
+  >({})
+
+  function submit() {
+    if (!projectId || !title.trim()) return
+    onCreate({
+      projectId,
+      title: title.trim(),
+      category: category.trim(),
+      properties: {
+        supplier,
+        catalogNo,
+        lot,
+        expiry,
+        quantity,
+        unit,
+        storage,
+      },
+      customFields: modelFieldValuesFromInput(modelFields, customFields, true),
+    })
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>New reagent</DialogTitle>
+          <DialogDescription>
+            Register a reagent. The identifier is assigned by create_model_record.
+            Quantity changes after create go through receive/consume.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3">
+          <Label className="text-xs text-muted-foreground">
+            Project
+            <Select
+              className="mt-1 h-9"
+              aria-label="Project"
+              value={projectId}
+              onChange={(event) => setProjectId(event.target.value)}
+            >
+              <option value="">
+                {projectsLoading ? 'Loading…' : 'Select a project'}
+              </option>
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.key} — {project.title}
+                </option>
+              ))}
+            </Select>
+          </Label>
+          <Label className="text-xs text-muted-foreground">
+            Name
+            <Input
+              className="mt-1 h-9"
+              aria-label="Reagent name"
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+            />
+          </Label>
+          <Label className="text-xs text-muted-foreground">
+            Category
+            <Input
+              className="mt-1 h-9"
+              aria-label="Category"
+              value={category}
+              onChange={(event) => setCategory(event.target.value)}
+              placeholder="solvent"
+            />
+          </Label>
+          <div className="grid grid-cols-2 gap-3">
+            <Label className="text-xs text-muted-foreground">
+              Supplier
+              <Input
+                className="mt-1 h-9"
+                aria-label="Supplier"
+                value={supplier}
+                onChange={(event) => setSupplier(event.target.value)}
+              />
+            </Label>
+            <Label className="text-xs text-muted-foreground">
+              Catalog No.
+              <Input
+                className="mt-1 h-9"
+                aria-label="Catalog number"
+                value={catalogNo}
+                onChange={(event) => setCatalogNo(event.target.value)}
+              />
+            </Label>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Label className="text-xs text-muted-foreground">
+              Lot
+              <Input
+                className="mt-1 h-9"
+                aria-label="Lot"
+                value={lot}
+                onChange={(event) => setLot(event.target.value)}
+              />
+            </Label>
+            <Label className="text-xs text-muted-foreground">
+              Expiry
+              <Input
+                className="mt-1 h-9"
+                type="date"
+                aria-label="Expiry"
+                value={expiry}
+                onChange={(event) => setExpiry(event.target.value)}
+              />
+            </Label>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <Label className="text-xs text-muted-foreground">
+              Quantity
+              <Input
+                className="mt-1 h-9"
+                type="number"
+                aria-label="Quantity"
+                value={quantity}
+                onChange={(event) => setQuantity(event.target.value)}
+              />
+            </Label>
+            <Label className="text-xs text-muted-foreground">
+              Unit
+              <Input
+                className="mt-1 h-9"
+                aria-label="Unit"
+                value={unit}
+                onChange={(event) => setUnit(event.target.value)}
+              />
+            </Label>
+            <Label className="text-xs text-muted-foreground">
+              Storage
+              <Input
+                className="mt-1 h-9"
+                aria-label="Storage"
+                value={storage}
+                onChange={(event) => setStorage(event.target.value)}
+              />
+            </Label>
+          </div>
+          {modelFields.length > 0 ? (
+            <div className="grid gap-3 border-t pt-3">
+              <p className="text-xs font-medium">Workspace fields</p>
+              {modelFields.map((definition) => (
+                <ModelFieldInput
+                  key={definition.id}
+                  definition={definition}
+                  value={
+                    customFields[definition.fieldName] ??
+                    (typeof definition.defaultValue === 'boolean'
+                      ? definition.defaultValue
+                      : definition.defaultValue == null
+                        ? ''
+                        : String(definition.defaultValue))
+                  }
+                  onChange={(value) =>
+                    setCustomFields((current) => ({
+                      ...current,
+                      [definition.fieldName]: value,
+                    }))
+                  }
+                />
+              ))}
+            </div>
+          ) : null}
+        </div>
+        {error ? (
+          <p role="alert" className="text-xs text-destructive">
+            {error}
+          </p>
+        ) : null}
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={submit}
+            disabled={pending || !projectId || !title.trim()}
+          >
+            {pending ? 'Creating…' : 'Create reagent'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function EditReagentDialog({
+  reagent,
+  pending,
+  errorMessage,
+  onCancel,
+  onSubmit,
+}: {
+  reagent: Reagent
+  pending: boolean
+  errorMessage: string | null
+  onCancel: () => void
+  onSubmit: (input: {
+    title: string
+    supplier: string
+    catalogNo: string
+    lot: string
+  }) => void
+}) {
+  const [title, setTitle] = useState(reagent.title)
+  const [supplier, setSupplier] = useState(reagent.supplier ?? '')
+  const [catalogNo, setCatalogNo] = useState(reagent.catalogNo ?? '')
+  const [lot, setLot] = useState(reagent.lot ?? '')
+  return (
+    <Dialog open onOpenChange={(open) => !open && onCancel()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit {reagent.identifier}</DialogTitle>
+          <DialogDescription>
+            Update identity fields. Stock quantity still uses receive/consume.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3">
+          <Label className="text-xs text-muted-foreground">
+            Name
+            <Input
+              className="mt-1 h-9"
+              aria-label="Reagent name"
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+            />
+          </Label>
+          <Label className="text-xs text-muted-foreground">
+            Supplier
+            <Input
+              className="mt-1 h-9"
+              aria-label="Supplier"
+              value={supplier}
+              onChange={(event) => setSupplier(event.target.value)}
+            />
+          </Label>
+          <Label className="text-xs text-muted-foreground">
+            Catalog No.
+            <Input
+              className="mt-1 h-9"
+              aria-label="Catalog number"
+              value={catalogNo}
+              onChange={(event) => setCatalogNo(event.target.value)}
+            />
+          </Label>
+          <Label className="text-xs text-muted-foreground">
+            Lot
+            <Input
+              className="mt-1 h-9"
+              aria-label="Lot"
+              value={lot}
+              onChange={(event) => setLot(event.target.value)}
+            />
+          </Label>
+        </div>
+        {errorMessage ? (
+          <p role="alert" className="text-xs text-destructive">
+            {errorMessage}
+          </p>
+        ) : null}
+        <DialogFooter>
+          <Button variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button
+            disabled={pending || !title.trim()}
+            onClick={() =>
+              onSubmit({
+                title: title.trim(),
+                supplier,
+                catalogNo,
+                lot,
+              })
+            }
+          >
+            {pending ? 'Saving…' : 'Save'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
 }

@@ -6,6 +6,10 @@ import {
   readinessResponse,
 } from './health'
 import { REQUEST_ID_HEADER } from './request-id'
+import {
+  CONTENT_SECURITY_POLICY,
+  X_CONTENT_TYPE_OPTIONS,
+} from './security-headers'
 
 describe('livenessResponse', () => {
   it('returns 200 with status live and stamps the request id', async () => {
@@ -15,6 +19,10 @@ describe('livenessResponse', () => {
     const response = livenessResponse(request)
     expect(response.status).toBe(200)
     expect(response.headers.get(REQUEST_ID_HEADER)).toBe('probe-live-1')
+    expect(response.headers.get(X_CONTENT_TYPE_OPTIONS)).toBe('nosniff')
+    expect(response.headers.get(CONTENT_SECURITY_POLICY)).toMatch(
+      /default-src 'self'/,
+    )
     expect(await response.json()).toEqual({ status: 'live' })
   })
 })

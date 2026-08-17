@@ -5,6 +5,7 @@ import { Readable } from 'node:stream'
 import { extname, resolve, sep } from 'node:path'
 
 import application from '../dist/server/server.js'
+import { applyProductionSecurityHeaders } from './lib/security-headers.mjs'
 
 const host = process.env.HOST ?? '0.0.0.0'
 const port = Number(process.env.PORT ?? '3000')
@@ -63,6 +64,7 @@ async function serveStatic(pathname, response, headOnly) {
     const details = await stat(candidate)
     if (!details.isFile()) return false
     response.statusCode = 200
+    applyProductionSecurityHeaders(response)
     response.setHeader(
       'content-type',
       contentTypes.get(extname(candidate)) ?? 'application/octet-stream',
@@ -119,6 +121,7 @@ const server = createServer(async (incoming, outgoing) => {
     })
     if (!outgoing.headersSent) {
       outgoing.statusCode = 500
+      applyProductionSecurityHeaders(outgoing)
       outgoing.setHeader('content-type', 'application/json')
     }
     outgoing.end(JSON.stringify({ error: { category: 'server_error' } }))

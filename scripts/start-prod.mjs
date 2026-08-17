@@ -3,6 +3,8 @@ import { createReadStream, readFileSync, statSync } from 'node:fs'
 import { dirname, extname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { mergeProductionSecurityHeaders } from './lib/security-headers.mjs'
+
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const clientDir = resolve(__dirname, '..', 'dist', 'client')
 
@@ -61,11 +63,14 @@ function tryServeStatic(req, res, url) {
       const indexPath = join(storybookDir, 'index.html')
       try {
         const stats = statSync(indexPath)
-        res.writeHead(200, {
-          'Content-Type': 'text/html; charset=UTF-8',
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Content-Length': stats.size,
-        })
+        res.writeHead(
+          200,
+          mergeProductionSecurityHeaders({
+            'Content-Type': 'text/html; charset=UTF-8',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Content-Length': stats.size,
+          }),
+        )
         createReadStream(indexPath).pipe(res)
         return true
       } catch {
@@ -88,11 +93,14 @@ function tryServeStatic(req, res, url) {
       }
     }
     if (!stats.isFile()) return false
-    res.writeHead(200, {
-      'Content-Type': MIME[extname(safePath)] || 'text/html; charset=UTF-8',
-      'Cache-Control': 'no-cache, no-store, must-revalidate',
-      'Content-Length': stats.size,
-    })
+    res.writeHead(
+      200,
+      mergeProductionSecurityHeaders({
+        'Content-Type': MIME[extname(safePath)] || 'text/html; charset=UTF-8',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Content-Length': stats.size,
+      }),
+    )
     createReadStream(safePath).pipe(res)
     return true
   }
@@ -114,11 +122,14 @@ function tryServeStatic(req, res, url) {
     return false
   }
   if (!stats.isFile()) return false
-  res.writeHead(200, {
-    'Content-Type': MIME[extname(safePath)] || 'application/octet-stream',
-    'Cache-Control': 'public, max-age=31536000, immutable',
-    'Content-Length': stats.size,
-  })
+  res.writeHead(
+    200,
+    mergeProductionSecurityHeaders({
+      'Content-Type': MIME[extname(safePath)] || 'application/octet-stream',
+      'Cache-Control': 'public, max-age=31536000, immutable',
+      'Content-Length': stats.size,
+    }),
+  )
   createReadStream(safePath).pipe(res)
   return true
 }
@@ -160,7 +171,12 @@ const server = createServer(async (req, res) => {
     res.end()
   } catch (err) {
     console.error('Server error:', err)
-    res.writeHead(500)
+    res.writeHead(
+      500,
+      mergeProductionSecurityHeaders({
+        'Content-Type': 'text/plain; charset=utf-8',
+      }),
+    )
     res.end('Internal Server Error')
   }
 })

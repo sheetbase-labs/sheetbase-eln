@@ -10,6 +10,7 @@ import { Client } from 'pg'
 import { env, getDeploymentConfig } from '#/env.server'
 import { logger } from '#/lib/logger'
 import { resolveRequestId, stampRequestId } from '#/lib/request-id'
+import { stampSecurityHeaders } from '#/lib/security-headers'
 
 export interface ProbeResult {
   ok: boolean
@@ -150,9 +151,11 @@ function stripErrorForBody(probe: ProbeResult): ProbeResult {
 /** Builds the liveness response — process is up, no dependency checks. */
 export function livenessResponse(request: Request): Response {
   const requestId = resolveRequestId(request.headers)
-  return stampRequestId(
-    Response.json({ status: 'live' }, { status: 200 }),
-    requestId,
+  return stampSecurityHeaders(
+    stampRequestId(
+      Response.json({ status: 'live' }, { status: 200 }),
+      requestId,
+    ),
   )
 }
 
@@ -162,8 +165,10 @@ export function readinessResponse(
   report: ReadinessReport,
 ): Response {
   const requestId = resolveRequestId(request.headers)
-  return stampRequestId(
-    Response.json(report, { status: report.status === 'ready' ? 200 : 503 }),
-    requestId,
+  return stampSecurityHeaders(
+    stampRequestId(
+      Response.json(report, { status: report.status === 'ready' ? 200 : 503 }),
+      requestId,
+    ),
   )
 }

@@ -10,7 +10,8 @@
 
 **PC-00 — Product & Platform Consolidation Audit**
 
-Task: [`tasks/PC-00.md`](./tasks/PC-00.md)
+Task: [`tasks/PC-00.md`](./tasks/PC-00.md)  
+Agent prompt: [`prompts/PC-00.md`](./prompts/PC-00.md)
 
 CORE-01–06 and Core Hardening are complete. Do not reopen settled Core architecture without concrete implementation evidence.
 
@@ -42,9 +43,10 @@ The audit must cover more than UI. It should inspect:
 2. [`PRODUCT_DIRECTION.md`](./PRODUCT_DIRECTION.md)
 3. [`PROGRAMME_MAP.md`](./PROGRAMME_MAP.md)
 4. [`tasks/PC-00.md`](./tasks/PC-00.md)
-5. [`../core/CORE_01_06_IMPLEMENTATION_REVIEW.md`](../core/CORE_01_06_IMPLEMENTATION_REVIEW.md)
-6. [`../core/CORE_HARDENING.md`](../core/CORE_HARDENING.md)
-7. relevant accepted ADRs
+5. [`prompts/PC-00.md`](./prompts/PC-00.md)
+6. [`../core/CORE_01_06_IMPLEMENTATION_REVIEW.md`](../core/CORE_01_06_IMPLEMENTATION_REVIEW.md)
+7. [`../core/CORE_HARDENING.md`](../core/CORE_HARDENING.md)
+8. relevant accepted ADRs
 
 ## Do now
 

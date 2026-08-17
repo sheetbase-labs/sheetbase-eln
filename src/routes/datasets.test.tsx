@@ -20,6 +20,7 @@ import {
   DatasetChartTab,
   DatasetInspector,
   DatasetSchemaTab,
+  HistoricalDatasetVersionTable,
 } from './datasets'
 import type { DatasetDataTabProps } from './datasets'
 import { useReactTable, getCoreRowModel } from '@tanstack/react-table'
@@ -591,5 +592,19 @@ describe('DatasetDataTab', () => {
     expect(screen.getByText('Could not load records')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy()
     expect(screen.queryByText('All records loaded')).toBeNull()
+  })
+})
+
+describe('HistoricalDatasetVersionTable', () => {
+  it('renders frozen rows using the pinned Schema Version, not later live columns', () => {
+    render(
+      <HistoricalDatasetVersionTable
+        columns={[{ id: 'ph-field', label: 'pH' }]}
+        rows={[{ rowId: 'row-1', values: { 'ph-field': 7.2 } }]}
+      />,
+    )
+    expect(screen.getByRole('columnheader', { name: 'pH' })).toBeTruthy()
+    expect(screen.getByText('7.2')).toBeTruthy()
+    expect(screen.queryByRole('columnheader', { name: 'Colour' })).toBeNull()
   })
 })

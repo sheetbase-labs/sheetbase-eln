@@ -107,6 +107,8 @@ import type { ChartSpec } from '#/lib/chart-spec'
 import type { RegistryQuery } from '#/lib/registry'
 import { cn } from '#/lib/utils'
 import {
+  coerceDatasetCellValue,
+  columnsForPinnedSchemaVersion,
   commitDatasetRowBatch,
   datasetRevision,
   datasetRowsToCsv,
@@ -116,6 +118,7 @@ import {
   queryDatasetVersionRows,
   sheetLinksFromDependencies,
 } from '#/lib/dataset-product'
+import { listCanonicalDatasetSchemaVersionFields } from '#/lib/dataset-schema-definition-rpc'
 
 export const Route = createFileRoute('/datasets')({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -754,16 +757,7 @@ function DatasetRowEditor({
       const next: Record<string, unknown> = {}
       for (const column of table.columns) {
         const raw = values[column.id] ?? ''
-        next[column.id] =
-          raw === ''
-            ? null
-            : column.logical_type === 'integer'
-              ? Number.parseInt(raw, 10)
-              : column.logical_type === 'decimal'
-                ? Number(raw)
-                : column.logical_type === 'boolean'
-                  ? ['true', '1', 'yes'].includes(raw.toLowerCase())
-                  : raw
+        next[column.id] = coerceDatasetCellValue(column, raw)
       }
       const result = await commitDatasetRowBatch(datasetExplorerDataClient, {
         datasetId: table.id,
@@ -1354,6 +1348,39 @@ export function DatasetSchemaTab({ table }: DatasetSchemaTabProps) {
   )
 }
 
+export function HistoricalDatasetVersionTable({
+  columns,
+  rows,
+}: {
+  columns: Array<{ id: string; label: string }>
+  rows: Array<{ rowId: string; values: Record<string, unknown> }>
+}) {
+  return (
+    <Table aria-label="Historical Dataset rows" className="mt-2">
+      <TableHeader>
+        <TableRow>
+          {columns.map((column) => (
+            <TableHead key={column.id}>{column.label}</TableHead>
+          ))}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((row) => (
+          <TableRow key={row.rowId}>
+            {columns.map((column) => (
+              <TableCell key={column.id}>
+                {row.values[column.id] == null
+                  ? '—'
+                  : String(row.values[column.id])}
+              </TableCell>
+            ))}
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  )
+}
+
 function DatasetVersionsTab({ table }: { table: CanonicalDatasetWire }) {
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(
     null,
@@ -1371,6 +1398,18 @@ function DatasetVersionsTab({ table }: { table: CanonicalDatasetWire }) {
       queryDatasetVersionRows(datasetExplorerDataClient, selected!.id),
     enabled: Boolean(selected),
   })
+  const schemaQuery = useQuery({
+    queryKey: ['dataset-version-schema', selected?.schema_version_id ?? 'none'],
+    queryFn: () =>
+      listCanonicalDatasetSchemaVersionFields(
+        datasetExplorerDataClient,
+        selected!.schema_version_id,
+      ),
+    enabled: Boolean(selected?.schema_version_id),
+  })
+  const historicalColumns = columnsForPinnedSchemaVersion(
+    schemaQuery.data ?? [],
+  )
 
   return (
     <div className="grid gap-4 md:grid-cols-[16rem_1fr]">
@@ -1407,31 +1446,13 @@ function DatasetVersionsTab({ table }: { table: CanonicalDatasetWire }) {
         <h3 className="text-sm font-semibold">Historical rows</h3>
         {!selected ? (
           <EmptyHint>Select a Version to inspect frozen rows</EmptyHint>
-        ) : historicalQuery.isLoading ? (
+        ) : historicalQuery.isLoading || schemaQuery.isLoading ? (
           <Skeleton className="mt-2 h-32 w-full" />
         ) : (
-          <Table aria-label="Historical Dataset rows" className="mt-2">
-            <TableHeader>
-              <TableRow>
-                {table.columns.map((column) => (
-                  <TableHead key={column.id}>{column.label}</TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(historicalQuery.data?.rows ?? []).map((row) => (
-                <TableRow key={row.rowId}>
-                  {table.columns.map((column) => (
-                    <TableCell key={column.id}>
-                      {row.values[column.id] == null
-                        ? '—'
-                        : String(row.values[column.id])}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <HistoricalDatasetVersionTable
+            columns={historicalColumns}
+            rows={historicalQuery.data?.rows ?? []}
+          />
         )}
       </div>
     </div>

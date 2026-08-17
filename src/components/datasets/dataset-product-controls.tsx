@@ -24,6 +24,7 @@ import {
   createDataset,
   datasetRevision,
   describeDatasetCommitError,
+  coerceDatasetCellValue,
   listPublishedDatasetSchemas,
   parseTsvRows,
   restoreDataset,
@@ -313,7 +314,7 @@ export function DatasetAddRowDialog({
       for (const column of table.columns) {
         const raw = values[column.id] ?? ''
         rowValues[column.id] =
-          raw === '' ? null : coerceLoose(column.logical_type, raw)
+          raw === '' ? null : coerceDatasetCellValue(column, raw)
       }
       const result = await commitDatasetRowBatch(client, {
         datasetId: table.id,
@@ -383,14 +384,6 @@ export function DatasetAddRowDialog({
       </DialogContent>
     </Dialog>
   )
-}
-
-function coerceLoose(logicalType: string, raw: string): unknown {
-  if (logicalType === 'integer') return Number.parseInt(raw, 10)
-  if (logicalType === 'decimal') return Number(raw)
-  if (logicalType === 'boolean')
-    return ['true', '1', 'yes'].includes(raw.toLowerCase())
-  return raw
 }
 
 export function DatasetProductActions({

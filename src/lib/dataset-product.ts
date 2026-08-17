@@ -10,6 +10,7 @@ import type { DataClient } from './data-client'
 import { discoverObjectDependencies } from './object-dependencies'
 import type { ObjectDependency } from './object-dependencies'
 import type { CanonicalDatasetWire } from './dataset-explorer-data'
+import type { CanonicalDatasetSchemaField } from './dataset-schema-definition-rpc'
 import type { ScientificColumnWire } from './scientific-sheet-data'
 
 export interface PublishedSchemaOption {
@@ -280,12 +281,16 @@ export function coerceDatasetCellValue(
   if (trimmed === '') return null
   switch (column.logical_type) {
     case 'integer': {
-      const value = Number.parseInt(trimmed, 10)
-      if (!Number.isFinite(value))
+      if (!/^-?\d+$/.test(trimmed))
+        throw new Error(`Invalid integer: ${column.label}`)
+      const value = Number(trimmed)
+      if (!Number.isSafeInteger(value))
         throw new Error(`Invalid integer: ${column.label}`)
       return value
     }
     case 'decimal': {
+      if (!/^-?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(trimmed))
+        throw new Error(`Invalid number: ${column.label}`)
       const value = Number(trimmed)
       if (!Number.isFinite(value))
         throw new Error(`Invalid number: ${column.label}`)
@@ -298,6 +303,19 @@ export function coerceDatasetCellValue(
     default:
       return trimmed
   }
+}
+
+export function columnsForPinnedSchemaVersion(
+  fields: CanonicalDatasetSchemaField[],
+): Array<{ id: string; label: string; logicalType: string }> {
+  return [...fields]
+    .filter((field) => field.lifecycle === 'active')
+    .sort((a, b) => a.display_order - b.display_order)
+    .map((field) => ({
+      id: field.field_id,
+      label: field.label,
+      logicalType: field.logical_type,
+    }))
 }
 
 export function parseTsvRows(

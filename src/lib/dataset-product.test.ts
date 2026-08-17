@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   coerceDatasetCellValue,
+  columnsForPinnedSchemaVersion,
   commitDatasetRowBatch,
   createDataset,
   datasetRowsToCsv,
@@ -183,6 +184,24 @@ describe('cell coercion, TSV paste and CSV export', () => {
     expect(() => coerceDatasetCellValue(column(), 'nope')).toThrow(
       /Invalid number/,
     )
+    expect(
+      coerceDatasetCellValue(column({ logical_type: 'integer' }), '12'),
+    ).toBe(12)
+    expect(
+      coerceDatasetCellValue(column({ logical_type: 'integer' }), '-3'),
+    ).toBe(-3)
+    expect(() =>
+      coerceDatasetCellValue(column({ logical_type: 'integer' }), '1.5'),
+    ).toThrow(/Invalid integer/)
+    expect(() =>
+      coerceDatasetCellValue(column({ logical_type: 'integer' }), '12abc'),
+    ).toThrow(/Invalid integer/)
+    expect(() =>
+      coerceDatasetCellValue(column({ logical_type: 'decimal' }), '12abc'),
+    ).toThrow(/Invalid number/)
+    expect(() =>
+      coerceDatasetCellValue(column({ logical_type: 'boolean' }), 'maybe'),
+    ).toThrow(/Invalid boolean/)
   })
 
   it('maps TSV lines onto Schema fields in display order', () => {
@@ -248,5 +267,41 @@ describe('describeDatasetCommitError and Sheet links', () => {
         },
       ]),
     ).toEqual([{ instanceId: 'inst-1', name: 'Assay grid', historical: false }])
+  })
+})
+
+describe('historical Schema Version columns', () => {
+  it('uses the pinned Schema Version fields, not later live Schema columns', () => {
+    const liveColumnIds = ['ph-field', 'colour-field']
+    const historical = columnsForPinnedSchemaVersion([
+      {
+        field_id: 'ph-field',
+        key: 'ph',
+        label: 'pH',
+        description: null,
+        logical_type: 'decimal',
+        nullable: true,
+        cardinality: 'one',
+        lifecycle: 'active',
+        display_order: 0,
+      },
+      {
+        field_id: 'retired-field',
+        key: 'old',
+        label: 'Retired',
+        description: null,
+        logical_type: 'text',
+        nullable: true,
+        cardinality: 'one',
+        lifecycle: 'retired',
+        display_order: 1,
+      },
+    ])
+    expect(historical.map((column) => column.id)).toEqual(['ph-field'])
+    expect(historical.map((column) => column.label)).toEqual(['pH'])
+    expect(historical.map((column) => column.id)).not.toEqual(liveColumnIds)
+    expect(historical.some((column) => column.id === 'colour-field')).toBe(
+      false,
+    )
   })
 })

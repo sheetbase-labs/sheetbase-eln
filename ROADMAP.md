@@ -1,104 +1,62 @@
 # Sheetbase roadmap
 
 > **Core Data Workspace:** CORE-01–06 and Core Hardening are complete.  
-> **Next:** Product Consolidation / Workflow Validation. AUTO-01 is deferred.  
-> **Post-Core master roadmap:** [`docs/POST_CORE_ROADMAP.md`](./docs/POST_CORE_ROADMAP.md) covers product, APIs/SDKs, interoperability, governance, collaboration, scientific analysis, integrations, platform operations and later automation.  
-> **Canonical Core:** `docs/core/` and accepted ADRs 0020–0026.
+> **Next:** Product & Platform Consolidation. AUTO-01 is deferred.  
+> **Post-Core planning authority:** [`docs/roadmap/`](./docs/roadmap/). Start with [`docs/roadmap/NEXT.md`](./docs/roadmap/NEXT.md).  
+> **Canonical Core:** [`docs/core/`](./docs/core/) and accepted ADRs.
 
 ## Destination
 
 Sheetbase is a scientific data workspace where the Notebook provides scientific context and Excel-like Sheet Instances provide the primary structured-data interaction surface while PostgreSQL remains authoritative.
 
-Reusable organisational configuration (Models, Dataset Schemas, Sheet Definitions, Notebook Templates, vocabularies) is separate from project/workspace scientific working state (Records, Datasets, Notebooks, Sheet Instances).
+Reusable organisational configuration — Models, Dataset Schemas, Sheet Definitions, Notebook Templates and vocabularies — is separate from project/workspace scientific working state — Records, Datasets, Notebooks and Sheet Instances.
 
 A Sheet Instance can compose multiple Datasets and Model Records with local and calculated columns. Every value has provenance and every writable value has one authoritative write target.
 
-## Core epics
+## Completed foundation
 
-CORE-01–06 are complete. Core Hardening H1–H5 is complete. The next programme
-phase is Product Consolidation / Workflow Validation. AUTO-01 is deferred.
+CORE-01–06 and Core Hardening H1–H5 are complete. Detailed implementation history, architecture, audits and evidence remain under [`docs/core/`](./docs/core/).
 
-### CORE-01 — Common Schema Kernel
+The completed Core provides:
 
-**Status:** complete.
+- a canonical Field Definition/schema kernel;
+- user-extensible Models and Records;
+- durable Datasets with immutable Dataset Versions;
+- compositional and ad-hoc Sheet Instances;
+- reusable versioned Sheet Definitions;
+- Records from Sheets;
+- role-aware configuration and schema evolution;
+- versioned Notebook Templates;
+- frozen Notebook/Sheet evidence;
+- PostgreSQL/RLS authority, stable semantic identities and explicit lifecycle/provenance contracts.
 
-Unify semantic Field Definition identity/types/units/validation/vocabulary/relationships/lifecycle across Models and Dataset Schemas while preserving the existing Model framework.
+## Post-Core roadmap
 
-**Exit:** Models and future Dataset Schemas consume one coherent semantic field language and schema authority is distinct from ordinary Record editing.
+Detailed post-Core planning has moved to [`docs/roadmap/`](./docs/roadmap/), organised similarly to the completed Core programme.
 
-### CORE-02 — Dataset Primitive and Versioning
+The capability programmes are:
 
-**Status:** complete.
+1. **PC — Product Consolidation**
+2. **API — API & Developer Platform**
+3. **DATA — Data Interoperability**
+4. **GOV — Identity, Administration & Governance**
+5. **COLLAB — Collaboration**
+6. **SCI — Scientific Analysis & Visualisation**
+7. **INT — Integrations**
+8. **PLAT — Platform, Operations & Security**
+9. **AUTO — Automation** — deliberately later
 
-Make Dataset durable rectangular data independent of Sheet presentation.
+The active hand-off is [`docs/roadmap/NEXT.md`](./docs/roadmap/NEXT.md).
 
-Deliver Dataset/Dataset Schema identity, explicit Schema versions, stable rows/fields, live mutable state plus meaningful immutable Dataset Versions, PostgreSQL storage/RLS/API, bulk validation/write and representative performance evidence.
+## Current next step
 
-**Exit:** a Dataset exists independently, is API-addressable and bulk-writable, and can produce an immutable version suitable for frozen evidence/Pipeline input.
+**PC-00 — Product & Platform Consolidation Audit.**
 
-### CORE-03 — Sheet Definition and Compositional Sheet Instance
-
-**Status:** complete.
-
-Implement separate reusable versioned Sheet Definitions and working Sheet Instances.
-
-Deliver typed parameters/binding contracts, multiple Dataset/Model sources, explicit row identity/joins, bound/local/calculated columns, durable Instance-local values, explicit write-back, calculation scopes, persisted presentation state, save-Instance-as-Definition and explicit data-preserving Definition upgrades.
-
-Composition remains virtual unless explicitly materialised.
-
-**Exit:** one reusable Definition can create independent Instances; an Instance combines at least two Datasets plus a Model and local/calculated columns with correct provenance/write-back; Definition changes do not silently mutate existing work.
-
-### CORE-04 — Records from Sheets
-
-**Status:** complete.
-
-Make Sheet Instances first-class Record linking/registration surfaces.
-
-Deliver typed Record references, existing-Record search/link, inline creation, validated bulk creation from pasted/selected rows, duplicate/uniqueness handling and permission-aware operations.
-
-**Exit:** a scientist can paste realistic data, resolve/create Records and continue without leaving the Sheet.
-
-### CORE-05 — Schema Evolution and Role-aware Configuration
-
-**Status:** complete.
-
-Make configuration safely delegable.
-
-Deliver schema lifecycle/version impact handling, safe field evolution, local-field/calculation promotion, capability-based configuration and dependency inspection. Persist Sheet presentation state; named saved Views are optional future enhancement rather than a Core requirement.
-
-**Exit:** a Data Steward can evolve governed definitions safely while Scientists see only permitted configuration and historical semantics remain interpretable.
-
-### CORE-06 — Notebook Templates, Sharing and Frozen Evidence
-
-**Status:** complete.
-
-Make Sheet Instances native Notebook objects and Notebook Templates reusable organisational composition.
-
-Deliver pinned Sheet Definition references, normal independent instantiation, explicit shared-live Instance references, explicit snapshots, Template parameter flow, archive/retire/dependency behaviour, and submitted evidence that reconstructs Dataset Versions, semantic manifests, Definition versions, Instance-local state and calculations.
-
-No Template inheritance; future repeated content uses explicit reusable Sections if needed.
-
-**Exit:** multiple Templates can reuse one Definition safely, shared live work is obvious, and submitted Notebooks reconstruct exact structured evidence.
-
-### AUTO-01 — Pipeline Foundation
-
-**Status:** deferred. Do not start from Core completion.
-
-Introduce broader typed transformations after the Core data substrate is stable.
-
-Deliver shared typed parameters, versioned Pipeline Definitions/Runs, immutable inputs, configured transforms, SQL/Python execution boundary, Dataset outputs and run provenance.
-
-**Exit:** a versioned transformation consumes immutable input Dataset Versions and reproducibly produces traceable output Dataset state.
-
-### AUTO-02 — Agent-authored Operations
-
-Allow agents to propose governed schema/Definition/Pipeline operations through normal platform contracts.
-
-**Exit:** users can inspect/approve agent-authored changes and execution produces the same evidence as human/code-authored operations.
+Before starting large post-Core implementation, audit the actual current product/platform, exercise realistic workflows and refine the first PC/API/DATA/GOV/PLAT implementation epics from evidence.
 
 ## Golden workflow
 
-Use a Lentivector purification Notebook throughout:
+Continue to use realistic scientific workflows, including the Lentivector purification example, as cross-programme proof:
 
 ```text
 Organisation configuration
@@ -117,36 +75,21 @@ Project working state
           `-- calculated Recovery
 ```
 
-The completed Core proves data paste, Record linking/creation, explicit row identity/joins, correct write-back, durable local values, calculation, reload, presentation state, provenance, Definition reuse, explicit materialisation and frozen submission evidence.
-
-## Sequencing
-
-1. CORE-01–06 — complete
-2. Core Hardening H1–H5 — complete
-3. Product Consolidation / Workflow Validation — next
-4. AUTO-01 — deferred
-5. AUTO-02
-
-Do not start with a visual Pipeline builder.
-
-## Work de-emphasised until Product Consolidation
-
-Preserve but avoid broad feature expansion in Analysis Studio, Planner, Calendar, Instrument Monitor, Report Builder, Storage/freezer, Plate Designer and new dashboard surfaces until Product Consolidation / Workflow Validation. Bug/security fixes and convergence changes remain appropriate.
-
-Review the open immutable-analysis work against Dataset Versions, Pipeline Runs and Notebook frozen evidence before allowing it to establish a separate transformation architecture.
+Post-Core work should make this and other representative workflows excellent through the real product, API and operational surfaces.
 
 ## Delivery rules
 
 - Build narrow end-to-end slices through DB/RLS/API/UI/tests.
-- Migrations are additive; never rewrite applied history.
-- Stable semantic IDs back dependencies.
-- Audit history is not a substitute for immutable scientific versions.
-- Archive/retire rather than destructively deleting referenced scientific objects.
-- Hard deletion is dependency-aware and blocked by immutable evidence.
+- Stable semantic IDs back durable dependencies.
+- PostgreSQL remains authoritative for permissions and durable scientific state.
+- Audit history is not a substitute for immutable scientific versions/evidence.
 - Shared Sheet Instances are explicit.
-- Sheet duplication does not implicitly duplicate Datasets.
-- Reuse uses composition, not Definition/Template inheritance.
-- Sheet composition is virtual until explicitly materialised.
-- Materialisation records provenance and aligns with future Pipeline semantics.
-- AI never bypasses ordinary permissions/validation/provenance.
-- Add implementation ADRs only when evidence exposes a real durable fork not already settled by ADRs 0020–0024.
+- Reuse uses composition, not hidden inheritance or accidental shared state.
+- Exploratory local work remains legitimate; promotion into governed structure is explicit.
+- The browser is one client of the domain; APIs/SDKs are first-class product surfaces.
+- AI and Pipelines must eventually use ordinary permissions, validation and provenance rather than bypass them.
+- Add ADRs only for genuine durable architectural forks.
+
+## Do not start yet
+
+Do not start broad Pipeline or agentic automation merely because the Core substrate exists. `AUTO` remains deferred until canonical human workflows, public operations, service identity, evidence semantics and observability are mature enough to automate safely.

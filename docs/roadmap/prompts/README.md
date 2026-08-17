@@ -23,7 +23,7 @@ This folder contains reusable starting prompts for the post-Core roadmap program
 | [`SCI.md`](./SCI.md) | Scientific Analysis & Visualisation |
 | [`INT.md`](./INT.md) | Integrations |
 | [`PLAT.md`](./PLAT.md) | Platform, Operations & Security |
-| [`AUTO.md`](./AUTO.md) | Automation — deferred |
+| [`AUTO.md`](./AUTO.md) | Automation |
 
 ## Shared operating rules
 
@@ -36,4 +36,4 @@ This folder contains reusable starting prompts for the post-Core roadmap program
 - Use focused validation during development and the task-defined full gate at completion.
 - Do not introduce Cursor/agent/vendor attribution into commits, source, docs or PR metadata.
 - Use the repository's configured human/project Git identity.
-- Do not start AUTO work unless `NEXT.md` explicitly activates it.
+- Implement only the active task identified by `NEXT.md`; do not jump ahead to another stream merely because its prompt exists.

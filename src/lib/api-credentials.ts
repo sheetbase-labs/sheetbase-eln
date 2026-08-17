@@ -21,8 +21,11 @@ import { apiCredentials, workspaceMemberships } from '#/db/schema'
 export type Db = NodePgDatabase<typeof schema>
 
 /**
- * External credential capabilities. Scientific schema management is kept
- * separate from row writes because its RPCs execute managed DDL.
+ * External credential capabilities. Only `projects:*` scopes are effective
+ * today (`src/lib/external-token.ts`). `scientific:*` entries are vestigial:
+ * mintable for backward compatibility but mapped to an empty allowlist.
+ * Core-domain scopes are specified in docs/public-api-contract.md §8 and
+ * will replace `scientific:*` in API-02.
  */
 export const VALID_SCOPES = [
   'projects:read',

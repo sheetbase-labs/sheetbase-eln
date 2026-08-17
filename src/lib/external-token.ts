@@ -89,6 +89,7 @@ export async function verifyApiClientToken(
   }
 }
 
+/** Retired scientific-table resources; kept empty so `scientific:*` scopes grant nothing (API-01). */
 const SCIENTIFIC_METADATA = new Set<string>()
 const PROJECT_DOMAIN_RESOURCES = new Set([
   'projects',

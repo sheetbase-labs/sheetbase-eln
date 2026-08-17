@@ -16,9 +16,11 @@ import type { SheetDefinitionExtractionSelection } from '#/lib/sheet-definition-
 import {
   applySheetInstanceDefinitionUpgrade,
   previewSheetInstanceDefinitionUpgrade,
-  type SheetParameterInput,
 } from '#/lib/sheet-instance-data'
-import type { SheetInstance } from '#/lib/sheet-instance-data'
+import type {
+  SheetParameterInput,
+  SheetInstance,
+} from '#/lib/sheet-instance-data'
 import {
   applySheetInstanceCompositionAdoption,
   previewSheetInstanceCompositionAdoption,
@@ -100,7 +102,7 @@ export function CanonicalSheetLifecyclePanel({
   })
 
   const selectedVersion =
-    published.find((item) => item.id === definitionVersionId) ?? published[0]
+    published.find((item) => item.id === definitionVersionId) ?? published.at(0)
   const datasetParameter = selectedVersion?.configuration.parameters.find(
     (parameter) => parameter.type.kind === 'dataset',
   )
@@ -132,16 +134,16 @@ export function CanonicalSheetLifecyclePanel({
   const adopt = useMutation({
     mutationFn: async () => {
       if (!selectedVersion) throw new Error('Choose a published Definition.')
-      const preview = await previewSheetInstanceCompositionAdoption({
+      const adoptionPreview = await previewSheetInstanceCompositionAdoption({
         instanceId: instance.id,
         expectedRevision: instance.revision,
         targetDefinitionVersionId: selectedVersion.id,
         parameterInputs,
       })
-      if (!preview.compatible) {
+      if (!adoptionPreview.compatible) {
         throw new Error(
-          preview.errorMessage ??
-            `Adoption is incompatible${preview.errorCode ? ` (${preview.errorCode})` : ''}.`,
+          adoptionPreview.errorMessage ??
+            `Adoption is incompatible${adoptionPreview.errorCode ? ` (${adoptionPreview.errorCode})` : ''}.`,
         )
       }
       const applied = await applySheetInstanceCompositionAdoption({
@@ -228,14 +230,14 @@ export function CanonicalSheetLifecyclePanel({
   const upgrade = useMutation({
     mutationFn: async () => {
       if (!selectedVersion) throw new Error('Choose a published Definition.')
-      const preview = await previewSheetInstanceDefinitionUpgrade(
+      const upgradePreviewResult = await previewSheetInstanceDefinitionUpgrade(
         instance.id,
         instance.revision,
         selectedVersion.id,
       )
-      if (preview.conflicts.length > 0) {
+      if (upgradePreviewResult.conflicts.length > 0) {
         throw new Error(
-          `${preview.conflicts.length} upgrade conflict(s). Resolve mapping before applying.`,
+          `${upgradePreviewResult.conflicts.length} upgrade conflict(s). Resolve mapping before applying.`,
         )
       }
       return applySheetInstanceDefinitionUpgrade({
@@ -271,7 +273,7 @@ export function CanonicalSheetLifecyclePanel({
 
   const materialize = useMutation({
     mutationFn: async () => {
-      const preview = await previewSheetMaterialization({
+      const materialisationPreview = await previewSheetMaterialization({
         instanceId: instance.id,
         expectedRevision: instance.revision,
       })
@@ -279,7 +281,7 @@ export function CanonicalSheetLifecyclePanel({
         instanceId: instance.id,
         expectedRevision: instance.revision,
         outputName: materializeName.trim() || `${instance.name} output`,
-        previewDigest: preview.previewDigest,
+        previewDigest: materialisationPreview.previewDigest,
         idempotencyKey: crypto.randomUUID(),
       })
     },

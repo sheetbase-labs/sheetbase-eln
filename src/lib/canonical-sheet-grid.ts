@@ -139,11 +139,11 @@ export function canonicalSheetGridMatrix(input: {
         if (column.origin === 'calculation') {
           return (
             input.calculationResults?.[rowKey]?.[column.id] ??
-            input.instance.state.localValues[rowKey]?.[column.id] ??
+            input.instance.state.localValues[rowKey][column.id] ??
             null
           )
         }
-        return input.instance.state.localValues[rowKey]?.[column.id] ?? null
+        return input.instance.state.localValues[rowKey][column.id] ?? null
       })
     })
     return {
@@ -167,11 +167,11 @@ export function canonicalSheetGridMatrix(input: {
         if (column.origin === 'calculation') {
           return (
             input.calculationResults?.[rowKey]?.[column.id] ??
-            input.instance.state.localValues[rowKey]?.[column.id] ??
+            input.instance.state.localValues[rowKey][column.id] ??
             null
           )
         }
-        return input.instance.state.localValues[rowKey]?.[column.id] ?? null
+        return input.instance.state.localValues[rowKey][column.id] ?? null
       }),
     ),
   }

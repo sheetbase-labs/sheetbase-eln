@@ -7,8 +7,7 @@ import { ComposedSheetRecordToolbar } from '#/components/sheet/composed-sheet-re
 import { CanonicalSheetLifecyclePanel } from '#/components/sheet/canonical-sheet-lifecycle-panel'
 import { ModelFieldInput } from '#/components/scientific/model-field-input'
 import { Button, Input, Label } from '#/components/ui'
-import { createDataClient } from '#/lib/data-client'
-import { DataClientError } from '#/lib/data-client'
+import { createDataClient, DataClientError } from '#/lib/data-client'
 import {
   canonicalSheetGridMatrix,
   parseSheetCellInput,
@@ -237,8 +236,8 @@ export function CanonicalSheetEditor({
   const actions = resolveSheetRecordActions(
     composition.data?.definitionConfiguration ?? null,
   )
-  const selectedColumn = matrix.columns[selected.col]
-  const selectedRowKey = matrix.rowKeys[selected.row]
+  const selectedColumn = matrix.columns.at(selected.col)
+  const selectedRowKey = matrix.rowKeys.at(selected.row)
   const provenance =
     composition.data?.boundProjection?.rows.find(
       (row) => row.rowKey === selectedRowKey,
@@ -273,12 +272,12 @@ export function CanonicalSheetEditor({
   }
 
   async function addColumn() {
-    const fields = instance.state.localFields.filter(
+    const activeFields = instance.state.localFields.filter(
       (field) => field.lifecycle === 'active',
     )
     const field = createAdHocTextField(
       columnLabel,
-      fields.map((item) => item.key),
+      activeFields.map((item) => item.key),
     )
     await persistLocalCells([], {
       fieldChanges: [{ operation: 'add', field }],
@@ -287,16 +286,16 @@ export function CanonicalSheetEditor({
   }
 
   async function addRow() {
-    const fields = instance.state.localFields.filter(
+    const activeFields = instance.state.localFields.filter(
       (field) => field.lifecycle === 'active',
     )
     const fieldChanges: LocalFieldChange[] = []
-    const existing = fields[0]
+    const existing = activeFields.at(0)
     const field =
       existing ??
       createAdHocTextField(
         columnLabel,
-        fields.map((item) => item.key),
+        activeFields.map((item) => item.key),
       )
     if (!existing) fieldChanges.push({ operation: 'add', field })
     const rowKey = crypto.randomUUID()
@@ -323,7 +322,7 @@ export function CanonicalSheetEditor({
   }
 
   async function deleteSelectedColumn() {
-    const column = matrix.columns[selected.col]
+    const column = matrix.columns.at(selected.col)
     if (!column || column.origin === 'bound') return
     await persistLocalCells([], {
       fieldChanges: [{ operation: 'retire', fieldId: column.id }],
@@ -586,7 +585,7 @@ export function CanonicalSheetEditor({
         for (const change of changes) {
           const columnIndex =
             typeof change[1] === 'number' ? change[1] : Number(change[1])
-          const column = currentMatrix.columns[columnIndex]
+          const column = currentMatrix.columns.at(columnIndex)
           if (!column || !column.editable) continue
           let rowKey =
             currentMatrix.rowKeys[change[0]] ?? created.get(change[0])

@@ -1,6 +1,6 @@
 # GOV — Identity, Administration & Governance
 
-**Status:** queued. GOV-01 is **Low initially**. Do not implement from the current PC/API hand-off.
+**Status:** queued. GOV-01 is **Medium** when started (RLS/migration/capability tests). Do not implement from the current PC-02 / PLAT-03 hand-off.
 
 ## Programme goal
 
@@ -8,7 +8,7 @@ Make Sheetbase governable at organisational scale while keeping normal scientifi
 
 ## GOV-01 — Role & Capability Productisation
 
-**Priority:** low initially. **Status:** Queued.
+**Priority:** medium (RLS/migration). **Status:** Queued.
 
 ### Accepted PC-00 decision
 

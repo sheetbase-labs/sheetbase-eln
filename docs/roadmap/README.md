@@ -66,7 +66,7 @@ This is a dependency shape, not a mandate that every programme must finish befor
 
 Do not start large post-Core implementation from an old summary. Begin with `NEXT.md`, then follow the **assigned** stream's task file and matching prompt. Ready streams may run in parallel; one agent does not own every Ready row.
 
-PC-00 is accepted (`audits/PC-00.md`). Immediate Ready work is **PC-01** (medium) and **API-01** (low, contract-only).
+PC-00 is accepted (`audits/PC-00.md`). PC-01 (medium) and API-01 (low) are merge-ready. Immediate Ready work is **PC-02** (medium) and **PLAT-03 headers** (low). Delivery uses only medium and low.
 
 ## Relationship to root `ROADMAP.md`
 

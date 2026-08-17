@@ -14,14 +14,14 @@ These files are the detailed planning contracts for the post-Core programmes.
 
 | Programme | Task file | Status |
 | --- | --- | --- |
-| Product Consolidation | [`PC.md`](./PC.md) | PC-00 accepted; PC-01 Ready (medium) |
-| API & Developer Platform | [`API.md`](./API.md) | API-01 Ready (low, parallel, contract-only) |
-| Data Interoperability | [`DATA.md`](./DATA.md) | Waiting on PC-01 |
-| Governance | [`GOV.md`](./GOV.md) | GOV-01 queued (low initially; `viewer` read-only) |
+| Product Consolidation | [`PC.md`](./PC.md) | PC-01 merge-ready (#41); PC-02 Ready (medium) |
+| API & Developer Platform | [`API.md`](./API.md) | API-01 merge-ready (#40); API-02 waits for merge |
+| Data Interoperability | [`DATA.md`](./DATA.md) | Waiting on PC-01 merge |
+| Governance | [`GOV.md`](./GOV.md) | GOV-01 queued (Medium when started; `viewer` read-only) |
 | Collaboration | [`COLLAB.md`](./COLLAB.md) | planned |
 | Scientific Analysis | [`SCI.md`](./SCI.md) | planned |
 | Integrations | [`INT.md`](./INT.md) | planned |
-| Platform & Operations | [`PLAT.md`](./PLAT.md) | PLAT-03 queued (low initially) |
+| Platform & Operations | [`PLAT.md`](./PLAT.md) | PLAT-03 headers slice Ready (low) |
 | Automation | [`AUTO.md`](./AUTO.md) | planned later |
 
 ## Task-file convention

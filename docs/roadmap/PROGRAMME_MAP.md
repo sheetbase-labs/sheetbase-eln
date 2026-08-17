@@ -118,12 +118,13 @@ This diagram communicates likely sequencing and dependencies, not a strict water
 PC-00 is complete (`audits/PC-00.md`) and **accepted**. Delivery priority is only **medium** or **low**. Agents take one assigned stream from `NEXT.md`.
 
 ```text
-medium  PC-01  Canonical Sheet UX + blank Notebook + submit enabling slices
-               + demote specialist tools from default nav
-low     API-01 Public API contract (parallel; stop at contract boundary)
-queued  GOV-01 viewer = read-only (do not implement in PC-01)
-queued  PLAT-03 Security hardening
-wait    DATA-01 until PC-01 Sheet interaction exists
+medium  PC-01  merge-ready #41 (do not merge unless instructed)
+low     API-01 merge-ready #40 (do not merge unless instructed)
+medium  PC-02  Dataset & Record product workflows (from current main)
+low     PLAT-03 security-headers slice (from current main)
+queued  GOV-01 viewer = read-only (Medium when started; RLS/migration)
+wait    DATA-01 until PC-01 is on main
+wait    API-02 until API-01 is on main
 ```
 
 Do not activate COLLAB, SCI, INT or AUTO from this hand-off.

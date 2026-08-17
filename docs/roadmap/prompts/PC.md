@@ -9,18 +9,22 @@ Work on the **assigned PC stream** in `phlohouse/sheetbase-eln`. Read `docs/road
 - Read `docs/roadmap/tasks/PC.md`, `docs/roadmap/audits/PC-00.md` (accepted decisions), relevant Core evidence and ADRs.
 - Do not implement API-01, DATA-01, GOV-01 or PLAT-03 in a PC session.
 
-## Current assigned task (when NEXT.md says PC-01)
+## Current assigned task (when NEXT.md says PC-02)
 
-**PC-01 — Canonical Sheet Experience (Medium).**
+**PC-02 — Dataset & Record Product Workflows (Medium).**
 
-Include only:
+Branch from current `main`. Do not restack on the PC-01 Sheet PR.
 
-- canonical Sheet experience (one grid stack; existing CORE-03/H2 RPCs);
-- blank experiment/Notebook create;
-- submit through the existing revision/evidence contract;
-- demote specialist tools from default navigation (do not delete routes).
+Include:
 
-Do **not** broaden into full PC-03. Do **not** make `viewer` read-only.
+- Dataset catalogue create, Schema selection, controlled live edit, snapshot/versions, query/filter, lifecycle, open-in-Sheet using existing Core RPCs;
+- Record registry gaps (reagent create; first-class Dataset/Record UX outside Notebook).
+
+Do **not** build the DATA-01 CSV/XLSX import framework. Do **not** change `viewer`. Do **not** reopen PC-01 Sheet unification.
+
+## Previous assigned task (PC-01)
+
+**PC-01 — Canonical Sheet Experience (Medium)** is merge-ready (#41). Do not implement it again.
 
 ## Product objective
 

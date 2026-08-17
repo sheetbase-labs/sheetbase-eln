@@ -25,7 +25,8 @@ export type Db = NodePgDatabase<typeof schema>
  * today (`src/lib/external-token.ts`). `scientific:*` entries are vestigial:
  * mintable for backward compatibility but mapped to an empty allowlist.
  * Core-domain scopes are specified in docs/public-api-contract.md §8 and
- * will replace `scientific:*` in API-02.
+ * will replace `scientific:*` in API-02. Dataset data (`datasets:*`) stays
+ * separate from governed schema/configuration (`schema:read|write|publish`).
  */
 export const VALID_SCOPES = [
   'projects:read',

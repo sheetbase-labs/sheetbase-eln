@@ -1,6 +1,6 @@
 # Sheetbase public API contract (API-01)
 
-> **Status:** Contract v0.1 — **intended** public surface.  
+> **Status:** Contract v0.1.1 — **intended** public surface.  
 > **Implementation:** Partial. External credentials today expose only the
 > **project-domain** allowlist documented in `docs/external-api.md`. Core
 > Dataset/Sheet/Notebook RPCs **fail closed** until a later epic cuts over
@@ -300,10 +300,13 @@ Retires `scientific:*` as the future model (PC-00 decision). Scopes are
 | `projects:write` | Project/notebook/record/block mutations in project domain (current allowlist) |
 | `models:read` | Read model field definitions, search records by model |
 | `models:write` | Create/update model records, custom fields, lifecycle transitions |
-| `datasets:read` | Query dataset schemas, datasets, versions, rows |
-| `datasets:write` | Create datasets, commit rows, snapshot, schema stewardship RPCs |
-| `sheets:read` | Read definitions/instances, query composed rows |
-| `sheets:write` | Instance mutations, write-back, materialize, extract, upgrade |
+| `datasets:read` | Query datasets, versions, and rows. Does **not** include Dataset Schema catalogues. |
+| `datasets:write` | Create datasets, commit rows, snapshot versions. Does **not** include schema stewardship. |
+| `schema:read` | Read governed catalogues: Dataset Schema, Sheet Definition, Model fields. |
+| `schema:write` | Draft governed schema/configuration edits. Maps to session capability `schema.edit`. |
+| `schema:publish` | Publish or retire governed schema/configuration. Maps to `schema.publish` / `schema.retire`. |
+| `sheets:read` | Read Sheet Instances and composed rows. Definition catalogues use `schema:read`. |
+| `sheets:write` | Instance mutations, write-back, materialize, definition upgrade of an instance (`instance.upgrade`). Does **not** author Sheet Definitions. |
 | `templates:read` | Read notebook templates and versions |
 | `templates:write` | Author/publish/instantiate/upgrade notebook templates |
 | `reviews:read` | Read review submissions, run checks (read-only) |
@@ -311,9 +314,19 @@ Retires `scientific:*` as the future model (PC-00 decision). Scopes are
 | `files:read` | Download file objects |
 | `files:write` | Upload and finalize files |
 
+**Invariant:** data-editing scopes (`datasets:*`, `sheets:write`, `models:write`)
+never grant governed schema/configuration authority. Schema stewardship RPCs
+(`create_dataset_schema_definition`, Dataset Schema publish/retire, Sheet
+Definition draft/publish, Model field create/update,
+`extract_sheet_definition_draft`) require `schema:write` and/or
+`schema:publish`, matching CORE-05 `schema.edit` vs `schema.publish`. Do not
+collapse those into `datasets:write`.
+
 **Mapping note:** Today's `projects:read` / `projects:write` remain valid
 during migration. New scopes subdivide the project domain without implying
-scientific-table access.
+scientific-table access. `schema:*` is the future replacement for the
+retired `scientific:schema` *idea* (catalogue authority), not a restoration of
+scientific-table RPCs.
 
 ### 8.2 Allowlist cut-over (not in API-01)
 
@@ -409,10 +422,12 @@ Once API-03 publishes versioned docs:
 
 ## 12. Evidence (API-01 audit)
 
-Audited 17 August 2026 against `main` @ `f2dfa25`:
+Audited 17 August 2026 against `main` @ `f2dfa25`; contract v0.1.1
+corrects Dataset Schema stewardship out of `datasets:write` into `schema:*`.
 
 - Allowlist: `src/lib/external-token.ts` (`PROJECT_DOMAIN_*`, empty `SCIENTIFIC_METADATA`)
 - Scope minting: `src/lib/api-credentials.ts` (`VALID_SCOPES`)
 - Fail-closed tests: `src/lib/external-token.test.ts`
+- Scope split lock: `src/lib/public-api-contract.test.ts`
 - Integration: `tests/db/external-api.test.ts`, `tests/db/api-credentials.test.ts`
 - Proxy errors: `src/lib/errors.ts`, `src/lib/postgrest-proxy.ts`

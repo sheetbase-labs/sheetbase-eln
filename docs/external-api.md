@@ -49,9 +49,11 @@ credentials are created through `createCredential` in
 | `scientific:write`  | **Deprecated.** Same as above.                                         |
 | `scientific:schema` | **Deprecated.** Same as above.                                         |
 
-Future Core-domain scopes (`datasets:*`, `sheets:*`, `templates:*`, …) are
-specified in `docs/public-api-contract.md` §8. They are **not** enforced until
-API-02 cuts over the allowlist.
+Future Core-domain scopes (`datasets:*`, `schema:*`, `sheets:*`, `templates:*`,
+…) are specified in `docs/public-api-contract.md` §8. Dataset **data** scopes
+are distinct from governed **schema/configuration** scopes (`schema:write` /
+`schema:publish`). They are **not** enforced until API-02 cuts over the
+allowlist.
 
 Requesting a scope the credential does not have returns `insufficient_scope`.
 

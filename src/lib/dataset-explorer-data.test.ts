@@ -199,7 +199,12 @@ describe('canonical Dataset Explorer reads', () => {
       },
     } as unknown as DataClient
     const result = await fetchDatasetSummaries(client)
-    expect(calls).toEqual(['datasets', 'dataset_schema_version_fields'])
+    expect(calls).toEqual([
+      'datasets',
+      'dataset_schema_version_fields',
+      'dataset_schema_versions',
+      'dataset_schema_definitions',
+    ])
     expect(result[0].columns[0]).toMatchObject({
       id: 'f1',
       field_name: 'f1',

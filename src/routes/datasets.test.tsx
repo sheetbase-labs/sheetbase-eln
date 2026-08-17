@@ -9,6 +9,7 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { ReactNode } from 'react'
 import type { UseQueryResult } from '@tanstack/react-query'
 
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
@@ -19,6 +20,7 @@ import {
   DatasetChartTab,
   DatasetInspector,
   DatasetSchemaTab,
+  HistoricalDatasetVersionTable,
 } from './datasets'
 import type { DatasetDataTabProps } from './datasets'
 import { useReactTable, getCoreRowModel } from '@tanstack/react-table'
@@ -40,6 +42,7 @@ Element.prototype.scrollIntoView = vi.fn()
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => () => ({ useRouteContext: () => ({}) }),
   redirect: (options: unknown) => options,
+  Link: ({ children }: { children: ReactNode }) => <a>{children}</a>,
 }))
 
 // Mock react-query so the data tab never hits the network. `useQuery`
@@ -182,10 +185,12 @@ describe('DatasetExplorerHeader', () => {
         loading
         error={null}
         selectedTableId={null}
+        includeArchived={false}
+        onToggleArchived={() => {}}
         onSelect={() => {}}
       />,
     )
-    expect(screen.getByText('Dataset Explorer')).toBeTruthy()
+    expect(screen.getByText('Datasets')).toBeTruthy()
     expect(
       screen.getByRole('heading', { name: 'Scientific datasets' }),
     ).toBeTruthy()
@@ -200,6 +205,8 @@ describe('DatasetExplorerHeader', () => {
         loading={false}
         error={new Error('boom')}
         selectedTableId={null}
+        includeArchived={false}
+        onToggleArchived={() => {}}
         onSelect={() => {}}
       />,
     )
@@ -219,6 +226,8 @@ describe('DatasetExplorerHeader', () => {
         loading={false}
         error={null}
         selectedTableId={t.id}
+        includeArchived={false}
+        onToggleArchived={() => {}}
         onSelect={onSelect}
       />,
     )
@@ -250,6 +259,8 @@ describe('DatasetExplorerHeader', () => {
         loading={false}
         error={null}
         selectedTableId={t.id}
+        includeArchived={false}
+        onToggleArchived={() => {}}
         onSelect={() => {}}
       />,
     )
@@ -265,18 +276,12 @@ describe('DatasetExplorerHeader', () => {
 })
 
 describe('DatasetSchemaTab', () => {
-  it('describes table-owned fields without legacy implementation language', () => {
-    vi.mocked(useQuery).mockReturnValue(
-      queryResult({ schema: null, fields: [] }),
-    )
-
+  it('shows pinned Schema Version fields without legacy schema language', () => {
     render(<DatasetSchemaTab table={table()} />)
 
-    expect(screen.getByText('Dataset structure')).toBeTruthy()
-    expect(
-      screen.getByText('Fields are defined directly in this dataset.'),
-    ).toBeTruthy()
-    expect(screen.getByText('Local fields')).toBeTruthy()
+    expect(screen.getByText('Schema Version')).toBeTruthy()
+    expect(screen.getByText('Pinned fields')).toBeTruthy()
+    expect(screen.getByText('Sample')).toBeTruthy()
     expect(screen.queryByText(/legacy ad-hoc/i)).toBeNull()
     expect(screen.queryByText('col_alpha')).toBeNull()
   })
@@ -400,6 +405,7 @@ describe('DataTableView', () => {
 
 describe('DatasetInspector', () => {
   it('prompts to select a row when none is selected', () => {
+    vi.mocked(useQuery).mockReturnValue(queryResult([]))
     render(
       <DatasetInspector
         table={table()}
@@ -416,6 +422,7 @@ describe('DatasetInspector', () => {
   })
 
   it('shows row values, lineage and links for a selected row', async () => {
+    vi.mocked(useQuery).mockReturnValue(queryResult([]))
     const user = userEvent.setup()
     render(
       <DatasetInspector
@@ -471,6 +478,7 @@ describe('DatasetInspector', () => {
   })
 
   it('surfaces a lineage error', () => {
+    vi.mocked(useQuery).mockReturnValue(queryResult([]))
     render(
       <DatasetInspector
         table={table()}
@@ -584,5 +592,19 @@ describe('DatasetDataTab', () => {
     expect(screen.getByText('Could not load records')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy()
     expect(screen.queryByText('All records loaded')).toBeNull()
+  })
+})
+
+describe('HistoricalDatasetVersionTable', () => {
+  it('renders frozen rows using the pinned Schema Version, not later live columns', () => {
+    render(
+      <HistoricalDatasetVersionTable
+        columns={[{ id: 'ph-field', label: 'pH' }]}
+        rows={[{ rowId: 'row-1', values: { 'ph-field': 7.2 } }]}
+      />,
+    )
+    expect(screen.getByRole('columnheader', { name: 'pH' })).toBeTruthy()
+    expect(screen.getByText('7.2')).toBeTruthy()
+    expect(screen.queryByRole('columnheader', { name: 'Colour' })).toBeNull()
   })
 })

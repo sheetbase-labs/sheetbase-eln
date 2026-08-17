@@ -272,5 +272,15 @@ describe('CORE-05 capability resolver', () => {
       ),
       '42501',
     )
+    const visible = await viewer.query(
+      `select id, title from api.records where id = $1`,
+      [created.rows[0].id],
+    )
+    expect(visible.rowCount).toBe(1)
+    const updated = await viewer.query(
+      `update api.records set title = 'viewer-mutate' where id = $1`,
+      [created.rows[0].id],
+    )
+    expect(updated.rowCount).toBe(0)
   })
 })

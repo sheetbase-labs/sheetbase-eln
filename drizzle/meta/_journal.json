@@ -785,6 +785,13 @@
       "when": 1786974000000,
       "tag": "0111_gov_01_viewer_readonly",
       "breakpoints": true
+    },
+    {
+      "idx": 112,
+      "version": "7",
+      "when": 1771451000000,
+      "tag": "0112_gov_01_viewer_write_enforcement",
+      "breakpoints": true
     }
   ]
 }

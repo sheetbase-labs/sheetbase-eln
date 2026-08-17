@@ -14,7 +14,14 @@ Workspace role `viewer` cannot:
 - `workspace.admin`
 
 Existing `viewer` memberships are **not** rewritten to another role. They stay
-`viewer` and lose mutate capabilities after migration `0111_gov_01_viewer_readonly`.
+`viewer` and lose mutate capabilities after migrations `0111_gov_01_viewer_readonly`
+and `0112_gov_01_viewer_write_enforcement`.
+
+Write RLS on records, blocks, Datasets and related tables requires
+`record.create` (or `record.link` for `record_links`). Data-plane RPCs that
+previously authorised any workspace member now call `has_capability(...,
+'record.create')`. SELECT policies still use membership, so viewers can inspect.
+Owner-gated administration and `api_client` policies are unchanged.
 
 Project access level `viewer` (per-project ACL) is a separate concept from the
 workspace role.

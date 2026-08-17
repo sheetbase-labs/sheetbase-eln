@@ -27,6 +27,7 @@ vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => () => ({ useRouteContext: () => ({}) }),
   redirect: (options: unknown) => options,
   useRouter: () => ({ invalidate: vi.fn() }),
+  useNavigate: () => vi.fn(),
   Link: ({
     to,
     params,

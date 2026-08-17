@@ -21,7 +21,7 @@ These files are the detailed planning contracts for the post-Core programmes.
 | Scientific Analysis | [`SCI.md`](./SCI.md) | planned |
 | Integrations | [`INT.md`](./INT.md) | planned |
 | Platform & Operations | [`PLAT.md`](./PLAT.md) | planned; some work may run continuously |
-| Automation | [`AUTO.md`](./AUTO.md) | deferred |
+| Automation | [`AUTO.md`](./AUTO.md) | planned; later |
 
 ## Task-file convention
 

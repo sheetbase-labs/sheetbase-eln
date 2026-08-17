@@ -15,8 +15,6 @@ Agent prompt: [`prompts/PC-00.md`](./prompts/PC-00.md)
 
 CORE-01–06 and Core Hardening are complete. Do not reopen settled Core architecture without concrete implementation evidence.
 
-AUTO-01 remains deferred. Do not start Pipeline or agentic automation work from this hand-off.
-
 ## Goal of PC-00
 
 Establish what Sheetbase can actually do today across product and platform surfaces, identify missing or duplicate paths, and turn the master roadmap into an evidence-based first implementation sequence.
@@ -50,12 +48,11 @@ The audit must cover more than UI. It should inspect:
 
 ## Do now
 
-Complete PC-00 as an audit/planning checkpoint. Refine priorities and task boundaries from evidence before beginning PC-01 or parallel API/DATA work.
+Complete PC-00 as an audit/planning checkpoint. Refine priorities and task boundaries from evidence before beginning implementation work in the roadmap streams.
 
 ## Do not
 
-- do not start AUTO-01;
-- do not build a visual Pipeline designer;
+- do not implement another roadmap epic during PC-00;
 - do not create an AI-specific data or permission model;
 - do not reopen the FieldDefinition, Dataset, Definition/Instance, Template version or frozen-evidence architecture without evidence of a real defect;
 - do not create another Dataset, Sheet, Template or capability system;
@@ -73,6 +70,6 @@ PC-00 should leave:
 3. end-to-end workflow findings;
 4. security/API/data-interoperability gaps;
 5. a prioritised P0–P3 gap list;
-6. refined scopes for the first PC/API/DATA/GOV/PLAT epics;
+6. refined scopes for the first PC/API/DATA/GOV/PLAT epics and any other streams materially affected by the audit;
 7. a recommended parallelisation plan;
 8. this file updated to the first approved implementation task.

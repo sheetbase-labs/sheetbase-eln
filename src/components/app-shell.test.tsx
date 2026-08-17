@@ -14,6 +14,8 @@ import {
   APP_SHELL_NAV_ID,
   AppShell,
   ShellProvider,
+  SPECIALIST_NAV_HREFS,
+  defaultNavSections,
   useShell,
 } from './app-shell'
 import type { AppShellNavItem } from './app-shell'
@@ -81,6 +83,19 @@ describe('AppShell', () => {
     }
     // cmdk scrolls the selected item into view; jsdom does not implement it.
     Element.prototype.scrollIntoView = vi.fn()
+  })
+
+  it('keeps specialist tools out of default primary sections', () => {
+    const primaryHrefs = defaultNavSections
+      .filter((section) => section.label !== 'More')
+      .flatMap((section) => section.items.map((item) => item.to))
+    for (const href of SPECIALIST_NAV_HREFS) {
+      expect(primaryHrefs).not.toContain(href)
+    }
+    const more = defaultNavSections.find((section) => section.label === 'More')
+    expect(more?.items.map((item) => item.to)).toEqual(
+      expect.arrayContaining([...SPECIALIST_NAV_HREFS]),
+    )
   })
 
   it('renders primary landmarks and a skip link', () => {

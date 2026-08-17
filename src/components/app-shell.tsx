@@ -315,6 +315,16 @@ export interface AppShellProps {
 }
 
 /** Default workspace navigation shared by every authenticated route. */
+/** Specialist tools kept reachable but out of the default product nav. */
+export const SPECIALIST_NAV_HREFS = [
+  '/analysis',
+  '/plate-designer',
+  '/calendar',
+  '/planner',
+  '/instrument-monitor',
+  '/storage',
+] as const
+
 export const defaultNavSections: AppShellNavSection[] = [
   {
     label: 'Workspace',
@@ -332,17 +342,11 @@ export const defaultNavSections: AppShellNavSection[] = [
       { to: '/samples', label: 'Samples', icon: FlaskConical },
       { to: '/datasets', label: 'Datasets', icon: Database },
       { to: '/configure', label: 'Configure', icon: Layers },
-      { to: '/storage', label: 'Storage', icon: Snowflake },
     ],
   },
   {
     label: 'Tools',
     items: [
-      { to: '/analysis', label: 'Analysis', icon: LineChartIcon },
-      { to: '/plate-designer', label: 'Plate Designer', icon: Grid3x3 },
-      { to: '/calendar', label: 'Lab Calendar', icon: CalendarDays },
-      { to: '/planner', label: 'Planner', icon: GanttChart },
-      { to: '/instrument-monitor', label: 'Instruments', icon: Gauge },
       {
         to: '/reviews',
         label: 'Reviews',
@@ -350,6 +354,17 @@ export const defaultNavSections: AppShellNavSection[] = [
         badge: 0,
       },
       { to: '/admin', label: 'Administration', icon: Settings },
+    ],
+  },
+  {
+    label: 'More',
+    items: [
+      { to: '/analysis', label: 'Analysis', icon: LineChartIcon },
+      { to: '/plate-designer', label: 'Plate Designer', icon: Grid3x3 },
+      { to: '/calendar', label: 'Lab Calendar', icon: CalendarDays },
+      { to: '/planner', label: 'Planner', icon: GanttChart },
+      { to: '/instrument-monitor', label: 'Instruments', icon: Gauge },
+      { to: '/storage', label: 'Storage', icon: Snowflake },
     ],
   },
 ]
@@ -466,11 +481,6 @@ export function AppShell({
     await authClient.signOut()
     router.invalidate()
   }, [router])
-
-  const allNavItems = React.useMemo(
-    () => navSections.flatMap((s) => s.items),
-    [navSections],
-  )
 
   const sidebarBody = context ? (
     <div className="flex h-full flex-col">
@@ -893,7 +903,7 @@ export function AppShell({
           <CommandPalette
             open={commandOpen}
             onOpenChange={setCommandOpen}
-            navItems={allNavItems}
+            navSections={navSections}
             onNavigate={() => setMobileOpen(false)}
             theme={theme}
             setTheme={setTheme}
@@ -990,7 +1000,7 @@ function NavRow({
 function CommandPalette({
   open,
   onOpenChange,
-  navItems,
+  navSections,
   onNavigate,
   theme,
   setTheme,
@@ -1000,7 +1010,7 @@ function CommandPalette({
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  navItems: AppShellNavItem[]
+  navSections: AppShellNavSection[]
   onNavigate: () => void
   theme: 'light' | 'dark' | 'system'
   setTheme: (t: 'light' | 'dark' | 'system') => void
@@ -1024,20 +1034,28 @@ function CommandPalette({
           <CommandInput placeholder="Search pages and actions…" />
           <CommandList>
             <CommandEmpty>No results found.</CommandEmpty>
-            <CommandGroup heading="Navigate">
-              {navItems
-                .filter((i) => !i.disabled)
-                .map((item) => (
-                  <CommandItem
-                    key={item.to}
-                    value={item.label}
-                    onSelect={() => go(item.to)}
-                  >
-                    <item.icon className="size-4" />
-                    {item.label}
-                  </CommandItem>
-                ))}
-            </CommandGroup>
+            {navSections.map((section) => {
+              const items = section.items.filter((item) => !item.disabled)
+              if (items.length === 0) return null
+              const heading =
+                section.label === 'More'
+                  ? 'More (specialist)'
+                  : (section.label ?? 'Navigate')
+              return (
+                <CommandGroup key={heading} heading={heading}>
+                  {items.map((item) => (
+                    <CommandItem
+                      key={item.to}
+                      value={item.label}
+                      onSelect={() => go(item.to)}
+                    >
+                      <item.icon className="size-4" />
+                      {item.label}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )
+            })}
             <CommandGroup heading="Actions">
               <CommandItem
                 onSelect={() => {

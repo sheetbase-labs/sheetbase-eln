@@ -35,14 +35,12 @@ Post-Core work is organised as capability programmes rather than one enormous se
               |             |       |
               v             v       v
            COLLAB           SCI     INT
-              \             |      /
-               +------------+-----+
                             |
                             v
                            AUTO
 ```
 
-This diagram communicates dependencies, not a strict waterfall.
+This diagram communicates likely sequencing and dependencies, not a strict waterfall. Streams can overlap when their concrete prerequisites are available. AUTO is simply a later workstream, in the same way that INT is generally later than API/DATA and SCI follows the core Sheet experience.
 
 ## Proposed epics
 
@@ -109,8 +107,8 @@ This diagram communicates dependencies, not a strict waterfall.
 
 ### AUTO — Automation
 
-- `AUTO-01` Deterministic Pipeline Foundation
-- `AUTO-02` Pipeline Execution & Triggers
+- `AUTO-01` Pipeline Foundation
+- `AUTO-02` Deterministic Execution & Triggers
 - `AUTO-03` Pipeline Authoring & Product Integration
 - `AUTO-04` Agent-authored Operations
 - `AUTO-05` Agentic Scientific Workflows
@@ -128,18 +126,10 @@ PLAT-02 Observability/reliability gaps
 
 This is provisional. PC-00 owns refinement.
 
-## Automation readiness gate
+## Later streams
 
-Do not start broad AUTO work merely because the Core can technically support it.
+Later programmes should begin when the specific capabilities they depend on are available; they do not require a special programme-wide readiness ceremony.
 
-Automation becomes appropriate when:
+For AUTO this will naturally mean building on mature enough Dataset/API/service-identity/provenance/execution capabilities. For INT it means building on the connector/data/API foundations relevant to the integration. For SCI it means building on stable Sheet/Dataset semantics.
 
-- canonical human workflows are coherent;
-- public domain operations are stable;
-- service identity exists;
-- import/export and evidence semantics are mature;
-- operational observability is sufficient to diagnose failed automation;
-- permissions and provenance are consistent across UI/API;
-- deterministic transformation semantics are well understood.
-
-Agents should later use the same governed operations as humans and deterministic Pipelines rather than bypassing validation, permissions or provenance.
+All streams should reuse the same governed Sheetbase domain operations rather than bypassing validation, permissions or provenance.

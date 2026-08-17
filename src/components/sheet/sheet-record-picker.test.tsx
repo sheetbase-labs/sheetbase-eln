@@ -65,4 +65,33 @@ describe('Sheet Record picker', () => {
       'SMP-2026-0001 · LV harvest',
     )
   })
+
+  it('searches Records for a Definition Model that is not sample', async () => {
+    expect(sheetRecordPickerKind('batch')).toBeNull()
+    const onSelect = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <SheetRecordPicker
+        modelKey="batch"
+        results={[
+          {
+            ...sample,
+            kind: 'batch',
+            identifier: 'BAT-2026-0001',
+            title: 'Lot A',
+          },
+        ]}
+        loading={false}
+        onSearch={vi.fn()}
+        onSelect={onSelect}
+      />,
+    )
+    screen.getByRole('combobox').focus()
+    await user.keyboard('{Enter}')
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        identifier: 'BAT-2026-0001',
+      }),
+    )
+  })
 })

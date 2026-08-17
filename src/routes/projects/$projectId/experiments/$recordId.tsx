@@ -19,6 +19,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
 import { useShell } from '#/components/app-shell'
+import { SubmitNotebookDialog } from '#/components/notebook/submit-notebook-dialog'
 import { NotebookDocument } from '#/components/notebook'
 import type { SaveResult } from '#/components/notebook'
 import { useLiveStatus } from '#/components/live/live-event-provider'
@@ -275,6 +276,7 @@ function ExperimentNotebookRoute() {
           record={record}
           projectName={project?.title ?? null}
           projectId={projectId}
+          currentUserId={context.user.id}
         />
         {isArchived ? <ArchivedBanner /> : null}
         {record.lockedAt ? <LockedBanner record={record} /> : null}
@@ -353,11 +355,19 @@ function loadingBreadcrumbs(
 export function StickyRecordHeader({
   record,
   projectName,
+  projectId,
+  currentUserId,
 }: {
   record: NotebookRecord
   projectName: string | null
   projectId?: string
+  currentUserId?: string
 }) {
+  const [submitOpen, setSubmitOpen] = useState(false)
+  const canSubmit =
+    Boolean(projectId && currentUserId) &&
+    !record.lockedAt &&
+    !record.archivedAt
   return (
     <div className="pb-3 pt-4">
       {/* Row 1: type · status · identifier — compact inline */}
@@ -375,6 +385,16 @@ export function StickyRecordHeader({
         <span className="font-mono tabular-nums text-muted-foreground">
           {record.identifier}
         </span>
+        {canSubmit ? (
+          <Button
+            type="button"
+            size="sm"
+            className="ml-auto"
+            onClick={() => setSubmitOpen(true)}
+          >
+            Submit
+          </Button>
+        ) : null}
       </div>
 
       {/* Row 2: title — tight to the badge row above */}
@@ -404,6 +424,15 @@ export function StickyRecordHeader({
           </>
         ) : null}
       </div>
+      {canSubmit && submitOpen && projectId && currentUserId ? (
+        <SubmitNotebookDialog
+          open={submitOpen}
+          onOpenChange={setSubmitOpen}
+          recordId={record.id}
+          projectId={projectId}
+          reviewerUserId={currentUserId}
+        />
+      ) : null}
     </div>
   )
 }

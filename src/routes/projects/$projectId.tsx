@@ -30,6 +30,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 
 import { useShell } from '#/components/app-shell'
+import { CreateBlankExperimentDialog } from '#/components/notebook/create-blank-experiment-dialog'
 import {
   CheckList,
   InspectorSection,
@@ -221,6 +222,7 @@ function ProjectRoute() {
     projectId: project.id,
     overdueDays: OVERDUE_DAYS,
   })
+  const [createOpen, setCreateOpen] = useState(false)
 
   return (
     <RouteShell
@@ -234,6 +236,14 @@ function ProjectRoute() {
         { label: 'Projects', to: '/projects' },
         { label: project.title },
       ]}
+      primaryAction={
+        isArchived ? undefined : (
+          <Button size="sm" onClick={() => setCreateOpen(true)}>
+            <FlaskConical className="size-3.5" aria-hidden="true" />
+            New experiment
+          </Button>
+        )
+      }
     >
       <div className="flex gap-5 p-4 md:p-6">
         <div className="flex min-w-0 flex-1 flex-col gap-5">
@@ -242,6 +252,7 @@ function ProjectRoute() {
             isArchived={isArchived}
             recordCount={records.length}
             isLoadingRecords={recordsQuery.isLoading}
+            onCreateExperiment={() => setCreateOpen(true)}
           />
 
           <ProjectStatCards stats={stats} metrics={projectMetrics} />
@@ -264,8 +275,17 @@ function ProjectRoute() {
           />
         </div>
 
-        <ProjectSidebar project={project} ownerName={context.user.name} />
+        <ProjectSidebar
+          project={project}
+          ownerName={context.user.name}
+          onCreateExperiment={() => setCreateOpen(true)}
+        />
       </div>
+      <CreateBlankExperimentDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        projectId={project.id}
+      />
     </RouteShell>
   )
 }
@@ -279,11 +299,13 @@ function ProjectHeader({
   isArchived,
   recordCount,
   isLoadingRecords,
+  onCreateExperiment,
 }: {
   project: Project
   isArchived: boolean
   recordCount: number
   isLoadingRecords: boolean
+  onCreateExperiment: () => void
 }) {
   return (
     <header className="space-y-3">
@@ -317,6 +339,12 @@ function ProjectHeader({
             <span>Created {formatDate(project.createdAt)}</span>
           </p>
         </div>
+        {!isArchived ? (
+          <Button size="sm" onClick={onCreateExperiment}>
+            <FlaskConical className="size-3.5" aria-hidden="true" />
+            New experiment
+          </Button>
+        ) : null}
       </div>
     </header>
   )
@@ -862,9 +890,11 @@ const COMPLIANCE_CHECKS = [
 export function ProjectSidebar({
   project,
   ownerName,
+  onCreateExperiment,
 }: {
   project: Project
   ownerName: string
+  onCreateExperiment?: () => void
 }) {
   const [open, setOpen] = useState<boolean>(true)
 
@@ -984,14 +1014,23 @@ export function ProjectSidebar({
           {/* Quick actions — compact side-by-side */}
           <InspectorSection title="Quick actions">
             <div className="grid grid-cols-2 gap-1.5">
-              <Button asChild variant="outline" size="sm">
-                <Link to="/templates" className="no-underline">
-                  <FlaskConical className="size-3.5" aria-hidden="true" />
-                  Experiment
-                </Link>
+              <Button variant="outline" size="sm" onClick={onCreateExperiment}>
+                <FlaskConical className="size-3.5" aria-hidden="true" />
+                Experiment
               </Button>
               <Button asChild variant="outline" size="sm">
-                <Link to="/templates" className="no-underline">
+                <Link
+                  to="/samples"
+                  search={{
+                    page: undefined,
+                    size: undefined,
+                    sort: undefined,
+                    group: 'sampleType',
+                    filters: undefined,
+                    rq: undefined,
+                  }}
+                  className="no-underline"
+                >
                   <TestTube className="size-3.5" aria-hidden="true" />
                   Sample
                 </Link>
@@ -1004,7 +1043,7 @@ export function ProjectSidebar({
               >
                 <Link to="/templates" className="no-underline">
                   <Upload className="size-3.5" aria-hidden="true" />
-                  Upload file
+                  Templates
                 </Link>
               </Button>
             </div>

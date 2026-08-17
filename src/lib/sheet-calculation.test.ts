@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { FieldDefinition } from './field-definition'
 import {
   evaluateSheetCalculation,
+  sheetCalculationDependenciesFromExpression,
   sheetInstanceCalculationSchema,
 } from './sheet-calculation'
 
@@ -182,5 +183,104 @@ describe('composed Sheet calculation profile', () => {
         ],
       }).success,
     ).toBe(false)
+  })
+})
+
+const COL_A = 'aa000000-0000-4000-8000-000000000001'
+const COL_B = 'bb000000-0000-4000-8000-000000000002'
+const COL_C = 'cc000000-0000-4000-8000-000000000003'
+const COL_D = 'dd000000-0000-4000-8000-000000000004'
+const COL_E = 'ee000000-0000-4000-8000-000000000005'
+const COL_F = 'ff000000-0000-4000-8000-000000000006'
+const COL_G = '11000000-0000-4000-8000-000000000007'
+const COL_H = '12000000-0000-4000-8000-000000000008'
+const COL_I = '13000000-0000-4000-8000-000000000009'
+
+const eightLocals = [
+  { id: COL_A, origin: 'local' as const },
+  { id: COL_B, origin: 'local' as const },
+  { id: COL_C, origin: 'local' as const },
+  { id: COL_D, origin: 'local' as const },
+  { id: COL_E, origin: 'local' as const },
+  { id: COL_F, origin: 'local' as const },
+  { id: COL_G, origin: 'local' as const },
+  { id: COL_H, origin: 'local' as const },
+  { id: COL_I, origin: 'local' as const },
+]
+
+describe('sheetCalculationDependenciesFromExpression', () => {
+  it('claims only columns referenced by the expression', () => {
+    expect(
+      sheetCalculationDependenciesFromExpression({
+        source: '=B1+C1',
+        columns: eightLocals,
+      }),
+    ).toEqual([
+      { kind: 'local-field', id: COL_B },
+      { kind: 'local-field', id: COL_C },
+    ])
+  })
+
+  it('does not invent the first eight local fields as dependencies', () => {
+    const claimed = sheetCalculationDependenciesFromExpression({
+      source: '=I1*2',
+      columns: eightLocals,
+    })
+    expect(claimed).toEqual([{ kind: 'local-field', id: COL_I }])
+    expect(claimed.map((item) => item.id)).not.toContain(COL_A)
+  })
+
+  it('maps bound columns to column dependencies and local fields to local-field', () => {
+    expect(
+      sheetCalculationDependenciesFromExpression({
+        source: '=A1+B1',
+        columns: [
+          { id: COL_A, origin: 'bound' },
+          { id: COL_B, origin: 'local' },
+        ],
+      }),
+    ).toEqual([
+      { kind: 'column', id: COL_A },
+      { kind: 'local-field', id: COL_B },
+    ])
+  })
+
+  it('maps calculation columns used in the expression', () => {
+    expect(
+      sheetCalculationDependenciesFromExpression({
+        source: '=C1',
+        columns: [
+          { id: COL_A, origin: 'local' },
+          { id: COL_B, origin: 'local' },
+          { id: COL_C, origin: 'calculation' },
+        ],
+      }),
+    ).toEqual([{ kind: 'calculation', id: COL_C }])
+  })
+
+  it('expands range references to every member column', () => {
+    expect(
+      sheetCalculationDependenciesFromExpression({
+        source: '=SUM(A1:C1)',
+        columns: [
+          { id: COL_A, origin: 'bound' },
+          { id: COL_B, origin: 'local' },
+          { id: COL_C, origin: 'local' },
+        ],
+      }),
+    ).toEqual([
+      { kind: 'column', id: COL_A },
+      { kind: 'local-field', id: COL_B },
+      { kind: 'local-field', id: COL_C },
+    ])
+  })
+
+  it('returns no dependencies for a constant expression', () => {
+    expect(
+      sheetCalculationDependenciesFromExpression({
+        source: '=1+2',
+        columns: eightLocals,
+      }),
+    ).toEqual([])
   })
 })

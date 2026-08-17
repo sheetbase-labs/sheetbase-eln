@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 import type { FormulaNode } from './formula-ir'
-import { parseFormula } from './formula-ir'
+import { buildPersistedFormulaArtifact, parseFormula } from './formula-ir'
 import { buildScientificWorkbook } from './scientific-workbook'
 import type { FieldDefinition } from './field-definition'
 import {
@@ -66,6 +66,68 @@ export type SheetCalculationDependency = z.infer<
 export type SheetInstanceCalculation = z.infer<
   typeof sheetInstanceCalculationSchema
 >
+
+export type SheetCalculationColumnOrigin = 'bound' | 'local' | 'calculation'
+
+const DEPENDENCY_MAP_TABLE_ID = '00000000-0000-4000-8000-0000000000f2'
+
+function dummyRowIds(count: number): string[] {
+  const size = Math.min(Math.max(count, 1), 256)
+  return Array.from({ length: size }, (_, index) => {
+    const n = String(index + 1).padStart(12, '0')
+    return `00000000-0000-4000-8000-${n}`
+  })
+}
+
+function dependencyKind(
+  origin: SheetCalculationColumnOrigin,
+): SheetCalculationDependency['kind'] {
+  if (origin === 'bound') return 'column'
+  if (origin === 'calculation') return 'calculation'
+  return 'local-field'
+}
+
+/**
+ * Derive Sheet calculation dependencies from the formula using the existing
+ * formula-IR bindings. Declared dependencies must match referenced columns
+ * exactly; unused columns must not be claimed.
+ */
+export function sheetCalculationDependenciesFromExpression(input: {
+  source: string
+  columns: ReadonlyArray<{
+    id: string
+    origin: SheetCalculationColumnOrigin
+  }>
+  rowCount?: number
+}): SheetCalculationDependency[] {
+  const source = input.source.trim()
+  if (!source.startsWith('=')) throw new Error('A formula must begin with =.')
+  const parsed = parseFormula(source, {
+    tableId: DEPENDENCY_MAP_TABLE_ID,
+    rowIds: dummyRowIds(input.rowCount ?? 32),
+    columnIds: input.columns.map((column) => column.id),
+  })
+  const artifact = buildPersistedFormulaArtifact(
+    parsed,
+    DEPENDENCY_MAP_TABLE_ID,
+  )
+  const originById = new Map(
+    input.columns.map((column) => [column.id, column.origin]),
+  )
+  const seen = new Set<string>()
+  const dependencies: SheetCalculationDependency[] = []
+  for (const cell of artifact.dependencies) {
+    if (seen.has(cell.columnId)) continue
+    seen.add(cell.columnId)
+    const origin = originById.get(cell.columnId)
+    if (!origin)
+      throw new Error(
+        'A formula referenced a column that is not on this Sheet.',
+      )
+    dependencies.push({ kind: dependencyKind(origin), id: cell.columnId })
+  }
+  return dependencies
+}
 
 export type SheetCalculationInput = {
   dependency: SheetCalculationDependency

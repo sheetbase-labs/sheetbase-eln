@@ -28,6 +28,7 @@ vi.mock('@tanstack/react-router', () => ({
   }),
   redirect: (opts: unknown) => opts,
   useBlocker: () => ({ status: 'idle' }),
+  useNavigate: () => vi.fn(),
   Link: ({
     to,
     params,
@@ -85,7 +86,12 @@ const archivedRecord: NotebookRecord = {
 describe('StickyRecordHeader', () => {
   it('shows the kind, identifier, status, title and project context', () => {
     render(
-      <StickyRecordHeader record={record} projectName="Stability Programme" />,
+      <StickyRecordHeader
+        record={record}
+        projectName="Stability Programme"
+        projectId="p1"
+        currentUserId="u1"
+      />,
     )
     expect(screen.getByText('Experiment')).toBeTruthy()
     expect(screen.getByText('EXP-2025-0001')).toBeTruthy()
@@ -95,6 +101,7 @@ describe('StickyRecordHeader', () => {
     expect(screen.getByText('Stability Programme')).toBeTruthy()
     // status badge renders the vocabulary label
     expect(screen.getByText('In progress')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeTruthy()
   })
 
   it('keeps tags in the properties inspector instead of the document header', () => {
@@ -131,8 +138,16 @@ describe('LockedBanner', () => {
 
 describe('StickyRecordHeader — lock state', () => {
   it('shows a Locked badge when the record is locked', () => {
-    render(<StickyRecordHeader record={lockedRecord} projectName="Stability" />)
+    render(
+      <StickyRecordHeader
+        record={lockedRecord}
+        projectName="Stability"
+        projectId="p1"
+        currentUserId="u1"
+      />,
+    )
     expect(screen.getByText('Locked')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Submit' })).toBeNull()
   })
 
   it('does not show a Locked badge for an editable record', () => {

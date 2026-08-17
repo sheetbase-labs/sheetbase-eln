@@ -15,6 +15,22 @@ vi.mock('#/lib/sheet-local-data', async (importOriginal) => ({
   mutateSheetLocalState: vi.fn(),
 }))
 
+vi.mock('./sheetbase-grid', () => ({
+  SheetbaseGrid: ({ settings }: { settings: { colHeaders?: string[] } }) => (
+    <table>
+      <thead>
+        <tr>
+          {(settings.colHeaders ?? []).map((header) => (
+            <th key={header} scope="col">
+              {header}
+            </th>
+          ))}
+        </tr>
+      </thead>
+    </table>
+  ),
+}))
+
 afterEach(() => cleanup())
 
 function instance(): SheetInstance {

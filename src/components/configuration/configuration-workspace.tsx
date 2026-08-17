@@ -57,6 +57,9 @@ const CAPABILITY_LABELS: Record<Capability, string> = {
 }
 
 export function configurationRoleCopy(role: WorkspaceRole | undefined): string {
+  if (role === 'viewer') {
+    return 'You can inspect this workspace. Creating, linking and upgrading records requires a Member or Data Steward role.'
+  }
   if (hasCapability(role, 'schema.publish')) {
     if (hasCapability(role, 'workspace.admin')) {
       return 'You can evolve and publish governed configuration. Workspace security administration remains on Administration.'

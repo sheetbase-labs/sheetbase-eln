@@ -94,6 +94,7 @@ describe('ConfigurationWorkspace', () => {
     expect(configurationRoleCopy('scientist')).toMatch(/Data Steward/)
     expect(configurationRoleCopy('steward')).toMatch(/cannot administer/)
     expect(configurationRoleCopy('owner')).toMatch(/Administration/)
+    expect(configurationRoleCopy('viewer')).toMatch(/inspect this workspace/)
   })
 
   it('lets a steward publish evolution while a scientist cannot', async () => {

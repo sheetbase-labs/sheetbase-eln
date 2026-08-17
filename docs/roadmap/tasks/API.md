@@ -1,6 +1,6 @@
 # API — API & Developer Platform
 
-**Status:** PC-00 accepted; API-01 is **Low** and **Ready** in parallel with PC-01. Stay at the contract boundary unless a later epic is queued.
+**Status:** API-01 complete (`#40`). API-02 is the Low Ready candidate. Stay at the published contract unless a later epic is assigned.
 
 ## Programme goal
 
@@ -25,7 +25,7 @@ Define stable, versioned resources and operations for external clients.
 - This epic is **contract / audit / documentation**. Inspect the actual server and `/api/db` / token allowlist implementation.
 - If implementation requires consequential server architecture, migrations, RLS, transactions or other Medium-level work, **stop at the contract boundary** and queue that implementation separately.
 
-### Current state (verified API-01 audit @ `f2dfa25`)
+### Current state (verified API-01 @ `b306654` / `#40`)
 
 External credentials and `POST /api/token` exist. The allowlist is **project-domain only** (`src/lib/external-token.ts`). Core Dataset/Sheet/Notebook RPCs fail closed. `scientific:*` scopes are mintable but map to an empty resource set. `docs/external-api.md` corrected; canonical contract at `docs/public-api-contract.md`.
 
@@ -55,9 +55,11 @@ A developer can read the intended public contract without treating scientific-ta
 
 ## API-02 — API Credentials & Service Identity
 
+**Priority:** low. **Status:** Ready candidate after API-01.
+
 Personal tokens; service accounts; workspace binding; capability scopes; expiry; rotation; revocation; last-used metadata; credential audit; request attribution; safe secret handling.
 
-PC-00: `createCredential` exists in `src/lib/api-credentials.ts` with **no product UI**. Do this after API-01 scope vocabulary is honest.
+PC-00: `createCredential` exists in `src/lib/api-credentials.ts` with **no product UI**. Scope vocabulary is now the API-01 contract (`schema:*` distinct from `datasets:*`). Do not invent a second permission model. Core Dataset/Sheet allowlist cut-over is still fail-closed; if that work is Medium, stop and queue it.
 
 **Exit:** external automation authenticates safely without borrowing human sessions or database credentials.
 

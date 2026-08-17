@@ -1,6 +1,6 @@
 # PLAT — Platform, Operations & Security
 
-**Status:** continuous; PLAT-03 is **Low initially** and **Queued**. Do not implement from the current PC/API hand-off. Health/ready already exist.
+**Status:** continuous. PLAT-03 **headers slice** is complete (`#43`). Remaining PLAT-03 work is queued. Health/ready already exist.
 
 ## Programme goal
 
@@ -22,11 +22,11 @@ PC-00: `/api/health/live` and `/ready`, request ids, JSON logs with redaction al
 
 ## PLAT-03 — Security Hardening
 
-**Priority:** low initially. **Status:** Queued.
+**Priority:** low initially. **Status:** Headers slice complete (`#43` / `3c3c8ee`). Remainder queued.
 
 CSP/security headers; rate limits; secret management; dependency/vulnerability scanning; SAST; auth/session review; API abuse controls; backup encryption; audit of SECURITY DEFINER/RLS/grants; penetration testing at appropriate maturity.
 
-PC-00: no CSP/security-header implementation found in app code. Credential exchange is rate-limited; general API is not. H1 capability-mask is already fail-closed for `authenticated`. `viewer` read-only belongs to GOV-01, not this epic.
+**Headers slice:** application security headers and transitional CSP (documented `unsafe-inline`) shipped in `#43`. Credential exchange is rate-limited; general API is not. Remaining items above are not started. H1 capability-mask is fail-closed for `authenticated`. `viewer` read-only is GOV-01 (`#45`).
 
 **Exit:** major application/platform security controls are deliberate, tested and observable.
 

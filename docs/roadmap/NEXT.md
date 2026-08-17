@@ -12,17 +12,19 @@ CORE-01–06 and Core Hardening remain closed. Do not reopen settled Core archit
 
 Delivery priority uses only **medium** and **low**. Nothing is queued as high.
 
+**Merged `main` HEAD for this hand-off:** `1256258` (`GOV-01: make workspace viewer read-only (#45)`).
+
 ## Active work
 
-The roadmap supports **parallel streams**. Agents take **one assigned stream/task**. Ready does not mean “do every Ready row”.
+The roadmap supports **parallel streams**. Agents take **one assigned stream/task**. Ready does not mean “do every Ready row”. **Do not start a Ready stream until it is assigned.**
 
 | Stream | Active task | Model | Status |
 | --- | --- | --- | --- |
-| PC | PC-01 — Canonical Sheet Experience | Medium | Ready |
-| API | API-01 — Public API Contract | Low | Ready |
-| DATA | — | — | Waiting on PC-01 |
-| GOV | GOV-01 — Role & Capability Productisation | Low initially | Queued |
-| PLAT | PLAT-03 — Security Hardening | Low initially | Queued |
+| PC | — | — | PC-01 and PC-02 complete; PC-03 remains later |
+| API | API-02 — API Credentials & Service Identity | Low | Ready candidate |
+| DATA | DATA-01 — Import Framework | Medium | Ready candidate |
+| GOV | — | — | GOV-01 complete; GOV-02 requires an ADR |
+| PLAT | — | — | Headers slice complete; remaining PLAT-03 queued |
 | COLLAB | — | — | Planned |
 | SCI | — | — | Planned |
 | INT | — | — | Planned |
@@ -31,77 +33,65 @@ The roadmap supports **parallel streams**. Agents take **one assigned stream/tas
 ### Immediate execution shape
 
 ```text
-PC-01 [Medium]
-    |
-    +-- blank Notebook enabling slice
-    +-- canonical Sheet experience
-    +-- specialist tools demoted from default nav (keep routes)
-    `-- submit enabling slice
+merged  API-01  Public API contract (#40) @ b306654
+merged  PC-01   Canonical Sheet + blank Notebook + submit (#41) @ 7cca216
+merged  PLAT-03 headers slice (#43) @ 3c3c8ee
+merged  PC-02   Dataset and Record product workflows (#44) @ b01b029
+merged  GOV-01  viewer read-only (#45) @ 1256258
 
-API-01 [Low]   (parallel; contract/docs only)
-    |
-    +-- public resource contract
-    +-- Core-domain scope proposal
-    +-- compatibility/deprecation plan
-    `-- correct stale external API documentation
+candidates (assign one stream; do not fan out)
+  API-02  [Low]    credentials/service identity against the published contract
+  DATA-01 [Medium] import/paste against the canonical Sheet + Dataset product
 ```
 
 ## Stream briefs
 
-### PC — PC-01 (Medium, Ready)
+### PC — complete for this batch
 
-Task: [`tasks/PC.md`](./tasks/PC.md) (PC-01)  
-Prompt: [`prompts/PC.md`](./prompts/PC.md)
+Task: [`tasks/PC.md`](./tasks/PC.md)
 
-Canonical spreadsheet-native Sheet experience spanning ad-hoc and composed states, using existing CORE-03/H2 RPCs.
+- **PC-01 complete** (`#41` / `7cca216`): one Sheet experience, blank Notebook enabling slice, submit enabling slice, specialist tools demoted from default nav. Calculation dependencies follow the existing formula IR.
+- **PC-02 complete** (`#44` / `b01b029`): Dataset create/snapshot/live edit and reagent create; strict numeric coercion; historical Dataset Versions render the pinned Schema Version. Sheet Dataset bind remains the canonical Sheet Instance path (H2), not a second bind model.
 
-**Include a thin PC-03 enabling slice only:**
+**PC-03** (full Notebook product) remains later. Do not start it from this hand-off. Do not reopen PC-01/PC-02.
 
-- create a blank experiment/Notebook;
-- submit the Notebook through the existing revision/evidence contract (`preview_submission_digest` / `submit_record_revision`).
+### API — API-02 (Low, Ready candidate)
 
-These exist so the canonical Sheet workflow can be exercised end-to-end. **Do not** broaden into the full PC-03 Notebook epic.
-
-Also **demote specialist tools from default navigation** (do not delete). Keep routes reachable as secondary. They must not compete with the canonical product during consolidation.
-
-**Do not** change `viewer` semantics (GOV-01). **Do not** start DATA-01, GOV-01 or PLAT-03.
-
-### API — API-01 (Low, Ready)
-
-Task: [`tasks/API.md`](./tasks/API.md) (API-01)  
+Task: [`tasks/API.md`](./tasks/API.md) (API-02)  
 Prompt: [`prompts/API.md`](./prompts/API.md)
 
-May start **in parallel** with PC-01. Stay **contract / audit / documentation** focused.
+**API-01 complete** (`#40` / `b306654`): `docs/public-api-contract.md` v0.1.1. Dataset data scopes are distinct from governed `schema:*`. `sheets:write` does not grant Sheet Definition authorship. External allowlist remains project-domain until a later cut-over.
 
-Inspect the actual server/API implementation. Produce:
+**API-02** may be assigned next: productise credentials (UI, service identity, rotation/revocation, attribution) against that contract. Do not invent a second permission model. Do not silently cut over Core Dataset/Sheet RPCs if that is Medium allowlist/RLS work — stop and queue it.
 
-- canonical public resource/operations contract;
-- Core-domain scope model (retire `scientific:*` as the future public API);
-- compatibility/deprecation plan if any real client still depends on old scopes;
-- corrections to stale `docs/external-api.md`.
+### DATA — DATA-01 (Medium, Ready candidate)
 
-If implementation would require consequential server architecture, migrations, RLS, transactions or other Medium-level work, **stop at the contract boundary** and queue that implementation separately.
+Task: [`tasks/DATA.md`](./tasks/DATA.md)  
+Prompt: [`prompts/DATA.md`](./prompts/DATA.md)
 
-### DATA — waiting
+PC-01 Sheet interaction and PC-02 Dataset product are on `main`. **DATA-01** may be assigned: CSV/XLSX/TSV/JSON/clipboard import with preview, mapping and validate-before-commit through canonical Dataset/Record writers. Do not build a second Dataset write path.
 
-Do not start DATA-01. Refine import/paste against the canonical Sheet interaction established by PC-01. Task notes: [`tasks/DATA.md`](./tasks/DATA.md).
+### GOV — GOV-01 complete
 
-### GOV — GOV-01 (Low initially, Queued)
+Task: [`tasks/GOV.md`](./tasks/GOV.md)
 
-Accepted decision: **`viewer` means read-only.** Recorded as a GOV-01 requirement. Do not fix inside PC-01.
+**GOV-01 complete** (`#45` / `1256258`): workspace `viewer` is read-only. `is_workspace_writer` plus leftover-inventory migration abort. SELECT remains membership-based. `api_client` unchanged.
 
-When started, GOV-01 must handle migration, RLS/capability semantics and permission regression testing explicitly. Task: [`tasks/GOV.md`](./tasks/GOV.md). Prompt: [`prompts/GOV.md`](./prompts/GOV.md).
+**GOV-02** (organisation model) stays queued and **requires an ADR** before ownership/RLS changes. Do not start it from this hand-off.
 
-### PLAT — PLAT-03 (Low initially, Queued)
+### PLAT — headers slice complete; remainder queued
 
-Do not implement as part of PC-01 or API-01. Queue security headers, general API rate limits and related hardening. Stale external-API documentation belongs to API-01, not PLAT-03. Task: [`tasks/PLAT.md`](./tasks/PLAT.md).
+Task: [`tasks/PLAT.md`](./tasks/PLAT.md)
+
+**PLAT-03 headers slice complete** (`#43` / `3c3c8ee`): security headers and transitional CSP, including documented `unsafe-inline`. Remaining PLAT-03 (general API rate limits, nonce CSP, SAST, backup encryption, etc.) stays queued. Do not expand a new PR into that remainder unless assigned.
 
 ## Dependencies
 
-- PC-01 enabling slices (blank Notebook + submit) unblock end-to-end Sheet proof; they are **in** PC-01, not a separate Ready PC-03 epic.
-- DATA-01 waits for PC-01 paste/Sheet interaction.
-- API-01 does not wait for PC-01, but must not invent a second Sheet/Dataset/Notebook model.
-- GOV-01 and PLAT-03 are queued; they must not be pulled into Ready streams.
+- DATA-01 is unblocked by PC-01 (and should use PC-02 Dataset product contracts).
+- API-02 is unblocked by API-01.
+- PC-03 is not automatically Ready.
+- GOV-02 is not Ready without an ADR.
+- Remaining PLAT-03 is queued, not a new Ready stream.
 - AUTO remains planned later.
 
 ## Required reading (any stream)
@@ -116,18 +106,14 @@ Do not implement as part of PC-01 or API-01. Queue security headers, general API
 
 ## Do not
 
-- do not implement every Ready stream in one session;
-- do not start DATA-01, GOV-01, PLAT-03, COLLAB, SCI, INT or AUTO from this hand-off;
-- do not broaden the PC-01 Notebook enabling slice into full PC-03;
-- do not delete specialist tools; demote them from default nav only;
-- do not make `viewer` read-only inside PC-01;
-- do not perpetuate `scientific:*` / scientific-table architecture as the future public API;
-- do not build a visual Pipeline designer or an AI-specific data/permission model;
+- do not implement every Ready candidate in one session;
+- do not start PC-03, GOV-02, remaining PLAT-03, COLLAB, SCI, INT or AUTO from this hand-off unless later assigned;
 - do not reopen FieldDefinition, Dataset, Definition/Instance, Template version or frozen-evidence architecture without a real defect;
 - do not create another Dataset, Sheet, Template or capability system;
-- do not treat the browser as the only future client.
+- do not treat the browser as the only future client;
+- do not perpetuate `scientific:*` / scientific-table architecture as the future public API.
 
-## Expected hand-off from Ready streams
+## Expected hand-off from Ready candidates (when assigned)
 
-- **PC-01:** one Sheet experience from a blank Notebook through submit, specialist tools secondary in nav, GOV-01/`viewer` untouched.
-- **API-01:** published contract, Core-domain scope proposal, deprecation plan, corrected external API docs; implementation queued separately if it exceeds Low contract work.
+- **API-02:** safe credential/service-identity product on the published contract; Core allowlist cut-over queued separately if it exceeds Low work.
+- **DATA-01:** laboratory files/pastes become governed Dataset/Record state with validation before commit, using canonical writers.

@@ -1,6 +1,6 @@
 # DATA — Data Interoperability
 
-**Status:** waiting on PC-01. Do not start DATA-01 from the current hand-off.
+**Status:** DATA-01 is a **Medium Ready candidate** now that PC-01 and PC-02 are on `main`. Do not start it until assigned.
 
 ## Programme goal
 
@@ -8,11 +8,11 @@ Make scientific data easy to bring into Sheetbase, move out in useful formats, a
 
 ## DATA-01 — Import Framework
 
-### Current state (PC-00)
+### Current state (PC-00, updated after PC-01/PC-02)
 
-No Dataset/Sheet CSV/XLSX/JSON import framework. Ad-hoc Sheets cannot multi-cell paste. Composed Handsontable paste is not a mapping/validation import. Plate CSV and leftover scientific CSV are not the canonical path.
+No Dataset/Sheet CSV/XLSX/JSON import framework yet. Canonical Sheet paste exists as grid interaction, not a mapping/validation import. Plate CSV and leftover scientific CSV are not the canonical path.
 
-**Do not start yet.** Refine the import/paste contract against the canonical Sheet interaction established by PC-01.
+PC-01 canonical Sheet interaction and PC-02 Dataset product are merged. Refine the import/paste contract against those surfaces. Do not start until assigned.
 
 ### Scope
 

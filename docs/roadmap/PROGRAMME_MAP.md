@@ -47,8 +47,8 @@ This diagram communicates likely sequencing and dependencies, not a strict water
 ### PC — Product Consolidation
 
 - `PC-00` Product & Platform Consolidation Audit (complete — `audits/PC-00.md`)
-- `PC-01` Canonical Sheet Experience (Ready, medium; includes Notebook enabling slice)
-- `PC-02` Dataset & Record Product Workflows
+- `PC-01` Canonical Sheet Experience (complete — `#41`)
+- `PC-02` Dataset & Record Product Workflows (complete — `#44`)
 - `PC-03` Notebook Experience
 - `PC-04` Templates & Reusable Science
 - `PC-05` Configuration & Steward Workspace
@@ -56,8 +56,8 @@ This diagram communicates likely sequencing and dependencies, not a strict water
 
 ### API — API & Developer Platform
 
-- `API-01` Public API Contract (Ready, low, parallel)
-- `API-02` API Credentials & Service Identity
+- `API-01` Public API Contract (complete — `#40`)
+- `API-02` API Credentials & Service Identity (Ready candidate, low)
 - `API-03` OpenAPI & Documentation
 - `API-04` Python SDK
 - `API-05` TypeScript SDK
@@ -65,14 +65,14 @@ This diagram communicates likely sequencing and dependencies, not a strict water
 
 ### DATA — Data Interoperability
 
-- `DATA-01` Import Framework
+- `DATA-01` Import Framework (Ready candidate, medium)
 - `DATA-02` Export & Portability
 - `DATA-03` File & Attachment Platform
 - `DATA-04` Global Search
 
 ### GOV — Identity, Administration & Governance
 
-- `GOV-01` Role & Capability Productisation (Queued; `viewer` = read-only)
+- `GOV-01` Role & Capability Productisation (complete — `#45`; `viewer` = read-only)
 - `GOV-02` Organisation Model
 - `GOV-03` Audit & History Experience
 - `GOV-04` Electronic Records, Review & Signatures
@@ -101,7 +101,7 @@ This diagram communicates likely sequencing and dependencies, not a strict water
 
 - `PLAT-01` Deployment & Environment Maturity
 - `PLAT-02` Observability & Reliability
-- `PLAT-03` Security Hardening (Queued, low initially)
+- `PLAT-03` Security Hardening (headers slice complete — `#43`; remainder queued, low initially)
 - `PLAT-04` Platform Administration
 - `PLAT-05` Performance & Scale
 
@@ -118,15 +118,18 @@ This diagram communicates likely sequencing and dependencies, not a strict water
 PC-00 is complete (`audits/PC-00.md`) and **accepted**. Delivery priority is only **medium** or **low**. Agents take one assigned stream from `NEXT.md`.
 
 ```text
-medium  PC-01  Canonical Sheet UX + blank Notebook + submit enabling slices
-               + demote specialist tools from default nav
-low     API-01 Public API contract (parallel; stop at contract boundary)
-queued  GOV-01 viewer = read-only (do not implement in PC-01)
-queued  PLAT-03 Security hardening
-wait    DATA-01 until PC-01 Sheet interaction exists
+merged  PC-01   Canonical Sheet UX + blank Notebook + submit (#41)
+merged  API-01  Public API contract (#40)
+merged  PLAT-03 headers slice (#43)
+merged  PC-02   Dataset and Record product workflows (#44)
+merged  GOV-01  viewer = read-only (#45)
+
+candidates (assign; do not fan out)
+  API-02  [Low]    credentials / service identity
+  DATA-01 [Medium] import framework
 ```
 
-Do not activate COLLAB, SCI, INT or AUTO from this hand-off.
+Do not activate PC-03, GOV-02, remaining PLAT-03, COLLAB, SCI, INT or AUTO from this hand-off.
 
 ## Later streams
 

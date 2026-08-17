@@ -1,6 +1,6 @@
 # GOV — Identity, Administration & Governance
 
-**Status:** GOV-01 proof-hardened on `gwp/gov-01-viewer-readonly-151b`. Medium (RLS/migration). `viewer` is read-only. Awaiting merge approval.
+**Status:** GOV-01 complete (`#45` / `1256258`). `viewer` is read-only. GOV-02 requires an ADR.
 
 ## Programme goal
 
@@ -8,27 +8,29 @@ Make Sheetbase governable at organisational scale while keeping normal scientifi
 
 ## GOV-01 — Role & Capability Productisation
 
-**Priority:** medium (RLS/migration). **Status:** Proof-hardened (`gwp/gov-01-viewer-readonly-151b`); awaiting merge.
+**Priority:** medium (RLS/migration). **Status:** Complete (`#45` / `1256258` on `main`).
 
 ### Accepted PC-00 decision
 
 **`viewer` means read-only.**
 
-Do not implement this inside PC-01. Current mapping grants member-class data capabilities (`record.create`, `record.link`, `instance.upgrade`) to `viewer`.
+Existing `viewer` memberships stay `viewer` and cannot mutate. Member-class data capabilities (`record.create`, `record.link`, `instance.upgrade`) belong to owner/admin/member/steward/scientist/analyst/reviewer.
 
-When this epic starts it **must** explicitly cover:
+Delivered:
 
-- migration of existing `viewer` members (who can currently mutate);
+- existing `viewer` members stay `viewer` and lose mutate capabilities;
 - RLS and `api.has_capability` / role-mapping semantics, kept in agreement with the TypeScript mirror;
-- permission regression tests across browser session and external API paths;
-- invitation role copy and permission-denied UX;
-- documentation of remaining unused roles (`scientist`, `analyst`, `reviewer`) if they stay member-class.
+- permission regression tests across session and `api_client` paths;
+- invitation role copy;
+- documentation of remaining unused roles (`scientist`, `analyst`, `reviewer`) as member-class.
 
 `schema.edit` and `schema.publish` still share steward/admin/owner. Keep the trigger split; do not claim a two-person rule until product requires it.
 
 Do not jump directly to arbitrary custom RBAC policy languages.
 
 **Exit:** administrators and users can understand who can do what; `viewer` cannot mutate; UI/API/server enforcement agree.
+
+**Evidence:** `0111`/`0112`, `api.is_workspace_writer`, leftover-inventory abort, `tests/db/gov-01-viewer-readonly.test.ts`, full DB suite, migrate+seed proof (`#45`).
 
 ## GOV-02 — Organisation Model
 

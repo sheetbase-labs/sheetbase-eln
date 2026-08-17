@@ -10,7 +10,7 @@ The browser is one client of the domain, not the privileged definition of it.
 
 ## API-01 — Public API Contract
 
-**Priority:** low. **Status:** Ready (parallel with PC-01).
+**Priority:** low. **Status:** **Complete** (contract published; implementation cut-over queued).
 
 ### Goal
 
@@ -25,18 +25,19 @@ Define stable, versioned resources and operations for external clients.
 - This epic is **contract / audit / documentation**. Inspect the actual server and `/api/db` / token allowlist implementation.
 - If implementation requires consequential server architecture, migrations, RLS, transactions or other Medium-level work, **stop at the contract boundary** and queue that implementation separately.
 
-### Current state (PC-00)
+### Current state (verified API-01 audit @ `f2dfa25`)
 
-External credentials and `POST /api/token` exist. The allowlist is **project-domain only** (`src/lib/external-token.ts`). Core Dataset/Sheet/Notebook RPCs fail closed. `scientific:*` scopes are mintable but map to an empty resource set. `docs/external-api.md` still documents removed scientific-table CLI — correct it here.
+External credentials and `POST /api/token` exist. The allowlist is **project-domain only** (`src/lib/external-token.ts`). Core Dataset/Sheet/Notebook RPCs fail closed. `scientific:*` scopes are mintable but map to an empty resource set. `docs/external-api.md` corrected; canonical contract at `docs/public-api-contract.md`.
 
 The browser session path has no allowlist; do not treat PostgREST exposure as the public contract.
 
 ### Deliverables
 
-- public resource/operations contract;
-- Core-domain scope proposal (not `scientific:*`);
-- compatibility/deprecation plan;
-- corrected external API documentation.
+- [x] public resource/operations contract → `docs/public-api-contract.md`
+- [x] Core-domain scope proposal (not `scientific:*`) → contract §8
+- [x] compatibility/deprecation plan → contract §9
+- [x] corrected external API documentation → `docs/external-api.md`
+- [x] fail-closed tests aligned to contract → `src/lib/external-token.test.ts`
 
 Start from the RPCs the product should use, not by opening tables.
 
@@ -44,9 +45,13 @@ Start from the RPCs the product should use, not by opening tables.
 
 Versioning; stable identity; pagination; filtering/sorting; bulk operations; structured validation errors; stable error codes; optimistic concurrency; idempotency; retry semantics; lifecycle; version access; permission errors; rate limits; deprecation policy.
 
+Documented in `docs/public-api-contract.md` §§4–7 and §9. OpenAPI/SDK/webhook delivery is API-03–06.
+
 ### Exit
 
-A developer can read the intended public contract without treating scientific-table REST as current. Implementation of a new allowlist/scope cut-over is queued if it exceeds Low contract work.
+A developer can read the intended public contract without treating scientific-table REST as current. Implementation of a new allowlist/scope cut-over is queued (API-02).
+
+**Evidence:** `docs/public-api-contract.md`, updated `docs/external-api.md`, `src/lib/external-token.test.ts` (Core RPC deny-list), audit notes in contract §12.
 
 ## API-02 — API Credentials & Service Identity
 

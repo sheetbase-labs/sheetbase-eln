@@ -105,6 +105,41 @@ describe('requiredScopes', () => {
       requiredScopes('GET', { kind: 'table', resource: 'change_events' }),
     ).toThrow(ExternalTokenError)
   })
+
+  /**
+   * API-01 contract: Core domain RPCs the product uses are not on the external
+   * allowlist yet. Each must fail closed until API-02 cut-over.
+   */
+  it('denies Core domain RPCs as insufficient_scope (API-01 contract)', () => {
+    const coreRpcs = [
+      'query_dataset_rows',
+      'commit_dataset_row_batch',
+      'snapshot_dataset',
+      'create_sheet_instance',
+      'query_sheet_instance_rows',
+      'mutate_sheet_instance_local_state',
+      'submit_record_revision',
+      'preview_submission_digest',
+      'create_notebook_template',
+      'instantiate_notebook_template_version',
+      'search',
+      'search_sheet_records',
+    ] as const
+    for (const resource of coreRpcs) {
+      expect(() =>
+        requiredScopes('POST', { kind: 'rpc', resource }),
+      ).toThrow(ExternalTokenError)
+    }
+  })
+
+  it('does not grant scientific:* scopes access to vestigial metadata tables', () => {
+    expect(() =>
+      requiredScopes('GET', {
+        kind: 'table',
+        resource: 'formula_results',
+      }),
+    ).toThrow(ExternalTokenError)
+  })
 })
 
 describe('hasScope', () => {

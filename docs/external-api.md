@@ -5,6 +5,17 @@ without a browser session. They exchange a shared secret for a short-lived
 PostgREST JWT through `POST /api/token`, then use that JWT against the
 same-origin `/api/db` boundary. The browser session is never involved.
 
+The **intended public contract** (resources, scopes, errors, pagination,
+idempotency, deprecation) lives in `docs/public-api-contract.md`. This
+document covers **credential mechanics** and the **currently implemented**
+external allowlist.
+
+> **Important:** Core Dataset, Sheet, and Notebook Template RPCs are **not**
+> yet on the external allowlist. Requests for those paths fail closed with
+> `permission_denied` even if the credential carries broad scopes. The
+> removed scientific-table REST surface documented in older revisions of this
+> file is likewise **not available**.
+
 ## Credential format
 
 A credential string looks like `sb_<prefix>_<secret>`:
@@ -17,18 +28,70 @@ A credential string looks like `sb_<prefix>_<secret>`:
 Store the full credential in your integration's secret store immediately. If
 you lose it, revoke and create a new one.
 
+There is **no product UI** to create or revoke credentials yet (API-02). Today
+credentials are created through `createCredential` in
+`src/lib/api-credentials.ts` (tests, seeds, or direct server use).
+
 ## Scopes
 
-| Scope               | Allows                                                                                      |
-| ------------------- | ------------------------------------------------------------------------------------------- |
-| `projects:read`     | Read projects in the credential's workspace.                                                |
-| `projects:write`    | Create/update projects in the credential's workspace.                                       |
-| `scientific:read`   | Discover scientific/formula metadata, generated rows, and status-aware calculated results.  |
-| `scientific:write`  | Insert literal rows; use with `scientific:read` for canonical update/delete and bulk edits. |
-| `scientific:schema` | Call controlled scientific table/column management RPCs; does not imply row access.         |
+### Currently effective
 
-Future tickets extend the vocabulary. Requesting a scope the credential does
-not have returns `insufficient_scope`.
+| Scope             | Allows                                                                 |
+| ----------------- | ---------------------------------------------------------------------- |
+| `projects:read`   | Read project-domain tables in the credential's workspace (see below).  |
+| `projects:write`  | Create/update project-domain tables and allowed RPCs in the workspace. |
+
+### Deprecated (do not use in new integrations)
+
+| Scope               | Status                                                                 |
+| ------------------- | ---------------------------------------------------------------------- |
+| `scientific:read`   | **Deprecated.** Mintable but maps to an **empty** allowlist — no access. |
+| `scientific:write`  | **Deprecated.** Same as above.                                         |
+| `scientific:schema` | **Deprecated.** Same as above.                                         |
+
+Future Core-domain scopes (`datasets:*`, `schema:*`, `sheets:*`, `templates:*`,
+…) are specified in `docs/public-api-contract.md` §8. Dataset **data** scopes
+are distinct from governed **schema/configuration** scopes (`schema:write` /
+`schema:publish`). They are **not** enforced until API-02 cuts over the
+allowlist.
+
+Requesting a scope the credential does not have returns `insufficient_scope`.
+
+## Currently allowed resources
+
+Verified in `src/lib/external-token.ts`. Anything not listed is **denied**.
+
+### Tables
+
+`projects`, `folders`, `records`, `blocks`, `record_links`, `revisions`,
+`record_field_definitions`.
+
+- GET/HEAD → `projects:read`
+- POST/PATCH → `projects:write`
+- DELETE on `projects` is not granted to `api_client` (Phase 1 rule)
+
+Direct INSERT/UPDATE/DELETE on `revisions` is not granted; use
+`submit_record_revision` when that RPC is added to the allowlist.
+
+### RPCs
+
+All require `projects:write`:
+
+`create_project`, `create_record`, `create_record_with_blocks`,
+`update_block_payload`, `move_block`, `archive_record`, `restore_record`,
+`create_record_link`, `insert_block`, `delete_block`,
+`transition_record_status`, `instantiate_template`.
+
+### Denied examples (fail closed)
+
+Core and retired paths return `permission_denied` / `insufficient_scope`:
+
+- `query_dataset_rows`, `commit_dataset_row_batch`, `create_sheet_instance`
+- `submit_record_revision`, `search`, `search_sheet_records`
+- `create_scientific_table`, `sheet_*` generated tables, `formula_results`
+- `change_events`, file RPCs
+
+See `src/lib/external-token.test.ts` for the locked deny-list tests.
 
 ## Exchange
 
@@ -69,91 +132,15 @@ An external request passes through three checks before any data moves:
    revocation and requested scope, rate-limits guesses, and mints a
    short-lived `api_client` JWT scoped to the credential's workspace.
 2. **Proxy** (`/api/db/*`) — verifies the bearer token's signature and
-   shape, re-checks revocation against the live credential row, and
-   classifies the exact resource and enforces its project or scientific
-   capability set. Unknown external resources fail closed.
+   shape, re-checks revocation against the live credential row, classifies
+   the exact resource and enforces the **project-domain allowlist**. Unknown
+   external resources fail closed.
 3. **Row-level security** (PostgreSQL `api_client` policies) — pins every
    read and write to the `workspace_id` claim on the token, so a leaked or
    tampered token cannot cross workspaces even if the proxy were bypassed.
 
-`api_client` has no DELETE privilege on projects in Phase 1: external
-credentials cannot destroy projects, regardless of scope.
-
-## Scientific-table CLI examples
-
-Exchange the credential for the capabilities needed by this workflow. Keep the
-credential and returned token in a secret store; they are abbreviated here:
-
-```bash
-TOKEN="$({ curl --fail --silent --show-error \
-  -H 'content-type: application/json' \
-  -d '{"credential":"sb_…","scopes":["scientific:read","scientific:write","scientific:schema"]}' \
-  http://localhost:3000/api/token; } | jq -r .token)"
-```
-
-Create a managed table for an existing sheet block, then discover its generated
-resource and stable fields. User labels never appear in the REST path:
-
-```bash
-curl --fail -H "Authorization: Bearer $TOKEN" \
-  -H 'content-type: application/json' \
-  -d '{"p_block_id":"<sheet-block-uuid>","p_name":"Measurements","p_columns":[{"label":"Sample","logical_type":"text"},{"label":"Result","logical_type":"decimal","unit":{"code":"mg/L","symbol":"mg/L"}}]}' \
-  http://localhost:3000/api/db/rpc/create_scientific_table
-
-curl --fail -G -H "Authorization: Bearer $TOKEN" \
-  --data-urlencode 'p_table_id=<table-uuid>' \
-  http://localhost:3000/api/db/rpc/scientific_table_metadata
-```
-
-Use the returned `sheet_…` resource and `col_…` fields for direct row CRUD,
-filtering and ordering:
-
-```bash
-# Insert one row (an array performs one atomic independent-row bulk insert).
-curl --fail -H "Authorization: Bearer $TOKEN" \
-  -H 'content-type: application/json' -H 'Prefer: return=representation' \
-  -d '{"col_<sample>":"A-01","col_<result>":1.25}' \
-  http://localhost:3000/api/db/sheet_<resource>
-
-# Read/filter/order/page.
-curl --fail -G -H "Authorization: Bearer $TOKEN" \
-  --data-urlencode 'select=id,version,col_<sample>,col_<result>' \
-  --data-urlencode 'col_<result>=gte.1' \
-  --data-urlencode 'order=col_<sample>.asc' --data-urlencode 'limit=50' \
-  http://localhost:3000/api/db/sheet_<resource>
-
-# Update only if the row is still version 1. An empty match is returned as a
-# stable 409 stale_version conflict by the Sheetbase boundary.
-curl --fail -X PATCH -H "Authorization: Bearer $TOKEN" \
-  -H 'content-type: application/json' \
-  -d '{"col_<result>":1.5}' \
-  'http://localhost:3000/api/db/sheet_<resource>?id=eq.<row-uuid>&version=eq.1'
-
-# Delete only the expected version. Formula-owned rows are rejected.
-curl --fail -X DELETE -H "Authorization: Bearer $TOKEN" \
-  'http://localhost:3000/api/db/sheet_<resource>?id=eq.<row-uuid>&version=eq.2'
-
-# Atomic multi-row update keyed by stable column UUIDs, not field names.
-curl --fail -H "Authorization: Bearer $TOKEN" \
-  -H 'content-type: application/json' \
-  -d '{"p_table_id":"<table-uuid>","p_expected_schema_version":1,"p_edits":[{"rowId":"<row-uuid>","expectedVersion":2,"values":{"<column-uuid>":2.0}}]}' \
-  http://localhost:3000/api/db/rpc/apply_scientific_row_edits
-
-# Read formula definitions and trusted result states for one sheet. A
-# calculated_value is returned only when calculation_status=current.
-curl --fail -G -H "Authorization: Bearer $TOKEN" \
-  --data-urlencode 'select=formula_id,target_row_id,target_column_id,source_expression,calculation_status,calculated_value,calculation_error_code,current_input_revision,cache_input_revision' \
-  --data-urlencode 'target_table_id=eq.<table-uuid>' \
-  http://localhost:3000/api/db/formula_results
-```
-
-`formula_definitions` and `formula_dependencies` expose durable provenance.
-`formula_results` is the safe calculated-result projection: `pending`, `stale`,
-`failed`, and `unavailable` rows never expose a cached scalar as current source
-data. Generated `sheet_…` resources remain the authoritative literal surface.
-
-For local development, substitute the exposed application portal for
-`http://localhost:3000`. External clients never call PostgREST directly.
+The browser session path skips step 2's allowlist (it uses membership-based
+RLS instead) but is not available to external credentials.
 
 ## Project CLI example
 
@@ -166,18 +153,67 @@ scripts/read-project.sh sb_1a2b3c4d_...
 The script exchanges the credential for a token and reads projects through
 `/api/db/projects`. See `scripts/read-project.sh` for the exact calls.
 
+### Manual exchange and read
+
+```bash
+TOKEN="$(curl --fail --silent --show-error \
+  -H 'content-type: application/json' \
+  -d '{"credential":"sb_…","scopes":["projects:read"]}' \
+  http://localhost:3000/api/token | jq -r .token)"
+
+curl --fail -G -H "Authorization: Bearer $TOKEN" \
+  --data-urlencode 'select=key,title' \
+  --data-urlencode 'order=created_at.desc' \
+  http://localhost:3000/api/db/projects
+```
+
+### Create a project (requires `projects:write`)
+
+```bash
+TOKEN="$(curl --fail --silent --show-error \
+  -H 'content-type: application/json' \
+  -d '{"credential":"sb_…","scopes":["projects:write"]}' \
+  http://localhost:3000/api/token | jq -r .token)"
+
+curl --fail -H "Authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{"p_title":"Integration test project"}' \
+  http://localhost:3000/api/db/rpc/create_project
+```
+
+For local development, substitute the exposed application portal for
+`http://localhost:3000`. External clients never call PostgREST directly.
+
+## Error responses on `/api/db`
+
+Data requests return the stable envelope documented in
+`docs/public-api-contract.md` §6:
+
+```json
+{
+  "error": {
+    "category": "permission_denied",
+    "message": "External credentials cannot access this resource.",
+    "request_id": "…"
+  }
+}
+```
+
 ## Tests
 
-`tests/db/api-credentials.test.ts` proves creation, successful exchange,
-wrong secret, wrong scope, revocation (including cross-workspace revocation
-failure) and rate-limiting.
+| Test file | Proves |
+| --------- | ------ |
+| `src/lib/external-token.test.ts` | Allowlist scope mapping; fail-closed for Core/retired paths |
+| `tests/db/api-credentials.test.ts` | Creation, exchange, wrong secret/scope, revocation, rate-limit |
+| `tests/db/external-api.test.ts` | End-to-end RLS, scope enforcement, revocation-at-use, tampered claims |
 
-`tests/db/external-api.test.ts` proves the full external path end to end:
-`api_client` RLS workspace isolation, scope enforcement at the proxy,
-revocation-at-use with a still-valid token, and a tampered workspace_id
-claim being rejected.
+Retired scientific-table tests (`tests/db/scientific-rest.test.ts`,
+`tests/api/scientific-rest.test.ts`) document **removed** behaviour and are
+not part of the public contract.
 
-`tests/db/scientific-rest.test.ts` proves database-authoritative scientific
-scope, workspace, metadata, CRUD, concurrency and bulk-edit behavior.
-`tests/api/scientific-rest.test.ts` runs create/read/update/delete/filter and
-stale-conflict requests through the same-origin proxy against real PostgREST.
+## Next steps for integrators
+
+1. Read `docs/public-api-contract.md` for the full domain model and queued scope vocabulary.
+2. Use `projects:read` / `projects:write` for the **current** project-domain API only.
+3. Do **not** depend on `scientific:*` scopes or scientific-table paths.
+4. Watch for API-02 (credentials UI + Core RPC allowlist) before building Sheet/Dataset/Notebook automation.

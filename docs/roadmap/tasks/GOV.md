@@ -1,6 +1,6 @@
 # GOV — Identity, Administration & Governance
 
-**Status:** planned; refine after PC-00.
+**Status:** queued. GOV-01 is **Low initially**. Do not implement from the current PC/API hand-off.
 
 ## Programme goal
 
@@ -8,11 +8,27 @@ Make Sheetbase governable at organisational scale while keeping normal scientifi
 
 ## GOV-01 — Role & Capability Productisation
 
-Clarify role semantics; make viewer genuinely meaningful when deliberately changed; role/capability UI; effective-permission inspection; invitation role selection; permission-denied UX; capability documentation; tests across browser/API.
+**Priority:** low initially. **Status:** Queued.
+
+### Accepted PC-00 decision
+
+**`viewer` means read-only.**
+
+Do not implement this inside PC-01. Current mapping grants member-class data capabilities (`record.create`, `record.link`, `instance.upgrade`) to `viewer`.
+
+When this epic starts it **must** explicitly cover:
+
+- migration of existing `viewer` members (who can currently mutate);
+- RLS and `api.has_capability` / role-mapping semantics, kept in agreement with the TypeScript mirror;
+- permission regression tests across browser session and external API paths;
+- invitation role copy and permission-denied UX;
+- documentation of remaining unused roles (`scientist`, `analyst`, `reviewer`) if they stay member-class.
+
+`schema.edit` and `schema.publish` still share steward/admin/owner. Keep the trigger split; do not claim a two-person rule until product requires it.
 
 Do not jump directly to arbitrary custom RBAC policy languages.
 
-**Exit:** administrators and users can understand who can do what, and UI/API/server enforcement agree.
+**Exit:** administrators and users can understand who can do what; `viewer` cannot mutate; UI/API/server enforcement agree.
 
 ## GOV-02 — Organisation Model
 
@@ -42,3 +58,4 @@ Regulatory claims require separate validation/compliance work; product features 
 - Do not put capability grants into JWT claims as a shortcut.
 - Do not make every exploratory action approval-gated.
 - Separate product controls from claims of regulatory compliance.
+- Do not silently tighten `viewer` as a side effect of PC-01.

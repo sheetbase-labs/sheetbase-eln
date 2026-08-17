@@ -5,8 +5,8 @@ This folder contains reusable starting prompts for the post-Core roadmap program
 ## How to use
 
 1. Start with [`../NEXT.md`](../NEXT.md).
-2. Use the prompt matching the active programme/task.
-3. The prompt does not replace the task file. `tasks/*.md`, accepted ADRs and current repository state remain authoritative.
+2. Use the prompt matching the **assigned** stream in `NEXT.md`. Ready does not mean implement every Ready stream.
+3. The prompt does not replace the task file. `tasks/*.md`, accepted ADRs, accepted PC-00 decisions and current repository state remain authoritative.
 4. Prompts deliberately tell agents to audit current implementation before making assumptions.
 5. When an epic has been refined by PC-00 or later evidence, update the relevant task file and prompt together.
 
@@ -14,9 +14,9 @@ This folder contains reusable starting prompts for the post-Core roadmap program
 
 | Prompt | Programme |
 | --- | --- |
-| [`PC-00.md`](./PC-00.md) | Product & Platform Consolidation Audit |
-| [`PC.md`](./PC.md) | Product Consolidation |
-| [`API.md`](./API.md) | API & Developer Platform |
+| [`PC-00.md`](./PC-00.md) | Product & Platform Consolidation Audit (complete) |
+| [`PC.md`](./PC.md) | Product Consolidation (Ready: PC-01) |
+| [`API.md`](./API.md) | API & Developer Platform (Ready: API-01, low) |
 | [`DATA.md`](./DATA.md) | Data Interoperability |
 | [`GOV.md`](./GOV.md) | Identity, Administration & Governance |
 | [`COLLAB.md`](./COLLAB.md) | Collaboration |
@@ -36,4 +36,4 @@ This folder contains reusable starting prompts for the post-Core roadmap program
 - Use focused validation during development and the task-defined full gate at completion.
 - Do not introduce Cursor/agent/vendor attribution into commits, source, docs or PR metadata.
 - Use the repository's configured human/project Git identity.
-- Implement only the active task identified by `NEXT.md`; do not jump ahead to another stream merely because its prompt exists.
+- Implement only the **assigned** stream/task in `NEXT.md`. Do not assume ownership of every Ready row.

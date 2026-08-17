@@ -1,6 +1,6 @@
 # PC — Product Consolidation
 
-**Status:** PC-00 active; implementation epics provisional until audit review.
+**Status:** PC-00 accepted; PC-01 is the Medium Ready stream. Full PC-03 remains later.
 
 ## Programme goal
 
@@ -8,7 +8,7 @@ Turn CORE-01–06 into one coherent scientist-facing product. A scientist should
 
 ## PC-00 — Product & Platform Consolidation Audit
 
-**Status:** NEXT
+**Status:** COMPLETE and accepted — [`../audits/PC-00.md`](../audits/PC-00.md)
 
 ### Goal
 
@@ -39,44 +39,74 @@ A prioritised gap map, surface inventory, workflow findings, refined PC/API/DATA
 
 ## PC-01 — Canonical Sheet Experience
 
-**Priority:** highest product priority after PC-00.
+**Priority:** medium. **Status:** Ready (primary PC stream).
 
 ### Goal
 
 One spreadsheet-native Sheet experience spanning ad-hoc and governed/composed states.
 
+### Why this is first
+
+PC-00 found two live Sheet products (HTML ad-hoc grid vs Handsontable composed grid) and Core RPCs with no UI: H2 composition adoption, Dataset bind, extract/upgrade/materialise, and Instance calculations. The engine is ready; the product is not.
+
+### Dependencies
+
+CORE-01–06 and Hardening H1–H5.
+
+### Thin PC-03 enabling slice (in PC-01, not full PC-03)
+
+Required so the canonical Sheet workflow can be exercised end-to-end:
+
+- create a blank experiment/Notebook without instantiating a Template;
+- submit the Notebook through the existing revision/evidence contract (`preview_submission_digest`, `submit_record_revision`).
+
+Do **not** take on the rest of PC-03 (print/export package, slash UX overhaul, Template designer, amendment-from-Notebook, rich history chrome).
+
+### Specialist navigation (in PC-01)
+
+Demote specialist tools from **default** navigation: Analysis, Planner, Calendar, Storage, Instruments, Plate Designer. Do not delete routes. Keep them accessible as secondary (for example a More group, hidden nav, or direct URL). Lineage and Report Builder stay out of primary nav.
+
 ### Scope
 
-- immediate editable blank Sheet;
+- one grid stack for ad-hoc and composed states (do not keep `<Input>` vs Handsontable as separate products);
 - natural row/column insertion/deletion;
 - multi-cell paste, copy/cut/fill;
 - keyboard navigation/selection;
 - type-aware editors and validation;
-- formulas/calculations;
-- Dataset and Record source binding;
-- Record search/link/create;
+- formulas/calculations via `mutate_sheet_instance_calculations` / read results;
+- Dataset and Record source binding, including H2 `preview/apply_sheet_instance_composition_adoption`;
+- Record search/link/create (existing composed RPCs; do not hard-code only `sample` if the Definition names another Model);
 - local and governed columns together;
 - sorting/filtering/frozen columns;
 - provenance inspection;
-- explicit write-back;
-- local-field/calculation promotion;
-- extract/save as Definition;
-- Definition upgrade;
-- explicit materialisation;
+- explicit write-back through existing Dataset/Record/local RPCs;
+- extract/save as Definition; Definition upgrade; explicit materialisation (preview/apply + stale/conflict);
 - empty/loading/stale/conflict states;
 - scalable virtualised interaction.
 
 ### Invariant
 
-Do not expose "ad-hoc Sheet" and "composed Sheet" as separate products. They are states/capabilities of one Sheet experience.
+Do not expose "ad-hoc Sheet" and "composed Sheet" as separate products. They are states/capabilities of one Sheet experience. Do not restore scientific-table editors.
+
+### Data / API / security
+
+Call existing RPCs. Do not invent a parallel writer. UI hide is not authorisation. External API allowlisting of the same RPCs is API-01, not a PC-01 rewrite.
+
+**Do not** make `viewer` read-only here — that is GOV-01.
 
 ### Exit
 
-A scientist can start blank, work freely, add governed sources, create/link Records, calculate, promote useful structure and reuse it without leaving the canonical Sheet experience.
+A scientist can create a blank Notebook, work in one Sheet experience, add governed sources on the same Instance, create/link Records, calculate, extract/upgrade/materialise, submit through the existing evidence contract, and understand errors. Specialist tools are no longer in default nav.
+
+### Principal risks
+
+Confusing adoption with promotion; performance at scientific scale; Record actions remaining sample-only; expanding the enabling Notebook slice into full PC-03.
 
 ---
 
 ## PC-02 — Dataset & Record Product Workflows
+
+PC-00: `/datasets` is read-only; Dataset create/snapshot/live edit RPCs exist; reagent create UI is missing while sample create exists.
 
 ### Goal
 
@@ -101,6 +131,10 @@ Users can manage durable structured data directly without needing a Notebook as 
 ### Goal
 
 Make Notebook the clear scientific-context and evidence container around narrative, Sheets, Records and files.
+
+### PC-00 note
+
+Blank create and submit are **in PC-01** as an enabling slice only. This epic remains the full Notebook product and must not be started from the current hand-off.
 
 ### Scope
 

@@ -1,6 +1,8 @@
 # Prompt — PLAT Platform, Operations & Security
 
-Work on the active **PLAT — Platform, Operations & Security** epic in `phlohouse/sheetbase-eln`.
+Work on the **assigned PLAT stream** in `phlohouse/sheetbase-eln`. Read `docs/roadmap/NEXT.md` first.
+
+PLAT-03 is **queued**. Do not start it from a PC-01 or API-01 session. Stale `docs/external-api.md` belongs to API-01. `viewer` read-only belongs to GOV-01.
 
 Read `docs/roadmap/NEXT.md`, `tasks/PLAT.md`, PC-00 operational/security findings, deployment docs and current CI/runtime infrastructure first.
 

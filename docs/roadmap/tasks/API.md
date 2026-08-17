@@ -1,6 +1,6 @@
 # API — API & Developer Platform
 
-**Status:** planned; refine after PC-00.
+**Status:** PC-00 accepted; API-01 is **Low** and **Ready** in parallel with PC-01. Stay at the contract boundary unless a later epic is queued.
 
 ## Programme goal
 
@@ -10,13 +10,35 @@ The browser is one client of the domain, not the privileged definition of it.
 
 ## API-01 — Public API Contract
 
+**Priority:** low. **Status:** Ready (parallel with PC-01).
+
 ### Goal
 
 Define stable, versioned resources and operations for external clients.
 
-### Candidate resources
+### Accepted PC-00 decisions
 
-Models, Records, Dataset Schemas, Datasets/rows/Versions, Sheet Definitions/Instances, Notebooks/Templates and files.
+- Retire `scientific:*` as the **future** public API scope model.
+- Design scopes and contracts around **canonical Core resources and capabilities** (Models, Records, Dataset Schemas, Datasets/Versions, Sheet Definitions/Instances, Notebooks/Templates, files).
+- Do not perpetuate the removed scientific-table architecture.
+- If real existing clients depend on old scopes, define an explicit **migration/deprecation path**. Do not make those scopes the future contract.
+- This epic is **contract / audit / documentation**. Inspect the actual server and `/api/db` / token allowlist implementation.
+- If implementation requires consequential server architecture, migrations, RLS, transactions or other Medium-level work, **stop at the contract boundary** and queue that implementation separately.
+
+### Current state (PC-00)
+
+External credentials and `POST /api/token` exist. The allowlist is **project-domain only** (`src/lib/external-token.ts`). Core Dataset/Sheet/Notebook RPCs fail closed. `scientific:*` scopes are mintable but map to an empty resource set. `docs/external-api.md` still documents removed scientific-table CLI — correct it here.
+
+The browser session path has no allowlist; do not treat PostgREST exposure as the public contract.
+
+### Deliverables
+
+- public resource/operations contract;
+- Core-domain scope proposal (not `scientific:*`);
+- compatibility/deprecation plan;
+- corrected external API documentation.
+
+Start from the RPCs the product should use, not by opening tables.
 
 ### Contract requirements
 
@@ -24,11 +46,13 @@ Versioning; stable identity; pagination; filtering/sorting; bulk operations; str
 
 ### Exit
 
-External clients can perform supported workflows without depending on internal table or RPC names.
+A developer can read the intended public contract without treating scientific-table REST as current. Implementation of a new allowlist/scope cut-over is queued if it exceeds Low contract work.
 
 ## API-02 — API Credentials & Service Identity
 
 Personal tokens; service accounts; workspace binding; capability scopes; expiry; rotation; revocation; last-used metadata; credential audit; request attribution; safe secret handling.
+
+PC-00: `createCredential` exists in `src/lib/api-credentials.ts` with **no product UI**. Do this after API-01 scope vocabulary is honest.
 
 **Exit:** external automation authenticates safely without borrowing human sessions or database credentials.
 
@@ -62,3 +86,4 @@ Subscriptions; signed payloads; stable event schema; retries/backoff; delivery h
 - Do not create an API-specific permission model.
 - Do not make SDKs depend on browser-only routes.
 - Do not promise backwards compatibility before an explicit version/deprecation policy exists.
+- Do not restore scientific-table write paths in order to honour stale documentation.

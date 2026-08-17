@@ -27,6 +27,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
+import { CreateBlankExperimentDialog } from '#/components/notebook/create-blank-experiment-dialog'
 import { useShell } from '#/components/app-shell'
 import {
   Button,
@@ -539,7 +540,8 @@ function MetricCard({
 
 interface QuickAction {
   label: string
-  to: string
+  to?: string
+  action?: 'create-experiment'
   icon: LucideIcon
   hint: string
 }
@@ -547,21 +549,21 @@ interface QuickAction {
 const QUICK_ACTIONS: QuickAction[] = [
   {
     label: 'Create experiment',
-    to: '/templates',
+    action: 'create-experiment',
     icon: FlaskConical,
-    hint: 'Instantiate from a template',
+    hint: 'Start a blank Notebook',
   },
   {
     label: 'Add sample',
-    to: '/templates',
+    to: '/samples',
     icon: TestTube,
     hint: 'Register a new sample',
   },
   {
     label: 'Upload file',
-    to: '/templates',
+    to: '/projects',
     icon: Upload,
-    hint: 'Attach a file to a record',
+    hint: 'Open a project, then attach files in a Notebook',
   },
   {
     label: 'Browse templates',
@@ -596,6 +598,7 @@ const QUICK_ACTIONS: QuickAction[] = [
 ]
 
 function QuickActionsGrid() {
+  const [createOpen, setCreateOpen] = useState(false)
   return (
     <section aria-label="Quick actions">
       <h2 className="mb-3 text-sm font-semibold text-foreground">
@@ -604,26 +607,45 @@ function QuickActionsGrid() {
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {QUICK_ACTIONS.map((action) => {
           const Icon = action.icon
+          const body = (
+            <>
+              <span className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+                <Icon className="size-4" aria-hidden="true" />
+              </span>
+              <span className="text-sm font-medium text-foreground">
+                {action.label}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {action.hint}
+              </span>
+            </>
+          )
           return (
             <li key={action.label}>
-              <Link
-                to={action.to}
-                className="flex h-full flex-col gap-2 rounded-lg border border-border bg-card p-3 no-underline transition-colors hover:bg-muted/40"
-              >
-                <span className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
-                  <Icon className="size-4" aria-hidden="true" />
-                </span>
-                <span className="text-sm font-medium text-foreground">
-                  {action.label}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {action.hint}
-                </span>
-              </Link>
+              {action.action === 'create-experiment' ? (
+                <button
+                  type="button"
+                  className="flex h-full w-full flex-col gap-2 rounded-lg border border-border bg-card p-3 text-left transition-colors hover:bg-muted/40"
+                  onClick={() => setCreateOpen(true)}
+                >
+                  {body}
+                </button>
+              ) : (
+                <Link
+                  to={action.to!}
+                  className="flex h-full flex-col gap-2 rounded-lg border border-border bg-card p-3 no-underline transition-colors hover:bg-muted/40"
+                >
+                  {body}
+                </Link>
+              )}
             </li>
           )
         })}
       </ul>
+      <CreateBlankExperimentDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+      />
     </section>
   )
 }

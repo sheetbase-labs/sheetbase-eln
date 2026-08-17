@@ -632,7 +632,7 @@ function QuickActionsGrid() {
                 </button>
               ) : (
                 <Link
-                  to={action.to!}
+                  to={action.to}
                   className="flex h-full flex-col gap-2 rounded-lg border border-border bg-card p-3 no-underline transition-colors hover:bg-muted/40"
                 >
                   {body}

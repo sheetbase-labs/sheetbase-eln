@@ -36,6 +36,7 @@ import {
   createAndLinkSheetRecord,
   enrichSheetRecordWriteTarget,
 } from '#/lib/sheet-record-commit'
+import { sheetCalculationDependenciesFromExpression } from '#/lib/sheet-calculation'
 import {
   searchSheetRecords,
   sheetRecordSearchHitsAsNotebookRecords,
@@ -344,9 +345,6 @@ export function CanonicalSheetEditor({
         computation: { mode: 'computed' as const, expressionId: id },
         lifecycle: 'active' as const,
       }
-      const localIds = instance.state.localFields
-        .filter((field) => field.lifecycle === 'active')
-        .map((field) => ({ kind: 'local-field' as const, id: field.fieldId }))
       return mutateSheetInstanceCalculations(
         {
           instanceId: instance.id,
@@ -361,10 +359,17 @@ export function CanonicalSheetEditor({
                 label: outputField.label,
                 lifecycle: 'active',
                 outputField,
-                dependencies: localIds.slice(0, 8),
+                dependencies: sheetCalculationDependenciesFromExpression({
+                  source: formula,
+                  columns: matrix.columns.map((column) => ({
+                    id: column.id,
+                    origin: column.origin,
+                  })),
+                  rowCount: matrix.rowKeys.length,
+                }),
                 expression: {
                   language: 'sheetbase-formula-v1',
-                  source: formula.trim() || '=A1',
+                  source: formula.trim(),
                 },
               },
             },

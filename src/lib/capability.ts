@@ -31,15 +31,15 @@ const MEMBER_CLASS_ROLES: ReadonlySet<string> = new Set([
   'scientist',
   'analyst',
   'reviewer',
-  'viewer',
 ])
 
 /**
- * Initial role → capability mapping. Roles assign capabilities; later
- * grants should change resolution here and in SQL, not individual RPCs.
+ * Role → capability mapping. Roles assign capabilities; later grants should
+ * change resolution here and in SQL `api.has_capability`, not individual RPCs.
  *
- * Unused roles (`viewer`, `scientist`, `analyst`, `reviewer`) keep current
- * member-class data behaviour and do not receive governed schema authority.
+ * GOV-01: `viewer` is read-only (no record.create / record.link /
+ * instance.upgrade). Unused roles `scientist`, `analyst` and `reviewer`
+ * remain member-class data actors and do not receive governed schema authority.
  */
 export function capabilitiesForRole(role: WorkspaceRole): Capability[] {
   return CAPABILITIES.filter((capability) => hasCapability(role, capability))

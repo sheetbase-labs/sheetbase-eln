@@ -3,11 +3,10 @@ import { describe, expect, it } from 'vitest'
 import { CAPABILITIES, capabilitiesForRole, hasCapability } from './capability'
 import type { WorkspaceRole } from './workspace-admin'
 
-const UNUSED_ROLES: WorkspaceRole[] = [
+const UNUSED_MEMBER_ROLES: WorkspaceRole[] = [
   'scientist',
   'analyst',
   'reviewer',
-  'viewer',
 ]
 
 describe('CORE-05 capability mapping', () => {
@@ -26,12 +25,22 @@ describe('CORE-05 capability mapping', () => {
   })
 
   it('does not grant governed schema authority to ordinary or unused member roles', () => {
-    for (const role of ['member', ...UNUSED_ROLES] as WorkspaceRole[]) {
+    for (const role of ['member', ...UNUSED_MEMBER_ROLES] as WorkspaceRole[]) {
       expect(hasCapability(role, 'schema.edit')).toBe(false)
       expect(hasCapability(role, 'schema.publish')).toBe(false)
       expect(hasCapability(role, 'record.link')).toBe(true)
       expect(hasCapability(role, 'instance.upgrade')).toBe(true)
     }
+  })
+
+  it('makes viewer read-only without schema or admin authority', () => {
+    expect(hasCapability('viewer', 'workspace.admin')).toBe(false)
+    expect(hasCapability('viewer', 'schema.edit')).toBe(false)
+    expect(hasCapability('viewer', 'schema.publish')).toBe(false)
+    expect(hasCapability('viewer', 'record.link')).toBe(false)
+    expect(hasCapability('viewer', 'record.create')).toBe(false)
+    expect(hasCapability('viewer', 'instance.upgrade')).toBe(false)
+    expect(capabilitiesForRole('viewer')).toEqual([])
   })
 
   it('lists the same vocabulary the server enforces', () => {

@@ -7,6 +7,7 @@ import {
   PROJECT_ACCESS_LABELS,
   REGISTRATION_MODE_LABELS,
   WORKSPACE_ROLE_LABELS,
+  WORKSPACE_ROLE_DESCRIPTIONS,
   describeAdminError,
   formatDate,
   formatRelativeTime,
@@ -184,6 +185,8 @@ describe('workspace-admin labels', () => {
       reviewer: 'Reviewer',
       viewer: 'Viewer',
     })
+    expect(WORKSPACE_ROLE_DESCRIPTIONS.viewer).toMatch(/Read-only/)
+    expect(WORKSPACE_ROLE_DESCRIPTIONS.scientist).toMatch(/Member/)
     expect(INVITATION_STATUS_LABELS).toEqual({
       pending: 'Pending',
       accepted: 'Accepted',

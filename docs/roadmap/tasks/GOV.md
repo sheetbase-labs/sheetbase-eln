@@ -1,6 +1,6 @@
 # GOV — Identity, Administration & Governance
 
-**Status:** queued. GOV-01 is **Low initially**. Do not implement from the current PC/API hand-off.
+**Status:** GOV-01 proof-hardened on `gwp/gov-01-viewer-readonly-151b`. Medium (RLS/migration). `viewer` is read-only. Awaiting merge approval.
 
 ## Programme goal
 
@@ -8,7 +8,7 @@ Make Sheetbase governable at organisational scale while keeping normal scientifi
 
 ## GOV-01 — Role & Capability Productisation
 
-**Priority:** low initially. **Status:** Queued.
+**Priority:** medium (RLS/migration). **Status:** Proof-hardened (`gwp/gov-01-viewer-readonly-151b`); awaiting merge.
 
 ### Accepted PC-00 decision
 

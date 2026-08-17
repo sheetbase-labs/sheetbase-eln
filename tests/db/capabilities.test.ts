@@ -96,18 +96,20 @@ describe('CORE-05 capability resolver', () => {
     ])
   })
 
-  it('keeps unused viewer as a full member-class data actor, not schema authority', async () => {
+  it('keeps unused viewer as read-only, not schema authority', async () => {
     const viewer = await actor(VIEWER, WS_A)
     const { rows } = await viewer.query(
       `select api.has_capability($1,'schema.publish') as schema_publish,
               api.has_capability($1,'record.create') as record_create,
+              api.has_capability($1,'record.link') as record_link,
               api.has_capability($1,'instance.upgrade') as instance_upgrade`,
       [WS_A],
     )
     expect(rows[0]).toEqual({
       schema_publish: false,
-      record_create: true,
-      instance_upgrade: true,
+      record_create: false,
+      record_link: false,
+      instance_upgrade: false,
     })
   })
 
@@ -246,5 +248,39 @@ describe('CORE-05 capability resolver', () => {
       ),
       '42501',
     )
+  })
+
+  it('denies viewer record create while a member can still create', async () => {
+    const member = await actor(MEMBER, WS_A)
+    const created = await member.query(
+      `select id from api.create_record($1::uuid, 'experiment', 'Member experiment', 'draft', ARRAY[]::text[], '{}'::jsonb)`,
+      [PROJECT_A],
+    )
+    expect(created.rows[0].id).toBeTruthy()
+    const viewer = await actor(VIEWER, WS_A)
+    await expectDenied(
+      viewer.query(
+        `select id from api.create_record($1::uuid, 'experiment', 'Viewer experiment', 'draft', ARRAY[]::text[], '{}'::jsonb)`,
+        [PROJECT_A],
+      ),
+      '42501',
+    )
+    await expectDenied(
+      viewer.query(
+        `select id from api.create_model_record($1,'sample','Viewer sample','available',ARRAY[]::text[],'{}'::jsonb,'{}'::jsonb)`,
+        [PROJECT_A],
+      ),
+      '42501',
+    )
+    const visible = await viewer.query(
+      `select id, title from api.records where id = $1`,
+      [created.rows[0].id],
+    )
+    expect(visible.rowCount).toBe(1)
+    const updated = await viewer.query(
+      `update api.records set title = 'viewer-mutate' where id = $1`,
+      [created.rows[0].id],
+    )
+    expect(updated.rowCount).toBe(0)
   })
 })

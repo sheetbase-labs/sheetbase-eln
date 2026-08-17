@@ -29,6 +29,7 @@ import {
   INVITATION_STATUS_LABELS,
   INVITATION_STATUS_TOKENS,
   WORKSPACE_ROLE_LABELS,
+  WORKSPACE_ROLE_DESCRIPTIONS,
   WORKSPACE_ROLE_TOKENS,
 } from '#/lib/workspace-admin'
 import type {
@@ -231,7 +232,8 @@ export function AdminMembers(props: AdminMembersProps) {
           <DialogHeader>
             <DialogTitle>Invite user</DialogTitle>
             <DialogDescription>
-              Invite someone to this workspace.
+              Invite someone to this workspace. Viewer is read-only; Scientist,
+              Analyst and Reviewer currently share Member data capabilities.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -257,6 +259,9 @@ export function AdminMembers(props: AdminMembersProps) {
                   </option>
                 ))}
               </Select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {WORKSPACE_ROLE_DESCRIPTIONS[role]}
+              </p>
             </div>
             <div>
               <Label htmlFor="invite-expiry">Expiry</Label>

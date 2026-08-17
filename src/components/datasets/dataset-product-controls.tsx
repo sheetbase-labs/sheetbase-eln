@@ -25,6 +25,7 @@ import {
   datasetRevision,
   describeDatasetCommitError,
   listPublishedDatasetSchemas,
+  parseTsvRows,
   restoreDataset,
   snapshotDataset,
 } from '#/lib/dataset-product'
@@ -99,7 +100,10 @@ export function DatasetCreateDialog({
                   : 'Select a published Schema'}
               </option>
               {schemas.map((schema) => (
-                <option key={schema.schemaVersionId} value={schema.schemaVersionId}>
+                <option
+                  key={schema.schemaVersionId}
+                  value={schema.schemaVersionId}
+                >
                   {schema.name} · {schema.key} v{schema.version}
                 </option>
               ))}
@@ -259,7 +263,8 @@ export function DatasetPasteDialog({
           </DialogDescription>
         </DialogHeader>
         <p className="text-xs text-muted-foreground">
-          Columns: {table.columns.map((column) => column.label).join(' · ') || 'none'}
+          Columns:{' '}
+          {table.columns.map((column) => column.label).join(' · ') || 'none'}
         </p>
         <Textarea
           aria-label="Pasted TSV rows"
@@ -307,7 +312,8 @@ export function DatasetAddRowDialog({
       const rowValues: Record<string, unknown> = {}
       for (const column of table.columns) {
         const raw = values[column.id] ?? ''
-        rowValues[column.id] = raw === '' ? null : coerceLoose(column.logical_type, raw)
+        rowValues[column.id] =
+          raw === '' ? null : coerceLoose(column.logical_type, raw)
       }
       const result = await commitDatasetRowBatch(client, {
         datasetId: table.id,
@@ -382,14 +388,14 @@ export function DatasetAddRowDialog({
 function coerceLoose(logicalType: string, raw: string): unknown {
   if (logicalType === 'integer') return Number.parseInt(raw, 10)
   if (logicalType === 'decimal') return Number(raw)
-  if (logicalType === 'boolean') return ['true', '1', 'yes'].includes(raw.toLowerCase())
+  if (logicalType === 'boolean')
+    return ['true', '1', 'yes'].includes(raw.toLowerCase())
   return raw
 }
 
 export function DatasetProductActions({
   table,
   client,
-  rows,
   archived,
   onRefresh,
   onCreate,

@@ -174,11 +174,15 @@ describe('snapshot and live-edit RPCs', () => {
 describe('cell coercion, TSV paste and CSV export', () => {
   it('coerces typed values and rejects invalid numbers', () => {
     expect(coerceDatasetCellValue(column(), '7.4')).toBe(7.4)
-    expect(coerceDatasetCellValue(column({ logical_type: 'boolean' }), 'yes')).toBe(
-      true,
+    expect(
+      coerceDatasetCellValue(column({ logical_type: 'boolean' }), 'yes'),
+    ).toBe(true)
+    expect(
+      coerceDatasetCellValue(column({ logical_type: 'text' }), ''),
+    ).toBeNull()
+    expect(() => coerceDatasetCellValue(column(), 'nope')).toThrow(
+      /Invalid number/,
     )
-    expect(coerceDatasetCellValue(column({ logical_type: 'text' }), '')).toBeNull()
-    expect(() => coerceDatasetCellValue(column(), 'nope')).toThrow(/Invalid number/)
   })
 
   it('maps TSV lines onto Schema fields in display order', () => {

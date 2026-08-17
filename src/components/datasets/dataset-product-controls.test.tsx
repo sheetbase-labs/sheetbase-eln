@@ -60,7 +60,9 @@ describe('DatasetCreateDialog', () => {
       insert,
     } as unknown as DataClient
     const onCreated = renderDialog(client)
-    expect(await screen.findByLabelText('Schema Version')).toBeTruthy()
+    expect(
+      await screen.findByRole('option', { name: /HPLC · hplc v1/ }),
+    ).toBeTruthy()
     await user.selectOptions(screen.getByLabelText('Schema Version'), 'ver-1')
     await user.type(screen.getByLabelText('Dataset name'), 'HPLC')
     await user.click(screen.getByRole('button', { name: 'Create Dataset' }))

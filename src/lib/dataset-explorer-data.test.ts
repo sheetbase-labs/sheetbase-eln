@@ -203,6 +203,7 @@ describe('canonical Dataset Explorer reads', () => {
       'datasets',
       'dataset_schema_version_fields',
       'dataset_schema_versions',
+      'dataset_schema_definitions',
     ])
     expect(result[0].columns[0]).toMatchObject({
       id: 'f1',

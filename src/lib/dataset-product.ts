@@ -252,7 +252,11 @@ export async function fetchDatasetDependencies(
   client: DataClient,
   datasetId: string,
 ): Promise<ObjectDependency[]> {
-  const discovery = await discoverObjectDependencies(client, 'dataset', datasetId)
+  const discovery = await discoverObjectDependencies(
+    client,
+    'dataset',
+    datasetId,
+  )
   return discovery.dependencies
 }
 
@@ -277,12 +281,14 @@ export function coerceDatasetCellValue(
   switch (column.logical_type) {
     case 'integer': {
       const value = Number.parseInt(trimmed, 10)
-      if (!Number.isFinite(value)) throw new Error(`Invalid integer: ${column.label}`)
+      if (!Number.isFinite(value))
+        throw new Error(`Invalid integer: ${column.label}`)
       return value
     }
     case 'decimal': {
       const value = Number(trimmed)
-      if (!Number.isFinite(value)) throw new Error(`Invalid number: ${column.label}`)
+      if (!Number.isFinite(value))
+        throw new Error(`Invalid number: ${column.label}`)
       return value
     }
     case 'boolean':
@@ -340,7 +346,9 @@ function csvCell(value: unknown): string {
   return text
 }
 
-export function describeDatasetCommitError(result: DatasetCommitResult): string {
+export function describeDatasetCommitError(
+  result: DatasetCommitResult,
+): string {
   if (result.ok) return ''
   const first = result.errors?.[0]
   if (!first) return 'The Dataset batch was rejected.'

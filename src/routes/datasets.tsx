@@ -1,20 +1,23 @@
 /**
- * DATA-007 — Dataset Explorer route (`/datasets`).
+ * PC-02 Dataset product route (`/datasets`).
  *
- * A read-only browsing surface over real scientific-table metadata. Data,
- * Chart and Schema tabs share a searchable dataset selector. The
- * Data tab uses the shared virtualised grid for incremental query and review;
- * Handsontable stays the edit surface inside notebook sheets. Filters,
- * sorting, field selection and grouping stay within the safe limits defined
- * in `dataset-explorer-data`. The full-size chart tab uses the same `ChartSpec`
- * model and shared chart configuration controls (SCI-004) as Analysis Studio.
- *
- * PostgreSQL and RLS remain authoritative (decisions 0019/0034): every read
- * goes through `/api/db`, and permission-denied / partial-data states are
- * surfaced honestly rather than blanked.
+ * Catalogue, Schema selection, live edit through `commit_dataset_row_batch`,
+ * immutable Versions, query/filter/sort/page, dependency inspection, and
+ * deep links into existing Sheet routes. PostgreSQL and RLS remain
+ * authoritative; this UI does not add a second Dataset writer.
  */
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router'
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
+import {
+  createFileRoute,
+  Link,
+  redirect,
+  useNavigate,
+} from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { flexRender } from '@tanstack/react-table'
@@ -26,7 +29,6 @@ import {
   Database,
   Layers,
   Table as TableIcon,
-  Trash2,
 } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
@@ -41,7 +43,6 @@ import {
   Property,
   PropertyList,
 } from '#/components/record'
-import { StatusBadge } from '#/components/scientific/status-badge'
 import { ChartConfigurator } from '#/components/viz/chart-configurator'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import {
@@ -678,54 +679,54 @@ export function DatasetDataTab({ table, onRefresh }: DatasetDataTabProps) {
         </Button>
       </div>
       <div className="flex min-h-0 flex-1 overflow-hidden">
-      <RegistryComposition
-        registryId={`dataset-${table.id}`}
-        title={table.name}
-        hideHeader
-        rows={rows}
-        totalCount={totalCount}
-        fields={fields}
-        query={query}
-        onQueryChange={setQuery}
-        getRowId={(row) => row.id}
-        selectedId={selectedRowId}
-        onSelectedIdChange={setSelectedRowId}
-        inspectorLabel="Dataset inspector"
-        loading={rowsQuery.isLoading}
-        error={
-          rowsQuery.isLoadingError || rowsQuery.isRefetchError
-            ? rowsQuery.error
-            : null
-        }
-        onRetry={() => void rowsQuery.refetch()}
-        incrementalRows={{
-          hasMore: rowsQuery.hasNextPage,
-          loadingMore: rowsQuery.isFetchingNextPage,
-          onLoadMore: () =>
-            void rowsQuery.fetchNextPage({ cancelRefetch: false }),
-          loadError: rowsQuery.isFetchNextPageError
-            ? rowsQuery.error
-            : undefined,
-        }}
-        searchDebounceMs={300}
-        emptyTitle="No rows yet"
-        noResultsTitle="No matching rows"
-        renderInspector={(row) => (
-          <DatasetInspector
-            table={table}
-            row={row}
-            formulas={lineageQuery.data?.formulas ?? []}
-            dependencies={lineageQuery.data?.dependencies ?? []}
-            links={linksQuery.data ?? []}
-            lineageLoading={lineageQuery.isLoading}
-            lineageError={lineageQuery.error}
-            onSaved={() => {
-              void rowsQuery.refetch()
-              onRefresh?.()
-            }}
-          />
-        )}
-      />
+        <RegistryComposition
+          registryId={`dataset-${table.id}`}
+          title={table.name}
+          hideHeader
+          rows={rows}
+          totalCount={totalCount}
+          fields={fields}
+          query={query}
+          onQueryChange={setQuery}
+          getRowId={(row) => row.id}
+          selectedId={selectedRowId}
+          onSelectedIdChange={setSelectedRowId}
+          inspectorLabel="Dataset inspector"
+          loading={rowsQuery.isLoading}
+          error={
+            rowsQuery.isLoadingError || rowsQuery.isRefetchError
+              ? rowsQuery.error
+              : null
+          }
+          onRetry={() => void rowsQuery.refetch()}
+          incrementalRows={{
+            hasMore: rowsQuery.hasNextPage,
+            loadingMore: rowsQuery.isFetchingNextPage,
+            onLoadMore: () =>
+              void rowsQuery.fetchNextPage({ cancelRefetch: false }),
+            loadError: rowsQuery.isFetchNextPageError
+              ? rowsQuery.error
+              : undefined,
+          }}
+          searchDebounceMs={300}
+          emptyTitle="No rows yet"
+          noResultsTitle="No matching rows"
+          renderInspector={(row) => (
+            <DatasetInspector
+              table={table}
+              row={row}
+              formulas={lineageQuery.data?.formulas ?? []}
+              dependencies={lineageQuery.data?.dependencies ?? []}
+              links={linksQuery.data ?? []}
+              lineageLoading={lineageQuery.isLoading}
+              lineageError={lineageQuery.error}
+              onSaved={() => {
+                void rowsQuery.refetch()
+                onRefresh?.()
+              }}
+            />
+          )}
+        />
       </div>
     </div>
   )
@@ -772,7 +773,7 @@ function DatasetRowEditor({
           {
             operation: 'update',
             rowId: row.id,
-            expectedRevision: Number(row.version ?? 1),
+            expectedRevision: Number(row.version),
             values: next,
           },
         ],
@@ -1177,11 +1178,7 @@ export function DatasetInspector({
               </InspectorSection>
               {table.lifecycle !== 'archived' ? (
                 <InspectorSection title="Live edit">
-                  <DatasetRowEditor
-                    table={table}
-                    row={row}
-                    onSaved={onSaved}
-                  />
+                  <DatasetRowEditor table={table} row={row} onSaved={onSaved} />
                 </InspectorSection>
               ) : null}
               <InspectorSection title="Open in Sheet">
@@ -1216,7 +1213,11 @@ export function DatasetInspector({
                 ) : (
                   <PropertyList>
                     {(objectDepsQuery.data ?? []).map((item) => (
-                      <Property key={`${item.kind}-${item.id}`} label={item.kind} stacked>
+                      <Property
+                        key={`${item.kind}-${item.id}`}
+                        label={item.kind}
+                        stacked
+                      >
                         {item.label} · {item.relation} · {item.liveness}
                       </Property>
                     ))}
@@ -1362,7 +1363,8 @@ function DatasetVersionsTab({ table }: { table: CanonicalDatasetWire }) {
     queryFn: () => listDatasetVersions(datasetExplorerDataClient, table.id),
   })
   const versions = versionsQuery.data ?? []
-  const selected = versions.find((item) => item.id === selectedVersionId) ?? null
+  const selected =
+    versions.find((item) => item.id === selectedVersionId) ?? null
   const historicalQuery = useQuery({
     queryKey: ['dataset-version-rows', selected?.id ?? 'none'],
     queryFn: () =>

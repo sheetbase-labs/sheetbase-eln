@@ -483,15 +483,12 @@ describe('createReagent and editReagent', () => {
       locked_at: null,
       locked_by_revision_id: null,
     }))
-    const created = await createReagent(
-      { rpc } as unknown as DataClient,
-      {
-        projectId: 'p1',
-        title: 'Acetonitrile',
-        tags: ['solvent'],
-        properties: { supplier: 'Sigma', catalogNo: 'A123' },
-      },
-    )
+    const created = await createReagent({ rpc } as unknown as DataClient, {
+      projectId: 'p1',
+      title: 'Acetonitrile',
+      tags: ['solvent'],
+      properties: { supplier: 'Sigma', catalogNo: 'A123' },
+    })
     expect(rpc).toHaveBeenCalledWith('create_model_record', {
       p_project_id: 'p1',
       p_kind: 'reagent',
@@ -505,4 +502,3 @@ describe('createReagent and editReagent', () => {
     expect(created.catalogNo).toBe('A123')
   })
 })
-

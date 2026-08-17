@@ -117,9 +117,7 @@ export async function fetchDatasetSummaries(
   client: DataClient = datasetExplorerDataClient,
   options: { includeArchived?: boolean } = {},
 ): Promise<CanonicalDatasetWire[]> {
-  const lifecycleFilter = options.includeArchived
-    ? ''
-    : 'lifecycle=eq.active&'
+  const lifecycleFilter = options.includeArchived ? '' : 'lifecycle=eq.active&'
   const datasets = await client.list<DatasetResourceWire>(
     'datasets',
     `?${lifecycleFilter}order=created_at.desc`,
@@ -178,7 +176,9 @@ export async function fetchDatasetSummaries(
           }
         : null,
       columns: fields
-        .filter((field) => field.schema_version_id === dataset.schema_version_id)
+        .filter(
+          (field) => field.schema_version_id === dataset.schema_version_id,
+        )
         .map((field) => ({
           id: field.field_id,
           field_name: field.field_id,

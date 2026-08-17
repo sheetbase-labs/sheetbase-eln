@@ -9,6 +9,7 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { ReactNode } from 'react'
 import type { UseQueryResult } from '@tanstack/react-query'
 
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
@@ -40,7 +41,7 @@ Element.prototype.scrollIntoView = vi.fn()
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => () => ({ useRouteContext: () => ({}) }),
   redirect: (options: unknown) => options,
-  Link: ({ children }: { children: unknown }) => <a>{children}</a>,
+  Link: ({ children }: { children: ReactNode }) => <a>{children}</a>,
 }))
 
 // Mock react-query so the data tab never hits the network. `useQuery`
@@ -476,6 +477,7 @@ describe('DatasetInspector', () => {
   })
 
   it('surfaces a lineage error', () => {
+    vi.mocked(useQuery).mockReturnValue(queryResult([]))
     render(
       <DatasetInspector
         table={table()}

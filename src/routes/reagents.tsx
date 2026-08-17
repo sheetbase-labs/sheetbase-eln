@@ -56,10 +56,7 @@ import {
 } from '#/components/ui'
 import { createDataClient, DataClientError } from '#/lib/data-client'
 import { formatDate, notebookDataClient } from '#/lib/notebook-data'
-import {
-  fetchModelFields,
-  modelFieldValuesFromInput,
-} from '#/lib/model-fields'
+import { fetchModelFields, modelFieldValuesFromInput } from '#/lib/model-fields'
 import type { ModelFieldDefinition } from '#/lib/model-fields'
 import { ModelFieldInput } from '#/components/scientific/model-field-input'
 import {
@@ -681,7 +678,12 @@ function ReagentActions({
     },
   })
   const editMutation = useMutation({
-    mutationFn: async (input: { title: string; supplier: string; catalogNo: string; lot: string }) =>
+    mutationFn: async (input: {
+      title: string
+      supplier: string
+      catalogNo: string
+      lot: string
+    }) =>
       editReagent(client, {
         recordId: reagent.id,
         expectedMetadataVersion: reagent.metadataVersion,
@@ -711,9 +713,7 @@ function ReagentActions({
     (archiveMutation.error instanceof DataClientError
       ? archiveMutation.error
       : null) ??
-    (editMutation.error instanceof DataClientError
-      ? editMutation.error
-      : null)
+    (editMutation.error instanceof DataClientError ? editMutation.error : null)
   const errorMessage = error ? describeMovementError(error) : null
   const pending =
     movementMutation.isPending ||
@@ -732,11 +732,7 @@ function ReagentActions({
   return (
     <div className="space-y-2">
       <ButtonGroup className="flex-wrap">
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => setDialog('edit')}
-        >
+        <Button size="sm" variant="outline" onClick={() => setDialog('edit')}>
           Edit
         </Button>
         <Button
@@ -1054,8 +1050,9 @@ function CreateReagentDialog({
         <DialogHeader>
           <DialogTitle>New reagent</DialogTitle>
           <DialogDescription>
-            Register a reagent. The identifier is assigned by create_model_record.
-            Quantity changes after create go through receive/consume.
+            Register a reagent. The identifier is assigned by
+            create_model_record. Quantity changes after create go through
+            receive/consume.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-3">

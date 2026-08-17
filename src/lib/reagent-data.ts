@@ -634,7 +634,8 @@ function reagentPropertiesPayload(
 ): Record<string, unknown> {
   const payload: Record<string, unknown> = {}
   if (properties.supplier !== undefined) payload.supplier = properties.supplier
-  if (properties.catalogNo !== undefined) payload.catalog_no = properties.catalogNo
+  if (properties.catalogNo !== undefined)
+    payload.catalog_no = properties.catalogNo
   if (properties.lot !== undefined) payload.lot = properties.lot
   if (properties.expiry !== undefined) payload.expiry = properties.expiry
   if (properties.quantity !== undefined) payload.quantity = properties.quantity
@@ -690,13 +691,15 @@ export async function editReagent(
     patch,
   )
   const row = rows[0]
-  if (!row) throw new Error('Reagent was not updated. Refresh and try again.')
   if (input.customFields) {
-    const updated = await client.rpc<RecordWire>('update_record_custom_fields', {
-      p_record_id: input.recordId,
-      p_expected_metadata_version: row.metadata_version,
-      p_values: input.customFields,
-    })
+    const updated = await client.rpc<RecordWire>(
+      'update_record_custom_fields',
+      {
+        p_record_id: input.recordId,
+        p_expected_metadata_version: row.metadata_version,
+        p_values: input.customFields,
+      },
+    )
     return toReagentFromWire(updated)
   }
   return toReagentFromWire(row)

@@ -1,6 +1,6 @@
 # GOV — Identity, Administration & Governance
 
-**Status:** GOV-01 merge-ready on `gwp/gov-01-viewer-readonly-151b`. Medium (RLS/migration). `viewer` is read-only.
+**Status:** GOV-01 proof-hardened on `gwp/gov-01-viewer-readonly-151b`. Medium (RLS/migration). `viewer` is read-only. Awaiting merge approval.
 
 ## Programme goal
 
@@ -8,7 +8,7 @@ Make Sheetbase governable at organisational scale while keeping normal scientifi
 
 ## GOV-01 — Role & Capability Productisation
 
-**Priority:** medium (RLS/migration). **Status:** Merge-ready (`gwp/gov-01-viewer-readonly-151b`).
+**Priority:** medium (RLS/migration). **Status:** Proof-hardened (`gwp/gov-01-viewer-readonly-151b`); awaiting merge.
 
 ### Accepted PC-00 decision
 

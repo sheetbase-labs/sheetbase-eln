@@ -44,11 +44,11 @@ workspace role.
 These invitation labels exist and currently share **Member** data capabilities
 (create/link/upgrade). They do **not** receive schema publish or workspace admin:
 
-| Role | Meaning today |
-| --- | --- |
-| `scientist` | Member-class scientific work |
-| `analyst` | Member-class scientific work |
-| `reviewer` | Member-class scientific work. Review assignment on a revision is independent of this workspace role. |
+| Role        | Meaning today                                                                                        |
+| ----------- | ---------------------------------------------------------------------------------------------------- |
+| `scientist` | Member-class scientific work                                                                         |
+| `analyst`   | Member-class scientific work                                                                         |
+| `reviewer`  | Member-class scientific work. Review assignment on a revision is independent of this workspace role. |
 
 Do not treat these labels as a custom RBAC language. Splitting them into distinct
 capability sets is later GOV work if product requires it.

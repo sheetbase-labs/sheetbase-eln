@@ -28,7 +28,11 @@ let migrator: Client
 let asRole: (role: 'authenticator') => Promise<Client>
 const clients: Client[] = []
 
-async function actor(userId: string, workspaceId: string, role = 'authenticated') {
+async function actor(
+  userId: string,
+  workspaceId: string,
+  role = 'authenticated',
+) {
   const client = await asRole('authenticator')
   clients.push(client)
   await client.query(`SET ROLE ${role}`)
@@ -204,9 +208,10 @@ describe('GOV-01 viewer cannot mutate; other roles are not narrowed', () => {
       [recordId],
     )
     expect(updated.rowCount).toBe(0)
-    const deleted = await viewer.query(`delete from api.records where id = $1`, [
-      recordId,
-    ])
+    const deleted = await viewer.query(
+      `delete from api.records where id = $1`,
+      [recordId],
+    )
     expect(deleted.rowCount).toBe(0)
 
     const visible = await viewer.query(
@@ -233,10 +238,9 @@ describe('GOV-01 viewer cannot mutate; other roles are not narrowed', () => {
         ]),
       ],
     )
-    await steward.query(
-      `select api.publish_dataset_schema_version($1)`,
-      [schema.rows[0].result.schema_version_id],
-    )
+    await steward.query(`select api.publish_dataset_schema_version($1)`, [
+      schema.rows[0].result.schema_version_id,
+    ])
     const dataset = await member.query(
       `insert into api.datasets(workspace_id,schema_version_id,name,created_by_user_id)
        values($1,$2,'gov01-ds',$3) returning id`,
@@ -249,9 +253,10 @@ describe('GOV-01 viewer cannot mutate; other roles are not narrowed', () => {
     )
 
     const viewer = await actor(VIEWER, WS_A)
-    const seen = await viewer.query(`select id from api.datasets where id = $1`, [
-      datasetId,
-    ])
+    const seen = await viewer.query(
+      `select id from api.datasets where id = $1`,
+      [datasetId],
+    )
     expect(seen.rowCount).toBe(1)
     const sites = await viewer.query(
       `select name from api.storage_sites where name = 'gov01-site'`,
@@ -328,9 +333,10 @@ describe('GOV-01 viewer cannot mutate; other roles are not narrowed', () => {
       [PROJECT_B],
     )
     const viewer = await actor(VIEWER, WS_A)
-    const leaked = await viewer.query(`select id from api.records where id = $1`, [
-      foreign.rows[0].id,
-    ])
+    const leaked = await viewer.query(
+      `select id from api.records where id = $1`,
+      [foreign.rows[0].id],
+    )
     expect(leaked.rowCount).toBe(0)
     await expectDenied(
       viewer.query(

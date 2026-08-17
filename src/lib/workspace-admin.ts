@@ -525,14 +525,16 @@ export const WORKSPACE_ROLE_DESCRIPTIONS: Record<WorkspaceRole, string> = {
   owner: 'Full workspace administration, including invitations and security.',
   admin: 'Administers configuration and membership except owner-only security.',
   member: 'Can create and edit scientific records, Sheets and Datasets.',
-  steward: 'Can publish Models and Dataset Schemas; cannot administer security.',
+  steward:
+    'Can publish Models and Dataset Schemas; cannot administer security.',
   scientist:
     'Member-class scientific work. Same data capabilities as Member; not a separate permission set.',
   analyst:
     'Member-class scientific work. Same data capabilities as Member; not a separate permission set.',
   reviewer:
     'Member-class scientific work. Same data capabilities as Member; review assignment is separate from this role.',
-  viewer: 'Read-only. Cannot create, link or upgrade records, Sheets or Datasets.',
+  viewer:
+    'Read-only. Cannot create, link or upgrade records, Sheets or Datasets.',
 }
 
 export const WORKSPACE_ROLE_TOKENS: Record<WorkspaceRole, string> = {

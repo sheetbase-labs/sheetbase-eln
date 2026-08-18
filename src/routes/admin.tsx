@@ -66,7 +66,7 @@ import {
   revokeApiCredentialFn,
 } from '#/lib/api-credential-admin'
 import type { CreatedCredentialWire } from '#/lib/api-credential-admin'
-import type { ProductScope } from '#/lib/api-credential-scopes'
+import type { Scope } from '#/lib/api-credential-scopes'
 
 export const Route = createFileRoute('/admin')({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -310,9 +310,17 @@ function AdminRoute() {
     ),
   )
   const createCredential = useMutation({
-    mutationFn: ({ name, scopes }: { name: string; scopes: ProductScope[] }) =>
+    mutationFn: ({
+      name,
+      scopes,
+      expiresAt,
+    }: {
+      name: string
+      scopes: Scope[]
+      expiresAt: string | null
+    }) =>
       createApiCredentialFn({
-        data: { workspaceId, name, scopes },
+        data: { workspaceId, name, scopes, expiresAt },
       }),
     onSuccess: (created) => {
       setActionError(null)
@@ -501,8 +509,8 @@ function AdminRoute() {
               credentials={credentialsQuery.data ?? []}
               isOwner={isOwner}
               revealed={revealedCredential}
-              onCreate={(name, scopes) =>
-                createCredential.mutate({ name, scopes })
+              onCreate={(name, scopes, expiresAt) =>
+                createCredential.mutate({ name, scopes, expiresAt })
               }
               onRevoke={(id) => revokeCredential.mutate(id)}
               onRotate={(id) => rotateCredential.mutate(id)}

@@ -24,6 +24,7 @@ const sample: CredentialWire = {
   createdAt: '2026-08-01T10:00:00.000Z',
   lastUsedAt: null,
   revokedAt: null,
+  expiresAt: null,
   createdByUserId: 'cred-owner',
 }
 
@@ -49,10 +50,11 @@ describe('AdminApiCredentials', () => {
     await userEvent.click(
       screen.getByRole('button', { name: 'Create credential' }),
     )
-    expect(onCreate).toHaveBeenCalledWith('Nightly export', [
-      'projects:read',
-      'datasets:read',
-    ])
+    expect(onCreate).toHaveBeenCalledWith(
+      'Nightly export',
+      ['projects:read', 'datasets:read'],
+      null,
+    )
   })
 
   it('hides the create form from non-owners and disables mutations', () => {

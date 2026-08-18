@@ -108,7 +108,7 @@ describe('requiredScopes', () => {
 
   /**
    * API-01 contract: Core domain RPCs the product uses are not on the external
-   * allowlist yet. Each must fail closed until API-02 cut-over.
+   * allowlist yet. Each must fail closed until a later allowlist epic.
    */
   it('denies Core domain RPCs as insufficient_scope (API-01 contract)', () => {
     const coreRpcs = [
@@ -126,9 +126,9 @@ describe('requiredScopes', () => {
       'search_sheet_records',
     ] as const
     for (const resource of coreRpcs) {
-      expect(() =>
-        requiredScopes('POST', { kind: 'rpc', resource }),
-      ).toThrow(ExternalTokenError)
+      expect(() => requiredScopes('POST', { kind: 'rpc', resource })).toThrow(
+        ExternalTokenError,
+      )
     }
   })
 

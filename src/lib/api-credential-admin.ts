@@ -7,10 +7,10 @@
  */
 import { createServerFn } from '@tanstack/react-start'
 
-import type { ProductScope, Scope } from '#/lib/api-credential-scopes'
+import type { Scope } from '#/lib/api-credential-scopes'
 
-export { PRODUCT_SCOPES, SCOPE_GROUPS } from '#/lib/api-credential-scopes'
-export type { ProductScope, Scope } from '#/lib/api-credential-scopes'
+export { SCOPE_GROUPS, VALID_SCOPES } from '#/lib/api-credential-scopes'
+export type { Scope } from '#/lib/api-credential-scopes'
 
 export const apiCredentialQueryKey = (workspaceId: string) =>
   ['admin-001', 'api-credentials', workspaceId] as const
@@ -24,6 +24,7 @@ export interface CredentialWire {
   createdAt: string
   lastUsedAt: string | null
   revokedAt: string | null
+  expiresAt: string | null
   createdByUserId: string
 }
 
@@ -44,6 +45,7 @@ function toWire(row: {
   createdAt: Date
   lastUsedAt: Date | null
   revokedAt: Date | null
+  expiresAt: Date | null
   createdByUserId: string
 }): CredentialWire {
   return {
@@ -55,6 +57,7 @@ function toWire(row: {
     createdAt: row.createdAt.toISOString(),
     lastUsedAt: row.lastUsedAt?.toISOString() ?? null,
     revokedAt: row.revokedAt?.toISOString() ?? null,
+    expiresAt: row.expiresAt?.toISOString() ?? null,
     createdByUserId: row.createdByUserId,
   }
 }
@@ -106,8 +109,12 @@ export const listApiCredentialsFn = createServerFn({ method: 'POST' })
 
 export const createApiCredentialFn = createServerFn({ method: 'POST' })
   .validator(
-    (input: { workspaceId: string; name: string; scopes: ProductScope[] }) =>
-      input,
+    (input: {
+      workspaceId: string
+      name: string
+      scopes: Scope[]
+      expiresAt?: string | null
+    }) => input,
   )
   .handler(async ({ data }): Promise<CreatedCredentialWire> => {
     const { db, credentials, context } = await requireOwner(data.workspaceId)
@@ -116,6 +123,7 @@ export const createApiCredentialFn = createServerFn({ method: 'POST' })
       createdByUserId: context.user.id,
       name: data.name,
       scopes: data.scopes,
+      expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
     })
     return {
       id: created.id,

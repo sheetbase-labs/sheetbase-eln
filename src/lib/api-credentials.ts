@@ -17,21 +17,12 @@ import { SignJWT } from 'jose'
 
 import type * as schema from '#/db/schema'
 import { apiCredentials, workspaceMemberships } from '#/db/schema'
-import {
-  isProductScope,
-  isScientificScope,
-  isValidScope,
-  PRODUCT_SCOPES,
-} from '#/lib/api-credential-scopes'
-import type { ProductScope, Scope } from '#/lib/api-credential-scopes'
+import { isValidScope } from '#/lib/api-credential-scopes'
+import type { Scope } from '#/lib/api-credential-scopes'
 
-export type { ProductScope, Scope } from '#/lib/api-credential-scopes'
+export type { Scope } from '#/lib/api-credential-scopes'
 export {
-  isProductScope,
-  isScientificScope,
   isValidScope,
-  PRODUCT_SCOPES,
-  SCIENTIFIC_SCOPES,
   SCOPE_GROUPS,
   VALID_SCOPES,
 } from '#/lib/api-credential-scopes'
@@ -62,6 +53,7 @@ export interface CredentialRecord {
   createdAt: Date
   lastUsedAt: Date | null
   revokedAt: Date | null
+  expiresAt: Date | null
   createdByUserId: string
 }
 
@@ -102,36 +94,27 @@ function constantTimeEqual(a: string, b: string): boolean {
   return timingSafeEqual(ab, bb)
 }
 
-function assertIssuableScopes(scopes: Scope[]): ProductScope[] {
+function assertIssuableScopes(scopes: readonly string[]): Scope[] {
   if (scopes.length === 0) {
     throw new CredentialError(
       'invalid_scope',
       'At least one scope is required.',
     )
   }
-  const product: ProductScope[] = []
+  const issued: Scope[] = []
   for (const scope of scopes) {
     if (!isValidScope(scope)) {
       throw new CredentialError('invalid_scope', `Unknown scope: ${scope}`)
     }
-    if (isScientificScope(scope)) {
-      throw new CredentialError(
-        'invalid_scope',
-        `scientific:* scopes are no longer issued (${scope}).`,
-      )
-    }
-    if (!isProductScope(scope)) {
-      throw new CredentialError('invalid_scope', `Unknown scope: ${scope}`)
-    }
-    product.push(scope)
+    issued.push(scope)
   }
-  return product
+  return issued
 }
 
 /**
  * Creates a credential. The full secret is returned exactly once; only the
- * hash and display prefix are stored. New credentials accept the API-01
- * product vocabulary only — `scientific:*` is rejected (contract §9.2).
+ * hash and display prefix are stored. Scopes must be the canonical API-01
+ * vocabulary.
  */
 export async function createCredential(
   db: Db,
@@ -139,7 +122,8 @@ export async function createCredential(
     workspaceId: string
     createdByUserId: string
     name: string
-    scopes: Scope[]
+    scopes: readonly string[]
+    expiresAt?: Date | null
   },
 ): Promise<CreatedCredential> {
   const name = input.name.trim()
@@ -147,6 +131,10 @@ export async function createCredential(
     throw new Error('Name is required.')
   }
   const scopes = assertIssuableScopes(input.scopes)
+  const expiresAt = input.expiresAt ?? null
+  if (expiresAt && expiresAt.getTime() <= Date.now()) {
+    throw new CredentialError('expired', 'Expiry must be in the future.')
+  }
 
   // Generate a unique prefix (collision is astronomically unlikely but the
   // unique constraint is the backstop).
@@ -169,6 +157,7 @@ export async function createCredential(
       name,
       scopes,
       createdByUserId: input.createdByUserId,
+      expiresAt,
     })
     .returning({ id: apiCredentials.id })
 
@@ -201,6 +190,7 @@ export async function listCredentials(
     createdAt: row.createdAt,
     lastUsedAt: row.lastUsedAt,
     revokedAt: row.revokedAt,
+    expiresAt: row.expiresAt,
     createdByUserId: row.createdByUserId,
   }))
 }
@@ -222,9 +212,9 @@ export async function revokeCredential(
 }
 
 /**
- * Issues a replacement credential with the same product scopes, then revokes
- * the previous one. Vestigial `scientific:*` scopes are dropped; if none
- * remain, `projects:read` is used so the new credential is still issuable.
+ * Issues a replacement credential with the same scopes and expiry, then
+ * revokes the previous one. Rotation never adds, drops, or substitutes a
+ * scope. If the stored scopes are not a non-empty canonical set, it fails.
  */
 export async function rotateCredential(
   db: Db,
@@ -247,15 +237,18 @@ export async function rotateCredential(
     if (existing.revokedAt) {
       throw new CredentialError('revoked', 'Credential has been revoked.')
     }
+    if (existing.expiresAt && existing.expiresAt.getTime() <= Date.now()) {
+      throw new CredentialError('expired', 'Credential has expired.')
+    }
 
-    const kept = existing.scopes.filter(isProductScope)
-    const scopes: ProductScope[] = kept.length > 0 ? kept : [PRODUCT_SCOPES[0]]
+    const scopes = assertIssuableScopes(existing.scopes)
 
     const created = await createCredential(tx, {
       workspaceId: input.workspaceId,
       createdByUserId: input.createdByUserId,
       name: existing.name,
       scopes,
+      expiresAt: existing.expiresAt,
     })
     await revokeCredential(tx, {
       workspaceId: input.workspaceId,
@@ -266,7 +259,11 @@ export async function rotateCredential(
 }
 
 export type ExchangeErrorCode =
-  'invalid_credential' | 'revoked' | 'insufficient_scope' | 'rate_limited'
+  | 'invalid_credential'
+  | 'revoked'
+  | 'expired'
+  | 'insufficient_scope'
+  | 'rate_limited'
 
 export class CredentialError extends Error {
   readonly code: ExchangeErrorCode | 'invalid_scope'
@@ -350,13 +347,15 @@ export interface ExchangeDeps {
 export async function exchangeCredential(
   db: Db,
   rawSecret: string,
-  requiredScopes: Scope[],
+  requiredScopes: readonly string[],
   deps: ExchangeDeps,
 ): Promise<string> {
   const parsed = parseCredentialString(rawSecret)
   if (!parsed) {
     throw new CredentialError('invalid_credential', 'Invalid credential.')
   }
+
+  const requested = assertIssuableScopes(requiredScopes)
 
   checkRateLimit(parsed.prefix)
 
@@ -379,8 +378,12 @@ export async function exchangeCredential(
     throw new CredentialError('revoked', 'Credential has been revoked.')
   }
 
-  for (const required of requiredScopes) {
-    if (!(row.scopes as Scope[]).includes(required)) {
+  if (row.expiresAt && row.expiresAt.getTime() <= Date.now()) {
+    throw new CredentialError('expired', 'Credential has expired.')
+  }
+
+  for (const required of requested) {
+    if (!row.scopes.includes(required)) {
       throw new CredentialError(
         'insufficient_scope',
         `Credential lacks scope: ${required}`,
@@ -404,7 +407,7 @@ export async function exchangeCredential(
   return deps.mintToken({
     workspaceId: row.workspaceId,
     credentialId: row.id,
-    scopes: requiredScopes,
+    scopes: requested,
   })
 }
 

@@ -12,23 +12,23 @@ CORE-01–06 and Core Hardening remain closed. Do not reopen settled Core archit
 
 Delivery priority uses only **medium** and **low**. Nothing is queued as high.
 
-**Merged `main` HEAD for this hand-off:** `52b304b` (`docs: regenerate roadmap hand-off from merged main (#46)`).
+**Merged `main` HEAD for this hand-off:** `df1fcb2` (`docs: apply no-compatibility rule to future roadmap work`).
 
 ## Active work
 
 The roadmap supports **parallel streams**. Agents take **one assigned stream/task**. Ready does not mean “do every Ready row”. **Do not start a Ready stream until it is assigned.**
 
-| Stream | Active task                                 | Model  | Status                                           |
-| ------ | ------------------------------------------- | ------ | ------------------------------------------------ |
-| PC     | —                                           | —      | PC-01 and PC-02 complete; PC-03 remains later    |
-| API    | —                                           | —      | API-01 and API-02 complete; Core allowlist queued |
-| DATA   | DATA-01 — Import Framework                  | Medium | Ready candidate                                  |
-| GOV    | —                                           | —      | GOV-01 complete; GOV-02 requires an ADR          |
-| PLAT   | —                                           | —      | Headers slice complete; remaining PLAT-03 queued |
-| COLLAB | —                                           | —      | Planned                                          |
-| SCI    | —                                           | —      | Planned                                          |
-| INT    | —                                           | —      | Planned                                          |
-| AUTO   | —                                           | —      | Planned later                                    |
+| Stream | Active task                | Model  | Status                                            |
+| ------ | -------------------------- | ------ | ------------------------------------------------- |
+| PC     | —                          | —      | PC-01 and PC-02 complete; PC-03 remains later     |
+| API    | —                          | —      | API-01 and API-02 complete; Core allowlist queued |
+| DATA   | DATA-01 — Import Framework | Medium | Ready candidate                                   |
+| GOV    | —                          | —      | GOV-01 complete; GOV-02 requires an ADR           |
+| PLAT   | —                          | —      | Headers slice complete; remaining PLAT-03 queued  |
+| COLLAB | —                          | —      | Planned                                           |
+| SCI    | —                          | —      | Planned                                           |
+| INT    | —                          | —      | Planned                                           |
+| AUTO   | —                          | —      | Planned later                                     |
 
 ### Immediate execution shape
 
@@ -64,7 +64,7 @@ Task: [`tasks/API.md`](./tasks/API.md)
 
 **API-01 complete** (`#40` / `b306654`): `docs/public-api-contract.md` v0.1.1. Dataset data scopes are distinct from governed `schema:*`. `sheets:write` does not grant Sheet Definition authorship.
 
-**API-02 complete** (`#47`): Administration → API credentials (owner create/rotate/revoke; members view). New credentials issue the API-01 product vocabulary and reject `scientific:*`. Rotation and last-used are productised. Core Dataset/Sheet/Notebook RPCs remain fail-closed in `external-token.ts` (queued allowlist epic).
+**API-02 complete** (`#47`): workspace service credentials in Administration (owner create/rotate/revoke; optional expiry; last-used). Canonical API-01 scopes only; `scientific:*` removed rather than deprecated. Rotation copies scopes exactly and cannot increase privilege. Core Dataset/Sheet/Notebook RPCs remain fail-closed. Personal tokens, named service-account principals, and credential activity-audit events remain later API work.
 
 Do not start API-03 unless assigned. Do not invent a second permission model.
 

@@ -32,6 +32,7 @@ There is a workspace **Administration → API credentials** page for owners
 to create, list, rotate and revoke credentials. The full secret is shown
 once at create or rotate; only a salted hash and display prefix are stored.
 Members can view prefixes and last-used metadata but cannot mint secrets.
+Optional credential expiry is enforced at exchange and rotation.
 
 ## Scopes
 
@@ -51,16 +52,8 @@ but Core Dataset/Sheet/Notebook RPCs still return `permission_denied` until a
 later epic expands `src/lib/external-token.ts`. `sheets:write` does not author
 Sheet Definitions. Dataset **data** scopes stay distinct from `schema:*`.
 
-### Deprecated (not issued on new credentials)
-
-| Scope               | Status                                                                        |
-| ------------------- | ----------------------------------------------------------------------------- |
-| `scientific:read`   | **Deprecated.** Existing rows may still exchange; maps to an empty allowlist. |
-| `scientific:write`  | **Deprecated.** Same as above.                                                |
-| `scientific:schema` | **Deprecated.** Same as above.                                                |
-
-New credentials cannot include `scientific:*` (API-02 / contract §9.2). Existing
-rows keep exchanging until API-03+ rejects them at token exchange.
+`scientific:*` scopes are **removed**, not deprecated. Requesting them at
+`POST /api/token` returns `invalid_scope`.
 
 Requesting a scope the credential does not have returns `insufficient_scope`.
 

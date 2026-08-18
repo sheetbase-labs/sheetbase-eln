@@ -12,7 +12,7 @@ import {
   TableRow,
 } from '#/components/ui'
 import { SCOPE_GROUPS } from '#/lib/api-credential-scopes'
-import type { ProductScope } from '#/lib/api-credential-scopes'
+import type { Scope } from '#/lib/api-credential-scopes'
 import type {
   CreatedCredentialWire,
   CredentialWire,
@@ -32,19 +32,20 @@ export function AdminApiCredentials({
   credentials: CredentialWire[]
   isOwner: boolean
   revealed: CreatedCredentialWire | null
-  onCreate: (name: string, scopes: ProductScope[]) => void
+  onCreate: (name: string, scopes: Scope[], expiresAt: string | null) => void
   onRevoke: (credentialId: string) => void
   onRotate: (credentialId: string) => void
   onDismissRevealed: () => void
 }) {
   const [name, setName] = useState('')
-  const [selected, setSelected] = useState<Set<ProductScope>>(
+  const [expiresAt, setExpiresAt] = useState('')
+  const [selected, setSelected] = useState<Set<Scope>>(
     () => new Set(['projects:read']),
   )
   const creatorIds = credentials.map((row) => row.createdByUserId)
   const { userLabel } = useUserNames(creatorIds)
 
-  function toggle(scope: ProductScope) {
+  function toggle(scope: Scope) {
     setSelected((current) => {
       const next = new Set(current)
       if (next.has(scope)) next.delete(scope)
@@ -57,8 +58,13 @@ export function AdminApiCredentials({
     event.preventDefault()
     const scopes = [...selected]
     if (!name.trim() || scopes.length === 0) return
-    onCreate(name.trim(), scopes)
+    onCreate(
+      name.trim(),
+      scopes,
+      expiresAt ? new Date(expiresAt).toISOString() : null,
+    )
     setName('')
+    setExpiresAt('')
     setSelected(new Set(['projects:read']))
   }
 
@@ -69,8 +75,8 @@ export function AdminApiCredentials({
         <code>POST /api/token</code>. The full secret is shown once. Only{' '}
         <code>projects:read</code> and <code>projects:write</code> are enforced
         on the current allowlist; Core Dataset, Sheet and Notebook RPCs stay
-        fail-closed until a later epic. Deprecated <code>scientific:*</code>{' '}
-        scopes are not offered.
+        fail-closed until a later epic. Retired <code>scientific:*</code> scopes
+        are not part of the vocabulary.
       </p>
 
       {revealed ? (
@@ -125,6 +131,15 @@ export function AdminApiCredentials({
               onChange={(event) => setName(event.target.value)}
               placeholder="CI pipeline"
               required
+            />
+          </div>
+          <div className="max-w-md space-y-2">
+            <Label htmlFor="api-credential-expiry">Expires (optional)</Label>
+            <Input
+              id="api-credential-expiry"
+              type="datetime-local"
+              value={expiresAt}
+              onChange={(event) => setExpiresAt(event.target.value)}
             />
           </div>
           <fieldset className="space-y-4">
@@ -183,6 +198,7 @@ export function AdminApiCredentials({
               <TableHead>Scopes</TableHead>
               <TableHead>Created</TableHead>
               <TableHead>Last used</TableHead>
+              <TableHead>Expires</TableHead>
               <TableHead>Created by</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Actions</TableHead>
@@ -191,6 +207,14 @@ export function AdminApiCredentials({
           <TableBody>
             {credentials.map((row) => {
               const isRevoked = Boolean(row.revokedAt)
+              const isExpired =
+                Boolean(row.expiresAt) &&
+                new Date(row.expiresAt!).getTime() <= Date.now()
+              const status = isRevoked
+                ? 'Revoked'
+                : isExpired
+                  ? 'Expired'
+                  : 'Active'
               return (
                 <TableRow key={row.id}>
                   <TableCell>{row.name}</TableCell>
@@ -204,14 +228,17 @@ export function AdminApiCredentials({
                   <TableCell>
                     {row.lastUsedAt ? formatDate(row.lastUsedAt) : 'Never'}
                   </TableCell>
+                  <TableCell>
+                    {row.expiresAt ? formatDate(row.expiresAt) : 'Never'}
+                  </TableCell>
                   <TableCell>{userLabel(row.createdByUserId)}</TableCell>
-                  <TableCell>{isRevoked ? 'Revoked' : 'Active'}</TableCell>
+                  <TableCell>{status}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-2">
                       <Button
                         size="sm"
                         variant="outline"
-                        disabled={!isOwner || isRevoked}
+                        disabled={!isOwner || isRevoked || isExpired}
                         onClick={() => onRotate(row.id)}
                       >
                         Rotate
@@ -232,7 +259,7 @@ export function AdminApiCredentials({
             {!credentials.length && (
               <TableRow>
                 <TableCell
-                  colSpan={8}
+                  colSpan={9}
                   className="py-8 text-center text-muted-foreground"
                 >
                   No API credentials.

@@ -1,6 +1,12 @@
--- API-02: widen internal.api_credentials CHECK to the API-01 product
--- vocabulary. scientific:* remains allowed on existing rows so they can
--- still exchange; createCredential rejects issuing those scopes anew.
+-- API-02: canonical Core-domain scopes only. scientific:* is removed, not
+-- deprecated. There are no production credentials to migrate.
+
+DELETE FROM internal.api_credentials
+WHERE scopes && ARRAY[
+  'scientific:read',
+  'scientific:write',
+  'scientific:schema'
+]::text[];
 
 ALTER TABLE internal.api_credentials DROP CONSTRAINT chk_api_credentials_scopes;
 
@@ -24,10 +30,10 @@ ALTER TABLE internal.api_credentials
       'reviews:read',
       'reviews:write',
       'files:read',
-      'files:write',
-      'scientific:read',
-      'scientific:write',
-      'scientific:schema'
+      'files:write'
     ]::text[]
   );
+
+ALTER TABLE internal.api_credentials
+  ADD COLUMN IF NOT EXISTS expires_at timestamptz;
 --> statement-breakpoint

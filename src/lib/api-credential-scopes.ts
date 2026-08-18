@@ -1,15 +1,13 @@
 /**
  * External credential scope vocabulary (API-01 contract §8).
  *
- * `PRODUCT_SCOPES` may be issued by the admin UI and `createCredential`.
- * `scientific:*` remains valid on existing rows and at exchange, but new
- * credentials must not receive those scopes (API-02 / contract §9.2).
- *
- * Minting a Core-domain scope does not grant access until a later epic
- * expands `src/lib/external-token.ts`. Today only `projects:*` is effective.
+ * This is the only issuable vocabulary. `scientific:*` is removed, not
+ * deprecated. Minting a Core-domain scope does not grant access until a
+ * later epic expands `src/lib/external-token.ts`. Today only `projects:*`
+ * is enforced on the external allowlist.
  */
 
-export const PRODUCT_SCOPES = [
+export const VALID_SCOPES = [
   'projects:read',
   'projects:write',
   'datasets:read',
@@ -29,25 +27,7 @@ export const PRODUCT_SCOPES = [
   'files:write',
 ] as const
 
-export const SCIENTIFIC_SCOPES = [
-  'scientific:read',
-  'scientific:write',
-  'scientific:schema',
-] as const
-
-export const VALID_SCOPES = [...PRODUCT_SCOPES, ...SCIENTIFIC_SCOPES] as const
-
-export type ProductScope = (typeof PRODUCT_SCOPES)[number]
-export type ScientificScope = (typeof SCIENTIFIC_SCOPES)[number]
 export type Scope = (typeof VALID_SCOPES)[number]
-
-export function isScientificScope(scope: string): scope is ScientificScope {
-  return (SCIENTIFIC_SCOPES as readonly string[]).includes(scope)
-}
-
-export function isProductScope(scope: string): scope is ProductScope {
-  return (PRODUCT_SCOPES as readonly string[]).includes(scope)
-}
 
 export function isValidScope(scope: string): scope is Scope {
   return (VALID_SCOPES as readonly string[]).includes(scope)
@@ -58,7 +38,7 @@ export const SCOPE_GROUPS: ReadonlyArray<{
   title: string
   description: string
   effective: boolean
-  scopes: readonly ProductScope[]
+  scopes: readonly Scope[]
 }> = [
   {
     title: 'Projects',

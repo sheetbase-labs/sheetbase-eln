@@ -105,7 +105,7 @@ test.beforeAll(async () => {
     [SOURCE_BLOCK, SUMMARY_BLOCK, RECORD, USER],
   )
   await admin.query(
-    `INSERT INTO internal.api_credentials(id,workspace_id,display_prefix,secret_hash,name,scopes,created_by_user_id) VALUES ($1,$2,'phase4b01','unused','Browser external edit',ARRAY['scientific:read','scientific:write'],$3)`,
+    `INSERT INTO internal.api_credentials(id,workspace_id,display_prefix,secret_hash,name,scopes,created_by_user_id) VALUES ($1,$2,'phase4b01','unused','Browser external edit',ARRAY['projects:read','projects:write'],$3)`,
     [CREDENTIAL, WS, USER],
   )
   await admin.query('SET ROLE authenticated')
@@ -226,7 +226,7 @@ test.beforeAll(async () => {
   externalToken = await mintApiClientToken(process.env.PGRST_JWT_SECRET!, {
     workspaceId: WS,
     credentialId: CREDENTIAL,
-    scopes: ['scientific:read', 'scientific:write'],
+    scopes: ['projects:read', 'projects:write'],
   })
   await admin.query(`SELECT pg_notify('pgrst','reload schema')`)
 })
@@ -236,7 +236,7 @@ test.afterAll(async () => {
   await admin.end()
 })
 
-test('external REST edits reconcile both Handsontable sheets and formulas live', async ({
+test('scientific-table REST is fail-closed for external credentials', async ({
   page,
   request,
 }) => {
@@ -271,9 +271,5 @@ test('external REST edits reconcile both Handsontable sheets and formulas live',
       data: { [source.columns[0].field_name]: 7 },
     },
   )
-  expect(response.status()).toBe(200)
-  await expect(page.getByText('14', { exact: true }).first()).toBeVisible({
-    timeout: 10_000,
-  })
-  await expect(page.getByText('21', { exact: true }).first()).toBeVisible()
+  expect(response.status()).toBe(403)
 })

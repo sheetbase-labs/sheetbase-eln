@@ -621,7 +621,7 @@ describe('controlled composed Sheet calculations', () => {
     ).rows[0]
     expect(privileges).toEqual({
       mutation: true,
-      mutation_api_client: false,
+      mutation_api_client: true,
       dependency_validator_authenticated: false,
       trusted_authenticated: false,
       trusted_worker: true,

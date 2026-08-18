@@ -18,17 +18,17 @@ Delivery priority uses only **medium** and **low**. Nothing is queued as high.
 
 The roadmap supports **parallel streams**. Agents take **one assigned stream/task**. Ready does not mean “do every Ready row”. **Do not start a Ready stream until it is assigned.**
 
-| Stream | Active task                | Model  | Status                                            |
-| ------ | -------------------------- | ------ | ------------------------------------------------- |
-| PC     | —                          | —      | PC-01 and PC-02 complete; PC-03 remains later     |
-| API    | —                          | —      | API-01 and API-02 complete; Core allowlist queued |
-| DATA   | DATA-01 — Import Framework | Medium | Ready candidate                                   |
-| GOV    | —                          | —      | GOV-01 complete; GOV-02 requires an ADR           |
-| PLAT   | —                          | —      | Headers slice complete; remaining PLAT-03 queued  |
-| COLLAB | —                          | —      | Planned                                           |
-| SCI    | —                          | —      | Planned                                           |
-| INT    | —                          | —      | Planned                                           |
-| AUTO   | —                          | —      | Planned later                                     |
+| Stream | Active task | Model | Status |
+| --- | --- | --- | --- |
+| PC | — | — | PC-01 and PC-02 complete; PC-03 remains later |
+| API | API-07 — Core External Allowlist Cut-over | Medium | Complete on branch |
+| DATA | DATA-01 — Import Framework | Medium | Ready candidate |
+| GOV | — | — | GOV-01 complete; GOV-02 requires an ADR |
+| PLAT | — | — | Headers slice complete; remaining PLAT-03 queued |
+| COLLAB | — | — | Planned |
+| SCI | — | — | Planned |
+| INT | — | — | Planned |
+| AUTO | — | — | Planned later |
 
 ### Immediate execution shape
 
@@ -39,12 +39,13 @@ merged  PLAT-03 headers slice (#43) @ 3c3c8ee
 merged  PC-02   Dataset and Record product workflows (#44) @ b01b029
 merged  GOV-01  viewer read-only (#45) @ 1256258
 merged  hand-off regenerate (#46) @ 52b304b
+merged  API-02  workspace service credentials (#47) @ df27039
+
+complete on branch
+  API-07  [Medium] Core Dataset/Sheet external allowlist cut-over
 
 candidates (assign one stream; do not fan out)
   DATA-01 [Medium] import/paste against the canonical Sheet + Dataset product
-
-complete on branch (not merged)
-  API-02  [Low]    credentials/service identity (#47)
 ```
 
 ## Stream briefs
@@ -58,15 +59,16 @@ Task: [`tasks/PC.md`](./tasks/PC.md)
 
 **PC-03** (full Notebook product) remains later. Do not start it from this hand-off. Do not reopen PC-01/PC-02.
 
-### API — API-02 complete; allowlist queued
+### API — API-07 complete on branch
 
-Task: [`tasks/API.md`](./tasks/API.md)
+Task: [`tasks/API.md`](./tasks/API.md)  
+Prompt: [`prompts/API.md`](./prompts/API.md)
 
 **API-01 complete** (`#40` / `b306654`): `docs/public-api-contract.md` v0.1.1. Dataset data scopes are distinct from governed `schema:*`. `sheets:write` does not grant Sheet Definition authorship.
 
-**API-02 complete** (`#47`): workspace service credentials in Administration (owner create/rotate/revoke; optional expiry; last-used). Canonical API-01 scopes only; `scientific:*` removed rather than deprecated. Rotation copies scopes exactly and cannot increase privilege. Core Dataset/Sheet/Notebook RPCs remain fail-closed. Personal tokens, named service-account principals, and credential activity-audit events remain later API work.
+**API-02 complete** (`#47` / `df27039`): workspace service credentials. Canonical API-01 scopes only; `scientific:*` removed. Rotation copies scopes and expiry exactly. Optional credential expiry; JWT TTL 300s. Personal tokens, named service-account principals, and credential activity-audit events remain later API work — not API-07.
 
-Do not start API-03 unless assigned. Do not invent a second permission model.
+**API-07 complete** (this branch): `requiredScopes()` maps Core Dataset/Sheet RPCs to canonical scopes. Mapped Dataset/Sheet data-plane writes succeed for `api_client` with `credential_id` attribution (`drizzle/0115_api_07_credential_write_actors.sql`). Submit, sign, amend and revision checks stay off the credential allowlist. Schema-authoring RPCs, files and specialist surfaces stay fail-closed. Do not start API-03 (OpenAPI) from this hand-off.
 
 ### DATA — DATA-01 (Medium, Ready candidate)
 
@@ -92,7 +94,7 @@ Task: [`tasks/PLAT.md`](./tasks/PLAT.md)
 ## Dependencies
 
 - DATA-01 is unblocked by PC-01 (and should use PC-02 Dataset product contracts).
-- API-02 is complete; Core RPC allowlist cut-over remains queued.
+- API-07 Core external allowlist cut-over is complete on branch. API-03 is not automatically Ready.
 - PC-03 is not automatically Ready.
 - GOV-02 is not Ready without an ADR.
 - Remaining PLAT-03 is queued, not a new Ready stream.

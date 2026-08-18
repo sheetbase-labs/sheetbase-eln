@@ -2,9 +2,9 @@
  * External credential scope vocabulary (API-01 contract §8).
  *
  * This is the only issuable vocabulary. `scientific:*` is removed, not
- * deprecated. Minting a Core-domain scope does not grant access until a
- * later epic expands `src/lib/external-token.ts`. Today only `projects:*`
- * is enforced on the external allowlist.
+ * deprecated. API-07 enforces Core Dataset/Sheet scopes on the
+ * external allowlist. File scopes, schema-authoring RPCs, and human
+ * attestation (submit / sign / amend / revision checks) stay fail-closed.
  */
 
 export const VALID_SCOPES = [
@@ -50,49 +50,56 @@ export const SCOPE_GROUPS: ReadonlyArray<{
   {
     title: 'Datasets (data)',
     description:
-      'Mintable now. Dataset and row RPCs remain fail-closed until a later allowlist epic.',
-    effective: false,
+      'Query, commit, snapshot and archive Datasets. Does not author Dataset Schema Versions.',
+    effective: true,
     scopes: ['datasets:read', 'datasets:write'],
   },
   {
     title: 'Governed schema',
     description:
-      'Catalogue authority, distinct from Dataset data. Fail-closed until allowlist cut-over.',
+      'Catalogue GET is gated by schema:read. Authoring Dataset Schema Versions and Sheet Definitions stays denied.',
     effective: false,
     scopes: ['schema:read', 'schema:write', 'schema:publish'],
   },
   {
     title: 'Sheets',
     description:
-      '`sheets:write` does not author Sheet Definitions. Fail-closed until allowlist cut-over.',
-    effective: false,
+      'Sheet Instance reads and mutations. `sheets:write` does not author Sheet Definitions.',
+    effective: true,
     scopes: ['sheets:read', 'sheets:write'],
   },
   {
     title: 'Models',
     description:
-      'Mintable now. Model RPCs remain fail-closed until allowlist cut-over.',
-    effective: false,
+      'Model record search and custom-field writes. Field-definition stewardship stays denied.',
+    effective: true,
     scopes: ['models:read', 'models:write'],
   },
   {
     title: 'Templates',
     description:
-      'Mintable now. Notebook template RPCs remain fail-closed until allowlist cut-over.',
-    effective: false,
+      'Notebook template catalogue reads and instantiation. Template authoring RPCs stay denied.',
+    effective: true,
     scopes: ['templates:read', 'templates:write'],
   },
   {
-    title: 'Reviews',
+    title: 'Reviews (preview)',
     description:
-      'Mintable now. Review RPCs remain fail-closed until allowlist cut-over.',
+      'Preview a Notebook submission digest. Does not submit, sign, amend or run revision checks.',
+    effective: true,
+    scopes: ['reviews:read'],
+  },
+  {
+    title: 'Reviews (attestation)',
+    description:
+      'Mintable now. Submit, sign, amend and revision checks remain human-session-only.',
     effective: false,
-    scopes: ['reviews:read', 'reviews:write'],
+    scopes: ['reviews:write'],
   },
   {
     title: 'Files',
     description:
-      'Mintable now. File access remains fail-closed until a later epic.',
+      'Mintable now. File access remains fail-closed until DATA-02 / PLAT-01.',
     effective: false,
     scopes: ['files:read', 'files:write'],
   },

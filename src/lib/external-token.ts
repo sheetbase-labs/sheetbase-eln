@@ -11,6 +11,10 @@
  * method. The proxy calls `resolveExternalToken` and
  * forwards to PostgREST only when it returns a workspace id; PostgREST then
  * applies the api_client RLS policies for workspace isolation.
+ *
+ * API-07: Core Dataset / Sheet Instance RPCs the product UI already uses
+ * are mapped to canonical scopes. Submit, sign, amend and revision checks
+ * stay human-session-only. Unknown paths stay fail-closed.
  */
 import { jwtVerify } from 'jose'
 
@@ -89,33 +93,105 @@ export async function verifyApiClientToken(
   }
 }
 
-/** Retired scientific-table resources are not on the allowlist. */
-const PROJECT_DOMAIN_RESOURCES = new Set([
-  'projects',
-  'folders',
-  'records',
-  'blocks',
-  'record_links',
-  'revisions',
-  // SCI-001: configurable property schema for scientific record kinds.
-  'record_field_definitions',
-])
-const PROJECT_DOMAIN_RPCS = new Set([
-  'create_project',
-  'create_record',
-  'create_record_with_blocks',
-  'update_block_payload',
-  'move_block',
-  'archive_record',
-  'restore_record',
-  'create_record_link',
-  'insert_block',
-  'delete_block',
-  // SCI-001: kind-specific lifecycle transitions (sample/reagent/protocol).
-  'transition_record_status',
-  // SCI-006: template instantiation (transactional deep-copy RPC).
-  'instantiate_template',
-])
+interface TableAccess {
+  read: Scope
+  write?: Scope
+}
+
+/**
+ * Table GET/HEAD → read scope. POST/PATCH/DELETE → write scope when the
+ * table has one; otherwise fail closed. Schema catalogues are read-only on
+ * the table path: authoring goes through RPCs that API-07 still denies.
+ */
+const TABLE_ACCESS: Record<string, TableAccess> = {
+  projects: { read: 'projects:read', write: 'projects:write' },
+  folders: { read: 'projects:read', write: 'projects:write' },
+  records: { read: 'projects:read', write: 'projects:write' },
+  blocks: { read: 'projects:read', write: 'projects:write' },
+  record_links: { read: 'projects:read', write: 'projects:write' },
+  revisions: { read: 'projects:read' },
+  record_field_definitions: { read: 'projects:read', write: 'projects:write' },
+  datasets: { read: 'datasets:read', write: 'datasets:write' },
+  dataset_versions: { read: 'datasets:read' },
+  sheet_instances: { read: 'sheets:read' },
+  dataset_schema_definitions: { read: 'schema:read' },
+  dataset_schema_versions: { read: 'schema:read' },
+  dataset_schema_version_fields: { read: 'schema:read' },
+  sheet_definitions: { read: 'schema:read' },
+  sheet_definition_versions: { read: 'schema:read' },
+  notebook_templates: { read: 'templates:read' },
+  notebook_template_versions: { read: 'templates:read' },
+}
+
+/**
+ * Product UI RPCs mapped to canonical scopes. Remainder of `api.*` stays
+ * fail-closed. `sheets:write` never includes Sheet Definition authoring.
+ * `datasets:*` never includes Dataset Schema Version authoring.
+ */
+const RPC_SCOPES: Record<string, Scope[]> = {
+  create_project: ['projects:write'],
+  create_record: ['projects:write'],
+  create_record_with_blocks: ['projects:write'],
+  update_block_payload: ['projects:write'],
+  move_block: ['projects:write'],
+  archive_record: ['projects:write'],
+  restore_record: ['projects:write'],
+  create_record_link: ['projects:write'],
+  insert_block: ['projects:write'],
+  delete_block: ['projects:write'],
+  transition_record_status: ['projects:write'],
+  instantiate_template: ['projects:write'],
+
+  query_dataset_rows: ['datasets:read'],
+  query_dataset_version_rows: ['datasets:read'],
+  validate_dataset_row_batch: ['datasets:write'],
+  commit_dataset_row_batch: ['datasets:write'],
+  snapshot_dataset: ['datasets:write'],
+  archive_dataset: ['datasets:write'],
+  restore_dataset: ['datasets:write'],
+
+  query_sheet_instance_rows: ['sheets:read'],
+  read_sheet_instance_calculation_results: ['sheets:read'],
+  resolve_sheet_instance_row_identity: ['sheets:read'],
+  preview_sheet_instance_composition_adoption: ['sheets:read'],
+  preview_sheet_materialization: ['sheets:read'],
+  preview_sheet_instance_definition_upgrade: ['sheets:read'],
+  create_sheet_instance: ['sheets:write'],
+  create_sheet_instance_from_definition: ['sheets:write'],
+  update_sheet_instance: ['sheets:write'],
+  archive_sheet_instance: ['sheets:write'],
+  restore_sheet_instance: ['sheets:write'],
+  duplicate_sheet_instance: ['sheets:write'],
+  mutate_sheet_instance_local_state: ['sheets:write'],
+  mutate_sheet_instance_calculations: ['sheets:write'],
+  insert_sheet_instance_block: ['sheets:write'],
+  duplicate_sheet_instance_block: ['sheets:write'],
+  apply_sheet_instance_composition_adoption: ['sheets:write'],
+  materialize_sheet_instance: ['sheets:write'],
+  apply_sheet_instance_definition_upgrade: ['sheets:write'],
+  validate_sheet_record_batch: ['sheets:write'],
+
+  search: ['projects:read'],
+  search_sheet_records: ['models:read'],
+  update_record_custom_fields: ['models:write'],
+  create_and_link_sheet_record: ['models:write'],
+  commit_sheet_record_batch: ['models:write'],
+
+  preview_submission_digest: ['reviews:read'],
+
+  instantiate_notebook_template_version: ['templates:write'],
+  preview_notebook_template_upgrade: ['templates:read'],
+  apply_notebook_template_upgrade: ['templates:write'],
+}
+
+const READ_METHODS = new Set(['GET', 'HEAD'])
+
+function denyUnknown(): never {
+  throw new ExternalTokenError(
+    'insufficient_scope',
+    'External credentials cannot access this resource.',
+  )
+}
 
 /**
  * Maps an operation to every capability it needs. Unknown resources fail
@@ -125,24 +201,15 @@ const PROJECT_DOMAIN_RPCS = new Set([
  */
 export function requiredScopes(method: string, path: ProxyPath): Scope[] {
   if (path.kind === 'rpc') {
-    if (PROJECT_DOMAIN_RPCS.has(path.resource)) return ['projects:write']
-    throw new ExternalTokenError(
-      'insufficient_scope',
-      'External credentials cannot access this resource.',
-    )
+    if (!Object.hasOwn(RPC_SCOPES, path.resource)) denyUnknown()
+    return RPC_SCOPES[path.resource]
   }
 
-  if (PROJECT_DOMAIN_RESOURCES.has(path.resource)) {
-    return [
-      method === 'GET' || method === 'HEAD'
-        ? 'projects:read'
-        : 'projects:write',
-    ]
-  }
-  throw new ExternalTokenError(
-    'insufficient_scope',
-    'External credentials cannot access this resource.',
-  )
+  if (!Object.hasOwn(TABLE_ACCESS, path.resource)) denyUnknown()
+  const access = TABLE_ACCESS[path.resource]
+  if (READ_METHODS.has(method)) return [access.read]
+  if (!access.write) denyUnknown()
+  return [access.write]
 }
 
 /** True if the credential's scopes cover the required scope. */

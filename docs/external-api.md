@@ -10,11 +10,10 @@ idempotency, deprecation) lives in `docs/public-api-contract.md`. This
 document covers **credential mechanics** and the **currently implemented**
 external allowlist.
 
-> **Important:** Core Dataset, Sheet, and Notebook Template RPCs are **not**
-> yet on the external allowlist. Requests for those paths fail closed with
-> `permission_denied` even if the credential carries broad scopes. The
-> removed scientific-table REST surface documented in older revisions of this
-> file is likewise **not available**.
+> **Important:** API-07 maps Core Dataset and Sheet Instance operations onto
+> canonical scopes. Schema-authoring RPCs, file RPCs, specialist surfaces
+> and human attestation (submit / sign / amend / revision checks) stay
+> fail-closed. The removed scientific-table REST surface is **not available**.
 
 ## Credential format
 
@@ -38,19 +37,22 @@ Optional credential expiry is enforced at exchange and rotation.
 
 ### Currently effective
 
-| Scope            | Allows                                                                 |
-| ---------------- | ---------------------------------------------------------------------- |
-| `projects:read`  | Read project-domain tables in the credential's workspace (see below).  |
-| `projects:write` | Create/update project-domain tables and allowed RPCs in the workspace. |
+| Scope | Allows |
+| --- | --- |
+| `projects:read` / `projects:write` | Project-domain tables and RPCs |
+| `datasets:read` / `datasets:write` | Dataset query, commit, snapshot, archive. Not schema stewardship |
+| `sheets:read` / `sheets:write` | Sheet Instance reads and mutations. Does not author Sheet Definitions |
+| `models:read` / `models:write` | `search_sheet_records`, custom-field writes, Sheet→Record write-back |
+| `templates:read` / `templates:write` | Template catalogue reads and instantiation |
+| `reviews:read` | Preview a submission digest. Does not run revision checks |
+| `reviews:write` | Mintable. Does not submit, sign or amend |
+| `schema:read` | Catalogue GET only |
 
-### Mintable Core-domain scopes (fail-closed until allowlist cut-over)
+### Still fail-closed
 
-The admin UI and `createCredential` issue the API-01 vocabulary
-(`datasets:*`, `schema:*`, `sheets:*`, `models:*`, `templates:*`, `reviews:*`,
-`files:*`). Those scopes are stored and may be requested at `POST /api/token`,
-but Core Dataset/Sheet/Notebook RPCs still return `permission_denied` until a
-later epic expands `src/lib/external-token.ts`. `sheets:write` does not author
-Sheet Definitions. Dataset **data** scopes stay distinct from `schema:*`.
+`schema:write`, `schema:publish` and `files:*` remain mintable but do not open
+authoring or file RPCs. `sheets:write` does not author Sheet Definitions.
+Dataset **data** scopes stay distinct from `schema:*`.
 
 `scientific:*` scopes are **removed**, not deprecated. Requesting them at
 `POST /api/token` returns `invalid_scope`.
@@ -60,38 +62,40 @@ Requesting a scope the credential does not have returns `insufficient_scope`.
 ## Currently allowed resources
 
 Verified in `src/lib/external-token.ts`. Anything not listed is **denied**.
+The full table is in `docs/public-api-contract.md` §2.1.
 
-### Tables
+### Project-domain tables
 
 `projects`, `folders`, `records`, `blocks`, `record_links`, `revisions`,
 `record_field_definitions`.
 
 - GET/HEAD → `projects:read`
-- POST/PATCH → `projects:write`
+- POST/PATCH → `projects:write` (except `revisions`, GET only)
 - DELETE on `projects` is not granted to `api_client` (Phase 1 rule)
 
-Direct INSERT/UPDATE/DELETE on `revisions` is not granted; use
-`submit_record_revision` when that RPC is added to the allowlist.
+### Core catalogue tables
+
+`datasets` (`datasets:read` / `datasets:write` INSERT), `dataset_versions`,
+`sheet_instances`, schema catalogues (`schema:read`), notebook templates
+(`templates:read`). Instance and schema **writes** go through RPCs.
 
 ### RPCs
 
-All require `projects:write`:
+See contract §2.1 for the Dataset, Sheet Instance, search and
+model mappings. Project-domain RPCs still require `projects:write`.
 
-`create_project`, `create_record`, `create_record_with_blocks`,
-`update_block_payload`, `move_block`, `archive_record`, `restore_record`,
-`create_record_link`, `insert_block`, `delete_block`,
-`transition_record_status`, `instantiate_template`.
+Direct INSERT/UPDATE/DELETE on `revisions` is not granted. Submit, sign,
+amend and revision checks stay human-session-only; a credential with
+`reviews:write` cannot call them.
 
 ### Denied examples (fail closed)
 
-Core and retired paths return `permission_denied` / `insufficient_scope`:
-
-- `query_dataset_rows`, `commit_dataset_row_batch`, `create_sheet_instance`
-- `submit_record_revision`, `search`, `search_sheet_records`
+- `create_dataset_schema_definition`, `create_sheet_definition`,
+  `extract_sheet_definition_draft`, `create_notebook_template`
 - `create_scientific_table`, `sheet_*` generated tables, `formula_results`
-- `change_events`, file RPCs
+- `change_events`, file RPCs, admin RPCs, specialist ops RPCs
 
-See `src/lib/external-token.test.ts` for the locked deny-list tests.
+See `src/lib/external-token.test.ts` for the locked mapping and deny-list.
 
 ## Exchange
 
@@ -133,7 +137,7 @@ An external request passes through three checks before any data moves:
    short-lived `api_client` JWT scoped to the credential's workspace.
 2. **Proxy** (`/api/db/*`) — verifies the bearer token's signature and
    shape, re-checks revocation against the live credential row, classifies
-   the exact resource and enforces the **project-domain allowlist**. Unknown
+   the exact resource and enforces the **fail-closed allowlist**. Unknown
    external resources fail closed.
 3. **Row-level security** (PostgreSQL `api_client` policies) — pins every
    read and write to the `workspace_id` claim on the token, so a leaked or
@@ -203,7 +207,7 @@ Data requests return the stable envelope documented in
 
 | Test file                          | Proves                                                                |
 | ---------------------------------- | --------------------------------------------------------------------- |
-| `src/lib/external-token.test.ts`   | Allowlist scope mapping; fail-closed for Core/retired paths           |
+| `src/lib/external-token.test.ts`   | Allowlist scope mapping; Core grants; still-private deny-list          |
 | `tests/db/api-credentials.test.ts` | Creation, exchange, wrong secret/scope, revocation, rate-limit        |
 | `tests/db/external-api.test.ts`    | End-to-end RLS, scope enforcement, revocation-at-use, tampered claims |
 
@@ -213,7 +217,8 @@ not part of the public contract.
 
 ## Next steps for integrators
 
-1. Read `docs/public-api-contract.md` for the full domain model and queued scope vocabulary.
-2. Use `projects:read` / `projects:write` for the **current** project-domain API only.
+1. Read `docs/public-api-contract.md` for the domain model and scopes.
+2. Use canonical Core-domain scopes for Dataset/Sheet automation (API-07).
 3. Do **not** depend on `scientific:*` scopes or scientific-table paths.
-4. Watch for a later allowlist epic before building Sheet/Dataset/Notebook automation. Credentials UI and service identity are available now (API-02); Core RPCs remain fail-closed.
+4. Do **not** use an API key to submit, sign, amend or run revision checks.
+5. Schema-authoring, files, OpenAPI and SDKs remain later API/DATA work.

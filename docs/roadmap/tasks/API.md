@@ -1,6 +1,6 @@
 # API — API & Developer Platform
 
-**Status:** API-01 complete (`#40`). API-02 complete for **workspace service credentials** (`#47`, pending merge). Core allowlist cut-over remains queued. Distinct personal tokens, named service-account principals, and credential mutation audit events are later API work.
+**Status:** API-01 complete (`#40`). API-02 complete (`#47` / `df27039`). **API-07 — Core External Allowlist Cut-over** is complete. API-03 (OpenAPI) is not automatically Ready. Personal tokens, named service-account principals, and credential activity-audit events remain later API work and are not API-07.
 
 ## Programme goal
 
@@ -29,7 +29,7 @@ Pre-release update: Sheetbase has no production users or credentials, so `scient
 
 ### Current state (verified API-01 @ `b306654` / `#40`)
 
-External credentials and `POST /api/token` exist. The allowlist is **project-domain only** (`src/lib/external-token.ts`). Core Dataset/Sheet/Notebook RPCs fail closed. Canonical contract at `docs/public-api-contract.md`.
+External credentials and `POST /api/token` exist. API-07 maps Core Dataset/Sheet/Notebook RPCs onto canonical scopes (`src/lib/external-token.ts`). Schema-authoring and files stay fail-closed. Canonical contract at `docs/public-api-contract.md`.
 
 The browser session path has no allowlist; do not treat PostgREST exposure as the public contract.
 
@@ -51,9 +51,9 @@ Documented in `docs/public-api-contract.md` §§4–7 and §9. OpenAPI/SDK/webho
 
 ### Exit
 
-A developer can read the intended public contract without treating scientific-table REST as current. Implementation of a new allowlist/scope cut-over is queued (later epic, not API-02).
+A developer can read the intended public contract without treating scientific-table REST as current. Implementation of the Core external allowlist cut-over is **API-07**.
 
-**Evidence:** `docs/public-api-contract.md`, updated `docs/external-api.md`, `src/lib/external-token.test.ts` (Core RPC deny-list), audit notes in contract §12.
+**Evidence:** `docs/public-api-contract.md`, updated `docs/external-api.md`, `src/lib/external-token.test.ts`, audit notes in contract §12.
 
 ## API-02 — API Credentials & Service Identity
 
@@ -63,12 +63,12 @@ A developer can read the intended public contract without treating scientific-ta
 
 The original prompt listed personal tokens, service accounts, workspace binding, capability scopes, expiry, rotation, revocation, last-used metadata, credential audit, request attribution, and safe secret handling.
 
-API-02 ships **one** credential type: an owner-minted, workspace-bound secret used as the external **service identity**. It does not invent a second permission model and does not cut over the Core RPC allowlist.
+API-02 ships **one** credential type: an owner-minted, workspace-bound secret used as the external **service identity**. It does not invent a second permission model. Core RPC allowlist cut-over is **API-07**.
 
 | Requirement                      | In API-02?           | Notes                                                                                                                           |
 | -------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | Workspace binding                | Yes                  | `workspace_id` on the row and in the JWT                                                                                        |
-| Capability scopes                | Yes                  | Canonical API-01 vocabulary only; Core RPCs still fail-closed                                                                   |
+| Capability scopes                | Yes                  | Canonical API-01 vocabulary only; Core RPCs enforced in **API-07**                                                                    |
 | Expiry                           | Yes                  | Optional `expires_at` on the credential; JWT access-token TTL remains 300s                                                      |
 | Rotation                         | Yes                  | Copies scopes and expiry exactly; never adds a scope                                                                            |
 | Revocation                       | Yes                  | Immediate; use-time check on the bearer token                                                                                   |
@@ -82,14 +82,51 @@ API-02 ships **one** credential type: an owner-minted, workspace-bound secret us
 
 **Exit (this epic):** external automation authenticates with a workspace-bound secret instead of a human session or database password.
 
-**Evidence:** `src/lib/api-credentials.ts`, `src/lib/api-credential-admin.ts`, `src/components/workspace-admin/admin-api-credentials.tsx`, `tests/db/api-credentials.test.ts`, `src/lib/api-credential-scopes.test.ts`. Allowlist remains `src/lib/external-token.ts`.
+**Evidence:** `src/lib/api-credentials.ts`, `src/lib/api-credential-admin.ts`, `src/components/workspace-admin/admin-api-credentials.tsx`, `tests/db/api-credentials.test.ts`, `src/lib/api-credential-scopes.test.ts`. External Core RPC access is **API-07**.
 
-### Queued (not this epic)
+### Queued (not API-02, not API-07)
 
-- Core Dataset/Sheet/Notebook `requiredScopes()` cut-over — later Medium allowlist epic
 - Personal tokens (user-scoped credentials that act as a human)
 - Named service-account principals distinct from credential secrets
 - Credential create/rotate/revoke rows in the workspace activity audit stream
+
+## API-07 — Core External Allowlist Cut-over
+
+**Priority:** medium. **Status:** Complete (mapped data-plane writes succeed for service credentials with credential attribution).
+
+### Why Medium
+
+This epic changes the **external security boundary**: which tables and RPCs an `api_client` JWT may reach, which minted scopes actually grant those operations, and whether those operations are the same canonical server paths the product UI already uses. It is not Low documentation or credential-UI work.
+
+### Goal
+
+Cut over `src/lib/external-token.ts` (and `api_client` RLS/grants plus write-actor SQL) so credentials carrying canonical Core-domain scopes can call the Dataset, Sheet Instance, and Notebook operations the product already uses. Mapped writes must succeed for `api_client` JWTs that have `credential_id` and no `sub`. Unknown paths stay fail-closed. Do not invent a second permission model. Do not restore scientific-table REST. Do not expose every `api.*` function merely because it exists. Do not mint a fake `sub` or named service-account user rows.
+
+`schema:*` remains distinct from `datasets:*`. `sheets:write` still does not author Sheet Definitions.
+
+### In scope (mapped)
+
+- Dataset: `query_dataset_rows`, `query_dataset_version_rows`, `validate_dataset_row_batch`, `commit_dataset_row_batch`, `snapshot_dataset`, `archive_dataset`, `restore_dataset`; `datasets` INSERT; `dataset_versions` GET
+- Sheet Instance: query/preview RPCs (`sheets:read`); create/update/mutate/materialize/upgrade/write-back validation (`sheets:write`); `sheet_instances` GET
+- Notebook: `preview_submission_digest` (`reviews:read`); `instantiate_notebook_template_version` and upgrade apply. **Not mapped:** `submit_record_revision`, `run_revision_checks`, `sign_revision`, amendment writers — human-session-only.
+- Search: `search` (`projects:read`), `search_sheet_records` (`models:read`)
+- Models: `update_record_custom_fields`, Sheet→Record commit RPCs
+- Catalogue GET via `schema:read` / `templates:read`
+
+### Out of scope
+
+- Dataset Schema Version / Sheet Definition / notebook template **authoring** RPCs
+- File access (`files:*`)
+- Human attestation (`submit_record_revision`, `run_revision_checks`, `sign_revision`, amend)
+- OpenAPI (API-03), personal tokens, named service accounts, credential audit events
+- Scientific-table REST
+- Every `api.*` function
+
+### Exit
+
+An external credential with the appropriate Core-domain scopes can pass the proxy allowlist **and complete** the same governed Dataset/Sheet data-plane operations the UI uses (query, validate/commit row batch, snapshot, sheet local mutate, at least one models write), with attribution on credential columns rather than a user id. Everything else remains denied. `api_client` holds EXECUTE on mapped RPCs. Schema-authoring RPCs stay revoked. Submit, sign, amend and revision checks are off the credential allowlist (human-session-only).
+
+**Evidence:** `src/lib/external-token.ts`, `src/lib/external-token.test.ts`, `drizzle/0114_api_07_core_external_allowlist.sql`, `drizzle/0115_api_07_credential_write_actors.sql`, `drizzle/0116_api_07_revoke_human_attestation.sql`, `tests/db/external-api.test.ts`, `docs/public-api-contract.md` §2.1 and §8.2.
 
 ## API-03 — OpenAPI & Documentation
 

@@ -1,10 +1,10 @@
 # Sheetbase public API contract (API-01)
 
-> **Status:** Contract v0.1.1 — **intended** public surface.  
-> **Implementation:** Partial. External credentials today expose only the
-> **project-domain** allowlist documented in `docs/external-api.md`. Core
-> Dataset/Sheet/Notebook RPCs **fail closed** until a later epic cuts over
-> the allowlist.  
+> **Status:** Contract v0.1.2 — **intended** public surface.  
+> **Implementation:** API-07 cut over Core Dataset/Sheet external
+> operations. Schema-authoring RPCs, files, specialist surfaces, and
+> human attestation (submit / sign / amend / revision checks) remain
+> fail-closed for service credentials.  
 > **Authority:** PC-00 accepted decisions; Core ADRs 0020–0024, 0031, 0036–0038;
 > `docs/notebook-api.md` for notebook RPC detail.
 
@@ -42,9 +42,9 @@ deprecation window.
 
 ### 2.1 Implemented today (external allowlist)
 
-Verified in `src/lib/external-token.ts` at contract time:
+Verified in `src/lib/external-token.ts` (API-07):
 
-**Readable/writable tables (scope-gated):**
+**Project-domain tables (unchanged):**
 
 | Resource | Read scope | Write scope |
 | --- | --- | --- |
@@ -56,32 +56,85 @@ Verified in `src/lib/external-token.ts` at contract time:
 | `revisions` | `projects:read` | — (GET only; creation via RPC) |
 | `record_field_definitions` | `projects:read` | `projects:write` |
 
-**Allowed RPCs (all require `projects:write`):**
+**Core catalogue tables (API-07):**
+
+| Resource | Read scope | Write scope |
+| --- | --- | --- |
+| `datasets` | `datasets:read` | `datasets:write` (INSERT; mutations use RPCs) |
+| `dataset_versions` | `datasets:read` | — |
+| `sheet_instances` | `sheets:read` | — (mutations use RPCs) |
+| `dataset_schema_definitions` | `schema:read` | — (authoring RPCs stay denied) |
+| `dataset_schema_versions` | `schema:read` | — |
+| `dataset_schema_version_fields` | `schema:read` | — |
+| `sheet_definitions` | `schema:read` | — |
+| `sheet_definition_versions` | `schema:read` | — |
+| `notebook_templates` | `templates:read` | — |
+| `notebook_template_versions` | `templates:read` | — |
+
+**Project-domain RPCs (`projects:write`):**
 
 `create_project`, `create_record`, `create_record_with_blocks`,
 `update_block_payload`, `move_block`, `archive_record`, `restore_record`,
 `create_record_link`, `insert_block`, `delete_block`,
 `transition_record_status`, `instantiate_template`.
 
-**Explicit denials:** Every other table and RPC — including all Core
-Dataset/Sheet/Notebook Template RPCs and all removed scientific-table
-resources — returns `permission_denied` / `insufficient_scope` at the proxy.
+**Dataset RPCs:** `query_dataset_rows`, `query_dataset_version_rows`
+(`datasets:read`); `validate_dataset_row_batch`, `commit_dataset_row_batch`,
+`snapshot_dataset`, `archive_dataset`, `restore_dataset` (`datasets:write`).
+
+**Sheet Instance RPCs:** `query_sheet_instance_rows`,
+`read_sheet_instance_calculation_results`,
+`resolve_sheet_instance_row_identity`,
+`preview_sheet_instance_composition_adoption`,
+`preview_sheet_materialization`,
+`preview_sheet_instance_definition_upgrade` (`sheets:read`);
+`create_sheet_instance`, `create_sheet_instance_from_definition`,
+`update_sheet_instance`, `archive_sheet_instance`, `restore_sheet_instance`,
+`duplicate_sheet_instance`, `mutate_sheet_instance_local_state`,
+`mutate_sheet_instance_calculations`, `insert_sheet_instance_block`,
+`duplicate_sheet_instance_block`,
+`apply_sheet_instance_composition_adoption`, `materialize_sheet_instance`,
+`apply_sheet_instance_definition_upgrade`, `validate_sheet_record_batch`
+(`sheets:write`).
+
+**Notebook / model / search:** `search` (`projects:read`);
+`search_sheet_records` (`models:read`); `update_record_custom_fields`,
+`create_and_link_sheet_record`, `commit_sheet_record_batch` (`models:write`);
+`preview_submission_digest` (`reviews:read`);
+`preview_notebook_template_upgrade` (`templates:read`);
+`instantiate_notebook_template_version`,
+`apply_notebook_template_upgrade` (`templates:write`).
+
+**Explicit denials:** Unknown tables and RPCs fail closed. Schema-authoring
+RPCs (`create_dataset_schema_definition`, Dataset Schema publish/retire,
+`create_sheet_definition`, `extract_sheet_definition_draft`, notebook
+template authoring) stay denied even with `schema:*` or `sheets:write`.
+Human attestation RPCs (`submit_record_revision`, `run_revision_checks`,
+`sign_revision`, amendment / review-transition writers) stay denied for
+service credentials even with `reviews:*`. Removed scientific-table
+resources stay denied. File RPCs stay denied (DATA-02).
 
 **Vestigial scopes:** `scientific:read`, `scientific:write`, `scientific:schema`
 are **removed**. They are not in `VALID_SCOPES`, cannot be stored, and token
 exchange rejects them as `invalid_scope`. See §9.
 
-### 2.2 Intended public surface (queued implementation)
+### 2.2 Remaining public surface
+
+API-07 implemented the Dataset, Sheet Instance, template instantiate
+and search operations from this map. Still queued: Sheet Definition and
+Dataset Schema **authoring**, notebook template **authoring**, files, and
+specialist surfaces. Notebook **submit / sign / amend / revision checks**
+are human-session-only; they are not a later credential allowlist item.
 
 The product converges on **Core RPCs** the UI already calls. External clients
-should eventually reach the same operations through scoped credentials — not
-direct table writes where RPCs exist.
+reach those operations through scoped credentials — not direct table writes
+where RPCs exist.
 
 | Domain | Stable identity | Primary operations (RPC-first) |
 | --- | --- | --- |
 | **Projects** | `project.key`, UUID | `create_project`; table reads |
 | **Models / Records** | `{PREFIX}-YYYY-NNNN`, UUID | `create_record`, `create_record_with_blocks`, `create_model_record`, `update_record_custom_fields`, `transition_record_status`, `create_record_link`; registry reads |
-| **Notebooks** | record UUID (`kind=experiment`), block order | Block RPCs above; `insert_sheet_instance_block`, `duplicate_sheet_instance_block`; `preview_submission_digest`, `submit_record_revision` |
+| **Notebooks** | record UUID (`kind=experiment`), block order | Block RPCs above; `insert_sheet_instance_block`, `duplicate_sheet_instance_block`; `preview_submission_digest`. `submit_record_revision` is **human-session-only** |
 | **Sheet Definitions** | definition `key`, version UUID | `create_sheet_definition`, draft/version publish/retire RPCs, `extract_sheet_definition_draft`, … |
 | **Sheet Instances** | instance UUID, `revision` | `create_sheet_instance`, `create_sheet_instance_from_definition`, `update_sheet_instance`, `query_sheet_instance_rows`, `mutate_sheet_instance_local_state`, composition adoption, definition upgrade, materialize, Record write-back RPCs |
 | **Dataset Schemas** | schema definition `key`, version UUID | `create_dataset_schema_definition`, publish/retire/version RPCs (steward) |
@@ -309,8 +362,8 @@ Retires `scientific:*` as the future model (PC-00 decision). Scopes are
 | `sheets:write` | Instance mutations, write-back, materialize, definition upgrade of an instance (`instance.upgrade`). Does **not** author Sheet Definitions. |
 | `templates:read` | Read notebook templates and versions |
 | `templates:write` | Author/publish/instantiate/upgrade notebook templates |
-| `reviews:read` | Read review submissions, run checks (read-only) |
-| `reviews:write` | Submit revisions, sign, amend (workflow actors) |
+| `reviews:read` | Preview a submission digest on the credential path. Does **not** run revision checks. |
+| `reviews:write` | Mintable. Does **not** submit, sign or amend; those stay human-session-only. |
 | `files:read` | Download file objects |
 | `files:write` | Upload and finalize files |
 
@@ -328,14 +381,33 @@ scientific-table access. `schema:*` is the future replacement for the
 retired `scientific:schema` *idea* (catalogue authority), not a restoration of
 scientific-table RPCs.
 
-### 8.2 Allowlist cut-over (not in API-01)
+### 8.2 Allowlist cut-over (API-07)
 
-Implementation queues explicit `requiredScopes()` entries per RPC/table
-(later allowlist epic). Principles:
+**Done.** `requiredScopes()` maps Core Dataset/Sheet RPCs and catalogue
+tables to canonical scopes, with `api_client` EXECUTE grants and
+workspace-pinned RLS on those tables (`drizzle/0114_api_07_core_external_allowlist.sql`).
+Human attestation RPCs stay revoked (`drizzle/0116_api_07_revoke_human_attestation.sql`).
+Mapped data-plane **writes succeed** for a service credential: the JWT
+`credential_id` is the actor (`api.current_credential_id()` /
+`api.has_write_actor()`), persisted on `actor_credential_id` /
+`created_by_credential_id` / `updated_by_credential_id`
+(`drizzle/0115_api_07_credential_write_actors.sql`). Session behaviour
+with `authenticated` + `sub` is unchanged. The cut-over does not mint a
+fake `sub` or invent named service-account user rows.
 
-- Fail closed for unknown paths (keep current behaviour).
+Principles held:
+
+- Fail closed for unknown paths.
 - RPC allowlist mirrors product UI capabilities, not every `api.*` function.
 - No DELETE on projects for `api_client` (existing Phase 1 rule).
+- `schema:*` does not author Dataset Schema Versions in this cut-over.
+- `sheets:write` does not author Sheet Definitions.
+
+**Human attestation (not a missing-`sub` caveat):** `submit_record_revision`,
+`run_revision_checks`, `sign_revision` and amendment / review-transition
+writers stay **off** the credential allowlist. They require an authenticated
+human session. `reviews:write` remains mintable but does not open those
+RPCs. `reviews:read` opens `preview_submission_digest` only.
 
 ---
 
@@ -386,7 +458,8 @@ Once API-03 publishes versioned docs:
 
 | Epic | Work |
 | --- | --- |
-| **API-02** | Workspace service credentials UI; rotation/revocation; last-used; expiry; canonical scopes only. Core allowlist cut-over remains queued. |
+| **API-02** | Workspace service credentials. **Done** (`#47`). |
+| **API-07** | Core Dataset/Sheet `requiredScopes()` cut-over; credential write actors; human attestation kept off the credential path. **Done**. |
 | **API-03** | OpenAPI 3.1 from this contract; error reference; version prefix; pagination examples |
 | **API-04** | Python SDK — pagination iterators, pandas, idempotent helpers |
 | **API-05** | TypeScript SDK — typed resources, isomorphic fetch |
@@ -394,13 +467,8 @@ Once API-03 publishes versioned docs:
 | **DATA-02/PLAT-01** | `api_client` file access; S3 backend |
 | **GOV-01** | `viewer` read-only semantics (affects RLS, not contract shape) |
 
-**Medium-level items explicitly out of API-01 scope:**
-
-- Expanding `PROJECT_DOMAIN_*` allowlists to Core RPCs
-- New RLS policies or grants for `api_client`
-- Migrations or SQL changes
-- `/api/v1` routing architecture
-- OpenAPI generation pipeline
+**Out of API-07:** schema/template **authoring** RPCs, personal tokens, named
+service-account principals, credential activity-audit events, OpenAPI.
 
 ---
 
@@ -417,14 +485,18 @@ Once API-03 publishes versioned docs:
 
 ---
 
-## 12. Evidence (API-01 audit)
+## 12. Evidence (API-01 audit + API-07)
 
 Audited 17 August 2026 against `main` @ `f2dfa25`; contract v0.1.1
 corrects Dataset Schema stewardship out of `datasets:write` into `schema:*`.
+API-07 (v0.1.2) cut over the Core external allowlist. Mapped Dataset/Sheet
+data-plane writes succeed for service credentials with `credential_id`
+attribution (`drizzle/0115_api_07_credential_write_actors.sql`).
 
-- Allowlist: `src/lib/external-token.ts` (`PROJECT_DOMAIN_*`, empty `SCIENTIFIC_METADATA`)
+- Allowlist: `src/lib/external-token.ts`
 - Scope minting: `src/lib/api-credentials.ts` (`VALID_SCOPES`)
-- Fail-closed tests: `src/lib/external-token.test.ts`
+- Fail-closed + Core mapping tests: `src/lib/external-token.test.ts`
 - Scope split lock: `src/lib/public-api-contract.test.ts`
+- Grants: `drizzle/0114_api_07_core_external_allowlist.sql`, `drizzle/0115_api_07_credential_write_actors.sql`
 - Integration: `tests/db/external-api.test.ts`, `tests/db/api-credentials.test.ts`
 - Proxy errors: `src/lib/errors.ts`, `src/lib/postgrest-proxy.ts`

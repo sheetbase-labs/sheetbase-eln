@@ -21,4 +21,17 @@ describe('API-02 canonical scopes', () => {
     expect(grouped).toContain('schema:publish')
     expect(grouped).toContain('sheets:write')
   })
+
+  it('does not treat reviews:write as an effective credential capability', () => {
+    const attestation = SCOPE_GROUPS.find(
+      (group) => group.scopes.includes('reviews:write'),
+    )
+    expect(attestation?.effective).toBe(false)
+    expect(attestation?.description).toMatch(/human-session-only/)
+    const preview = SCOPE_GROUPS.find((group) =>
+      group.scopes.includes('reviews:read'),
+    )
+    expect(preview?.effective).toBe(true)
+    expect(preview?.description).toMatch(/Does not submit/)
+  })
 })

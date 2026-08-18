@@ -4,17 +4,17 @@
 
 Post-Core work is organised as capability programmes rather than one enormous sequential feature list.
 
-| Programme | Objective | Timing |
-| --- | --- | --- |
-| **PC** | Turn Core capabilities into one coherent scientist-facing product | Now |
-| **API** | Stable public API, credentials, SDKs, webhooks and developer experience | Early / parallel |
-| **DATA** | Import, export, files, search and portability | Early / parallel |
-| **GOV** | Roles, organisation structure, audit, signatures and policy | Early–mid |
-| **COLLAB** | Presence, comments, notifications and review workflows | Mid |
-| **SCI** | Charts, analysis and scientific exploration | Mid |
-| **INT** | Generic connectors, instruments and enterprise systems | Mid–late |
-| **PLAT** | Deployment, reliability, observability, security and administration | Continuous |
-| **AUTO** | Deterministic Pipelines and later agentic operations | Later |
+| Programme  | Objective                                                               | Timing           |
+| ---------- | ----------------------------------------------------------------------- | ---------------- |
+| **PC**     | Turn Core capabilities into one coherent scientist-facing product       | Now              |
+| **API**    | Stable public API, credentials, SDKs, webhooks and developer experience | Early / parallel |
+| **DATA**   | Import, export, files, search and portability                           | Early / parallel |
+| **GOV**    | Roles, organisation structure, audit, signatures and policy             | Early–mid        |
+| **COLLAB** | Presence, comments, notifications and review workflows                  | Mid              |
+| **SCI**    | Charts, analysis and scientific exploration                             | Mid              |
+| **INT**    | Generic connectors, instruments and enterprise systems                  | Mid–late         |
+| **PLAT**   | Deployment, reliability, observability, security and administration     | Continuous       |
+| **AUTO**   | Deterministic Pipelines and later agentic operations                    | Later            |
 
 ## Dependency shape
 
@@ -65,7 +65,7 @@ This diagram communicates likely sequencing and dependencies, not a strict water
 
 ### DATA — Data Interoperability
 
-- `DATA-01` Import Framework (Ready candidate, medium)
+- `DATA-01` Import Framework (complete)
 - `DATA-02` Export & Portability
 - `DATA-03` File & Attachment Platform
 - `DATA-04` Global Search
@@ -123,10 +123,9 @@ merged  API-01  Public API contract (#40)
 merged  PLAT-03 headers slice (#43)
 merged  PC-02   Dataset and Record product workflows (#44)
 merged  GOV-01  viewer = read-only (#45)
+merged  API-02  workspace service credentials (#47)
 
-candidates (assign; do not fan out)
-  API-02  [Low]    credentials / service identity
-  DATA-01 [Medium] import framework
+DATA-01 complete — import framework
 ```
 
 Do not activate PC-03, GOV-02, remaining PLAT-03, COLLAB, SCI, INT or AUTO from this hand-off.

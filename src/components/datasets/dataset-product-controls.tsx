@@ -18,6 +18,7 @@ import {
 import { DataClientError } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
 import type { CanonicalDatasetWire } from '#/lib/dataset-explorer-data'
+import { ImportWizard } from '#/components/import/import-wizard'
 import {
   archiveDataset,
   commitDatasetRowBatch,
@@ -26,7 +27,6 @@ import {
   describeDatasetCommitError,
   coerceDatasetCellValue,
   listPublishedDatasetSchemas,
-  parseTsvRows,
   restoreDataset,
   snapshotDataset,
 } from '#/lib/dataset-product'
@@ -220,80 +220,6 @@ export function DatasetSnapshotDialog({
   )
 }
 
-export function DatasetPasteDialog({
-  open,
-  onOpenChange,
-  client,
-  table,
-  onDone,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  client: DataClient
-  table: CanonicalDatasetWire
-  onDone: () => void
-}) {
-  const [text, setText] = useState('')
-  const mutation = useMutation({
-    mutationFn: async () => {
-      const rows = parseTsvRows(text, table.columns)
-      if (rows.length === 0) throw new Error('Paste at least one TSV row.')
-      const result = await commitDatasetRowBatch(client, {
-        datasetId: table.id,
-        expectedRevision: datasetRevision(table),
-        rows,
-        idempotencyKey: crypto.randomUUID(),
-      })
-      if (!result.ok) throw new Error(describeDatasetCommitError(result))
-      return result
-    },
-    onSuccess: () => {
-      onDone()
-      onOpenChange(false)
-      setText('')
-    },
-  })
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Paste rows</DialogTitle>
-          <DialogDescription>
-            Tab-separated values in Schema field order. This uses{' '}
-            <code>commit_dataset_row_batch</code>, not a separate importer.
-          </DialogDescription>
-        </DialogHeader>
-        <p className="text-xs text-muted-foreground">
-          Columns:{' '}
-          {table.columns.map((column) => column.label).join(' · ') || 'none'}
-        </p>
-        <Textarea
-          aria-label="Pasted TSV rows"
-          className="min-h-32 font-mono text-xs"
-          value={text}
-          onChange={(event) => setText(event.target.value)}
-        />
-        {mutation.error instanceof Error ? (
-          <p role="alert" className="text-xs text-destructive">
-            {mutation.error.message}
-          </p>
-        ) : null}
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button
-            onClick={() => mutation.mutate()}
-            disabled={mutation.isPending || !text.trim()}
-          >
-            {mutation.isPending ? 'Committing…' : 'Commit rows'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
 export function DatasetAddRowDialog({
   open,
   onOpenChange,
@@ -448,7 +374,7 @@ export function DatasetProductActions({
             disabled={archived}
             onClick={() => setPasteOpen(true)}
           >
-            Paste TSV
+            Import
           </Button>
           <Button
             size="sm"
@@ -495,11 +421,11 @@ export function DatasetProductActions({
             table={table}
             onDone={onRefresh}
           />
-          <DatasetPasteDialog
+          <ImportWizard
             open={pasteOpen}
             onOpenChange={setPasteOpen}
             client={client}
-            table={table}
+            mode={{ kind: 'dataset', table }}
             onDone={onRefresh}
           />
           <DatasetAddRowDialog

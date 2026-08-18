@@ -2,7 +2,7 @@
 
 Work on the **assigned DATA stream** in `phlohouse/sheetbase-eln`. Read `docs/roadmap/NEXT.md` first.
 
-DATA-01 is a **Medium Ready candidate** after PC-01 and PC-02. Do not start until assigned. When assigned, refine the import/paste contract against the canonical Sheet and Dataset product already on `main`.
+DATA-01 is **complete**. Do not reopen it unless a defect is assigned. Remaining DATA work is DATA-02 (export), DATA-03 (files) and DATA-04 (search). Do not start those until assigned.
 
 Read `docs/roadmap/NEXT.md`, `tasks/DATA.md`, PC-00 evidence, canonical Dataset/Record/Notebook contracts and existing import/export/file/search code before implementation.
 

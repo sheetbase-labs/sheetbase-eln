@@ -11,7 +11,7 @@ Authoritative OpenAPI 3.1 for the **API-key** surface that exists today.
 Regenerate after allowlist changes:
 
 ```bash
-pnpm exec tsx scripts/generate-public-openapi.ts
+pnpm openapi:generate
 ```
 
 ## What is in the spec

@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "vite dev --port 3000",
-    "openapi:generate": "tsx scripts/generate-public-openapi.ts",
+    "openapi:generate": "tsx scripts/generate-public-openapi.ts && prettier --write docs/openapi/service-credentials-v0.json",
     "build": "vite build",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",

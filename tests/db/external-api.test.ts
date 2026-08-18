@@ -595,10 +595,17 @@ describe('API-07 api_client data-plane writes', () => {
   })
 
   it('updates record custom fields as api_client and stamps the credential', async () => {
+    const owner = await asOwner(OWNER_A, WS_A)
+    const definition = (
+      await owner.query(
+        `select * from api.create_model_field($1,'sample','lot','Lot','text',true,null,'{}'::jsonb)`,
+        [WS_A],
+      )
+    ).rows[0]
+    await owner.query(`select api.activate_model_field($1)`, [definition.id])
     await migrator.query(
       `insert into api.records(id,workspace_id,kind,identifier,title,created_by_user_id)
-       values($1,$2,'sample','API07-SMP','API-07 sample',$3)
-       on conflict do nothing`,
+       values($1,$2,'sample','API07-SMP','API-07 sample',$3)`,
       [RECORD, WS_A, OWNER_A],
     )
     const cred = await createCredential(db, {

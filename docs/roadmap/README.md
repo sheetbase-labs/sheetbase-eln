@@ -66,7 +66,7 @@ This is a dependency shape, not a mandate that every programme must finish befor
 
 Do not start large post-Core implementation from an old summary. Begin with `NEXT.md`, then follow the **assigned** stream's task file and matching prompt. Ready streams may run in parallel; one agent does not own every Ready row.
 
-PC-00 is accepted (`audits/PC-00.md`). Immediate Ready candidate after DATA-01 is **API-07** (medium). Assign one stream; do not start unassigned work.
+PC-00 is accepted (`audits/PC-00.md`). DATA-01 is complete on this stream. API-02 is on `main`. Do not start unassigned work.
 
 ## Relationship to root `ROADMAP.md`
 

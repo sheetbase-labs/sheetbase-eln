@@ -93,7 +93,11 @@ Task: [`tasks/PLAT.md`](./tasks/PLAT.md)
 ## Dependencies
 
 - DATA-01 is complete (canonical Dataset/Record import). DATA-02 export is not started.
+<<<<<<< HEAD
 - API-07 Core external allowlist cut-over is complete (`#50`). Submit, sign, amend and revision checks stay human-session-only. API-03 is not automatically Ready.
+=======
+- API-02 is complete on `main`. Core RPC allowlist cut-over is a separate stream (not this PR).
+>>>>>>> 9d182f6 (docs(data-01): stop regressing API-02 status in roadmap tables)
 - PC-03 is not automatically Ready.
 - GOV-02 is not Ready without an ADR.
 - Remaining PLAT-03 is queued, not a new Ready stream.

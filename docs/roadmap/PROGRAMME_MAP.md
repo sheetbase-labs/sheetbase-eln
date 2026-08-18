@@ -123,10 +123,9 @@ merged  API-01  Public API contract (#40)
 merged  PLAT-03 headers slice (#43)
 merged  PC-02   Dataset and Record product workflows (#44)
 merged  GOV-01  viewer = read-only (#45)
+merged  API-02  workspace service credentials (#47)
 
-candidates (assign; do not fan out)
-  API-02  [Low]    credentials / service identity
-  DATA-01 complete — import framework
+DATA-01 complete — import framework
 ```
 
 Do not activate PC-03, GOV-02, remaining PLAT-03, COLLAB, SCI, INT or AUTO from this hand-off.

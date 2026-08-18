@@ -15,7 +15,7 @@ These files are the detailed planning contracts for the post-Core programmes.
 | Programme                | Task file                  | Status                                                 |
 | ------------------------ | -------------------------- | ------------------------------------------------------ |
 | Product Consolidation    | [`PC.md`](./PC.md)         | PC-00 accepted; PC-01 and PC-02 complete; PC-03 later  |
-| API & Developer Platform | [`API.md`](./API.md)       | API-01 complete; API-02 Ready candidate (low)          |
+| API & Developer Platform | [`API.md`](./API.md)       | API-01 and API-02 complete; Core allowlist is a separate stream |
 | Data Interoperability    | [`DATA.md`](./DATA.md)     | DATA-01 complete; DATA-02/03/04 remain                 |
 | Governance               | [`GOV.md`](./GOV.md)       | GOV-01 complete (`viewer` read-only); GOV-02 needs ADR |
 | Collaboration            | [`COLLAB.md`](./COLLAB.md) | planned                                                |

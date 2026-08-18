@@ -19,10 +19,10 @@ scoped credentials (`POST /api/token`) and a **fail-closed allowlist**
 
 ## 1. Transport and authentication
 
-| Step | Endpoint | Purpose |
-| --- | --- | --- |
-| Exchange | `POST /api/token` | `{ credential, scopes }` → `{ token }` |
-| Data | `/api/db/*` | Same-origin PostgREST proxy with `Authorization: Bearer <jwt>` |
+| Step     | Endpoint          | Purpose                                                        |
+| -------- | ----------------- | -------------------------------------------------------------- |
+| Exchange | `POST /api/token` | `{ credential, scopes }` → `{ token }`                         |
+| Data     | `/api/db/*`       | Same-origin PostgREST proxy with `Authorization: Bearer <jwt>` |
 
 Credential format, exchange errors, revocation, rate limiting and enforcement
 layers are documented in `docs/external-api.md`.
@@ -31,9 +31,9 @@ layers are documented in `docs/external-api.md`.
 `role: 'api_client'`. Default TTL 300s. No capability claims in the token
 (ADR 0005); RLS and proxy allowlist enforce access.
 
-**Versioning (planned):** Contract v0.1 uses unversioned `/api/db` paths
-matching the browser proxy. A future `/api/v1/…` prefix (API-03) will
-introduce explicit version negotiation without breaking v0.1 during a
+**Versioning:** Contract v0.1 uses unversioned `/api/db` paths matching the
+browser proxy. API-03 publishes OpenAPI for those paths. A future `/api/v1/…`
+prefix may add explicit version negotiation without breaking v0.1 during a
 deprecation window.
 
 ---
@@ -46,30 +46,30 @@ Verified in `src/lib/external-token.ts` (API-07):
 
 **Project-domain tables (unchanged):**
 
-| Resource | Read scope | Write scope |
-| --- | --- | --- |
-| `projects` | `projects:read` | `projects:write` |
-| `folders` | `projects:read` | `projects:write` |
-| `records` | `projects:read` | `projects:write` |
-| `blocks` | `projects:read` | `projects:write` |
-| `record_links` | `projects:read` | `projects:write` |
-| `revisions` | `projects:read` | — (GET only; creation via RPC) |
-| `record_field_definitions` | `projects:read` | `projects:write` |
+| Resource                   | Read scope      | Write scope                    |
+| -------------------------- | --------------- | ------------------------------ |
+| `projects`                 | `projects:read` | `projects:write`               |
+| `folders`                  | `projects:read` | `projects:write`               |
+| `records`                  | `projects:read` | `projects:write`               |
+| `blocks`                   | `projects:read` | `projects:write`               |
+| `record_links`             | `projects:read` | `projects:write`               |
+| `revisions`                | `projects:read` | — (GET only; creation via RPC) |
+| `record_field_definitions` | `projects:read` | `projects:write`               |
 
 **Core catalogue tables (API-07):**
 
-| Resource | Read scope | Write scope |
-| --- | --- | --- |
-| `datasets` | `datasets:read` | `datasets:write` (INSERT; mutations use RPCs) |
-| `dataset_versions` | `datasets:read` | — |
-| `sheet_instances` | `sheets:read` | — (mutations use RPCs) |
-| `dataset_schema_definitions` | `schema:read` | — (authoring RPCs stay denied) |
-| `dataset_schema_versions` | `schema:read` | — |
-| `dataset_schema_version_fields` | `schema:read` | — |
-| `sheet_definitions` | `schema:read` | — |
-| `sheet_definition_versions` | `schema:read` | — |
-| `notebook_templates` | `templates:read` | — |
-| `notebook_template_versions` | `templates:read` | — |
+| Resource                        | Read scope       | Write scope                                   |
+| ------------------------------- | ---------------- | --------------------------------------------- |
+| `datasets`                      | `datasets:read`  | `datasets:write` (INSERT; mutations use RPCs) |
+| `dataset_versions`              | `datasets:read`  | —                                             |
+| `sheet_instances`               | `sheets:read`    | — (mutations use RPCs)                        |
+| `dataset_schema_definitions`    | `schema:read`    | — (authoring RPCs stay denied)                |
+| `dataset_schema_versions`       | `schema:read`    | —                                             |
+| `dataset_schema_version_fields` | `schema:read`    | —                                             |
+| `sheet_definitions`             | `schema:read`    | —                                             |
+| `sheet_definition_versions`     | `schema:read`    | —                                             |
+| `notebook_templates`            | `templates:read` | —                                             |
+| `notebook_template_versions`    | `templates:read` | —                                             |
 
 **Project-domain RPCs (`projects:write`):**
 
@@ -130,18 +130,18 @@ The product converges on **Core RPCs** the UI already calls. External clients
 reach those operations through scoped credentials — not direct table writes
 where RPCs exist.
 
-| Domain | Stable identity | Primary operations (RPC-first) |
-| --- | --- | --- |
-| **Projects** | `project.key`, UUID | `create_project`; table reads |
-| **Models / Records** | `{PREFIX}-YYYY-NNNN`, UUID | `create_record`, `create_record_with_blocks`, `create_model_record`, `update_record_custom_fields`, `transition_record_status`, `create_record_link`; registry reads |
-| **Notebooks** | record UUID (`kind=experiment`), block order | Block RPCs above; `insert_sheet_instance_block`, `duplicate_sheet_instance_block`; `preview_submission_digest`. `submit_record_revision` is **human-session-only** |
-| **Sheet Definitions** | definition `key`, version UUID | `create_sheet_definition`, draft/version publish/retire RPCs, `extract_sheet_definition_draft`, … |
-| **Sheet Instances** | instance UUID, `revision` | `create_sheet_instance`, `create_sheet_instance_from_definition`, `update_sheet_instance`, `query_sheet_instance_rows`, `mutate_sheet_instance_local_state`, composition adoption, definition upgrade, materialize, Record write-back RPCs |
-| **Dataset Schemas** | schema definition `key`, version UUID | `create_dataset_schema_definition`, publish/retire/version RPCs (steward) |
-| **Datasets / Versions** | dataset UUID, version UUID | `query_dataset_rows`, `commit_dataset_row_batch`, `snapshot_dataset`, … |
-| **Notebook Templates** | template `key`, version UUID | `create_notebook_template`, version publish, `instantiate_notebook_template_version`, upgrade preview/apply |
-| **Files** | file object UUID, checksum | `finalize_file_upload`; `/api/files/*` (session today; `api_client` queued) |
-| **Search** | — | `search`, `search_sheet_records` (read-only) |
+| Domain                  | Stable identity                              | Primary operations (RPC-first)                                                                                                                                                                                                             |
+| ----------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Projects**            | `project.key`, UUID                          | `create_project`; table reads                                                                                                                                                                                                              |
+| **Models / Records**    | `{PREFIX}-YYYY-NNNN`, UUID                   | `create_record`, `create_record_with_blocks`, `create_model_record`, `update_record_custom_fields`, `transition_record_status`, `create_record_link`; registry reads                                                                       |
+| **Notebooks**           | record UUID (`kind=experiment`), block order | Block RPCs above; `insert_sheet_instance_block`, `duplicate_sheet_instance_block`; `preview_submission_digest`. `submit_record_revision` is **human-session-only**                                                                         |
+| **Sheet Definitions**   | definition `key`, version UUID               | `create_sheet_definition`, draft/version publish/retire RPCs, `extract_sheet_definition_draft`, …                                                                                                                                          |
+| **Sheet Instances**     | instance UUID, `revision`                    | `create_sheet_instance`, `create_sheet_instance_from_definition`, `update_sheet_instance`, `query_sheet_instance_rows`, `mutate_sheet_instance_local_state`, composition adoption, definition upgrade, materialize, Record write-back RPCs |
+| **Dataset Schemas**     | schema definition `key`, version UUID        | `create_dataset_schema_definition`, publish/retire/version RPCs (steward)                                                                                                                                                                  |
+| **Datasets / Versions** | dataset UUID, version UUID                   | `query_dataset_rows`, `commit_dataset_row_batch`, `snapshot_dataset`, …                                                                                                                                                                    |
+| **Notebook Templates**  | template `key`, version UUID                 | `create_notebook_template`, version publish, `instantiate_notebook_template_version`, upgrade preview/apply                                                                                                                                |
+| **Files**               | file object UUID, checksum                   | `finalize_file_upload`; `/api/files/*` (session today; `api_client` queued)                                                                                                                                                                |
+| **Search**              | —                                            | `search`, `search_sheet_records` (read-only)                                                                                                                                                                                               |
 
 Specialist surfaces (calendar, planner, instruments, plate designer, report
 builder, analysis studio) are **not** part of the v0.1 public contract.
@@ -163,10 +163,10 @@ External clients **never** call PostgREST directly.
 
 ### 3.2 Path shapes
 
-| Kind | Pattern | Example |
-| --- | --- | --- |
+| Kind             | Pattern                                       | Example                             |
+| ---------------- | --------------------------------------------- | ----------------------------------- |
 | Table read/write | `GET\|POST\|PATCH\|DELETE /api/db/{resource}` | `/api/db/projects?select=key,title` |
-| RPC | `POST /api/db/rpc/{name}` | `/api/db/rpc/create_record` |
+| RPC              | `POST /api/db/rpc/{name}`                     | `/api/db/rpc/create_record`         |
 
 PostgREST query parameters (`select`, `order`, `limit`, `offset`, filters)
 apply to table resources. RPC bodies use `p_*` argument names matching
@@ -190,25 +190,26 @@ Workspace
 └── Files
 ```
 
-HTTP paths remain PostgREST-shaped for v0.1; OpenAPI (API-03) will publish
-friendly resource names mapped to these RPCs.
+HTTP paths remain PostgREST-shaped for v0.1. OpenAPI 3.1 for the
+service-credential surface is `docs/openapi/service-credentials-v0.json`
+(API-03). A future `/api/v1/…` prefix is not introduced here.
 
 ---
 
 ## 4. Stable identity semantics
 
-| Object | Primary id | Human-stable id | Concurrency token |
-| --- | --- | --- | --- |
-| Project | UUID | `key` (unique per workspace) | row `version` where applicable |
-| Record (Model instance) | UUID | `{PREFIX}-YYYY-NNNN` identifier | record metadata version |
-| Notebook block | UUID | — | block `version`; record `structure_version` for ordering |
-| Sheet Instance | UUID | name (non-unique) | `revision` (integer, monotonic) |
-| Sheet Definition | UUID | `key` | definition `revision`; version `revision` |
-| Dataset | UUID | name | dataset `revision` |
-| Dataset Version | UUID | — | immutable snapshot |
-| Dataset Schema Definition | UUID | `key` | definition `revision` |
-| Notebook Template | UUID | `key` | template `revision` |
-| File object | UUID | — | checksum + storage key |
+| Object                    | Primary id | Human-stable id                 | Concurrency token                                        |
+| ------------------------- | ---------- | ------------------------------- | -------------------------------------------------------- |
+| Project                   | UUID       | `key` (unique per workspace)    | row `version` where applicable                           |
+| Record (Model instance)   | UUID       | `{PREFIX}-YYYY-NNNN` identifier | record metadata version                                  |
+| Notebook block            | UUID       | —                               | block `version`; record `structure_version` for ordering |
+| Sheet Instance            | UUID       | name (non-unique)               | `revision` (integer, monotonic)                          |
+| Sheet Definition          | UUID       | `key`                           | definition `revision`; version `revision`                |
+| Dataset                   | UUID       | name                            | dataset `revision`                                       |
+| Dataset Version           | UUID       | —                               | immutable snapshot                                       |
+| Dataset Schema Definition | UUID       | `key`                           | definition `revision`                                    |
+| Notebook Template         | UUID       | `key`                           | template `revision`                                      |
+| File object               | UUID       | —                               | checksum + storage key                                   |
 
 **Rules:**
 
@@ -223,22 +224,22 @@ friendly resource names mapped to these RPCs.
 
 ### 5.1 Table resources (PostgREST)
 
-| Mechanism | Parameters | Notes |
-| --- | --- | --- |
-| Page size | `limit`, `offset` | Prefer explicit limits; default PostgREST cap applies |
-| Sort | `order=column.asc\|desc` | Multi-column: repeat `order` |
-| Filter | `{column}=eq.{value}`, `gte`, `lte`, `in`, … | RLS restricts to workspace |
-| Column selection | `select=a,b,c` | Reduces payload size |
-| Count | `Prefer: count=exact` + `limit=0` | Optional total (where granted) |
+| Mechanism        | Parameters                                   | Notes                                                 |
+| ---------------- | -------------------------------------------- | ----------------------------------------------------- |
+| Page size        | `limit`, `offset`                            | Prefer explicit limits; default PostgREST cap applies |
+| Sort             | `order=column.asc\|desc`                     | Multi-column: repeat `order`                          |
+| Filter           | `{column}=eq.{value}`, `gte`, `lte`, `in`, … | RLS restricts to workspace                            |
+| Column selection | `select=a,b,c`                               | Reduces payload size                                  |
+| Count            | `Prefer: count=exact` + `limit=0`            | Optional total (where granted)                        |
 
 ### 5.2 RPC data windows
 
-| RPC | Pagination | Filtering |
-| --- | --- | --- |
-| `query_sheet_instance_rows` | `p_limit` (max 200), `p_offset` | Server-side composition window |
-| `query_dataset_rows` | `limit`, `offset` in query JSON | Field filters in query object |
-| `search` | `p_limit` (1–100), `p_offset` | `p_kind`, `p_project_id`, date range, … |
-| `search_sheet_records` | `p_limit` | `p_model_key`, `p_query` |
+| RPC                         | Pagination                      | Filtering                               |
+| --------------------------- | ------------------------------- | --------------------------------------- |
+| `query_sheet_instance_rows` | `p_limit` (max 200), `p_offset` | Server-side composition window          |
+| `query_dataset_rows`        | `limit`, `offset` in query JSON | Field filters in query object           |
+| `search`                    | `p_limit` (1–100), `p_offset`   | `p_kind`, `p_project_id`, date range, … |
+| `search_sheet_records`      | `p_limit`                       | `p_model_key`, `p_query`                |
 
 **Contract rule:** List endpoints that can return large sets **must** use
 bounded windows. Clients iterate with offset/limit or cursor-style paging
@@ -278,21 +279,21 @@ raw PostgreSQL messages.
 
 ### 6.2 Stable categories
 
-| Category | HTTP | Meaning |
-| --- | --- | --- |
-| `validation_error` | 400 | Bad input, constraint violation |
-| `not_found` | 404 | Resource missing or filtered by RLS |
-| `permission_denied` | 403 | RLS, scope, or revoked credential |
-| `unauthenticated` | 401 | Missing/invalid session or bearer token |
-| `stale_version` | 409 | Optimistic concurrency mismatch (SQLSTATE SB001) |
-| `conflict` | 409 | Unique violation, serialization failure |
-| `missing_link` | 422 | Unresolved record link (SB002) |
-| `invalid_transition` | 422 | Disallowed lifecycle transition (SB004) |
-| `invalid_properties` | 422 | Configurable property validation failed (SB005) |
-| `template_not_instantiable` | 422 | Template wrong lifecycle (SB006) |
-| `rate_limited` | 429 | Exchange brute-force lockout |
-| `service_unavailable` | 502/503 | PostgREST or upstream down |
-| `server_error` | 500 | Unclassified |
+| Category                    | HTTP    | Meaning                                          |
+| --------------------------- | ------- | ------------------------------------------------ |
+| `validation_error`          | 400     | Bad input, constraint violation                  |
+| `not_found`                 | 404     | Resource missing or filtered by RLS              |
+| `permission_denied`         | 403     | RLS, scope, or revoked credential                |
+| `unauthenticated`           | 401     | Missing/invalid session or bearer token          |
+| `stale_version`             | 409     | Optimistic concurrency mismatch (SQLSTATE SB001) |
+| `conflict`                  | 409     | Unique violation, serialization failure          |
+| `missing_link`              | 422     | Unresolved record link (SB002)                   |
+| `invalid_transition`        | 422     | Disallowed lifecycle transition (SB004)          |
+| `invalid_properties`        | 422     | Configurable property validation failed (SB005)  |
+| `template_not_instantiable` | 422     | Template wrong lifecycle (SB006)                 |
+| `rate_limited`              | 429     | Exchange brute-force lockout                     |
+| `service_unavailable`       | 502/503 | PostgREST or upstream down                       |
+| `server_error`              | 500     | Unclassified                                     |
 
 Implementation: `src/lib/errors.ts`, `src/lib/postgrest-proxy.ts`.
 
@@ -307,36 +308,36 @@ Implementation: `src/lib/errors.ts`, `src/lib/postgrest-proxy.ts`.
 
 ### 7.1 Optimistic concurrency
 
-| Surface | Client supplies | Failure category |
-| --- | --- | --- |
-| Block payload edit | `p_expected_version` | `stale_version` |
-| Block move / insert | `p_expected_structure_version` | `stale_version` |
-| Sheet Instance mutation | `p_expected_revision` | `stale_version` |
-| Definition/version publish | `p_expected_revision` | `stale_version` |
-| Dataset row commit | expected dataset `revision` | `stale_version` |
+| Surface                    | Client supplies                | Failure category |
+| -------------------------- | ------------------------------ | ---------------- |
+| Block payload edit         | `p_expected_version`           | `stale_version`  |
+| Block move / insert        | `p_expected_structure_version` | `stale_version`  |
+| Sheet Instance mutation    | `p_expected_revision`          | `stale_version`  |
+| Definition/version publish | `p_expected_revision`          | `stale_version`  |
+| Dataset row commit         | expected dataset `revision`    | `stale_version`  |
 
 Clients **must** read current version/revision before mutating and retry on
 `stale_version` after re-fetching.
 
 ### 7.2 Command idempotency
 
-| RPC | Idempotency key | Behaviour |
-| --- | --- | --- |
-| `submit_record_revision` | `p_idempotency_key` | Same key + same inputs → same revision/submission with `idempotent: true` |
-| `commit_dataset_row_batch` | client idempotency key + digest | Stored in `dataset_bulk_commits`; safe retry |
+| RPC                        | Idempotency key                 | Behaviour                                                                 |
+| -------------------------- | ------------------------------- | ------------------------------------------------------------------------- |
+| `submit_record_revision`   | `p_idempotency_key`             | Same key + same inputs → same revision/submission with `idempotent: true` |
+| `commit_dataset_row_batch` | client idempotency key + digest | Stored in `dataset_bulk_commits`; safe retry                              |
 
 Other RPCs: treat POST as **at-most-once** unless documented otherwise; use
 client-generated UUID command ids when adding idempotency in later API work.
 
 ### 7.3 Retry guidance
 
-| Condition | Retry? |
-| --- | --- |
-| `stale_version` | Yes, after re-read |
-| `rate_limited` | Yes, with backoff |
-| `service_unavailable` | Yes, with exponential backoff |
-| `validation_error`, `permission_denied` | No, fix input or credentials |
-| `conflict` (unique) | Only if semantics allow deduplication |
+| Condition                               | Retry?                                |
+| --------------------------------------- | ------------------------------------- |
+| `stale_version`                         | Yes, after re-read                    |
+| `rate_limited`                          | Yes, with backoff                     |
+| `service_unavailable`                   | Yes, with exponential backoff         |
+| `validation_error`, `permission_denied` | No, fix input or credentials          |
+| `conflict` (unique)                     | Only if semantics allow deduplication |
 
 ---
 
@@ -347,25 +348,25 @@ Retires `scientific:*` as the future model (PC-00 decision). Scopes are
 
 ### 8.1 Scope vocabulary (target)
 
-| Scope | Grants (when implemented) |
-| --- | --- |
-| `projects:read` | Read projects, folders, notebook tables, revisions (GET) |
-| `projects:write` | Project/notebook/record/block mutations in project domain (current allowlist) |
-| `models:read` | Read model field definitions, search records by model |
-| `models:write` | Create/update model records, custom fields, lifecycle transitions |
-| `datasets:read` | Query datasets, versions, and rows. Does **not** include Dataset Schema catalogues. |
-| `datasets:write` | Create datasets, commit rows, snapshot versions. Does **not** include schema stewardship. |
-| `schema:read` | Read governed catalogues: Dataset Schema, Sheet Definition, Model fields. |
-| `schema:write` | Draft governed schema/configuration edits. Maps to session capability `schema.edit`. |
-| `schema:publish` | Publish or retire governed schema/configuration. Maps to `schema.publish` / `schema.retire`. |
-| `sheets:read` | Read Sheet Instances and composed rows. Definition catalogues use `schema:read`. |
-| `sheets:write` | Instance mutations, write-back, materialize, definition upgrade of an instance (`instance.upgrade`). Does **not** author Sheet Definitions. |
-| `templates:read` | Read notebook templates and versions |
-| `templates:write` | Author/publish/instantiate/upgrade notebook templates |
-| `reviews:read` | Preview a submission digest on the credential path. Does **not** run revision checks. |
-| `reviews:write` | Mintable. Does **not** submit, sign or amend; those stay human-session-only. |
-| `files:read` | Download file objects |
-| `files:write` | Upload and finalize files |
+| Scope             | Grants (when implemented)                                                                                                                   |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `projects:read`   | Read projects, folders, notebook tables, revisions (GET)                                                                                    |
+| `projects:write`  | Project/notebook/record/block mutations in project domain (current allowlist)                                                               |
+| `models:read`     | Read model field definitions, search records by model                                                                                       |
+| `models:write`    | Create/update model records, custom fields, lifecycle transitions                                                                           |
+| `datasets:read`   | Query datasets, versions, and rows. Does **not** include Dataset Schema catalogues.                                                         |
+| `datasets:write`  | Create datasets, commit rows, snapshot versions. Does **not** include schema stewardship.                                                   |
+| `schema:read`     | Read governed catalogues: Dataset Schema, Sheet Definition, Model fields.                                                                   |
+| `schema:write`    | Draft governed schema/configuration edits. Maps to session capability `schema.edit`.                                                        |
+| `schema:publish`  | Publish or retire governed schema/configuration. Maps to `schema.publish` / `schema.retire`.                                                |
+| `sheets:read`     | Read Sheet Instances and composed rows. Definition catalogues use `schema:read`.                                                            |
+| `sheets:write`    | Instance mutations, write-back, materialize, definition upgrade of an instance (`instance.upgrade`). Does **not** author Sheet Definitions. |
+| `templates:read`  | Read notebook templates and versions                                                                                                        |
+| `templates:write` | Author/publish/instantiate/upgrade notebook templates                                                                                       |
+| `reviews:read`    | Preview a submission digest on the credential path. Does **not** run revision checks.                                                       |
+| `reviews:write`   | Mintable. Does **not** submit, sign or amend; those stay human-session-only.                                                                |
+| `files:read`      | Download file objects                                                                                                                       |
+| `files:write`     | Upload and finalize files                                                                                                                   |
 
 **Invariant:** data-editing scopes (`datasets:*`, `sheets:write`, `models:write`)
 never grant governed schema/configuration authority. Schema stewardship RPCs
@@ -378,7 +379,7 @@ collapse those into `datasets:write`.
 **Mapping note:** Today's `projects:read` / `projects:write` remain valid
 during migration. New scopes subdivide the project domain without implying
 scientific-table access. `schema:*` is the future replacement for the
-retired `scientific:schema` *idea* (catalogue authority), not a restoration of
+retired `scientific:schema` _idea_ (catalogue authority), not a restoration of
 scientific-table RPCs.
 
 ### 8.2 Allowlist cut-over (API-07)
@@ -456,32 +457,33 @@ Once API-03 publishes versioned docs:
 
 ## 10. Implementation backlog (later API epics)
 
-| Epic | Work |
-| --- | --- |
-| **API-02** | Workspace service credentials. **Done** (`#47`). |
-| **API-07** | Core Dataset/Sheet `requiredScopes()` cut-over; credential write actors; human attestation kept off the credential path. **Done**. |
-| **API-03** | OpenAPI 3.1 from this contract; error reference; version prefix; pagination examples |
-| **API-04** | Python SDK — pagination iterators, pandas, idempotent helpers |
-| **API-05** | TypeScript SDK — typed resources, isomorphic fetch |
-| **API-06** | Webhooks — signed delivery, retries, event schema (`record.submitted`, `dataset.versioned`, …) |
-| **DATA-02/PLAT-01** | `api_client` file access; S3 backend |
-| **GOV-01** | `viewer` read-only semantics (affects RLS, not contract shape) |
+| Epic                | Work                                                                                                                               |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| **API-02**          | Workspace service credentials. **Done** (`#47`).                                                                                   |
+| **API-07**          | Core Dataset/Sheet `requiredScopes()` cut-over; credential write actors; human attestation kept off the credential path. **Done**. |
+| **API-03**          | OpenAPI 3.1 of the service-credential allowlist (`docs/openapi/service-credentials-v0.json`). **Done** on this stream.             |
+| **API-04**          | Python SDK — pagination iterators, pandas, idempotent helpers                                                                      |
+| **API-05**          | TypeScript SDK — typed resources, isomorphic fetch                                                                                 |
+| **API-06**          | Webhooks — signed delivery, retries, event schema (`record.submitted`, `dataset.versioned`, …)                                     |
+| **DATA-02/PLAT-01** | `api_client` file access; S3 backend                                                                                               |
+| **GOV-01**          | `viewer` read-only semantics (affects RLS, not contract shape)                                                                     |
 
 **Out of API-07:** schema/template **authoring** RPCs, personal tokens, named
-service-account principals, credential activity-audit events, OpenAPI.
+service-account principals, credential activity-audit events.
 
 ---
 
 ## 11. Related documentation
 
-| Document | Contents |
-| --- | --- |
-| `docs/external-api.md` | Credential exchange, **current** allowlist, CLI examples |
-| `docs/notebook-api.md` | Notebook/block/revision RPC reference |
-| `docs/search-api.md` | `search` RPC |
-| `docs/authentication.md` | Browser session auth |
-| `docs/decisions/0005-postgrest-claim-set-and-proxy.md` | Proxy architecture |
-| `docs/core/PRODUCT_CORE.md` | Domain model principles |
+| Document                                               | Contents                                                 |
+| ------------------------------------------------------ | -------------------------------------------------------- |
+| `docs/openapi/service-credentials-v0.json`             | OpenAPI 3.1 for operations an API key can complete       |
+| `docs/external-api.md`                                 | Credential exchange, **current** allowlist, CLI examples |
+| `docs/notebook-api.md`                                 | Notebook/block/revision RPC reference                    |
+| `docs/search-api.md`                                   | `search` RPC                                             |
+| `docs/authentication.md`                               | Browser session auth                                     |
+| `docs/decisions/0005-postgrest-claim-set-and-proxy.md` | Proxy architecture                                       |
+| `docs/core/PRODUCT_CORE.md`                            | Domain model principles                                  |
 
 ---
 

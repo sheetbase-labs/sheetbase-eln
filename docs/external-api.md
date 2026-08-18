@@ -6,8 +6,10 @@ PostgREST JWT through `POST /api/token`, then use that JWT against the
 same-origin `/api/db` boundary. The browser session is never involved.
 
 The **intended public contract** (resources, scopes, errors, pagination,
-idempotency, deprecation) lives in `docs/public-api-contract.md`. This
-document covers **credential mechanics** and the **currently implemented**
+idempotency, deprecation) lives in `docs/public-api-contract.md`. The
+**OpenAPI 3.1** description of operations an API key can complete is
+`docs/openapi/service-credentials-v0.json` (see `docs/openapi/README.md`).
+This document covers **credential mechanics** and the **currently implemented**
 external allowlist.
 
 > **Important:** API-07 maps Core Dataset and Sheet Instance operations onto
@@ -37,16 +39,16 @@ Optional credential expiry is enforced at exchange and rotation.
 
 ### Currently effective
 
-| Scope | Allows |
-| --- | --- |
-| `projects:read` / `projects:write` | Project-domain tables and RPCs |
-| `datasets:read` / `datasets:write` | Dataset query, commit, snapshot, archive. Not schema stewardship |
-| `sheets:read` / `sheets:write` | Sheet Instance reads and mutations. Does not author Sheet Definitions |
-| `models:read` / `models:write` | `search_sheet_records`, custom-field writes, Sheet→Record write-back |
-| `templates:read` / `templates:write` | Template catalogue reads and instantiation |
-| `reviews:read` | Preview a submission digest. Does not run revision checks |
-| `reviews:write` | Mintable. Does not submit, sign or amend |
-| `schema:read` | Catalogue GET only |
+| Scope                                | Allows                                                                |
+| ------------------------------------ | --------------------------------------------------------------------- |
+| `projects:read` / `projects:write`   | Project-domain tables and RPCs                                        |
+| `datasets:read` / `datasets:write`   | Dataset query, commit, snapshot, archive. Not schema stewardship      |
+| `sheets:read` / `sheets:write`       | Sheet Instance reads and mutations. Does not author Sheet Definitions |
+| `models:read` / `models:write`       | `search_sheet_records`, custom-field writes, Sheet→Record write-back  |
+| `templates:read` / `templates:write` | Template catalogue reads and instantiation                            |
+| `reviews:read`                       | Preview a submission digest. Does not run revision checks             |
+| `reviews:write`                      | Mintable. Does not submit, sign or amend                              |
+| `schema:read`                        | Catalogue GET only                                                    |
 
 ### Still fail-closed
 
@@ -207,7 +209,7 @@ Data requests return the stable envelope documented in
 
 | Test file                          | Proves                                                                |
 | ---------------------------------- | --------------------------------------------------------------------- |
-| `src/lib/external-token.test.ts`   | Allowlist scope mapping; Core grants; still-private deny-list          |
+| `src/lib/external-token.test.ts`   | Allowlist scope mapping; Core grants; still-private deny-list         |
 | `tests/db/api-credentials.test.ts` | Creation, exchange, wrong secret/scope, revocation, rate-limit        |
 | `tests/db/external-api.test.ts`    | End-to-end RLS, scope enforcement, revocation-at-use, tampered claims |
 
@@ -221,4 +223,4 @@ not part of the public contract.
 2. Use canonical Core-domain scopes for Dataset/Sheet automation (API-07).
 3. Do **not** depend on `scientific:*` scopes or scientific-table paths.
 4. Do **not** use an API key to submit, sign, amend or run revision checks.
-5. Schema-authoring, files, OpenAPI and SDKs remain later API/DATA work.
+5. Schema-authoring, files and SDKs remain later API/DATA work.

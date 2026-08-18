@@ -6,7 +6,7 @@ const contract = readFileSync('docs/public-api-contract.md', 'utf8')
 function grantsFor(scope: string): string {
   const row = contract
     .split('\n')
-    .find((line) => line.startsWith(`| \`${scope}\` |`))
+    .find((line) => new RegExp(`^\\| \`${scope}\` +\\|`).test(line))
   expect(row, `missing contract row for ${scope}`).toBeTruthy()
   return row ?? ''
 }
@@ -27,19 +27,29 @@ describe('API-01 Core scope vocabulary', () => {
     expect(grantsFor('schema:read')).toMatch(/Dataset Schema/)
     expect(grantsFor('schema:write')).toMatch(/schema\.edit/)
     expect(grantsFor('schema:publish')).toMatch(/schema\.publish/)
-    expect(contract).toMatch(/never grant governed schema\/configuration authority/)
-    expect(contract).toMatch(/Do not[\s\S]{0,20}collapse those into `datasets:write`/)
+    expect(contract).toMatch(
+      /never grant governed schema\/configuration authority/,
+    )
+    expect(contract).toMatch(
+      /Do not[\s\S]{0,20}collapse those into `datasets:write`/,
+    )
   })
 
   it('does not let sheets:write author Sheet Definitions', () => {
-    expect(grantsFor('sheets:write')).toMatch(/Does \*\*not\*\* author Sheet Definitions/)
+    expect(grantsFor('sheets:write')).toMatch(
+      /Does \*\*not\*\* author Sheet Definitions/,
+    )
     expect(grantsFor('sheets:read')).toMatch(/schema:read/)
   })
 
   it('does not advertise credential submit, sign, amend or revision checks', () => {
     expect(grantsFor('reviews:read')).toMatch(/Preview a submission digest/)
-    expect(grantsFor('reviews:read')).toMatch(/Does \*\*not\*\* run revision checks/)
-    expect(grantsFor('reviews:write')).toMatch(/Does \*\*not\*\* submit, sign or amend/)
+    expect(grantsFor('reviews:read')).toMatch(
+      /Does \*\*not\*\* run revision checks/,
+    )
+    expect(grantsFor('reviews:write')).toMatch(
+      /Does \*\*not\*\* submit, sign or amend/,
+    )
     expect(grantsFor('reviews:write')).toMatch(/human-session-only/)
     expect(contract).toMatch(/stay \*\*off\*\* the credential allowlist/)
   })

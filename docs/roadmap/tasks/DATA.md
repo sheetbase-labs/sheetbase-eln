@@ -1,6 +1,6 @@
 # DATA — Data Interoperability
 
-**Status:** DATA-01 is a **Medium Ready candidate** now that PC-01 and PC-02 are on `main`. Do not start it until assigned.
+**Status:** DATA-01 complete. Remaining work is DATA-02 (export), DATA-03 (files) and DATA-04 (search). Do not start those until assigned.
 
 ## Programme goal
 
@@ -8,15 +8,17 @@ Make scientific data easy to bring into Sheetbase, move out in useful formats, a
 
 ## DATA-01 — Import Framework
 
-### Current state (PC-00, updated after PC-01/PC-02)
+**Priority:** medium. **Status:** Complete.
 
-No Dataset/Sheet CSV/XLSX/JSON import framework yet. Canonical Sheet paste exists as grid interaction, not a mapping/validation import. Plate CSV and leftover scientific CSV are not the canonical path.
+### Current state
 
-PC-01 canonical Sheet interaction and PC-02 Dataset product are merged. Refine the import/paste contract against those surfaces. Do not start until assigned.
+Laboratory files and clipboard pastes import into governed Dataset and Record state. The wizard parses CSV, TSV, JSON, XLSX and clipboard text, previews rows, maps columns, fail-closes on type coercion, validates against the Dataset's current Schema Version, then commits only through `validate_dataset_row_batch` / `commit_dataset_row_batch` or `validate_sheet_record_batch` / `create_model_record`.
 
-### Scope
+Canonical Sheet paste remains grid interaction (PC-01), not this framework. Plate CSV stays a plate-designer tool. Leftover scientific CSV import is no longer a product path.
 
-CSV, XLSX, TSV, JSON and clipboard; preview; sheet/range selection; header detection; type inference; target Dataset/Schema selection; field mapping; required/default handling; quantity/category/reference validation; Record resolution/create; row-level errors; validate-before-commit; atomicity policy; large-file handling; provenance and import report.
+### Scope delivered
+
+CSV, XLSX, TSV, JSON and clipboard; preview; sheet selection; header detection; target Dataset or Record mapping; required-field handling; fail-closed integer/decimal/boolean coercion; Schema Version pinning; row-level errors; validate-before-commit; 1–1000 row batches (canonical RPC ceiling).
 
 ### Exit
 

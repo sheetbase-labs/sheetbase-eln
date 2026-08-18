@@ -12,7 +12,7 @@ CORE-01–06 and Core Hardening remain closed. Do not reopen settled Core archit
 
 Delivery priority uses only **medium** and **low**. Nothing is queued as high.
 
-**Merged `main` HEAD for this hand-off:** `df1fcb2` (`docs: apply no-compatibility rule to future roadmap work`).
+**Merged `main` HEAD for this hand-off:** `30496db` (`feat: core Dataset/Sheet/Notebook external allowlist cut-over` / `#50`).
 
 ## Active work
 
@@ -21,8 +21,8 @@ The roadmap supports **parallel streams**. Agents take **one assigned stream/tas
 | Stream | Active task | Model | Status |
 | --- | --- | --- | --- |
 | PC | — | — | PC-01 and PC-02 complete; PC-03 remains later |
-| API | API-07 — Core External Allowlist Cut-over | Medium | Complete on branch |
-| DATA | DATA-01 — Import Framework | Medium | Ready candidate |
+| API | — | — | API-01, API-02 and API-07 complete |
+| DATA | — | — | DATA-01 complete; DATA-02 remains later |
 | GOV | — | — | GOV-01 complete; GOV-02 requires an ADR |
 | PLAT | — | — | Headers slice complete; remaining PLAT-03 queued |
 | COLLAB | — | — | Planned |
@@ -40,12 +40,9 @@ merged  PC-02   Dataset and Record product workflows (#44) @ b01b029
 merged  GOV-01  viewer read-only (#45) @ 1256258
 merged  hand-off regenerate (#46) @ 52b304b
 merged  API-02  workspace service credentials (#47) @ df27039
+merged  API-07  Core Dataset/Sheet external allowlist (#50) @ 30496db
 
-complete on branch
-  API-07  [Medium] Core Dataset/Sheet external allowlist cut-over
-
-candidates (assign one stream; do not fan out)
-  DATA-01 [Medium] import/paste against the canonical Sheet + Dataset product
+DATA-01 complete on this stream (import framework; not yet on main)
 ```
 
 ## Stream briefs
@@ -59,23 +56,25 @@ Task: [`tasks/PC.md`](./tasks/PC.md)
 
 **PC-03** (full Notebook product) remains later. Do not start it from this hand-off. Do not reopen PC-01/PC-02.
 
-### API — API-07 complete on branch
+### API — API-07 complete
 
-Task: [`tasks/API.md`](./tasks/API.md)  
+Task: [`tasks/API.md`](./tasks/API.md)
 Prompt: [`prompts/API.md`](./prompts/API.md)
 
 **API-01 complete** (`#40` / `b306654`): `docs/public-api-contract.md` v0.1.1. Dataset data scopes are distinct from governed `schema:*`. `sheets:write` does not grant Sheet Definition authorship.
 
 **API-02 complete** (`#47` / `df27039`): workspace service credentials. Canonical API-01 scopes only; `scientific:*` removed. Rotation copies scopes and expiry exactly. Optional credential expiry; JWT TTL 300s. Personal tokens, named service-account principals, and credential activity-audit events remain later API work — not API-07.
 
-**API-07 complete** (this branch): `requiredScopes()` maps Core Dataset/Sheet RPCs to canonical scopes. Mapped Dataset/Sheet data-plane writes succeed for `api_client` with `credential_id` attribution (`drizzle/0115_api_07_credential_write_actors.sql`). Submit, sign, amend and revision checks stay off the credential allowlist. Schema-authoring RPCs, files and specialist surfaces stay fail-closed. Do not start API-03 (OpenAPI) from this hand-off.
+**API-07 complete** (`#50` / `30496db`): `requiredScopes()` maps Core Dataset/Sheet RPCs to canonical scopes. Mapped Dataset/Sheet data-plane writes succeed for `api_client` with `credential_id` attribution (`drizzle/0115_api_07_credential_write_actors.sql`). Submit, sign, amend and revision checks stay off the credential allowlist. Schema-authoring RPCs, files and specialist surfaces stay fail-closed. Do not start API-03 (OpenAPI) from this hand-off.
 
-### DATA — DATA-01 (Medium, Ready candidate)
+### DATA — DATA-01 complete
 
-Task: [`tasks/DATA.md`](./tasks/DATA.md)  
+Task: [`tasks/DATA.md`](./tasks/DATA.md)
 Prompt: [`prompts/DATA.md`](./prompts/DATA.md)
 
-PC-01 Sheet interaction and PC-02 Dataset product are on `main`. **DATA-01** may be assigned: CSV/XLSX/TSV/JSON/clipboard import with preview, mapping and validate-before-commit through canonical Dataset/Record writers. Do not build a second Dataset write path.
+**DATA-01 complete:** CSV, TSV, JSON, XLSX and clipboard import with preview, column mapping and validate-before-commit. Dataset writes use `validate_dataset_row_batch` / `commit_dataset_row_batch`. Record writes use `validate_sheet_record_batch` / `create_model_record`. Coercion fails closed. Rows pin to the Dataset's current Schema Version. Sheet grid paste remains PC-01; plate CSV is not the product import path.
+
+**DATA-02 / DATA-03 / DATA-04** remain later. Do not start them from this hand-off.
 
 ### GOV — GOV-01 complete
 
@@ -93,8 +92,8 @@ Task: [`tasks/PLAT.md`](./tasks/PLAT.md)
 
 ## Dependencies
 
-- DATA-01 is unblocked by PC-01 (and should use PC-02 Dataset product contracts).
-- API-07 Core external allowlist cut-over is complete on branch. API-03 is not automatically Ready.
+- DATA-01 is complete (canonical Dataset/Record import). DATA-02 export is not started.
+- API-07 Core external allowlist cut-over is complete (`#50`). Submit, sign, amend and revision checks stay human-session-only. API-03 is not automatically Ready.
 - PC-03 is not automatically Ready.
 - GOV-02 is not Ready without an ADR.
 - Remaining PLAT-03 is queued, not a new Ready stream.
@@ -121,4 +120,4 @@ Task: [`tasks/PLAT.md`](./tasks/PLAT.md)
 
 ## Expected hand-off from Ready candidates (when assigned)
 
-- **DATA-01:** laboratory files/pastes become governed Dataset/Record state with validation before commit, using canonical writers.
+- **DATA-02:** Dataset/Sheet/Record export without implying mutable evidence is immutable.

@@ -12,18 +12,18 @@ This folder contains reusable starting prompts for the post-Core roadmap program
 
 ## Prompts
 
-| Prompt | Programme |
-| --- | --- |
-| [`PC-00.md`](./PC-00.md) | Product & Platform Consolidation Audit (complete) |
-| [`PC.md`](./PC.md) | Product Consolidation (PC-01 and PC-02 complete) |
-| [`API.md`](./API.md) | API & Developer Platform (Ready candidate: API-02, low) |
-| [`DATA.md`](./DATA.md) | Data Interoperability (Ready candidate: DATA-01, medium) |
-| [`GOV.md`](./GOV.md) | Identity, Administration & Governance (GOV-01 complete) |
-| [`COLLAB.md`](./COLLAB.md) | Collaboration |
-| [`SCI.md`](./SCI.md) | Scientific Analysis & Visualisation |
-| [`INT.md`](./INT.md) | Integrations |
-| [`PLAT.md`](./PLAT.md) | Platform, Operations & Security (headers slice complete) |
-| [`AUTO.md`](./AUTO.md) | Automation |
+| Prompt                     | Programme                                                |
+| -------------------------- | -------------------------------------------------------- |
+| [`PC-00.md`](./PC-00.md)   | Product & Platform Consolidation Audit (complete)        |
+| [`PC.md`](./PC.md)         | Product Consolidation (PC-01 and PC-02 complete)         |
+| [`API.md`](./API.md)       | API & Developer Platform (Ready candidate: API-02, low)  |
+| [`DATA.md`](./DATA.md)     | Data Interoperability (DATA-01 complete)                 |
+| [`GOV.md`](./GOV.md)       | Identity, Administration & Governance (GOV-01 complete)  |
+| [`COLLAB.md`](./COLLAB.md) | Collaboration                                            |
+| [`SCI.md`](./SCI.md)       | Scientific Analysis & Visualisation                      |
+| [`INT.md`](./INT.md)       | Integrations                                             |
+| [`PLAT.md`](./PLAT.md)     | Platform, Operations & Security (headers slice complete) |
+| [`AUTO.md`](./AUTO.md)     | Automation                                               |
 
 ## Shared operating rules
 

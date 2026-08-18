@@ -2195,7 +2195,7 @@ export function ScientificSheetBlock({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={() => setTransferOpen(true)}>
-                Import &amp; export CSV
+                Export CSV
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => setInspectorOpen(true)}>
                 API inspector
@@ -2239,27 +2239,16 @@ export function ScientificSheetBlock({
       <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
         <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Data interchange</DialogTitle>
+            <DialogTitle>Sheet export</DialogTitle>
             <DialogDescription>
-              Import rows from CSV or export the sheet with schema and unit
-              metadata.
+              Export this Sheet with schema and unit metadata. Laboratory file
+              import lives on Datasets and Records, not leftover scientific CSV.
             </DialogDescription>
           </DialogHeader>
           <ScientificTransferPanel
             table={table}
             rows={allRowsQuery.data ?? []}
             readOnly={readOnly}
-            onImported={async () => {
-              await Promise.all([
-                tableQuery.refetch(),
-                queryClient.invalidateQueries({
-                  queryKey: allRowsKey,
-                }),
-                queryClient.invalidateQueries({
-                  queryKey: scientificQueryKeys.allRows(tableId),
-                }),
-              ])
-            }}
           />
         </DialogContent>
       </Dialog>

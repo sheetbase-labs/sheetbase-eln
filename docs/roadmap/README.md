@@ -20,17 +20,17 @@ This folder is the canonical planning home for Sheetbase after the completed Cor
 
 ## Programmes
 
-| Prefix | Programme | Relative timing | Agent prompt |
-| --- | --- | --- | --- |
-| `PC` | Product Consolidation | Now | [`prompts/PC.md`](./prompts/PC.md) |
-| `API` | API & Developer Platform | Early / parallel with PC | [`prompts/API.md`](./prompts/API.md) |
-| `DATA` | Data Interoperability | Early / parallel with PC | [`prompts/DATA.md`](./prompts/DATA.md) |
-| `GOV` | Identity, Administration & Governance | Early–mid | [`prompts/GOV.md`](./prompts/GOV.md) |
-| `COLLAB` | Collaboration | Mid | [`prompts/COLLAB.md`](./prompts/COLLAB.md) |
-| `SCI` | Scientific Analysis & Visualisation | Mid, after core Sheet UX stabilises | [`prompts/SCI.md`](./prompts/SCI.md) |
-| `INT` | Integrations | Mid–late | [`prompts/INT.md`](./prompts/INT.md) |
-| `PLAT` | Platform, Operations & Security | Continuous | [`prompts/PLAT.md`](./prompts/PLAT.md) |
-| `AUTO` | Automation | Later | [`prompts/AUTO.md`](./prompts/AUTO.md) |
+| Prefix   | Programme                             | Relative timing                     | Agent prompt                               |
+| -------- | ------------------------------------- | ----------------------------------- | ------------------------------------------ |
+| `PC`     | Product Consolidation                 | Now                                 | [`prompts/PC.md`](./prompts/PC.md)         |
+| `API`    | API & Developer Platform              | Early / parallel with PC            | [`prompts/API.md`](./prompts/API.md)       |
+| `DATA`   | Data Interoperability                 | Early / parallel with PC            | [`prompts/DATA.md`](./prompts/DATA.md)     |
+| `GOV`    | Identity, Administration & Governance | Early–mid                           | [`prompts/GOV.md`](./prompts/GOV.md)       |
+| `COLLAB` | Collaboration                         | Mid                                 | [`prompts/COLLAB.md`](./prompts/COLLAB.md) |
+| `SCI`    | Scientific Analysis & Visualisation   | Mid, after core Sheet UX stabilises | [`prompts/SCI.md`](./prompts/SCI.md)       |
+| `INT`    | Integrations                          | Mid–late                            | [`prompts/INT.md`](./prompts/INT.md)       |
+| `PLAT`   | Platform, Operations & Security       | Continuous                          | [`prompts/PLAT.md`](./prompts/PLAT.md)     |
+| `AUTO`   | Automation                            | Later                               | [`prompts/AUTO.md`](./prompts/AUTO.md)     |
 
 PC-00 has its own audit prompt: [`prompts/PC-00.md`](./prompts/PC-00.md).
 
@@ -66,7 +66,7 @@ This is a dependency shape, not a mandate that every programme must finish befor
 
 Do not start large post-Core implementation from an old summary. Begin with `NEXT.md`, then follow the **assigned** stream's task file and matching prompt. Ready streams may run in parallel; one agent does not own every Ready row.
 
-PC-00 is accepted (`audits/PC-00.md`). Immediate Ready candidates are **API-02** (low) and **DATA-01** (medium). Assign one stream; do not start both automatically.
+PC-00 is accepted (`audits/PC-00.md`). Immediate Ready candidate after DATA-01 is **API-07** (medium). Assign one stream; do not start unassigned work.
 
 ## Relationship to root `ROADMAP.md`
 

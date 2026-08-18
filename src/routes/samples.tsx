@@ -12,9 +12,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
-import { PackagePlus } from 'lucide-react'
+import { PackagePlus, Upload } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
+import { ImportWizard } from '#/components/import/import-wizard'
 import { RegistryComposition } from '#/components/registry/registry-composition'
 import type { DataGridField } from '#/components/data-grid'
 import { SampleInspector } from '#/components/samples/sample-inspector'
@@ -157,6 +158,7 @@ function SamplesRegistryRoute() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
 
   function setQuery(next: RegistryQuery) {
     void navigate({
@@ -490,9 +492,19 @@ function SamplesRegistryRoute() {
           emptyTitle="No samples yet"
           noResultsTitle="No matching samples"
           actions={
-            <Button size="sm" onClick={() => setCreateOpen(true)}>
-              <PackagePlus className="size-3.5" /> New sample
-            </Button>
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setImportOpen(true)}
+                disabled={(projectsQuery.data ?? []).length === 0}
+              >
+                <Upload className="size-3.5" /> Import
+              </Button>
+              <Button size="sm" onClick={() => setCreateOpen(true)}>
+                <PackagePlus className="size-3.5" /> New sample
+              </Button>
+            </>
           }
         />
         <CreateSampleDialog
@@ -505,6 +517,22 @@ function SamplesRegistryRoute() {
           onCreate={(input) => createMutation.mutate(input)}
           modelFields={modelFields}
         />
+        {projectsQuery.data?.[0] ? (
+          <ImportWizard
+            open={importOpen}
+            onOpenChange={setImportOpen}
+            client={dataClient}
+            mode={{
+              kind: 'record',
+              projectId: projectsQuery.data[0].id,
+              projects: projectsQuery.data,
+              modelKey: 'sample',
+              recordKind: 'sample',
+              fields: modelFields,
+            }}
+            onDone={invalidateAll}
+          />
+        ) : null}
       </div>
     </>
   )

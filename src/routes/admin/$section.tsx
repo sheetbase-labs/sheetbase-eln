@@ -6,6 +6,7 @@ const sections = new Set([
   'model-fields',
   'settings',
   'sessions',
+  'api-credentials',
   'activity',
 ])
 

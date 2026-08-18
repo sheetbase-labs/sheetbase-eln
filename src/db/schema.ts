@@ -228,6 +228,10 @@ export const apiCredentials = internal.table(
   (table) => [
     index('idx_api_credentials_workspace_id').on(table.workspaceId),
     index('idx_api_credentials_secret_hash').on(table.secretHash),
+    check(
+      'chk_api_credentials_scopes',
+      sql`cardinality(${table.scopes}) > 0 AND ${table.scopes} <@ ARRAY['projects:read','projects:write','datasets:read','datasets:write','schema:read','schema:write','schema:publish','sheets:read','sheets:write','models:read','models:write','templates:read','templates:write','reviews:read','reviews:write','files:read','files:write','scientific:read','scientific:write','scientific:schema']::text[]`,
+    ),
   ],
 )
 

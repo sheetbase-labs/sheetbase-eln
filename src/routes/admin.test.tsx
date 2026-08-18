@@ -40,9 +40,13 @@ vi.mock('@tanstack/react-router', () => ({
 }))
 
 vi.mock('@tanstack/react-start', () => ({
-  createServerFn: () => ({
-    handler: (fn: (...args: never[]) => unknown) => fn,
-  }),
+  createServerFn: () => {
+    const chain = {
+      validator: () => chain,
+      handler: (fn: (...args: never[]) => unknown) => fn,
+    }
+    return chain
+  },
 }))
 
 vi.mock('@tanstack/react-query', () => ({
@@ -160,6 +164,7 @@ describe('AdminRoute', () => {
       'Users',
       'Project access',
       'Sessions',
+      'API credentials',
       'Activity',
       'Workspace settings',
       'Model fields',

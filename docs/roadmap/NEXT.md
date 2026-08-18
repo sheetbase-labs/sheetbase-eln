@@ -18,17 +18,17 @@ Delivery priority uses only **medium** and **low**. Nothing is queued as high.
 
 The roadmap supports **parallel streams**. Agents take **one assigned stream/task**. Ready does not mean “do every Ready row”. **Do not start a Ready stream until it is assigned.**
 
-| Stream | Active task | Model | Status |
-| --- | --- | --- | --- |
-| PC | — | — | PC-01 and PC-02 complete; PC-03 remains later |
-| API | API-02 — API Credentials & Service Identity | Low | Ready candidate |
-| DATA | DATA-01 — Import Framework | Medium | Ready candidate |
-| GOV | — | — | GOV-01 complete; GOV-02 requires an ADR |
-| PLAT | — | — | Headers slice complete; remaining PLAT-03 queued |
-| COLLAB | — | — | Planned |
-| SCI | — | — | Planned |
-| INT | — | — | Planned |
-| AUTO | — | — | Planned later |
+| Stream | Active task                                 | Model  | Status                                           |
+| ------ | ------------------------------------------- | ------ | ------------------------------------------------ |
+| PC     | —                                           | —      | PC-01 and PC-02 complete; PC-03 remains later    |
+| API    | API-02 — API Credentials & Service Identity | Low    | In progress                                      |
+| DATA   | DATA-01 — Import Framework                  | Medium | Ready candidate                                  |
+| GOV    | —                                           | —      | GOV-01 complete; GOV-02 requires an ADR          |
+| PLAT   | —                                           | —      | Headers slice complete; remaining PLAT-03 queued |
+| COLLAB | —                                           | —      | Planned                                          |
+| SCI    | —                                           | —      | Planned                                          |
+| INT    | —                                           | —      | Planned                                          |
+| AUTO   | —                                           | —      | Planned later                                    |
 
 ### Immediate execution shape
 
@@ -39,9 +39,11 @@ merged  PLAT-03 headers slice (#43) @ 3c3c8ee
 merged  PC-02   Dataset and Record product workflows (#44) @ b01b029
 merged  GOV-01  viewer read-only (#45) @ 1256258
 
-candidates (assign one stream; do not fan out)
-  API-02  [Low]    credentials/service identity against the published contract
+candidates (assign one remaining stream; do not fan out)
   DATA-01 [Medium] import/paste against the canonical Sheet + Dataset product
+
+in progress
+  API-02  [Low]    credentials/service identity against the published contract
 ```
 
 ## Stream briefs
@@ -62,7 +64,7 @@ Prompt: [`prompts/API.md`](./prompts/API.md)
 
 **API-01 complete** (`#40` / `b306654`): `docs/public-api-contract.md` v0.1.1. Dataset data scopes are distinct from governed `schema:*`. `sheets:write` does not grant Sheet Definition authorship. External allowlist remains project-domain until a later cut-over.
 
-**API-02** may be assigned next: productise credentials (UI, service identity, rotation/revocation, attribution) against that contract. Do not invent a second permission model. Do not silently cut over Core Dataset/Sheet RPCs if that is Medium allowlist/RLS work — stop and queue it.
+**API-02** is in progress: productise credentials (UI, service identity, rotation/revocation, attribution) against that contract. Do not invent a second permission model. Do not silently cut over Core Dataset/Sheet RPCs if that is Medium allowlist/RLS work — stop and queue it.
 
 ### DATA — DATA-01 (Medium, Ready candidate)
 

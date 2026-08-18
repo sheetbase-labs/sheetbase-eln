@@ -55,7 +55,7 @@ A developer can read the intended public contract without treating scientific-ta
 
 ## API-02 — API Credentials & Service Identity
 
-**Priority:** low. **Status:** Ready candidate after API-01.
+**Priority:** low. **Status:** In progress after API-01.
 
 Personal tokens; service accounts; workspace binding; capability scopes; expiry; rotation; revocation; last-used metadata; credential audit; request attribution; safe secret handling.
 

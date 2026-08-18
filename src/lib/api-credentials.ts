@@ -1,5 +1,5 @@
 /**
- * API-005: scoped external API credentials. Credentials live in
+ * Scoped external API credentials. Credentials live in
  * internal.api_credentials (never exposed to PostgREST). The full secret is
  * shown to the user exactly once at creation; only a hash is stored.
  *
@@ -17,25 +17,27 @@ import { SignJWT } from 'jose'
 
 import type * as schema from '#/db/schema'
 import { apiCredentials, workspaceMemberships } from '#/db/schema'
+import {
+  isProductScope,
+  isScientificScope,
+  isValidScope,
+  PRODUCT_SCOPES,
+  type ProductScope,
+  type Scope,
+} from '#/lib/api-credential-scopes'
+
+export type { ProductScope, Scope } from '#/lib/api-credential-scopes'
+export {
+  isProductScope,
+  isScientificScope,
+  isValidScope,
+  PRODUCT_SCOPES,
+  SCIENTIFIC_SCOPES,
+  SCOPE_GROUPS,
+  VALID_SCOPES,
+} from '#/lib/api-credential-scopes'
 
 export type Db = NodePgDatabase<typeof schema>
-
-/**
- * External credential capabilities. Only `projects:*` scopes are effective
- * today (`src/lib/external-token.ts`). `scientific:*` entries are vestigial:
- * mintable for backward compatibility but mapped to an empty allowlist.
- * Core-domain scopes are specified in docs/public-api-contract.md §8 and
- * will replace `scientific:*` in API-02. Dataset data (`datasets:*`) stays
- * separate from governed schema/configuration (`schema:read|write|publish`).
- */
-export const VALID_SCOPES = [
-  'projects:read',
-  'projects:write',
-  'scientific:read',
-  'scientific:write',
-  'scientific:schema',
-] as const
-export type Scope = (typeof VALID_SCOPES)[number]
 
 /**
  * The full credential string shown to the user once. Format:
@@ -61,6 +63,7 @@ export interface CredentialRecord {
   createdAt: Date
   lastUsedAt: Date | null
   revokedAt: Date | null
+  createdByUserId: string
 }
 
 function generatePrefix(): string {
@@ -100,10 +103,36 @@ function constantTimeEqual(a: string, b: string): boolean {
   return timingSafeEqual(ab, bb)
 }
 
+function assertIssuableScopes(scopes: Scope[]): ProductScope[] {
+  if (scopes.length === 0) {
+    throw new CredentialError(
+      'invalid_scope',
+      'At least one scope is required.',
+    )
+  }
+  const product: ProductScope[] = []
+  for (const scope of scopes) {
+    if (!isValidScope(scope)) {
+      throw new CredentialError('invalid_scope', `Unknown scope: ${scope}`)
+    }
+    if (isScientificScope(scope)) {
+      throw new CredentialError(
+        'invalid_scope',
+        `scientific:* scopes are no longer issued (${scope}).`,
+      )
+    }
+    if (!isProductScope(scope)) {
+      throw new CredentialError('invalid_scope', `Unknown scope: ${scope}`)
+    }
+    product.push(scope)
+  }
+  return product
+}
+
 /**
  * Creates a credential. The full secret is returned exactly once; only the
- * hash and display prefix are stored. Scopes are validated against the
- * current vocabulary.
+ * hash and display prefix are stored. New credentials accept the API-01
+ * product vocabulary only — `scientific:*` is rejected (contract §9.2).
  */
 export async function createCredential(
   db: Db,
@@ -114,11 +143,11 @@ export async function createCredential(
     scopes: Scope[]
   },
 ): Promise<CreatedCredential> {
-  for (const scope of input.scopes) {
-    if (!VALID_SCOPES.includes(scope)) {
-      throw new CredentialError('invalid_scope', `Unknown scope: ${scope}`)
-    }
+  const name = input.name.trim()
+  if (!name) {
+    throw new Error('Name is required.')
   }
+  const scopes = assertIssuableScopes(input.scopes)
 
   // Generate a unique prefix (collision is astronomically unlikely but the
   // unique constraint is the backstop).
@@ -138,8 +167,8 @@ export async function createCredential(
       workspaceId: input.workspaceId,
       displayPrefix: prefix,
       secretHash: hashSecret(prefix, secret),
-      name: input.name,
-      scopes: input.scopes,
+      name,
+      scopes,
       createdByUserId: input.createdByUserId,
     })
     .returning({ id: apiCredentials.id })
@@ -150,8 +179,8 @@ export async function createCredential(
     id: row.id,
     secret: buildCredentialString(prefix, secret),
     displayPrefix: prefix,
-    name: input.name,
-    scopes: input.scopes,
+    name,
+    scopes,
   }
 }
 
@@ -173,6 +202,7 @@ export async function listCredentials(
     createdAt: row.createdAt,
     lastUsedAt: row.lastUsedAt,
     revokedAt: row.revokedAt,
+    createdByUserId: row.createdByUserId,
   }))
 }
 
@@ -190,6 +220,50 @@ export async function revokeCredential(
         eq(apiCredentials.workspaceId, input.workspaceId),
       ),
     )
+}
+
+/**
+ * Issues a replacement credential with the same product scopes, then revokes
+ * the previous one. Vestigial `scientific:*` scopes are dropped; if none
+ * remain, `projects:read` is used so the new credential is still issuable.
+ */
+export async function rotateCredential(
+  db: Db,
+  input: {
+    workspaceId: string
+    credentialId: string
+    createdByUserId: string
+  },
+): Promise<CreatedCredential> {
+  return await db.transaction(async (tx) => {
+    const existing = await tx.query.apiCredentials.findFirst({
+      where: and(
+        eq(apiCredentials.id, input.credentialId),
+        eq(apiCredentials.workspaceId, input.workspaceId),
+      ),
+    })
+    if (!existing) {
+      throw new CredentialError('invalid_credential', 'Credential not found.')
+    }
+    if (existing.revokedAt) {
+      throw new CredentialError('revoked', 'Credential has been revoked.')
+    }
+
+    const kept = (existing.scopes as string[]).filter(isProductScope)
+    const scopes: ProductScope[] = kept.length > 0 ? kept : [PRODUCT_SCOPES[0]]
+
+    const created = await createCredential(tx, {
+      workspaceId: input.workspaceId,
+      createdByUserId: input.createdByUserId,
+      name: existing.name,
+      scopes,
+    })
+    await revokeCredential(tx, {
+      workspaceId: input.workspaceId,
+      credentialId: existing.id,
+    })
+    return created
+  })
 }
 
 export type ExchangeErrorCode =
@@ -360,7 +434,7 @@ export async function mintApiClientToken(
 
 /**
  * Verifies the caller is an owner of the workspace before a credential
- * mutation. Used by the route layer to authorise create/revoke.
+ * mutation. Used by the route layer to authorise create/revoke/rotate.
  */
 export async function isWorkspaceOwner(
   db: Db,
@@ -373,5 +447,20 @@ export async function isWorkspaceOwner(
       eq(workspaceMemberships.workspaceId, workspaceId),
     ),
   })
-  return membership?.role === 'owner'
+  return membership?.role === 'owner' && !membership.suspendedAt
+}
+
+/** True when the user is a non-suspended member of the workspace. */
+export async function isWorkspaceMember(
+  db: Db,
+  userId: string,
+  workspaceId: string,
+): Promise<boolean> {
+  const membership = await db.query.workspaceMemberships.findFirst({
+    where: and(
+      eq(workspaceMemberships.userId, userId),
+      eq(workspaceMemberships.workspaceId, workspaceId),
+    ),
+  })
+  return Boolean(membership && !membership.suspendedAt)
 }

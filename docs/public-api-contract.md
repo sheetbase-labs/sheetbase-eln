@@ -68,8 +68,9 @@ Dataset/Sheet/Notebook Template RPCs and all removed scientific-table
 resources — returns `permission_denied` / `insufficient_scope` at the proxy.
 
 **Vestigial scopes:** `scientific:read`, `scientific:write`, `scientific:schema`
-remain mintable (`src/lib/api-credentials.ts`) but `SCIENTIFIC_METADATA` is
-empty; they grant access to **no resources**. See §9.
+are **not issued** on new credentials (API-02). Existing rows may still
+exchange; `SCIENTIFIC_METADATA` is empty so they grant access to **no
+resources**. See §9.
 
 ### 2.2 Intended public surface (queued implementation)
 
@@ -331,7 +332,7 @@ scientific-table RPCs.
 ### 8.2 Allowlist cut-over (not in API-01)
 
 Implementation queues explicit `requiredScopes()` entries per RPC/table
-(API-02/03). Principles:
+(later allowlist epic). Principles:
 
 - Fail closed for unknown paths (keep current behaviour).
 - RPC allowlist mirrors product UI capabilities, not every `api.*` function.
@@ -359,8 +360,7 @@ defect (P1-A2).
 
 | Phase | Behaviour |
 | --- | --- |
-| **Now** | Scopes mintable; allowlist empty → no resource access |
-| **API-02** | Stop issuing new credentials with `scientific:*`; admin UI shows deprecation |
+| **Now (API-02)** | New credentials cannot include `scientific:*`; admin UI does not offer them. Existing rows still exchange. |
 | **API-03+** | Reject `scientific:*` at exchange with `invalid_scope` after notice period |
 
 If any external consumer still holds `scientific:*` credentials: **revoke and
@@ -389,7 +389,7 @@ Once API-03 publishes versioned docs:
 
 | Epic | Work |
 | --- | --- |
-| **API-02** | Credentials UI; service accounts; Core scope cut-over in `external-token.ts`; stop minting `scientific:*`; last-used metadata |
+| **API-02** | Credentials UI; rotation/revocation; last-used; stop minting `scientific:*`. **Done.** Core scope cut-over in `external-token.ts` remains queued. |
 | **API-03** | OpenAPI 3.1 from this contract; error reference; version prefix; pagination examples |
 | **API-04** | Python SDK — pagination iterators, pandas, idempotent helpers |
 | **API-05** | TypeScript SDK — typed resources, isomorphic fetch |

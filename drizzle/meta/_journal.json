@@ -792,6 +792,13 @@
       "when": 1771451000000,
       "tag": "0112_gov_01_viewer_write_enforcement",
       "breakpoints": true
+    },
+    {
+      "idx": 113,
+      "version": "7",
+      "when": 1771452000000,
+      "tag": "0113_api_02_credential_scopes",
+      "breakpoints": true
     }
   ]
 }

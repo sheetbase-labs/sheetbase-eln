@@ -55,6 +55,41 @@ function obj(
   }
 }
 
+function ref(name: string): JsonSchema {
+  return { $ref: `#/components/schemas/${name}` }
+}
+
+function jsonMap(description: string): JsonSchema {
+  return {
+    type: 'object',
+    additionalProperties: true,
+    description,
+  }
+}
+
+const parameterInputs: JsonSchema = {
+  type: 'array',
+  maxItems: 64,
+  items: ref('SheetParameterInput'),
+  description:
+    'JSON array of `{ parameterId, kind, … }` inputs. Empty array when unused. Not a map.',
+}
+
+const sheetDefinitionDecisions: JsonSchema = {
+  type: 'array',
+  maxItems: 512,
+  items: ref('SheetDefinitionUpgradeDecision'),
+  description:
+    'One decision per preview conflict. Outcomes: retain-local, map (+ targetId), defer.',
+}
+
+const notebookDecisions: JsonSchema = {
+  type: 'array',
+  items: ref('NotebookUpgradeDecision'),
+  description:
+    'One decision per notebook upgrade conflict. Outcomes: keep or retarget (with optional instanceDecisions).',
+}
+
 const datasetFilter = obj(
   {
     fieldId: uuid('Active Dataset Schema field UUID.'),
@@ -101,12 +136,9 @@ const datasetBatchRow = obj(
       minimum: 1,
       description: 'Required for `update`. Must be omitted for `create`.',
     },
-    values: {
-      type: 'object',
-      additionalProperties: true,
-      description:
-        'Map of Schema field UUID → canonical cell value (or null). Keys must be field UUIDs on the Dataset’s current Schema Version.',
-    },
+    values: jsonMap(
+      'Map of Schema field UUID → canonical cell value (or null). Keys must be field UUIDs on the Dataset’s current Schema Version.',
+    ),
   },
   ['operation', 'rowId', 'values'],
 )
@@ -134,12 +166,9 @@ const datasetQueryResult = obj(
         {
           rowId: UUID,
           revision: BIGINT,
-          values: {
-            type: 'object',
-            additionalProperties: true,
-            description:
-              'Field UUID → canonical value (arrays when cardinality is many).',
-          },
+          values: jsonMap(
+            'Field UUID → canonical value (arrays when cardinality is many).',
+          ),
         },
         ['rowId', 'revision', 'values'],
       ),
@@ -194,159 +223,35 @@ const datasetValidateResult = {
   ],
 }
 
-const recordRow: JsonSchema = {
-  type: 'object',
-  description:
-    '`api.records` row (snake_case). Concurrency tokens: `metadata_version`, `structure_version`.',
-  properties: {
-    id: UUID,
-    workspace_id: UUID,
-    project_id: UUID,
-    folder_id: UUID,
-    kind: TEXT,
-    identifier: TEXT,
-    title: TEXT,
-    status: TEXT,
-    tags: TEXT_ARRAY,
-    structure_version: INT,
-    metadata_version: INT,
-    custom_fields: { type: 'object' },
-    properties: { type: 'object' },
-    archived_at: TIMESTAMPTZ,
-    deleted_at: TIMESTAMPTZ,
-  },
-}
-
-const blockRow: JsonSchema = {
-  type: 'object',
-  description: '`api.blocks` row. Optimistic concurrency: `version`.',
-  properties: {
-    id: UUID,
-    record_id: UUID,
-    type: TEXT,
-    payload: { type: 'object' },
-    payload_schema_version: INT,
-    order: { type: 'number' },
-    version: INT,
-  },
-}
-
-const projectRow: JsonSchema = {
-  type: 'object',
-  description: '`api.projects` row.',
-  properties: {
-    id: UUID,
-    workspace_id: UUID,
-    key: TEXT,
-    title: TEXT,
-    status: TEXT,
-    custom_fields: { type: 'object' },
-  },
-}
-
-const datasetRow: JsonSchema = {
-  type: 'object',
-  description: '`api.datasets` row. Optimistic concurrency: `revision`.',
-  properties: {
-    id: UUID,
-    workspace_id: UUID,
-    schema_version_id: UUID,
-    name: TEXT,
-    description: TEXT,
-    lifecycle: { type: 'string', enum: ['active', 'archived'] },
-    revision: BIGINT,
-    primary_project_id: UUID,
-  },
-}
-
-const datasetVersionRow: JsonSchema = {
-  type: 'object',
-  description: 'Immutable `api.dataset_versions` snapshot row.',
-  properties: {
-    id: UUID,
-    dataset_id: UUID,
-    workspace_id: UUID,
-    schema_version_id: UUID,
-    source_dataset_revision: BIGINT,
-    label: TEXT,
-    created_at: TIMESTAMPTZ,
-  },
-}
-
-const sheetInstanceRow: JsonSchema = {
-  type: 'object',
-  description:
-    '`api.sheet_instances` row. Optimistic concurrency: `revision`. Mutations go through RPCs, not PATCH.',
-  properties: {
-    id: UUID,
-    workspace_id: UUID,
-    project_id: UUID,
-    notebook_record_id: UUID,
-    source_definition_version_id: UUID,
-    name: TEXT,
-    description: TEXT,
-    lifecycle: TEXT,
-    revision: BIGINT,
-    state: { type: 'object' },
-  },
-}
-
-const recordLinkRow: JsonSchema = {
-  type: 'object',
-  properties: {
-    id: UUID,
-    source_record_id: UUID,
-    target_record_id: UUID,
-    target_kind: TEXT,
-    target_identifier: TEXT,
-    link_type: TEXT,
-  },
-}
+const recordRow = ref('RecordsRow')
+const blockRow = ref('BlocksRow')
+const projectRow = ref('ProjectsRow')
+const datasetRow = ref('DatasetsRow')
+const datasetVersionRow = ref('DatasetVersionsRow')
+const sheetInstanceRow = ref('SheetInstancesRow')
+const recordLinkRow = ref('RecordLinksRow')
+const revisionRow = ref('RevisionsRow')
 
 const pgrstRow = (row: JsonSchema, description: string): JsonSchema => ({
   description: `${description} PostgREST returns a JSON array of composite rows by default.`,
   oneOf: [row, { type: 'array', items: row }],
 })
 
-const sheetRecordWriteTarget = obj(
-  {
-    kind: { type: 'string', enum: ['dataset'] },
-    datasetId: UUID,
-    rowId: UUID,
-    fieldId: UUID,
-    expectedDatasetRevision: BIGINT,
-    expectedRowRevision: BIGINT,
-  },
-  [
-    'kind',
-    'datasetId',
-    'rowId',
-    'fieldId',
-    'expectedDatasetRevision',
-    'expectedRowRevision',
-  ],
-  'Dataset cell to write the new record identifier into.',
-)
+const sheetRecordWriteTarget = ref('SheetRecordWriteTarget')
 
 const localFieldChange: JsonSchema = {
   oneOf: [
     obj(
       {
         operation: { type: 'string', const: 'add' },
-        field: {
-          type: 'object',
-          description: 'Sheet field definition object.',
-        },
+        field: ref('SheetFieldDefinition'),
       },
       ['operation', 'field'],
     ),
     obj(
       {
         operation: { type: 'string', const: 'edit' },
-        field: {
-          type: 'object',
-          description: 'Sheet field definition object.',
-        },
+        field: ref('SheetFieldDefinition'),
       },
       ['operation', 'field'],
     ),
@@ -411,10 +316,9 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
       p_title: text('Record title.'),
       p_status: text('Lifecycle status string.'),
       p_tags: { ...TEXT_ARRAY, description: 'Tags. Pass `[]` when unused.' },
-      p_properties: {
-        type: 'object',
-        description: 'Kind-specific properties object. Pass `{}` when unused.',
-      },
+      p_properties: jsonMap(
+        'Kind-specific properties object. Pass `{}` when unused.',
+      ),
     },
     result: pgrstRow(recordRow, 'Created record.'),
   },
@@ -442,13 +346,13 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
         items: obj(
           {
             type: text('Block type, e.g. rich_text.'),
-            payload: { type: 'object', description: 'Type-specific payload.' },
+            payload: jsonMap('Type-specific payload.'),
             order: { type: 'number' },
           },
           ['type', 'payload'],
         ),
       },
-      p_properties: { type: 'object' },
+      p_properties: jsonMap('Kind-specific properties. Pass `{}` when unused.'),
     },
     result: obj(
       {
@@ -470,10 +374,7 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
     ],
     properties: {
       p_block_id: uuid('Block UUID.'),
-      p_payload: {
-        type: 'object',
-        description: 'Replacement payload for this block type.',
-      },
+      p_payload: jsonMap('Replacement payload for this block type.'),
       p_expected_version: int('Current `blocks.version`.', { minimum: 1 }),
       p_payload_schema_version: int('Payload schema version.', { minimum: 1 }),
     },
@@ -513,7 +414,7 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
         block: blockRow,
         structure_version: INT,
         rebalanced: BOOL,
-        order: { type: 'array' },
+        order: { type: 'array', items: { type: 'number' } },
       },
       ['block', 'structure_version'],
     ),
@@ -588,7 +489,7 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
     properties: {
       p_record_id: uuid('Notebook record.'),
       p_type: text('Block type.'),
-      p_payload: { type: 'object' },
+      p_payload: jsonMap('Block payload for this type.'),
       p_payload_schema_version: int('Payload schema version.', { minimum: 1 }),
       p_after_block_id: {
         ...UUID,
@@ -620,9 +521,13 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
         },
       ),
     },
-    result: obj({ structure_version: INT, order: { type: 'array' } }, [
-      'structure_version',
-    ]),
+    result: obj(
+      {
+        structure_version: INT,
+        order: { type: 'array', items: { type: 'number' } },
+      },
+      ['structure_version'],
+    ),
   },
   transition_record_status: {
     summary: 'Transition record status',
@@ -658,7 +563,7 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
       {
         record: recordRow,
         blocks: { type: 'array', items: blockRow },
-        revision: { type: 'object' },
+        revision: revisionRow,
         link: recordLinkRow,
       },
       ['record', 'blocks'],
@@ -701,7 +606,7 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
           items: obj({
             rowId: UUID,
             revision: BIGINT,
-            values: { type: 'object' },
+            values: jsonMap('Field UUID → canonical value.'),
           }),
         },
       },
@@ -802,19 +707,7 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
       p_limit: int('Page size.', { minimum: 1, maximum: 200, default: 50 }),
       p_offset: int('Row offset.', { minimum: 0, maximum: 10_000, default: 0 }),
     },
-    result: {
-      type: 'object',
-      description:
-        'Composition page: instance identity, `hasMore`, and `rows` with per-binding sources and projected values.',
-      properties: {
-        instanceId: UUID,
-        revision: BIGINT,
-        offset: INT,
-        limit: INT,
-        hasMore: BOOL,
-        rows: { type: 'array', items: { type: 'object' } },
-      },
-    },
+    result: ref('QuerySheetInstanceRowsResult'),
   },
   read_sheet_instance_calculation_results: {
     summary: 'Read Sheet calculation results',
@@ -828,24 +721,7 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
         description: 'Row keys (`sb-row-v1:…` or UUID).',
       },
     },
-    result: obj(
-      {
-        instanceId: UUID,
-        revision: BIGINT,
-        results: {
-          type: 'array',
-          items: obj({
-            calculationId: UUID,
-            rowKey: TEXT,
-            scope: TEXT,
-            calculationStatus: TEXT,
-            resultKind: TEXT,
-            value: {},
-          }),
-        },
-      },
-      ['instanceId', 'revision', 'results'],
-    ),
+    result: ref('SheetCalculationResultsPage'),
   },
   resolve_sheet_instance_row_identity: {
     summary: 'Resolve Sheet row identity',
@@ -872,15 +748,9 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
       p_instance_id: uuid('Sheet Instance UUID.'),
       p_expected_instance_revision: bigint('Current revision.'),
       p_target_definition_version_id: uuid('Target Sheet Definition Version.'),
-      p_parameter_inputs: {
-        type: 'object',
-        description: 'Parameter id → value.',
-      },
+      p_parameter_inputs: parameterInputs,
     },
-    result: {
-      type: 'object',
-      description: 'Preview digest, decisions and source versions.',
-    },
+    result: ref('CompositionAdoptionPreview'),
   },
   preview_sheet_materialization: {
     summary: 'Preview Sheet materialization',
@@ -895,11 +765,7 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
       p_expected_instance_revision: bigint('Current revision.'),
       p_output_schema_version_id: uuid('Output Dataset Schema Version.'),
     },
-    result: {
-      type: 'object',
-      description:
-        'Includes `previewDigest` required by `materialize_sheet_instance`.',
-    },
+    result: ref('MaterializationPreview'),
   },
   preview_sheet_instance_definition_upgrade: {
     summary: 'Preview Sheet Definition upgrade',
@@ -914,10 +780,7 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
       p_expected_instance_revision: bigint('Current revision.'),
       p_target_definition_version_id: uuid('Target Definition Version.'),
     },
-    result: {
-      type: 'object',
-      description: 'Upgrade preview and required decisions.',
-    },
+    result: ref('SheetDefinitionUpgradePreview'),
   },
   create_sheet_instance: {
     summary: 'Create a Sheet Instance',
@@ -943,7 +806,7 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
       },
       p_project_id: { ...UUID, nullable: true },
       p_notebook_record_id: { ...UUID, nullable: true },
-      p_state: { type: 'object', description: 'Sheet Instance state JSON.' },
+      p_state: ref('SheetInstanceState'),
     },
     result: pgrstRow(sheetInstanceRow, 'Created instance.'),
   },
@@ -968,8 +831,8 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
       p_source_definition_version_id: uuid('Published Definition Version.'),
       p_project_id: { ...UUID, nullable: true },
       p_notebook_record_id: { ...UUID, nullable: true },
-      p_state: { type: 'object' },
-      p_parameter_inputs: { type: 'object' },
+      p_state: ref('SheetInstanceState'),
+      p_parameter_inputs: parameterInputs,
     },
     result: pgrstRow(sheetInstanceRow, 'Created instance.'),
   },
@@ -980,7 +843,7 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
     properties: {
       p_instance_id: uuid('Sheet Instance UUID.'),
       p_expected_revision: bigint('Current revision.'),
-      p_state: { type: 'object', description: 'Replacement state JSON.' },
+      p_state: ref('SheetInstanceState'),
     },
     result: pgrstRow(sheetInstanceRow, 'Updated instance.'),
   },
@@ -1067,8 +930,11 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
       p_retry_token: uuid('Retry token.'),
       p_changes: {
         type: 'array',
-        description: 'Calculation change objects (add/edit/retire).',
-        items: { type: 'object' },
+        minItems: 1,
+        maxItems: 32,
+        description:
+          'JSON array of add/edit `{ operation, calculation }` or retire `{ operation, calculationId }`.',
+        items: ref('SheetCalculationChange'),
       },
     },
     result: pgrstRow(sheetInstanceRow, 'Updated instance.'),
@@ -1091,10 +957,7 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
       }),
       p_instance_id: uuid('Sheet Instance to embed.'),
     },
-    result: obj({ block: blockRow, structure_version: INT }, [
-      'block',
-      'structure_version',
-    ]),
+    result: ref('InsertSheetInstanceBlockResult'),
   },
   duplicate_sheet_instance_block: {
     summary: 'Duplicate a Sheet Instance block',
@@ -1106,10 +969,7 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
         minimum: 1,
       }),
     },
-    result: {
-      type: 'object',
-      description: 'New block and updated structure_version.',
-    },
+    result: ref('InsertSheetInstanceBlockResult'),
   },
   apply_sheet_instance_composition_adoption: {
     summary: 'Apply composition adoption',
@@ -1126,10 +986,10 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
       p_instance_id: uuid('Sheet Instance UUID.'),
       p_expected_instance_revision: bigint('Current revision.'),
       p_target_definition_version_id: uuid('Target Definition Version.'),
-      p_parameter_inputs: { type: 'object' },
+      p_parameter_inputs: parameterInputs,
       p_retry_token: uuid('Retry token.'),
     },
-    result: { type: 'object' },
+    result: ref('CompositionAdoptionApplyResult'),
   },
   materialize_sheet_instance: {
     summary: 'Materialize a Sheet into a Dataset',
@@ -1154,17 +1014,7 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
       p_preview_digest: text('Digest from preview_sheet_materialization.'),
       p_idempotency_key: uuid('Command UUID.'),
     },
-    result: obj(
-      {
-        materializationId: UUID,
-        datasetId: UUID,
-        datasetVersionId: UUID,
-        schemaVersionId: UUID,
-        sourceVersions: { type: 'object' },
-        idempotent: BOOL,
-      },
-      ['materializationId', 'datasetId', 'datasetVersionId', 'idempotent'],
-    ),
+    result: ref('MaterializationResult'),
   },
   apply_sheet_instance_definition_upgrade: {
     summary: 'Apply Sheet Definition upgrade',
@@ -1180,13 +1030,10 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
       p_instance_id: uuid('Sheet Instance UUID.'),
       p_expected_instance_revision: bigint('Current revision.'),
       p_target_definition_version_id: uuid('Target Definition Version.'),
-      p_decisions: {
-        type: 'object',
-        description: 'Required upgrade decisions from preview.',
-      },
-      p_parameter_inputs: { type: 'object' },
+      p_decisions: sheetDefinitionDecisions,
+      p_parameter_inputs: parameterInputs,
     },
-    result: { type: 'object' },
+    result: ref('SheetDefinitionUpgradeApplyResult'),
   },
   validate_sheet_record_batch: {
     summary: 'Validate a Sheet→Record batch',
@@ -1196,16 +1043,14 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
     properties: {
       p_project_id: uuid('Project UUID.'),
       p_model_key: text('Model key, e.g. sample.'),
-      p_rows: { type: 'array', items: { type: 'object' } },
-    },
-    result: obj(
-      {
-        ok: BOOL,
-        mutated: { type: 'boolean', const: false },
-        rows: { type: 'array', items: { type: 'object' } },
+      p_rows: {
+        type: 'array',
+        minItems: 1,
+        maxItems: 1000,
+        items: ref('SheetRecordBatchRow'),
       },
-      ['ok', 'mutated', 'rows'],
-    ),
+    },
+    result: ref('SheetRecordBatchValidateResult'),
   },
   search: {
     summary: 'Workspace search',
@@ -1339,7 +1184,7 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
       p_project_id: uuid('Project UUID.'),
       p_model_key: text('Model key.'),
       p_title: text('New record title.'),
-      p_custom_fields: { type: 'object' },
+      p_custom_fields: jsonMap('Model field name → canonical value.'),
       p_write_target: sheetRecordWriteTarget,
     },
     result: obj(
@@ -1361,16 +1206,18 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
     properties: {
       p_project_id: uuid('Project UUID.'),
       p_model_key: text('Model key.'),
-      p_rows: { type: 'array', items: { type: 'object' } },
+      p_rows: {
+        type: 'array',
+        minItems: 1,
+        maxItems: 1000,
+        items: ref('SheetRecordBatchRow'),
+      },
       p_idempotency_key: text('Command id, length 1–128.', {
         minLength: 1,
         maxLength: 128,
       }),
     },
-    result: {
-      type: 'object',
-      description: 'Commit result including created/linked identifiers.',
-    },
+    result: ref('SheetRecordBatchCommitResult'),
   },
   preview_submission_digest: {
     summary: 'Preview a submission digest',
@@ -1410,16 +1257,13 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
       p_version_id: uuid('Template Version UUID.'),
       p_target_project_id: uuid('Destination project.'),
       p_title: text('New notebook title.'),
-      p_parameter_inputs: { type: 'object' },
+      p_parameter_inputs: parameterInputs,
       p_idempotency_key: text('Command id, length 1–128.', {
         minLength: 1,
         maxLength: 128,
       }),
     },
-    result: {
-      type: 'object',
-      description: 'Created record id and instantiation result.',
-    },
+    result: ref('InstantiateNotebookTemplateResult'),
   },
   preview_notebook_template_upgrade: {
     summary: 'Preview notebook template upgrade',
@@ -1429,10 +1273,7 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
       p_record_id: uuid('Notebook record.'),
       p_target_version_id: uuid('Target Template Version.'),
     },
-    result: {
-      type: 'object',
-      description: 'Upgrade preview and required decisions.',
-    },
+    result: ref('NotebookUpgradePreview'),
   },
   apply_notebook_template_upgrade: {
     summary: 'Apply notebook template upgrade',
@@ -1450,10 +1291,10 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
         minimum: 1,
       }),
       p_target_version_id: uuid('Target Template Version.'),
-      p_decisions: { type: 'object' },
-      p_parameter_inputs: { type: 'object' },
+      p_decisions: notebookDecisions,
+      p_parameter_inputs: parameterInputs,
     },
-    result: { type: 'object' },
+    result: ref('NotebookUpgradeApplyResult'),
   },
 }
 

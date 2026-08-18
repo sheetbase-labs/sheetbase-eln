@@ -18,6 +18,15 @@ import {
   TOKEN_ERROR_CODES,
 } from '#/lib/public-api-rpc-contracts'
 import type { JsonSchema } from '#/lib/public-api-rpc-contracts'
+import { PUBLIC_API_DOMAIN_SCHEMAS } from '#/lib/public-api-domain-schemas'
+import {
+  TABLE_ROW_SCHEMAS,
+  tableInsertSchema,
+  tableInsertSchemaName,
+  tablePatchSchema,
+  tablePatchSchemaName,
+  tableSchemaName,
+} from '#/lib/public-api-table-schemas'
 
 export const OPENAPI_SPEC_PATH =
   'docs/openapi/service-credentials-v0.json' as const
@@ -222,7 +231,12 @@ const TABLE_QUERY_PARAMETERS = [
   { $ref: '#/components/parameters/RangeUnit' },
 ]
 
+function tableRowRef(resource: string): JsonSchema {
+  return { $ref: `#/components/schemas/${tableSchemaName(resource)}` }
+}
+
 function tableReadResponses(resource: string): Record<string, unknown> {
+  const rowArray = { type: 'array', items: tableRowRef(resource) }
   return {
     '200': {
       description: `JSON array of \`${resource}\` rows. With \`Prefer: count=exact\`, \`Content-Range\` is \`start-end/total\` (e.g. \`0-24/123\`).`,
@@ -239,7 +253,7 @@ function tableReadResponses(resource: string): Record<string, unknown> {
       },
       content: {
         'application/json': {
-          schema: { type: 'array', items: { type: 'object' } },
+          schema: rowArray,
         },
       },
     },
@@ -247,6 +261,11 @@ function tableReadResponses(resource: string): Record<string, unknown> {
       description: 'Partial content when a `Range` header is used.',
       headers: {
         'Content-Range': { schema: { type: 'string' } },
+      },
+      content: {
+        'application/json': {
+          schema: rowArray,
+        },
       },
     },
     ...proxyErrorResponses(),
@@ -307,20 +326,7 @@ function tableOperations(resource: string): OpenApiPathItem {
         content: {
           'application/json': {
             schema: {
-              type: 'object',
-              additionalProperties: false,
-              required: ['workspace_id', 'schema_version_id', 'name'],
-              properties: {
-                workspace_id: { type: 'string', format: 'uuid' },
-                schema_version_id: { type: 'string', format: 'uuid' },
-                name: { type: 'string' },
-                description: { type: 'string', nullable: true },
-                primary_project_id: {
-                  type: 'string',
-                  format: 'uuid',
-                  nullable: true,
-                },
-              },
+              $ref: `#/components/schemas/${tableInsertSchemaName(resource)}`,
             },
           },
         },
@@ -329,6 +335,16 @@ function tableOperations(resource: string): OpenApiPathItem {
         '201': {
           description:
             'Created Dataset row (array or object depending on Prefer).',
+          content: {
+            'application/json': {
+              schema: {
+                oneOf: [
+                  tableRowRef(resource),
+                  { type: 'array', items: tableRowRef(resource) },
+                ],
+              },
+            },
+          },
         },
         ...proxyErrorResponses(),
       },
@@ -349,14 +365,25 @@ function tableOperations(resource: string): OpenApiPathItem {
       content: {
         'application/json': {
           schema: {
-            type: 'object',
-            description: `Columns of \`${resource}\`.`,
+            $ref: `#/components/schemas/${tableInsertSchemaName(resource)}`,
           },
         },
       },
     },
     responses: {
-      '201': { description: `Created ${resource}` },
+      '201': {
+        description: `Created ${resource}`,
+        content: {
+          'application/json': {
+            schema: {
+              oneOf: [
+                tableRowRef(resource),
+                { type: 'array', items: tableRowRef(resource) },
+              ],
+            },
+          },
+        },
+      },
       ...proxyErrorResponses(),
     },
   }
@@ -377,14 +404,25 @@ function tableOperations(resource: string): OpenApiPathItem {
       content: {
         'application/json': {
           schema: {
-            type: 'object',
-            description: `Columns of \`${resource}\`.`,
+            $ref: `#/components/schemas/${tablePatchSchemaName(resource)}`,
           },
         },
       },
     },
     responses: {
-      '200': { description: `Updated ${resource}` },
+      '200': {
+        description: `Updated ${resource}`,
+        content: {
+          'application/json': {
+            schema: {
+              oneOf: [
+                tableRowRef(resource),
+                { type: 'array', items: tableRowRef(resource) },
+              ],
+            },
+          },
+        },
+      },
       ...proxyErrorResponses(),
     },
   }
@@ -664,6 +702,29 @@ export function buildServiceCredentialOpenApi(): ServiceCredentialOpenApi {
           additionalProperties: false,
           properties: { token: { type: 'string' } },
         },
+        ...PUBLIC_API_DOMAIN_SCHEMAS,
+        ...Object.fromEntries(
+          Object.entries(TABLE_ROW_SCHEMAS).map(([table, schema]) => [
+            tableSchemaName(table),
+            schema,
+          ]),
+        ),
+        ...Object.fromEntries(
+          Object.entries(EXTERNAL_TABLE_ACCESS)
+            .filter(([, access]) => access.write)
+            .flatMap(([table, access]) => {
+              const entries: Array<[string, JsonSchema]> = [
+                [tableInsertSchemaName(table), tableInsertSchema(table)],
+              ]
+              if (table !== 'datasets' && access.write) {
+                entries.push([
+                  tablePatchSchemaName(table),
+                  tablePatchSchema(table),
+                ])
+              }
+              return entries
+            }),
+        ),
       },
     },
   }

@@ -299,4 +299,213 @@ describe('API-03 service-credential OpenAPI', () => {
     expect(limit.minimum).toBe(1)
     expect(limit.maximum).toBe(1000)
   })
+
+  it('publishes concrete table GET/POST/PATCH schemas', () => {
+    for (const resource of Object.keys(EXTERNAL_TABLE_ACCESS)) {
+      const getSchema = jsonContentSchema(
+        operation(`/api/db/${resource}`, 'get').responses,
+        '200',
+      )
+      expect(getSchema.type).toBe('array')
+      expect(getSchema.items).toEqual({
+        $ref: `#/components/schemas/${pascalRow(resource)}`,
+      })
+      assertConcreteSchema(
+        spec.components.schemas[pascalRow(resource)],
+        `${resource} row`,
+      )
+
+      const access = EXTERNAL_TABLE_ACCESS[resource]
+      if (!access.write) {
+        expect(spec.paths[`/api/db/${resource}`].post).toBeUndefined()
+        expect(spec.paths[`/api/db/${resource}`].patch).toBeUndefined()
+        continue
+      }
+
+      const postSchema = jsonContentSchema(
+        (operation(`/api/db/${resource}`, 'post').requestBody as RequestBody)
+          .content,
+        'request',
+      )
+      expect(postSchema.$ref).toMatch(
+        new RegExp(`${pascalRow(resource)}Insert$`),
+      )
+      assertConcreteSchema(
+        spec.components.schemas[`${pascalRow(resource)}Insert`],
+        `${resource} insert`,
+      )
+      const created = jsonContentSchema(
+        operation(`/api/db/${resource}`, 'post').responses,
+        '201',
+      )
+      expect(created.oneOf).toBeTruthy()
+
+      if (resource === 'datasets') {
+        expect(spec.paths['/api/db/datasets'].patch).toBeUndefined()
+        continue
+      }
+      const patchSchema = jsonContentSchema(
+        (operation(`/api/db/${resource}`, 'patch').requestBody as RequestBody)
+          .content,
+        'request',
+      )
+      expect(patchSchema.$ref).toMatch(
+        new RegExp(`${pascalRow(resource)}Patch$`),
+      )
+      assertConcreteSchema(
+        spec.components.schemas[`${pascalRow(resource)}Patch`],
+        `${resource} patch`,
+      )
+    }
+  })
+
+  it('publishes concrete RPC request and result schemas', () => {
+    for (const name of Object.keys(EXTERNAL_RPC_SCOPES)) {
+      const request = rpcRequestSchema(name) as JsonNode
+      assertConcreteSchema(request, `${name} request`)
+      const result = jsonContentSchema(
+        operation(`/api/db/rpc/${name}`, 'post').responses,
+        '200',
+      )
+      assertConcreteSchema(result, `${name} result`)
+    }
+
+    const parameterInputs = rpcRequestSchema(
+      'preview_sheet_instance_composition_adoption',
+    ).properties?.p_parameter_inputs as {
+      type: string
+      items: { $ref: string }
+    }
+    expect(parameterInputs.type).toBe('array')
+    expect(parameterInputs.items.$ref).toBe(
+      '#/components/schemas/SheetParameterInput',
+    )
+
+    const changes = rpcRequestSchema('mutate_sheet_instance_calculations')
+      .properties?.p_changes as {
+      type: string
+      items: { $ref: string }
+      minItems: number
+      maxItems: number
+    }
+    expect(changes.type).toBe('array')
+    expect(changes.items.$ref).toBe(
+      '#/components/schemas/SheetCalculationChange',
+    )
+    expect(changes.minItems).toBe(1)
+    expect(changes.maxItems).toBe(32)
+
+    const sheetDecisions = rpcRequestSchema(
+      'apply_sheet_instance_definition_upgrade',
+    ).properties?.p_decisions as { type: string; items: { $ref: string } }
+    expect(sheetDecisions.type).toBe('array')
+    expect(sheetDecisions.items.$ref).toBe(
+      '#/components/schemas/SheetDefinitionUpgradeDecision',
+    )
+
+    const notebookDecisions = rpcRequestSchema(
+      'apply_notebook_template_upgrade',
+    ).properties?.p_decisions as { type: string; items: { $ref: string } }
+    expect(notebookDecisions.type).toBe('array')
+    expect(notebookDecisions.items.$ref).toBe(
+      '#/components/schemas/NotebookUpgradeDecision',
+    )
+  })
 })
+
+type JsonNode = Record<string, unknown>
+type Responses = Record<
+  string,
+  { content?: { 'application/json': { schema: JsonNode } } }
+>
+type RequestBody = {
+  content: { 'application/json': { schema: JsonNode } }
+}
+
+function pascalRow(table: string): string {
+  return `${table
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join('')}Row`
+}
+
+function jsonContentSchema(
+  source: Responses | RequestBody['content'] | unknown,
+  key: string,
+): JsonNode {
+  if (key === 'request') {
+    return (source as RequestBody['content'])['application/json'].schema
+  }
+  const response = (source as Responses)[key]
+  const schema = response.content?.['application/json']?.schema
+  expect(schema, `${key} JSON schema`).toBeTruthy()
+  return schema as JsonNode
+}
+
+function assertConcreteSchema(
+  schema: JsonNode,
+  label: string,
+  seen = new Set<string>(),
+) {
+  const walk = (node: unknown, path: string) => {
+    if (!node || typeof node !== 'object') return
+    if (Array.isArray(node)) {
+      for (const [index, item] of node.entries())
+        walk(item, `${path}[${index}]`)
+      return
+    }
+    const objectNode = node as JsonNode
+    if (typeof objectNode.$ref === 'string') {
+      const name = objectNode.$ref.replace('#/components/schemas/', '')
+      if (seen.has(name)) return
+      seen.add(name)
+      const target = spec.components.schemas[name]
+      expect(
+        target,
+        `${label} missing ${objectNode.$ref} at ${path}`,
+      ).toBeTruthy()
+      walk(target, `${path}->${name}`)
+      return
+    }
+    for (const key of ['oneOf', 'anyOf', 'allOf'] as const) {
+      if (Array.isArray(objectNode[key])) {
+        walk(objectNode[key], `${path}.${key}`)
+        return
+      }
+    }
+    if (objectNode.type === 'array') {
+      expect(objectNode.items, `${label} ${path} array items`).toBeTruthy()
+      walk(objectNode.items, `${path}.items`)
+      return
+    }
+    const types = Array.isArray(objectNode.type)
+      ? objectNode.type
+      : objectNode.type
+        ? [objectNode.type]
+        : []
+    const isObject =
+      types.includes('object') ||
+      objectNode.properties !== undefined ||
+      objectNode.additionalProperties !== undefined
+    if (!isObject) return
+    if (
+      objectNode.properties &&
+      Object.keys(objectNode.properties).length > 0
+    ) {
+      walk(objectNode.properties, `${path}.properties`)
+      return
+    }
+    if (
+      objectNode.additionalProperties &&
+      typeof objectNode.additionalProperties === 'object'
+    ) {
+      walk(objectNode.additionalProperties, `${path}.additionalProperties`)
+      return
+    }
+    if (objectNode.additionalProperties === true) return
+    throw new Error(
+      `${label}: generic object schema at ${path} (need properties, $ref, oneOf, or additionalProperties)`,
+    )
+  }
+  walk(schema, label)
+}

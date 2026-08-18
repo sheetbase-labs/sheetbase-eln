@@ -202,13 +202,12 @@ function denyUnknown(): never {
  */
 export function requiredScopes(method: string, path: ProxyPath): Scope[] {
   if (path.kind === 'rpc') {
-    const scopes = RPC_SCOPES[path.resource]
-    if (!scopes) denyUnknown()
-    return scopes
+    if (!Object.hasOwn(RPC_SCOPES, path.resource)) denyUnknown()
+    return RPC_SCOPES[path.resource]
   }
 
+  if (!Object.hasOwn(TABLE_ACCESS, path.resource)) denyUnknown()
   const access = TABLE_ACCESS[path.resource]
-  if (!access) denyUnknown()
   if (READ_METHODS.has(method)) return [access.read]
   if (!access.write) denyUnknown()
   return [access.write]

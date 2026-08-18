@@ -108,7 +108,11 @@ export function selectImportSheet(
   sheetName?: string,
 ): ImportSheet {
   if (!preview.sheets.length) throw new ImportParseError('No sheets found.')
-  if (!sheetName) return preview.sheets[0]!
+  const first = preview.sheets.at(0)
+  if (!sheetName) {
+    if (!first) throw new ImportParseError('No sheets found.')
+    return first
+  }
   const match = preview.sheets.find((sheet) => sheet.name === sheetName)
   if (!match) throw new ImportParseError(`Sheet "${sheetName}" was not found.`)
   return match
@@ -140,7 +144,7 @@ export function parseDelimited(text: string, delimiter: ImportDelimiter) {
   let cell = ''
   let quoted = false
   for (let index = 0; index < text.length; index++) {
-    const character = text[index]!
+    const character = text.charAt(index)
     if (quoted) {
       if (character === '"') {
         if (text[index + 1] === '"') {
@@ -324,7 +328,7 @@ async function parseXlsx(
   const sheetTags = [...workbook.matchAll(/<sheet\b([^>]*)\/>/g)]
   if (!sheetTags.length) throw new ImportParseError('XLSX has no worksheets.')
   for (const tag of sheetTags) {
-    const attrs = tag[1] ?? ''
+    const attrs = tag[1] || ''
     const name = xmlAttr(attrs, 'name') ?? `Sheet ${sheets.length + 1}`
     const rId = xmlAttr(attrs, 'r:id') ?? xmlAttr(attrs, 'id')
     const target = rId
@@ -352,9 +356,13 @@ function textFromZip(
   return new TextDecoder('utf-8').decode(bytes)
 }
 
+function capture(match: RegExpMatchArray, index: number): string {
+  return match[index] || ''
+}
+
 function xmlAttr(attrs: string, name: string): string | null {
   const match = attrs.match(new RegExp(`${name}="([^"]*)"`))
-  return match ? xmlDecode(match[1]!) : null
+  return match ? xmlDecode(capture(match, 1)) : null
 }
 
 function relTarget(rels: string, rId: string): string {
@@ -368,9 +376,9 @@ function parseSharedStrings(xml: string): string[] {
   if (!xml) return []
   const items: string[] = []
   for (const block of xml.matchAll(/<si\b[^>]*>([\s\S]*?)<\/si>/g)) {
-    const texts = [...block[1]!.matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)].map(
-      (match) => xmlDecode(match[1]!),
-    )
+    const texts = [
+      ...capture(block, 1).matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g),
+    ].map((match) => xmlDecode(capture(match, 1)))
     items.push(texts.join(''))
   }
   return items
@@ -383,12 +391,12 @@ function parseDateStyles(xml: string): Set<number> {
   for (const match of xml.matchAll(
     /<numFmt\b[^>]*numFmtId="(\d+)"[^>]*formatCode="([^"]*)"/g,
   )) {
-    custom.set(Number(match[1]), xmlDecode(match[2]!))
+    custom.set(Number(capture(match, 1)), xmlDecode(capture(match, 2)))
   }
   const cellXfs = xml.match(/<cellXfs\b[^>]*>([\s\S]*?)<\/cellXfs>/)?.[1] ?? ''
   let index = 0
   for (const xf of cellXfs.matchAll(/<xf\b([^>]*)\/?>/g)) {
-    const numFmtId = Number(xmlAttr(xf[1] ?? '', 'numFmtId') ?? '0')
+    const numFmtId = Number(xmlAttr(capture(xf, 1), 'numFmtId') ?? '0')
     const code = custom.get(numFmtId) ?? ''
     if (isExcelDateFormat(numFmtId, code)) dates.add(index)
     index += 1
@@ -398,7 +406,7 @@ function parseDateStyles(xml: string): Set<number> {
 
 function isExcelDateFormat(numFmtId: number, code: string): boolean {
   if ([14, 15, 16, 17, 22, 45, 46, 47].includes(numFmtId)) return true
-  return /[ymdhs]/i.test(code) && !/[\[\]]/.test(code)
+  return /[ymdhs]/i.test(code) && !/[[\]]/.test(code)
 }
 
 function parseWorksheet(
@@ -410,25 +418,27 @@ function parseWorksheet(
   for (const rowXml of xml.matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/g)) {
     const cells = new Map<number, string>()
     let maxCol = -1
-    for (const cell of rowXml[1]!.matchAll(/<c\b([^>]*)>([\s\S]*?)<\/c>/g)) {
-      const attrs = cell[1] ?? ''
+    for (const cell of capture(rowXml, 1).matchAll(
+      /<c\b([^>]*)>([\s\S]*?)<\/c>/g,
+    )) {
+      const attrs = capture(cell, 1)
       const ref = xmlAttr(attrs, 'r')
       const type = xmlAttr(attrs, 't')
       const style = Number(xmlAttr(attrs, 's') ?? 'NaN')
       const col = ref ? colFromA1(ref) : maxCol + 1
       maxCol = Math.max(maxCol, col)
-      const inner = cell[2] ?? ''
+      const inner = capture(cell, 2)
       const inline = inner.match(/<is\b[^>]*>[\s\S]*?<t\b[^>]*>([\s\S]*?)<\/t>/)
       const value = inner.match(/<v\b[^>]*>([\s\S]*?)<\/v>/)
       let text = ''
       if (type === 's' && value) {
-        text = shared[Number(xmlDecode(value[1]!))] ?? ''
+        text = shared[Number(xmlDecode(capture(value, 1)))] ?? ''
       } else if (type === 'inlineStr' && inline) {
-        text = xmlDecode(inline[1]!)
+        text = xmlDecode(capture(inline, 1))
       } else if (type === 'b' && value) {
-        text = xmlDecode(value[1]!) === '1' ? 'true' : 'false'
+        text = xmlDecode(capture(value, 1)) === '1' ? 'true' : 'false'
       } else if (value) {
-        const raw = xmlDecode(value[1]!)
+        const raw = xmlDecode(capture(value, 1))
         if (
           type !== 's' &&
           dateStyles.has(style) &&
@@ -522,7 +532,12 @@ async function inflateRaw(data: Uint8Array): Promise<Uint8Array> {
   if (typeof DecompressionStream !== 'function') {
     throw new ImportParseError('Cannot inflate XLSX in this environment.')
   }
-  const stream = new Blob([data])
+  const copy = data.slice()
+  const buffer = copy.buffer
+  if (!(buffer instanceof ArrayBuffer)) {
+    throw new ImportParseError('Cannot inflate XLSX in this environment.')
+  }
+  const stream = new Blob([buffer])
     .stream()
     .pipeThrough(new DecompressionStream('deflate-raw'))
   return new Uint8Array(await new Response(stream).arrayBuffer())

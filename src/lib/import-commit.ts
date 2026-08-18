@@ -7,9 +7,10 @@ import type { DataClient } from './data-client'
 import {
   commitDatasetRowBatch,
   validateDatasetRowBatch,
-  type DatasetCommitResult,
 } from './dataset-product'
-import { assertPinnedSchemaVersion, type MappedImport } from './import-mapping'
+import type { DatasetCommitResult } from './dataset-product'
+import { assertPinnedSchemaVersion } from './import-mapping'
+import type { MappedImport } from './import-mapping'
 import { validateSheetRecordBatch } from './sheet-record-mapping'
 
 export interface DatasetImportTarget {

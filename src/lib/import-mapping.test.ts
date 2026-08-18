@@ -6,8 +6,8 @@ import {
   datasetFieldsFromColumns,
   mapImportSheet,
   suggestImportMappings,
-  type ImportTargetField,
 } from './import-mapping'
+import type { ImportTargetField } from './import-mapping'
 import type { ScientificColumnWire } from './scientific-sheet-data'
 
 function column(

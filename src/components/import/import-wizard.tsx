@@ -27,25 +27,25 @@ import {
 import type { DataClient } from '#/lib/data-client'
 import { datasetRevision } from '#/lib/dataset-product'
 import type { CanonicalDatasetWire } from '#/lib/dataset-explorer-data'
-import {
-  validateAndCommitImport,
-  type ImportCommitTarget,
-} from '#/lib/import-commit'
+import { validateAndCommitImport } from '#/lib/import-commit'
+import type { ImportCommitTarget } from '#/lib/import-commit'
 import {
   datasetFieldsFromColumns,
   mapImportSheet,
   recordFieldsFromModel,
   suggestImportMappings,
-  type ImportColumnMapping,
-  type ImportTargetField,
+} from '#/lib/import-mapping'
+import type {
+  ImportColumnMapping,
+  ImportTargetField,
 } from '#/lib/import-mapping'
 import {
   parseImportBytes,
   parseImportText,
   selectImportSheet,
   sniffImportFormat,
-  type ImportPreview,
 } from '#/lib/import-parse'
+import type { ImportPreview } from '#/lib/import-parse'
 import type { ModelFieldDefinition } from '#/lib/model-fields'
 
 type WizardMode =
@@ -119,19 +119,24 @@ export function ImportWizard({
   }
 
   const applyPreview = (next: ImportPreview) => {
-    const first = next.sheets[0]
+    const first = next.sheets.at(0)
+    if (!first) {
+      setPreview(null)
+      setStatus('Import contains no sheets.')
+      return
+    }
     setPreview(next)
-    setSheetName(first?.name ?? '')
+    setSheetName(first.name)
     setMappingValues(
       Object.fromEntries(
-        suggestImportMappings(first?.headers ?? [], fields).map((mapping) => [
+        suggestImportMappings(first.headers, fields).map((mapping) => [
           mapping.source,
           mapping.kind === 'field' ? mapping.field.id : 'ignore',
         ]),
       ),
     )
     setStatus(
-      `Previewed ${first?.rows.length ?? 0} rows in ${next.sheets.length} sheet(s).`,
+      `Previewed ${first.rows.length} rows in ${next.sheets.length} sheet(s).`,
     )
   }
 
@@ -188,10 +193,10 @@ export function ImportWizard({
         crypto.randomUUID(),
       )
       if (!result.ok) {
-        const first = result.errors[0]
+        const detail = result.errors.at(0)
         throw new Error(
-          first
-            ? `Row ${first.row ?? '?'}: ${first.message}`
+          detail
+            ? `Row ${detail.row ?? '?'}: ${detail.message}`
             : 'Import was rejected.',
         )
       }

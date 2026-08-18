@@ -383,6 +383,13 @@ scientific-table RPCs.
 **Done.** `requiredScopes()` maps Core Dataset/Sheet/Notebook RPCs and
 catalogue tables to canonical scopes, with `api_client` EXECUTE grants and
 workspace-pinned RLS on those tables (`drizzle/0114_api_07_core_external_allowlist.sql`).
+Mapped data-plane **writes succeed** for a service credential: the JWT
+`credential_id` is the actor (`api.current_credential_id()` /
+`api.has_write_actor()`), persisted on `actor_credential_id` /
+`created_by_credential_id` / `updated_by_credential_id`
+(`drizzle/0115_api_07_credential_write_actors.sql`). Session behaviour
+with `authenticated` + `sub` is unchanged. The cut-over does not mint a
+fake `sub` or invent named service-account user rows.
 
 Principles held:
 
@@ -392,9 +399,11 @@ Principles held:
 - `schema:*` does not author Dataset Schema Versions in this cut-over.
 - `sheets:write` does not author Sheet Definitions.
 
-Write RPCs that require a session `sub` (human actor_user_id) may still fail
-at SQL until a later identity epic; the proxy allowlist and EXECUTE grants
-are in place.
+**Out of scope (human evidence, not missing `sub`):** `submit_record_revision`
+still requires an authenticated human session (`sub` + `session_id` +
+`role=authenticated`). That is a signature/review evidence invariant.
+The proxy may allowlist `reviews:write`; SQL honestly denies a service
+credential rather than attributing a notebook submit to a machine.
 
 ---
 
@@ -446,7 +455,7 @@ Once API-03 publishes versioned docs:
 | Epic | Work |
 | --- | --- |
 | **API-02** | Workspace service credentials. **Done** (`#47`). |
-| **API-07** | Core Dataset/Sheet/Notebook `requiredScopes()` cut-over; `api_client` grants/RLS. **Done**. |
+| **API-07** | Core Dataset/Sheet/Notebook `requiredScopes()` cut-over; `api_client` grants/RLS; credential write actors. **Done**. |
 | **API-03** | OpenAPI 3.1 from this contract; error reference; version prefix; pagination examples |
 | **API-04** | Python SDK — pagination iterators, pandas, idempotent helpers |
 | **API-05** | TypeScript SDK — typed resources, isomorphic fetch |
@@ -476,12 +485,14 @@ service-account principals, credential activity-audit events, OpenAPI.
 
 Audited 17 August 2026 against `main` @ `f2dfa25`; contract v0.1.1
 corrects Dataset Schema stewardship out of `datasets:write` into `schema:*`.
-API-07 (v0.1.2) cut over the Core external allowlist.
+API-07 (v0.1.2) cut over the Core external allowlist. Mapped Dataset/Sheet
+data-plane writes succeed for service credentials with `credential_id`
+attribution (`drizzle/0115_api_07_credential_write_actors.sql`).
 
 - Allowlist: `src/lib/external-token.ts`
 - Scope minting: `src/lib/api-credentials.ts` (`VALID_SCOPES`)
 - Fail-closed + Core mapping tests: `src/lib/external-token.test.ts`
 - Scope split lock: `src/lib/public-api-contract.test.ts`
-- Grants: `drizzle/0114_api_07_core_external_allowlist.sql`
+- Grants: `drizzle/0114_api_07_core_external_allowlist.sql`, `drizzle/0115_api_07_credential_write_actors.sql`
 - Integration: `tests/db/external-api.test.ts`, `tests/db/api-credentials.test.ts`
 - Proxy errors: `src/lib/errors.ts`, `src/lib/postgrest-proxy.ts`

@@ -570,8 +570,18 @@ export const records = api.table(
     updatedByUserId: text('updated_by_user_id').references(() => user.id, {
       onDelete: 'set null',
     }),
+    // Service-credential attribution for api_client writes (API-07). Never
+    // both a user and a credential on the same update.
+    updatedByCredentialId: uuid('updated_by_credential_id').references(
+      () => apiCredentials.id,
+      { onDelete: 'set null' },
+    ),
   },
   (table) => [
+    check(
+      'chk_records_updated_by_actor',
+      sql`NOT (${table.updatedByUserId} IS NOT NULL AND ${table.updatedByCredentialId} IS NOT NULL)`,
+    ),
     check(
       'records_calculation_input_revision_check',
       sql`${table.calculationInputRevision} >= 0`,
@@ -2470,11 +2480,27 @@ export const sheetInstances = api.table(
     createdByUserId: text('created_by_user_id').references(() => user.id, {
       onDelete: 'set null',
     }),
+    createdByCredentialId: uuid('created_by_credential_id').references(
+      () => apiCredentials.id,
+      { onDelete: 'set null' },
+    ),
     updatedByUserId: text('updated_by_user_id').references(() => user.id, {
       onDelete: 'set null',
     }),
+    updatedByCredentialId: uuid('updated_by_credential_id').references(
+      () => apiCredentials.id,
+      { onDelete: 'set null' },
+    ),
   },
   (table) => [
+    check(
+      'chk_sheet_instances_created_by_actor',
+      sql`NOT (${table.createdByUserId} IS NOT NULL AND ${table.createdByCredentialId} IS NOT NULL)`,
+    ),
+    check(
+      'chk_sheet_instances_updated_by_actor',
+      sql`NOT (${table.updatedByUserId} IS NOT NULL AND ${table.updatedByCredentialId} IS NOT NULL)`,
+    ),
     check(
       'chk_sheet_instances_lifecycle',
       sql`${table.lifecycle} IN ('active','archived')`,
@@ -2509,9 +2535,13 @@ export const sheetInstanceLocalMutations = api.table(
     requestDigest: text('request_digest').notNull(),
     resultRevision: bigint('result_revision', { mode: 'bigint' }).notNull(),
     result: jsonb('result').notNull(),
-    actorUserId: text('actor_user_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'restrict' }),
+    actorUserId: text('actor_user_id').references(() => user.id, {
+      onDelete: 'restrict',
+    }),
+    actorCredentialId: uuid('actor_credential_id').references(
+      () => apiCredentials.id,
+      { onDelete: 'restrict' },
+    ),
     operation: text('operation').notNull(),
     affected: jsonb('affected').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
@@ -2522,6 +2552,10 @@ export const sheetInstanceLocalMutations = api.table(
     unique('sheet_instance_local_mutations_instance_id_retry_token_unique').on(
       table.instanceId,
       table.retryToken,
+    ),
+    check(
+      'chk_sheet_instance_local_mutations_actor_xor',
+      sql`((${table.actorUserId} IS NOT NULL)::int + (${table.actorCredentialId} IS NOT NULL)::int) = 1`,
     ),
     check(
       'sheet_instance_local_mutations_request_digest_check',
@@ -2723,8 +2757,16 @@ export const datasets = api.table(
     createdByUserId: text('created_by_user_id').references(() => user.id, {
       onDelete: 'set null',
     }),
+    createdByCredentialId: uuid('created_by_credential_id').references(
+      () => apiCredentials.id,
+      { onDelete: 'set null' },
+    ),
   },
   (table) => [
+    check(
+      'chk_datasets_created_by_actor',
+      sql`NOT (${table.createdByUserId} IS NOT NULL AND ${table.createdByCredentialId} IS NOT NULL)`,
+    ),
     check(
       'chk_datasets_lifecycle',
       sql`${table.lifecycle} IN ('active','archived')`,
@@ -2818,9 +2860,13 @@ export const datasetBulkCommits = api.table(
     datasetId: uuid('dataset_id')
       .notNull()
       .references(() => datasets.id, { onDelete: 'cascade' }),
-    actorUserId: text('actor_user_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'restrict' }),
+    actorUserId: text('actor_user_id').references(() => user.id, {
+      onDelete: 'restrict',
+    }),
+    actorCredentialId: uuid('actor_credential_id').references(
+      () => apiCredentials.id,
+      { onDelete: 'restrict' },
+    ),
     idempotencyKey: text('idempotency_key').notNull(),
     requestDigest: text('request_digest').notNull(),
     result: jsonb('result').notNull(),
@@ -2829,11 +2875,16 @@ export const datasetBulkCommits = api.table(
       .defaultNow(),
   },
   (table) => [
-    unique('uq_dataset_bulk_commits_actor_idempotency').on(
-      table.workspaceId,
-      table.actorUserId,
-      table.idempotencyKey,
+    check(
+      'chk_dataset_bulk_commits_actor_xor',
+      sql`((${table.actorUserId} IS NOT NULL)::int + (${table.actorCredentialId} IS NOT NULL)::int) = 1`,
     ),
+    uniqueIndex('uq_dataset_bulk_commits_user_idempotency')
+      .on(table.workspaceId, table.actorUserId, table.idempotencyKey)
+      .where(sql`${table.actorUserId} IS NOT NULL`),
+    uniqueIndex('uq_dataset_bulk_commits_credential_idempotency')
+      .on(table.workspaceId, table.actorCredentialId, table.idempotencyKey)
+      .where(sql`${table.actorCredentialId} IS NOT NULL`),
     check(
       'chk_dataset_bulk_commits_idempotency_key',
       sql`length(${table.idempotencyKey}) BETWEEN 1 AND 128`,

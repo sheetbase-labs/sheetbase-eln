@@ -92,7 +92,7 @@ API-02 ships **one** credential type: an owner-minted, workspace-bound secret us
 
 ## API-07 — Core External Allowlist Cut-over
 
-**Priority:** medium. **Status:** Complete.
+**Priority:** medium. **Status:** Complete (mapped data-plane writes succeed for service credentials with credential attribution).
 
 ### Why Medium
 
@@ -100,7 +100,7 @@ This epic changes the **external security boundary**: which tables and RPCs an `
 
 ### Goal
 
-Cut over `src/lib/external-token.ts` (and any required `api_client` RLS/grants) so credentials carrying canonical Core-domain scopes can call the Dataset, Sheet Instance, and Notebook operations the product already uses. Unknown paths stay fail-closed. Do not invent a second permission model. Do not restore scientific-table REST. Do not expose every `api.*` function merely because it exists.
+Cut over `src/lib/external-token.ts` (and `api_client` RLS/grants plus write-actor SQL) so credentials carrying canonical Core-domain scopes can call the Dataset, Sheet Instance, and Notebook operations the product already uses. Mapped writes must succeed for `api_client` JWTs that have `credential_id` and no `sub`. Unknown paths stay fail-closed. Do not invent a second permission model. Do not restore scientific-table REST. Do not expose every `api.*` function merely because it exists. Do not mint a fake `sub` or named service-account user rows.
 
 `schema:*` remains distinct from `datasets:*`. `sheets:write` still does not author Sheet Definitions.
 
@@ -108,7 +108,7 @@ Cut over `src/lib/external-token.ts` (and any required `api_client` RLS/grants) 
 
 - Dataset: `query_dataset_rows`, `query_dataset_version_rows`, `validate_dataset_row_batch`, `commit_dataset_row_batch`, `snapshot_dataset`, `archive_dataset`, `restore_dataset`; `datasets` INSERT; `dataset_versions` GET
 - Sheet Instance: query/preview RPCs (`sheets:read`); create/update/mutate/materialize/upgrade/write-back validation (`sheets:write`); `sheet_instances` GET
-- Notebook: `preview_submission_digest`, `run_revision_checks`, `submit_record_revision`; `instantiate_notebook_template_version` and upgrade apply
+- Notebook: `preview_submission_digest`, `run_revision_checks` (read/check helpers); `instantiate_notebook_template_version` and upgrade apply. `submit_record_revision` stays proxy-allowlisted but is a **human evidence act** (session + `sub`); it is not a service-credential write in this epic.
 - Search: `search` (`projects:read`), `search_sheet_records` (`models:read`)
 - Models: `update_record_custom_fields`, Sheet→Record commit RPCs
 - Catalogue GET via `schema:read` / `templates:read`
@@ -123,9 +123,9 @@ Cut over `src/lib/external-token.ts` (and any required `api_client` RLS/grants) 
 
 ### Exit
 
-An external credential with the appropriate Core-domain scopes can pass the proxy allowlist for the same governed Dataset/Sheet/Notebook operations the UI uses, and everything else remains denied. `api_client` holds EXECUTE on mapped RPCs. Schema-authoring RPCs stay revoked.
+An external credential with the appropriate Core-domain scopes can pass the proxy allowlist **and complete** the same governed Dataset/Sheet data-plane operations the UI uses (query, validate/commit row batch, snapshot, sheet local mutate, at least one models write), with attribution on credential columns rather than a user id. Everything else remains denied. `api_client` holds EXECUTE on mapped RPCs. Schema-authoring RPCs stay revoked. Notebook submit/sign stays a human evidence act.
 
-**Evidence:** `src/lib/external-token.ts`, `src/lib/external-token.test.ts`, `drizzle/0114_api_07_core_external_allowlist.sql`, `tests/db/external-api.test.ts`, `docs/public-api-contract.md` §2.1 and §8.2.
+**Evidence:** `src/lib/external-token.ts`, `src/lib/external-token.test.ts`, `drizzle/0114_api_07_core_external_allowlist.sql`, `drizzle/0115_api_07_credential_write_actors.sql`, `tests/db/external-api.test.ts`, `docs/public-api-contract.md` §2.1 and §8.2.
 
 ## API-03 — OpenAPI & Documentation
 

@@ -11,6 +11,7 @@ import {
   Activity,
   Database,
   KeyRound,
+  Lock,
   Settings,
   Shield,
   UserRoundCog,
@@ -20,6 +21,7 @@ import {
 import { useShell } from '#/components/app-shell'
 import {
   AdminActivity,
+  AdminApiCredentials,
   AdminInspector,
   AdminMembers,
   AdminProjectAccess,
@@ -56,6 +58,15 @@ import type {
   WorkspaceRole,
   WorkspaceSettings,
 } from '#/lib/workspace-admin'
+import {
+  apiCredentialQueryKey,
+  createApiCredentialFn,
+  listApiCredentialsFn,
+  rotateApiCredentialFn,
+  revokeApiCredentialFn,
+} from '#/lib/api-credential-admin'
+import type { CreatedCredentialWire } from '#/lib/api-credential-admin'
+import type { Scope } from '#/lib/api-credential-scopes'
 
 export const Route = createFileRoute('/admin')({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -108,6 +119,14 @@ const ADMIN_SECTIONS = [
     icon: UserRoundCog,
   },
   {
+    key: 'api-credentials',
+    label: 'API credentials',
+    description:
+      'Create, rotate and revoke scoped credentials for external automation.',
+    group: 'Security and audit',
+    icon: Lock,
+  },
+  {
     key: 'activity',
     label: 'Activity',
     description: 'Inspect and export the workspace audit trail.',
@@ -144,6 +163,8 @@ function AdminRoute() {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [memberSearch, setMemberSearch] = useState('')
+  const [revealedCredential, setRevealedCredential] =
+    useState<CreatedCredentialWire | null>(null)
 
   const enabled = Boolean(workspaceId)
   const membersQuery = useQuery({
@@ -174,6 +195,11 @@ function AdminRoute() {
   const activityQuery = useQuery({
     queryKey: adminQueryKeys.activity(workspaceId),
     queryFn: () => fetchWorkspaceActivity(dataClient, workspaceId, 250),
+    enabled,
+  })
+  const credentialsQuery = useQuery({
+    queryKey: apiCredentialQueryKey(workspaceId),
+    queryFn: () => listApiCredentialsFn({ data: { workspaceId } }),
     enabled,
   })
   const members = membersQuery.data ?? [],
@@ -283,6 +309,47 @@ function AdminRoute() {
       revokeProjectAccess(dataClient, { workspaceId, projectId, userId }),
     ),
   )
+  const createCredential = useMutation({
+    mutationFn: ({
+      name,
+      scopes,
+      expiresAt,
+    }: {
+      name: string
+      scopes: Scope[]
+      expiresAt: string | null
+    }) =>
+      createApiCredentialFn({
+        data: { workspaceId, name, scopes, expiresAt },
+      }),
+    onSuccess: (created) => {
+      setActionError(null)
+      setRevealedCredential(created)
+      invalidate()
+    },
+    onError: (cause: unknown) =>
+      setActionError(
+        cause instanceof Error ? cause.message : describeAdminError(cause),
+      ),
+  })
+  const revokeCredential = useMutation(
+    mutation((credentialId: string) =>
+      revokeApiCredentialFn({ data: { workspaceId, credentialId } }),
+    ),
+  )
+  const rotateCredential = useMutation({
+    mutationFn: (credentialId: string) =>
+      rotateApiCredentialFn({ data: { workspaceId, credentialId } }),
+    onSuccess: (created) => {
+      setActionError(null)
+      setRevealedCredential(created)
+      invalidate()
+    },
+    onError: (cause: unknown) =>
+      setActionError(
+        cause instanceof Error ? cause.message : describeAdminError(cause),
+      ),
+  })
   const auditExport = useMutation({
     mutationFn: () => exportAuditLog(dataClient, { workspaceId, limit: 5000 }),
     onSuccess: (events) => {
@@ -435,6 +502,19 @@ function AdminRoute() {
               sessions={sessionsQuery.data ?? []}
               isOwner={isOwner}
               onRevoke={(id) => revokeSession.mutate(id)}
+            />
+          ) : null}
+          {activeSection === 'api-credentials' ? (
+            <AdminApiCredentials
+              credentials={credentialsQuery.data ?? []}
+              isOwner={isOwner}
+              revealed={revealedCredential}
+              onCreate={(name, scopes, expiresAt) =>
+                createCredential.mutate({ name, scopes, expiresAt })
+              }
+              onRevoke={(id) => revokeCredential.mutate(id)}
+              onRotate={(id) => rotateCredential.mutate(id)}
+              onDismissRevealed={() => setRevealedCredential(null)}
             />
           ) : null}
           {activeSection === 'activity' ? (

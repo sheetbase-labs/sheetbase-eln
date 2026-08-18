@@ -8,8 +8,8 @@ import { env } from '#/env.server'
 import {
   CredentialError,
   exchangeCredential,
+  isValidScope,
   mintApiClientToken,
-  VALID_SCOPES,
 } from '#/lib/api-credentials'
 
 /**
@@ -24,7 +24,7 @@ import {
  */
 const exchangeSchema = z.object({
   credential: z.string().min(1),
-  scopes: z.array(z.enum(VALID_SCOPES)).min(1),
+  scopes: z.array(z.string()).min(1),
 })
 
 const exchange = createServerFn({ method: 'POST' }).handler(async () => {
@@ -54,6 +54,18 @@ const exchange = createServerFn({ method: 'POST' }).handler(async () => {
     )
   }
 
+  if (!parsed.data.scopes.every(isValidScope)) {
+    return Response.json(
+      {
+        error: {
+          code: 'invalid_scope',
+          message: 'Unknown or retired scope requested.',
+        },
+      },
+      { status: 400 },
+    )
+  }
+
   const db = drizzle(env.DATABASE_URL, { schema })
 
   try {
@@ -71,11 +83,13 @@ const exchange = createServerFn({ method: 'POST' }).handler(async () => {
       const status =
         error.code === 'rate_limited'
           ? 429
-          : error.code === 'revoked'
+          : error.code === 'revoked' || error.code === 'expired'
             ? 403
             : error.code === 'insufficient_scope'
               ? 403
-              : 401
+              : error.code === 'invalid_scope'
+                ? 400
+                : 401
       return Response.json(
         { error: { code: error.code, message: error.message } },
         { status },

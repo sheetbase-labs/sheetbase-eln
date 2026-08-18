@@ -29,7 +29,7 @@ The browser, SDKs, integrations, future Pipelines and future agents should conve
 - credentials are scoped, attributable, revocable and auditable;
 - OpenAPI/docs are kept aligned with implementation;
 - Python ergonomics matter for scientific users;
-- backwards compatibility/deprecation is deliberate once a public contract exists.
+- pre-release work removes superseded development-era contracts rather than keeping compatibility shims, unless an explicit current dependency requires otherwise.
 
 ## Working method
 

@@ -5,6 +5,7 @@
  * test asserts the exchange logic, not JWT signing (covered by AUTH-003).
  */
 import { drizzle } from 'drizzle-orm/node-postgres'
+import { eq } from 'drizzle-orm'
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -13,9 +14,12 @@ import {
   createCredential,
   exchangeCredential,
   hashSecret,
+  isWorkspaceMember,
+  isWorkspaceOwner,
+  listCredentials,
   parseCredentialString,
   revokeCredential,
-  CredentialError,
+  rotateCredential,
   type ExchangeDeps,
 } from '#/lib/api-credentials'
 import { migratorUrl, prepareTestDatabase } from './helpers'
@@ -27,9 +31,11 @@ let db: ReturnType<typeof drizzle<typeof schema>>
 
 const WS = '00000000-0000-4000-8000-00000000050a'
 const OWNER = 'cred-owner'
+const MEMBER = 'cred-member'
 
 const mintDeps: ExchangeDeps = {
-  mintToken: async (input) => `minted:${input.workspaceId}:${input.scopes.join(',')}`,
+  mintToken: async (input) =>
+    `minted:${input.workspaceId}:${input.scopes.join(',')}`,
 }
 
 beforeAll(async () => {
@@ -47,11 +53,24 @@ beforeAll(async () => {
     slug: 'cred-ws',
     name: 'Cred WS',
   })
-  await db.insert(schema.workspaceMemberships).values({
-    workspaceId: WS,
-    userId: OWNER,
-    role: 'owner',
+  await db.insert(schema.user).values({
+    id: MEMBER,
+    name: 'Cred Member',
+    email: 'cred-member@sheetbase.test',
+    emailVerified: true,
   })
+  await db.insert(schema.workspaceMemberships).values([
+    {
+      workspaceId: WS,
+      userId: OWNER,
+      role: 'owner',
+    },
+    {
+      workspaceId: WS,
+      userId: MEMBER,
+      role: 'member',
+    },
+  ])
 })
 
 afterAll(async () => {
@@ -78,7 +97,10 @@ describe('createCredential', () => {
     })
     expect(row?.secretHash).not.toContain(created.secret)
     expect(row?.secretHash).toBe(
-      hashSecret(created.displayPrefix, parseCredentialString(created.secret)!.secret),
+      hashSecret(
+        created.displayPrefix,
+        parseCredentialString(created.secret)!.secret,
+      ),
     )
   })
 
@@ -93,18 +115,25 @@ describe('createCredential', () => {
     ).rejects.toMatchObject({ code: 'invalid_scope' })
   })
 
-  it('accepts the independent scientific scope vocabulary', async () => {
+  it('rejects scientific:* as unknown scopes', async () => {
+    await expect(
+      createCredential(db, {
+        workspaceId: WS,
+        createdByUserId: OWNER,
+        name: 'scientific integration',
+        scopes: ['scientific:read', 'scientific:write', 'scientific:schema'],
+      }),
+    ).rejects.toMatchObject({ code: 'invalid_scope' })
+  })
+
+  it('issues Core-domain product scopes from the API-01 vocabulary', async () => {
     const created = await createCredential(db, {
       workspaceId: WS,
       createdByUserId: OWNER,
-      name: 'scientific integration',
-      scopes: ['scientific:read', 'scientific:write', 'scientific:schema'],
+      name: 'dataset reader',
+      scopes: ['datasets:read', 'schema:read'],
     })
-    expect(created.scopes).toEqual([
-      'scientific:read',
-      'scientific:write',
-      'scientific:schema',
-    ])
+    expect(created.scopes).toEqual(['datasets:read', 'schema:read'])
   })
 })
 
@@ -136,10 +165,7 @@ describe('exchangeCredential', () => {
     await exchangeCredential(db, credSecret, ['projects:read'], mintDeps)
     const row = await db.query.apiCredentials.findFirst({
       where: (table, { eq }) =>
-        eq(
-          table.displayPrefix,
-          parseCredentialString(credSecret)!.prefix,
-        ),
+        eq(table.displayPrefix, parseCredentialString(credSecret)!.prefix),
     })
     expect(row?.lastUsedAt).not.toBeNull()
   })
@@ -172,6 +198,29 @@ describe('exchangeCredential', () => {
     await expect(
       exchangeCredential(db, readOnly.secret, ['projects:write'], mintDeps),
     ).rejects.toMatchObject({ code: 'insufficient_scope' })
+  })
+
+  it('rejects scientific:* at exchange as an unknown scope', async () => {
+    await expect(
+      exchangeCredential(db, credSecret, ['scientific:read'], mintDeps),
+    ).rejects.toMatchObject({ code: 'invalid_scope' })
+  })
+
+  it('rejects an expired credential', async () => {
+    const created = await createCredential(db, {
+      workspaceId: WS,
+      createdByUserId: OWNER,
+      name: 'soon expired',
+      scopes: ['projects:read'],
+      expiresAt: new Date(Date.now() + 60_000),
+    })
+    await db
+      .update(schema.apiCredentials)
+      .set({ expiresAt: new Date(Date.now() - 1000) })
+      .where(eq(schema.apiCredentials.id, created.id))
+    await expect(
+      exchangeCredential(db, created.secret, ['projects:read'], mintDeps),
+    ).rejects.toMatchObject({ code: 'expired' })
   })
 })
 
@@ -243,5 +292,102 @@ describe('rate limiting', () => {
     await expect(
       exchangeCredential(db, bad, ['projects:read'], mintDeps),
     ).rejects.toMatchObject({ code: 'rate_limited' })
+  })
+})
+
+describe('listCredentials', () => {
+  it('returns metadata without the secret hash', async () => {
+    const created = await createCredential(db, {
+      workspaceId: WS,
+      createdByUserId: OWNER,
+      name: 'listed',
+      scopes: ['projects:read'],
+    })
+    const rows = await listCredentials(db, WS)
+    const match = rows.find((row) => row.id === created.id)
+    expect(match).toMatchObject({
+      displayPrefix: created.displayPrefix,
+      name: 'listed',
+      createdByUserId: OWNER,
+      revokedAt: null,
+      expiresAt: null,
+    })
+    expect(match).not.toHaveProperty('secretHash')
+    expect(JSON.stringify(match)).not.toContain(created.secret)
+  })
+})
+
+describe('rotateCredential', () => {
+  it('issues a new secret, keeps the exact scopes, and revokes the old credential', async () => {
+    const original = await createCredential(db, {
+      workspaceId: WS,
+      createdByUserId: OWNER,
+      name: 'rotating',
+      scopes: ['projects:read', 'projects:write'],
+    })
+    const rotated = await rotateCredential(db, {
+      workspaceId: WS,
+      credentialId: original.id,
+      createdByUserId: OWNER,
+    })
+    expect(rotated.secret).not.toBe(original.secret)
+    expect(rotated.scopes).toEqual(['projects:read', 'projects:write'])
+    expect(rotated.name).toBe('rotating')
+
+    await expect(
+      exchangeCredential(db, original.secret, ['projects:read'], mintDeps),
+    ).rejects.toMatchObject({ code: 'revoked' })
+
+    const token = await exchangeCredential(
+      db,
+      rotated.secret,
+      ['projects:write'],
+      mintDeps,
+    )
+    expect(token).toContain('projects:write')
+  })
+
+  it('does not increase privilege on rotation', async () => {
+    const original = await createCredential(db, {
+      workspaceId: WS,
+      createdByUserId: OWNER,
+      name: 'read only rotator',
+      scopes: ['projects:read', 'datasets:read'],
+    })
+    const rotated = await rotateCredential(db, {
+      workspaceId: WS,
+      credentialId: original.id,
+      createdByUserId: OWNER,
+    })
+    expect(rotated.scopes).toEqual(['projects:read', 'datasets:read'])
+    expect(rotated.scopes).not.toContain('projects:write')
+    expect(rotated.scopes).not.toContain('datasets:write')
+    await expect(
+      exchangeCredential(db, rotated.secret, ['projects:write'], mintDeps),
+    ).rejects.toMatchObject({ code: 'insufficient_scope' })
+  })
+})
+
+describe('workspace privilege helpers', () => {
+  it('treats owners as members and members as non-owners', async () => {
+    await expect(isWorkspaceOwner(db, OWNER, WS)).resolves.toBe(true)
+    await expect(isWorkspaceOwner(db, MEMBER, WS)).resolves.toBe(false)
+    await expect(isWorkspaceMember(db, MEMBER, WS)).resolves.toBe(true)
+    await expect(isWorkspaceMember(db, 'missing-user', WS)).resolves.toBe(false)
+  })
+})
+
+describe('removed scientific scopes', () => {
+  it('rejects stored scientific:* rows at the database CHECK', async () => {
+    await expect(
+      db.insert(schema.apiCredentials).values({
+        workspaceId: WS,
+        displayPrefix: 'cafef00d',
+        secretHash: hashSecret('cafef00d', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'),
+        name: 'legacy exchange',
+        scopes: ['scientific:read'],
+        createdByUserId: OWNER,
+      }),
+    ).rejects.toThrow()
   })
 })

@@ -1,6 +1,6 @@
 # API — API & Developer Platform
 
-**Status:** API-01 complete (`#40`). API-02 is the Low Ready candidate. Stay at the published contract unless a later epic is assigned.
+**Status:** API-01 complete (`#40`). API-02 complete for **workspace service credentials** (`#47`, pending merge). Core allowlist cut-over remains queued. Distinct personal tokens, named service-account principals, and credential mutation audit events are later API work.
 
 ## Programme goal
 
@@ -25,9 +25,11 @@ Define stable, versioned resources and operations for external clients.
 - This epic is **contract / audit / documentation**. Inspect the actual server and `/api/db` / token allowlist implementation.
 - If implementation requires consequential server architecture, migrations, RLS, transactions or other Medium-level work, **stop at the contract boundary** and queue that implementation separately.
 
+Pre-release update: Sheetbase has no production users or credentials, so `scientific:*` is **removed** in API-02 rather than deprecated.
+
 ### Current state (verified API-01 @ `b306654` / `#40`)
 
-External credentials and `POST /api/token` exist. The allowlist is **project-domain only** (`src/lib/external-token.ts`). Core Dataset/Sheet/Notebook RPCs fail closed. `scientific:*` scopes are mintable but map to an empty resource set. `docs/external-api.md` corrected; canonical contract at `docs/public-api-contract.md`.
+External credentials and `POST /api/token` exist. The allowlist is **project-domain only** (`src/lib/external-token.ts`). Core Dataset/Sheet/Notebook RPCs fail closed. Canonical contract at `docs/public-api-contract.md`.
 
 The browser session path has no allowlist; do not treat PostgREST exposure as the public contract.
 
@@ -49,19 +51,45 @@ Documented in `docs/public-api-contract.md` §§4–7 and §9. OpenAPI/SDK/webho
 
 ### Exit
 
-A developer can read the intended public contract without treating scientific-table REST as current. Implementation of a new allowlist/scope cut-over is queued (API-02).
+A developer can read the intended public contract without treating scientific-table REST as current. Implementation of a new allowlist/scope cut-over is queued (later epic, not API-02).
 
 **Evidence:** `docs/public-api-contract.md`, updated `docs/external-api.md`, `src/lib/external-token.test.ts` (Core RPC deny-list), audit notes in contract §12.
 
 ## API-02 — API Credentials & Service Identity
 
-**Priority:** low. **Status:** Ready candidate after API-01.
+**Priority:** low. **Status:** **Complete for workspace service credentials** (narrowed honestly; see queued remainder).
 
-Personal tokens; service accounts; workspace binding; capability scopes; expiry; rotation; revocation; last-used metadata; credential audit; request attribution; safe secret handling.
+### Intended original list vs delivery
 
-PC-00: `createCredential` exists in `src/lib/api-credentials.ts` with **no product UI**. Scope vocabulary is now the API-01 contract (`schema:*` distinct from `datasets:*`). Do not invent a second permission model. Core Dataset/Sheet allowlist cut-over is still fail-closed; if that work is Medium, stop and queue it.
+The original prompt listed personal tokens, service accounts, workspace binding, capability scopes, expiry, rotation, revocation, last-used metadata, credential audit, request attribution, and safe secret handling.
 
-**Exit:** external automation authenticates safely without borrowing human sessions or database credentials.
+API-02 ships **one** credential type: an owner-minted, workspace-bound secret used as the external **service identity**. It does not invent a second permission model and does not cut over the Core RPC allowlist.
+
+| Requirement                      | In API-02?           | Notes                                                                                                                           |
+| -------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Workspace binding                | Yes                  | `workspace_id` on the row and in the JWT                                                                                        |
+| Capability scopes                | Yes                  | Canonical API-01 vocabulary only; Core RPCs still fail-closed                                                                   |
+| Expiry                           | Yes                  | Optional `expires_at` on the credential; JWT access-token TTL remains 300s                                                      |
+| Rotation                         | Yes                  | Copies scopes and expiry exactly; never adds a scope                                                                            |
+| Revocation                       | Yes                  | Immediate; use-time check on the bearer token                                                                                   |
+| Last-used metadata               | Yes                  | Stamped on exchange; shown in Administration                                                                                    |
+| Safe secret handling             | Yes                  | Shown once; salted hash at rest; prefix id; exchange rate-limit                                                                 |
+| Request attribution              | Yes (existing)       | JWT `credential_id`; not a new identity table                                                                                   |
+| Service identity                 | Yes (this type)      | The credential row **is** the service principal                                                                                 |
+| Personal tokens                  | **Queued**           | No user-acting token that impersonates a human session                                                                          |
+| Named service-account principals | **Queued**           | No second user-like account besides the credential                                                                              |
+| Credential audit log             | **Partial / queued** | Created-by, last-used, revoked/expired in the admin list. Create/rotate/revoke are **not** written to workspace activity events |
+
+**Exit (this epic):** external automation authenticates with a workspace-bound secret instead of a human session or database password.
+
+**Evidence:** `src/lib/api-credentials.ts`, `src/lib/api-credential-admin.ts`, `src/components/workspace-admin/admin-api-credentials.tsx`, `tests/db/api-credentials.test.ts`, `src/lib/api-credential-scopes.test.ts`. Allowlist remains `src/lib/external-token.ts`.
+
+### Queued (not this epic)
+
+- Core Dataset/Sheet/Notebook `requiredScopes()` cut-over — later Medium allowlist epic
+- Personal tokens (user-scoped credentials that act as a human)
+- Named service-account principals distinct from credential secrets
+- Credential create/rotate/revoke rows in the workspace activity audit stream
 
 ## API-03 — OpenAPI & Documentation
 
@@ -73,7 +101,7 @@ Authoritative OpenAPI, versioned docs, examples, error reference, pagination/fil
 
 Typed resources, authentication, pagination iterators, pandas conversion, bulk upload/download, idempotent mutation helpers, stable exceptions, version compatibility and optional async where useful.
 
-**Exit:** scientific Python users can treat Sheetbase as a normal data platform without hand-writing HTTP.
+**Exit:** scientific Python users can treat Sheetbase as a data platform without hand-writing HTTP.
 
 ## API-05 — TypeScript SDK
 
@@ -94,3 +122,4 @@ Subscriptions; signed payloads; stable event schema; retries/backoff; delivery h
 - Do not make SDKs depend on browser-only routes.
 - Do not promise backwards compatibility before an explicit version/deprecation policy exists.
 - Do not restore scientific-table write paths in order to honour stale documentation.
+- Pre-release: when a development-era contract is superseded, remove it rather than keeping a compatibility shim unless a concrete current dependency requires it.

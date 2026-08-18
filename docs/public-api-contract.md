@@ -68,8 +68,8 @@ Dataset/Sheet/Notebook Template RPCs and all removed scientific-table
 resources — returns `permission_denied` / `insufficient_scope` at the proxy.
 
 **Vestigial scopes:** `scientific:read`, `scientific:write`, `scientific:schema`
-remain mintable (`src/lib/api-credentials.ts`) but `SCIENTIFIC_METADATA` is
-empty; they grant access to **no resources**. See §9.
+are **removed**. They are not in `VALID_SCOPES`, cannot be stored, and token
+exchange rejects them as `invalid_scope`. See §9.
 
 ### 2.2 Intended public surface (queued implementation)
 
@@ -331,7 +331,7 @@ scientific-table RPCs.
 ### 8.2 Allowlist cut-over (not in API-01)
 
 Implementation queues explicit `requiredScopes()` entries per RPC/table
-(API-02/03). Principles:
+(later allowlist epic). Principles:
 
 - Fail closed for unknown paths (keep current behaviour).
 - RPC allowlist mirrors product UI capabilities, not every `api.*` function.
@@ -355,17 +355,14 @@ Historical ADR 0019/0020 describe the retired architecture. `docs/external-api.m
 previously documented CLI examples for this surface — that was a documentation
 defect (P1-A2).
 
-### 9.2 Vestigial `scientific:*` scopes
+### 9.2 Removed `scientific:*` scopes
 
-| Phase | Behaviour |
-| --- | --- |
-| **Now** | Scopes mintable; allowlist empty → no resource access |
-| **API-02** | Stop issuing new credentials with `scientific:*`; admin UI shows deprecation |
-| **API-03+** | Reject `scientific:*` at exchange with `invalid_scope` after notice period |
+`scientific:read`, `scientific:write`, and `scientific:schema` are **removed**
+from the credential vocabulary. Sheetbase is pre-release with no production
+credentials: there is no deprecation window and no compatibility exchange path.
 
-If any external consumer still holds `scientific:*` credentials: **revoke and
-re-create** with `projects:*` (today) or the Core-domain scopes above (after
-cut-over). No migration path restores scientific-table RPCs.
+Token exchange returns `invalid_scope` if they are requested. The database
+CHECK rejects storing them. Historical ADR 0019/0020 remain archival.
 
 ### 9.3 Browser-only routes
 
@@ -389,7 +386,7 @@ Once API-03 publishes versioned docs:
 
 | Epic | Work |
 | --- | --- |
-| **API-02** | Credentials UI; service accounts; Core scope cut-over in `external-token.ts`; stop minting `scientific:*`; last-used metadata |
+| **API-02** | Workspace service credentials UI; rotation/revocation; last-used; expiry; canonical scopes only. Core allowlist cut-over remains queued. |
 | **API-03** | OpenAPI 3.1 from this contract; error reference; version prefix; pagination examples |
 | **API-04** | Python SDK — pagination iterators, pandas, idempotent helpers |
 | **API-05** | TypeScript SDK — typed resources, isomorphic fetch |

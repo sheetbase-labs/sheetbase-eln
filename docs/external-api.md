@@ -28,32 +28,32 @@ A credential string looks like `sb_<prefix>_<secret>`:
 Store the full credential in your integration's secret store immediately. If
 you lose it, revoke and create a new one.
 
-There is **no product UI** to create or revoke credentials yet (API-02). Today
-credentials are created through `createCredential` in
-`src/lib/api-credentials.ts` (tests, seeds, or direct server use).
+There is a workspace **Administration → API credentials** page for owners
+to create, list, rotate and revoke credentials. The full secret is shown
+once at create or rotate; only a salted hash and display prefix are stored.
+Members can view prefixes and last-used metadata but cannot mint secrets.
+Optional credential expiry is enforced at exchange and rotation.
 
 ## Scopes
 
 ### Currently effective
 
-| Scope             | Allows                                                                 |
-| ----------------- | ---------------------------------------------------------------------- |
-| `projects:read`   | Read project-domain tables in the credential's workspace (see below).  |
-| `projects:write`  | Create/update project-domain tables and allowed RPCs in the workspace. |
+| Scope            | Allows                                                                 |
+| ---------------- | ---------------------------------------------------------------------- |
+| `projects:read`  | Read project-domain tables in the credential's workspace (see below).  |
+| `projects:write` | Create/update project-domain tables and allowed RPCs in the workspace. |
 
-### Deprecated (do not use in new integrations)
+### Mintable Core-domain scopes (fail-closed until allowlist cut-over)
 
-| Scope               | Status                                                                 |
-| ------------------- | ---------------------------------------------------------------------- |
-| `scientific:read`   | **Deprecated.** Mintable but maps to an **empty** allowlist — no access. |
-| `scientific:write`  | **Deprecated.** Same as above.                                         |
-| `scientific:schema` | **Deprecated.** Same as above.                                         |
+The admin UI and `createCredential` issue the API-01 vocabulary
+(`datasets:*`, `schema:*`, `sheets:*`, `models:*`, `templates:*`, `reviews:*`,
+`files:*`). Those scopes are stored and may be requested at `POST /api/token`,
+but Core Dataset/Sheet/Notebook RPCs still return `permission_denied` until a
+later epic expands `src/lib/external-token.ts`. `sheets:write` does not author
+Sheet Definitions. Dataset **data** scopes stay distinct from `schema:*`.
 
-Future Core-domain scopes (`datasets:*`, `schema:*`, `sheets:*`, `templates:*`,
-…) are specified in `docs/public-api-contract.md` §8. Dataset **data** scopes
-are distinct from governed **schema/configuration** scopes (`schema:write` /
-`schema:publish`). They are **not** enforced until API-02 cuts over the
-allowlist.
+`scientific:*` scopes are **removed**, not deprecated. Requesting them at
+`POST /api/token` returns `invalid_scope`.
 
 Requesting a scope the credential does not have returns `insufficient_scope`.
 
@@ -201,11 +201,11 @@ Data requests return the stable envelope documented in
 
 ## Tests
 
-| Test file | Proves |
-| --------- | ------ |
-| `src/lib/external-token.test.ts` | Allowlist scope mapping; fail-closed for Core/retired paths |
-| `tests/db/api-credentials.test.ts` | Creation, exchange, wrong secret/scope, revocation, rate-limit |
-| `tests/db/external-api.test.ts` | End-to-end RLS, scope enforcement, revocation-at-use, tampered claims |
+| Test file                          | Proves                                                                |
+| ---------------------------------- | --------------------------------------------------------------------- |
+| `src/lib/external-token.test.ts`   | Allowlist scope mapping; fail-closed for Core/retired paths           |
+| `tests/db/api-credentials.test.ts` | Creation, exchange, wrong secret/scope, revocation, rate-limit        |
+| `tests/db/external-api.test.ts`    | End-to-end RLS, scope enforcement, revocation-at-use, tampered claims |
 
 Retired scientific-table tests (`tests/db/scientific-rest.test.ts`,
 `tests/api/scientific-rest.test.ts`) document **removed** behaviour and are
@@ -216,4 +216,4 @@ not part of the public contract.
 1. Read `docs/public-api-contract.md` for the full domain model and queued scope vocabulary.
 2. Use `projects:read` / `projects:write` for the **current** project-domain API only.
 3. Do **not** depend on `scientific:*` scopes or scientific-table paths.
-4. Watch for API-02 (credentials UI + Core RPC allowlist) before building Sheet/Dataset/Notebook automation.
+4. Watch for a later allowlist epic before building Sheet/Dataset/Notebook automation. Credentials UI and service identity are available now (API-02); Core RPCs remain fail-closed.

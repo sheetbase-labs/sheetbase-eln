@@ -234,12 +234,13 @@ service-credential surface is `docs/openapi/service-credentials-v0.json`
 
 ### 5.2 RPC data windows
 
-| RPC                         | Pagination                      | Filtering                               |
-| --------------------------- | ------------------------------- | --------------------------------------- |
-| `query_sheet_instance_rows` | `p_limit` (max 200), `p_offset` | Server-side composition window          |
-| `query_dataset_rows`        | `limit`, `offset` in query JSON | Field filters in query object           |
-| `search`                    | `p_limit` (1–100), `p_offset`   | `p_kind`, `p_project_id`, date range, … |
-| `search_sheet_records`      | `p_limit`                       | `p_model_key`, `p_query`                |
+| RPC                          | Pagination                                       | Filtering                                                                 |
+| ---------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------- |
+| `query_sheet_instance_rows`  | `p_limit` 1–200 (default 50), `p_offset` 0–10000 | Server-side composition window                                            |
+| `query_dataset_rows`         | `p_limit` 1–1000 (default 200), `p_offset` ≥ 0   | `p_query.filters` (max 8; `eq`/`gt`/`gte`/`lt`/`lte`) and `p_query.sort`  |
+| `query_dataset_version_rows` | `p_limit` 1–1000, `p_offset` ≥ 0                 | None (historical projection)                                              |
+| `search`                     | `p_limit` 1–100 (default 20), `p_offset` ≥ 0     | `p_query`, `p_kind`, `p_project_id`, `p_status`, `p_owner_id`, date range |
+| `search_sheet_records`       | `p_limit` 1–50 (default 25); no offset           | `p_model_key`, `p_query`, `p_include_archived`                            |
 
 **Contract rule:** List endpoints that can return large sets **must** use
 bounded windows. Clients iterate with offset/limit or cursor-style paging
@@ -321,10 +322,10 @@ Clients **must** read current version/revision before mutating and retry on
 
 ### 7.2 Command idempotency
 
-| RPC                        | Idempotency key                 | Behaviour                                                                 |
-| -------------------------- | ------------------------------- | ------------------------------------------------------------------------- |
-| `submit_record_revision`   | `p_idempotency_key`             | Same key + same inputs → same revision/submission with `idempotent: true` |
-| `commit_dataset_row_batch` | client idempotency key + digest | Stored in `dataset_bulk_commits`; safe retry                              |
+| RPC                        | Idempotency key                              | Behaviour                                                                                         |
+| -------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `submit_record_revision`   | `p_idempotency_key`                          | Same key + same inputs → same revision/submission with `idempotent: true`                         |
+| `commit_dataset_row_batch` | `p_idempotency_key` (1–128) + request digest | Same credential + same digest → stored result with `idempotent: true`; different digest conflicts |
 
 Other RPCs: treat POST as **at-most-once** unless documented otherwise; use
 client-generated UUID command ids when adding idempotency in later API work.

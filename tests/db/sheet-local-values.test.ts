@@ -466,7 +466,7 @@ describe('controlled Sheet Instance local values', () => {
     ).rows[0]
     expect(privileges).toEqual({
       rpc: true,
-      rpc_api_client: false,
+      rpc_api_client: true,
       helper: false,
       helper_acl_count: 0,
       direct_audit_write: false,

@@ -249,3 +249,102 @@ describe('resolveExternalToken (revocation + scope at use time)', () => {
     ).rejects.toBeInstanceOf(ExternalTokenError)
   })
 })
+
+describe('API-07 Core allowlist', () => {
+  it('allows query_dataset_rows with datasets:read and denies writes', async () => {
+    const cred = await createCredential(db, {
+      workspaceId: WS_A,
+      createdByUserId: OWNER_A,
+      name: 'dataset-reader',
+      scopes: ['datasets:read'],
+    })
+    const token = await mintApiClientToken(SECRET, {
+      workspaceId: WS_A,
+      credentialId: cred.id,
+      scopes: ['datasets:read'],
+    })
+    await expect(
+      resolveExternalToken(db, token, SECRET, 'POST', {
+        kind: 'rpc',
+        resource: 'query_dataset_rows',
+      }),
+    ).resolves.toEqual({ workspaceId: WS_A })
+    await expect(
+      resolveExternalToken(db, token, SECRET, 'POST', {
+        kind: 'rpc',
+        resource: 'commit_dataset_row_batch',
+      }),
+    ).rejects.toMatchObject({ code: 'insufficient_scope' })
+    await expect(
+      resolveExternalToken(db, token, SECRET, 'POST', {
+        kind: 'rpc',
+        resource: 'create_dataset_schema_definition',
+      }),
+    ).rejects.toMatchObject({ code: 'insufficient_scope' })
+  })
+
+  it('does not let sheets:write author Sheet Definitions', async () => {
+    const cred = await createCredential(db, {
+      workspaceId: WS_A,
+      createdByUserId: OWNER_A,
+      name: 'sheet-writer',
+      scopes: ['sheets:write'],
+    })
+    const token = await mintApiClientToken(SECRET, {
+      workspaceId: WS_A,
+      credentialId: cred.id,
+      scopes: ['sheets:write'],
+    })
+    await expect(
+      resolveExternalToken(db, token, SECRET, 'POST', {
+        kind: 'rpc',
+        resource: 'mutate_sheet_instance_local_state',
+      }),
+    ).resolves.toEqual({ workspaceId: WS_A })
+    await expect(
+      resolveExternalToken(db, token, SECRET, 'POST', {
+        kind: 'rpc',
+        resource: 'create_sheet_definition',
+      }),
+    ).rejects.toMatchObject({ code: 'insufficient_scope' })
+  })
+
+  it('grants EXECUTE on mapped Core RPCs and still denies schema authoring', async () => {
+    const { rows } = await migrator.query<{
+      proname: string
+      api_client: boolean
+    }>(
+      `select p.proname,
+              bool_or(has_function_privilege('api_client', p.oid, 'EXECUTE')) api_client
+         from pg_proc p
+         join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'api'
+          and p.proname = any($1::text[])
+        group by p.proname
+        order by p.proname`,
+      [
+        [
+          'query_dataset_rows',
+          'commit_dataset_row_batch',
+          'mutate_sheet_instance_local_state',
+          'submit_record_revision',
+          'instantiate_notebook_template_version',
+          'search',
+          'create_dataset_schema_definition',
+          'create_sheet_definition',
+        ],
+      ],
+    )
+    const byName = Object.fromEntries(rows.map((row) => [row.proname, row.api_client]))
+    expect(byName).toMatchObject({
+      query_dataset_rows: true,
+      commit_dataset_row_batch: true,
+      mutate_sheet_instance_local_state: true,
+      submit_record_revision: true,
+      instantiate_notebook_template_version: true,
+      search: true,
+      create_dataset_schema_definition: false,
+      create_sheet_definition: false,
+    })
+  })
+})

@@ -58,6 +58,21 @@ describe('requiredScopes', () => {
     expect(requiredScopes('POST', rpcPath)).toEqual(['projects:write'])
   })
 
+  it('maps Dataset and Sheet catalogue tables to Core-domain scopes', () => {
+    expect(
+      requiredScopes('GET', { kind: 'table', resource: 'datasets' }),
+    ).toEqual(['datasets:read'])
+    expect(
+      requiredScopes('POST', { kind: 'table', resource: 'datasets' }),
+    ).toEqual(['datasets:write'])
+    expect(
+      requiredScopes('GET', { kind: 'table', resource: 'sheet_instances' }),
+    ).toEqual(['sheets:read'])
+    expect(() =>
+      requiredScopes('POST', { kind: 'table', resource: 'sheet_instances' }),
+    ).toThrow(ExternalTokenError)
+  })
+
   it('denies scientific-table and SCI-010 resources as insufficient_scope', () => {
     const resource = `sheet_${'a'.repeat(26)}`
     const denied = [
@@ -106,26 +121,101 @@ describe('requiredScopes', () => {
     ).toThrow(ExternalTokenError)
   })
 
-  /**
-   * API-01 contract: Core domain RPCs the product uses are not on the external
-   * allowlist yet. Each must fail closed until a later allowlist epic.
-   */
-  it('denies Core domain RPCs as insufficient_scope (API-01 contract)', () => {
-    const coreRpcs = [
-      'query_dataset_rows',
-      'commit_dataset_row_batch',
-      'snapshot_dataset',
-      'create_sheet_instance',
-      'query_sheet_instance_rows',
-      'mutate_sheet_instance_local_state',
-      'submit_record_revision',
-      'preview_submission_digest',
-      'create_notebook_template',
-      'instantiate_notebook_template_version',
-      'search',
-      'search_sheet_records',
+  it('maps Core Dataset/Sheet/Notebook RPCs to canonical scopes (API-07)', () => {
+    const allowed: Array<[string, string[]]> = [
+      ['query_dataset_rows', ['datasets:read']],
+      ['query_dataset_version_rows', ['datasets:read']],
+      ['validate_dataset_row_batch', ['datasets:write']],
+      ['commit_dataset_row_batch', ['datasets:write']],
+      ['snapshot_dataset', ['datasets:write']],
+      ['archive_dataset', ['datasets:write']],
+      ['restore_dataset', ['datasets:write']],
+      ['query_sheet_instance_rows', ['sheets:read']],
+      ['create_sheet_instance', ['sheets:write']],
+      ['mutate_sheet_instance_local_state', ['sheets:write']],
+      ['mutate_sheet_instance_calculations', ['sheets:write']],
+      ['insert_sheet_instance_block', ['sheets:write']],
+      ['submit_record_revision', ['reviews:write']],
+      ['preview_submission_digest', ['reviews:read']],
+      ['instantiate_notebook_template_version', ['templates:write']],
+      ['search', ['projects:read']],
+      ['search_sheet_records', ['models:read']],
+      ['update_record_custom_fields', ['models:write']],
+    ]
+    for (const [resource, scopes] of allowed) {
+      expect(requiredScopes('POST', { kind: 'rpc', resource })).toEqual(scopes)
+    }
+  })
+
+  it('rejects Core writes when only the matching read scope is present', () => {
+    const writes = [
+      ['commit_dataset_row_batch', 'datasets:write'],
+      ['mutate_sheet_instance_local_state', 'sheets:write'],
+      ['submit_record_revision', 'reviews:write'],
+      ['instantiate_notebook_template_version', 'templates:write'],
+      ['update_record_custom_fields', 'models:write'],
     ] as const
-    for (const resource of coreRpcs) {
+    for (const [resource, required] of writes) {
+      const scopes = requiredScopes('POST', { kind: 'rpc', resource })
+      expect(scopes).toEqual([required])
+      expect(
+        hasScope(['datasets:read', 'sheets:read', 'reviews:read'], required),
+      ).toBe(false)
+    }
+  })
+
+  it('does not let datasets:* or sheets:write author governed schema', () => {
+    const stewardship = [
+      'create_dataset_schema_definition',
+      'replace_dataset_schema_version_fields',
+      'publish_dataset_schema_version',
+      'create_next_dataset_schema_version',
+      'retire_dataset_schema_definition',
+      'create_sheet_definition',
+      'create_sheet_definition_version',
+      'extract_sheet_definition_draft',
+    ]
+    for (const resource of stewardship) {
+      expect(() => requiredScopes('POST', { kind: 'rpc', resource })).toThrow(
+        ExternalTokenError,
+      )
+    }
+    expect(
+      requiredScopes('GET', { kind: 'table', resource: 'datasets' }),
+    ).toEqual(['datasets:read'])
+    expect(
+      requiredScopes('GET', {
+        kind: 'table',
+        resource: 'dataset_schema_definitions',
+      }),
+    ).toEqual(['schema:read'])
+    expect(() =>
+      requiredScopes('POST', {
+        kind: 'table',
+        resource: 'dataset_schema_definitions',
+      }),
+    ).toThrow(ExternalTokenError)
+    expect(() =>
+      requiredScopes('POST', { kind: 'table', resource: 'sheet_definitions' }),
+    ).toThrow(ExternalTokenError)
+  })
+
+  it('keeps still-private RPCs fail-closed', () => {
+    const privateRpcs = [
+      'create_notebook_template',
+      'publish_notebook_template_version',
+      'finalize_file_upload',
+      'create_comment',
+      'sign_revision',
+      'export_audit_log',
+      'change_member_role',
+      'create_booking',
+      'query_dataset',
+      'discover_object_dependencies',
+      'list_capabilities',
+      'create_and_activate_model_field',
+    ]
+    for (const resource of privateRpcs) {
       expect(() => requiredScopes('POST', { kind: 'rpc', resource })).toThrow(
         ExternalTokenError,
       )

@@ -799,6 +799,13 @@
       "when": 1771452000000,
       "tag": "0113_api_02_credential_scopes",
       "breakpoints": true
+    },
+    {
+      "idx": 114,
+      "version": "7",
+      "when": 1787064918550,
+      "tag": "0114_api_07_core_external_allowlist",
+      "breakpoints": true
     }
   ]
 }

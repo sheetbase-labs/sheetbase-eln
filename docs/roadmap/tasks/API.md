@@ -1,6 +1,6 @@
 # API — API & Developer Platform
 
-**Status:** API-01 complete (`#40`). API-02 is the Low Ready candidate. Stay at the published contract unless a later epic is assigned.
+**Status:** API-01 complete (`#40`). API-02 complete (`#47`, pending merge). Core allowlist cut-over remains queued.
 
 ## Programme goal
 
@@ -49,19 +49,30 @@ Documented in `docs/public-api-contract.md` §§4–7 and §9. OpenAPI/SDK/webho
 
 ### Exit
 
-A developer can read the intended public contract without treating scientific-table REST as current. Implementation of a new allowlist/scope cut-over is queued (API-02).
+A developer can read the intended public contract without treating scientific-table REST as current. Implementation of a new allowlist/scope cut-over is queued (later epic, not API-02).
 
 **Evidence:** `docs/public-api-contract.md`, updated `docs/external-api.md`, `src/lib/external-token.test.ts` (Core RPC deny-list), audit notes in contract §12.
 
 ## API-02 — API Credentials & Service Identity
 
-**Priority:** low. **Status:** In progress after API-01.
+**Priority:** low. **Status:** **Complete** (credentials productised; Core allowlist still fail-closed).
 
 Personal tokens; service accounts; workspace binding; capability scopes; expiry; rotation; revocation; last-used metadata; credential audit; request attribution; safe secret handling.
 
-PC-00: `createCredential` exists in `src/lib/api-credentials.ts` with **no product UI**. Scope vocabulary is now the API-01 contract (`schema:*` distinct from `datasets:*`). Do not invent a second permission model. Core Dataset/Sheet allowlist cut-over is still fail-closed; if that work is Medium, stop and queue it.
+### Delivered
+
+- [x] Owner-gated Administration → API credentials UI (create, list, rotate, revoke; last-used; created-by)
+- [x] Secret shown once; hash-at-rest; prefix identification
+- [x] Product scopes from API-01 contract; `scientific:*` rejected on new issuance
+- [x] Rotation drops vestigial scientific scopes
+- [x] Existing `scientific:*` rows still exchange
+- [x] Docs: `docs/external-api.md`, contract §9.2 / §10
 
 **Exit:** external automation authenticates safely without borrowing human sessions or database credentials.
+
+**Evidence:** `src/lib/api-credentials.ts`, `src/lib/api-credential-admin.ts`, `src/components/workspace-admin/admin-api-credentials.tsx`, `tests/db/api-credentials.test.ts` (17 passed), `src/lib/api-credential-scopes.test.ts`, `src/components/workspace-admin/admin-api-credentials.test.tsx`. Allowlist cut-over remains `src/lib/external-token.ts`.
+
+**Queued (not this epic):** Core Dataset/Sheet/Notebook `requiredScopes()` cut-over; JWT expiry UI; reject `scientific:*` at exchange (API-03+).
 
 ## API-03 — OpenAPI & Documentation
 

@@ -22,9 +22,8 @@ import {
   isScientificScope,
   isValidScope,
   PRODUCT_SCOPES,
-  type ProductScope,
-  type Scope,
 } from '#/lib/api-credential-scopes'
+import type { ProductScope, Scope } from '#/lib/api-credential-scopes'
 
 export type { ProductScope, Scope } from '#/lib/api-credential-scopes'
 export {
@@ -249,7 +248,7 @@ export async function rotateCredential(
       throw new CredentialError('revoked', 'Credential has been revoked.')
     }
 
-    const kept = (existing.scopes as string[]).filter(isProductScope)
+    const kept = existing.scopes.filter(isProductScope)
     const scopes: ProductScope[] = kept.length > 0 ? kept : [PRODUCT_SCOPES[0]]
 
     const created = await createCredential(tx, {

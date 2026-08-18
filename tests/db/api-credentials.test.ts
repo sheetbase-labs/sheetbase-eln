@@ -353,7 +353,7 @@ describe('workspace privilege helpers', () => {
 
 describe('legacy scientific credentials', () => {
   it('still exchanges existing scientific:* rows', async () => {
-    const prefix = 'legacy02'
+    const prefix = 'cafef00d'
     const secret = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
     await db.insert(schema.apiCredentials).values({
       workspaceId: WS,

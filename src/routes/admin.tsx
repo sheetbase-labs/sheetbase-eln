@@ -64,8 +64,8 @@ import {
   listApiCredentialsFn,
   rotateApiCredentialFn,
   revokeApiCredentialFn,
-  type CreatedCredentialWire,
 } from '#/lib/api-credential-admin'
+import type { CreatedCredentialWire } from '#/lib/api-credential-admin'
 import type { ProductScope } from '#/lib/api-credential-scopes'
 
 export const Route = createFileRoute('/admin')({

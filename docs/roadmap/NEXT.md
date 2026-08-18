@@ -12,7 +12,7 @@ CORE-01–06 and Core Hardening remain closed. Do not reopen settled Core archit
 
 Delivery priority uses only **medium** and **low**. Nothing is queued as high.
 
-**Merged `main` HEAD for this hand-off:** `1256258` (`GOV-01: make workspace viewer read-only (#45)`).
+**Merged `main` HEAD for this hand-off:** `52b304b` (`docs: regenerate roadmap hand-off from merged main (#46)`).
 
 ## Active work
 
@@ -21,7 +21,7 @@ The roadmap supports **parallel streams**. Agents take **one assigned stream/tas
 | Stream | Active task                                 | Model  | Status                                           |
 | ------ | ------------------------------------------- | ------ | ------------------------------------------------ |
 | PC     | —                                           | —      | PC-01 and PC-02 complete; PC-03 remains later    |
-| API    | API-02 — API Credentials & Service Identity | Low    | In progress                                      |
+| API    | —                                           | —      | API-01 and API-02 complete; Core allowlist queued |
 | DATA   | DATA-01 — Import Framework                  | Medium | Ready candidate                                  |
 | GOV    | —                                           | —      | GOV-01 complete; GOV-02 requires an ADR          |
 | PLAT   | —                                           | —      | Headers slice complete; remaining PLAT-03 queued |
@@ -38,12 +38,13 @@ merged  PC-01   Canonical Sheet + blank Notebook + submit (#41) @ 7cca216
 merged  PLAT-03 headers slice (#43) @ 3c3c8ee
 merged  PC-02   Dataset and Record product workflows (#44) @ b01b029
 merged  GOV-01  viewer read-only (#45) @ 1256258
+merged  hand-off regenerate (#46) @ 52b304b
 
-candidates (assign one remaining stream; do not fan out)
+candidates (assign one stream; do not fan out)
   DATA-01 [Medium] import/paste against the canonical Sheet + Dataset product
 
-in progress
-  API-02  [Low]    credentials/service identity against the published contract
+complete on branch (not merged)
+  API-02  [Low]    credentials/service identity (#47)
 ```
 
 ## Stream briefs
@@ -57,14 +58,15 @@ Task: [`tasks/PC.md`](./tasks/PC.md)
 
 **PC-03** (full Notebook product) remains later. Do not start it from this hand-off. Do not reopen PC-01/PC-02.
 
-### API — API-02 (Low, Ready candidate)
+### API — API-02 complete; allowlist queued
 
-Task: [`tasks/API.md`](./tasks/API.md) (API-02)  
-Prompt: [`prompts/API.md`](./prompts/API.md)
+Task: [`tasks/API.md`](./tasks/API.md)
 
-**API-01 complete** (`#40` / `b306654`): `docs/public-api-contract.md` v0.1.1. Dataset data scopes are distinct from governed `schema:*`. `sheets:write` does not grant Sheet Definition authorship. External allowlist remains project-domain until a later cut-over.
+**API-01 complete** (`#40` / `b306654`): `docs/public-api-contract.md` v0.1.1. Dataset data scopes are distinct from governed `schema:*`. `sheets:write` does not grant Sheet Definition authorship.
 
-**API-02** is in progress: productise credentials (UI, service identity, rotation/revocation, attribution) against that contract. Do not invent a second permission model. Do not silently cut over Core Dataset/Sheet RPCs if that is Medium allowlist/RLS work — stop and queue it.
+**API-02 complete** (`#47`): Administration → API credentials (owner create/rotate/revoke; members view). New credentials issue the API-01 product vocabulary and reject `scientific:*`. Rotation and last-used are productised. Core Dataset/Sheet/Notebook RPCs remain fail-closed in `external-token.ts` (queued allowlist epic).
+
+Do not start API-03 unless assigned. Do not invent a second permission model.
 
 ### DATA — DATA-01 (Medium, Ready candidate)
 
@@ -90,7 +92,7 @@ Task: [`tasks/PLAT.md`](./tasks/PLAT.md)
 ## Dependencies
 
 - DATA-01 is unblocked by PC-01 (and should use PC-02 Dataset product contracts).
-- API-02 is unblocked by API-01.
+- API-02 is complete; Core RPC allowlist cut-over remains queued.
 - PC-03 is not automatically Ready.
 - GOV-02 is not Ready without an ADR.
 - Remaining PLAT-03 is queued, not a new Ready stream.
@@ -117,5 +119,4 @@ Task: [`tasks/PLAT.md`](./tasks/PLAT.md)
 
 ## Expected hand-off from Ready candidates (when assigned)
 
-- **API-02:** safe credential/service-identity product on the published contract; Core allowlist cut-over queued separately if it exceeds Low work.
 - **DATA-01:** laboratory files/pastes become governed Dataset/Record state with validation before commit, using canonical writers.

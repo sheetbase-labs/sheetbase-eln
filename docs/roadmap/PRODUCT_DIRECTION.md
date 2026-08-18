@@ -69,7 +69,24 @@ Prove scientist and steward workflows before building broad Pipeline or agent au
 
 ### One canonical path per concept
 
-Compatibility surfaces must not become competing products. Maintain one canonical Dataset Schema system, Template catalogue, Sheet experience, public domain API and capability model.
+Do not keep superseded compatibility surfaces alongside the canonical product. Maintain one canonical Dataset Schema system, Template catalogue, Sheet experience, public domain API and capability model.
+
+### Pre-release: no backwards compatibility by default
+
+Sheetbase is in active development with **no production users and no production data**. There is currently no general backwards-compatibility obligation.
+
+When a contract, API, scope vocabulary, persistence path, schema stack, UI surface or architectural approach is superseded:
+
+- remove the obsolete path rather than deprecating it indefinitely;
+- remove compatibility aliases, fallback behaviour and migration shims that exist only for hypothetical users;
+- remove tests whose sole purpose is preserving retired behaviour;
+- update seeds/fixtures/dev data to the canonical model rather than maintaining conversion logic;
+- do not preserve old stored-data interpretation merely for hypothetical historical data that does not exist;
+- do not create dual-write or dual-read paths unless an explicit current requirement justifies them.
+
+If a future release creates real users, external consumers or production data, compatibility and migration policy can be introduced deliberately at that point. Until then, simplicity and one correct canonical path are preferred over speculative compatibility.
+
+This does **not** mean weakening the architecture's versioning/evidence semantics. Dataset Versions, published Definitions and submitted evidence must remain internally coherent because those are product guarantees being built now. It means we do not preserve superseded development-era contracts or data shapes solely because they once existed in the repository.
 
 ### PostgreSQL remains authoritative
 
@@ -89,7 +106,7 @@ Prefer dense, efficient scientific workspaces while keeping actions, provenance,
 
 ### Historical interpretation survives change
 
-Later schema, Dataset, Definition or Template changes must not silently reinterpret versioned or frozen evidence.
+For the canonical version/evidence objects we are building, later schema, Dataset, Definition or Template changes must not silently reinterpret a Dataset Version or frozen evidence created under the canonical model. This is an internal product invariant, not a requirement to preserve obsolete pre-release schemas or compatibility stacks.
 
 ### APIs are first-class product surfaces
 
@@ -119,7 +136,7 @@ Every post-Core epic should consider, where relevant:
 - lifecycle and dependency handling;
 - import/export portability;
 - observability and supportability;
-- migration and backwards-compatibility policy for public contracts.
+- removal of superseded development-era contracts and compatibility paths unless an explicit current requirement justifies retaining them.
 
 ## What is deliberately deferred
 

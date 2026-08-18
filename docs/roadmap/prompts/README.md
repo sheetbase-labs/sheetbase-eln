@@ -34,6 +34,22 @@ This folder contains reusable starting prompts for the post-Core roadmap program
 - Use stable semantic IDs rather than labels/positions for durable relationships.
 - Implement migrations, production code, tests and documentation together.
 - Use focused validation during development and the task-defined full gate at completion.
-- Do not introduce Cursor/agent/vendor attribution into commits, source, docs or PR metadata.
+- Do not introduce Cursor/agent/vendor attribution into commits or source/docs comments. Cursor-generated PR footers are acceptable.
 - Use the repository's configured human/project Git identity.
 - Implement only the **assigned** stream/task in `NEXT.md`. Do not assume ownership of every Ready row.
+
+## Pre-release compatibility rule
+
+Sheetbase currently has **no production users and no production data**. For all unfinished roadmap work, backwards compatibility is **not** a default requirement.
+
+When implementation supersedes a development-era contract, API, scope, persistence path, schema stack, UI surface or data shape:
+
+- remove the obsolete path rather than maintaining it as deprecated compatibility;
+- remove compatibility aliases, fallback behaviour, conversion shims and tests that exist only for hypothetical users/data;
+- update development fixtures/seeds to the canonical model rather than preserving old formats;
+- prefer one canonical implementation over dual-read, dual-write or legacy branches;
+- do not preserve old data interpretation for hypothetical historical data that does not exist.
+
+Only retain compatibility when the active task or an explicit product/architecture decision identifies a concrete current dependency that requires it. If uncertain, flag the dependency; do not invent compatibility pre-emptively.
+
+This rule does not weaken canonical versioning/evidence invariants. New Dataset Versions, published Definitions and submitted evidence must remain internally interpretable as the product evolves.

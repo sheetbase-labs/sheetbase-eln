@@ -1,6 +1,6 @@
 # API — API & Developer Platform
 
-**Status:** API-01 complete (`#40`). API-02 complete (`#47` / `df27039`). **API-07 — Core External Allowlist Cut-over** is in progress. API-03 (OpenAPI) is not automatically Ready. Personal tokens, named service-account principals, and credential activity-audit events remain later API work and are not API-07.
+**Status:** API-01 complete (`#40`). API-02 complete (`#47` / `df27039`). **API-07 — Core External Allowlist Cut-over** is complete. API-03 (OpenAPI) is not automatically Ready. Personal tokens, named service-account principals, and credential activity-audit events remain later API work and are not API-07.
 
 ## Programme goal
 
@@ -29,7 +29,7 @@ Pre-release update: Sheetbase has no production users or credentials, so `scient
 
 ### Current state (verified API-01 @ `b306654` / `#40`)
 
-External credentials and `POST /api/token` exist. The allowlist is **project-domain only** (`src/lib/external-token.ts`). Core Dataset/Sheet/Notebook RPCs fail closed. Canonical contract at `docs/public-api-contract.md`.
+External credentials and `POST /api/token` exist. API-07 maps Core Dataset/Sheet/Notebook RPCs onto canonical scopes (`src/lib/external-token.ts`). Schema-authoring and files stay fail-closed. Canonical contract at `docs/public-api-contract.md`.
 
 The browser session path has no allowlist; do not treat PostgREST exposure as the public contract.
 
@@ -93,7 +93,7 @@ API-02 ships **one** credential type: an owner-minted, workspace-bound secret us
 
 ## API-07 — Core External Allowlist Cut-over
 
-**Priority:** medium. **Status:** In progress.
+**Priority:** medium. **Status:** Complete.
 
 ### Why Medium
 

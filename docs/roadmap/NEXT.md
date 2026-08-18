@@ -21,7 +21,7 @@ The roadmap supports **parallel streams**. Agents take **one assigned stream/tas
 | Stream | Active task | Model | Status |
 | --- | --- | --- | --- |
 | PC | — | — | PC-01 and PC-02 complete; PC-03 remains later |
-| API | API-07 — Core External Allowlist Cut-over | Medium | In progress |
+| API | API-07 — Core External Allowlist Cut-over | Medium | Complete on branch |
 | DATA | DATA-01 — Import Framework | Medium | Ready candidate |
 | GOV | — | — | GOV-01 complete; GOV-02 requires an ADR |
 | PLAT | — | — | Headers slice complete; remaining PLAT-03 queued |
@@ -41,7 +41,7 @@ merged  GOV-01  viewer read-only (#45) @ 1256258
 merged  hand-off regenerate (#46) @ 52b304b
 merged  API-02  workspace service credentials (#47) @ df27039
 
-in progress
+complete on branch
   API-07  [Medium] Core Dataset/Sheet/Notebook external allowlist cut-over
 
 candidates (assign one stream; do not fan out)
@@ -59,7 +59,7 @@ Task: [`tasks/PC.md`](./tasks/PC.md)
 
 **PC-03** (full Notebook product) remains later. Do not start it from this hand-off. Do not reopen PC-01/PC-02.
 
-### API — API-07 in progress
+### API — API-07 complete on branch
 
 Task: [`tasks/API.md`](./tasks/API.md)  
 Prompt: [`prompts/API.md`](./prompts/API.md)
@@ -68,7 +68,7 @@ Prompt: [`prompts/API.md`](./prompts/API.md)
 
 **API-02 complete** (`#47` / `df27039`): workspace service credentials. Canonical API-01 scopes only; `scientific:*` removed. Rotation copies scopes and expiry exactly. Optional credential expiry; JWT TTL 300s. Personal tokens, named service-account principals, and credential activity-audit events remain later API work — not API-07.
 
-**API-07** (Medium, in progress): cut over `src/lib/external-token.ts` so minted Core-domain scopes grant the same Dataset/Sheet/Notebook operations the product already uses. Do not start API-03 (OpenAPI) from this hand-off.
+**API-07 complete** (this branch): `requiredScopes()` maps Core Dataset/Sheet/Notebook RPCs to canonical scopes. Schema-authoring RPCs, files and specialist surfaces stay fail-closed. Do not start API-03 (OpenAPI) from this hand-off.
 
 ### DATA — DATA-01 (Medium, Ready candidate)
 
@@ -94,7 +94,7 @@ Task: [`tasks/PLAT.md`](./tasks/PLAT.md)
 ## Dependencies
 
 - DATA-01 is unblocked by PC-01 (and should use PC-02 Dataset product contracts).
-- API-07 is in progress (Core external allowlist cut-over). API-03 is not automatically Ready.
+- API-07 Core external allowlist cut-over is complete on branch. API-03 is not automatically Ready.
 - PC-03 is not automatically Ready.
 - GOV-02 is not Ready without an ADR.
 - Remaining PLAT-03 is queued, not a new Ready stream.

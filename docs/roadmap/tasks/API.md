@@ -84,9 +84,8 @@ API-02 ships **one** credential type: an owner-minted, workspace-bound secret us
 
 **Evidence:** `src/lib/api-credentials.ts`, `src/lib/api-credential-admin.ts`, `src/components/workspace-admin/admin-api-credentials.tsx`, `tests/db/api-credentials.test.ts`, `src/lib/api-credential-scopes.test.ts`. External Core RPC access is **API-07**.
 
-### Queued (not API-02)
+### Queued (not API-02, not API-07)
 
-- **API-07** — Core Dataset/Sheet/Notebook `requiredScopes()` cut-over (this epic)
 - Personal tokens (user-scoped credentials that act as a human)
 - Named service-account principals distinct from credential secrets
 - Credential create/rotate/revoke rows in the workspace activity audit stream

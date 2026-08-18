@@ -10,10 +10,10 @@ idempotency, deprecation) lives in `docs/public-api-contract.md`. This
 document covers **credential mechanics** and the **currently implemented**
 external allowlist.
 
-> **Important:** API-07 maps Core Dataset, Sheet Instance and Notebook
-> operations onto canonical scopes. Schema-authoring RPCs, file RPCs and
-> specialist surfaces stay fail-closed. The removed scientific-table REST
-> surface is **not available**.
+> **Important:** API-07 maps Core Dataset and Sheet Instance operations onto
+> canonical scopes. Schema-authoring RPCs, file RPCs, specialist surfaces
+> and human attestation (submit / sign / amend / revision checks) stay
+> fail-closed. The removed scientific-table REST surface is **not available**.
 
 ## Credential format
 
@@ -44,7 +44,8 @@ Optional credential expiry is enforced at exchange and rotation.
 | `sheets:read` / `sheets:write` | Sheet Instance reads and mutations. Does not author Sheet Definitions |
 | `models:read` / `models:write` | `search_sheet_records`, custom-field writes, Sheet→Record write-back |
 | `templates:read` / `templates:write` | Template catalogue reads and instantiation |
-| `reviews:read` / `reviews:write` | Submission preview and `submit_record_revision` |
+| `reviews:read` | Preview a submission digest. Does not run revision checks |
+| `reviews:write` | Mintable. Does not submit, sign or amend |
 | `schema:read` | Catalogue GET only |
 
 ### Still fail-closed
@@ -80,11 +81,12 @@ The full table is in `docs/public-api-contract.md` §2.1.
 
 ### RPCs
 
-See contract §2.1 for the Dataset, Sheet Instance, Notebook, search and
+See contract §2.1 for the Dataset, Sheet Instance, search and
 model mappings. Project-domain RPCs still require `projects:write`.
 
-Direct INSERT/UPDATE/DELETE on `revisions` is not granted; use
-`submit_record_revision` with `reviews:write`.
+Direct INSERT/UPDATE/DELETE on `revisions` is not granted. Submit, sign,
+amend and revision checks stay human-session-only; a credential with
+`reviews:write` cannot call them.
 
 ### Denied examples (fail closed)
 
@@ -216,6 +218,7 @@ not part of the public contract.
 ## Next steps for integrators
 
 1. Read `docs/public-api-contract.md` for the domain model and scopes.
-2. Use canonical Core-domain scopes for Dataset/Sheet/Notebook automation (API-07).
+2. Use canonical Core-domain scopes for Dataset/Sheet automation (API-07).
 3. Do **not** depend on `scientific:*` scopes or scientific-table paths.
-4. Schema-authoring, files, OpenAPI and SDKs remain later API/DATA work.
+4. Do **not** use an API key to submit, sign, amend or run revision checks.
+5. Schema-authoring, files, OpenAPI and SDKs remain later API/DATA work.

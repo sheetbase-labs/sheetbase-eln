@@ -35,4 +35,12 @@ describe('API-01 Core scope vocabulary', () => {
     expect(grantsFor('sheets:write')).toMatch(/Does \*\*not\*\* author Sheet Definitions/)
     expect(grantsFor('sheets:read')).toMatch(/schema:read/)
   })
+
+  it('does not advertise credential submit, sign, amend or revision checks', () => {
+    expect(grantsFor('reviews:read')).toMatch(/Preview a submission digest/)
+    expect(grantsFor('reviews:read')).toMatch(/Does \*\*not\*\* run revision checks/)
+    expect(grantsFor('reviews:write')).toMatch(/Does \*\*not\*\* submit, sign or amend/)
+    expect(grantsFor('reviews:write')).toMatch(/human-session-only/)
+    expect(contract).toMatch(/stay \*\*off\*\* the credential allowlist/)
+  })
 })

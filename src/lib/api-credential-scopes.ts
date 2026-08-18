@@ -2,8 +2,9 @@
  * External credential scope vocabulary (API-01 contract §8).
  *
  * This is the only issuable vocabulary. `scientific:*` is removed, not
- * deprecated. API-07 enforces Core Dataset/Sheet/Notebook scopes on the
- * external allowlist. File scopes and schema-authoring RPCs stay fail-closed.
+ * deprecated. API-07 enforces Core Dataset/Sheet scopes on the
+ * external allowlist. File scopes, schema-authoring RPCs, and human
+ * attestation (submit / sign / amend / revision checks) stay fail-closed.
  */
 
 export const VALID_SCOPES = [
@@ -82,11 +83,18 @@ export const SCOPE_GROUPS: ReadonlyArray<{
     scopes: ['templates:read', 'templates:write'],
   },
   {
-    title: 'Reviews',
+    title: 'Reviews (preview)',
     description:
-      'Submission preview and Notebook submit. Signing stays a session-actor path.',
+      'Preview a Notebook submission digest. Does not submit, sign, amend or run revision checks.',
     effective: true,
-    scopes: ['reviews:read', 'reviews:write'],
+    scopes: ['reviews:read'],
+  },
+  {
+    title: 'Reviews (attestation)',
+    description:
+      'Mintable now. Submit, sign, amend and revision checks remain human-session-only.',
+    effective: false,
+    scopes: ['reviews:write'],
   },
   {
     title: 'Files',

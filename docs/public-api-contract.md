@@ -1,9 +1,10 @@
 # Sheetbase public API contract (API-01)
 
 > **Status:** Contract v0.1.2 — **intended** public surface.  
-> **Implementation:** API-07 cut over the Core Dataset/Sheet/Notebook
-> external allowlist. Schema-authoring RPCs, files, and specialist surfaces
-> remain fail-closed.  
+> **Implementation:** API-07 cut over Core Dataset/Sheet external
+> operations. Schema-authoring RPCs, files, specialist surfaces, and
+> human attestation (submit / sign / amend / revision checks) remain
+> fail-closed for service credentials.  
 > **Authority:** PC-00 accepted decisions; Core ADRs 0020–0024, 0031, 0036–0038;
 > `docs/notebook-api.md` for notebook RPC detail.
 
@@ -99,8 +100,7 @@ Verified in `src/lib/external-token.ts` (API-07):
 **Notebook / model / search:** `search` (`projects:read`);
 `search_sheet_records` (`models:read`); `update_record_custom_fields`,
 `create_and_link_sheet_record`, `commit_sheet_record_batch` (`models:write`);
-`preview_submission_digest`, `run_revision_checks` (`reviews:read`);
-`submit_record_revision` (`reviews:write`);
+`preview_submission_digest` (`reviews:read`);
 `preview_notebook_template_upgrade` (`templates:read`);
 `instantiate_notebook_template_version`,
 `apply_notebook_template_upgrade` (`templates:write`).
@@ -109,8 +109,10 @@ Verified in `src/lib/external-token.ts` (API-07):
 RPCs (`create_dataset_schema_definition`, Dataset Schema publish/retire,
 `create_sheet_definition`, `extract_sheet_definition_draft`, notebook
 template authoring) stay denied even with `schema:*` or `sheets:write`.
-Removed scientific-table resources stay denied. File RPCs stay denied
-(DATA-02).
+Human attestation RPCs (`submit_record_revision`, `run_revision_checks`,
+`sign_revision`, amendment / review-transition writers) stay denied for
+service credentials even with `reviews:*`. Removed scientific-table
+resources stay denied. File RPCs stay denied (DATA-02).
 
 **Vestigial scopes:** `scientific:read`, `scientific:write`, `scientific:schema`
 are **removed**. They are not in `VALID_SCOPES`, cannot be stored, and token
@@ -118,10 +120,11 @@ exchange rejects them as `invalid_scope`. See §9.
 
 ### 2.2 Remaining public surface
 
-API-07 implemented the Dataset, Sheet Instance, Notebook submit/instantiate
+API-07 implemented the Dataset, Sheet Instance, template instantiate
 and search operations from this map. Still queued: Sheet Definition and
 Dataset Schema **authoring**, notebook template **authoring**, files, and
-specialist surfaces.
+specialist surfaces. Notebook **submit / sign / amend / revision checks**
+are human-session-only; they are not a later credential allowlist item.
 
 The product converges on **Core RPCs** the UI already calls. External clients
 reach those operations through scoped credentials — not direct table writes
@@ -131,7 +134,7 @@ where RPCs exist.
 | --- | --- | --- |
 | **Projects** | `project.key`, UUID | `create_project`; table reads |
 | **Models / Records** | `{PREFIX}-YYYY-NNNN`, UUID | `create_record`, `create_record_with_blocks`, `create_model_record`, `update_record_custom_fields`, `transition_record_status`, `create_record_link`; registry reads |
-| **Notebooks** | record UUID (`kind=experiment`), block order | Block RPCs above; `insert_sheet_instance_block`, `duplicate_sheet_instance_block`; `preview_submission_digest`, `submit_record_revision` |
+| **Notebooks** | record UUID (`kind=experiment`), block order | Block RPCs above; `insert_sheet_instance_block`, `duplicate_sheet_instance_block`; `preview_submission_digest`. `submit_record_revision` is **human-session-only** |
 | **Sheet Definitions** | definition `key`, version UUID | `create_sheet_definition`, draft/version publish/retire RPCs, `extract_sheet_definition_draft`, … |
 | **Sheet Instances** | instance UUID, `revision` | `create_sheet_instance`, `create_sheet_instance_from_definition`, `update_sheet_instance`, `query_sheet_instance_rows`, `mutate_sheet_instance_local_state`, composition adoption, definition upgrade, materialize, Record write-back RPCs |
 | **Dataset Schemas** | schema definition `key`, version UUID | `create_dataset_schema_definition`, publish/retire/version RPCs (steward) |
@@ -359,8 +362,8 @@ Retires `scientific:*` as the future model (PC-00 decision). Scopes are
 | `sheets:write` | Instance mutations, write-back, materialize, definition upgrade of an instance (`instance.upgrade`). Does **not** author Sheet Definitions. |
 | `templates:read` | Read notebook templates and versions |
 | `templates:write` | Author/publish/instantiate/upgrade notebook templates |
-| `reviews:read` | Read review submissions, run checks (read-only) |
-| `reviews:write` | Submit revisions, sign, amend (workflow actors) |
+| `reviews:read` | Preview a submission digest on the credential path. Does **not** run revision checks. |
+| `reviews:write` | Mintable. Does **not** submit, sign or amend; those stay human-session-only. |
 | `files:read` | Download file objects |
 | `files:write` | Upload and finalize files |
 
@@ -380,9 +383,10 @@ scientific-table RPCs.
 
 ### 8.2 Allowlist cut-over (API-07)
 
-**Done.** `requiredScopes()` maps Core Dataset/Sheet/Notebook RPCs and
-catalogue tables to canonical scopes, with `api_client` EXECUTE grants and
+**Done.** `requiredScopes()` maps Core Dataset/Sheet RPCs and catalogue
+tables to canonical scopes, with `api_client` EXECUTE grants and
 workspace-pinned RLS on those tables (`drizzle/0114_api_07_core_external_allowlist.sql`).
+Human attestation RPCs stay revoked (`drizzle/0116_api_07_revoke_human_attestation.sql`).
 Mapped data-plane **writes succeed** for a service credential: the JWT
 `credential_id` is the actor (`api.current_credential_id()` /
 `api.has_write_actor()`), persisted on `actor_credential_id` /
@@ -399,11 +403,11 @@ Principles held:
 - `schema:*` does not author Dataset Schema Versions in this cut-over.
 - `sheets:write` does not author Sheet Definitions.
 
-**Out of scope (human evidence, not missing `sub`):** `submit_record_revision`
-still requires an authenticated human session (`sub` + `session_id` +
-`role=authenticated`). That is a signature/review evidence invariant.
-The proxy may allowlist `reviews:write`; SQL honestly denies a service
-credential rather than attributing a notebook submit to a machine.
+**Human attestation (not a missing-`sub` caveat):** `submit_record_revision`,
+`run_revision_checks`, `sign_revision` and amendment / review-transition
+writers stay **off** the credential allowlist. They require an authenticated
+human session. `reviews:write` remains mintable but does not open those
+RPCs. `reviews:read` opens `preview_submission_digest` only.
 
 ---
 
@@ -455,7 +459,7 @@ Once API-03 publishes versioned docs:
 | Epic | Work |
 | --- | --- |
 | **API-02** | Workspace service credentials. **Done** (`#47`). |
-| **API-07** | Core Dataset/Sheet/Notebook `requiredScopes()` cut-over; `api_client` grants/RLS; credential write actors. **Done**. |
+| **API-07** | Core Dataset/Sheet `requiredScopes()` cut-over; credential write actors; human attestation kept off the credential path. **Done**. |
 | **API-03** | OpenAPI 3.1 from this contract; error reference; version prefix; pagination examples |
 | **API-04** | Python SDK — pagination iterators, pandas, idempotent helpers |
 | **API-05** | TypeScript SDK — typed resources, isomorphic fetch |

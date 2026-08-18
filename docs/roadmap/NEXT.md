@@ -42,7 +42,7 @@ merged  hand-off regenerate (#46) @ 52b304b
 merged  API-02  workspace service credentials (#47) @ df27039
 
 complete on branch
-  API-07  [Medium] Core Dataset/Sheet/Notebook external allowlist cut-over
+  API-07  [Medium] Core Dataset/Sheet external allowlist cut-over
 
 candidates (assign one stream; do not fan out)
   DATA-01 [Medium] import/paste against the canonical Sheet + Dataset product
@@ -68,7 +68,7 @@ Prompt: [`prompts/API.md`](./prompts/API.md)
 
 **API-02 complete** (`#47` / `df27039`): workspace service credentials. Canonical API-01 scopes only; `scientific:*` removed. Rotation copies scopes and expiry exactly. Optional credential expiry; JWT TTL 300s. Personal tokens, named service-account principals, and credential activity-audit events remain later API work — not API-07.
 
-**API-07 complete** (this branch): `requiredScopes()` maps Core Dataset/Sheet/Notebook RPCs to canonical scopes. Mapped Dataset/Sheet data-plane writes succeed for `api_client` with `credential_id` attribution (`drizzle/0115_api_07_credential_write_actors.sql`). `submit_record_revision` remains a human evidence act. Schema-authoring RPCs, files and specialist surfaces stay fail-closed. Do not start API-03 (OpenAPI) from this hand-off.
+**API-07 complete** (this branch): `requiredScopes()` maps Core Dataset/Sheet RPCs to canonical scopes. Mapped Dataset/Sheet data-plane writes succeed for `api_client` with `credential_id` attribution (`drizzle/0115_api_07_credential_write_actors.sql`). Submit, sign, amend and revision checks stay off the credential allowlist. Schema-authoring RPCs, files and specialist surfaces stay fail-closed. Do not start API-03 (OpenAPI) from this hand-off.
 
 ### DATA — DATA-01 (Medium, Ready candidate)
 

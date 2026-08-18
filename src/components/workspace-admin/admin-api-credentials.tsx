@@ -73,9 +73,10 @@ export function AdminApiCredentials({
       <p className="max-w-3xl text-sm text-muted-foreground">
         External automation exchanges a credential for a short-lived token at{' '}
         <code>POST /api/token</code>. The full secret is shown once. Canonical
-        Core-domain scopes are enforced on the Dataset, Sheet Instance and
-        Notebook operations the product already uses. Schema-authoring RPCs
-        and file access stay fail-closed. Retired <code>scientific:*</code>{' '}
+        Core-domain scopes are enforced on Dataset and Sheet Instance
+        operations the product already uses. Schema-authoring RPCs, file
+        access, and Notebook submit / sign / amend / revision checks stay
+        human-session or fail-closed. Retired <code>scientific:*</code>{' '}
         scopes are not part of the vocabulary.
       </p>
 
@@ -154,7 +155,7 @@ export function AdminApiCredentials({
                     </span>
                   ) : (
                     <span className="ml-2 text-xs font-normal text-muted-foreground">
-                      Mintable; fail-closed until allowlist cut-over
+                      Mintable; not on the external allowlist
                     </span>
                   )}
                 </p>

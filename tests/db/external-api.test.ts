@@ -328,7 +328,9 @@ describe('API-07 Core allowlist', () => {
           'query_dataset_rows',
           'commit_dataset_row_batch',
           'mutate_sheet_instance_local_state',
+          'preview_submission_digest',
           'submit_record_revision',
+          'run_revision_checks',
           'instantiate_notebook_template_version',
           'search',
           'create_dataset_schema_definition',
@@ -341,12 +343,52 @@ describe('API-07 Core allowlist', () => {
       query_dataset_rows: true,
       commit_dataset_row_batch: true,
       mutate_sheet_instance_local_state: true,
-      submit_record_revision: true,
+      preview_submission_digest: true,
+      submit_record_revision: false,
+      run_revision_checks: false,
       instantiate_notebook_template_version: true,
       search: true,
       create_dataset_schema_definition: false,
       create_sheet_definition: false,
     })
+  })
+
+  it('keeps submit and revision checks off the credential proxy even with reviews scopes', async () => {
+    const cred = await createCredential(db, {
+      workspaceId: WS_A,
+      createdByUserId: OWNER_A,
+      name: 'reviewer-key',
+      scopes: ['reviews:read', 'reviews:write'],
+    })
+    const token = await mintApiClientToken(SECRET, {
+      workspaceId: WS_A,
+      credentialId: cred.id,
+      scopes: ['reviews:read', 'reviews:write'],
+    })
+    await expect(
+      resolveExternalToken(db, token, SECRET, 'POST', {
+        kind: 'rpc',
+        resource: 'preview_submission_digest',
+      }),
+    ).resolves.toEqual({ workspaceId: WS_A })
+    await expect(
+      resolveExternalToken(db, token, SECRET, 'POST', {
+        kind: 'rpc',
+        resource: 'submit_record_revision',
+      }),
+    ).rejects.toMatchObject({ code: 'insufficient_scope' })
+    await expect(
+      resolveExternalToken(db, token, SECRET, 'POST', {
+        kind: 'rpc',
+        resource: 'run_revision_checks',
+      }),
+    ).rejects.toMatchObject({ code: 'insufficient_scope' })
+    await expect(
+      resolveExternalToken(db, token, SECRET, 'POST', {
+        kind: 'rpc',
+        resource: 'sign_revision',
+      }),
+    ).rejects.toMatchObject({ code: 'insufficient_scope' })
   })
 })
 

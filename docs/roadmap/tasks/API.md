@@ -108,7 +108,7 @@ Cut over `src/lib/external-token.ts` (and `api_client` RLS/grants plus write-act
 
 - Dataset: `query_dataset_rows`, `query_dataset_version_rows`, `validate_dataset_row_batch`, `commit_dataset_row_batch`, `snapshot_dataset`, `archive_dataset`, `restore_dataset`; `datasets` INSERT; `dataset_versions` GET
 - Sheet Instance: query/preview RPCs (`sheets:read`); create/update/mutate/materialize/upgrade/write-back validation (`sheets:write`); `sheet_instances` GET
-- Notebook: `preview_submission_digest`, `run_revision_checks` (read/check helpers); `instantiate_notebook_template_version` and upgrade apply. `submit_record_revision` stays proxy-allowlisted but is a **human evidence act** (session + `sub`); it is not a service-credential write in this epic.
+- Notebook: `preview_submission_digest` (`reviews:read`); `instantiate_notebook_template_version` and upgrade apply. **Not mapped:** `submit_record_revision`, `run_revision_checks`, `sign_revision`, amendment writers — human-session-only.
 - Search: `search` (`projects:read`), `search_sheet_records` (`models:read`)
 - Models: `update_record_custom_fields`, Sheet→Record commit RPCs
 - Catalogue GET via `schema:read` / `templates:read`
@@ -117,15 +117,16 @@ Cut over `src/lib/external-token.ts` (and `api_client` RLS/grants plus write-act
 
 - Dataset Schema Version / Sheet Definition / notebook template **authoring** RPCs
 - File access (`files:*`)
+- Human attestation (`submit_record_revision`, `run_revision_checks`, `sign_revision`, amend)
 - OpenAPI (API-03), personal tokens, named service accounts, credential audit events
 - Scientific-table REST
 - Every `api.*` function
 
 ### Exit
 
-An external credential with the appropriate Core-domain scopes can pass the proxy allowlist **and complete** the same governed Dataset/Sheet data-plane operations the UI uses (query, validate/commit row batch, snapshot, sheet local mutate, at least one models write), with attribution on credential columns rather than a user id. Everything else remains denied. `api_client` holds EXECUTE on mapped RPCs. Schema-authoring RPCs stay revoked. Notebook submit/sign stays a human evidence act.
+An external credential with the appropriate Core-domain scopes can pass the proxy allowlist **and complete** the same governed Dataset/Sheet data-plane operations the UI uses (query, validate/commit row batch, snapshot, sheet local mutate, at least one models write), with attribution on credential columns rather than a user id. Everything else remains denied. `api_client` holds EXECUTE on mapped RPCs. Schema-authoring RPCs stay revoked. Submit, sign, amend and revision checks are off the credential allowlist (human-session-only).
 
-**Evidence:** `src/lib/external-token.ts`, `src/lib/external-token.test.ts`, `drizzle/0114_api_07_core_external_allowlist.sql`, `drizzle/0115_api_07_credential_write_actors.sql`, `tests/db/external-api.test.ts`, `docs/public-api-contract.md` §2.1 and §8.2.
+**Evidence:** `src/lib/external-token.ts`, `src/lib/external-token.test.ts`, `drizzle/0114_api_07_core_external_allowlist.sql`, `drizzle/0115_api_07_credential_write_actors.sql`, `drizzle/0116_api_07_revoke_human_attestation.sql`, `tests/db/external-api.test.ts`, `docs/public-api-contract.md` §2.1 and §8.2.
 
 ## API-03 — OpenAPI & Documentation
 

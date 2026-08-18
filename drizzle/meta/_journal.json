@@ -813,6 +813,13 @@
       "when": 1787443300000,
       "tag": "0115_api_07_credential_write_actors",
       "breakpoints": true
+    },
+    {
+      "idx": 116,
+      "version": "7",
+      "when": 1787445600000,
+      "tag": "0116_api_07_revoke_human_attestation",
+      "breakpoints": true
     }
   ]
 }

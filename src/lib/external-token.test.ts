@@ -135,7 +135,6 @@ describe('requiredScopes', () => {
       ['mutate_sheet_instance_local_state', ['sheets:write']],
       ['mutate_sheet_instance_calculations', ['sheets:write']],
       ['insert_sheet_instance_block', ['sheets:write']],
-      ['submit_record_revision', ['reviews:write']],
       ['preview_submission_digest', ['reviews:read']],
       ['instantiate_notebook_template_version', ['templates:write']],
       ['search', ['projects:read']],
@@ -151,7 +150,6 @@ describe('requiredScopes', () => {
     const writes = [
       ['commit_dataset_row_batch', 'datasets:write'],
       ['mutate_sheet_instance_local_state', 'sheets:write'],
-      ['submit_record_revision', 'reviews:write'],
       ['instantiate_notebook_template_version', 'templates:write'],
       ['update_record_custom_fields', 'models:write'],
     ] as const
@@ -207,6 +205,9 @@ describe('requiredScopes', () => {
       'finalize_file_upload',
       'create_comment',
       'sign_revision',
+      'submit_record_revision',
+      'run_revision_checks',
+      'create_amendment',
       'export_audit_log',
       'change_member_role',
       'create_booking',

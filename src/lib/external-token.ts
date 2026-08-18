@@ -12,8 +12,9 @@
  * forwards to PostgREST only when it returns a workspace id; PostgREST then
  * applies the api_client RLS policies for workspace isolation.
  *
- * API-07: Core Dataset / Sheet Instance / Notebook RPCs the product UI
- * already uses are mapped to canonical scopes. Unknown paths stay fail-closed.
+ * API-07: Core Dataset / Sheet Instance RPCs the product UI already uses
+ * are mapped to canonical scopes. Submit, sign, amend and revision checks
+ * stay human-session-only. Unknown paths stay fail-closed.
  */
 import { jwtVerify } from 'jose'
 
@@ -177,8 +178,6 @@ const RPC_SCOPES: Record<string, Scope[]> = {
   commit_sheet_record_batch: ['models:write'],
 
   preview_submission_digest: ['reviews:read'],
-  run_revision_checks: ['reviews:read'],
-  submit_record_revision: ['reviews:write'],
 
   instantiate_notebook_template_version: ['templates:write'],
   preview_notebook_template_upgrade: ['templates:read'],

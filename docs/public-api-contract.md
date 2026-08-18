@@ -328,10 +328,10 @@ scientific-table access. `schema:*` is the future replacement for the
 retired `scientific:schema` *idea* (catalogue authority), not a restoration of
 scientific-table RPCs.
 
-### 8.2 Allowlist cut-over (not in API-01)
+### 8.2 Allowlist cut-over (API-07)
 
-Implementation queues explicit `requiredScopes()` entries per RPC/table
-(later allowlist epic). Principles:
+Implementation is **API-07** (`requiredScopes()` per RPC/table, plus any
+`api_client` RLS/grants required). Principles:
 
 - Fail closed for unknown paths (keep current behaviour).
 - RPC allowlist mirrors product UI capabilities, not every `api.*` function.
@@ -386,7 +386,8 @@ Once API-03 publishes versioned docs:
 
 | Epic | Work |
 | --- | --- |
-| **API-02** | Workspace service credentials UI; rotation/revocation; last-used; expiry; canonical scopes only. Core allowlist cut-over remains queued. |
+| **API-02** | Workspace service credentials. **Done** (`#47`). |
+| **API-07** | Core Dataset/Sheet/Notebook `requiredScopes()` cut-over; `api_client` RLS/grants as required. Medium. |
 | **API-03** | OpenAPI 3.1 from this contract; error reference; version prefix; pagination examples |
 | **API-04** | Python SDK — pagination iterators, pandas, idempotent helpers |
 | **API-05** | TypeScript SDK — typed resources, isomorphic fetch |

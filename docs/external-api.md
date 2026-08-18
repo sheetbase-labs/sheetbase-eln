@@ -216,4 +216,4 @@ not part of the public contract.
 1. Read `docs/public-api-contract.md` for the full domain model and queued scope vocabulary.
 2. Use `projects:read` / `projects:write` for the **current** project-domain API only.
 3. Do **not** depend on `scientific:*` scopes or scientific-table paths.
-4. Watch for a later allowlist epic before building Sheet/Dataset/Notebook automation. Credentials UI and service identity are available now (API-02); Core RPCs remain fail-closed.
+4. Watch for **API-07** (Core external allowlist cut-over) before building Sheet/Dataset/Notebook automation. Credentials UI and service identity are available now (API-02); Core RPCs remain fail-closed.

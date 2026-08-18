@@ -57,7 +57,8 @@ This diagram communicates likely sequencing and dependencies, not a strict water
 ### API — API & Developer Platform
 
 - `API-01` Public API Contract (complete — `#40`)
-- `API-02` API Credentials & Service Identity (Ready candidate, low)
+- `API-02` API Credentials & Service Identity (complete — `#47`)
+- `API-07` Core External Allowlist Cut-over (Ready candidate, medium)
 - `API-03` OpenAPI & Documentation
 - `API-04` Python SDK
 - `API-05` TypeScript SDK

@@ -1,19 +1,20 @@
 # Prompt — API & Developer Platform
 
-Work on the **assigned API stream** in `phlohouse/sheetbase-eln`. Read `docs/roadmap/NEXT.md` first. Do not implement DATA-01, PC-03, GOV-02 or remaining PLAT-03 in an API session.
+Work on the **assigned API stream** in `phlohouse/sheetbase-eln`. Read `docs/roadmap/NEXT.md` first. Do not implement DATA-01, PC-03, GOV-02, remaining PLAT-03, or unassigned API epics in an API session.
 
 ## Authority
 
 Branch from current `main` unless `NEXT.md` specifies another base. Read `NEXT.md`, `tasks/API.md`, `docs/public-api-contract.md`, accepted PC-00 decisions in `audits/PC-00.md`, existing external API documentation/code, Core RPC/RLS contracts and relevant ADRs before editing.
 
-## Current assigned task (when NEXT.md says API-02)
+## Current assigned task (when NEXT.md says API-07)
 
-**API-02 — API Credentials & Service Identity (Low).** API-01 is complete. Stay on credentials/service identity against the published contract.
+**API-07 — Core External Allowlist Cut-over (Medium).** API-01 and API-02 are complete. Stay on the external allowlist / scope-enforcement cut-over.
 
-- Reuse `schema:*` vs `datasets:*` vs `sheets:write` from contract v0.1.1.
-- Productise credential create/list/revoke/rotation/attribution where missing.
-- Do not invent a second permission model.
-- Core Dataset/Sheet RPC allowlist remains fail-closed. If cutting it over is Medium (migrations/RLS/transactions), **stop and queue** that work.
+- Map canonical Core-domain scopes onto the Dataset/Sheet/Notebook RPCs the product already uses (`src/lib/external-token.ts`, plus `api_client` RLS/grants if required).
+- Keep fail-closed unknown paths. Do not expose every `api.*` function.
+- Keep `schema:*` distinct from `datasets:*`. `sheets:write` does not author Sheet Definitions.
+- Do not invent a second permission model. Do not restore scientific-table REST.
+- Do not implement API-03 (OpenAPI), personal tokens, named service-account principals, or credential activity-audit events in this epic.
 
 ## Objective
 

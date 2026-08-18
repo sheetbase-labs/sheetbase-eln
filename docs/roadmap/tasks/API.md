@@ -1,6 +1,6 @@
 # API — API & Developer Platform
 
-**Status:** API-01 complete (`#40`). API-02 complete for **workspace service credentials** (`#47`, pending merge). Core allowlist cut-over remains queued. Distinct personal tokens, named service-account principals, and credential mutation audit events are later API work.
+**Status:** API-01 complete (`#40`). API-02 complete (`#47` / `df27039`). **API-07** is the Medium Ready candidate for the Core external allowlist cut-over. API-03 (OpenAPI) is not automatically Ready. Personal tokens, named service-account principals, and credential activity-audit events remain later API work and are not API-07.
 
 ## Programme goal
 
@@ -51,7 +51,7 @@ Documented in `docs/public-api-contract.md` §§4–7 and §9. OpenAPI/SDK/webho
 
 ### Exit
 
-A developer can read the intended public contract without treating scientific-table REST as current. Implementation of a new allowlist/scope cut-over is queued (later epic, not API-02).
+A developer can read the intended public contract without treating scientific-table REST as current. Implementation of the Core external allowlist cut-over is **API-07** (Medium).
 
 **Evidence:** `docs/public-api-contract.md`, updated `docs/external-api.md`, `src/lib/external-token.test.ts` (Core RPC deny-list), audit notes in contract §12.
 
@@ -82,14 +82,32 @@ API-02 ships **one** credential type: an owner-minted, workspace-bound secret us
 
 **Exit (this epic):** external automation authenticates with a workspace-bound secret instead of a human session or database password.
 
-**Evidence:** `src/lib/api-credentials.ts`, `src/lib/api-credential-admin.ts`, `src/components/workspace-admin/admin-api-credentials.tsx`, `tests/db/api-credentials.test.ts`, `src/lib/api-credential-scopes.test.ts`. Allowlist remains `src/lib/external-token.ts`.
+**Evidence:** `src/lib/api-credentials.ts`, `src/lib/api-credential-admin.ts`, `src/components/workspace-admin/admin-api-credentials.tsx`, `tests/db/api-credentials.test.ts`, `src/lib/api-credential-scopes.test.ts`. External Core RPC access is **API-07**, not this epic.
 
 ### Queued (not this epic)
 
-- Core Dataset/Sheet/Notebook `requiredScopes()` cut-over — later Medium allowlist epic
+- **API-07** — Core Dataset/Sheet/Notebook `requiredScopes()` cut-over (Medium Ready candidate)
 - Personal tokens (user-scoped credentials that act as a human)
 - Named service-account principals distinct from credential secrets
 - Credential create/rotate/revoke rows in the workspace activity audit stream
+
+## API-07 — Core External Allowlist Cut-over
+
+**Priority:** medium. **Status:** Ready candidate after API-01 and API-02. Do not start until assigned.
+
+### Why Medium
+
+This epic changes the **external security boundary**: which tables and RPCs an `api_client` JWT may reach, which minted scopes actually grant those operations, and whether those operations are the same canonical server paths the product UI already uses. It is not Low documentation or credential-UI work.
+
+### Goal
+
+Cut over `src/lib/external-token.ts` (and any required `api_client` RLS/grants) so credentials carrying canonical Core-domain scopes can call the Dataset, Sheet Instance, and Notebook operations the product already uses. Unknown paths stay fail-closed. Do not invent a second permission model. Do not restore scientific-table REST. Do not expose every `api.*` function merely because it exists.
+
+`schema:*` remains distinct from `datasets:*`. `sheets:write` still does not author Sheet Definitions.
+
+### Exit
+
+An external credential with the appropriate Core-domain scopes can perform the same governed Dataset/Sheet/Notebook operations the UI uses, and everything else remains denied.
 
 ## API-03 — OpenAPI & Documentation
 

@@ -12,23 +12,23 @@ CORE-01–06 and Core Hardening remain closed. Do not reopen settled Core archit
 
 Delivery priority uses only **medium** and **low**. Nothing is queued as high.
 
-**Merged `main` HEAD for this hand-off:** `df1fcb2` (`docs: apply no-compatibility rule to future roadmap work`).
+**Merged `main` HEAD for this hand-off:** `df27039` (`API-02: workspace service credentials (no scientific:* compatibility) (#47)`).
 
 ## Active work
 
 The roadmap supports **parallel streams**. Agents take **one assigned stream/task**. Ready does not mean “do every Ready row”. **Do not start a Ready stream until it is assigned.**
 
-| Stream | Active task                | Model  | Status                                            |
-| ------ | -------------------------- | ------ | ------------------------------------------------- |
-| PC     | —                          | —      | PC-01 and PC-02 complete; PC-03 remains later     |
-| API    | —                          | —      | API-01 and API-02 complete; Core allowlist queued |
-| DATA   | DATA-01 — Import Framework | Medium | Ready candidate                                   |
-| GOV    | —                          | —      | GOV-01 complete; GOV-02 requires an ADR           |
-| PLAT   | —                          | —      | Headers slice complete; remaining PLAT-03 queued  |
-| COLLAB | —                          | —      | Planned                                           |
-| SCI    | —                          | —      | Planned                                           |
-| INT    | —                          | —      | Planned                                           |
-| AUTO   | —                          | —      | Planned later                                     |
+| Stream | Active task | Model | Status |
+| --- | --- | --- | --- |
+| PC | — | — | PC-01 and PC-02 complete; PC-03 remains later |
+| API | — | — | API-01 and API-02 complete; API-07 Ready candidate |
+| DATA | DATA-01 — Import Framework | Medium | Ready candidate |
+| GOV | — | — | GOV-01 complete; GOV-02 requires an ADR |
+| PLAT | — | — | Headers slice complete; remaining PLAT-03 queued |
+| COLLAB | — | — | Planned |
+| SCI | — | — | Planned |
+| INT | — | — | Planned |
+| AUTO | — | — | Planned later |
 
 ### Immediate execution shape
 
@@ -39,12 +39,11 @@ merged  PLAT-03 headers slice (#43) @ 3c3c8ee
 merged  PC-02   Dataset and Record product workflows (#44) @ b01b029
 merged  GOV-01  viewer read-only (#45) @ 1256258
 merged  hand-off regenerate (#46) @ 52b304b
+merged  API-02  workspace service credentials (#47) @ df27039
 
 candidates (assign one stream; do not fan out)
   DATA-01 [Medium] import/paste against the canonical Sheet + Dataset product
-
-complete on branch (not merged)
-  API-02  [Low]    credentials/service identity (#47)
+  API-07  [Medium] Core Dataset/Sheet/Notebook external allowlist cut-over
 ```
 
 ## Stream briefs
@@ -58,15 +57,16 @@ Task: [`tasks/PC.md`](./tasks/PC.md)
 
 **PC-03** (full Notebook product) remains later. Do not start it from this hand-off. Do not reopen PC-01/PC-02.
 
-### API — API-02 complete; allowlist queued
+### API — API-02 complete; API-07 Ready candidate
 
-Task: [`tasks/API.md`](./tasks/API.md)
+Task: [`tasks/API.md`](./tasks/API.md)  
+Prompt: [`prompts/API.md`](./prompts/API.md)
 
 **API-01 complete** (`#40` / `b306654`): `docs/public-api-contract.md` v0.1.1. Dataset data scopes are distinct from governed `schema:*`. `sheets:write` does not grant Sheet Definition authorship.
 
-**API-02 complete** (`#47`): workspace service credentials in Administration (owner create/rotate/revoke; optional expiry; last-used). Canonical API-01 scopes only; `scientific:*` removed rather than deprecated. Rotation copies scopes exactly and cannot increase privilege. Core Dataset/Sheet/Notebook RPCs remain fail-closed. Personal tokens, named service-account principals, and credential activity-audit events remain later API work.
+**API-02 complete** (`#47` / `df27039`): workspace service credentials. Canonical API-01 scopes only; `scientific:*` removed. Rotation copies scopes and expiry exactly. Optional credential expiry; JWT TTL 300s. Core RPCs remain fail-closed. Personal tokens, named service-account principals, and credential activity-audit events remain later API work — not API-07.
 
-Do not start API-03 unless assigned. Do not invent a second permission model.
+**API-07** (Medium, Ready candidate): cut over `src/lib/external-token.ts` so minted Core-domain scopes grant the same Dataset/Sheet/Notebook operations the product already uses. This is the external security-boundary / scope-enforcement epic. Do not start it until assigned. Do not start API-03 (OpenAPI) from this hand-off.
 
 ### DATA — DATA-01 (Medium, Ready candidate)
 
@@ -92,7 +92,8 @@ Task: [`tasks/PLAT.md`](./tasks/PLAT.md)
 ## Dependencies
 
 - DATA-01 is unblocked by PC-01 (and should use PC-02 Dataset product contracts).
-- API-02 is complete; Core RPC allowlist cut-over remains queued.
+- API-07 is unblocked by API-01 (contract) and API-02 (credentials).
+- API-03 (OpenAPI) is not automatically Ready from this hand-off.
 - PC-03 is not automatically Ready.
 - GOV-02 is not Ready without an ADR.
 - Remaining PLAT-03 is queued, not a new Ready stream.
@@ -111,12 +112,14 @@ Task: [`tasks/PLAT.md`](./tasks/PLAT.md)
 ## Do not
 
 - do not implement every Ready candidate in one session;
-- do not start PC-03, GOV-02, remaining PLAT-03, COLLAB, SCI, INT or AUTO from this hand-off unless later assigned;
+- do not start API-03, API-07, DATA-01, PC-03, GOV-02, remaining PLAT-03, COLLAB, SCI, INT or AUTO from this hand-off unless later assigned;
 - do not reopen FieldDefinition, Dataset, Definition/Instance, Template version or frozen-evidence architecture without a real defect;
 - do not create another Dataset, Sheet, Template or capability system;
 - do not treat the browser as the only future client;
-- do not perpetuate `scientific:*` / scientific-table architecture as the future public API.
+- do not restore `scientific:*` / scientific-table architecture;
+- do not add speculative backwards compatibility for hypothetical users or data.
 
 ## Expected hand-off from Ready candidates (when assigned)
 
 - **DATA-01:** laboratory files/pastes become governed Dataset/Record state with validation before commit, using canonical writers.
+- **API-07:** external credentials with Core-domain scopes reach the same Dataset/Sheet/Notebook server operations the product UI already uses, fail-closed for everything else.

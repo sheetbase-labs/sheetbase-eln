@@ -16,7 +16,7 @@ This folder contains reusable starting prompts for the post-Core roadmap program
 | --- | --- |
 | [`PC-00.md`](./PC-00.md) | Product & Platform Consolidation Audit (complete) |
 | [`PC.md`](./PC.md) | Product Consolidation (PC-01 and PC-02 complete) |
-| [`API.md`](./API.md) | API & Developer Platform (Ready candidate: API-02, low) |
+| [`API.md`](./API.md) | API & Developer Platform (Ready candidate: API-07, medium) |
 | [`DATA.md`](./DATA.md) | Data Interoperability (Ready candidate: DATA-01, medium) |
 | [`GOV.md`](./GOV.md) | Identity, Administration & Governance (GOV-01 complete) |
 | [`COLLAB.md`](./COLLAB.md) | Collaboration |

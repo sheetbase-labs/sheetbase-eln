@@ -7,20 +7,11 @@ Work on the **assigned PC stream** in `phlohouse/sheetbase-eln`. Read `docs/road
 - Branch from current `main` unless `NEXT.md` says otherwise.
 - Verify exact HEAD.
 - Read `docs/roadmap/tasks/PC.md`, `docs/roadmap/audits/PC-00.md` (accepted decisions), relevant Core evidence and ADRs.
-- Do not implement API-01, DATA-01, GOV-01 or PLAT-03 in a PC session.
+- Do not implement API-02, DATA-01, GOV-02 or remaining PLAT-03 in a PC session unless that is the assigned stream.
 
-## Current assigned task (when NEXT.md says PC-01)
+## Current state
 
-**PC-01 — Canonical Sheet Experience (Medium).**
-
-Include only:
-
-- canonical Sheet experience (one grid stack; existing CORE-03/H2 RPCs);
-- blank experiment/Notebook create;
-- submit through the existing revision/evidence contract;
-- demote specialist tools from default navigation (do not delete routes).
-
-Do **not** broaden into full PC-03. Do **not** make `viewer` read-only.
+**PC-01 and PC-02 are complete on `main`.** Do not reopen them. **PC-03 is not assigned** from the current hand-off. If `NEXT.md` later assigns a PC epic, implement only that epic.
 
 ## Product objective
 

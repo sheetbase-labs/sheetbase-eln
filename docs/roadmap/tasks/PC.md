@@ -1,6 +1,6 @@
 # PC — Product Consolidation
 
-**Status:** PC-00 accepted; PC-01 is the Medium Ready stream. Full PC-03 remains later.
+**Status:** PC-00 accepted. PC-01 complete (`#41`). PC-02 complete (`#44`). Full PC-03 remains later.
 
 ## Programme goal
 
@@ -39,7 +39,7 @@ A prioritised gap map, surface inventory, workflow findings, refined PC/API/DATA
 
 ## PC-01 — Canonical Sheet Experience
 
-**Priority:** medium. **Status:** Ready (primary PC stream).
+**Priority:** medium. **Status:** Complete (`#41` / `7cca216` on `main`).
 
 ### Goal
 
@@ -98,6 +98,8 @@ Call existing RPCs. Do not invent a parallel writer. UI hide is not authorisatio
 
 A scientist can create a blank Notebook, work in one Sheet experience, add governed sources on the same Instance, create/link Records, calculate, extract/upgrade/materialise, submit through the existing evidence contract, and understand errors. Specialist tools are no longer in default nav.
 
+**Evidence:** canonical Sheet workspace, blank Notebook create, submit via existing revision RPCs, specialist tools in secondary nav, formula dependencies from the existing IR (`#41`).
+
 ### Principal risks
 
 Confusing adoption with promotion; performance at scientific scale; Record actions remaining sample-only; expanding the enabling Notebook slice into full PC-03.
@@ -105,6 +107,8 @@ Confusing adoption with promotion; performance at scientific scale; Record actio
 ---
 
 ## PC-02 — Dataset & Record Product Workflows
+
+**Priority:** medium. **Status:** Complete (`#44` / `b01b029` on `main`).
 
 PC-00: `/datasets` is read-only; Dataset create/snapshot/live edit RPCs exist; reagent create UI is missing while sample create exists.
 
@@ -123,6 +127,8 @@ Model registries; create/edit; relationships; bulk create; identifiers; custom f
 ### Exit
 
 Users can manage durable structured data directly without needing a Notebook as the entry point.
+
+**Evidence:** Dataset product create/snapshot/live edit; strict integer/decimal/boolean coercion; historical Versions render the pinned Schema Version; reagent create. Sheet Dataset bind remains on the canonical Sheet Instance (`#44`).
 
 ---
 

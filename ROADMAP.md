@@ -50,7 +50,7 @@ The active hand-off is [`docs/roadmap/NEXT.md`](./docs/roadmap/NEXT.md).
 
 ## Current next step
 
-See [`docs/roadmap/NEXT.md`](./docs/roadmap/NEXT.md). PC-00 is accepted. Immediate Ready streams are **PC-01** (medium) and **API-01** (low, contract-only). DATA-01 waits on PC-01. GOV-01 and PLAT-03 are queued.
+See [`docs/roadmap/NEXT.md`](./docs/roadmap/NEXT.md). PC-00 is accepted. PC-01, API-01, PC-02, GOV-01 and the PLAT-03 headers slice are on `main`. Immediate Ready candidates are **API-02** (low) and **DATA-01** (medium). Assign one stream; do not start both automatically.
 
 ## Golden workflow
 

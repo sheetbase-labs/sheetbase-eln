@@ -1,25 +1,19 @@
 # Prompt — API & Developer Platform
 
-Work on the **assigned API stream** in `phlohouse/sheetbase-eln`. Read `docs/roadmap/NEXT.md` first. Do not implement PC-01, DATA-01, GOV-01 or PLAT-03 in an API session.
+Work on the **assigned API stream** in `phlohouse/sheetbase-eln`. Read `docs/roadmap/NEXT.md` first. Do not implement DATA-01, PC-03, GOV-02 or remaining PLAT-03 in an API session.
 
 ## Authority
 
-Branch from current `main` unless `NEXT.md` specifies another base. Read `NEXT.md`, `tasks/API.md`, accepted PC-00 decisions in `audits/PC-00.md`, existing external API documentation/code, Core RPC/RLS contracts and relevant ADRs before editing.
+Branch from current `main` unless `NEXT.md` specifies another base. Read `NEXT.md`, `tasks/API.md`, `docs/public-api-contract.md`, accepted PC-00 decisions in `audits/PC-00.md`, existing external API documentation/code, Core RPC/RLS contracts and relevant ADRs before editing.
 
-## Current assigned task (when NEXT.md says API-01)
+## Current assigned task (when NEXT.md says API-02)
 
-**API-01 — Public API Contract (Low).** Parallel with PC-01. Stay **contract / audit / documentation**.
+**API-02 — API Credentials & Service Identity (Low).** API-01 is complete. Stay on credentials/service identity against the published contract.
 
-Produce:
-
-- canonical public resource/operations contract;
-- Core-domain scope proposal (retire `scientific:*` as the future model);
-- compatibility/deprecation plan if real clients depend on old scopes;
-- corrections to stale `docs/external-api.md`.
-
-Inspect the actual server/API implementation (`src/lib/external-token.ts`, token exchange, `/api/db` proxy, grants). Do not restore scientific-table architecture.
-
-If implementation requires consequential server architecture, migrations, RLS, transactions or other Medium-level work, **stop at the contract boundary** and queue that work separately.
+- Reuse `schema:*` vs `datasets:*` vs `sheets:write` from contract v0.1.1.
+- Productise credential create/list/revoke/rotation/attribution where missing.
+- Do not invent a second permission model.
+- Core Dataset/Sheet RPC allowlist remains fail-closed. If cutting it over is Medium (migrations/RLS/transactions), **stop and queue** that work.
 
 ## Objective
 
@@ -43,7 +37,7 @@ Implement only the assigned API epic. Audit existing PostgREST/RPC/external allo
 
 ## Do not
 
-Do not create an API-specific data model, API-only permissions, or agent-only privileged endpoints. Do not start Pipelines. Do not expose privileged internal RPCs merely because they exist. Do not cut over a new allowlist/RLS design if that is Medium work — document it and stop.
+Do not create an API-specific data model, API-only permissions, or agent-only privileged endpoints. Do not start Pipelines. Do not expose privileged internal RPCs merely because they exist.
 
 ## Completion
 

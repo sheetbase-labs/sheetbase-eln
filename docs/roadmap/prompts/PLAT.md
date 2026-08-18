@@ -2,7 +2,7 @@
 
 Work on the **assigned PLAT stream** in `phlohouse/sheetbase-eln`. Read `docs/roadmap/NEXT.md` first.
 
-PLAT-03 is **queued**. Do not start it from a PC-01 or API-01 session. Stale `docs/external-api.md` belongs to API-01. `viewer` read-only belongs to GOV-01.
+The PLAT-03 **headers slice is complete**. Remaining PLAT-03 work (rate limits, nonce CSP, SAST, backup encryption, and related hardening) is **queued**. Do not start it unless `NEXT.md` assigns it. `viewer` read-only is GOV-01.
 
 Read `docs/roadmap/NEXT.md`, `tasks/PLAT.md`, PC-00 operational/security findings, deployment docs and current CI/runtime infrastructure first.
 

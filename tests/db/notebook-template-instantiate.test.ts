@@ -16,6 +16,10 @@ const PLACEMENT = '06500000-0000-4000-8000-000000000011'
 const NARRATIVE_V2 = '06500000-0000-4000-8000-000000000012'
 const TEMPLATE_PARAMETER = '06500000-0000-4000-8000-000000000013'
 const RECORD_B = '06500000-0000-4000-8000-000000000020'
+const DEF_OPTIONAL_PARAM = '06500000-0000-4000-8000-000000000014'
+const TEMPLATE_OPTIONAL_PARAM = '06500000-0000-4000-8000-000000000015'
+const PLACEMENT_OPTIONAL = '06500000-0000-4000-8000-000000000016'
+const NARRATIVE_ONLY = '06500000-0000-4000-8000-000000000017'
 
 let migrator: Client
 let asRole: (role: 'authenticator') => Promise<Client>
@@ -78,6 +82,69 @@ function narrativeConfig(id = NARRATIVE, order = 1) {
         id,
         kind: 'narrative',
         order,
+        blockType: 'rich_text',
+        payload: {
+          doc: { type: 'doc', content: [{ type: 'paragraph' }] },
+        },
+      },
+    ],
+  }
+}
+
+function optionalScalarDefinitionConfiguration() {
+  const configuration = localDefinitionConfiguration()
+  configuration.parameters = [
+    {
+      id: DEF_OPTIONAL_PARAM,
+      key: 'note',
+      label: 'Note',
+      required: false,
+      type: { kind: 'scalar', valueType: 'text' },
+      constraints: {},
+    },
+  ]
+  return configuration
+}
+
+function templateWithOptionalMappedScalar(definitionVersionId: string) {
+  return {
+    formatVersion: 1,
+    parameters: [
+      {
+        id: TEMPLATE_OPTIONAL_PARAM,
+        key: 'optional_note',
+        label: 'Optional note',
+        required: false,
+        type: { kind: 'scalar', valueType: 'text' },
+        constraints: {},
+      },
+    ],
+    placements: [
+      {
+        id: PLACEMENT_OPTIONAL,
+        kind: 'sheet',
+        order: 1,
+        definitionVersionId,
+        parameterMappings: [
+          {
+            templateParameterId: TEMPLATE_OPTIONAL_PARAM,
+            definitionParameterId: DEF_OPTIONAL_PARAM,
+          },
+        ],
+      },
+    ],
+  }
+}
+
+function narrativeOnlyTemplateConfig() {
+  return {
+    formatVersion: 1,
+    parameters: [],
+    placements: [
+      {
+        id: NARRATIVE_ONLY,
+        kind: 'narrative',
+        order: 1,
         blockType: 'rich_text',
         payload: {
           doc: { type: 'doc', content: [{ type: 'paragraph' }] },
@@ -512,5 +579,159 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
       )
     ).rows[0]
     expect(pinned.source_notebook_template_version_id).toBe(v1.id)
+  })
+
+  it('instantiates when an optional mapped scalar Template input is omitted', async () => {
+    const owner = await actor(OWNER, WS)
+    const definition = (
+      await owner.query(
+        `select api.create_sheet_definition($1,'optional_scalar','Optional scalar',null,$2::jsonb) result`,
+        [WS, JSON.stringify(optionalScalarDefinitionConfiguration())],
+      )
+    ).rows[0].result
+    await owner.query(`select api.publish_sheet_definition_version($1,$2)`, [
+      definition.version.id,
+      definition.version.revision,
+    ])
+    const created = (
+      await owner.query(
+        `select api.create_notebook_template($1,'optional_scalar_nb','Optional scalar notebook',null,$2::jsonb) result`,
+        [
+          WS,
+          JSON.stringify(
+            templateWithOptionalMappedScalar(definition.version.id),
+          ),
+        ],
+      )
+    ).rows[0].result
+    const published = (
+      await owner.query(
+        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        [created.version.id, created.version.revision],
+      )
+    ).rows[0].result
+
+    const result = (
+      await owner.query(
+        `select api.instantiate_notebook_template_version($1,$2,'Omit optional','[]'::jsonb,'idem-optional-scalar') result`,
+        [published.id, PROJECT],
+      )
+    ).rows[0].result
+    expect(result.idempotent).toBe(false)
+    expect(result.record.source_notebook_template_version_id).toBe(published.id)
+
+    const instance = (
+      await owner.query(
+        `select i.state->'parameterValues' parameter_values
+           from api.blocks b
+           join api.sheet_instances i on i.id = (b.payload->>'instanceId')::uuid
+          where b.record_id = $1 and b.type = 'sheet'`,
+        [result.record.id],
+      )
+    ).rows[0]
+    expect(instance.parameter_values).toEqual([])
+  })
+
+  it('applies an upgrade when a new placement omits an optional mapped scalar input', async () => {
+    const owner = await actor(OWNER, WS)
+    const definition = (
+      await owner.query(
+        `select api.create_sheet_definition($1,'upgrade_optional','Upgrade optional scalar',null,$2::jsonb) result`,
+        [WS, JSON.stringify(optionalScalarDefinitionConfiguration())],
+      )
+    ).rows[0].result
+    await owner.query(`select api.publish_sheet_definition_version($1,$2)`, [
+      definition.version.id,
+      definition.version.revision,
+    ])
+
+    const created = (
+      await owner.query(
+        `select api.create_notebook_template($1,'upgrade_optional_nb','Upgrade optional notebook',null,$2::jsonb) result`,
+        [WS, JSON.stringify(narrativeOnlyTemplateConfig())],
+      )
+    ).rows[0].result
+    const v1 = (
+      await owner.query(
+        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        [created.version.id, created.version.revision],
+      )
+    ).rows[0].result
+    const notebook = (
+      await owner.query(
+        `select api.instantiate_notebook_template_version($1,$2,'Before upgrade','[]'::jsonb,'idem-upgrade-optional') result`,
+        [v1.id, PROJECT],
+      )
+    ).rows[0].result
+
+    const v2draft = (
+      await owner.query(
+        `select to_jsonb(api.create_notebook_template_version($1,$2,$3::jsonb)) result`,
+        [
+          created.template.id,
+          created.template.revision,
+          JSON.stringify({
+            ...narrativeOnlyTemplateConfig(),
+            placements: [
+              ...narrativeOnlyTemplateConfig().placements,
+              {
+                id: PLACEMENT_OPTIONAL,
+                kind: 'sheet',
+                order: 2,
+                definitionVersionId: definition.version.id,
+                parameterMappings: [
+                  {
+                    templateParameterId: TEMPLATE_OPTIONAL_PARAM,
+                    definitionParameterId: DEF_OPTIONAL_PARAM,
+                  },
+                ],
+              },
+            ],
+            parameters: templateWithOptionalMappedScalar(definition.version.id)
+              .parameters,
+          }),
+        ],
+      )
+    ).rows[0].result
+    const v2 = (
+      await owner.query(
+        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        [v2draft.id, v2draft.revision],
+      )
+    ).rows[0].result
+
+    const structureVersion = (
+      await owner.query(
+        `select structure_version from api.records where id=$1`,
+        [notebook.record.id],
+      )
+    ).rows[0].structure_version
+
+    const applied = (
+      await owner.query(
+        `select api.apply_notebook_template_upgrade($1,$2,$3,'[]'::jsonb,'[]'::jsonb) result`,
+        [notebook.record.id, structureVersion, v2.id],
+      )
+    ).rows[0].result
+    expect(applied.record.source_notebook_template_version_id).toBe(v2.id)
+
+    const blocks = (
+      await owner.query(
+        `select type from api.blocks where record_id=$1 order by "order"`,
+        [notebook.record.id],
+      )
+    ).rows.map((row: { type: string }) => row.type)
+    expect(blocks).toEqual(['rich_text', 'sheet'])
+
+    const instance = (
+      await owner.query(
+        `select i.state->'parameterValues' parameter_values
+           from api.blocks b
+           join api.sheet_instances i on i.id = (b.payload->>'instanceId')::uuid
+          where b.record_id = $1 and b.type = 'sheet'`,
+        [notebook.record.id],
+      )
+    ).rows[0]
+    expect(instance.parameter_values).toEqual([])
   })
 })

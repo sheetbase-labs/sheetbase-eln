@@ -277,10 +277,13 @@ export async function previewNotebookTemplateUpgrade(
   targetVersionId: string,
   client: DataClient = notebookTemplateDataClient,
 ) {
-  const result = await client.rpc<unknown>('preview_notebook_template_upgrade', {
-    p_record_id: recordId,
-    p_target_version_id: targetVersionId,
-  })
+  const result = await client.rpc<unknown>(
+    'preview_notebook_template_upgrade',
+    {
+      p_record_id: recordId,
+      p_target_version_id: targetVersionId,
+    },
+  )
   return parseNotebookTemplateUpgradePreviewFromWire(result)
 }
 

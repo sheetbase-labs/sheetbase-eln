@@ -5,6 +5,7 @@ import {
   Link,
   Outlet,
   useBlocker,
+  useNavigate,
   useRouterState,
 } from '@tanstack/react-router'
 import {
@@ -19,6 +20,14 @@ import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
 import { useShell } from '#/components/app-shell'
+import { AmendNotebookDialog } from '#/components/notebook/amend-notebook-dialog'
+import { DuplicateNotebookDialog } from '#/components/notebook/duplicate-notebook-dialog'
+import { NotebookHistoryPanel } from '#/components/notebook/notebook-history-panel'
+import {
+  ExportEvidenceButton,
+  NotebookPrintStyles,
+  PrintNotebookButton,
+} from '#/components/notebook/print-notebook'
 import { SubmitNotebookDialog } from '#/components/notebook/submit-notebook-dialog'
 import { NotebookDocument } from '#/components/notebook'
 import type { SaveResult } from '#/components/notebook'
@@ -47,6 +56,7 @@ import {
   DialogTitle,
   Field,
   FieldLabel,
+  Input,
   SearchableSelect,
 } from '#/components/ui'
 import { DataClientError } from '#/lib/data-client'
@@ -101,6 +111,11 @@ import { toCanonicalEnvelope } from '#/lib/review-workspace'
 import { validateBlock } from '#/lib/blocks'
 import { pinProtocolReference } from '#/lib/protocol-materials'
 import { attachFileToBlock, AttachFileError } from '#/lib/file-attach'
+import {
+  blocksFromRevision,
+  notebookLifecycleLabel,
+  updateExperimentMetadata,
+} from '#/lib/notebook-experience'
 
 function RouteShell({
   children,
@@ -125,9 +140,26 @@ export const Route = createFileRoute(
   component: ExperimentNotebookRoute,
 })
 
+function historicalRevisionFromSearch(search: unknown): string | undefined {
+  if (typeof search === 'string') {
+    const value = new URLSearchParams(
+      search.startsWith('?') ? search.slice(1) : search,
+    ).get('revision')
+    return value || undefined
+  }
+  if (search && typeof search === 'object' && 'revision' in search) {
+    const value = (search as { revision?: unknown }).revision
+    return typeof value === 'string' && value.length > 0 ? value : undefined
+  }
+  return undefined
+}
+
 function ExperimentNotebookRoute() {
   const { context } = Route.useRouteContext()
   const { projectId, recordId } = Route.useParams()
+  const historicalRevisionId = useRouterState({
+    select: (state) => historicalRevisionFromSearch(state.location.search),
+  })
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
@@ -263,32 +295,66 @@ function ExperimentNotebookRoute() {
           projectName={project?.title ?? null}
           ownerName={context.user.name}
           currentUserId={context.user.id}
+          currentUserName={context.user.name}
+          projectId={projectId}
           links={links}
           linksLoading={linksQuery.isLoading}
           blocks={blocks}
           activity={activity}
           activityLoading={activityQuery.isLoading}
+          canEditMetadata={
+            !record.lockedAt && !record.archivedAt && !historicalRevisionId
+          }
         />
       }
     >
       <div className="flex-1 overflow-y-auto px-4 pb-16 md:px-6">
+        <NotebookPrintStyles />
         <StickyRecordHeader
           record={record}
           projectName={project?.title ?? null}
           projectId={projectId}
           currentUserId={context.user.id}
-        />
-        {isArchived ? <ArchivedBanner /> : null}
-        {record.lockedAt ? <LockedBanner record={record} /> : null}
-        <NotebookCanvas
-          record={record}
           blocks={blocks}
-          isLoading={blocksQuery.isLoading}
-          error={blocksQuery.error}
-          onRetry={() => blocksQuery.refetch()}
-          client={notebookDataClient}
-          queryClient={queryClient}
+          historicalRevisionId={historicalRevisionId}
         />
+        {historicalRevisionId ? (
+          <HistoricalEvidenceBanner
+            projectId={projectId}
+            recordId={record.id}
+          />
+        ) : null}
+        {isArchived ? <ArchivedBanner /> : null}
+        {!historicalRevisionId && record.lockedAt ? (
+          <LockedBanner
+            record={record}
+            onAmended={() => {
+              void queryClient.invalidateQueries({
+                queryKey: notebookQueryKeys.record(record.id),
+              })
+              void queryClient.invalidateQueries({
+                queryKey: notebookQueryKeys.blocks(record.id),
+              })
+            }}
+          />
+        ) : null}
+        {historicalRevisionId ? (
+          <HistoricalNotebookCanvas
+            record={record}
+            revisionId={historicalRevisionId}
+            client={notebookDataClient}
+          />
+        ) : (
+          <NotebookCanvas
+            record={record}
+            blocks={blocks}
+            isLoading={blocksQuery.isLoading}
+            error={blocksQuery.error}
+            onRetry={() => blocksQuery.refetch()}
+            client={notebookDataClient}
+            queryClient={queryClient}
+          />
+        )}
       </div>
     </RouteShell>
   )
@@ -357,52 +423,114 @@ export function StickyRecordHeader({
   projectName,
   projectId,
   currentUserId,
+  blocks = [],
+  historicalRevisionId,
 }: {
   record: NotebookRecord
   projectName: string | null
   projectId?: string
   currentUserId?: string
+  blocks?: NotebookBlockDomain[]
+  historicalRevisionId?: string
 }) {
+  const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const [submitOpen, setSubmitOpen] = useState(false)
+  const [duplicateOpen, setDuplicateOpen] = useState(false)
+  const [titleDraft, setTitleDraft] = useState(record.title)
+  const lifecycle = notebookLifecycleLabel(record)
   const canSubmit =
     Boolean(projectId && currentUserId) &&
     !record.lockedAt &&
-    !record.archivedAt
+    !record.archivedAt &&
+    !historicalRevisionId
+  const canEditTitle =
+    !record.lockedAt && !record.archivedAt && !historicalRevisionId
+  const evidenceRevisionId =
+    historicalRevisionId ?? record.lockedByRevisionId ?? undefined
+
+  const saveTitle = useMutation({
+    mutationFn: (title: string) =>
+      updateExperimentMetadata(notebookDataClient, {
+        recordId: record.id,
+        title,
+        tags: record.tags,
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: notebookQueryKeys.record(record.id),
+      })
+    },
+  })
+
+  useEffect(() => {
+    setTitleDraft(record.title)
+  }, [record.title])
+
   return (
     <div className="pb-3 pt-4">
-      {/* Row 1: type · status · identifier — compact inline */}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
         <span className="font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           {recordKindLabel(record.kind)}
         </span>
         <StatusBadge domain="experiment" status={record.status} />
-        {record.lockedAt ? (
-          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+        <span
+          className={
+            lifecycle === 'Submitted'
+              ? 'inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300'
+              : 'inline-flex items-center rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs font-medium text-muted-foreground'
+          }
+        >
+          {lifecycle === 'Submitted' ? (
             <Lock className="size-3" aria-hidden />
-            Locked
-          </span>
-        ) : null}
+          ) : null}
+          {lifecycle}
+        </span>
         <span className="font-mono tabular-nums text-muted-foreground">
           {record.identifier}
         </span>
-        {canSubmit ? (
-          <Button
-            type="button"
-            size="sm"
-            className="ml-auto"
-            onClick={() => setSubmitOpen(true)}
-          >
-            Submit
-          </Button>
-        ) : null}
+        <div className="ml-auto flex flex-wrap items-center gap-2" data-print-hide>
+          <PrintNotebookButton className="h-8" />
+          <ExportEvidenceButton revisionId={evidenceRevisionId} />
+          {projectId ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setDuplicateOpen(true)}
+            >
+              Duplicate
+            </Button>
+          ) : null}
+          {canSubmit ? (
+            <Button type="button" size="sm" onClick={() => setSubmitOpen(true)}>
+              Submit
+            </Button>
+          ) : null}
+        </div>
       </div>
 
-      {/* Row 2: title — tight to the badge row above */}
-      <h1 className="mt-1.5 font-display text-xl font-semibold leading-7 tracking-[-0.025em] text-foreground sm:text-2xl sm:leading-8">
-        {record.title}
-      </h1>
+      {canEditTitle ? (
+        <Input
+          className="mt-1.5 h-auto border-transparent bg-transparent px-0 font-display text-xl font-semibold leading-7 tracking-[-0.025em] shadow-none sm:text-2xl sm:leading-8"
+          value={titleDraft}
+          aria-label="Notebook title"
+          onChange={(event) => setTitleDraft(event.target.value)}
+          onBlur={() => {
+            const next = titleDraft.trim()
+            if (!next || next === record.title) {
+              setTitleDraft(record.title)
+              return
+            }
+            saveTitle.mutate(next)
+          }}
+        />
+      ) : (
+        <h1 className="mt-1.5 font-display text-xl font-semibold leading-7 tracking-[-0.025em] text-foreground sm:text-2xl sm:leading-8">
+          {record.title}
+        </h1>
+      )}
 
-      {/* Row 3: metadata — single compact line */}
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
         <span>
           Created{' '}
@@ -433,6 +561,47 @@ export function StickyRecordHeader({
           reviewerUserId={currentUserId}
         />
       ) : null}
+      {duplicateOpen && projectId ? (
+        <DuplicateNotebookDialog
+          open={duplicateOpen}
+          onOpenChange={setDuplicateOpen}
+          source={record}
+          blocks={blocks}
+          onDuplicated={(copy) => {
+            if (!copy.projectId) return
+            void navigate({
+              to: '/projects/$projectId/experiments/$recordId',
+              params: { projectId: copy.projectId, recordId: copy.id },
+            })
+          }}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+export function HistoricalEvidenceBanner({
+  projectId,
+  recordId,
+}: {
+  projectId: string
+  recordId: string
+}) {
+  return (
+    <div
+      role="status"
+      className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs"
+    >
+      <span className="text-foreground">
+        Viewing submitted evidence. The working Notebook is unchanged.
+      </span>
+      <Link
+        to="/projects/$projectId/experiments/$recordId"
+        params={{ projectId, recordId }}
+        className="font-medium text-foreground underline-offset-4 hover:underline"
+      >
+        Return to working Notebook
+      </Link>
     </div>
   )
 }
@@ -458,26 +627,48 @@ export function ArchivedBanner() {
  */
 export function LockedBanner({
   record,
+  onAmended,
 }: {
-  record: { lockedAt: string | null; lockedByRevisionId?: string | null }
+  record: { id?: string; lockedAt: string | null; lockedByRevisionId?: string | null }
+  onAmended?: () => void
 }) {
+  const [amendOpen, setAmendOpen] = useState(false)
   return (
     <div
       role="status"
-      className="flex items-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs"
+      className="flex flex-wrap items-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs"
     >
       <Lock
         className="size-3.5 text-emerald-600 dark:text-emerald-400"
         aria-hidden="true"
       />
       <span className="text-foreground">
-        This record is locked
+        This Notebook is submitted
         {record.lockedAt
           ? ` since ${formatNotebookDateTime(record.lockedAt)}`
           : ''}
-        . Scientific evidence is frozen for this record — start an amendment to
-        edit again.
+        . Scientific evidence is frozen — start an amendment to edit again.
       </span>
+      {record.id && onAmended ? (
+        <>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="ml-auto h-7"
+            data-print-hide
+            onClick={() => setAmendOpen(true)}
+          >
+            Amend
+          </Button>
+          <AmendNotebookDialog
+            open={amendOpen}
+            onOpenChange={setAmendOpen}
+            recordId={record.id}
+            onAmended={onAmended}
+          />
+        </>
+      ) : null}
     </div>
   )
 }
@@ -1098,6 +1289,61 @@ function EditableNotebook({
   )
 }
 
+function HistoricalNotebookCanvas({
+  record,
+  revisionId,
+  client,
+}: {
+  record: NotebookRecord
+  revisionId: string
+  client: DataClient
+}) {
+  const revision = useQuery({
+    queryKey: notebookQueryKeys.revision(revisionId),
+    queryFn: () => fetchRevision(client, revisionId),
+  })
+  const storedEvidence = useQuery({
+    queryKey: ['revision-sheet-evidence-rows', revisionId],
+    queryFn: () => fetchRevisionSheetEvidence(client, revisionId),
+  })
+  if (revision.isLoading) {
+    return (
+      <div className="space-y-3" aria-busy="true">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div
+            key={i}
+            className="h-24 animate-pulse rounded-lg border bg-card"
+          />
+        ))}
+      </div>
+    )
+  }
+  if (revision.error || !revision.data) {
+    return (
+      <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4">
+        <p role="alert" className="text-sm text-destructive">
+          Could not load the submitted Notebook.
+        </p>
+      </div>
+    )
+  }
+  const frozenSheetEvidence = storedEvidence.data?.length
+    ? sheetEvidenceFromRevisionRows(storedEvidence.data)
+    : sheetEvidenceFromEnvelope(toCanonicalEnvelope(revision.data))
+  return (
+    <NotebookDocument
+      record={record}
+      blocks={blocksFromRevision(revision.data)}
+      readOnly
+      frozenSheetEvidence={frozenSheetEvidence}
+      onSaveBlock={async () => ({ ok: true })}
+      onInsertBlock={async () => undefined}
+      onDuplicateBlock={async () => undefined}
+      onDeleteBlock={async () => undefined}
+    />
+  )
+}
+
 function LockedNotebook({
   record,
   blocks,
@@ -1438,22 +1684,62 @@ function NotebookTemplateVersionLabel({ versionId }: { versionId: string }) {
   )
 }
 
+function NotebookTagsEditor({ record }: { record: NotebookRecord }) {
+  const queryClient = useQueryClient()
+  const [draft, setDraft] = useState(record.tags.join(', '))
+  const save = useMutation({
+    mutationFn: (tags: string[]) =>
+      updateExperimentMetadata(notebookDataClient, {
+        recordId: record.id,
+        title: record.title,
+        tags,
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: notebookQueryKeys.record(record.id),
+      })
+    },
+  })
+  return (
+    <div className="space-y-1">
+      <Input
+        value={draft}
+        aria-label="Notebook tags"
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={() => {
+          const tags = draft
+            .split(',')
+            .map((tag) => tag.trim())
+            .filter(Boolean)
+          save.mutate(tags)
+        }}
+      />
+      <p className="text-xs text-muted-foreground">Comma-separated tags.</p>
+    </div>
+  )
+}
+
 export function NotebookInspector({
   record,
   projectName,
   ownerName,
   currentUserId,
+  currentUserName,
+  projectId,
   links,
   linksLoading,
   blocks,
   activity,
   activityLoading,
   defaultTab,
+  canEditMetadata = false,
 }: {
   record: NotebookRecord
   projectName?: string | null
   ownerName?: string | null
   currentUserId?: string | null
+  currentUserName?: string
+  projectId?: string
   links: NotebookLink[]
   linksLoading: boolean
   blocks?: NotebookBlockDomain[]
@@ -1461,6 +1747,7 @@ export function NotebookInspector({
   activityLoading?: boolean
   /** Initial active tab id. Defaults to the first tab (Properties). */
   defaultTab?: string
+  canEditMetadata?: boolean
 }) {
   const fileBlocks = blocks?.filter((b) => b.type === 'file') ?? []
   const fileItems = fileItemsFromBlocks(fileBlocks)
@@ -1527,15 +1814,19 @@ export function NotebookInspector({
 
               <div className="flex items-center justify-between gap-2">
                 <span className="shrink-0 text-xs text-muted-foreground">
-                  Review status
+                  Notebook state
                 </span>
-                {record.lockedAt ? (
+                {notebookLifecycleLabel(record) === 'Submitted' ? (
                   <Badge variant="success" className="text-xs">
-                    Locked — evidence frozen
+                    Submitted — evidence frozen
+                  </Badge>
+                ) : notebookLifecycleLabel(record) === 'Archived' ? (
+                  <Badge variant="outline" className="text-xs">
+                    Archived
                   </Badge>
                 ) : (
                   <Badge variant="outline" className="text-xs">
-                    Not submitted
+                    Working
                   </Badge>
                 )}
               </div>
@@ -1552,7 +1843,9 @@ export function NotebookInspector({
 
               {/* Tags — coloured pills, always visible */}
               <InspectorSection title="Tags">
-                {record.tags.length > 0 ? (
+                {canEditMetadata ? (
+                  <NotebookTagsEditor record={record} />
+                ) : record.tags.length > 0 ? (
                   <TagPills tags={record.tags} />
                 ) : (
                   <p className="text-xs text-muted-foreground">No tags</p>
@@ -1585,6 +1878,21 @@ export function NotebookInspector({
               </InspectorSection>
             </div>
           ),
+        },
+        {
+          id: 'history',
+          label: 'History',
+          content:
+            currentUserId && currentUserName ? (
+              <NotebookHistoryPanel
+                recordId={record.id}
+                currentUserId={currentUserId}
+                currentUserName={currentUserName}
+                projectId={projectId}
+              />
+            ) : (
+              <EmptyHint>Sign in to see Notebook history.</EmptyHint>
+            ),
         },
         {
           id: 'activity',

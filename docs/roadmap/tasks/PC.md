@@ -1,6 +1,6 @@
 # PC — Product Consolidation
 
-**Status:** PC-00 accepted. PC-01 complete (`#41`). PC-02 complete (`#44`). Full PC-03 remains later.
+**Status:** PC-00 accepted. PC-01 complete (`#41`). PC-02 complete (`#44`). PC-03 Notebook Experience is in progress on `gwp/pc-03-notebook-experience-151b` (do not start API work from this stream).
 
 ## Programme goal
 
@@ -140,7 +140,7 @@ Make Notebook the clear scientific-context and evidence container around narrati
 
 ### PC-00 note
 
-Blank create and submit are **in PC-01** as an enabling slice only. This epic remains the full Notebook product and must not be started from the current hand-off.
+Blank create and submit shipped in PC-01 as an enabling slice. This epic is the full Notebook product around existing Core contracts. Do not invent a second domain model. Do not reopen PC-01/PC-02. Human submit/sign/amend remains session-only.
 
 ### Scope
 
@@ -163,6 +163,8 @@ Blank create and submit are **in PC-01** as an enabling slice only. This epic re
 ### Exit
 
 A scientific experiment can be authored, worked, reviewed, submitted and revisited historically without exposing persistence concepts.
+
+**In progress (not complete):** Notebook chrome on existing Core RPCs — working vs submitted, history, amendment-from-Notebook, `?revision=` frozen render, duplicate, metadata, print/evidence download, Dataset/Record reference kinds, image file preview. Remaining: slash UX overhaul depth, reviewer assignment beyond self, chart identity still using saved-dataset picker rather than PC-02 Dataset IDs, Template designer (PC-04).
 
 ---
 

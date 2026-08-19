@@ -8,6 +8,7 @@ import type { DataClient } from '#/lib/data-client'
 import {
   ArchivedBanner,
   EmptyNotebook,
+  HistoricalEvidenceBanner,
   LockedBanner,
   NotebookCanvas,
   NotebookErrorState,
@@ -25,6 +26,7 @@ vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => () => ({
     useRouteContext: () => ({}),
     useParams: () => ({ projectId: 'p1', recordId: 'r1' }),
+    useSearch: () => ({}),
   }),
   redirect: (opts: unknown) => opts,
   useBlocker: () => ({ status: 'idle' }),
@@ -83,9 +85,18 @@ const archivedRecord: NotebookRecord = {
   archivedAt: '2026-07-19T00:00:00.000Z',
 }
 
+function renderWithQuery(ui: React.ReactNode) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
+  return render(
+    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
+  )
+}
+
 describe('StickyRecordHeader', () => {
   it('shows the kind, identifier, status, title and project context', () => {
-    render(
+    renderWithQuery(
       <StickyRecordHeader
         record={record}
         projectName="Stability Programme"
@@ -95,17 +106,19 @@ describe('StickyRecordHeader', () => {
     )
     expect(screen.getByText('Experiment')).toBeTruthy()
     expect(screen.getByText('EXP-2025-0001')).toBeTruthy()
-    expect(
-      screen.getByRole('heading', { name: 'Virus Stability at 4C' }),
-    ).toBeTruthy()
+    expect(screen.getByLabelText('Notebook title')).toBeTruthy()
     expect(screen.getByText('Stability Programme')).toBeTruthy()
-    // status badge renders the vocabulary label
     expect(screen.getByText('In progress')).toBeTruthy()
+    expect(screen.getByText('Working')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Submit' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Duplicate' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Print' })).toBeTruthy()
   })
 
   it('keeps tags in the properties inspector instead of the document header', () => {
-    render(<StickyRecordHeader record={record} projectName={null} />)
+    renderWithQuery(
+      <StickyRecordHeader record={record} projectName={null} />,
+    )
     expect(screen.queryByText('stability')).toBeNull()
     expect(screen.queryByText('qPCR')).toBeNull()
   })
@@ -126,19 +139,33 @@ const lockedRecord: NotebookRecord = {
   lockedByRevisionId: 'rev-abcdef123456',
 }
 
+describe('HistoricalEvidenceBanner', () => {
+  it('returns the scientist to the working Notebook', () => {
+    render(
+      <HistoricalEvidenceBanner projectId="p1" recordId="r1" />,
+    )
+    expect(screen.getByRole('status').textContent).toContain(
+      'Viewing submitted evidence',
+    )
+    expect(
+      screen.getByRole('link', { name: 'Return to working Notebook' }),
+    ).toBeTruthy()
+  })
+})
+
 describe('LockedBanner', () => {
   it('announces the locked, frozen state with the approved revision', () => {
     render(<LockedBanner record={lockedRecord} />)
     const status = screen.getByRole('status')
-    expect(status.textContent).toContain('locked')
+    expect(status.textContent).toContain('submitted')
     expect(status.textContent).toContain('frozen')
     expect(status.textContent).not.toContain('rev-abcd')
   })
 })
 
 describe('StickyRecordHeader — lock state', () => {
-  it('shows a Locked badge when the record is locked', () => {
-    render(
+  it('shows a Submitted badge when the record is locked', () => {
+    renderWithQuery(
       <StickyRecordHeader
         record={lockedRecord}
         projectName="Stability"
@@ -146,13 +173,16 @@ describe('StickyRecordHeader — lock state', () => {
         currentUserId="u1"
       />,
     )
-    expect(screen.getByText('Locked')).toBeTruthy()
+    expect(screen.getByText('Submitted')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Submit' })).toBeNull()
   })
 
-  it('does not show a Locked badge for an editable record', () => {
-    render(<StickyRecordHeader record={record} projectName="Stability" />)
-    expect(screen.queryByText('Locked')).toBeNull()
+  it('does not show a Submitted badge for an editable record', () => {
+    renderWithQuery(
+      <StickyRecordHeader record={record} projectName="Stability" />,
+    )
+    expect(screen.queryByText('Submitted')).toBeNull()
+    expect(screen.getByText('Working')).toBeTruthy()
   })
 })
 
@@ -385,8 +415,8 @@ describe('NotebookInspector', () => {
     )
     // Three mockup tabs
     expect(screen.getByRole('tab', { name: 'Properties' })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: 'History' })).toBeTruthy()
     expect(screen.getByRole('tab', { name: 'Activity' })).toBeTruthy()
-    expect(screen.getByRole('tab', { name: 'Comments' })).toBeTruthy()
     // Properties is the default; identifier appears in PropertyList
     expect(screen.getByText('EXP-2025-0001')).toBeTruthy()
     // Tags render as outline badges within Properties
@@ -406,8 +436,8 @@ describe('NotebookInspector', () => {
         />
       </QueryClientProvider>,
     )
-    expect(screen.getByText('Locked — evidence frozen')).toBeTruthy()
-    expect(screen.queryByText('Not submitted')).toBeNull()
+    expect(screen.getByText('Submitted — evidence frozen')).toBeTruthy()
+    expect(screen.queryByText('Working')).toBeNull()
   })
 
   it('shows a loading hint for links while they load', () => {

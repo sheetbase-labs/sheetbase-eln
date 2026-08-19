@@ -20,6 +20,8 @@ const DEF_OPTIONAL_PARAM = '06500000-0000-4000-8000-000000000014'
 const TEMPLATE_OPTIONAL_PARAM = '06500000-0000-4000-8000-000000000015'
 const PLACEMENT_OPTIONAL = '06500000-0000-4000-8000-000000000016'
 const NARRATIVE_ONLY = '06500000-0000-4000-8000-000000000017'
+const PLACEMENT_A = '06500000-0000-4000-8000-000000000018'
+const PLACEMENT_B = '06500000-0000-4000-8000-000000000019'
 
 let migrator: Client
 let asRole: (role: 'authenticator') => Promise<Client>
@@ -149,6 +151,29 @@ function narrativeOnlyTemplateConfig() {
         payload: {
           doc: { type: 'doc', content: [{ type: 'paragraph' }] },
         },
+      },
+    ],
+  }
+}
+
+function dualSheetConfig(definitionVersionId: string) {
+  return {
+    formatVersion: 1,
+    parameters: [],
+    placements: [
+      {
+        id: PLACEMENT_A,
+        kind: 'sheet',
+        order: 1,
+        definitionVersionId,
+        parameterMappings: [],
+      },
+      {
+        id: PLACEMENT_B,
+        kind: 'sheet',
+        order: 2,
+        definitionVersionId,
+        parameterMappings: [],
       },
     ],
   }
@@ -630,6 +655,135 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
       )
     ).rows[0]
     expect(instance.parameter_values).toEqual([])
+  })
+
+  it('maps and upgrades two placements sharing one Definition independently', async () => {
+    const owner = await actor(OWNER, WS)
+    const definition = (
+      await owner.query(
+        `select api.create_sheet_definition($1,'dual_placement','Dual placement',null,$2::jsonb) result`,
+        [WS, JSON.stringify(localDefinitionConfiguration())],
+      )
+    ).rows[0].result
+    await owner.query(`select api.publish_sheet_definition_version($1,$2)`, [
+      definition.version.id,
+      definition.version.revision,
+    ])
+    const definitionV2 = (
+      await owner.query(
+        `select to_jsonb(api.create_sheet_definition_version($1,1,$2::jsonb)) result`,
+        [definition.definition.id, JSON.stringify(localDefinitionConfiguration())],
+      )
+    ).rows[0].result
+    const publishedDef2 = (
+      await owner.query(
+        `select to_jsonb(api.publish_sheet_definition_version($1,$2)) result`,
+        [definitionV2.id, definitionV2.revision],
+      )
+    ).rows[0].result
+
+    const created = (
+      await owner.query(
+        `select api.create_notebook_template($1,'dual_sheet_nb','Dual sheet notebook',null,$2::jsonb) result`,
+        [WS, JSON.stringify(dualSheetConfig(definition.version.id))],
+      )
+    ).rows[0].result
+    const v1 = (
+      await owner.query(
+        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        [created.version.id, created.version.revision],
+      )
+    ).rows[0].result
+    const notebook = (
+      await owner.query(
+        `select api.instantiate_notebook_template_version($1,$2,'Dual sheets','[]'::jsonb,'idem-dual-sheet') result`,
+        [v1.id, PROJECT],
+      )
+    ).rows[0].result
+
+    const blocks = (
+      await owner.query(
+        `select b.payload->>'instanceId' instance_id,
+                b.payload->>'templatePlacementId' placement_id
+           from api.blocks b
+          where b.record_id = $1 and b.type = 'sheet'
+          order by b."order"`,
+        [notebook.record.id],
+      )
+    ).rows
+    expect(blocks).toHaveLength(2)
+    expect(blocks[0].instance_id).not.toBe(blocks[1].instance_id)
+    expect(blocks.map((row: { placement_id: string }) => row.placement_id).sort()).toEqual(
+      [PLACEMENT_A, PLACEMENT_B].sort(),
+    )
+
+    const v2draft = (
+      await owner.query(
+        `select to_jsonb(api.create_notebook_template_version($1,$2,$3::jsonb)) result`,
+        [
+          created.template.id,
+          created.template.revision,
+          JSON.stringify(dualSheetConfig(publishedDef2.id)),
+        ],
+      )
+    ).rows[0].result
+    const v2 = (
+      await owner.query(
+        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        [v2draft.id, v2draft.revision],
+      )
+    ).rows[0].result
+
+    const preview = (
+      await owner.query(
+        `select api.preview_notebook_template_upgrade($1,$2) result`,
+        [notebook.record.id, v2.id],
+      )
+    ).rows[0].result
+    const sheetUpgrades = preview.automatic.filter(
+      (item: { kind: string }) => item.kind === 'sheet-definition-compatible',
+    )
+    expect(sheetUpgrades).toHaveLength(2)
+    expect(sheetUpgrades[0].instanceId).not.toBe(sheetUpgrades[1].instanceId)
+    expect(sheetUpgrades.map((item: { placementId: string }) => item.placementId).sort()).toEqual(
+      [PLACEMENT_A, PLACEMENT_B].sort(),
+    )
+
+    const structureVersion = (
+      await owner.query(
+        `select structure_version from api.records where id=$1`,
+        [notebook.record.id],
+      )
+    ).rows[0].structure_version
+
+    await owner.query(
+      `select api.apply_notebook_template_upgrade($1,$2,$3,'[]'::jsonb,'[]'::jsonb) result`,
+      [notebook.record.id, structureVersion, v2.id],
+    )
+
+    const upgraded = (
+      await owner.query(
+        `select i.source_definition_version_id source
+           from api.blocks b
+           join api.sheet_instances i on i.id = (b.payload->>'instanceId')::uuid
+          where b.record_id = $1 and b.type = 'sheet'
+          order by b."order"`,
+        [notebook.record.id],
+      )
+    ).rows
+    expect(upgraded).toHaveLength(2)
+    expect(upgraded.every((row: { source: string }) => row.source === publishedDef2.id)).toBe(true)
+    expect(new Set(upgraded.map((row: { source: string }) => row.source)).size).toBe(1)
+    const instanceIds = (
+      await owner.query(
+        `select b.payload->>'instanceId' instance_id
+           from api.blocks b
+          where b.record_id = $1 and b.type = 'sheet'
+          order by b."order"`,
+        [notebook.record.id],
+      )
+    ).rows.map((row: { instance_id: string }) => row.instance_id)
+    expect(new Set(instanceIds).size).toBe(2)
   })
 
   it('applies an upgrade when a new placement omits an optional mapped scalar input', async () => {

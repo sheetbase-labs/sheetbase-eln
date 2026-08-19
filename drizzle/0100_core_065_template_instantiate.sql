@@ -60,7 +60,8 @@ BEGIN
       FROM jsonb_array_elements(coalesce(p_template_inputs,'[]'::jsonb)) value
       WHERE value->>'parameterId' = mapping->>'templateParameterId';
     IF found IS NULL THEN
-      CONTINUE;
+      RAISE EXCEPTION 'Template parameter % was not supplied', mapping->>'templateParameterId'
+        USING ERRCODE = 'SB091';
     END IF;
     input := found || jsonb_build_object('parameterId', mapping->>'definitionParameterId');
     mapped := mapped || jsonb_build_array(input);

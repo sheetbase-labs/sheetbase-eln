@@ -115,6 +115,7 @@ import { attachFileToBlock, AttachFileError } from '#/lib/file-attach'
 import {
   blocksFromRevision,
   fetchNotebookReviewContext,
+  inspectorEvidenceFromRevision,
   notebookLifecycleLabel,
   notebookReviewActivity,
   notebookReviewRevisionId,
@@ -190,17 +191,17 @@ function ExperimentNotebookRoute() {
   const blocksQuery = useQuery({
     queryKey: notebookQueryKeys.blocks(recordId),
     queryFn: () => fetchBlocksForRecord(notebookDataClient, recordId),
-    enabled: isNotebookIndex,
+    enabled: isNotebookIndex && !historicalRevisionId,
   })
   const linksQuery = useQuery({
     queryKey: notebookQueryKeys.links(recordId),
     queryFn: () => fetchLinksForRecord(notebookDataClient, recordId),
-    enabled: isNotebookIndex,
+    enabled: isNotebookIndex && !historicalRevisionId,
   })
   const activityQuery = useQuery({
     queryKey: notebookQueryKeys.activity(recordId),
     queryFn: () => fetchChangeEventsForRecord(notebookDataClient, recordId),
-    enabled: isNotebookIndex,
+    enabled: isNotebookIndex && !historicalRevisionId,
   })
   const historicalRevisionQuery = useQuery({
     queryKey: notebookQueryKeys.revision(historicalRevisionId ?? 'none'),
@@ -341,6 +342,9 @@ function ExperimentNotebookRoute() {
           historicalRevisionQuery.data.metadata_snapshot,
         )
       : record
+  const historicalEvidence = historicalRevisionQuery.data
+    ? inspectorEvidenceFromRevision(historicalRevisionQuery.data)
+    : undefined
 
   return (
     <RouteShell
@@ -378,6 +382,7 @@ function ExperimentNotebookRoute() {
           blocks={blocks}
           activity={activity}
           activityLoading={activityQuery.isLoading}
+          revisionEvidence={historicalEvidence}
           canEditMetadata={
             !record.lockedAt && !record.archivedAt && !historicalRevisionId
           }
@@ -395,7 +400,7 @@ function ExperimentNotebookRoute() {
           currentUserId={context.user.id}
           currentUserName={context.user.name}
           workspaceId={context.workspace?.id}
-          blocks={blocks}
+          blocks={historicalEvidence?.blocks ?? blocks}
           historicalRevisionId={historicalRevisionId}
           review={review}
           liveLockedAt={record.lockedAt}
@@ -1639,11 +1644,9 @@ export function PermissionRestrictedState() {
 }
 
 // ---------------------------------------------------------------------------
-// Inspector. Route-owned so it composes against the live record/links data.
-// Inspector tabs: Properties, History, Activity.
-// Properties gathers metadata, tags, attached files, linked records and QC
-// checks into one dense column; Activity reads the durable change_events
-// feed; Comments is a placeholder until collaborative annotation ships.
+// Inspector. Route-owned so it composes against the live record/links data
+// or, under `?revision=`, snapshot evidence only.
+// Inspector tabs: Properties, History, and (live only) Activity.
 // ---------------------------------------------------------------------------
 
 const OPERATION_LABELS: Record<string, string> = {
@@ -1678,7 +1681,10 @@ function formatBytes(bytes: number): string {
 }
 
 /** Build file-list items from file block payloads (no extra fetch needed). */
-function fileItemsFromBlocks(blocks: NotebookBlockDomain[]): {
+function fileItemsFromBlocks(
+  blocks: NotebookBlockDomain[],
+  options: { includeDownloadHref?: boolean } = {},
+): {
   id: string
   name: string
   meta: string
@@ -1686,6 +1692,7 @@ function fileItemsFromBlocks(blocks: NotebookBlockDomain[]): {
   mediaType: string
   href?: string
 }[] {
+  const includeDownloadHref = options.includeDownloadHref ?? true
   return blocks.map((b) => {
     const p = b.payload
     const displayName =
@@ -1700,7 +1707,10 @@ function fileItemsFromBlocks(blocks: NotebookBlockDomain[]): {
       meta: mediaType || 'unknown',
       mediaType,
       size: formatBytes(byteSize),
-      href: fileRecordId ? `/api/files/${fileRecordId}/download` : undefined,
+      href:
+        includeDownloadHref && fileRecordId
+          ? `/api/files/${fileRecordId}/download`
+          : undefined,
     }
   })
 }
@@ -1881,6 +1891,7 @@ export function NotebookInspector({
   canEditMetadata = false,
   reviewActivity = 'none',
   isHistorical = false,
+  revisionEvidence,
 }: {
   record: NotebookRecord
   projectName?: string | null
@@ -1898,16 +1909,31 @@ export function NotebookInspector({
   canEditMetadata?: boolean
   reviewActivity?: NotebookReviewActivity
   isHistorical?: boolean
+  /** Snapshot blocks and links for `?revision=`. Live props are ignored. */
+  revisionEvidence?: {
+    blocks: NotebookBlockDomain[]
+    links: NotebookLink[]
+  }
 }) {
-  const fileBlocks = blocks?.filter((b) => b.type === 'file') ?? []
-  const fileItems = fileItemsFromBlocks(fileBlocks)
-  const activityItems = activityItemsFromEvents(activity ?? [], currentUserId)
+  const evidenceBlocks = isHistorical
+    ? (revisionEvidence?.blocks ?? [])
+    : (blocks ?? [])
+  const evidenceLinks = isHistorical ? (revisionEvidence?.links ?? []) : links
+  const evidenceActivity = isHistorical ? [] : (activity ?? [])
+  const fileBlocks = evidenceBlocks.filter((b) => b.type === 'file')
+  const fileItems = fileItemsFromBlocks(fileBlocks, {
+    includeDownloadHref: !isHistorical,
+  })
+  const activityItems = activityItemsFromEvents(
+    evidenceActivity,
+    currentUserId,
+  )
   const contributors = contributorsFromActivity(
-    activity ?? [],
+    evidenceActivity,
     ownerName,
     currentUserId,
   )
-  const linkCounts = linkCountsByKind(links)
+  const linkCounts = linkCountsByKind(evidenceLinks)
   const fmtDateTime = (iso: string) => formatNotebookDateTime(iso)
   const lifecycle = notebookLifecycleLabel({
     lockedAt: record.lockedAt,
@@ -1916,12 +1942,7 @@ export function NotebookInspector({
     isHistorical,
   })
 
-  return (
-    <Inspector
-      hideHeader
-      title={record.title}
-      defaultTab={defaultTab}
-      tabs={[
+  const tabs = [
         {
           id: 'properties',
           label: 'Properties',
@@ -2012,9 +2033,20 @@ export function NotebookInspector({
                 )}
               </InspectorSection>
 
-              {/* Link to — compact count pills */}
+              {/* Link to — snapshot pills only in historical mode */}
               <InspectorSection title="Link to">
-                {linksLoading ? (
+                {isHistorical ? (
+                  linkCounts.length > 0 ? (
+                    <LinkToPills
+                      items={linkCounts.map((lc) => ({
+                        label: lc.label,
+                        count: lc.count,
+                      }))}
+                    />
+                  ) : (
+                    <EmptyHint>No linked records in this revision</EmptyHint>
+                  )
+                ) : linksLoading ? (
                   <EmptyHint>Loading links…</EmptyHint>
                 ) : (
                   <>
@@ -2026,7 +2058,7 @@ export function NotebookInspector({
                     />
                     <ScientificRecordLinker
                       sourceRecordId={record.id}
-                      links={links}
+                      links={evidenceLinks}
                       hideSummaries
                     />
                   </>
@@ -2054,16 +2086,27 @@ export function NotebookInspector({
               <EmptyHint>Sign in to see Notebook history.</EmptyHint>
             ),
         },
-        {
-          id: 'activity',
-          label: 'Activity',
-          content: activityLoading ? (
-            <EmptyHint>Loading activity…</EmptyHint>
-          ) : (
-            <ActivityFeed items={activityItems} />
-          ),
-        },
-      ]}
+        ...(isHistorical
+          ? []
+          : [
+              {
+                id: 'activity',
+                label: 'Activity',
+                content: activityLoading ? (
+                  <EmptyHint>Loading activity…</EmptyHint>
+                ) : (
+                  <ActivityFeed items={activityItems} />
+                ),
+              },
+            ]),
+  ]
+
+  return (
+    <Inspector
+      hideHeader
+      title={record.title}
+      defaultTab={defaultTab}
+      tabs={tabs}
     />
   )
 }

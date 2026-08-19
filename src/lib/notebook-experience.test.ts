@@ -18,7 +18,9 @@ import {
   fetchNotebookReviewContext,
   fetchRevisionsForRecord,
   groupChartTables,
+  inspectorEvidenceFromRevision,
   isActiveNotebookReview,
+  linksFromRevisionSnapshot,
   notebookLifecycleLabel,
   notebookQueryKeysAfterSignature,
   notebookReviewActivity,
@@ -235,6 +237,114 @@ describe('blocksFromRevision', () => {
         order: 2,
         version: 4,
       },
+    ])
+  })
+})
+
+describe('linksFromRevisionSnapshot', () => {
+  const revisionBase: RevisionWire = {
+    id: 'rev1',
+    record_id: 'r1',
+    structure_version: 1,
+    metadata_version: 1,
+    metadata_snapshot: { title: 'Run' },
+    block_snapshot: [],
+    reason: 'submit',
+    superseded_by_revision_id: null,
+    created_at: '2026-08-17T00:00:00.000Z',
+    created_by_user_id: 'u1',
+  }
+
+  it('maps canonical snapshot links and ignores incomplete rows', () => {
+    expect(
+      linksFromRevisionSnapshot({
+        ...revisionBase,
+        canonical_snapshot: {
+          formatVersion: 1,
+          record: {},
+          blocks: [],
+          links: [
+            {
+              id: 'l1',
+              sourceRecordId: 'r1',
+              targetRecordId: 'r2',
+              targetKind: 'protocol_template',
+              targetIdentifier: 'PRT-2025-0001',
+              linkType: 'protocol',
+            },
+            {
+              id: 'bad',
+              sourceRecordId: 'r1',
+            },
+          ],
+          scientificTables: [],
+          formulas: [],
+          files: [],
+        },
+      }),
+    ).toEqual([
+      {
+        id: 'l1',
+        sourceRecordId: 'r1',
+        targetRecordId: 'r2',
+        targetKind: 'protocol_template',
+        targetIdentifier: 'PRT-2025-0001',
+        linkType: 'protocol',
+      },
+    ])
+  })
+
+  it('returns no links when only block_snapshot is present', () => {
+    expect(linksFromRevisionSnapshot(revisionBase)).toEqual([])
+  })
+})
+
+describe('inspectorEvidenceFromRevision', () => {
+  it('uses snapshot blocks and canonical links, not a live overlay', () => {
+    const evidence = inspectorEvidenceFromRevision({
+      id: 'rev1',
+      record_id: 'r1',
+      structure_version: 1,
+      metadata_version: 1,
+      metadata_snapshot: { title: 'Submitted' },
+      block_snapshot: [
+        {
+          id: 'file-snap',
+          type: 'file',
+          payload: { displayName: 'gel-at-submit.png' },
+          payload_schema_version: 1,
+          order: 1,
+          version: 1,
+        },
+      ],
+      canonical_snapshot: {
+        formatVersion: 1,
+        record: {},
+        blocks: [],
+        links: [
+          {
+            id: 'l-snap',
+            sourceRecordId: 'r1',
+            targetRecordId: null,
+            targetKind: 'protocol_template',
+            targetIdentifier: 'PRT-FROZEN',
+            linkType: 'protocol',
+          },
+        ],
+        scientificTables: [],
+        formulas: [],
+        files: [],
+      },
+      reason: 'submit',
+      superseded_by_revision_id: null,
+      created_at: '2026-08-17T00:00:00.000Z',
+      created_by_user_id: 'u1',
+    })
+    expect(evidence.blocks.map((block) => block.payload.displayName)).toEqual([
+      'gel-at-submit.png',
+    ])
+    expect(evidence.links.map((link) => link.targetIdentifier)).toEqual([
+      'PRT-FROZEN',
     ])
   })
 })

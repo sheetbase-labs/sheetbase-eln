@@ -626,6 +626,99 @@ describe('NotebookInspector', () => {
     expect(screen.getByText('Submitted — evidence frozen')).toBeTruthy()
   })
 
+  it('does not leak live files, link editor or activity under historical evidence', () => {
+    const queryClient = new QueryClient()
+    render(
+      <QueryClientProvider client={queryClient}>
+        <NotebookInspector
+          record={{
+            ...record,
+            title: 'Submitted title',
+            tags: ['frozen-tag'],
+          }}
+          links={[
+            {
+              id: 'live-link',
+              sourceRecordId: 'r1',
+              targetRecordId: 'r-live',
+              targetKind: 'dataset',
+              targetIdentifier: 'LIVE-2026-9999',
+              linkType: 'derived_from',
+            },
+          ]}
+          linksLoading={false}
+          blocks={[
+            {
+              id: 'live-file',
+              recordId: 'r1',
+              type: 'file',
+              payload: {
+                displayName: 'live-after-submit.pdf',
+                mediaType: 'application/pdf',
+                byteSize: 12,
+                fileRecordId: 'file-live',
+              },
+              payloadSchemaVersion: 1,
+              order: 1,
+              version: 1,
+            },
+          ]}
+          activity={[
+            {
+              id: 'e-live',
+              operation: 'create',
+              entityType: 'block',
+              actorUserId: 'u1',
+              createdAt: '2026-08-19T12:00:00.000Z',
+              payload: {},
+            },
+          ]}
+          currentUserId="u1"
+          defaultTab="properties"
+          isHistorical
+          revisionEvidence={{
+            blocks: [
+              {
+                id: 'snap-file',
+                recordId: 'r1',
+                type: 'file',
+                payload: {
+                  displayName: 'gel-at-submit.png',
+                  mediaType: 'image/png',
+                  byteSize: 4,
+                  fileRecordId: 'file-snap',
+                },
+                payloadSchemaVersion: 1,
+                order: 1,
+                version: 1,
+              },
+            ],
+            links: [
+              {
+                id: 'snap-link',
+                sourceRecordId: 'r1',
+                targetRecordId: 'r2',
+                targetKind: 'protocol_template',
+                targetIdentifier: 'PRT-FROZEN',
+                linkType: 'protocol',
+              },
+            ],
+          }}
+        />
+      </QueryClientProvider>,
+    )
+    expect(screen.getByText('gel-at-submit.png')).toBeTruthy()
+    expect(screen.queryByText('live-after-submit.pdf')).toBeNull()
+    expect(screen.queryByRole('link', { name: 'gel-at-submit.png' })).toBeNull()
+    expect(screen.getByText('Protocols')).toBeTruthy()
+    expect(screen.queryByText('Datasets')).toBeNull()
+    expect(screen.queryByText('LIVE-2026-9999')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Link record' })).toBeNull()
+    expect(screen.queryByRole('tab', { name: 'Activity' })).toBeNull()
+    expect(screen.queryByText('You created a block')).toBeNull()
+    expect(screen.queryByText('You')).toBeNull()
+  })
+
   it('shows a loading hint for links while they load', () => {
     render(
       <NotebookInspector

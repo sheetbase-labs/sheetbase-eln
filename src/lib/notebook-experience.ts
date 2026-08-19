@@ -14,6 +14,7 @@ import { toBlock, toRecord, notebookQueryKeys } from '#/lib/notebook-data'
 import type {
   BlockWire,
   NotebookBlock,
+  NotebookLink,
   NotebookRecord,
   RecordWire,
   RevisionWire,
@@ -33,7 +34,10 @@ import {
 } from '#/lib/sign-002'
 import type { EvidenceExportWire } from '#/lib/sign-002'
 import { signatureQueryKeys } from '#/lib/signatures'
-import { reviewWorkspaceQueryKeys } from '#/lib/review-workspace'
+import {
+  reviewWorkspaceQueryKeys,
+  toCanonicalEnvelope,
+} from '#/lib/review-workspace'
 
 export {
   createAmendment,
@@ -235,6 +239,51 @@ export function fetchRevisionsForRecord(
 
 export function blocksFromRevision(revision: RevisionWire): NotebookBlock[] {
   return toOverviewRevision(revision).blocks
+}
+
+function snapshotString(value: unknown): string | null {
+  return typeof value === 'string' ? value : null
+}
+
+/** Outgoing links captured in a submitted revision's canonical snapshot. */
+export function linksFromRevisionSnapshot(
+  revision: RevisionWire,
+): NotebookLink[] {
+  return toCanonicalEnvelope(revision).links.flatMap((link) => {
+    const id = snapshotString(link.id)
+    const sourceRecordId = snapshotString(link.sourceRecordId)
+    const targetKind = snapshotString(link.targetKind)
+    const targetIdentifier = snapshotString(link.targetIdentifier)
+    const linkType = snapshotString(link.linkType)
+    if (!id || !sourceRecordId || !targetKind || !targetIdentifier || !linkType) {
+      return []
+    }
+    const targetRecordId = link.targetRecordId
+    return [
+      {
+        id,
+        sourceRecordId,
+        targetRecordId:
+          typeof targetRecordId === 'string' || targetRecordId === null
+            ? targetRecordId
+            : null,
+        targetKind,
+        targetIdentifier,
+        linkType,
+      },
+    ]
+  })
+}
+
+/** Inspector evidence for `?revision=` — snapshot blocks and links only. */
+export function inspectorEvidenceFromRevision(revision: RevisionWire): {
+  blocks: NotebookBlock[]
+  links: NotebookLink[]
+} {
+  return {
+    blocks: blocksFromRevision(revision),
+    links: linksFromRevisionSnapshot(revision),
+  }
 }
 
 export interface UpdateExperimentMetadataInput {

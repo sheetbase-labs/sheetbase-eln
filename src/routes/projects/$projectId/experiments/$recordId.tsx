@@ -114,8 +114,16 @@ import { pinProtocolReference } from '#/lib/protocol-materials'
 import { attachFileToBlock, AttachFileError } from '#/lib/file-attach'
 import {
   blocksFromRevision,
+  fetchNotebookReviewContext,
   notebookLifecycleLabel,
+  notebookReviewActivity,
+  notebookReviewRevisionId,
+  recordFromRevisionSnapshot,
   updateExperimentMetadata,
+} from '#/lib/notebook-experience'
+import type {
+  NotebookReviewActivity,
+  NotebookReviewContext,
 } from '#/lib/notebook-experience'
 
 function RouteShell({
@@ -194,6 +202,16 @@ function ExperimentNotebookRoute() {
     queryFn: () => fetchChangeEventsForRecord(notebookDataClient, recordId),
     enabled: isNotebookIndex,
   })
+  const historicalRevisionQuery = useQuery({
+    queryKey: notebookQueryKeys.revision(historicalRevisionId ?? 'none'),
+    queryFn: () => fetchRevision(notebookDataClient, historicalRevisionId!),
+    enabled: isNotebookIndex && Boolean(historicalRevisionId),
+  })
+  const reviewQuery = useQuery({
+    queryKey: notebookQueryKeys.review(recordId),
+    queryFn: () => fetchNotebookReviewContext(notebookDataClient, recordId),
+    enabled: isNotebookIndex,
+  })
 
   // Child routes (e.g. /overview) render through the Outlet; the notebook
   // queries only run for the exact experiment path.
@@ -266,6 +284,63 @@ function ExperimentNotebookRoute() {
   }
 
   const isArchived = record.archivedAt !== null
+  const review = reviewQuery.data ?? null
+  const reviewActivity = notebookReviewActivity(review)
+
+  if (historicalRevisionId && historicalRevisionQuery.isLoading) {
+    return (
+      <RouteShell
+        context={shellContext}
+        breadcrumbs={loadingBreadcrumbs(project, projectId)}
+        inspector={
+          <Inspector
+            recordType="Experiment"
+            title="Loading…"
+            tabs={[]}
+            state="skeleton"
+          />
+        }
+      >
+        <NotebookSkeleton />
+      </RouteShell>
+    )
+  }
+
+  if (
+    historicalRevisionId &&
+    (historicalRevisionQuery.error || !historicalRevisionQuery.data)
+  ) {
+    return (
+      <RouteShell
+        context={shellContext}
+        breadcrumbs={[
+          { label: 'Home', to: '/' },
+          { label: 'Projects', to: '/projects' },
+          { label: 'Notebook unavailable' },
+        ]}
+      >
+        <NotebookErrorState
+          error={
+            historicalRevisionQuery.error ??
+            new DataClientError(
+              'not_found',
+              'That submitted revision could not be loaded.',
+              404,
+            )
+          }
+          onRetry={() => historicalRevisionQuery.refetch()}
+        />
+      </RouteShell>
+    )
+  }
+
+  const displayRecord =
+    historicalRevisionId && historicalRevisionQuery.data
+      ? recordFromRevisionSnapshot(
+          record,
+          historicalRevisionQuery.data.metadata_snapshot,
+        )
+      : record
 
   return (
     <RouteShell
@@ -277,7 +352,7 @@ function ExperimentNotebookRoute() {
         ...(project
           ? [{ label: project.title, to: `/projects/${projectId}` }]
           : []),
-        { label: record.title },
+        { label: displayRecord.title },
       ]}
       projectTree={
         project ? (
@@ -285,14 +360,14 @@ function ExperimentNotebookRoute() {
             projectId={projectId}
             projectName={project.title}
             recordId={record.id}
-            recordTitle={record.title}
+            recordTitle={displayRecord.title}
           />
         ) : undefined
       }
       inspectorCollapsible
       inspector={
         <NotebookInspector
-          record={record}
+          record={displayRecord}
           projectName={project?.title ?? null}
           ownerName={context.user.name}
           currentUserId={context.user.id}
@@ -306,13 +381,15 @@ function ExperimentNotebookRoute() {
           canEditMetadata={
             !record.lockedAt && !record.archivedAt && !historicalRevisionId
           }
+          reviewActivity={reviewActivity}
+          isHistorical={Boolean(historicalRevisionId)}
         />
       }
     >
       <div className="flex-1 overflow-y-auto px-4 pb-16 md:px-6">
         <NotebookPrintStyles />
         <StickyRecordHeader
-          record={record}
+          record={displayRecord}
           projectName={project?.title ?? null}
           projectId={projectId}
           currentUserId={context.user.id}
@@ -320,6 +397,9 @@ function ExperimentNotebookRoute() {
           workspaceId={context.workspace?.id}
           blocks={blocks}
           historicalRevisionId={historicalRevisionId}
+          review={review}
+          liveLockedAt={record.lockedAt}
+          liveLockedByRevisionId={record.lockedByRevisionId}
         />
         {historicalRevisionId ? (
           <HistoricalEvidenceBanner
@@ -430,6 +510,9 @@ export function StickyRecordHeader({
   workspaceId,
   blocks = [],
   historicalRevisionId,
+  review = null,
+  liveLockedAt,
+  liveLockedByRevisionId,
 }: {
   record: NotebookRecord
   projectName: string | null
@@ -439,6 +522,10 @@ export function StickyRecordHeader({
   workspaceId?: string
   blocks?: NotebookBlockDomain[]
   historicalRevisionId?: string
+  review?: NotebookReviewContext | null
+  /** Live lock fields when `record` is a historical snapshot overlay. */
+  liveLockedAt?: string | null
+  liveLockedByRevisionId?: string | null
 }) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -446,16 +533,36 @@ export function StickyRecordHeader({
   const [duplicateOpen, setDuplicateOpen] = useState(false)
   const [signOpen, setSignOpen] = useState(false)
   const [titleDraft, setTitleDraft] = useState(record.title)
-  const lifecycle = notebookLifecycleLabel(record)
+  const lockedAt = liveLockedAt ?? record.lockedAt
+  const lockedByRevisionId =
+    liveLockedByRevisionId ?? record.lockedByRevisionId
+  const reviewActivity = notebookReviewActivity(review)
+  const lifecycle = notebookLifecycleLabel({
+    lockedAt,
+    archivedAt: record.archivedAt,
+    reviewActivity,
+    isHistorical: Boolean(historicalRevisionId),
+  })
+  const reviewRevisionId = notebookReviewRevisionId({
+    lockedByRevisionId,
+    review,
+    historicalRevisionId,
+  })
   const canSubmit =
     Boolean(projectId && currentUserId) &&
-    !record.lockedAt &&
+    !lockedAt &&
     !record.archivedAt &&
-    !historicalRevisionId
+    !historicalRevisionId &&
+    reviewActivity === 'none'
   const canEditTitle =
-    !record.lockedAt && !record.archivedAt && !historicalRevisionId
-  const evidenceRevisionId =
-    historicalRevisionId ?? record.lockedByRevisionId ?? undefined
+    !lockedAt && !record.archivedAt && !historicalRevisionId
+  const canOpenReview = Boolean(reviewRevisionId)
+  const canSign =
+    Boolean(currentUserId && currentUserName) &&
+    !historicalRevisionId &&
+    !record.archivedAt &&
+    (reviewActivity === 'approved' || Boolean(lockedAt && lockedByRevisionId))
+  const evidenceRevisionId = reviewRevisionId
 
   const saveTitle = useMutation({
     mutationFn: (title: string) =>
@@ -486,10 +593,12 @@ export function StickyRecordHeader({
           className={
             lifecycle === 'Submitted'
               ? 'inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300'
-              : 'inline-flex items-center rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs font-medium text-muted-foreground'
+              : lifecycle === 'In review'
+                ? 'inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-800 dark:text-amber-300'
+                : 'inline-flex items-center rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs font-medium text-muted-foreground'
           }
         >
-          {lifecycle === 'Submitted' ? (
+          {lifecycle === 'Submitted' || lifecycle === 'In review' ? (
             <Lock className="size-3" aria-hidden />
           ) : null}
           {lifecycle}
@@ -515,26 +624,24 @@ export function StickyRecordHeader({
               Submit
             </Button>
           ) : null}
-          {lifecycle === 'Submitted' && record.lockedByRevisionId ? (
-            <>
-              {currentUserId && currentUserName && !historicalRevisionId ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setSignOpen(true)}
-                >
-                  Sign
-                </Button>
-              ) : null}
-              <Link
-                to="/reviews/$revisionId"
-                params={{ revisionId: record.lockedByRevisionId }}
-                className="text-xs font-medium text-foreground underline-offset-4 hover:underline"
-              >
-                Open review
-              </Link>
-            </>
+          {canSign ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setSignOpen(true)}
+            >
+              Sign
+            </Button>
+          ) : null}
+          {canOpenReview && reviewRevisionId ? (
+            <Link
+              to="/reviews/$revisionId"
+              params={{ revisionId: reviewRevisionId }}
+              className="text-xs font-medium text-foreground underline-offset-4 hover:underline"
+            >
+              Open review
+            </Link>
           ) : null}
         </div>
       </div>
@@ -606,14 +713,11 @@ export function StickyRecordHeader({
           }}
         />
       ) : null}
-      {signOpen &&
-      record.lockedByRevisionId &&
-      currentUserId &&
-      currentUserName ? (
+      {signOpen && reviewRevisionId && currentUserId && currentUserName ? (
         <SignNotebookDialog
           open={signOpen}
           onOpenChange={setSignOpen}
-          revisionId={record.lockedByRevisionId}
+          revisionId={reviewRevisionId}
           currentUserId={currentUserId}
           currentUserName={currentUserName}
         />
@@ -1775,6 +1879,8 @@ export function NotebookInspector({
   activityLoading,
   defaultTab,
   canEditMetadata = false,
+  reviewActivity = 'none',
+  isHistorical = false,
 }: {
   record: NotebookRecord
   projectName?: string | null
@@ -1790,6 +1896,8 @@ export function NotebookInspector({
   /** Initial active tab id. Defaults to the first tab (Properties). */
   defaultTab?: string
   canEditMetadata?: boolean
+  reviewActivity?: NotebookReviewActivity
+  isHistorical?: boolean
 }) {
   const fileBlocks = blocks?.filter((b) => b.type === 'file') ?? []
   const fileItems = fileItemsFromBlocks(fileBlocks)
@@ -1801,6 +1909,12 @@ export function NotebookInspector({
   )
   const linkCounts = linkCountsByKind(links)
   const fmtDateTime = (iso: string) => formatNotebookDateTime(iso)
+  const lifecycle = notebookLifecycleLabel({
+    lockedAt: record.lockedAt,
+    archivedAt: record.archivedAt,
+    reviewActivity,
+    isHistorical,
+  })
 
   return (
     <Inspector
@@ -1858,11 +1972,15 @@ export function NotebookInspector({
                 <span className="shrink-0 text-xs text-muted-foreground">
                   Notebook state
                 </span>
-                {notebookLifecycleLabel(record) === 'Submitted' ? (
+                {lifecycle === 'Submitted' ? (
                   <Badge variant="success" className="text-xs">
                     Submitted — evidence frozen
                   </Badge>
-                ) : notebookLifecycleLabel(record) === 'Archived' ? (
+                ) : lifecycle === 'In review' ? (
+                  <Badge variant="outline" className="text-xs">
+                    In review
+                  </Badge>
+                ) : lifecycle === 'Archived' ? (
                   <Badge variant="outline" className="text-xs">
                     Archived
                   </Badge>

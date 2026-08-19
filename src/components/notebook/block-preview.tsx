@@ -37,6 +37,7 @@ import {
   formatMetricValue,
 } from '#/lib/format-numbers'
 import { Badge } from '#/components/ui'
+import { isInlinePreviewableImage } from '#/lib/file-policy'
 import { sheetInstanceEmbedErrorMessage } from './notebook-sheet-block'
 import {
   materialiseFrozenChart,
@@ -753,10 +754,6 @@ function FileMetaLine({
       {mediaType || 'unknown'} · {formatFileSize(byteSize)}
     </p>
   )
-}
-
-function isInlinePreviewableImage(mediaType: string): boolean {
-  return mediaType.startsWith('image/') && !mediaType.startsWith('image/tiff')
 }
 
 function fileIconForType(mediaType: string): LucideIcon {

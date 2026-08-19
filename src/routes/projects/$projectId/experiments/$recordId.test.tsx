@@ -180,12 +180,104 @@ describe('StickyRecordHeader — lock state', () => {
     expect(screen.getByRole('link', { name: 'Open review' })).toBeTruthy()
   })
 
-  it('does not show a Submitted badge for an editable record', () => {
+  it('shows snapshot title in the header for a historical revision', () => {
     renderWithQuery(
-      <StickyRecordHeader record={record} projectName="Stability" />,
+      <StickyRecordHeader
+        record={{
+          ...record,
+          title: 'Submitted title',
+          tags: ['frozen-tag'],
+        }}
+        projectName="Stability"
+        historicalRevisionId="rev-historical"
+        liveLockedAt={null}
+        liveLockedByRevisionId={null}
+      />,
     )
-    expect(screen.queryByText('Submitted')).toBeNull()
-    expect(screen.getByText('Working')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Submitted title' })).toBeTruthy()
+    expect(screen.queryByLabelText('Notebook title')).toBeNull()
+    expect(screen.getByText('Submitted')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Submit' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Sign' })).toBeNull()
+  })
+
+  it('shows Open review but not Sign while the submission is unsigned', () => {
+    renderWithQuery(
+      <StickyRecordHeader
+        record={record}
+        projectName="Stability"
+        projectId="p1"
+        currentUserId="u1"
+        currentUserName="Ada Lovelace"
+        review={{
+          submission: {
+            id: 'sub1',
+            workspace_id: 'ws',
+            record_id: 'r1',
+            revision_id: 'rev-sub',
+            state: 'submitted',
+            workflow_definition_key: 'default-scientific-review',
+            workflow_definition_version: 1,
+            assigned_reviewer_user_ids: ['u1'],
+            submitted_by_user_id: 'u1',
+            submitted_session_id: 's',
+            submitted_role: 'scientist',
+            submitted_at: '2026-08-19T00:00:00.000Z',
+            idempotency_key: 'k',
+            created_at: '2026-08-19T00:00:00.000Z',
+            updated_at: '2026-08-19T00:00:00.000Z',
+          },
+          revision: { id: 'rev-sub', superseded_by_revision_id: null },
+        }}
+      />,
+    )
+    expect(screen.getByText('In review')).toBeTruthy()
+    expect(screen.queryByText('Working')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Submit' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Sign' })).toBeNull()
+    expect(screen.getByRole('link', { name: 'Open review' })).toBeTruthy()
+    expect(
+      screen.getByRole('link', { name: 'Open review' }).getAttribute('href'),
+    ).toContain('rev-sub')
+  })
+
+  it('shows Sign and Open review for an approved but still unlocked Notebook', () => {
+    renderWithQuery(
+      <StickyRecordHeader
+        record={record}
+        projectName="Stability"
+        projectId="p1"
+        currentUserId="u1"
+        currentUserName="Ada Lovelace"
+        review={{
+          submission: {
+            id: 'sub1',
+            workspace_id: 'ws',
+            record_id: 'r1',
+            revision_id: 'rev-approved',
+            state: 'approved',
+            workflow_definition_key: 'default-scientific-review',
+            workflow_definition_version: 1,
+            assigned_reviewer_user_ids: ['u1'],
+            submitted_by_user_id: 'u1',
+            submitted_session_id: 's',
+            submitted_role: 'scientist',
+            submitted_at: '2026-08-19T00:00:00.000Z',
+            idempotency_key: 'k',
+            created_at: '2026-08-19T00:00:00.000Z',
+            updated_at: '2026-08-19T00:00:00.000Z',
+          },
+          revision: { id: 'rev-approved', superseded_by_revision_id: null },
+        }}
+      />,
+    )
+    expect(screen.getByText('In review')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Submit' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Sign' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Open review' })).toBeTruthy()
+    expect(
+      screen.getByRole('link', { name: 'Open review' }).getAttribute('href'),
+    ).toContain('rev-approved')
   })
 })
 
@@ -442,6 +534,50 @@ describe('NotebookInspector', () => {
     )
     expect(screen.getByText('Submitted — evidence frozen')).toBeTruthy()
     expect(screen.queryByText('Working')).toBeNull()
+  })
+
+  it('shows In review when a submission is active and the record is unlocked', () => {
+    const queryClient = new QueryClient()
+    render(
+      <QueryClientProvider client={queryClient}>
+        <NotebookInspector
+          record={record}
+          links={[]}
+          linksLoading={false}
+          defaultTab="properties"
+          reviewActivity="submitted"
+        />
+      </QueryClientProvider>,
+    )
+    expect(screen.getByText('In review')).toBeTruthy()
+    expect(screen.queryByText('Working')).toBeNull()
+    expect(screen.queryByText('Submitted — evidence frozen')).toBeNull()
+  })
+
+  it('renders snapshot title, tags and dates for a historical revision after live edits', () => {
+    const queryClient = new QueryClient()
+    const historical = {
+      ...record,
+      title: 'Submitted title',
+      tags: ['frozen-tag'],
+      updatedAt: '2026-07-18T12:00:00.000Z',
+      lockedAt: null,
+      lockedByRevisionId: null,
+    }
+    render(
+      <QueryClientProvider client={queryClient}>
+        <NotebookInspector
+          record={historical}
+          links={[]}
+          linksLoading={false}
+          defaultTab="properties"
+          isHistorical
+        />
+      </QueryClientProvider>,
+    )
+    expect(screen.getByText('frozen-tag')).toBeTruthy()
+    expect(screen.queryByText('stability')).toBeNull()
+    expect(screen.getByText('Submitted — evidence frozen')).toBeTruthy()
   })
 
   it('shows a loading hint for links while they load', () => {

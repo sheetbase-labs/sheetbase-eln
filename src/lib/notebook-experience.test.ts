@@ -15,14 +15,20 @@ import {
   blocksFromRevision,
   duplicateExperiment,
   downloadRevisionEvidence,
+  fetchNotebookReviewContext,
   fetchRevisionsForRecord,
   groupChartTables,
+  isActiveNotebookReview,
   notebookLifecycleLabel,
+  notebookReviewActivity,
+  notebookReviewRevisionId,
   notebookSignState,
+  recordFromRevisionSnapshot,
   reviewerCandidates,
   reviewerOptionLabel,
   updateExperimentMetadata,
 } from './notebook-experience'
+import type { NotebookReviewContext } from './notebook-experience'
 
 vi.mock('#/lib/sheet-instance-data', async (importOriginal) => ({
   ...(await importOriginal()),
@@ -33,6 +39,7 @@ vi.mock('#/lib/sheet-instance-data', async (importOriginal) => ({
 vi.mock('#/lib/notebook-mutations', async (importOriginal) => ({
   ...(await importOriginal()),
   insertSheetInstanceBlock: vi.fn(),
+  insertBlock: vi.fn(),
 }))
 
 function recordWire(overrides: Partial<RecordWire> = {}): RecordWire {
@@ -129,6 +136,33 @@ describe('notebookLifecycleLabel', () => {
     expect(notebookLifecycleLabel({ lockedAt: null, archivedAt: null })).toBe(
       'Working',
     )
+  })
+
+  it('labels an unlocked in-review Notebook as In review, not Working', () => {
+    expect(
+      notebookLifecycleLabel({
+        lockedAt: null,
+        archivedAt: null,
+        reviewActivity: 'submitted',
+      }),
+    ).toBe('In review')
+    expect(
+      notebookLifecycleLabel({
+        lockedAt: null,
+        archivedAt: null,
+        reviewActivity: 'approved',
+      }),
+    ).toBe('In review')
+  })
+
+  it('labels a historical view as Submitted even when the live record is unlocked', () => {
+    expect(
+      notebookLifecycleLabel({
+        lockedAt: null,
+        archivedAt: null,
+        isHistorical: true,
+      }),
+    ).toBe('Submitted')
   })
 })
 
@@ -366,6 +400,100 @@ describe('duplicateExperiment', () => {
     })
   })
 
+  it('keeps interleaved Sheet order when duplicating text, Sheet, text', async () => {
+    const instanceId = '20000000-0000-4000-8000-000000000001'
+    const duplicatedId = '20000000-0000-4000-8000-000000000002'
+    const { fetchSheetInstance, duplicateSheetInstance } = await import(
+      '#/lib/sheet-instance-data'
+    )
+    const { insertSheetInstanceBlock, insertBlock } = await import(
+      '#/lib/notebook-mutations'
+    )
+    vi.mocked(fetchSheetInstance).mockResolvedValue({
+      id: instanceId,
+      name: 'Readings',
+      revision: 1,
+    } as SheetInstance)
+    vi.mocked(duplicateSheetInstance).mockResolvedValue({
+      id: duplicatedId,
+      name: 'Readings copy',
+      revision: 1,
+    } as SheetInstance)
+    vi.mocked(insertSheetInstanceBlock).mockResolvedValue({
+      block: block({ id: 'new-s', type: 'sheet', recordId: recordWire().id }),
+      instanceId: duplicatedId,
+      structureVersion: 2,
+    })
+    vi.mocked(insertBlock).mockResolvedValue({
+      block: block({
+        id: 'new-t2',
+        type: 'rich_text',
+        recordId: recordWire().id,
+      }),
+      structureVersion: 3,
+    })
+    const rpc = vi.fn().mockResolvedValue({
+      record: recordWire(),
+      blocks: [
+        {
+          id: 'new-t1',
+          record_id: recordWire().id,
+          type: 'rich_text',
+          payload: { doc: { type: 'doc' } },
+          payload_schema_version: 1,
+          order: 1,
+          version: 1,
+          created_at: '2026-08-19T00:00:00.000Z',
+          updated_at: '2026-08-19T00:00:00.000Z',
+        },
+      ],
+    })
+    const client = mockClient({ rpc })
+    await duplicateExperiment(client, {
+      source: sourceRecord(),
+      blocks: [
+        block({
+          id: 't1',
+          type: 'rich_text',
+          order: 1,
+          payload: { doc: { type: 'doc', content: [] } },
+        }),
+        block({
+          id: 's1',
+          type: 'sheet',
+          order: 2,
+          payload: { instanceId },
+        }),
+        block({
+          id: 't2',
+          type: 'rich_text',
+          order: 3,
+          payload: { doc: { type: 'doc', content: [{ type: 'paragraph' }] } },
+        }),
+      ],
+    })
+    expect(rpc).toHaveBeenCalledWith(
+      'create_record_with_blocks',
+      expect.objectContaining({
+        p_blocks: [expect.objectContaining({ type: 'rich_text', order: 1 })],
+      }),
+    )
+    expect(insertSheetInstanceBlock).toHaveBeenCalledWith(client, {
+      recordId: recordWire().id,
+      instanceId: duplicatedId,
+      expectedStructureVersion: 1,
+      afterBlockId: 'new-t1',
+    })
+    expect(insertBlock).toHaveBeenCalledWith(client, {
+      recordId: recordWire().id,
+      type: 'rich_text',
+      payload: { doc: { type: 'doc', content: [{ type: 'paragraph' }] } },
+      payloadSchemaVersion: 1,
+      expectedStructureVersion: 2,
+      afterBlockId: 'new-s',
+    })
+  })
+
   it('rejects a Notebook without a project', async () => {
     await expect(
       duplicateExperiment(mockClient(), {
@@ -458,5 +586,95 @@ describe('groupChartTables', () => {
       local: [{ id: 'b', name: 'Local', record_id: 'r1' }],
       workspace: [{ id: 'a', name: 'Workspace', record_id: 'other' }],
     })
+  })
+})
+
+describe('notebook review activity', () => {
+  const approved = {
+    submission: { state: 'approved', revision_id: 'rev-sub' },
+    revision: { id: 'rev-sub', superseded_by_revision_id: null },
+  } as NotebookReviewContext
+  const submitted = {
+    submission: { state: 'submitted', revision_id: 'rev-sub' },
+    revision: { id: 'rev-sub', superseded_by_revision_id: null },
+  } as NotebookReviewContext
+  const superseded = {
+    submission: { state: 'approved', revision_id: 'rev-sub' },
+    revision: { id: 'rev-sub', superseded_by_revision_id: 'amend' },
+  } as NotebookReviewContext
+
+  it('is active for submitted or approved revisions that are not superseded', () => {
+    expect(isActiveNotebookReview(approved)).toBe(true)
+    expect(notebookReviewActivity(submitted)).toBe('submitted')
+  })
+
+  it('is inactive after amendment supersedes the reviewed revision', () => {
+    expect(isActiveNotebookReview(superseded)).toBe(false)
+    expect(
+      notebookReviewRevisionId({
+        lockedByRevisionId: null,
+        review: superseded,
+      }),
+    ).toBeUndefined()
+  })
+
+  it('prefers the live lock revision, then the active submission', () => {
+    expect(
+      notebookReviewRevisionId({
+        lockedByRevisionId: 'rev-locked',
+        review: approved,
+      }),
+    ).toBe('rev-locked')
+    expect(
+      notebookReviewRevisionId({
+        lockedByRevisionId: null,
+        review: approved,
+      }),
+    ).toBe('rev-sub')
+  })
+
+  it('loads the latest submission and its revision', async () => {
+    const list = vi
+      .fn()
+      .mockResolvedValueOnce([
+        { id: 'sub1', record_id: 'rec/1', revision_id: 'rev-sub', state: 'submitted' },
+      ])
+      .mockResolvedValueOnce([
+        { id: 'rev-sub', superseded_by_revision_id: null },
+      ])
+    const result = await fetchNotebookReviewContext(mockClient({ list }), 'rec/1')
+    expect(list).toHaveBeenNthCalledWith(
+      1,
+      'review_submissions',
+      '?record_id=eq.rec%2F1&order=submitted_at.desc,id.desc&limit=1',
+    )
+    expect(result.submission?.revision_id).toBe('rev-sub')
+    expect(result.revision?.superseded_by_revision_id).toBeNull()
+  })
+})
+
+describe('recordFromRevisionSnapshot', () => {
+  it('overlays snapshot title, tags, status and dates onto the live record', () => {
+    const live = sourceRecord({
+      title: 'Amended title',
+      status: 'in-progress',
+      tags: ['new'],
+      updatedAt: '2026-08-20T00:00:00.000Z',
+      lockedAt: null,
+      lockedByRevisionId: null,
+    })
+    const overlaid = recordFromRevisionSnapshot(live, {
+      title: 'Submitted title',
+      status: 'in-progress',
+      identifier: 'EXP-2026-0001',
+      tags: ['qPCR', 'stability'],
+      createdAt: '2026-08-17T00:00:00.000Z',
+      updatedAt: '2026-08-18T12:00:00.000Z',
+    })
+    expect(overlaid.title).toBe('Submitted title')
+    expect(overlaid.tags).toEqual(['qPCR', 'stability'])
+    expect(overlaid.updatedAt).toBe('2026-08-18T12:00:00.000Z')
+    expect(overlaid.id).toBe(live.id)
+    expect(overlaid.lockedAt).toBeNull()
   })
 })

@@ -406,6 +406,7 @@ export const notebookQueryKeys = {
   // between revisions always refetches.
   revision: (revisionId: string) =>
     ['overview', 'revision', revisionId] as const,
+  review: (recordId: string) => ['notebook', 'review', recordId] as const,
 }
 
 /**

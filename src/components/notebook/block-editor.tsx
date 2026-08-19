@@ -73,7 +73,7 @@ import {
   formatBytes,
   validateFileForUpload,
 } from '#/lib/file-attach'
-import { FILE_MAX_BYTES } from '#/lib/file-policy'
+import { FILE_MAX_BYTES, isInlinePreviewableImage } from '#/lib/file-policy'
 import { CHART_SPEC_VERSION, CHART_TYPES } from '#/lib/chart-spec'
 import type {
   ChartBlockPayload,
@@ -1324,10 +1324,6 @@ function FileBlockEditor({ block, onAttachFile, readOnly }: BlockEditorProps) {
       ) : null}
     </div>
   )
-}
-
-function isInlinePreviewableImage(mediaType: string): boolean {
-  return mediaType.startsWith('image/') && !mediaType.startsWith('image/tiff')
 }
 
 /** Pick a lucide file glyph from the media type. */

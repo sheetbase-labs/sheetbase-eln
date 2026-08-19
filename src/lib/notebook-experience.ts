@@ -6,8 +6,11 @@
 import { EMPTY_RICH_TEXT_PAYLOAD, PAYLOAD_SCHEMA_VERSION } from '#/lib/blocks'
 import type { DataClient } from '#/lib/data-client'
 import { DataClientError } from '#/lib/data-client'
-import { insertSheetInstanceBlock } from '#/lib/notebook-mutations'
-import { toRecord } from '#/lib/notebook-data'
+import {
+  insertBlock,
+  insertSheetInstanceBlock,
+} from '#/lib/notebook-mutations'
+import { toBlock, toRecord } from '#/lib/notebook-data'
 import type {
   BlockWire,
   NotebookBlock,
@@ -15,6 +18,7 @@ import type {
   RecordWire,
   RevisionWire,
 } from '#/lib/notebook-data'
+import type { ReviewSubmissionWire } from '#/lib/reviews'
 import { toOverviewRevision } from '#/lib/overview'
 import { isCanonicalSheetBlock, sheetBlockInstanceId } from '#/lib/sheet-block'
 import {
@@ -34,15 +38,130 @@ export {
   fetchRevisionEvidenceExport,
 }
 
-export type NotebookLifecycleLabel = 'Archived' | 'Submitted' | 'Working'
+export type NotebookLifecycleLabel =
+  | 'Archived'
+  | 'Submitted'
+  | 'In review'
+  | 'Working'
+
+export type NotebookReviewActivity = 'none' | 'submitted' | 'approved'
+
+export interface NotebookReviewContext {
+  submission: ReviewSubmissionWire | null
+  revision: { id: string; superseded_by_revision_id: string | null } | null
+}
+
+export function isActiveNotebookReview(
+  review: NotebookReviewContext | null | undefined,
+): boolean {
+  if (!review?.submission) return false
+  if (review.revision?.superseded_by_revision_id) return false
+  return (
+    review.submission.state === 'submitted' ||
+    review.submission.state === 'approved'
+  )
+}
+
+export function notebookReviewActivity(
+  review: NotebookReviewContext | null | undefined,
+): NotebookReviewActivity {
+  if (!isActiveNotebookReview(review) || !review?.submission) return 'none'
+  return review.submission.state === 'approved' ? 'approved' : 'submitted'
+}
 
 export function notebookLifecycleLabel(record: {
   lockedAt: string | null
   archivedAt: string | null
+  reviewActivity?: NotebookReviewActivity
+  isHistorical?: boolean
 }): NotebookLifecycleLabel {
   if (record.archivedAt) return 'Archived'
-  if (record.lockedAt) return 'Submitted'
+  if (record.isHistorical || record.lockedAt) return 'Submitted'
+  if (
+    record.reviewActivity === 'submitted' ||
+    record.reviewActivity === 'approved'
+  ) {
+    return 'In review'
+  }
   return 'Working'
+}
+
+export function notebookReviewRevisionId(input: {
+  lockedByRevisionId: string | null
+  review: NotebookReviewContext | null | undefined
+  historicalRevisionId?: string
+}): string | undefined {
+  if (input.historicalRevisionId) return input.historicalRevisionId
+  if (input.lockedByRevisionId) return input.lockedByRevisionId
+  if (!isActiveNotebookReview(input.review) || !input.review?.submission) {
+    return undefined
+  }
+  return input.review.submission.revision_id
+}
+
+export async function fetchNotebookReviewContext(
+  client: DataClient,
+  recordId: string,
+): Promise<NotebookReviewContext> {
+  const submissions = await client.list<ReviewSubmissionWire>(
+    'review_submissions',
+    `?record_id=eq.${encodeURIComponent(recordId)}&order=submitted_at.desc,id.desc&limit=1`,
+  )
+  const submission = submissions[0] ?? null
+  if (!submission) return { submission: null, revision: null }
+  const revisions = await client.list<{
+    id: string
+    superseded_by_revision_id: string | null
+  }>(
+    'revisions',
+    `?id=eq.${encodeURIComponent(submission.revision_id)}&select=id,superseded_by_revision_id&limit=1`,
+  )
+  return { submission, revision: revisions[0] ?? null }
+}
+
+export function recordFromRevisionSnapshot(
+  live: NotebookRecord,
+  snapshot: Record<string, unknown>,
+): NotebookRecord {
+  const tags = snapshot.tags
+  const properties = snapshot.properties
+  return {
+    ...live,
+    title: typeof snapshot.title === 'string' ? snapshot.title : live.title,
+    status: typeof snapshot.status === 'string' ? snapshot.status : live.status,
+    identifier:
+      typeof snapshot.identifier === 'string'
+        ? snapshot.identifier
+        : live.identifier,
+    tags: Array.isArray(tags)
+      ? tags.filter((tag): tag is string => typeof tag === 'string')
+      : live.tags,
+    properties:
+      properties && typeof properties === 'object' && !Array.isArray(properties)
+        ? (properties as Record<string, unknown>)
+        : live.properties,
+    structureVersion:
+      typeof snapshot.structureVersion === 'number'
+        ? snapshot.structureVersion
+        : live.structureVersion,
+    metadataVersion:
+      typeof snapshot.metadataVersion === 'number'
+        ? snapshot.metadataVersion
+        : live.metadataVersion,
+    createdAt:
+      typeof snapshot.createdAt === 'string' ? snapshot.createdAt : live.createdAt,
+    updatedAt:
+      typeof snapshot.updatedAt === 'string' ? snapshot.updatedAt : live.updatedAt,
+    createdByUserId:
+      typeof snapshot.createdByUserId === 'string'
+        ? snapshot.createdByUserId
+        : live.createdByUserId,
+    updatedByUserId:
+      typeof snapshot.updatedByUserId === 'string' ||
+      snapshot.updatedByUserId === null
+        ? (snapshot.updatedByUserId as string | null)
+        : live.updatedByUserId,
+  }
 }
 
 const REVIEW_ELIGIBLE_ROLES = new Set([
@@ -166,15 +285,16 @@ export async function duplicateExperiment(
 
   const title = input.title?.trim() || `${input.source.title} copy`
   const ordered = [...input.blocks].sort((a, b) => a.order - b.order)
-  const nonSheet = ordered.filter((block) => block.type !== 'sheet')
-  const sheetBlocks = ordered.filter(
-    (block) =>
-      block.type === 'sheet' && isCanonicalSheetBlock(block.payload),
-  )
+  const leading: NotebookBlock[] = []
+  let index = 0
+  while (index < ordered.length && ordered[index].type !== 'sheet') {
+    leading.push(ordered[index])
+    index += 1
+  }
 
   const pBlocks =
-    nonSheet.length > 0
-      ? createBlocksPayload(nonSheet)
+    leading.length > 0
+      ? createBlocksPayload(leading)
       : [
           {
             type: 'rich_text',
@@ -197,30 +317,50 @@ export async function duplicateExperiment(
     },
   )
   const record = toRecord(result.record)
+  const created = [...(result.blocks ?? [])]
+    .map(toBlock)
+    .sort((a, b) => a.order - b.order)
+  let lastBlockId = created.at(-1)?.id
   let structureVersion = record.structureVersion
 
-  for (const block of sheetBlocks) {
-    const instanceId = sheetBlockInstanceId(block.payload)
-    if (!instanceId) continue
-    const instance = await fetchSheetInstance(instanceId, client)
-    if (!instance) {
-      throw new DataClientError(
-        'not_found',
-        'A Sheet in this Notebook could not be copied.',
-        404,
+  for (const source of ordered.slice(index)) {
+    if (source.type === 'sheet' && isCanonicalSheetBlock(source.payload)) {
+      const instanceId = sheetBlockInstanceId(source.payload)
+      if (!instanceId) continue
+      const instance = await fetchSheetInstance(instanceId, client)
+      if (!instance) {
+        throw new DataClientError(
+          'not_found',
+          'A Sheet in this Notebook could not be copied.',
+          404,
+        )
+      }
+      const duplicated = await duplicateSheetInstance(
+        instance.id,
+        instance.revision,
+        `${instance.name} copy`,
+        client,
       )
+      const inserted = await insertSheetInstanceBlock(client, {
+        recordId: record.id,
+        instanceId: duplicated.id,
+        expectedStructureVersion: structureVersion,
+        afterBlockId: lastBlockId,
+      })
+      lastBlockId = inserted.block.id
+      structureVersion = inserted.structureVersion
+      continue
     }
-    const duplicated = await duplicateSheetInstance(
-      instance.id,
-      instance.revision,
-      `${instance.name} copy`,
-      client,
-    )
-    const inserted = await insertSheetInstanceBlock(client, {
+    if (source.type === 'sheet') continue
+    const inserted = await insertBlock(client, {
       recordId: record.id,
-      instanceId: duplicated.id,
+      type: source.type,
+      payload: source.payload,
+      payloadSchemaVersion: source.payloadSchemaVersion,
       expectedStructureVersion: structureVersion,
+      afterBlockId: lastBlockId,
     })
+    lastBlockId = inserted.block.id
     structureVersion = inserted.structureVersion
   }
 

@@ -20,6 +20,7 @@ import {
   groupChartTables,
   isActiveNotebookReview,
   notebookLifecycleLabel,
+  notebookQueryKeysAfterSignature,
   notebookReviewActivity,
   notebookReviewRevisionId,
   notebookSignState,
@@ -676,5 +677,21 @@ describe('recordFromRevisionSnapshot', () => {
     expect(overlaid.updatedAt).toBe('2026-08-18T12:00:00.000Z')
     expect(overlaid.id).toBe(live.id)
     expect(overlaid.lockedAt).toBeNull()
+  })
+})
+
+describe('notebookQueryKeysAfterSignature', () => {
+  it('includes record, blocks, review and history keys so the signer tab refetches', () => {
+    const keys = notebookQueryKeysAfterSignature({
+      recordId: 'r1',
+      submissionId: 'sub1',
+      revisionId: 'rev1',
+    })
+    expect(keys).toContainEqual(['notebook', 'record', 'r1'])
+    expect(keys).toContainEqual(['notebook', 'blocks', 'r1'])
+    expect(keys).toContainEqual(['notebook', 'review', 'r1'])
+    expect(keys).toContainEqual(['notebook', 'activity', 'r1'])
+    expect(keys).toContainEqual(['sign-002', 'timeline', 'r1'])
+    expect(keys).toContainEqual(['sign-001', 'signatures', 'submission', 'sub1'])
   })
 })

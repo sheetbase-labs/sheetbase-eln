@@ -13,7 +13,10 @@ import {
 } from '#/components/ui'
 import { DataClientError } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
-import { notebookSignState } from '#/lib/notebook-experience'
+import {
+  notebookQueryKeysAfterSignature,
+  notebookSignState,
+} from '#/lib/notebook-experience'
 import {
   fetchReviewSubmissionByRevision,
   fetchRevisionRow,
@@ -94,9 +97,15 @@ export function SignNotebookDialog({
     },
     onSuccess: async () => {
       if (submission) {
-        await queryClient.invalidateQueries({
-          queryKey: signatureQueryKeys.forSubmission(submission.id),
-        })
+        await Promise.all(
+          notebookQueryKeysAfterSignature({
+            recordId: submission.record_id,
+            submissionId: submission.id,
+            revisionId,
+          }).map((queryKey) =>
+            queryClient.invalidateQueries({ queryKey }),
+          ),
+        )
       }
       setConfirmation('')
       onOpenChange(false)

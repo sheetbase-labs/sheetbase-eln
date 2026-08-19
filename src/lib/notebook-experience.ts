@@ -10,7 +10,7 @@ import {
   insertBlock,
   insertSheetInstanceBlock,
 } from '#/lib/notebook-mutations'
-import { toBlock, toRecord } from '#/lib/notebook-data'
+import { toBlock, toRecord, notebookQueryKeys } from '#/lib/notebook-data'
 import type {
   BlockWire,
   NotebookBlock,
@@ -29,8 +29,11 @@ import {
   createAmendment,
   fetchRecordTimeline,
   fetchRevisionEvidenceExport,
+  sign002QueryKeys,
 } from '#/lib/sign-002'
 import type { EvidenceExportWire } from '#/lib/sign-002'
+import { signatureQueryKeys } from '#/lib/signatures'
+import { reviewWorkspaceQueryKeys } from '#/lib/review-workspace'
 
 export {
   createAmendment,
@@ -162,6 +165,31 @@ export function recordFromRevisionSnapshot(
         ? (snapshot.updatedByUserId as string | null)
         : live.updatedByUserId,
   }
+}
+
+export function notebookQueryKeysAfterSignature(input: {
+  recordId: string
+  submissionId?: string
+  revisionId?: string
+}): readonly (readonly unknown[])[] {
+  const keys: (readonly unknown[])[] = [
+    notebookQueryKeys.record(input.recordId),
+    notebookQueryKeys.blocks(input.recordId),
+    notebookQueryKeys.review(input.recordId),
+    notebookQueryKeys.activity(input.recordId),
+    sign002QueryKeys.timeline(input.recordId),
+    sign002QueryKeys.lockState(input.recordId),
+    ['notebook-experience', 'revisions', input.recordId],
+  ]
+  if (input.submissionId) {
+    keys.push(signatureQueryKeys.forSubmission(input.submissionId))
+  }
+  if (input.revisionId) {
+    keys.push(reviewWorkspaceQueryKeys.submissionForRevision(input.revisionId))
+    keys.push(reviewWorkspaceQueryKeys.revision(input.revisionId))
+    keys.push(signatureQueryKeys.forRevision(input.revisionId))
+  }
+  return keys
 }
 
 const REVIEW_ELIGIBLE_ROLES = new Set([

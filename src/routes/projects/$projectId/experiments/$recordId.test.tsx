@@ -189,6 +189,7 @@ describe('StickyRecordHeader — lock state', () => {
           tags: ['frozen-tag'],
         }}
         projectName="Stability"
+        projectId="p1"
         historicalRevisionId="rev-historical"
         liveLockedAt={null}
         liveLockedByRevisionId={null}
@@ -199,6 +200,51 @@ describe('StickyRecordHeader — lock state', () => {
     expect(screen.getByText('Submitted')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Submit' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Sign' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Duplicate' })).toBeNull()
+  })
+
+  it('hides Duplicate on a historical revision after amendment and live metadata edits', () => {
+    renderWithQuery(
+      <StickyRecordHeader
+        record={{
+          ...record,
+          title: 'Submitted title',
+          tags: ['frozen-tag'],
+          lockedAt: null,
+          lockedByRevisionId: null,
+        }}
+        projectName="Stability"
+        projectId="p1"
+        currentUserId="u1"
+        currentUserName="Ada Lovelace"
+        historicalRevisionId="rev-historical"
+        liveLockedAt={null}
+        liveLockedByRevisionId={null}
+      />,
+    )
+    expect(screen.getByRole('heading', { name: 'Submitted title' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Duplicate' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Submit' })).toBeNull()
+    expect(screen.getByText('Submitted')).toBeTruthy()
+  })
+
+  it('keeps Duplicate on the working Notebook after amendment', () => {
+    renderWithQuery(
+      <StickyRecordHeader
+        record={{
+          ...record,
+          title: 'Amended title',
+          lockedAt: null,
+          lockedByRevisionId: null,
+        }}
+        projectName="Stability"
+        projectId="p1"
+        currentUserId="u1"
+      />,
+    )
+    expect(screen.getByLabelText('Notebook title')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Duplicate' })).toBeTruthy()
+    expect(screen.getByText('Working')).toBeTruthy()
   })
 
   it('shows Open review but not Sign while the submission is unsigned', () => {

@@ -609,7 +609,7 @@ export function StickyRecordHeader({
         <div className="ml-auto flex flex-wrap items-center gap-2" data-print-hide>
           <PrintNotebookButton className="h-8" />
           <ExportEvidenceButton revisionId={evidenceRevisionId} />
-          {projectId ? (
+          {projectId && !historicalRevisionId ? (
             <Button
               type="button"
               size="sm"
@@ -698,7 +698,7 @@ export function StickyRecordHeader({
           workspaceId={workspaceId}
         />
       ) : null}
-      {duplicateOpen && projectId ? (
+      {duplicateOpen && projectId && !historicalRevisionId ? (
         <DuplicateNotebookDialog
           open={duplicateOpen}
           onOpenChange={setDuplicateOpen}

@@ -340,7 +340,7 @@ describe('inspectorEvidenceFromRevision', () => {
       created_at: '2026-08-17T00:00:00.000Z',
       created_by_user_id: 'u1',
     })
-    expect(evidence.blocks.map((block) => block.payload.displayName)).toEqual([
+    expect(evidence.blocks.map((item) => item.payload.displayName)).toEqual([
       'gel-at-submit.png',
     ])
     expect(evidence.links.map((link) => link.targetIdentifier)).toEqual([

@@ -48,10 +48,10 @@ export function CreateBlankExperimentDialog({
   const targetProjectId = projectId ?? selectedProjectId
 
   const create = useMutation({
-    mutationFn: () =>
+    mutationFn: (submittedTitle: string) =>
       createBlankExperiment(notebookDataClient, {
         projectId: targetProjectId,
-        title,
+        title: submittedTitle,
       }),
     onSuccess: (record) => {
       onOpenChange(false)
@@ -78,7 +78,7 @@ export function CreateBlankExperimentDialog({
           <DialogTitle>Create experiment</DialogTitle>
           <DialogDescription>
             Starts a blank Notebook in the chosen project. You can add Sheets
-            and submit evidence from there. Templates stay available separately.
+            and files in the Notebook.
           </DialogDescription>
         </DialogHeader>
         <form
@@ -86,7 +86,7 @@ export function CreateBlankExperimentDialog({
           onSubmit={(event) => {
             event.preventDefault()
             if (!targetProjectId) return
-            create.mutate()
+            create.mutate(title)
           }}
         >
           {!projectId ? (
@@ -115,6 +115,7 @@ export function CreateBlankExperimentDialog({
               onChange={(event) => setTitle(event.target.value)}
               placeholder="Untitled experiment"
               aria-label="Experiment title"
+              autoFocus
             />
           </Label>
           {errorMessage ? (
@@ -130,11 +131,21 @@ export function CreateBlankExperimentDialog({
             >
               Cancel
             </Button>
+            {projectId ? (
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={!targetProjectId || create.isPending}
+                onClick={() => create.mutate('')}
+              >
+                Start writing
+              </Button>
+            ) : null}
             <Button
               type="submit"
               disabled={!targetProjectId || create.isPending}
             >
-              Create blank Notebook
+              Create
             </Button>
           </DialogFooter>
         </form>

@@ -4,6 +4,7 @@
  * undo, and read-only behaviour for archived notebooks. Mutation callbacks
  * are stubbed so no RPC or QueryClient context is required.
  */
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -178,6 +179,38 @@ describe('NotebookDocument — rendering', () => {
     expect(screen.getByText('Snapshot')).toBeTruthy()
     // Accessible tabular alternative renders the frozen points.
     expect(screen.getByText(/Show data table/)).toBeTruthy()
+  })
+
+  it('opens the plate map editor when selected', () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    })
+    const { container } = render(
+      <QueryClientProvider client={client}>
+        <NotebookDocument
+          record={record}
+          blocks={[
+            {
+              id: 'pm1',
+              recordId: 'r1',
+              type: 'plate_map',
+              payload: {},
+              payloadSchemaVersion: 1,
+              order: 1,
+              version: 1,
+            },
+          ]}
+          onSaveBlock={vi.fn()}
+          onInsertBlock={vi.fn()}
+          onDuplicateBlock={vi.fn()}
+          onDeleteBlock={vi.fn()}
+        />
+      </QueryClientProvider>,
+    )
+    fireEvent.click(container.querySelector('#block-pm1')!)
+    expect(
+      screen.getByRole('button', { name: /Initialize 96-well plate/ }),
+    ).toBeTruthy()
   })
 })
 

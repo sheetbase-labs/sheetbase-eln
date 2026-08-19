@@ -708,25 +708,35 @@ function FileBlockPreview({ payload }: { payload: unknown }) {
   }
 
   // active
+  const showImage = isInlinePreviewableImage(mediaType)
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      <div className="flex min-w-0 items-center gap-2.5">
-        <FileIcon mediaType={mediaType} />
-        <div className="min-w-0">
-          <a
-            href={`/api/files/${fileRecordId}/download`}
-            className="font-medium text-foreground underline-offset-2 hover:underline"
-            download
-          >
-            {name}
-          </a>
-          <FileMetaLine mediaType={mediaType} byteSize={byteSize} />
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <FileIcon mediaType={mediaType} />
+          <div className="min-w-0">
+            <a
+              href={`/api/files/${fileRecordId}/download`}
+              className="font-medium text-foreground underline-offset-2 hover:underline"
+              download
+            >
+              {name}
+            </a>
+            <FileMetaLine mediaType={mediaType} byteSize={byteSize} />
+          </div>
         </div>
+        <Badge variant="success">
+          <CheckCircle2 className="size-3" aria-hidden="true" />
+          Active
+        </Badge>
       </div>
-      <Badge variant="success">
-        <CheckCircle2 className="size-3" aria-hidden="true" />
-        Active
-      </Badge>
+      {showImage ? (
+        <img
+          alt={name}
+          src={`/api/files/${fileRecordId}/download`}
+          className="mt-2 max-h-80 max-w-full rounded-md border"
+        />
+      ) : null}
     </div>
   )
 }
@@ -743,6 +753,10 @@ function FileMetaLine({
       {mediaType || 'unknown'} · {formatFileSize(byteSize)}
     </p>
   )
+}
+
+function isInlinePreviewableImage(mediaType: string): boolean {
+  return mediaType.startsWith('image/') && !mediaType.startsWith('image/tiff')
 }
 
 function fileIconForType(mediaType: string): LucideIcon {

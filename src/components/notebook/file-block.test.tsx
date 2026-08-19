@@ -95,6 +95,33 @@ describe('SCI-003 file block preview', () => {
     expect(screen.getByText('Active')).toBeTruthy()
   })
 
+  it('renders an img for an active image/png file', async () => {
+    const imagePayload = {
+      fileRecordId: '20000000-0000-4000-8000-000000000002',
+      fileIdentifier: 'FILE-2026-0002',
+      displayName: 'gel.png',
+      mediaType: 'image/png',
+      byteSize: 2048,
+    }
+    fetchFileObject.mockResolvedValue({
+      recordId: imagePayload.fileRecordId,
+      displayName: 'gel.png',
+      mediaType: 'image/png',
+      byteSize: 2048,
+      status: 'active',
+      statusReason: null,
+      version: 1,
+    })
+    renderWithQuery(<BlockPreview block={makeBlock(imagePayload)} />)
+    const img = await screen.findByRole('img', { name: 'gel.png' })
+    expect(img.getAttribute('src')).toBe(
+      '/api/files/20000000-0000-4000-8000-000000000002/download',
+    )
+    expect(
+      screen.getByRole('link', { name: 'gel.png' }).getAttribute('href'),
+    ).toBe('/api/files/20000000-0000-4000-8000-000000000002/download')
+  })
+
   it('renders a quarantined file honestly with the reason', async () => {
     mockStatus('quarantined', { statusReason: 'suspected corruption' })
     renderWithQuery(<BlockPreview block={makeBlock(activePayload)} />)

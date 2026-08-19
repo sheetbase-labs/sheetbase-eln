@@ -296,6 +296,44 @@ describe('BlockEditor — linked_record', () => {
     await user.tab()
     expect(save).not.toHaveBeenCalled()
   })
+
+  it('lists scientist-facing target kinds including Dataset, sample and reagent', () => {
+    render(
+      <BlockEditor
+        block={block({
+          type: 'linked_record',
+          payload: {
+            targetKind: 'experiment',
+            targetIdentifier: '',
+            linkType: 'general',
+            label: '',
+          },
+        })}
+        save={vi.fn(async () => ({ ok: true }))}
+      />,
+    )
+    const kindSelect = screen.getByLabelText('Target kind')
+    expect(
+      [...kindSelect.querySelectorAll('option')].map((o) => o.textContent),
+    ).toEqual([
+      'Experiment',
+      'Dataset',
+      'Sample',
+      'Reagent',
+      'Protocol template',
+      'Report',
+    ])
+    expect(
+      [...kindSelect.querySelectorAll('option')].map((o) => o.getAttribute('value')),
+    ).toEqual([
+      'experiment',
+      'dataset',
+      'sample',
+      'reagent',
+      'protocol_template',
+      'report',
+    ])
+  })
 })
 
 describe('BlockEditor — unsupported type', () => {

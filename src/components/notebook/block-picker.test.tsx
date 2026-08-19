@@ -39,6 +39,9 @@ describe('BlockPicker', () => {
       'Plate map',
     ])
     expect(types).not.toContain('heading')
+    expect(
+      BLOCK_PICKER_OPTIONS.find((o) => o.type === 'linked_record')?.description,
+    ).toBe('A reference to another experiment, Dataset, sample or reagent.')
   })
 
   it('calls onInsert with the chosen type', async () => {

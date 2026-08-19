@@ -58,7 +58,8 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
   {
     type: 'linked_record',
     label: 'Linked record',
-    description: 'A reference to another record.',
+    description:
+      'A reference to another experiment, Dataset, sample or reagent.',
     icon: Link2,
   },
   {

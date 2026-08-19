@@ -130,6 +130,7 @@ const EDITABLE_TYPES = new Set([
   'materials',
   'file',
   'chart',
+  'plate_map',
 ])
 
 export function NotebookDocument(props: NotebookDocumentProps) {

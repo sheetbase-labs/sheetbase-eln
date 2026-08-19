@@ -528,7 +528,23 @@ const LINK_TYPES = [
   'file',
 ] as const
 
-const TARGET_KINDS = ['experiment', 'protocol_template', 'report'] as const
+const TARGET_KINDS = [
+  'experiment',
+  'dataset',
+  'sample',
+  'reagent',
+  'protocol_template',
+  'report',
+] as const
+
+const TARGET_KIND_LABELS: Record<(typeof TARGET_KINDS)[number], string> = {
+  experiment: 'Experiment',
+  dataset: 'Dataset',
+  sample: 'Sample',
+  reagent: 'Reagent',
+  protocol_template: 'Protocol template',
+  report: 'Report',
+}
 
 interface LinkedRecordDraft {
   targetKind: string
@@ -596,7 +612,7 @@ function LinkedRecordEditor({
           >
             {TARGET_KINDS.map((k) => (
               <option key={k} value={k}>
-                {k}
+                {TARGET_KIND_LABELS[k]}
               </option>
             ))}
           </Select>
@@ -1107,21 +1123,33 @@ function FileBlockEditor({ block, onAttachFile, readOnly }: BlockEditorProps) {
     const name = String(block.payload.displayName ?? 'File')
     const mediaType = String(block.payload.mediaType ?? '')
     const byteSize = Number(block.payload.byteSize ?? 0)
+    const fileRecordId = String(block.payload.fileRecordId ?? '')
     const FileGlyph = fileIconFor(mediaType)
+    const showImage =
+      Boolean(fileRecordId) && isInlinePreviewableImage(mediaType)
     return (
-      <div className="flex items-center gap-3 py-1">
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted/60 text-muted-foreground">
-          <FileGlyph className="size-4" />
+      <div className="space-y-2 py-1">
+        <div className="flex items-center gap-3">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted/60 text-muted-foreground">
+            <FileGlyph className="size-4" />
+          </div>
+          <div className="min-w-0 space-y-0.5">
+            <p className="truncate text-sm font-medium">{name}</p>
+            <p className="font-mono text-xs text-muted-foreground tabular-nums">
+              {mediaType || 'unknown'} · {formatBytes(byteSize)}
+            </p>
+          </div>
+          <Badge variant="success" className="ml-auto shrink-0">
+            Attached
+          </Badge>
         </div>
-        <div className="min-w-0 space-y-0.5">
-          <p className="truncate text-sm font-medium">{name}</p>
-          <p className="font-mono text-xs text-muted-foreground tabular-nums">
-            {mediaType || 'unknown'} · {formatBytes(byteSize)}
-          </p>
-        </div>
-        <Badge variant="success" className="ml-auto shrink-0">
-          Attached
-        </Badge>
+        {showImage ? (
+          <img
+            alt={name}
+            src={`/api/files/${fileRecordId}/download`}
+            className="mt-2 max-h-80 max-w-full rounded-md border"
+          />
+        ) : null}
       </div>
     )
   }
@@ -1190,6 +1218,10 @@ function FileBlockEditor({ block, onAttachFile, readOnly }: BlockEditorProps) {
       ) : null}
     </div>
   )
+}
+
+function isInlinePreviewableImage(mediaType: string): boolean {
+  return mediaType.startsWith('image/') && !mediaType.startsWith('image/tiff')
 }
 
 /** Pick a lucide file glyph from the media type. */

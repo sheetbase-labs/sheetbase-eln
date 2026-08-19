@@ -31,14 +31,19 @@ import {
 import { discoverObjectDependencies } from '#/lib/object-dependencies'
 import {
   createSheetDefinition,
+  createSheetDefinitionVersion,
   extractSheetDefinitionDraft,
+  fetchSheetDefinition,
   fetchSheetDefinitions,
   fetchSheetDefinitionVersions,
   publishSheetDefinitionVersion,
+  previewSheetDefinitionExtraction,
   retireSheetDefinition,
   retireSheetDefinitionVersion,
+  updateSheetDefinitionDraft,
 } from '#/lib/sheet-definition-data'
 import { fetchSheetInstance } from '#/lib/sheet-instance-data'
+import type { SheetDefinitionExtractionSelection } from '#/lib/sheet-definition-extraction'
 import {
   applyDatasetSchemaEvolution,
   previewDatasetSchemaEvolution,
@@ -290,6 +295,104 @@ export function ConfigurationWorkspace({
       </aside>
     </div>
   )
+}
+
+function buildDefaultSheetDefinitionConfiguration() {
+  const identityColumnId = crypto.randomUUID()
+  return {
+    formatVersion: 1 as const,
+    parameters: [],
+    bindings: [],
+    rowIdentity: { kind: 'local' as const, columnIds: [identityColumnId] },
+    joins: [],
+    columns: [
+      {
+        id: identityColumnId,
+        field: {
+          fieldId: identityColumnId,
+          key: 'row_identity',
+          label: 'Row identity',
+          description: null,
+          logicalType: 'reference' as const,
+          nullable: false,
+          defaultValue: null,
+          cardinality: 'one' as const,
+          quantity: null,
+          validation: {},
+          category: null,
+          relationship: {
+            target: { kind: 'model' as const, modelKey: 'sample' },
+            cardinality: 'one' as const,
+          },
+          computation: { mode: 'stored' as const },
+          lifecycle: 'active' as const,
+        },
+        source: { kind: 'declared' as const },
+      },
+    ],
+    calculations: [],
+    writeBackRules: [],
+    actions: [],
+    presentation: {
+      columnOrder: [identityColumnId],
+      hiddenColumnIds: [],
+      columnWidths: {},
+      frozenColumnCount: 0,
+      density: 'standard' as const,
+      filters: [],
+      sorts: [],
+    },
+  }
+}
+
+function buildExtractionSelection(instance: Awaited<ReturnType<typeof fetchSheetInstance>>): SheetDefinitionExtractionSelection {
+  if (!instance) throw new Error('Sheet Instance not found.')
+  const localFieldIds = instance.state.localFields
+    .filter((field) => field.lifecycle === 'active')
+    .map((field) => field.fieldId)
+  const calculationIds = (instance.state.instanceCalculations ?? [])
+    .filter((item) => item.lifecycle === 'active')
+    .map((item) => item.id)
+  const resolvedIdentity = instance.state.resolvedRowIdentity
+  const rowIdentity =
+    resolvedIdentity && resolvedIdentity.columnIds.length > 0
+      ? { kind: resolvedIdentity.kind, columnIds: [...resolvedIdentity.columnIds] }
+      : {
+          kind: 'local' as const,
+          columnIds:
+            localFieldIds.find(
+              (fieldId) =>
+                instance.state.localFields.find(
+                  (field) =>
+                    field.fieldId === fieldId &&
+                    field.lifecycle === 'active' &&
+                    field.logicalType === 'reference',
+                ),
+            ) !== undefined
+              ? [
+                  localFieldIds.find(
+                    (fieldId) =>
+                      instance.state.localFields.find(
+                        (field) =>
+                          field.fieldId === fieldId &&
+                          field.lifecycle === 'active' &&
+                          field.logicalType === 'reference',
+                      ),
+                  )!,
+                ]
+              : localFieldIds.slice(0, 1),
+        }
+  if (rowIdentity.columnIds.length === 0)
+    throw new Error('Sheet Instance has no valid row identity fields.')
+  return {
+    bindings: [],
+    columnIds: [],
+    joinIds: [],
+    localFieldIds,
+    calculationIds,
+    rowIdentity,
+    includePresentation: true,
+  }
 }
 
 function CatalogueButton({
@@ -571,6 +674,7 @@ function SheetDefinitionPlane({
   const [key, setKey] = useState('')
   const [name, setName] = useState('')
   const [instanceId, setInstanceId] = useState('')
+  const [selectionPreview, setSelectionPreview] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const versionsQuery = useQuery({
     queryKey: ['configure', 'definition-versions', definitionId],
@@ -579,6 +683,11 @@ function SheetDefinitionPlane({
   })
   const versions = versionsQuery.data ?? []
   const latestVersion = versions[versions.length - 1] ?? null
+  const selectedDefinitionQuery = useQuery({
+    queryKey: ['configure', 'definition', definitionId],
+    queryFn: () => fetchSheetDefinition(definitionId!, client),
+    enabled: Boolean(definitionId),
+  })
 
   const create = useMutation({
     mutationFn: () =>
@@ -587,18 +696,9 @@ function SheetDefinitionPlane({
         key,
         name,
         configuration: {
-          formatVersion: 1,
-          parameters: [],
-          bindings: [],
-          rowIdentity: { kind: 'local', columnIds: [crypto.randomUUID()] },
-          joins: [],
-          columns: [],
-          calculations: [],
-          writebackTargets: [],
-          actions: [],
-          presentationDefaults: {},
-        } as any,
-      }),
+          ...buildDefaultSheetDefinitionConfiguration(),
+        },
+      }, client),
     onSuccess: () => {
       setError(null)
       void queryClient.invalidateQueries({ queryKey: ['configure'] })
@@ -645,26 +745,45 @@ function SheetDefinitionPlane({
   const createFromInstance = useMutation({
     mutationFn: async () => {
       const instance = await fetchSheetInstance(instanceId, client)
-      if (!instance) throw new Error('Sheet Instance not found.')
+      const selection = buildExtractionSelection(instance)
+      const source = instance!
+      const preview = await previewSheetDefinitionExtraction(
+        source.id,
+        source.revision,
+        selection,
+        client,
+      )
+      setSelectionPreview(
+        `Preview reusable: ${preview.manifest.reusable.localFieldIds.length} fields, ${preview.manifest.reusable.calculationIds.length} calculations.`,
+      )
       return extractSheetDefinitionDraft(
         {
           instanceId,
-          expectedInstanceRevision: instance.revision,
+          expectedInstanceRevision: source.revision,
           key: key || `sheet_def_${crypto.randomUUID().slice(0, 8)}`,
           name: name || 'Extracted Sheet Definition',
-          selection: {
-            bindings: [],
-            columnIds: [],
-            joinIds: [],
-            localFieldIds: [],
-            calculationIds: [],
-            rowIdentity: {
-              kind: 'local',
-              columnIds: [crypto.randomUUID()],
-            },
-            includePresentation: true,
-          } as any,
+          selection,
         },
+        client,
+      )
+    },
+    onSuccess: () => {
+      setError(null)
+      setSelectionPreview(null)
+      void queryClient.invalidateQueries({ queryKey: ['configure'] })
+    },
+    onError: (cause: unknown) =>
+      setError(
+        cause instanceof Error ? cause.message : 'Could not extract definition.',
+      ),
+  })
+  const updateDraft = useMutation({
+    mutationFn: () => {
+      if (!latestVersion) throw new Error('No Definition version selected.')
+      return updateSheetDefinitionDraft(
+        latestVersion.id,
+        latestVersion.revision,
+        latestVersion.configuration,
         client,
       )
     },
@@ -674,7 +793,31 @@ function SheetDefinitionPlane({
     },
     onError: (cause: unknown) =>
       setError(
-        cause instanceof Error ? cause.message : 'Could not extract definition.',
+        cause instanceof Error ? cause.message : 'Could not update draft version.',
+      ),
+  })
+  const forkVersion = useMutation({
+    mutationFn: () => {
+      if (!definitionId) throw new Error('No Sheet Definition selected.')
+      const sourceVersion = latestVersion
+      if (!sourceVersion) throw new Error('No source version selected.')
+      const selectedDefinition = selectedDefinitionQuery.data
+      if (!selectedDefinition)
+        throw new Error('Selected Sheet Definition was not found.')
+      return createSheetDefinitionVersion(
+        definitionId,
+        selectedDefinition.revision,
+        sourceVersion.configuration,
+        client,
+      )
+    },
+    onSuccess: () => {
+      setError(null)
+      void queryClient.invalidateQueries({ queryKey: ['configure'] })
+    },
+    onError: (cause: unknown) =>
+      setError(
+        cause instanceof Error ? cause.message : 'Could not create new draft version.',
       ),
   })
 
@@ -747,6 +890,25 @@ function SheetDefinitionPlane({
       <div className="flex gap-2">
         <Button
           variant="outline"
+          disabled={
+            !canEdit ||
+            !latestVersion ||
+            latestVersion.lifecycle !== 'draft' ||
+            updateDraft.isPending
+          }
+          onClick={() => updateDraft.mutate()}
+        >
+          Save draft
+        </Button>
+        <Button
+          variant="outline"
+          disabled={!canEdit || !definitionId || !latestVersion || forkVersion.isPending}
+          onClick={() => forkVersion.mutate()}
+        >
+          New draft version
+        </Button>
+        <Button
+          variant="outline"
           disabled={!canPublish || !latestVersion || publish.isPending}
           onClick={() => publish.mutate()}
         >
@@ -786,6 +948,11 @@ function SheetDefinitionPlane({
           Create from Instance
         </Button>
       </div>
+      {selectionPreview ? (
+        <p className="text-xs text-muted-foreground" role="status">
+          {selectionPreview}
+        </p>
+      ) : null}
       {error ? (
         <p role="alert" className="text-sm text-destructive">
           {error}

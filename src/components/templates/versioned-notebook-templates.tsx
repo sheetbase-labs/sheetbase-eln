@@ -139,6 +139,8 @@ export function VersionedNotebookTemplatePanel({
   const selectedVersion =
     selectedTemplateVersions?.find((version) => version.id === selectedVersionId) ??
     null
+  const instantiateVersion =
+    (versions.data ?? []).find((version) => version.id === createVersionId) ?? null
 
   useEffect(() => {
     const firstTemplateId = templates.data?.[0]?.id ?? null
@@ -253,43 +255,50 @@ export function VersionedNotebookTemplatePanel({
     },
   })
   const instantiate = useMutation({
-    mutationFn: () =>
-      instantiateNotebookTemplateVersion({
+    mutationFn: () => {
+      const sourceVersion = instantiateVersion
+      if (!sourceVersion) throw new Error('Template version is no longer available.')
+      const parameterInputs =
+        sourceVersion.configuration.parameters.map(
+          (parameter): NotebookTemplateParameterInput | null => {
+            const value = parameterValues[parameter.id]?.trim() ?? ''
+            if (!value && parameter.required)
+              throw new Error(`Parameter "${parameter.label}" is required.`)
+            if (!value && !parameter.required) return null
+            if (parameter.type.kind === 'scalar')
+              return {
+                parameterId: parameter.id,
+                kind: 'scalar',
+                value,
+              }
+            if (parameter.type.kind === 'record')
+              return {
+                parameterId: parameter.id,
+                kind: 'record',
+                recordId: value,
+              }
+            if (parameter.type.kind === 'dataset')
+              return {
+                parameterId: parameter.id,
+                kind: 'dataset',
+                datasetId: value,
+              }
+            return {
+              parameterId: parameter.id,
+              kind: 'dataset-version',
+              datasetVersionId: value,
+            }
+          },
+        ).filter((item): item is NotebookTemplateParameterInput => item !== null) ??
+        []
+      return instantiateNotebookTemplateVersion({
         versionId: createVersionId ?? '',
         targetProjectId: createProjectId,
         title: createTitle.trim() || undefined,
-        parameterInputs:
-          selectedVersion?.configuration.parameters
-            .map((parameter): NotebookTemplateParameterInput | null => {
-              const value = parameterValues[parameter.id]
-              if (!value?.trim()) return parameter.required ? null : null
-              if (parameter.type.kind === 'scalar')
-                return {
-                  parameterId: parameter.id,
-                  kind: 'scalar',
-                  value,
-                }
-              if (parameter.type.kind === 'record')
-                return {
-                  parameterId: parameter.id,
-                  kind: 'record',
-                  recordId: value.trim(),
-                }
-              if (parameter.type.kind === 'dataset')
-                return {
-                  parameterId: parameter.id,
-                  kind: 'dataset',
-                  datasetId: value.trim(),
-                }
-              return {
-                parameterId: parameter.id,
-                kind: 'dataset-version',
-                datasetVersionId: value.trim(),
-              }
-            })
-            .filter((item): item is NotebookTemplateParameterInput => item !== null) ?? [],
+        parameterInputs,
         idempotencyKey: crypto.randomUUID(),
-      }),
+      })
+    },
     onSuccess: (result) => {
       const project = result.record.project_id
       if (!project) return
@@ -794,12 +803,12 @@ export function VersionedNotebookTemplatePanel({
               emptyLabel="No projects match that search."
             />
           </Field>
-          {selectedVersion?.configuration.parameters.length ? (
+          {instantiateVersion?.configuration.parameters.length ? (
             <div className="space-y-2">
               <p className="text-xs font-medium text-muted-foreground">
                 Template parameters
               </p>
-              {selectedVersion.configuration.parameters.map((parameter) => (
+              {instantiateVersion.configuration.parameters.map((parameter) => (
                 <Field key={parameter.id}>
                   <FieldLabel htmlFor={`template-parameter-${parameter.id}`}>
                     {parameter.label}

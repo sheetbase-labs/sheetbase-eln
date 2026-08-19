@@ -798,7 +798,7 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     expect(new Set(instanceIds).size).toBe(2)
   })
 
-  it('keeps templatePlacementId system-managed in update_block_payload while canonical placement assignment still works', async () => {
+  it('keeps templatePlacementId system-managed at the data boundary while canonical placement assignment still works', async () => {
     const owner = await actor(OWNER, WS)
     const adHocNotebook = (
       await owner.query(
@@ -835,6 +835,30 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
           adHocStructureVersion,
           crypto.randomUUID(),
         ],
+      ),
+      '23514',
+    )
+
+    await expectDenied(
+      owner.query(
+        `select api.insert_block($1,'sheet',$2::jsonb,1,NULL,NULL)`,
+        [
+          adHocNotebook.id,
+          JSON.stringify({
+            instanceId: adHocBlock.payload.instanceId,
+            templatePlacementId: crypto.randomUUID(),
+          }),
+        ],
+      ),
+      '23514',
+    )
+
+    await expectDenied(
+      owner.query(
+        `update api.blocks
+            set payload = payload || jsonb_build_object('templatePlacementId', $2::text)
+          where id = $1`,
+        [adHocBlock.id, crypto.randomUUID()],
       ),
       '23514',
     )
@@ -913,6 +937,69 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
           structureVersion,
           crypto.randomUUID(),
         ],
+      ),
+      '23514',
+    )
+
+    await expectDenied(
+      owner.query(
+        `update api.blocks
+            set payload = jsonb_set(payload, '{templatePlacementId}', to_jsonb($2::text))
+          where id = $1`,
+        [block.id, crypto.randomUUID()],
+      ),
+      '23514',
+    )
+  })
+
+  it('rejects templatePlacementId spoofing via api_client direct block writes', async () => {
+    const owner = await actor(OWNER, WS)
+    const notebook = (
+      await owner.query(
+        `select to_jsonb(api.create_record($1,'experiment','API client spoof','draft','{}'::text[],'{}'::jsonb)) result`,
+        [PROJECT],
+      )
+    ).rows[0].result
+    const inserted = (
+      await owner.query(
+        `select api.insert_sheet_instance_block($1,NULL,NULL,NULL) result`,
+        [notebook.id],
+      )
+    ).rows[0].result
+    const block = inserted.block
+
+    const apiClient = await asRole('authenticator')
+    clients.push(apiClient)
+    await apiClient.query('SET ROLE api_client')
+    await apiClient.query(`select set_config('request.jwt.claims',$1,false)`, [
+      JSON.stringify({
+        role: 'api_client',
+        workspace_id: WS,
+        credential_id: crypto.randomUUID(),
+        scopes: ['notebooks:write'],
+      }),
+    ])
+
+    await expectDenied(
+      apiClient.query(
+        `select api.insert_block($1,'sheet',$2::jsonb,1,NULL,NULL)`,
+        [
+          notebook.id,
+          JSON.stringify({
+            instanceId: block.payload.instanceId,
+            templatePlacementId: PLACEMENT,
+          }),
+        ],
+      ),
+      '23514',
+    )
+
+    await expectDenied(
+      apiClient.query(
+        `update api.blocks
+            set payload = payload || jsonb_build_object('templatePlacementId', $2::text)
+          where id = $1`,
+        [block.id, PLACEMENT],
       ),
       '23514',
     )

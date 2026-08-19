@@ -8,6 +8,7 @@ import type { DataClient } from '#/lib/data-client'
 import {
   ArchivedBanner,
   EmptyNotebook,
+  HistoricalEvidenceBanner,
   LockedBanner,
   NotebookCanvas,
   NotebookErrorState,
@@ -25,6 +26,7 @@ vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => () => ({
     useRouteContext: () => ({}),
     useParams: () => ({ projectId: 'p1', recordId: 'r1' }),
+    useSearch: () => ({}),
   }),
   redirect: (opts: unknown) => opts,
   useBlocker: () => ({ status: 'idle' }),
@@ -83,9 +85,18 @@ const archivedRecord: NotebookRecord = {
   archivedAt: '2026-07-19T00:00:00.000Z',
 }
 
+function renderWithQuery(ui: React.ReactNode) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
+  return render(
+    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
+  )
+}
+
 describe('StickyRecordHeader', () => {
   it('shows the kind, identifier, status, title and project context', () => {
-    render(
+    renderWithQuery(
       <StickyRecordHeader
         record={record}
         projectName="Stability Programme"
@@ -95,17 +106,19 @@ describe('StickyRecordHeader', () => {
     )
     expect(screen.getByText('Experiment')).toBeTruthy()
     expect(screen.getByText('EXP-2025-0001')).toBeTruthy()
-    expect(
-      screen.getByRole('heading', { name: 'Virus Stability at 4C' }),
-    ).toBeTruthy()
+    expect(screen.getByLabelText('Notebook title')).toBeTruthy()
     expect(screen.getByText('Stability Programme')).toBeTruthy()
-    // status badge renders the vocabulary label
     expect(screen.getByText('In progress')).toBeTruthy()
+    expect(screen.getByText('Working')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Submit' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Duplicate' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Print' })).toBeTruthy()
   })
 
   it('keeps tags in the properties inspector instead of the document header', () => {
-    render(<StickyRecordHeader record={record} projectName={null} />)
+    renderWithQuery(
+      <StickyRecordHeader record={record} projectName={null} />,
+    )
     expect(screen.queryByText('stability')).toBeNull()
     expect(screen.queryByText('qPCR')).toBeNull()
   })
@@ -126,33 +139,191 @@ const lockedRecord: NotebookRecord = {
   lockedByRevisionId: 'rev-abcdef123456',
 }
 
+describe('HistoricalEvidenceBanner', () => {
+  it('returns the scientist to the working Notebook', () => {
+    render(
+      <HistoricalEvidenceBanner projectId="p1" recordId="r1" />,
+    )
+    expect(screen.getByRole('status').textContent).toContain(
+      'Viewing submitted evidence',
+    )
+    expect(
+      screen.getByRole('link', { name: 'Return to working Notebook' }),
+    ).toBeTruthy()
+  })
+})
+
 describe('LockedBanner', () => {
   it('announces the locked, frozen state with the approved revision', () => {
     render(<LockedBanner record={lockedRecord} />)
     const status = screen.getByRole('status')
-    expect(status.textContent).toContain('locked')
+    expect(status.textContent).toContain('submitted')
     expect(status.textContent).toContain('frozen')
     expect(status.textContent).not.toContain('rev-abcd')
   })
 })
 
 describe('StickyRecordHeader — lock state', () => {
-  it('shows a Locked badge when the record is locked', () => {
-    render(
+  it('shows a Submitted badge when the record is locked', () => {
+    renderWithQuery(
       <StickyRecordHeader
         record={lockedRecord}
         projectName="Stability"
         projectId="p1"
         currentUserId="u1"
+        currentUserName="Ada Lovelace"
       />,
     )
-    expect(screen.getByText('Locked')).toBeTruthy()
+    expect(screen.getByText('Submitted')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Submit' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Sign' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Open review' })).toBeTruthy()
   })
 
-  it('does not show a Locked badge for an editable record', () => {
-    render(<StickyRecordHeader record={record} projectName="Stability" />)
-    expect(screen.queryByText('Locked')).toBeNull()
+  it('shows snapshot title in the header for a historical revision', () => {
+    renderWithQuery(
+      <StickyRecordHeader
+        record={{
+          ...record,
+          title: 'Submitted title',
+          tags: ['frozen-tag'],
+        }}
+        projectName="Stability"
+        projectId="p1"
+        historicalRevisionId="rev-historical"
+        liveLockedAt={null}
+        liveLockedByRevisionId={null}
+      />,
+    )
+    expect(screen.getByRole('heading', { name: 'Submitted title' })).toBeTruthy()
+    expect(screen.queryByLabelText('Notebook title')).toBeNull()
+    expect(screen.getByText('Submitted')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Submit' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Sign' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Duplicate' })).toBeNull()
+  })
+
+  it('hides Duplicate on a historical revision after amendment and live metadata edits', () => {
+    renderWithQuery(
+      <StickyRecordHeader
+        record={{
+          ...record,
+          title: 'Submitted title',
+          tags: ['frozen-tag'],
+          lockedAt: null,
+          lockedByRevisionId: null,
+        }}
+        projectName="Stability"
+        projectId="p1"
+        currentUserId="u1"
+        currentUserName="Ada Lovelace"
+        historicalRevisionId="rev-historical"
+        liveLockedAt={null}
+        liveLockedByRevisionId={null}
+      />,
+    )
+    expect(screen.getByRole('heading', { name: 'Submitted title' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Duplicate' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Submit' })).toBeNull()
+    expect(screen.getByText('Submitted')).toBeTruthy()
+  })
+
+  it('keeps Duplicate on the working Notebook after amendment', () => {
+    renderWithQuery(
+      <StickyRecordHeader
+        record={{
+          ...record,
+          title: 'Amended title',
+          lockedAt: null,
+          lockedByRevisionId: null,
+        }}
+        projectName="Stability"
+        projectId="p1"
+        currentUserId="u1"
+      />,
+    )
+    expect(screen.getByLabelText('Notebook title')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Duplicate' })).toBeTruthy()
+    expect(screen.getByText('Working')).toBeTruthy()
+  })
+
+  it('shows Open review but not Sign while the submission is unsigned', () => {
+    renderWithQuery(
+      <StickyRecordHeader
+        record={record}
+        projectName="Stability"
+        projectId="p1"
+        currentUserId="u1"
+        currentUserName="Ada Lovelace"
+        review={{
+          submission: {
+            id: 'sub1',
+            workspace_id: 'ws',
+            record_id: 'r1',
+            revision_id: 'rev-sub',
+            state: 'submitted',
+            workflow_definition_key: 'default-scientific-review',
+            workflow_definition_version: 1,
+            assigned_reviewer_user_ids: ['u1'],
+            submitted_by_user_id: 'u1',
+            submitted_session_id: 's',
+            submitted_role: 'scientist',
+            submitted_at: '2026-08-19T00:00:00.000Z',
+            idempotency_key: 'k',
+            created_at: '2026-08-19T00:00:00.000Z',
+            updated_at: '2026-08-19T00:00:00.000Z',
+          },
+          revision: { id: 'rev-sub', superseded_by_revision_id: null },
+        }}
+      />,
+    )
+    expect(screen.getByText('In review')).toBeTruthy()
+    expect(screen.queryByText('Working')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Submit' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Sign' })).toBeNull()
+    expect(screen.getByRole('link', { name: 'Open review' })).toBeTruthy()
+    expect(
+      screen.getByRole('link', { name: 'Open review' }).getAttribute('href'),
+    ).toContain('rev-sub')
+  })
+
+  it('shows Sign and Open review for an approved but still unlocked Notebook', () => {
+    renderWithQuery(
+      <StickyRecordHeader
+        record={record}
+        projectName="Stability"
+        projectId="p1"
+        currentUserId="u1"
+        currentUserName="Ada Lovelace"
+        review={{
+          submission: {
+            id: 'sub1',
+            workspace_id: 'ws',
+            record_id: 'r1',
+            revision_id: 'rev-approved',
+            state: 'approved',
+            workflow_definition_key: 'default-scientific-review',
+            workflow_definition_version: 1,
+            assigned_reviewer_user_ids: ['u1'],
+            submitted_by_user_id: 'u1',
+            submitted_session_id: 's',
+            submitted_role: 'scientist',
+            submitted_at: '2026-08-19T00:00:00.000Z',
+            idempotency_key: 'k',
+            created_at: '2026-08-19T00:00:00.000Z',
+            updated_at: '2026-08-19T00:00:00.000Z',
+          },
+          revision: { id: 'rev-approved', superseded_by_revision_id: null },
+        }}
+      />,
+    )
+    expect(screen.getByText('In review')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Submit' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Sign' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Open review' })).toBeTruthy()
+    expect(
+      screen.getByRole('link', { name: 'Open review' }).getAttribute('href'),
+    ).toContain('rev-approved')
   })
 })
 
@@ -363,7 +534,7 @@ describe('PermissionRestrictedState', () => {
 })
 
 describe('NotebookInspector', () => {
-  it('renders Properties, Activity and Comments tabs with record metadata', () => {
+  it('renders Properties, History and Activity tabs with record metadata', () => {
     const queryClient = new QueryClient()
     render(
       <QueryClientProvider client={queryClient}>
@@ -385,8 +556,9 @@ describe('NotebookInspector', () => {
     )
     // Three mockup tabs
     expect(screen.getByRole('tab', { name: 'Properties' })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: 'History' })).toBeTruthy()
     expect(screen.getByRole('tab', { name: 'Activity' })).toBeTruthy()
-    expect(screen.getByRole('tab', { name: 'Comments' })).toBeTruthy()
+    expect(screen.queryByRole('tab', { name: 'Comments' })).toBeNull()
     // Properties is the default; identifier appears in PropertyList
     expect(screen.getByText('EXP-2025-0001')).toBeTruthy()
     // Tags render as outline badges within Properties
@@ -406,8 +578,145 @@ describe('NotebookInspector', () => {
         />
       </QueryClientProvider>,
     )
-    expect(screen.getByText('Locked — evidence frozen')).toBeTruthy()
-    expect(screen.queryByText('Not submitted')).toBeNull()
+    expect(screen.getByText('Submitted — evidence frozen')).toBeTruthy()
+    expect(screen.queryByText('Working')).toBeNull()
+  })
+
+  it('shows In review when a submission is active and the record is unlocked', () => {
+    const queryClient = new QueryClient()
+    render(
+      <QueryClientProvider client={queryClient}>
+        <NotebookInspector
+          record={record}
+          links={[]}
+          linksLoading={false}
+          defaultTab="properties"
+          reviewActivity="submitted"
+        />
+      </QueryClientProvider>,
+    )
+    expect(screen.getByText('In review')).toBeTruthy()
+    expect(screen.queryByText('Working')).toBeNull()
+    expect(screen.queryByText('Submitted — evidence frozen')).toBeNull()
+  })
+
+  it('renders snapshot title, tags and dates for a historical revision after live edits', () => {
+    const queryClient = new QueryClient()
+    const historical = {
+      ...record,
+      title: 'Submitted title',
+      tags: ['frozen-tag'],
+      updatedAt: '2026-07-18T12:00:00.000Z',
+      lockedAt: null,
+      lockedByRevisionId: null,
+    }
+    render(
+      <QueryClientProvider client={queryClient}>
+        <NotebookInspector
+          record={historical}
+          links={[]}
+          linksLoading={false}
+          defaultTab="properties"
+          isHistorical
+        />
+      </QueryClientProvider>,
+    )
+    expect(screen.getByText('frozen-tag')).toBeTruthy()
+    expect(screen.queryByText('stability')).toBeNull()
+    expect(screen.getByText('Submitted — evidence frozen')).toBeTruthy()
+  })
+
+  it('does not leak live files, link editor or activity under historical evidence', () => {
+    const queryClient = new QueryClient()
+    render(
+      <QueryClientProvider client={queryClient}>
+        <NotebookInspector
+          record={{
+            ...record,
+            title: 'Submitted title',
+            tags: ['frozen-tag'],
+          }}
+          links={[
+            {
+              id: 'live-link',
+              sourceRecordId: 'r1',
+              targetRecordId: 'r-live',
+              targetKind: 'dataset',
+              targetIdentifier: 'LIVE-2026-9999',
+              linkType: 'derived_from',
+            },
+          ]}
+          linksLoading={false}
+          blocks={[
+            {
+              id: 'live-file',
+              recordId: 'r1',
+              type: 'file',
+              payload: {
+                displayName: 'live-after-submit.pdf',
+                mediaType: 'application/pdf',
+                byteSize: 12,
+                fileRecordId: 'file-live',
+              },
+              payloadSchemaVersion: 1,
+              order: 1,
+              version: 1,
+            },
+          ]}
+          activity={[
+            {
+              id: 'e-live',
+              operation: 'create',
+              entityType: 'block',
+              actorUserId: 'u1',
+              createdAt: '2026-08-19T12:00:00.000Z',
+              payload: {},
+            },
+          ]}
+          currentUserId="u1"
+          defaultTab="properties"
+          isHistorical
+          revisionEvidence={{
+            blocks: [
+              {
+                id: 'snap-file',
+                recordId: 'r1',
+                type: 'file',
+                payload: {
+                  displayName: 'gel-at-submit.png',
+                  mediaType: 'image/png',
+                  byteSize: 4,
+                  fileRecordId: 'file-snap',
+                },
+                payloadSchemaVersion: 1,
+                order: 1,
+                version: 1,
+              },
+            ],
+            links: [
+              {
+                id: 'snap-link',
+                sourceRecordId: 'r1',
+                targetRecordId: 'r2',
+                targetKind: 'protocol_template',
+                targetIdentifier: 'PRT-FROZEN',
+                linkType: 'protocol',
+              },
+            ],
+          }}
+        />
+      </QueryClientProvider>,
+    )
+    expect(screen.getByText('gel-at-submit.png')).toBeTruthy()
+    expect(screen.queryByText('live-after-submit.pdf')).toBeNull()
+    expect(screen.queryByRole('link', { name: 'gel-at-submit.png' })).toBeNull()
+    expect(screen.getByText('Protocols')).toBeTruthy()
+    expect(screen.queryByText('Datasets')).toBeNull()
+    expect(screen.queryByText('LIVE-2026-9999')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Link record' })).toBeNull()
+    expect(screen.queryByRole('tab', { name: 'Activity' })).toBeNull()
+    expect(screen.queryByText('You created a block')).toBeNull()
+    expect(screen.queryByText('You')).toBeNull()
   })
 
   it('shows a loading hint for links while they load', () => {

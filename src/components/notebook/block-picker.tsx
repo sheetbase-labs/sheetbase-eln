@@ -40,7 +40,15 @@ export interface BlockPickerOption {
   label: string
   description: string
   icon: LucideIcon
+  group: 'writing' | 'structure' | 'evidence'
+  aliases: readonly string[]
 }
+
+export const BLOCK_PICKER_GROUPS = [
+  { id: 'writing', label: 'Writing' },
+  { id: 'structure', label: 'Sheets and references' },
+  { id: 'evidence', label: 'Files and figures' },
+] as const
 
 export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
   {
@@ -48,24 +56,33 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     label: 'Text',
     description: 'Headings, paragraphs, and prose lists.',
     icon: Pilcrow,
+    group: 'writing',
+    aliases: ['heading', 'paragraph', 'note', 'prose'],
   },
   {
     type: 'checklist',
     label: 'Checklist',
     description: 'A list of checkable items.',
     icon: CheckSquare,
+    group: 'writing',
+    aliases: ['todo', 'tasks'],
   },
   {
     type: 'linked_record',
     label: 'Linked record',
-    description: 'A reference to another record.',
+    description:
+      'A reference to another experiment, Dataset, sample or reagent.',
     icon: Link2,
+    group: 'structure',
+    aliases: ['dataset', 'record', 'sample', 'reagent', 'link'],
   },
   {
     type: 'sheet',
     label: 'Sheet',
     description: 'Start a new Sheet on this Notebook.',
     icon: Sheet,
+    group: 'structure',
+    aliases: ['table', 'grid', 'spreadsheet'],
   },
   {
     type: 'sheet_shared',
@@ -73,24 +90,32 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     description:
       'Show a Sheet that already exists. Edits stay shared with every Notebook that uses it.',
     icon: Link2,
+    group: 'structure',
+    aliases: ['embed', 'reuse'],
   },
   {
     type: 'protocol_reference',
     label: 'Protocol',
     description: 'Pin an exact protocol version and its procedure.',
     icon: FlaskConical,
+    group: 'structure',
+    aliases: ['sop', 'method'],
   },
   {
     type: 'materials',
     label: 'Materials',
     description: 'Linked samples and reagents with quantities and units.',
     icon: PackageOpen,
+    group: 'structure',
+    aliases: ['samples', 'reagents', 'inventory'],
   },
   {
     type: 'file',
     label: 'File',
     description: 'Attach a file with provenance and lifecycle states.',
     icon: Paperclip,
+    group: 'evidence',
+    aliases: ['image', 'photo', 'pdf', 'attachment'],
   },
   {
     type: 'chart',
@@ -98,6 +123,8 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     description:
       'A line, scatter or bar chart from a saved dataset, with a live or frozen snapshot.',
     icon: LineChart,
+    group: 'evidence',
+    aliases: ['plot', 'graph'],
   },
   {
     type: 'plate_map',
@@ -105,6 +132,8 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     description:
       'A 96-well plate layout with sample assignments, controls, replicates and volumes.',
     icon: Grid3x3,
+    group: 'evidence',
+    aliases: ['plate', 'wells'],
   },
 ]
 
@@ -163,23 +192,35 @@ export function BlockPicker({
         <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-72">
           <DropdownMenuLabel>Insert block</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          {BLOCK_PICKER_OPTIONS.map((opt) => {
-            const Icon = opt.icon
+          {BLOCK_PICKER_GROUPS.map((group) => {
+            const items = BLOCK_PICKER_OPTIONS.filter(
+              (opt) => opt.group === group.id,
+            )
             return (
-              <DropdownMenuItem
-                key={opt.type}
-                onSelect={() => onInsert(opt.type)}
-                className="flex items-start gap-2"
-              >
-                <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                <span className="min-w-0">
-                  <span className="block text-sm font-medium">{opt.label}</span>
-                  <span className="block text-xs text-muted-foreground">
-                    {opt.description}
-                  </span>
-                </span>
-              </DropdownMenuItem>
+              <div key={group.id}>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>{group.label}</DropdownMenuLabel>
+                {items.map((opt) => {
+                  const Icon = opt.icon
+                  return (
+                    <DropdownMenuItem
+                      key={opt.type}
+                      onSelect={() => onInsert(opt.type)}
+                      className="flex items-start gap-2"
+                    >
+                      <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                      <span className="min-w-0">
+                        <span className="block text-sm font-medium">
+                          {opt.label}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {opt.description}
+                        </span>
+                      </span>
+                    </DropdownMenuItem>
+                  )
+                })}
+              </div>
             )
           })}
         </DropdownMenuContent>

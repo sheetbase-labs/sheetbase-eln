@@ -39,6 +39,18 @@ describe('BlockPicker', () => {
       'Plate map',
     ])
     expect(types).not.toContain('heading')
+    expect(
+      BLOCK_PICKER_OPTIONS.find((o) => o.type === 'linked_record')?.description,
+    ).toBe('A reference to another experiment, Dataset, sample or reagent.')
+  })
+
+  it('groups insert options into writing, structure and evidence', async () => {
+    const user = userEvent.setup()
+    render(<BlockPicker onInsert={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: /Add block/ }))
+    expect(screen.getByText('Writing')).toBeTruthy()
+    expect(screen.getByText('Sheets and references')).toBeTruthy()
+    expect(screen.getByText('Files and figures')).toBeTruthy()
   })
 
   it('calls onInsert with the chosen type', async () => {

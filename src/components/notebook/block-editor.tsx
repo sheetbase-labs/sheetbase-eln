@@ -24,7 +24,13 @@ import {
   validateBlock,
 } from '#/lib/blocks'
 import type { RichTextPayload } from '#/lib/blocks'
-import type { NotebookBlock, NotebookRecord } from '#/lib/notebook-data'
+import {
+  notebookDataClient,
+  type NotebookBlock,
+  type NotebookRecord,
+  type RecordWire,
+} from '#/lib/notebook-data'
+import { fetchDatasetSummaries } from '#/lib/dataset-explorer-data'
 import {
   Alert,
   Badge,
@@ -52,7 +58,6 @@ import {
 } from 'lucide-react'
 import { RecordPicker } from '#/components/scientific'
 import type { RecordPickerResult } from '#/components/scientific'
-import { notebookDataClient } from '#/lib/notebook-data'
 import {
   scientificRecordQueryKeys,
   searchRecords,
@@ -68,7 +73,7 @@ import {
   formatBytes,
   validateFileForUpload,
 } from '#/lib/file-attach'
-import { FILE_MAX_BYTES } from '#/lib/file-policy'
+import { FILE_MAX_BYTES, isInlinePreviewableImage } from '#/lib/file-policy'
 import { CHART_SPEC_VERSION, CHART_TYPES } from '#/lib/chart-spec'
 import type {
   ChartBlockPayload,
@@ -81,6 +86,7 @@ import {
   materialiseLiveChart,
   useLiveChartDataset,
 } from '#/lib/chart-data'
+import { groupChartTables } from '#/lib/notebook-experience'
 import {
   fetchScientificTable,
   scientificDataClient,
@@ -528,13 +534,116 @@ const LINK_TYPES = [
   'file',
 ] as const
 
-const TARGET_KINDS = ['experiment', 'protocol_template', 'report'] as const
+const TARGET_KINDS = [
+  'experiment',
+  'dataset',
+  'sample',
+  'reagent',
+  'protocol_template',
+  'report',
+] as const
+
+const TARGET_KIND_LABELS: Record<(typeof TARGET_KINDS)[number], string> = {
+  experiment: 'Experiment',
+  dataset: 'Dataset',
+  sample: 'Sample',
+  reagent: 'Reagent',
+  protocol_template: 'Protocol template',
+  report: 'Report',
+}
 
 interface LinkedRecordDraft {
   targetKind: string
   targetIdentifier: string
   linkType: string
   label: string
+}
+
+function LinkedRecordSearch({
+  kind,
+  onPick,
+}: {
+  kind: string
+  onPick: (picked: {
+    identifier: string
+    label: string
+    linkType?: string
+  }) => void
+}) {
+  const [query, setQuery] = React.useState('')
+  const results = useQuery({
+    queryKey: ['notebook-linked-search', kind, query],
+    queryFn: async () => {
+      if (kind === 'dataset') {
+        const rows = await fetchDatasetSummaries(notebookDataClient)
+        const q = query.trim().toLowerCase()
+        return rows
+          .filter((row) => !q || row.name.toLowerCase().includes(q))
+          .slice(0, 8)
+          .map((row) => ({
+            identifier: row.name,
+            title: row.description || row.name,
+            linkType: 'dataset' as string | undefined,
+          }))
+      }
+      const trimmed = query.trim()
+      const filters = [
+        `kind=eq.${encodeURIComponent(kind)}`,
+        'deleted_at=is.null',
+        'archived_at=is.null',
+      ]
+      if (trimmed) {
+        const enc = encodeURIComponent(`${trimmed}*`)
+        filters.push(`(identifier=ilike.${enc},title=ilike.${enc})`)
+      }
+      const rows = await notebookDataClient.list<RecordWire>(
+        'records',
+        `?${filters.join('&')}&order=identifier.asc&limit=8`,
+      )
+      return rows.map((row) => ({
+        identifier: row.identifier,
+        title: row.title,
+        linkType: undefined as string | undefined,
+      }))
+    },
+  })
+
+  return (
+    <div className="space-y-1">
+      <Input
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        aria-label="Search records or Datasets"
+        placeholder="Search by name or identifier"
+      />
+      {results.isError ? (
+        <p className="text-xs text-destructive" role="alert">
+          Could not search {kind === 'dataset' ? 'Datasets' : 'records'}.
+        </p>
+      ) : null}
+      <ul className="max-h-40 space-y-0.5 overflow-y-auto text-sm">
+        {(results.data ?? []).map((row) => (
+          <li key={row.identifier}>
+            <button
+              type="button"
+              className="flex w-full items-baseline justify-between gap-2 rounded-md px-2 py-1 text-left hover:bg-accent"
+              onMouseDown={(event) => {
+                event.preventDefault()
+                onPick({
+                  identifier: row.identifier,
+                  label: row.title,
+                  linkType: row.linkType,
+                })
+              }}
+            >
+              <span className="font-mono text-xs">{row.identifier}</span>
+              <span className="truncate text-muted-foreground">{row.title}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
 }
 
 function LinkedRecordEditor({
@@ -596,7 +705,7 @@ function LinkedRecordEditor({
           >
             {TARGET_KINDS.map((k) => (
               <option key={k} value={k}>
-                {k}
+                {TARGET_KIND_LABELS[k]}
               </option>
             ))}
           </Select>
@@ -646,6 +755,19 @@ function LinkedRecordEditor({
           />
         </Field>
       </div>
+      <LinkedRecordSearch
+        kind={a.draft.targetKind}
+        onPick={(picked) => {
+          a.setTouched(true)
+          a.setDraft({
+            ...a.draft,
+            targetIdentifier: picked.identifier,
+            label: picked.label || a.draft.label,
+            linkType: picked.linkType ?? a.draft.linkType,
+          })
+          void a.flush()
+        }}
+      />
       <AutosaveFooter
         status={a.status}
         error={a.error}
@@ -1107,21 +1229,33 @@ function FileBlockEditor({ block, onAttachFile, readOnly }: BlockEditorProps) {
     const name = String(block.payload.displayName ?? 'File')
     const mediaType = String(block.payload.mediaType ?? '')
     const byteSize = Number(block.payload.byteSize ?? 0)
+    const fileRecordId = String(block.payload.fileRecordId ?? '')
     const FileGlyph = fileIconFor(mediaType)
+    const showImage =
+      Boolean(fileRecordId) && isInlinePreviewableImage(mediaType)
     return (
-      <div className="flex items-center gap-3 py-1">
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted/60 text-muted-foreground">
-          <FileGlyph className="size-4" />
+      <div className="space-y-2 py-1">
+        <div className="flex items-center gap-3">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted/60 text-muted-foreground">
+            <FileGlyph className="size-4" />
+          </div>
+          <div className="min-w-0 space-y-0.5">
+            <p className="truncate text-sm font-medium">{name}</p>
+            <p className="font-mono text-xs text-muted-foreground tabular-nums">
+              {mediaType || 'unknown'} · {formatBytes(byteSize)}
+            </p>
+          </div>
+          <Badge variant="success" className="ml-auto shrink-0">
+            Attached
+          </Badge>
         </div>
-        <div className="min-w-0 space-y-0.5">
-          <p className="truncate text-sm font-medium">{name}</p>
-          <p className="font-mono text-xs text-muted-foreground tabular-nums">
-            {mediaType || 'unknown'} · {formatBytes(byteSize)}
-          </p>
-        </div>
-        <Badge variant="success" className="ml-auto shrink-0">
-          Attached
-        </Badge>
+        {showImage ? (
+          <img
+            alt={name}
+            src={`/api/files/${fileRecordId}/download`}
+            className="mt-2 max-h-80 max-w-full rounded-md border"
+          />
+        ) : null}
       </div>
     )
   }
@@ -1243,12 +1377,18 @@ function ChartBlockEditor({
   const tablesQuery = useQuery({
     queryKey: ['chart-available-tables'] as const,
     queryFn: () =>
-      scientificDataClient.list<Pick<ScientificTableWire, 'id' | 'name'>>(
+      scientificDataClient.list<
+        Pick<ScientificTableWire, 'id' | 'name' | 'record_id'>
+      >(
         'scientific_tables',
-        '?select=id,name&lifecycle=eq.active&order=name.asc',
+        '?select=id,name,record_id&lifecycle=eq.active&order=name.asc',
       ),
     staleTime: 30_000,
   })
+  const groupedTables = groupChartTables(
+    tablesQuery.data ?? [],
+    block.recordId,
+  )
 
   // Columns for the selected dataset (so field mappings are honest).
   const selectedTableId = spec?.datasets[0]?.tableId ?? ''
@@ -1383,12 +1523,29 @@ function ChartBlockEditor({
                   ? 'Loading datasets…'
                   : 'Select a dataset'}
               </option>
-              {tablesQuery.data?.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
+              {groupedTables.local.length > 0 ? (
+                <optgroup label="On this Notebook">
+                  {groupedTables.local.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
+              {groupedTables.workspace.length > 0 ? (
+                <optgroup label="Workspace">
+                  {groupedTables.workspace.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
             </Select>
+            <p className="text-xs text-muted-foreground">
+              Charts plot saved table data. Link a Dataset or Record with a
+              Linked record block.
+            </p>
           </ChartField>
 
           <div className="grid gap-3 sm:grid-cols-2">

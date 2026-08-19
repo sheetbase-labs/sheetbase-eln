@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 
 import {
   Button,
@@ -36,6 +36,7 @@ export function CreateBlankExperimentDialog({
   const navigate = useNavigate()
   const [title, setTitle] = useState('')
   const [selectedProjectId, setSelectedProjectId] = useState(projectId ?? '')
+  const titleInputRef = useRef<HTMLInputElement>(null)
   const listed = useQuery({
     queryKey: notebookQueryKeys.projectsList(),
     queryFn: () =>
@@ -48,10 +49,10 @@ export function CreateBlankExperimentDialog({
   const targetProjectId = projectId ?? selectedProjectId
 
   const create = useMutation({
-    mutationFn: () =>
+    mutationFn: (submittedTitle: string) =>
       createBlankExperiment(notebookDataClient, {
         projectId: targetProjectId,
-        title,
+        title: submittedTitle,
       }),
     onSuccess: (record) => {
       onOpenChange(false)
@@ -73,12 +74,17 @@ export function CreateBlankExperimentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent
+        onOpenAutoFocus={(event) => {
+          event.preventDefault()
+          titleInputRef.current?.focus()
+        }}
+      >
         <DialogHeader>
           <DialogTitle>Create experiment</DialogTitle>
           <DialogDescription>
             Starts a blank Notebook in the chosen project. You can add Sheets
-            and submit evidence from there. Templates stay available separately.
+            and files in the Notebook.
           </DialogDescription>
         </DialogHeader>
         <form
@@ -86,7 +92,7 @@ export function CreateBlankExperimentDialog({
           onSubmit={(event) => {
             event.preventDefault()
             if (!targetProjectId) return
-            create.mutate()
+            create.mutate(title)
           }}
         >
           {!projectId ? (
@@ -111,10 +117,12 @@ export function CreateBlankExperimentDialog({
           <Label className="space-y-1">
             <span>Title</span>
             <Input
+              ref={titleInputRef}
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               placeholder="Untitled experiment"
               aria-label="Experiment title"
+              autoFocus
             />
           </Label>
           {errorMessage ? (
@@ -130,11 +138,21 @@ export function CreateBlankExperimentDialog({
             >
               Cancel
             </Button>
+            {projectId ? (
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={!targetProjectId || create.isPending}
+                onClick={() => create.mutate('')}
+              >
+                Start writing
+              </Button>
+            ) : null}
             <Button
               type="submit"
               disabled={!targetProjectId || create.isPending}
             >
-              Create blank Notebook
+              Create
             </Button>
           </DialogFooter>
         </form>

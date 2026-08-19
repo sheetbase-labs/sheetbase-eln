@@ -16,6 +16,7 @@ import {
   ALLOWED_MEDIA_TYPES,
   FILE_MAX_BYTES,
   isAllowedMediaType,
+  isInlinePreviewableImage,
   validateUploadRequest,
 } from '#/lib/file-policy'
 
@@ -33,6 +34,12 @@ describe('file-policy', () => {
     expect(isAllowedMediaType('text/csv')).toBe(true)
     expect(isAllowedMediaType('application/pdf')).toBe(true)
     expect(isAllowedMediaType('application/x-evil')).toBe(false)
+  })
+
+  it('previews raster images inline but not TIFF', () => {
+    expect(isInlinePreviewableImage('image/png')).toBe(true)
+    expect(isInlinePreviewableImage('image/tiff')).toBe(false)
+    expect(isInlinePreviewableImage('application/pdf')).toBe(false)
   })
 
   it('caps byte size at 100 MiB', () => {

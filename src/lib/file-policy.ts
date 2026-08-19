@@ -26,6 +26,11 @@ export function isAllowedMediaType(mediaType: string): boolean {
   return ALLOWED_MEDIA_TYPES.includes(mediaType.toLowerCase())
 }
 
+/** Inline preview for raster images; TIFF stays download-only. */
+export function isInlinePreviewableImage(mediaType: string): boolean {
+  return mediaType.startsWith('image/') && !mediaType.startsWith('image/tiff')
+}
+
 export interface PolicyViolation {
   field: 'mediaType' | 'byteSize' | 'displayName'
   message: string

@@ -12,7 +12,7 @@ CORE-01–06 and Core Hardening remain closed. Do not reopen settled Core archit
 
 Delivery priority uses only **medium** and **low**. Nothing is queued as high.
 
-**Merged `main` HEAD for this hand-off:** `37e3c52` (`feat: import laboratory files into Dataset and Record writers` / `#49`). API-07 (`#50` / `30496db`) is already on `main`.
+**Merged `main` HEAD for this hand-off:** `2cd3a12` (`feat(API-03): service-credential OpenAPI from the live allowlist` / `#51`).
 
 ## Active work
 
@@ -20,8 +20,8 @@ The roadmap supports **parallel streams**. Agents take **one assigned stream/tas
 
 | Stream | Active task      | Model  | Status                                           |
 | ------ | ---------------- | ------ | ------------------------------------------------ |
-| PC     | —                | —      | PC-01 and PC-02 complete; PC-03 remains later    |
-| API    | API-03 — OpenAPI | Medium | Complete on branch                               |
+| PC     | —                | Medium | PC-03 complete on `#52`; PC-04 Templates remains later. Do not start further API work from this stream. |
+| API    | —                | —      | API-01/02/03/07 complete on `main`; do not start API-04/05/06 |
 | DATA   | —                | —      | DATA-01 complete; DATA-02 remains later          |
 | GOV    | —                | —      | GOV-01 complete; GOV-02 requires an ADR          |
 | PLAT   | —                | —      | Headers slice complete; remaining PLAT-03 queued |
@@ -42,22 +42,21 @@ merged  hand-off regenerate (#46) @ 52b304b
 merged  API-02  workspace service credentials (#47) @ df27039
 merged  API-07  Core Dataset/Sheet external allowlist (#50) @ 30496db
 merged  DATA-01 import laboratory files (#49) @ 37e3c52
-
-API-03 complete on this stream (service-credential OpenAPI; not yet on main)
+merged  API-03  service-credential OpenAPI (#51) @ 2cd3a12
 ```
 
 ## Stream briefs
 
-### PC — complete for this batch
+### PC — PC-03 complete
 
 Task: [`tasks/PC.md`](./tasks/PC.md)
 
 - **PC-01 complete** (`#41` / `7cca216`): one Sheet experience, blank Notebook enabling slice, submit enabling slice, specialist tools demoted from default nav. Calculation dependencies follow the existing formula IR.
 - **PC-02 complete** (`#44` / `b01b029`): Dataset create/snapshot/live edit and reagent create; strict numeric coercion; historical Dataset Versions render the pinned Schema Version. Sheet Dataset bind remains the canonical Sheet Instance path (H2), not a second bind model.
 
-**PC-03** (full Notebook product) remains later. Do not start it from this hand-off. Do not reopen PC-01/PC-02.
+**PC-03 complete** (`#52`): Notebook product chrome around existing records/blocks/Sheet Instance/REV-002/H3 contracts. Submit, sign and amend stay session-only. Template designer remains PC-04. Do not reopen PC-01/PC-02. Do not invent a second domain model.
 
-### API — API-03 complete on branch
+### API — closed for this assignment
 
 Task: [`tasks/API.md`](./tasks/API.md)
 Prompt: [`prompts/API.md`](./prompts/API.md)
@@ -68,7 +67,7 @@ Prompt: [`prompts/API.md`](./prompts/API.md)
 
 **API-07 complete** (`#50` / `30496db`): `requiredScopes()` maps Core Dataset/Sheet RPCs to canonical scopes. Mapped Dataset/Sheet data-plane writes succeed for `api_client` with `credential_id` attribution. Submit, sign, amend and revision checks stay off the credential allowlist.
 
-**API-03 complete** (this branch): OpenAPI 3.1 at `docs/openapi/service-credentials-v0.json` describes only operations an API key can complete. Human attestation RPCs are omitted. `reviews:write` is not a usable credential submission operation. Do not start API-04/05/06 from this hand-off.
+**API-03 complete** (`#51` / `2cd3a12`): OpenAPI 3.1 at `docs/openapi/service-credentials-v0.json` describes only operations an API key can complete. Human attestation RPCs are omitted. `reviews:write` is not a usable credential submission operation. Do not start API-04/05/06.
 
 ### DATA — DATA-01 complete
 
@@ -97,7 +96,7 @@ Task: [`tasks/PLAT.md`](./tasks/PLAT.md)
 
 - DATA-01 is complete (canonical Dataset/Record import). DATA-02 export is not started.
 - API-07 Core external allowlist cut-over is complete (`#50`). Submit, sign, amend and revision checks stay human-session-only. API-03 OpenAPI is complete on this branch.
-- PC-03 is not automatically Ready.
+- PC-03 is complete (`#52`). PC-04 Templates is later.
 - GOV-02 is not Ready without an ADR.
 - Remaining PLAT-03 is queued, not a new Ready stream.
 - AUTO remains planned later.

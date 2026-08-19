@@ -658,6 +658,7 @@ export function AppShell({
         {context && (
           <aside
             aria-label="Application navigation"
+            data-slot="sidebar"
             className={cn(
               'fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-sidebar-border bg-sidebar md:flex',
               collapsed ? 'md:w-14' : 'md:w-60',
@@ -856,6 +857,7 @@ export function AppShell({
             {context && inspector && (
               <aside
                 aria-label={inspectorLabel}
+                data-slot="inspector"
                 className={cn(
                   'hidden shrink-0 border-l border-sidebar-border bg-background xl:block',
                   inspectorCollapsible && inspectorCollapsed ? 'w-10' : 'w-80',

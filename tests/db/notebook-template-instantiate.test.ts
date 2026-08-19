@@ -798,8 +798,47 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     expect(new Set(instanceIds).size).toBe(2)
   })
 
-  it('rejects deleting or mutating templatePlacementId through update_block_payload', async () => {
+  it('keeps templatePlacementId system-managed in update_block_payload while canonical placement assignment still works', async () => {
     const owner = await actor(OWNER, WS)
+    const adHocNotebook = (
+      await owner.query(
+        `select to_jsonb(api.create_record($1,'experiment','Ad hoc sheet','draft','{}'::text[],'{}'::jsonb)) result`,
+        [PROJECT],
+      )
+    ).rows[0].result
+    const adHocInserted = (
+      await owner.query(
+        `select api.insert_sheet_instance_block($1,NULL,NULL,NULL) result`,
+        [adHocNotebook.id],
+      )
+    ).rows[0].result
+    const adHocBlock = adHocInserted.block
+    const adHocStructureVersion = (
+      await owner.query(
+        `select structure_version from api.records where id = $1`,
+        [adHocNotebook.id],
+      )
+    ).rows[0].structure_version
+
+    await expectDenied(
+      owner.query(
+        `select api.update_block_payload(
+           $1,
+           ($2::jsonb || jsonb_build_object('templatePlacementId', $5::text)),
+           $3,
+           $4
+         )`,
+        [
+          adHocBlock.id,
+          JSON.stringify(adHocBlock.payload),
+          adHocBlock.version,
+          adHocStructureVersion,
+          crypto.randomUUID(),
+        ],
+      ),
+      '23514',
+    )
+
     const definition = (
       await owner.query(
         `select api.create_sheet_definition($1,'placement_lock','Placement lock',null,$2::jsonb) result`,
@@ -838,6 +877,7 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
         [notebook.record.id],
       )
     ).rows[0]
+    expect(block.payload.templatePlacementId).toBe(PLACEMENT)
     const structureVersion = (
       await owner.query(
         `select structure_version from api.records where id = $1`,

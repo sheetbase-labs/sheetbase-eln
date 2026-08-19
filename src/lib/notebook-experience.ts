@@ -45,6 +45,37 @@ export function notebookLifecycleLabel(record: {
   return 'Working'
 }
 
+const REVIEW_ELIGIBLE_ROLES = new Set([
+  'owner',
+  'admin',
+  'steward',
+  'scientist',
+  'analyst',
+  'reviewer',
+  'member',
+])
+
+export function reviewerCandidates(
+  members: Array<{
+    userId: string
+    role: string
+    suspendedAt: string | null
+  }>,
+) {
+  return members.filter(
+    (member) =>
+      member.suspendedAt === null && REVIEW_ELIGIBLE_ROLES.has(member.role),
+  )
+}
+
+export function reviewerOptionLabel(
+  member: { userId: string; role: string },
+  currentUserId: string,
+): string {
+  if (member.userId === currentUserId) return `You (${member.role})`
+  return `${member.userId.slice(0, 8)} · ${member.role}`
+}
+
 export function fetchRevisionsForRecord(
   client: DataClient,
   recordId: string,

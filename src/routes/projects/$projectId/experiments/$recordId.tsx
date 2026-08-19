@@ -315,6 +315,7 @@ function ExperimentNotebookRoute() {
           projectName={project?.title ?? null}
           projectId={projectId}
           currentUserId={context.user.id}
+          workspaceId={context.workspace?.id}
           blocks={blocks}
           historicalRevisionId={historicalRevisionId}
         />
@@ -423,6 +424,7 @@ export function StickyRecordHeader({
   projectName,
   projectId,
   currentUserId,
+  workspaceId,
   blocks = [],
   historicalRevisionId,
 }: {
@@ -430,6 +432,7 @@ export function StickyRecordHeader({
   projectName: string | null
   projectId?: string
   currentUserId?: string
+  workspaceId?: string
   blocks?: NotebookBlockDomain[]
   historicalRevisionId?: string
 }) {
@@ -507,6 +510,15 @@ export function StickyRecordHeader({
               Submit
             </Button>
           ) : null}
+          {lifecycle === 'Submitted' && record.lockedByRevisionId ? (
+            <Link
+              to="/reviews/$revisionId"
+              params={{ revisionId: record.lockedByRevisionId }}
+              className="text-xs font-medium text-foreground underline-offset-4 hover:underline"
+            >
+              Open review
+            </Link>
+          ) : null}
         </div>
       </div>
 
@@ -559,6 +571,7 @@ export function StickyRecordHeader({
           recordId={record.id}
           projectId={projectId}
           reviewerUserId={currentUserId}
+          workspaceId={workspaceId}
         />
       ) : null}
       {duplicateOpen && projectId ? (

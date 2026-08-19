@@ -824,6 +824,12 @@ function NotebookDocumentContent({
           />
         </div>
       )}
+      {!isReadOnly ? (
+        <p className="text-xs text-muted-foreground">
+          Type / in empty text to insert a block. Alt+↑/↓ reorders the focused
+          block. The block menu duplicates or deletes.
+        </p>
+      ) : null}
 
       {undo ? (
         <div

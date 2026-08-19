@@ -164,7 +164,7 @@ Blank create and submit shipped in PC-01 as an enabling slice. This epic is the 
 
 A scientific experiment can be authored, worked, reviewed, submitted and revisited historically without exposing persistence concepts.
 
-**In progress (not complete):** Notebook chrome on existing Core RPCs — working vs submitted, history, amendment-from-Notebook, `?revision=` frozen render, duplicate, metadata, print/evidence download, Dataset/Record reference kinds, image file preview. Remaining: slash UX overhaul depth, reviewer assignment beyond self, chart identity still using saved-dataset picker rather than PC-02 Dataset IDs, Template designer (PC-04).
+**In progress (not complete):** Notebook chrome on existing Core RPCs — working vs submitted, history, amendment-from-Notebook, `?revision=` frozen render, duplicate, metadata, print/evidence download, Dataset/Record reference kinds, image file preview, slash aliases, reviewer assignment, Record/Dataset search in linked-record blocks. Remaining: chart identity still uses the SCI-004 saved chart source (not a second Dataset bind); Template designer is PC-04; slash grouping can still be deepened.
 
 ---
 

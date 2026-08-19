@@ -1,6 +1,10 @@
 import * as React from 'react'
 
-import { BLOCK_PICKER_OPTIONS } from './block-picker'
+import {
+  BLOCK_PICKER_GROUPS,
+  BLOCK_PICKER_OPTIONS,
+} from './block-picker'
+import type { BlockPickerOption } from './block-picker'
 import { cn } from '#/lib/utils'
 
 /**
@@ -25,6 +29,17 @@ export interface SlashCommandMenuProps {
   onHoverIndex?: (index: number) => void
 }
 
+function optionMatches(opt: BlockPickerOption, query: string): boolean {
+  const q = query.toLowerCase().trim()
+  if (!q) return true
+  return (
+    opt.label.toLowerCase().includes(q) ||
+    opt.type.toLowerCase().includes(q) ||
+    opt.description.toLowerCase().includes(q) ||
+    opt.aliases.some((alias) => alias.toLowerCase().includes(q))
+  )
+}
+
 export function SlashCommandMenu({
   query,
   selectedIndex,
@@ -32,20 +47,15 @@ export function SlashCommandMenu({
   style,
   onHoverIndex,
 }: SlashCommandMenuProps) {
-  const filtered = React.useMemo(() => {
-    const q = query.toLowerCase().trim()
-    if (!q) return BLOCK_PICKER_OPTIONS
-    return BLOCK_PICKER_OPTIONS.filter(
-      (opt) =>
-        opt.label.toLowerCase().includes(q) ||
-        opt.type.toLowerCase().includes(q),
-    )
-  }, [query])
+  const filtered = React.useMemo(
+    () => slashCommandFilteredOptions(query),
+    [query],
+  )
 
   if (filtered.length === 0) {
     return (
       <div
-        className="z-50 w-64 rounded-lg border bg-popover p-3 text-sm text-muted-foreground shadow-md"
+        className="z-50 w-72 rounded-lg border bg-popover p-3 text-sm text-muted-foreground shadow-md"
         style={style}
         role="listbox"
         aria-label="Block types"
@@ -55,58 +65,71 @@ export function SlashCommandMenu({
     )
   }
 
+  let optionIndex = -1
+
   return (
     <div
-      className="z-50 max-h-72 w-64 overflow-y-auto rounded-lg border bg-popover p-1 shadow-md"
+      className="z-50 max-h-80 w-72 overflow-y-auto rounded-lg border bg-popover p-1 shadow-md"
       style={style}
       role="listbox"
       aria-label="Block types"
     >
-      {filtered.map((opt, i) => {
-        const Icon = opt.icon
-        const active = i === selectedIndex
+      {BLOCK_PICKER_GROUPS.map((group) => {
+        const items = filtered.filter((opt) => opt.group === group.id)
+        if (items.length === 0) return null
         return (
-          <button
-            key={opt.type}
-            type="button"
-            role="option"
-            aria-selected={active}
-            onMouseDown={(e) => {
-              e.preventDefault()
-              onSelect(opt.type)
-            }}
-            onMouseEnter={() => {
-              onHoverIndex?.(i)
-            }}
-            className={cn(
-              'flex w-full items-start gap-2.5 rounded-md px-2.5 py-2 text-left text-sm transition-colors',
-              active
-                ? 'bg-accent text-accent-foreground'
-                : 'text-popover-foreground hover:bg-accent/50',
-            )}
-          >
-            <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-            <span className="min-w-0">
-              <span className="block font-medium">{opt.label}</span>
-              <span className="block text-xs text-muted-foreground">
-                {opt.description}
-              </span>
-            </span>
-          </button>
+          <div key={group.id} className="mb-1">
+            <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              {group.label}
+            </p>
+            {items.map((opt) => {
+              optionIndex += 1
+              const index = optionIndex
+              const Icon = opt.icon
+              const active = index === selectedIndex
+              return (
+                <button
+                  key={opt.type}
+                  type="button"
+                  role="option"
+                  aria-selected={active}
+                  onMouseDown={(e) => {
+                    e.preventDefault()
+                    onSelect(opt.type)
+                  }}
+                  onMouseEnter={() => {
+                    onHoverIndex?.(index)
+                  }}
+                  className={cn(
+                    'flex w-full items-start gap-2.5 rounded-md px-2.5 py-2 text-left text-sm transition-colors',
+                    active
+                      ? 'bg-accent text-accent-foreground'
+                      : 'text-popover-foreground hover:bg-accent/50',
+                  )}
+                >
+                  <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                  <span className="min-w-0">
+                    <span className="block font-medium">{opt.label}</span>
+                    <span className="block text-xs text-muted-foreground">
+                      {opt.description}
+                    </span>
+                  </span>
+                </button>
+              )
+            })}
+          </div>
         )
       })}
+      <p className="border-t px-2 py-1.5 text-[10px] text-muted-foreground">
+        ↑↓ to move · Enter to insert · Esc to close
+      </p>
     </div>
   )
 }
 
 /** Filter the block picker options by a query string. */
 export function slashCommandFilteredOptions(query: string) {
-  const q = query.toLowerCase().trim()
-  if (!q) return BLOCK_PICKER_OPTIONS
-  return BLOCK_PICKER_OPTIONS.filter(
-    (opt) =>
-      opt.label.toLowerCase().includes(q) || opt.type.toLowerCase().includes(q),
-  )
+  return BLOCK_PICKER_OPTIONS.filter((opt) => optionMatches(opt, query))
 }
 
 /** Return the number of filtered options for a query (used by parent for

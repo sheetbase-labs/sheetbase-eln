@@ -175,6 +175,7 @@ describe('StickyRecordHeader — lock state', () => {
     )
     expect(screen.getByText('Submitted')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Submit' })).toBeNull()
+    expect(screen.getByRole('link', { name: 'Open review' })).toBeTruthy()
   })
 
   it('does not show a Submitted badge for an editable record', () => {

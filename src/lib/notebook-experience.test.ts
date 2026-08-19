@@ -17,6 +17,8 @@ import {
   downloadRevisionEvidence,
   fetchRevisionsForRecord,
   notebookLifecycleLabel,
+  reviewerCandidates,
+  reviewerOptionLabel,
   updateExperimentMetadata,
 } from './notebook-experience'
 
@@ -125,6 +127,30 @@ describe('notebookLifecycleLabel', () => {
     expect(notebookLifecycleLabel({ lockedAt: null, archivedAt: null })).toBe(
       'Working',
     )
+  })
+})
+
+describe('reviewerCandidates', () => {
+  it('drops viewers and suspended members', () => {
+    expect(
+      reviewerCandidates([
+        { userId: 'u1', role: 'scientist', suspendedAt: null },
+        { userId: 'u2', role: 'viewer', suspendedAt: null },
+        { userId: 'u3', role: 'reviewer', suspendedAt: '2026-08-01T00:00:00Z' },
+        { userId: 'u4', role: 'steward', suspendedAt: null },
+      ]).map((member) => member.userId),
+    ).toEqual(['u1', 'u4'])
+  })
+})
+
+describe('reviewerOptionLabel', () => {
+  it('labels the current user as You', () => {
+    expect(
+      reviewerOptionLabel({ userId: 'u1', role: 'scientist' }, 'u1'),
+    ).toBe('You (scientist)')
+    expect(
+      reviewerOptionLabel({ userId: 'abcdef12zzzz', role: 'reviewer' }, 'u1'),
+    ).toBe('abcdef12 · reviewer')
   })
 })
 

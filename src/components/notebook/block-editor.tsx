@@ -24,7 +24,13 @@ import {
   validateBlock,
 } from '#/lib/blocks'
 import type { RichTextPayload } from '#/lib/blocks'
-import type { NotebookBlock, NotebookRecord } from '#/lib/notebook-data'
+import {
+  notebookDataClient,
+  type NotebookBlock,
+  type NotebookRecord,
+  type RecordWire,
+} from '#/lib/notebook-data'
+import { fetchDatasetSummaries } from '#/lib/dataset-explorer-data'
 import {
   Alert,
   Badge,
@@ -52,7 +58,6 @@ import {
 } from 'lucide-react'
 import { RecordPicker } from '#/components/scientific'
 import type { RecordPickerResult } from '#/components/scientific'
-import { notebookDataClient } from '#/lib/notebook-data'
 import {
   scientificRecordQueryKeys,
   searchRecords,
@@ -553,6 +558,93 @@ interface LinkedRecordDraft {
   label: string
 }
 
+function LinkedRecordSearch({
+  kind,
+  onPick,
+}: {
+  kind: string
+  onPick: (picked: {
+    identifier: string
+    label: string
+    linkType?: string
+  }) => void
+}) {
+  const [query, setQuery] = React.useState('')
+  const results = useQuery({
+    queryKey: ['notebook-linked-search', kind, query],
+    queryFn: async () => {
+      if (kind === 'dataset') {
+        const rows = await fetchDatasetSummaries(notebookDataClient)
+        const q = query.trim().toLowerCase()
+        return rows
+          .filter((row) => !q || row.name.toLowerCase().includes(q))
+          .slice(0, 8)
+          .map((row) => ({
+            identifier: row.name,
+            title: row.description || row.name,
+            linkType: 'dataset' as string | undefined,
+          }))
+      }
+      const trimmed = query.trim()
+      const filters = [
+        `kind=eq.${encodeURIComponent(kind)}`,
+        'deleted_at=is.null',
+        'archived_at=is.null',
+      ]
+      if (trimmed) {
+        const enc = encodeURIComponent(`${trimmed}*`)
+        filters.push(`(identifier=ilike.${enc},title=ilike.${enc})`)
+      }
+      const rows = await notebookDataClient.list<RecordWire>(
+        'records',
+        `?${filters.join('&')}&order=identifier.asc&limit=8`,
+      )
+      return rows.map((row) => ({
+        identifier: row.identifier,
+        title: row.title,
+        linkType: undefined as string | undefined,
+      }))
+    },
+  })
+
+  return (
+    <div className="space-y-1">
+      <Input
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        aria-label="Search records or Datasets"
+        placeholder="Search by name or identifier"
+      />
+      {results.isError ? (
+        <p className="text-xs text-destructive" role="alert">
+          Could not search {kind === 'dataset' ? 'Datasets' : 'records'}.
+        </p>
+      ) : null}
+      <ul className="max-h-40 space-y-0.5 overflow-y-auto text-sm">
+        {(results.data ?? []).map((row) => (
+          <li key={row.identifier}>
+            <button
+              type="button"
+              className="flex w-full items-baseline justify-between gap-2 rounded-md px-2 py-1 text-left hover:bg-accent"
+              onMouseDown={(event) => {
+                event.preventDefault()
+                onPick({
+                  identifier: row.identifier,
+                  label: row.title,
+                  linkType: row.linkType,
+                })
+              }}
+            >
+              <span className="font-mono text-xs">{row.identifier}</span>
+              <span className="truncate text-muted-foreground">{row.title}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 function LinkedRecordEditor({
   block,
   save,
@@ -662,6 +754,19 @@ function LinkedRecordEditor({
           />
         </Field>
       </div>
+      <LinkedRecordSearch
+        kind={a.draft.targetKind}
+        onPick={(picked) => {
+          a.setTouched(true)
+          a.setDraft({
+            ...a.draft,
+            targetIdentifier: picked.identifier,
+            label: picked.label || a.draft.label,
+            linkType: picked.linkType ?? a.draft.linkType,
+          })
+          void a.flush()
+        }}
+      />
       <AutosaveFooter
         status={a.status}
         error={a.error}

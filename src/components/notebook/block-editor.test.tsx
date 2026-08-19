@@ -9,14 +9,38 @@
  * The default 800 ms debounce is too slow for tests, so we drive saves
  * through blur (tab) which calls `flush()` synchronously.
  */
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { BlockEditor } from './block-editor'
 import type { NotebookBlock } from '#/lib/notebook-data'
 import type { RichTextPayload } from '#/lib/blocks'
+
+vi.mock('#/lib/notebook-data', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('#/lib/notebook-data')>()
+  return {
+    ...actual,
+    notebookDataClient: {
+      ...actual.notebookDataClient,
+      list: vi.fn().mockResolvedValue([]),
+    },
+  }
+})
+
+vi.mock('#/lib/dataset-explorer-data', () => ({
+  fetchDatasetSummaries: vi.fn().mockResolvedValue([]),
+}))
+
+function renderWithQuery(ui: ReactNode) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
+}
 
 beforeAll(() => {
   // ProseMirror asks the browser for caret geometry. jsdom intentionally
@@ -62,7 +86,7 @@ describe('BlockEditor — rich_text', () => {
   it('saves canonical structured JSON on blur', async () => {
     const user = userEvent.setup()
     const save = vi.fn(async () => ({ ok: true }))
-    render(
+    renderWithQuery(
       <BlockEditor
         block={block({ type: 'rich_text', payload: richText('old') })}
         save={save}
@@ -79,7 +103,7 @@ describe('BlockEditor — rich_text', () => {
   it('applies inline formatting and exposes the restrained toolbar', async () => {
     const user = userEvent.setup()
     const save = vi.fn(async () => ({ ok: true }))
-    render(
+    renderWithQuery(
       <BlockEditor
         block={block({ type: 'rich_text', payload: richText('') })}
         save={save}
@@ -127,7 +151,7 @@ describe('BlockEditor — rich_text', () => {
   it('selects and persists a restrained section heading', async () => {
     const user = userEvent.setup()
     const save = vi.fn(async () => ({ ok: true }))
-    render(
+    renderWithQuery(
       <BlockEditor
         block={block({ type: 'rich_text', payload: richText('Materials') })}
         save={save}
@@ -201,7 +225,7 @@ describe('BlockEditor — checklist', () => {
     const save = vi.fn(async (_payload: Record<string, unknown>) => ({
       ok: true,
     }))
-    render(
+    renderWithQuery(
       <BlockEditor
         block={block({
           type: 'checklist',
@@ -231,7 +255,7 @@ describe('BlockEditor — checklist', () => {
   it('adds a new item through the Add item button', async () => {
     const user = userEvent.setup()
     const save = vi.fn(async () => ({ ok: true }))
-    render(
+    renderWithQuery(
       <BlockEditor
         block={block({
           type: 'checklist',
@@ -249,7 +273,7 @@ describe('BlockEditor — linked_record', () => {
   it('saves a complete linked-record payload on blur', async () => {
     const user = userEvent.setup()
     const save = vi.fn(async () => ({ ok: true }))
-    render(
+    renderWithQuery(
       <BlockEditor
         block={block({
           type: 'linked_record',
@@ -277,7 +301,7 @@ describe('BlockEditor — linked_record', () => {
   it('does not save when the identifier is blank', async () => {
     const user = userEvent.setup()
     const save = vi.fn(async () => ({ ok: true }))
-    render(
+    renderWithQuery(
       <BlockEditor
         block={block({
           type: 'linked_record',
@@ -298,7 +322,7 @@ describe('BlockEditor — linked_record', () => {
   })
 
   it('lists scientist-facing target kinds including Dataset, sample and reagent', () => {
-    render(
+    renderWithQuery(
       <BlockEditor
         block={block({
           type: 'linked_record',
@@ -335,13 +359,16 @@ describe('BlockEditor — linked_record', () => {
       'protocol_template',
       'report',
     ])
+    expect(
+      screen.getByLabelText('Search records or Datasets'),
+    ).toBeTruthy()
   })
 })
 
 describe('BlockEditor — unsupported type', () => {
   it('renders a readable placeholder and never calls save', () => {
     const save = vi.fn(async () => ({ ok: true }))
-    render(
+    renderWithQuery(
       <BlockEditor
         block={block({
           type: 'unknown_future_type',
@@ -357,7 +384,7 @@ describe('BlockEditor — unsupported type', () => {
 
 describe('BlockEditor — read-only mode', () => {
   it('safely renders headings and formatted text from the structured payload', () => {
-    render(
+    renderWithQuery(
       <BlockEditor
         block={block({
           type: 'rich_text',
@@ -412,7 +439,7 @@ describe('BlockEditor — failed save surface', () => {
       kind: 'validation' as const,
       message: 'This notebook was edited elsewhere.',
     }))
-    render(
+    renderWithQuery(
       <BlockEditor
         block={block({
           type: 'rich_text',
@@ -441,7 +468,7 @@ describe('BlockEditor — conflict surface', () => {
       message: 'This block was changed elsewhere.',
       serverValue: richText('server version'),
     }))
-    render(
+    renderWithQuery(
       <BlockEditor
         block={block({
           type: 'rich_text',
@@ -473,7 +500,7 @@ describe('BlockEditor — conflict surface', () => {
       message: 'This block was changed elsewhere.',
       serverValue,
     }))
-    render(
+    renderWithQuery(
       <BlockEditor
         block={block({
           type: 'rich_text',

@@ -40,17 +40,18 @@ import {
   retargetNotebookTemplateSheetPlacement,
   retireNotebookTemplateVersion,
 } from '#/lib/notebook-template-data'
+import { parseNotebookTemplateConfiguration } from '#/lib/notebook-template'
+import type { NotebookTemplateConfiguration } from '#/lib/notebook-template'
+import { buildParameterInputs } from '#/lib/parameter-input'
+import type { NotebookTemplateVersion } from '#/lib/notebook-template-data'
+import type {
+  NotebookUpgradeDecisionDraft,
+  NotebookUpgradePreview,
+} from '#/lib/notebook-template-upgrade'
 import {
-  parseNotebookTemplateConfiguration,
-} from '#/lib/notebook-template'
-import type {
-  NotebookTemplateConfiguration,
-} from '#/lib/notebook-template'
-import { scalarParameterValueSchema } from '#/lib/parameter'
-import type {
-  NotebookTemplateParameterInput,
-  NotebookTemplateVersion,
-} from '#/lib/notebook-template-data'
+  NotebookTemplateUpgradeForm,
+  collectNotebookTemplateUpgradeInputs,
+} from '#/components/stewardship/notebook-template-upgrade-form'
 import {
   fetchSheetDefinitions,
   fetchSheetDefinitionVersions,
@@ -85,61 +86,6 @@ function notebookTemplateKey(name: string): string {
   return `${base}_${crypto.randomUUID().replace(/-/g, '').slice(0, 8)}`
 }
 
-function parseScalarTemplateParameterValue(
-  parameter: NotebookTemplateConfiguration['parameters'][number],
-  rawValue: string | undefined,
-) {
-  if (parameter.type.kind !== 'scalar')
-    throw new Error('Only scalar parameters can be parsed here.')
-  const trimmed = rawValue?.trim() ?? ''
-  const hasInput = trimmed.length > 0
-  const value = hasInput ? trimmed : parameter.defaultValue
-  if (value === undefined) {
-    if (parameter.required)
-      throw new Error(`Parameter "${parameter.label}" is required.`)
-    return null
-  }
-  let parsed: unknown = value
-  if (typeof value === 'string') {
-    if (parameter.type.valueType === 'integer' || parameter.type.valueType === 'decimal') {
-      parsed = Number(value)
-    } else if (parameter.type.valueType === 'boolean') {
-      const normalised = value.toLowerCase()
-      if (normalised === 'true') parsed = true
-      else if (normalised === 'false') parsed = false
-    }
-  }
-  if (!scalarParameterValueSchema(parameter.type.valueType).safeParse(parsed).success) {
-    throw new Error(`Parameter "${parameter.label}" has an invalid value.`)
-  }
-  if (typeof parsed === 'number') {
-    if (parameter.constraints.min !== undefined && parsed < parameter.constraints.min) {
-      throw new Error(`Parameter "${parameter.label}" is below the minimum value.`)
-    }
-    if (parameter.constraints.max !== undefined && parsed > parameter.constraints.max) {
-      throw new Error(`Parameter "${parameter.label}" exceeds the maximum value.`)
-    }
-  }
-  if (typeof parsed === 'string') {
-    if (parameter.constraints.minLength !== undefined && parsed.length < parameter.constraints.minLength) {
-      throw new Error(`Parameter "${parameter.label}" is too short.`)
-    }
-    if (parameter.constraints.maxLength !== undefined && parsed.length > parameter.constraints.maxLength) {
-      throw new Error(`Parameter "${parameter.label}" is too long.`)
-    }
-    if (parameter.constraints.pattern !== undefined && !new RegExp(parameter.constraints.pattern).test(parsed)) {
-      throw new Error(`Parameter "${parameter.label}" does not match the expected format.`)
-    }
-  }
-  if (
-    parameter.constraints.allowedValues !== undefined &&
-    !parameter.constraints.allowedValues.some((allowed) => allowed === parsed)
-  ) {
-    throw new Error(`Parameter "${parameter.label}" is not an allowed value.`)
-  }
-  return parsed
-}
-
 export function VersionedNotebookTemplatePanel({
   workspaceId,
   canEdit,
@@ -161,7 +107,9 @@ export function VersionedNotebookTemplatePanel({
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
     null,
   )
-  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null)
+  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(
+    null,
+  )
   const [builderSourceVersionId, setBuilderSourceVersionId] = useState('')
   const [builderConfigurationText, setBuilderConfigurationText] = useState('')
   const [builderError, setBuilderError] = useState<string | null>(null)
@@ -169,13 +117,21 @@ export function VersionedNotebookTemplatePanel({
   const [retargetDefinitionId, setRetargetDefinitionId] = useState('')
   const [retargetDefinitionVersionId, setRetargetDefinitionVersionId] =
     useState('')
-  const [parameterValues, setParameterValues] = useState<Record<string, string>>(
-    {},
-  )
+  const [parameterValues, setParameterValues] = useState<
+    Record<string, string>
+  >({})
   const [upgradeRecordId, setUpgradeRecordId] = useState('')
   const [upgradeExpectedStructureVersion, setUpgradeExpectedStructureVersion] =
     useState('')
-  const [upgradePreviewText, setUpgradePreviewText] = useState<string | null>(null)
+  const [upgradePreview, setUpgradePreview] =
+    useState<NotebookUpgradePreview | null>(null)
+  const [upgradeDecisionDrafts, setUpgradeDecisionDrafts] = useState<
+    Record<string, NotebookUpgradeDecisionDraft>
+  >({})
+  const [upgradeParameterDrafts, setUpgradeParameterDrafts] = useState<
+    Record<string, string>
+  >({})
+  const [upgradeError, setUpgradeError] = useState<string | null>(null)
 
   const templates = useQuery({
     queryKey: ['notebook-templates', workspaceId, search],
@@ -199,35 +155,49 @@ export function VersionedNotebookTemplatePanel({
     return map
   }, [versions.data])
   const selectedTemplateVersions = useMemo(
-    () => (selectedTemplateId ? versionsByTemplate.get(selectedTemplateId) : []),
+    () =>
+      selectedTemplateId ? versionsByTemplate.get(selectedTemplateId) : [],
     [selectedTemplateId, versionsByTemplate],
   )
   const selectedVersion =
-    selectedTemplateVersions?.find((version) => version.id === selectedVersionId) ??
-    null
+    selectedTemplateVersions?.find(
+      (version) => version.id === selectedVersionId,
+    ) ?? null
   const instantiateVersion =
-    (versions.data ?? []).find((version) => version.id === createVersionId) ?? null
+    (versions.data ?? []).find((version) => version.id === createVersionId) ??
+    null
 
   useEffect(() => {
     const firstTemplateId = templates.data?.[0]?.id ?? null
-    if (!selectedTemplateId && firstTemplateId) setSelectedTemplateId(firstTemplateId)
+    if (!selectedTemplateId && firstTemplateId)
+      setSelectedTemplateId(firstTemplateId)
   }, [templates.data, selectedTemplateId])
 
   useEffect(() => {
     if (!selectedTemplateId) return
     const current = versionsByTemplate.get(selectedTemplateId) ?? []
     const firstVersionId = current[0]?.id ?? null
-    if (!selectedVersionId || !current.some((version) => version.id === selectedVersionId)) {
+    if (
+      !selectedVersionId ||
+      !current.some((version) => version.id === selectedVersionId)
+    ) {
       setSelectedVersionId(firstVersionId)
     }
     if (!builderSourceVersionId && firstVersionId) {
       setBuilderSourceVersionId(firstVersionId)
     }
-  }, [builderSourceVersionId, selectedTemplateId, selectedVersionId, versionsByTemplate])
+  }, [
+    builderSourceVersionId,
+    selectedTemplateId,
+    selectedVersionId,
+    versionsByTemplate,
+  ])
 
   useEffect(() => {
     if (!selectedVersion) return
-    setBuilderConfigurationText(JSON.stringify(selectedVersion.configuration, null, 2))
+    setBuilderConfigurationText(
+      JSON.stringify(selectedVersion.configuration, null, 2),
+    )
     setParameterValues({})
     setRetargetPlacementId('')
     setRetargetDefinitionId('')
@@ -241,7 +211,10 @@ export function VersionedNotebookTemplatePanel({
   const selectedDefinitionVersions = useQuery({
     queryKey: ['sheet-definition-versions', retargetDefinitionId],
     queryFn: () =>
-      fetchSheetDefinitionVersions(retargetDefinitionId, sheetDefinitionDataClient),
+      fetchSheetDefinitionVersions(
+        retargetDefinitionId,
+        sheetDefinitionDataClient,
+      ),
     enabled: Boolean(retargetDefinitionId),
   })
   const versionDependencies = useQuery({
@@ -300,7 +273,9 @@ export function VersionedNotebookTemplatePanel({
       ),
     onSuccess: () => {
       setBuilderError(null)
-      queryClient.invalidateQueries({ queryKey: ['notebook-template-versions'] })
+      queryClient.invalidateQueries({
+        queryKey: ['notebook-template-versions'],
+      })
     },
     onError: (cause) =>
       setBuilderError(
@@ -317,44 +292,20 @@ export function VersionedNotebookTemplatePanel({
       targetDefinitionVersionId: string
     }) => retargetNotebookTemplateSheetPlacement(input),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notebook-template-versions'] })
+      queryClient.invalidateQueries({
+        queryKey: ['notebook-template-versions'],
+      })
     },
   })
   const instantiate = useMutation({
     mutationFn: () => {
       const sourceVersion = instantiateVersion
-      if (!sourceVersion) throw new Error('Template version is no longer available.')
-      const parameterInputs = sourceVersion.configuration.parameters
-        .map((parameter): NotebookTemplateParameterInput | null => {
-            const value = (parameterValues[parameter.id] ?? '').trim()
-            if (parameter.type.kind === 'scalar')
-              return {
-                parameterId: parameter.id,
-                kind: 'scalar',
-                value: parseScalarTemplateParameterValue(parameter, parameterValues[parameter.id]),
-              }
-            if (!value && parameter.required)
-              throw new Error(`Parameter "${parameter.label}" is required.`)
-            if (!value && !parameter.required) return null
-            if (parameter.type.kind === 'record')
-              return {
-                parameterId: parameter.id,
-                kind: 'record',
-                recordId: value,
-              }
-            if (parameter.type.kind === 'dataset')
-              return {
-                parameterId: parameter.id,
-                kind: 'dataset',
-                datasetId: value,
-              }
-            return {
-              parameterId: parameter.id,
-              kind: 'dataset-version',
-              datasetVersionId: value,
-            }
-          })
-        .filter((item): item is NotebookTemplateParameterInput => item !== null)
+      if (!sourceVersion)
+        throw new Error('Template version is no longer available.')
+      const parameterInputs = buildParameterInputs(
+        sourceVersion.configuration.parameters,
+        parameterValues,
+      )
       return instantiateNotebookTemplateVersion({
         versionId: createVersionId ?? '',
         targetProjectId: createProjectId,
@@ -376,32 +327,56 @@ export function VersionedNotebookTemplatePanel({
   const previewUpgrade = useMutation({
     mutationFn: () => {
       if (!selectedVersion) throw new Error('No template version selected.')
-      if (!upgradeRecordId.trim()) throw new Error('Notebook record ID is required.')
-      return previewNotebookTemplateUpgrade(upgradeRecordId.trim(), selectedVersion.id)
-    },
-    onSuccess: (result) => {
-      const parsed = result as { automatic?: unknown[]; conflicts?: unknown[] }
-      setUpgradePreviewText(
-        `${parsed.automatic?.length ?? 0} automatic change(s), ${parsed.conflicts?.length ?? 0} conflict(s).`,
+      if (!upgradeRecordId.trim())
+        throw new Error('Notebook record ID is required.')
+      return previewNotebookTemplateUpgrade(
+        upgradeRecordId.trim(),
+        selectedVersion.id,
       )
     },
+    onSuccess: (result) => {
+      setUpgradePreview(result)
+      setUpgradeDecisionDrafts({})
+      setUpgradeParameterDrafts({})
+      setUpgradeError(null)
+    },
+    onError: (cause) =>
+      setUpgradeError(
+        cause instanceof Error ? cause.message : 'Could not preview upgrade.',
+      ),
   })
   const applyUpgrade = useMutation({
     mutationFn: () => {
       if (!selectedVersion) throw new Error('No template version selected.')
-      if (!upgradeRecordId.trim()) throw new Error('Notebook record ID is required.')
+      if (!upgradeRecordId.trim())
+        throw new Error('Notebook record ID is required.')
+      if (!upgradePreview)
+        throw new Error('Preview the upgrade before applying.')
       const expectedVersion = Number(upgradeExpectedStructureVersion.trim())
       if (!Number.isInteger(expectedVersion) || expectedVersion <= 0) {
-        throw new Error('Expected structure version must be a positive integer.')
+        throw new Error(
+          'Expected structure version must be a positive integer.',
+        )
       }
+      const collected = collectNotebookTemplateUpgradeInputs(
+        upgradePreview,
+        selectedVersion.configuration,
+        upgradeDecisionDrafts,
+        upgradeParameterDrafts,
+      )
       return applyNotebookTemplateUpgrade({
         recordId: upgradeRecordId.trim(),
         expectedStructureVersion: expectedVersion,
         targetVersionId: selectedVersion.id,
-        decisions: [],
-        parameterInputs: [],
+        decisions: collected.decisions,
+        parameterInputs: collected.parameterInputs,
       })
     },
+    onSuccess: () => setUpgradeError(null),
+    onError: (cause) =>
+      setUpgradeError(
+        cause instanceof Error ? cause.message : 'Could not apply upgrade.',
+      ),
   })
 
   return (
@@ -580,7 +555,9 @@ export function VersionedNotebookTemplatePanel({
                   <TableCell>
                     <Badge
                       variant={
-                        version.lifecycle === 'published' ? 'success' : 'outline'
+                        version.lifecycle === 'published'
+                          ? 'success'
+                          : 'outline'
                       }
                       className="text-xs"
                     >
@@ -588,7 +565,9 @@ export function VersionedNotebookTemplatePanel({
                     </Badge>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {version.publishedAt ? formatDate(version.publishedAt) : '—'}
+                    {version.publishedAt
+                      ? formatDate(version.publishedAt)
+                      : '—'}
                   </TableCell>
                   <TableCell className="text-right">
                     <span className="inline-flex gap-1">
@@ -598,7 +577,10 @@ export function VersionedNotebookTemplatePanel({
                           size="sm"
                           variant="outline"
                           onClick={() =>
-                            publish.mutate({ id: version.id, revision: version.revision })
+                            publish.mutate({
+                              id: version.id,
+                              revision: version.revision,
+                            })
                           }
                         >
                           Publish
@@ -610,7 +592,10 @@ export function VersionedNotebookTemplatePanel({
                           size="sm"
                           variant="outline"
                           onClick={() =>
-                            retire.mutate({ id: version.id, revision: version.revision })
+                            retire.mutate({
+                              id: version.id,
+                              revision: version.revision,
+                            })
                           }
                         >
                           Retire
@@ -642,17 +627,22 @@ export function VersionedNotebookTemplatePanel({
               <div className="space-y-2 rounded-md border p-3">
                 <h4 className="text-sm font-semibold">Dependencies</h4>
                 {versionDependencies.isLoading ? (
-                  <p className="text-xs text-muted-foreground">Loading dependencies…</p>
+                  <p className="text-xs text-muted-foreground">
+                    Loading dependencies…
+                  </p>
                 ) : versionDependencies.data?.dependencies.length ? (
                   <ul className="space-y-1 text-xs">
                     {versionDependencies.data.dependencies.map((dependency) => (
                       <li key={`${dependency.kind}:${dependency.id}`}>
-                        {dependency.label} · {dependency.liveness} · {dependency.effect}
+                        {dependency.label} · {dependency.liveness} ·{' '}
+                        {dependency.effect}
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-xs text-muted-foreground">No dependants discovered.</p>
+                  <p className="text-xs text-muted-foreground">
+                    No dependants discovered.
+                  </p>
                 )}
               </div>
             </div>
@@ -660,7 +650,9 @@ export function VersionedNotebookTemplatePanel({
 
           {canEdit && selectedVersion ? (
             <div className="space-y-2 rounded-md border p-3">
-              <h4 className="text-sm font-semibold">Create new draft version</h4>
+              <h4 className="text-sm font-semibold">
+                Create new draft version
+              </h4>
               <p className="text-xs text-muted-foreground">
                 Edit JSON carefully to control typed parameters, mappings, and
                 placements. Publishing remains explicit.
@@ -691,12 +683,16 @@ export function VersionedNotebookTemplatePanel({
                 </Select>
               </Field>
               <Field>
-                <FieldLabel htmlFor="builder-config">Configuration JSON</FieldLabel>
+                <FieldLabel htmlFor="builder-config">
+                  Configuration JSON
+                </FieldLabel>
                 <Textarea
                   id="builder-config"
                   className="min-h-56 font-mono text-xs"
                   value={builderConfigurationText}
-                  onChange={(event) => setBuilderConfigurationText(event.target.value)}
+                  onChange={(event) =>
+                    setBuilderConfigurationText(event.target.value)
+                  }
                 />
               </Field>
               {builderError ? (
@@ -709,7 +705,9 @@ export function VersionedNotebookTemplatePanel({
                 disabled={createVersion.isPending}
                 onClick={() => {
                   if (!selectedTemplateId) return
-                  const template = templates.data?.find((item) => item.id === selectedTemplateId)
+                  const template = templates.data?.find(
+                    (item) => item.id === selectedTemplateId,
+                  )
                   if (!template) return
                   try {
                     const parsed = parseNotebookTemplateConfiguration(
@@ -742,14 +740,20 @@ export function VersionedNotebookTemplatePanel({
             (placement) => placement.kind === 'sheet',
           ) ? (
             <div className="space-y-2 rounded-md border p-3">
-              <h4 className="text-sm font-semibold">Retarget Sheet placement</h4>
+              <h4 className="text-sm font-semibold">
+                Retarget Sheet placement
+              </h4>
               <div className="grid gap-2 lg:grid-cols-2">
                 <Field>
-                  <FieldLabel htmlFor="retarget-placement">Sheet placement</FieldLabel>
+                  <FieldLabel htmlFor="retarget-placement">
+                    Sheet placement
+                  </FieldLabel>
                   <Select
                     id="retarget-placement"
                     value={retargetPlacementId}
-                    onChange={(event) => setRetargetPlacementId(event.target.value)}
+                    onChange={(event) =>
+                      setRetargetPlacementId(event.target.value)
+                    }
                   >
                     <option value="">Select a placement</option>
                     {selectedVersion.configuration.placements
@@ -762,7 +766,9 @@ export function VersionedNotebookTemplatePanel({
                   </Select>
                 </Field>
                 <Field>
-                  <FieldLabel htmlFor="retarget-definition">Definition</FieldLabel>
+                  <FieldLabel htmlFor="retarget-definition">
+                    Definition
+                  </FieldLabel>
                   <Select
                     id="retarget-definition"
                     value={retargetDefinitionId}
@@ -822,15 +828,22 @@ export function VersionedNotebookTemplatePanel({
             </div>
           ) : null}
 
-          {canEdit && selectedVersion && selectedVersion.lifecycle === 'published' ? (
+          {canEdit &&
+          selectedVersion &&
+          selectedVersion.lifecycle === 'published' ? (
             <div className="space-y-2 rounded-md border p-3">
-              <h4 className="text-sm font-semibold">Upgrade existing Notebooks</h4>
+              <h4 className="text-sm font-semibold">
+                Upgrade existing Notebooks
+              </h4>
               <p className="text-xs text-muted-foreground">
-                Preview and apply an explicit upgrade to this published template version.
+                Preview and apply an explicit upgrade to this published template
+                version.
               </p>
               <div className="grid gap-2 lg:grid-cols-2">
                 <Field>
-                  <FieldLabel htmlFor="upgrade-record-id">Notebook record ID</FieldLabel>
+                  <FieldLabel htmlFor="upgrade-record-id">
+                    Notebook record ID
+                  </FieldLabel>
                   <Input
                     id="upgrade-record-id"
                     value={upgradeRecordId}
@@ -870,9 +883,30 @@ export function VersionedNotebookTemplatePanel({
                   Apply upgrade
                 </Button>
               </div>
-              {upgradePreviewText ? (
-                <p className="text-xs text-muted-foreground" role="status">
-                  {upgradePreviewText}
+              {upgradePreview ? (
+                <NotebookTemplateUpgradeForm
+                  preview={upgradePreview}
+                  targetConfiguration={selectedVersion.configuration}
+                  decisionDrafts={upgradeDecisionDrafts}
+                  parameterDrafts={upgradeParameterDrafts}
+                  disabled={applyUpgrade.isPending}
+                  onDecisionChange={(conflictId, draft) =>
+                    setUpgradeDecisionDrafts((current) => ({
+                      ...current,
+                      [conflictId]: draft,
+                    }))
+                  }
+                  onParameterChange={(parameterId, value) =>
+                    setUpgradeParameterDrafts((current) => ({
+                      ...current,
+                      [parameterId]: value,
+                    }))
+                  }
+                />
+              ) : null}
+              {upgradeError ? (
+                <p className="text-sm text-destructive" role="alert">
+                  {upgradeError}
                 </p>
               ) : null}
             </div>

@@ -5,6 +5,10 @@ import { Database, Layers, Shield } from 'lucide-react'
 
 import { AdminModelFields } from '#/components/workspace-admin/admin-model-fields'
 import { VersionedNotebookTemplatePanel } from '#/components/templates/versioned-notebook-templates'
+import {
+  collectSheetDefinitionUpgradeInputs,
+  SheetDefinitionUpgradeForm,
+} from '#/components/stewardship/sheet-definition-upgrade-form'
 import type { TemplateProject } from '#/components/templates/template-library'
 import {
   Badge,
@@ -56,17 +60,19 @@ import {
   previewLocalFieldPromotion,
   promoteLocalField,
 } from '#/lib/schema-evolution'
-import { formatDate, notebookDataClient, notebookQueryKeys } from '#/lib/notebook-data'
+import {
+  formatDate,
+  notebookDataClient,
+  notebookQueryKeys,
+} from '#/lib/notebook-data'
 import { parseSheetDefinitionConfiguration } from '#/lib/sheet-definition'
+import type { SheetDefinitionUpgradePreview } from '#/lib/sheet-definition-upgrade'
+import type { SheetDefinitionUpgradeDecisionDraft } from '#/lib/notebook-template-upgrade'
 import type { WorkspaceRole } from '#/lib/workspace-admin'
 import { cn } from '#/lib/utils'
 
 export type ConfigurationKind =
-  | 'model'
-  | 'schema'
-  | 'definition'
-  | 'template'
-  | 'promotion'
+  'model' | 'schema' | 'definition' | 'template' | 'promotion'
 
 export interface ConfigurationSearch {
   kind: ConfigurationKind
@@ -126,7 +132,10 @@ export function ConfigurationWorkspace({
   const projectsQuery = useQuery({
     queryKey: notebookQueryKeys.projectsList(),
     queryFn: () =>
-      notebookDataClient.list<TemplateProject>('projects', '?order=created_at.desc'),
+      notebookDataClient.list<TemplateProject>(
+        'projects',
+        '?order=created_at.desc',
+      ),
   })
   const projects = projectsQuery.data ?? []
   const matched = schemas.find((item) => item.id === search.id)
@@ -330,7 +339,10 @@ export function ConfigurationWorkspace({
           <SchemaImpact client={client} schemaId={selectedSchema.id} />
         ) : null}
         {search.kind === 'definition' && selectedDefinition ? (
-          <DefinitionImpact client={client} definitionId={selectedDefinition.id} />
+          <DefinitionImpact
+            client={client}
+            definitionId={selectedDefinition.id}
+          />
         ) : null}
       </aside>
     </div>
@@ -385,7 +397,9 @@ function buildDefaultSheetDefinitionConfiguration() {
   }
 }
 
-function buildExtractionSelection(instance: Awaited<ReturnType<typeof fetchSheetInstance>>): SheetDefinitionExtractionSelection {
+function buildExtractionSelection(
+  instance: Awaited<ReturnType<typeof fetchSheetInstance>>,
+): SheetDefinitionExtractionSelection {
   if (!instance) throw new Error('Sheet Instance not found.')
   const localFieldIds = instance.state.localFields
     .filter((field) => field.lifecycle === 'active')
@@ -396,28 +410,29 @@ function buildExtractionSelection(instance: Awaited<ReturnType<typeof fetchSheet
   const resolvedIdentity = instance.state.resolvedRowIdentity
   const rowIdentity =
     resolvedIdentity && resolvedIdentity.columnIds.length > 0
-      ? { kind: resolvedIdentity.kind, columnIds: [...resolvedIdentity.columnIds] }
+      ? {
+          kind: resolvedIdentity.kind,
+          columnIds: [...resolvedIdentity.columnIds],
+        }
       : {
           kind: 'local' as const,
           columnIds:
-            localFieldIds.find(
-              (fieldId) =>
-                instance.state.localFields.find(
-                  (field) =>
-                    field.fieldId === fieldId &&
-                    field.lifecycle === 'active' &&
-                    field.logicalType === 'reference',
-                ),
+            localFieldIds.find((fieldId) =>
+              instance.state.localFields.find(
+                (field) =>
+                  field.fieldId === fieldId &&
+                  field.lifecycle === 'active' &&
+                  field.logicalType === 'reference',
+              ),
             ) !== undefined
               ? [
-                  localFieldIds.find(
-                    (fieldId) =>
-                      instance.state.localFields.find(
-                        (field) =>
-                          field.fieldId === fieldId &&
-                          field.lifecycle === 'active' &&
-                          field.logicalType === 'reference',
-                      ),
+                  localFieldIds.find((fieldId) =>
+                    instance.state.localFields.find(
+                      (field) =>
+                        field.fieldId === fieldId &&
+                        field.lifecycle === 'active' &&
+                        field.logicalType === 'reference',
+                    ),
                   )!,
                 ]
               : localFieldIds.slice(0, 1),
@@ -716,9 +731,18 @@ function SheetDefinitionPlane({
   const [instanceId, setInstanceId] = useState('')
   const [selectionPreview, setSelectionPreview] = useState<string | null>(null)
   const [configurationText, setConfigurationText] = useState('')
-  const [upgradeInstanceId, setUpgradeInstanceId] = useState('')
-  const [upgradeExpectedRevision, setUpgradeExpectedRevision] = useState('')
-  const [upgradePreviewText, setUpgradePreviewText] = useState<string | null>(null)
+  const [consumerUpgradeInstanceId, setConsumerUpgradeInstanceId] = useState('')
+  const [consumerUpgradeExpectedRevision, setConsumerUpgradeExpectedRevision] =
+    useState('')
+  const [consumerUpgradePreview, setConsumerUpgradePreview] =
+    useState<SheetDefinitionUpgradePreview | null>(null)
+  const [consumerUpgradeDecisionDrafts, setConsumerUpgradeDecisionDrafts] =
+    useState<Record<string, SheetDefinitionUpgradeDecisionDraft>>({})
+  const [consumerUpgradeParameterDrafts, setConsumerUpgradeParameterDrafts] =
+    useState<Record<string, string>>({})
+  const [consumerUpgradeMessage, setConsumerUpgradeMessage] = useState<
+    string | null
+  >(null)
   const [error, setError] = useState<string | null>(null)
   const versionsQuery = useQuery({
     queryKey: ['configure', 'definition-versions', definitionId],
@@ -747,14 +771,17 @@ function SheetDefinitionPlane({
 
   const create = useMutation({
     mutationFn: () =>
-      createSheetDefinition({
-        workspaceId,
-        key,
-        name,
-        configuration: {
-          ...buildDefaultSheetDefinitionConfiguration(),
+      createSheetDefinition(
+        {
+          workspaceId,
+          key,
+          name,
+          configuration: {
+            ...buildDefaultSheetDefinitionConfiguration(),
+          },
         },
-      }, client),
+        client,
+      ),
     onSuccess: () => {
       setError(null)
       void queryClient.invalidateQueries({ queryKey: ['configure'] })
@@ -779,7 +806,9 @@ function SheetDefinitionPlane({
       void queryClient.invalidateQueries({ queryKey: ['configure'] })
     },
     onError: (cause: unknown) =>
-      setError(cause instanceof Error ? cause.message : 'Could not publish version.'),
+      setError(
+        cause instanceof Error ? cause.message : 'Could not publish version.',
+      ),
   })
 
   const retireDefinition = useMutation({
@@ -795,7 +824,9 @@ function SheetDefinitionPlane({
       void queryClient.invalidateQueries({ queryKey: ['configure'] })
     },
     onError: (cause: unknown) =>
-      setError(cause instanceof Error ? cause.message : 'Could not retire definition.'),
+      setError(
+        cause instanceof Error ? cause.message : 'Could not retire definition.',
+      ),
   })
 
   const retireVersion = useMutation({
@@ -812,7 +843,9 @@ function SheetDefinitionPlane({
       void queryClient.invalidateQueries({ queryKey: ['configure'] })
     },
     onError: (cause: unknown) =>
-      setError(cause instanceof Error ? cause.message : 'Could not retire version.'),
+      setError(
+        cause instanceof Error ? cause.message : 'Could not retire version.',
+      ),
   })
 
   const createFromInstance = useMutation({
@@ -847,7 +880,9 @@ function SheetDefinitionPlane({
     },
     onError: (cause: unknown) =>
       setError(
-        cause instanceof Error ? cause.message : 'Could not extract definition.',
+        cause instanceof Error
+          ? cause.message
+          : 'Could not extract definition.',
       ),
   })
   const updateDraft = useMutation({
@@ -869,55 +904,83 @@ function SheetDefinitionPlane({
     },
     onError: (cause: unknown) =>
       setError(
-        cause instanceof Error ? cause.message : 'Could not update draft version.',
+        cause instanceof Error
+          ? cause.message
+          : 'Could not update draft version.',
       ),
   })
   const previewConsumerUpgrade = useMutation({
     mutationFn: () => {
       if (!latestVersion) throw new Error('No Definition version selected.')
-      const instanceId = upgradeInstanceId.trim()
-      const expectedRevision = Number(upgradeExpectedRevision.trim())
-      if (!instanceId) throw new Error('Sheet Instance ID is required.')
+      const targetInstanceId = consumerUpgradeInstanceId.trim()
+      const expectedRevision = Number(consumerUpgradeExpectedRevision.trim())
+      if (!targetInstanceId) throw new Error('Sheet Instance ID is required.')
       if (!Number.isInteger(expectedRevision) || expectedRevision <= 0) {
-        throw new Error('Expected instance revision must be a positive integer.')
+        throw new Error(
+          'Expected instance revision must be a positive integer.',
+        )
       }
       return previewSheetInstanceDefinitionUpgrade(
-        instanceId,
+        targetInstanceId,
         expectedRevision,
         latestVersion.id,
         client,
       )
     },
-    onSuccess: (result) =>
-      setUpgradePreviewText(
-        `${result.automaticChanges.length} automatic change(s), ${result.conflicts.length} conflict(s).`,
+    onSuccess: (result) => {
+      setConsumerUpgradePreview(result)
+      setConsumerUpgradeDecisionDrafts({})
+      setConsumerUpgradeParameterDrafts({})
+      setConsumerUpgradeMessage(null)
+    },
+    onError: (cause: unknown) =>
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'Could not preview consumer upgrade.',
       ),
   })
   const applyConsumerUpgrade = useMutation({
     mutationFn: () => {
       if (!latestVersion) throw new Error('No Definition version selected.')
-      const instanceId = upgradeInstanceId.trim()
-      const expectedRevision = Number(upgradeExpectedRevision.trim())
-      if (!instanceId) throw new Error('Sheet Instance ID is required.')
+      if (!consumerUpgradePreview)
+        throw new Error('Preview the consumer upgrade before applying.')
+      const targetInstanceId = consumerUpgradeInstanceId.trim()
+      const expectedRevision = Number(consumerUpgradeExpectedRevision.trim())
+      if (!targetInstanceId) throw new Error('Sheet Instance ID is required.')
       if (!Number.isInteger(expectedRevision) || expectedRevision <= 0) {
-        throw new Error('Expected instance revision must be a positive integer.')
+        throw new Error(
+          'Expected instance revision must be a positive integer.',
+        )
       }
+      const collected = collectSheetDefinitionUpgradeInputs(
+        consumerUpgradePreview,
+        latestVersion.configuration.parameters,
+        consumerUpgradeDecisionDrafts,
+        consumerUpgradeParameterDrafts,
+      )
       return applySheetInstanceDefinitionUpgrade(
         {
-          instanceId,
+          instanceId: targetInstanceId,
           expectedRevision,
           targetDefinitionVersionId: latestVersion.id,
-          decisions: [],
-          parameterInputs: [],
+          decisions: collected.decisions,
+          parameterInputs: collected.parameterInputs,
         },
         client,
       )
     },
     onSuccess: (result) =>
-      setUpgradePreviewText(
+      setConsumerUpgradeMessage(
         result.status === 'applied'
           ? 'Upgrade applied.'
           : 'Upgrade deferred until conflicts are resolved.',
+      ),
+    onError: (cause: unknown) =>
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'Could not apply consumer upgrade.',
       ),
   })
   const forkVersion = useMutation({
@@ -941,7 +1004,9 @@ function SheetDefinitionPlane({
     },
     onError: (cause: unknown) =>
       setError(
-        cause instanceof Error ? cause.message : 'Could not create new draft version.',
+        cause instanceof Error
+          ? cause.message
+          : 'Could not create new draft version.',
       ),
   })
 
@@ -1005,7 +1070,9 @@ function SheetDefinitionPlane({
               <TableRow key={version.id}>
                 <TableCell>v{version.version}</TableCell>
                 <TableCell>{version.lifecycle}</TableCell>
-                <TableCell>{version.publishedAt ? formatDate(version.publishedAt) : '—'}</TableCell>
+                <TableCell>
+                  {version.publishedAt ? formatDate(version.publishedAt) : '—'}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -1026,7 +1093,9 @@ function SheetDefinitionPlane({
         </Button>
         <Button
           variant="outline"
-          disabled={!canEdit || !definitionId || !latestVersion || forkVersion.isPending}
+          disabled={
+            !canEdit || !definitionId || !latestVersion || forkVersion.isPending
+          }
           onClick={() => forkVersion.mutate()}
         >
           New draft version
@@ -1083,50 +1152,82 @@ function SheetDefinitionPlane({
         </Button>
       </div>
       <div className="space-y-2 rounded-md border p-3">
-        <p className="text-xs font-medium">Upgrade Sheet Definition consumers</p>
+        <p className="text-xs font-medium">
+          Upgrade Sheet Definition consumers
+        </p>
         <p className="text-xs text-muted-foreground">
-          Preview and apply explicit upgrades for Sheet Instances consuming this Definition version.
+          Preview and apply explicit upgrades for Sheet Instances consuming this
+          Definition version.
         </p>
         <div className="grid gap-2 sm:grid-cols-2">
           <Label className="text-xs">
             Sheet Instance ID
             <Input
               className="mt-1 font-mono"
-              value={upgradeInstanceId}
+              value={consumerUpgradeInstanceId}
               disabled={!canEdit}
-              onChange={(event) => setUpgradeInstanceId(event.target.value)}
+              onChange={(event) =>
+                setConsumerUpgradeInstanceId(event.target.value)
+              }
             />
           </Label>
           <Label className="text-xs">
             Expected instance revision
             <Input
               className="mt-1"
-              value={upgradeExpectedRevision}
+              value={consumerUpgradeExpectedRevision}
               disabled={!canEdit}
-              onChange={(event) => setUpgradeExpectedRevision(event.target.value)}
+              onChange={(event) =>
+                setConsumerUpgradeExpectedRevision(event.target.value)
+              }
             />
           </Label>
         </div>
         <div className="flex gap-2">
           <Button
             variant="outline"
-            disabled={!canEdit || !latestVersion || previewConsumerUpgrade.isPending}
+            disabled={
+              !canEdit || !latestVersion || previewConsumerUpgrade.isPending
+            }
             onClick={() => previewConsumerUpgrade.mutate()}
           >
             Preview consumer upgrade
           </Button>
           <Button
             variant="outline"
-            disabled={!canEdit || !latestVersion || applyConsumerUpgrade.isPending}
+            disabled={
+              !canEdit || !latestVersion || applyConsumerUpgrade.isPending
+            }
             onClick={() => applyConsumerUpgrade.mutate()}
           >
             Apply consumer upgrade
           </Button>
         </div>
+        {consumerUpgradePreview && latestVersion ? (
+          <SheetDefinitionUpgradeForm
+            preview={consumerUpgradePreview}
+            targetParameters={latestVersion.configuration.parameters}
+            decisionDrafts={consumerUpgradeDecisionDrafts}
+            parameterDrafts={consumerUpgradeParameterDrafts}
+            disabled={applyConsumerUpgrade.isPending}
+            onDecisionChange={(conflictId, draft) =>
+              setConsumerUpgradeDecisionDrafts((current) => ({
+                ...current,
+                [conflictId]: draft,
+              }))
+            }
+            onParameterChange={(parameterId, value) =>
+              setConsumerUpgradeParameterDrafts((current) => ({
+                ...current,
+                [parameterId]: value,
+              }))
+            }
+          />
+        ) : null}
       </div>
-      {upgradePreviewText ? (
+      {consumerUpgradeMessage ? (
         <p className="text-xs text-muted-foreground" role="status">
-          {upgradePreviewText}
+          {consumerUpgradeMessage}
         </p>
       ) : null}
       {selectionPreview ? (
@@ -1292,7 +1393,11 @@ function DefinitionImpact({
   const impactQuery = useQuery({
     queryKey: ['configure', 'definition-impact', versionId],
     queryFn: () =>
-      discoverObjectDependencies(client, 'sheet_definition_version', versionId!),
+      discoverObjectDependencies(
+        client,
+        'sheet_definition_version',
+        versionId!,
+      ),
     enabled: Boolean(versionId),
   })
   const dependencies = useMemo(

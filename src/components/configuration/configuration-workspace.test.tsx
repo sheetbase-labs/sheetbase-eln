@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -473,66 +479,84 @@ function fakeClient(): DataClient {
           source: {
             instanceId: payload.p_instance_id,
             instanceRevision: payload.p_expected_instance_revision,
-            definitionVersionId: versionId,
+            definitionId,
+            versionId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+            version: 1,
           },
-          target: { definitionVersionId: payload.p_target_definition_version_id },
+          target: {
+            definitionId,
+            versionId: payload.p_target_definition_version_id,
+            version: 2,
+          },
           automaticChanges: [],
-          conflicts: [],
+          conflicts: [
+            {
+              id: `parameter-required:${localFieldId}`,
+              kind: 'parameter-required',
+              sourceId: localFieldId,
+              targetCandidates: [],
+              allowedOutcomes: ['defer'],
+              instanceReferences: {
+                localField: false,
+                localValueCount: 0,
+                calculationIds: [],
+                calculationOverride: false,
+                presentation: false,
+              },
+            },
+          ],
+          preserved: {
+            localFieldIds: [],
+            localValueRowCount: 0,
+            instanceCalculationIds: [],
+            calculationOverrideIds: [],
+            presentationOwnedByInstance: true,
+            bindingProvenanceRevalidated: true,
+            writeOwnershipFromTarget: true,
+          },
         }
       if (name === 'apply_sheet_instance_definition_upgrade')
         return {
-          status: 'applied',
+          status: 'deferred',
           preview: {
             source: {
               instanceId: payload.p_instance_id,
               instanceRevision: payload.p_expected_instance_revision,
-              definitionVersionId: versionId,
+              definitionId,
+              versionId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+              version: 1,
             },
-            target: { definitionVersionId: payload.p_target_definition_version_id },
+            target: {
+              definitionId,
+              versionId: payload.p_target_definition_version_id,
+              version: 2,
+            },
             automaticChanges: [],
-            conflicts: [],
-          },
-          instance: {
-            id: instanceId,
-            workspace_id: 'workspace-1',
-            project_id: null,
-            notebook_record_id: null,
-            source_definition_version_id: payload.p_target_definition_version_id,
-            name: 'Instance A',
-            description: null,
-            lifecycle: 'active',
-            revision: payload.p_expected_instance_revision + 1,
-            state: {
-              bindings: [],
-              parameterValues: [],
-              localFields: [],
-              localValues: {},
-              calculationOverrides: {},
-              instanceCalculations: [],
-              presentation: {
-                columnOrder: [],
-                hiddenColumnIds: [],
-                columnWidths: {},
-                frozenColumnCount: 0,
-                density: 'standard',
-                filters: [],
-                sorts: [],
+            conflicts: [
+              {
+                id: `parameter-required:${localFieldId}`,
+                kind: 'parameter-required',
+                sourceId: localFieldId,
+                targetCandidates: [],
+                allowedOutcomes: ['defer'],
+                instanceReferences: {
+                  localField: false,
+                  localValueCount: 0,
+                  calculationIds: [],
+                  calculationOverride: false,
+                  presentation: false,
+                },
               },
-              provenance: { createdFrom: 'ad_hoc' },
+            ],
+            preserved: {
+              localFieldIds: [],
+              localValueRowCount: 0,
+              instanceCalculationIds: [],
+              calculationOverrideIds: [],
+              presentationOwnedByInstance: true,
+              bindingProvenanceRevalidated: true,
+              writeOwnershipFromTarget: true,
             },
-            duplicated_from_instance_id: null,
-            created_at: '2026-01-01T00:00:00Z',
-            updated_at: '2026-01-01T00:00:00Z',
-            created_by_user_id: null,
-            updated_by_user_id: null,
-          },
-          provenance: {
-            sourceDefinitionVersionId: versionId,
-            targetDefinitionVersionId: payload.p_target_definition_version_id,
-            sourceInstanceRevision: payload.p_expected_instance_revision,
-            resultingInstanceRevision: payload.p_expected_instance_revision + 1,
-            actorUserId: 'core-065-owner',
-            upgradedAt: '2026-01-01T00:00:00Z',
           },
         }
       return { dependencies: [] }
@@ -544,7 +568,10 @@ function fakeClient(): DataClient {
   }
 }
 
-function mount(role: 'scientist' | 'steward' | 'owner', searchKind: 'schema' | 'definition' = 'schema') {
+function mount(
+  role: 'scientist' | 'steward' | 'owner',
+  searchKind: 'schema' | 'definition' = 'schema',
+) {
   const client = fakeClient()
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -626,7 +653,10 @@ describe('ConfigurationWorkspace', () => {
   it('creates a Sheet Definition draft with canonical writeBackRules and presentation keys', async () => {
     const user = userEvent.setup()
     const { client } = mount('steward', 'definition')
-    await user.type(screen.getAllByLabelText('Stable key')[0], 'new_sheet_definition')
+    await user.type(
+      screen.getAllByLabelText('Stable key')[0],
+      'new_sheet_definition',
+    )
     await user.type(screen.getAllByLabelText('Name')[0], 'New sheet definition')
     await user.click(screen.getAllByRole('button', { name: 'Create draft' })[0])
     await waitFor(() =>
@@ -712,7 +742,7 @@ describe('ConfigurationWorkspace', () => {
     expect(retireCall[1].p_expected_revision).toBe(3)
   })
 
-  it('previews and applies consumer upgrades from the definition plane', async () => {
+  it('previews conflicted consumer upgrades, collects decisions and parameters, then submits', async () => {
     const user = userEvent.setup()
     const { client } = mount('owner', 'definition')
     await user.type(
@@ -720,15 +750,40 @@ describe('ConfigurationWorkspace', () => {
       '33333333-3333-4333-8333-333333333333',
     )
     await user.type(screen.getByLabelText('Expected instance revision'), '9')
-    await user.click(screen.getByRole('button', { name: 'Preview consumer upgrade' }))
-    await user.click(screen.getByRole('button', { name: 'Apply consumer upgrade' }))
+    await user.click(
+      screen.getByRole('button', { name: 'Preview consumer upgrade' }),
+    )
+    expect(
+      await screen.findByText(
+        `parameter-required:${'44444444-4444-4444-8444-444444444444'}`,
+      ),
+    ).toBeTruthy()
+    await user.selectOptions(
+      document.getElementById(
+        `upgrade-conflict-parameter-required:${'44444444-4444-4444-8444-444444444444'}`,
+      )!,
+      'defer',
+    )
+    await user.click(
+      screen.getByRole('button', { name: 'Apply consumer upgrade' }),
+    )
     const previewCall = (client.rpc as any).mock.calls.find(
-      ([name]: [string]) => name === 'preview_sheet_instance_definition_upgrade',
+      ([name]: [string]) =>
+        name === 'preview_sheet_instance_definition_upgrade',
     )
     const applyCall = (client.rpc as any).mock.calls.find(
       ([name]: [string]) => name === 'apply_sheet_instance_definition_upgrade',
     )
     expect(previewCall?.[1].p_expected_instance_revision).toBe(9)
-    expect(applyCall?.[1].p_expected_instance_revision).toBe(9)
+    expect(applyCall?.[1].p_decisions).toEqual([
+      {
+        conflictId: `parameter-required:44444444-4444-4444-8444-444444444444`,
+        outcome: 'defer',
+      },
+    ])
+    expect(applyCall?.[1].p_parameter_inputs).toEqual([])
+    expect(
+      await screen.findByText('Upgrade deferred until conflicts are resolved.'),
+    ).toBeTruthy()
   })
 })

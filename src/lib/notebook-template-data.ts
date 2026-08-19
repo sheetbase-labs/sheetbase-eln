@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { createDataClient } from './data-client'
 import type { DataClient } from './data-client'
 import { parseNotebookTemplateConfiguration } from './notebook-template'
+import { parseNotebookTemplateUpgradePreviewFromWire } from './notebook-template-upgrade'
 import type { NotebookTemplateConfiguration } from './notebook-template'
 import { parameterUuidSchema, rfc3339TimestampSchema } from './parameter'
 
@@ -276,10 +277,11 @@ export async function previewNotebookTemplateUpgrade(
   targetVersionId: string,
   client: DataClient = notebookTemplateDataClient,
 ) {
-  return client.rpc<unknown>('preview_notebook_template_upgrade', {
+  const result = await client.rpc<unknown>('preview_notebook_template_upgrade', {
     p_record_id: recordId,
     p_target_version_id: targetVersionId,
   })
+  return parseNotebookTemplateUpgradePreviewFromWire(result)
 }
 
 export async function applyNotebookTemplateUpgrade(

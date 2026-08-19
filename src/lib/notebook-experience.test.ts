@@ -436,7 +436,7 @@ describe('duplicateExperiment', () => {
     expect(record.title).toBe('Stability run copy')
   })
 
-  it('inserts an empty rich_text block when there are no non-sheet blocks', async () => {
+  it('inserts an empty rich_text block when the source has no blocks', async () => {
     const rpc = vi.fn().mockResolvedValue({
       record: recordWire(),
       blocks: [],
@@ -466,7 +466,11 @@ describe('duplicateExperiment', () => {
     const { fetchSheetInstance, duplicateSheetInstance } = await import(
       '#/lib/sheet-instance-data'
     )
-    const { insertSheetInstanceBlock } = await import('#/lib/notebook-mutations')
+    const { insertSheetInstanceBlock, insertBlock } = await import(
+      '#/lib/notebook-mutations'
+    )
+    vi.mocked(insertSheetInstanceBlock).mockClear()
+    vi.mocked(insertBlock).mockClear()
     vi.mocked(fetchSheetInstance).mockResolvedValue({
       id: instanceId,
       name: 'Plate map',
@@ -497,6 +501,12 @@ describe('duplicateExperiment', () => {
         }),
       ],
     })
+    expect(rpc).toHaveBeenCalledWith(
+      'create_record_with_blocks',
+      expect.objectContaining({
+        p_blocks: [],
+      }),
+    )
     expect(fetchSheetInstance).toHaveBeenCalledWith(instanceId, client)
     expect(duplicateSheetInstance).toHaveBeenCalledWith(
       instanceId,
@@ -509,6 +519,7 @@ describe('duplicateExperiment', () => {
       instanceId: duplicatedId,
       expectedStructureVersion: 1,
     })
+    expect(insertBlock).not.toHaveBeenCalled()
   })
 
   it('keeps interleaved Sheet order when duplicating text, Sheet, text', async () => {
@@ -520,6 +531,8 @@ describe('duplicateExperiment', () => {
     const { insertSheetInstanceBlock, insertBlock } = await import(
       '#/lib/notebook-mutations'
     )
+    vi.mocked(insertSheetInstanceBlock).mockClear()
+    vi.mocked(insertBlock).mockClear()
     vi.mocked(fetchSheetInstance).mockResolvedValue({
       id: instanceId,
       name: 'Readings',
@@ -603,6 +616,84 @@ describe('duplicateExperiment', () => {
       expectedStructureVersion: 2,
       afterBlockId: 'new-s',
     })
+  })
+
+  it('places a leading Sheet first without a blank rich-text placeholder', async () => {
+    const instanceId = '20000000-0000-4000-8000-000000000001'
+    const duplicatedId = '20000000-0000-4000-8000-000000000002'
+    const { fetchSheetInstance, duplicateSheetInstance } = await import(
+      '#/lib/sheet-instance-data'
+    )
+    const { insertSheetInstanceBlock, insertBlock } = await import(
+      '#/lib/notebook-mutations'
+    )
+    vi.mocked(insertSheetInstanceBlock).mockClear()
+    vi.mocked(insertBlock).mockClear()
+    vi.mocked(fetchSheetInstance).mockResolvedValue({
+      id: instanceId,
+      name: 'Plate map',
+      revision: 1,
+    } as SheetInstance)
+    vi.mocked(duplicateSheetInstance).mockResolvedValue({
+      id: duplicatedId,
+      name: 'Plate map copy',
+      revision: 1,
+    } as SheetInstance)
+    vi.mocked(insertSheetInstanceBlock).mockResolvedValue({
+      block: block({ id: 'new-s', type: 'sheet', recordId: recordWire().id }),
+      instanceId: duplicatedId,
+      structureVersion: 2,
+    })
+    vi.mocked(insertBlock).mockResolvedValue({
+      block: block({
+        id: 'new-t1',
+        type: 'rich_text',
+        recordId: recordWire().id,
+      }),
+      structureVersion: 3,
+    })
+    const rpc = vi.fn().mockResolvedValue({
+      record: recordWire(),
+      blocks: [],
+    })
+    const client = mockClient({ rpc })
+    await duplicateExperiment(client, {
+      source: sourceRecord(),
+      blocks: [
+        block({
+          id: 's1',
+          type: 'sheet',
+          order: 1,
+          payload: { instanceId },
+        }),
+        block({
+          id: 't1',
+          type: 'rich_text',
+          order: 2,
+          payload: { doc: { type: 'doc', content: [{ type: 'paragraph' }] } },
+        }),
+      ],
+    })
+    expect(rpc).toHaveBeenCalledWith(
+      'create_record_with_blocks',
+      expect.objectContaining({
+        p_blocks: [],
+      }),
+    )
+    expect(insertSheetInstanceBlock).toHaveBeenCalledWith(client, {
+      recordId: recordWire().id,
+      instanceId: duplicatedId,
+      expectedStructureVersion: 1,
+    })
+    expect(insertBlock).toHaveBeenCalledWith(client, {
+      recordId: recordWire().id,
+      type: 'rich_text',
+      payload: { doc: { type: 'doc', content: [{ type: 'paragraph' }] } },
+      payloadSchemaVersion: 1,
+      expectedStructureVersion: 2,
+      afterBlockId: 'new-s',
+    })
+    expect(insertBlock).toHaveBeenCalledTimes(1)
   })
 
   it('rejects a Notebook without a project', async () => {

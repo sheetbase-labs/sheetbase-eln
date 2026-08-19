@@ -372,14 +372,16 @@ export async function duplicateExperiment(
   const pBlocks =
     leading.length > 0
       ? createBlocksPayload(leading)
-      : [
-          {
-            type: 'rich_text',
-            payload: EMPTY_RICH_TEXT_PAYLOAD,
-            payload_schema_version: PAYLOAD_SCHEMA_VERSION,
-            order: 1,
-          },
-        ]
+      : ordered.length === 0
+        ? [
+            {
+              type: 'rich_text',
+              payload: EMPTY_RICH_TEXT_PAYLOAD,
+              payload_schema_version: PAYLOAD_SCHEMA_VERSION,
+              order: 1,
+            },
+          ]
+        : []
 
   const result = await client.rpc<{ record: RecordWire; blocks: BlockWire[] }>(
     'create_record_with_blocks',
@@ -422,7 +424,7 @@ export async function duplicateExperiment(
         recordId: record.id,
         instanceId: duplicated.id,
         expectedStructureVersion: structureVersion,
-        afterBlockId: lastBlockId,
+        ...(lastBlockId ? { afterBlockId: lastBlockId } : {}),
       })
       lastBlockId = inserted.block.id
       structureVersion = inserted.structureVersion
@@ -435,7 +437,7 @@ export async function duplicateExperiment(
       payload: source.payload,
       payloadSchemaVersion: source.payloadSchemaVersion,
       expectedStructureVersion: structureVersion,
-      afterBlockId: lastBlockId,
+      ...(lastBlockId ? { afterBlockId: lastBlockId } : {}),
     })
     lastBlockId = inserted.block.id
     structureVersion = inserted.structureVersion

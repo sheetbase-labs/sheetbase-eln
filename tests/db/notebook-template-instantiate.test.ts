@@ -16,6 +16,12 @@ const PLACEMENT = '06500000-0000-4000-8000-000000000011'
 const NARRATIVE_V2 = '06500000-0000-4000-8000-000000000012'
 const TEMPLATE_PARAMETER = '06500000-0000-4000-8000-000000000013'
 const RECORD_B = '06500000-0000-4000-8000-000000000020'
+const DEF_OPTIONAL_PARAM = '06500000-0000-4000-8000-000000000014'
+const TEMPLATE_OPTIONAL_PARAM = '06500000-0000-4000-8000-000000000015'
+const PLACEMENT_OPTIONAL = '06500000-0000-4000-8000-000000000016'
+const NARRATIVE_ONLY = '06500000-0000-4000-8000-000000000017'
+const PLACEMENT_A = '06500000-0000-4000-8000-000000000018'
+const PLACEMENT_B = '06500000-0000-4000-8000-000000000019'
 
 let migrator: Client
 let asRole: (role: 'authenticator') => Promise<Client>
@@ -82,6 +88,92 @@ function narrativeConfig(id = NARRATIVE, order = 1) {
         payload: {
           doc: { type: 'doc', content: [{ type: 'paragraph' }] },
         },
+      },
+    ],
+  }
+}
+
+function optionalScalarDefinitionConfiguration() {
+  const configuration = localDefinitionConfiguration()
+  configuration.parameters = [
+    {
+      id: DEF_OPTIONAL_PARAM,
+      key: 'note',
+      label: 'Note',
+      required: false,
+      type: { kind: 'scalar', valueType: 'text' },
+      constraints: {},
+    },
+  ]
+  return configuration
+}
+
+function templateWithOptionalMappedScalar(definitionVersionId: string) {
+  return {
+    formatVersion: 1,
+    parameters: [
+      {
+        id: TEMPLATE_OPTIONAL_PARAM,
+        key: 'optional_note',
+        label: 'Optional note',
+        required: false,
+        type: { kind: 'scalar', valueType: 'text' },
+        constraints: {},
+      },
+    ],
+    placements: [
+      {
+        id: PLACEMENT_OPTIONAL,
+        kind: 'sheet',
+        order: 1,
+        definitionVersionId,
+        parameterMappings: [
+          {
+            templateParameterId: TEMPLATE_OPTIONAL_PARAM,
+            definitionParameterId: DEF_OPTIONAL_PARAM,
+          },
+        ],
+      },
+    ],
+  }
+}
+
+function narrativeOnlyTemplateConfig() {
+  return {
+    formatVersion: 1,
+    parameters: [],
+    placements: [
+      {
+        id: NARRATIVE_ONLY,
+        kind: 'narrative',
+        order: 1,
+        blockType: 'rich_text',
+        payload: {
+          doc: { type: 'doc', content: [{ type: 'paragraph' }] },
+        },
+      },
+    ],
+  }
+}
+
+function dualSheetConfig(definitionVersionId: string) {
+  return {
+    formatVersion: 1,
+    parameters: [],
+    placements: [
+      {
+        id: PLACEMENT_A,
+        kind: 'sheet',
+        order: 1,
+        definitionVersionId,
+        parameterMappings: [],
+      },
+      {
+        id: PLACEMENT_B,
+        kind: 'sheet',
+        order: 2,
+        definitionVersionId,
+        parameterMappings: [],
       },
     ],
   }
@@ -301,9 +393,7 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     ).rows[0].result
     expect(embeddings.count).toBe(2)
 
-    await owner.query(`select api.delete_block($1,NULL)`, [
-      created.block.id,
-    ])
+    await owner.query(`select api.delete_block($1,NULL)`, [created.block.id])
     const remaining = (
       await owner.query(
         `select lifecycle from api.sheet_instances where id=$1`,
@@ -438,7 +528,10 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     const v2def = (
       await owner.query(
         `select to_jsonb(api.create_sheet_definition_version($1,1,$2::jsonb)) result`,
-        [definition.definition.id, JSON.stringify(localDefinitionConfiguration())],
+        [
+          definition.definition.id,
+          JSON.stringify(localDefinitionConfiguration()),
+        ],
       )
     ).rows[0].result
     const publishedDef2 = (
@@ -512,5 +605,584 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
       )
     ).rows[0]
     expect(pinned.source_notebook_template_version_id).toBe(v1.id)
+  })
+
+  it('instantiates when an optional mapped scalar Template input is omitted', async () => {
+    const owner = await actor(OWNER, WS)
+    const definition = (
+      await owner.query(
+        `select api.create_sheet_definition($1,'optional_scalar','Optional scalar',null,$2::jsonb) result`,
+        [WS, JSON.stringify(optionalScalarDefinitionConfiguration())],
+      )
+    ).rows[0].result
+    await owner.query(`select api.publish_sheet_definition_version($1,$2)`, [
+      definition.version.id,
+      definition.version.revision,
+    ])
+    const created = (
+      await owner.query(
+        `select api.create_notebook_template($1,'optional_scalar_nb','Optional scalar notebook',null,$2::jsonb) result`,
+        [
+          WS,
+          JSON.stringify(
+            templateWithOptionalMappedScalar(definition.version.id),
+          ),
+        ],
+      )
+    ).rows[0].result
+    const published = (
+      await owner.query(
+        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        [created.version.id, created.version.revision],
+      )
+    ).rows[0].result
+
+    const result = (
+      await owner.query(
+        `select api.instantiate_notebook_template_version($1,$2,'Omit optional','[]'::jsonb,'idem-optional-scalar') result`,
+        [published.id, PROJECT],
+      )
+    ).rows[0].result
+    expect(result.idempotent).toBe(false)
+    expect(result.record.source_notebook_template_version_id).toBe(published.id)
+
+    const instance = (
+      await owner.query(
+        `select i.state->'parameterValues' parameter_values
+           from api.blocks b
+           join api.sheet_instances i on i.id = (b.payload->>'instanceId')::uuid
+          where b.record_id = $1 and b.type = 'sheet'`,
+        [result.record.id],
+      )
+    ).rows[0]
+    expect(instance.parameter_values).toEqual([])
+  })
+
+  it('maps and upgrades two placements sharing one Definition independently', async () => {
+    const owner = await actor(OWNER, WS)
+    const definition = (
+      await owner.query(
+        `select api.create_sheet_definition($1,'dual_placement','Dual placement',null,$2::jsonb) result`,
+        [WS, JSON.stringify(localDefinitionConfiguration())],
+      )
+    ).rows[0].result
+    await owner.query(`select api.publish_sheet_definition_version($1,$2)`, [
+      definition.version.id,
+      definition.version.revision,
+    ])
+    const definitionV2 = (
+      await owner.query(
+        `select to_jsonb(api.create_sheet_definition_version($1,1,$2::jsonb)) result`,
+        [
+          definition.definition.id,
+          JSON.stringify(localDefinitionConfiguration()),
+        ],
+      )
+    ).rows[0].result
+    const publishedDef2 = (
+      await owner.query(
+        `select to_jsonb(api.publish_sheet_definition_version($1,$2)) result`,
+        [definitionV2.id, definitionV2.revision],
+      )
+    ).rows[0].result
+
+    const created = (
+      await owner.query(
+        `select api.create_notebook_template($1,'dual_sheet_nb','Dual sheet notebook',null,$2::jsonb) result`,
+        [WS, JSON.stringify(dualSheetConfig(definition.version.id))],
+      )
+    ).rows[0].result
+    const v1 = (
+      await owner.query(
+        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        [created.version.id, created.version.revision],
+      )
+    ).rows[0].result
+    const notebook = (
+      await owner.query(
+        `select api.instantiate_notebook_template_version($1,$2,'Dual sheets','[]'::jsonb,'idem-dual-sheet') result`,
+        [v1.id, PROJECT],
+      )
+    ).rows[0].result
+
+    const blocks = (
+      await owner.query(
+        `select b.payload->>'instanceId' instance_id,
+                b.payload->>'templatePlacementId' placement_id
+           from api.blocks b
+          where b.record_id = $1 and b.type = 'sheet'
+          order by b."order"`,
+        [notebook.record.id],
+      )
+    ).rows
+    expect(blocks).toHaveLength(2)
+    expect(blocks[0].instance_id).not.toBe(blocks[1].instance_id)
+    expect(
+      blocks.map((row: { placement_id: string }) => row.placement_id).sort(),
+    ).toEqual([PLACEMENT_A, PLACEMENT_B].sort())
+
+    const v2draft = (
+      await owner.query(
+        `select to_jsonb(api.create_notebook_template_version($1,$2,$3::jsonb)) result`,
+        [
+          created.template.id,
+          created.template.revision,
+          JSON.stringify(dualSheetConfig(publishedDef2.id)),
+        ],
+      )
+    ).rows[0].result
+    const v2 = (
+      await owner.query(
+        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        [v2draft.id, v2draft.revision],
+      )
+    ).rows[0].result
+
+    const preview = (
+      await owner.query(
+        `select api.preview_notebook_template_upgrade($1,$2) result`,
+        [notebook.record.id, v2.id],
+      )
+    ).rows[0].result
+    const sheetUpgrades = preview.automatic.filter(
+      (item: { kind: string }) => item.kind === 'sheet-definition-compatible',
+    )
+    expect(sheetUpgrades).toHaveLength(2)
+    expect(sheetUpgrades[0].instanceId).not.toBe(sheetUpgrades[1].instanceId)
+    expect(
+      sheetUpgrades
+        .map((item: { placementId: string }) => item.placementId)
+        .sort(),
+    ).toEqual([PLACEMENT_A, PLACEMENT_B].sort())
+
+    const structureVersion = (
+      await owner.query(
+        `select structure_version from api.records where id=$1`,
+        [notebook.record.id],
+      )
+    ).rows[0].structure_version
+
+    await owner.query(
+      `select api.apply_notebook_template_upgrade($1,$2,$3,'[]'::jsonb,'[]'::jsonb) result`,
+      [notebook.record.id, structureVersion, v2.id],
+    )
+
+    const upgraded = (
+      await owner.query(
+        `select i.source_definition_version_id source
+           from api.blocks b
+           join api.sheet_instances i on i.id = (b.payload->>'instanceId')::uuid
+          where b.record_id = $1 and b.type = 'sheet'
+          order by b."order"`,
+        [notebook.record.id],
+      )
+    ).rows
+    expect(upgraded).toHaveLength(2)
+    expect(
+      upgraded.every(
+        (row: { source: string }) => row.source === publishedDef2.id,
+      ),
+    ).toBe(true)
+    expect(
+      new Set(upgraded.map((row: { source: string }) => row.source)).size,
+    ).toBe(1)
+    const instanceIds = (
+      await owner.query(
+        `select b.payload->>'instanceId' instance_id
+           from api.blocks b
+          where b.record_id = $1 and b.type = 'sheet'
+          order by b."order"`,
+        [notebook.record.id],
+      )
+    ).rows.map((row: { instance_id: string }) => row.instance_id)
+    expect(new Set(instanceIds).size).toBe(2)
+  })
+
+  it('keeps templatePlacementId system-managed at the data boundary while canonical placement assignment still works', async () => {
+    const owner = await actor(OWNER, WS)
+    const adHocNotebook = (
+      await owner.query(
+        `select to_jsonb(api.create_record($1,'experiment','Ad hoc sheet','draft','{}'::text[],'{}'::jsonb)) result`,
+        [PROJECT],
+      )
+    ).rows[0].result
+    const adHocInserted = (
+      await owner.query(
+        `select api.insert_sheet_instance_block($1,NULL,NULL,NULL) result`,
+        [adHocNotebook.id],
+      )
+    ).rows[0].result
+    const adHocBlock = adHocInserted.block
+    const adHocStructureVersion = (
+      await owner.query(
+        `select structure_version from api.records where id = $1`,
+        [adHocNotebook.id],
+      )
+    ).rows[0].structure_version
+
+    await expectDenied(
+      owner.query(
+        `select api.update_block_payload(
+           $1,
+           ($2::jsonb || jsonb_build_object('templatePlacementId', $5::text)),
+           $3,
+           $4
+         )`,
+        [
+          adHocBlock.id,
+          JSON.stringify(adHocBlock.payload),
+          adHocBlock.version,
+          adHocStructureVersion,
+          crypto.randomUUID(),
+        ],
+      ),
+      '23514',
+    )
+
+    await expectDenied(
+      owner.query(`select api.insert_block($1,'sheet',$2::jsonb,1,NULL,NULL)`, [
+        adHocNotebook.id,
+        JSON.stringify({
+          instanceId: adHocBlock.payload.instanceId,
+          templatePlacementId: crypto.randomUUID(),
+        }),
+      ]),
+      '23514',
+    )
+
+    await expectDenied(
+      owner.query(
+        `update api.blocks
+            set payload = payload || jsonb_build_object('templatePlacementId', $2::text)
+          where id = $1`,
+        [adHocBlock.id, crypto.randomUUID()],
+      ),
+      '23514',
+    )
+
+    const definition = (
+      await owner.query(
+        `select api.create_sheet_definition($1,'placement_lock','Placement lock',null,$2::jsonb) result`,
+        [WS, JSON.stringify(localDefinitionConfiguration())],
+      )
+    ).rows[0].result
+    await owner.query(`select api.publish_sheet_definition_version($1,$2)`, [
+      definition.version.id,
+      definition.version.revision,
+    ])
+    const created = (
+      await owner.query(
+        `select api.create_notebook_template($1,'placement_lock_nb','Placement lock notebook',null,$2::jsonb) result`,
+        [WS, JSON.stringify(sheetConfig(definition.version.id))],
+      )
+    ).rows[0].result
+    const published = (
+      await owner.query(
+        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        [created.version.id, created.version.revision],
+      )
+    ).rows[0].result
+    const notebook = (
+      await owner.query(
+        `select api.instantiate_notebook_template_version($1,$2,'Placement lock','[]'::jsonb,'idem-placement-lock') result`,
+        [published.id, PROJECT],
+      )
+    ).rows[0].result
+
+    const block = (
+      await owner.query(
+        `select id, version, payload
+           from api.blocks
+          where record_id = $1 and type = 'sheet'
+          limit 1`,
+        [notebook.record.id],
+      )
+    ).rows[0]
+    expect(block.payload.templatePlacementId).toBe(PLACEMENT)
+    const structureVersion = (
+      await owner.query(
+        `select structure_version from api.records where id = $1`,
+        [notebook.record.id],
+      )
+    ).rows[0].structure_version
+
+    await expectDenied(
+      owner.query(
+        `select api.update_block_payload($1, ($2::jsonb - 'templatePlacementId'), $3, $4)`,
+        [
+          block.id,
+          JSON.stringify(block.payload),
+          block.version,
+          structureVersion,
+        ],
+      ),
+      '23514',
+    )
+
+    await expectDenied(
+      owner.query(
+        `select api.update_block_payload(
+           $1,
+           ($2::jsonb || jsonb_build_object('templatePlacementId', $5::text)),
+           $3,
+           $4
+         )`,
+        [
+          block.id,
+          JSON.stringify(block.payload),
+          block.version,
+          structureVersion,
+          crypto.randomUUID(),
+        ],
+      ),
+      '23514',
+    )
+
+    await expectDenied(
+      owner.query(
+        `update api.blocks
+            set payload = jsonb_set(payload, '{templatePlacementId}', to_jsonb($2::text))
+          where id = $1`,
+        [block.id, crypto.randomUUID()],
+      ),
+      '23514',
+    )
+  })
+
+  it('rejects templatePlacementId spoofing via api_client direct block writes', async () => {
+    const owner = await actor(OWNER, WS)
+    const notebook = (
+      await owner.query(
+        `select to_jsonb(api.create_record($1,'experiment','API client spoof','draft','{}'::text[],'{}'::jsonb)) result`,
+        [PROJECT],
+      )
+    ).rows[0].result
+    const inserted = (
+      await owner.query(
+        `select api.insert_sheet_instance_block($1,NULL,NULL,NULL) result`,
+        [notebook.id],
+      )
+    ).rows[0].result
+    const block = inserted.block
+
+    const apiClient = await asRole('authenticator')
+    clients.push(apiClient)
+    await apiClient.query('SET ROLE api_client')
+    await apiClient.query(`select set_config('request.jwt.claims',$1,false)`, [
+      JSON.stringify({
+        role: 'api_client',
+        workspace_id: WS,
+        credential_id: crypto.randomUUID(),
+        scopes: ['notebooks:write'],
+      }),
+    ])
+
+    await expectDenied(
+      apiClient.query(
+        `select api.insert_block($1,'sheet',$2::jsonb,1,NULL,NULL)`,
+        [
+          notebook.id,
+          JSON.stringify({
+            instanceId: block.payload.instanceId,
+            templatePlacementId: PLACEMENT,
+          }),
+        ],
+      ),
+      '23514',
+    )
+
+    await expectDenied(
+      apiClient.query(
+        `update api.blocks
+            set payload = payload || jsonb_build_object('templatePlacementId', $2::text)
+          where id = $1`,
+        [block.id, PLACEMENT],
+      ),
+      '23514',
+    )
+  })
+
+  it('rejects forged template placement assignment gate via set_config before direct writes', async () => {
+    const owner = await actor(OWNER, WS)
+    const notebook = (
+      await owner.query(
+        `select to_jsonb(api.create_record($1,'experiment','GUC forge','draft','{}'::text[],'{}'::jsonb)) result`,
+        [PROJECT],
+      )
+    ).rows[0].result
+    const inserted = (
+      await owner.query(
+        `select api.insert_sheet_instance_block($1,NULL,NULL,NULL) result`,
+        [notebook.id],
+      )
+    ).rows[0].result
+    const block = inserted.block
+
+    await owner.query(
+      `select set_config('sheetbase.template_placement_assign', 'v1', true)`,
+    )
+
+    await expectDenied(
+      owner.query(`select api.insert_block($1,'sheet',$2::jsonb,1,NULL,NULL)`, [
+        notebook.id,
+        JSON.stringify({
+          instanceId: block.payload.instanceId,
+          templatePlacementId: PLACEMENT,
+        }),
+      ]),
+      '23514',
+    )
+
+    await expectDenied(
+      owner.query(
+        `update api.blocks
+            set payload = payload || jsonb_build_object('templatePlacementId', $2::text)
+          where id = $1`,
+        [block.id, PLACEMENT],
+      ),
+      '23514',
+    )
+
+    const apiClient = await asRole('authenticator')
+    clients.push(apiClient)
+    await apiClient.query('SET ROLE api_client')
+    await apiClient.query(`select set_config('request.jwt.claims',$1,false)`, [
+      JSON.stringify({
+        role: 'api_client',
+        workspace_id: WS,
+        credential_id: crypto.randomUUID(),
+        scopes: ['notebooks:write'],
+      }),
+    ])
+    await apiClient.query(
+      `select set_config('sheetbase.template_placement_assign', 'v1', true)`,
+    )
+
+    await expectDenied(
+      apiClient.query(
+        `select api.insert_block($1,'sheet',$2::jsonb,1,NULL,NULL)`,
+        [
+          notebook.id,
+          JSON.stringify({
+            instanceId: block.payload.instanceId,
+            templatePlacementId: PLACEMENT,
+          }),
+        ],
+      ),
+      '23514',
+    )
+
+    await expectDenied(
+      apiClient.query(
+        `update api.blocks
+            set payload = payload || jsonb_build_object('templatePlacementId', $2::text)
+          where id = $1`,
+        [block.id, PLACEMENT],
+      ),
+      '23514',
+    )
+  })
+
+  it('applies an upgrade when a new placement omits an optional mapped scalar input', async () => {
+    const owner = await actor(OWNER, WS)
+    const definition = (
+      await owner.query(
+        `select api.create_sheet_definition($1,'upgrade_optional','Upgrade optional scalar',null,$2::jsonb) result`,
+        [WS, JSON.stringify(optionalScalarDefinitionConfiguration())],
+      )
+    ).rows[0].result
+    await owner.query(`select api.publish_sheet_definition_version($1,$2)`, [
+      definition.version.id,
+      definition.version.revision,
+    ])
+
+    const created = (
+      await owner.query(
+        `select api.create_notebook_template($1,'upgrade_optional_nb','Upgrade optional notebook',null,$2::jsonb) result`,
+        [WS, JSON.stringify(narrativeOnlyTemplateConfig())],
+      )
+    ).rows[0].result
+    const v1 = (
+      await owner.query(
+        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        [created.version.id, created.version.revision],
+      )
+    ).rows[0].result
+    const notebook = (
+      await owner.query(
+        `select api.instantiate_notebook_template_version($1,$2,'Before upgrade','[]'::jsonb,'idem-upgrade-optional') result`,
+        [v1.id, PROJECT],
+      )
+    ).rows[0].result
+
+    const v2draft = (
+      await owner.query(
+        `select to_jsonb(api.create_notebook_template_version($1,$2,$3::jsonb)) result`,
+        [
+          created.template.id,
+          created.template.revision,
+          JSON.stringify({
+            ...narrativeOnlyTemplateConfig(),
+            placements: [
+              ...narrativeOnlyTemplateConfig().placements,
+              {
+                id: PLACEMENT_OPTIONAL,
+                kind: 'sheet',
+                order: 2,
+                definitionVersionId: definition.version.id,
+                parameterMappings: [
+                  {
+                    templateParameterId: TEMPLATE_OPTIONAL_PARAM,
+                    definitionParameterId: DEF_OPTIONAL_PARAM,
+                  },
+                ],
+              },
+            ],
+            parameters: templateWithOptionalMappedScalar(definition.version.id)
+              .parameters,
+          }),
+        ],
+      )
+    ).rows[0].result
+    const v2 = (
+      await owner.query(
+        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        [v2draft.id, v2draft.revision],
+      )
+    ).rows[0].result
+
+    const structureVersion = (
+      await owner.query(
+        `select structure_version from api.records where id=$1`,
+        [notebook.record.id],
+      )
+    ).rows[0].structure_version
+
+    const applied = (
+      await owner.query(
+        `select api.apply_notebook_template_upgrade($1,$2,$3,'[]'::jsonb,'[]'::jsonb) result`,
+        [notebook.record.id, structureVersion, v2.id],
+      )
+    ).rows[0].result
+    expect(applied.record.source_notebook_template_version_id).toBe(v2.id)
+
+    const blocks = (
+      await owner.query(
+        `select type from api.blocks where record_id=$1 order by "order"`,
+        [notebook.record.id],
+      )
+    ).rows.map((row: { type: string }) => row.type)
+    expect(blocks).toEqual(['rich_text', 'sheet'])
+
+    const instance = (
+      await owner.query(
+        `select i.state->'parameterValues' parameter_values
+           from api.blocks b
+           join api.sheet_instances i on i.id = (b.payload->>'instanceId')::uuid
+          where b.record_id = $1 and b.type = 'sheet'`,
+        [notebook.record.id],
+      )
+    ).rows[0]
+    expect(instance.parameter_values).toEqual([])
   })
 })

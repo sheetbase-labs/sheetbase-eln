@@ -1,9 +1,15 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Database, Layers, Shield } from 'lucide-react'
 
 import { AdminModelFields } from '#/components/workspace-admin/admin-model-fields'
+import { VersionedNotebookTemplatePanel } from '#/components/templates/versioned-notebook-templates'
+import {
+  collectSheetDefinitionUpgradeInputs,
+  SheetDefinitionUpgradeForm,
+} from '#/components/stewardship/sheet-definition-upgrade-form'
+import type { TemplateProject } from '#/components/templates/template-library'
 import {
   Badge,
   Button,
@@ -30,15 +36,43 @@ import {
 } from '#/lib/dataset-schema-definition-rpc'
 import { discoverObjectDependencies } from '#/lib/object-dependencies'
 import {
+  createSheetDefinition,
+  createSheetDefinitionVersion,
+  extractSheetDefinitionDraft,
+  fetchSheetDefinition,
+  fetchSheetDefinitions,
+  fetchSheetDefinitionVersions,
+  publishSheetDefinitionVersion,
+  previewSheetDefinitionExtraction,
+  retireSheetDefinition,
+  retireSheetDefinitionVersion,
+  updateSheetDefinitionDraft,
+} from '#/lib/sheet-definition-data'
+import {
+  applySheetInstanceDefinitionUpgrade,
+  fetchSheetInstance,
+  previewSheetInstanceDefinitionUpgrade,
+} from '#/lib/sheet-instance-data'
+import type { SheetDefinitionExtractionSelection } from '#/lib/sheet-definition-extraction'
+import {
   applyDatasetSchemaEvolution,
   previewDatasetSchemaEvolution,
   previewLocalFieldPromotion,
   promoteLocalField,
 } from '#/lib/schema-evolution'
+import {
+  formatDate,
+  notebookDataClient,
+  notebookQueryKeys,
+} from '#/lib/notebook-data'
+import { parseSheetDefinitionConfiguration } from '#/lib/sheet-definition'
+import type { SheetDefinitionUpgradePreview } from '#/lib/sheet-definition-upgrade'
+import type { SheetDefinitionUpgradeDecisionDraft } from '#/lib/notebook-template-upgrade'
 import type { WorkspaceRole } from '#/lib/workspace-admin'
 import { cn } from '#/lib/utils'
 
-export type ConfigurationKind = 'model' | 'schema' | 'promotion'
+export type ConfigurationKind =
+  'model' | 'schema' | 'definition' | 'template' | 'promotion'
 
 export interface ConfigurationSearch {
   kind: ConfigurationKind
@@ -90,9 +124,26 @@ export function ConfigurationWorkspace({
     queryFn: () => listCanonicalDatasetSchemaDefinitions(client),
   })
   const schemas = schemasQuery.data ?? []
+  const definitionsQuery = useQuery({
+    queryKey: ['configure', 'definitions'],
+    queryFn: () => fetchSheetDefinitions(client),
+  })
+  const definitions = definitionsQuery.data ?? []
+  const projectsQuery = useQuery({
+    queryKey: notebookQueryKeys.projectsList(),
+    queryFn: () =>
+      notebookDataClient.list<TemplateProject>(
+        'projects',
+        '?order=created_at.desc',
+      ),
+  })
+  const projects = projectsQuery.data ?? []
   const matched = schemas.find((item) => item.id === search.id)
   const selectedSchema =
     matched ?? (schemas.length > 0 ? schemas[0] : undefined)
+  const matchedDefinition = definitions.find((item) => item.id === search.id)
+  const selectedDefinition =
+    matchedDefinition ?? (definitions.length > 0 ? definitions[0] : undefined)
 
   return (
     <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)_280px]">
@@ -144,6 +195,50 @@ export function ConfigurationWorkspace({
           </p>
         ) : null}
         <p className="mt-4 px-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+          Sheet Definitions
+        </p>
+        {definitions.map((definition) => (
+          <CatalogueButton
+            key={definition.id}
+            current={
+              search.kind === 'definition' &&
+              selectedDefinition?.id === definition.id
+            }
+            onClick={() =>
+              onSearchChange({
+                kind: 'definition',
+                id: definition.id,
+                model: undefined,
+              })
+            }
+          >
+            <span className="truncate">{definition.name}</span>
+            <Badge variant="outline" className="ml-auto capitalize">
+              {definition.lifecycle}
+            </Badge>
+          </CatalogueButton>
+        ))}
+        {definitions.length === 0 ? (
+          <p className="px-2 py-2 text-xs text-muted-foreground">
+            No Sheet Definitions yet.
+          </p>
+        ) : null}
+        <p className="mt-4 px-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+          Notebook Templates
+        </p>
+        <CatalogueButton
+          current={search.kind === 'template'}
+          onClick={() =>
+            onSearchChange({
+              kind: 'template',
+              id: undefined,
+              model: undefined,
+            })
+          }
+        >
+          Notebook template versions
+        </CatalogueButton>
+        <p className="mt-4 px-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
           Promotion
         </p>
         <CatalogueButton
@@ -182,6 +277,23 @@ export function ConfigurationWorkspace({
             canEdit={canEdit}
             canPublish={canPublish}
             canRetire={canRetire}
+          />
+        ) : null}
+        {search.kind === 'definition' ? (
+          <SheetDefinitionPlane
+            client={client}
+            workspaceId={workspaceId}
+            definitionId={selectedDefinition?.id ?? null}
+            canEdit={canEdit}
+            canPublish={canPublish}
+            canRetire={canRetire}
+          />
+        ) : null}
+        {search.kind === 'template' ? (
+          <VersionedNotebookTemplatePanel
+            workspaceId={workspaceId}
+            canEdit={canEdit}
+            projects={projects}
           />
         ) : null}
         {search.kind === 'promotion' ? (
@@ -226,9 +338,116 @@ export function ConfigurationWorkspace({
         {search.kind === 'schema' && selectedSchema ? (
           <SchemaImpact client={client} schemaId={selectedSchema.id} />
         ) : null}
+        {search.kind === 'definition' && selectedDefinition ? (
+          <DefinitionImpact
+            client={client}
+            definitionId={selectedDefinition.id}
+          />
+        ) : null}
       </aside>
     </div>
   )
+}
+
+function buildDefaultSheetDefinitionConfiguration() {
+  const identityColumnId = crypto.randomUUID()
+  return {
+    formatVersion: 1 as const,
+    parameters: [],
+    bindings: [],
+    rowIdentity: { kind: 'local' as const, columnIds: [identityColumnId] },
+    joins: [],
+    columns: [
+      {
+        id: identityColumnId,
+        field: {
+          fieldId: identityColumnId,
+          key: 'row_identity',
+          label: 'Row identity',
+          description: null,
+          logicalType: 'reference' as const,
+          nullable: false,
+          defaultValue: null,
+          cardinality: 'one' as const,
+          quantity: null,
+          validation: {},
+          category: null,
+          relationship: {
+            target: { kind: 'model' as const, modelKey: 'sample' },
+            cardinality: 'one' as const,
+          },
+          computation: { mode: 'stored' as const },
+          lifecycle: 'active' as const,
+        },
+        source: { kind: 'declared' as const },
+      },
+    ],
+    calculations: [],
+    writeBackRules: [],
+    actions: [],
+    presentation: {
+      columnOrder: [identityColumnId],
+      hiddenColumnIds: [],
+      columnWidths: {},
+      frozenColumnCount: 0,
+      density: 'standard' as const,
+      filters: [],
+      sorts: [],
+    },
+  }
+}
+
+function buildExtractionSelection(
+  instance: Awaited<ReturnType<typeof fetchSheetInstance>>,
+): SheetDefinitionExtractionSelection {
+  if (!instance) throw new Error('Sheet Instance not found.')
+  const localFieldIds = instance.state.localFields
+    .filter((field) => field.lifecycle === 'active')
+    .map((field) => field.fieldId)
+  const calculationIds = (instance.state.instanceCalculations ?? [])
+    .filter((item) => item.lifecycle === 'active')
+    .map((item) => item.id)
+  const resolvedIdentity = instance.state.resolvedRowIdentity
+  const rowIdentity =
+    resolvedIdentity && resolvedIdentity.columnIds.length > 0
+      ? {
+          kind: resolvedIdentity.kind,
+          columnIds: [...resolvedIdentity.columnIds],
+        }
+      : {
+          kind: 'local' as const,
+          columnIds:
+            localFieldIds.find((fieldId) =>
+              instance.state.localFields.find(
+                (field) =>
+                  field.fieldId === fieldId &&
+                  field.lifecycle === 'active' &&
+                  field.logicalType === 'reference',
+              ),
+            ) !== undefined
+              ? [
+                  localFieldIds.find((fieldId) =>
+                    instance.state.localFields.find(
+                      (field) =>
+                        field.fieldId === fieldId &&
+                        field.lifecycle === 'active' &&
+                        field.logicalType === 'reference',
+                    ),
+                  )!,
+                ]
+              : localFieldIds.slice(0, 1),
+        }
+  if (rowIdentity.columnIds.length === 0)
+    throw new Error('Sheet Instance has no valid row identity fields.')
+  return {
+    bindings: [],
+    columnIds: [],
+    joinIds: [],
+    localFieldIds,
+    calculationIds,
+    rowIdentity,
+    includePresentation: true,
+  }
 }
 
 function CatalogueButton({
@@ -491,6 +710,540 @@ function CanonicalSchemaPlane({
   )
 }
 
+function SheetDefinitionPlane({
+  client,
+  workspaceId,
+  definitionId,
+  canEdit,
+  canPublish,
+  canRetire,
+}: {
+  client: DataClient
+  workspaceId: string
+  definitionId: string | null
+  canEdit: boolean
+  canPublish: boolean
+  canRetire: boolean
+}) {
+  const queryClient = useQueryClient()
+  const [key, setKey] = useState('')
+  const [name, setName] = useState('')
+  const [instanceId, setInstanceId] = useState('')
+  const [selectionPreview, setSelectionPreview] = useState<string | null>(null)
+  const [configurationText, setConfigurationText] = useState('')
+  const [consumerUpgradeInstanceId, setConsumerUpgradeInstanceId] = useState('')
+  const [consumerUpgradeExpectedRevision, setConsumerUpgradeExpectedRevision] =
+    useState('')
+  const [consumerUpgradePreview, setConsumerUpgradePreview] =
+    useState<SheetDefinitionUpgradePreview | null>(null)
+  const [consumerUpgradeDecisionDrafts, setConsumerUpgradeDecisionDrafts] =
+    useState<Record<string, SheetDefinitionUpgradeDecisionDraft>>({})
+  const [consumerUpgradeParameterDrafts, setConsumerUpgradeParameterDrafts] =
+    useState<Record<string, string>>({})
+  const [consumerUpgradeMessage, setConsumerUpgradeMessage] = useState<
+    string | null
+  >(null)
+  const [error, setError] = useState<string | null>(null)
+  const versionsQuery = useQuery({
+    queryKey: ['configure', 'definition-versions', definitionId],
+    queryFn: () => {
+      if (!definitionId) throw new Error('No Sheet Definition selected.')
+      return fetchSheetDefinitionVersions(definitionId, client)
+    },
+    enabled: Boolean(definitionId),
+  })
+  const versions = versionsQuery.data ?? []
+  const latestVersion =
+    versions.length > 0 ? versions[versions.length - 1] : null
+  const selectedDefinitionQuery = useQuery({
+    queryKey: ['configure', 'definition', definitionId],
+    queryFn: () => {
+      if (!definitionId) throw new Error('No Sheet Definition selected.')
+      return fetchSheetDefinition(definitionId, client)
+    },
+    enabled: Boolean(definitionId),
+  })
+  useEffect(() => {
+    setConfigurationText(
+      latestVersion ? JSON.stringify(latestVersion.configuration, null, 2) : '',
+    )
+  }, [latestVersion])
+
+  const create = useMutation({
+    mutationFn: () =>
+      createSheetDefinition(
+        {
+          workspaceId,
+          key,
+          name,
+          configuration: {
+            ...buildDefaultSheetDefinitionConfiguration(),
+          },
+        },
+        client,
+      ),
+    onSuccess: () => {
+      setError(null)
+      void queryClient.invalidateQueries({ queryKey: ['configure'] })
+    },
+    onError: (cause: unknown) =>
+      setError(
+        cause instanceof Error ? cause.message : 'Could not create definition.',
+      ),
+  })
+
+  const publish = useMutation({
+    mutationFn: () => {
+      if (!latestVersion) throw new Error('No Definition version selected.')
+      return publishSheetDefinitionVersion(
+        latestVersion.id,
+        latestVersion.revision,
+        client,
+      )
+    },
+    onSuccess: () => {
+      setError(null)
+      void queryClient.invalidateQueries({ queryKey: ['configure'] })
+    },
+    onError: (cause: unknown) =>
+      setError(
+        cause instanceof Error ? cause.message : 'Could not publish version.',
+      ),
+  })
+
+  const retireDefinition = useMutation({
+    mutationFn: () => {
+      if (!definitionId) throw new Error('No Sheet Definition selected.')
+      const expectedRevision = selectedDefinitionQuery.data?.revision
+      if (expectedRevision === undefined)
+        throw new Error('Selected Sheet Definition was not found.')
+      return retireSheetDefinition(definitionId, expectedRevision, client)
+    },
+    onSuccess: () => {
+      setError(null)
+      void queryClient.invalidateQueries({ queryKey: ['configure'] })
+    },
+    onError: (cause: unknown) =>
+      setError(
+        cause instanceof Error ? cause.message : 'Could not retire definition.',
+      ),
+  })
+
+  const retireVersion = useMutation({
+    mutationFn: () => {
+      if (!latestVersion) throw new Error('No Definition version selected.')
+      return retireSheetDefinitionVersion(
+        latestVersion.id,
+        latestVersion.revision,
+        client,
+      )
+    },
+    onSuccess: () => {
+      setError(null)
+      void queryClient.invalidateQueries({ queryKey: ['configure'] })
+    },
+    onError: (cause: unknown) =>
+      setError(
+        cause instanceof Error ? cause.message : 'Could not retire version.',
+      ),
+  })
+
+  const createFromInstance = useMutation({
+    mutationFn: async () => {
+      const instance = await fetchSheetInstance(instanceId, client)
+      const selection = buildExtractionSelection(instance)
+      const source = instance!
+      const preview = await previewSheetDefinitionExtraction(
+        source.id,
+        source.revision,
+        selection,
+        client,
+      )
+      setSelectionPreview(
+        `Preview reusable: ${preview.manifest.reusable.localFieldIds.length} fields, ${preview.manifest.reusable.calculationIds.length} calculations.`,
+      )
+      return extractSheetDefinitionDraft(
+        {
+          instanceId,
+          expectedInstanceRevision: source.revision,
+          key: key || `sheet_def_${crypto.randomUUID().slice(0, 8)}`,
+          name: name || 'Extracted Sheet Definition',
+          selection,
+        },
+        client,
+      )
+    },
+    onSuccess: () => {
+      setError(null)
+      setSelectionPreview(null)
+      void queryClient.invalidateQueries({ queryKey: ['configure'] })
+    },
+    onError: (cause: unknown) =>
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'Could not extract definition.',
+      ),
+  })
+  const updateDraft = useMutation({
+    mutationFn: () => {
+      if (!latestVersion) throw new Error('No Definition version selected.')
+      const parsedConfiguration = parseSheetDefinitionConfiguration(
+        JSON.parse(configurationText),
+      )
+      return updateSheetDefinitionDraft(
+        latestVersion.id,
+        latestVersion.revision,
+        parsedConfiguration,
+        client,
+      )
+    },
+    onSuccess: () => {
+      setError(null)
+      void queryClient.invalidateQueries({ queryKey: ['configure'] })
+    },
+    onError: (cause: unknown) =>
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'Could not update draft version.',
+      ),
+  })
+  const previewConsumerUpgrade = useMutation({
+    mutationFn: () => {
+      if (!latestVersion) throw new Error('No Definition version selected.')
+      const targetInstanceId = consumerUpgradeInstanceId.trim()
+      const expectedRevision = Number(consumerUpgradeExpectedRevision.trim())
+      if (!targetInstanceId) throw new Error('Sheet Instance ID is required.')
+      if (!Number.isInteger(expectedRevision) || expectedRevision <= 0) {
+        throw new Error(
+          'Expected instance revision must be a positive integer.',
+        )
+      }
+      return previewSheetInstanceDefinitionUpgrade(
+        targetInstanceId,
+        expectedRevision,
+        latestVersion.id,
+        client,
+      )
+    },
+    onSuccess: (result) => {
+      setConsumerUpgradePreview(result)
+      setConsumerUpgradeDecisionDrafts({})
+      setConsumerUpgradeParameterDrafts({})
+      setConsumerUpgradeMessage(null)
+    },
+    onError: (cause: unknown) =>
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'Could not preview consumer upgrade.',
+      ),
+  })
+  const applyConsumerUpgrade = useMutation({
+    mutationFn: () => {
+      if (!latestVersion) throw new Error('No Definition version selected.')
+      if (!consumerUpgradePreview)
+        throw new Error('Preview the consumer upgrade before applying.')
+      const targetInstanceId = consumerUpgradeInstanceId.trim()
+      const expectedRevision = Number(consumerUpgradeExpectedRevision.trim())
+      if (!targetInstanceId) throw new Error('Sheet Instance ID is required.')
+      if (!Number.isInteger(expectedRevision) || expectedRevision <= 0) {
+        throw new Error(
+          'Expected instance revision must be a positive integer.',
+        )
+      }
+      const collected = collectSheetDefinitionUpgradeInputs(
+        consumerUpgradePreview,
+        latestVersion.configuration.parameters,
+        consumerUpgradeDecisionDrafts,
+        consumerUpgradeParameterDrafts,
+      )
+      return applySheetInstanceDefinitionUpgrade(
+        {
+          instanceId: targetInstanceId,
+          expectedRevision,
+          targetDefinitionVersionId: latestVersion.id,
+          decisions: collected.decisions,
+          parameterInputs: collected.parameterInputs,
+        },
+        client,
+      )
+    },
+    onSuccess: (result) =>
+      setConsumerUpgradeMessage(
+        result.status === 'applied'
+          ? 'Upgrade applied.'
+          : 'Upgrade deferred until conflicts are resolved.',
+      ),
+    onError: (cause: unknown) =>
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'Could not apply consumer upgrade.',
+      ),
+  })
+  const forkVersion = useMutation({
+    mutationFn: () => {
+      if (!definitionId) throw new Error('No Sheet Definition selected.')
+      const sourceVersion = latestVersion
+      if (!sourceVersion) throw new Error('No source version selected.')
+      const selectedDefinition = selectedDefinitionQuery.data
+      if (!selectedDefinition)
+        throw new Error('Selected Sheet Definition was not found.')
+      return createSheetDefinitionVersion(
+        definitionId,
+        selectedDefinition.revision,
+        sourceVersion.configuration,
+        client,
+      )
+    },
+    onSuccess: () => {
+      setError(null)
+      void queryClient.invalidateQueries({ queryKey: ['configure'] })
+    },
+    onError: (cause: unknown) =>
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'Could not create new draft version.',
+      ),
+  })
+
+  return (
+    <div className="space-y-4">
+      <header className="flex items-center gap-2">
+        <Layers className="size-4" aria-hidden="true" />
+        <h2 className="text-lg font-semibold">Sheet Definition catalogue</h2>
+      </header>
+      <p className="text-xs text-muted-foreground">
+        Manage reusable Definitions with stable identity, version history,
+        create-from-Instance extraction, and explicit lifecycle controls.
+      </p>
+      <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+        <Label className="text-xs">
+          Stable key
+          <Input
+            className="mt-1 font-mono"
+            value={key}
+            disabled={!canEdit}
+            onChange={(event) => setKey(event.target.value)}
+          />
+        </Label>
+        <Label className="text-xs">
+          Name
+          <Input
+            className="mt-1"
+            value={name}
+            disabled={!canEdit}
+            onChange={(event) => setName(event.target.value)}
+          />
+        </Label>
+        <Button
+          className="self-end"
+          disabled={!canEdit || !key || !name || create.isPending}
+          onClick={() => create.mutate()}
+        >
+          Create draft
+        </Button>
+      </div>
+      {latestVersion ? (
+        <p className="text-xs text-muted-foreground">
+          Latest version v{latestVersion.version} · {latestVersion.lifecycle}
+        </p>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          No versions available for this Definition yet.
+        </p>
+      )}
+      {versions.length ? (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Version</TableHead>
+              <TableHead>Lifecycle</TableHead>
+              <TableHead>Published</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {[...versions].reverse().map((version) => (
+              <TableRow key={version.id}>
+                <TableCell>v{version.version}</TableCell>
+                <TableCell>{version.lifecycle}</TableCell>
+                <TableCell>
+                  {version.publishedAt ? formatDate(version.publishedAt) : '—'}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      ) : null}
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          disabled={
+            !canEdit ||
+            !latestVersion ||
+            latestVersion.lifecycle !== 'draft' ||
+            updateDraft.isPending
+          }
+          onClick={() => updateDraft.mutate()}
+        >
+          Save draft
+        </Button>
+        <Button
+          variant="outline"
+          disabled={
+            !canEdit || !definitionId || !latestVersion || forkVersion.isPending
+          }
+          onClick={() => forkVersion.mutate()}
+        >
+          New draft version
+        </Button>
+        <Button
+          variant="outline"
+          disabled={!canPublish || !latestVersion || publish.isPending}
+          onClick={() => publish.mutate()}
+        >
+          Publish latest
+        </Button>
+        <Button
+          variant="outline"
+          disabled={!canRetire || !latestVersion || retireVersion.isPending}
+          onClick={() => retireVersion.mutate()}
+        >
+          Retire latest version
+        </Button>
+        <Button
+          variant="ghost"
+          disabled={!canRetire || !definitionId || retireDefinition.isPending}
+          onClick={() => retireDefinition.mutate()}
+        >
+          Retire definition
+        </Button>
+      </div>
+      {latestVersion?.lifecycle === 'draft' ? (
+        <Label className="text-xs">
+          Draft configuration JSON
+          <textarea
+            className="mt-1 min-h-56 w-full rounded-md border border-input bg-background p-2 font-mono text-xs"
+            value={configurationText}
+            onChange={(event) => setConfigurationText(event.target.value)}
+          />
+        </Label>
+      ) : null}
+      <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+        <Label className="text-xs">
+          Create from Sheet Instance ID
+          <Input
+            className="mt-1 font-mono"
+            value={instanceId}
+            disabled={!canEdit}
+            onChange={(event) => setInstanceId(event.target.value)}
+          />
+        </Label>
+        <Button
+          className="self-end"
+          variant="outline"
+          disabled={!canEdit || !instanceId || createFromInstance.isPending}
+          onClick={() => createFromInstance.mutate()}
+        >
+          Create from Instance
+        </Button>
+      </div>
+      <div className="space-y-2 rounded-md border p-3">
+        <p className="text-xs font-medium">
+          Upgrade Sheet Definition consumers
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Preview and apply explicit upgrades for Sheet Instances consuming this
+          Definition version.
+        </p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Label className="text-xs">
+            Sheet Instance ID
+            <Input
+              className="mt-1 font-mono"
+              value={consumerUpgradeInstanceId}
+              disabled={!canEdit}
+              onChange={(event) =>
+                setConsumerUpgradeInstanceId(event.target.value)
+              }
+            />
+          </Label>
+          <Label className="text-xs">
+            Expected instance revision
+            <Input
+              className="mt-1"
+              value={consumerUpgradeExpectedRevision}
+              disabled={!canEdit}
+              onChange={(event) =>
+                setConsumerUpgradeExpectedRevision(event.target.value)
+              }
+            />
+          </Label>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            disabled={
+              !canEdit || !latestVersion || previewConsumerUpgrade.isPending
+            }
+            onClick={() => previewConsumerUpgrade.mutate()}
+          >
+            Preview consumer upgrade
+          </Button>
+          <Button
+            variant="outline"
+            disabled={
+              !canEdit || !latestVersion || applyConsumerUpgrade.isPending
+            }
+            onClick={() => applyConsumerUpgrade.mutate()}
+          >
+            Apply consumer upgrade
+          </Button>
+        </div>
+        {consumerUpgradePreview && latestVersion ? (
+          <SheetDefinitionUpgradeForm
+            preview={consumerUpgradePreview}
+            targetParameters={latestVersion.configuration.parameters}
+            decisionDrafts={consumerUpgradeDecisionDrafts}
+            parameterDrafts={consumerUpgradeParameterDrafts}
+            disabled={applyConsumerUpgrade.isPending}
+            onDecisionChange={(conflictId, draft) =>
+              setConsumerUpgradeDecisionDrafts((current) => ({
+                ...current,
+                [conflictId]: draft,
+              }))
+            }
+            onParameterChange={(parameterId, value) =>
+              setConsumerUpgradeParameterDrafts((current) => ({
+                ...current,
+                [parameterId]: value,
+              }))
+            }
+          />
+        ) : null}
+      </div>
+      {consumerUpgradeMessage ? (
+        <p className="text-xs text-muted-foreground" role="status">
+          {consumerUpgradeMessage}
+        </p>
+      ) : null}
+      {selectionPreview ? (
+        <p className="text-xs text-muted-foreground" role="status">
+          {selectionPreview}
+        </p>
+      ) : null}
+      {error ? (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
 function PromotionPlane({
   client,
   canEdit,
@@ -621,6 +1374,50 @@ function PromotionPlane({
           {error}
         </p>
       ) : null}
+    </div>
+  )
+}
+
+function DefinitionImpact({
+  client,
+  definitionId,
+}: {
+  client: DataClient
+  definitionId: string
+}) {
+  const versionsQuery = useQuery({
+    queryKey: ['configure', 'definition-versions', definitionId],
+    queryFn: () => fetchSheetDefinitionVersions(definitionId, client),
+  })
+  const versionId = versionsQuery.data?.[versionsQuery.data.length - 1]?.id
+  const impactQuery = useQuery({
+    queryKey: ['configure', 'definition-impact', versionId],
+    queryFn: () =>
+      discoverObjectDependencies(
+        client,
+        'sheet_definition_version',
+        versionId!,
+      ),
+    enabled: Boolean(versionId),
+  })
+  const dependencies = useMemo(
+    () => impactQuery.data?.dependencies ?? [],
+    [impactQuery.data],
+  )
+  return (
+    <div className="mt-6">
+      <h3 className="text-sm font-semibold">Definition dependencies</h3>
+      {dependencies.length === 0 ? (
+        <p className="mt-2 text-xs text-muted-foreground">No dependants.</p>
+      ) : (
+        <ul className="mt-2 space-y-1 text-xs">
+          {dependencies.map((item) => (
+            <li key={`${item.kind}:${item.id}`}>
+              {item.label} · {item.liveness} · {item.effect}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }

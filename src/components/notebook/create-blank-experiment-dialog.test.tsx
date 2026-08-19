@@ -37,9 +37,11 @@ describe('CreateBlankExperimentDialog', () => {
       />,
     )
     const title = screen.getByLabelText('Experiment title')
-    expect(title).toHaveAttribute('autofocus')
+    expect(document.activeElement).toBe(title)
     expect(screen.getByRole('button', { name: 'Create' })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Create blank Notebook' })).toBeNull()
+    expect(
+      screen.queryByRole('button', { name: 'Create blank Notebook' }),
+    ).toBeNull()
     expect(
       screen.getByText(/You can add Sheets and files in the Notebook/),
     ).toBeTruthy()
@@ -61,10 +63,10 @@ describe('CreateBlankExperimentDialog', () => {
     )
     await user.click(screen.getByRole('button', { name: 'Start writing' }))
     await waitFor(() => expect(createBlankExperiment).toHaveBeenCalledTimes(1))
-    expect(createBlankExperiment).toHaveBeenCalledWith(
-      expect.anything(),
-      { projectId: 'project-1', title: '' },
-    )
+    expect(createBlankExperiment).toHaveBeenCalledWith(expect.anything(), {
+      projectId: 'project-1',
+      title: '',
+    })
   })
 
   it('hides Start writing when the project is not pinned', () => {

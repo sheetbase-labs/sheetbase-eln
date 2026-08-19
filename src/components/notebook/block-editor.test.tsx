@@ -324,7 +324,9 @@ describe('BlockEditor — linked_record', () => {
       'Report',
     ])
     expect(
-      [...kindSelect.querySelectorAll('option')].map((o) => o.getAttribute('value')),
+      [...kindSelect.querySelectorAll('option')].map((o) =>
+        o.getAttribute('value'),
+      ),
     ).toEqual([
       'experiment',
       'dataset',

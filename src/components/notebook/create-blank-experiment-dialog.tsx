@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 
 import {
   Button,
@@ -36,6 +36,7 @@ export function CreateBlankExperimentDialog({
   const navigate = useNavigate()
   const [title, setTitle] = useState('')
   const [selectedProjectId, setSelectedProjectId] = useState(projectId ?? '')
+  const titleInputRef = useRef<HTMLInputElement>(null)
   const listed = useQuery({
     queryKey: notebookQueryKeys.projectsList(),
     queryFn: () =>
@@ -73,7 +74,12 @@ export function CreateBlankExperimentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent
+        onOpenAutoFocus={(event) => {
+          event.preventDefault()
+          titleInputRef.current?.focus()
+        }}
+      >
         <DialogHeader>
           <DialogTitle>Create experiment</DialogTitle>
           <DialogDescription>
@@ -111,6 +117,7 @@ export function CreateBlankExperimentDialog({
           <Label className="space-y-1">
             <span>Title</span>
             <Input
+              ref={titleInputRef}
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               placeholder="Untitled experiment"

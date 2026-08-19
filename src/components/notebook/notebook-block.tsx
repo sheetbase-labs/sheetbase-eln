@@ -75,6 +75,8 @@ export interface NotebookBlockProps {
     disabled?: boolean
     separatorAfter?: boolean
   }[]
+  /** Extra menu nodes (for example an Insert below submenu). */
+  menuExtra?: React.ReactNode
   className?: string
   /** Accessible label for the block region. */
   ariaLabel?: string
@@ -102,6 +104,7 @@ export function NotebookBlock({
   onDragEnd,
   actions,
   menuItems,
+  menuExtra,
   className,
   ariaLabel,
 }: NotebookBlockProps) {
@@ -109,7 +112,8 @@ export function NotebookBlock({
   const readOnly = state === 'read-only' || locked
   const invalid = state === 'invalid'
   const loading = state === 'loading'
-  const hasMenu = !!menuItems && menuItems.length > 0
+  const hasMenu =
+    (!!menuItems && menuItems.length > 0) || menuExtra != null
   const [menuOpen, setMenuOpen] = React.useState(false)
   const isEditing = state === 'editing' && !!onTitleChange
   const [titleDraft, setTitleDraft] = React.useState(title ?? '')
@@ -161,7 +165,11 @@ export function NotebookBlock({
       </div>
 
       {/* Right-edge hover toolbar — no overlap with content */}
-      <div className="pointer-events-none absolute right-1 top-1 z-10 flex items-center gap-1">
+      <div
+        data-slot="block-toolbar"
+        data-print-hide
+        className="pointer-events-none absolute right-1 top-1 z-10 flex items-center gap-1"
+      >
         <div className="pointer-events-auto flex items-center gap-1">
           {actions}
           {locked ? (
@@ -189,7 +197,8 @@ export function NotebookBlock({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                {menuItems.map((item) => (
+                {menuExtra}
+                {menuItems?.map((item) => (
                   <React.Fragment key={item.id}>
                     <DropdownMenuItem
                       onSelect={item.onSelect}

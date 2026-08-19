@@ -86,6 +86,7 @@ import {
   materialiseLiveChart,
   useLiveChartDataset,
 } from '#/lib/chart-data'
+import { groupChartTables } from '#/lib/notebook-experience'
 import {
   fetchScientificTable,
   scientificDataClient,
@@ -1380,12 +1381,18 @@ function ChartBlockEditor({
   const tablesQuery = useQuery({
     queryKey: ['chart-available-tables'] as const,
     queryFn: () =>
-      scientificDataClient.list<Pick<ScientificTableWire, 'id' | 'name'>>(
+      scientificDataClient.list<
+        Pick<ScientificTableWire, 'id' | 'name' | 'record_id'>
+      >(
         'scientific_tables',
-        '?select=id,name&lifecycle=eq.active&order=name.asc',
+        '?select=id,name,record_id&lifecycle=eq.active&order=name.asc',
       ),
     staleTime: 30_000,
   })
+  const groupedTables = groupChartTables(
+    tablesQuery.data ?? [],
+    block.recordId,
+  )
 
   // Columns for the selected dataset (so field mappings are honest).
   const selectedTableId = spec?.datasets[0]?.tableId ?? ''
@@ -1520,12 +1527,29 @@ function ChartBlockEditor({
                   ? 'Loading datasets…'
                   : 'Select a dataset'}
               </option>
-              {tablesQuery.data?.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
+              {groupedTables.local.length > 0 ? (
+                <optgroup label="On this Notebook">
+                  {groupedTables.local.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
+              {groupedTables.workspace.length > 0 ? (
+                <optgroup label="Workspace">
+                  {groupedTables.workspace.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
             </Select>
+            <p className="text-xs text-muted-foreground">
+              Charts plot saved table data. Link a Dataset or Record with a
+              Linked record block.
+            </p>
           </ChartField>
 
           <div className="grid gap-3 sm:grid-cols-2">

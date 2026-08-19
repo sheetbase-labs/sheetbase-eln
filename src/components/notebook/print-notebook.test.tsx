@@ -43,8 +43,11 @@ describe('NotebookPrintStyles', () => {
     const { container } = render(<NotebookPrintStyles />)
     const css = container.querySelector('style')?.textContent ?? ''
     expect(css).toContain('@media print')
+    expect(css).toContain('@page')
     expect(css).toContain('[data-slot="sidebar"]')
+    expect(css).toContain('[data-slot="inspector"]')
     expect(css).toContain('[data-print-hide]')
+    expect(css).toContain('[data-slot="block-toolbar"]')
   })
 })
 

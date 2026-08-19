@@ -518,6 +518,11 @@ function NotebookDocumentContent({
     e: React.KeyboardEvent<HTMLDivElement>,
     block: NotebookBlockData,
   ) {
+    if (e.altKey && e.key === 'Enter' && !isReadOnly) {
+      e.preventDefault()
+      void handleInsert('rich_text', block.id)
+      return
+    }
     if (!canMove) return
     // Alt+Arrow moves the focused block up/down by one position. The row is
     // focusable (tabIndex 0 below) so keyboard users can reorder without a
@@ -529,6 +534,9 @@ function NotebookDocumentContent({
     } else if (e.altKey && e.key === 'ArrowDown') {
       e.preventDefault()
       moveByOne(block, 'down')
+    } else if (e.altKey && e.key === 'Enter') {
+      e.preventDefault()
+      void handleInsert('rich_text', block.id)
     }
   }
 
@@ -708,6 +716,13 @@ function NotebookDocumentContent({
                   isReadOnly
                     ? undefined
                     : [
+                        {
+                          id: 'insert-below',
+                          label: 'Insert text below',
+                          onSelect: () =>
+                            void handleInsert('rich_text', block.id),
+                          separatorAfter: true,
+                        },
                         ...(canMove
                           ? [
                               {
@@ -815,7 +830,7 @@ function NotebookDocumentContent({
       ) : null}
 
       {isReadOnly ? null : (
-        <div className="pt-2">
+        <div className="pt-2" data-print-hide>
           <BlockPicker
             onInsert={(type) => void handleInsert(type)}
             disabled={false}
@@ -825,9 +840,10 @@ function NotebookDocumentContent({
         </div>
       )}
       {!isReadOnly ? (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground" data-print-hide>
           Type / in empty text to insert a block. Alt+↑/↓ reorders the focused
-          block. The block menu duplicates or deletes.
+          block. Alt+Enter or Insert text below adds a text block. The block
+          menu also duplicates or deletes.
         </p>
       ) : null}
 

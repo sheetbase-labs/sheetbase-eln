@@ -28,6 +28,7 @@ import {
   NotebookPrintStyles,
   PrintNotebookButton,
 } from '#/components/notebook/print-notebook'
+import { SignNotebookDialog } from '#/components/notebook/sign-notebook-dialog'
 import { SubmitNotebookDialog } from '#/components/notebook/submit-notebook-dialog'
 import { NotebookDocument } from '#/components/notebook'
 import type { SaveResult } from '#/components/notebook'
@@ -315,6 +316,7 @@ function ExperimentNotebookRoute() {
           projectName={project?.title ?? null}
           projectId={projectId}
           currentUserId={context.user.id}
+          currentUserName={context.user.name}
           workspaceId={context.workspace?.id}
           blocks={blocks}
           historicalRevisionId={historicalRevisionId}
@@ -424,6 +426,7 @@ export function StickyRecordHeader({
   projectName,
   projectId,
   currentUserId,
+  currentUserName,
   workspaceId,
   blocks = [],
   historicalRevisionId,
@@ -432,6 +435,7 @@ export function StickyRecordHeader({
   projectName: string | null
   projectId?: string
   currentUserId?: string
+  currentUserName?: string
   workspaceId?: string
   blocks?: NotebookBlockDomain[]
   historicalRevisionId?: string
@@ -440,6 +444,7 @@ export function StickyRecordHeader({
   const navigate = useNavigate()
   const [submitOpen, setSubmitOpen] = useState(false)
   const [duplicateOpen, setDuplicateOpen] = useState(false)
+  const [signOpen, setSignOpen] = useState(false)
   const [titleDraft, setTitleDraft] = useState(record.title)
   const lifecycle = notebookLifecycleLabel(record)
   const canSubmit =
@@ -511,13 +516,25 @@ export function StickyRecordHeader({
             </Button>
           ) : null}
           {lifecycle === 'Submitted' && record.lockedByRevisionId ? (
-            <Link
-              to="/reviews/$revisionId"
-              params={{ revisionId: record.lockedByRevisionId }}
-              className="text-xs font-medium text-foreground underline-offset-4 hover:underline"
-            >
-              Open review
-            </Link>
+            <>
+              {currentUserId && currentUserName && !historicalRevisionId ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setSignOpen(true)}
+                >
+                  Sign
+                </Button>
+              ) : null}
+              <Link
+                to="/reviews/$revisionId"
+                params={{ revisionId: record.lockedByRevisionId }}
+                className="text-xs font-medium text-foreground underline-offset-4 hover:underline"
+              >
+                Open review
+              </Link>
+            </>
           ) : null}
         </div>
       </div>
@@ -587,6 +604,18 @@ export function StickyRecordHeader({
               params: { projectId: copy.projectId, recordId: copy.id },
             })
           }}
+        />
+      ) : null}
+      {signOpen &&
+      record.lockedByRevisionId &&
+      currentUserId &&
+      currentUserName ? (
+        <SignNotebookDialog
+          open={signOpen}
+          onOpenChange={setSignOpen}
+          revisionId={record.lockedByRevisionId}
+          currentUserId={currentUserId}
+          currentUserName={currentUserName}
         />
       ) : null}
     </div>
@@ -1507,7 +1536,7 @@ export function PermissionRestrictedState() {
 
 // ---------------------------------------------------------------------------
 // Inspector. Route-owned so it composes against the live record/links data.
-// The mockup's right sidebar has three tabs: Properties, Activity, Comments.
+// Inspector tabs: Properties, History, Activity.
 // Properties gathers metadata, tags, attached files, linked records and QC
 // checks into one dense column; Activity reads the durable change_events
 // feed; Comments is a placeholder until collaborative annotation ships.
@@ -1914,17 +1943,6 @@ export function NotebookInspector({
             <EmptyHint>Loading activity…</EmptyHint>
           ) : (
             <ActivityFeed items={activityItems} />
-          ),
-        },
-        {
-          id: 'comments',
-          label: 'Comments',
-          content: (
-            <InspectorSection title="Comments">
-              <EmptyHint>
-                Comments coming soon. Collaborative annotation will appear here.
-              </EmptyHint>
-            </InspectorSection>
           ),
         },
       ]}

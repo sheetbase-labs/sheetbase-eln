@@ -16,7 +16,9 @@ import {
   duplicateExperiment,
   downloadRevisionEvidence,
   fetchRevisionsForRecord,
+  groupChartTables,
   notebookLifecycleLabel,
+  notebookSignState,
   reviewerCandidates,
   reviewerOptionLabel,
   updateExperimentMetadata,
@@ -382,5 +384,79 @@ describe('downloadRevisionEvidence', () => {
       p_revision_id: 'rev1',
     })
     expect(bundle).toEqual({ formatVersion: 1 })
+  })
+})
+
+describe('notebookSignState', () => {
+  const submission = {
+    state: 'approved',
+    assigned_reviewer_user_ids: ['u1', 'u2'],
+  }
+
+  it('is none when there is no submission', () => {
+    expect(
+      notebookSignState({
+        currentUserId: 'u1',
+        submission: null,
+        signatures: [],
+      }),
+    ).toBe('none')
+  })
+
+  it('is awaiting-review until the submission is approved', () => {
+    expect(
+      notebookSignState({
+        currentUserId: 'u1',
+        submission: { ...submission, state: 'submitted' },
+        signatures: [],
+      }),
+    ).toBe('awaiting-review')
+  })
+
+  it('is can-sign for an assigned reviewer on an approved revision', () => {
+    expect(
+      notebookSignState({
+        currentUserId: 'u1',
+        submission,
+        signatures: [],
+      }),
+    ).toBe('can-sign')
+  })
+
+  it('is already-signed after the current user has signed', () => {
+    expect(
+      notebookSignState({
+        currentUserId: 'u1',
+        submission,
+        signatures: [{ signer_user_id: 'u1' }],
+      }),
+    ).toBe('already-signed')
+  })
+
+  it('is not-assigned when the current user is not a reviewer', () => {
+    expect(
+      notebookSignState({
+        currentUserId: 'u9',
+        submission,
+        signatures: [],
+      }),
+    ).toBe('not-assigned')
+  })
+})
+
+describe('groupChartTables', () => {
+  it('keeps tables on this Notebook ahead of other workspace tables', () => {
+    expect(
+      groupChartTables(
+        [
+          { id: 'a', name: 'Workspace', record_id: 'other' },
+          { id: 'b', name: 'Local', record_id: 'r1' },
+        ],
+        'r1',
+      ),
+    ).toEqual({
+      local: [{ id: 'b', name: 'Local', record_id: 'r1' }],
+      workspace: [{ id: 'a', name: 'Workspace', record_id: 'other' }],
+    })
   })
 })

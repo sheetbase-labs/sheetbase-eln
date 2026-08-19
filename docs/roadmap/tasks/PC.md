@@ -1,6 +1,6 @@
 # PC — Product Consolidation
 
-**Status:** PC-00 accepted. PC-01 complete (`#41`). PC-02 complete (`#44`). PC-03 Notebook Experience is in progress on `gwp/pc-03-notebook-experience-151b` (do not start API work from this stream).
+**Status:** PC-00 accepted. PC-01 complete (`#41`). PC-02 complete (`#44`). PC-03 complete (`#52`). PC-04 Templates remains later.
 
 ## Programme goal
 
@@ -134,6 +134,8 @@ Users can manage durable structured data directly without needing a Notebook as 
 
 ## PC-03 — Notebook Experience
 
+**Priority:** medium. **Status:** Complete (`#52` on `gwp/pc-03-notebook-experience-151b`).
+
 ### Goal
 
 Make Notebook the clear scientific-context and evidence container around narrative, Sheets, Records and files.
@@ -164,7 +166,7 @@ Blank create and submit shipped in PC-01 as an enabling slice. This epic is the 
 
 A scientific experiment can be authored, worked, reviewed, submitted and revisited historically without exposing persistence concepts.
 
-**In progress (not complete):** Notebook chrome on existing Core RPCs — working vs submitted, history, amendment-from-Notebook, `?revision=` frozen render, duplicate, metadata, print/evidence download, Dataset/Record reference kinds, image file preview, slash aliases, reviewer assignment, Record/Dataset search in linked-record blocks. Remaining: chart identity still uses the SCI-004 saved chart source (not a second Dataset bind); Template designer is PC-04; slash grouping can still be deepened.
+**Evidence:** Notebook chrome on existing Core RPCs — working vs submitted, history, amendment-from-Notebook, `?revision=` frozen render, duplicate, metadata, print/evidence download, Dataset/Record reference kinds, image file preview, slash aliases and grouped insert, reviewer assignment, Record/Dataset search, Sign from the submitted Notebook (`sign_revision`, session-only), insert-below and Alt+Enter, chart picker grouped by this Notebook vs workspace (SCI-004 table ids remain the freeze contract; not a second Dataset bind). Template designer remains PC-04.
 
 ---
 

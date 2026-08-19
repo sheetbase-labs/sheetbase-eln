@@ -20,7 +20,7 @@ The roadmap supports **parallel streams**. Agents take **one assigned stream/tas
 
 | Stream | Active task      | Model  | Status                                           |
 | ------ | ---------------- | ------ | ------------------------------------------------ |
-| PC     | PC-03 — Notebook Experience | Medium | In progress on `gwp/pc-03-notebook-experience-151b`; draft PR. Do not start further API work. |
+| PC     | —                | Medium | PC-03 complete on `#52`; PC-04 Templates remains later. Do not start further API work from this stream. |
 | API    | —                | —      | API-01/02/03/07 complete on `main`; do not start API-04/05/06 |
 | DATA   | —                | —      | DATA-01 complete; DATA-02 remains later          |
 | GOV    | —                | —      | GOV-01 complete; GOV-02 requires an ADR          |
@@ -47,14 +47,14 @@ merged  API-03  service-credential OpenAPI (#51) @ 2cd3a12
 
 ## Stream briefs
 
-### PC — PC-03 in progress
+### PC — PC-03 complete
 
 Task: [`tasks/PC.md`](./tasks/PC.md)
 
 - **PC-01 complete** (`#41` / `7cca216`): one Sheet experience, blank Notebook enabling slice, submit enabling slice, specialist tools demoted from default nav. Calculation dependencies follow the existing formula IR.
 - **PC-02 complete** (`#44` / `b01b029`): Dataset create/snapshot/live edit and reagent create; strict numeric coercion; historical Dataset Versions render the pinned Schema Version. Sheet Dataset bind remains the canonical Sheet Instance path (H2), not a second bind model.
 
-**PC-03** is assigned and in progress: Notebook product chrome around existing records/blocks/Sheet Instance/REV-002/H3 contracts. Do not reopen PC-01/PC-02. Do not invent a second domain model. Human submit/sign/amend stay session-only. Template designer remains PC-04.
+**PC-03 complete** (`#52`): Notebook product chrome around existing records/blocks/Sheet Instance/REV-002/H3 contracts. Submit, sign and amend stay session-only. Template designer remains PC-04. Do not reopen PC-01/PC-02. Do not invent a second domain model.
 
 ### API — closed for this assignment
 
@@ -96,7 +96,7 @@ Task: [`tasks/PLAT.md`](./tasks/PLAT.md)
 
 - DATA-01 is complete (canonical Dataset/Record import). DATA-02 export is not started.
 - API-07 Core external allowlist cut-over is complete (`#50`). Submit, sign, amend and revision checks stay human-session-only. API-03 OpenAPI is complete on this branch.
-- PC-03 is not automatically Ready.
+- PC-03 is complete (`#52`). PC-04 Templates is later.
 - GOV-02 is not Ready without an ADR.
 - Remaining PLAT-03 is queued, not a new Ready stream.
 - AUTO remains planned later.

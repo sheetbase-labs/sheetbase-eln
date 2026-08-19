@@ -171,10 +171,12 @@ describe('StickyRecordHeader — lock state', () => {
         projectName="Stability"
         projectId="p1"
         currentUserId="u1"
+        currentUserName="Ada Lovelace"
       />,
     )
     expect(screen.getByText('Submitted')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Submit' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Sign' })).toBeTruthy()
     expect(screen.getByRole('link', { name: 'Open review' })).toBeTruthy()
   })
 
@@ -394,7 +396,7 @@ describe('PermissionRestrictedState', () => {
 })
 
 describe('NotebookInspector', () => {
-  it('renders Properties, Activity and Comments tabs with record metadata', () => {
+  it('renders Properties, History and Activity tabs with record metadata', () => {
     const queryClient = new QueryClient()
     render(
       <QueryClientProvider client={queryClient}>
@@ -418,6 +420,7 @@ describe('NotebookInspector', () => {
     expect(screen.getByRole('tab', { name: 'Properties' })).toBeTruthy()
     expect(screen.getByRole('tab', { name: 'History' })).toBeTruthy()
     expect(screen.getByRole('tab', { name: 'Activity' })).toBeTruthy()
+    expect(screen.queryByRole('tab', { name: 'Comments' })).toBeNull()
     // Properties is the default; identifier appears in PropertyList
     expect(screen.getByText('EXP-2025-0001')).toBeTruthy()
     // Tags render as outline badges within Properties

@@ -233,3 +233,44 @@ export function downloadRevisionEvidence(
 ): Promise<EvidenceExportWire> {
   return fetchRevisionEvidenceExport(client, revisionId)
 }
+
+export type NotebookSignState =
+  | 'none'
+  | 'awaiting-review'
+  | 'can-sign'
+  | 'already-signed'
+  | 'not-assigned'
+
+export function notebookSignState(input: {
+  currentUserId: string
+  submission: {
+    state: string
+    assigned_reviewer_user_ids: string[]
+  } | null
+  signatures: Array<{ signer_user_id: string }>
+}): NotebookSignState {
+  if (!input.submission) return 'none'
+  const alreadySigned = input.signatures.some(
+    (signature) => signature.signer_user_id === input.currentUserId,
+  )
+  if (alreadySigned) return 'already-signed'
+  if (input.submission.state !== 'approved') return 'awaiting-review'
+  if (
+    !input.submission.assigned_reviewer_user_ids.includes(input.currentUserId)
+  ) {
+    return 'not-assigned'
+  }
+  return 'can-sign'
+}
+
+export function groupChartTables<
+  T extends { id: string; name: string; record_id?: string | null },
+>(tables: T[], notebookRecordId: string): { local: T[]; workspace: T[] } {
+  const local: T[] = []
+  const workspace: T[] = []
+  for (const table of tables) {
+    if (table.record_id === notebookRecordId) local.push(table)
+    else workspace.push(table)
+  }
+  return { local, workspace }
+}

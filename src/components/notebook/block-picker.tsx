@@ -192,23 +192,35 @@ export function BlockPicker({
         <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-72">
           <DropdownMenuLabel>Insert block</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          {BLOCK_PICKER_OPTIONS.map((opt) => {
-            const Icon = opt.icon
+          {BLOCK_PICKER_GROUPS.map((group) => {
+            const items = BLOCK_PICKER_OPTIONS.filter(
+              (opt) => opt.group === group.id,
+            )
             return (
-              <DropdownMenuItem
-                key={opt.type}
-                onSelect={() => onInsert(opt.type)}
-                className="flex items-start gap-2"
-              >
-                <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                <span className="min-w-0">
-                  <span className="block text-sm font-medium">{opt.label}</span>
-                  <span className="block text-xs text-muted-foreground">
-                    {opt.description}
-                  </span>
-                </span>
-              </DropdownMenuItem>
+              <div key={group.id}>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>{group.label}</DropdownMenuLabel>
+                {items.map((opt) => {
+                  const Icon = opt.icon
+                  return (
+                    <DropdownMenuItem
+                      key={opt.type}
+                      onSelect={() => onInsert(opt.type)}
+                      className="flex items-start gap-2"
+                    >
+                      <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                      <span className="min-w-0">
+                        <span className="block text-sm font-medium">
+                          {opt.label}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {opt.description}
+                        </span>
+                      </span>
+                    </DropdownMenuItem>
+                  )
+                })}
+              </div>
             )
           })}
         </DropdownMenuContent>

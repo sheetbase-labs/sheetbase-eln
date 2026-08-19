@@ -475,6 +475,27 @@ describe('NotebookDocument — movement via menu', () => {
         up.hasAttribute('disabled'),
     ).toBe(true)
   })
+
+  it('inserts a text block below the current block', async () => {
+    const user = userEvent.setup()
+    const onInsertBlock = vi.fn().mockResolvedValue('new')
+    render(
+      <NotebookDocument
+        record={record}
+        blocks={threeBlocks()}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={onInsertBlock}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+        onMoveBlock={vi.fn().mockResolvedValue(undefined)}
+      />,
+    )
+    await user.click(
+      screen.getAllByRole('button', { name: /Block actions/ })[1],
+    )
+    await user.click(screen.getByRole('menuitem', { name: 'Insert text below' }))
+    expect(onInsertBlock).toHaveBeenCalledWith('rich_text', 'b2')
+  })
 })
 
 describe('NotebookDocument — movement via keyboard', () => {

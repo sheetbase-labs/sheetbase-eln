@@ -30,15 +30,26 @@ import {
 } from '#/lib/dataset-schema-definition-rpc'
 import { discoverObjectDependencies } from '#/lib/object-dependencies'
 import {
+  createSheetDefinition,
+  extractSheetDefinitionDraft,
+  fetchSheetDefinitions,
+  fetchSheetDefinitionVersions,
+  publishSheetDefinitionVersion,
+  retireSheetDefinition,
+  retireSheetDefinitionVersion,
+} from '#/lib/sheet-definition-data'
+import { fetchSheetInstance } from '#/lib/sheet-instance-data'
+import {
   applyDatasetSchemaEvolution,
   previewDatasetSchemaEvolution,
   previewLocalFieldPromotion,
   promoteLocalField,
 } from '#/lib/schema-evolution'
+import { formatDate } from '#/lib/notebook-data'
 import type { WorkspaceRole } from '#/lib/workspace-admin'
 import { cn } from '#/lib/utils'
 
-export type ConfigurationKind = 'model' | 'schema' | 'promotion'
+export type ConfigurationKind = 'model' | 'schema' | 'definition' | 'promotion'
 
 export interface ConfigurationSearch {
   kind: ConfigurationKind
@@ -90,9 +101,17 @@ export function ConfigurationWorkspace({
     queryFn: () => listCanonicalDatasetSchemaDefinitions(client),
   })
   const schemas = schemasQuery.data ?? []
+  const definitionsQuery = useQuery({
+    queryKey: ['configure', 'definitions'],
+    queryFn: () => fetchSheetDefinitions(client),
+  })
+  const definitions = definitionsQuery.data ?? []
   const matched = schemas.find((item) => item.id === search.id)
   const selectedSchema =
     matched ?? (schemas.length > 0 ? schemas[0] : undefined)
+  const matchedDefinition = definitions.find((item) => item.id === search.id)
+  const selectedDefinition =
+    matchedDefinition ?? (definitions.length > 0 ? definitions[0] : undefined)
 
   return (
     <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)_280px]">
@@ -144,6 +163,35 @@ export function ConfigurationWorkspace({
           </p>
         ) : null}
         <p className="mt-4 px-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+          Sheet Definitions
+        </p>
+        {definitions.map((definition) => (
+          <CatalogueButton
+            key={definition.id}
+            current={
+              search.kind === 'definition' &&
+              selectedDefinition?.id === definition.id
+            }
+            onClick={() =>
+              onSearchChange({
+                kind: 'definition',
+                id: definition.id,
+                model: undefined,
+              })
+            }
+          >
+            <span className="truncate">{definition.name}</span>
+            <Badge variant="outline" className="ml-auto capitalize">
+              {definition.lifecycle}
+            </Badge>
+          </CatalogueButton>
+        ))}
+        {definitions.length === 0 ? (
+          <p className="px-2 py-2 text-xs text-muted-foreground">
+            No Sheet Definitions yet.
+          </p>
+        ) : null}
+        <p className="mt-4 px-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
           Promotion
         </p>
         <CatalogueButton
@@ -179,6 +227,16 @@ export function ConfigurationWorkspace({
             client={client}
             workspaceId={workspaceId}
             schemaId={selectedSchema?.id ?? null}
+            canEdit={canEdit}
+            canPublish={canPublish}
+            canRetire={canRetire}
+          />
+        ) : null}
+        {search.kind === 'definition' ? (
+          <SheetDefinitionPlane
+            client={client}
+            workspaceId={workspaceId}
+            definitionId={selectedDefinition?.id ?? null}
             canEdit={canEdit}
             canPublish={canPublish}
             canRetire={canRetire}
@@ -225,6 +283,9 @@ export function ConfigurationWorkspace({
         </p>
         {search.kind === 'schema' && selectedSchema ? (
           <SchemaImpact client={client} schemaId={selectedSchema.id} />
+        ) : null}
+        {search.kind === 'definition' && selectedDefinition ? (
+          <DefinitionImpact client={client} definitionId={selectedDefinition.id} />
         ) : null}
       </aside>
     </div>
@@ -491,6 +552,249 @@ function CanonicalSchemaPlane({
   )
 }
 
+function SheetDefinitionPlane({
+  client,
+  workspaceId,
+  definitionId,
+  canEdit,
+  canPublish,
+  canRetire,
+}: {
+  client: DataClient
+  workspaceId: string
+  definitionId: string | null
+  canEdit: boolean
+  canPublish: boolean
+  canRetire: boolean
+}) {
+  const queryClient = useQueryClient()
+  const [key, setKey] = useState('')
+  const [name, setName] = useState('')
+  const [instanceId, setInstanceId] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const versionsQuery = useQuery({
+    queryKey: ['configure', 'definition-versions', definitionId],
+    queryFn: () => fetchSheetDefinitionVersions(definitionId!, client),
+    enabled: Boolean(definitionId),
+  })
+  const versions = versionsQuery.data ?? []
+  const latestVersion = versions[versions.length - 1] ?? null
+
+  const create = useMutation({
+    mutationFn: () =>
+      createSheetDefinition({
+        workspaceId,
+        key,
+        name,
+        configuration: {
+          formatVersion: 1,
+          parameters: [],
+          bindings: [],
+          rowIdentity: { kind: 'local', columnIds: [crypto.randomUUID()] },
+          joins: [],
+          columns: [],
+          calculations: [],
+          writebackTargets: [],
+          actions: [],
+          presentationDefaults: {},
+        } as any,
+      }),
+    onSuccess: () => {
+      setError(null)
+      void queryClient.invalidateQueries({ queryKey: ['configure'] })
+    },
+    onError: (cause: unknown) =>
+      setError(
+        cause instanceof Error ? cause.message : 'Could not create definition.',
+      ),
+  })
+
+  const publish = useMutation({
+    mutationFn: () =>
+      publishSheetDefinitionVersion(latestVersion!.id, latestVersion!.revision, client),
+    onSuccess: () => {
+      setError(null)
+      void queryClient.invalidateQueries({ queryKey: ['configure'] })
+    },
+    onError: (cause: unknown) =>
+      setError(cause instanceof Error ? cause.message : 'Could not publish version.'),
+  })
+
+  const retireDefinition = useMutation({
+    mutationFn: () =>
+      retireSheetDefinition(definitionId!, Number((versionsQuery.data ?? [])[0]?.revision ?? 0), client),
+    onSuccess: () => {
+      setError(null)
+      void queryClient.invalidateQueries({ queryKey: ['configure'] })
+    },
+    onError: (cause: unknown) =>
+      setError(cause instanceof Error ? cause.message : 'Could not retire definition.'),
+  })
+
+  const retireVersion = useMutation({
+    mutationFn: () =>
+      retireSheetDefinitionVersion(latestVersion!.id, latestVersion!.revision, client),
+    onSuccess: () => {
+      setError(null)
+      void queryClient.invalidateQueries({ queryKey: ['configure'] })
+    },
+    onError: (cause: unknown) =>
+      setError(cause instanceof Error ? cause.message : 'Could not retire version.'),
+  })
+
+  const createFromInstance = useMutation({
+    mutationFn: async () => {
+      const instance = await fetchSheetInstance(instanceId, client)
+      if (!instance) throw new Error('Sheet Instance not found.')
+      return extractSheetDefinitionDraft(
+        {
+          instanceId,
+          expectedInstanceRevision: instance.revision,
+          key: key || `sheet_def_${crypto.randomUUID().slice(0, 8)}`,
+          name: name || 'Extracted Sheet Definition',
+          selection: {
+            bindings: [],
+            columnIds: [],
+            joinIds: [],
+            localFieldIds: [],
+            calculationIds: [],
+            rowIdentity: {
+              kind: 'local',
+              columnIds: [crypto.randomUUID()],
+            },
+            includePresentation: true,
+          } as any,
+        },
+        client,
+      )
+    },
+    onSuccess: () => {
+      setError(null)
+      void queryClient.invalidateQueries({ queryKey: ['configure'] })
+    },
+    onError: (cause: unknown) =>
+      setError(
+        cause instanceof Error ? cause.message : 'Could not extract definition.',
+      ),
+  })
+
+  return (
+    <div className="space-y-4">
+      <header className="flex items-center gap-2">
+        <Layers className="size-4" aria-hidden="true" />
+        <h2 className="text-lg font-semibold">Sheet Definition catalogue</h2>
+      </header>
+      <p className="text-xs text-muted-foreground">
+        Manage reusable Definitions with stable identity, version history,
+        create-from-Instance extraction, and explicit lifecycle controls.
+      </p>
+      <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+        <Label className="text-xs">
+          Stable key
+          <Input
+            className="mt-1 font-mono"
+            value={key}
+            disabled={!canEdit}
+            onChange={(event) => setKey(event.target.value)}
+          />
+        </Label>
+        <Label className="text-xs">
+          Name
+          <Input
+            className="mt-1"
+            value={name}
+            disabled={!canEdit}
+            onChange={(event) => setName(event.target.value)}
+          />
+        </Label>
+        <Button
+          className="self-end"
+          disabled={!canEdit || !key || !name || create.isPending}
+          onClick={() => create.mutate()}
+        >
+          Create draft
+        </Button>
+      </div>
+      {latestVersion ? (
+        <p className="text-xs text-muted-foreground">
+          Latest version v{latestVersion.version} · {latestVersion.lifecycle}
+        </p>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          No versions available for this Definition yet.
+        </p>
+      )}
+      {versions.length ? (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Version</TableHead>
+              <TableHead>Lifecycle</TableHead>
+              <TableHead>Published</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {[...versions].reverse().map((version) => (
+              <TableRow key={version.id}>
+                <TableCell>v{version.version}</TableCell>
+                <TableCell>{version.lifecycle}</TableCell>
+                <TableCell>{version.publishedAt ? formatDate(version.publishedAt) : '—'}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      ) : null}
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          disabled={!canPublish || !latestVersion || publish.isPending}
+          onClick={() => publish.mutate()}
+        >
+          Publish latest
+        </Button>
+        <Button
+          variant="outline"
+          disabled={!canRetire || !latestVersion || retireVersion.isPending}
+          onClick={() => retireVersion.mutate()}
+        >
+          Retire latest version
+        </Button>
+        <Button
+          variant="ghost"
+          disabled={!canRetire || !definitionId || retireDefinition.isPending}
+          onClick={() => retireDefinition.mutate()}
+        >
+          Retire definition
+        </Button>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+        <Label className="text-xs">
+          Create from Sheet Instance ID
+          <Input
+            className="mt-1 font-mono"
+            value={instanceId}
+            disabled={!canEdit}
+            onChange={(event) => setInstanceId(event.target.value)}
+          />
+        </Label>
+        <Button
+          className="self-end"
+          variant="outline"
+          disabled={!canEdit || !instanceId || createFromInstance.isPending}
+          onClick={() => createFromInstance.mutate()}
+        >
+          Create from Instance
+        </Button>
+      </div>
+      {error ? (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
 function PromotionPlane({
   client,
   canEdit,
@@ -621,6 +925,46 @@ function PromotionPlane({
           {error}
         </p>
       ) : null}
+    </div>
+  )
+}
+
+function DefinitionImpact({
+  client,
+  definitionId,
+}: {
+  client: DataClient
+  definitionId: string
+}) {
+  const versionsQuery = useQuery({
+    queryKey: ['configure', 'definition-versions', definitionId],
+    queryFn: () => fetchSheetDefinitionVersions(definitionId, client),
+  })
+  const versionId = versionsQuery.data?.[versionsQuery.data.length - 1]?.id
+  const impactQuery = useQuery({
+    queryKey: ['configure', 'definition-impact', versionId],
+    queryFn: () =>
+      discoverObjectDependencies(client, 'sheet_definition_version', versionId!),
+    enabled: Boolean(versionId),
+  })
+  const dependencies = useMemo(
+    () => impactQuery.data?.dependencies ?? [],
+    [impactQuery.data],
+  )
+  return (
+    <div className="mt-6">
+      <h3 className="text-sm font-semibold">Definition dependencies</h3>
+      {dependencies.length === 0 ? (
+        <p className="mt-2 text-xs text-muted-foreground">No dependants.</p>
+      ) : (
+        <ul className="mt-2 space-y-1 text-xs">
+          {dependencies.map((item) => (
+            <li key={`${item.kind}:${item.id}`}>
+              {item.label} · {item.liveness} · {item.effect}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }

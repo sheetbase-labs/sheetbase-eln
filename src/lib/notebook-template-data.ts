@@ -71,6 +71,16 @@ export type NotebookTemplateVersion = {
   publishedAt: string | null
 }
 
+export type NotebookTemplateParameterInput =
+  | { parameterId: string; kind: 'scalar'; value: unknown }
+  | { parameterId: string; kind: 'record'; recordId: string }
+  | { parameterId: string; kind: 'dataset'; datasetId: string }
+  | {
+      parameterId: string
+      kind: 'dataset-version'
+      datasetVersionId: string
+    }
+
 export const notebookTemplateDataClient = createDataClient()
 
 export function notebookTemplateFromWire(wire: unknown): NotebookTemplate {
@@ -225,7 +235,7 @@ export async function instantiateNotebookTemplateVersion(
     versionId: string
     targetProjectId: string
     title?: string
-    parameterInputs?: unknown[]
+    parameterInputs?: NotebookTemplateParameterInput[]
     idempotencyKey: string
   },
   client: DataClient = notebookTemplateDataClient,
@@ -278,7 +288,7 @@ export async function applyNotebookTemplateUpgrade(
     expectedStructureVersion: number
     targetVersionId: string
     decisions?: unknown[]
-    parameterInputs?: unknown[]
+    parameterInputs?: NotebookTemplateParameterInput[]
   },
   client: DataClient = notebookTemplateDataClient,
 ) {
@@ -289,6 +299,18 @@ export async function applyNotebookTemplateUpgrade(
     p_decisions: input.decisions ?? [],
     p_parameter_inputs: input.parameterInputs ?? [],
   })
+}
+
+export async function retireNotebookTemplateVersion(
+  versionId: string,
+  expectedRevision: number,
+  client: DataClient = notebookTemplateDataClient,
+) {
+  const row = await client.rpc<unknown>('retire_notebook_template_version', {
+    p_version_id: versionId,
+    p_expected_revision: expectedRevision,
+  })
+  return notebookTemplateVersionFromWire(row)
 }
 
 export async function retargetNotebookTemplateSheetPlacement(

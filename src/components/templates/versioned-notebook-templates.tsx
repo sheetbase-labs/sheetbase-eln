@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 
@@ -15,25 +15,40 @@ import {
   Field,
   FieldLabel,
   Input,
+  Select,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
+  Textarea,
 } from '#/components/ui'
 import type { TemplateProject } from '#/components/templates/template-library'
 import { formatDate } from '#/lib/notebook-data'
+import { discoverObjectDependencies } from '#/lib/object-dependencies'
 import {
+  createNotebookTemplateVersion,
   createNotebookTemplate,
   fetchAllNotebookTemplateVersions,
   fetchNotebookTemplates,
+  type NotebookTemplateParameterInput,
   instantiateNotebookTemplateVersion,
   notebookTemplateDataClient,
   publishNotebookTemplateVersion,
+  retargetNotebookTemplateSheetPlacement,
+  retireNotebookTemplateVersion,
 } from '#/lib/notebook-template-data'
-import type { NotebookTemplateConfiguration } from '#/lib/notebook-template'
+import {
+  parseNotebookTemplateConfiguration,
+  type NotebookTemplateConfiguration,
+} from '#/lib/notebook-template'
 import type { NotebookTemplateVersion } from '#/lib/notebook-template-data'
+import {
+  fetchSheetDefinitions,
+  fetchSheetDefinitionVersions,
+  sheetDefinitionDataClient,
+} from '#/lib/sheet-definition-data'
 
 function emptyNotebookTemplateConfiguration(): NotebookTemplateConfiguration {
   return {
@@ -81,6 +96,21 @@ export function VersionedNotebookTemplatePanel({
   const [createTitle, setCreateTitle] = useState('')
   const [createProjectId, setCreateProjectId] = useState(projects[0]?.id ?? '')
   const [createVersionId, setCreateVersionId] = useState<string | null>(null)
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
+    null,
+  )
+  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null)
+  const [builderSourceVersionId, setBuilderSourceVersionId] = useState('')
+  const [builderConfigurationText, setBuilderConfigurationText] = useState('')
+  const [builderError, setBuilderError] = useState<string | null>(null)
+  const [retargetPlacementId, setRetargetPlacementId] = useState('')
+  const [retargetDefinitionId, setRetargetDefinitionId] = useState('')
+  const [retargetDefinitionVersionId, setRetargetDefinitionVersionId] =
+    useState('')
+  const [parameterValues, setParameterValues] = useState<Record<string, string>>(
+    {},
+  )
+
   const templates = useQuery({
     queryKey: ['notebook-templates', workspaceId, search],
     queryFn: () =>
@@ -102,6 +132,60 @@ export function VersionedNotebookTemplatePanel({
     }
     return map
   }, [versions.data])
+  const selectedTemplateVersions = useMemo(
+    () => (selectedTemplateId ? versionsByTemplate.get(selectedTemplateId) : []),
+    [selectedTemplateId, versionsByTemplate],
+  )
+  const selectedVersion =
+    selectedTemplateVersions?.find((version) => version.id === selectedVersionId) ??
+    null
+
+  useEffect(() => {
+    const firstTemplateId = templates.data?.[0]?.id ?? null
+    if (!selectedTemplateId && firstTemplateId) setSelectedTemplateId(firstTemplateId)
+  }, [templates.data, selectedTemplateId])
+
+  useEffect(() => {
+    if (!selectedTemplateId) return
+    const current = versionsByTemplate.get(selectedTemplateId) ?? []
+    const firstVersionId = current[0]?.id ?? null
+    if (!selectedVersionId || !current.some((version) => version.id === selectedVersionId)) {
+      setSelectedVersionId(firstVersionId)
+    }
+    if (!builderSourceVersionId && firstVersionId) {
+      setBuilderSourceVersionId(firstVersionId)
+    }
+  }, [builderSourceVersionId, selectedTemplateId, selectedVersionId, versionsByTemplate])
+
+  useEffect(() => {
+    if (!selectedVersion) return
+    setBuilderConfigurationText(JSON.stringify(selectedVersion.configuration, null, 2))
+    setParameterValues({})
+    setRetargetPlacementId('')
+    setRetargetDefinitionId('')
+    setRetargetDefinitionVersionId('')
+  }, [selectedVersion?.id])
+
+  const definitionCatalogue = useQuery({
+    queryKey: ['sheet-definitions', 'catalogue'],
+    queryFn: () => fetchSheetDefinitions(sheetDefinitionDataClient),
+  })
+  const selectedDefinitionVersions = useQuery({
+    queryKey: ['sheet-definition-versions', retargetDefinitionId],
+    queryFn: () =>
+      fetchSheetDefinitionVersions(retargetDefinitionId, sheetDefinitionDataClient),
+    enabled: Boolean(retargetDefinitionId),
+  })
+  const versionDependencies = useQuery({
+    queryKey: ['notebook-template-version-dependencies', selectedVersionId],
+    queryFn: () =>
+      discoverObjectDependencies(
+        notebookTemplateDataClient,
+        'notebook_template_version',
+        selectedVersionId!,
+      ),
+    enabled: Boolean(selectedVersionId),
+  })
   const create = useMutation({
     mutationFn: (name: string) =>
       createNotebookTemplate({
@@ -127,12 +211,83 @@ export function VersionedNotebookTemplatePanel({
         queryKey: ['notebook-template-versions'],
       }),
   })
+  const retire = useMutation({
+    mutationFn: (input: { id: string; revision: number }) =>
+      retireNotebookTemplateVersion(input.id, input.revision),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: ['notebook-template-versions'],
+      }),
+  })
+  const createVersion = useMutation({
+    mutationFn: (input: {
+      templateId: string
+      expectedTemplateRevision: number
+      configuration: NotebookTemplateConfiguration
+    }) =>
+      createNotebookTemplateVersion(
+        input.templateId,
+        input.expectedTemplateRevision,
+        input.configuration,
+      ),
+    onSuccess: () => {
+      setBuilderError(null)
+      queryClient.invalidateQueries({ queryKey: ['notebook-template-versions'] })
+    },
+    onError: (cause) =>
+      setBuilderError(
+        cause instanceof Error
+          ? cause.message
+          : 'Could not create a new draft version.',
+      ),
+  })
+  const retarget = useMutation({
+    mutationFn: (input: {
+      versionId: string
+      expectedRevision: number
+      placementId: string
+      targetDefinitionVersionId: string
+    }) => retargetNotebookTemplateSheetPlacement(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notebook-template-versions'] })
+    },
+  })
   const instantiate = useMutation({
     mutationFn: () =>
       instantiateNotebookTemplateVersion({
         versionId: createVersionId ?? '',
         targetProjectId: createProjectId,
         title: createTitle.trim() || undefined,
+        parameterInputs:
+          selectedVersion?.configuration.parameters
+            .map((parameter): NotebookTemplateParameterInput | null => {
+              const value = parameterValues[parameter.id]
+              if (!value?.trim()) return parameter.required ? null : null
+              if (parameter.type.kind === 'scalar')
+                return {
+                  parameterId: parameter.id,
+                  kind: 'scalar',
+                  value,
+                }
+              if (parameter.type.kind === 'record')
+                return {
+                  parameterId: parameter.id,
+                  kind: 'record',
+                  recordId: value.trim(),
+                }
+              if (parameter.type.kind === 'dataset')
+                return {
+                  parameterId: parameter.id,
+                  kind: 'dataset',
+                  datasetId: value.trim(),
+                }
+              return {
+                parameterId: parameter.id,
+                kind: 'dataset-version',
+                datasetVersionId: value.trim(),
+              }
+            })
+            .filter((item): item is NotebookTemplateParameterInput => item !== null) ?? [],
         idempotencyKey: crypto.randomUUID(),
       }),
     onSuccess: (result) => {
@@ -232,6 +387,14 @@ export function VersionedNotebookTemplatePanel({
                   </TableCell>
                   <TableCell className="text-right">
                     <span className="inline-flex justify-end gap-1">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setSelectedTemplateId(template.id)}
+                      >
+                        Open
+                      </Button>
                       {canEdit && draft ? (
                         <Button
                           type="button"
@@ -279,6 +442,283 @@ export function VersionedNotebookTemplatePanel({
           Showing the first 100 matches. Narrow the search to find a specific
           template.
         </p>
+      ) : null}
+
+      {selectedTemplateId && selectedTemplateVersions?.length ? (
+        <section className="space-y-3 rounded-md border p-3">
+          <div className="space-y-1">
+            <h3 className="text-sm font-semibold">Version history</h3>
+            <p className="text-xs text-muted-foreground">
+              Inspect lifecycle, dependencies, placements, and prepare explicit
+              new drafts from a chosen version.
+            </p>
+          </div>
+          <Table containerClassName="rounded-md border">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Version</TableHead>
+                <TableHead>Lifecycle</TableHead>
+                <TableHead>Published</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {selectedTemplateVersions.map((version) => (
+                <TableRow key={version.id}>
+                  <TableCell>
+                    <button
+                      type="button"
+                      className="font-medium underline-offset-4 hover:underline"
+                      onClick={() => setSelectedVersionId(version.id)}
+                    >
+                      v{version.version}
+                    </button>
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={
+                        version.lifecycle === 'published' ? 'success' : 'outline'
+                      }
+                      className="text-xs"
+                    >
+                      {version.lifecycle}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {version.publishedAt ? formatDate(version.publishedAt) : '—'}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <span className="inline-flex gap-1">
+                      {canEdit && version.lifecycle === 'draft' ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            publish.mutate({ id: version.id, revision: version.revision })
+                          }
+                        >
+                          Publish
+                        </Button>
+                      ) : null}
+                      {canEdit && version.lifecycle !== 'retired' ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            retire.mutate({ id: version.id, revision: version.revision })
+                          }
+                        >
+                          Retire
+                        </Button>
+                      ) : null}
+                    </span>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+
+          {selectedVersion ? (
+            <div className="grid gap-3 lg:grid-cols-2">
+              <div className="space-y-2 rounded-md border p-3">
+                <h4 className="text-sm font-semibold">
+                  Selected version details (v{selectedVersion.version})
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                  {selectedVersion.configuration.placements.length} placements ·{' '}
+                  {selectedVersion.configuration.parameters.length} parameters
+                </p>
+                <Textarea
+                  value={JSON.stringify(selectedVersion.configuration, null, 2)}
+                  readOnly
+                  className="min-h-56 font-mono text-xs"
+                />
+              </div>
+              <div className="space-y-2 rounded-md border p-3">
+                <h4 className="text-sm font-semibold">Dependencies</h4>
+                {versionDependencies.isLoading ? (
+                  <p className="text-xs text-muted-foreground">Loading dependencies…</p>
+                ) : versionDependencies.data?.dependencies.length ? (
+                  <ul className="space-y-1 text-xs">
+                    {versionDependencies.data.dependencies.map((dependency) => (
+                      <li key={`${dependency.kind}:${dependency.id}`}>
+                        {dependency.label} · {dependency.liveness} · {dependency.effect}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-muted-foreground">No dependants discovered.</p>
+                )}
+              </div>
+            </div>
+          ) : null}
+
+          {canEdit && selectedVersion ? (
+            <div className="space-y-2 rounded-md border p-3">
+              <h4 className="text-sm font-semibold">Create new draft version</h4>
+              <p className="text-xs text-muted-foreground">
+                Edit JSON carefully to control typed parameters, mappings, and
+                placements. Publishing remains explicit.
+              </p>
+              <Field>
+                <FieldLabel htmlFor="source-version">Source version</FieldLabel>
+                <Select
+                  id="source-version"
+                  value={builderSourceVersionId}
+                  onChange={(event) => {
+                    const nextId = event.target.value
+                    setBuilderSourceVersionId(nextId)
+                    const next = selectedTemplateVersions.find(
+                      (version) => version.id === nextId,
+                    )
+                    if (next) {
+                      setBuilderConfigurationText(
+                        JSON.stringify(next.configuration, null, 2),
+                      )
+                    }
+                  }}
+                >
+                  {selectedTemplateVersions.map((version) => (
+                    <option key={version.id} value={version.id}>
+                      v{version.version} ({version.lifecycle})
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="builder-config">Configuration JSON</FieldLabel>
+                <Textarea
+                  id="builder-config"
+                  className="min-h-56 font-mono text-xs"
+                  value={builderConfigurationText}
+                  onChange={(event) => setBuilderConfigurationText(event.target.value)}
+                />
+              </Field>
+              {builderError ? (
+                <p className="text-sm text-destructive" role="alert">
+                  {builderError}
+                </p>
+              ) : null}
+              <Button
+                type="button"
+                disabled={createVersion.isPending}
+                onClick={() => {
+                  if (!selectedTemplateId) return
+                  const template = templates.data?.find((item) => item.id === selectedTemplateId)
+                  if (!template) return
+                  try {
+                    const parsed = parseNotebookTemplateConfiguration(
+                      JSON.parse(builderConfigurationText),
+                    )
+                    setBuilderError(null)
+                    createVersion.mutate({
+                      templateId: selectedTemplateId,
+                      expectedTemplateRevision: template.revision,
+                      configuration: parsed,
+                    })
+                  } catch (cause) {
+                    setBuilderError(
+                      cause instanceof Error
+                        ? cause.message
+                        : 'Configuration is not valid JSON.',
+                    )
+                  }
+                }}
+              >
+                Create draft from configuration
+              </Button>
+            </div>
+          ) : null}
+
+          {canEdit &&
+          selectedVersion &&
+          selectedVersion.lifecycle === 'draft' &&
+          selectedVersion.configuration.placements.some(
+            (placement) => placement.kind === 'sheet',
+          ) ? (
+            <div className="space-y-2 rounded-md border p-3">
+              <h4 className="text-sm font-semibold">Retarget Sheet placement</h4>
+              <div className="grid gap-2 lg:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="retarget-placement">Sheet placement</FieldLabel>
+                  <Select
+                    id="retarget-placement"
+                    value={retargetPlacementId}
+                    onChange={(event) => setRetargetPlacementId(event.target.value)}
+                  >
+                    <option value="">Select a placement</option>
+                    {selectedVersion.configuration.placements
+                      .filter((placement) => placement.kind === 'sheet')
+                      .map((placement) => (
+                        <option key={placement.id} value={placement.id}>
+                          {placement.title || placement.id}
+                        </option>
+                      ))}
+                  </Select>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="retarget-definition">Definition</FieldLabel>
+                  <Select
+                    id="retarget-definition"
+                    value={retargetDefinitionId}
+                    onChange={(event) => {
+                      setRetargetDefinitionId(event.target.value)
+                      setRetargetDefinitionVersionId('')
+                    }}
+                  >
+                    <option value="">Select a definition</option>
+                    {(definitionCatalogue.data ?? []).map((definition) => (
+                      <option key={definition.id} value={definition.id}>
+                        {definition.name}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              </div>
+              {retargetDefinitionId ? (
+                <Field>
+                  <FieldLabel htmlFor="retarget-definition-version">
+                    Target definition version
+                  </FieldLabel>
+                  <Select
+                    id="retarget-definition-version"
+                    value={retargetDefinitionVersionId}
+                    onChange={(event) =>
+                      setRetargetDefinitionVersionId(event.target.value)
+                    }
+                  >
+                    <option value="">Select a version</option>
+                    {(selectedDefinitionVersions.data ?? []).map((version) => (
+                      <option key={version.id} value={version.id}>
+                        v{version.version} ({version.lifecycle})
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              ) : null}
+              <Button
+                type="button"
+                disabled={
+                  !retargetPlacementId ||
+                  !retargetDefinitionVersionId ||
+                  retarget.isPending
+                }
+                onClick={() => {
+                  retarget.mutate({
+                    versionId: selectedVersion.id,
+                    expectedRevision: selectedVersion.revision,
+                    placementId: retargetPlacementId,
+                    targetDefinitionVersionId: retargetDefinitionVersionId,
+                  })
+                }}
+              >
+                Retarget placement
+              </Button>
+            </div>
+          ) : null}
+        </section>
       ) : null}
 
       <Dialog open={draftOpen} onOpenChange={setDraftOpen}>
@@ -354,6 +794,35 @@ export function VersionedNotebookTemplatePanel({
               emptyLabel="No projects match that search."
             />
           </Field>
+          {selectedVersion?.configuration.parameters.length ? (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">
+                Template parameters
+              </p>
+              {selectedVersion.configuration.parameters.map((parameter) => (
+                <Field key={parameter.id}>
+                  <FieldLabel htmlFor={`template-parameter-${parameter.id}`}>
+                    {parameter.label}
+                  </FieldLabel>
+                  <Input
+                    id={`template-parameter-${parameter.id}`}
+                    value={parameterValues[parameter.id] ?? ''}
+                    onChange={(event) =>
+                      setParameterValues((current) => ({
+                        ...current,
+                        [parameter.id]: event.target.value,
+                      }))
+                    }
+                    placeholder={
+                      parameter.type.kind === 'scalar'
+                        ? 'Enter a value'
+                        : 'Enter object ID'
+                    }
+                  />
+                </Field>
+              ))}
+            </div>
+          ) : null}
           {instantiate.error ? (
             <p className="text-sm text-destructive" role="alert">
               Could not create the Notebook. Try again.

@@ -10,7 +10,9 @@ import type { WorkspaceRole } from '#/lib/workspace-admin'
 export const Route = createFileRoute('/configure')({
   validateSearch: (search: Record<string, unknown>) => ({
     kind:
-      search.kind === 'schema' || search.kind === 'promotion'
+      search.kind === 'schema' ||
+      search.kind === 'definition' ||
+      search.kind === 'promotion'
         ? (search.kind as ConfigurationKind)
         : ('model' as const),
     id: typeof search.id === 'string' ? search.id : undefined,
@@ -54,8 +56,8 @@ function ConfigureRoute() {
           <h1 className="text-xl font-semibold">Configuration</h1>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
-          Dense Model and Dataset Schema workspace for Data Stewards. SCI-010
-          remains on Schemas as a compatibility editor.
+          Dense Model, Dataset Schema, and Sheet Definition workspace for Data
+          Stewards. SCI-010 remains on Schemas as a compatibility editor.
         </p>
       </header>
       <ConfigurationWorkspace

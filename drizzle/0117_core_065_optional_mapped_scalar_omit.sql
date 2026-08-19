@@ -53,17 +53,21 @@ BEGIN
 
   converting := coalesce(current_setting('sheetbase.sheet_block_convert', true), '') = 'v1';
 
+  IF TG_OP = 'UPDATE'
+     AND OLD.payload ? 'templatePlacementId'
+     AND (
+       NOT (NEW.payload ? 'templatePlacementId')
+       OR OLD.payload->>'templatePlacementId' IS DISTINCT FROM NEW.payload->>'templatePlacementId'
+     ) THEN
+    RAISE EXCEPTION 'Template placement reference is immutable' USING ERRCODE = '23514';
+  END IF;
+
   IF NEW.payload ? 'templatePlacementId' THEN
     BEGIN
       placement_id := (NEW.payload->>'templatePlacementId')::uuid;
     EXCEPTION WHEN invalid_text_representation THEN
       RAISE EXCEPTION 'templatePlacementId must be a UUID' USING ERRCODE = '23514';
     END;
-    IF TG_OP = 'UPDATE'
-       AND OLD.payload ? 'templatePlacementId'
-       AND OLD.payload->>'templatePlacementId' IS DISTINCT FROM NEW.payload->>'templatePlacementId' THEN
-      RAISE EXCEPTION 'Template placement reference is immutable' USING ERRCODE = '23514';
-    END IF;
   END IF;
 
   IF NEW.payload ? 'instanceId' THEN

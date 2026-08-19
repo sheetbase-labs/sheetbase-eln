@@ -393,9 +393,7 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     ).rows[0].result
     expect(embeddings.count).toBe(2)
 
-    await owner.query(`select api.delete_block($1,NULL)`, [
-      created.block.id,
-    ])
+    await owner.query(`select api.delete_block($1,NULL)`, [created.block.id])
     const remaining = (
       await owner.query(
         `select lifecycle from api.sheet_instances where id=$1`,
@@ -530,7 +528,10 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     const v2def = (
       await owner.query(
         `select to_jsonb(api.create_sheet_definition_version($1,1,$2::jsonb)) result`,
-        [definition.definition.id, JSON.stringify(localDefinitionConfiguration())],
+        [
+          definition.definition.id,
+          JSON.stringify(localDefinitionConfiguration()),
+        ],
       )
     ).rows[0].result
     const publishedDef2 = (
@@ -672,7 +673,10 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     const definitionV2 = (
       await owner.query(
         `select to_jsonb(api.create_sheet_definition_version($1,1,$2::jsonb)) result`,
-        [definition.definition.id, JSON.stringify(localDefinitionConfiguration())],
+        [
+          definition.definition.id,
+          JSON.stringify(localDefinitionConfiguration()),
+        ],
       )
     ).rows[0].result
     const publishedDef2 = (
@@ -713,9 +717,9 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     ).rows
     expect(blocks).toHaveLength(2)
     expect(blocks[0].instance_id).not.toBe(blocks[1].instance_id)
-    expect(blocks.map((row: { placement_id: string }) => row.placement_id).sort()).toEqual(
-      [PLACEMENT_A, PLACEMENT_B].sort(),
-    )
+    expect(
+      blocks.map((row: { placement_id: string }) => row.placement_id).sort(),
+    ).toEqual([PLACEMENT_A, PLACEMENT_B].sort())
 
     const v2draft = (
       await owner.query(
@@ -745,9 +749,11 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     )
     expect(sheetUpgrades).toHaveLength(2)
     expect(sheetUpgrades[0].instanceId).not.toBe(sheetUpgrades[1].instanceId)
-    expect(sheetUpgrades.map((item: { placementId: string }) => item.placementId).sort()).toEqual(
-      [PLACEMENT_A, PLACEMENT_B].sort(),
-    )
+    expect(
+      sheetUpgrades
+        .map((item: { placementId: string }) => item.placementId)
+        .sort(),
+    ).toEqual([PLACEMENT_A, PLACEMENT_B].sort())
 
     const structureVersion = (
       await owner.query(
@@ -772,8 +778,14 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
       )
     ).rows
     expect(upgraded).toHaveLength(2)
-    expect(upgraded.every((row: { source: string }) => row.source === publishedDef2.id)).toBe(true)
-    expect(new Set(upgraded.map((row: { source: string }) => row.source)).size).toBe(1)
+    expect(
+      upgraded.every(
+        (row: { source: string }) => row.source === publishedDef2.id,
+      ),
+    ).toBe(true)
+    expect(
+      new Set(upgraded.map((row: { source: string }) => row.source)).size,
+    ).toBe(1)
     const instanceIds = (
       await owner.query(
         `select b.payload->>'instanceId' instance_id
@@ -784,6 +796,86 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
       )
     ).rows.map((row: { instance_id: string }) => row.instance_id)
     expect(new Set(instanceIds).size).toBe(2)
+  })
+
+  it('rejects deleting or mutating templatePlacementId through update_block_payload', async () => {
+    const owner = await actor(OWNER, WS)
+    const definition = (
+      await owner.query(
+        `select api.create_sheet_definition($1,'placement_lock','Placement lock',null,$2::jsonb) result`,
+        [WS, JSON.stringify(localDefinitionConfiguration())],
+      )
+    ).rows[0].result
+    await owner.query(`select api.publish_sheet_definition_version($1,$2)`, [
+      definition.version.id,
+      definition.version.revision,
+    ])
+    const created = (
+      await owner.query(
+        `select api.create_notebook_template($1,'placement_lock_nb','Placement lock notebook',null,$2::jsonb) result`,
+        [WS, JSON.stringify(sheetConfig(definition.version.id))],
+      )
+    ).rows[0].result
+    const published = (
+      await owner.query(
+        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        [created.version.id, created.version.revision],
+      )
+    ).rows[0].result
+    const notebook = (
+      await owner.query(
+        `select api.instantiate_notebook_template_version($1,$2,'Placement lock','[]'::jsonb,'idem-placement-lock') result`,
+        [published.id, PROJECT],
+      )
+    ).rows[0].result
+
+    const block = (
+      await owner.query(
+        `select id, version, payload
+           from api.blocks
+          where record_id = $1 and type = 'sheet'
+          limit 1`,
+        [notebook.record.id],
+      )
+    ).rows[0]
+    const structureVersion = (
+      await owner.query(
+        `select structure_version from api.records where id = $1`,
+        [notebook.record.id],
+      )
+    ).rows[0].structure_version
+
+    await expectDenied(
+      owner.query(
+        `select api.update_block_payload($1, ($2::jsonb - 'templatePlacementId'), $3, $4)`,
+        [
+          block.id,
+          JSON.stringify(block.payload),
+          block.version,
+          structureVersion,
+        ],
+      ),
+      '23514',
+    )
+
+    await expectDenied(
+      owner.query(
+        `select api.update_block_payload(
+           $1,
+           ($2::jsonb || jsonb_build_object('templatePlacementId', $5::text)),
+           $3,
+           $4
+         )`,
+        [
+          block.id,
+          JSON.stringify(block.payload),
+          block.version,
+          structureVersion,
+          crypto.randomUUID(),
+        ],
+      ),
+      '23514',
+    )
   })
 
   it('applies an upgrade when a new placement omits an optional mapped scalar input', async () => {

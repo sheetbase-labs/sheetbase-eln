@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -468,6 +468,73 @@ function fakeClient(): DataClient {
           retired_at: null,
           retired_by_user_id: null,
         }
+      if (name === 'preview_sheet_instance_definition_upgrade')
+        return {
+          source: {
+            instanceId: payload.p_instance_id,
+            instanceRevision: payload.p_expected_instance_revision,
+            definitionVersionId: versionId,
+          },
+          target: { definitionVersionId: payload.p_target_definition_version_id },
+          automaticChanges: [],
+          conflicts: [],
+        }
+      if (name === 'apply_sheet_instance_definition_upgrade')
+        return {
+          status: 'applied',
+          preview: {
+            source: {
+              instanceId: payload.p_instance_id,
+              instanceRevision: payload.p_expected_instance_revision,
+              definitionVersionId: versionId,
+            },
+            target: { definitionVersionId: payload.p_target_definition_version_id },
+            automaticChanges: [],
+            conflicts: [],
+          },
+          instance: {
+            id: instanceId,
+            workspace_id: 'workspace-1',
+            project_id: null,
+            notebook_record_id: null,
+            source_definition_version_id: payload.p_target_definition_version_id,
+            name: 'Instance A',
+            description: null,
+            lifecycle: 'active',
+            revision: payload.p_expected_instance_revision + 1,
+            state: {
+              bindings: [],
+              parameterValues: [],
+              localFields: [],
+              localValues: {},
+              calculationOverrides: {},
+              instanceCalculations: [],
+              presentation: {
+                columnOrder: [],
+                hiddenColumnIds: [],
+                columnWidths: {},
+                frozenColumnCount: 0,
+                density: 'standard',
+                filters: [],
+                sorts: [],
+              },
+              provenance: { createdFrom: 'ad_hoc' },
+            },
+            duplicated_from_instance_id: null,
+            created_at: '2026-01-01T00:00:00Z',
+            updated_at: '2026-01-01T00:00:00Z',
+            created_by_user_id: null,
+            updated_by_user_id: null,
+          },
+          provenance: {
+            sourceDefinitionVersionId: versionId,
+            targetDefinitionVersionId: payload.p_target_definition_version_id,
+            sourceInstanceRevision: payload.p_expected_instance_revision,
+            resultingInstanceRevision: payload.p_expected_instance_revision + 1,
+            actorUserId: 'core-065-owner',
+            upgradedAt: '2026-01-01T00:00:00Z',
+          },
+        }
       return { dependencies: [] }
     }) as DataClient['rpc'],
     count: vi.fn(),
@@ -595,6 +662,7 @@ describe('ConfigurationWorkspace', () => {
   it('exposes save draft and new draft version actions for definitions', async () => {
     const user = userEvent.setup()
     const { client } = mount('steward', 'definition')
+    await screen.findByLabelText('Draft configuration JSON')
     await screen.findByRole('button', { name: 'Save draft' })
     await user.click(screen.getByRole('button', { name: 'Save draft' }))
     await user.click(screen.getByRole('button', { name: 'New draft version' }))
@@ -608,5 +676,59 @@ describe('ConfigurationWorkspace', () => {
         ([name]: [string]) => name === 'create_sheet_definition_version',
       ),
     ).toBe(true)
+  })
+
+  it('edits draft configuration JSON before saving', async () => {
+    const user = userEvent.setup()
+    const { client } = mount('steward', 'definition')
+    const textarea = await screen.findByLabelText('Draft configuration JSON')
+    const currentConfig = JSON.parse((textarea as HTMLTextAreaElement).value)
+    currentConfig.presentation = {
+      ...currentConfig.presentation,
+      density: 'compact',
+    }
+    fireEvent.change(textarea, {
+      target: {
+        value: JSON.stringify(currentConfig, null, 2),
+      },
+    })
+    await user.click(screen.getByRole('button', { name: 'Save draft' }))
+    const updateCall = (client.rpc as any).mock.calls.find(
+      ([name]: [string]) => name === 'update_sheet_definition_draft',
+    )
+    expect(updateCall).toBeTruthy()
+    expect(updateCall[1].p_configuration.presentation.density).toBe('compact')
+  })
+
+  it('uses selected definition revision when retiring a definition', async () => {
+    const user = userEvent.setup()
+    const { client } = mount('owner', 'definition')
+    await screen.findByRole('button', { name: 'Retire definition' })
+    await user.click(screen.getByRole('button', { name: 'Retire definition' }))
+    const retireCall = (client.rpc as any).mock.calls.find(
+      ([name]: [string]) => name === 'retire_sheet_definition',
+    )
+    expect(retireCall).toBeTruthy()
+    expect(retireCall[1].p_expected_revision).toBe(3)
+  })
+
+  it('previews and applies consumer upgrades from the definition plane', async () => {
+    const user = userEvent.setup()
+    const { client } = mount('owner', 'definition')
+    await user.type(
+      await screen.findByLabelText('Sheet Instance ID'),
+      '33333333-3333-4333-8333-333333333333',
+    )
+    await user.type(screen.getByLabelText('Expected instance revision'), '9')
+    await user.click(screen.getByRole('button', { name: 'Preview consumer upgrade' }))
+    await user.click(screen.getByRole('button', { name: 'Apply consumer upgrade' }))
+    const previewCall = (client.rpc as any).mock.calls.find(
+      ([name]: [string]) => name === 'preview_sheet_instance_definition_upgrade',
+    )
+    const applyCall = (client.rpc as any).mock.calls.find(
+      ([name]: [string]) => name === 'apply_sheet_instance_definition_upgrade',
+    )
+    expect(previewCall?.[1].p_expected_instance_revision).toBe(9)
+    expect(applyCall?.[1].p_expected_instance_revision).toBe(9)
   })
 })

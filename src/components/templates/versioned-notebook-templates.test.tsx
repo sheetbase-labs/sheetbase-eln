@@ -5,9 +5,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { VersionedNotebookTemplatePanel } from './versioned-notebook-templates'
 
-const { navigateMock, instantiateMock } = vi.hoisted(() => ({
+const { navigateMock, instantiateMock, previewUpgradeMock, applyUpgradeMock } = vi.hoisted(() => ({
   navigateMock: vi.fn(),
   instantiateMock: vi.fn(),
+  previewUpgradeMock: vi.fn(async () => ({ automatic: [], conflicts: [] })),
+  applyUpgradeMock: vi.fn(async () => ({})),
 }))
 
 vi.mock('@tanstack/react-router', () => ({
@@ -65,7 +67,25 @@ vi.mock('#/lib/notebook-template-data', () => {
             key: 'alpha_required',
             label: 'Alpha required',
             required: true,
-            type: { kind: 'scalar' },
+            type: { kind: 'scalar', valueType: 'integer' },
+            defaultValue: 5,
+            constraints: { min: 1, max: 10 },
+          },
+          {
+            id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+            key: 'alpha_decimal',
+            label: 'Alpha decimal',
+            required: true,
+            type: { kind: 'scalar', valueType: 'decimal' },
+            constraints: { min: 0.5, max: 3.5 },
+          },
+          {
+            id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+            key: 'alpha_boolean',
+            label: 'Alpha boolean',
+            required: true,
+            type: { kind: 'scalar', valueType: 'boolean' },
+            constraints: {},
           },
         ],
         placements: [],
@@ -86,7 +106,8 @@ vi.mock('#/lib/notebook-template-data', () => {
             key: 'beta_required',
             label: 'Beta required',
             required: true,
-            type: { kind: 'scalar' },
+            type: { kind: 'scalar', valueType: 'text' },
+            constraints: { minLength: 1 },
           },
         ],
         placements: [],
@@ -104,6 +125,8 @@ vi.mock('#/lib/notebook-template-data', () => {
     retireNotebookTemplateVersion: vi.fn(),
     retargetNotebookTemplateSheetPlacement: vi.fn(),
     instantiateNotebookTemplateVersion: instantiateMock,
+    previewNotebookTemplateUpgrade: previewUpgradeMock,
+    applyNotebookTemplateUpgrade: applyUpgradeMock,
     notebookTemplateDataClient: {},
   }
 })
@@ -112,6 +135,8 @@ afterEach(() => {
   cleanup()
   instantiateMock.mockReset()
   navigateMock.mockReset()
+  previewUpgradeMock.mockClear()
+  applyUpgradeMock.mockClear()
 })
 
 function mount() {
@@ -147,13 +172,87 @@ describe('VersionedNotebookTemplatePanel', () => {
     expect(screen.queryByLabelText('Beta required')).toBeNull()
   })
 
+  it('submits scalar parameters with typed integer/decimal/boolean values', async () => {
+    const user = userEvent.setup()
+    mount()
+    await screen.findByText('Alpha template')
+    await user.click(screen.getAllByRole('button', { name: 'Create notebook' })[0])
+    await user.clear(screen.getByLabelText('Alpha required'))
+    await user.type(screen.getByLabelText('Alpha decimal'), '1.25')
+    await user.type(screen.getByLabelText('Alpha boolean'), 'true')
+    instantiateMock.mockResolvedValueOnce({
+      record: { id: 'rec-1', project_id: 'project-1', identifier: 'NB-1' },
+      templateVersionId: '33333333-3333-4333-8333-333333333333',
+      idempotent: false,
+    })
+    await user.click(screen.getByRole('button', { name: 'Create and open' }))
+    expect(instantiateMock).toHaveBeenCalledTimes(1)
+    const payload = instantiateMock.mock.calls[0][0]
+    expect(payload.parameterInputs).toEqual(
+      expect.arrayContaining([
+        {
+          parameterId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          kind: 'scalar',
+          value: 5,
+        },
+        {
+          parameterId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+          kind: 'scalar',
+          value: 1.25,
+        },
+        {
+          parameterId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+          kind: 'scalar',
+          value: true,
+        },
+      ]),
+    )
+  })
+
+  it('blocks submit when a scalar parameter fails validation', async () => {
+    const user = userEvent.setup()
+    mount()
+    await screen.findByText('Alpha template')
+    await user.click(screen.getAllByRole('button', { name: 'Create notebook' })[0])
+    await user.clear(screen.getByLabelText('Alpha required'))
+    await user.type(screen.getByLabelText('Alpha required'), '100')
+    await user.type(screen.getByLabelText('Alpha decimal'), '1.25')
+    await user.type(screen.getByLabelText('Alpha boolean'), 'true')
+    await user.click(screen.getByRole('button', { name: 'Create and open' }))
+    expect(await screen.findByRole('alert')).toBeTruthy()
+    expect(instantiateMock).not.toHaveBeenCalled()
+  })
+
   it('blocks submit when a required parameter is missing', async () => {
     const user = userEvent.setup()
     mount()
     await screen.findByText('Alpha template')
     await user.click(screen.getAllByRole('button', { name: 'Create notebook' })[0])
+    await user.clear(screen.getByLabelText('Alpha boolean'))
     await user.click(screen.getByRole('button', { name: 'Create and open' }))
     expect(await screen.findByRole('alert')).toBeTruthy()
     expect(instantiateMock).not.toHaveBeenCalled()
+  })
+
+  it('previews and applies explicit notebook template upgrades', async () => {
+    const user = userEvent.setup()
+    mount()
+    await screen.findByText('Alpha template')
+    await user.click(screen.getAllByRole('button', { name: 'Open' })[0])
+    await user.type(screen.getByLabelText('Notebook record ID'), 'record-123')
+    await user.type(screen.getByLabelText('Expected structure version'), '2')
+    await user.click(screen.getByRole('button', { name: 'Preview upgrade' }))
+    await user.click(screen.getByRole('button', { name: 'Apply upgrade' }))
+    expect(previewUpgradeMock).toHaveBeenCalledWith(
+      'record-123',
+      '33333333-3333-4333-8333-333333333333',
+    )
+    expect(applyUpgradeMock).toHaveBeenCalledWith({
+      recordId: 'record-123',
+      expectedStructureVersion: 2,
+      targetVersionId: '33333333-3333-4333-8333-333333333333',
+      decisions: [],
+      parameterInputs: [],
+    })
   })
 })

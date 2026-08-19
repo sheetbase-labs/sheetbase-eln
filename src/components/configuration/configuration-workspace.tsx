@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Database, Layers, Shield } from 'lucide-react'
 
 import { AdminModelFields } from '#/components/workspace-admin/admin-model-fields'
+import { VersionedNotebookTemplatePanel } from '#/components/templates/versioned-notebook-templates'
+import type { TemplateProject } from '#/components/templates/template-library'
 import {
   Badge,
   Button,
@@ -42,7 +44,11 @@ import {
   retireSheetDefinitionVersion,
   updateSheetDefinitionDraft,
 } from '#/lib/sheet-definition-data'
-import { fetchSheetInstance } from '#/lib/sheet-instance-data'
+import {
+  applySheetInstanceDefinitionUpgrade,
+  fetchSheetInstance,
+  previewSheetInstanceDefinitionUpgrade,
+} from '#/lib/sheet-instance-data'
 import type { SheetDefinitionExtractionSelection } from '#/lib/sheet-definition-extraction'
 import {
   applyDatasetSchemaEvolution,
@@ -50,11 +56,17 @@ import {
   previewLocalFieldPromotion,
   promoteLocalField,
 } from '#/lib/schema-evolution'
-import { formatDate } from '#/lib/notebook-data'
+import { formatDate, notebookDataClient, notebookQueryKeys } from '#/lib/notebook-data'
+import { parseSheetDefinitionConfiguration } from '#/lib/sheet-definition'
 import type { WorkspaceRole } from '#/lib/workspace-admin'
 import { cn } from '#/lib/utils'
 
-export type ConfigurationKind = 'model' | 'schema' | 'definition' | 'promotion'
+export type ConfigurationKind =
+  | 'model'
+  | 'schema'
+  | 'definition'
+  | 'template'
+  | 'promotion'
 
 export interface ConfigurationSearch {
   kind: ConfigurationKind
@@ -111,6 +123,12 @@ export function ConfigurationWorkspace({
     queryFn: () => fetchSheetDefinitions(client),
   })
   const definitions = definitionsQuery.data ?? []
+  const projectsQuery = useQuery({
+    queryKey: notebookQueryKeys.projectsList(),
+    queryFn: () =>
+      notebookDataClient.list<TemplateProject>('projects', '?order=created_at.desc'),
+  })
+  const projects = projectsQuery.data ?? []
   const matched = schemas.find((item) => item.id === search.id)
   const selectedSchema =
     matched ?? (schemas.length > 0 ? schemas[0] : undefined)
@@ -197,6 +215,21 @@ export function ConfigurationWorkspace({
           </p>
         ) : null}
         <p className="mt-4 px-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+          Notebook Templates
+        </p>
+        <CatalogueButton
+          current={search.kind === 'template'}
+          onClick={() =>
+            onSearchChange({
+              kind: 'template',
+              id: undefined,
+              model: undefined,
+            })
+          }
+        >
+          Notebook template versions
+        </CatalogueButton>
+        <p className="mt-4 px-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
           Promotion
         </p>
         <CatalogueButton
@@ -245,6 +278,13 @@ export function ConfigurationWorkspace({
             canEdit={canEdit}
             canPublish={canPublish}
             canRetire={canRetire}
+          />
+        ) : null}
+        {search.kind === 'template' ? (
+          <VersionedNotebookTemplatePanel
+            workspaceId={workspaceId}
+            canEdit={canEdit}
+            projects={projects}
           />
         ) : null}
         {search.kind === 'promotion' ? (
@@ -675,19 +715,35 @@ function SheetDefinitionPlane({
   const [name, setName] = useState('')
   const [instanceId, setInstanceId] = useState('')
   const [selectionPreview, setSelectionPreview] = useState<string | null>(null)
+  const [configurationText, setConfigurationText] = useState('')
+  const [upgradeInstanceId, setUpgradeInstanceId] = useState('')
+  const [upgradeExpectedRevision, setUpgradeExpectedRevision] = useState('')
+  const [upgradePreviewText, setUpgradePreviewText] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const versionsQuery = useQuery({
     queryKey: ['configure', 'definition-versions', definitionId],
-    queryFn: () => fetchSheetDefinitionVersions(definitionId!, client),
+    queryFn: () => {
+      if (!definitionId) throw new Error('No Sheet Definition selected.')
+      return fetchSheetDefinitionVersions(definitionId, client)
+    },
     enabled: Boolean(definitionId),
   })
   const versions = versionsQuery.data ?? []
-  const latestVersion = versions[versions.length - 1] ?? null
+  const latestVersion =
+    versions.length > 0 ? versions[versions.length - 1] : null
   const selectedDefinitionQuery = useQuery({
     queryKey: ['configure', 'definition', definitionId],
-    queryFn: () => fetchSheetDefinition(definitionId!, client),
+    queryFn: () => {
+      if (!definitionId) throw new Error('No Sheet Definition selected.')
+      return fetchSheetDefinition(definitionId, client)
+    },
     enabled: Boolean(definitionId),
   })
+  useEffect(() => {
+    setConfigurationText(
+      latestVersion ? JSON.stringify(latestVersion.configuration, null, 2) : '',
+    )
+  }, [latestVersion])
 
   const create = useMutation({
     mutationFn: () =>
@@ -710,8 +766,14 @@ function SheetDefinitionPlane({
   })
 
   const publish = useMutation({
-    mutationFn: () =>
-      publishSheetDefinitionVersion(latestVersion!.id, latestVersion!.revision, client),
+    mutationFn: () => {
+      if (!latestVersion) throw new Error('No Definition version selected.')
+      return publishSheetDefinitionVersion(
+        latestVersion.id,
+        latestVersion.revision,
+        client,
+      )
+    },
     onSuccess: () => {
       setError(null)
       void queryClient.invalidateQueries({ queryKey: ['configure'] })
@@ -721,8 +783,13 @@ function SheetDefinitionPlane({
   })
 
   const retireDefinition = useMutation({
-    mutationFn: () =>
-      retireSheetDefinition(definitionId!, Number((versionsQuery.data ?? [])[0]?.revision ?? 0), client),
+    mutationFn: () => {
+      if (!definitionId) throw new Error('No Sheet Definition selected.')
+      const expectedRevision = selectedDefinitionQuery.data?.revision
+      if (expectedRevision === undefined)
+        throw new Error('Selected Sheet Definition was not found.')
+      return retireSheetDefinition(definitionId, expectedRevision, client)
+    },
     onSuccess: () => {
       setError(null)
       void queryClient.invalidateQueries({ queryKey: ['configure'] })
@@ -732,8 +799,14 @@ function SheetDefinitionPlane({
   })
 
   const retireVersion = useMutation({
-    mutationFn: () =>
-      retireSheetDefinitionVersion(latestVersion!.id, latestVersion!.revision, client),
+    mutationFn: () => {
+      if (!latestVersion) throw new Error('No Definition version selected.')
+      return retireSheetDefinitionVersion(
+        latestVersion.id,
+        latestVersion.revision,
+        client,
+      )
+    },
     onSuccess: () => {
       setError(null)
       void queryClient.invalidateQueries({ queryKey: ['configure'] })
@@ -780,10 +853,13 @@ function SheetDefinitionPlane({
   const updateDraft = useMutation({
     mutationFn: () => {
       if (!latestVersion) throw new Error('No Definition version selected.')
+      const parsedConfiguration = parseSheetDefinitionConfiguration(
+        JSON.parse(configurationText),
+      )
       return updateSheetDefinitionDraft(
         latestVersion.id,
         latestVersion.revision,
-        latestVersion.configuration,
+        parsedConfiguration,
         client,
       )
     },
@@ -794,6 +870,54 @@ function SheetDefinitionPlane({
     onError: (cause: unknown) =>
       setError(
         cause instanceof Error ? cause.message : 'Could not update draft version.',
+      ),
+  })
+  const previewConsumerUpgrade = useMutation({
+    mutationFn: () => {
+      if (!latestVersion) throw new Error('No Definition version selected.')
+      const instanceId = upgradeInstanceId.trim()
+      const expectedRevision = Number(upgradeExpectedRevision.trim())
+      if (!instanceId) throw new Error('Sheet Instance ID is required.')
+      if (!Number.isInteger(expectedRevision) || expectedRevision <= 0) {
+        throw new Error('Expected instance revision must be a positive integer.')
+      }
+      return previewSheetInstanceDefinitionUpgrade(
+        instanceId,
+        expectedRevision,
+        latestVersion.id,
+        client,
+      )
+    },
+    onSuccess: (result) =>
+      setUpgradePreviewText(
+        `${result.automaticChanges.length} automatic change(s), ${result.conflicts.length} conflict(s).`,
+      ),
+  })
+  const applyConsumerUpgrade = useMutation({
+    mutationFn: () => {
+      if (!latestVersion) throw new Error('No Definition version selected.')
+      const instanceId = upgradeInstanceId.trim()
+      const expectedRevision = Number(upgradeExpectedRevision.trim())
+      if (!instanceId) throw new Error('Sheet Instance ID is required.')
+      if (!Number.isInteger(expectedRevision) || expectedRevision <= 0) {
+        throw new Error('Expected instance revision must be a positive integer.')
+      }
+      return applySheetInstanceDefinitionUpgrade(
+        {
+          instanceId,
+          expectedRevision,
+          targetDefinitionVersionId: latestVersion.id,
+          decisions: [],
+          parameterInputs: [],
+        },
+        client,
+      )
+    },
+    onSuccess: (result) =>
+      setUpgradePreviewText(
+        result.status === 'applied'
+          ? 'Upgrade applied.'
+          : 'Upgrade deferred until conflicts are resolved.',
       ),
   })
   const forkVersion = useMutation({
@@ -929,6 +1053,16 @@ function SheetDefinitionPlane({
           Retire definition
         </Button>
       </div>
+      {latestVersion?.lifecycle === 'draft' ? (
+        <Label className="text-xs">
+          Draft configuration JSON
+          <textarea
+            className="mt-1 min-h-56 w-full rounded-md border border-input bg-background p-2 font-mono text-xs"
+            value={configurationText}
+            onChange={(event) => setConfigurationText(event.target.value)}
+          />
+        </Label>
+      ) : null}
       <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
         <Label className="text-xs">
           Create from Sheet Instance ID
@@ -948,6 +1082,53 @@ function SheetDefinitionPlane({
           Create from Instance
         </Button>
       </div>
+      <div className="space-y-2 rounded-md border p-3">
+        <p className="text-xs font-medium">Upgrade Sheet Definition consumers</p>
+        <p className="text-xs text-muted-foreground">
+          Preview and apply explicit upgrades for Sheet Instances consuming this Definition version.
+        </p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Label className="text-xs">
+            Sheet Instance ID
+            <Input
+              className="mt-1 font-mono"
+              value={upgradeInstanceId}
+              disabled={!canEdit}
+              onChange={(event) => setUpgradeInstanceId(event.target.value)}
+            />
+          </Label>
+          <Label className="text-xs">
+            Expected instance revision
+            <Input
+              className="mt-1"
+              value={upgradeExpectedRevision}
+              disabled={!canEdit}
+              onChange={(event) => setUpgradeExpectedRevision(event.target.value)}
+            />
+          </Label>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            disabled={!canEdit || !latestVersion || previewConsumerUpgrade.isPending}
+            onClick={() => previewConsumerUpgrade.mutate()}
+          >
+            Preview consumer upgrade
+          </Button>
+          <Button
+            variant="outline"
+            disabled={!canEdit || !latestVersion || applyConsumerUpgrade.isPending}
+            onClick={() => applyConsumerUpgrade.mutate()}
+          >
+            Apply consumer upgrade
+          </Button>
+        </div>
+      </div>
+      {upgradePreviewText ? (
+        <p className="text-xs text-muted-foreground" role="status">
+          {upgradePreviewText}
+        </p>
+      ) : null}
       {selectionPreview ? (
         <p className="text-xs text-muted-foreground" role="status">
           {selectionPreview}

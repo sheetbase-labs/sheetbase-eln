@@ -12,6 +12,7 @@ export const Route = createFileRoute('/configure')({
     kind:
       search.kind === 'schema' ||
       search.kind === 'definition' ||
+      search.kind === 'template' ||
       search.kind === 'promotion'
         ? (search.kind as ConfigurationKind)
         : ('model' as const),

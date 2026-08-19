@@ -30,20 +30,27 @@ import { discoverObjectDependencies } from '#/lib/object-dependencies'
 import {
   createNotebookTemplateVersion,
   createNotebookTemplate,
+  applyNotebookTemplateUpgrade,
   fetchAllNotebookTemplateVersions,
   fetchNotebookTemplates,
-  type NotebookTemplateParameterInput,
   instantiateNotebookTemplateVersion,
   notebookTemplateDataClient,
+  previewNotebookTemplateUpgrade,
   publishNotebookTemplateVersion,
   retargetNotebookTemplateSheetPlacement,
   retireNotebookTemplateVersion,
 } from '#/lib/notebook-template-data'
 import {
   parseNotebookTemplateConfiguration,
-  type NotebookTemplateConfiguration,
 } from '#/lib/notebook-template'
-import type { NotebookTemplateVersion } from '#/lib/notebook-template-data'
+import type {
+  NotebookTemplateConfiguration,
+} from '#/lib/notebook-template'
+import { scalarParameterValueSchema } from '#/lib/parameter'
+import type {
+  NotebookTemplateParameterInput,
+  NotebookTemplateVersion,
+} from '#/lib/notebook-template-data'
 import {
   fetchSheetDefinitions,
   fetchSheetDefinitionVersions,
@@ -78,6 +85,61 @@ function notebookTemplateKey(name: string): string {
   return `${base}_${crypto.randomUUID().replace(/-/g, '').slice(0, 8)}`
 }
 
+function parseScalarTemplateParameterValue(
+  parameter: NotebookTemplateConfiguration['parameters'][number],
+  rawValue: string | undefined,
+) {
+  if (parameter.type.kind !== 'scalar')
+    throw new Error('Only scalar parameters can be parsed here.')
+  const trimmed = rawValue?.trim() ?? ''
+  const hasInput = trimmed.length > 0
+  const value = hasInput ? trimmed : parameter.defaultValue
+  if (value === undefined) {
+    if (parameter.required)
+      throw new Error(`Parameter "${parameter.label}" is required.`)
+    return null
+  }
+  let parsed: unknown = value
+  if (typeof value === 'string') {
+    if (parameter.type.valueType === 'integer' || parameter.type.valueType === 'decimal') {
+      parsed = Number(value)
+    } else if (parameter.type.valueType === 'boolean') {
+      const normalised = value.toLowerCase()
+      if (normalised === 'true') parsed = true
+      else if (normalised === 'false') parsed = false
+    }
+  }
+  if (!scalarParameterValueSchema(parameter.type.valueType).safeParse(parsed).success) {
+    throw new Error(`Parameter "${parameter.label}" has an invalid value.`)
+  }
+  if (typeof parsed === 'number') {
+    if (parameter.constraints.min !== undefined && parsed < parameter.constraints.min) {
+      throw new Error(`Parameter "${parameter.label}" is below the minimum value.`)
+    }
+    if (parameter.constraints.max !== undefined && parsed > parameter.constraints.max) {
+      throw new Error(`Parameter "${parameter.label}" exceeds the maximum value.`)
+    }
+  }
+  if (typeof parsed === 'string') {
+    if (parameter.constraints.minLength !== undefined && parsed.length < parameter.constraints.minLength) {
+      throw new Error(`Parameter "${parameter.label}" is too short.`)
+    }
+    if (parameter.constraints.maxLength !== undefined && parsed.length > parameter.constraints.maxLength) {
+      throw new Error(`Parameter "${parameter.label}" is too long.`)
+    }
+    if (parameter.constraints.pattern !== undefined && !new RegExp(parameter.constraints.pattern).test(parsed)) {
+      throw new Error(`Parameter "${parameter.label}" does not match the expected format.`)
+    }
+  }
+  if (
+    parameter.constraints.allowedValues !== undefined &&
+    !parameter.constraints.allowedValues.some((allowed) => allowed === parsed)
+  ) {
+    throw new Error(`Parameter "${parameter.label}" is not an allowed value.`)
+  }
+  return parsed
+}
+
 export function VersionedNotebookTemplatePanel({
   workspaceId,
   canEdit,
@@ -110,6 +172,10 @@ export function VersionedNotebookTemplatePanel({
   const [parameterValues, setParameterValues] = useState<Record<string, string>>(
     {},
   )
+  const [upgradeRecordId, setUpgradeRecordId] = useState('')
+  const [upgradeExpectedStructureVersion, setUpgradeExpectedStructureVersion] =
+    useState('')
+  const [upgradePreviewText, setUpgradePreviewText] = useState<string | null>(null)
 
   const templates = useQuery({
     queryKey: ['notebook-templates', workspaceId, search],
@@ -258,19 +324,18 @@ export function VersionedNotebookTemplatePanel({
     mutationFn: () => {
       const sourceVersion = instantiateVersion
       if (!sourceVersion) throw new Error('Template version is no longer available.')
-      const parameterInputs =
-        sourceVersion.configuration.parameters.map(
-          (parameter): NotebookTemplateParameterInput | null => {
-            const value = parameterValues[parameter.id]?.trim() ?? ''
-            if (!value && parameter.required)
-              throw new Error(`Parameter "${parameter.label}" is required.`)
-            if (!value && !parameter.required) return null
+      const parameterInputs = sourceVersion.configuration.parameters
+        .map((parameter): NotebookTemplateParameterInput | null => {
+            const value = (parameterValues[parameter.id] ?? '').trim()
             if (parameter.type.kind === 'scalar')
               return {
                 parameterId: parameter.id,
                 kind: 'scalar',
-                value,
+                value: parseScalarTemplateParameterValue(parameter, parameterValues[parameter.id]),
               }
+            if (!value && parameter.required)
+              throw new Error(`Parameter "${parameter.label}" is required.`)
+            if (!value && !parameter.required) return null
             if (parameter.type.kind === 'record')
               return {
                 parameterId: parameter.id,
@@ -288,9 +353,8 @@ export function VersionedNotebookTemplatePanel({
               kind: 'dataset-version',
               datasetVersionId: value,
             }
-          },
-        ).filter((item): item is NotebookTemplateParameterInput => item !== null) ??
-        []
+          })
+        .filter((item): item is NotebookTemplateParameterInput => item !== null)
       return instantiateNotebookTemplateVersion({
         versionId: createVersionId ?? '',
         targetProjectId: createProjectId,
@@ -306,6 +370,36 @@ export function VersionedNotebookTemplatePanel({
       void navigate({
         to: '/projects/$projectId/experiments/$recordId',
         params: { projectId: project, recordId: result.record.id },
+      })
+    },
+  })
+  const previewUpgrade = useMutation({
+    mutationFn: () => {
+      if (!selectedVersion) throw new Error('No template version selected.')
+      if (!upgradeRecordId.trim()) throw new Error('Notebook record ID is required.')
+      return previewNotebookTemplateUpgrade(upgradeRecordId.trim(), selectedVersion.id)
+    },
+    onSuccess: (result) => {
+      const parsed = result as { automatic?: unknown[]; conflicts?: unknown[] }
+      setUpgradePreviewText(
+        `${parsed.automatic?.length ?? 0} automatic change(s), ${parsed.conflicts?.length ?? 0} conflict(s).`,
+      )
+    },
+  })
+  const applyUpgrade = useMutation({
+    mutationFn: () => {
+      if (!selectedVersion) throw new Error('No template version selected.')
+      if (!upgradeRecordId.trim()) throw new Error('Notebook record ID is required.')
+      const expectedVersion = Number(upgradeExpectedStructureVersion.trim())
+      if (!Number.isInteger(expectedVersion) || expectedVersion <= 0) {
+        throw new Error('Expected structure version must be a positive integer.')
+      }
+      return applyNotebookTemplateUpgrade({
+        recordId: upgradeRecordId.trim(),
+        expectedStructureVersion: expectedVersion,
+        targetVersionId: selectedVersion.id,
+        decisions: [],
+        parameterInputs: [],
       })
     },
   })
@@ -725,6 +819,62 @@ export function VersionedNotebookTemplatePanel({
               >
                 Retarget placement
               </Button>
+            </div>
+          ) : null}
+
+          {canEdit && selectedVersion && selectedVersion.lifecycle === 'published' ? (
+            <div className="space-y-2 rounded-md border p-3">
+              <h4 className="text-sm font-semibold">Upgrade existing Notebooks</h4>
+              <p className="text-xs text-muted-foreground">
+                Preview and apply an explicit upgrade to this published template version.
+              </p>
+              <div className="grid gap-2 lg:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="upgrade-record-id">Notebook record ID</FieldLabel>
+                  <Input
+                    id="upgrade-record-id"
+                    value={upgradeRecordId}
+                    onChange={(event) => setUpgradeRecordId(event.target.value)}
+                    placeholder="Enter notebook record ID"
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="upgrade-expected-structure-version">
+                    Expected structure version
+                  </FieldLabel>
+                  <Input
+                    id="upgrade-expected-structure-version"
+                    value={upgradeExpectedStructureVersion}
+                    onChange={(event) =>
+                      setUpgradeExpectedStructureVersion(event.target.value)
+                    }
+                    placeholder="e.g. 1"
+                  />
+                </Field>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={previewUpgrade.isPending}
+                  onClick={() => previewUpgrade.mutate()}
+                >
+                  Preview upgrade
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={applyUpgrade.isPending}
+                  onClick={() => applyUpgrade.mutate()}
+                >
+                  Apply upgrade
+                </Button>
+              </div>
+              {upgradePreviewText ? (
+                <p className="text-xs text-muted-foreground" role="status">
+                  {upgradePreviewText}
+                </p>
+              ) : null}
             </div>
           ) : null}
         </section>

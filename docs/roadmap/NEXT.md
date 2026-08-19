@@ -20,7 +20,7 @@ The roadmap supports **parallel streams**. Agents take **one assigned stream/tas
 
 | Stream | Active task      | Model  | Status                                           |
 | ------ | ---------------- | ------ | ------------------------------------------------ |
-| PC     | —                | Medium | PC-04 complete on `#53`; PC-05 Steward workspace on this stream. Do not start PC-06 until assigned. |
+| PC     | —                | Medium | PC-05 complete on `#54`. PC-06 Golden Workflows remains later. |
 | API    | —                | —      | API-01/02/03/07 complete on `main`; do not start API-04/05/06 |
 | DATA   | —                | —      | DATA-01 complete; DATA-02 remains later          |
 | GOV    | —                | —      | GOV-01 complete; GOV-02 requires an ADR          |

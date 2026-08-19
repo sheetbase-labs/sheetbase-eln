@@ -1,6 +1,6 @@
 # PC — Product Consolidation
 
-**Status:** PC-00 accepted. PC-01 complete (`#41`). PC-02 complete (`#44`). PC-03 complete (`#52`). PC-04 complete (`#53`). PC-05 complete on this stream.
+**Status:** PC-00 accepted. PC-01 complete (`#41`). PC-02 complete (`#44`). PC-03 complete (`#52`). PC-04 complete (`#53`). PC-05 complete (`#54`).
 
 ## Programme goal
 
@@ -208,7 +208,7 @@ Dense, relational and immersive rather than a collection of unrelated admin form
 
 A Steward can understand and evolve the data language of a workspace without general workspace administration.
 
-**Evidence:** `/configure` is the Steward data-language plane (Models, Dataset Schemas, Sheet Definitions, Notebook Templates, category vocabularies, field and calculation promotion, dependency/capability inspector). `/admin/model-fields` redirects to `/configure?kind=model`. SCI-010 copy is gone. Vocabularies reuse Field Definition category sources (ADR 0025); no second vocabulary product. Administration stays membership/security.
+**Evidence:** `/configure` is the Steward data-language plane (Models, Dataset Schemas, Sheet Definitions, Notebook Templates, category vocabularies, field and calculation promotion, dependency/capability inspector). `/admin/model-fields` redirects to `/configure?kind=model`. SCI-010 copy is gone. Vocabularies reuse Field Definition category sources (ADR 0025); no second vocabulary product. Administration stays membership/security (`#54`).
 
 ---
 

@@ -56,7 +56,7 @@ Task: [`tasks/PC.md`](./tasks/PC.md)
 - **PC-02 complete** (`#44` / `b01b029`): Dataset create/snapshot/live edit and reagent create; strict numeric coercion; historical Dataset Versions render the pinned Schema Version. Sheet Dataset bind remains the canonical Sheet Instance path (H2), not a second bind model.
 - **PC-03 complete** (`#52`): Notebook product chrome around existing records/blocks/Sheet Instance/REV-002/H3 contracts. Submit, sign and amend stay session-only.
 - **PC-04 complete** (`#53` / `3c8b8df`): versioned Notebook Templates, placements/parameters, instantiate, explicit upgrade, Sheet Definition catalogue and consumer upgrade. `/templates` remains the scientist library.
-- **PC-05 complete on this stream:** `/configure` is the canonical Steward data-language plane. Model fields leave Administration (`/admin/model-fields` redirects). Vocabularies are existing category sources (ADR 0025), not a second vocabulary product. Calculation promotion uses existing RPCs. Capability inspector remains. PC-06 is later.
+- **PC-05 complete** (`#54`): `/configure` is the canonical Steward data-language plane. Model fields leave Administration (`/admin/model-fields` redirects). Vocabularies are existing category sources (ADR 0025), not a second vocabulary product. Calculation promotion uses existing RPCs. Capability inspector remains. PC-06 is later.
 
 ### API — closed for this assignment
 

@@ -840,16 +840,13 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     )
 
     await expectDenied(
-      owner.query(
-        `select api.insert_block($1,'sheet',$2::jsonb,1,NULL,NULL)`,
-        [
-          adHocNotebook.id,
-          JSON.stringify({
-            instanceId: adHocBlock.payload.instanceId,
-            templatePlacementId: crypto.randomUUID(),
-          }),
-        ],
-      ),
+      owner.query(`select api.insert_block($1,'sheet',$2::jsonb,1,NULL,NULL)`, [
+        adHocNotebook.id,
+        JSON.stringify({
+          instanceId: adHocBlock.payload.instanceId,
+          templatePlacementId: crypto.randomUUID(),
+        }),
+      ]),
       '23514',
     )
 
@@ -979,6 +976,87 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
         scopes: ['notebooks:write'],
       }),
     ])
+
+    await expectDenied(
+      apiClient.query(
+        `select api.insert_block($1,'sheet',$2::jsonb,1,NULL,NULL)`,
+        [
+          notebook.id,
+          JSON.stringify({
+            instanceId: block.payload.instanceId,
+            templatePlacementId: PLACEMENT,
+          }),
+        ],
+      ),
+      '23514',
+    )
+
+    await expectDenied(
+      apiClient.query(
+        `update api.blocks
+            set payload = payload || jsonb_build_object('templatePlacementId', $2::text)
+          where id = $1`,
+        [block.id, PLACEMENT],
+      ),
+      '23514',
+    )
+  })
+
+  it('rejects forged template placement assignment gate via set_config before direct writes', async () => {
+    const owner = await actor(OWNER, WS)
+    const notebook = (
+      await owner.query(
+        `select to_jsonb(api.create_record($1,'experiment','GUC forge','draft','{}'::text[],'{}'::jsonb)) result`,
+        [PROJECT],
+      )
+    ).rows[0].result
+    const inserted = (
+      await owner.query(
+        `select api.insert_sheet_instance_block($1,NULL,NULL,NULL) result`,
+        [notebook.id],
+      )
+    ).rows[0].result
+    const block = inserted.block
+
+    await owner.query(
+      `select set_config('sheetbase.template_placement_assign', 'v1', true)`,
+    )
+
+    await expectDenied(
+      owner.query(`select api.insert_block($1,'sheet',$2::jsonb,1,NULL,NULL)`, [
+        notebook.id,
+        JSON.stringify({
+          instanceId: block.payload.instanceId,
+          templatePlacementId: PLACEMENT,
+        }),
+      ]),
+      '23514',
+    )
+
+    await expectDenied(
+      owner.query(
+        `update api.blocks
+            set payload = payload || jsonb_build_object('templatePlacementId', $2::text)
+          where id = $1`,
+        [block.id, PLACEMENT],
+      ),
+      '23514',
+    )
+
+    const apiClient = await asRole('authenticator')
+    clients.push(apiClient)
+    await apiClient.query('SET ROLE api_client')
+    await apiClient.query(`select set_config('request.jwt.claims',$1,false)`, [
+      JSON.stringify({
+        role: 'api_client',
+        workspace_id: WS,
+        credential_id: crypto.randomUUID(),
+        scopes: ['notebooks:write'],
+      }),
+    ])
+    await apiClient.query(
+      `select set_config('sheetbase.template_placement_assign', 'v1', true)`,
+    )
 
     await expectDenied(
       apiClient.query(

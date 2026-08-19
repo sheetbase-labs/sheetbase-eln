@@ -67,6 +67,7 @@ See `docs/migrations.md` before changing schema, `docs/testing.md` for test laye
 - `docs/core/` defines the current core product/architecture programme and is the first stop for architectural/domain work.
 - `docs/references/` contains dated research/reference material. It explains influences and alternatives but is not normative.
 - `docs/references/eln-competitors/` captures the 13 August 2026 review of Benchling, Dotmatics, Signals Notebook, SciNote, Labguru and Sapio plus cross-product patterns.
+- `docs/openapi/` is the service-credential OpenAPI (API-03).
 - `docs/archive/` identifies superseded planning material and where its immutable Git history can be recovered. Archived plans are not implementation guidance.
 - `docs/decisions/` contains durable ADRs.
 - `PRODUCT.md` and `DESIGN.md` describe broader product and design intent.

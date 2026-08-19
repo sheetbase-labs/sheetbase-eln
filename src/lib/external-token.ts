@@ -93,7 +93,7 @@ export async function verifyApiClientToken(
   }
 }
 
-interface TableAccess {
+export interface TableAccess {
   read: Scope
   write?: Scope
 }
@@ -103,14 +103,14 @@ interface TableAccess {
  * table has one; otherwise fail closed. Schema catalogues are read-only on
  * the table path: authoring goes through RPCs that API-07 still denies.
  */
-const TABLE_ACCESS: Record<string, TableAccess> = {
+export const EXTERNAL_TABLE_ACCESS: Record<string, TableAccess> = {
   projects: { read: 'projects:read', write: 'projects:write' },
-  folders: { read: 'projects:read', write: 'projects:write' },
+  folders: { read: 'projects:read' },
   records: { read: 'projects:read', write: 'projects:write' },
   blocks: { read: 'projects:read', write: 'projects:write' },
   record_links: { read: 'projects:read', write: 'projects:write' },
   revisions: { read: 'projects:read' },
-  record_field_definitions: { read: 'projects:read', write: 'projects:write' },
+  record_field_definitions: { read: 'projects:read' },
   datasets: { read: 'datasets:read', write: 'datasets:write' },
   dataset_versions: { read: 'datasets:read' },
   sheet_instances: { read: 'sheets:read' },
@@ -128,7 +128,7 @@ const TABLE_ACCESS: Record<string, TableAccess> = {
  * fail-closed. `sheets:write` never includes Sheet Definition authoring.
  * `datasets:*` never includes Dataset Schema Version authoring.
  */
-const RPC_SCOPES: Record<string, Scope[]> = {
+export const EXTERNAL_RPC_SCOPES: Record<string, Scope[]> = {
   create_project: ['projects:write'],
   create_record: ['projects:write'],
   create_record_with_blocks: ['projects:write'],
@@ -201,12 +201,12 @@ function denyUnknown(): never {
  */
 export function requiredScopes(method: string, path: ProxyPath): Scope[] {
   if (path.kind === 'rpc') {
-    if (!Object.hasOwn(RPC_SCOPES, path.resource)) denyUnknown()
-    return RPC_SCOPES[path.resource]
+    if (!Object.hasOwn(EXTERNAL_RPC_SCOPES, path.resource)) denyUnknown()
+    return EXTERNAL_RPC_SCOPES[path.resource]
   }
 
-  if (!Object.hasOwn(TABLE_ACCESS, path.resource)) denyUnknown()
-  const access = TABLE_ACCESS[path.resource]
+  if (!Object.hasOwn(EXTERNAL_TABLE_ACCESS, path.resource)) denyUnknown()
+  const access = EXTERNAL_TABLE_ACCESS[path.resource]
   if (READ_METHODS.has(method)) return [access.read]
   if (!access.write) denyUnknown()
   return [access.write]

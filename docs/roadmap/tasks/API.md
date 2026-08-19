@@ -1,6 +1,6 @@
 # API — API & Developer Platform
 
-**Status:** API-01 complete (`#40`). API-02 complete (`#47` / `df27039`). **API-07 — Core External Allowlist Cut-over** is complete. API-03 (OpenAPI) is not automatically Ready. Personal tokens, named service-account principals, and credential activity-audit events remain later API work and are not API-07.
+**Status:** API-01 complete (`#40`). API-02 complete (`#47` / `df27039`). **API-07 — Core External Allowlist Cut-over** is complete. **API-03 — OpenAPI** is complete for the service-credential allowlist. Personal tokens, named service-account principals, and credential activity-audit events remain later API work.
 
 ## Programme goal
 
@@ -68,7 +68,7 @@ API-02 ships **one** credential type: an owner-minted, workspace-bound secret us
 | Requirement                      | In API-02?           | Notes                                                                                                                           |
 | -------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | Workspace binding                | Yes                  | `workspace_id` on the row and in the JWT                                                                                        |
-| Capability scopes                | Yes                  | Canonical API-01 vocabulary only; Core RPCs enforced in **API-07**                                                                    |
+| Capability scopes                | Yes                  | Canonical API-01 vocabulary only; Core RPCs enforced in **API-07**                                                              |
 | Expiry                           | Yes                  | Optional `expires_at` on the credential; JWT access-token TTL remains 300s                                                      |
 | Rotation                         | Yes                  | Copies scopes and expiry exactly; never adds a scope                                                                            |
 | Revocation                       | Yes                  | Immediate; use-time check on the bearer token                                                                                   |
@@ -118,7 +118,7 @@ Cut over `src/lib/external-token.ts` (and `api_client` RLS/grants plus write-act
 - Dataset Schema Version / Sheet Definition / notebook template **authoring** RPCs
 - File access (`files:*`)
 - Human attestation (`submit_record_revision`, `run_revision_checks`, `sign_revision`, amend)
-- OpenAPI (API-03), personal tokens, named service accounts, credential audit events
+- OpenAPI (API-03) — delivered separately; personal tokens, named service accounts, credential audit events
 - Scientific-table REST
 - Every `api.*` function
 
@@ -130,9 +130,27 @@ An external credential with the appropriate Core-domain scopes can pass the prox
 
 ## API-03 — OpenAPI & Documentation
 
-Authoritative OpenAPI, versioned docs, examples, error reference, pagination/filter guidance, idempotency/retry guidance, authentication and deprecation notes.
+**Priority:** medium. **Status:** Complete for the service-credential surface that exists today.
 
-**Exit:** a developer can integrate without reading application source.
+### Goal
+
+Publish OpenAPI 3.1 that a developer can use without reading application source, covering only operations an API key can complete.
+
+### Delivered
+
+- `docs/openapi/service-credentials-v0.json` generated from `EXTERNAL_TABLE_ACCESS` / `EXTERNAL_RPC_SCOPES`
+- Token exchange, pagination/query parameters, error envelopes, idempotency notes on Dataset commit
+- Human-session attestation RPCs (`submit_record_revision`, `run_revision_checks`, `sign_revision`, `create_amendment`) are **absent** from paths
+- `reviews:write` is not required by any operation; `reviews:read` maps only to `preview_submission_digest`
+- Alignment tests in `src/lib/public-api-openapi.test.ts`
+
+A `/api/v1` URL prefix is not introduced. Paths remain `/api/token` and `/api/db/*`.
+
+### Exit
+
+A developer can integrate the current API-key surface from the OpenAPI file plus `docs/openapi/README.md` without reading `src/lib/external-token.ts`.
+
+**Evidence:** `docs/openapi/service-credentials-v0.json`, `src/lib/public-api-openapi.ts`, `src/lib/public-api-openapi.test.ts`.
 
 ## API-04 — Python SDK
 

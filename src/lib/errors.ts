@@ -8,20 +8,23 @@
  * its own failures; this module categorises the PostgREST responses it
  * passes through, and the application's own server functions.
  */
-export type ErrorCategory =
-  | 'validation_error' // 400 — bad input, constraint check
-  | 'not_found' // 404
-  | 'permission_denied' // 403 — RLS or scope
-  | 'conflict' // 409 — unique violation, stale version
-  | 'stale_version' // 409 — optimistic-concurrency mismatch
-  | 'missing_link' // 422 — record_link target unresolved in workspace
-  | 'invalid_transition' // 422 — disallowed lifecycle status transition (SCI-001)
-  | 'invalid_properties' // 422 — configurable property failed DB validation (SCI-001)
-  | 'template_not_instantiable' // 422 — template not in an instantiable status (SCI-006)
-  | 'unauthenticated' // 401
-  | 'rate_limited' // 429
-  | 'service_unavailable' // 502/503 — upstream down
-  | 'server_error' // 500 — unclassified
+export const ERROR_CATEGORIES = [
+  'validation_error',
+  'not_found',
+  'permission_denied',
+  'conflict',
+  'stale_version',
+  'missing_link',
+  'invalid_transition',
+  'invalid_properties',
+  'template_not_instantiable',
+  'unauthenticated',
+  'rate_limited',
+  'service_unavailable',
+  'server_error',
+] as const
+
+export type ErrorCategory = (typeof ERROR_CATEGORIES)[number]
 
 interface CategorisedError {
   category: ErrorCategory

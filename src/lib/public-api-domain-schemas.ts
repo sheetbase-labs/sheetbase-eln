@@ -7,9 +7,12 @@ const INT: JsonSchema = { type: 'integer' }
 
 const jsonMap = (description: string): JsonSchema => ({
   type: 'object',
-  additionalProperties: true,
+  additionalProperties: { $ref: '#/components/schemas/JsonValue' },
   description,
 })
+
+const JSON_VALUE = { $ref: '#/components/schemas/JsonValue' } as const
+const JSON_SCALAR = { $ref: '#/components/schemas/JsonScalar' } as const
 
 const formulaExpression: JsonSchema = {
   type: 'object',
@@ -22,6 +25,32 @@ const formulaExpression: JsonSchema = {
 }
 
 export const PUBLIC_API_DOMAIN_SCHEMAS = {
+  JsonScalar: {
+    description:
+      'JSON scalar: string, number, boolean, or null. Used for Dataset filter values and typed parameter scalars.',
+    oneOf: [
+      { type: 'string' },
+      { type: 'number' },
+      { type: 'integer' },
+      { type: 'boolean' },
+      { type: 'null' },
+    ],
+  },
+  JsonValue: {
+    description:
+      'Any JSON value: scalar, array, object, or null. Canonical cell, parameter, and calculation values.',
+    oneOf: [
+      { $ref: '#/components/schemas/JsonScalar' },
+      {
+        type: 'array',
+        items: { $ref: '#/components/schemas/JsonValue' },
+      },
+      {
+        type: 'object',
+        additionalProperties: { $ref: '#/components/schemas/JsonValue' },
+      },
+    ],
+  },
   JsonObjectMap: jsonMap('Open object map (field name or UUID keys).'),
   TemplateParameter: {
     type: 'object',
@@ -86,7 +115,7 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
           },
         ],
       },
-      defaultValue: {},
+      defaultValue: JSON_VALUE,
       constraints: {
         type: 'object',
         additionalProperties: false,
@@ -96,7 +125,10 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
           minLength: INT,
           maxLength: INT,
           pattern: TEXT,
-          allowedValues: { type: 'array' },
+          allowedValues: {
+            type: 'array',
+            items: JSON_VALUE,
+          },
         },
       },
     },
@@ -300,7 +332,7 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
         ],
       },
       nullable: BOOL,
-      defaultValue: { nullable: true },
+      defaultValue: JSON_VALUE,
       cardinality: { type: 'string', enum: ['one', 'many'] },
       quantity: {
         oneOf: [
@@ -476,7 +508,7 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
         properties: {
           parameterId: UUID,
           kind: { type: 'string', const: 'scalar' },
-          value: {},
+          value: JSON_SCALAR,
         },
       },
       {
@@ -671,7 +703,7 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
                 'reference',
               ],
             },
-            value: {},
+            value: JSON_SCALAR,
             source: { type: 'string', enum: ['supplied', 'default'] },
           },
         },
@@ -685,7 +717,7 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
         type: 'object',
         additionalProperties: {
           type: 'object',
-          additionalProperties: true,
+          additionalProperties: { $ref: '#/components/schemas/JsonValue' },
           description: 'fieldId → scalar or array matching cardinality.',
         },
         description: 'Row key (`sb-row-v1:…` or UUID) → local cell map.',
@@ -746,7 +778,7 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
                   type: 'string',
                   enum: ['equals', 'not-equals', 'is-empty', 'is-not-empty'],
                 },
-                value: {},
+                value: JSON_SCALAR,
               },
             },
           },
@@ -1311,7 +1343,7 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
           required: ['identityValues', 'sources'],
           additionalProperties: false,
           properties: {
-            identityValues: { type: 'array' },
+            identityValues: { type: 'array', items: JSON_VALUE },
             sources: {
               type: 'array',
               items: {
@@ -1408,7 +1440,7 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
           expectedRevision: INT,
           rowKey: TEXT,
           fieldId: UUID,
-          identityValues: { type: 'array' },
+          identityValues: { type: 'array', items: JSON_VALUE },
           compositionOffset: INT,
         },
       },
@@ -1513,7 +1545,7 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
       scope: { type: 'string', enum: ['definition', 'instance'] },
       definitionVersionId: { type: ['string', 'null'], format: 'uuid' },
       calculationStatus: { type: 'string', enum: ['current', 'stale'] },
-      calculatedValue: {},
+      calculatedValue: JSON_VALUE,
       resultKind: { type: 'string', enum: ['value', 'error'] },
       errorCode: { type: ['string', 'null'] },
       diagnostic: { type: ['string', 'null'] },

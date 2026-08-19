@@ -411,6 +411,46 @@ describe('API-03 service-credential OpenAPI', () => {
       '#/components/schemas/NotebookUpgradeDecision',
     )
   })
+
+  it('publishes API-07 credential-attribution columns on strict row schemas', () => {
+    const datasets = spec.components.schemas.DatasetsRow as {
+      additionalProperties: boolean
+      properties: Record<string, unknown>
+    }
+    const datasetVersions = spec.components.schemas.DatasetVersionsRow as {
+      properties: Record<string, unknown>
+    }
+    const sheetInstances = spec.components.schemas.SheetInstancesRow as {
+      properties: Record<string, unknown>
+    }
+    const records = spec.components.schemas.RecordsRow as {
+      properties: Record<string, unknown>
+    }
+    expect(datasets.additionalProperties).toBe(false)
+    expect(datasets.properties).toHaveProperty('created_by_credential_id')
+    expect(datasetVersions.properties).toHaveProperty(
+      'created_by_credential_id',
+    )
+    expect(sheetInstances.properties).toHaveProperty('created_by_credential_id')
+    expect(sheetInstances.properties).toHaveProperty('updated_by_credential_id')
+    expect(records.properties).toHaveProperty('updated_by_credential_id')
+  })
+
+  it('uses named JSON unions instead of empty value schemas', () => {
+    const parameterInput = spec.components.schemas.SheetParameterInput as {
+      oneOf: Array<{ properties?: { value?: { $ref?: string } } }>
+    }
+    expect(parameterInput.oneOf[0]?.properties?.value?.$ref).toBe(
+      '#/components/schemas/JsonScalar',
+    )
+    const calculationResult = spec.components.schemas
+      .SheetCalculationResult as {
+      properties: { calculatedValue: { $ref?: string } }
+    }
+    expect(calculationResult.properties.calculatedValue.$ref).toBe(
+      '#/components/schemas/JsonValue',
+    )
+  })
 })
 
 type JsonNode = Record<string, unknown>
@@ -442,19 +482,50 @@ function jsonContentSchema(
   return schema as JsonNode
 }
 
+const SCHEMA_SHAPE_KEYS = new Set([
+  '$ref',
+  'type',
+  'oneOf',
+  'anyOf',
+  'allOf',
+  'not',
+  'properties',
+  'items',
+  'prefixItems',
+  'additionalProperties',
+  'const',
+  'enum',
+])
+
 function assertConcreteSchema(
   schema: JsonNode,
   label: string,
   seen = new Set<string>(),
 ) {
   const walk = (node: unknown, path: string) => {
-    if (!node || typeof node !== 'object') return
+    if (node === true) return
+    if (node === false) {
+      throw new Error(`${label}: forbidden schema at ${path}`)
+    }
+    if (!node || typeof node !== 'object') {
+      throw new Error(
+        `${label}: expected a schema object at ${path}, got ${typeof node}`,
+      )
+    }
     if (Array.isArray(node)) {
       for (const [index, item] of node.entries())
         walk(item, `${path}[${index}]`)
       return
     }
     const objectNode = node as JsonNode
+    const shapeKeys = Object.keys(objectNode).filter((key) =>
+      SCHEMA_SHAPE_KEYS.has(key),
+    )
+    if (shapeKeys.length === 0) {
+      throw new Error(
+        `${label}: empty schema at ${path} (need type, $ref, oneOf, properties, items, or additionalProperties)`,
+      )
+    }
     if (typeof objectNode.$ref === 'string') {
       const name = objectNode.$ref.replace('#/components/schemas/', '')
       if (seen.has(name)) return
@@ -469,14 +540,26 @@ function assertConcreteSchema(
     }
     for (const key of ['oneOf', 'anyOf', 'allOf'] as const) {
       if (Array.isArray(objectNode[key])) {
+        expect(
+          (objectNode[key] as unknown[]).length,
+          `${label} ${path}.${key} must not be empty`,
+        ).toBeGreaterThan(0)
         walk(objectNode[key], `${path}.${key}`)
-        return
       }
     }
-    if (objectNode.type === 'array') {
-      expect(objectNode.items, `${label} ${path} array items`).toBeTruthy()
-      walk(objectNode.items, `${path}.items`)
-      return
+    if (objectNode.not) walk(objectNode.not, `${path}.not`)
+    if (
+      objectNode.type === 'array' ||
+      objectNode.items ||
+      objectNode.prefixItems
+    ) {
+      expect(
+        objectNode.items ?? objectNode.prefixItems,
+        `${label} ${path} array items`,
+      ).toBeTruthy()
+      if (objectNode.items) walk(objectNode.items, `${path}.items`)
+      if (objectNode.prefixItems)
+        walk(objectNode.prefixItems, `${path}.prefixItems`)
     }
     const types = Array.isArray(objectNode.type)
       ? objectNode.type
@@ -487,25 +570,37 @@ function assertConcreteSchema(
       types.includes('object') ||
       objectNode.properties !== undefined ||
       objectNode.additionalProperties !== undefined
-    if (!isObject) return
-    if (
-      objectNode.properties &&
-      Object.keys(objectNode.properties).length > 0
-    ) {
-      walk(objectNode.properties, `${path}.properties`)
-      return
+    if (objectNode.properties) {
+      expect(
+        typeof objectNode.properties === 'object' &&
+          !Array.isArray(objectNode.properties),
+        `${label} ${path}.properties`,
+      ).toBe(true)
+      const properties = objectNode.properties as Record<string, unknown>
+      expect(
+        Object.keys(properties).length,
+        `${label} ${path} object properties`,
+      ).toBeGreaterThan(0)
+      for (const [key, child] of Object.entries(properties)) {
+        walk(child, `${path}.properties.${key}`)
+      }
     }
     if (
       objectNode.additionalProperties &&
       typeof objectNode.additionalProperties === 'object'
     ) {
       walk(objectNode.additionalProperties, `${path}.additionalProperties`)
-      return
     }
-    if (objectNode.additionalProperties === true) return
-    throw new Error(
-      `${label}: generic object schema at ${path} (need properties, $ref, oneOf, or additionalProperties)`,
-    )
+    if (
+      isObject &&
+      !objectNode.properties &&
+      objectNode.additionalProperties !== true &&
+      typeof objectNode.additionalProperties !== 'object'
+    ) {
+      throw new Error(
+        `${label}: generic object schema at ${path} (need properties, $ref, oneOf, or additionalProperties)`,
+      )
+    }
   }
   walk(schema, label)
 }

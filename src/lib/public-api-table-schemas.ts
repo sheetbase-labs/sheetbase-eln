@@ -17,7 +17,7 @@ const STR_ARR: JsonSchema = { type: 'array', items: { type: 'string' } }
 function jsonMap(description: string): JsonSchema {
   return {
     type: 'object',
-    additionalProperties: true,
+    additionalProperties: { $ref: '#/components/schemas/JsonValue' },
     description,
   }
 }
@@ -118,7 +118,7 @@ export const TABLE_ROW_SCHEMAS: Record<string, JsonSchema> = {
       },
       nullable: BOOL,
       default_value: {
-        nullable: true,
+        $ref: '#/components/schemas/JsonValue',
         description: 'Canonical default or null.',
       },
       quantity: {
@@ -200,6 +200,7 @@ export const TABLE_ROW_SCHEMAS: Record<string, JsonSchema> = {
       label: TEXT,
       created_at: TS,
       created_by_user_id: { ...TEXT, nullable: true },
+      created_by_credential_id: { ...UUID, nullable: true },
     },
     [
       'id',
@@ -226,6 +227,7 @@ export const TABLE_ROW_SCHEMAS: Record<string, JsonSchema> = {
       created_at: TS,
       updated_at: TS,
       created_by_user_id: { ...TEXT, nullable: true },
+      created_by_credential_id: { ...UUID, nullable: true },
     },
     [
       'id',
@@ -373,7 +375,7 @@ export const TABLE_ROW_SCHEMAS: Record<string, JsonSchema> = {
         ],
       },
       nullable: BOOL,
-      default_value: { nullable: true },
+      default_value: { $ref: '#/components/schemas/JsonValue' },
       unit: { $ref: '#/components/schemas/FieldQuantity' },
       validation: { $ref: '#/components/schemas/FieldValidation' },
       lifecycle: {
@@ -468,6 +470,7 @@ export const TABLE_ROW_SCHEMAS: Record<string, JsonSchema> = {
       deleted_at: { ...TS, nullable: true },
       created_by_user_id: TEXT,
       updated_by_user_id: { ...TEXT, nullable: true },
+      updated_by_credential_id: { ...UUID, nullable: true },
       calculation_input_revision: BIGINT,
       properties: jsonMap('Kind-specific properties.'),
       locked_at: { ...TS, nullable: true },
@@ -610,6 +613,8 @@ export const TABLE_ROW_SCHEMAS: Record<string, JsonSchema> = {
       updated_at: TS,
       created_by_user_id: { ...TEXT, nullable: true },
       updated_by_user_id: { ...TEXT, nullable: true },
+      created_by_credential_id: { ...UUID, nullable: true },
+      updated_by_credential_id: { ...UUID, nullable: true },
     },
     [
       'id',
@@ -633,6 +638,10 @@ const INSERT_OMIT = new Set([
   'metadata_version',
   'calculation_input_revision',
   'lifecycle',
+  'created_by_user_id',
+  'updated_by_user_id',
+  'created_by_credential_id',
+  'updated_by_credential_id',
 ])
 
 const INSERT_REQUIRED: Record<string, string[]> = {

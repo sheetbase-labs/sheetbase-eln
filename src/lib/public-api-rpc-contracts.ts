@@ -62,7 +62,7 @@ function ref(name: string): JsonSchema {
 function jsonMap(description: string): JsonSchema {
   return {
     type: 'object',
-    additionalProperties: true,
+    additionalProperties: { $ref: '#/components/schemas/JsonValue' },
     description,
   }
 }
@@ -100,6 +100,7 @@ const datasetFilter = obj(
         '`eq` is valid for every logical type. `gt`/`gte`/`lt`/`lte` are valid only for integer, decimal, date and timestamp fields.',
     },
     value: {
+      $ref: '#/components/schemas/JsonScalar',
       description:
         'Scalar matching the field logical type (string/number/boolean). Category and reference fields take UUIDs.',
     },
@@ -271,7 +272,12 @@ const addressedRow: JsonSchema = {
       {
         kind: { type: 'string', const: 'composed' },
         rowKey: text('Composed row key (`sb-row-v1:<hex>`).'),
-        identityValues: { type: 'array', minItems: 1, maxItems: 8 },
+        identityValues: {
+          type: 'array',
+          minItems: 1,
+          maxItems: 8,
+          items: { $ref: '#/components/schemas/JsonValue' },
+        },
         compositionOffset: int('Current composition page offset.', {
           minimum: 0,
           maximum: 10_000,
@@ -907,7 +913,10 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
           {
             rowKey: TEXT,
             fieldId: UUID,
-            value: { description: 'Canonical cell value.' },
+            value: {
+              $ref: '#/components/schemas/JsonValue',
+              description: 'Canonical cell value.',
+            },
           },
           ['rowKey', 'fieldId', 'value'],
         ),
@@ -1161,11 +1170,7 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
       p_expected_metadata_version: int('Current metadata_version.', {
         minimum: 1,
       }),
-      p_values: {
-        type: 'object',
-        additionalProperties: true,
-        description: 'Model field name → canonical value.',
-      },
+      p_values: jsonMap('Model field name → canonical value.'),
     },
     result: pgrstRow(recordRow, 'Updated record.'),
   },

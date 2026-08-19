@@ -49,8 +49,8 @@ This diagram communicates likely sequencing and dependencies, not a strict water
 - `PC-00` Product & Platform Consolidation Audit (complete — `audits/PC-00.md`)
 - `PC-01` Canonical Sheet Experience (complete — `#41`)
 - `PC-02` Dataset & Record Product Workflows (complete — `#44`)
-- `PC-03` Notebook Experience
-- `PC-04` Templates & Reusable Science
+- `PC-03` Notebook Experience (complete — `#52`)
+- `PC-04` Templates & Reusable Science (complete — `#53`)
 - `PC-05` Configuration & Steward Workspace
 - `PC-06` Golden Workflow Consolidation
 

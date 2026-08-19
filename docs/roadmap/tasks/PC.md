@@ -1,6 +1,6 @@
 # PC — Product Consolidation
 
-**Status:** PC-00 accepted. PC-01 complete (`#41`). PC-02 complete (`#44`). PC-03 complete (`#52`). PC-04 Templates remains later.
+**Status:** PC-00 accepted. PC-01 complete (`#41`). PC-02 complete (`#44`). PC-03 complete (`#52`). PC-04 complete (`#53`). PC-05 complete on this stream.
 
 ## Programme goal
 
@@ -186,6 +186,8 @@ Sheet Definition catalogue with browse/find, versions, dependencies, create-from
 
 A Steward can encode repeatable scientific work without copying live data or creating hidden shared state.
 
+**Evidence:** versioned Notebook Template authoring, placements/parameters, instantiate, explicit upgrade, Sheet Definition catalogue/create-from-Instance/publish/retire/consumer upgrade (`#53`).
+
 ---
 
 ## PC-05 — Configuration & Steward Workspace
@@ -205,6 +207,8 @@ Dense, relational and immersive rather than a collection of unrelated admin form
 ### Exit
 
 A Steward can understand and evolve the data language of a workspace without general workspace administration.
+
+**Evidence:** `/configure` is the Steward data-language plane (Models, Dataset Schemas, Sheet Definitions, Notebook Templates, category vocabularies, field and calculation promotion, dependency/capability inspector). `/admin/model-fields` redirects to `/configure?kind=model`. SCI-010 copy is gone. Vocabularies reuse Field Definition category sources (ADR 0025); no second vocabulary product. Administration stays membership/security.
 
 ---
 

@@ -105,12 +105,12 @@ export interface TableAccess {
  */
 export const EXTERNAL_TABLE_ACCESS: Record<string, TableAccess> = {
   projects: { read: 'projects:read', write: 'projects:write' },
-  folders: { read: 'projects:read', write: 'projects:write' },
+  folders: { read: 'projects:read' },
   records: { read: 'projects:read', write: 'projects:write' },
   blocks: { read: 'projects:read', write: 'projects:write' },
   record_links: { read: 'projects:read', write: 'projects:write' },
   revisions: { read: 'projects:read' },
-  record_field_definitions: { read: 'projects:read', write: 'projects:write' },
+  record_field_definitions: { read: 'projects:read' },
   datasets: { read: 'datasets:read', write: 'datasets:write' },
   dataset_versions: { read: 'datasets:read' },
   sheet_instances: { read: 'sheets:read' },

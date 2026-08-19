@@ -73,6 +73,26 @@ describe('requiredScopes', () => {
     ).toThrow(ExternalTokenError)
   })
 
+  it('denies table writes that api_client cannot complete', () => {
+    expect(
+      requiredScopes('GET', { kind: 'table', resource: 'folders' }),
+    ).toEqual(['projects:read'])
+    expect(
+      requiredScopes('GET', {
+        kind: 'table',
+        resource: 'record_field_definitions',
+      }),
+    ).toEqual(['projects:read'])
+    for (const resource of ['folders', 'record_field_definitions'] as const) {
+      expect(() => requiredScopes('POST', { kind: 'table', resource })).toThrow(
+        ExternalTokenError,
+      )
+      expect(() =>
+        requiredScopes('PATCH', { kind: 'table', resource }),
+      ).toThrow(ExternalTokenError)
+    }
+  })
+
   it('denies scientific-table and SCI-010 resources as insufficient_scope', () => {
     const resource = `sheet_${'a'.repeat(26)}`
     const denied = [

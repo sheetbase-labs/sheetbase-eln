@@ -304,14 +304,7 @@ function tableOperations(resource: string): OpenApiPathItem {
 
   if (!access.write) return item
 
-  const projectWritable = [
-    'projects',
-    'folders',
-    'records',
-    'blocks',
-    'record_links',
-    'record_field_definitions',
-  ]
+  const projectWritable = ['projects', 'records', 'blocks', 'record_links']
   if (resource === 'datasets') {
     item.post = {
       tags: ['Datasets'],
@@ -477,6 +470,7 @@ function description(): string {
     '`reviews:read` opens `preview_submission_digest` only.',
     '',
     'Schema-authoring RPCs, file RPCs, and scientific-table REST are not part of this API.',
+    '`folders` and `record_field_definitions` are GET-only for API keys (`api_client` has SELECT only). Folder writes and model-field authoring stay on the session path.',
     'DELETE on `projects` is not granted to `api_client`.',
     '',
     'Narrative contract: `docs/public-api-contract.md`. How to call this spec: `docs/openapi/README.md`. Credential mechanics: `docs/external-api.md`.',

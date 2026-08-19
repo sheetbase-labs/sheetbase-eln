@@ -145,6 +145,15 @@ describe('API-03 service-credential OpenAPI', () => {
     )
   })
 
+  it('omits POST and PATCH on folders and record_field_definitions', () => {
+    for (const resource of ['folders', 'record_field_definitions']) {
+      expect(operation(`/api/db/${resource}`, 'get')).toBeTruthy()
+      expect(spec.paths[`/api/db/${resource}`].post).toBeUndefined()
+      expect(spec.paths[`/api/db/${resource}`].patch).toBeUndefined()
+    }
+    expect(spec.info.description).toMatch(/folders.*GET-only/)
+  })
+
   it('splits token and proxy error schemas', () => {
     const tokenError = spec.components.schemas.TokenError as {
       properties: { error: { required: string[]; properties: object } }
@@ -449,6 +458,18 @@ describe('API-03 service-credential OpenAPI', () => {
     }
     expect(calculationResult.properties.calculatedValue.$ref).toBe(
       '#/components/schemas/JsonValue',
+    )
+    const jsonScalar = spec.components.schemas.JsonScalar as {
+      oneOf: Array<{ type?: string }>
+    }
+    expect(jsonScalar.oneOf.map((branch) => branch.type).sort()).toEqual([
+      'boolean',
+      'null',
+      'number',
+      'string',
+    ])
+    expect(jsonScalar.oneOf.some((branch) => branch.type === 'integer')).toBe(
+      false,
     )
   })
 })

@@ -242,7 +242,7 @@ export const TABLE_ROW_SCHEMAS: Record<string, JsonSchema> = {
   ),
   folders: row(
     'folders',
-    '',
+    'GET-only for API keys (`api_client` has SELECT). Folder writes stay on the session path.',
     {
       id: UUID,
       workspace_id: UUID,
@@ -352,7 +352,7 @@ export const TABLE_ROW_SCHEMAS: Record<string, JsonSchema> = {
   ),
   record_field_definitions: row(
     'record_field_definitions',
-    'Model field catalogue stored on records.',
+    'GET-only for API keys. Model-field authoring is owner/session, not `api_client`.',
     {
       id: UUID,
       workspace_id: UUID,
@@ -646,7 +646,6 @@ const INSERT_OMIT = new Set([
 
 const INSERT_REQUIRED: Record<string, string[]> = {
   projects: ['workspace_id', 'key', 'title'],
-  folders: ['workspace_id', 'project_id', 'identifier', 'name'],
   records: ['workspace_id', 'kind', 'identifier', 'title'],
   blocks: ['record_id', 'type', 'order'],
   record_links: [
@@ -654,14 +653,6 @@ const INSERT_REQUIRED: Record<string, string[]> = {
     'target_kind',
     'target_identifier',
     'link_type',
-  ],
-  record_field_definitions: [
-    'workspace_id',
-    'kind',
-    'field_name',
-    'label',
-    'display_order',
-    'logical_type',
   ],
   datasets: ['workspace_id', 'schema_version_id', 'name'],
 }

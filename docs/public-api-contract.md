@@ -46,15 +46,15 @@ Verified in `src/lib/external-token.ts` (API-07):
 
 **Project-domain tables (unchanged):**
 
-| Resource                   | Read scope      | Write scope                    |
-| -------------------------- | --------------- | ------------------------------ |
-| `projects`                 | `projects:read` | `projects:write`               |
-| `folders`                  | `projects:read` | `projects:write`               |
-| `records`                  | `projects:read` | `projects:write`               |
-| `blocks`                   | `projects:read` | `projects:write`               |
-| `record_links`             | `projects:read` | `projects:write`               |
-| `revisions`                | `projects:read` | — (GET only; creation via RPC) |
-| `record_field_definitions` | `projects:read` | `projects:write`               |
+| Resource                   | Read scope      | Write scope                                              |
+| -------------------------- | --------------- | -------------------------------------------------------- |
+| `projects`                 | `projects:read` | `projects:write`                                         |
+| `folders`                  | `projects:read` | — (`api_client` SELECT only)                             |
+| `records`                  | `projects:read` | `projects:write`                                         |
+| `blocks`                   | `projects:read` | `projects:write`                                         |
+| `record_links`             | `projects:read` | `projects:write`                                         |
+| `revisions`                | `projects:read` | — (GET only; creation via RPC)                           |
+| `record_field_definitions` | `projects:read` | — (`api_client` SELECT only; authoring is session/owner) |
 
 **Core catalogue tables (API-07):**
 

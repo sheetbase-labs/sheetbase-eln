@@ -31,7 +31,6 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
     oneOf: [
       { type: 'string' },
       { type: 'number' },
-      { type: 'integer' },
       { type: 'boolean' },
       { type: 'null' },
     ],

@@ -72,7 +72,9 @@ The full table is in `docs/public-api-contract.md` §2.1.
 `record_field_definitions`.
 
 - GET/HEAD → `projects:read`
-- POST/PATCH → `projects:write` (except `revisions`, GET only)
+- POST/PATCH → `projects:write` on `projects`, `records`, `blocks`, `record_links` only
+- `folders` and `record_field_definitions` are GET-only (`api_client` has SELECT; writes stay on the session path)
+- `revisions` are GET only
 - DELETE on `projects` is not granted to `api_client` (Phase 1 rule)
 
 ### Core catalogue tables

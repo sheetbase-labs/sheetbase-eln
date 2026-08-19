@@ -4,12 +4,10 @@ import {
   createFileRoute,
   Link,
   redirect,
-  useNavigate,
   useRouterState,
 } from '@tanstack/react-router'
 import {
   Activity,
-  Database,
   KeyRound,
   Lock,
   Settings,
@@ -28,9 +26,7 @@ import {
   AdminSessions,
   AdminSettings,
 } from '#/components/workspace-admin'
-import { AdminModelFields } from '#/components/workspace-admin/admin-model-fields'
 import { Button } from '#/components/ui'
-import { hasCapability } from '#/lib/capability'
 import { createDataClient } from '#/lib/data-client'
 import {
   adminQueryKeys,
@@ -69,9 +65,6 @@ import type { CreatedCredentialWire } from '#/lib/api-credential-admin'
 import type { Scope } from '#/lib/api-credential-scopes'
 
 export const Route = createFileRoute('/admin')({
-  validateSearch: (search: Record<string, unknown>) => ({
-    model: typeof search.model === 'string' ? search.model : undefined,
-  }),
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
     if (!context) throw redirect({ to: '/sign-in' })
@@ -96,13 +89,6 @@ const ADMIN_SECTIONS = [
     description: 'Control explicit user access to individual projects.',
     group: 'Workspace',
     icon: KeyRound,
-  },
-  {
-    key: 'model-fields',
-    label: 'Model fields',
-    description: 'Configure governed workspace fields for domain models.',
-    group: 'Workspace',
-    icon: Database,
   },
   {
     key: 'settings',
@@ -146,15 +132,9 @@ function sectionFromPath(pathname: string): AdminSection {
 
 function AdminRoute() {
   const { context } = Route.useRouteContext()
-  const routeSearch = Route.useSearch()
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const workspaceId = context.workspace?.id ?? ''
   const isOwner = context.workspace?.role === 'owner'
-  const canManageModelFields = hasCapability(
-    context.workspace?.role,
-    'schema.edit',
-  )
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
@@ -414,7 +394,7 @@ function AdminRoute() {
             <h1 className="text-2xl font-semibold">Administration</h1>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Govern workspace access, scientific models, security and compliance.
+            Govern workspace access, security and compliance.
           </p>
         </header>
         {!isOwner && (
@@ -437,10 +417,7 @@ function AdminRoute() {
                 key={item.key}
                 to="/admin/$section"
                 params={{ section: item.key }}
-                search={{
-                  model:
-                    item.key === 'model-fields' ? routeSearch.model : undefined,
-                }}
+                search={{ model: undefined }}
                 aria-current={active ? 'page' : undefined}
                 className={`relative flex h-11 shrink-0 items-center gap-2 px-3 text-sm no-underline transition-colors ${startsNewGroup ? 'ml-2 border-l pl-5' : ''} ${active ? 'font-medium text-foreground after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:bg-primary' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'}`}
               >
@@ -530,21 +507,6 @@ function AdminRoute() {
               isOwner={isOwner}
               saving={saveSettings.isPending}
               onSave={(value) => saveSettings.mutate(value)}
-            />
-          ) : null}
-          {activeSection === 'model-fields' ? (
-            <AdminModelFields
-              client={dataClient}
-              workspaceId={workspaceId}
-              canManage={canManageModelFields}
-              selectedModelKey={routeSearch.model ?? 'sample'}
-              onSelectedModelKeyChange={(model) =>
-                void navigate({
-                  to: '/admin/$section',
-                  params: { section: 'model-fields' },
-                  search: { model },
-                })
-              }
             />
           ) : null}
         </section>

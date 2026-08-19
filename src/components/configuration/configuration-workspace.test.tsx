@@ -22,6 +22,8 @@ function fakeClient(): DataClient {
   const versionId = '22222222-2222-4222-8222-222222222222'
   const instanceId = '33333333-3333-4333-8333-333333333333'
   const localFieldId = '44444444-4444-4444-8444-444444444444'
+  const categoryFieldId = '55555555-5555-4555-8555-555555555555'
+  const templateId = '66666666-6666-4666-8666-666666666666'
   return {
     list: vi.fn(async (resource: string) => {
       if (resource === 'model_kinds') {
@@ -30,8 +32,58 @@ function fakeClient(): DataClient {
         ]
       }
       if (resource === 'model_base_fields') return []
-      if (resource === 'record_field_definitions') return []
-      if (resource === 'model_field_options') return []
+      if (resource === 'record_field_definitions') {
+        return [
+          {
+            id: categoryFieldId,
+            kind: 'sample',
+            field_name: 'status',
+            label: 'Status',
+            description: null,
+            display_order: 0,
+            logical_type: 'category',
+            nullable: true,
+            default_value: null,
+            unit: null,
+            quantity: null,
+            validation: {},
+            cardinality: 'one',
+            category_source: null,
+            relationship: null,
+            lifecycle: 'active',
+          },
+        ]
+      }
+      if (resource === 'model_field_options') {
+        return [
+          {
+            id: 'opt-1',
+            definition_id: categoryFieldId,
+            key: 'open',
+            label: 'Open',
+            display_order: 0,
+            lifecycle: 'active',
+          },
+        ]
+      }
+      if (resource === 'notebook_templates') {
+        return [
+          {
+            id: templateId,
+            workspace_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+            key: 'stability_nb',
+            name: 'Stability notebook',
+            description: null,
+            lifecycle: 'active',
+            revision: 1,
+            created_at: '2026-01-01T00:00:00Z',
+            updated_at: '2026-01-01T00:00:00Z',
+            created_by_user_id: null,
+            updated_by_user_id: null,
+          },
+        ]
+      }
+      if (resource === 'notebook_template_versions') return []
       if (resource === 'dataset_schema_definitions') {
         return [
           {
@@ -600,7 +652,7 @@ function mount(
 describe('ConfigurationWorkspace', () => {
   it('explains scientist, steward and owner capability differences', () => {
     expect(configurationRoleCopy('scientist')).toMatch(/Data Steward/)
-    expect(configurationRoleCopy('steward')).toMatch(/cannot administer/)
+    expect(configurationRoleCopy('steward')).toMatch(/Notebook Templates/)
     expect(configurationRoleCopy('owner')).toMatch(/Administration/)
     expect(configurationRoleCopy('viewer')).toMatch(/inspect this workspace/)
   })
@@ -641,7 +693,9 @@ describe('ConfigurationWorkspace', () => {
       </QueryClientProvider>,
     )
     await user.click(
-      await screen.findByRole('button', { name: 'Local field promotion' }),
+      await screen.findByRole('button', {
+        name: 'Field and calculation promotion',
+      }),
     )
     expect(onSearchChange).toHaveBeenCalledWith({
       kind: 'promotion',
@@ -785,5 +839,72 @@ describe('ConfigurationWorkspace', () => {
     expect(
       await screen.findByText('Upgrade deferred until conflicts are resolved.'),
     ).toBeTruthy()
+  })
+
+  it('exposes vocabularies in the catalogue and opens vocabulary kind', async () => {
+    const user = userEvent.setup()
+    const onSearchChange = vi.fn()
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ConfigurationWorkspace
+          client={fakeClient()}
+          workspaceId="workspace-1"
+          role="steward"
+          search={{ kind: 'schema', id: 'schema-1', model: undefined }}
+          onSearchChange={onSearchChange}
+        />
+      </QueryClientProvider>,
+    )
+    await user.click(await screen.findByRole('button', { name: 'Status' }))
+    expect(onSearchChange).toHaveBeenCalledWith({
+      kind: 'vocabulary',
+      id: 'model:55555555-5555-4555-8555-555555555555',
+      model: undefined,
+    })
+  })
+
+  it('lists notebook template names in the catalogue', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ConfigurationWorkspace
+          client={fakeClient()}
+          workspaceId="workspace-1"
+          role="steward"
+          search={{ kind: 'schema', id: 'schema-1', model: undefined }}
+          onSearchChange={vi.fn()}
+        />
+      </QueryClientProvider>,
+    )
+    expect(
+      await screen.findByRole('button', { name: /Stability notebook/ }),
+    ).toBeTruthy()
+  })
+
+  it('exposes calculation promotion controls on the promotion plane', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ConfigurationWorkspace
+          client={fakeClient()}
+          workspaceId="workspace-1"
+          role="steward"
+          search={{ kind: 'promotion', id: undefined, model: undefined }}
+          onSearchChange={vi.fn()}
+        />
+      </QueryClientProvider>,
+    )
+    expect(
+      screen.getByRole('button', { name: 'Preview calculation promotion' }),
+    ).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Promote calculation' })).toBeTruthy()
+    expect(screen.getByLabelText('Local calculation ID')).toBeTruthy()
   })
 })

@@ -13,7 +13,8 @@ export const Route = createFileRoute('/configure')({
       search.kind === 'schema' ||
       search.kind === 'definition' ||
       search.kind === 'template' ||
-      search.kind === 'promotion'
+      search.kind === 'promotion' ||
+      search.kind === 'vocabulary'
         ? (search.kind as ConfigurationKind)
         : ('model' as const),
     id: typeof search.id === 'string' ? search.id : undefined,
@@ -45,7 +46,7 @@ function ConfigureRoute() {
         role: context.workspace?.role,
       },
     },
-    breadcrumbs: [{ label: 'Configuration' }, { label: 'Governed schema' }],
+    breadcrumbs: [{ label: 'Configuration' }, { label: 'Steward workspace' }],
     inspector: null,
   })
 
@@ -57,8 +58,7 @@ function ConfigureRoute() {
           <h1 className="text-xl font-semibold">Configuration</h1>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
-          Dense Model, Dataset Schema, and Sheet Definition workspace for Data
-          Stewards. SCI-010 remains on Schemas as a compatibility editor.
+          Steward data-language workspace.
         </p>
       </header>
       <ConfigurationWorkspace

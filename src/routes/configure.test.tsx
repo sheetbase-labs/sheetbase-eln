@@ -105,5 +105,7 @@ describe('ConfigureRoute', () => {
     )
     expect(screen.getByRole('heading', { name: 'Configuration' })).toBeTruthy()
     expect(screen.getByLabelText('Configuration catalogue')).toBeTruthy()
+    expect(screen.queryByText(/SCI-010/)).toBeNull()
+    expect(screen.getByText('Steward data-language workspace.')).toBeTruthy()
   })
 })

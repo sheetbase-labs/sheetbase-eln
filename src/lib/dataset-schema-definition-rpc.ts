@@ -131,6 +131,7 @@ export interface CanonicalDatasetSchemaField {
   cardinality: string
   lifecycle: string
   display_order: number
+  category?: unknown
 }
 
 export async function listCanonicalDatasetSchemaDefinitions(
@@ -158,6 +159,6 @@ export async function listCanonicalDatasetSchemaVersionFields(
 ): Promise<CanonicalDatasetSchemaField[]> {
   return client.list(
     'dataset_schema_version_fields',
-    `?schema_version_id=eq.${schemaVersionId}&select=field_id,key,label,description,logical_type,nullable,cardinality,lifecycle,display_order&order=display_order.asc`,
+    `?schema_version_id=eq.${schemaVersionId}&select=field_id,key,label,description,logical_type,nullable,cardinality,lifecycle,display_order,category&order=display_order.asc`,
   )
 }

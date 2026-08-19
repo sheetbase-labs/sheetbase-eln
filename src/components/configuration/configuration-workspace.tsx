@@ -56,10 +56,15 @@ import {
 import type { SheetDefinitionExtractionSelection } from '#/lib/sheet-definition-extraction'
 import {
   applyDatasetSchemaEvolution,
+  previewCalculationPromotion,
   previewDatasetSchemaEvolution,
   previewLocalFieldPromotion,
+  promoteCalculation,
   promoteLocalField,
 } from '#/lib/schema-evolution'
+import { loadConfigurationVocabularies } from '#/lib/configuration-vocabularies'
+import type { ConfigurationVocabulary } from '#/lib/configuration-vocabularies'
+import { fetchNotebookTemplates } from '#/lib/notebook-template-data'
 import {
   formatDate,
   notebookDataClient,
@@ -72,7 +77,12 @@ import type { WorkspaceRole } from '#/lib/workspace-admin'
 import { cn } from '#/lib/utils'
 
 export type ConfigurationKind =
-  'model' | 'schema' | 'definition' | 'template' | 'promotion'
+  | 'model'
+  | 'schema'
+  | 'definition'
+  | 'template'
+  | 'vocabulary'
+  | 'promotion'
 
 export interface ConfigurationSearch {
   kind: ConfigurationKind
@@ -96,9 +106,9 @@ export function configurationRoleCopy(role: WorkspaceRole | undefined): string {
   }
   if (hasCapability(role, 'schema.publish')) {
     if (hasCapability(role, 'workspace.admin')) {
-      return 'You can evolve and publish governed configuration. Workspace security administration remains on Administration.'
+      return 'You can evolve and publish Models, Dataset Schemas, Sheet Definitions and Notebook Templates. Workspace security administration remains on Administration.'
     }
-    return 'You can evolve and publish Models and Dataset Schema versions. You cannot administer workspace security.'
+    return 'You can evolve and publish Models, Dataset Schemas, Sheet Definitions and Notebook Templates. You cannot administer workspace security.'
   }
   return 'You can inspect governed configuration and add Sheet-local fields. Publishing schemas requires a Data Steward.'
 }
@@ -129,6 +139,16 @@ export function ConfigurationWorkspace({
     queryFn: () => fetchSheetDefinitions(client),
   })
   const definitions = definitionsQuery.data ?? []
+  const notebookTemplatesQuery = useQuery({
+    queryKey: ['configure', 'notebook-templates'],
+    queryFn: () => fetchNotebookTemplates(client, { limit: 200 }),
+  })
+  const notebookTemplates = notebookTemplatesQuery.data ?? []
+  const vocabulariesQuery = useQuery({
+    queryKey: ['configure', 'vocabularies'],
+    queryFn: () => loadConfigurationVocabularies(client),
+  })
+  const vocabularies = vocabulariesQuery.data ?? []
   const projectsQuery = useQuery({
     queryKey: notebookQueryKeys.projectsList(),
     queryFn: () =>
@@ -144,6 +164,12 @@ export function ConfigurationWorkspace({
   const matchedDefinition = definitions.find((item) => item.id === search.id)
   const selectedDefinition =
     matchedDefinition ?? (definitions.length > 0 ? definitions[0] : undefined)
+  const matchedVocabulary = vocabularies.find((item) => item.id === search.id)
+  const selectedVocabulary =
+    matchedVocabulary ?? (vocabularies.length > 0 ? vocabularies[0] : undefined)
+  const matchedTemplate = notebookTemplates.find((item) => item.id === search.id)
+  const selectedTemplate =
+    matchedTemplate ?? (notebookTemplates.length > 0 ? notebookTemplates[0] : undefined)
 
   return (
     <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)_280px]">
@@ -226,18 +252,69 @@ export function ConfigurationWorkspace({
         <p className="mt-4 px-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
           Notebook Templates
         </p>
+        {notebookTemplates.map((template) => (
+          <CatalogueButton
+            key={template.id}
+            current={
+              search.kind === 'template' && selectedTemplate?.id === template.id
+            }
+            onClick={() =>
+              onSearchChange({
+                kind: 'template',
+                id: template.id,
+                model: undefined,
+              })
+            }
+          >
+            <span className="truncate">{template.name}</span>
+            <Badge variant="outline" className="ml-auto capitalize">
+              {template.lifecycle}
+            </Badge>
+          </CatalogueButton>
+        ))}
+        {notebookTemplates.length === 0 ? (
+          <p className="px-2 py-2 text-xs text-muted-foreground">
+            No Notebook Templates yet.
+          </p>
+        ) : null}
+        <p className="mt-4 px-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+          Vocabularies
+        </p>
         <CatalogueButton
-          current={search.kind === 'template'}
+          current={search.kind === 'vocabulary' && !search.id}
           onClick={() =>
             onSearchChange({
-              kind: 'template',
+              kind: 'vocabulary',
               id: undefined,
               model: undefined,
             })
           }
         >
-          Notebook template versions
+          Vocabularies
         </CatalogueButton>
+        {vocabularies.map((vocabulary) => (
+          <CatalogueButton
+            key={vocabulary.id}
+            current={
+              search.kind === 'vocabulary' &&
+              selectedVocabulary?.id === vocabulary.id
+            }
+            onClick={() =>
+              onSearchChange({
+                kind: 'vocabulary',
+                id: vocabulary.id,
+                model: undefined,
+              })
+            }
+          >
+            <span className="truncate">{vocabulary.label}</span>
+          </CatalogueButton>
+        ))}
+        {vocabularies.length === 0 ? (
+          <p className="px-2 py-2 text-xs text-muted-foreground">
+            No category vocabularies collected yet.
+          </p>
+        ) : null}
         <p className="mt-4 px-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
           Promotion
         </p>
@@ -251,7 +328,7 @@ export function ConfigurationWorkspace({
             })
           }
         >
-          Local field promotion
+          Field and calculation promotion
         </CatalogueButton>
       </nav>
       <section
@@ -294,7 +371,18 @@ export function ConfigurationWorkspace({
             workspaceId={workspaceId}
             canEdit={canEdit}
             projects={projects}
+            selectedTemplateId={search.id ?? selectedTemplate?.id ?? null}
+            onSelectedTemplateIdChange={(templateId) =>
+              onSearchChange({
+                kind: 'template',
+                id: templateId ?? undefined,
+                model: undefined,
+              })
+            }
           />
+        ) : null}
+        {search.kind === 'vocabulary' ? (
+          <VocabularyPlane vocabulary={selectedVocabulary} />
         ) : null}
         {search.kind === 'promotion' ? (
           <PromotionPlane client={client} canEdit={canEdit} />
@@ -343,6 +431,15 @@ export function ConfigurationWorkspace({
             client={client}
             definitionId={selectedDefinition.id}
           />
+        ) : null}
+        {search.kind === 'template' && (search.id ?? selectedTemplate?.id) ? (
+          <TemplateImpact
+            client={client}
+            templateId={search.id ?? selectedTemplate!.id}
+          />
+        ) : null}
+        {search.kind === 'vocabulary' && selectedVocabulary ? (
+          <VocabularyInspector vocabulary={selectedVocabulary} />
         ) : null}
       </aside>
     </div>
@@ -594,8 +691,8 @@ function CanonicalSchemaPlane({
         <h2 className="text-lg font-semibold">Canonical Dataset Schema</h2>
       </header>
       <p className="text-xs text-muted-foreground">
-        This plane uses CORE-02 Dataset Schema Definitions. The legacy SCI-010
-        editor on Schemas is compatibility-only.
+        CORE-02 Dataset Schema Definitions are the only schema editor in this
+        workspace.
       </p>
       <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
         <Label className="text-xs">
@@ -1258,9 +1355,18 @@ function PromotionPlane({
     'dataset_schema',
   )
   const [modelKey, setModelKey] = useState('sample')
-  const [message, setMessage] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const preview = useMutation({
+  const [fieldMessage, setFieldMessage] = useState<string | null>(null)
+  const [fieldError, setFieldError] = useState<string | null>(null)
+  const [calculationId, setCalculationId] = useState('')
+  const [calculationTarget, setCalculationTarget] = useState<
+    'sheet_definition' | 'dataset_schema'
+  >('sheet_definition')
+  const [calculationSchemaId, setCalculationSchemaId] = useState('')
+  const [calculationMessage, setCalculationMessage] = useState<string | null>(
+    null,
+  )
+  const [calculationError, setCalculationError] = useState<string | null>(null)
+  const previewField = useMutation({
     mutationFn: () =>
       previewLocalFieldPromotion(client, {
         instanceId,
@@ -1270,15 +1376,15 @@ function PromotionPlane({
         modelKey: target === 'model_field' ? modelKey : null,
       }),
     onSuccess: (result) =>
-      setMessage(
+      setFieldMessage(
         result.ok
           ? 'Existing local values stay on the Instance after promotion.'
           : 'Existing local values are incompatible.',
       ),
     onError: (cause: unknown) =>
-      setError(cause instanceof Error ? cause.message : 'Preview failed.'),
+      setFieldError(cause instanceof Error ? cause.message : 'Preview failed.'),
   })
-  const promote = useMutation({
+  const promoteField = useMutation({
     mutationFn: () =>
       promoteLocalField(client, {
         instanceId,
@@ -1289,91 +1395,344 @@ function PromotionPlane({
         idempotencyKey: crypto.randomUUID(),
       }),
     onSuccess: () =>
-      setMessage('Promoted. Historical Instance values remain local.'),
+      setFieldMessage('Promoted. Historical Instance values remain local.'),
     onError: (cause: unknown) =>
-      setError(cause instanceof Error ? cause.message : 'Promotion failed.'),
+      setFieldError(
+        cause instanceof Error ? cause.message : 'Promotion failed.',
+      ),
+  })
+  const previewCalculation = useMutation({
+    mutationFn: () =>
+      previewCalculationPromotion(client, {
+        instanceId,
+        calculationId,
+        target: calculationTarget,
+      }),
+    onSuccess: (result) =>
+      setCalculationMessage(
+        result.ok
+          ? 'Existing local calculation results stay on the Instance after promotion.'
+          : 'Existing local calculation results are incompatible.',
+      ),
+    onError: (cause: unknown) =>
+      setCalculationError(
+        cause instanceof Error ? cause.message : 'Preview failed.',
+      ),
+  })
+  const promoteCalculationMutation = useMutation({
+    mutationFn: () =>
+      promoteCalculation(client, {
+        instanceId,
+        calculationId,
+        target: calculationTarget,
+        schemaDefinitionId:
+          calculationTarget === 'dataset_schema'
+            ? calculationSchemaId || null
+            : null,
+        idempotencyKey: crypto.randomUUID(),
+      }),
+    onSuccess: () =>
+      setCalculationMessage(
+        'Promoted. Historical Instance calculation results remain local.',
+      ),
+    onError: (cause: unknown) =>
+      setCalculationError(
+        cause instanceof Error ? cause.message : 'Promotion failed.',
+      ),
   })
   return (
-    <div className="max-w-xl space-y-3">
-      <h2 className="flex items-center gap-2 text-lg font-semibold">
-        <Layers className="size-4" aria-hidden="true" />
-        Promote a local field
-      </h2>
-      <p className="text-xs text-muted-foreground">
-        Promotion is explicit. Values already stored on the Sheet Instance stay
-        local; the new Model or Dataset Schema field is a governed identity.
-      </p>
-      <Label className="text-xs">
-        Instance ID
-        <Input
-          className="mt-1 font-mono"
-          value={instanceId}
-          disabled={!canEdit}
-          onChange={(event) => setInstanceId(event.target.value)}
-        />
-      </Label>
-      <Label className="text-xs">
-        Local field ID
-        <Input
-          className="mt-1 font-mono"
-          value={fieldId}
-          disabled={!canEdit}
-          onChange={(event) => setFieldId(event.target.value)}
-        />
-      </Label>
-      <Label className="text-xs">
-        Target
-        <Select
-          className="mt-1"
-          value={target}
-          disabled={!canEdit}
-          onChange={(event) =>
-            setTarget(event.target.value as 'dataset_schema' | 'model_field')
-          }
-        >
-          <option value="dataset_schema">Dataset Schema field</option>
-          <option value="model_field">Model field</option>
-        </Select>
-      </Label>
-      {target === 'dataset_schema' ? (
-        <Label className="text-xs">
-          Dataset Schema Definition ID
-          <Input
-            className="mt-1 font-mono"
-            value={schemaId}
-            disabled={!canEdit}
-            onChange={(event) => setSchemaId(event.target.value)}
-          />
-        </Label>
-      ) : (
-        <Label className="text-xs">
-          Target Model key
-          <Input
-            className="mt-1 font-mono"
-            value={modelKey}
-            disabled={!canEdit}
-            onChange={(event) => setModelKey(event.target.value)}
-          />
-        </Label>
-      )}
-      <div className="flex gap-2">
-        <Button
-          variant="outline"
-          disabled={!canEdit}
-          onClick={() => preview.mutate()}
-        >
-          Preview
-        </Button>
-        <Button disabled={!canEdit} onClick={() => promote.mutate()}>
-          Promote
-        </Button>
-      </div>
-      {message ? <p className="text-xs">{message}</p> : null}
-      {error ? (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
+    <div className="max-w-xl space-y-8">
+      <div className="space-y-3">
+        <h2 className="flex items-center gap-2 text-lg font-semibold">
+          <Layers className="size-4" aria-hidden="true" />
+          Promote a local field
+        </h2>
+        <p className="text-xs text-muted-foreground">
+          Promotion is explicit. Values already stored on the Sheet Instance stay
+          local; the new Model or Dataset Schema field is a governed identity.
         </p>
-      ) : null}
+        <Label className="text-xs">
+          Instance ID
+          <Input
+            className="mt-1 font-mono"
+            value={instanceId}
+            disabled={!canEdit}
+            onChange={(event) => setInstanceId(event.target.value)}
+          />
+        </Label>
+        <Label className="text-xs">
+          Local field ID
+          <Input
+            className="mt-1 font-mono"
+            value={fieldId}
+            disabled={!canEdit}
+            onChange={(event) => setFieldId(event.target.value)}
+          />
+        </Label>
+        <Label className="text-xs">
+          Target
+          <Select
+            className="mt-1"
+            value={target}
+            disabled={!canEdit}
+            onChange={(event) =>
+              setTarget(event.target.value as 'dataset_schema' | 'model_field')
+            }
+          >
+            <option value="dataset_schema">Dataset Schema field</option>
+            <option value="model_field">Model field</option>
+          </Select>
+        </Label>
+        {target === 'dataset_schema' ? (
+          <Label className="text-xs">
+            Dataset Schema Definition ID
+            <Input
+              className="mt-1 font-mono"
+              value={schemaId}
+              disabled={!canEdit}
+              onChange={(event) => setSchemaId(event.target.value)}
+            />
+          </Label>
+        ) : (
+          <Label className="text-xs">
+            Target Model key
+            <Input
+              className="mt-1 font-mono"
+              value={modelKey}
+              disabled={!canEdit}
+              onChange={(event) => setModelKey(event.target.value)}
+            />
+          </Label>
+        )}
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            disabled={!canEdit}
+            onClick={() => previewField.mutate()}
+          >
+            Preview field promotion
+          </Button>
+          <Button disabled={!canEdit} onClick={() => promoteField.mutate()}>
+            Promote field
+          </Button>
+        </div>
+        {fieldMessage ? <p className="text-xs">{fieldMessage}</p> : null}
+        {fieldError ? (
+          <p role="alert" className="text-sm text-destructive">
+            {fieldError}
+          </p>
+        ) : null}
+      </div>
+      <div className="space-y-3 border-t pt-6">
+        <h2 className="flex items-center gap-2 text-lg font-semibold">
+          <Layers className="size-4" aria-hidden="true" />
+          Promote a local calculation
+        </h2>
+        <p className="text-xs text-muted-foreground">
+          Promotion is explicit. Calculation results already stored on the Sheet
+          Instance stay local; the promoted calculation becomes a governed
+          Sheet Definition or Dataset Schema identity.
+        </p>
+        <Label className="text-xs">
+          Instance ID
+          <Input
+            className="mt-1 font-mono"
+            value={instanceId}
+            disabled={!canEdit}
+            onChange={(event) => setInstanceId(event.target.value)}
+          />
+        </Label>
+        <Label className="text-xs">
+          Local calculation ID
+          <Input
+            className="mt-1 font-mono"
+            value={calculationId}
+            disabled={!canEdit}
+            onChange={(event) => setCalculationId(event.target.value)}
+          />
+        </Label>
+        <Label className="text-xs">
+          Target
+          <Select
+            className="mt-1"
+            value={calculationTarget}
+            disabled={!canEdit}
+            onChange={(event) =>
+              setCalculationTarget(
+                event.target.value as 'sheet_definition' | 'dataset_schema',
+              )
+            }
+          >
+            <option value="sheet_definition">Sheet Definition</option>
+            <option value="dataset_schema">Dataset Schema</option>
+          </Select>
+        </Label>
+        {calculationTarget === 'dataset_schema' ? (
+          <Label className="text-xs">
+            Dataset Schema Definition ID
+            <Input
+              className="mt-1 font-mono"
+              value={calculationSchemaId}
+              disabled={!canEdit}
+              onChange={(event) => setCalculationSchemaId(event.target.value)}
+            />
+          </Label>
+        ) : null}
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            disabled={!canEdit}
+            onClick={() => previewCalculation.mutate()}
+          >
+            Preview calculation promotion
+          </Button>
+          <Button
+            disabled={!canEdit}
+            onClick={() => promoteCalculationMutation.mutate()}
+          >
+            Promote calculation
+          </Button>
+        </div>
+        {calculationMessage ? (
+          <p className="text-xs">{calculationMessage}</p>
+        ) : null}
+        {calculationError ? (
+          <p role="alert" className="text-sm text-destructive">
+            {calculationError}
+          </p>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+function VocabularyPlane({
+  vocabulary,
+}: {
+  vocabulary: ConfigurationVocabulary | undefined
+}) {
+  if (!vocabulary) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Select a vocabulary from the catalogue.
+      </p>
+    )
+  }
+  return (
+    <div className="space-y-3">
+      <h2 className="text-lg font-semibold">{vocabulary.label}</h2>
+      <p className="text-xs text-muted-foreground">
+        {vocabulary.sourceLabel} · {vocabulary.fieldKey} ·{' '}
+        {vocabulary.categoryKind === 'vocabulary'
+          ? `reusable vocabulary ${vocabulary.vocabularyId ?? '—'}`
+          : 'embedded category options'}
+      </p>
+      {vocabulary.terms.length ? (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Key</TableHead>
+              <TableHead>Label</TableHead>
+              <TableHead>Lifecycle</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {vocabulary.terms.map((term) => (
+              <TableRow key={term.id}>
+                <TableCell className="font-mono text-xs">{term.key}</TableCell>
+                <TableCell>{term.label}</TableCell>
+                <TableCell className="capitalize">{term.lifecycle}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          No embedded terms. Historical values still bind to the stable
+          vocabulary identity.
+        </p>
+      )}
+    </div>
+  )
+}
+
+function VocabularyInspector({
+  vocabulary,
+}: {
+  vocabulary: ConfigurationVocabulary
+}) {
+  return (
+    <div className="mt-6 space-y-4">
+      <div>
+        <h3 className="text-sm font-semibold">Vocabulary terms</h3>
+        {vocabulary.terms.length === 0 ? (
+          <p className="mt-2 text-xs text-muted-foreground">
+            No embedded terms. This vocabulary references an external identity.
+          </p>
+        ) : (
+          <ul className="mt-2 space-y-1 text-xs">
+            {vocabulary.terms.map((term) => (
+              <li key={term.id}>
+                {term.label} ({term.key}) · {term.lifecycle}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <div>
+        <h3 className="text-sm font-semibold">Consumer</h3>
+        <p className="mt-2 text-xs text-muted-foreground">
+          {vocabulary.sourceKind} · {vocabulary.sourceLabel} · field{' '}
+          {vocabulary.fieldKey}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function TemplateImpact({
+  client,
+  templateId,
+}: {
+  client: DataClient
+  templateId: string
+}) {
+  const templateImpactQuery = useQuery({
+    queryKey: ['configure', 'template-impact', templateId],
+    queryFn: async () => {
+      try {
+        return await discoverObjectDependencies(
+          client,
+          'notebook_template',
+          templateId,
+        )
+      } catch {
+        return await discoverObjectDependencies(
+          client,
+          'notebook_template_version',
+          templateId,
+        )
+      }
+    },
+  })
+  const dependencies = useMemo(
+    () => templateImpactQuery.data?.dependencies ?? [],
+    [templateImpactQuery.data],
+  )
+  return (
+    <div className="mt-6">
+      <h3 className="text-sm font-semibold">Template dependencies</h3>
+      {dependencies.length === 0 ? (
+        <p className="mt-2 text-xs text-muted-foreground">No dependants.</p>
+      ) : (
+        <ul className="mt-2 space-y-1 text-xs">
+          {dependencies.map((item) => (
+            <li key={`${item.kind}:${item.id}`}>
+              {item.label} · {item.liveness} · {item.effect}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }

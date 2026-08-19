@@ -90,10 +90,14 @@ export function VersionedNotebookTemplatePanel({
   workspaceId,
   canEdit,
   projects,
+  selectedTemplateId: selectedTemplateIdProp,
+  onSelectedTemplateIdChange,
 }: {
   workspaceId: string
   canEdit: boolean
   projects: TemplateProject[]
+  selectedTemplateId?: string | null
+  onSelectedTemplateIdChange?: (templateId: string | null) => void
 }) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -104,9 +108,20 @@ export function VersionedNotebookTemplatePanel({
   const [createTitle, setCreateTitle] = useState('')
   const [createProjectId, setCreateProjectId] = useState(projects[0]?.id ?? '')
   const [createVersionId, setCreateVersionId] = useState<string | null>(null)
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
-    null,
-  )
+  const [internalSelectedTemplateId, setInternalSelectedTemplateId] = useState<
+    string | null
+  >(null)
+  const isTemplateSelectionControlled = selectedTemplateIdProp !== undefined
+  const selectedTemplateId = isTemplateSelectionControlled
+    ? selectedTemplateIdProp
+    : internalSelectedTemplateId
+
+  function selectTemplate(templateId: string) {
+    if (!isTemplateSelectionControlled) {
+      setInternalSelectedTemplateId(templateId)
+    }
+    onSelectedTemplateIdChange?.(templateId)
+  }
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(
     null,
   )
@@ -169,9 +184,19 @@ export function VersionedNotebookTemplatePanel({
 
   useEffect(() => {
     const firstTemplateId = templates.data?.[0]?.id ?? null
-    if (!selectedTemplateId && firstTemplateId)
-      setSelectedTemplateId(firstTemplateId)
-  }, [templates.data, selectedTemplateId])
+    if (!selectedTemplateId && firstTemplateId) {
+      if (isTemplateSelectionControlled) {
+        onSelectedTemplateIdChange?.(firstTemplateId)
+      } else {
+        setInternalSelectedTemplateId(firstTemplateId)
+      }
+    }
+  }, [
+    isTemplateSelectionControlled,
+    onSelectedTemplateIdChange,
+    selectedTemplateId,
+    templates.data,
+  ])
 
   useEffect(() => {
     if (!selectedTemplateId) return
@@ -469,7 +494,7 @@ export function VersionedNotebookTemplatePanel({
                         type="button"
                         size="sm"
                         variant="ghost"
-                        onClick={() => setSelectedTemplateId(template.id)}
+                        onClick={() => selectTemplate(template.id)}
                       >
                         Open
                       </Button>

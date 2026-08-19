@@ -7,7 +7,6 @@ import { Route } from './admin'
 
 const AdminRoute = Route.options.component as React.ComponentType
 let pathname = '/admin/users'
-let model: string | undefined
 const navigate = vi.fn()
 
 vi.mock('@tanstack/react-router', () => ({
@@ -18,7 +17,6 @@ vi.mock('@tanstack/react-router', () => ({
         user: { name: 'Test User', email: 'test@example.com' },
       },
     }),
-    useSearch: () => ({ model }),
     options: config,
   }),
   redirect: (options: unknown) => options,
@@ -115,7 +113,6 @@ globalThis.ResizeObserver = class {
 afterEach(() => {
   cleanup()
   pathname = '/admin/users'
-  model = undefined
   navigate.mockReset()
 })
 
@@ -167,24 +164,19 @@ describe('AdminRoute', () => {
       'API credentials',
       'Activity',
       'Workspace settings',
-      'Model fields',
     ]) {
       expect(screen.getByRole('link', { name: label })).toBeTruthy()
     }
+    expect(screen.queryByRole('link', { name: 'Model fields' })).toBeNull()
   })
 
-  it('passes URL model state to the Model fields page', async () => {
-    pathname = '/admin/model-fields'
-    model = 'report'
+  it('does not mention scientific models in the header copy', () => {
     render(
       <ShellProvider>
         <AdminRoute />
       </ShellProvider>,
     )
-    expect(
-      await screen.findByRole('combobox', {
-        name: 'Model',
-      }),
-    ).toHaveProperty('value', 'report')
+    expect(screen.getByText(/Govern workspace access/)).toBeTruthy()
+    expect(screen.queryByText(/scientific models/i)).toBeNull()
   })
 })

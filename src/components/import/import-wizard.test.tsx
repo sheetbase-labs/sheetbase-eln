@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ImportWizard } from '#/components/import/import-wizard'
 import type { DataClient } from '#/lib/data-client'
 import type { CanonicalDatasetWire } from '#/lib/dataset-explorer-data'
+import type { ModelFieldDefinition } from '#/lib/model-fields'
 
 afterEach(() => cleanup())
 
@@ -114,12 +115,24 @@ describe('ImportWizard', () => {
             recordKind: 'sample',
             fields: [
               {
+                id: 'field-1',
+                modelKey: 'sample',
                 fieldName: 'species',
                 label: 'Species',
+                description: null,
+                displayOrder: 1,
                 logicalType: 'text',
                 nullable: true,
+                defaultValue: null,
+                unit: null,
+                quantity: null,
+                validation: {},
+                cardinality: 'one',
+                categorySource: null,
+                relationship: null,
+                lifecycle: 'active',
                 options: [],
-              },
+              } satisfies ModelFieldDefinition,
             ],
           }}
           onDone={onDone}

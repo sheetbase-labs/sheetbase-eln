@@ -13,6 +13,7 @@ export interface DatasetSchemaFieldInput {
   category?: unknown
   relationship?: unknown
   cardinality?: 'one' | 'many'
+  lifecycle?: 'active' | 'retired'
   displayOrder?: number
 }
 
@@ -35,6 +36,7 @@ export function fieldWire(field: DatasetSchemaFieldInput) {
     category: field.category ?? null,
     relationship: field.relationship ?? null,
     cardinality: field.cardinality ?? 'one',
+    lifecycle: field.lifecycle ?? 'active',
     display_order: field.displayOrder ?? null,
   }
 }
@@ -128,9 +130,14 @@ export interface CanonicalDatasetSchemaField {
   description: string | null
   logical_type: string
   nullable: boolean
+  default_value?: unknown
+  quantity?: unknown
+  validation?: Record<string, unknown>
   cardinality: string
   lifecycle: string
   display_order: number
+  category?: unknown
+  relationship?: unknown
 }
 
 export async function listCanonicalDatasetSchemaDefinitions(
@@ -158,6 +165,6 @@ export async function listCanonicalDatasetSchemaVersionFields(
 ): Promise<CanonicalDatasetSchemaField[]> {
   return client.list(
     'dataset_schema_version_fields',
-    `?schema_version_id=eq.${schemaVersionId}&select=field_id,key,label,description,logical_type,nullable,cardinality,lifecycle,display_order&order=display_order.asc`,
+    `?schema_version_id=eq.${schemaVersionId}&select=field_id,key,label,description,logical_type,nullable,default_value,quantity,validation,category,relationship,cardinality,lifecycle,display_order&order=display_order.asc`,
   )
 }

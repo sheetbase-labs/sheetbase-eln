@@ -11,7 +11,7 @@ Work on the **assigned PC stream** in `phlohouse/sheetbase-eln`. Read `docs/road
 
 ## Current state
 
-**PC-01 and PC-02 are complete on `main`.** Do not reopen them. **PC-03 is not assigned** from the current hand-off. If `NEXT.md` later assigns a PC epic, implement only that epic.
+**PC-01 through PC-04 are complete on `main`.** Do not reopen them. **PC-05 is ready to merge as `#54`; PC-06 is the next PC task only after that merge and an explicit `NEXT.md` assignment.**
 
 ## Product objective
 

@@ -45,6 +45,14 @@ vi.mock('@tanstack/react-start', () => ({
 
 vi.mock('@tanstack/react-query', () => ({
   useQuery: () => ({ data: [], isLoading: false }),
+  useInfiniteQuery: () => ({
+    data: { pages: [] },
+    isLoading: false,
+    isError: false,
+    hasNextPage: false,
+    isFetchingNextPage: false,
+    fetchNextPage: vi.fn(),
+  }),
   useMutation: () => ({
     mutate: vi.fn(),
     mutateAsync: vi.fn(),
@@ -105,5 +113,7 @@ describe('ConfigureRoute', () => {
     )
     expect(screen.getByRole('heading', { name: 'Configuration' })).toBeTruthy()
     expect(screen.getByLabelText('Configuration catalogue')).toBeTruthy()
+    expect(screen.queryByText(/SCI-010/)).toBeNull()
+    expect(screen.getByText('Steward data-language workspace.')).toBeTruthy()
   })
 })

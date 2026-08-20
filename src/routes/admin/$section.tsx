@@ -3,7 +3,6 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 const sections = new Set([
   'users',
   'project-access',
-  'model-fields',
   'settings',
   'sessions',
   'api-credentials',
@@ -11,7 +10,20 @@ const sections = new Set([
 ])
 
 export const Route = createFileRoute('/admin/$section')({
-  beforeLoad: ({ params }) => {
+  validateSearch: (search: Record<string, unknown>) => ({
+    model: typeof search.model === 'string' ? search.model : undefined,
+  }),
+  beforeLoad: ({ params, search }) => {
+    if (params.section === 'model-fields') {
+      throw redirect({
+        to: '/configure',
+        search: {
+          kind: 'model',
+          id: undefined,
+          model: search.model,
+        },
+      })
+    }
     if (!sections.has(params.section)) {
       throw redirect({
         to: '/admin/$section',

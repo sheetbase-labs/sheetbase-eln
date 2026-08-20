@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { ComponentProps } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { VersionedNotebookTemplatePanel } from './versioned-notebook-templates'
@@ -248,7 +249,9 @@ afterEach(() => {
   applyUpgradeMock.mockClear()
 })
 
-function mount() {
+function mount(
+  props: Partial<ComponentProps<typeof VersionedNotebookTemplatePanel>> = {},
+) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
@@ -264,12 +267,29 @@ function mount() {
             title: 'Project one',
           },
         ]}
+        {...props}
       />
     </QueryClientProvider>,
   )
 }
 
 describe('VersionedNotebookTemplatePanel', () => {
+  it('honours controlled selectedTemplateId and notifies on Open', async () => {
+    const user = userEvent.setup()
+    const onSelectedTemplateIdChange = vi.fn()
+    mount({
+      selectedTemplateId: '22222222-2222-4222-8222-222222222222',
+      onSelectedTemplateIdChange,
+    })
+    await screen.findByText('Beta template')
+    expect(screen.getByRole('button', { name: 'v1' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'v2' })).toBeNull()
+    await user.click(screen.getAllByRole('button', { name: 'Open' })[0])
+    expect(onSelectedTemplateIdChange).toHaveBeenCalledWith(
+      '11111111-1111-4111-8111-111111111111',
+    )
+  })
+
   it('renders parameter inputs from createVersionId even after selecting another template version', async () => {
     const user = userEvent.setup()
     mount()

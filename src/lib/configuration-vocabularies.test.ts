@@ -1,9 +1,11 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
   collectDefinitionVocabularies,
+  loadConfigurationVocabularies,
   normalizeConfigurationVocabularies,
 } from '#/lib/configuration-vocabularies'
+import type { DataClient } from '#/lib/data-client'
 import type { ConfigurationVocabulary } from '#/lib/configuration-vocabularies'
 import type { SheetDefinitionConfiguration } from '#/lib/sheet-definition'
 
@@ -128,5 +130,39 @@ describe('configuration vocabularies', () => {
     expect(
       normalizeConfigurationVocabularies(items).map((item) => item.label),
     ).toEqual(['Alpha', 'Zebra'])
+  })
+
+  it('loads a bounded vocabulary page from the governed index', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      items: [
+        {
+          id: 'model:field-1',
+          label: 'Status',
+          source_kind: 'model',
+          source_id: 'sample',
+          source_label: 'Samples',
+          field_key: 'status',
+          category_kind: 'embedded',
+          vocabulary_id: null,
+          terms: [],
+        },
+      ],
+      hasMore: true,
+    })
+    const page = await loadConfigurationVocabularies(
+      { rpc } as unknown as DataClient,
+      'workspace-1',
+      200,
+    )
+
+    expect(rpc).toHaveBeenCalledWith('list_configuration_vocabularies', {
+      p_workspace_id: 'workspace-1',
+      p_limit: 200,
+      p_offset: 200,
+    })
+    expect(page).toMatchObject({
+      hasMore: true,
+      items: [{ id: 'model:field-1', sourceKind: 'model' }],
+    })
   })
 })

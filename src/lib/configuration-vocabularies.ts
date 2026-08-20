@@ -26,6 +26,11 @@ export interface ConfigurationVocabulary {
   terms: ConfigurationVocabularyTerm[]
 }
 
+export interface ConfigurationVocabularyPage {
+  items: ConfigurationVocabulary[]
+  hasMore: boolean
+}
+
 type SchemaCategoryWire =
   | { kind: 'embedded'; options: FieldOption[] }
   | { kind: 'vocabulary'; vocabularyId: string }
@@ -209,13 +214,16 @@ export function normalizeConfigurationVocabularies(
 export async function loadConfigurationVocabularies(
   client: DataClient,
   workspaceId: string,
-): Promise<ConfigurationVocabulary[]> {
-  const rows = await client.rpc<unknown[]>('list_configuration_vocabularies', {
+  offset = 0,
+): Promise<ConfigurationVocabularyPage> {
+  const page = await client.rpc<unknown>('list_configuration_vocabularies', {
     p_workspace_id: workspaceId,
     p_limit: 200,
-    p_offset: 0,
+    p_offset: offset,
   })
-  return rows.map((row) => {
+  const wire = page as Record<string, unknown>
+  const rows = Array.isArray(wire.items) ? wire.items : []
+  const items = rows.map((row) => {
     const item = row as Record<string, unknown>
     return {
       id: String(item.id),
@@ -240,4 +248,5 @@ export async function loadConfigurationVocabularies(
         : [],
     }
   })
+  return { items, hasMore: wire.hasMore === true }
 }

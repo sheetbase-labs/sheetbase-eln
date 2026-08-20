@@ -36,8 +36,16 @@ BEGIN
       CROSS JOIN LATERAL jsonb_array_elements(coalesce(v.configuration->'columns','[]'::jsonb)) c(value)
     WHERE d.workspace_id=p_workspace_id AND c.value->'field'->>'logicalType'='category'
       AND v.version=(SELECT max(v2.version) FROM api.sheet_definition_versions v2 WHERE v2.definition_id=d.id)
-  ) SELECT coalesce(jsonb_agg(to_jsonb(s) ORDER BY s.label, s.id), '[]'::jsonb) INTO result
-  FROM (SELECT * FROM sources ORDER BY label, id LIMIT p_limit OFFSET p_offset) s;
+  ), page AS (
+    SELECT * FROM sources ORDER BY label, id LIMIT p_limit + 1 OFFSET p_offset
+  ), items AS (
+    SELECT * FROM page ORDER BY label, id LIMIT p_limit
+  )
+  SELECT jsonb_build_object(
+    'items', coalesce(jsonb_agg(to_jsonb(items) ORDER BY items.label, items.id), '[]'::jsonb),
+    'hasMore', (SELECT count(*) > p_limit FROM page)
+  ) INTO result
+  FROM items;
   RETURN result;
 END $$;
 REVOKE ALL ON FUNCTION api.list_configuration_vocabularies(uuid,integer,integer) FROM PUBLIC;

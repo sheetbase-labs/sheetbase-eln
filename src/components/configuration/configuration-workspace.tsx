@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import { Database, Layers, Shield } from 'lucide-react'
 
 import { AdminModelFields } from '#/components/workspace-admin/admin-model-fields'
@@ -67,6 +72,7 @@ import {
 } from '#/lib/schema-evolution'
 import { loadConfigurationVocabularies } from '#/lib/configuration-vocabularies'
 import type { ConfigurationVocabulary } from '#/lib/configuration-vocabularies'
+import { fetchModelKinds } from '#/lib/model-fields'
 import { fetchNotebookTemplates } from '#/lib/notebook-template-data'
 import {
   formatDate,
@@ -158,12 +164,17 @@ export function ConfigurationWorkspace({
     queryFn: () => fetchNotebookTemplates(client, { limit: 200 }),
   })
   const notebookTemplates = notebookTemplatesQuery.data ?? []
-  const vocabulariesQuery = useQuery({
+  const vocabulariesQuery = useInfiniteQuery({
     queryKey: ['configure', workspaceId, 'vocabularies'],
-    queryFn: () => loadConfigurationVocabularies(client, workspaceId),
+    queryFn: ({ pageParam }) =>
+      loadConfigurationVocabularies(client, workspaceId, pageParam),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, pages) =>
+      lastPage.hasMore ? pages.length * 200 : undefined,
     enabled: search.kind === 'vocabulary',
   })
-  const vocabularies = vocabulariesQuery.data ?? []
+  const vocabularies =
+    vocabulariesQuery.data?.pages.flatMap((page) => page.items) ?? []
   const projectsQuery = useQuery({
     queryKey: notebookQueryKeys.projectsList(),
     queryFn: () =>
@@ -340,6 +351,19 @@ export function ConfigurationWorkspace({
             Could not load category sources.
           </p>
         ) : null}
+        {search.kind === 'vocabulary' && vocabulariesQuery.hasNextPage ? (
+          <Button
+            className="mx-2 mt-2"
+            size="sm"
+            variant="outline"
+            disabled={vocabulariesQuery.isFetchingNextPage}
+            onClick={() => vocabulariesQuery.fetchNextPage()}
+          >
+            {vocabulariesQuery.isFetchingNextPage
+              ? 'Loading more…'
+              : 'Load more category sources'}
+          </Button>
+        ) : null}
         {search.kind === 'vocabulary' &&
         !vocabulariesQuery.isLoading &&
         !vocabulariesQuery.isError &&
@@ -422,6 +446,7 @@ export function ConfigurationWorkspace({
             client={client}
             workspaceId={workspaceId}
             canEdit={canEdit}
+            schemas={schemas}
           />
         ) : null}
       </section>
@@ -1681,10 +1706,12 @@ function PromotionPlane({
   client,
   workspaceId,
   canEdit,
+  schemas,
 }: {
   client: DataClient
   workspaceId: string
   canEdit: boolean
+  schemas: Awaited<ReturnType<typeof listCanonicalDatasetSchemaDefinitions>>
 }) {
   const [instanceId, setInstanceId] = useState('')
   const [fieldId, setFieldId] = useState('')
@@ -1692,7 +1719,7 @@ function PromotionPlane({
   const [target, setTarget] = useState<'dataset_schema' | 'model_field'>(
     'dataset_schema',
   )
-  const [modelKey, setModelKey] = useState('sample')
+  const [modelKey, setModelKey] = useState('')
   const [fieldMessage, setFieldMessage] = useState<string | null>(null)
   const [fieldError, setFieldError] = useState<string | null>(null)
   const [calculationId, setCalculationId] = useState('')
@@ -1707,6 +1734,10 @@ function PromotionPlane({
   const instancesQuery = useQuery({
     queryKey: ['configure', workspaceId, 'promotion-instances'],
     queryFn: () => fetchSheetInstances(client),
+  })
+  const modelsQuery = useQuery({
+    queryKey: ['configure', workspaceId, 'promotion-models'],
+    queryFn: () => fetchModelKinds(client),
   })
   const instances = (instancesQuery.data ?? []).filter(
     (instance) =>
@@ -1855,34 +1886,61 @@ function PromotionPlane({
         </Label>
         {target === 'dataset_schema' ? (
           <Label className="text-xs">
-            Dataset Schema Definition ID
-            <Input
-              className="mt-1 font-mono"
+            Dataset Schema
+            <Select
+              className="mt-1"
               value={schemaId}
               disabled={!canEdit}
               onChange={(event) => setSchemaId(event.target.value)}
-            />
+            >
+              <option value="">Select a Dataset Schema</option>
+              {schemas.map((schema) => (
+                <option key={schema.id} value={schema.id}>
+                  {schema.name}
+                </option>
+              ))}
+            </Select>
           </Label>
         ) : (
           <Label className="text-xs">
-            Target Model key
-            <Input
-              className="mt-1 font-mono"
+            Target Model
+            <Select
+              className="mt-1"
               value={modelKey}
               disabled={!canEdit}
               onChange={(event) => setModelKey(event.target.value)}
-            />
+            >
+              <option value="">Select a Model</option>
+              {(modelsQuery.data ?? []).map((model) => (
+                <option key={model.key} value={model.key}>
+                  {model.label}
+                </option>
+              ))}
+            </Select>
           </Label>
         )}
         <div className="flex gap-2">
           <Button
             variant="outline"
-            disabled={!canEdit}
+            disabled={
+              !canEdit ||
+              !instanceId ||
+              !fieldId ||
+              (target === 'dataset_schema' ? !schemaId : !modelKey)
+            }
             onClick={() => previewField.mutate()}
           >
             Preview field promotion
           </Button>
-          <Button disabled={!canEdit} onClick={() => promoteField.mutate()}>
+          <Button
+            disabled={
+              !canEdit ||
+              !instanceId ||
+              !fieldId ||
+              (target === 'dataset_schema' ? !schemaId : !modelKey)
+            }
+            onClick={() => promoteField.mutate()}
+          >
             Promote field
           </Button>
         </div>
@@ -1959,25 +2017,42 @@ function PromotionPlane({
         </Label>
         {calculationTarget === 'dataset_schema' ? (
           <Label className="text-xs">
-            Dataset Schema Definition ID
-            <Input
-              className="mt-1 font-mono"
+            Dataset Schema
+            <Select
+              className="mt-1"
               value={calculationSchemaId}
               disabled={!canEdit}
               onChange={(event) => setCalculationSchemaId(event.target.value)}
-            />
+            >
+              <option value="">Select a Dataset Schema</option>
+              {schemas.map((schema) => (
+                <option key={schema.id} value={schema.id}>
+                  {schema.name}
+                </option>
+              ))}
+            </Select>
           </Label>
         ) : null}
         <div className="flex gap-2">
           <Button
             variant="outline"
-            disabled={!canEdit}
+            disabled={
+              !canEdit ||
+              !instanceId ||
+              !calculationId ||
+              (calculationTarget === 'dataset_schema' && !calculationSchemaId)
+            }
             onClick={() => previewCalculation.mutate()}
           >
             Preview calculation promotion
           </Button>
           <Button
-            disabled={!canEdit}
+            disabled={
+              !canEdit ||
+              !instanceId ||
+              !calculationId ||
+              (calculationTarget === 'dataset_schema' && !calculationSchemaId)
+            }
             onClick={() => promoteCalculationMutation.mutate()}
           >
             Promote calculation

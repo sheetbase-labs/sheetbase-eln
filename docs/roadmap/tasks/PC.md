@@ -1,6 +1,6 @@
 # PC — Product Consolidation
 
-**Status:** PC-00 accepted. PC-01 complete (`#41`). PC-02 complete (`#44`). PC-03 complete (`#52`). PC-04 complete (`#53`). PC-05 complete (`#54` / `1d7a06a`); PC-06 is active on `GWP/pc-06-golden-workflows`.
+**Status:** PC-00 accepted. PC-01 complete (`#41`). PC-02 complete (`#44`). PC-03 complete (`#52`). PC-04 complete (`#53`). PC-05 complete (`#54` / `1d7a06a`); PC-06 is ready to merge (`#55`).
 
 ## Programme goal
 

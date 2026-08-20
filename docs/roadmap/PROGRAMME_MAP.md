@@ -52,7 +52,7 @@ This diagram communicates likely sequencing and dependencies, not a strict water
 - `PC-03` Notebook Experience (complete — `#52`)
 - `PC-04` Templates & Reusable Science (complete — `#53`)
 - `PC-05` Configuration & Steward Workspace (complete — `#54`)
-- `PC-06` Golden Workflow Consolidation (active)
+- `PC-06` Golden Workflow Consolidation (ready to merge — `#55`)
 
 ### API — API & Developer Platform
 

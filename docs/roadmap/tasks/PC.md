@@ -1,6 +1,6 @@
 # PC — Product Consolidation
 
-**Status:** PC-00 accepted. PC-01 complete (`#41`). PC-02 complete (`#44`). PC-03 complete (`#52`). PC-04 complete (`#53`). PC-05 is ready to merge as `#54`; PC-06 is active on `GWP/pc-06-golden-workflows` and is stacked on PC-05.
+**Status:** PC-00 accepted. PC-01 complete (`#41`). PC-02 complete (`#44`). PC-03 complete (`#52`). PC-04 complete (`#53`). PC-05 complete (`#54` / `1d7a06a`); PC-06 is active on `GWP/pc-06-golden-workflows`.
 
 ## Programme goal
 
@@ -236,7 +236,7 @@ Each workflow is efficient, understandable and free of architectural dead ends, 
 1. Trace each named workflow through the canonical route, its existing RPCs and frozen-evidence boundary.
 2. Remove verified UI hand-off dead ends without creating replacement domain systems.
 3. Add workflow-level acceptance evidence around the concrete route/contract being consolidated.
-4. Merge PC-05 before PC-06; this branch is deliberately stacked so the governed promotion and Configuration paths remain available to workflow 4.
+4. Reuse the merged PC-05 Configuration and promotion paths for workflow 4.
 
 **First slice:** after extracting an exploratory Sheet as a Definition, take the user directly to that Definition in `/configure` to review and publish it. This closes the local-to-governed/reusable hand-off without making field promotion a prerequisite.
 

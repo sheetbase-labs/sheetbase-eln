@@ -51,8 +51,8 @@ This diagram communicates likely sequencing and dependencies, not a strict water
 - `PC-02` Dataset & Record Product Workflows (complete — `#44`)
 - `PC-03` Notebook Experience (complete — `#52`)
 - `PC-04` Templates & Reusable Science (complete — `#53`)
-- `PC-05` Configuration & Steward Workspace (ready to merge — `#54`)
-- `PC-06` Golden Workflow Consolidation (active, stacked on PC-05 `#54`)
+- `PC-05` Configuration & Steward Workspace (complete — `#54`)
+- `PC-06` Golden Workflow Consolidation (active)
 
 ### API — API & Developer Platform
 

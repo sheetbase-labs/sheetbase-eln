@@ -18,17 +18,17 @@ Delivery priority uses only **medium** and **low**. Nothing is queued as high.
 
 The roadmap supports **parallel streams**. Agents take **one assigned stream/task**. Ready does not mean “do every Ready row”. **Do not start a Ready stream until it is assigned.**
 
-| Stream | Active task | Model  | Status                                                                                                 |
-| ------ | ----------- | ------ | ------------------------------------------------------------------------------------------------------ |
-| PC     | PC-06       | Medium | Golden Workflow Consolidation is active on `GWP/pc-06-golden-workflows`; it is stacked on PC-05 `#54`. |
-| API    | —           | —      | API-01/02/03/07 complete on `main`; do not start API-04/05/06                                          |
-| DATA   | —           | —      | DATA-01 complete; DATA-02 remains later                                                                |
-| GOV    | —           | —      | GOV-01 complete; GOV-02 requires an ADR                                                                |
-| PLAT   | —           | —      | Headers slice complete; remaining PLAT-03 queued                                                       |
-| COLLAB | —           | —      | Planned                                                                                                |
-| SCI    | —           | —      | Planned                                                                                                |
-| INT    | —           | —      | Planned                                                                                                |
-| AUTO   | —           | —      | Planned later                                                                                          |
+| Stream | Active task | Model  | Status                                                                   |
+| ------ | ----------- | ------ | ------------------------------------------------------------------------ |
+| PC     | PC-06       | Medium | Golden Workflow Consolidation is active on `GWP/pc-06-golden-workflows`. |
+| API    | —           | —      | API-01/02/03/07 complete on `main`; do not start API-04/05/06            |
+| DATA   | —           | —      | DATA-01 complete; DATA-02 remains later                                  |
+| GOV    | —           | —      | GOV-01 complete; GOV-02 requires an ADR                                  |
+| PLAT   | —           | —      | Headers slice complete; remaining PLAT-03 queued                         |
+| COLLAB | —           | —      | Planned                                                                  |
+| SCI    | —           | —      | Planned                                                                  |
+| INT    | —           | —      | Planned                                                                  |
+| AUTO   | —           | —      | Planned later                                                            |
 
 ### Immediate execution shape
 
@@ -56,8 +56,8 @@ Task: [`tasks/PC.md`](./tasks/PC.md)
 - **PC-02 complete** (`#44` / `b01b029`): Dataset create/snapshot/live edit and reagent create; strict numeric coercion; historical Dataset Versions render the pinned Schema Version. Sheet Dataset bind remains the canonical Sheet Instance path (H2), not a second bind model.
 - **PC-03 complete** (`#52`): Notebook product chrome around existing records/blocks/Sheet Instance/REV-002/H3 contracts. Submit, sign and amend stay session-only.
 - **PC-04 complete** (`#53` / `3c8b8df`): versioned Notebook Templates, placements/parameters, instantiate, explicit upgrade, Sheet Definition catalogue and consumer upgrade. `/templates` remains the scientist library.
-- **PC-05 ready to merge** (`#54`): `/configure` is the canonical Steward data-language plane. Model fields leave Administration (`/admin/model-fields` redirects). Vocabularies are existing category sources (ADR 0025), not a second vocabulary product. Calculation promotion uses existing RPCs. Capability inspector remains.
-- **PC-06 active** (`GWP/pc-06-golden-workflows`, stacked on `#54`): consolidate the six existing golden workflows through product hand-offs and workflow-level acceptance evidence. Do not add a second workflow system or broaden into AUTO/SCI.
+- **PC-05 complete** (`#54` / `1d7a06a`): `/configure` is the canonical Steward data-language plane. Model fields leave Administration (`/admin/model-fields` redirects). Vocabularies are existing category sources (ADR 0025), not a second vocabulary product. Calculation promotion uses existing RPCs. Capability inspector remains.
+- **PC-06 active** (`GWP/pc-06-golden-workflows`): consolidate the six existing golden workflows through product hand-offs and workflow-level acceptance evidence. Do not add a second workflow system or broaden into AUTO/SCI.
 
 ### API — closed for this assignment
 
@@ -99,7 +99,7 @@ Task: [`tasks/PLAT.md`](./tasks/PLAT.md)
 
 - DATA-01 is complete (canonical Dataset/Record import). DATA-02 export is not started.
 - API-07 Core external allowlist cut-over is complete (`#50`). Submit, sign, amend and revision checks stay human-session-only. API-03 OpenAPI is complete on this branch.
-- PC-05 Steward `/configure` is ready to merge as `#54`. PC-06 Golden Workflows is active on its stacked branch; merge PC-05 first.
+- PC-05 Steward `/configure` is complete (`#54`). PC-06 Golden Workflows is active.
 - GOV-02 is not Ready without an ADR.
 - Remaining PLAT-03 is queued, not a new Ready stream.
 - AUTO remains planned later.

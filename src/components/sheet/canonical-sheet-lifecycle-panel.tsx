@@ -63,6 +63,10 @@ function defaultExtractionSelection(
   }
 }
 
+export function configurationDefinitionHref(definitionId: string) {
+  return `/configure?kind=definition&id=${encodeURIComponent(definitionId)}`
+}
+
 export function CanonicalSheetLifecyclePanel({
   instance,
   onInstance,
@@ -78,6 +82,10 @@ export function CanonicalSheetLifecyclePanel({
   const [extractKey, setExtractKey] = useState('')
   const [extractName, setExtractName] = useState('')
   const [materializeName, setMaterializeName] = useState('')
+  const [extractedDefinition, setExtractedDefinition] = useState<{
+    id: string
+    name: string
+  } | null>(null)
   const [status, setStatus] = useState<string | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
 
@@ -189,8 +197,12 @@ export function CanonicalSheetLifecyclePanel({
       })
     },
     onSuccess: async (result) => {
+      setExtractedDefinition({
+        id: result.definition.id,
+        name: result.definition.name,
+      })
       setStatus(
-        `Extracted draft Definition “${result.definition.name}”. Publish it from Configure when ready.`,
+        `Extracted draft Definition “${result.definition.name}”. Continue in Configure to review and publish it.`,
       )
       await queryClient.invalidateQueries({ queryKey: ['sheet-definitions'] })
     },
@@ -199,12 +211,14 @@ export function CanonicalSheetLifecyclePanel({
   const publishExtracted = useMutation({
     mutationFn: async () => {
       const result = await extract.mutateAsync()
-      return publishSheetDefinitionVersion(
+      const version = await publishSheetDefinitionVersion(
         result.version.id,
         result.version.revision,
       )
+      return { definition: result.definition, version }
     },
-    onSuccess: (version) => {
+    onSuccess: ({ definition, version }) => {
+      setExtractedDefinition({ id: definition.id, name: definition.name })
       setStatus(`Published Definition version ${version.version}.`)
     },
   })
@@ -490,9 +504,17 @@ export function CanonicalSheetLifecyclePanel({
             </p>
           ) : null}
           {status ? (
-            <p className="text-xs md:col-span-2" role="status">
-              {status}
-            </p>
+            <div className="flex flex-wrap items-center gap-2 text-xs md:col-span-2">
+              <p role="status">{status}</p>
+              {extractedDefinition ? (
+                <a
+                  className="font-medium text-primary underline-offset-4 hover:underline"
+                  href={configurationDefinitionHref(extractedDefinition.id)}
+                >
+                  Continue in Configure
+                </a>
+              ) : null}
+            </div>
           ) : null}
           {combinedError ? (
             <p className="text-xs text-destructive md:col-span-2" role="alert">

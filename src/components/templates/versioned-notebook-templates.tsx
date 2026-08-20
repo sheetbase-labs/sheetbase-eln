@@ -25,6 +25,7 @@ import {
   Textarea,
 } from '#/components/ui'
 import type { TemplateProject } from '#/components/templates/template-library'
+import { TemplateParameterInputs } from '#/components/templates/template-parameter-inputs'
 import { formatDate } from '#/lib/notebook-data'
 import { discoverObjectDependencies } from '#/lib/object-dependencies'
 import {
@@ -1013,33 +1014,17 @@ export function VersionedNotebookTemplatePanel({
             />
           </Field>
           {instantiateVersion?.configuration.parameters.length ? (
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">
-                Template parameters
-              </p>
-              {instantiateVersion.configuration.parameters.map((parameter) => (
-                <Field key={parameter.id}>
-                  <FieldLabel htmlFor={`template-parameter-${parameter.id}`}>
-                    {parameter.label}
-                  </FieldLabel>
-                  <Input
-                    id={`template-parameter-${parameter.id}`}
-                    value={parameterValues[parameter.id] ?? ''}
-                    onChange={(event) =>
-                      setParameterValues((current) => ({
-                        ...current,
-                        [parameter.id]: event.target.value,
-                      }))
-                    }
-                    placeholder={
-                      parameter.type.kind === 'scalar'
-                        ? 'Enter a value'
-                        : 'Enter object ID'
-                    }
-                  />
-                </Field>
-              ))}
-            </div>
+            <TemplateParameterInputs
+              client={notebookTemplateDataClient}
+              parameters={instantiateVersion.configuration.parameters}
+              values={parameterValues}
+              onChange={(parameterId, value) =>
+                setParameterValues((current) => ({
+                  ...current,
+                  [parameterId]: value,
+                }))
+              }
+            />
           ) : null}
           {instantiate.error ? (
             <p className="text-sm text-destructive" role="alert">

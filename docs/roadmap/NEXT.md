@@ -18,17 +18,17 @@ Delivery priority uses only **medium** and **low**. Nothing is queued as high.
 
 The roadmap supports **parallel streams**. Agents take **one assigned stream/task**. Ready does not mean “do every Ready row”. **Do not start a Ready stream until it is assigned.**
 
-| Stream | Active task | Model  | Status                                                         |
-| ------ | ----------- | ------ | -------------------------------------------------------------- |
-| PC     | —           | Medium | PC-05 complete on `#54`. PC-06 Golden Workflows remains later. |
-| API    | —           | —      | API-01/02/03/07 complete on `main`; do not start API-04/05/06  |
-| DATA   | —           | —      | DATA-01 complete; DATA-02 remains later                        |
-| GOV    | —           | —      | GOV-01 complete; GOV-02 requires an ADR                        |
-| PLAT   | —           | —      | Headers slice complete; remaining PLAT-03 queued               |
-| COLLAB | —           | —      | Planned                                                        |
-| SCI    | —           | —      | Planned                                                        |
-| INT    | —           | —      | Planned                                                        |
-| AUTO   | —           | —      | Planned later                                                  |
+| Stream | Active task | Model  | Status                                                                       |
+| ------ | ----------- | ------ | ---------------------------------------------------------------------------- |
+| PC     | —           | Medium | PC-05 is ready to merge as `#54`; PC-06 Golden Workflows remains unassigned. |
+| API    | —           | —      | API-01/02/03/07 complete on `main`; do not start API-04/05/06                |
+| DATA   | —           | —      | DATA-01 complete; DATA-02 remains later                                      |
+| GOV    | —           | —      | GOV-01 complete; GOV-02 requires an ADR                                      |
+| PLAT   | —           | —      | Headers slice complete; remaining PLAT-03 queued                             |
+| COLLAB | —           | —      | Planned                                                                      |
+| SCI    | —           | —      | Planned                                                                      |
+| INT    | —           | —      | Planned                                                                      |
+| AUTO   | —           | —      | Planned later                                                                |
 
 ### Immediate execution shape
 
@@ -48,7 +48,7 @@ merged  PC-04   Templates and reusable science (#53) @ 3c8b8df
 
 ## Stream briefs
 
-### PC — PC-05 Steward workspace
+### PC — PC-05 ready to merge
 
 Task: [`tasks/PC.md`](./tasks/PC.md)
 
@@ -56,7 +56,7 @@ Task: [`tasks/PC.md`](./tasks/PC.md)
 - **PC-02 complete** (`#44` / `b01b029`): Dataset create/snapshot/live edit and reagent create; strict numeric coercion; historical Dataset Versions render the pinned Schema Version. Sheet Dataset bind remains the canonical Sheet Instance path (H2), not a second bind model.
 - **PC-03 complete** (`#52`): Notebook product chrome around existing records/blocks/Sheet Instance/REV-002/H3 contracts. Submit, sign and amend stay session-only.
 - **PC-04 complete** (`#53` / `3c8b8df`): versioned Notebook Templates, placements/parameters, instantiate, explicit upgrade, Sheet Definition catalogue and consumer upgrade. `/templates` remains the scientist library.
-- **PC-05 complete** (`#54`): `/configure` is the canonical Steward data-language plane. Model fields leave Administration (`/admin/model-fields` redirects). Vocabularies are existing category sources (ADR 0025), not a second vocabulary product. Calculation promotion uses existing RPCs. Capability inspector remains. PC-06 is later.
+- **PC-05 ready to merge** (`#54`): `/configure` is the canonical Steward data-language plane. Model fields leave Administration (`/admin/model-fields` redirects). Vocabularies are existing category sources (ADR 0025), not a second vocabulary product. Calculation promotion uses existing RPCs. Capability inspector remains. After `#54` merges, PC-06 is the next PC task only when assigned.
 
 ### API — closed for this assignment
 
@@ -98,7 +98,7 @@ Task: [`tasks/PLAT.md`](./tasks/PLAT.md)
 
 - DATA-01 is complete (canonical Dataset/Record import). DATA-02 export is not started.
 - API-07 Core external allowlist cut-over is complete (`#50`). Submit, sign, amend and revision checks stay human-session-only. API-03 OpenAPI is complete on this branch.
-- PC-05 Steward `/configure` is complete on this stream. PC-06 Golden Workflows is later.
+- PC-05 Steward `/configure` is ready to merge as `#54`. PC-06 Golden Workflows is unassigned until that merge lands.
 - GOV-02 is not Ready without an ADR.
 - Remaining PLAT-03 is queued, not a new Ready stream.
 - AUTO remains planned later.

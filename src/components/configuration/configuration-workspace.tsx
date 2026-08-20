@@ -73,8 +73,10 @@ import {
   notebookDataClient,
   notebookQueryKeys,
 } from '#/lib/notebook-data'
-import { parseSheetDefinitionConfiguration } from '#/lib/sheet-definition'
-import { sheetFieldDefinitionSchema } from '#/lib/sheet-definition'
+import {
+  parseSheetDefinitionConfiguration,
+  sheetFieldDefinitionSchema,
+} from '#/lib/sheet-definition'
 import type { SheetDefinitionUpgradePreview } from '#/lib/sheet-definition-upgrade'
 import type { SheetDefinitionUpgradeDecisionDraft } from '#/lib/notebook-template-upgrade'
 import type { WorkspaceRole } from '#/lib/workspace-admin'
@@ -158,7 +160,7 @@ export function ConfigurationWorkspace({
   const notebookTemplates = notebookTemplatesQuery.data ?? []
   const vocabulariesQuery = useQuery({
     queryKey: ['configure', workspaceId, 'vocabularies'],
-    queryFn: () => loadConfigurationVocabularies(client),
+    queryFn: () => loadConfigurationVocabularies(client, workspaceId),
     enabled: search.kind === 'vocabulary',
   })
   const vocabularies = vocabulariesQuery.data ?? []

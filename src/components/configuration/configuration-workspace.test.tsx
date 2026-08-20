@@ -299,6 +299,23 @@ function fakeClient(): DataClient {
       return []
     }) as DataClient['list'],
     rpc: vi.fn(async (name: string, payload: any) => {
+      if (name === 'list_configuration_vocabularies') {
+        return [
+          {
+            id: `model:${categoryFieldId}`,
+            label: 'Status',
+            source_kind: 'model',
+            source_id: 'sample',
+            source_label: 'Samples',
+            field_key: 'status',
+            category_kind: 'embedded',
+            vocabulary_id: null,
+            terms: [
+              { id: 'opt-1', key: 'open', label: 'Open', lifecycle: 'active' },
+            ],
+          },
+        ]
+      }
       if (name === 'discover_object_dependencies') return { dependencies: [] }
       if (name === 'create_sheet_definition')
         return {

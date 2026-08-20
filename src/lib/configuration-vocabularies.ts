@@ -1,15 +1,8 @@
 import type { DataClient } from '#/lib/data-client'
-import {
-  listCanonicalDatasetSchemaDefinitions,
-  listCanonicalDatasetSchemaVersionFields,
-  listCanonicalDatasetSchemaVersions,
-} from '#/lib/dataset-schema-definition-rpc'
 import type { CanonicalDatasetSchemaField } from '#/lib/dataset-schema-definition-rpc'
 import type { FieldOption } from '#/lib/field-definition'
-import { fetchModelFields, fetchModelKinds } from '#/lib/model-fields'
-import { parseSheetDefinitionConfiguration } from '#/lib/sheet-definition'
+import type { fetchModelFields } from '#/lib/model-fields'
 import type { SheetDefinitionConfiguration } from '#/lib/sheet-definition'
-import { fetchSheetDefinitions } from '#/lib/sheet-definition-data'
 
 export type ConfigurationVocabularySourceKind =
   'model' | 'schema' | 'definition'
@@ -36,13 +29,6 @@ export interface ConfigurationVocabulary {
 type SchemaCategoryWire =
   | { kind: 'embedded'; options: FieldOption[] }
   | { kind: 'vocabulary'; vocabularyId: string }
-
-interface SheetDefinitionVersionWire {
-  id: string
-  definition_id: string
-  version: number
-  configuration: unknown
-}
 
 function parseCategory(value: unknown): SchemaCategoryWire | null {
   if (!value || typeof value !== 'object') return null
@@ -222,71 +208,36 @@ export function normalizeConfigurationVocabularies(
 
 export async function loadConfigurationVocabularies(
   client: DataClient,
+  workspaceId: string,
 ): Promise<ConfigurationVocabulary[]> {
-  const modelKinds = await fetchModelKinds(client)
-  const modelFieldsByKind = await Promise.all(
-    modelKinds.map(async (kind) => ({
-      kind,
-      fields: await fetchModelFields(client, kind.key, true),
-    })),
-  )
-  const modelItems = modelFieldsByKind.flatMap(({ kind, fields }) =>
-    collectModelVocabularies(kind.key, kind.label, fields),
-  )
-
-  const schemaDefinitions = await listCanonicalDatasetSchemaDefinitions(client)
-  const schemaItems: ConfigurationVocabulary[] = []
-  for (const schema of schemaDefinitions) {
-    const versions = await listCanonicalDatasetSchemaVersions(client, schema.id)
-    if (versions.length === 0) continue
-    const latestVersion = versions[0]
-    const fields = await listCanonicalDatasetSchemaVersionFields(
-      client,
-      latestVersion.id,
-    )
-    schemaItems.push(
-      ...collectSchemaVocabularies(schema.id, schema.name, fields),
-    )
-  }
-
-  const definitions = await fetchSheetDefinitions(client)
-  const definitionLabelById = new Map(
-    definitions.map((definition) => [definition.id, definition.name]),
-  )
-  const versionRows = await client.list<SheetDefinitionVersionWire>(
-    'sheet_definition_versions',
-    '?order=definition_id.asc,version.desc&limit=2000',
-  )
-  const latestVersionByDefinition = new Map<
-    string,
-    SheetDefinitionVersionWire
-  >()
-  for (const version of versionRows) {
-    if (!latestVersionByDefinition.has(version.definition_id)) {
-      latestVersionByDefinition.set(version.definition_id, version)
+  const rows = await client.rpc<unknown[]>('list_configuration_vocabularies', {
+    p_workspace_id: workspaceId,
+    p_limit: 200,
+    p_offset: 0,
+  })
+  return rows.map((row) => {
+    const item = row as Record<string, unknown>
+    return {
+      id: String(item.id),
+      label: String(item.label),
+      sourceKind: item.source_kind as ConfigurationVocabularySourceKind,
+      sourceId: String(item.source_id),
+      sourceLabel: String(item.source_label),
+      fieldKey: String(item.field_key),
+      categoryKind: item.category_kind as 'embedded' | 'vocabulary',
+      vocabularyId:
+        typeof item.vocabulary_id === 'string' ? item.vocabulary_id : null,
+      terms: Array.isArray(item.terms)
+        ? item.terms.map((term) => {
+            const value = term as Record<string, unknown>
+            return {
+              id: String(value.id),
+              key: String(value.key),
+              label: String(value.label),
+              lifecycle: String(value.lifecycle),
+            }
+          })
+        : [],
     }
-  }
-  const definitionItems = [...latestVersionByDefinition.values()].flatMap(
-    (version) => {
-      const label = definitionLabelById.get(version.definition_id) ?? 'Sheet'
-      try {
-        const configuration = parseSheetDefinitionConfiguration(
-          version.configuration,
-        )
-        return collectDefinitionVocabularies(
-          version.definition_id,
-          label,
-          configuration,
-        )
-      } catch {
-        return []
-      }
-    },
-  )
-
-  return normalizeConfigurationVocabularies([
-    ...modelItems,
-    ...schemaItems,
-    ...definitionItems,
-  ])
+  })
 }

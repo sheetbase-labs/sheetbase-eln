@@ -118,9 +118,34 @@ function fakeClient(): DataClient {
             description: null,
             logical_type: 'decimal',
             nullable: true,
+            default_value: 1.5,
+            quantity: {
+              kind: 'concentration',
+              dimension: 'mass / volume',
+              storageUnit: 'mg/mL',
+            },
+            validation: { minimum: 0 },
+            category: null,
+            relationship: null,
             cardinality: 'one',
             lifecycle: 'active',
             display_order: 0,
+          },
+          {
+            field_id: 'field-retired',
+            key: 'legacy_titre',
+            label: 'Legacy titre',
+            description: null,
+            logical_type: 'text',
+            nullable: true,
+            default_value: null,
+            quantity: null,
+            validation: {},
+            category: null,
+            relationship: null,
+            cardinality: 'one',
+            lifecycle: 'retired',
+            display_order: 1,
           },
         ]
       }
@@ -658,8 +683,10 @@ describe('ConfigurationWorkspace', () => {
   })
 
   it('lets a steward publish evolution while a scientist cannot', async () => {
+    const user = userEvent.setup()
     mount('steward')
     expect(await screen.findByText('titre')).toBeTruthy()
+    await user.type(screen.getByLabelText('New field key'), 'result')
     expect(
       screen.getByRole('button', { name: 'Publish evolution' }),
     ).toHaveProperty('disabled', false)
@@ -673,6 +700,48 @@ describe('ConfigurationWorkspace', () => {
     expect(
       screen.getByText(/Publishing schemas requires a Data Steward/),
     ).toBeTruthy()
+  })
+
+  it('preserves existing field semantics and builds a typed category field', async () => {
+    const user = userEvent.setup()
+    const { client } = mount('steward')
+    await screen.findByText('titre')
+    await user.type(screen.getByLabelText('New field key'), 'qc_outcome')
+    await user.type(screen.getByLabelText('Label'), 'QC outcome')
+    await user.selectOptions(screen.getByLabelText('Type'), 'category')
+    await user.type(
+      screen.getByLabelText('Embedded options, comma separated'),
+      'pass, fail',
+    )
+    await user.click(screen.getByRole('button', { name: 'Preview impact' }))
+
+    const previewCall = (client.rpc as any).mock.calls.find(
+      ([name]: [string]) => name === 'preview_dataset_schema_evolution',
+    )
+    expect(previewCall?.[1].p_fields).toMatchObject([
+      {
+        field_id: 'field-1',
+        default_value: 1.5,
+        quantity: {
+          kind: 'concentration',
+          dimension: 'mass / volume',
+          storageUnit: 'mg/mL',
+        },
+        validation: { minimum: 0 },
+      },
+      { field_id: 'field-retired', lifecycle: 'retired' },
+      {
+        key: 'qc_outcome',
+        logical_type: 'category',
+        category: {
+          kind: 'embedded',
+          options: [
+            { key: 'pass', label: 'pass' },
+            { key: 'fail', label: 'fail' },
+          ],
+        },
+      },
+    ])
   })
 
   it('opens the explicit promotion plane from the catalogue', async () => {
@@ -853,7 +922,7 @@ describe('ConfigurationWorkspace', () => {
           client={fakeClient()}
           workspaceId="workspace-1"
           role="steward"
-          search={{ kind: 'schema', id: 'schema-1', model: undefined }}
+          search={{ kind: 'vocabulary', id: undefined, model: undefined }}
           onSearchChange={onSearchChange}
         />
       </QueryClientProvider>,
@@ -904,7 +973,9 @@ describe('ConfigurationWorkspace', () => {
     expect(
       screen.getByRole('button', { name: 'Preview calculation promotion' }),
     ).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Promote calculation' })).toBeTruthy()
-    expect(screen.getByLabelText('Local calculation ID')).toBeTruthy()
+    expect(
+      screen.getByRole('button', { name: 'Promote calculation' }),
+    ).toBeTruthy()
+    expect(screen.getByLabelText('Local calculation')).toBeTruthy()
   })
 })

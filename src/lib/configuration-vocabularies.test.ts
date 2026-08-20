@@ -125,8 +125,8 @@ describe('configuration vocabularies', () => {
         terms: [],
       },
     ]
-    expect(normalizeConfigurationVocabularies(items).map((item) => item.label)).toEqual(
-      ['Alpha', 'Zebra'],
-    )
+    expect(
+      normalizeConfigurationVocabularies(items).map((item) => item.label),
+    ).toEqual(['Alpha', 'Zebra'])
   })
 })

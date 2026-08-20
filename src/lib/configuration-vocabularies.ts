@@ -11,7 +11,8 @@ import { parseSheetDefinitionConfiguration } from '#/lib/sheet-definition'
 import type { SheetDefinitionConfiguration } from '#/lib/sheet-definition'
 import { fetchSheetDefinitions } from '#/lib/sheet-definition-data'
 
-export type ConfigurationVocabularySourceKind = 'model' | 'schema' | 'definition'
+export type ConfigurationVocabularySourceKind =
+  'model' | 'schema' | 'definition'
 
 export interface ConfigurationVocabularyTerm {
   id: string
@@ -43,9 +44,7 @@ interface SheetDefinitionVersionWire {
   configuration: unknown
 }
 
-function parseCategory(
-  value: unknown,
-): SchemaCategoryWire | null {
+function parseCategory(value: unknown): SchemaCategoryWire | null {
   if (!value || typeof value !== 'object') return null
   const record = value as Record<string, unknown>
   if (record.kind === 'vocabulary' && typeof record.vocabularyId === 'string') {
@@ -70,7 +69,9 @@ function parseCategory(
           displayOrder:
             typeof item.displayOrder === 'number' ? item.displayOrder : 0,
           lifecycle:
-            item.lifecycle === 'retired' ? ('retired' as const) : ('active' as const),
+            item.lifecycle === 'retired'
+              ? ('retired' as const)
+              : ('active' as const),
         },
       ]
     })
@@ -256,7 +257,10 @@ export async function loadConfigurationVocabularies(
     'sheet_definition_versions',
     '?order=definition_id.asc,version.desc&limit=2000',
   )
-  const latestVersionByDefinition = new Map<string, SheetDefinitionVersionWire>()
+  const latestVersionByDefinition = new Map<
+    string,
+    SheetDefinitionVersionWire
+  >()
   for (const version of versionRows) {
     if (!latestVersionByDefinition.has(version.definition_id)) {
       latestVersionByDefinition.set(version.definition_id, version)

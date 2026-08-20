@@ -18,17 +18,17 @@ Delivery priority uses only **medium** and **low**. Nothing is queued as high.
 
 The roadmap supports **parallel streams**. Agents take **one assigned stream/task**. Ready does not mean “do every Ready row”. **Do not start a Ready stream until it is assigned.**
 
-| Stream | Active task      | Model  | Status                                           |
-| ------ | ---------------- | ------ | ------------------------------------------------ |
-| PC     | —                | Medium | PC-05 complete on `#54`. PC-06 Golden Workflows remains later. |
-| API    | —                | —      | API-01/02/03/07 complete on `main`; do not start API-04/05/06 |
-| DATA   | —                | —      | DATA-01 complete; DATA-02 remains later          |
-| GOV    | —                | —      | GOV-01 complete; GOV-02 requires an ADR          |
-| PLAT   | —                | —      | Headers slice complete; remaining PLAT-03 queued |
-| COLLAB | —                | —      | Planned                                          |
-| SCI    | —                | —      | Planned                                          |
-| INT    | —                | —      | Planned                                          |
-| AUTO   | —                | —      | Planned later                                    |
+| Stream | Active task | Model  | Status                                                         |
+| ------ | ----------- | ------ | -------------------------------------------------------------- |
+| PC     | —           | Medium | PC-05 complete on `#54`. PC-06 Golden Workflows remains later. |
+| API    | —           | —      | API-01/02/03/07 complete on `main`; do not start API-04/05/06  |
+| DATA   | —           | —      | DATA-01 complete; DATA-02 remains later                        |
+| GOV    | —           | —      | GOV-01 complete; GOV-02 requires an ADR                        |
+| PLAT   | —           | —      | Headers slice complete; remaining PLAT-03 queued               |
+| COLLAB | —           | —      | Planned                                                        |
+| SCI    | —           | —      | Planned                                                        |
+| INT    | —           | —      | Planned                                                        |
+| AUTO   | —           | —      | Planned later                                                  |
 
 ### Immediate execution shape
 

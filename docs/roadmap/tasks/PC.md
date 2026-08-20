@@ -239,3 +239,14 @@ Each workflow is efficient, understandable and free of architectural dead ends, 
 4. Merge PC-05 before PC-06; this branch is deliberately stacked so the governed promotion and Configuration paths remain available to workflow 4.
 
 **First slice:** after extracting an exploratory Sheet as a Definition, take the user directly to that Definition in `/configure` to review and publish it. This closes the local-to-governed/reusable hand-off without making field promotion a prerequisite.
+
+### Golden workflow evidence matrix
+
+| Workflow                                         | Canonical product path                                                                                              | Acceptance evidence                                                                                             |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Simple assay Notebook                            | Project → Create experiment → add Sheet → submit                                                                    | `create-blank-experiment-dialog.test.tsx`, `ad-hoc-sheet-workspace.test.tsx`, `submit-notebook-dialog.test.tsx` |
+| Purification with multiple Datasets and Records  | Notebook Sheet Instance → composed Definition/Dataset bindings → local/calculated values → optional materialisation | `tests/db/sheet-composition.test.ts` “Purification Summary golden workflow”                                     |
+| Batch/Sample registration from paste             | Samples → Import → validate → create Model Records                                                                  | `import-wizard.test.tsx` pasted-Sample workflow                                                                 |
+| Exploratory Sheet to reusable structure          | Sheet lifecycle → extract Definition → `/configure` review/publish                                                  | `canonical-sheet-lifecycle-panel.test.tsx`, `configuration-workspace.test.tsx`                                  |
+| Reusable Notebook Template with typed parameters | Templates → published version → choose project and typed parameter values → create Notebook                         | `template-parameter-inputs.test.tsx`, `versioned-notebook-templates.test.tsx`                                   |
+| Submitted evidence remains unchanged             | Notebook submit → frozen Sheet/evidence rendering despite live mutations                                            | `tests/db/notebook-sheet-evidence.test.ts`, `notebook-sheet-block.test.tsx`                                     |

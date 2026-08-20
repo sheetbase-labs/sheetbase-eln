@@ -12,7 +12,7 @@ CORE-01–06 and Core Hardening remain closed. Do not reopen settled Core archit
 
 Delivery priority uses only **medium** and **low**. Nothing is queued as high.
 
-**Merged `main` HEAD for this hand-off:** `3c8b8df` (`feat(PC-04): templates and reusable science surfaces` / `#53`).
+**Merged `main` HEAD for this hand-off:** `1d7a06a` (`feat(PC-05): canonical Steward configuration workspace` / `#54`).
 
 ## Active work
 
@@ -44,6 +44,7 @@ merged  API-07  Core Dataset/Sheet external allowlist (#50) @ 30496db
 merged  DATA-01 import laboratory files (#49) @ 37e3c52
 merged  API-03  service-credential OpenAPI (#51) @ 2cd3a12
 merged  PC-04   Templates and reusable science (#53) @ 3c8b8df
+merged  PC-05   Canonical Steward configuration workspace (#54) @ 1d7a06a
 ```
 
 ## Stream briefs

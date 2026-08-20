@@ -184,6 +184,14 @@ vi.mock('#/lib/notebook-template-data', () => {
             type: { kind: 'scalar', valueType: 'text' },
             constraints: {},
           },
+          {
+            id: '12121212-1212-4121-8121-121212121212',
+            key: 'reference_sample',
+            label: 'Reference sample',
+            required: false,
+            type: { kind: 'record', modelKey: 'sample' },
+            constraints: {},
+          },
         ],
         placements: [
           {
@@ -237,7 +245,34 @@ vi.mock('#/lib/notebook-template-data', () => {
     instantiateNotebookTemplateVersion: instantiateMock,
     previewNotebookTemplateUpgrade: previewUpgradeMock,
     applyNotebookTemplateUpgrade: applyUpgradeMock,
-    notebookTemplateDataClient: {},
+    notebookTemplateDataClient: {
+      list: vi.fn(async (resource: string) => {
+        if (resource !== 'records') return []
+        return [
+          {
+            id: '13131313-1313-4131-8131-131313131313',
+            workspace_id: '99999999-9999-4999-8999-999999999999',
+            project_id: null,
+            folder_id: null,
+            kind: 'sample',
+            identifier: 'SAM-001',
+            title: 'Reference sample',
+            status: 'available',
+            tags: [],
+            structure_version: 1,
+            metadata_version: 1,
+            created_at: '2026-01-01T00:00:00Z',
+            updated_at: '2026-01-01T00:00:00Z',
+            archived_at: null,
+            deleted_at: null,
+            created_by_user_id: 'user-1',
+            updated_by_user_id: null,
+            locked_at: null,
+            locked_by_revision_id: null,
+          },
+        ]
+      }),
+    },
   }
 })
 
@@ -340,6 +375,34 @@ describe('VersionedNotebookTemplatePanel', () => {
         },
       ]),
     )
+  })
+
+  it('submits a selected governed Record parameter to the instantiation contract', async () => {
+    const user = userEvent.setup()
+    mount()
+    await screen.findByText('Alpha template')
+    await user.click(
+      screen.getAllByRole('button', { name: 'Create notebook' })[0],
+    )
+    await user.selectOptions(
+      await screen.findByLabelText('Reference sample'),
+      '13131313-1313-4131-8131-131313131313',
+    )
+    await user.type(screen.getByLabelText('Alpha decimal'), '1.25')
+    await user.type(screen.getByLabelText('Alpha boolean'), 'true')
+    instantiateMock.mockResolvedValueOnce({
+      record: { id: 'rec-1', project_id: 'project-1', identifier: 'NB-1' },
+      templateVersionId: '33333333-3333-4333-8333-333333333333',
+      idempotent: false,
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Create and open' }))
+
+    expect(instantiateMock.mock.calls[0][0].parameterInputs).toContainEqual({
+      parameterId: '12121212-1212-4121-8121-121212121212',
+      kind: 'record',
+      recordId: '13131313-1313-4131-8131-131313131313',
+    })
   })
 
   it('blocks submit when a scalar parameter fails validation', async () => {

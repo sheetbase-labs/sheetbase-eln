@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { DataClient } from '#/lib/data-client'
@@ -9,6 +15,7 @@ import { TemplateParameterInputs } from './template-parameter-inputs'
 
 const RECORD_ID = '10000000-0000-4000-8000-000000000001'
 const DATASET_ID = '10000000-0000-4000-8000-000000000002'
+const INCOMPATIBLE_DATASET_ID = '10000000-0000-4000-8000-000000000005'
 const DATASET_VERSION_ID = '10000000-0000-4000-8000-000000000003'
 const SCHEMA_VERSION_ID = '10000000-0000-4000-8000-000000000004'
 
@@ -84,6 +91,15 @@ function client(): DataClient {
             lifecycle: 'active',
             revision: 1,
           },
+          {
+            id: INCOMPATIBLE_DATASET_ID,
+            workspace_id: '10000000-0000-4000-8000-000000000010',
+            schema_version_id: '10000000-0000-4000-8000-000000000006',
+            name: 'Unrelated results',
+            description: null,
+            lifecycle: 'active',
+            revision: 1,
+          },
         ]
       }
       if (resource === 'dataset_schema_version_fields') return []
@@ -138,9 +154,36 @@ describe('TemplateParameterInputs', () => {
       await screen.findByRole('option', { name: 'Purification results' }),
     ).toBeTruthy()
     expect(
+      screen.queryByRole('option', { name: 'Unrelated results' }),
+    ).toBeNull()
+    expect(
       await screen.findByRole('option', {
         name: 'Purification results · Before purification',
       }),
     ).toBeTruthy()
+  })
+
+  it('explains a failed selector query and lets the user retry', async () => {
+    const list = vi.fn().mockRejectedValue(new Error('offline'))
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <TemplateParameterInputs
+          client={{ list } as unknown as DataClient}
+          workspaceId="workspace-1"
+          parameters={[parameters[0]]}
+          values={{}}
+          onChange={vi.fn()}
+        />
+      </QueryClientProvider>,
+    )
+
+    expect((await screen.findByRole('alert')).textContent).toContain(
+      'Could not load records.',
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await waitFor(() => expect(list).toHaveBeenCalledTimes(2))
   })
 })

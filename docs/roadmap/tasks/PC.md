@@ -208,7 +208,7 @@ Dense, relational and immersive rather than a collection of unrelated admin form
 
 A Steward can understand and evolve the data language of a workspace without general workspace administration.
 
-**Implementation evidence (merge pending):** `/configure` is the Steward data-language plane (Models, Dataset Schemas, Sheet Definitions, Notebook Templates, category vocabularies, field and calculation promotion, dependency/capability inspector). `/admin/model-fields` redirects to `/configure?kind=model`. SCI-010 copy is gone. Vocabularies reuse Field Definition category sources (ADR 0025); no second vocabulary product. Administration stays membership/security (`#54`).
+**Implementation evidence:** `/configure` is the Steward data-language plane (Models, Dataset Schemas, Sheet Definitions, Notebook Templates, category vocabularies, field and calculation promotion, dependency/capability inspector). `/admin/model-fields` redirects to `/configure?kind=model`. SCI-010 copy is gone. Vocabularies reuse Field Definition category sources (ADR 0025); no second vocabulary product. Administration stays membership/security (`#54` / `1d7a06a`).
 
 ---
 

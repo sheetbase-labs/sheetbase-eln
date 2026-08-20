@@ -10,6 +10,8 @@ import type { Parameter } from '#/lib/parameter'
 
 const RECORD_SELECT =
   'id,workspace_id,project_id,folder_id,kind,identifier,title,status,tags,structure_version,metadata_version,created_at,updated_at,archived_at,deleted_at,created_by_user_id,updated_by_user_id,locked_at,locked_by_revision_id'
+const DATASET_VERSION_SELECT =
+  'id,dataset_id,workspace_id,schema_version_id,source_dataset_revision,label,created_at,created_by_user_id'
 
 function unavailableOption(value: string, exists: boolean) {
   return Boolean(value) && !exists
@@ -17,11 +19,13 @@ function unavailableOption(value: string, exists: boolean) {
 
 export function TemplateParameterInputs({
   client,
+  workspaceId,
   parameters,
   values,
   onChange,
 }: {
   client: DataClient
+  workspaceId: string
   parameters: Parameter[]
   values: Record<string, string>
   onChange: (parameterId: string, value: string) => void
@@ -42,7 +46,7 @@ export function TemplateParameterInputs({
     (parameter) => parameter.type.kind === 'dataset-version',
   )
   const records = useQuery({
-    queryKey: ['template-parameter-records', recordKinds],
+    queryKey: ['template-parameter-records', workspaceId, recordKinds],
     queryFn: () =>
       client
         .list<RecordWire>(
@@ -53,16 +57,16 @@ export function TemplateParameterInputs({
     enabled: recordKinds.length > 0,
   })
   const datasets = useQuery({
-    queryKey: ['template-parameter-datasets'],
+    queryKey: ['template-parameter-datasets', workspaceId],
     queryFn: () => fetchDatasetSummaries(client),
     enabled: needsDatasets,
   })
   const datasetVersions = useQuery({
-    queryKey: ['template-parameter-dataset-versions'],
+    queryKey: ['template-parameter-dataset-versions', workspaceId],
     queryFn: () =>
       client.list<DatasetVersionWire>(
         'dataset_versions',
-        '?order=created_at.desc&limit=200',
+        `?order=created_at.desc&limit=200&select=${DATASET_VERSION_SELECT}`,
       ),
     enabled: needsDatasetVersions,
   })

@@ -123,6 +123,7 @@ describe('TemplateParameterInputs', () => {
       <QueryClientProvider client={queryClient}>
         <TemplateParameterInputs
           client={client()}
+          workspaceId="workspace-1"
           parameters={parameters}
           values={{}}
           onChange={vi.fn()}

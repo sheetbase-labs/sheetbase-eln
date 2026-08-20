@@ -1016,6 +1016,7 @@ export function VersionedNotebookTemplatePanel({
           {instantiateVersion?.configuration.parameters.length ? (
             <TemplateParameterInputs
               client={notebookTemplateDataClient}
+              workspaceId={workspaceId}
               parameters={instantiateVersion.configuration.parameters}
               values={parameterValues}
               onChange={(parameterId, value) =>

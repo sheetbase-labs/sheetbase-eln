@@ -1,6 +1,6 @@
 # PC — Product Consolidation
 
-**Status:** PC-00 accepted. PC-01 complete (`#41`). PC-02 complete (`#44`). PC-03 complete (`#52`). PC-04 complete (`#53`). PC-05 is ready to merge as `#54`; PC-06 is not assigned.
+**Status:** PC-00 accepted. PC-01 complete (`#41`). PC-02 complete (`#44`). PC-03 complete (`#52`). PC-04 complete (`#53`). PC-05 complete (`#54` / `1d7a06a`); PC-06 is ready to merge (`#55`).
 
 ## Programme goal
 
@@ -208,7 +208,7 @@ Dense, relational and immersive rather than a collection of unrelated admin form
 
 A Steward can understand and evolve the data language of a workspace without general workspace administration.
 
-**Implementation evidence (merge pending):** `/configure` is the Steward data-language plane (Models, Dataset Schemas, Sheet Definitions, Notebook Templates, category vocabularies, field and calculation promotion, dependency/capability inspector). `/admin/model-fields` redirects to `/configure?kind=model`. SCI-010 copy is gone. Vocabularies reuse Field Definition category sources (ADR 0025); no second vocabulary product. Administration stays membership/security (`#54`).
+**Implementation evidence:** `/configure` is the Steward data-language plane (Models, Dataset Schemas, Sheet Definitions, Notebook Templates, category vocabularies, field and calculation promotion, dependency/capability inspector). `/admin/model-fields` redirects to `/configure?kind=model`. SCI-010 copy is gone. Vocabularies reuse Field Definition category sources (ADR 0025); no second vocabulary product. Administration stays membership/security (`#54` / `1d7a06a`).
 
 ---
 
@@ -230,3 +230,23 @@ Stop broad feature expansion and make representative workflows excellent.
 ### Exit
 
 Each workflow is efficient, understandable and free of architectural dead ends, duplicate paths and unexplained state transitions.
+
+### Active delivery shape
+
+1. Trace each named workflow through the canonical route, its existing RPCs and frozen-evidence boundary.
+2. Remove verified UI hand-off dead ends without creating replacement domain systems.
+3. Add workflow-level acceptance evidence around the concrete route/contract being consolidated.
+4. Reuse the merged PC-05 Configuration and promotion paths for workflow 4.
+
+**First slice:** after extracting an exploratory Sheet as a Definition, take the user directly to that Definition in `/configure` to review and publish it. This closes the local-to-governed/reusable hand-off without making field promotion a prerequisite.
+
+### Golden workflow evidence matrix
+
+| Workflow                                         | Canonical product path                                                                                              | Acceptance evidence                                                                                             |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Simple assay Notebook                            | Project → Create experiment → add Sheet → submit                                                                    | `create-blank-experiment-dialog.test.tsx`, `ad-hoc-sheet-workspace.test.tsx`, `submit-notebook-dialog.test.tsx` |
+| Purification with multiple Datasets and Records  | Notebook Sheet Instance → composed Definition/Dataset bindings → local/calculated values → optional materialisation | `tests/db/sheet-composition.test.ts` “Purification Summary golden workflow”                                     |
+| Batch/Sample registration from paste             | Samples → Import → validate → create Model Records                                                                  | `import-wizard.test.tsx` pasted-Sample workflow                                                                 |
+| Exploratory Sheet to reusable structure          | Sheet lifecycle → extract Definition → `/configure` review/publish                                                  | `canonical-sheet-lifecycle-panel.test.tsx`, `configuration-workspace.test.tsx`                                  |
+| Reusable Notebook Template with typed parameters | Templates → published version → choose project and typed parameter values → create Notebook                         | `template-parameter-inputs.test.tsx`, `versioned-notebook-templates.test.tsx`                                   |
+| Submitted evidence remains unchanged             | Notebook submit → frozen Sheet/evidence rendering despite live mutations                                            | `tests/db/notebook-sheet-evidence.test.ts`, `notebook-sheet-block.test.tsx`                                     |

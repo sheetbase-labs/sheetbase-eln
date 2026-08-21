@@ -12,17 +12,17 @@ These files are the detailed planning contracts for the post-Core programmes.
 
 ## Status
 
-| Programme                | Task file                  | Status                                                             |
-| ------------------------ | -------------------------- | ------------------------------------------------------------------ |
-| Product Consolidation    | [`PC.md`](./PC.md)         | PC-00–04 complete; PC-05 ready to merge as `#54`; PC-06 unassigned |
-| API & Developer Platform | [`API.md`](./API.md)       | API-01, API-02, API-07 and API-03 complete                         |
-| Data Interoperability    | [`DATA.md`](./DATA.md)     | DATA-01 complete; DATA-02/03/04 remain                             |
-| Governance               | [`GOV.md`](./GOV.md)       | GOV-01 complete (`viewer` read-only); GOV-02 needs ADR             |
-| Collaboration            | [`COLLAB.md`](./COLLAB.md) | planned                                                            |
-| Scientific Analysis      | [`SCI.md`](./SCI.md)       | planned                                                            |
-| Integrations             | [`INT.md`](./INT.md)       | planned                                                            |
-| Platform & Operations    | [`PLAT.md`](./PLAT.md)     | PLAT-03 headers complete; remainder queued                         |
-| Automation               | [`AUTO.md`](./AUTO.md)     | planned later                                                      |
+| Programme                | Task file                  | Status                                                 |
+| ------------------------ | -------------------------- | ------------------------------------------------------ |
+| Product Consolidation    | [`PC.md`](./PC.md)         | PC-00–05 complete; PC-06 ready to merge (`#55`)        |
+| API & Developer Platform | [`API.md`](./API.md)       | API-01, API-02, API-07 and API-03 complete             |
+| Data Interoperability    | [`DATA.md`](./DATA.md)     | DATA-01 complete; DATA-02/03/04 remain                 |
+| Governance               | [`GOV.md`](./GOV.md)       | GOV-01 complete (`viewer` read-only); GOV-02 needs ADR |
+| Collaboration            | [`COLLAB.md`](./COLLAB.md) | planned                                                |
+| Scientific Analysis      | [`SCI.md`](./SCI.md)       | planned                                                |
+| Integrations             | [`INT.md`](./INT.md)       | planned                                                |
+| Platform & Operations    | [`PLAT.md`](./PLAT.md)     | PLAT-03 headers complete; remainder queued             |
+| Automation               | [`AUTO.md`](./AUTO.md)     | planned later                                          |
 
 ## Task-file convention
 

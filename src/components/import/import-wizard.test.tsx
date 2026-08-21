@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ImportWizard } from '#/components/import/import-wizard'
 import type { DataClient } from '#/lib/data-client'
 import type { CanonicalDatasetWire } from '#/lib/dataset-explorer-data'
+import type { ModelFieldDefinition } from '#/lib/model-fields'
 
 afterEach(() => cleanup())
 
@@ -85,6 +86,76 @@ describe('ImportWizard', () => {
     expect(rpc).toHaveBeenCalledWith(
       'commit_dataset_row_batch',
       expect.anything(),
+    )
+    expect(onDone).toHaveBeenCalled()
+  })
+
+  it('registers pasted Samples through validation before creating records', async () => {
+    const user = userEvent.setup()
+    const rpc = vi.fn(async (name: string) => {
+      if (name === 'validate_sheet_record_batch') return { ok: true, rows: [] }
+      if (name === 'create_model_record') return { id: 'sample-1' }
+      throw new Error(name)
+    })
+    const onDone = vi.fn()
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ImportWizard
+          open
+          onOpenChange={() => {}}
+          client={{ rpc } as unknown as DataClient}
+          mode={{
+            kind: 'record',
+            projectId: 'project-1',
+            projects: [{ id: 'project-1', title: 'Purification' }],
+            modelKey: 'sample',
+            recordKind: 'sample',
+            fields: [
+              {
+                id: 'field-1',
+                modelKey: 'sample',
+                fieldName: 'species',
+                label: 'Species',
+                description: null,
+                displayOrder: 1,
+                logicalType: 'text',
+                nullable: true,
+                defaultValue: null,
+                unit: null,
+                quantity: null,
+                validation: {},
+                cardinality: 'one',
+                categorySource: null,
+                relationship: null,
+                lifecycle: 'active',
+                options: [],
+              } satisfies ModelFieldDefinition,
+            ],
+          }}
+          onDone={onDone}
+        />
+      </QueryClientProvider>,
+    )
+    await user.click(screen.getByRole('tab', { name: 'Paste' }))
+    await user.type(
+      screen.getByLabelText('Import paste'),
+      'Record name,Species{enter}Batch 1,Homo sapiens',
+    )
+    await user.click(screen.getByRole('button', { name: 'Preview paste' }))
+    await user.click(
+      screen.getByRole('button', { name: 'Validate and commit' }),
+    )
+
+    expect(rpc).toHaveBeenCalledWith(
+      'validate_sheet_record_batch',
+      expect.objectContaining({ p_model_key: 'sample' }),
+    )
+    expect(rpc).toHaveBeenCalledWith(
+      'create_model_record',
+      expect.objectContaining({ p_kind: 'sample', p_title: 'Batch 1' }),
     )
     expect(onDone).toHaveBeenCalled()
   })

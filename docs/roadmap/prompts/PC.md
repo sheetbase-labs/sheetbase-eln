@@ -11,7 +11,7 @@ Work on the **assigned PC stream** in `phlohouse/sheetbase-eln`. Read `docs/road
 
 ## Current state
 
-**PC-01 through PC-04 are complete on `main`.** Do not reopen them. **PC-05 is ready to merge as `#54`; PC-06 is the next PC task only after that merge and an explicit `NEXT.md` assignment.**
+**PC-01 through PC-05 are complete on `main`.** Do not reopen them. **PC-06 Golden Workflow Consolidation is ready to merge as `#55`; do not start a new PC task yet.**
 
 ## Product objective
 

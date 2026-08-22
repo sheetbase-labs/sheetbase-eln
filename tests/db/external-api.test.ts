@@ -12,6 +12,7 @@
  */
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { and, eq } from 'drizzle-orm'
+import { decodeJwt } from 'jose'
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -227,7 +228,6 @@ describe('resolveExternalToken (revocation + scope at use time)', () => {
     await revokeCredential(db, {
       workspaceId: WS_A,
       credentialId: cred.id,
-      actorUserId: OWNER_A,
     })
     await expect(
       resolveExternalToken(db, token, SECRET, 'GET', readPath),
@@ -820,3 +820,88 @@ describe('resolveExternalToken (personal tokens)', () => {
     await resolveExternalToken(db, token, SECRET, 'GET', readPath)
   })
 })
+
+describe('personal tokens (same allowlist, human attribution)', () => {
+  it('enforces the same fail-closed scope rules as service credentials', async () => {
+    const cred = await createCredential(db, {
+      workspaceId: WS_A,
+      createdByUserId: OWNER_A,
+      name: 'personal read only',
+      scopes: ['projects:read'],
+      kind: 'personal',
+    })
+    const token = await mintPersonalApiToken(SECRET, {
+      workspaceId: WS_A,
+      credentialId: cred.id,
+      userId: OWNER_A,
+      scopes: ['projects:read'],
+    })
+    await expect(
+      resolveExternalToken(db, token, SECRET, 'GET', readPath),
+    ).resolves.toEqual({ workspaceId: WS_A })
+    await expect(
+      resolveExternalToken(db, token, SECRET, 'POST', readPath),
+    ).rejects.toMatchObject({ code: 'insufficient_scope' })
+  })
+
+  it('attributes record writes to the member, not a credential column', async () => {
+    const owner = await asOwner(OWNER_A, WS_A)
+    const definition = (
+      await owner.query(
+        `select * from api.create_model_field($1,'sample','analyst','Analyst','text',true,null,'{}'::jsonb)`,
+        [WS_A],
+      )
+    ).rows[0]
+    await owner.query(`select api.activate_model_field($1)`, [definition.id])
+    const recordId = '00000000-0000-4000-8000-00000000092b'
+    await migrator.query(
+      `insert into api.records(id,workspace_id,kind,identifier,title,created_by_user_id)
+       values($1,$2,'sample','API07-PER','API-07 personal sample',$3)`,
+      [recordId, WS_A, OWNER_A],
+    )
+    const cred = await createCredential(db, {
+      workspaceId: WS_A,
+      createdByUserId: OWNER_A,
+      name: 'personal model-writer',
+      scopes: ['models:write'],
+      kind: 'personal',
+    })
+    const token = await mintPersonalApiToken(SECRET, {
+      workspaceId: WS_A,
+      credentialId: cred.id,
+      userId: OWNER_A,
+      scopes: ['models:write'],
+    })
+    // A personal token is not a browser session: no session_id claim exists,
+    // even though the role is `authenticated`.
+    expect(decodeJwt(token)).not.toHaveProperty('session_id')
+
+    const client = await asPersonalTokenClient(token)
+    const updated = (
+      await client.query(
+        `select to_jsonb(api.update_record_custom_fields($1,1,$2::jsonb)) result`,
+        [recordId, JSON.stringify({ analyst: 'A1' })],
+      )
+    ).rows[0].result
+    expect(updated.custom_fields).toMatchObject({ analyst: 'A1' })
+    expect(updated.updated_by_user_id).toBe(OWNER_A)
+    expect(updated.updated_by_credential_id).toBeNull()
+  })
+})
+
+/** Installs a minted personal-token JWT exactly as PostgREST would. */
+async function asPersonalTokenClient(token: string): Promise<Client> {
+  const { Client: PgClient } = await import('pg')
+  const url = new URL(process.env.PGRST_DB_URI ?? '')
+  url.hostname = 'localhost'
+  url.port = process.env.POSTGRES_PORT ?? '5432'
+  url.pathname = '/sheetbase_test'
+  const client = new PgClient({ connectionString: url.toString() })
+  await client.connect()
+  clients.push(client)
+  await client.query('SET ROLE authenticated')
+  await client.query("SELECT set_config('request.jwt.claims', $1, false)", [
+    JSON.stringify(decodeJwt(token)),
+  ])
+  return client
+}

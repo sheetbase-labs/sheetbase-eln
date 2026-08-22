@@ -24,11 +24,11 @@ import {
   validateBlock,
 } from '#/lib/blocks'
 import type { RichTextPayload } from '#/lib/blocks'
-import {
-  notebookDataClient,
-  type NotebookBlock,
-  type NotebookRecord,
-  type RecordWire,
+import { notebookDataClient } from '#/lib/notebook-data'
+import type {
+  NotebookBlock,
+  NotebookRecord,
+  RecordWire,
 } from '#/lib/notebook-data'
 import { fetchDatasetSummaries } from '#/lib/dataset-explorer-data'
 import {
@@ -583,7 +583,7 @@ function LinkedRecordSearch({
           .map((row) => ({
             identifier: row.name,
             title: row.description || row.name,
-            linkType: 'dataset' as string | undefined,
+            linkType: 'dataset',
           }))
       }
       const trimmed = query.trim()
@@ -637,7 +637,9 @@ function LinkedRecordSearch({
               }}
             >
               <span className="font-mono text-xs">{row.identifier}</span>
-              <span className="truncate text-muted-foreground">{row.title}</span>
+              <span className="truncate text-muted-foreground">
+                {row.title}
+              </span>
             </button>
           </li>
         ))}
@@ -1385,10 +1387,7 @@ function ChartBlockEditor({
       ),
     staleTime: 30_000,
   })
-  const groupedTables = groupChartTables(
-    tablesQuery.data ?? [],
-    block.recordId,
-  )
+  const groupedTables = groupChartTables(tablesQuery.data ?? [], block.recordId)
 
   // Columns for the selected dataset (so field mappings are honest).
   const selectedTableId = spec?.datasets[0]?.tableId ?? ''

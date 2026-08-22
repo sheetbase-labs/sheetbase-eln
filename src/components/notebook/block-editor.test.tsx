@@ -17,11 +17,12 @@ import { renderToString } from 'react-dom/server'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { BlockEditor } from './block-editor'
+import type * as notebookDataModule from '#/lib/notebook-data'
 import type { NotebookBlock } from '#/lib/notebook-data'
 import type { RichTextPayload } from '#/lib/blocks'
 
 vi.mock('#/lib/notebook-data', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('#/lib/notebook-data')>()
+  const actual = await importOriginal<typeof notebookDataModule>()
   return {
     ...actual,
     notebookDataClient: {
@@ -359,9 +360,7 @@ describe('BlockEditor — linked_record', () => {
       'protocol_template',
       'report',
     ])
-    expect(
-      screen.getByLabelText('Search records or Datasets'),
-    ).toBeTruthy()
+    expect(screen.getByLabelText('Search records or Datasets')).toBeTruthy()
   })
 })
 

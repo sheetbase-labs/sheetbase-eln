@@ -1,9 +1,9 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Sheetbase service-credential API",
+    "title": "Sheetbase external API",
     "version": "0.1.0",
-    "description": "Service-credential API for Sheetbase v0.1.\n\nAuthenticate with `POST /api/token`, then call `/api/db/*` with the returned JWT as `Authorization: Bearer`.\nOnly operations an API key can complete are listed. Unknown paths fail closed.\n\nErrors: `POST /api/token` returns `{ error: { code, message } }`. `/api/db/*` returns `{ error: { category, message, request_id? } }`. Do not expect `code` on the data path.\n\nHuman-session-only (not callable with an API key): `submit_record_revision`, `run_revision_checks`, `sign_revision`, `create_amendment` and other review-transition writers.\n`reviews:write` is mintable but does not open submit, sign, or amend.\n`reviews:read` opens `preview_submission_digest` only.\n\nSchema-authoring RPCs, file RPCs, and scientific-table REST are not part of this API.\n`folders` and `record_field_definitions` are GET-only for API keys (`api_client` has SELECT only). Folder writes and model-field authoring stay on the session path.\nDELETE on `projects` is not granted to `api_client`.\n\nNarrative contract: `docs/public-api-contract.md`. How to call this spec: `docs/openapi/README.md`. Credential mechanics: `docs/external-api.md`."
+    "description": "Sheetbase external API v0.1 — one surface, two credential kinds.\n\nAuthenticate with `POST /api/token`, then call `/api/db/*` with the returned JWT as `Authorization: Bearer`. Both kinds share the `sb_<prefix>_<secret>` credential format and exchange into short-lived bearer JWTs (default TTL 300s).\n\n- Service credentials (owner-minted in Administration) act as the **workspace service identity**: the JWT carries `role: 'api_client'` with no user id, and writes attribute to `credential_id`.\n- Personal API tokens (member-minted in Settings) act as their **creating member**: the JWT carries `role: 'authenticated'` with the member's real `sub`, so member permissions and row-level security further constrain every request — a viewer's token is read-only. Removing or suspending the creating member makes the token unusable at exchange and at use time.\n\nBoth kinds are constrained by the same canonical scopes and the same fail-closed external allowlist. Neither creates a browser or human session: personal-token JWTs carry no `session_id` claim, so human attestation stays unavailable to external credentials.\n\nOnly operations an external credential can complete are listed. Unknown paths fail closed.\n\nErrors: `POST /api/token` returns `{ error: { code, message } }`. `/api/db/*` returns `{ error: { category, message, request_id? } }`. Do not expect `code` on the data path.\n\nHuman-session-only (not callable with an API key): `submit_record_revision`, `run_revision_checks`, `sign_revision`, `create_amendment` and other review-transition writers.\n`reviews:write` is mintable but does not open submit, sign, or amend.\n`reviews:read` opens `preview_submission_digest` only.\n\nSchema-authoring RPCs, file RPCs, and scientific-table REST are not part of this API.\n`folders` and `record_field_definitions` are GET-only for external credentials (`api_client` has SELECT only). Folder writes and model-field authoring stay on the session path.\nDELETE on `projects` is not granted to `api_client`.\n\nNarrative contract: `docs/public-api-contract.md`. How to call this spec: `docs/openapi/README.md`. Credential mechanics: `docs/external-api.md`."
   },
   "servers": [
     {
@@ -60,7 +60,7 @@
         "summary": "Exchange a credential for a short-lived JWT",
         "operationId": "exchangeToken",
         "security": [],
-        "description": "Unauthenticated. Body `{ credential, scopes }` → `{ token }`. Failures use `TokenError` (`error.code`), never `error.category`.",
+        "description": "Unauthenticated. Accepts both workspace service credentials and personal API tokens — the same `sb_<prefix>_<secret>` format; the kind is determined by the credential row, not the request. Body `{ credential, scopes }` → `{ token }`. Failures use `TokenError` (`error.code`), never `error.category`.",
         "requestBody": {
           "required": true,
           "content": {
@@ -14095,7 +14095,7 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT",
-        "description": "JWT from POST /api/token. Claims: workspace_id, credential_id, scopes, role=api_client. Default TTL 300s."
+        "description": "JWT from POST /api/token. Service credentials mint role=api_client with workspace_id, credential_id and scopes; personal tokens mint role=authenticated with the creating member's sub and no session_id claim. Default TTL 300s."
       }
     },
     "parameters": {
@@ -14273,7 +14273,7 @@
         "properties": {
           "credential": {
             "type": "string",
-            "description": "sb_<8 hex prefix>_<32 hex secret>"
+            "description": "sb_<8 hex prefix>_<32 hex secret>. Both service credentials and personal tokens use this format."
           },
           "scopes": {
             "type": "array",

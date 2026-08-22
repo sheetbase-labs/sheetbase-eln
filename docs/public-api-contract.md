@@ -1,19 +1,21 @@
 # Sheetbase public API contract (API-01)
 
-> **Status:** Contract v0.1.2 — **intended** public surface.  
-> **Implementation:** API-07 cut over Core Dataset/Sheet external
-> operations. Schema-authoring RPCs, files, specialist surfaces, and
-> human attestation (submit / sign / amend / revision checks) remain
-> fail-closed for service credentials.  
+> **Status:** Contract v0.1.3 — **intended** public surface.  
+> **Implementation:** the external surface accepts two credential kinds —
+> workspace service credentials and personal API tokens acting as their
+> creating member. API-07 cut over Core Dataset/Sheet external operations.
+> Schema-authoring RPCs, files, specialist surfaces, and human attestation
+> (submit / sign / amend / revision checks) remain fail-closed for external
+> credentials of either kind.  
 > **Authority:** PC-00 accepted decisions; Core ADRs 0020–0024, 0031, 0036–0038;
 > `docs/notebook-api.md` for notebook RPC detail.
 
 Sheetbase is programmable through a **deliberate domain API**, not through
 raw PostgreSQL table exposure. The browser session path (`/api/db/*` with
 Better Auth cookies) is one client of the same Core operations; it is **not**
-the public contract and has **no resource allowlist**. External clients use
-scoped credentials (`POST /api/token`) and a **fail-closed allowlist**
-(`src/lib/external-token.ts`).
+the public contract and has **no resource allowlist**. External clients use two kinds of scoped credential (`POST /api/token`) —
+workspace service credentials and personal API tokens acting as their creating
+member — under a **fail-closed allowlist** (`src/lib/external-token.ts`).
 
 ---
 
@@ -27,9 +29,17 @@ scoped credentials (`POST /api/token`) and a **fail-closed allowlist**
 Credential format, exchange errors, revocation, rate limiting and enforcement
 layers are documented in `docs/external-api.md`.
 
-**JWT claims (external):** `workspace_id`, `credential_id`, `scopes`,
-`role: 'api_client'`. Default TTL 300s. No capability claims in the token
-(ADR 0005); RLS and proxy allowlist enforce access.
+**JWT claims (external):** both kinds carry `workspace_id`, `credential_id`
+and `scopes`; default TTL 300s; no capability claims in the token (ADR 0005) —
+RLS and the proxy allowlist enforce access.
+
+- Service credential: `role: 'api_client'`, no user id. The credential row is
+  the service principal; writes attribute to `*_credential_id` columns.
+- Personal token: `role: 'authenticated'` with the creating member's real
+  `sub` and no `session_id`. Member permissions and row-level security apply,
+  so a viewer's token is read-only and attribution is human. Removing or
+  suspending the creating member makes the token unusable at exchange and at
+  use time.
 
 **Versioning:** Contract v0.1 uses unversioned `/api/db` paths matching the
 browser proxy. API-03 publishes OpenAPI for those paths. A future `/api/v1/…`
@@ -111,7 +121,8 @@ RPCs (`create_dataset_schema_definition`, Dataset Schema publish/retire,
 template authoring) stay denied even with `schema:*` or `sheets:write`.
 Human attestation RPCs (`submit_record_revision`, `run_revision_checks`,
 `sign_revision`, amendment / review-transition writers) stay denied for
-service credentials even with `reviews:*`. Removed scientific-table
+external credentials of either kind even with `reviews:*`; personal tokens
+additionally cannot reach them because they carry no `session_id`. Removed scientific-table
 resources stay denied. File RPCs stay denied (DATA-02).
 
 **Vestigial scopes:** `scientific:read`, `scientific:write`, `scientific:schema`
@@ -190,8 +201,8 @@ Workspace
 └── Files
 ```
 
-HTTP paths remain PostgREST-shaped for v0.1. OpenAPI 3.1 for the
-service-credential surface is `docs/openapi/service-credentials-v0.json`
+HTTP paths remain PostgREST-shaped for v0.1. OpenAPI 3.1 for the external
+surface (both credential kinds) is `docs/openapi/external-api-v0.json`
 (API-03). A future `/api/v1/…` prefix is not introduced here.
 
 ---
@@ -397,6 +408,12 @@ Mapped data-plane **writes succeed** for a service credential: the JWT
 with `authenticated` + `sub` is unchanged. The cut-over does not mint a
 fake `sub` or invent named service-account user rows.
 
+**Personal tokens (API-02)** reuse this exact allowlist and scope mapping:
+their exchange mints the same claim shape a member session has
+(`role='authenticated'`, real `sub`, no `session_id`), so member RLS — not a
+second permission model — constrains what they can do, and human-attestation
+RPCs remain out of reach for them as well.
+
 Principles held:
 
 - Fail closed for unknown paths.
@@ -458,33 +475,34 @@ Once API-03 publishes versioned docs:
 
 ## 10. Implementation backlog (later API epics)
 
-| Epic                | Work                                                                                                                               |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| **API-02**          | Workspace service credentials. **Done** (`#47`).                                                                                   |
-| **API-07**          | Core Dataset/Sheet `requiredScopes()` cut-over; credential write actors; human attestation kept off the credential path. **Done**. |
-| **API-03**          | OpenAPI 3.1 of the service-credential allowlist (`docs/openapi/service-credentials-v0.json`). **Done** on this stream.             |
-| **API-04**          | Python SDK — pagination iterators, pandas, idempotent helpers                                                                      |
-| **API-05**          | TypeScript SDK — typed resources, isomorphic fetch                                                                                 |
-| **API-06**          | Webhooks — signed delivery, retries, event schema (`record.submitted`, `dataset.versioned`, …)                                     |
-| **DATA-02/PLAT-01** | `api_client` file access; S3 backend                                                                                               |
-| **GOV-01**          | `viewer` read-only semantics (affects RLS, not contract shape)                                                                     |
+| Epic                | Work                                                                                                                                           |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| **API-02**          | Workspace service credentials, personal tokens, credential lifecycle audit events. **Done** (`#47`, `#56`).                                    |
+| **API-07**          | Core Dataset/Sheet `requiredScopes()` cut-over; credential write actors; human attestation kept off the credential path. **Done**.             |
+| **API-03**          | OpenAPI 3.1 of the external credential surface (`docs/openapi/external-api-v0.json`), covering both credential kinds. **Done** (`#51`, `#56`). |
+| **API-04**          | Python SDK — pagination iterators, pandas, idempotent helpers                                                                                  |
+| **API-05**          | TypeScript SDK — typed resources, isomorphic fetch                                                                                             |
+| **API-06**          | Webhooks — signed delivery, retries, event schema (`record.submitted`, `dataset.versioned`, …)                                                 |
+| **DATA-02/PLAT-01** | `api_client` file access; S3 backend                                                                                                           |
+| **GOV-01**          | `viewer` read-only semantics (affects RLS, not contract shape)                                                                                 |
 
-**Out of API-07:** schema/template **authoring** RPCs, personal tokens, named
-service-account principals, credential activity-audit events.
+**Out of API-07:** schema/template **authoring** RPCs, named service-account
+principals (queued; requires an ADR). Personal tokens and credential audit
+events shipped with API-02 completion (`#56`). Files remain DATA-02/PLAT-01.
 
 ---
 
 ## 11. Related documentation
 
-| Document                                               | Contents                                                 |
-| ------------------------------------------------------ | -------------------------------------------------------- |
-| `docs/openapi/service-credentials-v0.json`             | OpenAPI 3.1 for operations an API key can complete       |
-| `docs/external-api.md`                                 | Credential exchange, **current** allowlist, CLI examples |
-| `docs/notebook-api.md`                                 | Notebook/block/revision RPC reference                    |
-| `docs/search-api.md`                                   | `search` RPC                                             |
-| `docs/authentication.md`                               | Browser session auth                                     |
-| `docs/decisions/0005-postgrest-claim-set-and-proxy.md` | Proxy architecture                                       |
-| `docs/core/PRODUCT_CORE.md`                            | Domain model principles                                  |
+| Document                                               | Contents                                                                    |
+| ------------------------------------------------------ | --------------------------------------------------------------------------- |
+| `docs/openapi/external-api-v0.json`                    | OpenAPI 3.1 for operations an external credential can complete (both kinds) |
+| `docs/external-api.md`                                 | Credential exchange, **current** allowlist, CLI examples                    |
+| `docs/notebook-api.md`                                 | Notebook/block/revision RPC reference                                       |
+| `docs/search-api.md`                                   | `search` RPC                                                                |
+| `docs/authentication.md`                               | Browser session auth                                                        |
+| `docs/decisions/0005-postgrest-claim-set-and-proxy.md` | Proxy architecture                                                          |
+| `docs/core/PRODUCT_CORE.md`                            | Domain model principles                                                     |
 
 ---
 

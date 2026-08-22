@@ -1,6 +1,6 @@
 # API — API & Developer Platform
 
-**Status:** API-01 complete (`#40`). API-02 complete (`#47` / `df27039`) with personal tokens and credential audit events delivered on `feat/api-02-completion`. **API-07 — Core External Allowlist Cut-over** is complete. **API-03 — OpenAPI** is complete for the service-credential allowlist. Named service-account principals remain queued and require an ADR before implementation.
+**Status:** The **API foundation is complete**: API-01 contract (`#40`), API-02 credentials — service credentials, personal tokens, credential lifecycle audit events (`#47`, remainder in `#56`), API-07 external allowlist cut-over, and API-03 OpenAPI for the resulting external credential surface (`#51`, reconciled with both credential kinds in `#56`). Named service-account principals remain **queued and require an ADR** before implementation. Do not start API-04/05/06 as part of this work.
 
 ## Programme goal
 
@@ -82,7 +82,7 @@ API-02 ships **two** credential types: an owner-minted workspace-bound **service
 
 **Exit (this epic):** external automation authenticates with a workspace-bound secret; personal tokens act as their creating member; credential lifecycle events are visible in the workspace activity stream.
 
-**Evidence:** `src/lib/api-credentials.ts`, `src/lib/credential-audit.ts`, `src/lib/api-credential-admin.ts`, `src/lib/personal-api-tokens.server.ts`, `src/components/workspace-admin/admin-api-credentials.tsx`, `src/components/settings/settings-api-tokens.tsx`, `src/routes/settings.tsx`, `drizzle/0122_api_02_credential_audit.sql`, `drizzle/0123_api_02_personal_tokens.sql`, `tests/db/api-credentials.test.ts`, `src/lib/api-credential-scopes.test.ts`. External Core RPC access is **API-07**.
+**Evidence:** `src/lib/api-credentials.ts`, `src/lib/credential-audit.ts`, `src/lib/api-credential-admin.ts`, `src/lib/personal-api-tokens.ts`, `src/components/workspace-admin/admin-api-credentials.tsx`, `src/components/settings/settings-api-tokens.tsx`, `src/routes/settings.tsx`, `drizzle/0122_api_02_credential_audit.sql`, `drizzle/0123_api_02_personal_tokens.sql`, `tests/db/api-credentials.test.ts`, `src/lib/api-credential-scopes.test.ts`. External Core RPC access is **API-07**.
 
 ### Queued (not API-02, not API-07)
 
@@ -128,7 +128,7 @@ An external credential with the appropriate Core-domain scopes can pass the prox
 
 ## API-03 — OpenAPI & Documentation
 
-**Priority:** medium. **Status:** Complete for the service-credential surface that exists today.
+**Priority:** medium. **Status:** Complete for the external credential surface that exists today — both workspace service credentials and personal API tokens (`#56`).
 
 ### Goal
 
@@ -136,8 +136,9 @@ Publish OpenAPI 3.1 that a developer can use without reading application source,
 
 ### Delivered
 
-- `docs/openapi/service-credentials-v0.json` generated from `EXTERNAL_TABLE_ACCESS` / `EXTERNAL_RPC_SCOPES`
+- `docs/openapi/external-api-v0.json` (renamed from `service-credentials-v0.json`; the spec covers the public external API, not one credential kind) generated from `EXTERNAL_TABLE_ACCESS` / `EXTERNAL_RPC_SCOPES`
 - Token exchange, pagination/query parameters, error envelopes, idempotency notes on Dataset commit
+- `/api/token` documents that it accepts both credential kinds: service credentials exchange into `role=api_client` JWTs (workspace identity, `*_credential_id` attribution); personal tokens exchange into `role=authenticated` JWTs carrying the creating member's real `sub`, constrained by member RLS under the same canonical scopes and fail-closed allowlist, unusable when that membership is removed or suspended, and never implying a browser session (no `session_id`)
 - Human-session attestation RPCs (`submit_record_revision`, `run_revision_checks`, `sign_revision`, `create_amendment`) are **absent** from paths
 - `reviews:write` is not required by any operation; `reviews:read` maps only to `preview_submission_digest`
 - Alignment tests in `src/lib/public-api-openapi.test.ts`
@@ -146,9 +147,9 @@ A `/api/v1` URL prefix is not introduced. Paths remain `/api/token` and `/api/db
 
 ### Exit
 
-A developer can integrate the current API-key surface from the OpenAPI file plus `docs/openapi/README.md` without reading `src/lib/external-token.ts`.
+A developer can integrate the current external credential surface from the OpenAPI file plus `docs/openapi/README.md` without reading `src/lib/external-token.ts`.
 
-**Evidence:** `docs/openapi/service-credentials-v0.json`, `src/lib/public-api-openapi.ts`, `src/lib/public-api-openapi.test.ts`.
+**Evidence:** `docs/openapi/external-api-v0.json`, `src/lib/public-api-openapi.ts`, `src/lib/public-api-openapi.test.ts`.
 
 ## API-04 — Python SDK
 

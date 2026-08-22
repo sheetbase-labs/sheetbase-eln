@@ -159,7 +159,6 @@ export const revokePersonalTokenFn = createServerFn({ method: 'POST' })
       await credentials.revokeCredential(tx, {
         workspaceId: data.workspaceId,
         credentialId: target.id,
-        actorUserId: context.user.id,
       })
       await emitCredentialAuditEvent(tx, {
         actorUserId: context.user.id,

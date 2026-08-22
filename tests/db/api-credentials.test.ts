@@ -249,7 +249,6 @@ describe('revokeCredential', () => {
     await revokeCredential(db, {
       workspaceId: WS,
       credentialId: created.id,
-      actorUserId: OWNER,
     })
 
     await expect(
@@ -280,7 +279,6 @@ describe('revokeCredential', () => {
     await revokeCredential(db, {
       workspaceId: '00000000-0000-4000-8000-00000000050b',
       credentialId: created.id,
-      actorUserId: OWNER,
     })
 
     // The credential still works.

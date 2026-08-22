@@ -12,8 +12,8 @@ import {
   personalTokenQueryKey,
   revokePersonalTokenFn,
   rotatePersonalTokenFn,
-} from '#/lib/personal-api-tokens.server'
-import type { CreatedPersonalTokenWire } from '#/lib/personal-api-tokens.server'
+} from '#/lib/personal-api-tokens'
+import type { CreatedPersonalTokenWire } from '#/lib/personal-api-tokens'
 import type { Scope } from '#/lib/api-credential-scopes'
 
 export const Route = createFileRoute('/settings')({

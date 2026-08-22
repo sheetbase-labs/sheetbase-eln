@@ -109,7 +109,7 @@ export const listApiCredentialsFn = createServerFn({ method: 'POST' })
     const { db, credentials } = await loadSession(data.workspaceId)
     const rows = await credentials.listCredentials(db, data.workspaceId)
     // Administration manages the workspace service identity; personal tokens
-    // are the owning member's own surface (src/lib/personal-api-tokens.server.ts).
+    // are the owning member's own surface (src/lib/personal-api-tokens.ts).
     return rows.filter((row) => row.kind === 'service').map(toWire)
   })
 
@@ -164,7 +164,6 @@ export const revokeApiCredentialFn = createServerFn({ method: 'POST' })
       await credentials.revokeCredential(tx, {
         workspaceId: data.workspaceId,
         credentialId: data.credentialId,
-        actorUserId: context.user.id,
       })
       await emitCredentialAuditEvent(tx, {
         actorUserId: context.user.id,

@@ -16,7 +16,7 @@ import type { Scope } from '#/lib/api-credential-scopes'
 import type {
   CreatedPersonalTokenWire,
   PersonalTokenWire,
-} from '#/lib/personal-api-tokens.server'
+} from '#/lib/personal-api-tokens'
 import { formatDate } from '#/lib/workspace-admin'
 
 export function SettingsApiTokens({

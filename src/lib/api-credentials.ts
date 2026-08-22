@@ -213,16 +213,12 @@ export async function listCredentials(
   }))
 }
 
-/**
- * Revokes a credential. Revocation is immediate and permanent.
- */
+/** Revokes a credential. Revocation is immediate and permanent. */
 export async function revokeCredential(
   db: Db,
   input: {
     workspaceId: string
     credentialId: string
-    /** The owner performing the revocation; used for audit attribution. */
-    actorUserId: string
   },
 ): Promise<void> {
   await db
@@ -282,7 +278,6 @@ export async function rotateCredential(
     await revokeCredential(tx, {
       workspaceId: input.workspaceId,
       credentialId: existing.id,
-      actorUserId: input.createdByUserId,
     })
     return created
   })

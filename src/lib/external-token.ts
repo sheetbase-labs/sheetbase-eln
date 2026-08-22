@@ -286,7 +286,9 @@ export async function resolveExternalToken(
     throw new ExternalTokenError('invalid_token', 'Invalid bearer token.')
   }
 
-  const kind = (row.kind ?? 'service') as 'service' | 'personal'
+  // `kind` is NOT NULL DEFAULT 'service' (drizzle/0123_api_02_personal_tokens.sql);
+  // the cast narrows the text column to the checked union.
+  const kind = row.kind as 'service' | 'personal'
 
   // A personal token must present the creator's identity to the PostgREST
   // request role and remain usable only while that membership is active.

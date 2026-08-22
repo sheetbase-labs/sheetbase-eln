@@ -1,6 +1,6 @@
-# Service-credential OpenAPI (API-03)
+# External API OpenAPI (API-03)
 
-Use [`service-credentials-v0.json`](./service-credentials-v0.json) with this
+Use [`external-api-v0.json`](./external-api-v0.json) with this
 README. You do not need to read application source to integrate.
 
 Regenerate after allowlist or RPC-contract changes:
@@ -12,6 +12,23 @@ pnpm openapi:generate
 `pnpm generate-routes` is unrelated (TanStack Router). Keep both scripts.
 
 ## 1. Authenticate
+
+`POST /api/token` accepts **two credential kinds**; the kind is determined by
+the credential row, not by the request:
+
+| Kind               | Minted by                          | JWT role        | Acting as                                   |
+| ------------------ | ---------------------------------- | --------------- | ------------------------------------------- |
+| Service credential | Workspace owners in Administration | `api_client`    | The workspace service identity              |
+| Personal API token | Each member in Settings            | `authenticated` | The creating member (`sub`, real member id) |
+
+Both kinds share the same `sb_<prefix>_<secret>` format and exchange into a
+short-lived bearer JWT with identical scope and fail-closed allowlist rules.
+Personal tokens are additionally constrained by the creating member's
+permissions and row-level security — a viewer's token is read-only — and
+become unusable at exchange **and** use time when that membership is removed
+or suspended. Neither kind creates a browser or human session: personal-token
+JWTs carry no `session_id` claim, so human attestation (submit / sign /
+amend) stays unavailable to external credentials of either kind.
 
 ```http
 POST /api/token
@@ -135,7 +152,9 @@ List windows:
 Human-session-only (absent from the spec): `submit_record_revision`,
 `run_revision_checks`, `sign_revision`, `create_amendment`.
 `reviews:write` is not a submission operation. `reviews:read` is
-`preview_submission_digest` only.
+`preview_submission_digest` only. This holds for personal tokens as well:
+without a `session_id` claim they cannot pass attestation gates even though
+their role is `authenticated`.
 
 ## Related docs
 

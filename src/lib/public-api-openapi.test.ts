@@ -13,7 +13,7 @@ import {
   HUMAN_SESSION_ONLY_RPCS,
   OPENAPI_SPEC_PATH,
   SCHEMA_AUTHORING_RPCS,
-  buildServiceCredentialOpenApi,
+  buildExternalApiOpenApi,
   openApiRpcNames,
   openApiTableNames,
 } from '#/lib/public-api-openapi'
@@ -23,7 +23,7 @@ import {
   TOKEN_ERROR_CODES,
 } from '#/lib/public-api-rpc-contracts'
 
-const spec = buildServiceCredentialOpenApi()
+const spec = buildExternalApiOpenApi()
 const committed = JSON.parse(readFileSync(OPENAPI_SPEC_PATH, 'utf8')) as unknown
 const packageJson = JSON.parse(readFileSync('package.json', 'utf8')) as {
   scripts: Record<string, string>
@@ -49,11 +49,50 @@ function rpcRequestSchema(name: string): {
   return body.content['application/json'].schema
 }
 
-describe('API-03 service-credential OpenAPI', () => {
+describe('API-03 external OpenAPI', () => {
   it('keeps generate-routes and adds openapi:generate', () => {
     expect(packageJson.scripts['generate-routes']).toBe('tsr generate')
     expect(packageJson.scripts['openapi:generate']).toContain(
       'scripts/generate-public-openapi.ts',
+    )
+  })
+
+  it('describes one external surface covering both credential kinds', () => {
+    expect(spec.info.title).toBe('Sheetbase external API')
+    const description = spec.info.description
+    // Service credentials act as the workspace identity; personal tokens act
+    // as their creating member.
+    expect(description).toMatch(/role: 'api_client'/)
+    expect(description).toMatch(/role: 'authenticated'/)
+    expect(description).toMatch(/creating member/)
+    expect(description).toMatch(/same canonical scopes/)
+    expect(description).toMatch(/fail-closed external allowlist/)
+  })
+
+  it('states personal tokens have no browser session and stop with membership', () => {
+    const description = spec.info.description
+    expect(description).toMatch(/Removing or suspending the creating member/)
+    expect(description).toMatch(/no `session_id` claim/)
+    const bearer = spec.components.securitySchemes.bearerAuth as {
+      description: string
+    }
+    expect(bearer.description).toMatch(/role=api_client/)
+    expect(bearer.description).toMatch(/role=authenticated/)
+    expect(bearer.description).toMatch(/no session_id claim/)
+  })
+
+  it('documents token exchange accepting both credential kinds', () => {
+    const op = operation('/api/token', 'post') as { description: string }
+    expect(op.description).toMatch(/service credentials/)
+    expect(op.description).toMatch(/personal API tokens/)
+    const body = (operation('/api/token', 'post').requestBody as RequestBody)
+      .content['application/json'].schema
+    expect(body.$ref).toBe('#/components/schemas/TokenExchangeRequest')
+    const requestSchema = spec.components.schemas.TokenExchangeRequest as {
+      properties: { credential: { description: string } }
+    }
+    expect(requestSchema.properties.credential.description).toMatch(
+      /[Bb]oth service credentials and personal tokens/,
     )
   })
 

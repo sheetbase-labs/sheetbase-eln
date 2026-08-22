@@ -26,6 +26,7 @@ import { Route as ReportBuilderRouteImport } from './routes/report-builder'
 import { Route as ReviewsRouteImport } from './routes/reviews'
 import { Route as SamplesRouteImport } from './routes/samples'
 import { Route as SearchRouteImport } from './routes/search'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as StorageRouteImport } from './routes/storage'
 import { Route as TemplatesRouteImport } from './routes/templates'
@@ -131,6 +132,11 @@ const SamplesRoute = SamplesRouteImport.update({
 const SearchRoute = SearchRouteImport.update({
   id: '/search',
   path: '/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignInRoute = SignInRouteImport.update({
@@ -259,6 +265,7 @@ export interface FileRoutesByFullPath {
   '/reviews': typeof ReviewsRouteWithChildren
   '/samples': typeof SamplesRoute
   '/search': typeof SearchRoute
+  '/settings': typeof SettingsRoute
   '/sign-in': typeof SignInRoute
   '/storage': typeof StorageRoute
   '/templates': typeof TemplatesRoute
@@ -299,6 +306,7 @@ export interface FileRoutesByTo {
   '/reviews': typeof ReviewsRouteWithChildren
   '/samples': typeof SamplesRoute
   '/search': typeof SearchRoute
+  '/settings': typeof SettingsRoute
   '/sign-in': typeof SignInRoute
   '/storage': typeof StorageRoute
   '/templates': typeof TemplatesRoute
@@ -340,6 +348,7 @@ export interface FileRoutesById {
   '/reviews': typeof ReviewsRouteWithChildren
   '/samples': typeof SamplesRoute
   '/search': typeof SearchRoute
+  '/settings': typeof SettingsRoute
   '/sign-in': typeof SignInRoute
   '/storage': typeof StorageRoute
   '/templates': typeof TemplatesRoute
@@ -382,6 +391,7 @@ export interface FileRouteTypes {
     | '/reviews'
     | '/samples'
     | '/search'
+    | '/settings'
     | '/sign-in'
     | '/storage'
     | '/templates'
@@ -422,6 +432,7 @@ export interface FileRouteTypes {
     | '/reviews'
     | '/samples'
     | '/search'
+    | '/settings'
     | '/sign-in'
     | '/storage'
     | '/templates'
@@ -462,6 +473,7 @@ export interface FileRouteTypes {
     | '/reviews'
     | '/samples'
     | '/search'
+    | '/settings'
     | '/sign-in'
     | '/storage'
     | '/templates'
@@ -503,6 +515,7 @@ export interface RootRouteChildren {
   ReviewsRoute: typeof ReviewsRouteWithChildren
   SamplesRoute: typeof SamplesRoute
   SearchRoute: typeof SearchRoute
+  SettingsRoute: typeof SettingsRoute
   SignInRoute: typeof SignInRoute
   StorageRoute: typeof StorageRoute
   TemplatesRoute: typeof TemplatesRoute
@@ -640,6 +653,13 @@ declare module '@tanstack/react-router' {
       path: '/search'
       fullPath: '/search'
       preLoaderRoute: typeof SearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sign-in': {
@@ -870,6 +890,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReviewsRoute: ReviewsRouteWithChildren,
   SamplesRoute: SamplesRoute,
   SearchRoute: SearchRoute,
+  SettingsRoute: SettingsRoute,
   SignInRoute: SignInRoute,
   StorageRoute: StorageRoute,
   TemplatesRoute: TemplatesRoute,
@@ -890,12 +911,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

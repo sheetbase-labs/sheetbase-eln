@@ -10,6 +10,7 @@ import {
   exchangeCredential,
   isValidScope,
   mintApiClientToken,
+  mintPersonalApiToken,
 } from '#/lib/api-credentials'
 
 /**
@@ -74,7 +75,19 @@ const exchange = createServerFn({ method: 'POST' }).handler(async () => {
       parsed.data.credential,
       parsed.data.scopes,
       {
-        mintToken: (input) => mintApiClientToken(env.PGRST_JWT_SECRET, input),
+        mintToken: (input) =>
+          input.kind === 'personal'
+            ? mintPersonalApiToken(env.PGRST_JWT_SECRET, {
+                workspaceId: input.workspaceId,
+                credentialId: input.credentialId,
+                userId: input.userId!,
+                scopes: input.scopes,
+              })
+            : mintApiClientToken(env.PGRST_JWT_SECRET, {
+                workspaceId: input.workspaceId,
+                credentialId: input.credentialId,
+                scopes: input.scopes,
+              }),
       },
     )
     return Response.json({ token }, { status: 200 })

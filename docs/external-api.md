@@ -1,14 +1,29 @@
 # External API credentials
 
-Scoped credentials let external integrations read and write Sheetbase data
-without a browser session. They exchange a shared secret for a short-lived
-PostgREST JWT through `POST /api/token`, then use that JWT against the
-same-origin `/api/db` boundary. The browser session is never involved.
+Two kinds of scoped credential let external integrations read and write
+Sheetbase data without a browser session. Both use the same `sb_<prefix>_<secret>`
+format, both exchange their shared secret for a short-lived PostgREST JWT
+through `POST /api/token`, and both are constrained by the same canonical
+scopes and the same fail-closed external allowlist:
+
+- **Service credentials** — owner-minted in **Administration → API
+  credentials**. The JWT carries `role: 'api_client'`; the workspace service
+  identity is the actor and writes attribute to `*_credential_id` columns.
+- **Personal API tokens** — member-minted in **Settings**. The JWT carries
+  `role: 'authenticated'` with the creating member's real `sub`, so member
+  permissions and row-level security further constrain every request (a
+  viewer's token is read-only) and attribution is human. Removing or
+  suspending the creating member makes the token unusable at exchange and at
+  use time.
+
+Neither kind creates a browser or human session: personal-token JWTs carry no
+`session_id` claim, so human attestation stays unavailable to external
+credentials of either kind.
 
 The **intended public contract** (resources, scopes, errors, pagination,
 idempotency, deprecation) lives in `docs/public-api-contract.md`. The
-**OpenAPI 3.1** description of operations an API key can complete is
-`docs/openapi/service-credentials-v0.json` (see `docs/openapi/README.md`).
+**OpenAPI 3.1** description of operations an external credential can complete
+is `docs/openapi/external-api-v0.json` (see `docs/openapi/README.md`).
 This document covers **credential mechanics** and the **currently implemented**
 external allowlist.
 
@@ -30,10 +45,13 @@ Store the full credential in your integration's secret store immediately. If
 you lose it, revoke and create a new one.
 
 There is a workspace **Administration → API credentials** page for owners
-to create, list, rotate and revoke credentials. The full secret is shown
-once at create or rotate; only a salted hash and display prefix are stored.
-Members can view prefixes and last-used metadata but cannot mint secrets.
-Optional credential expiry is enforced at exchange and rotation.
+to create, list, rotate and revoke service credentials. Each member manages
+their own personal tokens under **Settings** with the same create, list,
+rotate and revoke surface; personal-token lifecycle events land in the
+workspace activity stream alongside service-credential events. For both
+kinds the full secret is shown once at create or rotate; only a salted hash
+and display prefix are stored. Optional credential expiry is enforced at
+exchange and rotation.
 
 ## Scopes
 
@@ -103,10 +121,17 @@ See `src/lib/external-token.test.ts` for the locked mapping and deny-list.
 
 ## Exchange
 
-`POST /api/token` with JSON `{ credential, scopes }` returns
-`{ token }` — a short-lived JWT (5 min default) carrying `workspace_id`,
-`credential_id`, `scopes` and `role: 'api_client'`. Use it as a Bearer
-token against `/api/db/*`.
+`POST /api/token` with JSON `{ credential, scopes }` returns `{ token }` — a
+short-lived JWT (5 min default). Both kinds carry `workspace_id`, `credential_id`
+and `scopes`; the role differs:
+
+- Service credential → `role: 'api_client'`, no user id. RLS keys on the
+  workspace claim; attribution lands on `*_credential_id` columns.
+- Personal token → `role: 'authenticated'` with the creating member's real
+  `sub`. Member RLS applies (including GOV-01 viewer read-only) and writes
+  attribute to the member.
+
+Use either as a Bearer token against `/api/db/*`.
 
 | Response | Code                 | Meaning                               |
 | -------- | -------------------- | ------------------------------------- |
@@ -127,6 +152,11 @@ Revoking a credential sets `revoked_at`; subsequent exchanges fail
 immediately with `revoked`. Revocation is permanent — re-enable by creating
 a new credential.
 
+Personal tokens have a second stop switch: they are usable only while the
+creating member's workspace membership is active. Removing or suspending the
+member stops the token at exchange **and** at use time even though the
+credential row itself is untouched.
+
 Revocation is also enforced **at use time**, not only at exchange time: a
 still-valid bearer token minted before revocation is rejected on the next
 `/api/db/*` request with `permission_denied` (`revoked`). There is no window
@@ -138,14 +168,20 @@ An external request passes through three checks before any data moves:
 
 1. **Exchange** (`POST /api/token`) — verifies the credential secret,
    revocation and requested scope, rate-limits guesses, and mints a
-   short-lived `api_client` JWT scoped to the credential's workspace.
+   short-lived JWT scoped to the credential's workspace (`api_client` for
+   service credentials; `authenticated` + member `sub` for personal tokens,
+   after re-checking that membership is active).
 2. **Proxy** (`/api/db/*`) — verifies the bearer token's signature and
-   shape, re-checks revocation against the live credential row, classifies
-   the exact resource and enforces the **fail-closed allowlist**. Unknown
-   external resources fail closed.
-3. **Row-level security** (PostgreSQL `api_client` policies) — pins every
-   read and write to the `workspace_id` claim on the token, so a leaked or
-   tampered token cannot cross workspaces even if the proxy were bypassed.
+   shape (rejecting, for example, personal-token claims presented against a
+   service-credential row), re-checks revocation, expiry and membership
+   against the live rows, classifies the exact resource and enforces the
+   **fail-closed allowlist** identically for both kinds. Unknown external
+   resources fail closed.
+3. **Row-level security** (PostgreSQL policies) — pins every read and write
+   to the `workspace_id` claim for service credentials, and applies full
+   member RLS for personal tokens, so a leaked or tampered token cannot cross
+   workspaces or exceed its actor's permissions even if the proxy were
+   bypassed.
 
 The browser session path skips step 2's allowlist (it uses membership-based
 RLS instead) but is not available to external credentials.
@@ -209,11 +245,12 @@ Data requests return the stable envelope documented in
 
 ## Tests
 
-| Test file                          | Proves                                                                |
-| ---------------------------------- | --------------------------------------------------------------------- |
-| `src/lib/external-token.test.ts`   | Allowlist scope mapping; Core grants; still-private deny-list         |
-| `tests/db/api-credentials.test.ts` | Creation, exchange, wrong secret/scope, revocation, rate-limit        |
-| `tests/db/external-api.test.ts`    | End-to-end RLS, scope enforcement, revocation-at-use, tampered claims |
+| Test file                            | Proves                                                                            |
+| ------------------------------------ | --------------------------------------------------------------------------------- |
+| `src/lib/external-token.test.ts`     | Allowlist scope mapping; Core grants; still-private deny-list                     |
+| `tests/db/api-credentials.test.ts`   | Creation, exchange, wrong secret/scope, revocation, personal tokens, audit events |
+| `tests/db/external-api.test.ts`      | End-to-end RLS, use-time revocation/expiry/membership, attribution per kind       |
+| `src/lib/public-api-openapi.test.ts` | OpenAPI stays aligned with the live allowlist and both credential kinds           |
 
 Retired scientific-table tests (`tests/db/scientific-rest.test.ts`,
 `tests/api/scientific-rest.test.ts`) document **removed** behaviour and are

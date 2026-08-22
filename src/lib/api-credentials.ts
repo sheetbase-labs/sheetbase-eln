@@ -30,6 +30,15 @@ export {
 export type Db = NodePgDatabase<typeof schema>
 
 /**
+ * Credential kinds. A `service` credential is the workspace service identity
+ * (role `api_client`, no user id). A `personal` token acts as its creating
+ * member (role `authenticated` with a real `sub`), inheriting member RLS —
+ * including GOV-01 viewer read-only — under the same canonical scopes and
+ * the same fail-closed external allowlist.
+ */
+export type CredentialKind = 'service' | 'personal'
+
+/**
  * The full credential string shown to the user once. Format:
  * `sb_<prefix>_<secret>`, where prefix is 8 hex chars (stored) and secret is
  * 32 hex chars (never stored). The prefix lets users identify a credential
@@ -42,11 +51,13 @@ export interface CreatedCredential {
   displayPrefix: string
   name: string
   scopes: Scope[]
+  kind: CredentialKind
 }
 
 export interface CredentialRecord {
   id: string
   workspaceId: string
+  kind: CredentialKind
   displayPrefix: string
   name: string
   scopes: Scope[]
@@ -124,52 +135,58 @@ export async function createCredential(
     name: string
     scopes: readonly string[]
     expiresAt?: Date | null
+    kind?: CredentialKind
   },
 ): Promise<CreatedCredential> {
   const name = input.name.trim()
   if (!name) {
     throw new Error('Name is required.')
   }
+  const kind: CredentialKind = input.kind ?? 'service'
   const scopes = assertIssuableScopes(input.scopes)
   const expiresAt = input.expiresAt ?? null
   if (expiresAt && expiresAt.getTime() <= Date.now()) {
     throw new CredentialError('expired', 'Expiry must be in the future.')
   }
 
-  // Generate a unique prefix (collision is astronomically unlikely but the
-  // unique constraint is the backstop).
-  let prefix = generatePrefix()
-  const secret = generateSecret()
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const existing = await db.query.apiCredentials.findFirst({
-      where: eq(apiCredentials.displayPrefix, prefix),
-    })
-    if (!existing) break
-    prefix = generatePrefix()
-  }
+  return await db.transaction(async (tx) => {
+    // Generate a unique prefix (collision is astronomically unlikely but the
+    // unique constraint is the backstop).
+    let prefix = generatePrefix()
+    const secret = generateSecret()
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const existing = await tx.query.apiCredentials.findFirst({
+        where: eq(apiCredentials.displayPrefix, prefix),
+      })
+      if (!existing) break
+      prefix = generatePrefix()
+    }
 
-  const [row] = await db
-    .insert(apiCredentials)
-    .values({
-      workspaceId: input.workspaceId,
+    const [row] = await tx
+      .insert(apiCredentials)
+      .values({
+        workspaceId: input.workspaceId,
+        kind,
+        displayPrefix: prefix,
+        secretHash: hashSecret(prefix, secret),
+        name,
+        scopes,
+        createdByUserId: input.createdByUserId,
+        expiresAt,
+      })
+      .returning({ id: apiCredentials.id })
+
+    // The insert returning() always yields a row for a successful insert;
+    // a failure throws before this point.
+    return {
+      id: row.id,
+      secret: buildCredentialString(prefix, secret),
       displayPrefix: prefix,
-      secretHash: hashSecret(prefix, secret),
       name,
       scopes,
-      createdByUserId: input.createdByUserId,
-      expiresAt,
-    })
-    .returning({ id: apiCredentials.id })
-
-  // The insert returning() always yields a row for a successful insert;
-  // a failure throws before this point.
-  return {
-    id: row.id,
-    secret: buildCredentialString(prefix, secret),
-    displayPrefix: prefix,
-    name,
-    scopes,
-  }
+      kind,
+    }
+  })
 }
 
 /** Lists a workspace's credentials (without secrets). */
@@ -184,6 +201,7 @@ export async function listCredentials(
   return rows.map((row) => ({
     id: row.id,
     workspaceId: row.workspaceId,
+    kind: row.kind as CredentialKind,
     displayPrefix: row.displayPrefix,
     name: row.name,
     scopes: row.scopes as Scope[],
@@ -198,7 +216,10 @@ export async function listCredentials(
 /** Revokes a credential. Revocation is immediate and permanent. */
 export async function revokeCredential(
   db: Db,
-  input: { workspaceId: string; credentialId: string },
+  input: {
+    workspaceId: string
+    credentialId: string
+  },
 ): Promise<void> {
   await db
     .update(apiCredentials)
@@ -214,7 +235,10 @@ export async function revokeCredential(
 /**
  * Issues a replacement credential with the same scopes and expiry, then
  * revokes the previous one. Rotation never adds, drops, or substitutes a
- * scope. If the stored scopes are not a non-empty canonical set, it fails.
+ * scope or kind. If the stored scopes are not a non-empty canonical set, it
+ * fails. Callers pair this with create(new) / revoke(old) activity events;
+ * emit them on the transaction running this call so the rotation cannot
+ * land without its audit trail.
  */
 export async function rotateCredential(
   db: Db,
@@ -249,6 +273,7 @@ export async function rotateCredential(
       name: existing.name,
       scopes,
       expiresAt: existing.expiresAt,
+      kind: existing.kind as CredentialKind,
     })
     await revokeCredential(tx, {
       workspaceId: input.workspaceId,
@@ -330,6 +355,10 @@ export interface ExchangeDeps {
     workspaceId: string
     credentialId: string
     scopes: Scope[]
+    /** Service credentials mint api_client; personal tokens act as userId. */
+    kind: CredentialKind
+    /** The acting member for a personal token (the credential creator). */
+    userId?: string
   }) => Promise<string>
 }
 
@@ -382,6 +411,25 @@ export async function exchangeCredential(
     throw new CredentialError('expired', 'Credential has expired.')
   }
 
+  // A personal token acts as its creating member, so it is only usable while
+  // that membership is active. Removing or suspending the member stops the
+  // token at exchange even though the credential row itself is untouched.
+  // Service credentials keep working on the workspace binding alone.
+  if (row.kind === 'personal') {
+    const member = await db.query.workspaceMemberships.findFirst({
+      where: and(
+        eq(workspaceMemberships.userId, row.createdByUserId),
+        eq(workspaceMemberships.workspaceId, row.workspaceId),
+      ),
+    })
+    if (!member || member.suspendedAt) {
+      throw new CredentialError(
+        'revoked',
+        'Credential is not currently usable.',
+      )
+    }
+  }
+
   for (const required of requested) {
     if (!row.scopes.includes(required)) {
       throw new CredentialError(
@@ -408,6 +456,8 @@ export async function exchangeCredential(
     workspaceId: row.workspaceId,
     credentialId: row.id,
     scopes: requested,
+    kind: row.kind as CredentialKind,
+    userId: row.kind === 'personal' ? row.createdByUserId : undefined,
   })
 }
 
@@ -427,6 +477,42 @@ export async function mintApiClientToken(
     credential_id: input.credentialId,
     scopes: input.scopes,
     role: 'api_client',
+  })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime(`${ttl}s`)
+    .sign(new TextEncoder().encode(secret))
+}
+
+/**
+ * Mints the short-lived PostgREST JWT for a personal token. A personal token
+ * acts as its creating member: the claim set is the browser-session shape
+ * (role `authenticated`, real `sub`) plus `credential_id` and `scopes`, so
+ * member RLS — including GOV-01 viewer read-only — and human attribution
+ * apply, while the proxy still enforces the same canonical allowlist.
+ *
+ * Deliberately has no `session_id` claim: attestation RPCs that require a
+ * live human session stay unusable (they are not on the allowlist either),
+ * and there is no revocable browser session behind a token.
+ */
+export async function mintPersonalApiToken(
+  secret: string,
+  input: {
+    workspaceId: string
+    credentialId: string
+    userId: string
+    scopes: Scope[]
+    ttlSeconds?: number
+  },
+): Promise<string> {
+  const ttl = input.ttlSeconds ?? 300
+  return await new SignJWT({
+    sub: input.userId,
+    workspace_id: input.workspaceId,
+    credential_id: input.credentialId,
+    scopes: input.scopes,
+    kind: 'personal',
+    role: 'authenticated',
   })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()

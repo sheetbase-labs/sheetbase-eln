@@ -1,6 +1,6 @@
 # API — API & Developer Platform
 
-**Status:** API-01 complete (`#40`). API-02 complete (`#47` / `df27039`). **API-07 — Core External Allowlist Cut-over** is complete. **API-03 — OpenAPI** is complete for the service-credential allowlist. Personal tokens, named service-account principals, and credential activity-audit events remain later API work.
+**Status:** The **API foundation is complete**: API-01 contract (`#40`), API-02 credentials — service credentials, personal tokens, credential lifecycle audit events (`#47`, remainder in `#56`), API-07 external allowlist cut-over, and API-03 OpenAPI for the resulting external credential surface (`#51`, reconciled with both credential kinds in `#56`). Named service-account principals remain **queued and require an ADR** before implementation. Do not start API-04/05/06 as part of this work.
 
 ## Programme goal
 
@@ -57,38 +57,36 @@ A developer can read the intended public contract without treating scientific-ta
 
 ## API-02 — API Credentials & Service Identity
 
-**Priority:** low. **Status:** **Complete for workspace service credentials** (narrowed honestly; see queued remainder).
+**Priority:** low. **Status:** **Complete** (service credentials + personal tokens + credential audit events).
 
 ### Intended original list vs delivery
 
 The original prompt listed personal tokens, service accounts, workspace binding, capability scopes, expiry, rotation, revocation, last-used metadata, credential audit, request attribution, and safe secret handling.
 
-API-02 ships **one** credential type: an owner-minted, workspace-bound secret used as the external **service identity**. It does not invent a second permission model. Core RPC allowlist cut-over is **API-07**.
+API-02 ships **two** credential types: an owner-minted workspace-bound **service identity** and a member-scoped **personal token** that acts as its creator under the same canonical scopes and fail-closed allowlist. It does not invent a second permission model. Core RPC allowlist cut-over is **API-07**.
 
-| Requirement                      | In API-02?           | Notes                                                                                                                           |
-| -------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Workspace binding                | Yes                  | `workspace_id` on the row and in the JWT                                                                                        |
-| Capability scopes                | Yes                  | Canonical API-01 vocabulary only; Core RPCs enforced in **API-07**                                                              |
-| Expiry                           | Yes                  | Optional `expires_at` on the credential; JWT access-token TTL remains 300s                                                      |
-| Rotation                         | Yes                  | Copies scopes and expiry exactly; never adds a scope                                                                            |
-| Revocation                       | Yes                  | Immediate; use-time check on the bearer token                                                                                   |
-| Last-used metadata               | Yes                  | Stamped on exchange; shown in Administration                                                                                    |
-| Safe secret handling             | Yes                  | Shown once; salted hash at rest; prefix id; exchange rate-limit                                                                 |
-| Request attribution              | Yes (existing)       | JWT `credential_id`; not a new identity table                                                                                   |
-| Service identity                 | Yes (this type)      | The credential row **is** the service principal                                                                                 |
-| Personal tokens                  | **Queued**           | No user-acting token that impersonates a human session                                                                          |
-| Named service-account principals | **Queued**           | No second user-like account besides the credential                                                                              |
-| Credential audit log             | **Partial / queued** | Created-by, last-used, revoked/expired in the admin list. Create/rotate/revoke are **not** written to workspace activity events |
+| Requirement                      | In API-02? | Notes                                                                                                  |
+| -------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------ |
+| Workspace binding                | Yes        | `workspace_id` on the row and in the JWT                                                               |
+| Capability scopes                | Yes        | Canonical API-01 vocabulary only; Core RPCs enforced in **API-07**                                     |
+| Expiry                           | Yes        | Optional `expires_at` on the credential; JWT access-token TTL remains 300s                             |
+| Rotation                         | Yes        | Copies scopes and expiry exactly; never adds a scope                                                   |
+| Revocation                       | Yes        | Immediate; use-time check on the bearer token                                                          |
+| Last-used metadata               | Yes        | Stamped on exchange; shown in Administration                                                           |
+| Safe secret handling             | Yes        | Shown once; salted hash at rest; prefix id; exchange rate-limit                                        |
+| Request attribution              | Yes        | JWT `credential_id`; not a new identity table                                                          |
+| Service identity                 | Yes        | The credential row **is** the service principal                                                        |
+| Personal tokens                  | Yes        | User-scoped credentials that act as the creating member under the same allowlist and scopes            |
+| Credential audit log             | Yes        | Create/rotate/revoke emit lifecycle events to workspace `change_events` (entity type `api_credential`) |
+| Named service-account principals | **Queued** | Requires an ADR; conflicts with current single-principal model until product need exists               |
 
-**Exit (this epic):** external automation authenticates with a workspace-bound secret instead of a human session or database password.
+**Exit (this epic):** external automation authenticates with a workspace-bound secret; personal tokens act as their creating member; credential lifecycle events are visible in the workspace activity stream.
 
-**Evidence:** `src/lib/api-credentials.ts`, `src/lib/api-credential-admin.ts`, `src/components/workspace-admin/admin-api-credentials.tsx`, `tests/db/api-credentials.test.ts`, `src/lib/api-credential-scopes.test.ts`. External Core RPC access is **API-07**.
+**Evidence:** `src/lib/api-credentials.ts`, `src/lib/credential-audit.ts`, `src/lib/api-credential-admin.ts`, `src/lib/personal-api-tokens.ts`, `src/components/workspace-admin/admin-api-credentials.tsx`, `src/components/settings/settings-api-tokens.tsx`, `src/routes/settings.tsx`, `drizzle/0122_api_02_credential_audit.sql`, `drizzle/0123_api_02_personal_tokens.sql`, `tests/db/api-credentials.test.ts`, `src/lib/api-credential-scopes.test.ts`. External Core RPC access is **API-07**.
 
 ### Queued (not API-02, not API-07)
 
-- Personal tokens (user-scoped credentials that act as a human)
-- Named service-account principals distinct from credential secrets
-- Credential create/rotate/revoke rows in the workspace activity audit stream
+- Named service-account principals distinct from credential secrets (requires ADR)
 
 ## API-07 — Core External Allowlist Cut-over
 
@@ -130,7 +128,7 @@ An external credential with the appropriate Core-domain scopes can pass the prox
 
 ## API-03 — OpenAPI & Documentation
 
-**Priority:** medium. **Status:** Complete for the service-credential surface that exists today.
+**Priority:** medium. **Status:** Complete for the external credential surface that exists today — both workspace service credentials and personal API tokens (`#56`).
 
 ### Goal
 
@@ -138,8 +136,9 @@ Publish OpenAPI 3.1 that a developer can use without reading application source,
 
 ### Delivered
 
-- `docs/openapi/service-credentials-v0.json` generated from `EXTERNAL_TABLE_ACCESS` / `EXTERNAL_RPC_SCOPES`
+- `docs/openapi/external-api-v0.json` (renamed from `service-credentials-v0.json`; the spec covers the public external API, not one credential kind) generated from `EXTERNAL_TABLE_ACCESS` / `EXTERNAL_RPC_SCOPES`
 - Token exchange, pagination/query parameters, error envelopes, idempotency notes on Dataset commit
+- `/api/token` documents that it accepts both credential kinds: service credentials exchange into `role=api_client` JWTs (workspace identity, `*_credential_id` attribution); personal tokens exchange into `role=authenticated` JWTs carrying the creating member's real `sub`, constrained by member RLS under the same canonical scopes and fail-closed allowlist, unusable when that membership is removed or suspended, and never implying a browser session (no `session_id`)
 - Human-session attestation RPCs (`submit_record_revision`, `run_revision_checks`, `sign_revision`, `create_amendment`) are **absent** from paths
 - `reviews:write` is not required by any operation; `reviews:read` maps only to `preview_submission_digest`
 - Alignment tests in `src/lib/public-api-openapi.test.ts`
@@ -148,9 +147,9 @@ A `/api/v1` URL prefix is not introduced. Paths remain `/api/token` and `/api/db
 
 ### Exit
 
-A developer can integrate the current API-key surface from the OpenAPI file plus `docs/openapi/README.md` without reading `src/lib/external-token.ts`.
+A developer can integrate the current external credential surface from the OpenAPI file plus `docs/openapi/README.md` without reading `src/lib/external-token.ts`.
 
-**Evidence:** `docs/openapi/service-credentials-v0.json`, `src/lib/public-api-openapi.ts`, `src/lib/public-api-openapi.test.ts`.
+**Evidence:** `docs/openapi/external-api-v0.json`, `src/lib/public-api-openapi.ts`, `src/lib/public-api-openapi.test.ts`.
 
 ## API-04 — Python SDK
 

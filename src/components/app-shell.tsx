@@ -613,8 +613,10 @@ export function AppShell({
           <DropdownMenuContent align="end" side="top">
             <DropdownMenuLabel>{context.user.email}</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem disabled>
-              <Settings className="mr-2 size-4" /> Settings
+            <DropdownMenuItem asChild>
+              <Link to="/settings">
+                <Settings className="mr-2 size-4" /> Settings
+              </Link>
             </DropdownMenuItem>
             <DropdownMenuItem
               onSelect={() => setTheme(theme === 'dark' ? 'light' : 'dark')}

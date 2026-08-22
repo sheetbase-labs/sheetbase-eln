@@ -1,6 +1,8 @@
 /**
- * API-03: OpenAPI 3.1 description of the **service-credential** API that
- * exists today. Paths are generated from the API-07 allowlist
+ * API-03: OpenAPI 3.1 description of the **external** API that exists today,
+ * usable with either credential kind (workspace service credential or
+ * personal API token acting as its creating member). Paths are generated from
+ * the API-07 allowlist
  * (`EXTERNAL_TABLE_ACCESS` / `EXTERNAL_RPC_SCOPES`). RPC request and result
  * schemas come from `RPC_CONTRACTS`. Human-session attestation RPCs are
  * listed here so tests can prove they are absent from the spec.
@@ -28,8 +30,7 @@ import {
   tableSchemaName,
 } from '#/lib/public-api-table-schemas'
 
-export const OPENAPI_SPEC_PATH =
-  'docs/openapi/service-credentials-v0.json' as const
+export const OPENAPI_SPEC_PATH = 'docs/openapi/external-api-v0.json' as const
 
 export const HUMAN_SESSION_ONLY_RPCS = [
   'submit_record_revision',
@@ -48,7 +49,7 @@ const SCHEMA_AUTHORING_RPCS = [
 type OpenApiOperation = Record<string, unknown>
 type OpenApiPathItem = Record<string, unknown>
 
-export interface ServiceCredentialOpenApi {
+export interface ExternalApiOpenApi {
   openapi: '3.1.0'
   info: {
     title: string
@@ -458,10 +459,16 @@ function rpcOperation(resource: string, scopes: Scope[]): OpenApiOperation {
 
 function description(): string {
   return [
-    'Service-credential API for Sheetbase v0.1.',
+    'Sheetbase external API v0.1 — one surface, two credential kinds.',
     '',
-    'Authenticate with `POST /api/token`, then call `/api/db/*` with the returned JWT as `Authorization: Bearer`.',
-    'Only operations an API key can complete are listed. Unknown paths fail closed.',
+    'Authenticate with `POST /api/token`, then call `/api/db/*` with the returned JWT as `Authorization: Bearer`. Both kinds share the `sb_<prefix>_<secret>` credential format and exchange into short-lived bearer JWTs (default TTL 300s).',
+    '',
+    "- Service credentials (owner-minted in Administration) act as the **workspace service identity**: the JWT carries `role: 'api_client'` with no user id, and writes attribute to `credential_id`.",
+    "- Personal API tokens (member-minted in Settings) act as their **creating member**: the JWT carries `role: 'authenticated'` with the member's real `sub`, so member permissions and row-level security further constrain every request — a viewer's token is read-only. Removing or suspending the creating member makes the token unusable at exchange and at use time.",
+    '',
+    'Both kinds are constrained by the same canonical scopes and the same fail-closed external allowlist. Neither creates a browser or human session: personal-token JWTs carry no `session_id` claim, so human attestation stays unavailable to external credentials.',
+    '',
+    'Only operations an external credential can complete are listed. Unknown paths fail closed.',
     '',
     'Errors: `POST /api/token` returns `{ error: { code, message } }`. `/api/db/*` returns `{ error: { category, message, request_id? } }`. Do not expect `code` on the data path.',
     '',
@@ -470,7 +477,7 @@ function description(): string {
     '`reviews:read` opens `preview_submission_digest` only.',
     '',
     'Schema-authoring RPCs, file RPCs, and scientific-table REST are not part of this API.',
-    '`folders` and `record_field_definitions` are GET-only for API keys (`api_client` has SELECT only). Folder writes and model-field authoring stay on the session path.',
+    '`folders` and `record_field_definitions` are GET-only for external credentials (`api_client` has SELECT only). Folder writes and model-field authoring stay on the session path.',
     'DELETE on `projects` is not granted to `api_client`.',
     '',
     'Narrative contract: `docs/public-api-contract.md`. How to call this spec: `docs/openapi/README.md`. Credential mechanics: `docs/external-api.md`.',
@@ -570,7 +577,7 @@ function componentParameters(): Record<string, unknown> {
   }
 }
 
-export function buildServiceCredentialOpenApi(): ServiceCredentialOpenApi {
+export function buildExternalApiOpenApi(): ExternalApiOpenApi {
   const paths: Record<string, OpenApiPathItem> = {
     '/api/token': {
       post: {
@@ -579,7 +586,7 @@ export function buildServiceCredentialOpenApi(): ServiceCredentialOpenApi {
         operationId: 'exchangeToken',
         security: [],
         description:
-          'Unauthenticated. Body `{ credential, scopes }` → `{ token }`. Failures use `TokenError` (`error.code`), never `error.category`.',
+          'Unauthenticated. Accepts both workspace service credentials and personal API tokens — the same `sb_<prefix>_<secret>` format; the kind is determined by the credential row, not the request. Body `{ credential, scopes }` → `{ token }`. Failures use `TokenError` (`error.code`), never `error.category`.',
         requestBody: {
           required: true,
           content: {
@@ -620,7 +627,7 @@ export function buildServiceCredentialOpenApi(): ServiceCredentialOpenApi {
   return {
     openapi: '3.1.0',
     info: {
-      title: 'Sheetbase service-credential API',
+      title: 'Sheetbase external API',
       version: '0.1.0',
       description: description(),
     },
@@ -667,7 +674,7 @@ export function buildServiceCredentialOpenApi(): ServiceCredentialOpenApi {
           scheme: 'bearer',
           bearerFormat: 'JWT',
           description:
-            'JWT from POST /api/token. Claims: workspace_id, credential_id, scopes, role=api_client. Default TTL 300s.',
+            "JWT from POST /api/token. Service credentials mint role=api_client with workspace_id, credential_id and scopes; personal tokens mint role=authenticated with the creating member's sub and no session_id claim. Default TTL 300s.",
         },
       },
       parameters: componentParameters(),
@@ -681,7 +688,8 @@ export function buildServiceCredentialOpenApi(): ServiceCredentialOpenApi {
           properties: {
             credential: {
               type: 'string',
-              description: 'sb_<8 hex prefix>_<32 hex secret>',
+              description:
+                'sb_<8 hex prefix>_<32 hex secret>. Both service credentials and personal tokens use this format.',
             },
             scopes: {
               type: 'array',
@@ -724,14 +732,14 @@ export function buildServiceCredentialOpenApi(): ServiceCredentialOpenApi {
   }
 }
 
-export function openApiRpcNames(spec: ServiceCredentialOpenApi): string[] {
+export function openApiRpcNames(spec: ExternalApiOpenApi): string[] {
   return Object.keys(spec.paths)
     .filter((path) => path.startsWith('/api/db/rpc/'))
     .map((path) => path.slice('/api/db/rpc/'.length))
     .sort()
 }
 
-export function openApiTableNames(spec: ServiceCredentialOpenApi): string[] {
+export function openApiTableNames(spec: ExternalApiOpenApi): string[] {
   return Object.keys(spec.paths)
     .filter(
       (path) => path.startsWith('/api/db/') && !path.startsWith('/api/db/rpc/'),

@@ -6,10 +6,7 @@
 import { EMPTY_RICH_TEXT_PAYLOAD, PAYLOAD_SCHEMA_VERSION } from '#/lib/blocks'
 import type { DataClient } from '#/lib/data-client'
 import { DataClientError } from '#/lib/data-client'
-import {
-  insertBlock,
-  insertSheetInstanceBlock,
-} from '#/lib/notebook-mutations'
+import { insertBlock, insertSheetInstanceBlock } from '#/lib/notebook-mutations'
 import { toBlock, toRecord, notebookQueryKeys } from '#/lib/notebook-data'
 import type {
   BlockWire,
@@ -39,17 +36,10 @@ import {
   toCanonicalEnvelope,
 } from '#/lib/review-workspace'
 
-export {
-  createAmendment,
-  fetchRecordTimeline,
-  fetchRevisionEvidenceExport,
-}
+export { createAmendment, fetchRecordTimeline, fetchRevisionEvidenceExport }
 
 export type NotebookLifecycleLabel =
-  | 'Archived'
-  | 'Submitted'
-  | 'In review'
-  | 'Working'
+  'Archived' | 'Submitted' | 'In review' | 'Working'
 
 export type NotebookReviewActivity = 'none' | 'submitted' | 'approved'
 
@@ -114,7 +104,8 @@ export async function fetchNotebookReviewContext(
     'review_submissions',
     `?record_id=eq.${encodeURIComponent(recordId)}&order=submitted_at.desc,id.desc&limit=1`,
   )
-  const submission = submissions[0] ?? null
+  // `.at(0)` types as T | undefined; plain indexing hides the empty-list case.
+  const submission = submissions.at(0) ?? null
   if (!submission) return { submission: null, revision: null }
   const revisions = await client.list<{
     id: string
@@ -156,9 +147,13 @@ export function recordFromRevisionSnapshot(
         ? snapshot.metadataVersion
         : live.metadataVersion,
     createdAt:
-      typeof snapshot.createdAt === 'string' ? snapshot.createdAt : live.createdAt,
+      typeof snapshot.createdAt === 'string'
+        ? snapshot.createdAt
+        : live.createdAt,
     updatedAt:
-      typeof snapshot.updatedAt === 'string' ? snapshot.updatedAt : live.updatedAt,
+      typeof snapshot.updatedAt === 'string'
+        ? snapshot.updatedAt
+        : live.updatedAt,
     createdByUserId:
       typeof snapshot.createdByUserId === 'string'
         ? snapshot.createdByUserId
@@ -166,7 +161,7 @@ export function recordFromRevisionSnapshot(
     updatedByUserId:
       typeof snapshot.updatedByUserId === 'string' ||
       snapshot.updatedByUserId === null
-        ? (snapshot.updatedByUserId as string | null)
+        ? snapshot.updatedByUserId
         : live.updatedByUserId,
   }
 }
@@ -255,7 +250,13 @@ export function linksFromRevisionSnapshot(
     const targetKind = snapshotString(link.targetKind)
     const targetIdentifier = snapshotString(link.targetIdentifier)
     const linkType = snapshotString(link.linkType)
-    if (!id || !sourceRecordId || !targetKind || !targetIdentifier || !linkType) {
+    if (
+      !id ||
+      !sourceRecordId ||
+      !targetKind ||
+      !targetIdentifier ||
+      !linkType
+    ) {
       return []
     }
     const targetRecordId = link.targetRecordId
@@ -396,7 +397,7 @@ export async function duplicateExperiment(
     },
   )
   const record = toRecord(result.record)
-  const created = [...(result.blocks ?? [])]
+  const created = [...result.blocks]
     .map(toBlock)
     .sort((a, b) => a.order - b.order)
   let lastBlockId = created.at(-1)?.id
@@ -454,11 +455,7 @@ export function downloadRevisionEvidence(
 }
 
 export type NotebookSignState =
-  | 'none'
-  | 'awaiting-review'
-  | 'can-sign'
-  | 'already-signed'
-  | 'not-assigned'
+  'none' | 'awaiting-review' | 'can-sign' | 'already-signed' | 'not-assigned'
 
 export function notebookSignState(input: {
   currentUserId: string

@@ -18,17 +18,17 @@ Delivery priority uses only **medium** and **low**. Nothing is queued as high.
 
 The roadmap supports **parallel streams**. Agents take **one assigned stream/task**. Ready does not mean “do every Ready row”. **Do not start a Ready stream until it is assigned.**
 
-| Stream | Active task | Model | Status                                                          |
-| ------ | ----------- | ----- | --------------------------------------------------------------- |
-| PC     | —           | —     | PC-06 is ready to merge as #55; do not start a new PC task yet. |
-| API    | —           | —     | API-01/02/03/07 complete on `main`; do not start API-04/05/06   |
-| DATA   | —           | —     | DATA-01 complete; DATA-02 remains later                         |
-| GOV    | —           | —     | GOV-01 complete; GOV-02 requires an ADR                         |
-| PLAT   | —           | —     | Headers slice complete; remaining PLAT-03 queued                |
-| COLLAB | —           | —     | Planned                                                         |
-| SCI    | —           | —     | Planned                                                         |
-| INT    | —           | —     | Planned                                                         |
-| AUTO   | —           | —     | Planned later                                                   |
+| Stream | Active task | Model | Status                                                                                                                                                                                                            |
+| ------ | ----------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PC     | —           | —     | PC-06 is ready to merge as #55; do not start a new PC task yet.                                                                                                                                                   |
+| API    | —           | —     | API foundation complete in `#56`: API-01 contract; API-02 service credentials + personal tokens + lifecycle audit; API-07 allowlist cut-over; API-03 OpenAPI for both credential kinds. Do not start API-04/05/06 |
+| DATA   | —           | —     | DATA-01 complete; DATA-02 remains later                                                                                                                                                                           |
+| GOV    | —           | —     | GOV-01 complete; GOV-02 requires an ADR                                                                                                                                                                           |
+| PLAT   | —           | —     | Headers slice complete; remaining PLAT-03 queued                                                                                                                                                                  |
+| COLLAB | —           | —     | Planned                                                                                                                                                                                                           |
+| SCI    | —           | —     | Planned                                                                                                                                                                                                           |
+| INT    | —           | —     | Planned                                                                                                                                                                                                           |
+| AUTO   | —           | —     | Planned later                                                                                                                                                                                                     |
 
 ### Immediate execution shape
 
@@ -43,6 +43,7 @@ merged  API-02  workspace service credentials (#47) @ df27039
 merged  API-07  Core Dataset/Sheet external allowlist (#50) @ 30496db
 merged  DATA-01 import laboratory files (#49) @ 37e3c52
 merged  API-03  service-credential OpenAPI (#51) @ 2cd3a12
+feat/api-02-completion  API-02 completion + API-03 reconciliation (#56: personal tokens, credential audit events, external OpenAPI for both kinds)
 merged  PC-04   Templates and reusable science (#53) @ 3c8b8df
 merged  PC-05   Canonical Steward configuration workspace (#54) @ 1d7a06a
 ```
@@ -71,7 +72,9 @@ Prompt: [`prompts/API.md`](./prompts/API.md)
 
 **API-07 complete** (`#50` / `30496db`): `requiredScopes()` maps Core Dataset/Sheet RPCs to canonical scopes. Mapped Dataset/Sheet data-plane writes succeed for `api_client` with `credential_id` attribution. Submit, sign, amend and revision checks stay off the credential allowlist.
 
-**API-03 complete** (`#51` / `2cd3a12`): OpenAPI 3.1 at `docs/openapi/service-credentials-v0.json` describes only operations an API key can complete. Human attestation RPCs are omitted. `reviews:write` is not a usable credential submission operation. Do not start API-04/05/06.
+**API-03 complete** (`#51` / `2cd3a12`; renamed and extended in `#56`): OpenAPI 3.1 at `docs/openapi/external-api-v0.json` describes only operations an external credential can complete, for both service credentials and personal tokens. Human attestation RPCs are omitted. `reviews:write` is not a usable credential submission operation.
+
+**API-02 remainder complete** (`#56`, `feat/api-02-completion`): personal tokens (user-scoped credentials acting as the creating member), credential lifecycle audit events in workspace `change_events` (entity type `api_credential`), and API-03 reconciliation — the OpenAPI spec is renamed `external-api-v0.json` and documents both credential kinds on the one fail-closed surface. The API foundation (API-01/02/03 + API-07) is complete; SDK work (API-04/05) can start next. Named service-account principals remain queued and require an ADR.
 
 ### DATA — DATA-01 complete
 

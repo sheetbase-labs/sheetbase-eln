@@ -68,7 +68,10 @@ describe('SignNotebookDialog', () => {
     await waitFor(() => {
       expect(screen.getByLabelText('Signature confirmation')).toBeTruthy()
     })
-    await user.type(screen.getByLabelText('Signature confirmation'), 'Ada Lovelace')
+    await user.type(
+      screen.getByLabelText('Signature confirmation'),
+      'Ada Lovelace',
+    )
     await user.click(screen.getByRole('button', { name: 'Sign' }))
     await waitFor(() => {
       expect(signRevision).toHaveBeenCalledWith(
@@ -98,7 +101,10 @@ describe('SignNotebookDialog', () => {
     signRevision.mockResolvedValue({ signatureId: 'sig1' })
 
     const client = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
     })
     const invalidate = vi.spyOn(client, 'invalidateQueries')
     render(
@@ -116,12 +122,13 @@ describe('SignNotebookDialog', () => {
     await waitFor(() => {
       expect(screen.getByLabelText('Signature confirmation')).toBeTruthy()
     })
-    await user.type(screen.getByLabelText('Signature confirmation'), 'Ada Lovelace')
+    await user.type(
+      screen.getByLabelText('Signature confirmation'),
+      'Ada Lovelace',
+    )
     await user.click(screen.getByRole('button', { name: 'Sign' }))
     await waitFor(() => {
-      const keys = invalidate.mock.calls.map(
-        (call) => call[0]?.queryKey as readonly unknown[] | undefined,
-      )
+      const keys = invalidate.mock.calls.map((call) => call[0]?.queryKey)
       expect(keys).toContainEqual(notebookQueryKeys.record('r1'))
       expect(keys).toContainEqual(notebookQueryKeys.blocks('r1'))
       expect(keys).toContainEqual(notebookQueryKeys.review('r1'))

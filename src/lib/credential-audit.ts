@@ -10,13 +10,14 @@
  * every PostgREST request role, so clients can neither forge events nor
  * allocate sequences.
  *
- * Payloads carry display metadata only — never secret material.
+ * Runs on whichever client it is given: callers pass the transaction that
+ * performs the credential mutation, so an event can never be committed
+ * without its mutation nor a mutation land without its event.
  *
- * Uses raw pg query to avoid drizzle-orm sql template issues with
- * SECURITY DEFINER function calls (same pattern as formula_write.server.ts).
+ * Payloads carry display metadata only — never secret material.
  */
+import { sql } from 'drizzle-orm'
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
-import type { Pool } from 'pg'
 
 import type * as schema from '#/db/schema'
 
@@ -41,15 +42,16 @@ export async function emitCredentialAuditEvent(
   db: NodePgDatabase<typeof schema>,
   input: CredentialAuditInput,
 ): Promise<void> {
-  const pool = (db as unknown as { $client: Pool }).$client
-  await pool.query(
-    `SELECT internal.emit_change_event_as_actor($1::text, $2::uuid, 'api_credential', $3::uuid, $4::text, NULL::uuid, NULL::uuid, $5::jsonb)`,
-    [
-      input.actorUserId,
-      input.workspaceId,
-      input.credentialId,
-      input.operation,
-      JSON.stringify(input.payload),
-    ],
-  )
+  await db.execute(sql`
+    SELECT internal.emit_change_event_as_actor(
+      ${input.actorUserId}::text,
+      ${input.workspaceId}::uuid,
+      'api_credential',
+      ${input.credentialId}::uuid,
+      ${input.operation}::text,
+      NULL::uuid,
+      NULL::uuid,
+      ${JSON.stringify(input.payload)}::jsonb
+    )
+  `)
 }

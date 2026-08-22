@@ -66,9 +66,9 @@ export function SettingsApiTokens({
   return (
     <div className="space-y-6">
       <p className="max-w-3xl text-sm text-muted-foreground">
-        A personal API token acts as you (the signed-in member), under the
-        same canonical Core-domain scopes and fail-closed allowlist as a
-        workspace service credential. It inherits your membership role — so a{' '}
+        A personal API token acts as you (the signed-in member), under the same
+        canonical Core-domain scopes and fail-closed allowlist as a workspace
+        service credential. It inherits your membership role — so a{' '}
         <code>viewer</code> token is read-only. It is exchanged for a
         short-lived token at <code>POST /api/token</code> and never passes
         Notebook submit / sign / amend / revision checks. The full secret is
@@ -81,8 +81,7 @@ export function SettingsApiTokens({
           className="space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"
         >
           <p className="font-medium">
-            Copy the token for {revealed.name} now. It will not be shown
-            again.
+            Copy the token for {revealed.name} now. It will not be shown again.
           </p>
           <code className="block break-all rounded-md bg-background px-3 py-2 text-foreground">
             {revealed.secret}

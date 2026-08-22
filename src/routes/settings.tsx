@@ -127,7 +127,11 @@ function SettingsRoute() {
       {query.isError ? (
         <Button
           variant="outline"
-          onClick={() => void queryClient.invalidateQueries({ queryKey: personalTokenQueryKey(context.user.id, workspaceId) })}
+          onClick={() =>
+            void queryClient.invalidateQueries({
+              queryKey: personalTokenQueryKey(context.user.id, workspaceId),
+            })
+          }
         >
           Retry
         </Button>

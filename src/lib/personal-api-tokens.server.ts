@@ -94,8 +94,7 @@ export const listPersonalTokensFn = createServerFn({ method: 'POST' })
     const rows = await credentials.listCredentials(db, data.workspaceId)
     const mine = rows.filter(
       (row) =>
-        row.kind === 'personal' &&
-        row.createdByUserId === context.user.id,
+        row.kind === 'personal' && row.createdByUserId === context.user.id,
     )
     return mine.map(toWire)
   })
@@ -111,24 +110,29 @@ export const createPersonalTokenFn = createServerFn({ method: 'POST' })
   )
   .handler(async ({ data }): Promise<CreatedPersonalTokenWire> => {
     const { db, credentials, context } = await loadSession(data.workspaceId)
-    const created = await credentials.createCredential(db, {
-      workspaceId: data.workspaceId,
-      createdByUserId: context.user.id,
-      name: data.name,
-      scopes: data.scopes,
-      expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
-      kind: 'personal',
-    })
-    await emitCredentialAuditEvent(db, {
-      actorUserId: context.user.id,
-      workspaceId: data.workspaceId,
-      credentialId: created.id,
-      operation: 'create',
-      payload: {
-        name: created.name,
-        displayPrefix: created.displayPrefix,
-        kind: created.kind,
-      },
+    // The mutation and its activity event commit together: a token must
+    // never exist without its audit trail.
+    const created = await db.transaction(async (tx) => {
+      const minted = await credentials.createCredential(tx, {
+        workspaceId: data.workspaceId,
+        createdByUserId: context.user.id,
+        name: data.name,
+        scopes: data.scopes,
+        expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
+        kind: 'personal',
+      })
+      await emitCredentialAuditEvent(tx, {
+        actorUserId: context.user.id,
+        workspaceId: data.workspaceId,
+        credentialId: minted.id,
+        operation: 'create',
+        payload: {
+          name: minted.name,
+          displayPrefix: minted.displayPrefix,
+          kind: minted.kind,
+        },
+      })
+      return minted
     })
     return {
       id: created.id,
@@ -151,17 +155,19 @@ export const revokePersonalTokenFn = createServerFn({ method: 'POST' })
         row.createdByUserId === context.user.id,
     )
     if (!target) throw new Error('Token not found.')
-    await credentials.revokeCredential(db, {
-      workspaceId: data.workspaceId,
-      credentialId: target.id,
-      actorUserId: context.user.id,
-    })
-    await emitCredentialAuditEvent(db, {
-      actorUserId: context.user.id,
-      workspaceId: data.workspaceId,
-      credentialId: target.id,
-      operation: 'revoke',
-      payload: {},
+    await db.transaction(async (tx) => {
+      await credentials.revokeCredential(tx, {
+        workspaceId: data.workspaceId,
+        credentialId: target.id,
+        actorUserId: context.user.id,
+      })
+      await emitCredentialAuditEvent(tx, {
+        actorUserId: context.user.id,
+        workspaceId: data.workspaceId,
+        credentialId: target.id,
+        operation: 'revoke',
+        payload: {},
+      })
     })
     return { ok: true as const }
   })
@@ -178,31 +184,34 @@ export const rotatePersonalTokenFn = createServerFn({ method: 'POST' })
         row.createdByUserId === context.user.id,
     )
     if (!target) throw new Error('Token not found.')
-    const created = await credentials.rotateCredential(db, {
-      workspaceId: data.workspaceId,
-      credentialId: target.id,
-      createdByUserId: context.user.id,
-    })
-    await emitCredentialAuditEvent(db, {
-      actorUserId: context.user.id,
-      workspaceId: data.workspaceId,
-      credentialId: target.id,
-      operation: 'revoke',
-      payload: {
-        rotatedToCredentialId: created.id,
-      },
-    })
-    await emitCredentialAuditEvent(db, {
-      actorUserId: context.user.id,
-      workspaceId: data.workspaceId,
-      credentialId: created.id,
-      operation: 'create',
-      payload: {
-        name: created.name,
-        displayPrefix: created.displayPrefix,
-        kind: created.kind,
-        rotatedFromCredentialId: target.id,
-      },
+    const created = await db.transaction(async (tx) => {
+      const rotated = await credentials.rotateCredential(tx, {
+        workspaceId: data.workspaceId,
+        credentialId: target.id,
+        createdByUserId: context.user.id,
+      })
+      await emitCredentialAuditEvent(tx, {
+        actorUserId: context.user.id,
+        workspaceId: data.workspaceId,
+        credentialId: target.id,
+        operation: 'revoke',
+        payload: {
+          rotatedToCredentialId: rotated.id,
+        },
+      })
+      await emitCredentialAuditEvent(tx, {
+        actorUserId: context.user.id,
+        workspaceId: data.workspaceId,
+        credentialId: rotated.id,
+        operation: 'create',
+        payload: {
+          name: rotated.name,
+          displayPrefix: rotated.displayPrefix,
+          kind: rotated.kind,
+          rotatedFromCredentialId: target.id,
+        },
+      })
+      return rotated
     })
     return {
       id: created.id,

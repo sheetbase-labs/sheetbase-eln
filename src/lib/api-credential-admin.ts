@@ -110,9 +110,7 @@ export const listApiCredentialsFn = createServerFn({ method: 'POST' })
     const rows = await credentials.listCredentials(db, data.workspaceId)
     // Administration manages the workspace service identity; personal tokens
     // are the owning member's own surface (src/lib/personal-api-tokens.server.ts).
-    return rows
-      .filter((row) => row.kind === 'service')
-      .map(toWire)
+    return rows.filter((row) => row.kind === 'service').map(toWire)
   })
 
 export const createApiCredentialFn = createServerFn({ method: 'POST' })
@@ -126,23 +124,28 @@ export const createApiCredentialFn = createServerFn({ method: 'POST' })
   )
   .handler(async ({ data }): Promise<CreatedCredentialWire> => {
     const { db, credentials, context } = await requireOwner(data.workspaceId)
-    const created = await credentials.createCredential(db, {
-      workspaceId: data.workspaceId,
-      createdByUserId: context.user.id,
-      name: data.name,
-      scopes: data.scopes,
-      expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
-    })
-    await emitCredentialAuditEvent(db, {
-      actorUserId: context.user.id,
-      workspaceId: data.workspaceId,
-      credentialId: created.id,
-      operation: 'create',
-      payload: {
-        name: created.name,
-        displayPrefix: created.displayPrefix,
-        kind: created.kind,
-      },
+    // The mutation and its activity event commit together: a credential must
+    // never exist without its audit trail.
+    const created = await db.transaction(async (tx) => {
+      const minted = await credentials.createCredential(tx, {
+        workspaceId: data.workspaceId,
+        createdByUserId: context.user.id,
+        name: data.name,
+        scopes: data.scopes,
+        expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
+      })
+      await emitCredentialAuditEvent(tx, {
+        actorUserId: context.user.id,
+        workspaceId: data.workspaceId,
+        credentialId: minted.id,
+        operation: 'create',
+        payload: {
+          name: minted.name,
+          displayPrefix: minted.displayPrefix,
+          kind: minted.kind,
+        },
+      })
+      return minted
     })
     return {
       id: created.id,
@@ -157,17 +160,19 @@ export const revokeApiCredentialFn = createServerFn({ method: 'POST' })
   .validator((input: { workspaceId: string; credentialId: string }) => input)
   .handler(async ({ data }) => {
     const { db, credentials, context } = await requireOwner(data.workspaceId)
-    await credentials.revokeCredential(db, {
-      workspaceId: data.workspaceId,
-      credentialId: data.credentialId,
-      actorUserId: context.user.id,
-    })
-    await emitCredentialAuditEvent(db, {
-      actorUserId: context.user.id,
-      workspaceId: data.workspaceId,
-      credentialId: data.credentialId,
-      operation: 'revoke',
-      payload: {},
+    await db.transaction(async (tx) => {
+      await credentials.revokeCredential(tx, {
+        workspaceId: data.workspaceId,
+        credentialId: data.credentialId,
+        actorUserId: context.user.id,
+      })
+      await emitCredentialAuditEvent(tx, {
+        actorUserId: context.user.id,
+        workspaceId: data.workspaceId,
+        credentialId: data.credentialId,
+        operation: 'revoke',
+        payload: {},
+      })
     })
     return { ok: true as const }
   })
@@ -176,31 +181,34 @@ export const rotateApiCredentialFn = createServerFn({ method: 'POST' })
   .validator((input: { workspaceId: string; credentialId: string }) => input)
   .handler(async ({ data }): Promise<CreatedCredentialWire> => {
     const { db, credentials, context } = await requireOwner(data.workspaceId)
-    const created = await credentials.rotateCredential(db, {
-      workspaceId: data.workspaceId,
-      credentialId: data.credentialId,
-      createdByUserId: context.user.id,
-    })
-    await emitCredentialAuditEvent(db, {
-      actorUserId: context.user.id,
-      workspaceId: data.workspaceId,
-      credentialId: data.credentialId,
-      operation: 'revoke',
-      payload: {
-        rotatedToCredentialId: created.id,
-      },
-    })
-    await emitCredentialAuditEvent(db, {
-      actorUserId: context.user.id,
-      workspaceId: data.workspaceId,
-      credentialId: created.id,
-      operation: 'create',
-      payload: {
-        name: created.name,
-        displayPrefix: created.displayPrefix,
-        kind: created.kind,
-        rotatedFromCredentialId: data.credentialId,
-      },
+    const created = await db.transaction(async (tx) => {
+      const rotated = await credentials.rotateCredential(tx, {
+        workspaceId: data.workspaceId,
+        credentialId: data.credentialId,
+        createdByUserId: context.user.id,
+      })
+      await emitCredentialAuditEvent(tx, {
+        actorUserId: context.user.id,
+        workspaceId: data.workspaceId,
+        credentialId: data.credentialId,
+        operation: 'revoke',
+        payload: {
+          rotatedToCredentialId: rotated.id,
+        },
+      })
+      await emitCredentialAuditEvent(tx, {
+        actorUserId: context.user.id,
+        workspaceId: data.workspaceId,
+        credentialId: rotated.id,
+        operation: 'create',
+        payload: {
+          name: rotated.name,
+          displayPrefix: rotated.displayPrefix,
+          kind: rotated.kind,
+          rotatedFromCredentialId: data.credentialId,
+        },
+      })
+      return rotated
     })
     return {
       id: created.id,

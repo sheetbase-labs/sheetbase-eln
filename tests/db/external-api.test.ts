@@ -11,6 +11,7 @@
  * enforcement are tested against the database, not stubbed.
  */
 import { drizzle } from 'drizzle-orm/node-postgres'
+import { and, eq } from 'drizzle-orm'
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -18,16 +19,15 @@ import * as schema from '#/db/schema'
 import {
   createCredential,
   mintApiClientToken,
+  mintPersonalApiToken,
   revokeCredential,
 } from '#/lib/api-credentials'
-import {
-  ExternalTokenError,
-  resolveExternalToken,
-} from '#/lib/external-token'
+import { ExternalTokenError, resolveExternalToken } from '#/lib/external-token'
 import type { ProxyPath } from '#/lib/postgrest-path'
 import { migratorUrl, prepareTestDatabase } from './helpers'
 
-const SECRET = process.env.PGRST_JWT_SECRET ?? 'test-jwt-secret-at-least-32-chars!!'
+const SECRET =
+  process.env.PGRST_JWT_SECRET ?? 'test-jwt-secret-at-least-32-chars!!'
 
 let migrator: Client
 let asRole: (role: 'authenticator') => Promise<Client>
@@ -168,7 +168,13 @@ describe('resolveExternalToken (revocation + scope at use time)', () => {
       credentialId: cred.id,
       scopes: ['projects:read'],
     })
-    const result = await resolveExternalToken(db, token, SECRET, 'GET', readPath)
+    const result = await resolveExternalToken(
+      db,
+      token,
+      SECRET,
+      'GET',
+      readPath,
+    )
     expect(result.workspaceId).toBe(WS_A)
   })
 
@@ -221,6 +227,7 @@ describe('resolveExternalToken (revocation + scope at use time)', () => {
     await revokeCredential(db, {
       workspaceId: WS_A,
       credentialId: cred.id,
+      actorUserId: OWNER_A,
     })
     await expect(
       resolveExternalToken(db, token, SECRET, 'GET', readPath),
@@ -338,7 +345,9 @@ describe('API-07 Core allowlist', () => {
         ],
       ],
     )
-    const byName = Object.fromEntries(rows.map((row) => [row.proname, row.api_client]))
+    const byName = Object.fromEntries(
+      rows.map((row) => [row.proname, row.api_client]),
+    )
     expect(byName).toMatchObject({
       query_dataset_rows: true,
       commit_dataset_row_batch: true,
@@ -671,5 +680,143 @@ describe('API-07 api_client data-plane writes', () => {
     expect(updated.custom_fields).toMatchObject({ lot: 'A1' })
     expect(updated.updated_by_user_id).toBeNull()
     expect(updated.updated_by_credential_id).toBe(cred.id)
+  })
+})
+
+describe('resolveExternalToken (personal tokens)', () => {
+  async function personalCredential(name: string) {
+    return await createCredential(db, {
+      workspaceId: WS_A,
+      createdByUserId: OWNER_A,
+      name,
+      scopes: ['projects:read'],
+      kind: 'personal',
+    })
+  }
+
+  it('resolves a personal token whose sub is the creating member', async () => {
+    const cred = await personalCredential('member reader')
+    const token = await mintPersonalApiToken(SECRET, {
+      workspaceId: WS_A,
+      credentialId: cred.id,
+      userId: OWNER_A,
+      scopes: ['projects:read'],
+    })
+    const result = await resolveExternalToken(
+      db,
+      token,
+      SECRET,
+      'GET',
+      readPath,
+    )
+    expect(result.workspaceId).toBe(WS_A)
+  })
+
+  it('rejects a personal token whose sub is not the credential creator', async () => {
+    const cred = await personalCredential('wrong sub')
+    const token = await mintPersonalApiToken(SECRET, {
+      workspaceId: WS_A,
+      credentialId: cred.id,
+      // A real user, but not the member the token acts as.
+      userId: OWNER_B,
+      scopes: ['projects:read'],
+    })
+    await expect(
+      resolveExternalToken(db, token, SECRET, 'GET', readPath),
+    ).rejects.toMatchObject({ code: 'invalid_token' })
+  })
+
+  it('rejects personal claims presented against a service credential row', async () => {
+    const cred = await createCredential(db, {
+      workspaceId: WS_A,
+      createdByUserId: OWNER_A,
+      name: 'service row',
+      scopes: ['projects:read'],
+    })
+    const token = await mintPersonalApiToken(SECRET, {
+      workspaceId: WS_A,
+      credentialId: cred.id,
+      userId: OWNER_A,
+      scopes: ['projects:read'],
+    })
+    await expect(
+      resolveExternalToken(db, token, SECRET, 'GET', readPath),
+    ).rejects.toMatchObject({ code: 'invalid_token' })
+  })
+
+  it('rejects api_client claims presented against a personal credential row', async () => {
+    const cred = await personalCredential('personal row')
+    const token = await mintApiClientToken(SECRET, {
+      workspaceId: WS_A,
+      credentialId: cred.id,
+      scopes: ['projects:read'],
+    })
+    await expect(
+      resolveExternalToken(db, token, SECRET, 'GET', readPath),
+    ).rejects.toMatchObject({ code: 'invalid_token' })
+  })
+
+  it('rejects an expired credential at use time even with a valid token', async () => {
+    const cred = await createCredential(db, {
+      workspaceId: WS_A,
+      createdByUserId: OWNER_A,
+      name: 'expires at use',
+      scopes: ['projects:read'],
+      expiresAt: new Date(Date.now() + 60_000),
+    })
+    await db
+      .update(schema.apiCredentials)
+      .set({ expiresAt: new Date(Date.now() - 1000) })
+      .where(eq(schema.apiCredentials.id, cred.id))
+    const token = await mintApiClientToken(SECRET, {
+      workspaceId: WS_A,
+      credentialId: cred.id,
+      scopes: ['projects:read'],
+    })
+    await expect(
+      resolveExternalToken(db, token, SECRET, 'GET', readPath),
+    ).rejects.toMatchObject({ code: 'revoked' })
+  })
+
+  it('rejects a personal token while the membership is suspended', async () => {
+    const cred = await personalCredential('suspend at use')
+    const token = await mintPersonalApiToken(SECRET, {
+      workspaceId: WS_A,
+      credentialId: cred.id,
+      userId: OWNER_A,
+      scopes: ['projects:read'],
+    })
+
+    const suspend = () =>
+      db
+        .update(schema.workspaceMemberships)
+        .set({ suspendedAt: new Date() })
+        .where(
+          and(
+            eq(schema.workspaceMemberships.userId, OWNER_A),
+            eq(schema.workspaceMemberships.workspaceId, WS_A),
+          ),
+        )
+    const restore = () =>
+      db
+        .update(schema.workspaceMemberships)
+        .set({ suspendedAt: null })
+        .where(
+          and(
+            eq(schema.workspaceMemberships.userId, OWNER_A),
+            eq(schema.workspaceMemberships.workspaceId, WS_A),
+          ),
+        )
+
+    try {
+      await suspend()
+      await expect(
+        resolveExternalToken(db, token, SECRET, 'GET', readPath),
+      ).rejects.toMatchObject({ code: 'revoked' })
+    } finally {
+      await restore()
+    }
+
+    await resolveExternalToken(db, token, SECRET, 'GET', readPath)
   })
 })

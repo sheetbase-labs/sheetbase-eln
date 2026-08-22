@@ -65,20 +65,20 @@ The original prompt listed personal tokens, service accounts, workspace binding,
 
 API-02 ships **two** credential types: an owner-minted workspace-bound **service identity** and a member-scoped **personal token** that acts as its creator under the same canonical scopes and fail-closed allowlist. It does not invent a second permission model. Core RPC allowlist cut-over is **API-07**.
 
-| Requirement                      | In API-02? | Notes                                                                                                                           |
-| -------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Workspace binding                | Yes        | `workspace_id` on the row and in the JWT                                                                                        |
-| Capability scopes                | Yes        | Canonical API-01 vocabulary only; Core RPCs enforced in **API-07**                                                              |
-| Expiry                           | Yes        | Optional `expires_at` on the credential; JWT access-token TTL remains 300s                                                      |
-| Rotation                         | Yes        | Copies scopes and expiry exactly; never adds a scope                                                                            |
-| Revocation                       | Yes        | Immediate; use-time check on the bearer token                                                                                   |
-| Last-used metadata               | Yes        | Stamped on exchange; shown in Administration                                                                                    |
-| Safe secret handling             | Yes        | Shown once; salted hash at rest; prefix id; exchange rate-limit                                                                 |
-| Request attribution              | Yes        | JWT `credential_id`; not a new identity table                                                                                   |
-| Service identity                 | Yes        | The credential row **is** the service principal                                                                                 |
-| Personal tokens                  | Yes        | User-scoped credentials that act as the creating member under the same allowlist and scopes                                      |
-| Credential audit log             | Yes        | Create/rotate/revoke emit lifecycle events to workspace `change_events` (entity type `api_credential`)                           |
-| Named service-account principals | **Queued** | Requires an ADR; conflicts with current single-principal model until product need exists                                         |
+| Requirement                      | In API-02? | Notes                                                                                                  |
+| -------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------ |
+| Workspace binding                | Yes        | `workspace_id` on the row and in the JWT                                                               |
+| Capability scopes                | Yes        | Canonical API-01 vocabulary only; Core RPCs enforced in **API-07**                                     |
+| Expiry                           | Yes        | Optional `expires_at` on the credential; JWT access-token TTL remains 300s                             |
+| Rotation                         | Yes        | Copies scopes and expiry exactly; never adds a scope                                                   |
+| Revocation                       | Yes        | Immediate; use-time check on the bearer token                                                          |
+| Last-used metadata               | Yes        | Stamped on exchange; shown in Administration                                                           |
+| Safe secret handling             | Yes        | Shown once; salted hash at rest; prefix id; exchange rate-limit                                        |
+| Request attribution              | Yes        | JWT `credential_id`; not a new identity table                                                          |
+| Service identity                 | Yes        | The credential row **is** the service principal                                                        |
+| Personal tokens                  | Yes        | User-scoped credentials that act as the creating member under the same allowlist and scopes            |
+| Credential audit log             | Yes        | Create/rotate/revoke emit lifecycle events to workspace `change_events` (entity type `api_credential`) |
+| Named service-account principals | **Queued** | Requires an ADR; conflicts with current single-principal model until product need exists               |
 
 **Exit (this epic):** external automation authenticates with a workspace-bound secret; personal tokens act as their creating member; credential lifecycle events are visible in the workspace activity stream.
 

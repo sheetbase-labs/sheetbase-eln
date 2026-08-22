@@ -5,11 +5,12 @@
  * test asserts the exchange logic, not JWT signing (covered by AUTH-003).
  */
 import { drizzle } from 'drizzle-orm/node-postgres'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import type { Client } from 'pg'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
 import * as schema from '#/db/schema'
+import { emitCredentialAuditEvent } from '#/lib/credential-audit'
 import {
   createCredential,
   exchangeCredential,
@@ -32,6 +33,7 @@ let db: ReturnType<typeof drizzle<typeof schema>>
 const WS = '00000000-0000-4000-8000-00000000050a'
 const OWNER = 'cred-owner'
 const MEMBER = 'cred-member'
+const PERSONAL = 'cred-personal'
 
 const mintDeps: ExchangeDeps = {
   mintToken: async (input) =>
@@ -59,6 +61,12 @@ beforeAll(async () => {
     email: 'cred-member@sheetbase.test',
     emailVerified: true,
   })
+  await db.insert(schema.user).values({
+    id: PERSONAL,
+    name: 'Cred Personal',
+    email: 'cred-personal@sheetbase.test',
+    emailVerified: true,
+  })
   await db.insert(schema.workspaceMemberships).values([
     {
       workspaceId: WS,
@@ -68,6 +76,11 @@ beforeAll(async () => {
     {
       workspaceId: WS,
       userId: MEMBER,
+      role: 'member',
+    },
+    {
+      workspaceId: WS,
+      userId: PERSONAL,
       role: 'member',
     },
   ])
@@ -236,6 +249,7 @@ describe('revokeCredential', () => {
     await revokeCredential(db, {
       workspaceId: WS,
       credentialId: created.id,
+      actorUserId: OWNER,
     })
 
     await expect(
@@ -266,6 +280,7 @@ describe('revokeCredential', () => {
     await revokeCredential(db, {
       workspaceId: '00000000-0000-4000-8000-00000000050b',
       credentialId: created.id,
+      actorUserId: OWNER,
     })
 
     // The credential still works.
@@ -389,5 +404,260 @@ describe('removed scientific scopes', () => {
         createdByUserId: OWNER,
       }),
     ).rejects.toThrow()
+  })
+})
+
+describe('personal tokens', () => {
+  let captured: Parameters<ExchangeDeps['mintToken']>[0] | null
+
+  const captureDeps: ExchangeDeps = {
+    mintToken: async (input) => {
+      captured = input
+      return 'minted'
+    },
+  }
+
+  beforeEach(() => {
+    captured = null
+  })
+
+  function suspendMembership(userId: string) {
+    return db
+      .update(schema.workspaceMemberships)
+      .set({ suspendedAt: new Date() })
+      .where(
+        and(
+          eq(schema.workspaceMemberships.userId, userId),
+          eq(schema.workspaceMemberships.workspaceId, WS),
+        ),
+      )
+  }
+
+  function restoreMembership(userId: string) {
+    return db
+      .update(schema.workspaceMemberships)
+      .set({ suspendedAt: null })
+      .where(
+        and(
+          eq(schema.workspaceMemberships.userId, userId),
+          eq(schema.workspaceMemberships.workspaceId, WS),
+        ),
+      )
+  }
+
+  it('exchanges as its creating member', async () => {
+    const created = await createCredential(db, {
+      workspaceId: WS,
+      createdByUserId: PERSONAL,
+      name: 'my token',
+      scopes: ['projects:read'],
+      kind: 'personal',
+    })
+
+    await exchangeCredential(db, created.secret, ['projects:read'], captureDeps)
+
+    expect(captured).toMatchObject({
+      kind: 'personal',
+      userId: PERSONAL,
+      workspaceId: WS,
+      scopes: ['projects:read'],
+    })
+  })
+
+  it('stops exchanging while the membership is suspended, resumes after', async () => {
+    const created = await createCredential(db, {
+      workspaceId: WS,
+      createdByUserId: PERSONAL,
+      name: 'suspend me',
+      scopes: ['projects:read'],
+      kind: 'personal',
+    })
+
+    try {
+      await suspendMembership(PERSONAL)
+      await expect(
+        exchangeCredential(db, created.secret, ['projects:read'], mintDeps),
+      ).rejects.toMatchObject({ code: 'revoked' })
+    } finally {
+      await restoreMembership(PERSONAL)
+    }
+
+    await exchangeCredential(db, created.secret, ['projects:read'], mintDeps)
+  })
+
+  it('keeps a service credential usable when its creator is suspended', async () => {
+    const created = await createCredential(db, {
+      workspaceId: WS,
+      createdByUserId: PERSONAL,
+      name: 'service stays',
+      scopes: ['projects:read'],
+    })
+
+    try {
+      await suspendMembership(PERSONAL)
+      await exchangeCredential(db, created.secret, ['projects:read'], mintDeps)
+    } finally {
+      await restoreMembership(PERSONAL)
+    }
+  })
+
+  it('rotation keeps the personal kind and member binding', async () => {
+    const original = await createCredential(db, {
+      workspaceId: WS,
+      createdByUserId: PERSONAL,
+      name: 'rotating personal',
+      scopes: ['projects:read'],
+      kind: 'personal',
+    })
+
+    const rotated = await rotateCredential(db, {
+      workspaceId: WS,
+      credentialId: original.id,
+      createdByUserId: PERSONAL,
+    })
+
+    expect(rotated.kind).toBe('personal')
+    await expect(
+      exchangeCredential(db, original.secret, ['projects:read'], mintDeps),
+    ).rejects.toMatchObject({ code: 'revoked' })
+
+    await exchangeCredential(db, rotated.secret, ['projects:read'], captureDeps)
+    expect(captured).toMatchObject({ kind: 'personal', userId: PERSONAL })
+  })
+})
+
+describe('credential audit events', () => {
+  function eventsFor(credentialId: string) {
+    return db
+      .select()
+      .from(schema.changeEvents)
+      .where(eq(schema.changeEvents.entityUuid, credentialId))
+  }
+
+  it('records create inside the mutation transaction with display metadata only', async () => {
+    const created = await db.transaction(async (tx) => {
+      const created = await createCredential(tx, {
+        workspaceId: WS,
+        createdByUserId: OWNER,
+        name: 'audited create',
+        scopes: ['projects:read'],
+        kind: 'personal',
+      })
+      await emitCredentialAuditEvent(tx, {
+        actorUserId: OWNER,
+        workspaceId: WS,
+        credentialId: created.id,
+        operation: 'create',
+        payload: {
+          name: created.name,
+          displayPrefix: created.displayPrefix,
+          kind: 'personal',
+        },
+      })
+      return created
+    })
+
+    const rows = await eventsFor(created.id)
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({
+      entityType: 'api_credential',
+      operation: 'create',
+      actorUserId: OWNER,
+      workspaceId: WS,
+    })
+    expect(rows[0].payload).toEqual({
+      name: 'audited create',
+      displayPrefix: created.displayPrefix,
+      kind: 'personal',
+    })
+    expect(JSON.stringify(rows[0].payload)).not.toContain('secret')
+  })
+
+  it('rolls the audit event back with a failed mutation transaction', async () => {
+    let credentialId: string | null = null
+
+    await expect(
+      db.transaction(async (tx) => {
+        const created = await createCredential(tx, {
+          workspaceId: WS,
+          createdByUserId: OWNER,
+          name: 'never commits',
+          scopes: ['projects:read'],
+        })
+        credentialId = created.id
+        await emitCredentialAuditEvent(tx, {
+          actorUserId: OWNER,
+          workspaceId: WS,
+          credentialId: created.id,
+          operation: 'create',
+          payload: { name: created.name },
+        })
+        throw new Error('rollback after emit')
+      }),
+    ).rejects.toThrow('rollback after emit')
+
+    expect(credentialId!).toBeTruthy()
+    // Neither the credential nor its audit event exists: they rolled back
+    // together.
+    expect(await eventsFor(credentialId!)).toHaveLength(0)
+    const row = await db.query.apiCredentials.findFirst({
+      where: eq(schema.apiCredentials.id, credentialId!),
+    })
+    expect(row).toBeUndefined()
+  })
+
+  it('records rotation as revoke(old) + create(new) with rotation linkage', async () => {
+    const original = await createCredential(db, {
+      workspaceId: WS,
+      createdByUserId: OWNER,
+      name: 'audited rotation',
+      scopes: ['projects:read'],
+    })
+
+    const rotated = await db.transaction(async (tx) => {
+      const rotated = await rotateCredential(tx, {
+        workspaceId: WS,
+        credentialId: original.id,
+        createdByUserId: OWNER,
+      })
+      await emitCredentialAuditEvent(tx, {
+        actorUserId: OWNER,
+        workspaceId: WS,
+        credentialId: original.id,
+        operation: 'revoke',
+        payload: { rotatedToCredentialId: rotated.id },
+      })
+      await emitCredentialAuditEvent(tx, {
+        actorUserId: OWNER,
+        workspaceId: WS,
+        credentialId: rotated.id,
+        operation: 'create',
+        payload: {
+          name: rotated.name,
+          displayPrefix: rotated.displayPrefix,
+          kind: rotated.kind,
+          rotatedFromCredentialId: original.id,
+        },
+      })
+      return rotated
+    })
+
+    const oldRows = await eventsFor(original.id)
+    const newRows = await eventsFor(rotated.id)
+    expect(oldRows).toHaveLength(1)
+    expect(newRows).toHaveLength(1)
+    expect(oldRows[0]).toMatchObject({
+      entityType: 'api_credential',
+      operation: 'revoke',
+    })
+    expect(oldRows[0].payload).toEqual({
+      rotatedToCredentialId: rotated.id,
+    })
+    expect(newRows[0].payload).toMatchObject({
+      rotatedFromCredentialId: original.id,
+    })
+
+    // The revoke(old) event precedes create(new) in the workspace stream.
+    expect(oldRows[0].sequence < newRows[0].sequence).toBe(true)
   })
 })

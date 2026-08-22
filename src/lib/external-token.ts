@@ -293,10 +293,7 @@ export async function resolveExternalToken(
   // This mirrors the exchange-time check, so revoking a membership stops the
   // token at use time even against a still-unexpired JWT.
   if (kind === 'personal') {
-    if (
-      claims.role !== 'authenticated' ||
-      claims.sub !== row.createdByUserId
-    ) {
+    if (claims.role !== 'authenticated' || claims.sub !== row.createdByUserId) {
       throw new ExternalTokenError('invalid_token', 'Invalid bearer token.')
     }
     const membership = await db.query.workspaceMemberships.findFirst({

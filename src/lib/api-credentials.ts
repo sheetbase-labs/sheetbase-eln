@@ -240,8 +240,9 @@ export async function revokeCredential(
  * Issues a replacement credential with the same scopes and expiry, then
  * revokes the previous one. Rotation never adds, drops, or substitutes a
  * scope or kind. If the stored scopes are not a non-empty canonical set, it
- * fails. The activity stream records create(new) + revoke(old) with the
- * rotation linkage inside the same transaction.
+ * fails. Callers pair this with create(new) / revoke(old) activity events;
+ * emit them on the transaction running this call so the rotation cannot
+ * land without its audit trail.
  */
 export async function rotateCredential(
   db: Db,
@@ -461,8 +462,7 @@ export async function exchangeCredential(
     credentialId: row.id,
     scopes: requested,
     kind: row.kind as CredentialKind,
-    userId:
-      row.kind === 'personal' ? row.createdByUserId : undefined,
+    userId: row.kind === 'personal' ? row.createdByUserId : undefined,
   })
 }
 

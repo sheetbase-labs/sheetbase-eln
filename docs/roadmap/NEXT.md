@@ -18,17 +18,17 @@ Delivery priority uses only **medium** and **low**. Nothing is queued as high.
 
 The roadmap supports **parallel streams**. Agents take **one assigned stream/task**. Ready does not mean “do every Ready row”. **Do not start a Ready stream until it is assigned.**
 
-| Stream | Active task | Model | Status                                                          |
-| ------ | ----------- | ----- | --------------------------------------------------------------- |
-| PC     | —           | —     | PC-06 is ready to merge as #55; do not start a new PC task yet. |
+| Stream | Active task | Model | Status                                                                                                                                       |
+| ------ | ----------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| PC     | —           | —     | PC-06 is ready to merge as #55; do not start a new PC task yet.                                                                              |
 | API    | —           | —     | API-01/02/03/07 complete on `main`; API-02 remainder (personal tokens + audit events) on `feat/api-02-completion`; do not start API-04/05/06 |
-| DATA   | —           | —     | DATA-01 complete; DATA-02 remains later                         |
-| GOV    | —           | —     | GOV-01 complete; GOV-02 requires an ADR                         |
-| PLAT   | —           | —     | Headers slice complete; remaining PLAT-03 queued                |
-| COLLAB | —           | —     | Planned                                                         |
-| SCI    | —           | —     | Planned                                                         |
-| INT    | —           | —     | Planned                                                         |
-| AUTO   | —           | —     | Planned later                                                   |
+| DATA   | —           | —     | DATA-01 complete; DATA-02 remains later                                                                                                      |
+| GOV    | —           | —     | GOV-01 complete; GOV-02 requires an ADR                                                                                                      |
+| PLAT   | —           | —     | Headers slice complete; remaining PLAT-03 queued                                                                                             |
+| COLLAB | —           | —     | Planned                                                                                                                                      |
+| SCI    | —           | —     | Planned                                                                                                                                      |
+| INT    | —           | —     | Planned                                                                                                                                      |
+| AUTO   | —           | —     | Planned later                                                                                                                                |
 
 ### Immediate execution shape
 

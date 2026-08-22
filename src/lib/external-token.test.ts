@@ -1,8 +1,9 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
 
-import { SignJWT } from 'jose'
+import { decodeJwt, SignJWT } from 'jose'
 
+import { mintPersonalApiToken } from './api-credentials'
 import {
   ExternalTokenError,
   hasScope,
@@ -311,5 +312,92 @@ describe('verifyApiClientToken', () => {
     await expect(verifyApiClientToken(token, SECRET)).rejects.toBeInstanceOf(
       ExternalTokenError,
     )
+  })
+
+  it('accepts a well-formed personal token and returns member claims', async () => {
+    const token = await mint({
+      workspace_id: 'ws-1',
+      credential_id: 'cred-1',
+      scopes: ['projects:read'],
+      sub: 'user-1',
+      kind: 'personal',
+      role: 'authenticated',
+    })
+    const claims = await verifyApiClientToken(token, SECRET)
+    expect(claims).toEqual({
+      workspace_id: 'ws-1',
+      credential_id: 'cred-1',
+      scopes: ['projects:read'],
+      sub: 'user-1',
+      kind: 'personal',
+      role: 'authenticated',
+    })
+  })
+
+  it('rejects an authenticated token without the personal kind marker', async () => {
+    // Browser-session JWT shape: role authenticated with a sub but no kind.
+    const token = await mint({
+      workspace_id: 'ws-1',
+      credential_id: 'cred-1',
+      scopes: ['projects:read'],
+      sub: 'user-1',
+      role: 'authenticated',
+    })
+    await expect(verifyApiClientToken(token, SECRET)).rejects.toBeInstanceOf(
+      ExternalTokenError,
+    )
+  })
+
+  it('rejects a personal-kind token without a string sub', async () => {
+    for (const sub of [undefined, 42]) {
+      const claims: Record<string, unknown> = {
+        workspace_id: 'ws-1',
+        credential_id: 'cred-1',
+        scopes: ['projects:read'],
+        kind: 'personal',
+        role: 'authenticated',
+      }
+      if (sub !== undefined) claims.sub = sub
+      const token = await mint(claims)
+      await expect(verifyApiClientToken(token, SECRET)).rejects.toBeInstanceOf(
+        ExternalTokenError,
+      )
+    }
+  })
+})
+
+describe('mintPersonalApiToken', () => {
+  const input = {
+    workspaceId: 'ws-1',
+    credentialId: 'cred-1',
+    userId: 'user-1',
+    scopes: ['projects:read'],
+  } satisfies Parameters<typeof mintPersonalApiToken>[1]
+
+  it('round-trips personal claims through verifyApiClientToken', async () => {
+    const token = await mintPersonalApiToken(SECRET, input)
+    expect(await verifyApiClientToken(token, SECRET)).toEqual({
+      workspace_id: 'ws-1',
+      credential_id: 'cred-1',
+      scopes: ['projects:read'],
+      sub: 'user-1',
+      kind: 'personal',
+      role: 'authenticated',
+    })
+  })
+
+  it('defaults to a 300 second TTL and honours ttlSeconds', async () => {
+    const defaults = decodeJwt(await mintPersonalApiToken(SECRET, input))
+    expect((defaults.exp as number) - (defaults.iat as number)).toBe(300)
+
+    const custom = decodeJwt(
+      await mintPersonalApiToken(SECRET, { ...input, ttlSeconds: 60 }),
+    )
+    expect((custom.exp as number) - (custom.iat as number)).toBe(60)
+  })
+
+  it('carries no session_id so attestation-gated RPCs stay unreachable', async () => {
+    const claims = decodeJwt(await mintPersonalApiToken(SECRET, input))
+    expect(claims).not.toHaveProperty('session_id')
   })
 })

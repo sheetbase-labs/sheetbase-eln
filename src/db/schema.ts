@@ -209,6 +209,9 @@ export const apiCredentials = internal.table(
     workspaceId: uuid('workspace_id')
       .notNull()
       .references(() => workspaces.id, { onDelete: 'cascade' }),
+    // 'service' = workspace service identity (API-02); 'personal' =
+    // user-scoped token whose principal is the creating member.
+    kind: text('kind').notNull().default('service'),
     displayPrefix: text('display_prefix').notNull().unique(),
     secretHash: text('secret_hash').notNull(),
     name: text('name').notNull(),
@@ -232,6 +235,10 @@ export const apiCredentials = internal.table(
     check(
       'chk_api_credentials_scopes',
       sql`cardinality(${table.scopes}) > 0 AND ${table.scopes} <@ ARRAY['projects:read','projects:write','datasets:read','datasets:write','schema:read','schema:write','schema:publish','sheets:read','sheets:write','models:read','models:write','templates:read','templates:write','reviews:read','reviews:write','files:read','files:write']::text[]`,
+    ),
+    check(
+      'chk_api_credentials_kind',
+      sql`${table.kind} IN ('service', 'personal')`,
     ),
   ],
 )
@@ -3410,7 +3417,7 @@ export const changeEvents = api.table(
     // Per-workspace gapless sequence. (workspace_id, sequence) is unique and
     // is the SSE replay cursor.
     sequence: bigint('sequence', { mode: 'bigint' }).notNull(),
-    // project | folder | record | block | record_link
+    // project | folder | record | block | record_link | … | api_credential
     entityType: text('entity_type').notNull(),
     entityUuid: uuid('entity_uuid').notNull(),
     // create | update | move | delete | archive | restore | link | unlink

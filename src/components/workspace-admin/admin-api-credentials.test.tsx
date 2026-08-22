@@ -18,6 +18,7 @@ afterEach(cleanup)
 const sample: CredentialWire = {
   id: 'cred-1',
   workspaceId: 'ws-1',
+  kind: 'service',
   displayPrefix: 'abcd1234',
   name: 'CI pipeline',
   scopes: ['projects:read'],

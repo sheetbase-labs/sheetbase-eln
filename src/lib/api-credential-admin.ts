@@ -8,6 +8,7 @@
 import { createServerFn } from '@tanstack/react-start'
 
 import type { Scope } from '#/lib/api-credential-scopes'
+import { emitCredentialAuditEvent } from '#/lib/credential-audit'
 
 export { SCOPE_GROUPS, VALID_SCOPES } from '#/lib/api-credential-scopes'
 export type { Scope } from '#/lib/api-credential-scopes'
@@ -18,6 +19,7 @@ export const apiCredentialQueryKey = (workspaceId: string) =>
 export interface CredentialWire {
   id: string
   workspaceId: string
+  kind: 'service' | 'personal'
   displayPrefix: string
   name: string
   scopes: Scope[]
@@ -39,6 +41,7 @@ export interface CreatedCredentialWire {
 function toWire(row: {
   id: string
   workspaceId: string
+  kind: 'service' | 'personal'
   displayPrefix: string
   name: string
   scopes: Scope[]
@@ -51,6 +54,7 @@ function toWire(row: {
   return {
     id: row.id,
     workspaceId: row.workspaceId,
+    kind: row.kind,
     displayPrefix: row.displayPrefix,
     name: row.name,
     scopes: row.scopes,
@@ -104,7 +108,11 @@ export const listApiCredentialsFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     const { db, credentials } = await loadSession(data.workspaceId)
     const rows = await credentials.listCredentials(db, data.workspaceId)
-    return rows.map(toWire)
+    // Administration manages the workspace service identity; personal tokens
+    // are the owning member's own surface (src/lib/personal-api-tokens.server.ts).
+    return rows
+      .filter((row) => row.kind === 'service')
+      .map(toWire)
   })
 
 export const createApiCredentialFn = createServerFn({ method: 'POST' })
@@ -125,6 +133,17 @@ export const createApiCredentialFn = createServerFn({ method: 'POST' })
       scopes: data.scopes,
       expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
     })
+    await emitCredentialAuditEvent(db, {
+      actorUserId: context.user.id,
+      workspaceId: data.workspaceId,
+      credentialId: created.id,
+      operation: 'create',
+      payload: {
+        name: created.name,
+        displayPrefix: created.displayPrefix,
+        kind: created.kind,
+      },
+    })
     return {
       id: created.id,
       secret: created.secret,
@@ -137,10 +156,18 @@ export const createApiCredentialFn = createServerFn({ method: 'POST' })
 export const revokeApiCredentialFn = createServerFn({ method: 'POST' })
   .validator((input: { workspaceId: string; credentialId: string }) => input)
   .handler(async ({ data }) => {
-    const { db, credentials } = await requireOwner(data.workspaceId)
+    const { db, credentials, context } = await requireOwner(data.workspaceId)
     await credentials.revokeCredential(db, {
       workspaceId: data.workspaceId,
       credentialId: data.credentialId,
+      actorUserId: context.user.id,
+    })
+    await emitCredentialAuditEvent(db, {
+      actorUserId: context.user.id,
+      workspaceId: data.workspaceId,
+      credentialId: data.credentialId,
+      operation: 'revoke',
+      payload: {},
     })
     return { ok: true as const }
   })
@@ -153,6 +180,27 @@ export const rotateApiCredentialFn = createServerFn({ method: 'POST' })
       workspaceId: data.workspaceId,
       credentialId: data.credentialId,
       createdByUserId: context.user.id,
+    })
+    await emitCredentialAuditEvent(db, {
+      actorUserId: context.user.id,
+      workspaceId: data.workspaceId,
+      credentialId: data.credentialId,
+      operation: 'revoke',
+      payload: {
+        rotatedToCredentialId: created.id,
+      },
+    })
+    await emitCredentialAuditEvent(db, {
+      actorUserId: context.user.id,
+      workspaceId: data.workspaceId,
+      credentialId: created.id,
+      operation: 'create',
+      payload: {
+        name: created.name,
+        displayPrefix: created.displayPrefix,
+        kind: created.kind,
+        rotatedFromCredentialId: data.credentialId,
+      },
     })
     return {
       id: created.id,

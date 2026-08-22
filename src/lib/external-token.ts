@@ -19,21 +19,43 @@
 import { jwtVerify } from 'jose'
 
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 
 import type * as schema from '#/db/schema'
-import { apiCredentials } from '#/db/schema'
+import { apiCredentials, workspaceMemberships } from '#/db/schema'
 import type { ProxyPath } from '#/lib/postgrest-path'
 import type { Scope } from '#/lib/api-credentials'
 
 export type Db = NodePgDatabase<typeof schema>
 
+/**
+ * A service credential JWT: role `api_client`, no `sub`. RLS keys on the
+ * workspace claim; attribution lands on *_credential_id columns.
+ */
 export interface ApiClientClaims {
   workspace_id: string
   credential_id: string
   scopes: Scope[]
   role: 'api_client'
 }
+
+/**
+ * A personal token JWT: role `authenticated` with the creating member's real
+ * `sub`, so it inherits member RLS (including GOV-01 viewer read-only) and
+ * human attribution, under the same fail-closed allowlist and canonical
+ * scopes. Has no `session_id`, so attestation RPCs that require a live human
+ * session stay unusable.
+ */
+export interface PersonalClientClaims {
+  workspace_id: string
+  credential_id: string
+  scopes: Scope[]
+  sub: string
+  kind: 'personal'
+  role: 'authenticated'
+}
+
+export type ExternalClaims = ApiClientClaims | PersonalClientClaims
 
 export type ExternalTokenErrorCode =
   'invalid_token' | 'revoked' | 'insufficient_scope'
@@ -51,7 +73,7 @@ export class ExternalTokenError extends Error {
 export async function verifyApiClientToken(
   token: string,
   secret: string,
-): Promise<ApiClientClaims> {
+): Promise<ExternalClaims> {
   let payload: unknown
   try {
     const { payload: p } = await jwtVerify(
@@ -63,11 +85,7 @@ export async function verifyApiClientToken(
     throw new ExternalTokenError('invalid_token', 'Invalid bearer token.')
   }
 
-  if (
-    typeof payload !== 'object' ||
-    payload === null ||
-    (payload as { role?: unknown }).role !== 'api_client'
-  ) {
+  if (typeof payload !== 'object' || payload === null) {
     throw new ExternalTokenError('invalid_token', 'Invalid bearer token.')
   }
 
@@ -75,6 +93,7 @@ export async function verifyApiClientToken(
   const workspaceId = p.workspace_id
   const credentialId = p.credential_id
   const scopes = p.scopes
+  const role = p.role
 
   if (
     typeof workspaceId !== 'string' ||
@@ -85,12 +104,28 @@ export async function verifyApiClientToken(
     throw new ExternalTokenError('invalid_token', 'Invalid bearer token.')
   }
 
-  return {
+  const base = {
     workspace_id: workspaceId,
     credential_id: credentialId,
     scopes: scopes as Scope[],
-    role: 'api_client',
   }
+
+  // Service credential: role api_client, no user identity.
+  if (role === 'api_client') {
+    return { ...base, role: 'api_client' }
+  }
+
+  // Personal token: role authenticated with the creator's sub and a kind
+  // marker, so the proxy can tell it from a browser-session JWT.
+  if (
+    role === 'authenticated' &&
+    p.kind === 'personal' &&
+    typeof p.sub === 'string'
+  ) {
+    return { ...base, sub: p.sub, kind: 'personal', role: 'authenticated' }
+  }
+
+  throw new ExternalTokenError('invalid_token', 'Invalid bearer token.')
 }
 
 export interface TableAccess {
@@ -240,10 +275,43 @@ export async function resolveExternalToken(
     throw new ExternalTokenError('revoked', 'Credential has been revoked.')
   }
 
+  if (row.expiresAt && row.expiresAt.getTime() <= Date.now()) {
+    throw new ExternalTokenError('revoked', 'Credential has expired.')
+  }
+
   // The token is authoritative for workspace_id (the exchange minted it after
   // verifying the credential), but double-check it matches the credential's
   // workspace to defend against a misconfigured or tampered claim.
   if (row.workspaceId !== claims.workspace_id) {
+    throw new ExternalTokenError('invalid_token', 'Invalid bearer token.')
+  }
+
+  const kind = (row.kind ?? 'service') as 'service' | 'personal'
+
+  // A personal token must present the creator's identity to the PostgREST
+  // request role and remain usable only while that membership is active.
+  // This mirrors the exchange-time check, so revoking a membership stops the
+  // token at use time even against a still-unexpired JWT.
+  if (kind === 'personal') {
+    if (
+      claims.role !== 'authenticated' ||
+      claims.sub !== row.createdByUserId
+    ) {
+      throw new ExternalTokenError('invalid_token', 'Invalid bearer token.')
+    }
+    const membership = await db.query.workspaceMemberships.findFirst({
+      where: and(
+        eq(workspaceMemberships.userId, row.createdByUserId),
+        eq(workspaceMemberships.workspaceId, row.workspaceId),
+      ),
+    })
+    if (!membership || membership.suspendedAt) {
+      throw new ExternalTokenError(
+        'revoked',
+        'Credential is not currently usable.',
+      )
+    }
+  } else if (claims.role !== 'api_client') {
     throw new ExternalTokenError('invalid_token', 'Invalid bearer token.')
   }
 

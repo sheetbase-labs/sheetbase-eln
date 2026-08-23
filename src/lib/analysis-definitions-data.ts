@@ -176,3 +176,24 @@ export async function unfreezeAnalysisBlock(
     p_expected_version: args.expectedVersion,
   })
 }
+
+export interface BindAnalysisRevisionArgs {
+  blockId: string
+  revisionId: string
+  expectedVersion: number
+}
+
+/**
+ * Pin a frozen analysis block to the submitted revision that captured it
+ * (parity with bind_chart_revision). Locks the evidence against unfreeze.
+ */
+export async function bindAnalysisRevision(
+  client: DataClient,
+  args: BindAnalysisRevisionArgs,
+): Promise<unknown> {
+  return client.rpc('bind_analysis_revision', {
+    p_block_id: args.blockId,
+    p_revision_id: args.revisionId,
+    p_expected_version: args.expectedVersion,
+  })
+}

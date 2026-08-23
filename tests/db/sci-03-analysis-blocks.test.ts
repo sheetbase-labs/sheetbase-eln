@@ -100,11 +100,23 @@ beforeAll(async () => {
     const colRes = await migrator.query(
       `INSERT INTO api.scientific_columns(table_id,workspace_id,field_name,label,display_order,logical_type,created_by_user_id)
        VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
-      [tableId, WS_A, fieldName, column.label, index + 1, column.logical_type, USER_A],
+      [
+        tableId,
+        WS_A,
+        fieldName,
+        column.label,
+        index + 1,
+        column.logical_type,
+        USER_A,
+      ],
     )
     cols[column.label] = { id: colRes.rows[0].id, field_name: fieldName }
   }
-  const rows: Array<[number, number]> = [[0, 1], [24, 3], [48, 5]]
+  const rows: Array<[number, number]> = [
+    [0, 1],
+    [24, 3],
+    [48, 5],
+  ]
   for (const [time, recovery] of rows) {
     await migrator.query(
       `INSERT INTO api.${resourceName}(workspace_id,"${cols['Time'].field_name}","${cols['Recovery'].field_name}")
@@ -118,8 +130,14 @@ beforeAll(async () => {
     definitionVersion: 1,
     kind: 'regression',
     datasets: [{ tableId }],
-    outcome: { columnId: cols['Recovery'].id, fieldName: cols['Recovery'].field_name },
-    predictor: { columnId: cols['Time'].id, fieldName: cols['Time'].field_name },
+    outcome: {
+      columnId: cols['Recovery'].id,
+      fieldName: cols['Recovery'].field_name,
+    },
+    predictor: {
+      columnId: cols['Time'].id,
+      fieldName: cols['Time'].field_name,
+    },
     degree: 1,
   }
   const defRes = await migrator.query(
@@ -141,15 +159,23 @@ afterAll(async () => {
     }
   }
   await migrator.query(
-    `DELETE FROM api.analysis_definitions WHERE workspace_id=$1`, [WS_A])
+    `DELETE FROM api.analysis_definitions WHERE workspace_id=$1`,
+    [WS_A],
+  )
   await migrator.query(
-    `DELETE FROM api.scientific_tables WHERE workspace_id=$1`, [WS_A])
+    `DELETE FROM api.scientific_tables WHERE workspace_id=$1`,
+    [WS_A],
+  )
   await migrator.query(
     `DELETE FROM api.blocks WHERE record_id IN
-      (SELECT id FROM api.records WHERE workspace_id=$1)`, [WS_A])
+      (SELECT id FROM api.records WHERE workspace_id=$1)`,
+    [WS_A],
+  )
   await migrator.query(
     `DELETE FROM api.revisions WHERE record_id IN
-      (SELECT id FROM api.records WHERE workspace_id=$1)`, [WS_A])
+      (SELECT id FROM api.records WHERE workspace_id=$1)`,
+    [WS_A],
+  )
   await migrator.query(`DELETE FROM api.records WHERE workspace_id=$1`, [WS_A])
   await migrator.query(`DELETE FROM api.projects WHERE workspace_id=$1`, [WS_A])
   await migrator.query(`DELETE FROM api.workspaces WHERE id=$1`, [WS_A])
@@ -193,9 +219,9 @@ describe('SCI-03 analysis blocks', () => {
     ).rejects.toMatchObject({ code: '23514' })
 
     // Title is required on non-draft payloads.
-    await expect(
-      insertAnalysisBlock({ definitionId }),
-    ).rejects.toMatchObject({ code: '23514' })
+    await expect(insertAnalysisBlock({ definitionId })).rejects.toMatchObject({
+      code: '23514',
+    })
   })
 
   it('freezes through the RPC, pinning the definition and input provenance', async () => {
@@ -223,7 +249,11 @@ describe('SCI-03 analysis blocks', () => {
     clients.push(user)
     await user.query('SET ROLE authenticated')
     await user.query("SELECT set_config('request.jwt.claims',$1,false)", [
-      JSON.stringify({ sub: USER_A, workspace_id: WS_A, role: 'authenticated' }),
+      JSON.stringify({
+        sub: USER_A,
+        workspace_id: WS_A,
+        role: 'authenticated',
+      }),
     ])
     await expect(
       user.query(
@@ -241,6 +271,67 @@ describe('SCI-03 analysis blocks', () => {
         ],
       ),
     ).rejects.toMatchObject({ code: '42501' })
+  })
+
+  it('binds a frozen analysis to a submitted revision and locks it', async () => {
+    const block = await insertAnalysisBlock(payload())
+    const frozen = await migrator.query(
+      `SELECT * FROM api.freeze_analysis_block($1,$2)`,
+      [block.id, block.version],
+    )
+    // A submitted revision capturing this record (REV-002 shape).
+    const rev = await migrator.query(
+      `INSERT INTO api.revisions(record_id,structure_version,metadata_version,metadata_snapshot,block_snapshot,reason,created_by_user_id)
+       VALUES ($1,1,1,'{}'::jsonb,'[]'::jsonb,'submit',$2) RETURNING id`,
+      [experimentId, USER_A],
+    )
+    const bound = await migrator.query(
+      `SELECT * FROM api.bind_analysis_revision($1,$2,$3)`,
+      [block.id, rev.rows[0].id, frozen.rows[0].version],
+    )
+    expect(bound.rows[0].payload.frozen.revisionId).toBe(rev.rows[0].id)
+    expect(bound.rows[0].version).toBe(frozen.rows[0].version + 1)
+
+    // Binding is single-shot.
+    await expect(
+      migrator.query(`SELECT * FROM api.bind_analysis_revision($1,$2,$3)`, [
+        block.id,
+        rev.rows[0].id,
+        bound.rows[0].version,
+      ]),
+    ).rejects.toThrow(/already bound/)
+
+    // A bound analysis can no longer be unfrozen.
+    await expect(
+      migrator.query(`SELECT * FROM api.unfreeze_analysis_block($1,$2)`, [
+        block.id,
+        bound.rows[0].version,
+      ]),
+    ).rejects.toThrow(/locked into a submitted revision/)
+
+    // Revisions from OTHER records are rejected before any write.
+    const otherRec = await migrator.query(
+      `SELECT * FROM api.create_record(
+         $1::uuid,'experiment','Other record','draft',ARRAY[]::text[],'{}'::jsonb)`,
+      [PROJECT_A],
+    )
+    const otherRev = await migrator.query(
+      `INSERT INTO api.revisions(record_id,structure_version,metadata_version,metadata_snapshot,block_snapshot,reason,created_by_user_id)
+       VALUES ($1,1,1,'{}'::jsonb,'[]'::jsonb,'submit',$2) RETURNING id`,
+      [otherRec.rows[0].id, USER_A],
+    )
+    const block2 = await insertAnalysisBlock(payload())
+    const frozen2 = await migrator.query(
+      `SELECT * FROM api.freeze_analysis_block($1,$2)`,
+      [block2.id, block2.version],
+    )
+    await expect(
+      migrator.query(`SELECT * FROM api.bind_analysis_revision($1,$2,$3)`, [
+        block2.id,
+        otherRev.rows[0].id,
+        frozen2.rows[0].version,
+      ]),
+    ).rejects.toThrow(/does not belong to this record/)
   })
 
   it('unfreezes back to live state and refuses when not frozen', async () => {

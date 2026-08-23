@@ -4001,6 +4001,45 @@ export const analysisViews = api.table(
   ],
 )
 
+// SCI-02: reusable, named analysis definitions (the analysis counterpart of
+// analysis_views). Each stores a versioned AnalysisDefinition JSONB plus the
+// source revisions captured at save time; version bumps on every update so
+// notebook analysis blocks can pin what they rendered. RLS lets workspace
+// members read shared definitions while only the owner mutates their own.
+export const analysisDefinitions = api.table(
+  'analysis_definitions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    ownerUserId: text('owner_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    // Bumped by the bump_analysis_definition_version trigger on every UPDATE.
+    version: integer('version').notNull().default(1),
+    definition: jsonb('definition').notNull(),
+    sourceRevisions: jsonb('source_revisions')
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    ...timestamps,
+  },
+  (table) => [
+    unique('uq_analysis_definitions_workspace_owner_name').on(
+      table.workspaceId,
+      table.ownerUserId,
+      table.name,
+    ),
+    check('chk_analysis_definitions_version', sql`${table.version} > 0`),
+    index('idx_analysis_definitions_workspace').on(table.workspaceId),
+    index('idx_analysis_definitions_owner').on(
+      table.workspaceId,
+      table.ownerUserId,
+    ),
+  ],
+)
+
 export const analysisViewsRelations = relations(analysisViews, ({ one }) => ({
   workspace: one(workspaces, {
     fields: [analysisViews.workspaceId],

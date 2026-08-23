@@ -19,13 +19,20 @@ interactive selection and omitted-row surfacing, and `freeze_chart`
 materialises the aggregated series server-side so frozen snapshots stay
 byte-reproducible against the pure TypeScript materialiser.
 
-## SCI-02 — Analysis Framework
+## SCI-02 — Analysis Framework — **implemented** (`feat/sci-02-analysis-framework`)
 
 Descriptive statistics; grouping/aggregation; transforms; regression; curve fitting; reusable analysis definition; immutable/versioned input support; provenance; execution errors; deterministic results where expected.
 
 Avoid a giant statistical package in the first iteration.
 
 **Exit:** common analysis can be defined, rerun and traced to explicit inputs.
+
+Delivered as decision 0040: versioned `AnalysisDefinition` JSONB saved in
+`api.analysis_definitions` (RLS + version-bump trigger), a narrow deterministic
+statistics kernel (grouped descriptive statistics, polynomial least squares
+degrees 1–4 with explicit log transforms), honest typed execution errors, and
+source-revision provenance captured at save time. The Analysis Studio gained
+an Analyse mode for authoring, running, saving and reloading definitions.
 
 ## SCI-03 — Notebook Analysis Blocks
 

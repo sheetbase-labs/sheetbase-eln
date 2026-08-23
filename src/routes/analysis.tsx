@@ -32,6 +32,7 @@ import {
 
 import { useShell } from '#/components/app-shell'
 import type { ChartSelection } from '#/components/viz/chart-plots'
+import { AnalysisPanel } from '#/components/viz/analysis-panel'
 import { ChartConfigurator } from '#/components/viz/chart-configurator'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import {
@@ -134,6 +135,9 @@ function AnalysisStudioRoute() {
   const [chartSelection, setChartSelection] = useState<ChartSelection | null>(
     null,
   )
+  // SCI-02: the studio serves both chart authoring and reusable analysis
+  // definitions; the mode is session state, never persisted server-side.
+  const [mode, setMode] = useState<'chart' | 'analyse'>('chart')
   const [viewName, setViewName] = useState('')
   const [exportSettings, setExportSettings] = useState<ExportSettings>(
     DEFAULT_EXPORT_SETTINGS,
@@ -298,7 +302,32 @@ function AnalysisStudioRoute() {
           selectedTableId={selectedTableId}
           onSelect={setSelectedTableId}
         />
-        {selectedTable && spec ? (
+        <div
+          role="tablist"
+          aria-label="Studio mode"
+          className="flex items-center gap-1"
+        >
+          {(['chart', 'analyse'] as const).map((value) => (
+            <Button
+              key={value}
+              type="button"
+              size="sm"
+              variant={mode === value ? 'default' : 'outline'}
+              role="tab"
+              aria-selected={mode === value}
+              onClick={() => setMode(value)}
+            >
+              {value === 'chart' ? 'Chart builder' : 'Analyse'}
+            </Button>
+          ))}
+        </div>
+        {mode === 'analyse' ? (
+          <AnalysisPanel
+            datasets={datasets}
+            workspaceId={workspaceId}
+            userId={userId}
+          />
+        ) : selectedTable && spec ? (
           <div className="flex min-h-0 flex-1 flex-col">
             <ChartConfigurator
               table={selectedTable}

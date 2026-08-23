@@ -38,6 +38,7 @@ import { materialiseChart } from '#/lib/chart-spec'
 import type {
   ChartColumn,
   ChartSpec,
+  FacetedChart,
   FrozenChart,
   MaterialisedChart,
 } from '#/lib/chart-spec'
@@ -190,6 +191,26 @@ export function materialiseFrozenChart(frozen: FrozenChart): MaterialisedChart {
       'symbol' in columns[1].unit
         ? String((columns[1].unit as { symbol: string }).symbol)
         : undefined,
+  }
+}
+
+/**
+ * Build the facet panels for a frozen faceted chart from its pinned series.
+ * Returns null when the snapshot is not faceted; the base materialisation
+ * supplies shared labels/columns so each panel renders like the live one.
+ */
+export function materialiseFrozenFacets(
+  frozen: FrozenChart,
+): { panels: FacetedChart[]; total: number } | null {
+  const facets = frozen.data.facets
+  if (!facets || facets.length === 0) return null
+  const base = materialiseFrozenChart(frozen)
+  return {
+    total: frozen.data.facetsTotal ?? facets.length,
+    panels: facets.map((facet) => ({
+      value: facet.value,
+      chart: { ...base, series: facet.series },
+    })),
   }
 }
 

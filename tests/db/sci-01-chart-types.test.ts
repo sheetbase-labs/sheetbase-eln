@@ -65,9 +65,7 @@ afterAll(async () => {
     [WS_A],
   )
   await migrator.query(`DELETE FROM api.records WHERE workspace_id=$1`, [WS_A])
-  await migrator.query(`DELETE FROM api.projects WHERE workspace_id=$1`, [
-    WS_A,
-  ])
+  await migrator.query(`DELETE FROM api.projects WHERE workspace_id=$1`, [WS_A])
   await migrator.query(`DELETE FROM api.workspaces WHERE id=$1`, [WS_A])
   await migrator.query(`DELETE FROM internal."user" WHERE id=$1`, [USER_A])
   await migrator.end()
@@ -152,8 +150,16 @@ describe('SCI-01 distribution chart types', () => {
     )
     tableId = tableRes.rows[0].id
     const columnDefs = [
-      { label: 'Time', logical_type: 'decimal', unit: { code: 'h', symbol: 'h' } },
-      { label: 'Recovery', logical_type: 'decimal', unit: { code: '%', symbol: '%' } },
+      {
+        label: 'Time',
+        logical_type: 'decimal',
+        unit: { code: 'h', symbol: 'h' },
+      },
+      {
+        label: 'Recovery',
+        logical_type: 'decimal',
+        unit: { code: '%', symbol: '%' },
+      },
       { label: 'Condition', logical_type: 'text' },
     ]
     for (const [index, column] of columnDefs.entries()) {
@@ -227,95 +233,189 @@ describe('SCI-01 distribution chart types', () => {
 
   it('accepts histogram/box/heatmap specs and enforces per-type rules', async () => {
     const histogram = await insertChart(
-      chartPayload({}, {
-        type: 'histogram',
-        fields: { y: binding('Recovery'), x: null, series: binding('Condition'), color: null, size: null, facet: null },
-        typeParams: { histogram: { bins: 3 } },
-      }),
+      chartPayload(
+        {},
+        {
+          type: 'histogram',
+          fields: {
+            y: binding('Recovery'),
+            x: null,
+            series: binding('Condition'),
+            color: null,
+            size: null,
+            facet: null,
+          },
+          typeParams: { histogram: { bins: 3 } },
+        },
+      ),
     )
     expect(histogram.id).toBeTruthy()
 
     // Histograms must not carry an x mapping.
     await expect(
-      insertChart(chartPayload({}, {
-        type: 'histogram',
-        fields: { y: binding('Recovery'), x: binding('Time'), series: null, color: null, size: null, facet: null },
-        typeParams: {},
-      })),
+      insertChart(
+        chartPayload(
+          {},
+          {
+            type: 'histogram',
+            fields: {
+              y: binding('Recovery'),
+              x: binding('Time'),
+              series: null,
+              color: null,
+              size: null,
+              facet: null,
+            },
+            typeParams: {},
+          },
+        ),
+      ),
     ).rejects.toMatchObject({ code: '23514' })
 
     // Heatmaps reject series grouping but need both dimensions.
     await expect(
-      insertChart(chartPayload({}, {
-        type: 'heatmap',
-        fields: { x: binding('Condition'), y: binding('Time'), series: binding('Condition'), color: null, size: null, facet: null },
-        typeParams: { heatmap: { aggregate: 'count', valueField: null } },
-      })),
+      insertChart(
+        chartPayload(
+          {},
+          {
+            type: 'heatmap',
+            fields: {
+              x: binding('Condition'),
+              y: binding('Time'),
+              series: binding('Condition'),
+              color: null,
+              size: null,
+              facet: null,
+            },
+            typeParams: { heatmap: { aggregate: 'count', valueField: null } },
+          },
+        ),
+      ),
     ).rejects.toMatchObject({ code: '23514' })
 
     await expect(
-      insertChart(chartPayload({}, {
-        type: 'heatmap',
-        fields: { x: null, y: binding('Time'), series: null, color: null, size: null, facet: null },
-        typeParams: { heatmap: { aggregate: 'count', valueField: null } },
-      })),
+      insertChart(
+        chartPayload(
+          {},
+          {
+            type: 'heatmap',
+            fields: {
+              x: null,
+              y: binding('Time'),
+              series: null,
+              color: null,
+              size: null,
+              facet: null,
+            },
+            typeParams: { heatmap: { aggregate: 'count', valueField: null } },
+          },
+        ),
+      ),
     ).rejects.toMatchObject({ code: '23514' })
 
     // Bin counts are range-checked.
     await expect(
-      insertChart(chartPayload({}, {
-        type: 'histogram',
-        fields: { y: binding('Recovery'), x: null, series: null, color: null, size: null, facet: null },
-        typeParams: { histogram: { bins: 500 } },
-      })),
+      insertChart(
+        chartPayload(
+          {},
+          {
+            type: 'histogram',
+            fields: {
+              y: binding('Recovery'),
+              x: null,
+              series: null,
+              color: null,
+              size: null,
+              facet: null,
+            },
+            typeParams: { histogram: { bins: 500 } },
+          },
+        ),
+      ),
     ).rejects.toMatchObject({ code: '23514' })
 
     // Annotations are Cartesian-only.
     await expect(
-      insertChart(chartPayload({}, {
-        type: 'box',
-        fields: { y: binding('Recovery'), x: null, series: binding('Condition'), color: null, size: null, facet: null },
-        typeParams: { box: {} },
-        display: {
-          axes: {
-            x: { label: 'Group', scale: 'linear' },
-            y: { label: 'Recovery (%)', scale: 'linear' },
+      insertChart(
+        chartPayload(
+          {},
+          {
+            type: 'box',
+            fields: {
+              y: binding('Recovery'),
+              x: null,
+              series: binding('Condition'),
+              color: null,
+              size: null,
+              facet: null,
+            },
+            typeParams: { box: {} },
+            display: {
+              axes: {
+                x: { label: 'Group', scale: 'linear' },
+                y: { label: 'Recovery (%)', scale: 'linear' },
+              },
+              series: [],
+              legend: { visible: true },
+              annotations: [{ x: 1, y: 96, label: 'target' }],
+            },
           },
-          series: [],
-          legend: { visible: true },
-          annotations: [{ x: 1, y: 96, label: 'target' }],
-        },
-      })),
+        ),
+      ),
     ).rejects.toMatchObject({ code: '23514' })
 
     // …and accepted on line charts.
-    const line = await insertChart(chartPayload({}, {
-      type: 'line',
-      fields: { x: binding('Time'), y: binding('Recovery'), series: null, color: null, size: null, facet: null },
-      typeParams: {},
-      display: {
-        axes: {
-          x: { label: 'Time (h)', scale: 'linear' },
-          y: { label: 'Recovery (%)', scale: 'linear' },
+    const line = await insertChart(
+      chartPayload(
+        {},
+        {
+          type: 'line',
+          fields: {
+            x: binding('Time'),
+            y: binding('Recovery'),
+            series: null,
+            color: null,
+            size: null,
+            facet: null,
+          },
+          typeParams: {},
+          display: {
+            axes: {
+              x: { label: 'Time (h)', scale: 'linear' },
+              y: { label: 'Recovery (%)', scale: 'linear' },
+            },
+            series: [],
+            legend: { visible: true },
+            annotations: [{ x: 24, y: 90, label: 'midpoint' }],
+          },
         },
-        series: [],
-        legend: { visible: true },
-        annotations: [{ x: 24, y: 90, label: 'midpoint' }],
-      },
-    }))
+      ),
+    )
     expect(line.id).toBeTruthy()
   })
 
   it('freezes a histogram into binned counts with shared edges', async () => {
-    const block = await insertChart(chartPayload({}, {
-      type: 'histogram',
-      fields: { y: binding('Recovery'), x: null, series: binding('Condition'), color: null, size: null, facet: null },
-      typeParams: { histogram: { bins: 3 } },
-    }))
-    const res = await migrator.query(
-      `SELECT * FROM api.freeze_chart($1,$2)`,
-      [block.id, block.version],
+    const block = await insertChart(
+      chartPayload(
+        {},
+        {
+          type: 'histogram',
+          fields: {
+            y: binding('Recovery'),
+            x: null,
+            series: binding('Condition'),
+            color: null,
+            size: null,
+            facet: null,
+          },
+          typeParams: { histogram: { bins: 3 } },
+        },
+      ),
     )
+    const res = await migrator.query(`SELECT * FROM api.freeze_chart($1,$2)`, [
+      block.id,
+      block.version,
+    ])
     const frozen = res.rows[0].payload.frozen
     expect(frozen).toBeTruthy()
     // Shared edges over [70,100] with 3 bins: 70/80/90/100.
@@ -332,36 +432,81 @@ describe('SCI-01 distribution chart types', () => {
   })
 
   it('freezes a box plot into Tukey summaries matching hand-computed stats', async () => {
-    const block = await insertChart(chartPayload({}, {
-      type: 'box',
-      fields: { y: binding('Recovery'), x: null, series: binding('Condition'), color: null, size: null, facet: null },
-      typeParams: { box: { showOutliers: true } },
-    }))
-    const res = await migrator.query(
-      `SELECT * FROM api.freeze_chart($1,$2)`,
-      [block.id, block.version],
+    const block = await insertChart(
+      chartPayload(
+        {},
+        {
+          type: 'box',
+          fields: {
+            y: binding('Recovery'),
+            x: null,
+            series: binding('Condition'),
+            color: null,
+            size: null,
+            facet: null,
+          },
+          typeParams: { box: { showOutliers: true } },
+        },
+      ),
     )
+    const res = await migrator.query(`SELECT * FROM api.freeze_chart($1,$2)`, [
+      block.id,
+      block.version,
+    ])
     const frozen = res.rows[0].payload.frozen
     const byKey = Object.fromEntries(
       frozen.data.series.map((s: any) => [s.identifier, s.points[0].box]),
     )
     // sorted [93,95,97,100]: q1=94.5 median=96 q3=97.75 fences hold → lo 93 hi 100.
-    expect(byKey['4C']).toMatchObject({ lo: 93, q1: 94.5, median: 96, q3: 97.75, hi: 100, n: 4 })
+    expect(byKey['4C']).toMatchObject({
+      lo: 93,
+      q1: 94.5,
+      median: 96,
+      q3: 97.75,
+      hi: 100,
+      n: 4,
+    })
     expect(byKey['4C'].outliers).toEqual([])
     // sorted [70,80,84,88]: q1=77.5 median=82 q3=85 → lo 70 hi 88.
-    expect(byKey['20C']).toMatchObject({ lo: 70, q1: 77.5, median: 82, q3: 85, hi: 88, n: 4 })
+    expect(byKey['20C']).toMatchObject({
+      lo: 70,
+      q1: 77.5,
+      median: 82,
+      q3: 85,
+      hi: 88,
+      n: 4,
+    })
   })
 
   it('freezes a heatmap into an aggregated count grid', async () => {
-    const block = await insertChart(chartPayload({}, {
-      type: 'heatmap',
-      fields: { x: binding('Condition'), y: binding('Time'), series: null, color: null, size: null, facet: null },
-      typeParams: { heatmap: { aggregate: 'count', valueField: null, xBins: 4, yBins: 2 } },
-    }))
-    const res = await migrator.query(
-      `SELECT * FROM api.freeze_chart($1,$2)`,
-      [block.id, block.version],
+    const block = await insertChart(
+      chartPayload(
+        {},
+        {
+          type: 'heatmap',
+          fields: {
+            x: binding('Condition'),
+            y: binding('Time'),
+            series: null,
+            color: null,
+            size: null,
+            facet: null,
+          },
+          typeParams: {
+            heatmap: {
+              aggregate: 'count',
+              valueField: null,
+              xBins: 4,
+              yBins: 2,
+            },
+          },
+        },
+      ),
     )
+    const res = await migrator.query(`SELECT * FROM api.freeze_chart($1,$2)`, [
+      block.id,
+      block.version,
+    ])
     const frozen = res.rows[0].payload.frozen
     const heat = frozen.data.heatmap
     expect(heat.xLabels).toEqual(['20C', '4C'])
@@ -374,35 +519,92 @@ describe('SCI-01 distribution chart types', () => {
     expect(heat.max).toBe(2)
   })
 
-  it('refuses to freeze faceted charts and keeps frozen payloads immutable', async () => {
-    const faceted = await insertChart(chartPayload({}, {
-      type: 'line',
-      fields: { x: binding('Time'), y: binding('Recovery'), series: null, color: null, size: null, facet: binding('Condition') },
-      typeParams: {},
-    }))
+  it('freezes faceted cartesian charts into per-facet series', async () => {
+    const faceted = await insertChart(
+      chartPayload(
+        {},
+        {
+          type: 'line',
+          fields: {
+            x: binding('Time'),
+            y: binding('Recovery'),
+            series: null,
+            color: null,
+            size: null,
+            facet: binding('Condition'),
+          },
+          typeParams: {},
+        },
+      ),
+    )
+    const res = await migrator.query(`SELECT * FROM api.freeze_chart($1,$2)`, [
+      faceted.id,
+      faceted.version,
+    ])
+    const data = res.rows[0].payload.frozen.data
+    // Panels in codepoint-sorted order, one single-series group per panel.
+    expect(data.facets.map((f: any) => f.value)).toEqual(['20C', '4C'])
+    expect(data.series).toEqual([])
+    for (const facet of data.facets) {
+      expect(facet.series).toHaveLength(1)
+      expect(facet.series[0].points).toHaveLength(4) // 0/24/48/72h per condition
+    }
+    expect(data.facetsTotal).toBe(2)
+  })
+
+  it('still refuses to freeze distribution charts with facets', async () => {
+    const faceted = await insertChart(
+      chartPayload(
+        {},
+        {
+          type: 'histogram',
+          fields: {
+            y: binding('Recovery'),
+            x: null,
+            series: null,
+            color: null,
+            size: null,
+            facet: binding('Condition'),
+          },
+          typeParams: { histogram: { bins: 3 } },
+        },
+      ),
+    )
     await expect(
       migrator.query(`SELECT * FROM api.freeze_chart($1,$2)`, [
         faceted.id,
         faceted.version,
       ]),
-    ).rejects.toThrow(/faceted charts cannot be frozen/)
+    ).rejects.toThrow(/cannot be frozen with facets/)
 
     // Frozen payload immutability still holds for new types.
-    const block = await insertChart(chartPayload({}, {
-      type: 'box',
-      fields: { y: binding('Recovery'), x: null, series: binding('Condition'), color: null, size: null, facet: null },
-      typeParams: { box: {} },
-    }))
-    const res = await migrator.query(
-      `SELECT * FROM api.freeze_chart($1,$2)`,
-      [block.id, block.version],
+    const block = await insertChart(
+      chartPayload(
+        {},
+        {
+          type: 'box',
+          fields: {
+            y: binding('Recovery'),
+            x: null,
+            series: binding('Condition'),
+            color: null,
+            size: null,
+            facet: null,
+          },
+          typeParams: { box: {} },
+        },
+      ),
     )
+    const res = await migrator.query(`SELECT * FROM api.freeze_chart($1,$2)`, [
+      block.id,
+      block.version,
+    ])
     const frozenBlock = res.rows[0]
     await expect(
-      migrator.query(
-        `UPDATE api.blocks SET payload=$2::jsonb WHERE id=$1`,
-        [frozenBlock.id, JSON.stringify({ ...frozenBlock.payload, title: 'Tampered' })],
-      ),
+      migrator.query(`UPDATE api.blocks SET payload=$2::jsonb WHERE id=$1`, [
+        frozenBlock.id,
+        JSON.stringify({ ...frozenBlock.payload, title: 'Tampered' }),
+      ]),
     ).rejects.toMatchObject({ code: '23514' })
   })
 })

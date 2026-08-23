@@ -89,6 +89,7 @@ import type {
 } from '#/lib/chart-spec'
 import {
   materialiseFrozenChart,
+  materialiseFrozenFacets,
   materialiseLiveChart,
   useLiveChartDataset,
 } from '#/lib/chart-data'
@@ -1540,6 +1541,8 @@ function ChartBlockEditor({
         materialised={previewMaterialised}
         frozen={frozen}
         loading={previewLoading}
+        facets={frozen ? materialiseFrozenFacets(frozen)?.panels : undefined}
+        facetTotal={frozen ? materialiseFrozenFacets(frozen)?.total : undefined}
       />
 
       {readOnly ? null : (

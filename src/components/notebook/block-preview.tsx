@@ -42,6 +42,7 @@ import { isInlinePreviewableImage } from '#/lib/file-policy'
 import { sheetInstanceEmbedErrorMessage } from './notebook-sheet-block'
 import {
   materialiseFrozenChart,
+  materialiseFrozenFacets,
   materialiseLiveChart,
   useLiveChartDataset,
 } from '#/lib/chart-data'
@@ -832,6 +833,7 @@ function ChartBlockPreview({ payload }: { payload: unknown }) {
   // no stale detection.
   if (frozen) {
     const materialised = materialiseFrozenChart(frozen)
+    const facets = materialiseFrozenFacets(frozen)
     return (
       <ChartRenderer
         title={title}
@@ -839,6 +841,8 @@ function ChartBlockPreview({ payload }: { payload: unknown }) {
         spec={spec}
         materialised={materialised}
         frozen={frozen}
+        facets={facets?.panels}
+        facetTotal={facets?.total}
       />
     )
   }

@@ -235,6 +235,15 @@ export interface FrozenChartData {
   rows: Record<string, unknown>[]
   series: FrozenChartSeries[]
   heatmap?: HeatmapMatrix | null
+  /** Per-facet panels for frozen faceted cartesian charts (SCI-01). */
+  facets?: FrozenFacet[] | null
+  /** Total distinct facet values before the MAX_FACETS cap. */
+  facetsTotal?: number
+}
+
+export interface FrozenFacet {
+  value: string
+  series: FrozenChartSeries[]
 }
 
 export interface FrozenChart {

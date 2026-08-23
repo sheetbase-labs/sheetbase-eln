@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest'
 import {
   detectStaleCalculations,
   materialiseFrozenChart,
+  materialiseFrozenFacets,
   materialiseLiveChart,
 } from './chart-data'
 import type { ResolvedDataset } from './chart-data'
@@ -438,5 +439,68 @@ describe('materialiseFrozenChart', () => {
     const result = materialiseFrozenChart(makeFrozen())
     expect(result.xUnit).toBe('d')
     expect(result.yUnit).toBe('log₁₀')
+  })
+})
+
+describe('materialiseFrozenFacets', () => {
+  const frozenWithFacets = {
+    revisionId: null,
+    frozenAt: '2026-08-23T10:00:00Z',
+    frozenByUserId: 'user-1',
+    datasetProvenance: [],
+    data: {
+      columns: [
+        {
+          columnId: 'c1',
+          fieldName: 'col_x',
+          label: 'Time',
+          logicalType: 'integer',
+        },
+      ],
+      rows: [{ col_x: 1 }],
+      series: [],
+      facets: [
+        {
+          value: '20C',
+          series: [
+            {
+              identifier: 'all',
+              label: 'all',
+              color: '#006edc',
+              points: [{ x: 0, y: 1, yError: null }],
+            },
+          ],
+        },
+        {
+          value: '4C',
+          series: [
+            {
+              identifier: 'all',
+              label: 'all',
+              color: '#00a659',
+              points: [{ x: 0, y: 2, yError: null }],
+            },
+          ],
+        },
+      ],
+      facetsTotal: 5,
+    },
+  } as unknown as Parameters<typeof materialiseFrozenFacets>[0]
+
+  it('maps pinned facet series into renderable panels with an honest total', () => {
+    const result = materialiseFrozenFacets(frozenWithFacets)
+    expect(result).not.toBeNull()
+    expect(result!.total).toBe(5)
+    expect(result!.panels.map((p) => p.value)).toEqual(['20C', '4C'])
+    for (const panel of result!.panels) {
+      expect(panel.chart.state.kind).toBe('ok')
+      expect(panel.chart.series).toHaveLength(1)
+    }
+  })
+
+  it('returns null for non-faceted snapshots', () => {
+    const plain = { ...frozenWithFacets } as typeof frozenWithFacets
+    delete (plain.data as { facets?: unknown }).facets
+    expect(materialiseFrozenFacets(plain)).toBeNull()
   })
 })

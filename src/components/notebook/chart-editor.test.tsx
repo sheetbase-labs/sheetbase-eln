@@ -165,9 +165,11 @@ function lineSpec(overrides: Partial<ChartSpec> = {}): ChartSpec {
       series: { columnId: 'c3', fieldName: 'col_condition' },
       color: null,
       size: null,
+      facet: null,
     },
     filters: [],
     transformations: [],
+    typeParams: {},
     display: {
       axes: {
         x: { label: 'Time (days)', scale: 'linear', unit: 'd' },

@@ -259,9 +259,11 @@ describe('block payload validation (ELN-002)', () => {
             series: null,
             color: null,
             size: null,
+            facet: null,
           },
           filters: [],
           transformations: [],
+          typeParams: {},
           display: {
             axes: {
               x: { label: 'Time (days)', scale: 'linear', unit: 'd' },

@@ -105,9 +105,11 @@ function spec(overrides: Partial<ChartSpec> = {}): ChartSpec {
       },
       color: null,
       size: null,
+      facet: null,
     },
     filters: [],
     transformations: [],
+    typeParams: {},
     display: {
       axes: {
         x: { label: 'Time (h)', scale: 'linear' },

@@ -119,9 +119,11 @@ function lineSpec(overrides: Partial<ChartSpec> = {}): ChartSpec {
       series: { columnId: 'c3', fieldName: 'col_condition' },
       color: null,
       size: null,
+      facet: null,
     },
     filters: [],
     transformations: [],
+    typeParams: {},
     display: {
       axes: {
         x: { label: 'Time (days)', scale: 'linear', unit: 'd' },
@@ -296,6 +298,7 @@ describe('materialiseLiveChart', () => {
         series: null,
         color: null,
         size: null,
+        facet: null,
       },
     })
     const result = materialiseLiveChart(spec, makeDataset(), [])
@@ -332,6 +335,7 @@ describe('materialiseLiveChart', () => {
         series: null,
         color: null,
         size: null,
+        facet: null,
       },
     })
     // col_time has a 0 value, which is invalid for log scale.

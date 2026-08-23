@@ -894,6 +894,7 @@ function emptyMaterialised(spec: ChartSpec | null) {
     yLabel: spec?.display.axes.y.label ?? 'y',
     xUnit: spec?.display.axes.x.unit,
     yUnit: spec?.display.axes.y.unit,
+    droppedPoints: 0,
   }
 }
 

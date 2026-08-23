@@ -619,9 +619,11 @@ export function buildDefaultChartSpec(
         : null,
       color: null,
       size: null,
+      facet: null,
     },
     filters: [],
     transformations: [],
+    typeParams: {},
     display: {
       axes: {
         x: { label: x?.label ?? 'Row', scale: 'linear' },

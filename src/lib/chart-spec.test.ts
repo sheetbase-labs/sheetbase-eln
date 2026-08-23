@@ -6,6 +6,7 @@ import {
   applyFilters,
   formatScientific,
   materialiseChart,
+  materialiseFacetedCharts,
   validateChartPayload,
   validateChartSpec,
 } from './chart-spec'
@@ -28,9 +29,11 @@ function baseSpec(overrides: Partial<ChartSpec> = {}): ChartSpec {
       series: null,
       color: null,
       size: null,
+      facet: null,
     },
     filters: [],
     transformations: [],
+    typeParams: {},
     display: {
       axes: {
         x: { label: 'Time (days)', scale: 'linear', unit: 'd' },
@@ -352,5 +355,275 @@ describe('formatScientific', () => {
   it('returns a dash for non-finite values', () => {
     expect(formatScientific(null)).toBe('—')
     expect(formatScientific(NaN)).toBe('—')
+  })
+})
+
+describe('SCI-01 distribution chart types', () => {
+  const DIST_COLUMNS: ChartColumn[] = [
+    {
+      id: COL_DAYS,
+      fieldName: 'col_days',
+      label: 'Time (h)',
+      logicalType: 'integer',
+    },
+    {
+      id: COL_GCN,
+      fieldName: 'col_gcn',
+      label: 'Recovery (%)',
+      logicalType: 'decimal',
+    },
+    {
+      id: COL_REP,
+      fieldName: 'col_rep',
+      label: 'Condition',
+      logicalType: 'text',
+    },
+  ]
+  const DIST_ROWS = [
+    { col_days: 0, col_gcn: 100, col_rep: '4C' },
+    { col_days: 24, col_gcn: 97, col_rep: '4C' },
+    { col_days: 48, col_gcn: 95, col_rep: '4C' },
+    { col_days: 72, col_gcn: 93, col_rep: '4C' },
+    { col_days: 0, col_gcn: 88, col_rep: '20C' },
+    { col_days: 24, col_gcn: 84, col_rep: '20C' },
+    { col_days: 48, col_gcn: 80, col_rep: '20C' },
+    { col_days: 72, col_gcn: 70, col_rep: '20C' },
+  ]
+
+  function distSpec(overrides: Partial<ChartSpec>): ChartSpec {
+    return baseSpec({
+      display: {
+        axes: {
+          x: { label: 'Group', scale: 'linear' },
+          y: { label: 'Recovery (%)', scale: 'linear' },
+        },
+        series: [],
+        legend: { visible: true },
+        annotations: [],
+      },
+      ...overrides,
+    })
+  }
+
+  it('validates per-type field rules', () => {
+    // Histograms reject an x mapping.
+    const histogram = distSpec({
+      type: 'histogram',
+      typeParams: { histogram: { bins: 10 } },
+      fields: { ...baseSpec().fields, x: null },
+    })
+    expect(
+      validateChartSpec({
+        ...histogram,
+        fields: {
+          ...histogram.fields,
+          x: { columnId: COL_DAYS, fieldName: 'col_days' },
+        },
+      }),
+    ).toContainEqual(
+      expect.objectContaining({
+        code: 'invalid_value',
+        field: 'spec.fields.x',
+      }),
+    )
+    expect(validateChartSpec(histogram)).toEqual([])
+
+    // Heatmaps reject series grouping and error overlays but need x + y.
+    const heatmap = distSpec({
+      type: 'heatmap',
+      fields: {
+        x: { columnId: COL_REP, fieldName: 'col_rep' },
+        y: { columnId: COL_GCN, fieldName: 'col_gcn' },
+        series: null,
+        color: null,
+        size: null,
+        facet: null,
+      },
+      typeParams: {
+        heatmap: { aggregate: 'count', valueField: null, xBins: 10, yBins: 10 },
+      },
+    })
+    expect(validateChartSpec(heatmap)).toEqual([])
+    expect(
+      validateChartSpec({
+        ...heatmap,
+        overlays: {
+          errorBars: {
+            columnId: COL_ERR,
+            fieldName: 'col_err',
+            basis: 'custom',
+            multiplier: 1,
+          },
+        },
+      }),
+    ).toContainEqual(
+      expect.objectContaining({ field: 'spec.overlays.errorBars' }),
+    )
+    // Non-count aggregation requires an explicit value column.
+    expect(
+      validateChartSpec({
+        ...heatmap,
+        typeParams: { heatmap: { aggregate: 'mean', valueField: null } },
+      }),
+    ).toContainEqual(
+      expect.objectContaining({
+        field: 'spec.typeParams.heatmap.valueField',
+        code: 'missing_field',
+      }),
+    )
+
+    // Annotations are Cartesian-only and bounded.
+    const annotated = distSpec({
+      display: {
+        axes: {
+          x: { label: 'x', scale: 'linear' },
+          y: { label: 'y', scale: 'linear' },
+        },
+        series: [],
+        legend: { visible: true },
+        annotations: [{ x: 1, y: 2, label: 'peak' }],
+      },
+    })
+    expect(validateChartSpec(annotated)).toEqual([])
+    expect(
+      validateChartSpec({
+        ...annotated,
+        type: 'box',
+        fields: { ...annotated.fields, x: null },
+        typeParams: { box: {} },
+      }),
+    ).toContainEqual(
+      expect.objectContaining({ field: 'spec.display.annotations' }),
+    )
+  })
+
+  it('bins histograms with shared edges across groups', () => {
+    const spec = distSpec({
+      type: 'histogram',
+      fields: {
+        ...baseSpec().fields,
+        x: null,
+        series: { columnId: COL_REP, fieldName: 'col_rep' },
+      },
+      typeParams: { histogram: { bins: 3 } },
+    })
+    const m = materialiseChart(spec, DIST_COLUMNS, DIST_ROWS)
+    expect(m.state.kind).toBe('ok')
+    expect(m.bins?.edges.map((e) => Math.round(e))).toEqual([70, 80, 90, 100])
+    const byKey = Object.fromEntries(
+      m.series.map((s) => [s.identifier, s.points.map((p) => p.y)]),
+    )
+    expect(byKey['4C']).toEqual([0, 0, 4])
+    expect(byKey['20C']).toEqual([1, 3, 0])
+    expect(m.droppedPoints).toBe(0)
+  })
+
+  it('counts dropped non-numeric values instead of binning them as zero', () => {
+    const spec = distSpec({
+      type: 'histogram',
+      fields: { ...baseSpec().fields, x: null },
+      typeParams: { histogram: { bins: 2 } },
+    })
+    const m = materialiseChart(spec, DIST_COLUMNS, [
+      { col_days: 0, col_gcn: 1, col_rep: '4C' },
+      { col_days: 0, col_gcn: 'oops', col_rep: '4C' },
+      { col_days: 0, col_gcn: null, col_rep: '4C' },
+    ])
+    expect(m.droppedPoints).toBe(2)
+  })
+
+  it('computes Tukey box statistics with linear-interpolation quartiles', () => {
+    const spec = distSpec({
+      type: 'box',
+      fields: {
+        ...baseSpec().fields,
+        x: null,
+        series: { columnId: COL_REP, fieldName: 'col_rep' },
+      },
+      typeParams: { box: { showOutliers: true } },
+    })
+    const m = materialiseChart(spec, DIST_COLUMNS, DIST_ROWS)
+    const byKey = Object.fromEntries(
+      m.series.map((s) => [s.identifier, s.points[0].box]),
+    )
+    expect(byKey['4C']).toMatchObject({
+      lo: 93,
+      q1: 94.5,
+      median: 96,
+      q3: 97.75,
+      hi: 100,
+      n: 4,
+    })
+    expect(byKey['20C']).toMatchObject({
+      lo: 70,
+      q1: 77.5,
+      median: 82,
+      q3: 85,
+      hi: 88,
+      n: 4,
+    })
+    expect(m.series[0].points[0].x).toBe(1)
+  })
+
+  it('flags outliers outside the 1.5×IQR fences', () => {
+    const spec = distSpec({
+      type: 'box',
+      fields: {
+        ...baseSpec().fields,
+        x: null,
+        series: { columnId: COL_REP, fieldName: 'col_rep' },
+      },
+      typeParams: {},
+    })
+    const rows = [...DIST_ROWS, { col_days: 96, col_gcn: 10, col_rep: '4C' }]
+    const m = materialiseChart(spec, DIST_COLUMNS, rows)
+    const box4c = m.series.find((s) => s.identifier === '4C')!.points[0].box!
+    expect(box4c.outliers).toEqual([10])
+    expect(box4c.n).toBe(5)
+  })
+
+  it('aggregates heatmaps into labelled count grids', () => {
+    const spec = distSpec({
+      type: 'heatmap',
+      fields: {
+        x: { columnId: COL_REP, fieldName: 'col_rep' },
+        y: { columnId: COL_DAYS, fieldName: 'col_days' },
+        series: null,
+        color: null,
+        size: null,
+        facet: null,
+      },
+      typeParams: {
+        heatmap: { aggregate: 'count', valueField: null, yBins: 2 },
+      },
+    })
+    const m = materialiseChart(spec, DIST_COLUMNS, DIST_ROWS)
+    expect(m.state.kind).toBe('ok')
+    expect(m.heatmap).toBeDefined()
+    expect(m.heatmap!.xLabels).toEqual(['20C', '4C'])
+    expect(m.heatmap!.yLabels).toHaveLength(2)
+    expect(m.heatmap!.cells.every((c) => c.value === 2)).toBe(true)
+    expect(m.heatmap!.min).toBe(2)
+    expect(m.heatmap!.max).toBe(2)
+    expect(m.series).toEqual([])
+  })
+
+  it('facets charts into sorted small multiples with an honest total', () => {
+    const spec = distSpec({
+      fields: {
+        ...baseSpec().fields,
+        x: null,
+        facet: { columnId: COL_REP, fieldName: 'col_rep' },
+      },
+      typeParams: { box: {} },
+      type: 'box',
+    })
+    const result = materialiseFacetedCharts(spec, DIST_COLUMNS, DIST_ROWS)
+    expect(result.total).toBe(2)
+    expect(result.panels.map((p) => p.value)).toEqual(['20C', '4C'])
+    for (const panel of result.panels) {
+      expect(panel.chart.state.kind).toBe('ok')
+      expect(panel.chart.series).toHaveLength(1)
+    }
   })
 })

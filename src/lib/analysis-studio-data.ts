@@ -23,14 +23,18 @@ import {
   validateChartSpec,
   applyFilters,
   materialiseChart,
+  materialiseFacetedCharts,
   formatScientific,
 } from './chart-spec'
 import type {
   ChartColumn,
   ChartSpec,
+  FacetedResult,
   MaterialisedChart,
   Transformation,
 } from './chart-spec'
+
+export type { FacetedResult }
 
 // --- Safe limits ----------------------------------------------------------
 //
@@ -452,6 +456,25 @@ export function materialiseAnalysisChart(
   // the already-filtered+transformed rows are plotted as-is.
   const specForMaterialise: ChartSpec = { ...spec, filters: [] }
   return materialiseChart(specForMaterialise, columns, transformed)
+}
+
+/**
+ * Facet the analysis preview into small multiples. Runs the same
+ * filter+transform pipeline as `materialiseAnalysisChart`, then partitions
+ * by the spec's facet column (capped at MAX_FACETS, honestly reported).
+ */
+export function materialiseAnalysisFacets(
+  spec: ChartSpec,
+  columns: ChartColumn[],
+  rows: Record<string, unknown>[],
+): FacetedResult {
+  const filtered = applyFilters(rows, spec.filters)
+  const transformed = applyTransformations(filtered, spec.transformations, spec)
+  return materialiseFacetedCharts(
+    { ...spec, filters: [] },
+    columns,
+    transformed,
+  )
 }
 
 // --- Export helpers -------------------------------------------------------

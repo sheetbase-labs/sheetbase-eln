@@ -85,6 +85,7 @@ function buildMaterialised(traces: Map<string, Point[]>): MaterialisedChart {
     yLabel: 'RFU',
     xUnit: undefined,
     yUnit: undefined,
+    droppedPoints: 0,
   }
 }
 

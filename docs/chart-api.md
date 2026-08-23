@@ -11,7 +11,8 @@ placeholders.
   (`scientific_tables`) by UUID, maps fields by `{ columnId, fieldName }`,
   keeps filters/transformations/overlays explicit, and confines
   chart-type-specific logic to the `type` discriminator (`line`, `scatter`,
-  `bar`).
+  `bar`, and — SCI-01 — `histogram`, `box`, `heatmap` with per-type
+  parameters on `spec.typeParams`).
 - No chart-type-specific or dataset-specific columns live in shared
   infrastructure; the spec is a validated JSONB payload.
 - A **live** chart re-reads the current dataset state through the shared

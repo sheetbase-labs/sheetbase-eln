@@ -31,6 +31,7 @@ import {
 } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
+import type { ChartSelection } from '#/components/viz/chart-plots'
 import { ChartConfigurator } from '#/components/viz/chart-configurator'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import {
@@ -81,11 +82,13 @@ import {
   fetchAnalysisViews,
   fetchDatasetSummaries,
   materialiseAnalysisChart,
+  materialiseAnalysisFacets,
   saveAnalysisView,
   validateAnalysisSpec,
 } from '#/lib/analysis-studio-data'
 import type {
   AnalysisViewWire,
+  FacetedResult,
   ExportSettings,
 } from '#/lib/analysis-studio-data'
 import { buildDefaultChartSpec } from '#/lib/dataset-explorer-data'
@@ -128,6 +131,9 @@ function AnalysisStudioRoute() {
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null)
   const [spec, setSpec] = useState<ChartSpec | null>(null)
   const [selectedViewId, setSelectedViewId] = useState<string | null>(null)
+  const [chartSelection, setChartSelection] = useState<ChartSelection | null>(
+    null,
+  )
   const [viewName, setViewName] = useState('')
   const [exportSettings, setExportSettings] = useState<ExportSettings>(
     DEFAULT_EXPORT_SETTINGS,
@@ -187,6 +193,19 @@ function AnalysisStudioRoute() {
     }))
     return materialiseAnalysisChart(spec, columns, datasetQuery.data.rows)
   }, [spec, datasetQuery.data, liveMaterialised])
+  const analysisFacets = useMemo(() => {
+    if (!spec || !datasetQuery.data || !spec.fields.facet) {
+      return { panels: [], total: 0 }
+    }
+    const columns = datasetQuery.data.columns.map((c) => ({
+      id: c.id,
+      fieldName: c.field_name,
+      label: c.label,
+      logicalType: c.logical_type,
+      unit: c.unit,
+    }))
+    return materialiseAnalysisFacets(spec, columns, datasetQuery.data.rows)
+  }, [spec, datasetQuery.data])
 
   const queryClient = useQueryClient()
 
@@ -295,6 +314,9 @@ function AnalysisStudioRoute() {
               views={views}
               datasetQuery={datasetQuery}
               materialised={analysisMaterialised}
+              facets={analysisFacets.panels.length > 0 ? analysisFacets : null}
+              selection={chartSelection}
+              onSelectionChange={setChartSelection}
             />
           </div>
         ) : (
@@ -923,6 +945,9 @@ interface AnalysisPreviewProps {
   views: AnalysisViewWire[]
   datasetQuery: ReturnType<typeof useLiveChartDataset>['datasetQuery']
   materialised: ReturnType<typeof materialiseLiveChart>
+  facets: FacetedResult | null
+  selection: ChartSelection | null
+  onSelectionChange: (selection: ChartSelection | null) => void
 }
 
 export function AnalysisPreview({
@@ -933,6 +958,9 @@ export function AnalysisPreview({
   views,
   datasetQuery,
   materialised: analysisMaterialised,
+  facets,
+  selection,
+  onSelectionChange,
 }: AnalysisPreviewProps) {
   const [expanded, setExpanded] = useState(false)
   const chartHeight = expanded ? 460 : 340
@@ -1085,6 +1113,10 @@ export function AnalysisPreview({
             frozen={null}
             loading={datasetQuery.isLoading}
             plotHeight={plotHeight}
+            facets={facets?.panels ?? undefined}
+            facetTotal={facets?.total}
+            selection={selection}
+            onSelectionChange={onSelectionChange}
             expanded={expanded}
             onExpandedChange={setExpanded}
             className="h-full rounded-none border-0 bg-transparent shadow-none"
@@ -1234,6 +1266,7 @@ function missingDatasetChart() {
     yLabel: 'y',
     xUnit: undefined,
     yUnit: undefined,
+    droppedPoints: 0,
   }
 }
 

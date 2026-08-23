@@ -7,8 +7,8 @@
  * The renderer is pure given a materialised chart, so no QueryClient or
  * data mocking is required.
  */
-import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { ChartRenderer } from './chart-renderer'
 import { CHART_PALETTE } from '#/lib/chart-spec'
@@ -37,9 +37,11 @@ const spec: ChartSpec = {
     series: { columnId: 'c3', fieldName: 'col_condition' },
     color: null,
     size: null,
+    facet: null,
   },
   filters: [],
   transformations: [],
+  typeParams: {},
   display: {
     axes: {
       x: { label: 'Time (days)', scale: 'linear', unit: 'd' },
@@ -95,6 +97,7 @@ function okMaterialised(): MaterialisedChart {
     xLabel: 'Time (days)',
     yLabel: 'Log titer',
     xUnit: 'd',
+    droppedPoints: 0,
     yUnit: 'log₁₀',
   }
 }
@@ -354,5 +357,170 @@ describe('ChartRenderer', () => {
     )
     expect(screen.getByRole('alert')).toBeTruthy()
     expect(screen.getByText(/could not be loaded/i)).toBeTruthy()
+  })
+})
+
+describe('SCI-01 distribution chart types', () => {
+  const distSpec = { ...spec, display: { ...spec.display, annotations: [] } }
+
+  function histogramMaterialised() {
+    return {
+      state: { kind: 'ok' as const },
+      columns: [],
+      rows: [],
+      series: [
+        {
+          identifier: '4C',
+          label: '4 °C',
+          color: '#006EDC',
+          points: [
+            { x: 70, y: 0, yError: null, label: '4C' },
+            { x: 80, y: 2, yError: null, label: '4C' },
+            { x: 90, y: 3, yError: null, label: '4C' },
+          ],
+        },
+      ],
+      xLabel: 'Bin start',
+      yLabel: 'Count',
+      xUnit: undefined,
+      yUnit: undefined,
+      droppedPoints: 0,
+      bins: { edges: [70, 80, 90, 100] },
+    }
+  }
+
+  it('renders a histogram with bars per bin and a selection hook', () => {
+    const onSelect = vi.fn()
+    render(
+      <ChartRenderer
+        title="Histogram"
+        spec={{ ...distSpec, type: 'histogram' }}
+        materialised={histogramMaterialised()}
+        frozen={null}
+        onSelectionChange={onSelect}
+      />,
+    )
+    expect(screen.getByText('Histogram')).toBeTruthy()
+    const plot = screen.getByLabelText(/Histogram\. 1 series/)
+    expect(plot).toBeTruthy()
+    expect(screen.getByText('4 °C')).toBeTruthy() // legend entry
+  })
+
+  it('renders a box plot with one labelled group and reports Tukey stats in titles', () => {
+    const materialised = {
+      ...okMaterialised(),
+      series: [
+        {
+          identifier: '4C',
+          label: '4 °C',
+          color: '#006EDC',
+          points: [
+            {
+              x: 1,
+              y: 96,
+              yError: null,
+              label: '4C',
+              box: {
+                lo: 93,
+                q1: 94.5,
+                median: 96,
+                q3: 97.75,
+                hi: 100,
+                outliers: [],
+                n: 4,
+              },
+            },
+          ],
+        },
+      ],
+    }
+    render(
+      <ChartRenderer
+        title="Box"
+        spec={{ ...distSpec, type: 'box' }}
+        materialised={materialised}
+        frozen={null}
+      />,
+    )
+    expect(document.querySelector('svg title')).toBeTruthy()
+    expect(document.querySelector('svg title')?.textContent).toContain(
+      'median 96',
+    )
+  })
+
+  it('renders a heatmap as an accessible table with selectable cells', () => {
+    const onSelect = vi.fn()
+    const materialised = {
+      ...okMaterialised(),
+      series: [],
+      heatmap: {
+        xLabels: ['20C', '4C'],
+        yLabels: ['0–36'],
+        cells: [
+          { x: 0, y: 0, value: 2, count: 2 },
+          { x: 1, y: 0, value: null, count: 0 },
+        ],
+        min: 2,
+        max: 2,
+        aggregate: 'count' as const,
+      },
+    }
+    render(
+      <ChartRenderer
+        title="Heatmap"
+        spec={{ ...distSpec, type: 'heatmap' }}
+        materialised={materialised}
+        frozen={null}
+        onSelectionChange={onSelect}
+      />,
+    )
+    // The heatmap IS a table (accessible alternative built in) alongside the
+    // generic data-table alternative.
+    expect(screen.getAllByRole('table').length).toBeGreaterThanOrEqual(2)
+    const cell = screen.getByTitle('20C × 0–36: 2 (2 rows)')
+    fireEvent.click(cell)
+    expect(onSelect).toHaveBeenCalledWith({
+      seriesIdentifier: 'heatmap',
+      index: 0,
+    })
+  })
+
+  it('surfaces omitted rows instead of plotting silent gaps', () => {
+    const materialised = okMaterialised()
+    render(
+      <ChartRenderer
+        title="Line"
+        spec={spec}
+        materialised={{ ...materialised, droppedPoints: 3 }}
+        frozen={null}
+      />,
+    )
+    expect(screen.getByText(/3 rows omitted/)).toBeTruthy()
+  })
+
+  it('renders facet panels with truncation note when capped', () => {
+    const facets = ['A', 'B'].map((value) => ({
+      value,
+      chart: {
+        ...okMaterialised(),
+        series: okMaterialised().series.map((s) => ({
+          ...s,
+          label: `${s.label} · ${value}`,
+        })),
+      },
+    }))
+    render(
+      <ChartRenderer
+        title="Faceted"
+        spec={spec}
+        materialised={okMaterialised()}
+        frozen={null}
+        facets={facets}
+        facetTotal={5}
+      />,
+    )
+    expect(screen.getByLabelText('Facet A')).toBeTruthy()
+    expect(screen.getByLabelText('Facet B')).toBeTruthy()
+    expect(screen.getByText(/Showing 2 of 5 groups/)).toBeTruthy()
   })
 })

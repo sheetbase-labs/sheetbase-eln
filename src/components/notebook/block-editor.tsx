@@ -1413,6 +1413,34 @@ function ChartBlockEditor({
     updateSpec({ fields: { ...spec.fields, ...patch } })
   }
 
+  // Switching types keeps the spec coherent: fields that carry no meaning
+  // for the new type are cleared (mirrors the DB trigger's rules).
+  function setChartType(next: ChartType) {
+    if (!spec) return
+    const fields = { ...spec.fields }
+    let overlays = spec.overlays
+    let typeParams: ChartSpec['typeParams'] = {}
+    if (next === 'histogram' || next === 'box') {
+      fields.x = null
+      typeParams =
+        next === 'box'
+          ? { box: { showOutliers: true } }
+          : { histogram: { bins: 10 } }
+    } else if (next === 'heatmap') {
+      fields.series = null
+      fields.color = null
+      fields.size = null
+      overlays = { errorBars: null }
+      typeParams = {
+        heatmap: { aggregate: 'count', valueField: null, xBins: 10, yBins: 10 },
+      }
+    }
+    const display = ['line', 'scatter', 'bar'].includes(next)
+      ? spec.display
+      : { ...spec.display, annotations: [] }
+    updateSpec({ type: next, fields, overlays, typeParams, display })
+  }
+
   // Start a spec when the user picks a dataset for an empty draft.
   function chooseDataset(tableId: string) {
     a.setTouched(true)
@@ -1431,9 +1459,11 @@ function ChartBlockEditor({
         series: null,
         color: null,
         size: null,
+        facet: null,
       },
       filters: [],
       transformations: [],
+      typeParams: {},
       display: {
         axes: {
           x: {
@@ -1480,6 +1510,7 @@ function ChartBlockEditor({
           yLabel: 'y',
           xUnit: undefined,
           yUnit: undefined,
+          droppedPoints: 0,
         }
   const previewLoading =
     !frozen && (datasetQuery.isLoading || calcQuery.isLoading)
@@ -1552,9 +1583,7 @@ function ChartBlockEditor({
               <Select
                 aria-label="Chart type"
                 value={spec?.type ?? 'line'}
-                onChange={(e) =>
-                  updateSpec({ type: e.target.value as ChartType })
-                }
+                onChange={(e) => setChartType(e.target.value as ChartType)}
                 onBlur={() => a.flush()}
                 disabled={!!frozen || !spec}
               >
@@ -1566,32 +1595,45 @@ function ChartBlockEditor({
               </Select>
             </ChartField>
             <ChartField label="Series field (optional)">
-              <Select
-                aria-label="Series field"
-                value={bindingValue(spec?.fields.series)}
-                onChange={(e) =>
-                  updateFields({ series: parseBinding(e.target.value) })
-                }
-                onBlur={() => a.flush()}
-                disabled={!!frozen || !spec}
-              >
-                <option value="">(none)</option>
-                {fieldOptions}
-              </Select>
+              {spec?.type === 'heatmap' ? (
+                <p className="text-xs text-muted-foreground">
+                  Not used for heatmap charts.
+                </p>
+              ) : (
+                <Select
+                  aria-label="Series field"
+                  value={bindingValue(spec?.fields.series)}
+                  onChange={(e) =>
+                    updateFields({ series: parseBinding(e.target.value) })
+                  }
+                  onBlur={() => a.flush()}
+                  disabled={!!frozen || !spec}
+                >
+                  <option value="">(none)</option>
+                  {fieldOptions}
+                </Select>
+              )}
             </ChartField>
             <ChartField label="X field">
-              <Select
-                aria-label="X field"
-                value={bindingValue(spec?.fields.x)}
-                onChange={(e) =>
-                  updateFields({ x: parseBinding(e.target.value) })
-                }
-                onBlur={() => a.flush()}
-                disabled={!!frozen || !spec}
-              >
-                <option value="">(none)</option>
-                {fieldOptions}
-              </Select>
+              {spec?.type === 'histogram' || spec?.type === 'box' ? (
+                <p className="text-xs text-muted-foreground">
+                  Not used for {spec.type} charts — the measured value is the Y
+                  field.
+                </p>
+              ) : (
+                <Select
+                  aria-label="X field"
+                  value={bindingValue(spec?.fields.x)}
+                  onChange={(e) =>
+                    updateFields({ x: parseBinding(e.target.value) })
+                  }
+                  onBlur={() => a.flush()}
+                  disabled={!!frozen || !spec}
+                >
+                  <option value="">(none)</option>
+                  {fieldOptions}
+                </Select>
+              )}
             </ChartField>
             <ChartField label="Y field">
               <Select
@@ -1663,6 +1705,63 @@ function ChartBlockEditor({
               </Select>
             </ChartField>
           </div>
+
+          {spec?.type === 'histogram' ? (
+            <ChartField label="Bins">
+              <Input
+                aria-label="Histogram bin count"
+                type="number"
+                min={1}
+                max={200}
+                value={spec.typeParams.histogram?.bins ?? 10}
+                onChange={(e) =>
+                  updateSpec({
+                    typeParams: {
+                      histogram: {
+                        bins: Math.max(1, Number(e.target.value) || 10),
+                      },
+                    },
+                  })
+                }
+                onBlur={() => a.flush()}
+                disabled={!!frozen}
+              />
+            </ChartField>
+          ) : null}
+          {spec?.type === 'heatmap' ? (
+            <ChartField label="Cell value">
+              <Select
+                aria-label="Heatmap cell aggregation"
+                value={spec.typeParams.heatmap?.aggregate ?? 'count'}
+                onChange={(e) => {
+                  const aggregate = e.target.value as NonNullable<
+                    ChartSpec['typeParams']['heatmap']
+                  >['aggregate']
+                  updateSpec({
+                    typeParams: {
+                      heatmap:
+                        aggregate === 'count'
+                          ? { aggregate, valueField: null }
+                          : {
+                              aggregate,
+                              valueField:
+                                spec.typeParams.heatmap?.valueField ??
+                                spec.fields.y,
+                            },
+                    },
+                  })
+                }}
+                onBlur={() => a.flush()}
+                disabled={!!frozen || !spec}
+              >
+                <option value="count">Row count</option>
+                <option value="mean">Mean of Y</option>
+                <option value="median">Median of Y</option>
+                <option value="min">Min of Y</option>
+                <option value="max">Max of Y</option>
+              </Select>
+            </ChartField>
+          ) : null}
 
           <ChartField label="Provenance note (optional)">
             <Input

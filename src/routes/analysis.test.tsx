@@ -62,6 +62,7 @@ vi.mock('#/lib/chart-data', () => ({
     xLabel: 'x',
     yLabel: 'y',
     xUnit: undefined,
+    droppedPoints: 0,
     yUnit: undefined,
   }),
 }))
@@ -142,9 +143,11 @@ function spec(overrides: Partial<ChartSpec> = {}): ChartSpec {
       },
       color: null,
       size: null,
+      facet: null,
     },
     filters: [],
     transformations: [],
+    typeParams: {},
     display: {
       axes: {
         x: { label: 'Time (h)', scale: 'linear' },
@@ -422,6 +425,7 @@ describe('ExportPanel', () => {
           xLabel: 'x',
           yLabel: 'y',
           xUnit: undefined,
+          droppedPoints: 0,
           yUnit: undefined,
         }}
       />,
@@ -455,6 +459,7 @@ describe('DataTableAlternative', () => {
           xLabel: 'x',
           yLabel: 'y',
           xUnit: undefined,
+          droppedPoints: 0,
           yUnit: undefined,
         }}
         loading={false}
@@ -486,6 +491,7 @@ describe('DataTableAlternative', () => {
           xLabel: 'Time (h)',
           yLabel: 'pH',
           xUnit: undefined,
+          droppedPoints: 0,
           yUnit: undefined,
         }}
         loading={false}

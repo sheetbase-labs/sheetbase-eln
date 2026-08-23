@@ -6,6 +6,7 @@ import {
   ErrorBar,
   Line,
   LineChart,
+  ReferenceDot,
   ResponsiveContainer,
   Scatter,
   ScatterChart,
@@ -16,10 +17,14 @@ import {
 
 import { cn } from '#/lib/utils'
 import { ChartFrame } from './chart-frame'
+import { BoxPlotChart, HeatmapPlot, HistogramPlot } from './chart-plots'
+import type { ChartSelection, PlotSelectionProps } from './chart-plots'
 import { CHART_PALETTE, formatScientific } from '#/lib/chart-spec'
 import type {
+  ChartAnnotation,
   ChartSpec,
   ChartType,
+  FacetedChart,
   FrozenChart,
   MaterialisedChart,
   MaterialisedSeries,
@@ -59,6 +64,13 @@ export interface ChartRendererProps {
   plotHeight?: number
   /** Hide the built-in table when the surrounding page already shows these rows. */
   showTableAlternative?: boolean
+  /** Faceted small multiples; when set the plot area renders a panel grid. */
+  facets?: FacetedChart[]
+  /** Total distinct facet values before the MAX_FACETS cap (honest truncation). */
+  facetTotal?: number
+  /** Interactive selection state shared by the plot and the data table. */
+  selection?: ChartSelection | null
+  onSelectionChange?: (selection: ChartSelection | null) => void
   expanded?: boolean
   onExpandedChange?: (expanded: boolean) => void
 }
@@ -77,6 +89,10 @@ export function ChartRenderer({
   hideTitle = false,
   plotHeight = 240,
   showTableAlternative = true,
+  facets,
+  facetTotal,
+  selection = null,
+  onSelectionChange,
   expanded = false,
   onExpandedChange,
 }: ChartRendererProps) {
@@ -106,14 +122,29 @@ export function ChartRenderer({
         <ChartStateMessage tone="warning">
           {describeState(materialised)}
         </ChartStateMessage>
-      ) : materialised.series.length === 0 ? (
+      ) : materialised.series.length === 0 && !materialised.heatmap ? (
         <ChartStateMessage tone="muted">No plottable points.</ChartStateMessage>
       ) : (
-        <ChartPlot
-          spec={spec}
-          materialised={materialised}
-          height={plotHeight}
-        />
+        <>
+          <ChartPlot
+            spec={spec}
+            materialised={materialised}
+            height={plotHeight}
+            facets={facets}
+            facetTotal={facetTotal}
+            selectionProps={{
+              selection,
+              onSelect: onSelectionChange ?? (() => {}),
+            }}
+          />
+          {materialised.droppedPoints > 0 ? (
+            <p role="status" className="mt-1 text-xs text-muted-foreground">
+              {materialised.droppedPoints} row
+              {materialised.droppedPoints === 1 ? '' : 's'} omitted (missing or
+              non-numeric values).
+            </p>
+          ) : null}
+        </>
       )}
       {showTableAlternative &&
       materialised.state.kind === 'ok' &&
@@ -132,12 +163,49 @@ function ChartPlot({
   spec,
   materialised,
   height,
+  facets,
+  facetTotal,
+  selectionProps,
 }: {
   spec: ChartSpec | null
   materialised: MaterialisedChart
   height: number
+  facets?: FacetedChart[]
+  facetTotal?: number
+  selectionProps: PlotSelectionProps
 }) {
   const type = spec?.type ?? 'line'
+  if (facets && facets.length > 0) {
+    return (
+      <div className="w-full">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {facets.map((facet) => (
+            <div
+              key={facet.value}
+              className="rounded-md border p-2"
+              aria-label={`Facet ${facet.value}`}
+            >
+              <p className="mb-1 text-xs font-medium text-muted-foreground">
+                {facet.value}
+              </p>
+              <ChartPlot
+                spec={spec}
+                materialised={facet.chart}
+                height={height * 0.7}
+                selectionProps={selectionProps}
+              />
+            </div>
+          ))}
+        </div>
+        {facetTotal !== undefined && facetTotal > facets.length ? (
+          <p className="mt-1 text-xs text-muted-foreground">
+            Showing {facets.length} of {facetTotal} groups; narrow the data or
+            pick a facet column with fewer values.
+          </p>
+        ) : null}
+      </div>
+    )
+  }
   const data = toRechartsData(materialised.series)
   const xScale = spec?.display.axes.x.scale ?? 'linear'
   const yScale = spec?.display.axes.y.scale ?? 'linear'
@@ -191,6 +259,58 @@ function ChartPlot({
     />
   )
   let chart: React.ReactNode
+  if (type === 'histogram') {
+    return (
+      <HistogramPlot
+        spec={spec}
+        series={materialised.series}
+        height={height}
+        selectionProps={selectionProps}
+      />
+    )
+  }
+  if (type === 'box') {
+    return (
+      <BoxPlotChart
+        series={materialised.series}
+        height={height}
+        logScale={spec?.display.axes.y.scale === 'log'}
+        selectionProps={selectionProps}
+      />
+    )
+  }
+  if (type === 'heatmap') {
+    if (!materialised.heatmap)
+      return (
+        <ChartStateMessage tone="muted">
+          No heatmap grid available.
+        </ChartStateMessage>
+      )
+    return (
+      <HeatmapPlot
+        heatmap={materialised.heatmap}
+        valueLabel={materialised.yLabel}
+        selectionProps={selectionProps}
+      />
+    )
+  }
+  const annotations: ChartAnnotation[] = spec?.display.annotations ?? []
+  const annotationDots = annotations.map((a, i) => (
+    <ReferenceDot
+      key={i}
+      x={a.x}
+      y={a.y}
+      r={4}
+      fill="var(--foreground)"
+      stroke="var(--background)"
+      label={{
+        value: a.label,
+        position: 'top',
+        fontSize: 10,
+        fill: 'var(--muted-foreground)',
+      }}
+    />
+  ))
   if (type === 'scatter') {
     chart = (
       <ScatterChart margin={margin} role="img">
@@ -221,6 +341,7 @@ function ChartPlot({
             ) : null}
           </Scatter>
         ))}
+        {annotationDots}
       </ScatterChart>
     )
   } else if (type === 'bar') {
@@ -247,6 +368,7 @@ function ChartPlot({
             ) : null}
           </Bar>
         ))}
+        {annotationDots}
       </BarChart>
     )
   } else {

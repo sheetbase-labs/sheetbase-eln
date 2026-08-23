@@ -133,6 +133,7 @@ export function materialiseLiveChart(
       yLabel: spec.display.axes.y.label ?? spec.fields.y.fieldName,
       xUnit: spec.display.axes.x.unit,
       yUnit: spec.display.axes.y.unit,
+      droppedPoints: 0,
     }
   }
   const columns = toChartColumns(dataset.columns)
@@ -158,16 +159,23 @@ export function materialiseFrozenChart(frozen: FrozenChart): MaterialisedChart {
     logicalType: c.logicalType,
     unit: c.unit,
   }))
+  const series = frozen.data.series.map((s) => ({
+    identifier: s.identifier,
+    label: s.label,
+    color: s.color,
+    points: s.points,
+  }))
   return {
     state: { kind: 'ok' },
     columns,
     rows: frozen.data.rows,
-    series: frozen.data.series.map((s) => ({
-      identifier: s.identifier,
-      label: s.label,
-      color: s.color,
-      points: s.points,
-    })),
+    series,
+    // Dropped rows were already excluded at freeze time; a frozen chart
+    // reports the null points its snapshot actually carries.
+    droppedPoints: series.reduce(
+      (acc, s) => acc + s.points.filter((p) => p.y === null).length,
+      0,
+    ),
     xLabel: columns[0]?.label ?? 'x',
     yLabel: columns[1]?.label ?? 'y',
     xUnit:

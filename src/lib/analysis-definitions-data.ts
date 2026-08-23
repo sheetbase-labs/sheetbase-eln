@@ -20,6 +20,8 @@ export const analysisDefinitionsDataClient = createDataClient()
 
 export const analysisDefinitionQueryKeys = {
   all: ['analysis-definitions'] as const,
+  list: () => ['analysis-definitions', 'list'] as const,
+  detail: (id: string) => ['analysis-definitions', 'detail', id] as const,
 }
 
 export interface AnalysisDefinitionWire {
@@ -141,4 +143,36 @@ export async function deleteAnalysisDefinition(
     'analysis_definitions',
     `?id=eq.${encodeURIComponent(id)}`,
   )
+}
+
+// --- SCI-03 lifecycle RPCs -------------------------------------------------
+
+export interface FreezeAnalysisBlockArgs {
+  blockId: string
+  expectedVersion: number
+}
+
+/**
+ * Freeze an analysis block through the transactional SECURITY DEFINER RPC.
+ * The server re-reads the referenced definition and its dataset rows, so
+ * frozen evidence is authoritative rather than client-asserted.
+ */
+export async function freezeAnalysisBlock(
+  client: DataClient,
+  args: FreezeAnalysisBlockArgs,
+): Promise<unknown> {
+  return client.rpc('freeze_analysis_block', {
+    p_block_id: args.blockId,
+    p_expected_version: args.expectedVersion,
+  })
+}
+
+export async function unfreezeAnalysisBlock(
+  client: DataClient,
+  args: FreezeAnalysisBlockArgs,
+): Promise<unknown> {
+  return client.rpc('unfreeze_analysis_block', {
+    p_block_id: args.blockId,
+    p_expected_version: args.expectedVersion,
+  })
 }

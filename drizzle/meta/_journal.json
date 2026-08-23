@@ -883,6 +883,13 @@
       "when": 1787581800000,
       "tag": "0125_sci_02_analysis_definitions",
       "breakpoints": true
+    },
+    {
+      "idx": 126,
+      "version": "7",
+      "when": 1787582400000,
+      "tag": "0126_sci_03_analysis_blocks",
+      "breakpoints": true
     }
   ]
 }

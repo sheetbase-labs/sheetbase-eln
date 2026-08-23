@@ -71,6 +71,8 @@ Forces:
 - The statistics kernel (`src/lib/stats.ts`) is deliberately small: summaries,
   quantiles and normal-equation OLS with partial pivoting. Degrees above four
   are rejected at validation because conditioning degrades quickly.
-- Notebook analysis blocks reuse this contract directly: live blocks execute
-  the referenced definition; frozen blocks snapshot inputs and the pinned
-  definition verbatim (ADR to follow with SCI-03).
+- Notebook analysis blocks reuse this contract directly (SCI-03): a block
+  references a definition by UUID; freezing pins the definition verbatim plus
+  the exact input rows with schema-version/row-count/checksum provenance, and
+  frozen evidence re-executes deterministically over pinned inputs. Only the
+  SECURITY DEFINER freeze/unfreeze RPCs may write a frozen payload.

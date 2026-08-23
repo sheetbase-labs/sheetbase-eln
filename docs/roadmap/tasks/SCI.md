@@ -34,11 +34,18 @@ degrees 1–4 with explicit log transforms), honest typed execution errors, and
 source-revision provenance captured at save time. The Analysis Studio gained
 an Analyse mode for authoring, running, saving and reloading definitions.
 
-## SCI-03 — Notebook Analysis Blocks
+## SCI-03 — Notebook Analysis Blocks — **implemented** (`feat/sci-03-notebook-analysis-blocks`)
 
 Analysis and chart blocks embedded in Notebooks; source links; reload; frozen evidence behaviour; narrative flow from data to result to interpretation.
 
 **Exit:** Sheet → analysis → chart → narrative works as one scientific record.
+
+Delivered as an `analysis` notebook block referencing saved definitions by
+UUID (decision 0040): live blocks execute against current rows with honest
+loading/error states; `freeze_analysis_block` / `unfreeze_analysis_block`
+pin the definition verbatim plus input rows with checksum provenance so
+frozen evidence never silently changes; the picker, editor, preview and
+route lifecycle follow the chart-block precedents.
 
 ## SCI-04 — Advanced Scientific Visualisation
 

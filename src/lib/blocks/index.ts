@@ -14,6 +14,7 @@
 
 import { isRichTextPayload } from './rich-text'
 
+import { validateAnalysisBlockPayload } from '../analysis-block'
 import { validateChartPayload } from '../chart-spec'
 import { validatePlateMapPayload } from '../plate-map'
 
@@ -73,6 +74,7 @@ export type BlockType =
   | 'table'
   | 'sheet'
   | 'chart'
+  | 'analysis'
   | 'plate_map'
   | 'file'
   | 'metric'
@@ -96,6 +98,7 @@ export const KNOWN_BLOCK_TYPES: readonly BlockType[] = [
   'table',
   'sheet',
   'chart',
+  'analysis',
   'plate_map',
   'file',
   'metric',
@@ -402,6 +405,27 @@ function validateChart(payload: unknown): FieldErrors {
   // chart-type-specific required fields.
   return validateChartPayload(payload).map((e) => ({
     code: mapChartErrorCode(e.code),
+    field: e.field,
+    message: e.message,
+  }))
+}
+
+// SCI-03: delegate to the analysis block validator. An empty draft `{}` is
+// valid; definition-reference integrity and frozen-write authority are the
+// database trigger's job.
+function validateAnalysis(payload: unknown): FieldErrors {
+  if (!isObject(payload))
+    return [
+      { code: 'invalid_payload_shape', message: 'payload must be an object' },
+    ]
+  return validateAnalysisBlockPayload(payload).map((e) => ({
+    code: (e.field === 'title'
+      ? 'missing_required_field'
+      : e.field?.startsWith('frozen') ||
+          e.field === 'definitionId' ||
+          e.field === 'provenance'
+        ? 'invalid_field_value'
+        : 'invalid_payload_shape') as BlockValidationError,
     field: e.field,
     message: e.message,
   }))
@@ -776,6 +800,7 @@ const validators: Record<BlockType, (payload: unknown) => FieldErrors> = {
   table: validateTable,
   sheet: validateSheet,
   chart: validateChart,
+  analysis: validateAnalysis,
   plate_map: validatePlateMap,
   file: validateFile,
   metric: validateMetric,

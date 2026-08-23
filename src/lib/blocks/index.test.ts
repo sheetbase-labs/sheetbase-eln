@@ -277,6 +277,11 @@ describe('block payload validation (ELN-002)', () => {
         },
         provenance: 'Analysis Studio',
       },
+      analysis: {
+        title: 'Recovery slope',
+        definitionId: '0198d970-e266-4000-8000-000000000009',
+        frozen: null,
+      },
       plate_map: {
         title: 'qPCR titration plate',
         spec: {

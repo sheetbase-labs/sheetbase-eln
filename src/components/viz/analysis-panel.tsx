@@ -581,7 +581,7 @@ export function describeExecutionError(error: AnalysisError): string {
   }
 }
 
-function AnalysisResultTable({ result }: { result: AnalysisResult }) {
+export function AnalysisResultTable({ result }: { result: AnalysisResult }) {
   if (result.kind === 'descriptive') {
     const stats = [
       ['n', (r: (typeof result.rows)[number]) => String(r.stats.n)],

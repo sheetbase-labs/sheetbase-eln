@@ -75,6 +75,12 @@ import {
 } from '#/lib/file-attach'
 import { FILE_MAX_BYTES, isInlinePreviewableImage } from '#/lib/file-policy'
 import { CHART_SPEC_VERSION, CHART_TYPES } from '#/lib/chart-spec'
+import type { AnalysisBlockPayload } from '#/lib/analysis-block'
+import { validateAnalysisBlockPayload } from '#/lib/analysis-block'
+import {
+  analysisDefinitionQueryKeys,
+  fetchAnalysisDefinitions,
+} from '#/lib/analysis-definitions-data'
 import type {
   ChartBlockPayload,
   ChartSpec,
@@ -137,6 +143,10 @@ export interface BlockEditorProps {
   onFreezeChart?: () => Promise<void>
   /** SCI-004: remove the frozen snapshot so the chart can be edited again. */
   onUnfreezeChart?: () => Promise<void>
+  /** SCI-03: freeze an analysis block into an immutable evidence snapshot. */
+  onFreezeAnalysis?: () => Promise<void>
+  /** SCI-03: remove the frozen analysis snapshot so the block is live again. */
+  onUnfreezeAnalysis?: () => Promise<void>
   /** Slash command: user picked a block type from the `/` menu. */
   onSlashCommand?: (type: string) => void
   /** Enter at end of the last paragraph → create a new text block below. */
@@ -173,6 +183,8 @@ export function BlockEditor(props: BlockEditorProps) {
       return <FileBlockEditor {...props} />
     case 'chart':
       return <ChartBlockEditor {...props} />
+    case 'analysis':
+      return <AnalysisBlockEditor {...props} />
     case 'plate_map':
       return <PlateMapBlockEditor {...props} />
     default:
@@ -266,6 +278,10 @@ function summarizePayload(
       const wells = Array.isArray(spec?.wells) ? spec.wells : []
       return `${title || 'Plate map'} — ${wells.length} well(s)`
     }
+    case 'analysis':
+      return `${payload.title || 'Analysis'}${
+        payload.frozen ? ' (frozen)' : ''
+      }`
     default:
       return JSON.stringify(payload, null, 2)
   }
@@ -2442,5 +2458,154 @@ function ValidationConfigEditor({
         </div>
       </div>
     </details>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// SCI-03 analysis block editor. Picks a saved analysis definition (ADR 0040)
+// from the workspace, renders the live execution through the same preview
+// used read-only, and freezes/unfreezes via the transactional RPCs passed
+// down from the route so durable events and audit attribution stay canonical.
+// ---------------------------------------------------------------------------
+
+function AnalysisBlockEditor({
+  block,
+  save,
+  offline,
+  onStatusChange,
+  readOnly,
+  onFreezeAnalysis,
+  onUnfreezeAnalysis,
+}: BlockEditorProps) {
+  const initial = block.payload as unknown as AnalysisBlockPayload
+  const a = useBlockAutosave<AnalysisBlockPayload>(
+    block,
+    initial,
+    save,
+    offline,
+    onStatusChange,
+  )
+  const draft = a.draft
+  const frozen = draft.frozen ?? null
+
+  const definitionsQuery = useQuery({
+    queryKey: analysisDefinitionQueryKeys.list(),
+    queryFn: () => fetchAnalysisDefinitions(scientificDataClient),
+    staleTime: 10_000,
+  })
+  const definitions = definitionsQuery.data ?? []
+  const selected = definitions.find((d) => d.id === draft.definitionId) ?? null
+
+  function chooseDefinition(id: string) {
+    a.setTouched(true)
+    const saved = definitions.find((d) => d.id === id)
+    if (!saved) return
+    const name = typeof saved.name === 'string' ? saved.name : 'Analysis'
+    a.setDraft({
+      ...draft,
+      definitionId: id,
+      title: draft.title || name,
+    })
+  }
+
+  const validation = validateAnalysisBlockPayload(draft)
+
+  return (
+    <div className="space-y-4">
+      <Card className="space-y-3 p-3">
+        <ChartField label="Saved analysis">
+          <Select
+            aria-label="Saved analysis"
+            value={draft.definitionId ?? ''}
+            onChange={(e) => chooseDefinition(e.target.value)}
+            onBlur={() => a.flush()}
+            disabled={!!frozen || definitionsQuery.isLoading}
+          >
+            <option value="">
+              {definitionsQuery.isLoading
+                ? 'Loading saved analyses…'
+                : definitions.length === 0
+                  ? 'No saved analyses — create one in /analysis → Analyse'
+                  : 'Select an analysis'}
+            </option>
+            {definitions.map((d) => (
+              <option key={d.id} value={d.id}>
+                {`${d.name} · v${d.version}`}
+              </option>
+            ))}
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Analyses execute against live dataset rows. Freeze to pin the inputs
+            as evidence.
+          </p>
+        </ChartField>
+
+        <ChartField label="Title">
+          <Input
+            aria-label="Analysis title"
+            value={draft.title ?? ''}
+            onChange={(e) => {
+              a.setTouched(true)
+              a.setDraft({ ...draft, title: e.target.value })
+            }}
+            onBlur={() => a.flush()}
+          />
+        </ChartField>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {frozen ? (
+            <>
+              <Badge variant="warning">
+                <Snowflake className="size-3" />
+                Frozen snapshot — immutable
+              </Badge>
+              {onUnfreezeAnalysis ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void onUnfreezeAnalysis()}
+                >
+                  <Pencil /> Unfreeze (live again)
+                </Button>
+              ) : null}
+            </>
+          ) : onFreezeAnalysis && draft.definitionId && !readOnly ? (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={validation.length > 0}
+              title={
+                validation.length > 0
+                  ? 'Choose a saved analysis before freezing'
+                  : 'Freeze an immutable snapshot of this analysis'
+              }
+              onClick={() => void onFreezeAnalysis()}
+            >
+              <Snowflake /> Freeze snapshot
+            </Button>
+          ) : null}
+        </div>
+      </Card>
+
+      <AutosaveFooter
+        status={a.status}
+        error={a.error}
+        validationErrors={a.validationErrors}
+        serverPreview={summarizePayload(
+          block.type,
+          (a.serverValue ?? {}) as Record<string, unknown>,
+        )}
+        onUseServer={() => a.discardDraft()}
+        onKeepLocal={() => a.retry()}
+        retrying={a.status === 'saving'}
+      />
+
+      {/* Keep `selected` referenced for the stale-definition hint below. */}
+      <span className="sr-only">
+        {selected ? `Using ${selected.name}` : 'No saved analysis selected'}
+      </span>
+    </div>
   )
 }

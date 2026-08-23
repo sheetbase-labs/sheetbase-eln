@@ -18,17 +18,17 @@ Delivery priority uses only **medium** and **low**. Nothing is queued as high.
 
 The roadmap supports **parallel streams**. Agents take **one assigned stream/task**. Ready does not mean “do every Ready row”. **Do not start a Ready stream until it is assigned.**
 
-| Stream | Active task | Model | Status                                                                                                                                                                                                            |
-| ------ | ----------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PC     | —           | —     | PC-06 is ready to merge as #55; do not start a new PC task yet.                                                                                                                                                   |
-| API    | —           | —     | API foundation complete in `#56`: API-01 contract; API-02 service credentials + personal tokens + lifecycle audit; API-07 allowlist cut-over; API-03 OpenAPI for both credential kinds. Do not start API-04/05/06 |
-| DATA   | —           | —     | DATA-01 complete; DATA-02 remains later                                                                                                                                                                           |
-| GOV    | —           | —     | GOV-01 complete; GOV-02 requires an ADR                                                                                                                                                                           |
-| PLAT   | —           | —     | Headers slice complete; remaining PLAT-03 queued                                                                                                                                                                  |
-| COLLAB | —           | —     | Planned                                                                                                                                                                                                           |
-| SCI    | —           | —     | Planned                                                                                                                                                                                                           |
-| INT    | —           | —     | Planned                                                                                                                                                                                                           |
-| AUTO   | —           | —     | Planned later                                                                                                                                                                                                     |
+| Stream | Active task | Model | Status                                                                                                                                                                                                                   |
+| ------ | ----------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| PC     | —           | —     | PC-06 is ready to merge as #55; do not start a new PC task yet.                                                                                                                                                          |
+| API    | —           | —     | API foundation complete in `#56`: API-01 contract; API-02 service credentials + personal tokens + lifecycle audit; API-07 allowlist cut-over; API-03 OpenAPI for both credential kinds. Do not start API-04/05/06        |
+| DATA   | —           | —     | DATA-01 complete; DATA-02 remains later                                                                                                                                                                                  |
+| GOV    | —           | —     | GOV-01 complete; GOV-02 requires an ADR                                                                                                                                                                                  |
+| PLAT   | —           | —     | Headers slice complete; remaining PLAT-03 queued                                                                                                                                                                         |
+| COLLAB | —           | —     | Planned                                                                                                                                                                                                                  |
+| SCI    | —           | —     | SCI-01–03 implemented on stacked branches (`feat/sci-01-charting` → `feat/sci-02-analysis-framework` → `feat/sci-03-notebook-analysis-blocks` + follow-ups); awaiting review/merge. SCI-04 waits for real usage evidence |
+| INT    | —           | —     | Planned                                                                                                                                                                                                                  |
+| AUTO   | —           | —     | Planned later                                                                                                                                                                                                            |
 
 ### Immediate execution shape
 
@@ -44,6 +44,7 @@ merged  API-07  Core Dataset/Sheet external allowlist (#50) @ 30496db
 merged  DATA-01 import laboratory files (#49) @ 37e3c52
 merged  API-03  service-credential OpenAPI (#51) @ 2cd3a12
 feat/api-02-completion  API-02 completion + API-03 reconciliation (#56: personal tokens, credential audit events, external OpenAPI for both kinds)
+stacked  SCI-01..03 Scientific charting, analysis framework, notebook analysis blocks (+ revision binding, freezable facets, fit-curve overlay, storage test fix)
 merged  PC-04   Templates and reusable science (#53) @ 3c8b8df
 merged  PC-05   Canonical Steward configuration workspace (#54) @ 1d7a06a
 ```

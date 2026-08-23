@@ -5,7 +5,11 @@
  */
 import { describe, expect, it } from 'vitest'
 
-import { runAnalysis, validateAnalysisDefinition } from './analysis-definition'
+import {
+  regressionFitCurve,
+  runAnalysis,
+  validateAnalysisDefinition,
+} from './analysis-definition'
 import type {
   AnalysisDefinition,
   DescriptiveDefinition,
@@ -261,5 +265,21 @@ describe('analysis definition typing', () => {
   it('keeps definitions assignable to the union', () => {
     const defs: AnalysisDefinition[] = [descriptive, regression]
     expect(defs).toHaveLength(2)
+  })
+})
+
+describe('regressionFitCurve', () => {
+  it('samples the polynomial inclusively across the range', () => {
+    const pts = regressionFitCurve([1, 2], { min: 0, max: 10 }, 5)
+    expect(pts).toHaveLength(5)
+    expect(pts[0]).toEqual({ x: 0, y: 1 })
+    expect(pts[4]).toEqual({ x: 10, y: 21 })
+    expect(pts[2].x).toBeCloseTo(5, 10)
+    expect(pts[2].y).toBeCloseTo(11, 10)
+  })
+
+  it('degenerates gracefully', () => {
+    expect(regressionFitCurve([], { min: 0, max: 1 })).toEqual([])
+    expect(regressionFitCurve([1, 2], { min: 3, max: 3 }, 4)).toHaveLength(4)
   })
 })

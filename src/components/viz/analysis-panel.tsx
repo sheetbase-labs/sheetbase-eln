@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Play, Save, Sigma, Trash2, TriangleAlert } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
+import { ChartRenderer } from '#/components/viz/chart-renderer'
 import {
   Badge,
   Button,
@@ -23,6 +24,7 @@ import {
   ANALYSIS_KINDS,
   COLUMN_TRANSFORMS,
   MAX_DEGREE,
+  regressionFitCurve,
   runAnalysis,
   validateAnalysisDefinition,
 } from '#/lib/analysis-definition'
@@ -30,7 +32,10 @@ import type {
   AnalysisDefinition,
   AnalysisError,
   AnalysisResult,
+  RegressionFitRow,
 } from '#/lib/analysis-definition'
+import { CHART_PALETTE, formatScientific } from '#/lib/chart-spec'
+import type { ChartSpec, MaterialisedChart } from '#/lib/chart-spec'
 import {
   analysisDefinitionQueryKeys,
   captureDefinitionSourceRevisions,
@@ -40,7 +45,6 @@ import {
   saveAnalysisDefinition,
 } from '#/lib/analysis-definitions-data'
 import type { AnalysisDefinitionWire } from '#/lib/analysis-definitions-data'
-import { formatScientific } from '#/lib/chart-spec'
 import {
   fetchAllScientificRows,
   fetchScientificTable,
@@ -231,6 +235,28 @@ export function AnalysisPanel({
     },
   })
 
+  // SCI-02 → SCI-01 link: overlay the fitted curve on its observations.
+  const fitChart = useMemo(() => {
+    if (
+      !execution ||
+      !execution.ok ||
+      execution.result.kind !== 'regression' ||
+      !draft.definition ||
+      draft.definition.kind !== 'regression' ||
+      !rowsQuery.data ||
+      rowsQuery.data.length === 0
+    )
+      return null
+    const fit: RegressionFitRow =
+      execution.result.rows.find((row) => row.group === 'all') ??
+      execution.result.rows[0]
+    return buildRegressionFitChart({
+      definition: draft.definition,
+      fit,
+      rows: rowsQuery.data,
+    })
+  }, [execution, draft.definition, rowsQuery.data])
+
   const staleDetail = useMemo(() => {
     if (!draft.editingId) return null
     const saved = definitions.find((d) => d.id === draft.editingId)
@@ -361,6 +387,23 @@ export function AnalysisPanel({
           current rows. Saved analyses are listed below.
         </div>
       )}
+
+      {fitChart ? (
+        <div className="rounded-md border p-2">
+          <p className="mb-1 text-xs font-medium text-muted-foreground">
+            Fitted curve over observations
+          </p>
+          <ChartRenderer
+            title="Fit preview"
+            hideTitle
+            spec={fitChart.spec}
+            materialised={fitChart.materialised}
+            frozen={null}
+            showTableAlternative={false}
+            plotHeight={220}
+          />
+        </div>
+      ) : null}
 
       <SavedDefinitionsList
         definitions={definitions}
@@ -741,4 +784,115 @@ function SavedDefinitionsList({
       ))}
     </ul>
   )
+}
+
+// ---------------------------------------------------------------------------
+// SCI-02 → SCI-01 link: plot a fitted regression curve over its observations
+// ---------------------------------------------------------------------------
+
+interface FitChartSpecInput {
+  definition: Extract<AnalysisDefinition, { kind: 'regression' }>
+  fit: RegressionFitRow
+  rows: Record<string, unknown>[]
+}
+
+/**
+ * Build the observed-points + fitted-curve materialisation for a regression
+ * run. Pure so the studio preview and future surfaces share one construction.
+ */
+export function buildRegressionFitChart(input: FitChartSpecInput): {
+  spec: ChartSpec
+  materialised: MaterialisedChart
+} | null {
+  const { definition, fit } = input
+  const pairs: Array<{ x: number; y: number }> = []
+  for (const row of input.rows) {
+    const px = toNumberValue(row[definition.predictor.fieldName])
+    const py = toNumberValue(row[definition.outcome.fieldName])
+    if (px !== null && py !== null) pairs.push({ x: px, y: py })
+  }
+  if (pairs.length === 0) return null
+  const xs = pairs.map((p) => p.x)
+  const min = Math.min(...xs)
+  const max = Math.max(...xs)
+
+  const observed = CHART_PALETTE[0].toLowerCase()
+  const fitColor = CHART_PALETTE[1].toLowerCase()
+
+  return {
+    spec: {
+      specVersion: 1,
+      type: 'scatter',
+      datasets: [],
+      fields: {
+        x: null,
+        y: { columnId: '', fieldName: '' },
+        series: null,
+        color: null,
+        size: null,
+        facet: null,
+      },
+      filters: [],
+      transformations: [],
+      typeParams: {},
+      display: {
+        axes: {
+          x: { label: 'Predictor', scale: 'linear' },
+          y: { label: 'Outcome', scale: 'linear' },
+        },
+        series: [
+          { identifier: 'observed', label: 'Observed', color: '#006edc' },
+          {
+            identifier: 'fit',
+            label: `Fit · ${fit.equation}`,
+            color: '#00a659',
+          },
+        ],
+        legend: { visible: true },
+        annotations: [],
+      },
+      overlays: { errorBars: null },
+    },
+    materialised: {
+      state: { kind: 'ok' },
+      columns: [],
+      rows: [],
+      series: [
+        {
+          identifier: 'observed',
+          label: 'Observed',
+          color: observed,
+          points: pairs.map((p) => ({
+            x: p.x,
+            y: p.y,
+            yError: null,
+            label: 'Observed',
+          })),
+        },
+        {
+          identifier: 'fit',
+          label: `Fit · ${formatScientific(fit.r2)}`,
+          color: fitColor,
+          renderAs: 'line',
+          points: regressionFitCurve(fit.coefficients, { min, max }).map(
+            (pt) => ({ x: pt.x, y: pt.y, yError: null, label: 'Fit' }),
+          ),
+        },
+      ],
+      xLabel: 'Predictor',
+      yLabel: 'Outcome',
+      xUnit: undefined,
+      yUnit: undefined,
+      droppedPoints: 0,
+    },
+  }
+}
+
+function toNumberValue(v: unknown): number | null {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null
+  if (typeof v === 'string' && v.trim() !== '') {
+    const n = Number(v)
+    return Number.isFinite(n) ? n : null
+  }
+  return null
 }

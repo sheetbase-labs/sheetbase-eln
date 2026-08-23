@@ -3,6 +3,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  ComposedChart,
   ErrorBar,
   Line,
   LineChart,
@@ -312,38 +313,55 @@ function ChartPlot({
     />
   ))
   if (type === 'scatter') {
-    chart = (
-      <ScatterChart margin={margin} role="img">
+    // A fitted-curve overlay needs mixed point+line rendering, which only
+    // ComposedChart provides; plain scatters keep the lighter chart.
+    const hasFitLine = materialised.series.some((s) => s.renderAs === 'line')
+    const scatterChildren = (
+      <>
         {grid}
         {xAxis}
         {yAxis}
         {tooltip}
-        {materialised.series.map((series) => (
-          <Scatter
-            key={series.identifier}
-            name={series.label}
-            data={data.filter(
-              (row) =>
-                row[series.identifier] !== null &&
-                row[series.identifier] !== undefined,
-            )}
-            dataKey={series.identifier}
-            fill="var(--popover)"
-            stroke={series.color}
-            strokeWidth={2}
-          >
-            {hasErrorBars(series) ? (
-              <ErrorBar
-                dataKey={`${series.identifier}_error`}
-                stroke={series.color}
-                strokeWidth={1.5}
-              />
-            ) : null}
-          </Scatter>
-        ))}
+        {materialised.series.map((series) =>
+          series.renderAs === 'line' ? (
+            <Line
+              key={series.identifier}
+              dataKey={series.identifier}
+              name={series.label}
+              type="linear"
+              stroke={series.color}
+              strokeWidth={2}
+              strokeDasharray="6 4"
+              dot={false}
+              isAnimationActive={false}
+            />
+          ) : (
+            <Scatter
+              key={series.identifier}
+              name={series.label}
+              dataKey={series.identifier}
+              fill="var(--popover)"
+              stroke={series.color}
+              strokeWidth={2}
+            />
+          ),
+        )}
         {annotationDots}
-      </ScatterChart>
+      </>
     )
+    if (hasFitLine) {
+      chart = (
+        <ComposedChart data={data} margin={margin} role="img">
+          {scatterChildren}
+        </ComposedChart>
+      )
+    } else {
+      chart = (
+        <ScatterChart margin={margin} role="img">
+          {scatterChildren}
+        </ScatterChart>
+      )
+    }
   } else if (type === 'bar') {
     chart = (
       <BarChart data={data} margin={margin} role="img">
@@ -413,7 +431,11 @@ function ChartPlot({
       className="w-full"
       style={{ height }}
     >
-      <ResponsiveContainer width="100%" height={height}>
+      <ResponsiveContainer
+        width="100%"
+        height={height}
+        initialDimension={{ width: 640, height }}
+      >
         {chart}
       </ResponsiveContainer>
     </div>

@@ -9,7 +9,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { BlockPreview } from './block-preview'
 import type { NotebookBlock } from '#/lib/notebook-data'
@@ -45,14 +45,6 @@ const mockFetchCalc = vi.mocked(fetchScientificCalculationResults)
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
-})
-
-beforeAll(() => {
-  globalThis.ResizeObserver = class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  }
 })
 
 function renderWithQuery(ui: ReactNode) {

@@ -493,7 +493,9 @@ describe('NotebookDocument — movement via menu', () => {
     await user.click(
       screen.getAllByRole('button', { name: /Block actions/ })[1],
     )
-    await user.click(screen.getByRole('menuitem', { name: 'Insert text below' }))
+    await user.click(
+      screen.getByRole('menuitem', { name: 'Insert text below' }),
+    )
     expect(onInsertBlock).toHaveBeenCalledWith('rich_text', 'b2')
   })
 })

@@ -68,9 +68,8 @@ const revision: RevisionWire = {
 
 describe('NotebookHistoryPanel', () => {
   it('renders submitted revisions as experiment links', async () => {
-    const { fetchRecordTimeline, fetchRevisionsForRecord } = await import(
-      '#/lib/notebook-experience'
-    )
+    const { fetchRecordTimeline, fetchRevisionsForRecord } =
+      await import('#/lib/notebook-experience')
     vi.mocked(fetchRecordTimeline).mockResolvedValue([])
     vi.mocked(fetchRevisionsForRecord).mockResolvedValue([revision])
     renderPanel(
@@ -91,9 +90,8 @@ describe('NotebookHistoryPanel', () => {
   })
 
   it('calls onSelectRevision when no projectId is provided', async () => {
-    const { fetchRecordTimeline, fetchRevisionsForRecord } = await import(
-      '#/lib/notebook-experience'
-    )
+    const { fetchRecordTimeline, fetchRevisionsForRecord } =
+      await import('#/lib/notebook-experience')
     vi.mocked(fetchRecordTimeline).mockResolvedValue([])
     vi.mocked(fetchRevisionsForRecord).mockResolvedValue([revision])
     const onSelectRevision = vi.fn()

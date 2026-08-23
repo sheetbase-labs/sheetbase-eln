@@ -1073,6 +1073,12 @@ export interface MaterialisedSeries {
   label: string
   color: string
   points: FrozenChartPoint[]
+  /**
+   * Render the series as a connected line even inside scatter plots — used
+   * by fitted-curve overlays so observations stay dots while the model
+   * draws as a smooth dashed curve.
+   */
+  renderAs?: 'line'
 }
 
 /** A heatmap cell: grid position plus the aggregated value and row count. */

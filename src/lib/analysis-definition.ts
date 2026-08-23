@@ -14,7 +14,7 @@
  * linear fits and curve fitting) with optional monotonic log transforms.
  */
 
-import { fitQuality, olsFit, summaryStats } from './stats'
+import { fitQuality, olsFit, polyEval, summaryStats } from './stats'
 import type { SummaryStats } from './stats'
 
 import type { ChartColumn } from './chart-spec'
@@ -444,6 +444,25 @@ const TRANSFORM_FNS: Record<
 > = {
   log10: Math.log10,
   ln: Math.log,
+}
+
+/**
+ * Sample a fitted polynomial across the predictor range so the fit renders
+ * as a smooth curve next to the observations (SCI-02 → SCI-01 link).
+ * Deterministic: `samples` evenly spaced points inclusive of both ends.
+ */
+export function regressionFitCurve(
+  coefficients: number[],
+  xRange: { min: number; max: number },
+  samples = 50,
+): Array<{ x: number; y: number }> {
+  if (coefficients.length === 0 || samples < 2) return []
+  const { min, max } = xRange
+  const span = max - min || 1
+  return Array.from({ length: samples }, (_, i) => {
+    const x = min + (span * i) / (samples - 1)
+    return { x, y: polyEval(coefficients, x) }
+  })
 }
 
 function formatCoef(c: number): string {

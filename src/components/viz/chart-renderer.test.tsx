@@ -8,7 +8,7 @@
  * data mocking is required.
  */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { ChartRenderer } from './chart-renderer'
 import { CHART_PALETTE } from '#/lib/chart-spec'
@@ -19,13 +19,6 @@ import type {
 } from '#/lib/chart-spec'
 
 afterEach(() => cleanup())
-beforeAll(() => {
-  globalThis.ResizeObserver = class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  }
-})
 
 const spec: ChartSpec = {
   specVersion: 1,
@@ -522,5 +515,40 @@ describe('SCI-01 distribution chart types', () => {
     expect(screen.getByLabelText('Facet A')).toBeTruthy()
     expect(screen.getByLabelText('Facet B')).toBeTruthy()
     expect(screen.getByText(/Showing 2 of 5 groups/)).toBeTruthy()
+  })
+})
+
+describe('SCI-02 fit overlay rendering', () => {
+  it('renders a renderAs=line series as a dashed line inside a scatter chart', () => {
+    const materialised = {
+      ...okMaterialised(),
+      series: [
+        ...okMaterialised().series,
+        {
+          identifier: 'fit',
+          label: 'Fit',
+          color: '#00a659',
+          renderAs: 'line' as const,
+          points: [
+            { x: 0, y: 1, yError: null, label: 'fit' },
+            { x: 28, y: 8, yError: null, label: 'fit' },
+          ],
+        },
+      ],
+    }
+    render(
+      <ChartRenderer
+        title="Scatter with fit"
+        spec={{ ...spec, type: 'scatter' }}
+        materialised={materialised}
+        frozen={null}
+      />,
+    )
+    // The model curve renders as a real line layer.
+    expect(document.querySelectorAll('.recharts-line').length).toBeGreaterThan(
+      0,
+    )
+    // The fit series keeps its legend entry (and a data-table row).
+    expect(screen.getAllByText('Fit').length).toBeGreaterThan(0)
   })
 })

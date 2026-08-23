@@ -58,7 +58,7 @@ function wrapper() {
   )
 }
 
-const DATASET = ({
+const DATASET = {
   id: '11111111-1111-1111-8111-111111111111',
   resource_name: 'sheet_alpha',
   name: 'Stability',
@@ -102,7 +102,7 @@ const DATASET = ({
       options: [],
     },
   ],
-}) as unknown as ScientificTableWire
+} as unknown as ScientificTableWire
 
 beforeEach(() => {
   mockFetchDefinitions.mockResolvedValue([])
@@ -165,12 +165,12 @@ describe('AnalysisPanel', () => {
     await runDescriptive()
     const save = screen.getByRole('button', {
       name: /^Save$/,
-    }) as HTMLButtonElement
-    expect(save.disabled).toBe(true)
+    })
+    expect(save.hasAttribute('disabled')).toBe(true)
     fireEvent.change(screen.getByLabelText('Analysis name'), {
       target: { value: 'Recovery summary' },
     })
-    expect(save.disabled).toBe(false)
+    expect(save.hasAttribute('disabled')).toBe(false)
     fireEvent.click(save)
     const { saveAnalysisDefinition } =
       await import('#/lib/analysis-definitions-data')

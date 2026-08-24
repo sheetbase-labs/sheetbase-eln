@@ -809,3 +809,121 @@ describe('SCI-003 file upload, download and isolation', () => {
     expect(events.rows.some((r) => r.operation === 'update')).toBe(true)
   })
 })
+
+describe('DATA-03 file platform guarantees', () => {
+  it('rejects a cross-workspace upload without revealing the file exists', async () => {
+    const { meta } = await authorizeAndUpload(USER_A, WS_A, PROJECT_A, {
+      name: 'workspace-a-only.csv',
+      type: 'text/csv',
+      bytes: new TextEncoder().encode('owned by A'),
+    })
+    const res = await handleUpload(
+      uploadRequest(
+        meta.fileRecordId,
+        new TextEncoder().encode('bytes from B'),
+      ),
+      meta.fileRecordId,
+      authDeps(USER_B, WS_B),
+      storage,
+    )
+    expect(res.status).toBe(404)
+    expect((await res.json()).error.code).toBe('not_found')
+  })
+
+  it('rejects a cross-workspace download without revealing the file exists', async () => {
+    const { meta } = await authorizeAndUpload(USER_A, WS_A, PROJECT_A, {
+      name: 'download-guard.csv',
+      type: 'text/csv',
+      bytes: new TextEncoder().encode('still owned by A'),
+    })
+    const res = await handleDownload(
+      downloadRequest(meta.fileRecordId),
+      meta.fileRecordId,
+      authDeps(USER_B, WS_B),
+      storage,
+    )
+    expect(res.status).toBe(404)
+    expect((await res.json()).error.code).toBe('not_found')
+  })
+
+  it('rejects unauthenticated uploads and downloads', async () => {
+    const { meta } = await authorizeAndUpload(USER_A, WS_A, PROJECT_A, {
+      name: 'anon-guard.csv',
+      type: 'text/csv',
+      bytes: new TextEncoder().encode('needs a session'),
+    })
+    const anonDeps = {
+      getSession: async () => null,
+      getWorkspaceForUser: async () => null,
+      mintToken: authDeps(USER_A, WS_A).mintToken,
+    }
+    const putRes = await handleUpload(
+      uploadRequest(meta.fileRecordId, new TextEncoder().encode('x')),
+      meta.fileRecordId,
+      anonDeps,
+      storage,
+    )
+    expect(putRes.status).toBe(401)
+    expect((await putRes.json()).error.code).toBe('unauthenticated')
+    const getRes = await handleDownload(
+      downloadRequest(meta.fileRecordId),
+      meta.fileRecordId,
+      anonDeps,
+      storage,
+    )
+    expect(getRes.status).toBe(401)
+  })
+
+  it('accepts a zero-byte upload at the size boundary', async () => {
+    const { upRes } = await authorizeAndUpload(USER_A, WS_A, PROJECT_A, {
+      name: 'empty.csv',
+      type: 'text/csv',
+      bytes: new Uint8Array(0),
+    })
+    expect(upRes.status).toBe(200)
+    const finalize = await upRes.json()
+    expect(finalize.byteSize).toBe('0')
+    expect(finalize.checksum).toMatch(/^[0-9a-f]{64}$/)
+  })
+
+  it('keeps checksum and bytes stable when display metadata changes', async () => {
+    const bytes = new TextEncoder().encode('provenance,stability\n')
+    const { meta, upRes } = await authorizeAndUpload(USER_A, WS_A, PROJECT_A, {
+      name: 'stable.csv',
+      type: 'text/csv',
+      bytes,
+    })
+    expect(upRes.status).toBe(200)
+    const originalChecksum = (await upRes.json()).checksum
+
+    const patch = await proxy(
+      `file_objects?record_id=eq.${meta.fileRecordId}`,
+      USER_A,
+      WS_A,
+      {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ display_name: 'renamed-but-identical.csv' }),
+      },
+    )
+    expect(patch.status).toBe(204)
+
+    const after = await admin.query(
+      `SELECT checksum, storage_key FROM api.file_objects WHERE record_id=$1`,
+      [meta.fileRecordId],
+    )
+    expect(after.rows[0].checksum).toBe(originalChecksum)
+
+    const redownload = await handleDownload(
+      downloadRequest(meta.fileRecordId),
+      meta.fileRecordId,
+      authDeps(USER_A, WS_A),
+      storage,
+    )
+    expect(redownload.status).toBe(200)
+    expect(await redownload.text()).toBe(new TextDecoder().decode(bytes))
+    expect(redownload.headers.get('content-disposition')).toContain(
+      'renamed-but-identical.csv',
+    )
+  })
+})

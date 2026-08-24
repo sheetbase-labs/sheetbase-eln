@@ -19,12 +19,12 @@ import { FILE_MAX_BYTES, validateUploadRequest } from '#/lib/file-policy'
 import { env } from '#/env.server'
 
 import {
-  fileErrorResponse,
+  requestErrorResponse,
   postgrestRpc,
   postgrestSelect,
-  resolveFileAuth,
-} from '#/lib/file-auth'
-import type { FileAuthDeps } from '#/lib/file-auth'
+  resolveSessionAuth,
+} from '#/lib/request-auth'
+import type { SessionAuthDeps } from '#/lib/request-auth'
 
 interface CreateFileUploadRow {
   record_id: string
@@ -54,14 +54,14 @@ function asRow<T>(body: T | { error: unknown }): T | undefined {
 /** `POST /api/files/upload-authorize`. */
 export async function handleUploadAuthorize(
   request: Request,
-  deps: FileAuthDeps,
+  deps: SessionAuthDeps,
 ): Promise<Response> {
   if (request.method !== 'POST') {
-    return fileErrorResponse(405, 'method_not_allowed', 'Use POST.')
+    return requestErrorResponse(405, 'method_not_allowed', 'Use POST.')
   }
-  const authResult = await resolveFileAuth(request.headers, deps)
+  const authResult = await resolveSessionAuth(request.headers, deps)
   if (!authResult.ok) {
-    return fileErrorResponse(
+    return requestErrorResponse(
       authResult.status,
       authResult.code,
       authResult.message,
@@ -79,14 +79,14 @@ export async function handleUploadAuthorize(
   try {
     payload = await request.json()
   } catch {
-    return fileErrorResponse(400, 'invalid_body', 'Request body must be JSON.')
+    return requestErrorResponse(400, 'invalid_body', 'Request body must be JSON.')
   }
   if (typeof payload.projectId !== 'string' || !payload.projectId) {
-    return fileErrorResponse(400, 'invalid_body', 'projectId is required.')
+    return requestErrorResponse(400, 'invalid_body', 'projectId is required.')
   }
   const checked = validateUploadRequest(payload)
   if (!checked.ok) {
-    return fileErrorResponse(
+    return requestErrorResponse(
       400,
       'policy_violation',
       checked.violations.map((v) => v.message).join(' '),
@@ -115,7 +115,7 @@ export async function handleUploadAuthorize(
     context.token,
   )
   if (uploadRes.status >= 400) {
-    return fileErrorResponse(
+    return requestErrorResponse(
       uploadRes.status,
       'record_create_failed',
       'Could not create the file record.',
@@ -123,7 +123,7 @@ export async function handleUploadAuthorize(
   }
   const uploadRow = asRow<CreateFileUploadRow>(uploadRes.body)
   if (!uploadRow || !uploadRow.record_id) {
-    return fileErrorResponse(
+    return requestErrorResponse(
       502,
       'record_create_failed',
       'create_file_upload returned no row.',
@@ -147,15 +147,15 @@ export async function handleUploadAuthorize(
 export async function handleUpload(
   request: Request,
   fileRecordId: string,
-  deps: FileAuthDeps,
+  deps: SessionAuthDeps,
   storage: ObjectStorage = getObjectStorage(),
 ): Promise<Response> {
   if (request.method !== 'PUT') {
-    return fileErrorResponse(405, 'method_not_allowed', 'Use PUT.')
+    return requestErrorResponse(405, 'method_not_allowed', 'Use PUT.')
   }
-  const authResult = await resolveFileAuth(request.headers, deps)
+  const authResult = await resolveSessionAuth(request.headers, deps)
   if (!authResult.ok) {
-    return fileErrorResponse(
+    return requestErrorResponse(
       authResult.status,
       authResult.code,
       authResult.message,
@@ -169,7 +169,7 @@ export async function handleUpload(
     context.token,
   )
   if (selectRes.status >= 400) {
-    return fileErrorResponse(
+    return requestErrorResponse(
       selectRes.status,
       'file_lookup_failed',
       'Could not resolve the file object.',
@@ -177,7 +177,7 @@ export async function handleUpload(
   }
   const rows = selectRes.body as FileObjectWire[]
   if (rows.length === 0) {
-    return fileErrorResponse(
+    return requestErrorResponse(
       404,
       'not_found',
       'File object not found in your workspace.',
@@ -185,7 +185,7 @@ export async function handleUpload(
   }
   const fileObject = rows[0]
   if (fileObject.status !== 'active' && fileObject.status !== 'missing') {
-    return fileErrorResponse(
+    return requestErrorResponse(
       409,
       'not_uploadable',
       `File is ${fileObject.status} and cannot accept an upload.`,
@@ -215,7 +215,7 @@ export async function handleUpload(
     )
   } catch (error) {
     if (error instanceof OversizeError) {
-      return fileErrorResponse(
+      return requestErrorResponse(
         413,
         'oversize',
         `Upload exceeds the ${FILE_MAX_BYTES}-byte cap.`,
@@ -226,7 +226,7 @@ export async function handleUpload(
 
   if (claimedChecksum && claimedChecksum !== result.checksum) {
     await storage.delete(candidateStorageKey)
-    return fileErrorResponse(
+    return requestErrorResponse(
       409,
       'checksum_mismatch',
       'The uploaded bytes do not match the declared checksum.',
@@ -247,7 +247,7 @@ export async function handleUpload(
   )
   if (finalize.status >= 400) {
     await storage.delete(candidateStorageKey)
-    return fileErrorResponse(
+    return requestErrorResponse(
       409,
       'upload_conflict',
       'The file changed or was submitted while this upload was in progress.',
@@ -273,15 +273,15 @@ export async function handleUpload(
 export async function handleDownload(
   request: Request,
   fileRecordId: string,
-  deps: FileAuthDeps,
+  deps: SessionAuthDeps,
   storage: ObjectStorage = getObjectStorage(),
 ): Promise<Response> {
   if (request.method !== 'GET') {
-    return fileErrorResponse(405, 'method_not_allowed', 'Use GET.')
+    return requestErrorResponse(405, 'method_not_allowed', 'Use GET.')
   }
-  const authResult = await resolveFileAuth(request.headers, deps)
+  const authResult = await resolveSessionAuth(request.headers, deps)
   if (!authResult.ok) {
-    return fileErrorResponse(
+    return requestErrorResponse(
       authResult.status,
       authResult.code,
       authResult.message,
@@ -295,7 +295,7 @@ export async function handleDownload(
     context.token,
   )
   if (selectRes.status >= 400) {
-    return fileErrorResponse(
+    return requestErrorResponse(
       selectRes.status,
       'file_lookup_failed',
       'Could not resolve the file object.',
@@ -303,7 +303,7 @@ export async function handleDownload(
   }
   const rows = selectRes.body as FileObjectWire[]
   if (rows.length === 0) {
-    return fileErrorResponse(
+    return requestErrorResponse(
       404,
       'not_found',
       'File not found in your workspace.',
@@ -312,7 +312,7 @@ export async function handleDownload(
 
   const fileObject = rows[0]
   if (fileObject.status === 'quarantined') {
-    return fileErrorResponse(
+    return requestErrorResponse(
       410,
       'quarantined',
       fileObject.status_reason ??
@@ -320,10 +320,10 @@ export async function handleDownload(
     )
   }
   if (fileObject.status === 'deleted') {
-    return fileErrorResponse(410, 'deleted', 'This file is deleted.')
+    return requestErrorResponse(410, 'deleted', 'This file is deleted.')
   }
   if (fileObject.status === 'missing') {
-    return fileErrorResponse(
+    return requestErrorResponse(
       404,
       'missing',
       'The storage object for this file is absent.',
@@ -342,7 +342,7 @@ export async function handleDownload(
       },
       context.token,
     )
-    return fileErrorResponse(
+    return requestErrorResponse(
       404,
       'missing',
       'The storage object for this file is absent.',

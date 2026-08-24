@@ -320,17 +320,23 @@ EXCEPTION WHEN unique_violation THEN
     AND idempotency_key = p_idempotency_key;
   SELECT * INTO existing_revision FROM api.revisions
   WHERE id = existing_submission.revision_id;
-  IF existing_submission.id IS NOT NULL
-     AND existing_submission.record_id = p_record_id
-     AND existing_submission.workflow_definition_key = p_workflow_definition_key
-     AND existing_submission.assigned_reviewer_user_ids <> normalized_reviewers
-     AND existing_revision.integrity_digest = p_expected_source_digest THEN
-    RETURN jsonb_build_object(
-      'revision', jsonb_build_object('id', existing_revision.id, 'integrityDigest', existing_revision.integrity_digest),
-      'submission', jsonb_build_object('id', existing_submission.id, 'state', existing_submission.state),
-      'idempotent', true
-    );
+  -- Mirror the normal idempotency pre-check exactly: any mismatch between
+  -- the racing request and the winner means this key was reused for a
+  -- different submission — surface the conflict instead of returning it.
+  IF existing_submission.id IS NULL
+     OR existing_submission.record_id <> p_record_id
+     OR existing_submission.workflow_definition_key <> p_workflow_definition_key
+     OR existing_submission.workflow_definition_version <> p_workflow_definition_version
+     OR existing_submission.assigned_reviewer_user_ids <> normalized_reviewers
+     OR existing_revision.id IS NULL
+     OR existing_revision.integrity_digest <> p_expected_source_digest THEN
+    RAISE EXCEPTION 'idempotency key was used for a different submission' USING ERRCODE = '23505';
   END IF;
+  RETURN jsonb_build_object(
+    'revision', jsonb_build_object('id', existing_revision.id, 'integrityDigest', existing_revision.integrity_digest),
+    'submission', jsonb_build_object('id', existing_submission.id, 'state', existing_submission.state),
+    'idempotent', true
+  );
   RAISE;
 END;
 $$;

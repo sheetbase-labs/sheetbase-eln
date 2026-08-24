@@ -138,10 +138,12 @@ frozen payload is immutable to ordinary `update_block_payload` edits.
 
 ## Revision binding at submission
 
-Submitting the record (decision 0036) automatically stamps `frozen.revisionId`
-on every frozen chart/analysis block of that record whose revisionId is still
-null — a server-side trigger on `api.revisions`, not a client call. Once
-bound, `unfreeze_chart` is rejected.
+Submitting the record stamps `frozen.revisionId` on every frozen
+chart/analysis block of that record whose revisionId is still null — done
+inside the canonical submission transaction (`submit_record_revision`
+allocates the revision UUID, binds the evidence, then captures the
+snapshot and digest), so the submitted snapshot, live blocks and digest
+all agree. Once bound, `unfreeze_chart` is rejected.
 
 ## Unfreeze (before submission)
 

@@ -77,16 +77,22 @@ schemaVersionNumber, sourceDatasetRevision, rowCount, checksum }` where
    1–4 stay stable across scientific magnitudes without importing a
    statistical package.
 
-7. **Revision binding happens at submission.** An AFTER INSERT trigger on
-   `api.revisions` stamps `frozen.revisionId` on all of the record's frozen
-   chart/analysis blocks still unbound, as a SECURITY DEFINER system action
-   authorised only for that null→uuid transition. The standalone bind RPCs
-   are removed; unfreeze remains refused once evidence is locked.
+7. **Revision binding happens at submission.** `submit_record_revision`
+   pre-allocates the revision UUID, stamps `frozen.revisionId` onto all of
+   the record's frozen chart/analysis blocks still unbound, and only then
+   captures the envelope and digest — inside one transaction, as a SECURITY
+   DEFINER system action authorised only for that null→uuid transition.
+   The submitted snapshot, live blocks and digest therefore agree at the
+   evidence boundary; digest canonicalisation strips the self-referential
+   bound id (and binding-volatile block metadata) so client previews taken
+   before binding remain valid. The standalone bind RPCs are removed;
+   unfreeze remains refused once evidence is locked.
 
 ## Consequences
 
 - Migrations 0124–0128 were corrected in place before merge (draft stack);
-  0127 now delivers submission-time binding instead of `bind_analysis_revision`.
+  0127 delivers in-transaction submission binding instead of the
+  `bind_analysis_revision` trigger/RPC pair.
 - Frozen analysis blocks stay small regardless of Dataset scale;
   reconstruction cost is proportional to pinned rows and bounded by the
   client ceiling, above which reconstruction reports an honest failure.

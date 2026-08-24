@@ -112,8 +112,7 @@ export function NotebookBlock({
   const readOnly = state === 'read-only' || locked
   const invalid = state === 'invalid'
   const loading = state === 'loading'
-  const hasMenu =
-    (!!menuItems && menuItems.length > 0) || menuExtra != null
+  const hasMenu = (!!menuItems && menuItems.length > 0) || menuExtra != null
   const [menuOpen, setMenuOpen] = React.useState(false)
   const isEditing = state === 'editing' && !!onTitleChange
   const [titleDraft, setTitleDraft] = React.useState(title ?? '')

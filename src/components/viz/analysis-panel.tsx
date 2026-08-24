@@ -24,6 +24,7 @@ import {
   ANALYSIS_KINDS,
   COLUMN_TRANSFORMS,
   MAX_DEGREE,
+  TRANSFORM_FNS,
   regressionFitCurve,
   runAnalysis,
   validateAnalysisDefinition,
@@ -46,11 +47,11 @@ import {
 } from '#/lib/analysis-definitions-data'
 import type { AnalysisDefinitionWire } from '#/lib/analysis-definitions-data'
 import {
-  fetchAllScientificRows,
-  fetchScientificTable,
-  scientificDataClient,
-} from '#/lib/scientific-sheet-data'
-import type { ScientificTableWire } from '#/lib/scientific-sheet-data'
+  fetchCanonicalDataset,
+  fetchDatasetRows,
+  sciDataClient,
+} from '#/lib/chart-data'
+import type { CanonicalDatasetSource } from '#/lib/chart-data'
 
 /**
  * SCI-02 — reusable analysis definitions in the Analysis Studio.
@@ -63,7 +64,7 @@ import type { ScientificTableWire } from '#/lib/scientific-sheet-data'
  */
 
 export interface AnalysisPanelProps {
-  datasets: ScientificTableWire[]
+  datasets: CanonicalDatasetSource[]
   workspaceId: string
   userId: string
 }
@@ -86,7 +87,7 @@ export function AnalysisPanel({
   userId,
 }: AnalysisPanelProps) {
   const queryClient = useQueryClient()
-  const [selectedTableId, setSelectedTableId] = useState('')
+  const [selectedDatasetId, setSelectedDatasetId] = useState('')
   const [draft, setDraft] = useState<DefinitionDraft>(emptyDraft)
 
   const definitionsQuery = useQuery({
@@ -96,24 +97,25 @@ export function AnalysisPanel({
   })
   const definitions = definitionsQuery.data ?? []
 
-  const selectedTable = useMemo(
-    () => datasets.find((d) => d.id === selectedTableId) ?? null,
-    [datasets, selectedTableId],
+  const selectedDataset = useMemo(
+    () => datasets.find((d) => d.datasetId === selectedDatasetId) ?? null,
+    [datasets, selectedDatasetId],
   )
 
-  // Dataset rows for execution — read-only through the same /api/db boundary
-  // as every chart surface.
+  // Dataset rows for execution — read-only canonical rows through the same
+  // /api/db boundary as every chart surface.
   const rowsQuery = useQuery({
-    queryKey: ['analysis-definition-rows', selectedTableId] as const,
+    queryKey: ['analysis-definition-rows', selectedDatasetId] as const,
     queryFn: async () => {
-      const table = await fetchScientificTable(
-        scientificDataClient,
-        selectedTableId,
+      const source = await fetchCanonicalDataset(
+        sciDataClient,
+        selectedDatasetId,
       )
-      if (!table) return []
-      return fetchAllScientificRows(scientificDataClient, table)
+      if (!source) return null
+      const paged = await fetchDatasetRows(sciDataClient, source.datasetId)
+      return { source, ...paged }
     },
-    enabled: Boolean(selectedTableId),
+    enabled: Boolean(selectedDatasetId),
     staleTime: 10_000,
   })
 
@@ -129,20 +131,17 @@ export function AnalysisPanel({
   const runnable =
     draft.definition !== null &&
     validation.length === 0 &&
-    Boolean(selectedTableId) &&
+    Boolean(selectedDatasetId) &&
     !rowsQuery.isLoading
 
   const execution = useMemo(() => {
-    if (!runnable || !draft.definition || !selectedTable) return null
-    const columns = selectedTable.columns.map((c) => ({
-      id: c.id,
-      fieldName: c.field_name,
-      label: c.label,
-      logicalType: c.logical_type,
-      unit: c.unit,
-    }))
-    return runAnalysis(draft.definition, columns, rowsQuery.data ?? [])
-  }, [runnable, draft.definition, selectedTable, rowsQuery.data])
+    const resolved = rowsQuery.data
+    if (!runnable || !draft.definition || !resolved) return null
+    // Over-ceiling datasets refuse execution honestly instead of computing
+    // statistics over a truncated sample.
+    if (resolved.truncated) return null
+    return runAnalysis(draft.definition, resolved.source.columns, resolved.rows)
+  }, [runnable, draft.definition, rowsQuery.data])
 
   function updateDefinition(patch: Partial<AnalysisDefinition>) {
     setDraft((prev) => {
@@ -155,19 +154,19 @@ export function AnalysisPanel({
   }
 
   function startDraft(kind: (typeof ANALYSIS_KINDS)[number]) {
-    if (!selectedTable) return
-    const numeric = selectedTable.columns.filter((c) =>
-      ['decimal', 'integer'].includes(c.logical_type),
+    if (!selectedDataset) return
+    const numeric = selectedDataset.columns.filter((c) =>
+      ['decimal', 'integer'].includes(c.logicalType),
     )
-    const category = selectedTable.columns.filter((c) =>
-      ['category', 'text', 'boolean'].includes(c.logical_type),
+    const category = selectedDataset.columns.filter((c) =>
+      ['category', 'text', 'boolean'].includes(c.logicalType),
     )
-    const bind = (column?: { id: string; field_name: string }) =>
-      column ? { columnId: column.id, fieldName: column.field_name } : null
+    const bind = (column?: { id: string }) =>
+      column ? { fieldId: column.id } : null
     const first = numeric[0]
     const base = {
       definitionVersion: 1 as const,
-      datasets: [{ tableId: selectedTable.id }],
+      datasets: [{ datasetId: selectedDataset.datasetId }],
     }
     const definition: AnalysisDefinition =
       kind === 'descriptive'
@@ -194,23 +193,24 @@ export function AnalysisPanel({
       name: saved.name,
       definition: def,
     })
-    setSelectedTableId(def.datasets[0]?.tableId ?? '')
+    setSelectedDatasetId(def.datasets[0]?.datasetId ?? '')
   }
 
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!draft.definition || !draft.name.trim()) return null
-      const tables = datasets.filter((d) =>
-        draft.definition!.datasets.some((ref) => ref.tableId === d.id),
-      )
       return saveAnalysisDefinition(
-        scientificDataClient,
+        sciDataClient,
         {
           id: draft.editingId ?? undefined,
           name: draft.name.trim(),
           definition: draft.definition,
           source_revisions: captureDefinitionSourceRevisions(
-            tables,
+            datasets.filter((d) =>
+              draft.definition!.datasets.some(
+                (ref) => ref.datasetId === d.datasetId,
+              ),
+            ),
             draft.definition,
           ),
         },
@@ -226,8 +226,7 @@ export function AnalysisPanel({
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) =>
-      deleteAnalysisDefinition(scientificDataClient, id),
+    mutationFn: (id: string) => deleteAnalysisDefinition(sciDataClient, id),
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: analysisDefinitionQueryKeys.all,
@@ -237,14 +236,19 @@ export function AnalysisPanel({
 
   // SCI-02 → SCI-01 link: overlay the fitted curve on its observations.
   const fitChart = useMemo(() => {
+    const resolved = rowsQuery.data
     if (
       !execution ||
       !execution.ok ||
       execution.result.kind !== 'regression' ||
       !draft.definition ||
       draft.definition.kind !== 'regression' ||
-      !rowsQuery.data ||
-      rowsQuery.data.length === 0
+      // Grouped runs produce one fit per group; a single overlay would draw
+      // one group's model over every group's points.
+      draft.definition.group ||
+      !resolved ||
+      resolved.truncated ||
+      resolved.rows.length === 0
     )
       return null
     const fit: RegressionFitRow =
@@ -253,7 +257,7 @@ export function AnalysisPanel({
     return buildRegressionFitChart({
       definition: draft.definition,
       fit,
-      rows: rowsQuery.data,
+      rows: resolved.rows,
     })
   }, [execution, draft.definition, rowsQuery.data])
 
@@ -275,16 +279,15 @@ export function AnalysisPanel({
             <Select
               id="analysis-definition-dataset"
               aria-label="Analysis dataset"
-              value={selectedTableId}
+              value={selectedDatasetId}
               onChange={(event) => {
-                setSelectedTableId(event.target.value)
-                setDraft(emptyDraft)
+                setSelectedDatasetId(event.target.value)
               }}
               className="h-8 bg-background"
             >
               <option value="">Select a dataset</option>
               {datasets.map((d) => (
-                <option key={d.id} value={d.id}>
+                <option key={d.datasetId} value={d.datasetId}>
                   {d.name}
                 </option>
               ))}
@@ -301,7 +304,7 @@ export function AnalysisPanel({
                   variant={
                     draft.definition?.kind === kind ? 'default' : 'outline'
                   }
-                  disabled={!selectedTable}
+                  disabled={!selectedDataset}
                   aria-pressed={draft.definition?.kind === kind}
                   onClick={() => startDraft(kind)}
                 >
@@ -318,7 +321,7 @@ export function AnalysisPanel({
         {draft.definition ? (
           <AnalysisDefinitionControls
             definition={draft.definition}
-            table={selectedTable!}
+            table={selectedDataset!}
             onChange={updateDefinition}
           />
         ) : null}
@@ -403,6 +406,14 @@ export function AnalysisPanel({
             plotHeight={220}
           />
         </div>
+      ) : execution &&
+        execution.ok &&
+        draft.definition?.kind === 'regression' &&
+        draft.definition.group ? (
+        <p className="rounded-md border border-dashed border-input bg-muted/20 p-3 text-xs text-muted-foreground">
+          Grouped fits produce one model per group; a single overlay would
+          misrepresent them, so no curve is drawn for grouped regressions.
+        </p>
       ) : null}
 
       <SavedDefinitionsList
@@ -420,7 +431,7 @@ export function AnalysisPanel({
 // Definition controls
 // ---------------------------------------------------------------------------
 
-type NumericColumn = { id: string; field_name: string; label: string }
+type NumericColumn = { id: string; label: string }
 
 function columnOptions(columns: NumericColumn[]) {
   return columns.map((column) => (
@@ -430,10 +441,8 @@ function columnOptions(columns: NumericColumn[]) {
   ))
 }
 
-function bindingValue(
-  binding: { columnId: string } | null | undefined,
-): string {
-  return binding?.columnId ?? ''
+function bindingValue(binding: { fieldId: string } | null | undefined): string {
+  return binding?.fieldId ?? ''
 }
 
 function AnalysisDefinitionControls({
@@ -442,23 +451,23 @@ function AnalysisDefinitionControls({
   onChange,
 }: {
   definition: AnalysisDefinition
-  table: ScientificTableWire
+  table: CanonicalDatasetSource
   onChange: (patch: Partial<AnalysisDefinition>) => void
 }) {
   const numeric = table.columns.filter((c) =>
-    ['decimal', 'integer'].includes(c.logical_type),
+    ['decimal', 'integer'].includes(c.logicalType),
   )
   const category = table.columns.filter((c) =>
-    ['category', 'text', 'boolean'].includes(c.logical_type),
+    ['category', 'text', 'boolean'].includes(c.logicalType),
   )
 
-  function setBinding(key: string, columnId: string, required: boolean) {
-    const column = [...numeric, ...category].find((c) => c.id === columnId)
+  function setBinding(key: string, fieldId: string, required: boolean) {
+    const column = [...numeric, ...category].find((c) => c.id === fieldId)
     const value =
       column === undefined && !required
         ? null
         : column
-          ? { columnId: column.id, fieldName: column.field_name }
+          ? { fieldId: column.id }
           : undefined
     onChange({ [key]: value })
   }
@@ -799,16 +808,44 @@ interface FitChartSpecInput {
 /**
  * Build the observed-points + fitted-curve materialisation for a regression
  * run. Pure so the studio preview and future surfaces share one construction.
+ *
+ * Correctness contract: the plotted space IS the fitted space. Coefficients
+ * describe the transformed coordinates (ADR 0040 §6 — never back-transformed),
+ * so observations are drawn with the same monotonic transforms applied and
+ * axis labels name the transform. Ungrouped runs only: grouped fits produce
+ * one model per group, which a single overlay cannot represent honestly.
  */
 export function buildRegressionFitChart(input: FitChartSpecInput): {
   spec: ChartSpec
   materialised: MaterialisedChart
 } | null {
   const { definition, fit } = input
+  if (definition.group) return null
+
+  const predictorTransform = definition.predictorTransform ?? 'none'
+  const outcomeTransform = definition.outcomeTransform ?? 'none'
+  const transformLabel: Record<
+    Exclude<(typeof COLUMN_TRANSFORMS)[number], 'none'>,
+    string
+  > = { log10: 'log10', ln: 'ln' }
+  const applyTransform = (
+    value: number,
+    kind: (typeof COLUMN_TRANSFORMS)[number],
+  ): number | null => {
+    if (kind === 'none') return value
+    // A non-positive observation cannot exist in the fitted log space; the
+    // execution kernel already refused these, so this is belt-and-braces.
+    if (value <= 0) return null
+    return TRANSFORM_FNS[kind](value)
+  }
+
   const pairs: Array<{ x: number; y: number }> = []
   for (const row of input.rows) {
-    const px = toNumberValue(row[definition.predictor.fieldName])
-    const py = toNumberValue(row[definition.outcome.fieldName])
+    const rawX = toNumberValue(row[definition.predictor.fieldId])
+    const rawY = toNumberValue(row[definition.outcome.fieldId])
+    if (rawX === null || rawY === null) continue
+    const px = applyTransform(rawX, predictorTransform)
+    const py = applyTransform(rawY, outcomeTransform)
     if (px !== null && py !== null) pairs.push({ x: px, y: py })
   }
   if (pairs.length === 0) return null
@@ -818,6 +855,14 @@ export function buildRegressionFitChart(input: FitChartSpecInput): {
 
   const observed = CHART_PALETTE[0].toLowerCase()
   const fitColor = CHART_PALETTE[1].toLowerCase()
+  const xLabel =
+    predictorTransform === 'none'
+      ? 'Predictor'
+      : `${transformLabel[predictorTransform]}(Predictor)`
+  const yLabel =
+    outcomeTransform === 'none'
+      ? 'Outcome'
+      : `${transformLabel[outcomeTransform]}(Outcome)`
 
   return {
     spec: {
@@ -826,7 +871,7 @@ export function buildRegressionFitChart(input: FitChartSpecInput): {
       datasets: [],
       fields: {
         x: null,
-        y: { columnId: '', fieldName: '' },
+        y: { fieldId: '' },
         series: null,
         color: null,
         size: null,
@@ -837,8 +882,8 @@ export function buildRegressionFitChart(input: FitChartSpecInput): {
       typeParams: {},
       display: {
         axes: {
-          x: { label: 'Predictor', scale: 'linear' },
-          y: { label: 'Outcome', scale: 'linear' },
+          x: { label: xLabel, scale: 'linear' },
+          y: { label: yLabel, scale: 'linear' },
         },
         series: [
           { identifier: 'observed', label: 'Observed', color: '#006edc' },
@@ -879,8 +924,8 @@ export function buildRegressionFitChart(input: FitChartSpecInput): {
           ),
         },
       ],
-      xLabel: 'Predictor',
-      yLabel: 'Outcome',
+      xLabel,
+      yLabel,
       xUnit: undefined,
       yUnit: undefined,
       droppedPoints: 0,

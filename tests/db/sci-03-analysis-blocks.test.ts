@@ -1,17 +1,18 @@
 /**
  * SCI-03 database contract proof for notebook analysis blocks: definition
  * reference integrity, frozen-authority rules (only the SECURITY DEFINER
- * RPCs may write a frozen payload), and the freeze/unfreeze lifecycle with
- * verbatim definition pinning and dataset provenance.
+ * RPCs may write a frozen payload), version-pinned frozen evidence (no
+ * embedded rows), and submit-time revision binding through the revisions
+ * trigger. Fixtures build a canonical Dataset per decision 0037.
  */
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { prepareTestDatabase } from './helpers'
 
-const WS_A = '00000000-0000-4000-8000-00000000130a'
-const PROJECT_A = '00000000-0000-4000-8000-00000000131a'
-const USER_A = 'sci-03-owner-a'
+const WS_A = crypto.randomUUID()
+const PROJECT_A = crypto.randomUUID()
+const USER_A = `sci-03-owner-${crypto.randomUUID().slice(0, 8)}`
 
 let migrator: Client
 let asRole: (role: 'authenticator') => Promise<Client>
@@ -19,10 +20,115 @@ const clients: Client[] = []
 
 // Fixture state shared by tests.
 let experimentId = ''
-let tableId = ''
-let resourceName = ''
-const cols: Record<string, { id: string; field_name: string }> = {}
+let datasetId = ''
+let fieldTime = ''
+let fieldRecovery = ''
 let definitionId = ''
+let emptyDatasetId = ''
+
+async function insertCanonicalDataset(
+  name: string,
+  rowCount: number,
+): Promise<string> {
+  const schemaRes = await migrator.query(
+    `INSERT INTO api.dataset_schema_definitions(workspace_id,key,name,lifecycle)
+     VALUES ($1,$2,$3,'active') RETURNING id`,
+    [WS_A, `sci03_${name}_${Date.now()}_${Math.floor(Math.random() * 1e6)}`, name],
+  )
+  const schemaId = schemaRes.rows[0].id
+  const versionRes = await migrator.query(
+    `INSERT INTO api.dataset_schema_versions(schema_id,"version",lifecycle)
+     VALUES ($1,1,'draft') RETURNING id`,
+    [schemaId],
+  )
+  const svId = versionRes.rows[0].id
+  const fields: Array<{ key: string; label: string }> = [
+    { key: 'time', label: 'Time' },
+    { key: 'recovery', label: 'Recovery' },
+  ]
+  const fieldIds: Record<string, string> = {}
+  for (const [index, field] of fields.entries()) {
+    const res = await migrator.query(
+      `INSERT INTO api.dataset_schema_version_fields
+        (schema_version_id,field_id,key,label,logical_type,display_order)
+       VALUES ($1,gen_random_uuid(),$2,$3,'decimal',$4) RETURNING field_id`,
+      [svId, field.key, field.label, index + 1],
+    )
+    fieldIds[field.key] = res.rows[0].field_id
+  }
+  await migrator.query(
+    `UPDATE api.dataset_schema_versions SET lifecycle='active' WHERE id=$1`,
+    [svId],
+  )
+  const dsRes = await migrator.query(
+    `INSERT INTO api.datasets(workspace_id,schema_version_id,name)
+     VALUES ($1,$2,$3) RETURNING id`,
+    [WS_A, svId, name],
+  )
+  const dsId = dsRes.rows[0].id
+  const rows: Array<[number, number]> = [
+    [0, 1],
+    [24, 3],
+    [48, 5],
+  ]
+  for (const [time, recovery] of rows.slice(0, rowCount)) {
+    const rowRes = await migrator.query(
+      `INSERT INTO api.dataset_rows(dataset_id,workspace_id) VALUES ($1,$2) RETURNING id`,
+      [dsId, WS_A],
+    )
+    const rowId = rowRes.rows[0].id
+    for (const [fieldId, value] of [
+      [fieldIds.time, time],
+      [fieldIds.recovery, recovery],
+    ] as Array<[string, number]>) {
+      await migrator.query(
+        `INSERT INTO api.dataset_row_values(row_id,field_id,numeric_value)
+         VALUES ($1,$2,$3)`,
+        [rowId, fieldId, value],
+      )
+    }
+  }
+  return dsId
+}
+
+async function insertDefinition(input: {
+  name: string
+  datasetRef: string
+  outcomeField: string
+  predictorField?: string
+}) {
+  const def = {
+    definitionVersion: 1,
+    kind: 'regression',
+    datasets: [{ datasetId: input.datasetRef }],
+    outcome: { fieldId: input.outcomeField },
+    predictor: { fieldId: input.predictorField ?? input.outcomeField },
+    degree: 1,
+  }
+  const res = await migrator.query(
+    `INSERT INTO api.analysis_definitions(workspace_id,owner_user_id,name,definition,source_revisions)
+     VALUES ($1,$2,$3,$4::jsonb,'[]'::jsonb) RETURNING id`,
+    [WS_A, USER_A, input.name, JSON.stringify(def)],
+  )
+  return res.rows[0].id
+}
+
+let blockOrder = 0
+
+async function insertAnalysisBlock(payloadOverrides: Record<string, unknown>) {
+  const payload = {
+    title: 'Recovery over time',
+    definitionId,
+    frozen: null,
+    ...payloadOverrides,
+  }
+  const res = await migrator.query(
+    `INSERT INTO api.blocks(record_id,type,payload,"order",created_by_user_id)
+     VALUES ($1,'analysis',$2::jsonb,$4,$3) RETURNING *`,
+    [experimentId, JSON.stringify(payload), USER_A, ++blockOrder],
+  )
+  return res.rows[0]
+}
 
 beforeAll(async () => {
   ;({ migrator, asRole } = await prepareTestDatabase())
@@ -42,7 +148,12 @@ beforeAll(async () => {
      VALUES ('${PROJECT_A}','${WS_A}','sci-03-a','SCI 03 A')`,
   )
   await migrator.query(`SELECT set_config('request.jwt.claims',$1,false)`, [
-    JSON.stringify({ role: 'authenticated', sub: USER_A, workspace_id: WS_A }),
+    JSON.stringify({
+      role: 'authenticated',
+      sub: USER_A,
+      workspace_id: WS_A,
+      session_id: 'sci-03-session',
+    }),
   ])
 
   const rec = await migrator.query(
@@ -52,165 +163,46 @@ beforeAll(async () => {
   )
   experimentId = rec.rows[0].id
 
-  // Generated scientific-table resource (same shape DATA-002 created).
-  const alphabet = 'abcdefghijklmnopqrstuvwxyz234567'
-  const suffix = Array.from(
-    { length: 26 },
-    () => alphabet[Math.floor(Math.random() * 32)],
-  ).join('')
-  resourceName = `sheet_${suffix}`
-  await migrator.query(
-    `CREATE TABLE api.${resourceName} (
-       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-       workspace_id uuid NOT NULL,
-       version bigint NOT NULL DEFAULT 1,
-       created_at timestamptz NOT NULL DEFAULT now(),
-       updated_at timestamptz NOT NULL DEFAULT now(),
-       formula_column_ids uuid[] NOT NULL DEFAULT ARRAY[]::uuid[],
-       created_by_user_id text,
-       updated_by_user_id text
-     )`,
+  datasetId = await insertCanonicalDataset(`assay_readings_${Date.now()}`, 3)
+  const fields = await migrator.query(
+    `SELECT f.key, f.field_id FROM api.dataset_schema_version_fields f
+      JOIN api.dataset_schema_versions sv ON sv.id=f.schema_version_id
+      JOIN api.datasets d ON d.schema_version_id=sv.id
+     WHERE d.id=$1`,
+    [datasetId],
   )
-  const sheet = await migrator.query(
-    `INSERT INTO api.blocks(record_id,type,payload,"order",created_by_user_id)
-     VALUES ($1,'sheet','{}'::jsonb,1,$2) RETURNING id`,
-    [experimentId, USER_A],
-  )
-  const tableRes = await migrator.query(
-    `INSERT INTO api.scientific_tables(workspace_id,record_id,block_id,resource_name,name,created_by_user_id)
-     VALUES ($1,$2,$3,$4,'Assay readings',$5) RETURNING id`,
-    [WS_A, experimentId, sheet.rows[0].id, resourceName, USER_A],
-  )
-  tableId = tableRes.rows[0].id
-  const columnDefs = [
-    { label: 'Time', logical_type: 'decimal' },
-    { label: 'Recovery', logical_type: 'decimal' },
-  ]
-  for (const [index, column] of columnDefs.entries()) {
-    const fieldSuffix = Array.from(
-      { length: 26 },
-      () => alphabet[Math.floor(Math.random() * 32)],
-    ).join('')
-    const fieldName = `col_${fieldSuffix}`
-    // The physical column must exist before the metadata row: the deferred
-    // regrant trigger grants column privileges on commit.
-    await migrator.query(
-      `ALTER TABLE api.${resourceName} ADD COLUMN "${fieldName}" decimal`,
-    )
-    const colRes = await migrator.query(
-      `INSERT INTO api.scientific_columns(table_id,workspace_id,field_name,label,display_order,logical_type,created_by_user_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
-      [
-        tableId,
-        WS_A,
-        fieldName,
-        column.label,
-        index + 1,
-        column.logical_type,
-        USER_A,
-      ],
-    )
-    cols[column.label] = { id: colRes.rows[0].id, field_name: fieldName }
+  for (const row of fields.rows) {
+    if (row.key === 'time') fieldTime = row.field_id
+    if (row.key === 'recovery') fieldRecovery = row.field_id
   }
-  const rows: Array<[number, number]> = [
-    [0, 1],
-    [24, 3],
-    [48, 5],
-  ]
-  for (const [time, recovery] of rows) {
-    await migrator.query(
-      `INSERT INTO api.${resourceName}(workspace_id,"${cols['Time'].field_name}","${cols['Recovery'].field_name}")
-       VALUES ($1,$2,$3)`,
-      [WS_A, time, recovery],
-    )
-  }
-
-  // A saved analysis definition in this workspace.
-  const def = {
-    definitionVersion: 1,
-    kind: 'regression',
-    datasets: [{ tableId }],
-    outcome: {
-      columnId: cols['Recovery'].id,
-      fieldName: cols['Recovery'].field_name,
-    },
-    predictor: {
-      columnId: cols['Time'].id,
-      fieldName: cols['Time'].field_name,
-    },
-    degree: 1,
-  }
-  const defRes = await migrator.query(
-    `INSERT INTO api.analysis_definitions(workspace_id,owner_user_id,name,definition,source_revisions)
-     VALUES ($1,$2,'Recovery slope',$3::jsonb,'[]'::jsonb) RETURNING id`,
-    [WS_A, USER_A, JSON.stringify(def)],
-  )
-  definitionId = defRes.rows[0].id
+  definitionId = await insertDefinition({
+    name: 'Recovery slope',
+    datasetRef: datasetId,
+    outcomeField: fieldRecovery,
+    predictorField: fieldTime,
+  })
+  emptyDatasetId = await insertCanonicalDataset(`empty_readings_${Date.now()}`, 0)
 })
 
 afterAll(async () => {
-  const generated = await migrator.query<{ resource_name: string }>(
-    `SELECT resource_name FROM api.scientific_tables WHERE workspace_id=$1`,
-    [WS_A],
-  )
-  for (const row of generated.rows) {
-    if (/^sheet_[a-z2-7]{26}$/.test(row.resource_name)) {
-      await migrator.query(`DROP TABLE IF EXISTS api.${row.resource_name}`)
-    }
-  }
-  await migrator.query(
-    `DELETE FROM api.analysis_definitions WHERE workspace_id=$1`,
-    [WS_A],
-  )
-  await migrator.query(
-    `DELETE FROM api.scientific_tables WHERE workspace_id=$1`,
-    [WS_A],
-  )
-  await migrator.query(
-    `DELETE FROM api.blocks WHERE record_id IN
-      (SELECT id FROM api.records WHERE workspace_id=$1)`,
-    [WS_A],
-  )
-  await migrator.query(
-    `DELETE FROM api.revisions WHERE record_id IN
-      (SELECT id FROM api.records WHERE workspace_id=$1)`,
-    [WS_A],
-  )
-  await migrator.query(`DELETE FROM api.records WHERE workspace_id=$1`, [WS_A])
-  await migrator.query(`DELETE FROM api.projects WHERE workspace_id=$1`, [WS_A])
-  await migrator.query(`DELETE FROM api.workspaces WHERE id=$1`, [WS_A])
-  await migrator.query(`DELETE FROM internal."user" WHERE id=$1`, [USER_A])
-  await Promise.all(clients.map((client) => client.end()))
-  await migrator.end()
+  await migrator.query(`DELETE FROM api.analysis_definitions WHERE workspace_id=$1`, [WS_A])
+  await migrator.query(`DELETE FROM api.review_submissions WHERE workspace_id=$1`, [WS_A])
+  await migrator.query(`DELETE FROM api.revisions WHERE record_id IN
+    (SELECT id FROM api.records WHERE project_id=$1)`, [PROJECT_A])
+  await migrator.query(`DELETE FROM api.blocks WHERE record_id IN
+    (SELECT id FROM api.records WHERE project_id=$1)`, [PROJECT_A])
+  await migrator.query(`DELETE FROM api.records WHERE project_id=$1`, [PROJECT_A])
+  await migrator.query(`DELETE FROM api.projects WHERE id=$1`, [PROJECT_A])
+  await migrator.query(`DELETE FROM api.workspace_memberships WHERE workspace_id=$1`, [WS_A])
+  // Dataset Versions are immutable evidence: their created_by SET NULL
+  // would fire the immutability trigger, so the fixture user is left in place.
 })
-
-let blockOrder = 1
-
-async function insertAnalysisBlock(payload: unknown) {
-  blockOrder += 1
-  const { rows } = await migrator.query(
-    `INSERT INTO api.blocks(record_id,type,payload,"order",created_by_user_id)
-     VALUES ($1,'analysis',$2::jsonb,$3,$4) RETURNING *`,
-    [experimentId, JSON.stringify(payload), blockOrder * 0.001, USER_A],
-  )
-  return rows[0]
-}
-
-function payload(overrides: Record<string, unknown> = {}) {
-  return {
-    title: 'Recovery over time',
-    definitionId,
-    frozen: null,
-    ...overrides,
-  }
-}
 
 describe('SCI-03 analysis blocks', () => {
   it('enforces definition-reference integrity and required fields', async () => {
-    const block = await insertAnalysisBlock(payload())
+    const block = await insertAnalysisBlock({})
     expect(block.id).toBeTruthy()
 
-    // Unknown definition UUID is rejected.
     await expect(
       insertAnalysisBlock({
         title: 'Bad',
@@ -219,13 +211,13 @@ describe('SCI-03 analysis blocks', () => {
     ).rejects.toMatchObject({ code: '23514' })
 
     // Title is required on non-draft payloads.
-    await expect(insertAnalysisBlock({ definitionId })).rejects.toMatchObject({
-      code: '23514',
-    })
+    await expect(
+      insertAnalysisBlock({ title: '', definitionId }),
+    ).rejects.toMatchObject({ code: '23514' })
   })
 
-  it('freezes through the RPC, pinning the definition and input provenance', async () => {
-    const block = await insertAnalysisBlock(payload())
+  it('freezes through the RPC, pinning an immutable Dataset Version — never rows', async () => {
+    const block = await insertAnalysisBlock({})
     const res = await migrator.query(
       `SELECT * FROM api.freeze_analysis_block($1,$2)`,
       [block.id, block.version],
@@ -235,25 +227,89 @@ describe('SCI-03 analysis blocks', () => {
     expect(frozen).toBeTruthy()
     expect(frozen.definition.kind).toBe('regression')
     expect(frozen.definitionVersion).toBe(1)
-    expect(frozen.data.rows).toHaveLength(3)
-    expect(frozen.datasetProvenance[0].rowCount).toBe(3)
-    expect(frozen.datasetProvenance[0].checksum).toMatch(/^[0-9a-f]{32}$/)
-    // Version bumped by the freeze.
+
+    // Evidence references only: no embedded source rows.
+    expect(frozen.data).toBeUndefined()
+
+    expect(frozen.columns).toHaveLength(2)
+    expect(
+      frozen.columns.map((c: { fieldId: string }) => c.fieldId).sort(),
+    ).toEqual([fieldRecovery, fieldTime].sort())
+
+    const prov = frozen.datasetProvenance[0]
+    expect(prov.datasetId).toBe(datasetId)
+    expect(/^[0-9a-f]{8}-/.test(prov.datasetVersionId)).toBe(true)
+    expect(prov.schemaVersionNumber).toBe(1)
+    expect(prov.rowCount).toBe(3)
+    expect(prov.checksum).toMatch(/^[0-9a-f]{32}$/)
+
+    const counts = await migrator.query(
+      `SELECT
+         (SELECT count(*) FROM api.dataset_version_rows WHERE dataset_version_id=$1) AS rows,
+         (SELECT count(*) FROM api.dataset_version_values WHERE dataset_version_id=$1) AS values`,
+      [prov.datasetVersionId],
+    )
+    expect(Number(counts.rows[0].rows)).toBe(3)
+    expect(Number(counts.rows[0].values)).toBe(6)
     expect(frozenBlock.version).toBe(block.version + 1)
   })
 
+  it('refuses definitions that do not reference exactly one dataset', async () => {
+    const other = await insertCanonicalDataset(`other_${Date.now()}`, 3)
+    const twoDefRes = await migrator.query(
+      `INSERT INTO api.analysis_definitions(workspace_id,owner_user_id,name,definition,source_revisions)
+       VALUES ($1,$2,'Two dataset definition',$3::jsonb,'[]'::jsonb) RETURNING id`,
+      [
+        WS_A,
+        USER_A,
+        JSON.stringify({
+          definitionVersion: 1,
+          kind: 'regression',
+          datasets: [{ datasetId: other }, { datasetId }],
+          outcome: { fieldId: fieldRecovery },
+          predictor: { fieldId: fieldTime },
+          degree: 1,
+        }),
+      ],
+    )
+    const block = await insertAnalysisBlock({
+      title: 'Two datasets',
+      definitionId: twoDefRes.rows[0].id,
+    })
+    await expect(
+      migrator.query(`SELECT * FROM api.freeze_analysis_block($1,$2)`, [
+        block.id,
+        block.version,
+      ]),
+    ).rejects.toMatchObject({ code: '23514' })
+  })
+
+  it('rejects freezing against an empty dataset', async () => {
+    const emptyDef = await insertDefinition({
+      name: `Empty dataset definition ${Date.now()}`,
+      datasetRef: emptyDatasetId,
+      outcomeField: fieldRecovery,
+      predictorField: fieldTime,
+    })
+    const block = await insertAnalysisBlock({
+      title: 'Empty',
+      definitionId: emptyDef,
+    })
+    await expect(
+      migrator.query(`SELECT * FROM api.freeze_analysis_block($1,$2)`, [
+        block.id,
+        block.version,
+      ]),
+    ).rejects.toMatchObject({ code: '23514' })
+  })
+
   it('rejects authenticated attempts to fabricate or alter frozen payloads', async () => {
-    const block = await insertAnalysisBlock(payload())
-    // An ordinary authenticated user can never write the frozen transition.
+    const block = await insertAnalysisBlock({})
     const user = await asRole('authenticator')
     clients.push(user)
     await user.query('SET ROLE authenticated')
     await user.query("SELECT set_config('request.jwt.claims',$1,false)", [
-      JSON.stringify({
-        sub: USER_A,
-        workspace_id: WS_A,
-        role: 'authenticated',
-      }),
+      JSON.stringify({ sub: USER_A, workspace_id: WS_A, role: 'authenticated' }),
     ])
     await expect(
       user.query(
@@ -265,92 +321,138 @@ describe('SCI-03 analysis blocks', () => {
             frozenAt: '2026-01-01T00:00:00Z',
             frozenByUserId: USER_A,
             definition: { kind: 'descriptive' },
+            columns: [],
             datasetProvenance: [],
-            data: { columns: [], rows: [] },
           }),
         ],
       ),
     ).rejects.toMatchObject({ code: '42501' })
   })
 
-  it('binds a frozen analysis to a submitted revision and locks it', async () => {
-    const block = await insertAnalysisBlock(payload())
-    const frozen = await migrator.query(
-      `SELECT * FROM api.freeze_analysis_block($1,$2)`,
-      [block.id, block.version],
-    )
-    // A submitted revision capturing this record (REV-002 shape).
-    const rev = await migrator.query(
-      `INSERT INTO api.revisions(record_id,structure_version,metadata_version,metadata_snapshot,block_snapshot,reason,created_by_user_id)
-       VALUES ($1,1,1,'{}'::jsonb,'[]'::jsonb,'submit',$2) RETURNING id`,
-      [experimentId, USER_A],
-    )
-    const bound = await migrator.query(
-      `SELECT * FROM api.bind_analysis_revision($1,$2,$3)`,
-      [block.id, rev.rows[0].id, frozen.rows[0].version],
-    )
-    expect(bound.rows[0].payload.frozen.revisionId).toBe(rev.rows[0].id)
-    expect(bound.rows[0].version).toBe(frozen.rows[0].version + 1)
+  it('binds frozen evidence inside submission; snapshot, live state and digest agree', async () => {
+    // Frozen analysis block.
+    const analysisBlock = await insertAnalysisBlock({})
+    await migrator.query(`SELECT * FROM api.freeze_analysis_block($1,$2)`, [
+      analysisBlock.id,
+      analysisBlock.version,
+    ])
 
-    // Binding is single-shot.
-    await expect(
-      migrator.query(`SELECT * FROM api.bind_analysis_revision($1,$2,$3)`, [
-        block.id,
-        rev.rows[0].id,
-        bound.rows[0].version,
-      ]),
-    ).rejects.toThrow(/already bound/)
+    // Frozen chart block over the same canonical dataset, same record.
+    const chartSpec = {
+      specVersion: 1,
+      type: 'line',
+      datasets: [{ datasetId: datasetId }],
+      fields: {
+        x: { fieldId: fieldTime },
+        y: { fieldId: fieldRecovery },
+        series: null,
+        color: null,
+        size: null,
+        facet: null,
+      },
+      filters: [],
+      transformations: [],
+      typeParams: {},
+      display: {
+        axes: { x: { scale: 'linear' }, y: { scale: 'linear' } },
+        series: [],
+        legend: { visible: true },
+      },
+      overlays: { errorBars: null },
+    }
+    const chartBlockRes = await migrator.query(
+      `INSERT INTO api.blocks(record_id,type,payload,"order",created_by_user_id)
+       VALUES ($1,'chart',$2::jsonb,$4,$3) RETURNING *`,
+      [
+        experimentId,
+        JSON.stringify({ title: 'Recovery', spec: chartSpec, frozen: null }),
+        USER_A,
+        ++blockOrder,
+      ],
+    )
+    const chartBlock = chartBlockRes.rows[0]
+    await migrator.query(`SELECT * FROM api.freeze_chart($1,$2)`, [
+      chartBlock.id,
+      chartBlock.version,
+    ])
 
-    // A bound analysis can no longer be unfrozen.
+    // Preview → submit through the canonical RPC.
+    const preview = await migrator.query(
+      `SELECT * FROM api.preview_submission_digest($1) AS preview`,
+      [experimentId],
+    )
+    const submitted = (
+      await migrator.query(
+        `select api.submit_record_revision($1,$2,'default-scientific-review',1,ARRAY[$3]::text[],true,$4) AS submit_record_revision`,
+        [
+          experimentId,
+          preview.rows[0].preview.sourceDigest,
+          USER_A,
+          `sci-03-bind-${Date.now()}`,
+        ],
+      )
+    ).rows[0].submit_record_revision
+    const revisionId = submitted.revision.id
+
+    // 1. Live frozen blocks carry the submitted revision id.
+    for (const blockId of [analysisBlock.id, chartBlock.id]) {
+      const live = await migrator.query(
+        `SELECT payload->'frozen'->>'revisionId' AS rid, version FROM api.blocks WHERE id=$1`,
+        [blockId],
+      )
+      expect(live.rows[0].rid).toBe(revisionId)
+    }
+
+    // 2. The stored revision snapshot carries the same bound ids.
+    const revRow = await migrator.query(
+      `SELECT block_snapshot, integrity_digest FROM api.revisions WHERE id=$1`,
+      [revisionId],
+    )
+    const snapshotBlocks = revRow.rows[0].block_snapshot
+    const snapAnalysis = snapshotBlocks.find(
+      (b: { id: string }) => b.id === analysisBlock.id,
+    )
+    const snapChart = snapshotBlocks.find(
+      (b: { id: string }) => b.id === chartBlock.id,
+    )
+    expect(snapAnalysis.payload.frozen.revisionId).toBe(revisionId)
+    expect(snapChart.payload.frozen.revisionId).toBe(revisionId)
+
+    // 3. Stored digest equals the preview taken on live state — the digest is
+    // computed from the same bound evidence the snapshot pins.
+    expect(revRow.rows[0].integrity_digest).toBe(preview.rows[0].preview.sourceDigest)
+    expect(submitted.submission.state).toBe('submitted')
+
+    // 4. Unfreeze remains impossible once bound.
+    const boundVersion = (
+      await migrator.query(`SELECT version FROM api.blocks WHERE id=$1`, [
+        analysisBlock.id,
+      ])
+    ).rows[0].version
     await expect(
       migrator.query(`SELECT * FROM api.unfreeze_analysis_block($1,$2)`, [
-        block.id,
-        bound.rows[0].version,
+        analysisBlock.id,
+        boundVersion,
       ]),
-    ).rejects.toThrow(/locked into a submitted revision/)
+    ).rejects.toMatchObject({ code: '23514' })
 
-    // Revisions from OTHER records are rejected before any write.
-    const otherRec = await migrator.query(
-      `SELECT * FROM api.create_record(
-         $1::uuid,'experiment','Other record','draft',ARRAY[]::text[],'{}'::jsonb)`,
-      [PROJECT_A],
+    // 5. A second revision does not rebind already-bound evidence.
+    const resubmitted = (
+      await migrator.query(
+        `select api.submit_record_revision($1,$2,'default-scientific-review',1,ARRAY[$3]::text[],true,$4) AS submit_record_revision`,
+        [
+          experimentId,
+          preview.rows[0].preview.sourceDigest,
+          USER_A,
+          `sci-03-bind-2-${Date.now()}`,
+        ],
+      )
+    ).rows[0].submit_record_revision
+    expect(resubmitted.revision.id).not.toBe(revisionId)
+    const stillBound = await migrator.query(
+      `SELECT payload->'frozen'->>'revisionId' AS rid FROM api.blocks WHERE id=$1`,
+      [analysisBlock.id],
     )
-    const otherRev = await migrator.query(
-      `INSERT INTO api.revisions(record_id,structure_version,metadata_version,metadata_snapshot,block_snapshot,reason,created_by_user_id)
-       VALUES ($1,1,1,'{}'::jsonb,'[]'::jsonb,'submit',$2) RETURNING id`,
-      [otherRec.rows[0].id, USER_A],
-    )
-    const block2 = await insertAnalysisBlock(payload())
-    const frozen2 = await migrator.query(
-      `SELECT * FROM api.freeze_analysis_block($1,$2)`,
-      [block2.id, block2.version],
-    )
-    await expect(
-      migrator.query(`SELECT * FROM api.bind_analysis_revision($1,$2,$3)`, [
-        block2.id,
-        otherRev.rows[0].id,
-        frozen2.rows[0].version,
-      ]),
-    ).rejects.toThrow(/does not belong to this record/)
-  })
-
-  it('unfreezes back to live state and refuses when not frozen', async () => {
-    const block = await insertAnalysisBlock(payload())
-    const frozen = await migrator.query(
-      `SELECT * FROM api.freeze_analysis_block($1,$2)`,
-      [block.id, block.version],
-    )
-    const unfrozen = await migrator.query(
-      `SELECT * FROM api.unfreeze_analysis_block($1,$2)`,
-      [block.id, frozen.rows[0].version],
-    )
-    expect(unfrozen.rows[0].payload.frozen ?? null).toBeNull()
-    // Unfreeze again → honest error.
-    await expect(
-      migrator.query(`SELECT * FROM api.unfreeze_analysis_block($1,$2)`, [
-        block.id,
-        unfrozen.rows[0].version,
-      ]),
-    ).rejects.toThrow(/not frozen/)
+    expect(stillBound.rows[0].rid).toBe(revisionId)
   })
 })

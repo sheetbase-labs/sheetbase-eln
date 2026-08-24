@@ -121,7 +121,7 @@ describe('NotebookDocument — rendering', () => {
                 frozenByUserId: 'u1',
                 datasetProvenance: [
                   {
-                    tableId: '00000000-0000-4000-8000-000000000170',
+                    datasetId: '00000000-0000-4000-8000-000000000170',
                     schemaVersion: 1,
                     rowCount: 2,
                     checksum: 'abc12345',
@@ -130,15 +130,13 @@ describe('NotebookDocument — rendering', () => {
                 data: {
                   columns: [
                     {
-                      columnId: 'c1',
-                      fieldName: 'col_time',
+                      fieldId: 'c1',
                       label: 'Time (days)',
                       logicalType: 'decimal',
                       unit: { symbol: 'd' },
                     },
                     {
-                      columnId: 'c2',
-                      fieldName: 'col_titer',
+                      fieldId: 'c2',
                       label: 'Log titer',
                       logicalType: 'decimal',
                       unit: { symbol: 'log₁₀' },

@@ -102,9 +102,7 @@ export function SignNotebookDialog({
             recordId: submission.record_id,
             submissionId: submission.id,
             revisionId,
-          }).map((queryKey) =>
-            queryClient.invalidateQueries({ queryKey }),
-          ),
+          }).map((queryKey) => queryClient.invalidateQueries({ queryKey })),
         )
       }
       setConfirmation('')

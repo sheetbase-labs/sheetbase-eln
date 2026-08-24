@@ -23,11 +23,11 @@ afterEach(() => cleanup())
 const spec: ChartSpec = {
   specVersion: 1,
   type: 'line',
-  datasets: [{ tableId: '00000000-0000-4000-8000-000000000170' }],
+  datasets: [{ datasetId: '00000000-0000-4000-8000-000000000170' }],
   fields: {
-    x: { columnId: 'c1', fieldName: 'col_time' },
-    y: { columnId: 'c2', fieldName: 'col_titer' },
-    series: { columnId: 'c3', fieldName: 'col_condition' },
+    x: { fieldId: 'c1' },
+    y: { fieldId: 'c2' },
+    series: { fieldId: 'c3' },
     color: null,
     size: null,
     facet: null,
@@ -55,19 +55,16 @@ function okMaterialised(): MaterialisedChart {
     columns: [
       {
         id: 'c1',
-        fieldName: 'col_time',
         label: 'Time (days)',
         logicalType: 'decimal',
       },
       {
         id: 'c2',
-        fieldName: 'col_titer',
         label: 'Log titer',
         logicalType: 'decimal',
       },
       {
         id: 'c3',
-        fieldName: 'col_condition',
         label: 'Condition',
         logicalType: 'text',
       },
@@ -148,8 +145,8 @@ describe('ChartRenderer', () => {
       frozenByUserId: 'u1',
       datasetProvenance: [
         {
-          tableId: '00000000-0000-4000-8000-000000000170',
-          schemaVersion: 1,
+          datasetId: '00000000-0000-4000-8000-000000000170',
+          schemaVersionNumber: 1,
           rowCount: 2,
           checksum: 'abc12345def',
         },
@@ -157,15 +154,13 @@ describe('ChartRenderer', () => {
       data: {
         columns: [
           {
-            columnId: 'c1',
-            fieldName: 'col_time',
+            fieldId: 'c1',
             label: 'Time (days)',
             logicalType: 'decimal',
             unit: { symbol: 'd' },
           },
           {
-            columnId: 'c2',
-            fieldName: 'col_titer',
+            fieldId: 'c2',
             label: 'Log titer',
             logicalType: 'decimal',
             unit: { symbol: 'log₁₀' },

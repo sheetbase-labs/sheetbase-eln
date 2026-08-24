@@ -55,9 +55,9 @@ afterAll(async () => {
 const definition = {
   definitionVersion: 1,
   kind: 'regression',
-  datasets: [{ tableId: '00000000-0000-4000-8000-00000000000f' }],
-  outcome: { columnId: '00000000-0000-4000-8000-000000000010', fieldName: 'recovery' },
-  predictor: { columnId: '00000000-0000-4000-8000-000000000011', fieldName: 'time_h' },
+  datasets: [{ datasetId: '00000000-0000-4000-8000-00000000000f' }],
+  outcome: { fieldId: '00000000-0000-4000-8000-000000000010' },
+  predictor: { fieldId: '00000000-0000-4000-8000-000000000011' },
   degree: 1,
 }
 
@@ -118,10 +118,9 @@ describe('SCI-02 analysis definitions', () => {
     const owner = await authenticated(OWNER)
     const revisions = JSON.stringify([
       {
-        tableId: '00000000-0000-4000-8000-00000000000f',
-        schemaVersion: 4,
-        datasetSchemaId: null,
-        datasetSchemaRevision: null,
+        datasetId: '00000000-0000-4000-8000-00000000000f',
+        schemaVersionNumber: 4,
+        revision: 7,
       },
     ])
     const res = await owner.query(
@@ -129,6 +128,6 @@ describe('SCI-02 analysis definitions', () => {
        VALUES ($1,$2,'Pinned sources',$3::jsonb,$4::jsonb) RETURNING source_revisions`,
       [WS_A, OWNER, JSON.stringify(definition), revisions],
     )
-    expect(res.rows[0].source_revisions[0].schemaVersion).toBe(4)
+    expect(res.rows[0].source_revisions[0].schemaVersionNumber).toBe(4)
   })
 })

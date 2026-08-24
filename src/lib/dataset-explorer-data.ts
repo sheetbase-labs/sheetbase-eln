@@ -61,14 +61,15 @@ export const datasetExplorerDataClient = createDataClient()
 export const datasetExplorerQueryKeys = {
   summaries: (includeArchived = false) =>
     ['dataset-explorer-summaries', includeArchived] as const,
-  rows: (tableId: string, queryId: string) =>
-    ['dataset-explorer-rows', tableId, queryId] as const,
-  rowCount: (tableId: string, queryId: string) =>
-    ['dataset-explorer-row-count', tableId, queryId] as const,
+  rows: (datasetId: string, queryId: string) =>
+    ['dataset-explorer-rows', datasetId, queryId] as const,
+  rowCount: (datasetId: string, queryId: string) =>
+    ['dataset-explorer-row-count', datasetId, queryId] as const,
   schemaFields: (schemaId: string) =>
     ['dataset-explorer-schema-fields', schemaId] as const,
   relationships: ['dataset-explorer-relationships'] as const,
-  lineage: (tableId: string) => ['dataset-explorer-lineage', tableId] as const,
+  lineage: (datasetId: string) =>
+    ['dataset-explorer-lineage', datasetId] as const,
   links: (recordId: string) => ['dataset-explorer-links', recordId] as const,
   versions: (datasetId: string) =>
     ['dataset-explorer-versions', datasetId] as const,
@@ -375,11 +376,11 @@ export interface DatasetLineage {
  */
 export async function fetchDatasetLineage(
   client: DataClient,
-  tableId: string,
+  datasetId: string,
 ): Promise<DatasetLineage> {
   const [formulas, dependencies] = await Promise.all([
-    fetchScientificFormulas(client, tableId),
-    fetchScientificDependencies(client, tableId),
+    fetchScientificFormulas(client, datasetId),
+    fetchScientificDependencies(client, datasetId),
   ])
   return { formulas, dependencies }
 }
@@ -398,15 +399,15 @@ export interface DatasetViewSpec {
 export interface DatasetSavedView {
   id: string
   name: string
-  tableId: string
+  datasetId: string
   spec: DatasetViewSpec
   updatedAt?: string
 }
 
 export interface DatasetSavedViewStore {
-  list: (tableId: string) => DatasetSavedView[]
+  list: (datasetId: string) => DatasetSavedView[]
   save: (view: DatasetSavedView) => DatasetSavedView
-  remove: (tableId: string, id: string) => void
+  remove: (datasetId: string, id: string) => void
 }
 
 export function datasetSavedViewStorageKey(
@@ -471,7 +472,7 @@ function isDatasetSavedView(value: unknown): value is DatasetSavedView {
     !isRecord(value) ||
     typeof value.id !== 'string' ||
     typeof value.name !== 'string' ||
-    typeof value.tableId !== 'string'
+    typeof value.datasetId !== 'string'
   )
     return false
   return isDatasetViewSpec(value.spec)
@@ -556,8 +557,8 @@ export function createDatasetSavedViewStore({
   }
 
   return {
-    list(tableId) {
-      return readAll().filter((v) => v.tableId === tableId)
+    list(datasetId) {
+      return readAll().filter((v) => v.datasetId === datasetId)
     },
     save(view) {
       const saved = { ...view, updatedAt: new Date().toISOString() }
@@ -568,8 +569,10 @@ export function createDatasetSavedViewStore({
       writeAll(views)
       return saved
     },
-    remove(tableId, id) {
-      writeAll(readAll().filter((v) => !(v.tableId === tableId && v.id === id)))
+    remove(datasetId, id) {
+      writeAll(
+        readAll().filter((v) => !(v.datasetId === datasetId && v.id === id)),
+      )
     },
   }
 }
@@ -610,13 +613,11 @@ export function buildDefaultChartSpec(
   return {
     specVersion: CHART_SPEC_VERSION,
     type: 'scatter',
-    datasets: [{ tableId: table.id }],
+    datasets: [{ datasetId: table.id }],
     fields: {
-      x: x ? { columnId: x.id, fieldName: x.field_name } : null,
-      y: { columnId: y.id, fieldName: y.field_name },
-      series: series
-        ? { columnId: series.id, fieldName: series.field_name }
-        : null,
+      x: x ? { fieldId: x.id } : null,
+      y: { fieldId: y.id },
+      series: series ? { fieldId: series.id } : null,
       color: null,
       size: null,
       facet: null,

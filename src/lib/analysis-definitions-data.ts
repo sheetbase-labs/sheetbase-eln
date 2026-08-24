@@ -2,17 +2,18 @@
  * SCI-02 — data layer for saved analysis definitions.
  *
  * Typed wrappers over the `api.analysis_definitions` PostgREST resource plus
- * shared source-revision provenance helpers. Every read/write goes through
- * the same `/api/db` boundary and RLS as the rest of the application;
- * PostgreSQL remains authoritative (decisions 0019/0034). Execution itself is
- * pure client-side TypeScript (`runAnalysis`) so rerunning a definition
- * against the same rows is deterministic and traceable to its inputs.
+ * source-revision provenance helpers. Every read/write goes through the
+ * same `/api/db` boundary and RLS as the rest of the application;
+ * PostgreSQL remains authoritative. Definitions reference canonical
+ * Datasets (decision 0037); execution itself is pure client-side
+ * TypeScript (`runAnalysis`) so rerunning a definition against the same
+ * rows is deterministic and traceable to its inputs.
  */
 import { createDataClient } from './data-client'
 import type { DataClient } from './data-client'
 import type { SourceRevision } from './analysis-studio-data'
 import type { AnalysisDefinition } from './analysis-definition'
-import type { ScientificTableWire } from './scientific-sheet-data'
+import type { CanonicalDatasetSource } from './chart-data'
 
 export { detectStaleSources } from './analysis-studio-data'
 
@@ -38,21 +39,20 @@ export interface AnalysisDefinitionWire {
 
 /**
  * Capture the source revisions for every dataset an analysis definition
- * references, so a saved definition records the exact table + schema
+ * references, so a saved definition records the exact Dataset + schema
  * revision it was written against (stale-source detection on later loads).
  */
 export function captureDefinitionSourceRevisions(
-  tables: ScientificTableWire[],
+  sources: CanonicalDatasetSource[],
   definition: AnalysisDefinition,
 ): SourceRevision[] {
-  const byId = new Map(tables.map((t) => [t.id, t]))
+  const byId = new Map(sources.map((s) => [s.datasetId, s]))
   return definition.datasets.map((ref) => {
-    const table = byId.get(ref.tableId) ?? null
+    const source = byId.get(ref.datasetId)
     return {
-      tableId: ref.tableId,
-      schemaVersion: table?.schema_version ?? 0,
-      datasetSchemaId: table?.dataset_schema_id ?? null,
-      datasetSchemaRevision: table?.dataset_schema_revision ?? null,
+      datasetId: ref.datasetId,
+      schemaVersionNumber: source?.schemaVersionNumber ?? 0,
+      revision: source?.revision ?? 0,
     }
   })
 }
@@ -154,8 +154,11 @@ export interface FreezeAnalysisBlockArgs {
 
 /**
  * Freeze an analysis block through the transactional SECURITY DEFINER RPC.
- * The server re-reads the referenced definition and its dataset rows, so
- * frozen evidence is authoritative rather than client-asserted.
+ * The server re-reads the referenced definition, snapshots the input
+ * Dataset into an immutable Dataset Version, and pins that Version plus
+ * row-count/checksum provenance — frozen evidence is authoritative rather
+ * than client-asserted. Binding to the submitted revision happens inside
+ * submission on the server.
  */
 export async function freezeAnalysisBlock(
   client: DataClient,
@@ -173,27 +176,6 @@ export async function unfreezeAnalysisBlock(
 ): Promise<unknown> {
   return client.rpc('unfreeze_analysis_block', {
     p_block_id: args.blockId,
-    p_expected_version: args.expectedVersion,
-  })
-}
-
-export interface BindAnalysisRevisionArgs {
-  blockId: string
-  revisionId: string
-  expectedVersion: number
-}
-
-/**
- * Pin a frozen analysis block to the submitted revision that captured it
- * (parity with bind_chart_revision). Locks the evidence against unfreeze.
- */
-export async function bindAnalysisRevision(
-  client: DataClient,
-  args: BindAnalysisRevisionArgs,
-): Promise<unknown> {
-  return client.rpc('bind_analysis_revision', {
-    p_block_id: args.blockId,
-    p_revision_id: args.revisionId,
     p_expected_version: args.expectedVersion,
   })
 }

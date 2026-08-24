@@ -7,9 +7,10 @@
  * the DB trigger (`validate_scientific_block`) mirrors the structural rules,
  * and the renderer/preview consume the typed shapes.
  *
- * The spec is intentionally generic: it references stable datasets
- * (`scientific_tables`) by UUID, maps fields by `{ columnId, fieldName }`,
- * keeps filters/transformations/overlays explicit and reproducible, and
+ * The spec is intentionally generic: it references canonical Datasets
+ * (`api.datasets`, decision 0037) by UUID, binds fields by their stable
+ * `dataset_schema_version_fields.field_id`, keeps
+ * filters/transformations/overlays explicit and reproducible, and
  * confines chart-type-specific logic to the `type` discriminator. No
  * chart-type-specific or dataset-specific columns live in shared
  * infrastructure.
@@ -111,19 +112,19 @@ export const HISTOGRAM_MAX_BINS = 200 as const
 
 export const CHART_SPEC_VERSION = 1 as const
 
-/** A binding to a column of a scientific table. columnId is authoritative. */
+/** A binding to a field of a Dataset Schema Version. fieldId is authoritative;
+ * labels and units are presentation metadata resolved from schema fields,
+ * never part of resolution. */
 export interface FieldBinding {
-  columnId: string
-  fieldName: string
+  fieldId: string
 }
 
 export interface DatasetRef {
-  tableId: string
+  datasetId: string
 }
 
 export interface ChartFilter {
-  columnId: string
-  fieldName: string
+  fieldId: string
   op: FilterOp
   value: unknown
 }
@@ -147,8 +148,7 @@ export interface SeriesDisplay {
 }
 
 export interface ErrorBarsOverlay {
-  columnId: string
-  fieldName: string
+  fieldId: string
   basis: ErrorBarBasis
   multiplier?: number
 }
@@ -190,15 +190,15 @@ export interface ChartSpec {
 
 /** Frozen chart payload — see ADR 0029 §5. */
 export interface FrozenDatasetProvenance {
-  tableId: string
-  schemaVersion: number
+  datasetId: string
+  /** Numeric version of the pinned Dataset Schema Version. */
+  schemaVersionNumber: number
   rowCount: number
   checksum: string
 }
 
 export interface FrozenChartColumn {
-  columnId: string
-  fieldName: string
+  fieldId: string
   label: string
   unit?: unknown
   logicalType: string
@@ -308,20 +308,12 @@ function validateFieldBinding(v: unknown, field: string): ChartSpecError[] {
         message: `${field} must be a field binding or null`,
       },
     ]
-  if (!isUuid(v.columnId))
+  if (!isUuid(v.fieldId))
     return [
       {
         code: 'invalid_value',
-        field: `${field}.columnId`,
-        message: `${field}.columnId must be a UUID`,
-      },
-    ]
-  if (!isNonEmptyString(v.fieldName))
-    return [
-      {
-        code: 'missing_field',
-        field: `${field}.fieldName`,
-        message: `${field}.fieldName is required`,
+        field: `${field}.fieldId`,
+        message: `${field}.fieldId must be a UUID`,
       },
     ]
   return []
@@ -572,11 +564,11 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
     })
   else
     datasets.forEach((d, i) => {
-      if (!isObject(d) || !isUuid(d.tableId))
+      if (!isObject(d) || !isUuid(d.datasetId))
         errors.push({
           code: 'invalid_dataset_reference',
-          field: `spec.datasets[${i}].tableId`,
-          message: `datasets[${i}].tableId must be a UUID`,
+          field: `spec.datasets[${i}].datasetId`,
+          message: `datasets[${i}].datasetId must be a UUID`,
         })
     })
 
@@ -647,11 +639,11 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
     })
   else
     filters.forEach((f, i) => {
-      if (!isObject(f) || !isUuid(f.columnId) || !isNonEmptyString(f.fieldName))
+      if (!isObject(f) || !isUuid(f.fieldId))
         errors.push({
           code: 'invalid_value',
           field: `spec.filters[${i}]`,
-          message: `filters[${i}] must reference a column`,
+          message: `filters[${i}] must reference a dataset field`,
         })
       if (!isOneOf(f?.op, FILTER_OPS))
         errors.push({
@@ -802,15 +794,14 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
     const eb = overlays.errorBars
     if (
       !isObject(eb) ||
-      !isUuid(eb.columnId) ||
-      !isNonEmptyString(eb.fieldName) ||
+      !isUuid(eb.fieldId) ||
       !isOneOf(eb.basis, ERROR_BAR_BASES)
     )
       errors.push({
         code: 'invalid_value',
         field: 'spec.overlays.errorBars',
         message:
-          'overlays.errorBars must name a column and a basis (sd, se, range, custom)',
+          'overlays.errorBars must name a dataset field and a basis (sd, se, range, custom)',
       })
     if (isObject(eb) && eb.multiplier !== undefined) {
       if (
@@ -919,10 +910,12 @@ export function validateChartPayload(payload: unknown): ChartSpecError[] {
 // paths share one implementation and stay reproducible.
 // ---------------------------------------------------------------------------
 
-/** A column metadata shape sufficient for materialisation/rendering. */
+/**
+ * Column metadata sufficient for materialisation/rendering. `id` is the
+ * stable Dataset Schema Version `field_id`; runtime rows are keyed by it.
+ */
 export interface ChartColumn {
   id: string
-  fieldName: string
   label: string
   logicalType: string
   unit?: unknown
@@ -997,7 +990,7 @@ export function rowMatchesFilter(
   row: Record<string, unknown>,
   filter: ChartFilter,
 ): boolean {
-  const value = row[filter.fieldName]
+  const value = row[filter.fieldId]
   const num = toNumber(value)
   switch (filter.op) {
     case 'eq':
@@ -1041,22 +1034,16 @@ export function applyFilters(
 }
 
 /**
- * Resolve a column label/unit from metadata, falling back to fieldName.
- * Used by the renderer and the frozen snapshot.
+ * Resolve a binding to its column metadata. The stable `fieldId` is the only
+ * key that resolves — a missing or retired field surfaces as null so the
+ * chart reports `missing_field` instead of silently rebinding by label.
  */
 export function resolveColumn(
   columns: ChartColumn[],
-  binding: { columnId: string; fieldName: string } | null,
+  binding: { fieldId: string } | null,
 ): ChartColumn | null {
   if (!binding) return null
-  return (
-    columns.find(
-      (c) => c.id === binding.columnId && c.fieldName === binding.fieldName,
-    ) ??
-    columns.find((c) => c.id === binding.columnId) ??
-    columns.find((c) => c.fieldName === binding.fieldName) ??
-    null
-  )
+  return columns.find((c) => c.id === binding.fieldId) ?? null
 }
 
 /** Render-time state the chart surfaces honestly instead of blank axes. */
@@ -1064,6 +1051,7 @@ export type ChartRenderState =
   | { kind: 'ok' }
   | { kind: 'missing_dataset' }
   | { kind: 'missing_field'; fields: string[] }
+  | { kind: 'dataset_too_large'; rowCount: number; limit: number }
   | { kind: 'empty_dataset' }
   | { kind: 'log_scale_invalid'; axis: 'x' | 'y'; invalidCount: number }
   | { kind: 'stale'; detail: string }
@@ -1138,10 +1126,8 @@ export function materialiseChart(
   if (spec.fields.series && !seriesCol) missing.push('series')
   if (spec.overlays.errorBars && !errorCol) missing.push('errorBars')
 
-  const xLabel =
-    xCol?.label ?? spec.display.axes.x.label ?? spec.fields.x?.fieldName ?? 'x'
-  const yLabel =
-    yCol?.label ?? spec.display.axes.y.label ?? spec.fields.y.fieldName
+  const xLabel = xCol?.label ?? spec.display.axes.x.label ?? 'x'
+  const yLabel = yCol?.label ?? spec.display.axes.y.label ?? 'y'
   const xUnit =
     typeof xCol?.unit === 'object' && xCol.unit && 'symbol' in xCol.unit
       ? String((xCol.unit as { symbol: string }).symbol)
@@ -1222,7 +1208,7 @@ export function materialiseChart(
   const groups = new Map<string, Record<string, unknown>[]>()
   const order: string[] = []
   for (const row of filtered) {
-    const key = seriesCol ? String(row[seriesCol.fieldName] ?? '—') : 'all'
+    const key = seriesCol ? String(row[seriesCol.id] ?? '—') : 'all'
     if (!groups.has(key)) {
       groups.set(key, [])
       order.push(key)
@@ -1240,9 +1226,9 @@ export function materialiseChart(
     ).toLowerCase()
     const label = configured?.label ?? key
     const points: FrozenChartPoint[] = groups.get(key)!.map((row, rowIndex) => {
-      const x = xCol ? toNumber(row[xCol.fieldName]) : rowIndex + 1
-      const y = toNumber(row[yCol.fieldName])
-      const yError = errorCol ? toNumber(row[errorCol.fieldName]) : undefined
+      const x = xCol ? toNumber(row[xCol.id]) : rowIndex + 1
+      const y = toNumber(row[yCol.id])
+      const yError = errorCol ? toNumber(row[errorCol.id]) : undefined
       return { x, y, yError: yError ?? null, label: key }
     })
     return { identifier: key, label, color, points }
@@ -1336,7 +1322,7 @@ function materialiseHistogram(
   const seriesCol = resolveColumn(meta.columns, spec.fields.series)
   const params = spec.typeParams.histogram ?? {}
   const numeric = filtered
-    .map((row) => toNumber(row[yCol.fieldName]))
+    .map((row) => toNumber(row[yCol.id]))
     .filter((v): v is number => v !== null)
   if (numeric.length === 0)
     return {
@@ -1365,7 +1351,7 @@ function materialiseHistogram(
   const groups = new Map<string, Record<string, unknown>[]>()
   const order: string[] = []
   for (const row of filtered) {
-    const key = seriesCol ? String(row[seriesCol.fieldName] ?? '—') : 'all'
+    const key = seriesCol ? String(row[seriesCol.id] ?? '—') : 'all'
     if (!groups.has(key)) {
       groups.set(key, [])
       order.push(key)
@@ -1381,7 +1367,7 @@ function materialiseHistogram(
       points.push({ x: edges[b], y: 0, yError: null, label: key })
     }
     for (const row of groups.get(key)!) {
-      const v = toNumber(row[yCol.fieldName])
+      const v = toNumber(row[yCol.id])
       if (v === null) {
         droppedPoints++
         continue
@@ -1419,7 +1405,7 @@ function materialiseBoxPlot(
   const groups = new Map<string, Record<string, unknown>[]>()
   const order: string[] = []
   for (const row of filtered) {
-    const key = seriesCol ? String(row[seriesCol.fieldName] ?? '—') : 'all'
+    const key = seriesCol ? String(row[seriesCol.id] ?? '—') : 'all'
     if (!groups.has(key)) {
       groups.set(key, [])
       order.push(key)
@@ -1432,7 +1418,7 @@ function materialiseBoxPlot(
     const { color, label } = paletteFor(spec, key, i)
     const values: number[] = []
     for (const row of groups.get(key)!) {
-      const v = toNumber(row[yCol.fieldName])
+      const v = toNumber(row[yCol.id])
       if (v === null) droppedPoints++
       else values.push(v)
     }
@@ -1497,29 +1483,21 @@ function materialiseHeatmap(
     categorical: boolean
   }
 
-  function buildDim(
-    col: ChartColumn,
-    bins: number,
-    fieldName: string,
-  ): { dim: Dim; dropped: number } {
+  function buildDim(col: ChartColumn, bins: number): Dim {
     if (isCategoricalColumn(col)) {
       const labels = Array.from(
-        new Set(filtered.map((r) => String(r[fieldName] ?? '—'))),
+        new Set(filtered.map((r) => String(r[col.id] ?? '—'))),
       ).sort(compareStrings)
       const index = new Map(labels.map((l, i) => [l, i]))
       return {
-        dim: {
-          labels,
-          categorical: true,
-          indexOf: (v) => index.get(String(v ?? '—')) ?? -1,
-        },
-        dropped: 0,
+        labels,
+        categorical: true,
+        indexOf: (v) => index.get(String(v ?? '—')) ?? -1,
       }
     }
     const numeric = filtered
-      .map((r) => toNumber(r[fieldName]))
+      .map((r) => toNumber(r[col.id]))
       .filter((v): v is number => v !== null)
-    let dropped = filtered.length - numeric.length
     const min = numeric.length ? Math.min(...numeric) : 0
     const max = numeric.length ? Math.max(...numeric) : 1
     const edges =
@@ -1529,47 +1507,47 @@ function materialiseHeatmap(
       formatScientific(edges[i]),
     )
     return {
-      dim: {
-        labels,
-        categorical: false,
-        indexOf: (v) => {
-          if (typeof v !== 'number') return v === null ? -1 : -1
-          let idx = Math.floor((v - edges[0]) / width)
-          if (idx >= labels.length) idx = labels.length - 1
-          if (idx < 0) {
-            dropped++
-            return -1
-          }
-          return idx
-        },
+      labels,
+      categorical: false,
+      // Pure: bin assignment has no side effects. Omission is counted once
+      // per row in the aggregation pass below, never per dimension.
+      indexOf: (v) => {
+        if (typeof v !== 'number') return -1
+        let idx = Math.floor((v - edges[0]) / width)
+        if (idx >= labels.length) idx = labels.length - 1
+        return idx
       },
-      dropped,
     }
   }
 
-  const xDef = buildDim(xCol!, params.xBins ?? 10, xCol!.fieldName)
-  const yDef = buildDim(yCol!, params.yBins ?? 10, yCol!.fieldName)
-  const droppedPoints = xDef.dropped + yDef.dropped
+  const xDim = buildDim(xCol!, params.xBins ?? 10)
+  const yDim = buildDim(yCol!, params.yBins ?? 10)
 
   const cellMap = new Map<
     string,
     { sum: number; n: number; count: number; values: number[] }
   >()
+  let omittedRows = 0
   for (const row of filtered) {
-    const xv = xDef.dim.categorical
-      ? String(row[xCol!.fieldName] ?? '—')
-      : toNumber(row[xCol!.fieldName])
-    const yv = yDef.dim.categorical
-      ? String(row[yCol!.fieldName] ?? '—')
-      : toNumber(row[yCol!.fieldName])
-    const xi = xDef.dim.indexOf(xv)
-    const yi = yDef.dim.indexOf(yv)
-    if (xi < 0 || yi < 0) continue
+    const xv = xDim.categorical
+      ? String(row[xCol!.id] ?? '—')
+      : toNumber(row[xCol!.id])
+    const yv = yDim.categorical
+      ? String(row[yCol!.id] ?? '—')
+      : toNumber(row[yCol!.id])
+    const xi = xDim.indexOf(xv)
+    const yi = yDim.indexOf(yv)
+    // One row invalid in either dimension is one omitted row — never summed
+    // across dimensions.
+    if (xi < 0 || yi < 0) {
+      omittedRows++
+      continue
+    }
     const k = `${xi},${yi}`
     const cell = cellMap.get(k) ?? { sum: 0, n: 0, count: 0, values: [] }
     cell.count++
     if (valueCol) {
-      const v = toNumber(row[valueCol.fieldName])
+      const v = toNumber(row[valueCol.id])
       if (v !== null) {
         cell.sum += v
         cell.n++
@@ -1616,10 +1594,10 @@ function materialiseHeatmap(
     ...meta,
     rows: filtered,
     series: [],
-    droppedPoints,
+    droppedPoints: omittedRows,
     heatmap: {
-      xLabels: xDef.dim.labels,
-      yLabels: yDef.dim.labels,
+      xLabels: xDim.labels,
+      yLabels: yDim.labels,
       cells,
       min,
       max,
@@ -1656,7 +1634,7 @@ export function materialiseFacetedCharts(
   const partitioned = applyFilters(rows, spec.filters)
   const groups = new Map<string, Record<string, unknown>[]>()
   for (const row of partitioned) {
-    const key = String(row[facetCol.fieldName] ?? '—')
+    const key = String(row[facetCol.id] ?? '—')
     if (!groups.has(key)) groups.set(key, [])
     groups.get(key)!.push(row)
   }

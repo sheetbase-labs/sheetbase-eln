@@ -88,18 +88,14 @@ import type {
   AxisScale,
 } from '#/lib/chart-spec'
 import {
+  fetchCanonicalDataset,
   materialiseFrozenChart,
   materialiseFrozenFacets,
   materialiseLiveChart,
+  sciDataClient,
+  toCanonicalDatasetSource,
   useLiveChartDataset,
 } from '#/lib/chart-data'
-import { groupChartTables } from '#/lib/notebook-experience'
-import {
-  fetchScientificTable,
-  scientificDataClient,
-  scientificQueryKeys,
-} from '#/lib/scientific-sheet-data'
-import type { ScientificTableWire } from '#/lib/scientific-sheet-data'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import { PlateMap } from '#/components/viz/plate-map'
 import {
@@ -1392,29 +1388,25 @@ function ChartBlockEditor({
   const spec = draft.spec ?? null
   const frozen = draft.frozen ?? null
 
-  // Available datasets: scientific tables in the workspace the user can read.
-  const tablesQuery = useQuery({
-    queryKey: ['chart-available-tables'] as const,
-    queryFn: () =>
-      scientificDataClient.list<
-        Pick<ScientificTableWire, 'id' | 'name' | 'record_id'>
-      >(
-        'scientific_tables',
-        '?select=id,name,record_id&lifecycle=eq.active&order=name.asc',
-      ),
+  // Available datasets: canonical Datasets in the workspace (decision 0037).
+  const datasetsQuery = useQuery({
+    queryKey: ['chart-available-datasets'] as const,
+    queryFn: () => fetchDatasetSummaries(),
     staleTime: 30_000,
   })
-  const groupedTables = groupChartTables(tablesQuery.data ?? [], block.recordId)
+  const availableDatasets = (datasetsQuery.data ?? []).map((d) =>
+    toCanonicalDatasetSource({ ...d, name: d.name }),
+  )
 
   // Columns for the selected dataset (so field mappings are honest).
-  const selectedTableId = spec?.datasets[0]?.tableId ?? ''
-  const columnsQuery = useQuery({
-    queryKey: scientificQueryKeys.table(selectedTableId),
-    queryFn: () => fetchScientificTable(scientificDataClient, selectedTableId),
-    enabled: Boolean(selectedTableId),
+  const selectedDatasetId = spec?.datasets[0]?.datasetId ?? ''
+  const sourceQuery = useQuery({
+    queryKey: ['chart-selected-dataset', selectedDatasetId],
+    queryFn: () => fetchCanonicalDataset(sciDataClient, selectedDatasetId),
+    enabled: Boolean(selectedDatasetId),
     staleTime: 10_000,
   })
-  const columns = columnsQuery.data?.columns ?? []
+  const columns = sourceQuery.data?.columns ?? []
 
   function updateSpec(patch: Partial<ChartSpec>) {
     if (!spec) return
@@ -1459,20 +1451,18 @@ function ChartBlockEditor({
   }
 
   // Start a spec when the user picks a dataset for an empty draft.
-  function chooseDataset(tableId: string) {
+  function chooseDataset(datasetId: string) {
     a.setTouched(true)
-    const col = columnsQuery.data?.columns ?? []
+    const col = sourceQuery.data?.columns ?? []
     const xCol = col.length > 0 ? col[0] : null
     const yCol = col.length > 1 ? col[1] : col.length > 0 ? col[0] : null
     const next: ChartSpec = {
       specVersion: CHART_SPEC_VERSION,
       type: spec?.type ?? 'line',
-      datasets: [{ tableId }],
+      datasets: [{ datasetId }],
       fields: {
-        x: xCol ? { columnId: xCol.id, fieldName: xCol.field_name } : null,
-        y: yCol
-          ? { columnId: yCol.id, fieldName: yCol.field_name }
-          : { columnId: '', fieldName: '' },
+        x: xCol ? { fieldId: xCol.id } : null,
+        y: yCol ? { fieldId: yCol.id } : { fieldId: '' },
         series: null,
         color: null,
         size: null,
@@ -1503,21 +1493,17 @@ function ChartBlockEditor({
   }
 
   const fieldOptions = columns.map((c) => (
-    <option key={c.id} value={`${c.id}|${c.field_name}`}>
+    <option key={c.id} value={c.id}>
       {c.label}
     </option>
   ))
 
   // Live preview materialisation.
-  const { datasetQuery, calcQuery } = useLiveChartDataset(spec)
+  const { datasetQuery } = useLiveChartDataset(spec)
   const previewMaterialised = frozen
     ? materialiseFrozenChart(frozen)
     : spec
-      ? materialiseLiveChart(
-          spec,
-          datasetQuery.data ?? null,
-          calcQuery.data ?? null,
-        )
+      ? materialiseLiveChart(spec, datasetQuery.data ?? null)
       : {
           state: { kind: 'missing_dataset' as const },
           columns: [],
@@ -1529,8 +1515,7 @@ function ChartBlockEditor({
           yUnit: undefined,
           droppedPoints: 0,
         }
-  const previewLoading =
-    !frozen && (datasetQuery.isLoading || calcQuery.isLoading)
+  const previewLoading = !frozen && datasetQuery.isLoading
 
   return (
     <div className="space-y-4">
@@ -1562,38 +1547,24 @@ function ChartBlockEditor({
           <ChartField label="Dataset">
             <Select
               aria-label="Dataset"
-              value={selectedTableId}
+              value={selectedDatasetId}
               onChange={(e) => chooseDataset(e.target.value)}
               onBlur={() => a.flush()}
-              disabled={!!frozen || tablesQuery.isLoading}
+              disabled={!!frozen || datasetsQuery.isLoading}
             >
               <option value="">
-                {tablesQuery.isLoading
+                {datasetsQuery.isLoading
                   ? 'Loading datasets…'
                   : 'Select a dataset'}
               </option>
-              {groupedTables.local.length > 0 ? (
-                <optgroup label="On this Notebook">
-                  {groupedTables.local.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </optgroup>
-              ) : null}
-              {groupedTables.workspace.length > 0 ? (
-                <optgroup label="Workspace">
-                  {groupedTables.workspace.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </optgroup>
-              ) : null}
+              {availableDatasets.map((d) => (
+                <option key={d.datasetId} value={d.datasetId}>
+                  {d.name}
+                </option>
+              ))}
             </Select>
             <p className="text-xs text-muted-foreground">
-              Charts plot saved table data. Link a Dataset or Record with a
-              Linked record block.
+              Charts plot canonical Dataset data (decision 0037).
             </p>
           </ChartField>
 
@@ -1660,10 +1631,7 @@ function ChartBlockEditor({
                 value={bindingValue(spec?.fields.y)}
                 onChange={(e) =>
                   updateFields({
-                    y: parseBinding(e.target.value) as {
-                      columnId: string
-                      fieldName: string
-                    },
+                    y: parseBinding(e.target.value) ?? { fieldId: '' },
                   })
                 }
                 onBlur={() => a.flush()}
@@ -1863,19 +1831,12 @@ function ChartField({
   )
 }
 
-function bindingValue(
-  binding: { columnId: string; fieldName: string } | null | undefined,
-): string {
-  return binding ? `${binding.columnId}|${binding.fieldName}` : ''
+function bindingValue(binding: { fieldId: string } | null | undefined): string {
+  return binding?.fieldId ?? ''
 }
 
-function parseBinding(
-  v: string,
-): { columnId: string; fieldName: string } | null {
-  if (!v) return null
-  const [columnId, fieldName] = v.split('|')
-  if (!columnId || !fieldName) return null
-  return { columnId, fieldName }
+function parseBinding(v: string): { fieldId: string } | null {
+  return v ? { fieldId: v } : null
 }
 
 function unitSymbol(unit: unknown): string | undefined {
@@ -2493,7 +2454,7 @@ function AnalysisBlockEditor({
 
   const definitionsQuery = useQuery({
     queryKey: analysisDefinitionQueryKeys.list(),
-    queryFn: () => fetchAnalysisDefinitions(scientificDataClient),
+    queryFn: () => fetchAnalysisDefinitions(),
     staleTime: 10_000,
   })
   const definitions = definitionsQuery.data ?? []

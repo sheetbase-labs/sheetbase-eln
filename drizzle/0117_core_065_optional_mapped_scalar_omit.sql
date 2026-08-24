@@ -466,7 +466,7 @@ DECLARE
   apply_result jsonb;
   inserted jsonb;
 BEGIN
-  IF workspace IS NULL OR actor IS NULL OR NOT api.is_workspace_member(workspace) THEN
+  IF workspace IS NULL OR actor IS NULL OR NOT api.is_workspace_writer(workspace) THEN
     RAISE EXCEPTION 'workspace member required' USING ERRCODE = '42501';
   END IF;
   SELECT * INTO rec FROM api.records WHERE id = p_record_id AND workspace_id = workspace FOR UPDATE;

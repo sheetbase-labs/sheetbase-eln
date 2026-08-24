@@ -21,10 +21,7 @@ import {
   reviewerCandidates,
   reviewerOptionLabel,
 } from '#/lib/notebook-experience'
-import {
-  adminQueryKeys,
-  fetchWorkspaceMembers,
-} from '#/lib/workspace-admin'
+import { adminQueryKeys, fetchWorkspaceMembers } from '#/lib/workspace-admin'
 
 const WORKFLOW_KEY = 'default-scientific-review'
 const WORKFLOW_VERSION = 1
@@ -144,9 +141,7 @@ export function SubmitNotebookDialog({
                   checked={selectedReviewerIds.includes(member.userId)}
                   onChange={() => toggleReviewer(member.userId)}
                 />
-                <span>
-                  {reviewerOptionLabel(member, reviewerUserId)}
-                </span>
+                <span>{reviewerOptionLabel(member, reviewerUserId)}</span>
               </label>
             ))}
           </fieldset>

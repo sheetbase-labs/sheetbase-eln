@@ -2,12 +2,13 @@
  * SCI-02 — reusable, reproducible analysis definitions.
  *
  * An `AnalysisDefinition` is a versioned JSONB object (the analysis
- * counterpart of the ChartSpec in decision 0029): it references stable
- * datasets by UUID, binds inputs by `{ columnId, fieldName }`, names every
- * transform and parameter explicitly, and is executed by the pure
- * `runAnalysis` so a rerun against the same rows is bit-identical. Saved
- * definitions live in `api.analysis_definitions`; the notebook analysis
- * blocks (SCI-03) reference them by id and freeze input snapshots.
+ * counterpart of the ChartSpec): it references canonical Datasets
+ * (`api.datasets`, decision 0037) — exactly one in this version — binds
+ * inputs by stable Dataset Schema Version `fieldId`, names every transform
+ * and parameter explicitly, and is executed by the pure `runAnalysis` so a
+ * rerun against the same rows is bit-identical. Saved definitions live in
+ * `api.analysis_definitions`; notebook analysis blocks (SCI-03) reference
+ * them by id and pin immutable Dataset Versions as evidence.
  *
  * Deliberately narrow per the roadmap: two kinds — grouped descriptive
  * statistics and polynomial least-squares regression (degree 1–4 covers
@@ -28,15 +29,16 @@ export type ColumnTransform = (typeof COLUMN_TRANSFORMS)[number]
 
 export const MAX_DEGREE = 4 as const
 
-/** A binding to a column of a scientific table (identical to charts). */
+/** A binding to a field of a Dataset Schema Version (identical to charts).
+ * fieldId is authoritative; labels are presentation metadata only. */
 export interface AnalysisFieldBinding {
-  columnId: string
-  fieldName: string
+  fieldId: string
 }
 
 interface AnalysisDefinitionBase {
   definitionVersion: typeof ANALYSIS_DEFINITION_VERSION
-  datasets: { tableId: string }[]
+  /** Exactly one input dataset; multi-dataset composition is out of scope. */
+  datasets: { datasetId: string }[]
 }
 
 export interface DescriptiveDefinition extends AnalysisDefinitionBase {
@@ -114,6 +116,7 @@ export type AnalysisDefinitionError = {
   code:
     | 'invalid_shape'
     | 'missing_field'
+    | 'unsupported_dataset_count'
     | 'invalid_value'
     | 'unsupported_kind'
     | 'unsupported_definition_version'
@@ -147,24 +150,18 @@ function validateBinding(
       { code: 'invalid_shape', field, message: `${field} must be an object` },
     ]
   const errors: AnalysisDefinitionError[] = []
-  if (!isUuid(v.columnId))
+  if (!isUuid(v.fieldId))
     errors.push({
       code: 'invalid_value',
-      field: `${field}.columnId`,
-      message: `${field}.columnId must be a UUID`,
-    })
-  if (typeof v.fieldName !== 'string' || v.fieldName.trim() === '')
-    errors.push({
-      code: 'missing_field',
-      field: `${field}.fieldName`,
-      message: `${field}.fieldName is required`,
+      field: `${field}.fieldId`,
+      message: `${field}.fieldId must be a UUID`,
     })
   return errors
 }
 
 /**
- * Structural validation. Dataset reference integrity against live tables is
- * the database's job (the same split decision 0029 makes for charts).
+ * Structural validation only. Dataset reference integrity against live
+ * Datasets is the database's job (mirrored in validate_scientific_block).
  */
 export function validateAnalysisDefinition(
   v: unknown,
@@ -186,20 +183,17 @@ export function validateAnalysisDefinition(
       message: `definitionVersion must be ${ANALYSIS_DEFINITION_VERSION}`,
     })
 
-  if (!Array.isArray(v.datasets) || v.datasets.length === 0)
+  if (!Array.isArray(v.datasets) || v.datasets.length !== 1)
     errors.push({
-      code: 'missing_field',
+      code: 'unsupported_dataset_count',
       field: 'datasets',
-      message: 'datasets must be a non-empty array',
+      message: 'datasets must contain exactly one dataset',
     })
-  else
-    v.datasets.forEach((d, i) => {
-      if (!isObject(d) || !isUuid(d.tableId))
-        errors.push({
-          code: 'invalid_value',
-          field: `datasets[${i}].tableId`,
-          message: `datasets[${i}].tableId must be a UUID`,
-        })
+  else if (!isObject(v.datasets[0]) || !isUuid(v.datasets[0].datasetId))
+    errors.push({
+      code: 'invalid_value',
+      field: 'datasets[0].datasetId',
+      message: 'datasets[0].datasetId must be a UUID',
     })
 
   const kind = v.kind
@@ -257,11 +251,11 @@ export function validateAnalysisDefinition(
 
 function groupRows(
   rows: Record<string, unknown>[],
-  fieldName: string | null,
+  fieldId: string | null,
 ): Map<string, Record<string, unknown>[]> {
   const groups = new Map<string, Record<string, unknown>[]>()
   for (const row of rows) {
-    const key = fieldName ? String(row[fieldName] ?? '—') : 'all'
+    const key = fieldId ? String(row[fieldId] ?? '—') : 'all'
     if (!groups.has(key)) groups.set(key, [])
     groups.get(key)!.push(row)
   }
@@ -303,15 +297,11 @@ export function runAnalysis(
 ): { ok: true; result: AnalysisResult } | { ok: false; error: AnalysisError } {
   if (rows.length === 0) return { ok: false, error: { code: 'empty_dataset' } }
 
+  // The stable fieldId is the only key that resolves a binding; a missing
+  // or retired field surfaces as missing_field instead of a name-based
+  // rebind to whatever column happens to match a label.
   const resolve = (binding: AnalysisFieldBinding | null | undefined) =>
-    binding
-      ? (columns.find(
-          (c) => c.id === binding.columnId && c.fieldName === binding.fieldName,
-        ) ??
-        columns.find((c) => c.id === binding.columnId) ??
-        columns.find((c) => c.fieldName === binding.fieldName) ??
-        null)
-      : null
+    binding ? (columns.find((c) => c.id === binding.fieldId) ?? null) : null
 
   if (definition.kind === 'descriptive') {
     const valueCol = resolve(definition.value)
@@ -322,10 +312,8 @@ export function runAnalysis(
       return { ok: false, error: { code: 'missing_field', fields: ['group'] } }
 
     const outRows: DescriptiveRow[] = []
-    for (const [key, group] of groupRows(rows, groupCol?.fieldName ?? null)) {
-      const { values, missing } = toNumeric(
-        group.map((r) => r[valueCol.fieldName]),
-      )
+    for (const [key, group] of groupRows(rows, groupCol?.id ?? null)) {
+      const { values, missing } = toNumeric(group.map((r) => r[valueCol.id]))
       const stats = summaryStats(values)
       if (!stats) continue
       outRows.push({ group: key, missing, stats })
@@ -333,7 +321,7 @@ export function runAnalysis(
     if (outRows.length === 0)
       return {
         ok: false,
-        error: { code: 'no_numeric_values', field: valueCol.fieldName },
+        error: { code: 'no_numeric_values', field: valueCol.id },
       }
     return { ok: true, result: { kind: 'descriptive', rows: outRows } }
   }
@@ -353,13 +341,13 @@ export function runAnalysis(
   const outcomeTransform = definition.outcomeTransform ?? 'none'
   const predictorTransform = definition.predictorTransform ?? 'none'
   const outRows: RegressionFitRow[] = []
-  for (const [key, group] of groupRows(rows, groupCol?.fieldName ?? null)) {
+  for (const [key, group] of groupRows(rows, groupCol?.id ?? null)) {
     // Pair jointly so one missing side drops the whole observation rather
     // than silently shifting the alignment between predictor and outcome.
     const pairs: Array<[number, number]> = []
     for (const row of group) {
-      const px = toNumeric([row[predictorCol!.fieldName]]).values
-      const py = toNumeric([row[outcomeCol!.fieldName]]).values
+      const px = toNumeric([row[predictorCol!.id]]).values
+      const py = toNumeric([row[outcomeCol!.id]]).values
       if (px.length === 1 && py.length === 1) pairs.push([px[0], py[0]])
     }
     if (pairs.length < degree + 1)
@@ -433,12 +421,12 @@ export function runAnalysis(
   if (outRows.length === 0)
     return {
       ok: false,
-      error: { code: 'no_numeric_values', field: outcomeCol!.fieldName },
+      error: { code: 'no_numeric_values', field: outcomeCol!.id },
     }
   return { ok: true, result: { kind: 'regression', rows: outRows } }
 }
 
-const TRANSFORM_FNS: Record<
+export const TRANSFORM_FNS: Record<
   Exclude<ColumnTransform, 'none'>,
   (v: number) => number
 > = {

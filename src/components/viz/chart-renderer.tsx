@@ -640,7 +640,7 @@ function describeChart(
     ? frozen.datasetProvenance
         .map(
           (p) =>
-            `table ${p.tableId} (${p.rowCount} rows, checksum ${p.checksum.slice(0, 8)})`,
+            `dataset ${p.datasetId.slice(0, 8)} (${p.rowCount} rows, checksum ${p.checksum.slice(0, 8)})`,
         )
         .join(', ')
     : ''

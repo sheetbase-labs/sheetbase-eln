@@ -419,13 +419,14 @@ function validateAnalysis(payload: unknown): FieldErrors {
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
     ]
   return validateAnalysisBlockPayload(payload).map((e) => ({
-    code: (e.field === 'title'
-      ? 'missing_required_field'
-      : e.field?.startsWith('frozen') ||
-          e.field === 'definitionId' ||
-          e.field === 'provenance'
-        ? 'invalid_field_value'
-        : 'invalid_payload_shape') as BlockValidationError,
+    code:
+      e.field === 'title'
+        ? 'missing_required_field'
+        : e.field?.startsWith('frozen') ||
+            e.field === 'definitionId' ||
+            e.field === 'provenance'
+          ? 'invalid_field_value'
+          : 'invalid_payload_shape',
     field: e.field,
     message: e.message,
   }))

@@ -1,8 +1,7 @@
 # 0040. Reusable analysis definition contract
 
-- **Status:** accepted
-- **Date:** 2026-08-23
-- **Ticket:** SCI-02
+- **Status:** accepted (amended by 0041: canonical Dataset sources, single
+  input Dataset, version-pinned frozen evidence)
 
 ## Context
 
@@ -17,9 +16,11 @@ giant statistical package.
 
 Forces:
 
-- An analysis must reference stable datasets (`scientific_tables`) by UUID and
-  bind columns by `{ columnId, fieldName }` so definitions survive row and
-  column reordering — the same stability rule decision 0029 fixes for charts.
+- An analysis must reference stable datasets by UUID and bind columns by
+  stable field identity so definitions survive row and column reordering.
+  Decision 0041 supersedes the scientific_tables basis with canonical
+  Datasets and `field_id` bindings — the same stability rule decision 0029
+  fixes for charts, now on the ADR 0037 primitives.
 - Results must be reproducible: a rerun of a definition against the same rows
   is deterministic, and every parameter is explicit rather than an implicit
   default.
@@ -69,10 +70,12 @@ Forces:
 - Migration 0125 adds the table, trigger and RLS; no new event types (ordinary
   PostgREST mutations through `/api/db`).
 - The statistics kernel (`src/lib/stats.ts`) is deliberately small: summaries,
-  quantiles and normal-equation OLS with partial pivoting. Degrees above four
-  are rejected at validation because conditioning degrades quickly.
-- Notebook analysis blocks reuse this contract directly (SCI-03): a block
-  references a definition by UUID; freezing pins the definition verbatim plus
-  the exact input rows with schema-version/row-count/checksum provenance, and
-  frozen evidence re-executes deterministically over pinned inputs. Only the
+  quantiles, and OLS over centred/scaled predictors expanded back to raw-space
+  coefficients (0041). Degrees above four are rejected at validation because
+  conditioning degrades quickly.
+- Notebook analysis blocks reuse this contract directly (SCI-03, amended by
+  0041): a block references a definition by UUID; freezing pins the
+  definition verbatim plus an immutable Dataset Version of its single input
+  dataset — column metadata and provenance, never embedded rows — and frozen
+  evidence reconstructs deterministically from the pinned inputs. Only the
   SECURITY DEFINER freeze/unfreeze RPCs may write a frozen payload.

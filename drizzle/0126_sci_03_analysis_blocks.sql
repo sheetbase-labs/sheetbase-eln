@@ -24,8 +24,12 @@ LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $$
 DECLARE
   owner api.records; target api.records; rev api.revisions; item jsonb; old_item jsonb;
   actor text; item_id text; cparam_key text; analysis_definition_id uuid;
+  -- plate_map locals
+  pm_spec jsonb; pm_wells jsonb; pm_well jsonb; pm_code text; pm_row int; pm_col int;
+  pm_seen jsonb; pm_sref jsonb; pm_vol jsonb;
+  pm_target api.records;
 BEGIN
-  IF NEW.type NOT IN ('protocol_reference','procedure_step','materials','file','chart','analysis') THEN RETURN NEW; END IF;
+  IF NEW.type NOT IN ('protocol_reference','procedure_step','materials','file','chart','analysis','plate_map') THEN RETURN NEW; END IF;
   IF TG_OP='UPDATE' AND NEW.type IS NOT DISTINCT FROM OLD.type
     AND NEW.payload_schema_version IS NOT DISTINCT FROM OLD.payload_schema_version
     AND NEW.payload IS NOT DISTINCT FROM OLD.payload THEN RETURN NEW; END IF;
@@ -219,7 +223,7 @@ BEGIN
       cfields jsonb;
       cseries jsonb;
       ceb jsonb;
-      ctable api.scientific_tables;
+      cds api.datasets;
       citem jsonb;
       cbinding jsonb;
     BEGIN
@@ -237,14 +241,13 @@ BEGIN
       cfields := spec->'fields';
       IF jsonb_typeof(cfields) IS DISTINCT FROM 'object'
          OR jsonb_typeof(cfields->'y') IS DISTINCT FROM 'object'
-         OR (cfields->'y')->>'columnId' IS NULL
-         OR (cfields->'y')->>'fieldName' IS NULL THEN
+         OR (cfields->'y')->>'fieldId' IS NULL THEN
         RAISE EXCEPTION 'chart fields.y is required' USING ERRCODE='23514';
       END IF;
       IF ctype IN ('line','bar') THEN
         cbinding := cfields->'x';
         IF jsonb_typeof(cbinding) IS DISTINCT FROM 'object'
-           OR cbinding->>'columnId' IS NULL OR cbinding->>'fieldName' IS NULL THEN
+           OR cbinding->>'fieldId' IS NULL THEN
           RAISE EXCEPTION 'chart fields.x is required for line and bar' USING ERRCODE='23514';
         END IF;
       END IF;
@@ -263,7 +266,7 @@ BEGIN
       IF ctype='heatmap' THEN
         cbinding := cfields->'x';
         IF jsonb_typeof(cbinding) IS DISTINCT FROM 'object'
-           OR cbinding->>'columnId' IS NULL OR cbinding->>'fieldName' IS NULL THEN
+           OR cbinding->>'fieldId' IS NULL THEN
           RAISE EXCEPTION 'chart fields.x is required for heatmap' USING ERRCODE='23514';
         END IF;
         FOREACH cbinding IN ARRAY ARRAY[cfields->'series', cfields->'color', cfields->'size']::jsonb[] LOOP
@@ -281,7 +284,7 @@ BEGIN
       -- freeze RPC refuses to snapshot faceted charts for now.
       cbinding := cfields->'facet';
       IF jsonb_typeof(cbinding) = 'object'
-         AND (cbinding->>'columnId' IS NULL OR cbinding->>'fieldName' IS NULL) THEN
+         AND cbinding->>'fieldId' IS NULL THEN
         RAISE EXCEPTION 'invalid facet binding' USING ERRCODE='23514';
       END IF;
       -- Type parameters must belong to the spec's own type and stay within
@@ -346,7 +349,7 @@ BEGIN
           IF COALESCE((cparams->'heatmap')->>'aggregate','count') <> 'count' THEN
             cbinding := cparams#>'{heatmap,valueField}';
             IF jsonb_typeof(cbinding) IS DISTINCT FROM 'object'
-               OR cbinding->>'columnId' IS NULL OR cbinding->>'fieldName' IS NULL THEN
+               OR cbinding->>'fieldId' IS NULL THEN
               RAISE EXCEPTION 'heatmap valueField is required when aggregating anything but counts'
                 USING ERRCODE='23514';
             END IF;
@@ -363,23 +366,23 @@ BEGIN
           END IF;
         END LOOP;
       END IF;
-      -- Dataset reference integrity: every tableId must be an active
-      -- scientific table in the SAME workspace as the owning record.
+      -- Dataset reference integrity: every datasetId must be an active
+      -- canonical Dataset in the SAME workspace as the owning record.
       FOR citem IN SELECT value FROM jsonb_array_elements(cdatasets) LOOP
         BEGIN
-          SELECT * INTO ctable FROM api.scientific_tables WHERE id=(citem->>'tableId')::uuid;
+          SELECT * INTO cds FROM api.datasets WHERE id=(citem->>'datasetId')::uuid;
         EXCEPTION WHEN invalid_text_representation THEN
           RAISE EXCEPTION 'invalid chart dataset UUID' USING ERRCODE='23514';
         END;
-        IF ctable.id IS NULL OR ctable.lifecycle<>'active'
-           OR ctable.workspace_id<>owner.workspace_id THEN
+        IF cds.id IS NULL OR cds.lifecycle<>'active'
+           OR cds.workspace_id<>owner.workspace_id THEN
           RAISE EXCEPTION 'invalid dataset reference' USING ERRCODE='23514';
         END IF;
       END LOOP;
       -- Error-bar overlay must name a column and a basis when present.
       ceb := spec->'overlays'->'errorBars';
       IF ceb IS NOT NULL AND jsonb_typeof(ceb)='object' THEN
-        IF ceb->>'columnId' IS NULL OR ceb->>'fieldName' IS NULL
+        IF ceb->>'fieldId' IS NULL
            OR ceb->>'basis' IS NULL
            OR ceb->>'basis' NOT IN ('sd','se','range','custom') THEN
           RAISE EXCEPTION 'invalid error bar overlay' USING ERRCODE='23514';
@@ -457,6 +460,15 @@ BEGIN
            AND (NEW.payload #- ARRAY['frozen']::text[]) IS NOT DISTINCT FROM (OLD.payload #- ARRAY['frozen']::text[]) THEN
           RETURN NEW;
         END IF;
+        -- Revision binding at submission: frozen object stays a frozen
+        -- object, frozen.revisionId null -> uuid, rest byte-identical.
+        IF jsonb_typeof(NEW.payload->'frozen')='object'
+           AND OLD.payload->'frozen'->>'revisionId' IS NULL
+           AND NEW.payload->'frozen'->>'revisionId' IS NOT NULL
+           AND (NEW.payload #- ARRAY['frozen']::text[]) IS NOT DISTINCT FROM (OLD.payload #- ARRAY['frozen']::text[])
+           AND (NEW.payload->'frozen' #- ARRAY['revisionId']::text[]) IS NOT DISTINCT FROM (OLD.payload->'frozen' #- ARRAY['revisionId']::text[]) THEN
+          RETURN NEW;
+        END IF;
         RAISE EXCEPTION 'frozen analysis is immutable' USING ERRCODE='23514';
       ELSIF NEW.payload IS DISTINCT FROM OLD.payload THEN
         RAISE EXCEPTION 'frozen analysis is immutable' USING ERRCODE='23514';
@@ -474,6 +486,153 @@ BEGIN
       END IF;
       RAISE EXCEPTION 'frozen analysis is immutable' USING ERRCODE='23514';
     END IF;
+  ELSIF NEW.type='plate_map' THEN
+    -- SCI-005 (decision 0030): plate map block payload. A draft `{}` is
+    -- allowed. Structural validation, well-code/dimension checks, duplicate
+    -- detection, and sample reference integrity are enforced here. Sample
+    -- links reuse the existing record_links table through deduplicated
+    -- upserts — same pattern as materials blocks.
+    IF NEW.payload='{}'::jsonb THEN
+      RETURN NEW;
+    END IF;
+    IF owner.kind<>'experiment' THEN
+      RAISE EXCEPTION 'plate map blocks require an experiment owner' USING ERRCODE='23514';
+    END IF;
+    IF jsonb_typeof(NEW.payload->'title') IS DISTINCT FROM 'string'
+       OR btrim(NEW.payload->>'title')='' THEN
+      RAISE EXCEPTION 'plate map title is required' USING ERRCODE='23514';
+    END IF;
+    IF jsonb_typeof(NEW.payload->'spec') IS DISTINCT FROM 'object' THEN
+      RAISE EXCEPTION 'invalid plate map spec' USING ERRCODE='23514';
+    END IF;
+    <<plate_map_spec>>
+    DECLARE
+      pm_spec jsonb := NEW.payload->'spec';
+      pm_format text := pm_spec->>'format';
+      pm_specver int;
+      pm_rows int;
+      pm_cols int;
+      pm_well_count int;
+      pm_well_item jsonb;
+      pm_well_code text;
+      pm_well_row int;
+      pm_well_col int;
+      pm_expected_code text;
+      pm_role text;
+      pm_sample_ref jsonb;
+      pm_vol_obj jsonb;
+      pm_replicate int;
+      pm_seen_codes text[] := ARRAY[]::text[];
+      pm_actor text;
+      pm_sample_target api.records;
+    BEGIN
+      pm_specver := NULLIF(pm_spec->>'specVersion','')::int;
+      IF pm_specver IS NULL OR pm_specver <> 1 THEN
+        RAISE EXCEPTION 'unsupported plate map spec version' USING ERRCODE='23514';
+      END IF;
+      -- Format and dimensions: 96_well = 8×12 initially.
+      IF pm_format IS NULL OR pm_format NOT IN ('96_well') THEN
+        RAISE EXCEPTION 'unsupported plate format' USING ERRCODE='23514';
+      END IF;
+      pm_rows := NULLIF(pm_spec->>'rows','')::int;
+      pm_cols := NULLIF(pm_spec->>'cols','')::int;
+      IF pm_format='96_well' AND (pm_rows IS NULL OR pm_rows<>8 OR pm_cols IS NULL OR pm_cols<>12) THEN
+        RAISE EXCEPTION 'invalid plate dimensions for 96_well (expected 8×12)' USING ERRCODE='23514';
+      END IF;
+      -- wells array
+      pm_wells := pm_spec->'wells';
+      IF jsonb_typeof(pm_wells) IS DISTINCT FROM 'array' THEN
+        RAISE EXCEPTION 'plate map wells must be an array' USING ERRCODE='23514';
+      END IF;
+      pm_well_count := jsonb_array_length(pm_wells);
+      IF pm_well_count > pm_rows * pm_cols THEN
+        RAISE EXCEPTION 'plate map well count exceeds plate capacity' USING ERRCODE='23514';
+      END IF;
+      -- validation config must be an object
+      IF jsonb_typeof(pm_spec->'validation') IS DISTINCT FROM 'object' THEN
+        RAISE EXCEPTION 'plate map validation config is required' USING ERRCODE='23514';
+      END IF;
+      pm_actor := CASE WHEN current_user='authenticated' THEN api.current_user_id() ELSE NULL END;
+      -- Iterate wells
+      FOR pm_well_item IN SELECT value FROM jsonb_array_elements(pm_wells) LOOP
+        -- wellCode
+        pm_well_code := pm_well_item->>'wellCode';
+        IF pm_well_code IS NULL OR pm_well_code !~ '^[A-H][1-9][0-9]?$' THEN
+          RAISE EXCEPTION 'invalid well code: %', pm_well_code USING ERRCODE='23514';
+        END IF;
+        -- row
+        pm_well_row := NULLIF(pm_well_item->>'row','')::int;
+        IF pm_well_row IS NULL OR pm_well_row < 0 OR pm_well_row >= pm_rows THEN
+          RAISE EXCEPTION 'well row out of bounds: %', pm_well_row USING ERRCODE='23514';
+        END IF;
+        -- col
+        pm_well_col := NULLIF(pm_well_item->>'col','')::int;
+        IF pm_well_col IS NULL OR pm_well_col < 0 OR pm_well_col >= pm_cols THEN
+          RAISE EXCEPTION 'well col out of bounds: %', pm_well_col USING ERRCODE='23514';
+        END IF;
+        -- Cross-check wellCode ↔ row/col
+        pm_expected_code := chr(65 + pm_well_row) || (pm_well_col + 1)::text;
+        IF pm_well_code IS DISTINCT FROM pm_expected_code THEN
+          RAISE EXCEPTION 'well code % does not match row %, col %', pm_well_code, pm_well_row, pm_well_col USING ERRCODE='23514';
+        END IF;
+        -- Duplicate well codes
+        IF pm_well_code = ANY(pm_seen_codes) THEN
+          RAISE EXCEPTION 'duplicate well code: %', pm_well_code USING ERRCODE='23514';
+        END IF;
+        pm_seen_codes := array_append(pm_seen_codes, pm_well_code);
+        -- role
+        pm_role := pm_well_item->>'role';
+        IF pm_role IS NULL OR pm_role NOT IN ('sample','positive_control','negative_control','blank','empty') THEN
+          RAISE EXCEPTION 'unsupported assignment role: %', pm_role USING ERRCODE='23514';
+        END IF;
+        -- sampleRef (optional)
+        pm_sample_ref := pm_well_item->'sampleRef';
+        IF pm_sample_ref IS NOT NULL AND jsonb_typeof(pm_sample_ref)='object' THEN
+          IF pm_sample_ref->>'recordId' IS NULL
+             OR pm_sample_ref->>'identifier' IS NULL
+             OR pm_sample_ref->>'title' IS NULL THEN
+            RAISE EXCEPTION 'invalid sample reference in well %', pm_well_code USING ERRCODE='23514';
+          END IF;
+          -- Validate same-workspace sample record
+          BEGIN
+            SELECT * INTO pm_sample_target FROM api.records WHERE id=(pm_sample_ref->>'recordId')::uuid;
+          EXCEPTION WHEN invalid_text_representation THEN
+            RAISE EXCEPTION 'invalid sample reference UUID in well %', pm_well_code USING ERRCODE='23514';
+          END;
+          IF pm_sample_target.id IS NULL
+             OR pm_sample_target.deleted_at IS NOT NULL
+             OR pm_sample_target.workspace_id <> owner.workspace_id
+             OR pm_sample_target.kind <> 'sample'
+             OR pm_sample_ref->>'identifier' IS DISTINCT FROM pm_sample_target.identifier
+             OR pm_sample_ref->>'title' IS DISTINCT FROM pm_sample_target.title THEN
+            RAISE EXCEPTION 'invalid sample reference target in well %', pm_well_code USING ERRCODE='23514';
+          END IF;
+          -- Create/update deduplicated record_link (same pattern as materials)
+          INSERT INTO api.record_links(source_record_id,target_record_id,target_kind,target_identifier,link_type,created_by_user_id)
+          VALUES(owner.id, pm_sample_target.id, 'sample', pm_sample_target.identifier, 'sample', COALESCE(pm_actor, NEW.created_by_user_id))
+          ON CONFLICT (source_record_id,target_identifier,link_type) DO UPDATE SET
+            target_record_id = EXCLUDED.target_record_id,
+            target_kind = EXCLUDED.target_kind;
+        END IF;
+        -- replicate (optional, must be positive integer)
+        IF pm_well_item ? 'replicate' AND jsonb_typeof(pm_well_item->'replicate')='number' THEN
+          pm_replicate := (pm_well_item->>'replicate')::int;
+          IF pm_replicate < 1 OR pm_replicate <> trunc(pm_replicate::numeric) THEN
+            RAISE EXCEPTION 'invalid replicate in well %', pm_well_code USING ERRCODE='23514';
+          END IF;
+        END IF;
+        -- volume (optional, value must be positive)
+        pm_vol_obj := pm_well_item->'volume';
+        IF pm_vol_obj IS NOT NULL AND jsonb_typeof(pm_vol_obj)='object' THEN
+          IF jsonb_typeof(pm_vol_obj->'value') IS DISTINCT FROM 'number'
+             OR (pm_vol_obj->>'value')::numeric <= 0
+             OR pm_vol_obj->>'unit' IS NULL
+             OR btrim(pm_vol_obj->>'unit')='' THEN
+            RAISE EXCEPTION 'invalid volume in well %', pm_well_code USING ERRCODE='23514';
+          END IF;
+        END IF;
+      END LOOP;
+    END plate_map_spec;
   ELSE
     IF current_user='api_client' THEN
       RAISE EXCEPTION 'credential-authored scientific block writes are not supported' USING ERRCODE='42501';
@@ -520,9 +679,12 @@ END $$;--> statement-breakpoint
 REVOKE EXECUTE ON FUNCTION "api"."validate_scientific_block"() FROM PUBLIC;--> statement-breakpoint
 
 -- ---------------------------------------------------------------------------
--- 3. freeze_analysis_block — transactionally pin the definition verbatim and
--- snapshot the referenced dataset rows with provenance. SECURITY DEFINER so
--- the trigger accepts the frozen-write transition; re-validates workspace
+-- 3. freeze_analysis_block — transactionally pin the referenced definition
+-- verbatim and snapshot its single input Dataset into an immutable Dataset
+-- Version (decision 0037). The frozen payload stores references and column
+-- metadata only — never source rows — so evidence reconstructs
+-- deterministically from the pinned Version at any scale. SECURITY DEFINER
+-- so the trigger accepts the frozen-write transition; re-validates workspace
 -- membership against the JWT claim before any write.
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION "api"."freeze_analysis_block"(
@@ -542,13 +704,14 @@ DECLARE
   v_definition jsonb;
   v_definition_name text;
   v_definition_version int;
-  v_dataset jsonb;
-  v_table "api"."scientific_tables";
-  v_col "api"."scientific_columns";
+  v_dataset_ref jsonb;
+  v_ds "api"."datasets";
+  v_schema_version int;
+  v_version_row "api"."dataset_versions";
+  v_f "api"."dataset_schema_version_fields"%ROWTYPE;
+  v_bound_fields text[];
   v_columns jsonb := '[]'::jsonb;
-  v_rows jsonb := '[]'::jsonb;
-  v_row jsonb;
-  v_rowcount int;
+  v_rowcount bigint;
   v_checksum text;
   v_provenance jsonb := '[]'::jsonb;
   v_frozen jsonb;
@@ -572,7 +735,7 @@ BEGIN
   IF v_owner.id IS NULL THEN RAISE EXCEPTION 'block owner not found' USING ERRCODE = '23503'; END IF;
   -- SECURITY DEFINER bypasses RLS; revalidate the caller's authority.
   IF v_owner.workspace_id IS DISTINCT FROM "api"."current_workspace_id"()
-     OR NOT "api"."is_workspace_member"(v_owner.workspace_id) THEN
+     OR NOT "api"."is_workspace_writer"(v_owner.workspace_id) THEN
     RAISE EXCEPTION 'block not found in active workspace' USING ERRCODE = '42501';
   END IF;
 
@@ -588,49 +751,84 @@ BEGIN
   IF v_definition IS NULL THEN
     RAISE EXCEPTION 'invalid analysis definition reference' USING ERRCODE = '23514';
   END IF;
-  IF jsonb_typeof(v_definition->'datasets') IS DISTINCT FROM 'array'
-     OR jsonb_array_length(v_definition->'datasets') = 0 THEN
-    RAISE EXCEPTION 'definition references no dataset' USING ERRCODE = '23514';
-  END IF;
 
-  -- SCI-02 supports a single dataset (the array is forward-compatible).
-  v_dataset := v_definition->'datasets'->0;
-  SELECT * INTO v_table FROM "api"."scientific_tables"
-    WHERE id = (v_dataset->>'tableId')::uuid AND lifecycle = 'active';
-  IF v_table.id IS NULL OR v_table.workspace_id <> v_owner.workspace_id THEN
+  -- Exactly one input dataset in this contract revision (decision 0041).
+  IF jsonb_typeof(v_definition->'datasets') IS DISTINCT FROM 'array'
+     OR jsonb_array_length(v_definition->'datasets') <> 1 THEN
+    RAISE EXCEPTION 'definition must reference exactly one dataset' USING ERRCODE = '23514';
+  END IF;
+  v_dataset_ref := v_definition->'datasets'->0;
+  SELECT * INTO v_ds FROM "api"."datasets"
+    WHERE id = (v_dataset_ref->>'datasetId')::uuid AND lifecycle = 'active';
+  IF v_ds.id IS NULL OR v_ds.workspace_id <> v_owner.workspace_id THEN
     RAISE EXCEPTION 'invalid dataset reference' USING ERRCODE = '23514';
   END IF;
+  SELECT sv.version INTO v_schema_version FROM "api"."dataset_schema_versions" sv
+    WHERE sv.id = v_ds.schema_version_id;
 
-  -- Full active column metadata: execution needs every bound column and the
-  -- tabular alternative renders the pinned rows honestly.
-  FOR v_col IN
-    SELECT * FROM "api"."scientific_columns" c
-      WHERE c.table_id = v_table.id AND c.lifecycle = 'active'
-      ORDER BY c.display_order, c.id
+  -- Column metadata for every bound field: labels/types render honestly even
+  -- after schema evolution. Metadata only — no rows are embedded.
+  v_bound_fields := ARRAY_remove(ARRAY[
+    v_definition#>>'{value,fieldId}',
+    v_definition#>>'{group,fieldId}',
+    v_definition#>>'{outcome,fieldId}',
+    v_definition#>>'{predictor,fieldId}'
+  ]::text[], NULL);
+  FOR v_f IN
+    SELECT * FROM "api"."dataset_schema_version_fields" f
+     WHERE f.schema_version_id = v_ds.schema_version_id AND f.lifecycle = 'active'
+     ORDER BY f.display_order, f.field_id
   LOOP
-    v_columns := v_columns || jsonb_build_object(
-      'columnId', v_col.id,
-      'fieldName', v_col.field_name,
-      'label', v_col.label,
-      'logicalType', v_col.logical_type
-    );
+    IF v_f.field_id::text = ANY(v_bound_fields) THEN
+      v_columns := v_columns || jsonb_build_object(
+        'fieldId', v_f.field_id,
+        'label', v_f.label,
+        'logicalType', v_f.logical_type,
+        'unit', COALESCE(v_f.quantity, 'null'::jsonb)
+      );
+    END IF;
   END LOOP;
 
-  FOR v_row IN
-    EXECUTE format('SELECT to_jsonb(r) FROM api.%I r ORDER BY r.created_at, r.id', v_table.resource_name)
-  LOOP
-    v_rows := v_rows || jsonb_build_array(v_row);
-  END LOOP;
+  -- Immutable point-in-time snapshot. Substantial by design (ADR 0037):
+  -- submission evidence is one of its sanctioned triggers.
+  v_version_row := "api"."snapshot_dataset"(
+    v_ds.id,
+    v_ds.revision,
+    left('analysis block ' || v_block.id::text, 200)
+  );
 
-  v_rowcount := jsonb_array_length(v_rows);
+  -- Row count and checksum over the Version's values for bound fields,
+  -- ordered by row_id. A reader reconstructing evidence from the Version
+  -- recomputes the same inputs deterministically.
+  SELECT count(*), md5(coalesce(jsonb_agg(row_values ORDER BY row_id)::text, '[]'))
+    INTO v_rowcount, v_checksum
+    FROM (
+      SELECT vr.row_id,
+             COALESCE((SELECT jsonb_object_agg(j.field_id, j.val)
+               FROM (
+                 SELECT v.field_id,
+                        CASE WHEN count(*) = 1
+                          THEN (jsonb_agg(COALESCE(to_jsonb(v.text_value), to_jsonb(v.integer_value), to_jsonb(v.numeric_value), to_jsonb(v.boolean_value), to_jsonb(v.date_value), to_jsonb(v.timestamp_value), to_jsonb(v.category_option_id), to_jsonb(v.reference_id)) ORDER BY v.ordinal))->0
+                          ELSE jsonb_agg(COALESCE(to_jsonb(v.text_value), to_jsonb(v.integer_value), to_jsonb(v.numeric_value), to_jsonb(v.boolean_value), to_jsonb(v.date_value), to_jsonb(v.timestamp_value), to_jsonb(v.category_option_id), to_jsonb(v.reference_id)) ORDER BY v.ordinal)
+                        END AS val
+                   FROM "api"."dataset_version_values" v
+                  WHERE v.dataset_version_id = v_version_row.id
+                    AND v.field_id::text = ANY(v_bound_fields)
+                    AND v.row_id = vr.row_id
+                  GROUP BY v.field_id
+               ) j), '{}'::jsonb) AS row_values
+        FROM "api"."dataset_version_rows" vr
+       WHERE vr.dataset_version_id = v_version_row.id
+    ) per_row;
   IF v_rowcount = 0 THEN
     RAISE EXCEPTION 'empty dataset' USING ERRCODE = '23514';
   END IF;
-  v_checksum := md5(v_rows::text);
 
   v_provenance := jsonb_build_array(jsonb_build_object(
-    'tableId', v_table.id,
-    'schemaVersion', v_table.schema_version,
+    'datasetId', v_ds.id,
+    'datasetVersionId', v_version_row.id,
+    'schemaVersionNumber', v_schema_version,
+    'sourceDatasetRevision', v_version_row.source_dataset_revision,
     'rowCount', v_rowcount,
     'checksum', v_checksum
   ));
@@ -642,8 +840,8 @@ BEGIN
     'definition', v_definition,
     'definitionName', to_jsonb(v_definition_name),
     'definitionVersion', to_jsonb(v_definition_version),
-    'datasetProvenance', v_provenance,
-    'data', jsonb_build_object('columns', v_columns, 'rows', v_rows)
+    'columns', v_columns,
+    'datasetProvenance', v_provenance
   );
 
   v_payload := jsonb_set(v_block.payload, ARRAY['frozen'], v_frozen);
@@ -699,7 +897,7 @@ BEGIN
   SELECT * INTO v_owner FROM "api"."records" WHERE id = v_block.record_id;
   IF v_owner.id IS NULL THEN RAISE EXCEPTION 'block owner not found' USING ERRCODE = '23503'; END IF;
   IF v_owner.workspace_id IS DISTINCT FROM "api"."current_workspace_id"()
-     OR NOT "api"."is_workspace_member"(v_owner.workspace_id) THEN
+     OR NOT "api"."is_workspace_writer"(v_owner.workspace_id) THEN
     RAISE EXCEPTION 'block not found in active workspace' USING ERRCODE = '42501';
   END IF;
 

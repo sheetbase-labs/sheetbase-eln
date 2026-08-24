@@ -2,32 +2,42 @@
  * SCI-03 — the `analysis` notebook block payload contract.
  *
  * An analysis block references a saved analysis definition by stable UUID
- * (ADR 0040) and renders its execution against live dataset rows. Freezing
- * follows the decision-0029 chart pattern: the SECURITY DEFINER
- * `freeze_analysis_block` RPC pins the definition verbatim plus the exact
- * input rows (with schema version, row count and checksum provenance) into
- * the payload; a frozen block re-executes the pure `runAnalysis` over those
- * pinned inputs, so evidence is reproducible even after the datasets evolve.
+ * and renders its execution against canonical Dataset rows. Freezing pins
+ * an **immutable Dataset Version** (decision 0037) per input dataset plus
+ * the verbatim definition snapshot and column metadata — never a copy of
+ * the source rows. The block therefore stays small at any Dataset scale,
+ * and frozen evidence is reconstructed deterministically by re-executing
+ * the pure `runAnalysis` over the pinned Version's rows; the recorded row
+ * count and checksum prove the inputs are the ones that were pinned.
  *
- * Validation is mirrored by the database `validate_scientific_block` trigger;
- * direct CRUD can never fabricate, alter or remove a frozen payload.
+ * Validation is mirrored by the database `validate_scientific_block`
+ * trigger; direct CRUD can never fabricate, alter or remove a frozen
+ * payload — only the SECURITY DEFINER freeze/unfreeze RPCs may write one.
  */
 
 import { validateAnalysisDefinition } from './analysis-definition'
 import type { AnalysisDefinition } from './analysis-definition'
 
-/** Reuses the chart frozen-column metadata shape (decision 0029 §5). */
+/** Column metadata captured at freeze time so frozen blocks can render
+ * labels/types even after schema evolution. Metadata only — no rows. */
 export interface FrozenAnalysisColumn {
-  columnId: string
-  fieldName: string
+  fieldId: string
   label: string
   logicalType: string
 }
 
+/** Provenance for the single immutable Dataset Version backing the freeze. */
 export interface FrozenDatasetProvenance {
-  tableId: string
-  schemaVersion: number
+  /** Canonical `api.datasets.id`. */
+  datasetId: string
+  /** Immutable snapshot created by `snapshot_dataset` during freeze. */
+  datasetVersionId: string
+  /** Numeric version of the Dataset Schema Version pinned by the snapshot. */
+  schemaVersionNumber: number
+  /** Live dataset revision at snapshot time (from dataset_versions). */
+  sourceDatasetRevision: number
   rowCount: number
+  /** md5 over the Version's normalised per-row values ordered by row_id. */
   checksum: string
 }
 
@@ -36,15 +46,12 @@ export interface FrozenAnalysis {
   frozenAt: string
   frozenByUserId: string
   /** Verbatim definition snapshot; later edits to the saved original do not
-   * change what frozen evidence shows. */
+   * change what frozen evidence reconstructs. */
   definition: AnalysisDefinition
   definitionName: string | null
   definitionVersion: number
+  columns: FrozenAnalysisColumn[]
   datasetProvenance: FrozenDatasetProvenance[]
-  data: {
-    columns: FrozenAnalysisColumn[]
-    rows: Record<string, unknown>[]
-  }
 }
 
 export interface AnalysisBlockPayload {
@@ -72,8 +79,9 @@ function isUuid(v: unknown): v is string {
 
 /**
  * Validate an analysis block payload. An empty draft `{}` is valid (the
- * editor fills it in). Dataset reference integrity and frozen-write
- * authority are enforced by the database trigger, not here.
+ * editor fills it in). Dataset reference integrity, frozen-write authority
+ * and checksum correctness are enforced by the database trigger and freeze
+ * RPC, not here.
  */
 export function validateAnalysisBlockPayload(
   payload: unknown,
@@ -132,21 +140,39 @@ export function validateAnalysisBlockPayload(
         )
       }
       if (
+        !Array.isArray(f.columns) ||
+        f.columns.some((c) => !isObject(c) || !isUuid(c.fieldId))
+      )
+        errors.push({
+          field: 'frozen.columns',
+          message:
+            'frozen.columns must carry fieldId metadata for each bound field',
+        })
+      if (
         !Array.isArray(f.datasetProvenance) ||
-        f.datasetProvenance.length === 0
+        f.datasetProvenance.length !== 1 ||
+        f.datasetProvenance.some(
+          (p) =>
+            !isObject(p) ||
+            !isUuid(p.datasetId) ||
+            !isUuid(p.datasetVersionId) ||
+            typeof p.rowCount !== 'number' ||
+            typeof p.checksum !== 'string' ||
+            p.checksum === '',
+        )
       )
         errors.push({
           field: 'frozen.datasetProvenance',
-          message: 'frozen.datasetProvenance must be a non-empty array',
+          message:
+            'frozen.datasetProvenance must pin exactly one Dataset Version with rowCount and checksum',
         })
-      if (
-        !isObject(f.data) ||
-        !Array.isArray((f.data).columns) ||
-        !Array.isArray((f.data).rows)
-      )
+      // A frozen payload carries evidence references only; embedded source
+      // rows are never accepted.
+      if (f.data !== undefined)
         errors.push({
           field: 'frozen.data',
-          message: 'frozen.data must carry columns and rows arrays',
+          message:
+            'frozen payloads pin Dataset Versions and must not embed rows',
         })
     }
   }

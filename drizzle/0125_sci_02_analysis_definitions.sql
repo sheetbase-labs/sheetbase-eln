@@ -78,17 +78,20 @@ CREATE POLICY "analysis_definitions_select_api_client" ON "api"."analysis_defini
 CREATE POLICY "analysis_definitions_insert" ON "api"."analysis_definitions"
 	FOR INSERT TO authenticated
 	WITH CHECK ("workspace_id" = "api"."current_workspace_id"()
-	            AND "api"."is_workspace_member"("workspace_id")
+	            AND "api"."is_workspace_writer"("workspace_id")
 	            AND "owner_user_id" = "api"."current_user_id"());--> statement-breakpoint
 CREATE POLICY "analysis_definitions_update" ON "api"."analysis_definitions"
 	FOR UPDATE TO authenticated
 	USING ("workspace_id" = "api"."current_workspace_id"()
+	       AND "api"."is_workspace_writer"("workspace_id")
 	       AND "owner_user_id" = "api"."current_user_id"())
 	WITH CHECK ("workspace_id" = "api"."current_workspace_id"()
+	            AND "api"."is_workspace_writer"("workspace_id")
 	            AND "owner_user_id" = "api"."current_user_id"());--> statement-breakpoint
 CREATE POLICY "analysis_definitions_delete" ON "api"."analysis_definitions"
 	FOR DELETE TO authenticated
 	USING ("workspace_id" = "api"."current_workspace_id"()
+	       AND "api"."is_workspace_writer"("workspace_id")
 	       AND "owner_user_id" = "api"."current_user_id"());--> statement-breakpoint
 
 -- ---------------------------------------------------------------------------

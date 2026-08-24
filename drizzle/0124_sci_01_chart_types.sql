@@ -304,7 +304,7 @@ BEGIN
       cfields jsonb;
       cseries jsonb;
       ceb jsonb;
-      ctable api.scientific_tables;
+      cds api.datasets;
       citem jsonb;
       cbinding jsonb;
     BEGIN
@@ -322,14 +322,13 @@ BEGIN
       cfields := spec->'fields';
       IF jsonb_typeof(cfields) IS DISTINCT FROM 'object'
          OR jsonb_typeof(cfields->'y') IS DISTINCT FROM 'object'
-         OR (cfields->'y')->>'columnId' IS NULL
-         OR (cfields->'y')->>'fieldName' IS NULL THEN
+         OR (cfields->'y')->>'fieldId' IS NULL THEN
         RAISE EXCEPTION 'chart fields.y is required' USING ERRCODE='23514';
       END IF;
       IF ctype IN ('line','bar') THEN
         cbinding := cfields->'x';
         IF jsonb_typeof(cbinding) IS DISTINCT FROM 'object'
-           OR cbinding->>'columnId' IS NULL OR cbinding->>'fieldName' IS NULL THEN
+           OR cbinding->>'fieldId' IS NULL THEN
           RAISE EXCEPTION 'chart fields.x is required for line and bar' USING ERRCODE='23514';
         END IF;
       END IF;
@@ -348,7 +347,7 @@ BEGIN
       IF ctype='heatmap' THEN
         cbinding := cfields->'x';
         IF jsonb_typeof(cbinding) IS DISTINCT FROM 'object'
-           OR cbinding->>'columnId' IS NULL OR cbinding->>'fieldName' IS NULL THEN
+           OR cbinding->>'fieldId' IS NULL THEN
           RAISE EXCEPTION 'chart fields.x is required for heatmap' USING ERRCODE='23514';
         END IF;
         FOREACH cbinding IN ARRAY ARRAY[cfields->'series', cfields->'color', cfields->'size']::jsonb[] LOOP
@@ -366,7 +365,7 @@ BEGIN
       -- freeze RPC refuses to snapshot faceted charts for now.
       cbinding := cfields->'facet';
       IF jsonb_typeof(cbinding) = 'object'
-         AND (cbinding->>'columnId' IS NULL OR cbinding->>'fieldName' IS NULL) THEN
+         AND cbinding->>'fieldId' IS NULL THEN
         RAISE EXCEPTION 'invalid facet binding' USING ERRCODE='23514';
       END IF;
       -- Type parameters must belong to the spec's own type and stay within
@@ -431,7 +430,7 @@ BEGIN
           IF COALESCE((cparams->'heatmap')->>'aggregate','count') <> 'count' THEN
             cbinding := cparams#>'{heatmap,valueField}';
             IF jsonb_typeof(cbinding) IS DISTINCT FROM 'object'
-               OR cbinding->>'columnId' IS NULL OR cbinding->>'fieldName' IS NULL THEN
+               OR cbinding->>'fieldId' IS NULL THEN
               RAISE EXCEPTION 'heatmap valueField is required when aggregating anything but counts'
                 USING ERRCODE='23514';
             END IF;
@@ -448,24 +447,24 @@ BEGIN
           END IF;
         END LOOP;
       END IF;
-      -- Dataset reference integrity: every tableId must be an active
-      -- scientific table in the SAME workspace as the owning record.
+      -- Dataset reference integrity: every datasetId must be an active
+      -- canonical Dataset in the SAME workspace as the owning record
+      -- (decision 0037).
       FOR citem IN SELECT value FROM jsonb_array_elements(cdatasets) LOOP
         BEGIN
-          SELECT * INTO ctable FROM api.scientific_tables WHERE id=(citem->>'tableId')::uuid;
+          SELECT * INTO cds FROM api.datasets WHERE id=(citem->>'datasetId')::uuid;
         EXCEPTION WHEN invalid_text_representation THEN
           RAISE EXCEPTION 'invalid chart dataset UUID' USING ERRCODE='23514';
         END;
-        IF ctable.id IS NULL OR ctable.lifecycle<>'active'
-           OR ctable.workspace_id<>owner.workspace_id THEN
+        IF cds.id IS NULL OR cds.lifecycle<>'active'
+           OR cds.workspace_id<>owner.workspace_id THEN
           RAISE EXCEPTION 'invalid dataset reference' USING ERRCODE='23514';
         END IF;
       END LOOP;
       -- Error-bar overlay must name a column and a basis when present.
       ceb := spec->'overlays'->'errorBars';
       IF ceb IS NOT NULL AND jsonb_typeof(ceb)='object' THEN
-        IF ceb->>'columnId' IS NULL OR ceb->>'fieldName' IS NULL
-           OR ceb->>'basis' IS NULL
+        IF ceb->>'fieldId' IS NULL OR ceb->>'basis' IS NULL
            OR ceb->>'basis' NOT IN ('sd','se','range','custom') THEN
           RAISE EXCEPTION 'invalid error bar overlay' USING ERRCODE='23514';
         END IF;
@@ -567,6 +566,65 @@ REVOKE EXECUTE ON FUNCTION "api"."chart_dim_label"(double precision) FROM PUBLIC
 GRANT EXECUTE ON FUNCTION "api"."chart_dim_label"(double precision) TO authenticated;--> statement-breakpoint
 
 -- ---------------------------------------------------------------------------
+-- chart_filter_matches — row predicate evaluation. Re-defined here so frozen
+-- snapshots filter rows keyed by stable Dataset field ids (decision 0037)
+-- instead of mutable column names.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION "api"."chart_filter_matches"(
+  p_row jsonb,
+  p_filter jsonb
+)
+RETURNS boolean
+LANGUAGE plpgsql
+IMMUTABLE
+PARALLEL SAFE
+AS $$
+DECLARE
+  v_field text := p_filter->>'fieldId';
+  v_op text := p_filter->>'op';
+  v_value jsonb := p_filter->'value';
+  v_cell jsonb := p_row->v_field;
+  v_num numeric;
+  v_arg numeric;
+  v_arg2 numeric;
+BEGIN
+  IF v_field IS NULL OR v_op IS NULL THEN RETURN false; END IF;
+  v_num := "api"."chart_to_number"(v_cell #>> '{}');
+  CASE v_op
+    WHEN 'eq' THEN RETURN v_cell = v_value;
+    WHEN 'ne' THEN RETURN v_cell IS DISTINCT FROM v_value;
+    WHEN 'gt' THEN
+      v_arg := "api"."chart_to_number"(v_value #>> '{}');
+      RETURN v_num IS NOT NULL AND v_arg IS NOT NULL AND v_num > v_arg;
+    WHEN 'gte' THEN
+      v_arg := "api"."chart_to_number"(v_value #>> '{}');
+      RETURN v_num IS NOT NULL AND v_arg IS NOT NULL AND v_num >= v_arg;
+    WHEN 'lt' THEN
+      v_arg := "api"."chart_to_number"(v_value #>> '{}');
+      RETURN v_num IS NOT NULL AND v_arg IS NOT NULL AND v_num < v_arg;
+    WHEN 'lte' THEN
+      v_arg := "api"."chart_to_number"(v_value #>> '{}');
+      RETURN v_num IS NOT NULL AND v_arg IS NOT NULL AND v_num <= v_arg;
+    WHEN 'in' THEN
+      RETURN jsonb_typeof(v_value) = 'array' AND EXISTS (
+        SELECT 1 FROM jsonb_array_elements(v_value) el WHERE el = v_cell
+      );
+    WHEN 'between' THEN
+      IF jsonb_typeof(v_value) IS DISTINCT FROM 'array' OR jsonb_array_length(v_value) <> 2 THEN
+        RETURN false;
+      END IF;
+      v_arg := "api"."chart_to_number"(v_value->0 #>> '{}');
+      v_arg2 := "api"."chart_to_number"(v_value->1 #>> '{}');
+      RETURN v_num IS NOT NULL AND v_arg IS NOT NULL AND v_arg2 IS NOT NULL
+        AND v_num >= v_arg AND v_num <= v_arg2;
+    ELSE RETURN false;
+  END CASE;
+END;
+$$;--> statement-breakpoint
+REVOKE EXECUTE ON FUNCTION "api"."chart_filter_matches"(jsonb, jsonb) FROM PUBLIC;--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION "api"."chart_filter_matches"(jsonb, jsonb) TO authenticated;--> statement-breakpoint
+
+-- ---------------------------------------------------------------------------
 -- 3. freeze_chart — extended for histogram/box/heatmap materialisation.
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION "api"."freeze_chart"(
@@ -584,9 +642,10 @@ DECLARE
   v_spec jsonb;
   v_payload jsonb;
   v_dataset jsonb;
-  v_table "api"."scientific_tables";
+  v_ds "api"."datasets";
   v_columns jsonb;
-  v_col "api"."scientific_columns";
+  v_schema_version int;
+  v_f "api"."dataset_schema_version_fields"%ROWTYPE;
   v_rows jsonb := '[]'::jsonb;
   v_filtered jsonb := '[]'::jsonb;
   v_row jsonb;
@@ -674,53 +733,69 @@ BEGIN
   -- SECURITY DEFINER bypasses RLS; re validate the caller actually owns the
   -- block's workspace before materialising anything.
   IF v_owner.workspace_id IS DISTINCT FROM "api"."current_workspace_id"()
-     OR NOT "api"."is_workspace_member"(v_owner.workspace_id) THEN
+     OR NOT "api"."is_workspace_writer"(v_owner.workspace_id) THEN
     RAISE EXCEPTION 'block not found in active workspace' USING ERRCODE = '42501';
   END IF;
 
   v_spec := v_block.payload->'spec';
   v_fields := v_spec->'fields';
-  v_y_field := v_fields->'y'->>'fieldName';
-  v_x_field := v_fields->'x'->>'fieldName';
-  v_series_field := v_fields->'series'->>'fieldName';
-  v_err_field := v_spec->'overlays'->'errorBars'->>'fieldName';
+  v_y_field := v_fields->'y'->>'fieldId';
+  v_x_field := v_fields->'x'->>'fieldId';
+  v_series_field := v_fields->'series'->>'fieldId';
+  v_err_field := v_spec->'overlays'->'errorBars'->>'fieldId';
 
   -- SCI-004 supports a single dataset (the spec array is forward-compatible).
   v_dataset := v_spec->'datasets'->0;
-  SELECT * INTO v_table FROM "api"."scientific_tables"
-    WHERE id = (v_dataset->>'tableId')::uuid AND lifecycle = 'active';
-  IF v_table.id IS NULL OR v_table.workspace_id <> v_owner.workspace_id THEN
+  SELECT * INTO v_ds FROM "api"."datasets"
+    WHERE id = (v_dataset->>'datasetId')::uuid AND lifecycle = 'active';
+  IF v_ds.id IS NULL OR v_ds.workspace_id <> v_owner.workspace_id THEN
     RAISE EXCEPTION 'invalid dataset reference' USING ERRCODE = '23514';
   END IF;
+  SELECT sv.version INTO v_schema_version FROM "api"."dataset_schema_versions" sv
+    WHERE sv.id = v_ds.schema_version_id;
 
-  -- Active columns metadata, restricted to referenced fields for the frozen
-  -- snapshot (keeps the payload lean and the tabular alternative honest).
+  -- Referenced field metadata from the pinned Dataset Schema Version
+  -- (keeps the payload lean and the tabular alternative honest).
   v_keep_fields := ARRAY_remove(ARRAY[
     v_x_field, v_y_field, v_series_field, v_err_field
   ]::text[], NULL);
-  FOR v_col IN
-    SELECT * FROM "api"."scientific_columns" c
-      WHERE c.table_id = v_table.id AND c.lifecycle = 'active'
-      ORDER BY c.display_order, c.id
+  FOR v_f IN
+    SELECT * FROM "api"."dataset_schema_version_fields" f
+     WHERE f.schema_version_id = v_ds.schema_version_id AND f.lifecycle = 'active'
+     ORDER BY f.display_order, f.field_id
   LOOP
-    IF v_col.field_name = ANY(v_keep_fields) THEN
+    IF v_f.field_id::text = ANY(v_keep_fields) THEN
       v_col_meta := v_col_meta || jsonb_build_object(
-        'columnId', v_col.id,
-        'fieldName', v_col.field_name,
-        'label', v_col.label,
-        'unit', COALESCE(v_col.unit, 'null'::jsonb),
-        'logicalType', v_col.logical_type
+        'fieldId', v_f.field_id,
+        'label', v_f.label,
+        'unit', COALESCE(v_f.quantity, 'null'::jsonb),
+        'logicalType', v_f.logical_type
       );
     END IF;
   END LOOP;
 
-  -- Read the dataset rows from the generated relation. RLS filters to the
-  -- caller's workspace; the per-table CHECK pins a single workspace.
+  -- Canonical rows: pivot dataset_row_values into field_id-keyed objects,
+  -- normalised exactly like api.query_dataset_version_rows (decision 0037).
   v_filters := v_spec->'filters';
   FOR v_row IN
-    EXECUTE format('SELECT to_jsonb(r) FROM api.%I r ORDER BY r.created_at, r.id', v_table.resource_name)
+    SELECT jsonb_build_object('values', COALESCE((
+      SELECT jsonb_object_agg(j.field_id, j.val)
+      FROM (
+        SELECT v.field_id,
+               CASE WHEN count(*) = 1
+                 THEN (jsonb_agg(COALESCE(to_jsonb(v.text_value), to_jsonb(v.integer_value), to_jsonb(v.numeric_value), to_jsonb(v.boolean_value), to_jsonb(v.date_value), to_jsonb(v.timestamp_value), to_jsonb(v.category_option_id), to_jsonb(v.reference_id)) ORDER BY v.ordinal))->0
+                 ELSE jsonb_agg(COALESCE(to_jsonb(v.text_value), to_jsonb(v.integer_value), to_jsonb(v.numeric_value), to_jsonb(v.boolean_value), to_jsonb(v.date_value), to_jsonb(v.timestamp_value), to_jsonb(v.category_option_id), to_jsonb(v.reference_id)) ORDER BY v.ordinal)
+               END AS val
+        FROM "api"."dataset_row_values" v
+        WHERE v.row_id = r.id
+        GROUP BY v.field_id
+      ) j
+    ), '{}'::jsonb))
+    FROM "api"."dataset_rows" r
+    WHERE r.dataset_id = v_ds.id
+    ORDER BY r.created_at, r.id
   LOOP
-    v_rows := v_rows || jsonb_build_array(v_row);
+    v_rows := v_rows || jsonb_build_array(v_row->'values');
   END LOOP;
 
   -- Apply explicit row predicates (mirrors src/lib/chart-spec applyFilters).
@@ -763,17 +838,19 @@ BEGIN
     -- materialiseHeatmap in src/lib/chart-spec.ts.
     -- ------------------------------------------------------------------
     v_agg := COALESCE(v_spec#>>'{typeParams,heatmap,aggregate}', 'count');
-    v_value_field := v_spec#>>'{typeParams,heatmap,valueField,fieldName}';
+    v_value_field := v_spec#>>'{typeParams,heatmap,valueField,fieldId}';
     IF v_agg <> 'count' AND COALESCE(v_value_field, '') = '' THEN
       RAISE EXCEPTION 'heatmap valueField is required when aggregating anything but counts'
         USING ERRCODE='23514';
     END IF;
 
     BEGIN
-      SELECT c.logical_type INTO v_x_type FROM "api"."scientific_columns" c
-        WHERE c.id=(v_spec#>>'{fields,x,columnId}')::uuid AND c.lifecycle='active';
-      SELECT c.logical_type INTO v_y_type FROM "api"."scientific_columns" c
-        WHERE c.id=(v_spec#>>'{fields,y,columnId}')::uuid AND c.lifecycle='active';
+      SELECT f.logical_type INTO v_x_type FROM "api"."dataset_schema_version_fields" f
+        WHERE f.schema_version_id=v_ds.schema_version_id
+          AND f.field_id=(v_spec#>>'{fields,x,fieldId}')::uuid AND f.lifecycle='active';
+      SELECT f.logical_type INTO v_y_type FROM "api"."dataset_schema_version_fields" f
+        WHERE f.schema_version_id=v_ds.schema_version_id
+          AND f.field_id=(v_spec#>>'{fields,y,fieldId}')::uuid AND f.lifecycle='active';
     EXCEPTION WHEN invalid_text_representation THEN
       RAISE EXCEPTION 'invalid dataset reference' USING ERRCODE='23514';
     END;
@@ -782,14 +859,14 @@ BEGIN
     IF COALESCE(v_x_type,'') IN ('category','text','boolean') THEN
       SELECT array_agg(k ORDER BY k COLLATE "C") INTO v_xlabels
         FROM (
-          SELECT DISTINCT COALESCE(r->>(v_spec#>>'{fields,x,fieldName}'), '—') AS k
+          SELECT DISTINCT COALESCE(r->>(v_spec#>>'{fields,x,fieldId}'), '—') AS k
           FROM jsonb_array_elements(v_filtered) AS r
         ) t;
     ELSE
       v_nbins := COALESCE((v_spec#>>'{typeParams,heatmap,xBins}')::int, 10);
       v_xlo := NULL; v_xhi := NULL;
       FOR v_row IN SELECT value FROM jsonb_array_elements(v_filtered) LOOP
-        v_num := "api"."chart_to_number"(v_row->>(v_spec#>>'{fields,x,fieldName}'));
+        v_num := "api"."chart_to_number"(v_row->>(v_spec#>>'{fields,x,fieldId}'));
         IF v_num IS NOT NULL THEN
           IF v_xlo IS NULL OR v_num < v_xlo THEN v_xlo := v_num; END IF;
           IF v_xhi IS NULL OR v_num > v_xhi THEN v_xhi := v_num; END IF;
@@ -806,14 +883,14 @@ BEGIN
     IF COALESCE(v_y_type,'') IN ('category','text','boolean') THEN
       SELECT array_agg(k ORDER BY k COLLATE "C") INTO v_ylabels
         FROM (
-          SELECT DISTINCT COALESCE(r->>(v_spec#>>'{fields,y,fieldName}'), '—') AS k
+          SELECT DISTINCT COALESCE(r->>(v_spec#>>'{fields,y,fieldId}'), '—') AS k
           FROM jsonb_array_elements(v_filtered) AS r
         ) t;
     ELSE
       v_dims_y := COALESCE((v_spec#>>'{typeParams,heatmap,yBins}')::int, 10);
       v_ylo := NULL; v_yhi := NULL;
       FOR v_row IN SELECT value FROM jsonb_array_elements(v_filtered) LOOP
-        v_num := "api"."chart_to_number"(v_row->>(v_spec#>>'{fields,y,fieldName}'));
+        v_num := "api"."chart_to_number"(v_row->>(v_spec#>>'{fields,y,fieldId}'));
         IF v_num IS NOT NULL THEN
           IF v_ylo IS NULL OR v_num < v_ylo THEN v_ylo := v_num; END IF;
           IF v_yhi IS NULL OR v_num > v_yhi THEN v_yhi := v_num; END IF;
@@ -831,9 +908,9 @@ BEGIN
     FOR v_row IN SELECT value FROM jsonb_array_elements(v_filtered) LOOP
       IF COALESCE(v_x_type,'') IN ('category','text','boolean') THEN
         SELECT i - 1 INTO v_xi FROM unnest(v_xlabels) WITH ORDINALITY AS u(k, i)
-          WHERE k = COALESCE(v_row->>(v_spec#>>'{fields,x,fieldName}'), '—');
+          WHERE k = COALESCE(v_row->>(v_spec#>>'{fields,x,fieldId}'), '—');
       ELSE
-        v_num := "api"."chart_to_number"(v_row->>(v_spec#>>'{fields,x,fieldName}'));
+        v_num := "api"."chart_to_number"(v_row->>(v_spec#>>'{fields,x,fieldId}'));
         v_xi := NULL;
         IF v_num IS NOT NULL THEN
           v_xi := floor((v_num - v_xlo) / v_xstep)::int;
@@ -844,9 +921,9 @@ BEGIN
       CONTINUE WHEN v_xi IS NULL OR v_xi < 0;
       IF COALESCE(v_y_type,'') IN ('category','text','boolean') THEN
         SELECT i - 1 INTO v_yi FROM unnest(v_ylabels) WITH ORDINALITY AS u(k, i)
-          WHERE k = COALESCE(v_row->>(v_spec#>>'{fields,y,fieldName}'), '—');
+          WHERE k = COALESCE(v_row->>(v_spec#>>'{fields,y,fieldId}'), '—');
       ELSE
-        v_num := "api"."chart_to_number"(v_row->>(v_spec#>>'{fields,y,fieldName}'));
+        v_num := "api"."chart_to_number"(v_row->>(v_spec#>>'{fields,y,fieldId}'));
         v_yi := NULL;
         IF v_num IS NOT NULL THEN
           v_yi := floor((v_num - v_ylo) / v_ystep)::int;
@@ -1042,8 +1119,8 @@ BEGIN
   END LOOP;
 
   v_provenance := jsonb_build_array(jsonb_build_object(
-    'tableId', v_table.id,
-    'schemaVersion', v_table.schema_version,
+    'datasetId', v_ds.id,
+    'schemaVersionNumber', v_schema_version,
     'rowCount', v_rowcount,
     'checksum', v_checksum
   ));

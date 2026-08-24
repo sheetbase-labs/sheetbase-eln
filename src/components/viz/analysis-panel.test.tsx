@@ -1,7 +1,8 @@
 /**
  * SCI-02 analysis panel interaction tests. The panel composes dataset
  * selection, definition authoring, pure execution and saved-definition
- * persistence; the data client is mocked so no PostgREST is required.
+ * persistence over canonical Datasets; the data layer is mocked so no
+ * PostgREST is required.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
@@ -17,12 +18,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AnalysisPanel } from './analysis-panel'
 import type * as definitionsData from '#/lib/analysis-definitions-data'
 import { fetchAnalysisDefinitions } from '#/lib/analysis-definitions-data'
-import type * as scientificSheetData from '#/lib/scientific-sheet-data'
-import {
-  fetchAllScientificRows,
-  fetchScientificTable,
-} from '#/lib/scientific-sheet-data'
-import type { ScientificTableWire } from '#/lib/scientific-sheet-data'
+import type * as chartData from '#/lib/chart-data'
+import { fetchCanonicalDataset, fetchDatasetRows } from '#/lib/chart-data'
+import type { CanonicalDatasetSource } from '#/lib/chart-data'
 
 vi.mock('#/lib/analysis-definitions-data', async (importOriginal) => {
   const actual = await importOriginal<typeof definitionsData>()
@@ -35,19 +33,37 @@ vi.mock('#/lib/analysis-definitions-data', async (importOriginal) => {
     deleteAnalysisDefinition: vi.fn().mockResolvedValue(undefined),
   }
 })
-vi.mock('#/lib/scientific-sheet-data', async (importOriginal) => {
-  const actual = await importOriginal<typeof scientificSheetData>()
+vi.mock('#/lib/chart-data', async (importOriginal) => {
+  const actual = await importOriginal<typeof chartData>()
   return {
     ...actual,
-    scientificDataClient: {} as never,
-    fetchScientificTable: vi.fn(),
-    fetchAllScientificRows: vi.fn(),
+    sciDataClient: {} as never,
+    fetchCanonicalDataset: vi.fn(),
+    fetchDatasetRows: vi.fn(),
   }
 })
 
 const mockFetchDefinitions = vi.mocked(fetchAnalysisDefinitions)
-const mockFetchTable = vi.mocked(fetchScientificTable)
-const mockFetchRows = vi.mocked(fetchAllScientificRows)
+const mockFetchDataset = vi.mocked(fetchCanonicalDataset)
+const mockFetchRows = vi.mocked(fetchDatasetRows)
+
+const FIELD_TIME = 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa01'
+const FIELD_RECOVERY = 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa02'
+const FIELD_CONDITION = 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa03'
+
+const DATASET: CanonicalDatasetSource = {
+  datasetId: '11111111-1111-1111-8111-111111111111',
+  name: 'Stability',
+  workspaceId: 'ws-1',
+  schemaVersionId: '00000000-0000-4000-8000-00000000fffe',
+  schemaVersionNumber: 1,
+  revision: 1,
+  columns: [
+    { id: FIELD_TIME, label: 'Time (h)', logicalType: 'decimal' },
+    { id: FIELD_RECOVERY, label: 'Recovery (%)', logicalType: 'decimal' },
+    { id: FIELD_CONDITION, label: 'Condition', logicalType: 'category' },
+  ],
+}
 
 function wrapper() {
   const client = new QueryClient({
@@ -58,61 +74,20 @@ function wrapper() {
   )
 }
 
-const DATASET = {
-  id: '11111111-1111-1111-8111-111111111111',
-  resource_name: 'sheet_alpha',
-  name: 'Stability',
-  schema_version: 1,
-  lifecycle: 'active' as const,
-  columns: [
-    {
-      id: 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa01',
-      field_name: 'time_h',
-      label: 'Time (h)',
-      display_order: 0,
-      logical_type: 'decimal',
-      nullable: true,
-      unit: null,
-      validation: {},
-      width: null,
-      options: [],
-    },
-    {
-      id: 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa02',
-      field_name: 'recovery',
-      label: 'Recovery (%)',
-      display_order: 1,
-      logical_type: 'decimal',
-      nullable: true,
-      unit: null,
-      validation: {},
-      width: null,
-      options: [],
-    },
-    {
-      id: 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa03',
-      field_name: 'condition',
-      label: 'Condition',
-      display_order: 2,
-      logical_type: 'text',
-      nullable: true,
-      unit: null,
-      validation: {},
-      width: null,
-      options: [],
-    },
-  ],
-} as unknown as ScientificTableWire
-
 beforeEach(() => {
   mockFetchDefinitions.mockResolvedValue([])
-  mockFetchTable.mockResolvedValue(DATASET)
-  mockFetchRows.mockResolvedValue([
-    { id: 'r1', version: 1, time_h: 0, recovery: 100, condition: '4C' },
-    { id: 'r2', version: 1, time_h: 24, recovery: 90, condition: '4C' },
-    { id: 'r3', version: 1, time_h: 0, recovery: 80, condition: '20C' },
-    { id: 'r4', version: 1, time_h: 24, recovery: 70, condition: '20C' },
-  ] as never)
+  mockFetchDataset.mockResolvedValue(DATASET)
+  // Rows are keyed by stable field_id, exactly as query_dataset_rows returns.
+  mockFetchRows.mockResolvedValue({
+    rows: [
+      { [FIELD_TIME]: 0, [FIELD_RECOVERY]: 100, [FIELD_CONDITION]: '4C' },
+      { [FIELD_TIME]: 24, [FIELD_RECOVERY]: 90, [FIELD_CONDITION]: '4C' },
+      { [FIELD_TIME]: 0, [FIELD_RECOVERY]: 80, [FIELD_CONDITION]: '20C' },
+      { [FIELD_TIME]: 24, [FIELD_RECOVERY]: 70, [FIELD_CONDITION]: '20C' },
+    ],
+    totalCount: 4,
+    truncated: false,
+  })
 })
 
 afterEach(() => {
@@ -131,7 +106,7 @@ async function runDescriptive() {
   renderPanel()
   await screen.findByLabelText('Analysis dataset')
   fireEvent.change(screen.getByLabelText('Analysis dataset'), {
-    target: { value: DATASET.id },
+    target: { value: DATASET.datasetId },
   })
   fireEvent.click(
     screen.getByRole('button', { name: /Descriptive statistics/i }),
@@ -155,7 +130,11 @@ describe('AnalysisPanel', () => {
   })
 
   it('surfaces an honest execution error for an empty dataset', async () => {
-    mockFetchRows.mockResolvedValue([])
+    mockFetchRows.mockResolvedValue({
+      rows: [],
+      totalCount: 0,
+      truncated: false,
+    })
     await runDescriptive()
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toMatch(/dataset has no rows/i)
@@ -188,15 +167,9 @@ describe('AnalysisPanel', () => {
         definition: {
           definitionVersion: 1,
           kind: 'descriptive',
-          datasets: [{ tableId: DATASET.id }],
-          value: {
-            columnId: 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa02',
-            fieldName: 'recovery',
-          },
-          group: {
-            columnId: 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa03',
-            fieldName: 'condition',
-          },
+          datasets: [{ datasetId: DATASET.datasetId }],
+          value: { fieldId: FIELD_RECOVERY },
+          group: { fieldId: FIELD_CONDITION },
         },
         source_revisions: [],
         created_at: '',

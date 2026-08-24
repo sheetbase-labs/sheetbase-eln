@@ -25,10 +25,10 @@ import {
   MAX_ANNOTATIONS,
 } from '#/lib/chart-spec'
 import type { ChartAnnotation, ChartSpec, FieldBinding } from '#/lib/chart-spec'
-import type { ScientificTableWire } from '#/lib/scientific-sheet-data'
+import type { CanonicalDatasetSource } from '#/lib/chart-data'
 
 export interface ChartConfiguratorProps {
-  table: ScientificTableWire
+  source: CanonicalDatasetSource
   spec: ChartSpec
   onSpecChange: (spec: ChartSpec) => void
   idPrefix?: string
@@ -36,25 +36,24 @@ export interface ChartConfiguratorProps {
 
 /** Controlled chart authoring controls shared by every full-size chart surface. */
 export function ChartConfigurator({
-  table,
+  source,
   spec,
   onSpecChange,
   idPrefix = 'chart',
 }: ChartConfiguratorProps) {
-  const numericColumns = table.columns.filter(
+  const columns = source.columns
+  const numericColumns = columns.filter(
     (column) =>
-      column.logical_type === 'decimal' || column.logical_type === 'integer',
+      column.logicalType === 'decimal' || column.logicalType === 'integer',
   )
-  const categoryColumns = table.columns.filter((column) =>
-    ['category', 'text', 'boolean'].includes(column.logical_type),
+  const categoryColumns = columns.filter((column) =>
+    ['category', 'text', 'boolean'].includes(column.logicalType),
   )
   const errorColumns = numericColumns.filter(
     (column) =>
-      column.id !== spec.fields.x?.columnId &&
-      column.id !== spec.fields.y.columnId &&
-      /\b(sd|se|sem|error|ci|confidence|deviation)\b/i.test(
-        `${column.label} ${column.field_name}`,
-      ),
+      column.id !== spec.fields.x?.fieldId &&
+      column.id !== spec.fields.y.fieldId &&
+      /\b(sd|se|sem|error|ci|confidence|deviation)\b/i.test(column.label),
   )
   const aggregateTransform = spec.transformations.find(
     (transformation) => transformation.kind === 'aggregate',
@@ -140,12 +139,10 @@ export function ChartConfigurator({
 
   function setField(
     key: 'x' | 'y' | 'series' | 'color' | 'size' | 'facet',
-    columnId: string,
+    fieldId: string,
   ) {
-    const column = table.columns.find((candidate) => candidate.id === columnId)
-    const binding: FieldBinding | null = column
-      ? { columnId: column.id, fieldName: column.field_name }
-      : null
+    const column = columns.find((candidate) => candidate.id === fieldId)
+    const binding: FieldBinding | null = column ? { fieldId: column.id } : null
     const fields = { ...spec.fields, [key]: binding }
     const transformations = spec.transformations.map((transformation) => {
       if (transformation.kind === 'aggregate') {
@@ -153,9 +150,9 @@ export function ChartConfigurator({
           ...transformation,
           params: {
             ...transformation.params,
-            xField: fields.x?.fieldName ?? null,
-            yField: fields.y.fieldName,
-            seriesField: fields.series?.fieldName ?? null,
+            xField: fields.x?.fieldId ?? null,
+            yField: fields.y.fieldId,
+            seriesField: fields.series?.fieldId ?? null,
           },
         }
       }
@@ -164,8 +161,8 @@ export function ChartConfigurator({
           ...transformation,
           params: {
             ...transformation.params,
-            yField: fields.y.fieldName,
-            seriesField: fields.series?.fieldName ?? null,
+            yField: fields.y.fieldId,
+            seriesField: fields.series?.fieldId ?? null,
           },
         }
       }
@@ -190,8 +187,8 @@ export function ChartConfigurator({
     }
     const overlays =
       spec.overlays.errorBars &&
-      (spec.overlays.errorBars.columnId === fields.x?.columnId ||
-        spec.overlays.errorBars.columnId === fields.y.columnId)
+      (spec.overlays.errorBars.fieldId === fields.x?.fieldId ||
+        spec.overlays.errorBars.fieldId === fields.y.fieldId)
         ? { ...spec.overlays, errorBars: null }
         : spec.overlays
     onSpecChange({ ...spec, fields, transformations, display, overlays })
@@ -210,35 +207,34 @@ export function ChartConfigurator({
               kind,
               params: {
                 function: value,
-                xField: spec.fields.x?.fieldName ?? null,
-                yField: spec.fields.y.fieldName,
-                seriesField: spec.fields.series?.fieldName ?? null,
+                xField: spec.fields.x?.fieldId ?? null,
+                yField: spec.fields.y.fieldId,
+                seriesField: spec.fields.series?.fieldId ?? null,
               },
             }
           : {
               kind,
               params: {
                 method: value,
-                yField: spec.fields.y.fieldName,
-                seriesField: spec.fields.series?.fieldName ?? null,
+                yField: spec.fields.y.fieldId,
+                seriesField: spec.fields.series?.fieldId ?? null,
               },
             },
       ],
     })
   }
 
-  function setErrorBarColumn(columnId: string) {
-    if (!columnId) {
+  function setErrorBarColumn(fieldId: string) {
+    if (!fieldId) {
       return update({ overlays: { ...spec.overlays, errorBars: null } })
     }
-    const column = errorColumns.find((candidate) => candidate.id === columnId)
+    const column = errorColumns.find((candidate) => candidate.id === fieldId)
     if (!column) return
     update({
       overlays: {
         ...spec.overlays,
         errorBars: {
-          columnId: column.id,
-          fieldName: column.field_name,
+          fieldId: column.id,
           basis: 'custom',
           multiplier: 1,
         },
@@ -265,7 +261,7 @@ export function ChartConfigurator({
             ariaLabel: 'X axis field',
             columns: numericColumns,
             empty: '(none — row index)',
-            value: spec.fields.x?.columnId ?? '',
+            value: spec.fields.x?.fieldId ?? '',
           },
         ]
       : []),
@@ -274,7 +270,7 @@ export function ChartConfigurator({
       label: yLabel,
       ariaLabel: 'Y axis field',
       columns: numericColumns,
-      value: spec.fields.y.columnId,
+      value: spec.fields.y.fieldId,
     },
     ...(showSeriesField
       ? [
@@ -284,7 +280,7 @@ export function ChartConfigurator({
             ariaLabel: 'Group by series',
             columns: categoryColumns,
             empty: 'No split',
-            value: spec.fields.series?.columnId ?? '',
+            value: spec.fields.series?.fieldId ?? '',
           },
         ]
       : []),
@@ -397,7 +393,7 @@ export function ChartConfigurator({
             <Select
               id={`${idPrefix}-error-column`}
               aria-label="Error bar column"
-              value={spec.overlays.errorBars?.columnId ?? ''}
+              value={spec.overlays.errorBars?.fieldId ?? ''}
               onChange={(event) => setErrorBarColumn(event.target.value)}
               className="h-8 bg-background"
             >
@@ -500,15 +496,13 @@ export function ChartConfigurator({
               <Select
                 id={`${idPrefix}-heatmap-value-field`}
                 aria-label="Heatmap value field"
-                value={spec.typeParams.heatmap?.valueField?.columnId ?? ''}
+                value={spec.typeParams.heatmap?.valueField?.fieldId ?? ''}
                 onChange={(event) => {
-                  const column = table.columns.find(
+                  const column = source.columns.find(
                     (candidate) => candidate.id === event.target.value,
                   )
                   updateHeatmapParams({
-                    valueField: column
-                      ? { columnId: column.id, fieldName: column.field_name }
-                      : null,
+                    valueField: column ? { fieldId: column.id } : null,
                   })
                 }}
                 className="h-8 bg-background"
@@ -570,7 +564,7 @@ export function ChartConfigurator({
           <Select
             id={`${idPrefix}-facet`}
             aria-label="Facet column"
-            value={spec.fields.facet?.columnId ?? ''}
+            value={spec.fields.facet?.fieldId ?? ''}
             onChange={(event) => setField('facet', event.target.value)}
             className="h-8 bg-background"
           >

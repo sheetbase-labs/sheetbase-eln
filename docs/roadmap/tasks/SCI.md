@@ -1,6 +1,6 @@
 # SCI — Scientific Analysis & Visualisation
 
-**Status:** planned; begin after canonical Sheet workflows stabilise unless PC-00 finds an earlier dependency.
+**Status:** in rework — the delivered stack is being moved onto canonical Dataset identity before merge (decision 0041).
 
 ## Programme goal
 
@@ -12,12 +12,12 @@ Scatter, line, bar, box, histogram, heatmap; error bars; grouping; colour/marker
 
 **Exit:** users create publication/useful scientific charts directly from Sheet/Dataset semantics without copying data into another tool.
 
-Delivered on top of decision 0029 without rewriting its contract: the three
-distribution/grid types extend `ChartSpec` (`typeParams`, annotations, facet
-mapping), the renderer and Analysis Studio gained faceted small multiples,
-interactive selection and omitted-row surfacing, and `freeze_chart`
-materialises the aggregated series server-side so frozen snapshots stay
-byte-reproducible against the pure TypeScript materialiser.
+Reworked onto canonical Datasets (decision 0037): `ChartSpec` references
+`api.datasets` by UUID and binds fields by stable `field_id`; live rendering
+reads through `query_dataset_rows`, and `freeze_chart` pivots
+`dataset_row_values` server-side so frozen series stay byte-reproducible
+against the pure TypeScript materialiser. Legacy `scientific_tables` and the
+generated `sheet_*` relations are no longer part of the chart path.
 
 ## SCI-02 — Analysis Framework — **implemented** (`feat/sci-02-analysis-framework`)
 
@@ -27,12 +27,14 @@ Avoid a giant statistical package in the first iteration.
 
 **Exit:** common analysis can be defined, rerun and traced to explicit inputs.
 
-Delivered as decision 0040: versioned `AnalysisDefinition` JSONB saved in
-`api.analysis_definitions` (RLS + version-bump trigger), a narrow deterministic
-statistics kernel (grouped descriptive statistics, polynomial least squares
-degrees 1–4 with explicit log transforms), honest typed execution errors, and
-source-revision provenance captured at save time. The Analysis Studio gained
-an Analyse mode for authoring, running, saving and reloading definitions.
+Delivered as decision 0040, amended by decision 0041: versioned
+`AnalysisDefinition` JSONB saved in `api.analysis_definitions` (RLS +
+version-bump trigger), a narrow deterministic statistics kernel (grouped
+descriptive statistics, polynomial least squares degrees 1–4 solved on
+centred/scaled predictors with explicit log transforms), honest typed
+execution errors, and source-revision provenance captured at save time.
+Definitions reference exactly one Dataset; multi-Dataset composition waits
+for demonstrated need.
 
 ## SCI-03 — Notebook Analysis Blocks — **implemented** (`feat/sci-03-notebook-analysis-blocks`)
 
@@ -41,11 +43,13 @@ Analysis and chart blocks embedded in Notebooks; source links; reload; frozen ev
 **Exit:** Sheet → analysis → chart → narrative works as one scientific record.
 
 Delivered as an `analysis` notebook block referencing saved definitions by
-UUID (decision 0040): live blocks execute against current rows with honest
-loading/error states; `freeze_analysis_block` / `unfreeze_analysis_block`
-pin the definition verbatim plus input rows with checksum provenance so
-frozen evidence never silently changes; the picker, editor, preview and
-route lifecycle follow the chart-block precedents.
+UUID (decisions 0040/0041): live blocks execute against current rows with
+honest loading/error states; freezing pins an immutable Dataset Version plus
+the verbatim definition and column metadata — never a copy of the source rows
+— so frozen evidence reconstructs deterministically from pinned inputs at any
+scale; submission itself stamps `frozen.revisionId`, locking evidence against
+unfreeze; the picker, editor, preview and route lifecycle follow the
+chart-block precedents.
 
 ## SCI-04 — Advanced Scientific Visualisation
 
@@ -55,7 +59,8 @@ Plate maps, dose-response, assay-specific views, richer distributions and domain
 
 ## Boundaries
 
-- Charts reference stable fields/sources rather than copying data.
+- Charts reference stable fields/sources rather than copying data; frozen
+  analysis pins immutable Dataset Versions rather than embedding rows.
 - Analysis definitions are not only browser state.
 - Do not create a second Pipeline architecture inside analysis.
 - Scientific validity of specific methods requires explicit method/test scope.

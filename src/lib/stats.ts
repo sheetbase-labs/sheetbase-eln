@@ -63,11 +63,19 @@ export function summaryStats(values: number[]): SummaryStats | null {
 
 /**
  * Ordinary least squares fit of y against the basis [1, x, x², … x^degree].
- * Solved via the normal equations with Gaussian elimination; degrees above
- * four are rejected by the analysis-definition validator because condition
- * numbers degrade quickly beyond that.
  *
- * Returns null when the system is singular (e.g. constant predictor).
+ * The predictor is centred on its mean and scaled by its standard deviation
+ * before the normal equations are formed. Raw-x Vandermonde matrices square
+ * an already bad condition number — predictors like 100000, 100001, … make
+ * x⁴ columns ~10²⁰ and the fit silently garbage. In scaled coordinates the
+ * same data is well-conditioned for every degree the validator allows
+ * (1–4); the solved coefficients are then expanded back to raw-x
+ * coefficients via the binomial theorem so callers only ever see raw-space
+ * polynomials.
+ *
+ * Returns null when the system is singular (fewer observations than
+ * coefficients, zero predictor variance, or elimination meets a pivot
+ * below 1e-12 in scaled space).
  */
 export function olsFit(
   xs: number[],
@@ -79,14 +87,24 @@ export function olsFit(
   const size = degree + 1
   if (n < size) return null
 
-  // Normal equations: (XᵀX) β = Xᵀy with Vandermonde X.
+  // Centre and scale: t = (x − μ) / σ (population std). A constant
+  // predictor has zero variance → no unique fit beyond the intercept.
+  const mean = xs.reduce((acc, v) => acc + v, 0) / n
+  const variance = xs.reduce((acc, v) => acc + (v - mean) ** 2, 0) / n
+  const scale = Math.sqrt(variance)
+  if (!Number.isFinite(mean) || !Number.isFinite(scale)) return null
+  if (size > 1 && scale < Number.EPSILON * Math.max(1, Math.abs(mean)))
+    return null
+  const ts = size > 1 ? xs.map((v) => (v - mean) / scale) : xs
+
+  // Normal equations: (XᵀX) β = Xᵀy with Vandermonde X over t.
   const ata: number[][] = Array.from({ length: size }, () =>
     Array.from({ length: size }, () => 0),
   )
   const atb: number[] = Array.from({ length: size }, () => 0)
   for (let i = 0; i < n; i++) {
     const power = [1]
-    for (let d = 1; d < size; d++) power.push(power[d - 1] * xs[i])
+    for (let d = 1; d < size; d++) power.push(power[d - 1] * ts[i])
     for (let r = 0; r < size; r++) {
       atb[r] += power[r] * ys[i]
       for (let cIdx = 0; cIdx < size; cIdx++) {
@@ -102,20 +120,38 @@ export function olsFit(
     for (let row = col + 1; row < size; row++) {
       if (Math.abs(aug[row][col]) > Math.abs(aug[pivotRow][col])) pivotRow = row
     }
-    if (Math.abs(aug[pivotRow][col]) < 1e-12) return null
+    if (
+      !Number.isFinite(aug[pivotRow][col]) ||
+      Math.abs(aug[pivotRow][col]) < 1e-12
+    )
+      return null
     ;[aug[col], aug[pivotRow]] = [aug[pivotRow], aug[col]]
     for (let row = col + 1; row < size; row++) {
       const factor = aug[row][col] / aug[col][col]
       for (let k = col; k <= size; k++) aug[row][k] -= factor * aug[col][k]
     }
   }
-  const beta = Array.from({ length: size }, () => 0)
+  const betaT = Array.from({ length: size }, () => 0)
   for (let row = size - 1; row >= 0; row--) {
     let acc = aug[row][size]
-    for (let k = row + 1; k < size; k++) acc -= aug[row][k] * beta[k]
-    beta[row] = acc / aug[row][row]
+    for (let k = row + 1; k < size; k++) acc -= aug[row][k] * betaT[k]
+    betaT[row] = acc / aug[row][row]
   }
-  return { coefficients: beta }
+
+  if (size === 1) return { coefficients: betaT }
+
+  // Expand p(t) with t = (x − μ)/σ back into raw-x coefficients:
+  // β_k·((x−μ)/σ)^k = β_k·σ^(−k)·Σ_j C(k,j)·x^j·(−μ)^(k−j).
+  const coefficients = Array.from({ length: size }, () => 0)
+  for (let k = 0; k < size; k++) {
+    let binomial = 1
+    const powerScale = scale ** k
+    for (let j = 0; j <= k; j++) {
+      coefficients[j] += (betaT[k] * binomial * (-mean) ** (k - j)) / powerScale
+      binomial = (binomial * (k - j)) / (j + 1)
+    }
+  }
+  return { coefficients }
 }
 
 export function polyEval(coefficients: number[], x: number): number {

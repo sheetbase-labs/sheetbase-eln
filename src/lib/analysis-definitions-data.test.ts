@@ -1,8 +1,8 @@
 /**
  * SCI-02 — saved-analysis-definition data layer tests. Verifies the
  * create/update/save/delete wrappers against a mocked DataClient and the
- * definition-specific source-revision capture, mirroring the analysis_views
- * persistence contract.
+ * definition-specific source-revision capture over canonical Dataset
+ * sources, mirroring the analysis_definitions persistence contract.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -14,37 +14,33 @@ import {
   updateAnalysisDefinition,
 } from './analysis-definitions-data'
 import type { AnalysisDefinitionWire } from './analysis-definitions-data'
+import type { CanonicalDatasetSource } from './chart-data'
 import type { DataClient } from './data-client'
-import type { ScientificTableWire } from './scientific-sheet-data'
 import type { RegressionDefinition } from './analysis-definition'
 
-const TABLE_ID = '11111111-1111-1111-8111-111111111111'
+const DATASET_ID = '11111111-1111-1111-8111-111111111111'
 
-function table(): ScientificTableWire {
+function source(
+  overrides: Partial<CanonicalDatasetSource> = {},
+): CanonicalDatasetSource {
   return {
-    id: TABLE_ID,
-    resource_name: 'sheet_alpha',
+    datasetId: DATASET_ID,
     name: 'Stability',
-    schema_version: 3,
-    lifecycle: 'active',
+    workspaceId: 'ws-1',
+    schemaVersionId: 'sv-1',
+    schemaVersionNumber: 3,
+    revision: 2,
     columns: [],
-    dataset_schema_id: null,
-    dataset_schema_revision: null,
+    ...overrides,
   }
 }
 
 const definition: RegressionDefinition = {
   definitionVersion: 1,
   kind: 'regression',
-  datasets: [{ tableId: TABLE_ID }],
-  outcome: {
-    columnId: 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa02',
-    fieldName: 'ph',
-  },
-  predictor: {
-    columnId: 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa01',
-    fieldName: 'time_h',
-  },
+  datasets: [{ datasetId: DATASET_ID }],
+  outcome: { fieldId: 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa02' },
+  predictor: { fieldId: 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa01' },
   degree: 2,
 }
 
@@ -66,14 +62,24 @@ beforeEach(() => {
 })
 
 describe('captureDefinitionSourceRevisions', () => {
-  it('records the schema revision of every referenced dataset', () => {
-    const revisions = captureDefinitionSourceRevisions([table()], definition)
+  it('records the schema version number and revision of every referenced dataset', () => {
+    const revisions = captureDefinitionSourceRevisions([source()], definition)
     expect(revisions).toEqual([
       {
-        tableId: TABLE_ID,
-        schemaVersion: 3,
-        datasetSchemaId: null,
-        datasetSchemaRevision: null,
+        datasetId: DATASET_ID,
+        schemaVersionNumber: 3,
+        revision: 2,
+      },
+    ])
+  })
+
+  it('records zeroed revisions when a referenced dataset is unknown', () => {
+    const revisions = captureDefinitionSourceRevisions([], definition)
+    expect(revisions).toEqual([
+      {
+        datasetId: DATASET_ID,
+        schemaVersionNumber: 0,
+        revision: 0,
       },
     ])
   })
@@ -113,12 +119,7 @@ describe('save/delete wrappers', () => {
       name: 'New name',
       definition,
       source_revisions: [
-        {
-          tableId: TABLE_ID,
-          schemaVersion: 3,
-          datasetSchemaId: null,
-          datasetSchemaRevision: null,
-        },
+        { datasetId: DATASET_ID, schemaVersionNumber: 3, revision: 2 },
       ],
     })
     expect(updated.version).toBe(7)

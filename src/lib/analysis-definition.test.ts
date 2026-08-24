@@ -15,52 +15,53 @@ import type {
   DescriptiveDefinition,
   RegressionDefinition,
 } from './analysis-definition'
-import { olsFit, polyEval, summaryStats } from './stats'
+import { fitQuality, olsFit, polyEval, summaryStats } from './stats'
 import type { ChartColumn } from './chart-spec'
 
-const TABLE_ID = '0198d970-e266-4000-8000-000000000001'
+const DATASET_ID = '0198d970-e266-4000-8000-000000000001'
 const COL_X = '0198d970-e266-4000-8000-000000000002'
 const COL_Y = '0198d970-e266-4000-8000-000000000003'
 const COL_G = '0198d970-e266-4000-8000-000000000004'
 
 const COLUMNS: ChartColumn[] = [
-  { id: COL_X, fieldName: 'col_x', label: 'Time (h)', logicalType: 'integer' },
-  {
-    id: COL_Y,
-    fieldName: 'col_y',
-    label: 'Recovery (%)',
-    logicalType: 'decimal',
-  },
-  { id: COL_G, fieldName: 'col_g', label: 'Condition', logicalType: 'text' },
+  { id: COL_X, label: 'Time (h)', logicalType: 'integer' },
+  { id: COL_Y, label: 'Recovery (%)', logicalType: 'decimal' },
+  { id: COL_G, label: 'Condition', logicalType: 'text' },
 ]
 
+// Runtime rows are keyed by the stable schema-version fieldId.
 // y = 2x + 1 exactly for the 20C group; y = x for the 4C group.
+const row = (x: number, y: number | string | null, g: string) => ({
+  [COL_X]: x,
+  [COL_Y]: y,
+  [COL_G]: g,
+})
 const ROWS = [
-  { col_x: 0, col_y: 1, col_g: '20C' },
-  { col_x: 1, col_y: 3, col_g: '20C' },
-  { col_x: 2, col_y: 5, col_g: '20C' },
-  { col_x: 3, col_y: 7, col_g: '20C' },
-  { col_x: 0, col_y: 10, col_g: '4C' },
-  { col_x: 1, col_y: 11, col_g: '4C' },
-  { col_x: 2, col_y: 12, col_g: '4C' },
+  row(0, 1, '20C'),
+  row(1, 3, '20C'),
+  row(2, 5, '20C'),
+  row(3, 7, '20C'),
+  row(0, 10, '4C'),
+  row(1, 11, '4C'),
+  row(2, 12, '4C'),
 ]
 
 const descriptive: DescriptiveDefinition = {
   definitionVersion: 1,
   kind: 'descriptive',
-  datasets: [{ tableId: TABLE_ID }],
-  value: { columnId: COL_Y, fieldName: 'col_y' },
-  group: { columnId: COL_G, fieldName: 'col_g' },
+  datasets: [{ datasetId: DATASET_ID }],
+  value: { fieldId: COL_Y },
+  group: { fieldId: COL_G },
 }
 
 const regression: RegressionDefinition = {
   definitionVersion: 1,
   kind: 'regression',
-  datasets: [{ tableId: TABLE_ID }],
-  outcome: { columnId: COL_Y, fieldName: 'col_y' },
-  predictor: { columnId: COL_X, fieldName: 'col_x' },
+  datasets: [{ datasetId: DATASET_ID }],
+  outcome: { fieldId: COL_Y },
+  predictor: { fieldId: COL_X },
   degree: 1,
-  group: { columnId: COL_G, fieldName: 'col_g' },
+  group: { fieldId: COL_G },
 }
 
 describe('stats kernel', () => {
@@ -101,6 +102,53 @@ describe('stats kernel', () => {
     expect(fit.coefficients[1]).toBeCloseTo(0, 8)
     expect(fit.coefficients[2]).toBeCloseTo(1, 8)
   })
+
+  it('recovers an exact line over large-magnitude predictors (x ≈ 1e5)', () => {
+    // Centre-and-scale keeps the normal equations well conditioned even
+    // when raw x⁴ columns would overflow the condition number.
+    const xs = Array.from({ length: 10 }, (_, i) => 100000 + i)
+    const ys = xs.map((x) => 2.5 * x + 1234)
+    const fit = olsFit(xs, ys, 1)!
+    expect(Math.abs((fit.coefficients[1] - 2.5) / 2.5)).toBeLessThanOrEqual(
+      1e-8,
+    )
+    expect(Math.abs((fit.coefficients[0] - 1234) / 1234)).toBeLessThanOrEqual(
+      1e-6,
+    )
+  })
+
+  it('recovers integer-coefficient cubics on x ~ 1e5–3e5 in raw space', () => {
+    const xs = [100000, 150000, 200000, 250000, 300000]
+    const ys = xs.map((x) => x ** 3 - 2 * x ** 2 + 5 * x - 3)
+    const fit = olsFit(xs, ys, 3)!
+    // Relative residuals stay at machine-precision level of |y|.
+    xs.forEach((x, i) => {
+      const predicted = polyEval(fit.coefficients, x)
+      expect(Math.abs(predicted - ys[i])).toBeLessThanOrEqual(
+        1e-12 * Math.abs(ys[i]),
+      )
+    })
+    // The leading raw-space coefficient is recovered to ≤1e-9 relative error.
+    expect(Math.abs(fit.coefficients[3] - 1)).toBeLessThanOrEqual(1e-9)
+    const quality = fitQuality(xs, ys, fit.coefficients)
+    expect(quality.r2).toBeGreaterThan(0.999999)
+  })
+
+  it('fits a quartic through tiny-variance predictors', () => {
+    // Predictor spread is O(1e-6) — variance ~1e-11 — so centring and
+    // scaling must absorb the near-singular raw-space system.
+    const xs = Array.from({ length: 40 }, (_, i) => i * 1e-6)
+    const ys = xs.map((x) => {
+      const u = x * 1e6
+      return u ** 4 - 2 * u ** 3 + 0.5 * u + 7
+    })
+    const fit = olsFit(xs, ys, 4)!
+    const quality = fitQuality(xs, ys, fit.coefficients)
+    expect(quality.r2).toBeGreaterThan(0.999999)
+    expect(Math.abs(fit.coefficients[4] - 1e24) / 1e24).toBeLessThanOrEqual(
+      1e-9,
+    )
+  })
 })
 
 describe('validateAnalysisDefinition', () => {
@@ -121,16 +169,46 @@ describe('validateAnalysisDefinition', () => {
     ).toContainEqual(expect.objectContaining({ field: 'degree' }))
   })
 
-  it('requires bindings and dataset references', () => {
+  it('requires exactly one dataset reference', () => {
+    for (const datasets of [
+      [],
+      [{ datasetId: DATASET_ID }, { datasetId: DATASET_ID }],
+    ]) {
+      const errors = validateAnalysisDefinition({ ...descriptive, datasets })
+      expect(errors).toHaveLength(1)
+      expect(errors[0]).toMatchObject({
+        code: 'unsupported_dataset_count',
+        field: 'datasets',
+      })
+    }
+  })
+
+  it('validates bindings by UUID fieldId only', () => {
+    const errors = validateAnalysisDefinition({
+      ...descriptive,
+      value: { fieldId: 'not-a-uuid' },
+    })
+    expect(errors).toContainEqual(
+      expect.objectContaining({
+        code: 'invalid_value',
+        field: 'value.fieldId',
+      }),
+    )
+    // A well-formed fieldId binding carries no other required keys.
+    expect(validateAnalysisDefinition({ ...descriptive, group: null })).toEqual(
+      [],
+    )
+  })
+
+  it('requires dataset references to be UUIDs', () => {
     expect(
       validateAnalysisDefinition({
         ...descriptive,
-        value: { columnId: 'not-a-uuid', fieldName: 'x' },
+        datasets: [{ datasetId: 'not-a-uuid' }],
       }),
-    ).toContainEqual(expect.objectContaining({ field: 'value.columnId' }))
-    expect(
-      validateAnalysisDefinition({ ...descriptive, datasets: [] }),
-    ).toContainEqual(expect.objectContaining({ field: 'datasets' }))
+    ).toContainEqual(
+      expect.objectContaining({ field: 'datasets[0].datasetId' }),
+    )
   })
 })
 
@@ -155,6 +233,23 @@ describe('runAnalysis', () => {
     expect(c).toEqual(d)
   })
 
+  it('resolves bindings strictly by column id with no name fallback', () => {
+    // Another column now wears the retired binding's label; the fieldId is
+    // what resolves, so the execution reports missing_field honestly.
+    const impostorColumns: ChartColumn[] = [
+      { id: COL_X, label: 'Time (h)', logicalType: 'integer' },
+      {
+        id: '0198d970-e266-4000-8000-000000000099',
+        label: 'Recovery (%)',
+        logicalType: 'decimal',
+      },
+    ]
+    expect(runAnalysis(descriptive, impostorColumns, ROWS)).toEqual({
+      ok: false,
+      error: { code: 'missing_field', fields: ['value'] },
+    })
+  })
+
   it('recovers exact linear coefficients and perfect fit quality', () => {
     const result = runAnalysis(regression, COLUMNS, ROWS)
     expect(result.ok).toBe(true)
@@ -169,11 +264,7 @@ describe('runAnalysis', () => {
   })
 
   it('curve-fits a quadratic when degree 2 is requested', () => {
-    const rows = [-2, -1, 0, 1, 2].map((x) => ({
-      col_x: x,
-      col_y: x * x,
-      col_g: 'all',
-    }))
+    const rows = [-2, -1, 0, 1, 2].map((x) => row(x, x * x, 'all'))
     const result = runAnalysis(
       { ...regression, group: null, degree: 2 },
       COLUMNS,
@@ -187,11 +278,7 @@ describe('runAnalysis', () => {
 
   it('linearises exponential data through an outcome log transform', () => {
     // y = 10·e^x ⇒ ln y = ln 10 + x exactly.
-    const rows = [0, 1, 2, 3].map((x) => ({
-      col_x: x,
-      col_y: 10 * Math.exp(x),
-      col_g: 'all',
-    }))
+    const rows = [0, 1, 2, 3].map((x) => row(x, 10 * Math.exp(x), 'all'))
     const result = runAnalysis(
       {
         ...regression,
@@ -208,10 +295,7 @@ describe('runAnalysis', () => {
   })
 
   it('refuses log transforms over non-positive values', () => {
-    const rows = [
-      { col_x: -1, col_y: 1, col_g: 'all' },
-      { col_x: 1, col_y: 2, col_g: 'all' },
-    ]
+    const rows = [row(-1, 1, 'all'), row(1, 2, 'all')]
     const result = runAnalysis(
       { ...regression, group: null, predictorTransform: 'log10' },
       COLUMNS,
@@ -226,7 +310,7 @@ describe('runAnalysis', () => {
   it('surfaces insufficient data, empty datasets and missing fields honestly', () => {
     expect(
       runAnalysis({ ...regression, group: null, degree: 4 }, COLUMNS, [
-        { col_x: 0, col_y: 1, col_g: 'all' },
+        row(0, 1, 'all'),
       ]),
     ).toEqual({
       ok: false,
@@ -251,8 +335,8 @@ describe('runAnalysis', () => {
   it('counts missing values instead of shifting group alignment', () => {
     const result = runAnalysis(descriptive, COLUMNS, [
       ...ROWS,
-      { col_x: 9, col_y: 'oops', col_g: '20C' },
-      { col_x: 9, col_y: null, col_g: '20C' },
+      row(9, 'oops', '20C'),
+      row(9, null, '20C'),
     ])
     expect(result.ok).toBe(true)
     if (!result.ok || result.result.kind !== 'descriptive') return

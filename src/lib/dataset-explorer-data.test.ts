@@ -284,7 +284,7 @@ describe('sanitizeDatasetView', () => {
     return {
       id: 'v-1',
       name: 'My view',
-      tableId: 't-1',
+      datasetId: 't-1',
       spec: {
         query: {
           pageIndex: 3,
@@ -396,10 +396,10 @@ describe('buildDefaultChartSpec', () => {
     })
     const spec = buildDefaultChartSpec(t)
     expect(spec).not.toBeNull()
-    expect(spec!.fields.y.columnId).toBe('col-num')
-    expect(spec!.fields.x?.columnId).toBe('col-cat')
-    expect(spec!.fields.series?.columnId).toBe('col-cat')
-    expect(spec!.datasets[0].tableId).toBe(t.id)
+    expect(spec!.fields.y.fieldId).toBe('col-num')
+    expect(spec!.fields.x?.fieldId).toBe('col-cat')
+    expect(spec!.fields.series?.fieldId).toBe('col-cat')
+    expect(spec!.datasets[0].datasetId).toBe(t.id)
   })
 })
 
@@ -427,7 +427,7 @@ describe('createDatasetSavedViewStore', () => {
     store.save({
       id: 'v-1',
       name: 'Default',
-      tableId: 't-1',
+      datasetId: 't-1',
       spec: {
         query: {
           pageIndex: 0,

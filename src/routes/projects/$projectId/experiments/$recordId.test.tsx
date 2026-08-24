@@ -116,9 +116,7 @@ describe('StickyRecordHeader', () => {
   })
 
   it('keeps tags in the properties inspector instead of the document header', () => {
-    renderWithQuery(
-      <StickyRecordHeader record={record} projectName={null} />,
-    )
+    renderWithQuery(<StickyRecordHeader record={record} projectName={null} />)
     expect(screen.queryByText('stability')).toBeNull()
     expect(screen.queryByText('qPCR')).toBeNull()
   })
@@ -141,9 +139,7 @@ const lockedRecord: NotebookRecord = {
 
 describe('HistoricalEvidenceBanner', () => {
   it('returns the scientist to the working Notebook', () => {
-    render(
-      <HistoricalEvidenceBanner projectId="p1" recordId="r1" />,
-    )
+    render(<HistoricalEvidenceBanner projectId="p1" recordId="r1" />)
     expect(screen.getByRole('status').textContent).toContain(
       'Viewing submitted evidence',
     )
@@ -195,7 +191,9 @@ describe('StickyRecordHeader — lock state', () => {
         liveLockedByRevisionId={null}
       />,
     )
-    expect(screen.getByRole('heading', { name: 'Submitted title' })).toBeTruthy()
+    expect(
+      screen.getByRole('heading', { name: 'Submitted title' }),
+    ).toBeTruthy()
     expect(screen.queryByLabelText('Notebook title')).toBeNull()
     expect(screen.getByText('Submitted')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Submit' })).toBeNull()
@@ -222,7 +220,9 @@ describe('StickyRecordHeader — lock state', () => {
         liveLockedByRevisionId={null}
       />,
     )
-    expect(screen.getByRole('heading', { name: 'Submitted title' })).toBeTruthy()
+    expect(
+      screen.getByRole('heading', { name: 'Submitted title' }),
+    ).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Duplicate' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Submit' })).toBeNull()
     expect(screen.getByText('Submitted')).toBeTruthy()

@@ -71,9 +71,7 @@ function recordWire(overrides: Partial<RecordWire> = {}): RecordWire {
   }
 }
 
-function sourceRecord(
-  overrides: Partial<NotebookRecord> = {},
-): NotebookRecord {
+function sourceRecord(overrides: Partial<NotebookRecord> = {}): NotebookRecord {
   return {
     id: 'r1',
     projectId: 'p1',
@@ -184,9 +182,9 @@ describe('reviewerCandidates', () => {
 
 describe('reviewerOptionLabel', () => {
   it('labels the current user as You', () => {
-    expect(
-      reviewerOptionLabel({ userId: 'u1', role: 'scientist' }, 'u1'),
-    ).toBe('You (scientist)')
+    expect(reviewerOptionLabel({ userId: 'u1', role: 'scientist' }, 'u1')).toBe(
+      'You (scientist)',
+    )
     expect(
       reviewerOptionLabel({ userId: 'abcdef12zzzz', role: 'reviewer' }, 'u1'),
     ).toBe('abcdef12 · reviewer')
@@ -463,12 +461,10 @@ describe('duplicateExperiment', () => {
   it('duplicates canonical Sheet Instances onto the new record', async () => {
     const instanceId = '20000000-0000-4000-8000-000000000001'
     const duplicatedId = '20000000-0000-4000-8000-000000000002'
-    const { fetchSheetInstance, duplicateSheetInstance } = await import(
-      '#/lib/sheet-instance-data'
-    )
-    const { insertSheetInstanceBlock, insertBlock } = await import(
-      '#/lib/notebook-mutations'
-    )
+    const { fetchSheetInstance, duplicateSheetInstance } =
+      await import('#/lib/sheet-instance-data')
+    const { insertSheetInstanceBlock, insertBlock } =
+      await import('#/lib/notebook-mutations')
     vi.mocked(insertSheetInstanceBlock).mockClear()
     vi.mocked(insertBlock).mockClear()
     vi.mocked(fetchSheetInstance).mockResolvedValue({
@@ -525,12 +521,10 @@ describe('duplicateExperiment', () => {
   it('keeps interleaved Sheet order when duplicating text, Sheet, text', async () => {
     const instanceId = '20000000-0000-4000-8000-000000000001'
     const duplicatedId = '20000000-0000-4000-8000-000000000002'
-    const { fetchSheetInstance, duplicateSheetInstance } = await import(
-      '#/lib/sheet-instance-data'
-    )
-    const { insertSheetInstanceBlock, insertBlock } = await import(
-      '#/lib/notebook-mutations'
-    )
+    const { fetchSheetInstance, duplicateSheetInstance } =
+      await import('#/lib/sheet-instance-data')
+    const { insertSheetInstanceBlock, insertBlock } =
+      await import('#/lib/notebook-mutations')
     vi.mocked(insertSheetInstanceBlock).mockClear()
     vi.mocked(insertBlock).mockClear()
     vi.mocked(fetchSheetInstance).mockResolvedValue({
@@ -621,12 +615,10 @@ describe('duplicateExperiment', () => {
   it('places a leading Sheet first without a blank rich-text placeholder', async () => {
     const instanceId = '20000000-0000-4000-8000-000000000001'
     const duplicatedId = '20000000-0000-4000-8000-000000000002'
-    const { fetchSheetInstance, duplicateSheetInstance } = await import(
-      '#/lib/sheet-instance-data'
-    )
-    const { insertSheetInstanceBlock, insertBlock } = await import(
-      '#/lib/notebook-mutations'
-    )
+    const { fetchSheetInstance, duplicateSheetInstance } =
+      await import('#/lib/sheet-instance-data')
+    const { insertSheetInstanceBlock, insertBlock } =
+      await import('#/lib/notebook-mutations')
     vi.mocked(insertSheetInstanceBlock).mockClear()
     vi.mocked(insertBlock).mockClear()
     vi.mocked(fetchSheetInstance).mockResolvedValue({
@@ -839,12 +831,20 @@ describe('notebook review activity', () => {
     const list = vi
       .fn()
       .mockResolvedValueOnce([
-        { id: 'sub1', record_id: 'rec/1', revision_id: 'rev-sub', state: 'submitted' },
+        {
+          id: 'sub1',
+          record_id: 'rec/1',
+          revision_id: 'rev-sub',
+          state: 'submitted',
+        },
       ])
       .mockResolvedValueOnce([
         { id: 'rev-sub', superseded_by_revision_id: null },
       ])
-    const result = await fetchNotebookReviewContext(mockClient({ list }), 'rec/1')
+    const result = await fetchNotebookReviewContext(
+      mockClient({ list }),
+      'rec/1',
+    )
     expect(list).toHaveBeenNthCalledWith(
       1,
       'review_submissions',
@@ -893,6 +893,11 @@ describe('notebookQueryKeysAfterSignature', () => {
     expect(keys).toContainEqual(['notebook', 'review', 'r1'])
     expect(keys).toContainEqual(['notebook', 'activity', 'r1'])
     expect(keys).toContainEqual(['sign-002', 'timeline', 'r1'])
-    expect(keys).toContainEqual(['sign-001', 'signatures', 'submission', 'sub1'])
+    expect(keys).toContainEqual([
+      'sign-001',
+      'signatures',
+      'submission',
+      'sub1',
+    ])
   })
 })

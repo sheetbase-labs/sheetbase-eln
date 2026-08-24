@@ -6,7 +6,7 @@
 
 Make visualisation and analysis first-class scientific work over Sheetbase data, with stable source identities and reproducible definitions rather than copied values.
 
-## SCI-01 — Charting — **implemented** (`feat/sci-01-charting`)
+## SCI-01 — Charting — **implemented** (#65)
 
 Scatter, line, bar, box, histogram, heatmap; error bars; grouping; colour/marker mapping; faceting; log axes; annotations; missing values; legends; interactive selection; export; accessible alternatives; stable field references; reusable chart configuration.
 
@@ -19,7 +19,7 @@ reads through `query_dataset_rows`, and `freeze_chart` pivots
 against the pure TypeScript materialiser. Legacy `scientific_tables` and the
 generated `sheet_*` relations are no longer part of the chart path.
 
-## SCI-02 — Analysis Framework — **implemented** (`feat/sci-02-analysis-framework`)
+## SCI-02 — Analysis Framework — **implemented** (#65)
 
 Descriptive statistics; grouping/aggregation; transforms; regression; curve fitting; reusable analysis definition; immutable/versioned input support; provenance; execution errors; deterministic results where expected.
 
@@ -36,7 +36,7 @@ execution errors, and source-revision provenance captured at save time.
 Definitions reference exactly one Dataset; multi-Dataset composition waits
 for demonstrated need.
 
-## SCI-03 — Notebook Analysis Blocks — **implemented** (`feat/sci-03-notebook-analysis-blocks`)
+## SCI-03 — Notebook Analysis Blocks — **implemented** (#65)
 
 Analysis and chart blocks embedded in Notebooks; source links; reload; frozen evidence behaviour; narrative flow from data to result to interpretation.
 

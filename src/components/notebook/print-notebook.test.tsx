@@ -60,9 +60,8 @@ describe('ExportEvidenceButton', () => {
   })
 
   it('downloads evidence JSON for the revision', async () => {
-    const { downloadRevisionEvidence } = await import(
-      '#/lib/notebook-experience'
-    )
+    const { downloadRevisionEvidence } =
+      await import('#/lib/notebook-experience')
     vi.mocked(downloadRevisionEvidence).mockResolvedValue({
       formatVersion: 1,
       exportedAt: '2026-08-19T00:00:00.000Z',

@@ -9,7 +9,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { CHART_SPEC_VERSION } from './chart-spec'
-import type { ChartSpec } from './chart-spec'
+import type { ChartColumn, ChartSpec } from './chart-spec'
 import {
   ANALYSIS_MAX_RESULT_ROWS,
   applyTransformations,
@@ -23,91 +23,61 @@ import {
   validateAnalysisSpec,
 } from './analysis-studio-data'
 import type { SourceRevision } from './analysis-studio-data'
-import type { ScientificTableWire } from './scientific-sheet-data'
+import type { CanonicalDatasetSource } from './chart-data'
 
-function table(
-  overrides: Partial<ScientificTableWire> = {},
-): ScientificTableWire {
+const DATASET_ID = '11111111-1111-1111-8111-111111111111'
+const F_TIME = 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa01'
+const F_PH = 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa02'
+const F_BUFFER = 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa03'
+const F_SD = 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa04'
+
+function source(
+  overrides: Partial<CanonicalDatasetSource> = {},
+): CanonicalDatasetSource {
   return {
-    id: '11111111-1111-1111-8111-111111111111',
-    resource_name: 'sheet_alpha',
+    datasetId: DATASET_ID,
     name: 'Stability',
-    schema_version: 1,
-    lifecycle: 'active',
-    columns: [
-      {
-        id: 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa01',
-        field_name: 'time_h',
-        label: 'Time (h)',
-        display_order: 0,
-        logical_type: 'decimal',
-        nullable: true,
-        unit: null,
-        validation: {},
-        width: null,
-        options: [],
-      },
-      {
-        id: 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa02',
-        field_name: 'ph',
-        label: 'pH',
-        display_order: 1,
-        logical_type: 'decimal',
-        nullable: true,
-        unit: null,
-        validation: {},
-        width: null,
-        options: [],
-      },
-      {
-        id: 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa03',
-        field_name: 'buffer',
-        label: 'Buffer',
-        display_order: 2,
-        logical_type: 'category',
-        nullable: true,
-        unit: null,
-        validation: {},
-        width: null,
-        options: [],
-      },
-      {
-        id: 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa04',
-        field_name: 'ph_sd',
-        label: 'pH SD',
-        display_order: 3,
-        logical_type: 'decimal',
-        nullable: true,
-        unit: null,
-        validation: {},
-        width: null,
-        options: [],
-      },
-    ],
+    workspaceId: 'ws-1',
+    schemaVersionId: 'sv-1',
+    schemaVersionNumber: 1,
+    revision: 1,
+    columns: [],
     ...overrides,
   }
 }
+
+// Runtime rows are keyed by the stable schema-version fieldId.
+const rows = [
+  { [F_TIME]: 0, [F_PH]: 7.0, [F_BUFFER]: 'HEPES', [F_SD]: 0.1 },
+  { [F_TIME]: 0, [F_PH]: 7.1, [F_BUFFER]: 'HEPES', [F_SD]: 0.1 },
+  { [F_TIME]: 24, [F_PH]: 6.8, [F_BUFFER]: 'HEPES', [F_SD]: 0.2 },
+  { [F_TIME]: 0, [F_PH]: 8.0, [F_BUFFER]: 'TRIS', [F_SD]: 0.1 },
+  { [F_TIME]: 24, [F_PH]: 7.9, [F_BUFFER]: 'TRIS', [F_SD]: 0.15 },
+]
+
+const columns: ChartColumn[] = [
+  { id: F_TIME, label: 'Time (h)', logicalType: 'decimal' },
+  { id: F_PH, label: 'pH', logicalType: 'decimal' },
+  { id: F_BUFFER, label: 'Buffer', logicalType: 'category' },
+  { id: F_SD, label: 'pH SD', logicalType: 'decimal' },
+]
 
 function spec(overrides: Partial<ChartSpec> = {}): ChartSpec {
   return {
     specVersion: CHART_SPEC_VERSION,
     type: 'scatter',
-    datasets: [{ tableId: '11111111-1111-1111-8111-111111111111' }],
+    datasets: [{ datasetId: DATASET_ID }],
     fields: {
-      x: {
-        columnId: 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa01',
-        fieldName: 'time_h',
-      },
-      y: { columnId: 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa02', fieldName: 'ph' },
-      series: {
-        columnId: 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa03',
-        fieldName: 'buffer',
-      },
+      x: { fieldId: F_TIME },
+      y: { fieldId: F_PH },
+      series: { fieldId: F_BUFFER },
       color: null,
       size: null,
+      facet: null,
     },
     filters: [],
     transformations: [],
+    typeParams: {},
     display: {
       axes: {
         x: { label: 'Time (h)', scale: 'linear' },
@@ -121,41 +91,6 @@ function spec(overrides: Partial<ChartSpec> = {}): ChartSpec {
   }
 }
 
-const rows = [
-  { time_h: 0, ph: 7.0, buffer: 'HEPES', ph_sd: 0.1 },
-  { time_h: 0, ph: 7.1, buffer: 'HEPES', ph_sd: 0.1 },
-  { time_h: 24, ph: 6.8, buffer: 'HEPES', ph_sd: 0.2 },
-  { time_h: 0, ph: 8.0, buffer: 'TRIS', ph_sd: 0.1 },
-  { time_h: 24, ph: 7.9, buffer: 'TRIS', ph_sd: 0.15 },
-]
-
-const columns = [
-  {
-    id: 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa01',
-    fieldName: 'time_h',
-    label: 'Time (h)',
-    logicalType: 'decimal',
-  },
-  {
-    id: 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa02',
-    fieldName: 'ph',
-    label: 'pH',
-    logicalType: 'decimal',
-  },
-  {
-    id: 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa03',
-    fieldName: 'buffer',
-    label: 'Buffer',
-    logicalType: 'category',
-  },
-  {
-    id: 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa04',
-    fieldName: 'ph_sd',
-    label: 'pH SD',
-    logicalType: 'decimal',
-  },
-]
-
 describe('applyTransformations — aggregate', () => {
   it('groups by x + series and reduces y by mean', () => {
     const s = spec({
@@ -164,9 +99,9 @@ describe('applyTransformations — aggregate', () => {
           kind: 'aggregate',
           params: {
             function: 'mean',
-            xField: 'time_h',
-            yField: 'ph',
-            seriesField: 'buffer',
+            xField: F_TIME,
+            yField: F_PH,
+            seriesField: F_BUFFER,
           },
         },
       ],
@@ -174,8 +109,8 @@ describe('applyTransformations — aggregate', () => {
     const out = applyTransformations(rows, s.transformations, s)
     // Four (time, buffer) groups: (0,HEPES), (24,HEPES), (0,TRIS), (24,TRIS).
     expect(out).toHaveLength(4)
-    const hepes0 = out.find((r) => r.time_h === 0 && r.buffer === 'HEPES')
-    expect(hepes0?.ph).toBeCloseTo(7.05, 5)
+    const hepes0 = out.find((r) => r[F_TIME] === 0 && r[F_BUFFER] === 'HEPES')
+    expect(hepes0?.[F_PH]).toBeCloseTo(7.05, 5)
   })
 
   it('sum reduces correctly', () => {
@@ -185,16 +120,16 @@ describe('applyTransformations — aggregate', () => {
           kind: 'aggregate',
           params: {
             function: 'sum',
-            xField: 'time_h',
-            yField: 'ph',
-            seriesField: 'buffer',
+            xField: F_TIME,
+            yField: F_PH,
+            seriesField: F_BUFFER,
           },
         },
       ],
     })
     const out = applyTransformations(rows, s.transformations, s)
-    const hepes0 = out.find((r) => r.time_h === 0 && r.buffer === 'HEPES')
-    expect(hepes0?.ph).toBeCloseTo(14.1, 5)
+    const hepes0 = out.find((r) => r[F_TIME] === 0 && r[F_BUFFER] === 'HEPES')
+    expect(hepes0?.[F_PH]).toBeCloseTo(14.1, 5)
   })
 
   it('count reduces to the group size', () => {
@@ -204,16 +139,16 @@ describe('applyTransformations — aggregate', () => {
           kind: 'aggregate',
           params: {
             function: 'count',
-            xField: 'time_h',
-            yField: 'ph',
-            seriesField: 'buffer',
+            xField: F_TIME,
+            yField: F_PH,
+            seriesField: F_BUFFER,
           },
         },
       ],
     })
     const out = applyTransformations(rows, s.transformations, s)
-    const hepes0 = out.find((r) => r.time_h === 0 && r.buffer === 'HEPES')
-    expect(hepes0?.ph).toBe(2)
+    const hepes0 = out.find((r) => r[F_TIME] === 0 && r[F_BUFFER] === 'HEPES')
+    expect(hepes0?.[F_PH]).toBe(2)
   })
 })
 
@@ -225,17 +160,17 @@ describe('applyTransformations — normalise', () => {
           kind: 'normalise',
           params: {
             method: 'percent_of_max',
-            yField: 'ph',
-            seriesField: 'buffer',
+            yField: F_PH,
+            seriesField: F_BUFFER,
           },
         },
       ],
     })
     const out = applyTransformations(rows, s.transformations, s)
-    const trisRows = out.filter((r) => r.buffer === 'TRIS')
+    const trisRows = out.filter((r) => r[F_BUFFER] === 'TRIS')
     // TRIS max is 8.0; 7.9 / 8.0 * 100 = 98.75
-    const tris24 = trisRows.find((r) => r.time_h === 24)
-    expect(tris24?.ph).toBeCloseTo(98.75, 2)
+    const tris24 = trisRows.find((r) => r[F_TIME] === 24)
+    expect(tris24?.[F_PH]).toBeCloseTo(98.75, 2)
   })
 })
 
@@ -251,18 +186,19 @@ describe('materialiseAnalysisChart', () => {
   })
 
   it('surfaces missing_field when the y column is absent', () => {
-    const s = spec({
-      fields: {
-        ...spec().fields,
-        y: { columnId: 'missing', fieldName: 'nope' },
-      },
-    })
-    const result = materialiseAnalysisChart(s, columns, rows)
+    const result = materialiseAnalysisChart(
+      spec(),
+      columns.filter((c) => c.id !== F_PH),
+      rows,
+    )
     expect(result.state.kind).toBe('missing_field')
   })
 
   it('surfaces log_scale_invalid for non-positive y on a log axis', () => {
-    const withZero = [...rows, { time_h: 48, ph: 0, buffer: 'HEPES', ph_sd: 0 }]
+    const withZero = [
+      ...rows,
+      { [F_TIME]: 48, [F_PH]: 0, [F_BUFFER]: 'HEPES', [F_SD]: 0 },
+    ]
     const s = spec({
       display: {
         ...spec().display,
@@ -282,14 +218,7 @@ describe('materialiseAnalysisChart', () => {
 
   it('surfaces empty_dataset when filters exclude all rows', () => {
     const s = spec({
-      filters: [
-        {
-          columnId: 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa03',
-          fieldName: 'buffer',
-          op: 'eq',
-          value: 'NONE',
-        },
-      ],
+      filters: [{ fieldId: F_BUFFER, op: 'eq', value: 'NONE' }],
     })
     const result = materialiseAnalysisChart(s, columns, rows)
     expect(result.state.kind).toBe('empty_dataset')
@@ -302,9 +231,9 @@ describe('materialiseAnalysisChart', () => {
           kind: 'aggregate',
           params: {
             function: 'mean',
-            xField: 'time_h',
-            yField: 'ph',
-            seriesField: 'buffer',
+            xField: F_TIME,
+            yField: F_PH,
+            seriesField: F_BUFFER,
           },
         },
       ],
@@ -321,53 +250,52 @@ describe('materialiseAnalysisChart', () => {
 })
 
 describe('captureSourceRevisions + detectStaleSources', () => {
-  it('captures schema version and dataset schema revision per dataset', () => {
-    const t = table({
-      schema_version: 3,
-      dataset_schema_id: 'ds-1',
-      dataset_schema_revision: 2,
-    })
-    const revs = captureSourceRevisions([t], spec())
+  it('captures schema version number and revision per referenced dataset', () => {
+    const revs = captureSourceRevisions(
+      [source({ schemaVersionNumber: 3, revision: 2 })],
+      spec(),
+    )
     expect(revs).toEqual([
       {
-        tableId: '11111111-1111-1111-8111-111111111111',
-        schemaVersion: 3,
-        datasetSchemaId: 'ds-1',
-        datasetSchemaRevision: 2,
+        datasetId: DATASET_ID,
+        schemaVersionNumber: 3,
+        revision: 2,
       },
     ])
   })
 
-  it('detects when a source table has been revised', () => {
+  it('detects when a source dataset has been revised since capture', () => {
     const stored: SourceRevision[] = [
-      {
-        tableId: '11111111-1111-1111-8111-111111111111',
-        schemaVersion: 1,
-        datasetSchemaId: null,
-        datasetSchemaRevision: null,
-      },
+      { datasetId: DATASET_ID, schemaVersionNumber: 1, revision: 1 },
     ]
-    const live = [table({ schema_version: 2 })]
+    const live = [source({ revision: 2 })]
     expect(detectStaleSources(stored, live)).toContain('was revised')
   })
 
-  it('detects when a source table is no longer available', () => {
+  it('detects when a source pinned a different schema version number', () => {
+    const stored: SourceRevision[] = [
+      { datasetId: DATASET_ID, schemaVersionNumber: 1, revision: 1 },
+    ]
+    const live = [source({ schemaVersionNumber: 2 })]
+    expect(detectStaleSources(stored, live)).toContain('schema v2')
+  })
+
+  it('detects when a source dataset is no longer available', () => {
     const stored: SourceRevision[] = [
       {
-        tableId: '22222222-2222-2222-8222-222222222222',
-        schemaVersion: 1,
-        datasetSchemaId: null,
-        datasetSchemaRevision: null,
+        datasetId: '22222222-2222-2222-8222-222222222222',
+        schemaVersionNumber: 1,
+        revision: 1,
       },
     ]
-    expect(detectStaleSources(stored, [table()])).toContain(
+    expect(detectStaleSources(stored, [source()])).toContain(
       'no longer available',
     )
   })
 
   it('returns null when sources are current', () => {
-    const revs = captureSourceRevisions([table()], spec())
-    expect(detectStaleSources(revs, [table()])).toBeNull()
+    const revs = captureSourceRevisions([source()], spec())
+    expect(detectStaleSources(revs, [source()])).toBeNull()
   })
 })
 
@@ -394,14 +322,7 @@ describe('export helpers', () => {
     const prov = buildExportProvenance(
       { name: 'pH view', id: 'v-1', version: 2 },
       { id: 'u-1', name: 'Alice' },
-      [
-        {
-          tableId: '11111111-1111-1111-8111-111111111111',
-          schemaVersion: 1,
-          datasetSchemaId: null,
-          datasetSchemaRevision: null,
-        },
-      ],
+      [{ datasetId: DATASET_ID, schemaVersionNumber: 1, revision: 1 }],
       spec(),
     )
     const json = exportViewJson(spec(), DEFAULT_EXPORT_SETTINGS, prov)
@@ -452,9 +373,9 @@ describe('reproducibility — rebuild a saved chart from its stored spec', () =>
           kind: 'aggregate',
           params: {
             function: 'mean',
-            xField: 'time_h',
-            yField: 'ph',
-            seriesField: 'buffer',
+            xField: F_TIME,
+            yField: F_PH,
+            seriesField: F_BUFFER,
           },
         },
       ],

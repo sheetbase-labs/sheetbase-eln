@@ -18,19 +18,23 @@ import {
   fetchDatasetSummaries,
   datasetExplorerDataClient,
 } from './dataset-explorer-data'
-import type { ScientificTableWire } from './scientific-sheet-data'
+import type { CanonicalDatasetSource } from './chart-data'
 import {
   validateChartSpec,
   applyFilters,
   materialiseChart,
+  materialiseFacetedCharts,
   formatScientific,
 } from './chart-spec'
 import type {
   ChartColumn,
   ChartSpec,
+  FacetedResult,
   MaterialisedChart,
   Transformation,
 } from './chart-spec'
+
+export type { FacetedResult }
 
 // --- Safe limits ----------------------------------------------------------
 //
@@ -54,10 +58,11 @@ export const analysisStudioQueryKeys = {
 // --- Source revision capture ---------------------------------------------
 
 export interface SourceRevision {
-  tableId: string
-  schemaVersion: number
-  datasetSchemaId: string | null
-  datasetSchemaRevision: number | null
+  datasetId: string
+  /** Numeric version of the Dataset Schema Version the source pins. */
+  schemaVersionNumber: number
+  /** Live dataset revision at capture time. */
+  revision: number
 }
 
 /**
@@ -67,17 +72,16 @@ export interface SourceRevision {
  * stale-source state when the underlying dataset has evolved.
  */
 export function captureSourceRevisions(
-  tables: ScientificTableWire[],
+  sources: CanonicalDatasetSource[],
   spec: ChartSpec,
 ): SourceRevision[] {
-  const byId = new Map(tables.map((t) => [t.id, t]))
+  const byId = new Map(sources.map((s) => [s.datasetId, s]))
   return spec.datasets.map((ref) => {
-    const table = byId.get(ref.tableId) ?? null
+    const source = byId.get(ref.datasetId)
     return {
-      tableId: ref.tableId,
-      schemaVersion: table?.schema_version ?? 0,
-      datasetSchemaId: table?.dataset_schema_id ?? null,
-      datasetSchemaRevision: table?.dataset_schema_revision ?? null,
+      datasetId: ref.datasetId,
+      schemaVersionNumber: source?.schemaVersionNumber ?? 0,
+      revision: source?.revision ?? 0,
     }
   })
 }
@@ -89,23 +93,19 @@ export function captureSourceRevisions(
  */
 export function detectStaleSources(
   stored: SourceRevision[],
-  tables: ScientificTableWire[],
+  sources: CanonicalDatasetSource[],
 ): string | null {
-  const byId = new Map(tables.map((t) => [t.id, t]))
+  const byId = new Map(sources.map((s) => [s.datasetId, s]))
   for (const rev of stored) {
-    const table = byId.get(rev.tableId)
-    if (!table) {
-      return `Dataset ${rev.tableId.slice(0, 8)} is no longer available.`
+    const source = byId.get(rev.datasetId)
+    if (!source) {
+      return `Dataset ${rev.datasetId.slice(0, 8)} is no longer available.`
     }
-    if (table.schema_version !== rev.schemaVersion) {
-      return `Dataset "${table.name}" was revised (schema v${rev.schemaVersion} → v${table.schema_version}) since this view was saved.`
+    if (source.schemaVersionNumber !== rev.schemaVersionNumber) {
+      return `Dataset "${source.name}" moved to schema v${source.schemaVersionNumber} (saved against v${rev.schemaVersionNumber}).`
     }
-    if (
-      rev.datasetSchemaRevision !== null &&
-      table.dataset_schema_revision !== null &&
-      table.dataset_schema_revision !== rev.datasetSchemaRevision
-    ) {
-      return `Dataset "${table.name}" schema was upgraded (revision ${rev.datasetSchemaRevision} → ${table.dataset_schema_revision}) since this view was saved.`
+    if (source.revision !== rev.revision) {
+      return `Dataset "${source.name}" was revised (r${rev.revision} → r${source.revision}) since this view was saved.`
     }
   }
   return null
@@ -308,12 +308,12 @@ function applyAggregate(
   spec: ChartSpec,
 ): Record<string, unknown>[] {
   const fn = strParam(params, 'function', 'mean')
-  const xField = strParam(params, 'xField', spec.fields.x?.fieldName ?? 'x')
-  const yField = strParam(params, 'yField', spec.fields.y.fieldName)
+  const xField = strParam(params, 'xField', spec.fields.x?.fieldId ?? 'x')
+  const yField = strParam(params, 'yField', spec.fields.y.fieldId)
   const seriesFieldRaw = strParam(
     params,
     'seriesField',
-    spec.fields.series?.fieldName ?? '',
+    spec.fields.series?.fieldId ?? '',
   )
   const seriesField = seriesFieldRaw || null
   const groups = new Map<
@@ -367,11 +367,11 @@ function applyNormalise(
   spec: ChartSpec,
 ): Record<string, unknown>[] {
   const method = strParam(params, 'method', 'percent_of_max')
-  const yField = strParam(params, 'yField', spec.fields.y.fieldName)
+  const yField = strParam(params, 'yField', spec.fields.y.fieldId)
   const seriesFieldRaw = strParam(
     params,
     'seriesField',
-    spec.fields.series?.fieldName ?? '',
+    spec.fields.series?.fieldId ?? '',
   )
   const seriesField = seriesFieldRaw || null
   // Group values by series for per-series normalisation.
@@ -452,6 +452,25 @@ export function materialiseAnalysisChart(
   // the already-filtered+transformed rows are plotted as-is.
   const specForMaterialise: ChartSpec = { ...spec, filters: [] }
   return materialiseChart(specForMaterialise, columns, transformed)
+}
+
+/**
+ * Facet the analysis preview into small multiples. Runs the same
+ * filter+transform pipeline as `materialiseAnalysisChart`, then partitions
+ * by the spec's facet column (capped at MAX_FACETS, honestly reported).
+ */
+export function materialiseAnalysisFacets(
+  spec: ChartSpec,
+  columns: ChartColumn[],
+  rows: Record<string, unknown>[],
+): FacetedResult {
+  const filtered = applyFilters(rows, spec.filters)
+  const transformed = applyTransformations(filtered, spec.transformations, spec)
+  return materialiseFacetedCharts(
+    { ...spec, filters: [] },
+    columns,
+    transformed,
+  )
 }
 
 // --- Export helpers -------------------------------------------------------
@@ -571,7 +590,7 @@ export function exportChartSvg(
   }
   const serialised = new XMLSerializer().serializeToString(clone)
   const comment = provenance
-    ? `\n<!-- Sheetbase Analysis Studio export\nview: ${provenance.viewName}${provenance.viewId ? ` (${provenance.viewId.slice(0, 8)})` : ''} v${provenance.viewVersion ?? '?'}\nexported by ${provenance.exportedBy} at ${provenance.exportedAt}\nsources: ${provenance.sourceRevisions.map((r) => r.tableId.slice(0, 8)).join(', ')}\n-->\n`
+    ? `\n<!-- Sheetbase Analysis Studio export\nview: ${provenance.viewName}${provenance.viewId ? ` (${provenance.viewId.slice(0, 8)})` : ''} v${provenance.viewVersion ?? '?'}\nexported by ${provenance.exportedBy} at ${provenance.exportedAt}\nsources: ${provenance.sourceRevisions.map((r) => r.datasetId.slice(0, 8)).join(', ')}\n-->\n`
     : ''
   return `${comment}${serialised}`
 }

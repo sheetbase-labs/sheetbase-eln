@@ -71,7 +71,11 @@ import {
   TabsList,
   TabsTrigger,
 } from '#/components/ui'
-import { materialiseLiveChart, useLiveChartDataset } from '#/lib/chart-data'
+import {
+  materialiseLiveChart,
+  toCanonicalDatasetSource,
+  useLiveChartDataset,
+} from '#/lib/chart-data'
 import { formatCount } from '#/lib/format-numbers'
 import {
   fetchLinksForRecord,
@@ -957,7 +961,7 @@ export function DatasetChartTab({ table }: { table: ScientificTableWire }) {
     const spec = buildDefaultChartSpec(table)
     if (!spec) return null
     const xColumn = table.columns.find(
-      (column) => column.id === spec.fields.x?.columnId,
+      (column) => column.id === spec.fields.x?.fieldId,
     )
     return /time|day|date/i.test(xColumn?.label ?? '')
       ? { ...spec, type: 'line' as const }
@@ -971,7 +975,7 @@ export function DatasetChartTab({ table }: { table: ScientificTableWire }) {
     <div className="flex h-full min-h-0 flex-col gap-3">
       {chartSpec ? (
         <ChartConfigurator
-          table={table}
+          source={toCanonicalDatasetSource(table)}
           spec={chartSpec}
           onSpecChange={setChartSpec}
           idPrefix="dataset-chart"
@@ -996,19 +1000,15 @@ function ChartPreview({ table, chartSpec }: ChartPreviewProps) {
     ? validateTransformations(chartSpec.transformations)
     : { ok: true as const }
 
-  // Resolve the chart dataset + calc results via the shared SCI-004 path so
-  // the preview stays reproducible from the same ChartSpec model.
-  const { datasetQuery, calcQuery } = useLiveChartDataset(chartSpec)
+  // Resolve the chart dataset via the shared SCI data layer so the preview
+  // stays reproducible from the same ChartSpec model.
+  const { datasetQuery } = useLiveChartDataset(chartSpec)
   const materialised = useMemo(
     () =>
       chartSpec
-        ? materialiseLiveChart(
-            chartSpec,
-            datasetQuery.data ?? null,
-            calcQuery.data ?? null,
-          )
+        ? materialiseLiveChart(chartSpec, datasetQuery.data ?? null)
         : null,
-    [chartSpec, datasetQuery.data, calcQuery.data],
+    [chartSpec, datasetQuery.data],
   )
 
   const chartTitle = chartSpec
@@ -1016,7 +1016,7 @@ function ChartPreview({ table, chartSpec }: ChartPreviewProps) {
         chartSpec.fields.series
           ? ` by ${
               table.columns.find(
-                (column) => column.id === chartSpec.fields.series?.columnId,
+                (column) => column.id === chartSpec.fields.series?.fieldId,
               )?.label ?? 'series'
             }`
           : ''

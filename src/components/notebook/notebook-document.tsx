@@ -80,6 +80,10 @@ export interface NotebookDocumentProps {
   onAttachFile?: (block: NotebookBlockData, file: File) => Promise<void>
   /** SCI-004: freeze a chart block into an immutable snapshot. */
   onFreezeChart?: (block: NotebookBlockData) => Promise<void>
+  /** SCI-03: freeze an analysis block into immutable evidence. */
+  onFreezeAnalysis?: (block: NotebookBlockData) => Promise<void>
+  /** SCI-03: return a frozen analysis block to live state. */
+  onUnfreezeAnalysis?: (block: NotebookBlockData) => Promise<void>
   /** SCI-004: remove the frozen snapshot so the chart can be edited again. */
   onUnfreezeChart?: (block: NotebookBlockData) => Promise<void>
   /** Duplicate an existing block (same type/payload, inserted after it). */
@@ -152,6 +156,8 @@ function NotebookDocumentContent({
   onAttachFile,
   onFreezeChart,
   onUnfreezeChart,
+  onFreezeAnalysis,
+  onUnfreezeAnalysis,
   onDuplicateBlock,
   onDeleteBlock,
   onUndoDelete,
@@ -781,6 +787,16 @@ function NotebookDocumentContent({
                     }
                     onUnfreezeChart={
                       onUnfreezeChart ? () => onUnfreezeChart(block) : undefined
+                    }
+                    onFreezeAnalysis={
+                      onFreezeAnalysis
+                        ? () => onFreezeAnalysis(block)
+                        : undefined
+                    }
+                    onUnfreezeAnalysis={
+                      onUnfreezeAnalysis
+                        ? () => onUnfreezeAnalysis(block)
+                        : undefined
                     }
                     offline={offline}
                     onStatusChange={(status) =>

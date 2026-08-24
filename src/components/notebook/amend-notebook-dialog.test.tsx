@@ -28,7 +28,8 @@ function renderDialog(ui: ReactNode) {
 
 describe('AmendNotebookDialog', () => {
   it('starts an amendment with an optional note', async () => {
-    const { createAmendment, sign002DataClient } = await import('#/lib/sign-002')
+    const { createAmendment, sign002DataClient } =
+      await import('#/lib/sign-002')
     vi.mocked(createAmendment).mockResolvedValue({
       revisionId: 'rev-new',
       supersedesRevisionId: 'rev-old',

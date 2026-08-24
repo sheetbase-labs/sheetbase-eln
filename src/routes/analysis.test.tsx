@@ -24,10 +24,7 @@ import { CHART_SPEC_VERSION } from '#/lib/chart-spec'
 import type { ChartSpec } from '#/lib/chart-spec'
 import { DEFAULT_EXPORT_SETTINGS } from '#/lib/analysis-studio-data'
 import type { AnalysisViewWire } from '#/lib/analysis-studio-data'
-import type {
-  ScientificLogicalType,
-  ScientificTableWire,
-} from '#/lib/scientific-sheet-data'
+import type { CanonicalDatasetSource } from '#/lib/chart-data'
 
 globalThis.ResizeObserver = class {
   observe() {}
@@ -52,7 +49,6 @@ vi.mock('@tanstack/react-query', () => {
 vi.mock('#/lib/chart-data', () => ({
   useLiveChartDataset: () => ({
     datasetQuery: { data: null, isLoading: false },
-    calcQuery: { data: null, isLoading: false },
   }),
   materialiseLiveChart: () => ({
     state: { kind: 'missing_dataset' },
@@ -62,6 +58,7 @@ vi.mock('#/lib/chart-data', () => ({
     xLabel: 'x',
     yLabel: 'y',
     xUnit: undefined,
+    droppedPoints: 0,
     yUnit: undefined,
   }),
 }))
@@ -71,55 +68,26 @@ afterEach(() => {
   vi.mocked(useQuery).mockReset()
 })
 
-function column(
-  id: string,
-  fieldName: string,
-  label: string,
-  type: ScientificLogicalType = 'decimal',
-) {
-  return {
+function source(
+  overrides: Partial<CanonicalDatasetSource> = {},
+): CanonicalDatasetSource {
+  const column = (id: string, label: string, logicalType = 'decimal') => ({
     id,
-    field_name: fieldName,
     label,
-    display_order: 0,
-    logical_type: type,
-    nullable: true,
-    unit: null,
-    validation: {},
-    width: null,
-    options: [],
-  }
-}
-
-function table(
-  overrides: Partial<ScientificTableWire> = {},
-): ScientificTableWire {
+    logicalType,
+  })
   return {
-    id: '11111111-1111-1111-8111-111111111111',
-    resource_name: 'sheet_alpha',
+    datasetId: '11111111-1111-1111-8111-111111111111',
     name: 'Stability',
-    schema_version: 1,
-    lifecycle: 'active',
+    workspaceId: '00000000-0000-4000-8000-00000000ffff',
+    schemaVersionId: '00000000-0000-4000-8000-00000000fffe',
+    schemaVersionNumber: 1,
+    revision: 1,
     columns: [
-      column(
-        'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa01',
-        'time_h',
-        'Time (h)',
-        'decimal',
-      ),
-      column('aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa02', 'ph', 'pH', 'decimal'),
-      column(
-        'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa03',
-        'buffer',
-        'Buffer',
-        'category',
-      ),
-      column(
-        'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa04',
-        'ph_sd',
-        'pH SD',
-        'decimal',
-      ),
+      column('aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa01', 'Time (h)'),
+      column('aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa02', 'pH'),
+      column('aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa03', 'Buffer', 'category'),
+      column('aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa04', 'pH SD'),
     ],
     ...overrides,
   }
@@ -129,22 +97,22 @@ function spec(overrides: Partial<ChartSpec> = {}): ChartSpec {
   return {
     specVersion: CHART_SPEC_VERSION,
     type: 'scatter',
-    datasets: [{ tableId: '11111111-1111-1111-8111-111111111111' }],
+    datasets: [{ datasetId: '11111111-1111-1111-8111-111111111111' }],
     fields: {
       x: {
-        columnId: 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa01',
-        fieldName: 'time_h',
+        fieldId: 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa01',
       },
-      y: { columnId: 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa02', fieldName: 'ph' },
+      y: { fieldId: 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa02' },
       series: {
-        columnId: 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa03',
-        fieldName: 'buffer',
+        fieldId: 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa03',
       },
       color: null,
       size: null,
+      facet: null,
     },
     filters: [],
     transformations: [],
+    typeParams: {},
     display: {
       axes: {
         x: { label: 'Time (h)', scale: 'linear' },
@@ -167,7 +135,7 @@ describe('AnalysisStudioHeader', () => {
         datasets={[]}
         loading
         error={null}
-        selectedTableId={null}
+        selectedDatasetId={null}
         onSelect={() => {}}
       />,
     )
@@ -181,7 +149,7 @@ describe('AnalysisStudioHeader', () => {
         datasets={[]}
         loading={false}
         error={new Error('boom')}
-        selectedTableId={null}
+        selectedDatasetId={null}
         onSelect={() => {}}
       />,
     )
@@ -189,18 +157,24 @@ describe('AnalysisStudioHeader', () => {
   })
 
   it('renders a populated data-source selector', () => {
-    const t = table()
+    const t = source()
     render(
       <AnalysisStudioHeader
-        datasets={[t]}
+        datasets={[
+          {
+            id: t.datasetId,
+            name: t.name,
+            lifecycle: 'active',
+          } as never,
+        ]}
         loading={false}
         error={null}
-        selectedTableId={t.id}
+        selectedDatasetId={t.datasetId}
         onSelect={() => {}}
       />,
     )
     const select = screen.getByLabelText('Select data source')
-    expect((select as unknown as HTMLSelectElement).value).toBe(t.id)
+    expect((select as unknown as HTMLSelectElement).value).toBe(t.datasetId)
   })
 })
 
@@ -210,7 +184,7 @@ describe('ChartConfigurator', () => {
   it('renders chart-type, axis, grouping and overlay controls', () => {
     render(
       <ChartConfigurator
-        table={table()}
+        source={source()}
         spec={spec()}
         onSpecChange={() => {}}
       />,
@@ -234,7 +208,7 @@ describe('ChartConfigurator', () => {
     const changed: { spec: ChartSpec | null } = { spec: null }
     render(
       <ChartConfigurator
-        table={table()}
+        source={source()}
         spec={spec()}
         onSpecChange={(s) => {
           changed.spec = s
@@ -250,7 +224,7 @@ describe('ChartConfigurator', () => {
     const changed: { spec: ChartSpec | null } = { spec: null }
     render(
       <ChartConfigurator
-        table={table()}
+        source={source()}
         spec={spec()}
         onSpecChange={(s) => {
           changed.spec = s
@@ -270,7 +244,7 @@ describe('ChartConfigurator', () => {
     const changed: { spec: ChartSpec | null } = { spec: null }
     render(
       <ChartConfigurator
-        table={table()}
+        source={source()}
         spec={spec()}
         onSpecChange={(s) => {
           changed.spec = s
@@ -282,7 +256,9 @@ describe('ChartConfigurator', () => {
       'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa04',
     )
     expect(changed.spec?.overlays.errorBars).not.toBeNull()
-    expect(changed.spec?.overlays.errorBars?.fieldName).toBe('ph_sd')
+    expect(changed.spec?.overlays.errorBars?.fieldId).toBe(
+      'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa04',
+    )
     expect(changed.spec?.overlays.errorBars?.basis).toBe('custom')
   })
 
@@ -290,7 +266,7 @@ describe('ChartConfigurator', () => {
     const changed: { spec: ChartSpec | null } = { spec: null }
     render(
       <ChartConfigurator
-        table={table()}
+        source={source()}
         spec={spec({
           transformations: [
             {
@@ -310,7 +286,9 @@ describe('ChartConfigurator', () => {
       'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa04',
     )
 
-    expect(changed.spec?.transformations[0]?.params.yField).toBe('ph_sd')
+    expect(changed.spec?.transformations[0]?.params.yField).toBe(
+      'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa04',
+    )
   })
 })
 
@@ -326,10 +304,9 @@ function view(overrides: Partial<AnalysisViewWire> = {}): AnalysisViewWire {
     spec: spec(),
     source_revisions: [
       {
-        tableId: '11111111-1111-1111-8111-111111111111',
-        schemaVersion: 1,
-        datasetSchemaId: null,
-        datasetSchemaRevision: null,
+        datasetId: '11111111-1111-1111-8111-111111111111',
+        schemaVersionNumber: 1,
+        revision: 1,
       },
     ],
     export_settings: null,
@@ -408,8 +385,7 @@ describe('ExportPanel', () => {
         spec={spec()}
         settings={DEFAULT_EXPORT_SETTINGS}
         onSettingsChange={() => {}}
-        table={table()}
-        datasets={[table()]}
+        sources={[source()]}
         viewName="Test"
         selectedViewId={null}
         views={[]}
@@ -422,6 +398,7 @@ describe('ExportPanel', () => {
           xLabel: 'x',
           yLabel: 'y',
           xUnit: undefined,
+          droppedPoints: 0,
           yUnit: undefined,
         }}
       />,
@@ -455,6 +432,7 @@ describe('DataTableAlternative', () => {
           xLabel: 'x',
           yLabel: 'y',
           xUnit: undefined,
+          droppedPoints: 0,
           yUnit: undefined,
         }}
         loading={false}
@@ -486,6 +464,7 @@ describe('DataTableAlternative', () => {
           xLabel: 'Time (h)',
           yLabel: 'pH',
           xUnit: undefined,
+          droppedPoints: 0,
           yUnit: undefined,
         }}
         loading={false}

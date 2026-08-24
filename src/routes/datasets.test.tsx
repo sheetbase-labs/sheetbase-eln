@@ -12,6 +12,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
 import type { UseQueryResult } from '@tanstack/react-query'
 
+import type * as chartDataModule from '#/lib/chart-data'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import {
   DataTableView,
@@ -58,22 +59,25 @@ vi.mock('@tanstack/react-query', () => {
     useQueryClient: () => ({ invalidateQueries: vi.fn() }),
   }
 })
-vi.mock('#/lib/chart-data', () => ({
-  useLiveChartDataset: () => ({
-    datasetQuery: { data: null, isLoading: false },
-    calcQuery: { data: null, isLoading: false },
-  }),
-  materialiseLiveChart: () => ({
-    state: { kind: 'empty_dataset' },
-    columns: [],
-    rows: [],
-    series: [],
-    xLabel: 'x',
-    yLabel: 'y',
-    xUnit: undefined,
-    yUnit: undefined,
-  }),
-}))
+vi.mock('#/lib/chart-data', async (importOriginal) => {
+  const actual = await importOriginal<typeof chartDataModule>()
+  return {
+    ...actual,
+    useLiveChartDataset: () => ({
+      datasetQuery: { data: null, isLoading: false },
+    }),
+    materialiseLiveChart: () => ({
+      state: { kind: 'empty_dataset' },
+      columns: [],
+      rows: [],
+      series: [],
+      xLabel: 'x',
+      yLabel: 'y',
+      xUnit: undefined,
+      yUnit: undefined,
+    }),
+  }
+})
 
 afterEach(() => {
   cleanup()

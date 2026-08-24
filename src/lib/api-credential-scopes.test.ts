@@ -23,8 +23,8 @@ describe('API-02 canonical scopes', () => {
   })
 
   it('does not treat reviews:write as an effective credential capability', () => {
-    const attestation = SCOPE_GROUPS.find(
-      (group) => group.scopes.includes('reviews:write'),
+    const attestation = SCOPE_GROUPS.find((group) =>
+      group.scopes.includes('reviews:write'),
     )
     expect(attestation?.effective).toBe(false)
     expect(attestation?.description).toMatch(/human-session-only/)

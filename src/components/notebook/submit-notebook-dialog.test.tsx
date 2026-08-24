@@ -36,9 +36,8 @@ function renderDialog(ui: ReactNode) {
 
 describe('SubmitNotebookDialog', () => {
   it('requires a snapshot check and a reviewer before submit', async () => {
-    const { previewSubmissionDigest, submitRecordRevision } = await import(
-      '#/lib/notebook-data'
-    )
+    const { previewSubmissionDigest, submitRecordRevision } =
+      await import('#/lib/notebook-data')
     vi.mocked(previewSubmissionDigest).mockResolvedValue({
       recordId: 'r1',
       sourceDigest: 'abc123digest',
@@ -89,7 +88,9 @@ describe('SubmitNotebookDialog', () => {
     expect(await screen.findByText('You (scientist)')).toBeTruthy()
     await user.click(screen.getByText('22222222 · reviewer'))
     await user.click(screen.getByRole('button', { name: 'Check snapshot' }))
-    expect(await screen.findByText(/Integrity check: abc123digest/)).toBeTruthy()
+    expect(
+      await screen.findByText(/Integrity check: abc123digest/),
+    ).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Submit' })).toHaveProperty(
       'disabled',
       false,

@@ -1,110 +1,64 @@
 /**
- * SCI-004 chart-data resolver unit tests. Verifies stale calculation
- * detection, live chart materialisation states (missing dataset/field,
- * empty, log-scale-invalid, stale), and frozen chart materialisation
- * directly — complementing the component-level tests in chart-block.test.tsx.
+ * SCI chart-data resolver unit tests. Verifies canonical Dataset resolution
+ * (paged query_dataset_rows reads up to the client-side ceiling), the live
+ * and frozen materialisation paths, and frozen-facet reconstruction. Rows
+ * come back keyed by stable schema-version fieldId, so runtime row keys are
+ * exactly the ChartColumn.id values specs bind to.
  */
 import { describe, expect, it } from 'vitest'
 
 import {
-  detectStaleCalculations,
+  SCI_ROW_HARD_LIMIT,
+  fetchDatasetRows,
+  fetchFrozenAnalysisRows,
   materialiseFrozenChart,
+  materialiseFrozenFacets,
   materialiseLiveChart,
 } from './chart-data'
-import type { ResolvedDataset } from './chart-data'
-import type {
-  FormulaResultWire,
-  ScientificColumnWire,
-  ScientificRowWire,
-  ScientificTableWire,
-} from './scientific-sheet-data'
+import type { CanonicalDatasetSource, ResolvedDataset } from './chart-data'
 import { CHART_PALETTE } from './chart-spec'
 import type { ChartSpec, FrozenChart } from './chart-spec'
+import type { DataClient } from './data-client'
 
-const TABLE_ID = '00000000-0000-4000-8000-000000000170'
+const DATASET_ID = '00000000-0000-4000-8000-000000000170'
 
-function makeColumns(): ScientificColumnWire[] {
-  return [
-    {
-      id: 'c1',
-      field_name: 'col_time',
-      label: 'Time (days)',
-      display_order: 0,
-      logical_type: 'decimal',
-      nullable: true,
-      unit: { symbol: 'd' },
-      validation: {},
-      width: null,
-      options: [],
-    },
-    {
-      id: 'c2',
-      field_name: 'col_titer',
-      label: 'Log titer',
-      display_order: 1,
-      logical_type: 'decimal',
-      nullable: true,
-      unit: { symbol: 'log₁₀' },
-      validation: {},
-      width: null,
-      options: [],
-    },
-    {
-      id: 'c3',
-      field_name: 'col_condition',
-      label: 'Condition',
-      display_order: 2,
-      logical_type: 'text',
-      nullable: true,
-      unit: null,
-      validation: {},
-      width: null,
-      options: [],
-    },
-  ]
-}
-
-function makeTable(): ScientificTableWire {
+function makeSource(): CanonicalDatasetSource {
   return {
-    id: TABLE_ID,
-    resource_name: 'sheet_testrows1234567890123456',
+    datasetId: DATASET_ID,
     name: 'Stability readings (qPCR)',
-    schema_version: 1,
-    lifecycle: 'active',
-    columns: makeColumns(),
+    workspaceId: 'ws-1',
+    schemaVersionId: 'sv-1',
+    schemaVersionNumber: 1,
+    revision: 1,
+    columns: [
+      {
+        id: 'c1',
+        label: 'Time (days)',
+        logicalType: 'decimal',
+        unit: { symbol: 'd' },
+      },
+      {
+        id: 'c2',
+        label: 'Log titer',
+        logicalType: 'decimal',
+        unit: { symbol: 'log₁₀' },
+      },
+      {
+        id: 'c3',
+        label: 'Condition',
+        logicalType: 'text',
+      },
+    ],
   }
 }
 
-function makeRows(): ScientificRowWire[] {
+// Runtime rows are keyed by the stable schema-version fieldId.
+function makeRows(): Record<string, unknown>[] {
   return [
-    {
-      id: 'r1',
-      version: 1,
-      col_time: 0,
-      col_titer: 7.2,
-      col_condition: '4 °C',
-    },
-    {
-      id: 'r2',
-      version: 1,
-      col_time: 28,
-      col_titer: 5.9,
-      col_condition: '4 °C',
-    },
-    {
-      id: 'r3',
-      version: 1,
-      col_time: 0,
-      col_titer: 7.1,
-      col_condition: '−20 °C',
-    },
-    {
-      id: 'r4',
-      version: 1,
-      col_time: 28,
-      col_titer: 6.4,
-      col_condition: '−20 °C',
-    },
+    { c1: 0, c2: 7.2, c3: '4 °C' },
+    { c1: 28, c2: 5.9, c3: '4 °C' },
+    { c1: 0, c2: 7.1, c3: '−20 °C' },
+    { c1: 28, c2: 6.4, c3: '−20 °C' },
   ]
 }
 
@@ -112,16 +66,18 @@ function lineSpec(overrides: Partial<ChartSpec> = {}): ChartSpec {
   return {
     specVersion: 1,
     type: 'line',
-    datasets: [{ tableId: TABLE_ID }],
+    datasets: [{ datasetId: DATASET_ID }],
     fields: {
-      x: { columnId: 'c1', fieldName: 'col_time' },
-      y: { columnId: 'c2', fieldName: 'col_titer' },
-      series: { columnId: 'c3', fieldName: 'col_condition' },
+      x: { fieldId: 'c1' },
+      y: { fieldId: 'c2' },
+      series: { fieldId: 'c3' },
       color: null,
       size: null,
+      facet: null,
     },
     filters: [],
     transformations: [],
+    typeParams: {},
     display: {
       axes: {
         x: { label: 'Time (days)', scale: 'linear', unit: 'd' },
@@ -139,181 +95,155 @@ function lineSpec(overrides: Partial<ChartSpec> = {}): ChartSpec {
 }
 
 function makeDataset(): ResolvedDataset {
-  return { table: makeTable(), columns: makeColumns(), rows: makeRows() }
+  return {
+    source: makeSource(),
+    rows: makeRows(),
+    truncated: false,
+    totalCount: 4,
+  }
 }
 
-describe('detectStaleCalculations', () => {
-  it('returns not stale when there are no calculation results', () => {
-    const result = detectStaleCalculations([], lineSpec())
-    expect(result.stale).toBe(false)
+/** Wire page for query_dataset_rows / query_dataset_version_rows. */
+interface RowPage {
+  rows: Array<{
+    rowId: string
+    revision: number
+    values: Record<string, unknown>
+  }>
+  totalCount: number
+}
+
+/**
+ * Mock a DataClient whose `query_dataset_rows` (or any paged rows RPC)
+ * serves `total` rows of 1000-per-call pages, recording every call.
+ */
+function pagedRowsClient(total: number): {
+  client: DataClient
+  calls: Array<Record<string, unknown>>
+} {
+  const calls: Array<Record<string, unknown>> = []
+  const client = {
+    rpc: async (_name: string, args: Record<string, unknown>) => {
+      calls.push(args)
+      const offset = args.p_offset as number
+      const limit = args.p_limit as number
+      const count = Math.max(0, Math.min(limit, total - offset))
+      return {
+        rows: Array.from({ length: count }, (_, i) => ({
+          rowId: `r${offset + i + 1}`,
+          revision: 1,
+          values: { n: offset + i + 1 },
+        })),
+        totalCount: total,
+      } satisfies RowPage
+    },
+  } as unknown as DataClient
+  return { client, calls }
+}
+
+describe('fetchDatasetRows', () => {
+  it('pages through query_dataset_rows until the authoritative total is loaded', async () => {
+    const { client, calls } = pagedRowsClient(2500)
+    const result = await fetchDatasetRows(client, DATASET_ID)
+    expect(result.truncated).toBe(false)
+    expect(result.totalCount).toBe(2500)
+    expect(result.rows).toHaveLength(2500)
+    // Rows arrive flattened to fieldId-keyed value objects.
+    expect(result.rows[0]).toEqual({ n: 1 })
+    expect(result.rows[2499]).toEqual({ n: 2500 })
+    expect(calls.map((c) => [c.p_offset, c.p_limit])).toEqual([
+      [0, 1000],
+      [1000, 1000],
+      [2000, 1000],
+    ])
+    for (const call of calls) {
+      expect(call.p_dataset_id).toBe(DATASET_ID)
+      expect(call.p_query).toEqual({})
+    }
   })
 
-  it('returns not stale when plotted columns are all current', () => {
-    const results: FormulaResultWire[] = [
-      {
-        formula_id: 'f1',
-        target_table_id: TABLE_ID,
-        target_row_id: 'r1',
-        target_column_id: 'c1',
-        cell_kind: 'formula',
-        value_is_authoritative: false,
-        definition_status: 'supported',
-        formula_version: 1,
-        current_input_revision: 1,
-        calculation_status: 'current',
-        calculated_value: 1,
-        calculation_error_code: null,
-        cache_input_revision: 1,
-        engine_version: '1.0',
-        profile_fingerprint: null,
-        runtime_fingerprint: null,
-        calculated_at: '2025-01-01T00:00:00Z',
-      },
-      {
-        formula_id: 'f2',
-        target_table_id: TABLE_ID,
-        target_row_id: 'r1',
-        target_column_id: 'c2',
-        cell_kind: 'formula',
-        value_is_authoritative: false,
-        definition_status: 'supported',
-        formula_version: 1,
-        current_input_revision: 1,
-        calculation_status: 'current',
-        calculated_value: 7.2,
-        calculation_error_code: null,
-        cache_input_revision: 1,
-        engine_version: '1.0',
-        profile_fingerprint: null,
-        runtime_fingerprint: null,
-        calculated_at: '2025-01-01T00:00:00Z',
-      },
-    ]
-    const result = detectStaleCalculations(results, lineSpec())
-    expect(result.stale).toBe(false)
+  it('stops at the hard ceiling and flags truncation above it', async () => {
+    const { client, calls } = pagedRowsClient(5200)
+    const result = await fetchDatasetRows(client, DATASET_ID)
+    expect(result.truncated).toBe(true)
+    expect(result.totalCount).toBe(5200)
+    // Exactly SCI_ROW_HARD_LIMIT rows are materialised — never more.
+    expect(result.rows).toHaveLength(SCI_ROW_HARD_LIMIT)
+    expect(calls).toHaveLength(5)
+    expect(calls[4].p_offset).toBe(4000)
   })
 
-  it('returns stale when a plotted column has a stale calculation', () => {
-    const results: FormulaResultWire[] = [
-      {
-        formula_id: 'f2',
-        target_table_id: TABLE_ID,
-        target_row_id: 'r1',
-        target_column_id: 'c2',
-        cell_kind: 'formula',
-        value_is_authoritative: false,
-        definition_status: 'supported',
-        formula_version: 1,
-        current_input_revision: 1,
-        calculation_status: 'stale',
-        calculated_value: 7.2,
-        calculation_error_code: null,
-        cache_input_revision: 1,
-        engine_version: '1.0',
-        profile_fingerprint: null,
-        runtime_fingerprint: null,
-        calculated_at: '2025-01-01T00:00:00Z',
-      },
-    ]
-    const result = detectStaleCalculations(results, lineSpec())
-    expect(result.stale).toBe(true)
-    expect(result.detail).toContain('stale')
+  it('returns a single page without follow-ups under the page size', async () => {
+    const { client, calls } = pagedRowsClient(42)
+    const result = await fetchDatasetRows(client, DATASET_ID)
+    expect(result.rows).toHaveLength(42)
+    expect(result.truncated).toBe(false)
+    expect(calls).toHaveLength(1)
+  })
+})
+
+describe('fetchFrozenAnalysisRows', () => {
+  it('pages Version rows and verifies the pinned row count', async () => {
+    const { client, calls } = pagedRowsClient(1500)
+    const result = await fetchFrozenAnalysisRows(client, 'ver-1', 1500)
+    expect(result.matchesProvenance).toBe(true)
+    expect(result.totalCount).toBe(1500)
+    expect(result.rows).toHaveLength(1500)
+    expect(calls.length).toBeGreaterThan(1)
+    for (const call of calls) {
+      expect(call.p_dataset_version_id).toBe('ver-1')
+    }
   })
 
-  it('returns stale with a non-stale status label for pending/failed', () => {
-    const results: FormulaResultWire[] = [
-      {
-        formula_id: 'f1',
-        target_table_id: TABLE_ID,
-        target_row_id: 'r1',
-        target_column_id: 'c1',
-        cell_kind: 'formula',
-        value_is_authoritative: false,
-        definition_status: 'supported',
-        formula_version: 1,
-        current_input_revision: 1,
-        calculation_status: 'pending',
-        calculated_value: null,
-        calculation_error_code: null,
-        cache_input_revision: null,
-        engine_version: null,
-        profile_fingerprint: null,
-        runtime_fingerprint: null,
-        calculated_at: null,
-      },
-    ]
-    const result = detectStaleCalculations(results, lineSpec())
-    expect(result.stale).toBe(true)
-    expect(result.detail).toContain('pending')
+  it('reports a provenance mismatch when the Version diverged', async () => {
+    const { client } = pagedRowsClient(7)
+    const result = await fetchFrozenAnalysisRows(client, 'ver-1', 3)
+    expect(result.matchesProvenance).toBe(false)
+    expect(result.totalCount).toBe(7)
   })
 
-  it('ignores stale calculations for columns the chart does not plot', () => {
-    const results: FormulaResultWire[] = [
-      {
-        formula_id: 'f3',
-        target_table_id: TABLE_ID,
-        target_row_id: 'r1',
-        target_column_id: 'c-other',
-        cell_kind: 'formula',
-        value_is_authoritative: false,
-        definition_status: 'supported',
-        formula_version: 1,
-        current_input_revision: 1,
-        calculation_status: 'stale',
-        calculated_value: null,
-        calculation_error_code: null,
-        cache_input_revision: 1,
-        engine_version: '1.0',
-        profile_fingerprint: null,
-        runtime_fingerprint: null,
-        calculated_at: '2025-01-01T00:00:00Z',
-      },
-    ]
-    const result = detectStaleCalculations(results, lineSpec())
-    expect(result.stale).toBe(false)
+  it('refuses to reconstruct above the hard ceiling', async () => {
+    const { client } = pagedRowsClient(SCI_ROW_HARD_LIMIT + 1)
+    await expect(
+      fetchFrozenAnalysisRows(client, 'ver-1', SCI_ROW_HARD_LIMIT + 1),
+    ).rejects.toThrow(/ceiling/)
   })
 })
 
 describe('materialiseLiveChart', () => {
-  it('returns missing_dataset when dataset is null', () => {
-    const result = materialiseLiveChart(lineSpec(), null, null)
+  it('returns missing_dataset when the resolved dataset is null', () => {
+    const result = materialiseLiveChart(lineSpec(), null)
     expect(result.state.kind).toBe('missing_dataset')
     expect(result.series).toEqual([])
   })
 
   it('returns ok with series for a valid dataset', () => {
-    const result = materialiseLiveChart(lineSpec(), makeDataset(), [])
+    const result = materialiseLiveChart(lineSpec(), makeDataset())
     expect(result.state.kind).toBe('ok')
-    expect(result.series.length).toBe(2)
-    expect(result.rows.length).toBe(4)
+    expect(result.series).toHaveLength(2)
+    expect(result.rows).toHaveLength(4)
   })
 
-  it('returns missing_field when a bound column is absent from the dataset', () => {
+  it('returns missing_field when a bound field is absent from the dataset', () => {
     const spec = lineSpec({
       fields: {
-        x: { columnId: 'c-missing', fieldName: 'col_missing' },
-        y: { columnId: 'c2', fieldName: 'col_titer' },
+        x: { fieldId: 'c-missing' },
+        y: { fieldId: 'c2' },
         series: null,
         color: null,
         size: null,
+        facet: null,
       },
     })
-    const result = materialiseLiveChart(spec, makeDataset(), [])
+    const result = materialiseLiveChart(spec, makeDataset())
     expect(result.state.kind).toBe('missing_field')
   })
 
   it('returns empty_dataset when filters remove all rows', () => {
     const spec = lineSpec({
-      filters: [
-        {
-          columnId: 'c1',
-          fieldName: 'col_time',
-          op: 'gt' as const,
-          value: 999999,
-        },
-      ],
+      filters: [{ fieldId: 'c1', op: 'gt' as const, value: 999999 }],
     })
-    const result = materialiseLiveChart(spec, makeDataset(), [])
+    const result = materialiseLiveChart(spec, makeDataset())
     expect(result.state.kind).toBe('empty_dataset')
   })
 
@@ -327,42 +257,28 @@ describe('materialiseLiveChart', () => {
         },
       },
       fields: {
-        x: { columnId: 'c1', fieldName: 'col_time' },
-        y: { columnId: 'c1', fieldName: 'col_time' },
+        x: { fieldId: 'c1' },
+        y: { fieldId: 'c1' },
         series: null,
         color: null,
         size: null,
+        facet: null,
       },
     })
-    // col_time has a 0 value, which is invalid for log scale.
-    const result = materialiseLiveChart(spec, makeDataset(), [])
+    // Time has a 0 value, which is invalid for a log scale.
+    const result = materialiseLiveChart(spec, makeDataset())
     expect(result.state.kind).toBe('log_scale_invalid')
   })
 
-  it('returns stale when a plotted formula calculation is stale', () => {
-    const calcResults: FormulaResultWire[] = [
-      {
-        formula_id: 'f2',
-        target_table_id: TABLE_ID,
-        target_row_id: 'r1',
-        target_column_id: 'c2',
-        cell_kind: 'formula',
-        value_is_authoritative: false,
-        definition_status: 'supported',
-        formula_version: 1,
-        current_input_revision: 1,
-        calculation_status: 'stale',
-        calculated_value: 7.2,
-        calculation_error_code: null,
-        cache_input_revision: 1,
-        engine_version: '1.0',
-        profile_fingerprint: null,
-        runtime_fingerprint: null,
-        calculated_at: '2025-01-01T00:00:00Z',
-      },
-    ]
-    const result = materialiseLiveChart(lineSpec(), makeDataset(), calcResults)
-    expect(result.state.kind).toBe('stale')
+  it('returns dataset_too_large when the source exceeded the ceiling', () => {
+    const dataset = { ...makeDataset(), truncated: true, totalCount: 6000 }
+    const result = materialiseLiveChart(lineSpec(), dataset)
+    expect(result.state.kind).toBe('dataset_too_large')
+    if (result.state.kind === 'dataset_too_large') {
+      expect(result.state.rowCount).toBe(6000)
+      expect(result.state.limit).toBe(SCI_ROW_HARD_LIMIT)
+    }
+    expect(result.series).toEqual([])
   })
 })
 
@@ -374,8 +290,8 @@ describe('materialiseFrozenChart', () => {
       frozenByUserId: 'u1',
       datasetProvenance: [
         {
-          tableId: TABLE_ID,
-          schemaVersion: 1,
+          datasetId: DATASET_ID,
+          schemaVersionNumber: 1,
           rowCount: 2,
           checksum: 'abc12345',
         },
@@ -383,23 +299,21 @@ describe('materialiseFrozenChart', () => {
       data: {
         columns: [
           {
-            columnId: 'c1',
-            fieldName: 'col_time',
+            fieldId: 'c1',
             label: 'Time (days)',
             logicalType: 'decimal',
             unit: { symbol: 'd' },
           },
           {
-            columnId: 'c2',
-            fieldName: 'col_titer',
+            fieldId: 'c2',
             label: 'Log titer',
             logicalType: 'decimal',
             unit: { symbol: 'log₁₀' },
           },
         ],
         rows: [
-          { col_time: 0, col_titer: 7.2 },
-          { col_time: 28, col_titer: 5.9 },
+          { c1: 0, c2: 7.2 },
+          { c1: 28, c2: 5.9 },
         ],
         series: [
           {
@@ -434,5 +348,72 @@ describe('materialiseFrozenChart', () => {
     const result = materialiseFrozenChart(makeFrozen())
     expect(result.xUnit).toBe('d')
     expect(result.yUnit).toBe('log₁₀')
+  })
+})
+
+describe('materialiseFrozenFacets', () => {
+  const frozenWithFacets: FrozenChart = {
+    revisionId: null,
+    frozenAt: '2026-08-23T10:00:00Z',
+    frozenByUserId: 'user-1',
+    datasetProvenance: [],
+    data: {
+      columns: [
+        {
+          fieldId: 'c1',
+          label: 'Time',
+          logicalType: 'integer',
+        },
+      ],
+      rows: [{ c1: 1 }],
+      series: [],
+      facets: [
+        {
+          value: '20C',
+          series: [
+            {
+              identifier: 'all',
+              label: 'all',
+              color: '#006edc',
+              points: [{ x: 0, y: 1, yError: null }],
+            },
+          ],
+        },
+        {
+          value: '4C',
+          series: [
+            {
+              identifier: 'all',
+              label: 'all',
+              color: '#00a659',
+              points: [{ x: 0, y: 2, yError: null }],
+            },
+          ],
+        },
+      ],
+      facetsTotal: 5,
+    },
+  }
+
+  it('maps pinned facet series into renderable panels with an honest total', () => {
+    const result = materialiseFrozenFacets(frozenWithFacets)
+    expect(result).not.toBeNull()
+    expect(result!.total).toBe(5)
+    expect(result!.panels.map((p) => p.value)).toEqual(['20C', '4C'])
+    for (const panel of result!.panels) {
+      expect(panel.chart.state.kind).toBe('ok')
+      expect(panel.chart.series).toHaveLength(1)
+    }
+  })
+
+  it('returns null for non-faceted snapshots', () => {
+    const plain: FrozenChart = {
+      ...frozenWithFacets,
+      data: {
+        ...frozenWithFacets.data,
+        facets: undefined,
+      },
+    }
+    expect(materialiseFrozenFacets(plain)).toBeNull()
   })
 })

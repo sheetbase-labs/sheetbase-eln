@@ -31,6 +31,8 @@ import {
 } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
+import type { ChartSelection } from '#/components/viz/chart-plots'
+import { AnalysisPanel } from '#/components/viz/analysis-panel'
 import { ChartConfigurator } from '#/components/viz/chart-configurator'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import {
@@ -57,7 +59,12 @@ import {
   Property,
   PropertyList,
 } from '#/components/record'
-import { materialiseLiveChart, useLiveChartDataset } from '#/lib/chart-data'
+import {
+  materialiseLiveChart,
+  toCanonicalDatasetSource,
+  useLiveChartDataset,
+} from '#/lib/chart-data'
+import type { CanonicalDatasetSource } from '#/lib/chart-data'
 import {
   AXIS_SCALES,
   CHART_PALETTE,
@@ -81,15 +88,17 @@ import {
   fetchAnalysisViews,
   fetchDatasetSummaries,
   materialiseAnalysisChart,
+  materialiseAnalysisFacets,
   saveAnalysisView,
   validateAnalysisSpec,
 } from '#/lib/analysis-studio-data'
 import type {
   AnalysisViewWire,
+  FacetedResult,
   ExportSettings,
 } from '#/lib/analysis-studio-data'
 import { buildDefaultChartSpec } from '#/lib/dataset-explorer-data'
-import type { ScientificTableWire } from '#/lib/scientific-sheet-data'
+import type { CanonicalDatasetWire } from '#/lib/dataset-explorer-data'
 import { formatCount } from '#/lib/format-numbers'
 import { cn } from '#/lib/utils'
 
@@ -124,10 +133,17 @@ function AnalysisStudioRoute() {
     staleTime: 10_000,
   })
   const views = viewsQuery.data ?? []
-
-  const [selectedTableId, setSelectedTableId] = useState<string | null>(null)
+  const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(
+    null,
+  )
   const [spec, setSpec] = useState<ChartSpec | null>(null)
   const [selectedViewId, setSelectedViewId] = useState<string | null>(null)
+  const [chartSelection, setChartSelection] = useState<ChartSelection | null>(
+    null,
+  )
+  // SCI-02: the studio serves both chart authoring and reusable analysis
+  // definitions; the mode is session state, never persisted server-side.
+  const [mode, setMode] = useState<'chart' | 'analyse'>('chart')
   const [viewName, setViewName] = useState('')
   const [exportSettings, setExportSettings] = useState<ExportSettings>(
     DEFAULT_EXPORT_SETTINGS,
@@ -135,65 +151,75 @@ function AnalysisStudioRoute() {
 
   // Auto-select the first dataset once the list loads.
   useEffect(() => {
-    if (!selectedTableId && datasets.length > 0) {
-      setSelectedTableId(datasets[0].id)
+    if (!selectedDatasetId && datasets.length > 0) {
+      setSelectedDatasetId(datasets[0].id)
     }
     if (
-      selectedTableId &&
+      selectedDatasetId &&
       datasets.length > 0 &&
-      !datasets.some((d) => d.id === selectedTableId)
+      !datasets.some((d) => d.id === selectedDatasetId)
     ) {
-      setSelectedTableId(datasets[0].id)
+      setSelectedDatasetId(datasets[0].id)
     }
-  }, [datasets, selectedTableId])
-
-  const selectedTable = useMemo(
-    () => datasets.find((d) => d.id === selectedTableId) ?? null,
-    [datasets, selectedTableId],
+  }, [datasets, selectedDatasetId])
+  const selectedDataset = useMemo(
+    () => datasets.find((d) => d.id === selectedDatasetId) ?? null,
+    [datasets, selectedDatasetId],
+  )
+  const selectedSource = useMemo(
+    () => (selectedDataset ? toCanonicalDatasetSource(selectedDataset) : null),
+    [selectedDataset],
+  )
+  const sources = useMemo(
+    () => datasets.map(toCanonicalDatasetSource),
+    [datasets],
   )
 
   // Build a default spec when the dataset changes (or load a saved view).
   useEffect(() => {
-    if (selectedTable) {
-      setSpec(buildDefaultChartSpec(selectedTable))
+    if (selectedDataset) {
+      setSpec(buildDefaultChartSpec(selectedDataset))
       setSelectedViewId(null)
       setViewName('')
     }
-  }, [selectedTableId])
+  }, [selectedDatasetId])
 
   // Live preview resolution: read source data read-only (never mutate). The
   // materialised chart is lifted here so the preview and the export panel
   // share one authoritative materialisation.
-  const { datasetQuery, calcQuery } = useLiveChartDataset(spec)
+  const { datasetQuery } = useLiveChartDataset(spec)
   const liveMaterialised = useMemo(
     () =>
       spec
-        ? materialiseLiveChart(
-            spec,
-            datasetQuery.data ?? null,
-            calcQuery.data ?? null,
-          )
+        ? materialiseLiveChart(spec, datasetQuery.data ?? null)
         : missingDatasetChart(),
-    [spec, datasetQuery.data, calcQuery.data],
+    [spec, datasetQuery.data],
   )
   const analysisMaterialised = useMemo(() => {
     if (!spec || !datasetQuery.data) return liveMaterialised
-    const columns = datasetQuery.data.columns.map((c) => ({
-      id: c.id,
-      fieldName: c.field_name,
-      label: c.label,
-      logicalType: c.logical_type,
-      unit: c.unit,
-    }))
-    return materialiseAnalysisChart(spec, columns, datasetQuery.data.rows)
+    return materialiseAnalysisChart(
+      spec,
+      datasetQuery.data.source.columns,
+      datasetQuery.data.rows,
+    )
   }, [spec, datasetQuery.data, liveMaterialised])
+  const analysisFacets = useMemo(() => {
+    if (!spec || !datasetQuery.data || !spec.fields.facet) {
+      return { panels: [], total: 0 }
+    }
+    return materialiseAnalysisFacets(
+      spec,
+      datasetQuery.data.source.columns,
+      datasetQuery.data.rows,
+    )
+  }, [spec, datasetQuery.data])
 
   const queryClient = useQueryClient()
 
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!spec || !viewName.trim()) return
-      const sourceRevisions = captureSourceRevisions(datasets, spec)
+      const sourceRevisions = captureSourceRevisions(sources, spec)
       return saveAnalysisView(
         analysisStudioDataClient,
         {
@@ -225,9 +251,9 @@ function AnalysisStudioRoute() {
     setViewName(view.name)
     setSpec(view.spec)
     if (view.export_settings) setExportSettings(view.export_settings)
-    const tableId = view.spec.datasets[0]?.tableId ?? null
-    if (tableId && datasets.some((d) => d.id === tableId)) {
-      setSelectedTableId(tableId)
+    const datasetId = view.spec.datasets[0]?.datasetId ?? null
+    if (datasetId && datasets.some((d) => d.id === datasetId)) {
+      setSelectedDatasetId(datasetId)
     }
   }
 
@@ -247,9 +273,9 @@ function AnalysisStudioRoute() {
     inspectorCollapsible: true,
     inspectorLabel: 'Chart settings',
     inspector:
-      selectedTable && spec ? (
+      selectedSource && spec ? (
         <AnalysisInspector
-          table={selectedTable}
+          source={selectedSource}
           spec={spec}
           onSpecChange={setSpec}
           views={views}
@@ -262,7 +288,7 @@ function AnalysisStudioRoute() {
           saving={saveMutation.isPending}
           exportSettings={exportSettings}
           onExportSettingsChange={setExportSettings}
-          datasets={datasets}
+          sources={sources}
           user={{ id: userId, name: context.user.name }}
           materialised={analysisMaterialised}
         />
@@ -276,25 +302,53 @@ function AnalysisStudioRoute() {
           datasets={datasets}
           loading={summariesQuery.isLoading}
           error={summariesQuery.error}
-          selectedTableId={selectedTableId}
-          onSelect={setSelectedTableId}
+          selectedDatasetId={selectedDatasetId}
+          onSelect={setSelectedDatasetId}
         />
-        {selectedTable && spec ? (
+        <div
+          role="tablist"
+          aria-label="Studio mode"
+          className="flex items-center gap-1"
+        >
+          {(['chart', 'analyse'] as const).map((value) => (
+            <Button
+              key={value}
+              type="button"
+              size="sm"
+              variant={mode === value ? 'default' : 'outline'}
+              role="tab"
+              aria-selected={mode === value}
+              onClick={() => setMode(value)}
+            >
+              {value === 'chart' ? 'Chart builder' : 'Analyse'}
+            </Button>
+          ))}
+        </div>
+        {mode === 'analyse' ? (
+          <AnalysisPanel
+            datasets={sources}
+            workspaceId={workspaceId}
+            userId={userId}
+          />
+        ) : selectedSource && spec ? (
           <div className="flex min-h-0 flex-1 flex-col">
             <ChartConfigurator
-              table={selectedTable}
+              source={selectedSource}
               spec={spec}
               onSpecChange={setSpec}
               idPrefix="analysis"
             />
             <AnalysisPreview
-              table={selectedTable}
+              source={selectedSource}
               spec={spec}
-              datasets={datasets}
+              sources={sources}
               selectedViewId={selectedViewId}
               views={views}
               datasetQuery={datasetQuery}
               materialised={analysisMaterialised}
+              facets={analysisFacets.panels.length > 0 ? analysisFacets : null}
+              selection={chartSelection}
+              onSelectionChange={setChartSelection}
             />
           </div>
         ) : (
@@ -313,10 +367,10 @@ function AnalysisStudioRoute() {
 // ---------------------------------------------------------------------------
 
 interface AnalysisStudioHeaderProps {
-  datasets: ScientificTableWire[]
+  datasets: CanonicalDatasetWire[]
   loading: boolean
   error: unknown
-  selectedTableId: string | null
+  selectedDatasetId: string | null
   onSelect: (id: string) => void
 }
 
@@ -324,7 +378,7 @@ export function AnalysisStudioHeader({
   datasets,
   loading,
   error,
-  selectedTableId,
+  selectedDatasetId,
   onSelect,
 }: AnalysisStudioHeaderProps) {
   return (
@@ -360,7 +414,7 @@ export function AnalysisStudioHeader({
             <Select
               id="analysis-data-source"
               aria-label="Select data source"
-              value={selectedTableId ?? ''}
+              value={selectedDatasetId ?? ''}
               onChange={(e) => onSelect(e.target.value)}
               className="h-8 w-56 bg-background"
             >
@@ -383,11 +437,11 @@ export function AnalysisStudioHeader({
 // ---------------------------------------------------------------------------
 
 export function FilterControls({
-  table,
+  source,
   spec,
   onSpecChange,
 }: {
-  table: ScientificTableWire
+  source: CanonicalDatasetSource
   spec: ChartSpec
   onSpecChange: (spec: ChartSpec) => void
 }) {
@@ -400,21 +454,13 @@ export function FilterControls({
   }
   function addFilter(): void {
     if (spec.filters.length >= ANALYSIS_MAX_FILTERS) return
-    const column = table.columns.find(
-      (c) => !spec.filters.some((f) => f.columnId === c.id),
+    const column = source.columns.find(
+      (c) => !spec.filters.some((f) => f.fieldId === c.id),
     )
     if (!column) return
     onSpecChange({
       ...spec,
-      filters: [
-        ...spec.filters,
-        {
-          columnId: column.id,
-          fieldName: column.field_name,
-          op: 'eq',
-          value: '',
-        },
-      ],
+      filters: [...spec.filters, { fieldId: column.id, op: 'eq', value: '' }],
     })
   }
   function removeFilter(index: number): void {
@@ -426,22 +472,22 @@ export function FilterControls({
   return (
     <div className="space-y-1.5">
       {spec.filters.map((filter, i) => {
-        const column = table.columns.find((c) => c.id === filter.columnId)
+        const column = source.columns.find((c) => c.id === filter.fieldId)
         return (
-          <div key={filter.columnId + i} className="flex items-center gap-1.5">
+          <div key={filter.fieldId + i} className="flex items-center gap-1.5">
             <span className="flex-1 truncate text-xs text-muted-foreground">
-              {column?.label ?? filter.fieldName}
+              {column?.label ?? filter.fieldId}
             </span>
             <Field className="w-24">
               <FieldLabel
                 className="sr-only"
-                htmlFor={`filter-${filter.columnId}-${i}`}
+                htmlFor={`filter-${filter.fieldId}-${i}`}
               >
                 Filter value
               </FieldLabel>
               <Input
-                id={`filter-${filter.columnId}-${i}`}
-                aria-label={`Filter value for ${column?.label ?? filter.fieldName}`}
+                id={`filter-${filter.fieldId}-${i}`}
+                aria-label={`Filter value for ${column?.label ?? filter.fieldId}`}
                 value={String(filter.value ?? '')}
                 onChange={(e) => setFilter(i, e.target.value)}
                 placeholder="eq…"
@@ -469,7 +515,7 @@ export function FilterControls({
 }
 
 function AnalysisInspector({
-  table,
+  source,
   spec,
   onSpecChange,
   views,
@@ -482,11 +528,11 @@ function AnalysisInspector({
   saving,
   exportSettings,
   onExportSettingsChange,
-  datasets,
+  sources,
   user,
   materialised,
 }: {
-  table: ScientificTableWire
+  source: CanonicalDatasetSource
   spec: ChartSpec
   onSpecChange: (spec: ChartSpec) => void
   views: AnalysisViewWire[]
@@ -499,7 +545,7 @@ function AnalysisInspector({
   saving: boolean
   exportSettings: ExportSettings
   onExportSettingsChange: (settings: ExportSettings) => void
-  datasets: ScientificTableWire[]
+  sources: CanonicalDatasetSource[]
   user: { id: string; name: string }
   materialised: ReturnType<typeof materialiseLiveChart>
 }) {
@@ -584,7 +630,7 @@ function AnalysisInspector({
             <InspectorSectionStack>
               <InspectorSection title="Filters">
                 <FilterControls
-                  table={table}
+                  source={source}
                   spec={spec}
                   onSpecChange={onSpecChange}
                 />
@@ -608,8 +654,7 @@ function AnalysisInspector({
               spec={spec}
               settings={exportSettings}
               onSettingsChange={onExportSettingsChange}
-              table={table}
-              datasets={datasets}
+              sources={sources}
               viewName={viewName}
               selectedViewId={selectedViewId}
               views={views}
@@ -737,8 +782,7 @@ interface ExportPanelProps {
   spec: ChartSpec
   settings: ExportSettings
   onSettingsChange: (settings: ExportSettings) => void
-  table: ScientificTableWire
-  datasets: ScientificTableWire[]
+  sources: CanonicalDatasetSource[]
   viewName: string
   selectedViewId: string | null
   views: AnalysisViewWire[]
@@ -750,7 +794,7 @@ export function ExportPanel({
   spec,
   settings,
   onSettingsChange,
-  datasets,
+  sources,
   viewName,
   selectedViewId,
   views,
@@ -768,7 +812,7 @@ export function ExportPanel({
 
   function doExport(): void {
     const selectedView = views.find((v) => v.id === selectedViewId) ?? null
-    const sourceRevisions = captureSourceRevisions(datasets, spec)
+    const sourceRevisions = captureSourceRevisions(sources, spec)
     const provenance = buildExportProvenance(
       {
         name: viewName || selectedView?.name || 'Untitled analysis',
@@ -916,23 +960,29 @@ export function SvgExporterAnchor({
 // ---------------------------------------------------------------------------
 
 interface AnalysisPreviewProps {
-  table: ScientificTableWire
+  source: CanonicalDatasetSource
   spec: ChartSpec
-  datasets: ScientificTableWire[]
+  sources: CanonicalDatasetSource[]
   selectedViewId: string | null
   views: AnalysisViewWire[]
   datasetQuery: ReturnType<typeof useLiveChartDataset>['datasetQuery']
   materialised: ReturnType<typeof materialiseLiveChart>
+  facets: FacetedResult | null
+  selection: ChartSelection | null
+  onSelectionChange: (selection: ChartSelection | null) => void
 }
 
 export function AnalysisPreview({
-  table,
+  source,
   spec,
-  datasets,
+  sources,
   selectedViewId,
   views,
   datasetQuery,
   materialised: analysisMaterialised,
+  facets,
+  selection,
+  onSelectionChange,
 }: AnalysisPreviewProps) {
   const [expanded, setExpanded] = useState(false)
   const chartHeight = expanded ? 460 : 340
@@ -947,8 +997,8 @@ export function AnalysisPreview({
     if (!selectedViewId) return null
     const view = views.find((v) => v.id === selectedViewId)
     if (!view) return null
-    return detectStaleSources(view.source_revisions, datasets)
-  }, [selectedViewId, views, datasets])
+    return detectStaleSources(view.source_revisions, sources)
+  }, [selectedViewId, views, sources])
 
   const resultRowCount = datasetQuery.data?.rows.length ?? 0
   const excessiveSize = resultRowCount > ANALYSIS_MAX_RESULT_ROWS
@@ -1079,12 +1129,16 @@ export function AnalysisPreview({
 
         <div className="min-h-0 flex-1 overflow-hidden px-4 pb-2">
           <ChartRenderer
-            title={`${table.name} — ${spec.type} chart`}
+            title={`${source.name} — ${spec.type} chart`}
             spec={spec}
             materialised={analysisMaterialised}
             frozen={null}
             loading={datasetQuery.isLoading}
             plotHeight={plotHeight}
+            facets={facets?.panels ?? undefined}
+            facetTotal={facets?.total}
+            selection={selection}
+            onSelectionChange={onSelectionChange}
             expanded={expanded}
             onExpandedChange={setExpanded}
             className="h-full rounded-none border-0 bg-transparent shadow-none"
@@ -1139,7 +1193,7 @@ export function DataTableAlternative({
     materialised.columns.length > 0 && materialised.rows.length > 0
   const columns = hasSourceRows
     ? materialised.columns.map((column) => ({
-        key: column.fieldName,
+        key: column.id,
         label: column.unit
           ? `${column.label} (${typeof column.unit === 'object' && 'symbol' in column.unit ? String((column.unit as { symbol: string }).symbol) : String(column.unit)})`
           : column.label,
@@ -1234,6 +1288,7 @@ function missingDatasetChart() {
     yLabel: 'y',
     xUnit: undefined,
     yUnit: undefined,
+    droppedPoints: 0,
   }
 }
 

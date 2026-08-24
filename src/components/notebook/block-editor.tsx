@@ -75,6 +75,12 @@ import {
 } from '#/lib/file-attach'
 import { FILE_MAX_BYTES, isInlinePreviewableImage } from '#/lib/file-policy'
 import { CHART_SPEC_VERSION, CHART_TYPES } from '#/lib/chart-spec'
+import type { AnalysisBlockPayload } from '#/lib/analysis-block'
+import { validateAnalysisBlockPayload } from '#/lib/analysis-block'
+import {
+  analysisDefinitionQueryKeys,
+  fetchAnalysisDefinitions,
+} from '#/lib/analysis-definitions-data'
 import type {
   ChartBlockPayload,
   ChartSpec,
@@ -82,17 +88,14 @@ import type {
   AxisScale,
 } from '#/lib/chart-spec'
 import {
+  fetchCanonicalDataset,
   materialiseFrozenChart,
+  materialiseFrozenFacets,
   materialiseLiveChart,
+  sciDataClient,
+  toCanonicalDatasetSource,
   useLiveChartDataset,
 } from '#/lib/chart-data'
-import { groupChartTables } from '#/lib/notebook-experience'
-import {
-  fetchScientificTable,
-  scientificDataClient,
-  scientificQueryKeys,
-} from '#/lib/scientific-sheet-data'
-import type { ScientificTableWire } from '#/lib/scientific-sheet-data'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import { PlateMap } from '#/components/viz/plate-map'
 import {
@@ -137,6 +140,10 @@ export interface BlockEditorProps {
   onFreezeChart?: () => Promise<void>
   /** SCI-004: remove the frozen snapshot so the chart can be edited again. */
   onUnfreezeChart?: () => Promise<void>
+  /** SCI-03: freeze an analysis block into an immutable evidence snapshot. */
+  onFreezeAnalysis?: () => Promise<void>
+  /** SCI-03: remove the frozen analysis snapshot so the block is live again. */
+  onUnfreezeAnalysis?: () => Promise<void>
   /** Slash command: user picked a block type from the `/` menu. */
   onSlashCommand?: (type: string) => void
   /** Enter at end of the last paragraph → create a new text block below. */
@@ -173,6 +180,8 @@ export function BlockEditor(props: BlockEditorProps) {
       return <FileBlockEditor {...props} />
     case 'chart':
       return <ChartBlockEditor {...props} />
+    case 'analysis':
+      return <AnalysisBlockEditor {...props} />
     case 'plate_map':
       return <PlateMapBlockEditor {...props} />
     default:
@@ -266,6 +275,10 @@ function summarizePayload(
       const wells = Array.isArray(spec?.wells) ? spec.wells : []
       return `${title || 'Plate map'} — ${wells.length} well(s)`
     }
+    case 'analysis':
+      return `${payload.title || 'Analysis'}${
+        payload.frozen ? ' (frozen)' : ''
+      }`
     default:
       return JSON.stringify(payload, null, 2)
   }
@@ -1375,29 +1388,25 @@ function ChartBlockEditor({
   const spec = draft.spec ?? null
   const frozen = draft.frozen ?? null
 
-  // Available datasets: scientific tables in the workspace the user can read.
-  const tablesQuery = useQuery({
-    queryKey: ['chart-available-tables'] as const,
-    queryFn: () =>
-      scientificDataClient.list<
-        Pick<ScientificTableWire, 'id' | 'name' | 'record_id'>
-      >(
-        'scientific_tables',
-        '?select=id,name,record_id&lifecycle=eq.active&order=name.asc',
-      ),
+  // Available datasets: canonical Datasets in the workspace (decision 0037).
+  const datasetsQuery = useQuery({
+    queryKey: ['chart-available-datasets'] as const,
+    queryFn: () => fetchDatasetSummaries(),
     staleTime: 30_000,
   })
-  const groupedTables = groupChartTables(tablesQuery.data ?? [], block.recordId)
+  const availableDatasets = (datasetsQuery.data ?? []).map((d) =>
+    toCanonicalDatasetSource({ ...d, name: d.name }),
+  )
 
   // Columns for the selected dataset (so field mappings are honest).
-  const selectedTableId = spec?.datasets[0]?.tableId ?? ''
-  const columnsQuery = useQuery({
-    queryKey: scientificQueryKeys.table(selectedTableId),
-    queryFn: () => fetchScientificTable(scientificDataClient, selectedTableId),
-    enabled: Boolean(selectedTableId),
+  const selectedDatasetId = spec?.datasets[0]?.datasetId ?? ''
+  const sourceQuery = useQuery({
+    queryKey: ['chart-selected-dataset', selectedDatasetId],
+    queryFn: () => fetchCanonicalDataset(sciDataClient, selectedDatasetId),
+    enabled: Boolean(selectedDatasetId),
     staleTime: 10_000,
   })
-  const columns = columnsQuery.data?.columns ?? []
+  const columns = sourceQuery.data?.columns ?? []
 
   function updateSpec(patch: Partial<ChartSpec>) {
     if (!spec) return
@@ -1413,27 +1422,55 @@ function ChartBlockEditor({
     updateSpec({ fields: { ...spec.fields, ...patch } })
   }
 
+  // Switching types keeps the spec coherent: fields that carry no meaning
+  // for the new type are cleared (mirrors the DB trigger's rules).
+  function setChartType(next: ChartType) {
+    if (!spec) return
+    const fields = { ...spec.fields }
+    let overlays = spec.overlays
+    let typeParams: ChartSpec['typeParams'] = {}
+    if (next === 'histogram' || next === 'box') {
+      fields.x = null
+      typeParams =
+        next === 'box'
+          ? { box: { showOutliers: true } }
+          : { histogram: { bins: 10 } }
+    } else if (next === 'heatmap') {
+      fields.series = null
+      fields.color = null
+      fields.size = null
+      overlays = { errorBars: null }
+      typeParams = {
+        heatmap: { aggregate: 'count', valueField: null, xBins: 10, yBins: 10 },
+      }
+    }
+    const display = ['line', 'scatter', 'bar'].includes(next)
+      ? spec.display
+      : { ...spec.display, annotations: [] }
+    updateSpec({ type: next, fields, overlays, typeParams, display })
+  }
+
   // Start a spec when the user picks a dataset for an empty draft.
-  function chooseDataset(tableId: string) {
+  function chooseDataset(datasetId: string) {
     a.setTouched(true)
-    const col = columnsQuery.data?.columns ?? []
+    const col = sourceQuery.data?.columns ?? []
     const xCol = col.length > 0 ? col[0] : null
     const yCol = col.length > 1 ? col[1] : col.length > 0 ? col[0] : null
     const next: ChartSpec = {
       specVersion: CHART_SPEC_VERSION,
       type: spec?.type ?? 'line',
-      datasets: [{ tableId }],
+      datasets: [{ datasetId }],
       fields: {
-        x: xCol ? { columnId: xCol.id, fieldName: xCol.field_name } : null,
-        y: yCol
-          ? { columnId: yCol.id, fieldName: yCol.field_name }
-          : { columnId: '', fieldName: '' },
+        x: xCol ? { fieldId: xCol.id } : null,
+        y: yCol ? { fieldId: yCol.id } : { fieldId: '' },
         series: null,
         color: null,
         size: null,
+        facet: null,
       },
       filters: [],
       transformations: [],
+      typeParams: {},
       display: {
         axes: {
           x: {
@@ -1456,21 +1493,17 @@ function ChartBlockEditor({
   }
 
   const fieldOptions = columns.map((c) => (
-    <option key={c.id} value={`${c.id}|${c.field_name}`}>
+    <option key={c.id} value={c.id}>
       {c.label}
     </option>
   ))
 
   // Live preview materialisation.
-  const { datasetQuery, calcQuery } = useLiveChartDataset(spec)
+  const { datasetQuery } = useLiveChartDataset(spec)
   const previewMaterialised = frozen
     ? materialiseFrozenChart(frozen)
     : spec
-      ? materialiseLiveChart(
-          spec,
-          datasetQuery.data ?? null,
-          calcQuery.data ?? null,
-        )
+      ? materialiseLiveChart(spec, datasetQuery.data ?? null)
       : {
           state: { kind: 'missing_dataset' as const },
           columns: [],
@@ -1480,9 +1513,9 @@ function ChartBlockEditor({
           yLabel: 'y',
           xUnit: undefined,
           yUnit: undefined,
+          droppedPoints: 0,
         }
-  const previewLoading =
-    !frozen && (datasetQuery.isLoading || calcQuery.isLoading)
+  const previewLoading = !frozen && datasetQuery.isLoading
 
   return (
     <div className="space-y-4">
@@ -1493,6 +1526,8 @@ function ChartBlockEditor({
         materialised={previewMaterialised}
         frozen={frozen}
         loading={previewLoading}
+        facets={frozen ? materialiseFrozenFacets(frozen)?.panels : undefined}
+        facetTotal={frozen ? materialiseFrozenFacets(frozen)?.total : undefined}
       />
 
       {readOnly ? null : (
@@ -1512,38 +1547,24 @@ function ChartBlockEditor({
           <ChartField label="Dataset">
             <Select
               aria-label="Dataset"
-              value={selectedTableId}
+              value={selectedDatasetId}
               onChange={(e) => chooseDataset(e.target.value)}
               onBlur={() => a.flush()}
-              disabled={!!frozen || tablesQuery.isLoading}
+              disabled={!!frozen || datasetsQuery.isLoading}
             >
               <option value="">
-                {tablesQuery.isLoading
+                {datasetsQuery.isLoading
                   ? 'Loading datasets…'
                   : 'Select a dataset'}
               </option>
-              {groupedTables.local.length > 0 ? (
-                <optgroup label="On this Notebook">
-                  {groupedTables.local.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </optgroup>
-              ) : null}
-              {groupedTables.workspace.length > 0 ? (
-                <optgroup label="Workspace">
-                  {groupedTables.workspace.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </optgroup>
-              ) : null}
+              {availableDatasets.map((d) => (
+                <option key={d.datasetId} value={d.datasetId}>
+                  {d.name}
+                </option>
+              ))}
             </Select>
             <p className="text-xs text-muted-foreground">
-              Charts plot saved table data. Link a Dataset or Record with a
-              Linked record block.
+              Charts plot canonical Dataset data (decision 0037).
             </p>
           </ChartField>
 
@@ -1552,9 +1573,7 @@ function ChartBlockEditor({
               <Select
                 aria-label="Chart type"
                 value={spec?.type ?? 'line'}
-                onChange={(e) =>
-                  updateSpec({ type: e.target.value as ChartType })
-                }
+                onChange={(e) => setChartType(e.target.value as ChartType)}
                 onBlur={() => a.flush()}
                 disabled={!!frozen || !spec}
               >
@@ -1566,32 +1585,45 @@ function ChartBlockEditor({
               </Select>
             </ChartField>
             <ChartField label="Series field (optional)">
-              <Select
-                aria-label="Series field"
-                value={bindingValue(spec?.fields.series)}
-                onChange={(e) =>
-                  updateFields({ series: parseBinding(e.target.value) })
-                }
-                onBlur={() => a.flush()}
-                disabled={!!frozen || !spec}
-              >
-                <option value="">(none)</option>
-                {fieldOptions}
-              </Select>
+              {spec?.type === 'heatmap' ? (
+                <p className="text-xs text-muted-foreground">
+                  Not used for heatmap charts.
+                </p>
+              ) : (
+                <Select
+                  aria-label="Series field"
+                  value={bindingValue(spec?.fields.series)}
+                  onChange={(e) =>
+                    updateFields({ series: parseBinding(e.target.value) })
+                  }
+                  onBlur={() => a.flush()}
+                  disabled={!!frozen || !spec}
+                >
+                  <option value="">(none)</option>
+                  {fieldOptions}
+                </Select>
+              )}
             </ChartField>
             <ChartField label="X field">
-              <Select
-                aria-label="X field"
-                value={bindingValue(spec?.fields.x)}
-                onChange={(e) =>
-                  updateFields({ x: parseBinding(e.target.value) })
-                }
-                onBlur={() => a.flush()}
-                disabled={!!frozen || !spec}
-              >
-                <option value="">(none)</option>
-                {fieldOptions}
-              </Select>
+              {spec?.type === 'histogram' || spec?.type === 'box' ? (
+                <p className="text-xs text-muted-foreground">
+                  Not used for {spec.type} charts — the measured value is the Y
+                  field.
+                </p>
+              ) : (
+                <Select
+                  aria-label="X field"
+                  value={bindingValue(spec?.fields.x)}
+                  onChange={(e) =>
+                    updateFields({ x: parseBinding(e.target.value) })
+                  }
+                  onBlur={() => a.flush()}
+                  disabled={!!frozen || !spec}
+                >
+                  <option value="">(none)</option>
+                  {fieldOptions}
+                </Select>
+              )}
             </ChartField>
             <ChartField label="Y field">
               <Select
@@ -1599,10 +1631,7 @@ function ChartBlockEditor({
                 value={bindingValue(spec?.fields.y)}
                 onChange={(e) =>
                   updateFields({
-                    y: parseBinding(e.target.value) as {
-                      columnId: string
-                      fieldName: string
-                    },
+                    y: parseBinding(e.target.value) ?? { fieldId: '' },
                   })
                 }
                 onBlur={() => a.flush()}
@@ -1663,6 +1692,63 @@ function ChartBlockEditor({
               </Select>
             </ChartField>
           </div>
+
+          {spec?.type === 'histogram' ? (
+            <ChartField label="Bins">
+              <Input
+                aria-label="Histogram bin count"
+                type="number"
+                min={1}
+                max={200}
+                value={spec.typeParams.histogram?.bins ?? 10}
+                onChange={(e) =>
+                  updateSpec({
+                    typeParams: {
+                      histogram: {
+                        bins: Math.max(1, Number(e.target.value) || 10),
+                      },
+                    },
+                  })
+                }
+                onBlur={() => a.flush()}
+                disabled={!!frozen}
+              />
+            </ChartField>
+          ) : null}
+          {spec?.type === 'heatmap' ? (
+            <ChartField label="Cell value">
+              <Select
+                aria-label="Heatmap cell aggregation"
+                value={spec.typeParams.heatmap?.aggregate ?? 'count'}
+                onChange={(e) => {
+                  const aggregate = e.target.value as NonNullable<
+                    ChartSpec['typeParams']['heatmap']
+                  >['aggregate']
+                  updateSpec({
+                    typeParams: {
+                      heatmap:
+                        aggregate === 'count'
+                          ? { aggregate, valueField: null }
+                          : {
+                              aggregate,
+                              valueField:
+                                spec.typeParams.heatmap?.valueField ??
+                                spec.fields.y,
+                            },
+                    },
+                  })
+                }}
+                onBlur={() => a.flush()}
+                disabled={!!frozen || !spec}
+              >
+                <option value="count">Row count</option>
+                <option value="mean">Mean of Y</option>
+                <option value="median">Median of Y</option>
+                <option value="min">Min of Y</option>
+                <option value="max">Max of Y</option>
+              </Select>
+            </ChartField>
+          ) : null}
 
           <ChartField label="Provenance note (optional)">
             <Input
@@ -1745,19 +1831,12 @@ function ChartField({
   )
 }
 
-function bindingValue(
-  binding: { columnId: string; fieldName: string } | null | undefined,
-): string {
-  return binding ? `${binding.columnId}|${binding.fieldName}` : ''
+function bindingValue(binding: { fieldId: string } | null | undefined): string {
+  return binding?.fieldId ?? ''
 }
 
-function parseBinding(
-  v: string,
-): { columnId: string; fieldName: string } | null {
-  if (!v) return null
-  const [columnId, fieldName] = v.split('|')
-  if (!columnId || !fieldName) return null
-  return { columnId, fieldName }
+function parseBinding(v: string): { fieldId: string } | null {
+  return v ? { fieldId: v } : null
 }
 
 function unitSymbol(unit: unknown): string | undefined {
@@ -2343,5 +2422,154 @@ function ValidationConfigEditor({
         </div>
       </div>
     </details>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// SCI-03 analysis block editor. Picks a saved analysis definition (ADR 0040)
+// from the workspace, renders the live execution through the same preview
+// used read-only, and freezes/unfreezes via the transactional RPCs passed
+// down from the route so durable events and audit attribution stay canonical.
+// ---------------------------------------------------------------------------
+
+function AnalysisBlockEditor({
+  block,
+  save,
+  offline,
+  onStatusChange,
+  readOnly,
+  onFreezeAnalysis,
+  onUnfreezeAnalysis,
+}: BlockEditorProps) {
+  const initial = block.payload as unknown as AnalysisBlockPayload
+  const a = useBlockAutosave<AnalysisBlockPayload>(
+    block,
+    initial,
+    save,
+    offline,
+    onStatusChange,
+  )
+  const draft = a.draft
+  const frozen = draft.frozen ?? null
+
+  const definitionsQuery = useQuery({
+    queryKey: analysisDefinitionQueryKeys.list(),
+    queryFn: () => fetchAnalysisDefinitions(),
+    staleTime: 10_000,
+  })
+  const definitions = definitionsQuery.data ?? []
+  const selected = definitions.find((d) => d.id === draft.definitionId) ?? null
+
+  function chooseDefinition(id: string) {
+    a.setTouched(true)
+    const saved = definitions.find((d) => d.id === id)
+    if (!saved) return
+    const name = typeof saved.name === 'string' ? saved.name : 'Analysis'
+    a.setDraft({
+      ...draft,
+      definitionId: id,
+      title: draft.title || name,
+    })
+  }
+
+  const validation = validateAnalysisBlockPayload(draft)
+
+  return (
+    <div className="space-y-4">
+      <Card className="space-y-3 p-3">
+        <ChartField label="Saved analysis">
+          <Select
+            aria-label="Saved analysis"
+            value={draft.definitionId ?? ''}
+            onChange={(e) => chooseDefinition(e.target.value)}
+            onBlur={() => a.flush()}
+            disabled={!!frozen || definitionsQuery.isLoading}
+          >
+            <option value="">
+              {definitionsQuery.isLoading
+                ? 'Loading saved analyses…'
+                : definitions.length === 0
+                  ? 'No saved analyses — create one in /analysis → Analyse'
+                  : 'Select an analysis'}
+            </option>
+            {definitions.map((d) => (
+              <option key={d.id} value={d.id}>
+                {`${d.name} · v${d.version}`}
+              </option>
+            ))}
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Analyses execute against live dataset rows. Freeze to pin the inputs
+            as evidence.
+          </p>
+        </ChartField>
+
+        <ChartField label="Title">
+          <Input
+            aria-label="Analysis title"
+            value={draft.title ?? ''}
+            onChange={(e) => {
+              a.setTouched(true)
+              a.setDraft({ ...draft, title: e.target.value })
+            }}
+            onBlur={() => a.flush()}
+          />
+        </ChartField>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {frozen ? (
+            <>
+              <Badge variant="warning">
+                <Snowflake className="size-3" />
+                Frozen snapshot — immutable
+              </Badge>
+              {onUnfreezeAnalysis ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void onUnfreezeAnalysis()}
+                >
+                  <Pencil /> Unfreeze (live again)
+                </Button>
+              ) : null}
+            </>
+          ) : onFreezeAnalysis && draft.definitionId && !readOnly ? (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={validation.length > 0}
+              title={
+                validation.length > 0
+                  ? 'Choose a saved analysis before freezing'
+                  : 'Freeze an immutable snapshot of this analysis'
+              }
+              onClick={() => void onFreezeAnalysis()}
+            >
+              <Snowflake /> Freeze snapshot
+            </Button>
+          ) : null}
+        </div>
+      </Card>
+
+      <AutosaveFooter
+        status={a.status}
+        error={a.error}
+        validationErrors={a.validationErrors}
+        serverPreview={summarizePayload(
+          block.type,
+          (a.serverValue ?? {}) as Record<string, unknown>,
+        )}
+        onUseServer={() => a.discardDraft()}
+        onKeepLocal={() => a.retry()}
+        retrying={a.status === 'saving'}
+      />
+
+      {/* Keep `selected` referenced for the stale-definition hint below. */}
+      <span className="sr-only">
+        {selected ? `Using ${selected.name}` : 'No saved analysis selected'}
+      </span>
+    </div>
   )
 }

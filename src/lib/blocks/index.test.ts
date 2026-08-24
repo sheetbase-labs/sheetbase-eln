@@ -246,22 +246,22 @@ describe('block payload validation (ELN-002)', () => {
         spec: {
           specVersion: 1,
           type: 'line',
-          datasets: [{ tableId: '0198d970-e266-4000-8000-000000000001' }],
+          datasets: [{ datasetId: '0198d970-e266-4000-8000-000000000001' }],
           fields: {
             x: {
-              columnId: '0198d970-e266-4000-8000-000000000002',
-              fieldName: 'col_days',
+              fieldId: '0198d970-e266-4000-8000-000000000002',
             },
             y: {
-              columnId: '0198d970-e266-4000-8000-000000000003',
-              fieldName: 'col_gcn',
+              fieldId: '0198d970-e266-4000-8000-000000000003',
             },
             series: null,
             color: null,
             size: null,
+            facet: null,
           },
           filters: [],
           transformations: [],
+          typeParams: {},
           display: {
             axes: {
               x: { label: 'Time (days)', scale: 'linear', unit: 'd' },
@@ -274,6 +274,11 @@ describe('block payload validation (ELN-002)', () => {
           overlays: { errorBars: null },
         },
         provenance: 'Analysis Studio',
+      },
+      analysis: {
+        title: 'Recovery slope',
+        definitionId: '0198d970-e266-4000-8000-000000000009',
+        frozen: null,
       },
       plate_map: {
         title: 'qPCR titration plate',
@@ -417,7 +422,7 @@ describe('block payload validation (ELN-002)', () => {
     expect(
       isBlockPayloadValid({
         type: 'sheet',
-        payload: { tableId: '0198d970-e266-4000-8000-000000000001' },
+        payload: { datasetId: '0198d970-e266-4000-8000-000000000001' },
       }),
     ).toBe(false)
     expect(
@@ -425,7 +430,7 @@ describe('block payload validation (ELN-002)', () => {
         type: 'sheet',
         payload: {
           instanceId: '0198d970-e266-4000-8000-000000000001',
-          tableId: '0198d970-e266-4000-8000-000000000002',
+          datasetId: '0198d970-e266-4000-8000-000000000002',
         },
       }),
     ).toBe(false)

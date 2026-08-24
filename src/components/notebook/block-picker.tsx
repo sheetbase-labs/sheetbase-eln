@@ -10,6 +10,7 @@ import {
   Paperclip,
   LineChart,
   Grid3x3,
+  Sigma,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -125,6 +126,15 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     icon: LineChart,
     group: 'evidence',
     aliases: ['plot', 'graph'],
+  },
+  {
+    type: 'analysis',
+    label: 'Analysis',
+    description:
+      'A saved analysis — grouped statistics or a regression fit — run against live dataset rows, freezable as evidence.',
+    icon: Sigma,
+    group: 'evidence',
+    aliases: ['statistics', 'regression', 'fit'],
   },
   {
     type: 'plate_map',

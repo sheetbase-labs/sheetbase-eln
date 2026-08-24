@@ -59,8 +59,8 @@ export function AmendNotebookDialog({
         <DialogHeader>
           <DialogTitle>Amend Notebook</DialogTitle>
           <DialogDescription>
-            The submitted evidence stays frozen and a new working copy is
-            opened so you can edit this Notebook again.
+            The submitted evidence stays frozen and a new working copy is opened
+            so you can edit this Notebook again.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">

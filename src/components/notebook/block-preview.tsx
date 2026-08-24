@@ -11,6 +11,7 @@ import {
   FlaskConical,
   Info,
   Link2,
+  Snowflake,
   StickyNote,
   TriangleAlert,
 } from 'lucide-react'
@@ -40,12 +41,25 @@ import { Badge } from '#/components/ui'
 import { isInlinePreviewableImage } from '#/lib/file-policy'
 import { sheetInstanceEmbedErrorMessage } from './notebook-sheet-block'
 import {
+  fetchCanonicalDataset,
+  fetchDatasetRows,
+  fetchFrozenAnalysisRows,
   materialiseFrozenChart,
+  materialiseFrozenFacets,
   materialiseLiveChart,
+  sciDataClient,
   useLiveChartDataset,
 } from '#/lib/chart-data'
 import { CHART_SPEC_VERSION } from '#/lib/chart-spec'
 import type { ChartBlockPayload, ChartSpec } from '#/lib/chart-spec'
+import { runAnalysis } from '#/lib/analysis-definition'
+import type { AnalysisDefinition } from '#/lib/analysis-definition'
+import type { AnalysisBlockPayload, FrozenAnalysis } from '#/lib/analysis-block'
+import {
+  analysisDefinitionQueryKeys,
+  fetchAnalysisDefinition,
+} from '#/lib/analysis-definitions-data'
+import { AnalysisResultTable } from '#/components/viz/analysis-panel'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import { PlateMap } from '#/components/viz/plate-map'
 import type {
@@ -125,6 +139,8 @@ function renderPayload(type: string, payload: unknown): React.ReactNode {
       return <SheetBlockPreview payload={payload} />
     case 'chart':
       return <ChartBlockPreview payload={payload} />
+    case 'analysis':
+      return <AnalysisBlockPreview payload={payload} />
     case 'plate_map':
       return <PlateMapBlockPreview payload={payload} />
     case 'file':
@@ -816,6 +832,7 @@ function ChartBlockPreview({ payload }: { payload: unknown }) {
   // no stale detection.
   if (frozen) {
     const materialised = materialiseFrozenChart(frozen)
+    const facets = materialiseFrozenFacets(frozen)
     return (
       <ChartRenderer
         title={title}
@@ -823,6 +840,8 @@ function ChartBlockPreview({ payload }: { payload: unknown }) {
         spec={spec}
         materialised={materialised}
         frozen={frozen}
+        facets={facets?.panels}
+        facetTotal={facets?.total}
       />
     )
   }
@@ -840,8 +859,8 @@ function LiveChartPreview({
   provenance?: string
   spec: ChartSpec | null
 }) {
-  const { datasetQuery, calcQuery } = useLiveChartDataset(spec)
-  const loading = datasetQuery.isLoading || calcQuery.isLoading
+  const { datasetQuery } = useLiveChartDataset(spec)
+  const loading = datasetQuery.isLoading
   if (loading) {
     return (
       <ChartRenderer
@@ -867,11 +886,7 @@ function LiveChartPreview({
     )
   }
   const materialised = spec
-    ? materialiseLiveChart(
-        spec,
-        datasetQuery.data ?? null,
-        calcQuery.data ?? null,
-      )
+    ? materialiseLiveChart(spec, datasetQuery.data ?? null)
     : emptyMaterialised(spec)
   return (
     <ChartRenderer
@@ -890,10 +905,11 @@ function emptyMaterialised(spec: ChartSpec | null) {
     columns: [],
     rows: [],
     series: [],
-    xLabel: spec?.display.axes.x.label ?? spec?.fields.x?.fieldName ?? 'x',
+    xLabel: spec?.display.axes.x.label ?? 'x',
     yLabel: spec?.display.axes.y.label ?? 'y',
     xUnit: spec?.display.axes.x.unit,
     yUnit: spec?.display.axes.y.unit,
+    droppedPoints: 0,
   }
 }
 
@@ -1046,4 +1062,274 @@ function parsePlateMapSpec(v: unknown): PlateMapSpec | null {
   if ((v as { specVersion?: unknown }).specVersion !== PLATE_MAP_SPEC_VERSION)
     return null
   return v as PlateMapSpec
+}
+
+// ---------------------------------------------------------------------------
+// SCI-03 analysis block preview. A live block loads the referenced saved
+// definition and executes it against current dataset rows (Reload re-runs
+// on demand). A frozen block re-executes the pinned definition over the
+// pinned inputs — never a live re-read — so evidence stays reproducible.
+// ---------------------------------------------------------------------------
+
+function parseFrozenAnalysis(value: unknown): FrozenAnalysis | null {
+  const obj = asObject(value)
+  if (!obj) return null
+  if (!asObject(obj.definition) || !Array.isArray(obj.datasetProvenance))
+    return null
+  return obj as unknown as FrozenAnalysis
+}
+
+export function AnalysisBlockPreview({ payload }: { payload: unknown }) {
+  const obj = asObject(payload)
+  if (!obj || Object.keys(obj).length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        No analysis configured. Select this block to choose a saved analysis.
+      </p>
+    )
+  }
+  const block = payload as AnalysisBlockPayload
+  const title = asString(obj.title) ?? 'Analysis'
+  const provenance = asString(obj.provenance) ?? undefined
+  const frozen = parseFrozenAnalysis(obj.frozen)
+
+  if (frozen) {
+    return (
+      <FrozenAnalysisPreview
+        frozen={frozen}
+        provenance={provenance}
+        title={title}
+      />
+    )
+  }
+  if (!block.definitionId) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        No analysis configured. Select this block to choose a saved analysis.
+      </p>
+    )
+  }
+  return (
+    <LiveAnalysisPreview
+      title={title}
+      provenance={provenance}
+      definitionId={block.definitionId}
+    />
+  )
+}
+
+function LiveAnalysisPreview({
+  title,
+  provenance,
+  definitionId,
+}: {
+  title: string
+  provenance?: string
+  definitionId: string
+}) {
+  const definitionQuery = useQuery({
+    queryKey: analysisDefinitionQueryKeys.detail(definitionId),
+    queryFn: () => fetchAnalysisDefinition(sciDataClient, definitionId),
+    staleTime: 10_000,
+  })
+
+  if (definitionQuery.isLoading)
+    return (
+      <div role="status" className="text-xs text-muted-foreground">
+        Loading analysis…
+      </div>
+    )
+  if (definitionQuery.error || !definitionQuery.data)
+    return (
+      <div role="alert" className="text-xs text-destructive">
+        The saved analysis could not be loaded. It may have been deleted.
+      </div>
+    )
+  const saved = definitionQuery.data
+  const definition = saved.definition as AnalysisDefinition | null
+  if (!definition)
+    return (
+      <div role="alert" className="text-xs text-destructive">
+        The saved analysis has no executable definition body.
+      </div>
+    )
+  const datasetId = definition.datasets[0]?.datasetId ?? ''
+
+  return (
+    <LiveAnalysisExecution
+      title={title}
+      provenance={provenance}
+      name={saved.name}
+      version={saved.version}
+      definition={definition}
+      datasetId={datasetId}
+    />
+  )
+}
+
+function LiveAnalysisExecution({
+  title,
+  provenance,
+  name,
+  version,
+  definition,
+  datasetId,
+}: {
+  title: string
+  provenance?: string
+  name: string
+  version: number
+  definition: AnalysisDefinition
+  datasetId: string
+}) {
+  const resolvedQuery = useQuery({
+    queryKey: ['analysis-block-dataset', datasetId] as const,
+    queryFn: async () => {
+      const source = await fetchCanonicalDataset(sciDataClient, datasetId)
+      if (!source) return null
+      return {
+        source,
+        ...(await fetchDatasetRows(sciDataClient, source.datasetId)),
+      }
+    },
+    enabled: Boolean(datasetId),
+    staleTime: 10_000,
+  })
+
+  const executed =
+    resolvedQuery.data && !resolvedQuery.data.truncated
+      ? runAnalysis(
+          definition,
+          resolvedQuery.data.source.columns,
+          resolvedQuery.data.rows,
+        )
+      : null
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="outline">
+          {name} · v{version}
+        </Badge>
+        {resolvedQuery.isFetching ? (
+          <span className="text-xs text-muted-foreground">Loading rows…</span>
+        ) : null}
+      </div>
+      {executed && executed.ok ? (
+        <AnalysisResultTable result={executed.result} />
+      ) : executed ? (
+        <div
+          role="alert"
+          className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive"
+        >
+          {executed.error.code === 'empty_dataset'
+            ? 'The dataset has no rows to analyse.'
+            : `This analysis cannot execute: ${executed.error.code}.`}
+        </div>
+      ) : (
+        <div role="status" className="text-xs text-muted-foreground">
+          Preparing analysis…
+        </div>
+      )}
+      {provenance ? (
+        <p className="text-xs text-muted-foreground">{provenance}</p>
+      ) : null}
+      <span className="sr-only">{title}</span>
+    </div>
+  )
+}
+
+function FrozenAnalysisPreview({
+  frozen,
+  provenance,
+  title,
+}: {
+  frozen: FrozenAnalysis
+  provenance?: string
+  title: string
+}) {
+  // Frozen evidence reconstructs deterministically from the pinned immutable
+  // Dataset Version — the block stores references, never source rows.
+  const pin = frozen.datasetProvenance.at(0)
+  const rowsQuery = useQuery({
+    queryKey: ['analysis-frozen-version-rows', pin?.datasetVersionId] as const,
+    queryFn: () => {
+      if (!pin) throw new Error('No pinned Dataset Version')
+      return fetchFrozenAnalysisRows(
+        sciDataClient,
+        pin.datasetVersionId,
+        pin.rowCount,
+      )
+    },
+    enabled: Boolean(pin),
+    staleTime: 10_000,
+  })
+
+  const columns = frozen.columns.map((c) => ({
+    id: c.fieldId,
+    label: c.label,
+    logicalType: c.logicalType,
+  }))
+  const executed =
+    rowsQuery.data && rowsQuery.data.matchesProvenance
+      ? runAnalysis(frozen.definition, columns, rowsQuery.data.rows)
+      : null
+
+  const provenanceParts = frozen.datasetProvenance.map(
+    (p) =>
+      `dataset ${p.datasetId.slice(0, 8)} · version ${p.datasetVersionId.slice(0, 8)} (${p.rowCount} rows, checksum ${p.checksum.slice(0, 8)})`,
+  )
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="warning">
+          <Snowflake className="size-3" aria-hidden />
+          Frozen snapshot — {frozen.frozenAt}
+        </Badge>
+        <span className="text-xs text-muted-foreground">
+          Provenance: {provenanceParts.join(', ')}
+        </span>
+      </div>
+      {!pin ? (
+        <EvidenceAlert>
+          The frozen payload pins no Dataset Version and cannot be
+          reconstructed.
+        </EvidenceAlert>
+      ) : rowsQuery.isLoading ? (
+        <div role="status" className="text-xs text-muted-foreground">
+          Reconstructing from pinned Dataset Version…
+        </div>
+      ) : rowsQuery.error ? (
+        <EvidenceAlert>
+          The pinned Dataset Version could not be read for reconstruction.
+        </EvidenceAlert>
+      ) : rowsQuery.data && !rowsQuery.data.matchesProvenance ? (
+        <EvidenceAlert>
+          Evidence mismatch: the Dataset Version row count does not match the
+          pinned provenance ({rowsQuery.data.totalCount} ≠ {pin.rowCount}).
+        </EvidenceAlert>
+      ) : executed && executed.ok ? (
+        <AnalysisResultTable result={executed.result} />
+      ) : executed ? (
+        <EvidenceAlert>
+          The pinned inputs no longer execute: {executed.error.code}.
+        </EvidenceAlert>
+      ) : null}
+      {provenance ? (
+        <p className="text-xs text-muted-foreground">{provenance}</p>
+      ) : null}
+      <span className="sr-only">{title}</span>
+    </div>
+  )
+}
+
+function EvidenceAlert({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      role="alert"
+      className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive"
+    >
+      {children}
+    </div>
+  )
 }

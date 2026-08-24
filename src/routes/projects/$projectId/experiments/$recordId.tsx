@@ -105,6 +105,10 @@ import {
 } from '#/lib/sheet-instance-data'
 import { freezeChart, unfreezeChart } from '#/lib/chart-data'
 import {
+  freezeAnalysisBlock,
+  unfreezeAnalysisBlock,
+} from '#/lib/analysis-definitions-data'
+import {
   sheetEvidenceFromEnvelope,
   sheetEvidenceFromRevisionRows,
 } from '#/lib/sheet-evidence'
@@ -539,8 +543,7 @@ export function StickyRecordHeader({
   const [signOpen, setSignOpen] = useState(false)
   const [titleDraft, setTitleDraft] = useState(record.title)
   const lockedAt = liveLockedAt ?? record.lockedAt
-  const lockedByRevisionId =
-    liveLockedByRevisionId ?? record.lockedByRevisionId
+  const lockedByRevisionId = liveLockedByRevisionId ?? record.lockedByRevisionId
   const reviewActivity = notebookReviewActivity(review)
   const lifecycle = notebookLifecycleLabel({
     lockedAt,
@@ -559,8 +562,7 @@ export function StickyRecordHeader({
     !record.archivedAt &&
     !historicalRevisionId &&
     reviewActivity === 'none'
-  const canEditTitle =
-    !lockedAt && !record.archivedAt && !historicalRevisionId
+  const canEditTitle = !lockedAt && !record.archivedAt && !historicalRevisionId
   const canOpenReview = Boolean(reviewRevisionId)
   const canSign =
     Boolean(currentUserId && currentUserName) &&
@@ -611,7 +613,10 @@ export function StickyRecordHeader({
         <span className="font-mono tabular-nums text-muted-foreground">
           {record.identifier}
         </span>
-        <div className="ml-auto flex flex-wrap items-center gap-2" data-print-hide>
+        <div
+          className="ml-auto flex flex-wrap items-center gap-2"
+          data-print-hide
+        >
           <PrintNotebookButton className="h-8" />
           <ExportEvidenceButton revisionId={evidenceRevisionId} />
           {projectId && !historicalRevisionId ? (
@@ -780,7 +785,11 @@ export function LockedBanner({
   record,
   onAmended,
 }: {
-  record: { id?: string; lockedAt: string | null; lockedByRevisionId?: string | null }
+  record: {
+    id?: string
+    lockedAt: string | null
+    lockedByRevisionId?: string | null
+  }
   onAmended?: () => void
 }) {
   const [amendOpen, setAmendOpen] = useState(false)
@@ -1326,6 +1335,30 @@ function EditableNotebook({
     await queryClient.invalidateQueries({ queryKey: blocksKey })
   }
 
+  async function handleFreezeAnalysis(block: NotebookBlockDomain) {
+    const currentBlocks =
+      queryClient.getQueryData<NotebookBlockDomain[]>(blocksKey) ?? blocks
+    const currentBlock =
+      currentBlocks.find((item) => item.id === block.id) ?? block
+    await freezeAnalysisBlock(client, {
+      blockId: currentBlock.id,
+      expectedVersion: currentBlock.version,
+    })
+    await queryClient.invalidateQueries({ queryKey: blocksKey })
+  }
+
+  async function handleUnfreezeAnalysis(block: NotebookBlockDomain) {
+    const currentBlocks =
+      queryClient.getQueryData<NotebookBlockDomain[]>(blocksKey) ?? blocks
+    const currentBlock =
+      currentBlocks.find((item) => item.id === block.id) ?? block
+    await unfreezeAnalysisBlock(client, {
+      blockId: currentBlock.id,
+      expectedVersion: currentBlock.version,
+    })
+    await queryClient.invalidateQueries({ queryKey: blocksKey })
+  }
+
   async function handleDuplicate(block: NotebookBlockDomain) {
     await duplicateMutation.mutateAsync(block)
   }
@@ -1378,6 +1411,8 @@ function EditableNotebook({
         onAttachFile={handleAttachFile}
         onFreezeChart={handleFreezeChart}
         onUnfreezeChart={handleUnfreezeChart}
+        onFreezeAnalysis={handleFreezeAnalysis}
+        onUnfreezeAnalysis={handleUnfreezeAnalysis}
         onDuplicateBlock={handleDuplicate}
         onDeleteBlock={handleDelete}
         onUndoDelete={handleUndoDelete}
@@ -1924,10 +1959,7 @@ export function NotebookInspector({
   const fileItems = fileItemsFromBlocks(fileBlocks, {
     includeDownloadHref: !isHistorical,
   })
-  const activityItems = activityItemsFromEvents(
-    evidenceActivity,
-    currentUserId,
-  )
+  const activityItems = activityItemsFromEvents(evidenceActivity, currentUserId)
   const contributors = contributorsFromActivity(
     evidenceActivity,
     ownerName,
@@ -1943,162 +1975,158 @@ export function NotebookInspector({
   })
 
   const tabs = [
-        {
-          id: 'properties',
-          label: 'Properties',
-          content: (
-            <div className="space-y-2">
-              {/* Core metadata — Type & Status as semantic badges, then
+    {
+      id: 'properties',
+      label: 'Properties',
+      content: (
+        <div className="space-y-2">
+          {/* Core metadata — Type & Status as semantic badges, then
                   dense key-value rows matching the mockup's layout. */}
-              <PropertyList>
-                <Property label="Type">
-                  <Badge variant="info" className="text-xs">
-                    {recordKindLabel(record.kind)}
-                  </Badge>
-                </Property>
-                <Property label="Status">
-                  <StatusBadge
-                    domain={statusDomainForKind(record.kind)}
-                    status={record.status}
-                  />
-                </Property>
-                <Property label="ID" mono>
-                  {record.identifier}
-                </Property>
-                {projectName ? (
-                  <Property label="Project">{projectName}</Property>
-                ) : null}
-                <Property label="Created">
-                  {fmtDateTime(record.createdAt)}
-                </Property>
-                <Property label="Updated">
-                  {fmtDateTime(record.updatedAt)}
-                </Property>
-                {ownerName ? (
-                  <Property label="Created by">{ownerName}</Property>
-                ) : null}
-              </PropertyList>
-
-              {/* Contributors + Review status — same key-value rhythm. */}
-              {contributors.length > 0 ? (
-                <div className="flex items-center justify-between gap-2">
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    Contributors
-                  </span>
-                  <ContributorAvatars contributors={contributors} />
-                </div>
-              ) : null}
-
-              <div className="flex items-center justify-between gap-2">
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  Notebook state
-                </span>
-                {lifecycle === 'Submitted' ? (
-                  <Badge variant="success" className="text-xs">
-                    Submitted — evidence frozen
-                  </Badge>
-                ) : lifecycle === 'In review' ? (
-                  <Badge variant="outline" className="text-xs">
-                    In review
-                  </Badge>
-                ) : lifecycle === 'Archived' ? (
-                  <Badge variant="outline" className="text-xs">
-                    Archived
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="text-xs">
-                    Working
-                  </Badge>
-                )}
-              </div>
-              {record.sourceNotebookTemplateVersionId ? (
-                <div className="flex items-center justify-between gap-2">
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    Template
-                  </span>
-                  <NotebookTemplateVersionLabel
-                    versionId={record.sourceNotebookTemplateVersionId}
-                  />
-                </div>
-              ) : null}
-
-              {/* Tags — coloured pills, always visible */}
-              <InspectorSection title="Tags">
-                {canEditMetadata ? (
-                  <NotebookTagsEditor record={record} />
-                ) : record.tags.length > 0 ? (
-                  <TagPills tags={record.tags} />
-                ) : (
-                  <p className="text-xs text-muted-foreground">No tags</p>
-                )}
-              </InspectorSection>
-
-              {/* Link to — snapshot pills only in historical mode */}
-              <InspectorSection title="Link to">
-                {isHistorical ? (
-                  linkCounts.length > 0 ? (
-                    <LinkToPills
-                      items={linkCounts.map((lc) => ({
-                        label: lc.label,
-                        count: lc.count,
-                      }))}
-                    />
-                  ) : (
-                    <EmptyHint>No linked records in this revision</EmptyHint>
-                  )
-                ) : linksLoading ? (
-                  <EmptyHint>Loading links…</EmptyHint>
-                ) : (
-                  <>
-                    <LinkToPills
-                      items={linkCounts.map((lc) => ({
-                        label: lc.label,
-                        count: lc.count,
-                      }))}
-                    />
-                    <ScientificRecordLinker
-                      sourceRecordId={record.id}
-                      links={evidenceLinks}
-                      hideSummaries
-                    />
-                  </>
-                )}
-              </InspectorSection>
-
-              <InspectorSection title="Files">
-                <FileList items={fileItems} />
-              </InspectorSection>
-            </div>
-          ),
-        },
-        {
-          id: 'history',
-          label: 'History',
-          content:
-            currentUserId && currentUserName ? (
-              <NotebookHistoryPanel
-                recordId={record.id}
-                currentUserId={currentUserId}
-                currentUserName={currentUserName}
-                projectId={projectId}
+          <PropertyList>
+            <Property label="Type">
+              <Badge variant="info" className="text-xs">
+                {recordKindLabel(record.kind)}
+              </Badge>
+            </Property>
+            <Property label="Status">
+              <StatusBadge
+                domain={statusDomainForKind(record.kind)}
+                status={record.status}
               />
+            </Property>
+            <Property label="ID" mono>
+              {record.identifier}
+            </Property>
+            {projectName ? (
+              <Property label="Project">{projectName}</Property>
+            ) : null}
+            <Property label="Created">{fmtDateTime(record.createdAt)}</Property>
+            <Property label="Updated">{fmtDateTime(record.updatedAt)}</Property>
+            {ownerName ? (
+              <Property label="Created by">{ownerName}</Property>
+            ) : null}
+          </PropertyList>
+
+          {/* Contributors + Review status — same key-value rhythm. */}
+          {contributors.length > 0 ? (
+            <div className="flex items-center justify-between gap-2">
+              <span className="shrink-0 text-xs text-muted-foreground">
+                Contributors
+              </span>
+              <ContributorAvatars contributors={contributors} />
+            </div>
+          ) : null}
+
+          <div className="flex items-center justify-between gap-2">
+            <span className="shrink-0 text-xs text-muted-foreground">
+              Notebook state
+            </span>
+            {lifecycle === 'Submitted' ? (
+              <Badge variant="success" className="text-xs">
+                Submitted — evidence frozen
+              </Badge>
+            ) : lifecycle === 'In review' ? (
+              <Badge variant="outline" className="text-xs">
+                In review
+              </Badge>
+            ) : lifecycle === 'Archived' ? (
+              <Badge variant="outline" className="text-xs">
+                Archived
+              </Badge>
             ) : (
-              <EmptyHint>Sign in to see Notebook history.</EmptyHint>
+              <Badge variant="outline" className="text-xs">
+                Working
+              </Badge>
+            )}
+          </div>
+          {record.sourceNotebookTemplateVersionId ? (
+            <div className="flex items-center justify-between gap-2">
+              <span className="shrink-0 text-xs text-muted-foreground">
+                Template
+              </span>
+              <NotebookTemplateVersionLabel
+                versionId={record.sourceNotebookTemplateVersionId}
+              />
+            </div>
+          ) : null}
+
+          {/* Tags — coloured pills, always visible */}
+          <InspectorSection title="Tags">
+            {canEditMetadata ? (
+              <NotebookTagsEditor record={record} />
+            ) : record.tags.length > 0 ? (
+              <TagPills tags={record.tags} />
+            ) : (
+              <p className="text-xs text-muted-foreground">No tags</p>
+            )}
+          </InspectorSection>
+
+          {/* Link to — snapshot pills only in historical mode */}
+          <InspectorSection title="Link to">
+            {isHistorical ? (
+              linkCounts.length > 0 ? (
+                <LinkToPills
+                  items={linkCounts.map((lc) => ({
+                    label: lc.label,
+                    count: lc.count,
+                  }))}
+                />
+              ) : (
+                <EmptyHint>No linked records in this revision</EmptyHint>
+              )
+            ) : linksLoading ? (
+              <EmptyHint>Loading links…</EmptyHint>
+            ) : (
+              <>
+                <LinkToPills
+                  items={linkCounts.map((lc) => ({
+                    label: lc.label,
+                    count: lc.count,
+                  }))}
+                />
+                <ScientificRecordLinker
+                  sourceRecordId={record.id}
+                  links={evidenceLinks}
+                  hideSummaries
+                />
+              </>
+            )}
+          </InspectorSection>
+
+          <InspectorSection title="Files">
+            <FileList items={fileItems} />
+          </InspectorSection>
+        </div>
+      ),
+    },
+    {
+      id: 'history',
+      label: 'History',
+      content:
+        currentUserId && currentUserName ? (
+          <NotebookHistoryPanel
+            recordId={record.id}
+            currentUserId={currentUserId}
+            currentUserName={currentUserName}
+            projectId={projectId}
+          />
+        ) : (
+          <EmptyHint>Sign in to see Notebook history.</EmptyHint>
+        ),
+    },
+    ...(isHistorical
+      ? []
+      : [
+          {
+            id: 'activity',
+            label: 'Activity',
+            content: activityLoading ? (
+              <EmptyHint>Loading activity…</EmptyHint>
+            ) : (
+              <ActivityFeed items={activityItems} />
             ),
-        },
-        ...(isHistorical
-          ? []
-          : [
-              {
-                id: 'activity',
-                label: 'Activity',
-                content: activityLoading ? (
-                  <EmptyHint>Loading activity…</EmptyHint>
-                ) : (
-                  <ActivityFeed items={activityItems} />
-                ),
-              },
-            ]),
+          },
+        ]),
   ]
 
   return (

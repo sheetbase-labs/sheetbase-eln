@@ -1,0 +1,175 @@
+/**
+ * SCI-03 analysis block preview tests. A frozen block reconstructs evidence
+ * from the pinned immutable Dataset Version (no live reads, no embedded
+ * rows); a live block loads the saved definition and canonical Dataset rows
+ * through the mocked data layer. No PostgREST required.
+ */
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import type { ReactNode } from 'react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+import { BlockPreview } from './block-preview'
+import type { FrozenAnalysis } from '#/lib/analysis-block'
+import type * as definitionsData from '#/lib/analysis-definitions-data'
+import { fetchAnalysisDefinition } from '#/lib/analysis-definitions-data'
+import type * as chartData from '#/lib/chart-data'
+import { fetchFrozenAnalysisRows } from '#/lib/chart-data'
+
+vi.mock('#/lib/analysis-definitions-data', async (importOriginal) => {
+  const actual = await importOriginal<typeof definitionsData>()
+  return {
+    ...actual,
+    fetchAnalysisDefinition: vi.fn(),
+  }
+})
+vi.mock('#/lib/chart-data', async (importOriginal) => {
+  const actual = await importOriginal<typeof chartData>()
+  return {
+    ...actual,
+    sciDataClient: {} as never,
+    fetchCanonicalDataset: vi.fn(),
+    fetchDatasetRows: vi.fn(),
+    fetchFrozenAnalysisRows: vi.fn(),
+  }
+})
+
+const mockFetchDefinition = vi.mocked(fetchAnalysisDefinition)
+const mockFetchFrozenRows = vi.mocked(fetchFrozenAnalysisRows)
+
+afterEach(() => {
+  cleanup()
+  vi.clearAllMocks()
+})
+
+function wrapper() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  return ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  )
+}
+
+function renderPreview(payload: unknown) {
+  render(
+    <BlockPreview block={{ id: 'b1', type: 'analysis', payload } as never} />,
+    { wrapper: wrapper() },
+  )
+}
+
+const FIELD_RECOVERY = 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa02'
+
+const FROZEN: FrozenAnalysis = {
+  revisionId: null,
+  frozenAt: '2026-08-23T10:00:00Z',
+  frozenByUserId: 'user-1',
+  definition: {
+    definitionVersion: 1,
+    kind: 'descriptive',
+    datasets: [{ datasetId: '11111111-1111-1111-8111-111111111111' }],
+    value: { fieldId: FIELD_RECOVERY },
+    group: null,
+  },
+  definitionName: 'Recovery summary',
+  definitionVersion: 2,
+  columns: [
+    {
+      fieldId: FIELD_RECOVERY,
+      label: 'Recovery (%)',
+      logicalType: 'decimal',
+    },
+  ],
+  datasetProvenance: [
+    {
+      datasetId: '11111111-1111-1111-8111-111111111111',
+      datasetVersionId: '22222222-2222-4222-8222-222222222222',
+      schemaVersionNumber: 3,
+      sourceDatasetRevision: 7,
+      rowCount: 2,
+      checksum: 'deadbeefdeadbeefdeadbeefdeadbeef',
+    },
+  ],
+}
+
+describe('analysis block preview', () => {
+  it('reconstructs the frozen result from the pinned Dataset Version', async () => {
+    mockFetchFrozenRows.mockResolvedValue({
+      rows: [{ [FIELD_RECOVERY]: 10 }, { [FIELD_RECOVERY]: 30 }],
+      totalCount: 2,
+      matchesProvenance: true,
+    })
+    renderPreview({ title: 'Recovery', definitionId: 'def-1', frozen: FROZEN })
+    expect(screen.getByText(/Frozen snapshot/i)).toBeTruthy()
+    // Pinned descriptive statistics for [10, 30]: mean 20, median 20.
+    await screen.findByRole('table')
+    expect(screen.getAllByText('20').length).toBeGreaterThan(0)
+    expect(screen.getByText(/deadbeef/)).toBeTruthy()
+    expect(mockFetchDefinition).not.toHaveBeenCalled()
+  })
+
+  it('surfaces an honest mismatch when provenance diverges', async () => {
+    mockFetchFrozenRows.mockResolvedValue({
+      rows: [],
+      totalCount: 5,
+      matchesProvenance: false,
+    })
+    renderPreview({ title: 'Mismatch', definitionId: 'def-1', frozen: FROZEN })
+    expect(await screen.findByRole('alert')).toBeTruthy()
+    expect(screen.getByText(/Evidence mismatch/i)).toBeTruthy()
+  })
+
+  it('renders a live block by loading the saved definition and dataset rows', async () => {
+    mockFetchDefinition.mockResolvedValue({
+      id: 'def-1',
+      workspace_id: 'ws',
+      owner_user_id: 'user-1',
+      name: 'Recovery summary',
+      version: 5,
+      definition: FROZEN.definition,
+      source_revisions: [],
+      created_at: '',
+      updated_at: '',
+    })
+    const { fetchCanonicalDataset, fetchDatasetRows } =
+      await import('#/lib/chart-data')
+    vi.mocked(fetchCanonicalDataset).mockResolvedValue({
+      datasetId: '11111111-1111-1111-8111-111111111111',
+      name: 'Stability',
+      workspaceId: 'ws',
+      schemaVersionId: 'sv-1',
+      schemaVersionNumber: 3,
+      revision: 1,
+      columns: [
+        {
+          id: FIELD_RECOVERY,
+          label: 'Recovery (%)',
+          logicalType: 'decimal',
+        },
+      ],
+    })
+    vi.mocked(fetchDatasetRows).mockResolvedValue({
+      rows: [{ [FIELD_RECOVERY]: 100 }, { [FIELD_RECOVERY]: 300 }],
+      totalCount: 2,
+      truncated: false,
+    })
+
+    renderPreview({ title: 'Recovery', definitionId: 'def-1' })
+    await waitFor(() =>
+      expect(screen.getByText(/Recovery summary · v5/)).toBeTruthy(),
+    )
+    await screen.findByRole('table')
+    expect(screen.getByText('mean')).toBeTruthy()
+  })
+
+  it('surfaces an honest state when the referenced definition is gone', async () => {
+    mockFetchDefinition.mockResolvedValue(null)
+    renderPreview({ title: 'Gone', definitionId: 'deleted-def' })
+    expect(await screen.findByRole('alert')).toBeTruthy()
+  })
+
+  it('prompts configuration for an empty draft', () => {
+    renderPreview({})
+    expect(screen.getByText(/No analysis configured/i)).toBeTruthy()
+  })
+})

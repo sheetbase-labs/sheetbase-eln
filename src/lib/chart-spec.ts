@@ -7,9 +7,10 @@
  * the DB trigger (`validate_scientific_block`) mirrors the structural rules,
  * and the renderer/preview consume the typed shapes.
  *
- * The spec is intentionally generic: it references stable datasets
- * (`scientific_tables`) by UUID, maps fields by `{ columnId, fieldName }`,
- * keeps filters/transformations/overlays explicit and reproducible, and
+ * The spec is intentionally generic: it references canonical Datasets
+ * (`api.datasets`, decision 0037) by UUID, binds fields by their stable
+ * `dataset_schema_version_fields.field_id`, keeps
+ * filters/transformations/overlays explicit and reproducible, and
  * confines chart-type-specific logic to the `type` discriminator. No
  * chart-type-specific or dataset-specific columns live in shared
  * infrastructure.
@@ -26,8 +27,32 @@ export const CHART_PALETTE = [
 
 export type ChartPaletteColor = (typeof CHART_PALETTE)[number]
 
-export const CHART_TYPES = ['line', 'scatter', 'bar'] as const
+export const CHART_TYPES = [
+  'line',
+  'scatter',
+  'bar',
+  'histogram',
+  'box',
+  'heatmap',
+] as const
 export type ChartType = (typeof CHART_TYPES)[number]
+
+/** Chart types plotted in Cartesian x/y coordinates. */
+export const CARTESIAN_CHART_TYPES: readonly ChartType[] = [
+  'line',
+  'scatter',
+  'bar',
+]
+
+/** Aggregations available to a heatmap cell. */
+export const HEATMAP_AGGREGATES = [
+  'count',
+  'mean',
+  'median',
+  'min',
+  'max',
+] as const
+export type HeatmapAggregate = (typeof HEATMAP_AGGREGATES)[number]
 
 export const AXIS_SCALES = ['linear', 'log'] as const
 export type AxisScale = (typeof AXIS_SCALES)[number]
@@ -50,21 +75,56 @@ export type TransformationKind = (typeof TRANSFORMATION_KINDS)[number]
 export const ERROR_BAR_BASES = ['sd', 'se', 'range', 'custom'] as const
 export type ErrorBarBasis = (typeof ERROR_BAR_BASES)[number]
 
+/** Distribution-display parameters for a histogram spec. */
+export interface HistogramParams {
+  /** Fixed bin count over the observed range (1–200). */
+  bins?: number
+  /** Explicit bin width over the observed range; wins over bins. */
+  binWidth?: number
+}
+
+/** Box-whisker display parameters. Whiskers extend to 1.5×IQR. */
+export interface BoxPlotParams {
+  showOutliers?: boolean
+}
+
+/** Two-dimensional density/intensity grid parameters. */
+export interface HeatmapParams {
+  xBins?: number
+  yBins?: number
+  /** Defaults to 'count' when absent (mirrors the validators). */
+  aggregate?: HeatmapAggregate
+  valueField: FieldBinding | null
+}
+
+/** A text label pinned at data coordinates (Cartesian types only). */
+export interface ChartAnnotation {
+  x: number
+  y: number
+  label: string
+}
+
+export const MAX_ANNOTATIONS = 12 as const
+export const MAX_FACETS = 12 as const
+export const HEATMAP_MIN_BINS = 2 as const
+export const HEATMAP_MAX_BINS = 100 as const
+export const HISTOGRAM_MAX_BINS = 200 as const
+
 export const CHART_SPEC_VERSION = 1 as const
 
-/** A binding to a column of a scientific table. columnId is authoritative. */
+/** A binding to a field of a Dataset Schema Version. fieldId is authoritative;
+ * labels and units are presentation metadata resolved from schema fields,
+ * never part of resolution. */
 export interface FieldBinding {
-  columnId: string
-  fieldName: string
+  fieldId: string
 }
 
 export interface DatasetRef {
-  tableId: string
+  datasetId: string
 }
 
 export interface ChartFilter {
-  columnId: string
-  fieldName: string
+  fieldId: string
   op: FilterOp
   value: unknown
 }
@@ -88,8 +148,7 @@ export interface SeriesDisplay {
 }
 
 export interface ErrorBarsOverlay {
-  columnId: string
-  fieldName: string
+  fieldId: string
   basis: ErrorBarBasis
   multiplier?: number
 }
@@ -98,7 +157,14 @@ export interface ChartDisplay {
   axes: { x: AxisDisplay; y: AxisDisplay }
   series: SeriesDisplay[]
   legend?: { visible: boolean }
-  annotations?: unknown[]
+  annotations?: ChartAnnotation[]
+}
+
+/** Type-specific, explicitly reproducible parameters. */
+export interface ChartTypeParams {
+  histogram?: HistogramParams
+  box?: BoxPlotParams
+  heatmap?: HeatmapParams
 }
 
 export interface ChartSpec {
@@ -111,9 +177,11 @@ export interface ChartSpec {
     series: FieldBinding | null
     color: FieldBinding | null
     size: FieldBinding | null
+    facet: FieldBinding | null
   }
   filters: ChartFilter[]
   transformations: Transformation[]
+  typeParams: ChartTypeParams
   display: ChartDisplay
   overlays: {
     errorBars: ErrorBarsOverlay | null
@@ -122,15 +190,15 @@ export interface ChartSpec {
 
 /** Frozen chart payload — see ADR 0029 §5. */
 export interface FrozenDatasetProvenance {
-  tableId: string
-  schemaVersion: number
+  datasetId: string
+  /** Numeric version of the pinned Dataset Schema Version. */
+  schemaVersionNumber: number
   rowCount: number
   checksum: string
 }
 
 export interface FrozenChartColumn {
-  columnId: string
-  fieldName: string
+  fieldId: string
   label: string
   unit?: unknown
   logicalType: string
@@ -141,6 +209,18 @@ export interface FrozenChartPoint {
   y: number | null
   yError?: number | null
   label?: string
+  /** Box-whisker statistics when the chart type is `box`. */
+  box?: FrozenBoxStats
+}
+
+export interface FrozenBoxStats {
+  lo: number
+  q1: number
+  median: number
+  q3: number
+  hi: number
+  outliers: number[]
+  n: number
 }
 
 export interface FrozenChartSeries {
@@ -153,6 +233,16 @@ export interface FrozenChartSeries {
 export interface FrozenChartData {
   columns: FrozenChartColumn[]
   rows: Record<string, unknown>[]
+  series: FrozenChartSeries[]
+  heatmap?: HeatmapMatrix | null
+  /** Per-facet panels for frozen faceted cartesian charts (SCI-01). */
+  facets?: FrozenFacet[] | null
+  /** Total distinct facet values before the MAX_FACETS cap. */
+  facetsTotal?: number
+}
+
+export interface FrozenFacet {
+  value: string
   series: FrozenChartSeries[]
 }
 
@@ -218,20 +308,12 @@ function validateFieldBinding(v: unknown, field: string): ChartSpecError[] {
         message: `${field} must be a field binding or null`,
       },
     ]
-  if (!isUuid(v.columnId))
+  if (!isUuid(v.fieldId))
     return [
       {
         code: 'invalid_value',
-        field: `${field}.columnId`,
-        message: `${field}.columnId must be a UUID`,
-      },
-    ]
-  if (!isNonEmptyString(v.fieldName))
-    return [
-      {
-        code: 'missing_field',
-        field: `${field}.fieldName`,
-        message: `${field}.fieldName is required`,
+        field: `${field}.fieldId`,
+        message: `${field}.fieldId must be a UUID`,
       },
     ]
   return []
@@ -265,6 +347,180 @@ function validateAxisDisplay(v: unknown, field: string): ChartSpecError[] {
       field: `${field}.unit`,
       message: `${field}.unit must be a string when present`,
     })
+  return errors
+}
+
+function validateBinCount(
+  v: unknown,
+  field: string,
+  max: number,
+): ChartSpecError[] {
+  if (v === undefined) return []
+  if (
+    typeof v !== 'number' ||
+    !Number.isInteger(v) ||
+    v < HEATMAP_MIN_BINS ||
+    v > max
+  )
+    return [
+      {
+        code: 'invalid_value',
+        field,
+        message: `${field} must be an integer between ${HEATMAP_MIN_BINS} and ${max}`,
+      },
+    ]
+  return []
+}
+
+/** Type-specific parameter validation; absent params mean documented defaults. */
+function validateTypeParams(
+  v: unknown,
+  type: ChartType | null,
+): ChartSpecError[] {
+  if (v === undefined || v === null) return []
+  if (!isObject(v))
+    return [
+      {
+        code: 'invalid_shape',
+        field: 'spec.typeParams',
+        message: 'spec.typeParams must be an object when present',
+      },
+    ]
+  const errors: ChartSpecError[] = []
+
+  if (v.histogram !== undefined && v.histogram !== null) {
+    if (!isObject(v.histogram)) {
+      errors.push({
+        code: 'invalid_shape',
+        field: 'spec.typeParams.histogram',
+        message: 'typeParams.histogram must be an object when present',
+      })
+    } else {
+      errors.push(
+        ...validateBinCount(
+          v.histogram.bins,
+          'spec.typeParams.histogram.bins',
+          HISTOGRAM_MAX_BINS,
+        ),
+      )
+      if (
+        v.histogram.binWidth !== undefined &&
+        (typeof v.histogram.binWidth !== 'number' ||
+          !Number.isFinite(v.histogram.binWidth) ||
+          v.histogram.binWidth <= 0)
+      )
+        errors.push({
+          code: 'invalid_value',
+          field: 'spec.typeParams.histogram.binWidth',
+          message: 'typeParams.histogram.binWidth must be a positive number',
+        })
+      if (v.histogram.bins !== undefined && v.histogram.binWidth !== undefined)
+        errors.push({
+          code: 'invalid_value',
+          field: 'spec.typeParams.histogram',
+          message:
+            'typeParams.histogram accepts bins or binWidth, not both — binWidth wins',
+        })
+    }
+    if (type !== null && type !== 'histogram')
+      errors.push({
+        code: 'invalid_value',
+        field: 'spec.typeParams.histogram',
+        message: `typeParams.histogram only applies to histogram charts (got ${type})`,
+      })
+  }
+
+  if (v.box !== undefined && v.box !== null) {
+    if (!isObject(v.box)) {
+      errors.push({
+        code: 'invalid_shape',
+        field: 'spec.typeParams.box',
+        message: 'typeParams.box must be an object when present',
+      })
+    } else if (
+      v.box.showOutliers !== undefined &&
+      typeof v.box.showOutliers !== 'boolean'
+    ) {
+      errors.push({
+        code: 'invalid_value',
+        field: 'spec.typeParams.box.showOutliers',
+        message: 'typeParams.box.showOutliers must be a boolean when present',
+      })
+    }
+    if (type !== null && type !== 'box')
+      errors.push({
+        code: 'invalid_value',
+        field: 'spec.typeParams.box',
+        message: `typeParams.box only applies to box charts (got ${type})`,
+      })
+  }
+
+  if (v.heatmap !== undefined && v.heatmap !== null) {
+    if (!isObject(v.heatmap)) {
+      errors.push({
+        code: 'invalid_shape',
+        field: 'spec.typeParams.heatmap',
+        message: 'typeParams.heatmap must be an object when present',
+      })
+    } else {
+      errors.push(
+        ...validateBinCount(
+          v.heatmap.xBins,
+          'spec.typeParams.heatmap.xBins',
+          HEATMAP_MAX_BINS,
+        ),
+      )
+      errors.push(
+        ...validateBinCount(
+          v.heatmap.yBins,
+          'spec.typeParams.heatmap.yBins',
+          HEATMAP_MAX_BINS,
+        ),
+      )
+      if (
+        v.heatmap.aggregate !== undefined &&
+        !isOneOf(v.heatmap.aggregate, HEATMAP_AGGREGATES)
+      )
+        errors.push({
+          code: 'invalid_value',
+          field: 'spec.typeParams.heatmap.aggregate',
+          message: `typeParams.heatmap.aggregate must be one of ${HEATMAP_AGGREGATES.join(', ')}`,
+        })
+      // A non-count aggregation over an unnamed value column is ambiguous;
+      // the y field is a grid dimension here, not the measured value.
+      const effectiveAggregate = isOneOf(
+        v.heatmap.aggregate,
+        HEATMAP_AGGREGATES,
+      )
+        ? v.heatmap.aggregate
+        : 'count'
+      if (
+        effectiveAggregate !== 'count' &&
+        (v.heatmap.valueField === null ||
+          v.heatmap.valueField === undefined ||
+          !isObject(v.heatmap.valueField))
+      )
+        errors.push({
+          code: 'missing_field',
+          field: 'spec.typeParams.heatmap.valueField',
+          message:
+            'typeParams.heatmap.valueField is required when aggregating anything but counts',
+        })
+      errors.push(
+        ...validateFieldBinding(
+          v.heatmap.valueField ?? null,
+          'spec.typeParams.heatmap.valueField',
+        ),
+      )
+    }
+    if (type !== null && type !== 'heatmap')
+      errors.push({
+        code: 'invalid_value',
+        field: 'spec.typeParams.heatmap',
+        message: `typeParams.heatmap only applies to heatmap charts (got ${type})`,
+      })
+  }
+
   return errors
 }
 
@@ -308,11 +564,11 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
     })
   else
     datasets.forEach((d, i) => {
-      if (!isObject(d) || !isUuid(d.tableId))
+      if (!isObject(d) || !isUuid(d.datasetId))
         errors.push({
           code: 'invalid_dataset_reference',
-          field: `spec.datasets[${i}].tableId`,
-          message: `datasets[${i}].tableId must be a UUID`,
+          field: `spec.datasets[${i}].datasetId`,
+          message: `datasets[${i}].datasetId must be a UUID`,
         })
     })
 
@@ -345,9 +601,32 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
     } else {
       errors.push(...validateFieldBinding(fields.x, 'spec.fields.x'))
     }
+    // Histograms and box plots measure fields.y directly; an x mapping has
+    // no meaning and would suggest a dependency that does not exist.
+    if (type === 'histogram' || type === 'box') {
+      if (fields.x !== null && fields.x !== undefined)
+        errors.push({
+          code: 'invalid_value',
+          field: 'spec.fields.x',
+          message: `spec.fields.x must be null for ${type} charts`,
+        })
+    }
+    // Heatmaps plot a value grid, not series; grouping and error overlays
+    // are rejected so the cell aggregation stays unambiguous.
+    if (type === 'heatmap') {
+      for (const key of ['series', 'color', 'size'] as const) {
+        if (fields[key] !== null && fields[key] !== undefined)
+          errors.push({
+            code: 'invalid_value',
+            field: `spec.fields.${key}`,
+            message: `spec.fields.${key} must be null for heatmap charts`,
+          })
+      }
+    }
     errors.push(...validateFieldBinding(fields.series, 'spec.fields.series'))
     errors.push(...validateFieldBinding(fields.color, 'spec.fields.color'))
     errors.push(...validateFieldBinding(fields.size, 'spec.fields.size'))
+    errors.push(...validateFieldBinding(fields.facet, 'spec.fields.facet'))
   }
 
   // filters
@@ -360,11 +639,11 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
     })
   else
     filters.forEach((f, i) => {
-      if (!isObject(f) || !isUuid(f.columnId) || !isNonEmptyString(f.fieldName))
+      if (!isObject(f) || !isUuid(f.fieldId))
         errors.push({
           code: 'invalid_value',
           field: `spec.filters[${i}]`,
-          message: `filters[${i}] must reference a column`,
+          message: `filters[${i}] must reference a dataset field`,
         })
       if (!isOneOf(f?.op, FILTER_OPS))
         errors.push({
@@ -397,6 +676,14 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
           message: `transformations[${i}].params must be an object`,
         })
     })
+
+  // Type-specific parameters.
+  errors.push(
+    ...validateTypeParams(
+      spec.typeParams,
+      isOneOf(spec.type, CHART_TYPES) ? spec.type : null,
+    ),
+  )
 
   // display
   const display = spec.display
@@ -448,6 +735,51 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
             message: `series[${i}].color must be from the approved palette`,
           })
       })
+    // Text annotations pinned at data coordinates (Cartesian types only).
+    const annotations = display.annotations
+    if (annotations !== undefined && annotations !== null) {
+      if (!Array.isArray(annotations))
+        errors.push({
+          code: 'invalid_shape',
+          field: 'spec.display.annotations',
+          message: 'spec.display.annotations must be an array when present',
+        })
+      else {
+        if (annotations.length > MAX_ANNOTATIONS)
+          errors.push({
+            code: 'invalid_value',
+            field: 'spec.display.annotations',
+            message: `spec.display.annotations supports at most ${MAX_ANNOTATIONS} entries`,
+          })
+        const type = isOneOf(spec.type, CHART_TYPES) ? spec.type : null
+        if (
+          type !== null &&
+          !CARTESIAN_CHART_TYPES.includes(type) &&
+          annotations.length > 0
+        )
+          errors.push({
+            code: 'invalid_value',
+            field: 'spec.display.annotations',
+            message: `annotations are not supported for ${type} charts`,
+          })
+        annotations.forEach((a, i) => {
+          if (
+            !isObject(a) ||
+            typeof a.x !== 'number' ||
+            !Number.isFinite(a.x) ||
+            typeof a.y !== 'number' ||
+            !Number.isFinite(a.y) ||
+            !isNonEmptyString(a.label)
+          )
+            errors.push({
+              code: 'invalid_value',
+              field: `spec.display.annotations[${i}]`,
+              message:
+                'annotations[i] must have finite numeric x/y and a non-empty label',
+            })
+        })
+      }
+    }
   }
 
   // overlays
@@ -462,15 +794,14 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
     const eb = overlays.errorBars
     if (
       !isObject(eb) ||
-      !isUuid(eb.columnId) ||
-      !isNonEmptyString(eb.fieldName) ||
+      !isUuid(eb.fieldId) ||
       !isOneOf(eb.basis, ERROR_BAR_BASES)
     )
       errors.push({
         code: 'invalid_value',
         field: 'spec.overlays.errorBars',
         message:
-          'overlays.errorBars must name a column and a basis (sd, se, range, custom)',
+          'overlays.errorBars must name a dataset field and a basis (sd, se, range, custom)',
       })
     if (isObject(eb) && eb.multiplier !== undefined) {
       if (
@@ -485,6 +816,19 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
         })
     }
   }
+
+  if (
+    isOneOf(spec.type, CHART_TYPES) &&
+    spec.type === 'heatmap' &&
+    isObject(overlays) &&
+    overlays.errorBars !== null &&
+    overlays.errorBars !== undefined
+  )
+    errors.push({
+      code: 'invalid_value',
+      field: 'spec.overlays.errorBars',
+      message: 'overlays.errorBars must be null for heatmap charts',
+    })
 
   return errors
 }
@@ -566,10 +910,12 @@ export function validateChartPayload(payload: unknown): ChartSpecError[] {
 // paths share one implementation and stay reproducible.
 // ---------------------------------------------------------------------------
 
-/** A column metadata shape sufficient for materialisation/rendering. */
+/**
+ * Column metadata sufficient for materialisation/rendering. `id` is the
+ * stable Dataset Schema Version `field_id`; runtime rows are keyed by it.
+ */
 export interface ChartColumn {
   id: string
-  fieldName: string
   label: string
   logicalType: string
   unit?: unknown
@@ -585,12 +931,66 @@ function toNumber(v: unknown): number | null {
   return null
 }
 
+/** Linear-interpolation quantile on an ascending-sorted array. Matches
+ * PostgreSQL `percentile_cont` so frozen snapshots and live rendering agree. */
+function quantileSorted(sorted: number[], p: number): number {
+  if (sorted.length === 0) return NaN
+  const h = (sorted.length - 1) * p
+  const lo = Math.floor(h)
+  const hi = Math.ceil(h)
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (h - lo)
+}
+
+/** Ascending numeric sort (codepoint-stable, environment-independent). */
+function sortNumbers(values: number[]): number[] {
+  return [...values].sort((a, b) => a - b)
+}
+
+/** Tukey box statistics with 1.5×IQR fences. */
+export function boxStats(values: number[]): FrozenBoxStats | null {
+  if (values.length === 0) return null
+  const sorted = sortNumbers(values)
+  const q1 = quantileSorted(sorted, 0.25)
+  const median = quantileSorted(sorted, 0.5)
+  const q3 = quantileSorted(sorted, 0.75)
+  const iqr = q3 - q1
+  const fenceLo = q1 - 1.5 * iqr
+  const fenceHi = q3 + 1.5 * iqr
+  const inliers = sorted.filter((v) => v >= fenceLo && v <= fenceHi)
+  const lo = inliers.length > 0 ? inliers[0] : sorted[0]
+  const hi =
+    inliers.length > 0 ? inliers[inliers.length - 1] : sorted[sorted.length - 1]
+  const outliers = sorted.filter((v) => v < fenceLo || v > fenceHi)
+  return { lo, q1, median, q3, hi, outliers, n: sorted.length }
+}
+
+/** Deterministic histogram bin edges covering [min, max] with `bins` cells. */
+function histogramEdges(min: number, max: number, bins: number): number[] {
+  if (min === max) {
+    // Degenerate range: a single-value distribution still gets one cell.
+    const pad = Math.abs(min) > 0 ? Math.abs(min) * 0.5 : 0.5
+    return [min - pad, min + pad]
+  }
+  const width = (max - min) / bins
+  return Array.from({ length: bins + 1 }, (_, i) => min + i * width)
+}
+
+function isCategoricalColumn(col: ChartColumn | null): boolean {
+  if (!col) return false
+  return ['category', 'text', 'boolean'].includes(col.logicalType)
+}
+
+/** Codepoint-order string sort so keys are deterministic across environments. */
+function compareStrings(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0
+}
+
 /** Apply a single filter predicate to a row. */
 export function rowMatchesFilter(
   row: Record<string, unknown>,
   filter: ChartFilter,
 ): boolean {
-  const value = row[filter.fieldName]
+  const value = row[filter.fieldId]
   const num = toNumber(value)
   switch (filter.op) {
     case 'eq':
@@ -634,22 +1034,16 @@ export function applyFilters(
 }
 
 /**
- * Resolve a column label/unit from metadata, falling back to fieldName.
- * Used by the renderer and the frozen snapshot.
+ * Resolve a binding to its column metadata. The stable `fieldId` is the only
+ * key that resolves — a missing or retired field surfaces as null so the
+ * chart reports `missing_field` instead of silently rebinding by label.
  */
 export function resolveColumn(
   columns: ChartColumn[],
-  binding: { columnId: string; fieldName: string } | null,
+  binding: { fieldId: string } | null,
 ): ChartColumn | null {
   if (!binding) return null
-  return (
-    columns.find(
-      (c) => c.id === binding.columnId && c.fieldName === binding.fieldName,
-    ) ??
-    columns.find((c) => c.id === binding.columnId) ??
-    columns.find((c) => c.fieldName === binding.fieldName) ??
-    null
-  )
+  return columns.find((c) => c.id === binding.fieldId) ?? null
 }
 
 /** Render-time state the chart surfaces honestly instead of blank axes. */
@@ -657,6 +1051,7 @@ export type ChartRenderState =
   | { kind: 'ok' }
   | { kind: 'missing_dataset' }
   | { kind: 'missing_field'; fields: string[] }
+  | { kind: 'dataset_too_large'; rowCount: number; limit: number }
   | { kind: 'empty_dataset' }
   | { kind: 'log_scale_invalid'; axis: 'x' | 'y'; invalidCount: number }
   | { kind: 'stale'; detail: string }
@@ -666,6 +1061,29 @@ export interface MaterialisedSeries {
   label: string
   color: string
   points: FrozenChartPoint[]
+  /**
+   * Render the series as a connected line even inside scatter plots — used
+   * by fitted-curve overlays so observations stay dots while the model
+   * draws as a smooth dashed curve.
+   */
+  renderAs?: 'line'
+}
+
+/** A heatmap cell: grid position plus the aggregated value and row count. */
+export interface HeatmapCell {
+  x: number
+  y: number
+  value: number | null
+  count: number
+}
+
+export interface HeatmapMatrix {
+  xLabels: string[]
+  yLabels: string[] | null
+  cells: HeatmapCell[]
+  min: number | null
+  max: number | null
+  aggregate: HeatmapAggregate
 }
 
 export interface MaterialisedChart {
@@ -677,6 +1095,12 @@ export interface MaterialisedChart {
   yLabel: string
   xUnit: string | undefined
   yUnit: string | undefined
+  /** Rows dropped because the mapped value was missing or non-numeric. */
+  droppedPoints: number
+  /** Shared histogram bin edges when the chart type is `histogram`. */
+  bins?: { edges: number[] }
+  /** Aggregated value grid when the chart type is `heatmap`. */
+  heatmap?: HeatmapMatrix
 }
 
 /**
@@ -702,10 +1126,8 @@ export function materialiseChart(
   if (spec.fields.series && !seriesCol) missing.push('series')
   if (spec.overlays.errorBars && !errorCol) missing.push('errorBars')
 
-  const xLabel =
-    xCol?.label ?? spec.display.axes.x.label ?? spec.fields.x?.fieldName ?? 'x'
-  const yLabel =
-    yCol?.label ?? spec.display.axes.y.label ?? spec.fields.y.fieldName
+  const xLabel = xCol?.label ?? spec.display.axes.x.label ?? 'x'
+  const yLabel = yCol?.label ?? spec.display.axes.y.label ?? 'y'
   const xUnit =
     typeof xCol?.unit === 'object' && xCol.unit && 'symbol' in xCol.unit
       ? String((xCol.unit as { symbol: string }).symbol)
@@ -725,6 +1147,7 @@ export function materialiseChart(
       yLabel,
       xUnit,
       yUnit,
+      droppedPoints: 0,
     }
 
   const filtered = applyFilters(rows, spec.filters)
@@ -738,13 +1161,54 @@ export function materialiseChart(
       yLabel,
       xUnit,
       yUnit,
+      droppedPoints: 0,
     }
+
+  const type = spec.type
+  // materialiseChart requires fields.y to resolve (checked above); narrow for
+  // the distribution paths that measure y directly.
+  if (!yCol)
+    return {
+      state: { kind: 'missing_field', fields: ['y'] },
+      columns,
+      rows: [],
+      series: [],
+      xLabel,
+      yLabel,
+      xUnit,
+      yUnit,
+      droppedPoints: 0,
+    }
+  if (type === 'histogram')
+    return materialiseHistogram(spec, yCol, filtered, {
+      columns,
+      xLabel,
+      yLabel,
+      xUnit,
+      yUnit,
+    })
+  if (type === 'box')
+    return materialiseBoxPlot(spec, yCol, filtered, {
+      columns,
+      xLabel,
+      yLabel,
+      xUnit,
+      yUnit,
+    })
+  if (type === 'heatmap')
+    return materialiseHeatmap(spec, columns, xCol, yCol, filtered, {
+      columns,
+      xLabel,
+      yLabel,
+      xUnit,
+      yUnit,
+    })
 
   // Build series groups.
   const groups = new Map<string, Record<string, unknown>[]>()
   const order: string[] = []
   for (const row of filtered) {
-    const key = seriesCol ? String(row[seriesCol.fieldName] ?? '—') : 'all'
+    const key = seriesCol ? String(row[seriesCol.id] ?? '—') : 'all'
     if (!groups.has(key)) {
       groups.set(key, [])
       order.push(key)
@@ -762,13 +1226,24 @@ export function materialiseChart(
     ).toLowerCase()
     const label = configured?.label ?? key
     const points: FrozenChartPoint[] = groups.get(key)!.map((row, rowIndex) => {
-      const x = xCol ? toNumber(row[xCol.fieldName]) : rowIndex + 1
-      const y = yCol ? toNumber(row[yCol.fieldName]) : null
-      const yError = errorCol ? toNumber(row[errorCol.fieldName]) : undefined
+      const x = xCol ? toNumber(row[xCol.id]) : rowIndex + 1
+      const y = toNumber(row[yCol.id])
+      const yError = errorCol ? toNumber(row[errorCol.id]) : undefined
       return { x, y, yError: yError ?? null, label: key }
     })
     return { identifier: key, label, color, points }
   })
+
+  // Rows whose mapped value is missing or non-numeric are dropped from the
+  // plot (recharts skips null points); the count is surfaced so silent gaps
+  // never masquerade as data.
+  const droppedPoints = series.reduce(
+    (acc, s) =>
+      acc +
+      s.points.filter((p) => p.y === null || (spec.fields.x && p.x === null))
+        .length,
+    0,
+  )
 
   // Log-scale validation: a log axis with non-positive values is invalid.
   for (const axis of ['x', 'y'] as const) {
@@ -794,6 +1269,7 @@ export function materialiseChart(
         yLabel,
         xUnit,
         yUnit,
+        droppedPoints: 0,
       }
   }
 
@@ -806,6 +1282,375 @@ export function materialiseChart(
     yLabel,
     xUnit,
     yUnit,
+    droppedPoints,
+  }
+}
+
+interface MaterialiseMeta {
+  columns: ChartColumn[]
+  xLabel: string
+  yLabel: string
+  xUnit: string | undefined
+  yUnit: string | undefined
+}
+
+function paletteFor(
+  spec: ChartSpec,
+  key: string,
+  index: number,
+): { color: string; label: string } {
+  const configured = spec.display.series.find((s) => s.identifier === key)
+  return {
+    color: (
+      configured?.color ?? CHART_PALETTE[index % CHART_PALETTE.length]
+    ).toLowerCase(),
+    label: configured?.label ?? key,
+  }
+}
+
+/**
+ * Histogram: shared bin edges across all groups (so overlaid distributions
+ * stay comparable), per-group counts per bin. Non-numeric values are dropped
+ * and counted, never silently binned as zero.
+ */
+function materialiseHistogram(
+  spec: ChartSpec,
+  yCol: ChartColumn,
+  filtered: Record<string, unknown>[],
+  meta: MaterialiseMeta,
+): MaterialisedChart {
+  const seriesCol = resolveColumn(meta.columns, spec.fields.series)
+  const params = spec.typeParams.histogram ?? {}
+  const numeric = filtered
+    .map((row) => toNumber(row[yCol.id]))
+    .filter((v): v is number => v !== null)
+  if (numeric.length === 0)
+    return {
+      state: { kind: 'ok' },
+      ...meta,
+      rows: filtered,
+      series: [],
+      droppedPoints: filtered.length,
+    }
+
+  let edges: number[]
+  if (params.binWidth !== undefined && params.binWidth > 0) {
+    const min = Math.min(...numeric)
+    const max = Math.max(...numeric)
+    const count = Math.max(1, Math.ceil((max - min) / params.binWidth))
+    edges = histogramEdges(min, max + params.binWidth * 0.0001, count)
+  } else {
+    edges = histogramEdges(
+      Math.min(...numeric),
+      Math.max(...numeric),
+      params.bins ?? 10,
+    )
+  }
+  const width = edges[1] - edges[0]
+
+  const groups = new Map<string, Record<string, unknown>[]>()
+  const order: string[] = []
+  for (const row of filtered) {
+    const key = seriesCol ? String(row[seriesCol.id] ?? '—') : 'all'
+    if (!groups.has(key)) {
+      groups.set(key, [])
+      order.push(key)
+    }
+    groups.get(key)!.push(row)
+  }
+
+  let droppedPoints = 0
+  const series: MaterialisedSeries[] = order.map((key, i) => {
+    const { color, label } = paletteFor(spec, key, i)
+    const points: FrozenChartPoint[] = []
+    for (let b = 0; b < edges.length - 1; b++) {
+      points.push({ x: edges[b], y: 0, yError: null, label: key })
+    }
+    for (const row of groups.get(key)!) {
+      const v = toNumber(row[yCol.id])
+      if (v === null) {
+        droppedPoints++
+        continue
+      }
+      let idx = Math.floor((v - edges[0]) / width)
+      if (idx >= edges.length - 1) idx = edges.length - 2 // last bin is inclusive
+      if (idx < 0) idx = 0
+      points[idx].y = (points[idx].y as number) + 1
+    }
+    return { identifier: key, label, color, points }
+  })
+
+  return {
+    state: { kind: 'ok' },
+    ...meta,
+    rows: filtered,
+    series,
+    droppedPoints,
+    bins: { edges },
+  }
+}
+
+/**
+ * Box plot: one Tukey box per group over fields.y. The point's `x` is the
+ * group position; the box statistics ride on the point so frozen snapshots
+ * and live rendering share one shape.
+ */
+function materialiseBoxPlot(
+  spec: ChartSpec,
+  yCol: ChartColumn,
+  filtered: Record<string, unknown>[],
+  meta: MaterialiseMeta,
+): MaterialisedChart {
+  const seriesCol = resolveColumn(meta.columns, spec.fields.series)
+  const groups = new Map<string, Record<string, unknown>[]>()
+  const order: string[] = []
+  for (const row of filtered) {
+    const key = seriesCol ? String(row[seriesCol.id] ?? '—') : 'all'
+    if (!groups.has(key)) {
+      groups.set(key, [])
+      order.push(key)
+    }
+    groups.get(key)!.push(row)
+  }
+
+  let droppedPoints = 0
+  const series: MaterialisedSeries[] = order.map((key, i) => {
+    const { color, label } = paletteFor(spec, key, i)
+    const values: number[] = []
+    for (const row of groups.get(key)!) {
+      const v = toNumber(row[yCol.id])
+      if (v === null) droppedPoints++
+      else values.push(v)
+    }
+    const stats = boxStats(values)
+    const points: FrozenChartPoint[] =
+      stats === null
+        ? []
+        : [
+            {
+              x: i + 1,
+              y: stats.median,
+              yError: null,
+              label: key,
+              box: stats,
+            },
+          ]
+    return { identifier: key, label, color, points }
+  })
+
+  return {
+    state: { kind: 'ok' },
+    ...meta,
+    rows: filtered,
+    series: series.filter((s) => s.points.length > 0),
+    droppedPoints,
+  }
+}
+
+/**
+ * Heatmap: aggregate rows into an x×y grid. Categorical dimensions use their
+ * distinct sorted values; numeric dimensions are binned. Cell values come
+ * from typeParams.heatmap.aggregate over valueField (defaults documented in
+ * the validator); `count` needs no value column.
+ */
+function materialiseHeatmap(
+  spec: ChartSpec,
+  columns: ChartColumn[],
+  xCol: ChartColumn | null,
+  yCol: ChartColumn | null,
+  filtered: Record<string, unknown>[],
+  meta: MaterialiseMeta,
+): MaterialisedChart {
+  const params = spec.typeParams.heatmap ?? {
+    aggregate: 'count' as HeatmapAggregate,
+    valueField: null,
+  }
+  const aggregate: HeatmapAggregate = params.aggregate ?? 'count'
+  const valueCol =
+    aggregate === 'count' ? null : resolveColumn(columns, params.valueField)
+  if (aggregate !== 'count' && !valueCol)
+    return {
+      state: { kind: 'missing_field', fields: ['value'] },
+      ...meta,
+      rows: [],
+      series: [],
+      droppedPoints: 0,
+    }
+
+  interface Dim {
+    labels: string[]
+    indexOf: (value: number | string | null) => number
+    categorical: boolean
+  }
+
+  function buildDim(col: ChartColumn, bins: number): Dim {
+    if (isCategoricalColumn(col)) {
+      const labels = Array.from(
+        new Set(filtered.map((r) => String(r[col.id] ?? '—'))),
+      ).sort(compareStrings)
+      const index = new Map(labels.map((l, i) => [l, i]))
+      return {
+        labels,
+        categorical: true,
+        indexOf: (v) => index.get(String(v ?? '—')) ?? -1,
+      }
+    }
+    const numeric = filtered
+      .map((r) => toNumber(r[col.id]))
+      .filter((v): v is number => v !== null)
+    const min = numeric.length ? Math.min(...numeric) : 0
+    const max = numeric.length ? Math.max(...numeric) : 1
+    const edges =
+      min === max ? [min - 0.5, max + 0.5] : histogramEdges(min, max, bins)
+    const width = edges[1] - edges[0]
+    const labels = Array.from({ length: edges.length - 1 }, (_, i) =>
+      formatScientific(edges[i]),
+    )
+    return {
+      labels,
+      categorical: false,
+      // Pure: bin assignment has no side effects. Omission is counted once
+      // per row in the aggregation pass below, never per dimension.
+      indexOf: (v) => {
+        if (typeof v !== 'number') return -1
+        let idx = Math.floor((v - edges[0]) / width)
+        if (idx >= labels.length) idx = labels.length - 1
+        return idx
+      },
+    }
+  }
+
+  const xDim = buildDim(xCol!, params.xBins ?? 10)
+  const yDim = buildDim(yCol!, params.yBins ?? 10)
+
+  const cellMap = new Map<
+    string,
+    { sum: number; n: number; count: number; values: number[] }
+  >()
+  let omittedRows = 0
+  for (const row of filtered) {
+    const xv = xDim.categorical
+      ? String(row[xCol!.id] ?? '—')
+      : toNumber(row[xCol!.id])
+    const yv = yDim.categorical
+      ? String(row[yCol!.id] ?? '—')
+      : toNumber(row[yCol!.id])
+    const xi = xDim.indexOf(xv)
+    const yi = yDim.indexOf(yv)
+    // One row invalid in either dimension is one omitted row — never summed
+    // across dimensions.
+    if (xi < 0 || yi < 0) {
+      omittedRows++
+      continue
+    }
+    const k = `${xi},${yi}`
+    const cell = cellMap.get(k) ?? { sum: 0, n: 0, count: 0, values: [] }
+    cell.count++
+    if (valueCol) {
+      const v = toNumber(row[valueCol.id])
+      if (v !== null) {
+        cell.sum += v
+        cell.n++
+        cell.values.push(v)
+      }
+    }
+    cellMap.set(k, cell)
+  }
+
+  const cells: HeatmapCell[] = []
+  let min: number | null = null
+  let max: number | null = null
+  for (const [k, cell] of cellMap) {
+    const [xs, ys] = k.split(',')
+    let value: number | null
+    switch (aggregate) {
+      case 'count':
+        value = cell.count
+        break
+      case 'mean':
+        value = cell.n > 0 ? cell.sum / cell.n : null
+        break
+      case 'median':
+        value =
+          cell.n > 0 ? quantileSorted(sortNumbers(cell.values), 0.5) : null
+        break
+      case 'min':
+        value = cell.n > 0 ? Math.min(...cell.values) : null
+        break
+      case 'max':
+        value = cell.n > 0 ? Math.max(...cell.values) : null
+        break
+    }
+    cells.push({ x: Number(xs), y: Number(ys), value, count: cell.count })
+    if (value !== null) {
+      min = min === null ? value : Math.min(min, value)
+      max = max === null ? value : Math.max(max, value)
+    }
+  }
+  cells.sort((a, b) => a.x - b.x || a.y - b.y)
+
+  return {
+    state: { kind: 'ok' },
+    ...meta,
+    rows: filtered,
+    series: [],
+    droppedPoints: omittedRows,
+    heatmap: {
+      xLabels: xDim.labels,
+      yLabels: yDim.labels,
+      cells,
+      min,
+      max,
+      aggregate,
+    },
+  }
+}
+
+export interface FacetedChart {
+  /** The facet column value this panel plots. */
+  value: string
+  chart: MaterialisedChart
+}
+
+export interface FacetedResult {
+  panels: FacetedChart[]
+  /** Total distinct facet values before the MAX_FACETS cap. */
+  total: number
+}
+
+/**
+ * Split a chart into small multiples by a facet column. Each panel runs the
+ * same spec minus the facet mapping over its partition of the filtered rows.
+ * Panels are ordered by codepoint-sorted value and capped at MAX_FACETS;
+ * `total` lets the UI surface truncation honestly.
+ */
+export function materialiseFacetedCharts(
+  spec: ChartSpec,
+  columns: ChartColumn[],
+  rows: Record<string, unknown>[],
+): FacetedResult {
+  const facetCol = resolveColumn(columns, spec.fields.facet)
+  if (!facetCol) return { panels: [], total: 0 }
+  const partitioned = applyFilters(rows, spec.filters)
+  const groups = new Map<string, Record<string, unknown>[]>()
+  for (const row of partitioned) {
+    const key = String(row[facetCol.id] ?? '—')
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key)!.push(row)
+  }
+  const keys = Array.from(groups.keys()).sort(compareStrings)
+  const { facet: _facet, ...restFields } = spec.fields
+  const panelSpec: ChartSpec = {
+    ...spec,
+    filters: [],
+    fields: { ...restFields, facet: null },
+  }
+  return {
+    panels: keys.slice(0, MAX_FACETS).map((value) => ({
+      value,
+      chart: materialiseChart(panelSpec, columns, groups.get(value)!),
+    })),
+    total: keys.length,
   }
 }
 

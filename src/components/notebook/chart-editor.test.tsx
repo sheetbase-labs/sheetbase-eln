@@ -9,55 +9,52 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { Mock } from 'vitest'
 
 import { BlockEditor } from './block-editor'
 import type { NotebookBlock } from '#/lib/notebook-data'
-import type * as scientificSheetData from '#/lib/scientific-sheet-data'
+import type * as chartData from '#/lib/chart-data'
 import {
-  fetchAllScientificRows,
-  fetchScientificCalculationResults,
-  fetchScientificTable,
-  scientificDataClient,
-} from '#/lib/scientific-sheet-data'
-import type {
-  ScientificColumnWire,
-  ScientificRowWire,
-  ScientificTableWire,
-} from '#/lib/scientific-sheet-data'
+  fetchCanonicalDataset,
+  fetchDatasetRows,
+  useLiveChartDataset,
+} from '#/lib/chart-data'
+import { fetchDatasetSummaries } from '#/lib/dataset-explorer-data'
+import type { CanonicalDatasetSource } from '#/lib/chart-data'
+import type * as explorerData from '#/lib/dataset-explorer-data'
 import { CHART_PALETTE } from '#/lib/chart-spec'
 import type { ChartSpec } from '#/lib/chart-spec'
 
-vi.mock('#/lib/scientific-sheet-data', async (importOriginal) => {
-  const actual = await importOriginal<typeof scientificSheetData>()
+vi.mock('#/lib/chart-data', async (importOriginal) => {
+  const actual = await importOriginal<typeof chartData>()
   return {
     ...actual,
-    fetchScientificTable: vi.fn(),
-    fetchAllScientificRows: vi.fn(),
-    fetchScientificCalculationResults: vi.fn(),
-    scientificDataClient: {
-      ...actual.scientificDataClient,
-      list: vi.fn(),
-    },
+    sciDataClient: {} as never,
+    fetchCanonicalDataset: vi.fn(),
+    fetchDatasetRows: vi.fn(),
+    useLiveChartDataset: vi.fn(() => ({
+      datasetQuery: { data: null, isLoading: false },
+    })),
   }
 })
 
-const mockFetchTable = vi.mocked(fetchScientificTable)
-const mockFetchRows = vi.mocked(fetchAllScientificRows)
-const mockFetchCalc = vi.mocked(fetchScientificCalculationResults)
-const mockList = vi.mocked(scientificDataClient.list)
+const mockUseLive = useLiveChartDataset as unknown as Mock
+vi.mock('#/lib/dataset-explorer-data', async (importOriginal) => {
+  const actual = await importOriginal<typeof explorerData>()
+  return {
+    ...actual,
+    fetchDatasetSummaries: vi.fn(),
+  }
+})
+
+const mockFetchDataset = vi.mocked(fetchCanonicalDataset)
+const mockFetchRows = vi.mocked(fetchDatasetRows)
+const mockSummaries = vi.mocked(fetchDatasetSummaries)
 
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
-})
-
-beforeAll(() => {
-  globalThis.ResizeObserver = class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  }
 })
 
 function renderWithQuery(ui: ReactNode) {
@@ -69,105 +66,61 @@ function renderWithQuery(ui: ReactNode) {
 
 const TABLE_ID = '00000000-0000-4000-8000-000000000170'
 
-function makeColumns(): ScientificColumnWire[] {
-  return [
-    {
-      id: 'c1',
-      field_name: 'col_time',
-      label: 'Time (days)',
-      display_order: 0,
-      logical_type: 'decimal',
-      nullable: true,
-      unit: { symbol: 'd' },
-      validation: {},
-      width: null,
-      options: [],
-    },
-    {
-      id: 'c2',
-      field_name: 'col_titer',
-      label: 'Log titer',
-      display_order: 1,
-      logical_type: 'decimal',
-      nullable: true,
-      unit: { symbol: 'log₁₀' },
-      validation: {},
-      width: null,
-      options: [],
-    },
-    {
-      id: 'c3',
-      field_name: 'col_condition',
-      label: 'Condition',
-      display_order: 2,
-      logical_type: 'text',
-      nullable: true,
-      unit: null,
-      validation: {},
-      width: null,
-      options: [],
-    },
-  ]
-}
-
-function makeTable(id = TABLE_ID): ScientificTableWire {
+function makeSource(id = TABLE_ID): CanonicalDatasetSource {
   return {
-    id,
-    resource_name: 'sheet_testrows1234567890123456',
+    datasetId: id,
     name: 'Stability readings (qPCR)',
-    schema_version: 1,
-    lifecycle: 'active',
-    columns: makeColumns(),
+    workspaceId: 'ws-1',
+    schemaVersionId: '00000000-0000-4000-8000-00000000fffe',
+    schemaVersionNumber: 1,
+    revision: 1,
+    columns: [
+      {
+        id: 'c1',
+        label: 'Time (days)',
+        logicalType: 'decimal',
+        unit: { symbol: 'd' },
+      },
+      {
+        id: 'c2',
+        label: 'Log titer',
+        logicalType: 'decimal',
+        unit: { symbol: 'log₁₀' },
+      },
+      { id: 'c3', label: 'Condition', logicalType: 'text' },
+    ],
   }
 }
 
-function makeRows(): ScientificRowWire[] {
-  return [
-    {
-      id: 'r1',
-      version: 1,
-      col_time: 0,
-      col_titer: 7.2,
-      col_condition: '4 °C',
-    },
-    {
-      id: 'r2',
-      version: 1,
-      col_time: 28,
-      col_titer: 5.9,
-      col_condition: '4 °C',
-    },
-    {
-      id: 'r3',
-      version: 1,
-      col_time: 0,
-      col_titer: 7.1,
-      col_condition: '−20 °C',
-    },
-    {
-      id: 'r4',
-      version: 1,
-      col_time: 28,
-      col_titer: 6.4,
-      col_condition: '−20 °C',
-    },
-  ]
+function makeRows() {
+  return {
+    rows: [
+      { c1: 0, c2: 7.2, c3: '4 °C' },
+      { c1: 28, c2: 5.9, c3: '4 °C' },
+      { c1: 0, c2: 7.1, c3: '−20 °C' },
+      { c1: 28, c2: 6.4, c3: '−20 °C' },
+    ],
+    totalCount: 4,
+    truncated: false,
+  }
 }
 
 function lineSpec(overrides: Partial<ChartSpec> = {}): ChartSpec {
   return {
     specVersion: 1,
     type: 'line',
-    datasets: [{ tableId: TABLE_ID }],
+    datasets: [{ datasetId: TABLE_ID }],
     fields: {
-      x: { columnId: 'c1', fieldName: 'col_time' },
-      y: { columnId: 'c2', fieldName: 'col_titer' },
-      series: { columnId: 'c3', fieldName: 'col_condition' },
+      x: { fieldId: 'c1' },
+      y: { fieldId: 'c2' },
+      series: { fieldId: 'c3' },
       color: null,
       size: null,
+      facet: null,
     },
     filters: [],
     transformations: [],
+    typeParams: {},
     display: {
       axes: {
         x: { label: 'Time (days)', scale: 'linear', unit: 'd' },
@@ -196,16 +149,44 @@ function makeBlock(payload: Record<string, unknown>): NotebookBlock {
   }
 }
 
+function makeResolved() {
+  const rows = makeRows()
+  return {
+    source: makeSource(),
+    rows: rows.rows,
+    truncated: false,
+    totalCount: rows.totalCount,
+  }
+}
+
 function mockOkDataset() {
-  mockFetchTable.mockResolvedValue(makeTable())
+  mockFetchDataset.mockResolvedValue(makeSource())
   mockFetchRows.mockResolvedValue(makeRows())
-  mockFetchCalc.mockResolvedValue([])
+  // The hook is mocked at its boundary: BlockEditor renders straight from
+  // this resolved dataset, so no network-shaped client is exercised.
+  mockUseLive.mockImplementation(() => ({
+    datasetQuery: { data: makeResolved(), isLoading: false },
+  }))
 }
 
 function mockTablesList() {
-  mockList.mockResolvedValue([
-    { id: TABLE_ID, name: 'Stability readings (qPCR)' },
-  ])
+  mockSummaries.mockResolvedValue([
+    {
+      id: TABLE_ID,
+      name: 'Stability readings (qPCR)',
+      resource_name: '',
+      workspace_id: 'ws-1',
+      schema_version_id: '00000000-0000-4000-8000-00000000fffe',
+      schema_version_number: 1,
+      revision: 1,
+      columns: makeSource().columns.map((c) => ({
+        id: c.id,
+        label: c.label,
+        logical_type: c.logicalType,
+        unit: c.unit,
+      })),
+    },
+  ] as never)
 }
 
 const okSave = vi.fn(async (_payload: Record<string, unknown>) => ({
@@ -265,12 +246,12 @@ describe('BlockEditor — chart: field mapping controls', () => {
     // Wait for column options to load.
     await waitFor(() => {
       const sel = screen.getByLabelText('X field')
-      expect((sel as HTMLSelectElement).innerHTML).toContain('col_condition')
+      expect((sel as HTMLSelectElement).innerHTML).toContain('c3')
     })
     const xSelect = screen.getByLabelText<HTMLSelectElement>('X field')
     expect(xSelect.value).toContain('c1')
-    await user.selectOptions(xSelect, 'c3|col_condition')
-    expect(xSelect.value).toBe('c3|col_condition')
+    await user.selectOptions(xSelect, 'c3')
+    expect(xSelect.value).toBe('c3')
   })
 
   it('changes the Y axis scale select to log', async () => {
@@ -329,7 +310,7 @@ describe('BlockEditor — chart: freeze and unfreeze lifecycle', () => {
             frozenByUserId: 'u1',
             datasetProvenance: [
               {
-                tableId: TABLE_ID,
+                datasetId: TABLE_ID,
                 schemaVersion: 1,
                 rowCount: 4,
                 checksum: 'abc12345',
@@ -338,15 +319,13 @@ describe('BlockEditor — chart: freeze and unfreeze lifecycle', () => {
             data: {
               columns: [
                 {
-                  columnId: 'c1',
-                  fieldName: 'col_time',
+                  fieldId: 'c1',
                   label: 'Time (days)',
                   logicalType: 'decimal',
                   unit: { symbol: 'd' },
                 },
                 {
-                  columnId: 'c2',
-                  fieldName: 'col_titer',
+                  fieldId: 'c2',
                   label: 'Log titer',
                   logicalType: 'decimal',
                   unit: { symbol: 'log₁₀' },
@@ -397,7 +376,7 @@ describe('BlockEditor — chart: freeze and unfreeze lifecycle', () => {
             frozenByUserId: 'u1',
             datasetProvenance: [
               {
-                tableId: TABLE_ID,
+                datasetId: TABLE_ID,
                 schemaVersion: 1,
                 rowCount: 4,
                 checksum: 'abc12345',
@@ -406,15 +385,13 @@ describe('BlockEditor — chart: freeze and unfreeze lifecycle', () => {
             data: {
               columns: [
                 {
-                  columnId: 'c1',
-                  fieldName: 'col_time',
+                  fieldId: 'c1',
                   label: 'Time (days)',
                   logicalType: 'decimal',
                   unit: { symbol: 'd' },
                 },
                 {
-                  columnId: 'c2',
-                  fieldName: 'col_titer',
+                  fieldId: 'c2',
                   label: 'Log titer',
                   logicalType: 'decimal',
                   unit: { symbol: 'log₁₀' },

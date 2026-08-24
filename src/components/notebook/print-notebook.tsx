@@ -5,11 +5,7 @@ import { DataClientError } from '#/lib/data-client'
 import { downloadRevisionEvidence } from '#/lib/notebook-experience'
 import { sign002DataClient } from '#/lib/sign-002'
 
-export function PrintNotebookButton({
-  className,
-}: {
-  className?: string
-}) {
+export function PrintNotebookButton({ className }: { className?: string }) {
   return (
     <Button
       type="button"

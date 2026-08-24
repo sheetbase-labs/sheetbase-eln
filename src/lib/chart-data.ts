@@ -1,127 +1,261 @@
 /**
- * SCI-004 — Chart dataset resolver and lifecycle helpers (decision 0029).
+ * SCI data layer — bridges ChartSpec / analysis definitions to canonical
+ * Datasets (decision 0037).
  *
- * Bridges a `ChartSpec` to the stable scientific-table dataset it references:
- * fetches the table metadata + rows through the same `scientific-sheet-data`
- * client the sheet block uses, materialises the series via the pure
- * `materialiseChart` in `chart-spec`, and detects stale HyperFormula
- * calculations so a live chart never silently plots stale numbers.
+ * Every read goes through CORE-02 RPCs over the same-origin `/api/db`
+ * boundary: `query_dataset_rows` for live rows and
+ * `query_dataset_version_rows` for immutable Version evidence. Rows come
+ * back keyed by stable Dataset Schema Version `field_id`, so runtime row
+ * keys are exactly the `ChartColumn.id` values specs bind to. No generated
+ * physical resource and no legacy scientific-table surface is consulted.
  *
- * Frozen charts skip resolution: their `FrozenChart.data` is the
- * authoritative materialised snapshot, so `materialiseFrozenChart` returns
- * it directly with state `ok`.
+ * Client-side materialisation caps at SCI_ROW_HARD_LIMIT rows; a larger
+ * dataset surfaces an honest `dataset_too_large` state instead of silent
+ * truncation. Server-side strategies remain future work (roadmap SCI).
  *
- * Lifecycle helpers (`freezeChart`, `unfreezeChart`, `bindChartRevision`)
- * are thin typed wrappers around the transactional SECURITY DEFINER RPCs so
- * the UI and REST paths share one mutation surface and durable event/audit
- * attribution stays canonical.
+ * Lifecycle helpers (`freezeChart`, `unfreezeChart`) are thin typed
+ * wrappers around the transactional SECURITY DEFINER RPCs. Binding frozen
+ * evidence to submitted revisions happens server-side inside submission,
+ * not through client calls.
  */
 import { useQuery } from '@tanstack/react-query'
 
-import type { DataClient } from '#/lib/data-client'
-import {
-  scientificDataClient,
-  fetchAllScientificRows,
-  fetchScientificCalculationResults,
-  fetchScientificTable,
-  scientificQueryKeys,
-} from '#/lib/scientific-sheet-data'
-import type {
-  FormulaResultWire,
-  ScientificColumnWire,
-  ScientificRowWire,
-  ScientificTableWire,
-} from '#/lib/scientific-sheet-data'
-import { toBlock } from '#/lib/notebook-data'
-import type { BlockWire, NotebookBlock } from '#/lib/notebook-data'
-import { materialiseChart } from '#/lib/chart-spec'
+import { createDataClient } from './data-client'
+import type { DataClient } from './data-client'
+import { queryDatasetVersionRows } from './dataset-product'
+import { toBlock } from './notebook-data'
+import type { BlockWire, NotebookBlock } from './notebook-data'
+import { materialiseChart } from './chart-spec'
 import type {
   ChartColumn,
   ChartSpec,
+  FacetedChart,
   FrozenChart,
   MaterialisedChart,
-} from '#/lib/chart-spec'
+} from './chart-spec'
+
+/** Hard ceiling on rows fetched client-side for live/frozen rendering. */
+export const SCI_ROW_HARD_LIMIT = 5000
+
+/** query_dataset_rows / query_dataset_version_rows accept ≤1000 per call. */
+const ROW_PAGE_SIZE = 1000
+
+export const sciDataClient = createDataClient()
 
 export const chartQueryKeys = {
-  dataset: (tableId: string) => ['chart-dataset', tableId] as const,
-  calcResults: (tableId: string) => ['chart-calc-results', tableId] as const,
+  dataset: (datasetId: string) => ['sci-dataset', datasetId] as const,
+  versionRows: (datasetVersionId: string) =>
+    ['sci-dataset-version-rows', datasetVersionId] as const,
 }
 
+interface DatasetResourceWire {
+  id: string
+  workspace_id: string
+  schema_version_id: string
+  name: string
+  lifecycle: 'active' | 'archived'
+  revision: number | string
+}
+
+interface SchemaVersionNumberWire {
+  id: string
+  version: number
+}
+
+interface DatasetVersionFieldWire {
+  field_id: string
+  label: string
+  logical_type: string
+  quantity: unknown
+}
+
+/** A canonical Dataset resolved to chart-ready column metadata. */
+export interface CanonicalDatasetSource {
+  datasetId: string
+  name: string
+  workspaceId: string
+  /** UUID of the Dataset Schema Version the dataset currently pins. */
+  schemaVersionId: string
+  schemaVersionNumber: number
+  revision: number
+  columns: ChartColumn[]
+}
+/**
+ * Adapt an explorer-style canonical dataset wire (columns already keyed by
+ * field_id) into the source shape SCI components consume.
+ */
+export function toCanonicalDatasetSource(dataset: {
+  id: string
+  name?: string
+  workspace_id?: string
+  schema_version_id?: string
+  schema_version_number?: number | null
+  schema_version?: number
+  revision?: number | string
+  columns: Array<{
+    id: string
+    label: string
+    logical_type: string
+    unit?: unknown
+  }>
+}): CanonicalDatasetSource {
+  return {
+    datasetId: dataset.id,
+    name: dataset.name ?? dataset.id,
+    workspaceId: dataset.workspace_id ?? '',
+    schemaVersionId: dataset.schema_version_id ?? '',
+    schemaVersionNumber:
+      dataset.schema_version_number ?? dataset.schema_version ?? 1,
+    revision: Number(dataset.revision),
+    columns: dataset.columns.map((c) => ({
+      id: c.id,
+      label: c.label,
+      logicalType: c.logical_type,
+      unit: c.unit,
+    })),
+  }
+}
 export interface ResolvedDataset {
-  table: ScientificTableWire
-  columns: ScientificColumnWire[]
-  rows: ScientificRowWire[]
+  source: CanonicalDatasetSource
+  rows: Record<string, unknown>[]
+  /** True when totalCount exceeded SCI_ROW_HARD_LIMIT and rows were cut. */
+  truncated: boolean
+  totalCount: number
 }
 
 /**
- * Resolve a chart's referenced dataset. The spec currently supports a
- * single dataset (the array is forward-compatible); only the first
- * `tableId` is resolved. Returns null when the spec has no dataset yet so
- * the caller can surface a missing-dataset state.
+ * Resolve one canonical Dataset plus its pinned schema-version fields.
+ * Returns null when the dataset does not exist or is archived so callers
+ * can surface a missing-dataset state.
+ */
+export async function fetchCanonicalDataset(
+  client: DataClient,
+  datasetId: string,
+): Promise<CanonicalDatasetSource | null> {
+  const datasets = await client.list<DatasetResourceWire>(
+    'datasets',
+    `?id=eq.${encodeURIComponent(datasetId)}&lifecycle=eq.active&limit=1`,
+  )
+  const dataset = datasets.at(0)
+  if (!dataset) return null
+  const [fields, versions] = await Promise.all([
+    client.list<DatasetVersionFieldWire>(
+      'dataset_schema_version_fields',
+      `?schema_version_id=eq.${encodeURIComponent(dataset.schema_version_id)}&lifecycle=eq.active&order=display_order.asc`,
+    ),
+    client.list<SchemaVersionNumberWire>(
+      'dataset_schema_versions',
+      `?id=eq.${encodeURIComponent(dataset.schema_version_id)}&select=id,version&limit=1`,
+    ),
+  ])
+  const pinnedSchemaVersion = versions.find(
+    (v) => v.id === dataset.schema_version_id,
+  )
+  return {
+    datasetId: dataset.id,
+    name: dataset.name,
+    workspaceId: dataset.workspace_id,
+    schemaVersionId: dataset.schema_version_id,
+    schemaVersionNumber:
+      pinnedSchemaVersion === undefined ? 1 : pinnedSchemaVersion.version,
+    revision: Number(dataset.revision),
+    columns: fields.map((f) => ({
+      id: f.field_id,
+      label: f.label,
+      logicalType: f.logical_type,
+      unit: f.quantity,
+    })),
+  }
+}
+
+/** Fetch every page of live rows up to the hard client-side ceiling. */
+async function fetchRowsPaged(
+  fetchPage: (
+    limit: number,
+    offset: number,
+  ) => Promise<{
+    rows: Record<string, unknown>[]
+    totalCount: number
+  }>,
+): Promise<{
+  rows: Record<string, unknown>[]
+  totalCount: number
+  truncated: boolean
+}> {
+  const first = await fetchPage(ROW_PAGE_SIZE, 0)
+  const totalCount = first.totalCount
+  const rows = [...first.rows]
+  let offset = rows.length
+  while (offset < Math.min(totalCount, SCI_ROW_HARD_LIMIT)) {
+    const page = await fetchPage(
+      Math.min(ROW_PAGE_SIZE, SCI_ROW_HARD_LIMIT - offset),
+      offset,
+    )
+    rows.push(...page.rows)
+    offset = rows.length
+  }
+  return { rows, totalCount, truncated: totalCount > SCI_ROW_HARD_LIMIT }
+}
+
+/**
+ * Fetch a canonical Dataset's live rows (fieldId-keyed) up to
+ * SCI_ROW_HARD_LIMIT. Shared by chart and analysis surfaces.
+ */
+export async function fetchDatasetRows(
+  client: DataClient,
+  datasetId: string,
+): Promise<{
+  rows: Record<string, unknown>[]
+  totalCount: number
+  truncated: boolean
+}> {
+  return fetchRowsPaged((limit, offset) =>
+    client
+      .rpc<{
+        rows: Array<{
+          rowId: string
+          revision: number
+          values: Record<string, unknown>
+        }>
+        totalCount: number
+      }>('query_dataset_rows', {
+        p_dataset_id: datasetId,
+        p_query: {},
+        p_limit: limit,
+        p_offset: offset,
+      })
+      .then((result) => ({
+        rows: result.rows.map((row) => ({ ...row.values })),
+        totalCount: result.totalCount,
+      })),
+  )
+}
+
+/**
+ * Resolve a spec's referenced dataset. The spec supports a single dataset;
+ * only the first `datasetId` is resolved. Returns null when the spec has no
+ * dataset yet so the caller can surface a missing-dataset state.
  */
 export async function resolveChartDataset(
   client: DataClient,
   spec: ChartSpec | null | undefined,
 ): Promise<ResolvedDataset | null> {
   if (!spec || spec.datasets.length === 0) return null
-  const tableId = spec.datasets[0].tableId
-  const table = await fetchScientificTable(client, tableId)
-  if (!table) return null
-  const rows = await fetchAllScientificRows(client, table)
-  return { table, columns: table.columns, rows }
-}
-
-function toChartColumns(columns: ScientificColumnWire[]): ChartColumn[] {
-  return columns.map((c) => ({
-    id: c.id,
-    fieldName: c.field_name,
-    label: c.label,
-    logicalType: c.logical_type,
-    unit: c.unit,
-  }))
+  const source = await fetchCanonicalDataset(client, spec.datasets[0].datasetId)
+  if (!source) return null
+  const paged = await fetchDatasetRows(client, source.datasetId)
+  return { source, ...paged }
 }
 
 /**
- * Detect whether any HyperFormula calculation result for the chart's
- * dataset is stale (or pending/failed/unavailable) for the columns the
- * chart plots. A live chart must not silently plot stale numbers; the
- * caller surfaces a `stale` state instead.
- */
-export function detectStaleCalculations(
-  results: FormulaResultWire[],
-  spec: ChartSpec,
-): { stale: boolean; detail: string } {
-  if (results.length === 0) return { stale: false, detail: '' }
-  const plottedColumnIds = new Set<string>()
-  const collect = (binding: { columnId: string } | null) => {
-    if (binding) plottedColumnIds.add(binding.columnId)
-  }
-  collect(spec.fields.x)
-  collect(spec.fields.y)
-  collect(spec.fields.series)
-  if (spec.overlays.errorBars) collect(spec.overlays.errorBars)
-  const bad = results.filter(
-    (r) =>
-      plottedColumnIds.has(r.target_column_id) &&
-      r.calculation_status !== 'current',
-  )
-  if (bad.length === 0) return { stale: false, detail: '' }
-  const detail =
-    bad[0].calculation_status === 'stale'
-      ? 'A plotted formula is stale. Recalculate the dataset before relying on this chart.'
-      : `A plotted formula is ${bad[0].calculation_status}.`
-  return { stale: true, detail }
-}
-
-/**
- * Materialise a live chart from a spec + resolved dataset + calculation
- * results. Surfaces `missing_dataset`, `missing_field`, `empty_dataset`,
- * `log_scale_invalid` and `stale` states honestly instead of plotting.
+ * Materialise a live chart from a spec + resolved canonical dataset.
+ * Surfaces `missing_dataset`, `missing_field`, `empty_dataset`,
+ * `log_scale_invalid` and `dataset_too_large` states honestly instead of
+ * plotting.
  */
 export function materialiseLiveChart(
   spec: ChartSpec,
   dataset: ResolvedDataset | null,
-  calcResults: FormulaResultWire[] | null,
 ): MaterialisedChart {
   if (!dataset) {
     return {
@@ -129,45 +263,61 @@ export function materialiseLiveChart(
       columns: [],
       rows: [],
       series: [],
-      xLabel: spec.display.axes.x.label ?? spec.fields.x?.fieldName ?? 'x',
-      yLabel: spec.display.axes.y.label ?? spec.fields.y.fieldName,
+      xLabel: spec.display.axes.x.label ?? 'x',
+      yLabel: spec.display.axes.y.label ?? 'y',
       xUnit: spec.display.axes.x.unit,
       yUnit: spec.display.axes.y.unit,
+      droppedPoints: 0,
     }
   }
-  const columns = toChartColumns(dataset.columns)
-  const materialised = materialiseChart(spec, columns, dataset.rows)
-  if (calcResults && calcResults.length > 0) {
-    const { stale, detail } = detectStaleCalculations(calcResults, spec)
-    if (stale && materialised.state.kind === 'ok') {
-      return { ...materialised, state: { kind: 'stale', detail } }
+  if (dataset.truncated) {
+    return {
+      state: {
+        kind: 'dataset_too_large',
+        rowCount: dataset.totalCount,
+        limit: SCI_ROW_HARD_LIMIT,
+      },
+      columns: [],
+      rows: [],
+      series: [],
+      xLabel: spec.display.axes.x.label ?? 'x',
+      yLabel: spec.display.axes.y.label ?? 'y',
+      xUnit: spec.display.axes.x.unit,
+      yUnit: spec.display.axes.y.unit,
+      droppedPoints: 0,
     }
   }
-  return materialised
+  return materialiseChart(spec, dataset.source.columns, dataset.rows)
 }
 
 /**
  * Materialise a frozen chart from its immutable snapshot. The frozen data
- * is authoritative; no live resolution or stale detection applies.
+ * is authoritative; no live resolution applies.
  */
 export function materialiseFrozenChart(frozen: FrozenChart): MaterialisedChart {
   const columns: ChartColumn[] = frozen.data.columns.map((c) => ({
-    id: c.columnId,
-    fieldName: c.fieldName,
+    id: c.fieldId,
     label: c.label,
     logicalType: c.logicalType,
     unit: c.unit,
+  }))
+  const series = frozen.data.series.map((s) => ({
+    identifier: s.identifier,
+    label: s.label,
+    color: s.color,
+    points: s.points,
   }))
   return {
     state: { kind: 'ok' },
     columns,
     rows: frozen.data.rows,
-    series: frozen.data.series.map((s) => ({
-      identifier: s.identifier,
-      label: s.label,
-      color: s.color,
-      points: s.points,
-    })),
+    series,
+    // Dropped rows were already excluded at freeze time; a frozen chart
+    // reports the null points its snapshot actually carries.
+    droppedPoints: series.reduce(
+      (acc, s) => acc + s.points.filter((p) => p.y === null).length,
+      0,
+    ),
     xLabel: columns[0]?.label ?? 'x',
     yLabel: columns[1]?.label ?? 'y',
     xUnit:
@@ -186,25 +336,74 @@ export function materialiseFrozenChart(frozen: FrozenChart): MaterialisedChart {
 }
 
 /**
- * React hook that resolves a live chart's dataset and calculation results
- * and returns the materialised chart. Frozen charts should use
- * `materialiseFrozenChart` directly (no live re-read). The hook is enabled
- * only when a spec with at least one dataset exists.
+ * Build the facet panels for a frozen faceted chart from its pinned series.
+ * Returns null when the snapshot is not faceted; the base materialisation
+ * supplies shared labels/columns so each panel renders like the live one.
+ */
+export function materialiseFrozenFacets(
+  frozen: FrozenChart,
+): { panels: FacetedChart[]; total: number } | null {
+  const facets = frozen.data.facets
+  if (!facets || facets.length === 0) return null
+  const base = materialiseFrozenChart(frozen)
+  return {
+    total: frozen.data.facetsTotal ?? facets.length,
+    panels: facets.map((facet) => ({
+      value: facet.value,
+      chart: { ...base, series: facet.series },
+    })),
+  }
+}
+
+/**
+ * Fetch the pinned input rows of a frozen analysis from its immutable
+ * Dataset Version, verifying the pinned row count. Throws when the Version
+ * outgrew the client ceiling — frozen reconstruction then reports an honest
+ * failure rather than partial statistics.
+ */
+export async function fetchFrozenAnalysisRows(
+  client: DataClient,
+  datasetVersionId: string,
+  expectedRowCount: number,
+): Promise<{
+  rows: Record<string, unknown>[]
+  totalCount: number
+  matchesProvenance: boolean
+}> {
+  if (expectedRowCount > SCI_ROW_HARD_LIMIT) {
+    throw new Error(
+      `Dataset Version holds ${expectedRowCount} rows, above the ${SCI_ROW_HARD_LIMIT}-row reconstruction ceiling`,
+    )
+  }
+  const paged = await fetchRowsPaged((limit, offset) =>
+    queryDatasetVersionRows(client, datasetVersionId, limit, offset).then(
+      (page) => ({
+        rows: page.rows.map((row) => ({ ...row.values })),
+        totalCount: page.totalCount,
+      }),
+    ),
+  )
+  return {
+    rows: paged.rows,
+    totalCount: paged.totalCount,
+    matchesProvenance:
+      !paged.truncated && paged.totalCount === expectedRowCount,
+  }
+}
+
+/**
+ * React hook that resolves a live chart's canonical dataset and returns the
+ * materialised result. Frozen charts should use `materialiseFrozenChart`
+ * directly (no live re-read). Enabled only when a spec references a dataset.
  */
 export function useLiveChartDataset(spec: ChartSpec | null | undefined) {
-  const tableId = spec?.datasets[0]?.tableId ?? ''
+  const datasetId = spec?.datasets[0]?.datasetId ?? ''
   const datasetQuery = useQuery({
-    queryKey: chartQueryKeys.dataset(tableId),
-    queryFn: () => resolveChartDataset(scientificDataClient, spec),
-    enabled: Boolean(tableId),
+    queryKey: [chartQueryKeys.dataset(datasetId), spec?.filters.length ?? 0],
+    queryFn: () => resolveChartDataset(sciDataClient, spec),
+    enabled: Boolean(datasetId),
   })
-  const calcQuery = useQuery({
-    queryKey: chartQueryKeys.calcResults(tableId),
-    queryFn: () =>
-      fetchScientificCalculationResults(scientificDataClient, tableId),
-    enabled: Boolean(tableId),
-  })
-  return { datasetQuery, calcQuery }
+  return { datasetQuery }
 }
 
 // ---------------------------------------------------------------------------
@@ -243,23 +442,3 @@ export async function unfreezeChart(
   })
   return toBlock(row)
 }
-
-export interface BindChartRevisionArgs {
-  blockId: string
-  revisionId: string
-  expectedVersion: number
-}
-
-export async function bindChartRevision(
-  client: DataClient,
-  args: BindChartRevisionArgs,
-): Promise<NotebookBlock> {
-  const row = await client.rpc<BlockWire>('bind_chart_revision', {
-    p_block_id: args.blockId,
-    p_revision_id: args.revisionId,
-    p_expected_version: args.expectedVersion,
-  })
-  return toBlock(row)
-}
-
-export { scientificQueryKeys }

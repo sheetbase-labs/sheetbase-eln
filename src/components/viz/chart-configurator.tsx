@@ -1,8 +1,13 @@
 import {
   BarChart3,
+  Box,
+  Grid3x3,
   LineChart as LineChartIcon,
+  Plus,
   ScatterChart,
+  Trash2,
 } from 'lucide-react'
+import type { ReactNode } from 'react'
 
 import {
   Button,
@@ -10,14 +15,20 @@ import {
   Field,
   FieldGroup,
   FieldLabel,
+  Input,
   Select,
 } from '#/components/ui'
-import { CHART_TYPES } from '#/lib/chart-spec'
-import type { ChartSpec, FieldBinding } from '#/lib/chart-spec'
-import type { ScientificTableWire } from '#/lib/scientific-sheet-data'
+import {
+  CARTESIAN_CHART_TYPES,
+  CHART_TYPES,
+  HEATMAP_AGGREGATES,
+  MAX_ANNOTATIONS,
+} from '#/lib/chart-spec'
+import type { ChartAnnotation, ChartSpec, FieldBinding } from '#/lib/chart-spec'
+import type { CanonicalDatasetSource } from '#/lib/chart-data'
 
 export interface ChartConfiguratorProps {
-  table: ScientificTableWire
+  source: CanonicalDatasetSource
   spec: ChartSpec
   onSpecChange: (spec: ChartSpec) => void
   idPrefix?: string
@@ -25,25 +36,24 @@ export interface ChartConfiguratorProps {
 
 /** Controlled chart authoring controls shared by every full-size chart surface. */
 export function ChartConfigurator({
-  table,
+  source,
   spec,
   onSpecChange,
   idPrefix = 'chart',
 }: ChartConfiguratorProps) {
-  const numericColumns = table.columns.filter(
+  const columns = source.columns
+  const numericColumns = columns.filter(
     (column) =>
-      column.logical_type === 'decimal' || column.logical_type === 'integer',
+      column.logicalType === 'decimal' || column.logicalType === 'integer',
   )
-  const categoryColumns = table.columns.filter((column) =>
-    ['category', 'text', 'boolean'].includes(column.logical_type),
+  const categoryColumns = columns.filter((column) =>
+    ['category', 'text', 'boolean'].includes(column.logicalType),
   )
   const errorColumns = numericColumns.filter(
     (column) =>
-      column.id !== spec.fields.x?.columnId &&
-      column.id !== spec.fields.y.columnId &&
-      /\b(sd|se|sem|error|ci|confidence|deviation)\b/i.test(
-        `${column.label} ${column.field_name}`,
-      ),
+      column.id !== spec.fields.x?.fieldId &&
+      column.id !== spec.fields.y.fieldId &&
+      /\b(sd|se|sem|error|ci|confidence|deviation)\b/i.test(column.label),
   )
   const aggregateTransform = spec.transformations.find(
     (transformation) => transformation.kind === 'aggregate',
@@ -56,14 +66,83 @@ export function ChartConfigurator({
     onSpecChange({ ...spec, ...patch })
   }
 
-  function setField(
-    key: 'x' | 'y' | 'series' | 'color' | 'size',
-    columnId: string,
+  const TYPE_ICONS: Record<ChartSpec['type'], ReactNode> = {
+    line: <LineChartIcon className="size-3.5" aria-hidden />,
+    scatter: <ScatterChart className="size-3.5" aria-hidden />,
+    bar: <BarChart3 className="size-3.5" aria-hidden />,
+    histogram: <BarChart3 className="size-3.5 rotate-90" aria-hidden />,
+    box: <Box className="size-3.5" aria-hidden />,
+    heatmap: <Grid3x3 className="size-3.5" aria-hidden />,
+  }
+
+  /** Switching types keeps the spec coherent: fields that carry no meaning
+   * for the new type are cleared and stale type-specific params dropped. */
+  function setType(next: ChartSpec['type']) {
+    const fields = { ...spec.fields }
+    let overlays = spec.overlays
+    let typeParams: ChartSpec['typeParams'] = {}
+    if (next === 'histogram' || next === 'box') {
+      fields.x = null
+      if (next === 'box') typeParams = { box: { showOutliers: true } }
+      else typeParams = { histogram: { bins: 10 } }
+    } else if (next === 'heatmap') {
+      fields.series = null
+      fields.color = null
+      fields.size = null
+      overlays = { errorBars: null }
+      typeParams = {
+        heatmap: { aggregate: 'count', valueField: null, xBins: 10, yBins: 10 },
+      }
+    }
+    const display = CARTESIAN_CHART_TYPES.includes(next)
+      ? spec.display
+      : { ...spec.display, annotations: [] }
+    update({
+      type: next,
+      fields,
+      overlays,
+      typeParams,
+      display,
+    })
+  }
+
+  function updateHistogramParams(
+    patch: Partial<{ bins: number; binWidth: number }>,
   ) {
-    const column = table.columns.find((candidate) => candidate.id === columnId)
-    const binding: FieldBinding | null = column
-      ? { columnId: column.id, fieldName: column.field_name }
-      : null
+    update({
+      typeParams: {
+        ...spec.typeParams,
+        histogram: { ...(spec.typeParams.histogram ?? {}), ...patch },
+      },
+    })
+  }
+
+  function updateHeatmapParams(
+    patch: Partial<NonNullable<ChartSpec['typeParams']['heatmap']>>,
+  ) {
+    update({
+      typeParams: {
+        ...spec.typeParams,
+        heatmap: {
+          aggregate: 'count',
+          valueField: null,
+          ...(spec.typeParams.heatmap ?? {}),
+          ...patch,
+        },
+      },
+    })
+  }
+
+  function setAnnotations(annotations: ChartAnnotation[]) {
+    update({ display: { ...spec.display, annotations } })
+  }
+
+  function setField(
+    key: 'x' | 'y' | 'series' | 'color' | 'size' | 'facet',
+    fieldId: string,
+  ) {
+    const column = columns.find((candidate) => candidate.id === fieldId)
+    const binding: FieldBinding | null = column ? { fieldId: column.id } : null
     const fields = { ...spec.fields, [key]: binding }
     const transformations = spec.transformations.map((transformation) => {
       if (transformation.kind === 'aggregate') {
@@ -71,9 +150,9 @@ export function ChartConfigurator({
           ...transformation,
           params: {
             ...transformation.params,
-            xField: fields.x?.fieldName ?? null,
-            yField: fields.y.fieldName,
-            seriesField: fields.series?.fieldName ?? null,
+            xField: fields.x?.fieldId ?? null,
+            yField: fields.y.fieldId,
+            seriesField: fields.series?.fieldId ?? null,
           },
         }
       }
@@ -82,8 +161,8 @@ export function ChartConfigurator({
           ...transformation,
           params: {
             ...transformation.params,
-            yField: fields.y.fieldName,
-            seriesField: fields.series?.fieldName ?? null,
+            yField: fields.y.fieldId,
+            seriesField: fields.series?.fieldId ?? null,
           },
         }
       }
@@ -108,8 +187,8 @@ export function ChartConfigurator({
     }
     const overlays =
       spec.overlays.errorBars &&
-      (spec.overlays.errorBars.columnId === fields.x?.columnId ||
-        spec.overlays.errorBars.columnId === fields.y.columnId)
+      (spec.overlays.errorBars.fieldId === fields.x?.fieldId ||
+        spec.overlays.errorBars.fieldId === fields.y.fieldId)
         ? { ...spec.overlays, errorBars: null }
         : spec.overlays
     onSpecChange({ ...spec, fields, transformations, display, overlays })
@@ -128,35 +207,34 @@ export function ChartConfigurator({
               kind,
               params: {
                 function: value,
-                xField: spec.fields.x?.fieldName ?? null,
-                yField: spec.fields.y.fieldName,
-                seriesField: spec.fields.series?.fieldName ?? null,
+                xField: spec.fields.x?.fieldId ?? null,
+                yField: spec.fields.y.fieldId,
+                seriesField: spec.fields.series?.fieldId ?? null,
               },
             }
           : {
               kind,
               params: {
                 method: value,
-                yField: spec.fields.y.fieldName,
-                seriesField: spec.fields.series?.fieldName ?? null,
+                yField: spec.fields.y.fieldId,
+                seriesField: spec.fields.series?.fieldId ?? null,
               },
             },
       ],
     })
   }
 
-  function setErrorBarColumn(columnId: string) {
-    if (!columnId) {
+  function setErrorBarColumn(fieldId: string) {
+    if (!fieldId) {
       return update({ overlays: { ...spec.overlays, errorBars: null } })
     }
-    const column = errorColumns.find((candidate) => candidate.id === columnId)
+    const column = errorColumns.find((candidate) => candidate.id === fieldId)
     if (!column) return
     update({
       overlays: {
         ...spec.overlays,
         errorBars: {
-          columnId: column.id,
-          fieldName: column.field_name,
+          fieldId: column.id,
           basis: 'custom',
           multiplier: 1,
         },
@@ -164,30 +242,48 @@ export function ChartConfigurator({
     })
   }
 
+  // Histograms and box plots measure fields.y directly (no x mapping);
+  // heatmaps use x/y as grid dimensions and never group by series.
+  const showXField = spec.type !== 'histogram' && spec.type !== 'box'
+  const showSeriesField = spec.type !== 'heatmap'
+  const yLabel =
+    spec.type === 'heatmap'
+      ? 'Y dimension'
+      : spec.type === 'histogram' || spec.type === 'box'
+        ? 'Measured value'
+        : 'Y-axis'
   const fields = [
-    {
-      key: 'x' as const,
-      label: 'X-axis',
-      ariaLabel: 'X axis field',
-      columns: numericColumns,
-      empty: '(none — row index)',
-      value: spec.fields.x?.columnId ?? '',
-    },
+    ...(showXField
+      ? [
+          {
+            key: 'x' as const,
+            label: 'X-axis',
+            ariaLabel: 'X axis field',
+            columns: numericColumns,
+            empty: '(none — row index)',
+            value: spec.fields.x?.fieldId ?? '',
+          },
+        ]
+      : []),
     {
       key: 'y' as const,
-      label: 'Y-axis',
+      label: yLabel,
       ariaLabel: 'Y axis field',
       columns: numericColumns,
-      value: spec.fields.y.columnId,
+      value: spec.fields.y.fieldId,
     },
-    {
-      key: 'series' as const,
-      label: 'Series',
-      ariaLabel: 'Group by series',
-      columns: categoryColumns,
-      empty: 'No split',
-      value: spec.fields.series?.columnId ?? '',
-    },
+    ...(showSeriesField
+      ? [
+          {
+            key: 'series' as const,
+            label: 'Series',
+            ariaLabel: 'Group by series',
+            columns: categoryColumns,
+            empty: 'No split',
+            value: spec.fields.series?.fieldId ?? '',
+          },
+        ]
+      : []),
   ]
 
   return (
@@ -210,16 +306,10 @@ export function ChartConfigurator({
                 size="sm"
                 role="radio"
                 aria-checked={spec.type === type}
-                onClick={() => update({ type })}
+                onClick={() => setType(type)}
                 className="gap-1.5 capitalize"
               >
-                {type === 'line' ? (
-                  <LineChartIcon className="size-3.5" aria-hidden />
-                ) : type === 'scatter' ? (
-                  <ScatterChart className="size-3.5" aria-hidden />
-                ) : (
-                  <BarChart3 className="size-3.5" aria-hidden />
-                )}
+                {TYPE_ICONS[type]}
                 {type}
               </Button>
             ))}
@@ -303,7 +393,7 @@ export function ChartConfigurator({
             <Select
               id={`${idPrefix}-error-column`}
               aria-label="Error bar column"
-              value={spec.overlays.errorBars?.columnId ?? ''}
+              value={spec.overlays.errorBars?.fieldId ?? ''}
               onChange={(event) => setErrorBarColumn(event.target.value)}
               className="h-8 bg-background"
             >
@@ -317,6 +407,273 @@ export function ChartConfigurator({
           </Field>
         ) : null}
       </FieldGroup>
+      {spec.type === 'histogram' ? (
+        <FieldGroup className="flex flex-wrap items-end gap-3 pt-2.5">
+          <Field className="min-w-32 flex-1">
+            <FieldLabel htmlFor={`${idPrefix}-histogram-bins`}>Bins</FieldLabel>
+            <Input
+              id={`${idPrefix}-histogram-bins`}
+              aria-label="Histogram bin count"
+              type="number"
+              min={1}
+              max={200}
+              value={
+                spec.typeParams.histogram?.binWidth !== undefined
+                  ? ''
+                  : (spec.typeParams.histogram?.bins ?? 10)
+              }
+              onChange={(event) =>
+                updateHistogramParams({
+                  bins: Math.max(1, Number(event.target.value) || 1),
+                  binWidth: undefined,
+                })
+              }
+              className="h-8 bg-background"
+            />
+          </Field>
+          <Field className="min-w-32 flex-1">
+            <FieldLabel htmlFor={`${idPrefix}-histogram-bin-width`}>
+              Bin width (overrides bins)
+            </FieldLabel>
+            <Input
+              id={`${idPrefix}-histogram-bin-width`}
+              aria-label="Histogram bin width"
+              type="number"
+              min={0}
+              step="any"
+              value={spec.typeParams.histogram?.binWidth ?? ''}
+              onChange={(event) =>
+                updateHistogramParams({
+                  binWidth:
+                    event.target.value === ''
+                      ? undefined
+                      : Number(event.target.value),
+                })
+              }
+              className="h-8 bg-background"
+            />
+          </Field>
+        </FieldGroup>
+      ) : null}
+      {spec.type === 'heatmap' ? (
+        <FieldGroup className="flex flex-wrap items-end gap-3 pt-2.5">
+          <Field className="min-w-36 flex-1">
+            <FieldLabel htmlFor={`${idPrefix}-heatmap-aggregate`}>
+              Cell value
+            </FieldLabel>
+            <Select
+              id={`${idPrefix}-heatmap-aggregate`}
+              aria-label="Heatmap cell aggregation"
+              value={spec.typeParams.heatmap?.aggregate ?? 'count'}
+              onChange={(event) => {
+                const aggregate = event.target.value as NonNullable<
+                  ChartSpec['typeParams']['heatmap']
+                >['aggregate']
+                updateHeatmapParams(
+                  aggregate === 'count'
+                    ? { aggregate, valueField: null }
+                    : {
+                        aggregate,
+                        valueField:
+                          spec.typeParams.heatmap?.valueField ?? spec.fields.y,
+                      },
+                )
+              }}
+              className="h-8 bg-background"
+            >
+              {HEATMAP_AGGREGATES.map((a) => (
+                <option key={a} value={a}>
+                  {a === 'count' ? 'Row count' : `${a} of value field`}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          {(spec.typeParams.heatmap?.aggregate ?? 'count') !== 'count' ? (
+            <Field className="min-w-36 flex-1">
+              <FieldLabel htmlFor={`${idPrefix}-heatmap-value-field`}>
+                Value field
+              </FieldLabel>
+              <Select
+                id={`${idPrefix}-heatmap-value-field`}
+                aria-label="Heatmap value field"
+                value={spec.typeParams.heatmap?.valueField?.fieldId ?? ''}
+                onChange={(event) => {
+                  const column = source.columns.find(
+                    (candidate) => candidate.id === event.target.value,
+                  )
+                  updateHeatmapParams({
+                    valueField: column ? { fieldId: column.id } : null,
+                  })
+                }}
+                className="h-8 bg-background"
+              >
+                <option value="">Select a numeric column</option>
+                {numericColumns.map((column) => (
+                  <option key={column.id} value={column.id}>
+                    {column.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          ) : null}
+          <Field className="min-w-24">
+            <FieldLabel htmlFor={`${idPrefix}-heatmap-xbins`}>
+              X bins
+            </FieldLabel>
+            <Input
+              id={`${idPrefix}-heatmap-xbins`}
+              aria-label="Heatmap x bin count"
+              type="number"
+              min={2}
+              max={100}
+              value={spec.typeParams.heatmap?.xBins ?? 10}
+              onChange={(event) =>
+                updateHeatmapParams({
+                  xBins: Math.max(2, Number(event.target.value) || 10),
+                })
+              }
+              className="h-8 bg-background"
+            />
+          </Field>
+          <Field className="min-w-24">
+            <FieldLabel htmlFor={`${idPrefix}-heatmap-ybins`}>
+              Y bins
+            </FieldLabel>
+            <Input
+              id={`${idPrefix}-heatmap-ybins`}
+              aria-label="Heatmap y bin count"
+              type="number"
+              min={2}
+              max={100}
+              value={spec.typeParams.heatmap?.yBins ?? 10}
+              onChange={(event) =>
+                updateHeatmapParams({
+                  yBins: Math.max(2, Number(event.target.value) || 10),
+                })
+              }
+              className="h-8 bg-background"
+            />
+          </Field>
+        </FieldGroup>
+      ) : null}
+      <FieldGroup className="flex flex-wrap items-end gap-3 pt-2.5">
+        <Field className="min-w-40 flex-1">
+          <FieldLabel htmlFor={`${idPrefix}-facet`}>
+            Facet by (optional)
+          </FieldLabel>
+          <Select
+            id={`${idPrefix}-facet`}
+            aria-label="Facet column"
+            value={spec.fields.facet?.fieldId ?? ''}
+            onChange={(event) => setField('facet', event.target.value)}
+            className="h-8 bg-background"
+          >
+            <option value="">No facets</option>
+            {categoryColumns.map((column) => (
+              <option key={column.id} value={column.id}>
+                {column.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      </FieldGroup>
+      {CARTESIAN_CHART_TYPES.includes(spec.type) ? (
+        <div className="space-y-2 pt-2.5">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium text-muted-foreground">
+              Annotations ({(spec.display.annotations ?? []).length}/
+              {MAX_ANNOTATIONS})
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={
+                (spec.display.annotations ?? []).length >= MAX_ANNOTATIONS
+              }
+              onClick={() =>
+                setAnnotations([
+                  ...(spec.display.annotations ?? []),
+                  { x: 0, y: 0, label: 'New annotation' },
+                ])
+              }
+            >
+              <Plus /> Add annotation
+            </Button>
+          </div>
+          {(spec.display.annotations ?? []).map((annotation, i) => (
+            <div key={i} className="flex items-end gap-2">
+              <Field className="w-20">
+                <FieldLabel htmlFor={`${idPrefix}-ann-${i}-x`}>X</FieldLabel>
+                <Input
+                  id={`${idPrefix}-ann-${i}-x`}
+                  aria-label={`Annotation ${i + 1} x`}
+                  type="number"
+                  step="any"
+                  value={annotation.x}
+                  onChange={(event) =>
+                    setAnnotations(
+                      (spec.display.annotations ?? []).map((a, j) =>
+                        j === i ? { ...a, x: Number(event.target.value) } : a,
+                      ),
+                    )
+                  }
+                  className="h-8 bg-background"
+                />
+              </Field>
+              <Field className="w-20">
+                <FieldLabel htmlFor={`${idPrefix}-ann-${i}-y`}>Y</FieldLabel>
+                <Input
+                  id={`${idPrefix}-ann-${i}-y`}
+                  aria-label={`Annotation ${i + 1} y`}
+                  type="number"
+                  step="any"
+                  value={annotation.y}
+                  onChange={(event) =>
+                    setAnnotations(
+                      (spec.display.annotations ?? []).map((a, j) =>
+                        j === i ? { ...a, y: Number(event.target.value) } : a,
+                      ),
+                    )
+                  }
+                  className="h-8 bg-background"
+                />
+              </Field>
+              <Field className="flex-1">
+                <FieldLabel htmlFor={`${idPrefix}-ann-${i}-label`}>
+                  Label
+                </FieldLabel>
+                <Input
+                  id={`${idPrefix}-ann-${i}-label`}
+                  aria-label={`Annotation ${i + 1} label`}
+                  value={annotation.label}
+                  onChange={(event) =>
+                    setAnnotations(
+                      (spec.display.annotations ?? []).map((a, j) =>
+                        j === i ? { ...a, label: event.target.value } : a,
+                      ),
+                    )
+                  }
+                  className="h-8 bg-background"
+                />
+              </Field>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`Remove annotation ${i + 1}`}
+                onClick={() =>
+                  setAnnotations(
+                    (spec.display.annotations ?? []).filter((_, j) => j !== i),
+                  )
+                }
+              >
+                <Trash2 />
+              </Button>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   )
 }

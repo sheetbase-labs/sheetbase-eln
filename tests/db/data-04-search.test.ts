@@ -120,6 +120,9 @@ beforeAll(async () => {
     insert into api.records(id,workspace_id,project_id,kind,identifier,title,tags,created_by_user_id)
     values ('${RECORD_A}','${WS_A}','${PROJ_A}','experiment','EXP-2026-0001',
             'Quantum dot stability assay',array['quantum'],'${OWNER_A}');
+    insert into api.records(id,workspace_id,project_id,kind,identifier,title,created_by_user_id)
+    values ('0d040000-0000-4000-8000-0000000005a2','${WS_A}','${PROJ_A}','file','FILE-2026-0002',
+            'Quantum run data csv','${OWNER_A}');
 
     insert into api.dataset_schema_definitions(id,workspace_id,key,name)
     values ('0d040000-0000-4000-8000-0000000009a1','${WS_A}','dotschema','Dot schema');
@@ -201,6 +204,29 @@ describe('DATA-04 global search coverage', () => {
       }
       expect(hits.map((h) => h.title)).toContain(expectedTitles[resultType])
     }
+  })
+
+  it('treats Records and Files as independent facets', async () => {
+    // type=record excludes kind=file rows even though both live in records.
+    const records = await search(OWNER_A, WS_A, {
+      query: 'quantum',
+      resultType: 'record',
+    })
+    expect(records.length).toBeGreaterThan(0)
+    for (const hit of records) {
+      expect(hit.result_type).toBe('record')
+      expect(hit.kind).not.toBe('file')
+    }
+    // type=file returns only file rows.
+    const files = await search(OWNER_A, WS_A, {
+      query: 'quantum',
+      resultType: 'file',
+    })
+    for (const hit of files) {
+      expect(hit.result_type).toBe('file')
+      expect(hit.kind).toBe('file')
+    }
+    expect(files.length).toBeGreaterThan(0)
   })
 
   it('rejects an invalid p_result_type', async () => {

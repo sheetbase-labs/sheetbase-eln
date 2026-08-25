@@ -15,7 +15,9 @@
 --
 -- New optional parameter p_result_type narrows the search to one object
 -- class: 'record', 'file', 'dataset', 'sheet' or 'template'. NULL keeps the
--- previous behaviour of searching everything.
+-- previous behaviour of searching everything. Within the record branch,
+-- 'file' selects only kind='file' rows and 'record' only non-file rows, so
+-- Records and Files are independent facets.
 --
 -- Record-only filters (p_kind, p_status, p_owner_id) stay record-scoped.
 -- p_project_id scopes records, datasets (primary project) and sheet instances;
@@ -183,7 +185,11 @@ BEGIN
         '') AS combined_text
     FROM api.records r
     WHERE r.deleted_at IS NULL
-      AND (v_result_type IS NULL OR v_result_type IN ('record', 'file'))
+      AND (
+        v_result_type IS NULL
+        OR (v_result_type = 'file' AND r.kind = 'file')
+        OR (v_result_type = 'record' AND r.kind <> 'file')
+      )
       AND (p_project_id IS NULL OR r.project_id = p_project_id)
       AND (p_kind IS NULL OR r.kind = p_kind)
       AND (p_status IS NULL OR r.status = p_status)

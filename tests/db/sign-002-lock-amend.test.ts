@@ -26,7 +26,11 @@ let migrator: Client | undefined
 let asRole: (role: 'authenticator') => Promise<Client>
 const clients: Client[] = []
 
-function claims(userId: string, workspaceId: string, sessionId?: string): string {
+function claims(
+  userId: string,
+  workspaceId: string,
+  sessionId?: string,
+): string {
   return JSON.stringify({
     sub: userId,
     workspace_id: workspaceId,
@@ -155,11 +159,7 @@ async function runChecks(
   return rows[0].result as { overallStatus: string }
 }
 
-async function approve(
-  client: Client,
-  submissionId: string,
-  digest: string,
-) {
+async function approve(client: Client, submissionId: string, digest: string) {
   const { rows } = await client.query(
     `SELECT api.approve_review($1, NULL, 'submitted', $2) AS result`,
     [submissionId, digest],
@@ -234,12 +234,9 @@ async function buildApprovedAndSign(
   signatureId: string
 }> {
   const rev = await insertRevision(recordId, WS_A, passingSnapshot(recordId))
-  const submissionId = await insertSubmission(
-    rev.id,
-    WS_A,
-    recordId,
-    [reviewerId],
-  )
+  const submissionId = await insertSubmission(rev.id, WS_A, recordId, [
+    reviewerId,
+  ])
   const reviewer = await authenticated(reviewerId, WS_A)
   await runChecks(reviewer, rev.id, `checks-${rev.id}`)
   await approve(reviewer, submissionId, rev.integrityDigest)
@@ -284,9 +281,10 @@ describe('SIGN-002 lock + amendment + timeline + evidence', () => {
     const owner = await authenticated(OWNER_A, WS_A)
     // RLS makes the locked row invisible to UPDATE, so 0 rows are affected
     // and the title is preserved.
-    await owner.query(`UPDATE api.records SET title = 'tampered' WHERE id = $1`, [
-      RECORD_A,
-    ])
+    await owner.query(
+      `UPDATE api.records SET title = 'tampered' WHERE id = $1`,
+      [RECORD_A],
+    )
     const { rows } = await owner.query(
       `SELECT title FROM api.records WHERE id = $1`,
       [RECORD_A],
@@ -302,7 +300,8 @@ describe('SIGN-002 lock + amendment + timeline + evidence', () => {
       `SELECT api.preview_submission_digest($1) AS result`,
       [RECORD_A],
     )
-    const digest = (previewRows[0].result as { sourceDigest: string }).sourceDigest
+    const digest = (previewRows[0].result as { sourceDigest: string })
+      .sourceDigest
     await expect(
       owner.query(
         `SELECT api.submit_record_revision($1, $2, 'default-scientific-review', 1, ARRAY[$3], true, 'locked-submit') AS result`,
@@ -361,7 +360,9 @@ describe('SIGN-002 lock + amendment + timeline + evidence', () => {
   it('rejects create_amendment on a record that is not locked', async () => {
     const owner = await authenticated(OWNER_A, WS_A)
     await expect(
-      owner.query(`SELECT api.create_amendment($1, NULL) AS result`, [RECORD_A]),
+      owner.query(`SELECT api.create_amendment($1, NULL) AS result`, [
+        RECORD_A,
+      ]),
     ).rejects.toMatchObject({ code: 'SB012' })
   })
 
@@ -383,11 +384,15 @@ describe('SIGN-002 lock + amendment + timeline + evidence', () => {
     expect(types).toContain('signature')
     // Change events for the lock and amendment operations.
     const lockEvents = events.filter(
-      (e) => e.type === 'change_event' && (e as { operation?: string }).operation === 'lock',
+      (e) =>
+        e.type === 'change_event' &&
+        (e as { operation?: string }).operation === 'lock',
     )
     expect(lockEvents.length).toBe(1)
     const amendEvents = events.filter(
-      (e) => e.type === 'change_event' && (e as { operation?: string }).operation === 'amend',
+      (e) =>
+        e.type === 'change_event' &&
+        (e as { operation?: string }).operation === 'amend',
     )
     expect(amendEvents.length).toBe(1)
     // Chronological order: timestamps non-decreasing.
@@ -396,32 +401,40 @@ describe('SIGN-002 lock + amendment + timeline + evidence', () => {
     }
   })
 
-  it('export_revision_evidence returns a machine-readable bundle', async () => {
-    // Lock record B and export its evidence.
+  it('revision_evidence_package returns a machine-readable bundle', async () => {
+    // Lock record B and export its evidence. DATA-02 consolidated the old
+    // export_revision_evidence RPC into api.revision_evidence_package, which
+    // additionally carries Sheet evidence and the retained file manifest.
     const { revisionId } = await buildApprovedAndSign(RECORD_B, REVIEWER_A)
     const owner = await authenticated(OWNER_A, WS_A)
     const { rows } = await owner.query(
-      `SELECT api.export_revision_evidence($1) AS result`,
+      `SELECT api.revision_evidence_package($1) AS result`,
       [revisionId],
     )
     const bundle = rows[0].result as {
-      formatVersion: number
-      revision: { id: string; integrity_digest: string; reason: string }
+      revision: { id: string; integrityDigest: string; reason: string }
       submission: { id: string; state: string } | null
       decisions: { decision: string }[]
       checkResults: { overall_status: string }[]
       signatures: { signature_meaning: string }[]
       comments: unknown[]
+      files: unknown[]
+      sheetEvidence: unknown[]
     }
-    expect(bundle.formatVersion).toBe(1)
     expect(bundle.revision.id).toBe(revisionId)
-    expect(bundle.revision.integrity_digest).toMatch(/^[0-9a-f]{64}$/)
+    expect(bundle.revision.integrityDigest).toMatch(/^[0-9a-f]{64}$/)
     expect(bundle.submission).not.toBeNull()
     expect(bundle.submission?.state).toBe('approved')
     expect(bundle.decisions.some((d) => d.decision === 'approve')).toBe(true)
     expect(bundle.checkResults.length).toBeGreaterThan(0)
-    expect(bundle.signatures.some((s) => s.signature_meaning === 'approve-for-record')).toBe(true)
+    expect(
+      bundle.signatures.some(
+        (s) => s.signature_meaning === 'approve-for-record',
+      ),
+    ).toBe(true)
     expect(Array.isArray(bundle.comments)).toBe(true)
+    expect(Array.isArray(bundle.files)).toBe(true)
+    expect(Array.isArray(bundle.sheetEvidence)).toBe(true)
   })
 
   it('isolates timeline and evidence by workspace', async () => {
@@ -441,9 +454,10 @@ describe('SIGN-002 lock + amendment + timeline + evidence', () => {
     )
     const owner = await authenticated(OWNER_A, WS_A)
     await expect(
-      owner.query(`UPDATE api.signatures SET signature_meaning = 'witness' WHERE id = $1`, [
-        sigRows[0].id,
-      ]),
+      owner.query(
+        `UPDATE api.signatures SET signature_meaning = 'witness' WHERE id = $1`,
+        [sigRows[0].id],
+      ),
     ).rejects.toMatchObject({ code: '42501' })
 
     // review_decisions has no UPDATE grant for authenticated.
@@ -452,9 +466,10 @@ describe('SIGN-002 lock + amendment + timeline + evidence', () => {
       [RECORD_B],
     )
     await expect(
-      owner.query(`UPDATE api.review_decisions SET note = 'tampered' WHERE id = $1`, [
-        decRows[0].id,
-      ]),
+      owner.query(
+        `UPDATE api.review_decisions SET note = 'tampered' WHERE id = $1`,
+        [decRows[0].id],
+      ),
     ).rejects.toMatchObject({ code: '42501' })
   })
 })

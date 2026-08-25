@@ -33,8 +33,10 @@ GRANT SELECT, INSERT ON api.data_exports TO authenticated;
 
 CREATE POLICY data_exports_select ON api.data_exports FOR SELECT TO authenticated
   USING (workspace_id = api.current_workspace_id() AND api.is_workspace_member(workspace_id));
+-- GOV-01 write-plane doctrine: authenticated writes are writer-gated, so
+-- receipt inserts follow is_workspace_writer rather than bare membership.
 CREATE POLICY data_exports_insert ON api.data_exports FOR INSERT TO authenticated
-  WITH CHECK (workspace_id = api.current_workspace_id() AND api.is_workspace_member(workspace_id));
+  WITH CHECK (workspace_id = api.current_workspace_id() AND api.is_workspace_writer(workspace_id));
 --> statement-breakpoint
 
 CREATE FUNCTION api.revision_evidence_package(p_revision_id uuid)

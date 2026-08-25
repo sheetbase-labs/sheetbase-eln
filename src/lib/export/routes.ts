@@ -85,11 +85,7 @@ async function insertReceipt(
     actorUserId: string
     workspaceId: string
     objectType:
-      | 'dataset'
-      | 'dataset_version'
-      | 'sheet_instance'
-      | 'record'
-      | 'revision'
+      'dataset' | 'dataset_version' | 'sheet_instance' | 'record' | 'revision'
     objectId: string
     format: string
     rowCount?: number | null
@@ -118,7 +114,6 @@ async function insertReceipt(
     )
   }
 }
-
 
 /**
  * Stream rendered rows to the response and persist the audit receipt only
@@ -178,7 +173,6 @@ function streamedRows(args: {
   })
   return exportResponse(stream, args.contentType, args.filename)
 }
-
 
 // ---------------------------------------------------------------------------
 // Shared dataset / dataset-version pipeline.
@@ -468,40 +462,40 @@ export async function handleDatasetExport(
   if (format === 'csv' || format === 'tsv') {
     const delimiter = format === 'csv' ? ',' : '\t'
     return streamedRows({
-        objectType: variant === 'version' ? 'dataset_version' : 'dataset',
-        target,
-        format,
-        filename,
-        contentType:
-          format === 'csv'
-            ? 'text/csv; charset=utf-8'
-            : 'text/tab-separated-values; charset=utf-8',
-        context,
-        rows: rows.rows,
-        renderHeader: () => delimitedHeaderLine(fields, delimiter) + '\r\n',
-        renderRow: (row) => delimitedRowLine(fields, row, delimiter) + '\r\n',
-      })
-  }
-
-  // JSON / NDJSON.
-  return streamedRows({
       objectType: variant === 'version' ? 'dataset_version' : 'dataset',
       target,
       format,
       filename,
-      contentType: 'application/json; charset=utf-8',
+      contentType:
+        format === 'csv'
+          ? 'text/csv; charset=utf-8'
+          : 'text/tab-separated-values; charset=utf-8',
       context,
       rows: rows.rows,
-      renderHeader: () =>
-        format === 'ndjson'
-          ? null
-          : '{"_meta":' + JSON.stringify(meta) + ',"rows":[',
-      renderRow: (row, isFirst) =>
-        format === 'ndjson'
-          ? JSON.stringify(rowJsonObject(row)) + '\n'
-          : (isFirst ? '' : ',') + JSON.stringify(rowJsonObject(row)),
-      renderFooter: () => (format === 'ndjson' ? null : ']}'),
+      renderHeader: () => delimitedHeaderLine(fields, delimiter) + '\r\n',
+      renderRow: (row) => delimitedRowLine(fields, row, delimiter) + '\r\n',
     })
+  }
+
+  // JSON / NDJSON.
+  return streamedRows({
+    objectType: variant === 'version' ? 'dataset_version' : 'dataset',
+    target,
+    format,
+    filename,
+    contentType: 'application/json; charset=utf-8',
+    context,
+    rows: rows.rows,
+    renderHeader: () =>
+      format === 'ndjson'
+        ? null
+        : '{"_meta":' + JSON.stringify(meta) + ',"rows":[',
+    renderRow: (row, isFirst) =>
+      format === 'ndjson'
+        ? JSON.stringify(rowJsonObject(row)) + '\n'
+        : (isFirst ? '' : ',') + JSON.stringify(rowJsonObject(row)),
+    renderFooter: () => (format === 'ndjson' ? null : ']}'),
+  })
 }
 
 function slug(name: string): string {

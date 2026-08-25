@@ -47,6 +47,9 @@ feat/api-02-completion  API-02 completion + API-03 reconciliation (#56: personal
 stacked  SCI-01..03 Scientific charting, analysis framework, notebook analysis blocks (+ revision binding, freezable facets, fit-curve overlay, storage test fix)
 merged  PC-04   Templates and reusable science (#53) @ 3c8b8df
 merged  PC-05   Canonical Steward configuration workspace (#54) @ 1d7a06a
+feat/data-03-file-platform      DATA-03 file & attachment platform consolidation (#66)
+feat/data-04-global-search      DATA-04 global search across datasets/sheets/templates (#67)
+feat/data-02-export             DATA-02 export & portability (#68, stacked on #66)
 ```
 
 ## Stream briefs
@@ -77,14 +80,14 @@ Prompt: [`prompts/API.md`](./prompts/API.md)
 
 **API-02 remainder complete** (`#56`, `feat/api-02-completion`): personal tokens (user-scoped credentials acting as the creating member), credential lifecycle audit events in workspace `change_events` (entity type `api_credential`), and API-03 reconciliation — the OpenAPI spec is renamed `external-api-v0.json` and documents both credential kinds on the one fail-closed surface. The API foundation (API-01/02/03 + API-07) is complete; SDK work (API-04/05) can start next. Named service-account principals remain queued and require an ADR.
 
-### DATA — DATA-01 complete
+### DATA — programme complete
 
 Task: [`tasks/DATA.md`](./tasks/DATA.md)
 Prompt: [`prompts/DATA.md`](./prompts/DATA.md)
 
 **DATA-01 complete:** CSV, TSV, JSON, XLSX and clipboard import with preview, column mapping and validate-before-commit. Dataset writes use `validate_dataset_row_batch` / `commit_dataset_row_batch`. Record writes use `validate_sheet_record_batch` / `create_model_record`. Coercion fails closed. Rows pin to the Dataset's current Schema Version. Sheet grid paste remains PC-01; plate CSV is not the product import path.
 
-**DATA-02 / DATA-03 / DATA-04** remain later. Do not start them from this hand-off.
+**DATA-02 complete (#68):** streaming Dataset/Version/Sheet/Record exports (CSV/TSV/JSON/NDJSON/XLSX/Parquet), deterministic revision evidence ZIP via the consolidated `api.revision_evidence_package`, `api.data_exports` receipts, live-vs-frozen labelling proven by test. **DATA-03 complete (#66):** file platform consolidated as the one canonical subsystem with API-level isolation/boundary proofs and `docs/file-platform.md`. **DATA-04 complete (#67):** global search covers records, files, Datasets, Sheet Instances and Notebook Templates in one RLS-filtered RPC with object-class facets; PostgreSQL FTS only.
 
 ### GOV — GOV-01 complete
 
@@ -102,7 +105,7 @@ Task: [`tasks/PLAT.md`](./tasks/PLAT.md)
 
 ## Dependencies
 
-- DATA-01 is complete (canonical Dataset/Record import). DATA-02 export is not started.
+- The DATA programme (import/export/files/search) is complete pending review of #66/#67/#68.
 - API-07 Core external allowlist cut-over is complete (`#50`). Submit, sign, amend and revision checks stay human-session-only. API-03 OpenAPI is complete on this branch.
 - PC-05 Steward `/configure` is complete (`#54`). PC-06 Golden Workflows is ready to merge (`#55`).
 - GOV-02 is not Ready without an ADR.

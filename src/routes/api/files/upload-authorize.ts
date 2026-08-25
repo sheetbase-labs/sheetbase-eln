@@ -5,10 +5,10 @@
 import { createFileRoute } from '@tanstack/react-router'
 
 import { handleUploadAuthorize } from '#/lib/file-routes'
-import { realFileAuthDeps } from '#/lib/file-auth'
+import { realSessionAuthDeps } from '#/lib/request-auth'
 
 const handler = ({ request }: { request: Request }) =>
-  handleUploadAuthorize(request, realFileAuthDeps)
+  handleUploadAuthorize(request, realSessionAuthDeps)
 
 export const Route = createFileRoute('/api/files/upload-authorize')({
   server: {

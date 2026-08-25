@@ -26,17 +26,15 @@ import {
 import {
   createAmendment,
   fetchRecordTimeline,
-  fetchRevisionEvidenceExport,
   sign002QueryKeys,
 } from '#/lib/sign-002'
-import type { EvidenceExportWire } from '#/lib/sign-002'
 import { signatureQueryKeys } from '#/lib/signatures'
 import {
   reviewWorkspaceQueryKeys,
   toCanonicalEnvelope,
 } from '#/lib/review-workspace'
 
-export { createAmendment, fetchRecordTimeline, fetchRevisionEvidenceExport }
+export { createAmendment, fetchRecordTimeline }
 
 export type NotebookLifecycleLabel =
   'Archived' | 'Submitted' | 'In review' | 'Working'
@@ -445,13 +443,6 @@ export async function duplicateExperiment(
   }
 
   return { record }
-}
-
-export function downloadRevisionEvidence(
-  client: DataClient,
-  revisionId: string,
-): Promise<EvidenceExportWire> {
-  return fetchRevisionEvidenceExport(client, revisionId)
 }
 
 export type NotebookSignState =

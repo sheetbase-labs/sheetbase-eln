@@ -20,6 +20,7 @@ import {
   sheetInstanceDataClient,
   updateSheetInstance,
 } from '#/lib/sheet-instance-data'
+import { ExportMenu } from '#/components/export/export-menu'
 import type { SheetInstance } from '#/lib/sheet-instance-data'
 import {
   createAdHocTextField,
@@ -646,6 +647,16 @@ export function CanonicalSheetEditor({
 
   return (
     <div className="flex h-full min-h-[24rem] flex-col">
+      <div className="flex shrink-0 items-center justify-end border-b px-2 py-1">
+        <ExportMenu
+          path={`/api/export/sheet-instance/${instance.id}`}
+          formats={[
+            { format: 'json', label: 'JSON (full state)' },
+            { format: 'csv', label: 'CSV (local grid)' },
+            { format: 'xlsx', label: 'XLSX (local grid)' },
+          ]}
+        />
+      </div>
       {canWrite ? (
         <div className="flex flex-wrap items-end gap-2 border-b px-2 py-2">
           <label className="space-y-1 text-xs">

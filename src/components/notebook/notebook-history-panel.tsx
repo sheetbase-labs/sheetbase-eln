@@ -63,7 +63,7 @@ export function NotebookHistoryPanel({
             const secondary = revision.id.slice(0, 8)
             if (projectId) {
               return (
-                <li key={revision.id}>
+                <li key={revision.id} className="flex items-center gap-2">
                   <Link
                     to="/projects/$projectId/experiments/$recordId"
                     params={{ projectId, recordId }}
@@ -75,11 +75,17 @@ export function NotebookHistoryPanel({
                       {secondary}
                     </span>
                   </Link>
+                  <a
+                    href={`/api/export/revision/${revision.id}/package`}
+                    className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+                  >
+                    evidence ZIP
+                  </a>
                 </li>
               )
             }
             return (
-              <li key={revision.id}>
+              <li key={revision.id} className="flex items-center gap-2">
                 <Button
                   type="button"
                   variant="link"
@@ -91,6 +97,12 @@ export function NotebookHistoryPanel({
                     {secondary}
                   </span>
                 </Button>
+                <a
+                  href={`/api/export/revision/${revision.id}/package`}
+                  className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+                >
+                  evidence ZIP
+                </a>
               </li>
             )
           })}

@@ -1,6 +1,4 @@
 {
-  "version": "7",
-  "dialect": "postgresql",
   "entries": [
     {
       "idx": 0,
@@ -903,6 +901,13 @@
       "version": "7",
       "when": 1787583600000,
       "tag": "0128_sci_01_freezable_faceted_charts",
+      "breakpoints": true
+    },
+    {
+      "idx": 129,
+      "version": "7",
+      "when": 1787584200000,
+      "tag": "0131_data_02_export_receipts",
       "breakpoints": true
     },
     {

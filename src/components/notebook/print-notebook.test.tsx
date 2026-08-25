@@ -54,37 +54,16 @@ describe('NotebookPrintStyles', () => {
 describe('ExportEvidenceButton', () => {
   it('is hidden when no revision is selected', () => {
     renderWithQuery(<ExportEvidenceButton />)
-    expect(
-      screen.queryByRole('button', { name: 'Download evidence' }),
-    ).toBeNull()
+    expect(screen.queryByRole('link', { name: 'Export evidence' })).toBeNull()
   })
 
-  it('downloads evidence JSON for the revision', async () => {
-    const { downloadRevisionEvidence } =
-      await import('#/lib/notebook-experience')
-    vi.mocked(downloadRevisionEvidence).mockResolvedValue({
-      formatVersion: 1,
-      exportedAt: '2026-08-19T00:00:00.000Z',
-    } as never)
-    const createObjectURL = vi.fn(() => 'blob:evidence')
-    const revokeObjectURL = vi.fn()
-    vi.stubGlobal('URL', {
-      ...URL,
-      createObjectURL,
-      revokeObjectURL,
-    })
-    const click = vi
-      .spyOn(HTMLAnchorElement.prototype, 'click')
-      .mockImplementation(() => {})
-    const user = userEvent.setup()
+  it('links to the server-built evidence package for the revision', () => {
     renderWithQuery(
       <ExportEvidenceButton revisionId="aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee" />,
     )
-    await user.click(screen.getByRole('button', { name: 'Download evidence' }))
-    expect(downloadRevisionEvidence).toHaveBeenCalled()
-    expect(createObjectURL).toHaveBeenCalled()
-    expect(click).toHaveBeenCalled()
-    click.mockRestore()
-    vi.unstubAllGlobals()
+    const link = screen.getByRole('link', { name: 'Export evidence' })
+    expect(link.getAttribute('href')).toBe(
+      '/api/export/revision/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee/package',
+    )
   })
 })

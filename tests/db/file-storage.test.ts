@@ -588,4 +588,40 @@ describe('SCI-003 create_file_upload transactional RPC', () => {
     )
     expect(recs).toHaveLength(0)
   })
+
+  it('rejects create_file_upload for a workspace viewer (writer gate)', async () => {
+    const VIEWER_A = 'sci003-db-viewer-a'
+    await migrator.query(
+      `INSERT INTO internal."user" (id, name, email, "emailVerified")
+       VALUES ($1, 'SCI003 Viewer', 'sci003-viewer@sheetbase.test', true)
+       ON CONFLICT (id) DO NOTHING`,
+      [VIEWER_A],
+    )
+    await migrator.query(
+      `INSERT INTO api.workspace_memberships (workspace_id, user_id, role)
+       VALUES ($1, $2, 'viewer')
+       ON CONFLICT DO NOTHING`,
+      [WS_A, VIEWER_A],
+    )
+    const v = await asAuthenticated(VIEWER_A, WS_A)
+    const fileObjectId = '00000000-0000-4000-8000-000000000182'
+    await expect(
+      v.query(
+        `SELECT * FROM api.create_file_upload(
+          $1::uuid, 'viewer.csv', 'text/csv', 10, $2, NULL, 'local', $3::uuid)`,
+        [
+          PROJ_A,
+          key(WS_A, '00000000-0000-4000-8000-000000000182', S2),
+          fileObjectId,
+        ],
+      ),
+    ).rejects.toMatchObject({ code: DENIED })
+
+    // Neither the record nor the metadata row may exist afterwards.
+    const { rows: fo } = await v.query(
+      `SELECT id FROM api.file_objects WHERE id = $1`,
+      [fileObjectId],
+    )
+    expect(fo).toHaveLength(0)
+  })
 })

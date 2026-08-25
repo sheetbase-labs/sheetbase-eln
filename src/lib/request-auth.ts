@@ -41,6 +41,36 @@ export interface SessionAuthDeps {
 
 const db = drizzle(env.DATABASE_URL, { schema })
 
+/**
+ * Server-side audit receipt writer for the DATA-02 export routes. Receipts
+ * never flow through /api/db: request roles hold no INSERT grant on
+ * api.data_exports, and workspace/actor are taken from the verified session
+ * (resolveSessionAuth), never from arguments a browser could craft.
+ */
+export async function recordDataExportReceipt(input: {
+  workspaceId: string
+  actorUserId: string
+  objectType:
+    'dataset' | 'dataset_version' | 'sheet_instance' | 'record' | 'revision'
+  objectId: string
+  format: string
+  rowCount?: number | null
+  byteSize?: number | null
+}): Promise<void> {
+  await db.insert(schema.dataExports).values({
+    workspaceId: input.workspaceId,
+    objectType: input.objectType,
+    objectId: input.objectId,
+    format: input.format,
+    rowCount: input.rowCount ?? null,
+    byteSize:
+      input.byteSize === null || input.byteSize === undefined
+        ? null
+        : BigInt(input.byteSize),
+    actorUserId: input.actorUserId,
+  })
+}
+
 /** Real production deps: Better Auth session + DB workspace + JWT mint. */
 export const realSessionAuthDeps: SessionAuthDeps = {
   getSession: getAppSession,

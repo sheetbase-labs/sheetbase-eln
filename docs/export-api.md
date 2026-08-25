@@ -102,10 +102,12 @@ Unauthenticated requests get `401`; malformed formats get `400`; Parquet over
 the row cap gets `413`.
 
 Receipts are authoritative and server-owned. Request roles hold no INSERT
-grant on `api.data_exports`; the only writer is `api.record_data_export`, a
-SECURITY DEFINER RPC that derives `workspace_id` and `actor_user_id` from the
-verified request claims — arguments carry object/format/counts only, so an
-audit row can neither be fabricated nor reattributed through `/api/db`.
+grant on `api.data_exports` and no receipt-writer RPC is callable through
+`/api/db`; receipts are written exclusively by the export routes over the
+application's own database connection, deriving `workspace_id` and
+`actor_user_id` from the verified Better Auth session. Fabricating or
+reattributing an audit row would require server compromise, not a crafted
+HTTP call.
 
 A receipt is part of the successful-export contract: it persists once the
 export content has been generated (for streams, strictly after a successful

@@ -34,9 +34,10 @@ GRANT SELECT ON api.data_exports TO authenticated;
 CREATE POLICY data_exports_select ON api.data_exports FOR SELECT TO authenticated
   USING (workspace_id = api.current_workspace_id() AND api.is_workspace_member(workspace_id));
 -- No INSERT policy and no INSERT grant: receipts are written exclusively by
--- api.record_data_export below, which derives workspace and actor from the
--- verified request claims. A browser session therefore cannot fabricate or
--- reattribute audit rows through /api/db.
+-- the export route over the application's own database connection, with
+-- workspace_id and actor_user_id taken from the verified Better Auth session
+-- (resolveSessionAuth -> membership lookup), never from arguments or claims a
+-- browser could craft. There is no /api/db path that creates audit rows.
 --> statement-breakpoint
 
 CREATE FUNCTION api.revision_evidence_package(p_revision_id uuid)
@@ -147,57 +148,6 @@ BEGIN
   RETURN v_package;
 END;
 $$;
--- Controlled receipt writer. SECURITY DEFINER so request roles need no
--- table INSERT grant; workspace and actor come from the verified claims,
--- never from arguments, making the audit trail authoritative. Export is a
--- read-plane action, so plain (unsuspended) membership is the gate here:
--- a viewer may export readable data while the system records the action.
-CREATE FUNCTION api.record_data_export(
-  p_object_type text,
-  p_object_id uuid,
-  p_format text,
-  p_row_count integer DEFAULT NULL,
-  p_byte_size bigint DEFAULT NULL
-)
-RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = ''
-AS $fn$
-DECLARE
-  v_workspace uuid := api.current_workspace_id();
-  v_actor text := api.current_user_id();
-BEGIN
-  IF v_workspace IS NULL OR v_actor IS NULL THEN
-    RAISE EXCEPTION 'workspace and authenticated actor required' USING ERRCODE = '42501';
-  END IF;
-  IF p_object_type NOT IN
-    ('dataset','dataset_version','sheet_instance','record','revision') THEN
-    RAISE EXCEPTION 'invalid export object type' USING ERRCODE = '22023';
-  END IF;
-  IF NOT EXISTS (
-    SELECT 1 FROM api.workspace_memberships m
-     WHERE m.workspace_id = v_workspace
-       AND m.user_id = v_actor
-       AND m.suspended_at IS NULL
-  ) THEN
-    RAISE EXCEPTION 'caller is not an active workspace member' USING ERRCODE = '42501';
-  END IF;
-
-  INSERT INTO api.data_exports (
-    workspace_id, object_type, object_id, format,
-    row_count, byte_size, actor_user_id
-  ) VALUES (
-    v_workspace, p_object_type, p_object_id, p_format,
-    p_row_count, p_byte_size, v_actor
-  );
-END;
-$fn$;
-REVOKE EXECUTE ON FUNCTION api.record_data_export(text,uuid,text,integer,bigint) FROM PUBLIC, anon, api_client;
-GRANT EXECUTE ON FUNCTION api.record_data_export(text,uuid,text,integer,bigint) TO authenticated;
---> statement-breakpoint
-
-DROP FUNCTION IF EXISTS api.export_revision_evidence(uuid);
 -- The SIGN-002 export_revision_evidence RPC is superseded by the package
 -- above (it carried review/signature state but not Sheet evidence or the
 -- pinned file manifest). Its callers now read revision_evidence_package.

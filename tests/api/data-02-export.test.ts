@@ -45,6 +45,7 @@ const RECORD_A = crypto.randomUUID()
 const REVISION_ID = crypto.randomUUID()
 
 let admin: Client
+let startedAt: Date
 let fieldIdByKey: Record<string, string> = {}
 
 function authDeps(userId: string, workspaceId: string) {
@@ -59,6 +60,20 @@ function authDeps(userId: string, workspaceId: string) {
       workspaceId: string
       sessionId: string
     }) => mintPostgrestToken(SECRET, input),
+  }
+}
+
+/**
+ * Receipts persist asynchronously right after a stream closes; poll briefly
+ * so assertions observe the committed audit row rather than racing it.
+ */
+async function pollForReceipts(
+  query: () => Promise<boolean>,
+  attempts = 40,
+): Promise<void> {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    if (await query()) return
+    await new Promise((resolve) => setTimeout(resolve, 50))
   }
 }
 
@@ -111,6 +126,7 @@ beforeAll(async () => {
       process.env.MIGRATION_DATABASE_URL ?? process.env.DATABASE_URL,
   })
   await admin.connect()
+  startedAt = new Date()
 
   // Idempotent parents: reused across runs, never deleted.
   await admin.query(`
@@ -156,6 +172,13 @@ beforeAll(async () => {
   )
 
   await admin.query(`
+    insert into internal."user"(id,name,email,"emailVerified")
+    values ('data-02-api-viewer','Viewer','data-02-api-viewer@test.invalid',true)
+    on conflict (id) do nothing;
+    insert into api.workspace_memberships(workspace_id,user_id,role)
+    values ('${WS_A}','data-02-api-viewer','viewer')
+    on conflict do nothing;
+
     insert into api.datasets(id,workspace_id,primary_project_id,schema_version_id,name)
     values ('${DATASET_A}','${WS_A}','${PROJ_A}','${SCHEMA_VER_A}','Stability readings');
     insert into api.records(id,workspace_id,project_id,kind,identifier,title,created_by_user_id)
@@ -393,6 +416,142 @@ describe('DATA-02 dataset exports', () => {
       anon,
     )
     expect(res.status).toBe(401)
+  })
+})
+
+describe('DATA-02 receipt lifecycle invariant', () => {
+  it('records every generated export exactly once with the acting user', async () => {
+    const { rows: before } = await admin.query(
+      `select object_type, count(*)::int as n from api.data_exports
+        where workspace_id=$1 group by object_type`,
+      [WS_A],
+    )
+    const base: Record<string, number> = Object.fromEntries(
+      before.map((r) => [r.object_type, Number(r.n)]),
+    )
+
+    await handleRecordExport(
+      exportRequest(`/api/export/record/${RECORD_A}`, '?format=json'),
+      RECORD_A,
+      authDeps(OWNER_A, WS_A),
+    )
+    await handleSheetInstanceExport(
+      exportRequest(`/api/export/sheet-instance/${SHEET_A}`, '?format=csv'),
+      SHEET_A,
+      authDeps(OWNER_A, WS_A),
+    )
+
+    const { rows: final } = await admin.query(
+      `select object_type, count(*)::int as n from api.data_exports
+        where workspace_id=$1 group by object_type`,
+      [WS_A],
+    )
+    await pollForReceipts(async () => {
+      const { rows: current } = await admin.query(
+        `select object_type, count(*)::int as n from api.data_exports
+          where workspace_id=$1 group by object_type`,
+        [WS_A],
+      )
+      const now: Record<string, number> = Object.fromEntries(
+        current.map((r) => [r.object_type, Number(r.n)]),
+      )
+      return (
+        (now['record'] ?? 0) - (base['record'] ?? 0) >= 1 &&
+        (now['sheet_instance'] ?? 0) - (base['sheet_instance'] ?? 0) >= 1
+      )
+    })
+    const { rows: after } = await admin.query(
+      `select object_type, count(*)::int as n from api.data_exports
+        where workspace_id=$1 group by object_type`,
+      [WS_A],
+    )
+    const now: Record<string, number> = Object.fromEntries(
+      final.map((r) => [r.object_type, Number(r.n)]),
+    )
+    expect((now['record'] ?? 0) - (base['record'] ?? 0)).toBe(1)
+    expect((now['sheet_instance'] ?? 0) - (base['sheet_instance'] ?? 0)).toBe(1)
+
+    // Only this run's receipts: the long-lived dev database keeps earlier,
+    // pre-fix rows that must not leak into the attribution assertion.
+    const { rows: actors } = await admin.query(
+      `select distinct actor_user_id from api.data_exports
+        where workspace_id=$1 and created_at >= $2`,
+      [WS_A, startedAt],
+    )
+    expect(actors.length).toBeGreaterThan(0)
+    for (const row of actors) {
+      // Server-derived actor: always the session identity, never null/forged.
+      expect(row.actor_user_id).toBe(OWNER_A)
+    }
+  })
+
+  it('lets a viewer export readable data while recording their receipt', async () => {
+    const VIEWER = 'data-02-api-viewer'
+    const res = await handleDatasetExport(
+      exportRequest(`/api/export/dataset/${DATASET_A}`, '?format=csv'),
+      DATASET_A,
+      authDeps(VIEWER, WS_A),
+    )
+    // Export is read-plane: the read-only role may extract readable data.
+    expect(res.status).toBe(200)
+    const body = await res.text()
+    expect(body).toContain('Sample,pH')
+
+    await pollForReceipts(async () => {
+      const { rows } = await admin.query(
+        `select 1 from api.data_exports
+          where workspace_id=$1 and object_id=$2 and format='csv'
+            and actor_user_id=$3`,
+        [WS_A, DATASET_A, VIEWER],
+      )
+      return rows.length === 1
+    })
+    const { rows } = await admin.query(
+      `select actor_user_id from api.data_exports
+        where workspace_id=$1 and object_id=$2 and format='csv'
+          and actor_user_id=$3`,
+      [WS_A, DATASET_A, VIEWER],
+    )
+    expect(rows).toHaveLength(1)
+  })
+
+  it('leaves no receipt when an export fails', async () => {
+    const { rows: before } = await admin.query(
+      `select count(*)::int as n from api.data_exports where workspace_id=$1`,
+      [WS_A],
+    )
+
+    const denied = await handleDatasetExport(
+      exportRequest(`/api/export/dataset/${DATASET_A}`, '?format=csv'),
+      DATASET_A,
+      authDeps(OWNER_B, WS_B),
+    )
+    expect(denied.status).toBe(404)
+
+    const invalid = await handleRecordExport(
+      exportRequest(`/api/export/record/${RECORD_A}`, '?format=csv'),
+      RECORD_A,
+      authDeps(OWNER_A, WS_A),
+    )
+    expect(invalid.status).toBe(400)
+
+    const anon = {
+      getSession: async () => null,
+      getWorkspaceForUser: async () => null,
+      mintToken: authDeps(OWNER_A, WS_A).mintToken,
+    }
+    const unauth = await handleDatasetExport(
+      exportRequest(`/api/export/dataset/${DATASET_A}`, '?format=csv'),
+      DATASET_A,
+      anon,
+    )
+    expect(unauth.status).toBe(401)
+
+    const { rows: after } = await admin.query(
+      `select count(*)::int as n from api.data_exports where workspace_id=$1`,
+      [WS_A],
+    )
+    expect(after[0].n).toBe(before[0].n)
   })
 })
 

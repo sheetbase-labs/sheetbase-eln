@@ -26,6 +26,7 @@ import { parquetDocument } from './parquet'
 import { buildEvidencePackage } from './evidence-package'
 
 import {
+  recordDataExportReceipt,
   requestErrorResponse,
   resolveSessionAuth,
   postgrestRpc,
@@ -78,38 +79,20 @@ function exportResponse(
   })
 }
 
-async function insertReceipt(
-  token: string,
-  input: {
-    objectType:
-      'dataset' | 'dataset_version' | 'sheet_instance' | 'record' | 'revision'
-    objectId: string
-    format: string
-    rowCount?: number | null
-    byteSize?: number | null
-  },
-): Promise<void> {
+async function insertReceipt(input: {
+  workspaceId: string
+  actorUserId: string
+  objectType:
+    'dataset' | 'dataset_version' | 'sheet_instance' | 'record' | 'revision'
+  objectId: string
+  format: string
+  rowCount?: number | null
+  byteSize?: number | null
+}): Promise<void> {
   // Receipt persistence is part of the successful-export contract (review
-  // Option A): if the audit record cannot be written, the export fails.
-  // api.record_data_export derives workspace and actor from the verified
-  // request claims server-side, so the audit trail cannot be fabricated or
-  // reattributed by the caller.
-  const res = await postgrestRpc(
-    'record_data_export',
-    {
-      p_object_type: input.objectType,
-      p_object_id: input.objectId,
-      p_format: input.format,
-      p_row_count: input.rowCount ?? null,
-      p_byte_size: input.byteSize ?? null,
-    },
-    token,
-  )
-  if (res.status >= 400) {
-    throw new Error(
-      `export receipt could not be persisted (${res.status}); export aborted`,
-    )
-  }
+  // Option A): if the audit record cannot be written, the export fails. The
+  // writer is server-only — /api/db has no path to api.data_exports.
+  await recordDataExportReceipt(input)
 }
 
 /**
@@ -158,7 +141,9 @@ function streamedRows(args: {
         throw error
       }
       // Receipt persistence happens strictly after a successful close.
-      await insertReceipt(args.context.token, {
+      await insertReceipt({
+        actorUserId: args.context.userId,
+        workspaceId: args.target.workspaceId,
         objectType: args.objectType,
         objectId: args.target.objectId,
         format: args.format,
@@ -406,7 +391,9 @@ export async function handleDatasetExport(
       ])
     }
     const bytes = await xlsxDocument(fields, all, metaLines)
-    await insertReceipt(context.token, {
+    await insertReceipt({
+      actorUserId: context.userId,
+      workspaceId: target.workspaceId,
       objectType: variant === 'version' ? 'dataset_version' : 'dataset',
       objectId: target.objectId,
       format,
@@ -436,7 +423,9 @@ export async function handleDatasetExport(
         error instanceof Error ? error.message : 'Parquet export too large.',
       )
     }
-    await insertReceipt(context.token, {
+    await insertReceipt({
+      actorUserId: context.userId,
+      workspaceId: target.workspaceId,
       objectType: variant === 'version' ? 'dataset_version' : 'dataset',
       objectId: target.objectId,
       format,
@@ -613,7 +602,9 @@ export async function handleSheetInstanceExport(
   // successfully, so a serialization failure never leaves a successful
   // audit row behind (invariant: generated => exactly one receipt).
   async function recordSheetReceipt(byteSize?: number | null): Promise<void> {
-    await insertReceipt(context.token, {
+    await insertReceipt({
+      actorUserId: context.userId,
+      workspaceId: instance.workspace_id,
       objectType: 'sheet_instance',
       objectId: instance.id,
       format: formatParam,
@@ -636,7 +627,7 @@ export async function handleSheetInstanceExport(
       },
     }
     const body = JSON.stringify(doc, null, 2)
-    await recordSheetReceipt(body.length)
+    await recordSheetReceipt(new TextEncoder().encode(body).byteLength)
     return exportResponse(body, 'application/json; charset=utf-8', filename)
   }
 
@@ -818,11 +809,13 @@ export async function handleRecordExport(
   }
 
   const body = JSON.stringify(doc, null, 2)
-  await insertReceipt(context.token, {
+  await insertReceipt({
+    actorUserId: context.userId,
+    workspaceId: record.workspace_id,
     objectType: 'record',
     objectId: record.id,
     format: 'json',
-    byteSize: body.length,
+    byteSize: new TextEncoder().encode(body).byteLength,
   })
 
   const filename = `${slug(record.identifier)}-notebook.json`
@@ -856,7 +849,9 @@ export async function handleRevisionEvidencePackage(
   const pkg = rpcRes.body as Parameters<typeof buildEvidencePackage>[0]
   const bytes = await buildEvidencePackage(pkg)
 
-  await insertReceipt(context.token, {
+  await insertReceipt({
+    actorUserId: context.userId,
+    workspaceId: pkg.revision.workspaceId,
     objectType: 'revision',
     objectId: pkg.revision.id,
     format: 'evidence-package-zip',

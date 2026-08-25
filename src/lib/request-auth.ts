@@ -1,9 +1,10 @@
 /**
- * Shared auth + workspace resolution for the SCI-003 file byte routes
- * (`/api/files/*`). These routes are session-authenticated and never proxy
- * through `/api/db`; they resolve the Better Auth session, the caller's
- * workspace, and a short-lived PostgREST JWT so metadata mutations go through
- * the same RLS + change-event + audit path as every other mutation.
+ * Shared session auth + workspace resolution for byte/multipart API routes
+ * that do not proxy through `/api/db` (today: `/api/files/*`). These routes
+ * are session-authenticated; they resolve the Better Auth session, the
+ * caller's workspace, and a short-lived PostgREST JWT so every metadata
+ * mutation goes through the same RLS + change-event + audit path as the rest
+ * of the application.
  */
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { eq } from 'drizzle-orm'
@@ -13,18 +14,18 @@ import { env } from '#/env.server'
 import { getAppSession } from '#/lib/auth'
 import { mintPostgrestToken } from '#/lib/postgrest-token'
 
-export interface FileAuthContext {
+export interface SessionAuthContext {
   userId: string
   workspaceId: string
   sessionId: string
   token: string
 }
 
-export type FileAuthResult =
-  | { ok: true; context: FileAuthContext }
+export type SessionAuthResult =
+  | { ok: true; context: SessionAuthContext }
   | { ok: false; status: number; code: string; message: string }
 
-export interface FileAuthDeps {
+export interface SessionAuthDeps {
   getSession: (headers: Headers) => Promise<{
     user: { id: string }
     session: { id: string }
@@ -41,7 +42,7 @@ export interface FileAuthDeps {
 const db = drizzle(env.DATABASE_URL, { schema })
 
 /** Real production deps: Better Auth session + DB workspace + JWT mint. */
-export const realFileAuthDeps: FileAuthDeps = {
+export const realSessionAuthDeps: SessionAuthDeps = {
   getSession: getAppSession,
   getWorkspaceForUser: async (userId) => {
     const membership = await db.query.workspaceMemberships.findFirst({
@@ -52,10 +53,10 @@ export const realFileAuthDeps: FileAuthDeps = {
   mintToken: (input) => mintPostgrestToken(env.PGRST_JWT_SECRET, input),
 }
 
-export async function resolveFileAuth(
+export async function resolveSessionAuth(
   headers: Headers,
-  deps: FileAuthDeps = realFileAuthDeps,
-): Promise<FileAuthResult> {
+  deps: SessionAuthDeps = realSessionAuthDeps,
+): Promise<SessionAuthResult> {
   const session = await deps.getSession(headers)
   if (!session) {
     return {
@@ -92,7 +93,7 @@ export async function resolveFileAuth(
 }
 
 /** JSON error response in the same envelope as the `/api/db` proxy. */
-export function fileErrorResponse(
+export function requestErrorResponse(
   status: number,
   code: string,
   message: string,

@@ -13,7 +13,7 @@ FROM postgrest/postgrest:${POSTGREST_VERSION} AS source
 FROM debian:bookworm-slim AS runtime
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends curl ca-certificates \
+  && apt-get install -y --no-install-recommends curl ca-certificates libpq5 \
   && rm -rf /var/lib/apt/lists/*
 
 # Copy the statically-linked postgrest binary from the official image.

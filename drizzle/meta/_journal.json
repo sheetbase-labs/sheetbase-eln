@@ -904,6 +904,13 @@
       "when": 1787583600000,
       "tag": "0128_sci_01_freezable_faceted_charts",
       "breakpoints": true
+    },
+    {
+      "idx": 129,
+      "version": "7",
+      "when": 1787584200000,
+      "tag": "0129_data_04_global_search",
+      "breakpoints": true
     }
   ]
 }

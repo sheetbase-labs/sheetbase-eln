@@ -36,6 +36,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Database,
   ExternalLink,
   FileText,
   FlaskConical,
@@ -47,6 +48,7 @@ import {
   Pencil,
   Beaker,
   ScrollText,
+  Sheet,
   File as FileIcon,
   Search as SearchIcon,
   Trash2,
@@ -83,6 +85,7 @@ import {
   saveQuery,
   searchQueryKeys,
   SEARCHABLE_KINDS,
+  SEARCH_RESULT_TYPES,
   serializeSearchUrl,
 } from '#/lib/search'
 import type {
@@ -121,6 +124,17 @@ const KIND_ICON: Record<string, LucideIcon> = {
   report: FileText,
   file: FileIcon,
   notebook_template: LayoutTemplate,
+  dataset: Database,
+  sheet_instance: Sheet,
+}
+
+/** Object-class facet labels (DATA-04). */
+const CLASS_LABELS: Record<string, string> = {
+  record: 'Records',
+  file: 'Files',
+  dataset: 'Datasets',
+  sheet: 'Sheets',
+  template: 'Templates',
 }
 
 const KIND_STATUS_DOMAIN: Partial<Record<string, StatusDomain>> = {
@@ -286,6 +300,7 @@ function SearchRoute() {
   const urlSearch = Route.useSearch()
   const query = urlSearch.q
   const kind = urlSearch.kind
+  const objectClass = urlSearch.type
   const projectId = urlSearch.project
   const status = urlSearch.status
   const ownerId = urlSearch.owner
@@ -354,6 +369,7 @@ function SearchRoute() {
     const next = saveQuery(workspaceId, {
       name,
       query: query,
+      type: objectClass,
       kind,
       projectId,
       status,
@@ -361,7 +377,16 @@ function SearchRoute() {
       dateRange: dateRange,
     })
     setSavedQueries(next)
-  }, [workspaceId, query, kind, projectId, status, ownerId, dateRange])
+  }, [
+    workspaceId,
+    query,
+    objectClass,
+    kind,
+    projectId,
+    status,
+    ownerId,
+    dateRange,
+  ])
 
   const handleDeleteSavedQuery = useCallback(
     (id: string) => {
@@ -377,11 +402,8 @@ function SearchRoute() {
         to: '/search',
         search: serializeSearchUrl({
           q: sq.query,
+          type: sq.type ?? '',
           kind: sq.kind,
-          project: sq.projectId,
-          status: sq.status,
-          owner: sq.ownerId,
-          date: sq.dateRange,
           sort: 'relevance',
           selected: '',
         }),
@@ -407,7 +429,7 @@ function SearchRoute() {
   // Reset to the first page whenever a filter dimension changes.
   useEffect(() => {
     setPage(0)
-  }, [debouncedQuery, kind, projectId, status, ownerId, dateRange])
+  }, [debouncedQuery, kind, objectClass, projectId, status, ownerId, dateRange])
 
   const hasQuery = debouncedQuery.trim() !== ''
 
@@ -463,6 +485,15 @@ function SearchRoute() {
 
   // ---- Client-side derivations -------------------------------------------
 
+  // Per-object-class counts across the full fetched set (drive the class tabs).
+  const classCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const r of allResults) {
+      counts.set(r.resultType, (counts.get(r.resultType) ?? 0) + 1)
+    }
+    return counts
+  }, [allResults])
+
   // Per-kind counts across the full fetched set (drive the type tabs).
   const kindCounts = useMemo(() => {
     const counts = new Map<string, number>()
@@ -507,6 +538,7 @@ function SearchRoute() {
       year: now - yearStart,
     }
     return allResults.filter((r) => {
+      if (objectClass && r.resultType !== objectClass) return false
       if (kind && r.kind !== kind) return false
       if (projectId && r.projectId !== projectId) return false
       if (status && r.status !== status) return false
@@ -520,7 +552,7 @@ function SearchRoute() {
       }
       return true
     })
-  }, [allResults, kind, projectId, status, ownerId, dateRange])
+  }, [allResults, objectClass, kind, projectId, status, ownerId, dateRange])
 
   // SEARCH-001: rank by tier (exact identifier → structured → fuzzy) then
   // by ts_rank, guaranteeing predictable ordering regardless of score
@@ -586,6 +618,7 @@ function SearchRoute() {
       to: '/search',
       search: serializeSearchUrl({
         ...urlSearch,
+        type: '',
         kind: '',
         project: '',
         status: '',
@@ -598,6 +631,7 @@ function SearchRoute() {
   }
 
   const hasFilters =
+    Boolean(objectClass) ||
     Boolean(kind) ||
     Boolean(projectId) ||
     Boolean(status) ||
@@ -699,6 +733,7 @@ function SearchRoute() {
             <SearchIcon className="size-4" />
             Search
           </Button>
+          {/* Type tabs with per-type counts */}
           {hasQuery ? (
             <Button
               type="button"
@@ -712,6 +747,38 @@ function SearchRoute() {
             </Button>
           ) : null}
         </form>
+        {/* Object-class tabs with per-class counts (DATA-04). */}
+        <div
+          role="tablist"
+          aria-label="Filter by object class"
+          className="flex flex-wrap items-center gap-1 border-b border-border"
+        >
+          <TypeTab
+            label="Everything"
+            count={allResults.length}
+            active={objectClass === ''}
+            onClick={() => updateFilter('type', '')}
+          />
+          {SEARCH_RESULT_TYPES.filter(
+            (t) => t !== 'record' && t !== 'file',
+          ).map((t) => (
+            <TypeTab
+              key={t}
+              label={CLASS_LABELS[t]}
+              count={classCounts.get(t) ?? 0}
+              active={objectClass === t}
+              onClick={() => updateFilter('type', t)}
+            />
+          ))}
+          <TypeTab
+            label="Records"
+            count={
+              (classCounts.get('record') ?? 0) + (classCounts.get('file') ?? 0)
+            }
+            active={objectClass === 'record'}
+            onClick={() => updateFilter('type', 'record')}
+          />
+        </div>
 
         {/* Type tabs with per-type counts */}
         <div

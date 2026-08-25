@@ -48,7 +48,17 @@ export interface SearchResultWire {
 // Domain shape (camelCase, consumed by the UI).
 // ---------------------------------------------------------------------------
 
-export type SearchResultType = 'record' | 'file'
+export type SearchResultType =
+  'record' | 'file' | 'dataset' | 'sheet' | 'template'
+
+/** Object classes the global search covers. */
+export const SEARCH_RESULT_TYPES = [
+  'record',
+  'file',
+  'dataset',
+  'sheet',
+  'template',
+] as const
 
 export type MatchedField =
   | 'title'
@@ -60,6 +70,7 @@ export type MatchedField =
   | 'file_metadata'
   | 'properties'
   | 'relationship'
+  | 'description'
 
 export interface SearchResult {
   resultType: SearchResultType
@@ -94,7 +105,12 @@ export interface SearchFilters {
   dateTo?: string
   limit?: number
   offset?: number
+  /** Object-class facet: narrows the search to one result type. */
+  resultType?: SearchResultTypeFilter
 }
+
+/** Object-class facet value for the search RPC. */
+export type SearchResultTypeFilter = (typeof SEARCH_RESULT_TYPES)[number]
 
 /** Record kinds that can be filtered. Matches the chk_records_kind constraint. */
 export const SEARCHABLE_KINDS = [
@@ -116,7 +132,11 @@ export type SearchableKind = (typeof SEARCHABLE_KINDS)[number]
 
 export function toSearchResult(row: SearchResultWire): SearchResult {
   return {
-    resultType: row.result_type === 'file' ? 'file' : 'record',
+    resultType: (SEARCH_RESULT_TYPES as readonly string[]).includes(
+      row.result_type,
+    )
+      ? (row.result_type as SearchResultType)
+      : 'record',
     recordId: row.record_id,
     kind: row.kind,
     identifier: row.identifier,
@@ -142,7 +162,8 @@ export function toSearchResult(row: SearchResultWire): SearchResult {
 /**
  * Build the arguments object for the `api.search` RPC from UI filters.
  * Strips empty/undefined values so the RPC defaults apply. Validates that
- * kind is a known record kind if provided.
+ * kind is a known record kind and resultType a known object class if
+ * provided.
  */
 export function buildSearchRpcArgs(
   filters: SearchFilters,
@@ -158,6 +179,7 @@ export function buildSearchRpcArgs(
   if (filters.ownerId) args.p_owner_id = filters.ownerId
   if (filters.dateFrom) args.p_date_from = filters.dateFrom
   if (filters.dateTo) args.p_date_to = filters.dateTo
+  if (filters.resultType) args.p_result_type = filters.resultType
   return args
 }
 
@@ -170,17 +192,17 @@ export function buildSearchRpcArgs(
  * column returned by the RPC so the client and server agree.
  */
 export function searchResultDeepLink(
+  resultType: SearchResultType,
   kind: string,
   projectId: string,
   recordId: string,
 ): string {
-  if (kind === 'notebook_template') return '/templates'
+  if (resultType === 'dataset') return `/datasets?dataset=${recordId}`
+  if (resultType === 'sheet') return `/sheets/${recordId}`
+  if (resultType === 'template' || kind === 'notebook_template')
+    return '/templates'
   return `/projects/${projectId}/experiments/${recordId}`
 }
-
-// ---------------------------------------------------------------------------
-// Matched context rendering.
-// ---------------------------------------------------------------------------
 
 /**
  * Parse the ts_headline output (which uses `<b>` tags for highlighting) into
@@ -230,6 +252,7 @@ export const MATCHED_FIELD_LABELS: Record<MatchedField, string> = {
   file_metadata: 'Matched in file metadata',
   properties: 'Matched in properties',
   relationship: 'Matched in relationship',
+  description: 'Matched in description',
 }
 
 export function matchedFieldLabel(field: string): string {
@@ -481,6 +504,8 @@ export interface SavedQuery {
   id: string
   name: string
   query: string
+  /** Object-class facet ('' = all). Older saved entries may omit it. */
+  type?: string
   kind: string
   projectId: string
   status: string
@@ -522,9 +547,9 @@ export function saveQuery(
 ): SavedQuery[] {
   const existing = loadSavedQueries(workspaceId)
   // Deduplicate by name + query + filters.
-  const dedupKey = `${params.name}|${params.query}|${params.kind}|${params.projectId}|${params.status}|${params.ownerId}|${params.dateRange}`
+  const dedupKey = `${params.name}|${params.query}|${params.type ?? ''}|${params.kind}|${params.projectId}|${params.status}|${params.ownerId}|${params.dateRange}`
   const filtered = existing.filter((s) => {
-    const key = `${s.name}|${s.query}|${s.kind}|${s.projectId}|${s.status}|${s.ownerId}|${s.dateRange}`
+    const key = `${s.name}|${s.query}|${s.type ?? ''}|${s.kind}|${s.projectId}|${s.status}|${s.ownerId}|${s.dateRange}`
     return key !== dedupKey
   })
   const entry: SavedQuery = {
@@ -683,6 +708,7 @@ function kindLabelForSuggestion(kind: string): string {
 
 export interface SearchUrlParams {
   q: string
+  type: string
   kind: string
   project: string
   status: string
@@ -694,6 +720,7 @@ export interface SearchUrlParams {
 
 export const SEARCH_URL_DEFAULTS: SearchUrlParams = {
   q: '',
+  type: '',
   kind: '',
   project: '',
   status: '',
@@ -712,6 +739,11 @@ export function parseSearchUrl(
 ): SearchUrlParams {
   return {
     q: typeof search.q === 'string' ? search.q : '',
+    type:
+      typeof search.type === 'string' &&
+      (SEARCH_RESULT_TYPES as readonly string[]).includes(search.type)
+        ? search.type
+        : '',
     kind: typeof search.kind === 'string' ? search.kind : '',
     project: typeof search.project === 'string' ? search.project : '',
     status: typeof search.status === 'string' ? search.status : '',

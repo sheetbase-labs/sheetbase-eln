@@ -383,18 +383,30 @@ describe('toSearchResult', () => {
 
 describe('searchResultDeepLink', () => {
   it('links notebook templates to /templates', () => {
-    expect(searchResultDeepLink('notebook_template', 'proj-1', 'rec-1')).toBe(
-      '/templates',
-    )
+    expect(
+      searchResultDeepLink('record', 'notebook_template', 'proj-1', 'rec-1'),
+    ).toBe('/templates')
   })
 
   it('links records through the notebook route', () => {
-    expect(searchResultDeepLink('experiment', 'proj-1', 'rec-1')).toBe(
-      '/projects/proj-1/experiments/rec-1',
-    )
-    expect(searchResultDeepLink('sample', 'proj-1', 'rec-2')).toBe(
+    expect(
+      searchResultDeepLink('record', 'experiment', 'proj-1', 'rec-1'),
+    ).toBe('/projects/proj-1/experiments/rec-1')
+    expect(searchResultDeepLink('record', 'sample', 'proj-1', 'rec-2')).toBe(
       '/projects/proj-1/experiments/rec-2',
     )
+  })
+
+  it('links datasets, sheets and templates to their surfaces', () => {
+    expect(searchResultDeepLink('dataset', 'dataset', 'proj-1', 'ds-1')).toBe(
+      '/datasets?dataset=ds-1',
+    )
+    expect(
+      searchResultDeepLink('sheet', 'sheet_instance', 'proj-1', 'sh-1'),
+    ).toBe('/sheets/sh-1')
+    expect(
+      searchResultDeepLink('template', 'notebook_template', '', 't-1'),
+    ).toBe('/templates')
   })
 })
 
@@ -826,6 +838,7 @@ describe('parseSearchUrl', () => {
   it('parses provided values', () => {
     const parsed = parseSearchUrl({
       q: 'virus stability',
+      type: 'dataset',
       kind: 'experiment',
       project: 'proj-1',
       status: 'in-progress',
@@ -836,6 +849,7 @@ describe('parseSearchUrl', () => {
     })
     expect(parsed).toEqual({
       q: 'virus stability',
+      type: 'dataset',
       kind: 'experiment',
       project: 'proj-1',
       status: 'in-progress',
@@ -844,6 +858,10 @@ describe('parseSearchUrl', () => {
       sort: 'updated',
       selected: 'rec-1',
     })
+  })
+
+  it('defaults an unknown object class to all classes', () => {
+    expect(parseSearchUrl({ type: 'widgets' }).type).toBe('')
   })
 
   it('defaults invalid sort to relevance', () => {

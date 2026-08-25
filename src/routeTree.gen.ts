@@ -44,9 +44,14 @@ import { Route as ApiFilesUploadAuthorizeRouteImport } from './routes/api/files/
 import { Route as ApiHealthLiveRouteImport } from './routes/api/health/live'
 import { Route as ApiHealthReadyRouteImport } from './routes/api/health/ready'
 import { Route as ApiTokenIndexRouteImport } from './routes/api/token/index'
+import { Route as ApiExportDatasetVersionIdRouteImport } from './routes/api/export/dataset-version/$id'
+import { Route as ApiExportDatasetIdRouteImport } from './routes/api/export/dataset/$id'
+import { Route as ApiExportRecordIdRouteImport } from './routes/api/export/record/$id'
+import { Route as ApiExportSheetInstanceIdRouteImport } from './routes/api/export/sheet-instance/$id'
 import { Route as ApiFilesFileIdDownloadRouteImport } from './routes/api/files/$fileId/download'
 import { Route as ApiFilesFileIdUploadRouteImport } from './routes/api/files/$fileId/upload'
 import { Route as ProjectsProjectIdExperimentsRecordIdRouteImport } from './routes/projects/$projectId/experiments/$recordId'
+import { Route as ApiExportRevisionIdPackageRouteImport } from './routes/api/export/revision/$id/package'
 import { Route as ProjectsProjectIdExperimentsRecordIdOverviewRouteImport } from './routes/projects/$projectId/experiments/$recordId/overview'
 
 const IndexRoute = IndexRouteImport.update({
@@ -224,6 +229,28 @@ const ApiTokenIndexRoute = ApiTokenIndexRouteImport.update({
   path: '/api/token/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiExportDatasetVersionIdRoute =
+  ApiExportDatasetVersionIdRouteImport.update({
+    id: '/api/export/dataset-version/$id',
+    path: '/api/export/dataset-version/$id',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiExportDatasetIdRoute = ApiExportDatasetIdRouteImport.update({
+  id: '/api/export/dataset/$id',
+  path: '/api/export/dataset/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiExportRecordIdRoute = ApiExportRecordIdRouteImport.update({
+  id: '/api/export/record/$id',
+  path: '/api/export/record/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiExportSheetInstanceIdRoute =
+  ApiExportSheetInstanceIdRouteImport.update({
+    id: '/api/export/sheet-instance/$id',
+    path: '/api/export/sheet-instance/$id',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiFilesFileIdDownloadRoute = ApiFilesFileIdDownloadRouteImport.update({
   id: '/api/files/$fileId/download',
   path: '/api/files/$fileId/download',
@@ -239,6 +266,12 @@ const ProjectsProjectIdExperimentsRecordIdRoute =
     id: '/experiments/$recordId',
     path: '/experiments/$recordId',
     getParentRoute: () => ProjectsProjectIdRoute,
+  } as any)
+const ApiExportRevisionIdPackageRoute =
+  ApiExportRevisionIdPackageRouteImport.update({
+    id: '/api/export/revision/$id/package',
+    path: '/api/export/revision/$id/package',
+    getParentRoute: () => rootRouteImport,
   } as any)
 const ProjectsProjectIdExperimentsRecordIdOverviewRoute =
   ProjectsProjectIdExperimentsRecordIdOverviewRouteImport.update({
@@ -283,9 +316,14 @@ export interface FileRoutesByFullPath {
   '/api/health/live': typeof ApiHealthLiveRoute
   '/api/health/ready': typeof ApiHealthReadyRoute
   '/api/token/': typeof ApiTokenIndexRoute
+  '/api/export/dataset-version/$id': typeof ApiExportDatasetVersionIdRoute
+  '/api/export/dataset/$id': typeof ApiExportDatasetIdRoute
+  '/api/export/record/$id': typeof ApiExportRecordIdRoute
+  '/api/export/sheet-instance/$id': typeof ApiExportSheetInstanceIdRoute
   '/api/files/$fileId/download': typeof ApiFilesFileIdDownloadRoute
   '/api/files/$fileId/upload': typeof ApiFilesFileIdUploadRoute
   '/projects/$projectId/experiments/$recordId': typeof ProjectsProjectIdExperimentsRecordIdRouteWithChildren
+  '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
   '/projects/$projectId/experiments/$recordId/overview': typeof ProjectsProjectIdExperimentsRecordIdOverviewRoute
 }
 export interface FileRoutesByTo {
@@ -324,9 +362,14 @@ export interface FileRoutesByTo {
   '/api/health/live': typeof ApiHealthLiveRoute
   '/api/health/ready': typeof ApiHealthReadyRoute
   '/api/token': typeof ApiTokenIndexRoute
+  '/api/export/dataset-version/$id': typeof ApiExportDatasetVersionIdRoute
+  '/api/export/dataset/$id': typeof ApiExportDatasetIdRoute
+  '/api/export/record/$id': typeof ApiExportRecordIdRoute
+  '/api/export/sheet-instance/$id': typeof ApiExportSheetInstanceIdRoute
   '/api/files/$fileId/download': typeof ApiFilesFileIdDownloadRoute
   '/api/files/$fileId/upload': typeof ApiFilesFileIdUploadRoute
   '/projects/$projectId/experiments/$recordId': typeof ProjectsProjectIdExperimentsRecordIdRouteWithChildren
+  '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
   '/projects/$projectId/experiments/$recordId/overview': typeof ProjectsProjectIdExperimentsRecordIdOverviewRoute
 }
 export interface FileRoutesById {
@@ -366,9 +409,14 @@ export interface FileRoutesById {
   '/api/health/live': typeof ApiHealthLiveRoute
   '/api/health/ready': typeof ApiHealthReadyRoute
   '/api/token/': typeof ApiTokenIndexRoute
+  '/api/export/dataset-version/$id': typeof ApiExportDatasetVersionIdRoute
+  '/api/export/dataset/$id': typeof ApiExportDatasetIdRoute
+  '/api/export/record/$id': typeof ApiExportRecordIdRoute
+  '/api/export/sheet-instance/$id': typeof ApiExportSheetInstanceIdRoute
   '/api/files/$fileId/download': typeof ApiFilesFileIdDownloadRoute
   '/api/files/$fileId/upload': typeof ApiFilesFileIdUploadRoute
   '/projects/$projectId/experiments/$recordId': typeof ProjectsProjectIdExperimentsRecordIdRouteWithChildren
+  '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
   '/projects/$projectId/experiments/$recordId/overview': typeof ProjectsProjectIdExperimentsRecordIdOverviewRoute
 }
 export interface FileRouteTypes {
@@ -409,9 +457,14 @@ export interface FileRouteTypes {
     | '/api/health/live'
     | '/api/health/ready'
     | '/api/token/'
+    | '/api/export/dataset-version/$id'
+    | '/api/export/dataset/$id'
+    | '/api/export/record/$id'
+    | '/api/export/sheet-instance/$id'
     | '/api/files/$fileId/download'
     | '/api/files/$fileId/upload'
     | '/projects/$projectId/experiments/$recordId'
+    | '/api/export/revision/$id/package'
     | '/projects/$projectId/experiments/$recordId/overview'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -450,9 +503,14 @@ export interface FileRouteTypes {
     | '/api/health/live'
     | '/api/health/ready'
     | '/api/token'
+    | '/api/export/dataset-version/$id'
+    | '/api/export/dataset/$id'
+    | '/api/export/record/$id'
+    | '/api/export/sheet-instance/$id'
     | '/api/files/$fileId/download'
     | '/api/files/$fileId/upload'
     | '/projects/$projectId/experiments/$recordId'
+    | '/api/export/revision/$id/package'
     | '/projects/$projectId/experiments/$recordId/overview'
   id:
     | '__root__'
@@ -491,9 +549,14 @@ export interface FileRouteTypes {
     | '/api/health/live'
     | '/api/health/ready'
     | '/api/token/'
+    | '/api/export/dataset-version/$id'
+    | '/api/export/dataset/$id'
+    | '/api/export/record/$id'
+    | '/api/export/sheet-instance/$id'
     | '/api/files/$fileId/download'
     | '/api/files/$fileId/upload'
     | '/projects/$projectId/experiments/$recordId'
+    | '/api/export/revision/$id/package'
     | '/projects/$projectId/experiments/$recordId/overview'
   fileRoutesById: FileRoutesById
 }
@@ -530,8 +593,13 @@ export interface RootRouteChildren {
   ApiHealthLiveRoute: typeof ApiHealthLiveRoute
   ApiHealthReadyRoute: typeof ApiHealthReadyRoute
   ApiTokenIndexRoute: typeof ApiTokenIndexRoute
+  ApiExportDatasetVersionIdRoute: typeof ApiExportDatasetVersionIdRoute
+  ApiExportDatasetIdRoute: typeof ApiExportDatasetIdRoute
+  ApiExportRecordIdRoute: typeof ApiExportRecordIdRoute
+  ApiExportSheetInstanceIdRoute: typeof ApiExportSheetInstanceIdRoute
   ApiFilesFileIdDownloadRoute: typeof ApiFilesFileIdDownloadRoute
   ApiFilesFileIdUploadRoute: typeof ApiFilesFileIdUploadRoute
+  ApiExportRevisionIdPackageRoute: typeof ApiExportRevisionIdPackageRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -781,6 +849,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTokenIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/export/dataset-version/$id': {
+      id: '/api/export/dataset-version/$id'
+      path: '/api/export/dataset-version/$id'
+      fullPath: '/api/export/dataset-version/$id'
+      preLoaderRoute: typeof ApiExportDatasetVersionIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/export/dataset/$id': {
+      id: '/api/export/dataset/$id'
+      path: '/api/export/dataset/$id'
+      fullPath: '/api/export/dataset/$id'
+      preLoaderRoute: typeof ApiExportDatasetIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/export/record/$id': {
+      id: '/api/export/record/$id'
+      path: '/api/export/record/$id'
+      fullPath: '/api/export/record/$id'
+      preLoaderRoute: typeof ApiExportRecordIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/export/sheet-instance/$id': {
+      id: '/api/export/sheet-instance/$id'
+      path: '/api/export/sheet-instance/$id'
+      fullPath: '/api/export/sheet-instance/$id'
+      preLoaderRoute: typeof ApiExportSheetInstanceIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/files/$fileId/download': {
       id: '/api/files/$fileId/download'
       path: '/api/files/$fileId/download'
@@ -801,6 +897,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/projects/$projectId/experiments/$recordId'
       preLoaderRoute: typeof ProjectsProjectIdExperimentsRecordIdRouteImport
       parentRoute: typeof ProjectsProjectIdRoute
+    }
+    '/api/export/revision/$id/package': {
+      id: '/api/export/revision/$id/package'
+      path: '/api/export/revision/$id/package'
+      fullPath: '/api/export/revision/$id/package'
+      preLoaderRoute: typeof ApiExportRevisionIdPackageRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/projects/$projectId/experiments/$recordId/overview': {
       id: '/projects/$projectId/experiments/$recordId/overview'
@@ -905,19 +1008,14 @@ const rootRouteChildren: RootRouteChildren = {
   ApiHealthLiveRoute: ApiHealthLiveRoute,
   ApiHealthReadyRoute: ApiHealthReadyRoute,
   ApiTokenIndexRoute: ApiTokenIndexRoute,
+  ApiExportDatasetVersionIdRoute: ApiExportDatasetVersionIdRoute,
+  ApiExportDatasetIdRoute: ApiExportDatasetIdRoute,
+  ApiExportRecordIdRoute: ApiExportRecordIdRoute,
+  ApiExportSheetInstanceIdRoute: ApiExportSheetInstanceIdRoute,
   ApiFilesFileIdDownloadRoute: ApiFilesFileIdDownloadRoute,
   ApiFilesFileIdUploadRoute: ApiFilesFileIdUploadRoute,
+  ApiExportRevisionIdPackageRoute: ApiExportRevisionIdPackageRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

@@ -124,7 +124,6 @@ import type { SignatureMeaning, SignatureWire } from '#/lib/signatures'
 import {
   createAmendment,
   fetchRecordTimeline,
-  fetchRevisionEvidenceExport,
   sign002DataClient,
   sign002QueryKeys,
 } from '#/lib/sign-002'
@@ -1775,61 +1774,24 @@ function InspectorPropStatic({
 // ---------------------------------------------------------------------------
 
 function EvidenceExportSection({ revisionId }: { revisionId: string }) {
-  const [downloading, setDownloading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  async function handleDownload() {
-    setDownloading(true)
-    setError(null)
-    try {
-      const bundle = await fetchRevisionEvidenceExport(
-        sign002DataClient,
-        revisionId,
-      )
-      const json = JSON.stringify(bundle, null, 2)
-      const blob = new Blob([json], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
-      const anchor = document.createElement('a')
-      anchor.href = url
-      anchor.download = evidenceExportFilename(revisionId, bundle.exportedAt)
-      document.body.appendChild(anchor)
-      anchor.click()
-      document.body.removeChild(anchor)
-      URL.revokeObjectURL(url)
-    } catch (err) {
-      setError(renderError(err))
-    } finally {
-      setDownloading(false)
-    }
-  }
-
   return (
     <section>
       <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Evidence export
       </h3>
       <p className="mb-2 text-xs text-muted-foreground">
-        Download the review and signature evidence as a stable, machine-readable
-        JSON bundle (format version 1).
+        Download a deterministic evidence package (ZIP): machine-readable JSON,
+        frozen Sheet grids as CSV, the pinned file manifest and a sha256
+        checksum list. Submitted revisions are immutable; the package never
+        changes after download-time content is captured.
       </p>
-      <Button
-        variant="outline"
-        size="sm"
-        className="h-9 w-full text-xs"
-        onClick={handleDownload}
-        disabled={downloading}
+      <a
+        href={`/api/export/revision/${revisionId}/package`}
+        className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-md border text-sm font-medium hover:bg-accent"
       >
         <Download className="size-3.5" aria-hidden />
-        {downloading ? 'Preparing…' : 'Download evidence (JSON)'}
-      </Button>
-      {error ? (
-        <p
-          role="alert"
-          className="mt-2 rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-xs text-destructive"
-        >
-          {error}
-        </p>
-      ) : null}
+        Download evidence package (ZIP)
+      </a>
     </section>
   )
 }
@@ -1950,13 +1912,4 @@ function AmendmentSection({
       </AlertDialog>
     </section>
   )
-}
-
-function evidenceExportFilename(
-  revisionId: string,
-  exportedAt: string,
-): string {
-  // Stable, sortable filename: evidence-<revision-prefix>-<utcstamp>.json
-  const stamp = exportedAt.replace(/[^0-9TZ:.-]/g, '').replace(/:/g, '')
-  return `evidence-${revisionId.slice(0, 8)}-${stamp}.json`
 }

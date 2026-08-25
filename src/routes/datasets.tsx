@@ -31,6 +31,7 @@ import {
   Table as TableIcon,
 } from 'lucide-react'
 
+import { ExportMenu } from '#/components/export/export-menu'
 import { useShell } from '#/components/app-shell'
 import { DatasetProductActions } from '#/components/datasets/dataset-product-controls'
 import { RegistryComposition } from '#/components/registry'
@@ -115,7 +116,6 @@ import {
   columnsForPinnedSchemaVersion,
   commitDatasetRowBatch,
   datasetRevision,
-  datasetRowsToCsv,
   describeDatasetCommitError,
   fetchDatasetDependencies,
   listDatasetVersions,
@@ -667,23 +667,10 @@ export function DatasetDataTab({ table, onRefresh }: DatasetDataTabProps) {
 
   useEffect(() => setSelectedRowId(null), [qid])
 
-  function exportCsv() {
-    const csv = datasetRowsToCsv(table.columns, rows)
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `${table.name.replaceAll(/\s+/g, '-').toLowerCase()}.csv`
-    link.click()
-    URL.revokeObjectURL(url)
-  }
-
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className="flex shrink-0 justify-end px-1 py-1">
-        <Button size="sm" variant="outline" onClick={exportCsv}>
-          Export CSV
-        </Button>
+        <ExportMenu path={`/api/export/dataset/${table.id}`} />
       </div>
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <RegistryComposition
@@ -1442,8 +1429,16 @@ function DatasetVersionsTab({ table }: { table: CanonicalDatasetWire }) {
           </ul>
         )}
       </div>
-      <div>
-        <h3 className="text-sm font-semibold">Historical rows</h3>
+      <div className="min-w-0">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold">Historical rows</h3>
+          {selected ? (
+            <ExportMenu
+              path={`/api/export/dataset-version/${selected.id}`}
+              label="Export version"
+            />
+          ) : null}
+        </div>
         {!selected ? (
           <EmptyHint>Select a Version to inspect frozen rows</EmptyHint>
         ) : historicalQuery.isLoading || schemaQuery.isLoading ? (

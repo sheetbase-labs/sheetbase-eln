@@ -79,7 +79,11 @@ export async function handleUploadAuthorize(
   try {
     payload = await request.json()
   } catch {
-    return requestErrorResponse(400, 'invalid_body', 'Request body must be JSON.')
+    return requestErrorResponse(
+      400,
+      'invalid_body',
+      'Request body must be JSON.',
+    )
   }
   if (typeof payload.projectId !== 'string' || !payload.projectId) {
     return requestErrorResponse(400, 'invalid_body', 'projectId is required.')

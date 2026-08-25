@@ -140,16 +140,6 @@ export function fetchRecordTimeline(
   })
 }
 
-/** Fetch the machine-readable evidence bundle for a revision. */
-export function fetchRevisionEvidenceExport(
-  client: DataClient,
-  revisionId: string,
-): Promise<EvidenceExportWire> {
-  return client.rpc<EvidenceExportWire>('export_revision_evidence', {
-    p_revision_id: revisionId,
-  })
-}
-
 // ---------------------------------------------------------------------------
 // create_amendment RPC wrapper.
 // ---------------------------------------------------------------------------

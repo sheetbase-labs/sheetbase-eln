@@ -14,7 +14,6 @@ import type { SheetInstance } from '#/lib/sheet-instance-data'
 import {
   blocksFromRevision,
   duplicateExperiment,
-  downloadRevisionEvidence,
   fetchNotebookReviewContext,
   fetchRevisionsForRecord,
   groupChartTables,
@@ -695,17 +694,6 @@ describe('duplicateExperiment', () => {
         blocks: [],
       }),
     ).rejects.toBeInstanceOf(DataClientError)
-  })
-})
-
-describe('downloadRevisionEvidence', () => {
-  it('fetches the evidence export for a revision', async () => {
-    const rpc = vi.fn().mockResolvedValue({ formatVersion: 1 })
-    const bundle = await downloadRevisionEvidence(mockClient({ rpc }), 'rev1')
-    expect(rpc).toHaveBeenCalledWith('export_revision_evidence', {
-      p_revision_id: 'rev1',
-    })
-    expect(bundle).toEqual({ formatVersion: 1 })
   })
 })
 

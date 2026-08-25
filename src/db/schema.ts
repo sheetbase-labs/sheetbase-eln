@@ -5846,6 +5846,57 @@ export const reportGenerationsRelations = relations(
 // ADMIN-001 relations.
 // ---------------------------------------------------------------------------
 
+/**
+ * DATA-02 export receipts. Written only by the export routes over the
+ * application connection (request roles hold SELECT-only grants), with
+ * workspace and actor derived from the verified session.
+ */
+export const dataExports = api.table(
+  'data_exports',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    objectType: text('object_type').notNull(),
+    objectId: uuid('object_id').notNull(),
+    format: text('format').notNull(),
+    rowCount: integer('row_count'),
+    byteSize: bigint('byte_size', { mode: 'bigint' }),
+    actorUserId: text('actor_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    actorCredentialId: uuid('actor_credential_id').references(
+      () => apiCredentials.id,
+      { onDelete: 'set null' },
+    ),
+    // Append-only audit row: created_at only, no update semantics.
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'chk_data_exports_object_type',
+      sql`${table.objectType} IN ('dataset','dataset_version','sheet_instance','record','revision')`,
+    ),
+    check(
+      'chk_data_exports_format',
+      sql`length(btrim(${table.format})) BETWEEN 1 AND 40`,
+    ),
+    check(
+      'chk_data_exports_row_count',
+      sql`${table.rowCount} IS NULL OR ${table.rowCount} >= 0`,
+    ),
+    check(
+      'chk_data_exports_byte_size',
+      sql`${table.byteSize} IS NULL OR ${table.byteSize} >= 0`,
+    ),
+    index('idx_data_exports_workspace').on(table.workspaceId),
+    index('idx_data_exports_object').on(table.objectType, table.objectId),
+  ],
+)
+
 export const workspaceInvitationsRelations = relations(
   workspaceInvitations,
   ({ one }) => ({

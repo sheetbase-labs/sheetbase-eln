@@ -7,9 +7,12 @@ import {
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 
-import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
 import { LiveEventProvider } from '../components/live'
 import { ShellProvider } from '../components/app-shell'
+
+import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
+import { CollaborationProvider } from '../components/collaboration/collaboration-provider'
+import { CollaborationEnabledContext } from '#/lib/collaboration/liveblocks.config'
 import { createServerFn } from '@tanstack/react-start'
 
 import appCss from '../styles.css?url'
@@ -102,9 +105,15 @@ function RootRouteComponent() {
 
   return (
     <LiveEventProvider>
-      <ShellProvider initialContext={shellContext}>
-        <Outlet />
-      </ShellProvider>
+      <CollaborationEnabledContext.Provider
+        value={auth?.collaborationEnabled ?? false}
+      >
+        <CollaborationProvider>
+          <ShellProvider initialContext={shellContext}>
+            <Outlet />
+          </ShellProvider>
+        </CollaborationProvider>
+      </CollaborationEnabledContext.Provider>
     </LiveEventProvider>
   )
 }

@@ -39,11 +39,15 @@ import { Route as ProjectsProjectIdRouteImport } from './routes/projects/$projec
 import { Route as ReviewsRevisionIdRouteImport } from './routes/reviews/$revisionId'
 import { Route as SheetsInstanceIdRouteImport } from './routes/sheets/$instanceId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiCollaborationAuthRouteImport } from './routes/api/collaboration/auth'
+import { Route as ApiCollaborationMentionsRouteImport } from './routes/api/collaboration/mentions'
 import { Route as ApiDbSplatRouteImport } from './routes/api/db/$'
 import { Route as ApiFilesUploadAuthorizeRouteImport } from './routes/api/files/upload-authorize'
 import { Route as ApiHealthLiveRouteImport } from './routes/api/health/live'
 import { Route as ApiHealthReadyRouteImport } from './routes/api/health/ready'
 import { Route as ApiTokenIndexRouteImport } from './routes/api/token/index'
+import { Route as ApiCollaborationResolveRoomsRouteImport } from './routes/api/collaboration/resolve.rooms'
+import { Route as ApiCollaborationResolveUsersRouteImport } from './routes/api/collaboration/resolve.users'
 import { Route as ApiExportDatasetVersionIdRouteImport } from './routes/api/export/dataset-version/$id'
 import { Route as ApiExportDatasetIdRouteImport } from './routes/api/export/dataset/$id'
 import { Route as ApiExportRecordIdRouteImport } from './routes/api/export/record/$id'
@@ -204,6 +208,17 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCollaborationAuthRoute = ApiCollaborationAuthRouteImport.update({
+  id: '/api/collaboration/auth',
+  path: '/api/collaboration/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCollaborationMentionsRoute =
+  ApiCollaborationMentionsRouteImport.update({
+    id: '/api/collaboration/mentions',
+    path: '/api/collaboration/mentions',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiDbSplatRoute = ApiDbSplatRouteImport.update({
   id: '/api/db/$',
   path: '/api/db/$',
@@ -229,6 +244,18 @@ const ApiTokenIndexRoute = ApiTokenIndexRouteImport.update({
   path: '/api/token/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCollaborationResolveRoomsRoute =
+  ApiCollaborationResolveRoomsRouteImport.update({
+    id: '/api/collaboration/resolve/rooms',
+    path: '/api/collaboration/resolve/rooms',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiCollaborationResolveUsersRoute =
+  ApiCollaborationResolveUsersRouteImport.update({
+    id: '/api/collaboration/resolve/users',
+    path: '/api/collaboration/resolve/users',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiExportDatasetVersionIdRoute =
   ApiExportDatasetVersionIdRouteImport.update({
     id: '/api/export/dataset-version/$id',
@@ -311,11 +338,15 @@ export interface FileRoutesByFullPath {
   '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
   '/sheets/$instanceId': typeof SheetsInstanceIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
+  '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
   '/api/db/$': typeof ApiDbSplatRoute
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
   '/api/health/live': typeof ApiHealthLiveRoute
   '/api/health/ready': typeof ApiHealthReadyRoute
   '/api/token/': typeof ApiTokenIndexRoute
+  '/api/collaboration/resolve/rooms': typeof ApiCollaborationResolveRoomsRoute
+  '/api/collaboration/resolve/users': typeof ApiCollaborationResolveUsersRoute
   '/api/export/dataset-version/$id': typeof ApiExportDatasetVersionIdRoute
   '/api/export/dataset/$id': typeof ApiExportDatasetIdRoute
   '/api/export/record/$id': typeof ApiExportRecordIdRoute
@@ -357,11 +388,15 @@ export interface FileRoutesByTo {
   '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
   '/sheets/$instanceId': typeof SheetsInstanceIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
+  '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
   '/api/db/$': typeof ApiDbSplatRoute
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
   '/api/health/live': typeof ApiHealthLiveRoute
   '/api/health/ready': typeof ApiHealthReadyRoute
   '/api/token': typeof ApiTokenIndexRoute
+  '/api/collaboration/resolve/rooms': typeof ApiCollaborationResolveRoomsRoute
+  '/api/collaboration/resolve/users': typeof ApiCollaborationResolveUsersRoute
   '/api/export/dataset-version/$id': typeof ApiExportDatasetVersionIdRoute
   '/api/export/dataset/$id': typeof ApiExportDatasetIdRoute
   '/api/export/record/$id': typeof ApiExportRecordIdRoute
@@ -404,11 +439,15 @@ export interface FileRoutesById {
   '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
   '/sheets/$instanceId': typeof SheetsInstanceIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
+  '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
   '/api/db/$': typeof ApiDbSplatRoute
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
   '/api/health/live': typeof ApiHealthLiveRoute
   '/api/health/ready': typeof ApiHealthReadyRoute
   '/api/token/': typeof ApiTokenIndexRoute
+  '/api/collaboration/resolve/rooms': typeof ApiCollaborationResolveRoomsRoute
+  '/api/collaboration/resolve/users': typeof ApiCollaborationResolveUsersRoute
   '/api/export/dataset-version/$id': typeof ApiExportDatasetVersionIdRoute
   '/api/export/dataset/$id': typeof ApiExportDatasetIdRoute
   '/api/export/record/$id': typeof ApiExportRecordIdRoute
@@ -452,11 +491,15 @@ export interface FileRouteTypes {
     | '/reviews/$revisionId'
     | '/sheets/$instanceId'
     | '/api/auth/$'
+    | '/api/collaboration/auth'
+    | '/api/collaboration/mentions'
     | '/api/db/$'
     | '/api/files/upload-authorize'
     | '/api/health/live'
     | '/api/health/ready'
     | '/api/token/'
+    | '/api/collaboration/resolve/rooms'
+    | '/api/collaboration/resolve/users'
     | '/api/export/dataset-version/$id'
     | '/api/export/dataset/$id'
     | '/api/export/record/$id'
@@ -498,11 +541,15 @@ export interface FileRouteTypes {
     | '/reviews/$revisionId'
     | '/sheets/$instanceId'
     | '/api/auth/$'
+    | '/api/collaboration/auth'
+    | '/api/collaboration/mentions'
     | '/api/db/$'
     | '/api/files/upload-authorize'
     | '/api/health/live'
     | '/api/health/ready'
     | '/api/token'
+    | '/api/collaboration/resolve/rooms'
+    | '/api/collaboration/resolve/users'
     | '/api/export/dataset-version/$id'
     | '/api/export/dataset/$id'
     | '/api/export/record/$id'
@@ -544,11 +591,15 @@ export interface FileRouteTypes {
     | '/reviews/$revisionId'
     | '/sheets/$instanceId'
     | '/api/auth/$'
+    | '/api/collaboration/auth'
+    | '/api/collaboration/mentions'
     | '/api/db/$'
     | '/api/files/upload-authorize'
     | '/api/health/live'
     | '/api/health/ready'
     | '/api/token/'
+    | '/api/collaboration/resolve/rooms'
+    | '/api/collaboration/resolve/users'
     | '/api/export/dataset-version/$id'
     | '/api/export/dataset/$id'
     | '/api/export/record/$id'
@@ -588,11 +639,15 @@ export interface RootRouteChildren {
   ApiSheetCalculationsRoute: typeof ApiSheetCalculationsRoute
   SheetsInstanceIdRoute: typeof SheetsInstanceIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiCollaborationAuthRoute: typeof ApiCollaborationAuthRoute
+  ApiCollaborationMentionsRoute: typeof ApiCollaborationMentionsRoute
   ApiDbSplatRoute: typeof ApiDbSplatRoute
   ApiFilesUploadAuthorizeRoute: typeof ApiFilesUploadAuthorizeRoute
   ApiHealthLiveRoute: typeof ApiHealthLiveRoute
   ApiHealthReadyRoute: typeof ApiHealthReadyRoute
   ApiTokenIndexRoute: typeof ApiTokenIndexRoute
+  ApiCollaborationResolveRoomsRoute: typeof ApiCollaborationResolveRoomsRoute
+  ApiCollaborationResolveUsersRoute: typeof ApiCollaborationResolveUsersRoute
   ApiExportDatasetVersionIdRoute: typeof ApiExportDatasetVersionIdRoute
   ApiExportDatasetIdRoute: typeof ApiExportDatasetIdRoute
   ApiExportRecordIdRoute: typeof ApiExportRecordIdRoute
@@ -814,6 +869,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/collaboration/auth': {
+      id: '/api/collaboration/auth'
+      path: '/api/collaboration/auth'
+      fullPath: '/api/collaboration/auth'
+      preLoaderRoute: typeof ApiCollaborationAuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/collaboration/mentions': {
+      id: '/api/collaboration/mentions'
+      path: '/api/collaboration/mentions'
+      fullPath: '/api/collaboration/mentions'
+      preLoaderRoute: typeof ApiCollaborationMentionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/db/$': {
       id: '/api/db/$'
       path: '/api/db/$'
@@ -847,6 +916,20 @@ declare module '@tanstack/react-router' {
       path: '/api/token'
       fullPath: '/api/token/'
       preLoaderRoute: typeof ApiTokenIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/collaboration/resolve/rooms': {
+      id: '/api/collaboration/resolve/rooms'
+      path: '/api/collaboration/resolve/rooms'
+      fullPath: '/api/collaboration/resolve/rooms'
+      preLoaderRoute: typeof ApiCollaborationResolveRoomsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/collaboration/resolve/users': {
+      id: '/api/collaboration/resolve/users'
+      path: '/api/collaboration/resolve/users'
+      fullPath: '/api/collaboration/resolve/users'
+      preLoaderRoute: typeof ApiCollaborationResolveUsersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/export/dataset-version/$id': {
@@ -1003,11 +1086,15 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSheetCalculationsRoute: ApiSheetCalculationsRoute,
   SheetsInstanceIdRoute: SheetsInstanceIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiCollaborationAuthRoute: ApiCollaborationAuthRoute,
+  ApiCollaborationMentionsRoute: ApiCollaborationMentionsRoute,
   ApiDbSplatRoute: ApiDbSplatRoute,
   ApiFilesUploadAuthorizeRoute: ApiFilesUploadAuthorizeRoute,
   ApiHealthLiveRoute: ApiHealthLiveRoute,
   ApiHealthReadyRoute: ApiHealthReadyRoute,
   ApiTokenIndexRoute: ApiTokenIndexRoute,
+  ApiCollaborationResolveRoomsRoute: ApiCollaborationResolveRoomsRoute,
+  ApiCollaborationResolveUsersRoute: ApiCollaborationResolveUsersRoute,
   ApiExportDatasetVersionIdRoute: ApiExportDatasetVersionIdRoute,
   ApiExportDatasetIdRoute: ApiExportDatasetIdRoute,
   ApiExportRecordIdRoute: ApiExportRecordIdRoute,
@@ -1019,13 +1106,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

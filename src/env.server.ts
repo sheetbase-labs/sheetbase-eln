@@ -44,6 +44,10 @@ export const env = createEnv({
         z.enum(['true', 'false']).transform((v) => v === 'true'),
       ])
       .default(false),
+    // COLLAB: Liveblocks collaboration substrate. Optional so local/CI runs
+    // without a Liveblocks account keep working; the collaboration layer
+    // reports `disabled` until this is set. Server-only secret.
+    LIVEBLOCKS_SECRET_KEY: z.string().min(1).optional(),
     SHEETBASE_DEV_USER_ID: z.string().uuid().default(DEFAULT_DEV_USER_ID),
   },
   runtimeEnv: process.env,

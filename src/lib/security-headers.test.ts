@@ -35,8 +35,14 @@ describe('buildContentSecurityPolicy', () => {
     expect(csp).toContain("form-action 'self'")
     expect(csp).toContain("style-src 'self' 'unsafe-inline'")
     expect(csp).toContain("img-src 'self' data: blob:")
+    expect(csp).toContain('wss://*.liveblocks.io')
+    expect(csp).toContain('https://*.liveblocks.io')
+    expect(csp).toContain('https://avatars.githubusercontent.com')
     expect(csp).toContain("worker-src 'self' blob:")
-    expect(csp).not.toContain('github.com')
+    // GitHub OAuth needs no github.com endpoints; only the avatar image host
+    // is allowed, and only under img-src.
+    const connectSrc = csp.split('; ').find((d) => d.startsWith('connect-src'))!
+    expect(connectSrc).not.toContain('github.com')
   })
 
   it('allows Vite HMR eval and websockets outside production', () => {

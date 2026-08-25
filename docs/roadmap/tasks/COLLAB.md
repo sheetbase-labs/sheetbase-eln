@@ -1,6 +1,6 @@
 # COLLAB — Collaboration
 
-**Status:** planned.
+**Status:** implemented (COLLAB-01–04; stacked PRs `feat/collab-foundation` → `feat/collab-02-comments` → `feat/collab-03-presence-notifications` → `feat/collab-04-review`).
 
 ## Programme goal
 
@@ -31,6 +31,15 @@ In-app notification centre; mentions; review requests; failed imports; relevant 
 Review requests, assignees where useful, status, due dates only if justified, links to evidence/comments, completion/resolution.
 
 **Exit:** common scientific review coordination works without reproducing a general task tracker.
+
+### Follow-up (queued, not started)
+
+**Canonical Sheet stable row identity + Sheet-cell collaboration anchors.**
+Adds a per-row persisted identity to the Sheet Instance model itself, then
+enables `sheet-cell` / `sheet-range` thread anchors over
+`SheetInstanceId + canonical row UUID + field UUID`. Must not use the retired
+generated `api.sheet_*` scientific tables. Until it lands, sheet rooms carry
+presence only and the anchor contract rejects sheet kinds outright.
 
 ## Boundaries
 

@@ -38,7 +38,18 @@ export function buildContentSecurityPolicy(
     mode === 'production'
       ? "'self' 'unsafe-inline'"
       : "'self' 'unsafe-inline' 'unsafe-eval'"
-  const connectSrc = mode === 'production' ? "'self'" : "'self' ws: wss:"
+  // COLLAB: presence/comments ride Liveblocks websockets and API calls;
+  // auth itself is same-origin (/api/collaboration/*). GitHub avatars are
+  // rendered from user profiles in collaboration surfaces.
+  const liveblocksConnect =
+    mode === 'production'
+      ? ' wss://*.liveblocks.io https://*.liveblocks.io'
+      : ''
+  const avatarImg = ' https://avatars.githubusercontent.com'
+  const connectSrc =
+    mode === 'production'
+      ? `'self'${liveblocksConnect}`
+      : `'self' ws: wss:${liveblocksConnect}`
 
   return [
     "default-src 'self'",
@@ -52,7 +63,7 @@ export function buildContentSecurityPolicy(
     "object-src 'none'",
     `script-src ${scriptSrc}`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob:",
+    `img-src 'self' data: blob:${avatarImg}`,
     "font-src 'self' data:",
     `connect-src ${connectSrc}`,
     "worker-src 'self' blob:",

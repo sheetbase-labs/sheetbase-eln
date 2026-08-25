@@ -350,6 +350,8 @@ BEGIN
       WHEN h.result_type IN ('record', 'file')
         AND to_tsvector('english', h.file_text) @@ v_tsquery THEN 'file_metadata'
       WHEN to_tsvector('english', h.property_text) @@ v_tsquery THEN 'properties'
+      WHEN h.link_text <> ''
+        AND to_tsvector('english', h.link_text) @@ v_tsquery THEN 'relationship'
       WHEN to_tsvector('english', h.combined_text) @@ v_tsquery THEN 'description'
       ELSE 'relationship'
     END AS matched_field,

@@ -99,9 +99,16 @@ Authorization stays in PostgreSQL: metadata reads and data pages run through
 RLS under the caller's short-lived JWT, so an inaccessible object is
 indistinguishable from a missing one (`404 not_found`, no existence leak).
 Unauthenticated requests get `401`; malformed formats get `400`; Parquet over
-the row cap gets `413`. Every successful export writes a `data_exports` receipt
-(actor user XOR credential, format, row count, byte size) visible to workspace
-members for audit.
+the row cap gets `413`.
+
+Receipts are part of the successful-export contract: a receipt row is
+persisted with the acting user before the response completes (for streams,
+strictly after a successful close), and a receipt failure aborts the export.
+Because receipt inserts are writer-gated (`is_workspace_writer`, GOV-01
+write-plane doctrine), workspace `viewer` accounts currently cannot export;
+this is a deliberate trade-off that keeps every authenticated write plane
+machine-checked as writer-gated. Streaming receipts record the exact number
+of rows delivered, never a prefetch estimate.
 
 ## Superseded paths removed
 

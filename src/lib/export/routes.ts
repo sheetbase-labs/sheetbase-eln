@@ -32,7 +32,7 @@ import {
   postgrestSelect,
   postgrestInsert,
 } from '../request-auth'
-import type { SessionAuthDeps } from '../request-auth'
+import type { SessionAuthContext, SessionAuthDeps } from '../request-auth'
 
 const PAGE_SIZE = 1000
 
@@ -82,33 +82,103 @@ function exportResponse(
 async function insertReceipt(
   token: string,
   input: {
+    actorUserId: string
     workspaceId: string
     objectType:
-      'dataset' | 'dataset_version' | 'sheet_instance' | 'record' | 'revision'
+      | 'dataset'
+      | 'dataset_version'
+      | 'sheet_instance'
+      | 'record'
+      | 'revision'
     objectId: string
     format: string
     rowCount?: number | null
     byteSize?: number | null
   },
 ): Promise<void> {
-  // A failed receipt must not fail the export itself; exports are reads.
-  try {
-    await postgrestInsert(
-      'data_exports',
-      {
-        workspace_id: input.workspaceId,
-        object_type: input.objectType,
-        object_id: input.objectId,
-        format: input.format,
-        row_count: input.rowCount ?? null,
-        byte_size: input.byteSize ?? null,
-      },
-      token,
+  // Receipt persistence is part of the successful-export contract (review
+  // Option A): if the audit record cannot be written, the export fails so
+  // stewards can always audit who extracted what.
+  const res = await postgrestInsert(
+    'data_exports',
+    {
+      workspace_id: input.workspaceId,
+      object_type: input.objectType,
+      object_id: input.objectId,
+      format: input.format,
+      row_count: input.rowCount ?? null,
+      byte_size: input.byteSize ?? null,
+      actor_user_id: input.actorUserId,
+    },
+    token,
+  )
+  if (res.status >= 400) {
+    throw new Error(
+      `export receipt could not be persisted (${res.status}); export aborted`,
     )
-  } catch {
-    // ignore: receipt is best-effort provenance
   }
 }
+
+
+/**
+ * Stream rendered rows to the response and persist the audit receipt only
+ * after the stream completes successfully. Any failure before completion
+ * errors the response without a receipt, so `data_exports` never records an
+ * export that did not finish. A receipt failure after the bytes were delivered
+ * propagates as a stream error (the export is treated as failed).
+ */
+function streamedRows(args: {
+  objectType: 'dataset' | 'dataset_version' | 'sheet_instance'
+  target: { workspaceId: string; objectId: string }
+  format: string
+  filename: string
+  contentType: string
+  context: SessionAuthContext
+  rows: AsyncIterable<ExportRow>
+  renderHeader?: () => string | null
+  renderRow: (row: ExportRow, isFirst: boolean) => string
+  renderFooter?: () => string | null
+}): Response {
+  const encoder = new TextEncoder()
+  let exportedRows = 0
+  let closed = false
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      try {
+        const header = args.renderHeader?.()
+        if (header !== null && header !== undefined) {
+          controller.enqueue(encoder.encode(header))
+        }
+        let isFirst = true
+        for await (const row of args.rows) {
+          controller.enqueue(encoder.encode(args.renderRow(row, isFirst)))
+          isFirst = false
+          exportedRows += 1
+        }
+        const footer = args.renderFooter?.()
+        if (footer !== null && footer !== undefined) {
+          controller.enqueue(encoder.encode(footer))
+        }
+        controller.close()
+        closed = true
+      } catch (error) {
+        if (!closed) controller.error(error)
+        throw error
+      }
+      // Receipt persistence happens strictly after a successful close.
+      await insertReceipt(args.context.token, {
+        actorUserId: args.context.userId,
+        workspaceId: args.target.workspaceId,
+        objectType: args.objectType,
+        objectId: args.target.objectId,
+        format: args.format,
+        rowCount: exportedRows,
+      })
+    },
+  })
+  return exportResponse(stream, args.contentType, args.filename)
+}
+
 
 // ---------------------------------------------------------------------------
 // Shared dataset / dataset-version pipeline.
@@ -285,11 +355,6 @@ export async function handleDatasetExport(
       context.token,
     )
     const versions = Array.isArray(versionRes.body) ? versionRes.body : []
-    console.error(
-      'DEBUG version select',
-      versionRes.status,
-      JSON.stringify(versionRes.body).slice(0, 200),
-    )
     if (versionRes.status >= 400 || versions.length === 0) {
       return requestErrorResponse(
         404,
@@ -353,6 +418,7 @@ export async function handleDatasetExport(
     }
     const bytes = await xlsxDocument(fields, all, metaLines)
     await insertReceipt(context.token, {
+      actorUserId: context.userId,
       workspaceId: target.workspaceId,
       objectType: variant === 'version' ? 'dataset_version' : 'dataset',
       objectId: target.objectId,
@@ -384,6 +450,7 @@ export async function handleDatasetExport(
       )
     }
     await insertReceipt(context.token, {
+      actorUserId: context.userId,
       workspaceId: target.workspaceId,
       objectType: variant === 'version' ? 'dataset_version' : 'dataset',
       objectId: target.objectId,
@@ -400,73 +467,41 @@ export async function handleDatasetExport(
 
   if (format === 'csv' || format === 'tsv') {
     const delimiter = format === 'csv' ? ',' : '\t'
-    const encoder = new TextEncoder()
-    const stream = new ReadableStream<Uint8Array>({
-      async start(controller) {
-        controller.enqueue(
-          encoder.encode(delimitedHeaderLine(fields, delimiter) + '\r\n'),
-        )
-        for await (const row of rows.rows) {
-          controller.enqueue(
-            encoder.encode(delimitedRowLine(fields, row, delimiter) + '\r\n'),
-          )
-        }
-        controller.close()
-      },
-    })
-    await insertReceipt(context.token, {
-      workspaceId: target.workspaceId,
-      objectType: variant === 'version' ? 'dataset_version' : 'dataset',
-      objectId: target.objectId,
-      format,
-      rowCount: rows.totalCount(),
-    })
-    return exportResponse(
-      stream,
-      format === 'csv'
-        ? 'text/csv; charset=utf-8'
-        : 'text/tab-separated-values; charset=utf-8',
-      filename,
-    )
+    return streamedRows({
+        objectType: variant === 'version' ? 'dataset_version' : 'dataset',
+        target,
+        format,
+        filename,
+        contentType:
+          format === 'csv'
+            ? 'text/csv; charset=utf-8'
+            : 'text/tab-separated-values; charset=utf-8',
+        context,
+        rows: rows.rows,
+        renderHeader: () => delimitedHeaderLine(fields, delimiter) + '\r\n',
+        renderRow: (row) => delimitedRowLine(fields, row, delimiter) + '\r\n',
+      })
   }
 
   // JSON / NDJSON.
-  const encoder = new TextEncoder()
-  const stream = new ReadableStream<Uint8Array>({
-    async start(controller) {
-      if (format === 'ndjson') {
-        for await (const row of rows.rows) {
-          controller.enqueue(
-            encoder.encode(JSON.stringify(rowJsonObject(row)) + '\n'),
-          )
-        }
-        controller.close()
-        return
-      }
-      controller.enqueue(
-        encoder.encode('{"_meta":' + JSON.stringify(meta) + ',"rows":['),
-      )
-      let first = true
-      for await (const row of rows.rows) {
-        controller.enqueue(
-          encoder.encode(
-            (first ? '' : ',') + JSON.stringify(rowJsonObject(row)),
-          ),
-        )
-        first = false
-      }
-      controller.enqueue(encoder.encode(']}'))
-      controller.close()
-    },
-  })
-  await insertReceipt(context.token, {
-    workspaceId: target.workspaceId,
-    objectType: variant === 'version' ? 'dataset_version' : 'dataset',
-    objectId: target.objectId,
-    format,
-    rowCount: rows.totalCount(),
-  })
-  return exportResponse(stream, 'application/json; charset=utf-8', filename)
+  return streamedRows({
+      objectType: variant === 'version' ? 'dataset_version' : 'dataset',
+      target,
+      format,
+      filename,
+      contentType: 'application/json; charset=utf-8',
+      context,
+      rows: rows.rows,
+      renderHeader: () =>
+        format === 'ndjson'
+          ? null
+          : '{"_meta":' + JSON.stringify(meta) + ',"rows":[',
+      renderRow: (row, isFirst) =>
+        format === 'ndjson'
+          ? JSON.stringify(rowJsonObject(row)) + '\n'
+          : (isFirst ? '' : ',') + JSON.stringify(rowJsonObject(row)),
+      renderFooter: () => (format === 'ndjson' ? null : ']}'),
+    })
 }
 
 function slug(name: string): string {
@@ -591,6 +626,7 @@ export async function handleSheetInstanceExport(
   const filename = `${slug(instance.name)}-sheet.${formatParam}`
 
   await insertReceipt(context.token, {
+    actorUserId: context.userId,
     workspaceId: instance.workspace_id,
     objectType: 'sheet_instance',
     objectId: instance.id,
@@ -759,7 +795,11 @@ export async function handleRecordExport(
   const doc = {
     _meta: buildExportMeta({
       kind: 'sheetbase.record.export',
-      state: record.archived_at || record.locked_at ? 'evidence' : 'live',
+      // A live Record export is never evidence, even when the record is
+      // locked or archived: locked/archived live rows are still mutable
+      // workspace state. Immutable evidence comes from the revision
+      // evidence package (/api/export/revision/$id/package) instead.
+      state: 'live',
       objectId: record.id,
       workspaceId: record.workspace_id,
       name: record.title,
@@ -787,13 +827,6 @@ export async function handleRecordExport(
     })),
     links: Array.isArray(linksRes.body) ? linksRes.body : [],
   }
-
-  await insertReceipt(context.token, {
-    workspaceId: record.workspace_id,
-    objectType: 'record',
-    objectId: record.id,
-    format: 'json',
-  })
 
   const filename = `${slug(record.identifier)}-notebook.json`
   return exportResponse(
@@ -831,6 +864,7 @@ export async function handleRevisionEvidencePackage(
   const bytes = await buildEvidencePackage(pkg)
 
   await insertReceipt(context.token, {
+    actorUserId: context.userId,
     workspaceId: pkg.revision.workspaceId,
     objectType: 'revision',
     objectId: pkg.revision.id,

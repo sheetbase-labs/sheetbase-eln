@@ -43,10 +43,13 @@ beforeAll(async () => {
       ('${WS_A}','${OWNER_A}','owner');
     insert into api.records(id,workspace_id,kind,identifier,title,created_by_user_id)
     values ('${FILE_RECORD_A}','${WS_A}','file','FILE-2026-9001','Pinned bytes','${OWNER_A}');
+    -- metadata_snapshot deliberately differs from the live record row so the
+    -- package proves it reads the submitted snapshot, not current state.
     insert into api.revisions(id,workspace_id,record_id,reason,
       structure_version,metadata_version,metadata_snapshot,block_snapshot,
       canonical_snapshot,integrity_digest,created_by_user_id)
-    values ('${REVISION_A}','${WS_A}','${FILE_RECORD_A}','submit',1,1,'{}','{}',
+    values ('${REVISION_A}','${WS_A}','${FILE_RECORD_A}','submit',1,1,
+      '{"record":{"identifier":"FILE-2026-9001","title":"Snapshot title","kind":"file","status":"submitted"}}','{}',
       '{"files":[]}', repeat('a',64),'${OWNER_A}');
   `)
 })
@@ -120,7 +123,10 @@ describe('DATA-02 revision_evidence_package contract', () => {
     const pkg = rows[0].pkg
     expect(pkg.revision.id).toBe(REVISION_A)
     expect(pkg.revision.reason).toBe('submit')
+    // Snapshot-derived, not the live row (live title is 'Pinned bytes').
     expect(pkg.record.identifier).toBe('FILE-2026-9001')
+    expect(pkg.record.title).toBe('Snapshot title')
+    expect(pkg.record.status).toBe('submitted')
     expect(pkg.files).toHaveLength(1)
     expect(pkg.files[0].checksum).toBe('b'.repeat(64))
     expect(pkg.sheetEvidence).toEqual([])

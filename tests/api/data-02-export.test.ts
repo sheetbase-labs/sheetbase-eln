@@ -231,6 +231,7 @@ describe('DATA-02 dataset exports', () => {
     const body1 = await first.text()
     expect(body1.split('\r\n')[0]).toBe('Sample,pH')
     expect(body1).toContain('sample-1,7.2')
+    expect(body1).toContain('sample-2')
 
     const second = await handleDatasetExport(
       exportRequest(url, '?format=csv'),
@@ -238,6 +239,18 @@ describe('DATA-02 dataset exports', () => {
       authDeps(OWNER_A, WS_A),
     )
     expect(await second.text()).toBe(body1)
+
+    // Mandatory receipt: actor attribution + exact streamed row count.
+    const { rows: receipts } = await admin.query(
+      `select actor_user_id, object_type, format, row_count
+         from api.data_exports
+        where workspace_id=$1 and object_id=$2 and format='csv'`,
+      [WS_A, DATASET_A],
+    )
+    expect(receipts.length).toBeGreaterThanOrEqual(1)
+    expect(receipts[0].actor_user_id).toBe(OWNER_A)
+    expect(receipts[0].object_type).toBe('dataset')
+    expect(Number(receipts[0].row_count)).toBe(2)
   })
 
   it('embeds schema/unit metadata and live-state warning in JSON', async () => {
@@ -380,6 +393,9 @@ describe('DATA-02 sheet, record and evidence exports', () => {
     const doc = JSON.parse(await res.text())
     const runId = RECORD_A.replaceAll('-', '').slice(0, 8)
     expect(doc.record.identifier).toBe(`EXP-2026-${runId}`)
+    // A live Record export is never evidence, even for locked/archived rows.
+    expect(doc._meta.state).toBe('live')
+    expect(doc._meta.notes.join(' ')).toContain('NOT immutable evidence')
     expect(Array.isArray(doc.blocks)).toBe(true)
 
     const bad = await handleRecordExport(

@@ -45,8 +45,8 @@ SET search_path = ''
 AS $$
 DECLARE
   v_revision api.revisions;
-  v_record api.records;
   v_package jsonb;
+  v_record_snapshot jsonb;
 BEGIN
   SELECT * INTO v_revision FROM api.revisions WHERE id = p_revision_id;
   IF v_revision.id IS NULL THEN
@@ -58,8 +58,9 @@ BEGIN
     RAISE EXCEPTION 'revision denied' USING ERRCODE = '42501';
   END IF;
 
-  SELECT * INTO v_record
-    FROM api.records WHERE id = v_revision.record_id;
+  SELECT coalesce(v_revision.metadata_snapshot->'record', v_revision.metadata_snapshot)
+    INTO v_record_snapshot;
+
 
   SELECT jsonb_build_object(
     'revision', jsonb_build_object(
@@ -74,12 +75,18 @@ BEGIN
       'supersededByRevisionId', v_revision.superseded_by_revision_id,
       'createdAt', v_revision.created_at
     ),
-    'record', CASE WHEN v_record.identifier IS NULL THEN NULL ELSE jsonb_build_object(
-      'identifier', v_record.identifier,
-      'title', v_record.title,
-      'kind', v_record.kind,
-      'status', v_record.status
-    ) END,
+    -- Convenience record metadata comes strictly from the submitted
+    -- snapshot (metadata_snapshot = envelope->'record'), never from the
+    -- live row, so the package cannot drift after submission.
+    'record', CASE
+      WHEN v_record_snapshot ? 'identifier' THEN jsonb_build_object(
+        'identifier', v_record_snapshot->'identifier',
+        'title', v_record_snapshot->'title',
+        'kind', v_record_snapshot->'kind',
+        'status', v_record_snapshot->'status'
+      )
+      ELSE NULL
+    END,
     'metadataSnapshot', v_revision.metadata_snapshot,
     'blockSnapshot', v_revision.block_snapshot,
     'canonicalSnapshot', v_revision.canonical_snapshot,

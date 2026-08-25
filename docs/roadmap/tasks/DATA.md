@@ -1,6 +1,6 @@
 # DATA — Data Interoperability
 
-**Status:** DATA-01 complete. Remaining work is DATA-02 (export), DATA-03 (files) and DATA-04 (search). Do not start those until assigned.
+**Status:** Complete. DATA-01 (import), DATA-02 (export, #68), DATA-03 (files, #66) and DATA-04 (search, #67) are delivered.
 
 ## Programme goal
 
@@ -26,27 +26,31 @@ Users can safely turn common laboratory files/pastes into governed Dataset/Recor
 
 ## DATA-02 — Export & Portability
 
-Dataset/Version export; Sheet export; Record export; Notebook/evidence package; CSV/XLSX/JSON/Parquet where appropriate; schema/units/provenance metadata; stable machine-readable exports; human-readable evidence export.
+**Priority:** medium. **Status:** Complete (#68).
 
-### Exit
+Delivered: streaming Dataset and Dataset Version exports (CSV/TSV/JSON/NDJSON/XLSX/Parquet) through the canonical query RPCs; Sheet Instance export (JSON full state plus local-grid CSV/TSV/XLSX); canonical Record JSON document; deterministic revision evidence ZIP (evidence.json, README, frozen grids as CSV, pinned file manifest, sha256 manifest) from `api.revision_evidence_package`; `api.data_exports` receipts; ExportMenu UI on datasets/sheets/notebooks/reviews. Live exports are explicitly labelled not-evidence; version exports proven byte-stable after live mutation.
+
+### Exit — met
 
 Users can extract both usable data and interpretable evidence without reverse-engineering internal storage.
 
 ## DATA-03 — File & Attachment Platform
 
-Object storage; upload/download; checksums; immutable versions where required; MIME metadata; previews; Notebook/Record/Dataset attachments; provenance; retention; permissions; large uploads; optional malware scanning; evidence pinning.
+**Priority:** medium. **Status:** Complete (#66).
 
-### Exit
+Delivered: consolidation of the SCI-003 platform as the one canonical file subsystem (`request-auth` session resolver, `docs/file-platform.md` contract), API-level cross-workspace upload/download denial without existence leak, unauthenticated denial, zero-byte boundary, checksum stability across renames, viewer writer gate on `create_file_upload`. Retention immutability (REV-002 pinning) already proven by the existing suites. PostgREST dev image fixed for libpq.
+
+### Exit — met
 
 Files are durable scientific objects with identity and integrity rather than opaque browser attachments.
 
 ## DATA-04 — Global Search
 
-Search Records, Notebooks, Datasets, Templates, Sheets and files; type/workspace/project filters; identifiers/titles/tags; full text; permission filtering; keyboard navigation; direct source links.
+**Priority:** medium. **Status:** Complete (#67).
 
-Start with PostgreSQL search unless evidence justifies specialist infrastructure.
+Delivered: `api.search` extended to Datasets, Sheet Instances and the Notebook Template catalogue alongside records/files under one SECURITY INVOKER + RLS permission model; `p_result_type` facet; record-only filters keep exact prior semantics; deep links per object class; object-class tabs with counts derived from the same filtered set; PostgreSQL FTS only, real-time.
 
-### Exit
+### Exit — met
 
 Users can reliably locate scientific objects without knowing which subsystem owns them.
 

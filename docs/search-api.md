@@ -1,4 +1,4 @@
-# Scientific search API (SCI-008, decision 0033)
+# Scientific search API (SCI-008, decision 0033; DATA-04 extension)
 
 Search is exposed through the existing same-origin `/api/db` boundary as a
 PostgREST RPC. PostgreSQL and RLS remain authoritative.
@@ -15,17 +15,18 @@ short-lived authenticated JWT. The response is a JSON array of result objects.
 
 ## Parameters
 
-| Parameter      | Type        | Default | Description                                                                                              |
-| -------------- | ----------- | ------- | -------------------------------------------------------------------------------------------------------- |
-| `p_query`      | text        | `''`    | Search text (plain English, no tsquery syntax needed). Empty = browse all.                               |
-| `p_project_id` | uuid        | NULL    | Filter by project.                                                                                       |
-| `p_kind`       | text        | NULL    | Filter by record kind (experiment, sample, reagent, protocol_template, report, file, notebook_template). |
-| `p_status`     | text        | NULL    | Filter by status.                                                                                        |
-| `p_owner_id`   | text        | NULL    | Filter by `created_by_user_id`.                                                                          |
-| `p_date_from`  | timestamptz | NULL    | Filter by `created_at >=`.                                                                               |
-| `p_date_to`    | timestamptz | NULL    | Filter by `created_at <=`.                                                                               |
-| `p_limit`      | int         | 20      | Page size (clamped to 1–100).                                                                            |
-| `p_offset`     | int         | 0       | Page offset.                                                                                             |
+| Parameter       | Type        | Default | Description                                                                                    |
+| --------------- | ----------- | ------- | ---------------------------------------------------------------------------------------------- |
+| `p_query`       | text        | `''`    | Search text (plain English, no tsquery syntax needed). Empty = browse all.                     |
+| `p_project_id`  | uuid        | NULL    | Filter by project. Scopes records, datasets and sheet instances.                               |
+| `p_result_type` | text        | NULL    | Object-class facet: `record`, `file`, `dataset`, `sheet` or `template`. NULL = all classes.    |
+| `p_kind`        | text        | NULL    | Record kind (experiment, sample, reagent, protocol_template, report, file, notebook_template). |
+| `p_status`      | text        | NULL    | Filter by status. Record-scoped.                                                               |
+| `p_owner_id`    | text        | NULL    | Filter by `created_by_user_id`. Record-scoped.                                                 |
+| `p_date_from`   | timestamptz | NULL    | Filter by `created_at >=`.                                                                     |
+| `p_date_to`     | timestamptz | NULL    | Filter by `created_at <=`.                                                                     |
+| `p_limit`       | int         | 20      | Page size (clamped to 1–100).                                                                  |
+| `p_offset`      | int         | 0       | Page offset.                                                                                   |
 
 All filters are optional. `NULL` (or omitted) means "no filter on this
 dimension".
@@ -68,52 +69,69 @@ dimension".
 
 ## Result columns
 
-| Column               | Type        | Description                                                                                                                         |
-| -------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `result_type`        | text        | `record` or `file` (kind = `file`).                                                                                                 |
-| `record_id`          | uuid        | Record id.                                                                                                                          |
-| `kind`               | text        | Record kind (experiment, sample, reagent, etc.).                                                                                    |
-| `identifier`         | text        | Stable public identifier (EXP-2025-0001, SMP-…).                                                                                    |
-| `title`              | text        | Record title.                                                                                                                       |
-| `status`             | text        | Free-form status string.                                                                                                            |
-| `project_id`         | uuid        | Project id.                                                                                                                         |
-| `archived`           | boolean     | `true` if `archived_at` is set. Soft-deleted records are excluded.                                                                  |
-| `created_by_user_id` | text        | Owner id.                                                                                                                           |
-| `created_at`         | timestamptz | Creation timestamp.                                                                                                                 |
-| `updated_at`         | timestamptz | Last update timestamp.                                                                                                              |
-| `matched_context`    | text        | `ts_headline` snippet with `<b>` highlights, or a title excerpt in browse mode.                                                     |
-| `matched_field`      | text        | Which source matched: `title`, `identifier`, `kind`, `status`, `tags`, `block_text`, `file_metadata`, `properties`, `relationship`. |
-| `rank`               | real        | PostgreSQL `ts_rank` (0 in browse mode).                                                                                            |
-| `deep_link`          | text        | Stable route path.                                                                                                                  |
-| `total_count`        | bigint      | Total matching rows before pagination (same on every row).                                                                          |
+| Column               | Type        | Description                                                                                                                                        |
+| -------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `result_type`        | text        | `record`, `file`, `dataset`, `sheet` or `template`.                                                                                                |
+| `record_id`          | uuid        | Stable id of the matched object.                                                                                                                   |
+| `kind`               | text        | Fine-grained type: record kind, `dataset`, `sheet_instance` or `notebook_template`.                                                                |
+| `identifier`         | text        | Stable public identifier (EXP-2025-0001); datasets and sheets use their UUID, templates their key.                                                 |
+| `title`              | text        | Object title or name.                                                                                                                              |
+| `status`             | text        | Status or lifecycle string.                                                                                                                        |
+| `project_id`         | uuid        | Project id (NULL for workspace-level templates).                                                                                                   |
+| `archived`           | boolean     | Archived/retired flag; see below.                                                                                                                  |
+| `created_by_user_id` | text        | Owner id.                                                                                                                                          |
+| `created_at`         | timestamptz | Creation timestamp.                                                                                                                                |
+| `updated_at`         | timestamptz | Last update timestamp.                                                                                                                             |
+| `matched_context`    | text        | `ts_headline` snippet with `<b>` highlights, or a title excerpt in browse mode.                                                                    |
+| `matched_field`      | text        | Which source matched: `title`, `identifier`, `kind`, `status`, `tags`, `block_text`, `file_metadata`, `properties`, `relationship`, `description`. |
+| `rank`               | real        | PostgreSQL `ts_rank` (0 in browse mode).                                                                                                           |
+| `deep_link`          | text        | Stable route path.                                                                                                                                 |
+| `total_count`        | bigint      | Total matching rows before pagination (same on every row).                                                                                         |
 
 ## Deep link formats
 
-| Kind                | Deep link                                    |
-| ------------------- | -------------------------------------------- |
-| `notebook_template` | `/templates`                                 |
-| All other kinds     | `/projects/$projectId/experiments/$recordId` |
+| Result class                                    | Deep link                                    |
+| ----------------------------------------------- | -------------------------------------------- |
+| `dataset`                                       | `/datasets?dataset=$recordId`                |
+| `sheet`                                         | `/sheets/$recordId`                          |
+| `template`                                      | `/templates`                                 |
+| `record` / `file` with kind `notebook_template` | `/templates`                                 |
+| All other records                               | `/projects/$projectId/experiments/$recordId` |
 
-## Matched context
+## Coverage
 
-The `matched_context` is a short `ts_headline` excerpt with matched terms
-highlighted by `<b>` tags. The UI renders these as bold segments without
-`dangerouslySetInnerHTML`. In browse mode (empty query), it is an excerpt of
-the record's title and identifier.
+One canonical RPC searches every scientific object class:
+
+- **Records** — titles, identifiers, tags, status, properties, block text,
+  linked-record context; files via their `file_objects` metadata.
+- **Datasets** — name, description and schema definition name/key.
+- **Sheet Instances** — name and description.
+- **Notebook Templates** — name, key and description.
+
+Analysis artefacts, plate designs and instrument runs are not indexed yet.
 
 ## Archived-result behaviour
 
 Archived records (`archived_at IS NOT NULL`, `deleted_at IS NULL`) are included
-in search results with `archived = true`. Soft-deleted records
-(`deleted_at IS NOT NULL`) are excluded.
+with `archived = true`. Archived Datasets and Sheet Instances appear with
+`status = 'archived'` and `archived = true`; retired Notebook Templates appear
+with `archived = true`. Soft-deleted records (`deleted_at IS NOT NULL`) are
+excluded.
+
+## Record-only filter semantics
+
+`p_kind`, `p_status` and `p_owner_id` apply to the record branch only. When any
+of them is supplied the Dataset/Sheet/Template branches are suppressed so a
+kind-filtered query keeps its exact previous meaning; use `p_result_type`
+instead to facet across object classes.
 
 ## Indexing delay and stale-result behaviour
 
 **None.** Search is real-time (query-time). The `api.search` function builds a
-`tsvector` at query time from live `records`, `blocks`, `file_objects` and
-`record_links` rows. A block edit is searchable immediately after the
-transaction commits. There is no materialised index, no triggers, and no
-eventual consistency window.
+`tsvector` at query time from live `records`, `blocks`, `file_objects`,
+`record_links`, `datasets`, `sheet_instances` and `notebook_templates` rows. An
+edit is searchable immediately after the transaction commits. There is no
+materialised index, no triggers, and no eventual consistency window.
 
 ## Restricted-field non-leakage
 
@@ -121,6 +139,11 @@ Results contain only metadata (title, identifier, kind, status, project, owner,
 dates) and matched context (a short snippet). Full record content, block
 payloads, file bytes, storage keys, checksums, property values and restricted
 fields are not returned.
+
+Counts, facets and result rows all derive from the same permission-filtered
+set: the RPC is SECURITY INVOKER, every source table enforces workspace RLS,
+and non-members are rejected before any branch runs. Objects outside the
+caller's workspace never surface through totals either.
 
 ## Error shapes
 

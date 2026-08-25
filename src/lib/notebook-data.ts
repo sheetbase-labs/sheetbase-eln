@@ -422,6 +422,10 @@ export const RECORD_KIND_LABELS: Record<string, string> = {
   reagent: 'Reagent',
   file: 'File',
   study: 'Study',
+  /* DATA-04 search result classes (not record kinds, but rendered through
+   * the same label lookup on the search page). */
+  dataset: 'Dataset',
+  sheet_instance: 'Sheet instance',
 }
 
 export function recordKindLabel(kind: string): string {

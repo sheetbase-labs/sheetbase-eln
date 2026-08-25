@@ -59,43 +59,104 @@ afterAll(async () => {
   await migrator.end()
 })
 
-describe('DATA-02 export receipts (api.data_exports)', () => {
-  it('records an export for a workspace member and keeps it visible', async () => {
+describe('DATA-02 export receipts (api.record_data_export)', () => {
+  it('records an export with claim-derived actor and workspace', async () => {
     const a = await actor(OWNER_A, WS_A)
+    await a.query(
+      `select api.record_data_export('dataset',$1,'csv',5)`,
+      [REVISION_A],
+    )
     const { rows } = await a.query(
-      `insert into api.data_exports(workspace_id,object_type,object_id,format,row_count,actor_user_id)
-       values ($1,'dataset',$2,'csv',5,$3) returning id::text`,
-      [WS_A, REVISION_A, OWNER_A],
+      `select workspace_id, object_type, object_id, format, row_count, actor_user_id
+         from api.data_exports
+        where object_id=$1 and format='csv'`,
+      [REVISION_A],
     )
     expect(rows).toHaveLength(1)
-
-    const { rows: seen } = await a.query(
-      `select object_type, format, actor_user_id from api.data_exports where id=$1`,
-      [rows[0].id],
-    )
-    expect(seen[0].format).toBe('csv')
+    expect(rows[0].workspace_id).toBe(WS_A)
+    expect(rows[0].object_type).toBe('dataset')
+    expect(Number(rows[0].row_count)).toBe(5)
+    // Actor comes from the verified claims, not from any argument.
+    expect(rows[0].actor_user_id).toBe(OWNER_A)
   })
 
-  it('rejects receipts pinned to another workspace', async () => {
-    const a = await actor(OWNER_A, WS_A)
-    await expect(
-      a.query(
-        `insert into api.data_exports(workspace_id,object_type,object_id,format,actor_user_id)
-         values ($1,'dataset',$2,'json',$3)`,
-        [WS_B, REVISION_A, OWNER_A],
-      ),
-    ).rejects.toMatchObject({ code: '42501' })
+  it('permits a read-only viewer to record an export (read-plane audit)', async () => {
+    const VIEWER_A = 'data-02-viewer-a'
+    await migrator.query(
+      `insert into internal."user"(id,name,email,"emailVerified")
+       values ($1,'Viewer','data-02-viewer@test.invalid',true)
+       on conflict (id) do nothing`,
+      [VIEWER_A],
+    )
+    await migrator.query(
+      `insert into api.workspace_memberships(workspace_id,user_id,role)
+       values ($1,$2,'viewer') on conflict do nothing`,
+      [WS_A, VIEWER_A],
+    )
+    const v = await actor(VIEWER_A, WS_A)
+    await v.query(`select api.record_data_export('dataset',$1,'json',null)`, [
+      REVISION_A,
+    ])
+    const { rows } = await v.query(
+      `select actor_user_id from api.data_exports
+        where object_id=$1 and format='json' and actor_user_id=$2`,
+      [REVISION_A, VIEWER_A],
+    )
+    expect(rows).toHaveLength(1)
+  })
+
+  it('denies callers outside the claimed workspace', async () => {
+    const OUTSIDER = 'data-02-outsider'
+    const b = await actor(OUTSIDER, WS_B)
+    // WS_B membership exists for OWNER_B only; the outsider has none, and
+    // claims pointing at a foreign workspace must not mint receipts.
+    await expect(b.query(`select api.record_data_export('dataset',$1,'csv')`, [
+      REVISION_A,
+    ])).rejects.toMatchObject({ code: '42501' })
+  })
+
+  it('rejects unauthenticated calls (no claims)', async () => {
+    const client = await asRole('authenticator')
+    clients.push(client)
+    await client.query('SET ROLE authenticated')
+    // No request.jwt.claims set: current_workspace_id()/current_user_id() are NULL.
+    await expect(client.query(`select api.record_data_export('dataset',$1,'csv')`, [
+      REVISION_A,
+    ])).rejects.toMatchObject({ code: '42501' })
   })
 
   it('rejects invalid object types fail-closed', async () => {
     const a = await actor(OWNER_A, WS_A)
+    await expect(a.query(`select api.record_data_export('widgets',$1,'csv')`, [
+      REVISION_A,
+    ])).rejects.toMatchObject({ code: '22023' })
+  })
+
+  it('does not trust caller-supplied identity: direct INSERT is revoked', async () => {
+    const a = await actor(OWNER_A, WS_A)
     await expect(
       a.query(
         `insert into api.data_exports(workspace_id,object_type,object_id,format,actor_user_id)
-         values ($1,'widgets',$2,'csv',$3)`,
+         values ($1,'dataset',$2,'csv',$3)`,
         [WS_A, REVISION_A, OWNER_A],
       ),
-    ).rejects.toMatchObject({ code: '23514' })
+    ).rejects.toMatchObject({ code: '42501' })
+  })
+
+  it('yields exactly one receipt per recorded export', async () => {
+    const a = await actor(OWNER_A, WS_A)
+    const { rows: before } = await a.query(
+      `select count(*)::int as n from api.data_exports where object_id=$1 and format='tsv'`,
+      [REVISION_A],
+    )
+    await a.query(`select api.record_data_export('dataset',$1,'tsv',7)`, [
+      REVISION_A,
+    ])
+    const { rows } = await a.query(
+      `select count(*)::int as n from api.data_exports where object_id=$1 and format='tsv'`,
+      [REVISION_A],
+    )
+    expect(rows[0].n).toBe(before[0].n + 1)
   })
 })
 

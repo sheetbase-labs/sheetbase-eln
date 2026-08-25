@@ -101,14 +101,19 @@ indistinguishable from a missing one (`404 not_found`, no existence leak).
 Unauthenticated requests get `401`; malformed formats get `400`; Parquet over
 the row cap gets `413`.
 
-Receipts are part of the successful-export contract: a receipt row is
-persisted with the acting user before the response completes (for streams,
-strictly after a successful close), and a receipt failure aborts the export.
-Because receipt inserts are writer-gated (`is_workspace_writer`, GOV-01
-write-plane doctrine), workspace `viewer` accounts currently cannot export;
-this is a deliberate trade-off that keeps every authenticated write plane
-machine-checked as writer-gated. Streaming receipts record the exact number
-of rows delivered, never a prefetch estimate.
+Receipts are authoritative and server-owned. Request roles hold no INSERT
+grant on `api.data_exports`; the only writer is `api.record_data_export`, a
+SECURITY DEFINER RPC that derives `workspace_id` and `actor_user_id` from the
+verified request claims — arguments carry object/format/counts only, so an
+audit row can neither be fabricated nor reattributed through `/api/db`.
+
+A receipt is part of the successful-export contract: it persists once the
+export content has been generated (for streams, strictly after a successful
+close) with the exact number of delivered rows, and a receipt failure aborts
+the export. Failed exports leave no receipt. Because export is a read-plane
+action, plain unsuspended workspace membership gates the receipt RPC —
+workspace `viewer` accounts may export data they can read while the system
+records the action on their behalf.
 
 ## Superseded paths removed
 

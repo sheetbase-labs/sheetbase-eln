@@ -30,7 +30,6 @@ import {
   resolveSessionAuth,
   postgrestRpc,
   postgrestSelect,
-  postgrestInsert,
 } from '../request-auth'
 import type { SessionAuthContext, SessionAuthDeps } from '../request-auth'
 
@@ -82,8 +81,6 @@ function exportResponse(
 async function insertReceipt(
   token: string,
   input: {
-    actorUserId: string
-    workspaceId: string
     objectType:
       'dataset' | 'dataset_version' | 'sheet_instance' | 'record' | 'revision'
     objectId: string
@@ -93,18 +90,18 @@ async function insertReceipt(
   },
 ): Promise<void> {
   // Receipt persistence is part of the successful-export contract (review
-  // Option A): if the audit record cannot be written, the export fails so
-  // stewards can always audit who extracted what.
-  const res = await postgrestInsert(
-    'data_exports',
+  // Option A): if the audit record cannot be written, the export fails.
+  // api.record_data_export derives workspace and actor from the verified
+  // request claims server-side, so the audit trail cannot be fabricated or
+  // reattributed by the caller.
+  const res = await postgrestRpc(
+    'record_data_export',
     {
-      workspace_id: input.workspaceId,
-      object_type: input.objectType,
-      object_id: input.objectId,
-      format: input.format,
-      row_count: input.rowCount ?? null,
-      byte_size: input.byteSize ?? null,
-      actor_user_id: input.actorUserId,
+      p_object_type: input.objectType,
+      p_object_id: input.objectId,
+      p_format: input.format,
+      p_row_count: input.rowCount ?? null,
+      p_byte_size: input.byteSize ?? null,
     },
     token,
   )
@@ -162,8 +159,6 @@ function streamedRows(args: {
       }
       // Receipt persistence happens strictly after a successful close.
       await insertReceipt(args.context.token, {
-        actorUserId: args.context.userId,
-        workspaceId: args.target.workspaceId,
         objectType: args.objectType,
         objectId: args.target.objectId,
         format: args.format,
@@ -412,8 +407,6 @@ export async function handleDatasetExport(
     }
     const bytes = await xlsxDocument(fields, all, metaLines)
     await insertReceipt(context.token, {
-      actorUserId: context.userId,
-      workspaceId: target.workspaceId,
       objectType: variant === 'version' ? 'dataset_version' : 'dataset',
       objectId: target.objectId,
       format,
@@ -444,8 +437,6 @@ export async function handleDatasetExport(
       )
     }
     await insertReceipt(context.token, {
-      actorUserId: context.userId,
-      workspaceId: target.workspaceId,
       objectType: variant === 'version' ? 'dataset_version' : 'dataset',
       objectId: target.objectId,
       format,
@@ -618,15 +609,18 @@ export async function handleSheetInstanceExport(
     notes: [LIVE_STATE_NOTE],
   })
   const filename = `${slug(instance.name)}-sheet.${formatParam}`
-
-  await insertReceipt(context.token, {
-    actorUserId: context.userId,
-    workspaceId: instance.workspace_id,
-    objectType: 'sheet_instance',
-    objectId: instance.id,
-    format: formatParam,
-    rowCount: formatParam === 'json' ? null : rawRows.length,
-  })
+  // Receipts are written only after the export content has been generated
+  // successfully, so a serialization failure never leaves a successful
+  // audit row behind (invariant: generated => exactly one receipt).
+  async function recordSheetReceipt(byteSize?: number | null): Promise<void> {
+    await insertReceipt(context.token, {
+      objectType: 'sheet_instance',
+      objectId: instance.id,
+      format: formatParam,
+      rowCount: formatParam === 'json' ? null : rawRows.length,
+      byteSize: byteSize ?? null,
+    })
+  }
 
   if (formatParam === 'json') {
     const doc = {
@@ -641,11 +635,9 @@ export async function handleSheetInstanceExport(
         state,
       },
     }
-    return exportResponse(
-      JSON.stringify(doc, null, 2),
-      'application/json; charset=utf-8',
-      filename,
-    )
+    const body = JSON.stringify(doc, null, 2)
+    await recordSheetReceipt(body.length)
+    return exportResponse(body, 'application/json; charset=utf-8', filename)
   }
 
   if (formatParam === 'xlsx') {
@@ -660,6 +652,7 @@ export async function handleSheetInstanceExport(
       metaLines.push([`field:${f.key}`, String(f.logicalType)])
     }
     const bytes = await xlsxDocument(fields, rawRows, metaLines)
+    await recordSheetReceipt(bytes.byteLength)
     return exportResponse(
       bytes as unknown as BodyInit,
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -678,6 +671,7 @@ export async function handleSheetInstanceExport(
         error instanceof Error ? error.message : 'Parquet export too large.',
       )
     }
+    await recordSheetReceipt(bytes.byteLength)
     return exportResponse(
       bytes as unknown as BodyInit,
       'application/octet-stream',
@@ -701,6 +695,7 @@ export async function handleSheetInstanceExport(
       controller.close()
     },
   })
+  await recordSheetReceipt(null)
   return exportResponse(
     stream,
     formatParam === 'csv'
@@ -822,12 +817,16 @@ export async function handleRecordExport(
     links: Array.isArray(linksRes.body) ? linksRes.body : [],
   }
 
+  const body = JSON.stringify(doc, null, 2)
+  await insertReceipt(context.token, {
+    objectType: 'record',
+    objectId: record.id,
+    format: 'json',
+    byteSize: body.length,
+  })
+
   const filename = `${slug(record.identifier)}-notebook.json`
-  return exportResponse(
-    JSON.stringify(doc, null, 2),
-    'application/json; charset=utf-8',
-    filename,
-  )
+  return exportResponse(body, 'application/json; charset=utf-8', filename)
 }
 
 // ---------------------------------------------------------------------------
@@ -858,8 +857,6 @@ export async function handleRevisionEvidencePackage(
   const bytes = await buildEvidencePackage(pkg)
 
   await insertReceipt(context.token, {
-    actorUserId: context.userId,
-    workspaceId: pkg.revision.workspaceId,
     objectType: 'revision',
     objectId: pkg.revision.id,
     format: 'evidence-package-zip',

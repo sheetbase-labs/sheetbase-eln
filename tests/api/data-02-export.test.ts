@@ -240,17 +240,41 @@ describe('DATA-02 dataset exports', () => {
     )
     expect(await second.text()).toBe(body1)
 
-    // Mandatory receipt: actor attribution + exact streamed row count.
-    const { rows: receipts } = await admin.query(
-      `select actor_user_id, object_type, format, row_count
+    // Mandatory receipt: actor attribution + exact streamed row count. The
+    // receipt persists right after the stream closes, so allow the async
+    // write to land before asserting.
+    async function csvReceiptCount(): Promise<number> {
+      const { rows } = await admin.query(
+        `select count(*)::int as n from api.data_exports
+          where workspace_id=$1 and object_id=$2 and format='csv'`,
+        [WS_A, DATASET_A],
+      )
+      return rows[0].n
+    }
+    let receipts: number | null = null
+    for (let attempt = 0; attempt < 40; attempt++) {
+      if ((receipts = await csvReceiptCount()) === 2) break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    // Exactly one authoritative receipt per successful export: this describe
+    // issued two identical exports, so exactly two rows exist.
+    expect(receipts).toBe(2)
+    const { rows: receiptRows } = await admin.query(
+      `select actor_user_id, object_type, row_count
          from api.data_exports
         where workspace_id=$1 and object_id=$2 and format='csv'`,
       [WS_A, DATASET_A],
     )
-    expect(receipts.length).toBeGreaterThanOrEqual(1)
-    expect(receipts[0].actor_user_id).toBe(OWNER_A)
-    expect(receipts[0].object_type).toBe('dataset')
-    expect(Number(receipts[0].row_count)).toBe(2)
+    for (const receipt of receiptRows) {
+      expect(receipt.actor_user_id).toBe(OWNER_A)
+      expect(receipt.object_type).toBe('dataset')
+      expect(Number(receipt.row_count)).toBe(2)
+    }
+    for (const receipt of receiptRows) {
+      expect(receipt.actor_user_id).toBe(OWNER_A)
+      expect(receipt.object_type).toBe('dataset')
+      expect(Number(receipt.row_count)).toBe(2)
+    }
   })
 
   it('embeds schema/unit metadata and live-state warning in JSON', async () => {
@@ -432,6 +456,15 @@ describe('DATA-02 sheet, record and evidence exports', () => {
     )
     expect(evidence.revision.id).toBe(REVISION_ID)
     expect(evidence.revision.integrityDigest).toBe('c'.repeat(64))
+
+    const { rows: pkgReceipts } = await admin.query(
+      `select actor_user_id, byte_size from api.data_exports
+        where object_type='revision' and object_id=$1 and format='evidence-package-zip'`,
+      [REVISION_ID],
+    )
+    expect(pkgReceipts).toHaveLength(1)
+    expect(pkgReceipts[0].actor_user_id).toBe(OWNER_A)
+    expect(Number(pkgReceipts[0].byte_size)).toBe(bytes.byteLength)
 
     const denial = await handleRevisionEvidencePackage(
       exportRequest(`/api/export/revision/${REVISION_ID}/package`),

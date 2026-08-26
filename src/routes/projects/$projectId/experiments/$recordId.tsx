@@ -25,6 +25,7 @@ import {
   safeBuildRoomId,
 } from '#/components/collaboration/collaboration-room'
 import { useCollaborationEnabled } from '#/lib/collaboration/liveblocks.config'
+import { PresenceStack } from '#/components/collaboration/presence-avatars'
 import { AmendNotebookDialog } from '#/components/notebook/amend-notebook-dialog'
 import { DuplicateNotebookDialog } from '#/components/notebook/duplicate-notebook-dialog'
 import { NotebookHistoryPanel } from '#/components/notebook/notebook-history-panel'
@@ -635,6 +636,9 @@ export function StickyRecordHeader({
           className="ml-auto flex flex-wrap items-center gap-2"
           data-print-hide
         >
+          {/* COLLAB-01: who else is in this record's room. Self-gates on
+              room readiness, so SSR and pre-hydration output are stable. */}
+          <PresenceStack />
           <PrintNotebookButton className="h-8" />
           <ExportEvidenceButton revisionId={evidenceRevisionId} />
           {projectId && !historicalRevisionId ? (

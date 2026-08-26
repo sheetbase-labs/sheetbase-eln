@@ -32,6 +32,8 @@ import {
   useThreads,
 } from '#/lib/collaboration/liveblocks.config'
 import { CommentButton } from '#/components/collaboration/comment-button'
+import { PresenceSync } from '#/components/collaboration/use-set-presence'
+import { BlockCoEditBadge } from '#/components/collaboration/presence-co-editing'
 import {
   ThreadPanel,
   threadMatchesAnchor,
@@ -664,6 +666,13 @@ function NotebookDocumentContent({
 
   return (
     <div className={cn('space-y-2', className)}>
+      {/* COLLAB-01: broadcast which block I am editing. Awareness only —
+          this never gates or locks editing for anyone. PresenceSync is
+          null until the enclosing CollaborationRoom has mounted. */}
+      <PresenceSync
+        activeBlockId={selectedId}
+        mode={selectedId ? 'editing' : 'viewing'}
+      />
       {orderedIds.map((id, index) => {
         const block = blockById.get(id)
         if (!block) return null
@@ -744,6 +753,12 @@ function NotebookDocumentContent({
                 ariaLabel={`${block.type} block`}
                 actions={
                   <>
+                    {/* COLLAB-01 co-editing awareness: only while this
+                        block is the one I am editing. */}
+                    <BlockCoEditBadge
+                      blockId={block.id}
+                      active={editable && isSelected}
+                    />
                     {collabComments ? (
                       <BlockComments
                         workspaceId={collaborationWorkspaceId}

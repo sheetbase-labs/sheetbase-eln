@@ -514,6 +514,130 @@ describe('api.audit_events permissions and isolation', () => {
   })
 })
 
+describe('same-workspace access differentials (review pass)', () => {
+  const PROJECT_D = '10000000-0000-4000-8000-0000000e03d0'
+  const RECORD_D = '10000000-0000-4000-8000-0000000e03d1'
+  const SUSPENDED = 'gov03-suspended'
+
+  beforeAll(async () => {
+    // Owner-owned project + record in WS. Under Sheetbase's canonical rules
+    // every governed object's SELECT policy is workspace membership
+    // (verified across migrations: 0004/0009/0025/0035/0072/0074/0099), so a
+    // second member CAN read them — and therefore their history. The only
+    // authoritative intra-workspace visibility differential today is the
+    // admin/security event-class gate, pinned here from the member side.
+    await migrator.query(
+      `INSERT INTO api.projects (id, workspace_id, key, title)
+       VALUES ('${PROJECT_D}', '${WS}', 'gov03-d', 'Differential Proj')`,
+    )
+    await migrator.query(
+      `INSERT INTO api.records (id, workspace_id, project_id, kind, identifier,
+         title, status, created_by_user_id)
+       VALUES ('${RECORD_D}', '${WS}', '${PROJECT_D}',
+               'experiment', 'GOV03-D1', 'Differential Notebook',
+               'draft', '${OWNER}')`,
+    )
+    await migrator.query(
+      `INSERT INTO internal.user (id, name, email, "emailVerified")
+       VALUES ('${SUSPENDED}', 'Gov Suspended', 'gov03-s@sheetbase.test', true)`,
+    )
+    await migrator.query(
+      `INSERT INTO api.workspace_memberships (workspace_id, user_id, role)
+       VALUES ('${WS}', '${SUSPENDED}', 'member')`,
+    )
+  })
+
+  it('follows object reads: another plain member sees governed object history created by someone else', async () => {
+    const memberClient = await asAuthenticated(MEMBER, WS)
+    const page = await callAuditEvents(memberClient, { p_object: RECORD_D })
+    expect(page.events.length).toBeGreaterThan(0)
+    expect(
+      page.events.some((event) => event.operation === 'create'),
+    ).toBe(true)
+  })
+
+  it('never exposes admin/security classes to plain members via filters, search or pagination', async () => {
+    // A real project_access grant through its canonical RPC — this emits an
+    // authoritative change event of the sensitive class.
+    const ownerClient = await asAuthenticated(OWNER, WS)
+    const grants = (await ownerClient.query<{ id: string }>(
+      `SELECT * FROM api.grant_project_access('${WS}'::uuid,
+         '${PROJECT_D}'::uuid, '${MEMBER}', 'viewer')`,
+    )).rows as Array<{ id: string }>
+    expect(grants).toHaveLength(1)
+
+    // Owner sees it; the granted member does not see it even though they are
+    // its subject.
+    const ownerPage = await callAuditEvents(ownerClient, {
+      p_entity_type: 'project_access',
+    })
+    expect(ownerPage.events.length).toBeGreaterThan(0)
+
+    const memberClient = await asAuthenticated(MEMBER, WS)
+    const filtered = await callAuditEvents(memberClient, {
+      p_entity_type: 'project_access',
+    })
+    expect(filtered.events).toHaveLength(0)
+
+    const byObject = await callAuditEvents(memberClient, {
+      p_object: PROJECT_D,
+    })
+    expect(byObject.events.some((e) => e.entityType === 'project_access')).toBe(false)
+
+    // Exhaustive pagination walk: no sensitive class ever materialises and
+    // hasMore/cursor arithmetic never counts hidden rows back into view.
+    let before: number | null = null
+    const seen: string[] = []
+    for (let guard = 0; guard < 40; guard += 1) {
+      const page = await callAuditEvents(memberClient, {
+        p_before_sequence: before ?? undefined,
+        p_limit: 2,
+      })
+      seen.push(...page.events.map((event) => event.entityType))
+      if (!page.hasMore) break
+      before = Number(page.nextCursor)
+      expect(before).not.toBeNull()
+    }
+    expect(seen.length).toBeGreaterThan(0)
+    for (const sensitive of [
+      'api_credential',
+      'workspace_invitation',
+      'workspace_settings',
+      'project_access',
+    ]) {
+      expect(seen).not.toContain(sensitive)
+    }
+  })
+
+  it('searches ILIKE wildcards literally after escaping', async () => {
+    const memberClient = await asAuthenticated(MEMBER, WS)
+    const everything = await callAuditEvents(memberClient, {})
+    expect(everything.events.length).toBeGreaterThan(0)
+
+    // '%' would match everything as a wildcard; escaped literally it must
+    // only match payloads containing a literal percent sign — none exist.
+    const percent = await callAuditEvents(memberClient, { p_search: '%' })
+    expect(percent.events.length).toBeLessThan(everything.events.length)
+
+    const underscore = await callAuditEvents(memberClient, {
+      p_search: '_______',
+    })
+    expect(underscore.events.length).toBeLessThan(everything.events.length)
+  })
+
+  it('fails closed for suspended memberships', async () => {
+    await migrator.query(
+      `UPDATE api.workspace_memberships SET suspended_at = now()
+       WHERE workspace_id = $1 AND user_id = $2`,
+      [WS, SUSPENDED],
+    )
+    const suspendedClient = await asAuthenticated(SUSPENDED, WS)
+    await expect(callAuditEvents(suspendedClient, {})).rejects.toMatchObject({
+      code: DENIED,
+    })
+  })
+})
+
 describe('api.audit_events pagination and filtering', () => {
   it('paginates deterministically by descending sequence without overlap', async () => {
     const client = await asAuthenticated(OWNER, WS)

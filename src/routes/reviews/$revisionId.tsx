@@ -31,6 +31,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   ClipboardList,
+  FileText,
   Download,
   GitCommit,
   GitCompare,
@@ -135,6 +136,11 @@ import {
   sign002DataClient,
   sign002QueryKeys,
 } from '#/lib/sign-002'
+import {
+  buildAmendmentChain,
+  deriveReviewLifecycle,
+  deriveSignatureApplicability,
+} from '#/lib/review-lifecycle'
 import { cn } from '#/lib/utils'
 
 function RouteShell({
@@ -173,13 +179,32 @@ export const Route = createFileRoute('/reviews/$revisionId')({
 // ---------------------------------------------------------------------------
 // Workspace status vocabulary (mirrors the inbox).
 // ---------------------------------------------------------------------------
-
 const workspaceStatusVocabulary: StatusVocabulary = {
   submitted: { label: 'Under review', tone: 'info', icon: ClipboardList },
   withdrawn: { label: 'Withdrawn', tone: 'neutral', icon: Undo2 },
   approved: { label: 'Approved', tone: 'success', icon: CheckCircle2 },
   rejected: { label: 'Rejected', tone: 'danger', icon: XCircle },
   returned: { label: 'Changes requested', tone: 'warning', icon: Undo2 },
+}
+
+/** GOV-04 derived lifecycle vocabulary (never a second backend state). */
+const lifecycleVocabulary: StatusVocabulary = {
+  draft: { label: 'Draft', tone: 'neutral', icon: FileText },
+  'under-review': {
+    label: 'Under review',
+    tone: 'info',
+    icon: ClipboardList,
+  },
+  'changes-requested': {
+    label: 'Changes requested',
+    tone: 'warning',
+    icon: Undo2,
+  },
+  approved: { label: 'Approved', tone: 'success', icon: CheckCircle2 },
+  'signed-locked': { label: 'Signed & locked', tone: 'violet', icon: Lock },
+  superseded: { label: 'Superseded', tone: 'neutral', icon: GitCommit },
+  withdrawn: { label: 'Withdrawn', tone: 'neutral', icon: Undo2 },
+  rejected: { label: 'Rejected', tone: 'danger', icon: XCircle },
 }
 
 /** Runtime-safe status label lookup (state values come from the DB/RPC). */
@@ -434,6 +459,7 @@ export function ReviewWorkspaceRoute() {
         collaborationEnabled ? (context.workspace?.id ?? null) : null
       }
       collaborationRole={context.workspace?.role ?? 'viewer'}
+      revisionOptions={revisionOptions}
       onAfterAmendment={async () => {
         await queryClient.invalidateQueries({
           queryKey: reviewWorkspaceQueryKeys.revision(revisionId),
@@ -634,6 +660,17 @@ function WorkspaceHeader({
   const isSuperseded =
     revision?.superseded_by_revision_id !== null && revision !== null
   const state = submission?.state ?? null
+  // GOV-04: one derived lifecycle from authoritative fields — never a
+  // second state machine. Viewed-revision supersession outranks the
+  // record-level lock, so an amended predecessor can never present its
+  // successor's lock as its own.
+  const lifecycle = deriveReviewLifecycle({
+    submissionState: state,
+    lockedAt: lockedAt,
+    lockedByRevisionId: lockedByRevisionId,
+    viewedRevisionId: revision?.id ?? null,
+    supersededByRevisionId: revision?.superseded_by_revision_id ?? null,
+  })
   return (
     <header className="space-y-2 rounded-lg border bg-card p-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -654,16 +691,17 @@ function WorkspaceHeader({
           <PresenceStack className="justify-end" />
           {state ? (
             <StatusBadge
-              status={state}
-              vocabulary={workspaceStatusVocabulary}
+              status={lifecycle.status}
+              vocabulary={lifecycleVocabulary}
               size="sm"
             />
           ) : null}
-          {isLocked ? (
-            <Badge variant="outline" className="gap-1 text-xs">
-              <Lock className="size-3" aria-hidden />
-              Locked
-            </Badge>
+          {!state ? (
+            <StatusBadge
+              status={lifecycle.status}
+              vocabulary={lifecycleVocabulary}
+              size="sm"
+            />
           ) : null}
           {projectTitle ? (
             <span className="text-xs text-muted-foreground">
@@ -948,6 +986,7 @@ function ReviewInspector({
   collaborationWorkspaceId,
   collaborationRole,
   onAfterAmendment,
+  revisionOptions,
 }: {
   revision: RevisionWire | null
   submission: ReviewSubmissionWire | null
@@ -967,6 +1006,8 @@ function ReviewInspector({
   /** COLLAB-04: workspace role hint for the discussion composer. */
   collaborationRole: string
   onAfterAmendment: () => Promise<void>
+  /** All revisions of this record, for the amendment chain view. */
+  revisionOptions: RevisionOptionWire[]
 }) {
   const queryClient = useQueryClient()
 
@@ -1104,6 +1145,11 @@ function ReviewInspector({
             currentUserName={currentUserName}
           />
         ) : null}
+
+        <RevisionChainSection
+          revisionOptions={revisionOptions}
+          currentRevisionId={revision.id}
+        />
 
         <EvidenceExportSection revisionId={revision.id} />
 
@@ -1621,6 +1667,27 @@ function SignaturePanel({
               <p className="mt-1 text-muted-foreground">
                 {signatureMeaningLabel(sig.signature_meaning)}
               </p>
+              {(() => {
+                // GOV-04: does this immutable signature still attest the
+                // revision being viewed? Amendments never move signatures.
+                const validity = deriveSignatureApplicability({
+                  signatureDigest: sig.revision_integrity_digest,
+                  viewedRevisionDigest: integrityDigest,
+                  viewedRevisionSupersededBy:
+                    revision.superseded_by_revision_id,
+                })
+                const tone =
+                  validity.applicability === 'current'
+                    ? 'text-emerald-700 dark:text-emerald-300'
+                    : validity.applicability === 'superseded'
+                      ? 'text-amber-700 dark:text-amber-300'
+                      : 'text-destructive'
+                return (
+                  <p className={`mt-1 text-xs ${tone}`}>
+                    {validity.explanation}
+                  </p>
+                )
+              })()}
               <p className="mt-0.5 font-mono text-xs text-muted-foreground/70">
                 {sig.assurance_level} · {sig.auth_method} ·{' '}
                 {sig.revision_integrity_digest.slice(0, 12)}…
@@ -1839,6 +1906,69 @@ function InspectorPropStatic({
 // draft from a locked record — it calls create_amendment, which records an
 // 'amend' revision, supersedes the locked revision and unlocks the record.
 // ---------------------------------------------------------------------------
+
+
+// ---------------------------------------------------------------------------
+// GOV-04 — Amendment chain. Ordered oldest-first from the authoritative
+// superseded_by edges; makes "signed, then amended" legible without moving
+// any signature or inventing relationships.
+// ---------------------------------------------------------------------------
+
+export function RevisionChainSection({
+  revisionOptions,
+  currentRevisionId,
+}: {
+  revisionOptions: RevisionOptionWire[]
+  currentRevisionId: string
+}) {
+  const chain = useMemo(
+    () => buildAmendmentChain(revisionOptions),
+    [revisionOptions],
+  )
+  if (chain.length < 2) return null
+
+  return (
+    <section>
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        Amendment chain
+      </h3>
+      <ol className="space-y-1">
+        {chain.map((entry) => {
+          const isCurrent = entry.id === currentRevisionId
+          return (
+            <li
+              key={entry.id}
+              className="flex items-center justify-between gap-2 text-xs"
+            >
+              <Link
+                to="/reviews/$revisionId"
+                params={{ revisionId: entry.id }}
+                className="min-w-0 truncate font-mono no-underline hover:underline"
+              >
+                {entry.id.slice(0, 8)}
+              </Link>
+              <span className="truncate text-muted-foreground">
+                {entry.reason}
+              </span>
+              <span className="shrink-0 text-muted-foreground">
+                {formatDate(entry.createdAt)}
+              </span>
+              {isCurrent ? (
+                <Badge variant="outline" className="h-4 shrink-0 px-1 text-[10px]">
+                  viewed
+                </Badge>
+              ) : null}
+            </li>
+          )
+        })}
+      </ol>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Signatures stay attached to their original frozen revision — an
+        amendment never moves them.
+      </p>
+    </section>
+  )
+}
 
 function EvidenceExportSection({ revisionId }: { revisionId: string }) {
   return (

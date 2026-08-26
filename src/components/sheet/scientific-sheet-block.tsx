@@ -1812,7 +1812,8 @@ export function ScientificSheetBlock({
     },
     [readOnly, table, coordinator],
   )
-  // Memoize afterSelectionEnd so it's stable across renders.
+  // Memoize afterSelectionEnd so it's stable across renders. Handsontable
+  // passes the full selection rect as (row, column, row2, column2).
   const handleAfterSelectionEnd = useCallback(
     (row: number, columnIndex: number) => {
       const rows = localRowsRef.current

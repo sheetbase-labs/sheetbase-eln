@@ -33,20 +33,40 @@ export interface ReviewLifecycle {
 export function deriveReviewLifecycle(input: {
   submissionState: string | null
   lockedAt: string | null
+  /** Which revision the record's current lock belongs to, if known. */
+  lockedByRevisionId?: string | null
+  /** The revision being viewed; needed to judge lock ownership precisely. */
+  viewedRevisionId?: string | null
   supersededByRevisionId: string | null
 }): ReviewLifecycle {
-  if (input.lockedAt) {
-    return {
-      status: 'signed-locked',
-      explanation:
-        'An approve-for-record signature locked this record; its evidence is frozen.',
-    }
-  }
+  // Supersession is a property of the revision being VIEWED; the record's
+  // lock is record-level state that belongs to the locking revision.
+  // A signed-then-amended revision stays "superseded" even after the
+  // amended successor is itself signed and re-locks the record — the same
+  // rule the signature panel applies (signatures stay on their revision).
   if (input.supersededByRevisionId) {
     return {
       status: 'superseded',
       explanation:
         'A later amendment replaced this revision; it stays readable as history.',
+    }
+  }
+  if (input.lockedAt) {
+    const lockOwnedByViewedRevision =
+      input.lockedByRevisionId == null ||
+      input.viewedRevisionId == null ||
+      input.lockedByRevisionId === input.viewedRevisionId
+    if (lockOwnedByViewedRevision) {
+      return {
+        status: 'signed-locked',
+        explanation:
+          'An approve-for-record signature locked this record; its evidence is frozen.',
+      }
+    }
+    return {
+      status: 'signed-locked',
+      explanation:
+        'This record is currently locked by a different revision; this revision shows its own review history.',
     }
   }
   switch (input.submissionState) {

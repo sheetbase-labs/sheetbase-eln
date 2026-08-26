@@ -661,10 +661,14 @@ function WorkspaceHeader({
     revision?.superseded_by_revision_id !== null && revision !== null
   const state = submission?.state ?? null
   // GOV-04: one derived lifecycle from authoritative fields — never a
-  // second state machine. Signed-locked wins; supersession next.
+  // second state machine. Viewed-revision supersession outranks the
+  // record-level lock, so an amended predecessor can never present its
+  // successor's lock as its own.
   const lifecycle = deriveReviewLifecycle({
     submissionState: state,
     lockedAt: lockedAt,
+    lockedByRevisionId: lockedByRevisionId,
+    viewedRevisionId: revision?.id ?? null,
     supersededByRevisionId: revision?.superseded_by_revision_id ?? null,
   })
   return (

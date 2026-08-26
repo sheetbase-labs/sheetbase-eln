@@ -266,12 +266,71 @@ describe('GOV-04 frozen evidence and signature attachment', () => {
     )
     expect(recordRows[0]?.locked_at).toBeNull()
 
+    // Reviewer regression: A signed -> amend B -> B submitted/reviewed/signed
+    // -> record locked again by the successor. Viewing A must present
+    // supersession (A.superseded_by_revision_id), while records.locked_at is
+    // non-null and owned by the successor revision — never A.
+    const resubmitDigest = (
+      await author.query(
+        `SELECT api.preview_submission_digest($1) AS result`,
+        [RECORD],
+      )
+    ).rows[0].result.sourceDigest as string
+    const resubmitted = (
+      await author.query(
+        `SELECT api.submit_record_revision($1,$2,'default-scientific-review',1,$3,true,$4) AS result`,
+        [RECORD, resubmitDigest, `{${REVIEWER}}`, 'g4-submit-3'],
+      )
+    ).rows[0].result as {
+      revision: { id: string; integrityDigest: string }
+      submission: { id: string }
+    }
+    const reReviewer = await authenticated(REVIEWER, WS)
+    await reReviewer.query(
+      `SELECT api.run_revision_checks($1,'default-scientific-checks',1,true,$2) AS result`,
+      [resubmitted.revision.id, 'g4-checks-3'],
+    )
+    await reReviewer.query(
+      `SELECT api.approve_review($1,NULL,'submitted',$2)`,
+      [resubmitted.submission.id, resubmitted.revision.integrityDigest],
+    )
+    await reReviewer.query(
+      `SELECT api.sign_revision($1,'approve-for-record',$2,$3)`,
+      [resubmitted.submission.id, 'Gov Reviewer', resubmitted.revision.integrityDigest],
+    )
+
+    const { rows: afterRelock } = await migrator!.query<{
+      locked_at: string | null
+      locked_by_revision_id: string | null
+    }>(
+      `SELECT locked_at, locked_by_revision_id FROM api.records WHERE id = $1`,
+      [RECORD],
+    )
+    expect(afterRelock[0]?.locked_at).not.toBeNull()
+    expect(afterRelock[0]?.locked_by_revision_id).toBe(resubmitted.revision.id)
+    expect(afterRelock[0]?.locked_by_revision_id).not.toBe(revisionId)
+    // Both flags now coexist for the viewed predecessor — exactly the
+    // condition the lifecycle derivation resolves in favour of supersession.
+    const { rows: predecessor } = await migrator!.query<{
+      superseded_by_revision_id: string | null
+    }>(
+      `SELECT superseded_by_revision_id FROM api.revisions WHERE id = $1`,
+      [revisionId],
+    )
+    expect(predecessor[0]?.superseded_by_revision_id).toBe(amendment.revisionId)
+    expect(predecessor[0]?.superseded_by_revision_id).not.toBe(resubmitted.revision.id)
+
     void beforePackage
   })
 
   it('keeps decisions attributable to actor, session, role and digest', async () => {
-    // A second submission that gets rejected with a note.
+    // The regression flow above re-locked the record; amend to unlock, then
+    // run a second submission that gets rejected with a note.
     const author = await authenticated(AUTHOR, WS)
+    await author.query(
+      `SELECT api.create_amendment($1,$2) AS result`,
+      [RECORD, 'Second pass'],
+    )
     const sourceDigest = (
       await author.query(
         `SELECT api.preview_submission_digest($1) AS result`,

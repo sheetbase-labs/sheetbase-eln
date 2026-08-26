@@ -26,6 +26,30 @@ describe('deriveReviewLifecycle', () => {
     expect(lifecycle.status).toBe('superseded')
   })
 
+  it('regression: amended predecessor stays superseded after its successor re-locks the record', () => {
+    // rev A signed -> amend to rev B -> rev B signed, record locked by B.
+    // Viewing A must show supersession, never the successor's lock.
+    const lifecycle = deriveReviewLifecycle({
+      submissionState: 'approved',
+      lockedAt: '2026-08-26T12:00:00Z',
+      lockedByRevisionId: 'rev-b',
+      viewedRevisionId: 'rev-a',
+      supersededByRevisionId: 'rev-b',
+    })
+    expect(lifecycle.status).toBe('superseded')
+  })
+
+  it('still shows signed-locked for the revision that owns the lock', () => {
+    const lifecycle = deriveReviewLifecycle({
+      submissionState: 'approved',
+      lockedAt: '2026-08-26T12:00:00Z',
+      lockedByRevisionId: 'rev-b',
+      viewedRevisionId: 'rev-b',
+      supersededByRevisionId: null,
+    })
+    expect(lifecycle.status).toBe('signed-locked')
+  })
+
   it('maps each authoritative submission state without inventing values', () => {
     const states = [
       ['submitted', 'under-review'],

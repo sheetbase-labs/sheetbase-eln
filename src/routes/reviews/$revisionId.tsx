@@ -44,6 +44,14 @@ import {
   XCircle,
 } from 'lucide-react'
 
+import {
+  CollaborationRoom,
+  safeBuildRoomId,
+} from '#/components/collaboration/collaboration-room'
+import { PresenceStack } from '#/components/collaboration/presence-avatars'
+import { ThreadPanel } from '#/components/collaboration/thread-panel'
+import { useCollaborationEnabled } from '#/lib/collaboration/liveblocks.config'
+import { canCommentInRoom } from '#/lib/collaboration/permissions'
 import { useShell } from '#/components/app-shell'
 import { ApprovalStepper, RecordHistoryTimeline } from '#/components/audit'
 import type { ApprovalStepDef, ApprovalStepStatus } from '#/components/audit'
@@ -189,7 +197,7 @@ const DEFAULT_CHECK_DEFINITION_VERSION = 1
 // Route component.
 // ---------------------------------------------------------------------------
 
-function ReviewWorkspaceRoute() {
+export function ReviewWorkspaceRoute() {
   const { context } = Route.useRouteContext()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -214,6 +222,14 @@ function ReviewWorkspaceRoute() {
   })
 
   const recordId = revisionQuery.data?.record_id ?? null
+
+  // COLLAB-04: reviewers share the record's canonical collaboration room.
+  // Null when collaboration is disabled or the workspace/record identity is
+  // incomplete — CollaborationRoom then renders children unchanged.
+  const collaborationEnabled = useCollaborationEnabled()
+  const collaborationRoomId = collaborationEnabled
+    ? safeBuildRoomId(context.workspace?.id, 'record', recordId)
+    : null
 
   const revisionOptionsQuery = useQuery({
     queryKey: reviewWorkspaceQueryKeys.revisionOptions(recordId ?? ''),
@@ -414,6 +430,10 @@ function ReviewWorkspaceRoute() {
       loading={loading}
       isLocked={isLocked}
       recordId={recordId}
+      collaborationWorkspaceId={
+        collaborationEnabled ? (context.workspace?.id ?? null) : null
+      }
+      collaborationRole={context.workspace?.role ?? 'viewer'}
       onAfterAmendment={async () => {
         await queryClient.invalidateQueries({
           queryKey: reviewWorkspaceQueryKeys.revision(revisionId),
@@ -434,129 +454,139 @@ function ReviewWorkspaceRoute() {
 
   const shellContextValue = shellContext(context)
 
+  // COLLAB-04: the whole workspace shares the record's collaboration room;
+  // CollaborationRoom renders children unchanged until the provider is
+  // mounted, so SSR markup is unaffected.
   return (
-    <RouteShell
-      fullBleed
-      context={shellContextValue}
-      breadcrumbs={[
-        { label: 'Home', to: '/' },
-        { label: 'Reviews', to: '/reviews' },
-        { label: record?.identifier ?? revisionId },
-      ]}
-      inspector={inspector}
-      inspectorLabel="Review"
-      inspectorCollapsible
-    >
-      <div className="flex h-full flex-col gap-3 p-4 md:p-6">
-        <WorkspaceHeader
-          submission={submission}
-          record={record}
-          projectTitle={project?.title ?? null}
-          revision={revision}
-          permission={permission}
-          isLocked={isLocked}
-          lockedAt={record?.locked_at ?? null}
-          lockedByRevisionId={record?.locked_by_revision_id ?? null}
-        />
+    <CollaborationRoom roomId={collaborationRoomId}>
+      <RouteShell
+        fullBleed
+        context={shellContextValue}
+        breadcrumbs={[
+          { label: 'Home', to: '/' },
+          { label: 'Reviews', to: '/reviews' },
+          { label: record?.identifier ?? revisionId },
+        ]}
+        inspector={inspector}
+        inspectorLabel="Review"
+        inspectorCollapsible
+      >
+        <div className="flex h-full flex-col gap-3 p-4 md:p-6">
+          <WorkspaceHeader
+            submission={submission}
+            record={record}
+            projectTitle={project?.title ?? null}
+            revision={revision}
+            permission={permission}
+            isLocked={isLocked}
+            lockedAt={record?.locked_at ?? null}
+            lockedByRevisionId={record?.locked_by_revision_id ?? null}
+          />
 
-        <Tabs
-          value={activeTab}
-          onValueChange={(value) =>
-            navigateTab(value as WorkspaceSearch['tab'])
-          }
-          className="flex min-h-0 flex-1 flex-col"
-        >
-          <TabsList aria-label="Review workspace panels">
-            <TabsTrigger value="diff">
-              <GitCompare className="size-3.5" aria-hidden />
-              Diff
-            </TabsTrigger>
-            <TabsTrigger value="comments">
-              <MessageSquare className="size-3.5" aria-hidden />
-              Comments
-            </TabsTrigger>
-            <TabsTrigger value="checks">
-              <ListChecks className="size-3.5" aria-hidden />
-              Checks
-            </TabsTrigger>
-            <TabsTrigger value="history">
-              <History className="size-3.5" aria-hidden />
-              History
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="diff" className="min-h-0 flex-1 overflow-y-auto">
-            <DiffPanel
-              beforeEnvelope={beforeEnvelope}
-              afterEnvelope={afterEnvelope}
-              revisionOptions={revisionOptions}
-              currentRevisionId={revisionId}
-              effectiveComparisonId={effectiveComparisonId}
-              onComparisonChange={navigateComparison}
-              comparisonLoading={
-                effectiveComparisonId !== null &&
-                comparisonRevisionQuery.isLoading
-              }
-            />
-          </TabsContent>
-
-          <TabsContent
-            value="comments"
-            className="min-h-0 flex-1 overflow-y-auto"
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) =>
+              navigateTab(value as WorkspaceSearch['tab'])
+            }
+            className="flex min-h-0 flex-1 flex-col"
           >
-            {submission && revision ? (
-              <CommentPanel
-                revisionId={revisionId}
-                targetKind="revision"
-                target={{}}
-                currentUserId={currentUserId}
-                currentUserName={currentUserName}
-                canComment={
-                  permission?.canReview === true ||
-                  permission?.canWithdraw === true
+            <TabsList aria-label="Review workspace panels">
+              <TabsTrigger value="diff">
+                <GitCompare className="size-3.5" aria-hidden />
+                Diff
+              </TabsTrigger>
+              <TabsTrigger value="comments">
+                <MessageSquare className="size-3.5" aria-hidden />
+                Comments
+              </TabsTrigger>
+              <TabsTrigger value="checks">
+                <ListChecks className="size-3.5" aria-hidden />
+                Checks
+              </TabsTrigger>
+              <TabsTrigger value="history">
+                <History className="size-3.5" aria-hidden />
+                History
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent
+              value="diff"
+              className="min-h-0 flex-1 overflow-y-auto"
+            >
+              <DiffPanel
+                beforeEnvelope={beforeEnvelope}
+                afterEnvelope={afterEnvelope}
+                revisionOptions={revisionOptions}
+                currentRevisionId={revisionId}
+                effectiveComparisonId={effectiveComparisonId}
+                onComparisonChange={navigateComparison}
+                comparisonLoading={
+                  effectiveComparisonId !== null &&
+                  comparisonRevisionQuery.isLoading
                 }
               />
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Comments are available once the revision is loaded.
-              </p>
-            )}
-          </TabsContent>
+            </TabsContent>
 
-          <TabsContent
-            value="checks"
-            className="min-h-0 flex-1 overflow-y-auto"
-          >
-            <ChecksPanel
-              revisionId={revisionId}
-              results={checkResults}
-              loading={checksQuery.isLoading}
-              canRun={
-                permission?.canReview === true && integrityDigest !== null
-              }
-              onRefresh={() => void checksQuery.refetch()}
-            />
-          </TabsContent>
+            <TabsContent
+              value="comments"
+              className="min-h-0 flex-1 overflow-y-auto"
+            >
+              {submission && revision ? (
+                <CommentPanel
+                  revisionId={revisionId}
+                  targetKind="revision"
+                  target={{}}
+                  currentUserId={currentUserId}
+                  currentUserName={currentUserName}
+                  canComment={
+                    permission?.canReview === true ||
+                    permission?.canWithdraw === true
+                  }
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Comments are available once the revision is loaded.
+                </p>
+              )}
+            </TabsContent>
 
-          <TabsContent
-            value="history"
-            className="min-h-0 flex-1 overflow-y-auto"
-          >
-            <RecordHistoryTimeline
-              events={timelineQuery.data ?? []}
-              loading={timelineQuery.isLoading}
-              error={timelineQuery.error}
-              revisionId={revision?.id ?? null}
-              integrityDigest={revision?.integrity_digest ?? null}
-              currentUserId={currentUserId}
-              currentUserName={currentUserName}
-              onRefresh={() => void timelineQuery.refetch()}
-              refreshing={timelineQuery.isFetching && !timelineQuery.isLoading}
-            />
-          </TabsContent>
-        </Tabs>
-      </div>
-    </RouteShell>
+            <TabsContent
+              value="checks"
+              className="min-h-0 flex-1 overflow-y-auto"
+            >
+              <ChecksPanel
+                revisionId={revisionId}
+                results={checkResults}
+                loading={checksQuery.isLoading}
+                canRun={
+                  permission?.canReview === true && integrityDigest !== null
+                }
+                onRefresh={() => void checksQuery.refetch()}
+              />
+            </TabsContent>
+
+            <TabsContent
+              value="history"
+              className="min-h-0 flex-1 overflow-y-auto"
+            >
+              <RecordHistoryTimeline
+                events={timelineQuery.data ?? []}
+                loading={timelineQuery.isLoading}
+                error={timelineQuery.error}
+                revisionId={revision?.id ?? null}
+                integrityDigest={revision?.integrity_digest ?? null}
+                currentUserId={currentUserId}
+                currentUserName={currentUserName}
+                onRefresh={() => void timelineQuery.refetch()}
+                refreshing={
+                  timelineQuery.isFetching && !timelineQuery.isLoading
+                }
+              />
+            </TabsContent>
+          </Tabs>
+        </div>
+      </RouteShell>
+    </CollaborationRoom>
   )
 }
 
@@ -619,6 +649,9 @@ function WorkspaceHeader({
           </p>
         </div>
         <div className="flex flex-col items-end gap-1">
+          {/* COLLAB-04: who else is reviewing right now; renders null before
+              the room mounts and when nobody else is present. */}
+          <PresenceStack className="justify-end" />
           {state ? (
             <StatusBadge
               status={state}
@@ -912,6 +945,8 @@ function ReviewInspector({
   loading,
   isLocked,
   recordId,
+  collaborationWorkspaceId,
+  collaborationRole,
   onAfterAmendment,
 }: {
   revision: RevisionWire | null
@@ -927,6 +962,10 @@ function ReviewInspector({
   loading: boolean
   isLocked: boolean
   recordId: string | null
+  /** COLLAB-04: workspace identity for the shared record discussion room. */
+  collaborationWorkspaceId: string | null
+  /** COLLAB-04: workspace role hint for the discussion composer. */
+  collaborationRole: string
   onAfterAmendment: () => Promise<void>
 }) {
   const queryClient = useQueryClient()
@@ -1026,6 +1065,34 @@ function ReviewInspector({
             <p className="text-xs text-muted-foreground">No assignees.</p>
           )}
         </section>
+
+        {/* COLLAB-04: the same record-level discussion thread as the record
+            page, embedded compactly in the review inspector. It mounts its
+            own CollaborationRoom because the shell renders the inspector
+            outside this route's subtree; the panel gates on room readiness,
+            so SSR/pre-hydration output stays empty. */}
+        {collaborationWorkspaceId && recordId ? (
+          <section aria-label="Discussion">
+            <CollaborationRoom
+              roomId={safeBuildRoomId(
+                collaborationWorkspaceId,
+                'record',
+                recordId,
+              )}
+            >
+              <ThreadPanel
+                anchor={{
+                  anchorType: 'record',
+                  workspaceId: collaborationWorkspaceId,
+                  recordId,
+                }}
+                currentRole={collaborationRole}
+                canComment={canCommentInRoom(collaborationRole)}
+                compact
+              />
+            </CollaborationRoom>
+          </section>
+        ) : null}
 
         {submission ? (
           <SignaturePanel

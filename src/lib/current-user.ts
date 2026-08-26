@@ -7,10 +7,13 @@ import { eq, inArray } from 'drizzle-orm'
 import { db } from '#/db/client.server'
 import * as schema from '#/db/schema'
 import { getAppSession } from '#/lib/auth'
+import { isCollaborationEnabled } from '#/lib/collaboration/access.server'
 
 export interface CurrentContext {
   user: { id: string; name: string; email: string }
   workspace: { id: string; slug: string; name: string; role: string } | null
+  /** COLLAB: Liveblocks substrate configured on this deployment? */
+  collaborationEnabled: boolean
 }
 
 /** Returns the signed-in user and their active workspace, or null. */
@@ -39,6 +42,7 @@ export async function getCurrentContext(
           role: membership.role,
         }
       : null,
+    collaborationEnabled: isCollaborationEnabled(),
   }
 }
 

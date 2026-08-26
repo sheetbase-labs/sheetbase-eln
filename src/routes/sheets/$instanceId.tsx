@@ -1,6 +1,11 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
 import { useShell } from '#/components/app-shell'
+import {
+  CollaborationRoom,
+  safeBuildRoomId,
+} from '#/components/collaboration/collaboration-room'
+import { useCollaborationEnabled } from '#/lib/collaboration/liveblocks.config'
 import { CanonicalSheetWorkspace } from '#/components/sheet/canonical-sheet-workspace'
 
 export const Route = createFileRoute('/sheets/$instanceId')({
@@ -33,11 +38,21 @@ function ComposedSheetRoute() {
     breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Sheet' }],
   })
 
+  // COLLAB-01: presence awareness for the canonical Sheet Instance. The
+  // room carries presence only — thread anchoring on sheet rows waits for a
+  // canonical per-row identity (queued follow-up task).
+  const collaborationEnabled = useCollaborationEnabled()
+  const collaborationRoomId = collaborationEnabled
+    ? safeBuildRoomId(context.workspace?.id, 'sheet', instanceId)
+    : null
+
   return (
-    <CanonicalSheetWorkspace
-      instanceId={instanceId}
-      projectId={projectId ?? null}
-      readOnly={!projectId}
-    />
+    <CollaborationRoom roomId={collaborationRoomId}>
+      <CanonicalSheetWorkspace
+        instanceId={instanceId}
+        projectId={projectId ?? null}
+        readOnly={!projectId}
+      />
+    </CollaborationRoom>
   )
 }

@@ -4,6 +4,13 @@ import { FileWarning } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 import { useShell } from '#/components/app-shell'
+import {
+  CollaborationRoom,
+  safeBuildRoomId,
+} from '#/components/collaboration/collaboration-room'
+import { ThreadPanel } from '#/components/collaboration/thread-panel'
+import { useCollaborationEnabled } from '#/lib/collaboration/liveblocks.config'
+import { canCommentInRoom } from '#/lib/collaboration/permissions'
 import { CommentPanel } from '#/components/comments'
 import { OverviewTabs } from '#/components/overview'
 import {
@@ -78,6 +85,11 @@ function ExperimentOverviewRoute() {
   const { context } = Route.useRouteContext()
   const { projectId, recordId } = Route.useParams()
   const { revision: revisionId } = useSearch({ from: Route.fullPath })
+
+  // COLLAB-02: record-level discussion lives in the record room. The parent
+  // route only wraps the notebook index path, so the overview provides its
+  // own CollaborationRoom around the Discussion panel (see DiscussionPanel).
+  const collaborationEnabled = useCollaborationEnabled()
 
   const queryClient = useQueryClient()
 
@@ -300,6 +312,10 @@ function ExperimentOverviewRoute() {
           currentUserId={context.user.id}
           currentUserName={context.user.name}
           canComment={Boolean(context.workspace)}
+          collaborationWorkspaceId={
+            collaborationEnabled ? (context.workspace?.id ?? null) : null
+          }
+          collaborationRole={context.workspace?.role ?? 'viewer'}
         />
       }
     >
@@ -362,6 +378,8 @@ function OverviewInspector({
   currentUserId,
   currentUserName,
   canComment,
+  collaborationWorkspaceId,
+  collaborationRole = 'viewer',
 }: {
   record: NotebookRecord
   projectName?: string | null
@@ -373,6 +391,10 @@ function OverviewInspector({
   currentUserId?: string | null
   currentUserName?: string
   canComment?: boolean
+  /** COLLAB-02: canonical workspace id; null disables the Discussion tab. */
+  collaborationWorkspaceId?: string | null
+  /** COLLAB-02: workspace role hint for the discussion composer. */
+  collaborationRole?: string
 }) {
   // Collect file blocks for the Files tab.
   const fileBlocks = blocks?.filter((b) => b.type === 'file') ?? []
@@ -465,6 +487,21 @@ function OverviewInspector({
             </InspectorSection>
           ),
         },
+        ...(collaborationWorkspaceId
+          ? [
+              {
+                id: 'discussion',
+                label: 'Discussion',
+                content: (
+                  <DiscussionPanel
+                    workspaceId={collaborationWorkspaceId}
+                    recordId={record.id}
+                    role={collaborationRole}
+                  />
+                ),
+              },
+            ]
+          : []),
         {
           id: 'comments',
           label: 'Comments',
@@ -487,6 +524,40 @@ function OverviewInspector({
         },
       ]}
     />
+  )
+}
+
+// ---------------------------------------------------------------------------
+// COLLAB-02: record-level discussion. ThreadPanel gates itself on room
+// readiness, so wrapping it here is hydration-safe and renders nothing until
+// the record room provider is mounted.
+// ---------------------------------------------------------------------------
+
+function DiscussionPanel({
+  workspaceId,
+  recordId,
+  role,
+}: {
+  workspaceId: string
+  recordId: string
+  role: string
+}) {
+  const roomId = safeBuildRoomId(workspaceId, 'record', recordId)
+  if (!roomId) {
+    return (
+      <EmptyHint>
+        Discussion needs a workspace membership for this record.
+      </EmptyHint>
+    )
+  }
+  return (
+    <CollaborationRoom roomId={roomId}>
+      <ThreadPanel
+        anchor={{ anchorType: 'record', workspaceId, recordId }}
+        currentRole={role}
+        canComment={canCommentInRoom(role)}
+      />
+    </CollaborationRoom>
   )
 }
 

@@ -1,5 +1,8 @@
-import { LiveblocksProvider, useCollaborationEnabled } from '#/lib/collaboration/liveblocks.config'
-import { collaborationClientOptions } from '#/lib/collaboration/liveblocks.config'
+import {
+  LiveblocksProvider,
+  useCollaborationEnabled,
+  collaborationClientOptions,
+} from '#/lib/collaboration/liveblocks.config'
 
 /**
  * Root collaboration boundary (COLLAB). Mounted once under the app shell;

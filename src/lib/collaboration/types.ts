@@ -74,8 +74,8 @@ export interface CollaborationPresence {
 
 /**
  * Anchor kinds. Every anchor addresses a durable Sheetbase identity — stable
- * persisted UUIDs — never visible row numbers, column labels or DOM
- * coordinates. `ThreadMetadata` must be flat JSON scalars, so anchors
+ * UUIDs / content-derived row keys — never visible row numbers, column labels
+ * or DOM coordinates. `ThreadMetadata` must be flat JSON scalars, so anchors
  * flatten into individual fields (see ThreadAnchorMetadata).
  */
 export type ThreadAnchorType =

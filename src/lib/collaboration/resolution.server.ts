@@ -47,7 +47,10 @@ export async function resolveUsersForCaller(
       image: schema.user.image,
     })
     .from(schema.workspaceMemberships)
-    .innerJoin(schema.user, eq(schema.user.id, schema.workspaceMemberships.userId))
+    .innerJoin(
+      schema.user,
+      eq(schema.user.id, schema.workspaceMemberships.userId),
+    )
     .where(
       and(
         inArray(schema.workspaceMemberships.userId, unique),
@@ -113,7 +116,9 @@ async function roomObjectInfo(
         ),
         columns: { name: true },
       })
-      return row ? { name: row.name, url: `/datasets?dataset=${objectId}` } : null
+      return row
+        ? { name: row.name, url: `/datasets?dataset=${objectId}` }
+        : null
     }
   }
 }
@@ -132,9 +137,7 @@ export async function isActiveMember(
     columns: { suspendedAt: true },
     with: { workspace: { columns: { status: true } } },
   })
-  return Boolean(
-    row && !row.suspendedAt && row.workspace.status === 'active',
-  )
+  return Boolean(row && !row.suspendedAt && row.workspace.status === 'active')
 }
 
 /**
@@ -152,7 +155,11 @@ export async function resolveRoomsForCaller(
     const parsed = parseRoomId(roomId)
     if (!parsed.ok) continue
     if (!(await isActiveMember(callerId, parsed.workspaceId))) continue
-    const info = await roomObjectInfo(parsed.kind, parsed.workspaceId, parsed.objectId)
+    const info = await roomObjectInfo(
+      parsed.kind,
+      parsed.workspaceId,
+      parsed.objectId,
+    )
     if (info) results.push({ id: roomId, ...info })
   }
   return results
@@ -188,9 +195,7 @@ export async function mentionSuggestionsForRoom(
   const query = text.trim().toLowerCase()
   return rows
     .filter((r) => !r.suspendedAt && r.id !== callerId)
-    .filter((r) =>
-      query ? r.name.toLowerCase().includes(query) : true,
-    )
+    .filter((r) => (query ? r.name.toLowerCase().includes(query) : true))
     .slice(0, 20)
     .map((r) => r.id)
 }

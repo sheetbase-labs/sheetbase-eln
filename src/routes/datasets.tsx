@@ -33,6 +33,13 @@ import {
 
 import { ExportMenu } from '#/components/export/export-menu'
 import { useShell } from '#/components/app-shell'
+import {
+  CollaborationRoom,
+  safeBuildRoomId,
+} from '#/components/collaboration/collaboration-room'
+import { ThreadPanel } from '#/components/collaboration/thread-panel'
+import { useCollaborationEnabled } from '#/lib/collaboration/liveblocks.config'
+import { canCommentInRoom } from '#/lib/collaboration/permissions'
 import { DatasetProductActions } from '#/components/datasets/dataset-product-controls'
 import { RegistryComposition } from '#/components/registry'
 import type { DataGridField } from '#/components/data-grid'
@@ -255,6 +262,14 @@ function DatasetExplorerRoute() {
     },
   }
 
+  // COLLAB-02: one dataset room per selected dataset; null when the
+  // deployment has collaboration disabled or there is no workspace.
+  const collaborationEnabled = useCollaborationEnabled()
+  const collaborationRoomId =
+    collaborationEnabled && selectedTableId
+      ? safeBuildRoomId(context.workspace?.id, 'dataset', selectedTableId)
+      : null
+
   useShell({
     context: shellContext,
     breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Datasets' }],
@@ -305,13 +320,22 @@ function DatasetExplorerRoute() {
           }
         />
         {selectedTable ? (
-          <DatasetTabs
-            key={selectedTable.id}
-            table={selectedTable}
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-            onRefresh={refreshDatasets}
-          />
+          // COLLAB-02: the whole detail area (tabs + inspector) lives inside
+          // the dataset room; CollaborationRoom renders children unchanged
+          // until the provider is ready, so SSR markup is unaffected.
+          <CollaborationRoom roomId={collaborationRoomId}>
+            <DatasetTabs
+              key={selectedTable.id}
+              table={selectedTable}
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              onRefresh={refreshDatasets}
+              collaborationWorkspaceId={
+                collaborationEnabled ? (context.workspace?.id ?? null) : null
+              }
+              collaborationRole={context.workspace?.role ?? 'viewer'}
+            />
+          </CollaborationRoom>
         ) : (
           <EmptyDatasetState
             loading={summariesQuery.isLoading}
@@ -505,6 +529,10 @@ interface DatasetTabsProps {
   activeTab: 'data' | 'chart' | 'schema' | 'versions'
   onTabChange: (tab: 'data' | 'chart' | 'schema' | 'versions') => void
   onRefresh: () => void
+  /** COLLAB-02: canonical workspace id; null disables dataset discussion. */
+  collaborationWorkspaceId?: string | null
+  /** COLLAB-02: workspace role hint for the discussion composer. */
+  collaborationRole?: string
 }
 
 function DatasetTabs({
@@ -512,6 +540,8 @@ function DatasetTabs({
   activeTab,
   onTabChange,
   onRefresh,
+  collaborationWorkspaceId,
+  collaborationRole = 'viewer',
 }: DatasetTabsProps) {
   return (
     <Tabs
@@ -551,7 +581,12 @@ function DatasetTabs({
         value="data"
         className="absolute inset-x-0 bottom-0 top-8 flex min-h-0 flex-col"
       >
-        <DatasetDataTab table={table} onRefresh={onRefresh} />
+        <DatasetDataTab
+          table={table}
+          onRefresh={onRefresh}
+          collaborationWorkspaceId={collaborationWorkspaceId}
+          collaborationRole={collaborationRole}
+        />
       </TabsContent>
       <TabsContent
         value="versions"
@@ -591,9 +626,18 @@ function UnsupportedCanonicalView({ name }: { name: string }) {
 export interface DatasetDataTabProps {
   table: CanonicalDatasetWire
   onRefresh?: () => void
+  /** COLLAB-02: canonical workspace id; null disables dataset discussion. */
+  collaborationWorkspaceId?: string | null
+  /** COLLAB-02: workspace role hint for the discussion composer. */
+  collaborationRole?: string
 }
 
-export function DatasetDataTab({ table, onRefresh }: DatasetDataTabProps) {
+export function DatasetDataTab({
+  table,
+  onRefresh,
+  collaborationWorkspaceId,
+  collaborationRole = 'viewer',
+}: DatasetDataTabProps) {
   const [query, setQuery] = useState<RegistryQuery>({
     ...DEFAULT_DATASET_QUERY,
     grouping: [],
@@ -714,6 +758,8 @@ export function DatasetDataTab({ table, onRefresh }: DatasetDataTabProps) {
               links={linksQuery.data ?? []}
               lineageLoading={lineageQuery.isLoading}
               lineageError={lineageQuery.error}
+              collaborationWorkspaceId={collaborationWorkspaceId}
+              collaborationRole={collaborationRole}
               onSaved={() => {
                 void rowsQuery.refetch()
                 onRefresh?.()
@@ -1076,6 +1122,10 @@ interface DatasetInspectorProps {
   lineageLoading: boolean
   lineageError: unknown
   onSaved?: () => void
+  /** COLLAB-02: canonical workspace id; null disables dataset discussion. */
+  collaborationWorkspaceId?: string | null
+  /** COLLAB-02: workspace role hint for the discussion composer. */
+  collaborationRole?: string
 }
 
 export function DatasetInspector({
@@ -1087,6 +1137,8 @@ export function DatasetInspector({
   lineageLoading,
   lineageError,
   onSaved,
+  collaborationWorkspaceId,
+  collaborationRole = 'viewer',
 }: DatasetInspectorProps) {
   const rowFormulas = useMemo(
     () => (row ? formulas.filter((f) => f.target_row_id === row.id) : []),
@@ -1273,6 +1325,25 @@ export function DatasetInspector({
             </InspectorSection>
           ),
         },
+        ...(collaborationWorkspaceId
+          ? [
+              {
+                id: 'discussion',
+                label: 'Discussion',
+                content: (
+                  <ThreadPanel
+                    anchor={{
+                      anchorType: 'dataset',
+                      workspaceId: collaborationWorkspaceId,
+                      datasetId: table.id,
+                    }}
+                    currentRole={collaborationRole}
+                    canComment={canCommentInRoom(collaborationRole)}
+                  />
+                ),
+              },
+            ]
+          : []),
       ]}
     />
   )

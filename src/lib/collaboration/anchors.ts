@@ -1,6 +1,6 @@
 /**
- * Thread anchor model (COLLAB-02). Anchors use durable Sheetbase identities:
- * block UUIDs and canonical Dataset row/field UUIDs. They
+ * Thread anchor model (COLLAB-02). Anchors are durable Sheetbase identities:
+ * block UUIDs, content-derived sheet row keys, dataset row/field UUIDs. They
  * deliberately exclude visible row numbers, column labels, titles and DOM
  * coordinates so comments stay attached across reorder and rename.
  *

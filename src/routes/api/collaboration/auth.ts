@@ -30,7 +30,11 @@ const handler = async ({ request }: { request: Request }) => {
     realCollaborationAuthDeps,
   )
   if (!resolved.ok) {
-    return requestErrorResponse(resolved.status, resolved.code, resolved.message)
+    return requestErrorResponse(
+      resolved.status,
+      resolved.code,
+      resolved.message,
+    )
   }
 
   const liveblocks = new Liveblocks({ secret: env.LIVEBLOCKS_SECRET_KEY! })

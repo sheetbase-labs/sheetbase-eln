@@ -14,6 +14,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
 } from '#/components/ui'
 import { NotebookBlock } from './notebook-block'
 import { BlockPreview } from './block-preview'
@@ -24,6 +27,17 @@ import type { FrozenSheetEvidence } from '#/lib/sheet-evidence'
 import { BlockPicker } from './block-picker'
 import { NotebookSheetBlock } from './notebook-sheet-block'
 import { ScientificWorkbookProvider } from './scientific-workbook-provider'
+import {
+  useCollaborationEnabled,
+  useThreads,
+} from '#/lib/collaboration/liveblocks.config'
+import { CommentButton } from '#/components/collaboration/comment-button'
+import {
+  ThreadPanel,
+  threadMatchesAnchor,
+} from '#/components/collaboration/thread-panel'
+import { useCollaborationRoomReady } from '#/components/collaboration/collaboration-room'
+import type { ThreadAnchor } from '#/lib/collaboration/types'
 
 export type { AutosaveStatus, SaveResult } from './block-editor'
 
@@ -122,6 +136,14 @@ export interface NotebookDocumentProps {
   ) => Promise<string | undefined>
   readOnly?: boolean
   frozenSheetEvidence?: Map<string, FrozenSheetEvidence>
+  /**
+   * COLLAB-02: active workspace id used to build block comment anchors;
+   * omit to disable the affordance. Actual write access is enforced
+   * server-side.
+   */
+  collaborationWorkspaceId?: string
+  /** COLLAB-02: workspace role hint for the block comment composer. */
+  collaborationRole?: string
   className?: string
 }
 
@@ -164,6 +186,8 @@ function NotebookDocumentContent({
   onMoveBlock,
   onReplaceBlock,
   readOnly,
+  collaborationWorkspaceId,
+  collaborationRole = 'viewer',
   frozenSheetEvidence,
   className,
 }: NotebookDocumentProps) {
@@ -325,6 +349,9 @@ function NotebookDocumentContent({
   }
 
   const isReadOnly = readOnly || record.archivedAt !== null
+  // COLLAB-02: block comment affordances render only when the deployment
+  // has collaboration enabled; ThreadPanel further gates on room readiness.
+  const collabComments = useCollaborationEnabled()
 
   // --- Movement (ELN-006) -------------------------------------------------
   // The effective ordered list is the canonical `blocks` unless an
@@ -715,6 +742,18 @@ function NotebookDocumentContent({
                 }
                 state={blockState}
                 ariaLabel={`${block.type} block`}
+                actions={
+                  <>
+                    {collabComments ? (
+                      <BlockComments
+                        workspaceId={collaborationWorkspaceId}
+                        recordId={record.id}
+                        blockId={block.id}
+                        role={collaborationRole}
+                      />
+                    ) : undefined}
+                  </>
+                }
                 draggable={canMove}
                 onDragStart={(e) => handleDragStart(e, block)}
                 onDragEnd={handleDragEnd}
@@ -958,3 +997,84 @@ function blockLabel(block: NotebookBlockData): string {
  */
 // NOTE: blockTitle removed — titles are now user-editable via the block
 // payload's optional `title` field. When empty, no heading space is rendered.
+
+// ---------------------------------------------------------------------------
+// COLLAB-02: per-block discussion affordance
+// ---------------------------------------------------------------------------
+
+/**
+ * Hover-revealed comment button in the block header toolbar. Shows the
+ * unresolved comment count for this block and opens a ThreadPanel anchored
+ * to the block's stable UUID in the record room.
+ *
+ * Renders null until the enclosing CollaborationRoom is ready, so SSR and
+ * the pre-hydration paint stay free of room hooks.
+ */
+function BlockComments({
+  workspaceId,
+  recordId,
+  blockId,
+  role,
+}: {
+  workspaceId: string | undefined
+  recordId: string
+  blockId: string
+  role: string
+}) {
+  const ready = useCollaborationRoomReady()
+  // No canonical workspace identity means no anchor can be built.
+  if (!ready || !workspaceId) return null
+  return (
+    <BlockCommentsInner
+      workspaceId={workspaceId}
+      recordId={recordId}
+      blockId={blockId}
+      role={role}
+    />
+  )
+}
+
+function BlockCommentsInner({
+  workspaceId,
+  recordId,
+  blockId,
+  role,
+}: {
+  workspaceId: string
+  recordId: string
+  blockId: string
+  role: string
+}) {
+  const { threads } = useThreads()
+  const [open, setOpen] = React.useState(false)
+  const anchor: ThreadAnchor = {
+    anchorType: 'notebook-block',
+    workspaceId,
+    recordId,
+    blockId,
+  }
+  const unresolvedCount = threads.filter(
+    (thread) =>
+      !thread.resolved && threadMatchesAnchor(thread.metadata, anchor),
+  ).length
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <span className="inline-flex">
+          <CommentButton
+            count={unresolvedCount}
+            label={`Comments on block ${blockId}`}
+            className={cn(
+              'size-6 transition-opacity',
+              unresolvedCount === 0 &&
+                'opacity-0 focus-visible:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100',
+            )}
+          />
+        </span>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-96 p-3">
+        <ThreadPanel anchor={anchor} currentRole={role} compact />
+      </PopoverContent>
+    </Popover>
+  )
+}

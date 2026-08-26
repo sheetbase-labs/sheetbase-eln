@@ -5,6 +5,7 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 @import 'tw-animate-css';
+@import '@liveblocks/react-ui/styles.css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -284,4 +285,31 @@
 .react-flow__controls,
 .react-flow__attribution {
   pointer-events: auto;
+}
+
+/* COLLAB: Liveblocks theme (.sheetbase-collab)
+ *
+ * @liveblocks/react-ui's Thread/Composer components read their own --lb-*
+ * design tokens (declared on .lb-root in the imported stylesheet above).
+ * ThreadPanel puts `sheetbase-collab` on its root element; scoping the
+ * overrides there maps Liveblocks surfaces onto Sheetbase tokens so they
+ * match the surrounding inspector/popover chrome in light and dark themes.
+ */
+.sheetbase-collab {
+  /* Shape */
+  --lb-radius: var(--radius);
+  --lb-button-radius: calc(0.75 * var(--radius));
+  /* Palette: accent = primary, surfaces = popover, text = foreground. */
+  --lb-accent: var(--primary);
+  --lb-accent-foreground: var(--primary-foreground);
+  --lb-background: var(--popover);
+  --lb-foreground: var(--popover-foreground);
+  --lb-destructive: var(--destructive);
+  --lb-destructive-foreground: var(--destructive-foreground);
+  /* Secondary/subtle text and icon wells fall back to muted tokens. */
+  --lb-foreground-secondary: var(--muted-foreground);
+  --lb-foreground-subtle: var(--muted-foreground);
+  --lb-icon-background: var(--muted);
+  /* Text-selection highlight inside comments follows the primary hue. */
+  --lb-selection: color-mix(in oklab, var(--primary) 25%, transparent);
 }

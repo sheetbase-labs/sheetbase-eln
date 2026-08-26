@@ -20,6 +20,11 @@ import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
 import { useShell } from '#/components/app-shell'
+import {
+  CollaborationRoom,
+  safeBuildRoomId,
+} from '#/components/collaboration/collaboration-room'
+import { useCollaborationEnabled } from '#/lib/collaboration/liveblocks.config'
 import { AmendNotebookDialog } from '#/components/notebook/amend-notebook-dialog'
 import { DuplicateNotebookDialog } from '#/components/notebook/duplicate-notebook-dialog'
 import { NotebookHistoryPanel } from '#/components/notebook/notebook-history-panel'
@@ -171,6 +176,12 @@ function historicalRevisionFromSearch(search: unknown): string | undefined {
 function ExperimentNotebookRoute() {
   const { context } = Route.useRouteContext()
   const { projectId, recordId } = Route.useParams()
+  // COLLAB-02: one record room per experiment page; null when the
+  // deployment has collaboration disabled or there is no workspace.
+  const collaborationEnabled = useCollaborationEnabled()
+  const collaborationRoomId = collaborationEnabled
+    ? safeBuildRoomId(context.workspace?.id, 'record', recordId)
+    : null
   const historicalRevisionId = useRouterState({
     select: (state) => historicalRevisionFromSearch(state.location.search),
   })
@@ -351,104 +362,111 @@ function ExperimentNotebookRoute() {
     : undefined
 
   return (
-    <RouteShell
-      fullBleed
-      context={shellContext}
-      breadcrumbs={[
-        { label: 'Home', to: '/' },
-        { label: 'Projects', to: '/projects' },
-        ...(project
-          ? [{ label: project.title, to: `/projects/${projectId}` }]
-          : []),
-        { label: displayRecord.title },
-      ]}
-      projectTree={
-        project ? (
-          <NotebookProjectTree
+    // COLLAB-02: the whole page (canvas + inspector) lives inside the
+    // record room; CollaborationRoom renders children unchanged until the
+    // provider is ready, so SSR markup is unaffected.
+    <CollaborationRoom roomId={collaborationRoomId}>
+      <RouteShell
+        fullBleed
+        context={shellContext}
+        breadcrumbs={[
+          { label: 'Home', to: '/' },
+          { label: 'Projects', to: '/projects' },
+          ...(project
+            ? [{ label: project.title, to: `/projects/${projectId}` }]
+            : []),
+          { label: displayRecord.title },
+        ]}
+        projectTree={
+          project ? (
+            <NotebookProjectTree
+              projectId={projectId}
+              projectName={project.title}
+              recordId={record.id}
+              recordTitle={displayRecord.title}
+            />
+          ) : undefined
+        }
+        inspectorCollapsible
+        inspector={
+          <NotebookInspector
+            record={displayRecord}
+            projectName={project?.title ?? null}
+            ownerName={context.user.name}
+            currentUserId={context.user.id}
+            currentUserName={context.user.name}
             projectId={projectId}
-            projectName={project.title}
-            recordId={record.id}
-            recordTitle={displayRecord.title}
-          />
-        ) : undefined
-      }
-      inspectorCollapsible
-      inspector={
-        <NotebookInspector
-          record={displayRecord}
-          projectName={project?.title ?? null}
-          ownerName={context.user.name}
-          currentUserId={context.user.id}
-          currentUserName={context.user.name}
-          projectId={projectId}
-          links={links}
-          linksLoading={linksQuery.isLoading}
-          blocks={blocks}
-          activity={activity}
-          activityLoading={activityQuery.isLoading}
-          revisionEvidence={historicalEvidence}
-          canEditMetadata={
-            !record.lockedAt && !record.archivedAt && !historicalRevisionId
-          }
-          reviewActivity={reviewActivity}
-          isHistorical={Boolean(historicalRevisionId)}
-        />
-      }
-    >
-      <div className="flex-1 overflow-y-auto px-4 pb-16 md:px-6">
-        <NotebookPrintStyles />
-        <StickyRecordHeader
-          record={displayRecord}
-          projectName={project?.title ?? null}
-          projectId={projectId}
-          currentUserId={context.user.id}
-          currentUserName={context.user.name}
-          workspaceId={context.workspace?.id}
-          blocks={historicalEvidence?.blocks ?? blocks}
-          historicalRevisionId={historicalRevisionId}
-          review={review}
-          liveLockedAt={record.lockedAt}
-          liveLockedByRevisionId={record.lockedByRevisionId}
-        />
-        {historicalRevisionId ? (
-          <HistoricalEvidenceBanner
-            projectId={projectId}
-            recordId={record.id}
-          />
-        ) : null}
-        {isArchived ? <ArchivedBanner /> : null}
-        {!historicalRevisionId && record.lockedAt ? (
-          <LockedBanner
-            record={record}
-            onAmended={() => {
-              void queryClient.invalidateQueries({
-                queryKey: notebookQueryKeys.record(record.id),
-              })
-              void queryClient.invalidateQueries({
-                queryKey: notebookQueryKeys.blocks(record.id),
-              })
-            }}
-          />
-        ) : null}
-        {historicalRevisionId ? (
-          <HistoricalNotebookCanvas
-            record={record}
-            revisionId={historicalRevisionId}
-            client={notebookDataClient}
-          />
-        ) : (
-          <NotebookCanvas
-            record={record}
+            links={links}
+            linksLoading={linksQuery.isLoading}
             blocks={blocks}
-            isLoading={blocksQuery.isLoading}
-            error={blocksQuery.error}
-            onRetry={() => blocksQuery.refetch()}
-            client={notebookDataClient}
-            queryClient={queryClient}
+            activity={activity}
+            activityLoading={activityQuery.isLoading}
+            revisionEvidence={historicalEvidence}
+            canEditMetadata={
+              !record.lockedAt && !record.archivedAt && !historicalRevisionId
+            }
+            reviewActivity={reviewActivity}
+            isHistorical={Boolean(historicalRevisionId)}
           />
-        )}
-      </div>
-    </RouteShell>
+        }
+      >
+        <div className="flex-1 overflow-y-auto px-4 pb-16 md:px-6">
+          <NotebookPrintStyles />
+          <StickyRecordHeader
+            record={displayRecord}
+            projectName={project?.title ?? null}
+            projectId={projectId}
+            currentUserId={context.user.id}
+            currentUserName={context.user.name}
+            workspaceId={context.workspace?.id}
+            blocks={historicalEvidence?.blocks ?? blocks}
+            historicalRevisionId={historicalRevisionId}
+            review={review}
+            liveLockedAt={record.lockedAt}
+            liveLockedByRevisionId={record.lockedByRevisionId}
+          />
+          {historicalRevisionId ? (
+            <HistoricalEvidenceBanner
+              projectId={projectId}
+              recordId={record.id}
+            />
+          ) : null}
+          {isArchived ? <ArchivedBanner /> : null}
+          {!historicalRevisionId && record.lockedAt ? (
+            <LockedBanner
+              record={record}
+              onAmended={() => {
+                void queryClient.invalidateQueries({
+                  queryKey: notebookQueryKeys.record(record.id),
+                })
+                void queryClient.invalidateQueries({
+                  queryKey: notebookQueryKeys.blocks(record.id),
+                })
+              }}
+            />
+          ) : null}
+          {historicalRevisionId ? (
+            <HistoricalNotebookCanvas
+              record={record}
+              revisionId={historicalRevisionId}
+              client={notebookDataClient}
+            />
+          ) : (
+            <NotebookCanvas
+              record={record}
+              blocks={blocks}
+              isLoading={blocksQuery.isLoading}
+              error={blocksQuery.error}
+              onRetry={() => blocksQuery.refetch()}
+              client={notebookDataClient}
+              queryClient={queryClient}
+              collaborationWorkspaceId={context.workspace?.id}
+              collaborationRole={context.workspace?.role}
+            />
+          )}
+        </div>
+      </RouteShell>
+    </CollaborationRoom>
   )
 }
 
@@ -845,6 +863,8 @@ export function NotebookCanvas({
   onRetry,
   client,
   queryClient,
+  collaborationWorkspaceId,
+  collaborationRole = 'viewer',
 }: {
   record: NotebookRecord
   blocks: NotebookBlockDomain[]
@@ -858,6 +878,10 @@ export function NotebookCanvas({
    */
   client?: DataClient
   queryClient?: QueryClient
+  /** COLLAB-02: active workspace id for block comment anchors. */
+  collaborationWorkspaceId?: string
+  /** COLLAB-02: workspace role hint for the block comment composer. */
+  collaborationRole?: string
 }) {
   if (isLoading) {
     return (
@@ -896,17 +920,27 @@ export function NotebookCanvas({
     // anchors match the editable state. SIGN-002: a locked record's
     // scientific evidence is frozen until an amendment unlocks it.
     if ((record.archivedAt || record.lockedAt) && client && queryClient) {
-      return <LockedNotebook record={record} blocks={blocks} client={client} />
+      return (
+        <LockedNotebook
+          record={record}
+          blocks={blocks}
+          client={client}
+          collaborationWorkspaceId={collaborationWorkspaceId}
+          collaborationRole={collaborationRole}
+        />
+      )
     }
     return (
       <NotebookDocument
         record={record}
         blocks={blocks}
         readOnly
+        collaborationWorkspaceId={collaborationWorkspaceId}
         onSaveBlock={async () => ({ ok: true })}
         onInsertBlock={async () => undefined}
         onDuplicateBlock={async () => undefined}
         onDeleteBlock={async () => undefined}
+        collaborationRole={collaborationRole}
       />
     )
   }
@@ -916,6 +950,8 @@ export function NotebookCanvas({
       blocks={blocks}
       client={client}
       queryClient={queryClient}
+      collaborationWorkspaceId={collaborationWorkspaceId}
+      collaborationRole={collaborationRole}
     />
   )
 }
@@ -934,22 +970,22 @@ function EditableNotebook({
   blocks,
   client,
   queryClient,
+  collaborationWorkspaceId,
+  collaborationRole = 'viewer',
 }: {
   record: NotebookRecord
   blocks: NotebookBlockDomain[]
   client: DataClient
   queryClient: QueryClient
+  /** COLLAB-02: active workspace id for block comment anchors. */
+  collaborationWorkspaceId?: string
+  /** COLLAB-02: workspace role hint for the block comment composer. */
+  collaborationRole?: string
 }) {
   const blocksKey = notebookQueryKeys.blocks(record.id)
   const recordKey = notebookQueryKeys.record(record.id)
   const liveStatus = useLiveStatus()
   const offline = liveStatus.status === 'offline'
-
-  // ELN-007 — block in-app navigation only when unsaved work genuinely
-  // remains at risk. The document reports the aggregate signal via
-  // `onUnsavedWorkChange`; `beforeunload` (tab close) is handled inside
-  // the document. The router blocker uses `withResolver` so we can show
-  // a comprehensible confirmation rather than blocking silently.
   const [hasUnsavedWork, setHasUnsavedWork] = useState(false)
   const [embedOpen, setEmbedOpen] = useState(false)
   const [embedAfterBlockId, setEmbedAfterBlockId] = useState<
@@ -1418,6 +1454,8 @@ function EditableNotebook({
         onUndoDelete={handleUndoDelete}
         onMoveBlock={handleMove}
         onReplaceBlock={handleReplaceBlock}
+        collaborationWorkspaceId={collaborationWorkspaceId}
+        collaborationRole={collaborationRole}
       />
       <Dialog open={embedOpen} onOpenChange={setEmbedOpen}>
         <DialogContent>
@@ -1534,10 +1572,16 @@ function LockedNotebook({
   record,
   blocks,
   client,
+  collaborationWorkspaceId,
+  collaborationRole = 'viewer',
 }: {
   record: NotebookRecord
   blocks: NotebookBlockDomain[]
   client: DataClient
+  /** COLLAB-02: active workspace id for block comment anchors. */
+  collaborationWorkspaceId?: string
+  /** COLLAB-02: workspace role hint for the block comment composer. */
+  collaborationRole?: string
 }) {
   const revision = useQuery({
     queryKey: ['revision-sheet-evidence', record.id, record.lockedByRevisionId],
@@ -1567,6 +1611,8 @@ function LockedNotebook({
       onInsertBlock={async () => undefined}
       onDuplicateBlock={async () => undefined}
       onDeleteBlock={async () => undefined}
+      collaborationWorkspaceId={collaborationWorkspaceId}
+      collaborationRole={collaborationRole}
     />
   )
 }

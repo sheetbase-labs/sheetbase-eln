@@ -47,8 +47,18 @@ vi.mock('@tanstack/react-start', () => ({
   },
 }))
 
-vi.mock('@tanstack/react-query', () => ({
+vi.mock('@tanstack/react-query', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
   useQuery: () => ({ data: [], isLoading: false }),
+  useInfiniteQuery: () => ({
+    data: undefined,
+    isLoading: false,
+    isError: false,
+    error: null,
+    hasNextPage: false,
+    isFetchingNextPage: false,
+    fetchNextPage: vi.fn(),
+  }),
   useMutation: () => ({
     mutate: vi.fn(),
     mutateAsync: vi.fn(),

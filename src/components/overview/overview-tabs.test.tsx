@@ -56,6 +56,16 @@ vi.mock('#/lib/notebook-data', () => ({
   fetchFileObjectsByRecordIds: vi.fn().mockResolvedValue(new Map()),
 }))
 
+// Stub the SIGN-002 record-timeline fetcher so the Activity tab does not
+// hit the network in unit tests.
+vi.mock('#/lib/sign-002', () => ({
+  sign002DataClient: {},
+  sign002QueryKeys: {
+    timeline: (recordId: string) => ['sign-002', 'timeline', recordId] as const,
+  },
+  fetchRecordTimeline: vi.fn().mockResolvedValue([]),
+}))
+
 function makeBlock(
   overrides: Partial<NotebookBlock> & { id: string; type: string },
 ): NotebookBlock {
@@ -210,7 +220,7 @@ describe('OverviewTabs', () => {
     expect(screen.getByText('No files')).toBeTruthy()
   })
 
-  it('Activity tab shows coming-soon placeholder', async () => {
+  it('Activity tab renders the semantic object-history timeline', async () => {
     const { user } = await setup(
       <OverviewTabs
         sections={makeSections()}
@@ -222,7 +232,11 @@ describe('OverviewTabs', () => {
       />,
     )
     await user.click(screen.getByRole('tab', { name: 'Activity' }))
-    expect(screen.getByText('Activity feed coming soon')).toBeTruthy()
+    // GOV-03: the placeholder is replaced by the authoritative SIGN-002
+    // timeline rendered through the shared semantic history component.
+    expect(
+      screen.getByText('No recorded activity for this object yet.'),
+    ).toBeTruthy()
   })
 
   it('block controls include expand and open-in-notebook in active mode', () => {

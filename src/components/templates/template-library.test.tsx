@@ -3,7 +3,8 @@
  * archived states, filters, inspector rendering, use-template action flow,
  * and keyboard accessibility.
  */
-import { cleanup, render, screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { cleanup, render as testingLibraryRender, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -38,6 +39,17 @@ vi.mock('@tanstack/react-router', () => ({
 }))
 
 afterEach(() => cleanup())
+
+// The GOV-03 History trigger inside the inspector mounts a TanStack Query
+// consumer (ObjectHistoryDialog), so every render needs a QueryClient.
+function render(ui: React.ReactElement) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  return testingLibraryRender(
+    <QueryClientProvider client={client}>{ui}</QueryClientProvider>,
+  )
+}
 
 function template(overrides: Partial<NotebookRecord> = {}): NotebookRecord {
   return {

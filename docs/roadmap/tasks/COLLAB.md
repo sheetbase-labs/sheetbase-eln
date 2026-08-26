@@ -1,6 +1,6 @@
 # COLLAB — Collaboration
 
-**Status:** implemented (COLLAB-01–04; stacked PRs `feat/collab-foundation` → `feat/collab-02-comments` → `feat/collab-03-presence-notifications` → `feat/collab-04-review`).
+**Status:** complete (#69 foundation, #73 comments/anchors, #71 presence+notifications, #72 review coordination).
 
 ## Programme goal
 

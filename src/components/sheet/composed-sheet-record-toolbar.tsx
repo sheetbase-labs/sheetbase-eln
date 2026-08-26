@@ -1,3 +1,6 @@
+import { PresenceStack } from '#/components/collaboration/presence-avatars'
+import { RemoteSelectionChips } from '#/components/collaboration/presence-selection-chips'
+
 import type { ResolvedSheetRecordAction } from '#/lib/sheet-record-actions'
 import type { SheetRecordGridError } from '#/lib/sheet-record-grid-errors'
 import { Button } from '#/components/ui'
@@ -50,6 +53,12 @@ export function ComposedSheetRecordToolbar({
           Next error ({errors.length})
         </Button>
       ) : null}
+      <div className="ml-auto flex flex-wrap items-center gap-2">
+        {/* COLLAB-01 awareness: remote selections and who else is here. Both
+            self-gate on room readiness and render nothing outside a room. */}
+        <RemoteSelectionChips />
+        <PresenceStack />
+      </div>
     </div>
   )
 }

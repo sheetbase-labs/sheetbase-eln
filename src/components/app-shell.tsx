@@ -40,6 +40,7 @@ import { authClient } from '#/lib/auth-client'
 import { cn } from '#/lib/utils'
 import { useTheme } from '#/components/theme-provider'
 import { ConnectionStatus, useLiveStatus } from '#/components/live'
+import { NotificationInbox } from './collaboration/notification-inbox'
 import {
   Badge,
   Button,
@@ -770,6 +771,7 @@ export function AppShell({
                   status={liveStatus.status}
                   lastAppliedSeq={liveStatus.lastAppliedSeq}
                 />
+                <NotificationInbox />
                 <button
                   type="button"
                   onClick={() => setCommandOpen(true)}

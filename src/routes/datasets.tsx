@@ -38,6 +38,7 @@ import {
   safeBuildRoomId,
 } from '#/components/collaboration/collaboration-room'
 import { ThreadPanel } from '#/components/collaboration/thread-panel'
+import { PresenceStack } from '#/components/collaboration/presence-avatars'
 import { useCollaborationEnabled } from '#/lib/collaboration/liveblocks.config'
 import { canCommentInRoom } from '#/lib/collaboration/permissions'
 import { DatasetProductActions } from '#/components/datasets/dataset-product-controls'
@@ -324,6 +325,9 @@ function DatasetExplorerRoute() {
           // the dataset room; CollaborationRoom renders children unchanged
           // until the provider is ready, so SSR markup is unaffected.
           <CollaborationRoom roomId={collaborationRoomId}>
+            {/* COLLAB-01: who else is in this dataset's room. Renders null
+                before the room mounts and when nobody else is present. */}
+            <PresenceStack className="justify-end pb-1" />
             <DatasetTabs
               key={selectedTable.id}
               table={selectedTable}

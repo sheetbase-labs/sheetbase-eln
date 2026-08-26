@@ -21,6 +21,7 @@ import {
   updateSheetInstance,
 } from '#/lib/sheet-instance-data'
 import { ExportMenu } from '#/components/export/export-menu'
+import { ObjectHistoryDialog } from '#/components/audit'
 import type { SheetInstance } from '#/lib/sheet-instance-data'
 import {
   createAdHocTextField,
@@ -647,7 +648,8 @@ export function CanonicalSheetEditor({
 
   return (
     <div className="flex h-full min-h-[24rem] flex-col">
-      <div className="flex shrink-0 items-center justify-end border-b px-2 py-1">
+      <div className="flex shrink-0 items-center justify-end gap-2 border-b px-2 py-1">
+        <ObjectHistoryDialog objectId={instance.id} objectLabel="Sheet" />
         <ExportMenu
           path={`/api/export/sheet-instance/${instance.id}`}
           formats={[

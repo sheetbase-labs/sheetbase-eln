@@ -27,6 +27,7 @@ import {
   Check,
   ChevronsUpDown,
   Database,
+  History,
   Layers,
   Table as TableIcon,
 } from 'lucide-react'
@@ -42,6 +43,12 @@ import { PresenceStack } from '#/components/collaboration/presence-avatars'
 import { useCollaborationEnabled } from '#/lib/collaboration/liveblocks.config'
 import { canCommentInRoom } from '#/lib/collaboration/permissions'
 import { DatasetProductActions } from '#/components/datasets/dataset-product-controls'
+import { ObjectHistoryTimeline } from '#/components/audit'
+import {
+  auditHistoryDataClient,
+  fetchAuditEvents,
+} from '#/lib/audit-history'
+import { DataClientError } from '#/lib/data-client'
 import { RegistryComposition } from '#/components/registry'
 import type { DataGridField } from '#/components/data-grid'
 import {
@@ -224,7 +231,7 @@ function DatasetExplorerRoute() {
 
   const datasets = summariesQuery.data ?? []
   const [activeTab, setActiveTab] = useState<
-    'data' | 'chart' | 'schema' | 'versions'
+    'data' | 'chart' | 'schema' | 'versions' | 'history'
   >('data')
 
   const requestedTableId = search.dataset || null
@@ -530,8 +537,10 @@ function DatasetPicker({
 
 interface DatasetTabsProps {
   table: CanonicalDatasetWire
-  activeTab: 'data' | 'chart' | 'schema' | 'versions'
-  onTabChange: (tab: 'data' | 'chart' | 'schema' | 'versions') => void
+  activeTab: 'data' | 'chart' | 'schema' | 'versions' | 'history'
+  onTabChange: (
+    tab: 'data' | 'chart' | 'schema' | 'versions' | 'history',
+  ) => void
   onRefresh: () => void
   /** COLLAB-02: canonical workspace id; null disables dataset discussion. */
   collaborationWorkspaceId?: string | null
@@ -551,7 +560,9 @@ function DatasetTabs({
     <Tabs
       value={activeTab}
       onValueChange={(v) =>
-        onTabChange(v as 'data' | 'chart' | 'schema' | 'versions')
+        onTabChange(
+          v as 'data' | 'chart' | 'schema' | 'versions' | 'history',
+        )
       }
       className="relative min-h-0 flex-1 overflow-hidden"
     >
@@ -579,6 +590,12 @@ function DatasetTabs({
           className="h-8 gap-1.5 rounded-none border-b-2 border-transparent px-0 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
         >
           <BarChart3 className="size-3.5" aria-hidden="true" /> Chart
+        </TabsTrigger>
+        <TabsTrigger
+          value="history"
+          className="h-8 gap-1.5 rounded-none border-b-2 border-transparent px-0 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+        >
+          <History className="size-3.5" aria-hidden="true" /> History
         </TabsTrigger>
       </TabsList>
       <TabsContent
@@ -610,6 +627,12 @@ function DatasetTabs({
       >
         <UnsupportedCanonicalView name="Chart" />
       </TabsContent>
+      <TabsContent
+        value="history"
+        className="absolute inset-x-0 bottom-0 top-8 min-h-0 overflow-auto p-3"
+      >
+        <DatasetHistoryTab datasetId={table.id} />
+      </TabsContent>
     </Tabs>
   )
 }
@@ -620,6 +643,53 @@ function UnsupportedCanonicalView({ name }: { name: string }) {
       {name} is not yet available for canonical Datasets. The Explorer will not
       read legacy physical sheet resources as a fallback.
     </EmptyHint>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// History tab — GOV-03. Authoritative change_events for the Dataset and its
+// Versions, correlated through the RPC's object filter; frozen snapshot rows
+// stay in the Versions tab.
+// ---------------------------------------------------------------------------
+
+function DatasetHistoryTab({ datasetId }: { datasetId: string }) {
+  const historyQuery = useInfiniteQuery({
+    queryKey: ['audit-events', 'dataset', datasetId],
+    initialPageParam: undefined as number | undefined,
+    queryFn: ({ pageParam }) =>
+      fetchAuditEvents(auditHistoryDataClient, {
+        object: datasetId,
+        limit: 50,
+        ...(pageParam === undefined
+          ? {}
+          : { beforeSequence: pageParam }),
+      }),
+    getNextPageParam: (lastPage) =>
+      lastPage.hasMore ? (lastPage.nextCursor ?? undefined) : undefined,
+  })
+
+  const events = historyQuery.data?.pages.flatMap((page) => page.events) ?? []
+  const denied =
+    historyQuery.error instanceof DataClientError &&
+    (historyQuery.error.code === 'permission_denied' ||
+      historyQuery.error.code === 'unauthenticated')
+
+  return (
+    <ObjectHistoryTimeline
+      events={events}
+      loading={historyQuery.isLoading}
+      error={
+        historyQuery.isError
+          ? denied
+            ? 'History is not available for this dataset.'
+            : 'History could not be loaded.'
+          : null
+      }
+      hasMore={Boolean(historyQuery.hasNextPage)}
+      onLoadMore={() => void historyQuery.fetchNextPage()}
+      loadingMore={historyQuery.isFetchingNextPage}
+      maxHeight='48rem'
+    />
   )
 }
 

@@ -36,6 +36,7 @@ import {
 } from 'lucide-react'
 
 import { BlockPreview } from '#/components/notebook/block-preview'
+import { ObjectHistoryDialog } from '#/components/audit'
 import {
   CheckList,
   EmptyHint,
@@ -974,6 +975,14 @@ export function TemplateInspector({
           </div>
         ) : null}
       </dl>
+
+      <InspectorSection title="History">
+        <ObjectHistoryDialog
+          objectId={template.id}
+          objectLabel="Template"
+          triggerLabel="View template history"
+        />
+      </InspectorSection>
 
       <InspectorSection title="Linked records">
         {linkedRecords.length === 0 ? (

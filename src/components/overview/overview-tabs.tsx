@@ -4,7 +4,6 @@ import {
   FileImage,
   FileSpreadsheet,
   FileText,
-  Paperclip,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -17,6 +16,13 @@ import {
 } from '#/lib/notebook-data'
 import { formatFileSize } from '#/lib/format-numbers'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui'
+import { ObjectHistoryTimeline } from '#/components/audit'
+import {
+  fetchRecordTimeline,
+  sign002DataClient,
+  sign002QueryKeys,
+} from '#/lib/sign-002'
+import { timelineToAuditEvents } from '#/lib/audit-history'
 import { OverviewBlock, OverviewView } from './overview-view'
 import type {
   OverviewMode,
@@ -110,14 +116,13 @@ export function OverviewTabs({
           recordId={recordId}
         />
       </TabsContent>
-
+      <TabsContent value="activity">
+        <RecordActivityView recordId={recordId} />
+      </TabsContent>
       <TabsContent value="files">
         <FilesView blocks={fileBlocks} />
       </TabsContent>
 
-      <TabsContent value="activity">
-        <ActivityPlaceholder />
-      </TabsContent>
     </Tabs>
   )
 }
@@ -282,19 +287,35 @@ function fileIconForType(mediaType: string): LucideIcon {
 
 // ---------------------------------------------------------------------------
 
-function ActivityPlaceholder() {
+/**
+ * Activity tab — GOV-03 object history for the notebook. Renders the
+ * authoritative SIGN-002 `record_timeline` aggregate (edits, revisions,
+ * submissions, decisions, checks, signatures, comments) through the shared
+ * semantic history component. Historical, read-only: live discussion stays
+ * in the Discussion surfaces.
+ */
+function RecordActivityView({ recordId }: { recordId: string }) {
+  const timelineQuery = useQuery({
+    queryKey: sign002QueryKeys.timeline(recordId),
+    queryFn: () => fetchRecordTimeline(sign002DataClient, recordId),
+  })
+
+  const permissionDenied =
+    timelineQuery.error instanceof Error &&
+    /denied|permission/i.test(timelineQuery.error.message)
+
   return (
-    <div className="rounded-lg border border-dashed bg-muted/20 p-8 text-center">
-      <div className="mx-auto mb-3 flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
-        <Paperclip className="size-5" aria-hidden="true" />
-      </div>
-      <h2 className="text-base font-semibold text-foreground">
-        Activity feed coming soon
-      </h2>
-      <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-        A timeline of edits, comments and status changes for this notebook will
-        appear here.
-      </p>
-    </div>
+    <ObjectHistoryTimeline
+      events={timelineToAuditEvents(timelineQuery.data ?? [])}
+      loading={timelineQuery.isLoading}
+      error={
+        timelineQuery.isError
+          ? permissionDenied
+            ? 'History is not available for this record.'
+            : 'History could not be loaded.'
+          : null
+      }
+      maxHeight='40rem'
+    />
   )
 }

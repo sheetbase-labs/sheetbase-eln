@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { MoreHorizontal, Star } from 'lucide-react'
+import { PresenceStack } from '#/components/collaboration/presence-avatars'
 
 import { cn } from '#/lib/utils'
 import { Badge, Button, Separator } from '#/components/ui'
@@ -123,6 +124,7 @@ export function RecordHeader({
             />
           </Button>
         ) : null}
+        <PresenceStack />
         {actions}
         {menu ?? (
           <Button

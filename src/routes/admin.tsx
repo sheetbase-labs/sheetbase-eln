@@ -18,7 +18,7 @@ import {
 
 import { useShell } from '#/components/app-shell'
 import {
-  AdminActivity,
+  AdminAuditExplorer,
   AdminApiCredentials,
   AdminInspector,
   AdminMembers,
@@ -36,7 +36,6 @@ import {
   exportAuditLog,
   fetchInvitations,
   fetchProjectAccess,
-  fetchWorkspaceActivity,
   fetchWorkspaceMembers,
   fetchWorkspaceSessions,
   fetchWorkspaceSettings,
@@ -172,11 +171,7 @@ function AdminRoute() {
     queryFn: () => fetchProjectAccess(dataClient, workspaceId),
     enabled,
   })
-  const activityQuery = useQuery({
-    queryKey: adminQueryKeys.activity(workspaceId),
-    queryFn: () => fetchWorkspaceActivity(dataClient, workspaceId, 250),
-    enabled,
-  })
+
   const credentialsQuery = useQuery({
     queryKey: apiCredentialQueryKey(workspaceId),
     queryFn: () => listApiCredentialsFn({ data: { workspaceId } }),
@@ -495,10 +490,11 @@ function AdminRoute() {
             />
           ) : null}
           {activeSection === 'activity' ? (
-            <AdminActivity
-              events={activityQuery.data ?? []}
-              isOwner={isOwner}
-              onExport={exportAudit}
+            <AdminAuditExplorer
+              actors={members.map((member) => ({
+                id: member.userId,
+                label: `${member.role}: ${member.userId.slice(0, 8)}`,
+              }))}
             />
           ) : null}
           {activeSection === 'settings' ? (

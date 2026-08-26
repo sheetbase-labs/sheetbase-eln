@@ -722,7 +722,10 @@ describe('Sheet Instance durability and authority', () => {
           `select tgname,tgenabled,count(*)::integer count from pg_trigger where tgrelid='api.sheet_instances'::regclass and not tgisinternal group by tgname,tgenabled`,
         )
       ).rows,
-    ).toEqual([{ tgname: 'guard_sheet_instance', tgenabled: 'O', count: 1 }])
+    ).toEqual([
+      { tgname: 'change_event_sheet_instances', tgenabled: 'O', count: 1 },
+      { tgname: 'guard_sheet_instance', tgenabled: 'O', count: 1 },
+    ])
     expect(
       (
         await migrator.query(

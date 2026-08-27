@@ -139,19 +139,36 @@ events — via a small **server-side adapter layer** in
 | `secrets.server.ts`     | Execution-time sealed-secret decryption (workspace↔connector verified server-side) + `redactSecrets` so plaintext never reaches run results, logs or audit.                                                                                                                                       |
 | `host-policy.server.ts` | Connector destination policy: only http(s) endpoints, no credential-bearing URLs, no `file://`; optional `CONNECTOR_HOST_ALLOWLIST`; `CONNECTOR_ALLOW_PRIVATE_HOSTS` (default **true** — Sheetbase legitimately targets on-prem networks, and this switch is policy only, not network isolation). |
 | `retain.server.ts`      | Server-side retention of external bytes through the canonical DATA-03 file platform (`create_file_upload` → object storage → `finalize_file_upload`), so provenance carries a real `fileRecordId` + sha256.                                                                                       |
-| `s3.server.ts`          | S3-compatible adapter: `HeadBucket` test, paginated `ListObjectsV2` discovery (prefix-filtered, ETag as opaque metadata), byte-capped `GetObject`, delimited parser identity `sheetbase.delimited@1`.                                                                                             |
+| `s3.server.ts`          | S3-compatible adapter: `HeadBucket` test, paginated `ListObjectsV2` discovery (prefix-filtered, ETag as opaque metadata), **streamed** `GetObject` with an enforced byte cap (read aborted at the cap, `ContentLength` pre-check), delimited parser identity `sheetbase.delimited@1`.             |
 | `postgres.server.ts`    | Read-only PostgreSQL adapter: connection test, `information_schema` discovery (system schemas hidden, `allowedSchemas`/`allowedTables` respected), explicit-column `LIMIT n` preview/import with validated + quoted identifiers, `row_limit_exceeded` caps.                                       |
 
 ### Execution shape
 
 Browser → `POST /api/connectors/source` (`test` | `discover` | `preview` |
 `import`) → server-side adapter. The browser never touches the external
-system and never receives decrypted credentials. For imports, the source is
-read (and, for S3, retained into the file platform) _before_ the governed run
-starts so the request digest can include the retained content sha256 — a
-changed external source under the same selector is always a new logical
-request, identical content replays the prior successful run, and a failed
-request retries as a linked attempt (SB045 semantics).
+system and never receives decrypted credentials.
+
+The governed run starts **before** any external source work, so connection,
+authentication, download/query and limit failures are recorded as **failed
+runs** with bounded error codes. Two request identities cooperate:
+
+- `selector_digest` (provisional, known up-front: connector + selector +
+  parser + target + mapping) — guards concurrent duplicate attempts and
+  carries retry lineage for failed attempts;
+- `request_digest` (canonical, content-aware: everything above **plus the
+  read/retained content sha256**) — established inside the running attempt,
+  before retention or commit, via `api.establish_connector_run_request`
+  (migration 0137).
+
+Consequences, all proven by test:
+
+- a changed external source under the same key/table is a **new logical
+  request** (new content digest);
+- an identical source **replays the prior successful result** — the attempt
+  succeeds with `replayOfRunId` provenance and does **not** retain a
+  duplicate file or commit duplicate rows;
+- a failed attempt retries as an explicitly linked new attempt (INT-01
+  SB045 semantics, resolved up-front via the selector identity).
 
 ### Provenance
 

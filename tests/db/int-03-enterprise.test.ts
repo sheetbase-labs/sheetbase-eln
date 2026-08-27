@@ -61,7 +61,11 @@ async function actor(userId: string, workspaceId: string): Promise<Client> {
   clients.push(client)
   await client.query('SET ROLE authenticated')
   await client.query(`select set_config('request.jwt.claims',$1,false)`, [
-    JSON.stringify({ role: 'authenticated', sub: userId, workspace_id: workspaceId }),
+    JSON.stringify({
+      role: 'authenticated',
+      sub: userId,
+      workspace_id: workspaceId,
+    }),
   ])
   return client
 }
@@ -76,7 +80,11 @@ function pgDataClient(owner: Client): DataClient {
         return (
           await owner.query(
             `select api.validate_dataset_row_batch($1,$2,$3::jsonb) result`,
-            [args.p_dataset_id, args.p_expected_dataset_revision, JSON.stringify(args.p_rows)],
+            [
+              args.p_dataset_id,
+              args.p_expected_dataset_revision,
+              JSON.stringify(args.p_rows),
+            ],
           )
         ).rows[0].result
       }
@@ -100,7 +108,9 @@ function pgDataClient(owner: Client): DataClient {
       )
       const placeholders = Object.values(args)
         .map((value, index) =>
-          value !== null && typeof value === 'object' ? `$${index + 1}::jsonb` : `$${index + 1}`,
+          value !== null && typeof value === 'object'
+            ? `$${index + 1}::jsonb`
+            : `$${index + 1}`,
         )
         .join(',')
       return (
@@ -111,20 +121,39 @@ function pgDataClient(owner: Client): DataClient {
       if (resource !== 'connector_runs') {
         throw new Error(`unexpected list resource ${resource}`)
       }
+      // Generic enough for the connector library's run lookups: equality
+      // filters over connector_id / request_digest / selector_digest /
+      // status, newest first, optional limit.
       const params = new URLSearchParams(query.replace(/^\?/, ''))
-      const connectorId = (params.get('connector_id') ?? '').replace('eq.', '')
-      const digest = (params.get('request_digest') ?? '').replace('eq.', '')
+      const conditions: string[] = []
+      const values: unknown[] = []
+      for (const column of [
+        'connector_id',
+        'request_digest',
+        'selector_digest',
+        'status',
+      ] as const) {
+        const raw = params.get(column)
+        if (raw !== null) {
+          values.push(raw.replace(/^eq\./, ''))
+          conditions.push(`${column} = $${values.length}`)
+        }
+      }
+      const limit = params.get('limit') ?? '1'
       const result = await owner.query(
-        `select id, attempt, request_digest, status, retry_of_run_id, result, error_code, error_message,
+        `select id, attempt, request_digest, selector_digest, status, retry_of_run_id, result, error_code, error_message,
                 trigger_kind, workspace_id, started_at, finished_at
          from api.connector_runs
-         where connector_id=$1 and request_digest=$2 and status='failed'
-         order by started_at desc limit 1`,
-        [connectorId, digest],
+         ${conditions.length ? `where ${conditions.join(' and ')}` : ''}
+         order by started_at desc limit ${Number(limit)}`,
+        values,
       )
       return result.rows as T[]
     },
-    insert: async <T>(resource: string, row: Record<string, unknown>): Promise<T> => {
+    insert: async <T>(
+      resource: string,
+      row: Record<string, unknown>,
+    ): Promise<T> => {
       if (resource !== 'datasets') {
         throw new Error(`unexpected insert resource ${resource}`)
       }
@@ -150,7 +179,12 @@ function pgDataClient(owner: Client): DataClient {
 async function readFileObject(
   workspaceId: string,
   recordId: string,
-): Promise<{ id: string; storage_key: string; status: string; version: number } | null> {
+): Promise<{
+  id: string
+  storage_key: string
+  status: string
+  version: number
+} | null> {
   const rows = (
     await migrator.query(
       `select id, storage_key, status, version from api.file_objects
@@ -159,6 +193,15 @@ async function readFileObject(
     )
   ).rows
   return rows[0] ?? null
+}
+
+/** Retained file objects in the workspace — replay must not grow this. */
+async function countWorkspaceFiles(): Promise<number> {
+  const rows = await migrator.query(
+    `select count(*)::int n from api.file_objects where workspace_id=$1`,
+    [WS_A],
+  )
+  return rows.rows[0].n as number
 }
 
 // ---------------------------------------------------------------------------
@@ -192,7 +235,10 @@ async function openStored(connectorId: string, name: string): Promise<string> {
   ).rows
   // Same decryption path loadConnectorSecrets uses server-side.
   const { openSecret } = await import('#/lib/connector-secrets.server')
-  return openSecret(Buffer.from(rows[0].ciphertext).toString('utf8'), secretKey())
+  return openSecret(
+    Buffer.from(rows[0].ciphertext).toString('utf8'),
+    secretKey(),
+  )
 }
 
 async function createProjectFixture(owner: Client): Promise<string> {
@@ -269,10 +315,10 @@ function adapterContext(input: {
   owner: Client
 }) {
   return input.owner
-    .query(`select config from api.connectors where id=$1 and workspace_id=$2`, [
-      input.connectorId,
-      WS_A,
-    ])
+    .query(
+      `select config from api.connectors where id=$1 and workspace_id=$2`,
+      [input.connectorId, WS_A],
+    )
     .then(({ rows }) => {
       const registered = (rows[0]?.config ?? {}) as Record<string, unknown>
       const config = { ...registered, ...input.config }
@@ -314,14 +360,21 @@ function startS3Server(): Promise<Server> {
     const url = new URL(request.url ?? '/', 'http://localhost')
     const path = url.pathname.replace(/\/+$/, '') || '/'
     const auth = request.headers['authorization'] ?? ''
-    const respond = (status: number, body: string, type = 'application/xml') => {
+    const respond = (
+      status: number,
+      body: string,
+      type = 'application/xml',
+    ) => {
       response.writeHead(status, { 'content-type': type })
       response.end(body)
     }
     // Fail closed for rejected credentials so the auth failure is a real
     // HTTP 403 from an S3-compatible surface, not a local shortcut.
     if (auth.includes('Credential=invalid')) {
-      respond(403, `<?xml version="1.0"?><Error><Code>AccessDenied</Code><Message>Access Denied</Message></Error>`)
+      respond(
+        403,
+        `<?xml version="1.0"?><Error><Code>AccessDenied</Code><Message>Access Denied</Message></Error>`,
+      )
       return
     }
     if (request.method === 'HEAD' && path === '/test-bucket') {
@@ -353,14 +406,20 @@ function startS3Server(): Promise<Server> {
         200,
         `<?xml version="1.0" encoding="UTF-8"?><ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">` +
           `<Name>test-bucket</Name><Prefix>${prefix}</Prefix><IsTruncated>${truncated}</IsTruncated>` +
-          (nextToken ? `<NextContinuationToken>${nextToken}</NextContinuationToken>` : '') +
+          (nextToken
+            ? `<NextContinuationToken>${nextToken}</NextContinuationToken>`
+            : '') +
           contents +
           `</ListBucketResult>`,
       )
       return
     }
     const objectKey = path.replace(/^\/test-bucket\//, '')
-    if (request.method === 'GET' && objectKey && S3_OBJECTS[decodeURIComponent(objectKey)]) {
+    if (
+      request.method === 'GET' &&
+      objectKey &&
+      S3_OBJECTS[decodeURIComponent(objectKey)]
+    ) {
       const object = S3_OBJECTS[decodeURIComponent(objectKey)]
       response.writeHead(200, {
         'content-type': object.contentType,
@@ -398,7 +457,9 @@ async function createSourceDatabase(): Promise<{
       `select pg_terminate_backend(pid) from pg_stat_activity where usename='int03_source'`,
     )
     await admin.query(`DROP ROLE IF EXISTS int03_source`)
-    await admin.query(`CREATE ROLE int03_source LOGIN PASSWORD 'int03-source-pass'`)
+    await admin.query(
+      `CREATE ROLE int03_source LOGIN PASSWORD 'int03-source-pass'`,
+    )
     await admin.query(`CREATE DATABASE ${SOURCE_DB}`)
   } finally {
     await admin.end()
@@ -467,7 +528,8 @@ beforeAll(async () => {
 afterAll(async () => {
   await migrator.end()
   for (const client of clients) await client.end().catch(() => {})
-  if (s3Server) await new Promise<void>((resolve) => s3Server.close(() => resolve()))
+  if (s3Server)
+    await new Promise<void>((resolve) => s3Server.close(() => resolve()))
 })
 
 // ---------------------------------------------------------------------------
@@ -500,7 +562,11 @@ describe('INT-03B S3 connector', () => {
       secret_access_key: 'shhh-very-secret-value',
     }
     await sealAndStore(connector.id, 'access_key_id', secrets.access_key_id)
-    await sealAndStore(connector.id, 'secret_access_key', secrets.secret_access_key)
+    await sealAndStore(
+      connector.id,
+      'secret_access_key',
+      secrets.secret_access_key,
+    )
     return { owner, connectorId: connector.id as string, secrets }
   }
 
@@ -512,10 +578,18 @@ describe('INT-03B S3 connector', () => {
 
   it('passes a governed connection test against the bucket', async () => {
     const { owner, connectorId, secrets } = await setupConnector()
-    const context = await adapterContext({ connectorId, config: {}, secrets, owner })
+    const context = await adapterContext({
+      connectorId,
+      config: {},
+      secrets,
+      owner,
+    })
     const source = s3Adapter.parseConfig(context.connector.config)
     const result = await s3Adapter.testConnection(context, source)
-    expect(result.detail).toMatchObject({ bucket: 'test-bucket', prefix: 'data/' })
+    expect(result.detail).toMatchObject({
+      bucket: 'test-bucket',
+      prefix: 'data/',
+    })
   })
 
   it('fails safely with invalid credentials (403 from the store)', async () => {
@@ -527,7 +601,9 @@ describe('INT-03B S3 connector', () => {
       owner,
     })
     const source = s3Adapter.parseConfig(context.connector.config)
-    await expect(s3Adapter.testConnection(context, source)).rejects.toMatchObject({
+    await expect(
+      s3Adapter.testConnection(context, source),
+    ).rejects.toMatchObject({
       code: 'source_forbidden',
     })
   })
@@ -539,16 +615,28 @@ describe('INT-03B S3 connector', () => {
         contentType: 'text/csv',
       }
     }
-    S3_OBJECTS['other/ignored.csv'] = { body: Buffer.from('x'), contentType: 'text/csv' }
+    S3_OBJECTS['other/ignored.csv'] = {
+      body: Buffer.from('x'),
+      contentType: 'text/csv',
+    }
     const { owner, connectorId, secrets } = await setupConnector()
-    const context = await adapterContext({ connectorId, config: {}, secrets, owner })
+    const context = await adapterContext({
+      connectorId,
+      config: {},
+      secrets,
+      owner,
+    })
     const source = s3Adapter.parseConfig(context.connector.config)
-    const page = (await s3Adapter.discover(context, source, { maxKeys: 2 })) as {
+    const page = (await s3Adapter.discover(context, source, {
+      maxKeys: 2,
+    })) as {
       objects: Array<{ key: string; byteSize: number; etag: string | null }>
       continuationToken: string | null
     }
     expect(page.objects).toHaveLength(2)
-    expect(page.objects.every((object) => object.key.startsWith('data/'))).toBe(true)
+    expect(page.objects.every((object) => object.key.startsWith('data/'))).toBe(
+      true,
+    )
     expect(page.continuationToken).not.toBeNull()
     const nextPage = (await s3Adapter.discover(context, source, {
       maxKeys: 2,
@@ -561,10 +649,18 @@ describe('INT-03B S3 connector', () => {
 
   it('imports an object: retention, canonical rows, provenance', async () => {
     const csv = 'Sample,Value\ns1,10.5\ns2,20.5\n'
-    S3_OBJECTS['data/run-42.csv'] = { body: Buffer.from(csv), contentType: 'text/csv' }
+    S3_OBJECTS['data/run-42.csv'] = {
+      body: Buffer.from(csv),
+      contentType: 'text/csv',
+    }
     const { owner, connectorId, secrets } = await setupConnector()
     const fixture = await createDatasetFixture(owner)
-    const context = await adapterContext({ connectorId, config: {}, secrets, owner })
+    const context = await adapterContext({
+      connectorId,
+      config: {},
+      secrets,
+      owner,
+    })
     const source = s3Adapter.parseConfig(context.connector.config)
     const result = await s3Adapter.ingest(context, source, {
       source: { key: 'data/run-42.csv' },
@@ -614,7 +710,12 @@ describe('INT-03B S3 connector', () => {
       `select message, detail::text detail from api.connector_run_logs where run_id=$1`,
       [result.runId],
     )
-    const logsText = logs.rows.map((row: { message: string; detail: string }) => `${row.message} ${row.detail}`).join(' ')
+    const logsText = logs.rows
+      .map(
+        (row: { message: string; detail: string }) =>
+          `${row.message} ${row.detail}`,
+      )
+      .join(' ')
     expect(runText + logsText).not.toContain('shhh-very-secret-value')
     expect(runText + logsText).not.toContain('AKIA-TEST')
   })
@@ -622,10 +723,18 @@ describe('INT-03B S3 connector', () => {
   it('treats changed content under the same key as a new request', async () => {
     const { owner, connectorId, secrets } = await setupConnector()
     const fixture = await createDatasetFixture(owner)
-    const context = await adapterContext({ connectorId, config: {}, secrets, owner })
+    const context = await adapterContext({
+      connectorId,
+      config: {},
+      secrets,
+      owner,
+    })
     const source = s3Adapter.parseConfig(context.connector.config)
 
-    S3_OBJECTS['data/changing.csv'] = { body: Buffer.from('Sample,Value\ns1,1\n'), contentType: 'text/csv' }
+    S3_OBJECTS['data/changing.csv'] = {
+      body: Buffer.from('Sample,Value\ns1,1\n'),
+      contentType: 'text/csv',
+    }
     const first = await s3Adapter.ingest(context, source, {
       source: { key: 'data/changing.csv' },
       projectId,
@@ -636,8 +745,14 @@ describe('INT-03B S3 connector', () => {
         fields: fixture.fields,
       },
     })
-    // Same content again: deduplicated to the same run.
-    const refreshed = await owner.query(`select revision from api.datasets where id=$1`, [fixture.datasetId])
+    const fileCountAfterFirst = await countWorkspaceFiles()
+
+    // Same content again: replay of the stored result — the attempt succeeds
+    // WITHOUT retaining a duplicate file or committing duplicate rows.
+    const refreshed = await owner.query(
+      `select revision from api.datasets where id=$1`,
+      [fixture.datasetId],
+    )
     const replay = await s3Adapter.ingest(context, source, {
       source: { key: 'data/changing.csv' },
       projectId,
@@ -649,10 +764,24 @@ describe('INT-03B S3 connector', () => {
       },
     })
     expect(replay.alreadyCompleted).toBe(true)
-    expect(replay.runId).toBe(first.runId)
+    expect(replay.rowCount).toBe(1)
+    const replayRun = await owner.query(
+      `select result from api.connector_runs where id=$1`,
+      [replay.runId],
+    )
+    expect(replayRun.rows[0].result.replayOfRunId).toBe(first.runId)
+    expect(await countWorkspaceFiles()).toBe(fileCountAfterFirst)
+    const rowsAfterReplay = await owner.query(
+      `select count(*)::int n from api.dataset_rows where dataset_id=$1`,
+      [fixture.datasetId],
+    )
+    expect(rowsAfterReplay.rows[0].n).toBe(1)
 
-    // Changed bytes, same key: a genuinely new logical request.
-    S3_OBJECTS['data/changing.csv'] = { body: Buffer.from('Sample,Value\ns1,2\n'), contentType: 'text/csv' }
+    // Changed bytes, same key: a genuinely new logical request that imports.
+    S3_OBJECTS['data/changing.csv'] = {
+      body: Buffer.from('Sample,Value\ns1,2\n'),
+      contentType: 'text/csv',
+    }
     const changed = await s3Adapter.ingest(context, source, {
       source: { key: 'data/changing.csv' },
       projectId,
@@ -665,12 +794,17 @@ describe('INT-03B S3 connector', () => {
     })
     expect(changed.alreadyCompleted).toBe(false)
     expect(changed.runId).not.toBe(first.runId)
+    expect(changed.rowCount).toBe(1)
+    expect(await countWorkspaceFiles()).toBe(fileCountAfterFirst + 1)
   })
 
   it('fails a schema-invalid import without touching the Dataset, then retries linked', async () => {
     // 'Sample' is required by the Schema but missing from the object: a
     // deterministic failure under the same request identity.
-    S3_OBJECTS['data/bad.csv'] = { body: Buffer.from('Value\n12\n'), contentType: 'text/csv' }
+    S3_OBJECTS['data/bad.csv'] = {
+      body: Buffer.from('Value\n12\n'),
+      contentType: 'text/csv',
+    }
     const { owner, connectorId, secrets } = await setupConnector()
     const fixture = await createDatasetFixture(owner)
     const context = await adapterContext({ connectorId, secrets, owner })
@@ -716,13 +850,20 @@ describe('INT-03B S3 connector', () => {
     expect(Number(stored.rows[0].n)).toBe(0)
   })
 
-  it('enforces the object byte cap with a bounded error', async () => {
+  it('enforces the object byte cap with a bounded error AND a failed run', async () => {
     S3_OBJECTS['data/big.csv'] = {
       body: Buffer.alloc(2048, 'a'),
       contentType: 'text/csv',
     }
-    const { owner, connectorId, secrets } = await setupConnector({ max_object_bytes: 1024 })
-    const context = await adapterContext({ connectorId, config: { max_object_bytes: 1024 }, secrets, owner })
+    const { owner, connectorId, secrets } = await setupConnector({
+      max_object_bytes: 1024,
+    })
+    const context = await adapterContext({
+      connectorId,
+      config: { max_object_bytes: 1024 },
+      secrets,
+      owner,
+    })
     const source = s3Adapter.parseConfig(context.connector.config)
     await expect(
       s3Adapter.ingest(context, source, {
@@ -736,6 +877,61 @@ describe('INT-03B S3 connector', () => {
         },
       }),
     ).rejects.toMatchObject({ code: 'row_limit_exceeded' })
+    // The cap failure is recorded as a FAILED RUN, not a bare HTTP error.
+    const failed = await owner.query(
+      `select status, error_code from api.connector_runs
+        where connector_id=$1 order by started_at desc limit 1`,
+      [connectorId],
+    )
+    expect(failed.rows[0].status).toBe('failed')
+    expect(failed.rows[0].error_code).toBe('row_limit_exceeded')
+  })
+
+  it('stops reading at the configured cap (streaming abort regression)', async () => {
+    // Direct regression for the bounded reader: a source that keeps sending
+    // bytes is cut off at the cap — the reader must not buffer the world.
+    let served = 0
+    const CHUNK = 64 * 1024
+    async function* endless(): AsyncGenerator<Uint8Array> {
+      while (true) {
+        served += CHUNK
+        yield new Uint8Array(CHUNK)
+      }
+    }
+    const { readBoundedBytes } =
+      await import('#/lib/connectors/enterprise/s3.server')
+    await expect(
+      readBoundedBytes(endless() as never, 1024 * 1024, 'import'),
+    ).rejects.toMatchObject({ code: 'row_limit_exceeded' })
+    // Stopped within cap + one chunk, not after an unbounded read.
+    expect(served).toBeLessThanOrEqual(1024 * 1024 + CHUNK)
+  })
+
+  it('records source failures (unreachable store) as failed runs', async () => {
+    const { owner, connectorId, secrets } = await setupConnector({
+      endpoint: 'http://127.0.0.1:59998',
+    })
+    const context = await adapterContext({ connectorId, secrets, owner })
+    const source = s3Adapter.parseConfig(context.connector.config)
+    await expect(
+      s3Adapter.ingest(context, source, {
+        source: { key: 'data/whatever.csv' },
+        projectId,
+        target: {
+          datasetId: null,
+          newDatasetName: 'never created',
+          schemaVersionId: null as never,
+          fields: [],
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'connection_failed' })
+    const failed = await owner.query(
+      `select status, error_code from api.connector_runs
+        where connector_id=$1 order by started_at desc limit 1`,
+      [connectorId],
+    )
+    expect(failed.rows[0].status).toBe('failed')
+    expect(failed.rows[0].error_code).toBe('connection_failed')
   })
 })
 
@@ -774,7 +970,12 @@ describe('INT-03C PostgreSQL connector', () => {
 
   it('passes a governed connection test and hides system schemas', async () => {
     const { owner, connectorId, secrets } = await setupConnector()
-    const context = await adapterContext({ connectorId, config: {}, secrets, owner })
+    const context = await adapterContext({
+      connectorId,
+      config: {},
+      secrets,
+      owner,
+    })
     const source = postgresAdapter.parseConfig(context.connector.config)
     const test = await postgresAdapter.testConnection(context, source)
     expect(test.detail).toMatchObject({ database: SOURCE_DB })
@@ -788,7 +989,12 @@ describe('INT-03C PostgreSQL connector', () => {
 
   it('discovers tables, views and columns with types + nullability', async () => {
     const { owner, connectorId, secrets } = await setupConnector()
-    const context = await adapterContext({ connectorId, config: {}, secrets, owner })
+    const context = await adapterContext({
+      connectorId,
+      config: {},
+      secrets,
+      owner,
+    })
     const source = postgresAdapter.parseConfig(context.connector.config)
     const discovery = (await postgresAdapter.discover(context, source, {
       schema: 'public',
@@ -799,10 +1005,15 @@ describe('INT-03C PostgreSQL connector', () => {
         columns: Array<{ name: string; dataType: string; nullable: boolean }>
       }>
     }
-    const table = discovery.tables.find((entry) => entry.name === 'int03_measurements')
+    const table = discovery.tables.find(
+      (entry) => entry.name === 'int03_measurements',
+    )
     expect(table).toBeDefined()
     expect(table?.kind).toBe('table')
-    expect(table?.columns.map((column) => column.name)).toEqual(['sample', 'value'])
+    expect(table?.columns.map((column) => column.name)).toEqual([
+      'sample',
+      'value',
+    ])
     expect(table?.columns[1].nullable).toBe(false)
     const view = discovery.tables.find((entry) => entry.name === 'int03_view')
     expect(view?.kind).toBe('view')
@@ -812,7 +1023,12 @@ describe('INT-03C PostgreSQL connector', () => {
     const { owner, connectorId, secrets } = await setupConnector({
       allowedSchemas: ['int03_custom'],
     })
-    const context = await adapterContext({ connectorId, config: {}, secrets, owner })
+    const context = await adapterContext({
+      connectorId,
+      config: {},
+      secrets,
+      owner,
+    })
     const source = postgresAdapter.parseConfig(context.connector.config)
     const discovery = (await postgresAdapter.discover(context, source, {})) as {
       schemas: string[]
@@ -822,7 +1038,12 @@ describe('INT-03C PostgreSQL connector', () => {
 
   it('previews a bounded selection with explicit columns', async () => {
     const { owner, connectorId, secrets } = await setupConnector()
-    const context = await adapterContext({ connectorId, config: { preview_rows: 1 }, secrets, owner })
+    const context = await adapterContext({
+      connectorId,
+      config: { preview_rows: 1 },
+      secrets,
+      owner,
+    })
     const source = postgresAdapter.parseConfig(context.connector.config)
     const preview = (await postgresAdapter.preview(context, source, {
       schema: 'public',
@@ -835,14 +1056,19 @@ describe('INT-03C PostgreSQL connector', () => {
 
   it('refuses non-plain identifiers (no SQL injection surface)', async () => {
     const { owner, connectorId, secrets } = await setupConnector()
-    const context = await adapterContext({ connectorId, config: {}, secrets, owner })
+    const context = await adapterContext({
+      connectorId,
+      config: {},
+      secrets,
+      owner,
+    })
     const source = postgresAdapter.parseConfig(context.connector.config)
     await expect(
       postgresAdapter.preview(context, source, {
         schema: 'public',
         table: 'int03_measurements; DROP TABLE int03_measurements; --',
       }),
-    ).rejects.toMatchObject({ code: 'preview_failed' })
+    ).rejects.toMatchObject({ code: 'query_failed' })
     // The source table still exists.
     const src = new Client({ connectionString: sourceDb.adminConnectionString })
     await src.connect()
@@ -856,7 +1082,12 @@ describe('INT-03C PostgreSQL connector', () => {
   it('imports through canonical validation/commit with full provenance', async () => {
     const { owner, connectorId, secrets } = await setupConnector()
     const fixture = await createDatasetFixture(owner)
-    const context = await adapterContext({ connectorId, config: {}, secrets, owner })
+    const context = await adapterContext({
+      connectorId,
+      config: {},
+      secrets,
+      owner,
+    })
     const source = postgresAdapter.parseConfig(context.connector.config)
     const result = await postgresAdapter.ingest(context, source, {
       source: { schema: 'public', table: 'int03_measurements' },
@@ -891,12 +1122,52 @@ describe('INT-03C PostgreSQL connector', () => {
     if (sourceDb.password) {
       expect(JSON.stringify(provenance)).not.toContain(sourceDb.password)
     }
+
+    // Identical source content: replay of the stored result — no new rows.
+    const rowsBefore = await owner.query(
+      `select count(*)::int n from api.dataset_rows where dataset_id=$1`,
+      [fixture.datasetId],
+    )
+    const replay = await postgresAdapter.ingest(context, source, {
+      source: { schema: 'public', table: 'int03_measurements' },
+      target: {
+        datasetId: fixture.datasetId,
+        expectedRevision: Number(
+          (
+            await owner.query(`select revision from api.datasets where id=$1`, [
+              fixture.datasetId,
+            ])
+          ).rows[0].revision,
+        ),
+        schemaVersionId: fixture.schemaVersionId,
+        fields: fixture.fields,
+      },
+    })
+    expect(replay.alreadyCompleted).toBe(true)
+    expect(replay.rowCount).toBe(2)
+    const replayRun = await owner.query(
+      `select result from api.connector_runs where id=$1`,
+      [replay.runId],
+    )
+    expect(replayRun.rows[0].result.replayOfRunId).toBe(result.runId)
+    const rowsAfter = await owner.query(
+      `select count(*)::int n from api.dataset_rows where dataset_id=$1`,
+      [fixture.datasetId],
+    )
+    expect(rowsAfter.rows[0].n).toBe(rowsBefore.rows[0].n)
   })
 
   it('fails with row_limit_exceeded when the source exceeds the import cap', async () => {
-    const { owner, connectorId, secrets } = await setupConnector({ import_rows: 1 })
+    const { owner, connectorId, secrets } = await setupConnector({
+      import_rows: 1,
+    })
     const fixture = await createDatasetFixture(owner)
-    const context = await adapterContext({ connectorId, config: { import_rows: 1 }, secrets, owner })
+    const context = await adapterContext({
+      connectorId,
+      config: { import_rows: 1 },
+      secrets,
+      owner,
+    })
     const source = postgresAdapter.parseConfig(context.connector.config)
     await expect(
       postgresAdapter.ingest(context, source, {
@@ -919,7 +1190,12 @@ describe('INT-03C PostgreSQL connector', () => {
   it('produces a new request identity when the source changes', async () => {
     const { owner, connectorId, secrets } = await setupConnector()
     const fixture = await createDatasetFixture(owner)
-    const context = await adapterContext({ connectorId, config: {}, secrets, owner })
+    const context = await adapterContext({
+      connectorId,
+      config: {},
+      secrets,
+      owner,
+    })
     const source = postgresAdapter.parseConfig(context.connector.config)
     const target = {
       datasetId: fixture.datasetId,
@@ -942,7 +1218,10 @@ describe('INT-03C PostgreSQL connector', () => {
     )
     const second = await postgresAdapter.ingest(context, source, {
       source: { schema: 'public', table: 'int03_view' },
-      target: { ...target, expectedRevision: Number(refreshed.rows[0].revision) },
+      target: {
+        ...target,
+        expectedRevision: Number(refreshed.rows[0].revision),
+      },
     })
     expect(second.alreadyCompleted).toBe(false)
     expect(second.runId).not.toBe(first.runId)
@@ -953,10 +1232,125 @@ describe('INT-03C PostgreSQL connector', () => {
     const { owner, connectorId, secrets } = await setupConnector({
       port: 59999,
     })
-    const context = await adapterContext({ connectorId, config: { port: 59999 }, secrets, owner })
+    const context = await adapterContext({
+      connectorId,
+      config: { port: 59999 },
+      secrets,
+      owner,
+    })
     const source = postgresAdapter.parseConfig(context.connector.config)
-    await expect(postgresAdapter.testConnection(context, source)).rejects.toMatchObject({
+    await expect(
+      postgresAdapter.testConnection(context, source),
+    ).rejects.toMatchObject({
       code: 'connection_failed',
     })
+  })
+
+  it('records query failures (unreachable source) as failed runs', async () => {
+    const { owner, connectorId, secrets } = await setupConnector({
+      port: 59999,
+    })
+    const context = await adapterContext({
+      connectorId,
+      config: { port: 59999 },
+      secrets,
+      owner,
+    })
+    const source = postgresAdapter.parseConfig(context.connector.config)
+    await expect(
+      postgresAdapter.ingest(context, source, {
+        source: { schema: 'public', table: 'int03_measurements' },
+        target: {
+          datasetId: null,
+          newDatasetName: 'never created',
+          schemaVersionId: null as never,
+          fields: [],
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'connection_failed' })
+    const failed = await owner.query(
+      `select status, error_code from api.connector_runs
+        where connector_id=$1 order by started_at desc limit 1`,
+      [connectorId],
+    )
+    expect(failed.rows[0].status).toBe('failed')
+    expect(failed.rows[0].error_code).toBe('connection_failed')
+  })
+
+  it('enforces allowedSchemas on direct crafted preview/import selectors', async () => {
+    // The source contains a schema the connector does NOT expose.
+    const src = new Client({ connectionString: sourceDb.adminConnectionString })
+    await src.connect()
+    await src.query(`
+      drop schema if exists int03_secret cascade;
+      create schema int03_secret;
+      create table int03_secret.sensitive (k text, v text);
+    `)
+    await src.end()
+    const { owner, connectorId, secrets } = await setupConnector({
+      allowedSchemas: ['public'],
+    })
+    const context = await adapterContext({ connectorId, secrets, owner })
+    const source = postgresAdapter.parseConfig(context.connector.config)
+    // Discovery correctly hides it…
+    const discovery = (await postgresAdapter.discover(context, source, {})) as {
+      schemas: string[]
+    }
+    expect(discovery.schemas).not.toContain('int03_secret')
+    // …but a crafted selector straight to preview is ALSO refused.
+    await expect(
+      postgresAdapter.preview(context, source, {
+        schema: 'int03_secret',
+        table: 'sensitive',
+      }),
+    ).rejects.toMatchObject({ code: 'source_forbidden' })
+    // …and a crafted import selector is refused too.
+    await expect(
+      postgresAdapter.ingest(context, source, {
+        source: { schema: 'int03_secret', table: 'sensitive' },
+        target: {
+          datasetId: null,
+          newDatasetName: 'never created',
+          schemaVersionId: null as never,
+          fields: [],
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'source_forbidden' })
+  })
+
+  it('enforces allowedTables on discovery, preview and import', async () => {
+    const { owner, connectorId, secrets } = await setupConnector({
+      allowedTables: ['public.int03_measurements'],
+    })
+    const context = await adapterContext({ connectorId, secrets, owner })
+    const source = postgresAdapter.parseConfig(context.connector.config)
+
+    // Discovery only lists the allowlisted table.
+    const discovery = (await postgresAdapter.discover(context, source, {
+      schema: 'public',
+    })) as { tables: Array<{ name: string }> }
+    expect(discovery.tables.map((table) => table.name)).toEqual([
+      'int03_measurements',
+    ])
+
+    // A crafted preview selector for a non-allowlisted table is refused.
+    await expect(
+      postgresAdapter.preview(context, source, {
+        schema: 'public',
+        table: 'int03_view',
+      }),
+    ).rejects.toMatchObject({ code: 'source_forbidden' })
+    // …and so is a crafted import selector.
+    await expect(
+      postgresAdapter.ingest(context, source, {
+        source: { schema: 'public', table: 'int03_view' },
+        target: {
+          datasetId: null,
+          newDatasetName: 'never created',
+          schemaVersionId: null as never,
+          fields: [],
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'source_forbidden' })
   })
 })

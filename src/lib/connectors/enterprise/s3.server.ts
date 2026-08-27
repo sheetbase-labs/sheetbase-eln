@@ -36,7 +36,7 @@ import type {
   EnterpriseConnectorAdapter,
 } from './adapter'
 import { retainExternalBytes } from './retain.server'
-import { ingestTabularPayload } from '../tabular-ingestion'
+import { ingestExternalPayload } from '../tabular-ingestion'
 import { registerParser } from '../registry'
 import { parseImportText } from '#/lib/import-parse'
 import { sha256Hex } from '../digest'
@@ -98,6 +98,12 @@ function mapS3Error(error: unknown, code: string): ConnectorExecutionError {
     return new ConnectorExecutionError(
       'authentication_failed',
       'The stored credentials were rejected by the object store.',
+    )
+  }
+  if (/ECONNREFUSED|ENOTFOUND|ETIMEDOUT|EAI_AGAIN|getaddrinfo/i.test(message)) {
+    return new ConnectorExecutionError(
+      'connection_failed',
+      'The object store could not be reached.',
     )
   }
   if (error instanceof ConnectorEndpointError) {
@@ -232,55 +238,91 @@ export const s3Adapter: EnterpriseConnectorAdapter<S3ConnectorConfig> = {
       )
     }
 
-    // Stage — download the bytes (bounded) outside the run so the request
-    // identity can include the retained content sha256: changed content
-    // under the same key is a new logical request, identical content dedupes.
-    const download = await downloadObject(context, source, request.source, {})
-    const checksum = await sha256Hex(download.bytes)
-
-    // Stage — retain the raw object through the canonical file platform
-    // BEFORE the governed run, mirroring the instrument product flow.
-    const retained = await retainExternalBytes({
-      workspaceId: context.workspaceId,
-      projectId,
-      fileName: key.split('/').pop() || key,
-      mediaType: download.contentType ?? 'application/octet-stream',
-      bytes: download.bytes,
-      rpc: (name, args) => context.client.rpc(name, args),
-      readFileObject: context.readFileObject,
-    })
-
-    // Stages — governed run: parse → map → validate → commit → provenance.
-    const result = await ingestTabularPayload(context.client, {
+    // The governed run starts FIRST; download, retention, parsing and commit
+    // all happen inside it, so connection/auth/download/limit failures are
+    // recorded as failed runs with bounded codes. The canonical content-aware
+    // request digest is established inside the attempt before commit, so a
+    // changed object under the same key is a new logical request and an
+    // identical object replays the prior result without duplicating the
+    // retained file.
+    let downloaded: S3Download | null = null
+    return ingestExternalPayload(context.client, {
       workspaceId: context.workspaceId,
       connectorId: context.connector.id,
       parserIdentity: S3_PARSER_IDENTITY,
       sheetName: key,
-      parse: () => parseObjectText(download.text),
-      parseErrorCode: 'parse_failed',
-      source: {
+      selectorSource: {
         kind: 's3_object',
         bucket: source.bucket,
         key,
-        versionId: download.versionId ?? (versionId || null),
-        etag: download.etag,
-        lastModified: download.lastModified,
+        versionId: versionId || null,
       },
-      fileRecordId: retained.fileRecordId,
-      checksum,
-      byteSize: download.bytes.byteLength,
+      resolveContent: async (log) => {
+        await log('source', `Downloading ${key} from ${source.bucket}.`)
+        const download = await downloadObject(
+          context,
+          source,
+          request.source,
+          {},
+        )
+        // Retained for the retention stage; the digest was established over
+        // exactly these bytes.
+        downloaded = download
+        const checksum = await sha256Hex(download.bytes)
+        return {
+          parse: () => parseObjectText(download.text),
+          parseErrorCode: 'parse_failed',
+          source: {
+            kind: 's3_object',
+            bucket: source.bucket,
+            key,
+            versionId: download.versionId ?? (versionId || null),
+            etag: download.etag,
+            lastModified: download.lastModified,
+            contentSha256: checksum,
+          },
+          contentSha256: checksum,
+          byteSize: download.bytes.byteLength,
+        }
+      },
+      retain: async (log, contentSha256) => {
+        const download = downloaded
+        if (!download) {
+          throw new ConnectorExecutionError(
+            'download_failed',
+            'The source object was not read before retention.',
+          )
+        }
+        const retained = await retainExternalBytes({
+          workspaceId: context.workspaceId,
+          projectId,
+          fileName: key.split('/').pop() || key,
+          mediaType: download.contentType ?? 'application/octet-stream',
+          bytes: download.bytes,
+          rpc: (name, args) => context.client.rpc(name, args),
+          readFileObject: context.readFileObject,
+        })
+        void log
+        void contentSha256
+        return {
+          fileRecordId: retained.fileRecordId,
+          checksum: retained.checksum,
+          byteSize: retained.byteSize,
+        }
+      },
       target: request.target,
       mappings: request.mappings,
       resultKind: 's3_import',
-    })
-    return {
+      metadataResultKey: 'contentMetadata',
+      nameResultKey: 'sheetName',
+    }).then((result) => ({
       runId: result.runId,
       attempt: result.attempt,
       alreadyCompleted: result.alreadyCompleted,
       rowCount: result.rowCount,
       datasetId: result.datasetId,
       datasetRevision: result.datasetRevision,
-    }
+    }))
   },
 }
 
@@ -293,8 +335,44 @@ interface S3Download {
   lastModified: string | null
 }
 
+/**
+ * Read a bounded byte stream, aborting as soon as the cap is exceeded. Never
+ * buffers an untrusted external object beyond the configured cap: the reader
+ * stops consuming (and destroys the stream) at cap + 1 bytes.
+ */
+export async function readBoundedBytes(
+  body: AsyncIterable<Uint8Array> & { destroy?: () => void },
+  cap: number,
+  what: string,
+): Promise<Uint8Array> {
+  const chunks: Uint8Array[] = []
+  let total = 0
+  try {
+    for await (const chunk of body) {
+      total += chunk.byteLength
+      if (total > cap) {
+        throw new ConnectorExecutionError(
+          'row_limit_exceeded',
+          `The source object exceeds the ${cap}-byte ${what} cap; the read was stopped at the cap.`,
+        )
+      }
+      chunks.push(chunk)
+    }
+  } finally {
+    // Stop the transfer as soon as we stop consuming (cap exceeded or error).
+    body.destroy?.()
+  }
+  const bytes = new Uint8Array(total)
+  let offset = 0
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return bytes
+}
+
 async function downloadObject(
-  context: ConnectorAdapterContext | ConnectorAdapterContext,
+  context: ConnectorAdapterContext,
   source: S3ConnectorConfig,
   selector: Record<string, unknown>,
   options: { previewByteCap: number } | { previewByteCap?: undefined },
@@ -316,6 +394,8 @@ async function downloadObject(
     typeof selector['versionId'] === 'string'
       ? selector['versionId']
       : undefined
+  const cap = options.previewByteCap ?? context.limits.maxObjectBytes
+  const what = options.previewByteCap ? 'preview' : 'import'
   try {
     const client = s3Client(source, context.secrets)
     const response = await client.send(
@@ -331,14 +411,22 @@ async function downloadObject(
         'The object bytes could not be read.',
       )
     }
-    const bytes = new Uint8Array(await response.Body.transformToByteArray())
-    const cap = options.previewByteCap ?? context.limits.maxObjectBytes
-    if (bytes.byteLength > cap) {
+    // Fail before reading when the store already declares the size.
+    if (
+      typeof response.ContentLength === 'number' &&
+      response.ContentLength > cap
+    ) {
       throw new ConnectorExecutionError(
         'row_limit_exceeded',
-        `The object is larger than the ${cap}-byte ${options.previewByteCap ? 'preview' : 'import'} cap.`,
+        `The source object is ${response.ContentLength} bytes and exceeds the ${cap}-byte ${what} cap.`,
       )
     }
+    // Otherwise stream with an enforced cap: the read stops at the cap.
+    const bytes = await readBoundedBytes(
+      response.Body as AsyncIterable<Uint8Array> & { destroy?: () => void },
+      cap,
+      what,
+    )
     return {
       bytes,
       text: new TextDecoder().decode(bytes),

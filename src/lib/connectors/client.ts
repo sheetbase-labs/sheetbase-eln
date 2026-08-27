@@ -63,6 +63,12 @@ export interface StartConnectorRunInput {
   /** sha256 of the request inputs; enables retry-safe ingestion. */
   requestDigest?: string | null
   retryOfRunId?: string | null
+  /**
+   * INT-03 provisional logical source identity, known before external source
+   * work starts. Guards concurrent duplicates; the canonical content-aware
+   * request digest is established inside the running attempt pre-commit.
+   */
+  selectorDigest?: string | null
 }
 
 export async function startConnectorRun(
@@ -75,6 +81,24 @@ export async function startConnectorRun(
     p_trigger_kind: input.triggerKind ?? 'manual',
     p_request_digest: input.requestDigest ?? null,
     p_retry_of_run_id: input.retryOfRunId ?? null,
+    p_selector_digest: input.selectorDigest ?? null,
+  })
+}
+
+/**
+ * INT-03 — establish the canonical content-aware request digest inside a
+ * running enterprise attempt, before commit. Rejects with
+ * 'request already imported' (SB047) when an identical content identity was
+ * already imported successfully (replay).
+ */
+export async function establishConnectorRunRequest(
+  client: DataClient,
+  input: { workspaceId: string; runId: string; requestDigest: string },
+): Promise<void> {
+  await client.rpc('establish_connector_run_request', {
+    p_workspace_id: input.workspaceId,
+    p_run_id: input.runId,
+    p_request_digest: input.requestDigest,
   })
 }
 
@@ -190,8 +214,7 @@ export const connectorQueryKeys = {
 }
 
 export function describeConnectorsError(cause: unknown): string {
-  const message =
-    cause instanceof Error ? cause.message : 'The request failed.'
+  const message = cause instanceof Error ? cause.message : 'The request failed.'
   if (/capability required/i.test(message)) {
     return 'You do not have permission to manage integrations in this workspace.'
   }

@@ -40,6 +40,12 @@ export interface ExecuteConnectorRunOptions<T> {
   triggerKind?: 'manual' | 'scheduled' | 'event'
   requestDigest?: string | null
   retryOfRunId?: string | null
+  /**
+   * INT-03 provisional logical source identity — passed instead of (not in
+   * addition to) a known request digest when the content identity can only
+   * be established by source work that must happen inside the run.
+   */
+  selectorDigest?: string | null
   /** Logs an info line right after the run starts. */
   startedMessage?: string
   /** Builds the result jsonb recorded on successful completion. */
@@ -50,7 +56,11 @@ export class ConnectorStepError extends Error {
   readonly code: string
   readonly detail: Record<string, unknown>
 
-  constructor(code: string, message: string, detail: Record<string, unknown> = {}) {
+  constructor(
+    code: string,
+    message: string,
+    detail: Record<string, unknown> = {},
+  ) {
     super(message)
     this.name = 'ConnectorStepError'
     this.code = code
@@ -78,7 +88,10 @@ export async function executeConnectorRun<T>(
 ): Promise<ConnectorRunReport<T>> {
   let run: ConnectorRunWire | null = null
   try {
-    run = await startConnectorRun(client, options)
+    run = await startConnectorRun(client, {
+      ...options,
+      selectorDigest: options.selectorDigest ?? null,
+    })
     if (run.status !== 'running') {
       // Digest deduplication returned an already-finished run.
       return {
@@ -124,8 +137,7 @@ export async function executeConnectorRun<T>(
   } catch (error) {
     const step = error instanceof ConnectorStepError ? error : null
     const errorCode = step?.code ?? 'unexpected_error'
-    const errorMessage =
-      error instanceof Error ? error.message : String(error)
+    const errorMessage = error instanceof Error ? error.message : String(error)
     if (run && run.status === 'running') {
       try {
         await failConnectorRun(client, {

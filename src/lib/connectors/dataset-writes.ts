@@ -6,11 +6,11 @@
  * operations and no temptation toward direct table writes.
  */
 import type { DataClient } from '../data-client'
-import type {
-  DatasetCommitResult,
-  DatasetCommitRow,
+import type { DatasetCommitResult, DatasetCommitRow } from '../dataset-product'
+import {
+  commitDatasetRowBatch,
+  validateDatasetRowBatch,
 } from '../dataset-product'
-import { commitDatasetRowBatch, validateDatasetRowBatch } from '../dataset-product'
 
 export interface DatasetBatchWriteInput {
   datasetId: string

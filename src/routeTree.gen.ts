@@ -43,6 +43,7 @@ import { Route as SheetsInstanceIdRouteImport } from './routes/sheets/$instanceI
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiCollaborationAuthRouteImport } from './routes/api/collaboration/auth'
 import { Route as ApiCollaborationMentionsRouteImport } from './routes/api/collaboration/mentions'
+import { Route as ApiConnectorsSourceRouteImport } from './routes/api/connectors.source'
 import { Route as ApiDbSplatRouteImport } from './routes/api/db/$'
 import { Route as ApiFilesUploadAuthorizeRouteImport } from './routes/api/files/upload-authorize'
 import { Route as ApiHealthLiveRouteImport } from './routes/api/health/live'
@@ -231,6 +232,11 @@ const ApiCollaborationMentionsRoute =
     path: '/api/collaboration/mentions',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiConnectorsSourceRoute = ApiConnectorsSourceRouteImport.update({
+  id: '/api/connectors/source',
+  path: '/api/connectors/source',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiDbSplatRoute = ApiDbSplatRouteImport.update({
   id: '/api/db/$',
   path: '/api/db/$',
@@ -354,6 +360,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
   '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
+  '/api/connectors/source': typeof ApiConnectorsSourceRoute
   '/api/db/$': typeof ApiDbSplatRoute
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
   '/api/health/live': typeof ApiHealthLiveRoute
@@ -406,6 +413,7 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
   '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
+  '/api/connectors/source': typeof ApiConnectorsSourceRoute
   '/api/db/$': typeof ApiDbSplatRoute
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
   '/api/health/live': typeof ApiHealthLiveRoute
@@ -459,6 +467,7 @@ export interface FileRoutesById {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
   '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
+  '/api/connectors/source': typeof ApiConnectorsSourceRoute
   '/api/db/$': typeof ApiDbSplatRoute
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
   '/api/health/live': typeof ApiHealthLiveRoute
@@ -513,6 +522,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/collaboration/auth'
     | '/api/collaboration/mentions'
+    | '/api/connectors/source'
     | '/api/db/$'
     | '/api/files/upload-authorize'
     | '/api/health/live'
@@ -565,6 +575,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/collaboration/auth'
     | '/api/collaboration/mentions'
+    | '/api/connectors/source'
     | '/api/db/$'
     | '/api/files/upload-authorize'
     | '/api/health/live'
@@ -617,6 +628,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/collaboration/auth'
     | '/api/collaboration/mentions'
+    | '/api/connectors/source'
     | '/api/db/$'
     | '/api/files/upload-authorize'
     | '/api/health/live'
@@ -666,6 +678,7 @@ export interface RootRouteChildren {
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiCollaborationAuthRoute: typeof ApiCollaborationAuthRoute
   ApiCollaborationMentionsRoute: typeof ApiCollaborationMentionsRoute
+  ApiConnectorsSourceRoute: typeof ApiConnectorsSourceRoute
   ApiDbSplatRoute: typeof ApiDbSplatRoute
   ApiFilesUploadAuthorizeRoute: typeof ApiFilesUploadAuthorizeRoute
   ApiHealthLiveRoute: typeof ApiHealthLiveRoute
@@ -922,6 +935,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiCollaborationMentionsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/connectors/source': {
+      id: '/api/connectors/source'
+      path: '/api/connectors/source'
+      fullPath: '/api/connectors/source'
+      preLoaderRoute: typeof ApiConnectorsSourceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/db/$': {
       id: '/api/db/$'
       path: '/api/db/$'
@@ -1140,6 +1160,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiCollaborationAuthRoute: ApiCollaborationAuthRoute,
   ApiCollaborationMentionsRoute: ApiCollaborationMentionsRoute,
+  ApiConnectorsSourceRoute: ApiConnectorsSourceRoute,
   ApiDbSplatRoute: ApiDbSplatRoute,
   ApiFilesUploadAuthorizeRoute: ApiFilesUploadAuthorizeRoute,
   ApiHealthLiveRoute: ApiHealthLiveRoute,

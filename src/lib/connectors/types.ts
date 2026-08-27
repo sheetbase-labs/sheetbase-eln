@@ -9,11 +9,7 @@
  */
 
 export type ConnectorType =
-  | 'instrument'
-  | 'storage'
-  | 'webhook'
-  | 'database'
-  | 'custom'
+  'instrument' | 'storage' | 'webhook' | 'database' | 'custom'
 
 export const CONNECTOR_TYPES: ConnectorType[] = [
   'instrument',

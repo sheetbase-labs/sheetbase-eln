@@ -5979,7 +5979,9 @@ export const connectors = api.table(
     /** Registered ingestion parser identity, e.g. `sheetbase.plate-reader-csv`. */
     parserId: text('parser_id'),
     /** Non-secret settings only; credentials live in internal.connector_secrets. */
-    config: jsonb('config').notNull().default(sql`'{}'::jsonb`),
+    config: jsonb('config')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     ...timestamps,
     createdByUserId: text('created_by_user_id').references(() => user.id, {
       onDelete: 'set null',
@@ -5993,10 +5995,7 @@ export const connectors = api.table(
     // Composite identity target for run/log/secret parent links.
     unique('uq_connectors_workspace_id').on(table.workspaceId, table.id),
     index('idx_connectors_workspace').on(table.workspaceId),
-    check(
-      'chk_connectors_key',
-      sql`${table.key} ~ '^[a-z][a-z0-9-]{0,48}$'`,
-    ),
+    check('chk_connectors_key', sql`${table.key} ~ '^[a-z][a-z0-9-]{0,48}$'`),
     check(
       'chk_connectors_name',
       sql`length(btrim(${table.name})) BETWEEN 1 AND 200`,
@@ -6029,7 +6028,17 @@ export const connectorRuns = api.table(
     attempt: integer('attempt').notNull().default(1),
     retryOfRunId: uuid('retry_of_run_id'),
     requestDigest: text('request_digest'),
-    result: jsonb('result').notNull().default(sql`'{}'::jsonb`),
+    /**
+     * INT-03 provisional (selector) identity. Enterprise imports start a run
+     * before external source work with this digest — it guards concurrent
+     * duplicate attempts and carries retry lineage — while the canonical
+     * content-aware `request_digest` is established inside the running
+     * attempt, before commit, via api.establish_connector_run_request.
+     */
+    selectorDigest: text('selector_digest'),
+    result: jsonb('result')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     errorCode: text('error_code'),
     errorMessage: text('error_message'),
     startedAt: timestamp('started_at', { withTimezone: true, mode: 'date' })
@@ -6061,6 +6070,14 @@ export const connectorRuns = api.table(
     uniqueIndex('uq_connector_runs_digest')
       .on(table.connectorId, table.requestDigest)
       .where(sql`request_digest IS NOT NULL AND status = 'succeeded'`),
+    // INT-03: one running attempt per logical selector identity.
+    uniqueIndex('uq_connector_runs_selector_running')
+      .on(table.connectorId, table.selectorDigest)
+      .where(sql`selector_digest IS NOT NULL AND status = 'running'`),
+    check(
+      'chk_connector_runs_selector',
+      sql`selector_digest IS NULL OR length(btrim(selector_digest)) BETWEEN 16 AND 128`,
+    ),
     check(
       'chk_connector_runs_trigger',
       sql`${table.triggerKind} IN ('manual', 'scheduled', 'event')`,
@@ -6089,7 +6106,9 @@ export const connectorRunLogs = api.table(
     level: text('level').notNull().default('info'),
     stage: text('stage').notNull(),
     message: text('message').notNull(),
-    detail: jsonb('detail').notNull().default(sql`'{}'::jsonb`),
+    detail: jsonb('detail')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     at: timestamp('at', { withTimezone: true, mode: 'date' })
       .notNull()
       .defaultNow(),
@@ -6114,32 +6133,36 @@ export const connectorRunLogs = api.table(
  * PostgREST never sees it. Values are AES-256-GCM ciphertext produced by the
  * app server; plaintext only exists transiently server-side.
  */
-export const connectorSecrets = internal.table('connector_secrets', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  workspaceId: uuid('workspace_id')
-    .notNull()
-    .references(() => workspaces.id, { onDelete: 'cascade' }),
-  connectorId: uuid('connector_id').notNull(),
-  secretName: text('secret_name').notNull(),
-  ciphertext: bytea('ciphertext').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
-    .notNull()
-    .defaultNow(),
-  createdByUserId: text('created_by_user_id').references(() => user.id, {
-    onDelete: 'set null',
-  }),
-}, (table) => [
-  // Composite parent link: a secret can never attach a foreign workspace's
-  // connector, even when both ids are individually valid.
-  foreignKey({
-    name: 'fk_connector_secrets_connector',
-    columns: [table.workspaceId, table.connectorId],
-    foreignColumns: [connectors.workspaceId, connectors.id],
-  }).onDelete('cascade'),
-])
+export const connectorSecrets = internal.table(
+  'connector_secrets',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    connectorId: uuid('connector_id').notNull(),
+    secretName: text('secret_name').notNull(),
+    ciphertext: bytea('ciphertext').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    // Composite parent link: a secret can never attach a foreign workspace's
+    // connector, even when both ids are individually valid.
+    foreignKey({
+      name: 'fk_connector_secrets_connector',
+      columns: [table.workspaceId, table.connectorId],
+      foreignColumns: [connectors.workspaceId, connectors.id],
+    }).onDelete('cascade'),
+  ],
+)
 
 export const connectorsRelations = relations(connectors, ({ one, many }) => ({
   workspace: one(workspaces, {

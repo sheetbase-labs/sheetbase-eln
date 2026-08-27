@@ -29,6 +29,29 @@ function statusBadge(status: ConnectorRunWire['status']) {
   return <Badge variant="secondary">running</Badge>
 }
 
+/** Semantic one-line summary of a run result (INT-03 / INT-02 kinds). */
+function runSummary(run: ConnectorRunWire): string {
+  const result = run.result
+  const parts: string[] = []
+  if (typeof result['kind'] === 'string') parts.push(result['kind'])
+  if (result['rowCount'] !== undefined)
+    parts.push(`${String(result['rowCount'])} rows`)
+  const source = result['source'] as Record<string, unknown> | undefined
+  if (source && typeof source === 'object') {
+    if (source['kind'] === 's3_object') {
+      parts.push(`${String(source['bucket'])}/${String(source['key'])}`)
+    } else if (source['kind'] === 'postgres_table') {
+      parts.push(
+        `${String(source['database'])}.${String(source['schema'])}.${String(source['table'])}`,
+      )
+    }
+  }
+  if (typeof result['fileSha256'] === 'string') {
+    parts.push(`sha256 ${String(result['fileSha256']).slice(0, 12)}…`)
+  }
+  return parts.join(' · ')
+}
+
 export function RunHistory({ connectorId }: { connectorId: string }) {
   const [expandedRun, setExpandedRun] = useState<string | null>(null)
 
@@ -127,7 +150,13 @@ function RunRowWithLogs({
   )
 }
 
-function ExpandedRunRow({ runId, run }: { runId: string; run: ConnectorRunWire }) {
+function ExpandedRunRow({
+  runId,
+  run,
+}: {
+  runId: string
+  run: ConnectorRunWire
+}) {
   const logsQuery = useQuery({
     queryKey: connectorQueryKeys.runLogs(runId),
     queryFn: () => listRunLogs(dataClient, runId),
@@ -141,9 +170,37 @@ function ExpandedRunRow({ runId, run }: { runId: string; run: ConnectorRunWire }
           </p>
         )}
         {run.status === 'succeeded' && Object.keys(run.result).length > 0 && (
-          <pre className="mb-2 max-h-40 overflow-auto rounded bg-background p-2 text-xs">
-            {JSON.stringify(run.result, null, 2)}
-          </pre>
+          <div className="mb-2">
+            <p className="text-xs">{runSummary(run)}</p>
+            {typeof run.result['datasetId'] === 'string' && (
+              <p className="text-muted-foreground text-xs">
+                Dataset{' '}
+                <span className="font-mono">
+                  {String(run.result['datasetId'])}
+                </span>
+                {run.result['datasetRevision']
+                  ? ` · revision ${String(run.result['datasetRevision'])}`
+                  : ''}
+                {typeof run.result['fileRecordId'] === 'string' ? (
+                  <>
+                    {' '}
+                    · raw file{' '}
+                    <span className="font-mono">
+                      {String(run.result['fileRecordId'])}
+                    </span>
+                  </>
+                ) : null}
+              </p>
+            )}
+            <details className="mt-1">
+              <summary className="text-muted-foreground cursor-pointer text-xs">
+                Technical result payload
+              </summary>
+              <pre className="mt-1 max-h-40 overflow-auto rounded bg-background p-2 text-xs">
+                {JSON.stringify(run.result, null, 2)}
+              </pre>
+            </details>
+          </div>
         )}
         {logsQuery.error instanceof Error && (
           <p role="alert" className="text-destructive text-sm">

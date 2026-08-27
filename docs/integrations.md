@@ -35,14 +35,14 @@ provenance + history run result jsonb · connector_run_logs · change_events
 
 ### Connector registry (`api.connectors`)
 
-| Field | Notes |
-| --- | --- |
-| `key` | workspace-unique slug, immutable (`^[a-z][a-z0-9-]{0,48}$`) |
-| `connector_type` | `instrument`, `storage`, `webhook`, `database`, `custom` |
-| `direction` | `inbound`, `outbound`, `bidirectional` |
-| `status` | `active`, `paused`, `archived` |
-| `parser_id` | registered ingestion parser identity (instrument type only) |
-| `config` | **non-secret settings only** |
+| Field            | Notes                                                       |
+| ---------------- | ----------------------------------------------------------- |
+| `key`            | workspace-unique slug, immutable (`^[a-z][a-z0-9-]{0,48}$`) |
+| `connector_type` | `instrument`, `storage`, `webhook`, `database`, `custom`    |
+| `direction`      | `inbound`, `outbound`, `bidirectional`                      |
+| `status`         | `active`, `paused`, `archived`                              |
+| `parser_id`      | registered ingestion parser identity (instrument type only) |
+| `config`         | **non-secret settings only**                                |
 
 Registration and pausing require the `integrations.manage` capability
 (owner / admin / steward). Registration is done via `api.register_connector`;
@@ -56,9 +56,9 @@ One row per execution. Written exclusively through RPCs — the tables carry
 by direct writes:
 
 - `api.start_connector_run(workspace_id, connector_id, trigger_kind,
-  request_digest, retry_of_run_id)` — actor is the session user XOR the
+request_digest, retry_of_run_id)` — actor is the session user XOR the
   service credential (same convention as `dataset_bulk_commits`).
-- `api.complete_connector_run(workspace_id, run_id, result)` / 
+- `api.complete_connector_run(workspace_id, run_id, result)` /
   `api.fail_connector_run(workspace_id, run_id, error_code, error_message)`.
 - `api.append_connector_run_log(...)` appends an observability line to
   `api.connector_run_logs` with a per-run monotonic sequence.
@@ -132,22 +132,22 @@ reuse everything above — runs, digests, retries, sealed secrets, change
 events — via a small **server-side adapter layer** in
 `src/lib/connectors/enterprise/`:
 
-| Module | Role |
-| --- | --- |
-| `adapter.ts` | `EnterpriseConnectorAdapter` seam: `testConnection`, `discover`, `preview`, `ingest`. Vendor code stays inside each adapter. |
-| `execution.server.ts` | Server-only execution boundary: session/role resolution (viewers refused; mirrors `is_workspace_writer`), short-lived PostgREST token, server-side `DataClient` so every write still goes through governed RPCs. |
-| `secrets.server.ts` | Execution-time sealed-secret decryption (workspace↔connector verified server-side) + `redactSecrets` so plaintext never reaches run results, logs or audit. |
+| Module                  | Role                                                                                                                                                                                                                                                                                              |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `adapter.ts`            | `EnterpriseConnectorAdapter` seam: `testConnection`, `discover`, `preview`, `ingest`. Vendor code stays inside each adapter.                                                                                                                                                                      |
+| `execution.server.ts`   | Server-only execution boundary: session/role resolution (viewers refused; mirrors `is_workspace_writer`), short-lived PostgREST token, server-side `DataClient` so every write still goes through governed RPCs.                                                                                  |
+| `secrets.server.ts`     | Execution-time sealed-secret decryption (workspace↔connector verified server-side) + `redactSecrets` so plaintext never reaches run results, logs or audit.                                                                                                                                       |
 | `host-policy.server.ts` | Connector destination policy: only http(s) endpoints, no credential-bearing URLs, no `file://`; optional `CONNECTOR_HOST_ALLOWLIST`; `CONNECTOR_ALLOW_PRIVATE_HOSTS` (default **true** — Sheetbase legitimately targets on-prem networks, and this switch is policy only, not network isolation). |
-| `retain.server.ts` | Server-side retention of external bytes through the canonical DATA-03 file platform (`create_file_upload` → object storage → `finalize_file_upload`), so provenance carries a real `fileRecordId` + sha256. |
-| `s3.server.ts` | S3-compatible adapter: `HeadBucket` test, paginated `ListObjectsV2` discovery (prefix-filtered, ETag as opaque metadata), byte-capped `GetObject`, delimited parser identity `sheetbase.delimited@1`. |
-| `postgres.server.ts` | Read-only PostgreSQL adapter: connection test, `information_schema` discovery (system schemas hidden, `allowedSchemas`/`allowedTables` respected), explicit-column `LIMIT n` preview/import with validated + quoted identifiers, `row_limit_exceeded` caps. |
+| `retain.server.ts`      | Server-side retention of external bytes through the canonical DATA-03 file platform (`create_file_upload` → object storage → `finalize_file_upload`), so provenance carries a real `fileRecordId` + sha256.                                                                                       |
+| `s3.server.ts`          | S3-compatible adapter: `HeadBucket` test, paginated `ListObjectsV2` discovery (prefix-filtered, ETag as opaque metadata), byte-capped `GetObject`, delimited parser identity `sheetbase.delimited@1`.                                                                                             |
+| `postgres.server.ts`    | Read-only PostgreSQL adapter: connection test, `information_schema` discovery (system schemas hidden, `allowedSchemas`/`allowedTables` respected), explicit-column `LIMIT n` preview/import with validated + quoted identifiers, `row_limit_exceeded` caps.                                       |
 
 ### Execution shape
 
 Browser → `POST /api/connectors/source` (`test` | `discover` | `preview` |
 `import`) → server-side adapter. The browser never touches the external
 system and never receives decrypted credentials. For imports, the source is
-read (and, for S3, retained into the file platform) *before* the governed run
+read (and, for S3, retained into the file platform) _before_ the governed run
 starts so the request digest can include the retained content sha256 — a
 changed external source under the same selector is always a new logical
 request, identical content replays the prior successful run, and a failed
@@ -156,7 +156,7 @@ request retries as a linked attempt (SB045 semantics).
 ### Provenance
 
 - **S3 runs** record `kind: 's3_import'`, source `{bucket, key, versionId,
-  etag, lastModified}`, retained file `fileRecordId` + `fileSha256`, parser
+etag, lastModified}`, retained file `fileRecordId` + `fileSha256`, parser
   identity and the resulting Dataset/revision.
 - **PostgreSQL runs** record `kind: 'postgres_import'`, source
   `{host, port, database, schema, table, columns, contentSha256}` (no
@@ -165,7 +165,7 @@ request retries as a linked attempt (SB045 semantics).
   Dataset. Database imports have no raw retained file by design; the read
   content hash is the evidence that the import matches a specific source
   state. No transactionally frozen source state is claimed — a repeatable-
-  read snapshot is *not* guaranteed.
+  read snapshot is _not_ guaranteed.
 
 ### Limits (conservative, per release)
 

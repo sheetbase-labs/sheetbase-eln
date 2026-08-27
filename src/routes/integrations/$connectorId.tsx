@@ -69,8 +69,13 @@ function ConnectorDetailRoute() {
   })
 
   const connector = connectorQuery.data
-  const canManage = hasCapability(context.workspace?.role, 'integrations.manage')
-  const parser = connector?.parser_id ? getParser(connector.parser_id) : undefined
+  const canManage = hasCapability(
+    context.workspace?.role,
+    'integrations.manage',
+  )
+  const parser = connector?.parser_id
+    ? getParser(connector.parser_id)
+    : undefined
 
   if (!connector) {
     return (
@@ -112,7 +117,9 @@ function ConnectorDetailRoute() {
           variant={connector.status === 'active' ? 'outline' : 'default'}
           disabled={statusMutation.isPending}
           onClick={() =>
-            statusMutation.mutate(connector.status === 'active' ? 'paused' : 'active')
+            statusMutation.mutate(
+              connector.status === 'active' ? 'paused' : 'active',
+            )
           }
         >
           {connector.status === 'active' ? (
@@ -137,7 +144,9 @@ function ConnectorDetailRoute() {
           description={`${connector.connector_type} · ${connector.direction} · key ${connector.key}`}
           className="border-0 pb-4"
         >
-          <Badge variant={connector.status === 'active' ? 'default' : 'secondary'}>
+          <Badge
+            variant={connector.status === 'active' ? 'default' : 'secondary'}
+          >
             {connector.status}
           </Badge>
         </PageHeader>
@@ -152,8 +161,7 @@ function ConnectorDetailRoute() {
             <CardContent className="space-y-2 text-sm">
               <p>
                 <span className="text-muted-foreground">Parser identity:</span>{' '}
-                {connector.parser_id ??
-                  'none (non-ingestion connector)'}
+                {connector.parser_id ?? 'none (non-ingestion connector)'}
                 {parser ? ` (${parser.label}, version ${parser.version})` : ''}
               </p>
               <p>
@@ -163,9 +171,8 @@ function ConnectorDetailRoute() {
               </p>
               <Separator />
               <p className="text-muted-foreground text-xs">
-                Registered{' '}
-                {new Date(connector.created_at).toLocaleString()} · updated{' '}
-                {new Date(connector.updated_at).toLocaleString()}
+                Registered {new Date(connector.created_at).toLocaleString()} ·
+                updated {new Date(connector.updated_at).toLocaleString()}
               </p>
             </CardContent>
           </Card>

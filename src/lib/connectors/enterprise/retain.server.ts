@@ -56,10 +56,16 @@ export function postgrestFileObjectReader(
       token,
     )
     if (status >= 400) return null
-    return (body as Array<{ id: string; storage_key: string; status: string; version: number } | { error: unknown }>)[0] as
-      | { id: string; storage_key: string; status: string; version: number }
-      | undefined
-      ?? null
+    return (
+      ((
+        body as Array<
+          | { id: string; storage_key: string; status: string; version: number }
+          | { error: unknown }
+        >
+      )[0] as
+        | { id: string; storage_key: string; status: string; version: number }
+        | undefined) ?? null
+    )
   }
 }
 

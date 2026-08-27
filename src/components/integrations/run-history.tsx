@@ -34,7 +34,8 @@ function runSummary(run: ConnectorRunWire): string {
   const result = run.result
   const parts: string[] = []
   if (typeof result['kind'] === 'string') parts.push(result['kind'])
-  if (result['rowCount'] !== undefined) parts.push(`${String(result['rowCount'])} rows`)
+  if (result['rowCount'] !== undefined)
+    parts.push(`${String(result['rowCount'])} rows`)
   const source = result['source'] as Record<string, unknown> | undefined
   if (source && typeof source === 'object') {
     if (source['kind'] === 's3_object') {
@@ -149,7 +150,13 @@ function RunRowWithLogs({
   )
 }
 
-function ExpandedRunRow({ runId, run }: { runId: string; run: ConnectorRunWire }) {
+function ExpandedRunRow({
+  runId,
+  run,
+}: {
+  runId: string
+  run: ConnectorRunWire
+}) {
   const logsQuery = useQuery({
     queryKey: connectorQueryKeys.runLogs(runId),
     queryFn: () => listRunLogs(dataClient, runId),
@@ -168,7 +175,9 @@ function ExpandedRunRow({ runId, run }: { runId: string; run: ConnectorRunWire }
             {typeof run.result['datasetId'] === 'string' && (
               <p className="text-muted-foreground text-xs">
                 Dataset{' '}
-                <span className="font-mono">{String(run.result['datasetId'])}</span>
+                <span className="font-mono">
+                  {String(run.result['datasetId'])}
+                </span>
                 {run.result['datasetRevision']
                   ? ` · revision ${String(run.result['datasetRevision'])}`
                   : ''}

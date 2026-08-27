@@ -27,7 +27,8 @@ async function callSource<T>(body: Record<string, unknown>): Promise<T> {
   const parsed: unknown = text ? JSON.parse(text) : {}
   if (!response.ok) {
     const message =
-      (parsed as SourceError).error?.message ?? 'The connector operation failed.'
+      (parsed as SourceError).error?.message ??
+      'The connector operation failed.'
     throw new Error(message)
   }
   return parsed as T
@@ -45,7 +46,11 @@ export function discoverConnectorSource(input: {
   connectorId: string
   query?: Record<string, unknown>
 }): Promise<S3DiscoveryPage | PostgresDiscoveryResult> {
-  return callSource({ ...input, operation: 'discover', query: input.query ?? {} })
+  return callSource({
+    ...input,
+    operation: 'discover',
+    query: input.query ?? {},
+  })
 }
 
 export function previewConnectorSource(input: {

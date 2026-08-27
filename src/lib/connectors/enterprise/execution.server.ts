@@ -54,7 +54,10 @@ export interface ConnectorExecutionContext {
  * digests and change events fire identically.
  */
 export function createServerDataClient(token: string): DataClient {
-  async function rpc<T>(name: string, args: Record<string, unknown>): Promise<T> {
+  async function rpc<T>(
+    name: string,
+    args: Record<string, unknown>,
+  ): Promise<T> {
     const { status, body } = await postgrestRpc<T>(name, args, token)
     if (status >= 400) {
       const message =
@@ -85,7 +88,10 @@ export function createServerDataClient(token: string): DataClient {
       return rows.length
     },
     rpc,
-    insert: async <T>(resource: string, row: Record<string, unknown>): Promise<T> => {
+    insert: async <T>(
+      resource: string,
+      row: Record<string, unknown>,
+    ): Promise<T> => {
       const { status, body } = await postgrestInsert<T>(resource, row, token)
       if (status >= 400) {
         throw new Error(`${resource} insert failed (${status}).`)

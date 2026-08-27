@@ -47,12 +47,12 @@ afterEach(() => {
 
 describe('connector endpoint URL policy', () => {
   it('accepts http(s) endpoints', () => {
-    expect(validateConnectorEndpointUrl('https://s3.example.com').hostname).toBe(
-      's3.example.com',
-    )
     expect(
-      validateConnectorEndpointUrl('http://127.0.0.1:9000').hostname,
-    ).toBe('127.0.0.1')
+      validateConnectorEndpointUrl('https://s3.example.com').hostname,
+    ).toBe('s3.example.com')
+    expect(validateConnectorEndpointUrl('http://127.0.0.1:9000').hostname).toBe(
+      '127.0.0.1',
+    )
   })
 
   it('rejects non-http protocols, credentials and malformed URLs', () => {
@@ -68,24 +68,27 @@ describe('connector endpoint URL policy', () => {
   })
 
   it('enforces the optional host allowlist', () => {
-    withEnv({ CONNECTOR_HOST_ALLOWLIST: 's3.example.com,*.internal.test' }, () => {
-      expect(
-        validateConnectorEndpointUrl('https://s3.example.com').hostname,
-      ).toBe('s3.example.com')
-      expect(
-        validateConnectorEndpointUrl('https://minio.internal.test').hostname,
-      ).toBe('minio.internal.test')
-      expect(() => validateConnectorEndpointUrl('https://s3.other.com')).toThrow(
-        /allowlist/i,
-      )
-    })
+    withEnv(
+      { CONNECTOR_HOST_ALLOWLIST: 's3.example.com,*.internal.test' },
+      () => {
+        expect(
+          validateConnectorEndpointUrl('https://s3.example.com').hostname,
+        ).toBe('s3.example.com')
+        expect(
+          validateConnectorEndpointUrl('https://minio.internal.test').hostname,
+        ).toBe('minio.internal.test')
+        expect(() =>
+          validateConnectorEndpointUrl('https://s3.other.com'),
+        ).toThrow(/allowlist/i)
+      },
+    )
   })
 
   it('can refuse private destinations explicitly', () => {
     withEnv({ CONNECTOR_ALLOW_PRIVATE_HOSTS: 'false' }, () => {
-      expect(() => validateConnectorEndpointUrl('http://127.0.0.1:9000')).toThrow(
-        /private/i,
-      )
+      expect(() =>
+        validateConnectorEndpointUrl('http://127.0.0.1:9000'),
+      ).toThrow(/private/i)
       expect(() => validateConnectorEndpointUrl('http://10.1.2.3')).toThrow(
         /private/i,
       )
@@ -148,12 +151,19 @@ describe('PostgreSQL connector config + identifiers', () => {
   })
 
   it('refuses malformed hosts, ports and ssl modes', () => {
-    expect(() => parsePostgresConfig({ host: '', port: 5432, database: 'd' })).toThrow()
+    expect(() =>
+      parsePostgresConfig({ host: '', port: 5432, database: 'd' }),
+    ).toThrow()
     expect(() =>
       parsePostgresConfig({ host: 'db', port: 'x', database: 'd' }),
     ).toThrow()
     expect(() =>
-      parsePostgresConfig({ host: 'db', port: 5432, database: 'd', sslMode: 'nope' }),
+      parsePostgresConfig({
+        host: 'db',
+        port: 5432,
+        database: 'd',
+        sslMode: 'nope',
+      }),
     ).toThrow()
   })
 

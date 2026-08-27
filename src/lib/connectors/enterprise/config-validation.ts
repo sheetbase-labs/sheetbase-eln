@@ -16,21 +16,25 @@ import {
 export function parseS3Config(
   config: Record<string, unknown>,
 ): S3ConnectorConfig {
-  const bucket = typeof config['bucket'] === 'string' ? config['bucket'].trim() : ''
+  const bucket =
+    typeof config['bucket'] === 'string' ? config['bucket'].trim() : ''
   if (!/^[a-z0-9][a-z0-9._-]{1,251}$/i.test(bucket)) {
     throw new ConnectorExecutionError(
       'invalid_destination',
       'Configure a valid bucket name on this connector.',
     )
   }
-  const endpoint = typeof config['endpoint'] === 'string' ? config['endpoint'].trim() : ''
+  const endpoint =
+    typeof config['endpoint'] === 'string' ? config['endpoint'].trim() : ''
   if (endpoint) validateConnectorEndpointUrl(endpoint)
-  const prefix = typeof config['prefix'] === 'string' ? config['prefix'].trim() : ''
+  const prefix =
+    typeof config['prefix'] === 'string' ? config['prefix'].trim() : ''
   if (prefix && !prefix.endsWith('/')) {
     // Normalise: discovery and imports treat the prefix as a folder.
     return {
       endpoint: endpoint || undefined,
-      region: typeof config['region'] === 'string' ? config['region'] : undefined,
+      region:
+        typeof config['region'] === 'string' ? config['region'] : undefined,
       bucket,
       prefix: `${prefix}/`,
       forcePathStyle: Boolean(config['forcePathStyle']),
@@ -63,21 +67,34 @@ export function parsePostgresConfig(
     typeof config['database'] === 'string' ? config['database'].trim() : ''
   const sslMode = config['sslMode'] ?? 'disable'
   if (!host) {
-    throw new ConnectorExecutionError('invalid_destination', 'Configure the source host on this connector.')
+    throw new ConnectorExecutionError(
+      'invalid_destination',
+      'Configure the source host on this connector.',
+    )
   }
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    throw new ConnectorExecutionError('invalid_destination', 'Configure a valid source port.')
+    throw new ConnectorExecutionError(
+      'invalid_destination',
+      'Configure a valid source port.',
+    )
   }
   validateConnectorHost(host, port)
   if (!database) {
-    throw new ConnectorExecutionError('invalid_destination', 'Configure the source database.')
+    throw new ConnectorExecutionError(
+      'invalid_destination',
+      'Configure the source database.',
+    )
   }
   if (sslMode !== 'disable' && sslMode !== 'prefer' && sslMode !== 'require') {
-    throw new ConnectorExecutionError('invalid_destination', 'sslMode must be disable, prefer or require.')
+    throw new ConnectorExecutionError(
+      'invalid_destination',
+      'sslMode must be disable, prefer or require.',
+    )
   }
   const allowedSchemas = Array.isArray(config['allowedSchemas'])
     ? (config['allowedSchemas'] as unknown[]).filter(
-        (entry): entry is string => typeof entry === 'string' && PG_IDENTIFIER.test(entry),
+        (entry): entry is string =>
+          typeof entry === 'string' && PG_IDENTIFIER.test(entry),
       )
     : undefined
   const allowedTables = Array.isArray(config['allowedTables'])

@@ -28,10 +28,7 @@ import type {
   ConnectorImportRequest,
   EnterpriseConnectorAdapter,
 } from './adapter'
-import {
-  ConnectorExecutionError,
-  boundedErrorMessage,
-} from './errors'
+import { ConnectorExecutionError, boundedErrorMessage } from './errors'
 import { ingestTabularPayload } from '../tabular-ingestion'
 import { sha256Hex } from '../digest'
 import type {
@@ -88,13 +85,22 @@ function mapPostgresError(error: unknown): ConnectorExecutionError {
   const code = (error as { code?: string } | null)?.code ?? ''
   const message = boundedErrorMessage(error)
   if (/password authentication failed|role .* does not exist/i.test(message)) {
-    return new ConnectorExecutionError('authentication_failed', 'The stored credentials were rejected by the source database.')
+    return new ConnectorExecutionError(
+      'authentication_failed',
+      'The stored credentials were rejected by the source database.',
+    )
   }
   if (/ECONNREFUSED|ETIMEDOUT|ENOTFOUND|getaddrinfo/i.test(message)) {
-    return new ConnectorExecutionError('connection_failed', 'The source database could not be reached.')
+    return new ConnectorExecutionError(
+      'connection_failed',
+      'The source database could not be reached.',
+    )
   }
   if (code === '28P01' || code === '42501') {
-    return new ConnectorExecutionError('source_forbidden', 'The source database denied access to the requested metadata.')
+    return new ConnectorExecutionError(
+      'source_forbidden',
+      'The source database denied access to the requested metadata.',
+    )
   }
   return new ConnectorExecutionError('query_failed', message)
 }
@@ -108,7 +114,10 @@ function schemaFilter(source: PostgresConnectorConfig): string[] {
   return []
 }
 
-async function listSchemas(client: Client, source: PostgresConnectorConfig): Promise<string[]> {
+async function listSchemas(
+  client: Client,
+  source: PostgresConnectorConfig,
+): Promise<string[]> {
   const result = await client.query<{ schema_name: string }>(
     `SELECT schema_name FROM information_schema.schemata ORDER BY schema_name`,
   )
@@ -134,13 +143,12 @@ async function listTables(
       ORDER BY table_name`,
     [schema],
   )
-  return result.rows
-    .map((row) => ({
-      schema,
-      name: row.table_name,
-      kind: row.table_type === 'VIEW' ? ('view' as const) : ('table' as const),
-      columns: [],
-    }))
+  return result.rows.map((row) => ({
+    schema,
+    name: row.table_name,
+    kind: row.table_type === 'VIEW' ? ('view' as const) : ('table' as const),
+    columns: [],
+  }))
 }
 
 async function listColumns(
@@ -180,7 +188,8 @@ async function readRows(
   rowCap: number,
   hardCap: boolean,
 ): Promise<SourceRows> {
-  const schema = typeof selector['schema'] === 'string' ? selector['schema'] : ''
+  const schema =
+    typeof selector['schema'] === 'string' ? selector['schema'] : ''
   const table = typeof selector['table'] === 'string' ? selector['table'] : ''
   const requested = Array.isArray(selector['columns'])
     ? (selector['columns'] as unknown[]).filter(
@@ -188,8 +197,14 @@ async function readRows(
       )
     : undefined
   const allowedTables = source.allowedTables ?? []
-  if (allowedTables.length > 0 && !allowedTables.includes(`${schema}.${table}`)) {
-    throw new ConnectorExecutionError('source_forbidden', 'That table is not on this connector’s allowlist.')
+  if (
+    allowedTables.length > 0 &&
+    !allowedTables.includes(`${schema}.${table}`)
+  ) {
+    throw new ConnectorExecutionError(
+      'source_forbidden',
+      'That table is not on this connector’s allowlist.',
+    )
   }
   const client = await connect(source, secrets)
   try {
@@ -198,10 +213,15 @@ async function readRows(
       ? columns.filter((column) => requested.includes(column.name))
       : columns
     if (usable.length === 0) {
-      throw new ConnectorExecutionError('preview_failed', 'No readable columns were found for that table.')
+      throw new ConnectorExecutionError(
+        'preview_failed',
+        'No readable columns were found for that table.',
+      )
     }
     // Explicit column list — no SELECT *, no expressions, no SQL passthrough.
-    const columnSql = usable.map((column) => quoteIdentifier(column.name)).join(', ')
+    const columnSql = usable
+      .map((column) => quoteIdentifier(column.name))
+      .join(', ')
     const tableSql = `${quoteIdentifier(schema)}.${quoteIdentifier(table)}`
     // Bounded read: fetch cap + 1 so a truncating import is impossible —
     // more rows than the cap is an explicit `row_limit_exceeded` failure.
@@ -209,20 +229,22 @@ async function readRows(
     const result = await client.query<Record<string, unknown>>(
       `SELECT ${columnSql} FROM ${tableSql} LIMIT ${limit}`,
     )
-    const rows = result.rows.slice(0, rowCap).map((row) =>
-      Object.fromEntries(
-        Object.entries(row).map(([key, value]) => [
-          key,
-          value === null || value === undefined
-            ? null
-            : value instanceof Date
-              ? value.toISOString()
-              : typeof value === 'object'
-                ? JSON.stringify(value)
-                : String(value),
-        ]),
-      ),
-    )
+    const rows = result.rows
+      .slice(0, rowCap)
+      .map((row) =>
+        Object.fromEntries(
+          Object.entries(row).map(([key, value]) => [
+            key,
+            value === null || value === undefined
+              ? null
+              : value instanceof Date
+                ? value.toISOString()
+                : typeof value === 'object'
+                  ? JSON.stringify(value)
+                  : String(value),
+          ]),
+        ),
+      )
     return {
       columns: usable.map((column) => column.name),
       rows,
@@ -236,143 +258,160 @@ async function readRows(
   }
 }
 
-export const postgresAdapter: EnterpriseConnectorAdapter<PostgresConnectorConfig> = {
-  id: 'postgres',
-  requiredSecrets: ['username', 'password'],
+export const postgresAdapter: EnterpriseConnectorAdapter<PostgresConnectorConfig> =
+  {
+    id: 'postgres',
+    requiredSecrets: ['username', 'password'],
 
-  parseConfig: parsePostgresConfig,
+    parseConfig: parsePostgresConfig,
 
-  async testConnection(context: ConnectorAdapterContext, source: PostgresConnectorConfig) {
-    const client = await connect(source, context.secrets)
-    try {
-      const probe = await client.query<{ ok: number }>('SELECT 1 AS ok')
-      if (Number(probe.rows[0]?.ok) !== 1) {
-        throw new ConnectorExecutionError('connection_failed', 'The source database did not answer the connection probe.')
-      }
-      const schemas = await listSchemas(client, source)
-      return {
-        detail: {
-          host: source.host,
-          database: source.database,
-          sslMode: source.sslMode,
-          schemas: schemas.length,
-        },
-      }
-    } catch (error) {
-      if (error instanceof ConnectorExecutionError) throw error
-      throw mapPostgresError(error)
-    } finally {
-      await client.end().catch(() => {})
-    }
-  },
-
-  async discover(context, source, query): Promise<PostgresDiscoveryResult> {
-    const schema = typeof query['schema'] === 'string' ? query['schema'] : ''
-    const client = await connect(source, context.secrets)
-    try {
-      const schemas = await listSchemas(client, source)
-      if (schema) {
-        if (!schemas.includes(schema)) {
-          throw new ConnectorExecutionError('source_forbidden', 'That schema is not exposed by this connector.')
+    async testConnection(
+      context: ConnectorAdapterContext,
+      source: PostgresConnectorConfig,
+    ) {
+      const client = await connect(source, context.secrets)
+      try {
+        const probe = await client.query<{ ok: number }>('SELECT 1 AS ok')
+        if (Number(probe.rows[0]?.ok) !== 1) {
+          throw new ConnectorExecutionError(
+            'connection_failed',
+            'The source database did not answer the connection probe.',
+          )
         }
-        const tables = await listTables(client, schema)
-        for (const descriptor of tables) {
-          descriptor.columns = await listColumns(client, schema, descriptor.name)
+        const schemas = await listSchemas(client, source)
+        return {
+          detail: {
+            host: source.host,
+            database: source.database,
+            sslMode: source.sslMode,
+            schemas: schemas.length,
+          },
         }
-        return { schemas, tables }
+      } catch (error) {
+        if (error instanceof ConnectorExecutionError) throw error
+        throw mapPostgresError(error)
+      } finally {
+        await client.end().catch(() => {})
       }
-      return { schemas, tables: [] }
-    } catch (error) {
-      if (error instanceof ConnectorExecutionError) throw error
-      throw mapPostgresError(error)
-    } finally {
-      await client.end().catch(() => {})
-    }
-  },
+    },
 
-  async preview(context, source, selector) {
-    const rows = await readRows(
-      source,
-      context.secrets,
-      selector as { schema: string; table: string; columns?: string[] },
-      context.limits.previewRows,
-      true,
-    )
-    return {
-      columns: rows.columns,
-      rows: rows.rows,
-      truncated: rows.truncated,
-    }
-  },
+    async discover(context, source, query): Promise<PostgresDiscoveryResult> {
+      const schema = typeof query['schema'] === 'string' ? query['schema'] : ''
+      const client = await connect(source, context.secrets)
+      try {
+        const schemas = await listSchemas(client, source)
+        if (schema) {
+          if (!schemas.includes(schema)) {
+            throw new ConnectorExecutionError(
+              'source_forbidden',
+              'That schema is not exposed by this connector.',
+            )
+          }
+          const tables = await listTables(client, schema)
+          for (const descriptor of tables) {
+            descriptor.columns = await listColumns(
+              client,
+              schema,
+              descriptor.name,
+            )
+          }
+          return { schemas, tables }
+        }
+        return { schemas, tables: [] }
+      } catch (error) {
+        if (error instanceof ConnectorExecutionError) throw error
+        throw mapPostgresError(error)
+      } finally {
+        await client.end().catch(() => {})
+      }
+    },
 
-  async ingest(
-    context: ConnectorAdapterContext,
-    source: PostgresConnectorConfig,
-    request: ConnectorImportRequest<Record<string, unknown>>,
-  ) {
-    const read = await readRows(
-      source,
-      context.secrets,
-      request.source as { schema: string; table: string; columns?: string[] },
-      context.limits.importRows,
-      true,
-    )
-    if (read.truncated) {
-      throw new ConnectorExecutionError(
-        'row_limit_exceeded',
-        `The source has more than ${context.limits.importRows} rows; raise the connector's import_rows limit deliberately or narrow the selection.`,
+    async preview(context, source, selector) {
+      const rows = await readRows(
+        source,
+        context.secrets,
+        selector as { schema: string; table: string; columns?: string[] },
+        context.limits.previewRows,
+        true,
       )
-    }
-    if (read.rows.length === 0) {
-      throw new ConnectorExecutionError('no_rows', 'The selected source returned no rows.')
-    }
-    const schema = String(request.source['schema'] ?? '')
-    const table = String(request.source['table'] ?? '')
-    // Request identity includes a hash of the actually-read content: a
-    // changed source under the same selector is a new logical request.
-    const contentSha256 = await sha256Hex(JSON.stringify(read.rows))
-    const result = await ingestTabularPayload(context.client, {
-      workspaceId: context.workspaceId,
-      connectorId: context.connector.id,
-      parserIdentity: POSTGRES_PARSER_IDENTITY,
-      sheetName: `${schema}.${table}`,
-      payload: {
-        headers: read.columns,
-        // NULL → blank so the pinned Schema's fail-closed coercion decides,
-        // mirroring CSV import semantics.
-        rows: read.rows.map((row) =>
-          Object.fromEntries(
-            read.columns.map((column) => [column, row[column] ?? '']),
+      return {
+        columns: rows.columns,
+        rows: rows.rows,
+        truncated: rows.truncated,
+      }
+    },
+
+    async ingest(
+      context: ConnectorAdapterContext,
+      source: PostgresConnectorConfig,
+      request: ConnectorImportRequest<Record<string, unknown>>,
+    ) {
+      const read = await readRows(
+        source,
+        context.secrets,
+        request.source as { schema: string; table: string; columns?: string[] },
+        context.limits.importRows,
+        true,
+      )
+      if (read.truncated) {
+        throw new ConnectorExecutionError(
+          'row_limit_exceeded',
+          `The source has more than ${context.limits.importRows} rows; raise the connector's import_rows limit deliberately or narrow the selection.`,
+        )
+      }
+      if (read.rows.length === 0) {
+        throw new ConnectorExecutionError(
+          'no_rows',
+          'The selected source returned no rows.',
+        )
+      }
+      const schema = String(request.source['schema'] ?? '')
+      const table = String(request.source['table'] ?? '')
+      // Request identity includes a hash of the actually-read content: a
+      // changed source under the same selector is a new logical request.
+      const contentSha256 = await sha256Hex(JSON.stringify(read.rows))
+      const result = await ingestTabularPayload(context.client, {
+        workspaceId: context.workspaceId,
+        connectorId: context.connector.id,
+        parserIdentity: POSTGRES_PARSER_IDENTITY,
+        sheetName: `${schema}.${table}`,
+        payload: {
+          headers: read.columns,
+          // NULL → blank so the pinned Schema's fail-closed coercion decides,
+          // mirroring CSV import semantics.
+          rows: read.rows.map((row) =>
+            Object.fromEntries(
+              read.columns.map((column) => [column, row[column] ?? '']),
+            ),
           ),
-        ),
-        metadata: {},
-        warnings: [],
-      },
-      source: {
-        kind: 'postgres_table',
-        host: source.host,
-        port: source.port,
-        database: source.database,
-        schema,
-        table,
-        columns: read.columns,
-        contentSha256,
-      },
-      // Content hash stands in for a raw retained file; database imports
-      // have no raw-file evidence by design (documented in provenance).
-      checksum: contentSha256,
-      byteSize: null,
-      target: request.target,
-      mappings: request.mappings,
-      resultKind: 'postgres_import',
-    })
-    return {
-      runId: result.runId,
-      attempt: result.attempt,
-      alreadyCompleted: result.alreadyCompleted,
-      rowCount: result.rowCount,
-      datasetId: result.datasetId,
-      datasetRevision: result.datasetRevision,
-    }
-  },
-}
+          metadata: {},
+          warnings: [],
+        },
+        source: {
+          kind: 'postgres_table',
+          host: source.host,
+          port: source.port,
+          database: source.database,
+          schema,
+          table,
+          columns: read.columns,
+          contentSha256,
+        },
+        // Content hash stands in for a raw retained file; database imports
+        // have no raw-file evidence by design (documented in provenance).
+        checksum: contentSha256,
+        byteSize: null,
+        target: request.target,
+        mappings: request.mappings,
+        resultKind: 'postgres_import',
+      })
+      return {
+        runId: result.runId,
+        attempt: result.attempt,
+        alreadyCompleted: result.alreadyCompleted,
+        rowCount: result.rowCount,
+        datasetId: result.datasetId,
+        datasetRevision: result.datasetRevision,
+      }
+    },
+  }

@@ -11,23 +11,38 @@
  * string so a future dedicated `SHEETBASE_SECRET_SOURCE` swap does not rederive
  * silently into unreadable ciphertexts.
  */
-import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'node:crypto'
+import {
+  createCipheriv,
+  createDecipheriv,
+  hkdfSync,
+  randomBytes,
+} from 'node:crypto'
 import { and, eq } from 'drizzle-orm'
 
 export const CONNECTOR_SECRET_INFO = 'sheetbase:connector-secrets:v1'
 const SALT = new Uint8Array(32).fill(0x1e)
 
 export function deriveConnectorSecretKey(masterSecret: string): Buffer {
-  return Buffer.from(hkdfSync('sha256', masterSecret, SALT, CONNECTOR_SECRET_INFO, 32))
+  return Buffer.from(
+    hkdfSync('sha256', masterSecret, SALT, CONNECTOR_SECRET_INFO, 32),
+  )
 }
 
 /** Encrypt to a self-contained token: v1.<iv b64>.<authTag b64>.<ciphertext b64>. */
 export function sealSecret(value: string, key: Buffer): string {
   const iv = randomBytes(12)
   const cipher = createCipheriv('aes-256-gcm', key, iv)
-  const ciphertext = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()])
+  const ciphertext = Buffer.concat([
+    cipher.update(value, 'utf8'),
+    cipher.final(),
+  ])
   const tag = cipher.getAuthTag()
-  return ['v1', iv.toString('base64'), tag.toString('base64'), ciphertext.toString('base64')].join('.')
+  return [
+    'v1',
+    iv.toString('base64'),
+    tag.toString('base64'),
+    ciphertext.toString('base64'),
+  ].join('.')
 }
 
 export function openSecret(token: string, key: Buffer): string {

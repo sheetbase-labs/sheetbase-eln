@@ -132,7 +132,10 @@ export function importLimitsFromConfig(
     return Number.isFinite(value) && value > 0 ? Math.floor(value) : fallback
   }
   return {
-    previewRows: readPositive('preview_rows', DEFAULT_IMPORT_LIMITS.previewRows),
+    previewRows: readPositive(
+      'preview_rows',
+      DEFAULT_IMPORT_LIMITS.previewRows,
+    ),
     importRows: readPositive('import_rows', DEFAULT_IMPORT_LIMITS.importRows),
     maxObjectBytes: readPositive(
       'max_object_bytes',

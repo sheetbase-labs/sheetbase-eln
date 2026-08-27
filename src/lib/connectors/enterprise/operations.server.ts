@@ -18,7 +18,10 @@ import type {
   ConnectorAdapterContext,
   ConnectorImportRequest,
 } from './adapter'
-import { ConnectorExecutionError, resolveConnectorExecutionContext } from './execution.server'
+import {
+  ConnectorExecutionError,
+  resolveConnectorExecutionContext,
+} from './execution.server'
 import { postgrestFileObjectReader } from './retain.server'
 import { enterpriseAdapterId, importLimitsFromConfig } from './types'
 import type { EnterpriseAdapterId } from './types'
@@ -39,7 +42,10 @@ async function resolveSession(input: { workspaceId: string }) {
   const headers = getRequestHeaders()
   const session = await getAppSession(headers)
   if (!session) {
-    throw new ConnectorExecutionError('unauthenticated', 'You must be signed in.')
+    throw new ConnectorExecutionError(
+      'unauthenticated',
+      'You must be signed in.',
+    )
   }
   const context = await getCurrentContext(headers)
   if (!context || context.workspace?.id !== input.workspaceId) {
@@ -74,14 +80,18 @@ async function resolveConnector(input: ConnectorOperationInput): Promise<{
     'connectors',
     `?select=id,workspace_id,key,name,connector_type,direction,status,parser_id,config,created_at,updated_at&id=eq.${encodeURIComponent(input.connectorId)}`,
   )
-  const connector = connectors.find(
-    (entry) => entry.id === input.connectorId,
-  )
+  const connector = connectors.find((entry) => entry.id === input.connectorId)
   if (!connector) {
-    throw new ConnectorExecutionError('not_found', 'Connector not found in this workspace.')
+    throw new ConnectorExecutionError(
+      'not_found',
+      'Connector not found in this workspace.',
+    )
   }
   if (connector.status !== 'active') {
-    throw new ConnectorExecutionError('connector_paused', 'This connector is paused.')
+    throw new ConnectorExecutionError(
+      'connector_paused',
+      'This connector is paused.',
+    )
   }
   const adapterId = enterpriseAdapterId(connector)
   if (!adapterId) {

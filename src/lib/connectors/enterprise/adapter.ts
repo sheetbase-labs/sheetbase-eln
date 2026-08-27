@@ -10,7 +10,10 @@
 import type { DataClient } from '#/lib/data-client'
 import type { ConnectorWire } from '../types'
 import type { ImportLimits } from './types'
-import type { ImportColumnMapping, ImportTargetField } from '#/lib/import-mapping'
+import type {
+  ImportColumnMapping,
+  ImportTargetField,
+} from '#/lib/import-mapping'
 
 export interface ConnectorAdapterContext {
   client: DataClient

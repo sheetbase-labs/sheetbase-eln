@@ -26,10 +26,7 @@ import {
   commitDatasetRowBatch,
   validateDatasetRowBatch,
 } from '../dataset-product'
-import {
-  mapImportSheet,
-  suggestImportMappings,
-} from '../import-mapping'
+import { mapImportSheet, suggestImportMappings } from '../import-mapping'
 import type { ImportColumnMapping, ImportTargetField } from '../import-mapping'
 import { ConnectorStepError, executeConnectorRun } from './run'
 import { sha256Hex } from './digest'
@@ -133,7 +130,9 @@ export async function ingestionRequestDigest(
 async function payloadContentSha256(
   payload: ParsedTabularPayload,
 ): Promise<string> {
-  return sha256Hex(JSON.stringify({ headers: payload.headers, rows: payload.rows }))
+  return sha256Hex(
+    JSON.stringify({ headers: payload.headers, rows: payload.rows }),
+  )
 }
 
 /**
@@ -236,7 +235,11 @@ export async function ingestTabularPayload(
           headers: payload.headers,
           rows: payload.rows,
         }
-        const mapped = mapImportSheet(sheet, mappings, input.target.schemaVersionId)
+        const mapped = mapImportSheet(
+          sheet,
+          mappings,
+          input.target.schemaVersionId,
+        )
         await log(
           'map',
           `Mapped ${mapped.rows.length} rows across ${mappings.filter((m) => m.kind === 'field').length} fields.`,
@@ -248,9 +251,13 @@ export async function ingestTabularPayload(
           )
         }
         if (mapped.errors.length > 0) {
-          throw new ConnectorStepError('mapping_failed', mapped.errors[0].message, {
-            errors: mapped.errors.slice(0, 20),
-          })
+          throw new ConnectorStepError(
+            'mapping_failed',
+            mapped.errors[0].message,
+            {
+              errors: mapped.errors.slice(0, 20),
+            },
+          )
         }
 
         // Pre-create required-coverage check, mirroring the Core RPC's
@@ -320,7 +327,9 @@ export async function ingestTabularPayload(
           const first = validated.errors?.[0]
           throw new ConnectorStepError(
             first?.code ?? 'validation_failed',
-            first ? describeImportRpcCode(first.code) : 'Dataset rejected every row.',
+            first
+              ? describeImportRpcCode(first.code)
+              : 'Dataset rejected every row.',
             { errors: validated.errors?.slice(0, 20) ?? [] },
           )
         }
@@ -337,7 +346,9 @@ export async function ingestTabularPayload(
           const first = committed.errors?.[0]
           throw new ConnectorStepError(
             first?.code ?? 'commit_failed',
-            first ? describeImportRpcCode(first.code) : 'Dataset commit rejected.',
+            first
+              ? describeImportRpcCode(first.code)
+              : 'Dataset commit rejected.',
             { errors: committed.errors?.slice(0, 20) ?? [] },
           )
         }
@@ -396,9 +407,8 @@ export async function ingestTabularPayload(
       datasetRevision: stored.datasetRevision
         ? Number(stored.datasetRevision)
         : undefined,
-      metadata: (stored[
-        input.metadataResultKey ?? 'contentMetadata'
-      ] ?? {}) as Record<string, string>,
+      metadata: (stored[input.metadataResultKey ?? 'contentMetadata'] ??
+        {}) as Record<string, string>,
       warnings: [],
       contentSha256,
     }

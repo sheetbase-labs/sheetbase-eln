@@ -48,9 +48,7 @@ import type { ConnectorWire } from '#/lib/connectors/types'
 import { suggestImportMappings } from '#/lib/import-mapping'
 import type { ImportTargetField } from '#/lib/import-mapping'
 import { listPublishedDatasetSchemas } from '#/lib/dataset-product'
-import {
-  listCanonicalDatasetSchemaVersionFields,
-} from '#/lib/dataset-schema-definition-rpc'
+import { listCanonicalDatasetSchemaVersionFields } from '#/lib/dataset-schema-definition-rpc'
 
 const dataClient = createDataClient()
 
@@ -360,7 +358,9 @@ function S3SourcePanel({
 }) {
   const queryClient = useQueryClient()
   const [objects, setObjects] = useState<S3DiscoveryPage['objects']>([])
-  const [continuationToken, setContinuationToken] = useState<string | null>(null)
+  const [continuationToken, setContinuationToken] = useState<string | null>(
+    null,
+  )
   const [selectedKey, setSelectedKey] = useState('')
   const [target, setTarget] = useState<TargetState>({
     schemaVersionId: '',
@@ -475,7 +475,9 @@ function S3SourcePanel({
             <TableBody>
               {objects.map((object) => (
                 <TableRow key={object.key}>
-                  <TableCell className="font-mono text-xs">{object.key}</TableCell>
+                  <TableCell className="font-mono text-xs">
+                    {object.key}
+                  </TableCell>
                   <TableCell className="text-xs">{object.byteSize}</TableCell>
                   <TableCell className="text-xs">
                     {object.lastModified
@@ -508,7 +510,10 @@ function S3SourcePanel({
             </p>
             {previewMutation.data && (
               <div className="grid gap-2">
-                <MappingSummary headers={previewMutation.data.columns} fields={fields} />
+                <MappingSummary
+                  headers={previewMutation.data.columns}
+                  fields={fields}
+                />
                 <PreviewTable preview={previewMutation.data} />
               </div>
             )}
@@ -540,7 +545,10 @@ function S3SourcePanel({
             />
           </div>
         )}
-        <ImportFeedback error={importMutation.error} receipt={importMutation.data} />
+        <ImportFeedback
+          error={importMutation.error}
+          receipt={importMutation.data}
+        />
       </CardContent>
     </Card>
   )
@@ -698,7 +706,10 @@ function PostgresSourcePanel({
             </Button>
             {previewMutation.data && (
               <div className="grid gap-2">
-                <MappingSummary headers={previewMutation.data.columns} fields={fields} />
+                <MappingSummary
+                  headers={previewMutation.data.columns}
+                  fields={fields}
+                />
                 <PreviewTable preview={previewMutation.data} />
                 {previewMutation.data.truncated && (
                   <p className="text-muted-foreground text-xs">
@@ -710,14 +721,19 @@ function PostgresSourcePanel({
             <TargetControls state={target} onChange={setTarget} />
             <ImportButton
               disabled={
-                !targetReady(target) || fields.length === 0 || importMutation.isPending
+                !targetReady(target) ||
+                fields.length === 0 ||
+                importMutation.isPending
               }
               pending={importMutation.isPending}
               onClick={() => importMutation.mutate()}
             />
           </div>
         )}
-        <ImportFeedback error={importMutation.error} receipt={importMutation.data} />
+        <ImportFeedback
+          error={importMutation.error}
+          receipt={importMutation.data}
+        />
       </CardContent>
     </Card>
   )

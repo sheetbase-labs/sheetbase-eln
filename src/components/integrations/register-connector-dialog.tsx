@@ -18,10 +18,7 @@ import {
   describeConnectorsError,
   registerConnector,
 } from '#/lib/connectors/client'
-import {
-  getParser,
-  listParsers,
-} from '#/lib/connectors/registry'
+import { getParser, listParsers } from '#/lib/connectors/registry'
 import { CONNECTOR_DIRECTIONS, CONNECTOR_TYPES } from '#/lib/connectors/types'
 import type { ConnectorDirection, ConnectorType } from '#/lib/connectors/types'
 // Ensure instrument parsers are registered before the catalogue renders.
@@ -41,9 +38,12 @@ export function RegisterConnectorDialog({
   const queryClient = useQueryClient()
   const [name, setName] = useState('')
   const [key, setKey] = useState('')
-  const [connectorType, setConnectorType] = useState<ConnectorType>('instrument')
+  const [connectorType, setConnectorType] =
+    useState<ConnectorType>('instrument')
   const [direction, setDirection] = useState<ConnectorDirection>('inbound')
-  const [parserId, setParserId] = useState<string>(listParsers()[0]?.parserId ?? '')
+  const [parserId, setParserId] = useState<string>(
+    listParsers()[0]?.parserId ?? '',
+  )
   const [adapter, setAdapter] = useState('')
   const [error, setError] = useState<string | null>(null)
 
@@ -168,7 +168,9 @@ export function RegisterConnectorDialog({
                   <option value="s3">S3-compatible object storage</option>
                 )}
                 {connectorType === 'database' && (
-                  <option value="postgres">External PostgreSQL (read-only)</option>
+                  <option value="postgres">
+                    External PostgreSQL (read-only)
+                  </option>
                 )}
                 <option value="">None (custom)</option>
               </select>

@@ -60,12 +60,15 @@ export function ConnectorCredentialsCard({
         queryKey: ['connectors', connectorId, 'secret-names'],
       })
     },
-    onError: (cause) => setError(cause instanceof Error ? cause.message : String(cause)),
+    onError: (cause) =>
+      setError(cause instanceof Error ? cause.message : String(cause)),
   })
 
   const deleteMutation = useMutation({
     mutationFn: (name: string) =>
-      deleteConnectorSecretFn({ data: { workspaceId, connectorId, secretName: name } }),
+      deleteConnectorSecretFn({
+        data: { workspaceId, connectorId, secretName: name },
+      }),
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: ['connectors', connectorId, 'secret-names'],
@@ -73,7 +76,9 @@ export function ConnectorCredentialsCard({
     },
   })
 
-  const stored = new Set((secretsQuery.data ?? []).map((entry) => entry.secretName))
+  const stored = new Set(
+    (secretsQuery.data ?? []).map((entry) => entry.secretName),
+  )
   const missing = requiredSecrets.filter((name) => !stored.has(name))
 
   if (!canManage) {
@@ -85,8 +90,8 @@ export function ConnectorCredentialsCard({
       <CardHeader>
         <CardTitle>Credentials</CardTitle>
         <CardDescription>
-          Sealed server-side secrets. Names are visible; values are set once
-          and never returned to any client.
+          Sealed server-side secrets. Names are visible; values are set once and
+          never returned to any client.
           {missing.length > 0 && (
             <span className="text-destructive">
               {' '}
@@ -146,7 +151,9 @@ export function ConnectorCredentialsCard({
           </div>
           <Button
             size="sm"
-            disabled={!secretName.trim() || !value.trim() || setMutation.isPending}
+            disabled={
+              !secretName.trim() || !value.trim() || setMutation.isPending
+            }
             onClick={() => setMutation.mutate({ secretName, value })}
           >
             {stored.has(secretName) ? 'Rotate' : 'Set'}

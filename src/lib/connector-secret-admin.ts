@@ -19,9 +19,8 @@ const SECRET_NAME = /^[a-z][a-z0-9_]{0,48}$/
 export const listConnectorSecretNamesFn = createServerFn({ method: 'POST' })
   .validator((input: { workspaceId: string; connectorId: string }) => input)
   .handler(async ({ data }): Promise<ConnectorSecretEntry[]> => {
-    const { listConnectorSecretNames } = await import(
-      './connector-secrets.server'
-    )
+    const { listConnectorSecretNames } =
+      await import('./connector-secrets.server')
     return listConnectorSecretNames(data.workspaceId, data.connectorId)
   })
 
@@ -32,8 +31,7 @@ export const setConnectorSecretFn = createServerFn({ method: 'POST' })
       connectorId: string
       secretName: string
       value: string
-    }) =>
-      input,
+    }) => input,
   )
   .handler(async ({ data }) => {
     if (!SECRET_NAME.test(data.secretName)) {
@@ -52,8 +50,15 @@ export const setConnectorSecretFn = createServerFn({ method: 'POST' })
   })
 
 export const deleteConnectorSecretFn = createServerFn({ method: 'POST' })
-  .validator((input: { workspaceId: string; connectorId: string; secretName: string }) => input)
+  .validator(
+    (input: { workspaceId: string; connectorId: string; secretName: string }) =>
+      input,
+  )
   .handler(async ({ data }) => {
     const { deleteConnectorSecret } = await import('./connector-secrets.server')
-    return deleteConnectorSecret(data.workspaceId, data.connectorId, data.secretName)
+    return deleteConnectorSecret(
+      data.workspaceId,
+      data.connectorId,
+      data.secretName,
+    )
   })

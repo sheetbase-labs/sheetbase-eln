@@ -88,7 +88,10 @@ function checkHost(host: string, what: string): void {
       `${what} is not on this deployment's connector host allowlist.`,
     )
   }
-  if (!allowPrivateHosts() && (PRIVATE_HOSTNAMES.has(host) || isPrivateIp(host))) {
+  if (
+    !allowPrivateHosts() &&
+    (PRIVATE_HOSTNAMES.has(host) || isPrivateIp(host))
+  ) {
     throw new ConnectorEndpointError(
       `${what} is a private address and this deployment refuses private connector destinations.`,
     )
@@ -128,7 +131,10 @@ export function validateConnectorEndpointUrl(raw: string): URL {
  * there is no URL to parse, so the checks are explicit.
  */
 export function validateConnectorHost(host: string, port: number): void {
-  if (!/^[._a-zA-Z0-9-]+(\.[._a-zA-Z0-9-]+)*$/.test(host) && !host.startsWith('[')) {
+  if (
+    !/^[._a-zA-Z0-9-]+(\.[._a-zA-Z0-9-]+)*$/.test(host) &&
+    !host.startsWith('[')
+  ) {
     throw new ConnectorEndpointError('The database host is malformed.')
   }
   if (!Number.isInteger(port) || port < 1 || port > 65535) {

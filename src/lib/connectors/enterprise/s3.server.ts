@@ -25,11 +25,11 @@ import {
 } from '@aws-sdk/client-s3'
 
 import { parseS3Config } from './config-validation'
+import { ConnectorExecutionError, boundedErrorMessage } from './errors'
 import {
-  ConnectorExecutionError,
-  boundedErrorMessage,
-} from './errors'
-import { ConnectorEndpointError, validateConnectorEndpointUrl } from './host-policy.server'
+  ConnectorEndpointError,
+  validateConnectorEndpointUrl,
+} from './host-policy.server'
 import type {
   ConnectorAdapterContext,
   ConnectorImportRequest,
@@ -40,14 +40,21 @@ import { ingestTabularPayload } from '../tabular-ingestion'
 import { registerParser } from '../registry'
 import { parseImportText } from '#/lib/import-parse'
 import { sha256Hex } from '../digest'
-import type { S3ConnectorConfig, S3DiscoveryPage, S3ObjectDescriptor } from './types'
+import type {
+  S3ConnectorConfig,
+  S3DiscoveryPage,
+  S3ObjectDescriptor,
+} from './types'
 
 /** Stable parser identity for plain delimited S3 objects (provenance only). */
 export const S3_PARSER_IDENTITY = 'sheetbase.delimited@1'
 
 export { parseS3Config } from './config-validation'
 
-function s3Client(source: S3ConnectorConfig, secrets: Record<string, string>): S3Client {
+function s3Client(
+  source: S3ConnectorConfig,
+  secrets: Record<string, string>,
+): S3Client {
   return new S3Client({
     region: source.region || 'us-east-1',
     endpoint: source.endpoint,
@@ -72,13 +79,26 @@ function mapS3Error(error: unknown, code: string): ConnectorExecutionError {
   )
   const message = boundedErrorMessage(error)
   if (status === 403 || name === 'Forbidden' || /AccessDenied/i.test(message)) {
-    return new ConnectorExecutionError('source_forbidden', 'Access to the source was denied by the object store.')
+    return new ConnectorExecutionError(
+      'source_forbidden',
+      'Access to the source was denied by the object store.',
+    )
   }
-  if (status === 404 || name === 'NotFound' || /404|NoSuchBucket|NoSuchKey/i.test(message)) {
-    return new ConnectorExecutionError('source_not_found', 'The configured bucket or object was not found.')
+  if (
+    status === 404 ||
+    name === 'NotFound' ||
+    /404|NoSuchBucket|NoSuchKey/i.test(message)
+  ) {
+    return new ConnectorExecutionError(
+      'source_not_found',
+      'The configured bucket or object was not found.',
+    )
   }
   if (/InvalidAccessKeyId|SignatureDoesNotMatch|token/i.test(message)) {
-    return new ConnectorExecutionError('authentication_failed', 'The stored credentials were rejected by the object store.')
+    return new ConnectorExecutionError(
+      'authentication_failed',
+      'The stored credentials were rejected by the object store.',
+    )
   }
   if (error instanceof ConnectorEndpointError) {
     return new ConnectorExecutionError('invalid_destination', error.message)
@@ -97,7 +117,10 @@ export const s3Adapter: EnterpriseConnectorAdapter<S3ConnectorConfig> = {
 
   parseConfig: parseS3Config,
 
-  async testConnection(context: ConnectorAdapterContext, source: S3ConnectorConfig) {
+  async testConnection(
+    context: ConnectorAdapterContext,
+    source: S3ConnectorConfig,
+  ) {
     try {
       validateConnectorEndpointUrl(
         source.endpoint ?? `https://${source.bucket}.s3.amazonaws.com`,
@@ -130,7 +153,8 @@ export const s3Adapter: EnterpriseConnectorAdapter<S3ConnectorConfig> = {
   async discover(context, source, query): Promise<S3DiscoveryPage> {
     const maxKeys = Math.min(Math.max(Number(query['maxKeys'] ?? 50), 1), 100)
     const continuationToken =
-      typeof query['continuationToken'] === 'string' && query['continuationToken']
+      typeof query['continuationToken'] === 'string' &&
+      query['continuationToken']
         ? query['continuationToken']
         : undefined
     try {
@@ -144,7 +168,9 @@ export const s3Adapter: EnterpriseConnectorAdapter<S3ConnectorConfig> = {
         }),
       )
       const objects: S3ObjectDescriptor[] = (page.Contents ?? [])
-        .filter((object) => object.Key && keyUnderPrefix(object.Key, source.prefix))
+        .filter(
+          (object) => object.Key && keyUnderPrefix(object.Key, source.prefix),
+        )
         .map((object) => ({
           key: object.Key as string,
           byteSize: object.Size ?? 0,
@@ -160,7 +186,9 @@ export const s3Adapter: EnterpriseConnectorAdapter<S3ConnectorConfig> = {
       return {
         objects,
         // IsTruncated=false ⇒ null: the listing is complete.
-        continuationToken: page.IsTruncated ? (page.NextContinuationToken ?? null) : null,
+        continuationToken: page.IsTruncated
+          ? (page.NextContinuationToken ?? null)
+          : null,
       }
     } catch (error) {
       throw mapS3Error(error, 'discovery_failed')
@@ -181,15 +209,27 @@ export const s3Adapter: EnterpriseConnectorAdapter<S3ConnectorConfig> = {
     source: S3ConnectorConfig,
     request: ConnectorImportRequest<Record<string, unknown>>,
   ) {
-    const key = typeof request.source['key'] === 'string' ? request.source['key'] : ''
-    const versionId = typeof request.source['versionId'] === 'string' ? request.source['versionId'] : ''
+    const key =
+      typeof request.source['key'] === 'string' ? request.source['key'] : ''
+    const versionId =
+      typeof request.source['versionId'] === 'string'
+        ? request.source['versionId']
+        : ''
     if (!key || !keyUnderPrefix(key, source.prefix)) {
-      throw new ConnectorExecutionError('source_not_found', 'Choose an object under the configured prefix.')
+      throw new ConnectorExecutionError(
+        'source_not_found',
+        'Choose an object under the configured prefix.',
+      )
     }
     const projectId =
-      typeof request.projectId === 'string' && request.projectId ? request.projectId : ''
+      typeof request.projectId === 'string' && request.projectId
+        ? request.projectId
+        : ''
     if (!projectId) {
-      throw new ConnectorExecutionError('no_target', 'Choose a project to retain the source object in.')
+      throw new ConnectorExecutionError(
+        'no_target',
+        'Choose a project to retain the source object in.',
+      )
     }
 
     // Stage — download the bytes (bounded) outside the run so the request
@@ -261,19 +301,35 @@ async function downloadObject(
 ): Promise<S3Download> {
   const key = typeof selector['key'] === 'string' ? selector['key'] : ''
   if (!key || key.includes('..')) {
-    throw new ConnectorExecutionError('source_not_found', 'Choose a valid object key.')
+    throw new ConnectorExecutionError(
+      'source_not_found',
+      'Choose a valid object key.',
+    )
   }
   if (!keyUnderPrefix(key, source.prefix)) {
-    throw new ConnectorExecutionError('source_forbidden', 'The object is outside the configured prefix.')
+    throw new ConnectorExecutionError(
+      'source_forbidden',
+      'The object is outside the configured prefix.',
+    )
   }
-  const versionId = typeof selector['versionId'] === 'string' ? selector['versionId'] : undefined
+  const versionId =
+    typeof selector['versionId'] === 'string'
+      ? selector['versionId']
+      : undefined
   try {
     const client = s3Client(source, context.secrets)
     const response = await client.send(
-      new GetObjectCommand({ Bucket: source.bucket, Key: key, VersionId: versionId }),
+      new GetObjectCommand({
+        Bucket: source.bucket,
+        Key: key,
+        VersionId: versionId,
+      }),
     )
     if (!response.Body) {
-      throw new ConnectorExecutionError('download_failed', 'The object bytes could not be read.')
+      throw new ConnectorExecutionError(
+        'download_failed',
+        'The object bytes could not be read.',
+      )
     }
     const bytes = new Uint8Array(await response.Body.transformToByteArray())
     const cap = options.previewByteCap ?? context.limits.maxObjectBytes

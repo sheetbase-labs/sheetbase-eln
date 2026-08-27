@@ -11,7 +11,10 @@
  */
 import { createFileRoute } from '@tanstack/react-router'
 
-import { boundedErrorMessage, ConnectorExecutionError } from '#/lib/connectors/enterprise/errors'
+import {
+  boundedErrorMessage,
+  ConnectorExecutionError,
+} from '#/lib/connectors/enterprise/errors'
 import {
   discoverConnectorSource,
   importConnectorSource,
@@ -31,7 +34,11 @@ interface SourceOperationBody {
   mappings?: unknown
 }
 
-function errorResponse(status: number, code: string, message: string): Response {
+function errorResponse(
+  status: number,
+  code: string,
+  message: string,
+): Response {
   return new Response(JSON.stringify({ error: { code, message } }), {
     status,
     headers: { 'content-type': 'application/json' },
@@ -46,7 +53,11 @@ export const Route = createFileRoute('/api/connectors/source')({
         try {
           body = (await request.json()) as SourceOperationBody
         } catch {
-          return errorResponse(400, 'invalid_body', 'Request body must be JSON.')
+          return errorResponse(
+            400,
+            'invalid_body',
+            'Request body must be JSON.',
+          )
         }
         if (
           typeof body['workspaceId'] !== 'string' ||
@@ -86,7 +97,11 @@ export const Route = createFileRoute('/api/connectors/source')({
             }
             case 'preview': {
               if (!body['selector'] || typeof body['selector'] !== 'object') {
-                return errorResponse(400, 'invalid_body', 'selector is required.')
+                return errorResponse(
+                  400,
+                  'invalid_body',
+                  'selector is required.',
+                )
               }
               const result = await previewConnectorSource({
                 ...base,
@@ -108,7 +123,9 @@ export const Route = createFileRoute('/api/connectors/source')({
                 ...base,
                 source: body['source'] as Record<string, unknown>,
                 projectId:
-                  typeof body['projectId'] === 'string' ? body['projectId'] : null,
+                  typeof body['projectId'] === 'string'
+                    ? body['projectId']
+                    : null,
                 target: body['target'] as never,
                 mappings: Array.isArray(body['mappings'])
                   ? (body['mappings'] as Array<Record<string, unknown>>)
@@ -130,7 +147,11 @@ export const Route = createFileRoute('/api/connectors/source')({
           if (error instanceof ConnectorExecutionError) {
             return errorResponse(400, error.code, boundedErrorMessage(error))
           }
-          return errorResponse(500, 'operation_failed', boundedErrorMessage(error))
+          return errorResponse(
+            500,
+            'operation_failed',
+            boundedErrorMessage(error),
+          )
         }
       },
     },

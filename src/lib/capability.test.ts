@@ -52,6 +52,16 @@ describe('CORE-05 capability mapping', () => {
       'record.link',
       'record.create',
       'instance.upgrade',
+      'integrations.manage',
     ])
+  })
+
+  it('grants integrations.manage to governed roles only', () => {
+    expect(hasCapability('owner', 'integrations.manage')).toBe(true)
+    expect(hasCapability('admin', 'integrations.manage')).toBe(true)
+    expect(hasCapability('steward', 'integrations.manage')).toBe(true)
+    expect(hasCapability('member', 'integrations.manage')).toBe(false)
+    expect(hasCapability('scientist', 'integrations.manage')).toBe(false)
+    expect(hasCapability('viewer', 'integrations.manage')).toBe(false)
   })
 })

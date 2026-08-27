@@ -937,6 +937,13 @@
       "when": 1787669400000,
       "tag": "0135_gov_04_archived_record_attestation",
       "breakpoints": true
+    },
+    {
+      "idx": 136,
+      "version": "7",
+      "when": 1787755800000,
+      "tag": "0136_int_01_connector_framework",
+      "breakpoints": true
     }
   ]
 }

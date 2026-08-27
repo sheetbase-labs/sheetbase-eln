@@ -17,6 +17,7 @@ import { Route as ConfigureRouteImport } from './routes/configure'
 import { Route as DatasetsRouteImport } from './routes/datasets'
 import { Route as FoundationsRouteImport } from './routes/foundations'
 import { Route as InstrumentMonitorRouteImport } from './routes/instrument-monitor'
+import { Route as IntegrationsRouteImport } from './routes/integrations'
 import { Route as LineageRouteImport } from './routes/lineage'
 import { Route as PlannerRouteImport } from './routes/planner'
 import { Route as PlateDesignerRouteImport } from './routes/plate-designer'
@@ -35,6 +36,7 @@ import { Route as ApiCalculationsRouteImport } from './routes/api/calculations'
 import { Route as ApiEventsRouteImport } from './routes/api/events'
 import { Route as ApiFormulasRouteImport } from './routes/api/formulas'
 import { Route as ApiSheetCalculationsRouteImport } from './routes/api/sheet-calculations'
+import { Route as IntegrationsConnectorIdRouteImport } from './routes/integrations/$connectorId'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects/$projectId'
 import { Route as ReviewsRevisionIdRouteImport } from './routes/reviews/$revisionId'
 import { Route as SheetsInstanceIdRouteImport } from './routes/sheets/$instanceId'
@@ -96,6 +98,11 @@ const FoundationsRoute = FoundationsRouteImport.update({
 const InstrumentMonitorRoute = InstrumentMonitorRouteImport.update({
   id: '/instrument-monitor',
   path: '/instrument-monitor',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IntegrationsRoute = IntegrationsRouteImport.update({
+  id: '/integrations',
+  path: '/integrations',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LineageRoute = LineageRouteImport.update({
@@ -187,6 +194,11 @@ const ApiSheetCalculationsRoute = ApiSheetCalculationsRouteImport.update({
   id: '/api/sheet-calculations',
   path: '/api/sheet-calculations',
   getParentRoute: () => rootRouteImport,
+} as any)
+const IntegrationsConnectorIdRoute = IntegrationsConnectorIdRouteImport.update({
+  id: '/$connectorId',
+  path: '/$connectorId',
+  getParentRoute: () => IntegrationsRoute,
 } as any)
 const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
   id: '/$projectId',
@@ -316,6 +328,7 @@ export interface FileRoutesByFullPath {
   '/datasets': typeof DatasetsRoute
   '/foundations': typeof FoundationsRoute
   '/instrument-monitor': typeof InstrumentMonitorRoute
+  '/integrations': typeof IntegrationsRouteWithChildren
   '/lineage': typeof LineageRoute
   '/planner': typeof PlannerRoute
   '/plate-designer': typeof PlateDesignerRoute
@@ -334,6 +347,7 @@ export interface FileRoutesByFullPath {
   '/api/events': typeof ApiEventsRoute
   '/api/formulas': typeof ApiFormulasRoute
   '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
+  '/integrations/$connectorId': typeof IntegrationsConnectorIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
   '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
   '/sheets/$instanceId': typeof SheetsInstanceIdRoute
@@ -366,6 +380,7 @@ export interface FileRoutesByTo {
   '/datasets': typeof DatasetsRoute
   '/foundations': typeof FoundationsRoute
   '/instrument-monitor': typeof InstrumentMonitorRoute
+  '/integrations': typeof IntegrationsRouteWithChildren
   '/lineage': typeof LineageRoute
   '/planner': typeof PlannerRoute
   '/plate-designer': typeof PlateDesignerRoute
@@ -384,6 +399,7 @@ export interface FileRoutesByTo {
   '/api/events': typeof ApiEventsRoute
   '/api/formulas': typeof ApiFormulasRoute
   '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
+  '/integrations/$connectorId': typeof IntegrationsConnectorIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
   '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
   '/sheets/$instanceId': typeof SheetsInstanceIdRoute
@@ -417,6 +433,7 @@ export interface FileRoutesById {
   '/datasets': typeof DatasetsRoute
   '/foundations': typeof FoundationsRoute
   '/instrument-monitor': typeof InstrumentMonitorRoute
+  '/integrations': typeof IntegrationsRouteWithChildren
   '/lineage': typeof LineageRoute
   '/planner': typeof PlannerRoute
   '/plate-designer': typeof PlateDesignerRoute
@@ -435,6 +452,7 @@ export interface FileRoutesById {
   '/api/events': typeof ApiEventsRoute
   '/api/formulas': typeof ApiFormulasRoute
   '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
+  '/integrations/$connectorId': typeof IntegrationsConnectorIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
   '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
   '/sheets/$instanceId': typeof SheetsInstanceIdRoute
@@ -469,6 +487,7 @@ export interface FileRouteTypes {
     | '/datasets'
     | '/foundations'
     | '/instrument-monitor'
+    | '/integrations'
     | '/lineage'
     | '/planner'
     | '/plate-designer'
@@ -487,6 +506,7 @@ export interface FileRouteTypes {
     | '/api/events'
     | '/api/formulas'
     | '/api/sheet-calculations'
+    | '/integrations/$connectorId'
     | '/projects/$projectId'
     | '/reviews/$revisionId'
     | '/sheets/$instanceId'
@@ -519,6 +539,7 @@ export interface FileRouteTypes {
     | '/datasets'
     | '/foundations'
     | '/instrument-monitor'
+    | '/integrations'
     | '/lineage'
     | '/planner'
     | '/plate-designer'
@@ -537,6 +558,7 @@ export interface FileRouteTypes {
     | '/api/events'
     | '/api/formulas'
     | '/api/sheet-calculations'
+    | '/integrations/$connectorId'
     | '/projects/$projectId'
     | '/reviews/$revisionId'
     | '/sheets/$instanceId'
@@ -569,6 +591,7 @@ export interface FileRouteTypes {
     | '/datasets'
     | '/foundations'
     | '/instrument-monitor'
+    | '/integrations'
     | '/lineage'
     | '/planner'
     | '/plate-designer'
@@ -587,6 +610,7 @@ export interface FileRouteTypes {
     | '/api/events'
     | '/api/formulas'
     | '/api/sheet-calculations'
+    | '/integrations/$connectorId'
     | '/projects/$projectId'
     | '/reviews/$revisionId'
     | '/sheets/$instanceId'
@@ -620,6 +644,7 @@ export interface RootRouteChildren {
   DatasetsRoute: typeof DatasetsRoute
   FoundationsRoute: typeof FoundationsRoute
   InstrumentMonitorRoute: typeof InstrumentMonitorRoute
+  IntegrationsRoute: typeof IntegrationsRouteWithChildren
   LineageRoute: typeof LineageRoute
   PlannerRoute: typeof PlannerRoute
   PlateDesignerRoute: typeof PlateDesignerRoute
@@ -713,6 +738,13 @@ declare module '@tanstack/react-router' {
       path: '/instrument-monitor'
       fullPath: '/instrument-monitor'
       preLoaderRoute: typeof InstrumentMonitorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/integrations': {
+      id: '/integrations'
+      path: '/integrations'
+      fullPath: '/integrations'
+      preLoaderRoute: typeof IntegrationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/lineage': {
@@ -840,6 +872,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/sheet-calculations'
       preLoaderRoute: typeof ApiSheetCalculationsRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/integrations/$connectorId': {
+      id: '/integrations/$connectorId'
+      path: '/$connectorId'
+      fullPath: '/integrations/$connectorId'
+      preLoaderRoute: typeof IntegrationsConnectorIdRouteImport
+      parentRoute: typeof IntegrationsRoute
     }
     '/projects/$projectId': {
       id: '/projects/$projectId'
@@ -1008,6 +1047,18 @@ const AdminRouteChildren: AdminRouteChildren = {
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
+interface IntegrationsRouteChildren {
+  IntegrationsConnectorIdRoute: typeof IntegrationsConnectorIdRoute
+}
+
+const IntegrationsRouteChildren: IntegrationsRouteChildren = {
+  IntegrationsConnectorIdRoute: IntegrationsConnectorIdRoute,
+}
+
+const IntegrationsRouteWithChildren = IntegrationsRoute._addFileChildren(
+  IntegrationsRouteChildren,
+)
+
 interface ProjectsProjectIdExperimentsRecordIdRouteChildren {
   ProjectsProjectIdExperimentsRecordIdOverviewRoute: typeof ProjectsProjectIdExperimentsRecordIdOverviewRoute
 }
@@ -1067,6 +1118,7 @@ const rootRouteChildren: RootRouteChildren = {
   DatasetsRoute: DatasetsRoute,
   FoundationsRoute: FoundationsRoute,
   InstrumentMonitorRoute: InstrumentMonitorRoute,
+  IntegrationsRoute: IntegrationsRouteWithChildren,
   LineageRoute: LineageRoute,
   PlannerRoute: PlannerRoute,
   PlateDesignerRoute: PlateDesignerRoute,
@@ -1106,3 +1158,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

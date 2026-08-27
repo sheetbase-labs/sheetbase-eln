@@ -118,6 +118,7 @@ const CAPABILITY_LABELS: Record<Capability, string> = {
   'record.link': 'Link records',
   'record.create': 'Create records',
   'instance.upgrade': 'Upgrade instances',
+  'integrations.manage': 'Manage integrations',
 }
 
 export function configurationRoleCopy(role: WorkspaceRole | undefined): string {

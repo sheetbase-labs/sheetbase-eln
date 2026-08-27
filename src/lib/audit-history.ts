@@ -135,6 +135,8 @@ export const ENTITY_LABELS: Record<string, string> = {
   review_decision: 'Review decision',
   signature: 'Signature',
   api_credential: 'API credential',
+  connector: 'Connector',
+  connector_run: 'Connector run',
   comment: 'Comment',
   sample_event: 'Sample event',
   scientific_table: 'Table',

@@ -93,9 +93,9 @@ This diagram communicates likely sequencing and dependencies, not a strict water
 
 ### INT — Integrations
 
-- `INT-01` Generic Connector Framework
-- `INT-02` Scientific Instrument Ingestion
-- `INT-03` Enterprise/Data Platform Integrations
+- `INT-01` Generic Connector Framework (implemented on branch `feat/int-01-int-02-connectors`)
+- `INT-02` Scientific Instrument Ingestion (implemented: plate reader parser proves the generic flow end to end)
+- `INT-03` Enterprise/Data Platform Integrations (not started — must reuse the connector execution/security/provenance model)
 
 ### PLAT — Platform, Operations & Security
 

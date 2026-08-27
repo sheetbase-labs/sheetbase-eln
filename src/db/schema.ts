@@ -13,6 +13,7 @@ import {
   bigint,
   boolean,
   check,
+  customType,
   date,
   decimal,
   foreignKey,
@@ -33,6 +34,13 @@ import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 
 const internal = pgSchema('internal')
 const api = pgSchema('api')
+
+/** Raw binary storage for sealed connector secrets. */
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType() {
+    return 'bytea'
+  },
+})
 
 const timestamps = {
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
@@ -5945,5 +5953,192 @@ export const projectAccessRelations = relations(projectAccess, ({ one }) => ({
   grantedBy: one(user, {
     fields: [projectAccess.grantedByUserId],
     references: [user.id],
+  }),
+}))
+
+// ---------------------------------------------------------------------------
+// INT-01 — Generic Connector Framework.
+//
+// Connector identity, runs and execution logs on the api (PostgREST) surface;
+// third-party secrets sealed in the internal schema where PostgREST cannot
+// reach them. Writes land through RPCs only. See docs/integrations.md.
+// ---------------------------------------------------------------------------
+
+export const connectors = api.table(
+  'connectors',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    key: text('key').notNull(),
+    name: text('name').notNull(),
+    connectorType: text('connector_type').notNull().default('custom'),
+    direction: text('direction').notNull().default('inbound'),
+    status: text('status').notNull().default('active'),
+    /** Registered ingestion parser identity, e.g. `sheetbase.plate-reader-csv`. */
+    parserId: text('parser_id'),
+    /** Non-secret settings only; credentials live in internal.connector_secrets. */
+    config: jsonb('config').notNull().default(sql`'{}'::jsonb`),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    uniqueIndex('uq_connectors_workspace_key').on(table.workspaceId, table.key),
+    index('idx_connectors_workspace').on(table.workspaceId),
+    check(
+      'chk_connectors_key',
+      sql`${table.key} ~ '^[a-z][a-z0-9-]{0,48}$'`,
+    ),
+    check(
+      'chk_connectors_name',
+      sql`length(btrim(${table.name})) BETWEEN 1 AND 200`,
+    ),
+    check(
+      'chk_connectors_type',
+      sql`${table.connectorType} IN ('instrument', 'storage', 'webhook', 'database', 'custom')`,
+    ),
+    check(
+      'chk_connectors_direction',
+      sql`${table.direction} IN ('inbound', 'outbound', 'bidirectional')`,
+    ),
+    check(
+      'chk_connectors_status',
+      sql`${table.status} IN ('active', 'paused', 'archived')`,
+    ),
+  ],
+)
+
+export const connectorRuns = api.table(
+  'connector_runs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    connectorId: uuid('connector_id')
+      .notNull()
+      .references(() => connectors.id, { onDelete: 'cascade' }),
+    triggerKind: text('trigger_kind').notNull().default('manual'),
+    status: text('status').notNull().default('running'),
+    attempt: integer('attempt').notNull().default(1),
+    retryOfRunId: uuid('retry_of_run_id'),
+    requestDigest: text('request_digest'),
+    result: jsonb('result').notNull().default(sql`'{}'::jsonb`),
+    errorCode: text('error_code'),
+    errorMessage: text('error_message'),
+    startedAt: timestamp('started_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    finishedAt: timestamp('finished_at', { withTimezone: true, mode: 'date' }),
+    actorUserId: text('actor_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    actorCredentialId: uuid('actor_credential_id').references(
+      () => apiCredentials.id,
+      { onDelete: 'set null' },
+    ),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('idx_connector_runs_workspace').on(table.workspaceId),
+    index('idx_connector_runs_connector').on(table.connectorId),
+    uniqueIndex('uq_connector_runs_digest')
+      .on(table.connectorId, table.requestDigest)
+      .where(sql`request_digest IS NOT NULL`),
+    check(
+      'chk_connector_runs_trigger',
+      sql`${table.triggerKind} IN ('manual', 'scheduled', 'event')`,
+    ),
+    check(
+      'chk_connector_runs_status',
+      sql`${table.status} IN ('running', 'succeeded', 'failed')`,
+    ),
+    check('chk_connector_runs_attempt', sql`${table.attempt} >= 1`),
+    check(
+      'chk_connector_runs_actor_xor',
+      sql`(actor_user_id IS NULL) <> (actor_credential_id IS NULL)`,
+    ),
+  ],
+)
+
+export const connectorRunLogs = api.table(
+  'connector_run_logs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    runId: uuid('run_id')
+      .notNull()
+      .references(() => connectorRuns.id, { onDelete: 'cascade' }),
+    sequence: integer('sequence').notNull(),
+    level: text('level').notNull().default('info'),
+    stage: text('stage').notNull(),
+    message: text('message').notNull(),
+    detail: jsonb('detail').notNull().default(sql`'{}'::jsonb`),
+    at: timestamp('at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('idx_connector_run_logs_run').on(table.runId, table.sequence),
+    index('idx_connector_run_logs_workspace').on(table.workspaceId),
+    check(
+      'chk_connector_run_logs_level',
+      sql`${table.level} IN ('info', 'warning', 'error')`,
+    ),
+  ],
+)
+
+/**
+ * INT-01 third-party connector secrets. Lives in the internal schema so
+ * PostgREST never sees it. Values are AES-256-GCM ciphertext produced by the
+ * app server; plaintext only exists transiently server-side.
+ */
+export const connectorSecrets = internal.table('connector_secrets', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: uuid('workspace_id')
+    .notNull()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  connectorId: uuid('connector_id')
+    .notNull()
+    .references(() => connectors.id, { onDelete: 'cascade' }),
+  secretName: text('secret_name').notNull(),
+  ciphertext: bytea('ciphertext').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
+    .notNull()
+    .defaultNow(),
+  createdByUserId: text('created_by_user_id').references(() => user.id, {
+    onDelete: 'set null',
+  }),
+})
+
+export const connectorsRelations = relations(connectors, ({ one, many }) => ({
+  workspace: one(workspaces, {
+    fields: [connectors.workspaceId],
+    references: [workspaces.id],
+  }),
+  runs: many(connectorRuns),
+}))
+
+export const connectorRunsRelations = relations(connectorRuns, ({ one }) => ({
+  connector: one(connectors, {
+    fields: [connectorRuns.connectorId],
+    references: [connectors.id],
+  }),
+  workspace: one(workspaces, {
+    fields: [connectorRuns.workspaceId],
+    references: [workspaces.id],
   }),
 }))

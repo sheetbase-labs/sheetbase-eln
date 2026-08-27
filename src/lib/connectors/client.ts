@@ -1,0 +1,202 @@
+/**
+ * INT-01 — typed DataClient surface for connectors, runs and run logs.
+ * All writes go through the `api.*_connector*` RPCs so capability checks,
+ * idempotency digests and change events fire server-side.
+ */
+import type { DataClient } from '../data-client'
+import type {
+  ConnectorDirection,
+  ConnectorRunLogWire,
+  ConnectorRunWire,
+  ConnectorType,
+  ConnectorWire,
+} from './types'
+
+export interface RegisterConnectorInput {
+  workspaceId: string
+  key: string
+  name: string
+  connectorType?: ConnectorType
+  direction?: ConnectorDirection
+  config?: Record<string, unknown>
+  parserId?: string | null
+}
+
+export async function registerConnector(
+  client: DataClient,
+  input: RegisterConnectorInput,
+): Promise<ConnectorWire> {
+  return client.rpc('register_connector', {
+    p_workspace_id: input.workspaceId,
+    p_key: input.key,
+    p_name: input.name,
+    p_connector_type: input.connectorType ?? 'custom',
+    p_direction: input.direction ?? 'inbound',
+    p_config: input.config ?? {},
+    p_parser_id: input.parserId ?? null,
+  })
+}
+
+export async function updateConnector(
+  client: DataClient,
+  input: {
+    workspaceId: string
+    connectorId: string
+    name?: string | null
+    status?: 'active' | 'paused' | 'archived' | null
+    config?: Record<string, unknown> | null
+  },
+): Promise<ConnectorWire> {
+  return client.rpc('update_connector', {
+    p_workspace_id: input.workspaceId,
+    p_connector_id: input.connectorId,
+    p_name: input.name ?? null,
+    p_status: input.status ?? null,
+    p_config: input.config ?? null,
+  })
+}
+
+export interface StartConnectorRunInput {
+  workspaceId: string
+  connectorId: string
+  triggerKind?: 'manual' | 'scheduled' | 'event'
+  /** sha256 of the request inputs; enables retry-safe ingestion. */
+  requestDigest?: string | null
+  retryOfRunId?: string | null
+}
+
+export async function startConnectorRun(
+  client: DataClient,
+  input: StartConnectorRunInput,
+): Promise<ConnectorRunWire> {
+  return client.rpc('start_connector_run', {
+    p_workspace_id: input.workspaceId,
+    p_connector_id: input.connectorId,
+    p_trigger_kind: input.triggerKind ?? 'manual',
+    p_request_digest: input.requestDigest ?? null,
+    p_retry_of_run_id: input.retryOfRunId ?? null,
+  })
+}
+
+export async function completeConnectorRun(
+  client: DataClient,
+  input: {
+    workspaceId: string
+    runId: string
+    result?: Record<string, unknown>
+  },
+): Promise<ConnectorRunWire> {
+  return client.rpc('complete_connector_run', {
+    p_workspace_id: input.workspaceId,
+    p_run_id: input.runId,
+    p_result: input.result ?? {},
+  })
+}
+
+export async function failConnectorRun(
+  client: DataClient,
+  input: {
+    workspaceId: string
+    runId: string
+    errorCode: string
+    errorMessage?: string | null
+  },
+): Promise<ConnectorRunWire> {
+  return client.rpc('fail_connector_run', {
+    p_workspace_id: input.workspaceId,
+    p_run_id: input.runId,
+    p_error_code: input.errorCode,
+    p_error_message: input.errorMessage ?? null,
+  })
+}
+
+export async function appendConnectorRunLog(
+  client: DataClient,
+  input: {
+    workspaceId: string
+    runId: string
+    level?: 'info' | 'warning' | 'error'
+    stage: string
+    message: string
+    detail?: Record<string, unknown>
+  },
+): Promise<ConnectorRunLogWire> {
+  return client.rpc('append_connector_run_log', {
+    p_workspace_id: input.workspaceId,
+    p_run_id: input.runId,
+    p_level: input.level ?? 'info',
+    p_stage: input.stage,
+    p_message: input.message,
+    p_detail: input.detail ?? {},
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Reads (PostgREST resource queries).
+// ---------------------------------------------------------------------------
+
+const CONNECTOR_FIELDS =
+  'id,workspace_id,key,name,connector_type,direction,status,parser_id,config,created_at,updated_at'
+
+const RUN_FIELDS =
+  'id,workspace_id,connector_id,trigger_kind,status,attempt,retry_of_run_id,request_digest,result,error_code,error_message,started_at,finished_at'
+
+export async function listConnectors(
+  client: DataClient,
+): Promise<ConnectorWire[]> {
+  return client.list<ConnectorWire>(
+    'connectors',
+    `?select=${CONNECTOR_FIELDS}&order=name.asc`,
+  )
+}
+
+export async function getConnector(
+  client: DataClient,
+  connectorId: string,
+): Promise<ConnectorWire | undefined> {
+  const rows = await client.list<ConnectorWire>(
+    'connectors',
+    `?select=${CONNECTOR_FIELDS}&id=eq.${encodeURIComponent(connectorId)}`,
+  )
+  return rows[0]
+}
+
+export async function listConnectorRuns(
+  client: DataClient,
+  connectorId: string,
+  limit = 50,
+): Promise<ConnectorRunWire[]> {
+  return client.list<ConnectorRunWire>(
+    'connector_runs',
+    `?select=${RUN_FIELDS}&connector_id=eq.${encodeURIComponent(connectorId)}&order=started_at.desc&limit=${limit}`,
+  )
+}
+
+export async function listRunLogs(
+  client: DataClient,
+  runId: string,
+): Promise<ConnectorRunLogWire[]> {
+  return client.list<ConnectorRunLogWire>(
+    'connector_run_logs',
+    `?select=id,workspace_id,run_id,sequence,level,stage,message,detail,at&run_id=eq.${encodeURIComponent(runId)}&order=sequence.asc`,
+  )
+}
+
+export const connectorQueryKeys = {
+  connectors: ['connectors'] as const,
+  connector: (id: string) => ['connectors', id] as const,
+  runs: (connectorId: string) => ['connectors', connectorId, 'runs'] as const,
+  runLogs: (runId: string) => ['connectors', 'runs', runId, 'logs'] as const,
+}
+
+export function describeConnectorsError(cause: unknown): string {
+  const message =
+    cause instanceof Error ? cause.message : 'The request failed.'
+  if (/capability required/i.test(message)) {
+    return 'You do not have permission to manage integrations in this workspace.'
+  }
+  if (/connector key|invalid connector key/i.test(message)) {
+    return 'Choose a different lowercase key for this workspace.'
+  }
+  return message
+}

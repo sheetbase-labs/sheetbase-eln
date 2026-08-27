@@ -399,6 +399,7 @@ async function createSourceDatabase(): Promise<{
     )
     await admin.query(`DROP ROLE IF EXISTS int03_source`)
     await admin.query(`CREATE ROLE int03_source LOGIN PASSWORD 'int03-source-pass'`)
+    await admin.query(`CREATE DATABASE ${SOURCE_DB}`)
   } finally {
     await admin.end()
   }

@@ -44,6 +44,7 @@ export function RegisterConnectorDialog({
   const [connectorType, setConnectorType] = useState<ConnectorType>('instrument')
   const [direction, setDirection] = useState<ConnectorDirection>('inbound')
   const [parserId, setParserId] = useState<string>(listParsers()[0]?.parserId ?? '')
+  const [adapter, setAdapter] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   const mutation = useMutation({
@@ -55,6 +56,11 @@ export function RegisterConnectorDialog({
         connectorType,
         direction,
         parserId: connectorType === 'instrument' ? parserId : null,
+        config:
+          (connectorType === 'storage' || connectorType === 'database') &&
+          adapter
+            ? { adapter }
+            : undefined,
       }),
     onSuccess: () => {
       setError(null)
@@ -148,6 +154,29 @@ export function RegisterConnectorDialog({
                   </option>
                 ))}
               </select>
+            </div>
+          )}
+          {(connectorType === 'storage' || connectorType === 'database') && (
+            <div className="grid gap-2">
+              <Label>Source adapter</Label>
+              <select
+                className="border-input bg-background h-9 rounded-md border px-3 text-sm"
+                value={adapter}
+                onChange={(event) => setAdapter(event.target.value)}
+              >
+                {connectorType === 'storage' && (
+                  <option value="s3">S3-compatible object storage</option>
+                )}
+                {connectorType === 'database' && (
+                  <option value="postgres">External PostgreSQL (read-only)</option>
+                )}
+                <option value="">None (custom)</option>
+              </select>
+              <p className="text-muted-foreground text-xs">
+                Enterprise source adapters run server-side; non-secret settings
+                (bucket/prefix or host/port/database) are configured on the
+                connector after registration.
+              </p>
             </div>
           )}
           {error && (

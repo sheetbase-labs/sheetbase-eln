@@ -4,6 +4,8 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { Pause, Play } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
+import { ConnectorCredentialsCard } from '#/components/integrations/credentials-card'
+import { EnterpriseSourcePanel } from '#/components/integrations/enterprise-source-panel'
 import { IngestPanel } from '#/components/integrations/ingest-panel'
 import { RunHistory } from '#/components/integrations/run-history'
 import {
@@ -25,6 +27,11 @@ import {
 } from '#/lib/connectors/client'
 import { hasCapability } from '#/lib/capability'
 import { getParser } from '#/lib/connectors/registry'
+import {
+  POSTGRES_SECRET_NAMES,
+  S3_SECRET_NAMES,
+  enterpriseAdapterId,
+} from '#/lib/connectors/enterprise/types'
 
 export const Route = createFileRoute('/integrations/$connectorId')({
   beforeLoad: async ({ context: rootContext }) => {
@@ -172,6 +179,26 @@ function ConnectorDetailRoute() {
                 parserId={connector.parser_id}
               />
             )}
+
+          {enterpriseAdapterId(connector) && connector.status === 'active' && (
+            <EnterpriseSourcePanel
+              workspaceId={workspaceId}
+              connector={connector}
+            />
+          )}
+
+          {enterpriseAdapterId(connector) && (
+            <ConnectorCredentialsCard
+              workspaceId={workspaceId}
+              connectorId={connector.id}
+              requiredSecrets={
+                enterpriseAdapterId(connector) === 'postgres'
+                  ? POSTGRES_SECRET_NAMES
+                  : S3_SECRET_NAMES
+              }
+              canManage={canManage}
+            />
+          )}
         </div>
 
         <Card className="self-start">

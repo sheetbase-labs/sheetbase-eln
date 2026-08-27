@@ -64,7 +64,7 @@ async function loadSession(workspaceId: string) {
   return { db, context }
 }
 
-function secretKey(): Buffer {
+export function secretKey(): Buffer {
   const master = process.env.BETTER_AUTH_SECRET
   if (!master || master.length === 0) {
     throw new Error('BETTER_AUTH_SECRET is not configured.')

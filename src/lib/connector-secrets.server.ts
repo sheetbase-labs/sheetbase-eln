@@ -121,8 +121,21 @@ export const setConnectorSecretFn = createServerFn({ method: 'POST' })
     }
     if (!data.value.trim()) throw new Error('Secret value cannot be empty.')
     const { db, context } = await loadSession(data.workspaceId)
-    const { connectorSecrets } = await import('#/db/schema')
+    const { connectorSecrets, connectors } = await import('#/db/schema')
     const { eq, and } = await import('drizzle-orm')
+    // Composite FK enforces this at rest; verify explicitly for a clear error.
+    const owned = await db
+      .select({ id: connectors.id })
+      .from(connectors)
+      .where(
+        and(
+          eq(connectors.id, data.connectorId),
+          eq(connectors.workspaceId, data.workspaceId),
+        ),
+      )
+    if (owned.length === 0) {
+      throw new Error('Connector not found in this workspace.')
+    }
     const sealed = sealSecret(data.value.trim(), secretKey())
     // Insert or rotate. Only the name + timestamp leave this function.
     const existing = await db

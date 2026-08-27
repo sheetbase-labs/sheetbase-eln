@@ -5990,6 +5990,8 @@ export const connectors = api.table(
   },
   (table) => [
     uniqueIndex('uq_connectors_workspace_key').on(table.workspaceId, table.key),
+    // Composite identity target for run/log/secret parent links.
+    unique('uq_connectors_workspace_id').on(table.workspaceId, table.id),
     index('idx_connectors_workspace').on(table.workspaceId),
     check(
       'chk_connectors_key',
@@ -6021,9 +6023,7 @@ export const connectorRuns = api.table(
     workspaceId: uuid('workspace_id')
       .notNull()
       .references(() => workspaces.id, { onDelete: 'cascade' }),
-    connectorId: uuid('connector_id')
-      .notNull()
-      .references(() => connectors.id, { onDelete: 'cascade' }),
+    connectorId: uuid('connector_id').notNull(),
     triggerKind: text('trigger_kind').notNull().default('manual'),
     status: text('status').notNull().default('running'),
     attempt: integer('attempt').notNull().default(1),
@@ -6048,11 +6048,19 @@ export const connectorRuns = api.table(
       .defaultNow(),
   },
   (table) => [
+    // Composite parent link: a run can never reference another workspace's
+    // connector. (workspace_id, id) pair must agree on both sides.
+    foreignKey({
+      name: 'fk_connector_runs_connector',
+      columns: [table.workspaceId, table.connectorId],
+      foreignColumns: [connectors.workspaceId, connectors.id],
+    }).onDelete('cascade'),
+    unique('uq_connector_runs_workspace_id').on(table.workspaceId, table.id),
     index('idx_connector_runs_workspace').on(table.workspaceId),
     index('idx_connector_runs_connector').on(table.connectorId),
     uniqueIndex('uq_connector_runs_digest')
       .on(table.connectorId, table.requestDigest)
-      .where(sql`request_digest IS NOT NULL`),
+      .where(sql`request_digest IS NOT NULL AND status = 'succeeded'`),
     check(
       'chk_connector_runs_trigger',
       sql`${table.triggerKind} IN ('manual', 'scheduled', 'event')`,
@@ -6076,9 +6084,7 @@ export const connectorRunLogs = api.table(
     workspaceId: uuid('workspace_id')
       .notNull()
       .references(() => workspaces.id, { onDelete: 'cascade' }),
-    runId: uuid('run_id')
-      .notNull()
-      .references(() => connectorRuns.id, { onDelete: 'cascade' }),
+    runId: uuid('run_id').notNull(),
     sequence: integer('sequence').notNull(),
     level: text('level').notNull().default('info'),
     stage: text('stage').notNull(),
@@ -6089,6 +6095,11 @@ export const connectorRunLogs = api.table(
       .defaultNow(),
   },
   (table) => [
+    foreignKey({
+      name: 'fk_connector_run_logs_run',
+      columns: [table.workspaceId, table.runId],
+      foreignColumns: [connectorRuns.workspaceId, connectorRuns.id],
+    }).onDelete('cascade'),
     index('idx_connector_run_logs_run').on(table.runId, table.sequence),
     index('idx_connector_run_logs_workspace').on(table.workspaceId),
     check(
@@ -6108,9 +6119,7 @@ export const connectorSecrets = internal.table('connector_secrets', {
   workspaceId: uuid('workspace_id')
     .notNull()
     .references(() => workspaces.id, { onDelete: 'cascade' }),
-  connectorId: uuid('connector_id')
-    .notNull()
-    .references(() => connectors.id, { onDelete: 'cascade' }),
+  connectorId: uuid('connector_id').notNull(),
   secretName: text('secret_name').notNull(),
   ciphertext: bytea('ciphertext').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
@@ -6122,7 +6131,15 @@ export const connectorSecrets = internal.table('connector_secrets', {
   createdByUserId: text('created_by_user_id').references(() => user.id, {
     onDelete: 'set null',
   }),
-})
+}, (table) => [
+  // Composite parent link: a secret can never attach a foreign workspace's
+  // connector, even when both ids are individually valid.
+  foreignKey({
+    name: 'fk_connector_secrets_connector',
+    columns: [table.workspaceId, table.connectorId],
+    foreignColumns: [connectors.workspaceId, connectors.id],
+  }).onDelete('cascade'),
+])
 
 export const connectorsRelations = relations(connectors, ({ one, many }) => ({
   workspace: one(workspaces, {

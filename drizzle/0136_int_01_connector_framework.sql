@@ -68,7 +68,8 @@ CREATE TABLE "api"."connector_runs" (
   "actor_credential_id" uuid REFERENCES internal.api_credentials(id) ON DELETE set null,
   "created_at" timestamptz NOT NULL DEFAULT now(),
   FOREIGN KEY ("workspace_id") REFERENCES api.workspaces(id) ON DELETE cascade,
-  FOREIGN KEY ("connector_id") REFERENCES api.connectors(id) ON DELETE cascade,
+  -- Composite parent link (workspace_id, connector_id) is declared after the
+  -- run/logs tables so a run can never reference another workspace's connector.
   CONSTRAINT chk_connector_runs_trigger CHECK (trigger_kind IN ('manual', 'scheduled', 'event')),
   CONSTRAINT chk_connector_runs_status CHECK (status IN ('running', 'succeeded', 'failed')),
   CONSTRAINT chk_connector_runs_attempt CHECK (attempt >= 1),
@@ -80,8 +81,11 @@ CREATE TABLE "api"."connector_runs" (
   )
 );
 --> statement-breakpoint
+-- Idempotency receipt: only successful ingestion is a canonical receipt.
+-- Failed runs may share a digest (explicit retry creates a new attempt);
+-- concurrent duplicates are rejected by the 'run already in progress' guard.
 CREATE UNIQUE INDEX uq_connector_runs_digest ON api.connector_runs(connector_id, request_digest)
-  WHERE request_digest IS NOT NULL;
+  WHERE request_digest IS NOT NULL AND status = 'succeeded';
 --> statement-breakpoint
 CREATE INDEX idx_connector_runs_workspace ON api.connector_runs(workspace_id);
 --> statement-breakpoint
@@ -102,7 +106,7 @@ CREATE TABLE "api"."connector_run_logs" (
   "detail" jsonb NOT NULL DEFAULT '{}'::jsonb,
   "at" timestamptz NOT NULL DEFAULT now(),
   FOREIGN KEY ("workspace_id") REFERENCES api.workspaces(id) ON DELETE cascade,
-  FOREIGN KEY ("run_id") REFERENCES api.connector_runs(id) ON DELETE cascade,
+  -- Composite parent link (workspace_id, run_id) declared after the runs table.
   CONSTRAINT chk_connector_run_logs_level CHECK (level IN ('info', 'warning', 'error')),
   CONSTRAINT chk_connector_run_logs_stage CHECK (length(btrim(stage)) BETWEEN 1 AND 100),
   CONSTRAINT chk_connector_run_logs_message CHECK (length(btrim(message)) BETWEEN 1 AND 2000),
@@ -112,6 +116,24 @@ CREATE TABLE "api"."connector_run_logs" (
 CREATE INDEX idx_connector_run_logs_run ON api.connector_run_logs(run_id, sequence);
 --> statement-breakpoint
 CREATE INDEX idx_connector_run_logs_workspace ON api.connector_run_logs(workspace_id);
+
+--> statement-breakpoint
+
+-- Composite identity integrity: workspace + parent id pairs must always agree,
+-- so a run/log/secret can never attach a foreign workspace's connector.
+ALTER TABLE api.connectors ADD CONSTRAINT uq_connectors_workspace_id UNIQUE (workspace_id, id);
+--> statement-breakpoint
+ALTER TABLE api.connector_runs ADD CONSTRAINT uq_connector_runs_workspace_id UNIQUE (workspace_id, id);
+--> statement-breakpoint
+ALTER TABLE api.connector_runs
+  ADD CONSTRAINT fk_connector_runs_connector
+  FOREIGN KEY (workspace_id, connector_id)
+  REFERENCES api.connectors (workspace_id, id) ON DELETE cascade;
+--> statement-breakpoint
+ALTER TABLE api.connector_run_logs
+  ADD CONSTRAINT fk_connector_run_logs_run
+  FOREIGN KEY (workspace_id, run_id)
+  REFERENCES api.connector_runs (workspace_id, id) ON DELETE cascade;
 
 --> statement-breakpoint
 
@@ -127,7 +149,8 @@ CREATE TABLE "internal"."connector_secrets" (
   "updated_at" timestamptz NOT NULL DEFAULT now(),
   "created_by_user_id" text REFERENCES internal."user"(id) ON DELETE set null,
   FOREIGN KEY ("workspace_id") REFERENCES api.workspaces(id) ON DELETE cascade,
-  FOREIGN KEY ("connector_id") REFERENCES api.connectors(id) ON DELETE cascade,
+  FOREIGN KEY ("workspace_id", "connector_id")
+    REFERENCES api.connectors (workspace_id, id) ON DELETE cascade,
   CONSTRAINT chk_connector_secrets_name CHECK (
     secret_name ~ '^[a-z][a-z0-9_]{0,48}$'
   ),
@@ -369,8 +392,10 @@ BEGIN
     RAISE EXCEPTION 'connector is not active' USING ERRCODE = 'SB042';
   END IF;
 
-  -- Idempotency: same request digest on the same connector resolves to the prior
-  -- successful run instead of double-ingesting.
+  -- Idempotency vs retry. A digest identifies one logical request:
+  --   succeeded + no explicit retry  -> return the prior success (replay)
+  --   running (any digest match)     -> conflict, never double-ingest
+  --   failed + retry_of_run_id = failed run -> new attempt, same request identity
   IF p_request_digest IS NOT NULL THEN
     IF length(btrim(p_request_digest)) NOT BETWEEN 16 AND 128 THEN
       RAISE EXCEPTION 'invalid request digest' USING ERRCODE = 'SB034';
@@ -378,12 +403,22 @@ BEGIN
     SELECT * INTO v_existing FROM api.connector_runs
      WHERE connector_id = p_connector_id
        AND request_digest = btrim(p_request_digest)
-       AND workspace_id = p_workspace_id;
+       AND workspace_id = p_workspace_id
+     ORDER BY started_at DESC
+     LIMIT 1;
     IF v_existing.id IS NOT NULL THEN
       IF v_existing.status = 'running' THEN
         RAISE EXCEPTION 'run already in progress' USING ERRCODE = 'SB044';
       END IF;
-      RETURN v_existing;
+      IF v_existing.status = 'succeeded' THEN
+        RETURN v_existing;
+      END IF;
+      -- Failed prior attempt: retrying the same request identity is only
+      -- meaningful as an explicit new attempt linked to that failed run.
+      IF p_retry_of_run_id IS NULL OR p_retry_of_run_id <> v_existing.id THEN
+        RAISE EXCEPTION 'request previously failed; retry with retry_of_run_id'
+          USING ERRCODE = 'SB045';
+      END IF;
     END IF;
   END IF;
 
@@ -546,9 +581,15 @@ GRANT EXECUTE ON FUNCTION api.append_connector_run_log(uuid, uuid, text, text, t
 --> statement-breakpoint
 
 -- ---------------------------------------------------------------------------
--- Table grants + RLS (mirror instrument surfaces: authenticated RLS DML, read-only api_client).
+-- Table grants + RLS.
+--
+-- Governance boundary: connectors, runs and logs are READ-ONLY tables for
+-- request roles; every mutation goes through the SECURITY DEFINER RPCs above,
+-- which carry the integrations.manage / workspace-writer gates and the
+-- idempotency + attempt semantics. No authenticated DML grant exists, so
+-- lifecycle events cannot be fabricated by writing rows directly.
 -- ---------------------------------------------------------------------------
-GRANT SELECT, INSERT, UPDATE ON api.connectors, api.connector_runs, api.connector_run_logs TO authenticated;
+GRANT SELECT ON api.connectors, api.connector_runs, api.connector_run_logs TO authenticated;
 GRANT SELECT ON api.connectors, api.connector_runs, api.connector_run_logs TO api_client;
 --> statement-breakpoint
 ALTER TABLE api.connectors ENABLE ROW LEVEL SECURITY;
@@ -557,29 +598,16 @@ ALTER TABLE api.connector_run_logs ENABLE ROW LEVEL SECURITY;
 --> statement-breakpoint
 CREATE POLICY connectors_select ON api.connectors FOR SELECT TO authenticated
   USING (api.storage_member_using(workspace_id));
--- Write policies gate on the shared writer predicate (GOV-01 inventory).
-CREATE POLICY connectors_write ON api.connectors FOR INSERT TO authenticated
-  WITH CHECK (api.is_workspace_writer(workspace_id));
-CREATE POLICY connectors_update ON api.connectors FOR UPDATE TO authenticated
-  USING (api.is_workspace_writer(workspace_id))
-  WITH CHECK (api.is_workspace_writer(workspace_id));
 CREATE POLICY connectors_client_select ON api.connectors FOR SELECT TO api_client
   USING (workspace_id = api.current_workspace_id());
 --> statement-breakpoint
 CREATE POLICY connector_runs_select ON api.connector_runs FOR SELECT TO authenticated
   USING (api.storage_member_using(workspace_id));
-CREATE POLICY connector_runs_write ON api.connector_runs FOR INSERT TO authenticated
-  WITH CHECK (api.is_workspace_writer(workspace_id));
-CREATE POLICY connector_runs_update ON api.connector_runs FOR UPDATE TO authenticated
-  USING (api.is_workspace_writer(workspace_id))
-  WITH CHECK (api.is_workspace_writer(workspace_id));
 CREATE POLICY connector_runs_client_select ON api.connector_runs FOR SELECT TO api_client
   USING (workspace_id = api.current_workspace_id());
 --> statement-breakpoint
 CREATE POLICY connector_run_logs_select ON api.connector_run_logs FOR SELECT TO authenticated
   USING (api.storage_member_using(workspace_id));
-CREATE POLICY connector_run_logs_insert ON api.connector_run_logs FOR INSERT TO authenticated
-  WITH CHECK (api.is_workspace_writer(workspace_id));
 CREATE POLICY connector_run_logs_client_select ON api.connector_run_logs FOR SELECT TO api_client
   USING (workspace_id = api.current_workspace_id());
 

@@ -91,6 +91,23 @@ function pgDataClient(owner: Client): DataClient {
         )
       ).rows[0]
     },
+    insert: async (resource: string, row: Record<string, unknown>) => {
+      if (resource !== 'datasets') {
+        throw new Error(`unexpected insert resource ${resource}`)
+      }
+      const result = await owner.query(
+        `insert into api.datasets(workspace_id,schema_version_id,name,description,primary_project_id)
+         values($1,$2,$3,$4,$5) returning id, name, revision`,
+        [
+          row.workspace_id,
+          row.schema_version_id,
+          row.name,
+          row.description ?? null,
+          row.primary_project_id ?? null,
+        ],
+      )
+      return result.rows[0]
+    },
   } as unknown as DataClient
 }
 
@@ -339,6 +356,169 @@ describe('INT-01 connector framework', () => {
     expect(retry.retry_of_run_id).toBe(failing.id)
   })
 
+  it('allows an explicit retry of a failed run under the same request digest', async () => {
+    const owner = await actor(OWNER_A, WS_A)
+    const connectorId = (
+      await owner.query(
+        `select id from api.connectors where key='plate-reader-bench' limit 1`,
+      )
+    ).rows[0].id
+    const digest = `f${crypto.randomUUID().replaceAll('-', '')}`.slice(0, 32)
+
+    const first = (
+      await owner.query(
+        `select * from api.start_connector_run($1,$2,$3,$4,$5)`,
+        [WS_A, connectorId, 'manual', digest, null],
+      )
+    ).rows[0]
+    await owner.query(`select * from api.fail_connector_run($1,$2,$3,$4)`, [
+      WS_A,
+      first.id,
+      'parse_failed',
+      'boom',
+    ])
+
+    // Same digest without retry_of: refused — the prior attempt failed and an
+    // unlinked run would silently hide the failure.
+    await expect(
+      owner.query(`select * from api.start_connector_run($1,$2,$3,$4,$5)`, [
+        WS_A,
+        connectorId,
+        'manual',
+        digest,
+        null,
+      ]),
+    ).rejects.toMatchObject({ code: 'SB045' })
+
+    // Explicit retry with the same request identity: new attempt created.
+    const retry = (
+      await owner.query(
+        `select * from api.start_connector_run($1,$2,$3,$4,$5)`,
+        [WS_A, connectorId, 'manual', digest, first.id],
+      )
+    ).rows[0]
+    expect(retry.id).not.toBe(first.id)
+    expect(retry.attempt).toBe(2)
+    expect(retry.retry_of_run_id).toBe(first.id)
+    expect(retry.status).toBe('running')
+
+    // Retry that succeeds becomes the canonical receipt for the digest.
+    const done = (
+      await owner.query(
+        `select * from api.complete_connector_run($1,$2,$3::jsonb)`,
+        [WS_A, retry.id, JSON.stringify({ rowCount: 3 })],
+      )
+    ).rows[0]
+    expect(done.status).toBe('succeeded')
+    const replay = (
+      await owner.query(
+        `select * from api.start_connector_run($1,$2,$3,$4,$5)`,
+        [WS_A, connectorId, 'manual', digest, null],
+      )
+    ).rows[0]
+    expect(replay.id).toBe(retry.id)
+    expect(replay.status).toBe('succeeded')
+  })
+
+  it('denies direct table writes: mutations only through governed RPCs', async () => {
+    const owner = await actor(OWNER_A, WS_A)
+    const connectorId = (
+      await owner.query(
+        `select id from api.connectors where key='plate-reader-bench' limit 1`,
+      )
+    ).rows[0].id
+
+    // Even the owner cannot INSERT/UPDATE connector lifecycle rows directly;
+    // the RPC layer (capability gates, digest/attempt semantics) is the only
+    // mutation surface, so lifecycle events cannot be fabricated.
+    await expect(
+      owner.query(
+        `insert into api.connectors(workspace_id,key,name) values($1,'sneaky','Sneaky')`,
+        [WS_A],
+      ),
+    ).rejects.toMatchObject({ code: '42501' })
+    await expect(
+      owner.query(`update api.connectors set status='paused' where id=$1`, [
+        connectorId,
+      ]),
+    ).rejects.toMatchObject({ code: '42501' })
+    await expect(
+      owner.query(
+        `insert into api.connector_runs(workspace_id,connector_id,actor_user_id) values($1,$2,$3)`,
+        [WS_A, connectorId, OWNER_A],
+      ),
+    ).rejects.toMatchObject({ code: '42501' })
+    await expect(
+      owner.query(
+        `insert into api.connector_run_logs(workspace_id,run_id,sequence,level,stage,message)
+         values($1,(select id from api.connector_runs limit 1),1,'info','x','fabricated')`,
+        [WS_A],
+      ),
+    ).rejects.toMatchObject({ code: '42501' })
+    await expect(
+      owner.query(
+        `update api.connector_runs set status='succeeded' where connector_id=$1`,
+        [connectorId],
+      ),
+    ).rejects.toMatchObject({ code: '42501' })
+  })
+
+  it('enforces composite workspace/parent identity on runs, logs and secrets', async () => {
+    // A second workspace with its own connector.
+    const WS_B = '0e010000-0000-4000-8000-000000000002'
+    await migrator.query(
+      `insert into api.workspaces(id,slug,name,status) values($1,'int-b','INT B','active')
+       on conflict (id) do nothing`,
+      [WS_B],
+    )
+    const connectorB = (
+      await migrator.query(
+        `insert into api.connectors(workspace_id,key,name,connector_type,direction)
+         values($1,'b-connector','B connector','custom','inbound') returning id`,
+        [WS_B],
+      )
+    ).rows[0]
+    const connectorA = (
+      await migrator.query(
+        `select id from api.connectors where key='plate-reader-bench' limit 1`,
+      )
+    ).rows[0]
+
+    // Runs: workspace A cannot attach workspace B's connector.
+    await expect(
+      migrator.query(
+        `insert into api.connector_runs(workspace_id,connector_id,actor_user_id)
+         values($1,$2,$3)`,
+        [WS_A, connectorB.id, OWNER_A],
+      ),
+    ).rejects.toMatchObject({ code: '23503' })
+
+    // Logs: cannot attach a run from another workspace.
+    const runA = (
+      await migrator.query(
+        `insert into api.connector_runs(workspace_id,connector_id,actor_user_id)
+         values($1,$2,$3) returning id`,
+        [WS_A, connectorA.id, OWNER_A],
+      )
+    ).rows[0]
+    await expect(
+      migrator.query(
+        `insert into api.connector_run_logs(workspace_id,run_id,sequence,level,stage,message)
+         values($1,$2,1,'info','stage','msg')`,
+        [WS_B, runA.id],
+      ),
+    ).rejects.toMatchObject({ code: '23503' })
+
+    // Secrets: workspace A cannot hold a secret for workspace B's connector.
+    await expect(
+      migrator.query(
+        `insert into internal.connector_secrets(workspace_id,connector_id,secret_name,ciphertext)
+         values($1,$2,'api_key',decode('00','hex'))`,
+        [WS_A, connectorB.id],
+      ),
+    ).rejects.toMatchObject({ code: '23503' })
+  })
+
   it('emits change events for connector and connector_run entities', async () => {
     const owner = await actor(OWNER_A, WS_A)
     const events = (
@@ -368,6 +548,39 @@ describe('INT-01 connector framework', () => {
 })
 
 describe('INT-02 instrument ingestion', () => {
+  const VALID_CSV = `# Instrument: QuantStudio 5
+# Plate ID: PLT-42
+
+Well,Sample,CT
+A1,std-1,18.2
+A2,std-2,21.7`
+
+  async function ingest(
+    owner: Client,
+    connectorId: string,
+    fixture: Awaited<ReturnType<typeof createDatasetFixture>>,
+    text: string,
+    fileName: string,
+    retainedFile?: { fileId: string; checksum: string },
+  ) {
+    return ingestInstrumentPayload(pgDataClient(owner), {
+      workspaceId: WS_A,
+      connectorId,
+      parserId: 'sheetbase.plate-reader-csv',
+      text,
+      fileName,
+      fileId: retainedFile?.fileId ?? null,
+      checksum: retainedFile?.checksum ?? null,
+      byteSize: Buffer.byteLength(text),
+      target: {
+        datasetId: fixture.datasetId,
+        expectedRevision: fixture.revision,
+        schemaVersionId: fixture.schemaVersionId,
+        fields: fixture.fields,
+      },
+    })
+  }
+
   it('ingests plate-reader CSV through validation/commit inside a governed run', async () => {
     const owner = await actor(OWNER_A, WS_A)
     const fixture = await createDatasetFixture(owner)
@@ -377,27 +590,11 @@ describe('INT-02 instrument ingestion', () => {
       )
     ).rows[0].id
 
-    const csv = `# Instrument: QuantStudio 5
-# Plate ID: PLT-42
-
-Well,Sample,CT
-A1,std-1,18.2
-A2,std-2,21.7`
-
-    const client = pgDataClient(owner)
-    const result = await ingestInstrumentPayload(client, {
-      workspaceId: WS_A,
-      connectorId,
-      parserId: 'sheetbase.plate-reader-csv',
-      text: csv,
-      fileName: 'run-42.csv',
-      byteSize: Buffer.byteLength(csv),
-      target: {
-        datasetId: fixture.datasetId,
-        expectedRevision: fixture.revision,
-        schemaVersionId: fixture.schemaVersionId,
-        fields: fixture.fields,
-      },
+    // The raw file was retained through the canonical file subsystem first;
+    // its canonical id and sha256 travel into run provenance.
+    const result = await ingest(owner, connectorId, fixture, VALID_CSV, 'run-42.csv', {
+      fileId: '0e100000-0000-4000-8000-00000000aa01',
+      checksum: 'a'.repeat(64),
     })
 
     expect(result.alreadyCompleted).toBe(false)
@@ -413,13 +610,16 @@ A2,std-2,21.7`
     )
     expect(stored.rows[0].n).toBe(2)
 
-    // Run provenance carries file + parser identity.
+    // Run provenance carries the retained file + parser identity.
     const runRow = await owner.query(
       `select status, result from api.connector_runs where id=$1`,
       [result.runId],
     )
     expect(runRow.rows[0].status).toBe('succeeded')
-    expect(runRow.rows[0].result.fileSha256).toBeNull()
+    expect(runRow.rows[0].result.fileId).toBe(
+      '0e100000-0000-4000-8000-00000000aa01',
+    )
+    expect(runRow.rows[0].result.fileSha256).toBe('a'.repeat(64))
     expect(runRow.rows[0].result.parser).toBe('sheetbase.plate-reader-csv@1')
     expect(runRow.rows[0].result.fileName).toBe('run-42.csv')
 
@@ -436,6 +636,130 @@ A2,std-2,21.7`
     ])
   })
 
+  it('replays a successful run with the stored result, not an empty ingest', async () => {
+    const owner = await actor(OWNER_A, WS_A)
+    const fixture = await createDatasetFixture(owner)
+    const connectorId = (
+      await owner.query(
+        `select id from api.connectors where key='plate-reader-bench' limit 1`,
+      )
+    ).rows[0].id
+
+    const first = await ingest(owner, connectorId, fixture, VALID_CSV, 'run-42.csv', {
+      fileId: '0e100000-0000-4000-8000-00000000aa02',
+      checksum: 'b'.repeat(64),
+    })
+    expect(first.alreadyCompleted).toBe(false)
+
+    // Same retained file re-ingested: deduplicated to the same run, with the
+    // stored result reconstructed — never rowCount 0 / empty metadata.
+    const replay = await ingest(owner, connectorId, fixture, VALID_CSV, 'run-42.csv', {
+      fileId: '0e100000-0000-4000-8000-00000000aa02',
+      checksum: 'b'.repeat(64),
+    })
+    expect(replay.alreadyCompleted).toBe(true)
+    expect(replay.runId).toBe(first.runId)
+    expect(replay.rowCount).toBe(2)
+    expect(replay.metadata.instrument).toBe('QuantStudio 5')
+    expect(replay.datasetId).toBe(first.datasetId)
+  })
+
+  it('never deduplicates two different same-length payloads', async () => {
+    const owner = await actor(OWNER_A, WS_A)
+    const fixture = await createDatasetFixture(owner)
+    const connectorId = (
+      await owner.query(
+        `select id from api.connectors where key='plate-reader-bench' limit 1`,
+      )
+    ).rows[0].id
+
+    // Same byte length, different content.
+    const csvA = 'Well,Sample,CT\nA1,std-1,18.2\n'
+    const csvB = 'Well,Sample,CT\nA2,std-9,31.7\n'
+    expect(Buffer.byteLength(csvA)).toBe(Buffer.byteLength(csvB))
+
+    const a = await ingest(owner, connectorId, fixture, csvA, 'a.csv')
+    // The first ingest bumped the Dataset revision; re-read it for the second.
+    const refreshed = await owner.query(
+      `select revision from api.datasets where id=$1`,
+      [fixture.datasetId],
+    )
+    const b = await ingestInstrumentPayload(pgDataClient(owner), {
+      workspaceId: WS_A,
+      connectorId,
+      parserId: 'sheetbase.plate-reader-csv',
+      text: csvB,
+      fileName: 'b.csv',
+      target: {
+        datasetId: fixture.datasetId,
+        expectedRevision: Number(refreshed.rows[0].revision),
+        schemaVersionId: fixture.schemaVersionId,
+        fields: fixture.fields,
+      },
+    })
+    expect(a.runId).not.toBe(b.runId)
+    expect(a.alreadyCompleted).toBe(false)
+    expect(b.alreadyCompleted).toBe(false)
+  })
+
+  it('creates a new target Dataset only after parse and mapping succeed', async () => {
+    const owner = await actor(OWNER_A, WS_A)
+    const fixture = await createDatasetFixture(owner)
+    const connectorId = (
+      await owner.query(
+        `select id from api.connectors where key='plate-reader-bench' limit 1`,
+      )
+    ).rows[0].id
+
+    // Valid input, new Dataset target: dataset created with the rows.
+    const created = await ingestInstrumentPayload(pgDataClient(owner), {
+      workspaceId: WS_A,
+      connectorId,
+      parserId: 'sheetbase.plate-reader-csv',
+      text: VALID_CSV,
+      fileName: 'new-target.csv',
+      target: {
+        datasetId: null,
+        newDatasetName: `Created by run ${crypto.randomUUID().slice(0, 8)}`,
+        schemaVersionId: fixture.schemaVersionId,
+        fields: fixture.fields,
+      },
+    })
+    expect(created.datasetId).not.toBe(fixture.datasetId)
+    const stored = await owner.query(
+      `select count(*)::int n from api.dataset_rows where dataset_id=$1`,
+      [created.datasetId],
+    )
+    expect(stored.rows[0].n).toBe(2)
+
+    // Invalid input with a new-Dataset target: run fails and NO dataset is
+    // created — no orphan empty Dataset artefacts.
+    const before = await owner.query(
+      `select count(*)::int n from api.datasets where schema_version_id=$1`,
+      [fixture.schemaVersionId],
+    )
+    await expect(
+      ingestInstrumentPayload(pgDataClient(owner), {
+        workspaceId: WS_A,
+        connectorId,
+        parserId: 'sheetbase.plate-reader-csv',
+        text: 'Totally,Unexpected\n1,2\n',
+        fileName: 'garbage.csv',
+        target: {
+          datasetId: null,
+          newDatasetName: 'Should never exist',
+          schemaVersionId: fixture.schemaVersionId,
+          fields: fixture.fields,
+        },
+      }),
+    ).rejects.toThrow(/failed|mapped|mapping/i)
+    const after = await owner.query(
+      `select count(*)::int n from api.datasets where schema_version_id=$1`,
+      [fixture.schemaVersionId],
+    )
+    expect(after.rows[0].n).toBe(before.rows[0].n)
+  })
+
   it('fails closed on unmappable payloads and keeps the Dataset untouched', async () => {
     const owner = await actor(OWNER_A, WS_A)
     const fixture = await createDatasetFixture(owner)
@@ -446,21 +770,8 @@ A2,std-2,21.7`
     ).rows[0].id
 
     const csv = 'Totally,Unexpected\n1,2\n'
-    const client = pgDataClient(owner)
     await expect(
-      ingestInstrumentPayload(client, {
-        workspaceId: WS_A,
-        connectorId,
-        parserId: 'sheetbase.plate-reader-csv',
-        text: csv,
-        fileName: 'garbage.csv',
-        target: {
-          datasetId: fixture.datasetId,
-          expectedRevision: fixture.revision,
-          schemaVersionId: fixture.schemaVersionId,
-          fields: fixture.fields,
-        },
-      }),
+      ingest(owner, connectorId, fixture, csv, 'garbage.csv'),
     ).rejects.toThrow(/failed|mapped|mapping/i)
 
     const failedRun = await owner.query(

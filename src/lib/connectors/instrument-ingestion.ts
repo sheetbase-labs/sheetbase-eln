@@ -3,8 +3,10 @@
  *
  * One canonical path per concept:
  *
- *   raw file → registered parser identity → mapping → validate_dataset_row_batch
- *            → commit_dataset_row_batch → connector run result provenance
+ *   raw file (retained via file platform) → registered parser identity
+ *     → mapping → target Dataset (created only after input validates)
+ *     → validate_dataset_row_batch → commit_dataset_row_batch
+ *     → connector run result provenance
  *
  * Nothing here writes rows directly; every value passes the pinned Schema
  * Version's fail-closed coercion inside the Core RPCs. The connector run is
@@ -18,9 +20,14 @@ import {
   suggestImportMappings,
 } from '../import-mapping'
 import type { ImportColumnMapping, ImportTargetField } from '../import-mapping'
+import { createDataset } from '../dataset-product'
+import type { IngestionParser } from './registry'
 import { formatParserIdentity, getParser } from './registry'
+import {
+  commitDatasetRowBatch,
+  validateDatasetRowBatch,
+} from '../dataset-product'
 import { ConnectorStepError, executeConnectorRun } from './run'
-import { validateAndCommitDatasetRows } from './dataset-writes'
 
 export interface InstrumentIngestionInput {
   workspaceId: string
@@ -30,14 +37,22 @@ export interface InstrumentIngestionInput {
   /** Raw payload text exactly as received (never transformed client-side). */
   text: string
   fileName: string
-  /** sha256 of the raw bytes when known (file platform checksum). */
+  /**
+   * Canonical file-platform identity of the retained raw file. The product
+   * upload path always supplies this; retention is a first-class guarantee.
+   */
+  fileId?: string | null
+  /** sha256 of the retained bytes, from the file platform upload receipt. */
   checksum?: string | null
   byteSize?: number | null
-  fileId?: string | null
   triggerKind?: 'manual' | 'scheduled' | 'event'
   target: {
-    datasetId: string
-    expectedRevision: number
+    /** Existing target Dataset; when omitted a new one is created. */
+    datasetId?: string | null
+    /** Expected revision when targeting an existing Dataset. */
+    expectedRevision?: number | null
+    /** Required when creating a new Dataset. */
+    newDatasetName?: string | null
     schemaVersionId: string
     fields: ImportTargetField[]
   }
@@ -56,23 +71,37 @@ export interface InstrumentIngestionResult {
   datasetRevision?: number
 }
 
-/** sha256 hex digest over the ingestion inputs — run idempotency key input. */
-export async function ingestionRequestDigest(
-  parts: Array<unknown>,
-): Promise<string> {
-  const payload = JSON.stringify(parts)
-  const buffer = new TextEncoder().encode(payload)
+async function sha256Hex(text: string): Promise<string> {
+  const buffer = new TextEncoder().encode(text)
   const digest = await crypto.subtle.digest('SHA-256', buffer)
   return [...new Uint8Array(digest)]
     .map((byte) => byte.toString(16).padStart(2, '0'))
     .join('')
 }
 
+/**
+ * sha256 hex digest over the ingestion request identity: actual content
+ * (payload hash, never byte length), parser identity, target Dataset/Schema
+ * and mapping configuration. Same-content replays deduplicate; different
+ * payloads always produce distinct runs.
+ */
+export async function ingestionRequestDigest(
+  parts: Array<unknown>,
+): Promise<string> {
+  const payload = JSON.stringify(parts)
+  return sha256Hex(payload)
+}
+
 interface IngestionWork {
   rowCount: number
   metadata: Record<string, string>
   warnings: string[]
+  datasetId: string
   datasetRevision?: number
+}
+
+function parserLabel(parser: IngestionParser): string {
+  return parser.label
 }
 
 export async function ingestInstrumentPayload(
@@ -84,12 +113,13 @@ export async function ingestInstrumentPayload(
     throw new Error(`No parser registered for '${input.parserId}'.`)
   }
 
+  const payloadHash = await sha256Hex(input.text)
   const requestDigest = await ingestionRequestDigest([
     input.connectorId,
-    input.checksum ?? null,
-    input.byteSize ?? null,
-    input.text.length,
-    input.target.datasetId,
+    payloadHash,
+    formatParserIdentity(parser),
+    input.target.datasetId ?? input.target.schemaVersionId,
+    input.target.newDatasetName ?? null,
     input.target.schemaVersionId,
     input.mappings ?? 'suggest',
   ])
@@ -104,12 +134,12 @@ export async function ingestInstrumentPayload(
       startedMessage: `Ingesting ${input.fileName} (${input.byteSize ?? 'unknown'} bytes).`,
       buildResult: (value) => ({
         kind: 'instrument_ingestion',
-        datasetId: input.target.datasetId,
+        datasetId: value.datasetId,
         datasetRevision: value.datasetRevision ?? null,
         schemaVersionId: input.target.schemaVersionId,
         rowCount: value.rowCount,
         fileName: input.fileName,
-        fileSha256: input.checksum ?? null,
+        fileSha256: input.checksum ?? payloadHash,
         fileId: input.fileId ?? null,
         byteSize: input.byteSize ?? null,
         parser: formatParserIdentity(parser),
@@ -118,7 +148,7 @@ export async function ingestInstrumentPayload(
     },
     async ({ run, log }) => {
       // Stage 1 — parse with explicit version identity.
-      let parsed;
+      let parsed
       try {
         parsed = parser.parse(input.text)
       } catch (error) {
@@ -157,71 +187,131 @@ export async function ingestInstrumentPayload(
         'map',
         `Mapped ${mapped.rows.length} rows across ${mappings.filter((m) => m.kind === 'field').length} fields.`,
       )
+      if (mapped.rows.length === 0) {
+        throw new ConnectorStepError(
+          'no_rows',
+          'The instrument output contains no data rows.',
+        )
+      }
       if (mapped.errors.length > 0) {
         throw new ConnectorStepError('mapping_failed', mapped.errors[0].message, {
           errors: mapped.errors.slice(0, 20),
         })
       }
+      // Input is now provably valid: parse and mapping both succeeded. Only
+      // now may a new target Dataset be created, so a failed run cannot leave
+      // an orphan empty Dataset behind.
 
-      // Stages 3+4 — validate then commit through the Core batch RPCs only.
-      const commit = await validateAndCommitDatasetRows(client, {
-        datasetId: input.target.datasetId,
-        expectedRevision: input.target.expectedRevision,
-        schemaVersionId: input.target.schemaVersionId,
-        rows: mapped.rows.map((row) => ({
-          operation: 'create' as const,
-          rowId: row.rowId,
-          values: row.values,
-        })),
+      // Stage 3 — resolve the target Dataset.
+      let datasetId = input.target.datasetId ?? null
+      let expectedRevision = input.target.expectedRevision ?? null
+      if (!datasetId) {
+        if (!input.target.newDatasetName?.trim()) {
+          throw new ConnectorStepError(
+            'no_target',
+            'Choose an existing Dataset or name a new one.',
+          )
+        }
+        const created = await createDataset(client, {
+          workspaceId: input.workspaceId,
+          schemaVersionId: input.target.schemaVersionId,
+          name: input.target.newDatasetName.trim(),
+        })
+        datasetId = created.id
+        expectedRevision = created.revision
+        await log(
+          'target',
+          `Created Dataset ${created.id} (${created.name}) on the pinned Schema Version.`,
+          { datasetId },
+        )
+      }
+
+      // Stages 4+5 — validate then commit through the Core batch RPCs only.
+      const rows = mapped.rows.map((row) => ({
+        operation: 'create' as const,
+        rowId: row.rowId,
+        values: row.values,
+      }))
+      const validated = await validateDatasetRowBatch(client, {
+        datasetId,
+        expectedRevision: expectedRevision ?? 1,
+        rows,
+      }).catch((error) => {
+        throw new ConnectorStepError('validation_failed', String(error))
+      })
+      if (!validated.ok) {
+        const first = validated.errors?.[0]
+        throw new ConnectorStepError(
+          first?.code ?? 'validation_failed',
+          first ? describeImportRpcCode(first.code) : 'Dataset rejected every row.',
+          { errors: validated.errors?.slice(0, 20) ?? [] },
+        )
+      }
+      const committed = await commitDatasetRowBatch(client, {
+        datasetId,
+        expectedRevision: expectedRevision ?? 1,
+        rows,
         // Retry-safe: the same run re-uses the same commit receipt key.
         idempotencyKey: `connector-run-${run.id}`,
       }).catch((error) => {
         throw new ConnectorStepError('commit_failed', String(error))
       })
-
-      if (!commit.ok) {
-        const first = commit.errors?.[0]
+      if (!committed.ok) {
+        const first = committed.errors?.[0]
         throw new ConnectorStepError(
-          first?.code ?? 'validation_failed',
-          first ? describeImportRpcCode(first.code) : 'Dataset rejected every row.',
-          { errors: commit.errors?.slice(0, 20) ?? [] },
+          first?.code ?? 'commit_failed',
+          first ? describeImportRpcCode(first.code) : 'Dataset commit rejected.',
+          { errors: committed.errors?.slice(0, 20) ?? [] },
         )
       }
 
       await log(
         'commit',
-        `Committed ${commit.rows?.length ?? mapped.rows.length} rows to Dataset ${input.target.datasetId}.`,
-        { revision: commit.datasetRevision },
+        `Committed ${committed.rows?.length ?? rows.length} rows to Dataset ${datasetId}.`,
+        { revision: committed.datasetRevision },
       )
 
       return {
-        rowCount: commit.rows?.length ?? mapped.rows.length,
+        rowCount: committed.rows?.length ?? rows.length,
         metadata: parsed.metadata,
         warnings: parsed.warnings,
-        datasetRevision: commit.datasetRevision,
+        datasetId,
+        datasetRevision: committed.datasetRevision,
       }
     },
   )
 
+  // Replay of a prior successful run with the same request identity:
+  // reconstruct the result from the stored run payload instead of reporting
+  // an empty ingest.
   if (report.alreadyCompleted && report.run) {
-    if (report.status === 'succeeded') {
-      return {
-        runId: report.run.id,
-        attempt: report.run.attempt,
-        alreadyCompleted: true,
-        parser: {
-          id: parser.parserId,
-          version: parser.version,
-          identity: formatParserIdentity(parser),
-          label: parser.label,
-        },
-        metadata: {},
-        warnings: [],
-        rowCount: 0,
-        datasetId: input.target.datasetId,
-      }
+    if (report.status !== 'succeeded') {
+      throw new Error(
+        report.errorMessage ??
+          `Connector run ${report.run.id} failed with code ${report.errorCode ?? 'unknown'}.`,
+      )
+    }
+    const stored = report.run.result
+    return {
+      runId: report.run.id,
+      attempt: report.run.attempt,
+      alreadyCompleted: true,
+      parser: {
+        id: parser.parserId,
+        version: parser.version,
+        identity: formatParserIdentity(parser),
+        label: parserLabel(parser),
+      },
+      metadata: (stored.instrumentMetadata ?? {}) as Record<string, string>,
+      warnings: [],
+      rowCount: Number(stored.rowCount ?? 0),
+      datasetId: String(stored.datasetId ?? input.target.datasetId ?? ''),
+      datasetRevision: stored.datasetRevision
+        ? Number(stored.datasetRevision)
+        : undefined,
     }
   }
+
   if (!report.run || !report.value) {
     throw new Error(
       report.errorMessage ??
@@ -232,17 +322,17 @@ export async function ingestInstrumentPayload(
   return {
     runId: report.run.id,
     attempt: report.run.attempt,
-    alreadyCompleted: Boolean(report.alreadyCompleted),
+    alreadyCompleted: false,
     parser: {
       id: parser.parserId,
       version: parser.version,
       identity: formatParserIdentity(parser),
-      label: parser.label,
+      label: parserLabel(parser),
     },
     metadata: report.value.metadata,
     warnings: report.value.warnings,
     rowCount: report.value.rowCount,
-    datasetId: input.target.datasetId,
+    datasetId: report.value.datasetId,
     datasetRevision: report.value.datasetRevision,
   }
 }

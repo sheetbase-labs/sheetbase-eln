@@ -14,11 +14,13 @@ Connector            api.connectors        identity/type/direction/config
    ↓
 Run                  api.connector_runs    trigger · attempt · digest · error
    ↓
-raw file / payload
-   ↓
+raw file             retained FIRST via the canonical file platform
+   ↓                     (fileId + sha256 receipt)
 parse                registered parser (parserId@version)
    ↓
 map                  column mapping onto pinned Schema Version fields
+   ↓
+target Dataset       created only after parse+mapping succeed
    ↓
 validate             api.validate_dataset_row_batch  (canonical, fail-closed)
    ↓
@@ -47,7 +49,9 @@ pausing via `api.update_connector`. Capability resolution lives only in SQL
 
 ### Runs (`api.connector_runs`)
 
-One row per execution. Written exclusively through RPCs:
+One row per execution. Written exclusively through RPCs — the tables carry
+**SELECT-only grants** for request roles, so run lifecycle cannot be fabricated
+by direct writes:
 
 - `api.start_connector_run(workspace_id, connector_id, trigger_kind,
   request_digest, retry_of_run_id)` — actor is the session user XOR the
@@ -61,15 +65,21 @@ Properties:
 
 - **Triggers:** `manual`, `scheduled`, `event` (scheduling/event delivery itself
   arrives with AUTO/API webhooks — the vocabulary is already durable).
-- **Retries:** a new run linked by `retry_of_run_id`; `attempt` increments.
-- **Idempotency:** `request_digest` (sha256 of ingestion inputs). Reusing a
-  digest on the same connector resolves to the previous finished run instead of
-  double-ingesting; an equal digest while still running raises.
+- **Idempotency:** `request_digest` is the sha256 of the request identity —
+  actual payload content hash (never byte length), parser identity, target
+  Dataset/Schema and mapping configuration. Only **successful** runs are
+  unique receipts for a digest.
+- **Replay:** re-submitting a successful request returns the stored prior run
+  and its result payload — never an empty "0 rows" success.
+- **Retries:** a **failed** run is retried explicitly:
+  `start_connector_run(..., retry_of_run_id = failed run)` creates a new
+  attempt (+1) under the same request identity. Retrying a failed digest
+  without the link is refused, so failures cannot be silently hidden.
 - **Errors:** bounded `error_code` recorded on failure (`parse_failed`,
   `no_mapping`, `mapping_failed`, `commit_failed`, validation codes ...).
 - **Provenance:** successful runs store a result jsonb. Instrument ingestion
-  records dataset id/revision, schema version, file name/checksum/size,
-  parser identity and extracted instrument metadata.
+  records dataset id/revision, schema version, canonical file id, file
+  sha256, size, parser identity and extracted instrument metadata.
 
 Runs emit `change_events` (`entity_type = 'connector'` / `'connector_run'`),
 so audit/history surfaces show connector lifecycle without extra wiring.
@@ -81,6 +91,8 @@ client can read. They live in `internal.connector_secrets` as AES-256-GCM
 ciphertext sealed server-side (`src/lib/connector-secrets.server.ts`). Only
 stewards can set, rotate or delete them through server functions; plaintext is
 never returned to any caller; PostgREST cannot see the table at all.
+Composite foreign keys (`workspace_id, connector_id`) across runs, logs and
+secrets make cross-workspace attachment impossible at the storage layer.
 
 ## SDK surface (`src/lib/connectors/`)
 
@@ -112,8 +124,15 @@ history with expandable per-run stage logs and result provenance payloads.
 
 ## Boundaries honoured
 
+- The RPC layer is the only mutation surface for connector lifecycle rows —
+  request roles hold SELECT-only grants on connectors, runs and logs, so the
+  capability gates, idempotency and attempt semantics cannot be bypassed and
+  lifecycle audit events cannot be fabricated.
+- Raw source files are retained through the canonical DATA-03 file platform
+  **before** the run starts; run provenance always carries the canonical
+  fileId and sha256 for the instrument flow.
 - Connectors never bypass canonical Dataset/Record validation — row writes go
   only through the Core batch RPCs inside the run.
-- Raw files remain identifiable: checksum, size and file id travel through run
-  provenance; retention-ready links use the file platform when present.
+- A new target Dataset is created only after parse and mapping have already
+  succeeded, so a failed run leaves no orphan empty Dataset.
 - Credentials live in sealed secrets, not configuration JSON exposed to clients.

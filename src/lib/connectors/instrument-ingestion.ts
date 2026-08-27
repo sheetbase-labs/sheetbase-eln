@@ -16,17 +16,17 @@
 import type { DataClient } from '../data-client'
 import { describeImportRpcCode } from '../import-commit'
 import {
+  createDataset,
+  commitDatasetRowBatch,
+  validateDatasetRowBatch,
+} from '../dataset-product'
+import {
   mapImportSheet,
   suggestImportMappings,
 } from '../import-mapping'
 import type { ImportColumnMapping, ImportTargetField } from '../import-mapping'
-import { createDataset } from '../dataset-product'
 import type { IngestionParser } from './registry'
 import { formatParserIdentity, getParser } from './registry'
-import {
-  commitDatasetRowBatch,
-  validateDatasetRowBatch,
-} from '../dataset-product'
 import { ConnectorStepError, executeConnectorRun } from './run'
 
 export interface InstrumentIngestionInput {

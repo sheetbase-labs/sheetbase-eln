@@ -104,7 +104,7 @@ services:
         condition: service_healthy
     environment:
       MIGRATION_DATABASE_URL: ${MIGRATION_DATABASE_URL:?Inject from the environment secret manager}
-    command: ['./node_modules/.bin/drizzle-kit', 'migrate']
+    command: ['node', 'scripts/migrate-once.mjs']
     restart: 'no'
 
 volumes:

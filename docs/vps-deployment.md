@@ -260,24 +260,26 @@ compose.deploy.yaml up -d --wait` directly, then switch to the CI-driven flow
 2. SSH into the VPS.
 3. Set `SHEETBASE_APP_IMAGE` to the previous `@sha256` reference.
 4. Run `pnpm deploy:apply`.
-5. If a migration is incompatible, restore PostgreSQL from the latest backup.
+5. If a migration is incompatible, a forward-fix migration or database
+   restore applies — see `docs/deployment.md` (rollback strategy) and
+   `docs/recovery.md` (restore procedure).
 
 ## Database backups
 
-Set up a cron job on the VPS for daily `pg_dump`:
+Use the backup runner, which produces one timestamped backup set (database
+dump, object-storage archive, manifest with checksums), enforces retention
+and emits JSON success/failure events suitable for cron log capture:
 
 ```bash
 # crontab -e
-0 3 * * * docker exec sheetbase-deploy-postgres-1 pg_dump -U sheetbase sheetbase \
-  | gzip > /opt/sheetbase/backups/$(date +\%Y\%m\%d).sql.gz
+0 3 * * * cd /opt/sheetbase && set -a && . ./.env.production && set +a \
+  && pnpm backup:run >> /opt/sheetbase/backups/backup.log 2>&1
 ```
 
-Keep at least 7 days of backups. Take a manual backup before each deploy:
-
-```bash
-docker exec sheetbase-deploy-postgres-1 pg_dump -U sheetbase sheetbase \
-  | gzip > /opt/sheetbase/backups/pre-deploy-$(date +\%Y\%m\%d\%H\%M).sql.gz
-```
+Also run `pnpm backup:run` before every deployment. Full policy (what,
+frequency, retention, encryption, failure visibility) and the mandatory
+restore drill live in [`docs/recovery.md`](recovery.md). Backups without
+proven restore are treated as nonexistent.
 
 ## Logs and debugging
 

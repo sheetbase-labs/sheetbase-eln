@@ -43,8 +43,10 @@ describe('REL-001 immutable deployment artifact contract', () => {
 
   it('keeps migration explicit and gates the app on PostgREST readiness', () => {
     expect(deployCompose.services.migrate.profiles).toContain('deployment')
+    // PLAT-01: migrations run through the advisory-lock wrapper, which itself
+    // invokes `drizzle-kit migrate` (asserted in migrate-once.mjs source).
     expect(deployCompose.services.migrate.command.join(' ')).toContain(
-      'drizzle-kit migrate',
+      'scripts/migrate-once.mjs',
     )
     expect(deployCompose.services.app.depends_on.postgrest.condition).toBe(
       'service_healthy',

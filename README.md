@@ -57,7 +57,7 @@ The app runs at `http://localhost:3000`. The PostgREST API runs at `http://local
 | Format code                                   | `pnpm format`            |
 | Full quality gate                             | `pnpm validate`          |
 
-See `docs/migrations.md` before changing schema, `docs/testing.md` for test layers, `docs/seeds.md` for fixtures/seeds, `docs/handsontable.md` for the Handsontable integration boundary, `docs/security-headers.md` for the PLAT-03 header slice and `docs/deployment.md` for environment/deployment guidance.
+See `docs/migrations.md` before changing schema, `docs/testing.md` for test layers, `docs/seeds.md` for fixtures/seeds, `docs/handsontable.md` for the Handsontable integration boundary, `docs/security-headers.md` for the PLAT-03 header slice, `docs/deployment.md` for environment/deployment guidance and `docs/recovery.md` for backups/restore/DR objectives.
 
 ## Repository boundaries
 

@@ -46,8 +46,84 @@ env:
   POSTGREST_IMAGE_NAME: ${{ github.repository }}-postgrest
 
 jobs:
+  # PLAT-01 deployment gate: a release artifact is only built from a commit
+  # that passes typecheck, lint, unit tests, database integration tests and a
+  # production build. A failure here blocks the build and deploy jobs.
+  verify:
+    name: Release gate (typecheck, lint, tests, build)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: sheetbase
+          POSTGRES_USER: sheetbase
+          POSTGRES_PASSWORD: sheetbase-ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sheetbase -d sheetbase"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://sheetbase:sheetbase-ci@localhost:5432/sheetbase
+      MIGRATION_DATABASE_URL: postgresql://sheetbase:sheetbase-ci@localhost:5432/sheetbase
+      # PostgREST/admin URLs are not probed by the database test layer; the
+      # API/browser contract layers need the pinned PostgREST service and run
+      # outside this gate (documented in docs/deployment.md).
+      POSTGREST_URL: http://localhost:3001
+      POSTGREST_ADMIN_URL: http://localhost:3002
+      BETTER_AUTH_SECRET: ci-only-placeholder-secret-value-32-chars-min
+      PGRST_JWT_SECRET: ci-only-placeholder-secret-value-32-chars-min
+      PGRST_DB_URI: postgresql://authenticator:sheetbase-ci@localhost:5432/sheetbase
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.9.0 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Unit tests
+        run: pnpm test
+
+      # The database test layer expects the same role skeleton the Compose
+      # init script creates locally (migrator owns migrations, authenticator
+      # fronts PostgREST). Bootstrap it in the service container, and let the
+      # CI database user create the disposable sheetbase_test database.
+      - name: Bootstrap database roles
+        run: |
+          CID=$(docker ps -q --filter ancestor=postgres:18-alpine | head -1)
+          docker exec -i \
+            -e POSTGRES_USER=sheetbase \
+            -e POSTGRES_DB=sheetbase \
+            -e POSTGREST_AUTHENTICATOR_PASSWORD=sheetbase-ci \
+            -e MIGRATOR_PASSWORD=sheetbase-ci \
+            -e FORMULA_WRITER_PASSWORD=sheetbase-ci \
+            "$CID" sh < docker/db/init/00-roles.sh
+          docker exec "$CID" psql -U sheetbase -d sheetbase \
+            -c 'ALTER USER sheetbase CREATEDB'
+
+      - name: Database integration tests
+        run: pnpm test:db
+
+      - name: Build
+        run: pnpm build
+
   build:
     name: Build and push images
+    needs: verify
     runs-on: ubuntu-latest
     permissions:
       contents: read

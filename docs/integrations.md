@@ -1,9 +1,9 @@
-# Integrations — Connector Framework (INT-01 / INT-02)
+# Integrations — Connector Framework (INT-01 / INT-02 / INT-03)
 
 Sheetbase has **one** generic connector framework. Every integration — scientific
-instrument today, enterprise platforms later — uses the same execution,
-security, mapping, provenance and error model. There is no second path and no
-per-instrument bespoke subsystem.
+instrument today, enterprise/data-platform connectors alongside them — uses the
+same execution, security, mapping, provenance and error model. There is no second
+path and no per-instrument bespoke subsystem.
 
 ## Shape
 
@@ -121,6 +121,78 @@ Future integrations implement (a) a parser or data plane adapter registered in
 `registry.ts` and (b) optionally new non-secret config keys. They inherit runs,
 retries, errors, secrets, capability gating, change events and provenance
 without inventing anything.
+
+## Enterprise connectors (INT-03)
+
+INT-03 proves the same framework carries enterprise/data-platform sources: a
+generic **S3-compatible object storage** connector and a generic **read-only
+external PostgreSQL** connector. Both dispatch through `config.adapter`
+(`'s3'` for `storage` connectors, `'postgres'` for `database` connectors) and
+reuse everything above — runs, digests, retries, sealed secrets, change
+events — via a small **server-side adapter layer** in
+`src/lib/connectors/enterprise/`:
+
+| Module | Role |
+| --- | --- |
+| `adapter.ts` | `EnterpriseConnectorAdapter` seam: `testConnection`, `discover`, `preview`, `ingest`. Vendor code stays inside each adapter. |
+| `execution.server.ts` | Server-only execution boundary: session/role resolution (viewers refused; mirrors `is_workspace_writer`), short-lived PostgREST token, server-side `DataClient` so every write still goes through governed RPCs. |
+| `secrets.server.ts` | Execution-time sealed-secret decryption (workspace↔connector verified server-side) + `redactSecrets` so plaintext never reaches run results, logs or audit. |
+| `host-policy.server.ts` | Connector destination policy: only http(s) endpoints, no credential-bearing URLs, no `file://`; optional `CONNECTOR_HOST_ALLOWLIST`; `CONNECTOR_ALLOW_PRIVATE_HOSTS` (default **true** — Sheetbase legitimately targets on-prem networks, and this switch is policy only, not network isolation). |
+| `retain.server.ts` | Server-side retention of external bytes through the canonical DATA-03 file platform (`create_file_upload` → object storage → `finalize_file_upload`), so provenance carries a real `fileRecordId` + sha256. |
+| `s3.server.ts` | S3-compatible adapter: `HeadBucket` test, paginated `ListObjectsV2` discovery (prefix-filtered, ETag as opaque metadata), byte-capped `GetObject`, delimited parser identity `sheetbase.delimited@1`. |
+| `postgres.server.ts` | Read-only PostgreSQL adapter: connection test, `information_schema` discovery (system schemas hidden, `allowedSchemas`/`allowedTables` respected), explicit-column `LIMIT n` preview/import with validated + quoted identifiers, `row_limit_exceeded` caps. |
+
+### Execution shape
+
+Browser → `POST /api/connectors/source` (`test` | `discover` | `preview` |
+`import`) → server-side adapter. The browser never touches the external
+system and never receives decrypted credentials. For imports, the source is
+read (and, for S3, retained into the file platform) *before* the governed run
+starts so the request digest can include the retained content sha256 — a
+changed external source under the same selector is always a new logical
+request, identical content replays the prior successful run, and a failed
+request retries as a linked attempt (SB045 semantics).
+
+### Provenance
+
+- **S3 runs** record `kind: 's3_import'`, source `{bucket, key, versionId,
+  etag, lastModified}`, retained file `fileRecordId` + `fileSha256`, parser
+  identity and the resulting Dataset/revision.
+- **PostgreSQL runs** record `kind: 'postgres_import'`, source
+  `{host, port, database, schema, table, columns, contentSha256}` (no
+  credentials — the host identity is credential-free), read timestamp
+  implied by the run's `started_at`, mapping identity and the resulting
+  Dataset. Database imports have no raw retained file by design; the read
+  content hash is the evidence that the import matches a specific source
+  state. No transactionally frozen source state is claimed — a repeatable-
+  read snapshot is *not* guaranteed.
+
+### Limits (conservative, per release)
+
+Preview ≤ 100 rows (config `preview_rows`), import ≤ 1000 rows (config
+`import_rows`, aligned with the DATA parse layer's sheet cap), object
+downloads ≤ 100 MiB (config `max_object_bytes`). Exceeding a row cap fails
+the run with `row_limit_exceeded` rather than silently truncating.
+
+### Run UX
+
+Connector detail shows per-adapter **Source** panels (discovery, bounded
+preview, import target), a steward-only **Credentials** card (names and
+timestamps only — values are set/rotated/deleted, never readable) and the
+shared run history with semantic result lines; raw result JSON stays behind
+a technical disclosure.
+
+### Boundaries honoured (enterprise)
+
+- Strictly read-only PostgreSQL source: no arbitrary SQL, DML, DDL or
+  stored-procedure execution — the only statements issued are catalog
+  metadata queries and a generated, quoted `SELECT … LIMIT n`.
+- Enterprise imports never write Dataset rows directly; they reuse the same
+  `ingestTabularPayload` primitive as instrument ingestion.
+- No second integration framework, audit system or connector registry.
+
+Out of scope remains: Snowflake/Databricks/BigQuery, SharePoint/OneDrive,
+LIMS/MES/ERP, CDC, schedulers and any write-path to external systems.
 
 ## Product surface
 

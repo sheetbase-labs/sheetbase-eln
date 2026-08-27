@@ -27,7 +27,7 @@ The roadmap supports **parallel streams**. Agents take **one assigned stream/tas
 | PLAT   | —           | —     | Headers slice complete; remaining PLAT-03 queued                                                                                                                                                                                  |
 | COLLAB | —           | —     | COLLAB-01–04 complete (#69, #73, #71, #72). Liveblocks presence/comments/notifications with Sheetbase-authoritative permissions; sheet cell/range anchors queued behind canonical Sheet row identity. See `docs/collaboration.md` |
 | SCI    | —           | —     | SCI-01–03 implemented on stacked branches (`feat/sci-01-charting` → `feat/sci-02-analysis-framework` → `feat/sci-03-notebook-analysis-blocks` + follow-ups); awaiting review/merge. SCI-04 waits for real usage evidence          |
-| INT    | INT-01 + INT-02 | — | Connector framework (`api.connectors` / `connector_runs`, `integrations.manage`, sealed secrets, parser registry) proven end-to-end by plate-reader instrument ingestion; see `docs/integrations.md`. INT-03 not started |
+| INT    | INT-01 + INT-02 | — | Connector framework (`api.connectors` / `connector_runs`, `integrations.manage`, sealed secrets, parser registry) proven end-to-end by plate-reader instrument ingestion; see `docs/integrations.md`. INT-03 enterprise connectors (S3 + read-only PostgreSQL) implemented on `feat/int-03-enterprise-connectors` |
 | AUTO   | —           | —     | Planned later                                                                                                                                                                                                                     |
 
 ### Immediate execution shape

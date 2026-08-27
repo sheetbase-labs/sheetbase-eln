@@ -24,7 +24,9 @@ Capabilities may include file watching/upload, parser/version identity, metadata
 
 Candidates: S3-compatible storage, SharePoint/OneDrive, data warehouses/lakehouses, LIMS, MES, ERP or identity systems based on demand.
 
-**Exit:** enterprise connectors use the same credentials, execution, provenance and observability model.
+**Status: implemented** (2026-08). Two representative connector types — generic S3-compatible object storage and a read-only external PostgreSQL database — proven through the INT-01 framework (same credentials, execution, provenance and observability model). See `docs/integrations.md` "Enterprise connectors". Future enterprise classes (warehouses, SharePoint/OneDrive, LIMS/MES) plug into the same `EnterpriseConnectorAdapter` seam; none are implemented.
+
+**Exit:** enterprise connectors use the same credentials, execution, provenance and observability model. **Met** for the two representative types.
 
 ## Boundaries
 

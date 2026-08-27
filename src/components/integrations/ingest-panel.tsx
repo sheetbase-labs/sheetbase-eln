@@ -3,15 +3,15 @@
  *
  * Proves the generic framework end-to-end for one representative instrument
  * flow. The raw instrument file is FIRST retained through the canonical
- * DATA-03 file subsystem (upload-authorize → PUT upload → fileId + sha256
+ * DATA-03 file subsystem (upload-authorize → PUT upload → fileRecordId + sha256
  * receipt), and that retained file — not a browser-local copy — is what the
  * connector run ingests:
  *
- *   browser File → file platform upload (fileId + sha256)
+ *   browser File → file platform upload (fileRecordId + sha256)
  *     → connector run → registered parser identity → column mapping
  *     → validate_dataset_row_batch → commit_dataset_row_batch
  *
- * Run provenance always carries a real fileId and checksum for this flow.
+ * Run provenance always carries a real fileRecordId and checksum for this flow.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -54,7 +54,7 @@ import '#/lib/connectors/plate-reader'
 const dataClient = createDataClient()
 
 interface RetainedFile {
-  fileId: string
+  fileRecordId: string
   fileName: string
   byteSize: number
   checksum: string
@@ -117,7 +117,7 @@ async function retainInstrumentFile(
   }
 
   return {
-    fileId: meta.fileRecordId,
+    fileRecordId: meta.fileRecordId,
     fileName: file.name,
     byteSize: Number(receipt.byteSize),
     checksum: receipt.checksum,
@@ -212,7 +212,7 @@ export function IngestPanel({
         parserId: parser.parserId,
         text: retained.text,
         fileName: retained.fileName,
-        fileId: retained.fileId,
+        fileRecordId: retained.fileRecordId,
         checksum: retained.checksum,
         byteSize: retained.byteSize,
         target: {
@@ -285,7 +285,7 @@ export function IngestPanel({
           </select>
           <p className="text-muted-foreground text-xs">
             The original bytes are retained as a file record; the run provenance
-            carries its canonical fileId and sha256 checksum.
+            carries its canonical fileRecordId and sha256 checksum.
           </p>
         </div>
 

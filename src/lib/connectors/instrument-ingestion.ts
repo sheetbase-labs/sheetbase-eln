@@ -41,7 +41,7 @@ export interface InstrumentIngestionInput {
    * Canonical file-platform identity of the retained raw file. The product
    * upload path always supplies this; retention is a first-class guarantee.
    */
-  fileId?: string | null
+  fileRecordId?: string | null
   /** sha256 of the retained bytes, from the file platform upload receipt. */
   checksum?: string | null
   byteSize?: number | null
@@ -124,13 +124,15 @@ export async function ingestInstrumentPayload(
     input.mappings ?? 'suggest',
   ])
 
-  const report = await executeConnectorRun<IngestionWork>(
+  const runOnce = (retryOfRunId?: string | null) =>
+    executeConnectorRun<IngestionWork>(
     client,
     {
       workspaceId: input.workspaceId,
       connectorId: input.connectorId,
       triggerKind: input.triggerKind ?? 'manual',
       requestDigest,
+      retryOfRunId,
       startedMessage: `Ingesting ${input.fileName} (${input.byteSize ?? 'unknown'} bytes).`,
       buildResult: (value) => ({
         kind: 'instrument_ingestion',
@@ -140,7 +142,7 @@ export async function ingestInstrumentPayload(
         rowCount: value.rowCount,
         fileName: input.fileName,
         fileSha256: input.checksum ?? payloadHash,
-        fileId: input.fileId ?? null,
+        fileRecordId: input.fileRecordId ?? null,
         byteSize: input.byteSize ?? null,
         parser: formatParserIdentity(parser),
         instrumentMetadata: value.metadata,
@@ -198,9 +200,32 @@ export async function ingestInstrumentPayload(
           errors: mapped.errors.slice(0, 20),
         })
       }
-      // Input is now provably valid: parse and mapping both succeeded. Only
-      // now may a new target Dataset be created, so a failed run cannot leave
-      // an orphan empty Dataset behind.
+
+      // Pre-create required-coverage check, mirroring the Core RPC's
+      // required_value rule over the same pinned Schema field metadata: a
+      // required field with no mapped source column would deterministically
+      // fail validation, so fail here — before any Dataset is created.
+      const mappedFieldIds = new Set(
+        mappings
+          .filter((mapping) => mapping.kind === 'field')
+          .map((mapping) => mapping.field.id),
+      )
+      const missingRequired = input.target.fields.filter(
+        (field) =>
+          field.kind === 'dataset-field' &&
+          !field.nullable &&
+          !mappedFieldIds.has(field.id),
+      )
+      if (missingRequired.length > 0) {
+        throw new ConnectorStepError(
+          'required_mapping',
+          `${missingRequired[0].label} is required by the Schema Version but no source column is mapped.`,
+          { missing: missingRequired.map((field) => field.id) },
+        )
+      }
+      // Input is now provably valid: parse, mapping coercion and required
+      // coverage have all succeeded. Only now may a new target Dataset be
+      // created, so a failed run cannot leave an orphan empty Dataset behind.
 
       // Stage 3 — resolve the target Dataset.
       let datasetId = input.target.datasetId ?? null
@@ -280,6 +305,24 @@ export async function ingestInstrumentPayload(
       }
     },
   )
+
+  // Product-accessible retry: a failed prior attempt under the same request
+  // identity refuses an unlinked re-run (SB045). Instead of dead-ending the
+  // user, resolve the failed run and explicitly retry against it — one new
+  // linked attempt with the same digest.
+  let report = await runOnce()
+  if (
+    report.status === 'failed' &&
+    /retry with retry_of_run_id/i.test(report.errorMessage ?? '')
+  ) {
+    const failedRuns = await client.list<{ id: string; attempt: number }>(
+      'connector_runs',
+      `?connector_id=eq.${encodeURIComponent(input.connectorId)}&request_digest=eq.${encodeURIComponent(requestDigest)}&status=eq.failed&order=started_at.desc&limit=1`,
+    )
+    if (failedRuns.length > 0) {
+      report = await runOnce(failedRuns[0].id)
+    }
+  }
 
   // Replay of a prior successful run with the same request identity:
   // reconstruct the result from the stored run payload instead of reporting

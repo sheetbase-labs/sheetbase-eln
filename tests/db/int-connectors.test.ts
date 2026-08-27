@@ -91,8 +91,28 @@ function pgDataClient(owner: Client): DataClient {
         )
       ).rows[0]
     },
-    insert: async (resource: string, row: Record<string, unknown>) => {
-      if (resource !== 'datasets') {
+    list: async <T>(
+      resource: string,
+      query: string,
+    ): Promise<T[]> => {
+      if (resource !== 'connector_runs') {
+        throw new Error(`unexpected list resource ${resource}`)
+      }
+      // Query string is `?connector_id=eq.<uuid>&request_digest=eq.<hex>&status=eq.failed&order=started_at.desc&limit=1`
+      const params = new URLSearchParams(query.replace(/^\?/, ''))
+      const connectorId = (params.get('connector_id') ?? '').replace('eq.', '')
+      const digest = (params.get('request_digest') ?? '').replace('eq.', '')
+      const result = await owner.query(
+        `select id, attempt, request_digest, status, retry_of_run_id, result, error_code, error_message,
+                trigger_kind, workspace_id, started_at, finished_at
+         from api.connector_runs
+         where connector_id=$1 and request_digest=$2 and status='failed'
+         order by started_at desc limit 1`,
+        [connectorId, digest],
+      )
+      return result.rows as T[]
+    },
+    insert: async (resource: string, row: Record<string, unknown>) => {      if (resource !== 'datasets') {
         throw new Error(`unexpected insert resource ${resource}`)
       }
       const result = await owner.query(
@@ -561,7 +581,7 @@ A2,std-2,21.7`
     fixture: Awaited<ReturnType<typeof createDatasetFixture>>,
     text: string,
     fileName: string,
-    retainedFile?: { fileId: string; checksum: string },
+    retainedFile?: { fileRecordId: string; checksum: string },
   ) {
     return ingestInstrumentPayload(pgDataClient(owner), {
       workspaceId: WS_A,
@@ -569,7 +589,7 @@ A2,std-2,21.7`
       parserId: 'sheetbase.plate-reader-csv',
       text,
       fileName,
-      fileId: retainedFile?.fileId ?? null,
+      fileRecordId: retainedFile?.fileRecordId ?? null,
       checksum: retainedFile?.checksum ?? null,
       byteSize: Buffer.byteLength(text),
       target: {
@@ -593,7 +613,7 @@ A2,std-2,21.7`
     // The raw file was retained through the canonical file subsystem first;
     // its canonical id and sha256 travel into run provenance.
     const result = await ingest(owner, connectorId, fixture, VALID_CSV, 'run-42.csv', {
-      fileId: '0e100000-0000-4000-8000-00000000aa01',
+      fileRecordId: '0e100000-0000-4000-8000-00000000aa01',
       checksum: 'a'.repeat(64),
     })
 
@@ -616,7 +636,7 @@ A2,std-2,21.7`
       [result.runId],
     )
     expect(runRow.rows[0].status).toBe('succeeded')
-    expect(runRow.rows[0].result.fileId).toBe(
+    expect(runRow.rows[0].result.fileRecordId).toBe(
       '0e100000-0000-4000-8000-00000000aa01',
     )
     expect(runRow.rows[0].result.fileSha256).toBe('a'.repeat(64))
@@ -646,7 +666,7 @@ A2,std-2,21.7`
     ).rows[0].id
 
     const first = await ingest(owner, connectorId, fixture, VALID_CSV, 'run-42.csv', {
-      fileId: '0e100000-0000-4000-8000-00000000aa02',
+      fileRecordId: '0e100000-0000-4000-8000-00000000aa02',
       checksum: 'b'.repeat(64),
     })
     expect(first.alreadyCompleted).toBe(false)
@@ -654,7 +674,7 @@ A2,std-2,21.7`
     // Same retained file re-ingested: deduplicated to the same run, with the
     // stored result reconstructed — never rowCount 0 / empty metadata.
     const replay = await ingest(owner, connectorId, fixture, VALID_CSV, 'run-42.csv', {
-      fileId: '0e100000-0000-4000-8000-00000000aa02',
+      fileRecordId: '0e100000-0000-4000-8000-00000000aa02',
       checksum: 'b'.repeat(64),
     })
     expect(replay.alreadyCompleted).toBe(true)
@@ -758,6 +778,120 @@ A2,std-2,21.7`
       [fixture.schemaVersionId],
     )
     expect(after.rows[0].n).toBe(before.rows[0].n)
+  })
+
+  it('fails schema-invalid payloads before any Dataset is created', async () => {
+    const owner = await actor(OWNER_A, WS_A)
+    const fixture = await createDatasetFixture(owner)
+    const connectorId = (
+      await owner.query(
+        `select id from api.connectors where key='plate-reader-bench' limit 1`,
+      )
+    ).rows[0].id
+
+    // Case 1: mapped value violates the Schema field type ('abc' into a
+    // decimal field). Canonical coercion rejects it during mapping — before
+    // Dataset creation.
+    const before = await owner.query(
+      `select count(*)::int n from api.datasets where schema_version_id=$1`,
+      [fixture.schemaVersionId],
+    )
+    await expect(
+      ingestInstrumentPayload(pgDataClient(owner), {
+        workspaceId: WS_A,
+        connectorId,
+        parserId: 'sheetbase.plate-reader-csv',
+        text: 'Sample,CT\nx,abc\n',
+        fileName: 'bad-value.csv',
+        target: {
+          datasetId: null,
+          newDatasetName: 'Should not exist (bad value)',
+          schemaVersionId: fixture.schemaVersionId,
+          fields: fixture.fields,
+        },
+      }),
+    ).rejects.toThrow(/mapping|coercion|invalid/i)
+
+    // Case 2: values coerce fine, but a required Schema field ('Well') is not
+    // mapped at all — the required_value rule would fail validation after
+    // creation. The pre-create required-coverage check refuses it first.
+    await expect(
+      ingestInstrumentPayload(pgDataClient(owner), {
+        workspaceId: WS_A,
+        connectorId,
+        parserId: 'sheetbase.plate-reader-csv',
+        text: 'Sample,CT\nx,18.2\n',
+        fileName: 'missing-required.csv',
+        target: {
+          datasetId: null,
+          newDatasetName: 'Should not exist (missing required)',
+          schemaVersionId: fixture.schemaVersionId,
+          fields: fixture.fields,
+        },
+      }),
+    ).rejects.toThrow(/required/i)
+
+    const after = await owner.query(
+      `select count(*)::int n from api.datasets where schema_version_id=$1`,
+      [fixture.schemaVersionId],
+    )
+    expect(after.rows[0].n).toBe(before.rows[0].n)
+  })
+
+  it('retries a failed ingestion from the product flow as a linked attempt', async () => {
+    const owner = await actor(OWNER_A, WS_A)
+    const fixture = await createDatasetFixture(owner)
+    const connectorId = (
+      await owner.query(
+        `select id from api.connectors where key='plate-reader-bench' limit 1`,
+      )
+    ).rows[0].id
+
+    // Deterministic failure: the required 'Well' field is not mapped. The
+    // first product-flow call fails (attempt 1).
+    const runInput = {
+      workspaceId: WS_A,
+      connectorId,
+      parserId: 'sheetbase.plate-reader-csv',
+      text: 'Sample,CT\nx,18.2\n',
+      fileName: 'retry-me.csv',
+      target: {
+        datasetId: fixture.datasetId,
+        expectedRevision: fixture.revision,
+        schemaVersionId: fixture.schemaVersionId,
+        fields: fixture.fields,
+      },
+    }
+    await expect(
+      ingestInstrumentPayload(pgDataClient(owner), runInput),
+    ).rejects.toThrow(/required/i)
+
+    const runsAfterFirst = await owner.query(
+      `select id, attempt, status, request_digest from api.connector_runs
+       where connector_id=$1 order by started_at desc limit 1`,
+      [connectorId],
+    )
+    const firstRun = runsAfterFirst.rows[0]
+    expect(firstRun.attempt).toBe(1)
+    expect(firstRun.status).toBe('failed')
+    expect(firstRun.request_digest).not.toBeNull()
+
+    // Second product-flow call with the same inputs: the library recognises
+    // the failed matching request and explicitly retries against that failed
+    // run instead of dead-ending on SB045.
+    await expect(
+      ingestInstrumentPayload(pgDataClient(owner), runInput),
+    ).rejects.toThrow(/required/i)
+
+    const retryRuns = await owner.query(
+      `select attempt, status, retry_of_run_id, request_digest from api.connector_runs
+       where request_digest=$1 and id <> $2 order by started_at`,
+      [firstRun.request_digest, firstRun.id],
+    )
+    expect(retryRuns.rows.length).toBe(1)
+    expect(retryRuns.rows[0].attempt).toBe(2)
+    expect(retryRuns.rows[0].status).toBe('failed')
+    expect(retryRuns.rows[0].retry_of_run_id).toBe(firstRun.id)
   })
 
   it('fails closed on unmappable payloads and keeps the Dataset untouched', async () => {

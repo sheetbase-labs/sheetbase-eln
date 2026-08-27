@@ -15,12 +15,14 @@ Connector            api.connectors        identity/type/direction/config
 Run                  api.connector_runs    trigger · attempt · digest · error
    ↓
 raw file             retained FIRST via the canonical file platform
-   ↓                     (fileId + sha256 receipt)
+   ↓                     (fileRecordId + sha256 receipt)
 parse                registered parser (parserId@version)
    ↓
 map                  column mapping onto pinned Schema Version fields
    ↓
-target Dataset       created only after parse+mapping succeed
+required coverage    required Schema fields must be mapped (pre-create)
+   ↓
+target Dataset       created only after parse+mapping+coverage succeed
    ↓
 validate             api.validate_dataset_row_batch  (canonical, fail-closed)
    ↓
@@ -74,12 +76,16 @@ Properties:
 - **Retries:** a **failed** run is retried explicitly:
   `start_connector_run(..., retry_of_run_id = failed run)` creates a new
   attempt (+1) under the same request identity. Retrying a failed digest
-  without the link is refused, so failures cannot be silently hidden.
+  without the link is refused, so failures cannot be silently hidden. The
+  product flow uses this automatically: re-submitting a failed ingestion
+  detects the failed matching request and retries against it as a linked
+  attempt — no dead-end, no unlinked duplicate.
 - **Errors:** bounded `error_code` recorded on failure (`parse_failed`,
-  `no_mapping`, `mapping_failed`, `commit_failed`, validation codes ...).
+  `no_mapping`, `mapping_failed`, `required_mapping`, `commit_failed`,
+  validation codes ...).
 - **Provenance:** successful runs store a result jsonb. Instrument ingestion
-  records dataset id/revision, schema version, canonical file id, file
-  sha256, size, parser identity and extracted instrument metadata.
+  records dataset id/revision, schema version, canonical file record id,
+  file sha256, size, parser identity and extracted instrument metadata.
 
 Runs emit `change_events` (`entity_type = 'connector'` / `'connector_run'`),
 so audit/history surfaces show connector lifecycle without extra wiring.
@@ -133,6 +139,8 @@ history with expandable per-run stage logs and result provenance payloads.
   fileId and sha256 for the instrument flow.
 - Connectors never bypass canonical Dataset/Record validation — row writes go
   only through the Core batch RPCs inside the run.
-- A new target Dataset is created only after parse and mapping have already
-  succeeded, so a failed run leaves no orphan empty Dataset.
+- A new target Dataset is created only after parse, mapping coercion and the
+  required-field coverage check (mirroring the Core RPC's `required_value`
+  rule over the same pinned Schema metadata) have succeeded — so a mapped but
+  schema-invalid payload fails the run with **zero** Datasets created.
 - Credentials live in sealed secrets, not configuration JSON exposed to clients.

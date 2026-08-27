@@ -24,17 +24,18 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3'
 
+import { parseS3Config } from './config-validation'
+import {
+  ConnectorExecutionError,
+  boundedErrorMessage,
+} from './errors'
+import { ConnectorEndpointError, validateConnectorEndpointUrl } from './host-policy.server'
 import type {
   ConnectorAdapterContext,
   ConnectorImportRequest,
   EnterpriseConnectorAdapter,
 } from './adapter'
-import {
-  ConnectorExecutionError,
-  boundedErrorMessage,
-} from './execution.server'
-import { ConnectorEndpointError, validateConnectorEndpointUrl } from './host-policy.server'
-import { retainExternalBytes, postgrestFileObjectReader } from './retain.server'
+import { retainExternalBytes } from './retain.server'
 import { ingestTabularPayload } from '../tabular-ingestion'
 import { registerParser } from '../registry'
 import { parseImportText } from '#/lib/import-parse'
@@ -44,35 +45,7 @@ import type { S3ConnectorConfig, S3DiscoveryPage, S3ObjectDescriptor } from './t
 /** Stable parser identity for plain delimited S3 objects (provenance only). */
 export const S3_PARSER_IDENTITY = 'sheetbase.delimited@1'
 
-export function parseS3Config(config: Record<string, unknown>): S3ConnectorConfig {
-  const bucket = typeof config['bucket'] === 'string' ? config['bucket'].trim() : ''
-  if (!/^[a-z0-9][a-z0-9._-]{1,251}$/i.test(bucket)) {
-    throw new ConnectorExecutionError(
-      'invalid_destination',
-      'Configure a valid bucket name on this connector.',
-    )
-  }
-  const endpoint = typeof config['endpoint'] === 'string' ? config['endpoint'].trim() : ''
-  if (endpoint) validateConnectorEndpointUrl(endpoint)
-  const prefix = typeof config['prefix'] === 'string' ? config['prefix'].trim() : ''
-  if (prefix && !prefix.endsWith('/')) {
-    // Normalise: discovery and imports treat the prefix as a folder.
-    return {
-      endpoint: endpoint || undefined,
-      region: typeof config['region'] === 'string' ? config['region'] : undefined,
-      bucket,
-      prefix: `${prefix}/`,
-      forcePathStyle: Boolean(config['forcePathStyle']),
-    }
-  }
-  return {
-    endpoint: endpoint || undefined,
-    region: typeof config['region'] === 'string' ? config['region'] : undefined,
-    bucket,
-    prefix: prefix || undefined,
-    forcePathStyle: Boolean(config['forcePathStyle']),
-  }
-}
+export { parseS3Config } from './config-validation'
 
 function s3Client(source: S3ConnectorConfig, secrets: Record<string, string>): S3Client {
   return new S3Client({
@@ -93,11 +66,15 @@ function s3Client(source: S3ConnectorConfig, secrets: Record<string, string>): S
 /** Map any SDK failure onto a bounded, safe error code + message. */
 function mapS3Error(error: unknown, code: string): ConnectorExecutionError {
   const name = (error as { name?: string } | null)?.name ?? ''
+  const status = Number(
+    (error as { $metadata?: { httpStatusCode?: number } } | null)?.$metadata
+      ?.httpStatusCode ?? 0,
+  )
   const message = boundedErrorMessage(error)
-  if (name === 'Forbidden' || /AccessDenied|403/i.test(message)) {
+  if (status === 403 || name === 'Forbidden' || /AccessDenied/i.test(message)) {
     return new ConnectorExecutionError('source_forbidden', 'Access to the source was denied by the object store.')
   }
-  if (name === 'NotFound' || /404|NoSuchBucket|NoSuchKey/i.test(message)) {
+  if (status === 404 || name === 'NotFound' || /404|NoSuchBucket|NoSuchKey/i.test(message)) {
     return new ConnectorExecutionError('source_not_found', 'The configured bucket or object was not found.')
   }
   if (/InvalidAccessKeyId|SignatureDoesNotMatch|token/i.test(message)) {
@@ -230,7 +207,7 @@ export const s3Adapter: EnterpriseConnectorAdapter<S3ConnectorConfig> = {
       mediaType: download.contentType ?? 'application/octet-stream',
       bytes: download.bytes,
       rpc: (name, args) => context.client.rpc(name, args),
-      readFileObject: postgrestFileObjectReader(context.token),
+      readFileObject: context.readFileObject,
     })
 
     // Stages — governed run: parse → map → validate → commit → provenance.

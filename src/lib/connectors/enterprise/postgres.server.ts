@@ -18,6 +18,11 @@
  */
 import { Client } from 'pg'
 
+import {
+  POSTGRES_SYSTEM_SCHEMAS as SYSTEM_SCHEMAS,
+  parsePostgresConfig,
+  quoteIdentifier,
+} from './config-validation'
 import type {
   ConnectorAdapterContext,
   ConnectorImportRequest,
@@ -26,8 +31,7 @@ import type {
 import {
   ConnectorExecutionError,
   boundedErrorMessage,
-} from './execution.server'
-import { validateConnectorHost } from './host-policy.server'
+} from './errors'
 import { ingestTabularPayload } from '../tabular-ingestion'
 import { sha256Hex } from '../digest'
 import type {
@@ -39,47 +43,7 @@ import type {
 
 export const POSTGRES_PARSER_IDENTITY = 'sheetbase.postgres-table@1'
 
-const SYSTEM_SCHEMAS = new Set([
-  'information_schema',
-  'pg_catalog',
-  'pg_toast',
-])
-const IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_$]*$/
-
-export function parsePostgresConfig(
-  config: Record<string, unknown>,
-): PostgresConnectorConfig {
-  const host = typeof config['host'] === 'string' ? config['host'].trim() : ''
-  const port = Number(config['port'])
-  const database =
-    typeof config['database'] === 'string' ? config['database'].trim() : ''
-  const sslMode = config['sslMode'] ?? 'disable'
-  if (!host) {
-    throw new ConnectorExecutionError('invalid_destination', 'Configure the source host on this connector.')
-  }
-  if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    throw new ConnectorExecutionError('invalid_destination', 'Configure a valid source port.')
-  }
-  validateConnectorHost(host, port)
-  if (!database) {
-    throw new ConnectorExecutionError('invalid_destination', 'Configure the source database.')
-  }
-  if (sslMode !== 'disable' && sslMode !== 'prefer' && sslMode !== 'require') {
-    throw new ConnectorExecutionError('invalid_destination', 'sslMode must be disable, prefer or require.')
-  }
-  const allowedSchemas = Array.isArray(config['allowedSchemas'])
-    ? (config['allowedSchemas'] as unknown[]).filter(
-        (entry): entry is string => typeof entry === 'string' && IDENTIFIER.test(entry),
-      )
-    : undefined
-  const allowedTables = Array.isArray(config['allowedTables'])
-    ? (config['allowedTables'] as unknown[]).filter(
-        (entry): entry is string =>
-          typeof entry === 'string' && /^[a-zA-Z_][a-zA-Z0-9_$]*\.[a-zA-Z_][a-zA-Z0-9_$]*$/.test(entry),
-      )
-    : undefined
-  return { host, port, database, sslMode, allowedSchemas, allowedTables }
-}
+export { parsePostgresConfig, quoteIdentifier } from './config-validation'
 
 /** Open one short-lived read-only client. Never exposes the connection. */
 async function connect(
@@ -134,6 +98,8 @@ function mapPostgresError(error: unknown): ConnectorExecutionError {
   }
   return new ConnectorExecutionError('query_failed', message)
 }
+
+const IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_$]*$/
 
 function schemaFilter(source: PostgresConnectorConfig): string[] {
   if (source.allowedSchemas && source.allowedSchemas.length > 0) {
@@ -199,17 +165,6 @@ async function listColumns(
     dataType: row.data_type,
     nullable: row.is_nullable === 'YES',
   }))
-}
-
-/** Quote a validated identifier; non-conforming names are refused outright. */
-export function quoteIdentifier(identifier: string): string {
-  if (!IDENTIFIER.test(identifier)) {
-    throw new ConnectorExecutionError(
-      'query_failed',
-      'Source identifiers must be plain PostgreSQL identifiers (no quotes or whitespace).',
-    )
-  }
-  return `"${identifier}"`
 }
 
 interface SourceRows {

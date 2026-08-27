@@ -11,10 +11,7 @@
  */
 import { createFileRoute } from '@tanstack/react-router'
 
-import {
-  boundedErrorMessage,
-  ConnectorExecutionError,
-} from '#/lib/connectors/enterprise/execution.server'
+import { boundedErrorMessage, ConnectorExecutionError } from '#/lib/connectors/enterprise/errors'
 import {
   discoverConnectorSource,
   importConnectorSource,

@@ -21,6 +21,16 @@ export interface ConnectorAdapterContext {
   secrets: Record<string, string>
   /** Session token for file-platform retention reads (server-side only). */
   token: string
+  /** Reads a file_objects row (PostgREST in prod, injectable in tests). */
+  readFileObject: (
+    workspaceId: string,
+    recordId: string,
+  ) => Promise<{
+    id: string
+    storage_key: string
+    status: string
+    version: number
+  } | null>
 }
 
 export interface ConnectorImportTarget {

@@ -19,6 +19,7 @@ import type {
   ConnectorImportRequest,
 } from './adapter'
 import { ConnectorExecutionError, resolveConnectorExecutionContext } from './execution.server'
+import { postgrestFileObjectReader } from './retain.server'
 import { enterpriseAdapterId, importLimitsFromConfig } from './types'
 import type { EnterpriseAdapterId } from './types'
 import { loadConnectorSecrets } from './secrets.server'
@@ -105,6 +106,7 @@ async function resolveConnector(input: ConnectorOperationInput): Promise<{
       limits: importLimitsFromConfig(connector.config),
       secrets,
       token: exec.token,
+      readFileObject: postgrestFileObjectReader(exec.token),
     },
     adapter,
     source,

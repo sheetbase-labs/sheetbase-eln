@@ -67,19 +67,30 @@ Audited against the fully-migrated schema (and now continuously asserted in
 
 ## 4. Dependency and static analysis
 
-- **Dependency audit:** the production tree must be free of high+ advisories.
-  Enforced in the `deploy.yml` verify job (`pnpm audit --prod
---audit-level=high`, exit code gates the release) and run for visibility on
-  PRs in `security.yml`. Current accepted exceptions (both **moderate**,
-  both unreachable from untrusted input): `esbuild@0.18` (drizzle-kit local
-  tooling; the advisory requires running its dev server) and `postcss`
-  (build-time). Re-triaged whenever the audit output changes.
+- **Dependency audit — enforced release gate:** the production tree must be
+  free of high+ advisories. `pnpm audit --prod --audit-level=high` is a step
+  in the `deploy.yml` verify job (its non-zero exit blocks the release) and
+  runs for visibility on `main` in `security.yml`. Current accepted
+  exceptions (both **moderate**, both unreachable from untrusted input):
+  `esbuild@0.18` (drizzle-kit local tooling; the advisory requires running
+  its dev server) and `postcss` (build-time). Re-triaged whenever the audit
+  output changes.
+- **Pre-merge PR auditing — deferred (explicit).** A PR-triggered audit was
+  implemented and then removed: the GitHub account currently cannot start
+  any CI job (billing block), and GitHub marks a job that cannot start as
+  **failed** with no "skipped" outcome available from the workflow — so a PR
+  check would report red purely for environmental reasons while adding no
+  signal the release gate does not already enforce. The contract is
+  therefore **release-time enforcement on `main`** (a vulnerable dependency
+  fails the deploy gate before serving traffic), documented rather than
+  misclaimed. Re-add a PR-triggered audit workflow (identical command) when
+  the account can run CI reliably.
 - **Overrides:** `js-yaml`, `nanoid` (and `jsdom` upgraded) so the tree is
   free of patched advisories rather than ignoring them.
 - **SAST:** CodeQL (`javascript-typescript`, `security-extended` queries) on
-  main, PRs, and weekly schedule. Findings are triaged on the Security tab;
-  they intentionally do not block a release until the initial alert set is
-  baselined, after which new alerts gate like bugs.
+  main pushes and a weekly schedule in `security.yml`. Findings are triaged
+  on the Security tab; they intentionally do not block a release until the
+  initial alert set is baselined, after which new alerts gate like bugs.
 
 ## 5. Deliberately deferred
 

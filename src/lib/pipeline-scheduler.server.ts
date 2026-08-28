@@ -92,6 +92,7 @@ interface RunRow {
 interface StaleRun {
   id: string
   trigger_occurrence_id: string
+  definition_version_id: string
   input_versions: Record<string, string>
   parameters: Record<string, unknown>
 }
@@ -172,23 +173,23 @@ async function sweepTimedSchedule(
       locked.definition_id,
     )
 
-    // Crash recovery FIRST: retry stale occurrences with their own
-    // trigger_occurrence_id, independent of the current next_run_at.
-    if (versionId) {
-      const stale = await recoverStaleRuns(conn, locked)
-      for (const s of stale) {
-        const retryRunId = await startScheduledRun(
-          conn,
-          locked,
-          versionId,
-          s.input_versions,
-          s.parameters,
-          'scheduled',
-          s.trigger_occurrence_id,
-          s.id,
-        )
-        if (retryRunId) startedRunIds.push(retryRunId)
-      }
+    // Crash recovery FIRST: retry stale occurrences with their OWN pinned
+    // Pipeline Definition Version and trigger_occurrence_id, independent of
+    // the current next_run_at — reproducibility requires a retry to execute
+    // the exact version the crashed attempt used.
+    const stale = await recoverStaleRuns(conn, locked)
+    for (const s of stale) {
+      const retryRunId = await startScheduledRun(
+        conn,
+        locked,
+        s.definition_version_id,
+        s.input_versions,
+        s.parameters,
+        'scheduled',
+        s.trigger_occurrence_id,
+        s.id,
+      )
+      if (retryRunId) startedRunIds.push(retryRunId)
     }
 
     const due = locked.next_run_at
@@ -303,20 +304,14 @@ async function sweepStaleRecovery(
       return 0
     }
     await setScheduleClaims(conn, locked)
-    const versionId = await resolveLatestPublishedVersion(
-      conn,
-      locked.definition_id,
-    )
-    if (!versionId) {
-      await conn.rollback()
-      return 0
-    }
+    // Stale retries use the crashed run's OWN pinned version; no latest
+    // version resolution is needed for recovery.
     const stale = await recoverStaleRuns(conn, locked)
     for (const s of stale) {
       const retryRunId = await startScheduledRun(
         conn,
         locked,
-        versionId,
+        s.definition_version_id,
         s.input_versions,
         s.parameters,
         'scheduled',
@@ -364,23 +359,22 @@ async function sweepEventSchedule(
     )
 
     // Crash recovery FIRST: retry stale event occurrences with their own
-    // evt:<event_id> identity. The event cursor does not move backwards —
+    // evt:<event_id> identity AND their own pinned Pipeline Definition
+    // Version (reproducibility). The event cursor does not move backwards —
     // the event was already consumed; its run just needs recovery.
-    if (versionId) {
-      const stale = await recoverStaleRuns(conn, locked)
-      for (const s of stale) {
-        const retryRunId = await startScheduledRun(
-          conn,
-          locked,
-          versionId,
-          s.input_versions,
-          s.parameters,
-          'event',
-          s.trigger_occurrence_id,
-          s.id,
-        )
-        if (retryRunId) startedRunIds.push(retryRunId)
-      }
+    const stale = await recoverStaleRuns(conn, locked)
+    for (const s of stale) {
+      const retryRunId = await startScheduledRun(
+        conn,
+        locked,
+        s.definition_version_id,
+        s.input_versions,
+        s.parameters,
+        'event',
+        s.trigger_occurrence_id,
+        s.id,
+      )
+      if (retryRunId) startedRunIds.push(retryRunId)
     }
 
     const spec = locked.spec as {
@@ -530,8 +524,9 @@ async function latestRunForOccurrence(
 /**
  * Find stale running runs triggered by this schedule (via schedule_id — works
  * for both `sched:` and `evt:` occurrences), fail them as
- * `stale_run_reconciled`, and return their identities + stored inputs so the
- * caller can start a linked retry of the SAME occurrence.
+ * `stale_run_reconciled`, and return their identities + pinned version +
+ * stored inputs so the caller can start a linked retry of the SAME
+ * occurrence and the SAME Pipeline Definition Version (reproducibility).
  */
 async function recoverStaleRuns(
   conn: SchedulerConnection,
@@ -540,10 +535,12 @@ async function recoverStaleRuns(
   const { rows } = await conn.query<{
     id: string
     trigger_occurrence_id: string
+    definition_version_id: string
     input_versions: Record<string, string>
     parameters: Record<string, unknown>
   }>(
-    `SELECT id, trigger_occurrence_id, input_versions, parameters
+    `SELECT id, trigger_occurrence_id, definition_version_id,
+            input_versions, parameters
        FROM api.pipeline_runs
       WHERE schedule_id = $1
         AND status = 'running'
@@ -579,6 +576,7 @@ async function recoverStaleRuns(
   return rows.map((r) => ({
     id: r.id,
     trigger_occurrence_id: r.trigger_occurrence_id,
+    definition_version_id: r.definition_version_id,
     input_versions: r.input_versions,
     parameters: r.parameters,
   }))

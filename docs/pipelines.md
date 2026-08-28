@@ -132,11 +132,13 @@ those tables. Outputs are written with the run actor's JWT claims through the
   executed stays `running` for at most the 900s staleness threshold. Runs
   link back to their `schedule_id`; the next sweep fails any stale running
   run for that schedule with `stale_run_reconciled` and starts a linked
-  retry of the **same** `trigger_occurrence_id` (using the crashed run's own
-  stored inputs/parameters) — independent of the schedule's current
+  retry of the **same** `trigger_occurrence_id` **and the same pinned
+  Pipeline Definition Version** (using the crashed run's own stored version,
+  inputs and parameters) — independent of the schedule's current
   `next_run_at` or event cursor. A crashed occurrence is therefore
-  recovered, never silently skipped; the event cursor does not move
-  backwards.
+  recovered reproducibly, never silently skipped or silently upgraded to a
+  newer version; only genuinely NEW occurrences resolve the latest published
+  version. The event cursor does not move backwards.
 - **Event delivery is at-least-once, not silently lossy**: the per-workspace
   `change_events` sequence cursor advances when a run starts; if that run's
   execution crashes, the sweep recovers it by its `evt:<event_id>` identity.

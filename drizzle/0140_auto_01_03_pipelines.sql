@@ -1141,7 +1141,17 @@ BEGIN
     RAISE EXCEPTION 'pipeline definition version not found' USING ERRCODE = 'SB036';
   END IF;
   IF v_version.lifecycle <> 'published' THEN
-    RAISE EXCEPTION 'only published Pipeline versions can be run' USING ERRCODE = 'SB072';
+    -- Reproducibility: a retry pins the EXACT version the failed/crashed
+    -- attempt used, even if that version has since been retired. Only
+    -- genuinely new runs must use a currently-published version.
+    IF p_retry_of_run_id IS NULL OR NOT EXISTS (
+      SELECT 1 FROM api.pipeline_runs
+       WHERE id = p_retry_of_run_id
+         AND definition_version_id = v_version.id
+         AND workspace_id = p_workspace_id
+    ) THEN
+      RAISE EXCEPTION 'only published Pipeline versions can be run' USING ERRCODE = 'SB072';
+    END IF;
   END IF;
   SELECT * INTO v_definition FROM api.pipeline_definitions
    WHERE id = v_version.definition_id;
@@ -1223,9 +1233,14 @@ BEGIN
       IF v_retry_of IS NULL THEN
         RAISE EXCEPTION 'retry target not found' USING ERRCODE = 'SB036';
       END IF;
-      IF v_retry_of.trigger_occurrence_id IS DISTINCT FROM p_trigger_occurrence_id THEN
-        RAISE EXCEPTION 'retry target does not match the trigger occurrence' USING ERRCODE = 'SB034';
-      END IF;
+    END IF;
+    -- Retry lineage must be reproducible: the retry executes the exact
+    -- version the failed/crashed attempt used.
+    IF v_retry_of.definition_version_id IS DISTINCT FROM p_definition_version_id THEN
+      RAISE EXCEPTION 'retry target uses a different Pipeline version' USING ERRCODE = 'SB034';
+    END IF;
+    IF v_retry_of.trigger_occurrence_id IS DISTINCT FROM p_trigger_occurrence_id THEN
+      RAISE EXCEPTION 'retry target does not match the trigger occurrence' USING ERRCODE = 'SB034';
     END IF;
   END IF;
 

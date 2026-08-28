@@ -1277,4 +1277,128 @@ describe('Pipeline schedules and event triggers (AUTO-02)', () => {
     )
     expect(Number(advanced[0].last_evaluated_sequence)).toBeGreaterThan(0)
   })
+
+  it('pins the crashed Pipeline Version on stale recovery — a retry never silently upgrades to a newer version', async () => {
+    const owner = await actor(OWNER, WS)
+    // A dedicated Pipeline with V1 published, then V2 published after the
+    // crash, so the recovery must still execute V1.
+    const def = await rpc<{ id: string }>(owner, 'create_pipeline_definition', {
+      p_workspace_id: WS,
+      p_key: 'repro_v1_v2',
+      p_name: 'Repro V1/V2',
+      p_description: null,
+    })
+    const v1 = await rpc<{ id: string }>(
+      owner,
+      'create_pipeline_definition_version',
+      {
+        p_workspace_id: WS,
+        p_definition_id: def.id,
+        p_configuration: pipelineConfig(
+          'SELECT batch, value, value * {{factor}} AS scaled FROM measurements',
+        ),
+      },
+    )
+    await rpc(owner, 'publish_pipeline_definition_version', {
+      p_workspace_id: WS,
+      p_version_id: v1.id,
+    })
+    const schedule = await rpc<{ id: string }>(
+      owner,
+      'create_pipeline_schedule',
+      {
+        p_workspace_id: WS,
+        p_definition_id: def.id,
+        p_kind: 'interval',
+        p_spec: {
+          intervalMinutes: 5,
+          inputVersions: { measurements: inputDatasetVersionId },
+          parameters: { factor: 8 },
+        },
+        p_enabled: true,
+      },
+    )
+    const dueAt = new Date(Date.now() - 60_000)
+    await migrator.query(
+      `update api.pipeline_schedules set next_run_at = $2 where id = $1`,
+      [schedule.id, dueAt.toISOString()],
+    )
+    const occurrenceId = `sched:${schedule.id}:${dueAt.toISOString().replace(/[:.]/g, '-')}`
+
+    const conn = new PgClient({ connectionString: superuserTestUrl() })
+    await conn.connect()
+    // Sweep 1: V1 occurrence starts; executor crashes (no-op).
+    const crashDeps = await makeSweepDeps(conn)
+    crashDeps.run = async () => undefined
+    expect(await sweepPipelines(crashDeps)).toBeGreaterThanOrEqual(1)
+    const { rows: crashed } = await migrator.query(
+      `select id, definition_version_id from api.pipeline_runs
+        where trigger_occurrence_id = $1`,
+      [occurrenceId],
+    )
+    expect(crashed).toHaveLength(1)
+    expect(crashed[0].definition_version_id).toBe(v1.id)
+    await migrator.query(
+      `update api.pipeline_runs set started_at = now() - interval '1000 seconds' where id = $1`,
+      [crashed[0].id],
+    )
+
+    // Publish V2 (a NEW version) AFTER the crash.
+    const v2 = await rpc<{ id: string }>(
+      owner,
+      'create_pipeline_definition_version',
+      {
+        p_workspace_id: WS,
+        p_definition_id: def.id,
+        p_configuration: pipelineConfig(
+          'SELECT batch, value, value * {{factor}} + 1 AS scaled FROM measurements',
+        ),
+      },
+    )
+    await rpc(owner, 'publish_pipeline_definition_version', {
+      p_workspace_id: WS,
+      p_version_id: v2.id,
+    })
+
+    // A genuinely NEW occurrence becomes due after V2 is published; it must
+    // resolve the latest published version (V2), not the pinned V1.
+    const newDueAt = new Date(Date.now() - 30_000)
+    await migrator.query(
+      `update api.pipeline_schedules set next_run_at = $2 where id = $1`,
+      [schedule.id, newDueAt.toISOString()],
+    )
+    const newOccurrenceId = `sched:${schedule.id}:${newDueAt.toISOString().replace(/[:.]/g, '-')}`
+
+    // Sweep 2 (normal): the stale V1 occurrence is recovered pinned to V1,
+    // while the NEW occurrence resolves V2.
+    const deps = await makeSweepDeps(conn)
+    expect(await sweepPipelines(deps)).toBeGreaterThanOrEqual(1)
+    await conn.end()
+
+    const { rows: retries } = await migrator.query(
+      `select id, definition_version_id, attempt, retry_of_run_id, status, error_code
+         from api.pipeline_runs
+        where trigger_occurrence_id = $1
+        order by started_at`,
+      [occurrenceId],
+    )
+    expect(retries).toHaveLength(2)
+    expect(retries[0].id).toBe(crashed[0].id)
+    expect(retries[0].status).toBe('failed')
+    expect(retries[0].error_code).toBe('stale_run_reconciled')
+    expect(retries[1].attempt).toBe(2)
+    expect(retries[1].retry_of_run_id).toBe(crashed[0].id)
+    // The retry executes the EXACT crashed version (V1), never the newer V2.
+    expect(retries[1].definition_version_id).toBe(v1.id)
+    expect(retries[1].definition_version_id).not.toBe(v2.id)
+
+    // A genuinely NEW occurrence resolves the latest published version (V2).
+    const { rows: fresh } = await migrator.query(
+      `select definition_version_id from api.pipeline_runs
+        where trigger_occurrence_id = $1`,
+      [newOccurrenceId],
+    )
+    expect(fresh).toHaveLength(1)
+    expect(fresh[0].definition_version_id).toBe(v2.id)
+  })
 })

@@ -27,12 +27,14 @@ import {
 import type { SessionAuthDeps } from '#/lib/request-auth'
 import type { FileOutcome } from '#/lib/metrics'
 import { metrics } from '#/lib/metrics'
-import type { RateLimiter } from '#/lib/rate-limit'
+import type { RateLimitDecision, RateLimiter } from '#/lib/rate-limit'
 import {
   RATE_LIMIT_SCOPE_FILES,
   createRateLimiter,
   defaultRateLimitOptions,
 } from '#/lib/rate-limit'
+import { logger } from '#/lib/logger'
+import { resolveRequestId } from '#/lib/request-id'
 
 /** PLAT-03 — process-wide file byte-route limiter (per session). */
 const fileRateLimiter: RateLimiter = createRateLimiter(
@@ -51,14 +53,39 @@ function positiveInt(value: string | undefined): number | undefined {
 
 /**
  * PLAT-03 — abuse bound for the file byte routes (bytes are already capped
- * per request; this bounds request volume). Fails open by design.
+ * per request; this bounds request volume). Fails open by design. Mirrors the
+ * proxy limiter: same bounded outcome metric, a safe warn log with no
+ * principal identifiers, and Retry-After on the rejection.
  */
-function fileRateLimitAllowed(sessionId: string): boolean {
+function fileRateLimitDecision(
+  request: Request,
+  sessionId: string,
+  operation: 'upload' | 'download',
+): RateLimitDecision | null {
   try {
-    return fileRateLimiter.hit(`${RATE_LIMIT_SCOPE_FILES}:${sessionId}`).allowed
+    const decision = fileRateLimiter.hit(
+      `${RATE_LIMIT_SCOPE_FILES}:${sessionId}`,
+    )
+    if (decision.allowed) return decision
+    logger.warn('file route rate limited', {
+      request_id: resolveRequestId(request.headers),
+      operation,
+    })
+    metrics.fileOperations.inc({ operation, outcome: 'rate_limited' })
+    return decision
   } catch {
-    return true
+    return null
   }
+}
+
+function fileRateLimitedResponse(decision: RateLimitDecision): Response {
+  const response = requestErrorResponse(
+    429,
+    'rate_limited',
+    'Too many requests. Slow down and try again shortly.',
+  )
+  response.headers.set('retry-after', String(decision.retryAfterSeconds ?? 60))
+  return response
 }
 
 /**
@@ -217,8 +244,13 @@ export async function handleUpload(
     )
   }
   const { context } = authResult
-  if (!fileRateLimitAllowed(context.sessionId)) {
-    return requestErrorResponse(429, 'rate_limited', 'Too many requests. Slow down and try again shortly.')
+  const uploadRateLimit = fileRateLimitDecision(
+    request,
+    context.sessionId,
+    'upload',
+  )
+  if (uploadRateLimit && !uploadRateLimit.allowed) {
+    return fileRateLimitedResponse(uploadRateLimit)
   }
   const uploadStartedAt = Date.now()
 
@@ -355,8 +387,13 @@ export async function handleDownload(
     )
   }
   const { context } = authResult
-  if (!fileRateLimitAllowed(context.sessionId)) {
-    return requestErrorResponse(429, 'rate_limited', 'Too many requests. Slow down and try again shortly.')
+  const downloadRateLimit = fileRateLimitDecision(
+    request,
+    context.sessionId,
+    'download',
+  )
+  if (downloadRateLimit && !downloadRateLimit.allowed) {
+    return fileRateLimitedResponse(downloadRateLimit)
   }
   const downloadStartedAt = Date.now()
 

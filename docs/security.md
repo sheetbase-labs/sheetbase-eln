@@ -7,8 +7,8 @@ deliberate and tested (see §3 for the executable evidence), not accidental.
 
 Pre-release context: Sheetbase has **no production users or production
 data**. Superseded or unsafe development-era paths are removed rather than
-shimmed. Enterprise-grade controls (WAF, nonce CSP, formal penetration
-testing) are explicitly deferred until usage justifies them — see §5.
+shimmed. Enterprise-grade controls (WAF, formal penetration testing) are
+explicitly deferred until usage justifies them — see §5.
 
 ## 1. Surface inventory
 
@@ -83,9 +83,9 @@ Audited against the fully-migrated schema (and now continuously asserted in
 
 ## 5. Deliberately deferred
 
-- **Nonce/hash CSP:** the transitional CSP (documented
-  `unsafe-inline`, `docs/security-headers.md`) stays until the inline
-  bootstrap scripts get a nonce pipeline.
+- **Nonce/hash CSP:** **done** in this pass (see
+  `docs/security-headers.md` — per-request nonce; production `script-src`
+  no longer uses `'unsafe-inline'`).
 - **General nonce/2FA/hardening of Better Auth internals:** reviewed
   (cookies httpOnly + Secure + revocable DB sessions); deeper session
   hardening waits for real usage patterns.

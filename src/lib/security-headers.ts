@@ -31,13 +31,27 @@ export function resolveSecurityHeaderMode(
   return env.NODE_ENV === 'production' ? 'production' : 'development'
 }
 
+/**
+ * Builds the Content-Security-Policy.
+ *
+ * When a `nonce` is supplied (per-request, for HTML documents), inline
+ * `<script>` tags carry that nonce and `script-src` is
+ * `'self' 'nonce-<n>'` with **no** `'unsafe-inline'`: inline scripts are
+ * allowlisted by nonce instead of being allowed wholesale. `style-src`
+ * keeps `'unsafe-inline'` deliberately — React style attributes
+ * (`style={{...}}`) are non-executable data and cannot be nonced; they are
+ * not an injection surface in this application.
+ */
 export function buildContentSecurityPolicy(
   mode: SecurityHeaderMode = resolveSecurityHeaderMode(),
+  nonce?: string,
 ): string {
   const scriptSrc =
-    mode === 'production'
-      ? "'self' 'unsafe-inline'"
-      : "'self' 'unsafe-inline' 'unsafe-eval'"
+    mode === 'development'
+      ? "'self' 'unsafe-inline' 'unsafe-eval'"
+      : nonce
+        ? `'self' 'nonce-${nonce}'`
+        : "'self' 'unsafe-inline'"
   // COLLAB: presence/comments ride Liveblocks websockets and API calls;
   // auth itself is same-origin (/api/collaboration/*). GitHub avatars are
   // rendered from user profiles in collaboration surfaces.
@@ -70,11 +84,29 @@ export function buildContentSecurityPolicy(
   ].join('; ')
 }
 
+/**
+ * Adds a per-request nonce to every inline `<script>` and `<style>` tag so
+ * the document-level CSP can drop `'unsafe-inline'` from `script-src`.
+ * External scripts (those with a `src` attribute) and already-nonced tags
+ * are left untouched. Only ever applied to server-rendered HTML produced by
+ * this application.
+ */
+export function injectNonceIntoHtml(html: string, nonce: string): string {
+  return html
+    .replace(/<script(?![^>]*\bsrc=)([^>]*?)>/gi, (match, attrs: string) =>
+      /\snonce=/.test(attrs) ? match : `<script${attrs} nonce="${nonce}">`,
+    )
+    .replace(/<style(?![^>]*\bsrc=)([^>]*?)>/gi, (match, attrs: string) =>
+      /\snonce=/.test(attrs) ? match : `<style${attrs} nonce="${nonce}">`,
+    )
+}
+
 export function securityHeaderEntries(
   mode: SecurityHeaderMode = resolveSecurityHeaderMode(),
+  nonce?: string,
 ): Array<[string, string]> {
   return [
-    [CONTENT_SECURITY_POLICY, buildContentSecurityPolicy(mode)],
+    [CONTENT_SECURITY_POLICY, buildContentSecurityPolicy(mode, nonce)],
     [X_CONTENT_TYPE_OPTIONS, 'nosniff'],
     [REFERRER_POLICY, 'strict-origin-when-cross-origin'],
     [X_FRAME_OPTIONS, 'SAMEORIGIN'],
@@ -89,8 +121,9 @@ export function securityHeaderEntries(
 export function applySecurityHeaders(
   headers: Headers,
   mode: SecurityHeaderMode = resolveSecurityHeaderMode(),
+  nonce?: string,
 ): Headers {
-  for (const [name, value] of securityHeaderEntries(mode)) {
+  for (const [name, value] of securityHeaderEntries(mode, nonce)) {
     headers.set(name, value)
   }
   return headers
@@ -100,7 +133,8 @@ export function applySecurityHeaders(
 export function stampSecurityHeaders(
   response: Response,
   mode: SecurityHeaderMode = resolveSecurityHeaderMode(),
+  nonce?: string,
 ): Response {
-  applySecurityHeaders(response.headers, mode)
+  applySecurityHeaders(response.headers, mode, nonce)
   return response
 }

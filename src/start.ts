@@ -1,10 +1,15 @@
+import { randomBytes } from 'node:crypto'
+
 import {
   createCsrfMiddleware,
   createMiddleware,
   createStart,
 } from '@tanstack/react-start'
 
-import { applySecurityHeaders } from '#/lib/security-headers'
+import {
+  applySecurityHeaders,
+  injectNonceIntoHtml,
+} from '#/lib/security-headers'
 
 // Preserve TanStack Start's default CSRF protection for server functions.
 // Providing requestMiddleware replaces the framework default list, so CSRF
@@ -16,8 +21,33 @@ const csrfMiddleware = createCsrfMiddleware({
 const securityHeadersMiddleware = createMiddleware().server(
   async ({ next }) => {
     const result = await next()
-    applySecurityHeaders(result.response.headers)
-    return result
+    const headers = result.response.headers
+    const contentType = headers.get('content-type') ?? ''
+
+    // Non-HTML responses (JSON/API, SSE, file bytes, health) keep the static
+    // policy; there is no document script surface to protect.
+    if (!contentType.includes('text/html')) {
+      applySecurityHeaders(headers)
+      return result
+    }
+
+    // HTML documents get a per-request nonce: inline scripts emitted by the
+    // app bootstrap and TanStack Start (history restore, stream barrier,
+    // hydration completion) are allowlisted by nonce and `script-src`
+    // drops 'unsafe-inline'. The body is buffered (pages are small; the
+    // streaming TTFB trade-off is documented in docs/security-headers.md).
+    const nonce = randomBytes(16).toString('base64url')
+    applySecurityHeaders(headers, undefined, nonce)
+    const html = await result.response.text()
+    const nonced = injectNonceIntoHtml(html, nonce)
+    return {
+      ...result,
+      response: new Response(nonced, {
+        status: result.response.status,
+        statusText: result.response.statusText,
+        headers: result.response.headers,
+      }),
+    }
   },
 )
 

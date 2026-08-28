@@ -8,12 +8,13 @@
 #      like bugs but do not block a release by themselves until the alert set
 #      is baselined (documented in docs/security.md).
 #   2. The dependency audit runs here for visibility on `main`; the enforcing
-#      copy runs inside the deploy.yml verify job (which also covers PRs via
-#      the gate).
+#      copy runs inside the deploy.yml verify job, and a minimal per-PR copy
+#      lives in pr-dependency-audit.yml so high+ advisories are caught before
+#      merge rather than only failing the post-merge release gate.
 #
-# Deliberately not triggered on pull_request: it would only duplicate the
-# gate's audit for this single-container stack, and it doubled the Actions
-# consumption for an account that must stay on a minimal spend budget.
+# Deliberately not triggered on pull_request: CodeQL on every PR would
+# duplicate the pre-merge audit without catching anything earlier on this
+# single-container stack, at double the Actions cost.
 
 name: Security
 

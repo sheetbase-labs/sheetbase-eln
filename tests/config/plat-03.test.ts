@@ -11,15 +11,24 @@ describe('PLAT-03 security pipeline', () => {
   }
 
   it('runs CodeQL SAST on main pushes and a weekly schedule', () => {
-    // PRs deliberately do not trigger security.yml — the dependency audit is
-    // enforced for every push through the deploy.yml gate, and CodeQL on
-    // every PR doubled Actions consumption for minimal signal on this
-    // single-container stack.
+    // CodeQL deliberately does not run per-PR (the pre-merge dependency audit
+    // covers the gate at a fraction of the cost); the full toolchain runs
+    // once per merge on main.
     expect(Object.keys(workflow.on)).toEqual(
       expect.arrayContaining(['push', 'schedule']),
     )
     expect(workflow.on.pull_request).toBeUndefined()
     expect(workflow.jobs.codeql).toBeDefined()
+  })
+
+  it('runs a lightweight dependency audit on every pull request (pre-merge)', () => {
+    const prAudit = parse(
+      readFileSync('.github/workflows/pr-dependency-audit.yml', 'utf8'),
+    ) as { on: Record<string, unknown>; jobs: Record<string, unknown> }
+    expect(prAudit.on.pull_request).toBeTruthy()
+    const deploy = readFileSync('.github/workflows/deploy.yml', 'utf8')
+    expect(prAudit.jobs).toBeDefined()
+    expect(deploy).toContain('pnpm audit --prod --audit-level=high')
   })
 
   it('runs the dependency audit for visibility outside the gate', () => {

@@ -82,6 +82,7 @@ export const FILE_OUTCOMES = [
   'not_found',
   'not_uploadable',
   'missing',
+  'rate_limited',
   'error',
 ] as const
 export type FileOutcome = (typeof FILE_OUTCOMES)[number]

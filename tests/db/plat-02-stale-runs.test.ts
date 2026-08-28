@@ -5,6 +5,11 @@
  * stale attempt as `failed` (`stale_run_reconciled`), links the new attempt
  * as its retry, and appends a durable reconcile log. A *fresh* running run
  * still conflicts (SB044) — legitimate in-flight work is never failed.
+ *
+ * Security/reliability boundary: the staleness threshold is a fixed database
+ * policy inside start_connector_run. It is NOT a callable parameter — an
+ * authenticated workspace writer must not be able to shorten the threshold
+ * and fail someone else's in-flight run.
  */
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -92,15 +97,15 @@ describe('stale connector run reconciliation', () => {
     for (const client of clients) await client.end().catch(() => undefined)
   })
 
-  it('reconciles a stale running run on the same request digest', async () => {
+  it('reconciles a run stale past the authoritative threshold on the same digest', async () => {
     const staleId = await insertRunningRun(migrator, connectorId, {
       requestDigest: 'a'.repeat(64),
-      ageSeconds: 3600,
+      ageSeconds: 3600, // well past the fixed 900 s policy
     })
     const owner = await actor()
     const started = (
       await owner.query(
-        `select * from api.start_connector_run($1,$2,'manual',$3,NULL,NULL,60)`,
+        `select * from api.start_connector_run($1,$2,'manual',$3,NULL,NULL)`,
         [WS, connectorId, 'a'.repeat(64)],
       )
     ).rows[0]
@@ -137,7 +142,7 @@ describe('stale connector run reconciliation', () => {
     const owner = await actor()
     await expect(
       owner.query(
-        `select * from api.start_connector_run($1,$2,'manual',$3,NULL,NULL,900)`,
+        `select * from api.start_connector_run($1,$2,'manual',$3,NULL,NULL)`,
         [WS, connectorId, 'b'.repeat(64)],
       ),
     ).rejects.toMatchObject({ code: 'SB044' })
@@ -151,7 +156,7 @@ describe('stale connector run reconciliation', () => {
     const owner = await actor()
     const started = (
       await owner.query(
-        `select * from api.start_connector_run($1,$2,'manual',NULL,NULL,$3,60)`,
+        `select * from api.start_connector_run($1,$2,'manual',NULL,NULL,$3)`,
         [WS, connectorId, 'c'.repeat(64)],
       )
     ).rows[0]
@@ -168,13 +173,22 @@ describe('stale connector run reconciliation', () => {
     expect(started.retry_of_run_id).toBe(staleId)
   })
 
-  it('rejects an out-of-range staleness threshold', async () => {
+  it('does not accept a caller-supplied staleness threshold (42501-blocked escalation surface)', async () => {
+    // Regression: the reviewer-blocked shape start_connector_run(..., integer)
+    // must not exist. A workspace writer cannot force a 30 s reconciliation of
+    // someone else's in-flight run; the threshold is database policy.
     const owner = await actor()
     await expect(
       owner.query(
-        `select * from api.start_connector_run($1,$2,'manual',NULL,NULL,NULL,1)`,
-        [WS, connectorId],
+        `select * from api.start_connector_run($1,$2,'manual',$3,NULL,NULL,$4::int)`,
+        [WS, connectorId, 'd'.repeat(64), 30],
       ),
-    ).rejects.toMatchObject({ code: 'SB034' })
+    ).rejects.toThrow()
+    // And no run was reconciled or created by the rejected call.
+    const runs = await migrator.query(
+      `select status, error_code from api.connector_runs where request_digest=$1`,
+      ['d'.repeat(64)],
+    )
+    expect(runs.rows).toEqual([])
   })
 })

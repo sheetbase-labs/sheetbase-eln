@@ -60,6 +60,17 @@ export const CONNECTOR_TYPES = [
 
 export type ConnectorType = (typeof CONNECTOR_TYPES)[number]
 
+/** Bounded HTTP method vocabulary; anything else folds to 'other'. */
+export const HTTP_METHODS = [
+  'GET',
+  'POST',
+  'PUT',
+  'PATCH',
+  'DELETE',
+  'HEAD',
+  'OPTIONS',
+] as const
+
 export const FILE_OPERATIONS = ['upload', 'download'] as const
 export type FileOperation = (typeof FILE_OPERATIONS)[number]
 
@@ -237,13 +248,13 @@ export function createMetricsRegistry() {
     'sheetbase_http_requests_total',
     'HTTP requests handled by the application server.',
     ['route', 'method', 'status'],
-    { route: HTTP_ROUTES },
+    { route: HTTP_ROUTES, method: HTTP_METHODS },
   )
   const httpDuration = new Histogram(
     'sheetbase_http_request_duration_seconds',
     'HTTP request duration by route and method.',
     ['route', 'method'],
-    { route: HTTP_ROUTES },
+    { route: HTTP_ROUTES, method: HTTP_METHODS },
   )
   const dbUpstreamRequests = new Counter(
     'sheetbase_db_upstream_requests_total',
@@ -267,6 +278,7 @@ export function createMetricsRegistry() {
     'sheetbase_db_upstream_duration_seconds',
     'PostgREST upstream duration by HTTP method.',
     ['method'],
+    { method: HTTP_METHODS },
   )
   const connectorRuns = new Counter(
     'sheetbase_connector_runs_total',

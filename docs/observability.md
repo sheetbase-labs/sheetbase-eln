@@ -123,12 +123,19 @@ A run is request-scoped work in the app process. If a process dies mid-run,
 the run would stay `running` forever, blocking its request digest (SB044)
 and its selector identity (partial unique index). Policy: when a new attempt
 starts for the same identity and the old run has been `running` longer than
-`SHEETBASE_CONNECTOR_RUN_STALE_SECONDS` (default 900 s), the RPC fails it
-with the bounded code `stale_run_reconciled`, appends a `reconcile` warning
-to the run's durable log, and links the new attempt as its retry. Runs
-inside the threshold still conflict — legitimate in-flight work is never
-marked failed. The threshold is also the effective execution timeout for
-connector work; raise it before running anything legitimately slower than
+the authoritative staleness threshold (a **fixed database policy, currently
+900 s**, in `start_connector_run`), the RPC fails it with the bounded code
+`stale_run_reconciled`, appends a `reconcile` warning to the run's durable
+log, and links the new attempt as its retry. Runs inside the threshold still
+conflict — legitimate in-flight work is never marked failed.
+
+The threshold is deliberately **not caller input and not deployment
+configuration**: the RPC is executable by any workspace writer, so a
+caller-supplied threshold would let any member fail someone else's
+in-flight run. Changing the threshold is a migration decision (or, later, a
+controlled system configuration only privileged code can mutate). The
+threshold is also the effective execution timeout for connector work —
+revisit it via migration before running anything legitimately slower than
 15 minutes. No second job system or scheduler is introduced.
 
 ## Alerts

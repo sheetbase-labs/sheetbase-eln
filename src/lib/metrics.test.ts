@@ -105,6 +105,40 @@ describe('histogram', () => {
   })
 })
 
+describe('method label bounding', () => {
+  it('folds unknown HTTP methods to other in counters and histograms', () => {
+    const registry = createMetricsRegistry()
+    registry.httpRequests.inc({
+      route: 'db_proxy',
+      method: 'TRACE',
+      status: '200',
+    })
+    registry.dbUpstreamDuration.observe({ method: 'PROPFIND' }, 0.1)
+
+    const rendered = registry.render()
+    expect(rendered).not.toContain('"TRACE"')
+    expect(rendered).not.toContain('"PROPFIND"')
+    expect(rendered).toContain(
+      'sheetbase_http_requests_total{route="db_proxy",method="other",status="200"} 1',
+    )
+    expect(rendered).toContain(
+      'sheetbase_db_upstream_duration_seconds_count{method="other"} 1',
+    )
+  })
+
+  it('keeps canonical methods verbatim', () => {
+    const registry = createMetricsRegistry()
+    registry.httpRequests.inc({
+      route: 'health',
+      method: 'GET',
+      status: '200',
+    })
+    expect(registry.render()).toContain(
+      'sheetbase_http_requests_total{route="health",method="GET",status="200"} 1',
+    )
+  })
+})
+
 describe('boundedConnectorErrorCode', () => {
   it('maps known codes through and unknown codes to other', () => {
     expect(boundedConnectorErrorCode('parse_failed')).toBe('parse_failed')

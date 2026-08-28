@@ -6,15 +6,19 @@
 -- ('run already in progress') and the partial unique index on
 -- (connector_id, selector_digest) blocks a second running attempt.
 --
--- Policy: a run that has been `running` longer than the caller-supplied
--- staleness threshold is reconciled deterministically — it is marked failed
+-- Policy: a run that has been `running` longer than the authoritative
+-- database threshold is reconciled deterministically — it is marked failed
 -- with the bounded error code `stale_run_reconciled`, a warning is appended
 -- to the run's durable log, and the starting attempt is linked to it as its
 -- retry (attempt + 1, retry_of_run_id set). A legitimate long-running
--- execution must finish within the configured threshold; operators raise
--- SHEETBASE_CONNECTOR_RUN_STALE_SECONDS (default 900 s) to widen it.
--- No second job system is introduced: reconciliation happens exactly when a
--- new attempt starts, using the existing run model.
+-- execution must finish within the threshold.
+--
+-- SECURITY/RELIABILITY BOUNDARY: the threshold is a fixed database policy,
+-- NOT a callable parameter. The function is executable by any workspace
+-- writer; if callers could pass their own threshold, any member could fail
+-- someone else's in-flight run by requesting a tiny threshold. Changing the
+-- threshold is a deliberate migration decision (or, later, a controlled
+-- system configuration only privileged code can mutate).
 
 DROP FUNCTION IF EXISTS "api"."start_connector_run"(uuid, uuid, text, text, uuid, text);--> statement-breakpoint
 CREATE OR REPLACE FUNCTION "api"."start_connector_run"(
@@ -23,8 +27,7 @@ CREATE OR REPLACE FUNCTION "api"."start_connector_run"(
   p_trigger_kind text DEFAULT 'manual',
   p_request_digest text DEFAULT NULL,
   p_retry_of_run_id uuid DEFAULT NULL,
-  p_selector_digest text DEFAULT NULL,
-  p_stale_after_seconds integer DEFAULT 900
+  p_selector_digest text DEFAULT NULL
 )
 RETURNS "api"."connector_runs"
 LANGUAGE plpgsql
@@ -32,6 +35,9 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 DECLARE
+  -- Authoritative staleness threshold (seconds). Fixed server/database
+  -- policy: callers cannot lower, raise, or bypass it.
+  v_stale_threshold_seconds CONSTANT integer := 900;
   v_connector "api"."connectors";
   v_retry_of "api"."connector_runs";
   v_existing "api"."connector_runs";
@@ -47,9 +53,6 @@ BEGIN
   IF p_trigger_kind NOT IN ('manual', 'scheduled', 'event') THEN
     RAISE EXCEPTION 'invalid run trigger' USING ERRCODE = 'SB034';
   END IF;
-  IF p_stale_after_seconds IS NULL OR p_stale_after_seconds < 30 OR p_stale_after_seconds > 86400 THEN
-    RAISE EXCEPTION 'invalid stale threshold' USING ERRCODE = 'SB034';
-  END IF;
   SELECT * INTO v_connector FROM "api"."connectors"
    WHERE id = p_connector_id AND workspace_id = p_workspace_id FOR UPDATE;
   IF v_connector IS NULL THEN
@@ -59,9 +62,6 @@ BEGIN
     RAISE EXCEPTION 'connector is not active' USING ERRCODE = 'SB042';
   END IF;
 
-  -- PLAT-02 reconciliation helper: fails one stale running attempt in place.
-  -- Only runs past the threshold are touched; legitimate in-flight work is
-  -- never marked failed.
   IF p_request_digest IS NOT NULL THEN
     IF length(btrim(p_request_digest)) NOT BETWEEN 16 AND 128 THEN
       RAISE EXCEPTION 'invalid request digest' USING ERRCODE = 'SB034';
@@ -74,7 +74,7 @@ BEGIN
      LIMIT 1;
     IF v_existing.id IS NOT NULL THEN
       IF v_existing.status = 'running' THEN
-        IF v_existing.started_at < clock_timestamp() - make_interval(secs => p_stale_after_seconds) THEN
+        IF v_existing.started_at < clock_timestamp() - make_interval(secs => v_stale_threshold_seconds) THEN
           UPDATE "api"."connector_runs"
              SET status = 'failed',
                  error_code = 'stale_run_reconciled',
@@ -126,7 +126,7 @@ BEGIN
     IF v_running IS NOT NULL THEN
       IF (
         SELECT started_at FROM "api"."connector_runs" WHERE id = v_running
-      ) < clock_timestamp() - make_interval(secs => p_stale_after_seconds) THEN
+      ) < clock_timestamp() - make_interval(secs => v_stale_threshold_seconds) THEN
         UPDATE "api"."connector_runs"
            SET status = 'failed',
                error_code = 'stale_run_reconciled',
@@ -173,8 +173,8 @@ BEGIN
   ) RETURNING * INTO v;
   RETURN v;
 END $$;--> statement-breakpoint
-REVOKE EXECUTE ON FUNCTION "api"."start_connector_run"(uuid, uuid, text, text, uuid, text, integer) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION "api"."start_connector_run"(uuid, uuid, text, text, uuid, text, integer) TO authenticated;
+REVOKE EXECUTE ON FUNCTION "api"."start_connector_run"(uuid, uuid, text, text, uuid, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION "api"."start_connector_run"(uuid, uuid, text, text, uuid, text) TO authenticated;
 
 --> statement-breakpoint
 

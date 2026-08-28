@@ -13,14 +13,15 @@ const alerts = parse(readFileSync('deploy/alerts.yml', 'utf8')) as {
 const routeTree = readFileSync('src/routeTree.gen.ts', 'utf8')
 
 describe('PLAT-02 metrics deployment wiring', () => {
-  it('injects the metrics token and stale threshold into the app container', () => {
+  it('injects the metrics token into the app container', () => {
     const env = deployCompose.services.app.environment
     expect(env.SHEETBASE_METRICS_TOKEN).toContain(
       '${SHEETBASE_METRICS_TOKEN:-}',
     )
-    expect(env.SHEETBASE_CONNECTOR_RUN_STALE_SECONDS).toContain(
-      '${SHEETBASE_CONNECTOR_RUN_STALE_SECONDS:-900}',
-    )
+    // The stale threshold is a fixed database policy (migration 0138) —
+    // deliberately absent from the deployment environment so it cannot be
+    // lowered via configuration or caller input.
+    expect(env.SHEETBASE_CONNECTOR_RUN_STALE_SECONDS).toBeUndefined()
   })
 
   it('registers the /api/metrics route in the committed route tree', () => {

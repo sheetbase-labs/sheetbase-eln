@@ -72,8 +72,6 @@ export interface TabularIngestionInput {
   connectorType?: ConnectorType
   /** PLAT-02 server-injected metrics/logs; no-op when executed client-side. */
   observability?: ConnectorRunObservability
-  /** PLAT-02 staleness threshold override (server-side execution only). */
-  staleAfterSeconds?: number
   /** Stable identity recorded in provenance, e.g. `sheetbase.csv@1`. */
   parserIdentity: string
   sheetName: string
@@ -412,7 +410,6 @@ export async function ingestTabularPayload(
         triggerKind: input.triggerKind ?? 'manual',
         requestDigest,
         retryOfRunId,
-        staleAfterSeconds: input.staleAfterSeconds,
         observability: input.observability,
         startedMessage: `Ingesting ${input.sheetName} (${input.byteSize ?? 'unknown'} bytes).`,
         buildResult: (value) => value.resultPayload,
@@ -542,8 +539,6 @@ export interface ExternalIngestionInput {
   connectorType?: ConnectorType
   /** PLAT-02 server-injected metrics/logs; no-op when executed client-side. */
   observability?: ConnectorRunObservability
-  /** PLAT-02 staleness threshold override (server-side execution only). */
-  staleAfterSeconds?: number
   parserIdentity: string
   sheetName: string
   /**
@@ -612,7 +607,6 @@ export async function ingestExternalPayload(
       triggerKind: input.triggerKind ?? 'manual',
       selectorDigest,
       retryOfRunId,
-      staleAfterSeconds: input.staleAfterSeconds,
       observability: input.observability,
       startedMessage: `Importing ${input.sheetName}.`,
       buildResult: (value) => value.resultPayload,

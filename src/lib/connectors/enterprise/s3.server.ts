@@ -24,7 +24,6 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3'
 
-import { env } from '#/env.server'
 import { parseS3Config } from './config-validation'
 import { serverConnectorRunObservability } from '../observability.server'
 import { ConnectorExecutionError, boundedErrorMessage } from './errors'
@@ -252,7 +251,6 @@ export const s3Adapter: EnterpriseConnectorAdapter<S3ConnectorConfig> = {
       workspaceId: context.workspaceId,
       connectorId: context.connector.id,
       connectorType: 'storage',
-      staleAfterSeconds: env.SHEETBASE_CONNECTOR_RUN_STALE_SECONDS,
       observability: serverConnectorRunObservability,
       parserIdentity: S3_PARSER_IDENTITY,
       sheetName: key,

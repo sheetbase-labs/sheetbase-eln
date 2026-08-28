@@ -85,14 +85,6 @@ export interface ExecuteConnectorRunOptions<T> {
   startedMessage?: string
   /** Builds the result jsonb recorded on successful completion. */
   buildResult?: RunResultBuilder<T>
-  /**
-   * PLAT-02 — a run `running` longer than this is reconciled as stale by
-   * start_connector_run (a dead process must not wedge a digest/selector
-   * forever). Server-side execution passes the configured
-   * SHEETBASE_CONNECTOR_RUN_STALE_SECONDS; client-executed runs use the RPC
-   * default (900 s).
-   */
-  staleAfterSeconds?: number
   /** Server-injected metrics/logs; no-op in the browser. */
   observability?: ConnectorRunObservability
 }
@@ -139,7 +131,6 @@ export async function executeConnectorRun<T>(
     run = await startConnectorRun(client, {
       ...options,
       selectorDigest: options.selectorDigest ?? null,
-      staleAfterSeconds: options.staleAfterSeconds,
     })
     if (run.status !== 'running') {
       // Digest deduplication returned an already-finished run.

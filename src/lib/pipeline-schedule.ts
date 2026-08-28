@@ -22,6 +22,8 @@ export interface IntervalSpec {
 
 export interface DailySpec {
   dailyAt: string // HH:MM
+  /** Explicit IANA time zone (default 'UTC'); never the server local zone. */
+  timeZone?: string
   parameters?: Record<string, unknown>
   inputVersions?: Record<string, string>
 }
@@ -66,6 +68,13 @@ export function validateScheduleSpec(
     if (typeof record.dailyAt !== 'string' || !DAILY_RE.test(record.dailyAt)) {
       return { message: 'dailyAt must be an HH:MM time' }
     }
+    if (
+      record.timeZone !== undefined &&
+      record.timeZone !== null &&
+      (typeof record.timeZone !== 'string' || !isIanaTimeZone(record.timeZone))
+    ) {
+      return { message: 'timeZone must be a valid IANA time zone name' }
+    }
     return null
   }
   // kind === 'event' (the only remaining kind)
@@ -102,13 +111,75 @@ export function nextRunAt(
     const minutes = (spec as IntervalSpec).intervalMinutes
     return new Date(from.getTime() + minutes * 60_000)
   }
-  // daily
+  // daily — next wall-clock occurrence in the explicit IANA zone
   const daily = spec as DailySpec
-  const [hour, minute] = daily.dailyAt.split(':').map(Number)
-  const candidate = new Date(from)
-  candidate.setHours(hour, minute, 0, 0)
-  if (candidate.getTime() <= from.getTime()) {
-    candidate.setDate(candidate.getDate() + 1)
+  const zone = daily.timeZone ?? 'UTC'
+  if (!isIanaTimeZone(zone)) return null
+  return nextDailyInZone(from, daily.dailyAt, zone)
+}
+
+interface ZonedClock {
+  y: number
+  mo: number
+  d: number
+  /** Offset of the zone at the instant: wall-clock-as-UTC minus the instant. */
+  offsetMs: number
+}
+
+function zonedParts(at: Date, zone: string): ZonedClock {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: zone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(at)
+  const get = (type: string) =>
+    Number(parts.find((p) => p.type === type)?.value ?? 0)
+  const hour = get('hour') % 24
+  const asUtc = Date.UTC(
+    get('year'),
+    get('month') - 1,
+    get('day'),
+    hour,
+    get('minute'),
+    get('second'),
+  )
+  return {
+    y: get('year'),
+    mo: get('month'),
+    d: get('day'),
+    offsetMs: asUtc - at.getTime(),
   }
-  return candidate
+}
+
+function nextDailyInZone(from: Date, dailyAt: string, zone: string): Date {
+  const [hour, minute] = dailyAt.split(':').map(Number)
+  const now = zonedParts(from, zone)
+  const candidate =
+    Date.UTC(now.y, now.mo - 1, now.d, hour, minute) - now.offsetMs
+  if (candidate <= from.getTime()) {
+    // Tomorrow, with the offset re-probed so DST transitions are respected.
+    const tomorrow = zonedParts(new Date(from.getTime() + 86_400_000), zone)
+    return new Date(
+      Date.UTC(tomorrow.y, tomorrow.mo - 1, tomorrow.d, hour, minute) -
+        tomorrow.offsetMs,
+    )
+  }
+  return new Date(candidate)
+}
+
+const IANA_TZ_RE = /^(?:[A-Za-z_]+(?:\/[A-Za-z0-9_+.-]+)+|UTC|GMT)$/
+
+export function isIanaTimeZone(value: string): boolean {
+  if (!IANA_TZ_RE.test(value)) return false
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: value })
+    return true
+  } catch {
+    return false
+  }
 }

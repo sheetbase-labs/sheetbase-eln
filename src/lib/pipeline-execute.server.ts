@@ -111,6 +111,7 @@ interface RunRow {
   status: string
   attempt: number
   retry_of_run_id: string | null
+  trigger_occurrence_id: string | null
   input_digest: string | null
   parameters: Record<string, unknown>
   input_versions: Record<string, string>
@@ -358,7 +359,8 @@ async function loadRun(
 ): Promise<RunRow | null> {
   const { rows } = await conn.query<RunRow>(
     `SELECT r.id, r.workspace_id, r.definition_version_id, r.trigger_kind,
-            r.status, r.attempt, r.retry_of_run_id, r.input_digest,
+            r.status, r.attempt, r.retry_of_run_id, r.trigger_occurrence_id,
+            r.input_digest,
             r.parameters, r.input_versions, r.actor_user_id, r.actor_credential_id,
             v.version AS version_number, v.configuration, d.name AS definition_name
        FROM api.pipeline_runs r
@@ -764,6 +766,13 @@ async function writeOutput(
   // set_config. The output phase must use the run's own identity, never one
   // the transform chose.
   await setRunActorClaims(conn, run)
+  // Switch to the request role so the output Dataset creation goes through
+  // the canonical RLS-gated writer path (datasets_insert_writer requires
+  // is_workspace_writer) — the same domain operation the product/API uses —
+  // never a privileged second writer. The governed RPCs below are SECURITY
+  // DEFINER and work from any session role with the stamped claims.
+  await conn.query('SET LOCAL ROLE authenticated')
+  await conn.query("SET LOCAL search_path = ''")
 
   let datasetId: string
   let schemaVersionId: string

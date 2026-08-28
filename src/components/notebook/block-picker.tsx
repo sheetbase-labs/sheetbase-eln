@@ -11,6 +11,7 @@ import {
   LineChart,
   Grid3x3,
   Sigma,
+  Workflow,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -144,6 +145,15 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     icon: Grid3x3,
     group: 'evidence',
     aliases: ['plate', 'wells'],
+  },
+  {
+    type: 'pipeline_output',
+    label: 'Pipeline output',
+    description:
+      'Reference a Pipeline run and pin the Dataset Version it produced into the notebook.',
+    icon: Workflow,
+    group: 'evidence',
+    aliases: ['pipeline', 'automation', 'run'],
   },
 ]
 

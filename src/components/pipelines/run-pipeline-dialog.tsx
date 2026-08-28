@@ -38,6 +38,7 @@ export function RunPipelineDialog({
   onOpenChange,
   onRunStarted,
   retryOfRunId = null,
+  initialInputVersions,
 }: {
   dataClient: DataClient
   workspaceId: string
@@ -47,9 +48,13 @@ export function RunPipelineDialog({
   onOpenChange: (open: boolean) => void
   onRunStarted: (run: PipelineRunWire) => void
   retryOfRunId?: string | null
+  /** Pre-fill input Dataset Version ids (e.g. Dataset → Pipeline integration). */
+  initialInputVersions?: Record<string, string>
 }) {
   const queryClient = useQueryClient()
-  const [inputs, setInputs] = useState<Record<string, string>>({})
+  const [inputs, setInputs] = useState<Record<string, string>>(() => ({
+    ...(initialInputVersions ?? {}),
+  }))
   const [params, setParams] = useState<Record<string, string>>({})
   const [error, setError] = useState('')
 
@@ -85,11 +90,6 @@ export function RunPipelineDialog({
         triggerKind: 'manual',
         parameters: resolvedParams,
         inputVersions: resolvedInputs,
-        inputDigest: await buildInputDigest(
-          definitionVersionId,
-          resolvedInputs,
-          resolvedParams,
-        ),
         retryOfRunId,
       })
       if (started.status === 'running') {
@@ -229,26 +229,4 @@ function coerceParameterValue(type: string, raw: string): unknown {
     default:
       return raw
   }
-}
-
-/** Canonical run identity: definition version + sorted inputs + params. */
-export async function buildInputDigest(
-  definitionVersionId: string,
-  inputVersions: Record<string, string>,
-  parameters: Record<string, unknown>,
-): Promise<string> {
-  const canonical = {
-    definitionVersionId,
-    inputs: Object.fromEntries(
-      Object.entries(inputVersions).sort(([a], [b]) => (a < b ? -1 : 1)),
-    ),
-    parameters: Object.fromEntries(
-      Object.entries(parameters).sort(([a], [b]) => (a < b ? -1 : 1)),
-    ),
-  }
-  const data = new TextEncoder().encode(JSON.stringify(canonical))
-  const digest = await crypto.subtle.digest('SHA-256', data)
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('')
 }

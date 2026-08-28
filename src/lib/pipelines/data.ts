@@ -120,9 +120,13 @@ export interface StartPipelineRunInput {
   triggerKind?: 'manual' | 'scheduled' | 'event'
   parameters?: Record<string, unknown>
   inputVersions?: Record<string, string>
-  /** sha256 of the canonical run identity; enables idempotent replay. */
-  inputDigest?: string | null
   retryOfRunId?: string | null
+  /**
+   * Stable identity for scheduled/event trigger occurrences
+   * (`sched:<id>:<due_at>` / `evt:<change_event_id>`); null for manual.
+   * The canonical input_digest is computed server-side, never supplied here.
+   */
+  triggerOccurrenceId?: string | null
 }
 
 export async function startPipelineRun(
@@ -135,8 +139,8 @@ export async function startPipelineRun(
     p_trigger_kind: input.triggerKind ?? 'manual',
     p_parameters: input.parameters ?? {},
     p_input_versions: input.inputVersions ?? {},
-    p_input_digest: input.inputDigest ?? null,
     p_retry_of_run_id: input.retryOfRunId ?? null,
+    p_trigger_occurrence_id: input.triggerOccurrenceId ?? null,
   })
 }
 
@@ -241,7 +245,7 @@ const VERSION_FIELDS =
   'id,definition_id,workspace_id,version,lifecycle,configuration_format_version,configuration,revision,created_at,updated_at,created_by_user_id,published_at,published_by_user_id,retired_at,retired_by_user_id'
 
 const RUN_FIELDS =
-  'id,workspace_id,definition_version_id,trigger_kind,status,attempt,retry_of_run_id,input_digest,parameters,input_versions,result,error_code,error_message,started_at,finished_at,actor_user_id,actor_credential_id,created_at'
+  'id,workspace_id,definition_version_id,trigger_kind,status,attempt,retry_of_run_id,trigger_occurrence_id,input_digest,parameters,input_versions,result,error_code,error_message,started_at,finished_at,actor_user_id,actor_credential_id,created_at'
 
 const LOG_FIELDS =
   'id,workspace_id,run_id,sequence,level,stage,message,detail,at'
@@ -250,7 +254,7 @@ const OUTPUT_FIELDS =
   'id,workspace_id,run_id,dataset_id,dataset_version_id,label,created_at'
 
 const SCHEDULE_FIELDS =
-  'id,workspace_id,definition_id,kind,spec,enabled,last_run_at,next_run_at,last_evaluated_at,created_at,updated_at,created_by_user_id'
+  'id,workspace_id,definition_id,kind,spec,enabled,last_run_at,next_run_at,last_evaluated_at,last_evaluated_sequence,created_at,updated_at,created_by_user_id'
 
 export async function listPipelineDefinitions(
   client: DataClient,
@@ -282,6 +286,17 @@ export async function listPipelineDefinitionVersions(
   )
 }
 
+export async function getPipelineDefinitionVersion(
+  client: DataClient,
+  versionId: string,
+): Promise<PipelineDefinitionVersionWire | undefined> {
+  const rows = await client.list<PipelineDefinitionVersionWire>(
+    'pipeline_definition_versions',
+    `?select=${VERSION_FIELDS}&id=eq.${encodeURIComponent(versionId)}`,
+  )
+  return rows[0]
+}
+
 export async function listPipelineRuns(
   client: DataClient,
   definitionVersionId: string,
@@ -290,6 +305,17 @@ export async function listPipelineRuns(
   return client.list<PipelineRunWire>(
     'pipeline_runs',
     `?select=${RUN_FIELDS}&definition_version_id=eq.${encodeURIComponent(definitionVersionId)}&order=started_at.desc&limit=${limit}`,
+  )
+}
+
+/** Recent workspace runs, newest first — the notebook picker surface. */
+export async function listRecentPipelineRuns(
+  client: DataClient,
+  limit = 20,
+): Promise<PipelineRunWire[]> {
+  return client.list<PipelineRunWire>(
+    'pipeline_runs',
+    `?select=${RUN_FIELDS}&order=started_at.desc&limit=${limit}`,
   )
 }
 
@@ -346,6 +372,75 @@ export async function listPipelineSchedules(
     'pipeline_schedules',
     `?select=${SCHEDULE_FIELDS}${filter}&order=created_at.asc`,
   )
+}
+
+// ---------------------------------------------------------------------------
+// Dataset product integration (AUTO-03): which Pipelines can run against a
+// Dataset, and their run-compatible surface.
+// ---------------------------------------------------------------------------
+
+export interface RunCompatiblePipeline {
+  definitionId: string
+  definitionName: string
+  definitionKey: string
+  versionId: string
+  versionNumber: number
+  /** The single input name v1-compatible Pipelines expose. */
+  inputName: string
+  hasParameters: boolean
+}
+
+/**
+ * Published Pipelines with exactly one input — the surface the Dataset page
+ * offers for "run a Pipeline against this Dataset" (the run pre-fills the
+ * input with the Dataset's latest Version id).
+ */
+export async function listRunCompatiblePipelines(
+  client: DataClient,
+): Promise<RunCompatiblePipeline[]> {
+  const [definitions, versions] = await Promise.all([
+    client.list<PipelineDefinitionWire>(
+      'pipeline_definitions',
+      `?select=${DEFINITION_FIELDS}&lifecycle=eq.active&order=name.asc`,
+    ),
+    client.list<PipelineDefinitionVersionWire>(
+      'pipeline_definition_versions',
+      `?select=${VERSION_FIELDS}&lifecycle=eq.published&order=version.desc`,
+    ),
+  ])
+  const definitionById = new Map(definitions.map((d) => [d.id, d]))
+  const latestByDefinition = new Map<string, PipelineDefinitionVersionWire>()
+  for (const version of versions) {
+    if (!latestByDefinition.has(version.definition_id)) {
+      latestByDefinition.set(version.definition_id, version)
+    }
+  }
+  const result: RunCompatiblePipeline[] = []
+  for (const version of latestByDefinition.values()) {
+    const definition = definitionById.get(version.definition_id)
+    const config = version.configuration
+    if (
+      !definition ||
+      typeof config !== 'object' ||
+      config === null ||
+      !Array.isArray(config.inputs) ||
+      config.inputs.length !== 1
+    ) {
+      continue
+    }
+    const first = config.inputs[0] as { name?: unknown }
+    result.push({
+      definitionId: definition.id,
+      definitionName: definition.name,
+      definitionKey: definition.key,
+      versionId: version.id,
+      versionNumber: version.version,
+      inputName: typeof first.name === 'string' ? first.name : 'input',
+      hasParameters:
+        Array.isArray(config.parameters) && config.parameters.length > 0,
+    })
+  }
+  return result
 }
 
 export const pipelineQueryKeys = {

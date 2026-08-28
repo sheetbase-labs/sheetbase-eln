@@ -1,22 +1,28 @@
 /**
  * AUTO-02 — Pipeline schedule/event sweep (server-side).
  *
- * Evaluates enabled schedules and starts + executes runs:
+ * Evaluates enabled schedules and starts + executes runs. Every scheduled
+ * or event-triggered run carries a **stable trigger occurrence identity**
+ * (`sched:<schedule_id>:<due_at_utc>` for interval/daily ticks,
+ * `evt:<change_event_id>` for events) so that:
  *
- *   - interval/daily schedules fire when next_run_at <= now against the
- *     latest published version of the definition, with the schedule's fixed
- *     parameters and input_versions.
- *   - event schedules poll the durable change_events stream (LIVE-001) for
- *     dataset_version_created events since last_evaluated_at and fire one
- *     run per event. This is a polling approximation of event delivery, not
- *     real-time push — documented in docs/pipelines.md.
+ *   - a duplicate sweep can never double-start the same occurrence
+ *     (one running + one succeeded run per occurrence, enforced by partial
+ *     unique indexes and the start RPC);
+ *   - a crash between "run started" and "run executed" is reconciled by the
+ *     staleness threshold (900s) — the next sweep fails the stale run with
+ *     `stale_run_reconciled` and retries the occurrence as a linked attempt,
+ *     so no run stays permanently ambiguous;
+ *   - a failed occurrence start is retried as a linked attempt.
  *
- * Every run is started through api.start_pipeline_run with the schedule
- * creator's identity (manual/scheduled/event trigger vocabulary) and
- * executed by the same server executor as browser runs. Schedule rows are
- * locked FOR UPDATE only for the start decision, never for execution, so
- * concurrent sweepers (or a long run) cannot double-fire or block each
- * other. All failures are contained — the sweep never crashes the server.
+ * Event delivery is **at-least-once with durable failure records**: the
+ * per-workspace change_events sequence cursor only advances past events with
+ * a durable disposition (a started run, or an explicitly abandoned failure
+ * after the retry budget). A failed start keeps the cursor in place and is
+ * recorded in `api.pipeline_trigger_failures`; the sweep retries next pass.
+ *
+ * Daily schedules use an explicit IANA time zone (`spec.timeZone`, default
+ * UTC) — never the DB/server session time zone.
  */
 import { Client } from 'pg'
 import type { QueryResultRow } from 'pg'
@@ -28,6 +34,7 @@ import { nextRunAt } from './pipeline-schedule'
 
 const SWEEP_INTERVAL_MS = 60_000
 const MAX_EVENTS_PER_SWEEP = 20
+const EVENT_RETRY_BUDGET = 3
 
 interface QueryResult<T extends QueryResultRow> {
   rows: T[]
@@ -60,12 +67,20 @@ interface ScheduleRow {
   last_run_at: string | null
   next_run_at: string | null
   last_evaluated_at: string | null
+  last_evaluated_sequence: string | null
   created_by_user_id: string | null
 }
 
 interface ChangeEventRow {
+  id: string
   entity_uuid: string
-  created_at: string
+  sequence: string
+}
+
+interface RunRow {
+  id: string
+  status: string
+  started_at: string
 }
 
 /**
@@ -82,7 +97,7 @@ export async function sweepPipelines(
     const { rows } = await conn.query<ScheduleRow>(
       `SELECT s.id, s.workspace_id, s.definition_id, s.kind, s.spec,
               s.enabled, s.last_run_at, s.next_run_at, s.last_evaluated_at,
-              s.created_by_user_id
+              s.last_evaluated_sequence, s.created_by_user_id
          FROM api.pipeline_schedules s
          JOIN api.pipeline_definitions d ON d.id = s.definition_id
         WHERE s.enabled AND d.lifecycle = 'active'
@@ -121,7 +136,8 @@ async function sweepTimedSchedule(
     await conn.begin()
     const { rows } = await conn.query<ScheduleRow>(
       `SELECT id, workspace_id, definition_id, kind, spec, enabled, last_run_at,
-              next_run_at, last_evaluated_at, created_by_user_id
+              next_run_at, last_evaluated_at, last_evaluated_sequence,
+              created_by_user_id
          FROM api.pipeline_schedules WHERE id = $1 FOR UPDATE`,
       [schedule.id],
     )
@@ -137,6 +153,13 @@ async function sweepTimedSchedule(
       await conn.rollback()
       return false
     }
+    // Stamp the schedule creator's identity so governed RPCs (run logs, the
+    // start RPC) work throughout this evaluation.
+    await setScheduleClaims(conn, locked)
+    // Crash recovery: reconcile stale running runs belonging to this
+    // schedule first, so an occurrence that was started but never executed
+    // is never left permanently ambiguous.
+    await reconcileStaleScheduleRuns(conn, locked)
 
     const versionId = await resolveLatestPublishedVersion(
       conn,
@@ -154,6 +177,29 @@ async function sweepTimedSchedule(
       return false
     }
 
+    const occurrenceId = scheduledOccurrenceId(locked.id, locked.next_run_at)
+    const prior = await latestRunForOccurrence(
+      conn,
+      locked.workspace_id,
+      occurrenceId,
+    )
+    if (prior && prior.status === 'succeeded') {
+      // Already executed this occurrence (duplicate sweep): back off only.
+      await conn.query(
+        `UPDATE api.pipeline_schedules
+            SET next_run_at = $2, updated_at = now()
+          WHERE id = $1`,
+        [locked.id, nextDue({ kind: locked.kind, spec: locked.spec }, now)],
+      )
+      await conn.commit()
+      return false
+    }
+    if (prior && prior.status === 'running' && !isStale(prior.started_at)) {
+      // In-flight (fresh) execution: never double-start.
+      await conn.rollback()
+      return false
+    }
+
     const spec = locked.spec as {
       inputVersions?: Record<string, string>
       parameters?: Record<string, unknown>
@@ -164,6 +210,9 @@ async function sweepTimedSchedule(
       versionId,
       spec.inputVersions,
       spec.parameters,
+      'scheduled',
+      occurrenceId,
+      prior?.id ?? null,
     )
     if (runId) {
       await conn.query(
@@ -204,7 +253,8 @@ async function sweepEventSchedule(
     await conn.begin()
     const { rows } = await conn.query<ScheduleRow>(
       `SELECT id, workspace_id, definition_id, kind, spec, enabled, last_run_at,
-              next_run_at, last_evaluated_at, created_by_user_id
+              next_run_at, last_evaluated_at, last_evaluated_sequence,
+              created_by_user_id
          FROM api.pipeline_schedules WHERE id = $1 FOR UPDATE`,
       [schedule.id],
     )
@@ -213,25 +263,24 @@ async function sweepEventSchedule(
       await conn.rollback()
       return 0
     }
+    await setScheduleClaims(conn, locked)
     const spec = locked.spec as {
       datasetId?: string | null
       inputName?: string
       inputVersions?: Record<string, string>
       parameters?: Record<string, unknown>
     }
-    const cursor = locked.last_evaluated_at
-      ? new Date(locked.last_evaluated_at).toISOString()
-      : new Date(0).toISOString()
+    const cursor = Number(locked.last_evaluated_sequence ?? 0)
     const events = await conn.query<ChangeEventRow>(
-      `SELECT entity_uuid, created_at
+      `SELECT id, entity_uuid, sequence
          FROM api.change_events
         WHERE workspace_id = $1
           AND entity_type = 'dataset_version'
           AND operation = 'create'
-          AND created_at > $2::timestamptz
+          AND sequence > $2::bigint
           AND ($3::uuid IS NULL OR payload->>'datasetId' IS NULL
                OR (payload->>'datasetId')::uuid = $3::uuid)
-        ORDER BY created_at, sequence
+        ORDER BY sequence
         LIMIT ${MAX_EVENTS_PER_SWEEP}`,
       [locked.workspace_id, cursor, spec.datasetId ?? null],
     )
@@ -240,24 +289,17 @@ async function sweepEventSchedule(
     await conn.rollback()
 
     for (const event of events.rows) {
-      // Each event is consumed exactly once: the cursor is advanced in the
-      // same transaction that starts the run, before execution begins on a
-      // separate connection. A concurrent sweeper therefore skips it.
+      // Each event is consumed exactly once: the cursor advances only with a
+      // durable disposition (started run, or explicitly abandoned failure).
       await conn.begin()
       const { rows: fresh } = await conn.query<{
-        last_evaluated_at: string | null
+        last_evaluated_sequence: string | null
       }>(
-        `SELECT last_evaluated_at FROM api.pipeline_schedules WHERE id = $1 FOR UPDATE`,
+        `SELECT last_evaluated_sequence FROM api.pipeline_schedules WHERE id = $1 FOR UPDATE`,
         [locked.id],
       )
-      const cursorRow = fresh.at(0)
-      const currentCursor = cursorRow?.last_evaluated_at
-        ? new Date(cursorRow.last_evaluated_at).toISOString()
-        : new Date(0).toISOString()
-      if (
-        new Date(event.created_at).getTime() <=
-        new Date(currentCursor).getTime()
-      ) {
+      const currentCursor = Number(fresh.at(0)?.last_evaluated_sequence ?? 0)
+      if (Number(event.sequence) <= currentCursor) {
         await conn.rollback()
         continue
       }
@@ -269,6 +311,12 @@ async function sweepEventSchedule(
         await conn.rollback()
         break
       }
+      const occurrenceId = eventOccurrenceId(event.id)
+      const prior = await latestRunForOccurrence(
+        conn,
+        locked.workspace_id,
+        occurrenceId,
+      )
       const inputVersions = { ...(spec.inputVersions ?? {}) }
       if (inputName) inputVersions[inputName] = event.entity_uuid
       const runId = await startScheduledRun(
@@ -278,26 +326,222 @@ async function sweepEventSchedule(
         inputVersions,
         spec.parameters,
         'event',
+        occurrenceId,
+        prior?.status === 'failed' ? prior.id : null,
       )
-      // The event is consumed whether or not the start succeeded; a failed
-      // start is best-effort and not retried (documented).
-      await conn.query(
-        `UPDATE api.pipeline_schedules
-            SET last_evaluated_at = $2, last_run_at = now(), updated_at = now()
-          WHERE id = $1`,
-        [locked.id, event.created_at],
-      )
-      await conn.commit()
       if (runId) {
+        await advanceEventCursor(conn, locked.id, event.sequence)
+        await clearTriggerFailure(conn, locked.workspace_id, occurrenceId)
+        await conn.commit()
         const creator = locked.created_by_user_id ?? 'system'
         await deps.run(creator, runId)
         fired += 1
+      } else {
+        // Durable, retryable failure — the event is NOT consumed. After the
+        // retry budget the occurrence is explicitly abandoned (visible) and
+        // the cursor advances, so a permanently failing event cannot block
+        // the queue silently.
+        const exhausted = await recordTriggerFailure(
+          conn,
+          locked,
+          occurrenceId,
+          event.id,
+          'run_start_failed',
+          'Scheduled run could not be started.',
+        )
+        if (exhausted) {
+          await advanceEventCursor(conn, locked.id, event.sequence)
+          await conn.commit()
+        } else {
+          await conn.commit()
+          break
+        }
       }
     }
     return fired
   } finally {
     await conn.end()
   }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers.
+// ---------------------------------------------------------------------------
+
+function scheduledOccurrenceId(
+  scheduleId: string,
+  dueAt: string | null,
+): string {
+  const due = dueAt
+    ? new Date(dueAt).toISOString().replace(/[:.]/g, '-')
+    : new Date().toISOString().replace(/[:.]/g, '-')
+  return `sched:${scheduleId}:${due}`
+}
+
+function eventOccurrenceId(eventId: string): string {
+  return `evt:${eventId}`
+}
+
+function isStale(startedAt: string): boolean {
+  return (
+    Date.now() - new Date(startedAt).getTime() > 900_000 // matches the DB staleness threshold
+  )
+}
+
+async function latestRunForOccurrence(
+  conn: SchedulerConnection,
+  workspaceId: string,
+  occurrenceId: string,
+): Promise<{ id: string; status: string; started_at: string } | null> {
+  const { rows } = await conn.query<RunRow>(
+    `SELECT id, status, started_at FROM api.pipeline_runs
+      WHERE workspace_id = $1 AND trigger_occurrence_id = $2
+      ORDER BY started_at DESC LIMIT 1`,
+    [workspaceId, occurrenceId],
+  )
+  return rows.at(0) ?? null
+}
+
+async function reconcileStaleScheduleRuns(
+  conn: SchedulerConnection,
+  schedule: ScheduleRow,
+): Promise<Array<{ trigger_occurrence_id: string }>> {
+  const { rows } = await conn.query<{
+    id: string
+    trigger_occurrence_id: string
+  }>(
+    `SELECT id, trigger_occurrence_id FROM api.pipeline_runs
+      WHERE trigger_occurrence_id LIKE $1
+        AND status = 'running'
+        AND started_at < clock_timestamp() - interval '900 seconds'
+      ORDER BY started_at
+      LIMIT 5`,
+    [`sched:${schedule.id}:%`],
+  )
+  for (const run of rows) {
+    // Log while still running, then fail (append_pipeline_run_log only
+    // accepts running runs).
+    await conn.query(
+      `SELECT api.append_pipeline_run_log($1, $2, 'warning', 'reconcile', $3, $4::jsonb)`,
+      [
+        schedule.workspace_id,
+        run.id,
+        'Stale running schedule occurrence reconciled by the sweep.',
+        JSON.stringify({ reason: 'stale_run_reconciled' }),
+      ],
+    )
+    await conn.query(
+      `UPDATE api.pipeline_runs SET
+         status = 'failed',
+         error_code = 'stale_run_reconciled',
+         error_message = 'run exceeded the staleness threshold and was reconciled',
+         finished_at = clock_timestamp()
+       WHERE id = $1`,
+      [run.id],
+    )
+  }
+  return rows.map((r) => ({ trigger_occurrence_id: r.trigger_occurrence_id }))
+}
+
+async function setScheduleClaims(
+  conn: SchedulerConnection,
+  schedule: ScheduleRow,
+): Promise<void> {
+  await conn.query(`SELECT set_config('request.jwt.claims', $1, true)`, [
+    JSON.stringify({
+      role: 'authenticated',
+      sub: schedule.created_by_user_id ?? 'system',
+      workspace_id: schedule.workspace_id,
+    }),
+  ])
+}
+
+async function advanceEventCursor(
+  conn: SchedulerConnection,
+  scheduleId: string,
+  sequence: string,
+): Promise<void> {
+  await conn.query(
+    `UPDATE api.pipeline_schedules
+        SET last_evaluated_sequence = $2, last_evaluated_at = now(),
+            last_run_at = now(), updated_at = now()
+      WHERE id = $1`,
+    [scheduleId, Number(sequence)],
+  )
+}
+
+/**
+ * Record (or update) a durable trigger-start failure. Returns true when the
+ * retry budget is exhausted and the occurrence should be abandoned.
+ */
+async function recordTriggerFailure(
+  conn: SchedulerConnection,
+  schedule: ScheduleRow,
+  occurrenceId: string,
+  eventId: string | null,
+  errorCode: string,
+  errorMessage: string,
+): Promise<boolean> {
+  const { rows } = await conn.query<{ attempt: number; status: string }>(
+    `SELECT attempt, status FROM api.pipeline_trigger_failures
+      WHERE workspace_id = $1 AND trigger_occurrence_id = $2 FOR UPDATE`,
+    [schedule.workspace_id, occurrenceId],
+  )
+  const existing = rows.at(0)
+  const attempt = existing ? existing.attempt + 1 : 1
+  if (attempt >= EVENT_RETRY_BUDGET) {
+    await conn.query(
+      `INSERT INTO api.pipeline_trigger_failures(
+         workspace_id, schedule_id, trigger_occurrence_id, event_id,
+         error_code, error_message, attempt, status
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'abandoned')
+       ON CONFLICT (workspace_id, trigger_occurrence_id) DO UPDATE SET
+         attempt = EXCLUDED.attempt, status = 'abandoned',
+         error_code = EXCLUDED.error_code, error_message = EXCLUDED.error_message,
+         updated_at = now()`,
+      [
+        schedule.workspace_id,
+        schedule.id,
+        occurrenceId,
+        eventId,
+        errorCode,
+        errorMessage,
+        attempt,
+      ],
+    )
+    return true
+  }
+  await conn.query(
+    `INSERT INTO api.pipeline_trigger_failures(
+       workspace_id, schedule_id, trigger_occurrence_id, event_id,
+       error_code, error_message, attempt, status
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
+     ON CONFLICT (workspace_id, trigger_occurrence_id) DO UPDATE SET
+       attempt = EXCLUDED.attempt, error_code = EXCLUDED.error_code,
+       error_message = EXCLUDED.error_message, updated_at = now()`,
+    [
+      schedule.workspace_id,
+      schedule.id,
+      occurrenceId,
+      eventId,
+      errorCode,
+      errorMessage,
+      attempt,
+    ],
+  )
+  return false
+}
+
+async function clearTriggerFailure(
+  conn: SchedulerConnection,
+  workspaceId: string,
+  occurrenceId: string,
+): Promise<void> {
+  await conn.query(
+    `DELETE FROM api.pipeline_trigger_failures
+      WHERE workspace_id = $1 AND trigger_occurrence_id = $2`,
+    [workspaceId, occurrenceId],
+  )
 }
 
 async function firstInputName(
@@ -338,6 +582,8 @@ async function startScheduledRun(
   inputVersions?: Record<string, string>,
   parameters?: Record<string, unknown>,
   triggerKind: 'scheduled' | 'event' = 'scheduled',
+  occurrenceId?: string,
+  retryOfRunId?: string | null,
 ): Promise<string | null> {
   const creator = schedule.created_by_user_id ?? 'system'
   await conn.query(`SELECT set_config('request.jwt.claims', $1, true)`, [
@@ -351,7 +597,7 @@ async function startScheduledRun(
     await conn.query('SAVEPOINT sb_schedule_start')
     const { rows } = await conn.query<{ id: string }>(
       `SELECT (api.start_pipeline_run(
-         $1, $2, $3, $4::jsonb, $5::jsonb, NULL, NULL
+         $1, $2, $3, $4::jsonb, $5::jsonb, $6, $7
        )).id AS id`,
       [
         schedule.workspace_id,
@@ -359,6 +605,8 @@ async function startScheduledRun(
         triggerKind,
         JSON.stringify(parameters ?? {}),
         JSON.stringify(inputVersions ?? {}),
+        retryOfRunId ?? null,
+        occurrenceId ?? null,
       ],
     )
     await conn.query('RELEASE SAVEPOINT sb_schedule_start')
@@ -366,7 +614,7 @@ async function startScheduledRun(
   } catch (error) {
     // e.g. the schedule creator left the workspace or the version was
     // retired between resolution and start. Restore the transaction so the
-    // caller can back off cleanly; the run never starts.
+    // caller can record a durable failure; the run never starts.
     await conn.query('ROLLBACK TO SAVEPOINT sb_schedule_start').catch(() => {})
     return null
   }

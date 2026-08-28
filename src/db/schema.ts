@@ -2865,9 +2865,7 @@ export const datasetVersionRows = api.table(
     rowId: uuid('row_id').notNull(),
     revision: bigint('revision', { mode: 'bigint' }).notNull(),
   },
-  (table) => [
-    primaryKey({ columns: [table.datasetVersionId, table.rowId] }),
-  ],
+  (table) => [primaryKey({ columns: [table.datasetVersionId, table.rowId] })],
 )
 
 export const datasetVersionValues = api.table(
@@ -2903,7 +2901,10 @@ export const datasetVersionValues = api.table(
     foreignKey({
       name: 'fk_dataset_version_values_rows',
       columns: [table.datasetVersionId, table.rowId],
-      foreignColumns: [datasetVersionRows.datasetVersionId, datasetVersionRows.rowId],
+      foreignColumns: [
+        datasetVersionRows.datasetVersionId,
+        datasetVersionRows.rowId,
+      ],
     }).onDelete('restrict'),
     check('chk_dataset_version_values_ordinal', sql`${table.ordinal} >= 0`),
   ],
@@ -6396,9 +6397,7 @@ export const pipelineDefinitionVersions = api.table(
       'chk_pipeline_definition_versions_revision',
       sql`${table.revision} > 0`,
     ),
-    index('idx_pipeline_definition_versions_definition').on(
-      table.definitionId,
-    ),
+    index('idx_pipeline_definition_versions_definition').on(table.definitionId),
   ],
 )
 
@@ -6414,12 +6413,22 @@ export const pipelineRuns = api.table(
     status: text('status').notNull().default('running'),
     attempt: integer('attempt').notNull().default(1),
     retryOfRunId: uuid('retry_of_run_id'),
+    /**
+     * Stable identity for scheduled/event trigger occurrences
+     * (`sched:<id>:<due_at>` / `evt:<change_event_id>`), driving dedup and
+     * crash recovery. Manual runs never carry one.
+     */
+    triggerOccurrenceId: text('trigger_occurrence_id'),
     inputDigest: text('input_digest'),
-    parameters: jsonb('parameters').notNull().default(sql`'{}'::jsonb`),
+    parameters: jsonb('parameters')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     inputVersions: jsonb('input_versions')
       .notNull()
       .default(sql`'{}'::jsonb`),
-    result: jsonb('result').notNull().default(sql`'{}'::jsonb`),
+    result: jsonb('result')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     errorCode: text('error_code'),
     errorMessage: text('error_message'),
     startedAt: timestamp('started_at', { withTimezone: true, mode: 'date' })
@@ -6449,15 +6458,28 @@ export const pipelineRuns = api.table(
       ],
     }).onDelete('restrict'),
     unique('uq_pipeline_runs_workspace_id').on(table.workspaceId, table.id),
-    // Idempotency receipt: identical inputs against the same published
-    // version replay the prior success.
+    // Idempotency receipt: identical manual inputs against the same
+    // published version replay the prior success. Occurrence-triggered runs
+    // dedupe by trigger_occurrence_id instead.
     uniqueIndex('uq_pipeline_runs_digest')
       .on(table.definitionVersionId, table.inputDigest)
-      .where(sql`input_digest IS NOT NULL AND status = 'succeeded'`),
-    // One running attempt per input identity.
+      .where(
+        sql`input_digest IS NOT NULL AND trigger_occurrence_id IS NULL AND status = 'succeeded'`,
+      ),
+    // One running manual attempt per input identity.
     uniqueIndex('uq_pipeline_runs_digest_running')
       .on(table.definitionVersionId, table.inputDigest)
-      .where(sql`input_digest IS NOT NULL AND status = 'running'`),
+      .where(
+        sql`input_digest IS NOT NULL AND trigger_occurrence_id IS NULL AND status = 'running'`,
+      ),
+    // One running attempt per trigger occurrence (schedule tick / event).
+    uniqueIndex('uq_pipeline_runs_occurrence_running')
+      .on(table.workspaceId, table.triggerOccurrenceId)
+      .where(sql`trigger_occurrence_id IS NOT NULL AND status = 'running'`),
+    // One succeeded run per occurrence.
+    uniqueIndex('uq_pipeline_runs_occurrence_succeeded')
+      .on(table.workspaceId, table.triggerOccurrenceId)
+      .where(sql`trigger_occurrence_id IS NOT NULL AND status = 'succeeded'`),
     check(
       'chk_pipeline_runs_trigger',
       sql`${table.triggerKind} IN ('manual', 'scheduled', 'event')`,
@@ -6467,6 +6489,14 @@ export const pipelineRuns = api.table(
       sql`${table.status} IN ('running', 'succeeded', 'failed', 'cancelled')`,
     ),
     check('chk_pipeline_runs_attempt', sql`${table.attempt} >= 1`),
+    check(
+      'chk_pipeline_runs_occurrence',
+      sql`${table.triggerOccurrenceId} IS NULL OR (length(${table.triggerOccurrenceId}) BETWEEN 8 AND 128 AND ${table.triggerOccurrenceId} ~ '^[a-z]+:[A-Za-z0-9:_+-]+$')`,
+    ),
+    check(
+      'chk_pipeline_runs_occurrence_trigger',
+      sql`(${table.triggerOccurrenceId} IS NULL) = (${table.triggerKind} = 'manual')`,
+    ),
     check(
       'chk_pipeline_runs_digest',
       sql`${table.inputDigest} IS NULL OR ${table.inputDigest} ~ '^[0-9a-f]{64}$'`,
@@ -6480,6 +6510,10 @@ export const pipelineRuns = api.table(
       table.startedAt,
     ),
     index('idx_pipeline_runs_workspace').on(table.workspaceId),
+    index('idx_pipeline_runs_occurrence').on(
+      table.workspaceId,
+      table.triggerOccurrenceId,
+    ),
   ],
 )
 
@@ -6495,7 +6529,9 @@ export const pipelineRunLogs = api.table(
     level: text('level').notNull().default('info'),
     stage: text('stage').notNull(),
     message: text('message').notNull(),
-    detail: jsonb('detail').notNull().default(sql`'{}'::jsonb`),
+    detail: jsonb('detail')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     at: timestamp('at', { withTimezone: true, mode: 'date' })
       .notNull()
       .defaultNow(),
@@ -6575,6 +6611,10 @@ export const pipelineSchedules = api.table(
       withTimezone: true,
       mode: 'date',
     }),
+    /** Per-workspace change_events sequence cursor for event schedules. */
+    lastEvaluatedSequence: bigint('last_evaluated_sequence', {
+      mode: 'bigint',
+    }),
     ...timestamps,
     createdByUserId: text('created_by_user_id').references(() => user.id, {
       onDelete: 'set null',
@@ -6590,6 +6630,57 @@ export const pipelineSchedules = api.table(
       table.id,
     ),
     index('idx_pipeline_schedules_workspace').on(table.workspaceId),
+  ],
+)
+
+/**
+ * AUTO-02 durable record of trigger occurrences whose run start failed.
+ * `pending` occurrences are retried by the sweep; `abandoned` occurrences
+ * were retried past the budget and are visible — never silently dropped.
+ */
+export const pipelineTriggerFailures = api.table(
+  'pipeline_trigger_failures',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    scheduleId: uuid('schedule_id')
+      .notNull()
+      .references(() => pipelineSchedules.id, { onDelete: 'cascade' }),
+    triggerOccurrenceId: text('trigger_occurrence_id').notNull(),
+    eventId: uuid('event_id'),
+    errorCode: text('error_code').notNull(),
+    errorMessage: text('error_message'),
+    attempt: integer('attempt').notNull().default(1),
+    status: text('status').notNull().default('pending'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('uq_pipeline_trigger_failures_workspace_id').on(
+      table.workspaceId,
+      table.id,
+    ),
+    unique('uq_pipeline_trigger_failures_occurrence').on(
+      table.workspaceId,
+      table.triggerOccurrenceId,
+    ),
+    check(
+      'chk_pipeline_trigger_failures_status',
+      sql`${table.status} IN ('pending', 'abandoned')`,
+    ),
+    check(
+      'chk_pipeline_trigger_failures_occurrence',
+      sql`length(${table.triggerOccurrenceId}) BETWEEN 8 AND 128`,
+    ),
+    check('chk_pipeline_trigger_failures_attempt', sql`${table.attempt} >= 1`),
+    index('idx_pipeline_trigger_failures_workspace').on(table.workspaceId),
+    index('idx_pipeline_trigger_failures_schedule').on(table.scheduleId),
   ],
 )
 
@@ -6615,13 +6706,16 @@ export const pipelineDefinitionVersionsRelations = relations(
   }),
 )
 
-export const pipelineRunsRelations = relations(pipelineRuns, ({ one, many }) => ({
-  definitionVersion: one(pipelineDefinitionVersions, {
-    fields: [pipelineRuns.definitionVersionId],
-    references: [pipelineDefinitionVersions.id],
+export const pipelineRunsRelations = relations(
+  pipelineRuns,
+  ({ one, many }) => ({
+    definitionVersion: one(pipelineDefinitionVersions, {
+      fields: [pipelineRuns.definitionVersionId],
+      references: [pipelineDefinitionVersions.id],
+    }),
+    outputs: many(pipelineRunOutputs),
   }),
-  outputs: many(pipelineRunOutputs),
-}))
+)
 
 export const pipelineRunLogsRelations = relations(
   pipelineRunLogs,

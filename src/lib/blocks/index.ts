@@ -81,6 +81,7 @@ export type BlockType =
   | 'procedure_step'
   | 'protocol_reference'
   | 'materials'
+  | 'pipeline_output'
 
 /** The payload schema version this module validates against. */
 export const PAYLOAD_SCHEMA_VERSION = 1 as const
@@ -105,6 +106,7 @@ export const KNOWN_BLOCK_TYPES: readonly BlockType[] = [
   'procedure_step',
   'protocol_reference',
   'materials',
+  'pipeline_output',
 ]
 
 export type BlockValidationError =
@@ -808,6 +810,55 @@ const validators: Record<BlockType, (payload: unknown) => FieldErrors> = {
   procedure_step: validateProcedureStep,
   protocol_reference: validateProtocolReference,
   materials: validateMaterials,
+  pipeline_output: validatePipelineOutput,
+}
+
+// AUTO-03: a pipeline_output block references a Pipeline run by stable UUID
+// and carries its produced Dataset Version identity for display. An empty
+// draft `{}` is valid; run-reference integrity and workspace matching are
+// the database trigger's job (migration 0140).
+function validatePipelineOutput(payload: unknown): FieldErrors {
+  if (!isObject(payload))
+    return [
+      { code: 'invalid_payload_shape', message: 'payload must be an object' },
+    ]
+  const errors: FieldErrors = []
+  if (
+    payload.runId !== undefined &&
+    payload.runId !== null &&
+    !isUuid(payload.runId)
+  ) {
+    errors.push({
+      code: 'invalid_field_value',
+      field: 'runId',
+      message: 'runId must be a Pipeline run UUID',
+    })
+  }
+  for (const key of ['datasetId', 'datasetVersionId'] as const) {
+    if (
+      payload[key] !== undefined &&
+      payload[key] !== null &&
+      !isUuid(payload[key])
+    ) {
+      errors.push({
+        code: 'invalid_field_value',
+        field: key,
+        message: `${key} must be a UUID`,
+      })
+    }
+  }
+  if (
+    payload.label !== undefined &&
+    payload.label !== null &&
+    (typeof payload.label !== 'string' || payload.label.length > 200)
+  ) {
+    errors.push({
+      code: 'invalid_field_value',
+      field: 'label',
+      message: 'label must be a short string',
+    })
+  }
+  return errors
 }
 
 /**

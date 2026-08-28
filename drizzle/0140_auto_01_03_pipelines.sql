@@ -124,6 +124,7 @@ CREATE TABLE "api"."pipeline_runs" (
   "status" text NOT NULL DEFAULT 'running',
   "attempt" integer NOT NULL DEFAULT 1,
   "retry_of_run_id" uuid REFERENCES api.pipeline_runs(id) ON DELETE set null,
+  "trigger_occurrence_id" text,
   "input_digest" text,
   "parameters" jsonb NOT NULL DEFAULT '{}'::jsonb,
   "input_versions" jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -145,6 +146,14 @@ CREATE TABLE "api"."pipeline_runs" (
     status IN ('running', 'succeeded', 'failed', 'cancelled')
   ),
   CONSTRAINT chk_pipeline_runs_attempt CHECK (attempt >= 1),
+  CONSTRAINT chk_pipeline_runs_occurrence CHECK (
+    trigger_occurrence_id IS NULL
+    OR (length(trigger_occurrence_id) BETWEEN 8 AND 128
+        AND trigger_occurrence_id ~ '^[a-z]+:[A-Za-z0-9:_+-]+$')
+  ),
+  CONSTRAINT chk_pipeline_runs_occurrence_trigger CHECK (
+    (trigger_occurrence_id IS NULL) = (trigger_kind = 'manual')
+  ),
   CONSTRAINT chk_pipeline_runs_digest CHECK (
     input_digest IS NULL OR input_digest ~ '^[0-9a-f]{64}$'
   ),
@@ -165,25 +174,39 @@ CREATE TABLE "api"."pipeline_runs" (
   CONSTRAINT uq_pipeline_runs_workspace_id UNIQUE (workspace_id, id)
 );
 --> statement-breakpoint
--- Idempotency receipt: identical inputs against the same published version
--- replay the prior success instead of manufacturing duplicate outputs.
+-- Manual-run idempotency receipt: identical inputs against the same
+-- published version replay the prior success. Occurrence-triggered runs
+-- (schedules/events) dedupe by their stable trigger_occurrence_id instead.
 CREATE UNIQUE INDEX uq_pipeline_runs_digest
   ON api.pipeline_runs(definition_version_id, input_digest)
-  WHERE input_digest IS NOT NULL AND status = 'succeeded';
+  WHERE input_digest IS NOT NULL AND trigger_occurrence_id IS NULL AND status = 'succeeded';
 --> statement-breakpoint
--- One running attempt per input identity: concurrent duplicate starts
--- conflict instead of double-executing.
+-- One running manual attempt per input identity.
 CREATE UNIQUE INDEX uq_pipeline_runs_digest_running
   ON api.pipeline_runs(definition_version_id, input_digest)
-  WHERE input_digest IS NOT NULL AND status = 'running';
+  WHERE input_digest IS NOT NULL AND trigger_occurrence_id IS NULL AND status = 'running';
+--> statement-breakpoint
+-- One running attempt per trigger occurrence (schedule tick / event): a
+-- duplicate sweep can never double-start the same occurrence.
+CREATE UNIQUE INDEX uq_pipeline_runs_occurrence_running
+  ON api.pipeline_runs(workspace_id, trigger_occurrence_id)
+  WHERE trigger_occurrence_id IS NOT NULL AND status = 'running';
+--> statement-breakpoint
+-- One succeeded run per occurrence: an occurrence is a durable disposition,
+-- never re-executed after success.
+CREATE UNIQUE INDEX uq_pipeline_runs_occurrence_succeeded
+  ON api.pipeline_runs(workspace_id, trigger_occurrence_id)
+  WHERE trigger_occurrence_id IS NOT NULL AND status = 'succeeded';
 --> statement-breakpoint
 CREATE INDEX idx_pipeline_runs_workspace ON api.pipeline_runs(workspace_id);
 --> statement-breakpoint
 CREATE INDEX idx_pipeline_runs_definition_version ON
   api.pipeline_runs(definition_version_id, started_at DESC);
 --> statement-breakpoint
+CREATE INDEX idx_pipeline_runs_occurrence ON api.pipeline_runs(workspace_id, trigger_occurrence_id);
+--> statement-breakpoint
 COMMENT ON TABLE api.pipeline_runs IS
-  'AUTO-01/02 one governed Pipeline run. Pins the exact definition version, parameters and input Dataset Version ids; carries digest idempotency, attempt/retry lineage and actor attribution.';
+  'AUTO-01/02 one governed Pipeline run. Pins the exact definition version, parameters and input Dataset Version ids; the canonical input_digest is computed server-side (never caller-supplied); trigger_occurrence_id gives scheduled/event runs a stable identity for dedup and crash recovery.';
 --> statement-breakpoint
 
 CREATE TABLE "api"."pipeline_run_logs" (
@@ -252,6 +275,7 @@ CREATE TABLE "api"."pipeline_schedules" (
   "last_run_at" timestamptz,
   "next_run_at" timestamptz,
   "last_evaluated_at" timestamptz,
+  "last_evaluated_sequence" bigint,
   "created_at" timestamptz NOT NULL DEFAULT now(),
   "updated_at" timestamptz NOT NULL DEFAULT now(),
   "created_by_user_id" text REFERENCES internal."user"(id) ON DELETE set null,
@@ -259,6 +283,9 @@ CREATE TABLE "api"."pipeline_schedules" (
   FOREIGN KEY ("definition_id") REFERENCES api.pipeline_definitions(id) ON DELETE restrict,
   CONSTRAINT chk_pipeline_schedules_kind CHECK (kind IN ('interval', 'daily', 'event')),
   CONSTRAINT chk_pipeline_schedules_spec CHECK (jsonb_typeof(spec) = 'object'),
+  CONSTRAINT chk_pipeline_schedules_sequence CHECK (
+    last_evaluated_sequence IS NULL OR last_evaluated_sequence >= 0
+  ),
   CONSTRAINT uq_pipeline_schedules_workspace_id UNIQUE (workspace_id, id)
 );
 --> statement-breakpoint
@@ -268,7 +295,53 @@ CREATE INDEX idx_pipeline_schedules_enabled_next ON
   api.pipeline_schedules(enabled, next_run_at) WHERE enabled;
 --> statement-breakpoint
 COMMENT ON TABLE api.pipeline_schedules IS
-  'AUTO-02 schedule/event triggers. interval/daily schedules are evaluated by the server sweep; event schedules fire when the sweep observes matching change_events since last_evaluated_at.';
+  'AUTO-02 schedule/event triggers. interval/daily schedules are evaluated by the server sweep; event schedules fire when the sweep observes matching change_events past last_evaluated_sequence.';
+--> statement-breakpoint
+
+-- Durable record of trigger occurrences whose run start failed. Events are
+-- never silently lost: a failed start keeps the event cursor in place, the
+-- failure is recorded here, and after the retry budget is exhausted the
+-- occurrence is explicitly abandoned (visible) instead of quietly dropped.
+CREATE TABLE "api"."pipeline_trigger_failures" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "workspace_id" uuid NOT NULL,
+  "schedule_id" uuid NOT NULL,
+  "trigger_occurrence_id" text NOT NULL,
+  "event_id" uuid,
+  "error_code" text NOT NULL,
+  "error_message" text,
+  "attempt" integer NOT NULL DEFAULT 1,
+  "status" text NOT NULL DEFAULT 'pending',
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now(),
+  FOREIGN KEY ("workspace_id") REFERENCES api.workspaces(id) ON DELETE cascade,
+  FOREIGN KEY ("schedule_id") REFERENCES api.pipeline_schedules(id) ON DELETE cascade,
+  CONSTRAINT chk_pipeline_trigger_failures_status CHECK (
+    status IN ('pending', 'abandoned')
+  ),
+  CONSTRAINT chk_pipeline_trigger_failures_occurrence CHECK (
+    length(trigger_occurrence_id) BETWEEN 8 AND 128
+  ),
+  CONSTRAINT chk_pipeline_trigger_failures_attempt CHECK (attempt >= 1),
+  CONSTRAINT uq_pipeline_trigger_failures_workspace_id UNIQUE (workspace_id, id),
+  CONSTRAINT uq_pipeline_trigger_failures_occurrence UNIQUE (workspace_id, trigger_occurrence_id)
+);
+--> statement-breakpoint
+CREATE INDEX idx_pipeline_trigger_failures_workspace ON api.pipeline_trigger_failures(workspace_id);
+--> statement-breakpoint
+CREATE INDEX idx_pipeline_trigger_failures_schedule ON api.pipeline_trigger_failures(schedule_id);
+--> statement-breakpoint
+COMMENT ON TABLE api.pipeline_trigger_failures IS
+  'AUTO-02 durable trigger-start failures. pending occurrences are retried by the sweep; abandoned occurrences were retried past the budget and are visible, never silently dropped.';
+--> statement-breakpoint
+-- RLS: workspace members read failures (visibility of durable trigger
+-- dispositions); writes happen only through the server sweep.
+ALTER TABLE api.pipeline_trigger_failures ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
+GRANT SELECT ON api.pipeline_trigger_failures TO authenticated;
+--> statement-breakpoint
+CREATE POLICY pipeline_trigger_failures_select ON api.pipeline_trigger_failures FOR SELECT TO authenticated
+  USING (api.storage_member_using(workspace_id));
 
 --> statement-breakpoint
 
@@ -998,8 +1071,8 @@ CREATE OR REPLACE FUNCTION api.start_pipeline_run(
   p_trigger_kind text DEFAULT 'manual',
   p_parameters jsonb DEFAULT '{}'::jsonb,
   p_input_versions jsonb DEFAULT '{}'::jsonb,
-  p_input_digest text DEFAULT NULL,
-  p_retry_of_run_id uuid DEFAULT NULL
+  p_retry_of_run_id uuid DEFAULT NULL,
+  p_trigger_occurrence_id text DEFAULT NULL
 )
 RETURNS api.pipeline_runs
 LANGUAGE plpgsql
@@ -1013,6 +1086,8 @@ DECLARE
   v_retry_of api.pipeline_runs;
   v_existing api.pipeline_runs;
   v_errors jsonb;
+  v_digest text;
+  v_occurrence_run boolean;
   v api.pipeline_runs;
 BEGIN
   IF api.current_workspace_id() IS DISTINCT FROM p_workspace_id THEN
@@ -1023,6 +1098,17 @@ BEGIN
   END IF;
   IF p_trigger_kind NOT IN ('manual', 'scheduled', 'event') THEN
     RAISE EXCEPTION 'invalid run trigger' USING ERRCODE = 'SB034';
+  END IF;
+  -- Scheduled/event runs always carry a stable trigger occurrence identity;
+  -- manual runs never do.
+  IF p_trigger_occurrence_id IS NOT NULL AND p_trigger_kind = 'manual' THEN
+    RAISE EXCEPTION 'manual runs cannot carry a trigger occurrence' USING ERRCODE = 'SB034';
+  END IF;
+  IF p_trigger_occurrence_id IS NOT NULL AND (
+    length(p_trigger_occurrence_id) NOT BETWEEN 8 AND 128
+    OR p_trigger_occurrence_id !~ '^[a-z]+:[A-Za-z0-9:_+-]+$'
+  ) THEN
+    RAISE EXCEPTION 'invalid trigger occurrence identity' USING ERRCODE = 'SB034';
   END IF;
   SELECT * INTO v_version FROM api.pipeline_definition_versions
    WHERE id = p_definition_version_id AND workspace_id = p_workspace_id FOR UPDATE;
@@ -1045,45 +1131,63 @@ BEGIN
       USING ERRCODE = 'SB070';
   END IF;
 
-  IF p_input_digest IS NOT NULL THEN
-    IF length(btrim(p_input_digest)) NOT BETWEEN 16 AND 128 THEN
-      RAISE EXCEPTION 'invalid input digest' USING ERRCODE = 'SB034';
-    END IF;
+  -- The canonical run identity is computed here, from the request the
+  -- database already holds: definition version + parameters + input Dataset
+  -- Versions (all canonical jsonb). The caller can never choose or forge
+  -- the digest, so replay/concurrency/retry decisions are authoritative.
+  v_digest := encode(sha256(convert_to(
+    jsonb_build_object(
+      'definitionVersionId', p_definition_version_id::text,
+      'parameters', COALESCE(p_parameters, '{}'::jsonb),
+      'inputVersions', COALESCE(p_input_versions, '{}'::jsonb)
+    )::text, 'UTF8')), 'hex');
+
+  -- Manual runs dedupe by canonical digest; scheduled/event occurrences
+  -- dedupe by their stable trigger occurrence identity.
+  v_occurrence_run := p_trigger_occurrence_id IS NOT NULL;
+  IF v_occurrence_run THEN
+    SELECT * INTO v_existing FROM api.pipeline_runs
+     WHERE workspace_id = p_workspace_id
+       AND trigger_occurrence_id = p_trigger_occurrence_id
+     ORDER BY started_at DESC
+     LIMIT 1;
+  ELSE
     SELECT * INTO v_existing FROM api.pipeline_runs
      WHERE definition_version_id = p_definition_version_id
-       AND input_digest = btrim(p_input_digest)
+       AND input_digest = v_digest
+       AND trigger_occurrence_id IS NULL
        AND workspace_id = p_workspace_id
      ORDER BY started_at DESC
      LIMIT 1;
-    IF v_existing.id IS NOT NULL THEN
-      IF v_existing.status = 'running' THEN
-        IF v_existing.started_at < clock_timestamp() - make_interval(secs => v_stale_threshold_seconds) THEN
-          -- Log the reconciliation while the run is still 'running', then
-          -- fail it (append_pipeline_run_log only accepts running runs).
-          PERFORM api.append_pipeline_run_log(
-            p_workspace_id, v_existing.id, 'warning', 'reconcile',
-            'Stale running attempt reconciled by a newer start.',
-            '{"reason": "stale_run_reconciled"}'::jsonb
-          );
-          UPDATE api.pipeline_runs SET
-            status = 'failed',
-            error_code = 'stale_run_reconciled',
-            error_message = 'run exceeded the staleness threshold and was reconciled',
-            finished_at = clock_timestamp()
-          WHERE id = v_existing.id;
-          v_retry_of := v_existing;
-        ELSE
-          RAISE EXCEPTION 'run already in progress' USING ERRCODE = 'SB044';
-        END IF;
+  END IF;
+  IF v_existing.id IS NOT NULL THEN
+    IF v_existing.status = 'running' THEN
+      IF v_existing.started_at < clock_timestamp() - make_interval(secs => v_stale_threshold_seconds) THEN
+        -- Log the reconciliation while the run is still 'running', then
+        -- fail it (append_pipeline_run_log only accepts running runs).
+        PERFORM api.append_pipeline_run_log(
+          p_workspace_id, v_existing.id, 'warning', 'reconcile',
+          'Stale running attempt reconciled by a newer start.',
+          '{"reason": "stale_run_reconciled"}'::jsonb
+        );
+        UPDATE api.pipeline_runs SET
+          status = 'failed',
+          error_code = 'stale_run_reconciled',
+          error_message = 'run exceeded the staleness threshold and was reconciled',
+          finished_at = clock_timestamp()
+        WHERE id = v_existing.id;
+        v_retry_of := v_existing;
+      ELSE
+        RAISE EXCEPTION 'run already in progress' USING ERRCODE = 'SB044';
       END IF;
-      IF v_existing.status = 'succeeded' THEN
-        RETURN v_existing;
-      END IF;
-      IF v_retry_of.id IS NULL
-        AND (p_retry_of_run_id IS NULL OR p_retry_of_run_id <> v_existing.id) THEN
-        RAISE EXCEPTION 'inputs previously failed; retry with retry_of_run_id'
-          USING ERRCODE = 'SB045';
-      END IF;
+    END IF;
+    IF v_existing.status = 'succeeded' THEN
+      RETURN v_existing;
+    END IF;
+    IF v_retry_of.id IS NULL
+      AND (p_retry_of_run_id IS NULL OR p_retry_of_run_id <> v_existing.id) THEN
+      RAISE EXCEPTION 'inputs previously failed; retry with retry_of_run_id'
+        USING ERRCODE = 'SB045';
     END IF;
   END IF;
 
@@ -1094,18 +1198,22 @@ BEGIN
       IF v_retry_of IS NULL THEN
         RAISE EXCEPTION 'retry target not found' USING ERRCODE = 'SB036';
       END IF;
+      IF v_retry_of.trigger_occurrence_id IS DISTINCT FROM p_trigger_occurrence_id THEN
+        RAISE EXCEPTION 'retry target does not match the trigger occurrence' USING ERRCODE = 'SB034';
+      END IF;
     END IF;
   END IF;
 
   INSERT INTO api.pipeline_runs(
     workspace_id, definition_version_id, trigger_kind, status, attempt,
-    retry_of_run_id, input_digest, parameters, input_versions,
+    retry_of_run_id, trigger_occurrence_id, input_digest, parameters, input_versions,
     actor_user_id, actor_credential_id
   ) VALUES (
     p_workspace_id, p_definition_version_id, p_trigger_kind, 'running',
     CASE WHEN v_retry_of.id IS NOT NULL THEN v_retry_of.attempt + 1 ELSE 1 END,
     COALESCE(v_retry_of.id, p_retry_of_run_id),
-    CASE WHEN p_input_digest IS NULL THEN NULL ELSE btrim(p_input_digest) END,
+    p_trigger_occurrence_id,
+    v_digest,
     COALESCE(p_parameters, '{}'::jsonb),
     COALESCE(p_input_versions, '{}'::jsonb),
     api.current_user_id(), api.current_credential_id()
@@ -1113,8 +1221,8 @@ BEGIN
   RETURN v;
 END $$;
 --> statement-breakpoint
-REVOKE EXECUTE ON FUNCTION api.start_pipeline_run(uuid, uuid, text, jsonb, jsonb, text, uuid) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION api.start_pipeline_run(uuid, uuid, text, jsonb, jsonb, text, uuid) TO authenticated;
+REVOKE EXECUTE ON FUNCTION api.start_pipeline_run(uuid, uuid, text, jsonb, jsonb, uuid, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION api.start_pipeline_run(uuid, uuid, text, jsonb, jsonb, uuid, text) TO authenticated;
 
 --> statement-breakpoint
 
@@ -1380,7 +1488,10 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 DECLARE
-  v_at timestamptz;
+  v_at_local timestamp;
+  v_local timestamp;
+  v_tz text;
+  v_from_local timestamp;
 BEGIN
   IF p_kind = 'interval' THEN
     IF jsonb_typeof(p_spec->'intervalMinutes') <> 'number'
@@ -1393,11 +1504,18 @@ BEGIN
        OR p_spec->>'dailyAt' !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$' THEN
       RAISE EXCEPTION 'invalid daily schedule' USING ERRCODE = 'SB034';
     END IF;
-    v_at := date_trunc('day', p_from) + (p_spec->>'dailyAt')::time;
-    IF v_at <= p_from THEN
-      v_at := v_at + interval '1 day';
+    -- Explicit IANA time zone (default UTC); never the DB/server session
+    -- time zone, so behaviour is deployment-independent and deterministic.
+    v_tz := COALESCE(p_spec->>'timeZone', 'UTC');
+    IF NOT EXISTS (SELECT 1 FROM pg_timezone_names WHERE name = v_tz) THEN
+      RAISE EXCEPTION 'invalid schedule time zone' USING ERRCODE = 'SB034';
     END IF;
-    RETURN v_at;
+    v_from_local := p_from AT TIME ZONE v_tz;
+    v_at_local := date_trunc('day', v_from_local) + (p_spec->>'dailyAt')::time;
+    IF v_at_local <= v_from_local THEN
+      v_at_local := v_at_local + interval '1 day';
+    END IF;
+    RETURN v_at_local AT TIME ZONE v_tz;
   ELSIF p_kind = 'event' THEN
     -- Event schedules are evaluated by the server sweep, not wall-clock.
     RETURN NULL;
@@ -1659,6 +1777,21 @@ $$;
 CREATE TRIGGER prevent_pipeline_run_evidence_mutation
   BEFORE UPDATE ON api.pipeline_runs
   FOR EACH ROW EXECUTE FUNCTION internal.prevent_pipeline_evidence_mutation();
+--> statement-breakpoint
+
+-- ---------------------------------------------------------------------------
+-- AUTO-03: `pipeline_output` notebook blocks reference a Pipeline run and
+-- its produced Dataset Version. Extend the block type vocabulary.
+-- ---------------------------------------------------------------------------
+ALTER TABLE api.blocks DROP CONSTRAINT chk_blocks_type;
+--> statement-breakpoint
+ALTER TABLE api.blocks ADD CONSTRAINT chk_blocks_type
+  CHECK (type IN (
+    'rich_text', 'checklist', 'linked_record', 'callout', 'table', 'sheet',
+    'chart', 'analysis', 'plate_map', 'file', 'metric', 'procedure_step',
+    'protocol_reference', 'materials', 'pipeline_output'
+  ));
+
 --> statement-breakpoint
 
 NOTIFY pgrst, 'reload schema';

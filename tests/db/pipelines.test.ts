@@ -69,14 +69,15 @@ const RPC_ARG_TYPES: Record<string, string[]> = {
     'text',
     'jsonb',
     'jsonb',
-    'text',
     'uuid',
+    'text',
   ],
   complete_pipeline_run: ['uuid', 'uuid', 'jsonb'],
   fail_pipeline_run: ['uuid', 'uuid', 'text', 'text'],
   append_pipeline_run_log: ['uuid', 'uuid', 'text', 'text', 'text', 'jsonb'],
   cancel_pipeline_run: ['uuid', 'uuid'],
   create_pipeline_schedule: ['uuid', 'uuid', 'text', 'jsonb', 'boolean'],
+  update_pipeline_schedule: ['uuid', 'uuid', 'text', 'jsonb', 'boolean'],
   create_dataset_schema_definition: ['uuid', 'text', 'text', 'text', 'jsonb'],
   publish_dataset_schema_version: ['uuid'],
   commit_dataset_row_batch: ['uuid', 'bigint', 'jsonb', 'text'],
@@ -390,7 +391,6 @@ describe('Pipeline execution (AUTO-02)', () => {
         p_trigger_kind: 'manual',
         p_parameters: { factor: 10, note: 'tenfold' },
         p_input_versions: { measurements: inputDatasetVersionId },
-        p_input_digest: 'a'.repeat(64),
       },
     )
     expect(run.status).toBe('running')
@@ -422,39 +422,124 @@ describe('Pipeline execution (AUTO-02)', () => {
     ).toEqual([20, 40, 80])
   })
 
-  it('replays a prior success idempotently for the same input digest', async () => {
+  it('replays a prior success idempotently for the same canonical inputs', async () => {
     const owner = await actor(OWNER, WS)
-    const first = await rpc<{ id: string; status: string }>(
-      owner,
-      'start_pipeline_run',
-      {
-        p_workspace_id: WS,
-        p_definition_version_id: pipelineVersionId,
-        p_trigger_kind: 'manual',
-        p_parameters: { factor: 10 },
-        p_input_versions: { measurements: inputDatasetVersionId },
-        p_input_digest: 'b'.repeat(64),
-      },
-    )
+    const first = await rpc<{
+      id: string
+      status: string
+      input_digest: string
+    }>(owner, 'start_pipeline_run', {
+      p_workspace_id: WS,
+      p_definition_version_id: pipelineVersionId,
+      p_trigger_kind: 'manual',
+      p_parameters: { factor: 10 },
+      p_input_versions: { measurements: inputDatasetVersionId },
+    })
+    // The canonical digest is computed server-side — never caller-supplied.
+    expect(first.input_digest).toMatch(/^[0-9a-f]{64}$/)
     // Complete the first run so the replay resolves to the prior success.
     const { deps, close } = await makeExecDeps(OWNER)
     const executed = await runPipelineExecution(OWNER, first.id, deps)
     await close()
     expect(executed.ok).toBe(true)
-    const replay = await rpc<{ id: string; status: string }>(
+    const replay = await rpc<{
+      id: string
+      status: string
+      input_digest: string
+    }>(owner, 'start_pipeline_run', {
+      p_workspace_id: WS,
+      p_definition_version_id: pipelineVersionId,
+      p_trigger_kind: 'manual',
+      p_parameters: { factor: 10 },
+      p_input_versions: { measurements: inputDatasetVersionId },
+    })
+    expect(replay.id).toBe(first.id)
+    expect(replay.status).toBe('succeeded')
+    expect(replay.input_digest).toBe(first.input_digest)
+  })
+
+  it('computes a different run identity when parameters change (authoritative digest)', async () => {
+    const owner = await actor(OWNER, WS)
+    const runA = await rpc<{ id: string; input_digest: string }>(
       owner,
       'start_pipeline_run',
       {
         p_workspace_id: WS,
         p_definition_version_id: pipelineVersionId,
         p_trigger_kind: 'manual',
-        p_parameters: { factor: 10 },
+        p_parameters: { factor: 1.5 },
         p_input_versions: { measurements: inputDatasetVersionId },
-        p_input_digest: 'b'.repeat(64),
       },
     )
-    expect(replay.id).toBe(first.id)
-    expect(replay.status).toBe('succeeded')
+    const runB = await rpc<{ id: string; input_digest: string }>(
+      owner,
+      'start_pipeline_run',
+      {
+        p_workspace_id: WS,
+        p_definition_version_id: pipelineVersionId,
+        p_trigger_kind: 'manual',
+        p_parameters: { factor: 2.5 },
+        p_input_versions: { measurements: inputDatasetVersionId },
+      },
+    )
+    expect(runA.id).not.toBe(runB.id)
+    expect(runA.input_digest).not.toBe(runB.input_digest)
+  })
+
+  it('computes a different run identity when the input Version changes', async () => {
+    const owner = await actor(OWNER, WS)
+    const other = await createInputDatasetVersion(
+      owner,
+      schemaVersionId,
+      'pipeline-test-input-diff',
+      [
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+        'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+      ],
+    )
+    const runA = await rpc<{ id: string; input_digest: string }>(
+      owner,
+      'start_pipeline_run',
+      {
+        p_workspace_id: WS,
+        p_definition_version_id: pipelineVersionId,
+        p_trigger_kind: 'manual',
+        p_parameters: { factor: 2 },
+        p_input_versions: { measurements: inputDatasetVersionId },
+      },
+    )
+    const runB = await rpc<{ id: string; input_digest: string }>(
+      owner,
+      'start_pipeline_run',
+      {
+        p_workspace_id: WS,
+        p_definition_version_id: pipelineVersionId,
+        p_trigger_kind: 'manual',
+        p_parameters: { factor: 2 },
+        p_input_versions: { measurements: other.versionId },
+      },
+    )
+    expect(runA.input_digest).not.toBe(runB.input_digest)
+  })
+
+  it('rejects a caller-supplied digest (identity is never caller-chosen)', async () => {
+    const owner = await actor(OWNER, WS)
+    // The start RPC no longer accepts p_input_digest at all — a forged
+    // digest cannot change the run identity because there is no parameter
+    // to pass it through. The extra argument fails the call.
+    await expect(
+      rpc(owner, 'start_pipeline_run', {
+        p_workspace_id: WS,
+        p_definition_version_id: pipelineVersionId,
+        p_trigger_kind: 'manual',
+        p_parameters: { factor: 2 },
+        p_input_versions: { measurements: inputDatasetVersionId },
+        p_input_digest: 'f'.repeat(64),
+        p_retry_of_run_id: null,
+        p_trigger_occurrence_id: null,
+      }),
+    ).rejects.toBeTruthy()
   })
 
   it('rejects concurrent duplicate runs of the same inputs', async () => {
@@ -463,18 +548,16 @@ describe('Pipeline execution (AUTO-02)', () => {
       p_workspace_id: WS,
       p_definition_version_id: pipelineVersionId,
       p_trigger_kind: 'manual',
-      p_parameters: { factor: 2 },
+      p_parameters: { factor: 2.75 },
       p_input_versions: { measurements: inputDatasetVersionId },
-      p_input_digest: 'c'.repeat(64),
     })
     await expect(
       rpc(owner, 'start_pipeline_run', {
         p_workspace_id: WS,
         p_definition_version_id: pipelineVersionId,
         p_trigger_kind: 'manual',
-        p_parameters: { factor: 2 },
+        p_parameters: { factor: 2.75 },
         p_input_versions: { measurements: inputDatasetVersionId },
-        p_input_digest: 'c'.repeat(64),
       }),
     ).rejects.toMatchObject({ code: 'SB044' })
   })
@@ -593,7 +676,6 @@ describe('Pipeline execution (AUTO-02)', () => {
       p_workspace_id: WS,
       p_version_id: version.id,
     })
-    const digest = 'd'.repeat(64)
     const first = await rpc<{ id: string; status: string }>(
       owner,
       'start_pipeline_run',
@@ -603,7 +685,6 @@ describe('Pipeline execution (AUTO-02)', () => {
         p_trigger_kind: 'manual',
         p_parameters: { factor: 1 },
         p_input_versions: { measurements: inputDatasetVersionId },
-        p_input_digest: digest,
       },
     )
     const { deps, close } = await makeExecDeps(OWNER)
@@ -618,7 +699,6 @@ describe('Pipeline execution (AUTO-02)', () => {
         p_trigger_kind: 'manual',
         p_parameters: { factor: 1 },
         p_input_versions: { measurements: inputDatasetVersionId },
-        p_input_digest: digest,
       }),
     ).rejects.toMatchObject({ code: 'SB045' })
 
@@ -632,7 +712,6 @@ describe('Pipeline execution (AUTO-02)', () => {
       p_trigger_kind: 'manual',
       p_parameters: { factor: 1 },
       p_input_versions: { measurements: inputDatasetVersionId },
-      p_input_digest: digest,
       p_retry_of_run_id: first.id,
     })
     expect(retry.attempt).toBe(2)
@@ -857,5 +936,226 @@ describe('Pipeline schedules and event triggers (AUTO-02)', () => {
     expect(logs.map((l) => l.stage)).toEqual(
       expect.arrayContaining(['start', 'inputs', 'transform', 'output']),
     )
+  })
+
+  async function makeSweepDeps(conn: PgClient) {
+    return {
+      connect: () => Promise.resolve(schedulerConnection(conn)),
+      run: async (actorId: string, runId: string) => {
+        const { deps, close } = await makeExecDeps(actorId)
+        const report = await runPipelineExecution(actorId, runId, deps)
+        await close()
+        return report
+      },
+    }
+  }
+
+  it('dedupes a duplicate schedule sweep by trigger occurrence', async () => {
+    const owner = await actor(OWNER, WS)
+    const schedule = await rpc<{ id: string; next_run_at: string }>(
+      owner,
+      'create_pipeline_schedule',
+      {
+        p_workspace_id: WS,
+        p_definition_id: pipelineDefinitionId,
+        p_kind: 'interval',
+        p_spec: {
+          intervalMinutes: 5,
+          inputVersions: { measurements: inputDatasetVersionId },
+          parameters: { factor: 4 },
+        },
+        p_enabled: true,
+      },
+    )
+    // Pin the due time so both sweeps evaluate the SAME occurrence.
+    const dueAt = new Date(Date.now() - 60_000)
+    await migrator.query(
+      `update api.pipeline_schedules set next_run_at = $2 where id = $1`,
+      [schedule.id, dueAt.toISOString()],
+    )
+    const conn = new PgClient({ connectionString: superuserTestUrl() })
+    await conn.connect()
+    const deps = await makeSweepDeps(conn)
+    expect(await sweepPipelines(deps)).toBeGreaterThanOrEqual(1)
+    const occurrenceId = `sched:${schedule.id}:${dueAt.toISOString().replace(/[:.]/g, '-')}`
+    const { rows: first } = await migrator.query(
+      `select count(*)::int as n from api.pipeline_runs
+        where trigger_occurrence_id = $1`,
+      [occurrenceId],
+    )
+    expect(first[0].n).toBe(1)
+    // A duplicate sweep of the SAME occurrence must not double-start: reset
+    // the due time back to the same instant and sweep again.
+    await migrator.query(
+      `update api.pipeline_schedules set next_run_at = $2 where id = $1`,
+      [schedule.id, dueAt.toISOString()],
+    )
+    await sweepPipelines(deps)
+    await conn.end()
+    const { rows: after } = await migrator.query(
+      `select count(*)::int as n from api.pipeline_runs
+        where trigger_occurrence_id = $1`,
+      [occurrenceId],
+    )
+    expect(after[0].n).toBe(1)
+  })
+
+  it('reconciles a crashed scheduled run and retries the occurrence as a linked attempt', async () => {
+    const owner = await actor(OWNER, WS)
+    const schedule = await rpc<{ id: string }>(
+      owner,
+      'create_pipeline_schedule',
+      {
+        p_workspace_id: WS,
+        p_definition_id: pipelineDefinitionId,
+        p_kind: 'interval',
+        p_spec: {
+          intervalMinutes: 5,
+          inputVersions: { measurements: inputDatasetVersionId },
+          parameters: { factor: 6 },
+        },
+        p_enabled: true,
+      },
+    )
+    const dueAt = new Date(Date.now() - 60_000)
+    const occurrenceId = `sched:${schedule.id}:${dueAt.toISOString().replace(/[:.]/g, '-')}`
+    // Simulate the crash: the occurrence run was started and committed, but
+    // never executed (stays 'running').
+    const crashed = await rpc<{ id: string; attempt: number }>(
+      owner,
+      'start_pipeline_run',
+      {
+        p_workspace_id: WS,
+        p_definition_version_id: pipelineVersionId,
+        p_trigger_kind: 'scheduled',
+        p_parameters: { factor: 6 },
+        p_input_versions: { measurements: inputDatasetVersionId },
+        p_retry_of_run_id: null,
+        p_trigger_occurrence_id: occurrenceId,
+      },
+    )
+    expect(crashed.attempt).toBe(1)
+    await migrator.query(
+      `update api.pipeline_runs set started_at = now() - interval '1000 seconds' where id = $1`,
+      [crashed.id],
+    )
+    // The schedule still thinks this occurrence is due; the sweep reconciles
+    // the stale run and retries it.
+    await migrator.query(
+      `update api.pipeline_schedules set next_run_at = $2 where id = $1`,
+      [schedule.id, dueAt.toISOString()],
+    )
+    const conn = new PgClient({ connectionString: superuserTestUrl() })
+    await conn.connect()
+    const deps = await makeSweepDeps(conn)
+    expect(await sweepPipelines(deps)).toBeGreaterThanOrEqual(1)
+    await conn.end()
+
+    const { rows } = await migrator.query(
+      `select id, status, error_code, attempt, retry_of_run_id
+         from api.pipeline_runs
+        where trigger_occurrence_id = $1
+        order by started_at`,
+      [occurrenceId],
+    )
+    expect(rows).toHaveLength(2)
+    expect(rows[0].status).toBe('failed')
+    expect(rows[0].error_code).toBe('stale_run_reconciled')
+    // The retry was started AND executed by the sweep (the sweep runs
+    // executions after the start), so it reached a terminal state.
+    expect(rows[1].status).not.toBe('running')
+    expect(rows[1].attempt).toBe(2)
+    expect(rows[1].retry_of_run_id).toBe(rows[0].id)
+  })
+
+  it('does not consume an event whose run start fails; retries then abandons durably', async () => {
+    const owner = await actor(OWNER, WS)
+    const failingSchedule = await rpc<{ id: string }>(
+      owner,
+      'create_pipeline_schedule',
+      {
+        p_workspace_id: WS,
+        p_definition_id: pipelineDefinitionId,
+        p_kind: 'event',
+        p_spec: {
+          eventType: 'dataset_version_created',
+          inputName: 'measurements',
+          // Deliberately invalid: the run request will be rejected by the
+          // domain validation, so the start fails.
+          inputVersions: { bogus: '00000000-0000-4000-8000-000000000000' },
+          parameters: { factor: 9 },
+        },
+        p_enabled: true,
+      },
+    )
+    const { datasetId, versionId } = await createInputDatasetVersion(
+      owner,
+      schemaVersionId,
+      'pipeline-test-input-fail',
+      [
+        '77777777-7777-4777-8777-777777777777',
+        '88888888-8888-4888-8888-888888888888',
+        '99999999-9999-4999-8999-999999999999',
+      ],
+    )
+    expect(versionId).not.toBeNull()
+    // Scope the event schedule to THIS Dataset so no historic events
+    // interfere with the retry-budget assertions, and disable the other
+    // event schedules so only THIS schedule sees the new event.
+    await rpc(owner, 'update_pipeline_schedule', {
+      p_workspace_id: WS,
+      p_schedule_id: failingSchedule.id,
+      p_kind: 'event',
+      p_spec: {
+        eventType: 'dataset_version_created',
+        datasetId,
+        inputName: 'measurements',
+        inputVersions: { bogus: '00000000-0000-4000-8000-000000000000' },
+        parameters: { factor: 9 },
+      },
+      p_enabled: true,
+    })
+    await migrator.query(
+      `update api.pipeline_schedules set enabled = false
+        where kind = 'event' and id <> $1`,
+      [failingSchedule.id],
+    )
+
+    const conn = new PgClient({ connectionString: superuserTestUrl() })
+    await conn.connect()
+    const deps = await makeSweepDeps(conn)
+    // First sweep: the start fails (invalid request) — THIS schedule must
+    // not consume the event, and the failure must be durable.
+    await sweepPipelines(deps)
+    const { rows: cursor } = await migrator.query(
+      `select last_evaluated_sequence from api.pipeline_schedules where id = $1`,
+      [failingSchedule.id],
+    )
+    expect(cursor[0].last_evaluated_sequence).toBeNull()
+    const { rows: failures } = await migrator.query(
+      `select status, attempt from api.pipeline_trigger_failures
+        where schedule_id = $1 order by created_at desc limit 1`,
+      [failingSchedule.id],
+    )
+    expect(failures.length).toBeGreaterThan(0)
+    expect(failures[0].status).toBe('pending')
+
+    // Retries accumulate the budget, then the occurrence is abandoned
+    // durably (visible) and the cursor advances.
+    await sweepPipelines(deps)
+    await sweepPipelines(deps)
+    await conn.end()
+    const { rows: abandoned } = await migrator.query(
+      `select status, attempt from api.pipeline_trigger_failures
+        where schedule_id = $1 order by created_at desc limit 1`,
+      [failingSchedule.id],
+    )
+    expect(abandoned[0].status).toBe('abandoned')
+    expect(Number(abandoned[0].attempt)).toBeGreaterThanOrEqual(3)
+    const { rows: advanced } = await migrator.query(
+      `select last_evaluated_sequence from api.pipeline_schedules where id = $1`,
+      [failingSchedule.id],
+    )
+    expect(Number(advanced[0].last_evaluated_sequence)).toBeGreaterThan(0)
   })
 })

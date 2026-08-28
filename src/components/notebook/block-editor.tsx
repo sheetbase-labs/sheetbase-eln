@@ -77,6 +77,7 @@ import { FILE_MAX_BYTES, isInlinePreviewableImage } from '#/lib/file-policy'
 import { CHART_SPEC_VERSION, CHART_TYPES } from '#/lib/chart-spec'
 import type { AnalysisBlockPayload } from '#/lib/analysis-block'
 import { validateAnalysisBlockPayload } from '#/lib/analysis-block'
+import { PipelineOutputBlockEditor } from './pipeline-output-block-editor'
 import {
   analysisDefinitionQueryKeys,
   fetchAnalysisDefinitions,
@@ -182,6 +183,8 @@ export function BlockEditor(props: BlockEditorProps) {
       return <ChartBlockEditor {...props} />
     case 'analysis':
       return <AnalysisBlockEditor {...props} />
+    case 'pipeline_output':
+      return <PipelineOutputBlockEditor {...props} />
     case 'plate_map':
       return <PlateMapBlockEditor {...props} />
     default:
@@ -278,6 +281,10 @@ function summarizePayload(
     case 'analysis':
       return `${payload.title || 'Analysis'}${
         payload.frozen ? ' (frozen)' : ''
+      }`
+    case 'pipeline_output':
+      return `Pipeline output${
+        payload.runId ? ` — run ${String(payload.runId).slice(0, 8)}` : ''
       }`
     default:
       return JSON.stringify(payload, null, 2)

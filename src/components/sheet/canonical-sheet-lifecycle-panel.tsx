@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
+import { Workflow } from 'lucide-react'
 
 import { Button, Input, Label } from '#/components/ui'
 import { DataClientError } from '#/lib/data-client'
@@ -386,6 +388,26 @@ export function CanonicalSheetLifecyclePanel({
                     </option>
                   ))}
                 </select>
+                {datasetId ? (
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="mt-1 w-full"
+                  >
+                    <Link
+                      to="/datasets"
+                      search={{
+                        dataset: datasetId,
+                        archived: false,
+                        tab: 'pipelines',
+                      }}
+                    >
+                      <Workflow className="size-3.5" /> Run Pipelines on this
+                      Dataset
+                    </Link>
+                  </Button>
+                ) : null}
               </Label>
             ) : null}
             <div className="flex flex-wrap gap-2">

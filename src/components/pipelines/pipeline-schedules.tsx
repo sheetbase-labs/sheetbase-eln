@@ -23,6 +23,7 @@ import {
   Switch,
 } from '#/components/ui'
 import type { DataClient } from '#/lib/data-client'
+import { isIanaTimeZone } from '#/lib/pipeline-schedule'
 import type { PipelineConfig } from '#/lib/pipelines/config'
 import type { PipelineScheduleWire } from '#/lib/pipelines/types'
 import {
@@ -167,7 +168,9 @@ function describeSchedule(schedule: PipelineScheduleWire): string {
     return `Every ${minutes} minute${minutes === 1 ? '' : 's'}`
   }
   if (schedule.kind === 'daily') {
-    return `Daily at ${schedule.spec.dailyAt}`
+    return schedule.spec.timeZone
+      ? `Daily at ${schedule.spec.dailyAt} (${schedule.spec.timeZone})`
+      : `Daily at ${schedule.spec.dailyAt} (UTC)`
   }
   return schedule.spec.datasetId
     ? `On new Dataset Version of ${String(schedule.spec.datasetId).slice(0, 8)}`
@@ -193,6 +196,7 @@ function AddScheduleDialog({
   const [kind, setKind] = useState<'interval' | 'daily' | 'event'>('interval')
   const [intervalMinutes, setIntervalMinutes] = useState('30')
   const [dailyAt, setDailyAt] = useState('09:00')
+  const [timeZone, setTimeZone] = useState('UTC')
   const [eventInput, setEventInput] = useState(inputs[0] ?? '')
   const [error, setError] = useState('')
 
@@ -202,7 +206,7 @@ function AddScheduleDialog({
         kind === 'interval'
           ? { intervalMinutes: Number(intervalMinutes) }
           : kind === 'daily'
-            ? { dailyAt }
+            ? { dailyAt, timeZone }
             : { eventType: 'dataset_version_created', inputName: eventInput }
       return createPipelineSchedule(dataClient, {
         workspaceId,
@@ -261,14 +265,29 @@ function AddScheduleDialog({
             </div>
           )}
           {kind === 'daily' && (
-            <div className="space-y-2">
-              <Label>Time (HH:MM)</Label>
-              <Input
-                value={dailyAt}
-                onChange={(event) => setDailyAt(event.target.value)}
-                placeholder="09:00"
-              />
-            </div>
+            <>
+              <div className="space-y-2">
+                <Label>Time (HH:MM)</Label>
+                <Input
+                  value={dailyAt}
+                  onChange={(event) => setDailyAt(event.target.value)}
+                  placeholder="09:00"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Time zone (IANA)</Label>
+                <Input
+                  className="font-mono text-xs"
+                  value={timeZone}
+                  onChange={(event) => setTimeZone(event.target.value)}
+                  placeholder="Europe/London"
+                />
+                <p className="text-muted-foreground text-xs">
+                  Daily schedules fire at this wall-clock time in the explicit
+                  zone (default UTC), independent of the server's zone.
+                </p>
+              </div>
+            </>
           )}
           {kind === 'event' && inputs.length > 0 && (
             <div className="space-y-2">
@@ -302,7 +321,8 @@ function AddScheduleDialog({
               createMutation.isPending ||
               (kind === 'interval' && Number(intervalMinutes) < 1) ||
               (kind === 'daily' &&
-                !/^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(dailyAt))
+                (!/^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(dailyAt) ||
+                  !isIanaTimeZone(timeZone)))
             }
             onClick={() => createMutation.mutate()}
           >

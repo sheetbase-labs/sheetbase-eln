@@ -49,6 +49,7 @@ export interface PipelineRunWire {
   status: PipelineRunStatus
   attempt: number
   retry_of_run_id: string | null
+  trigger_occurrence_id: string | null
   input_digest: string | null
   parameters: Record<string, unknown>
   input_versions: Record<string, string>
@@ -94,6 +95,7 @@ export interface PipelineScheduleWire {
   last_run_at: string | null
   next_run_at: string | null
   last_evaluated_at: string | null
+  last_evaluated_sequence: number | string | null
   created_at: string
   updated_at: string
   created_by_user_id: string | null

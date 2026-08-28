@@ -26,6 +26,7 @@ describe('BlockPicker', () => {
       'chart',
       'analysis',
       'plate_map',
+      'pipeline_output',
     ])
     expect(BLOCK_PICKER_OPTIONS.map((o) => o.label)).toEqual([
       'Text',
@@ -39,6 +40,7 @@ describe('BlockPicker', () => {
       'Chart',
       'Analysis',
       'Plate map',
+      'Pipeline output',
     ])
     expect(types).not.toContain('heading')
     expect(

@@ -18,8 +18,19 @@ Versioned Pipeline Definitions and Runs; typed parameters; explicit Dataset/Data
 **Complete.** See `docs/pipelines.md` and ADR 0042. Versioned Definitions
 mirror Sheet Definitions (draft → published → retired); runs pin the exact
 version, parameters and input Dataset Version ids; `pipeline_run_outputs`
-normalizes provenance; the sha-256 input digest makes identical manual runs
-idempotent.
+normalizes provenance. The canonical run identity (`input_digest`) is
+computed **server-side** from (definition version, canonical parameters,
+input Dataset Versions) — callers can never choose or forge it, so replay,
+concurrency and retry decisions are authoritative.
+
+> **Scope revision (v1, deliberate):** the v1 transform language is **SQL
+> only**. The original AUTO-01/02 brief listed SQL + Python as initial
+> execution types; we have explicitly revised the exit scope to SQL-first
+> because shipping an unsandboxed Python runtime would violate the
+> deterministic-execution and governance requirements. Python sits behind the
+> `transform.language` discriminator as a future transform language (ADR
+> 0042). This revision is recorded so the bundle does not claim the original
+> SQL+Python scope.
 
 ## AUTO-02 — Deterministic Execution & Triggers
 
@@ -29,12 +40,21 @@ SQL/Python execution boundary; manual runs; schedules; event triggers; retries; 
 
 **Complete (SQL boundary).** The transform runs server-side inside the
 zero-grant `pipeline_worker` sandbox (temp-schema search_path, fixed 60s
-timeout, 100k-row cap, static single-SELECT validation). Manual, interval,
-daily and `dataset_version_created` event triggers work end-to-end;
-retries/attempt lineage, digest idempotency, concurrency rejection,
-cancellation, run history, append-only stage logs and bounded error codes
-all mirror the connector run model. Python execution is a future transform
-language behind the `transform.language` discriminator.
+timeout + driver-level backstop, 100k-row cap, static single-SELECT
+validation). Manual, interval, daily (explicit IANA time zone) and
+`dataset_version_created` event triggers work end-to-end. Scheduled and
+event-triggered runs carry a **stable trigger occurrence identity**
+(`sched:<id>:<due_at>` / `evt:<change_event_id>`) so duplicate sweeps dedupe,
+a crash between start and execute is reconciled by the staleness threshold
+and retried as a linked attempt, and failed event starts are **not silently
+consumed**: the per-workspace event cursor advances only with a durable
+disposition (started run or explicitly abandoned failure after the retry
+budget, recorded in `pipeline_trigger_failures`). Retries/attempt lineage,
+digest idempotency (manual runs), concurrency rejection, cancellation, run
+history, append-only stage logs and bounded error codes all mirror the
+connector run model. Python execution is a future transform language behind
+the `transform.language` discriminator (scope revision recorded under
+AUTO-01).
 
 ## AUTO-03 — Pipeline Authoring & Product Integration
 
@@ -45,10 +65,15 @@ Definition editor/configuration; code/config references; input/output mapping; v
 **Complete.** `/pipelines` catalogue, definition detail with draft
 configuration editor (inputs, typed parameters, SQL statement, output
 schema/mapping), publish/retire versions, run history with Run/Retry/Cancel
-and inspect (stage logs + output Dataset Versions), and schedule management.
-No visual DAG builder — a single-transform editor per the task's guidance.
-Pipeline Dataset outputs are linked from the Dataset surface via
-`pipeline_run_outputs`.
+and inspect (stage logs + output Dataset Versions), and schedule management
+(interval / daily-with-IANA-timezone / event). **Product hand-offs:**
+`/datasets` gains a **Pipelines** tab listing every published single-input
+Pipeline with a Run action pre-filled with the Dataset's latest Version;
+Sheet Instances with a bound Dataset offer "Run Pipelines on this Dataset"
+(→ the Dataset Pipelines tab); notebooks can insert a **pipeline_output
+block** that references a Pipeline run and pins its produced Dataset Version
+(with run/output links). No visual DAG builder — a single-transform editor
+per the task's guidance.
 
 ## AUTO-04 — Agent-authored Operations
 

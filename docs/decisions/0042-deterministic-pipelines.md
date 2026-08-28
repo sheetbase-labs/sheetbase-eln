@@ -65,10 +65,16 @@ model, and no production users exist to justify compatibility surfaces.
 ## Consequences
 
 - One canonical automation model with no compatibility shims: no second
-  Dataset writer, no browser-side execution, no ungoverned schedule engine.
+  Dataset writer (output creation uses the RLS-gated `authenticated` path),
+  no browser-side execution, no ungoverned schedule engine.
 - Deterministic, reproducible runs with explicit input/parameter/output
   contracts, at the cost of a deliberately narrow v1 transform language
-  (SQL only) and polling-based event delivery.
+  (SQL only — scope revised from the original SQL+Python brief; Python sits
+  behind `transform.language`) and polling-based event delivery.
+- Run identity is authoritative: the canonical `input_digest` is computed
+  server-side; scheduled/event runs add a stable trigger occurrence identity
+  so duplicate sweeps dedupe, crashes reconcile, and failed event starts are
+  durable and retried rather than silently lost.
 - The `pipeline_worker` sandbox role must exist in every cluster
   (docker/db/init/00-roles.sh / .agents/setup); migrations cannot create
   roles.

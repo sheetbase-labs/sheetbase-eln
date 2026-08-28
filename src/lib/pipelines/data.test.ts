@@ -12,6 +12,7 @@ import {
   listPipelineDefinitions,
   listPipelineRuns,
   listPipelineSchedules,
+  listRunCompatiblePipelines,
   publishPipelineDefinitionVersion,
   retirePipelineDefinitionVersion,
   startPipelineRun,
@@ -86,8 +87,8 @@ describe('pipeline data client', () => {
       definitionVersionId: 'ver-1',
       parameters: { factor: 2 },
       inputVersions: { input: 'dv-1' },
-      inputDigest: 'a'.repeat(64),
       retryOfRunId: 'run-1',
+      triggerOccurrenceId: 'evt:00000000-0000-4000-8000-000000000001',
     })
     const call = calls[0]
     expect(call.name).toBe('start_pipeline_run')
@@ -96,10 +97,13 @@ describe('pipeline data client', () => {
       p_definition_version_id: 'ver-1',
       p_parameters: { factor: 2 },
       p_input_versions: { input: 'dv-1' },
-      p_input_digest: 'a'.repeat(64),
       p_retry_of_run_id: 'run-1',
+      p_trigger_occurrence_id: 'evt:00000000-0000-4000-8000-000000000001',
       p_trigger_kind: 'manual',
     })
+    // The canonical input digest is computed server-side; the client never
+    // supplies one.
+    expect(call.args).not.toHaveProperty('p_input_digest')
   })
 
   it('cancels and schedules through the governed RPCs', async () => {
@@ -146,5 +150,58 @@ describe('pipeline data client', () => {
     expect(queries[2]).toContain('definition_id=eq.def-1')
     expect(queries[3]).toContain('definition_version_id=eq.ver-1')
     expect(queries[4]).toContain('definition_id=eq.def-1')
+  })
+
+  it('lists only single-input published Pipelines as run-compatible', async () => {
+    const published = [
+      {
+        id: 'ver-1',
+        definition_id: 'def-1',
+        version: 1,
+        lifecycle: 'published',
+        configuration: {
+          configVersion: 1,
+          inputs: [{ name: 'measurements', required: true }],
+          parameters: [{ name: 'factor', type: 'decimal', required: true }],
+        },
+      },
+      {
+        id: 'ver-2',
+        definition_id: 'def-2',
+        version: 2,
+        lifecycle: 'published',
+        configuration: {
+          configVersion: 1,
+          inputs: [
+            { name: 'a', required: true },
+            { name: 'b', required: true },
+          ],
+          parameters: [],
+        },
+      },
+    ]
+    const definitions = [
+      { id: 'def-1', name: 'Scale', key: 'scale', lifecycle: 'active' },
+      { id: 'def-2', name: 'Join', key: 'join', lifecycle: 'active' },
+      { id: 'def-3', name: 'Draft', key: 'draft', lifecycle: 'active' },
+    ]
+    let index = 0
+    const client = {
+      list: async (resource: string) => {
+        if (resource === 'pipeline_definitions') return definitions
+        if (resource === 'pipeline_definition_versions') return published
+        index += 1
+        return []
+      },
+    } as unknown as DataClient
+    const compatible = await listRunCompatiblePipelines(client)
+    expect(compatible).toHaveLength(1)
+    expect(compatible[0]).toMatchObject({
+      definitionId: 'def-1',
+      definitionName: 'Scale',
+      versionId: 'ver-1',
+      inputName: 'measurements',
+      hasParameters: true,
+    })
   })
 })

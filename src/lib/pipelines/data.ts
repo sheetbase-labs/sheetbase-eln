@@ -425,7 +425,6 @@ export async function listRunCompatiblePipelines(
     if (
       !definition ||
       typeof config !== 'object' ||
-      config === null ||
       !Array.isArray(config.inputs) ||
       config.inputs.length !== 1
     ) {

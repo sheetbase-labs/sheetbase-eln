@@ -74,6 +74,43 @@ export const HTTP_METHODS = [
 export const FILE_OPERATIONS = ['upload', 'download'] as const
 export type FileOperation = (typeof FILE_OPERATIONS)[number]
 
+/** Bounded Dataset RPC operations observed at the same-origin proxy. */
+export const DATASET_RPC_OPERATIONS = [
+  'query_dataset_rows',
+  'query_dataset_version_rows',
+  'commit_dataset_row_batch',
+  'snapshot_dataset',
+  'search',
+] as const
+export type DatasetRpcOperation = (typeof DATASET_RPC_OPERATIONS)[number]
+
+/** Bounded Pipeline stage vocabulary for duration histograms. */
+export const PIPELINE_STAGES = [
+  'materialize_inputs',
+  'transform',
+  'output_commit',
+  'dataset_commit',
+  'dataset_snapshot',
+  'total',
+] as const
+export type PipelineStage = (typeof PIPELINE_STAGES)[number]
+
+export const PIPELINE_OUTCOMES = ['succeeded', 'failed', 'cancelled'] as const
+
+export const PIPELINE_TRIGGER_KINDS = ['manual', 'scheduled', 'event'] as const
+
+/** Bounded row-count buckets for Dataset write/snapshot durations. */
+export const SIZE_BUCKETS = ['small', 'medium', 'large', 'xlarge'] as const
+export type SizeBucket = (typeof SIZE_BUCKETS)[number]
+
+/** Map a row count onto the bounded size-bucket vocabulary. */
+export function sizeBucketFor(rows: number): SizeBucket {
+  if (rows < 1_000) return 'small'
+  if (rows < 10_000) return 'medium'
+  if (rows < 50_000) return 'large'
+  return 'xlarge'
+}
+
 export const FILE_OUTCOMES = [
   'ok',
   'oversize',
@@ -241,6 +278,63 @@ export class Histogram {
 }
 
 /**
+ * A gauge: an instantaneous value that can be set, incremented or
+ * decremented. Rendered with Prometheus `gauge` type.
+ */
+export class Gauge {
+  readonly values = new Map<string, number>()
+  readonly labelNames: readonly string[]
+
+  constructor(
+    readonly name: string,
+    readonly help: string,
+    labelNames: readonly string[] = [],
+    private readonly bounders: Record<string, readonly string[]> = {},
+  ) {
+    this.labelNames = labelNames
+  }
+
+  set(value: number, values: Labels = {}): void {
+    const bounded: Labels = {}
+    for (const name of this.labelNames) {
+      const raw: string | undefined = (
+        values as Record<string, string | undefined>
+      )[name]
+      const allowed = bounderFor(this.bounders, name)
+      bounded[name] =
+        raw === undefined ? 'other' : allowed ? foldBounded(allowed, raw) : raw
+    }
+    const key = labelKey(this.labelNames, bounded) ?? ''
+    this.values.set(key, value)
+  }
+
+  inc(values: Labels = {}, by = 1): void {
+    const key = labelKey(this.labelNames, values) ?? ''
+    this.values.set(key, (this.values.get(key) ?? 0) + by)
+  }
+
+  dec(values: Labels = {}, by = 1): void {
+    const key = labelKey(this.labelNames, values) ?? ''
+    this.values.set(key, (this.values.get(key) ?? 0) - by)
+  }
+
+  render(): string {
+    const lines = [
+      `# HELP ${this.name} ${this.help}`,
+      `# TYPE ${this.name} gauge`,
+    ]
+    if (this.values.size === 0) {
+      if (this.labelNames.length === 0) lines.push(`${this.name} 0`)
+    } else {
+      for (const [key, value] of this.values) {
+        lines.push(`${this.name}${key ? `{${key}}` : ''} ${value}`)
+      }
+    }
+    return lines.join('\n')
+  }
+}
+
+/**
  * The application registry. One instance per process; tests may build their
  * own via `createMetricsRegistry()` for isolation.
  */
@@ -321,6 +415,71 @@ export function createMetricsRegistry() {
     ['operation'],
     { operation: FILE_OPERATIONS },
   )
+  // PLAT-05 — Dataset/Pipeline/Scheduler scale observability.
+  const datasetRpcDuration = new Histogram(
+    'sheetbase_dataset_rpc_duration_seconds',
+    'Dataset/Pipeline RPC duration observed at the same-origin proxy.',
+    ['operation'],
+    { operation: DATASET_RPC_OPERATIONS },
+    [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30],
+  )
+  const datasetCommitDuration = new Histogram(
+    'sheetbase_dataset_commit_duration_seconds',
+    'Dataset row-batch commit duration by bounded row-count bucket.',
+    ['size_bucket'],
+    { size_bucket: SIZE_BUCKETS },
+    [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60],
+  )
+  const datasetSnapshotDuration = new Histogram(
+    'sheetbase_dataset_snapshot_duration_seconds',
+    'Dataset Version snapshot duration by bounded row-count bucket.',
+    ['size_bucket'],
+    { size_bucket: SIZE_BUCKETS },
+    [0.1, 0.5, 1, 2.5, 5, 10, 30, 60, 120, 300],
+  )
+  const pipelineStageDuration = new Histogram(
+    'sheetbase_pipeline_stage_duration_seconds',
+    'Pipeline execution stage duration.',
+    ['stage'],
+    { stage: PIPELINE_STAGES },
+    [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 15, 30, 60, 120],
+  )
+  const pipelineRuns = new Counter(
+    'sheetbase_pipeline_runs_total',
+    'Pipeline run outcomes by trigger kind.',
+    ['trigger_kind', 'outcome'],
+    { trigger_kind: PIPELINE_TRIGGER_KINDS, outcome: PIPELINE_OUTCOMES },
+  )
+  const pipelineActiveRuns = new Gauge(
+    'sheetbase_pipeline_active_runs',
+    'Pipeline runs currently executing in this process.',
+  )
+  const schedulerSweepDuration = new Histogram(
+    'sheetbase_scheduler_sweep_duration_seconds',
+    'Pipeline scheduler sweep duration.',
+    [],
+    {},
+    [0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 15, 60],
+  )
+  const schedulerDueOccurrences = new Counter(
+    'sheetbase_scheduler_due_occurrences_total',
+    'Due occurrences started by the pipeline scheduler sweep.',
+  )
+  const schedulerRecoveredOccurrences = new Counter(
+    'sheetbase_scheduler_recovered_occurrences_total',
+    'Stale crashed occurrences recovered by the pipeline scheduler sweep.',
+  )
+  const schedulerEventsProcessed = new Counter(
+    'sheetbase_scheduler_events_processed_total',
+    'Change events consumed by event-trigger pipeline schedules.',
+  )
+  const searchDuration = new Histogram(
+    'sheetbase_search_duration_seconds',
+    'Global search RPC duration observed at the same-origin proxy.',
+    [],
+    {},
+    [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
+  )
 
   const metrics = [
     httpRequests,
@@ -329,13 +488,24 @@ export function createMetricsRegistry() {
     connectorRunFailures,
     fileOperations,
     fileBytes,
+    pipelineRuns,
+    schedulerDueOccurrences,
+    schedulerRecoveredOccurrences,
+    schedulerEventsProcessed,
   ]
   const histograms = [
     httpDuration,
     dbUpstreamDuration,
     connectorRunDuration,
     fileDuration,
+    datasetRpcDuration,
+    datasetCommitDuration,
+    datasetSnapshotDuration,
+    pipelineStageDuration,
+    schedulerSweepDuration,
+    searchDuration,
   ]
+  const gauges = [pipelineActiveRuns]
 
   return {
     httpRequests,
@@ -348,9 +518,20 @@ export function createMetricsRegistry() {
     fileOperations,
     fileBytes,
     fileDuration,
+    datasetRpcDuration,
+    datasetCommitDuration,
+    datasetSnapshotDuration,
+    pipelineStageDuration,
+    pipelineRuns,
+    pipelineActiveRuns,
+    schedulerSweepDuration,
+    schedulerDueOccurrences,
+    schedulerRecoveredOccurrences,
+    schedulerEventsProcessed,
+    searchDuration,
     /** Renders the Prometheus text exposition format. */
     render(): string {
-      const all = [...metrics, ...histograms]
+      const all = [...metrics, ...histograms, ...gauges]
       return all.map((m) => m.render()).join('\n\n') + '\n'
     },
   }

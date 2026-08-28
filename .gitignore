@@ -20,3 +20,6 @@ storybook-static
 .amp/
 .storage/
 .agents/skills/
+
+# PLAT-05 benchmark results (generated; never committed)
+perf/results/

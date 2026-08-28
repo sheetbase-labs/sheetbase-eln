@@ -30,11 +30,13 @@ import type { QueryResultRow } from 'pg'
 
 import { env } from '#/env.server'
 import { getAppSession } from '#/lib/auth'
+import { metrics, sizeBucketFor } from '#/lib/metrics'
+import type { PipelineStage } from '#/lib/metrics'
+import type { PipelineConfig } from './pipelines/config'
 import {
   validatePipelineConfig,
   validatePipelineRunRequest,
 } from './pipelines/config'
-import type { PipelineConfig } from './pipelines/config'
 import type { PipelineRunWire } from './pipelines/types'
 import {
   checkTransformStatement,
@@ -84,6 +86,8 @@ export interface PipelineExecuteReport {
 
 interface QueryResult<T extends QueryResultRow> {
   rows: T[]
+  /** Affected/returned row count (pg provides `number | null`). */
+  rowCount?: number | null
 }
 
 /** One transactional connection with a role-switchable session. */
@@ -130,25 +134,6 @@ interface SchemaFieldRow {
   nullable: boolean
 }
 
-interface VersionRow {
-  row_id: string
-  revision: string
-}
-
-interface ValueRow {
-  row_id: string
-  field_id: string
-  ordinal: number
-  text_value: string | null
-  integer_value: string | null
-  numeric_value: string | null
-  boolean_value: boolean | null
-  date_value: string | null
-  timestamp_value: string | null
-  category_option_id: string | null
-  reference_id: string | null
-}
-
 /**
  * Execute the pipeline run identified by runId. Idempotent for finished
  * runs: a succeeded/failed/cancelled run is returned unchanged.
@@ -160,6 +145,11 @@ export async function runPipelineExecution(
 ): Promise<PipelineExecuteReport> {
   const conn = await deps.connect()
   await conn.begin()
+  const startedAt = Date.now()
+  metrics.pipelineActiveRuns.inc()
+  const observeStage = (stage: PipelineStage, ms: number) => {
+    metrics.pipelineStageDuration.observe({ stage }, ms / 1000)
+  }
   try {
     const run = await loadRun(conn, runId)
     if (!run) {
@@ -195,7 +185,10 @@ export async function runPipelineExecution(
 
     // Materialize input Dataset Versions into session temp tables. The
     // pipeline_worker role is granted SELECT on these tables only.
+    const materializeStarted = Date.now()
     const materialized = await materializeInputs(conn, run)
+    const materializeMs = Date.now() - materializeStarted
+    observeStage('materialize_inputs', materializeMs)
     await log(
       conn,
       run,
@@ -204,11 +197,14 @@ export async function runPipelineExecution(
       'Input Dataset Versions materialized.',
       {
         inputs: materialized.map((m) => ({ name: m.name, rows: m.rowCount })),
+        durationMs: materializeMs,
       },
     )
 
     // Run the transform as the low-privilege role against the temp schema.
+    const transformStarted = Date.now()
     const transform = await executeTransform(conn, run, config)
+    const transformMs = Date.now() - transformStarted
     if (transform.kind === 'cancelled') {
       await failRun(
         conn,
@@ -217,6 +213,10 @@ export async function runPipelineExecution(
         'Run was cancelled before execution.',
       )
       await conn.commit()
+      metrics.pipelineRuns.inc({
+        trigger_kind: run.trigger_kind,
+        outcome: 'cancelled',
+      })
       return {
         ok: false,
         errorCode: 'run_cancelled',
@@ -224,30 +224,44 @@ export async function runPipelineExecution(
       }
     }
     if (transform.kind === 'error') {
+      observeStage('transform', transformMs)
       await failRun(conn, run, transform.code, transform.message)
       await conn.commit()
+      metrics.pipelineRuns.inc({
+        trigger_kind: run.trigger_kind,
+        outcome: 'failed',
+      })
       return {
         ok: false,
         errorCode: transform.code,
         errorMessage: transform.message,
       }
     }
+    observeStage('transform', transformMs)
     await log(conn, run, 'info', 'transform', 'Transform executed.', {
       rowCount: transform.rows.length,
       durationMs: transform.durationMs,
     })
 
     // Write the output through canonical Dataset operations.
+    const outputStarted = Date.now()
     const output = await writeOutput(conn, run, config, transform.rows)
+    const outputMs = Date.now() - outputStarted
+    observeStage('output_commit', outputMs)
     if (!output.ok) {
       await failRun(conn, run, output.code, output.message)
       await conn.commit()
+      metrics.pipelineRuns.inc({
+        trigger_kind: run.trigger_kind,
+        outcome: 'failed',
+      })
       return { ok: false, errorCode: output.code, errorMessage: output.message }
     }
     await log(conn, run, 'info', 'output', 'Output Dataset Version recorded.', {
       datasetId: output.datasetId,
       datasetVersionId: output.datasetVersionId,
       rows: transform.rows.length,
+      durationMs: outputMs,
     })
 
     const finished = await completeRun(conn, run, {
@@ -256,8 +270,21 @@ export async function runPipelineExecution(
       outputDatasetVersionId: output.datasetVersionId,
       outputLabel: output.label,
       durationMs: transform.durationMs,
+      stageDurationsMs: {
+        materializeInputs: materializeMs,
+        transform: transform.durationMs,
+        outputCommit: outputMs,
+        datasetCommit: output.commitMs,
+        datasetSnapshot: output.snapshotMs,
+        total: Date.now() - startedAt,
+      },
     })
     await conn.commit()
+    observeStage('total', Date.now() - startedAt)
+    metrics.pipelineRuns.inc({
+      trigger_kind: run.trigger_kind,
+      outcome: 'succeeded',
+    })
     return { ok: true, run: finished }
   } catch (error) {
     const code =
@@ -269,8 +296,10 @@ export async function runPipelineExecution(
     } catch {
       await conn.rollback()
     }
+    observeStage('total', Date.now() - startedAt)
     return { ok: false, errorCode: code, errorMessage: message }
   } finally {
+    metrics.pipelineActiveRuns.dec()
     await conn.end()
   }
 }
@@ -453,30 +482,23 @@ async function materializeInputs(
     const columnDefs = fields.map((f) => ({
       slug: f.key,
       logicalType: f.logical_type,
+      fieldId: f.field_id,
     }))
-    const fieldIdToSlug = new Map(fields.map((f) => [f.field_id, f.key]))
     await conn.query(buildInputTableDdl(input.name, columnDefs))
-    const { rows, revisions } = await loadInputRows(conn, version.id)
-    if (rows.length > INPUT_ROW_LIMIT) {
+    const rowCount = await countInputRows(conn, version.id)
+    if (rowCount > INPUT_ROW_LIMIT) {
       throw new PipelineStepError(
         'input_too_large',
         'Input Dataset Version exceeds the row limit.',
       )
     }
-    await insertInputRows(
-      conn,
-      input.name,
-      columnDefs,
-      rows,
-      revisions,
-      fieldIdToSlug,
-    )
+    await materializeInputRows(conn, input.name, version, columnDefs)
     // The sandbox role may read exactly the temp tables it needs.
     await conn.query(`GRANT SELECT ON pg_temp.${input.name} TO pipeline_worker`)
     result.push({
       name: input.name,
       datasetVersionId: version.id,
-      rowCount: rows.length,
+      rowCount,
     })
   }
   return result
@@ -543,76 +565,80 @@ function pgTypeFor(logicalType: string): string {
   }
 }
 
-async function loadInputRows(
+/**
+ * Count the rows in an input Dataset Version before materializing (indexed;
+ * keeps the row limit check cheap and authoritative).
+ */
+async function countInputRows(
   conn: ExecConnection,
   versionId: string,
-): Promise<{ rows: ValueRow[]; revisions: Map<string, string> }> {
-  const [values, rowRev] = await Promise.all([
-    conn.query<ValueRow>(
-      `SELECT row_id, field_id, ordinal, text_value, integer_value,
-              numeric_value, boolean_value, date_value, timestamp_value,
-              category_option_id, reference_id
-         FROM api.dataset_version_values
-        WHERE dataset_version_id = $1
-        ORDER BY row_id, field_id, ordinal`,
-      [versionId],
-    ),
-    conn.query<VersionRow>(
-      `SELECT row_id, revision FROM api.dataset_version_rows
-        WHERE dataset_version_id = $1`,
-      [versionId],
-    ),
-  ])
-  const revisions = new Map(rowRev.rows.map((r) => [r.row_id, r.revision]))
-  return { rows: values.rows, revisions }
+): Promise<number> {
+  const { rows } = await conn.query<{ count: string }>(
+    `SELECT count(*) FROM api.dataset_version_rows WHERE dataset_version_id = $1`,
+    [versionId],
+  )
+  return Number(rows[0]?.count ?? 0)
 }
 
-async function insertInputRows(
+/**
+ * Materialize an input Dataset Version into a session temp table with ONE
+ * set-based statement (previously one INSERT round-trip per row, which
+ * dominated large-input runs). Each column aggregates exactly the values of
+ * its own field (FILTER by field_id), so multi-valued fields expose their
+ * first value (by ordinal) and every other field's NULLs never leak into a
+ * sibling column. PostgreSQL's ARRAY_AGG includes NULLs, hence the FILTER is
+ * required, not cosmetic.
+ */
+async function materializeInputRows(
   conn: ExecConnection,
   name: string,
-  columns: Array<{ slug: string; logicalType: string }>,
-  rows: ValueRow[],
-  revisions: Map<string, string>,
-  fieldIdToSlug: Map<string, string>,
-): Promise<void> {
-  // Group values by row, keyed by the temp-table column slug (the schema
-  // field slug). Multi-valued fields expose their first value in v1
-  // transforms.
-  const byRow = new Map<string, Map<string, unknown>>()
-  for (const row of rows) {
-    let fields = byRow.get(row.row_id)
-    if (!fields) {
-      fields = new Map()
-      byRow.set(row.row_id, fields)
-    }
-    const slug = fieldIdToSlug.get(row.field_id)
-    if (slug && !fields.has(slug)) {
-      fields.set(slug, coalesceValue(row))
+  version: { id: string; schema_version_id: string },
+  columns: Array<{ slug: string; logicalType: string; fieldId: string }>,
+): Promise<number> {
+  if (columns.length === 0) return 0
+  const valueColumn = (logicalType: string): string => {
+    switch (logicalType) {
+      case 'text':
+        return 'text_value'
+      case 'integer':
+        return 'integer_value'
+      case 'decimal':
+        return 'numeric_value'
+      case 'boolean':
+        return 'boolean_value'
+      case 'date':
+        return 'date_value'
+      case 'timestamp':
+        return 'timestamp_value'
+      case 'category':
+        return 'category_option_id'
+      case 'reference':
+        return 'reference_id'
+      default:
+        return 'text_value'
     }
   }
-  const placeholders = columns.map((_, i) => `$${i + 3}`).join(', ')
-  const insert = `INSERT INTO ${name} ("_sb_row_id", "_sb_row_revision", ${columns
-    .map((c) => `"${c.slug}"`)
-    .join(', ')}) VALUES ($1, $2, ${placeholders})`
-  for (const [rowId, fields] of byRow) {
-    await conn.query(insert, [
-      rowId,
-      Number(revisions.get(rowId) ?? 1),
-      ...columns.map((c) => fields.get(c.slug) ?? null),
-    ])
-  }
-}
-
-function coalesceValue(row: ValueRow): unknown {
-  if (row.text_value !== null) return row.text_value
-  if (row.integer_value !== null) return Number(row.integer_value)
-  if (row.numeric_value !== null) return row.numeric_value
-  if (row.boolean_value !== null) return row.boolean_value
-  if (row.date_value !== null) return row.date_value
-  if (row.timestamp_value !== null) return row.timestamp_value
-  if (row.category_option_id !== null) return row.category_option_id
-  if (row.reference_id !== null) return row.reference_id
-  return null
+  const quote = (slug: string) => `"${slug}"`
+  const columnSql = columns.map((c) => quote(c.slug)).join(', ')
+  const selectSql = columns
+    .map(
+      (c) =>
+        `(ARRAY_AGG(v.${valueColumn(c.logicalType)} ORDER BY v.ordinal) ` +
+        `FILTER (WHERE v.field_id = '${c.fieldId}'))[1] AS ${quote(c.slug)}`,
+    )
+    .join(', ')
+  const sql = `
+    INSERT INTO ${name} ("_sb_row_id", "_sb_row_revision", ${columnSql})
+    SELECT r.row_id, r.revision, ${selectSql}
+      FROM api.dataset_version_rows r
+      JOIN api.dataset_version_values v
+        ON v.dataset_version_id = r.dataset_version_id
+       AND v.row_id = r.row_id
+     WHERE r.dataset_version_id = $1
+     GROUP BY r.row_id, r.revision
+     ORDER BY r.row_id`
+  const result = await conn.query(sql, [version.id])
+  return result.rowCount ?? 0
 }
 
 // ---------------------------------------------------------------------------
@@ -744,7 +770,14 @@ async function isRunRunning(
 // ---------------------------------------------------------------------------
 
 type OutputOutcome =
-  | { ok: true; datasetId: string; datasetVersionId: string; label: string }
+  | {
+      ok: true
+      datasetId: string
+      datasetVersionId: string
+      label: string
+      commitMs: number
+      snapshotMs: number
+    }
   | { ok: false; code: PipelineErrorCode; message: string }
 
 async function writeOutput(
@@ -826,42 +859,64 @@ async function writeOutput(
     return { ok: false, code: mapped.code, message: mapped.message }
   }
 
+  let commitStartedAt = 0
   if (mapped.rows.length > 0) {
-    const expectedRevision = await loadDatasetRevision(conn, datasetId)
-    const commit = await conn.query<{ result: unknown }>(
-      `SELECT api.commit_dataset_row_batch($1, $2, $3::jsonb, $4) result`,
-      [
-        datasetId,
-        expectedRevision,
-        JSON.stringify(mapped.rows),
-        `pipeline:${run.id}`,
-      ],
-    )
-    const commitResult = commit.rows[0]?.result
-    const ok =
-      commitResult !== null &&
-      commitResult !== undefined &&
-      typeof commitResult === 'object' &&
-      (commitResult as { ok?: unknown }).ok === true
-    if (!ok) {
-      const detail =
-        commitResult && typeof commitResult === 'object'
-          ? JSON.stringify(
-              (commitResult as { errors?: unknown }).errors ?? commitResult,
-            )
-          : 'Dataset commit was rejected.'
-      return {
-        ok: false,
-        code: 'dataset_commit_failed',
-        message: truncate(`Dataset commit rejected: ${detail}`, 500),
+    // commit_dataset_row_batch accepts 1–1000 rows per call, so large
+    // outputs are chunked; each commit bumps the Dataset revision, so the
+    // expected revision is re-read per chunk. Distinct chunk keys keep
+    // idempotency authoritative.
+    const BATCH_SIZE = 1000
+    commitStartedAt = Date.now()
+    for (let offset = 0; offset < mapped.rows.length; offset += BATCH_SIZE) {
+      const chunk = mapped.rows.slice(offset, offset + BATCH_SIZE)
+      const expectedRevision = await loadDatasetRevision(conn, datasetId)
+      const commitStarted = Date.now()
+      const commit = await conn.query<{ result: unknown }>(
+        `SELECT api.commit_dataset_row_batch($1, $2, $3::jsonb, $4) result`,
+        [
+          datasetId,
+          expectedRevision,
+          JSON.stringify(chunk),
+          `pipeline:${run.id}:${Math.floor(offset / BATCH_SIZE)}`,
+        ],
+      )
+      metrics.datasetCommitDuration.observe(
+        { size_bucket: sizeBucketFor(chunk.length) },
+        (Date.now() - commitStarted) / 1000,
+      )
+      const commitResult = commit.rows[0]?.result
+      const ok =
+        commitResult !== null &&
+        commitResult !== undefined &&
+        typeof commitResult === 'object' &&
+        (commitResult as { ok?: unknown }).ok === true
+      if (!ok) {
+        const detail =
+          commitResult && typeof commitResult === 'object'
+            ? JSON.stringify(
+                (commitResult as { errors?: unknown }).errors ?? commitResult,
+              )
+            : 'Dataset commit was rejected.'
+        return {
+          ok: false,
+          code: 'dataset_commit_failed',
+          message: truncate(`Dataset commit rejected: ${detail}`, 500),
+        }
       }
     }
   }
 
   const revision = await loadDatasetRevision(conn, datasetId)
+  const snapshotRowCount = await loadDatasetRowCount(conn, datasetId)
+  const snapshotStarted = Date.now()
   const snapshot = await conn.query<{ id: string }>(
     `SELECT (api.snapshot_dataset($1, $2, $3)).id AS id`,
     [datasetId, revision, output.datasetLabel],
+  )
+  const snapshotMs = Date.now() - snapshotStarted
+  metrics.datasetSnapshotDuration.observe(
+    { size_bucket: sizeBucketFor(snapshotRowCount) },
+    snapshotMs / 1000,
   )
   const versionId = snapshot.rows[0]?.id
   if (!versionId) {
@@ -880,6 +935,8 @@ async function writeOutput(
     datasetId,
     datasetVersionId: versionId,
     label: output.datasetLabel,
+    commitMs: mapped.rows.length > 0 ? Date.now() - commitStartedAt : 0,
+    snapshotMs,
   }
 }
 
@@ -921,6 +978,17 @@ async function loadDatasetRevision(
     [datasetId],
   )
   return Number(rows[0]?.revision ?? 1)
+}
+
+async function loadDatasetRowCount(
+  conn: ExecConnection,
+  datasetId: string,
+): Promise<number> {
+  const { rows } = await conn.query<{ count: string }>(
+    `SELECT count(*) FROM api.dataset_rows WHERE dataset_id = $1`,
+    [datasetId],
+  )
+  return Number(rows[0]?.count ?? 0)
 }
 
 // ---------------------------------------------------------------------------

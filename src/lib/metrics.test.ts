@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { boundedConnectorErrorCode, createMetricsRegistry } from './metrics'
+import {
+  Gauge,
+  boundedConnectorErrorCode,
+  createMetricsRegistry,
+  sizeBucketFor,
+} from './metrics'
 
 describe('counter', () => {
   it('aggregates by label values and renders Prometheus text', () => {
@@ -149,5 +154,56 @@ describe('boundedConnectorErrorCode', () => {
       'other',
     )
     expect(boundedConnectorErrorCode(null)).toBe('unexpected_error')
+  })
+})
+
+describe('gauge', () => {
+  it('sets, increments, decrements and renders the current value', () => {
+    const gauge = new Gauge('sheetbase_pipeline_active_runs', 'active runs')
+    gauge.inc()
+    gauge.inc()
+    gauge.dec()
+    expect(gauge.render()).toContain('sheetbase_pipeline_active_runs 1')
+  })
+})
+
+describe('sizeBucketFor', () => {
+  it('maps row counts onto the bounded size vocabulary', () => {
+    expect(sizeBucketFor(0)).toBe('small')
+    expect(sizeBucketFor(999)).toBe('small')
+    expect(sizeBucketFor(1_000)).toBe('medium')
+    expect(sizeBucketFor(9_999)).toBe('medium')
+    expect(sizeBucketFor(10_000)).toBe('large')
+    expect(sizeBucketFor(49_999)).toBe('large')
+    expect(sizeBucketFor(50_000)).toBe('xlarge')
+  })
+})
+
+describe('PLAT-05 registry', () => {
+  it('exposes the dataset, pipeline, scheduler and search metrics', () => {
+    const registry = createMetricsRegistry()
+    for (const metric of [
+      registry.datasetRpcDuration,
+      registry.datasetCommitDuration,
+      registry.datasetSnapshotDuration,
+      registry.pipelineStageDuration,
+      registry.pipelineRuns,
+      registry.pipelineActiveRuns,
+      registry.schedulerSweepDuration,
+      registry.schedulerDueOccurrences,
+      registry.schedulerRecoveredOccurrences,
+      registry.schedulerEventsProcessed,
+      registry.searchDuration,
+    ]) {
+      expect(metric).toBeDefined()
+    }
+    const rendered = registry.render()
+    expect(rendered).toContain(
+      '# TYPE sheetbase_pipeline_stage_duration_seconds histogram',
+    )
+    expect(rendered).toContain('# TYPE sheetbase_pipeline_active_runs gauge')
+    expect(rendered).toContain(
+      '# TYPE sheetbase_scheduler_sweep_duration_seconds histogram',
+    )
   })
 })

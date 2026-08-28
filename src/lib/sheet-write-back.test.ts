@@ -9,6 +9,7 @@ import {
   resolveSheetWriteTarget,
   sheetCellWriteError,
   writeSheetCell,
+  writeSheetCells,
 } from './sheet-write-back'
 
 const INSTANCE = '30000000-0000-4000-8000-000000000010'
@@ -285,5 +286,149 @@ describe('composed Sheet write-back', () => {
         Object.assign(new Error('retry token reused'), { code: '23505' }),
       ),
     ).toBe('conflict')
+  })
+
+  it('batches multi-cell write-back into one commit per dataset (PLAT-05)', async () => {
+    const RECORD2 = '30000000-0000-4000-8000-000000000017'
+    const ROW2 = '30000000-0000-4000-8000-000000000018'
+    const base = datasetWire()
+    const twoRows = {
+      ...base,
+      rows: [
+        base.rows[0],
+        {
+          ...base.rows[0],
+          identityValues: [RECORD2],
+          sources: [
+            {
+              ...base.rows[0].sources[0],
+              rowId: ROW2,
+              revision: 5,
+              values: { [mappedSource.sourceFieldId]: RECORD2 },
+            },
+            base.rows[0].sources[1],
+          ],
+        },
+      ],
+    }
+    const composition = await snapshot(twoRows)
+    const rpc = vi.fn().mockResolvedValue({ ok: true })
+    await writeSheetCells(
+      {
+        composition,
+        cells: [
+          {
+            rowKey: composition.rows[0].rowKey,
+            columnId: mappedColumn.id,
+            value: RECORD,
+          },
+          {
+            rowKey: composition.rows[1].rowKey,
+            columnId: mappedColumn.id,
+            value: RECORD2,
+          },
+        ],
+        retryToken: TOKEN,
+      },
+      clientWithRpc(rpc),
+    )
+    // One grouped commit instead of one RPC per cell.
+    expect(rpc).toHaveBeenCalledTimes(1)
+    expect(rpc).toHaveBeenCalledWith('commit_dataset_row_batch', {
+      p_dataset_id: DATASET,
+      p_expected_dataset_revision: 9,
+      p_rows: [
+        {
+          operation: 'update',
+          rowId: ROW,
+          expectedRevision: 4,
+          values: { [mappedSource.sourceFieldId]: RECORD },
+        },
+        {
+          operation: 'update',
+          rowId: ROW2,
+          expectedRevision: 5,
+          values: { [mappedSource.sourceFieldId]: RECORD2 },
+        },
+      ],
+      p_idempotency_key: expect.stringContaining(TOKEN),
+    })
+  })
+
+  it('groups record-bound cells per record and local cells into one mutation', async () => {
+    const record = await snapshot(recordWire())
+    const rpc = vi.fn().mockImplementation((name: string) => {
+      if (name === 'mutate_sheet_instance_local_state')
+        return Promise.reject(new Error('stop after local dispatch'))
+      return Promise.resolve({})
+    })
+    await expect(
+      writeSheetCells(
+        {
+          composition: record,
+          cells: [
+            {
+              rowKey: record.rows[0].rowKey,
+              columnId: mappedColumn.id,
+              value: RECORD,
+            },
+            {
+              rowKey: record.rows[0].rowKey,
+              columnId: LOCAL_FIELD,
+              value: 'local value',
+            },
+          ],
+          retryToken: TOKEN,
+        },
+        clientWithRpc(rpc),
+      ),
+    ).rejects.toThrow('stop after local dispatch')
+    expect(rpc).toHaveBeenCalledTimes(2)
+    expect(rpc).toHaveBeenCalledWith('update_record_custom_fields', {
+      p_record_id: RECORD,
+      p_expected_metadata_version: 3,
+      p_values: { stable_sample_field: RECORD },
+    })
+    expect(rpc).toHaveBeenCalledWith(
+      'mutate_sheet_instance_local_state',
+      expect.objectContaining({
+        p_instance_id: INSTANCE,
+        p_expected_revision: 6,
+        p_cells: [
+          {
+            rowKey: record.rows[0].rowKey,
+            fieldId: LOCAL_FIELD,
+            value: 'local value',
+          },
+        ],
+      }),
+    )
+  })
+
+  it('fails fast before any write when a cell target is unresolvable', async () => {
+    const composition = await snapshot(datasetWire())
+    const rpc = vi.fn().mockResolvedValue({})
+    await expect(
+      writeSheetCells(
+        {
+          composition,
+          cells: [
+            {
+              rowKey: composition.rows[0].rowKey,
+              columnId: mappedColumn.id,
+              value: RECORD,
+            },
+            {
+              rowKey: composition.rows[0].rowKey,
+              columnId: unmappedColumn.id,
+              value: 'x',
+            },
+          ],
+          retryToken: TOKEN,
+        },
+        clientWithRpc(rpc),
+      ),
+    ).rejects.toThrow('unresolved_target')
+    expect(rpc).not.toHaveBeenCalled()
   })
 })

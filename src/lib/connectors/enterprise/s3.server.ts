@@ -25,6 +25,7 @@ import {
 } from '@aws-sdk/client-s3'
 
 import { parseS3Config } from './config-validation'
+import { serverConnectorRunObservability } from '../observability.server'
 import { ConnectorExecutionError, boundedErrorMessage } from './errors'
 import {
   ConnectorEndpointError,
@@ -249,6 +250,8 @@ export const s3Adapter: EnterpriseConnectorAdapter<S3ConnectorConfig> = {
     return ingestExternalPayload(context.client, {
       workspaceId: context.workspaceId,
       connectorId: context.connector.id,
+      connectorType: 'storage',
+      observability: serverConnectorRunObservability,
       parserIdentity: S3_PARSER_IDENTITY,
       sheetName: key,
       selectorSource: {

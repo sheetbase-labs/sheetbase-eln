@@ -208,6 +208,18 @@ async function main(): Promise<void> {
     durationMs: manifest.durationMs,
     prunedSets: expired.length,
   })
+
+  // Optional Prometheus textfile collector output so the documented
+  // SheetbaseBackupMissing alert has a real signal when a node_exporter
+  // textfile directory is configured.
+  const textfileDir = process.env.SHEETBASE_METRICS_TEXTFILE_DIR
+  if (textfileDir) {
+    await writeFile(
+      join(textfileDir, 'sheetbase_backup.prom'),
+      `sheetbase_backup_success_time_seconds ${Math.floor(finishedAt.getTime() / 1000)}\n` +
+        `sheetbase_backup_dump_bytes ${manifest.database.dumpBytes}\n`,
+    )
+  }
 }
 
 main().catch(async (error) => {

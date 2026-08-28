@@ -1,7 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import type { ProxyDeps } from './postgrest-proxy'
 import { handleProxyRequest } from './postgrest-proxy'
+import { metrics } from './metrics'
+import { logger } from './logger'
 
 function makeDeps(overrides: Partial<ProxyDeps> = {}): ProxyDeps {
   return {
@@ -510,5 +512,69 @@ describe('handleProxyRequest — external bearer token path', () => {
     )
     expect(response.status).toBe(200)
     expect(resolverCalled).toBe(false)
+  })
+})
+
+describe('PLAT-02 proxy metrics', () => {
+  it('counts success with status, category ok and duration', async () => {
+    await handleProxyRequest(req('projects'), 'projects', makeDeps())
+    const rendered = metrics.render()
+    expect(rendered).toMatch(
+      /sheetbase_http_requests_total\{route="db_proxy",method="GET",status="200"\} \d+/,
+    )
+    expect(rendered).toMatch(
+      /sheetbase_db_upstream_requests_total\{category="ok"\} \d+/,
+    )
+    expect(rendered).toContain(
+      'sheetbase_db_upstream_duration_seconds_count{method="GET"}',
+    )
+  })
+
+  it('counts upstream failures by public category', async () => {
+    const response = await handleProxyRequest(
+      req('projects'),
+      'projects',
+      makeDeps({
+        fetchFn: async () =>
+          new Response('boom', {
+            status: 503,
+            headers: { 'content-type': 'text/plain' },
+          }),
+      }),
+    )
+    expect(response.status).toBe(503)
+    expect(metrics.render()).toMatch(
+      /sheetbase_db_upstream_requests_total\{category="service_unavailable"\} \d+/,
+    )
+  })
+
+  it('counts route label as the fixed db_proxy bucket, never the path', async () => {
+    await handleProxyRequest(
+      req('some_table_with_a_long_id'),
+      'some_table_with_a_long_id',
+      makeDeps(),
+    )
+    const rendered = metrics.render()
+    expect(rendered).not.toContain('some_table_with_a_long_id')
+    expect(rendered).toContain('route="db_proxy"')
+  })
+})
+
+describe('PLAT-02 log correlation', () => {
+  it('propagates the request id into the structured request log and redacts sensitive fields', async () => {
+    const info = vi.spyOn(logger, 'info').mockImplementation(() => undefined)
+    try {
+      await handleProxyRequest(
+        req('projects', { headers: { 'x-request-id': 'corr-123' } }),
+        'projects',
+        makeDeps(),
+      )
+      expect(info).toHaveBeenCalledWith(
+        'postgrest proxy request complete',
+        expect.objectContaining({ request_id: 'corr-123' }),
+      )
+    } finally {
+      info.mockRestore()
+    }
   })
 })

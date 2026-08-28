@@ -17,6 +17,7 @@ import {
 } from './errors'
 import type { ProxyErrorCode } from './errors'
 import { logger } from './logger'
+import { metrics } from './metrics'
 import {
   buildUpstreamUrl,
   InvalidPostgrestQueryError,
@@ -29,6 +30,7 @@ import {
   resolveRequestId,
   stampRequestId,
 } from './request-id'
+import type { HttpRoute } from './metrics'
 import { ExternalTokenError, readBearerToken } from './external-token'
 
 export interface ProxyDeps {
@@ -61,6 +63,35 @@ export interface ProxyDeps {
 function proxyErrorResponse(code: ProxyErrorCode, requestId: string): Response {
   const categorised = categoriseProxyError(code)
   return stampRequestId(errorEnvelope({ ...categorised, requestId }), requestId)
+}
+
+/**
+ * PLAT-02 — records one handled request: count by route/method/status,
+ * duration histogram, and upstream category (or proxy rejection category).
+ * Labels stay bounded: the route label is a fixed bucket, never a request
+ * path or resource id.
+ */
+function recordProxyRequest(
+  method: string,
+  status: number,
+  startedAt: number,
+  category?: string,
+): void {
+  const route: HttpRoute = 'db_proxy'
+  metrics.httpRequests.inc({
+    route,
+    method,
+    status: String(status),
+  })
+  metrics.httpDuration.observe(
+    { route, method },
+    (Date.now() - startedAt) / 1000,
+  )
+  metrics.dbUpstreamDuration.observe(
+    { method },
+    (Date.now() - startedAt) / 1000,
+  )
+  metrics.dbUpstreamRequests.inc({ category: category ?? 'ok' })
 }
 
 /**
@@ -100,9 +131,11 @@ export async function handleProxyRequest(
   rawPath: string,
   deps: ProxyDeps,
 ): Promise<Response> {
+  const startedAt = Date.now()
   const requestId = resolveRequestId(request.headers)
   const path = parseProxyPath(rawPath)
   if (!path) {
+    recordProxyRequest(request.method, 400, startedAt, 'validation_error')
     return proxyErrorResponse('invalid_path', requestId)
   }
 
@@ -112,6 +145,7 @@ export async function handleProxyRequest(
     /^sheet_[a-z2-7]{26}$/.test(path.resource) &&
     (request.method === 'PATCH' || request.method === 'DELETE')
   if (generatedMutation && !isValidScientificMutationQuery(requestUrl.search)) {
+    recordProxyRequest(request.method, 400, startedAt, 'validation_error')
     return proxyErrorResponse('invalid_path', requestId)
   }
 
@@ -126,25 +160,36 @@ export async function handleProxyRequest(
   let token: string
   if (authorization !== null) {
     if (!bearer || !deps.resolveExternalToken) {
+      recordProxyRequest(request.method, 401, startedAt, 'unauthenticated')
       return proxyErrorResponse('unauthenticated', requestId)
     }
     try {
       await deps.resolveExternalToken(bearer, request.method, path)
       token = bearer
     } catch (error) {
-      return externalTokenErrorResponse(error, requestId)
+      const response = externalTokenErrorResponse(error, requestId)
+      recordProxyRequest(
+        request.method,
+        response.status,
+        startedAt,
+        response.status === 401 ? 'unauthenticated' : 'permission_denied',
+      )
+      return response
     }
   } else {
     const session = await deps.getSession(request.headers)
     if (!session) {
+      recordProxyRequest(request.method, 401, startedAt, 'unauthenticated')
       return proxyErrorResponse('unauthenticated', requestId)
     }
     const workspace = await deps.getWorkspaceForUser(session.user.id)
     if (!workspace) {
+      recordProxyRequest(request.method, 403, startedAt, 'permission_denied')
       return proxyErrorResponse('no_workspace', requestId)
     }
     const requestedWorkspace = request.headers.get('x-sheetbase-workspace')
     if (requestedWorkspace && requestedWorkspace !== workspace.id) {
+      recordProxyRequest(request.method, 403, startedAt, 'permission_denied')
       return proxyErrorResponse('workspace_mismatch', requestId)
     }
     token = await deps.mintToken({
@@ -162,6 +207,7 @@ export async function handleProxyRequest(
     upstream = buildUpstreamUrl(deps.upstreamBaseUrl, path, requestUrl.search)
   } catch (error) {
     if (error instanceof InvalidPostgrestQueryError) {
+      recordProxyRequest(request.method, 400, startedAt, 'validation_error')
       return proxyErrorResponse('invalid_path', requestId)
     }
     throw error
@@ -185,7 +231,6 @@ export async function handleProxyRequest(
   const rangeUnit = request.headers.get('range-unit')
   if (rangeUnit) headers.set('range-unit', rangeUnit)
 
-  const startedAt = Date.now()
   let response: Response
   try {
     const fetchFn = deps.fetchFn ?? fetch
@@ -208,6 +253,7 @@ export async function handleProxyRequest(
         fetchFn,
       ))
     ) {
+      recordProxyRequest(request.method, 503, startedAt, 'service_unavailable')
       return stampRequestId(
         errorEnvelope({
           category: 'service_unavailable',
@@ -227,6 +273,7 @@ export async function handleProxyRequest(
       error: error instanceof Error ? error.message : 'unknown',
       duration_ms: Date.now() - startedAt,
     })
+    recordProxyRequest(request.method, 503, startedAt, 'service_unavailable')
     return proxyErrorResponse('upstream_unavailable', requestId)
   }
 
@@ -343,6 +390,7 @@ async function normaliseUpstreamResponse(
       status: response.status,
       duration_ms: durationMs,
     })
+    recordProxyRequest(method, response.status, startedAt, 'ok')
     const passthroughHeaders = new Headers()
     const upstreamContentType = response.headers.get('content-type')
     if (upstreamContentType) {
@@ -383,6 +431,12 @@ async function normaliseUpstreamResponse(
     category: categorised.category,
     duration_ms: durationMs,
   })
+  recordProxyRequest(
+    method,
+    categorised.status,
+    startedAt,
+    categorised.category,
+  )
 
   return errorEnvelope({ ...categorised, requestId })
 }

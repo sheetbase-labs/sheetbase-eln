@@ -41,7 +41,13 @@ export function evaluateMigrationCompatibility(
 
 async function probeDatabase(expectedMigration: string): Promise<ProbeResult> {
   const start = Date.now()
-  const client = new Client({ connectionString: env.DATABASE_URL })
+  // Bounded: a hanging database must fail readiness within the probe window
+  // (parity with the 2s PostgREST timeout), not stall the endpoint.
+  const client = new Client({
+    connectionString: env.DATABASE_URL,
+    connectionTimeoutMillis: 2000,
+    statement_timeout: 2000,
+  })
   try {
     // A short-lived connection keeps the probe independent of application
     // pools and is always closed, including migration-query failure paths.

@@ -1,0 +1,95 @@
+# PLAT-02 — initial alert rules (Prometheus-compatible).
+#
+# Sheetbase exposes Prometheus-format metrics at /api/metrics (bearer-token
+# gated; see docs/observability.md). There is no alert-delivery platform in
+# this deployment yet, so these rules are the machine-consumable contract:
+# point any Prometheus-compatible scraper (self-hosted, Grafana Cloud, or an
+# operator's local scrape over Tailscale) at the endpoint and load this file.
+# Thresholds are initial engineering defaults, to be revised with operational
+# evidence — do not page on them blindly until they have been observed.
+#
+# Metric names are rendered by src/lib/metrics.ts; keep this file in sync.
+
+groups:
+  - name: sheetbase
+    rules:
+      # The app cannot serve meaningful traffic. Fire on the container
+      # healthcheck path first; this is the scraper-side backstop.
+      - alert: SheetbaseReadinessFailing
+        expr: up{job="sheetbase"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Sheetbase readiness endpoint has been unreachable or failing for 5 minutes.
+
+      # Server-error rate on the data proxy. 2% of requests over 10 minutes
+      # is the initial threshold.
+      - alert: SheetbaseServerErrorRateHigh
+        expr: >
+          sum(rate(sheetbase_http_requests_total{status=~"5.."}[10m]))
+          /
+          clamp_min(sum(rate(sheetbase_http_requests_total[10m])), 0.001)
+          > 0.02
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: Server error rate above 2% for 10 minutes.
+
+      # PostgREST/DB upstream unavailable — the readiness signal with finer
+      # granularity (category counts visible per instance).
+      - alert: SheetbaseDatabaseUnavailable
+        expr: rate(sheetbase_db_upstream_requests_total{category="service_unavailable"}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Database/PostgREST upstream failures sustained for 5 minutes.
+
+      # Connector runs failing unusually hard (>30% of finished runs over
+      # 30 minutes, minimum volume to avoid noise).
+      - alert: SheetbaseConnectorFailureRateHigh
+        expr: >
+          sum(rate(sheetbase_connector_runs_total{outcome="failed"}[30m]))
+          /
+          clamp_min(
+            sum(rate(sheetbase_connector_runs_total{outcome=~"succeeded|failed"}[30m])),
+            0.001)
+          > 0.3
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: Connector run failure rate above 30% over 30 minutes.
+
+      # Stale-run reconciliations firing at all means a process died
+      # mid-run (or executions regularly exceed the staleness threshold).
+      - alert: SheetbaseConnectorStaleRuns
+        expr: increase(sheetbase_connector_runs_total{outcome="stale_reconciled"}[1h]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: Connector runs were reconciled as stale — a process died mid-run or executions exceed the threshold.
+
+      # Backup failing / missed. The backup runner writes latest.json on
+      # success; this file-scrape check complements the in-app metrics.
+      # If you expose it as a metric (push or node_exporter textfile), wire:
+      #   sheetbase_backup_success_time_seconds (mtime of latest.json)
+      - alert: SheetbaseBackupMissing
+        expr: time() - sheetbase_backup_success_time_seconds > 90000
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: No successful backup in over 25 hours (RPO at risk).
+
+      # Restore verification failing means backups exist but are not proven.
+      - alert: SheetbaseRestoreDrillFailing
+        expr: sheetbase_restore_drill_success == 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: The latest restore drill failed — backups are not proven restorable.

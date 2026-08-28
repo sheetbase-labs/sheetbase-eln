@@ -48,6 +48,9 @@ export const env = createEnv({
     // without a Liveblocks account keep working; the collaboration layer
     // reports `disabled` until this is set. Server-only secret.
     LIVEBLOCKS_SECRET_KEY: z.string().min(1).optional(),
+    // PLAT-02 metrics endpoint bearer token. Optional in development/test;
+    // the metrics endpoint fails closed in staging/production when absent.
+    SHEETBASE_METRICS_TOKEN: z.string().min(32).optional(),
     SHEETBASE_DEV_USER_ID: z.string().uuid().default(DEFAULT_DEV_USER_ID),
   },
   runtimeEnv: process.env,

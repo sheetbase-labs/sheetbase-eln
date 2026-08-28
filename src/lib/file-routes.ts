@@ -25,6 +25,24 @@ import {
   resolveSessionAuth,
 } from '#/lib/request-auth'
 import type { SessionAuthDeps } from '#/lib/request-auth'
+import { metrics } from '#/lib/metrics'
+import type { FileOutcome } from '#/lib/metrics'
+
+/**
+ * PLAT-02 — records one file byte-route operation. Labels stay bounded:
+ * operation and outcome only; bytes go into an aggregate counter and never
+ * carry filenames or content.
+ */
+function recordFileOperation(
+  operation: 'upload' | 'download',
+  outcome: FileOutcome,
+  startedAt: number,
+  bytes?: number,
+): void {
+  metrics.fileOperations.inc({ operation, outcome })
+  metrics.fileDuration.observe({ operation }, (Date.now() - startedAt) / 1000)
+  if (bytes !== undefined) metrics.fileBytes.inc({ operation }, bytes)
+}
 
 interface CreateFileUploadRow {
   record_id: string
@@ -166,6 +184,7 @@ export async function handleUpload(
     )
   }
   const { context } = authResult
+  const uploadStartedAt = Date.now()
 
   const selectRes = await postgrestSelect<FileObjectWire[]>(
     'file_objects',
@@ -173,6 +192,7 @@ export async function handleUpload(
     context.token,
   )
   if (selectRes.status >= 400) {
+    recordFileOperation('upload', 'error', uploadStartedAt)
     return requestErrorResponse(
       selectRes.status,
       'file_lookup_failed',
@@ -181,6 +201,7 @@ export async function handleUpload(
   }
   const rows = selectRes.body as FileObjectWire[]
   if (rows.length === 0) {
+    recordFileOperation('upload', 'not_found', uploadStartedAt)
     return requestErrorResponse(
       404,
       'not_found',
@@ -189,6 +210,7 @@ export async function handleUpload(
   }
   const fileObject = rows[0]
   if (fileObject.status !== 'active' && fileObject.status !== 'missing') {
+    recordFileOperation('upload', 'not_uploadable', uploadStartedAt)
     return requestErrorResponse(
       409,
       'not_uploadable',
@@ -219,6 +241,7 @@ export async function handleUpload(
     )
   } catch (error) {
     if (error instanceof OversizeError) {
+      recordFileOperation('upload', 'oversize', uploadStartedAt)
       return requestErrorResponse(
         413,
         'oversize',
@@ -230,6 +253,7 @@ export async function handleUpload(
 
   if (claimedChecksum && claimedChecksum !== result.checksum) {
     await storage.delete(candidateStorageKey)
+    recordFileOperation('upload', 'checksum_mismatch', uploadStartedAt)
     return requestErrorResponse(
       409,
       'checksum_mismatch',
@@ -251,6 +275,7 @@ export async function handleUpload(
   )
   if (finalize.status >= 400) {
     await storage.delete(candidateStorageKey)
+    recordFileOperation('upload', 'conflict', uploadStartedAt)
     return requestErrorResponse(
       409,
       'upload_conflict',
@@ -261,6 +286,8 @@ export async function handleUpload(
   // The database pointer has moved atomically. The old object was never
   // retained (otherwise finalization failed), so it is now safe to remove.
   await storage.delete(previousStorageKey)
+
+  recordFileOperation('upload', 'ok', uploadStartedAt, Number(result.byteSize))
 
   return new Response(
     JSON.stringify({
@@ -292,6 +319,7 @@ export async function handleDownload(
     )
   }
   const { context } = authResult
+  const downloadStartedAt = Date.now()
 
   const selectRes = await postgrestSelect<FileObjectWire[]>(
     'file_objects',
@@ -299,6 +327,7 @@ export async function handleDownload(
     context.token,
   )
   if (selectRes.status >= 400) {
+    recordFileOperation('download', 'error', downloadStartedAt)
     return requestErrorResponse(
       selectRes.status,
       'file_lookup_failed',
@@ -307,6 +336,7 @@ export async function handleDownload(
   }
   const rows = selectRes.body as FileObjectWire[]
   if (rows.length === 0) {
+    recordFileOperation('download', 'not_found', downloadStartedAt)
     return requestErrorResponse(
       404,
       'not_found',
@@ -316,6 +346,7 @@ export async function handleDownload(
 
   const fileObject = rows[0]
   if (fileObject.status === 'quarantined') {
+    recordFileOperation('download', 'not_uploadable', downloadStartedAt)
     return requestErrorResponse(
       410,
       'quarantined',
@@ -324,9 +355,11 @@ export async function handleDownload(
     )
   }
   if (fileObject.status === 'deleted') {
+    recordFileOperation('download', 'not_found', downloadStartedAt)
     return requestErrorResponse(410, 'deleted', 'This file is deleted.')
   }
   if (fileObject.status === 'missing') {
+    recordFileOperation('download', 'missing', downloadStartedAt)
     return requestErrorResponse(
       404,
       'missing',
@@ -336,6 +369,7 @@ export async function handleDownload(
 
   const head = await storage.head(fileObject.storage_key)
   if (!head) {
+    recordFileOperation('download', 'missing', downloadStartedAt)
     await postgrestRpc(
       'transition_file_status',
       {
@@ -354,6 +388,7 @@ export async function handleDownload(
   }
 
   const { stream, byteSize } = await storage.getStream(fileObject.storage_key)
+  recordFileOperation('download', 'ok', downloadStartedAt, byteSize)
   const safeName = fileObject.display_name.replace(/[\r\n"]/g, '').slice(0, 200)
   const headers = new Headers({
     'content-type': fileObject.media_type,

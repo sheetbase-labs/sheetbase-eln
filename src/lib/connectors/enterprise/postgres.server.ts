@@ -28,6 +28,7 @@ import type {
   ConnectorImportRequest,
   EnterpriseConnectorAdapter,
 } from './adapter'
+import { serverConnectorRunObservability } from '../observability.server'
 import { ConnectorExecutionError, boundedErrorMessage } from './errors'
 import { ingestExternalPayload } from '../tabular-ingestion'
 import { sha256Hex } from '../digest'
@@ -411,6 +412,8 @@ export const postgresAdapter: EnterpriseConnectorAdapter<PostgresConnectorConfig
       return ingestExternalPayload(context.client, {
         workspaceId: context.workspaceId,
         connectorId: context.connector.id,
+        connectorType: 'database',
+        observability: serverConnectorRunObservability,
         parserIdentity: POSTGRES_PARSER_IDENTITY,
         sheetName: `${schema}.${table}`,
         selectorSource,

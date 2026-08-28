@@ -35,6 +35,7 @@ import { Route as AdminSectionRouteImport } from './routes/admin/$section'
 import { Route as ApiCalculationsRouteImport } from './routes/api/calculations'
 import { Route as ApiEventsRouteImport } from './routes/api/events'
 import { Route as ApiFormulasRouteImport } from './routes/api/formulas'
+import { Route as ApiMetricsRouteImport } from './routes/api/metrics'
 import { Route as ApiSheetCalculationsRouteImport } from './routes/api/sheet-calculations'
 import { Route as IntegrationsConnectorIdRouteImport } from './routes/integrations/$connectorId'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects/$projectId'
@@ -189,6 +190,11 @@ const ApiEventsRoute = ApiEventsRouteImport.update({
 const ApiFormulasRoute = ApiFormulasRouteImport.update({
   id: '/api/formulas',
   path: '/api/formulas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiMetricsRoute = ApiMetricsRouteImport.update({
+  id: '/api/metrics',
+  path: '/api/metrics',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSheetCalculationsRoute = ApiSheetCalculationsRouteImport.update({
@@ -352,6 +358,7 @@ export interface FileRoutesByFullPath {
   '/api/calculations': typeof ApiCalculationsRoute
   '/api/events': typeof ApiEventsRoute
   '/api/formulas': typeof ApiFormulasRoute
+  '/api/metrics': typeof ApiMetricsRoute
   '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
   '/integrations/$connectorId': typeof IntegrationsConnectorIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
@@ -405,6 +412,7 @@ export interface FileRoutesByTo {
   '/api/calculations': typeof ApiCalculationsRoute
   '/api/events': typeof ApiEventsRoute
   '/api/formulas': typeof ApiFormulasRoute
+  '/api/metrics': typeof ApiMetricsRoute
   '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
   '/integrations/$connectorId': typeof IntegrationsConnectorIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
@@ -459,6 +467,7 @@ export interface FileRoutesById {
   '/api/calculations': typeof ApiCalculationsRoute
   '/api/events': typeof ApiEventsRoute
   '/api/formulas': typeof ApiFormulasRoute
+  '/api/metrics': typeof ApiMetricsRoute
   '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
   '/integrations/$connectorId': typeof IntegrationsConnectorIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
@@ -514,6 +523,7 @@ export interface FileRouteTypes {
     | '/api/calculations'
     | '/api/events'
     | '/api/formulas'
+    | '/api/metrics'
     | '/api/sheet-calculations'
     | '/integrations/$connectorId'
     | '/projects/$projectId'
@@ -567,6 +577,7 @@ export interface FileRouteTypes {
     | '/api/calculations'
     | '/api/events'
     | '/api/formulas'
+    | '/api/metrics'
     | '/api/sheet-calculations'
     | '/integrations/$connectorId'
     | '/projects/$projectId'
@@ -620,6 +631,7 @@ export interface FileRouteTypes {
     | '/api/calculations'
     | '/api/events'
     | '/api/formulas'
+    | '/api/metrics'
     | '/api/sheet-calculations'
     | '/integrations/$connectorId'
     | '/projects/$projectId'
@@ -673,6 +685,7 @@ export interface RootRouteChildren {
   ApiCalculationsRoute: typeof ApiCalculationsRoute
   ApiEventsRoute: typeof ApiEventsRoute
   ApiFormulasRoute: typeof ApiFormulasRoute
+  ApiMetricsRoute: typeof ApiMetricsRoute
   ApiSheetCalculationsRoute: typeof ApiSheetCalculationsRoute
   SheetsInstanceIdRoute: typeof SheetsInstanceIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -877,6 +890,13 @@ declare module '@tanstack/react-router' {
       path: '/api/formulas'
       fullPath: '/api/formulas'
       preLoaderRoute: typeof ApiFormulasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/metrics': {
+      id: '/api/metrics'
+      path: '/api/metrics'
+      fullPath: '/api/metrics'
+      preLoaderRoute: typeof ApiMetricsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/sheet-calculations': {
@@ -1155,6 +1175,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiCalculationsRoute: ApiCalculationsRoute,
   ApiEventsRoute: ApiEventsRoute,
   ApiFormulasRoute: ApiFormulasRoute,
+  ApiMetricsRoute: ApiMetricsRoute,
   ApiSheetCalculationsRoute: ApiSheetCalculationsRoute,
   SheetsInstanceIdRoute: SheetsInstanceIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

@@ -12,6 +12,8 @@ import { join } from 'node:path'
 import { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { metrics } from '#/lib/metrics'
+
 import {
   LocalFileStorage,
   setObjectStorageForTesting,
@@ -924,6 +926,59 @@ describe('DATA-03 file platform guarantees', () => {
     expect(await redownload.text()).toBe(new TextDecoder().decode(bytes))
     expect(redownload.headers.get('content-disposition')).toContain(
       'renamed-but-identical.csv',
+    )
+  })
+})
+
+describe('PLAT-02 file operation metrics', () => {
+  it('records uploads and downloads with bounded outcomes and aggregate bytes', async () => {
+    const bytes = new TextEncoder().encode('metrics,evidence\n')
+    const { meta, upRes } = await authorizeAndUpload(USER_A, WS_A, PROJECT_A, {
+      name: 'metrics-evidence.csv',
+      type: 'text/csv',
+      bytes,
+    })
+    expect(upRes.status).toBe(200)
+
+    const downRes = await handleDownload(
+      downloadRequest(meta.fileRecordId),
+      meta.fileRecordId,
+      authDeps(USER_A, WS_A),
+      storage,
+    )
+    expect(downRes.status).toBe(200)
+    expect(await downRes.text()).toBe(new TextDecoder().decode(bytes))
+
+    const rendered = metrics.render()
+    // Bounded outcomes present; labels never carry filenames or ids.
+    expect(rendered).toMatch(
+      /sheetbase_file_operations_total\{operation="upload",outcome="ok"\} \d+/,
+    )
+    expect(rendered).toMatch(
+      /sheetbase_file_operations_total\{operation="download",outcome="ok"\} \d+/,
+    )
+    expect(rendered).toMatch(
+      /sheetbase_file_bytes_total\{operation="upload"\} \d+/,
+    )
+    expect(rendered).not.toContain('metrics-evidence.csv')
+    expect(rendered).not.toContain(meta.fileRecordId)
+  })
+
+  it('records failed outcomes without unbounded labels', async () => {
+    const { meta } = await authorizeAndUpload(USER_A, WS_A, PROJECT_A, {
+      name: 'metrics-miss.csv',
+      type: 'text/csv',
+      bytes: new TextEncoder().encode('x'),
+    })
+    const res = await handleDownload(
+      downloadRequest(`${meta.fileRecordId}`),
+      meta.fileRecordId,
+      authDeps(USER_B, WS_B),
+      storage,
+    )
+    expect(res.status).toBe(404)
+    expect(metrics.render()).toMatch(
+      /sheetbase_file_operations_total\{operation="download",outcome="not_found"\} \d+/,
     )
   })
 })

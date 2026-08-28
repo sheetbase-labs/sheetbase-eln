@@ -3,19 +3,22 @@
 # Two independent, non-merge-blocking signals (the merge gate in deploy.yml
 # stays typecheck/lint/tests/build + audit):
 #
-#   1. CodeQL SAST for JavaScript/TypeScript. Findings appear on the Security
-#      tab; new alerts are triaged like bugs but do not block a release by
-#      themselves until the alert set is baselined (documented in
-#      docs/security.md).
-#   2. The dependency audit runs here too for visibility on non-main branches;
-#      the enforcing copy runs inside the deploy.yml verify job.
+#   1. CodeQL SAST for JavaScript/TypeScript on `main` pushes and a weekly
+#      schedule. Findings appear on the Security tab; new alerts are triaged
+#      like bugs but do not block a release by themselves until the alert set
+#      is baselined (documented in docs/security.md).
+#   2. The dependency audit runs here for visibility on `main`; the enforcing
+#      copy runs inside the deploy.yml verify job (which also covers PRs via
+#      the gate).
+#
+# Deliberately not triggered on pull_request: it would only duplicate the
+# gate's audit for this single-container stack, and it doubled the Actions
+# consumption for an account that must stay on a minimal spend budget.
 
 name: Security
 
 on:
   push:
-    branches: [main]
-  pull_request:
     branches: [main]
   schedule:
     # Weekly, Monday 06:20 UTC — picks up newly published advisories.

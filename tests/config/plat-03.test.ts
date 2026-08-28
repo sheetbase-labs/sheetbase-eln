@@ -10,10 +10,15 @@ describe('PLAT-03 security pipeline', () => {
     jobs: Record<string, Record<string, unknown>>
   }
 
-  it('runs CodeQL SAST on main, PRs and a weekly schedule', () => {
+  it('runs CodeQL SAST on main pushes and a weekly schedule', () => {
+    // PRs deliberately do not trigger security.yml — the dependency audit is
+    // enforced for every push through the deploy.yml gate, and CodeQL on
+    // every PR doubled Actions consumption for minimal signal on this
+    // single-container stack.
     expect(Object.keys(workflow.on)).toEqual(
-      expect.arrayContaining(['push', 'pull_request', 'schedule']),
+      expect.arrayContaining(['push', 'schedule']),
     )
+    expect(workflow.on.pull_request).toBeUndefined()
     expect(workflow.jobs.codeql).toBeDefined()
   })
 

@@ -19,6 +19,7 @@ import { Route as FoundationsRouteImport } from './routes/foundations'
 import { Route as InstrumentMonitorRouteImport } from './routes/instrument-monitor'
 import { Route as IntegrationsRouteImport } from './routes/integrations'
 import { Route as LineageRouteImport } from './routes/lineage'
+import { Route as PipelinesRouteImport } from './routes/pipelines'
 import { Route as PlannerRouteImport } from './routes/planner'
 import { Route as PlateDesignerRouteImport } from './routes/plate-designer'
 import { Route as ProjectsRouteImport } from './routes/projects'
@@ -38,6 +39,7 @@ import { Route as ApiFormulasRouteImport } from './routes/api/formulas'
 import { Route as ApiMetricsRouteImport } from './routes/api/metrics'
 import { Route as ApiSheetCalculationsRouteImport } from './routes/api/sheet-calculations'
 import { Route as IntegrationsConnectorIdRouteImport } from './routes/integrations/$connectorId'
+import { Route as PipelinesDefinitionIdRouteImport } from './routes/pipelines/$definitionId'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects/$projectId'
 import { Route as ReviewsRevisionIdRouteImport } from './routes/reviews/$revisionId'
 import { Route as SheetsInstanceIdRouteImport } from './routes/sheets/$instanceId'
@@ -49,7 +51,9 @@ import { Route as ApiDbSplatRouteImport } from './routes/api/db/$'
 import { Route as ApiFilesUploadAuthorizeRouteImport } from './routes/api/files/upload-authorize'
 import { Route as ApiHealthLiveRouteImport } from './routes/api/health/live'
 import { Route as ApiHealthReadyRouteImport } from './routes/api/health/ready'
+import { Route as ApiPipelinesExecuteRouteImport } from './routes/api/pipelines/execute'
 import { Route as ApiTokenIndexRouteImport } from './routes/api/token/index'
+import { Route as PipelinesRunsRunIdRouteImport } from './routes/pipelines/runs/$runId'
 import { Route as ApiCollaborationResolveRoomsRouteImport } from './routes/api/collaboration/resolve.rooms'
 import { Route as ApiCollaborationResolveUsersRouteImport } from './routes/api/collaboration/resolve.users'
 import { Route as ApiExportDatasetVersionIdRouteImport } from './routes/api/export/dataset-version/$id'
@@ -110,6 +114,11 @@ const IntegrationsRoute = IntegrationsRouteImport.update({
 const LineageRoute = LineageRouteImport.update({
   id: '/lineage',
   path: '/lineage',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PipelinesRoute = PipelinesRouteImport.update({
+  id: '/pipelines',
+  path: '/pipelines',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PlannerRoute = PlannerRouteImport.update({
@@ -207,6 +216,11 @@ const IntegrationsConnectorIdRoute = IntegrationsConnectorIdRouteImport.update({
   path: '/$connectorId',
   getParentRoute: () => IntegrationsRoute,
 } as any)
+const PipelinesDefinitionIdRoute = PipelinesDefinitionIdRouteImport.update({
+  id: '/$definitionId',
+  path: '/$definitionId',
+  getParentRoute: () => PipelinesRoute,
+} as any)
 const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
   id: '/$projectId',
   path: '/$projectId',
@@ -263,10 +277,20 @@ const ApiHealthReadyRoute = ApiHealthReadyRouteImport.update({
   path: '/api/health/ready',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPipelinesExecuteRoute = ApiPipelinesExecuteRouteImport.update({
+  id: '/api/pipelines/execute',
+  path: '/api/pipelines/execute',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiTokenIndexRoute = ApiTokenIndexRouteImport.update({
   id: '/api/token/',
   path: '/api/token/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const PipelinesRunsRunIdRoute = PipelinesRunsRunIdRouteImport.update({
+  id: '/runs/$runId',
+  path: '/runs/$runId',
+  getParentRoute: () => PipelinesRoute,
 } as any)
 const ApiCollaborationResolveRoomsRoute =
   ApiCollaborationResolveRoomsRouteImport.update({
@@ -342,6 +366,7 @@ export interface FileRoutesByFullPath {
   '/instrument-monitor': typeof InstrumentMonitorRoute
   '/integrations': typeof IntegrationsRouteWithChildren
   '/lineage': typeof LineageRoute
+  '/pipelines': typeof PipelinesRouteWithChildren
   '/planner': typeof PlannerRoute
   '/plate-designer': typeof PlateDesignerRoute
   '/projects': typeof ProjectsRouteWithChildren
@@ -361,6 +386,7 @@ export interface FileRoutesByFullPath {
   '/api/metrics': typeof ApiMetricsRoute
   '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
   '/integrations/$connectorId': typeof IntegrationsConnectorIdRoute
+  '/pipelines/$definitionId': typeof PipelinesDefinitionIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
   '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
   '/sheets/$instanceId': typeof SheetsInstanceIdRoute
@@ -372,6 +398,8 @@ export interface FileRoutesByFullPath {
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
   '/api/health/live': typeof ApiHealthLiveRoute
   '/api/health/ready': typeof ApiHealthReadyRoute
+  '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
+  '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
   '/api/token/': typeof ApiTokenIndexRoute
   '/api/collaboration/resolve/rooms': typeof ApiCollaborationResolveRoomsRoute
   '/api/collaboration/resolve/users': typeof ApiCollaborationResolveUsersRoute
@@ -396,6 +424,7 @@ export interface FileRoutesByTo {
   '/instrument-monitor': typeof InstrumentMonitorRoute
   '/integrations': typeof IntegrationsRouteWithChildren
   '/lineage': typeof LineageRoute
+  '/pipelines': typeof PipelinesRouteWithChildren
   '/planner': typeof PlannerRoute
   '/plate-designer': typeof PlateDesignerRoute
   '/projects': typeof ProjectsRouteWithChildren
@@ -415,6 +444,7 @@ export interface FileRoutesByTo {
   '/api/metrics': typeof ApiMetricsRoute
   '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
   '/integrations/$connectorId': typeof IntegrationsConnectorIdRoute
+  '/pipelines/$definitionId': typeof PipelinesDefinitionIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
   '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
   '/sheets/$instanceId': typeof SheetsInstanceIdRoute
@@ -426,6 +456,8 @@ export interface FileRoutesByTo {
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
   '/api/health/live': typeof ApiHealthLiveRoute
   '/api/health/ready': typeof ApiHealthReadyRoute
+  '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
+  '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
   '/api/token': typeof ApiTokenIndexRoute
   '/api/collaboration/resolve/rooms': typeof ApiCollaborationResolveRoomsRoute
   '/api/collaboration/resolve/users': typeof ApiCollaborationResolveUsersRoute
@@ -451,6 +483,7 @@ export interface FileRoutesById {
   '/instrument-monitor': typeof InstrumentMonitorRoute
   '/integrations': typeof IntegrationsRouteWithChildren
   '/lineage': typeof LineageRoute
+  '/pipelines': typeof PipelinesRouteWithChildren
   '/planner': typeof PlannerRoute
   '/plate-designer': typeof PlateDesignerRoute
   '/projects': typeof ProjectsRouteWithChildren
@@ -470,6 +503,7 @@ export interface FileRoutesById {
   '/api/metrics': typeof ApiMetricsRoute
   '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
   '/integrations/$connectorId': typeof IntegrationsConnectorIdRoute
+  '/pipelines/$definitionId': typeof PipelinesDefinitionIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
   '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
   '/sheets/$instanceId': typeof SheetsInstanceIdRoute
@@ -481,6 +515,8 @@ export interface FileRoutesById {
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
   '/api/health/live': typeof ApiHealthLiveRoute
   '/api/health/ready': typeof ApiHealthReadyRoute
+  '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
+  '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
   '/api/token/': typeof ApiTokenIndexRoute
   '/api/collaboration/resolve/rooms': typeof ApiCollaborationResolveRoomsRoute
   '/api/collaboration/resolve/users': typeof ApiCollaborationResolveUsersRoute
@@ -507,6 +543,7 @@ export interface FileRouteTypes {
     | '/instrument-monitor'
     | '/integrations'
     | '/lineage'
+    | '/pipelines'
     | '/planner'
     | '/plate-designer'
     | '/projects'
@@ -526,6 +563,7 @@ export interface FileRouteTypes {
     | '/api/metrics'
     | '/api/sheet-calculations'
     | '/integrations/$connectorId'
+    | '/pipelines/$definitionId'
     | '/projects/$projectId'
     | '/reviews/$revisionId'
     | '/sheets/$instanceId'
@@ -537,6 +575,8 @@ export interface FileRouteTypes {
     | '/api/files/upload-authorize'
     | '/api/health/live'
     | '/api/health/ready'
+    | '/api/pipelines/execute'
+    | '/pipelines/runs/$runId'
     | '/api/token/'
     | '/api/collaboration/resolve/rooms'
     | '/api/collaboration/resolve/users'
@@ -561,6 +601,7 @@ export interface FileRouteTypes {
     | '/instrument-monitor'
     | '/integrations'
     | '/lineage'
+    | '/pipelines'
     | '/planner'
     | '/plate-designer'
     | '/projects'
@@ -580,6 +621,7 @@ export interface FileRouteTypes {
     | '/api/metrics'
     | '/api/sheet-calculations'
     | '/integrations/$connectorId'
+    | '/pipelines/$definitionId'
     | '/projects/$projectId'
     | '/reviews/$revisionId'
     | '/sheets/$instanceId'
@@ -591,6 +633,8 @@ export interface FileRouteTypes {
     | '/api/files/upload-authorize'
     | '/api/health/live'
     | '/api/health/ready'
+    | '/api/pipelines/execute'
+    | '/pipelines/runs/$runId'
     | '/api/token'
     | '/api/collaboration/resolve/rooms'
     | '/api/collaboration/resolve/users'
@@ -615,6 +659,7 @@ export interface FileRouteTypes {
     | '/instrument-monitor'
     | '/integrations'
     | '/lineage'
+    | '/pipelines'
     | '/planner'
     | '/plate-designer'
     | '/projects'
@@ -634,6 +679,7 @@ export interface FileRouteTypes {
     | '/api/metrics'
     | '/api/sheet-calculations'
     | '/integrations/$connectorId'
+    | '/pipelines/$definitionId'
     | '/projects/$projectId'
     | '/reviews/$revisionId'
     | '/sheets/$instanceId'
@@ -645,6 +691,8 @@ export interface FileRouteTypes {
     | '/api/files/upload-authorize'
     | '/api/health/live'
     | '/api/health/ready'
+    | '/api/pipelines/execute'
+    | '/pipelines/runs/$runId'
     | '/api/token/'
     | '/api/collaboration/resolve/rooms'
     | '/api/collaboration/resolve/users'
@@ -670,6 +718,7 @@ export interface RootRouteChildren {
   InstrumentMonitorRoute: typeof InstrumentMonitorRoute
   IntegrationsRoute: typeof IntegrationsRouteWithChildren
   LineageRoute: typeof LineageRoute
+  PipelinesRoute: typeof PipelinesRouteWithChildren
   PlannerRoute: typeof PlannerRoute
   PlateDesignerRoute: typeof PlateDesignerRoute
   ProjectsRoute: typeof ProjectsRouteWithChildren
@@ -696,6 +745,7 @@ export interface RootRouteChildren {
   ApiFilesUploadAuthorizeRoute: typeof ApiFilesUploadAuthorizeRoute
   ApiHealthLiveRoute: typeof ApiHealthLiveRoute
   ApiHealthReadyRoute: typeof ApiHealthReadyRoute
+  ApiPipelinesExecuteRoute: typeof ApiPipelinesExecuteRoute
   ApiTokenIndexRoute: typeof ApiTokenIndexRoute
   ApiCollaborationResolveRoomsRoute: typeof ApiCollaborationResolveRoomsRoute
   ApiCollaborationResolveUsersRoute: typeof ApiCollaborationResolveUsersRoute
@@ -778,6 +828,13 @@ declare module '@tanstack/react-router' {
       path: '/lineage'
       fullPath: '/lineage'
       preLoaderRoute: typeof LineageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pipelines': {
+      id: '/pipelines'
+      path: '/pipelines'
+      fullPath: '/pipelines'
+      preLoaderRoute: typeof PipelinesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/planner': {
@@ -913,6 +970,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IntegrationsConnectorIdRouteImport
       parentRoute: typeof IntegrationsRoute
     }
+    '/pipelines/$definitionId': {
+      id: '/pipelines/$definitionId'
+      path: '/$definitionId'
+      fullPath: '/pipelines/$definitionId'
+      preLoaderRoute: typeof PipelinesDefinitionIdRouteImport
+      parentRoute: typeof PipelinesRoute
+    }
     '/projects/$projectId': {
       id: '/projects/$projectId'
       path: '/$projectId'
@@ -990,12 +1054,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHealthReadyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/pipelines/execute': {
+      id: '/api/pipelines/execute'
+      path: '/api/pipelines/execute'
+      fullPath: '/api/pipelines/execute'
+      preLoaderRoute: typeof ApiPipelinesExecuteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/token/': {
       id: '/api/token/'
       path: '/api/token'
       fullPath: '/api/token/'
       preLoaderRoute: typeof ApiTokenIndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/pipelines/runs/$runId': {
+      id: '/pipelines/runs/$runId'
+      path: '/runs/$runId'
+      fullPath: '/pipelines/runs/$runId'
+      preLoaderRoute: typeof PipelinesRunsRunIdRouteImport
+      parentRoute: typeof PipelinesRoute
     }
     '/api/collaboration/resolve/rooms': {
       id: '/api/collaboration/resolve/rooms'
@@ -1099,6 +1177,20 @@ const IntegrationsRouteWithChildren = IntegrationsRoute._addFileChildren(
   IntegrationsRouteChildren,
 )
 
+interface PipelinesRouteChildren {
+  PipelinesDefinitionIdRoute: typeof PipelinesDefinitionIdRoute
+  PipelinesRunsRunIdRoute: typeof PipelinesRunsRunIdRoute
+}
+
+const PipelinesRouteChildren: PipelinesRouteChildren = {
+  PipelinesDefinitionIdRoute: PipelinesDefinitionIdRoute,
+  PipelinesRunsRunIdRoute: PipelinesRunsRunIdRoute,
+}
+
+const PipelinesRouteWithChildren = PipelinesRoute._addFileChildren(
+  PipelinesRouteChildren,
+)
+
 interface ProjectsProjectIdExperimentsRecordIdRouteChildren {
   ProjectsProjectIdExperimentsRecordIdOverviewRoute: typeof ProjectsProjectIdExperimentsRecordIdOverviewRoute
 }
@@ -1160,6 +1252,7 @@ const rootRouteChildren: RootRouteChildren = {
   InstrumentMonitorRoute: InstrumentMonitorRoute,
   IntegrationsRoute: IntegrationsRouteWithChildren,
   LineageRoute: LineageRoute,
+  PipelinesRoute: PipelinesRouteWithChildren,
   PlannerRoute: PlannerRoute,
   PlateDesignerRoute: PlateDesignerRoute,
   ProjectsRoute: ProjectsRouteWithChildren,
@@ -1186,6 +1279,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiFilesUploadAuthorizeRoute: ApiFilesUploadAuthorizeRoute,
   ApiHealthLiveRoute: ApiHealthLiveRoute,
   ApiHealthReadyRoute: ApiHealthReadyRoute,
+  ApiPipelinesExecuteRoute: ApiPipelinesExecuteRoute,
   ApiTokenIndexRoute: ApiTokenIndexRoute,
   ApiCollaborationResolveRoomsRoute: ApiCollaborationResolveRoomsRoute,
   ApiCollaborationResolveUsersRoute: ApiCollaborationResolveUsersRoute,

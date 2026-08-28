@@ -107,11 +107,11 @@ This diagram communicates likely sequencing and dependencies, not a strict water
 
 ### AUTO — Automation
 
-- `AUTO-01` Pipeline Foundation
-- `AUTO-02` Deterministic Execution & Triggers
-- `AUTO-03` Pipeline Authoring & Product Integration
-- `AUTO-04` Agent-authored Operations
-- `AUTO-05` Agentic Scientific Workflows
+- `AUTO-01` Pipeline Foundation (complete — `docs/pipelines.md`, ADR 0042)
+- `AUTO-02` Deterministic Execution & Triggers (complete — SQL boundary, schedules, event triggers)
+- `AUTO-03` Pipeline Authoring & Product Integration (complete — `/pipelines`)
+- `AUTO-04` Agent-authored Operations (later)
+- `AUTO-05` Agentic Scientific Workflows (later)
 
 ## Suggested near-term parallelisation
 

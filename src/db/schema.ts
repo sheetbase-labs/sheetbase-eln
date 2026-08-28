@@ -2814,6 +2814,101 @@ export const datasetRows = api.table(
   ],
 )
 
+/**
+ * Immutable Dataset Versions (migration 0068 / ADR 0037). Created only by
+ * api.snapshot_dataset; rows and values are write-once evidence. Declared
+ * here so later schema additions (pipeline_run_outputs) can reference the
+ * canonical version identity the same way the migration does.
+ */
+export const datasetVersions = api.table(
+  'dataset_versions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    datasetId: uuid('dataset_id')
+      .notNull()
+      .references(() => datasets.id, { onDelete: 'restrict' }),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    schemaVersionId: uuid('schema_version_id')
+      .notNull()
+      .references(() => datasetSchemaVersions.id, { onDelete: 'restrict' }),
+    sourceDatasetRevision: bigint('source_dataset_revision', {
+      mode: 'bigint',
+    }).notNull(),
+    label: text('label').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    check(
+      'chk_dataset_versions_label',
+      sql`length(btrim(${table.label})) BETWEEN 1 AND 200`,
+    ),
+    index('idx_dataset_versions_dataset_revision').on(
+      table.datasetId,
+      table.sourceDatasetRevision,
+    ),
+  ],
+)
+
+export const datasetVersionRows = api.table(
+  'dataset_version_rows',
+  {
+    datasetVersionId: uuid('dataset_version_id')
+      .notNull()
+      .references(() => datasetVersions.id, { onDelete: 'restrict' }),
+    rowId: uuid('row_id').notNull(),
+    revision: bigint('revision', { mode: 'bigint' }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.datasetVersionId, table.rowId] }),
+  ],
+)
+
+export const datasetVersionValues = api.table(
+  'dataset_version_values',
+  {
+    datasetVersionId: uuid('dataset_version_id')
+      .notNull()
+      .references(() => datasetVersions.id, { onDelete: 'restrict' }),
+    rowId: uuid('row_id').notNull(),
+    fieldId: uuid('field_id').notNull(),
+    ordinal: integer('ordinal').notNull().default(0),
+    textValue: text('text_value'),
+    integerValue: bigint('integer_value', { mode: 'bigint' }),
+    numericValue: numeric('numeric_value'),
+    booleanValue: boolean('boolean_value'),
+    dateValue: date('date_value'),
+    timestampValue: timestamp('timestamp_value', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    categoryOptionId: uuid('category_option_id'),
+    referenceId: uuid('reference_id'),
+  },
+  (table) => [
+    primaryKey({
+      columns: [
+        table.datasetVersionId,
+        table.rowId,
+        table.fieldId,
+        table.ordinal,
+      ],
+    }),
+    foreignKey({
+      name: 'fk_dataset_version_values_rows',
+      columns: [table.datasetVersionId, table.rowId],
+      foreignColumns: [datasetVersionRows.datasetVersionId, datasetVersionRows.rowId],
+    }).onDelete('restrict'),
+    check('chk_dataset_version_values_ordinal', sql`${table.ordinal} >= 0`),
+  ],
+)
+
 export const datasetRowValues = api.table(
   'dataset_row_values',
   {
@@ -6182,3 +6277,368 @@ export const connectorRunsRelations = relations(connectorRuns, ({ one }) => ({
     references: [workspaces.id],
   }),
 }))
+
+// ---------------------------------------------------------------------------
+// AUTO-01/02/03 — deterministic, versioned Pipelines.
+//
+// Versioned Pipeline Definitions mirror the Sheet Definition / Notebook
+// Template pattern (draft → published → retired); runs mirror the connector
+// run model (trigger/attempt/digest lineage, bounded error codes, append-only
+// stage logs). Every run pins the exact definition version, parameters and
+// input Dataset Version ids; outputs are canonical Dataset Versions recorded
+// in pipeline_run_outputs. See docs/pipelines.md and ADR 0042.
+// ---------------------------------------------------------------------------
+
+export const pipelineDefinitions = api.table(
+  'pipeline_definitions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    key: text('key').notNull(),
+    name: text('name').notNull(),
+    description: text('description'),
+    lifecycle: text('lifecycle').notNull().default('active'),
+    revision: bigint('revision', { mode: 'bigint' })
+      .notNull()
+      .default(sql`1`),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    unique('uq_pipeline_definitions_workspace_key').on(
+      table.workspaceId,
+      table.key,
+    ),
+    unique('uq_pipeline_definitions_workspace_id').on(
+      table.workspaceId,
+      table.id,
+    ),
+    check(
+      'chk_pipeline_definitions_key',
+      sql`${table.key} ~ '^[a-z][a-z0-9_]{0,59}$'`,
+    ),
+    check(
+      'chk_pipeline_definitions_lifecycle',
+      sql`${table.lifecycle} IN ('active','retired')`,
+    ),
+    check('chk_pipeline_definitions_revision', sql`${table.revision} > 0`),
+    index('idx_pipeline_definitions_workspace').on(table.workspaceId),
+  ],
+)
+
+export const pipelineDefinitionVersions = api.table(
+  'pipeline_definition_versions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    definitionId: uuid('definition_id')
+      .notNull()
+      .references(() => pipelineDefinitions.id, { onDelete: 'restrict' }),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    version: integer('version').notNull(),
+    lifecycle: text('lifecycle').notNull().default('draft'),
+    configurationFormatVersion: integer('configuration_format_version')
+      .notNull()
+      .default(1),
+    configuration: jsonb('configuration').notNull(),
+    revision: bigint('revision', { mode: 'bigint' })
+      .notNull()
+      .default(sql`1`),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    publishedAt: timestamp('published_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    publishedByUserId: text('published_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    retiredAt: timestamp('retired_at', { withTimezone: true, mode: 'date' }),
+    retiredByUserId: text('retired_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    unique('uq_pipeline_definition_versions_definition_version').on(
+      table.definitionId,
+      table.version,
+    ),
+    unique('uq_pipeline_definition_versions_workspace_id').on(
+      table.workspaceId,
+      table.id,
+    ),
+    check(
+      'chk_pipeline_definition_versions_version',
+      sql`${table.version} > 0`,
+    ),
+    check(
+      'chk_pipeline_definition_versions_lifecycle',
+      sql`${table.lifecycle} IN ('draft','published','retired')`,
+    ),
+    check(
+      'chk_pipeline_definition_versions_format',
+      sql`${table.configurationFormatVersion} = 1`,
+    ),
+    check(
+      'chk_pipeline_definition_versions_revision',
+      sql`${table.revision} > 0`,
+    ),
+    index('idx_pipeline_definition_versions_definition').on(
+      table.definitionId,
+    ),
+  ],
+)
+
+export const pipelineRuns = api.table(
+  'pipeline_runs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    definitionVersionId: uuid('definition_version_id').notNull(),
+    triggerKind: text('trigger_kind').notNull().default('manual'),
+    status: text('status').notNull().default('running'),
+    attempt: integer('attempt').notNull().default(1),
+    retryOfRunId: uuid('retry_of_run_id'),
+    inputDigest: text('input_digest'),
+    parameters: jsonb('parameters').notNull().default(sql`'{}'::jsonb`),
+    inputVersions: jsonb('input_versions')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    result: jsonb('result').notNull().default(sql`'{}'::jsonb`),
+    errorCode: text('error_code'),
+    errorMessage: text('error_message'),
+    startedAt: timestamp('started_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    finishedAt: timestamp('finished_at', { withTimezone: true, mode: 'date' }),
+    actorUserId: text('actor_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    actorCredentialId: uuid('actor_credential_id').references(
+      () => apiCredentials.id,
+      { onDelete: 'set null' },
+    ),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    // Composite parent link: a run can never reference another workspace's
+    // definition version.
+    foreignKey({
+      name: 'fk_pipeline_runs_definition_version',
+      columns: [table.workspaceId, table.definitionVersionId],
+      foreignColumns: [
+        pipelineDefinitionVersions.workspaceId,
+        pipelineDefinitionVersions.id,
+      ],
+    }).onDelete('restrict'),
+    unique('uq_pipeline_runs_workspace_id').on(table.workspaceId, table.id),
+    // Idempotency receipt: identical inputs against the same published
+    // version replay the prior success.
+    uniqueIndex('uq_pipeline_runs_digest')
+      .on(table.definitionVersionId, table.inputDigest)
+      .where(sql`input_digest IS NOT NULL AND status = 'succeeded'`),
+    // One running attempt per input identity.
+    uniqueIndex('uq_pipeline_runs_digest_running')
+      .on(table.definitionVersionId, table.inputDigest)
+      .where(sql`input_digest IS NOT NULL AND status = 'running'`),
+    check(
+      'chk_pipeline_runs_trigger',
+      sql`${table.triggerKind} IN ('manual', 'scheduled', 'event')`,
+    ),
+    check(
+      'chk_pipeline_runs_status',
+      sql`${table.status} IN ('running', 'succeeded', 'failed', 'cancelled')`,
+    ),
+    check('chk_pipeline_runs_attempt', sql`${table.attempt} >= 1`),
+    check(
+      'chk_pipeline_runs_digest',
+      sql`${table.inputDigest} IS NULL OR ${table.inputDigest} ~ '^[0-9a-f]{64}$'`,
+    ),
+    check(
+      'chk_pipeline_runs_actor_xor',
+      sql`(actor_user_id IS NULL) <> (actor_credential_id IS NULL)`,
+    ),
+    index('idx_pipeline_runs_definition_version').on(
+      table.definitionVersionId,
+      table.startedAt,
+    ),
+    index('idx_pipeline_runs_workspace').on(table.workspaceId),
+  ],
+)
+
+export const pipelineRunLogs = api.table(
+  'pipeline_run_logs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    runId: uuid('run_id').notNull(),
+    sequence: integer('sequence').notNull(),
+    level: text('level').notNull().default('info'),
+    stage: text('stage').notNull(),
+    message: text('message').notNull(),
+    detail: jsonb('detail').notNull().default(sql`'{}'::jsonb`),
+    at: timestamp('at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      name: 'fk_pipeline_run_logs_run',
+      columns: [table.workspaceId, table.runId],
+      foreignColumns: [pipelineRuns.workspaceId, pipelineRuns.id],
+    }).onDelete('cascade'),
+    index('idx_pipeline_run_logs_run').on(table.runId, table.sequence),
+    index('idx_pipeline_run_logs_workspace').on(table.workspaceId),
+    check(
+      'chk_pipeline_run_logs_level',
+      sql`${table.level} IN ('info', 'warning', 'error')`,
+    ),
+  ],
+)
+
+export const pipelineRunOutputs = api.table(
+  'pipeline_run_outputs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    runId: uuid('run_id').notNull(),
+    datasetId: uuid('dataset_id')
+      .notNull()
+      .references(() => datasets.id, { onDelete: 'restrict' }),
+    datasetVersionId: uuid('dataset_version_id')
+      .notNull()
+      .references(() => datasetVersions.id, { onDelete: 'restrict' }),
+    label: text('label').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      name: 'fk_pipeline_run_outputs_run',
+      columns: [table.workspaceId, table.runId],
+      foreignColumns: [pipelineRuns.workspaceId, pipelineRuns.id],
+    }).onDelete('cascade'),
+    unique('uq_pipeline_run_outputs_run_dataset_version').on(
+      table.runId,
+      table.datasetId,
+      table.datasetVersionId,
+    ),
+    unique('uq_pipeline_run_outputs_workspace_id').on(
+      table.workspaceId,
+      table.id,
+    ),
+    index('idx_pipeline_run_outputs_dataset').on(table.datasetId),
+    index('idx_pipeline_run_outputs_version').on(table.datasetVersionId),
+    index('idx_pipeline_run_outputs_run').on(table.runId),
+    index('idx_pipeline_run_outputs_workspace').on(table.workspaceId),
+  ],
+)
+
+export const pipelineSchedules = api.table(
+  'pipeline_schedules',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    definitionId: uuid('definition_id')
+      .notNull()
+      .references(() => pipelineDefinitions.id, { onDelete: 'restrict' }),
+    kind: text('kind').notNull(),
+    spec: jsonb('spec').notNull(),
+    enabled: boolean('enabled').notNull().default(true),
+    lastRunAt: timestamp('last_run_at', { withTimezone: true, mode: 'date' }),
+    nextRunAt: timestamp('next_run_at', { withTimezone: true, mode: 'date' }),
+    lastEvaluatedAt: timestamp('last_evaluated_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    check(
+      'chk_pipeline_schedules_kind',
+      sql`${table.kind} IN ('interval', 'daily', 'event')`,
+    ),
+    unique('uq_pipeline_schedules_workspace_id').on(
+      table.workspaceId,
+      table.id,
+    ),
+    index('idx_pipeline_schedules_workspace').on(table.workspaceId),
+  ],
+)
+
+export const pipelineDefinitionsRelations = relations(
+  pipelineDefinitions,
+  ({ one, many }) => ({
+    workspace: one(workspaces, {
+      fields: [pipelineDefinitions.workspaceId],
+      references: [workspaces.id],
+    }),
+    versions: many(pipelineDefinitionVersions),
+  }),
+)
+
+export const pipelineDefinitionVersionsRelations = relations(
+  pipelineDefinitionVersions,
+  ({ one, many }) => ({
+    definition: one(pipelineDefinitions, {
+      fields: [pipelineDefinitionVersions.definitionId],
+      references: [pipelineDefinitions.id],
+    }),
+    runs: many(pipelineRuns),
+  }),
+)
+
+export const pipelineRunsRelations = relations(pipelineRuns, ({ one, many }) => ({
+  definitionVersion: one(pipelineDefinitionVersions, {
+    fields: [pipelineRuns.definitionVersionId],
+    references: [pipelineDefinitionVersions.id],
+  }),
+  outputs: many(pipelineRunOutputs),
+}))
+
+export const pipelineRunLogsRelations = relations(
+  pipelineRunLogs,
+  ({ one }) => ({
+    run: one(pipelineRuns, {
+      fields: [pipelineRunLogs.runId],
+      references: [pipelineRuns.id],
+    }),
+  }),
+)
+
+export const pipelineRunOutputsRelations = relations(
+  pipelineRunOutputs,
+  ({ one }) => ({
+    run: one(pipelineRuns, {
+      fields: [pipelineRunOutputs.runId],
+      references: [pipelineRuns.id],
+    }),
+  }),
+)

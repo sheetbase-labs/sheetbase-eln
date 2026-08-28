@@ -34,6 +34,7 @@ import {
   Settings,
   Sun,
   Snowflake,
+  Workflow,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -343,6 +344,7 @@ export const defaultNavSections: AppShellNavSection[] = [
       { to: '/reagents', label: 'Reagents', icon: FlaskConical },
       { to: '/samples', label: 'Samples', icon: FlaskConical },
       { to: '/datasets', label: 'Datasets', icon: Database },
+      { to: '/pipelines', label: 'Pipelines', icon: Workflow },
       { to: '/integrations', label: 'Integrations', icon: PlugZap },
       { to: '/configure', label: 'Configure', icon: Layers },
     ],

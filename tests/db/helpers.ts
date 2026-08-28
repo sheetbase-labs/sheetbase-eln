@@ -51,6 +51,17 @@ export async function resetTestDatabase(): Promise<void> {
   const client = new Client({ connectionString: url.toString() })
   await client.connect()
   try {
+    // AUTO-02: the pipeline transform sandbox role must exist in the local
+    // cluster (normally provisioned by docker/db/init/00-roles.sh or
+    // .agents/setup). Create it idempotently so DB tests pass on a cluster
+    // that predates it.
+    await client.query(
+      `DO $$ BEGIN
+         IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'pipeline_worker') THEN
+           CREATE ROLE pipeline_worker NOLOGIN NOINHERIT;
+         END IF;
+       END $$`,
+    )
     await client.query(`DROP DATABASE IF EXISTS ${TEST_DATABASE} WITH (FORCE)`)
     await client.query(`CREATE DATABASE ${TEST_DATABASE} OWNER migrator`)
   } finally {

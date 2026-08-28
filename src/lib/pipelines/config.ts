@@ -1,0 +1,527 @@
+/**
+ * AUTO-01 — Pipeline configuration contract (format version 1).
+ *
+ * A Pipeline configuration is a versioned JSONB object that names every
+ * parameter, input and output explicitly — the same way analysis definitions
+ * and chart specs name their contracts — so a rerun against the same
+ * definition version, parameters and input Dataset Version ids is
+ * reproducible. The database validates the same rules at the version
+ * boundary and at run start (api.pipeline_config_errors /
+ * api.pipeline_run_request_errors); this module is the TypeScript mirror used
+ * by the authoring UI and the server executor.
+ */
+
+export const PIPELINE_CONFIG_VERSION = 1 as const
+
+export const PARAMETER_TYPES = [
+  'text',
+  'integer',
+  'decimal',
+  'boolean',
+  'date',
+  'timestamp',
+] as const
+export type ParameterType = (typeof PARAMETER_TYPES)[number]
+
+export const INPUT_NAME_RE = /^[a-z][a-z0-9_]{0,47}$/
+export const DATE_RE = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/
+export const MAX_PARAMETERS = 50
+export const MAX_INPUTS = 10
+export const MAX_STATEMENT_LENGTH = 20_000
+
+export interface PipelineParameter {
+  name: string
+  type: ParameterType
+  required: boolean
+  default?: unknown
+  description?: string
+}
+
+export interface PipelineInput {
+  name: string
+  required: boolean
+  description?: string
+}
+
+export interface PipelineOutput {
+  /** create = new Dataset from schemaVersionId; append = extend datasetId. */
+  mode: 'create' | 'append'
+  /** Required when mode = 'create'. */
+  schemaVersionId?: string
+  /** Required when mode = 'append'. */
+  datasetId?: string
+  /** Required when mode = 'create'. */
+  datasetName?: string
+  /** The Dataset Version label stamped on the produced snapshot. */
+  datasetLabel: string
+  /** Optional explicit result-column → schema-field-slug mapping. */
+  fieldMapping?: Record<string, string> | null
+}
+
+export interface PipelineConfig {
+  configVersion: typeof PIPELINE_CONFIG_VERSION
+  description?: string
+  parameters: PipelineParameter[]
+  inputs: PipelineInput[]
+  transform: {
+    language: 'sql'
+    statement: string
+  }
+  output: PipelineOutput
+}
+
+export type ConfigError = {
+  code:
+    | 'invalid_shape'
+    | 'unsupported_config_version'
+    | 'invalid_value'
+    | 'duplicate_name'
+    | 'too_many'
+    | 'unsupported_language'
+    | 'missing_required'
+  field: string
+  message: string
+}
+
+function isObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
+function isUuid(v: unknown): v is string {
+  return typeof v === 'string' && /^[0-9a-f-]{36}$/i.test(v)
+}
+
+function push(
+  errors: ConfigError[],
+  code: ConfigError['code'],
+  field: string,
+  message: string,
+): void {
+  errors.push({ code, field, message })
+}
+
+/** Validate a raw configuration value. Returns every violation found. */
+export function validatePipelineConfig(v: unknown): ConfigError[] {
+  const errors: ConfigError[] = []
+  if (!isObject(v)) {
+    push(
+      errors,
+      'invalid_shape',
+      'configuration',
+      'configuration must be an object',
+    )
+    return errors
+  }
+  if (v.configVersion !== PIPELINE_CONFIG_VERSION) {
+    push(
+      errors,
+      'unsupported_config_version',
+      'configVersion',
+      `configVersion must be ${PIPELINE_CONFIG_VERSION}`,
+    )
+  }
+
+  // description
+  if (
+    v.description !== undefined &&
+    v.description !== null &&
+    (typeof v.description !== 'string' || v.description.length > 2000)
+  ) {
+    push(
+      errors,
+      'invalid_value',
+      'description',
+      'description must be a string of at most 2000 characters',
+    )
+  }
+
+  // parameters
+  if (v.parameters === undefined || v.parameters === null) {
+    v.parameters = []
+  }
+  if (!Array.isArray(v.parameters)) {
+    push(errors, 'invalid_shape', 'parameters', 'parameters must be an array')
+  } else {
+    if (v.parameters.length > MAX_PARAMETERS) {
+      push(
+        errors,
+        'too_many',
+        'parameters',
+        `at most ${MAX_PARAMETERS} parameters are allowed`,
+      )
+    }
+    const names = new Set<string>()
+    v.parameters.forEach((raw, index) => {
+      const field = `parameters[${index}]`
+      if (!isObject(raw)) {
+        push(errors, 'invalid_shape', field, 'each parameter must be an object')
+        return
+      }
+      const name = raw.name
+      if (typeof name !== 'string' || !INPUT_NAME_RE.test(name)) {
+        push(
+          errors,
+          'invalid_value',
+          `${field}.name`,
+          'parameter name must be a lowercase identifier',
+        )
+        return
+      }
+      if (names.has(name)) {
+        push(
+          errors,
+          'duplicate_name',
+          `${field}.name`,
+          `parameter name is duplicated: ${name}`,
+        )
+        return
+      }
+      names.add(name)
+      if (
+        typeof raw.type !== 'string' ||
+        !(PARAMETER_TYPES as readonly string[]).includes(raw.type)
+      ) {
+        push(
+          errors,
+          'invalid_value',
+          `${field}.type`,
+          `parameter ${name} has an unsupported type`,
+        )
+      }
+      if (
+        raw.required !== undefined &&
+        raw.required !== null &&
+        typeof raw.required !== 'boolean'
+      ) {
+        push(
+          errors,
+          'invalid_value',
+          `${field}.required`,
+          `parameter ${name} required must be a boolean`,
+        )
+      }
+      const required = raw.required === true
+      if (raw.default !== undefined && required) {
+        push(
+          errors,
+          'invalid_value',
+          `${field}.default`,
+          `required parameter ${name} cannot declare a default`,
+        )
+      }
+      if (
+        raw.default !== undefined &&
+        raw.default !== null &&
+        !defaultMatchesType(raw.default, raw.type)
+      ) {
+        push(
+          errors,
+          'invalid_value',
+          `${field}.default`,
+          `parameter ${name} default does not match its type`,
+        )
+      }
+      if (
+        raw.description !== undefined &&
+        raw.description !== null &&
+        typeof raw.description !== 'string'
+      ) {
+        push(
+          errors,
+          'invalid_value',
+          `${field}.description`,
+          'description must be a string',
+        )
+      }
+    })
+  }
+
+  // inputs
+  if (!Array.isArray(v.inputs)) {
+    push(errors, 'invalid_shape', 'inputs', 'inputs must be an array')
+  } else {
+    if (v.inputs.length === 0 || v.inputs.length > MAX_INPUTS) {
+      push(
+        errors,
+        'invalid_shape',
+        'inputs',
+        `inputs must contain between 1 and ${MAX_INPUTS} entries`,
+      )
+    }
+    const names = new Set<string>()
+    v.inputs.forEach((raw, index) => {
+      const field = `inputs[${index}]`
+      if (!isObject(raw)) {
+        push(errors, 'invalid_shape', field, 'each input must be an object')
+        return
+      }
+      const name = raw.name
+      if (typeof name !== 'string' || !INPUT_NAME_RE.test(name)) {
+        push(
+          errors,
+          'invalid_value',
+          `${field}.name`,
+          'input name must be a lowercase identifier',
+        )
+        return
+      }
+      if (names.has(name)) {
+        push(
+          errors,
+          'duplicate_name',
+          `${field}.name`,
+          `input name is duplicated: ${name}`,
+        )
+        return
+      }
+      names.add(name)
+      if (
+        raw.required !== undefined &&
+        raw.required !== null &&
+        typeof raw.required !== 'boolean'
+      ) {
+        push(
+          errors,
+          'invalid_value',
+          `${field}.required`,
+          `input ${name} required must be a boolean`,
+        )
+      }
+    })
+  }
+
+  // transform
+  if (!isObject(v.transform)) {
+    push(errors, 'invalid_shape', 'transform', 'transform must be an object')
+  } else {
+    if (v.transform.language !== 'sql') {
+      push(
+        errors,
+        'unsupported_language',
+        'transform.language',
+        'transform language must be sql',
+      )
+    }
+    if (
+      typeof v.transform.statement !== 'string' ||
+      v.transform.statement.trim().length < 1 ||
+      v.transform.statement.length > MAX_STATEMENT_LENGTH
+    ) {
+      push(
+        errors,
+        'invalid_shape',
+        'transform.statement',
+        'transform statement must be between 1 and 20000 characters',
+      )
+    }
+  }
+
+  // output
+  if (!isObject(v.output)) {
+    push(errors, 'invalid_shape', 'output', 'output must be an object')
+  } else {
+    if (v.output.mode !== 'create' && v.output.mode !== 'append') {
+      push(
+        errors,
+        'invalid_value',
+        'output.mode',
+        'output mode must be create or append',
+      )
+    }
+    if (v.output.mode === 'create') {
+      if (!isUuid(v.output.schemaVersionId)) {
+        push(
+          errors,
+          'invalid_value',
+          'output.schemaVersionId',
+          'create output requires a valid Dataset Schema Version id',
+        )
+      }
+      if (
+        typeof v.output.datasetName !== 'string' ||
+        v.output.datasetName.trim().length < 1 ||
+        v.output.datasetName.length > 200
+      ) {
+        push(
+          errors,
+          'invalid_value',
+          'output.datasetName',
+          'create output requires a dataset name',
+        )
+      }
+    }
+    if (v.output.mode === 'append') {
+      if (!isUuid(v.output.datasetId)) {
+        push(
+          errors,
+          'invalid_value',
+          'output.datasetId',
+          'append output requires a valid Dataset id',
+        )
+      }
+    }
+    if (
+      typeof v.output.datasetLabel !== 'string' ||
+      v.output.datasetLabel.trim().length < 1 ||
+      v.output.datasetLabel.length > 200
+    ) {
+      push(
+        errors,
+        'invalid_value',
+        'output.datasetLabel',
+        'output requires a Dataset Version label',
+      )
+    }
+    if (
+      v.output.fieldMapping !== undefined &&
+      v.output.fieldMapping !== null &&
+      !isObject(v.output.fieldMapping)
+    ) {
+      push(
+        errors,
+        'invalid_shape',
+        'output.fieldMapping',
+        'fieldMapping must be an object or null',
+      )
+    }
+  }
+
+  return errors
+}
+
+function defaultMatchesType(value: unknown, type: unknown): boolean {
+  switch (type) {
+    case 'text':
+      return typeof value === 'string'
+    case 'integer':
+      return typeof value === 'number' && Number.isInteger(value)
+    case 'decimal':
+      return typeof value === 'number' && Number.isFinite(value)
+    case 'boolean':
+      return typeof value === 'boolean'
+    case 'date':
+      return typeof value === 'string' && DATE_RE.test(value)
+    case 'timestamp':
+      return typeof value === 'string' && !Number.isNaN(Date.parse(value))
+    default:
+      return false
+  }
+}
+
+export function configErrorsToMessage(errors: ConfigError[]): string | null {
+  if (errors.length === 0) return null
+  return errors[0].message
+}
+
+export interface ResolvedRunRequest {
+  parameters: Record<string, unknown>
+  inputVersions: Record<string, string>
+}
+
+/**
+ * Validate a run request against a validated configuration: every supplied
+ * parameter must be declared and type-match, required parameters must be
+ * present, and input_versions must name exactly the declared inputs with
+ * Dataset Version ids. Mirrors api.pipeline_run_request_errors.
+ */
+export function validatePipelineRunRequest(
+  config: PipelineConfig,
+  parameters: Record<string, unknown>,
+  inputVersions: Record<string, string>,
+): ConfigError[] {
+  const errors: ConfigError[] = []
+
+  if (!isObject(parameters)) {
+    push(errors, 'invalid_shape', 'parameters', 'parameters must be an object')
+    return errors
+  }
+  if (!isObject(inputVersions)) {
+    push(
+      errors,
+      'invalid_shape',
+      'input_versions',
+      'input_versions must be an object',
+    )
+    return errors
+  }
+
+  const declared = new Map(config.parameters.map((p) => [p.name, p]))
+  for (const [key, value] of Object.entries(parameters)) {
+    const param = declared.get(key)
+    if (!param) {
+      push(
+        errors,
+        'invalid_value',
+        `parameters.${key}`,
+        `unknown parameter: ${key}`,
+      )
+    } else if (!valueMatchesType(value, param.type)) {
+      push(
+        errors,
+        'invalid_value',
+        `parameters.${key}`,
+        `parameter ${key} does not match its declared type`,
+      )
+    }
+  }
+  for (const param of config.parameters) {
+    if (param.required && !(param.name in parameters)) {
+      push(
+        errors,
+        'missing_required',
+        `parameters.${param.name}`,
+        `missing required parameter: ${param.name}`,
+      )
+    }
+  }
+
+  const inputNames = new Set(config.inputs.map((i) => i.name))
+  for (const [key, value] of Object.entries(inputVersions)) {
+    if (!inputNames.has(key)) {
+      push(
+        errors,
+        'invalid_value',
+        `input_versions.${key}`,
+        `unknown input: ${key}`,
+      )
+    } else if (typeof value !== 'string' || !isUuid(value)) {
+      push(
+        errors,
+        'invalid_value',
+        `input_versions.${key}`,
+        `input ${key} must be a Dataset Version id`,
+      )
+    }
+  }
+  for (const input of config.inputs) {
+    if (!(input.name in inputVersions)) {
+      push(
+        errors,
+        'missing_required',
+        `input_versions.${input.name}`,
+        `missing input: ${input.name}`,
+      )
+    }
+  }
+
+  return errors
+}
+
+function valueMatchesType(value: unknown, type: ParameterType): boolean {
+  switch (type) {
+    case 'text':
+      return typeof value === 'string'
+    case 'integer':
+      return typeof value === 'number' && Number.isInteger(value)
+    case 'decimal':
+      return typeof value === 'number' && Number.isFinite(value)
+    case 'boolean':
+      return typeof value === 'boolean'
+    case 'date':
+      return typeof value === 'string' && DATE_RE.test(value)
+    case 'timestamp':
+      return typeof value === 'string' && !Number.isNaN(Date.parse(value))
+    default:
+      return false
+  }
+}

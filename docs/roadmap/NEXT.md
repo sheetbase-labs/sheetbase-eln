@@ -28,7 +28,7 @@ The roadmap supports **parallel streams**. Agents take **one assigned stream/tas
 | COLLAB | —               | —     | COLLAB-01–04 complete (#69, #73, #71, #72). Liveblocks presence/comments/notifications with Sheetbase-authoritative permissions; sheet cell/range anchors queued behind canonical Sheet row identity. See `docs/collaboration.md`                                                                                 |
 | SCI    | —               | —     | SCI-01–03 implemented on stacked branches (`feat/sci-01-charting` → `feat/sci-02-analysis-framework` → `feat/sci-03-notebook-analysis-blocks` + follow-ups); awaiting review/merge. SCI-04 waits for real usage evidence                                                                                          |
 | INT    | INT-01 + INT-02 | —     | Connector framework (`api.connectors` / `connector_runs`, `integrations.manage`, sealed secrets, parser registry) proven end-to-end by plate-reader instrument ingestion; see `docs/integrations.md`. INT-03 enterprise connectors (S3 + read-only PostgreSQL) implemented on `feat/int-03-enterprise-connectors` |
-| AUTO   | —               | —     | Planned later                                                                                                                                                                                                                                                                                                     |
+| AUTO   | —               | —     | AUTO-01/02/03 complete (deterministic, versioned Pipelines — `docs/pipelines.md`, ADR 0042): versioned Definitions, sandboxed SQL execution, manual/interval/daily/event triggers, run history, provenance, `/pipelines` authoring surface. AUTO-04/05 later                                                      |
 
 ### Immediate execution shape
 
@@ -111,7 +111,7 @@ Task: [`tasks/PLAT.md`](./tasks/PLAT.md)
 - PC-05 Steward `/configure` is complete (`#54`). PC-06 Golden Workflows is ready to merge (`#55`).
 - GOV-02 is not Ready without an ADR.
 - Remaining PLAT-03 is queued, not a new Ready stream.
-- AUTO remains planned later.
+- AUTO-01/02/03 are complete; AUTO-04/05 remain later work and must not start from this hand-off.
 
 ## Required reading (any stream)
 
@@ -126,9 +126,10 @@ Task: [`tasks/PLAT.md`](./tasks/PLAT.md)
 ## Do not
 
 - do not implement every Ready candidate in one session;
-- do not start GOV-02, remaining PLAT-03, COLLAB, SCI, INT or AUTO from this hand-off unless later assigned;
+- do not start GOV-02, remaining PLAT-03, COLLAB, SCI, INT or AUTO-04/05 from this hand-off unless later assigned;
 - do not reopen FieldDefinition, Dataset, Definition/Instance, Template version or frozen-evidence architecture without a real defect;
 - do not create another Dataset, Sheet, Template or capability system;
+- do not create a second Pipeline or automation model — AUTO-01/02/03 defined the canonical one (`docs/pipelines.md`, ADR 0042);
 - do not treat the browser as the only future client;
 - do not perpetuate `scientific:*` / scientific-table architecture as the future public API.
 

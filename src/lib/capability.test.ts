@@ -53,6 +53,7 @@ describe('CORE-05 capability mapping', () => {
       'record.create',
       'instance.upgrade',
       'integrations.manage',
+      'pipelines.manage',
     ])
   })
 
@@ -63,5 +64,16 @@ describe('CORE-05 capability mapping', () => {
     expect(hasCapability('member', 'integrations.manage')).toBe(false)
     expect(hasCapability('scientist', 'integrations.manage')).toBe(false)
     expect(hasCapability('viewer', 'integrations.manage')).toBe(false)
+  })
+
+  it('grants pipelines.manage to governed roles only', () => {
+    expect(hasCapability('owner', 'pipelines.manage')).toBe(true)
+    expect(hasCapability('admin', 'pipelines.manage')).toBe(true)
+    expect(hasCapability('steward', 'pipelines.manage')).toBe(true)
+    expect(hasCapability('member', 'pipelines.manage')).toBe(false)
+    expect(hasCapability('scientist', 'pipelines.manage')).toBe(false)
+    expect(hasCapability('analyst', 'pipelines.manage')).toBe(false)
+    expect(hasCapability('reviewer', 'pipelines.manage')).toBe(false)
+    expect(hasCapability('viewer', 'pipelines.manage')).toBe(false)
   })
 })

@@ -32,6 +32,11 @@ GRANT formula_writer TO migrator WITH ADMIN OPTION;
 CREATE ROLE formula_runtime LOGIN NOINHERIT PASSWORD :'formula_pass';
 GRANT formula_writer TO formula_runtime;
 
+-- AUTO-02 sandbox: Pipeline transform SQL runs as this zero-grant role
+-- (temp-schema-only search_path, no table grants). The app connection
+-- (superuser) assumes it momentarily; it never logs in.
+CREATE ROLE pipeline_worker NOLOGIN NOINHERIT;
+
 -- Narrowly controlled service operations (AUTH-003 token exchange, workers).
 CREATE ROLE service_role NOLOGIN NOINHERIT;
 

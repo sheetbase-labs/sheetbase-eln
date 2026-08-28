@@ -193,6 +193,52 @@ removes the rejected application container so it cannot receive traffic.
 The final JSON output is the minimum deployment evidence. Store it with the
 release record together with the image registry attestations and migration logs.
 
+## Releasing without GitHub Actions (`pnpm release:local`)
+
+The GitHub Actions workflows are the release path of choice when the account
+can run them. A deployment whose GitHub account **cannot run Actions jobs**
+(GitHub-hosted runner billing/limit blocks) still releases through the same
+controller with `scripts/release.sh` — run it **on the VPS** from
+`/opt/sheetbase`:
+
+```bash
+cd /opt/sheetbase
+git fetch origin main
+set -a; . ./.env.production; set +a
+RELEASE_SHA=<full-40-hex-commit-sha> pnpm release:local
+```
+
+The script is deliberately the same contract as the CI pipeline, executed
+locally:
+
+1. **Clean detached checkout** of the exact release commit (a dirty worktree
+   aborts).
+2. **Enforced release gate** on the VPS: typecheck, lint, unit tests,
+   production dependency audit (`pnpm audit --prod --audit-level=high`),
+   database tests against a **disposable PostgreSQL container** (production
+   database never touched), and a production build. Any failure aborts before
+   an image is built.
+3. **Immutable artifacts without a registry:** the Node base image is
+   resolved to its `@sha256` digest, then the app and PostgREST images are
+   built locally and referenced as `name@sha256:<image-id>` — the Docker
+   engine resolves these content-addressed references locally, so no registry
+   or GitHub dependency exists. The OCI labels still carry the release version
+   (= commit SHA), source revision and expected migration.
+4. `pnpm deploy:plan` then `pnpm deploy:apply` — the same controller:
+   migrate → start app → readiness verification of the exact artifact
+   version, digest and migration.
+
+The release evidence is the controller's JSON output plus the gate log, stored
+with the release record. GitHub-hosted workflows (`deploy.yml`,
+`security.yml`) remain valid when runners are available; this script is what
+makes the release independent of their availability.
+
+### Development surface
+
+The disposable development surface (`dev.sheetbase.co.uk`) uses the same
+local-build idea against `compose.dev.yaml` with its auth-free fixture
+environment; see `docs/dev-environment.md`.
+
 ### First-deploy and Cloudflare hostname sequencing
 
 The deployment apply path verifies **local container health** before any

@@ -84,3 +84,38 @@ describe('PLAT-03 security documentation', () => {
     expect(readFileSync('docs/observability.md', 'utf8')).not.toBeNull()
   })
 })
+
+describe('PLAT-03 local release path (no GitHub Actions)', () => {
+  it('exposes pnpm release:local', () => {
+    const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as {
+      scripts: Record<string, string>
+    }
+    expect(pkg.scripts['release:local']).toBe('bash scripts/release.sh')
+  })
+
+  it('runs the enforced gate and the existing controller', () => {
+    const script = readFileSync('scripts/release.sh', 'utf8')
+    for (const gate of [
+      'pnpm typecheck',
+      'pnpm lint',
+      'pnpm test',
+      'pnpm audit --prod --audit-level=high',
+      'pnpm test:db',
+      'pnpm build',
+    ]) {
+      expect(script).toContain(gate)
+    }
+    expect(script).toContain('pnpm deploy:plan')
+    expect(script).toContain('pnpm deploy:apply')
+    expect(script).toContain('@sha256')
+  })
+
+  it('documents the release-time-only gate contract honestly', () => {
+    expect(readFileSync('docs/security.md', 'utf8')).toContain(
+      'release-time enforcement on `main`',
+    )
+    expect(readFileSync('docs/deployment.md', 'utf8')).toContain(
+      'Releasing without GitHub Actions',
+    )
+  })
+})

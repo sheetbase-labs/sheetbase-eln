@@ -19,6 +19,7 @@
     "deploy:apply": "node --import tsx scripts/deploy.ts --apply",
     "backup:run": "node --import tsx scripts/backup.ts",
     "backup:restore-drill": "node --import tsx scripts/restore-drill.ts",
+    "release:local": "bash scripts/release.sh",
     "preview": "vite preview",
     "test": "vitest run",
     "screenshot:gallery": "tsx scripts/screenshot-gallery.mts",

@@ -113,6 +113,10 @@ WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='formula_runtime')\gexec
 GRANT formula_writer TO formula_runtime;
 ALTER ROLE formula_runtime PASSWORD :'formula_pass';
 
+-- AUTO-02 sandbox: Pipeline transform SQL runs as this zero-grant role.
+SELECT 'CREATE ROLE pipeline_worker NOLOGIN NOINHERIT'
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='pipeline_worker')\gexec
+
 -- migrator owns the database, matching 00-roles.sh.
 SELECT format('CREATE DATABASE %I OWNER migrator', :'db_name')
 WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'db_name')\gexec

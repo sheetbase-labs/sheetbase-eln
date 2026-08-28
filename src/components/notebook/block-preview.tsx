@@ -39,6 +39,7 @@ import {
 } from '#/lib/format-numbers'
 import { Badge } from '#/components/ui'
 import { isInlinePreviewableImage } from '#/lib/file-policy'
+import { PipelineOutputBlockPreview } from './pipeline-output-block-preview'
 import { sheetInstanceEmbedErrorMessage } from './notebook-sheet-block'
 import {
   fetchCanonicalDataset,
@@ -141,6 +142,8 @@ function renderPayload(type: string, payload: unknown): React.ReactNode {
       return <ChartBlockPreview payload={payload} />
     case 'analysis':
       return <AnalysisBlockPreview payload={payload} />
+    case 'pipeline_output':
+      return <PipelineOutputBlockPreview payload={payload} />
     case 'plate_map':
       return <PlateMapBlockPreview payload={payload} />
     case 'file':

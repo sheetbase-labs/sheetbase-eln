@@ -73,6 +73,7 @@ describe('CORE-05 capability resolver', () => {
               api.has_capability($1,'record.create') as record_create,
               api.has_capability($1,'instance.upgrade') as instance_upgrade,
               api.has_capability($1,'integrations.manage') as integrations_manage,
+              api.has_capability($1,'pipelines.manage') as pipelines_manage,
               api.has_capability($1,'unknown.cap') as unknown_cap,
               api.list_capabilities($1) as listed`,
       [WS_A],
@@ -86,11 +87,13 @@ describe('CORE-05 capability resolver', () => {
       record_create: true,
       instance_upgrade: true,
       integrations_manage: true,
+      pipelines_manage: true,
       unknown_cap: false,
     })
     expect(rows[0].listed).toEqual([
       'instance.upgrade',
       'integrations.manage',
+      'pipelines.manage',
       'record.create',
       'record.link',
       'schema.edit',

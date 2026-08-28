@@ -350,6 +350,12 @@ describe('block payload validation (ELN-002)', () => {
           },
         ],
       },
+      pipeline_output: {
+        runId: '0198d970-e266-4000-8000-000000000010',
+        datasetId: '0198d970-e266-4000-8000-000000000020',
+        datasetVersionId: '0198d970-e266-4000-8000-000000000021',
+        label: 'scaled measurements',
+      },
     }
     for (const type of KNOWN_BLOCK_TYPES) {
       expect(validateBlock({ type, payload: samples[type] }).ok).toBe(true)

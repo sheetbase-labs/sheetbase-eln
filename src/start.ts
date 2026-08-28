@@ -11,6 +11,17 @@ import {
   injectNonceIntoHtml,
 } from '#/lib/security-headers'
 
+// AUTO-02: background sweep for Pipeline schedules and event triggers.
+// Started lazily by the first server request via a middleware (this module
+// is also a client entry, so the server-only scheduler is imported
+// dynamically and guarded per-process). The unref'd interval never keeps
+// the process alive and never runs under test runners.
+const pipelineSchedulerMiddleware = createMiddleware().server(async ({ next }) => {
+  const { startPipelineScheduler } = await import('#/lib/pipeline-scheduler.server')
+  startPipelineScheduler()
+  return next()
+})
+
 // Preserve TanStack Start's default CSRF protection for server functions.
 // Providing requestMiddleware replaces the framework default list, so CSRF
 // must be declared here explicitly.
@@ -52,5 +63,9 @@ const securityHeadersMiddleware = createMiddleware().server(
 )
 
 export const startInstance = createStart(() => ({
-  requestMiddleware: [securityHeadersMiddleware, csrfMiddleware],
+  requestMiddleware: [
+    securityHeadersMiddleware,
+    pipelineSchedulerMiddleware,
+    csrfMiddleware,
+  ],
 }))

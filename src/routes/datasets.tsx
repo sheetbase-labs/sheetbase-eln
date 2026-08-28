@@ -30,10 +30,12 @@ import {
   History,
   Layers,
   Table as TableIcon,
+  Workflow,
 } from 'lucide-react'
 
 import { ExportMenu } from '#/components/export/export-menu'
 import { useShell } from '#/components/app-shell'
+import { PipelineDatasetTab } from '#/components/pipelines/pipeline-dataset-tab'
 import {
   CollaborationRoom,
   safeBuildRoomId,
@@ -44,10 +46,7 @@ import { useCollaborationEnabled } from '#/lib/collaboration/liveblocks.config'
 import { canCommentInRoom } from '#/lib/collaboration/permissions'
 import { DatasetProductActions } from '#/components/datasets/dataset-product-controls'
 import { ObjectHistoryTimeline } from '#/components/audit'
-import {
-  auditHistoryDataClient,
-  fetchAuditEvents,
-} from '#/lib/audit-history'
+import { auditHistoryDataClient, fetchAuditEvents } from '#/lib/audit-history'
 import { DataClientError } from '#/lib/data-client'
 import { RegistryComposition } from '#/components/registry'
 import type { DataGridField } from '#/components/data-grid'
@@ -140,9 +139,21 @@ import {
 import { listCanonicalDatasetSchemaVersionFields } from '#/lib/dataset-schema-definition-rpc'
 
 export const Route = createFileRoute('/datasets')({
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): {
+    dataset: string
+    archived: boolean
+    tab?: 'pipelines' | 'versions'
+  } => ({
     dataset: typeof search.dataset === 'string' ? search.dataset : '',
     archived: search.archived === '1' || search.archived === true,
+    tab:
+      search.tab === 'pipelines'
+        ? 'pipelines'
+        : search.tab === 'versions'
+          ? 'versions'
+          : undefined,
   }),
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
@@ -231,8 +242,14 @@ function DatasetExplorerRoute() {
 
   const datasets = summariesQuery.data ?? []
   const [activeTab, setActiveTab] = useState<
-    'data' | 'chart' | 'schema' | 'versions' | 'history'
-  >('data')
+    'data' | 'chart' | 'schema' | 'versions' | 'history' | 'pipelines'
+  >(
+    search.tab === 'pipelines'
+      ? 'pipelines'
+      : search.tab === 'versions'
+        ? 'versions'
+        : 'data',
+  )
 
   const requestedTableId = search.dataset || null
   const selectedTable = useMemo(
@@ -537,9 +554,9 @@ function DatasetPicker({
 
 interface DatasetTabsProps {
   table: CanonicalDatasetWire
-  activeTab: 'data' | 'chart' | 'schema' | 'versions' | 'history'
+  activeTab: 'data' | 'chart' | 'schema' | 'versions' | 'history' | 'pipelines'
   onTabChange: (
-    tab: 'data' | 'chart' | 'schema' | 'versions' | 'history',
+    tab: 'data' | 'chart' | 'schema' | 'versions' | 'history' | 'pipelines',
   ) => void
   onRefresh: () => void
   /** COLLAB-02: canonical workspace id; null disables dataset discussion. */
@@ -556,12 +573,14 @@ function DatasetTabs({
   collaborationWorkspaceId,
   collaborationRole = 'viewer',
 }: DatasetTabsProps) {
+  const workspaceId = collaborationWorkspaceId ?? ''
   return (
     <Tabs
       value={activeTab}
       onValueChange={(v) =>
         onTabChange(
-          v as 'data' | 'chart' | 'schema' | 'versions' | 'history',
+          v as
+            'data' | 'chart' | 'schema' | 'versions' | 'history' | 'pipelines',
         )
       }
       className="relative min-h-0 flex-1 overflow-hidden"
@@ -596,6 +615,12 @@ function DatasetTabs({
           className="h-8 gap-1.5 rounded-none border-b-2 border-transparent px-0 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
         >
           <History className="size-3.5" aria-hidden="true" /> History
+        </TabsTrigger>
+        <TabsTrigger
+          value="pipelines"
+          className="h-8 gap-1.5 rounded-none border-b-2 border-transparent px-0 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+        >
+          <Workflow className="size-3.5" aria-hidden="true" /> Pipelines
         </TabsTrigger>
       </TabsList>
       <TabsContent
@@ -633,6 +658,16 @@ function DatasetTabs({
       >
         <DatasetHistoryTab datasetId={table.id} />
       </TabsContent>
+      <TabsContent
+        value="pipelines"
+        className="absolute inset-x-0 bottom-0 top-8 min-h-0 overflow-auto p-3"
+      >
+        <PipelineDatasetTab
+          dataClient={datasetExplorerDataClient}
+          workspaceId={workspaceId}
+          datasetId={table.id}
+        />
+      </TabsContent>
     </Tabs>
   )
 }
@@ -660,9 +695,7 @@ function DatasetHistoryTab({ datasetId }: { datasetId: string }) {
       fetchAuditEvents(auditHistoryDataClient, {
         object: datasetId,
         limit: 50,
-        ...(pageParam === undefined
-          ? {}
-          : { beforeSequence: pageParam }),
+        ...(pageParam === undefined ? {} : { beforeSequence: pageParam }),
       }),
     getNextPageParam: (lastPage) =>
       lastPage.hasMore ? (lastPage.nextCursor ?? undefined) : undefined,
@@ -688,7 +721,7 @@ function DatasetHistoryTab({ datasetId }: { datasetId: string }) {
       hasMore={Boolean(historyQuery.hasNextPage)}
       onLoadMore={() => void historyQuery.fetchNextPage()}
       loadingMore={historyQuery.isFetchingNextPage}
-      maxHeight='48rem'
+      maxHeight="48rem"
     />
   )
 }

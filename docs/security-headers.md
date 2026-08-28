@@ -65,14 +65,14 @@ Inspected loading before locking the policy:
 Tightening `script-src` to hashes or nonces is a follow-up once those inline
 scripts have a nonce pipeline.
 
-## Queued Medium leftovers (do not implement in this slice)
+## Remaining PLAT-03 (status after this slice)
 
-- General API rate-limit architecture (credential exchange is already limited).
-- SAST / dependency-vulnerability pipeline in CI.
-- Backup encryption and restore drills.
-- SECURITY DEFINER / RLS / grants audit.
-- Capability-mask changes; `viewer` read-only belongs to GOV-01.
-- Auth/session review beyond headers.
-- Penetration testing.
+Completed elsewhere in PLAT-03: general API rate limiting
+(`docs/security.md`), SAST + dependency-audit pipeline (`security.yml` +
+release gate), backup permissions/posture (`docs/recovery.md`),
+SECURITY DEFINER / RLS / grants audit (`docs/security.md`,
+`tests/db/plat-03-security-audit.test.ts`), H1 capability-mask completion
+for `api_client`, auth/session review (`docs/security.md`).
 
-See `docs/roadmap/tasks/PLAT.md`.
+Still queued: nonce/hash CSP, penetration testing (needs real usage). See
+`docs/security.md` §5.

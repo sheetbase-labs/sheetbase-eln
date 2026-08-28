@@ -1,0 +1,64 @@
+# PLAT-03 — security scanning.
+#
+# Two independent, non-merge-blocking signals (the merge gate in deploy.yml
+# stays typecheck/lint/tests/build + audit):
+#
+#   1. CodeQL SAST for JavaScript/TypeScript. Findings appear on the Security
+#      tab; new alerts are triaged like bugs but do not block a release by
+#      themselves until the alert set is baselined (documented in
+#      docs/security.md).
+#   2. The dependency audit runs here too for visibility on non-main branches;
+#      the enforcing copy runs inside the deploy.yml verify job.
+
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly, Monday 06:20 UTC — picks up newly published advisories.
+    - cron: '20 6 * * 1'
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  codeql:
+    name: CodeQL SAST (javascript-typescript)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: security-extended
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+  dependency-audit:
+    name: Dependency audit (high+, prod tree)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.9.0 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Audit production dependencies
+        run: pnpm audit --prod --audit-level=high

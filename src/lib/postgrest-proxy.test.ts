@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { ProxyDeps } from './postgrest-proxy'
 import { handleProxyRequest } from './postgrest-proxy'
 import { metrics } from './metrics'
+import { createRateLimiter } from './rate-limit'
 import { logger } from './logger'
 
 function makeDeps(overrides: Partial<ProxyDeps> = {}): ProxyDeps {
@@ -576,5 +577,50 @@ describe('PLAT-02 log correlation', () => {
     } finally {
       info.mockRestore()
     }
+  })
+})
+
+describe('PLAT-03 proxy rate limiting', () => {
+  function limitedDeps(maxRequests: number): ProxyDeps {
+    return makeDeps({
+      rateLimiter: createRateLimiter({ maxRequests, windowSeconds: 60 }),
+    })
+  }
+
+  it('blocks the principal with the public rate_limited envelope after the cap', async () => {
+    const deps = limitedDeps(2)
+    for (let i = 0; i < 2; i += 1) {
+      const ok = await handleProxyRequest(req('projects'), 'projects', deps)
+      expect(ok.status).toBe(200)
+    }
+    const blocked = await handleProxyRequest(req('projects'), 'projects', deps)
+    expect(blocked.status).toBe(429)
+    expect(blocked.headers.get('retry-after')).toBeTruthy()
+    const body = (await blocked.json()) as { error: { category: string } }
+    expect(body.error.category).toBe('rate_limited')
+  })
+
+  it('keys sessions independently and counts the rejection in metrics', async () => {
+    const deps = limitedDeps(1)
+    const first = await handleProxyRequest(req('projects'), 'projects', deps)
+    expect(first.status).toBe(200)
+
+    const other = makeDeps({
+      getSession: async () => ({
+        user: { id: 'user-2' },
+        session: { id: 'session-other' },
+      }),
+      rateLimiter: deps.rateLimiter,
+    })
+    const different = await handleProxyRequest(
+      req('projects'),
+      'projects',
+      other,
+    )
+    expect(different.status).toBe(200)
+
+    expect(metrics.render()).toMatch(
+      /sheetbase_db_upstream_requests_total\{category="rate_limited"\} \d+/,
+    )
   })
 })

@@ -56,6 +56,10 @@ Configuration: `SHEETBASE_COMPOSE_PROJECT` (default `sheetbase-deploy`),
 `SHEETBASE_BACKUP_RETENTION_DAYS` (default `14`),
 `SHEETBASE_BACKUP_INCLUDE_OBJECTS` (set `false` to skip the storage archive).
 
+**File permissions:** the backup runner creates the backup directory
+`0700` and every dump, archive and manifest `0600` — only the file owner
+reads backups. Backups contain the entire scientific record.
+
 **Encryption note:** backups live on the same encrypted-at-rest VPS volume as
 the live database, so the transport and at-rest protections are identical to
 the primary. Dedicated backup encryption (separate key, off-host copy) is

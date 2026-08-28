@@ -25,8 +25,41 @@ import {
   resolveSessionAuth,
 } from '#/lib/request-auth'
 import type { SessionAuthDeps } from '#/lib/request-auth'
-import { metrics } from '#/lib/metrics'
 import type { FileOutcome } from '#/lib/metrics'
+import { metrics } from '#/lib/metrics'
+import type { RateLimiter } from '#/lib/rate-limit'
+import {
+  RATE_LIMIT_SCOPE_FILES,
+  createRateLimiter,
+  defaultRateLimitOptions,
+} from '#/lib/rate-limit'
+
+/** PLAT-03 — process-wide file byte-route limiter (per session). */
+const fileRateLimiter: RateLimiter = createRateLimiter(
+  defaultRateLimitOptions({
+    SHEETBASE_RATE_LIMIT_MAX: positiveInt(process.env.SHEETBASE_RATE_LIMIT_MAX),
+    SHEETBASE_RATE_LIMIT_WINDOW_SECONDS: positiveInt(
+      process.env.SHEETBASE_RATE_LIMIT_WINDOW_SECONDS,
+    ),
+  }),
+)
+
+function positiveInt(value: string | undefined): number | undefined {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined
+}
+
+/**
+ * PLAT-03 — abuse bound for the file byte routes (bytes are already capped
+ * per request; this bounds request volume). Fails open by design.
+ */
+function fileRateLimitAllowed(sessionId: string): boolean {
+  try {
+    return fileRateLimiter.hit(`${RATE_LIMIT_SCOPE_FILES}:${sessionId}`).allowed
+  } catch {
+    return true
+  }
+}
 
 /**
  * PLAT-02 — records one file byte-route operation. Labels stay bounded:
@@ -184,6 +217,9 @@ export async function handleUpload(
     )
   }
   const { context } = authResult
+  if (!fileRateLimitAllowed(context.sessionId)) {
+    return requestErrorResponse(429, 'rate_limited', 'Too many requests. Slow down and try again shortly.')
+  }
   const uploadStartedAt = Date.now()
 
   const selectRes = await postgrestSelect<FileObjectWire[]>(
@@ -319,6 +355,9 @@ export async function handleDownload(
     )
   }
   const { context } = authResult
+  if (!fileRateLimitAllowed(context.sessionId)) {
+    return requestErrorResponse(429, 'rate_limited', 'Too many requests. Slow down and try again shortly.')
+  }
   const downloadStartedAt = Date.now()
 
   const selectRes = await postgrestSelect<FileObjectWire[]>(

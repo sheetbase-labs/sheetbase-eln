@@ -1,5 +1,11 @@
 # Deploy Sheetbase ELN to the Hostinger VPS.
 #
+# PAUSED (PLAT-03): the GitHub account cannot run hosted-runner jobs, and the
+# canonical release path is now scripts/release.sh on the VPS (pnpm
+# release:local — see docs/deployment.md). The trigger block below is
+# commented out so this workflow cannot fire under any circumstance. To
+# re-enable when hosted runners are available, uncomment the `on:` block.
+#
 # Architecture:
 #   1. build  — on a GitHub-hosted runner, build the app and PostgREST Docker
 #               images, push them to GHCR with immutable @sha256 digests.
@@ -26,15 +32,15 @@
 
 name: Deploy to production
 
-on:
-  push:
-    branches: [main]
-  workflow_dispatch:
-    inputs:
-      confirm:
-        description: 'Type "deploy" to confirm'
-        required: true
-        default: ''
+# on: # PAUSED — uncomment to re-enable
+#   push:
+#     branches: [main]
+#   workflow_dispatch:
+#     inputs:
+#       confirm:
+#         description: 'Type "deploy" to confirm'
+#         required: true
+#         default: ''
 
 concurrency:
   group: production-deploy

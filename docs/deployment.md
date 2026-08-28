@@ -201,6 +201,12 @@ can run them. A deployment whose GitHub account **cannot run Actions jobs**
 controller with `scripts/release.sh` — run it **on the VPS** from
 `/opt/sheetbase`:
 
+> **Status:** the `.github/workflows/deploy.yml` and
+> `deploy-dev.yml` triggers are **paused** (their `on:` blocks are commented
+> out) because the account cannot run hosted-runner jobs. The local release
+> path below is the canonical release path while that is the case; uncomment
+> the `on:` blocks to re-enable the Actions path when runners are available.
+
 ```bash
 cd /opt/sheetbase
 git fetch origin main

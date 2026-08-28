@@ -50,6 +50,7 @@ export interface PipelineRunWire {
   attempt: number
   retry_of_run_id: string | null
   trigger_occurrence_id: string | null
+  schedule_id: string | null
   input_digest: string | null
   parameters: Record<string, unknown>
   input_versions: Record<string, string>

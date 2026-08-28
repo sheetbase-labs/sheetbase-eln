@@ -21,7 +21,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { runPipelineExecution } from '#/lib/pipeline-execute.server'
 import type { PipelineExecuteDeps } from '#/lib/pipeline-execute.server'
 import { sweepPipelines } from '#/lib/pipeline-scheduler.server'
-import type { SchedulerConnection } from '#/lib/pipeline-scheduler.server'
+import type {
+  PipelineSchedulerDeps,
+  SchedulerConnection,
+} from '#/lib/pipeline-scheduler.server'
 import { prepareTestDatabase, setActorJwt, TEST_DATABASE } from './helpers'
 
 const WS = '0e010000-0000-4000-8000-000000000101'
@@ -71,6 +74,7 @@ const RPC_ARG_TYPES: Record<string, string[]> = {
     'jsonb',
     'uuid',
     'text',
+    'uuid',
   ],
   complete_pipeline_run: ['uuid', 'uuid', 'jsonb'],
   fail_pipeline_run: ['uuid', 'uuid', 'text', 'text'],
@@ -938,7 +942,7 @@ describe('Pipeline schedules and event triggers (AUTO-02)', () => {
     )
   })
 
-  async function makeSweepDeps(conn: PgClient) {
+  async function makeSweepDeps(conn: PgClient): Promise<PipelineSchedulerDeps> {
     return {
       connect: () => Promise.resolve(schedulerConnection(conn)),
       run: async (actorId: string, runId: string) => {
@@ -1000,9 +1004,9 @@ describe('Pipeline schedules and event triggers (AUTO-02)', () => {
     expect(after[0].n).toBe(1)
   })
 
-  it('reconciles a crashed scheduled run and retries the occurrence as a linked attempt', async () => {
+  it('recovers a crashed scheduled occurrence via a sweep, retrying the same occurrence', async () => {
     const owner = await actor(OWNER, WS)
-    const schedule = await rpc<{ id: string }>(
+    const schedule = await rpc<{ id: string; next_run_at: string }>(
       owner,
       'create_pipeline_schedule',
       {
@@ -1018,35 +1022,48 @@ describe('Pipeline schedules and event triggers (AUTO-02)', () => {
       },
     )
     const dueAt = new Date(Date.now() - 60_000)
-    const occurrenceId = `sched:${schedule.id}:${dueAt.toISOString().replace(/[:.]/g, '-')}`
-    // Simulate the crash: the occurrence run was started and committed, but
-    // never executed (stays 'running').
-    const crashed = await rpc<{ id: string; attempt: number }>(
-      owner,
-      'start_pipeline_run',
-      {
-        p_workspace_id: WS,
-        p_definition_version_id: pipelineVersionId,
-        p_trigger_kind: 'scheduled',
-        p_parameters: { factor: 6 },
-        p_input_versions: { measurements: inputDatasetVersionId },
-        p_retry_of_run_id: null,
-        p_trigger_occurrence_id: occurrenceId,
-      },
-    )
-    expect(crashed.attempt).toBe(1)
-    await migrator.query(
-      `update api.pipeline_runs set started_at = now() - interval '1000 seconds' where id = $1`,
-      [crashed.id],
-    )
-    // The schedule still thinks this occurrence is due; the sweep reconciles
-    // the stale run and retries it.
     await migrator.query(
       `update api.pipeline_schedules set next_run_at = $2 where id = $1`,
       [schedule.id, dueAt.toISOString()],
     )
+    const occurrenceId = `sched:${schedule.id}:${dueAt.toISOString().replace(/[:.]/g, '-')}`
+
     const conn = new PgClient({ connectionString: superuserTestUrl() })
     await conn.connect()
+    // First sweep: the run is STARTED and next_run_at advances, but the
+    // executor "crashes" (no-op run callback — the run is never executed).
+    const crashDeps = await makeSweepDeps(conn)
+    crashDeps.run = async () => undefined
+    const started = await sweepPipelines(crashDeps)
+    expect(started).toBeGreaterThanOrEqual(1)
+    const { rows: crashedRows } = await migrator.query(
+      `select id, status, attempt, schedule_id from api.pipeline_runs
+        where trigger_occurrence_id = $1`,
+      [occurrenceId],
+    )
+    expect(crashedRows).toHaveLength(1)
+    expect(crashedRows[0].status).toBe('running')
+    expect(crashedRows[0].attempt).toBe(1)
+    expect(crashedRows[0].schedule_id).toBe(schedule.id)
+    const crashedRunId = crashedRows[0].id
+
+    // The schedule tick advanced to the NEXT occurrence (production does not
+    // rewind next_run_at to the crashed occurrence).
+    const { rows: nextRows } = await migrator.query(
+      `select next_run_at from api.pipeline_schedules where id = $1`,
+      [schedule.id],
+    )
+    expect(new Date(nextRows[0].next_run_at).getTime()).toBeGreaterThan(
+      dueAt.getTime(),
+    )
+
+    // Age the crashed occurrence stale, then sweep normally WITHOUT touching
+    // next_run_at: the stale occurrence must be recovered and retried with
+    // its own trigger_occurrence_id.
+    await migrator.query(
+      `update api.pipeline_runs set started_at = now() - interval '1000 seconds' where id = $1`,
+      [crashedRunId],
+    )
     const deps = await makeSweepDeps(conn)
     expect(await sweepPipelines(deps)).toBeGreaterThanOrEqual(1)
     await conn.end()
@@ -1059,13 +1076,115 @@ describe('Pipeline schedules and event triggers (AUTO-02)', () => {
       [occurrenceId],
     )
     expect(rows).toHaveLength(2)
+    expect(rows[0].id).toBe(crashedRunId)
     expect(rows[0].status).toBe('failed')
     expect(rows[0].error_code).toBe('stale_run_reconciled')
-    // The retry was started AND executed by the sweep (the sweep runs
-    // executions after the start), so it reached a terminal state.
     expect(rows[1].status).not.toBe('running')
     expect(rows[1].attempt).toBe(2)
-    expect(rows[1].retry_of_run_id).toBe(rows[0].id)
+    expect(rows[1].retry_of_run_id).toBe(crashedRunId)
+  })
+
+  it('recovers a crashed event occurrence via a sweep, retrying evt:<event_id>', async () => {
+    const owner = await actor(OWNER, WS)
+    const schedule = await rpc<{ id: string }>(
+      owner,
+      'create_pipeline_schedule',
+      {
+        p_workspace_id: WS,
+        p_definition_id: pipelineDefinitionId,
+        p_kind: 'event',
+        p_spec: {
+          eventType: 'dataset_version_created',
+          inputName: 'measurements',
+          parameters: { factor: 7 },
+        },
+        p_enabled: true,
+      },
+    )
+    // Disable other event schedules so only THIS schedule sees the event.
+    await migrator.query(
+      `update api.pipeline_schedules set enabled = false
+        where kind = 'event' and id <> $1`,
+      [schedule.id],
+    )
+    const { datasetId, versionId } = await createInputDatasetVersion(
+      owner,
+      schemaVersionId,
+      'pipeline-test-input-crash',
+      [
+        'aaaa0000-0000-4000-8000-000000000001',
+        'aaaa0000-0000-4000-8000-000000000002',
+        'aaaa0000-0000-4000-8000-000000000003',
+      ],
+    )
+    // Scope the schedule to THIS Dataset so only the new event matches.
+    await rpc(owner, 'update_pipeline_schedule', {
+      p_workspace_id: WS,
+      p_schedule_id: schedule.id,
+      p_kind: 'event',
+      p_spec: {
+        eventType: 'dataset_version_created',
+        datasetId,
+        inputName: 'measurements',
+        parameters: { factor: 7 },
+      },
+      p_enabled: true,
+    })
+    const { rows: evt } = await migrator.query(
+      `select id, sequence from api.change_events
+        where entity_type = 'dataset_version' and entity_uuid = $1`,
+      [versionId],
+    )
+    expect(evt).toHaveLength(1)
+    const occurrenceId = `evt:${evt[0].id}`
+
+    const conn = new PgClient({ connectionString: superuserTestUrl() })
+    await conn.connect()
+    // First sweep: run starts + cursor advances, executor "crashes" (no-op).
+    const crashDeps = await makeSweepDeps(conn)
+    crashDeps.run = async () => undefined
+    await sweepPipelines(crashDeps)
+    const { rows: crashedRows } = await migrator.query(
+      `select id, status from api.pipeline_runs where trigger_occurrence_id = $1`,
+      [occurrenceId],
+    )
+    expect(crashedRows).toHaveLength(1)
+    expect(crashedRows[0].status).toBe('running')
+    const crashedRunId = crashedRows[0].id
+    // The event cursor advanced (the event was consumed; its run just crashed).
+    const { rows: cursorRows } = await migrator.query(
+      `select last_evaluated_sequence from api.pipeline_schedules where id = $1`,
+      [schedule.id],
+    )
+    expect(
+      Number(cursorRows[0].last_evaluated_sequence),
+    ).toBeGreaterThanOrEqual(Number(evt[0].sequence))
+
+    // Age the crashed run stale, then sweep normally: the evt occurrence is
+    // recovered as a linked retry; no duplicate occurrence is created.
+    await migrator.query(
+      `update api.pipeline_runs set started_at = now() - interval '1000 seconds' where id = $1`,
+      [crashedRunId],
+    )
+    const deps = await makeSweepDeps(conn)
+    await sweepPipelines(deps)
+    await conn.end()
+
+    const { rows } = await migrator.query(
+      `select id, status, error_code, attempt, retry_of_run_id
+         from api.pipeline_runs
+        where trigger_occurrence_id = $1
+        order by started_at`,
+      [occurrenceId],
+    )
+    expect(rows).toHaveLength(2)
+    expect(rows[0].id).toBe(crashedRunId)
+    expect(rows[0].status).toBe('failed')
+    expect(rows[0].error_code).toBe('stale_run_reconciled')
+    expect(rows[1].status).not.toBe('running')
+    expect(rows[1].attempt).toBe(2)
+    expect(rows[1].retry_of_run_id).toBe(crashedRunId)
+    expect(datasetId).not.toBeNull()
   })
 
   it('does not consume an event whose run start fails; retries then abandons durably', async () => {

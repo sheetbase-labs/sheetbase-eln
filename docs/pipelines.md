@@ -128,15 +128,22 @@ those tables. Outputs are written with the run actor's JWT claims through the
 
 - **Duplicate sweeps** never double-start the same occurrence (one running +
   one succeeded run per `trigger_occurrence_id`).
-- **Crash recovery**: a run started but never executed stays `running` for at
-  most the 900s staleness threshold; the next sweep fails it with
-  `stale_run_reconciled` and retries the occurrence as attempt 2.
+- **Crash recovery** (scheduled and event runs): a run started but never
+  executed stays `running` for at most the 900s staleness threshold. Runs
+  link back to their `schedule_id`; the next sweep fails any stale running
+  run for that schedule with `stale_run_reconciled` and starts a linked
+  retry of the **same** `trigger_occurrence_id` (using the crashed run's own
+  stored inputs/parameters) — independent of the schedule's current
+  `next_run_at` or event cursor. A crashed occurrence is therefore
+  recovered, never silently skipped; the event cursor does not move
+  backwards.
 - **Event delivery is at-least-once, not silently lossy**: the per-workspace
-  `change_events` sequence cursor advances only past events with a durable
-  disposition. A failed run start keeps the cursor in place, records the
-  failure in `api.pipeline_trigger_failures`, and is retried on the next
-  sweep; after the retry budget it is explicitly **abandoned** (visible in
-  the failures table) and the cursor advances.
+  `change_events` sequence cursor advances when a run starts; if that run's
+  execution crashes, the sweep recovers it by its `evt:<event_id>` identity.
+  A failed run _start_ keeps the cursor in place, records the failure in
+  `api.pipeline_trigger_failures`, and is retried on the next sweep; after
+  the retry budget it is explicitly **abandoned** (visible in the failures
+  table) and the cursor advances.
 
 ## Triggers
 

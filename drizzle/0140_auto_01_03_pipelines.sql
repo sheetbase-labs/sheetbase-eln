@@ -125,6 +125,7 @@ CREATE TABLE "api"."pipeline_runs" (
   "attempt" integer NOT NULL DEFAULT 1,
   "retry_of_run_id" uuid REFERENCES api.pipeline_runs(id) ON DELETE set null,
   "trigger_occurrence_id" text,
+  "schedule_id" uuid,
   "input_digest" text,
   "parameters" jsonb NOT NULL DEFAULT '{}'::jsonb,
   "input_versions" jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -156,6 +157,9 @@ CREATE TABLE "api"."pipeline_runs" (
   ),
   CONSTRAINT chk_pipeline_runs_digest CHECK (
     input_digest IS NULL OR input_digest ~ '^[0-9a-f]{64}$'
+  ),
+  CONSTRAINT chk_pipeline_runs_schedule CHECK (
+    (schedule_id IS NULL) = (trigger_occurrence_id IS NULL)
   ),
   CONSTRAINT chk_pipeline_runs_parameters CHECK (
     jsonb_typeof(parameters) = 'object'
@@ -342,6 +346,17 @@ GRANT SELECT ON api.pipeline_trigger_failures TO authenticated;
 --> statement-breakpoint
 CREATE POLICY pipeline_trigger_failures_select ON api.pipeline_trigger_failures FOR SELECT TO authenticated
   USING (api.storage_member_using(workspace_id));
+
+--> statement-breakpoint
+
+-- Runs link back to the schedule that triggered them (scheduled + event
+-- runs) so the sweep can find and recover stale occurrences per schedule.
+-- Declared here because pipeline_schedules is created after pipeline_runs.
+ALTER TABLE api.pipeline_runs
+  ADD CONSTRAINT fk_pipeline_runs_schedule
+  FOREIGN KEY (schedule_id) REFERENCES api.pipeline_schedules(id) ON DELETE SET NULL;
+--> statement-breakpoint
+CREATE INDEX idx_pipeline_runs_schedule ON api.pipeline_runs(schedule_id);
 
 --> statement-breakpoint
 
@@ -1072,7 +1087,8 @@ CREATE OR REPLACE FUNCTION api.start_pipeline_run(
   p_parameters jsonb DEFAULT '{}'::jsonb,
   p_input_versions jsonb DEFAULT '{}'::jsonb,
   p_retry_of_run_id uuid DEFAULT NULL,
-  p_trigger_occurrence_id text DEFAULT NULL
+  p_trigger_occurrence_id text DEFAULT NULL,
+  p_schedule_id uuid DEFAULT NULL
 )
 RETURNS api.pipeline_runs
 LANGUAGE plpgsql
@@ -1109,6 +1125,15 @@ BEGIN
     OR p_trigger_occurrence_id !~ '^[a-z]+:[A-Za-z0-9:_+-]+$'
   ) THEN
     RAISE EXCEPTION 'invalid trigger occurrence identity' USING ERRCODE = 'SB034';
+  END IF;
+  IF p_schedule_id IS NOT NULL AND p_trigger_kind = 'manual' THEN
+    RAISE EXCEPTION 'manual runs cannot carry a schedule identity' USING ERRCODE = 'SB034';
+  END IF;
+  IF p_schedule_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM api.pipeline_schedules
+     WHERE id = p_schedule_id AND workspace_id = p_workspace_id
+  ) THEN
+    RAISE EXCEPTION 'schedule not found' USING ERRCODE = 'SB036';
   END IF;
   SELECT * INTO v_version FROM api.pipeline_definition_versions
    WHERE id = p_definition_version_id AND workspace_id = p_workspace_id FOR UPDATE;
@@ -1206,13 +1231,14 @@ BEGIN
 
   INSERT INTO api.pipeline_runs(
     workspace_id, definition_version_id, trigger_kind, status, attempt,
-    retry_of_run_id, trigger_occurrence_id, input_digest, parameters, input_versions,
-    actor_user_id, actor_credential_id
+    retry_of_run_id, trigger_occurrence_id, schedule_id, input_digest,
+    parameters, input_versions, actor_user_id, actor_credential_id
   ) VALUES (
     p_workspace_id, p_definition_version_id, p_trigger_kind, 'running',
     CASE WHEN v_retry_of.id IS NOT NULL THEN v_retry_of.attempt + 1 ELSE 1 END,
     COALESCE(v_retry_of.id, p_retry_of_run_id),
     p_trigger_occurrence_id,
+    p_schedule_id,
     v_digest,
     COALESCE(p_parameters, '{}'::jsonb),
     COALESCE(p_input_versions, '{}'::jsonb),
@@ -1221,8 +1247,8 @@ BEGIN
   RETURN v;
 END $$;
 --> statement-breakpoint
-REVOKE EXECUTE ON FUNCTION api.start_pipeline_run(uuid, uuid, text, jsonb, jsonb, uuid, text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION api.start_pipeline_run(uuid, uuid, text, jsonb, jsonb, uuid, text) TO authenticated;
+REVOKE EXECUTE ON FUNCTION api.start_pipeline_run(uuid, uuid, text, jsonb, jsonb, uuid, text, uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION api.start_pipeline_run(uuid, uuid, text, jsonb, jsonb, uuid, text, uuid) TO authenticated;
 
 --> statement-breakpoint
 

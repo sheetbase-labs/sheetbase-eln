@@ -127,6 +127,8 @@ export interface StartPipelineRunInput {
    * The canonical input_digest is computed server-side, never supplied here.
    */
   triggerOccurrenceId?: string | null
+  /** The schedule that triggered this run (scheduled/event runs only). */
+  scheduleId?: string | null
 }
 
 export async function startPipelineRun(
@@ -141,6 +143,7 @@ export async function startPipelineRun(
     p_input_versions: input.inputVersions ?? {},
     p_retry_of_run_id: input.retryOfRunId ?? null,
     p_trigger_occurrence_id: input.triggerOccurrenceId ?? null,
+    p_schedule_id: input.scheduleId ?? null,
   })
 }
 
@@ -245,7 +248,7 @@ const VERSION_FIELDS =
   'id,definition_id,workspace_id,version,lifecycle,configuration_format_version,configuration,revision,created_at,updated_at,created_by_user_id,published_at,published_by_user_id,retired_at,retired_by_user_id'
 
 const RUN_FIELDS =
-  'id,workspace_id,definition_version_id,trigger_kind,status,attempt,retry_of_run_id,trigger_occurrence_id,input_digest,parameters,input_versions,result,error_code,error_message,started_at,finished_at,actor_user_id,actor_credential_id,created_at'
+  'id,workspace_id,definition_version_id,trigger_kind,status,attempt,retry_of_run_id,trigger_occurrence_id,schedule_id,input_digest,parameters,input_versions,result,error_code,error_message,started_at,finished_at,actor_user_id,actor_credential_id,created_at'
 
 const LOG_FIELDS =
   'id,workspace_id,run_id,sequence,level,stage,message,detail,at'

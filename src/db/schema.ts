@@ -6419,6 +6419,8 @@ export const pipelineRuns = api.table(
      * crash recovery. Manual runs never carry one.
      */
     triggerOccurrenceId: text('trigger_occurrence_id'),
+    /** The schedule that triggered this run (scheduled/event runs). */
+    scheduleId: uuid('schedule_id'),
     inputDigest: text('input_digest'),
     parameters: jsonb('parameters')
       .notNull()
@@ -6500,6 +6502,10 @@ export const pipelineRuns = api.table(
     check(
       'chk_pipeline_runs_digest',
       sql`${table.inputDigest} IS NULL OR ${table.inputDigest} ~ '^[0-9a-f]{64}$'`,
+    ),
+    check(
+      'chk_pipeline_runs_schedule',
+      sql`(${table.scheduleId} IS NULL) = (${table.triggerOccurrenceId} IS NULL)`,
     ),
     check(
       'chk_pipeline_runs_actor_xor',

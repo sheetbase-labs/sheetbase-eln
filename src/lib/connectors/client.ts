@@ -69,6 +69,13 @@ export interface StartConnectorRunInput {
    * request digest is established inside the running attempt pre-commit.
    */
   selectorDigest?: string | null
+  /**
+   * PLAT-02 — runs `running` longer than this are reconciled as stale before
+   * the new attempt starts (a dead process must not wedge the identity).
+   * Omitted on the client; the RPC default and the server executor both
+   * apply the configured staleness threshold.
+   */
+  staleAfterSeconds?: number
 }
 
 export async function startConnectorRun(
@@ -82,6 +89,9 @@ export async function startConnectorRun(
     p_request_digest: input.requestDigest ?? null,
     p_retry_of_run_id: input.retryOfRunId ?? null,
     p_selector_digest: input.selectorDigest ?? null,
+    ...(input.staleAfterSeconds === undefined
+      ? {}
+      : { p_stale_after_seconds: input.staleAfterSeconds }),
   })
 }
 

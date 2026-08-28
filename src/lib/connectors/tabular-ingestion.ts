@@ -41,6 +41,8 @@ import { mapImportSheet, suggestImportMappings } from '../import-mapping'
 import type { ImportColumnMapping, ImportTargetField } from '../import-mapping'
 import { ConnectorExecutionError } from './enterprise/errors'
 import { establishConnectorRunRequest } from './client'
+import type { ConnectorType } from '#/lib/metrics'
+import type { ConnectorRunObservability } from './run'
 import { ConnectorStepError, executeConnectorRun } from './run'
 import { sha256Hex } from './digest'
 
@@ -66,6 +68,12 @@ export interface TabularIngestionTarget {
 export interface TabularIngestionInput {
   workspaceId: string
   connectorId: string
+  /** PLAT-02 bounded metrics label (instrument/storage/database/...). */
+  connectorType?: ConnectorType
+  /** PLAT-02 server-injected metrics/logs; no-op when executed client-side. */
+  observability?: ConnectorRunObservability
+  /** PLAT-02 staleness threshold override (server-side execution only). */
+  staleAfterSeconds?: number
   /** Stable identity recorded in provenance, e.g. `sheetbase.csv@1`. */
   parserIdentity: string
   sheetName: string
@@ -400,9 +408,12 @@ export async function ingestTabularPayload(
       {
         workspaceId: input.workspaceId,
         connectorId: input.connectorId,
+        connectorType: input.connectorType,
         triggerKind: input.triggerKind ?? 'manual',
         requestDigest,
         retryOfRunId,
+        staleAfterSeconds: input.staleAfterSeconds,
+        observability: input.observability,
         startedMessage: `Ingesting ${input.sheetName} (${input.byteSize ?? 'unknown'} bytes).`,
         buildResult: (value) => value.resultPayload,
       },
@@ -527,6 +538,12 @@ export interface ExternalContentResolution {
 export interface ExternalIngestionInput {
   workspaceId: string
   connectorId: string
+  /** PLAT-02 bounded metrics label (storage/database/...). */
+  connectorType?: ConnectorType
+  /** PLAT-02 server-injected metrics/logs; no-op when executed client-side. */
+  observability?: ConnectorRunObservability
+  /** PLAT-02 staleness threshold override (server-side execution only). */
+  staleAfterSeconds?: number
   parserIdentity: string
   sheetName: string
   /**
@@ -591,9 +608,12 @@ export async function ingestExternalPayload(
     {
       workspaceId: input.workspaceId,
       connectorId: input.connectorId,
+      connectorType: input.connectorType,
       triggerKind: input.triggerKind ?? 'manual',
       selectorDigest,
       retryOfRunId,
+      staleAfterSeconds: input.staleAfterSeconds,
+      observability: input.observability,
       startedMessage: `Importing ${input.sheetName}.`,
       buildResult: (value) => value.resultPayload,
     },

@@ -459,10 +459,31 @@ async function main(): Promise<void> {
     if (!options.keep) stopDrillDatabase()
   }
   event({ level: 'info', message: 'restore drill complete' })
+
+  // Optional Prometheus textfile output for the SheetbaseRestoreDrillFailing
+  // alert contract (see deploy/alerts.yml).
+  const textfileDir = process.env.SHEETBASE_METRICS_TEXTFILE_DIR
+  if (textfileDir) {
+    await writeFile(
+      join(textfileDir, 'sheetbase_restore_drill.prom'),
+      'sheetbase_restore_drill_success 1\n',
+    )
+  }
 }
 
 main().catch(async (error) => {
   stopDrillDatabase()
+  const textfileDir = process.env.SHEETBASE_METRICS_TEXTFILE_DIR
+  if (textfileDir) {
+    try {
+      await writeFile(
+        join(textfileDir, 'sheetbase_restore_drill.prom'),
+        'sheetbase_restore_drill_success 0\n',
+      )
+    } catch {
+      // Alert signal is best-effort; the failure exit code is authoritative.
+    }
+  }
   event({
     level: 'error',
     message: 'restore drill failed',

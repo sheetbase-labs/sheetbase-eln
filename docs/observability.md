@@ -2,8 +2,10 @@
 
 API-006 establishes the first layer of operational visibility: health probes,
 request correlation, structured logging and stable public error categories.
-This document is the reference for both — what the endpoints and log fields
-mean, and where to look when local startup or authentication fails.
+PLAT-02 adds metrics, connector-run diagnostics, alert signals and the
+tracing/SLO decisions. This document is the reference for all of it — what
+the endpoints, metrics and log fields mean, and where to look when local
+startup or authentication fails.
 
 ## Health endpoints
 
@@ -58,6 +60,124 @@ correlation id:
    bug report.
 4. Included in every structured log line for the request and in the
    `error.request_id` field of the public error envelope.
+
+Connector runs add a second, durable identifier: `connector_run_id`. HTTP
+requests that execute connector work log both ids (`request_id` for the
+transport, `connector_run_id` for the durable run in `api.connector_runs`),
+so a failed ingestion can be traced from a user's bug-report request id to
+the run's logs, error code, attempt count and duration in the product run
+history. Scientific content (sheet names, row values, payloads) is never
+used as a correlation identifier.
+
+## Metrics
+
+`GET /api/metrics` serves the Prometheus text exposition format (version
+0.0.4) from the in-process registry (`src/lib/metrics.ts`).
+
+**Deployment access model.** The endpoint is never public. In staging and
+production it requires `Authorization: Bearer $SHEETBASE_METRICS_TOKEN`
+(injected by the secret manager), and the app container binds to loopback —
+scrape over the private network (Tailscale/SSH tunnel or an in-VPS scraper).
+With no token configured the endpoint answers 404: fail closed. In
+development it is open on localhost for convenience.
+
+### Metric catalogue
+
+| Metric                                      | Type      | Labels (bounded)                                                                                                                 |
+| ------------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `sheetbase_http_requests_total`             | counter   | `route` (db_proxy, files_upload, files_download, files_upload_authorize, health, metrics), `method`, `status`                    |
+| `sheetbase_http_request_duration_seconds`   | histogram | `route`, `method`                                                                                                                |
+| `sheetbase_db_upstream_requests_total`      | counter   | `category` (public error categories, `ok`)                                                                                       |
+| `sheetbase_db_upstream_duration_seconds`    | histogram | `method`                                                                                                                         |
+| `sheetbase_connector_runs_total`            | counter   | `connector_type` (instrument, storage, webhook, database, custom), `outcome` (started, succeeded, failed, stale_reconciled)      |
+| `sheetbase_connector_run_failures_total`    | counter   | `connector_type`, `error_code` (bounded set, else `other`)                                                                       |
+| `sheetbase_connector_run_duration_seconds`  | histogram | `connector_type`, `outcome`                                                                                                      |
+| `sheetbase_file_operations_total`           | counter   | `operation` (upload, download), `outcome` (ok, oversize, checksum_mismatch, conflict, not_found, not_uploadable, missing, error) |
+| `sheetbase_file_bytes_total`                | counter   | `operation`                                                                                                                      |
+| `sheetbase_file_operation_duration_seconds` | histogram | `operation`                                                                                                                      |
+
+### Cardinality policy
+
+Labels are bounded by construction. Every bounded label validates its values
+against a declared set; an unknown value folds to `other` instead of creating
+a new time series. Request IDs, run IDs, user IDs, workspace IDs, dataset
+IDs, filenames and scientific values are **never** metric labels — they
+belong in logs and the run history, correlated by id. Do not add new labels
+without declaring their allowed values.
+
+## Connector run diagnostics
+
+Connector runs are the durable execution primitive (INT-01). For diagnosis:
+
+- **Product run history** (`/integrations` → connector → runs) shows status,
+  attempt lineage, duration, bounded error code and per-stage logs per run.
+- **Structured logs** carry `connector_run_id`, `connector_type`, `attempt`,
+  `duration_ms` and `error_code` on every start/succeed/fail event.
+- **Metrics** (above) expose rates and durations without ids.
+- **Retry attempts** are visible via `attempt` and `retry_of_run_id` on the
+  run row.
+
+### Stuck runs (reconciliation policy)
+
+A run is request-scoped work in the app process. If a process dies mid-run,
+the run would stay `running` forever, blocking its request digest (SB044)
+and its selector identity (partial unique index). Policy: when a new attempt
+starts for the same identity and the old run has been `running` longer than
+`SHEETBASE_CONNECTOR_RUN_STALE_SECONDS` (default 900 s), the RPC fails it
+with the bounded code `stale_run_reconciled`, appends a `reconcile` warning
+to the run's durable log, and links the new attempt as its retry. Runs
+inside the threshold still conflict — legitimate in-flight work is never
+marked failed. The threshold is also the effective execution timeout for
+connector work; raise it before running anything legitimately slower than
+15 minutes. No second job system or scheduler is introduced.
+
+## Alerts
+
+`deploy/alerts.yml` is the initial machine-consumable alert set for any
+Prometheus-compatible scraper. No alert-delivery platform exists in this
+deployment yet — the rules and thresholds are the contract; wire a scraper
+(load the rules file) when one is introduced. Initial signals:
+
+| Alert                     | Signal                                                             | Severity |
+| ------------------------- | ------------------------------------------------------------------ | -------- |
+| Readiness failing         | `up == 0` for 5 m                                                  | critical |
+| Server error rate         | > 2% of proxy requests for 10 m                                    | critical |
+| Database unavailable      | sustained `service_unavailable` upstream failures                  | critical |
+| Connector failure rate    | > 30% of finished runs over 30 m                                   | warning  |
+| Stale-run reconciliations | any `stale_reconciled` outcome                                     | warning  |
+| Backup missing            | no successful backup in 25 h (`latest.json` age / textfile metric) | critical |
+| Restore drill failing     | last drill failed (textfile metric)                                | warning  |
+
+The backup and restore-drill scripts emit optional Prometheus textfile
+metrics (`SHEETBASE_METRICS_TEXTFILE_DIR`) so the backup alerts have a real
+signal if a node_exporter-style textfile collector is present.
+
+## Tracing decision
+
+Distributed tracing is **deferred**. The deployment is a single app container
+in front of one PostgREST and one PostgreSQL — there is no multi-hop fan-out
+where trace context earns its operational cost. Request correlation
+(`x-request-id` propagated app → PostgREST → logs), structured logs and the
+metrics above already answer "what happened, where, how long". Revisit when
+the topology genuinely fans out (e.g. AUTO workers, multiple app instances
+behind different failure domains); if so, reuse `x-request-id` as the trace
+id rather than introducing a second correlation id.
+
+## SLO measurement plan
+
+The roadmap sets SLOs **after usage data exists**. The metrics above already
+make the future SLIs measurable:
+
+| Future SLI                 | Measured by                                             | Data to collect                        |
+| -------------------------- | ------------------------------------------------------- | -------------------------------------- |
+| Availability               | successful readiness probes / total probes over window  | readiness probe history from a scraper |
+| Request latency            | `sheetbase_http_request_duration_seconds` distributions | continuous scraping                    |
+| Error rate                 | `sheetbase_http_requests_total` by status and category  | continuous scraping                    |
+| Connector run success rate | `sheetbase_connector_runs_total` outcomes               | continuous scraping                    |
+
+**Targets are deliberately deferred.** Set them when there is at least one
+month of scraped history plus real usage evidence; inventing numbers now
+would produce SLOs that are either trivially met or meaninglessly strict.
 
 ## Structured logging
 

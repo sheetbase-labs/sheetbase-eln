@@ -87,6 +87,7 @@ export async function ingestInstrumentPayload(
   const result: TabularIngestionResult = await ingestTabularPayload(client, {
     workspaceId: input.workspaceId,
     connectorId: input.connectorId,
+    connectorType: 'instrument',
     parserIdentity: formatParserIdentity(parser),
     sheetName: input.fileName,
     // Parse inside the governed run so an unreadable payload records a

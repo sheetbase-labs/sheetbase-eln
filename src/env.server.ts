@@ -48,6 +48,19 @@ export const env = createEnv({
     // without a Liveblocks account keep working; the collaboration layer
     // reports `disabled` until this is set. Server-only secret.
     LIVEBLOCKS_SECRET_KEY: z.string().min(1).optional(),
+    // PLAT-02 metrics endpoint bearer token. Optional in development/test;
+    // the metrics endpoint fails closed in staging/production when absent.
+    SHEETBASE_METRICS_TOKEN: z.string().min(32).optional(),
+    // PLAT-02: connector runs running longer than this many seconds are
+    // reconciled as stale by start_connector_run so a dead process can never
+    // wedge a digest/selector forever. This is also the effective execution
+    // timeout for request-scoped connector work.
+    SHEETBASE_CONNECTOR_RUN_STALE_SECONDS: z.coerce
+      .number()
+      .int()
+      .min(30)
+      .max(86_400)
+      .default(900),
     SHEETBASE_DEV_USER_ID: z.string().uuid().default(DEFAULT_DEV_USER_ID),
   },
   runtimeEnv: process.env,

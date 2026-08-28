@@ -8,8 +8,16 @@
  *
  * Retries are a new run attempt linked via `retryOfRunId`; successful work is
  * deduplicated upstream by the connector run's request digest.
+ *
+ * PLAT-02: this module is imported by client code (browser-executed
+ * instrument ingestion), so server observability (metrics + structured logs)
+ * is injected via `observability` by the server execution layer rather than
+ * imported here. Run visibility itself is always durable in
+ * `api.connector_runs` / `api.connector_run_logs` regardless of where the
+ * executor runs.
  */
 import type { DataClient } from '../data-client'
+import type { ConnectorType } from '#/lib/metrics'
 import type { ConnectorRunWire } from './types'
 import {
   appendConnectorRunLog,
@@ -34,9 +42,36 @@ export interface ConnectorRunReport<T> {
  */
 export type RunResultBuilder<T> = (value: T) => Record<string, unknown>
 
+/**
+ * PLAT-02 — server-injected observability hooks. Implemented by
+ * `observability.server.ts` (metrics + structured logs); a no-op default
+ * keeps client-executed runs working without a server environment.
+ */
+export interface ConnectorRunObservability {
+  onStarted: (run: ConnectorRunWire, connectorType: ConnectorType) => void
+  onSucceeded: (
+    run: ConnectorRunWire,
+    connectorType: ConnectorType,
+    durationMs: number,
+  ) => void
+  onFailed: (
+    run: ConnectorRunWire,
+    connectorType: ConnectorType,
+    errorCode: string,
+    durationMs: number,
+  ) => void
+  /** The RPC auto-reconciled a stale `running` attempt before this start. */
+  onStaleReconciled: (
+    run: ConnectorRunWire,
+    connectorType: ConnectorType,
+  ) => void
+}
+
 export interface ExecuteConnectorRunOptions<T> {
   workspaceId: string
   connectorId: string
+  /** Bounded metrics label; unknown connector types fold to 'other'. */
+  connectorType?: ConnectorType
   triggerKind?: 'manual' | 'scheduled' | 'event'
   requestDigest?: string | null
   retryOfRunId?: string | null
@@ -50,6 +85,16 @@ export interface ExecuteConnectorRunOptions<T> {
   startedMessage?: string
   /** Builds the result jsonb recorded on successful completion. */
   buildResult?: RunResultBuilder<T>
+  /**
+   * PLAT-02 — a run `running` longer than this is reconciled as stale by
+   * start_connector_run (a dead process must not wedge a digest/selector
+   * forever). Server-side execution passes the configured
+   * SHEETBASE_CONNECTOR_RUN_STALE_SECONDS; client-executed runs use the RPC
+   * default (900 s).
+   */
+  staleAfterSeconds?: number
+  /** Server-injected metrics/logs; no-op in the browser. */
+  observability?: ConnectorRunObservability
 }
 
 export class ConnectorStepError extends Error {
@@ -86,11 +131,15 @@ export async function executeConnectorRun<T>(
     ) => Promise<void>
   }) => Promise<T>,
 ): Promise<ConnectorRunReport<T>> {
+  const observability = options.observability
+  const connectorType = options.connectorType ?? 'custom'
+  let runStartedAt = 0
   let run: ConnectorRunWire | null = null
   try {
     run = await startConnectorRun(client, {
       ...options,
       selectorDigest: options.selectorDigest ?? null,
+      staleAfterSeconds: options.staleAfterSeconds,
     })
     if (run.status !== 'running') {
       // Digest deduplication returned an already-finished run.
@@ -102,6 +151,14 @@ export async function executeConnectorRun<T>(
         errorMessage: run.error_message ?? undefined,
       }
     }
+    // PLAT-02 — the RPC auto-reconciled a stale `running` run for this
+    // digest/selector: it failed the dead attempt with the bounded
+    // `stale_run_reconciled` code and linked this attempt as its retry.
+    if (run.attempt > 1 && !options.retryOfRunId) {
+      observability?.onStaleReconciled(run, connectorType)
+    }
+    runStartedAt = Date.now()
+    observability?.onStarted(run, connectorType)
     if (options.startedMessage) {
       await appendConnectorRunLog(client, {
         workspaceId: options.workspaceId,
@@ -133,6 +190,7 @@ export async function executeConnectorRun<T>(
       result: options.buildResult?.(value) ?? {},
     })
     run = finished
+    observability?.onSucceeded(run, connectorType, Date.now() - runStartedAt)
     return { status: 'succeeded', run, value }
   } catch (error) {
     const step = error instanceof ConnectorStepError ? error : null
@@ -146,8 +204,15 @@ export async function executeConnectorRun<T>(
           errorCode,
           errorMessage,
         })
+        observability?.onFailed(
+          run,
+          connectorType,
+          errorCode,
+          runStartedAt > 0 ? Date.now() - runStartedAt : 0,
+        )
       } catch {
-        // The run stays 'running' server-side; a manual retry will reconcile.
+        // The run stays 'running' server-side; the next attempt reconciles it
+        // as stale once the staleness threshold passes.
       }
     }
     return { status: 'failed', run, errorCode, errorMessage }

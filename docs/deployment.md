@@ -68,6 +68,13 @@ image.
 
 The `.github/workflows/deploy.yml` workflow runs on every push to `main`. It:
 
+0. **Release gate (`verify` job, PLAT-01):** typecheck, lint, unit tests,
+   database integration tests (against a service PostgreSQL with the same
+   role skeleton as Compose) and a production build must all pass before any
+   image is built. A red gate blocks the release; there is no override
+   switch. The API/browser contract layers (`pnpm test:api`,
+   `pnpm test:browser`) additionally require the pinned PostgREST service and
+   run outside this gate — they are not claimed as CI gates here.
 1. Resolves `node:22-alpine` to its immutable digest via `docker inspect`,
    producing `node:22-alpine@sha256:<64-hex>`.
 2. Sets `SHEETBASE_ARTIFACT_VERSION` to the immutable commit SHA
@@ -95,6 +102,65 @@ are build evidence, not staging evidence.
 
 The custom PostgREST image must also be published and selected by digest. The
 deployment planner rejects mutable application and PostgREST references.
+
+### Hosted surfaces today
+
+The environment model above is the supported _contract_. The surfaces that
+actually exist today are production (`app.sheetbase.co.uk`, deployed
+automatically from `main`) and the disposable development surface
+(`dev.sheetbase.co.uk`, manual dispatch). Test/CI exists as the workflow gate
+environment. Staging is defined but not provisioned; it becomes real only
+when infrastructure evidence exists (see "Outstanding real-environment
+proof"). Nothing in the application branches on `SHEETBASE_ENV=staging`
+beyond the deployed-environment validation rules.
+
+### Configuration that varies / must not vary
+
+- **Varies per environment:** database and PostgREST URLs, OAuth callback
+  origin, secret values, storage backend location, `SHEETBASE_ENV`,
+  `SHEETBASE_SECRET_SOURCE`, artifact identity values.
+- **Must not vary:** the artifact (one digest promoted, never rebuilt per
+  environment), the migration set (pinned in the image), the application's
+  validation rules, and the public API contract. A new environment is new
+  configuration, not new application behaviour.
+
+## Migration strategy
+
+Migrations are Drizzle/PostgreSQL migrations in `drizzle/` — the one
+migration mechanism; no second path exists.
+
+- **When:** migrations run as part of every deployment, ordered before the
+  new application starts (`migrate` one-shot service → `app` starts only
+  after PostgREST is healthy → app listens only after its own readiness
+  contract succeeds).
+- **Who:** the deployment controller (`scripts/deploy.ts`), never an
+  operator's shell. Production deployment cannot depend on someone
+  remembering to run SQL. Local development uses `pnpm db:migrate`.
+- **Concurrency:** the migrate runner (`scripts/migrate-once.mjs`) holds a
+  PostgreSQL advisory lock for the duration, so concurrent migrators
+  (e.g. a retried deploy overlapping the first) serialise instead of racing
+  on the journal. The lock is session-scoped, so a crashed migrator cannot
+  wedge future releases.
+- **Failure behaviour:** a failed migration aborts the deployment before the
+  app starts; the old app container keeps serving with the old artifact
+  against the old-compatible database.
+- **Partially-applied releases:** the readiness gate proves the exact
+  artifact version, digest and applied migration version before the rollout
+  is accepted; a mismatch isolates the rejected app container.
+- **Irreversible migrations:** Drizzle migrations are not reversible by
+  design. Destructive schema changes require a forward-fix migration that
+  restores compatibility with the previous artifact before the old artifact
+  can be re-deployed; otherwise database restore applies (see
+  [`recovery.md`](recovery.md)).
+
+## Feature flags
+
+Deliberately deferred. Sheetbase has no current deployment need: releases
+are low-frequency, the development surface is disposable, and the product
+direction removes superseded paths rather than gating them. Revisit only
+when a concrete need exists (e.g. a risky migration needing staged rollout
+or a tenant-visible rollout). Do not build generic flag machinery because
+PLAT-01 mentions the word.
 
 ## Plan and apply
 
@@ -173,9 +239,10 @@ scope and database even when its non-secret configuration matches staging.
 
 Application rollback is permitted only when the previous artifact's expected
 migration equals the database's current migration. If it differs, readiness will
-reject the old artifact, so stop traffic and roll forward. Database restore is
-not an REL-001 rollback mechanism; backup and restore rehearsal belongs to
-REL-002 and must exist before wider release.
+reject the old artifact, so stop traffic and roll forward with a forward-fix
+migration. Database restore is not an REL-001 rollback mechanism; backups,
+restore procedure, restore drills and RPO/RTO objectives are documented in
+[`recovery.md`](recovery.md) and must exist before wider release.
 
 Record the decision maker, source and target environments, artifact digests,
 migration version, readiness evidence, and rollback decision for every promotion.

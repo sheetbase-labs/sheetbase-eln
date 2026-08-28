@@ -25,8 +25,68 @@ import {
   resolveSessionAuth,
 } from '#/lib/request-auth'
 import type { SessionAuthDeps } from '#/lib/request-auth'
-import { metrics } from '#/lib/metrics'
 import type { FileOutcome } from '#/lib/metrics'
+import { metrics } from '#/lib/metrics'
+import type { RateLimitDecision, RateLimiter } from '#/lib/rate-limit'
+import {
+  RATE_LIMIT_SCOPE_FILES,
+  createRateLimiter,
+  defaultRateLimitOptions,
+} from '#/lib/rate-limit'
+import { logger } from '#/lib/logger'
+import { resolveRequestId } from '#/lib/request-id'
+
+/** PLAT-03 — process-wide file byte-route limiter (per session). */
+const fileRateLimiter: RateLimiter = createRateLimiter(
+  defaultRateLimitOptions({
+    SHEETBASE_RATE_LIMIT_MAX: positiveInt(process.env.SHEETBASE_RATE_LIMIT_MAX),
+    SHEETBASE_RATE_LIMIT_WINDOW_SECONDS: positiveInt(
+      process.env.SHEETBASE_RATE_LIMIT_WINDOW_SECONDS,
+    ),
+  }),
+)
+
+function positiveInt(value: string | undefined): number | undefined {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined
+}
+
+/**
+ * PLAT-03 — abuse bound for the file byte routes (bytes are already capped
+ * per request; this bounds request volume). Fails open by design. Mirrors the
+ * proxy limiter: same bounded outcome metric, a safe warn log with no
+ * principal identifiers, and Retry-After on the rejection.
+ */
+function fileRateLimitDecision(
+  request: Request,
+  sessionId: string,
+  operation: 'upload' | 'download',
+): RateLimitDecision | null {
+  try {
+    const decision = fileRateLimiter.hit(
+      `${RATE_LIMIT_SCOPE_FILES}:${sessionId}`,
+    )
+    if (decision.allowed) return decision
+    logger.warn('file route rate limited', {
+      request_id: resolveRequestId(request.headers),
+      operation,
+    })
+    metrics.fileOperations.inc({ operation, outcome: 'rate_limited' })
+    return decision
+  } catch {
+    return null
+  }
+}
+
+function fileRateLimitedResponse(decision: RateLimitDecision): Response {
+  const response = requestErrorResponse(
+    429,
+    'rate_limited',
+    'Too many requests. Slow down and try again shortly.',
+  )
+  response.headers.set('retry-after', String(decision.retryAfterSeconds ?? 60))
+  return response
+}
 
 /**
  * PLAT-02 — records one file byte-route operation. Labels stay bounded:
@@ -184,6 +244,14 @@ export async function handleUpload(
     )
   }
   const { context } = authResult
+  const uploadRateLimit = fileRateLimitDecision(
+    request,
+    context.sessionId,
+    'upload',
+  )
+  if (uploadRateLimit && !uploadRateLimit.allowed) {
+    return fileRateLimitedResponse(uploadRateLimit)
+  }
   const uploadStartedAt = Date.now()
 
   const selectRes = await postgrestSelect<FileObjectWire[]>(
@@ -319,6 +387,14 @@ export async function handleDownload(
     )
   }
   const { context } = authResult
+  const downloadRateLimit = fileRateLimitDecision(
+    request,
+    context.sessionId,
+    'download',
+  )
+  if (downloadRateLimit && !downloadRateLimit.allowed) {
+    return fileRateLimitedResponse(downloadRateLimit)
+  }
   const downloadStartedAt = Date.now()
 
   const selectRes = await postgrestSelect<FileObjectWire[]>(

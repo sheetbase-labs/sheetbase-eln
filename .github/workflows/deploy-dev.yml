@@ -2,20 +2,26 @@
 # deliberately separate from deploy.yml: it never reads production secrets,
 # never changes the production Compose project, and is manually dispatched so
 # a PR or AMP can update ordinary GitHub code review without deploying.
+#
+# PAUSED (PLAT-03): the GitHub account cannot run hosted-runner jobs, and the
+# canonical release path is now scripts/release.sh on the VPS (pnpm
+# release:local — see docs/deployment.md). The trigger block below is
+# commented out so this workflow cannot fire under any circumstance. To
+# re-enable when hosted runners are available, uncomment the `on:` block.
 
 name: Deploy development environment
 
-on:
-  workflow_dispatch:
-    inputs:
-      ref:
-        description: 'Branch or tag to build and deploy'
-        required: true
-        default: 'main'
-      confirm:
-        description: 'Type "deploy-dev" to confirm'
-        required: true
-        default: ''
+# on: # PAUSED — uncomment to re-enable
+#   workflow_dispatch:
+#     inputs:
+#       ref:
+#         description: 'Branch or tag to build and deploy'
+#         required: true
+#         default: 'main'
+#       confirm:
+#         description: 'Type "deploy-dev" to confirm'
+#         required: true
+#         default: ''
 
 concurrency:
   group: development-deploy

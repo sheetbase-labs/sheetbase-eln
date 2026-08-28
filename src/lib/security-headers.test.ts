@@ -11,6 +11,7 @@ import {
   X_FRAME_OPTIONS,
   applySecurityHeaders,
   buildContentSecurityPolicy,
+  injectNonceIntoHtml,
   securityHeaderEntries,
   stampSecurityHeaders,
 } from './security-headers'
@@ -110,5 +111,50 @@ describe('production static-server helper stays in sync', () => {
     for (const [name] of securityHeaderEntries('production')) {
       expect(source).toContain(name)
     }
+  })
+})
+
+describe('PLAT-03 nonce CSP', () => {
+  it('replaces unsafe-inline with a per-request nonce on script-src', () => {
+    const csp = buildContentSecurityPolicy('production', 'n0nce-abc123')
+    expect(csp).toContain("script-src 'self' 'nonce-n0nce-abc123'")
+    expect(csp).not.toContain("script-src 'self' 'unsafe-inline'")
+    // style-src stays unsafe-inline deliberately (React style attributes are
+    // non-executable data).
+    expect(csp).toContain("style-src 'self' 'unsafe-inline'")
+  })
+
+  it('keeps unsafe-inline only when no nonce applies (non-document responses)', () => {
+    expect(buildContentSecurityPolicy('production')).toContain(
+      "script-src 'self' 'unsafe-inline'",
+    )
+  })
+
+  it('injects the nonce into inline scripts and styles, leaving external scripts alone', () => {
+    const html = [
+      '<html><head>',
+      '<script>(function(){theme()})();</script>',
+      '<style>.x{color:red}</style>',
+      '<script type="module" async="" src="/assets/index-abc.js"></script>',
+      '<script class="$tsr" id="$tsr-stream-barrier">barrier()</script>',
+      '</head></html>',
+    ].join('')
+    const out = injectNonceIntoHtml(html, 'n0nce-xyz')
+    expect(out).toContain('<script nonce="n0nce-xyz">(function(){theme()})();')
+    expect(out).toContain('<style nonce="n0nce-xyz">.x{color:red}</style>')
+    expect(out).toContain(
+      '<script class="$tsr" id="$tsr-stream-barrier" nonce="n0nce-xyz">',
+    )
+    // External module script must not receive a nonce attribute.
+    expect(out).toContain(
+      '<script type="module" async="" src="/assets/index-abc.js"></script>',
+    )
+    expect(out.match(/nonce=/g)).toHaveLength(3)
+  })
+
+  it('does not double-nonce an already nonced tag', () => {
+    const out = injectNonceIntoHtml('<script nonce="a">x()</script>', 'b')
+    expect(out).toContain('nonce="a"')
+    expect(out).not.toContain('nonce="a" nonce="b"')
   })
 })

@@ -1,0 +1,70 @@
+# PLAT-03 — security scanning.
+#
+# Two independent, non-merge-blocking signals (the merge gate in deploy.yml
+# stays typecheck/lint/tests/build + audit):
+#
+#   1. CodeQL SAST for JavaScript/TypeScript on `main` pushes and a weekly
+#      schedule. Findings appear on the Security tab; new alerts are triaged
+#      like bugs but do not block a release by themselves until the alert set
+#      is baselined (documented in docs/security.md).
+#   2. The dependency audit runs here for visibility on `main`; the enforcing
+#      copy runs inside the deploy.yml verify job.
+#
+# Deliberately not triggered on pull_request: pre-merge PR auditing is
+# deferred until the account can run CI reliably (see docs/security.md §4).
+# GitHub marks a job that cannot start because of an account billing limit as
+# "failed", with no "skipped" outcome available from the workflow — so a PR
+# check would report red for environmental reasons while adding no signal the
+# release gate does not already enforce. Re-add a PR-triggered audit workflow
+# when CI is available; the audit command itself is identical.
+
+name: Security
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # Weekly, Monday 06:20 UTC — picks up newly published advisories.
+    - cron: '20 6 * * 1'
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  codeql:
+    name: CodeQL SAST (javascript-typescript)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: security-extended
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+  dependency-audit:
+    name: Dependency audit (high+, prod tree)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.9.0 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Audit production dependencies
+        run: pnpm audit --prod --audit-level=high

@@ -30,7 +30,7 @@ import { createHash } from 'node:crypto'
 import { spawn } from 'node:child_process'
 import { createGzip } from 'node:zlib'
 import { createReadStream, createWriteStream } from 'node:fs'
-import { mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { pipeline } from 'node:stream/promises'
 import { join } from 'node:path'
 
@@ -136,18 +136,23 @@ async function archiveObjects(target: string): Promise<void> {
 async function main(): Promise<void> {
   const startedAt = new Date()
   const prefix = backupPrefix(startedAt)
-  await mkdir(backupDir, { recursive: true })
+  // PLAT-03: backups contain the entire scientific record. Only the owner
+  // may read the directory or the files in it.
+  await mkdir(backupDir, { recursive: true, mode: 0o700 })
+  await chmod(backupDir, 0o700)
 
   const dumpPath = join(backupDir, `${prefix}-db.sql.gz`)
   event({ level: 'info', message: 'backup started', prefix })
 
   await dumpDatabase(dumpPath)
+  await chmod(dumpPath, 0o600)
   const dumpStat = await stat(dumpPath)
 
   let objects: BackupManifest['objects'] = null
   if (includeObjects) {
     const objectsPath = join(backupDir, `${prefix}-objects.tar.gz`)
     await archiveObjects(objectsPath)
+    await chmod(objectsPath, 0o600)
     const objectsStat = await stat(objectsPath)
     objects = {
       archiveBytes: objectsStat.size,
@@ -173,14 +178,15 @@ async function main(): Promise<void> {
   if (!manifestIsComplete(manifest)) {
     throw new Error('produced backup manifest is incomplete')
   }
-  await writeFile(
-    join(backupDir, `${prefix}-manifest.json`),
-    JSON.stringify(manifest, null, 2) + '\n',
-  )
+  const manifestPath = join(backupDir, `${prefix}-manifest.json`)
+  await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + '\n', {
+    mode: 0o600,
+  })
   // Success pointer: its age against the schedule is the missed-backup signal.
   await writeFile(
     join(backupDir, 'latest.json'),
     JSON.stringify({ prefix, finishedAt: manifest.finishedAt }) + '\n',
+    { mode: 0o600 },
   )
 
   // Retention: prune whole sets older than the window (newest always kept).

@@ -1,5 +1,11 @@
 # Deploy Sheetbase ELN to the Hostinger VPS.
 #
+# PAUSED (PLAT-03): the GitHub account cannot run hosted-runner jobs, and the
+# canonical release path is now scripts/release.sh on the VPS (pnpm
+# release:local — see docs/deployment.md). The trigger block below is
+# commented out so this workflow cannot fire under any circumstance. To
+# re-enable when hosted runners are available, uncomment the `on:` block.
+#
 # Architecture:
 #   1. build  — on a GitHub-hosted runner, build the app and PostgREST Docker
 #               images, push them to GHCR with immutable @sha256 digests.
@@ -26,15 +32,15 @@
 
 name: Deploy to production
 
-on:
-  push:
-    branches: [main]
-  workflow_dispatch:
-    inputs:
-      confirm:
-        description: 'Type "deploy" to confirm'
-        required: true
-        default: ''
+# on: # PAUSED — uncomment to re-enable
+#   push:
+#     branches: [main]
+#   workflow_dispatch:
+#     inputs:
+#       confirm:
+#         description: 'Type "deploy" to confirm'
+#         required: true
+#         default: ''
 
 concurrency:
   group: production-deploy
@@ -115,17 +121,14 @@ jobs:
           docker exec "$CID" psql -U sheetbase -d sheetbase \
             -c 'ALTER USER sheetbase CREATEDB'
 
-      # One suite is excluded as a documented, pre-existing baseline failure
-      # on main (verified against origin/main before this gate existed):
-      #   tests/db/core-h1-capability-mask.test.ts —
-      #   "api_client cannot escalate via the GUC" resolves null instead of
-      #   raising 42501. Fixing capability-mask semantics is H1/PLAT-03 work,
-      #   out of PLAT scope; the exclusion is exact (single file), not a
-      #   broad suppression. Remove this exclusion when H1 is fixed.
       - name: Database integration tests
-        run: |
-          pnpm exec vitest run --config vitest.db.config.ts \
-            --exclude tests/db/core-h1-capability-mask.test.ts
+        run: pnpm test:db
+
+      # PLAT-03 — dependency vulnerability gate: the production dependency
+      # tree must be free of high+ advisories (moderates are triaged in
+      # docs/security.md). Visible copies run in security.yml too.
+      - name: Dependency audit
+        run: pnpm audit --prod --audit-level=high
 
       - name: Build
         run: pnpm build

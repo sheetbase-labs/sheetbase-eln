@@ -121,6 +121,7 @@ export type ProxyErrorCode =
   | 'workspace_mismatch'
   | 'invalid_path'
   | 'upstream_unavailable'
+  | 'rate_limited'
 
 const PROXY_ERROR_CATEGORY: Record<ProxyErrorCode, ErrorCategory> = {
   unauthenticated: 'unauthenticated',
@@ -128,6 +129,7 @@ const PROXY_ERROR_CATEGORY: Record<ProxyErrorCode, ErrorCategory> = {
   workspace_mismatch: 'permission_denied',
   invalid_path: 'validation_error',
   upstream_unavailable: 'service_unavailable',
+  rate_limited: 'rate_limited',
 }
 
 const PROXY_ERROR_STATUS: Record<ProxyErrorCode, number> = {
@@ -136,6 +138,7 @@ const PROXY_ERROR_STATUS: Record<ProxyErrorCode, number> = {
   workspace_mismatch: 403,
   invalid_path: 400,
   upstream_unavailable: 502,
+  rate_limited: 429,
 }
 
 const PROXY_ERROR_MESSAGE: Record<ProxyErrorCode, string> = {
@@ -146,6 +149,7 @@ const PROXY_ERROR_MESSAGE: Record<ProxyErrorCode, string> = {
     'The request workspace does not match your active workspace.',
   invalid_path: 'That resource path is not allowed.',
   upstream_unavailable: 'The data service is unavailable. Try again shortly.',
+  rate_limited: 'Too many requests. Slow down and try again shortly.',
 }
 
 /** Categorises a proxy-side error code into the public envelope shape. */

@@ -196,7 +196,7 @@ additional secret needed unless using a PAT.
 
 ## Deployment flow
 
-### Automatic (push to main)
+### Automatic (push to main, when GitHub Actions is available)
 
 1. Push to `main` triggers `.github/workflows/deploy.yml`.
 2. The `build` job builds the app and PostgREST Docker images, pushes them to
@@ -206,6 +206,24 @@ additional secret needed unless using a PAT.
    - `pnpm deploy:plan` — validates image/migration compatibility.
    - `pnpm deploy:apply` — runs migrations, starts the app, polls readiness.
 4. The Cloudflare Tunnel stays up throughout — only the app container restarts.
+
+### Local release (no GitHub Actions required)
+
+When the GitHub account cannot run Actions jobs (hosted-runner billing/limit
+blocks), release from the VPS itself with the same gate and controller:
+
+```bash
+cd /opt/sheetbase
+git fetch origin main
+set -a; . ./.env.production; set +a
+RELEASE_SHA=<full-40-hex-commit-sha> pnpm release:local
+```
+
+This runs the enforced gate (typecheck, lint, unit tests, db tests against a
+disposable container, build, production dependency audit), builds the
+immutable app + PostgREST images locally (no registry), then
+`deploy:plan` → `deploy:apply` with the identical readiness proof. Full
+contract in `docs/deployment.md` → "Releasing without GitHub Actions".
 
 ### Manual
 

@@ -30,7 +30,7 @@ form-action 'self'
 frame-ancestors 'self'
 frame-src 'self'
 object-src 'none'
-script-src 'self' 'unsafe-inline'
+script-src 'self' 'nonce-<per-request>'
 style-src 'self' 'unsafe-inline'
 img-src 'self' data: blob:
 font-src 'self' data:
@@ -42,37 +42,48 @@ worker-src 'self' blob:
 `none`/`DENY` so same-origin Storybook preview iframes still work when
 Storybook is served from this origin.
 
-### CSP (development / test)
+### Nonce CSP (PLAT-03)
 
-Adds `'unsafe-eval'` on `script-src` and `ws:` / `wss:` on `connect-src` for
-Vite HMR. Do not enable that pair in production.
+HTML documents receive a **per-request nonce** (`src/start.ts` middleware +
+`injectNonceIntoHtml` in `src/lib/security-headers.ts`): the nonce is
+generated per response, stamped into the `Content-Security-Policy`
+(`script-src 'self' 'nonce-<n>'`) and injected onto every inline
+`<script>`/`<style>` tag in the server-rendered HTML. Inline scripts are
+therefore allowlisted by nonce and **`script-src` no longer uses
+`'unsafe-inline'`** in production.
 
-## Why `'unsafe-inline'` is still required
+The inline scripts that exist today (verified against a production render):
 
-Inspected loading before locking the policy:
+1. the theme/density no-flash bootstrap (`src/routes/__root.tsx`);
+2. TanStack Router's history-state restore script;
+3. TanStack Start's `$tsr` stream-barrier script;
+4. the hydration-completion script.
 
-- `src/routes/__root.tsx` injects an inline theme/density bootstrap in
-  `<head>` so the first paint matches the saved theme.
-- TanStack Start / Router may emit inline `ScriptOnce` tags during SSR.
-- Handsontable is a dynamically imported **same-origin** client chunk
-  (`src/components/sheet/sheetbase-grid.tsx`); it does not load from a CDN.
-- Fonts come from `@fontsource-variable/*` bundled into app CSS.
-- GitHub OAuth POSTs to `/api/auth/sign-in/social` then does a top-level
-  navigation to GitHub. `connect-src` and `form-action` stay `'self'`.
-- Live events use same-origin `EventSource` at `/api/events`.
-- Report/CSV downloads use `blob:` URLs (`img-src` / `worker-src`).
+Hashes were considered and rejected: scripts 2–4 embed response-dependent
+values (stream ids, route ids), so hashes would break every render. Nonces
+work because the nonce is generated in the same middleware that sets the
+header and rewrites the tags.
 
-Tightening `script-src` to hashes or nonces is a follow-up once those inline
-scripts have a nonce pipeline.
+Implementation trade-off: HTML responses are buffered in the middleware
+before the nonce is injected. Pages are tens of kilobytes; the cost is a
+small TTFB increase versus streaming, in exchange for the nonce guarantee.
+Revisit buffering if streaming latency ever matters on large documents.
 
-## Queued Medium leftovers (do not implement in this slice)
+`style-src` deliberately keeps `'unsafe-inline'`: React inline `style`
+attributes are non-executable data and cannot be nonced; they are not an
+injection surface in this application. Development/test keeps `'unsafe-eval'`
 
-- General API rate-limit architecture (credential exchange is already limited).
-- SAST / dependency-vulnerability pipeline in CI.
-- Backup encryption and restore drills.
-- SECURITY DEFINER / RLS / grants audit.
-- Capability-mask changes; `viewer` read-only belongs to GOV-01.
-- Auth/session review beyond headers.
-- Penetration testing.
+- `ws:`/`wss:` for Vite HMR (never enabled in production).
 
-See `docs/roadmap/tasks/PLAT.md`.
+## Remaining PLAT-03 (status after this slice)
+
+Completed in PLAT-03: general API rate limiting (`docs/security.md`),
+SAST + dependency-audit pipeline (pre-merge PR audit +
+`security.yml` CodeQL on main/weekly + release-gate audit in `deploy.yml`),
+nonce CSP (this document), backup permissions/posture (`docs/recovery.md`),
+SECURITY DEFINER / RLS / grants audit (`docs/security.md`,
+`tests/db/plat-03-security-audit.test.ts`), H1 capability-mask completion
+for `api_client`, auth/session review (`docs/security.md`).
+
+Still queued: penetration testing (needs real usage). See
+`docs/security.md` §5.

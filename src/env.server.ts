@@ -51,6 +51,17 @@ export const env = createEnv({
     // PLAT-02 metrics endpoint bearer token. Optional in development/test;
     // the metrics endpoint fails closed in staging/production when absent.
     SHEETBASE_METRICS_TOKEN: z.string().min(32).optional(),
+    // PLAT-03 — general API abuse bound for the data proxy and file byte
+    // routes (credential exchange keeps its own per-credential limiter).
+    // Requests per window per authenticated principal; fail-open posture.
+    SHEETBASE_RATE_LIMIT_MAX: z.coerce.number().int().min(10).max(100_000)
+      .default(600),
+    SHEETBASE_RATE_LIMIT_WINDOW_SECONDS: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(3_600)
+      .default(60),
     SHEETBASE_DEV_USER_ID: z.string().uuid().default(DEFAULT_DEV_USER_ID),
   },
   runtimeEnv: process.env,

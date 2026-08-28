@@ -10,6 +10,8 @@
  * PostgREST errors are re-wrapped into stable public categories so clients
  * branch on category, not on PostgREST-internal codes.
  */
+import { createHash } from 'node:crypto'
+
 import {
   categorisePostgrestError,
   categoriseProxyError,
@@ -18,6 +20,12 @@ import {
 import type { ProxyErrorCode } from './errors'
 import { logger } from './logger'
 import { metrics } from './metrics'
+import type { RateLimiter } from './rate-limit'
+import {
+  RATE_LIMIT_SCOPE_DB,
+  createRateLimiter,
+  defaultRateLimitOptions,
+} from './rate-limit'
 import {
   buildUpstreamUrl,
   InvalidPostgrestQueryError,
@@ -58,6 +66,71 @@ export interface ProxyDeps {
   ) => Promise<{ workspaceId: string }>
   upstreamBaseUrl: string
   fetchFn?: typeof fetch
+  /**
+   * PLAT-03 — abuse bound for the data proxy. Defaults to a fixed-window
+   * limiter from validated env; tests may inject their own.
+   */
+  rateLimiter?: RateLimiter
+}
+
+/** Process-wide proxy limiter, keyed per authenticated principal. */
+const proxyRateLimiter: RateLimiter = createRateLimiter(
+  defaultRateLimitOptions({
+    SHEETBASE_RATE_LIMIT_MAX: envPositiveInt(process.env.SHEETBASE_RATE_LIMIT_MAX),
+    SHEETBASE_RATE_LIMIT_WINDOW_SECONDS: envPositiveInt(
+      process.env.SHEETBASE_RATE_LIMIT_WINDOW_SECONDS,
+    ),
+  }),
+)
+
+function envPositiveInt(value: string | undefined): number | undefined {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined
+}
+
+function rateLimitKey(principal: string): string {
+  return `${RATE_LIMIT_SCOPE_DB}:${principal}`
+}
+
+/**
+ * Checks the abuse bound for an authenticated principal. Returns a 429
+ * response when blocked (public `rate_limited` envelope, Retry-After) and
+ * records the rejection in the bounded metrics; never throws — the limiter
+ * fails open.
+ */
+function enforceProxyRateLimit(
+  deps: ProxyDeps,
+  principal: string,
+  requestId: string,
+  method: string,
+): Response | null {
+  const limiter = deps.rateLimiter ?? proxyRateLimiter
+  try {
+    const decision = limiter.hit(rateLimitKey(principal), Date.now())
+    if (decision.allowed) return null
+    logger.warn('proxy request rate limited', { request_id: requestId })
+    metrics.httpRequests.inc({
+      route: 'db_proxy',
+      method,
+      status: '429',
+    })
+    metrics.dbUpstreamRequests.inc({ category: 'rate_limited' })
+    const response = stampRequestId(
+      errorEnvelope({
+        ...categoriseProxyError('rate_limited'),
+        requestId,
+      }),
+      requestId,
+    )
+    response.headers.set(
+      'retry-after',
+      String(decision.retryAfterSeconds ?? 60),
+    )
+    return response
+  } catch {
+    // Fail open: bounding abuse must never take the API down.
+    return null
+  }
 }
 
 function proxyErrorResponse(code: ProxyErrorCode, requestId: string): Response {
@@ -176,6 +249,18 @@ export async function handleProxyRequest(
       )
       return response
     }
+    // PLAT-03 — principal is the credential identity, hashed: the raw token
+    // never enters limiter memory.
+    const blocked = enforceProxyRateLimit(
+      deps,
+      createHash('sha256').update(bearer).digest('hex').slice(0, 16),
+      requestId,
+      request.method,
+    )
+    if (blocked) {
+      recordProxyRequest(request.method, 429, startedAt, 'rate_limited')
+      return blocked
+    }
   } else {
     const session = await deps.getSession(request.headers)
     if (!session) {
@@ -191,6 +276,16 @@ export async function handleProxyRequest(
     if (requestedWorkspace && requestedWorkspace !== workspace.id) {
       recordProxyRequest(request.method, 403, startedAt, 'permission_denied')
       return proxyErrorResponse('workspace_mismatch', requestId)
+    }
+    const blocked = enforceProxyRateLimit(
+      deps,
+      session.session.id,
+      requestId,
+      request.method,
+    )
+    if (blocked) {
+      recordProxyRequest(request.method, 429, startedAt, 'rate_limited')
+      return blocked
     }
     token = await deps.mintToken({
       userId: session.user.id,

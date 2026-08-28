@@ -958,6 +958,13 @@
       "when": 1787928600000,
       "tag": "0138_plat_02_stale_run_reconciliation",
       "breakpoints": true
+    },
+    {
+      "idx": 139,
+      "version": "7",
+      "when": 1788015000000,
+      "tag": "0139_plat_03_h1_capability_mask_api_client",
+      "breakpoints": true
     }
   ]
 }

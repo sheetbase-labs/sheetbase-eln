@@ -1,4 +1,4 @@
-/** ADMIN-001 workspace administration route tests. */
+/** PLAT-04 Platform Administration route tests. */
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -6,7 +6,7 @@ import { ShellProvider } from '#/components/app-shell'
 import { Route } from './admin'
 
 const AdminRoute = Route.options.component as React.ComponentType
-let pathname = '/admin/users'
+let pathname = '/admin/dashboard'
 const navigate = vi.fn()
 
 vi.mock('@tanstack/react-router', () => ({
@@ -49,7 +49,95 @@ vi.mock('@tanstack/react-start', () => ({
 
 vi.mock('@tanstack/react-query', async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  useQuery: () => ({ data: [], isLoading: false }),
+  useQuery: ({ queryKey }: { queryKey: readonly unknown[] }) => {
+    const key = queryKey[0] as string
+    const suffix = queryKey[2] as string | undefined
+    const base = { isError: false, isPending: false, isLoading: false }
+
+    if (key === 'admin-platform') {
+      if (suffix === 'diagnostics') {
+        return {
+          ...base,
+          data: {
+            health: {
+              status: 'ready' as const,
+              database: { ok: true, latencyMs: 3 },
+              postgrest: { ok: true, latencyMs: 8 },
+            },
+            deployment: {
+              environment: 'development',
+              artifactVersion: '0.1.0',
+              artifactDigest: 'sha256:test',
+              expectedMigration: '0054',
+              secretSource: 'env',
+            },
+            migration: {
+              status: 'compatible' as const,
+              expected: '0054',
+              applied: '0054',
+            },
+            scheduler: {
+              enabled: true,
+              lastSweepAt: null,
+              sweepIntervalSeconds: 60,
+              enabledScheduleCount: 0,
+              recoveredStaleCount: 0,
+            },
+            pipelineExecutor: {
+              activeRuns: 0,
+              recentFailures: 0,
+              concurrencyLimit: 5,
+              executionTimeoutSeconds: 60,
+              rowCap: 100_000,
+              inputCap: 100_000,
+            },
+            config: {
+              fileBackend: 'local',
+              authMode: 'dev_auth_free',
+              externalApiEnabled: true,
+              connectorSecretEncryptionConfigured: true,
+              metricsEnabled: false,
+              collaborationEnabled: false,
+            },
+          },
+        }
+      }
+      if (suffix === 'usage') {
+        return {
+          ...base,
+          data: {
+            members: 0,
+            records: 0,
+            datasets: 0,
+            datasetVersions: 0,
+            files: 0,
+            fileBytes: 0,
+            connectors: 0,
+            pipelineDefinitions: 0,
+            pipelineRuns: 0,
+            connectorRuns: 0,
+            capacityWarnings: [],
+          },
+        }
+      }
+      if (suffix === 'run-health') {
+        return {
+          ...base,
+          data: {
+            running: [],
+            failed: [],
+            recentlySucceeded: [],
+            counts: { running: 0, failed: 0, recentlySucceeded: 0 },
+          },
+        }
+      }
+      if (suffix === 'attention') {
+        return { ...base, data: [] }
+      }
+      return { ...base, data: undefined }
+    }
+    return { ...base, data: [] }
+  },
   useInfiniteQuery: () => ({
     data: undefined,
     isLoading: false,
@@ -122,34 +210,36 @@ globalThis.ResizeObserver = class {
 
 afterEach(() => {
   cleanup()
-  pathname = '/admin/users'
+  pathname = '/admin/dashboard'
   navigate.mockReset()
 })
 
 describe('AdminRoute', () => {
-  it('renders the dedicated Administration workspace', () => {
-    render(
-      <ShellProvider>
-        <AdminRoute />
-      </ShellProvider>,
-    )
-    expect(screen.getByRole('heading', { name: 'Administration' })).toBeTruthy()
-    expect(screen.getByLabelText('Administration sections')).toBeTruthy()
-  })
-
-  it('renders the Users subpage by default', () => {
+  it('renders the Platform Administration heading', () => {
     render(
       <ShellProvider>
         <AdminRoute />
       </ShellProvider>,
     )
     expect(
-      screen.getByRole('link', { name: 'Users' }).getAttribute('aria-current'),
-    ).toBe('page')
-    expect(screen.getByRole('heading', { name: 'Users' })).toBeTruthy()
+      screen.getByRole('heading', { name: 'Platform Administration' }),
+    ).toBeTruthy()
+    expect(screen.getByLabelText('Administration sections')).toBeTruthy()
   })
 
-  it('renders the audit export action on the Activity subpage', () => {
+  it('renders the Dashboard subpage by default', () => {
+    render(
+      <ShellProvider>
+        <AdminRoute />
+      </ShellProvider>,
+    )
+    expect(
+      screen.getByRole('link', { name: 'Dashboard' }).getAttribute('aria-current'),
+    ).toBe('page')
+    expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeTruthy()
+  })
+
+  it('renders the audit export action on the Audit subpage', () => {
     pathname = '/admin/activity'
     render(
       <ShellProvider>
@@ -168,11 +258,18 @@ describe('AdminRoute', () => {
       </ShellProvider>,
     )
     for (const label of [
-      'Users',
+      'Dashboard',
+      'Members',
       'Project access',
       'Sessions',
       'API credentials',
-      'Activity',
+      'Connectors',
+      'Pipelines',
+      'Storage',
+      'Usage',
+      'Audit',
+      'Diagnostics',
+      'Deployment',
       'Workspace settings',
     ]) {
       expect(screen.getByRole('link', { name: label })).toBeTruthy()
@@ -186,7 +283,7 @@ describe('AdminRoute', () => {
         <AdminRoute />
       </ShellProvider>,
     )
-    expect(screen.getByText(/Govern workspace access/)).toBeTruthy()
+    expect(screen.getByText(/Administer workspace access/)).toBeTruthy()
     expect(screen.queryByText(/scientific models/i)).toBeNull()
   })
 })

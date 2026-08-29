@@ -1,14 +1,16 @@
 import { useQuery } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 
 import { Badge, Table, TableBody, TableCell, TableRow } from '#/components/ui'
 import { fetchDiagnosticsFn } from '#/lib/admin-platform'
 
 const runbooks = [
-  ['Deployment', 'docs/deployment.md'],
-  ['Recovery', 'docs/recovery.md'],
-  ['Security', 'docs/security.md'],
-  ['Performance', 'docs/performance.md'],
-  ['Observability', 'docs/observability.md'],
+  ['Deployment', 'deployment'],
+  ['Recovery', 'recovery'],
+  ['Security', 'security'],
+  ['Performance', 'performance'],
+  ['Observability', 'observability'],
+  ['Administration', 'administration'],
 ] as const
 
 export function AdminDeployment({ workspaceId }: { workspaceId: string }) {
@@ -74,12 +76,20 @@ export function AdminDeployment({ workspaceId }: { workspaceId: string }) {
         <h2 className="font-semibold">Operational runbooks</h2>
         <Table>
           <TableBody>
-            {runbooks.map(([label, path]) => (
+            {runbooks.map(([label, slug]) => (
               <TableRow key={label}>
                 <TableCell className="w-64 text-muted-foreground">
                   {label}
                 </TableCell>
-                <TableCell className="font-mono text-xs">{path}</TableCell>
+                <TableCell>
+                  <Link
+                    to="/docs/$name"
+                    params={{ name: slug }}
+                    className="text-sm text-primary hover:underline"
+                  >
+                    View →
+                  </Link>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

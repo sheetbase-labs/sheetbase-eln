@@ -42,6 +42,7 @@ const roles = Object.keys(WORKSPACE_ROLE_LABELS) as WorkspaceRole[]
 
 export interface AdminMembersProps {
   members: WorkspaceMember[]
+  memberNames: Partial<Record<string, { name: string; email: string }>>
   currentUserId: string
   isOwner: boolean
   selectedUserId: string | null
@@ -64,10 +65,17 @@ export function AdminMembers(props: AdminMembersProps) {
   const [days, setDays] = useState(7)
   const visible = useMemo(
     () =>
-      props.members.filter((member) =>
-        member.userId.toLowerCase().includes(props.search.toLowerCase()),
-      ),
-    [props.members, props.search],
+      props.members.filter((member) => {
+        const q = props.search.toLowerCase()
+        const name = props.memberNames[member.userId]?.name ?? ''
+        const email = props.memberNames[member.userId]?.email ?? ''
+        return (
+          member.userId.toLowerCase().includes(q) ||
+          name.toLowerCase().includes(q) ||
+          email.toLowerCase().includes(q)
+        )
+      }),
+    [props.members, props.search, props.memberNames],
   )
   return (
     <div className="space-y-5">
@@ -107,7 +115,19 @@ export function AdminMembers(props: AdminMembersProps) {
                 className="cursor-pointer"
               >
                 <TableCell className="font-medium">
-                  User {member.userId.slice(0, 8)}
+                  {(() => {
+                    const entry = props.memberNames[member.userId]
+                    return (
+                      <>
+                        {entry?.name ?? `User ${member.userId.slice(0, 8)}`}
+                        {entry?.email && (
+                          <span className="block text-xs font-normal text-muted-foreground">
+                            {entry.email}
+                          </span>
+                        )}
+                      </>
+                    )
+                  })()}
                 </TableCell>
                 <TableCell>
                   <Badge className={WORKSPACE_ROLE_TOKENS[member.role]}>

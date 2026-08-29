@@ -77,6 +77,7 @@ import {
 } from '#/lib/api-credential-admin'
 import type { CreatedCredentialWire } from '#/lib/api-credential-admin'
 import type { Scope } from '#/lib/api-credential-scopes'
+import { fetchMemberNamesFn } from '#/lib/admin-platform'
 
 export const Route = createFileRoute('/admin')({
   beforeLoad: async ({ context: rootContext }) => {
@@ -249,6 +250,11 @@ function AdminRoute() {
   const membersQuery = useQuery({
     queryKey: adminQueryKeys.members(workspaceId),
     queryFn: () => fetchWorkspaceMembers(dataClient, workspaceId),
+    enabled,
+  })
+  const memberNamesQuery = useQuery({
+    queryKey: ['admin-member-names', workspaceId],
+    queryFn: () => fetchMemberNamesFn({ data: { workspaceId } }),
     enabled,
   })
   const invitationsQuery = useQuery({
@@ -498,8 +504,8 @@ function AdminRoute() {
         </header>
       </div>
 
-      <nav aria-label="Administration sections" className="border-y">
-        <div className="mx-auto flex w-full max-w-[1600px] overflow-x-auto px-4 md:px-8">
+      <nav aria-label="Administration sections" className="border-y bg-background">
+        <div className="mx-auto flex w-full max-w-[1600px] gap-0 overflow-x-auto px-4 md:px-8">
           {visibleSections.map((item, index) => {
             const Icon = item.icon
             const active = item.key === activeSection
@@ -512,10 +518,10 @@ function AdminRoute() {
                 params={{ section: item.key }}
                 search={{ model: undefined }}
                 aria-current={active ? 'page' : undefined}
-                className={`relative flex h-11 shrink-0 items-center gap-2 px-3 text-sm no-underline transition-colors ${startsNewGroup ? 'ml-2 border-l pl-5' : ''} ${active ? 'font-medium text-foreground after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:bg-primary' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'}`}
+                className={`relative flex h-11 shrink-0 items-center gap-1.5 px-3 text-sm no-underline transition-colors ${startsNewGroup ? 'ml-1 border-l pl-4 md:ml-3 md:pl-6' : ''} ${active ? 'font-medium text-foreground after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:bg-primary' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'}`}
               >
                 <Icon className="size-4 shrink-0" />
-                {item.label}
+                <span className="whitespace-nowrap">{item.label}</span>
               </Link>
             )
           })}
@@ -544,6 +550,7 @@ function AdminRoute() {
             {activeSection === 'users' ? (
               <AdminMembers
                 members={members}
+                memberNames={memberNamesQuery.data ?? {}}
                 invitations={invitations}
                 currentUserId={context.user.id}
                 isOwner={isOwner}

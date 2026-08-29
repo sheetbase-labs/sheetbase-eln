@@ -840,3 +840,33 @@ export const retryConnectorRunFn = createServerFn({ method: 'POST' })
       await session.release()
     }
   })
+
+// ---------------------------------------------------------------------------
+// fetchMemberNamesFn — resolve user names/emails for workspace members
+// ---------------------------------------------------------------------------
+//
+// workspace_memberships (exposed via PostgREST) only contains user_id, not
+// name/email. internal.user is not readable by the authenticated role, so
+// we use the app's DB connection which has SELECT on internal.user. This is
+// safe: we only return name and email for users in the specified workspace,
+// never secrets.
+export const fetchMemberNamesFn = createServerFn({ method: 'POST' })
+  .validator((input: { workspaceId: string }) => input)
+  .handler(async ({ data }) => {
+    await loadAdminSession(data.workspaceId)
+    const { db } = await import('#/db/client.server')
+    const result = await db.execute(sql`
+      SELECT m.user_id, u.name, u.email
+      FROM api.workspace_memberships m
+      JOIN internal."user" u ON u.id = m.user_id
+      WHERE m.workspace_id = ${data.workspaceId}::uuid
+    `)
+    const names: Record<string, { name: string; email: string }> = {}
+    for (const row of result.rows) {
+      names[String(row.user_id)] = {
+        name: String(row.name ?? ''),
+        email: String(row.email ?? ''),
+      }
+    }
+    return names
+  })

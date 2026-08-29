@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { marked } from 'marked'
 
 const DOC_NAMES = [
@@ -11,6 +11,11 @@ const DOC_NAMES = [
 ] as const
 
 export const Route = createFileRoute('/docs/$name')({
+  beforeLoad: async ({ context: rootContext }) => {
+    const context = rootContext.auth
+    if (!context) throw redirect({ to: '/sign-in' })
+    return { context }
+  },
   loader: async ({ params }) => {
     const name = params.name
     if (!DOC_NAMES.includes(name as (typeof DOC_NAMES)[number])) {

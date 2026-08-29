@@ -409,10 +409,13 @@ export function deterministicSample<T>(
   cap: number,
 ): { items: T[]; sampled: boolean; stride: number } {
   if (items.length <= cap) return { items, sampled: false, stride: 1 }
-  const stride = Math.ceil(items.length / cap)
+  if (cap <= 0) return { items: [], sampled: true, stride: items.length }
   const sampled: T[] = []
-  for (let i = 0; i < items.length; i += stride) sampled.push(items[i])
-  return { items: sampled, sampled: true, stride }
+  for (let i = 0; i < cap; i++) {
+    const index = Math.floor((i * items.length) / cap)
+    sampled.push(items[index])
+  }
+  return { items: sampled, sampled: true, stride: items.length / cap }
 }
 
 export interface GroupedSummary {

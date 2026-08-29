@@ -129,7 +129,7 @@ unit symbol. This layer does not invent unit conversion.
 
 Live reads cap at 10 000 rows (`SCI_ANALYSIS_ROW_LIMIT`). Datasets at or
 below that envelope are fetched in full for analysis; scatter marks may be
-stride-sampled to a chart-wide 4000-point display budget after statistics.
+evenly sampled to a chart-wide 4000-point display budget after statistics.
 Above 10 000 rows the chart reports `dataset_too_large`. Sampling is
 deterministic and disclosed (`totalCount`, `sampledCount`, `analysisCount`).
 OLS, grouped statistics and violin density use the full analysis set, not

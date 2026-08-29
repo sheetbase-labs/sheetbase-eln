@@ -616,7 +616,7 @@ function AdminRoute() {
               />
             ) : null}
             {activeSection === 'diagnostics' ? (
-              <AdminDiagnostics workspaceId={workspaceId} />
+              <AdminDiagnostics workspaceId={workspaceId} role={role ?? ''} />
             ) : null}
             {activeSection === 'deployment' ? (
               <AdminDeployment workspaceId={workspaceId} />

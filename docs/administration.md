@@ -55,6 +55,12 @@ Key invariants:
   Capability mask is fail-closed for `api_client` (migration 0139).
 - Role changes take effect immediately through server-side capability
   resolution; the UI does not cache capabilities.
+- **Server-authoritative enforcement**: every privileged admin server function
+  calls `api.has_capability()` directly (via `requireCapability()`), not just
+  the route-level capability check. An ordinary member cannot call a privileged
+  admin server function directly even if they know the endpoint. The UI
+  navigation gating and the server function enforcement use the same canonical
+  capability source.
 
 ## Workspace settings
 
@@ -119,36 +125,63 @@ canonical scope vocabulary.
 
 ## Connector administration
 
-The Connectors section (`/admin/connectors`, `integrations.manage`) provides:
+The Connectors section (`/admin/connectors`, `integrations.manage`) provides
+an operational overview with targeted actions. It is not a duplicate of the
+connector product surface — detailed configuration and secret management are
+delegated to the canonical Integration detail pages.
+
+### Directly available in `/admin/connectors`
 
 - **Connector list** — name, type, direction, status, last run, last result,
   error state.
 - **Enable/disable** — toggle connector active/paused state.
-- **Edit non-secret config** — update connector configuration.
-- **Manage secret references** — set, replace, or remove sealed secrets.
-  Plaintext secret values are never returned.
-- **Run** — trigger a connector run.
-- **Retry failed run** — retry the last failed run.
-- **Inspect run history** — link to detailed connector run views.
+- **Retry failed run** — retry the most recent failed run via the canonical
+  `api.start_connector_run` RPC (with `retry_of_run_id`). Requires
+  `integrations.manage`. Confirmation is not required (non-destructive retry).
+- **Secret state** — shows configured/missing for each connector's required
+  secrets. Plaintext values are never exposed.
+
+### Delegated to canonical Integration pages
+
+The following operations are available on the existing connector/Integration
+detail surfaces (linked from the admin connector list), not duplicated in
+`/admin`:
+
+- **Edit non-secret config** — full connector configuration editing.
+- **Manage secret references** — set, replace, or remove sealed secrets via
+  the canonical encrypted secret model (`internal.connector_secrets`).
+- **Run** — trigger a connector run (full run configuration).
+- **Inspect run history** — detailed per-run views with logs and output.
 
 ### Connector secret administration
 
-Secret state is shown as configured/missing with the secret name/reference.
-Plaintext values are never exposed. Operations: set, replace, remove (where
-safe). Uses the existing canonical encrypted secret model
-(`internal.connector_secrets`).
+Secret state is shown as configured/missing with the secret name/reference in
+the admin overview. Plaintext values are never exposed. Setting, replacing,
+or removing secrets is performed on the canonical Integration detail page,
+which uses the existing encrypted secret model (`internal.connector_secrets`).
+This avoids creating connector-specific ad-hoc secret storage.
 
 ## Pipeline administration
 
 The Pipelines section (`/admin/pipelines`, `pipelines.manage`) provides
-operational administration, not authoring duplication:
+operational administration, not authoring duplication.
+
+### Directly available in `/admin/pipelines`
 
 - **Pipeline definitions** — name, status, current published version.
 - **Schedules** — kind, enabled, next run, last run, timezone, event selector.
+- **Schedule enable/disable** — toggle pipeline schedules via the canonical
+  `api.update_pipeline_schedule` RPC. Requires `pipelines.manage`. Produces
+  audit/change evidence.
 - **Run health** — recent failed/running/stale counts.
-- **Schedule enable/disable** — toggle pipeline schedules.
-- **Retry/cancel** — where already supported by the canonical pipeline runtime.
-- **Navigation** — links to the Pipeline authoring surface at `/pipelines`.
+- **Retry/cancel** — links to the canonical pipeline run detail for retry/cancel
+  where supported by the pipeline runtime.
+
+### Delegated to canonical Pipeline surface
+
+- **Pipeline authoring** — creating, editing, and publishing Pipeline
+  definitions is done at `/pipelines` (AUTO-03). The admin page links to the
+  authoring surface.
 
 This does not rebuild AUTO-03 authoring. See `docs/pipelines.md` for the
 canonical Pipeline model.
@@ -172,8 +205,10 @@ The Storage section (`/admin/storage`, any member) shows:
 
 - File count and total bytes.
 - Dataset count and Dataset Version count.
-- Largest files (bounded to 10) with name, type, size, status, storage
-  backend, and linked Record context.
+- Largest files (bounded to 10, ordered by byte_size descending) with name,
+  type, size, status, storage backend, and linked Record context.
+- Recent files (bounded to 10, ordered by created_at descending) with the same
+  metadata.
 
 Estimates are labelled explicitly. Exact physical storage metrics are not
 fabricated if the database cannot provide them cheaply.
@@ -217,12 +252,16 @@ The Diagnostics section (`/admin/diagnostics`, any member) surfaces:
 
 - **App health** — status (ready/not_ready/degraded), database probe,
   PostgREST probe.
-- **Scheduler diagnostics** — enabled, last sweep, sweep interval, enabled
-  schedule count, recovered stale count.
+- **Scheduler diagnostics** — enabled state from `SHEETBASE_SCHEDULER_ENABLED`,
+  last evaluated schedule timestamp, sweep interval, enabled schedule count,
+  recovered stale count. When the scheduler is disabled, status shows
+  "Disabled". When enabled but no schedules have been evaluated, last sweep
+  shows "No schedules evaluated yet" rather than a false healthy value.
 - **Pipeline executor diagnostics** — active runs, recent failures,
   concurrency limit, execution timeout, row/input caps.
 - **Connector diagnostics** — active/paused counts, recent failures, missing
-  secrets, repeated failures, per-connector status.
+  secrets, repeated failures, per-connector status. Requires
+  `integrations.manage`; non-managers do not see this section.
 - **Configuration state** — file backend, auth mode, external API enabled,
   connector secret encryption, metrics enabled, collaboration enabled.
 - **Migration state** — current vs expected migration, up to date/behind/unknown.
@@ -337,11 +376,14 @@ history forever." See `docs/testing.md` for pagination conventions.
 ### Diagnose a failed connector
 
 1. Navigate to `/admin/diagnostics` (any member).
-2. Check the connector diagnostics section for missing secrets or repeated
-   failures.
+2. Check the connector diagnostics section (requires `integrations.manage`)
+   for missing secrets or repeated failures.
 3. Navigate to `/admin/connectors` (`integrations.manage`).
 4. Review the connector's last run error and status.
-5. Replace missing secrets or fix configuration, then retry the run.
+5. If the last run failed, click "Retry" to retry via the canonical
+   `api.start_connector_run` RPC.
+6. For secret management or full configuration changes, follow the link to the
+   canonical Integration detail page.
 
 ### Check migration state
 

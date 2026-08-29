@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import {
   Badge,
@@ -11,7 +11,10 @@ import {
   TableHeader,
   TableRow,
 } from '#/components/ui'
-import { fetchRunHealthFn } from '#/lib/admin-platform'
+import {
+  fetchRunHealthFn,
+  togglePipelineScheduleFn,
+} from '#/lib/admin-platform'
 import { hasCapability } from '#/lib/capability'
 
 import { createDataClient } from '#/lib/data-client'
@@ -32,6 +35,7 @@ export function AdminPipelines({
   workspaceId: string
   role: string
 }) {
+  const queryClient = useQueryClient()
   const canManage = hasCapability(role, 'pipelines.manage')
   const definitionsQuery = useQuery({
     queryKey: pipelineQueryKeys.definitions,
@@ -48,6 +52,23 @@ export function AdminPipelines({
   const healthQuery = useQuery({
     queryKey: ['admin', workspaceId, 'run-health'],
     queryFn: () => fetchRunHealthFn({ data: { workspaceId } }),
+  })
+  const toggleSchedule = useMutation({
+    mutationFn: ({
+      scheduleId,
+      enabled,
+    }: {
+      scheduleId: string
+      enabled: boolean
+    }) =>
+      togglePipelineScheduleFn({
+        data: { workspaceId, scheduleId, enabled },
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: pipelineQueryKeys.schedules,
+      })
+    },
   })
   const definitions = definitionsQuery.data ?? []
   const definitionById = new Map(
@@ -137,6 +158,7 @@ export function AdminPipelines({
                 <TableHead>Next run</TableHead>
                 <TableHead>Last run</TableHead>
                 <TableHead>Timezone</TableHead>
+                {canManage ? <TableHead>Actions</TableHead> : null}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -180,13 +202,34 @@ export function AdminPipelines({
                       {formatRelativeTime(schedule.last_run_at)}
                     </TableCell>
                     <TableCell>{timeZone}</TableCell>
+                    {canManage ? (
+                      <TableCell>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={
+                            toggleSchedule.isPending ||
+                            toggleSchedule.variables?.scheduleId ===
+                              schedule.id
+                          }
+                          onClick={() =>
+                            toggleSchedule.mutate({
+                              scheduleId: schedule.id,
+                              enabled: !schedule.enabled,
+                            })
+                          }
+                        >
+                          {schedule.enabled ? 'Disable' : 'Enable'}
+                        </Button>
+                      </TableCell>
+                    ) : null}
                   </TableRow>
                 )
               })}
               {!schedulesQuery.data?.length ? (
                 <TableRow>
                   <TableCell
-                    colSpan={6}
+                    colSpan={canManage ? 7 : 6}
                     className="py-8 text-center text-muted-foreground"
                   >
                     No schedules.

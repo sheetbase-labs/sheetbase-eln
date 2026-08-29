@@ -11,7 +11,10 @@ import {
   TableHeader,
   TableRow,
 } from '#/components/ui'
-import { fetchConnectorDiagnosticsFn } from '#/lib/admin-platform'
+import {
+  fetchConnectorDiagnosticsFn,
+  retryConnectorRunFn,
+} from '#/lib/admin-platform'
 import { hasCapability } from '#/lib/capability'
 
 import {
@@ -65,8 +68,9 @@ export function AdminConnectors({
   const diagnosticsQuery = useQuery({
     queryKey: [...connectorQueryKeys.connectors, 'diagnostics', workspaceId],
     queryFn: () => fetchConnectorDiagnosticsFn({ data: { workspaceId } }),
+    enabled: canManage,
   })
-  const mutation = useMutation({
+  const toggleMutation = useMutation({
     mutationFn: (connector: (typeof connectors)[number]) =>
       updateConnector(dataClient, {
         workspaceId,
@@ -78,27 +82,38 @@ export function AdminConnectors({
         queryKey: connectorQueryKeys.connectors,
       }),
   })
+  const retryMutation = useMutation({
+    mutationFn: (runId: string) =>
+      retryConnectorRunFn({ data: { workspaceId, runId } }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: connectorQueryKeys.connectors,
+      })
+    },
+  })
   const diagnostics = diagnosticsQuery.data
   const diagnosticById = new Map(
     diagnostics?.connectors.map((item) => [item.id, item]),
   )
   const error =
-    connectorsQuery.error ?? diagnosticsQuery.error ?? mutation.error
+    connectorsQuery.error ?? diagnosticsQuery.error ?? toggleMutation.error
 
   return (
     <div className="space-y-6">
       <div className="grid gap-3 sm:grid-cols-4">
-        {[
-          ['Active connectors', diagnostics?.activeConnectors ?? 0],
-          ['Paused', diagnostics?.pausedConnectors ?? 0],
-          ['Recent failures', diagnostics?.recentFailures ?? 0],
-          ['Missing secrets', diagnostics?.missingSecrets ?? 0],
-        ].map(([label, value]) => (
-          <div key={label} className="rounded-lg border bg-background p-3">
-            <div className="text-2xl font-semibold">{value}</div>
-            <div className="text-xs text-muted-foreground">{label}</div>
-          </div>
-        ))}
+        {canManage ? (
+          [
+            ['Active connectors', diagnostics?.activeConnectors ?? 0],
+            ['Paused', diagnostics?.pausedConnectors ?? 0],
+            ['Recent failures', diagnostics?.recentFailures ?? 0],
+            ['Missing secrets', diagnostics?.missingSecrets ?? 0],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-lg border bg-background p-3">
+              <div className="text-2xl font-semibold">{value}</div>
+              <div className="text-xs text-muted-foreground">{label}</div>
+            </div>
+          ))
+        ) : null}
       </div>
       {error ? (
         <p role="alert" className="text-sm text-destructive">
@@ -123,6 +138,8 @@ export function AdminConnectors({
             {connectors.map((connector) => {
               const run = runsQuery.data?.get(connector.id)
               const diagnostic = diagnosticById.get(connector.id)
+              const canRetry =
+                canManage && run?.status === 'failed'
               return (
                 <TableRow key={connector.id}>
                   <TableCell className="font-medium">
@@ -150,7 +167,11 @@ export function AdminConnectors({
                     {run?.status ?? diagnostic?.lastRunStatus ?? '—'}
                   </TableCell>
                   <TableCell>
-                    {diagnostic?.hasSecrets ? 'Configured' : 'Missing'}
+                    {canManage
+                      ? diagnostic?.hasSecrets
+                        ? 'Configured'
+                        : 'Missing'
+                      : '—'}
                   </TableCell>
                   <TableCell className="space-x-2">
                     {canManage ? (
@@ -158,11 +179,25 @@ export function AdminConnectors({
                         size="sm"
                         variant="outline"
                         disabled={
-                          mutation.isPending || connector.status === 'archived'
+                          toggleMutation.isPending ||
+                          connector.status === 'archived'
                         }
-                        onClick={() => mutation.mutate(connector)}
+                        onClick={() => toggleMutation.mutate(connector)}
                       >
                         {connector.status === 'active' ? 'Disable' : 'Enable'}
+                      </Button>
+                    ) : null}
+                    {canRetry ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={
+                          retryMutation.isPending &&
+                          retryMutation.variables === run.id
+                        }
+                        onClick={() => retryMutation.mutate(run.id)}
+                      >
+                        Retry
                       </Button>
                     ) : null}
                     {canManage ? (

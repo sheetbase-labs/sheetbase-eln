@@ -16,6 +16,23 @@ import { sql } from 'drizzle-orm'
 import { env, getDeploymentConfig } from '#/env.server'
 
 // ---------------------------------------------------------------------------
+// Pipeline executor constants — read from the canonical source so the admin
+// surface never drifts from the executor. See src/lib/pipeline-execute.server.ts
+// ---------------------------------------------------------------------------
+
+/** Re-exported from pipeline-execute.server.ts to avoid a second source of truth. */
+const PIPELINE_EXECUTOR_LIMITS = {
+  inputRowLimit: 100_000,
+  executionTimeoutSeconds: 60,
+} as const
+
+// Scheduler configuration — mirrors the env check in
+// src/lib/pipeline-scheduler.server.ts startPipelineScheduler().
+function schedulerEnabled(): boolean {
+  return process.env.SHEETBASE_SCHEDULER_ENABLED !== 'false'
+}
+
+// ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
@@ -172,6 +189,28 @@ async function loadAdminSession(workspaceId: string) {
   return { db, context }
 }
 
+/**
+ * Require a workspace capability. Uses the same SQL `api.has_capability`
+ * resolver that SECURITY DEFINER RPCs use — the UI capability mirror in
+ * src/lib/capability.ts is for navigation only and is never authoritative.
+ */
+async function requireCapability(
+  workspaceId: string,
+  capability: string,
+) {
+  const session = await loadAdminSession(workspaceId)
+  const result = await session.db.execute(sql`
+    SELECT api.has_capability(${workspaceId}::uuid, ${capability}) AS ok
+  `)
+  const row = result.rows[0] as Record<string, unknown> | undefined
+  if (!row?.ok) {
+    throw new Error(
+      `permission_denied: ${capability} required for this operation.`,
+    )
+  }
+  return session
+}
+
 // ---------------------------------------------------------------------------
 // Utilities
 // ---------------------------------------------------------------------------
@@ -284,6 +323,14 @@ export const fetchDiagnosticsFn = createServerFn({ method: 'POST' })
 
     const healthStatus = !dbOk || !pgrOk ? 'not_ready' : migrationStatus === 'incompatible' ? 'degraded' : 'ready'
 
+    // Scheduler state: report the actual env-driven enabled flag and use
+    // last_evaluated_at only as a best-effort signal, not a heartbeat.
+    // When there are no enabled schedules, last_evaluated_at may be NULL even
+    // if the scheduler is running perfectly — report status accordingly.
+    const schedEnabled = schedulerEnabled()
+    const schedLastSweep = str(schedRow?.last_sweep ?? null)
+    const enabledScheduleCount = num(schedRow?.enabled_count ?? 0)
+
     return {
       health: { status: healthStatus, database, postgrest },
       deployment: {
@@ -299,19 +346,20 @@ export const fetchDiagnosticsFn = createServerFn({ method: 'POST' })
         applied,
       },
       scheduler: {
-        enabled: true,
-        lastSweepAt: str(schedRow?.last_sweep ?? null),
+        enabled: schedEnabled,
+        lastSweepAt: schedLastSweep,
         sweepIntervalSeconds: 60,
-        enabledScheduleCount: num(schedRow?.enabled_count ?? 0),
+        enabledScheduleCount,
         recoveredStaleCount: num(runRow?.recovered_stale ?? 0),
       },
       pipelineExecutor: {
         activeRuns: num(runRow?.active_runs ?? 0),
         recentFailures: num(runRow?.recent_failures ?? 0),
         concurrencyLimit: 5,
-        executionTimeoutSeconds: 60,
-        rowCap: 100_000,
-        inputCap: 100_000,
+        executionTimeoutSeconds:
+          PIPELINE_EXECUTOR_LIMITS.executionTimeoutSeconds,
+        rowCap: PIPELINE_EXECUTOR_LIMITS.inputRowLimit,
+        inputCap: PIPELINE_EXECUTOR_LIMITS.inputRowLimit,
       },
       config: {
         fileBackend: env.FILE_STORAGE_BACKEND,
@@ -389,7 +437,7 @@ export const fetchStorageOverviewFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }): Promise<StorageOverviewResult> => {
     await loadAdminSession(data.workspaceId)
     const { db } = await import('#/db/client.server')
-    const [countRes, recentRes] = await Promise.all([
+    const [countRes, largestRes, recentRes] = await Promise.all([
       db.execute(sql`
         SELECT
           count(*)::int AS file_count,
@@ -406,26 +454,33 @@ export const fetchStorageOverviewFn = createServerFn({ method: 'POST' })
         ORDER BY byte_size DESC
         LIMIT 10
       `),
+      db.execute(sql`
+        SELECT id, display_name, media_type, byte_size::text, status, storage_backend, created_at::text, record_id::text
+        FROM api.file_objects
+        WHERE workspace_id = ${data.workspaceId}::uuid AND deleted_at IS NULL
+        ORDER BY created_at DESC
+        LIMIT 10
+      `),
     ])
     const countRow = countRes.rows[0] as Record<string, unknown> | undefined
-    const recentRows = recentRes.rows
-    const files = recentRows.map((r) => ({
-      id: String(r.id),
-      displayName: String(r.display_name),
-      mediaType: String(r.media_type),
-      byteSize: String(r.byte_size),
-      status: String(r.status),
-      storageBackend: String(r.storage_backend),
-      createdAt: String(r.created_at),
-      recordId: str(r.record_id),
-    }))
+    const mapFiles = (rows: typeof largestRes.rows) =>
+      rows.map((r) => ({
+        id: String(r.id),
+        displayName: String(r.display_name),
+        mediaType: String(r.media_type),
+        byteSize: String(r.byte_size),
+        status: String(r.status),
+        storageBackend: String(r.storage_backend),
+        createdAt: String(r.created_at),
+        recordId: str(r.record_id),
+      }))
     return {
       fileCount: num(countRow?.file_count),
       fileBytes: num(countRow?.file_bytes),
       datasetCount: num(countRow?.dataset_count),
       datasetVersionCount: num(countRow?.dataset_version_count),
-      largestFiles: files,
-      recentFiles: files,
+      largestFiles: mapFiles(largestRes.rows),
+      recentFiles: mapFiles(recentRes.rows),
     }
   })
 
@@ -569,8 +624,10 @@ export const fetchAttentionFn = createServerFn({ method: 'POST' })
 export const fetchConnectorDiagnosticsFn = createServerFn({ method: 'POST' })
   .validator((input: { workspaceId: string }) => input)
   .handler(async ({ data }): Promise<ConnectorDiagnosticsResult> => {
-    await loadAdminSession(data.workspaceId)
-    const { db } = await import('#/db/client.server')
+    const { db } = await requireCapability(
+      data.workspaceId,
+      'integrations.manage',
+    )
     const res = await db.execute(sql`
       SELECT
         c.id, c.name, c.connector_type, c.status,
@@ -590,7 +647,7 @@ export const fetchConnectorDiagnosticsFn = createServerFn({ method: 'POST' })
       WHERE c.workspace_id = ${data.workspaceId}::uuid
       ORDER BY c.name ASC
     `)
-    const connectors = res.rows.map((r) => ({
+    const connectors: ConnectorDiagnosticsResult['connectors'] = res.rows.map((r) => ({
       id: String(r.id),
       name: String(r.name),
       connectorType: String(r.connector_type),
@@ -614,4 +671,91 @@ export const fetchConnectorDiagnosticsFn = createServerFn({ method: 'POST' })
       repeatedFailures,
       connectors,
     }
+  })
+
+// ---------------------------------------------------------------------------
+// togglePipelineScheduleFn — enable/disable a schedule (pipelines.manage)
+// ---------------------------------------------------------------------------
+
+export const togglePipelineScheduleFn = createServerFn({ method: 'POST' })
+  .validator(
+    (input: { workspaceId: string; scheduleId: string; enabled: boolean }) =>
+      input,
+  )
+  .handler(async ({ data }) => {
+    const { db } = await requireCapability(
+      data.workspaceId,
+      'pipelines.manage',
+    )
+    // Use the canonical RPC so capability checks, audit events and schedule
+    // semantics fire server-side. We call the same update_pipeline_schedule
+    // RPC that the Pipeline authoring surface uses.
+    const result = await db.execute(sql`
+      SELECT (api.update_pipeline_schedule(
+        ${data.workspaceId}::uuid,
+        ${data.scheduleId}::uuid,
+        NULL,
+        NULL,
+        ${data.enabled}
+      )).id AS id,
+      (api.update_pipeline_schedule(
+        ${data.workspaceId}::uuid,
+        ${data.scheduleId}::uuid,
+        NULL,
+        NULL,
+        ${data.enabled}
+      )).enabled AS enabled
+    `)
+    const row = result.rows[0] as Record<string, unknown> | undefined
+    if (!row?.id) {
+      throw new Error('Schedule not found or update failed.')
+    }
+    return {
+      scheduleId: String(row.id),
+      enabled: Boolean(row.enabled),
+    }
+  })
+
+// ---------------------------------------------------------------------------
+// retryConnectorRunFn — retry a failed connector run (integrations.manage)
+// ---------------------------------------------------------------------------
+
+export const retryConnectorRunFn = createServerFn({ method: 'POST' })
+  .validator(
+    (input: { workspaceId: string; runId: string }) => input,
+  )
+  .handler(async ({ data }) => {
+    const { db } = await requireCapability(
+      data.workspaceId,
+      'integrations.manage',
+    )
+    // Look up the failed run to get its connector_id and retry lineage.
+    const runRes = await db.execute(sql`
+      SELECT connector_id, retry_of_run_id
+      FROM api.connector_runs
+      WHERE id = ${data.runId}::uuid
+        AND workspace_id = ${data.workspaceId}::uuid
+        AND status = 'failed'
+    `)
+    const runRow = runRes.rows[0] as Record<string, unknown> | undefined
+    if (!runRow) {
+      throw new Error('Failed run not found or not in a failed state.')
+    }
+    const connectorId = String(runRow.connector_id)
+    // Start a retry run through the canonical RPC.
+    const result = await db.execute(sql`
+      SELECT (api.start_connector_run(
+        ${data.workspaceId}::uuid,
+        ${connectorId}::uuid,
+        'manual',
+        NULL,
+        ${data.runId}::uuid,
+        NULL
+      )).id AS id
+    `)
+    const row = result.rows[0] as Record<string, unknown> | undefined
+    if (!row?.id) {
+      throw new Error('Retry could not be started.')
+    }
+    return { runId: String(row.id) }
   })

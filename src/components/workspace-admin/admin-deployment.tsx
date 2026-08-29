@@ -54,7 +54,6 @@ export function AdminDeployment({ workspaceId }: { workspaceId: string }) {
   return (
     <div className="space-y-8">
       <section className="space-y-2">
-        <h2 className="font-semibold">Deployment</h2>
         {diagnostics.isPending ? (
           <p className="text-sm text-muted-foreground">
             Loading deployment information…

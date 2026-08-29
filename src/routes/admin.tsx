@@ -492,7 +492,7 @@ function AdminRoute() {
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto w-full max-w-[1600px] px-4 pt-6 pb-5 md:px-8">
+      <div className="mx-auto w-full max-w-[1600px] px-4 pt-6 pb-4 md:px-8">
         <header>
           <div className="flex items-center gap-2">
             <Shield className="size-5 text-primary" />
@@ -504,8 +504,11 @@ function AdminRoute() {
         </header>
       </div>
 
-      <nav aria-label="Administration sections" className="border-y bg-background">
-        <div className="flex flex-wrap gap-0 px-4 md:px-8">
+      <nav
+        aria-label="Administration sections"
+        className="border-y bg-muted/30"
+      >
+        <div className="mx-auto flex w-full max-w-[1600px] items-center gap-1 overflow-x-auto px-4 py-1.5 md:px-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {visibleSections.map((item, index) => {
             const Icon = item.icon
             const active = item.key === activeSection
@@ -518,7 +521,7 @@ function AdminRoute() {
                 params={{ section: item.key }}
                 search={{ model: undefined }}
                 aria-current={active ? 'page' : undefined}
-                className={`relative flex h-11 shrink-0 items-center gap-1.5 px-3 text-sm no-underline transition-colors ${startsNewGroup ? 'ml-1 border-l pl-4 md:ml-3 md:pl-6' : ''} ${active ? 'font-medium text-foreground after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:bg-primary' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'}`}
+                className={`flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm no-underline transition-colors ${startsNewGroup ? 'ml-2 border-l pl-4' : ''} ${active ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}`}
               >
                 <Icon className="size-4 shrink-0" />
                 <span className="whitespace-nowrap">{item.label}</span>

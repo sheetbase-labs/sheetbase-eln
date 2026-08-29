@@ -53,7 +53,7 @@ import { validateSheetRecordBatch } from '#/lib/sheet-record-mapping'
 import {
   resolveSheetWriteTarget,
   sheetCellWriteError,
-  writeSheetCell,
+  writeSheetCells,
 } from '#/lib/sheet-write-back'
 import { sheetRecordTargetModelKey } from '#/lib/sheet-record-target'
 
@@ -400,21 +400,25 @@ export function CanonicalSheetEditor({
     mutationFn: async () => {
       const snapshot = compositionRef.current
       if (!snapshot) return
-      const entries = Object.entries(pendingValues)
-      for (const [rowKey, cells] of entries) {
-        for (const [columnId, value] of Object.entries(cells)) {
-          await writeSheetCell(
-            {
-              composition: snapshot,
-              rowKey,
-              columnId,
-              retryToken: crypto.randomUUID(),
-              value,
-            },
-            client,
-          )
-        }
-      }
+      // PLAT-05: one grouped dispatch per dataset/record instead of one RPC
+      // per cell — a multi-cell paste over bound columns is a single batch.
+      const cells = Object.entries(pendingValues).flatMap(
+        ([rowKey, rowCells]) =>
+          Object.entries(rowCells).map(([columnId, value]) => ({
+            rowKey,
+            columnId,
+            value,
+          })),
+      )
+      if (cells.length === 0) return
+      await writeSheetCells(
+        {
+          composition: snapshot,
+          cells,
+          retryToken: crypto.randomUUID(),
+        },
+        client,
+      )
     },
     onSuccess: async () => {
       setPendingValues({})

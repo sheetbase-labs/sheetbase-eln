@@ -19,7 +19,8 @@ import {
 } from './errors'
 import type { ProxyErrorCode } from './errors'
 import { logger } from './logger'
-import { metrics } from './metrics'
+import { metrics, DATASET_RPC_OPERATIONS } from './metrics'
+import type { HttpRoute, DatasetRpcOperation } from './metrics'
 import type { RateLimiter } from './rate-limit'
 import {
   RATE_LIMIT_SCOPE_DB,
@@ -38,7 +39,6 @@ import {
   resolveRequestId,
   stampRequestId,
 } from './request-id'
-import type { HttpRoute } from './metrics'
 import { ExternalTokenError, readBearerToken } from './external-token'
 
 export interface ProxyDeps {
@@ -76,7 +76,9 @@ export interface ProxyDeps {
 /** Process-wide proxy limiter, keyed per authenticated principal. */
 const proxyRateLimiter: RateLimiter = createRateLimiter(
   defaultRateLimitOptions({
-    SHEETBASE_RATE_LIMIT_MAX: envPositiveInt(process.env.SHEETBASE_RATE_LIMIT_MAX),
+    SHEETBASE_RATE_LIMIT_MAX: envPositiveInt(
+      process.env.SHEETBASE_RATE_LIMIT_MAX,
+    ),
     SHEETBASE_RATE_LIMIT_WINDOW_SECONDS: envPositiveInt(
       process.env.SHEETBASE_RATE_LIMIT_WINDOW_SECONDS,
     ),
@@ -165,6 +167,26 @@ function recordProxyRequest(
     (Date.now() - startedAt) / 1000,
   )
   metrics.dbUpstreamRequests.inc({ category: category ?? 'ok' })
+}
+
+/**
+ * PLAT-05 — bounded latency visibility for the hot Dataset/Pipeline RPCs
+ * proxied from the product. Only the fixed allowlist is labelled; any other
+ * RPC folds to 'other' and never creates a new time series.
+ */
+function observeRpcLatency(resource: string, startedAt: number): void {
+  const operation = (DATASET_RPC_OPERATIONS as readonly string[]).includes(
+    resource,
+  )
+    ? (resource as DatasetRpcOperation)
+    : 'other'
+  metrics.datasetRpcDuration.observe(
+    { operation },
+    (Date.now() - startedAt) / 1000,
+  )
+  if (resource === 'search') {
+    metrics.searchDuration.observe({}, (Date.now() - startedAt) / 1000)
+  }
 }
 
 /**
@@ -337,6 +359,7 @@ export async function handleProxyRequest(
           ? undefined
           : await request.text(),
     })
+    if (path.kind === 'rpc') observeRpcLatency(path.resource, startedAt)
     if (
       response.ok &&
       path.kind === 'rpc' &&

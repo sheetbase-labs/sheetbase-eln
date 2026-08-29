@@ -226,6 +226,30 @@ export async function commitDatasetRowBatch(
   })
 }
 
+/**
+ * PLAT-05 — atomic all-or-nothing Dataset commit. Runs every canonical
+ * ≤1000-row chunk inside one database transaction, so a failure in any chunk
+ * rolls back every earlier chunk (no partial scientific imports). Accepts up
+ * to 100,000 rows. Canonical validation/revision/idempotency semantics are
+ * unchanged (the chunks execute the existing governed RPC).
+ */
+export async function commitDatasetRowBatchAtomic(
+  client: DataClient,
+  input: {
+    datasetId: string
+    expectedRevision: number
+    rows: DatasetCommitRow[]
+    idempotencyKey: string
+  },
+): Promise<DatasetCommitResult> {
+  return client.rpc('commit_dataset_row_batch_atomic', {
+    p_dataset_id: input.datasetId,
+    p_expected_dataset_revision: input.expectedRevision,
+    p_rows: input.rows,
+    p_idempotency_key: input.idempotencyKey,
+  })
+}
+
 export async function listDatasetVersions(
   client: DataClient,
   datasetId: string,

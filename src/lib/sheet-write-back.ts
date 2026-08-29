@@ -212,3 +212,173 @@ export function writeSheetCell(
     client,
   )
 }
+
+export interface SheetCellWrite {
+  rowKey: string
+  columnId: string
+  value: unknown
+}
+
+/**
+ * PLAT-05 — batch write-back. Resolves every cell against the authenticated
+ * composition snapshot first (fail-fast before any write), then dispatches
+ * grouped RPCs:
+ *
+ *   - Dataset-bound cells: ONE `commit_dataset_row_batch` per
+ *     (dataset, expected revision) group instead of one RPC per cell;
+ *   - Record-bound cells: one `update_record_custom_fields` per record;
+ *   - Local cells: one `mutate_sheet_instance_local_state` for all of them.
+ *
+ * This is the paste/multi-cell-edit path: a 100-cell paste over bound columns
+ * previously issued 100 sequential HTTP RPCs.
+ */
+export async function writeSheetCells(
+  input: {
+    composition: ComposedSheetSnapshot
+    cells: SheetCellWrite[]
+    retryToken: string
+  },
+  client: DataClient = createDataClient(),
+): Promise<void> {
+  const composition = input.composition
+  const rowByKey = new Map(
+    composition.rows.map((row) => [row.rowKey, row] as const),
+  )
+  const rowAddressFor = (rowKey: string) => {
+    const row = rowByKey.get(rowKey)
+    if (!row) throw new Error('unresolved_target')
+    return {
+      kind: 'composed' as const,
+      rowKey: row.rowKey,
+      identityValues: row.identityValues,
+      compositionOffset: composition.offset,
+    }
+  }
+
+  // Fail fast: resolve every target before any write begins, so a bad cell
+  // cannot leave earlier cells committed behind a dangling pending state.
+  const resolved = input.cells.map((cell) => ({
+    cell,
+    target: resolveSheetWriteTarget({
+      composition,
+      rowKey: cell.rowKey,
+      columnId: cell.columnId,
+    }),
+  }))
+
+  const datasetGroups = new Map<string, typeof resolved>()
+  const recordGroups = new Map<string, typeof resolved>()
+  const localCells: Array<{
+    rowAddress: ReturnType<typeof rowAddressFor>
+    cell: SheetCellWrite
+  }> = []
+
+  for (const entry of resolved) {
+    if (entry.target.kind === 'dataset') {
+      const key = `${entry.target.datasetId}:${entry.target.expectedDatasetRevision}`
+      const group = datasetGroups.get(key) ?? []
+      group.push(entry)
+      datasetGroups.set(key, group)
+    } else if (entry.target.kind === 'model') {
+      const group = recordGroups.get(entry.target.recordId) ?? []
+      group.push(entry)
+      recordGroups.set(entry.target.recordId, group)
+    } else {
+      localCells.push({
+        rowAddress: rowAddressFor(entry.cell.rowKey),
+        cell: entry.cell,
+      })
+    }
+  }
+
+  const newUuid = () =>
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+          const r = (Math.random() * 16) | 0
+          const v = c === 'x' ? r : (r & 0x3) | 0x8
+          return v.toString(16)
+        })
+
+  // One commit per (dataset, expected revision) group, with ONE row entry per
+  // canonical Dataset row — a rectangular paste writes the same rowId through
+  // several columns, and those values must merge into a single update
+  // operation (never multiple entries for the same row in one batch).
+  for (const [key, group] of datasetGroups) {
+    const [dataset, expectedDatasetRevision] = key.split(':')
+    const rowsByRowId = new Map<
+      string,
+      {
+        rowId: string
+        expectedRevision: number
+        values: Record<string, unknown>
+      }
+    >()
+    for (const { cell, target } of group) {
+      const t = target as Extract<SheetWriteTarget, { kind: 'dataset' }>
+      let entry = rowsByRowId.get(t.rowId)
+      if (!entry) {
+        entry = {
+          rowId: t.rowId,
+          expectedRevision: t.expectedRowRevision,
+          values: {},
+        }
+        rowsByRowId.set(t.rowId, entry)
+      } else if (entry.expectedRevision !== t.expectedRowRevision) {
+        // Two cells on the same row from the same snapshot must agree on the
+        // row revision; a divergence means the composition is inconsistent.
+        throw new Error('ambiguous_target')
+      }
+      entry.values[t.fieldId] = cell.value
+    }
+    await client.rpc('commit_dataset_row_batch', {
+      p_dataset_id: dataset,
+      p_expected_dataset_revision: Number(expectedDatasetRevision),
+      p_rows: [...rowsByRowId.values()].map(
+        ({ rowId, expectedRevision, values }) => ({
+          operation: 'update',
+          rowId,
+          expectedRevision,
+          values,
+        }),
+      ),
+      p_idempotency_key: `${input.retryToken}-${key.slice(0, 24)}`,
+    })
+  }
+
+  // One update per record.
+  for (const [recordId, group] of recordGroups) {
+    const values: Record<string, unknown> = {}
+    for (const { cell, target } of group) {
+      const t = target as Extract<SheetWriteTarget, { kind: 'model' }>
+      values[t.fieldName] = cell.value
+    }
+    const first = group[0]
+    const t = (
+      first as { target: Extract<SheetWriteTarget, { kind: 'model' }> }
+    ).target
+    await client.rpc('update_record_custom_fields', {
+      p_record_id: recordId,
+      p_expected_metadata_version: t.expectedMetadataVersion,
+      p_values: values,
+    })
+  }
+
+  // One local mutation for all local cells.
+  if (localCells.length > 0) {
+    await mutateSheetLocalState(
+      {
+        instanceId: composition.instanceId,
+        expectedRevision: composition.revision,
+        retryToken: newUuid(),
+        rows: localCells.map(({ rowAddress }) => rowAddress),
+        cells: localCells.map(({ cell, rowAddress }) => ({
+          rowKey: rowAddress.rowKey,
+          fieldId: cell.columnId,
+          value: cell.value,
+        })),
+      },
+      client,
+    )
+  }
+}

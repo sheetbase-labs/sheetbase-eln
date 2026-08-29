@@ -34,8 +34,7 @@ import type { DataClient } from '../data-client'
 import { describeImportRpcCode } from '../import-commit'
 import {
   createDataset,
-  commitDatasetRowBatch,
-  validateDatasetRowBatch,
+  commitDatasetRowBatchAtomic,
 } from '../dataset-product'
 import { mapImportSheet, suggestImportMappings } from '../import-mapping'
 import type { ImportColumnMapping, ImportTargetField } from '../import-mapping'
@@ -282,35 +281,26 @@ async function mapValidateCommitStages(input: {
     )
   }
 
-  // Stages — validate then commit through the Core batch RPCs only.
+  // Stage — commit through the canonical batch RPC, atomically: the atomic
+  // RPC runs every ≤1000-row chunk inside ONE database transaction, so a
+  // failure in any chunk rolls back every earlier chunk (no partial imports).
   const rows = mapped.rows.map((row) => ({
     operation: 'create' as const,
     rowId: row.rowId,
     values: row.values,
   }))
-  const validated = await validateDatasetRowBatch(client, {
+  const committed = await commitDatasetRowBatchAtomic(client, {
     datasetId,
     expectedRevision: expectedRevision ?? 1,
     rows,
-  }).catch((error) => {
-    throw new ConnectorStepError('validation_failed', String(error))
-  })
-  if (!validated.ok) {
-    const first = validated.errors?.[0]
-    throw new ConnectorStepError(
-      first?.code ?? 'validation_failed',
-      first ? describeImportRpcCode(first.code) : 'Dataset rejected every row.',
-      { errors: validated.errors?.slice(0, 20) ?? [] },
-    )
-  }
-  const committed = await commitDatasetRowBatch(client, {
-    datasetId,
-    expectedRevision: expectedRevision ?? 1,
-    rows,
-    // Retry-safe: the same run re-uses the same commit receipt key.
+    // Retry-safe: the same run re-uses the same atomic receipt key.
     idempotencyKey: `connector-run-${input.runId}`,
   }).catch((error) => {
-    throw new ConnectorStepError('commit_failed', String(error))
+    const message = error instanceof Error ? error.message : String(error)
+    throw new ConnectorStepError(
+      /Dataset import rejected/i.test(message) ? 'validation_failed' : 'commit_failed',
+      message,
+    )
   })
   if (!committed.ok) {
     const first = committed.errors?.[0]
@@ -320,17 +310,19 @@ async function mapValidateCommitStages(input: {
       { errors: committed.errors?.slice(0, 20) ?? [] },
     )
   }
+  const committedCount = committed.rows?.length ?? rows.length
+  const datasetRevision = committed.datasetRevision
 
   await log(
     'commit',
-    `Committed ${committed.rows?.length ?? rows.length} rows to Dataset ${datasetId}.`,
-    { revision: committed.datasetRevision },
+    `Committed ${committedCount} rows to Dataset ${datasetId}.`,
+    { revision: datasetRevision },
   )
 
   return {
-    rowCount: committed.rows?.length ?? rows.length,
+    rowCount: committedCount,
     datasetId,
-    datasetRevision: committed.datasetRevision,
+    datasetRevision,
   }
 }
 

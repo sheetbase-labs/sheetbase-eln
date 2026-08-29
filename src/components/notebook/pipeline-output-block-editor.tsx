@@ -68,7 +68,7 @@ export function PipelineOutputBlockEditor({
       return
     }
     const outputs = await listPipelineRunOutputs(dataClient, nextRunId)
-    const first = outputs[0]
+    const first = outputs.length > 0 ? outputs[0] : null
     await persist({
       runId: nextRunId,
       datasetId: first?.dataset_id ?? null,
@@ -81,9 +81,9 @@ export function PipelineOutputBlockEditor({
     setSaving(true)
     try {
       const result = await save(payload)
-      onStatusChange?.(result.ok ? 'clean' : 'error')
+      onStatusChange?.(result.ok ? 'clean' : 'failed')
     } catch {
-      onStatusChange?.('error')
+      onStatusChange?.('failed')
     } finally {
       setSaving(false)
     }

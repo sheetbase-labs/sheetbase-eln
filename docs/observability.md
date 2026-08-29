@@ -83,18 +83,29 @@ development it is open on localhost for convenience.
 
 ### Metric catalogue
 
-| Metric                                      | Type      | Labels (bounded)                                                                                                                 |
-| ------------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `sheetbase_http_requests_total`             | counter   | `route` (db_proxy, files_upload, files_download, files_upload_authorize, health, metrics), `method`, `status`                    |
-| `sheetbase_http_request_duration_seconds`   | histogram | `route`, `method`                                                                                                                |
-| `sheetbase_db_upstream_requests_total`      | counter   | `category` (public error categories, `ok`)                                                                                       |
-| `sheetbase_db_upstream_duration_seconds`    | histogram | `method`                                                                                                                         |
-| `sheetbase_connector_runs_total`            | counter   | `connector_type` (instrument, storage, webhook, database, custom), `outcome` (started, succeeded, failed, stale_reconciled)      |
-| `sheetbase_connector_run_failures_total`    | counter   | `connector_type`, `error_code` (bounded set, else `other`)                                                                       |
-| `sheetbase_connector_run_duration_seconds`  | histogram | `connector_type`, `outcome`                                                                                                      |
-| `sheetbase_file_operations_total`           | counter   | `operation` (upload, download), `outcome` (ok, oversize, checksum_mismatch, conflict, not_found, not_uploadable, missing, error) |
-| `sheetbase_file_bytes_total`                | counter   | `operation`                                                                                                                      |
-| `sheetbase_file_operation_duration_seconds` | histogram | `operation`                                                                                                                      |
+| Metric                                            | Type      | Labels (bounded)                                                                                                                 |
+| ------------------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `sheetbase_http_requests_total`                   | counter   | `route` (db_proxy, files_upload, files_download, files_upload_authorize, health, metrics), `method`, `status`                    |
+| `sheetbase_http_request_duration_seconds`         | histogram | `route`, `method`                                                                                                                |
+| `sheetbase_db_upstream_requests_total`            | counter   | `category` (public error categories, `ok`)                                                                                       |
+| `sheetbase_db_upstream_duration_seconds`          | histogram | `method`                                                                                                                         |
+| `sheetbase_connector_runs_total`                  | counter   | `connector_type` (instrument, storage, webhook, database, custom), `outcome` (started, succeeded, failed, stale_reconciled)      |
+| `sheetbase_connector_run_failures_total`          | counter   | `connector_type`, `error_code` (bounded set, else `other`)                                                                       |
+| `sheetbase_connector_run_duration_seconds`        | histogram | `connector_type`, `outcome`                                                                                                      |
+| `sheetbase_file_operations_total`                 | counter   | `operation` (upload, download), `outcome` (ok, oversize, checksum_mismatch, conflict, not_found, not_uploadable, missing, error) |
+| `sheetbase_file_bytes_total`                      | counter   | `operation`                                                                                                                      |
+| `sheetbase_file_operation_duration_seconds`       | histogram | `operation`                                                                                                                      |
+| `sheetbase_dataset_rpc_duration_seconds`          | histogram | `operation` (query_dataset_rows, query_dataset_version_rows, commit_dataset_row_batch, snapshot_dataset, search, other)          |
+| `sheetbase_dataset_commit_duration_seconds`       | histogram | `size_bucket` (small/medium/large/xlarge)                                                                                        |
+| `sheetbase_dataset_snapshot_duration_seconds`     | histogram | `size_bucket`                                                                                                                    |
+| `sheetbase_pipeline_stage_duration_seconds`       | histogram | `stage` (materialize_inputs, transform, output_commit, dataset_commit, dataset_snapshot, total)                                  |
+| `sheetbase_pipeline_runs_total`                   | counter   | `trigger_kind` (manual/scheduled/event), `outcome` (succeeded/failed/cancelled)                                                  |
+| `sheetbase_pipeline_active_runs`                  | gauge     | —                                                                                                                                |
+| `sheetbase_scheduler_sweep_duration_seconds`      | histogram | —                                                                                                                                |
+| `sheetbase_scheduler_due_occurrences_total`       | counter   | —                                                                                                                                |
+| `sheetbase_scheduler_recovered_occurrences_total` | counter   | —                                                                                                                                |
+| `sheetbase_scheduler_events_processed_total`      | counter   | —                                                                                                                                |
+| `sheetbase_search_duration_seconds`               | histogram | —                                                                                                                                |
 
 ### Cardinality policy
 

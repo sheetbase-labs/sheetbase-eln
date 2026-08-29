@@ -827,6 +827,164 @@ describe('Pipeline execution (AUTO-02)', () => {
       }),
     ).rejects.toMatchObject({ code: '42501' })
   })
+
+  it('commits a >1000-row output in chunks and records stage durations (PLAT-05)', async () => {
+    // Input Dataset Version with 1,500 rows (one and a half commit batches).
+    const owner = await actor(OWNER, WS)
+    const created = await owner.query<{ id: string }>(
+      `insert into api.datasets(workspace_id, schema_version_id, name, created_by_user_id)
+       values ($1, $2, $3, $4) returning id`,
+      [WS, schemaVersionId, 'Bulk input', OWNER],
+    )
+    const bulkDatasetId = created.rows[0].id
+    await migrator.query(
+      `insert into api.dataset_rows(id, dataset_id, workspace_id)
+       select ('aaab0000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid, $1, $2
+         from generate_series(1, 1500) i`,
+      [bulkDatasetId, WS],
+    )
+    const bulkFields = await migrator.query<{ id: string; key: string }>(
+      `select field_id as id, key from api.dataset_schema_version_fields
+        where schema_version_id = $1 and lifecycle = 'active'`,
+      [schemaVersionId],
+    )
+    const fieldId = Object.fromEntries(
+      bulkFields.rows.map((f) => [f.key, f.id]),
+    )
+    await migrator.query(
+      `insert into api.dataset_row_values(row_id, field_id, ordinal, text_value)
+       select r.id, $2, 0, 'B'
+         from api.dataset_rows r where r.dataset_id = $1`,
+      [bulkDatasetId, fieldId.batch],
+    )
+    await migrator.query(
+      `insert into api.dataset_row_values(row_id, field_id, ordinal, numeric_value)
+       select r.id, $2, 0, ((substring(r.id::text, 25, 12)::integer) * 2.0)::numeric
+         from api.dataset_rows r where r.dataset_id = $1`,
+      [bulkDatasetId, fieldId.value],
+    )
+    await migrator.query(
+      `insert into api.dataset_versions(
+         id, dataset_id, workspace_id, schema_version_id, source_dataset_revision, label, created_by_user_id
+       ) values ($1, $2, $3, $4, 1, 'bulk input', $5)`,
+      [
+        'aaac0000-0000-4000-8000-000000000001',
+        bulkDatasetId,
+        WS,
+        schemaVersionId,
+        OWNER,
+      ],
+    )
+    await migrator.query(
+      `insert into api.dataset_version_rows(dataset_version_id, row_id, revision)
+       select $1, id, revision from api.dataset_rows where dataset_id = $2`,
+      ['aaac0000-0000-4000-8000-000000000001', bulkDatasetId],
+    )
+    await migrator.query(
+      `insert into api.dataset_version_values(
+         dataset_version_id, row_id, field_id, ordinal, text_value, numeric_value
+       )
+       select $1, v.row_id, v.field_id, v.ordinal, v.text_value, v.numeric_value
+         from api.dataset_row_values v
+         join api.dataset_rows r on r.id = v.row_id
+        where r.dataset_id = $2`,
+      ['aaac0000-0000-4000-8000-000000000001', bulkDatasetId],
+    )
+
+    const run = await rpc<{ id: string; status: string }>(
+      owner,
+      'start_pipeline_run',
+      {
+        p_workspace_id: WS,
+        p_definition_version_id: pipelineVersionId,
+        p_trigger_kind: 'manual',
+        p_parameters: { factor: 3 },
+        p_input_versions: {
+          measurements: 'aaac0000-0000-4000-8000-000000000001',
+        },
+      },
+    )
+    expect(run.status).toBe('running')
+    const { deps, close } = await makeExecDeps(OWNER)
+    const report = await runPipelineExecution(OWNER, run.id, deps)
+    await close()
+    expect(report.ok).toBe(true)
+    expect(report.run?.status).toBe('succeeded')
+    const result = report.run?.result as {
+      rowCount?: number
+      stageDurationsMs?: Record<string, number>
+      outputDatasetVersionId?: string
+    }
+    expect(result.rowCount).toBe(1500)
+    expect(result.outputDatasetVersionId).toEqual(expect.any(String))
+    expect(result.stageDurationsMs?.datasetCommit).toBeGreaterThan(0)
+    expect(result.stageDurationsMs?.datasetSnapshot).toBeGreaterThan(0)
+    const outputRows = await migrator.query(
+      `select count(*)::int as n from api.dataset_version_rows
+        where dataset_version_id = $1`,
+      [result.outputDatasetVersionId],
+    )
+    expect(outputRows.rows[0].n).toBe(1500)
+    // Clean up the bulk output dataset + its immutable version.
+    await migrator.query(
+      `alter table api.dataset_versions disable trigger prevent_dataset_version_mutation`,
+    )
+    await migrator.query(
+      `alter table api.dataset_version_rows disable trigger prevent_dataset_version_row_mutation`,
+    )
+    await migrator.query(
+      `alter table api.dataset_version_values disable trigger prevent_dataset_version_value_mutation`,
+    )
+    try {
+      await migrator.query(
+        `delete from api.pipeline_run_outputs where run_id = $1`,
+        [run.id],
+      )
+      await migrator.query(
+        `delete from api.dataset_version_values where dataset_version_id = any($1::uuid[])`,
+        [
+          [
+            'aaac0000-0000-4000-8000-000000000001',
+            result.outputDatasetVersionId,
+          ],
+        ],
+      )
+      await migrator.query(
+        `delete from api.dataset_version_rows where dataset_version_id = any($1::uuid[])`,
+        [
+          [
+            'aaac0000-0000-4000-8000-000000000001',
+            result.outputDatasetVersionId,
+          ],
+        ],
+      )
+      await migrator.query(
+        `delete from api.dataset_versions where id = any($1::uuid[])`,
+        [
+          [
+            'aaac0000-0000-4000-8000-000000000001',
+            result.outputDatasetVersionId,
+          ],
+        ],
+      )
+    } finally {
+      await migrator.query(
+        `alter table api.dataset_version_values enable trigger prevent_dataset_version_value_mutation`,
+      )
+      await migrator.query(
+        `alter table api.dataset_version_rows enable trigger prevent_dataset_version_row_mutation`,
+      )
+      await migrator.query(
+        `alter table api.dataset_versions enable trigger prevent_dataset_version_mutation`,
+      )
+    }
+    await migrator.query(`delete from api.dataset_rows where dataset_id = $1`, [
+      bulkDatasetId,
+    ])
+    await migrator.query(`delete from api.datasets where id = $1`, [
+      bulkDatasetId,
+    ])
+  })
 })
 
 describe('Pipeline schedules and event triggers (AUTO-02)', () => {

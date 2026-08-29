@@ -32,6 +32,7 @@ import { Client } from 'pg'
 import type { QueryResultRow } from 'pg'
 
 import { env } from '#/env.server'
+import { metrics } from '#/lib/metrics'
 import { runPipelineExecution } from './pipeline-execute.server'
 import type { PipelineExecuteDeps } from './pipeline-execute.server'
 import { nextRunAt } from './pipeline-schedule'
@@ -105,7 +106,9 @@ export async function sweepPipelines(
   now: Date = new Date(),
 ): Promise<number> {
   const conn = await deps.connect()
+  const sweepStarted = Date.now()
   let started = 0
+  let recovered = 0
   try {
     await conn.begin()
     const { rows } = await conn.query<ScheduleRow>(
@@ -121,22 +124,31 @@ export async function sweepPipelines(
 
     for (const schedule of rows) {
       if (schedule.kind === 'event') {
-        const fired = await sweepEventSchedule(deps, schedule, now)
-        started += fired
+        const outcome = await sweepEventSchedule(deps, schedule)
+        started += outcome.fired
+        recovered += outcome.recovered
       } else {
         const due = schedule.next_run_at
           ? new Date(schedule.next_run_at).getTime() <= now.getTime()
           : true
         if (due) {
-          const fired = await sweepTimedSchedule(deps, schedule, now)
-          started += fired
+          const outcome = await sweepTimedSchedule(deps, schedule, now)
+          started += outcome.fired
+          recovered += outcome.recovered
         } else {
           // Even when no tick is due, recover any stale crashed occurrence.
-          const fired = await sweepStaleRecovery(deps, schedule)
-          started += fired
+          const outcome = await sweepStaleRecovery(deps, schedule)
+          started += outcome.fired
+          recovered += outcome.recovered
         }
       }
     }
+    metrics.schedulerSweepDuration.observe(
+      {},
+      (Date.now() - sweepStarted) / 1000,
+    )
+    if (started > 0) metrics.schedulerDueOccurrences.inc({}, started)
+    if (recovered > 0) metrics.schedulerRecoveredOccurrences.inc({}, recovered)
     return started
   } finally {
     await conn.end()
@@ -147,9 +159,10 @@ async function sweepTimedSchedule(
   deps: PipelineSchedulerDeps,
   schedule: ScheduleRow,
   now: Date,
-): Promise<number> {
+): Promise<{ fired: number; recovered: number }> {
   const conn = await deps.connect()
   const startedRunIds: string[] = []
+  let recovered = 0
   try {
     // Lock the schedule row so concurrent sweepers cannot double-fire.
     await conn.begin()
@@ -163,7 +176,7 @@ async function sweepTimedSchedule(
     const locked = rows.at(0)
     if (!locked || !locked.enabled || locked.kind === 'event') {
       await conn.rollback()
-      return 0
+      return { fired: 0, recovered: 0 }
     }
     // Stamp the schedule creator's identity so governed RPCs (run logs, the
     // start RPC) work throughout this evaluation.
@@ -178,6 +191,7 @@ async function sweepTimedSchedule(
     // the current next_run_at — reproducibility requires a retry to execute
     // the exact version the crashed attempt used.
     const stale = await recoverStaleRuns(conn, locked)
+    recovered += stale.length
     for (const s of stale) {
       const retryRunId = await startScheduledRun(
         conn,
@@ -279,16 +293,17 @@ async function sweepTimedSchedule(
   for (const runId of startedRunIds) {
     await deps.run(creator, runId)
   }
-  return startedRunIds.length
+  return { fired: startedRunIds.length, recovered }
 }
 
 /** Recover stale crashed occurrences even when no tick is currently due. */
 async function sweepStaleRecovery(
   deps: PipelineSchedulerDeps,
   schedule: ScheduleRow,
-): Promise<number> {
+): Promise<{ fired: number; recovered: number }> {
   const conn = await deps.connect()
   const startedRunIds: string[] = []
+  let recovered = 0
   try {
     await conn.begin()
     const { rows } = await conn.query<ScheduleRow>(
@@ -301,12 +316,13 @@ async function sweepStaleRecovery(
     const locked = rows.at(0)
     if (!locked || !locked.enabled || locked.kind === 'event') {
       await conn.rollback()
-      return 0
+      return { fired: 0, recovered: 0 }
     }
     await setScheduleClaims(conn, locked)
     // Stale retries use the crashed run's OWN pinned version; no latest
     // version resolution is needed for recovery.
     const stale = await recoverStaleRuns(conn, locked)
+    recovered += stale.length
     for (const s of stale) {
       const retryRunId = await startScheduledRun(
         conn,
@@ -328,16 +344,17 @@ async function sweepStaleRecovery(
   for (const runId of startedRunIds) {
     await deps.run(creator, runId)
   }
-  return startedRunIds.length
+  return { fired: startedRunIds.length, recovered }
 }
 
 async function sweepEventSchedule(
   deps: PipelineSchedulerDeps,
   schedule: ScheduleRow,
-): Promise<number> {
+): Promise<{ fired: number; recovered: number }> {
   const conn = await deps.connect()
   const startedRunIds: string[] = []
   let fired = 0
+  let recovered = 0
   try {
     await conn.begin()
     const { rows } = await conn.query<ScheduleRow>(
@@ -350,19 +367,13 @@ async function sweepEventSchedule(
     const locked = rows.at(0)
     if (!locked || !locked.enabled || locked.kind !== 'event') {
       await conn.rollback()
-      return 0
+      return { fired: 0, recovered: 0 }
     }
     await setScheduleClaims(conn, locked)
-    const versionId = await resolveLatestPublishedVersion(
-      conn,
-      locked.definition_id,
-    )
-
-    // Crash recovery FIRST: retry stale event occurrences with their own
-    // evt:<event_id> identity AND their own pinned Pipeline Definition
-    // Version (reproducibility). The event cursor does not move backwards —
-    // the event was already consumed; its run just needs recovery.
+    // The latest published version is re-resolved per consumed event so a
+    // version publish mid-sweep is picked up; there is no stale hoisted value.
     const stale = await recoverStaleRuns(conn, locked)
+    recovered += stale.length
     for (const s of stale) {
       const retryRunId = await startScheduledRun(
         conn,
@@ -452,6 +463,7 @@ async function sweepEventSchedule(
         await advanceEventCursor(conn, locked.id, event.sequence)
         await clearTriggerFailure(conn, locked.workspace_id, occurrenceId)
         await conn.commit()
+        metrics.schedulerEventsProcessed.inc()
         const creator = locked.created_by_user_id ?? 'system'
         await deps.run(creator, runId)
         fired += 1
@@ -477,7 +489,7 @@ async function sweepEventSchedule(
         }
       }
     }
-    return fired
+    return { fired, recovered }
   } finally {
     await conn.end()
   }
@@ -828,9 +840,10 @@ async function defaultConnect(): Promise<SchedulerConnection> {
 }
 
 function nextDue(
-  schedule: { kind: 'interval' | 'daily'; spec: Record<string, unknown> },
+  schedule: Pick<ScheduleRow, 'kind' | 'spec'>,
   now: Date,
 ): string | null {
+  if (schedule.kind === 'event') return null
   return (
     nextRunAt(schedule.kind, schedule.spec as never, now)?.toISOString() ?? null
   )

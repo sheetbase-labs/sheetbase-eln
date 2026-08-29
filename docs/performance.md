@@ -35,7 +35,7 @@ OS               darwin 25.5.0
 PostgreSQL       18.6 (postgres:18-alpine, Docker/OrbStack)
 Node             v26.0.0
 container/native Docker (OrbStack) for PostgreSQL/PostgREST; native Node
-commit SHA       03af3f2 (canonical PLAT-05 baseline; per-run reports embed their SHA)
+commit SHA       85270d9 (canonical PLAT-05 baseline; per-run reports embed their SHA)
 ```
 
 PostgREST v14.5. `shared_buffers` at the container default (128 MiB). The
@@ -123,9 +123,9 @@ threshold. These bound the supported envelope; they are not customer SLOs.
 | Workload              | Budget                        | Measured baseline                              |
 | --------------------- | ----------------------------- | ---------------------------------------------- |
 | Common navigation     | < 500 ms                      | notebook/explorer load RPCs comfortably inside |
-| Common metadata reads | < 300 ms                      | dataset page reads 32–234 ms (page 100)        |
-| Single-cell save      | < 500 ms                      | 1-row commit p95 32.5 ms                       |
-| Filter/sort response  | interactive at supported size | 100k-row filter+sort page p95 234 ms           |
+| Common metadata reads | < 300 ms                      | dataset page reads 8–237 ms (page 100)         |
+| Single-cell save      | < 500 ms                      | 1-row commit p95 38.6 ms                       |
+| Filter/sort response  | interactive at supported size | 100k-row filter+sort page p95 237 ms           |
 | Search                | < 300 ms                      | 15 ms DB-side after the maintained FTS index   |
 
 ### Dataset scale
@@ -134,14 +134,14 @@ Supported behaviour (measured, page 100, filter+sort, warm cache):
 
 | Rows | p50   | p95   |
 | ---- | ----- | ----- |
-| 1k   | 37.5  | 44.6  |
-| 10k  | 49.5  | 69.6  |
-| 50k  | 106.0 | 115.1 |
-| 100k | 227.3 | 233.9 |
+| 1k   | 7.9   | 10.0  |
+| 10k  | 39.3  | 41.5  |
+| 50k  | 116.2 | 137.4 |
+| 100k | 235.8 | 236.9 |
 
 Field widths: narrow (5) and medium (14) fields behave identically; wide
 (60-field) schemas add proportional projection cost (measured wide@10k page
-≈ 31 ms). Fields beyond 60 are not benchmarked.
+≈ 34 ms). Fields beyond 60 are not benchmarked.
 
 ### Concurrent usage
 
@@ -164,14 +164,14 @@ against the local backend (macOS APFS):
 
 | Scenario      | Throughput   | p50 (ms) |
 | ------------- | ------------ | -------- |
-| write 10 MiB  | ~1,429 MiB/s | 7        |
-| write 50 MiB  | ~1,136 MiB/s | 44       |
-| write 100 MiB | ~741 MiB/s   | 135      |
-| read 10 MiB   | ~1,429 MiB/s | 7        |
-| read 50 MiB   | ~1,852 MiB/s | 27       |
-| read 100 MiB  | ~2,041 MiB/s | 49       |
+| write 10 MiB  | ~1,667 MiB/s | 6        |
+| write 50 MiB  | ~980 MiB/s   | 51       |
+| write 100 MiB | ~813 MiB/s   | 123      |
+| read 10 MiB   | ~1,250 MiB/s | 8        |
+| read 50 MiB   | ~2,174 MiB/s | 23       |
+| read 100 MiB  | ~2,000 MiB/s | 50       |
 
-A 100 MiB file streams in ~135 ms write / ~49 ms read on local disk —
+A 100 MiB file streams in ~123 ms write / ~50 ms read on local disk —
 disk-bound, never memory-bound (64 KiB chunks).
 
 ### API throughput
@@ -232,9 +232,9 @@ Every run writes one JSON report per section:
   "fields": 14,
   "concurrency": 1,
   "iterations": 7,
-  "p50_ms": 227.3,
-  "p95_ms": 233.9,
-  "p99_ms": 233.9,
+  "p50_ms": 235.8,
+  "p95_ms": 236.9,
+  "p99_ms": 236.9,
   "errors": 0
 }
 ```
@@ -252,12 +252,12 @@ Canonical baseline measured 2026-08-29 on the environment above (see
 
 | Scenario                | Rows    | p50 (ms) | p95 (ms) | Notes                 |
 | ----------------------- | ------- | -------- | -------- | --------------------- |
-| dataset-read-1k         | 1,000   | 37.5     | 44.6     |                       |
-| dataset-read-10k        | 10,000  | 49.5     | 69.6     |                       |
-| dataset-read-50k        | 50,000  | 106.0    | 115.1    |                       |
-| dataset-read-100k       | 100,000 | 227.3    | 233.9    |                       |
-| dataset-read-50k narrow | 50,000  | 58.5     | 66.4     | narrow shape ≈ medium |
-| dataset-read-10k wide   | 10,000  | 31.8     | 55.0     | 60-field projection   |
+| dataset-read-1k         | 1,000   | 7.9      | 10.0     |                       |
+| dataset-read-10k        | 10,000  | 39.3     | 41.5     |                       |
+| dataset-read-50k        | 50,000  | 116.2    | 137.4    |                       |
+| dataset-read-100k       | 100,000 | 235.8    | 236.9    |                       |
+| dataset-read-50k narrow | 50,000  | 66.6     | 74.6     | narrow shape ≈ medium |
+| dataset-read-10k wide   | 10,000  | 33.8     | 58.0     | 60-field projection   |
 
 The canonical read path is dominated by the per-page `count(*)` plus the
 per-field correlated value joins; it stays interactive at 100k rows. Deep
@@ -269,10 +269,10 @@ yet justified.
 
 | Scenario             | Rows    | p50 (ms) | p95 (ms) |
 | -------------------- | ------- | -------- | -------- |
-| dataset-version-read | 1,000   | 6.8      | 7.0      |
-| dataset-version-read | 10,000  | 7.2      | 7.5      |
-| dataset-version-read | 50,000  | 18.0     | 18.9     |
-| dataset-version-read | 100,000 | 17.5     | 19.3     |
+| dataset-version-read | 1,000   | 6.8      | 7.1      |
+| dataset-version-read | 10,000  | 7.1      | 8.4      |
+| dataset-version-read | 50,000  | 23.7     | 27.4     |
+| dataset-version-read | 100,000 | 18.5     | 19.4     |
 
 Immutable version pages ride the PK order — flat cost regardless of size.
 
@@ -280,9 +280,9 @@ Immutable version pages ride the PK order — flat cost regardless of size.
 
 | Scenario           | Rows  | Validate p50 (ms) | Commit p50 (ms) | Commit p95 (ms) |
 | ------------------ | ----- | ----------------- | --------------- | --------------- |
-| dataset-write-1    | 1     | 1.0               | 2.1             | 32.5            |
-| dataset-write-100  | 100   | 0.5               | 2.3             | 3.2             |
-| dataset-write-1000 | 1,000 | 2.5               | 5.2             | 5.3             |
+| dataset-write-1    | 1     | 0.8               | 2.3             | 38.6            |
+| dataset-write-100  | 100   | 0.7               | 1.8             | 2.0             |
+| dataset-write-1000 | 1,000 | 2.5               | 5.3             | 5.4             |
 
 The canonical commit RPC is fast; the 1000-row batch bound is a product
 constraint, not a measured wall.
@@ -291,10 +291,10 @@ constraint, not a measured wall.
 
 | Scenario             | Rows   | p50 (ms) | p95 (ms) | Rate       |
 | -------------------- | ------ | -------- | -------- | ---------- |
-| dataset-snapshot-1k  | 1,000  | 479.6    | 573.0    | ~2k rows/s |
-| dataset-snapshot-10k | 10,000 | 2,368.0  | 2,772.8  | ~4k rows/s |
+| dataset-snapshot-1k  | 1,000  | 165.0    | 170.2    | ~6k rows/s |
+| dataset-snapshot-10k | 10,000 | 2,012.1  | 2,037.9  | ~5k rows/s |
 
-Snapshot cost is linear (~240 ms per 1k rows): a 100k-row snapshot is ~24 s.
+Snapshot cost is linear (~200 ms per 1k rows): a 100k-row snapshot is ~20 s.
 Each snapshot also emits one `change_events` row (GOV-03). This is the single
 largest write-path cost and the reason the scale envelope draws the
 "requires caution" line where it does.
@@ -303,13 +303,13 @@ largest write-path cost and the reason the scale envelope draws the
 
 | Stage              | p50 (ms) |
 | ------------------ | -------- |
-| materialize_inputs | 121      |
-| transform          | 9        |
-| output_commit      | 6,436    |
-| dataset_commit     | 5,590    |
-| dataset_snapshot   | 695      |
-| output_overhead    | 154      |
-| total              | 6,583    |
+| materialize_inputs | 127      |
+| transform          | 10       |
+| output_commit      | 6,557    |
+| dataset_commit     | 5,617    |
+| dataset_snapshot   | 767      |
+| output_overhead    | 156      |
+| total              | 6,713    |
 
 Output commit dominates: 10 chunked 1000-row commits (the executor now chunks
 the canonical 1000-row batch bound instead of failing >1000-row outputs) plus
@@ -324,9 +324,9 @@ sequential inserts and dominated large-input runs).
 
 | Concurrency | p50 wall (ms) | Scaling |
 | ----------- | ------------- | ------- |
-| 1           | 6,877         | 1×      |
-| 2           | 13,572        | 2.0×    |
-| 5           | 34,428        | 5.0×    |
+| 1           | 6,926         | 1×      |
+| 2           | 13,713        | 2.0×    |
+| 5           | 34,551        | 5.0×    |
 
 Linear — no collapse, but also no parallelism benefit (single executor
 connection per run; CPU-bound transform is small). Supported initial
@@ -336,9 +336,9 @@ concurrency limit: **5 concurrent runs** (see limits).
 
 | Schedules | Sweep p50 (ms) | Per schedule |
 | --------- | -------------- | ------------ |
-| 10        | 19             | ~1.9 ms      |
-| 100       | 176            | ~1.8 ms      |
-| 1000      | 1,572          | ~1.6 ms      |
+| 10        | 16             | ~1.6 ms      |
+| 100       | 180            | ~1.8 ms      |
+| 1000      | 1,524          | ~1.5 ms      |
 
 A 1000-schedule sweep completes in ~1.4 s; the 60 s polling cadence remains
 acceptable (one sweep ≈ 2.3% of the interval).
@@ -347,12 +347,12 @@ acceptable (one sweep ≈ 2.3% of the interval).
 
 | Events | Drain time | Sweeps | Events consumed |
 | ------ | ---------- | ------ | --------------- |
-| 10     | 50 ms      | 2      | 10              |
-| 100    | 353 ms     | 6      | 100             |
-| 1000   | 5,513 ms   | 51     | 1,000           |
+| 10     | 53 ms      | 2      | 10              |
+| 100    | 334 ms     | 6      | 100             |
+| 1000   | 4,491 ms   | 51     | 1,000           |
 
 Each sweep consumes up to 20 events per schedule (per-sweep bound). 1000
-events drain in ~5.5 s; at-least-once delivery and the cursor advance are
+events drain in ~4.5 s; at-least-once delivery and the cursor advance are
 unchanged (the harness asserts the exact consumption count).
 
 ### Search (global search over 20k records)
@@ -377,9 +377,9 @@ like the same-origin proxy does). After the maintained FTS search index:
 
 | Concurrency | Throughput | p95 (ms) | p99 (ms) | Errors                       |
 | ----------- | ---------- | -------- | -------- | ---------------------------- |
-| 1           | ~9 req/s   | 464      | 500      | 0                            |
-| 5           | ~37 req/s  | 582      | 587      | 0                            |
-| 20          | ~43 req/s  | 1,172    | 1,301    | 5 (stale-revision conflicts) |
+| 1           | ~8 req/s   | 482      | 490      | 0                            |
+| 5           | ~42 req/s  | 546      | 555      | 0                            |
+| 20          | ~44 req/s  | 1,291    | 1,472    | 6 (stale-revision conflicts) |
 
 Throughput is 5–10× the pre-fix baseline (which was ~1–10 req/s with p95 up
 to 8.7 s because search computed a tsvector for every record per query).
@@ -398,7 +398,7 @@ starts to dominate or correctness semantics (e.g. 1000-row commit cap,
 ```text
 Dataset interactive use
 ────────────────────────────────
-Comfortable       ≤ 50k rows       (page reads p95 < 120 ms)
+Comfortable       ≤ 50k rows       (page reads p95 < 140 ms)
 Supported         ≤ 100k rows      (page reads p95 < 250 ms)
 Requires caution  > 100k rows      (per-page count + projection grow; >100k pipeline inputs are refused)
 
@@ -411,7 +411,7 @@ Pipelines
 Concurrent runs   5                (linear scaling; supported limit)
 Input rows/run    100,000          (fixed cap)
 Result rows/run   100,000          (fixed cap)
-Snapshot/run      ≤ 50k rows comfortable; 100k rows ≈ 24 s
+Snapshot/run      ≤ 50k rows comfortable; 100k rows ≈ 20 s
 
 Files
 ────────────────────────────────
@@ -634,14 +634,14 @@ run's durable stage logs.
 
 | Scenario                   | Rows | Source read | Map+validate | Commit | Total  |
 | -------------------------- | ---- | ----------- | ------------ | ------ | ------ |
-| postgres ingest 10k        | 10k  | 51 ms       | 6.4 s        | 3.1 ms | 6.4 s  |
-| postgres ingest 50k        | 50k  | 174 ms      | 32.7 s       | 3.3 ms | 33.0 s |
-| postgres preview 10k / 50k | —    | 13 / 12 ms  | —            | —      | —      |
-| s3 ingest 500              | 500  | 21 ms       | 267 ms       | 2.2 ms | 302 ms |
-| s3 ingest 1k               | 1k   | 19 ms       | 597 ms       | 2.8 ms | 631 ms |
-| s3 preview 500 / 1k        | —    | 6 / 2 ms    | —            | —      | —      |
+| postgres ingest 10k        | 10k  | 52 ms       | 6.6 s        | 2.5 ms | 6.7 s  |
+| postgres ingest 50k        | 50k  | 211 ms      | 33.1 s       | 6.2 ms | 33.3 s |
+| postgres preview 10k / 50k | —    | 12 / 12 ms  | —            | —      | —      |
+| s3 ingest 500              | 500  | 21 ms       | 277 ms       | 2.2 ms | 307 ms |
+| s3 ingest 1k               | 1k   | 27 ms       | 625 ms       | 2.2 ms | 653 ms |
+| s3 preview 500 / 1k        | —    | 5 / 3 ms    | —            | —      | —      |
 
-Replay (digest dedupe) latency: postgres 62–156 ms, s3 17–22 ms — a retried
+Replay (digest dedupe) latency: postgres 55–157 ms, s3 19–22 ms — a retried
 identical import replays the prior receipt instead of re-reading the source.
 Map+validate dominates every import (per-row coercion + chunked validation);
 it is the first candidate if connector ingest throughput matters. S3 objects

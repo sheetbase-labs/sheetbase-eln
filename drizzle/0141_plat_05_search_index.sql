@@ -213,7 +213,15 @@ BEGIN
         OR OLD.tags IS DISTINCT FROM NEW.tags
         OR OLD.properties IS DISTINCT FROM NEW.properties
         OR OLD.folder_id IS DISTINCT FROM NEW.folder_id),
-      'changedStructure', (OLD.structure_version IS DISTINCT FROM NEW.structure_version)
+      'changedStructure', (OLD.structure_version IS DISTINCT FROM NEW.structure_version),
+      'changes', jsonb_strip_nulls(jsonb_build_object(
+        'title', CASE WHEN OLD.title IS DISTINCT FROM NEW.title
+          THEN jsonb_build_object('from', OLD.title, 'to', NEW.title) END,
+        'status', CASE WHEN OLD.status IS DISTINCT FROM NEW.status
+          THEN jsonb_build_object('from', OLD.status, 'to', NEW.status) END,
+        'folderId', CASE WHEN OLD.folder_id IS DISTINCT FROM NEW.folder_id
+          THEN jsonb_build_object('from', OLD.folder_id, 'to', NEW.folder_id) END
+      ))
     );
     PERFORM "internal"."emit_change_event"(
       NEW.workspace_id, 'record', NEW.id, v_op, NEW.id, NEW.project_id, v_payload
@@ -578,5 +586,28 @@ REVOKE EXECUTE ON FUNCTION "api"."search"(text, uuid, text, text, text, timestam
 GRANT EXECUTE ON FUNCTION "api"."search"(text, uuid, text, text, text, timestamptz, timestamptz, int, int, text) TO authenticated;--> statement-breakpoint
 
 GRANT EXECUTE ON FUNCTION "api"."search"(text, uuid, text, text, text, timestamptz, timestamptz, int, int, text) TO api_client;--> statement-breakpoint
+
+-- Search-index maintenance updates api.records.search_tsv (child-table
+-- refresh). The generic set_updated_at trigger would bump records.updated_at,
+-- changing the submission evidence digest, so maintenance-only updates (only
+-- search_tsv differs) keep the previous updated_at. Tables without a
+-- search_tsv column are unaffected.
+CREATE OR REPLACE FUNCTION "internal"."set_updated_at"()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+BEGIN
+  IF to_jsonb(OLD) ? 'search_tsv'
+     AND (to_jsonb(OLD) - 'search_tsv') IS NOT DISTINCT FROM (to_jsonb(NEW) - 'search_tsv') THEN
+    NEW."updated_at" := OLD."updated_at";
+  ELSE
+    NEW."updated_at" := now();
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+--> statement-breakpoint
 
 NOTIFY pgrst, 'reload schema';

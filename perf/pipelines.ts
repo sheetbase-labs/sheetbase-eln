@@ -235,7 +235,7 @@ async function stageBenchmark(
       output: result.stages.outputCommit,
       commit: result.stages.datasetCommit,
       snapshot: result.stages.datasetSnapshot,
-      overhead: result.stages.outputOverhead ?? 0,
+      overhead: result.stages.outputOverhead,
       rows: result.rowCount ?? 0,
     })
   }

@@ -35,7 +35,7 @@ OS               darwin 25.5.0
 PostgreSQL       18.6 (postgres:18-alpine, Docker/OrbStack)
 Node             v26.0.0
 container/native Docker (OrbStack) for PostgreSQL/PostgREST; native Node
-commit SHA       0487dfd (canonical PLAT-05 baseline; per-run reports embed their SHA)
+commit SHA       03af3f2 (canonical PLAT-05 baseline; per-run reports embed their SHA)
 ```
 
 PostgREST v14.5. `shared_buffers` at the container default (128 MiB). The
@@ -123,9 +123,9 @@ threshold. These bound the supported envelope; they are not customer SLOs.
 | Workload              | Budget                        | Measured baseline                              |
 | --------------------- | ----------------------------- | ---------------------------------------------- |
 | Common navigation     | < 500 ms                      | notebook/explorer load RPCs comfortably inside |
-| Common metadata reads | < 300 ms                      | dataset page reads 7–172 ms (page 100)         |
-| Single-cell save      | < 500 ms                      | 1-row commit p95 8.5 ms                        |
-| Filter/sort response  | interactive at supported size | 100k-row filter+sort page p95 181 ms           |
+| Common metadata reads | < 300 ms                      | dataset page reads 32–234 ms (page 100)        |
+| Single-cell save      | < 500 ms                      | 1-row commit p95 32.5 ms                       |
+| Filter/sort response  | interactive at supported size | 100k-row filter+sort page p95 234 ms           |
 | Search                | < 300 ms                      | 15 ms DB-side after the maintained FTS index   |
 
 ### Dataset scale
@@ -134,10 +134,10 @@ Supported behaviour (measured, page 100, filter+sort, warm cache):
 
 | Rows | p50   | p95   |
 | ---- | ----- | ----- |
-| 1k   | 30.5  | 32.4  |
-| 10k  | 35.2  | 38.2  |
-| 50k  | 106.5 | 132.3 |
-| 100k | 239.3 | 252.2 |
+| 1k   | 37.5  | 44.6  |
+| 10k  | 49.5  | 69.6  |
+| 50k  | 106.0 | 115.1 |
+| 100k | 227.3 | 233.9 |
 
 Field widths: narrow (5) and medium (14) fields behave identically; wide
 (60-field) schemas add proportional projection cost (measured wide@10k page
@@ -164,14 +164,14 @@ against the local backend (macOS APFS):
 
 | Scenario      | Throughput   | p50 (ms) |
 | ------------- | ------------ | -------- |
-| write 10 MiB  | ~1,000 MiB/s | 10       |
-| write 50 MiB  | ~806 MiB/s   | 62       |
-| write 100 MiB | ~833 MiB/s   | 120      |
-| read 10 MiB   | ~1,667 MiB/s | 6        |
-| read 50 MiB   | ~2,083 MiB/s | 24       |
-| read 100 MiB  | ~2,222 MiB/s | 45       |
+| write 10 MiB  | ~1,429 MiB/s | 7        |
+| write 50 MiB  | ~1,136 MiB/s | 44       |
+| write 100 MiB | ~741 MiB/s   | 135      |
+| read 10 MiB   | ~1,429 MiB/s | 7        |
+| read 50 MiB   | ~1,852 MiB/s | 27       |
+| read 100 MiB  | ~2,041 MiB/s | 49       |
 
-A 100 MiB file streams in ~120 ms write / ~45 ms read on local disk —
+A 100 MiB file streams in ~135 ms write / ~49 ms read on local disk —
 disk-bound, never memory-bound (64 KiB chunks).
 
 ### API throughput
@@ -232,9 +232,9 @@ Every run writes one JSON report per section:
   "fields": 14,
   "concurrency": 1,
   "iterations": 7,
-  "p50_ms": 239.3,
-  "p95_ms": 252.2,
-  "p99_ms": 252.2,
+  "p50_ms": 227.3,
+  "p95_ms": 233.9,
+  "p99_ms": 233.9,
   "errors": 0
 }
 ```
@@ -252,12 +252,12 @@ Canonical baseline measured 2026-08-29 on the environment above (see
 
 | Scenario                | Rows    | p50 (ms) | p95 (ms) | Notes                 |
 | ----------------------- | ------- | -------- | -------- | --------------------- |
-| dataset-read-1k         | 1,000   | 30.5     | 32.4     |                       |
-| dataset-read-10k        | 10,000  | 35.2     | 38.2     |                       |
-| dataset-read-50k        | 50,000  | 106.5    | 132.3    |                       |
-| dataset-read-100k       | 100,000 | 239.3    | 252.2    |                       |
-| dataset-read-50k narrow | 50,000  | 61.7     | 69.7     | narrow shape ≈ medium |
-| dataset-read-10k wide   | 10,000  | 32.3     | 51.3     | 60-field projection   |
+| dataset-read-1k         | 1,000   | 37.5     | 44.6     |                       |
+| dataset-read-10k        | 10,000  | 49.5     | 69.6     |                       |
+| dataset-read-50k        | 50,000  | 106.0    | 115.1    |                       |
+| dataset-read-100k       | 100,000 | 227.3    | 233.9    |                       |
+| dataset-read-50k narrow | 50,000  | 58.5     | 66.4     | narrow shape ≈ medium |
+| dataset-read-10k wide   | 10,000  | 31.8     | 55.0     | 60-field projection   |
 
 The canonical read path is dominated by the per-page `count(*)` plus the
 per-field correlated value joins; it stays interactive at 100k rows. Deep
@@ -269,10 +269,10 @@ yet justified.
 
 | Scenario             | Rows    | p50 (ms) | p95 (ms) |
 | -------------------- | ------- | -------- | -------- |
-| dataset-version-read | 1,000   | 6.8      | 7.2      |
-| dataset-version-read | 10,000  | 7.4      | 7.6      |
-| dataset-version-read | 50,000  | 17.5     | 18.3     |
-| dataset-version-read | 100,000 | 17.6     | 19.8     |
+| dataset-version-read | 1,000   | 6.8      | 7.0      |
+| dataset-version-read | 10,000  | 7.2      | 7.5      |
+| dataset-version-read | 50,000  | 18.0     | 18.9     |
+| dataset-version-read | 100,000 | 17.5     | 19.3     |
 
 Immutable version pages ride the PK order — flat cost regardless of size.
 
@@ -280,9 +280,9 @@ Immutable version pages ride the PK order — flat cost regardless of size.
 
 | Scenario           | Rows  | Validate p50 (ms) | Commit p50 (ms) | Commit p95 (ms) |
 | ------------------ | ----- | ----------------- | --------------- | --------------- |
-| dataset-write-1    | 1     | 0.9               | 2.6             | 34.4            |
-| dataset-write-100  | 100   | 0.9               | 2.7             | 2.9             |
-| dataset-write-1000 | 1,000 | 3.2               | 5.7             | 5.8             |
+| dataset-write-1    | 1     | 1.0               | 2.1             | 32.5            |
+| dataset-write-100  | 100   | 0.5               | 2.3             | 3.2             |
+| dataset-write-1000 | 1,000 | 2.5               | 5.2             | 5.3             |
 
 The canonical commit RPC is fast; the 1000-row batch bound is a product
 constraint, not a measured wall.
@@ -291,10 +291,10 @@ constraint, not a measured wall.
 
 | Scenario             | Rows   | p50 (ms) | p95 (ms) | Rate       |
 | -------------------- | ------ | -------- | -------- | ---------- |
-| dataset-snapshot-1k  | 1,000  | 160.7    | 170.5    | ~6k rows/s |
-| dataset-snapshot-10k | 10,000 | 1,919.0  | 1,989.5  | ~5k rows/s |
+| dataset-snapshot-1k  | 1,000  | 479.6    | 573.0    | ~2k rows/s |
+| dataset-snapshot-10k | 10,000 | 2,368.0  | 2,772.8  | ~4k rows/s |
 
-Snapshot cost is linear (~200 ms per 1k rows): a 100k-row snapshot is ~20 s.
+Snapshot cost is linear (~240 ms per 1k rows): a 100k-row snapshot is ~24 s.
 Each snapshot also emits one `change_events` row (GOV-03). This is the single
 largest write-path cost and the reason the scale envelope draws the
 "requires caution" line where it does.
@@ -303,16 +303,17 @@ largest write-path cost and the reason the scale envelope draws the
 
 | Stage              | p50 (ms) |
 | ------------------ | -------- |
-| materialize_inputs | 137      |
-| transform          | 10       |
-| output_commit      | 6,390    |
-| dataset_commit     | 6,370    |
-| dataset_snapshot   | 738      |
-| total              | 6,556    |
+| materialize_inputs | 121      |
+| transform          | 9        |
+| output_commit      | 6,436    |
+| dataset_commit     | 5,590    |
+| dataset_snapshot   | 695      |
+| output_overhead    | 154      |
+| total              | 6,583    |
 
 Output commit dominates: 10 chunked 1000-row commits (the executor now chunks
 the canonical 1000-row batch bound instead of failing >1000-row outputs) plus
-a 10k-row snapshot. The chunked commit is ~600 ms per 1000-row chunk inside
+a 10k-row snapshot. The chunked commit is ~560 ms per 1000-row chunk inside
 the run's long-lived transaction (the canonical commit is ~5 ms standalone);
 this is the current dominant pipeline cost and the first thing to revisit if
 pipeline throughput matters. Materialization is set-based (one statement, not
@@ -323,9 +324,9 @@ sequential inserts and dominated large-input runs).
 
 | Concurrency | p50 wall (ms) | Scaling |
 | ----------- | ------------- | ------- |
-| 1           | 6,496         | 1×      |
-| 2           | 13,472        | 2.1×    |
-| 5           | 34,024        | 5.2×    |
+| 1           | 6,877         | 1×      |
+| 2           | 13,572        | 2.0×    |
+| 5           | 34,428        | 5.0×    |
 
 Linear — no collapse, but also no parallelism benefit (single executor
 connection per run; CPU-bound transform is small). Supported initial
@@ -335,9 +336,9 @@ concurrency limit: **5 concurrent runs** (see limits).
 
 | Schedules | Sweep p50 (ms) | Per schedule |
 | --------- | -------------- | ------------ |
-| 10        | 25             | ~2.5 ms      |
-| 100       | 145            | ~1.5 ms      |
-| 1000      | 1,469          | ~1.5 ms      |
+| 10        | 19             | ~1.9 ms      |
+| 100       | 176            | ~1.8 ms      |
+| 1000      | 1,572          | ~1.6 ms      |
 
 A 1000-schedule sweep completes in ~1.4 s; the 60 s polling cadence remains
 acceptable (one sweep ≈ 2.3% of the interval).
@@ -346,12 +347,12 @@ acceptable (one sweep ≈ 2.3% of the interval).
 
 | Events | Drain time | Sweeps | Events consumed |
 | ------ | ---------- | ------ | --------------- |
-| 10     | 55 ms      | 2      | 10              |
-| 100    | 318 ms     | 6      | 100             |
-| 1000   | 6,603 ms   | 51     | 1,000           |
+| 10     | 50 ms      | 2      | 10              |
+| 100    | 353 ms     | 6      | 100             |
+| 1000   | 5,513 ms   | 51     | 1,000           |
 
 Each sweep consumes up to 20 events per schedule (per-sweep bound). 1000
-events drain in ~4 s; at-least-once delivery and the cursor advance are
+events drain in ~5.5 s; at-least-once delivery and the cursor advance are
 unchanged (the harness asserts the exact consumption count).
 
 ### Search (global search over 20k records)
@@ -376,9 +377,9 @@ like the same-origin proxy does). After the maintained FTS search index:
 
 | Concurrency | Throughput | p95 (ms) | p99 (ms) | Errors                       |
 | ----------- | ---------- | -------- | -------- | ---------------------------- |
-| 1           | ~9 req/s   | 500      | 506      | 0                            |
-| 5           | ~36 req/s  | 572      | 581      | 0                            |
-| 20          | ~44 req/s  | 1,245    | 1,524    | 8 (stale-revision conflicts) |
+| 1           | ~9 req/s   | 464      | 500      | 0                            |
+| 5           | ~37 req/s  | 582      | 587      | 0                            |
+| 20          | ~43 req/s  | 1,172    | 1,301    | 5 (stale-revision conflicts) |
 
 Throughput is 5–10× the pre-fix baseline (which was ~1–10 req/s with p95 up
 to 8.7 s because search computed a tsvector for every record per query).
@@ -398,20 +399,19 @@ starts to dominate or correctness semantics (e.g. 1000-row commit cap,
 Dataset interactive use
 ────────────────────────────────
 Comfortable       ≤ 50k rows       (page reads p95 < 120 ms)
-Supported         ≤ 100k rows      (page reads p95 < 200 ms)
+Supported         ≤ 100k rows      (page reads p95 < 250 ms)
 Requires caution  > 100k rows      (per-page count + projection grow; >100k pipeline inputs are refused)
 
 Concurrent users
 ────────────────────────────────
-Validated         5 mixed users    (API concurrency benchmark)
-Tested            20 mixed users   (tail latency grows with the write share)
+Validated         1 / 5 / 20 mixed users (API concurrency benchmark)
 
 Pipelines
 ────────────────────────────────
 Concurrent runs   5                (linear scaling; supported limit)
 Input rows/run    100,000          (fixed cap)
 Result rows/run   100,000          (fixed cap)
-Snapshot/run      ≤ 50k rows comfortable; 100k rows ≈ 20 s
+Snapshot/run      ≤ 50k rows comfortable; 100k rows ≈ 24 s
 
 Files
 ────────────────────────────────
@@ -497,20 +497,20 @@ measure before scaling.
 
 ## Known limits
 
-| Limit                      | Value                                                   | Notes                                                                                                              |
-| -------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Dataset page               | 1–1000 rows                                             | `query_dataset_rows` / version RPC                                                                                 |
-| Commit batch               | 1–1000 rows                                             | `commit_dataset_row_batch`; the Pipeline executor and connector imports chunk large outputs                        |
-| Pipeline input rows        | 100,000                                                 | fixed, sandboxed executor limit                                                                                    |
-| Pipeline result rows       | 100,000                                                 | fixed                                                                                                              |
-| Pipeline inputs/parameters | 10 / 50                                                 | config limits                                                                                                      |
-| File size                  | 100 MiB                                                 | product cap (`FILE_MAX_BYTES`)                                                                                     |
-| Import                     | 10 MB / 1000 rows                                       | client-side DATA-01 caps                                                                                           |
-| Sheet composition page     | 200 rows                                                | `query_sheet_instance_rows` page bound                                                                             |
-| Scheduler sweep            | 60 s cadence, 20 events/sweep, 5 stale recoveries/sweep | polling; at-least-once                                                                                             |
-| Change events              | unbounded                                               | retention/archival not implemented (no observed pressure yet)                                                      |
-| Record import              | 1 RPC per row                                           | `commitRecordImport` issues one `create_model_record` per row — N+1, documented as a future batch-create candidate |
-| S3 object import           | 1000 rows/object                                        | delimited parser import cap (preview reads 512 KiB) — a product limit, not a benchmark artifact                    |
+| Limit                      | Value                                                   | Notes                                                                                                                               |
+| -------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Dataset page               | 1–1000 rows                                             | `query_dataset_rows` / version RPC                                                                                                  |
+| Commit batch               | 1–1000 rows                                             | `commit_dataset_row_batch`; Pipeline output commits chunk; connector imports use `commit_dataset_row_batch_atomic` (all-or-nothing) |
+| Pipeline input rows        | 100,000                                                 | fixed, sandboxed executor limit                                                                                                     |
+| Pipeline result rows       | 100,000                                                 | fixed                                                                                                                               |
+| Pipeline inputs/parameters | 10 / 50                                                 | config limits                                                                                                                       |
+| File size                  | 100 MiB                                                 | product cap (`FILE_MAX_BYTES`)                                                                                                      |
+| Import                     | 10 MB / 1000 rows                                       | client-side DATA-01 caps                                                                                                            |
+| Sheet composition page     | 200 rows                                                | `query_sheet_instance_rows` page bound                                                                                              |
+| Scheduler sweep            | 60 s cadence, 20 events/sweep, 5 stale recoveries/sweep | polling; at-least-once                                                                                                              |
+| Change events              | unbounded                                               | retention/archival not implemented (no observed pressure yet)                                                                       |
+| Record import              | 1 RPC per row                                           | `commitRecordImport` issues one `create_model_record` per row — N+1, documented as a future batch-create candidate                  |
+| S3 object import           | 1000 rows/object                                        | delimited parser import cap (preview reads 512 KiB) — a product limit, not a benchmark artifact                                     |
 
 ## Diagnosing slow behaviour
 
@@ -550,7 +550,7 @@ label values):
 | `sheetbase_dataset_rpc_duration_seconds`          | histogram | `operation` (query_dataset_rows, query_dataset_version_rows, commit_dataset_row_batch, snapshot_dataset, search, other) |
 | `sheetbase_dataset_commit_duration_seconds`       | histogram | `size_bucket` (small/medium/large/xlarge)                                                                               |
 | `sheetbase_dataset_snapshot_duration_seconds`     | histogram | `size_bucket`                                                                                                           |
-| `sheetbase_pipeline_stage_duration_seconds`       | histogram | `stage` (materialize_inputs, transform, output_commit, dataset_commit, dataset_snapshot, total)                         |
+| `sheetbase_pipeline_stage_duration_seconds`       | histogram | `stage` (materialize_inputs, transform, output_commit, dataset_commit, dataset_snapshot, output_overhead, total)        |
 | `sheetbase_pipeline_runs_total`                   | counter   | `trigger_kind` (manual/scheduled/event), `outcome`                                                                      |
 | `sheetbase_pipeline_active_runs`                  | gauge     | —                                                                                                                       |
 | `sheetbase_scheduler_sweep_duration_seconds`      | histogram | —                                                                                                                       |
@@ -625,21 +625,23 @@ received-bytes check).
 Measured against local deterministic fixtures: an in-process S3-compatible
 HTTP backend (real SDK + SigV4) and an isolated source PostgreSQL database in
 the local cluster. Runs execute in-process, request-scoped, through the
-canonical commit path — which now **chunks** `commit_dataset_row_batch` at the
-canonical 1000-row cap (a large import previously failed above 1000 rows, the
-same bug the Pipeline executor had). Per-stage timings come from the run's
-durable stage logs.
+canonical commit path, which now runs **atomically**: `commit_dataset_row_batch_atomic`
+executes every canonical ≤1000-row chunk inside one database transaction, so a
+failure in any chunk rolls back every earlier chunk — no partial scientific
+imports (a large import previously failed outright above 1000 rows, and the
+interim chunked fix risked partial mutation). Per-stage timings come from the
+run's durable stage logs.
 
 | Scenario                   | Rows | Source read | Map+validate | Commit | Total  |
 | -------------------------- | ---- | ----------- | ------------ | ------ | ------ |
-| postgres ingest 10k        | 10k  | 47 ms       | 5.8 s        | 2.2 ms | 5.9 s  |
-| postgres ingest 50k        | 50k  | 152 ms      | 28.6 s       | 3.0 ms | 28.7 s |
-| postgres preview 10k / 50k | —    | 11 / 11 ms  | —            | —      | —      |
-| s3 ingest 500              | 500  | 19 ms       | 262 ms       | 2.1 ms | 292 ms |
-| s3 ingest 1k               | 1k   | 17 ms       | 548 ms       | 2.1 ms | 576 ms |
-| s3 preview 500 / 1k        | —    | 3 / 3 ms    | —            | —      | —      |
+| postgres ingest 10k        | 10k  | 51 ms       | 6.4 s        | 3.1 ms | 6.4 s  |
+| postgres ingest 50k        | 50k  | 174 ms      | 32.7 s       | 3.3 ms | 33.0 s |
+| postgres preview 10k / 50k | —    | 13 / 12 ms  | —            | —      | —      |
+| s3 ingest 500              | 500  | 21 ms       | 267 ms       | 2.2 ms | 302 ms |
+| s3 ingest 1k               | 1k   | 19 ms       | 597 ms       | 2.8 ms | 631 ms |
+| s3 preview 500 / 1k        | —    | 6 / 2 ms    | —            | —      | —      |
 
-Replay (digest dedupe) latency: postgres 51–170 ms, s3 15–20 ms — a retried
+Replay (digest dedupe) latency: postgres 62–156 ms, s3 17–22 ms — a retried
 identical import replays the prior receipt instead of re-reading the source.
 Map+validate dominates every import (per-row coercion + chunked validation);
 it is the first candidate if connector ingest throughput matters. S3 objects

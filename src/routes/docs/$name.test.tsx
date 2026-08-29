@@ -35,7 +35,7 @@ const { Route } = await import('./$name')
 const beforeLoad = Route.options.beforeLoad as ({
   context,
 }: {
-  context: { auth: unknown }
+  context: { auth: { workspace: unknown } | null }
 }) => Promise<unknown>
 
 afterEach(() => {
@@ -49,6 +49,16 @@ describe('docs/$name route — auth guard', () => {
     await expect(
       beforeLoad({ context: { auth: null } }),
     ).rejects.toMatchObject({ to: '/sign-in' })
+  })
+
+  it('redirects authenticated users with no workspace to home', async () => {
+    const auth = {
+      user: { id: 'u1', name: 'Test', email: 't@e.com' },
+      workspace: null,
+    }
+    await expect(
+      beforeLoad({ context: { auth } }),
+    ).rejects.toMatchObject({ to: '/' })
   })
 
   it('allows authenticated workspace members', async () => {

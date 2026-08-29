@@ -14,6 +14,7 @@ export const Route = createFileRoute('/docs/$name')({
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
     if (!context) throw redirect({ to: '/sign-in' })
+    if (!context.workspace) throw redirect({ to: '/' })
     return { context }
   },
   loader: async ({ params }) => {

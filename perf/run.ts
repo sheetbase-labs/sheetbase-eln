@@ -1,15 +1,20 @@
 /**
  * PLAT-05 — benchmark orchestrator.
  *
- *   pnpm perf:seed        → deterministic fixtures (all sizes)
- *   pnpm perf:db          → dataset/version/write/snapshot benchmarks
- *   pnpm perf:pipelines   → pipeline stage/concurrency + scheduler/event
- *   pnpm perf:http        → API-layer concurrency vs PostgREST
- *   pnpm perf:all         → seed + db + pipelines + http
+ *   pnpm perf:seed          → deterministic fixtures (all sizes)
+ *   pnpm perf:db            → dataset/version/write/snapshot benchmarks
+ *   pnpm perf:pipelines     → pipeline stage/concurrency + scheduler/event
+ *   pnpm perf:http          → API-layer concurrency vs PostgREST
+ *   pnpm perf:files         → file platform streaming throughput
+ *   pnpm perf:connectors    → S3 + PostgreSQL source imports (per-stage)
+ *   pnpm perf:sheet-notebook→ bound Sheet load + Notebook block load
+ *   pnpm perf:pressure      → failure-under-pressure checks
+ *   pnpm perf:all           → seed + every benchmark above
  *
  * Every script requires SHEETBASE_ENV=development and
- * PERF_CONFIRM=local-destructive, with loopback DATABASE_URL / PGRST_DB_URI.
- * Results are written to perf/results/<timestamp>-<section>.json.
+ * PERF_CONFIRM=local-destructive, with loopback DATABASE_URL /
+ * MIGRATION_DATABASE_URL / PGRST_DB_URI. Results are written to
+ * perf/results/<timestamp>-<section>.json.
  */
 import { spawnSync } from 'node:child_process'
 import { join } from 'node:path'

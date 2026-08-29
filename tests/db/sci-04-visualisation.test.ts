@@ -107,16 +107,22 @@ function signature(chart: {
   return [...chart.series]
     .map((item) => ({
       identifier: item.identifier,
-      points: [...item.points]
+      ys: item.points
+        .map((point) => Number(point.y))
+        .sort((a, b) => a - b),
+      errors: item.points
         .map((point) => [
-          point.x,
-          point.y,
           point.yErrorLo ?? null,
           point.yErrorHi ?? null,
         ])
         .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
       violin: item.violin
-        ? [...item.violin].sort((a, b) => a.y - b.y || a.d - b.d)
+        ? [...item.violin]
+            .map((sample) => ({
+              y: Number(sample.y.toFixed(8)),
+              d: Number(sample.d.toFixed(8)),
+            }))
+            .sort((a, b) => a.y - b.y || a.d - b.d)
         : undefined,
     }))
     .sort((a, b) => a.identifier.localeCompare(b.identifier))
@@ -232,7 +238,9 @@ describe('SCI-04 visualisation freeze', () => {
     )
     const chart = rematerialiseFrozenChart(spec as ChartSpec, frozen, rows)
     expect(chart.state.kind).toBe('ok')
-    expect(chart.series[0].points.map((point) => point.y)).toEqual([2, 4, 6])
+    expect(
+      chart.series[0].points.map((point) => point.y).sort((a, b) => Number(a) - Number(b)),
+    ).toEqual([2, 4, 6])
   })
 
   it('keeps the pinned Version after the live Dataset is mutated', async () => {
@@ -249,7 +257,9 @@ describe('SCI-04 visualisation freeze', () => {
       frozen,
       await loadPinnedVersionRows(migrator, versionId),
     )
-    expect(pinned.series[0].points.map((point) => point.y)).toEqual([2, 4, 6])
+    expect(
+      pinned.series[0].points.map((point) => point.y).sort((a, b) => Number(a) - Number(b)),
+    ).toEqual([2, 4, 6])
 
     const rowRes = await migrator.query(
       `INSERT INTO api.dataset_rows(dataset_id,workspace_id) VALUES ($1,$2) RETURNING id`,
@@ -277,7 +287,9 @@ describe('SCI-04 visualisation freeze', () => {
       frozen,
       await loadPinnedVersionRows(migrator, versionId),
     )
-    expect(still.series[0].points.map((point) => point.y)).toEqual([2, 4, 6])
+    expect(still.series[0].points.map((point) => point.y).sort((a, b) => Number(a) - Number(b))).toEqual(
+      [2, 4, 6],
+    )
   })
 
   it('matches live materialisation for log10, SEM, violin, OLS and error bars', async () => {

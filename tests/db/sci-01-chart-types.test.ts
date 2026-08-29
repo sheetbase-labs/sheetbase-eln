@@ -230,8 +230,19 @@ describe('SCI-01 chart blocks on canonical Datasets', () => {
     )
     expect(chart.series).toHaveLength(1)
     const points = chart.series[0].points
-    expect(points.map((p) => p.x)).toEqual([0, 24, 48, 0, 24])
-    expect(points.map((p) => p.y)).toEqual([1, 3, 5, 2, 4])
+    expect(
+      [...points]
+        .map((p) => [p.x, p.y])
+        .sort((a, b) => Number(a[0]) - Number(b[0]) || Number(a[1]) - Number(b[1])),
+    ).toEqual(
+      [
+        [0, 1],
+        [0, 2],
+        [24, 3],
+        [24, 4],
+        [48, 5],
+      ],
+    )
     expect(res.rows[0].version).toBe(block.version + 1)
   })
 

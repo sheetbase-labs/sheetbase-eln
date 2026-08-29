@@ -5,7 +5,14 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import type { ChartSpec, FrozenChart } from '#/lib/chart-spec'
+import { materialiseChart, validateChartSpec } from '#/lib/chart-spec'
+
 import { prepareTestDatabase } from './helpers'
+import {
+  loadPinnedVersionRows,
+  rematerialiseFrozenChart,
+} from './sci-freeze-helpers'
 
 const WS_A = crypto.randomUUID()
 const PROJECT_A = crypto.randomUUID()
@@ -83,6 +90,36 @@ async function insertDataset(
     }
   }
   return { datasetId, fieldIds }
+}
+
+function signature(chart: {
+  series: Array<{
+    identifier: string
+    points: Array<{
+      x: number | null
+      y: number | null
+      yErrorLo?: number | null
+      yErrorHi?: number | null
+    }>
+    violin?: Array<{ y: number; d: number }>
+  }>
+}) {
+  return [...chart.series]
+    .map((item) => ({
+      identifier: item.identifier,
+      points: [...item.points]
+        .map((point) => [
+          point.x,
+          point.y,
+          point.yErrorLo ?? null,
+          point.yErrorHi ?? null,
+        ])
+        .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
+      violin: item.violin
+        ? [...item.violin].sort((a, b) => a.y - b.y || a.d - b.d)
+        : undefined,
+    }))
+    .sort((a, b) => a.identifier.localeCompare(b.identifier))
 }
 
 function specFor(type = 'scatter_line') {
@@ -176,31 +213,43 @@ afterAll(async () => {
 })
 
 describe('SCI-04 visualisation freeze', () => {
-  it('accepts scatter_line and pins a Dataset Version on freeze', async () => {
-    const block = await insertChartBlock(specFor())
+  it('accepts scatter_line and rematerialises from the pinned Version', async () => {
+    const spec = specFor()
+    const block = await insertChartBlock(spec)
     const res = await migrator.query(`SELECT * FROM api.freeze_chart($1,$2)`, [
       block.id,
       block.version,
     ])
-    const frozen = res.rows[0].payload.frozen
+    const frozen = res.rows[0].payload.frozen as FrozenChart
     expect(frozen.datasetProvenance[0].datasetId).toBe(dsId)
     expect(frozen.datasetProvenance[0].datasetVersionId).toMatch(
       /^[0-9a-f-]{36}$/i,
     )
-    expect(frozen.data.series[0].points.map((p: { y: number }) => p.y)).toEqual([
-      2, 4, 6,
-    ])
+    expect(frozen.data.series).toEqual([])
+    const rows = await loadPinnedVersionRows(
+      migrator,
+      frozen.datasetProvenance[0].datasetVersionId!,
+    )
+    const chart = rematerialiseFrozenChart(spec as ChartSpec, frozen, rows)
+    expect(chart.state.kind).toBe('ok')
+    expect(chart.series[0].points.map((point) => point.y)).toEqual([2, 4, 6])
   })
 
-  it('keeps frozen series after the live Dataset is mutated', async () => {
-    const block = await insertChartBlock(specFor('scatter'))
+  it('keeps the pinned Version after the live Dataset is mutated', async () => {
+    const spec = specFor('scatter')
+    const block = await insertChartBlock(spec)
     const frozenRes = await migrator.query(`SELECT * FROM api.freeze_chart($1,$2)`, [
       block.id,
       block.version,
     ])
-    const original = frozenRes.rows[0].payload.frozen.data.series[0].points.map(
-      (p: { y: number }) => p.y,
+    const frozen = frozenRes.rows[0].payload.frozen as FrozenChart
+    const versionId = frozen.datasetProvenance[0].datasetVersionId!
+    const pinned = rematerialiseFrozenChart(
+      spec as ChartSpec,
+      frozen,
+      await loadPinnedVersionRows(migrator, versionId),
     )
+    expect(pinned.series[0].points.map((point) => point.y)).toEqual([2, 4, 6])
 
     const rowRes = await migrator.query(
       `INSERT INTO api.dataset_rows(dataset_id,workspace_id) VALUES ($1,$2) RETURNING id`,
@@ -217,13 +266,192 @@ describe('SCI-04 visualisation freeze', () => {
       [dsId],
     )
     expect(liveCount.rows[0].n).toBeGreaterThan(3)
-
-    const still = await migrator.query(`SELECT payload FROM api.blocks WHERE id=$1`, [
-      block.id,
-    ])
-    const frozenYs = still.rows[0].payload.frozen.data.series[0].points.map(
-      (p: { y: number }) => p.y,
+    const versionCount = await migrator.query(
+      `SELECT count(*)::int AS n FROM api.dataset_version_rows WHERE dataset_version_id=$1`,
+      [versionId],
     )
-    expect(frozenYs).toEqual(original)
+    expect(versionCount.rows[0].n).toBe(3)
+
+    const still = rematerialiseFrozenChart(
+      spec as ChartSpec,
+      frozen,
+      await loadPinnedVersionRows(migrator, versionId),
+    )
+    expect(still.series[0].points.map((point) => point.y)).toEqual([2, 4, 6])
+  })
+
+  it('matches live materialisation for log10, SEM, violin, OLS and error bars', async () => {
+    const groupDs = await insertDataset(
+      'grouped_response',
+      [
+        { key: 'dose', label: 'Dose', type: 'decimal' },
+        { key: 'response', label: 'Response', type: 'decimal' },
+        { key: 'arm', label: 'Arm', type: 'text' },
+      ],
+      [
+        [1, 10, 'A'],
+        [2, 20, 'A'],
+        [3, 30, 'A'],
+        [1, 12, 'B'],
+        [2, 22, 'B'],
+        [3, 32, 'B'],
+      ],
+    )
+    const [xId, yId, gId] = groupDs.fieldIds
+    const columns = [
+      { id: xId, label: 'Dose', logicalType: 'decimal' as const },
+      { id: yId, label: 'Response', logicalType: 'decimal' as const },
+      { id: gId, label: 'Arm', logicalType: 'text' as const },
+    ]
+    const liveRows = [
+      { [xId]: 1, [yId]: 10, [gId]: 'A' },
+      { [xId]: 2, [yId]: 20, [gId]: 'A' },
+      { [xId]: 3, [yId]: 30, [gId]: 'A' },
+      { [xId]: 1, [yId]: 12, [gId]: 'B' },
+      { [xId]: 2, [yId]: 22, [gId]: 'B' },
+      { [xId]: 3, [yId]: 32, [gId]: 'B' },
+    ]
+    const cases: ChartSpec[] = [
+      {
+        ...specFor('scatter'),
+        datasets: [{ datasetId: groupDs.datasetId }],
+        fields: {
+          x: { fieldId: xId },
+          y: { fieldId: yId },
+          series: { fieldId: gId },
+          color: null,
+          size: null,
+          facet: null,
+        },
+        transformations: [{ kind: 'log10', params: { fieldId: yId } }],
+        overlays: { errorBars: null, fit: null },
+      } as ChartSpec,
+      {
+        ...specFor('summary'),
+        datasets: [{ datasetId: groupDs.datasetId }],
+        fields: {
+          x: { fieldId: xId },
+          y: { fieldId: yId },
+          series: { fieldId: gId },
+          color: null,
+          size: null,
+          facet: null,
+        },
+        overlays: {
+          errorBars: { source: 'computed', basis: 'sem' },
+          fit: null,
+        },
+      } as ChartSpec,
+      {
+        ...specFor('violin'),
+        datasets: [{ datasetId: groupDs.datasetId }],
+        fields: {
+          x: null,
+          y: { fieldId: yId },
+          series: { fieldId: gId },
+          color: null,
+          size: null,
+          facet: null,
+        },
+        overlays: { errorBars: null, fit: null },
+      } as ChartSpec,
+      {
+        ...specFor('scatter'),
+        datasets: [{ datasetId: groupDs.datasetId }],
+        fields: {
+          x: { fieldId: xId },
+          y: { fieldId: yId },
+          series: null,
+          color: null,
+          size: null,
+          facet: null,
+        },
+        overlays: { errorBars: null, fit: { method: 'ols', degree: 1 } },
+      } as ChartSpec,
+      {
+        ...specFor('scatter'),
+        datasets: [{ datasetId: groupDs.datasetId }],
+        fields: {
+          x: { fieldId: xId },
+          y: { fieldId: yId },
+          series: { fieldId: gId },
+          color: null,
+          size: null,
+          facet: null,
+        },
+        overlays: {
+          errorBars: { source: 'computed', basis: 'sd' },
+          fit: null,
+        },
+      } as ChartSpec,
+    ]
+
+    for (const spec of cases) {
+      const live = materialiseChart(spec, columns, liveRows)
+      const block = await insertChartBlock(spec)
+      const frozenRes = await migrator.query(
+        `SELECT * FROM api.freeze_chart($1,$2)`,
+        [block.id, block.version],
+      )
+      const frozen = frozenRes.rows[0].payload.frozen as FrozenChart
+      const pinnedRows = await loadPinnedVersionRows(
+        migrator,
+        frozen.datasetProvenance[0].datasetVersionId!,
+      )
+      const rematerialised = rematerialiseFrozenChart(spec, frozen, pinnedRows)
+      expect(rematerialised.state).toEqual(live.state)
+      expect(signature(rematerialised)).toEqual(signature(live))
+      expect(rematerialised.fit?.equation).toEqual(live.fit?.equation)
+      expect(rematerialised.fit?.r2).toEqual(live.fit?.r2)
+    }
+  })
+
+  it('pages more than 5000 live Dataset rows without dataset_too_large', async () => {
+    const large = await insertDataset(
+      'large_envelope',
+      [
+        { key: 'x', label: 'X', type: 'decimal' },
+        { key: 'y', label: 'Y', type: 'decimal' },
+      ],
+      [],
+    )
+    await migrator.query(
+      `INSERT INTO api.dataset_rows(dataset_id,workspace_id)
+       SELECT $1,$2 FROM generate_series(1, 5100)`,
+      [large.datasetId, WS_A],
+    )
+    await migrator.query(
+      `INSERT INTO api.dataset_row_values(row_id,field_id,numeric_value)
+       SELECT r.id, $2, 1 FROM api.dataset_rows r WHERE r.dataset_id=$1`,
+      [large.datasetId, large.fieldIds[0]],
+    )
+    await migrator.query(
+      `INSERT INTO api.dataset_row_values(row_id,field_id,numeric_value)
+       SELECT r.id, $2, 2 FROM api.dataset_rows r WHERE r.dataset_id=$1`,
+      [large.datasetId, large.fieldIds[1]],
+    )
+    const page = await migrator.query<{ totalCount: number }>(
+      `SELECT (api.query_dataset_rows($1,'{}'::jsonb,1000,0)->>'totalCount')::int AS "totalCount"`,
+      [large.datasetId],
+    )
+    expect(page.rows[0].totalCount).toBe(5100)
+  }, 60_000)
+
+  it('rejects scatter_line without x in both TypeScript and the trigger', async () => {
+    const invalid = {
+      ...specFor('scatter_line'),
+      fields: {
+        x: null,
+        y: { fieldId: fieldY },
+        series: null,
+        color: null,
+        size: null,
+        facet: null,
+      },
+    }
+    expect(validateChartSpec(invalid).some((error) => error.field === 'spec.fields.x')).toBe(
+      true,
+    )
+    await expect(insertChartBlock(invalid)).rejects.toMatchObject({ code: '23514' })
   })
 })

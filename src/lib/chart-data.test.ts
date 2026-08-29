@@ -163,15 +163,24 @@ describe('fetchDatasetRows', () => {
     }
   })
 
-  it('stops at the hard ceiling and flags truncation above it', async () => {
+  it('loads the full analysis envelope between 5k and 10k rows', async () => {
     const { client, calls } = pagedRowsClient(5200)
     const result = await fetchDatasetRows(client, DATASET_ID)
-    expect(result.truncated).toBe(true)
+    expect(result.truncated).toBe(false)
     expect(result.totalCount).toBe(5200)
-    // Exactly SCI_ROW_HARD_LIMIT rows are materialised — never more.
+    expect(result.rows).toHaveLength(5200)
+    expect(calls).toHaveLength(6)
+    expect(calls[5].p_offset).toBe(5000)
+  })
+
+  it('stops at the hard ceiling and flags truncation above it', async () => {
+    const { client, calls } = pagedRowsClient(15_000)
+    const result = await fetchDatasetRows(client, DATASET_ID)
+    expect(result.truncated).toBe(true)
+    expect(result.totalCount).toBe(15_000)
     expect(result.rows).toHaveLength(SCI_ROW_HARD_LIMIT)
-    expect(calls).toHaveLength(5)
-    expect(calls[4].p_offset).toBe(4000)
+    expect(calls).toHaveLength(10)
+    expect(calls[9].p_offset).toBe(9000)
   })
 
   it('returns a single page without follow-ups under the page size', async () => {
@@ -272,11 +281,11 @@ describe('materialiseLiveChart', () => {
   })
 
   it('returns dataset_too_large when the source exceeded the ceiling', () => {
-    const dataset = { ...makeDataset(), truncated: true, totalCount: 6000 }
+    const dataset = { ...makeDataset(), truncated: true, totalCount: 15_000 }
     const result = materialiseLiveChart(lineSpec(), dataset)
     expect(result.state.kind).toBe('dataset_too_large')
     if (result.state.kind === 'dataset_too_large') {
-      expect(result.state.rowCount).toBe(6000)
+      expect(result.state.rowCount).toBe(15_000)
       expect(result.state.limit).toBe(SCI_ROW_HARD_LIMIT)
     }
     expect(result.series).toEqual([])

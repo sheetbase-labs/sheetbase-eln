@@ -146,6 +146,17 @@ export function ChartRenderer({
               onSelect: onSelectionChange ?? (() => {}),
             }}
           />
+          {materialised.transformInvalidCount ? (
+            <p role="status" className="mt-1 text-xs text-muted-foreground">
+              {materialised.transformInvalidCount} value
+              {materialised.transformInvalidCount === 1 ? '' : 's'} could not
+              be transformed
+              {materialised.transformInvalidReasons?.length
+                ? ` (${materialised.transformInvalidReasons.join('; ')})`
+                : ''}
+              . They are omitted, not coerced.
+            </p>
+          ) : null}
           {materialised.droppedPoints > 0 ? (
             <p role="status" className="mt-1 text-xs text-muted-foreground">
               {materialised.droppedPoints} row
@@ -768,6 +779,8 @@ function describeState(materialised: MaterialisedChart): string {
       return 'No dataset is referenced. Select a dataset to plot this chart.'
     case 'missing_field':
       return `The dataset is missing field(s): ${materialised.state.fields.join(', ')}. Update the field mappings or the dataset.`
+    case 'dataset_too_large':
+      return `This Dataset has ${materialised.state.rowCount} rows, above the ${materialised.state.limit}-row analysis limit. Filter or aggregate before plotting.`
     case 'empty_dataset':
       return 'The dataset has no rows matching the current filters.'
     case 'log_scale_invalid':

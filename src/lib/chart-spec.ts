@@ -74,6 +74,21 @@ export const CHART_TYPE_LABELS: Record<ChartType, string> = {
   heatmap: 'heatmap',
 }
 
+/** Types that require an x encoding. Shared with the DB trigger. */
+export const CHART_TYPES_REQUIRING_X: readonly ChartType[] = [
+  'line',
+  'bar',
+  'grouped_bar',
+  'stacked_bar',
+  'connected_scatter',
+  'scatter_line',
+  'heatmap',
+  'summary',
+]
+
+/** Types that measure y only; an x mapping is rejected. */
+export const CHART_TYPES_NULL_X: readonly ChartType[] = ['histogram', 'box']
+
 /** Chart types plotted in Cartesian x/y coordinates. */
 export const CARTESIAN_CHART_TYPES: readonly ChartType[] = [
   'line',
@@ -739,16 +754,9 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
         field: 'spec.fields.y',
         message: 'spec.fields.y is required',
       })
-    // x is required for line, bar variants and heatmap.
     if (
-      type === 'line' ||
-      type === 'bar' ||
-      type === 'grouped_bar' ||
-      type === 'stacked_bar' ||
-      type === 'connected_scatter' ||
-      type === 'scatter_line' ||
-      type === 'heatmap' ||
-      type === 'summary'
+      type !== null &&
+      (CHART_TYPES_REQUIRING_X as readonly string[]).includes(type)
     ) {
       if (fields.x === null || fields.x === undefined)
         errors.push({
@@ -760,9 +768,10 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
     } else {
       errors.push(...validateFieldBinding(fields.x, 'spec.fields.x'))
     }
-    // Histograms and box plots measure fields.y directly; an x mapping has
-    // no meaning and would suggest a dependency that does not exist.
-    if (type === 'histogram' || type === 'box') {
+    if (
+      type !== null &&
+      (CHART_TYPES_NULL_X as readonly string[]).includes(type)
+    ) {
       if (fields.x !== null && fields.x !== undefined)
         errors.push({
           code: 'invalid_value',
@@ -1283,6 +1292,9 @@ export interface MaterialisedChart {
   yUnit: string | undefined
   /** Rows dropped because the mapped value was missing or non-numeric. */
   droppedPoints: number
+  /** Rows a transform could not apply (log of ≤0, √ of <0, zero ratio). */
+  transformInvalidCount?: number
+  transformInvalidReasons?: string[]
   /** Shared histogram bin edges when the chart type is `histogram`. */
   bins?: { edges: number[] }
   /** Aggregated value grid when the chart type is `heatmap`. */
@@ -1378,6 +1390,14 @@ export function materialiseChart(
     spec,
   )
   const working = transformed.rows
+  const transformInvalidCount = transformed.transformInvalid
+  const transformInvalidReasons = transformed.reasons
+  const withTransforms = (chart: MaterialisedChart) =>
+    finishMaterialised(spec, {
+      ...chart,
+      transformInvalidCount,
+      transformInvalidReasons,
+    })
   if (working.length === 0)
     return {
       state: { kind: 'empty_dataset' },
@@ -1389,6 +1409,8 @@ export function materialiseChart(
       xUnit,
       yUnit,
       droppedPoints: 0,
+      transformInvalidCount,
+      transformInvalidReasons,
     }
 
   const type = spec.type
@@ -1405,10 +1427,11 @@ export function materialiseChart(
       xUnit,
       yUnit,
       droppedPoints: 0,
+      transformInvalidCount,
+      transformInvalidReasons,
     }
   if (type === 'histogram')
-    return finishMaterialised(
-      spec,
+    return withTransforms(
       materialiseHistogram(spec, yCol, working, {
         columns,
         xLabel,
@@ -1418,8 +1441,7 @@ export function materialiseChart(
       }),
     )
   if (type === 'box')
-    return finishMaterialised(
-      spec,
+    return withTransforms(
       materialiseBoxPlot(spec, yCol, working, {
         columns,
         xLabel,
@@ -1429,8 +1451,7 @@ export function materialiseChart(
       }),
     )
   if (type === 'violin')
-    return finishMaterialised(
-      spec,
+    return withTransforms(
       materialiseViolin(spec, yCol, working, {
         columns,
         xLabel,
@@ -1440,8 +1461,7 @@ export function materialiseChart(
       }),
     )
   if (type === 'strip')
-    return finishMaterialised(
-      spec,
+    return withTransforms(
       materialiseStrip(spec, yCol, working, {
         columns,
         xLabel,
@@ -1451,8 +1471,7 @@ export function materialiseChart(
       }),
     )
   if (type === 'summary')
-    return finishMaterialised(
-      spec,
+    return withTransforms(
       materialiseSummary(spec, yCol, xCol, working, {
         columns,
         xLabel,
@@ -1462,13 +1481,15 @@ export function materialiseChart(
       }),
     )
   if (type === 'heatmap')
-    return materialiseHeatmap(spec, columns, xCol, yCol, working, {
-      columns,
-      xLabel,
-      yLabel,
-      xUnit,
-      yUnit,
-    })
+    return withTransforms(
+      materialiseHeatmap(spec, columns, xCol, yCol, working, {
+        columns,
+        xLabel,
+        yLabel,
+        xUnit,
+        yUnit,
+      }),
+    )
 
   // Build series groups.
   const groups = new Map<string, Record<string, unknown>[]>()
@@ -1572,6 +1593,8 @@ export function materialiseChart(
         xUnit,
         yUnit,
         droppedPoints: 0,
+        transformInvalidCount,
+        transformInvalidReasons,
       }
   }
 
@@ -1585,6 +1608,8 @@ export function materialiseChart(
     xUnit,
     yUnit,
     droppedPoints,
+    transformInvalidCount,
+    transformInvalidReasons,
   })
 }
 

@@ -45,10 +45,13 @@ import {
   fetchCanonicalDataset,
   fetchDatasetRows,
   fetchFrozenAnalysisRows,
+  frozenPinsDatasetVersion,
   materialiseFrozenChart,
   materialiseFrozenFacets,
   materialiseLiveChart,
+  reconstructFrozenVisualisation,
   sciDataClient,
+  useFrozenPinnedRows,
   useLiveChartDataset,
 } from '#/lib/chart-data'
 import { CHART_SPEC_VERSION } from '#/lib/chart-spec'
@@ -834,23 +837,88 @@ function ChartBlockPreview({ payload }: { payload: unknown }) {
   // Frozen charts render the immutable snapshot directly — no live re-read,
   // no stale detection.
   if (frozen) {
-    const materialised = materialiseFrozenChart(frozen)
-    const facets = materialiseFrozenFacets(frozen)
     return (
-      <ChartRenderer
+      <PinnedFrozenChartPreview
         title={title}
         provenance={provenance}
         spec={spec}
-        materialised={materialised}
         frozen={frozen}
-        facets={facets?.panels}
-        facetTotal={facets?.total}
       />
     )
   }
 
   // Live chart: resolve the dataset and calculation results.
   return <LiveChartPreview title={title} provenance={provenance} spec={spec} />
+}
+
+function PinnedFrozenChartPreview({
+  title,
+  provenance,
+  spec,
+  frozen,
+}: {
+  title: string
+  provenance?: string
+  spec: ChartSpec | null
+  frozen: NonNullable<ChartBlockPayload['frozen']>
+}) {
+  const versionId = frozenPinsDatasetVersion(frozen)
+  const pinned = useFrozenPinnedRows(frozen)
+  if (versionId && spec) {
+    if (pinned.isLoading) {
+      return (
+        <ChartRenderer
+          title={title}
+          provenance={provenance}
+          spec={spec}
+          materialised={emptyMaterialised(spec)}
+          frozen={frozen}
+          loading
+        />
+      )
+    }
+    if (pinned.error || !pinned.data) {
+      return (
+        <ChartRenderer
+          title={title}
+          provenance={provenance}
+          spec={spec}
+          materialised={emptyMaterialised(spec)}
+          frozen={frozen}
+          error="Frozen Dataset Version could not be reconstructed."
+        />
+      )
+    }
+    const reconstructed = reconstructFrozenVisualisation({
+      spec,
+      frozen,
+      rows: pinned.data.rows,
+    })
+    return (
+      <ChartRenderer
+        title={title}
+        provenance={provenance}
+        spec={spec}
+        materialised={reconstructed.chart}
+        frozen={frozen}
+        facets={reconstructed.facets?.panels}
+        facetTotal={reconstructed.facets?.total}
+      />
+    )
+  }
+  const materialised = materialiseFrozenChart(frozen)
+  const facets = materialiseFrozenFacets(frozen)
+  return (
+    <ChartRenderer
+      title={title}
+      provenance={provenance}
+      spec={spec}
+      materialised={materialised}
+      frozen={frozen}
+      facets={facets?.panels}
+      facetTotal={facets?.total}
+    />
+  )
 }
 
 function LiveChartPreview({

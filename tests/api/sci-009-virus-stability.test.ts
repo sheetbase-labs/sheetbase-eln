@@ -838,12 +838,10 @@ describe('SCI-009 Virus Stability end-to-end API acceptance', () => {
   it('freezes a chart through the transactional RPC with materialized data', async () => {
     expect(frozenChartBlock.payload.frozen).toBeTruthy()
     expect(frozenChartBlock.payload.frozen.frozenByUserId).toBe(USER_A)
-    expect(frozenChartBlock.payload.frozen.datasetProvenance[0].tableId).toBe(
-      sheetTable.id,
+    expect(frozenChartBlock.payload.frozen.datasetProvenance[0].datasetVersionId).toMatch(
+      /^[0-9a-f-]{36}$/i,
     )
-    expect(frozenChartBlock.payload.frozen.data.series.length).toBeGreaterThan(
-      0,
-    )
+    expect(frozenChartBlock.payload.frozen.data.series).toEqual([])
     // Live chart remains unfrozen.
     const liveRead = await proxy(
       `blocks?id=eq.${liveChartBlock.id}`,

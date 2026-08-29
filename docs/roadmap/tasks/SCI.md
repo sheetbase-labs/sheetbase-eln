@@ -14,9 +14,9 @@ Scatter, line, bar, box, histogram, heatmap; error bars; grouping; colour/marker
 
 Reworked onto canonical Datasets (decision 0037): `ChartSpec` references
 `api.datasets` by UUID and binds fields by stable `field_id`; live rendering
-reads through `query_dataset_rows`, and `freeze_chart` pivots
-`dataset_row_values` server-side so frozen series stay byte-reproducible
-against the pure TypeScript materialiser. Legacy `scientific_tables` and the
+reads through `query_dataset_rows`. `freeze_chart` pins a Dataset Version;
+frozen figures rematerialise from version tables through the same TypeScript
+pipeline as live charts. Legacy `scientific_tables` and the
 generated `sheet_*` relations are no longer part of the chart path.
 
 ## SCI-02 — Analysis Framework — **implemented** (#65)

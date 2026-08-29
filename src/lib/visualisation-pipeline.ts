@@ -235,9 +235,10 @@ function applyFieldTransform(
   kind: FieldTransformKind,
   params: Record<string, unknown>,
   spec: ChartSpec,
-): { rows: Record<string, unknown>[]; invalid: number } {
+): { rows: Record<string, unknown>[]; invalid: number; reasons: string[] } {
   const fieldId = strParam(params, 'fieldId', spec.fields.y.fieldId)
   let invalid = 0
+  const reasons: string[] = []
   const next = rows.map((row) => {
     const y = toNumeric(row[fieldId])
     if (y === null) return row
@@ -273,22 +274,44 @@ function applyFieldTransform(
         return _exhaustive
       }
     }
-    if (value === null || !Number.isFinite(value)) {
+  if (value === null || !Number.isFinite(value)) {
       invalid++
+      reasons.push(reasonForInvalidTransform(kind, y, params))
       return { ...row, [fieldId]: null }
     }
     return { ...row, [fieldId]: value }
   })
-  return { rows: next, invalid }
+  return { rows: next, invalid, reasons }
+}
+
+function reasonForInvalidTransform(
+  kind: FieldTransformKind,
+  _y: number,
+  params: Record<string, unknown>,
+): string {
+  if (kind === 'log10' || kind === 'ln') return `${kind} of non-positive value`
+  if (kind === 'sqrt') return 'square root of a negative value'
+  if (kind === 'ratio') {
+    const ref = toNumeric(params.reference)
+    if (ref === 0) return 'ratio with a zero denominator'
+    return 'ratio missing a numeric reference'
+  }
+  if (kind === 'difference') return 'difference missing a numeric reference'
+  return `${kind} produced a non-numeric result`
 }
 
 export function applyTransformations(
   rows: Record<string, unknown>[],
   transformations: readonly Transformation[],
   spec: ChartSpec,
-): { rows: Record<string, unknown>[]; transformInvalid: number } {
+): {
+  rows: Record<string, unknown>[]
+  transformInvalid: number
+  reasons: string[]
+} {
   let current = rows
   let transformInvalid = 0
+  const reasons: string[] = []
   for (const transformation of transformations) {
     if (transformation.kind === 'aggregate') {
       current = applyAggregate(current, transformation.params, spec)
@@ -305,9 +328,12 @@ export function applyTransformations(
       )
       current = applied.rows
       transformInvalid += applied.invalid
+      for (const reason of applied.reasons) {
+        if (!reasons.includes(reason)) reasons.push(reason)
+      }
     }
   }
-  return { rows: current, transformInvalid }
+  return { rows: current, transformInvalid, reasons }
 }
 
 export function formatAxisTitle(label: string, unit?: string): string {
@@ -594,22 +620,78 @@ export function attachFitOverlay(
   }
 }
 
+export function apportionRenderBudget(
+  counts: number[],
+  budget: number,
+): number[] {
+  const total = counts.reduce((sum, count) => accSum(sum, count), 0)
+  if (total <= budget) return counts
+  const activeCount = counts.filter((count) => count > 0).length
+  if (budget <= 0) return counts.map(() => 0)
+  if (budget <= activeCount) {
+    let remaining = budget
+    return counts.map((count) => {
+      if (count === 0 || remaining === 0) return 0
+      remaining -= 1
+      return 1
+    })
+  }
+  const floors = counts.map((count) =>
+    count === 0 ? 0 : Math.floor((count / total) * budget),
+  )
+  const assigned = floors.reduce((sum, count) => accSum(sum, count), 0)
+  let leftover = budget - assigned
+  const order = counts
+    .map((count, index) => ({
+      index,
+      remainder: count === 0 ? -1 : (count / total) * budget - floors[index],
+    }))
+    .sort((a, b) => b.remainder - a.remainder)
+  const result = [...floors]
+  for (const item of order) {
+    if (leftover <= 0) break
+    if (counts[item.index] === 0) continue
+    result[item.index] += 1
+    leftover -= 1
+  }
+  return result.map((count, index) => Math.min(count, counts[index]))
+}
+
+function accSum(sum: number, count: number): number {
+  return sum + count
+}
+
 export function sampleSeriesForRender(
   series: MaterialisedSeries[],
 ): {
   series: MaterialisedSeries[]
   sampling: MaterialisedChart['sampling']
 } {
-  const total = series.reduce((acc, item) => acc + item.points.length, 0)
+  const displayIndexes = series
+    .map((item, index) =>
+      item.renderAs === 'line' || item.identifier === '__fit' ? -1 : index,
+    )
+    .filter((index) => index >= 0)
+  const counts = displayIndexes.map((index) => series[index].points.length)
+  const total = counts.reduce((sum, count) => accSum(sum, count), 0)
   if (total <= SCI_RENDER_POINT_CAP) {
     return { series, sampling: undefined }
   }
-  const sampled = series.map((item) => {
-    if (item.renderAs === 'line' || item.identifier === '__fit') return item
-    const result = deterministicSample(item.points, SCI_RENDER_POINT_CAP)
-    return { ...item, points: result.items }
+  const budgets = apportionRenderBudget(counts, SCI_RENDER_POINT_CAP)
+  const sampled = series.map((item, index) => {
+    const displayIndex = displayIndexes.indexOf(index)
+    if (displayIndex < 0) return item
+    const cap = budgets[displayIndex]
+    if (item.points.length <= cap) return item
+    return {
+      ...item,
+      points: deterministicSample(item.points, cap).items,
+    }
   })
-  const shown = sampled.reduce((acc, item) => acc + item.points.length, 0)
+  const shown = sampled.reduce((acc, item) => {
+    if (item.renderAs === 'line' || item.identifier === '__fit') return acc
+    return acc + item.points.length
+  }, 0)
   return {
     series: sampled,
     sampling: {

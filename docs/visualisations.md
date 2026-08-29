@@ -13,7 +13,7 @@ data source, encoding, transforms, appearance, overlays
         ↓
 rendered instance
         ↓
-optional frozen evidence (Dataset Version + pinned spec/series)
+optional frozen evidence (pinned Dataset Version + ChartSpec)
 ```
 
 ## Model
@@ -44,9 +44,13 @@ Supported inputs:
 Local Sheet columns are not auto-promoted. The Sheet → `/analysis?dataset=`
 handoff maps bound field IDs only.
 
-Do not persist copied row blobs merely to draw a live chart. Frozen
-payloads still carry derived series plus filtered rows for self-contained
-visual evidence, with `datasetVersionId` on provenance.
+Do not persist copied row blobs merely to draw a live chart. Freeze pins
+a Dataset Version and the ChartSpec; the frozen payload stores column
+metadata and empty series. Rendering rematerialises from
+`dataset_version_rows` / `dataset_version_values` through the same
+TypeScript `materialiseChart` path as live charts. Version tables are the
+sole scientific data authority after freeze. Legacy snapshots without
+`datasetVersionId` still replay stored series.
 
 ## Plot types
 
@@ -123,29 +127,36 @@ unit symbol. This layer does not invent unit conversion.
 
 ## Large data
 
-Live reads cap at 5000 rows (`SCI_ROW_HARD_LIMIT`). Beyond that the
-chart reports `dataset_too_large`. Within the cap, scatter marks may be
-stride-sampled at 4000 points. Sampling is deterministic and disclosed.
-OLS and grouped statistics use the full fetched set, not only displayed
-marks.
+Live reads cap at 10 000 rows (`SCI_ANALYSIS_ROW_LIMIT`). Datasets at or
+below that envelope are fetched in full for analysis; scatter marks may be
+stride-sampled to a chart-wide 4000-point display budget after statistics.
+Above 10 000 rows the chart reports `dataset_too_large`. Sampling is
+deterministic and disclosed (`totalCount`, `sampledCount`, `analysisCount`).
+OLS, grouped statistics and violin density use the full analysis set, not
+only displayed marks. Fit lines are not sampled.
 
 ## Live vs frozen
 
 A live visualisation re-reads current Dataset rows. `freeze_chart`
-snapshots a Dataset Version, stores provenance (`datasetId`,
-`datasetVersionId`, schema version, row count, checksum) and derived
-series. Later Dataset edits change the live graph and leave frozen
-evidence unchanged. Submission stamps `frozen.revisionId`.
+snapshots a Dataset Version and stores provenance (`datasetId`,
+`datasetVersionId`, schema version, row count, checksum) without a second
+PL/pgSQL plot builder. Frozen rendering loads pinned Version rows and runs
+`materialiseChart`. Later Dataset edits change the live graph and leave
+frozen evidence unchanged. Submission stamps `frozen.revisionId`.
 
 ## Notebook and Studio
 
 Notebook chart blocks embed the same `ChartSpec` with a table alternative.
+They are the auditable scientific artefact: freeze, revision binding and
+`change_events` attach to Notebook blocks.
+
 Analysis Studio (`/analysis`) is the dense builder: source, encodings,
-plot type, analysis overlays, axes, save, SVG/PNG export. Saved views are
-reusable definitions; applying them to another Dataset requires explicit
-field remapping, never silent name matching. Saved `analysis_views` are
-owner-scoped with a version bump; they are not on the workspace
-`change_events` vocabulary (same as analysis definitions).
+plot type, analysis overlays, axes, save, SVG/PNG export. Saved
+`analysis_views` are disposable, owner-scoped UI (named ChartSpec drafts
+with a version bump). They are not on the workspace `change_events`
+vocabulary and are not a substitute for Notebook chart evidence. Applying a
+saved view to another Dataset requires explicit field remapping, never
+silent name matching.
 
 Export writes the figure SVG (or a PNG raster of that SVG), not a
 screenshot of application chrome. Presets: Notebook, Presentation,
@@ -172,7 +183,7 @@ statistics.
 - Polynomial fits above degree 4 are rejected.
 - No Python/R, GIS, 3D, survival analysis, or dashboard/BI layer.
 - Violin density is approximated in the browser from grouped y values;
-  freeze still stores cartesian series, not a second density payload.
+  freeze rematerialises that density from pinned Version rows.
 
 ## Tests
 

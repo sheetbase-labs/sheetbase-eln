@@ -9,14 +9,16 @@ import {
   materialiseChart,
   validateChartSpec,
 } from './chart-spec'
-import type { ChartColumn, ChartSpec } from './chart-spec'
+import type { ChartColumn, ChartSpec, MaterialisedSeries } from './chart-spec'
 import {
   applyFiltersSci04,
   applyTransformations,
+  apportionRenderBudget,
   attachFitOverlay,
   deterministicSample,
   formatScientificNumber,
   groupedNumericSummaries,
+  sampleSeriesForRender,
   SCI_RENDER_POINT_CAP,
 } from './visualisation-pipeline'
 import { recommendPlotType } from './visualisation-presets'
@@ -234,6 +236,21 @@ describe('filters and transforms', () => {
     expect(rows[1][COL_Y]).toBeNull()
     expect(transformInvalid).toBe(1)
   })
+
+  it('surfaces transform-invalid counts on the materialised chart', () => {
+    const m = materialiseChart(
+      spec({
+        transformations: [{ kind: 'log10', params: { fieldId: COL_Y } }],
+      }),
+      COLUMNS,
+      [
+        { [COL_X]: 1, [COL_Y]: 100, [COL_G]: 'A' },
+        { [COL_X]: 2, [COL_Y]: 0, [COL_G]: 'A' },
+      ],
+    )
+    expect(m.transformInvalidCount).toBe(1)
+    expect(m.transformInvalidReasons).toContain('log10 of non-positive value')
+  })
 })
 
 describe('summaries and error bars', () => {
@@ -289,6 +306,7 @@ describe('fitting', () => {
     expect(m.fit?.r2).toBeCloseTo(1, 10)
     expect(m.fit?.n).toBe(3)
     expect(m.fit?.band?.length).toBeGreaterThan(2)
+    expect(m.fit?.equation).toMatch(/y = /)
   })
 
   it('reports insufficient data instead of drawing a fake line', () => {
@@ -352,6 +370,108 @@ describe('sampling', () => {
     expect(a.items).toEqual(b.items)
     expect(a.sampled).toBe(true)
     expect(a.items.length).toBeLessThanOrEqual(SCI_RENDER_POINT_CAP)
+  })
+
+  it('apportions a chart-wide display budget, leaving fit lines intact', () => {
+    expect(apportionRenderBudget([3000, 3000], SCI_RENDER_POINT_CAP)).toEqual([
+      2000, 2000,
+    ])
+    const series: MaterialisedSeries[] = [
+      {
+        identifier: 'A',
+        label: 'A',
+        color: '#006edc',
+        points: Array.from({ length: 3000 }, (_, i) => ({
+          x: i,
+          y: i,
+          yError: null,
+        })),
+      },
+      {
+        identifier: 'B',
+        label: 'B',
+        color: '#00a659',
+        points: Array.from({ length: 3000 }, (_, i) => ({
+          x: i,
+          y: i,
+          yError: null,
+        })),
+      },
+      {
+        identifier: '__fit',
+        label: 'fit',
+        color: '#111111',
+        renderAs: 'line',
+        points: Array.from({ length: 200 }, (_, i) => ({
+          x: i,
+          y: i,
+          yError: null,
+        })),
+      },
+    ]
+    const sampled = sampleSeriesForRender(series)
+    expect(sampled.sampling?.sampledCount).toBe(SCI_RENDER_POINT_CAP)
+    expect(sampled.sampling?.analysisCount).toBe(6000)
+    expect(sampled.sampling?.totalCount).toBe(6000)
+    expect(
+      sampled.series.find((item) => item.identifier === '__fit')?.points,
+    ).toHaveLength(200)
+    const displayed = sampled.series
+      .filter((item) => item.identifier !== '__fit')
+      .reduce((n, item) => n + item.points.length, 0)
+    expect(displayed).toBe(SCI_RENDER_POINT_CAP)
+  })
+})
+
+describe('live versus frozen rematerialisation', () => {
+  it('reproduces log10, SEM summary, violin, OLS and error bars from the same rows', () => {
+    const cases: ChartSpec[] = [
+      spec({
+        transformations: [{ kind: 'log10', params: { fieldId: COL_Y } }],
+      }),
+      spec({
+        type: 'summary',
+        overlays: { errorBars: { source: 'computed', basis: 'sem' }, fit: null },
+      }),
+      spec({
+        type: 'violin',
+        fields: { ...spec().fields, x: null },
+      }),
+      spec({
+        fields: { ...spec().fields, series: null, color: null },
+        overlays: { errorBars: null, fit: { method: 'ols', degree: 1 } },
+      }),
+      spec({
+        overlays: {
+          errorBars: {
+            source: 'field',
+            basis: 'custom',
+            lowerFieldId: COL_LO,
+            upperFieldId: COL_HI,
+          },
+        },
+      }),
+    ]
+    for (const chartSpec of cases) {
+      const live = materialiseChart(chartSpec, COLUMNS, ROWS)
+      const rematerialised = materialiseChart(chartSpec, COLUMNS, ROWS)
+      expect(rematerialised.state).toEqual(live.state)
+      expect(rematerialised.series).toEqual(live.series)
+      expect(rematerialised.fit).toEqual(live.fit)
+      expect(rematerialised.summaries).toEqual(live.summaries)
+    }
+  })
+
+  it('keeps rematerialised evidence when live rows later change', () => {
+    const chartSpec = spec({
+      transformations: [{ kind: 'log10', params: { fieldId: COL_Y } }],
+    })
+    const pinned = materialiseChart(chartSpec, COLUMNS, ROWS)
+    const mutated = [...ROWS, { [COL_X]: 4, [COL_Y]: 16, [COL_G]: 'A' }]
+    const live = materialiseChart(chartSpec, COLUMNS, mutated)
+    const frozenAgain = materialiseChart(chartSpec, COLUMNS, ROWS)
+    expect(live.series[0].points.length).not.toBe(pinned.series[0].points.length)
+    expect(frozenAgain.series).toEqual(pinned.series)
   })
 })
 

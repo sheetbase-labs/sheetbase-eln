@@ -8,7 +8,14 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import type { ChartSpec, FrozenChart } from '#/lib/chart-spec'
+
 import { prepareTestDatabase } from './helpers'
+import {
+  loadPinnedVersionRows,
+  rematerialiseFrozenChart,
+  rematerialiseFrozenFacets,
+} from './sci-freeze-helpers'
 
 const WS_A = crypto.randomUUID()
 const PROJECT_A = crypto.randomUUID()
@@ -196,7 +203,7 @@ describe('SCI-01 chart blocks on canonical Datasets', () => {
       block.id,
       block.version,
     ])
-    const frozen = res.rows[0].payload.frozen
+    const frozen = res.rows[0].payload.frozen as FrozenChart
     expect(frozen).toBeTruthy()
 
     const prov = frozen.datasetProvenance[0]
@@ -210,10 +217,21 @@ describe('SCI-01 chart blocks on canonical Datasets', () => {
       expect.arrayContaining([FIELD_TIME, FIELD_RECOVERY]),
     )
 
-    expect(frozen.data.series).toHaveLength(1)
-    const points = frozen.data.series[0].points
-    expect(points.map((p: { x: number | null }) => p.x)).toEqual([0, 24, 48, 0, 24])
-    expect(points.map((p: { y: number | null }) => p.y)).toEqual([1, 3, 5, 2, 4])
+    expect(frozen.data.series).toEqual([])
+    expect(frozen.data.facets).toBeUndefined()
+    const rows = await loadPinnedVersionRows(
+      migrator,
+      frozen.datasetProvenance[0].datasetVersionId!,
+    )
+    const chart = rematerialiseFrozenChart(
+      specFor(dsIdMain, {}) as ChartSpec,
+      frozen,
+      rows,
+    )
+    expect(chart.series).toHaveLength(1)
+    const points = chart.series[0].points
+    expect(points.map((p) => p.x)).toEqual([0, 24, 48, 0, 24])
+    expect(points.map((p) => p.y)).toEqual([1, 3, 5, 2, 4])
     expect(res.rows[0].version).toBe(block.version + 1)
   })
 
@@ -253,8 +271,7 @@ describe('SCI-01 chart blocks on canonical Datasets', () => {
   })
 
   it('freezes a faceted line chart into codepoint-sorted per-value panels', async () => {
-    const block = await insertChartBlock(
-      specFor(dsIdMain, {
+    const spec = specFor(dsIdMain, {
         fields: {
           x: { fieldId: FIELD_TIME },
           y: { fieldId: FIELD_RECOVERY },
@@ -263,17 +280,22 @@ describe('SCI-01 chart blocks on canonical Datasets', () => {
           size: null,
           facet: { fieldId: FIELD_CONDITION },
         },
-      }),
-    )
+      })
+    const block = await insertChartBlock(spec)
     const res = await migrator.query(`SELECT * FROM api.freeze_chart($1,$2)`, [
       block.id,
       block.version,
     ])
-    const facets = res.rows[0].payload.frozen.data.facets
-    expect(facets.map((f: { value: string }) => f.value)).toEqual(['A', 'B'])
-    expect(facets[0].series[0].points).toHaveLength(3)
-    expect(facets[1].series[0].points).toHaveLength(2)
-    expect(res.rows[0].payload.frozen.data.facetsTotal).toBe(2)
+    const frozen = res.rows[0].payload.frozen as FrozenChart
+    const rows = await loadPinnedVersionRows(
+      migrator,
+      frozen.datasetProvenance[0].datasetVersionId!,
+    )
+    const facets = rematerialiseFrozenFacets(spec as ChartSpec, frozen, rows)
+    expect(facets.panels.map((f) => f.value)).toEqual(['A', 'B'])
+    expect(facets.panels[0].chart.series[0].points).toHaveLength(3)
+    expect(facets.panels[1].chart.series[0].points).toHaveLength(2)
+    expect(facets.total).toBe(2)
 
     // Facet cap disclosure: 13 distinct values → 12 panels, total 13.
     const many: Array<[number, number, string]> = []
@@ -304,31 +326,54 @@ describe('SCI-01 chart blocks on canonical Datasets', () => {
       `SELECT * FROM api.freeze_chart($1,$2)`,
       [wideBlock.id, wideBlock.version],
     )
-    const wideFrozen = wideRes.rows[0].payload.frozen.data
-    expect(wideFrozen.facets).toHaveLength(12)
-    expect(wideFrozen.facetsTotal).toBe(13)
-  })
-
-  it('refuses facet combinations with grid types explicitly', async () => {
-    const block = await insertChartBlock(
-      specFor(dsIdMain, {
-        type: 'histogram',
+    const wideFrozen = wideRes.rows[0].payload.frozen as FrozenChart
+    const wideRows = await loadPinnedVersionRows(
+      migrator,
+      wideFrozen.datasetProvenance[0].datasetVersionId!,
+    )
+    const wideFacets = rematerialiseFrozenFacets(
+      specFor(wide.datasetId, {
         fields: {
-          x: null,
-          y: { fieldId: FIELD_RECOVERY },
+          x: { fieldId: wide.fieldIds[0] },
+          y: { fieldId: wide.fieldIds[1] },
           series: null,
           color: null,
           size: null,
-          facet: { fieldId: FIELD_CONDITION },
+          facet: { fieldId: wide.fieldIds[2] },
         },
-        typeParams: { histogram: { bins: 4 } },
-      }),
+      }) as ChartSpec,
+      wideFrozen,
+      wideRows,
     )
-    await expect(
-      migrator.query(`SELECT * FROM api.freeze_chart($1,$2)`, [
-        block.id,
-        block.version,
-      ]),
-    ).rejects.toMatchObject({ code: '23514' })
+    expect(wideFacets.panels).toHaveLength(12)
+    expect(wideFacets.total).toBe(13)
+  })
+
+  it('freezes faceted histogram charts and rematerialises in TypeScript', async () => {
+    const spec = specFor(dsIdMain, {
+      type: 'histogram',
+      fields: {
+        x: null,
+        y: { fieldId: FIELD_RECOVERY },
+        series: null,
+        color: null,
+        size: null,
+        facet: { fieldId: FIELD_CONDITION },
+      },
+      typeParams: { histogram: { bins: 4 } },
+    })
+    const block = await insertChartBlock(spec)
+    const res = await migrator.query(`SELECT * FROM api.freeze_chart($1,$2)`, [
+      block.id,
+      block.version,
+    ])
+    const frozen = res.rows[0].payload.frozen as FrozenChart
+    const rows = await loadPinnedVersionRows(
+      migrator,
+      frozen.datasetProvenance[0].datasetVersionId!,
+    )
+    const facets = rematerialiseFrozenFacets(spec as ChartSpec, frozen, rows)
+    expect(facets.total).toBe(2)
+    expect(facets.panels).toHaveLength(2)
   })
 })

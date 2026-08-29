@@ -119,7 +119,7 @@ const ADMIN_SECTIONS: AdminSectionDef[] = [
   },
   {
     key: 'project-access',
-    label: 'Project access',
+    label: 'Access',
     description: 'Control explicit user access to individual projects.',
     group: 'Workspace',
     icon: KeyRound,
@@ -127,7 +127,7 @@ const ADMIN_SECTIONS: AdminSectionDef[] = [
   },
   {
     key: 'settings',
-    label: 'Workspace settings',
+    label: 'Settings',
     description: 'Set registration, review, signature and retention policies.',
     group: 'Workspace',
     icon: Settings,
@@ -143,7 +143,7 @@ const ADMIN_SECTIONS: AdminSectionDef[] = [
   },
   {
     key: 'api-credentials',
-    label: 'API credentials',
+    label: 'API',
     description:
       'Create, rotate and revoke scoped credentials for external automation.',
     group: 'Security and audit',
@@ -200,7 +200,7 @@ const ADMIN_SECTIONS: AdminSectionDef[] = [
   },
   {
     key: 'deployment',
-    label: 'Deployment',
+    label: 'Deploy',
     description: 'Version, environment, migration state, and operational links.',
     group: 'Platform',
     icon: Shield,
@@ -508,12 +508,9 @@ function AdminRoute() {
         aria-label="Administration sections"
         className="border-y bg-muted/30"
       >
-        <div className="mx-auto flex w-full max-w-[1600px] items-center gap-1 overflow-x-auto px-4 py-1.5 md:px-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {visibleSections.map((item, index) => {
-            const Icon = item.icon
+        <div className="mx-auto flex w-full max-w-[1600px] items-center gap-0 overflow-x-auto px-4 py-2 md:px-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {visibleSections.map((item) => {
             const active = item.key === activeSection
-            const startsNewGroup =
-              index > 0 && visibleSections[index - 1].group !== item.group
             return (
               <Link
                 key={item.key}
@@ -521,9 +518,8 @@ function AdminRoute() {
                 params={{ section: item.key }}
                 search={{ model: undefined }}
                 aria-current={active ? 'page' : undefined}
-                className={`flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm no-underline transition-colors ${startsNewGroup ? 'ml-2 border-l pl-4' : ''} ${active ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}`}
+                className={`flex shrink-0 items-center px-3 py-1 text-sm no-underline transition-colors ${active ? 'font-medium text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
               >
-                <Icon className="size-4 shrink-0" />
                 <span className="whitespace-nowrap">{item.label}</span>
               </Link>
             )

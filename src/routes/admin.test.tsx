@@ -260,17 +260,17 @@ describe('AdminRoute', () => {
     for (const label of [
       'Dashboard',
       'Members',
-      'Project access',
+      'Access',
       'Sessions',
-      'API credentials',
+      'API',
       'Connectors',
       'Pipelines',
       'Storage',
       'Usage',
       'Audit',
       'Diagnostics',
-      'Deployment',
-      'Workspace settings',
+      'Deploy',
+      'Settings',
     ]) {
       expect(screen.getByRole('link', { name: label })).toBeTruthy()
     }

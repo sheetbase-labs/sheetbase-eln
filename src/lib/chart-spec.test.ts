@@ -184,6 +184,68 @@ describe('validateChartSpec', () => {
     )
     expect(errors.some((e) => e.field === 'spec.fields.y')).toBe(true)
   })
+
+  it('rejects SCI-04 overlay and typeParam violations', () => {
+    expect(
+      validateChartSpec(
+        baseSpec({ overlays: { errorBars: null, fit: { method: 'ols', degree: 5 } } }),
+      ).some((e) => e.field === 'spec.overlays.fit'),
+    ).toBe(true)
+    expect(
+      validateChartSpec(
+        baseSpec({
+          overlays: {
+            errorBars: null,
+            fit: { method: 'ols', degree: 1 },
+            references: [{ kind: 'hline', value: Number.NaN, label: 'LLOQ' }],
+          },
+        }),
+      ).some((e) => e.field?.startsWith('spec.overlays.references')),
+    ).toBe(true)
+    expect(
+      validateChartSpec(
+        baseSpec({
+          type: 'strip',
+          fields: { ...baseSpec().fields, x: null },
+          typeParams: { strip: { jitter: 4 } },
+        }),
+      ).some((e) => e.field === 'spec.typeParams.strip.jitter'),
+    ).toBe(true)
+    expect(
+      validateChartSpec(
+        baseSpec({
+          type: 'summary',
+          typeParams: { summary: { statistic: 'mode' as never } },
+        }),
+      ).some((e) => e.field === 'spec.typeParams.summary.statistic'),
+    ).toBe(true)
+    expect(
+      validateChartSpec(
+        baseSpec({
+          type: 'bar',
+          typeParams: { bar: { stacking: 'overlay' as never } },
+        }),
+      ).some((e) => e.field === 'spec.typeParams.bar.stacking'),
+    ).toBe(true)
+    expect(
+      validateChartSpec(
+        baseSpec({
+          overlays: {
+            errorBars: {
+              source: 'field',
+              basis: 'custom',
+              lowerFieldId: COL_ERR,
+            },
+          },
+        }),
+      ).some((e) => e.field === 'spec.overlays.errorBars'),
+    ).toBe(true)
+    expect(
+      validateChartSpec(
+        baseSpec({ overlays: { errorBars: null, fit: { method: 'ols', degree: 4 } } }),
+      ),
+    ).toEqual([])
+  })
 })
 
 describe('validateChartPayload', () => {

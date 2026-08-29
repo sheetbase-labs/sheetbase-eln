@@ -466,4 +466,84 @@ describe('SCI-04 visualisation freeze', () => {
     )
     await expect(insertChartBlock(invalid)).rejects.toMatchObject({ code: '23514' })
   })
+
+  it('rejects malformed SCI-04 overlays and typeParams in TypeScript and the trigger', async () => {
+    const cases: Array<{ name: string; spec: unknown }> = [
+      {
+        name: 'ols degree 5',
+        spec: { ...specFor(), overlays: { errorBars: null, fit: { method: 'ols', degree: 5 } } },
+      },
+      {
+        name: 'hline without a numeric value',
+        spec: {
+          ...specFor(),
+          overlays: {
+            errorBars: null,
+            fit: { method: 'ols', degree: 1 },
+            references: [{ kind: 'hline', label: 'LLOQ' }],
+          },
+        },
+      },
+      {
+        name: 'strip jitter above 1',
+        spec: {
+          ...specFor('strip'),
+          fields: {
+            x: null,
+            y: { fieldId: fieldY },
+            series: null,
+            color: null,
+            size: null,
+            facet: null,
+          },
+          overlays: { errorBars: null, fit: null },
+          typeParams: { strip: { jitter: 4 } },
+        },
+      },
+      {
+        name: 'summary statistic enum',
+        spec: {
+          ...specFor('summary'),
+          overlays: { errorBars: null, fit: null },
+          typeParams: { summary: { statistic: 'mode' } },
+        },
+      },
+      {
+        name: 'bar stacking enum',
+        spec: {
+          ...specFor('bar'),
+          overlays: { errorBars: null, fit: null },
+          typeParams: { bar: { stacking: 'overlay' } },
+        },
+      },
+      {
+        name: 'error-bar lower without upper',
+        spec: {
+          ...specFor('scatter'),
+          overlays: {
+            errorBars: {
+              source: 'field',
+              basis: 'custom',
+              lowerFieldId: fieldX,
+            },
+            fit: null,
+          },
+        },
+      },
+    ]
+    for (const item of cases) {
+      expect(
+        validateChartSpec(item.spec).length,
+        item.name,
+      ).toBeGreaterThan(0)
+      await expect(insertChartBlock(item.spec), item.name).rejects.toMatchObject({
+        code: '23514',
+      })
+    }
+    const accepted = await insertChartBlock({
+      ...specFor(),
+      overlays: { errorBars: null, fit: { method: 'ols', degree: 4 } },
+    })
+    expect(accepted.id).toBeTruthy()
+  })
 })

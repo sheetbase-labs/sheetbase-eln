@@ -37,8 +37,6 @@ import type {
 
 /** Maximum rows fetched for live/frozen analysis. Display may sample. */
 export const SCI_ANALYSIS_ROW_LIMIT = 10_000
-/** @deprecated Use SCI_ANALYSIS_ROW_LIMIT. Kept as an alias. */
-export const SCI_ROW_HARD_LIMIT = SCI_ANALYSIS_ROW_LIMIT
 
 /** query_dataset_rows / query_dataset_version_rows accept ≤1000 per call. */
 const ROW_PAGE_SIZE = 1000
@@ -121,7 +119,7 @@ export function toCanonicalDatasetSource(dataset: {
 export interface ResolvedDataset {
   source: CanonicalDatasetSource
   rows: Record<string, unknown>[]
-  /** True when totalCount exceeded SCI_ROW_HARD_LIMIT and rows were cut. */
+  /** True when totalCount exceeded SCI_ANALYSIS_ROW_LIMIT and rows were cut. */
   truncated: boolean
   totalCount: number
 }
@@ -202,7 +200,7 @@ async function fetchRowsPaged(
 
 /**
  * Fetch a canonical Dataset's live rows (fieldId-keyed) up to
- * SCI_ROW_HARD_LIMIT. Shared by chart and analysis surfaces.
+ * SCI_ANALYSIS_ROW_LIMIT. Shared by chart and analysis surfaces.
  */
 export async function fetchDatasetRows(
   client: DataClient,

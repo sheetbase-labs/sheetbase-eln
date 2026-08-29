@@ -118,6 +118,16 @@ export const HEATMAP_AGGREGATES = [
 ] as const
 export type HeatmapAggregate = (typeof HEATMAP_AGGREGATES)[number]
 
+export const BAR_STACKING = ['grouped', 'stacked'] as const
+export type BarStacking = (typeof BAR_STACKING)[number]
+
+export const SUMMARY_STATISTICS = ['mean', 'median'] as const
+export type SummaryStatistic = (typeof SUMMARY_STATISTICS)[number]
+
+/** Strip-plot jitter is a half-width on the categorical axis, in [0, 1]. */
+export const STRIP_JITTER_MIN = 0
+export const STRIP_JITTER_MAX = 1
+
 export const AXIS_SCALES = ['linear', 'log'] as const
 export type AxisScale = (typeof AXIS_SCALES)[number]
 
@@ -537,6 +547,73 @@ function validateBinCount(
   return []
 }
 
+function validateReferenceOverlay(
+  item: unknown,
+  field: string,
+): ChartSpecError[] {
+  if (!isObject(item) || !isNonEmptyString(item.kind))
+    return [
+      {
+        code: 'invalid_value',
+        field,
+        message:
+          'reference overlays must be hline, vline, band or identity with finite numeric values',
+      },
+    ]
+  if (item.kind === 'hline' || item.kind === 'vline') {
+    if (
+      typeof item.value !== 'number' ||
+      !Number.isFinite(item.value) ||
+      !isNonEmptyString(item.label)
+    )
+      return [
+        {
+          code: 'invalid_value',
+          field,
+          message: `${item.kind} references require a finite value and a non-empty label`,
+        },
+      ]
+    return []
+  }
+  if (item.kind === 'band') {
+    if (
+      (item.axis !== 'x' && item.axis !== 'y') ||
+      typeof item.lo !== 'number' ||
+      !Number.isFinite(item.lo) ||
+      typeof item.hi !== 'number' ||
+      !Number.isFinite(item.hi) ||
+      !isNonEmptyString(item.label)
+    )
+      return [
+        {
+          code: 'invalid_value',
+          field,
+          message:
+            'band references require axis x or y, finite lo/hi and a non-empty label',
+        },
+      ]
+    return []
+  }
+  if (item.kind === 'identity') {
+    if (item.label !== undefined && typeof item.label !== 'string')
+      return [
+        {
+          code: 'invalid_value',
+          field,
+          message: 'identity references may only include an optional string label',
+        },
+      ]
+    return []
+  }
+  return [
+    {
+      code: 'invalid_value',
+      field,
+      message: 'reference overlay kind must be hline, vline, band or identity',
+    },
+  ]
+}
+
 /** Type-specific parameter validation; absent params mean documented defaults. */
 function validateTypeParams(
   v: unknown,
@@ -683,6 +760,89 @@ function validateTypeParams(
         code: 'invalid_value',
         field: 'spec.typeParams.heatmap',
         message: `typeParams.heatmap only applies to heatmap charts (got ${type})`,
+      })
+  }
+
+  if (v.bar !== undefined && v.bar !== null) {
+    if (!isObject(v.bar)) {
+      errors.push({
+        code: 'invalid_shape',
+        field: 'spec.typeParams.bar',
+        message: 'typeParams.bar must be an object when present',
+      })
+    } else if (
+      v.bar.stacking !== undefined &&
+      !isOneOf(v.bar.stacking, BAR_STACKING)
+    ) {
+      errors.push({
+        code: 'invalid_value',
+        field: 'spec.typeParams.bar.stacking',
+        message: `typeParams.bar.stacking must be one of ${BAR_STACKING.join(', ')}`,
+      })
+    }
+    if (
+      type !== null &&
+      type !== 'bar' &&
+      type !== 'grouped_bar' &&
+      type !== 'stacked_bar'
+    )
+      errors.push({
+        code: 'invalid_value',
+        field: 'spec.typeParams.bar',
+        message: `typeParams.bar only applies to bar charts (got ${type})`,
+      })
+  }
+
+  if (v.strip !== undefined && v.strip !== null) {
+    if (!isObject(v.strip)) {
+      errors.push({
+        code: 'invalid_shape',
+        field: 'spec.typeParams.strip',
+        message: 'typeParams.strip must be an object when present',
+      })
+    } else if (v.strip.jitter !== undefined) {
+      if (
+        typeof v.strip.jitter !== 'number' ||
+        !Number.isFinite(v.strip.jitter) ||
+        v.strip.jitter < STRIP_JITTER_MIN ||
+        v.strip.jitter > STRIP_JITTER_MAX
+      )
+        errors.push({
+          code: 'invalid_value',
+          field: 'spec.typeParams.strip.jitter',
+          message: `typeParams.strip.jitter must be a finite number between ${STRIP_JITTER_MIN} and ${STRIP_JITTER_MAX}`,
+        })
+    }
+    if (type !== null && type !== 'strip')
+      errors.push({
+        code: 'invalid_value',
+        field: 'spec.typeParams.strip',
+        message: `typeParams.strip only applies to strip charts (got ${type})`,
+      })
+  }
+
+  if (v.summary !== undefined && v.summary !== null) {
+    if (!isObject(v.summary)) {
+      errors.push({
+        code: 'invalid_shape',
+        field: 'spec.typeParams.summary',
+        message: 'typeParams.summary must be an object when present',
+      })
+    } else if (
+      v.summary.statistic !== undefined &&
+      !isOneOf(v.summary.statistic, SUMMARY_STATISTICS)
+    ) {
+      errors.push({
+        code: 'invalid_value',
+        field: 'spec.typeParams.summary.statistic',
+        message: `typeParams.summary.statistic must be one of ${SUMMARY_STATISTICS.join(', ')}`,
+      })
+    }
+    if (type !== null && type !== 'summary')
+      errors.push({
+        code: 'invalid_value',
+        field: 'spec.typeParams.summary',
+        message: `typeParams.summary only applies to summary charts (got ${type})`,
       })
   }
 
@@ -993,6 +1153,27 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
             field: 'spec.overlays.errorBars.fieldId',
             message: 'errorBars.fieldId must be a UUID when present',
           })
+        const lowerSet =
+          eb.lowerFieldId !== undefined && eb.lowerFieldId !== null
+        const upperSet =
+          eb.upperFieldId !== undefined && eb.upperFieldId !== null
+        if (lowerSet !== upperSet)
+          errors.push({
+            code: 'invalid_value',
+            field: 'spec.overlays.errorBars',
+            message:
+              'errorBars.lowerFieldId and errorBars.upperFieldId must be provided together',
+          })
+        else if (
+          lowerSet &&
+          (!isUuid(eb.lowerFieldId) || !isUuid(eb.upperFieldId))
+        )
+          errors.push({
+            code: 'invalid_value',
+            field: 'spec.overlays.errorBars',
+            message:
+              'errorBars.lowerFieldId and errorBars.upperFieldId must be UUIDs',
+          })
       }
       if (eb.multiplier !== undefined) {
         if (
@@ -1042,6 +1223,13 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
         field: 'spec.overlays.references',
         message: `overlays.references supports at most ${MAX_ANNOTATIONS} entries`,
       })
+    else {
+      overlays.references.forEach((item, i) => {
+        errors.push(
+          ...validateReferenceOverlay(item, `spec.overlays.references[${i}]`),
+        )
+      })
+    }
   }
 
   if (

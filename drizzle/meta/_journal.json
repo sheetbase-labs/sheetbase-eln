@@ -1000,6 +1000,13 @@
       "when": 1788020000000,
       "tag": "0144_sci_04_freeze_rematerialise",
       "breakpoints": true
+    },
+    {
+      "idx": 145,
+      "version": "7",
+      "when": 1788025000000,
+      "tag": "0145_sci_04_chart_spec_parity",
+      "breakpoints": true
     }
   ]
 }

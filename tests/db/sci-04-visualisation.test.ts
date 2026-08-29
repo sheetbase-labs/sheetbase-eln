@@ -169,10 +169,10 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
+  // Frozen Dataset Versions pin the creating user; they are immutable
+  // evidence, so this fixture does not delete the Dataset or owner.
   await migrator.query(`DELETE FROM api.records WHERE project_id=$1`, [PROJECT_A])
   await migrator.query(`DELETE FROM api.projects WHERE id=$1`, [PROJECT_A])
-  await migrator.query(`DELETE FROM api.workspace_memberships WHERE workspace_id=$1`, [WS_A])
-  await migrator.query(`DELETE FROM internal."user" WHERE id=$1`, [USER_A])
 })
 
 describe('SCI-04 visualisation freeze', () => {

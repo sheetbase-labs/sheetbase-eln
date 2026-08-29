@@ -6,8 +6,7 @@
  */
 
 import { CHART_PALETTE, CHART_SPEC_VERSION } from './chart-spec'
-import type { ChartSpec, ChartType, FieldBinding } from './chart-spec'
-import type { ChartColumn } from './chart-spec'
+import type { ChartColumn, ChartSpec, ChartType, FieldBinding } from './chart-spec'
 
 export const VISUALISATION_PRESET_IDS = [
   'dose_response',
@@ -114,12 +113,11 @@ export function applyVisualisationPreset(input: {
 }): ChartSpec {
   const numeric = numericColumns(input.columns)
   const cats = categoryColumns(input.columns)
-  const y = numeric[numeric.length > 1 ? 1 : 0]
-  const xNumeric = numeric.length > 1 ? numeric[0] : null
-  const xCat = cats[0]
-  const series = cats[0]
+  const y = numeric.at(numeric.length > 1 ? 1 : 0)
+  const xNumeric = numeric.length > 1 ? numeric.at(0) : undefined
+  const xCat = cats.at(0)
   const base = emptyChartSpec(input.datasetId)
-  if (!y) return base
+  if (y === undefined) return base
 
   if (input.preset === 'distribution') {
     return {
@@ -129,7 +127,7 @@ export function applyVisualisationPreset(input: {
         ...base.fields,
         x: null,
         y: { fieldId: y.id },
-        series: binding(cats[0]),
+        series: binding(xCat),
       },
       typeParams: { histogram: { bins: 12 } },
       display: {
@@ -138,9 +136,10 @@ export function applyVisualisationPreset(input: {
           x: { label: y.label, scale: 'linear' },
           y: { label: 'Count', scale: 'linear' },
         },
-        series: series
-          ? []
-          : [{ identifier: 'all', label: y.label, color: CHART_PALETTE[0] }],
+        series:
+          xCat === undefined
+            ? [{ identifier: 'all', label: y.label, color: CHART_PALETTE[0] }]
+            : [],
       },
     }
   }
@@ -180,10 +179,10 @@ export function applyVisualisationPreset(input: {
     type,
     fields: {
       ...base.fields,
-      x: binding(x ?? undefined),
+      x: binding(x),
       y: { fieldId: y.id },
-      series: binding(series),
-      color: binding(series),
+      series: binding(xCat),
+      color: binding(xCat),
     },
     display: {
       ...base.display,

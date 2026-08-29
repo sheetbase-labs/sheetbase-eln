@@ -506,7 +506,7 @@ export function attachFitOverlay(
   fit: MaterialisedChart['fit']
 } {
   const overlay = spec.overlays.fit
-  if (!overlay || overlay.method !== 'ols') {
+  if (overlay == null) {
     return { series, fit: undefined }
   }
   const degree = overlay.degree ?? 1

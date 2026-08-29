@@ -129,7 +129,7 @@ export function ChartRenderer({
         </ChartStateMessage>
       ) : materialised.series.length === 0 && !materialised.heatmap ? (
         <ChartStateMessage tone="muted">
-          {spec?.fields.x && spec.fields.y
+          {spec != null && spec.fields.x
             ? 'No plottable points after filtering. Check mapped fields and filters.'
             : 'Choose an X and Y field to create a scatter plot.'}
         </ChartStateMessage>
@@ -581,8 +581,8 @@ function handlePlotKeyDown(
   materialised: MaterialisedChart,
   selectionProps: PlotSelectionProps,
 ) {
-  const series = materialised.series[0]
-  if (!series?.points.length) return
+  const series = materialised.series.at(0)
+  if (series === undefined || series.points.length === 0) return
   if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return
   event.preventDefault()
   const current = selectionProps.selection

@@ -89,9 +89,8 @@ export async function rasteriseSvgToPng(
 }
 
 export async function copySvgToClipboard(svg: string): Promise<boolean> {
-  if (typeof navigator === 'undefined' || !navigator.clipboard) return false
   try {
-    await navigator.clipboard.writeText(svg)
+    await globalThis.navigator.clipboard.writeText(svg)
     return true
   } catch {
     return false

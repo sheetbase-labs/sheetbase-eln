@@ -184,8 +184,8 @@ afterAll(async () => {
   await migrator.query(`DELETE FROM api.analysis_definitions WHERE workspace_id=$1`, [WS_A])
   await migrator.query(`DELETE FROM api.records WHERE project_id=$1`, [PROJECT_A])
   await migrator.query(`DELETE FROM api.projects WHERE id=$1`, [PROJECT_A])
-  await migrator.query(`DELETE FROM api.workspace_memberships WHERE workspace_id=$1`, [WS_A])
-  await migrator.query(`DELETE FROM internal."user" WHERE id=$1`, [USER_A])
+  // freeze_chart now pins a Dataset Version that references the creating
+  // user; those versions are immutable evidence so the owner is left in place.
   for (const client of clients) await client.end()
 })
 

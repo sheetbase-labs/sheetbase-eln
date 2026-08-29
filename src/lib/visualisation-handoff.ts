@@ -37,13 +37,16 @@ export function sheetVisualisationHandoff(input: {
   const cats = selectedBound.filter((column) =>
     ['category', 'text', 'boolean'].includes(column.logicalType),
   )
-  const y = numeric[numeric.length > 1 ? 1 : 0]
-  const x = numeric.length > 1 ? numeric[0] : cats[0]
+  const y = numeric.at(numeric.length > 1 ? 1 : 0)
+  const x = numeric.length > 1 ? numeric.at(0) : cats.at(0)
   return {
     datasetId: input.datasetId ?? null,
-    xFieldId: x?.fieldId ?? x?.id ?? null,
-    yFieldId: y?.fieldId ?? y?.id ?? null,
-    seriesFieldId: cats[0]?.fieldId ?? cats[0]?.id ?? null,
+    xFieldId: x ? (x.fieldId ?? x.id) : null,
+    yFieldId: y ? (y.fieldId ?? y.id) : null,
+    seriesFieldId: (() => {
+      const series = cats.at(0)
+      return series ? (series.fieldId ?? series.id) : null
+    })(),
     localFieldIds,
     boundFieldIds: bound.map((column) => column.fieldId ?? column.id),
   }

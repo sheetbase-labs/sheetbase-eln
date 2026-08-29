@@ -505,7 +505,7 @@ function AdminRoute() {
       </div>
 
       <nav aria-label="Administration sections" className="border-y bg-background">
-        <div className="mx-auto flex w-full max-w-[1600px] gap-0 overflow-x-auto px-4 md:px-8">
+        <div className="flex flex-wrap gap-0 px-4 md:px-8">
           {visibleSections.map((item, index) => {
             const Icon = item.icon
             const active = item.key === activeSection

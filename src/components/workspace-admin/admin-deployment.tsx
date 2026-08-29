@@ -19,20 +19,16 @@ export function AdminDeployment({ workspaceId }: { workspaceId: string }) {
     queryFn: () => fetchDiagnosticsFn({ data: { workspaceId } }),
   })
 
-  if (diagnostics.isPending)
-    return (
-      <p className="text-sm text-muted-foreground">
-        Loading deployment information…
-      </p>
-    )
-  if (diagnostics.isError)
-    return (
-      <p className="text-sm text-destructive">
-        Deployment information could not be loaded.
-      </p>
-    )
-
-  const { deployment, migration } = diagnostics.data
+  const { deployment, migration } = diagnostics.data ?? {
+    deployment: {
+      artifactVersion: '—',
+      artifactDigest: '—',
+      environment: '—',
+      secretSource: '—',
+      expectedMigration: '—',
+    },
+    migration: { status: 'unknown' as const, applied: null },
+  }
   const migrationState =
     migration.status === 'compatible'
       ? { label: 'Compatible', variant: 'success' as const }
@@ -59,18 +55,28 @@ export function AdminDeployment({ workspaceId }: { workspaceId: string }) {
     <div className="space-y-8">
       <section className="space-y-2">
         <h2 className="font-semibold">Deployment</h2>
-        <Table>
-          <TableBody>
-            {rows.map(([label, value]) => (
-              <TableRow key={label}>
-                <TableCell className="w-64 text-muted-foreground">
-                  {label}
-                </TableCell>
-                <TableCell className="font-medium">{value}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        {diagnostics.isPending ? (
+          <p className="text-sm text-muted-foreground">
+            Loading deployment information…
+          </p>
+        ) : diagnostics.isError ? (
+          <p className="text-sm text-destructive">
+            Deployment information could not be loaded.
+          </p>
+        ) : (
+          <Table>
+            <TableBody>
+              {rows.map(([label, value]) => (
+                <TableRow key={label}>
+                  <TableCell className="w-64 text-muted-foreground">
+                    {label}
+                  </TableCell>
+                  <TableCell className="font-medium">{value}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </section>
       <section className="space-y-2">
         <h2 className="font-semibold">Operational runbooks</h2>

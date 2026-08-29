@@ -70,6 +70,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await Promise.all(clients.map((c) => c.end()))
   await migrator?.end()
+  await testPool?.end()
 })
 
 // ---------------------------------------------------------------------------
@@ -215,7 +216,7 @@ describe('PLAT-04 pipeline schedule toggle', () => {
     )
     const definitionId = defRows[0].id
     const { rows: schedRows } = await owner.query(
-      `SELECT (api.create_pipeline_schedule($1, $2, 'interval', '{"minutes": 60}'::jsonb, true)).id AS id`,
+      `SELECT (api.create_pipeline_schedule($1, $2, 'interval', '{"intervalMinutes": 60}'::jsonb, true)).id AS id`,
       [WS_A, definitionId],
     )
     const scheduleId = schedRows[0].id
@@ -237,7 +238,7 @@ describe('PLAT-04 pipeline schedule toggle', () => {
     )
     const definitionId = defRows[0].id
     const { rows: schedRows } = await owner.query(
-      `SELECT (api.create_pipeline_schedule($1, $2, 'interval', '{"minutes": 60}'::jsonb, true)).id AS id`,
+      `SELECT (api.create_pipeline_schedule($1, $2, 'interval', '{"intervalMinutes": 60}'::jsonb, true)).id AS id`,
       [WS_A, definitionId],
     )
     const scheduleId = schedRows[0].id
@@ -259,7 +260,7 @@ describe('PLAT-04 pipeline schedule toggle', () => {
     )
     const definitionId = defRows[0].id
     const { rows: schedRows } = await owner.query(
-      `SELECT (api.create_pipeline_schedule($1, $2, 'interval', '{"minutes": 60}'::jsonb, true)).id AS id`,
+      `SELECT (api.create_pipeline_schedule($1, $2, 'interval', '{"intervalMinutes": 60}'::jsonb, true)).id AS id`,
       [WS_A, definitionId],
     )
     const scheduleId = schedRows[0].id
@@ -408,5 +409,189 @@ describe('PLAT-04 migration state', () => {
     // There should be at least one migration
     expect(rows.length).toBeGreaterThanOrEqual(1)
     expect(rows[0].created_at).toBeTruthy()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// getScopedClient — request-scoped DB execution with JWT claims
+// ---------------------------------------------------------------------------
+//
+// These tests import and exercise the actual getScopedClient helper from
+// admin-platform.ts, proving that:
+//   1. JWT claims are correctly stamped on the connection
+//   2. api.has_capability() resolves correctly through the scoped client
+//   3. owner/steward succeed, member/viewer are denied
+//   4. wrong workspace is denied
+//   5. the scoped connection can execute canonical RPCs
+//
+import { Pool } from 'pg'
+import { getScopedClient } from '#/lib/admin-platform'
+import { roleUrl } from './helpers'
+
+// Pool connected to the test database as the authenticator role, so
+// SET ROLE authenticated works inside getScopedClient's transaction.
+const testPool = new Pool({ connectionString: roleUrl('authenticator') })
+
+describe('PLAT-04 getScopedClient — request-scoped DB execution', () => {
+  it('owner: has_capability returns true for workspace.admin', async () => {
+    const session = await getScopedClient(WS_A, OWNER, testPool)
+    try {
+      const { rows } = await session.client.query(
+        'SELECT api.has_capability($1::uuid, $2) AS ok',
+        [WS_A, 'workspace.admin'],
+      )
+      expect(rows[0].ok).toBe(true)
+    } finally {
+      await session.release()
+    }
+  })
+
+  it('steward: has_capability returns true for integrations.manage', async () => {
+    const session = await getScopedClient(WS_A, STEWARD, testPool)
+    try {
+      const { rows } = await session.client.query(
+        'SELECT api.has_capability($1::uuid, $2) AS ok',
+        [WS_A, 'integrations.manage'],
+      )
+      expect(rows[0].ok).toBe(true)
+    } finally {
+      await session.release()
+    }
+  })
+
+  it('member: has_capability returns false for integrations.manage', async () => {
+    const session = await getScopedClient(WS_A, MEMBER, testPool)
+    try {
+      const { rows } = await session.client.query(
+        'SELECT api.has_capability($1::uuid, $2) AS ok',
+        [WS_A, 'integrations.manage'],
+      )
+      expect(rows[0].ok).toBe(false)
+    } finally {
+      await session.release()
+    }
+  })
+
+  it('viewer: has_capability returns false for pipelines.manage', async () => {
+    const session = await getScopedClient(WS_A, VIEWER, testPool)
+    try {
+      const { rows } = await session.client.query(
+        'SELECT api.has_capability($1::uuid, $2) AS ok',
+        [WS_A, 'pipelines.manage'],
+      )
+      expect(rows[0].ok).toBe(false)
+    } finally {
+      await session.release()
+    }
+  })
+
+  it('wrong workspace: has_capability returns false', async () => {
+    // OWNER is a member of WS_A, not WS_B
+    const session = await getScopedClient(WS_B, OWNER, testPool)
+    try {
+      const { rows } = await session.client.query(
+        'SELECT api.has_capability($1::uuid, $2) AS ok',
+        [WS_B, 'workspace.admin'],
+      )
+      expect(rows[0].ok).toBe(false)
+    } finally {
+      await session.release()
+    }
+  })
+
+  it('scoped client can execute canonical RPC (update_pipeline_schedule)', async () => {
+    // Create a definition + schedule as owner via a scoped client
+    const ownerSession = await getScopedClient(WS_A, OWNER, testPool)
+    let scheduleId: string
+    try {
+      const { rows: defRows } = await ownerSession.client.query(
+        `SELECT (api.create_pipeline_definition($1, 'scoped_test', 'Scoped Test', NULL)).id AS id`,
+        [WS_A],
+      )
+      const { rows: schedRows } = await ownerSession.client.query(
+        `SELECT (api.create_pipeline_schedule($1, $2, 'interval', '{"intervalMinutes": 60}'::jsonb, true)).id AS id`,
+        [WS_A, defRows[0].id],
+      )
+      scheduleId = schedRows[0].id
+    } finally {
+      await ownerSession.release()
+    }
+
+    // Toggle the schedule through a scoped client — proves the RPC works
+    // with JWT claims stamped.
+    const toggleSession = await getScopedClient(WS_A, OWNER, testPool)
+    try {
+      const { rows } = await toggleSession.client.query(
+        `SELECT id, enabled
+         FROM api.update_pipeline_schedule($1::uuid, $2::uuid, NULL, NULL, false)`,
+        [WS_A, scheduleId],
+      )
+      expect(rows[0].id).toBeTruthy()
+      expect(rows[0].enabled).toBe(false)
+    } finally {
+      await toggleSession.release()
+    }
+  })
+
+  it('one toggle produces exactly one change event (no double invocation)', async () => {
+    // Create a definition + schedule as owner
+    const setupSession = await getScopedClient(WS_A, OWNER, testPool)
+    let scheduleId: string
+    try {
+      const { rows: defRows } = await setupSession.client.query(
+        `SELECT (api.create_pipeline_definition($1, 'double_inv_test', 'Double Invocation Test', NULL)).id AS id`,
+        [WS_A],
+      )
+      const { rows: schedRows } = await setupSession.client.query(
+        `SELECT (api.create_pipeline_schedule($1, $2, 'interval', '{"intervalMinutes": 60}'::jsonb, true)).id AS id`,
+        [WS_A, defRows[0].id],
+      )
+      scheduleId = schedRows[0].id
+    } finally {
+      await setupSession.release()
+    }
+
+    // Count change events before toggle (create_pipeline_schedule emits one)
+    const beforeSession = await getScopedClient(WS_A, OWNER, testPool)
+    let countBefore: number
+    try {
+      const { rows } = await beforeSession.client.query(
+        `SELECT count(*)::int AS n FROM api.change_events
+         WHERE workspace_id = $1::uuid
+           AND entity_type = 'pipeline_schedule'
+           AND entity_uuid = $2::uuid`,
+        [WS_A, scheduleId],
+      )
+      countBefore = rows[0].n
+    } finally {
+      await beforeSession.release()
+    }
+
+    // Toggle once via the scoped client — calling the RPC exactly once
+    const toggleSession = await getScopedClient(WS_A, OWNER, testPool)
+    try {
+      await toggleSession.client.query(
+        `SELECT id, enabled
+         FROM api.update_pipeline_schedule($1::uuid, $2::uuid, NULL, NULL, false)`,
+        [WS_A, scheduleId],
+      )
+    } finally {
+      await toggleSession.release()
+    }
+
+    // Count change events after toggle — should be exactly +1
+    const afterSession = await getScopedClient(WS_A, OWNER, testPool)
+    try {
+      const { rows } = await afterSession.client.query(
+        `SELECT count(*)::int AS n FROM api.change_events
+         WHERE workspace_id = $1::uuid
+           AND entity_type = 'pipeline_schedule'
+           AND entity_uuid = $2::uuid`,
+        [WS_A, scheduleId],
+      )
+      expect(rows[0].n).toBe(countBefore + 1)
+    } finally {
+      await afterSession.release()
+    }
   })
 })

@@ -12,19 +12,13 @@
  */
 import { createServerFn } from '@tanstack/react-start'
 import { sql } from 'drizzle-orm'
+import type { Pool, PoolClient } from 'pg'
 
 import { env, getDeploymentConfig } from '#/env.server'
-
-// ---------------------------------------------------------------------------
-// Pipeline executor constants — read from the canonical source so the admin
-// surface never drifts from the executor. See src/lib/pipeline-execute.server.ts
-// ---------------------------------------------------------------------------
-
-/** Re-exported from pipeline-execute.server.ts to avoid a second source of truth. */
-const PIPELINE_EXECUTOR_LIMITS = {
-  inputRowLimit: 100_000,
-  executionTimeoutSeconds: 60,
-} as const
+import {
+  INPUT_ROW_LIMIT,
+  EXECUTION_TIMEOUT_SECONDS,
+} from '#/lib/pipeline-limits'
 
 // Scheduler configuration — mirrors the env check in
 // src/lib/pipeline-scheduler.server.ts startPipelineScheduler().
@@ -64,7 +58,6 @@ export interface DiagnosticsResult {
   pipelineExecutor: {
     activeRuns: number
     recentFailures: number
-    concurrencyLimit: number
     executionTimeoutSeconds: number
     rowCap: number
     inputCap: number
@@ -172,7 +165,25 @@ export interface ConnectorDiagnosticsResult {
 // Session / capability helpers
 // ---------------------------------------------------------------------------
 
-async function loadAdminSession(workspaceId: string) {
+/** Context returned by loadAdminSession for read-only admin functions. */
+interface AdminSession {
+  context: {
+    user: { id: string; name: string; email: string }
+    workspace: { id: string; slug: string; name: string; role: string } | null
+    collaborationEnabled: boolean
+  }
+}
+
+/** Context returned by requireCapability for privileged admin functions. */
+interface ScopedAdminSession {
+  /** A raw pg client with JWT claims stamped (SET ROLE authenticated +
+   * request.jwt.claims). Use .query() for all SQL so RLS and capability
+   * checks see the correct user/workspace. Release in a finally block. */
+  client: PoolClient
+  release: () => Promise<void>
+}
+
+async function loadAdminSession(workspaceId: string): Promise<AdminSession> {
   const { getRequestHeaders } = await import('@tanstack/react-start/server')
   const { getCurrentContext } = await import('#/lib/current-user')
   const { db } = await import('#/db/client.server')
@@ -186,29 +197,92 @@ async function loadAdminSession(workspaceId: string) {
   if (!(await isWorkspaceMember(db, context.user.id, workspaceId))) {
     throw new Error('You do not have access to this workspace.')
   }
-  return { db, context }
+  return { context }
 }
 
 /**
- * Require a workspace capability. Uses the same SQL `api.has_capability`
- * resolver that SECURITY DEFINER RPCs use — the UI capability mirror in
- * src/lib/capability.ts is for navigation only and is never authoritative.
+ * Acquire a scoped DB connection with JWT claims stamped so that
+ * `api.has_capability()`, RLS policies, and SECURITY DEFINER RPCs see the
+ * correct authenticated user and workspace.
+ *
+ * This is the same pattern used by pipeline-scheduler.server.ts and
+ * sheet-calculation.server.ts: SET LOCAL ROLE authenticated +
+ * set_config('request.jwt.claims', ..., true) inside a transaction.
+ *
+ * @param pool Optional pg Pool override (for testing with a test database).
+ *             When omitted, uses the application's default pool.
+ *
+ * Exported for direct testing.
+ */
+export async function getScopedClient(
+  workspaceId: string,
+  userId: string,
+  pool?: Pool,
+): Promise<ScopedAdminSession> {
+  if (!pool) {
+    const { db } = await import('#/db/client.server')
+    pool = db.$client
+  }
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    await client.query('SET LOCAL ROLE authenticated')
+    await client.query(
+      `SELECT set_config('request.jwt.claims', $1, true)`,
+      [JSON.stringify({ sub: userId, workspace_id: workspaceId })],
+    )
+  } catch (err) {
+    client.release()
+    throw err
+  }
+  return {
+    client,
+    release: async () => {
+      try {
+        await client.query('COMMIT')
+      } catch {
+        await client.query('ROLLBACK').catch(() => {})
+      } finally {
+        await client.query('SET ROLE NONE').catch(() => {})
+        client.release()
+      }
+    },
+  }
+}
+
+/**
+ * Require a workspace capability. Acquires a scoped DB connection with JWT
+ * claims stamped so `api.has_capability()` sees the correct authenticated
+ * user/workspace — the same canonical mechanism used by SECURITY DEFINER RPCs.
+ *
+ * The caller must call `session.release()` in a finally block.
  */
 async function requireCapability(
   workspaceId: string,
   capability: string,
-) {
+): Promise<ScopedAdminSession> {
   const session = await loadAdminSession(workspaceId)
-  const result = await session.db.execute(sql`
-    SELECT api.has_capability(${workspaceId}::uuid, ${capability}) AS ok
-  `)
-  const row = result.rows[0] as Record<string, unknown> | undefined
-  if (!row?.ok) {
-    throw new Error(
-      `permission_denied: ${capability} required for this operation.`,
+  const scoped = await getScopedClient(workspaceId, session.context.user.id)
+  try {
+    const { rows } = await scoped.client.query(
+      'SELECT api.has_capability($1::uuid, $2) AS ok',
+      [workspaceId, capability],
     )
+    if (!rows[0]?.ok) {
+      await scoped.release()
+      throw new Error(
+        `permission_denied: ${capability} required for this operation.`,
+      )
+    }
+  } catch (err) {
+    // If the error is our permission_denied, re-throw; otherwise release
+    if (err instanceof Error && err.message.startsWith('permission_denied')) {
+      throw err
+    }
+    await scoped.release()
+    throw err
   }
-  return session
+  return scoped
 }
 
 // ---------------------------------------------------------------------------
@@ -355,11 +429,9 @@ export const fetchDiagnosticsFn = createServerFn({ method: 'POST' })
       pipelineExecutor: {
         activeRuns: num(runRow?.active_runs ?? 0),
         recentFailures: num(runRow?.recent_failures ?? 0),
-        concurrencyLimit: 5,
-        executionTimeoutSeconds:
-          PIPELINE_EXECUTOR_LIMITS.executionTimeoutSeconds,
-        rowCap: PIPELINE_EXECUTOR_LIMITS.inputRowLimit,
-        inputCap: PIPELINE_EXECUTOR_LIMITS.inputRowLimit,
+        executionTimeoutSeconds: EXECUTION_TIMEOUT_SECONDS,
+        rowCap: INPUT_ROW_LIMIT,
+        inputCap: INPUT_ROW_LIMIT,
       },
       config: {
         fileBackend: env.FILE_STORAGE_BACKEND,
@@ -624,52 +696,57 @@ export const fetchAttentionFn = createServerFn({ method: 'POST' })
 export const fetchConnectorDiagnosticsFn = createServerFn({ method: 'POST' })
   .validator((input: { workspaceId: string }) => input)
   .handler(async ({ data }): Promise<ConnectorDiagnosticsResult> => {
-    const { db } = await requireCapability(
+    const session = await requireCapability(
       data.workspaceId,
       'integrations.manage',
     )
-    const res = await db.execute(sql`
-      SELECT
-        c.id, c.name, c.connector_type, c.status,
-        cr.status AS last_run_status,
-        cr.started_at::text AS last_run_at,
-        cr.error_code AS last_error_code,
-        EXISTS (SELECT 1 FROM internal.connector_secrets cs WHERE cs.connector_id = c.id) AS has_secrets,
-        (SELECT count(*)::int FROM api.connector_runs cr2
-         WHERE cr2.connector_id = c.id AND cr2.status = 'failed'
-           AND cr2.started_at > now() - interval '7 days') AS recent_failure_count
-      FROM api.connectors c
-      LEFT JOIN LATERAL (
-        SELECT * FROM api.connector_runs cr
-        WHERE cr.connector_id = c.id
-        ORDER BY cr.started_at DESC LIMIT 1
-      ) cr ON true
-      WHERE c.workspace_id = ${data.workspaceId}::uuid
-      ORDER BY c.name ASC
-    `)
-    const connectors: ConnectorDiagnosticsResult['connectors'] = res.rows.map((r) => ({
-      id: String(r.id),
-      name: String(r.name),
-      connectorType: String(r.connector_type),
-      status: String(r.status),
-      lastRunStatus: str(r.last_run_status),
-      lastRunAt: str(r.last_run_at),
-      lastErrorCode: str(r.last_error_code),
-      hasSecrets: Boolean(r.has_secrets),
-      recentFailureCount: num(r.recent_failure_count),
-    }))
-    const activeConnectors = connectors.filter((c) => c.status === 'active').length
-    const pausedConnectors = connectors.filter((c) => c.status === 'paused').length
-    const recentFailures = connectors.reduce((sum, c) => sum + c.recentFailureCount, 0)
-    const missingSecrets = connectors.filter((c) => c.status === 'active' && !c.hasSecrets).length
-    const repeatedFailures = connectors.filter((c) => c.recentFailureCount >= 3).length
-    return {
-      activeConnectors,
-      pausedConnectors,
-      recentFailures,
-      missingSecrets,
-      repeatedFailures,
-      connectors,
+    try {
+      const { rows } = await session.client.query(
+        `SELECT
+          c.id, c.name, c.connector_type, c.status,
+          cr.status AS last_run_status,
+          cr.started_at::text AS last_run_at,
+          cr.error_code AS last_error_code,
+          EXISTS (SELECT 1 FROM internal.connector_secrets cs WHERE cs.connector_id = c.id) AS has_secrets,
+          (SELECT count(*)::int FROM api.connector_runs cr2
+           WHERE cr2.connector_id = c.id AND cr2.status = 'failed'
+             AND cr2.started_at > now() - interval '7 days') AS recent_failure_count
+        FROM api.connectors c
+        LEFT JOIN LATERAL (
+          SELECT * FROM api.connector_runs cr
+          WHERE cr.connector_id = c.id
+          ORDER BY cr.started_at DESC LIMIT 1
+        ) cr ON true
+        WHERE c.workspace_id = $1::uuid
+        ORDER BY c.name ASC`,
+        [data.workspaceId],
+      )
+      const connectors: ConnectorDiagnosticsResult['connectors'] = rows.map((r: Record<string, unknown>) => ({
+        id: String(r.id),
+        name: String(r.name),
+        connectorType: String(r.connector_type),
+        status: String(r.status),
+        lastRunStatus: str(r.last_run_status),
+        lastRunAt: str(r.last_run_at),
+        lastErrorCode: str(r.last_error_code),
+        hasSecrets: Boolean(r.has_secrets),
+        recentFailureCount: num(r.recent_failure_count),
+      }))
+      const activeConnectors = connectors.filter((c) => c.status === 'active').length
+      const pausedConnectors = connectors.filter((c) => c.status === 'paused').length
+      const recentFailures = connectors.reduce((sum, c) => sum + c.recentFailureCount, 0)
+      const missingSecrets = connectors.filter((c) => c.status === 'active' && !c.hasSecrets).length
+      const repeatedFailures = connectors.filter((c) => c.recentFailureCount >= 3).length
+      return {
+        activeConnectors,
+        pausedConnectors,
+        recentFailures,
+        missingSecrets,
+        repeatedFailures,
+        connectors,
+      }
+    } finally {
+      await session.release()
     }
   })
 
@@ -683,36 +760,34 @@ export const togglePipelineScheduleFn = createServerFn({ method: 'POST' })
       input,
   )
   .handler(async ({ data }) => {
-    const { db } = await requireCapability(
+    const session = await requireCapability(
       data.workspaceId,
       'pipelines.manage',
     )
-    // Use the canonical RPC so capability checks, audit events and schedule
-    // semantics fire server-side. We call the same update_pipeline_schedule
-    // RPC that the Pipeline authoring surface uses.
-    const result = await db.execute(sql`
-      SELECT (api.update_pipeline_schedule(
-        ${data.workspaceId}::uuid,
-        ${data.scheduleId}::uuid,
-        NULL,
-        NULL,
-        ${data.enabled}
-      )).id AS id,
-      (api.update_pipeline_schedule(
-        ${data.workspaceId}::uuid,
-        ${data.scheduleId}::uuid,
-        NULL,
-        NULL,
-        ${data.enabled}
-      )).enabled AS enabled
-    `)
-    const row = result.rows[0] as Record<string, unknown> | undefined
-    if (!row?.id) {
-      throw new Error('Schedule not found or update failed.')
-    }
-    return {
-      scheduleId: String(row.id),
-      enabled: Boolean(row.enabled),
+    try {
+      // Call the canonical RPC exactly once. Project both fields from the
+      // single returned composite row to avoid double mutation.
+      const { rows } = await session.client.query(
+        `SELECT id, enabled
+         FROM api.update_pipeline_schedule(
+           $1::uuid,
+           $2::uuid,
+           NULL,
+           NULL,
+           $3
+         )`,
+        [data.workspaceId, data.scheduleId, data.enabled],
+      )
+      const row = rows[0] as Record<string, unknown> | undefined
+      if (!row?.id) {
+        throw new Error('Schedule not found or update failed.')
+      }
+      return {
+        scheduleId: String(row.id),
+        enabled: Boolean(row.enabled),
+      }
+    } finally {
+      await session.release()
     }
   })
 
@@ -725,37 +800,43 @@ export const retryConnectorRunFn = createServerFn({ method: 'POST' })
     (input: { workspaceId: string; runId: string }) => input,
   )
   .handler(async ({ data }) => {
-    const { db } = await requireCapability(
+    const session = await requireCapability(
       data.workspaceId,
       'integrations.manage',
     )
-    // Look up the failed run to get its connector_id and retry lineage.
-    const runRes = await db.execute(sql`
-      SELECT connector_id, retry_of_run_id
-      FROM api.connector_runs
-      WHERE id = ${data.runId}::uuid
-        AND workspace_id = ${data.workspaceId}::uuid
-        AND status = 'failed'
-    `)
-    const runRow = runRes.rows[0] as Record<string, unknown> | undefined
-    if (!runRow) {
-      throw new Error('Failed run not found or not in a failed state.')
+    try {
+      // Look up the failed run to get its connector_id and retry lineage.
+      const { rows: runRows } = await session.client.query(
+        `SELECT connector_id, retry_of_run_id
+         FROM api.connector_runs
+         WHERE id = $1::uuid
+           AND workspace_id = $2::uuid
+           AND status = 'failed'`,
+        [data.runId, data.workspaceId],
+      )
+      const runRow = runRows[0] as Record<string, unknown> | undefined
+      if (!runRow) {
+        throw new Error('Failed run not found or not in a failed state.')
+      }
+      const connectorId = String(runRow.connector_id)
+      // Start a retry run through the canonical RPC.
+      const { rows } = await session.client.query(
+        `SELECT (api.start_connector_run(
+           $1::uuid,
+           $2::uuid,
+           'manual',
+           NULL,
+           $3::uuid,
+           NULL
+         )).id AS id`,
+        [data.workspaceId, connectorId, data.runId],
+      )
+      const row = rows[0] as Record<string, unknown> | undefined
+      if (!row?.id) {
+        throw new Error('Retry could not be started.')
+      }
+      return { runId: String(row.id) }
+    } finally {
+      await session.release()
     }
-    const connectorId = String(runRow.connector_id)
-    // Start a retry run through the canonical RPC.
-    const result = await db.execute(sql`
-      SELECT (api.start_connector_run(
-        ${data.workspaceId}::uuid,
-        ${connectorId}::uuid,
-        'manual',
-        NULL,
-        ${data.runId}::uuid,
-        NULL
-      )).id AS id
-    `)
-    const row = result.rows[0] as Record<string, unknown> | undefined
-    if (!row?.id) {
-      throw new Error('Retry could not be started.')
-    }
-    return { runId: String(row.id) }
   })

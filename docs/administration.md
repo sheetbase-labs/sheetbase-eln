@@ -258,7 +258,7 @@ The Diagnostics section (`/admin/diagnostics`, any member) surfaces:
   "Disabled". When enabled but no schedules have been evaluated, last sweep
   shows "No schedules evaluated yet" rather than a false healthy value.
 - **Pipeline executor diagnostics** — active runs, recent failures,
-  concurrency limit, execution timeout, row/input caps.
+  execution timeout, row/input caps.
 - **Connector diagnostics** — active/paused counts, recent failures, missing
   secrets, repeated failures, per-connector status. Requires
   `integrations.manage`; non-managers do not see this section.

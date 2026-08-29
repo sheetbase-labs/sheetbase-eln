@@ -172,10 +172,6 @@ export function AdminDiagnostics({
               data.pipelineExecutor.recentFailures.toLocaleString(),
             ],
             [
-              'Concurrency limit',
-              data.pipelineExecutor.concurrencyLimit.toLocaleString(),
-            ],
-            [
               'Execution timeout',
               `${data.pipelineExecutor.executionTimeoutSeconds}s`,
             ],

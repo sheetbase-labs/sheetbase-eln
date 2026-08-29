@@ -885,9 +885,10 @@ export async function cleanup(admin: Client): Promise<void> {
         where definition_id in (select id from api.sheet_definitions where workspace_id=$1)`,
       [FIXTURE.workspace],
     )
-    await admin.query(`delete from api.sheet_definitions where workspace_id=$1`, [
-      FIXTURE.workspace,
-    ])
+    await admin.query(
+      `delete from api.sheet_definitions where workspace_id=$1`,
+      [FIXTURE.workspace],
+    )
   } finally {
     await admin.query(
       `alter table api.sheet_definitions enable trigger guard_sheet_definition`,

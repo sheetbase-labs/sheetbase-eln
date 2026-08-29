@@ -308,7 +308,9 @@ async function mapValidateCommitStages(input: {
       const first = validated.errors?.[0]
       throw new ConnectorStepError(
         first?.code ?? 'validation_failed',
-        first ? describeImportRpcCode(first.code) : 'Dataset rejected every row.',
+        first
+          ? describeImportRpcCode(first.code)
+          : 'Dataset rejected every row.',
         { errors: validated.errors?.slice(0, 20) ?? [] },
       )
     }

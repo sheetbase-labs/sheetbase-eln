@@ -61,7 +61,12 @@ const IMPORT_FIELDS: Array<{
 }> = [
   { key: 'sample', label: 'Sample', logicalType: 'text', nullable: false },
   { key: 'value', label: 'Value', logicalType: 'decimal', nullable: true },
-  { key: 'observed_on', label: 'Observed on', logicalType: 'timestamp', nullable: true },
+  {
+    key: 'observed_on',
+    label: 'Observed on',
+    logicalType: 'timestamp',
+    nullable: true,
+  },
   { key: 'batch', label: 'Batch', logicalType: 'text', nullable: true },
 ]
 
@@ -254,7 +259,11 @@ async function setup(
   env: ReturnType<typeof assertPerfEnvironment>,
 ): Promise<ConnectorState> {
   const admin = await adminClient(env.migrationDatabaseUrl)
-  const actor = await actorClient(env.pgrstDatabaseUrl, FIXTURE.user, FIXTURE.workspace)
+  const actor = await actorClient(
+    env.pgrstDatabaseUrl,
+    FIXTURE.user,
+    FIXTURE.workspace,
+  )
   // Project for S3 byte retention.
   const project = (
     await actor.query(
@@ -270,7 +279,11 @@ async function setup(
     await actor.query(
       `insert into api.dataset_schema_definitions(workspace_id,key,name,created_by_user_id)
        values($1,$2,'PLAT-05 connector import',$3) returning id`,
-      [FIXTURE.workspace, `plat05_connector_${randomUUID().slice(0, 8)}`, FIXTURE.user],
+      [
+        FIXTURE.workspace,
+        `plat05_connector_${randomUUID().slice(0, 8)}`,
+        FIXTURE.user,
+      ],
     )
   ).rows[0]
   const version = (
@@ -350,19 +363,22 @@ async function stageDurations(
       [runId],
     )
   ).rows
-  const at = (stage: string) => logs.find((log) => log.stage === stage)?.at ?? null
-  const start =
-    (await admin.query<{ t: number }>(
+  const at = (stage: string) =>
+    logs.find((log) => log.stage === stage)?.at ?? null
+  const start = (
+    await admin.query<{ t: number }>(
       `select extract(epoch from started_at)::float8 * 1000 as t
          from api.connector_runs where id=$1`,
       [runId],
-    )).rows[0].t
-  const end =
-    (await admin.query<{ t: number }>(
+    )
+  ).rows[0].t
+  const end = (
+    await admin.query<{ t: number }>(
       `select extract(epoch from finished_at)::float8 * 1000 as t
          from api.connector_runs where id=$1`,
       [runId],
-    )).rows[0].t
+    )
+  ).rows[0].t
   const sourceAt = at('source')
   const parseAt = at('parse')
   const mapAt = at('map')
@@ -462,7 +478,9 @@ async function createSourceDatabase(rows: number): Promise<string> {
       `select pg_terminate_backend(pid) from pg_stat_activity where usename='${SOURCE_ROLE}'`,
     )
     await admin.query(`DROP ROLE IF EXISTS ${SOURCE_ROLE}`)
-    await admin.query(`CREATE ROLE ${SOURCE_ROLE} LOGIN PASSWORD 'perf-source-pass'`)
+    await admin.query(
+      `CREATE ROLE ${SOURCE_ROLE} LOGIN PASSWORD 'perf-source-pass'`,
+    )
     await admin.query(`CREATE DATABASE ${SOURCE_DB}`)
   } finally {
     await admin.end()
@@ -640,7 +658,9 @@ async function benchmarkConnector(
   }
 }
 
-async function postgresContext(state: ConnectorState): Promise<ConnectorAdapterContext> {
+async function postgresContext(
+  state: ConnectorState,
+): Promise<ConnectorAdapterContext> {
   const config = {
     adapter: 'postgres',
     host: 'localhost',
@@ -673,7 +693,11 @@ async function postgresContext(state: ConnectorState): Promise<ConnectorAdapterC
       username: SOURCE_ROLE,
       password: 'perf-source-pass',
     },
-    limits: { previewRows: 100, importRows: 100_000, maxObjectBytes: 100 * 1024 * 1024 },
+    limits: {
+      previewRows: 100,
+      importRows: 100_000,
+      maxObjectBytes: 100 * 1024 * 1024,
+    },
   })
 }
 
@@ -717,7 +741,11 @@ async function s3Context(
       access_key_id: 'AKIA-TEST',
       secret_access_key: 'shhh-very-secret-value',
     },
-    limits: { previewRows: 100, importRows: 100_000, maxObjectBytes: 100 * 1024 * 1024 },
+    limits: {
+      previewRows: 100,
+      importRows: 100_000,
+      maxObjectBytes: 100 * 1024 * 1024,
+    },
   })
 }
 
@@ -731,27 +759,38 @@ function csvFor(rows: number): string {
   return lines.join('\n')
 }
 
-async function cleanup(state: ConnectorState, s3Server: Server | null): Promise<void> {
+async function cleanup(
+  state: ConnectorState,
+  s3Server: Server | null,
+): Promise<void> {
   if (s3Server) await s3Server.close()
   const admin = state.admin
-  await admin.query(`delete from api.connector_run_logs where run_id in
-       (select id from api.connector_runs where workspace_id=$1)`, [
-    FIXTURE.workspace,
-  ])
+  await admin.query(
+    `delete from api.connector_run_logs where run_id in
+       (select id from api.connector_runs where workspace_id=$1)`,
+    [FIXTURE.workspace],
+  )
   await admin.query(`delete from api.connector_runs where workspace_id=$1`, [
     FIXTURE.workspace,
   ])
-  await admin.query(`delete from internal.connector_secrets where connector_id in
-       (select id from api.connectors where workspace_id=$1)`, [FIXTURE.workspace])
-  await admin.query(`delete from api.connectors where workspace_id=$1 and key like 'perf-%'`, [
-    FIXTURE.workspace,
-  ])
+  await admin.query(
+    `delete from internal.connector_secrets where connector_id in
+       (select id from api.connectors where workspace_id=$1)`,
+    [FIXTURE.workspace],
+  )
+  await admin.query(
+    `delete from api.connectors where workspace_id=$1 and key like 'perf-%'`,
+    [FIXTURE.workspace],
+  )
   // Output Datasets + immutable versions created by the imports.
   await admin.query(`delete from api.file_objects where workspace_id=$1`, [
     FIXTURE.workspace,
   ])
-  await admin.query(`delete from api.dataset_bulk_commits where workspace_id=$1
-       and idempotency_key like 'connector-run-%'`, [FIXTURE.workspace])
+  await admin.query(
+    `delete from api.dataset_bulk_commits where workspace_id=$1
+       and idempotency_key like 'connector-run-%'`,
+    [FIXTURE.workspace],
+  )
   await admin.query(
     `alter table api.dataset_versions disable trigger prevent_dataset_version_mutation`,
   )
@@ -762,14 +801,23 @@ async function cleanup(state: ConnectorState, s3Server: Server | null): Promise<
     `alter table api.dataset_version_values disable trigger prevent_dataset_version_value_mutation`,
   )
   try {
-    await admin.query(`delete from api.dataset_version_values where dataset_version_id in
+    await admin.query(
+      `delete from api.dataset_version_values where dataset_version_id in
        (select id from api.dataset_versions where workspace_id=$1
-          and label like 'pipeline output')`, [FIXTURE.workspace])
-    await admin.query(`delete from api.dataset_version_rows where dataset_version_id in
+          and label like 'pipeline output')`,
+      [FIXTURE.workspace],
+    )
+    await admin.query(
+      `delete from api.dataset_version_rows where dataset_version_id in
        (select id from api.dataset_versions where workspace_id=$1
-          and label like 'pipeline output')`, [FIXTURE.workspace])
-    await admin.query(`delete from api.dataset_versions where workspace_id=$1
-       and label like 'pipeline output'`, [FIXTURE.workspace])
+          and label like 'pipeline output')`,
+      [FIXTURE.workspace],
+    )
+    await admin.query(
+      `delete from api.dataset_versions where workspace_id=$1
+       and label like 'pipeline output'`,
+      [FIXTURE.workspace],
+    )
   } finally {
     await admin.query(
       `alter table api.dataset_version_values enable trigger prevent_dataset_version_value_mutation`,
@@ -781,8 +829,11 @@ async function cleanup(state: ConnectorState, s3Server: Server | null): Promise<
       `alter table api.dataset_versions enable trigger prevent_dataset_version_mutation`,
     )
   }
-  await admin.query(`delete from api.datasets where workspace_id=$1
-       and name like 'PLAT-05 % import %'`, [FIXTURE.workspace])
+  await admin.query(
+    `delete from api.datasets where workspace_id=$1
+       and name like 'PLAT-05 % import %'`,
+    [FIXTURE.workspace],
+  )
   const baseUrl = new URL(state.env.databaseUrl)
   const superuser = new Client({ connectionString: baseUrl.toString() })
   await superuser.connect()
@@ -836,7 +887,8 @@ export async function runConnectorBenchmarks(): Promise<ScenarioReport[]> {
     const admin = state.admin
     const environment = await environmentSnapshot(admin)
     writeReport('connectors', scenarios, environment, {
-      source: 'postgres: sheetbase_perf_source.measurements / s3: in-process backend',
+      source:
+        'postgres: sheetbase_perf_source.measurements / s3: in-process backend',
       fixtures: '10k and 50k deterministic rows',
     })
     return scenarios

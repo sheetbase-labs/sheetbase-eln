@@ -350,7 +350,9 @@ async function benchmarkNotebook(
         [
           uuidFor(PREFIX.notebook, 1000 + i),
           recordId,
-          JSON.stringify({ text: `notebook paragraph ${i} with padding content` }),
+          JSON.stringify({
+            text: `notebook paragraph ${i} with padding content`,
+          }),
           i,
           SHEET_USER,
         ],
@@ -405,9 +407,10 @@ export async function runSheetNotebookBenchmarks(): Promise<ScenarioReport[]> {
       .query(`delete from api.records where workspace_id=$1`, [SHEET_WS])
       .catch(() => {})
     await ctx.admin
-      .query(`delete from api.projects where workspace_id=$1 and key='plat05-nb'`, [
-        SHEET_WS,
-      ])
+      .query(
+        `delete from api.projects where workspace_id=$1 and key='plat05-nb'`,
+        [SHEET_WS],
+      )
       .catch(() => {})
     await ctx.actor.end().catch(() => {})
     await ctx.admin.end().catch(() => {})

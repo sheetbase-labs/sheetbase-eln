@@ -94,7 +94,11 @@ async function pipelineSaturation(
   env: ReturnType<typeof assertPerfEnvironment>,
   scenarios: ScenarioReport[],
 ): Promise<void> {
-  const actor = await actorClient(env.pgrstDatabaseUrl, FIXTURE.user, FIXTURE.workspace)
+  const actor = await actorClient(
+    env.pgrstDatabaseUrl,
+    FIXTURE.user,
+    FIXTURE.workspace,
+  )
   const fixture = datasetFixtures().find((f) => f.rows === 10_000)!
   const inputVersionId = fixture.versionId
   const startedAt = Date.now()
@@ -142,8 +146,7 @@ async function pipelineSaturation(
   const checks: Array<{ rowCount: number; versionRows: number }> = []
   for (const report of results) {
     const result = report.run?.result as
-      | { rowCount?: number; outputDatasetVersionId?: string }
-      | undefined
+      { rowCount?: number; outputDatasetVersionId?: string } | undefined
     if (result?.outputDatasetVersionId) {
       const count = (
         await admin.query<{ n: string }>(
@@ -197,7 +200,11 @@ async function slowConnectorSource(
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
   const port = (server.address() as { port: number }).port
 
-  const actor = await actorClient(env.pgrstDatabaseUrl, FIXTURE.user, FIXTURE.workspace)
+  const actor = await actorClient(
+    env.pgrstDatabaseUrl,
+    FIXTURE.user,
+    FIXTURE.workspace,
+  )
   const admin = await adminClient(env.migrationDatabaseUrl)
   try {
     const connector = (
@@ -220,7 +227,8 @@ async function slowConnectorSource(
         ],
       )
     ).rows[0]
-    const sealSecret = (await import('#/lib/connector-secrets.server')).sealSecret
+    const sealSecret = (await import('#/lib/connector-secrets.server'))
+      .sealSecret
     const derive = (await import('#/lib/connector-secrets.server'))
       .deriveConnectorSecretKey
     const key = derive(process.env.BETTER_AUTH_SECRET!)
@@ -235,9 +243,8 @@ async function slowConnectorSource(
     await putSecret('username', 'u')
     await putSecret('password', 'p')
     // Drive the adapter's testConnection path directly (source read attempt).
-    const { postgresAdapter } = await import(
-      '#/lib/connectors/enterprise/postgres.server'
-    )
+    const { postgresAdapter } =
+      await import('#/lib/connectors/enterprise/postgres.server')
     const source = postgresAdapter.parseConfig(connector.config)
     const t0 = Date.now()
     let code = ''
@@ -280,9 +287,10 @@ async function slowConnectorSource(
   } finally {
     server.close()
     await admin
-      .query(`delete from api.connectors where workspace_id=$1 and key like 'perf-slow-%'`, [
-        FIXTURE.workspace,
-      ])
+      .query(
+        `delete from api.connectors where workspace_id=$1 and key like 'perf-slow-%'`,
+        [FIXTURE.workspace],
+      )
       .catch(() => {})
     await admin.end().catch(() => {})
     await actor.end().catch(() => {})
@@ -298,7 +306,9 @@ async function schedulerBacklog(
 ): Promise<void> {
   const admin = await adminClient(env.migrationDatabaseUrl)
   const count = 40
-  const inputVersionId = datasetFixtures().find((f) => f.rows === 10_000)!.versionId
+  const inputVersionId = datasetFixtures().find(
+    (f) => f.rows === 10_000,
+  )!.versionId
   const scheduleIds: string[] = []
   for (let i = 0; i < count; i += 1) {
     const id = `0f07e000-0000-4000-8000-0000${String(i + 1).padStart(8, '0')}`
@@ -365,7 +375,9 @@ async function schedulerBacklog(
     }),
   )
   await admin
-    .query(`delete from api.pipeline_runs where workspace_id=$1`, [FIXTURE.workspace])
+    .query(`delete from api.pipeline_runs where workspace_id=$1`, [
+      FIXTURE.workspace,
+    ])
     .catch(() => {})
   await admin
     .query(`delete from api.pipeline_schedules where id = any($1::uuid[])`, [

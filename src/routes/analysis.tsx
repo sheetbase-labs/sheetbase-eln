@@ -195,7 +195,7 @@ function AnalysisStudioRoute() {
       setSelectedViewId(null)
       setViewName('')
     }
-  }, [selectedDatasetId])
+  }, [selectedDataset, search.x, search.y])
 
   // Live preview resolution: read source data read-only (never mutate). The
   // materialised chart is lifted here so the preview and the export panel

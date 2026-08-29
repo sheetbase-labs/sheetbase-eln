@@ -17,31 +17,44 @@ const SCHEMA_KEY = 'sci04_browser_e580'
 let admin: Client
 let datasetId = ''
 
-async function cleanDataset() {
-  await admin.query('RESET ROLE')
-  if (datasetId) {
-    await admin.query(`DELETE FROM api.datasets WHERE id=$1`, [datasetId])
-  }
+async function deleteFixtureDatasets() {
   await admin.query(
-    `DELETE FROM api.dataset_schema_definitions WHERE workspace_id=$1 AND key=$2`,
+    `DELETE FROM api.datasets WHERE schema_version_id IN (
+       SELECT sv.id
+         FROM api.dataset_schema_versions sv
+         JOIN api.dataset_schema_definitions d ON d.id = sv.schema_id
+        WHERE d.workspace_id = $1 AND d.key = $2
+     )`,
     [FIXTURE_WORKSPACE_ID, SCHEMA_KEY],
   )
 }
 
-test.beforeAll(async () => {
-  admin = new Client({ connectionString: process.env.DATABASE_URL })
-  await admin.connect()
-  await cleanDataset()
-
+async function ensureSchema(): Promise<string> {
+  const existing = await admin.query<{ id: string }>(
+    `SELECT id FROM api.dataset_schema_definitions
+      WHERE workspace_id=$1 AND key=$2`,
+    [FIXTURE_WORKSPACE_ID, SCHEMA_KEY],
+  )
+  if (existing.rows[0]) return existing.rows[0].id
   const schemaRes = await admin.query(
     `INSERT INTO api.dataset_schema_definitions(workspace_id,key,name,lifecycle)
      VALUES ($1,$2,'Dose response','active') RETURNING id`,
     [FIXTURE_WORKSPACE_ID, SCHEMA_KEY],
   )
+  return schemaRes.rows[0].id
+}
+
+async function ensureActiveVersion(schemaId: string): Promise<string> {
+  const active = await admin.query<{ id: string }>(
+    `SELECT id FROM api.dataset_schema_versions
+      WHERE schema_id=$1 AND lifecycle='active' ORDER BY version DESC LIMIT 1`,
+    [schemaId],
+  )
+  if (active.rows[0]) return active.rows[0].id
   const svRes = await admin.query(
     `INSERT INTO api.dataset_schema_versions(schema_id,"version",lifecycle)
      VALUES ($1,1,'draft') RETURNING id`,
-    [schemaRes.rows[0].id],
+    [schemaId],
   )
   const svId = svRes.rows[0].id
   await admin.query(
@@ -56,12 +69,31 @@ test.beforeAll(async () => {
     `UPDATE api.dataset_schema_versions SET lifecycle='active' WHERE id=$1`,
     [svId],
   )
+  return svId
+}
+
+test.beforeAll(async () => {
+  admin = new Client({
+    connectionString:
+      process.env.MIGRATION_DATABASE_URL ?? process.env.DATABASE_URL,
+  })
+  await admin.connect()
+  await deleteFixtureDatasets()
+  const schemaId = await ensureSchema()
+  const svId = await ensureActiveVersion(schemaId)
   const dsRes = await admin.query(
     `INSERT INTO api.datasets(workspace_id,schema_version_id,name,created_by_user_id)
      VALUES ($1,$2,'Dose response',$3) RETURNING id`,
     [FIXTURE_WORKSPACE_ID, svId, FIXTURE_USER_ID],
   )
   datasetId = dsRes.rows[0].id
+  const fields = await admin.query<{ field_id: string; key: string }>(
+    `SELECT field_id, key FROM api.dataset_schema_version_fields WHERE schema_version_id=$1`,
+    [svId],
+  )
+  const doseId = fields.rows.find((field) => field.key === 'dose')!.field_id
+  const responseId = fields.rows.find((field) => field.key === 'response')!
+    .field_id
   for (const [dose, response] of [
     [1, 2],
     [2, 4],
@@ -71,13 +103,6 @@ test.beforeAll(async () => {
       `INSERT INTO api.dataset_rows(dataset_id,workspace_id) VALUES ($1,$2) RETURNING id`,
       [datasetId, FIXTURE_WORKSPACE_ID],
     )
-    const fields = await admin.query<{ field_id: string; key: string }>(
-      `SELECT field_id, key FROM api.dataset_schema_version_fields WHERE schema_version_id=$1`,
-      [svId],
-    )
-    const doseId = fields.rows.find((field) => field.key === 'dose')!.field_id
-    const responseId = fields.rows.find((field) => field.key === 'response')!
-      .field_id
     await admin.query(
       `INSERT INTO api.dataset_row_values(row_id,field_id,numeric_value)
        VALUES ($1,$2,$3), ($1,$4,$5)`,
@@ -87,7 +112,7 @@ test.beforeAll(async () => {
 })
 
 test.afterAll(async () => {
-  await cleanDataset()
+  await deleteFixtureDatasets()
   await admin.end()
 })
 

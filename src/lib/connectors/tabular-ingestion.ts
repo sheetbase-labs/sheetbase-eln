@@ -282,55 +282,67 @@ async function mapValidateCommitStages(input: {
     )
   }
 
-  // Stages — validate then commit through the Core batch RPCs only.
+  // Stages — validate then commit through the Core batch RPCs only, chunked
+  // at the canonical 1000-row batch cap (a large import would otherwise
+  // exceed it and fail). Each commit bumps the Dataset revision, so the
+  // expected revision is re-read per chunk.
   const rows = mapped.rows.map((row) => ({
     operation: 'create' as const,
     rowId: row.rowId,
     values: row.values,
   }))
-  const validated = await validateDatasetRowBatch(client, {
-    datasetId,
-    expectedRevision: expectedRevision ?? 1,
-    rows,
-  }).catch((error) => {
-    throw new ConnectorStepError('validation_failed', String(error))
-  })
-  if (!validated.ok) {
-    const first = validated.errors?.[0]
-    throw new ConnectorStepError(
-      first?.code ?? 'validation_failed',
-      first ? describeImportRpcCode(first.code) : 'Dataset rejected every row.',
-      { errors: validated.errors?.slice(0, 20) ?? [] },
-    )
-  }
-  const committed = await commitDatasetRowBatch(client, {
-    datasetId,
-    expectedRevision: expectedRevision ?? 1,
-    rows,
-    // Retry-safe: the same run re-uses the same commit receipt key.
-    idempotencyKey: `connector-run-${input.runId}`,
-  }).catch((error) => {
-    throw new ConnectorStepError('commit_failed', String(error))
-  })
-  if (!committed.ok) {
-    const first = committed.errors?.[0]
-    throw new ConnectorStepError(
-      first?.code ?? 'commit_failed',
-      first ? describeImportRpcCode(first.code) : 'Dataset commit rejected.',
-      { errors: committed.errors?.slice(0, 20) ?? [] },
-    )
+  const BATCH_SIZE = 1000
+  let committedCount = 0
+  let datasetRevision: number | undefined
+  for (let offset = 0; offset < rows.length; offset += BATCH_SIZE) {
+    const chunk = rows.slice(offset, offset + BATCH_SIZE)
+    const chunkRevision = datasetRevision ?? expectedRevision ?? 1
+    const validated = await validateDatasetRowBatch(client, {
+      datasetId,
+      expectedRevision: chunkRevision,
+      rows: chunk,
+    }).catch((error) => {
+      throw new ConnectorStepError('validation_failed', String(error))
+    })
+    if (!validated.ok) {
+      const first = validated.errors?.[0]
+      throw new ConnectorStepError(
+        first?.code ?? 'validation_failed',
+        first ? describeImportRpcCode(first.code) : 'Dataset rejected every row.',
+        { errors: validated.errors?.slice(0, 20) ?? [] },
+      )
+    }
+    const committed = await commitDatasetRowBatch(client, {
+      datasetId,
+      expectedRevision: chunkRevision,
+      rows: chunk,
+      // Retry-safe: distinct per chunk so the same run re-uses its receipts.
+      idempotencyKey: `connector-run-${input.runId}:${Math.floor(offset / BATCH_SIZE)}`,
+    }).catch((error) => {
+      throw new ConnectorStepError('commit_failed', String(error))
+    })
+    if (!committed.ok) {
+      const first = committed.errors?.[0]
+      throw new ConnectorStepError(
+        first?.code ?? 'commit_failed',
+        first ? describeImportRpcCode(first.code) : 'Dataset commit rejected.',
+        { errors: committed.errors?.slice(0, 20) ?? [] },
+      )
+    }
+    committedCount += committed.rows?.length ?? chunk.length
+    datasetRevision = committed.datasetRevision
   }
 
   await log(
     'commit',
-    `Committed ${committed.rows?.length ?? rows.length} rows to Dataset ${datasetId}.`,
-    { revision: committed.datasetRevision },
+    `Committed ${committedCount} rows to Dataset ${datasetId}.`,
+    { revision: datasetRevision },
   )
 
   return {
-    rowCount: committed.rows?.length ?? rows.length,
+    rowCount: committedCount,
     datasetId,
-    datasetRevision: committed.datasetRevision,
+    datasetRevision,
   }
 }
 

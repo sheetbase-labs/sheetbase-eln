@@ -115,6 +115,84 @@ async function snapshot(wire: unknown): Promise<ComposedSheetSnapshot> {
   )
 }
 
+// PLAT-05 batching: a second Dataset-bound column on the same binding/row.
+const SECOND_FIELD = '40000000-0000-4000-8000-000000000010'
+const SECOND_COLUMN = '30000000-0000-4000-8000-000000000030'
+
+function twoColumnConfiguration() {
+  const configuration = validSheetDefinitionConfiguration()
+  configuration.columns.push({
+    id: SECOND_COLUMN,
+    field: {
+      fieldId: SECOND_COLUMN,
+      key: 'second_value',
+      label: 'Second value',
+      description: null,
+      logicalType: 'text',
+      nullable: true,
+      defaultValue: null,
+      cardinality: 'one',
+      quantity: null,
+      validation: {},
+      category: null,
+      relationship: null,
+      computation: { mode: 'stored' },
+      lifecycle: 'active',
+    },
+    source: {
+      kind: 'bound',
+      bindingId: configuration.bindings[0].id,
+      sourceFieldId: SECOND_FIELD,
+    },
+  })
+  configuration.writeBackRules[0].mappings.push({
+    columnId: SECOND_COLUMN,
+    targetFieldId: SECOND_FIELD,
+  })
+  configuration.presentation.columnOrder.push(SECOND_COLUMN)
+  return parseSheetDefinitionConfiguration(configuration)
+}
+
+function twoColumnDatasetWire(matched = true) {
+  const config = twoColumnConfiguration()
+  return {
+    instanceId: INSTANCE,
+    definitionVersionId: VERSION,
+    definitionConfiguration: config,
+    revision: 6,
+    offset: 4,
+    limit: 50,
+    hasMore: false,
+    localFieldIds: [LOCAL_FIELD],
+    identity: {
+      kind: 'source',
+      columnIds: [config.columns[0].id],
+      logicalTypes: ['reference'],
+    },
+    rows: [
+      {
+        identityValues: [RECORD],
+        sources: [
+          {
+            sourceKind: 'dataset',
+            bindingId: config.bindings[0].id,
+            datasetId: DATASET,
+            datasetRevision: 9,
+            rowId: matched ? ROW : null,
+            revision: matched ? 4 : null,
+            matched,
+            values: {
+              [mappedSource.sourceFieldId]: RECORD,
+              [SECOND_FIELD]: 'second-value',
+            },
+          },
+          datasetWire(matched).rows[0].sources[1],
+        ],
+      },
+    ],
+  }
+}
+
 describe('composed Sheet write-back', () => {
   it('parses authoritative Dataset and Record CAS provenance before resolving stable targets', async () => {
     const dataset = await snapshot(datasetWire())
@@ -430,5 +508,162 @@ describe('composed Sheet write-back', () => {
       ),
     ).rejects.toThrow('unresolved_target')
     expect(rpc).not.toHaveBeenCalled()
+  })
+
+  it('merges multiple Dataset columns on the same row into one row entry (PLAT-05)', async () => {
+    const composition = await snapshot(twoColumnDatasetWire())
+    const rpc = vi.fn().mockResolvedValue({ ok: true })
+    const rowKey = composition.rows[0].rowKey
+    await writeSheetCells(
+      {
+        composition,
+        cells: [
+          { rowKey, columnId: mappedColumn.id, value: RECORD },
+          { rowKey, columnId: SECOND_COLUMN, value: 'second-value' },
+        ],
+        retryToken: TOKEN,
+      },
+      clientWithRpc(rpc),
+    )
+    expect(rpc).toHaveBeenCalledTimes(1)
+    expect(rpc).toHaveBeenCalledWith('commit_dataset_row_batch', {
+      p_dataset_id: DATASET,
+      p_expected_dataset_revision: 9,
+      p_rows: [
+        {
+          operation: 'update',
+          rowId: ROW,
+          expectedRevision: 4,
+          values: {
+            [mappedSource.sourceFieldId]: RECORD,
+            [SECOND_FIELD]: 'second-value',
+          },
+        },
+      ],
+      p_idempotency_key: expect.stringContaining(TOKEN),
+    })
+  })
+
+  it('merges a multi-row × multi-column paste into one entry per row (PLAT-05)', async () => {
+    const RECORD2 = '30000000-0000-4000-8000-000000000017'
+    const ROW2 = '30000000-0000-4000-8000-000000000018'
+    const base = twoColumnDatasetWire()
+    const wire = {
+      ...base,
+      rows: [
+        base.rows[0],
+        {
+          ...base.rows[0],
+          identityValues: [RECORD2],
+          sources: [
+            {
+              ...base.rows[0].sources[0],
+              rowId: ROW2,
+              revision: 5,
+              values: {
+                [mappedSource.sourceFieldId]: RECORD2,
+                [SECOND_FIELD]: 'row2-second',
+              },
+            },
+            base.rows[0].sources[1],
+          ],
+        },
+      ],
+    }
+    const composition = await snapshot(wire)
+    const rpc = vi.fn().mockResolvedValue({ ok: true })
+    await writeSheetCells(
+      {
+        composition,
+        cells: [
+          { rowKey: composition.rows[0].rowKey, columnId: mappedColumn.id, value: RECORD },
+          { rowKey: composition.rows[0].rowKey, columnId: SECOND_COLUMN, value: 'second-value' },
+          { rowKey: composition.rows[1].rowKey, columnId: mappedColumn.id, value: RECORD2 },
+          { rowKey: composition.rows[1].rowKey, columnId: SECOND_COLUMN, value: 'row2-second' },
+        ],
+        retryToken: TOKEN,
+      },
+      clientWithRpc(rpc),
+    )
+    // 4 cells → 1 commit with exactly 2 row entries (one per row).
+    expect(rpc).toHaveBeenCalledTimes(1)
+    expect(rpc).toHaveBeenCalledWith('commit_dataset_row_batch', {
+      p_dataset_id: DATASET,
+      p_expected_dataset_revision: 9,
+      p_rows: [
+        {
+          operation: 'update',
+          rowId: ROW,
+          expectedRevision: 4,
+          values: {
+            [mappedSource.sourceFieldId]: RECORD,
+            [SECOND_FIELD]: 'second-value',
+          },
+        },
+        {
+          operation: 'update',
+          rowId: ROW2,
+          expectedRevision: 5,
+          values: {
+            [mappedSource.sourceFieldId]: RECORD2,
+            [SECOND_FIELD]: 'row2-second',
+          },
+        },
+      ],
+      p_idempotency_key: expect.stringContaining(TOKEN),
+    })
+  })
+
+  it('dispatches mixed Dataset / Record / local cells with minimal RPC count (PLAT-05)', async () => {
+    // Dataset cell on row 0 (single row, single column), record cell on the
+    // same row, and a local cell — three distinct RPC kinds, one call each.
+    const composition = await snapshot(datasetWire())
+    const rpc = vi.fn().mockImplementation((name: string) => {
+      if (name === 'mutate_sheet_instance_local_state')
+        return Promise.reject(new Error('stop after local dispatch'))
+      return Promise.resolve({})
+    })
+    const rowKey = composition.rows[0].rowKey
+    await expect(
+      writeSheetCells(
+        {
+          composition,
+          cells: [
+            { rowKey, columnId: mappedColumn.id, value: RECORD },
+            { rowKey, columnId: LOCAL_FIELD, value: 'local' },
+          ],
+          retryToken: TOKEN,
+        },
+        clientWithRpc(rpc),
+      ),
+    ).rejects.toThrow('stop after local dispatch')
+    // Dataset → commit; record → update_record_custom_fields; local → mutate.
+    expect(rpc).toHaveBeenCalledTimes(2)
+    expect(rpc).toHaveBeenCalledWith('commit_dataset_row_batch', {
+      p_dataset_id: DATASET,
+      p_expected_dataset_revision: 9,
+      p_rows: [
+        {
+          operation: 'update',
+          rowId: ROW,
+          expectedRevision: 4,
+          values: { [mappedSource.sourceFieldId]: RECORD },
+        },
+      ],
+      p_idempotency_key: expect.stringContaining(TOKEN),
+    })
+    expect(rpc).toHaveBeenCalledWith(
+      'mutate_sheet_instance_local_state',
+      expect.objectContaining({
+        p_instance_id: INSTANCE,
+        p_cells: [
+          {
+            rowKey,
+            fieldId: LOCAL_FIELD,
+            value: 'local',
+          },
+        ],
+      }),
+    )
   })
 })

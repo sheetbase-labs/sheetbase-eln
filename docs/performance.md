@@ -187,12 +187,16 @@ Repeatable, deterministic, machine-readable. Lives in `perf/`; results go to
 local Docker PostgreSQL/PostgREST stack.
 
 ```bash
-pnpm perf:seed        # deterministic fixtures (1k/10k/50k/100k × narrow/medium/wide)
-pnpm perf:db          # dataset read/version/write/snapshot + query-plan audit
-pnpm perf:pipelines   # pipeline stage/concurrency + scheduler sweep + event burst
-pnpm perf:http        # API-layer mixed-workload concurrency vs PostgREST
-pnpm perf:all         # seed + db + pipelines + http
-pnpm perf:all --large # include 100k snapshots / 100k pipeline inputs
+pnpm perf:seed          # deterministic fixtures (1k/10k/50k/100k × narrow/medium/wide)
+pnpm perf:db            # dataset read/version/write/snapshot + query-plan audit
+pnpm perf:pipelines     # pipeline stage/concurrency + scheduler sweep + event burst
+pnpm perf:http          # API-layer mixed-workload concurrency vs PostgREST
+pnpm perf:files         # file platform streaming throughput
+pnpm perf:connectors    # S3 + PostgreSQL source imports (per-stage)
+pnpm perf:sheet-notebook# bound Sheet load + Notebook block load
+pnpm perf:pressure      # failure-under-pressure checks (exhaustion, saturation, slow source, backlog)
+pnpm perf:all           # seed + every benchmark above
+pnpm perf:all --large   # include 100k snapshots / 100k pipeline inputs
 ```
 
 Every command requires `SHEETBASE_ENV=development` and
@@ -422,25 +426,34 @@ Validated import  bounded by canonical 1000-row commit cap per call (chunked)
 
 ## Capacity guidance
 
-For the current single-VPS deployment (the supported shape):
+For the current single-VPS deployment (the supported shape). The CPU/RAM
+profiles below are **unvalidated starting heuristics**, not measured
+capacities: the benchmark suite ran on an Apple M2 Pro / 32 GiB workstation,
+not on the VPS hardware. Treat any profile as provisional until `pnpm perf:all`
+has been run on the target deployment and its results reconcile with the
+baseline in this document. The measured scale envelope (above) is the
+authoritative statement of what the software sustains on the benchmark box;
+capacity on other hardware must be re-validated, not extrapolated.
 
 ### Development
 
-- 1 CPU / 2 GiB RAM app container, PostgreSQL with default sizing, loopback
-  traffic only. The full benchmark suite (including 100k fixtures) is heavy —
-  run it on a workstation, not the dev VPS.
+- Loopback traffic only; PostgreSQL default sizing. The full benchmark suite
+  (including 100k fixtures) is heavy — run it on a workstation, not the dev
+  VPS.
 
-### Small deployment
+### Small deployment (unvalidated heuristic)
 
-- App: 1 vCPU, 1 GiB RAM (Node SSR is lightweight; the app is not the
-  bottleneck at this scale).
+- App: 1 vCPU / 1–2 GiB RAM (Node SSR is lightweight; the app is not the
+  bottleneck at the measured envelope).
 - PostgreSQL: 2 vCPU / 4 GiB, `shared_buffers` 512 MiB–1 GiB, storage with
   enough headroom for Dataset Version snapshots (~5–10× the live Dataset
   size once scientists snapshot routinely).
-- Supported: up to ~100k rows per Dataset, 5 concurrent Pipelines, dozens of
-  concurrent users with search.
+- Measured-envelope targets to re-validate on this hardware: up to ~100k rows
+  per Dataset (page reads p95 < 300 ms), 5 concurrent Pipelines, and up to
+  20 concurrent mixed users with search (the largest tested concurrency —
+  no claim is made beyond it).
 
-### Larger single-node deployment
+### Larger single-node deployment (unvalidated heuristic)
 
 - App: 2 vCPU / 2 GiB (Node is single-threaded; the extra vCPU covers
   scheduler sweeps + concurrent HTTP).
@@ -487,7 +500,7 @@ measure before scaling.
 | Limit                      | Value                                                   | Notes                                                                                                              |
 | -------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | Dataset page               | 1–1000 rows                                             | `query_dataset_rows` / version RPC                                                                                 |
-| Commit batch               | 1–1000 rows                                             | `commit_dataset_row_batch`; the Pipeline executor chunks large outputs                                             |
+| Commit batch               | 1–1000 rows                                             | `commit_dataset_row_batch`; the Pipeline executor and connector imports chunk large outputs                       |
 | Pipeline input rows        | 100,000                                                 | fixed, sandboxed executor limit                                                                                    |
 | Pipeline result rows       | 100,000                                                 | fixed                                                                                                              |
 | Pipeline inputs/parameters | 10 / 50                                                 | config limits                                                                                                      |
@@ -497,6 +510,7 @@ measure before scaling.
 | Scheduler sweep            | 60 s cadence, 20 events/sweep, 5 stale recoveries/sweep | polling; at-least-once                                                                                             |
 | Change events              | unbounded                                               | retention/archival not implemented (no observed pressure yet)                                                      |
 | Record import              | 1 RPC per row                                           | `commitRecordImport` issues one `create_model_record` per row — N+1, documented as a future batch-create candidate |
+| S3 object import            | 1000 rows/object                                        | delimited parser import cap (preview reads 512 KiB) — a product limit, not a benchmark artifact |
 
 ## Diagnosing slow behaviour
 
@@ -608,12 +622,53 @@ received-bytes check).
 
 ### Connectors
 
-Connector runs stream bounded source reads (S3 preview 512 KiB, import up to
-the configured object cap; PostgreSQL source queries use `LIMIT rowCap+1`
-with an explicit column list, never `SELECT *`). Runs execute in-process,
-request-scoped, through the canonical commit path (the same 1–1000 row batch
-bound as everything else; large imports chunk). Source read time is kept
-distinct from Sheetbase processing time in run logs (`connector_run_id` +
-per-stage logs). A connector egress host policy bounds each run. Connector
-throughput was not load-tested beyond the shared API benchmarks; the measured
-Dataset import/write numbers above bound the ingest tail.
+Measured against local deterministic fixtures: an in-process S3-compatible
+HTTP backend (real SDK + SigV4) and an isolated source PostgreSQL database in
+the local cluster. Runs execute in-process, request-scoped, through the
+canonical commit path — which now **chunks** `commit_dataset_row_batch` at the
+canonical 1000-row cap (a large import previously failed above 1000 rows, the
+same bug the Pipeline executor had). Per-stage timings come from the run's
+durable stage logs.
+
+| Scenario                          | Rows | Source read | Map+validate | Commit | Total  |
+| --------------------------------- | ---- | ----------- | ------------ | ------ | ------ |
+| postgres ingest 10k               | 10k  | 51 ms       | 5.8 s        | 2.3 ms | 5.9 s  |
+| postgres ingest 50k               | 50k  | 154 ms      | 30.0 s       | 2.7 ms | 30.3 s |
+| postgres preview 10k / 50k        | —    | 15 / 11 ms  | —            | —      | —      |
+| s3 ingest 500                     | 500  | 20 ms       | 307 ms       | 2.2 ms | 338 ms |
+| s3 ingest 1k                      | 1k   | 19 ms       | 614 ms       | 2.1 ms | 642 ms |
+| s3 preview 500 / 1k               | —    | 4 / 2 ms    | —            | —      | —      |
+
+Replay (digest dedupe) latency: postgres 62–196 ms, s3 14–19 ms — a retried
+identical import replays the prior receipt instead of re-reading the source.
+Map+validate dominates every import (per-row coercion + chunked validation);
+it is the first candidate if connector ingest throughput matters. S3 objects
+are limited to the delimited parser's 1000-row import cap (a product limit);
+the PostgreSQL source scales to 50k+ rows.
+
+### Sheet & Notebook
+
+| Scenario                    | Rows      | p50  | p95  |
+| --------------------------- | --------- | ---- | ---- |
+| bound sheet load, page 100  | 10k bound | 54 ms| 61 ms|
+| bound sheet load, page 200  | 10k bound | 124 ms| 139 ms|
+| notebook blocks load, 50    | 50 blocks | 2 ms | 5 ms |
+| notebook blocks load, 200   | 200 blocks| 7 ms | 11 ms|
+| notebook blocks load, 500   | 500 blocks| 13 ms| 14 ms|
+
+`query_sheet_instance_rows` hydrates a Dataset-bound grid at ~124 ms p50 for
+a 200-row page over a 10k-row Dataset. Notebook bodies load linearly with
+block count (~26 µs/block); the notebook screen issues 4 data requests
+(record + blocks + links + files), all index-backed.
+
+### Failure under pressure
+
+| Scenario                    | Result                                                                 |
+| --------------------------- | ---------------------------------------------------------------------- |
+| DB connection exhaustion    | 99 connections opened before `53300`; cluster recovers on close        |
+| Pipeline saturation (8 runs, limit 5) | all 8 complete, output rows intact, no corruption (linear cost) |
+| Slow/unreachable source     | bounded `query_failed`; run recorded as failed, retry possible          |
+| Scheduler backlog (40 due)  | 40/40 occurrences started, zero duplicates                             |
+
+All failure modes are bounded, explicitly surfaced (bounded error codes /
+durable run records), recoverable, and never corrupt state.

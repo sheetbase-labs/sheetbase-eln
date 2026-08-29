@@ -300,21 +300,48 @@ export async function writeSheetCells(
           return v.toString(16)
         })
 
-  // One commit per (dataset, expected revision) group.
+  // One commit per (dataset, expected revision) group, with ONE row entry per
+  // canonical Dataset row — a rectangular paste writes the same rowId through
+  // several columns, and those values must merge into a single update
+  // operation (never multiple entries for the same row in one batch).
   for (const [key, group] of datasetGroups) {
     const [dataset, expectedDatasetRevision] = key.split(':')
+    const rowsByRowId = new Map<
+      string,
+      {
+        rowId: string
+        expectedRevision: number
+        values: Record<string, unknown>
+      }
+    >()
+    for (const { cell, target } of group) {
+      const t = target as Extract<SheetWriteTarget, { kind: 'dataset' }>
+      let entry = rowsByRowId.get(t.rowId)
+      if (!entry) {
+        entry = {
+          rowId: t.rowId,
+          expectedRevision: t.expectedRowRevision,
+          values: {},
+        }
+        rowsByRowId.set(t.rowId, entry)
+      } else if (entry.expectedRevision !== t.expectedRowRevision) {
+        // Two cells on the same row from the same snapshot must agree on the
+        // row revision; a divergence means the composition is inconsistent.
+        throw new Error('ambiguous_target')
+      }
+      entry.values[t.fieldId] = cell.value
+    }
     await client.rpc('commit_dataset_row_batch', {
       p_dataset_id: dataset,
       p_expected_dataset_revision: Number(expectedDatasetRevision),
-      p_rows: group.map(({ cell, target }) => {
-        const t = target as Extract<SheetWriteTarget, { kind: 'dataset' }>
-        return {
+      p_rows: [...rowsByRowId.values()].map(
+        ({ rowId, expectedRevision, values }) => ({
           operation: 'update',
-          rowId: t.rowId,
-          expectedRevision: t.expectedRowRevision,
-          values: { [t.fieldId]: cell.value },
-        }
-      }),
+          rowId,
+          expectedRevision,
+          values,
+        }),
+      ),
       p_idempotency_key: `${input.retryToken}-${key.slice(0, 24)}`,
     })
   }

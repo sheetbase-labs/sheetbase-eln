@@ -50,6 +50,15 @@ async function main(): Promise<void> {
   if (arg === 'files' || arg === 'all') {
     exit = Math.max(exit, section('files', []).status)
   }
+  if (arg === 'connectors' || arg === 'all') {
+    exit = Math.max(exit, section('connectors', []).status)
+  }
+  if (arg === 'sheet-notebook' || arg === 'all') {
+    exit = Math.max(exit, section('sheet-notebook', []).status)
+  }
+  if (arg === 'pressure' || arg === 'all') {
+    exit = Math.max(exit, section('pressure', []).status)
+  }
   if (exit !== 0) {
     console.error(`perf run failed with status ${exit}`)
     process.exitCode = exit

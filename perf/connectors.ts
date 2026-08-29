@@ -101,6 +101,19 @@ function pgDataClient(owner: Client): DataClient {
           )
         ).rows[0].result
       }
+      if (name === 'commit_dataset_row_batch_atomic') {
+        return (
+          await owner.query(
+            `select api.commit_dataset_row_batch_atomic($1,$2,$3::jsonb,$4) result`,
+            [
+              args.p_dataset_id,
+              args.p_expected_dataset_revision,
+              JSON.stringify(args.p_rows),
+              args.p_idempotency_key,
+            ],
+          )
+        ).rows[0].result
+      }
       const values = Object.values(args).map((value) =>
         value !== null && typeof value === 'object' && !Array.isArray(value)
           ? JSON.stringify(value)

@@ -276,6 +276,9 @@ export async function runPipelineExecution(
         outputCommit: outputMs,
         datasetCommit: output.commitMs,
         datasetSnapshot: output.snapshotMs,
+        // Everything in the output phase beyond commit + snapshot (dataset
+        // creation, mapping, revision loads, output recording).
+        outputOverhead: Math.max(0, outputMs - output.commitMs - output.snapshotMs),
         total: Date.now() - startedAt,
       },
     })
@@ -859,14 +862,15 @@ async function writeOutput(
     return { ok: false, code: mapped.code, message: mapped.message }
   }
 
-  let commitStartedAt = 0
+  let commitMs = 0
   if (mapped.rows.length > 0) {
     // commit_dataset_row_batch accepts 1–1000 rows per call, so large
     // outputs are chunked; each commit bumps the Dataset revision, so the
     // expected revision is re-read per chunk. Distinct chunk keys keep
-    // idempotency authoritative.
+    // idempotency authoritative. commitMs is captured immediately after the
+    // final chunk so it excludes snapshot/output-recording time.
     const BATCH_SIZE = 1000
-    commitStartedAt = Date.now()
+    const commitStartedAt = Date.now()
     for (let offset = 0; offset < mapped.rows.length; offset += BATCH_SIZE) {
       const chunk = mapped.rows.slice(offset, offset + BATCH_SIZE)
       const expectedRevision = await loadDatasetRevision(conn, datasetId)
@@ -904,6 +908,7 @@ async function writeOutput(
         }
       }
     }
+    commitMs = Date.now() - commitStartedAt
   }
 
   const revision = await loadDatasetRevision(conn, datasetId)
@@ -935,7 +940,7 @@ async function writeOutput(
     datasetId,
     datasetVersionId: versionId,
     label: output.datasetLabel,
-    commitMs: mapped.rows.length > 0 ? Date.now() - commitStartedAt : 0,
+    commitMs,
     snapshotMs,
   }
 }

@@ -206,6 +206,7 @@ async function stageBenchmark(
     output: number
     commit: number
     snapshot: number
+    overhead: number
     rows: number
   }> = []
   // Warm run first (creates + populates the output schema path).
@@ -234,13 +235,20 @@ async function stageBenchmark(
       output: result.stages.outputCommit,
       commit: result.stages.datasetCommit,
       snapshot: result.stages.datasetSnapshot,
+      overhead: result.stages.outputOverhead ?? 0,
       rows: result.rowCount ?? 0,
     })
   }
   if (runs.length === 0) return
   const pick = (
     key:
-      'materialize' | 'transform' | 'output' | 'commit' | 'snapshot' | 'total',
+      | 'materialize'
+      | 'transform'
+      | 'output'
+      | 'commit'
+      | 'snapshot'
+      | 'overhead'
+      | 'total',
   ) => runs.map((r) => r[key])
   const label = `${Math.round(inputRows / 1000)}k`
   for (const [stage, values] of Object.entries({
@@ -249,6 +257,7 @@ async function stageBenchmark(
     output_commit: pick('output'),
     dataset_commit: pick('commit'),
     dataset_snapshot: pick('snapshot'),
+    output_overhead: pick('overhead'),
     total: pick('total'),
   })) {
     scenarios.push(

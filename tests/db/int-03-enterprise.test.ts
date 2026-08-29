@@ -101,6 +101,19 @@ function pgDataClient(owner: Client): DataClient {
           )
         ).rows[0].result
       }
+      if (name === 'commit_dataset_row_batch_atomic') {
+        return (
+          await owner.query(
+            `select api.commit_dataset_row_batch_atomic($1,$2,$3::jsonb,$4) result`,
+            [
+              args.p_dataset_id,
+              args.p_expected_dataset_revision,
+              JSON.stringify(args.p_rows),
+              args.p_idempotency_key,
+            ],
+          )
+        ).rows[0].result
+      }
       const values = Object.values(args).map((value) =>
         value !== null && typeof value === 'object' && !Array.isArray(value)
           ? JSON.stringify(value)
@@ -285,6 +298,62 @@ async function createDatasetFixture(owner: Client) {
     await owner.query(
       `insert into api.datasets(workspace_id,schema_version_id,name)
        values($1,$2,'INT-03 fixture') returning id,revision,schema_version_id`,
+      [WS_A, version.id],
+    )
+  ).rows[0]
+  const columns: ScientificColumnWire[] = fields.map((field) => ({
+    id: field.field_id,
+    field_name: field.key,
+    label: field.label,
+    display_order: field.display_order,
+    logical_type: field.logical_type,
+    nullable: field.nullable,
+    unit: null,
+    validation: {},
+    width: null,
+    options: [],
+  }))
+  return {
+    datasetId: dataset.id as string,
+    revision: Number(dataset.revision),
+    schemaVersionId: dataset.schema_version_id as string,
+    fields: datasetFieldsFromColumns(columns) as ImportTargetField[],
+  }
+}
+
+async function createValidatedDatasetFixture(owner: Client) {
+  const key = `plat05_${crypto.randomUUID().replaceAll('-', '').slice(0, 12)}`
+  const schema = (
+    await owner.query(
+      `insert into api.dataset_schema_definitions(workspace_id,key,name)
+       values($1,$2,'PLAT-05 atomic fixture') returning id`,
+      [WS_A, key],
+    )
+  ).rows[0]
+  const version = (
+    await owner.query(
+      `insert into api.dataset_schema_versions(schema_id,version) values($1,1) returning id`,
+      [schema.id],
+    )
+  ).rows[0]
+  const fields = (
+    await owner.query(
+      `insert into api.dataset_schema_version_fields(schema_version_id,field_id,key,label,logical_type,nullable,validation,display_order)
+       values
+       ($1,gen_random_uuid(),'sample','Sample','text',false,'{}'::jsonb,1),
+       ($1,gen_random_uuid(),'value','Value','decimal',true,'{"min":0}'::jsonb,2)
+       returning field_id,key,label,logical_type,nullable,display_order`,
+      [version.id],
+    )
+  ).rows
+  await owner.query(
+    `update api.dataset_schema_versions set lifecycle='active',published_at=now() where id=$1`,
+    [version.id],
+  )
+  const dataset = (
+    await owner.query(
+      `insert into api.datasets(workspace_id,schema_version_id,name)
+       values($1,$2,'PLAT-05 atomic fixture') returning id,revision,schema_version_id`,
       [WS_A, version.id],
     )
   ).rows[0]
@@ -1185,6 +1254,100 @@ describe('INT-03C PostgreSQL connector', () => {
       [fixture.datasetId],
     )
     expect(stored.rows[0].n).toBe(0)
+  })
+
+  it('is atomic: a failure in a later chunk leaves the Dataset untouched, and a corrected retry succeeds (PLAT-05)', async () => {
+    // A 1500-row source against a target whose `value` field enforces
+    // `min: 0`. Row 1001 (the first row of chunk 2) has value −5: it passes
+    // mapping/coercion but fails the canonical Dataset validation, so the
+    // atomic import must fail in chunk 2 without committing chunk 1.
+    const adminSource = new Client({
+      connectionString: sourceDb.adminConnectionString,
+    })
+    await adminSource.connect()
+    await adminSource.query(`
+      drop table if exists plat05_atomic_measurements;
+      create table plat05_atomic_measurements (
+        sample text primary key,
+        value text not null
+      );
+      insert into plat05_atomic_measurements(sample, value)
+      select 'A-' || lpad(i::text, 8, '0'),
+             case when i = 1001 then '-5' else (i * 1.5)::text end
+        from generate_series(1, 1500) i;
+      grant select on plat05_atomic_measurements to int03_source;
+    `)
+    await adminSource.end()
+
+    // Custom target schema: `value` decimal with min 0 (DB-side validation).
+    const { owner, connectorId, secrets } = await setupConnector({
+      import_rows: 5000,
+    })
+    const fixture = await createValidatedDatasetFixture(owner)
+    const context = await adapterContext({
+      connectorId,
+      config: { import_rows: 5000 },
+      secrets,
+      owner,
+    })
+    const source = postgresAdapter.parseConfig(context.connector.config)
+    const request = {
+      source: { schema: 'public', table: 'plat05_atomic_measurements' },
+      target: {
+        datasetId: fixture.datasetId,
+        expectedRevision: fixture.revision,
+        schemaVersionId: fixture.schemaVersionId,
+        fields: fixture.fields,
+      },
+    }
+    // Chunk 2 fails canonical validation → the whole atomic import fails and
+    // nothing is written (no partial scientific import).
+    await expect(
+      postgresAdapter.ingest(context, source, request),
+    ).rejects.toMatchObject({ code: 'validation_failed' })
+
+    // Dataset rows and revision are exactly as before the import.
+    const untouched = await owner.query(
+      `select count(*)::int n, min(revision)::int min_r, max(revision)::int max_r
+         from api.dataset_rows where dataset_id=$1`,
+      [fixture.datasetId],
+    )
+    expect(untouched.rows[0].n).toBe(0)
+    expect(untouched.rows[0].min_r).toBe(null)
+    expect(untouched.rows[0].max_r).toBe(null)
+    const datasetState = await owner.query(
+      `select revision from api.datasets where id=$1`,
+      [fixture.datasetId],
+    )
+    expect(Number(datasetState.rows[0].revision)).toBe(fixture.revision)
+    const failedRun = await owner.query(
+      `select count(*)::int n from api.connector_runs
+        where connector_id=$1 and status='failed'`,
+      [connectorId],
+    )
+    expect(failedRun.rows[0].n).toBeGreaterThanOrEqual(1)
+
+    // Correct the offending row and retry: the import succeeds deterministically.
+    const fixSource = new Client({
+      connectionString: sourceDb.adminConnectionString,
+    })
+    await fixSource.connect()
+    await fixSource.query(
+      `update plat05_atomic_measurements set value = '1501.5' where sample = 'A-00001001'`,
+    )
+    await fixSource.end()
+    const retried = await postgresAdapter.ingest(context, source, request)
+    expect(retried.rowCount).toBe(1500)
+    const stored = await owner.query(
+      `select count(*)::int n from api.dataset_rows where dataset_id=$1`,
+      [fixture.datasetId],
+    )
+    expect(stored.rows[0].n).toBe(1500)
+    const revision = await owner.query(
+      `select revision from api.datasets where id=$1`,
+      [fixture.datasetId],
+    )
+    expect(Number(revision.rows[0].revision)).toBe(fixture.revision + 2)
   })
 
   it('produces a new request identity when the source changes', async () => {

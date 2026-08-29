@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { marked } from 'marked'
 
 const DOC_NAMES = [
   'deployment',
@@ -20,9 +21,10 @@ export const Route = createFileRoute('/docs/$name')({
     const filePath = resolve(process.cwd(), 'docs', `${name}.md`)
     try {
       const content = readFileSync(filePath, 'utf-8')
-      return { name, content }
+      const html = marked.parse(content, { async: false })
+      return { name, html }
     } catch {
-      return { name, content: null }
+      return { name, html: null }
     }
   },
   component: DocPage,
@@ -38,10 +40,10 @@ const DOC_TITLES: Record<string, string> = {
 }
 
 function DocPage() {
-  const { name, content } = Route.useLoaderData()
+  const { name, html } = Route.useLoaderData()
   const title = DOC_TITLES[name] ?? name
 
-  if (!content) {
+  if (!html) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-8 md:px-8">
         <Link to="/admin/$section" params={{ section: 'deployment' }} search={{ model: undefined }} className="text-sm text-primary hover:underline">
@@ -61,9 +63,10 @@ function DocPage() {
         ← Back to deployment
       </Link>
       <h1 className="mt-4 text-2xl font-semibold">{title}</h1>
-      <pre className="mt-4 overflow-x-auto whitespace-pre-wrap rounded-lg border bg-muted/30 p-4 text-sm leading-relaxed">
-        {content}
-      </pre>
+      <div
+        className="prose prose-sm dark:prose-invert mt-4 max-w-none [&_table]:border-collapse [&_th]:border [&_th]:border-border [&_th]:px-2 [&_th]:py-1 [&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-xs [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:border [&_pre]:bg-muted/30 [&_pre]:p-3"
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
     </div>
   )
 }

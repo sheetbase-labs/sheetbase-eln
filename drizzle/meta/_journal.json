@@ -986,6 +986,13 @@
       "when": 1788015002000,
       "tag": "0142_plat_05_atomic_connector_import",
       "breakpoints": true
+    },
+    {
+      "idx": 143,
+      "version": "7",
+      "when": 1788015003000,
+      "tag": "0143_sci_04_visualisation_maturity",
+      "breakpoints": true
     }
   ]
 }

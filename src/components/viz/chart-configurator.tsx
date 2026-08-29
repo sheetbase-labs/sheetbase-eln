@@ -21,6 +21,7 @@ import {
 import {
   CARTESIAN_CHART_TYPES,
   CHART_TYPES,
+  CHART_TYPE_LABELS,
   HEATMAP_AGGREGATES,
   MAX_ANNOTATIONS,
 } from '#/lib/chart-spec'
@@ -69,9 +70,16 @@ export function ChartConfigurator({
   const TYPE_ICONS: Record<ChartSpec['type'], ReactNode> = {
     line: <LineChartIcon className="size-3.5" aria-hidden />,
     scatter: <ScatterChart className="size-3.5" aria-hidden />,
+    scatter_line: <ScatterChart className="size-3.5" aria-hidden />,
+    connected_scatter: <LineChartIcon className="size-3.5" aria-hidden />,
     bar: <BarChart3 className="size-3.5" aria-hidden />,
+    grouped_bar: <BarChart3 className="size-3.5" aria-hidden />,
+    stacked_bar: <BarChart3 className="size-3.5" aria-hidden />,
     histogram: <BarChart3 className="size-3.5 rotate-90" aria-hidden />,
     box: <Box className="size-3.5" aria-hidden />,
+    violin: <Box className="size-3.5" aria-hidden />,
+    strip: <ScatterChart className="size-3.5" aria-hidden />,
+    summary: <BarChart3 className="size-3.5" aria-hidden />,
     heatmap: <Grid3x3 className="size-3.5" aria-hidden />,
   }
 
@@ -81,10 +89,12 @@ export function ChartConfigurator({
     const fields = { ...spec.fields }
     let overlays = spec.overlays
     let typeParams: ChartSpec['typeParams'] = {}
-    if (next === 'histogram' || next === 'box') {
-      fields.x = null
+    if (next === 'histogram' || next === 'box' || next === 'violin' || next === 'strip') {
+      fields.x = next === 'strip' || next === 'violin' ? spec.fields.x : null
       if (next === 'box') typeParams = { box: { showOutliers: true } }
-      else typeParams = { histogram: { bins: 10 } }
+      else if (next === 'histogram') typeParams = { histogram: { bins: 10 } }
+      else if (next === 'strip') typeParams = { strip: { jitter: 0.18 } }
+      else typeParams = {}
     } else if (next === 'heatmap') {
       fields.series = null
       fields.color = null
@@ -306,11 +316,12 @@ export function ChartConfigurator({
                 size="sm"
                 role="radio"
                 aria-checked={spec.type === type}
+                aria-label={CHART_TYPE_LABELS[type]}
                 onClick={() => setType(type)}
-                className="gap-1.5 capitalize"
+                className="gap-1.5"
               >
                 {TYPE_ICONS[type]}
-                {type}
+                {CHART_TYPE_LABELS[type]}
               </Button>
             ))}
           </ButtonGroup>
@@ -406,6 +417,114 @@ export function ChartConfigurator({
             </Select>
           </Field>
         ) : null}
+      </FieldGroup>
+      <FieldGroup className="flex flex-wrap items-end gap-3 pt-2.5">
+        <Field className="min-w-36 flex-1">
+          <FieldLabel htmlFor={`${idPrefix}-fit`}>Linear fit</FieldLabel>
+          <Select
+            id={`${idPrefix}-fit`}
+            aria-label="Linear fit"
+            value={spec.overlays.fit?.method === 'ols' ? 'ols' : ''}
+            onChange={(event) =>
+              update({
+                overlays: {
+                  ...spec.overlays,
+                  fit:
+                    event.target.value === 'ols'
+                      ? { method: 'ols', degree: 1, showBand: true, showEquation: true }
+                      : null,
+                },
+              })
+            }
+            className="h-8 bg-background"
+          >
+            <option value="">None</option>
+            <option value="ols">OLS linear</option>
+          </Select>
+        </Field>
+        <Field className="min-w-36 flex-1">
+          <FieldLabel htmlFor={`${idPrefix}-error-source`}>
+            Interval
+          </FieldLabel>
+          <Select
+            id={`${idPrefix}-error-source`}
+            aria-label="Error bar interval"
+            value={
+              spec.overlays.errorBars?.source === 'computed'
+                ? spec.overlays.errorBars.basis
+                : spec.overlays.errorBars?.fieldId
+                  ? 'field'
+                  : ''
+            }
+            onChange={(event) => {
+              const value = event.target.value
+              if (!value)
+                return update({ overlays: { ...spec.overlays, errorBars: null } })
+              if (value === 'field') return
+              update({
+                overlays: {
+                  ...spec.overlays,
+                  errorBars: {
+                    source: 'computed',
+                    basis: value as 'sd' | 'sem' | 'ci',
+                    multiplier: 1,
+                    statistic: 'mean',
+                  },
+                },
+              })
+            }}
+            className="h-8 bg-background"
+          >
+            <option value="">None</option>
+            <option value="sd">Grouped SD</option>
+            <option value="sem">Grouped SEM</option>
+            <option value="ci">Grouped 95% CI</option>
+            <option value="field">Explicit field</option>
+          </Select>
+        </Field>
+      </FieldGroup>
+      <FieldGroup className="flex flex-wrap items-end gap-3 pt-2.5">
+        <Field className="min-w-36 flex-1">
+          <FieldLabel htmlFor={`${idPrefix}-ref-hline`}>
+            Horizontal reference
+          </FieldLabel>
+          <Input
+            id={`${idPrefix}-ref-hline`}
+            aria-label="Horizontal reference"
+            type="number"
+            step="any"
+            value={
+              spec.overlays.references?.find((item) => item.kind === 'hline')
+                ?.value ?? ''
+            }
+            onChange={(event) => {
+              const existing = (spec.overlays.references ?? []).filter(
+                (item) => item.kind !== 'hline',
+              )
+              if (event.target.value === '') {
+                update({
+                  overlays: { ...spec.overlays, references: existing },
+                })
+                return
+              }
+              update({
+                overlays: {
+                  ...spec.overlays,
+                  references: [
+                    ...existing,
+                    {
+                      kind: 'hline',
+                      value: Number(event.target.value),
+                      label: 'reference',
+                    },
+                  ],
+                },
+              })
+            }}
+            className="h-8 bg-background"
+            placeholder="None"
+          />
+        </Field>
       </FieldGroup>
       {spec.type === 'histogram' ? (
         <FieldGroup className="flex flex-wrap items-end gap-3 pt-2.5">

@@ -148,9 +148,10 @@ describe('fetchDatasetRows', () => {
     expect(result.truncated).toBe(false)
     expect(result.totalCount).toBe(2500)
     expect(result.rows).toHaveLength(2500)
-    // Rows arrive flattened to fieldId-keyed value objects.
-    expect(result.rows[0]).toEqual({ n: 1 })
-    expect(result.rows[2499]).toEqual({ n: 2500 })
+    // Rows arrive flattened to fieldId-keyed value objects, with Dataset row
+    // identity attached for point inspection.
+    expect(result.rows[0]).toEqual({ n: 1, __sheetbaseRowId: 'r1' })
+    expect(result.rows[2499]).toEqual({ n: 2500, __sheetbaseRowId: 'r2500' })
     expect(calls.map((c) => [c.p_offset, c.p_limit])).toEqual([
       [0, 1000],
       [1000, 1000],

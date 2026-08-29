@@ -11,8 +11,9 @@ placeholders.
   decision 0037) by UUID and binds fields by stable
   `dataset_schema_version_fields.field_id`, keeps filters/transformations/
   overlays explicit, and confines chart-type-specific logic to the `type`
-  discriminator (`line`, `scatter`, `bar`, and — SCI-01 — `histogram`,
-  `box`, `heatmap` with per-type parameters on `spec.typeParams`).
+  discriminator (`line`, `scatter`, `scatter_line`, `connected_scatter`,
+  `bar`, `grouped_bar`, `stacked_bar`, `histogram`, `box`, `violin`,
+  `strip`, `summary`, `heatmap`). See `docs/visualisations.md`.
 - No chart-type-specific or dataset-specific columns live in shared
   infrastructure; the spec is a validated JSONB payload.
 - A **live** chart reads rows through `query_dataset_rows` (field_id-keyed),

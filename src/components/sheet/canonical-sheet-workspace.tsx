@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 
 import { SheetbaseGrid } from '#/components/sheet/sheetbase-grid'
 import { SheetRecordPicker } from '#/components/sheet/sheet-record-picker'
@@ -649,10 +650,23 @@ export function CanonicalSheetEditor({
   const staleCalc = calculations.data?.rows.some(
     (row) => row.calculationStatus === 'stale',
   )
+  const visualiseDatasetId = composition.data?.rows
+    .flatMap((row) => row.sources)
+    .find((source) => source.sourceKind === 'dataset')?.datasetId
 
   return (
     <div className="flex h-full min-h-[24rem] flex-col">
       <div className="flex shrink-0 items-center justify-end gap-2 border-b px-2 py-1">
+        {visualiseDatasetId ? (
+          <Button asChild size="sm" variant="outline">
+            <Link
+              to="/analysis"
+              search={{ dataset: visualiseDatasetId }}
+            >
+              Visualise
+            </Link>
+          </Button>
+        ) : null}
         <ObjectHistoryDialog objectId={instance.id} objectLabel="Sheet" />
         <ExportMenu
           path={`/api/export/sheet-instance/${instance.id}`}

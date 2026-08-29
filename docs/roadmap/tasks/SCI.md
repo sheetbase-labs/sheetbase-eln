@@ -51,11 +51,18 @@ scale; submission itself stamps `frozen.revisionId`, locking evidence against
 unfreeze; the picker, editor, preview and route lifecycle follow the
 chart-block precedents.
 
-## SCI-04 — Advanced Scientific Visualisation
+## SCI-04 — Scientific Visualisation & Analysis Maturity — **implemented**
 
-Plate maps, dose-response, assay-specific views, richer distributions and domain visualisations selected from real usage.
+Mature scientific graphing on the canonical ChartSpec: richer plot types,
+scatter depth, faceting, filters/transforms, grouped summaries, explicit
+error bars, OLS overlays, axes/units, Sheet handoff, Notebook embedding,
+Dataset Version freeze, SVG/PNG export, bounded large-data behaviour.
 
-**Exit:** specialist visualisation extends the common framework rather than creating isolated mini-apps.
+**Exit:** a scientist can create, inspect, save, reuse, embed, freeze and
+export high-quality figures from canonical Sheetbase data without leaving
+the product.
+
+See [`docs/visualisations.md`](../../visualisations.md).
 
 ## Boundaries
 

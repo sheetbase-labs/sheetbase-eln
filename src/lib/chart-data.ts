@@ -26,6 +26,7 @@ import { queryDatasetVersionRows } from './dataset-product'
 import { toBlock } from './notebook-data'
 import type { BlockWire, NotebookBlock } from './notebook-data'
 import { materialiseChart } from './chart-spec'
+import { CHART_ROW_ID_KEY } from './visualisation-pipeline'
 import type {
   ChartColumn,
   ChartSpec,
@@ -225,7 +226,10 @@ export async function fetchDatasetRows(
         p_offset: offset,
       })
       .then((result) => ({
-        rows: result.rows.map((row) => ({ ...row.values })),
+        rows: result.rows.map((row) => ({
+          ...row.values,
+          [CHART_ROW_ID_KEY]: row.rowId,
+        })),
         totalCount: result.totalCount,
       })),
   )

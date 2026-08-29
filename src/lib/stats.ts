@@ -186,3 +186,73 @@ export function fitQuality(
     rmse: Math.sqrt(ssRes / n),
   }
 }
+
+/**
+ * Two-tailed 95% Student t critical value. Lookup is coarse and
+ * deterministic so interval overlays do not depend on a stats package.
+ */
+export function tCritical95(df: number): number {
+  if (df < 1) return Number.NaN
+  if (df === 1) return 12.706
+  if (df === 2) return 4.303
+  if (df === 3) return 3.182
+  if (df === 4) return 2.776
+  if (df === 5) return 2.571
+  if (df < 10) return 2.365
+  if (df < 15) return 2.145
+  if (df < 20) return 2.093
+  if (df < 30) return 2.045
+  if (df < 60) return 2.0
+  if (df < 120) return 1.98
+  return 1.96
+}
+
+/** Mean ± t·SEM two-sided 95% interval. Null when n < 2. */
+export function meanConfidenceInterval(values: number[]): {
+  lo: number
+  hi: number
+  mean: number
+  n: number
+} | null {
+  const stats = summaryStats(values)
+  if (!stats || stats.se === null) return null
+  const t = tCritical95(stats.n - 1)
+  return {
+    mean: stats.mean,
+    n: stats.n,
+    lo: stats.mean - t * stats.se,
+    hi: stats.mean + t * stats.se,
+  }
+}
+
+/**
+ * 95% confidence band of the fitted mean for a degree-1 OLS line.
+ * Higher-degree bands are omitted: the interval formula used here is the
+ * standard linear-model mean band, not a general polynomial band.
+ */
+export function linearMeanConfidenceBand(
+  xs: number[],
+  ys: number[],
+  sampleXs: number[],
+): Array<{ x: number; lo: number; hi: number; yHat: number }> | null {
+  if (xs.length !== ys.length || xs.length < 3) return null
+  const fit = olsFit(xs, ys, 1)
+  if (!fit) return null
+  const n = xs.length
+  const meanX = xs.reduce((acc, v) => acc + v, 0) / n
+  let sxx = 0
+  let ssRes = 0
+  for (let i = 0; i < n; i++) {
+    sxx += (xs[i] - meanX) ** 2
+    const predicted = polyEval(fit.coefficients, xs[i])
+    ssRes += (ys[i] - predicted) ** 2
+  }
+  if (sxx <= 0) return null
+  const sigma = Math.sqrt(ssRes / (n - 2))
+  const t = tCritical95(n - 2)
+  return sampleXs.map((x) => {
+    const yHat = polyEval(fit.coefficients, x)
+    const se = sigma * Math.sqrt(1 / n + (x - meanX) ** 2 / sxx)
+    return { x, lo: yHat - t * se, hi: yHat + t * se, yHat }
+  })
+}

@@ -101,8 +101,17 @@ import { buildDefaultChartSpec } from '#/lib/dataset-explorer-data'
 import type { CanonicalDatasetWire } from '#/lib/dataset-explorer-data'
 import { formatCount } from '#/lib/format-numbers'
 import { cn } from '#/lib/utils'
+import { rasteriseSvgToPng } from '#/lib/visualisation-export'
+import { CHART_ROW_ID_KEY } from '#/lib/visualisation-pipeline'
 
 export const Route = createFileRoute('/analysis')({
+  validateSearch: (search: Record<string, unknown>) => {
+    const next: { dataset?: string; x?: string; y?: string } = {}
+    if (typeof search.dataset === 'string') next.dataset = search.dataset
+    if (typeof search.x === 'string') next.x = search.x
+    if (typeof search.y === 'string') next.y = search.y
+    return next
+  },
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
     if (!context) throw redirect({ to: '/sign-in' })
@@ -117,6 +126,7 @@ export const Route = createFileRoute('/analysis')({
 
 function AnalysisStudioRoute() {
   const { context } = Route.useRouteContext()
+  const search = Route.useSearch()
   const workspaceId = context.workspace?.id ?? 'no-workspace'
   const userId = context.user.id
 
@@ -134,7 +144,7 @@ function AnalysisStudioRoute() {
   })
   const views = viewsQuery.data ?? []
   const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(
-    null,
+    search.dataset ?? null,
   )
   const [spec, setSpec] = useState<ChartSpec | null>(null)
   const [selectedViewId, setSelectedViewId] = useState<string | null>(null)
@@ -178,7 +188,10 @@ function AnalysisStudioRoute() {
   // Build a default spec when the dataset changes (or load a saved view).
   useEffect(() => {
     if (selectedDataset) {
-      setSpec(buildDefaultChartSpec(selectedDataset))
+      const next = buildDefaultChartSpec(selectedDataset)
+      if (next && search.x) next.fields.x = { fieldId: search.x }
+      if (next && search.y) next.fields.y = { fieldId: search.y }
+      setSpec(next)
       setSelectedViewId(null)
       setViewName('')
     }
@@ -291,6 +304,7 @@ function AnalysisStudioRoute() {
           sources={sources}
           user={{ id: userId, name: context.user.name }}
           materialised={analysisMaterialised}
+          selection={chartSelection}
         />
       ) : undefined,
   })
@@ -331,25 +345,29 @@ function AnalysisStudioRoute() {
             userId={userId}
           />
         ) : selectedSource && spec ? (
-          <div className="flex min-h-0 flex-1 flex-col">
-            <ChartConfigurator
-              source={selectedSource}
-              spec={spec}
-              onSpecChange={setSpec}
-              idPrefix="analysis"
-            />
-            <AnalysisPreview
-              source={selectedSource}
-              spec={spec}
-              sources={sources}
-              selectedViewId={selectedViewId}
-              views={views}
-              datasetQuery={datasetQuery}
-              materialised={analysisMaterialised}
-              facets={analysisFacets.panels.length > 0 ? analysisFacets : null}
-              selection={chartSelection}
-              onSelectionChange={setChartSelection}
-            />
+          <div className="flex min-h-0 flex-1 gap-3 overflow-hidden">
+            <div className="w-[22rem] shrink-0 overflow-y-auto border-r pr-3">
+              <ChartConfigurator
+                source={selectedSource}
+                spec={spec}
+                onSpecChange={setSpec}
+                idPrefix="analysis"
+              />
+            </div>
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+              <AnalysisPreview
+                source={selectedSource}
+                spec={spec}
+                sources={sources}
+                selectedViewId={selectedViewId}
+                views={views}
+                datasetQuery={datasetQuery}
+                materialised={analysisMaterialised}
+                facets={analysisFacets.panels.length > 0 ? analysisFacets : null}
+                selection={chartSelection}
+                onSelectionChange={setChartSelection}
+              />
+            </div>
           </div>
         ) : (
           <EmptyAnalysisState
@@ -514,6 +532,39 @@ export function FilterControls({
   )
 }
 
+function SelectedPointSummary({
+  materialised,
+  selection,
+}: {
+  materialised: ReturnType<typeof materialiseLiveChart>
+  selection: ChartSelection | null
+}) {
+  const series = selection
+    ? materialised.series.find(
+        (item) => item.identifier === selection.seriesIdentifier,
+      )
+    : undefined
+  const point = series?.points[selection?.index ?? -1]
+  if (!point) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        Click a point or use the arrow keys on the figure to inspect a Dataset
+        row.
+      </p>
+    )
+  }
+  return (
+    <PropertyList>
+      <Property label="Series">{series.label}</Property>
+      <Property label="X">{formatScientific(point.x)}</Property>
+      <Property label="Y">{formatScientific(point.y)}</Property>
+      <Property label="Dataset row">
+        {point.rowId ?? 'Not attached (frozen or aggregated)'}
+      </Property>
+    </PropertyList>
+  )
+}
+
 function AnalysisInspector({
   source,
   spec,
@@ -531,6 +582,7 @@ function AnalysisInspector({
   sources,
   user,
   materialised,
+  selection,
 }: {
   source: CanonicalDatasetSource
   spec: ChartSpec
@@ -548,6 +600,7 @@ function AnalysisInspector({
   sources: CanonicalDatasetSource[]
   user: { id: string; name: string }
   materialised: ReturnType<typeof materialiseLiveChart>
+  selection: ChartSelection | null
 }) {
   function setScale(axis: 'x' | 'y', scale: AxisScale) {
     onSpecChange({
@@ -642,6 +695,12 @@ function AnalysisInspector({
                   </Property>
                   <Property label="Filters">{spec.filters.length}</Property>
                 </PropertyList>
+              </InspectorSection>
+              <InspectorSection title="Selected point">
+                <SelectedPointSummary
+                  materialised={materialised}
+                  selection={selection}
+                />
               </InspectorSection>
             </InspectorSectionStack>
           ),
@@ -810,7 +869,7 @@ export function ExportPanel({
     onSettingsChange({ ...settings, [key]: value })
   }
 
-  function doExport(): void {
+  async function doExport(): Promise<void> {
     const selectedView = views.find((v) => v.id === selectedViewId) ?? null
     const sourceRevisions = captureSourceRevisions(sources, spec)
     const provenance = buildExportProvenance(
@@ -823,6 +882,27 @@ export function ExportPanel({
       sourceRevisions,
       spec,
     )
+    const filename = (viewName || 'analysis').replace(/[^a-z0-9_-]+/gi, '_')
+    if (settings.format === 'png') {
+      const svg = exportChartSvg(svgRef.current, settings, provenance)
+      const blob = await rasteriseSvgToPng(svg, {
+        format: 'png',
+        width: settings.width,
+        height: settings.height,
+        scale: 2,
+        background: settings.theme === 'dark' ? 'opaque' : 'opaque',
+        includeProvenance: settings.includeProvenance,
+      })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${filename}.png`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      return
+    }
     let content: string
     let mime: string
     let ext: string
@@ -843,7 +923,7 @@ export function ExportPanel({
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${(viewName || 'analysis').replace(/[^a-z0-9_-]+/gi, '_')}.${ext}`
+    a.download = `${filename}.${ext}`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -870,6 +950,7 @@ export function ExportPanel({
             <option value="json">JSON (spec + provenance)</option>
             <option value="csv">CSV (data table)</option>
             <option value="svg">SVG (chart image)</option>
+            <option value="png">PNG (publication raster)</option>
           </Select>
         </Field>
         <Field>
@@ -1150,6 +1231,7 @@ export function AnalysisPreview({
       <DataTableAlternative
         materialised={analysisMaterialised}
         loading={datasetQuery.isLoading}
+        selection={selection}
       />
     </div>
   )
@@ -1164,9 +1246,11 @@ export function AnalysisPreview({
 export function DataTableAlternative({
   materialised,
   loading,
+  selection = null,
 }: {
   materialised: ReturnType<typeof materialiseLiveChart>
   loading: boolean
+  selection?: ChartSelection | null
 }) {
   if (loading) {
     return <Skeleton className="h-32 w-full" />
@@ -1252,8 +1336,21 @@ export function DataTableAlternative({
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((row, i) => (
-                <TableRow key={i}>
+              rows.map((row, i) => {
+                const selectedRowId = selection
+                  ? materialised.series.find(
+                      (item) =>
+                        item.identifier === selection.seriesIdentifier,
+                    )?.points[selection.index]?.rowId
+                  : undefined
+                const isSelected =
+                  selectedRowId &&
+                  row[CHART_ROW_ID_KEY] === selectedRowId
+                return (
+                <TableRow
+                  key={i}
+                  className={isSelected ? 'bg-muted' : undefined}
+                >
                   {columns.map((column) => (
                     <TableCell
                       key={column.key}
@@ -1265,7 +1362,8 @@ export function DataTableAlternative({
                     </TableCell>
                   ))}
                 </TableRow>
-              ))
+                )
+              })
             )}
           </TableBody>
         </Table>

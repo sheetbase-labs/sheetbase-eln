@@ -215,7 +215,7 @@ describe('ChartConfigurator', () => {
         }}
       />,
     )
-    const barButton = screen.getByRole('radio', { name: /bar/i })
+    const barButton = screen.getByRole('radio', { name: /^bar$/i })
     await userEvent.click(barButton)
     expect(changed.spec?.type).toBe('bar')
   })

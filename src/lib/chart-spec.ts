@@ -16,6 +16,20 @@
  * infrastructure.
  */
 
+import {
+  applyFiltersSci04,
+  applyTransformations,
+  attachFitOverlay,
+  CHART_RECORD_ID_KEY,
+  CHART_ROW_ID_KEY,
+  gaussianKde,
+  groupedNumericSummaries,
+  jitterOffset,
+  rowMatchesFilterSci04,
+  sampleSeriesForRender,
+  seriesKeyForRow,
+} from './visualisation-pipeline'
+
 /** Approved chart-series palette from DESIGN.md (cool scientific system). */
 export const CHART_PALETTE = [
   '#006EDC', // Laboratory Blue
@@ -30,18 +44,53 @@ export type ChartPaletteColor = (typeof CHART_PALETTE)[number]
 export const CHART_TYPES = [
   'line',
   'scatter',
+  'scatter_line',
+  'connected_scatter',
   'bar',
+  'grouped_bar',
+  'stacked_bar',
   'histogram',
   'box',
+  'violin',
+  'strip',
+  'summary',
   'heatmap',
 ] as const
 export type ChartType = (typeof CHART_TYPES)[number]
+
+export const CHART_TYPE_LABELS: Record<ChartType, string> = {
+  line: 'line',
+  scatter: 'scatter',
+  scatter_line: 'scatter with line',
+  connected_scatter: 'connected scatter',
+  bar: 'bar',
+  grouped_bar: 'grouped bar',
+  stacked_bar: 'stacked bar',
+  histogram: 'histogram',
+  box: 'box',
+  violin: 'violin',
+  strip: 'strip',
+  summary: 'summary',
+  heatmap: 'heatmap',
+}
 
 /** Chart types plotted in Cartesian x/y coordinates. */
 export const CARTESIAN_CHART_TYPES: readonly ChartType[] = [
   'line',
   'scatter',
+  'scatter_line',
+  'connected_scatter',
   'bar',
+  'grouped_bar',
+  'stacked_bar',
+  'summary',
+]
+
+export const DISTRIBUTION_CHART_TYPES: readonly ChartType[] = [
+  'histogram',
+  'box',
+  'violin',
+  'strip',
 ]
 
 /** Aggregations available to a heatmap cell. */
@@ -66,14 +115,57 @@ export const FILTER_OPS = [
   'lte',
   'in',
   'between',
+  'is_null',
+  'not_null',
 ] as const
 export type FilterOp = (typeof FILTER_OPS)[number]
 
-export const TRANSFORMATION_KINDS = ['aggregate', 'bin', 'normalise'] as const
+export const TRANSFORMATION_KINDS = [
+  'aggregate',
+  'bin',
+  'normalise',
+  'log10',
+  'ln',
+  'sqrt',
+  'abs',
+  'percentage',
+  'difference',
+  'ratio',
+] as const
 export type TransformationKind = (typeof TRANSFORMATION_KINDS)[number]
 
-export const ERROR_BAR_BASES = ['sd', 'se', 'range', 'custom'] as const
+export const ERROR_BAR_BASES = [
+  'sd',
+  'se',
+  'sem',
+  'ci',
+  'range',
+  'custom',
+] as const
 export type ErrorBarBasis = (typeof ERROR_BAR_BASES)[number]
+
+export const ERROR_BAR_SOURCES = ['field', 'computed'] as const
+export type ErrorBarSource = (typeof ERROR_BAR_SOURCES)[number]
+
+export const LEGEND_POSITIONS = ['right', 'bottom', 'top', 'hidden'] as const
+export type LegendPosition = (typeof LEGEND_POSITIONS)[number]
+
+export const NUMBER_FORMATS = [
+  'auto',
+  'decimal',
+  'sigfig',
+  'scientific',
+  'percent',
+] as const
+export type NumberFormatKind = (typeof NUMBER_FORMATS)[number]
+
+export const CATEGORY_ORDER_MODES = [
+  'natural',
+  'alpha',
+  'numeric',
+  'explicit',
+] as const
+export type CategoryOrderMode = (typeof CATEGORY_ORDER_MODES)[number]
 
 /** Distribution-display parameters for a histogram spec. */
 export interface HistogramParams {
@@ -139,25 +231,66 @@ export interface AxisDisplay {
   label?: string
   scale: AxisScale
   unit?: string
+  min?: number
+  max?: number
+  reverse?: boolean
+  tickFormat?: NumberFormatKind
 }
 
 export interface SeriesDisplay {
   identifier: string
   label: string
   color: string
+  visible?: boolean
+  lineWidth?: number
+  pointSize?: number
+  shape?: string
 }
 
 export interface ErrorBarsOverlay {
-  fieldId: string
+  /** How the interval was produced. Never inferred. */
+  source?: ErrorBarSource
+  fieldId?: string
+  lowerFieldId?: string
+  upperFieldId?: string
   basis: ErrorBarBasis
   multiplier?: number
+  statistic?: 'mean' | 'median'
 }
+
+export interface FitOverlay {
+  method: 'ols'
+  degree?: number
+  showBand?: boolean
+  showEquation?: boolean
+}
+
+export type ReferenceOverlay =
+  | { kind: 'hline'; value: number; label: string }
+  | { kind: 'vline'; value: number; label: string }
+  | {
+      kind: 'band'
+      axis: 'x' | 'y'
+      lo: number
+      hi: number
+      label: string
+    }
+  | { kind: 'identity'; label?: string }
 
 export interface ChartDisplay {
   axes: { x: AxisDisplay; y: AxisDisplay }
   series: SeriesDisplay[]
-  legend?: { visible: boolean }
+  legend?: { visible: boolean; position?: LegendPosition }
   annotations?: ChartAnnotation[]
+  caption?: string
+  numberFormat?: { kind: NumberFormatKind; digits?: number }
+  categoryOrder?: {
+    mode: CategoryOrderMode
+    values?: string[]
+  }
+  palette?: 'categorical' | 'continuous' | 'monochrome'
+  gridlines?: boolean
+  pointOpacity?: number
 }
 
 /** Type-specific, explicitly reproducible parameters. */
@@ -165,6 +298,9 @@ export interface ChartTypeParams {
   histogram?: HistogramParams
   box?: BoxPlotParams
   heatmap?: HeatmapParams
+  bar?: { stacking?: 'grouped' | 'stacked' }
+  strip?: { jitter?: number }
+  summary?: { statistic?: 'mean' | 'median' }
 }
 
 export interface ChartSpec {
@@ -178,6 +314,11 @@ export interface ChartSpec {
     color: FieldBinding | null
     size: FieldBinding | null
     facet: FieldBinding | null
+    facetRow?: FieldBinding | null
+    facetCol?: FieldBinding | null
+    shape?: FieldBinding | null
+    group?: FieldBinding | null
+    label?: FieldBinding | null
   }
   filters: ChartFilter[]
   transformations: Transformation[]
@@ -185,12 +326,16 @@ export interface ChartSpec {
   display: ChartDisplay
   overlays: {
     errorBars: ErrorBarsOverlay | null
+    fit?: FitOverlay | null
+    references?: ReferenceOverlay[]
   }
 }
 
 /** Frozen chart payload — see ADR 0029 §5. */
 export interface FrozenDatasetProvenance {
   datasetId: string
+  /** Immutable Dataset Version pinned at freeze (SCI-04). */
+  datasetVersionId?: string
   /** Numeric version of the pinned Dataset Schema Version. */
   schemaVersionNumber: number
   rowCount: number
@@ -208,7 +353,12 @@ export interface FrozenChartPoint {
   x: number | null
   y: number | null
   yError?: number | null
+  yErrorLo?: number | null
+  yErrorHi?: number | null
   label?: string
+  rowId?: string
+  recordId?: string
+  size?: number
   /** Box-whisker statistics when the chart type is `box`. */
   box?: FrozenBoxStats
 }
@@ -299,7 +449,7 @@ function isOneOf<T extends string>(v: unknown, allowed: readonly T[]): v is T {
 }
 
 function validateFieldBinding(v: unknown, field: string): ChartSpecError[] {
-  if (v === null) return []
+  if (v === null || v === undefined) return []
   if (!isObject(v))
     return [
       {
@@ -589,8 +739,17 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
         field: 'spec.fields.y',
         message: 'spec.fields.y is required',
       })
-    // x is required for line and bar; optional for scatter.
-    if (type === 'line' || type === 'bar') {
+    // x is required for line, bar variants and heatmap.
+    if (
+      type === 'line' ||
+      type === 'bar' ||
+      type === 'grouped_bar' ||
+      type === 'stacked_bar' ||
+      type === 'connected_scatter' ||
+      type === 'scatter_line' ||
+      type === 'heatmap' ||
+      type === 'summary'
+    ) {
       if (fields.x === null || fields.x === undefined)
         errors.push({
           code: 'missing_field',
@@ -627,6 +786,15 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
     errors.push(...validateFieldBinding(fields.color, 'spec.fields.color'))
     errors.push(...validateFieldBinding(fields.size, 'spec.fields.size'))
     errors.push(...validateFieldBinding(fields.facet, 'spec.fields.facet'))
+    errors.push(
+      ...validateFieldBinding(fields.facetRow ?? null, 'spec.fields.facetRow'),
+    )
+    errors.push(
+      ...validateFieldBinding(fields.facetCol ?? null, 'spec.fields.facetCol'),
+    )
+    errors.push(...validateFieldBinding(fields.shape ?? null, 'spec.fields.shape'))
+    errors.push(...validateFieldBinding(fields.group ?? null, 'spec.fields.group'))
+    errors.push(...validateFieldBinding(fields.label ?? null, 'spec.fields.label'))
   }
 
   // filters
@@ -792,29 +960,79 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
     })
   else if (overlays.errorBars !== null && overlays.errorBars !== undefined) {
     const eb = overlays.errorBars
-    if (
-      !isObject(eb) ||
-      !isUuid(eb.fieldId) ||
-      !isOneOf(eb.basis, ERROR_BAR_BASES)
-    )
+    if (!isObject(eb) || !isOneOf(eb.basis, ERROR_BAR_BASES))
       errors.push({
         code: 'invalid_value',
         field: 'spec.overlays.errorBars',
         message:
-          'overlays.errorBars must name a dataset field and a basis (sd, se, range, custom)',
+          'overlays.errorBars must name a basis (sd, se, sem, ci, range, custom)',
       })
-    if (isObject(eb) && eb.multiplier !== undefined) {
-      if (
-        typeof eb.multiplier !== 'number' ||
-        !Number.isFinite(eb.multiplier) ||
-        eb.multiplier <= 0
-      )
-        errors.push({
-          code: 'invalid_value',
-          field: 'spec.overlays.errorBars.multiplier',
-          message: 'errorBars.multiplier must be a positive finite number',
-        })
+    if (isObject(eb)) {
+      if (eb.source === 'field' || eb.source === undefined) {
+        const hasField = isUuid(eb.fieldId)
+        const hasInterval = isUuid(eb.lowerFieldId) && isUuid(eb.upperFieldId)
+        if (!hasField && !hasInterval && eb.source === 'field')
+          errors.push({
+            code: 'invalid_value',
+            field: 'spec.overlays.errorBars',
+            message:
+              'field error bars require fieldId or lowerFieldId/upperFieldId',
+          })
+        if (eb.fieldId !== undefined && eb.fieldId !== null && !isUuid(eb.fieldId))
+          errors.push({
+            code: 'invalid_value',
+            field: 'spec.overlays.errorBars.fieldId',
+            message: 'errorBars.fieldId must be a UUID when present',
+          })
+      }
+      if (eb.multiplier !== undefined) {
+        if (
+          typeof eb.multiplier !== 'number' ||
+          !Number.isFinite(eb.multiplier) ||
+          eb.multiplier <= 0
+        )
+          errors.push({
+            code: 'invalid_value',
+            field: 'spec.overlays.errorBars.multiplier',
+            message: 'errorBars.multiplier must be a positive finite number',
+          })
+      }
     }
+  }
+  if (isObject(overlays) && overlays.fit !== undefined && overlays.fit !== null) {
+    const fit = overlays.fit
+    if (
+      !isObject(fit) ||
+      fit.method !== 'ols' ||
+      (fit.degree !== undefined &&
+        (typeof fit.degree !== 'number' ||
+          !Number.isInteger(fit.degree) ||
+          fit.degree < 1 ||
+          fit.degree > 4))
+    )
+      errors.push({
+        code: 'invalid_value',
+        field: 'spec.overlays.fit',
+        message: 'overlays.fit must be OLS with degree 1–4',
+      })
+  }
+  if (
+    isObject(overlays) &&
+    overlays.references !== undefined &&
+    overlays.references !== null
+  ) {
+    if (!Array.isArray(overlays.references))
+      errors.push({
+        code: 'invalid_shape',
+        field: 'spec.overlays.references',
+        message: 'overlays.references must be an array when present',
+      })
+    else if (overlays.references.length > MAX_ANNOTATIONS)
+      errors.push({
+        code: 'invalid_value',
+        field: 'spec.overlays.references',
+        message: `overlays.references supports at most ${MAX_ANNOTATIONS} entries`,
+      })
   }
 
   if (
@@ -985,52 +1203,18 @@ function compareStrings(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0
 }
 
-/** Apply a single filter predicate to a row. */
 export function rowMatchesFilter(
   row: Record<string, unknown>,
   filter: ChartFilter,
 ): boolean {
-  const value = row[filter.fieldId]
-  const num = toNumber(value)
-  switch (filter.op) {
-    case 'eq':
-      return value === filter.value
-    case 'ne':
-      return value !== filter.value
-    case 'gt':
-      return num !== null && filter.value !== null && num > Number(filter.value)
-    case 'gte':
-      return (
-        num !== null && filter.value !== null && num >= Number(filter.value)
-      )
-    case 'lt':
-      return num !== null && filter.value !== null && num < Number(filter.value)
-    case 'lte':
-      return (
-        num !== null && filter.value !== null && num <= Number(filter.value)
-      )
-    case 'in':
-      return Array.isArray(filter.value) && filter.value.includes(value)
-    case 'between': {
-      if (!Array.isArray(filter.value) || filter.value.length !== 2)
-        return false
-      const lo = toNumber(filter.value[0])
-      const hi = toNumber(filter.value[1])
-      return (
-        num !== null && lo !== null && hi !== null && num >= lo && num <= hi
-      )
-    }
-    default:
-      return false
-  }
+  return rowMatchesFilterSci04(row, filter)
 }
 
 export function applyFilters(
   rows: Record<string, unknown>[],
   filters: ChartFilter[],
 ): Record<string, unknown>[] {
-  if (filters.length === 0) return rows
-  return rows.filter((row) => filters.every((f) => rowMatchesFilter(row, f)))
+  return applyFiltersSci04(rows, filters)
 }
 
 /**
@@ -1067,6 +1251,8 @@ export interface MaterialisedSeries {
    * draws as a smooth dashed curve.
    */
   renderAs?: 'line'
+  visible?: boolean
+  violin?: Array<{ y: number; d: number }>
 }
 
 /** A heatmap cell: grid position plus the aggregated value and row count. */
@@ -1101,6 +1287,29 @@ export interface MaterialisedChart {
   bins?: { edges: number[] }
   /** Aggregated value grid when the chart type is `heatmap`. */
   heatmap?: HeatmapMatrix
+  fit?: {
+    method: 'ols'
+    degree: number
+    n: number
+    coefficients: number[]
+    r2: number | null
+    equation: string
+    band?: Array<{ x: number; lo: number; hi: number }>
+    error?: 'insufficient_data' | 'singular_fit'
+  }
+  sampling?: {
+    totalCount: number
+    sampledCount: number
+    analysisCount: number
+  }
+  summaries?: Array<{
+    group: string
+    n: number
+    mean: number
+    median: number
+    sd: number | null
+    se: number | null
+  }>
 }
 
 /**
@@ -1115,16 +1324,28 @@ export function materialiseChart(
 ): MaterialisedChart {
   const xCol = resolveColumn(columns, spec.fields.x)
   const yCol = resolveColumn(columns, spec.fields.y)
-  const seriesCol = resolveColumn(columns, spec.fields.series)
-  const errorCol = spec.overlays.errorBars
-    ? resolveColumn(columns, spec.overlays.errorBars)
+  const seriesCol =
+    resolveColumn(columns, spec.fields.series) ??
+    resolveColumn(columns, spec.fields.color ?? null)
+  const errorBinding = spec.overlays.errorBars?.fieldId
+    ? { fieldId: spec.overlays.errorBars.fieldId }
     : null
+  const errorCol = errorBinding ? resolveColumn(columns, errorBinding) : null
 
   const missing: string[] = []
   if (spec.fields.x && !xCol) missing.push('x')
   if (!yCol) missing.push('y')
-  if (spec.fields.series && !seriesCol) missing.push('series')
-  if (spec.overlays.errorBars && !errorCol) missing.push('errorBars')
+  if (spec.fields.series && !resolveColumn(columns, spec.fields.series))
+    missing.push('series')
+  if (spec.fields.color && !resolveColumn(columns, spec.fields.color))
+    missing.push('color')
+  if (
+    spec.overlays.errorBars &&
+    spec.overlays.errorBars.source !== 'computed' &&
+    spec.overlays.errorBars.fieldId &&
+    !errorCol
+  )
+    missing.push('errorBars')
 
   const xLabel = xCol?.label ?? spec.display.axes.x.label ?? 'x'
   const yLabel = yCol?.label ?? spec.display.axes.y.label ?? 'y'
@@ -1151,7 +1372,13 @@ export function materialiseChart(
     }
 
   const filtered = applyFilters(rows, spec.filters)
-  if (filtered.length === 0)
+  const transformed = applyTransformations(
+    filtered,
+    spec.transformations,
+    spec,
+  )
+  const working = transformed.rows
+  if (working.length === 0)
     return {
       state: { kind: 'empty_dataset' },
       columns,
@@ -1180,23 +1407,62 @@ export function materialiseChart(
       droppedPoints: 0,
     }
   if (type === 'histogram')
-    return materialiseHistogram(spec, yCol, filtered, {
-      columns,
-      xLabel,
-      yLabel,
-      xUnit,
-      yUnit,
-    })
+    return finishMaterialised(
+      spec,
+      materialiseHistogram(spec, yCol, working, {
+        columns,
+        xLabel,
+        yLabel,
+        xUnit,
+        yUnit,
+      }),
+    )
   if (type === 'box')
-    return materialiseBoxPlot(spec, yCol, filtered, {
-      columns,
-      xLabel,
-      yLabel,
-      xUnit,
-      yUnit,
-    })
+    return finishMaterialised(
+      spec,
+      materialiseBoxPlot(spec, yCol, working, {
+        columns,
+        xLabel,
+        yLabel,
+        xUnit,
+        yUnit,
+      }),
+    )
+  if (type === 'violin')
+    return finishMaterialised(
+      spec,
+      materialiseViolin(spec, yCol, working, {
+        columns,
+        xLabel,
+        yLabel,
+        xUnit,
+        yUnit,
+      }),
+    )
+  if (type === 'strip')
+    return finishMaterialised(
+      spec,
+      materialiseStrip(spec, yCol, working, {
+        columns,
+        xLabel,
+        yLabel,
+        xUnit,
+        yUnit,
+      }),
+    )
+  if (type === 'summary')
+    return finishMaterialised(
+      spec,
+      materialiseSummary(spec, yCol, xCol, working, {
+        columns,
+        xLabel,
+        yLabel,
+        xUnit,
+        yUnit,
+      }),
+    )
   if (type === 'heatmap')
-    return materialiseHeatmap(spec, columns, xCol, yCol, filtered, {
+    return materialiseHeatmap(spec, columns, xCol, yCol, working, {
       columns,
       xLabel,
       yLabel,
@@ -1207,8 +1473,10 @@ export function materialiseChart(
   // Build series groups.
   const groups = new Map<string, Record<string, unknown>[]>()
   const order: string[] = []
-  for (const row of filtered) {
-    const key = seriesCol ? String(row[seriesCol.id] ?? '—') : 'all'
+  for (const row of working) {
+    const key = seriesCol
+      ? String(row[seriesCol.id] ?? '—')
+      : seriesKeyForRow(row, spec)
     if (!groups.has(key)) {
       groups.set(key, [])
       order.push(key)
@@ -1229,9 +1497,43 @@ export function materialiseChart(
       const x = xCol ? toNumber(row[xCol.id]) : rowIndex + 1
       const y = toNumber(row[yCol.id])
       const yError = errorCol ? toNumber(row[errorCol.id]) : undefined
-      return { x, y, yError: yError ?? null, label: key }
+      const lo =
+        spec.overlays.errorBars?.lowerFieldId !== undefined
+          ? toNumber(row[spec.overlays.errorBars.lowerFieldId])
+          : null
+      const hi =
+        spec.overlays.errorBars?.upperFieldId !== undefined
+          ? toNumber(row[spec.overlays.errorBars.upperFieldId])
+          : null
+      const sizeCol = resolveColumn(columns, spec.fields.size)
+      const size = sizeCol ? toNumber(row[sizeCol.id]) : undefined
+      const rowId =
+        typeof row[CHART_ROW_ID_KEY] === 'string'
+          ? String(row[CHART_ROW_ID_KEY])
+          : undefined
+      const recordId =
+        typeof row[CHART_RECORD_ID_KEY] === 'string'
+          ? String(row[CHART_RECORD_ID_KEY])
+          : undefined
+      return {
+        x,
+        y,
+        yError: yError ?? null,
+        yErrorLo: lo,
+        yErrorHi: hi,
+        label: key,
+        rowId,
+        recordId,
+        size: size ?? undefined,
+      }
     })
-    return { identifier: key, label, color, points }
+    return {
+      identifier: key,
+      label,
+      color,
+      points,
+      visible: configured?.visible,
+    }
   })
 
   // Rows whose mapped value is missing or non-numeric are dropped from the
@@ -1263,7 +1565,7 @@ export function materialiseChart(
       return {
         state: { kind: 'log_scale_invalid', axis, invalidCount: invalid },
         columns,
-        rows: filtered,
+        rows: working,
         series,
         xLabel,
         yLabel,
@@ -1273,17 +1575,199 @@ export function materialiseChart(
       }
   }
 
-  return {
+  return finishMaterialised(spec, {
     state: { kind: 'ok' },
     columns,
-    rows: filtered,
+    rows: working,
     series,
     xLabel,
     yLabel,
     xUnit,
     yUnit,
     droppedPoints,
+  })
+}
+
+function finishMaterialised(
+  spec: ChartSpec,
+  chart: MaterialisedChart,
+): MaterialisedChart {
+  if (chart.state.kind !== 'ok') return chart
+  const withFit = attachFitOverlay(spec, chart.series)
+  const sampled = sampleSeriesForRender(withFit.series)
+  return {
+    ...chart,
+    series: sampled.series,
+    fit: withFit.fit,
+    sampling: sampled.sampling,
   }
+}
+
+function materialiseViolin(
+  spec: ChartSpec,
+  yCol: ChartColumn,
+  filtered: Record<string, unknown>[],
+  meta: MaterialiseMeta,
+): MaterialisedChart {
+  const seriesCol = resolveColumn(meta.columns, spec.fields.series)
+  const groups = new Map<string, number[]>()
+  const order: string[] = []
+  let droppedPoints = 0
+  for (const row of filtered) {
+    const key = seriesCol ? String(row[seriesCol.id] ?? '—') : 'all'
+    const v = toNumber(row[yCol.id])
+    if (v === null) {
+      droppedPoints++
+      continue
+    }
+    if (!groups.has(key)) {
+      groups.set(key, [])
+      order.push(key)
+    }
+    groups.get(key)!.push(v)
+  }
+  const series: MaterialisedSeries[] = order.map((key, i) => {
+    const { color, label } = paletteFor(spec, key, i)
+    const values = groups.get(key)!
+    const stats = boxStats(values)
+    const density = gaussianKde(values)
+    return {
+      identifier: key,
+      label,
+      color,
+      violin: density,
+      points: stats
+        ? [
+            {
+              x: i + 1,
+              y: stats.median,
+              yError: null,
+              label: key,
+              box: stats,
+            },
+          ]
+        : [],
+    }
+  })
+  return {
+    state: { kind: 'ok' },
+    ...meta,
+    rows: filtered,
+    series,
+    droppedPoints,
+  }
+}
+
+function materialiseStrip(
+  spec: ChartSpec,
+  yCol: ChartColumn,
+  filtered: Record<string, unknown>[],
+  meta: MaterialiseMeta,
+): MaterialisedChart {
+  const seriesCol = resolveColumn(meta.columns, spec.fields.series)
+  const groups = new Map<string, Record<string, unknown>[]>()
+  const order: string[] = []
+  for (const row of filtered) {
+    const key = seriesCol ? String(row[seriesCol.id] ?? '—') : 'all'
+    if (!groups.has(key)) {
+      groups.set(key, [])
+      order.push(key)
+    }
+    groups.get(key)!.push(row)
+  }
+  let droppedPoints = 0
+  const jitter = spec.typeParams.strip?.jitter ?? 0.18
+  const series: MaterialisedSeries[] = order.map((key, i) => {
+    const { color, label } = paletteFor(spec, key, i)
+    const points: FrozenChartPoint[] = []
+    for (const row of groups.get(key)!) {
+      const y = toNumber(row[yCol.id])
+      if (y === null) {
+        droppedPoints++
+        continue
+      }
+      const seed = `${key}:${String(row[CHART_ROW_ID_KEY] ?? y)}`
+      points.push({
+        x: i + 1 + jitterOffset(seed, jitter),
+        y,
+        yError: null,
+        label: key,
+        rowId:
+          typeof row[CHART_ROW_ID_KEY] === 'string'
+            ? String(row[CHART_ROW_ID_KEY])
+            : undefined,
+      })
+    }
+    return { identifier: key, label, color, points }
+  })
+  return {
+    state: { kind: 'ok' },
+    ...meta,
+    rows: filtered,
+    series,
+    droppedPoints,
+  }
+}
+
+function materialiseSummary(
+  spec: ChartSpec,
+  yCol: ChartColumn,
+  xCol: ChartColumn | null,
+  filtered: Record<string, unknown>[],
+  meta: MaterialiseMeta,
+): MaterialisedChart {
+  const summaries = groupedNumericSummaries(
+    filtered,
+    spec,
+    yCol.id,
+    xCol?.id ?? null,
+  )
+  const statistic = spec.typeParams.summary?.statistic ?? 'mean'
+  const bySeries = new Map<string, GroupedLike[]>()
+  type GroupedLike = (typeof summaries)[number]
+  for (const row of summaries) {
+    if (!bySeries.has(row.series)) bySeries.set(row.series, [])
+    bySeries.get(row.series)!.push(row)
+  }
+  const order = Array.from(bySeries.keys())
+  const series: MaterialisedSeries[] = orderKeys(order).map((key, i) => {
+    const { color, label } = paletteFor(spec, key, i)
+    const points: FrozenChartPoint[] = (bySeries.get(key) ?? []).map(
+      (row, index) => {
+        const y = statistic === 'median' ? row.stats.median : row.stats.mean
+        const x = toNumber(row.x) ?? index + 1
+        const half = (row.interval.hi - row.interval.lo) / 2
+        return {
+          x,
+          y,
+          yError: half,
+          yErrorLo: row.interval.lo,
+          yErrorHi: row.interval.hi,
+          label: key,
+        }
+      },
+    )
+    return { identifier: key, label, color, points }
+  })
+  return {
+    state: { kind: 'ok' },
+    ...meta,
+    rows: filtered,
+    series,
+    droppedPoints: 0,
+    summaries: summaries.map((row) => ({
+      group: row.key,
+      n: row.stats.n,
+      mean: row.stats.mean,
+      median: row.stats.median,
+      sd: row.stats.sd,
+      se: row.stats.se,
+    })),
+  }
+}
+
+function orderKeys(keys: string[]): string[] {
+  return [...keys].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
 }
 
 interface MaterialiseMeta {
@@ -1300,10 +1784,12 @@ function paletteFor(
   index: number,
 ): { color: string; label: string } {
   const configured = spec.display.series.find((s) => s.identifier === key)
+  const fallback =
+    spec.display.palette === 'monochrome'
+      ? CHART_PALETTE[0]
+      : CHART_PALETTE[index % CHART_PALETTE.length]
   return {
-    color: (
-      configured?.color ?? CHART_PALETTE[index % CHART_PALETTE.length]
-    ).toLowerCase(),
+    color: (configured?.color ?? fallback).toLowerCase(),
     label: configured?.label ?? key,
   }
 }

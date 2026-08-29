@@ -774,6 +774,19 @@ export async function cleanup(admin: Client): Promise<void> {
     `alter table api.dataset_version_values disable trigger prevent_dataset_version_value_mutation`,
   )
   try {
+    // Leftover snapshot/benchmark versions may exist; clear children for EVERY
+    // workspace version before any version row is deleted (the RI constraint
+    // triggers stay enabled and reject a parent delete with live children).
+    await admin.query(
+      `delete from api.dataset_version_values
+        where dataset_version_id in (select id from api.dataset_versions where workspace_id=$1)`,
+      [FIXTURE.workspace],
+    )
+    await admin.query(
+      `delete from api.dataset_version_rows
+        where dataset_version_id in (select id from api.dataset_versions where workspace_id=$1)`,
+      [FIXTURE.workspace],
+    )
     await admin.query(
       `delete from api.dataset_version_values where dataset_version_id = any($1::uuid[])`,
       [versionIds],
@@ -851,14 +864,46 @@ export async function cleanup(admin: Client): Promise<void> {
   await admin.query(`delete from api.records where workspace_id=$1`, [
     FIXTURE.workspace,
   ])
+  // Sheet artifacts guard deletes via user triggers; disable them for
+  // privileged cleanup of disposable benchmark objects, like the dataset
+  // version mutation triggers above.
   await admin.query(
-    `delete from api.workspace_memberships where workspace_id=$1`,
-    [FIXTURE.workspace],
+    `alter table api.sheet_instances disable trigger guard_sheet_instance`,
   )
-  await admin.query(`delete from api.workspaces where id=$1`, [
+  await admin.query(
+    `alter table api.sheet_definition_versions disable trigger guard_sheet_definition_version`,
+  )
+  await admin.query(
+    `alter table api.sheet_definitions disable trigger guard_sheet_definition`,
+  )
+  try {
+    await admin.query(`delete from api.sheet_instances where workspace_id=$1`, [
+      FIXTURE.workspace,
+    ])
+    await admin.query(
+      `delete from api.sheet_definition_versions
+        where definition_id in (select id from api.sheet_definitions where workspace_id=$1)`,
+      [FIXTURE.workspace],
+    )
+    await admin.query(`delete from api.sheet_definitions where workspace_id=$1`, [
+      FIXTURE.workspace,
+    ])
+  } finally {
+    await admin.query(
+      `alter table api.sheet_definitions enable trigger guard_sheet_definition`,
+    )
+    await admin.query(
+      `alter table api.sheet_definition_versions enable trigger guard_sheet_definition_version`,
+    )
+    await admin.query(
+      `alter table api.sheet_instances enable trigger guard_sheet_instance`,
+    )
+  }
+  await admin.query(`delete from api.projects where workspace_id=$1`, [
     FIXTURE.workspace,
   ])
-  await admin.query(`delete from internal."user" where id=$1`, [FIXTURE.user])
+  // The workspace, user and membership persist across runs (the seed is
+  // idempotent); everything above is recreated from scratch each time.
 }
 
 async function main(): Promise<void> {
@@ -875,16 +920,19 @@ async function main(): Promise<void> {
     const startedAt = process.hrtime.bigint()
     await admin.query(
       `insert into internal."user"(id,name,email,"emailVerified")
-       values($1,'PLAT-05 bench','plat-05@test.invalid',true)`,
+       values($1,'PLAT-05 bench','plat-05@test.invalid',true)
+       on conflict (id) do nothing`,
       [FIXTURE.user],
     )
     await admin.query(
-      `insert into api.workspaces(id,slug,name) values($1,'plat-05-bench','PLAT-05 benchmark')`,
+      `insert into api.workspaces(id,slug,name) values($1,'plat-05-bench','PLAT-05 benchmark')
+       on conflict (id) do nothing`,
       [FIXTURE.workspace],
     )
     await admin.query(
       `insert into api.workspace_memberships(workspace_id,user_id,role)
-       values($1,$2,'owner')`,
+       values($1,$2,'owner')
+       on conflict do nothing`,
       [FIXTURE.workspace, FIXTURE.user],
     )
     await seedRecords(admin)

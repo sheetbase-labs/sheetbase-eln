@@ -43,10 +43,12 @@ import {
   substituteParameters,
   wrapTransformStatement,
 } from './pipelines/statement'
-
-const INPUT_ROW_LIMIT = 100_000
-const INPUT_FIELD_LIMIT = 256
-const RESULT_CELL_LIMIT = 1_000_000
+import {
+  INPUT_ROW_LIMIT,
+  INPUT_FIELD_LIMIT,
+  RESULT_CELL_LIMIT,
+  EXECUTION_TIMEOUT_SECONDS,
+} from './pipeline-limits'
 
 export type PipelineErrorCode =
   | 'workspace_membership_required'
@@ -754,8 +756,6 @@ async function executeTransform(
     }
   }
 }
-
-const EXECUTION_TIMEOUT_SECONDS = 60
 
 async function isRunRunning(
   conn: ExecConnection,

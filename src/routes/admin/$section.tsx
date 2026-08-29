@@ -1,12 +1,19 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
 const sections = new Set([
+  'dashboard',
   'users',
   'project-access',
   'settings',
   'sessions',
   'api-credentials',
+  'connectors',
+  'pipelines',
+  'storage',
+  'usage',
   'activity',
+  'diagnostics',
+  'deployment',
 ])
 
 export const Route = createFileRoute('/admin/$section')({
@@ -27,7 +34,7 @@ export const Route = createFileRoute('/admin/$section')({
     if (!sections.has(params.section)) {
       throw redirect({
         to: '/admin/$section',
-        params: { section: 'users' },
+        params: { section: 'dashboard' },
         search: { model: undefined },
       })
     }

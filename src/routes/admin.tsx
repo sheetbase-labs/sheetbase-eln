@@ -8,26 +8,41 @@ import {
 } from '@tanstack/react-router'
 import {
   Activity,
+  Boxes,
+  Database,
+  Gauge,
+  HardDrive,
   KeyRound,
   Lock,
   Settings,
   Shield,
+  Terminal,
   UserRoundCog,
   Users,
+  Workflow,
 } from 'lucide-react'
 
 import { useShell } from '#/components/app-shell'
 import {
-  AdminAuditExplorer,
   AdminApiCredentials,
+  AdminAuditExplorer,
+  AdminConnectors,
+  AdminDashboard,
+  AdminDeployment,
+  AdminDiagnostics,
   AdminInspector,
   AdminMembers,
+  AdminPipelines,
   AdminProjectAccess,
   AdminSessions,
   AdminSettings,
+  AdminStorage,
+  AdminUsage,
 } from '#/components/workspace-admin'
 import { Button } from '#/components/ui'
 import { createDataClient } from '#/lib/data-client'
+import { hasCapability } from '#/lib/capability'
+import type { Capability } from '#/lib/capability'
 import {
   adminQueryKeys,
   changeMemberRole,
@@ -62,6 +77,7 @@ import {
 } from '#/lib/api-credential-admin'
 import type { CreatedCredentialWire } from '#/lib/api-credential-admin'
 import type { Scope } from '#/lib/api-credential-scopes'
+import { fetchMemberNamesFn } from '#/lib/admin-platform'
 
 export const Route = createFileRoute('/admin')({
   beforeLoad: async ({ context: rootContext }) => {
@@ -74,27 +90,48 @@ export const Route = createFileRoute('/admin')({
 
 const dataClient = createDataClient()
 
-const ADMIN_SECTIONS = [
+interface AdminSectionDef {
+  key: string
+  label: string
+  description: string
+  group: string
+  icon: React.ComponentType<{ className?: string }>
+  /** Capability required to see this section in nav and access it. */
+  capability: Capability | null
+}
+
+const ADMIN_SECTIONS: AdminSectionDef[] = [
+  {
+    key: 'dashboard',
+    label: 'Dashboard',
+    description: 'Platform health, activity, usage, and attention indicators.',
+    group: 'Overview',
+    icon: Gauge,
+    capability: null,
+  },
   {
     key: 'users',
-    label: 'Users',
+    label: 'Members',
     description: 'Manage workspace membership, roles and invitations.',
     group: 'Workspace',
     icon: Users,
+    capability: 'workspace.admin',
   },
   {
     key: 'project-access',
-    label: 'Project access',
+    label: 'Access',
     description: 'Control explicit user access to individual projects.',
     group: 'Workspace',
     icon: KeyRound,
+    capability: 'workspace.admin',
   },
   {
     key: 'settings',
-    label: 'Workspace settings',
+    label: 'Settings',
     description: 'Set registration, review, signature and retention policies.',
     group: 'Workspace',
     icon: Settings,
+    capability: 'workspace.admin',
   },
   {
     key: 'sessions',
@@ -102,43 +139,107 @@ const ADMIN_SECTIONS = [
     description: 'Review and revoke authenticated user sessions.',
     group: 'Security and audit',
     icon: UserRoundCog,
+    capability: 'workspace.admin',
   },
   {
     key: 'api-credentials',
-    label: 'API credentials',
+    label: 'API',
     description:
       'Create, rotate and revoke scoped credentials for external automation.',
     group: 'Security and audit',
     icon: Lock,
+    capability: 'workspace.admin',
+  },
+  {
+    key: 'connectors',
+    label: 'Connectors',
+    description: 'Administer connector status, secrets, and run health.',
+    group: 'Integrations',
+    icon: Boxes,
+    capability: 'integrations.manage',
+  },
+  {
+    key: 'pipelines',
+    label: 'Pipelines',
+    description: 'Pipeline definitions, schedules, and run health.',
+    group: 'Integrations',
+    icon: Workflow,
+    capability: 'pipelines.manage',
+  },
+  {
+    key: 'storage',
+    label: 'Storage',
+    description: 'File storage overview and largest files.',
+    group: 'Data',
+    icon: HardDrive,
+    capability: null,
+  },
+  {
+    key: 'usage',
+    label: 'Usage',
+    description: 'Workspace usage counts and capacity indicators.',
+    group: 'Data',
+    icon: Database,
+    capability: null,
   },
   {
     key: 'activity',
-    label: 'Activity',
+    label: 'Audit',
     description: 'Inspect and export the workspace audit trail.',
     group: 'Security and audit',
     icon: Activity,
+    capability: null,
   },
-] as const
+  {
+    key: 'diagnostics',
+    label: 'Diagnostics',
+    description: 'Health checks, scheduler, executor, and configuration state.',
+    group: 'Platform',
+    icon: Terminal,
+    capability: null,
+  },
+  {
+    key: 'deployment',
+    label: 'Deploy',
+    description: 'Version, environment, migration state, and operational links.',
+    group: 'Platform',
+    icon: Shield,
+    capability: null,
+  },
+]
 
-type AdminSection = (typeof ADMIN_SECTIONS)[number]['key']
+type AdminSectionKey = (typeof ADMIN_SECTIONS)[number]['key']
 
-function sectionFromPath(pathname: string): AdminSection {
+function sectionFromPath(pathname: string): AdminSectionKey {
   const candidate = pathname.split('/')[2]
   return ADMIN_SECTIONS.some((section) => section.key === candidate)
-    ? (candidate as AdminSection)
-    : 'users'
+    ? (candidate)
+    : 'dashboard'
 }
 
 function AdminRoute() {
   const { context } = Route.useRouteContext()
   const queryClient = useQueryClient()
   const workspaceId = context.workspace?.id ?? ''
-  const isOwner = context.workspace?.role === 'owner'
+  const role = context.workspace?.role ?? null
+  const isOwner = role === 'owner'
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
   const activeSection = sectionFromPath(pathname)
+
+  // Filter sections by capability — nav only shows what the user can access.
+  const visibleSections = ADMIN_SECTIONS.filter(
+    (section) => !section.capability || hasCapability(role, section.capability),
+  )
   const section = ADMIN_SECTIONS.find((item) => item.key === activeSection)!
+
+  // Gate: if the user navigates to a section they can't access, redirect.
+  if (section.capability && !hasCapability(role, section.capability)) {
+    // Don't redirect — just show a permission notice. The nav won't show
+    // inaccessible sections, but a direct URL should show a clear message.
+  }
+
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [memberSearch, setMemberSearch] = useState('')
@@ -149,6 +250,11 @@ function AdminRoute() {
   const membersQuery = useQuery({
     queryKey: adminQueryKeys.members(workspaceId),
     queryFn: () => fetchWorkspaceMembers(dataClient, workspaceId),
+    enabled,
+  })
+  const memberNamesQuery = useQuery({
+    queryKey: ['admin-member-names', workspaceId],
+    queryFn: () => fetchMemberNamesFn({ data: { workspaceId } }),
     enabled,
   })
   const invitationsQuery = useQuery({
@@ -202,7 +308,7 @@ function AdminRoute() {
     mutation(
       ({
         email,
-        role,
+        role: inviteRole,
         days,
       }: {
         email: string
@@ -212,7 +318,7 @@ function AdminRoute() {
         createInvitation(dataClient, {
           workspaceId,
           email,
-          role,
+          role: inviteRole,
           expiresAfterDays: days,
         }),
     ),
@@ -223,8 +329,8 @@ function AdminRoute() {
     ),
   )
   const roleChange = useMutation(
-    mutation(({ userId, role }: { userId: string; role: WorkspaceRole }) =>
-      changeMemberRole(dataClient, { workspaceId, userId, newRole: role }),
+    mutation(({ userId, role: newRole }: { userId: string; role: WorkspaceRole }) =>
+      changeMemberRole(dataClient, { workspaceId, userId, newRole }),
     ),
   )
   const remove = useMutation(
@@ -356,10 +462,10 @@ function AdminRoute() {
     context: shellContext,
     breadcrumbs: [
       { label: 'Settings' },
-      { label: 'Workspace Settings & Permissions' },
+      { label: 'Platform Administration' },
     ],
     inspectorLabel: 'Member details',
-    inspector: selectedMember ? (
+    inspector: selectedMember && activeSection === 'users' ? (
       <AdminInspector
         member={selectedMember}
         currentUserId={context.user.id}
@@ -367,8 +473,8 @@ function AdminRoute() {
         onSuspend={() => suspend.mutate(selectedMember.userId)}
         onReinstate={() => reinstate.mutate(selectedMember.userId)}
         onRemove={() => remove.mutate(selectedMember.userId)}
-        onRoleChange={(role) =>
-          roleChange.mutate({ userId: selectedMember.userId, role })
+        onRoleChange={(newRole) =>
+          roleChange.mutate({ userId: selectedMember.userId, role: newRole })
         }
       />
     ) : null,
@@ -380,33 +486,31 @@ function AdminRoute() {
       ) : undefined,
   })
 
+  // Check if the active section requires a capability the user lacks.
+  const sectionDenied =
+    section.capability && !hasCapability(role, section.capability)
+
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto w-full max-w-[1600px] px-4 pt-6 pb-5 md:px-8">
+      <div className="mx-auto w-full max-w-[1600px] px-4 pt-6 pb-4 md:px-8">
         <header>
           <div className="flex items-center gap-2">
             <Shield className="size-5 text-primary" />
-            <h1 className="text-2xl font-semibold">Administration</h1>
+            <h1 className="text-2xl font-semibold">Platform Administration</h1>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Govern workspace access, security and compliance.
+            Administer workspace access, integrations, diagnostics and audit.
           </p>
         </header>
-        {!isOwner && (
-          <div className="mt-5 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-            You can view workspace administration data. Admin actions are
-            owner-only.
-          </div>
-        )}
       </div>
 
-      <nav aria-label="Administration sections" className="border-y">
-        <div className="mx-auto flex w-full max-w-[1600px] overflow-x-auto px-4 md:px-8">
-          {ADMIN_SECTIONS.map((item, index) => {
-            const Icon = item.icon
+      <nav
+        aria-label="Administration sections"
+        className="border-y bg-muted/30"
+      >
+        <div className="mx-auto flex w-full max-w-[1600px] items-center gap-0 overflow-x-auto px-4 py-2 md:px-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {visibleSections.map((item) => {
             const active = item.key === activeSection
-            const startsNewGroup =
-              index > 0 && ADMIN_SECTIONS[index - 1].group !== item.group
             return (
               <Link
                 key={item.key}
@@ -414,10 +518,9 @@ function AdminRoute() {
                 params={{ section: item.key }}
                 search={{ model: undefined }}
                 aria-current={active ? 'page' : undefined}
-                className={`relative flex h-11 shrink-0 items-center gap-2 px-3 text-sm no-underline transition-colors ${startsNewGroup ? 'ml-2 border-l pl-5' : ''} ${active ? 'font-medium text-foreground after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:bg-primary' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'}`}
+                className={`flex shrink-0 items-center px-3 py-1 text-sm no-underline transition-colors ${active ? 'font-medium text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
               >
-                <Icon className="size-4 shrink-0" />
-                {item.label}
+                <span className="whitespace-nowrap">{item.label}</span>
               </Link>
             )
           })}
@@ -425,91 +528,119 @@ function AdminRoute() {
       </nav>
 
       <div className="mx-auto w-full max-w-[1600px] px-4 py-5 md:px-8">
-        <section className="min-w-0 space-y-5">
-          <header className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <h2 className="text-xl font-semibold">{section.label}</h2>
-              <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-                {section.description}
-              </p>
-            </div>
-          </header>
+        {sectionDenied ? (
+          <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            You do not have permission to access this administration section.
+          </div>
+        ) : (
+          <section className="min-w-0 space-y-5">
+            <header className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-semibold">{section.label}</h2>
+                <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+                  {section.description}
+                </p>
+              </div>
+            </header>
 
-          {activeSection === 'users' ? (
-            <AdminMembers
-              members={members}
-              invitations={invitations}
-              currentUserId={context.user.id}
-              isOwner={isOwner}
-              selectedUserId={selectedUserId}
-              onSelect={setSelectedUserId}
-              search={memberSearch}
-              onSearchChange={setMemberSearch}
-              onInvite={(email, role, days) =>
-                invite.mutate({ email, role, days })
-              }
-              onRevokeInvitation={(id) => revokeInvite.mutate(id)}
-              onRoleChange={(userId, role) =>
-                roleChange.mutate({ userId, role })
-              }
-              onSuspend={(id) => suspend.mutate(id)}
-              onReinstate={(id) => reinstate.mutate(id)}
-              onRemove={(id) => remove.mutate(id)}
-            />
-          ) : null}
-          {activeSection === 'project-access' ? (
-            <AdminProjectAccess
-              access={accessQuery.data ?? []}
-              isOwner={isOwner}
-              onGrant={(projectId, userId, level) =>
-                grant.mutate({ projectId, userId, level })
-              }
-              onRevoke={(projectId, userId) =>
-                revokeAccess.mutate({ projectId, userId })
-              }
-            />
-          ) : null}
-          {activeSection === 'sessions' ? (
-            <AdminSessions
-              sessions={sessionsQuery.data ?? []}
-              isOwner={isOwner}
-              onRevoke={(id) => revokeSession.mutate(id)}
-            />
-          ) : null}
-          {activeSection === 'api-credentials' ? (
-            <AdminApiCredentials
-              credentials={credentialsQuery.data ?? []}
-              isOwner={isOwner}
-              revealed={revealedCredential}
-              onCreate={(name, scopes, expiresAt) =>
-                createCredential.mutate({ name, scopes, expiresAt })
-              }
-              onRevoke={(id) => revokeCredential.mutate(id)}
-              onRotate={(id) => rotateCredential.mutate(id)}
-              onDismissRevealed={() => setRevealedCredential(null)}
-            />
-          ) : null}
-          {activeSection === 'activity' ? (
-            <AdminAuditExplorer
-              actors={members.map((member) => ({
-                id: member.userId,
-                label: `${member.role}: ${member.userId.slice(0, 8)}`,
-              }))}
-            />
-          ) : null}
-          {activeSection === 'settings' ? (
-            <AdminSettings
-              settings={settings}
-              isOwner={isOwner}
-              saving={saveSettings.isPending}
-              onSave={(value) => saveSettings.mutate(value)}
-            />
-          ) : null}
-        </section>
+            {activeSection === 'dashboard' ? (
+              <AdminDashboard workspaceId={workspaceId} />
+            ) : null}
+            {activeSection === 'users' ? (
+              <AdminMembers
+                members={members}
+                memberNames={memberNamesQuery.data ?? {}}
+                invitations={invitations}
+                currentUserId={context.user.id}
+                isOwner={isOwner}
+                selectedUserId={selectedUserId}
+                onSelect={setSelectedUserId}
+                search={memberSearch}
+                onSearchChange={setMemberSearch}
+                onInvite={(email, inviteRole, days) =>
+                  invite.mutate({ email, role: inviteRole, days })
+                }
+                onRevokeInvitation={(id) => revokeInvite.mutate(id)}
+                onRoleChange={(userId, newRole) =>
+                  roleChange.mutate({ userId, role: newRole })
+                }
+                onSuspend={(id) => suspend.mutate(id)}
+                onReinstate={(id) => reinstate.mutate(id)}
+                onRemove={(id) => remove.mutate(id)}
+              />
+            ) : null}
+            {activeSection === 'project-access' ? (
+              <AdminProjectAccess
+                access={accessQuery.data ?? []}
+                isOwner={isOwner}
+                onGrant={(projectId, userId, level) =>
+                  grant.mutate({ projectId, userId, level })
+                }
+                onRevoke={(projectId, userId) =>
+                  revokeAccess.mutate({ projectId, userId })
+                }
+              />
+            ) : null}
+            {activeSection === 'sessions' ? (
+              <AdminSessions
+                sessions={sessionsQuery.data ?? []}
+                isOwner={isOwner}
+                onRevoke={(id) => revokeSession.mutate(id)}
+              />
+            ) : null}
+            {activeSection === 'api-credentials' ? (
+              <AdminApiCredentials
+                credentials={credentialsQuery.data ?? []}
+                isOwner={isOwner}
+                revealed={revealedCredential}
+                onCreate={(name, scopes, expiresAt) =>
+                  createCredential.mutate({ name, scopes, expiresAt })
+                }
+                onRevoke={(id) => revokeCredential.mutate(id)}
+                onRotate={(id) => rotateCredential.mutate(id)}
+                onDismissRevealed={() => setRevealedCredential(null)}
+              />
+            ) : null}
+            {activeSection === 'connectors' ? (
+              <AdminConnectors workspaceId={workspaceId} role={role ?? ''} />
+            ) : null}
+            {activeSection === 'pipelines' ? (
+              <AdminPipelines workspaceId={workspaceId} role={role ?? ''} />
+            ) : null}
+            {activeSection === 'storage' ? (
+              <AdminStorage workspaceId={workspaceId} />
+            ) : null}
+            {activeSection === 'usage' ? (
+              <AdminUsage workspaceId={workspaceId} />
+            ) : null}
+            {activeSection === 'activity' ? (
+              <AdminAuditExplorer
+                actors={members.map((member) => ({
+                  id: member.userId,
+                  label: `${member.role}: ${member.userId.slice(0, 8)}`,
+                }))}
+              />
+            ) : null}
+            {activeSection === 'diagnostics' ? (
+              <AdminDiagnostics workspaceId={workspaceId} role={role ?? ''} />
+            ) : null}
+            {activeSection === 'deployment' ? (
+              <AdminDeployment workspaceId={workspaceId} />
+            ) : null}
+            {activeSection === 'settings' ? (
+              <AdminSettings
+                settings={settings}
+                isOwner={isOwner}
+                saving={saveSettings.isPending}
+                onSave={(value) => saveSettings.mutate(value)}
+              />
+            ) : null}
+          </section>
+        )}
         {actionError && (
           <p
             role="alert"
-            className="rounded-md bg-destructive/10 p-3 text-sm text-destructive"
+            className="mt-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive"
           >
             {actionError}
           </p>

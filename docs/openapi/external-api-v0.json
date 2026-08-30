@@ -21180,6 +21180,11 @@
             "type": "string",
             "nullable": true
           },
+          "replay_of_delivery_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
           "next_attempt_at": {
             "type": "string",
             "format": "date-time",

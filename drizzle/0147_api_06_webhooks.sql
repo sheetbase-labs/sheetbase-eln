@@ -98,6 +98,8 @@ CREATE TABLE "api"."webhook_deliveries" (
   "response_body" text,
   "error_code" text,
   "error_message" text,
+  -- Replay lineage: set when this row was created by replay_webhook_delivery.
+  "replay_of_delivery_id" uuid,
   -- Timing.
   "next_attempt_at" timestamptz,
   "delivered_at" timestamptz,
@@ -137,6 +139,12 @@ CREATE INDEX idx_webhook_deliveries_subscription ON api.webhook_deliveries(subsc
 CREATE INDEX idx_webhook_deliveries_pending
   ON api.webhook_deliveries(workspace_id, next_attempt_at)
   WHERE status IN ('pending', 'retrying');
+--> statement-breakpoint
+-- Idempotency: one initial delivery per (subscription, change_event).
+-- Replays (replay_of_delivery_id IS NOT NULL) are exempt.
+CREATE UNIQUE INDEX uq_webhook_deliveries_subscription_event
+  ON api.webhook_deliveries(subscription_id, change_event_id)
+  WHERE replay_of_delivery_id IS NULL;
 --> statement-breakpoint
 
 -- ---------------------------------------------------------------------------
@@ -654,11 +662,12 @@ BEGIN
 
   INSERT INTO api.webhook_deliveries(
     workspace_id, subscription_id, change_event_id, event_type,
-    payload, body, signature, attempt, status, next_attempt_at
+    payload, body, signature, attempt, status, next_attempt_at,
+    replay_of_delivery_id
   ) VALUES (
     p_workspace_id, v_original.subscription_id, v_original.change_event_id,
     v_original.event_type, v_original.payload, v_original.body, v_original.signature,
-    0, 'pending', now()
+    0, 'pending', now(), p_delivery_id
   ) RETURNING * INTO v_new;
   RETURN v_new;
 END $$;

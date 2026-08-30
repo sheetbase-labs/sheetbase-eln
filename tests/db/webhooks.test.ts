@@ -328,6 +328,7 @@ describe('API-06 Webhooks', () => {
       expect(rows[0].attempt).toBe(0)
       expect(rows[0].event_type).toBe('record.created')
       expect(rows[0].body).toBe(body)
+      expect(rows[0].replay_of_delivery_id).toBe(deliveryId)
       expect(rows[0].id).not.toBe(deliveryId) // new row
     })
 
@@ -356,6 +357,66 @@ describe('API-06 Webhooks', () => {
         viewer.query(
           `SELECT * FROM api.replay_webhook_delivery($1, $2)`,
           [WS_A, deliveryId],
+        ),
+      ).rejects.toThrow()
+    })
+
+    it('allows replay to create a second delivery for the same event (exempt from idempotency)', async () => {
+      const c = await asOwner()
+      const { rows: subs } = await c.query(
+        `SELECT api.create_webhook_subscription($1, $2, $3) AS result`,
+        [WS_A, 'replay-idempotency-test', 'https://example.com/rip'],
+      )
+      const subId = subs[0].result.subscription.id
+
+      const changeEventId = '00000000-0000-4000-8000-0000000000e3'
+      const deliveryId = '00000000-0000-4000-8000-0000000000d3'
+      const body = JSON.stringify({ eventType: 'record.created' })
+      await migrator.query(
+        `INSERT INTO api.webhook_deliveries
+          (id, workspace_id, subscription_id, change_event_id, event_type,
+           payload, body, signature, status)
+         VALUES ($1, $2, $3, $4, 'record.created', $5, $6, 'sha256=x', 'delivered')`,
+        [deliveryId, WS_A, subId, changeEventId, JSON.stringify({}), body],
+      )
+
+      // Replay should succeed — replay rows are exempt from the unique constraint.
+      const { rows } = await c.query(
+        `SELECT * FROM api.replay_webhook_delivery($1, $2)`,
+        [WS_A, deliveryId],
+      )
+      expect(rows[0].status).toBe('pending')
+      expect(rows[0].replay_of_delivery_id).toBe(deliveryId)
+    })
+  })
+
+  describe('delivery idempotency', () => {
+    it('prevents duplicate initial deliveries for the same (subscription, change_event)', async () => {
+      const c = await asOwner()
+      const { rows: subs } = await c.query(
+        `SELECT api.create_webhook_subscription($1, $2, $3) AS result`,
+        [WS_A, 'idempotency-test', 'https://example.com/idem'],
+      )
+      const subId = subs[0].result.subscription.id
+
+      const changeEventId = '00000000-0000-4000-8000-0000000000e4'
+      const deliveryId = '00000000-0000-4000-8000-0000000000d4'
+      await migrator.query(
+        `INSERT INTO api.webhook_deliveries
+          (id, workspace_id, subscription_id, change_event_id, event_type,
+           payload, body, signature, status)
+         VALUES ($1, $2, $3, $4, 'record.created', $5, $6, 'sha256=x', 'delivered')`,
+        [deliveryId, WS_A, subId, changeEventId, JSON.stringify({}), '{}'],
+      )
+
+      // A second initial delivery for the same (subscription, change_event) should fail.
+      await expect(
+        migrator.query(
+          `INSERT INTO api.webhook_deliveries
+            (workspace_id, subscription_id, change_event_id, event_type,
+             payload, body, signature, status)
+           VALUES ($1, $2, $3, 'record.created', $4, $5, 'sha256=y', 'pending')`,
+          [WS_A, subId, changeEventId, JSON.stringify({}), '{}'],
         ),
       ).rejects.toThrow()
     })

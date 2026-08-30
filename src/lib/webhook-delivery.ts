@@ -167,6 +167,7 @@ export interface WebhookDeliveryRow {
   signature: string
   attempt: number
   status: string
+  replay_of_delivery_id: string | null
   next_attempt_at: string | null
 }
 
@@ -423,7 +424,7 @@ export async function createDeliveryRecord(
   body: string,
   signature: string,
   connectionString: string = env.DATABASE_URL,
-): Promise<WebhookDeliveryRow> {
+): Promise<WebhookDeliveryRow | null> {
   const client = new Client({ connectionString })
   await client.connect()
   try {
@@ -432,6 +433,9 @@ export async function createDeliveryRecord(
          (workspace_id, subscription_id, change_event_id, event_type,
           payload, body, signature, attempt, status, next_attempt_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, 0, 'pending', now())
+       ON CONFLICT (subscription_id, change_event_id)
+         WHERE replay_of_delivery_id IS NULL
+       DO NOTHING
        RETURNING *`,
       [
         workspaceId,
@@ -443,7 +447,8 @@ export async function createDeliveryRecord(
         signature,
       ],
     )
-    return rows[0]
+    // null when a delivery already exists for this (subscription, change_event)
+    return rows.length > 0 ? rows[0] : null
   } finally {
     await client.end()
   }
@@ -576,7 +581,7 @@ export async function processChangeEvent(
       }
       const signature = signPayload(body, secret)
 
-      // Create delivery record.
+      // Create delivery record (idempotent — skips if one already exists).
       const delivery = await createDeliveryRecord(
         sub.workspace_id,
         sub.id,
@@ -587,6 +592,9 @@ export async function processChangeEvent(
         signature,
         connectionString,
       )
+
+      // Delivery already exists (catch-up race or duplicate notification).
+      if (!delivery) continue
 
       // Attempt immediate delivery.
       const result = await attemptDelivery(sub.url, body, signature)

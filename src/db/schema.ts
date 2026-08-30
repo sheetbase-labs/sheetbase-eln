@@ -6391,6 +6391,8 @@ export const webhookDeliveries = api.table(
     responseBody: text('response_body'),
     errorCode: text('error_code'),
     errorMessage: text('error_message'),
+    /** Replay lineage: set when this row was created by replay_webhook_delivery. */
+    replayOfDeliveryId: uuid('replay_of_delivery_id'),
     nextAttemptAt: timestamp('next_attempt_at', {
       withTimezone: true,
       mode: 'date',
@@ -6419,6 +6421,11 @@ export const webhookDeliveries = api.table(
     index('idx_webhook_deliveries_pending')
       .on(table.workspaceId, table.nextAttemptAt)
       .where(sql`status IN ('pending', 'retrying')`),
+    // Idempotency: one initial delivery per (subscription, change_event).
+    // Replays (replay_of_delivery_id IS NOT NULL) are exempt.
+    uniqueIndex('uq_webhook_deliveries_subscription_event')
+      .on(table.subscriptionId, table.changeEventId)
+      .where(sql`${table.replayOfDeliveryId} IS NULL`),
     check(
       'chk_webhook_deliveries_status',
       sql`${table.status} IN ('pending', 'delivered', 'failed', 'retrying')`,

@@ -680,6 +680,7 @@ export const TABLE_ROW_SCHEMAS: Record<string, JsonSchema> = {
       response_body: { ...TEXT, nullable: true },
       error_code: { ...TEXT, nullable: true },
       error_message: { ...TEXT, nullable: true },
+      replay_of_delivery_id: { ...UUID, nullable: true },
       next_attempt_at: { ...TS, nullable: true },
       delivered_at: { ...TS, nullable: true },
       created_at: TS,

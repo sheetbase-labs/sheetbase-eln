@@ -1,0 +1,304 @@
+"""Typed dataclass models for Sheetbase resources.
+
+These models mirror the row schemas in docs/openapi/external-api-v0.json.
+They are plain dataclasses with ``from_dict`` class methods that handle
+snake_case JSON → Python field mapping. Optional/nullable fields default
+to ``None``.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any, Optional
+from uuid import UUID
+
+
+def _parse_dt(v: Optional[str]) -> Optional[datetime]:
+    if v is None:
+        return None
+    return datetime.fromisoformat(v.replace("Z", "+00:00"))
+
+
+@dataclass(frozen=True)
+class Project:
+    id: UUID
+    workspace_id: UUID
+    key: str
+    title: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    archived_at: Optional[datetime] = None
+    custom_fields: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> Project:
+        return cls(
+            id=UUID(d["id"]),
+            workspace_id=UUID(d["workspace_id"]),
+            key=d["key"],
+            title=d["title"],
+            status=d["status"],
+            created_at=_parse_dt(d["created_at"]),  # type: ignore[arg-type]
+            updated_at=_parse_dt(d["updated_at"]),  # type: ignore[arg-type]
+            archived_at=_parse_dt(d.get("archived_at")),
+            custom_fields=d.get("custom_fields") or {},
+        )
+
+
+@dataclass(frozen=True)
+class Record:
+    id: UUID
+    workspace_id: UUID
+    kind: str
+    identifier: str
+    title: str
+    status: str
+    tags: list[str]
+    structure_version: int
+    metadata_version: int
+    created_at: datetime
+    updated_at: datetime
+    created_by_user_id: str
+    calculation_input_revision: int
+    properties: dict[str, Any]
+    custom_fields: dict[str, Any]
+    project_id: Optional[UUID] = None
+    folder_id: Optional[UUID] = None
+    archived_at: Optional[datetime] = None
+    deleted_at: Optional[datetime] = None
+    updated_by_user_id: Optional[str] = None
+    updated_by_credential_id: Optional[UUID] = None
+    locked_at: Optional[datetime] = None
+    locked_by_revision_id: Optional[UUID] = None
+    source_notebook_template_version_id: Optional[UUID] = None
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> Record:
+        return cls(
+            id=UUID(d["id"]),
+            workspace_id=UUID(d["workspace_id"]),
+            kind=d["kind"],
+            identifier=d["identifier"],
+            title=d["title"],
+            status=d["status"],
+            tags=d.get("tags") or [],
+            structure_version=d["structure_version"],
+            metadata_version=d["metadata_version"],
+            created_at=_parse_dt(d["created_at"]),  # type: ignore[arg-type]
+            updated_at=_parse_dt(d["updated_at"]),  # type: ignore[arg-type]
+            created_by_user_id=d["created_by_user_id"],
+            calculation_input_revision=d["calculation_input_revision"],
+            properties=d.get("properties") or {},
+            custom_fields=d.get("custom_fields") or {},
+            project_id=UUID(d["project_id"]) if d.get("project_id") else None,
+            folder_id=UUID(d["folder_id"]) if d.get("folder_id") else None,
+            archived_at=_parse_dt(d.get("archived_at")),
+            deleted_at=_parse_dt(d.get("deleted_at")),
+            updated_by_user_id=d.get("updated_by_user_id"),
+            updated_by_credential_id=UUID(d["updated_by_credential_id"]) if d.get("updated_by_credential_id") else None,
+            locked_at=_parse_dt(d.get("locked_at")),
+            locked_by_revision_id=UUID(d["locked_by_revision_id"]) if d.get("locked_by_revision_id") else None,
+            source_notebook_template_version_id=UUID(d["source_notebook_template_version_id"]) if d.get("source_notebook_template_version_id") else None,
+        )
+
+
+@dataclass(frozen=True)
+class Dataset:
+    id: UUID
+    workspace_id: UUID
+    schema_version_id: UUID
+    name: str
+    lifecycle: str
+    revision: int
+    created_at: datetime
+    updated_at: datetime
+    primary_project_id: Optional[UUID] = None
+    description: Optional[str] = None
+    created_by_user_id: Optional[str] = None
+    created_by_credential_id: Optional[UUID] = None
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> Dataset:
+        return cls(
+            id=UUID(d["id"]),
+            workspace_id=UUID(d["workspace_id"]),
+            schema_version_id=UUID(d["schema_version_id"]),
+            name=d["name"],
+            lifecycle=d["lifecycle"],
+            revision=d["revision"],
+            created_at=_parse_dt(d["created_at"]),  # type: ignore[arg-type]
+            updated_at=_parse_dt(d["updated_at"]),  # type: ignore[arg-type]
+            primary_project_id=UUID(d["primary_project_id"]) if d.get("primary_project_id") else None,
+            description=d.get("description"),
+            created_by_user_id=d.get("created_by_user_id"),
+            created_by_credential_id=UUID(d["created_by_credential_id"]) if d.get("created_by_credential_id") else None,
+        )
+
+
+@dataclass(frozen=True)
+class DatasetVersion:
+    id: UUID
+    workspace_id: UUID
+    dataset_id: UUID
+    schema_version_id: UUID
+    label: str
+    source_dataset_revision: int
+    created_at: datetime
+    created_by_user_id: Optional[str] = None
+    created_by_credential_id: Optional[UUID] = None
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> DatasetVersion:
+        return cls(
+            id=UUID(d["id"]),
+            workspace_id=UUID(d["workspace_id"]),
+            dataset_id=UUID(d["dataset_id"]),
+            schema_version_id=UUID(d["schema_version_id"]),
+            label=d["label"],
+            source_dataset_revision=d["source_dataset_revision"],
+            created_at=_parse_dt(d["created_at"]),  # type: ignore[arg-type]
+            created_by_user_id=d.get("created_by_user_id"),
+            created_by_credential_id=UUID(d["created_by_credential_id"]) if d.get("created_by_credential_id") else None,
+        )
+
+
+@dataclass(frozen=True)
+class DatasetRow:
+    """A single row from ``query_dataset_rows`` or ``query_dataset_version_rows``."""
+
+    row_id: UUID
+    revision: int
+    values: dict[str, Any]
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> DatasetRow:
+        return cls(
+            row_id=UUID(d["rowId"]),
+            revision=d["revision"],
+            values=d.get("values") or {},
+        )
+
+
+@dataclass(frozen=True)
+class SheetInstance:
+    id: UUID
+    workspace_id: UUID
+    name: str
+    revision: int
+    created_at: datetime
+    updated_at: datetime
+    notebook_record_id: Optional[UUID] = None
+    sheet_definition_version_id: Optional[UUID] = None
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> SheetInstance:
+        return cls(
+            id=UUID(d["id"]),
+            workspace_id=UUID(d["workspace_id"]),
+            name=d["name"],
+            revision=d["revision"],
+            created_at=_parse_dt(d["created_at"]),  # type: ignore[arg-type]
+            updated_at=_parse_dt(d["updated_at"]),  # type: ignore[arg-type]
+            notebook_record_id=UUID(d["notebook_record_id"]) if d.get("notebook_record_id") else None,
+            sheet_definition_version_id=UUID(d["sheet_definition_version_id"]) if d.get("sheet_definition_version_id") else None,
+        )
+
+
+@dataclass(frozen=True)
+class SearchResult:
+    result_type: str
+    record_id: UUID
+    kind: str
+    identifier: str
+    title: str
+    total_count: int
+    status: Optional[str] = None
+    project_id: Optional[UUID] = None
+    archived: Optional[bool] = None
+    created_by_user_id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    matched_context: Optional[str] = None
+    matched_field: Optional[str] = None
+    rank: Optional[float] = None
+    deep_link: Optional[str] = None
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> SearchResult:
+        return cls(
+            result_type=d["result_type"],
+            record_id=UUID(d["record_id"]),
+            kind=d["kind"],
+            identifier=d["identifier"],
+            title=d["title"],
+            total_count=d["total_count"],
+            status=d.get("status"),
+            project_id=UUID(d["project_id"]) if d.get("project_id") else None,
+            archived=d.get("archived"),
+            created_by_user_id=d.get("created_by_user_id"),
+            created_at=_parse_dt(d.get("created_at")),
+            updated_at=_parse_dt(d.get("updated_at")),
+            matched_context=d.get("matched_context"),
+            matched_field=d.get("matched_field"),
+            rank=d.get("rank"),
+            deep_link=d.get("deep_link"),
+        )
+
+
+@dataclass(frozen=True)
+class CommitResult:
+    """Result of ``commit_dataset_row_batch``."""
+
+    ok: bool
+    dataset_id: UUID
+    dataset_revision: int
+    rows: list[dict[str, Any]]
+    idempotent: bool
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> CommitResult:
+        return cls(
+            ok=d["ok"],
+            dataset_id=UUID(d["datasetId"]),
+            dataset_revision=d["datasetRevision"],
+            rows=d.get("rows") or [],
+            idempotent=d["idempotent"],
+        )
+
+
+@dataclass(frozen=True)
+class ValidationFailure:
+    """A single validation error from ``validate_dataset_row_batch``."""
+
+    row_index: Optional[int] = None
+    row_id: Optional[UUID] = None
+    field_id: Optional[UUID] = None
+    code: Optional[str] = None
+    expected_revision: Optional[int] = None
+    actual_revision: Optional[int] = None
+
+
+@dataclass(frozen=True)
+class ValidationResult:
+    """Result of ``validate_dataset_row_batch``."""
+
+    ok: bool
+    errors: list[ValidationFailure] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> ValidationResult:
+        return cls(
+            ok=d.get("ok", False),
+            errors=[
+                ValidationFailure(
+                    row_index=e.get("rowIndex"),
+                    row_id=UUID(e["rowId"]) if e.get("rowId") else None,
+                    field_id=UUID(e["fieldId"]) if e.get("fieldId") else None,
+                    code=e.get("code"),
+                    expected_revision=e.get("expectedRevision"),
+                    actual_revision=e.get("actualRevision"),
+                )
+                for e in d.get("errors") or []
+            ],
+        )

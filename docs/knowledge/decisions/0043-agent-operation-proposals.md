@@ -6,6 +6,9 @@
 
 ## Context
 
+The product contract is [`docs/agent-operations.md`](../../agent-operations.md).
+This ADR records the architectural decision.
+
 AUTO-04 requires agents to suggest governed changes without creating a second
 mutation system or granting an agent authority that a normal Sheetbase client
 does not have. A proposal needs a stable preview, an approval decision,

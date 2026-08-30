@@ -99,7 +99,8 @@ delegates to the existing Dataset Schema, Sheet Definition, Pipeline
 Definition/version or `commit_dataset_row_batch` RPC, so validation,
 permissions, canonical audit events and immutable published/evidence
 boundaries remain unchanged. Publish, submit, sign, amend and lock operations
-are excluded. Multi-step goal orchestration remains AUTO-05. See ADR 0043.
+are excluded. Multi-step goal orchestration remains AUTO-05. See
+[`docs/agent-operations.md`](../../../agent-operations.md) and ADR 0043.
 
 ## AUTO-05 — Agentic Scientific Workflows
 

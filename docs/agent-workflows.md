@@ -2,7 +2,8 @@
 
 AUTO-05 adds bounded, sequential agent workflows on top of AUTO-04 operation
 proposals. A workflow is an inspectable plan, not a second Pipeline engine or
-an agent-only mutation path.
+an agent-only mutation path. Single operations, policy, and the proposal RPCs
+are documented in [`agent-operations.md`](agent-operations.md).
 
 ## Contract
 

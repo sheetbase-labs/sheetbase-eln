@@ -28,9 +28,10 @@ The final active Roadmap 2 tasks are complete:
 ```
 
 AUTO-05 adds bounded digest-pinned multi-step workflows over AUTO-04 proposals.
-Each operation retains explicit human approval, canonical permissions,
-provenance, and evidence. This closes Roadmap 2 without adding the adaptive
-agent planning and autonomy assigned to Roadmap 3.
+Product contracts: [`docs/agent-operations.md`](../agent-operations.md) and
+[`docs/agent-workflows.md`](../agent-workflows.md). Each operation retains
+canonical permissions, provenance, and evidence. This closes Roadmap 2 without
+adding the adaptive agent planning and autonomy assigned to Roadmap 3.
 
 ### Deferred, not active
 

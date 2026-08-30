@@ -100,6 +100,7 @@ export interface AgentOperationPolicy {
   id: string
   workspace_id: string
   name: string
+  credential_id: string
   operation_kind: AgentOperationKind
   target_type: AgentOperationPolicyTargetType
   target_id: string | null
@@ -235,7 +236,7 @@ export async function listAgentOperationPolicies(
 ): Promise<AgentOperationPolicy[]> {
   return client.list(
     'agent_operation_policies',
-    '?select=id,workspace_id,name,operation_kind,target_type,target_id,limits,enabled,created_by_user_id,updated_by_user_id,created_at,updated_at&order=created_at.desc',
+    '?select=id,workspace_id,name,credential_id,operation_kind,target_type,target_id,limits,enabled,created_by_user_id,updated_by_user_id,created_at,updated_at&order=created_at.desc',
   )
 }
 
@@ -245,6 +246,7 @@ export async function createAgentOperationPolicy(
     workspaceId: string
     name: string
     operationKind: AgentOperationKind
+    credentialId: string
     targetType: AgentOperationPolicyTargetType
     targetId: string | null
     maxAffectedRows: number
@@ -256,6 +258,7 @@ export async function createAgentOperationPolicy(
     p_operation_kind: input.operationKind,
     p_target_type: input.targetType,
     p_target_id: input.targetId,
+    p_credential_id: input.credentialId,
     p_limits: { maxAffectedRows: input.maxAffectedRows },
   })
 }

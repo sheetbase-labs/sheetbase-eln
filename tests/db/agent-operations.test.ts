@@ -20,6 +20,7 @@ const OUTSIDER = 'auto04-outsider'
 const CREDENTIAL = 'a0040000-0000-4000-8000-000000000003'
 const LIMITED_CREDENTIAL = 'a0040000-0000-4000-8000-000000000004'
 const NO_AGENT_CREDENTIAL = 'a0040000-0000-4000-8000-000000000005'
+const OTHER_CREDENTIAL = 'a0040000-0000-4000-8000-000000000006'
 
 let migrator: Client
 let asRole: (role: 'authenticator') => Promise<Client>
@@ -142,21 +143,23 @@ async function createPolicy(
     targetType: string
     targetId: string | null
     maxAffectedRows: number
+    credentialId?: string
   },
 ) {
   const { rows } = await client.query(
     `SELECT * FROM api.create_agent_operation_policy(
-      $1,$2,'dataset_rows.commit',$3,$4,$5::jsonb
+      $1,$2,'dataset_rows.commit',$3,$4,$5,$6::jsonb
     )`,
     [
       WS,
       input.name,
       input.targetType,
       input.targetId,
+      input.credentialId ?? CREDENTIAL,
       JSON.stringify({ maxAffectedRows: input.maxAffectedRows }),
     ],
   )
-  return rows[0] as { id: string; enabled: boolean }
+  return rows[0] as { id: string; enabled: boolean; credential_id: string }
 }
 
 beforeAll(async () => {
@@ -185,8 +188,9 @@ beforeAll(async () => {
     ) VALUES
       ($1,$2,'AUTO04 credential','sb_auto04','auto04-hash',ARRAY['agent_operations:read','agent_operations:write','datasets:write','schema:write'],$3),
       ($4,$2,'AUTO04 limited credential','sb_auto04_limited','auto04-limited-hash',ARRAY['agent_operations:read','agent_operations:write'],$3),
-      ($5,$2,'AUTO04 no-agent credential','sb_auto04_no_agent','auto04-no-agent-hash',ARRAY['datasets:write'],$3)`,
-    [CREDENTIAL, WS, OWNER, LIMITED_CREDENTIAL, NO_AGENT_CREDENTIAL],
+      ($5,$2,'AUTO04 no-agent credential','sb_auto04_no_agent','auto04-no-agent-hash',ARRAY['datasets:write'],$3),
+      ($6,$2,'AUTO04 other credential','sb_auto04_other','auto04-other-hash',ARRAY['agent_operations:read','agent_operations:write','datasets:write'],$3)`,
+    [CREDENTIAL, WS, OWNER, LIMITED_CREDENTIAL, NO_AGENT_CREDENTIAL, OTHER_CREDENTIAL],
   )
 })
 
@@ -495,12 +499,13 @@ describe('AUTO-04 agent-authored operations', () => {
       maxAffectedRows: 1,
     })
     expect(policy.enabled).toBe(true)
+    expect(policy.credential_id).toBe(CREDENTIAL)
     await expectDenied(
       viewer.query(
         `SELECT api.create_agent_operation_policy(
-          $1,'viewer policy','dataset_rows.commit','dataset',$2,'{"maxAffectedRows":1}'::jsonb
+          $1,'viewer policy','dataset_rows.commit','dataset',$2,$3,'{"maxAffectedRows":1}'::jsonb
         )`,
-        [WS, dataset.id],
+        [WS, dataset.id, CREDENTIAL],
       ),
       '42501',
     )
@@ -533,6 +538,7 @@ describe('AUTO-04 agent-authored operations', () => {
       requiredScope: 'datasets:write',
       scopeSatisfied: true,
       targetMatched: true,
+      createOnly: true,
       limitSatisfied: true,
     })
   })
@@ -606,6 +612,74 @@ describe('AUTO-04 agent-authored operations', () => {
       limitSatisfied: false,
     })
     expect(tooMany.policy_reason).toContain('limit')
+  })
+
+  it('keeps other credentials and Dataset updates human-required', async () => {
+    const owner = await actor(OWNER, WS)
+    const agent = await credential(WS)
+    const other = await credential(WS, OTHER_CREDENTIAL)
+    const dataset = await createDataset(
+      owner,
+      'policy_bound_dataset',
+      'Policy Bound Dataset',
+    )
+    const policy = await createPolicy(owner, {
+      name: 'Bound credential append',
+      targetType: 'dataset',
+      targetId: dataset.id,
+      maxAffectedRows: 2,
+    })
+
+    const otherCredentialWrite = await propose(
+      other,
+      {
+        kind: 'dataset_rows.commit',
+        datasetId: dataset.id,
+        expectedRevision: 1,
+        rows: [
+          {
+            operation: 'create',
+            rowId: 'a0040000-0000-4000-8000-000000000018',
+            values: { [dataset.fieldId]: 20 },
+          },
+        ],
+      },
+      'auto04-other-credential',
+    )
+    expect(otherCredentialWrite).toMatchObject({
+      status: 'pending',
+      approval_policy: 'human_required',
+      policy_id: null,
+    })
+    expect(otherCredentialWrite.policy_reason).toContain('credential-bound')
+
+    const updateWrite = await propose(
+      agent,
+      {
+        kind: 'dataset_rows.commit',
+        datasetId: dataset.id,
+        expectedRevision: 1,
+        rows: [
+          {
+            operation: 'update',
+            rowId: 'a0040000-0000-4000-8000-000000000019',
+            expectedRevision: 1,
+            values: { [dataset.fieldId]: 21 },
+          },
+        ],
+      },
+      'auto04-update-write',
+    )
+    expect(updateWrite).toMatchObject({
+      status: 'pending',
+      approval_policy: 'human_required',
+      policy_id: policy.id,
+    })
+    expect(updateWrite.policy_evidence).toMatchObject({
+      targetMatched: true,
+      createOnly: false,
+    })
+    expect(updateWrite.policy_reason).toContain('create and append')
   })
 
   it('enforces workspace isolation, credential scopes, and policy lifecycle', async () => {
@@ -686,9 +760,9 @@ describe('AUTO-04 agent-authored operations', () => {
     await expectDenied(
       outsider.query(
         `SELECT api.create_agent_operation_policy(
-          $1,'cross workspace','dataset_rows.commit','dataset',$2,'{"maxAffectedRows":1}'::jsonb
+          $1,'cross workspace','dataset_rows.commit','dataset',$2,$3,'{"maxAffectedRows":1}'::jsonb
         )`,
-        [WS, dataset.id],
+        [WS, dataset.id, CREDENTIAL],
       ),
       '42501',
     )

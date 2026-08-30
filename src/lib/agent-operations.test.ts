@@ -105,6 +105,7 @@ describe('agent operation client contract', () => {
       workspaceId: 'workspace-1',
       name: 'Dataset delegation',
       operationKind: 'dataset_rows.commit',
+      credentialId: 'credential-1',
       targetType: 'dataset',
       targetId: 'dataset-1',
       maxAffectedRows: 25,
@@ -121,6 +122,7 @@ describe('agent operation client contract', () => {
       p_operation_kind: 'dataset_rows.commit',
       p_target_type: 'dataset',
       p_target_id: 'dataset-1',
+      p_credential_id: 'credential-1',
       p_limits: { maxAffectedRows: 25 },
     })
     expect(rpc).toHaveBeenNthCalledWith(2, 'disable_agent_operation_policy', {

@@ -28,7 +28,9 @@ evidence trail. Human-attestation actions must remain human-only.
    automatically when the actor has the matching existing external scope.
    Consequential writes are `human_required` by default. A workspace owner or
    steward may create a policy that delegates a canonical target with bounded
-   limits. Service credentials cannot approve proposals or create policies.
+   limits **to one live service credential**. Automatic Dataset writes are
+   create and append only; updates and overwrites stay `human_required`.
+   Service credentials cannot approve proposals or create policies.
    Human approval uses the underlying canonical capability.
 4. Execution calls the existing canonical RPC. Dataset rows still use
    `commit_dataset_row_batch`; Dataset Schema, Sheet Definition, and Pipeline
@@ -55,6 +57,7 @@ evidence trail. Human-attestation actions must remain human-only.
 - Approval does not reserve the target. A conflicting change between preview
   and execution fails through optimistic concurrency and remains visible as a
   failed proposal. Policy delegation does not widen the target or row limit
-  captured in the proposal.
+  captured in the proposal. A policy never applies to a different credential,
+  a revoked credential, or a Dataset update.
 - AUTO-05 may orchestrate several proposals later, but it must not weaken this
   per-operation approval and execution boundary.

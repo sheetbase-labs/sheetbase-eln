@@ -91,15 +91,16 @@ approval, rejection, execution, provenance and evidence.
 
 Reversible draft operations execute automatically by default when the existing
 canonical external scope is present. Dataset row commits remain
-human-required by default. An owner or steward can delegate a canonical
-workspace, project, Dataset, Pipeline Definition, Notebook Record or
-Definition target with explicit limits. The matched policy, reason, target,
-limits and evaluation evidence are stored on the proposal. Execution delegates
-to the existing Dataset Schema, Sheet Definition, Pipeline Definition/version
-or `commit_dataset_row_batch` RPC, so validation, permissions, canonical audit
-events and immutable published/evidence boundaries remain unchanged. Publish,
-submit, sign, amend and lock operations are excluded. Multi-step goal
-orchestration remains AUTO-05. See ADR 0043.
+human-required by default. An owner or steward can delegate create and append
+writes for one live service credential against a canonical workspace, project
+or Dataset target with an explicit row limit. Updates, overwrites and other
+credentials stay human-required. The matched policy, credential, reason,
+target, limits and evaluation evidence are stored on the proposal. Execution
+delegates to the existing Dataset Schema, Sheet Definition, Pipeline
+Definition/version or `commit_dataset_row_batch` RPC, so validation,
+permissions, canonical audit events and immutable published/evidence
+boundaries remain unchanged. Publish, submit, sign, amend and lock operations
+are excluded. Multi-step goal orchestration remains AUTO-05. See ADR 0043.
 
 ## AUTO-05 — Agentic Scientific Workflows
 

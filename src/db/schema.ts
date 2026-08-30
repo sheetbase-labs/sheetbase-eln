@@ -6938,6 +6938,9 @@ export const agentOperationPolicies = api.table(
       .notNull()
       .references(() => workspaces.id, { onDelete: 'restrict' }),
     name: text('name').notNull(),
+    credentialId: uuid('credential_id')
+      .notNull()
+      .references(() => apiCredentials.id, { onDelete: 'restrict' }),
     operationKind: text('operation_kind').notNull(),
     targetType: text('target_type').notNull(),
     targetId: uuid('target_id'),
@@ -6978,6 +6981,11 @@ export const agentOperationPolicies = api.table(
       table.workspaceId,
       table.enabled,
       table.operationKind,
+    ),
+    index('idx_agent_operation_policies_credential').on(
+      table.workspaceId,
+      table.credentialId,
+      table.enabled,
     ),
   ],
 )

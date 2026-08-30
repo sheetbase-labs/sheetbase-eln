@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import type {
   AgentOperationPolicy,
@@ -32,16 +32,35 @@ function targetTypeFromValue(
   return TARGET_TYPES.find((target) => target.value === value)?.value ?? null
 }
 
+export interface AgentPolicyCredentialOption {
+  id: string
+  name: string
+  displayPrefix: string
+}
+
+function credentialLabel(
+  credentials: AgentPolicyCredentialOption[],
+  credentialId: string,
+): string {
+  const credential = credentials.find((item) => item.id === credentialId)
+  return credential
+    ? `${credential.name} (${credential.displayPrefix})`
+    : credentialId
+}
+
 export function AgentOperationPolicyPanel({
   policies,
+  credentials,
   canManage,
   onCreate,
   onDisable,
 }: {
   policies: AgentOperationPolicy[]
+  credentials: AgentPolicyCredentialOption[]
   canManage: boolean
   onCreate: (input: {
     name: string
+    credentialId: string
     targetType: AgentOperationPolicyTargetType
     targetId: string | null
     maxAffectedRows: number
@@ -49,18 +68,30 @@ export function AgentOperationPolicyPanel({
   onDisable: (policy: AgentOperationPolicy) => void
 }) {
   const [name, setName] = useState('')
+  const [credentialId, setCredentialId] = useState(credentials[0]?.id ?? '')
   const [targetType, setTargetType] =
     useState<AgentOperationPolicyTargetType>('dataset')
   const [targetId, setTargetId] = useState('')
   const [maxAffectedRows, setMaxAffectedRows] = useState('100')
 
+  useEffect(() => {
+    if (!credentialId && credentials[0]) setCredentialId(credentials[0].id)
+  }, [credentialId, credentials])
+
   function submit(event: React.FormEvent) {
     event.preventDefault()
     const limit = Number(maxAffectedRows)
-    if (!name.trim() || !Number.isInteger(limit) || limit < 1 || limit > 1000)
+    if (
+      !name.trim() ||
+      !credentialId ||
+      !Number.isInteger(limit) ||
+      limit < 1 ||
+      limit > 1000
+    )
       return
     onCreate({
       name: name.trim(),
+      credentialId,
       targetType,
       targetId: targetType === 'workspace' ? null : targetId.trim(),
       maxAffectedRows: limit,
@@ -76,7 +107,9 @@ export function AgentOperationPolicyPanel({
           <h2 className="text-sm font-semibold">Execution policies</h2>
           <p className="text-muted-foreground mt-1 max-w-3xl text-xs">
             Dataset row commits require a human by default. An owner or Data
-            Steward can delegate a canonical target with a row limit. Draft
+            Steward can delegate create and append writes for one service
+            credential, a canonical target, and a row limit. Updates,
+            overwrites, and other credentials stay human-required. Draft
             definition changes remain automatic when the credential has its
             existing canonical scope.
           </p>
@@ -91,7 +124,7 @@ export function AgentOperationPolicyPanel({
       {canManage && (
         <form
           onSubmit={submit}
-          className="mt-3 grid gap-2 md:grid-cols-[minmax(160px,1fr)_170px_minmax(180px,1fr)_110px_auto]"
+          className="mt-3 grid gap-2 md:grid-cols-[minmax(140px,1fr)_minmax(160px,1fr)_150px_minmax(160px,1fr)_90px_auto]"
         >
           <div>
             <Label htmlFor="agent-policy-name">Policy name</Label>
@@ -102,6 +135,24 @@ export function AgentOperationPolicyPanel({
               placeholder="Assay import rows"
               required
             />
+          </div>
+          <div>
+            <Label htmlFor="agent-policy-credential">Credential</Label>
+            <Select
+              id="agent-policy-credential"
+              value={credentialId}
+              onChange={(event) => setCredentialId(event.target.value)}
+              required
+            >
+              <option value="" disabled>
+                Select a service credential
+              </option>
+              {credentials.map((credential) => (
+                <option key={credential.id} value={credential.id}>
+                  {credentialLabel([credential], credential.id)}
+                </option>
+              ))}
+            </Select>
           </div>
           <div>
             <Label htmlFor="agent-policy-target-type">Target boundary</Label>
@@ -160,6 +211,7 @@ export function AgentOperationPolicyPanel({
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
+              <TableHead>Credential</TableHead>
               <TableHead>Operation</TableHead>
               <TableHead>Target</TableHead>
               <TableHead>Limit</TableHead>
@@ -171,6 +223,9 @@ export function AgentOperationPolicyPanel({
             {policies.map((policy) => (
               <TableRow key={policy.id}>
                 <TableCell>{policy.name}</TableCell>
+                <TableCell className="max-w-56">
+                  {credentialLabel(credentials, policy.credential_id)}
+                </TableCell>
                 <TableCell className="font-mono text-xs">
                   {policy.operation_kind}
                 </TableCell>
@@ -205,11 +260,11 @@ export function AgentOperationPolicyPanel({
             {policies.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={canManage ? 6 : 5}
+                  colSpan={canManage ? 7 : 6}
                   className="text-muted-foreground py-6 text-center text-sm"
                 >
-                  No delegation policies. Consequential writes remain human
-                  required.
+                  No credential-bound delegation policies. Consequential writes
+                  remain human required.
                 </TableCell>
               </TableRow>
             )}

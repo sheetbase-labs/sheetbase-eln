@@ -18,6 +18,7 @@ import {
   proposalRevision,
 } from '#/lib/agent-operations'
 import type { AgentOperationProposal } from '#/lib/agent-operations'
+import { listApiCredentialsFn } from '#/lib/api-credential-admin'
 import { hasCapability } from '#/lib/capability'
 import { createDataClient } from '#/lib/data-client'
 
@@ -45,6 +46,14 @@ function AgentOperationsRoute() {
   const policiesQuery = useQuery({
     queryKey: agentOperationQueryKeys.policies,
     queryFn: () => listAgentOperationPolicies(dataClient),
+    enabled: Boolean(context.workspace?.id),
+  })
+  const credentialsQuery = useQuery({
+    queryKey: ['agent-operations', 'credentials', context.workspace?.id],
+    queryFn: () =>
+      listApiCredentialsFn({
+        data: { workspaceId: context.workspace?.id ?? '' },
+      }),
     enabled: Boolean(context.workspace?.id),
   })
   const proposals = proposalsQuery.data ?? []
@@ -93,11 +102,13 @@ function AgentOperationsRoute() {
   const policyMutation = useMutation({
     mutationFn: ({
       name,
+      credentialId,
       targetType,
       targetId,
       maxAffectedRows,
     }: {
       name: string
+      credentialId: string
       targetType: Parameters<typeof createAgentOperationPolicy>[1]['targetType']
       targetId: string | null
       maxAffectedRows: number
@@ -106,6 +117,7 @@ function AgentOperationsRoute() {
         workspaceId: context.workspace?.id ?? '',
         name,
         operationKind: 'dataset_rows.commit',
+        credentialId,
         targetType,
         targetId,
         maxAffectedRows,
@@ -166,6 +178,7 @@ function AgentOperationsRoute() {
     proposalsQuery.error ??
     eventsQuery.error ??
     policiesQuery.error ??
+    credentialsQuery.error ??
     policyMutation.error ??
     disablePolicyMutation.error ??
     approveMutation.error ??
@@ -200,7 +213,7 @@ function AgentOperationsRoute() {
         <PageHeader
           eyebrow={context.workspace?.name ?? undefined}
           title="Agent operations"
-          description="Inspect deterministic impact and policy evidence. Safe drafts run automatically; consequential writes need human approval unless an owner or steward delegated a bounded target."
+          description="Inspect deterministic impact and policy evidence. Safe drafts run automatically. Dataset create and append writes can run for one delegated service credential; other writes need human approval."
           className="border-0 pb-4"
         />
       </div>
@@ -215,6 +228,11 @@ function AgentOperationsRoute() {
         <>
           <AgentOperationPolicyPanel
             policies={policiesQuery.data ?? []}
+            credentials={(credentialsQuery.data ?? []).map((credential) => ({
+              id: credential.id,
+              name: credential.name,
+              displayPrefix: credential.displayPrefix,
+            }))}
             canManage={canManagePolicies}
             onCreate={(input) => policyMutation.mutate(input)}
             onDisable={(policy) => disablePolicyMutation.mutate(policy.id)}

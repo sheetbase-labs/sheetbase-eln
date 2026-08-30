@@ -1042,6 +1042,13 @@
       "when": 1788114723727,
       "tag": "0150_auto_04_policy_rpc",
       "breakpoints": true
+    },
+    {
+      "idx": 151,
+      "version": "7",
+      "when": 1788116400000,
+      "tag": "0151_auto_04_policy_credential",
+      "breakpoints": true
     }
   ]
 }

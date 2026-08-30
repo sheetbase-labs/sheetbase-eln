@@ -21,7 +21,9 @@ evidence trail. Human-attestation actions must remain human-only.
 2. AUTO-04 supports single operations for Dataset Schema draft creation, Sheet
    Definition draft creation/update, Pipeline Definition/draft creation/update,
    and canonical Dataset row commits. It does not execute multi-step goals.
-3. Every proposal requires explicit approval from a human session. The
+3. Agents may submit and inspect proposals with the dedicated
+   `agent_operations:write` / `agent_operations:read` credential scopes.
+   Every proposal requires explicit approval from a human session. The
    approver must hold the capability required by the underlying operation.
    Service credentials cannot approve or execute proposals.
 4. Execution calls the existing canonical RPC. Dataset rows still use

@@ -4,6 +4,21 @@
 -- src/db/schema.ts. The RPC portion is custom because Drizzle does not model
 -- PostgreSQL functions, RLS policies, grants, or calls into canonical RPCs.
 
+ALTER TABLE internal.api_credentials DROP CONSTRAINT chk_api_credentials_scopes;
+ALTER TABLE internal.api_credentials
+  ADD CONSTRAINT chk_api_credentials_scopes CHECK (
+    cardinality(scopes) > 0
+    AND scopes <@ ARRAY[
+      'projects:read', 'projects:write', 'datasets:read', 'datasets:write',
+      'schema:read', 'schema:write', 'schema:publish',
+      'sheets:read', 'sheets:write', 'models:read', 'models:write',
+      'templates:read', 'templates:write', 'reviews:read', 'reviews:write',
+      'files:read', 'files:write', 'webhooks:read', 'webhooks:write',
+      'agent_operations:read', 'agent_operations:write'
+    ]::text[]
+  );
+--> statement-breakpoint
+
 CREATE TABLE "api"."agent_operation_proposals" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
   "workspace_id" uuid NOT NULL REFERENCES "api"."workspaces"("id") ON DELETE restrict,
@@ -153,6 +168,31 @@ REVOKE EXECUTE ON FUNCTION internal.agent_operation_append_event(api.agent_opera
   FROM PUBLIC, authenticated, api_client;
 --> statement-breakpoint
 
+CREATE OR REPLACE FUNCTION internal.require_agent_proposal_permission(
+  p_workspace_id uuid,
+  p_capability text
+) RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  IF coalesce(api.claim_probe()->>'role','') = 'api_client' THEN
+    IF api.current_workspace_id() IS DISTINCT FROM p_workspace_id
+       OR api.current_credential_id() IS NULL
+       OR NOT (coalesce(api.claim_probe()->'scopes','[]'::jsonb) ? 'agent_operations:write') THEN
+      RAISE EXCEPTION 'agent_operations:write scope required' USING ERRCODE='42501';
+    END IF;
+    RETURN;
+  END IF;
+  PERFORM api.require_capability(p_workspace_id,p_capability);
+END;
+$$;
+--> statement-breakpoint
+REVOKE EXECUTE ON FUNCTION internal.require_agent_proposal_permission(uuid,text)
+  FROM PUBLIC, authenticated, api_client;
+--> statement-breakpoint
+
 CREATE OR REPLACE FUNCTION internal.agent_operation_contract(
   p_workspace_id uuid,
   p_operation jsonb
@@ -176,7 +216,7 @@ BEGIN
   v_kind := p_operation->>'kind';
 
   IF v_kind = 'dataset_schema.create' THEN
-    PERFORM api.require_capability(p_workspace_id, 'schema.edit');
+    PERFORM internal.require_agent_proposal_permission(p_workspace_id, 'schema.edit');
     IF p_operation - ARRAY['kind','workspaceId','key','name','description','fields'] <> '{}'::jsonb
        OR (p_operation->>'workspaceId')::uuid IS DISTINCT FROM p_workspace_id
        OR p_operation->>'key' !~ '^[a-z][a-z0-9_]{0,59}$'
@@ -204,7 +244,7 @@ BEGIN
     );
 
   ELSIF v_kind = 'sheet_definition.create' THEN
-    PERFORM api.require_capability(p_workspace_id, 'schema.edit');
+    PERFORM internal.require_agent_proposal_permission(p_workspace_id, 'schema.edit');
     IF p_operation - ARRAY['kind','workspaceId','key','name','description','configuration'] <> '{}'::jsonb
        OR (p_operation->>'workspaceId')::uuid IS DISTINCT FROM p_workspace_id THEN
       RAISE EXCEPTION 'invalid Sheet Definition create operation' USING ERRCODE = '22023';
@@ -213,7 +253,7 @@ BEGIN
     v_target := jsonb_build_object('type','sheet_definition','id',NULL,'label',p_operation->>'name');
 
   ELSIF v_kind = 'sheet_definition.update_draft' THEN
-    PERFORM api.require_capability(p_workspace_id, 'schema.edit');
+    PERFORM internal.require_agent_proposal_permission(p_workspace_id, 'schema.edit');
     SELECT d.workspace_id, v.revision, v.lifecycle
       INTO v_workspace, v_revision, v_lifecycle
       FROM api.sheet_definition_versions v
@@ -244,7 +284,7 @@ BEGIN
     );
 
   ELSIF v_kind = 'pipeline_definition.create' THEN
-    PERFORM api.require_capability(p_workspace_id, 'pipelines.manage');
+    PERFORM internal.require_agent_proposal_permission(p_workspace_id, 'pipelines.manage');
     IF p_operation - ARRAY['kind','workspaceId','key','name','description'] <> '{}'::jsonb
        OR (p_operation->>'workspaceId')::uuid IS DISTINCT FROM p_workspace_id THEN
       RAISE EXCEPTION 'invalid Pipeline Definition create operation' USING ERRCODE = '22023';
@@ -252,7 +292,7 @@ BEGIN
     v_target := jsonb_build_object('type','pipeline_definition','id',NULL,'label',p_operation->>'name');
 
   ELSIF v_kind = 'pipeline_definition.create_version' THEN
-    PERFORM api.require_capability(p_workspace_id, 'pipelines.manage');
+    PERFORM internal.require_agent_proposal_permission(p_workspace_id, 'pipelines.manage');
     SELECT workspace_id, revision, lifecycle
       INTO v_workspace, v_revision, v_lifecycle
       FROM api.pipeline_definitions
@@ -280,7 +320,7 @@ BEGIN
     );
 
   ELSIF v_kind = 'pipeline_definition.update_draft' THEN
-    PERFORM api.require_capability(p_workspace_id, 'pipelines.manage');
+    PERFORM internal.require_agent_proposal_permission(p_workspace_id, 'pipelines.manage');
     SELECT workspace_id, revision, lifecycle
       INTO v_workspace, v_revision, v_lifecycle
       FROM api.pipeline_definition_versions
@@ -312,9 +352,7 @@ BEGIN
     );
 
   ELSIF v_kind = 'dataset_rows.commit' THEN
-    IF NOT api.is_workspace_writer(p_workspace_id) THEN
-      RAISE EXCEPTION 'workspace writer required' USING ERRCODE = '42501';
-    END IF;
+    PERFORM internal.require_agent_proposal_permission(p_workspace_id, 'record.create');
     SELECT workspace_id, revision, lifecycle
       INTO v_workspace, v_revision, v_lifecycle
       FROM api.datasets
@@ -643,7 +681,7 @@ $$;
 --> statement-breakpoint
 
 REVOKE ALL ON api.agent_operation_proposals, api.agent_operation_events FROM PUBLIC, anon, api_client;
-GRANT SELECT ON api.agent_operation_proposals, api.agent_operation_events TO authenticated;
+GRANT SELECT ON api.agent_operation_proposals, api.agent_operation_events TO authenticated, api_client;
 --> statement-breakpoint
 ALTER TABLE api.agent_operation_proposals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE api.agent_operation_events ENABLE ROW LEVEL SECURITY;
@@ -654,6 +692,18 @@ CREATE POLICY agent_operation_proposals_select
 CREATE POLICY agent_operation_events_select
   ON api.agent_operation_events FOR SELECT TO authenticated
   USING (api.is_workspace_member(workspace_id));
+CREATE POLICY agent_operation_proposals_api_select
+  ON api.agent_operation_proposals FOR SELECT TO api_client
+  USING (
+    workspace_id = api.current_workspace_id()
+    AND coalesce(api.claim_probe()->'scopes','[]'::jsonb) ? 'agent_operations:read'
+  );
+CREATE POLICY agent_operation_events_api_select
+  ON api.agent_operation_events FOR SELECT TO api_client
+  USING (
+    workspace_id = api.current_workspace_id()
+    AND coalesce(api.claim_probe()->'scopes','[]'::jsonb) ? 'agent_operations:read'
+  );
 --> statement-breakpoint
 REVOKE EXECUTE ON FUNCTION api.propose_agent_operation(uuid,text,text,jsonb,jsonb,text),
   api.decide_agent_operation(uuid,bigint,text,text),

@@ -246,20 +246,59 @@ describe('requiredScopes', () => {
 
   it('maps webhook tables and RPCs to canonical scopes', () => {
     expect(
-      requiredScopes('GET', { kind: 'table', resource: 'webhook_subscriptions' }),
+      requiredScopes('GET', {
+        kind: 'table',
+        resource: 'webhook_subscriptions',
+      }),
     ).toEqual(['webhooks:read'])
     expect(
       requiredScopes('GET', { kind: 'table', resource: 'webhook_deliveries' }),
     ).toEqual(['webhooks:read'])
     expect(
-      requiredScopes('POST', { kind: 'rpc', resource: 'create_webhook_subscription' }),
+      requiredScopes('POST', {
+        kind: 'rpc',
+        resource: 'create_webhook_subscription',
+      }),
     ).toEqual(['webhooks:write'])
     expect(
-      requiredScopes('POST', { kind: 'rpc', resource: 'list_webhook_deliveries' }),
+      requiredScopes('POST', {
+        kind: 'rpc',
+        resource: 'list_webhook_deliveries',
+      }),
     ).toEqual(['webhooks:read'])
     expect(
-      requiredScopes('POST', { kind: 'rpc', resource: 'replay_webhook_delivery' }),
+      requiredScopes('POST', {
+        kind: 'rpc',
+        resource: 'replay_webhook_delivery',
+      }),
     ).toEqual(['webhooks:write'])
+  })
+
+  it('lets agents submit and inspect proposals without exposing decisions', () => {
+    expect(
+      requiredScopes('POST', {
+        kind: 'rpc',
+        resource: 'propose_agent_operation',
+      }),
+    ).toEqual(['agent_operations:write'])
+    expect(
+      requiredScopes('GET', {
+        kind: 'table',
+        resource: 'agent_operation_proposals',
+      }),
+    ).toEqual(['agent_operations:read'])
+    expect(() =>
+      requiredScopes('POST', {
+        kind: 'rpc',
+        resource: 'decide_agent_operation',
+      }),
+    ).toThrow(ExternalTokenError)
+    expect(() =>
+      requiredScopes('POST', {
+        kind: 'rpc',
+        resource: 'execute_agent_operation',
+      }),
+    ).toThrow(ExternalTokenError)
   })
 
   it('does not grant scientific:* scopes access to vestigial metadata tables', () => {

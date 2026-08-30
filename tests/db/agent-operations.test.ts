@@ -42,7 +42,7 @@ async function credential(workspaceId: string): Promise<Client> {
     role: 'api_client',
     sub: null,
     credential_id: CREDENTIAL,
-    scopes: ['schema:write'],
+    scopes: ['agent_operations:read', 'agent_operations:write'],
   })
   return client
 }
@@ -104,7 +104,7 @@ beforeAll(async () => {
   await migrator.query(
     `INSERT INTO internal.api_credentials(
       id,workspace_id,name,display_prefix,secret_hash,scopes,created_by_user_id
-    ) VALUES ($1,$2,'AUTO04 credential','sb_auto04','auto04-hash',ARRAY['schema:write'],$3)`,
+    ) VALUES ($1,$2,'AUTO04 credential','sb_auto04','auto04-hash',ARRAY['agent_operations:read','agent_operations:write'],$3)`,
     [CREDENTIAL, WS, OWNER],
   )
 })

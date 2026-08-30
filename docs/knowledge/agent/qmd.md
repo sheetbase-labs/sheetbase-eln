@@ -32,9 +32,16 @@ npm install -g @tobilu/qmd
 
 Or use qmd through another supported installation method.
 
-## Project configuration
+## First-time project setup
 
-Run qmd from the repository root. The committed `.qmd/index.yml` defines one collection:
+Run qmd from the repository root. qmd trust-gates project-local configuration, so review and approve the committed configuration first:
+
+```bash
+qmd trust
+qmd update
+```
+
+The committed `.qmd/index.yml` defines one collection:
 
 ```text
 sheetbase-knowledge
@@ -44,7 +51,7 @@ sheetbase-knowledge
 
 It also supplies context for Roadmaps 1–3, decisions, product, architecture, history, concepts and references so results are easier for agents to interpret.
 
-After first install or after a large documentation change:
+After substantial knowledge-base changes, refresh the index:
 
 ```bash
 qmd update
@@ -57,6 +64,8 @@ qmd embed
 ```
 
 BM25 search does not require embeddings.
+
+For unattended CI/agent environments, use qmd's documented trust mechanism rather than disabling or bypassing project trust casually.
 
 ## Recommended agent workflow
 

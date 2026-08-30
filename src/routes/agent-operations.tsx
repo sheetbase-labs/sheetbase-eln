@@ -3,13 +3,17 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 
 import { ProposalWorkbench } from '#/components/agent-operations/proposal-workbench'
+import { AgentOperationPolicyPanel } from '#/components/agent-operations/policy-panel'
 import { useShell } from '#/components/app-shell'
 import { PageHeader, Skeleton } from '#/components/ui'
 import {
   agentOperationQueryKeys,
+  createAgentOperationPolicy,
   decideAgentOperation,
+  disableAgentOperationPolicy,
   executeAgentOperation,
   listAgentOperationEvents,
+  listAgentOperationPolicies,
   listAgentOperationProposals,
   proposalRevision,
 } from '#/lib/agent-operations'
@@ -36,6 +40,11 @@ function AgentOperationsRoute() {
   const proposalsQuery = useQuery({
     queryKey: agentOperationQueryKeys.proposals,
     queryFn: () => listAgentOperationProposals(dataClient),
+    enabled: Boolean(context.workspace?.id),
+  })
+  const policiesQuery = useQuery({
+    queryKey: agentOperationQueryKeys.policies,
+    queryFn: () => listAgentOperationPolicies(dataClient),
     enabled: Boolean(context.workspace?.id),
   })
   const proposals = proposalsQuery.data ?? []
@@ -71,8 +80,46 @@ function AgentOperationsRoute() {
       queryClient.invalidateQueries({
         queryKey: agentOperationQueryKeys.events(proposalId),
       }),
+      queryClient.invalidateQueries({
+        queryKey: agentOperationQueryKeys.policies,
+      }),
     ])
   }
+  const refreshPolicies = () =>
+    queryClient.invalidateQueries({
+      queryKey: agentOperationQueryKeys.policies,
+    })
+
+  const policyMutation = useMutation({
+    mutationFn: ({
+      name,
+      targetType,
+      targetId,
+      maxAffectedRows,
+    }: {
+      name: string
+      targetType: Parameters<typeof createAgentOperationPolicy>[1]['targetType']
+      targetId: string | null
+      maxAffectedRows: number
+    }) =>
+      createAgentOperationPolicy(dataClient, {
+        workspaceId: context.workspace?.id ?? '',
+        name,
+        operationKind: 'dataset_rows.commit',
+        targetType,
+        targetId,
+        maxAffectedRows,
+      }),
+    onSuccess: refreshPolicies,
+  })
+  const disablePolicyMutation = useMutation({
+    mutationFn: (policyId: string) =>
+      disableAgentOperationPolicy(dataClient, {
+        workspaceId: context.workspace?.id ?? '',
+        policyId,
+      }),
+    onSuccess: refreshPolicies,
+  })
 
   const approveMutation = useMutation({
     mutationFn: (proposal: AgentOperationProposal) =>
@@ -118,6 +165,9 @@ function AgentOperationsRoute() {
   const error =
     proposalsQuery.error ??
     eventsQuery.error ??
+    policiesQuery.error ??
+    policyMutation.error ??
+    disablePolicyMutation.error ??
     approveMutation.error ??
     rejectMutation.error ??
     executeMutation.error
@@ -128,6 +178,8 @@ function AgentOperationsRoute() {
       : executeMutation.isPending
         ? 'execute'
         : null
+  const canManagePolicies =
+    context.workspace?.role === 'owner' || context.workspace?.role === 'steward'
 
   useShell({
     context: {
@@ -148,7 +200,7 @@ function AgentOperationsRoute() {
         <PageHeader
           eyebrow={context.workspace?.name ?? undefined}
           title="Agent operations"
-          description="Inspect deterministic impact, approve with a human session, then execute through the same governed operation used by the product."
+          description="Inspect deterministic impact and policy evidence. Safe drafts run automatically; consequential writes need human approval unless an owner or steward delegated a bounded target."
           className="border-0 pb-4"
         />
       </div>
@@ -160,19 +212,27 @@ function AgentOperationsRoute() {
       {proposalsQuery.isLoading ? (
         <Skeleton className="m-4 h-72" />
       ) : (
-        <ProposalWorkbench
-          proposals={proposals}
-          events={eventsQuery.data ?? []}
-          selectedId={effectiveSelectedId}
-          onSelect={setSelectedId}
-          onApprove={(proposal) => approveMutation.mutate(proposal)}
-          onReject={(proposal, reason) =>
-            rejectMutation.mutate({ proposal, reason })
-          }
-          onExecute={(proposal) => executeMutation.mutate(proposal)}
-          canApprove={canApprove}
-          pendingAction={pendingAction}
-        />
+        <>
+          <AgentOperationPolicyPanel
+            policies={policiesQuery.data ?? []}
+            canManage={canManagePolicies}
+            onCreate={(input) => policyMutation.mutate(input)}
+            onDisable={(policy) => disablePolicyMutation.mutate(policy.id)}
+          />
+          <ProposalWorkbench
+            proposals={proposals}
+            events={eventsQuery.data ?? []}
+            selectedId={effectiveSelectedId}
+            onSelect={setSelectedId}
+            onApprove={(proposal) => approveMutation.mutate(proposal)}
+            onReject={(proposal, reason) =>
+              rejectMutation.mutate({ proposal, reason })
+            }
+            onExecute={(proposal) => executeMutation.mutate(proposal)}
+            canApprove={canApprove}
+            pendingAction={pendingAction}
+          />
+        </>
       )}
     </div>
   )

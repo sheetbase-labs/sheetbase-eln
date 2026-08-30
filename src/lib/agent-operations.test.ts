@@ -3,8 +3,11 @@ import { describe, expect, it, vi } from 'vitest'
 import type { DataClient } from './data-client'
 import {
   agentOperationLabel,
+  createAgentOperationPolicy,
   decideAgentOperation,
+  disableAgentOperationPolicy,
   executeAgentOperation,
+  listAgentOperationPolicies,
   proposeAgentOperation,
 } from './agent-operations'
 import type { AgentOperation } from './agent-operations'
@@ -91,6 +94,43 @@ describe('agent operation client contract', () => {
       p_proposal_id: 'proposal-1',
       p_expected_revision: 4,
     })
+  })
+
+  it('uses the policy RPCs and workspace-scoped policy catalogue', async () => {
+    const rpc = vi.fn().mockResolvedValue({ id: 'policy-1' })
+    const list = vi.fn().mockResolvedValue([{ id: 'policy-1' }])
+    const client = { ...clientWithRpc(rpc), list }
+
+    await createAgentOperationPolicy(client, {
+      workspaceId: 'workspace-1',
+      name: 'Dataset delegation',
+      operationKind: 'dataset_rows.commit',
+      targetType: 'dataset',
+      targetId: 'dataset-1',
+      maxAffectedRows: 25,
+    })
+    await disableAgentOperationPolicy(client, {
+      workspaceId: 'workspace-1',
+      policyId: 'policy-1',
+    })
+    await listAgentOperationPolicies(client)
+
+    expect(rpc).toHaveBeenNthCalledWith(1, 'create_agent_operation_policy', {
+      p_workspace_id: 'workspace-1',
+      p_name: 'Dataset delegation',
+      p_operation_kind: 'dataset_rows.commit',
+      p_target_type: 'dataset',
+      p_target_id: 'dataset-1',
+      p_limits: { maxAffectedRows: 25 },
+    })
+    expect(rpc).toHaveBeenNthCalledWith(2, 'disable_agent_operation_policy', {
+      p_workspace_id: 'workspace-1',
+      p_policy_id: 'policy-1',
+    })
+    expect(list).toHaveBeenCalledWith(
+      'agent_operation_policies',
+      expect.stringContaining('workspace_id'),
+    )
   })
 
   it('has no publish, signature, attestation, or workflow operation variants', () => {

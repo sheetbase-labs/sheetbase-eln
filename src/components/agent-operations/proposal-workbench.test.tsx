@@ -57,7 +57,19 @@ const proposal: AgentOperationProposal = {
     affectedRows: 1,
     destructive: false,
   },
+  risk_class: 'consequential_write',
   approval_policy: 'human_required',
+  policy_id: null,
+  policy_reason: 'Consequential Dataset writes require human approval.',
+  policy_limits: {},
+  policy_target: {
+    type: 'dataset',
+    id: '33333333-3333-4333-8333-333333333333',
+  },
+  policy_evidence: {
+    actorKind: 'user',
+    targetMatched: false,
+  },
   status: 'pending',
   revision: '1',
   idempotency_key: 'invocation-1:operation-1',
@@ -76,6 +88,7 @@ const proposal: AgentOperationProposal = {
   rejected_at: null,
   rejection_reason: null,
   executed_by_user_id: null,
+  executed_by_credential_id: null,
   executed_at: null,
   result: null,
   error_code: null,
@@ -114,8 +127,8 @@ describe('ProposalWorkbench', () => {
       />,
     )
 
-    expect(screen.getByText('human approval required')).toBeTruthy()
-    expect(screen.getByText('Deterministic impact')).toBeTruthy()
+    expect(screen.getByText('human required')).toBeTruthy()
+    expect(screen.getByText('Policy decision and impact')).toBeTruthy()
     expect(screen.getByText('Dataset rows')).toBeTruthy()
     expect(
       screen.getByText('rows.44444444-4444-4444-8444-444444444444'),

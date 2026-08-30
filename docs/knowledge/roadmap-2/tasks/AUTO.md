@@ -84,15 +84,19 @@ Agents propose schema/Definition/Pipeline/data operations through normal APIs; p
 **Complete.** Typed, single-operation proposals cover canonical Dataset Schema
 draft creation, Sheet Definition draft creation/update, Pipeline
 Definition/draft creation/update, and Dataset row commits. PostgreSQL derives
-the deterministic preview and impact, binds idempotency to an exact request,
-and applies optimistic proposal and target revisions. `/agent-operations`
-provides a dense inspection, approval, rejection, execution, provenance and
-evidence timeline.
+the deterministic preview, impact, risk class and policy decision, binds
+idempotency to an exact request, and applies optimistic proposal and target
+revisions. `/agent-operations` provides policy management, dense inspection,
+approval, rejection, execution, provenance and evidence.
 
-Every operation requires approval and execution from a human session holding
-the underlying canonical capability. Execution delegates to the existing
-Dataset Schema, Sheet Definition, Pipeline Definition/version or
-`commit_dataset_row_batch` RPC, so validation, permissions, canonical audit
+Reversible draft operations execute automatically by default when the existing
+canonical external scope is present. Dataset row commits remain
+human-required by default. An owner or steward can delegate a canonical
+workspace, project, Dataset, Pipeline Definition, Notebook Record or
+Definition target with explicit limits. The matched policy, reason, target,
+limits and evaluation evidence are stored on the proposal. Execution delegates
+to the existing Dataset Schema, Sheet Definition, Pipeline Definition/version
+or `commit_dataset_row_batch` RPC, so validation, permissions, canonical audit
 events and immutable published/evidence boundaries remain unchanged. Publish,
 submit, sign, amend and lock operations are excluded. Multi-step goal
 orchestration remains AUTO-05. See ADR 0043.

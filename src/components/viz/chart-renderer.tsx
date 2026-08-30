@@ -425,12 +425,6 @@ function ChartPlot({
               strokeDasharray={series.renderAs === 'line' ? '6 4' : undefined}
               dot={series.renderAs === 'line' ? false : { r: 3 }}
               isAnimationActive={false}
-              onClick={(_data, index) =>
-                selectionProps.onSelect({
-                  seriesIdentifier: series.identifier,
-                  index,
-                })
-              }
             />
           ) : (
             <Line
@@ -443,12 +437,6 @@ function ChartPlot({
               dot={{ r: 4, fill: series.color, stroke: series.color }}
               isAnimationActive={false}
               legendType="circle"
-              onClick={(_data, index) =>
-                selectionProps.onSelect({
-                  seriesIdentifier: series.identifier,
-                  index,
-                })
-              }
             />
           ),
         )}

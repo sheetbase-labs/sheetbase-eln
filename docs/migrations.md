@@ -72,9 +72,10 @@ This repository:
 - commits the SQL for every journal entry (required);
 - commits `_journal.json` (required);
 - keeps a sparse snapshot chain: historical pre-CORE files through `0023`,
-  the last Kit generate at `0087`, and the current schema checkpoint
-  `0110_snapshot.json`;
-- does **not** keep a snapshot per custom SQL migration (`0088`–`0109`).
+  the last CORE generate at `0087`, the checkpoint `0110_snapshot.json`, and
+  recent generates `0148_snapshot.json` and `0149_snapshot.json`;
+- does **not** keep a snapshot for every custom SQL migration
+  (`0088`–`0147`).
 
 `0110_core_schema_snapshot_checkpoint.sql` is a no-op. It keeps the journal
 and the current generate baseline aligned after CORE custom SQL that Kit did
@@ -82,7 +83,7 @@ not snapshot. Do not replace it with `CREATE TABLE` for objects those
 migrations already created.
 
 When `schema.ts` changes, run `pnpm db:generate` as usual. The new snapshot
-chains from `0110`.
+chains from the latest snapshot, currently `0149`.
 
 ## Rollback and recovery
 
@@ -94,6 +95,6 @@ recorded recovery note do not merge.
 
 ## Environment
 
-`DATABASE_URL` comes from `.env.local` (see `.env.example`). Migrations run
-against the database that `DATABASE_URL` points at. Check the value before
-you run destructive verification steps.
+`MIGRATION_DATABASE_URL` comes from `.env.local` (see `.env.example`).
+`drizzle-kit` prefers `MIGRATION_DATABASE_URL`. It falls back to
+`DATABASE_URL`. Check the value before you run destructive verification steps.

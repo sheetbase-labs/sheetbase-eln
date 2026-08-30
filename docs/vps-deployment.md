@@ -199,13 +199,18 @@ necessary, unless you use a PAT.
 ### Automatic (push to main, when GitHub Actions is available)
 
 1. A push to `main` triggers `.github/workflows/deploy.yml`.
-2. The `build` job builds the app and PostgREST Docker images. It pushes them
-   to GHCR with `@sha256` digests.
+2. The `verify` job runs the release gate. The `build` job then builds the
+   app and PostgREST Docker images. It pushes them to GHCR with `@sha256`
+   digests.
 3. The `deploy` job joins the Tailscale network of the VPS, connects by SSH,
    pulls the latest code, loads `.env.production`, and runs:
    - `pnpm deploy:plan` — validates image/migration compatibility.
    - `pnpm deploy:apply` — runs migrations, starts the app, polls readiness.
 4. The Cloudflare Tunnel stays up. Only the app container restarts.
+
+> **Note:** The workflow trigger block is commented out (PLAT-03 pause).
+> The workflow cannot fire until you re-enable it. Use the local release
+> flow below in the meantime.
 
 ### Local release (no GitHub Actions required)
 
@@ -223,12 +228,15 @@ This command runs the enforced gate (typecheck, lint, unit tests, db tests
 against a disposable container, build, production dependency audit). It then
 builds the immutable app and PostgREST images locally (no registry). Then it
 runs `deploy:plan` → `deploy:apply` with the identical readiness proof. Full
-contract: `docs/deployment.md` → "Releasing without GitHub Actions".
+contract: `docs/deployment.md` → "Release without GitHub Actions
+(`pnpm release:local`)".
 
 ### Manual
 
-Trigger the workflow from the GitHub Actions UI (workflow dispatch). Type
-`deploy` in the confirmation field.
+`deploy.yml` defines workflow dispatch with a `deploy` confirmation field.
+The trigger block is commented out, so dispatch is currently unavailable.
+Re-enable the trigger first, then trigger the workflow from the GitHub
+Actions UI and type `deploy` in the confirmation field.
 
 ### First-time deployment
 
@@ -248,8 +256,10 @@ set +a
 docker build --build-arg POSTGREST_VERSION=v14.5 \
   -t sheetbase/postgrest:v14.5 docker/postgrest
 
-# Build the app image locally.
-export SHEETBASE_NODE_IMAGE=node:22-alpine
+# Build the app image locally. Resolve the Node base image to an immutable
+# digest first — the artifact builder rejects bare tags.
+docker pull node:22-alpine
+export SHEETBASE_NODE_IMAGE="$(docker inspect --format '{{index .RepoDigests 0}}' node:22-alpine)"
 export SHEETBASE_ARTIFACT_VERSION=initial
 export SHEETBASE_ARTIFACT_TAG=sheetbase-eln:initial
 pnpm artifact:build
@@ -269,7 +279,7 @@ immutable `@sha256` image references from GHCR.
 > **Note:** The first deploy uses local image tags without `@sha256` digests.
 > The `deploy.ts` controller validates `@sha256` references. For the initial
 > bootstrap you may need to bypass the controller. Run `docker compose -f
-> compose.deploy.yaml up -d --wait` directly. Then use the CI-driven flow for
+compose.deploy.yaml up -d --wait` directly. Then use the CI-driven flow for
 > all later deploys.
 
 ## Rollback

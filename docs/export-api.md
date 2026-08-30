@@ -59,8 +59,8 @@ schema[]        { key, label, logicalType, nullable, unit }
 notes[]         live/version statement
 ```
 
-CSV/TSV keep pure data (headers only). Units and schema travel in the JSON,
-the NDJSON companion or the XLSX Metadata sheet. Category and reference
+CSV/TSV keep pure data (headers only). Units and schema travel in the JSON
+or the XLSX Metadata sheet. Category and reference
 cells keep their stable option/target ids. Labels are presentation; ids are
 identity.
 
@@ -115,7 +115,8 @@ A receipt is part of the successful-export contract. It persists after the
 export content is generated (for streams, strictly after a successful close)
 with the exact number of delivered rows. A receipt failure aborts the
 export. Failed exports leave no receipt. Export is a read-plane action, so
-plain unsuspended workspace membership gates the receipt RPC. Workspace
+unsuspended workspace membership gates the data reads through RLS. The export
+route resolves the workspace and actor from the caller's membership. Workspace
 `viewer` accounts may export data they can read. The system records the
 action on their behalf.
 

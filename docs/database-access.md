@@ -2,17 +2,17 @@
 
 This page describes how roles, schemas, and privileges divide the database.
 It also shows how an HTTP request's claims reach row-level-security policies.
-API-002 settled this model; see `docs/decisions/0002-database-role-model.md`.
+API-002 settled this model; see `docs/knowledge/decisions/0002-database-role-model.md`.
 
 ## Roles
 
-| Role            | Login | Purpose                                                                                                                                                           |
-| --------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `migrator`      | yes   | Owns the database and all schema objects. Runs migrations (Drizzle) and DDL. The app and PostgREST do not use it at request time.                                  |
-| `authenticator` | yes   | The only credential PostgREST holds. It has no table rights; it can only `SET ROLE` to `anon` or `authenticated`.                                                     |
-| `anon`          | no    | Serves unauthenticated requests. Has USAGE on `api` and nothing else by default.                                                                                                |
-| `authenticated` | no    | Serves signed-in requests. Gets per-object grants in each migration.                                                                                                          |
-| `service_role`  | no    | Performs narrow service operations (token exchange, workers). Gets per-object grants only.                                                                         |
+| Role            | Login | Purpose                                                                                                                                                                |
+| --------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `migrator`      | yes   | Owns the database and all schema objects. Runs migrations (Drizzle) and DDL. The app and PostgREST do not use it at request time.                                      |
+| `authenticator` | yes   | The only credential PostgREST holds. It has no table rights; it can only `SET ROLE` to `anon` or `authenticated`.                                                      |
+| `anon`          | no    | Serves unauthenticated requests. Has USAGE on `api` and nothing else by default.                                                                                       |
+| `authenticated` | no    | Serves signed-in requests. Gets per-object grants in each migration.                                                                                                   |
+| `service_role`  | no    | Performs narrow service operations (token exchange, workers). Gets per-object grants only.                                                                             |
 | `sheetbase`     | yes   | Local bootstrap superuser, created by the postgres image. Used by compose health checks, the init script, and test-database administration. The product never uses it. |
 
 Passwords exist only in `.env.local` (see `.env.example`). They enter the
@@ -37,7 +37,7 @@ boundary; application checks only improve error messages (see `TODO.md`).
 Each capability uses one of three shapes:
 
 1. **Safe CRUD tables** — ordinary tables with per-role `GRANT SELECT /
-   INSERT / UPDATE / DELETE` and RLS policies. This is the default choice.
+INSERT / UPDATE / DELETE` and RLS policies. This is the default choice.
 2. **Read-only views** — for composite reads that a client should not
    assemble itself. `GRANT SELECT` only, with `security_invoker = true`, so
    the view runs with the caller's permissions.
@@ -153,9 +153,9 @@ RLS alone cannot express these integrity guards:
   `target_record_id` is set may not point at a record in a different
   workspace. RLS already prevents reading across workspaces. This trigger
   prevents a writer from forging a link to an invisible target.
-- `revisions` are append-only history. Grants give `authenticated` and
-  `api_client` `SELECT`/`INSERT` only, so UPDATE and DELETE fail closed at
-  the privilege layer.
+- `revisions` are append-only history. Grants give `authenticated` `SELECT`
+  and `INSERT`, and give `api_client` `SELECT` only. UPDATE and DELETE fail
+  closed at the privilege layer.
 
 `api.create_record(p_project_id, p_kind, p_title, p_status, p_tags)` assigns
 a stable, type-prefixed, project-scoped identifier (`EXP-`/`PRT-`/`RPT-`
@@ -178,9 +178,10 @@ Request roles get row reads/deletes and column-level writes only for managed
 literal fields. Machine names are immutable database-generated `sheet_…` and
 `col_…` names; labels never become SQL identifiers. Schema and row changes
 emit lightweight events without scientific values. DATA-002 grants metadata,
-generated rows, and management RPCs only to authenticated workspace members.
-`api_client` scientific access and its explicit scopes are intentionally
-deferred to DATA-003. The shared event transport already carries credential
+generated rows, and management RPCs to authenticated workspace members.
+DATA-003 grants the same access to the `api_client` role. The external API
+allowlist does not expose scientific resources; see `docs/external-api.md`.
+The shared event transport already carries credential
 attribution for future verified direct paths.
 
 `api.add_scientific_column(uuid, integer, text, text, boolean, jsonb, jsonb,
@@ -214,5 +215,6 @@ completed server calculation. Its `calculation_status` distinguishes
 `pending`, `current`, `stale`, `failed`, and `unavailable`. Structured
 current calculation errors use `calculation_error_code`. Generated sheet
 resources never substitute these derived values for literals. Browser
-members and external credentials with `scientific:read` can query all three
-resources within their claimed workspace.
+members can query all three resources within their claimed workspace.
+External credentials cannot reach these resources; the external allowlist
+denies them.

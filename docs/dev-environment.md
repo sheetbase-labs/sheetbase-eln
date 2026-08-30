@@ -78,11 +78,13 @@ Auth fallback secret. OAuth variables are intentionally absent.
 ## Deploying a change
 
 The workflow is manual. It does not deploy from pull requests automatically.
-After a PR is reviewed, run **Actions → Deploy development environment**,
-select a branch or tag, and enter `deploy-dev`. The workflow builds immutable
-GHCR images, connects with SSH over Tailscale using only development
-environment secrets, migrates the dev database, re-runs the idempotent demo
-seed, and verifies the VPS loopback readiness endpoint.
+The trigger block in `.github/workflows/deploy-dev.yml` is commented out
+(PLAT-03 pause), so the workflow currently cannot run. When re-enabled, run
+**Actions → Deploy development environment**, select a branch or tag, and enter
+`deploy-dev`. The workflow builds immutable GHCR images, connects with SSH over
+Tailscale using only development environment secrets, migrates the dev
+database, re-runs the idempotent demo seed, and verifies the VPS loopback
+readiness endpoint.
 
 AMP can create or update the ordinary GitHub PR for code review. It needs no
 VPS, Cloudflare, or production secret. A human with the GitHub Actions

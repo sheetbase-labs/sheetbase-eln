@@ -121,13 +121,13 @@ not customer SLOs.
 
 ### Interactive latency (p95, server-side)
 
-| Workload              | Budget                        | Measured baseline                                |
-| --------------------- | ----------------------------- | ------------------------------------------------ |
-| Common navigation     | < 500 ms                      | notebook and explorer load RPCs are inside       |
-| Common metadata reads | < 300 ms                      | dataset page reads 8–237 ms (page 100)           |
-| Single-cell save      | < 500 ms                      | 1-row commit p95 38.6 ms                         |
-| Filter/sort response  | interactive at supported size | 100k-row filter+sort page p95 237 ms             |
-| Search                | < 300 ms                      | 15 ms DB-side after the maintained FTS index     |
+| Workload              | Budget                        | Measured baseline                            |
+| --------------------- | ----------------------------- | -------------------------------------------- |
+| Common navigation     | < 500 ms                      | notebook and explorer load RPCs are inside   |
+| Common metadata reads | < 300 ms                      | dataset page reads 8–237 ms (page 100)       |
+| Single-cell save      | < 500 ms                      | 1-row commit p95 38.6 ms                     |
+| Filter/sort response  | interactive at supported size | 100k-row filter+sort page p95 237 ms         |
+| Search                | < 300 ms                      | 15 ms DB-side after the maintained FTS index |
 
 ### Dataset scale
 
@@ -501,8 +501,8 @@ before you scale.
   previous per-row implementation buffered the entire version in Node (1.2M
   value rows for a 100k input). The set-based path avoids that buffer.
 - Pipeline result rows are still fully buffered in Node before the output
-  phase (up to 100k rows × 1 MiB cell cap). This is documented bounded
-  buffering.
+  phase (up to 100k rows × a 1,000,000-character cell cap). This is
+  documented bounded buffering.
 - File uploads and downloads stream in 64 KiB chunks; the routes never buffer
   a whole file.
 - XLSX and Parquet exports materialise in memory (XLSX is unbounded by the
@@ -566,7 +566,7 @@ users, and names are never label values:
 | `sheetbase_dataset_rpc_duration_seconds`          | histogram | `operation` (query_dataset_rows, query_dataset_version_rows, commit_dataset_row_batch, snapshot_dataset, search, other) |
 | `sheetbase_dataset_commit_duration_seconds`       | histogram | `size_bucket` (small/medium/large/xlarge)                                                                               |
 | `sheetbase_dataset_snapshot_duration_seconds`     | histogram | `size_bucket`                                                                                                           |
-| `sheetbase_pipeline_stage_duration_seconds`       | histogram | `stage` (materialize_inputs, transform, output_commit, dataset_commit, dataset_snapshot, output_overhead, total)        |
+| `sheetbase_pipeline_stage_duration_seconds`       | histogram | `stage` (materialize_inputs, transform, output_commit, dataset_commit, dataset_snapshot, total)                         |
 | `sheetbase_pipeline_runs_total`                   | counter   | `trigger_kind` (manual/scheduled/event), `outcome`                                                                      |
 | `sheetbase_pipeline_active_runs`                  | gauge     | —                                                                                                                       |
 | `sheetbase_scheduler_sweep_duration_seconds`      | histogram | —                                                                                                                       |
@@ -678,7 +678,8 @@ product limit). The PostgreSQL source scales to 50k+ rows.
 `query_sheet_instance_rows` hydrates a Dataset-bound grid in about 82 ms p50
 for a 200-row page over a 10k-row Dataset. Notebook bodies load in about
 20 ms at any tested size (index-backed, about 40 µs per block amortised). The
-notebook screen issues 4 data requests (record + blocks + links + files).
+notebook screen fetches project, record, blocks, links, and activity data in
+parallel. File lists derive from blocks, without a separate request.
 
 ### Failure under pressure
 

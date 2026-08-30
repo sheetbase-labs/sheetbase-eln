@@ -215,11 +215,13 @@ Example error response:
 {
   "error": {
     "category": "template_not_instantiable",
-    "code": "SB006",
     "message": "cannot instantiate from a draft notebook template (must be validated)"
   }
 }
 ```
+
+The proxy error envelope carries `category`, `message`, and optionally
+`request_id`. It does not carry the SQLSTATE code.
 
 ## Archived-template behavior
 

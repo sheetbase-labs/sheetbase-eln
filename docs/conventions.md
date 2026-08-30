@@ -2,7 +2,7 @@
 
 These conventions keep names predictable across PostgreSQL, PostgREST, the
 application and tests. Follow them unless a decision record in
-`docs/decisions/` says otherwise.
+`docs/knowledge/decisions/` says otherwise.
 
 ## Directory boundaries
 
@@ -10,7 +10,7 @@ application and tests. Follow them unless a decision record in
 | ---------------------------------- | ------------------------------------------------------------------------ | ------------------------------- |
 | `src/`                             | Production application. Only code here ships.                            | `src/` and packages             |
 | `Concepts/sheetbase-ui-system-v2/` | UI-system study. Reference only; not a dependency, not built by the app. | Nothing in `src/` may import it |
-| `Mockups/`                         | Product mockups and the specification PDF. Reference only.               | Never imported                  |
+| `docs/knowledge/mockups/`          | Product mockups. Reference only.                                         | Never imported                  |
 | `docs/`                            | Working conventions and decision records.                                | Never imported                  |
 
 Copy small, reviewed pieces from `Concepts/` into `src/` when a ticket
@@ -51,7 +51,7 @@ the database rules above:
 - Safe-CRUD resources are plural snake_case nouns under `/projects`,
   `/workspace_memberships` etc. They match the exposed `api` schema object.
 - Read-only composite views take the name of what the reader gets
-  (`project_summaries`), not the name of their join structure.
+  (`formula_results`), not the name of their join structure.
 - Mutation RPCs live under `/rpc/<verb>_<noun>` (`/rpc/create_project`,
   `/rpc/move_block`). Use them only when direct CRUD cannot keep the
   required integrity.
@@ -70,14 +70,17 @@ the database rules above:
 
 ## Event type naming
 
-Change and audit events use `<domain>.<entity>.<past_tense_verb>`:
+Webhook event types use `<entity>.<past_tense_verb>`
+(`src/lib/webhook-events.ts` maps internal change events to these names):
 
 - `project.created`, `project.archived`
-- `notebook.block_inserted`, `notebook.block_moved`, `notebook.block_updated`
-- `review.submitted`, `review.signature_recorded`
+- `record.created`, `record.updated`, `record.deleted`
+- `dataset.created`, `dataset.versioned`
+- `notebook.submitted`, `notebook.signed`, `review.decided`
 
-The entity segment uses the singular domain noun. Add new event types; never
-rename existing types: consumers may be replaying history.
+The entity segment uses the singular domain noun. Only a curated subset of
+internal change events maps to webhook event types. Add new event types;
+never rename existing types: consumers may be replaying history.
 
 ## TanStack Table vs Handsontable
 
@@ -91,7 +94,7 @@ Both are in the stack deliberately. Choose per surface, not per preference.
   blocks, dataset edit modes and plate-adjacent entry where cell-range
   selection, fill handles, paste matrices and in-cell editors are the actual
   task. It always sits behind the Sheetbase wrapper component
-  (see `SHEET-001` in `TODO.md`), never as a raw vendor instance.
+  (`src/components/sheet/sheetbase-grid.tsx`), never as a raw vendor instance.
 - If a surface only needs row selection, sorting and an inspector, use
   TanStack Table. Do not reach for Handsontable to make a read-only grid
   look better.
@@ -99,5 +102,5 @@ Both are in the stack deliberately. Choose per surface, not per preference.
 ## Formatting and linting
 
 Prettier owns formatting, ESLint owns code rules. `pnpm format` applies both.
-`pnpm check` verifies formatting in CI and in `pnpm validate`. Do not
+`pnpm check` verifies formatting in `pnpm validate`. Do not
 hand-tune formatting that Prettier will revert.

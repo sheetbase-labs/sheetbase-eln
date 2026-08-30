@@ -56,16 +56,16 @@ series.
 
 ## Plot types
 
-| Type | Encoding |
-| --- | --- |
-| `scatter` | numeric x/y; optional series/colour/size |
-| `line` | ordered x, connected |
-| `scatter_line` / `connected_scatter` | points plus connecting lines |
-| `histogram` | y only; shared bin edges |
-| `box` / `violin` / `strip` | distribution of y, grouped by series |
-| `bar` / `grouped_bar` / `stacked_bar` | categorical or numeric x, y height |
-| `summary` | grouped mean or median with explicit interval |
-| `heatmap` | x×y grid; count or aggregate of `valueField` |
+| Type                                  | Encoding                                      |
+| ------------------------------------- | --------------------------------------------- |
+| `scatter`                             | numeric x/y; optional series/colour/size      |
+| `line`                                | ordered x, connected                          |
+| `scatter_line` / `connected_scatter`  | points plus connecting lines                  |
+| `histogram`                           | y only; shared bin edges                      |
+| `box` / `violin` / `strip`            | distribution of y, grouped by series          |
+| `bar` / `grouped_bar` / `stacked_bar` | categorical or numeric x, y height            |
+| `summary`                             | grouped mean or median with explicit interval |
+| `heatmap`                             | x×y grid; count or aggregate of `valueField`  |
 
 The builder recommends plot types deterministically: numeric+numeric →
 scatter, category+numeric → box, y-only → histogram. The user stays in
@@ -90,7 +90,7 @@ Missing or retired field IDs surface as `missing_field`.
 Filters are part of the definition: `eq`, `ne`, `gt`/`gte`/`lt`/`lte`,
 `in`, `between` (numeric or ISO date strings), `is_null`, `not_null`.
 
-Transforms are a bounded visualisation set: `aggregate`, `normalise`,
+Transforms are a bounded visualisation set: `aggregate`, `bin`, `normalise`,
 `log10`, `ln`, `sqrt`, `abs`, `percentage`, `difference`, `ratio`. They do
 not mutate the Dataset. They are not a second formula engine.
 
@@ -99,7 +99,8 @@ not mutate the Dataset. They are not a second formula engine.
 Grouped summaries expose count, mean, median, min/max, SD and SEM. The
 interval on the figure always records how the system produced it:
 
-- `source: computed` with `basis` `sd` | `sem` | `ci` | `range`
+- `source: computed` with `basis` `sd` | `se` | `sem` | `ci` | `range` |
+  `custom`
 - `source: field` with `fieldId` (symmetric half-width) or
   `lowerFieldId` / `upperFieldId`
 
@@ -142,9 +143,12 @@ only displayed marks. Fit lines are not sampled.
 A live visualisation re-reads current Dataset rows. `freeze_chart` snapshots
 a Dataset Version and stores provenance (`datasetId`, `datasetVersionId`,
 schema version, row count, checksum) without a second PL/pgSQL plot builder.
-Frozen rendering loads pinned Version rows and runs `materialiseChart`. Later
+Frozen rendering loads pinned Version rows and runs `materialiseChart`.
+Faceted charts rematerialise their per-facet panels from the same rows. Later
 Dataset edits change the live graph. They leave frozen evidence unchanged.
-Submission stamps `frozen.revisionId`.
+Freeze keeps column metadata for every ChartSpec-referenced field. This
+includes the heatmap `typeParams.heatmap.valueField`. Submission stamps
+`frozen.revisionId`.
 
 ## Notebook and Studio
 
@@ -178,7 +182,6 @@ statistics.
 ## Known limits
 
 - One Dataset per visualisation.
-- Faceted freeze of histogram/box/heatmap remains refused (SCI-01).
 - PDF figure export is not implemented; SVG is first-class, PNG is the
   raster path.
 - Clipboard image copy is best-effort (`navigator.clipboard`).

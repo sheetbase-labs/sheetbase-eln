@@ -53,12 +53,12 @@ pnpm backup:run
 
 Configuration:
 
-| Variable                              | Default                  | Purpose                            |
-| ------------------------------------- | ------------------------ | ---------------------------------- |
-| `SHEETBASE_COMPOSE_PROJECT`           | `sheetbase-deploy`       | Compose project name               |
-| `SHEETBASE_BACKUP_DIR`                | `/opt/sheetbase/backups` | Backup directory                   |
-| `SHEETBASE_BACKUP_RETENTION_DAYS`     | `14`                     | Days of backup sets to keep        |
-| `SHEETBASE_BACKUP_INCLUDE_OBJECTS`    | —                        | Set `false` to skip the storage archive |
+| Variable                           | Default                  | Purpose                                 |
+| ---------------------------------- | ------------------------ | --------------------------------------- |
+| `SHEETBASE_COMPOSE_PROJECT`        | `sheetbase-deploy`       | Compose project name                    |
+| `SHEETBASE_BACKUP_DIR`             | `/opt/sheetbase/backups` | Backup directory                        |
+| `SHEETBASE_BACKUP_RETENTION_DAYS`  | `14`                     | Days of backup sets to keep             |
+| `SHEETBASE_BACKUP_INCLUDE_OBJECTS` | —                        | Set `false` to skip the storage archive |
 
 **File permissions:** the backup runner creates the backup directory `0700`
 and every dump, archive, and manifest `0600`. Only the file owner reads

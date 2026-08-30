@@ -59,6 +59,9 @@ same-origin `/api/db/*` boundary (`src/routes/api/db/$.ts`). The boundary:
 3. mints a short-lived PostgREST JWT signed with `PGRST_JWT_SECRET`, and
 4. forwards the request upstream with validated path and query only.
 
+The same boundary also accepts external bearer tokens (`api_client` JWTs).
+Browser sessions and external tokens share one proxy and one error envelope.
+
 The session cookie never leaves the application boundary. The minted JWT
 carries the minimal claim set only — `sub`, `workspace_id`, `session_id`,
 `role` (`authenticated`), `iat`/`exp` — and expires within ~120s. See
@@ -67,7 +70,7 @@ decision record 0005 and `src/lib/postgrest-token.ts`.
 The proxy rejects missing sessions (401), users with no workspace (403),
 workspace-mismatched requests (403), disallowed paths (400) and upstream
 failures (502). All rejections use one non-sensitive
-`{ error: { code, message } }` envelope. `src/lib/postgrest-path.ts`
+`{ error: { category, message } }` envelope. `src/lib/postgrest-path.ts`
 validates that only `table` or `rpc/<name>` resources and bounded PostgREST
 query parameters survive. Clients cannot aim the proxy at another origin,
 schema or path.
@@ -80,9 +83,10 @@ never an error.
 
 ## Cookie policy
 
-Session cookies are HTTP-only and `SameSite=Lax` (Lax permits the OAuth
-callback round-trip while it blocks cross-site POSTs). `Secure` is enabled
-only in production, where HTTPS exists. The cookie value is the session
+Session cookies are HTTP-only with `SameSite=None` and `Secure` enabled in
+every environment. The GitHub OAuth callback is a cross-site top-level
+navigation, so the state cookie needs these attributes to survive the
+redirect (`src/lib/auth.ts`). The cookie value is the session
 token signed with `BETTER_AUTH_SECRET`. The token itself is the credential
 looked up in `internal.session`.
 

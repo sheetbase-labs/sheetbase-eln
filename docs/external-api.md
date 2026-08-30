@@ -66,6 +66,8 @@ exchange and rotation.
 | `templates:read` / `templates:write` | Template catalogue reads and instantiation                            |
 | `reviews:read`                       | Preview a submission digest. Does not run revision checks             |
 | `reviews:write`                      | Mintable. Does not submit, sign or amend                              |
+| `webhooks:read` / `webhooks:write`   | Webhook subscriptions and delivery history                            |
+| `agent_operations:read` / `…:write`  | Submit and inspect proposals and bounded workflows                    |
 | `schema:read`                        | Catalogue GET only                                                    |
 
 ### Still fail-closed
@@ -104,10 +106,18 @@ The full table is in `docs/public-api-contract.md` §2.1.
 `sheet_instances`, schema catalogues (`schema:read`), notebook templates
 (`templates:read`). Instance and schema **writes** go through RPCs.
 
+### Webhook and agent-operation tables
+
+`webhook_subscriptions` and `webhook_deliveries` are GET-only with
+`webhooks:read`. `agent_operation_proposals`, `agent_operation_events`,
+`agent_workflows`, `agent_workflow_steps`, and `agent_workflow_events` are
+GET-only with `agent_operations:read`. Mutations go through RPCs.
+
 ### RPCs
 
 See contract §2.1 for the Dataset, Sheet Instance, search, and model
-mappings. Project-domain RPCs still require `projects:write`.
+mappings. Project-domain RPCs still require `projects:write`. Webhook and
+agent-operation RPCs require `webhooks:write` and `agent_operations:write`.
 
 Direct INSERT/UPDATE/DELETE on `revisions` is not granted. Submit, sign,
 amend, and revision checks stay human-session-only. A credential with
@@ -142,6 +152,7 @@ Use either as a Bearer token against `/api/db/*`.
 | 400      | `invalid_request`    | Missing credential or scopes.         |
 | 401      | `invalid_credential` | Wrong secret or malformed credential. |
 | 403      | `revoked`            | Credential has been revoked.          |
+| 403      | `expired`            | Credential has expired.               |
 | 403      | `insufficient_scope` | Credential lacks a requested scope.   |
 | 429      | `rate_limited`       | Too many failed attempts; try later.  |
 
@@ -255,8 +266,7 @@ Data requests return the stable envelope documented in
 | `tests/db/external-api.test.ts`      | End-to-end RLS, use-time revocation/expiry/membership, attribution per kind       |
 | `src/lib/public-api-openapi.test.ts` | OpenAPI stays aligned with the live allowlist and both credential kinds           |
 
-Retired scientific-table tests (`tests/db/scientific-rest.test.ts`,
-`tests/api/scientific-rest.test.ts`) document **removed** behaviour. They
+Retired scientific-table REST tests were removed with that surface. They
 are not part of the public contract.
 
 ## Next steps for integrators

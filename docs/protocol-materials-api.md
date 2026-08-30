@@ -84,12 +84,12 @@ Errors use the shared public envelope:
   "error": {
     "category": "validation_error",
     "message": "The request could not be validated.",
-    "requestId": "<request-id>"
+    "request_id": "<request-id>"
   }
 }
 ```
 
-Relevant categories are `unauthorized`, `permission_denied`,
+Relevant categories are `unauthenticated`, `permission_denied`,
 `validation_error`, `stale_version`, `missing_link`, and `not_found`.
 Callers must branch on the category, not on PostgreSQL or PostgREST
 messages.

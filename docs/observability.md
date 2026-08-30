@@ -89,29 +89,29 @@ development the endpoint is open on localhost for convenience.
 
 ### Metric catalogue
 
-| Metric                                            | Type      | Labels (bounded)                                                                                                                 |
-| ------------------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `sheetbase_http_requests_total`                   | counter   | `route` (db_proxy, files_upload, files_download, files_upload_authorize, health, metrics), `method`, `status`                    |
-| `sheetbase_http_request_duration_seconds`         | histogram | `route`, `method`                                                                                                                |
-| `sheetbase_db_upstream_requests_total`            | counter   | `category` (public error categories, `ok`)                                                                                       |
-| `sheetbase_db_upstream_duration_seconds`          | histogram | `method`                                                                                                                         |
-| `sheetbase_connector_runs_total`                  | counter   | `connector_type` (instrument, storage, webhook, database, custom), `outcome` (started, succeeded, failed, stale_reconciled)      |
-| `sheetbase_connector_run_failures_total`          | counter   | `connector_type`, `error_code` (bounded set, else `other`)                                                                       |
-| `sheetbase_connector_run_duration_seconds`        | histogram | `connector_type`, `outcome`                                                                                                      |
-| `sheetbase_file_operations_total`                 | counter   | `operation` (upload, download), `outcome` (ok, oversize, checksum_mismatch, conflict, not_found, not_uploadable, missing, error) |
-| `sheetbase_file_bytes_total`                      | counter   | `operation`                                                                                                                      |
-| `sheetbase_file_operation_duration_seconds`       | histogram | `operation`                                                                                                                      |
-| `sheetbase_dataset_rpc_duration_seconds`          | histogram | `operation` (query_dataset_rows, query_dataset_version_rows, commit_dataset_row_batch, snapshot_dataset, search, other)          |
-| `sheetbase_dataset_commit_duration_seconds`       | histogram | `size_bucket` (small/medium/large/xlarge)                                                                                        |
-| `sheetbase_dataset_snapshot_duration_seconds`     | histogram | `size_bucket`                                                                                                                    |
-| `sheetbase_pipeline_stage_duration_seconds`       | histogram | `stage` (materialize_inputs, transform, output_commit, dataset_commit, dataset_snapshot, total)                                  |
-| `sheetbase_pipeline_runs_total`                   | counter   | `trigger_kind` (manual/scheduled/event), `outcome` (succeeded/failed/cancelled)                                                  |
-| `sheetbase_pipeline_active_runs`                  | gauge     | —                                                                                                                                |
-| `sheetbase_scheduler_sweep_duration_seconds`      | histogram | —                                                                                                                                |
-| `sheetbase_scheduler_due_occurrences_total`       | counter   | —                                                                                                                                |
-| `sheetbase_scheduler_recovered_occurrences_total` | counter   | —                                                                                                                                |
-| `sheetbase_scheduler_events_processed_total`      | counter   | —                                                                                                                                |
-| `sheetbase_search_duration_seconds`               | histogram | —                                                                                                                                |
+| Metric                                            | Type      | Labels (bounded)                                                                                                                               |
+| ------------------------------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sheetbase_http_requests_total`                   | counter   | `route` (db_proxy, files_upload, files_download, files_upload_authorize, health, metrics), `method`, `status`                                  |
+| `sheetbase_http_request_duration_seconds`         | histogram | `route`, `method`                                                                                                                              |
+| `sheetbase_db_upstream_requests_total`            | counter   | `category` (public error categories, `ok`)                                                                                                     |
+| `sheetbase_db_upstream_duration_seconds`          | histogram | `method`                                                                                                                                       |
+| `sheetbase_connector_runs_total`                  | counter   | `connector_type` (instrument, storage, webhook, database, custom), `outcome` (started, succeeded, failed, stale_reconciled)                    |
+| `sheetbase_connector_run_failures_total`          | counter   | `connector_type`, `error_code` (bounded set, else `other`)                                                                                     |
+| `sheetbase_connector_run_duration_seconds`        | histogram | `connector_type`, `outcome`                                                                                                                    |
+| `sheetbase_file_operations_total`                 | counter   | `operation` (upload, download), `outcome` (ok, oversize, checksum_mismatch, conflict, not_found, not_uploadable, missing, rate_limited, error) |
+| `sheetbase_file_bytes_total`                      | counter   | `operation`                                                                                                                                    |
+| `sheetbase_file_operation_duration_seconds`       | histogram | `operation`                                                                                                                                    |
+| `sheetbase_dataset_rpc_duration_seconds`          | histogram | `operation` (query_dataset_rows, query_dataset_version_rows, commit_dataset_row_batch, snapshot_dataset, search)                               |
+| `sheetbase_dataset_commit_duration_seconds`       | histogram | `size_bucket` (small/medium/large/xlarge)                                                                                                      |
+| `sheetbase_dataset_snapshot_duration_seconds`     | histogram | `size_bucket`                                                                                                                                  |
+| `sheetbase_pipeline_stage_duration_seconds`       | histogram | `stage` (materialize_inputs, transform, output_commit, dataset_commit, dataset_snapshot, total)                                                |
+| `sheetbase_pipeline_runs_total`                   | counter   | `trigger_kind` (manual/scheduled/event), `outcome` (succeeded/failed/cancelled)                                                                |
+| `sheetbase_pipeline_active_runs`                  | gauge     | —                                                                                                                                              |
+| `sheetbase_scheduler_sweep_duration_seconds`      | histogram | —                                                                                                                                              |
+| `sheetbase_scheduler_due_occurrences_total`       | counter   | —                                                                                                                                              |
+| `sheetbase_scheduler_recovered_occurrences_total` | counter   | —                                                                                                                                              |
+| `sheetbase_scheduler_events_processed_total`      | counter   | —                                                                                                                                              |
+| `sheetbase_search_duration_seconds`               | histogram | —                                                                                                                                              |
 
 ### Cardinality policy
 
@@ -209,12 +209,12 @@ The logger (`src/lib/logger.ts`) emits one JSON object per line. Info and
 debug go to stdout. Warn and error go to stderr, so operators can split
 streams. Severity conventions:
 
-| Level   | Use                                                                             |
-| ------- | ------------------------------------------------------------------------------- |
-| `debug` | Local development only. Never on in production.                                 |
-| `info`  | Request lifecycle and successful operations.                                    |
-| `warn`  | Recoverable problems: bad client input, rate limit hit, expected 4xx upstream.  |
-| `error` | Failures a developer must investigate: upstream 5xx, connection failure.        |
+| Level   | Use                                                                            |
+| ------- | ------------------------------------------------------------------------------ |
+| `debug` | Local development only. Never on in production.                                |
+| `info`  | Request lifecycle and successful operations.                                   |
+| `warn`  | Recoverable problems: bad client input, rate limit hit, expected 4xx upstream. |
+| `error` | Failures a developer must investigate: upstream 5xx, connection failure.       |
 
 `LOG_LEVEL` selects the minimum severity emitted (default `info`).
 
@@ -241,18 +241,24 @@ Proxy failures and upstream PostgREST errors are returned as:
 ```
 
 Clients must branch on `category`, never on string messages or
-PostgREST-internal codes. The category set:
+PostgREST-internal codes. The category set covers proxy, upstream and
+application errors:
 
-| Category              | HTTP | Meaning                                            |
-| --------------------- | ---- | -------------------------------------------------- |
-| `validation_error`    | 400  | Bad input, constraint check, malformed path.       |
-| `unauthenticated`     | 401  | No valid session or credential.                    |
-| `permission_denied`   | 403  | RLS, scope, or no active workspace.                |
-| `not_found`           | 404  | Resource does not exist.                           |
-| `conflict`            | 409  | Unique violation, serialization failure, deadlock. |
-| `rate_limited`        | 429  | Too many attempts.                                 |
-| `service_unavailable` | 500+ | Upstream down or schema not loaded.                |
-| `server_error`        | 500  | Unclassified — a developer must investigate.       |
+| Category                    | HTTP | Meaning                                              |
+| --------------------------- | ---- | ---------------------------------------------------- |
+| `validation_error`          | 400  | Bad input, constraint check, malformed path.         |
+| `unauthenticated`           | 401  | No valid session or credential.                      |
+| `permission_denied`         | 403  | RLS, scope, or no active workspace.                  |
+| `not_found`                 | 404  | Resource does not exist.                             |
+| `conflict`                  | 409  | Unique violation, serialization failure, deadlock.   |
+| `stale_version`             | 409  | Expected version did not match (SQLSTATE SB001).     |
+| `missing_link`              | 422  | A record link target is unresolved (SQLSTATE SB002). |
+| `invalid_transition`        | 422  | Disallowed lifecycle status transition (SB004).      |
+| `invalid_properties`        | 422  | A configurable property failed validation (SB005).   |
+| `template_not_instantiable` | 422  | Template is draft or archived (SB006).               |
+| `rate_limited`              | 429  | Too many attempts.                                   |
+| `service_unavailable`       | 500+ | Upstream down or schema not loaded.                  |
+| `server_error`              | 500  | Unclassified — a developer must investigate.         |
 
 PostgREST error `details` and `hint` fields are dropped before the public
 envelope is built. They can leak schema internals. The `message` is

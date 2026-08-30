@@ -18,10 +18,11 @@ document are placeholders.
 - Shared infrastructure holds no chart-type-specific or dataset-specific
   columns. The spec is a validated JSONB payload.
 - A **live** chart reads rows through `query_dataset_rows` (keyed by
-  field_id). The client caps reads at 5000 rows and shows a true
-  over-limit state. A **frozen** chart carries an immutable materialised
-  snapshot with provenance (dataset id, schema version number, row count,
-  checksum). Submission stamps `frozen.revisionId` automatically.
+  field_id). The client caps reads at 10000 rows
+  (`SCI_ANALYSIS_ROW_LIMIT`) and shows a true over-limit state. A **frozen**
+  chart carries an immutable materialised snapshot with provenance (dataset
+  id, schema version number, row count, checksum). Submission stamps
+  `frozen.revisionId` automatically.
 - Ordinary CRUD rejects frozen-chart mutations. Only the
   `freeze_chart` / `unfreeze_chart` transactional SECURITY DEFINER RPCs may
   write a frozen payload. Each RPC re-validates JWT workspace/actor
@@ -166,8 +167,8 @@ It is rejected once the chart is bound to a submitted revision.
 
 | Condition                 | Proxy category     | Notes                                                                                                                                                             |
 | ------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Missing dataset reference | `validation_error` | The referenced `scientific_table` is absent or not active.                                                                                                        |
-| Missing field             | `validation_error` | A bound column is absent from the referenced table.                                                                                                               |
+| Missing dataset reference | `validation_error` | The referenced Dataset is absent, archived, or in another workspace.                                                                                              |
+| Missing field             | `validation_error` | A bound field is absent from the referenced Dataset's Schema Version.                                                                                             |
 | Empty dataset             | `validation_error` | Freeze rejects an empty filtered dataset.                                                                                                                         |
 | Invalid log-scale values  | `validation_error` | A log axis has non-positive values (live renderer surfaces this state).                                                                                           |
 | Stale calculation         | `stale_version`    | A stale `p_expected_version` on freeze/unfreeze/bind (SB001). A stale HyperFormula result for a plotted column surfaces as a `stale` render state in the live UI. |

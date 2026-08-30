@@ -25,8 +25,7 @@ Status today: all five layers are wired.
 ## Rules that apply at every layer
 
 - **Isolation over seeding.** Tests create the data they need and clean up
-  after themselves. Tests never depend on demonstration seed data (see
-  `FND-003` in `TODO.md`).
+  after themselves. Tests never depend on demonstration seed data.
 - **Fixtures are stable and minimal.** Shared fixtures use the stable
   identities defined in the seed conventions. Rich demo data is for humans,
   not assertions.
@@ -105,17 +104,16 @@ API-005 follow-up external-path integration.
 
 ## Phase 4 sheet-and-formula proof (DATA-006)
 
-`pnpm test:phase4` runs the stable Phase 4 workflow across the component,
-database, real PostgREST, and real-browser layers. The proof shows:
+`pnpm test:phase4` runs the stable Phase 4 workflow proof. The browser
+proof lives at `tests/browser/phase4-proof.test.ts`. It runs against the
+real PostgREST stack and a real browser started by the Playwright
+configuration. The proof shows:
 
 - a Virus Stability notebook can own two managed sheets;
-- typed columns, units, validation, CSV import, literals, and durable
-  formulas survive display-name changes;
 - within-sheet and cross-sheet calculations use stable identities;
-- validation, stale-version, circular-reference, and stale-cache states stay
-  explicit;
-- an attributed external API edit reaches both Handsontable grids and their
-  dependent HyperFormula results through the live-event stream.
+- the record view renders both managed sheets and their calculated values;
+- managed-sheet REST edits with an external API credential fail closed with
+  a permission error.
 
 The browser proof inserts a short-lived Better Auth session directly, in the
 same way that the OAuth callback would after provider consent. It never

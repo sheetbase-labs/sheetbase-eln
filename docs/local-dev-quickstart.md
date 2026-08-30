@@ -93,7 +93,7 @@ amp orb service start dev --command 'pnpm dev'
 
 | Symptom                                    | Fix                                                                                                 |
 | ------------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| App redirects to `/sign-in`                | `SHEETBASE_DEV_AUTH_FREE` is not `true` in `.env.local`; restart dev server after you fix the value  |
+| App redirects to `/sign-in`                | `SHEETBASE_DEV_AUTH_FREE` is not `true` in `.env.local`; restart dev server after you fix the value |
 | PostgREST `permission denied for table`    | Normal for anon role without auth; the app proxies with its own client role                         |
 | `Port 3000 is in use`                      | A stale Vite process survived; kill it (`kill <pid>`) or use the port Vite picked (check logs)      |
 | No data on pages                           | Run `pnpm db:seed:demo` to create fixture data                                                      |

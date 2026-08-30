@@ -82,6 +82,18 @@ Verified in `src/lib/external-token.ts` (API-07):
 | `notebook_templates`            | `templates:read` | —                                             |
 | `notebook_template_versions`    | `templates:read` | —                                             |
 
+**Webhook and agent-operation tables:**
+
+| Resource                    | Read scope              | Write scope            |
+| --------------------------- | ----------------------- | ---------------------- |
+| `webhook_subscriptions`     | `webhooks:read`         | — (mutations use RPCs) |
+| `webhook_deliveries`        | `webhooks:read`         | —                      |
+| `agent_workflows`           | `agent_operations:read` | — (mutations use RPCs) |
+| `agent_workflow_steps`      | `agent_operations:read` | —                      |
+| `agent_workflow_events`     | `agent_operations:read` | —                      |
+| `agent_operation_proposals` | `agent_operations:read` | —                      |
+| `agent_operation_events`    | `agent_operations:read` | —                      |
+
 **Project-domain RPCs (`projects:write`):**
 
 `create_project`, `create_record`, `create_record_with_blocks`,
@@ -115,6 +127,18 @@ Verified in `src/lib/external-token.ts` (API-07):
 `preview_notebook_template_upgrade` (`templates:read`);
 `instantiate_notebook_template_version`,
 `apply_notebook_template_upgrade` (`templates:write`).
+
+**Webhook RPCs (`API-06`):** `create_webhook_subscription`,
+`update_webhook_subscription`, `delete_webhook_subscription`,
+`rotate_webhook_secret`, `replay_webhook_delivery` (`webhooks:write`);
+`list_webhook_deliveries` (`webhooks:read`).
+
+**Agent operation RPCs (`agent_operations:write`):**
+`propose_agent_operation`, `create_agent_workflow`,
+`advance_agent_workflow`, `report_agent_workflow_usage`,
+`cancel_agent_workflow`. Approval, execution, and workflow resume RPCs
+(`decide_agent_operation`, `execute_agent_operation`,
+`resume_agent_workflow`) stay denied. They require a human session.
 
 **Explicit denials:** Unknown tables and RPCs fail closed. Schema-authoring
 RPCs (`create_dataset_schema_definition`, Dataset Schema publish/retire,
@@ -364,25 +388,29 @@ Scopes are **capabilities on domain operations**, not SQL grants.
 
 ### 8.1 Scope vocabulary (target)
 
-| Scope             | Grants (when implemented)                                                                                                                   |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `projects:read`   | Read projects, folders, notebook tables, revisions (GET)                                                                                    |
-| `projects:write`  | Project/notebook/record/block mutations in project domain (current allowlist)                                                               |
-| `models:read`     | Read model field definitions, search records by model                                                                                       |
-| `models:write`    | Create/update model records, custom fields, lifecycle transitions                                                                           |
-| `datasets:read`   | Query datasets, versions, and rows. Does **not** include Dataset Schema catalogues.                                                         |
-| `datasets:write`  | Create datasets, commit rows, snapshot versions. Does **not** include schema stewardship.                                                   |
-| `schema:read`     | Read governed catalogues: Dataset Schema, Sheet Definition, Model fields.                                                                   |
-| `schema:write`    | Draft governed schema/configuration edits. Maps to session capability `schema.edit`.                                                        |
-| `schema:publish`  | Publish or retire governed schema/configuration. Maps to `schema.publish` / `schema.retire`.                                                |
-| `sheets:read`     | Read Sheet Instances and composed rows. Definition catalogues use `schema:read`.                                                            |
-| `sheets:write`    | Instance mutations, write-back, materialize, definition upgrade of an instance (`instance.upgrade`). Does **not** author Sheet Definitions. |
-| `templates:read`  | Read notebook templates and versions                                                                                                        |
-| `templates:write` | Author/publish/instantiate/upgrade notebook templates                                                                                       |
-| `reviews:read`    | Preview a submission digest on the credential path. Does **not** run revision checks.                                                       |
-| `reviews:write`   | Mintable. Does **not** submit, sign or amend; those stay human-session-only.                                                                |
-| `files:read`      | Download file objects                                                                                                                       |
-| `files:write`     | Upload and finalize files                                                                                                                   |
+| Scope                    | Grants (when implemented)                                                                                                                   |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `projects:read`          | Read projects, folders, notebook tables, revisions (GET)                                                                                    |
+| `projects:write`         | Project/notebook/record/block mutations in project domain (current allowlist)                                                               |
+| `models:read`            | Read model field definitions, search records by model                                                                                       |
+| `models:write`           | Create/update model records, custom fields, lifecycle transitions                                                                           |
+| `datasets:read`          | Query datasets, versions, and rows. Does **not** include Dataset Schema catalogues.                                                         |
+| `datasets:write`         | Create datasets, commit rows, snapshot versions. Does **not** include schema stewardship.                                                   |
+| `schema:read`            | Read governed catalogues: Dataset Schema, Sheet Definition, Model fields.                                                                   |
+| `schema:write`           | Draft governed schema/configuration edits. Maps to session capability `schema.edit`.                                                        |
+| `schema:publish`         | Publish or retire governed schema/configuration. Maps to `schema.publish` / `schema.retire`.                                                |
+| `sheets:read`            | Read Sheet Instances and composed rows. Definition catalogues use `schema:read`.                                                            |
+| `sheets:write`           | Instance mutations, write-back, materialize, definition upgrade of an instance (`instance.upgrade`). Does **not** author Sheet Definitions. |
+| `templates:read`         | Read notebook templates and versions                                                                                                        |
+| `templates:write`        | Instantiate and upgrade notebook templates. Template authoring RPCs stay human-session-only.                                                |
+| `reviews:read`           | Preview a submission digest on the credential path. Does **not** run revision checks.                                                       |
+| `reviews:write`          | Mintable. Does **not** submit, sign or amend; those stay human-session-only.                                                                |
+| `files:read`             | Download file objects. Mintable. Access stays fail-closed until DATA-02 / PLAT-01.                                                          |
+| `files:write`            | Upload and finalize files. Mintable. Access stays fail-closed until DATA-02 / PLAT-01.                                                      |
+| `webhooks:read`          | Read webhook subscriptions and delivery history                                                                                             |
+| `webhooks:write`         | Create, update and delete webhook subscriptions. Rotate secrets. Replay deliveries.                                                         |
+| `agent_operations:read`  | Read typed agent operation proposals and workflow records                                                                                   |
+| `agent_operations:write` | Propose operations. Create, advance, report usage on, and cancel bounded workflows.                                                         |
 
 **Invariant:** Data-editing scopes (`datasets:*`, `sheets:write`,
 `models:write`) never grant governed schema/configuration authority.
@@ -488,7 +516,7 @@ Once API-03 publishes versioned docs:
 | **API-03**          | OpenAPI 3.1 of the external credential surface (`docs/openapi/external-api-v0.json`), covering both credential kinds. **Done** (`#51`, `#56`). |
 | **API-04**          | Python SDK — pagination iterators, pandas, idempotent helpers                                                                                  |
 | **API-05**          | TypeScript SDK — typed resources, isomorphic fetch                                                                                             |
-| **API-06**          | Webhooks — signed delivery, retries, event schema (`record.submitted`, `dataset.versioned`, …)                                                 |
+| **API-06**          | Webhooks — signed delivery, retries, event schema (`record.submitted`, `dataset.versioned`, …). **Done** (`drizzle/0147_api_06_webhooks.sql`). |
 | **DATA-02/PLAT-01** | `api_client` file access; S3 backend                                                                                                           |
 | **GOV-01**          | `viewer` read-only semantics (affects RLS, not contract shape)                                                                                 |
 
@@ -501,15 +529,15 @@ DATA-02/PLAT-01.
 
 ## 11. Related documentation
 
-| Document                                               | Contents                                                                    |
-| ------------------------------------------------------ | --------------------------------------------------------------------------- |
-| `docs/openapi/external-api-v0.json`                    | OpenAPI 3.1 for operations an external credential can complete (both kinds) |
-| `docs/external-api.md`                                 | Credential exchange, **current** allowlist, CLI examples                    |
-| `docs/notebook-api.md`                                 | Notebook/block/revision RPC reference                                       |
-| `docs/search-api.md`                                   | `search` RPC                                                                |
-| `docs/authentication.md`                               | Browser session auth                                                        |
-| `docs/decisions/0005-postgrest-claim-set-and-proxy.md` | Proxy architecture                                                          |
-| `docs/core/PRODUCT_CORE.md`                            | Domain model principles                                                     |
+| Document                                                         | Contents                                                                    |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `docs/openapi/external-api-v0.json`                              | OpenAPI 3.1 for operations an external credential can complete (both kinds) |
+| `docs/external-api.md`                                           | Credential exchange, **current** allowlist, CLI examples                    |
+| `docs/notebook-api.md`                                           | Notebook/block/revision RPC reference                                       |
+| `docs/search-api.md`                                             | `search` RPC                                                                |
+| `docs/authentication.md`                                         | Browser session auth                                                        |
+| `docs/knowledge/decisions/0005-postgrest-claim-set-and-proxy.md` | Proxy architecture                                                          |
+| `docs/core/PRODUCT_CORE.md`                                      | Domain model principles                                                     |
 
 ---
 
@@ -522,9 +550,11 @@ data-plane writes succeed for service credentials with `credential_id`
 attribution (`drizzle/0115_api_07_credential_write_actors.sql`).
 
 - Allowlist: `src/lib/external-token.ts`
-- Scope minting: `src/lib/api-credentials.ts` (`VALID_SCOPES`)
+- Scope vocabulary: `src/lib/api-credential-scopes.ts` (`VALID_SCOPES`)
 - Fail-closed + Core mapping tests: `src/lib/external-token.test.ts`
 - Scope split lock: `src/lib/public-api-contract.test.ts`
 - Grants: `drizzle/0114_api_07_core_external_allowlist.sql`, `drizzle/0115_api_07_credential_write_actors.sql`
+- Webhooks: `drizzle/0147_api_06_webhooks.sql`
+- Agent operations and workflows: `drizzle/0148_auto_04_agent_operations.sql`, `drizzle/0149_auto_05_agentic_workflows.sql`
 - Integration: `tests/db/external-api.test.ts`, `tests/db/api-credentials.test.ts`
 - Proxy errors: `src/lib/errors.ts`, `src/lib/postgrest-proxy.ts`

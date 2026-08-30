@@ -169,7 +169,9 @@ The response contains the updated block with the incremented `version`.
 ## Validation errors
 
 The DB trigger raises `SQLSTATE 23514` for invalid payloads. The proxy maps
-this to the `validation_error` category.
+this to the `validation_error` category. The envelope carries the category
+and message, not the SQLSTATE. The application validator
+(`src/lib/plate-map.ts`) reports these codes before submission:
 
 | Code                       | Description                                                         |
 | -------------------------- | ------------------------------------------------------------------- |
@@ -194,11 +196,13 @@ Example error response:
 {
   "error": {
     "category": "validation_error",
-    "code": "23514",
-    "message": "duplicate wellCode \"A1\" (also at index 0)"
+    "message": "duplicate well code: A1"
   }
 }
 ```
+
+The envelope carries `category` and `message`. The proxy does not surface
+the raw SQLSTATE.
 
 ## Archived-sample behavior
 

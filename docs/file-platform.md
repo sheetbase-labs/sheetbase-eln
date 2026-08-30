@@ -25,8 +25,9 @@ generates the storage key; the key is independent of the user filename.
 
 - **Checksums:** The platform computes a sha256 checksum while it streams
   bytes to storage. An upload fails with `409 checksum_mismatch` when the
-  declared checksum does not match the uploaded bytes. The failure marks the
-  object `missing`.
+  declared checksum does not match the uploaded bytes. The route deletes the
+  rejected candidate bytes. The object keeps its previous status (`missing`
+  for a first upload).
 - **Immutability of retained evidence:** When a revision is submitted, the
   platform pins every attached file's identity, checksum and size into
   `internal.revision_file_objects`. The live `file_objects` row then becomes
@@ -62,8 +63,8 @@ and nothing about its existence leaks.
 | Storage key shape | `<uuid>/<uuid>/[0-9a-f]{32}`                                                           | DB CHECK + finalizer regex                                         |
 
 Zero-byte uploads are valid (`byte_size BETWEEN 0 AND 104857600`). Oversize
-uploads abort mid-stream. The platform removes partial objects and marks the
-file object `missing`.
+uploads abort mid-stream. The platform removes the partial object. The file
+object keeps its previous status.
 
 ## Lifecycle
 
@@ -100,7 +101,7 @@ exists yet.
 `ObjectStorage` (`putStream/getStream/head/delete`) is the only way bytes
 move. `LocalFileStorage` ships today. The schema already models
 `storage_backend='s3'` for a future S3-compatible implementation. No other
-code in the code base touches the filesystem directly.
+application code moves file bytes.
 
 ## Relationship to instrument raw files
 

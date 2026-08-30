@@ -14,21 +14,21 @@ authoritative permission boundary.
 All administration lives under `/admin`. The admin surface is a single-page
 tabbed interface with these sections:
 
-| Section              | Route                  | Capability required          | Purpose                                                    |
-| -------------------- | ---------------------- | ---------------------------- | ---------------------------------------------------------- |
-| Dashboard            | `/admin/dashboard`     | (any member)                 | Health, activity, usage, and attention indicators         |
-| Members              | `/admin/users`         | `workspace.admin`            | Membership, roles, invitations, suspension                 |
-| Project access       | `/admin/project-access`| `workspace.admin`            | Explicit per-project access grants                         |
-| Workspace settings   | `/admin/settings`      | `workspace.admin`            | Registration, review, signature, retention policies       |
-| Sessions             | `/admin/sessions`      | `workspace.admin`            | Authenticated session review and revocation                |
-| API credentials      | `/admin/api-credentials`| `workspace.admin`           | Service credential and personal token lifecycle            |
-| Connectors           | `/admin/connectors`    | `integrations.manage`        | Connector status, secrets, run health                      |
-| Pipelines            | `/admin/pipelines`     | `pipelines.manage`           | Pipeline definitions, schedules, run health                |
-| Storage              | `/admin/storage`       | (any member)                 | File storage overview and largest files                    |
-| Usage                | `/admin/usage`         | (any member)                 | Workspace counts and capacity indicators                   |
-| Audit                | `/admin/activity`      | (any member)                 | Audit trail browser with filters and export                |
-| Diagnostics          | `/admin/diagnostics`   | (any member)                 | Health checks, scheduler, executor, configuration state    |
-| Deployment           | `/admin/deployment`    | (any member)                 | Version, environment, migration state, operational links   |
+| Section            | Route                    | Capability required   | Purpose                                                  |
+| ------------------ | ------------------------ | --------------------- | -------------------------------------------------------- |
+| Dashboard          | `/admin/dashboard`       | (any member)          | Health, activity, usage, and attention indicators        |
+| Members            | `/admin/users`           | `workspace.admin`     | Membership, roles, invitations, suspension               |
+| Project access     | `/admin/project-access`  | `workspace.admin`     | Explicit per-project access grants                       |
+| Workspace settings | `/admin/settings`        | `workspace.admin`     | Registration, review, signature, retention policies      |
+| Sessions           | `/admin/sessions`        | `workspace.admin`     | Authenticated session review and revocation              |
+| API credentials    | `/admin/api-credentials` | `workspace.admin`     | Service credential and personal token lifecycle          |
+| Connectors         | `/admin/connectors`      | `integrations.manage` | Connector status, secrets, run health                    |
+| Pipelines          | `/admin/pipelines`       | `pipelines.manage`    | Pipeline definitions, schedules, run health              |
+| Storage            | `/admin/storage`         | (any member)          | File storage overview and largest files                  |
+| Usage              | `/admin/usage`           | (any member)          | Workspace counts and capacity indicators                 |
+| Audit              | `/admin/activity`        | (any member)          | Audit trail browser with filters and export              |
+| Diagnostics        | `/admin/diagnostics`     | (any member)          | Health checks, scheduler, executor, configuration state  |
+| Deployment         | `/admin/deployment`      | (any member)          | Version, environment, migration state, operational links |
 
 The navigation bar shows only sections the current user can access. Direct
 URL access to a restricted section shows a permission-denied notice. It does
@@ -41,12 +41,12 @@ capabilities through `api.has_capability` (PostgreSQL SECURITY DEFINER RPCs
 with RLS). The UI mirrors the same capability mapping from
 `src/lib/capability.ts`.
 
-| Capability              | Roles                              | Admin sections gated           |
-| ----------------------- | ---------------------------------- | ------------------------------ |
-| `workspace.admin`       | owner                              | Members, Project access, Settings, Sessions, API credentials |
-| `integrations.manage`   | owner, admin, steward              | Connectors                     |
-| `pipelines.manage`      | owner, admin, steward              | Pipelines                      |
-| (none — member access)  | all workspace members              | Dashboard, Storage, Usage, Audit, Diagnostics, Deployment |
+| Capability             | Roles                 | Admin sections gated                                         |
+| ---------------------- | --------------------- | ------------------------------------------------------------ |
+| `workspace.admin`      | owner                 | Members, Project access, Settings, Sessions, API credentials |
+| `integrations.manage`  | owner, admin, steward | Connectors                                                   |
+| `pipelines.manage`     | owner, admin, steward | Pipelines                                                    |
+| (none — member access) | all workspace members | Dashboard, Storage, Usage, Audit, Diagnostics, Deployment    |
 
 The model has these invariants:
 
@@ -72,8 +72,6 @@ The Workspace settings section (`/admin/settings`, owner-only) provides:
 - **Audit retention days** — how long the system retains change events.
 - **Integration settings** — a JSON blob for workspace-level integration
   configuration.
-
-Immutable fields (workspace ID, creation metadata) are shown read-only.
 
 ## Member administration
 
@@ -172,11 +170,11 @@ operational administration. It does not duplicate authoring.
 ### Available in `/admin/pipelines`
 
 - **Pipeline definitions** — name, status, current published version.
-- **Schedules** — kind, enabled, next run, last run, timezone, event selector.
+- **Schedules** — kind, enabled, next run, last run, and timezone.
 - **Schedule enable/disable** — toggle pipeline schedules through the
   canonical `api.update_pipeline_schedule` RPC. Requires `pipelines.manage`.
   Produces audit and change evidence.
-- **Run health** — recent failed, running, and stale counts.
+- **Run health** — recent running, failed, and recently succeeded counts.
 - **Retry and cancel** — links to the canonical pipeline run detail for retry
   or cancel where the pipeline runtime supports it.
 
@@ -191,15 +189,14 @@ canonical Pipeline model.
 ### Schedule administration
 
 Each schedule shows: Pipeline, kind (interval, daily, or event), enabled,
-next run, last run, timezone, and event selector. The UI highlights overdue
-or stale schedules and repeated failures. The UI does not silently fix
-schedule state.
+next run, last run, and timezone. The UI highlights overdue schedules and
+recent failed runs. The UI does not silently fix schedule state.
 
 ### Run health overview
 
 An operational view shows recent pipeline and connector runs grouped by:
-Running, Failed, Recently succeeded, and Stale/reconciled. Links go to the
-canonical detailed run views.
+Running, Failed, and Recently succeeded. Links go to the canonical detailed
+run views.
 
 ## Storage overview
 
@@ -226,13 +223,11 @@ The Usage section (`/admin/usage`, any member) shows workspace counts:
 
 The UI shows capacity warnings when values exceed validated scale:
 
-- Datasets above 100k rows — "Above validated scale".
 - File storage above 10 GB — an informational warning.
-- More than 100 schedules — "Above validated scale".
+- More than 100 enabled schedules — "Above validated scale".
 
 These are informational warnings, not SLO violation alerts. The language
-uses explicit terms like "Above validated scale" and "Approaching configured
-limit".
+uses explicit terms like "Above validated scale".
 
 ## Audit administration
 
@@ -259,7 +254,8 @@ The Diagnostics section (`/admin/diagnostics`, any member) shows:
   and recovered stale count. When the scheduler is disabled, the status shows
   "Disabled". When the scheduler is enabled but no schedules are evaluated
   yet, the last sweep shows "No schedules evaluated yet", not a false healthy
-  value.
+  value. The last evaluated timestamp is a best-effort signal, not a
+  heartbeat.
 - **Pipeline executor diagnostics** — active runs, recent failures,
   execution timeout, row and input caps.
 - **Connector diagnostics** — active and paused counts, recent failures,
@@ -267,8 +263,8 @@ The Diagnostics section (`/admin/diagnostics`, any member) shows:
   `integrations.manage`; non-managers do not see this section.
 - **Configuration state** — file backend, auth mode, external API enabled,
   connector secret encryption, metrics enabled, collaboration enabled.
-- **Migration state** — current versus expected migration: up to date,
-  behind, or unknown.
+- **Migration state** — current versus expected migration: compatible,
+  behind, or not checked.
 
 ### Health semantics
 
@@ -280,7 +276,7 @@ application down.
 ### Diagnostic checks
 
 Checks are explicit and bounded: database query, PostgREST query, scheduler
-heartbeat, and pipeline executor stats. No check is destructive. External
+state, and pipeline executor stats. No check is destructive. External
 connector systems are not probed without user action.
 
 ## Deployment information
@@ -288,9 +284,8 @@ connector systems are not probed without user action.
 The Deployment section (`/admin/deployment`, any member) shows:
 
 - Sheetbase version and commit SHA.
-- Build time and environment.
+- Environment and secret source.
 - Database migration version (expected versus applied).
-- PostgreSQL version and PostgREST version (where available).
 
 It also shows links to operational runbooks:
 
@@ -299,6 +294,7 @@ It also shows links to operational runbooks:
 - [Security](security.md)
 - [Performance](performance.md)
 - [Observability](observability.md)
+- [Administration](administration.md)
 
 It exposes no secrets, JWT tokens, internal hostnames, or raw environment
 dumps.
@@ -339,7 +335,7 @@ workspace setting changes.
 
 Admin lists are bounded with pagination: members, credentials, connector
 runs, pipeline runs, audit events, and files. The system does not load all
-history. See `docs/testing.md` for pagination conventions.
+history.
 
 ## Common operational workflows
 
@@ -394,9 +390,9 @@ history. See `docs/testing.md` for pagination conventions.
 
 1. Go to `/admin/diagnostics` or `/admin/deployment` (any member).
 2. Check the migration state section.
-3. "Up to date" means the database matches the expected migration.
-4. "Behind" or "Unknown" means the app and database are out of sync. Follow
-   the migration runbook in [deployment.md](deployment.md).
+3. "Compatible" means the database matches the expected migration.
+4. "Behind" or "Not checked" means the app and database are out of sync.
+   Follow the migration runbook in [deployment.md](deployment.md).
 
 ### Export the audit log
 

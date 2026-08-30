@@ -74,9 +74,10 @@ It does:
 
 0. **Release gate (`verify` job, PLAT-01):** typecheck, lint, unit tests,
    database integration tests (against a service PostgreSQL with the same
-   role skeleton as Compose), and a production build must all pass before
-   any image is built. A red gate blocks the release. There is no override
-   switch. The API and browser contract layers (`pnpm test:api`,
+   role skeleton as Compose), a production dependency audit
+   (`pnpm audit --prod --audit-level=high`), and a production build must all
+   pass before any image is built. A red gate blocks the release. There is no
+   override switch. The API and browser contract layers (`pnpm test:api`,
    `pnpm test:browser`) need the pinned PostgREST service and run outside
    this gate. They are not claimed as CI gates here.
 1. Resolve `node:22-alpine` to its immutable digest with `docker inspect`.
@@ -112,13 +113,15 @@ The deployment planner rejects mutable application and PostgREST references.
 ### Hosted surfaces today
 
 The environment model above is the supported _contract_. The surfaces that
-exist today are production (`app.sheetbase.co.uk`, deployed automatically
-from `main`) and the disposable development surface (`dev.sheetbase.co.uk`,
-manual dispatch). Test/CI exists as the workflow gate environment. Staging is
-defined but not provisioned. It becomes real only when infrastructure
-evidence exists (see "Outstanding real-environment proof"). Nothing in the
-application branches on `SHEETBASE_ENV=staging` beyond the
-deployed-environment validation rules.
+exist today are production (`app.sheetbase.co.uk`) and the disposable
+development surface (`dev.sheetbase.co.uk`). The `deploy.yml` and
+`deploy-dev.yml` triggers are currently paused, so production releases run
+through the local release path (`pnpm release:local` on the VPS). Test/CI
+exists as the workflow gate environment. Staging is defined but not
+provisioned. It becomes real only when infrastructure evidence exists (see
+"Outstanding real-environment proof"). Nothing in the application branches on
+`SHEETBASE_ENV=staging` beyond the deployed-environment validation rules and
+the metrics endpoint fail-closed access model.
 
 ### Configuration that varies and must not vary
 
@@ -249,9 +252,11 @@ the release independent of their availability.
 
 ### Development surface
 
-The disposable development surface (`dev.sheetbase.co.uk`) uses the same
-local-build idea against `compose.dev.yaml` with its auth-free fixture
-environment. See `docs/dev-environment.md`.
+The disposable development surface (`dev.sheetbase.co.uk`) deploys through
+`.github/workflows/deploy-dev.yml` against `compose.dev.yaml` with its
+auth-free fixture environment. That workflow builds images, pushes them to
+GHCR, and applies them on the development VPS at loopback port 3100 with
+migrations, seed data, and a readiness poll. See `docs/dev-environment.md`.
 
 ### First deploy and Cloudflare hostname sequencing
 
@@ -317,7 +322,8 @@ real managed secrets, deploy a clean registry artifact by digest, and keep
 the successful migration and readiness evidence. Local tests and a
 deployment plan do not satisfy this acceptance item.
 
-Hosted delivery is limited to production (`app.sheetbase.co.uk` from `main`)
-and the disposable development surface (`dev.sheetbase.co.uk` through manual
-dispatch). See [`docs/dev-environment.md`](dev-environment.md) for the
+Hosted delivery covers production (`app.sheetbase.co.uk`) and the disposable
+development surface (`dev.sheetbase.co.uk` through manual dispatch). Both
+Actions triggers are currently paused; re-enable them when hosted runners
+are available. See [`docs/dev-environment.md`](dev-environment.md) for the
 auth-free development deploy.

@@ -25,32 +25,36 @@ used when a notebook references a scientific record.
 
 ## Configurable properties
 
-Scientific records carry a flat `properties` JSONB column. Each workspace
-configures the shape through `record_field_definitions`:
+Scientific records carry two JSONB objects. The flat `properties` column holds
+the legacy registry and system payload. Administrator-defined field values now
+live in the `custom_fields` column. Each workspace configures the field shape
+through `record_field_definitions`:
 
-| Field          | Purpose                                                                  |
-| -------------- | ------------------------------------------------------------------------ |
-| `field_name`   | stable machine key (immutable after creation)                            |
-| `label`        | human label shown in the inspector and picker                            |
-| `logical_type` | `text`, `integer`, `decimal`, `boolean`, `date`, `timestamp`, `category` |
-| `nullable`     | whether the value may be absent                                          |
-| `validation`   | `{ "enum": [...] }` for category fields                                  |
-| `unit`         | `{ "symbol": "µg" }` display unit                                        |
-| `lifecycle`    | `active` or `retired` (retired fields keep historical values)            |
+| Field          | Purpose                                                                               |
+| -------------- | ------------------------------------------------------------------------------------- |
+| `field_name`   | stable machine key (immutable once the field is active)                               |
+| `label`        | human label shown in the inspector and picker                                         |
+| `logical_type` | `text`, `integer`, `decimal`, `boolean`, `date`, `timestamp`, `category`, `reference` |
+| `nullable`     | whether the value may be absent                                                       |
+| `validation`   | `{ "enum": [...] }` for category fields                                               |
+| `unit`         | `{ "symbol": "µg" }` display unit                                                     |
+| `lifecycle`    | `draft`, `backfilling`, `active` or `retired` (retired fields keep historical values) |
 
-A PostgreSQL trigger (`internal.validate_record_properties`) validates
-`properties` against the active workspace definitions. It validates on INSERT
-and whenever kind or properties change. The application library
-(`src/lib/scientific-records.ts`) mirrors the checks to give better
-client-side errors. Experiment and report records skip validation because
-they have no field definitions.
+A PostgreSQL trigger (`internal.guard_model_custom_fields`) validates
+`custom_fields` through `internal.validate_model_fields`. It validates on
+INSERT and whenever kind, workspace or custom fields change. A second trigger
+(`internal.guard_record_properties`) keeps legacy `properties` read-only: new
+keys must be protected base fields, and existing values stay unchanged.
+The application library (`src/lib/scientific-records.ts`) mirrors the checks
+to give better client-side errors. Kinds without field definitions accept no
+custom fields.
 
 ## Resources
 
 | Resource                   | Shape                                                                                                        |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | `records`                  | filter by `kind=eq.sample`, `kind=eq.reagent`, `kind=eq.protocol_template`. `GET`, `PATCH`. Created via RPC. |
-| `record_field_definitions` | workspace-owned configurable field schema. `GET`, `POST`, `PATCH` (owner). `DELETE` not granted.             |
+| `record_field_definitions` | workspace-owned configurable field schema. `GET` only. Writes go through the model-field RPCs.               |
 | `record_links`             | typed links from a notebook record to a scientific record. Created via `create_record_link` RPC.             |
 
 ### Examples
@@ -66,7 +70,7 @@ All examples use placeholders. They do not use real credentials.
   "p_kind": "sample",
   "p_title": "Virus stock A",
   "p_status": "available",
-  "p_properties": { "note": "cold chain", "mass": 1.5 }
+  "p_properties": { "notes": "cold chain", "quantity": 1.5 }
 }
 // 200
 {
@@ -74,7 +78,7 @@ All examples use placeholders. They do not use real credentials.
   "identifier": "SMP-2026-0001",
   "kind": "sample",
   "status": "available",
-  "properties": { "note": "cold chain", "mass": 1.5 },
+  "properties": { "notes": "cold chain", "quantity": 1.5 },
   "created_by_user_id": "github|123",
   "metadata_version": 1
 }
@@ -92,26 +96,27 @@ separate filter.
 #### Define a configurable field
 
 ```jsonc
-// POST /api/db/record_field_definitions
+// POST /api/db/rpc/create_model_field
 {
-  "workspace_id": "00000000-0000-4000-8000-000000000001",
-  "kind": "sample",
-  "field_name": "mass",
-  "label": "Mass",
-  "display_order": 2,
-  "logical_type": "decimal",
-  "nullable": true,
-  "unit": { "symbol": "µg" },
-  "validation": {},
+  "p_workspace_id": "00000000-0000-4000-8000-000000000001",
+  "p_model_key": "sample",
+  "p_field_name": "mass",
+  "p_label": "Mass",
+  "p_logical_type": "decimal",
+  "p_nullable": true,
+  "p_unit": { "symbol": "µg" },
 }
 ```
 
-Only workspace owners may write field definitions. `field_name`, `kind`
-and `workspace_id` are immutable after creation.
+Workspace owners and admins write field definitions through the model-field
+RPCs (`create_model_field`, `update_model_field`, `activate_model_field`,
+`retire_model_field`). The schema grants no direct table writes. New fields
+start in the `draft` lifecycle. `field_name`, `kind` and `workspace_id` become
+immutable once the field is active, and retirement is permanent.
 
 ## RPCs
 
-All RPCs are `POST /api/db/rpc/<name>` with a JSON body. They run as
+The record RPCs are `POST /api/db/rpc/<name>` with a JSON body. They run as
 `SECURITY INVOKER`, so RLS still applies to all writes.
 
 ### `transition_record_status`

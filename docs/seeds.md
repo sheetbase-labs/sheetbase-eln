@@ -7,8 +7,9 @@ rerun seeds safely, and reset cleanly.
 
 **Minimal fixtures** (`pnpm db:seed`) — the smallest set of rows the product
 and integration tests assume can exist: one user, one workspace with owner
-membership, one project. Defined in `src/db/seed/run.ts` as `fixtureSteps`,
-using the stable identities in `src/db/seed/identities.ts`.
+membership, one project, plus the auth-free development user and membership.
+Defined in `src/db/seed/run.ts` as `fixtureSteps`, using the stable identities
+in `src/db/seed/identities.ts`.
 
 **Demonstration data** (`pnpm db:seed:demo`) — the larger Virus Stability
 example, used to explore and demo the product. It lives in `demoSteps`,
@@ -43,8 +44,8 @@ Never reuse a retired seed identity for a different record.
 
 ## Idempotency
 
-Every seed step upserts on a stable key (`ON CONFLICT … DO UPDATE` on the
-identity column). Rerunning `pnpm db:seed` must converge to the same state and
+Every seed step resolves a stable key (`ON CONFLICT … DO UPDATE` on the
+identity column, or `DO NOTHING` where a live workspace owns the identity). Rerunning `pnpm db:seed` must converge to the same state and
 never duplicate rows. If a seed step cannot be made idempotent, do not add it
 to the runner — fix the underlying uniqueness constraint first.
 

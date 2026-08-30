@@ -15,18 +15,18 @@ short-lived authenticated JWT. The response is a JSON array of result objects.
 
 ## Parameters
 
-| Parameter       | Type        | Default | Description                                                                                    |
-| --------------- | ----------- | ------- | ---------------------------------------------------------------------------------------------- |
-| `p_query`       | text        | `''`    | Search text (plain English, no tsquery syntax needed). Empty = browse all.                     |
-| `p_project_id`  | uuid        | NULL    | Filter by project. Scopes records, datasets and sheet instances.                               |
-| `p_result_type` | text        | NULL    | Object-class facet: `record`, `file`, `dataset`, `sheet` or `template`. NULL = all classes.    |
-| `p_kind`        | text        | NULL    | Record kind (experiment, sample, reagent, protocol_template, report, file, notebook_template). |
-| `p_status`      | text        | NULL    | Filter by status. Record-scoped.                                                               |
-| `p_owner_id`    | text        | NULL    | Filter by `created_by_user_id`. Record-scoped.                                                 |
-| `p_date_from`   | timestamptz | NULL    | Filter by `created_at >=`.                                                                     |
-| `p_date_to`     | timestamptz | NULL    | Filter by `created_at <=`.                                                                     |
-| `p_limit`       | int         | 20      | Page size (clamped to 1–100).                                                                  |
-| `p_offset`      | int         | 0       | Page offset.                                                                                   |
+| Parameter       | Type        | Default | Description                                                                                           |
+| --------------- | ----------- | ------- | ----------------------------------------------------------------------------------------------------- |
+| `p_query`       | text        | `''`    | Search text (plain English, no tsquery syntax needed). Empty = browse all.                            |
+| `p_project_id`  | uuid        | NULL    | Filter by project. Scopes records, datasets and sheet instances.                                      |
+| `p_result_type` | text        | NULL    | Object-class facet: `record`, `file`, `dataset`, `sheet` or `template`. NULL = all classes.           |
+| `p_kind`        | text        | NULL    | Record kind (experiment, sample, reagent, protocol_template, report, file, notebook_template, study). |
+| `p_status`      | text        | NULL    | Filter by status. Record-scoped.                                                                      |
+| `p_owner_id`    | text        | NULL    | Filter by `created_by_user_id`. Record-scoped.                                                        |
+| `p_date_from`   | timestamptz | NULL    | Filter by `created_at >=`.                                                                            |
+| `p_date_to`     | timestamptz | NULL    | Filter by `created_at <=`.                                                                            |
+| `p_limit`       | int         | 20      | Page size. Above 100 clamps to 100. Below 1 resets to 20.                                             |
+| `p_offset`      | int         | 0       | Page offset.                                                                                          |
 
 All filters are optional. `NULL` (or omitted) means "no filter on this
 dimension".
@@ -127,11 +127,13 @@ instead to facet across object classes.
 
 ## Indexing delay and stale-result behaviour
 
-**None.** Search is real-time (query-time). The `api.search` function builds
-a `tsvector` at query time from live `records`, `blocks`, `file_objects`,
-`record_links`, `datasets`, `sheet_instances` and `notebook_templates` rows.
-An edit is searchable immediately after the transaction commits. There is no
-materialised index, no triggers, and no eventual consistency window.
+**None.** Search is real-time. The record branch reads the persisted
+`api.records.search_tsv` column (PLAT-05). Triggers on `records`, `blocks`,
+`file_objects` and `record_links` maintain that column. A partial GIN index
+accelerates the match. The Dataset, Sheet and Template branches build their
+`tsvector` at query time. Trigger updates run inside the edit transaction. An
+edit is searchable immediately after the transaction commits. There is no
+eventual consistency window.
 
 ## Restricted-field non-leakage
 
@@ -147,12 +149,12 @@ the caller's workspace never surface through totals either.
 
 ## Error shapes
 
-| Condition                     | HTTP status | Error category      |
-| ----------------------------- | ----------- | ------------------- |
-| Unauthenticated               | 401         | `unauthenticated`   |
-| No active workspace in claims | 42804       | `upstream_error`    |
-| Caller not a workspace member | 42501       | `permission_denied` |
-| PostgREST upstream failure    | 500         | `upstream_error`    |
+| Condition                     | SQLSTATE | Category              |
+| ----------------------------- | -------- | --------------------- |
+| Unauthenticated               | —        | `unauthenticated`     |
+| No active workspace in claims | 42804    | `validation_error`    |
+| Caller not a workspace member | 42501    | `permission_denied`   |
+| PostgREST upstream failure    | —        | `service_unavailable` |
 
 Errors use the same `{ error: { category, message, request_id } }` envelope
 as all other `/api/db` resources.

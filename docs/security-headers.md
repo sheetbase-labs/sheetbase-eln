@@ -33,11 +33,17 @@ frame-src 'self'
 object-src 'none'
 script-src 'self' 'nonce-<per-request>'
 style-src 'self' 'unsafe-inline'
-img-src 'self' data: blob:
+img-src 'self' data: blob: https://avatars.githubusercontent.com
 font-src 'self' data:
-connect-src 'self'
+connect-src 'self' wss://*.liveblocks.io https://*.liveblocks.io
 worker-src 'self' blob:
 ```
+
+`img-src` allows GitHub avatar hosts for collaboration profiles.
+`connect-src` allows Liveblocks websockets and API calls for the
+collaboration feature. The static-file CSP in
+`scripts/lib/security-headers.mjs` must match this policy. A unit test
+asserts the match.
 
 The policy uses `frame-ancestors 'self'` (and `X-Frame-Options: SAMEORIGIN`),
 not `none`/`DENY`. Same-origin Storybook preview iframes then still work when

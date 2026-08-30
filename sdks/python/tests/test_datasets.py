@@ -1,0 +1,304 @@
+"""Tests for the Datasets resource — query, commit, snapshot, pagination, pandas."""
+import json
+import uuid
+
+import httpx
+import pytest
+
+from sheetbase import SheetbaseClient
+from sheetbase.resources.datasets import DatasetRowBatch
+from sheetbase.types import Dataset, DatasetVersion, CommitResult, ValidationResult
+from sheetbase.errors import StaleVersionError
+
+from tests.conftest import BASE_URL, CREDENTIAL
+
+
+class TestDatasetsResource:
+    def test_list_datasets(self, mock_transport, dataset_row):
+        mock_transport.get("/api/db/datasets").respond(200, json=[dataset_row])
+        with SheetbaseClient(BASE_URL, CREDENTIAL, ["datasets:read"]) as client:
+            datasets = client.datasets.list()
+        assert len(datasets) == 1
+        assert isinstance(datasets[0], Dataset)
+        assert datasets[0].name == "Purification Data"
+        assert datasets[0].revision == 3
+
+    def test_get_dataset(self, mock_transport, dataset_row):
+        mock_transport.get("/api/db/datasets").respond(200, json=[dataset_row])
+        with SheetbaseClient(BASE_URL, CREDENTIAL, ["datasets:read"]) as client:
+            ds = client.datasets.get(dataset_row["id"])
+        assert str(ds.id) == dataset_row["id"]
+        assert ds.revision == 3
+
+    def test_query_rows(self, mock_transport, dataset_rows_response):
+        mock_transport.post("/api/db/rpc/query_dataset_rows").respond(
+            200, json=dataset_rows_response
+        )
+        with SheetbaseClient(BASE_URL, CREDENTIAL, ["datasets:read"]) as client:
+            page = client.datasets.query_rows(dataset_id="770e8400-e29b-41d4-a716-446655440020")
+        assert page.total_count == 2
+        assert page.has_more is False
+        assert len(page.rows) == 2
+        assert page.rows[0].revision == 1
+
+    def test_query_rows_to_dataframe(self, mock_transport, dataset_rows_response):
+        mock_transport.post("/api/db/rpc/query_dataset_rows").respond(
+            200, json=dataset_rows_response
+        )
+        with SheetbaseClient(BASE_URL, CREDENTIAL, ["datasets:read"]) as client:
+            page = client.datasets.query_rows(dataset_id="770e8400-e29b-41d4-a716-446655440020")
+        df = page.to_dataframe()
+        assert len(df) == 2
+        assert "row_id" in df.columns
+        assert "revision" in df.columns
+        assert "fff00000-0000-0000-0000-000000000001" in df.columns
+
+    def test_commit_rows(self, mock_transport, commit_response):
+        mock_transport.post("/api/db/rpc/commit_dataset_row_batch").respond(
+            200, json=commit_response
+        )
+        with SheetbaseClient(BASE_URL, CREDENTIAL, ["datasets:write"]) as client:
+            result = client.datasets.commit_rows(
+                dataset_id="770e8400-e29b-41d4-a716-446655440020",
+                expected_revision=3,
+                rows=[
+                    {
+                        "operation": "create",
+                        "rowId": str(uuid.uuid4()),
+                        "values": {"fff00000-0000-0000-0000-000000000001": 1.2e9},
+                    }
+                ],
+            )
+        assert isinstance(result, CommitResult)
+        assert result.ok is True
+        assert result.idempotent is False
+        assert result.dataset_revision == 4
+
+    def test_commit_rows_with_batch_builder(self, mock_transport, commit_response):
+        route = mock_transport.post("/api/db/rpc/commit_dataset_row_batch")
+        route.respond(200, json=commit_response)
+        with SheetbaseClient(BASE_URL, CREDENTIAL, ["datasets:write"]) as client:
+            batch = DatasetRowBatch()
+            batch.create(values={"field-uuid": "value1"})
+            batch.create(values={"field-uuid": "value2"})
+            result = client.datasets.commit_rows(
+                dataset_id="770e8400-e29b-41d4-a716-446655440020",
+                expected_revision=3,
+                rows=batch,
+            )
+        assert result.ok is True
+        # Verify the body had the batch rows
+        request = route.calls[0].request
+        import json
+        body = json.loads(request.content)
+        assert len(body["p_rows"]) == 2
+        assert body["p_rows"][0]["operation"] == "create"
+        assert "p_idempotency_key" in body
+
+    def test_commit_rows_idempotency_key_in_body(self, mock_transport, commit_response):
+        route = mock_transport.post("/api/db/rpc/commit_dataset_row_batch")
+        route.respond(200, json=commit_response)
+        with SheetbaseClient(BASE_URL, CREDENTIAL, ["datasets:write"]) as client:
+            client.datasets.commit_rows(
+                dataset_id="770e8400-e29b-41d4-a716-446655440020",
+                expected_revision=3,
+                rows=[{"operation": "create", "rowId": str(uuid.uuid4()), "values": {}}],
+                idempotency_key="my-key-001",
+            )
+        request = route.calls[0].request
+        import json
+        body = json.loads(request.content)
+        assert body["p_idempotency_key"] == "my-key-001"
+
+    def test_commit_rows_stale_version_retry(self, mock_transport, dataset_row, commit_response):
+        # First attempt: stale_version. Second attempt: re-read dataset revision, then success.
+        commit_route = mock_transport.post("/api/db/rpc/commit_dataset_row_batch")
+        commit_route.mock(side_effect=[
+            httpx.Response(409, json={"error": {"category": "stale_version", "message": "Revision mismatch."}}),
+            httpx.Response(200, json=commit_response),
+        ])
+
+        # The retry re-reads the dataset to get the current revision.
+        mock_transport.get("/api/db/datasets").respond(200, json=[dataset_row])
+
+        with SheetbaseClient(BASE_URL, CREDENTIAL, ["datasets:write", "datasets:read"]) as client:
+            result = client.datasets.commit_rows(
+                dataset_id="770e8400-e29b-41d4-a716-446655440020",
+                expected_revision=2,  # stale — should retry with revision 3
+                rows=[{"operation": "create", "rowId": str(uuid.uuid4()), "values": {}}],
+            )
+        assert result.ok is True
+        # Two commit attempts (first stale, second success) + one dataset get.
+        assert commit_route.call_count == 2
+
+    def test_commit_rows_stale_version_no_retry(self, mock_transport):
+        route = mock_transport.post("/api/db/rpc/commit_dataset_row_batch")
+        route.respond(
+            409,
+            json={"error": {"category": "stale_version", "message": "Revision mismatch."}},
+        )
+        with SheetbaseClient(BASE_URL, CREDENTIAL, ["datasets:write"]) as client:
+            with pytest.raises(StaleVersionError):
+                client.datasets.commit_rows(
+                    dataset_id="770e8400-e29b-41d4-a716-446655440020",
+                    expected_revision=2,
+                    rows=[{"operation": "create", "rowId": str(uuid.uuid4()), "values": {}}],
+                    retry_on_stale=False,
+                )
+        assert route.call_count == 1
+
+    def test_validate_rows_success(self, mock_transport):
+        mock_transport.post("/api/db/rpc/validate_dataset_row_batch").respond(
+            200, json={"ok": True}
+        )
+        with SheetbaseClient(BASE_URL, CREDENTIAL, ["datasets:write"]) as client:
+            result = client.datasets.validate_rows(
+                dataset_id="770e8400-e29b-41d4-a716-446655440020",
+                expected_dataset_revision=3,
+                rows=[{"operation": "create", "rowId": str(uuid.uuid4()), "values": {}}],
+            )
+        assert isinstance(result, ValidationResult)
+        assert result.ok is True
+        assert result.errors == []
+
+    def test_validate_rows_with_errors(self, mock_transport):
+        mock_transport.post("/api/db/rpc/validate_dataset_row_batch").respond(
+            200,
+            json={
+                "ok": False,
+                "errors": [
+                    {
+                        "rowIndex": 0,
+                        "rowId": "aaa11111-2222-3333-4444-555555555501",
+                        "fieldId": "fff00000-0000-0000-0000-000000000001",
+                        "code": "invalid_type",
+                    }
+                ],
+            },
+        )
+        with SheetbaseClient(BASE_URL, CREDENTIAL, ["datasets:write"]) as client:
+            result = client.datasets.validate_rows(
+                dataset_id="770e8400-e29b-41d4-a716-446655440020",
+                expected_dataset_revision=3,
+                rows=[{"operation": "create", "rowId": str(uuid.uuid4()), "values": {}}],
+            )
+        assert result.ok is False
+        assert len(result.errors) == 1
+        assert result.errors[0].code == "invalid_type"
+
+    def test_snapshot_dataset(self, mock_transport, dataset_row):
+        version_row = {
+            "id": "999e8400-e29b-41d4-a716-446655440040",
+            "workspace_id": dataset_row["workspace_id"],
+            "dataset_id": dataset_row["id"],
+            "schema_version_id": dataset_row["schema_version_id"],
+            "label": "v1.0",
+            "source_dataset_revision": 3,
+            "created_at": "2026-01-17T10:00:00Z",
+            "created_by_user_id": "user-001",
+            "created_by_credential_id": None,
+        }
+        mock_transport.post("/api/db/rpc/snapshot_dataset").respond(
+            200, json=[version_row]
+        )
+        with SheetbaseClient(BASE_URL, CREDENTIAL, ["datasets:write"]) as client:
+            version = client.datasets.snapshot(
+                dataset_id=dataset_row["id"],
+                expected_revision=3,
+                label="v1.0",
+            )
+        assert isinstance(version, DatasetVersion)
+        assert version.label == "v1.0"
+        assert version.source_dataset_revision == 3
+
+    def test_iter_rows_pagination(self, mock_transport):
+        # Page 1: 2 rows, hasMore=True. Page 2: 1 row, hasMore=False.
+        page1 = {
+            "datasetId": "770e8400-e29b-41d4-a716-446655440020",
+            "datasetRevision": 3,
+            "offset": 0,
+            "limit": 2,
+            "totalCount": 3,
+            "hasMore": True,
+            "rows": [
+                {"rowId": "aaa11111-2222-3333-4444-555555555501", "revision": 1, "values": {"f1": "a"}},
+                {"rowId": "aaa11111-2222-3333-4444-555555555502", "revision": 1, "values": {"f1": "b"}},
+            ],
+        }
+        page2 = {
+            "datasetId": "770e8400-e29b-41d4-a716-446655440020",
+            "datasetRevision": 3,
+            "offset": 2,
+            "limit": 2,
+            "totalCount": 3,
+            "hasMore": False,
+            "rows": [
+                {"rowId": "aaa11111-2222-3333-4444-555555555503", "revision": 1, "values": {"f1": "c"}},
+            ],
+        }
+        route = mock_transport.post("/api/db/rpc/query_dataset_rows")
+        route.mock(side_effect=[
+            httpx.Response(200, json=page1),
+            httpx.Response(200, json=page2),
+        ])
+
+        with SheetbaseClient(BASE_URL, CREDENTIAL, ["datasets:read"]) as client:
+            rows = list(client.datasets.iter_rows(
+                "770e8400-e29b-41d4-a716-446655440020", page_size=2
+            ))
+        assert len(rows) == 3
+        assert rows[0]["values"]["f1"] == "a"
+        assert rows[2]["values"]["f1"] == "c"
+
+    def test_iter_rows_max_items(self, mock_transport):
+        page1 = {
+            "datasetId": "d1",
+            "datasetRevision": 1,
+            "offset": 0,
+            "limit": 10,
+            "totalCount": 100,
+            "hasMore": True,
+            "rows": [{"rowId": f"aaa11111-2222-3333-4444-55555555550{i}", "revision": 1, "values": {}} for i in range(10)],
+        }
+        route = mock_transport.post("/api/db/rpc/query_dataset_rows")
+        route.respond(200, json=page1)
+
+        with SheetbaseClient(BASE_URL, CREDENTIAL, ["datasets:read"]) as client:
+            rows = list(client.datasets.iter_rows(
+                "d1", page_size=10, max_items=5
+            ))
+        assert len(rows) == 5
+
+    def test_upload_dataframe(self, mock_transport, commit_response):
+        import pandas as pd
+        route = mock_transport.post("/api/db/rpc/commit_dataset_row_batch")
+        route.respond(200, json=commit_response)
+        df = pd.DataFrame({
+            "fff00000-0000-0000-0000-000000000001": [1.2e9, 8.5e8],
+            "fff00000-0000-0000-0000-000000000002": ["HEK293T", "Vero"],
+        })
+        with SheetbaseClient(BASE_URL, CREDENTIAL, ["datasets:write"]) as client:
+            results = client.datasets.upload_dataframe(
+                dataset_id="770e8400-e29b-41d4-a716-446655440020",
+                expected_revision=3,
+                df=df,
+                batch_size=500,
+            )
+        assert len(results) == 1
+        assert results[0].ok is True
+        # Verify the commit body had create operations for each row
+        request = route.calls[0].request
+        import json
+        body = json.loads(request.content)
+        assert len(body["p_rows"]) == 2
+        assert body["p_rows"][0]["operation"] == "create"
+
+    def test_download_dataframe(self, mock_transport, dataset_rows_response):
+        mock_transport.post("/api/db/rpc/query_dataset_rows").respond(
+            200, json=dataset_rows_response
+        )
+        with SheetbaseClient(BASE_URL, CREDENTIAL, ["datasets:read"]) as client:
+            df = client.datasets.download_dataframe("770e8400-e29b-41d4-a716-446655440020")
+        assert len(df) == 2
+        assert "row_id" in df.columns
+        assert "fff00000-0000-0000-0000-000000000001" in df.columns

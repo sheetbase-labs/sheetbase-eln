@@ -1,0 +1,31 @@
+{
+  "name": "@sheetbase/eln-sdk",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for the Sheetbase ELN public API",
+  "license": "MIT",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": {
+      "types": "src/index.ts",
+      "import": "src/index.ts"
+    }
+  },
+  "keywords": [
+    "sheetbase",
+    "eln",
+    "lab notebook",
+    "biopharma",
+    "scientific data",
+    "sdk"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}

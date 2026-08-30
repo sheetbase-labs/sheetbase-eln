@@ -22,8 +22,7 @@ Same validation, RLS, revision, audit, and evidence as the product action
 ```
 
 The product surface is `/agent-operations`. Multi-step sequential plans are
-AUTO-05; see [`agent-workflows.md`](agent-workflows.md) when that task is
-present. The decision record is ADR 0043.
+AUTO-05. The decision record is ADR 0043.
 
 ## Concepts
 

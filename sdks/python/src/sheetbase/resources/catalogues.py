@@ -93,7 +93,7 @@ class CataloguesResource:
         version_id: str,
         target_project_id: str,
         title: str,
-        parameter_inputs: dict[str, Any],
+        parameter_inputs: list[dict[str, Any]],
         idempotency_key: str,
     ) -> Any:
         """Instantiate a notebook template version."""
@@ -123,8 +123,8 @@ class CataloguesResource:
         record_id: str,
         expected_structure_version: int,
         target_version_id: str,
-        decisions: dict[str, Any],
-        parameter_inputs: dict[str, Any],
+        decisions: list[dict[str, Any]],
+        parameter_inputs: list[dict[str, Any]],
     ) -> Any:
         return self._transport.post(
             "/api/db/rpc/apply_notebook_template_upgrade",

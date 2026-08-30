@@ -11,6 +11,37 @@
  * can catch by semantic meaning rather than parsing strings.
  */
 
+export const TOKEN_ERROR_CODES = [
+  "invalid_request",
+  "invalid_scope",
+  "invalid_credential",
+  "revoked",
+  "expired",
+  "insufficient_scope",
+  "rate_limited",
+  "server_error",
+] as const;
+
+export type TokenErrorCode = (typeof TOKEN_ERROR_CODES)[number];
+
+export const ERROR_CATEGORIES = [
+  "validation_error",
+  "not_found",
+  "permission_denied",
+  "conflict",
+  "stale_version",
+  "missing_link",
+  "invalid_transition",
+  "invalid_properties",
+  "template_not_instantiable",
+  "unauthenticated",
+  "rate_limited",
+  "service_unavailable",
+  "server_error",
+] as const;
+
+export type ErrorCategory = (typeof ERROR_CATEGORIES)[number];
+
 export class SheetbaseError extends Error {
   constructor(message: string) {
     super(message);
@@ -21,9 +52,9 @@ export class SheetbaseError extends Error {
 // ── Token-path errors ──────────────────────────────────────────────────────
 
 export class TokenError extends SheetbaseError {
-  readonly code: string;
+  readonly code: TokenErrorCode | string;
 
-  constructor(code: string, message: string) {
+  constructor(code: TokenErrorCode | string, message: string) {
     super(`[${code}] ${message}`);
     this.name = "TokenError";
     this.code = code;
@@ -33,10 +64,14 @@ export class TokenError extends SheetbaseError {
 // ── Data-path errors ───────────────────────────────────────────────────────
 
 export class DataPathError extends SheetbaseError {
-  readonly category: string;
+  readonly category: ErrorCategory | string;
   readonly requestId: string | null;
 
-  constructor(category: string, message: string, requestId?: string | null) {
+  constructor(
+    category: ErrorCategory | string,
+    message: string,
+    requestId?: string | null,
+  ) {
     const detail = requestId
       ? `[${category}] ${message} (request_id=${requestId})`
       : `[${category}] ${message}`;
@@ -63,11 +98,14 @@ export class RateLimitedError extends DataPathError {}
 export class ServiceUnavailableError extends DataPathError {}
 export class ServerError extends DataPathError {}
 
-const CATEGORY_MAP: Record<string, new (
-  category: string,
-  message: string,
-  requestId?: string | null,
-) => DataPathError> = {
+const CATEGORY_MAP: Record<
+  string,
+  new (
+    category: string,
+    message: string,
+    requestId?: string | null,
+  ) => DataPathError
+> = {
   validation_error: ValidationError,
   not_found: NotFoundError,
   permission_denied: PermissionDeniedError,

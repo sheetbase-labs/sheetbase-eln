@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { SheetbaseClient } from "../src/client.js";
-import { BASE_URL, CREDENTIAL, createMockFetch, type MockRoute } from "./helpers.js";
+import {
+  BASE_URL,
+  CREDENTIAL,
+  createMockFetch,
+  type MockRoute,
+} from "./helpers.js";
 
 function makeClient(paths: string[]) {
   const routes: MockRoute[] = paths.map((path) => ({
@@ -36,7 +41,10 @@ describe("RPC resource contracts", () => {
       targetIdentifier: "EXP-1",
       linkType: "related",
     });
-    expect(body(paths[0])).toEqual({ p_record_id: "record", p_expected_metadata_version: 3 });
+    expect(body(paths[0])).toEqual({
+      p_record_id: "record",
+      p_expected_metadata_version: 3,
+    });
     expect(body(paths[1])).toEqual({
       p_record_id: "record",
       p_target_status: "complete",
@@ -56,7 +64,10 @@ describe("RPC resource contracts", () => {
     const path = "/api/db/rpc/archive_dataset";
     const { client, body } = makeClient([path]);
     await client.datasets.archive("dataset", 7);
-    expect(body(path)).toEqual({ p_dataset_id: "dataset", p_expected_revision: 7 });
+    expect(body(path)).toEqual({
+      p_dataset_id: "dataset",
+      p_expected_revision: 7,
+    });
   });
 
   it("sends sheet create, update, archive and materialize parameters", async () => {
@@ -67,7 +78,11 @@ describe("RPC resource contracts", () => {
       "/api/db/rpc/materialize_sheet_instance",
     ];
     const { client, body } = makeClient(paths);
-    await client.sheets.create({ workspaceId: "workspace", name: "Sheet", state: { rows: [] } });
+    await client.sheets.create({
+      workspaceId: "workspace",
+      name: "Sheet",
+      state: { rows: [] },
+    });
     await client.sheets.update("sheet", 2, { rows: [1] });
     await client.sheets.archive("sheet", 3);
     await client.sheets.materialize({
@@ -79,15 +94,30 @@ describe("RPC resource contracts", () => {
       idempotencyKey: "key",
     });
     expect(body(paths[0])).toEqual({
-      p_workspace_id: "workspace", p_name: "Sheet", p_description: null,
-      p_source_definition_version_id: null, p_project_id: null,
-      p_notebook_record_id: null, p_state: { rows: [] },
+      p_workspace_id: "workspace",
+      p_name: "Sheet",
+      p_description: null,
+      p_source_definition_version_id: null,
+      p_project_id: null,
+      p_notebook_record_id: null,
+      p_state: { rows: [] },
     });
-    expect(body(paths[1])).toEqual({ p_instance_id: "sheet", p_expected_revision: 2, p_state: { rows: [1] } });
-    expect(body(paths[2])).toEqual({ p_instance_id: "sheet", p_expected_revision: 3 });
+    expect(body(paths[1])).toEqual({
+      p_instance_id: "sheet",
+      p_expected_revision: 2,
+      p_state: { rows: [1] },
+    });
+    expect(body(paths[2])).toEqual({
+      p_instance_id: "sheet",
+      p_expected_revision: 3,
+    });
     expect(body(paths[3])).toEqual({
-      p_instance_id: "sheet", p_expected_instance_revision: 4, p_output_name: "Output",
-      p_output_schema_version_id: "schema", p_preview_digest: "digest", p_idempotency_key: "key",
+      p_instance_id: "sheet",
+      p_expected_instance_revision: 4,
+      p_output_name: "Output",
+      p_output_schema_version_id: "schema",
+      p_preview_digest: "digest",
+      p_idempotency_key: "key",
     });
   });
 
@@ -99,19 +129,32 @@ describe("RPC resource contracts", () => {
     const { client, body } = makeClient(paths);
     const cells = [{ rowKey: "row", fieldId: "field", value: 1 }];
     await client.sheets.mutateLocalState({
-      instanceId: "sheet", expectedRevision: 2, retryToken: "retry",
-      fieldChanges: [{ name: "x" }], rows: [{ key: "row" }], cells,
+      instanceId: "sheet",
+      expectedRevision: 2,
+      retryToken: "retry",
+      fieldChanges: [{ name: "x" }],
+      rows: [{ key: "row" }],
+      cells,
     });
     await client.sheets.mutateCalculations({
-      instanceId: "sheet", expectedRevision: 3, retryToken: "retry-2", changes: [{ op: "add" }],
+      instanceId: "sheet",
+      expectedRevision: 3,
+      retryToken: "retry-2",
+      changes: [{ op: "add" }],
     });
     expect(body(paths[0])).toEqual({
-      p_instance_id: "sheet", p_expected_revision: 2, p_retry_token: "retry",
-      p_field_changes: [{ name: "x" }], p_rows: [{ key: "row" }], p_cells: cells,
+      p_instance_id: "sheet",
+      p_expected_revision: 2,
+      p_retry_token: "retry",
+      p_field_changes: [{ name: "x" }],
+      p_rows: [{ key: "row" }],
+      p_cells: cells,
     });
     expect(body(paths[1])).toEqual({
-      p_instance_id: "sheet", p_expected_revision: 3,
-      p_retry_token: "retry-2", p_changes: [{ op: "add" }],
+      p_instance_id: "sheet",
+      p_expected_revision: 3,
+      p_retry_token: "retry-2",
+      p_changes: [{ op: "add" }],
     });
   });
 
@@ -123,22 +166,37 @@ describe("RPC resource contracts", () => {
     ];
     const { client, body } = makeClient(paths);
     await client.catalogues.instantiateTemplate({
-      versionId: "version", targetProjectId: "project", title: "Notebook",
-      parameterInputs: { sample: 1 }, idempotencyKey: "key",
+      versionId: "version",
+      targetProjectId: "project",
+      title: "Notebook",
+      parameterInputs: [{ parameterId: "sample", kind: "scalar", value: 1 }],
+      idempotencyKey: "key",
     });
     await client.catalogues.previewTemplateUpgrade("record", "target");
     await client.catalogues.applyTemplateUpgrade({
-      recordId: "record", expectedStructureVersion: 5, targetVersionId: "target",
-      decisions: { keep: true }, parameterInputs: { sample: 2 },
+      recordId: "record",
+      expectedStructureVersion: 5,
+      targetVersionId: "target",
+      decisions: [{ conflictId: "conflict", outcome: "retain-local" }],
+      parameterInputs: [{ parameterId: "sample", kind: "scalar", value: 2 }],
     });
     expect(body(paths[0])).toEqual({
-      p_version_id: "version", p_target_project_id: "project", p_title: "Notebook",
-      p_parameter_inputs: { sample: 1 }, p_idempotency_key: "key",
+      p_version_id: "version",
+      p_target_project_id: "project",
+      p_title: "Notebook",
+      p_parameter_inputs: [{ parameterId: "sample", kind: "scalar", value: 1 }],
+      p_idempotency_key: "key",
     });
-    expect(body(paths[1])).toEqual({ p_record_id: "record", p_target_version_id: "target" });
+    expect(body(paths[1])).toEqual({
+      p_record_id: "record",
+      p_target_version_id: "target",
+    });
     expect(body(paths[2])).toEqual({
-      p_record_id: "record", p_expected_structure_version: 5, p_target_version_id: "target",
-      p_decisions: { keep: true }, p_parameter_inputs: { sample: 2 },
+      p_record_id: "record",
+      p_expected_structure_version: 5,
+      p_target_version_id: "target",
+      p_decisions: [{ conflictId: "conflict", outcome: "retain-local" }],
+      p_parameter_inputs: [{ parameterId: "sample", kind: "scalar", value: 2 }],
     });
   });
 });

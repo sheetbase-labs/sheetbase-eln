@@ -69,7 +69,7 @@ class SheetsResource:
         name: str,
         source_definition_version_id: str,
         state: dict[str, Any],
-        parameter_inputs: dict[str, Any],
+        parameter_inputs: list[dict[str, Any]],
         description: Optional[str] = None,
         project_id: Optional[str] = None,
         notebook_record_id: Optional[str] = None,
@@ -113,6 +113,23 @@ class SheetsResource:
                 "p_instance_id": instance_id,
                 "p_limit": limit,
                 "p_offset": offset,
+            },
+        )
+
+    def read_calculation_results(
+        self, instance_id: str, *, row_keys: list[str]
+    ) -> Any:
+        return self._transport.post(
+            "/api/db/rpc/read_sheet_instance_calculation_results",
+            json_body={"p_instance_id": instance_id, "p_row_keys": row_keys},
+        )
+
+    def resolve_row_identity(self, instance_id: str, expected_revision: int) -> Any:
+        return self._transport.post(
+            "/api/db/rpc/resolve_sheet_instance_row_identity",
+            json_body={
+                "p_instance_id": instance_id,
+                "p_expected_revision": expected_revision,
             },
         )
 
@@ -179,6 +196,80 @@ class SheetsResource:
                        "p_output_schema_version_id": output_schema_version_id},
         )
 
+    def preview_composition_adoption(
+        self,
+        *,
+        instance_id: str,
+        expected_instance_revision: int,
+        target_definition_version_id: str,
+        parameter_inputs: list[dict[str, Any]],
+    ) -> Any:
+        return self._transport.post(
+            "/api/db/rpc/preview_sheet_instance_composition_adoption",
+            json_body={
+                "p_instance_id": instance_id,
+                "p_expected_instance_revision": expected_instance_revision,
+                "p_target_definition_version_id": target_definition_version_id,
+                "p_parameter_inputs": parameter_inputs,
+            },
+        )
+
+    def apply_composition_adoption(
+        self,
+        *,
+        instance_id: str,
+        expected_instance_revision: int,
+        target_definition_version_id: str,
+        parameter_inputs: list[dict[str, Any]],
+        retry_token: str,
+    ) -> Any:
+        return self._transport.post(
+            "/api/db/rpc/apply_sheet_instance_composition_adoption",
+            json_body={
+                "p_instance_id": instance_id,
+                "p_expected_instance_revision": expected_instance_revision,
+                "p_target_definition_version_id": target_definition_version_id,
+                "p_parameter_inputs": parameter_inputs,
+                "p_retry_token": retry_token,
+            },
+        )
+
+    def preview_definition_upgrade(
+        self,
+        *,
+        instance_id: str,
+        expected_instance_revision: int,
+        target_definition_version_id: str,
+    ) -> Any:
+        return self._transport.post(
+            "/api/db/rpc/preview_sheet_instance_definition_upgrade",
+            json_body={
+                "p_instance_id": instance_id,
+                "p_expected_instance_revision": expected_instance_revision,
+                "p_target_definition_version_id": target_definition_version_id,
+            },
+        )
+
+    def apply_definition_upgrade(
+        self,
+        *,
+        instance_id: str,
+        expected_instance_revision: int,
+        target_definition_version_id: str,
+        decisions: list[dict[str, Any]],
+        parameter_inputs: list[dict[str, Any]],
+    ) -> Any:
+        return self._transport.post(
+            "/api/db/rpc/apply_sheet_instance_definition_upgrade",
+            json_body={
+                "p_instance_id": instance_id,
+                "p_expected_instance_revision": expected_instance_revision,
+                "p_target_definition_version_id": target_definition_version_id,
+                "p_decisions": decisions,
+                "p_parameter_inputs": parameter_inputs,
+            },
+        )
+
     def mutate_local_state(
         self,
         *,
@@ -208,5 +299,84 @@ class SheetsResource:
                 "p_instance_id": instance_id,
                 "p_expected_revision": expected_revision,
                 "p_retry_token": retry_token, "p_changes": changes,
+            },
+        )
+
+    def insert_notebook_block(
+        self,
+        *,
+        record_id: str,
+        expected_structure_version: int,
+        instance_id: str,
+        after_block_id: Optional[str] = None,
+    ) -> Any:
+        return self._transport.post(
+            "/api/db/rpc/insert_sheet_instance_block",
+            json_body={
+                "p_record_id": record_id,
+                "p_after_block_id": after_block_id,
+                "p_expected_structure_version": expected_structure_version,
+                "p_instance_id": instance_id,
+            },
+        )
+
+    def duplicate_notebook_block(
+        self, block_id: str, expected_structure_version: int
+    ) -> Any:
+        return self._transport.post(
+            "/api/db/rpc/duplicate_sheet_instance_block",
+            json_body={
+                "p_block_id": block_id,
+                "p_expected_structure_version": expected_structure_version,
+            },
+        )
+
+    def validate_record_batch(
+        self, *, project_id: str, model_key: str, rows: list[dict[str, Any]]
+    ) -> Any:
+        return self._transport.post(
+            "/api/db/rpc/validate_sheet_record_batch",
+            json_body={
+                "p_project_id": project_id,
+                "p_model_key": model_key,
+                "p_rows": rows,
+            },
+        )
+
+    def create_and_link_record(
+        self,
+        *,
+        project_id: str,
+        model_key: str,
+        title: str,
+        custom_fields: dict[str, Any],
+        write_target: dict[str, Any],
+    ) -> Any:
+        return self._transport.post(
+            "/api/db/rpc/create_and_link_sheet_record",
+            json_body={
+                "p_project_id": project_id,
+                "p_model_key": model_key,
+                "p_title": title,
+                "p_custom_fields": custom_fields,
+                "p_write_target": write_target,
+            },
+        )
+
+    def commit_record_batch(
+        self,
+        *,
+        project_id: str,
+        model_key: str,
+        rows: list[dict[str, Any]],
+        idempotency_key: str,
+    ) -> Any:
+        return self._transport.post(
+            "/api/db/rpc/commit_sheet_record_batch",
+            json_body={
+                "p_project_id": project_id,
+                "p_model_key": model_key,
+                "p_rows": rows,
+                "p_idempotency_key": idempotency_key,
             },
         )

@@ -12,6 +12,10 @@ pip install sheetbase
 
 Dependencies: `httpx`, `pandas` (Python ≥ 3.10).
 
+This package targets public API contract `0.1.0`. The complete Python /
+TypeScript operation inventory and shared wire-semantics decisions live in the
+[SDK support matrix](../SUPPORT_MATRIX.md).
+
 ## Quick start
 
 ```python
@@ -114,14 +118,25 @@ Token-path errors use `TokenError` with a `.code` attribute (`invalid_credential
 
 ## Resources
 
-| Resource | Operations |
-|----------|-----------|
-| `client.projects` | List, get, get_by_key, create, update, iter |
-| `client.records` | List, get, create, update, archive, restore, transition_status, create_link, iter |
-| `client.datasets` | List, get, create, query_rows, query_version_rows, iter_rows, iter_version_rows, validate_rows, commit_rows, snapshot, archive, restore, to_dataframe, upload_dataframe, download_dataframe |
-| `client.sheets` | List, get, create, create_from_definition, update, query_rows, iter_rows, archive, restore, duplicate, materialize, preview_materialize, mutate_local_state, mutate_calculations |
-| `client.search` | search, search_sheet_records, iter |
-| `client.catalogues` | Schema definitions, schema versions, schema version fields, sheet definitions, templates, instantiate_template |
+| Resource                  | Operations                                                                                                                                                                                  |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `client.projects`         | List, get, get_by_key, create, update, iter                                                                                                                                                 |
+| `client.records`          | Record, block, custom-field, template and submission-preview operations                                                                                                                     |
+| `client.datasets`         | List, get, create, query_rows, query_version_rows, iter_rows, iter_version_rows, validate_rows, commit_rows, snapshot, archive, restore, to_dataframe, upload_dataframe, download_dataframe |
+| `client.sheets`           | Sheet-instance queries/mutations, calculation results, composition/definition upgrades, materialization, notebook blocks and model write-back                                               |
+| `client.search`           | search, search_sheet_records, iter                                                                                                                                                          |
+| `client.catalogues`       | Schema/sheet-definition/template reads and notebook-template instantiate/upgrade RPCs                                                                                                       |
+| `client.agent_operations` | AUTO-04 proposals and AUTO-05 workflow create/advance/usage/cancel RPCs plus audit-table reads                                                                                              |
+| `client.webhooks`         | Subscription create/update/delete/secret rotation, delivery pagination/replay and table reads                                                                                               |
+
+AUTO operation, workflow, provenance and budget dictionaries remain in the
+canonical contract shape and are validated by the server. The SDK deliberately
+does not reproduce policy, transition, budget or scientific business rules.
+
+All public table operations are also available through `table_get`,
+`table_head`, `table_post` and `table_patch`. `table_head` returns
+`Content-Range`, a parsed total count when present, and the request id. Use
+`headers={"Prefer": "count=exact"}` when an exact total is required.
 
 ## Pagination
 

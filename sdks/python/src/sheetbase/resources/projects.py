@@ -83,6 +83,7 @@ class ProjectsResource:
             "/api/db/projects",
             params={"id": f"eq.{project_id}"},
             json_body=body,
+            headers={"Prefer": "return=representation"},
         )
 
     def iter(

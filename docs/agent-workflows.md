@@ -36,24 +36,37 @@ The v1 tool allowlist contains only:
 Publish, submit, sign, amend, lock, delete, archive, and arbitrary RPC tools
 are absent.
 
-## State and approval
+## Policy-driven progression
 
-The workflow creates one AUTO-04 proposal for its current step. If AUTO-04
-classifies that proposal as `automatic` or `delegated`, the canonical mutation
-runs immediately and the workflow continues to the next step. If the proposal
-is `human_required`, the workflow enters `waiting_approval`. A human session
-with the capability required by that operation must then approve and execute
-it. `advance_agent_workflow` only observes the proposal outcome:
+This is the AUTO-05 addition: the workflow does not invent a second approval
+model. It observes the AUTO-04 decision on each step.
 
-- a pending, approved, or executing proposal leaves the workflow unchanged;
-- a succeeded proposal completes the step and creates the next proposal, which
-  may itself auto-execute;
-- a rejected, failed, or cancelled proposal pauses the workflow;
-- the final succeeded proposal completes the workflow.
+After `internal.agent_workflow_propose_step` calls `propose_agent_operation`:
 
-No workflow RPC executes a scientific mutation. AUTO-04 continues to call the
-canonical Dataset, Sheet Definition, Dataset Schema, or Pipeline Definition
-RPC, either automatically under policy or after human approval.
+- `automatic` or `delegated` and `succeeded` — the step completes and the
+  next step is proposed in the same transaction (and may itself auto-run);
+- `human_required` / `pending` — the workflow stays `waiting_approval`;
+- `failed` — the workflow pauses without a human execute click.
+
+A mixed plan is the intended shape: drafts and delegated appends can finish
+unattended; a Dataset update, unmatched credential, or exceeded row limit
+stops the plan at that step. A human then approves that one proposal, calls
+`advance_agent_workflow`, and later steps may auto-run again.
+
+Resume is still human-only. If the resumed actor is a human session, a safe
+draft will auto-execute on resume; a Dataset update will not.
+
+## Advance
+
+`advance_agent_workflow` only observes the current proposal:
+
+- pending, approved, or executing — workflow unchanged;
+- succeeded — complete the step and propose the next (which may auto-run);
+- rejected, failed, or cancelled — pause;
+- last step succeeded — workflow `succeeded`.
+
+No workflow RPC executes a scientific mutation. AUTO-04 still calls the
+canonical RPC, either under policy or after human approval.
 
 ## Recovery and cancellation
 

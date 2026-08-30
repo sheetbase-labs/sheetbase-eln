@@ -56,30 +56,47 @@ APIs.
 
 ## Policy
 
-PostgreSQL classifies every proposal:
+This is the AUTO-04 addition: execution is policy-driven, not “approve every
+proposal”. PostgreSQL decides `approval_policy` at propose time and records
+the evaluation on the proposal.
 
-- **Safe draft** — reversible Definition create/update. Executes automatically
-  when a credential has `schema:write` (or when a human session proposes it).
-- **Human required** — default for Dataset row commits, and for any
-  credential that lacks the matching canonical scope.
-- **Delegated** — a Dataset **create or append** that matches an enabled
-  policy for **this** live service credential, target, and row limit.
+| Decision | When | What happens |
+| --- | --- | --- |
+| `automatic` | Safe draft, and the actor has `schema:write` (credential) or is a human session | `propose_agent_operation` calls the canonical RPC immediately |
+| `delegated` | Dataset **create/append** matches an enabled policy for this credential, target, and row limit, and the credential has `datasets:write` | Same: the canonical commit runs inside propose |
+| `human_required` | Everything else | Proposal stays `pending` until a human session approves and executes |
 
-An owner or Data Steward creates a policy on `/agent-operations`. Each policy
-names:
+### Delegation policies
 
-- one live workspace **service credential**;
-- one operation kind (`dataset_rows.commit` in the product UI);
-- a canonical target: workspace, project, or Dataset;
-- `maxAffectedRows` (1–1000).
+Owner or Data Steward RPCs (human session only):
 
-A policy never applies to a different credential, a revoked or expired
-credential, a Dataset update or overwrite, or a row count above the limit.
-Those proposals stay `human_required` with the evaluation recorded on the
-proposal.
+- `api.create_agent_operation_policy(workspace_id, name, operation_kind, target_type, target_id, credential_id, limits)`
+- `api.disable_agent_operation_policy(workspace_id, policy_id)`
+
+The product UI on `/agent-operations` only creates `dataset_rows.commit`
+policies. Each policy binds:
+
+- one live workspace **service** credential (revoked or expired credentials
+  never match);
+- a canonical target: `workspace`, `project` (the Dataset’s primary project),
+  or `dataset`;
+- `limits.maxAffectedRows` (1–1000).
+
+Matching uses the most specific enabled policy (Dataset, then project, then
+workspace). Automatic Dataset writes are **create/append only**: any `update`
+row in the batch stays `human_required` even if a policy matches. A policy
+for credential A never authorises credential B.
 
 Credentials cannot create, disable, or approve policies. They cannot approve
-or execute human-required proposals.
+or execute `human_required` proposals.
+
+### Evidence
+
+Every proposal stores `policy_id`, `policy_reason`, `policy_limits`,
+`policy_target`, and `policy_evidence` (`actorKind`, `credentialId`,
+`requiredScope`, `scopeSatisfied`, `targetMatched`, `createOnly`,
+`affectedRows`, `maxAffectedRows`, `limitSatisfied`). Inspect that payload
+instead of inferring why a write ran or waited.
 
 ## Provenance and evidence
 

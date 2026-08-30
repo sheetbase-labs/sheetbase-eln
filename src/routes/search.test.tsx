@@ -63,7 +63,7 @@ function result(overrides: Partial<SearchResult> = {}): SearchResult {
     matchedContext: 'Virus <b>Stability</b> at 4 °C',
     matchedField: 'title',
     rank: 0.06,
-    deepLink: '/projects/proj-1/experiments/rec-1',
+    deepLink: '/records/rec-1',
     totalCount: 1,
     ...overrides,
   }
@@ -230,16 +230,14 @@ describe('SearchResultRow', () => {
   it('renders the deep link href', () => {
     render(
       <SearchResultRow
-        result={result({ deepLink: '/projects/p1/experiments/r1' })}
+        result={result({ deepLink: '/records/r1' })}
         selected={false}
         active={false}
         onSelect={() => {}}
       />,
     )
     const link = screen.getByRole('option')
-    expect(link.querySelector('a')?.getAttribute('href')).toBe(
-      '/projects/p1/experiments/r1',
-    )
+    expect(link.querySelector('a')?.getAttribute('href')).toBe('/records/r1')
   })
 
   it('renders file result type with a file icon', () => {
@@ -259,13 +257,13 @@ describe('SearchResultRow', () => {
     expect(screen.getByText('File')).toBeTruthy()
   })
 
-  it('renders template kind with /templates deep link', () => {
+  it('keeps a legacy notebook-template record on its stable record URL', () => {
     render(
       <SearchResultRow
         result={result({
           kind: 'notebook_template',
           identifier: 'NBK-2025-0001',
-          deepLink: '/templates',
+          deepLink: '/records/rec-1',
         })}
         selected={false}
         active={false}
@@ -273,6 +271,6 @@ describe('SearchResultRow', () => {
       />,
     )
     const link = screen.getByRole('option')
-    expect(link.querySelector('a')?.getAttribute('href')).toBe('/templates')
+    expect(link.querySelector('a')?.getAttribute('href')).toBe('/records/rec-1')
   })
 })

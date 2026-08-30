@@ -43,6 +43,7 @@ import { Route as DocsNameRouteImport } from './routes/docs/$name'
 import { Route as IntegrationsConnectorIdRouteImport } from './routes/integrations/$connectorId'
 import { Route as PipelinesDefinitionIdRouteImport } from './routes/pipelines/$definitionId'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects/$projectId'
+import { Route as RecordsRecordIdRouteImport } from './routes/records/$recordId'
 import { Route as ReviewsRevisionIdRouteImport } from './routes/reviews/$revisionId'
 import { Route as SheetsInstanceIdRouteImport } from './routes/sheets/$instanceId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -56,6 +57,7 @@ import { Route as ApiHealthReadyRouteImport } from './routes/api/health/ready'
 import { Route as ApiPipelinesExecuteRouteImport } from './routes/api/pipelines/execute'
 import { Route as ApiTokenIndexRouteImport } from './routes/api/token/index'
 import { Route as PipelinesRunsRunIdRouteImport } from './routes/pipelines/runs/$runId'
+import { Route as RecordsRecordIdOverviewRouteImport } from './routes/records/$recordId/overview'
 import { Route as ApiCollaborationResolveRoomsRouteImport } from './routes/api/collaboration/resolve.rooms'
 import { Route as ApiCollaborationResolveUsersRouteImport } from './routes/api/collaboration/resolve.users'
 import { Route as ApiExportDatasetVersionIdRouteImport } from './routes/api/export/dataset-version/$id'
@@ -64,9 +66,7 @@ import { Route as ApiExportRecordIdRouteImport } from './routes/api/export/recor
 import { Route as ApiExportSheetInstanceIdRouteImport } from './routes/api/export/sheet-instance/$id'
 import { Route as ApiFilesFileIdDownloadRouteImport } from './routes/api/files/$fileId/download'
 import { Route as ApiFilesFileIdUploadRouteImport } from './routes/api/files/$fileId/upload'
-import { Route as ProjectsProjectIdExperimentsRecordIdRouteImport } from './routes/projects/$projectId/experiments/$recordId'
 import { Route as ApiExportRevisionIdPackageRouteImport } from './routes/api/export/revision/$id/package'
-import { Route as ProjectsProjectIdExperimentsRecordIdOverviewRouteImport } from './routes/projects/$projectId/experiments/$recordId/overview'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -238,6 +238,11 @@ const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
   path: '/$projectId',
   getParentRoute: () => ProjectsRoute,
 } as any)
+const RecordsRecordIdRoute = RecordsRecordIdRouteImport.update({
+  id: '/records/$recordId',
+  path: '/records/$recordId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReviewsRevisionIdRoute = ReviewsRevisionIdRouteImport.update({
   id: '/$revisionId',
   path: '/$revisionId',
@@ -304,6 +309,11 @@ const PipelinesRunsRunIdRoute = PipelinesRunsRunIdRouteImport.update({
   path: '/runs/$runId',
   getParentRoute: () => PipelinesRoute,
 } as any)
+const RecordsRecordIdOverviewRoute = RecordsRecordIdOverviewRouteImport.update({
+  id: '/overview',
+  path: '/overview',
+  getParentRoute: () => RecordsRecordIdRoute,
+} as any)
 const ApiCollaborationResolveRoomsRoute =
   ApiCollaborationResolveRoomsRouteImport.update({
     id: '/api/collaboration/resolve/rooms',
@@ -348,23 +358,11 @@ const ApiFilesFileIdUploadRoute = ApiFilesFileIdUploadRouteImport.update({
   path: '/api/files/$fileId/upload',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ProjectsProjectIdExperimentsRecordIdRoute =
-  ProjectsProjectIdExperimentsRecordIdRouteImport.update({
-    id: '/experiments/$recordId',
-    path: '/experiments/$recordId',
-    getParentRoute: () => ProjectsProjectIdRoute,
-  } as any)
 const ApiExportRevisionIdPackageRoute =
   ApiExportRevisionIdPackageRouteImport.update({
     id: '/api/export/revision/$id/package',
     path: '/api/export/revision/$id/package',
     getParentRoute: () => rootRouteImport,
-  } as any)
-const ProjectsProjectIdExperimentsRecordIdOverviewRoute =
-  ProjectsProjectIdExperimentsRecordIdOverviewRouteImport.update({
-    id: '/overview',
-    path: '/overview',
-    getParentRoute: () => ProjectsProjectIdExperimentsRecordIdRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -401,7 +399,8 @@ export interface FileRoutesByFullPath {
   '/docs/$name': typeof DocsNameRoute
   '/integrations/$connectorId': typeof IntegrationsConnectorIdRoute
   '/pipelines/$definitionId': typeof PipelinesDefinitionIdRoute
-  '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
+  '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/records/$recordId': typeof RecordsRecordIdRouteWithChildren
   '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
   '/sheets/$instanceId': typeof SheetsInstanceIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -414,6 +413,7 @@ export interface FileRoutesByFullPath {
   '/api/health/ready': typeof ApiHealthReadyRoute
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
+  '/records/$recordId/overview': typeof RecordsRecordIdOverviewRoute
   '/api/token/': typeof ApiTokenIndexRoute
   '/api/collaboration/resolve/rooms': typeof ApiCollaborationResolveRoomsRoute
   '/api/collaboration/resolve/users': typeof ApiCollaborationResolveUsersRoute
@@ -423,9 +423,7 @@ export interface FileRoutesByFullPath {
   '/api/export/sheet-instance/$id': typeof ApiExportSheetInstanceIdRoute
   '/api/files/$fileId/download': typeof ApiFilesFileIdDownloadRoute
   '/api/files/$fileId/upload': typeof ApiFilesFileIdUploadRoute
-  '/projects/$projectId/experiments/$recordId': typeof ProjectsProjectIdExperimentsRecordIdRouteWithChildren
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
-  '/projects/$projectId/experiments/$recordId/overview': typeof ProjectsProjectIdExperimentsRecordIdOverviewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -461,7 +459,8 @@ export interface FileRoutesByTo {
   '/docs/$name': typeof DocsNameRoute
   '/integrations/$connectorId': typeof IntegrationsConnectorIdRoute
   '/pipelines/$definitionId': typeof PipelinesDefinitionIdRoute
-  '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
+  '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/records/$recordId': typeof RecordsRecordIdRouteWithChildren
   '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
   '/sheets/$instanceId': typeof SheetsInstanceIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -474,6 +473,7 @@ export interface FileRoutesByTo {
   '/api/health/ready': typeof ApiHealthReadyRoute
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
+  '/records/$recordId/overview': typeof RecordsRecordIdOverviewRoute
   '/api/token': typeof ApiTokenIndexRoute
   '/api/collaboration/resolve/rooms': typeof ApiCollaborationResolveRoomsRoute
   '/api/collaboration/resolve/users': typeof ApiCollaborationResolveUsersRoute
@@ -483,9 +483,7 @@ export interface FileRoutesByTo {
   '/api/export/sheet-instance/$id': typeof ApiExportSheetInstanceIdRoute
   '/api/files/$fileId/download': typeof ApiFilesFileIdDownloadRoute
   '/api/files/$fileId/upload': typeof ApiFilesFileIdUploadRoute
-  '/projects/$projectId/experiments/$recordId': typeof ProjectsProjectIdExperimentsRecordIdRouteWithChildren
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
-  '/projects/$projectId/experiments/$recordId/overview': typeof ProjectsProjectIdExperimentsRecordIdOverviewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -522,7 +520,8 @@ export interface FileRoutesById {
   '/docs/$name': typeof DocsNameRoute
   '/integrations/$connectorId': typeof IntegrationsConnectorIdRoute
   '/pipelines/$definitionId': typeof PipelinesDefinitionIdRoute
-  '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
+  '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/records/$recordId': typeof RecordsRecordIdRouteWithChildren
   '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
   '/sheets/$instanceId': typeof SheetsInstanceIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -535,6 +534,7 @@ export interface FileRoutesById {
   '/api/health/ready': typeof ApiHealthReadyRoute
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
+  '/records/$recordId/overview': typeof RecordsRecordIdOverviewRoute
   '/api/token/': typeof ApiTokenIndexRoute
   '/api/collaboration/resolve/rooms': typeof ApiCollaborationResolveRoomsRoute
   '/api/collaboration/resolve/users': typeof ApiCollaborationResolveUsersRoute
@@ -544,9 +544,7 @@ export interface FileRoutesById {
   '/api/export/sheet-instance/$id': typeof ApiExportSheetInstanceIdRoute
   '/api/files/$fileId/download': typeof ApiFilesFileIdDownloadRoute
   '/api/files/$fileId/upload': typeof ApiFilesFileIdUploadRoute
-  '/projects/$projectId/experiments/$recordId': typeof ProjectsProjectIdExperimentsRecordIdRouteWithChildren
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
-  '/projects/$projectId/experiments/$recordId/overview': typeof ProjectsProjectIdExperimentsRecordIdOverviewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -585,6 +583,7 @@ export interface FileRouteTypes {
     | '/integrations/$connectorId'
     | '/pipelines/$definitionId'
     | '/projects/$projectId'
+    | '/records/$recordId'
     | '/reviews/$revisionId'
     | '/sheets/$instanceId'
     | '/api/auth/$'
@@ -597,6 +596,7 @@ export interface FileRouteTypes {
     | '/api/health/ready'
     | '/api/pipelines/execute'
     | '/pipelines/runs/$runId'
+    | '/records/$recordId/overview'
     | '/api/token/'
     | '/api/collaboration/resolve/rooms'
     | '/api/collaboration/resolve/users'
@@ -606,9 +606,7 @@ export interface FileRouteTypes {
     | '/api/export/sheet-instance/$id'
     | '/api/files/$fileId/download'
     | '/api/files/$fileId/upload'
-    | '/projects/$projectId/experiments/$recordId'
     | '/api/export/revision/$id/package'
-    | '/projects/$projectId/experiments/$recordId/overview'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -645,6 +643,7 @@ export interface FileRouteTypes {
     | '/integrations/$connectorId'
     | '/pipelines/$definitionId'
     | '/projects/$projectId'
+    | '/records/$recordId'
     | '/reviews/$revisionId'
     | '/sheets/$instanceId'
     | '/api/auth/$'
@@ -657,6 +656,7 @@ export interface FileRouteTypes {
     | '/api/health/ready'
     | '/api/pipelines/execute'
     | '/pipelines/runs/$runId'
+    | '/records/$recordId/overview'
     | '/api/token'
     | '/api/collaboration/resolve/rooms'
     | '/api/collaboration/resolve/users'
@@ -666,9 +666,7 @@ export interface FileRouteTypes {
     | '/api/export/sheet-instance/$id'
     | '/api/files/$fileId/download'
     | '/api/files/$fileId/upload'
-    | '/projects/$projectId/experiments/$recordId'
     | '/api/export/revision/$id/package'
-    | '/projects/$projectId/experiments/$recordId/overview'
   id:
     | '__root__'
     | '/'
@@ -705,6 +703,7 @@ export interface FileRouteTypes {
     | '/integrations/$connectorId'
     | '/pipelines/$definitionId'
     | '/projects/$projectId'
+    | '/records/$recordId'
     | '/reviews/$revisionId'
     | '/sheets/$instanceId'
     | '/api/auth/$'
@@ -717,6 +716,7 @@ export interface FileRouteTypes {
     | '/api/health/ready'
     | '/api/pipelines/execute'
     | '/pipelines/runs/$runId'
+    | '/records/$recordId/overview'
     | '/api/token/'
     | '/api/collaboration/resolve/rooms'
     | '/api/collaboration/resolve/users'
@@ -726,9 +726,7 @@ export interface FileRouteTypes {
     | '/api/export/sheet-instance/$id'
     | '/api/files/$fileId/download'
     | '/api/files/$fileId/upload'
-    | '/projects/$projectId/experiments/$recordId'
     | '/api/export/revision/$id/package'
-    | '/projects/$projectId/experiments/$recordId/overview'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -762,6 +760,7 @@ export interface RootRouteChildren {
   ApiMetricsRoute: typeof ApiMetricsRoute
   ApiSheetCalculationsRoute: typeof ApiSheetCalculationsRoute
   DocsNameRoute: typeof DocsNameRoute
+  RecordsRecordIdRoute: typeof RecordsRecordIdRouteWithChildren
   SheetsInstanceIdRoute: typeof SheetsInstanceIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiCollaborationAuthRoute: typeof ApiCollaborationAuthRoute
@@ -1024,6 +1023,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsProjectIdRouteImport
       parentRoute: typeof ProjectsRoute
     }
+    '/records/$recordId': {
+      id: '/records/$recordId'
+      path: '/records/$recordId'
+      fullPath: '/records/$recordId'
+      preLoaderRoute: typeof RecordsRecordIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reviews/$revisionId': {
       id: '/reviews/$revisionId'
       path: '/$revisionId'
@@ -1115,6 +1121,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PipelinesRunsRunIdRouteImport
       parentRoute: typeof PipelinesRoute
     }
+    '/records/$recordId/overview': {
+      id: '/records/$recordId/overview'
+      path: '/overview'
+      fullPath: '/records/$recordId/overview'
+      preLoaderRoute: typeof RecordsRecordIdOverviewRouteImport
+      parentRoute: typeof RecordsRecordIdRoute
+    }
     '/api/collaboration/resolve/rooms': {
       id: '/api/collaboration/resolve/rooms'
       path: '/api/collaboration/resolve/rooms'
@@ -1171,26 +1184,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiFilesFileIdUploadRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/projects/$projectId/experiments/$recordId': {
-      id: '/projects/$projectId/experiments/$recordId'
-      path: '/experiments/$recordId'
-      fullPath: '/projects/$projectId/experiments/$recordId'
-      preLoaderRoute: typeof ProjectsProjectIdExperimentsRecordIdRouteImport
-      parentRoute: typeof ProjectsProjectIdRoute
-    }
     '/api/export/revision/$id/package': {
       id: '/api/export/revision/$id/package'
       path: '/api/export/revision/$id/package'
       fullPath: '/api/export/revision/$id/package'
       preLoaderRoute: typeof ApiExportRevisionIdPackageRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/projects/$projectId/experiments/$recordId/overview': {
-      id: '/projects/$projectId/experiments/$recordId/overview'
-      path: '/overview'
-      fullPath: '/projects/$projectId/experiments/$recordId/overview'
-      preLoaderRoute: typeof ProjectsProjectIdExperimentsRecordIdOverviewRouteImport
-      parentRoute: typeof ProjectsProjectIdExperimentsRecordIdRoute
     }
   }
 }
@@ -1231,39 +1230,12 @@ const PipelinesRouteWithChildren = PipelinesRoute._addFileChildren(
   PipelinesRouteChildren,
 )
 
-interface ProjectsProjectIdExperimentsRecordIdRouteChildren {
-  ProjectsProjectIdExperimentsRecordIdOverviewRoute: typeof ProjectsProjectIdExperimentsRecordIdOverviewRoute
-}
-
-const ProjectsProjectIdExperimentsRecordIdRouteChildren: ProjectsProjectIdExperimentsRecordIdRouteChildren =
-  {
-    ProjectsProjectIdExperimentsRecordIdOverviewRoute:
-      ProjectsProjectIdExperimentsRecordIdOverviewRoute,
-  }
-
-const ProjectsProjectIdExperimentsRecordIdRouteWithChildren =
-  ProjectsProjectIdExperimentsRecordIdRoute._addFileChildren(
-    ProjectsProjectIdExperimentsRecordIdRouteChildren,
-  )
-
-interface ProjectsProjectIdRouteChildren {
-  ProjectsProjectIdExperimentsRecordIdRoute: typeof ProjectsProjectIdExperimentsRecordIdRouteWithChildren
-}
-
-const ProjectsProjectIdRouteChildren: ProjectsProjectIdRouteChildren = {
-  ProjectsProjectIdExperimentsRecordIdRoute:
-    ProjectsProjectIdExperimentsRecordIdRouteWithChildren,
-}
-
-const ProjectsProjectIdRouteWithChildren =
-  ProjectsProjectIdRoute._addFileChildren(ProjectsProjectIdRouteChildren)
-
 interface ProjectsRouteChildren {
-  ProjectsProjectIdRoute: typeof ProjectsProjectIdRouteWithChildren
+  ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
 }
 
 const ProjectsRouteChildren: ProjectsRouteChildren = {
-  ProjectsProjectIdRoute: ProjectsProjectIdRouteWithChildren,
+  ProjectsProjectIdRoute: ProjectsProjectIdRoute,
 }
 
 const ProjectsRouteWithChildren = ProjectsRoute._addFileChildren(
@@ -1280,6 +1252,18 @@ const ReviewsRouteChildren: ReviewsRouteChildren = {
 
 const ReviewsRouteWithChildren =
   ReviewsRoute._addFileChildren(ReviewsRouteChildren)
+
+interface RecordsRecordIdRouteChildren {
+  RecordsRecordIdOverviewRoute: typeof RecordsRecordIdOverviewRoute
+}
+
+const RecordsRecordIdRouteChildren: RecordsRecordIdRouteChildren = {
+  RecordsRecordIdOverviewRoute: RecordsRecordIdOverviewRoute,
+}
+
+const RecordsRecordIdRouteWithChildren = RecordsRecordIdRoute._addFileChildren(
+  RecordsRecordIdRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -1312,6 +1296,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMetricsRoute: ApiMetricsRoute,
   ApiSheetCalculationsRoute: ApiSheetCalculationsRoute,
   DocsNameRoute: DocsNameRoute,
+  RecordsRecordIdRoute: RecordsRecordIdRouteWithChildren,
   SheetsInstanceIdRoute: SheetsInstanceIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiCollaborationAuthRoute: ApiCollaborationAuthRoute,

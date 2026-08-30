@@ -29,6 +29,15 @@ export interface ProjectWire {
   archived_at: string | null
 }
 
+export interface FolderWire {
+  id: string
+  project_id: string
+  parent_id: string | null
+  identifier: string
+  name: string
+  archived_at: string | null
+}
+
 export interface RecordWire {
   id: string
   workspace_id: string
@@ -120,9 +129,18 @@ export interface Project {
   archivedAt: string | null
 }
 
+export interface ProjectFolder {
+  id: string
+  projectId: string
+  parentId: string | null
+  identifier: string
+  name: string
+}
+
 export interface NotebookRecord {
   id: string
   projectId: string | null
+  folderId?: string | null
   kind: string
   identifier: string
   title: string
@@ -181,10 +199,21 @@ export function toProject(row: ProjectWire): Project {
   }
 }
 
+export function toProjectFolder(row: FolderWire): ProjectFolder {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    parentId: row.parent_id,
+    identifier: row.identifier,
+    name: row.name,
+  }
+}
+
 export function toRecord(row: RecordWire): NotebookRecord {
   return {
     id: row.id,
     projectId: row.project_id,
+    folderId: row.folder_id,
     kind: row.kind,
     identifier: row.identifier,
     title: row.title,
@@ -308,6 +337,15 @@ export function fetchRecordsForProject(client: DataClient, projectId: string) {
     .then((rows) => rows.map(toRecord))
 }
 
+export function fetchFoldersForProject(client: DataClient, projectId: string) {
+  return client
+    .list<FolderWire>(
+      'folders',
+      `?project_id=eq.${projectId}&archived_at=is.null&order=name.asc&select=id,project_id,parent_id,identifier,name,archived_at`,
+    )
+    .then((rows) => rows.map(toProjectFolder))
+}
+
 export function fetchRecord(client: DataClient, recordId: string) {
   return client
     .list<RecordWire>('records', `?id=eq.${recordId}`)
@@ -393,6 +431,7 @@ export const notebookQueryKeys = {
   // it alongside the notebook-scoped keys when a project event arrives.
   projectsList: () => ['projects'] as const,
   project: (projectId: string) => ['notebook', 'project', projectId] as const,
+  folders: (projectId: string) => ['notebook', 'folders', projectId] as const,
   records: (projectId: string) => ['notebook', 'records', projectId] as const,
   record: (recordId: string) => ['notebook', 'record', recordId] as const,
   blocks: (recordId: string) => ['notebook', 'blocks', recordId] as const,
@@ -505,17 +544,6 @@ export function formatNotebookDateTime(iso: string | null | undefined): string {
     minute: '2-digit',
     hour12: false,
   })
-}
-
-/**
- * Route path for a notebook-backed record. Experiments live under
- * `/projects/$projectId/experiments/$recordId`; protocol templates and
- * reports will get their own deep links in later tickets. For now every
- * kind links through the experiment route so the notebook is reachable —
- * the route renders the correct record-type label from the record's kind.
- */
-export function recordPath(projectId: string, recordId: string): string {
-  return `/projects/${projectId}/experiments/${recordId}`
 }
 
 // ---------------------------------------------------------------------------

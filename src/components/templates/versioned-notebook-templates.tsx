@@ -185,19 +185,14 @@ export function VersionedNotebookTemplatePanel({
 
   useEffect(() => {
     const firstTemplateId = templates.data?.[0]?.id ?? null
-    if (!selectedTemplateId && firstTemplateId) {
-      if (isTemplateSelectionControlled) {
-        onSelectedTemplateIdChange?.(firstTemplateId)
-      } else {
-        setInternalSelectedTemplateId(firstTemplateId)
-      }
+    if (
+      !isTemplateSelectionControlled &&
+      !selectedTemplateId &&
+      firstTemplateId
+    ) {
+      setInternalSelectedTemplateId(firstTemplateId)
     }
-  }, [
-    isTemplateSelectionControlled,
-    onSelectedTemplateIdChange,
-    selectedTemplateId,
-    templates.data,
-  ])
+  }, [isTemplateSelectionControlled, selectedTemplateId, templates.data])
 
   useEffect(() => {
     if (!selectedTemplateId) return
@@ -341,12 +336,10 @@ export function VersionedNotebookTemplatePanel({
       })
     },
     onSuccess: (result) => {
-      const project = result.record.project_id
-      if (!project) return
       setCreateOpen(false)
       void navigate({
-        to: '/projects/$projectId/experiments/$recordId',
-        params: { projectId: project, recordId: result.record.id },
+        to: '/records/$recordId',
+        params: { recordId: result.record.id },
       })
     },
   })

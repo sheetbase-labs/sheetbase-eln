@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 
 import { RecordHistoryTimeline } from '#/components/audit/record-history-timeline'
-import { Button } from '#/components/ui'
 import {
   fetchRevisionsForRecord,
   fetchRecordTimeline,
@@ -14,14 +13,10 @@ export function NotebookHistoryPanel({
   recordId,
   currentUserId,
   currentUserName,
-  projectId,
-  onSelectRevision,
 }: {
   recordId: string
   currentUserId: string
   currentUserName: string
-  projectId?: string
-  onSelectRevision?: (revisionId: string) => void
 }) {
   const timeline = useQuery({
     queryKey: sign002QueryKeys.timeline(recordId),
@@ -61,42 +56,19 @@ export function NotebookHistoryPanel({
           {(revisions.data ?? []).map((revision) => {
             const label = `Submitted ${formatDate(revision.created_at)}`
             const secondary = revision.id.slice(0, 8)
-            if (projectId) {
-              return (
-                <li key={revision.id} className="flex items-center gap-2">
-                  <Link
-                    to="/projects/$projectId/experiments/$recordId"
-                    params={{ projectId, recordId }}
-                    search={{ revision: revision.id } as never}
-                    className="text-sm underline-offset-4 hover:underline"
-                  >
-                    {label}
-                    <span className="ml-2 font-mono text-xs text-muted-foreground">
-                      {secondary}
-                    </span>
-                  </Link>
-                  <a
-                    href={`/api/export/revision/${revision.id}/package`}
-                    className="text-xs text-muted-foreground underline-offset-4 hover:underline"
-                  >
-                    evidence ZIP
-                  </a>
-                </li>
-              )
-            }
             return (
               <li key={revision.id} className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="link"
-                  className="h-auto p-0"
-                  onClick={() => onSelectRevision?.(revision.id)}
+                <Link
+                  to="/records/$recordId"
+                  params={{ recordId }}
+                  search={{ revision: revision.id } as never}
+                  className="text-sm underline-offset-4 hover:underline"
                 >
                   {label}
                   <span className="ml-2 font-mono text-xs text-muted-foreground">
                     {secondary}
                   </span>
-                </Button>
+                </Link>
                 <a
                   href={`/api/export/revision/${revision.id}/package`}
                   className="text-xs text-muted-foreground underline-offset-4 hover:underline"

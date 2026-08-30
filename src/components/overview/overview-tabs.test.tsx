@@ -127,7 +127,6 @@ describe('OverviewTabs', () => {
         blocks={blocks}
         mode="active"
         excludedBlockIds={[]}
-        projectId="p1"
         recordId="r1"
       />,
     )
@@ -144,7 +143,6 @@ describe('OverviewTabs', () => {
         blocks={blocks}
         mode="active"
         excludedBlockIds={[]}
-        projectId="p1"
         recordId="r1"
       />,
     )
@@ -160,7 +158,6 @@ describe('OverviewTabs', () => {
         blocks={blocks}
         mode="active"
         excludedBlockIds={[]}
-        projectId="p1"
         recordId="r1"
       />,
     )
@@ -176,7 +173,6 @@ describe('OverviewTabs', () => {
         blocks={blocks}
         mode="active"
         excludedBlockIds={[]}
-        projectId="p1"
         recordId="r1"
       />,
     )
@@ -197,7 +193,6 @@ describe('OverviewTabs', () => {
         blocks={[blocks[0]]}
         mode="active"
         excludedBlockIds={[]}
-        projectId="p1"
         recordId="r1"
       />,
     )
@@ -212,7 +207,6 @@ describe('OverviewTabs', () => {
         blocks={[blocks[0]]}
         mode="active"
         excludedBlockIds={[]}
-        projectId="p1"
         recordId="r1"
       />,
     )
@@ -227,7 +221,6 @@ describe('OverviewTabs', () => {
         blocks={blocks}
         mode="active"
         excludedBlockIds={[]}
-        projectId="p1"
         recordId="r1"
       />,
     )
@@ -246,7 +239,6 @@ describe('OverviewTabs', () => {
         blocks={blocks}
         mode="active"
         excludedBlockIds={[]}
-        projectId="p1"
         recordId="r1"
       />,
     )
@@ -263,7 +255,6 @@ describe('OverviewTabs', () => {
         blocks={blocks}
         mode="active"
         excludedBlockIds={[]}
-        projectId="p1"
         recordId="r1"
       />,
     )

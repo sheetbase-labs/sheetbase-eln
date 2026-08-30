@@ -76,7 +76,6 @@ describe('ProjectUnavailableState', () => {
 
 describe('RecordListSection', () => {
   const baseProps = {
-    projectId: 'p1',
     onRetry: () => {},
     userLabel: (id: string) => id,
   }
@@ -153,9 +152,46 @@ describe('RecordListSection', () => {
     )
     const link = screen.getByRole('link', { name: /Virus Stability at 4C/ })
     expect(link).toBeTruthy()
-    expect(link.getAttribute('href')).toBe('/projects/p1/experiments/r1')
+    expect(link.getAttribute('href')).toBe('/records/r1')
     expect(screen.getByText('EXP-2025-0001')).toBeTruthy()
     // Status badge vocabulary label
     expect(screen.getByText('In progress')).toBeTruthy()
+  })
+
+  it('sends workspace catalogue records to their canonical catalogue', () => {
+    render(
+      <RecordListSection
+        {...baseProps}
+        records={[
+          {
+            id: 'sample-1',
+            projectId: 'p1',
+            kind: 'sample',
+            identifier: 'SAM-0001',
+            title: 'Reference sample',
+            status: 'available',
+            tags: [],
+            structureVersion: 1,
+            metadataVersion: 1,
+            createdAt: '2026-07-18T12:00:00.000Z',
+            updatedAt: '2026-07-18T12:00:00.000Z',
+            archivedAt: null,
+            deletedAt: null,
+            createdByUserId: 'u1',
+            updatedByUserId: null,
+            properties: {},
+            lockedAt: null,
+            lockedByRevisionId: null,
+          },
+        ]}
+        isLoading={false}
+        error={null}
+      />,
+    )
+    expect(
+      screen
+        .getByRole('link', { name: /Reference sample/ })
+        .getAttribute('href'),
+    ).toBe('/samples?selected=sample-1')
   })
 })

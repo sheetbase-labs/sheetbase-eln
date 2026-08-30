@@ -309,6 +309,16 @@ function mount(
 }
 
 describe('VersionedNotebookTemplatePanel', () => {
+  it('does not invent a URL-backed selection when controlled without one', async () => {
+    const onSelectedTemplateIdChange = vi.fn()
+    mount({
+      selectedTemplateId: null,
+      onSelectedTemplateIdChange,
+    })
+    await screen.findByText('Alpha template')
+    expect(onSelectedTemplateIdChange).not.toHaveBeenCalled()
+  })
+
   it('honours controlled selectedTemplateId and notifies on Open', async () => {
     const user = userEvent.setup()
     const onSelectedTemplateIdChange = vi.fn()

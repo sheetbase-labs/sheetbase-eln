@@ -291,7 +291,7 @@ export interface AppShellProps {
   context: AppShellContext | null
   breadcrumbs: AppShellBreadcrumb[]
   navSections?: AppShellNavSection[]
-  /** Active-project tree slot rendered under a PROJECTS heading. */
+  /** Active-project tree slot rendered under a CURRENT PROJECT heading. */
   projectTree?: React.ReactNode
   /** Optional VIEWS/saved-filters slot rendered after the project tree. */
   navExtra?: React.ReactNode
@@ -321,7 +321,6 @@ export interface AppShellProps {
 /** Default workspace navigation shared by every authenticated route. */
 /** Specialist tools kept reachable but out of the default product nav. */
 export const SPECIALIST_NAV_HREFS = [
-  '/analysis',
   '/plate-designer',
   '/calendar',
   '/planner',
@@ -339,34 +338,44 @@ export const defaultNavSections: AppShellNavSection[] = [
     ],
   },
   {
-    label: 'Registries',
+    label: 'Scientific work',
     items: [
-      { to: '/templates', label: 'Templates', icon: LayoutTemplate },
-      { to: '/reagents', label: 'Reagents', icon: FlaskConical },
       { to: '/samples', label: 'Samples', icon: FlaskConical },
+      { to: '/reagents', label: 'Reagents', icon: FlaskConical },
       { to: '/datasets', label: 'Datasets', icon: Database },
-      { to: '/pipelines', label: 'Pipelines', icon: Workflow },
-      { to: '/agent-operations', label: 'Agent operations', icon: Bot },
-      { to: '/integrations', label: 'Integrations', icon: PlugZap },
-      { to: '/configure', label: 'Configure', icon: Layers },
-    ],
-  },
-  {
-    label: 'Tools',
-    items: [
+      { to: '/analysis', label: 'Analysis', icon: LineChartIcon },
       {
         to: '/reviews',
         label: 'Reviews',
         icon: CheckCircle2,
         badge: 0,
       },
+    ],
+  },
+  {
+    label: 'Configuration',
+    items: [
+      { to: '/templates', label: 'Templates', icon: LayoutTemplate },
+      { to: '/configure', label: 'Models & schemas', icon: Layers },
+    ],
+  },
+  {
+    label: 'Automation',
+    items: [
+      { to: '/pipelines', label: 'Pipelines', icon: Workflow },
+      { to: '/agent-operations', label: 'Agent operations', icon: Bot },
+    ],
+  },
+  {
+    label: 'Platform',
+    items: [
+      { to: '/integrations', label: 'Integrations', icon: PlugZap },
       { to: '/admin', label: 'Administration', icon: Settings },
     ],
   },
   {
     label: 'More',
     items: [
-      { to: '/analysis', label: 'Analysis', icon: LineChartIcon },
       { to: '/plate-designer', label: 'Plate Designer', icon: Grid3x3 },
       { to: '/calendar', label: 'Lab Calendar', icon: CalendarDays },
       { to: '/planner', label: 'Planner', icon: GanttChart },
@@ -489,168 +498,196 @@ export function AppShell({
     router.invalidate()
   }, [router])
 
-  const sidebarBody = context ? (
-    <div className="flex h-full flex-col">
-      <div className="flex h-14 items-center border-b border-sidebar-border px-3">
-        <Link
-          to="/"
-          aria-label="Sheetbase ELN home"
-          className="flex items-center gap-2 no-underline"
-          onClick={() => setMobileOpen(false)}
-        >
-          <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
-            <span className="font-display text-sm font-semibold">S</span>
-          </span>
-          {!collapsed && (
-            <span className="font-display text-sm font-semibold leading-none text-sidebar-foreground">
-              Sheetbase ELN
+  const renderSidebarBody = (sidebarCollapsed: boolean) =>
+    context ? (
+      <div className="flex h-full flex-col">
+        <div className="flex h-14 items-center border-b border-sidebar-border px-3">
+          <Link
+            to="/"
+            aria-label="Sheetbase ELN home"
+            className="flex items-center gap-2 no-underline"
+            onClick={() => setMobileOpen(false)}
+          >
+            <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+              <span className="font-display text-sm font-semibold">S</span>
             </span>
-          )}
-        </Link>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="ml-auto hidden md:inline-flex"
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          aria-pressed={collapsed}
-          onClick={toggleCollapsed}
-        >
-          {collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
-        </Button>
-      </div>
-
-      <div className={cn('px-2 py-3', collapsed && 'hidden')}>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className="flex h-9 w-full items-center gap-2 rounded-md border border-sidebar-border bg-sidebar px-2 text-left text-sm shadow-xs hover:bg-sidebar-accent/60"
-            >
-              <span className="flex size-6 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
-                {context.workspace
-                  ? context.workspace.name.slice(0, 2).toUpperCase()
-                  : 'WS'}
+            {!sidebarCollapsed && (
+              <span className="font-display text-sm font-semibold leading-none text-sidebar-foreground">
+                Sheetbase ELN
               </span>
-              <span className="flex-1 truncate font-medium text-sidebar-foreground">
-                {context.workspace ? context.workspace.name : 'No workspace'}
-              </span>
-              <ChevronsUpDown className="size-4 text-muted-foreground" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
-            <DropdownMenuItem disabled>
-              {context.workspace ? context.workspace.name : 'No workspace'}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem disabled>Create workspace</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
-      <nav
-        id={APP_SHELL_NAV_ID}
-        aria-label="Primary"
-        className={cn('flex-1 overflow-y-auto px-2 pb-4', collapsed && 'px-2')}
-      >
-        {navSections.map((section) => (
-          <div key={section.label ?? 'section'} className="mb-2">
-            {section.label && !collapsed && (
-              <p className="px-2 pb-1 pt-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                {section.label}
-              </p>
             )}
-            <ul className="space-y-0.5">
-              {section.items.map((item) => (
-                <NavRow
-                  key={item.to}
-                  item={item}
-                  active={isActive(pathname, item.to)}
-                  collapsed={collapsed}
-                  onNavigate={() => setMobileOpen(false)}
-                />
-              ))}
-            </ul>
-          </div>
-        ))}
-
-        {projectTree && !collapsed && (
-          <div className="mb-2">
-            <p className="px-2 pb-1 pt-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Projects
-            </p>
-            {projectTree}
-          </div>
-        )}
-
-        {navExtra && !collapsed && <div className="mb-2">{navExtra}</div>}
-      </nav>
-
-      <div className="border-t border-sidebar-border p-2">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className={cn(
-                'flex w-full items-center gap-2 rounded-md p-2 text-left hover:bg-sidebar-accent/60',
-                collapsed && 'justify-center',
-              )}
-              aria-label={`Account: ${context.user.name}`}
+          </Link>
+          {!sidebarCollapsed ? (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="ml-auto hidden md:inline-flex"
+              aria-label="Collapse sidebar"
+              aria-pressed="false"
+              onClick={toggleCollapsed}
             >
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/15 text-xs font-semibold text-primary">
-                {initials(context.user.name) || 'U'}
-              </span>
-              {!collapsed && (
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium text-sidebar-foreground">
-                    {context.user.name}
-                  </span>
-                  {context.user.role ? (
-                    <span className="block truncate text-xs text-muted-foreground">
-                      {context.user.role}
-                    </span>
-                  ) : null}
+              <PanelLeftClose />
+            </Button>
+          ) : null}
+        </div>
+
+        <div className={cn('px-2 py-3', sidebarCollapsed && 'hidden')}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="flex h-9 w-full items-center gap-2 rounded-md border border-sidebar-border bg-sidebar px-2 text-left text-sm shadow-xs hover:bg-sidebar-accent/60"
+              >
+                <span className="flex size-6 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
+                  {context.workspace
+                    ? context.workspace.name.slice(0, 2).toUpperCase()
+                    : 'WS'}
                 </span>
-              )}
-              {!collapsed && (
+                <span className="flex-1 truncate font-medium text-sidebar-foreground">
+                  {context.workspace ? context.workspace.name : 'No workspace'}
+                </span>
                 <ChevronsUpDown className="size-4 text-muted-foreground" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
+              <DropdownMenuItem disabled>
+                {context.workspace ? context.workspace.name : 'No workspace'}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem disabled>Create workspace</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        {sidebarCollapsed ? (
+          <div className="px-2 py-3">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="w-full"
+                  aria-label="Expand sidebar"
+                  aria-pressed="true"
+                  onClick={toggleCollapsed}
+                >
+                  <PanelLeftOpen />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Expand sidebar</TooltipContent>
+            </Tooltip>
+          </div>
+        ) : null}
+
+        <nav
+          id={APP_SHELL_NAV_ID}
+          aria-label="Primary"
+          className={cn(
+            'flex-1 overflow-y-auto px-2 pb-4',
+            sidebarCollapsed && 'px-2',
+          )}
+        >
+          {navSections.map((section) => (
+            <div key={section.label ?? 'section'} className="mb-2">
+              {section.label && !sidebarCollapsed && (
+                <p className="px-2 pb-1 pt-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  {section.label}
+                </p>
               )}
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" side="top">
-            <DropdownMenuLabel>{context.user.email}</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link to="/settings">
-                <Settings className="mr-2 size-4" /> Settings
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            >
-              {theme === 'dark' ? (
-                <Sun className="mr-2 size-4" />
-              ) : (
-                <Moon className="mr-2 size-4" />
-              )}
-              Toggle colour mode
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={() =>
-                setDensity(density === 'compact' ? 'comfortable' : 'compact')
-              }
-            >
-              <Settings className="mr-2 size-4" /> Toggle density
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={signOut}>
-              <LogOut className="mr-2 size-4" /> Sign out
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              <ul className="space-y-0.5">
+                {section.items.map((item) => (
+                  <NavRow
+                    key={item.to}
+                    item={item}
+                    active={isActive(pathname, item.to)}
+                    collapsed={sidebarCollapsed}
+                    onNavigate={() => setMobileOpen(false)}
+                  />
+                ))}
+              </ul>
+            </div>
+          ))}
+
+          {projectTree && !sidebarCollapsed && (
+            <div className="mb-2">
+              <p className="px-2 pb-1 pt-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                Current project
+              </p>
+              {projectTree}
+            </div>
+          )}
+
+          {navExtra && !sidebarCollapsed && (
+            <div className="mb-2">{navExtra}</div>
+          )}
+        </nav>
+
+        <div className="border-t border-sidebar-border p-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  'flex w-full items-center gap-2 rounded-md p-2 text-left hover:bg-sidebar-accent/60',
+                  sidebarCollapsed && 'justify-center',
+                )}
+                aria-label={`Account: ${context.user.name}`}
+              >
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/15 text-xs font-semibold text-primary">
+                  {initials(context.user.name) || 'U'}
+                </span>
+                {!sidebarCollapsed && (
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-sidebar-foreground">
+                      {context.user.name}
+                    </span>
+                    {context.user.role ? (
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {context.user.role}
+                      </span>
+                    ) : null}
+                  </span>
+                )}
+                {!sidebarCollapsed && (
+                  <ChevronsUpDown className="size-4 text-muted-foreground" />
+                )}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" side="top">
+              <DropdownMenuLabel>{context.user.email}</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link to="/settings">
+                  <Settings className="mr-2 size-4" /> Settings
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              >
+                {theme === 'dark' ? (
+                  <Sun className="mr-2 size-4" />
+                ) : (
+                  <Moon className="mr-2 size-4" />
+                )}
+                Toggle colour mode
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() =>
+                  setDensity(density === 'compact' ? 'comfortable' : 'compact')
+                }
+              >
+                <Settings className="mr-2 size-4" /> Toggle density
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={signOut}>
+                <LogOut className="mr-2 size-4" /> Sign out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
-    </div>
-  ) : null
+    ) : null
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -674,7 +711,7 @@ export function AppShell({
             )}
             data-collapsed={collapsed ? 'true' : 'false'}
           >
-            {sidebarBody}
+            {renderSidebarBody(collapsed)}
           </aside>
         )}
 
@@ -685,7 +722,7 @@ export function AppShell({
               className="w-72 border-r border-sidebar-border bg-sidebar p-0 md:hidden"
             >
               <SheetTitle className="sr-only">Navigation</SheetTitle>
-              {sidebarBody}
+              {renderSidebarBody(false)}
             </SheetContent>
           </Sheet>
         )}
@@ -714,22 +751,30 @@ export function AppShell({
                 aria-label="Breadcrumb"
                 className="flex min-w-0 items-center gap-2 text-sm"
               >
-                {/* Mobile: show only a back chevron + the last crumb label.
-                    Desktop: show the full trail. */}
-                {breadcrumbs.length > 2 ? (
-                  <span className="flex min-w-0 items-center gap-2 sm:hidden">
-                    {breadcrumbs[breadcrumbs.length - 2]?.to ? (
+                {/* Narrow screens keep the canonical parent and current
+                    location visible. Desktop shows the complete hierarchy. */}
+                {breadcrumbs.length > 0 ? (
+                  <span
+                    className="flex min-w-0 items-center gap-2 sm:hidden"
+                    data-slot="mobile-breadcrumb"
+                  >
+                    {breadcrumbs.length > 1 &&
+                    breadcrumbs[breadcrumbs.length - 2]?.to ? (
                       <Link
                         to={breadcrumbs[breadcrumbs.length - 2].to ?? ''}
                         className="inline-flex items-center gap-1 text-muted-foreground no-underline hover:text-foreground"
                       >
                         <ChevronRight className="size-3.5 shrink-0 rotate-180 text-muted-foreground/60" />
-                        <span className="truncate">Back</span>
+                        <span className="truncate">
+                          {breadcrumbs[breadcrumbs.length - 2].label}
+                        </span>
                       </Link>
-                    ) : (
+                    ) : breadcrumbs.length > 1 ? (
                       <ChevronRight className="size-3.5 shrink-0 rotate-180 text-muted-foreground/60" />
-                    )}
-                    <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" />
+                    ) : null}
+                    {breadcrumbs.length > 1 ? (
+                      <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" />
+                    ) : null}
                     <span
                       className="truncate font-medium text-foreground"
                       aria-current="page"
@@ -739,24 +784,24 @@ export function AppShell({
                   </span>
                 ) : null}
                 <span className="hidden min-w-0 items-center gap-2 sm:flex">
-                  <Link
-                    to="/"
-                    aria-label="Sheetbase home"
-                    className="shrink-0 text-muted-foreground no-underline hover:text-foreground"
-                  >
-                    <HomeIcon className="size-3.5 shrink-0" />
-                  </Link>
                   {breadcrumbs.map((crumb, i) => {
                     const last = i === breadcrumbs.length - 1
                     return (
                       <React.Fragment key={`${crumb.label}-${i}`}>
-                        <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" />
+                        {i > 0 ? (
+                          <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" />
+                        ) : null}
                         {crumb.to && !last ? (
                           <Link
                             to={crumb.to}
+                            aria-label={i === 0 ? 'Sheetbase home' : undefined}
                             className="truncate text-muted-foreground no-underline hover:text-foreground"
                           >
-                            {crumb.label}
+                            {i === 0 && crumb.to === '/' ? (
+                              <HomeIcon className="size-3.5 shrink-0" />
+                            ) : (
+                              crumb.label
+                            )}
                           </Link>
                         ) : (
                           <span
@@ -944,8 +989,10 @@ function NavRow({
   const label = (
     <>
       <Icon className="size-4 shrink-0" />
-      <span className="flex-1 truncate">{item.label}</span>
-      {item.badge !== undefined && Number(item.badge) > 0 ? (
+      {!collapsed ? (
+        <span className="flex-1 truncate">{item.label}</span>
+      ) : null}
+      {!collapsed && item.badge !== undefined && Number(item.badge) > 0 ? (
         <Badge variant="secondary" className="ml-auto">
           {item.badge}
         </Badge>
@@ -957,6 +1004,7 @@ function NavRow({
     const inner = (
       <span
         aria-disabled="true"
+        aria-label={collapsed ? item.label : undefined}
         className={cn(
           'flex h-9 cursor-not-allowed items-center gap-2 rounded-md px-3 text-sm font-medium text-muted-foreground/60 no-underline',
           collapsed && 'justify-center px-0',
@@ -990,6 +1038,7 @@ function NavRow({
             to={item.to}
             onClick={onNavigate}
             aria-current={active ? 'page' : undefined}
+            aria-label={collapsed ? item.label : undefined}
             className={cn(
               'flex h-9 items-center gap-2 rounded-md px-3 text-sm no-underline transition-colors',
               active

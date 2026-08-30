@@ -1056,6 +1056,13 @@
       "when": 1788117000000,
       "tag": "0152_auto_05_agentic_workflows",
       "breakpoints": true
+    },
+    {
+      "idx": 153,
+      "version": "7",
+      "when": 1788127363072,
+      "tag": "0153_nav_01_canonical_search_destinations",
+      "breakpoints": true
     }
   ]
 }

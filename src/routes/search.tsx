@@ -651,7 +651,11 @@ function SearchRoute() {
     <SearchResultInspector
       result={selectedResult}
       client={notebookDataClient}
-      projectName={projectNames.get(selectedResult.projectId) ?? null}
+      projectName={
+        selectedResult.projectId
+          ? (projectNames.get(selectedResult.projectId) ?? null)
+          : null
+      }
       ownerName={ownerNames.get(selectedResult.createdByUserId) ?? null}
       onClose={() => {
         updateFilter('selected', '')
@@ -1329,7 +1333,9 @@ export function SearchResults({
             selected={result.recordId === selectedId}
             active={index === activeIndex}
             onSelect={() => onSelect(result)}
-            projectName={projectNames?.get(result.projectId)}
+            projectName={
+              result.projectId ? projectNames?.get(result.projectId) : undefined
+            }
             ownerName={ownerNames?.get(result.createdByUserId)}
           />
         ))}
@@ -1633,9 +1639,11 @@ function SearchResultInspector({
             </Badge>
           )}
         </InspectorProp>
-        <InspectorProp label="Project">
-          {projectName ?? result.projectId}
-        </InspectorProp>
+        {result.projectId ? (
+          <InspectorProp label="Project">
+            {projectName ?? result.projectId}
+          </InspectorProp>
+        ) : null}
         <InspectorProp label="Owner">
           <span className="inline-flex items-center gap-1.5">
             <span

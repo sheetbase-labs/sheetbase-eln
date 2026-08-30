@@ -22,12 +22,17 @@ const OTHER_CREDENTIAL = 'a0050000-0000-4000-8000-000000000004'
 let migrator: Client
 let asRole: (role: 'authenticator') => Promise<Client>
 const clients: Client[] = []
+const actorClients = new Map<string, Client>()
 
 async function actor(userId: string, workspaceId: string): Promise<Client> {
+  const key = `user:${workspaceId}:${userId}`
+  const existing = actorClients.get(key)
+  if (existing) return existing
   const client = await asRole('authenticator')
   clients.push(client)
   await client.query('SET ROLE authenticated')
   await setActorJwt(client, userId, workspaceId)
+  actorClients.set(key, client)
   return client
 }
 
@@ -35,6 +40,9 @@ async function credential(
   workspaceId = WS,
   credentialId = CREDENTIAL,
 ): Promise<Client> {
+  const key = `credential:${workspaceId}:${credentialId}`
+  const existing = actorClients.get(key)
+  if (existing) return existing
   const client = await asRole('authenticator')
   clients.push(client)
   await client.query('SET ROLE api_client')
@@ -44,6 +52,7 @@ async function credential(
     credential_id: credentialId,
     scopes: ['agent_operations:read', 'agent_operations:write'],
   })
+  actorClients.set(key, client)
   return client
 }
 

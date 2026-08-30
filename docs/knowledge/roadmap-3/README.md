@@ -16,55 +16,57 @@ Roadmap 3 is **planned, not currently active**. Current execution priority is al
 
 1. [`PRODUCT_DIRECTION.md`](PRODUCT_DIRECTION.md) — product thesis and boundaries.
 2. [`PROGRAMME_MAP.md`](PROGRAMME_MAP.md) — sequencing, dependencies and Ready rules.
-3. [`tasks/README.md`](tasks/README.md) — discrete task index.
-4. The relevant programme task file under [`tasks/`](tasks/).
-5. Matching programme prompt under [`prompts/`](prompts/) if useful.
+3. [`tasks/README.md`](tasks/README.md) — 60-task index.
+4. The relevant capability task file under [`tasks/`](tasks/).
+5. Matching capability prompt under [`prompts/`](prompts/) if useful.
 6. Relevant canonical architecture docs and accepted ADRs.
+
+## Roadmap 2-style execution model
+
+Roadmap 3 mirrors Roadmap 2:
+
+- each **capability stream** has one task file, e.g. `tasks/GRID.md`;
+- that file contains sequential numbered tasks, e.g. GRID-01..05;
+- each numbered task is independently assignable/reviewable and owns a concrete exit criterion;
+- each capability stream has a matching agent prompt;
+- root [`../NEXT.md`](../NEXT.md) decides which numbered task is actually current.
+
+There are **18 capability streams and 60 discrete tasks**.
 
 ## Programme structure
 
-### 1. Product Depth
+### 1. Product Depth — 15 tasks
 
-Make everyday scientist workflows excellent.
+- **NAV** — NAV-01..03
+- **GRID** — GRID-01..05
+- **NOTE** — NOTE-01..04
+- **FIND** — FIND-01..03
 
-- **NAV-01** — Workspace Navigation & Information Architecture
-- **GRID-01** — Spreadsheet Interaction Depth
-- **NOTE-01** — Notebook Authoring & Composition Depth
-- **FIND-01** — Contextual Discovery, Recents & Favourites
+### 2. Scientific Depth — 14 tasks
 
-### 2. Scientific Depth
+- **KNOW** — KNOW-01..03
+- **VIEW** — VIEW-01..04
+- **MODEL** — MODEL-01..04
+- **REUSE** — REUSE-01..03
 
-Make scientific context, relationships, representations and reuse first-class.
+### 3. Open Platform — 12 tasks
 
-- **KNOW-01** — Scientific Knowledge & Relationship Context
-- **VIEW-01** — Rich Scientific Representations
-- **MODEL-01** — Scientific Modelling Depth
-- **REUSE-01** — Reusable Scientific Structures & Workflows
+- **SDK** — SDK-01..03
+- **EVENT** — EVENT-01..03
+- **EXT** — EXT-01..03
+- **ADMIN** — ADMIN-01..03
 
-### 3. Open Platform
+### 4. Intelligent Workspace — 9 tasks
 
-Mature the external platform after Roadmap 2 establishes initial SDK/webhook surfaces.
+- **AI** — AI-01..03
+- **ASSIST** — ASSIST-01..03
+- **AUTO+** — AUTO-PLUS-01..03
 
-- **SDK-01** — SDK Product Maturity
-- **EVENT-01** — Event & Webhook Platform Maturity
-- **EXT-01** — Extension Model
-- **ADMIN-01** — Mature Platform Administration
+### 5. Institutionalise — 10 tasks
 
-### 4. Intelligent Workspace
-
-Add intelligence only through canonical context, permissions and operations.
-
-- **AI-01** — Contextual Scientific Intelligence Substrate
-- **ASSIST-01** — Embedded Scientific Assistance
-- **AUTO-PLUS-01** — Mature Agentic Operations & Scientific Workflows
-
-### 5. Institutionalise
-
-Add organisational/regulatory/operational complexity only when adoption evidence justifies it.
-
-- **ENT-ORG-01** — Organisation & Team Model
-- **GXP-01** — Configurable Regulated Controls & Evidence
-- **OPS-01** — Institutional Operational Maturity
+- **ENT-ORG** — ENT-ORG-01..03
+- **GXP** — GXP-01..04
+- **OPS** — OPS-01..03
 
 ## Dependency shape
 
@@ -86,16 +88,16 @@ Science  Platform
 Institutionalise
 ```
 
-See [`PROGRAMME_MAP.md`](PROGRAMME_MAP.md) for task-level dependencies and recommended waves.
+See [`PROGRAMME_MAP.md`](PROGRAMME_MAP.md) for capability and within-stream task sequencing.
 
 ## Relationship to Roadmap 2
 
 Roadmap 3 does not duplicate unfinished Roadmap 2 work:
 
-- API-04/05 deliver the initial Python/TypeScript SDKs; `SDK-01` matures them.
-- API-06 delivers initial webhooks; `EVENT-01` matures the event platform.
-- AUTO-04/05 establish agent-authored operations/workflows; `AUTO-PLUS-01` matures them.
-- deferred GOV-02 is not silently reactivated; `ENT-ORG-01` requires a concrete need and accepted ADR.
+- API-04/05 deliver the initial Python/TypeScript SDKs; `SDK-01..03` mature them.
+- API-06 delivers initial webhooks; `EVENT-01..03` mature the event platform.
+- AUTO-04/05 establish agent-authored operations/workflows; `AUTO-PLUS-01..03` mature them.
+- deferred GOV-02 is not silently reactivated; ENT-ORG begins with an adoption-gated ADR.
 
 ## Roadmap 3 invariants
 
@@ -115,8 +117,8 @@ Do not use Roadmap 3 to create:
 When Roadmap 2 is complete:
 
 1. reconcile Roadmap 3 against the product as actually merged;
-2. confirm task dependencies/non-goals remain correct;
-3. select the first assigned task(s);
+2. confirm dependencies/non-goals remain correct;
+3. select the first assigned numbered task(s), normally beginning in Product Depth;
 4. update repository-wide [`../NEXT.md`](../NEXT.md) to make Roadmap 3 current.
 
 Programme folders never own a competing `NEXT.md`.

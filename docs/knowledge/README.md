@@ -12,16 +12,16 @@ last_reviewed: 2026-08-30
 
 For substantial product or engineering work:
 
-1. [`agent/agent-context.md`](agent/agent-context.md)
-2. [`agent/workflows.md`](agent/workflows.md) — how to review PRs, propose work and implement changes
-3. [`PRODUCT.md`](PRODUCT.md)
-4. [`DESIGN.md`](DESIGN.md)
-5. [`ROADMAP.md`](ROADMAP.md)
-6. [`product/product-thesis.md`](product/product-thesis.md)
-7. [`decisions/context/canonical-decisions.md`](decisions/context/canonical-decisions.md)
-8. [`decisions/context/retired-approaches.md`](decisions/context/retired-approaches.md)
-9. the relevant architecture document
-10. the active Roadmap 2 hand-off/task, if working on Roadmap 2
+1. [`NEXT.md`](NEXT.md) — the single current hand-off across Roadmaps
+2. [`agent/agent-context.md`](agent/agent-context.md)
+3. [`agent/workflows.md`](agent/workflows.md) — how to review PRs, propose work and implement changes
+4. [`PRODUCT.md`](PRODUCT.md)
+5. [`DESIGN.md`](DESIGN.md)
+6. [`ROADMAP.md`](ROADMAP.md)
+7. [`product/product-thesis.md`](product/product-thesis.md)
+8. [`decisions/context/canonical-decisions.md`](decisions/context/canonical-decisions.md)
+9. [`decisions/context/retired-approaches.md`](decisions/context/retired-approaches.md)
+10. the relevant architecture and roadmap task documents
 11. relevant ADRs under [`decisions/`](decisions/)
 
 Use [`agent/qmd.md`](agent/qmd.md) for local knowledge search. The repository includes a project-local [`.qmd/index.yml`](../../.qmd/index.yml) that indexes `docs/knowledge/**/*.md` as the `sheetbase-knowledge` collection.
@@ -31,6 +31,7 @@ Use [`agent/qmd.md`](agent/qmd.md) for local knowledge search. The repository in
 ```text
 docs/knowledge/
 ├── README.md
+├── NEXT.md                  # one current cross-roadmap hand-off
 ├── PRODUCT.md
 ├── DESIGN.md
 ├── ROADMAP.md
@@ -57,6 +58,12 @@ docs/knowledge/
     ├── workflows.md
     └── qmd.md
 ```
+
+## Current work
+
+[`NEXT.md`](NEXT.md) is the only current hand-off file. Programme folders contain programme scope, task definitions, prompts, audits and historical completion evidence, but they do not own a competing `NEXT.md`.
+
+When merged reality changes what is active or next, update the root `NEXT.md`.
 
 ## Product and design
 
@@ -88,7 +95,7 @@ Accepted ADRs live directly under [`decisions/`](decisions/). Cross-cutting summ
 
 ### Roadmap 2 — Product & Platform Consolidation
 
-[`roadmap-2/`](roadmap-2/) is the active Roadmap 2 execution corpus. Start with [`roadmap-2/NEXT.md`](roadmap-2/NEXT.md).
+[`roadmap-2/`](roadmap-2/) is the Roadmap 2 programme corpus. Current work is tracked only in [`NEXT.md`](NEXT.md); programme-specific task definitions remain under `roadmap-2/tasks/`.
 
 ### Roadmap 3
 
@@ -114,7 +121,7 @@ Accepted ADRs live directly under [`decisions/`](decisions/). Cross-cutting summ
 - [`agent/development-rules.md`](agent/development-rules.md) contains cross-cutting engineering constraints.
 - [`agent/qmd.md`](agent/qmd.md) describes qmd search, retrieval and MCP use.
 
-Search is a discovery layer only. Agents must open the relevant roadmap task, ADR and canonical source documents in full before making consequential judgements.
+Search is a discovery layer only. Agents must open `NEXT.md`, the relevant roadmap task, ADR and canonical source documents in full before making consequential judgements.
 
 ## Implementation documentation
 
@@ -130,6 +137,8 @@ When documents disagree:
 2. current canonical `PRODUCT.md`, `DESIGN.md`, roadmap documents and subsystem contracts;
 3. cross-cutting knowledge-base synthesis;
 4. historical conversation, concept, competitor, mockup or superseded planning material.
+
+For current priority/status, `NEXT.md` wins over programme-local historical status text.
 
 ## Maintenance
 

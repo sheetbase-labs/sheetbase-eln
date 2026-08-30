@@ -629,13 +629,27 @@ describe('AUTO-04 agent-authored operations', () => {
       targetId: dataset.id,
       maxAffectedRows: 2,
     })
+    const existingRowId = 'a0040000-0000-4000-8000-000000000019'
+    await owner.query(
+      `SELECT api.commit_dataset_row_batch($1,1,$2::jsonb,'auto04-bound-seed')`,
+      [
+        dataset.id,
+        JSON.stringify([
+          {
+            operation: 'create',
+            rowId: existingRowId,
+            values: { [dataset.fieldId]: 19 },
+          },
+        ]),
+      ],
+    )
 
     const otherCredentialWrite = await propose(
       other,
       {
         kind: 'dataset_rows.commit',
         datasetId: dataset.id,
-        expectedRevision: 1,
+        expectedRevision: 2,
         rows: [
           {
             operation: 'create',
@@ -658,11 +672,11 @@ describe('AUTO-04 agent-authored operations', () => {
       {
         kind: 'dataset_rows.commit',
         datasetId: dataset.id,
-        expectedRevision: 1,
+        expectedRevision: 2,
         rows: [
           {
             operation: 'update',
-            rowId: 'a0040000-0000-4000-8000-000000000019',
+            rowId: existingRowId,
             expectedRevision: 1,
             values: { [dataset.fieldId]: 21 },
           },

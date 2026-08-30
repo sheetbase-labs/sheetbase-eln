@@ -33,6 +33,8 @@ export interface ChartConfiguratorProps {
   spec: ChartSpec
   onSpecChange: (spec: ChartSpec) => void
   idPrefix?: string
+  /** `rail` is a narrow stacked encoding column; `wrap` is the horizontal toolbar. */
+  layout?: 'wrap' | 'rail'
 }
 
 /** Controlled chart authoring controls shared by every full-size chart surface. */
@@ -41,6 +43,7 @@ export function ChartConfigurator({
   spec,
   onSpecChange,
   idPrefix = 'chart',
+  layout = 'wrap',
 }: ChartConfiguratorProps) {
   const columns = source.columns
   const numericColumns = columns.filter(
@@ -296,38 +299,64 @@ export function ChartConfigurator({
       : []),
   ]
 
+  const typeButtons = CHART_TYPES.map((type) => (
+    <Button
+      key={type}
+      type="button"
+      variant={spec.type === type ? 'default' : 'outline'}
+      size={layout === 'rail' ? 'icon-sm' : 'sm'}
+      role="radio"
+      aria-checked={spec.type === type}
+      aria-label={CHART_TYPE_LABELS[type]}
+      title={CHART_TYPE_LABELS[type]}
+      onClick={() => setType(type)}
+      className={layout === 'rail' ? undefined : 'gap-1.5'}
+    >
+      {TYPE_ICONS[type]}
+      {layout === 'rail' ? null : CHART_TYPE_LABELS[type]}
+    </Button>
+  ))
+
   return (
     <div
-      className="shrink-0 space-y-2.5 border-b pb-3"
+      className={
+        layout === 'rail'
+          ? 'space-y-2.5 p-2'
+          : 'shrink-0 space-y-2.5 border-b pb-3'
+      }
       aria-labelledby={`${idPrefix}-controls-title`}
     >
       <h2 id={`${idPrefix}-controls-title`} className="sr-only">
         Chart configuration
       </h2>
-      <FieldGroup className="flex flex-wrap items-end gap-3">
-        <Field className="min-w-fit shrink-0">
+      <FieldGroup
+        className={
+          layout === 'rail'
+            ? 'flex flex-col gap-3'
+            : 'flex flex-wrap items-end gap-3'
+        }
+      >
+        <Field className={layout === 'rail' ? 'w-full' : 'min-w-fit shrink-0'}>
           <FieldLabel>Chart type</FieldLabel>
-          <ButtonGroup role="radiogroup" aria-label="Chart type">
-            {CHART_TYPES.map((type) => (
-              <Button
-                key={type}
-                type="button"
-                variant={spec.type === type ? 'default' : 'outline'}
-                size="sm"
-                role="radio"
-                aria-checked={spec.type === type}
-                aria-label={CHART_TYPE_LABELS[type]}
-                onClick={() => setType(type)}
-                className="gap-1.5"
-              >
-                {TYPE_ICONS[type]}
-                {CHART_TYPE_LABELS[type]}
-              </Button>
-            ))}
-          </ButtonGroup>
+          {layout === 'rail' ? (
+            <div
+              role="radiogroup"
+              aria-label="Chart type"
+              className="grid grid-cols-4 gap-1"
+            >
+              {typeButtons}
+            </div>
+          ) : (
+            <ButtonGroup role="radiogroup" aria-label="Chart type">
+              {typeButtons}
+            </ButtonGroup>
+          )}
         </Field>
         {fields.map((field) => (
-          <Field key={field.key} className="min-w-36 flex-1">
+          <Field
+            key={field.key}
+            className={layout === 'rail' ? 'w-full' : 'min-w-36 flex-1'}
+          >
             <FieldLabel htmlFor={`${idPrefix}-${field.key}`}>
               {field.label}
             </FieldLabel>

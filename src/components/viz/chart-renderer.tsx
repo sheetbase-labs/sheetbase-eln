@@ -65,8 +65,10 @@ export interface ChartRendererProps {
   actions?: React.ReactNode
   /** When true, suppress the visual title (parent renders it). */
   hideTitle?: boolean
-  /** Plot height in pixels. Analysis Studio uses a taller publication preview. */
+  /** Plot height in pixels. Ignored when `fillPlot` is set. */
   plotHeight?: number
+  /** Fill the parent height instead of a fixed pixel plot. */
+  fillPlot?: boolean
   /** Hide the built-in table when the surrounding page already shows these rows. */
   showTableAlternative?: boolean
   /** Faceted small multiples; when set the plot area renders a panel grid. */
@@ -93,6 +95,7 @@ export function ChartRenderer({
   actions,
   hideTitle = false,
   plotHeight = 240,
+  fillPlot = false,
   showTableAlternative = true,
   facets,
   facetTotal,
@@ -120,6 +123,7 @@ export function ChartRenderer({
       hideTitle={hideTitle}
       expanded={expanded}
       onExpandedChange={onExpandedChange}
+      fill={fillPlot}
     >
       {error ? (
         <ChartStateMessage tone="error">{error}</ChartStateMessage>
@@ -134,18 +138,42 @@ export function ChartRenderer({
             : 'Choose an X and Y field to create a scatter plot.'}
         </ChartStateMessage>
       ) : (
-        <>
-          <ChartPlot
-            spec={spec}
-            materialised={materialised}
-            height={plotHeight}
-            facets={facets}
-            facetTotal={facetTotal}
-            selectionProps={{
-              selection,
-              onSelect: onSelectionChange ?? (() => {}),
-            }}
-          />
+        <div
+          className={
+            fillPlot ? 'flex h-full min-h-0 flex-col' : undefined
+          }
+        >
+          {fillPlot ? (
+            <div className="min-h-0 flex-1">
+              <MeasuredPlotHeight>
+                {(height) => (
+                  <ChartPlot
+                    spec={spec}
+                    materialised={materialised}
+                    height={height}
+                    facets={facets}
+                    facetTotal={facetTotal}
+                    selectionProps={{
+                      selection,
+                      onSelect: onSelectionChange ?? (() => {}),
+                    }}
+                  />
+                )}
+              </MeasuredPlotHeight>
+            </div>
+          ) : (
+            <ChartPlot
+              spec={spec}
+              materialised={materialised}
+              height={plotHeight}
+              facets={facets}
+              facetTotal={facetTotal}
+              selectionProps={{
+                selection,
+                onSelect: onSelectionChange ?? (() => {}),
+              }}
+            />
+          )}
           {materialised.transformInvalidCount ? (
             <p role="status" className="mt-1 text-xs text-muted-foreground">
               {materialised.transformInvalidCount} value
@@ -178,7 +206,7 @@ export function ChartRenderer({
                 : `OLS ${materialised.fit.equation} · R² = ${formatScientific(materialised.fit.r2)} · n = ${materialised.fit.n}`}
             </p>
           ) : null}
-        </>
+        </div>
       )}
       {showTableAlternative &&
       materialised.state.kind === 'ok' &&
@@ -186,6 +214,34 @@ export function ChartRenderer({
         <ChartTableAlternative materialised={materialised} />
       ) : null}
     </ChartFrame>
+  )
+}
+
+function MeasuredPlotHeight({
+  children,
+  fallback = 480,
+}: {
+  children: (height: number) => React.ReactNode
+  fallback?: number
+}) {
+  const ref = React.useRef<HTMLDivElement>(null)
+  const [height, setHeight] = React.useState(fallback)
+  React.useLayoutEffect(() => {
+    const node = ref.current
+    if (!node) return
+    const apply = () => {
+      const next = Math.floor(node.getBoundingClientRect().height)
+      if (next > 0) setHeight(Math.max(160, next))
+    }
+    apply()
+    const observer = new ResizeObserver(apply)
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
+  return (
+    <div ref={ref} className="h-full min-h-0 w-full">
+      {children(height)}
+    </div>
   )
 }
 

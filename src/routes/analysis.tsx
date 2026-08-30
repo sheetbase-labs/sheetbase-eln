@@ -10,9 +10,10 @@
  * persisted in `api.analysis_views`; and export with explicit format,
  * dimensions, theme and provenance metadata.
  *
- * Every chart has an accessible data-table alternative rendered beneath it.
- * Missing columns, stale sources, invalid log values and excessive result
- * sizes are surfaced as explicit, recoverable states rather than blank axes.
+ * Every chart has an accessible data-table alternative, collapsed by default
+ * so the plot can occupy most of the studio. Missing columns, stale sources,
+ * invalid log values and excessive result sizes are surfaced as explicit,
+ * recoverable states rather than blank axes.
  *
  * PostgreSQL and RLS remain authoritative (decisions 0019/0029/0034).
  */
@@ -20,10 +21,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
+  ChevronDown,
+  ChevronUp,
   Database,
   Download,
   LineChart as LineChartIcon,
   Loader2,
+  PanelLeft,
+  PanelLeftClose,
   Save,
   Sigma,
   Trash2,
@@ -154,6 +159,7 @@ function AnalysisStudioRoute() {
   // SCI-02: the studio serves both chart authoring and reusable analysis
   // definitions; the mode is session state, never persisted server-side.
   const [mode, setMode] = useState<'chart' | 'analyse'>('chart')
+  const [configOpen, setConfigOpen] = useState(true)
   const [viewName, setViewName] = useState('')
   const [exportSettings, setExportSettings] = useState<ExportSettings>(
     DEFAULT_EXPORT_SETTINGS,
@@ -311,49 +317,76 @@ function AnalysisStudioRoute() {
 
   return (
     <>
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4">
-        <AnalysisStudioHeader
-          datasets={datasets}
-          loading={summariesQuery.isLoading}
-          error={summariesQuery.error}
-          selectedDatasetId={selectedDatasetId}
-          onSelect={setSelectedDatasetId}
-        />
-        <div
-          role="tablist"
-          aria-label="Studio mode"
-          className="flex items-center gap-1"
-        >
-          {(['chart', 'analyse'] as const).map((value) => (
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-1.5">
+          <AnalysisStudioHeader
+            datasets={datasets}
+            loading={summariesQuery.isLoading}
+            error={summariesQuery.error}
+            selectedDatasetId={selectedDatasetId}
+            onSelect={setSelectedDatasetId}
+          />
+          <div
+            role="tablist"
+            aria-label="Studio mode"
+            className="flex items-center gap-1"
+          >
+            {(['chart', 'analyse'] as const).map((value) => (
+              <Button
+                key={value}
+                type="button"
+                size="sm"
+                variant={mode === value ? 'default' : 'outline'}
+                role="tab"
+                aria-selected={mode === value}
+                onClick={() => setMode(value)}
+              >
+                {value === 'chart' ? 'Chart builder' : 'Analyse'}
+              </Button>
+            ))}
+          </div>
+          {mode === 'chart' && selectedSource && spec ? (
             <Button
-              key={value}
               type="button"
               size="sm"
-              variant={mode === value ? 'default' : 'outline'}
-              role="tab"
-              aria-selected={mode === value}
-              onClick={() => setMode(value)}
+              variant="ghost"
+              aria-expanded={configOpen}
+              aria-controls="analysis-chart-config"
+              onClick={() => setConfigOpen((open) => !open)}
             >
-              {value === 'chart' ? 'Chart builder' : 'Analyse'}
+              {configOpen ? (
+                <PanelLeftClose className="size-4" aria-hidden="true" />
+              ) : (
+                <PanelLeft className="size-4" aria-hidden="true" />
+              )}
+              {configOpen ? 'Hide encodings' : 'Show encodings'}
             </Button>
-          ))}
+          ) : null}
         </div>
         {mode === 'analyse' ? (
-          <AnalysisPanel
-            datasets={sources}
-            workspaceId={workspaceId}
-            userId={userId}
-          />
+          <div className="min-h-0 flex-1 overflow-auto p-3">
+            <AnalysisPanel
+              datasets={sources}
+              workspaceId={workspaceId}
+              userId={userId}
+            />
+          </div>
         ) : selectedSource && spec ? (
-          <div className="flex min-h-0 flex-1 gap-3 overflow-hidden">
-            <div className="w-[22rem] shrink-0 overflow-y-auto border-r pr-3">
-              <ChartConfigurator
-                source={selectedSource}
-                spec={spec}
-                onSpecChange={setSpec}
-                idPrefix="analysis"
-              />
-            </div>
+          <div className="flex min-h-0 flex-1 overflow-hidden">
+            {configOpen ? (
+              <aside
+                id="analysis-chart-config"
+                className="flex w-56 shrink-0 flex-col overflow-y-auto border-r"
+              >
+                <ChartConfigurator
+                  source={selectedSource}
+                  spec={spec}
+                  onSpecChange={setSpec}
+                  idPrefix="analysis"
+                  layout="rail"
+                />
+              </aside>
+            ) : null}
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
               <AnalysisPreview
                 source={selectedSource}
@@ -370,10 +403,12 @@ function AnalysisStudioRoute() {
             </div>
           </div>
         ) : (
-          <EmptyAnalysisState
-            loading={summariesQuery.isLoading}
-            error={summariesQuery.error}
-          />
+          <div className="min-h-0 flex-1 p-3">
+            <EmptyAnalysisState
+              loading={summariesQuery.isLoading}
+              error={summariesQuery.error}
+            />
+          </div>
         )}
       </div>
     </>
@@ -412,10 +447,6 @@ export function AnalysisStudioHeader({
         >
           Analysis Studio
         </h1>
-        <span className="text-xs text-muted-foreground">
-          Visualise scientific data, compare conditions, and export
-          publication-ready charts
-        </span>
       </div>
       <div className="flex items-center gap-2">
         {error ? (
@@ -1065,9 +1096,7 @@ export function AnalysisPreview({
   selection,
   onSelectionChange,
 }: AnalysisPreviewProps) {
-  const [expanded, setExpanded] = useState(false)
-  const chartHeight = expanded ? 460 : 340
-  const plotHeight = expanded ? 390 : 270
+  const [dataPreviewOpen, setDataPreviewOpen] = useState(false)
   const validation = useMemo(
     () => validateAnalysisSpec(spec, datasetQuery.data?.rows.length ?? 0),
     [spec, datasetQuery.data],
@@ -1118,16 +1147,9 @@ export function AnalysisPreview({
   )
 
   return (
-    <div
-      className="grid min-h-0 flex-1 overflow-hidden transition-[grid-template-rows]"
-      style={{
-        gridTemplateRows: `${chartHeight}px minmax(0, 1fr)`,
-      }}
-      data-preview-size={expanded ? 'expanded' : 'standard'}
-      data-analysis-chart
-    >
-      <div className="flex min-h-0 flex-col overflow-hidden">
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 px-4 py-2">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 px-3 py-1">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Badge variant="outline">
               {datasetQuery.isLoading
@@ -1208,31 +1230,52 @@ export function AnalysisPreview({
           </div>
         ) : null}
 
-        <div className="min-h-0 flex-1 overflow-hidden px-4 pb-2">
+        <div
+          className="min-h-0 min-w-0 flex-1 overflow-hidden px-2 pb-1"
+          data-analysis-chart
+        >
           <ChartRenderer
             title={`${source.name} — ${spec.type} chart`}
             spec={spec}
             materialised={analysisMaterialised}
             frozen={null}
             loading={datasetQuery.isLoading}
-            plotHeight={plotHeight}
+            fillPlot
+            hideTitle
+            showTableAlternative={false}
             facets={facets?.panels ?? undefined}
             facetTotal={facets?.total}
             selection={selection}
             onSelectionChange={onSelectionChange}
-            expanded={expanded}
-            onExpandedChange={setExpanded}
             className="h-full rounded-none border-0 bg-transparent shadow-none"
           />
         </div>
       </div>
 
-      {/* Accessible data table that underlies every chart. */}
-      <DataTableAlternative
-        materialised={analysisMaterialised}
-        loading={datasetQuery.isLoading}
-        selection={selection}
-      />
+      <div className="shrink-0 border-t">
+        <button
+          type="button"
+          className="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-xs font-medium"
+          aria-expanded={dataPreviewOpen}
+          onClick={() => setDataPreviewOpen((open) => !open)}
+        >
+          <span>Data preview</span>
+          {dataPreviewOpen ? (
+            <ChevronUp className="size-3.5" aria-hidden="true" />
+          ) : (
+            <ChevronDown className="size-3.5" aria-hidden="true" />
+          )}
+        </button>
+        {dataPreviewOpen ? (
+          <div className="max-h-40 overflow-hidden">
+            <DataTableAlternative
+              materialised={analysisMaterialised}
+              loading={datasetQuery.isLoading}
+              selection={selection}
+            />
+          </div>
+        ) : null}
+      </div>
     </div>
   )
 }

@@ -46,8 +46,8 @@ docs/knowledge/
 ├── roadmap-3/               # planned and implementation-ready, not active
 │   ├── PRODUCT_DIRECTION.md
 │   ├── PROGRAMME_MAP.md
-│   ├── tasks/
-│   └── prompts/
+│   ├── tasks/               # 18 capability files / 60 numbered tasks
+│   └── prompts/             # one prompt per capability stream
 ├── concepts/
 ├── mockups/
 ├── references/
@@ -95,9 +95,9 @@ Accepted ADRs live directly under [`decisions/`](decisions/). Cross-cutting summ
 
 ### Roadmap 3 — Product & Scientific Maturity
 
-[`roadmap-3/`](roadmap-3/) is now implementation-ready but deliberately inactive until [`NEXT.md`](NEXT.md) promotes it after Roadmap 2 closes.
+[`roadmap-3/`](roadmap-3/) is implementation-ready but deliberately inactive until [`NEXT.md`](NEXT.md) promotes it after Roadmap 2 closes.
 
-Roadmap 3 contains five programmes and 18 named tasks with explicit scope, non-goals, dependencies, required evidence and exit criteria. Start with [`roadmap-3/PRODUCT_DIRECTION.md`](roadmap-3/PRODUCT_DIRECTION.md), [`roadmap-3/PROGRAMME_MAP.md`](roadmap-3/PROGRAMME_MAP.md) and [`roadmap-3/tasks/README.md`](roadmap-3/tasks/README.md).
+Roadmap 3 now mirrors Roadmap 2's execution model: **18 capability streams containing 60 numbered tasks**, each independently assignable/reviewable with explicit goals, boundaries and exits. Each capability has a matching agent prompt. Start with [`roadmap-3/PRODUCT_DIRECTION.md`](roadmap-3/PRODUCT_DIRECTION.md), [`roadmap-3/PROGRAMME_MAP.md`](roadmap-3/PROGRAMME_MAP.md) and [`roadmap-3/tasks/README.md`](roadmap-3/tasks/README.md).
 
 ## Concepts, mockups, references and history
 
@@ -112,7 +112,7 @@ Roadmap 3 contains five programmes and 18 named tasks with explicit scope, non-g
 - [`agent/development-rules.md`](agent/development-rules.md) contains cross-cutting engineering constraints.
 - [`agent/qmd.md`](agent/qmd.md) describes qmd search, retrieval and MCP use.
 
-Search is discovery only. Agents must open `NEXT.md`, the relevant task, ADR and canonical source documents in full before making consequential judgements.
+Search is discovery only. Agents must open `NEXT.md`, the relevant numbered task, ADR and canonical source documents in full before making consequential judgements.
 
 ## Implementation documentation
 

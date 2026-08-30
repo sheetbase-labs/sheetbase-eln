@@ -80,28 +80,21 @@ This does not weaken intentional Dataset Version, published Definition or submit
 
 `ChartSpec` is canonical. Live and frozen charts share deterministic materialisation semantics. Frozen figures pin Dataset Versions. Display sampling must never silently become analysis sampling.
 
-## Current roadmap state
+## Current work
 
-Roadmap 1/Core is complete. After SCI-04, remaining active Roadmap 2 work is:
-
-- API-04 Python SDK
-- API-05 TypeScript SDK
-- API-06 Webhooks
-- AUTO-04 Agent-authored Operations
-- AUTO-05 Agentic Scientific Workflows
-
-GOV-02 Organisation Model remains ADR-gated/deferred. Roadmap 3 direction exists but is not yet an implementation task set.
+Do not encode current task status here. Read [`../NEXT.md`](../NEXT.md), which is the single current hand-off across Roadmaps.
 
 ## Required reading
 
 Always also read:
 
-1. [`../PRODUCT.md`](../PRODUCT.md)
-2. [`../DESIGN.md`](../DESIGN.md)
-3. [`../ROADMAP.md`](../ROADMAP.md)
-4. [`../roadmap-2/NEXT.md`](../roadmap-2/NEXT.md) and the relevant task if doing Roadmap 2 work
-5. [`../architecture/sheets.md`](../architecture/sheets.md) for Sheet/data workflow changes
-6. relevant accepted ADRs under [`../decisions/`](../decisions/)
-7. relevant implementation docs under `docs/` for the subsystem being changed.
+1. [`../NEXT.md`](../NEXT.md)
+2. [`../PRODUCT.md`](../PRODUCT.md)
+3. [`../DESIGN.md`](../DESIGN.md)
+4. [`../ROADMAP.md`](../ROADMAP.md)
+5. the relevant roadmap task/programme file
+6. [`../architecture/sheets.md`](../architecture/sheets.md) for Sheet/data workflow changes
+7. relevant accepted ADRs under [`../decisions/`](../decisions/)
+8. relevant implementation docs under `docs/` for the subsystem being changed.
 
 This file is orientation, not permission to ignore current code or tests.

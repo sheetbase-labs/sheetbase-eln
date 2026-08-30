@@ -9,9 +9,9 @@
  * keys are exactly the `ChartColumn.id` values specs bind to. No generated
  * physical resource and no legacy scientific-table surface is consulted.
  *
- * Client-side materialisation caps at SCI_ROW_HARD_LIMIT rows; a larger
- * dataset surfaces an honest `dataset_too_large` state instead of silent
- * truncation. Server-side strategies remain future work (roadmap SCI).
+ * Client-side analysis reads up to SCI_ANALYSIS_ROW_LIMIT rows. Display
+ * sampling (`SCI_RENDER_POINT_CAP`) is applied after statistics. Above the
+ * analysis limit the chart reports `dataset_too_large`.
  *
  * Lifecycle helpers (`freezeChart`, `unfreezeChart`) are thin typed
  * wrappers around the transactional SECURITY DEFINER RPCs. Binding frozen
@@ -25,7 +25,8 @@ import type { DataClient } from './data-client'
 import { queryDatasetVersionRows } from './dataset-product'
 import { toBlock } from './notebook-data'
 import type { BlockWire, NotebookBlock } from './notebook-data'
-import { materialiseChart } from './chart-spec'
+import { materialiseChart, materialiseFacetedCharts } from './chart-spec'
+import { CHART_ROW_ID_KEY } from './visualisation-pipeline'
 import type {
   ChartColumn,
   ChartSpec,
@@ -34,8 +35,8 @@ import type {
   MaterialisedChart,
 } from './chart-spec'
 
-/** Hard ceiling on rows fetched client-side for live/frozen rendering. */
-export const SCI_ROW_HARD_LIMIT = 5000
+/** Maximum rows fetched for live/frozen analysis. Display may sample. */
+export const SCI_ANALYSIS_ROW_LIMIT = 10_000
 
 /** query_dataset_rows / query_dataset_version_rows accept ≤1000 per call. */
 const ROW_PAGE_SIZE = 1000
@@ -118,7 +119,7 @@ export function toCanonicalDatasetSource(dataset: {
 export interface ResolvedDataset {
   source: CanonicalDatasetSource
   rows: Record<string, unknown>[]
-  /** True when totalCount exceeded SCI_ROW_HARD_LIMIT and rows were cut. */
+  /** True when totalCount exceeded SCI_ANALYSIS_ROW_LIMIT and rows were cut. */
   truncated: boolean
   totalCount: number
 }
@@ -186,20 +187,20 @@ async function fetchRowsPaged(
   const totalCount = first.totalCount
   const rows = [...first.rows]
   let offset = rows.length
-  while (offset < Math.min(totalCount, SCI_ROW_HARD_LIMIT)) {
+  while (offset < Math.min(totalCount, SCI_ANALYSIS_ROW_LIMIT)) {
     const page = await fetchPage(
-      Math.min(ROW_PAGE_SIZE, SCI_ROW_HARD_LIMIT - offset),
+      Math.min(ROW_PAGE_SIZE, SCI_ANALYSIS_ROW_LIMIT - offset),
       offset,
     )
     rows.push(...page.rows)
     offset = rows.length
   }
-  return { rows, totalCount, truncated: totalCount > SCI_ROW_HARD_LIMIT }
+  return { rows, totalCount, truncated: totalCount > SCI_ANALYSIS_ROW_LIMIT }
 }
 
 /**
  * Fetch a canonical Dataset's live rows (fieldId-keyed) up to
- * SCI_ROW_HARD_LIMIT. Shared by chart and analysis surfaces.
+ * SCI_ANALYSIS_ROW_LIMIT. Shared by chart and analysis surfaces.
  */
 export async function fetchDatasetRows(
   client: DataClient,
@@ -225,7 +226,10 @@ export async function fetchDatasetRows(
         p_offset: offset,
       })
       .then((result) => ({
-        rows: result.rows.map((row) => ({ ...row.values })),
+        rows: result.rows.map((row) => ({
+          ...row.values,
+          [CHART_ROW_ID_KEY]: row.rowId,
+        })),
         totalCount: result.totalCount,
       })),
   )
@@ -275,7 +279,7 @@ export function materialiseLiveChart(
       state: {
         kind: 'dataset_too_large',
         rowCount: dataset.totalCount,
-        limit: SCI_ROW_HARD_LIMIT,
+        limit: SCI_ANALYSIS_ROW_LIMIT,
       },
       columns: [],
       rows: [],
@@ -291,8 +295,9 @@ export function materialiseLiveChart(
 }
 
 /**
- * Materialise a frozen chart from its immutable snapshot. The frozen data
- * is authoritative; no live resolution applies.
+ * Materialise a frozen chart. Legacy snapshots (no Dataset Version) replay
+ * stored series. SCI-04 evidence rematerialises from pinned Version rows
+ * through the same `materialiseChart` pipeline as live rendering.
  */
 export function materialiseFrozenChart(frozen: FrozenChart): MaterialisedChart {
   const columns: ChartColumn[] = frozen.data.columns.map((c) => ({
@@ -312,8 +317,6 @@ export function materialiseFrozenChart(frozen: FrozenChart): MaterialisedChart {
     columns,
     rows: frozen.data.rows,
     series,
-    // Dropped rows were already excluded at freeze time; a frozen chart
-    // reports the null points its snapshot actually carries.
     droppedPoints: series.reduce(
       (acc, s) => acc + s.points.filter((p) => p.y === null).length,
       0,
@@ -333,6 +336,33 @@ export function materialiseFrozenChart(frozen: FrozenChart): MaterialisedChart {
         ? String((columns[1].unit as { symbol: string }).symbol)
         : undefined,
   }
+}
+
+export function frozenPinsDatasetVersion(frozen: FrozenChart): string | null {
+  const versionId = frozen.datasetProvenance[0]?.datasetVersionId
+  return typeof versionId === 'string' && versionId.length > 0
+    ? versionId
+    : null
+}
+
+export function reconstructFrozenVisualisation(input: {
+  spec: ChartSpec
+  frozen: FrozenChart
+  rows: Record<string, unknown>[]
+}): {
+  chart: MaterialisedChart
+  facets: { panels: FacetedChart[]; total: number } | null
+} {
+  const columns: ChartColumn[] = input.frozen.data.columns.map((column) => ({
+    id: column.fieldId,
+    label: column.label,
+    logicalType: column.logicalType,
+    unit: column.unit,
+  }))
+  const chart = materialiseChart(input.spec, columns, input.rows)
+  if (!input.spec.fields.facet) return { chart, facets: null }
+  const facets = materialiseFacetedCharts(input.spec, columns, input.rows)
+  return { chart, facets }
 }
 
 /**
@@ -370,15 +400,18 @@ export async function fetchFrozenAnalysisRows(
   totalCount: number
   matchesProvenance: boolean
 }> {
-  if (expectedRowCount > SCI_ROW_HARD_LIMIT) {
+  if (expectedRowCount > SCI_ANALYSIS_ROW_LIMIT) {
     throw new Error(
-      `Dataset Version holds ${expectedRowCount} rows, above the ${SCI_ROW_HARD_LIMIT}-row reconstruction ceiling`,
+      `Dataset Version holds ${expectedRowCount} rows, above the ${SCI_ANALYSIS_ROW_LIMIT}-row reconstruction ceiling`,
     )
   }
   const paged = await fetchRowsPaged((limit, offset) =>
     queryDatasetVersionRows(client, datasetVersionId, limit, offset).then(
       (page) => ({
-        rows: page.rows.map((row) => ({ ...row.values })),
+        rows: page.rows.map((row) => ({
+          ...row.values,
+          [CHART_ROW_ID_KEY]: row.rowId,
+        })),
         totalCount: page.totalCount,
       }),
     ),
@@ -404,6 +437,18 @@ export function useLiveChartDataset(spec: ChartSpec | null | undefined) {
     enabled: Boolean(datasetId),
   })
   return { datasetQuery }
+}
+
+export function useFrozenPinnedRows(frozen: FrozenChart | null) {
+  const versionId = frozen ? frozenPinsDatasetVersion(frozen) : null
+  const expected = frozen?.datasetProvenance[0]?.rowCount ?? 0
+  const query = useQuery({
+    queryKey: chartQueryKeys.versionRows(versionId ?? ''),
+    queryFn: () =>
+      fetchFrozenAnalysisRows(sciDataClient, versionId!, expected),
+    enabled: Boolean(versionId),
+  })
+  return query
 }
 
 // ---------------------------------------------------------------------------

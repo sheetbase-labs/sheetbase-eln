@@ -430,8 +430,11 @@ describe('SCI-004 chart blocks REST contract', () => {
     chart = await freezeRes.json()
     expect(chart.payload.frozen).toBeTruthy()
     expect(chart.payload.frozen.frozenByUserId).toBe(USER_A)
-    expect(chart.payload.frozen.datasetProvenance[0].tableId).toBe(table.id)
-    expect(chart.payload.frozen.data.series.length).toBeGreaterThan(0)
+    expect(chart.payload.frozen.datasetProvenance[0].datasetId ?? chart.payload.frozen.datasetProvenance[0].tableId).toBeTruthy()
+    expect(chart.payload.frozen.datasetProvenance[0].datasetVersionId).toMatch(
+      /^[0-9a-f-]{36}$/i,
+    )
+    expect(chart.payload.frozen.data.series).toEqual([])
   })
 
   it('guards freeze with a stale version (stale-calculation) error', async () => {

@@ -986,6 +986,34 @@
       "when": 1788015002000,
       "tag": "0142_plat_05_atomic_connector_import",
       "breakpoints": true
+    },
+    {
+      "idx": 143,
+      "version": "7",
+      "when": 1788015003000,
+      "tag": "0143_sci_04_visualisation_maturity",
+      "breakpoints": true
+    },
+    {
+      "idx": 144,
+      "version": "7",
+      "when": 1788020000000,
+      "tag": "0144_sci_04_freeze_rematerialise",
+      "breakpoints": true
+    },
+    {
+      "idx": 145,
+      "version": "7",
+      "when": 1788025000000,
+      "tag": "0145_sci_04_chart_spec_parity",
+      "breakpoints": true
+    },
+    {
+      "idx": 146,
+      "version": "7",
+      "when": 1788030000000,
+      "tag": "0146_sci_04_heatmap_value_field_freeze",
+      "breakpoints": true
     }
   ]
 }

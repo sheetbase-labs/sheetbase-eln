@@ -109,11 +109,11 @@ describe('DatasetChartTab', () => {
     )
 
     expect(
-      screen.getByRole('radio', { name: /line/i }).getAttribute('aria-checked'),
+      screen.getByRole('radio', { name: /^line$/i }).getAttribute('aria-checked'),
     ).toBe('true')
-    await userEvent.click(screen.getByRole('radio', { name: /bar/i }))
+    await userEvent.click(screen.getByRole('radio', { name: /^bar$/i }))
     expect(
-      screen.getByRole('radio', { name: /bar/i }).getAttribute('aria-checked'),
+      screen.getByRole('radio', { name: /^bar$/i }).getAttribute('aria-checked'),
     ).toBe('true')
     expect(useQuery).not.toHaveBeenCalled()
   })

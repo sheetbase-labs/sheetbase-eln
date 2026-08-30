@@ -7,10 +7,10 @@ import {
   ErrorBar,
   Line,
   LineChart,
+  ReferenceArea,
   ReferenceDot,
+  ReferenceLine,
   ResponsiveContainer,
-  Scatter,
-  ScatterChart,
   Tooltip,
   XAxis,
   YAxis,
@@ -22,6 +22,7 @@ import { BoxPlotChart, HeatmapPlot, HistogramPlot } from './chart-plots'
 import type { ChartSelection, PlotSelectionProps } from './chart-plots'
 import { CHART_PALETTE, formatScientific } from '#/lib/chart-spec'
 import type {
+  AxisDisplay,
   ChartAnnotation,
   ChartSpec,
   ChartType,
@@ -29,6 +30,7 @@ import type {
   FrozenChart,
   MaterialisedChart,
   MaterialisedSeries,
+  ReferenceOverlay,
 } from '#/lib/chart-spec'
 
 /**
@@ -61,8 +63,10 @@ export interface ChartRendererProps {
   actions?: React.ReactNode
   /** When true, suppress the visual title (parent renders it). */
   hideTitle?: boolean
-  /** Plot height in pixels. Analysis Studio uses a taller publication preview. */
+  /** Plot height in pixels. Ignored when `fillPlot` is set. */
   plotHeight?: number
+  /** Fill the parent height instead of a fixed pixel plot. */
+  fillPlot?: boolean
   /** Hide the built-in table when the surrounding page already shows these rows. */
   showTableAlternative?: boolean
   /** Faceted small multiples; when set the plot area renders a panel grid. */
@@ -89,6 +93,7 @@ export function ChartRenderer({
   actions,
   hideTitle = false,
   plotHeight = 240,
+  fillPlot = false,
   showTableAlternative = true,
   facets,
   facetTotal,
@@ -116,6 +121,7 @@ export function ChartRenderer({
       hideTitle={hideTitle}
       expanded={expanded}
       onExpandedChange={onExpandedChange}
+      fill={fillPlot}
     >
       {error ? (
         <ChartStateMessage tone="error">{error}</ChartStateMessage>
@@ -124,20 +130,59 @@ export function ChartRenderer({
           {describeState(materialised)}
         </ChartStateMessage>
       ) : materialised.series.length === 0 && !materialised.heatmap ? (
-        <ChartStateMessage tone="muted">No plottable points.</ChartStateMessage>
+        <ChartStateMessage tone="muted">
+          {spec != null && spec.fields.x
+            ? 'No plottable points after filtering. Check mapped fields and filters.'
+            : 'Choose an X and Y field to create a scatter plot.'}
+        </ChartStateMessage>
       ) : (
-        <>
-          <ChartPlot
-            spec={spec}
-            materialised={materialised}
-            height={plotHeight}
-            facets={facets}
-            facetTotal={facetTotal}
-            selectionProps={{
-              selection,
-              onSelect: onSelectionChange ?? (() => {}),
-            }}
-          />
+        <div
+          className={
+            fillPlot ? 'flex h-full min-h-0 flex-col' : undefined
+          }
+        >
+          {fillPlot ? (
+            <div className="min-h-0 flex-1">
+              <MeasuredPlotHeight>
+                {(height) => (
+                  <ChartPlot
+                    spec={spec}
+                    materialised={materialised}
+                    height={height}
+                    facets={facets}
+                    facetTotal={facetTotal}
+                    selectionProps={{
+                      selection,
+                      onSelect: onSelectionChange ?? (() => {}),
+                    }}
+                  />
+                )}
+              </MeasuredPlotHeight>
+            </div>
+          ) : (
+            <ChartPlot
+              spec={spec}
+              materialised={materialised}
+              height={plotHeight}
+              facets={facets}
+              facetTotal={facetTotal}
+              selectionProps={{
+                selection,
+                onSelect: onSelectionChange ?? (() => {}),
+              }}
+            />
+          )}
+          {materialised.transformInvalidCount ? (
+            <p role="status" className="mt-1 text-xs text-muted-foreground">
+              {materialised.transformInvalidCount} value
+              {materialised.transformInvalidCount === 1 ? '' : 's'} could not
+              be transformed
+              {materialised.transformInvalidReasons?.length
+                ? ` (${materialised.transformInvalidReasons.join('; ')})`
+                : ''}
+              . They are omitted, not coerced.
+            </p>
+          ) : null}
           {materialised.droppedPoints > 0 ? (
             <p role="status" className="mt-1 text-xs text-muted-foreground">
               {materialised.droppedPoints} row
@@ -145,7 +190,21 @@ export function ChartRenderer({
               non-numeric values).
             </p>
           ) : null}
-        </>
+          {materialised.sampling ? (
+            <p role="status" className="mt-1 text-xs text-muted-foreground">
+              Showing {materialised.sampling.sampledCount} of{' '}
+              {materialised.sampling.totalCount} points. Statistics use all{' '}
+              {materialised.sampling.analysisCount} observations.
+            </p>
+          ) : null}
+          {materialised.fit ? (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {materialised.fit.error
+                ? `OLS fit unavailable (${materialised.fit.error.replaceAll('_', ' ')}).`
+                : `OLS ${materialised.fit.equation} · R² = ${formatScientific(materialised.fit.r2)} · n = ${materialised.fit.n}`}
+            </p>
+          ) : null}
+        </div>
       )}
       {showTableAlternative &&
       materialised.state.kind === 'ok' &&
@@ -153,6 +212,34 @@ export function ChartRenderer({
         <ChartTableAlternative materialised={materialised} />
       ) : null}
     </ChartFrame>
+  )
+}
+
+function MeasuredPlotHeight({
+  children,
+  fallback = 480,
+}: {
+  children: (height: number) => React.ReactNode
+  fallback?: number
+}) {
+  const ref = React.useRef<HTMLDivElement>(null)
+  const [height, setHeight] = React.useState(fallback)
+  React.useLayoutEffect(() => {
+    const node = ref.current
+    if (!node) return
+    const apply = () => {
+      const next = Math.floor(node.getBoundingClientRect().height)
+      if (next > 0) setHeight(Math.max(160, next))
+    }
+    apply()
+    const observer = new ResizeObserver(apply)
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
+  return (
+    <div ref={ref} className="h-full min-h-0 w-full">
+      {children(height)}
+    </div>
   )
 }
 
@@ -217,7 +304,8 @@ function ChartPlot({
       dataKey="x"
       type="number"
       scale={xScale}
-      domain={['auto', 'auto']}
+      domain={axisDomain(spec?.display.axes.x)}
+      reversed={Boolean(spec?.display.axes.x.reverse)}
       tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
       axisLine={{ stroke: 'var(--border)' }}
       tickLine={false}
@@ -234,7 +322,8 @@ function ChartPlot({
     <YAxis
       type="number"
       scale={yScale}
-      domain={['auto', 'auto']}
+      domain={axisDomain(spec?.display.axes.y)}
+      reversed={Boolean(spec?.display.axes.y.reverse)}
       tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
       axisLine={false}
       tickLine={false}
@@ -248,6 +337,7 @@ function ChartPlot({
       }}
     />
   )
+  const references = referenceOverlayNodes(spec?.overlays.references, data)
   const tooltip = (
     <Tooltip
       contentStyle={{
@@ -270,7 +360,7 @@ function ChartPlot({
       />
     )
   }
-  if (type === 'box') {
+  if (type === 'violin' || type === 'box') {
     return (
       <BoxPlotChart
         series={materialised.series}
@@ -312,10 +402,11 @@ function ChartPlot({
       }}
     />
   ))
-  if (type === 'scatter') {
-    // A fitted-curve overlay needs mixed point+line rendering, which only
-    // ComposedChart provides; plain scatters keep the lighter chart.
-    const hasFitLine = materialised.series.some((s) => s.renderAs === 'line')
+  if (type === 'scatter' || type === 'scatter_line' || type === 'connected_scatter' || type === 'strip') {
+    // Scatter types plot the same pivoted rows as line charts. Marks are
+    // Line dots so they share axes and the fill-height container.
+    const connect =
+      type === 'scatter_line' || type === 'connected_scatter'
     const scatterChildren = (
       <>
         {grid}
@@ -323,7 +414,7 @@ function ChartPlot({
         {yAxis}
         {tooltip}
         {materialised.series.map((series) =>
-          series.renderAs === 'line' ? (
+          series.renderAs === 'line' || connect ? (
             <Line
               key={series.identifier}
               dataKey={series.identifier}
@@ -331,38 +422,40 @@ function ChartPlot({
               type="linear"
               stroke={series.color}
               strokeWidth={2}
-              strokeDasharray="6 4"
-              dot={false}
+              strokeDasharray={series.renderAs === 'line' ? '6 4' : undefined}
+              dot={series.renderAs === 'line' ? false : { r: 3 }}
               isAnimationActive={false}
             />
           ) : (
-            <Scatter
+            <Line
               key={series.identifier}
-              name={series.label}
               dataKey={series.identifier}
-              fill="var(--popover)"
+              name={series.label}
+              type="linear"
               stroke={series.color}
-              strokeWidth={2}
+              strokeWidth={0}
+              dot={{ r: 4, fill: series.color, stroke: series.color }}
+              isAnimationActive={false}
+              legendType="circle"
             />
           ),
         )}
+        {references}
         {annotationDots}
       </>
     )
-    if (hasFitLine) {
-      chart = (
-        <ComposedChart data={data} margin={margin} role="img">
-          {scatterChildren}
-        </ComposedChart>
-      )
-    } else {
-      chart = (
-        <ScatterChart margin={margin} role="img">
-          {scatterChildren}
-        </ScatterChart>
-      )
-    }
-  } else if (type === 'bar') {
+    chart = (
+      <ComposedChart data={data} margin={margin} role="img">
+        {scatterChildren}
+      </ComposedChart>
+    )
+  } else if (
+    type === 'bar' ||
+    type === 'grouped_bar' ||
+    type === 'stacked_bar' ||
+    type === 'summary'
+  ) {
+    const stackId = type === 'stacked_bar' ? 'stack' : undefined
     chart = (
       <BarChart data={data} margin={margin} role="img">
         {grid}
@@ -376,6 +469,13 @@ function ChartPlot({
             name={series.label}
             fill={series.color}
             opacity={0.85}
+            stackId={stackId}
+            onClick={(_data, index) =>
+              selectionProps.onSelect({
+                seriesIdentifier: series.identifier,
+                index,
+              })
+            }
           >
             {hasErrorBars(series) ? (
               <ErrorBar
@@ -386,6 +486,7 @@ function ChartPlot({
             ) : null}
           </Bar>
         ))}
+        {references}
         {annotationDots}
       </BarChart>
     )
@@ -421,15 +522,20 @@ function ChartPlot({
             ) : null}
           </Line>
         ))}
+        {references}
       </LineChart>
     )
   }
   return (
     <div
       role="img"
+      tabIndex={0}
       aria-label={`${materialised.xLabel} vs ${materialised.yLabel}. ${describeSeries(materialised)}`}
-      className="w-full"
+      className="w-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
       style={{ height }}
+      onKeyDown={(event) =>
+        handlePlotKeyDown(event, materialised, selectionProps)
+      }
     >
       <ResponsiveContainer
         width="100%"
@@ -440,6 +546,105 @@ function ChartPlot({
       </ResponsiveContainer>
     </div>
   )
+}
+
+function axisDomain(
+  axis: AxisDisplay | undefined,
+): [number | 'auto', number | 'auto'] {
+  return [axis?.min ?? 'auto', axis?.max ?? 'auto']
+}
+
+function referenceOverlayNodes(
+  overlays: ReferenceOverlay[] | undefined,
+  data: Array<Record<string, number | null | undefined>>,
+) {
+  if (!overlays?.length) return null
+  const xs = data
+    .map((row) => (typeof row.x === 'number' ? row.x : null))
+    .filter((value): value is number => value !== null)
+  const xMin = xs.length ? Math.min(...xs) : 0
+  const xMax = xs.length ? Math.max(...xs) : 1
+  return overlays.map((overlay, index) => {
+    const key = `ref-${index}`
+    if (overlay.kind === 'hline') {
+      return (
+        <ReferenceLine
+          key={key}
+          y={overlay.value}
+          stroke="var(--muted-foreground)"
+          strokeDasharray="4 4"
+          label={{ value: overlay.label, position: 'right', fontSize: 10 }}
+        />
+      )
+    }
+    if (overlay.kind === 'vline') {
+      return (
+        <ReferenceLine
+          key={key}
+          x={overlay.value}
+          stroke="var(--muted-foreground)"
+          strokeDasharray="4 4"
+          label={{ value: overlay.label, position: 'top', fontSize: 10 }}
+        />
+      )
+    }
+    if (overlay.kind === 'band') {
+      return overlay.axis === 'y' ? (
+        <ReferenceArea
+          key={key}
+          y1={overlay.lo}
+          y2={overlay.hi}
+          fill="var(--muted)"
+          fillOpacity={0.25}
+          strokeOpacity={0}
+        />
+      ) : (
+        <ReferenceArea
+          key={key}
+          x1={overlay.lo}
+          x2={overlay.hi}
+          fill="var(--muted)"
+          fillOpacity={0.25}
+          strokeOpacity={0}
+        />
+      )
+    }
+    return (
+      <ReferenceLine
+        key={key}
+        segment={[
+          { x: xMin, y: xMin },
+          { x: xMax, y: xMax },
+        ]}
+        stroke="var(--muted-foreground)"
+        strokeDasharray="2 6"
+        label={{
+          value: overlay.label ?? 'identity',
+          position: 'insideTopRight',
+          fontSize: 10,
+        }}
+      />
+    )
+  })
+}
+
+function handlePlotKeyDown(
+  event: React.KeyboardEvent,
+  materialised: MaterialisedChart,
+  selectionProps: PlotSelectionProps,
+) {
+  const series = materialised.series.at(0)
+  if (series === undefined || series.points.length === 0) return
+  if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return
+  event.preventDefault()
+  const current = selectionProps.selection
+  const index =
+    current?.seriesIdentifier === series.identifier ? current.index : 0
+  const next =
+    event.key === 'ArrowRight'
+      ? Math.min(series.points.length - 1, index + 1)
+      : Math.max(0, index - 1)
+  selectionProps.onSelect({ seriesIdentifier: series.identifier, index: next })
 }
 
 function toRechartsData(series: MaterialisedSeries[]) {
@@ -615,6 +820,8 @@ function describeState(materialised: MaterialisedChart): string {
       return 'No dataset is referenced. Select a dataset to plot this chart.'
     case 'missing_field':
       return `The dataset is missing field(s): ${materialised.state.fields.join(', ')}. Update the field mappings or the dataset.`
+    case 'dataset_too_large':
+      return `This Dataset has ${materialised.state.rowCount} rows, above the ${materialised.state.limit}-row analysis limit. Filter or aggregate before plotting.`
     case 'empty_dataset':
       return 'The dataset has no rows matching the current filters.'
     case 'log_scale_invalid':

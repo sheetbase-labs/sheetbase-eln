@@ -52,6 +52,8 @@ export interface ChartFrameProps {
   hideTitle?: boolean
   expanded?: boolean
   onExpandedChange?: (expanded: boolean) => void
+  /** Stretch the figure to its parent and give the plot the leftover height. */
+  fill?: boolean
 }
 
 export function ChartFrame({
@@ -68,18 +70,27 @@ export function ChartFrame({
   hideTitle = false,
   expanded = false,
   onExpandedChange,
+  fill = false,
 }: ChartFrameProps) {
   const titleId = React.useId()
   const altId = React.useId()
 
   return (
     <figure
-      className={cn('rounded-lg border bg-card shadow-xs', className)}
+      className={cn(
+        'rounded-lg border bg-card shadow-xs',
+        fill && 'flex h-full min-h-0 flex-col overflow-hidden',
+        className,
+      )}
       role="figure"
-      aria-labelledby={hideTitle ? undefined : titleId}
+      aria-labelledby={titleId}
       aria-describedby={alt ? altId : undefined}
     >
-      {hideTitle ? null : (
+      {hideTitle ? (
+        <h3 id={titleId} className="sr-only">
+          {title}
+        </h3>
+      ) : (
         <figcaption className="flex items-start justify-between gap-3 border-b px-4 py-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -147,7 +158,14 @@ export function ChartFrame({
         </figcaption>
       )}
 
-      <div className={hideTitle ? 'h-full' : 'p-4'}>
+      <div
+        className={cn(
+          hideTitle || fill ? 'min-h-0 flex-1 overflow-hidden' : 'p-4',
+          fill && 'flex flex-col',
+          fill && !hideTitle && 'px-3 pb-2 pt-1',
+          fill && hideTitle && 'h-full',
+        )}
+      >
         {loading ? (
           <div className="space-y-2" aria-busy="true" aria-live="polite">
             <Skeleton className="h-40 w-full" />
@@ -169,7 +187,11 @@ export function ChartFrame({
         </p>
       ) : null}
 
-      {legend ? <div className="border-t px-4 py-3">{legend}</div> : null}
+      {legend ? (
+        <div className={cn('shrink-0 border-t px-4', fill ? 'py-1.5' : 'py-3')}>
+          {legend}
+        </div>
+      ) : null}
     </figure>
   )
 }

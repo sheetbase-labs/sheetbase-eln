@@ -5,6 +5,7 @@ import {
   CHART_SPEC_VERSION,
   applyFilters,
   formatScientific,
+  chartSpecReferencedFieldIds,
   materialiseChart,
   materialiseFacetedCharts,
   validateChartPayload,
@@ -183,6 +184,68 @@ describe('validateChartSpec', () => {
       }),
     )
     expect(errors.some((e) => e.field === 'spec.fields.y')).toBe(true)
+  })
+
+  it('rejects SCI-04 overlay and typeParam violations', () => {
+    expect(
+      validateChartSpec(
+        baseSpec({ overlays: { errorBars: null, fit: { method: 'ols', degree: 5 } } }),
+      ).some((e) => e.field === 'spec.overlays.fit'),
+    ).toBe(true)
+    expect(
+      validateChartSpec(
+        baseSpec({
+          overlays: {
+            errorBars: null,
+            fit: { method: 'ols', degree: 1 },
+            references: [{ kind: 'hline', value: Number.NaN, label: 'LLOQ' }],
+          },
+        }),
+      ).some((e) => e.field?.startsWith('spec.overlays.references')),
+    ).toBe(true)
+    expect(
+      validateChartSpec(
+        baseSpec({
+          type: 'strip',
+          fields: { ...baseSpec().fields, x: null },
+          typeParams: { strip: { jitter: 4 } },
+        }),
+      ).some((e) => e.field === 'spec.typeParams.strip.jitter'),
+    ).toBe(true)
+    expect(
+      validateChartSpec(
+        baseSpec({
+          type: 'summary',
+          typeParams: { summary: { statistic: 'mode' as never } },
+        }),
+      ).some((e) => e.field === 'spec.typeParams.summary.statistic'),
+    ).toBe(true)
+    expect(
+      validateChartSpec(
+        baseSpec({
+          type: 'bar',
+          typeParams: { bar: { stacking: 'overlay' as never } },
+        }),
+      ).some((e) => e.field === 'spec.typeParams.bar.stacking'),
+    ).toBe(true)
+    expect(
+      validateChartSpec(
+        baseSpec({
+          overlays: {
+            errorBars: {
+              source: 'field',
+              basis: 'custom',
+              lowerFieldId: COL_ERR,
+            },
+          },
+        }),
+      ).some((e) => e.field === 'spec.overlays.errorBars'),
+    ).toBe(true)
+    expect(
+      validateChartSpec(
+        baseSpec({ overlays: { errorBars: null, fit: { method: 'ols', degree: 4 } } }),
+      ),
+    ).toEqual([])
   })
 })
 
@@ -658,6 +721,64 @@ describe('SCI-01 distribution chart types', () => {
     expect(m.droppedPoints).toBe(3)
     expect(m.heatmap).toBeDefined()
     expect(m.heatmap!.cells.reduce((a, c) => a + c.count, 0)).toBe(2)
+  })
+
+  it('lists every ChartSpec field id including heatmap valueField', () => {
+    const spec = distSpec({
+      type: 'heatmap',
+      fields: {
+        x: { fieldId: COL_REP },
+        y: { fieldId: COL_DAYS },
+        series: null,
+        color: null,
+        size: null,
+        facet: null,
+      },
+      filters: [{ fieldId: COL_REP, op: 'eq', value: '4C' }],
+      typeParams: {
+        heatmap: {
+          aggregate: 'mean',
+          valueField: { fieldId: COL_GCN },
+        },
+      },
+    })
+    expect(chartSpecReferencedFieldIds(spec)).toEqual(
+      [COL_DAYS, COL_GCN, COL_REP].sort(),
+    )
+  })
+
+  it('means a heatmap over a third numeric value field', () => {
+    const spec = distSpec({
+      type: 'heatmap',
+      fields: {
+        x: { fieldId: COL_REP },
+        y: { fieldId: COL_DAYS },
+        series: null,
+        color: null,
+        size: null,
+        facet: null,
+      },
+      typeParams: {
+        heatmap: {
+          aggregate: 'mean',
+          valueField: { fieldId: COL_GCN },
+          yBins: 2,
+        },
+      },
+    })
+    const live = materialiseChart(spec, DIST_COLUMNS, DIST_ROWS)
+    expect(live.state.kind).toBe('ok')
+    expect(live.heatmap?.aggregate).toBe('mean')
+    expect(live.heatmap?.cells.some((cell) => cell.value !== null)).toBe(true)
+    const missingValue = materialiseChart(
+      spec,
+      DIST_COLUMNS.filter((column) => column.id !== COL_GCN),
+      DIST_ROWS,
+    )
+    expect(missingValue.state).toEqual({
+      kind: 'missing_field',
+      fields: ['value'],
+    })
   })
 
   it('facets charts into sorted small multiples with an honest total', () => {

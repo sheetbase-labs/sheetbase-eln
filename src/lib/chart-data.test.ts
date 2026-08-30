@@ -8,7 +8,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  SCI_ROW_HARD_LIMIT,
+  SCI_ANALYSIS_ROW_LIMIT,
   fetchDatasetRows,
   fetchFrozenAnalysisRows,
   materialiseFrozenChart,
@@ -148,9 +148,10 @@ describe('fetchDatasetRows', () => {
     expect(result.truncated).toBe(false)
     expect(result.totalCount).toBe(2500)
     expect(result.rows).toHaveLength(2500)
-    // Rows arrive flattened to fieldId-keyed value objects.
-    expect(result.rows[0]).toEqual({ n: 1 })
-    expect(result.rows[2499]).toEqual({ n: 2500 })
+    // Rows arrive flattened to fieldId-keyed value objects, with Dataset row
+    // identity attached for point inspection.
+    expect(result.rows[0]).toEqual({ n: 1, __sheetbaseRowId: 'r1' })
+    expect(result.rows[2499]).toEqual({ n: 2500, __sheetbaseRowId: 'r2500' })
     expect(calls.map((c) => [c.p_offset, c.p_limit])).toEqual([
       [0, 1000],
       [1000, 1000],
@@ -162,15 +163,24 @@ describe('fetchDatasetRows', () => {
     }
   })
 
-  it('stops at the hard ceiling and flags truncation above it', async () => {
+  it('loads the full analysis envelope between 5k and 10k rows', async () => {
     const { client, calls } = pagedRowsClient(5200)
     const result = await fetchDatasetRows(client, DATASET_ID)
-    expect(result.truncated).toBe(true)
+    expect(result.truncated).toBe(false)
     expect(result.totalCount).toBe(5200)
-    // Exactly SCI_ROW_HARD_LIMIT rows are materialised — never more.
-    expect(result.rows).toHaveLength(SCI_ROW_HARD_LIMIT)
-    expect(calls).toHaveLength(5)
-    expect(calls[4].p_offset).toBe(4000)
+    expect(result.rows).toHaveLength(5200)
+    expect(calls).toHaveLength(6)
+    expect(calls[5].p_offset).toBe(5000)
+  })
+
+  it('stops at the hard ceiling and flags truncation above it', async () => {
+    const { client, calls } = pagedRowsClient(15_000)
+    const result = await fetchDatasetRows(client, DATASET_ID)
+    expect(result.truncated).toBe(true)
+    expect(result.totalCount).toBe(15_000)
+    expect(result.rows).toHaveLength(SCI_ANALYSIS_ROW_LIMIT)
+    expect(calls).toHaveLength(10)
+    expect(calls[9].p_offset).toBe(9000)
   })
 
   it('returns a single page without follow-ups under the page size', async () => {
@@ -203,9 +213,9 @@ describe('fetchFrozenAnalysisRows', () => {
   })
 
   it('refuses to reconstruct above the hard ceiling', async () => {
-    const { client } = pagedRowsClient(SCI_ROW_HARD_LIMIT + 1)
+    const { client } = pagedRowsClient(SCI_ANALYSIS_ROW_LIMIT + 1)
     await expect(
-      fetchFrozenAnalysisRows(client, 'ver-1', SCI_ROW_HARD_LIMIT + 1),
+      fetchFrozenAnalysisRows(client, 'ver-1', SCI_ANALYSIS_ROW_LIMIT + 1),
     ).rejects.toThrow(/ceiling/)
   })
 })
@@ -271,12 +281,12 @@ describe('materialiseLiveChart', () => {
   })
 
   it('returns dataset_too_large when the source exceeded the ceiling', () => {
-    const dataset = { ...makeDataset(), truncated: true, totalCount: 6000 }
+    const dataset = { ...makeDataset(), truncated: true, totalCount: 15_000 }
     const result = materialiseLiveChart(lineSpec(), dataset)
     expect(result.state.kind).toBe('dataset_too_large')
     if (result.state.kind === 'dataset_too_large') {
-      expect(result.state.rowCount).toBe(6000)
-      expect(result.state.limit).toBe(SCI_ROW_HARD_LIMIT)
+      expect(result.state.rowCount).toBe(15_000)
+      expect(result.state.limit).toBe(SCI_ANALYSIS_ROW_LIMIT)
     }
     expect(result.series).toEqual([])
   })

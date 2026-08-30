@@ -14,9 +14,9 @@ Scatter, line, bar, box, histogram, heatmap; error bars; grouping; colour/marker
 
 Reworked onto canonical Datasets (decision 0037): `ChartSpec` references
 `api.datasets` by UUID and binds fields by stable `field_id`; live rendering
-reads through `query_dataset_rows`, and `freeze_chart` pivots
-`dataset_row_values` server-side so frozen series stay byte-reproducible
-against the pure TypeScript materialiser. Legacy `scientific_tables` and the
+reads through `query_dataset_rows`. `freeze_chart` pins a Dataset Version;
+frozen figures rematerialise from version tables through the same TypeScript
+pipeline as live charts. Legacy `scientific_tables` and the
 generated `sheet_*` relations are no longer part of the chart path.
 
 ## SCI-02 — Analysis Framework — **implemented** (#65)
@@ -51,11 +51,18 @@ scale; submission itself stamps `frozen.revisionId`, locking evidence against
 unfreeze; the picker, editor, preview and route lifecycle follow the
 chart-block precedents.
 
-## SCI-04 — Advanced Scientific Visualisation
+## SCI-04 — Scientific Visualisation & Analysis Maturity — **implemented**
 
-Plate maps, dose-response, assay-specific views, richer distributions and domain visualisations selected from real usage.
+Mature scientific graphing on the canonical ChartSpec: richer plot types,
+scatter depth, faceting, filters/transforms, grouped summaries, explicit
+error bars, OLS overlays, axes/units, Sheet handoff, Notebook embedding,
+Dataset Version freeze, SVG/PNG export, bounded large-data behaviour.
 
-**Exit:** specialist visualisation extends the common framework rather than creating isolated mini-apps.
+**Exit:** a scientist can create, inspect, save, reuse, embed, freeze and
+export high-quality figures from canonical Sheetbase data without leaving
+the product.
+
+See [`docs/visualisations.md`](../../visualisations.md).
 
 ## Boundaries
 

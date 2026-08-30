@@ -10,9 +10,10 @@
  * persisted in `api.analysis_views`; and export with explicit format,
  * dimensions, theme and provenance metadata.
  *
- * Every chart has an accessible data-table alternative rendered beneath it.
- * Missing columns, stale sources, invalid log values and excessive result
- * sizes are surfaced as explicit, recoverable states rather than blank axes.
+ * Every chart has an accessible data-table alternative, collapsed by default
+ * so the plot can occupy most of the studio. Missing columns, stale sources,
+ * invalid log values and excessive result sizes are surfaced as explicit,
+ * recoverable states rather than blank axes.
  *
  * PostgreSQL and RLS remain authoritative (decisions 0019/0029/0034).
  */
@@ -20,10 +21,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
+  ChevronDown,
+  ChevronUp,
   Database,
   Download,
   LineChart as LineChartIcon,
   Loader2,
+  PanelLeft,
+  PanelLeftClose,
   Save,
   Sigma,
   Trash2,
@@ -101,8 +106,17 @@ import { buildDefaultChartSpec } from '#/lib/dataset-explorer-data'
 import type { CanonicalDatasetWire } from '#/lib/dataset-explorer-data'
 import { formatCount } from '#/lib/format-numbers'
 import { cn } from '#/lib/utils'
+import { rasteriseSvgToPng } from '#/lib/visualisation-export'
+import { CHART_ROW_ID_KEY } from '#/lib/visualisation-pipeline'
 
 export const Route = createFileRoute('/analysis')({
+  validateSearch: (search: Record<string, unknown>) => {
+    const next: { dataset?: string; x?: string; y?: string } = {}
+    if (typeof search.dataset === 'string') next.dataset = search.dataset
+    if (typeof search.x === 'string') next.x = search.x
+    if (typeof search.y === 'string') next.y = search.y
+    return next
+  },
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
     if (!context) throw redirect({ to: '/sign-in' })
@@ -117,6 +131,7 @@ export const Route = createFileRoute('/analysis')({
 
 function AnalysisStudioRoute() {
   const { context } = Route.useRouteContext()
+  const search = Route.useSearch()
   const workspaceId = context.workspace?.id ?? 'no-workspace'
   const userId = context.user.id
 
@@ -134,7 +149,7 @@ function AnalysisStudioRoute() {
   })
   const views = viewsQuery.data ?? []
   const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(
-    null,
+    search.dataset ?? null,
   )
   const [spec, setSpec] = useState<ChartSpec | null>(null)
   const [selectedViewId, setSelectedViewId] = useState<string | null>(null)
@@ -144,6 +159,7 @@ function AnalysisStudioRoute() {
   // SCI-02: the studio serves both chart authoring and reusable analysis
   // definitions; the mode is session state, never persisted server-side.
   const [mode, setMode] = useState<'chart' | 'analyse'>('chart')
+  const [configOpen, setConfigOpen] = useState(true)
   const [viewName, setViewName] = useState('')
   const [exportSettings, setExportSettings] = useState<ExportSettings>(
     DEFAULT_EXPORT_SETTINGS,
@@ -178,11 +194,14 @@ function AnalysisStudioRoute() {
   // Build a default spec when the dataset changes (or load a saved view).
   useEffect(() => {
     if (selectedDataset) {
-      setSpec(buildDefaultChartSpec(selectedDataset))
+      const next = buildDefaultChartSpec(selectedDataset)
+      if (next && search.x) next.fields.x = { fieldId: search.x }
+      if (next && search.y) next.fields.y = { fieldId: search.y }
+      setSpec(next)
       setSelectedViewId(null)
       setViewName('')
     }
-  }, [selectedDatasetId])
+  }, [selectedDataset, search.x, search.y])
 
   // Live preview resolution: read source data read-only (never mutate). The
   // materialised chart is lifted here so the preview and the export panel
@@ -291,71 +310,105 @@ function AnalysisStudioRoute() {
           sources={sources}
           user={{ id: userId, name: context.user.name }}
           materialised={analysisMaterialised}
+          selection={chartSelection}
         />
       ) : undefined,
   })
 
   return (
     <>
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4">
-        <AnalysisStudioHeader
-          datasets={datasets}
-          loading={summariesQuery.isLoading}
-          error={summariesQuery.error}
-          selectedDatasetId={selectedDatasetId}
-          onSelect={setSelectedDatasetId}
-        />
-        <div
-          role="tablist"
-          aria-label="Studio mode"
-          className="flex items-center gap-1"
-        >
-          {(['chart', 'analyse'] as const).map((value) => (
-            <Button
-              key={value}
-              type="button"
-              size="sm"
-              variant={mode === value ? 'default' : 'outline'}
-              role="tab"
-              aria-selected={mode === value}
-              onClick={() => setMode(value)}
-            >
-              {value === 'chart' ? 'Chart builder' : 'Analyse'}
-            </Button>
-          ))}
-        </div>
-        {mode === 'analyse' ? (
-          <AnalysisPanel
-            datasets={sources}
-            workspaceId={workspaceId}
-            userId={userId}
-          />
-        ) : selectedSource && spec ? (
-          <div className="flex min-h-0 flex-1 flex-col">
-            <ChartConfigurator
-              source={selectedSource}
-              spec={spec}
-              onSpecChange={setSpec}
-              idPrefix="analysis"
-            />
-            <AnalysisPreview
-              source={selectedSource}
-              spec={spec}
-              sources={sources}
-              selectedViewId={selectedViewId}
-              views={views}
-              datasetQuery={datasetQuery}
-              materialised={analysisMaterialised}
-              facets={analysisFacets.panels.length > 0 ? analysisFacets : null}
-              selection={chartSelection}
-              onSelectionChange={setChartSelection}
-            />
-          </div>
-        ) : (
-          <EmptyAnalysisState
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-1.5">
+          <AnalysisStudioHeader
+            datasets={datasets}
             loading={summariesQuery.isLoading}
             error={summariesQuery.error}
+            selectedDatasetId={selectedDatasetId}
+            onSelect={setSelectedDatasetId}
           />
+          <div
+            role="tablist"
+            aria-label="Studio mode"
+            className="flex items-center gap-1"
+          >
+            {(['chart', 'analyse'] as const).map((value) => (
+              <Button
+                key={value}
+                type="button"
+                size="sm"
+                variant={mode === value ? 'default' : 'outline'}
+                role="tab"
+                aria-selected={mode === value}
+                onClick={() => setMode(value)}
+              >
+                {value === 'chart' ? 'Chart builder' : 'Analyse'}
+              </Button>
+            ))}
+          </div>
+          {mode === 'chart' && selectedSource && spec ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              aria-expanded={configOpen}
+              aria-controls="analysis-chart-config"
+              onClick={() => setConfigOpen((open) => !open)}
+            >
+              {configOpen ? (
+                <PanelLeftClose className="size-4" aria-hidden="true" />
+              ) : (
+                <PanelLeft className="size-4" aria-hidden="true" />
+              )}
+              {configOpen ? 'Hide encodings' : 'Show encodings'}
+            </Button>
+          ) : null}
+        </div>
+        {mode === 'analyse' ? (
+          <div className="min-h-0 flex-1 overflow-auto p-3">
+            <AnalysisPanel
+              datasets={sources}
+              workspaceId={workspaceId}
+              userId={userId}
+            />
+          </div>
+        ) : selectedSource && spec ? (
+          <div className="flex min-h-0 flex-1 overflow-hidden">
+            {configOpen ? (
+              <aside
+                id="analysis-chart-config"
+                className="flex w-56 shrink-0 flex-col overflow-y-auto border-r"
+              >
+                <ChartConfigurator
+                  source={selectedSource}
+                  spec={spec}
+                  onSpecChange={setSpec}
+                  idPrefix="analysis"
+                  layout="rail"
+                />
+              </aside>
+            ) : null}
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+              <AnalysisPreview
+                source={selectedSource}
+                spec={spec}
+                sources={sources}
+                selectedViewId={selectedViewId}
+                views={views}
+                datasetQuery={datasetQuery}
+                materialised={analysisMaterialised}
+                facets={analysisFacets.panels.length > 0 ? analysisFacets : null}
+                selection={chartSelection}
+                onSelectionChange={setChartSelection}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="min-h-0 flex-1 p-3">
+            <EmptyAnalysisState
+              loading={summariesQuery.isLoading}
+              error={summariesQuery.error}
+            />
+          </div>
         )}
       </div>
     </>
@@ -394,10 +447,6 @@ export function AnalysisStudioHeader({
         >
           Analysis Studio
         </h1>
-        <span className="text-xs text-muted-foreground">
-          Visualise scientific data, compare conditions, and export
-          publication-ready charts
-        </span>
       </div>
       <div className="flex items-center gap-2">
         {error ? (
@@ -514,6 +563,39 @@ export function FilterControls({
   )
 }
 
+function SelectedPointSummary({
+  materialised,
+  selection,
+}: {
+  materialised: ReturnType<typeof materialiseLiveChart>
+  selection: ChartSelection | null
+}) {
+  const series = selection
+    ? materialised.series.find(
+        (item) => item.identifier === selection.seriesIdentifier,
+      )
+    : undefined
+  const point = series?.points[selection?.index ?? -1]
+  if (!point) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        Click a point or use the arrow keys on the figure to inspect a Dataset
+        row.
+      </p>
+    )
+  }
+  return (
+    <PropertyList>
+      <Property label="Series">{series.label}</Property>
+      <Property label="X">{formatScientific(point.x)}</Property>
+      <Property label="Y">{formatScientific(point.y)}</Property>
+      <Property label="Dataset row">
+        {point.rowId ?? 'Not attached (frozen or aggregated)'}
+      </Property>
+    </PropertyList>
+  )
+}
+
 function AnalysisInspector({
   source,
   spec,
@@ -531,6 +613,7 @@ function AnalysisInspector({
   sources,
   user,
   materialised,
+  selection,
 }: {
   source: CanonicalDatasetSource
   spec: ChartSpec
@@ -548,6 +631,7 @@ function AnalysisInspector({
   sources: CanonicalDatasetSource[]
   user: { id: string; name: string }
   materialised: ReturnType<typeof materialiseLiveChart>
+  selection: ChartSelection | null
 }) {
   function setScale(axis: 'x' | 'y', scale: AxisScale) {
     onSpecChange({
@@ -642,6 +726,12 @@ function AnalysisInspector({
                   </Property>
                   <Property label="Filters">{spec.filters.length}</Property>
                 </PropertyList>
+              </InspectorSection>
+              <InspectorSection title="Selected point">
+                <SelectedPointSummary
+                  materialised={materialised}
+                  selection={selection}
+                />
               </InspectorSection>
             </InspectorSectionStack>
           ),
@@ -810,7 +900,7 @@ export function ExportPanel({
     onSettingsChange({ ...settings, [key]: value })
   }
 
-  function doExport(): void {
+  async function doExport(): Promise<void> {
     const selectedView = views.find((v) => v.id === selectedViewId) ?? null
     const sourceRevisions = captureSourceRevisions(sources, spec)
     const provenance = buildExportProvenance(
@@ -823,6 +913,27 @@ export function ExportPanel({
       sourceRevisions,
       spec,
     )
+    const filename = (viewName || 'analysis').replace(/[^a-z0-9_-]+/gi, '_')
+    if (settings.format === 'png') {
+      const svg = exportChartSvg(svgRef.current, settings, provenance)
+      const blob = await rasteriseSvgToPng(svg, {
+        format: 'png',
+        width: settings.width,
+        height: settings.height,
+        scale: 2,
+        background: settings.theme === 'dark' ? 'opaque' : 'opaque',
+        includeProvenance: settings.includeProvenance,
+      })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${filename}.png`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      return
+    }
     let content: string
     let mime: string
     let ext: string
@@ -843,7 +954,7 @@ export function ExportPanel({
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${(viewName || 'analysis').replace(/[^a-z0-9_-]+/gi, '_')}.${ext}`
+    a.download = `${filename}.${ext}`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -870,6 +981,7 @@ export function ExportPanel({
             <option value="json">JSON (spec + provenance)</option>
             <option value="csv">CSV (data table)</option>
             <option value="svg">SVG (chart image)</option>
+            <option value="png">PNG (publication raster)</option>
           </Select>
         </Field>
         <Field>
@@ -984,9 +1096,7 @@ export function AnalysisPreview({
   selection,
   onSelectionChange,
 }: AnalysisPreviewProps) {
-  const [expanded, setExpanded] = useState(false)
-  const chartHeight = expanded ? 460 : 340
-  const plotHeight = expanded ? 390 : 270
+  const [dataPreviewOpen, setDataPreviewOpen] = useState(false)
   const validation = useMemo(
     () => validateAnalysisSpec(spec, datasetQuery.data?.rows.length ?? 0),
     [spec, datasetQuery.data],
@@ -1037,16 +1147,9 @@ export function AnalysisPreview({
   )
 
   return (
-    <div
-      className="grid min-h-0 flex-1 overflow-hidden transition-[grid-template-rows]"
-      style={{
-        gridTemplateRows: `${chartHeight}px minmax(0, 1fr)`,
-      }}
-      data-preview-size={expanded ? 'expanded' : 'standard'}
-      data-analysis-chart
-    >
-      <div className="flex min-h-0 flex-col overflow-hidden">
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 px-4 py-2">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 px-3 py-1">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Badge variant="outline">
               {datasetQuery.isLoading
@@ -1127,30 +1230,52 @@ export function AnalysisPreview({
           </div>
         ) : null}
 
-        <div className="min-h-0 flex-1 overflow-hidden px-4 pb-2">
+        <div
+          className="min-h-0 min-w-0 flex-1 overflow-hidden px-2 pb-1"
+          data-analysis-chart
+        >
           <ChartRenderer
             title={`${source.name} — ${spec.type} chart`}
             spec={spec}
             materialised={analysisMaterialised}
             frozen={null}
             loading={datasetQuery.isLoading}
-            plotHeight={plotHeight}
+            fillPlot
+            hideTitle
+            showTableAlternative={false}
             facets={facets?.panels ?? undefined}
             facetTotal={facets?.total}
             selection={selection}
             onSelectionChange={onSelectionChange}
-            expanded={expanded}
-            onExpandedChange={setExpanded}
             className="h-full rounded-none border-0 bg-transparent shadow-none"
           />
         </div>
       </div>
 
-      {/* Accessible data table that underlies every chart. */}
-      <DataTableAlternative
-        materialised={analysisMaterialised}
-        loading={datasetQuery.isLoading}
-      />
+      <div className="shrink-0 border-t">
+        <button
+          type="button"
+          className="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-xs font-medium"
+          aria-expanded={dataPreviewOpen}
+          onClick={() => setDataPreviewOpen((open) => !open)}
+        >
+          <span>Data preview</span>
+          {dataPreviewOpen ? (
+            <ChevronUp className="size-3.5" aria-hidden="true" />
+          ) : (
+            <ChevronDown className="size-3.5" aria-hidden="true" />
+          )}
+        </button>
+        {dataPreviewOpen ? (
+          <div className="max-h-40 overflow-hidden">
+            <DataTableAlternative
+              materialised={analysisMaterialised}
+              loading={datasetQuery.isLoading}
+              selection={selection}
+            />
+          </div>
+        ) : null}
+      </div>
     </div>
   )
 }
@@ -1164,9 +1289,11 @@ export function AnalysisPreview({
 export function DataTableAlternative({
   materialised,
   loading,
+  selection = null,
 }: {
   materialised: ReturnType<typeof materialiseLiveChart>
   loading: boolean
+  selection?: ChartSelection | null
 }) {
   if (loading) {
     return <Skeleton className="h-32 w-full" />
@@ -1252,8 +1379,21 @@ export function DataTableAlternative({
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((row, i) => (
-                <TableRow key={i}>
+              rows.map((row, i) => {
+                const selectedRowId = selection
+                  ? materialised.series.find(
+                      (item) =>
+                        item.identifier === selection.seriesIdentifier,
+                    )?.points[selection.index]?.rowId
+                  : undefined
+                const isSelected =
+                  selectedRowId &&
+                  row[CHART_ROW_ID_KEY] === selectedRowId
+                return (
+                <TableRow
+                  key={i}
+                  className={isSelected ? 'bg-muted' : undefined}
+                >
                   {columns.map((column) => (
                     <TableCell
                       key={column.key}
@@ -1265,7 +1405,8 @@ export function DataTableAlternative({
                     </TableCell>
                   ))}
                 </TableRow>
-              ))
+                )
+              })
             )}
           </TableBody>
         </Table>

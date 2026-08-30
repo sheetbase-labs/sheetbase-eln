@@ -90,11 +90,14 @@ import type {
 } from '#/lib/chart-spec'
 import {
   fetchCanonicalDataset,
+  frozenPinsDatasetVersion,
   materialiseFrozenChart,
   materialiseFrozenFacets,
   materialiseLiveChart,
+  reconstructFrozenVisualisation,
   sciDataClient,
   toCanonicalDatasetSource,
+  useFrozenPinnedRows,
   useLiveChartDataset,
 } from '#/lib/chart-data'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
@@ -1507,8 +1510,17 @@ function ChartBlockEditor({
 
   // Live preview materialisation.
   const { datasetQuery } = useLiveChartDataset(spec)
+  const pinnedRows = useFrozenPinnedRows(frozen)
+  const reconstructed =
+    frozen && spec && frozenPinsDatasetVersion(frozen) && pinnedRows.data
+      ? reconstructFrozenVisualisation({
+          spec,
+          frozen,
+          rows: pinnedRows.data.rows,
+        })
+      : null
   const previewMaterialised = frozen
-    ? materialiseFrozenChart(frozen)
+    ? (reconstructed?.chart ?? materialiseFrozenChart(frozen))
     : spec
       ? materialiseLiveChart(spec, datasetQuery.data ?? null)
       : {
@@ -1522,7 +1534,11 @@ function ChartBlockEditor({
           yUnit: undefined,
           droppedPoints: 0,
         }
-  const previewLoading = !frozen && datasetQuery.isLoading
+  const previewLoading =
+    (!frozen && datasetQuery.isLoading) ||
+    Boolean(frozen && frozenPinsDatasetVersion(frozen) && pinnedRows.isLoading)
+  const frozenFacets = reconstructed?.facets
+    ?? (frozen ? materialiseFrozenFacets(frozen) : null)
 
   return (
     <div className="space-y-4">
@@ -1533,8 +1549,8 @@ function ChartBlockEditor({
         materialised={previewMaterialised}
         frozen={frozen}
         loading={previewLoading}
-        facets={frozen ? materialiseFrozenFacets(frozen)?.panels : undefined}
-        facetTotal={frozen ? materialiseFrozenFacets(frozen)?.total : undefined}
+        facets={frozenFacets?.panels}
+        facetTotal={frozenFacets?.total}
       />
 
       {readOnly ? null : (

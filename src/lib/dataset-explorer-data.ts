@@ -621,6 +621,11 @@ export function buildDefaultChartSpec(
       color: null,
       size: null,
       facet: null,
+      facetRow: null,
+      facetCol: null,
+      shape: null,
+      group: null,
+      label: null,
     },
     filters: [],
     transformations: [],
@@ -639,7 +644,7 @@ export function buildDefaultChartSpec(
       ],
       legend: { visible: true },
     },
-    overlays: { errorBars: null },
+    overlays: { errorBars: null, fit: null, references: [] },
   }
 }
 

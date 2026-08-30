@@ -21,7 +21,6 @@ import {
 import type { CanonicalDatasetSource } from './chart-data'
 import {
   validateChartSpec,
-  applyFilters,
   materialiseChart,
   materialiseFacetedCharts,
   formatScientific,
@@ -33,6 +32,7 @@ import type {
   MaterialisedChart,
   Transformation,
 } from './chart-spec'
+import { applyTransformations as applyVisualisationTransforms } from './visualisation-pipeline'
 
 export type { FacetedResult }
 
@@ -127,7 +127,7 @@ export interface AnalysisViewWire {
 }
 
 export interface ExportSettings {
-  format: 'json' | 'csv' | 'svg'
+  format: 'json' | 'csv' | 'svg' | 'png'
   width: number
   height: number
   theme: 'light' | 'dark'
@@ -272,205 +272,35 @@ export function validateAnalysisSpec(
   return errors.length > 0 ? { ok: false, errors } : { ok: true }
 }
 
-// --- Transformation application (pure) -----------------------------------
-
-function toNumber(v: unknown): number | null {
-  if (typeof v === 'number') return Number.isFinite(v) ? v : null
-  if (typeof v === 'string' && v.trim() !== '') {
-    const n = Number(v)
-    return Number.isFinite(n) ? n : null
-  }
-  if (typeof v === 'boolean') return v ? 1 : 0
-  return null
-}
-
-/** Read a string param with a fallback, type-guarding the unknown value. */
-function strParam(
-  params: Record<string, unknown>,
-  key: string,
-  fallback: string,
-): string {
-  return typeof params[key] === 'string' ? params[key] : fallback
-}
-
-/**
- * Apply an `aggregate` transformation to a set of rows. Groups by the x field
- * (and the series field when the spec maps one) and reduces the y field with
- * the chosen function. Produces one row per group with the same field names so
- * the result stays plottable by `materialiseChart`.
- *
- * Supported params: `{ function: 'mean' | 'sum' | 'min' | 'max' | 'count',
- * yField: string, xField: string, seriesField?: string }`.
- */
-function applyAggregate(
-  rows: Record<string, unknown>[],
-  params: Record<string, unknown>,
-  spec: ChartSpec,
-): Record<string, unknown>[] {
-  const fn = strParam(params, 'function', 'mean')
-  const xField = strParam(params, 'xField', spec.fields.x?.fieldId ?? 'x')
-  const yField = strParam(params, 'yField', spec.fields.y.fieldId)
-  const seriesFieldRaw = strParam(
-    params,
-    'seriesField',
-    spec.fields.series?.fieldId ?? '',
-  )
-  const seriesField = seriesFieldRaw || null
-  const groups = new Map<
-    string,
-    { x: unknown; series: unknown; ys: number[] }
-  >()
-  for (const row of rows) {
-    const x = row[xField]
-    const series = seriesField ? row[seriesField] : null
-    const key = `${String(x ?? '—')}::${String(series ?? '—')}`
-    const y = toNumber(row[yField])
-    if (!groups.has(key)) {
-      groups.set(key, { x, series, ys: [] })
-    }
-    if (y !== null) groups.get(key)!.ys.push(y)
-  }
-  const out: Record<string, unknown>[] = []
-  for (const g of groups.values()) {
-    let reduced: number
-    if (fn === 'count') {
-      reduced = g.ys.length
-    } else if (g.ys.length === 0) {
-      reduced = 0
-    } else if (fn === 'sum') {
-      reduced = g.ys.reduce((a, b) => a + b, 0)
-    } else if (fn === 'min') {
-      reduced = Math.min(...g.ys)
-    } else if (fn === 'max') {
-      reduced = Math.max(...g.ys)
-    } else {
-      // mean (default)
-      reduced = g.ys.reduce((a, b) => a + b, 0) / g.ys.length
-    }
-    const row: Record<string, unknown> = { [xField]: g.x, [yField]: reduced }
-    if (seriesField) row[seriesField] = g.series
-    out.push(row)
-  }
-  return out
-}
-
-/**
- * Apply a `normalise` transformation to a set of rows. Scales the y field
- * within each series group so the chart can compare series on a common axis.
- *
- * Supported params: `{ method: 'percent_of_max' | 'z_score',
- * yField: string, seriesField?: string }`.
- */
-function applyNormalise(
-  rows: Record<string, unknown>[],
-  params: Record<string, unknown>,
-  spec: ChartSpec,
-): Record<string, unknown>[] {
-  const method = strParam(params, 'method', 'percent_of_max')
-  const yField = strParam(params, 'yField', spec.fields.y.fieldId)
-  const seriesFieldRaw = strParam(
-    params,
-    'seriesField',
-    spec.fields.series?.fieldId ?? '',
-  )
-  const seriesField = seriesFieldRaw || null
-  // Group values by series for per-series normalisation.
-  const bySeries = new Map<string, number[]>()
-  for (const row of rows) {
-    const y = toNumber(row[yField])
-    if (y === null) continue
-    const key = seriesField ? String(row[seriesField] ?? '—') : 'all'
-    if (!bySeries.has(key)) bySeries.set(key, [])
-    bySeries.get(key)!.push(y)
-  }
-  const stats = new Map<string, { max: number; mean: number; sd: number }>()
-  for (const [key, ys] of bySeries) {
-    if (ys.length === 0) {
-      stats.set(key, { max: 0, mean: 0, sd: 0 })
-      continue
-    }
-    const max = Math.max(...ys)
-    const mean = ys.reduce((a, b) => a + b, 0) / ys.length
-    const variance =
-      ys.reduce((a, b) => a + (b - mean) ** 2, 0) / (ys.length || 1)
-    stats.set(key, { max, mean, sd: Math.sqrt(variance) })
-  }
-  return rows.map((row) => {
-    const y = toNumber(row[yField])
-    if (y === null) return row
-    const key = seriesField ? String(row[seriesField] ?? '—') : 'all'
-    const s = stats.get(key) ?? { max: 0, mean: 0, sd: 0 }
-    let normalised: number
-    if (method === 'z_score') {
-      normalised = s.sd > 0 ? (y - s.mean) / s.sd : 0
-    } else {
-      // percent_of_max (default)
-      normalised = s.max > 0 ? (y / s.max) * 100 : 0
-    }
-    return { ...row, [yField]: normalised }
-  })
-}
-
-/**
- * Apply a chain of transformations in order. `bin` is accepted (stored
- * reproducibly) but not yet reduced — binned rows pass through unchanged so
- * the spec stays valid and forward-compatible. The caller surfaces this
- * honestly via the validation path.
- */
 export function applyTransformations(
   rows: Record<string, unknown>[],
   transformations: readonly Transformation[],
   spec: ChartSpec,
 ): Record<string, unknown>[] {
-  let current = rows
-  for (const t of transformations) {
-    if (t.kind === 'aggregate') {
-      current = applyAggregate(current, t.params, spec)
-    } else if (t.kind === 'normalise') {
-      current = applyNormalise(current, t.params, spec)
-    }
-    // 'bin' is a no-op pass-through until bin rendering lands.
-  }
-  return current
+  return applyVisualisationTransforms(rows, transformations, spec).rows
 }
 
 /**
- * Materialise an analysis chart from a spec + columns + rows. Wraps the
- * shared SCI-004 `materialiseChart` but applies the spec's transformations
- * (aggregation, normalisation) to the filtered rows first, so the preview
- * reflects the typed controls the user built. Pure: never mutates the input
- * rows or the source dataset.
+ * Materialise an analysis chart. Transforms now live inside
+ * `materialiseChart`, so the studio uses the same pipeline as Notebook charts.
  */
 export function materialiseAnalysisChart(
   spec: ChartSpec,
   columns: ChartColumn[],
   rows: Record<string, unknown>[],
 ): MaterialisedChart {
-  const filtered = applyFilters(rows, spec.filters)
-  const transformed = applyTransformations(filtered, spec.transformations, spec)
-  // materialiseChart re-applies filters; pass a spec copy with no filters so
-  // the already-filtered+transformed rows are plotted as-is.
-  const specForMaterialise: ChartSpec = { ...spec, filters: [] }
-  return materialiseChart(specForMaterialise, columns, transformed)
+  return materialiseChart(spec, columns, rows)
 }
 
 /**
- * Facet the analysis preview into small multiples. Runs the same
- * filter+transform pipeline as `materialiseAnalysisChart`, then partitions
- * by the spec's facet column (capped at MAX_FACETS, honestly reported).
+ * Facet the analysis preview into small multiples.
  */
 export function materialiseAnalysisFacets(
   spec: ChartSpec,
   columns: ChartColumn[],
   rows: Record<string, unknown>[],
 ): FacetedResult {
-  const filtered = applyFilters(rows, spec.filters)
-  const transformed = applyTransformations(filtered, spec.transformations, spec)
-  return materialiseFacetedCharts(
-    { ...spec, filters: [] },
-    columns,
-    transformed,
-  )
+  return materialiseFacetedCharts(spec, columns, rows)
 }
 
 // --- Export helpers -------------------------------------------------------

@@ -204,6 +204,21 @@ describe('ChartConfigurator', () => {
     ).toBeNull()
   })
 
+  it('renders icon-only chart-type controls in the rail layout', () => {
+    render(
+      <ChartConfigurator
+        source={source()}
+        spec={spec()}
+        onSpecChange={() => {}}
+        layout="rail"
+      />,
+    )
+    expect(
+      screen.getByRole('radio', { name: /scatter with line/i }),
+    ).toBeTruthy()
+    expect(screen.queryByText('scatter with line')).toBeNull()
+  })
+
   it('changes the chart type when a type button is clicked', async () => {
     const changed: { spec: ChartSpec | null } = { spec: null }
     render(
@@ -215,7 +230,7 @@ describe('ChartConfigurator', () => {
         }}
       />,
     )
-    const barButton = screen.getByRole('radio', { name: /bar/i })
+    const barButton = screen.getByRole('radio', { name: /^bar$/i })
     await userEvent.click(barButton)
     expect(changed.spec?.type).toBe('bar')
   })

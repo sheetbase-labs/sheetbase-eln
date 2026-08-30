@@ -158,6 +158,8 @@ export const EXTERNAL_TABLE_ACCESS: Record<string, TableAccess> = {
   notebook_template_versions: { read: 'templates:read' },
   webhook_subscriptions: { read: 'webhooks:read' },
   webhook_deliveries: { read: 'webhooks:read' },
+  agent_operation_proposals: { read: 'agent_operations:read' },
+  agent_operation_events: { read: 'agent_operations:read' },
 }
 
 /**
@@ -226,6 +228,8 @@ export const EXTERNAL_RPC_SCOPES: Record<string, Scope[]> = {
   rotate_webhook_secret: ['webhooks:write'],
   list_webhook_deliveries: ['webhooks:read'],
   replay_webhook_delivery: ['webhooks:write'],
+
+  propose_agent_operation: ['agent_operations:write'],
 }
 
 const READ_METHODS = new Set(['GET', 'HEAD'])

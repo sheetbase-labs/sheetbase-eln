@@ -20,6 +20,7 @@ describe('API-02 canonical scopes', () => {
     expect(grouped).toContain('datasets:read')
     expect(grouped).toContain('schema:publish')
     expect(grouped).toContain('sheets:write')
+    expect(grouped).toContain('agent_operations:write')
   })
 
   it('does not treat reviews:write as an effective credential capability', () => {

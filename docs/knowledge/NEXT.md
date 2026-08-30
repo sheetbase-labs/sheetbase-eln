@@ -15,7 +15,7 @@ Do not infer current priority from historical roadmap task ordering, old hand-of
 ```text
 Roadmap 1    COMPLETE
 Roadmap 2    NEARLY COMPLETE
-Roadmap 3    STRATEGIC — not yet an execution task set
+Roadmap 3    PLANNED / IMPLEMENTATION-READY — not active
 ```
 
 ## Active Roadmap 2 remainder
@@ -48,14 +48,16 @@ The SDK/event work completes the external platform surface needed for richer aut
 
 ## After Roadmap 2
 
-Roadmap 3 currently defines strategic capability groups rather than implementation-ready tasks. Before starting Roadmap 3 implementation:
+Roadmap 3 is now decomposed into named tasks with dependencies, non-goals, required evidence and exit criteria under [`roadmap-3/`](roadmap-3/).
 
-1. reconcile the strategic direction against the final Roadmap 2 product;
-2. convert Roadmap 3 into a programme map with named tasks, dependencies and exit criteria;
-3. prioritise Product Depth and Scientific Depth from real product gaps rather than simply continuing old task numbering;
-4. update this file so it remains the single current hand-off.
+It is deliberately **not active yet**. Before starting Roadmap 3 implementation:
 
-See [`roadmap-3/README.md`](roadmap-3/README.md) for the current strategic direction.
+1. reconcile the planned tasks against the final merged Roadmap 2 product;
+2. confirm task dependencies/non-goals still match real gaps;
+3. select and explicitly assign the first task(s), normally beginning with Product Depth;
+4. update this file so Roadmap 3 becomes the active programme.
+
+Do not create a Roadmap-3-local `NEXT.md`.
 
 ## When taking a task
 

@@ -5,7 +5,7 @@
 ```text
 Roadmap 1              COMPLETE
 Roadmap 2              NEARLY COMPLETE
-Roadmap 3              DIRECTION DEFINED
+Roadmap 3              PLANNED / IMPLEMENTATION-READY
 ```
 
 Current priority and hand-off live in [`NEXT.md`](NEXT.md).
@@ -44,23 +44,23 @@ The remaining Roadmap 2 work is maintained in the repository-wide [`NEXT.md`](NE
 
 GOV-02 Organisation Model remains deliberately ADR-gated/deferred.
 
-## Roadmap 3 — Product and scientific maturity
+## Roadmap 3 — Product & Scientific Maturity
 
-[`roadmap-3/README.md`](roadmap-3/README.md) captures the current strategic direction after Roadmap 2.
+[`roadmap-3/`](roadmap-3/) is now implementation-ready but not active until [`NEXT.md`](NEXT.md) promotes it.
 
-The proposed stages are:
+It contains five programmes and 18 named tasks:
 
-1. **Product Depth** — NAV, GRID, NOTE, FIND
-2. **Scientific Depth** — KNOW, VIEW, MODEL, REUSE
-3. **Open Platform** — SDK, EVENT, EXT, ADMIN
-4. **Intelligent Workspace** — AI, ASSIST, AUTO+
-5. **Institutionalise** — ENT-ORG, GXP, OPS
+1. **Product Depth** — NAV-01, GRID-01, NOTE-01, FIND-01
+2. **Scientific Depth** — KNOW-01, VIEW-01, MODEL-01, REUSE-01
+3. **Open Platform** — SDK-01, EVENT-01, EXT-01, ADMIN-01
+4. **Intelligent Workspace** — AI-01, ASSIST-01, AUTO-PLUS-01
+5. **Institutionalise** — ENT-ORG-01, GXP-01, OPS-01
+
+Each task has explicit scope, non-goals, dependencies, required evidence and an exit criterion. See [`roadmap-3/PROGRAMME_MAP.md`](roadmap-3/PROGRAMME_MAP.md) and [`roadmap-3/tasks/README.md`](roadmap-3/tasks/README.md).
 
 Governing principle:
 
 > Mature Sheetbase for its own users. Make interoperability a property of the platform, not the reason for the roadmap.
-
-Roadmap 3 remains strategic until decomposed into implementation-ready tasks and exit criteria.
 
 ## Golden workflow
 

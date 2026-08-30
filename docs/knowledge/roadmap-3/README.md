@@ -1,149 +1,122 @@
 ---
-title: Roadmap 3 Thinking
-status: draft
+title: Sheetbase Roadmap 3
+status: planned
 last_reviewed: 2026-08-30
 ---
 
-# Roadmap 3 Thinking
+# Roadmap 3 — Product & Scientific Maturity
 
-This document captures the current post-Roadmap-2 direction discussed during roadmap planning. It is **not yet an execution task list**.
+Roadmap 3 is the implementation-ready programme that follows Roadmap 2.
 
-## Governing principle
+> **Mature Sheetbase for its own users. Make interoperability a property of the platform, not the reason for the roadmap.**
 
-> Mature Sheetbase for its own users. Make interoperability a property of the platform, not the reason for the roadmap.
+Roadmap 3 is **planned, not currently active**. Current execution priority is always defined by repository-wide [`../NEXT.md`](../NEXT.md). Do not start Roadmap 3 merely because task files exist here.
 
-Roadmap 3 should read as if no adjacent project exists. Generic interoperability remains important, but Sheetbase should not become ecosystem-integration-led.
+## Start here
 
-## Proposed stages
+1. [`PRODUCT_DIRECTION.md`](PRODUCT_DIRECTION.md) — product thesis and boundaries.
+2. [`PROGRAMME_MAP.md`](PROGRAMME_MAP.md) — sequencing, dependencies and Ready rules.
+3. [`tasks/README.md`](tasks/README.md) — discrete task index.
+4. The relevant programme task file under [`tasks/`](tasks/).
+5. Matching programme prompt under [`prompts/`](prompts/) if useful.
+6. Relevant canonical architecture docs and accepted ADRs.
+
+## Programme structure
 
 ### 1. Product Depth
 
-Make the everyday scientist workspace excellent.
+Make everyday scientist workflows excellent.
 
-Candidate capability groups:
-
-```text
-NAV   navigation / information architecture
-GRID  spreadsheet ergonomics and depth
-NOTE  Notebook composition and authoring depth
-FIND  discovery / finding / resurfacing work
-```
-
-Likely themes:
-
-- faster navigation and workspace orientation;
-- deeper spreadsheet keyboard/range/fill/edit workflows;
-- better Notebook composition and section manipulation;
-- stronger cross-object find/recent/favourite/context flows;
-- polish and consistency across mature canonical concepts.
+- **NAV-01** — Workspace Navigation & Information Architecture
+- **GRID-01** — Spreadsheet Interaction Depth
+- **NOTE-01** — Notebook Authoring & Composition Depth
+- **FIND-01** — Contextual Discovery, Recents & Favourites
 
 ### 2. Scientific Depth
 
-Make Sheetbase increasingly useful as a scientific knowledge/work platform rather than only a structured ELN.
+Make scientific context, relationships, representations and reuse first-class.
 
-Candidate groups:
-
-```text
-KNOW   scientific knowledge and relationships
-VIEW   rich scientific views/representations
-MODEL  modelling scientific concepts
-REUSE  reuse of successful structures/workflows
-```
-
-Likely themes include richer relationship navigation, scientific entity context, reusable structures and additional analysis methods driven by real use.
+- **KNOW-01** — Scientific Knowledge & Relationship Context
+- **VIEW-01** — Rich Scientific Representations
+- **MODEL-01** — Scientific Modelling Depth
+- **REUSE-01** — Reusable Scientific Structures & Workflows
 
 ### 3. Open Platform
 
-Make the mature product cleanly extensible.
+Mature the external platform after Roadmap 2 establishes initial SDK/webhook surfaces.
 
-Candidate groups:
-
-```text
-SDK    ergonomic SDKs
-EVENT  webhooks/events
-EXT    extension/integration model
-ADMIN  mature platform administration
-```
-
-Roadmap 2 API-04/05/06 begins this direction. The goal is not integration volume; it is a stable platform contract that lets external clients participate without shadow models.
+- **SDK-01** — SDK Product Maturity
+- **EVENT-01** — Event & Webhook Platform Maturity
+- **EXT-01** — Extension Model
+- **ADMIN-01** — Mature Platform Administration
 
 ### 4. Intelligent Workspace
 
-Introduce AI where it can exploit Sheetbase context safely.
+Add intelligence only through canonical context, permissions and operations.
 
-Candidate groups:
-
-```text
-AI      contextual scientific intelligence
-ASSIST  embedded assistance
-AUTO+   richer agentic automation
-```
-
-The strongest opportunities come after the workspace has mature data identity, provenance, scientific views, APIs/events and deterministic operations.
-
-Agents should help users inside canonical workflows rather than creating a parallel chatbot-centric product.
+- **AI-01** — Contextual Scientific Intelligence Substrate
+- **ASSIST-01** — Embedded Scientific Assistance
+- **AUTO-PLUS-01** — Mature Agentic Operations & Scientific Workflows
 
 ### 5. Institutionalise
 
-Deepen organisational deployment when actual adoption requires it.
+Add organisational/regulatory/operational complexity only when adoption evidence justifies it.
 
-Potential themes:
+- **ENT-ORG-01** — Organisation & Team Model
+- **GXP-01** — Configurable Regulated Controls & Evidence
+- **OPS-01** — Institutional Operational Maturity
 
-```text
-ENT-ORG  organisation/team model
-GXP      configurable regulated controls/evidence
-OPS      larger-scale operational maturity
-```
-
-This stage should be evidence-driven. GOV-02 belongs here unless a concrete earlier need emerges.
-
-## Capability map
+## Dependency shape
 
 ```text
-                           SHEETBASE
-                               │
-       ┌───────────────────────┼────────────────────────┐
-       │                       │                        │
-      UX                    SCIENCE                 PLATFORM
-       │                       │                        │
-       ▼                       ▼                        ▼
-
- NAV   ░░░░░░░░░░          KNOW   ░░░░░░░░░░        SDK    ░░░░░░░░░░
- GRID  ░░░░░░░░░░          VIEW   ░░░░░░░░░░        EVENT  ░░░░░░░░░░
- NOTE  ░░░░░░░░░░          MODEL  ░░░░░░░░░░        EXT    ░░░░░░░░░░
- FIND  ░░░░░░░░░░          REUSE  ░░░░░░░░░░        ADMIN  ░░░░░░░░░░
-
-                               │
-                               ▼
-                         INTELLIGENCE
-                              │
-                              ▼
-                      AI      ░░░░░░░░░░
-                      ASSIST  ░░░░░░░░░░
-                      AUTO+   ░░░░░░░░░░
+Roadmap 2 complete
+       |
+       v
+ Product Depth
+       |
+   +---+---+
+   v       v
+Science  Platform
+   \       /
+    \     /
+     v   v
+ Intelligence
+       |
+       v
+Institutionalise
 ```
 
-## Dependency ideas
+See [`PROGRAMME_MAP.md`](PROGRAMME_MAP.md) for task-level dependencies and recommended waves.
 
-- GRID and NOTE maturity provide stronger context for embedded assistance.
-- Scientific MODEL work improves reuse and SDK semantics.
-- SDK maturity precedes a broad extension ecosystem.
-- EVENT/webhooks strengthen automation and external coordination.
-- ADMIN/OPS maturity supports institutional use.
-- Roadmap 2 provenance, permissions, versions and Pipelines are prerequisites for trustworthy agentic operations.
+## Relationship to Roadmap 2
 
-## Roadmap 3 anti-patterns
+Roadmap 3 does not duplicate unfinished Roadmap 2 work:
 
-Do not make the roadmap primarily about:
+- API-04/05 deliver the initial Python/TypeScript SDKs; `SDK-01` matures them.
+- API-06 delivers initial webhooks; `EVENT-01` matures the event platform.
+- AUTO-04/05 establish agent-authored operations/workflows; `AUTO-PLUS-01` matures them.
+- deferred GOV-02 is not silently reactivated; `ENT-ORG-01` requires a concrete need and accepted ADR.
 
-- integrations with a particular external system;
-- infrastructure for its own sake;
-- agent features before everyday scientist UX;
-- organisation hierarchy before adoption requires it;
-- adding dozens of feature categories without improving core workflows.
+## Roadmap 3 invariants
 
-## Thesis for the next phase
+Do not use Roadmap 3 to create:
 
-> Sheetbase is the scientific workspace that combines spreadsheet immediacy with structured identity, relationships, provenance, reuse, analysis, automation and evidence.
+- a second Sheet/Dataset/Model/Notebook data model;
+- another capability system;
+- another connector or Pipeline framework;
+- another chart specification;
+- agent-only scientific state;
+- silent Template/Definition upgrades;
+- generic Sheet Versions;
+- speculative enterprise hierarchy or regulated controls.
 
-Roadmap 3 should deepen that product proposition rather than replace it.
+## Activation
+
+When Roadmap 2 is complete:
+
+1. reconcile Roadmap 3 against the product as actually merged;
+2. confirm task dependencies/non-goals remain correct;
+3. select the first assigned task(s);
+4. update repository-wide [`../NEXT.md`](../NEXT.md) to make Roadmap 3 current.
+
+Programme folders never own a competing `NEXT.md`.

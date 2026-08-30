@@ -9,6 +9,7 @@ import {
   useRouterState,
 } from '@tanstack/react-router'
 import {
+  Bot,
   CalendarDays,
   CheckCircle2,
   ChevronRight,
@@ -345,6 +346,7 @@ export const defaultNavSections: AppShellNavSection[] = [
       { to: '/samples', label: 'Samples', icon: FlaskConical },
       { to: '/datasets', label: 'Datasets', icon: Database },
       { to: '/pipelines', label: 'Pipelines', icon: Workflow },
+      { to: '/agent-operations', label: 'Agent operations', icon: Bot },
       { to: '/integrations', label: 'Integrations', icon: PlugZap },
       { to: '/configure', label: 'Configure', icon: Layers },
     ],
